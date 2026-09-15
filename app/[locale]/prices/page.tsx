@@ -1,4 +1,269 @@
 'use client';
-import {useEffect,useState} from 'react';
-export default function Prices({params}:{params:{locale:string}}){const ar=params.locale==='ar';const [prices,setPrices]=useState<any[]>([]),[fx,setFx]=useState<any[]>([]);const [p,setP]=useState({asset_type:'GOLD',karat:'24',price_per_unit:'',currency:'SAR',valuation_date:new Date().toISOString().slice(0,10),source:'Manual'});const [f,setF]=useState({from_currency:'USD',to_currency:'SAR',rate:'',valuation_date:new Date().toISOString().slice(0,10),source:'Manual'});const load=()=>{fetch('/api/prices').then(r=>r.json()).then(setPrices);fetch('/api/fx').then(r=>r.json()).then(setFx)};useEffect(load,[]);async function savePrice(){const r=await fetch('/api/prices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...p,karat:p.asset_type==='GOLD'?Number(p.karat):undefined,price_per_unit:Number(p.price_per_unit)})});if(r.ok){setP({...p,price_per_unit:''});load()}}async function saveFx(){const r=await fetch('/api/fx',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,rate:Number(f.rate)})});if(r.ok){setF({...f,rate:''});load()}}return <main className="container"><h1>{ar?'الأسعار وسعر الصرف':'Market Prices & FX'}</h1><p className="muted">{ar?'سجل تاريخي للأسعار وسعر الصرف يستخدمه الاحتساب مع مصدر وتاريخ واضحين.':'Auditable historical prices and FX rates with source and valuation date.'}</p><div className="split section"><section className="card"><h3>{ar?'إضافة سعر':'Add Price'}</h3><div className="form-grid"><Field l="Asset" v={p.asset_type} set={(v)=>setP({...p,asset_type:v})} sel opts={['GOLD','SILVER','STOCK','OTHER']}/><Field l="Karat" v={p.karat} set={(v)=>setP({...p,karat:v})}/><Field l="Price / unit" v={p.price_per_unit} set={(v)=>setP({...p,price_per_unit:v})}/><Field l="Currency" v={p.currency} set={(v)=>setP({...p,currency:v.toUpperCase()})}/><Field l="Date" v={p.valuation_date} set={(v)=>setP({...p,valuation_date:v})}/><Field l="Source" v={p.source} set={(v)=>setP({...p,source:v})}/></div><button className="btn" onClick={savePrice}>{ar?'حفظ السعر':'Save Price'}</button></section><section className="card"><h3>{ar?'إضافة FX':'Add FX Rate'}</h3><div className="form-grid"><Field l="From" v={f.from_currency} set={(v)=>setF({...f,from_currency:v.toUpperCase()})}/><Field l="To" v={f.to_currency} set={(v)=>setF({...f,to_currency:v.toUpperCase()})}/><Field l="Rate" v={f.rate} set={(v)=>setF({...f,rate:v})}/><Field l="Date" v={f.valuation_date} set={(v)=>setF({...f,valuation_date:v})}/><Field l="Source" v={f.source} set={(v)=>setF({...f,source:v})}/></div><button className="btn" onClick={saveFx}>{ar?'حفظ FX':'Save FX'}</button></section></div><section className="card section"><h3>{ar?'الأسعار المسجلة':'Recorded Prices'}</h3><table className="table"><thead><tr><th>Type</th><th>Karat</th><th>Price</th><th>Currency</th><th>Date</th><th>Source</th></tr></thead><tbody>{prices.map(x=><tr key={x.id}><td>{x.asset_type}</td><td>{x.karat||'—'}</td><td>{x.price_per_unit}</td><td>{x.currency}</td><td>{x.valuation_date}</td><td>{x.source}</td></tr>)}</tbody></table></section><section className="card section"><h3>FX</h3><table className="table"><thead><tr><th>Pair</th><th>Rate</th><th>Date</th><th>Source</th></tr></thead><tbody>{fx.map(x=><tr key={x.id}><td>{x.from_currency}/{x.to_currency}</td><td>{x.rate}</td><td>{x.valuation_date}</td><td>{x.source}</td></tr>)}</tbody></table></section></main>}
-function Field({l,v,set,sel,opts}:{l:string,v:string,set:(x:string)=>void,sel?:boolean,opts?:string[]}){return <label>{l}{sel?<select value={v} onChange={e=>set(e.target.value)}>{opts!.map(x=><option key={x}>{x}</option>)}</select>:<input value={v} onChange={e=>set(e.target.value)}/>}</label>}
+
+import { use, useEffect, useState } from 'react';
+
+export default function Prices({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = use(params);
+  const ar = locale === 'ar';
+
+  const [prices, setPrices] = useState<any[]>([]);
+  const [fx, setFx] = useState<any[]>([]);
+
+  const [p, setP] = useState({
+    asset_type: 'GOLD',
+    karat: '24',
+    price_per_unit: '',
+    currency: 'SAR',
+    valuation_date: new Date().toISOString().slice(0, 10),
+    source: 'Manual',
+  });
+
+  const [f, setF] = useState({
+    from_currency: 'USD',
+    to_currency: 'SAR',
+    rate: '',
+    valuation_date: new Date().toISOString().slice(0, 10),
+    source: 'Manual',
+  });
+
+  const load = () => {
+    fetch('/api/prices')
+      .then((r) => r.json())
+      .then(setPrices);
+
+    fetch('/api/fx')
+      .then((r) => r.json())
+      .then(setFx);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function savePrice() {
+    const r = await fetch('/api/prices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...p,
+        karat: p.asset_type === 'GOLD' ? Number(p.karat) : undefined,
+        price_per_unit: Number(p.price_per_unit),
+      }),
+    });
+
+    if (r.ok) {
+      setP({ ...p, price_per_unit: '' });
+      load();
+    }
+  }
+
+  async function saveFx() {
+    const r = await fetch('/api/fx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...f,
+        rate: Number(f.rate),
+      }),
+    });
+
+    if (r.ok) {
+      setF({ ...f, rate: '' });
+      load();
+    }
+  }
+
+  return (
+    <main className="container">
+      <h1>{ar ? 'الأسعار وسعر الصرف' : 'Market Prices & FX'}</h1>
+
+      <p className="muted">
+        {ar
+          ? 'سجل تاريخي للأسعار وسعر الصرف يستخدمه الاحتساب مع مصدر وتاريخ واضحين.'
+          : 'Auditable historical prices and FX rates with source and valuation date.'}
+      </p>
+
+      <div className="split section">
+        <section className="card">
+          <h3>{ar ? 'إضافة سعر' : 'Add Price'}</h3>
+
+          <div className="form-grid">
+            <Field
+              l="Asset"
+              v={p.asset_type}
+              set={(v) => setP({ ...p, asset_type: v })}
+              sel
+              opts={['GOLD', 'SILVER', 'STOCK', 'OTHER']}
+            />
+
+            <Field
+              l="Karat"
+              v={p.karat}
+              set={(v) => setP({ ...p, karat: v })}
+            />
+
+            <Field
+              l="Price / unit"
+              v={p.price_per_unit}
+              set={(v) => setP({ ...p, price_per_unit: v })}
+            />
+
+            <Field
+              l="Currency"
+              v={p.currency}
+              set={(v) => setP({ ...p, currency: v.toUpperCase() })}
+            />
+
+            <Field
+              l="Date"
+              v={p.valuation_date}
+              set={(v) => setP({ ...p, valuation_date: v })}
+            />
+
+            <Field
+              l="Source"
+              v={p.source}
+              set={(v) => setP({ ...p, source: v })}
+            />
+          </div>
+
+          <button className="btn" onClick={savePrice}>
+            {ar ? 'حفظ السعر' : 'Save Price'}
+          </button>
+        </section>
+
+        <section className="card">
+          <h3>{ar ? 'إضافة FX' : 'Add FX Rate'}</h3>
+
+          <div className="form-grid">
+            <Field
+              l="From"
+              v={f.from_currency}
+              set={(v) => setF({ ...f, from_currency: v.toUpperCase() })}
+            />
+
+            <Field
+              l="To"
+              v={f.to_currency}
+              set={(v) => setF({ ...f, to_currency: v.toUpperCase() })}
+            />
+
+            <Field
+              l="Rate"
+              v={f.rate}
+              set={(v) => setF({ ...f, rate: v })}
+            />
+
+            <Field
+              l="Date"
+              v={f.valuation_date}
+              set={(v) => setF({ ...f, valuation_date: v })}
+            />
+
+            <Field
+              l="Source"
+              v={f.source}
+              set={(v) => setF({ ...f, source: v })}
+            />
+          </div>
+
+          <button className="btn" onClick={saveFx}>
+            {ar ? 'حفظ FX' : 'Save FX'}
+          </button>
+        </section>
+      </div>
+
+      <section className="card section">
+        <h3>{ar ? 'الأسعار المسجلة' : 'Recorded Prices'}</h3>
+
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Karat</th>
+              <th>Price</th>
+              <th>Currency</th>
+              <th>Date</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {prices.map((x) => (
+              <tr key={x.id}>
+                <td>{x.asset_type}</td>
+                <td>{x.karat || '—'}</td>
+                <td>{x.price_per_unit}</td>
+                <td>{x.currency}</td>
+                <td>{x.valuation_date}</td>
+                <td>{x.source}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="card section">
+        <h3>FX</h3>
+
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Pair</th>
+              <th>Rate</th>
+              <th>Date</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {fx.map((x) => (
+              <tr key={x.id}>
+                <td>
+                  {x.from_currency}/{x.to_currency}
+                </td>
+                <td>{x.rate}</td>
+                <td>{x.valuation_date}</td>
+                <td>{x.source}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </main>
+  );
+}
+
+function Field({
+  l,
+  v,
+  set,
+  sel,
+  opts,
+}: {
+  l: string;
+  v: string;
+  set: (x: string) => void;
+  sel?: boolean;
+  opts?: string[];
+}) {
+  return (
+    <label>
+      {l}
+
+      {sel ? (
+        <select value={v} onChange={(e) => set(e.target.value)}>
+          {opts!.map((x) => (
+            <option key={x}>{x}</option>
+          ))}
+        </select>
+      ) : (
+        <input value={v} onChange={(e) => set(e.target.value)} />
+      )}
+    </label>
+  );
+}
