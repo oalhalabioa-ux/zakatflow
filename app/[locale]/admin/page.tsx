@@ -1,0 +1,3 @@
+import Link from 'next/link';
+
+export default function AdminPage(){return <main className="container"><div className="topbar"><div><h1>Admin Console</h1><p className="muted">System administration and governance controls.</p></div><Link className="btn" href="/ar/dashboard">Dashboard</Link></div><div className="grid"><Link className="card linkcard" href="/ar/governance"><h2>Sharia Governance</h2><p>Manage rule versions and review workflow.</p></Link><div className="card"><h2>Organizations</h2><p>Manage future accountant/advisor/company workspaces.</p></div><div className="card"><h2>Notifications</h2><p>Monitor Hawl reminders and delivery jobs.</p></div><div className="card"><h2>Audit</h2><p>Review reversals, assessments and critical changes.</p></div></div></main>}

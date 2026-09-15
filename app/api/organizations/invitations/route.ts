@@ -1,0 +1,3 @@
+import {NextResponse} from 'next/server';import {createInvitation,listInvitations} from '@/services/organizations';
+export async function GET(req:Request){try{const org=new URL(req.url).searchParams.get('organization_id');if(!org)return NextResponse.json({error:'organization_id required'},{status:400});return NextResponse.json(await listInvitations(org))}catch(e:any){return NextResponse.json({error:e.message},{status:400})}}
+export async function POST(req:Request){try{const b=await req.json();return NextResponse.json(await createInvitation(b.organization_id,b.email,b.role),{status:201})}catch(e:any){return NextResponse.json({error:e.message},{status:400})}}

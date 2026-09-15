@@ -1,0 +1,3 @@
+import Decimal from 'decimal.js';
+export interface Lot { id:string; remainingQuantity:Decimal.Value; }
+export function allocateFIFO(lots:Lot[],withdrawal:Decimal.Value){let remaining=new Decimal(withdrawal);if(remaining.isNegative())throw new Error('Withdrawal cannot be negative');const out:{lotId:string;quantity:Decimal}[]=[];for(const lot of lots){if(remaining.isZero())break;const available=new Decimal(lot.remainingQuantity);const used=Decimal.min(available,remaining);if(used.gt(0)){out.push({lotId:lot.id,quantity:used});remaining=remaining.sub(used);}}if(remaining.gt(0))throw new Error('Insufficient lot quantity');return out;}

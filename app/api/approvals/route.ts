@@ -1,0 +1,3 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabase } from '@/lib/supabase/server';
+export async function POST(req:NextRequest){try{const body=await req.json();const db=await createServerSupabase();const {data:{user}}=await db.auth.getUser();if(!user)return NextResponse.json({error:'UNAUTHENTICATED'},{status:401});const {data,error}=await db.rpc('request_assessment_approval',{p_assessment:body.assessment_id,p_reviewer:body.reviewer_id??null});if(error)throw error;return NextResponse.json(data);}catch(e:any){return NextResponse.json({error:e.message},{status:400});}}

@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {requireUser} from '@/services/auth';
+export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){try{const {id}=await params;const {supabase,user}=await requireUser();const {data,error}=await supabase.from('zakat_assessments').select('*,zakat_methods(code,name_ar,name_en),zakat_assessment_lines(*)').eq('id',id).eq('user_id',user.id).single();if(error)throw error;return NextResponse.json(data)}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:404})}}

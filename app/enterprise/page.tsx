@@ -1,0 +1,5 @@
+'use client';
+import {useState} from 'react';
+export default function EnterprisePage(){const [name,setName]=useState('');const [slug,setSlug]=useState('');const [msg,setMsg]=useState('');
+ async function create(){setMsg('');const r=await fetch('/api/enterprise',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'organization',name,slug,plan:'PROFESSIONAL',base_currency:'SAR'})});const j=await r.json();setMsg(r.ok?`Workspace created: ${j.name}`:(j.error??'Could not create workspace'));}
+ return <main className="container"><h1>Organizations & Enterprise</h1><p>Create a workspace for family, accountant or business administration.</p><input placeholder="Organization name" value={name} onChange={e=>setName(e.target.value)}/><input placeholder="Slug" value={slug} onChange={e=>setSlug(e.target.value)}/><button onClick={create}>Create workspace</button>{msg&&<p>{msg}</p>}<hr/><h2>Enterprise capabilities</h2><ul><li>Multi-entity management</li><li>Role-based access</li><li>Assessment approval workflow</li><li>Consolidated reporting foundation</li><li>Subscription/plan foundation</li></ul></main>}
