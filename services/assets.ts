@@ -1,6 +1,24 @@
 import { requireUser } from './auth';
 import { assetSchema } from '@/lib/validation/schemas';
 
+function openingValues(asset:any){
+  const m=asset.metadata??{};
+  const quantity=Number(m.quantity??(asset.asset_type==='CASH'||asset.asset_type==='BANK'?1:0));
+  const value=Number(m.purchase_value??m.opening_value??m.market_value??m.estimated_value??0);
+  const unitPrice=quantity>0?Number(m.purchase_price??(value/quantity)):value;
+  const date=m.purchase_date;
+  return {quantity,value,unitPrice,date};
+}
+async function ensureOpeningLot(supabase:any,user:any,asset:any){
+  if(!asset?.is_zakatable)return;
+  const o=openingValues(asset);if(!o.date||o.value<=0)return;
+  const {data:existing}=await supabase.from('lots').select('id').eq('user_id',user.id).eq('asset_account_id',asset.id).limit(1);
+  if(existing?.length)return;
+  const {data:tx,error:te}=await supabase.from('transactions').insert({user_id:user.id,asset_account_id:asset.id,transaction_type:'OPENING_BALANCE',transaction_date:o.date,quantity:o.quantity>0?o.quantity:1,unit_price:o.unitPrice,currency:asset.currency,gross_value:o.value,base_currency:'SAR',base_value:o.value,reference:'AUTO_ASSET_OPENING',notes:'Automatically created from asset opening data',created_by:user.id,metadata:{auto_created:true,source:'ASSET_ACCOUNT'}}).select().single();
+  if(te)throw te;
+  const {error:le}=await supabase.from('lots').insert({user_id:user.id,asset_account_id:asset.id,source_transaction_id:tx.id,acquisition_date:o.date,hawl_start_date:o.date,hawl_due_date:null,original_quantity:o.quantity>0?o.quantity:1,remaining_quantity:o.quantity>0?o.quantity:1,original_value_base:o.value,remaining_value_base:o.value,status:'ACTIVE',nisab_reached_date:o.date,hawl_cycle:0,hawl_basis:'ACQUISITION_DATE',metadata:{auto_created:true,source:'ASSET_ACCOUNT'}});if(le)throw le;
+}
+
 export async function listAssets(){
   const {supabase,user}=await requireUser();
   const {data,error}=await supabase.from('asset_accounts').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
@@ -21,17 +39,13 @@ export async function listAssets(){
 }
 
 export async function createAsset(input:unknown){
-  const parsed=assetSchema.parse(input);
-  const {supabase,user}=await requireUser();
-  const {data,error}=await supabase.from('asset_accounts').insert({...parsed,user_id:user.id}).select().single();
-  if(error) throw error;
-  return data;
+  const parsed=assetSchema.parse(input);const {supabase,user}=await requireUser();
+  const {data,error}=await supabase.from('asset_accounts').insert({...parsed,user_id:user.id}).select().single();if(error)throw error;
+  await ensureOpeningLot(supabase,user,data);return data;
 }
 
 export async function updateAsset(id:string,input:unknown){
-  const parsed=assetSchema.parse(input);
-  const {supabase,user}=await requireUser();
-  const {data,error}=await supabase.from('asset_accounts').update(parsed).eq('id',id).eq('user_id',user.id).select().single();
-  if(error) throw error;
-  return data;
+  const parsed=assetSchema.parse(input);const {supabase,user}=await requireUser();
+  const {data,error}=await supabase.from('asset_accounts').update(parsed).eq('id',id).eq('user_id',user.id).select().single();if(error)throw error;
+  await ensureOpeningLot(supabase,user,data);return data;
 }
