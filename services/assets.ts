@@ -12,11 +12,14 @@ function openingValues(asset:any){
 async function ensureOpeningLot(supabase:any,user:any,asset:any){
   if(!asset?.is_zakatable)return;
   const o=openingValues(asset);if(!o.date||o.value<=0)return;
-  const {data:existing}=await supabase.from('lots').select('id').eq('user_id',user.id).eq('asset_account_id',asset.id).limit(1);
+  const {data:existing,error:existingError}=await supabase.from('lots').select('id').eq('user_id',user.id).eq('asset_account_id',asset.id).limit(1);if(existingError)throw existingError;
   if(existing?.length)return;
-  const {data:tx,error:te}=await supabase.from('transactions').insert({user_id:user.id,asset_account_id:asset.id,transaction_type:'OPENING_BALANCE',transaction_date:o.date,quantity:o.quantity>0?o.quantity:1,unit_price:o.unitPrice,currency:asset.currency,gross_value:o.value,base_currency:'SAR',base_value:o.value,reference:'AUTO_ASSET_OPENING',notes:'Automatically created from asset opening data',created_by:user.id,metadata:{auto_created:true,source:'ASSET_ACCOUNT'}}).select().single();
+  const {data:profile,error:profileError}=await supabase.from('profiles').select('base_currency').eq('id',user.id).single();if(profileError)throw profileError;
+  const baseCurrency=profile?.base_currency||'SAR';
+  const {data:tx,error:te}=await supabase.from('transactions').insert({user_id:user.id,asset_account_id:asset.id,transaction_type:'OPENING_BALANCE',transaction_date:o.date,quantity:o.quantity>0?o.quantity:1,unit_price:o.unitPrice,currency:asset.currency,gross_value:o.value,base_currency:baseCurrency,base_value:o.value,reference:'AUTO_ASSET_OPENING',notes:'Automatically created from asset opening data',created_by:user.id,metadata:{auto_created:true,source:'ASSET_ACCOUNT'}}).select().single();
   if(te)throw te;
-  const {error:le}=await supabase.from('lots').insert({user_id:user.id,asset_account_id:asset.id,source_transaction_id:tx.id,acquisition_date:o.date,hawl_start_date:o.date,hawl_due_date:null,original_quantity:o.quantity>0?o.quantity:1,remaining_quantity:o.quantity>0?o.quantity:1,original_value_base:o.value,remaining_value_base:o.value,status:'ACTIVE',nisab_reached_date:o.date,hawl_cycle:0,hawl_basis:'ACQUISITION_DATE',metadata:{auto_created:true,source:'ASSET_ACCOUNT'}});if(le)throw le;
+  const {error:le}=await supabase.from('lots').insert({user_id:user.id,asset_account_id:asset.id,source_transaction_id:tx.id,acquisition_date:o.date,hawl_start_date:o.date,hawl_due_date:null,original_quantity:o.quantity>0?o.quantity:1,remaining_quantity:o.quantity>0?o.quantity:1,original_value_base:o.value,remaining_value_base:o.value,status:'ACTIVE',nisab_reached_date:o.date,hawl_cycle:0,hawl_basis:'ACQUISITION_DATE',metadata:{auto_created:true,source:'ASSET_ACCOUNT'}});
+  if(le){await supabase.from('transactions').delete().eq('id',tx.id).eq('user_id',user.id);throw le;}
 }
 
 export async function listAssets(){
