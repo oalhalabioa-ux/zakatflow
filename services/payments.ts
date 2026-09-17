@@ -1,4 +1,22 @@
 import Decimal from 'decimal.js';
-import { requireUser } from './auth'; import { paymentSchema } from '@/lib/validation/schemas';
-export async function listPayments(){const {supabase,user}=await requireUser();const {data,error}=await supabase.from('zakat_payments').select('*').eq('user_id',user.id).order('payment_date',{ascending:false});if(error)throw error;return data;}
-export async function createPayment(input:unknown){const p=paymentSchema.parse(input);const {supabase,user}=await requireUser();const {data:assessment,error:ae}=await supabase.from('zakat_assessments').select('*').eq('id',p.assessment_id).eq('user_id',user.id).single();if(ae)throw ae;if(['CANCELLED','DRAFT'].includes(assessment.status))throw new Error('ASSESSMENT_NOT_PAYABLE');const {data,error}=await supabase.from('zakat_payments').insert({...p,user_id:user.id}).select().single();if(error)throw error;await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'zakat_payment',entity_id:data.id,action:'CREATE',new_data:data});const {data:payments}=await supabase.from('zakat_payments').select('base_amount').eq('assessment_id',p.assessment_id).eq('user_id',user.id);const paid=(payments??[]).reduce((s:any,x:any)=>s.add(x.base_amount||0),new Decimal(0));const due=new Decimal(assessment.zakat_due||0);const status=paid.gte(due)?'PAID':'PARTIALLY_PAID';await supabase.from('zakat_assessments').update({status}).eq('id',p.assessment_id).eq('user_id',user.id);return data;}
+import { requireUser } from './auth';
+import { paymentSchema } from '@/lib/validation/schemas';
+
+export async function listPayments(){
+ const {supabase,user}=await requireUser();
+ const {data,error}=await supabase.from('zakat_payments').select('*').eq('user_id',user.id).order('payment_date',{ascending:false}).order('created_at',{ascending:false});if(error)throw error;
+ const ids=(data??[]).map((x:any)=>x.id);if(!ids.length)return [];
+ const {data:alloc,error:alErr}=await supabase.from('zakat_payment_allocations').select('payment_id,assessment_line_id,asset_account_id,allocated_amount,due_date,asset_accounts(name,asset_type)').eq('user_id',user.id).in('payment_id',ids).order('due_date',{ascending:true});if(alErr)throw alErr;
+ const by=new Map<string,any[]>();for(const a of alloc??[]){const xs=by.get((a as any).payment_id)??[];xs.push(a);by.set((a as any).payment_id,xs)}
+ return (data??[]).map((p:any)=>{const allocations=by.get(p.id)??[];const allocated=allocations.reduce((s,x)=>s+Number(x.allocated_amount||0),0);return{...p,allocations,allocated_amount:allocated,unallocated_amount:Math.max(0,Number(p.base_amount||0)-allocated)}});
+}
+
+export async function createPayment(input:unknown){
+ const p=paymentSchema.parse(input);const {supabase,user}=await requireUser();
+ const {data:assessment,error:ae}=await supabase.from('zakat_assessments').select('*').eq('id',p.assessment_id).eq('user_id',user.id).single();if(ae)throw ae;if(['CANCELLED','DRAFT'].includes(assessment.status))throw new Error('ASSESSMENT_NOT_PAYABLE');
+ const {data,error}=await supabase.from('zakat_payments').insert({...p,user_id:user.id}).select().single();if(error)throw error;
+ const {data:allocations,error:allocError}=await supabase.rpc('allocate_zakat_payment_fifo',{p_payment_id:data.id});if(allocError){await supabase.from('zakat_payments').delete().eq('id',data.id).eq('user_id',user.id);throw allocError}
+ await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'zakat_payment',entity_id:data.id,action:'CREATE_AND_FIFO_ALLOCATE',new_data:{payment:data,allocations}});
+ const {data:payments}=await supabase.from('zakat_payments').select('base_amount').eq('assessment_id',p.assessment_id).eq('user_id',user.id);const paid=(payments??[]).reduce((s:any,x:any)=>s.add(x.base_amount||0),new Decimal(0));const due=new Decimal(assessment.zakat_due||0);const status=paid.gte(due)?'PAID':'PARTIALLY_PAID';await supabase.from('zakat_assessments').update({status}).eq('id',p.assessment_id).eq('user_id',user.id);
+ const allocated=(allocations??[]).reduce((s:number,x:any)=>s+Number(x.allocated_amount||0),0);return{...data,allocations,allocated_amount:allocated,unallocated_amount:Math.max(0,Number(data.base_amount||0)-allocated)};
+}
