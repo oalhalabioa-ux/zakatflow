@@ -1,0 +1,3 @@
+import {NextResponse} from 'next/server';
+import {requireUser} from '@/services/auth';
+export async function GET(){try{const{supabase,user}=await requireUser();const{data,error}=await supabase.from('zakat_assessments').select('*,zakat_assessment_lines(id,lot_id,market_value,eligible_value,zakat_amount,eligibility_status,explanation,lots(id,hawl_start_date,hawl_due_date,hawl_cycle,nisab_reached_date,asset_accounts(id,name,asset_type)))').eq('user_id',user.id).order('assessment_date',{ascending:false}).order('created_at',{ascending:false});if(error)throw error;return NextResponse.json(data??[])}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:500})}}
