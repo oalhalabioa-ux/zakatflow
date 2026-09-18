@@ -84,7 +84,8 @@ export default function Assets({
     [usd, setUsd] = useState(false),
     [closed, setClosed] = useState<Record<string, boolean>>({}),
     [visible, setVisible] = useState<Record<string, boolean>>(defaultVisible),
-    [tableSize, setTableSize] = useState<Size>("normal");
+    [tableSize, setTableSize] = useState<Size>("normal"),
+    [columnOrder, setColumnOrder] = useState<string[]>([...COLS]);
   const cur = usd ? "USD" : "SAR",
     cv = (n: any) => (usd ? Number(n || 0) / FX : Number(n || 0));
   const load = async () => {
@@ -94,19 +95,48 @@ export default function Assets({
   useEffect(() => {
     void load();
     try {
-      const p = JSON.parse(localStorage.getItem("zf_asset_table_v2") || "{}");
+      const p = JSON.parse(
+        localStorage.getItem("zf_asset_table_v3") ||
+          localStorage.getItem("zf_asset_table_v2") ||
+          "{}",
+      );
       if (p.visible) setVisible({ ...defaultVisible(), ...p.visible });
       if (["compact", "normal", "wide"].includes(p.size)) setTableSize(p.size);
+      if (Array.isArray(p.order)) setColumnOrder(p.order);
     } catch {}
     const onSettings = (e: any) => {
       if (e.detail?.visible)
         setVisible({ ...defaultVisible(), ...e.detail.visible });
       if (e.detail?.size) setTableSize(e.detail.size);
+      if (Array.isArray(e.detail?.order)) setColumnOrder(e.detail.order);
     };
     window.addEventListener("zf-asset-table-settings", onSettings);
     return () =>
       window.removeEventListener("zf-asset-table-settings", onSettings);
   }, []);
+  useEffect(() => {
+    const reorder = () =>
+      document
+        .querySelectorAll<HTMLTableElement>(".asset-report-table")
+        .forEach((table) => {
+          const move = (row: Element) => {
+            const cells = [...row.children];
+            const keys = [...COLS].filter((x) => (visible as any)[x] !== false);
+            columnOrder
+              .filter((x) => (visible as any)[x] !== false)
+              .forEach((key) => {
+                const i = keys.indexOf(key as any);
+                if (i >= 0 && cells[i]) row.appendChild(cells[i]);
+              });
+          };
+          const head = table.tHead?.rows[0];
+          if (head) move(head);
+          table.tBodies[0]
+            ?.querySelectorAll("tr:not(.asset-detail-row)")
+            .forEach(move);
+        });
+    requestAnimationFrame(reorder);
+  }, [columnOrder, visible, rows]);
   const m = (r: any, k: string) => Number(r?.metadata?.[k] || 0),
     val = (r: any) =>
       m(r, "market_value") ||
