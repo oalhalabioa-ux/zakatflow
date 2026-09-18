@@ -191,3 +191,8 @@
 .theme-elegant .corp-content .table{border:1px solid #dce6e2;border-radius:14px;overflow:hidden}.theme-elegant .corp-content .table thead th{font-size:10px;text-transform:none;letter-spacing:.1px}.theme-elegant .corp-content .table tbody td{vertical-align:middle}
 .theme-elegant .corp-content .table .btn.secondary{border-radius:9px}.theme-elegant .corp-content .form-grid label{font-size:10px;font-weight:750;color:#536b64}.theme-elegant .corp-content .form-grid :is(input,select,textarea){margin-top:6px;border-radius:10px;min-height:42px}
 .theme-elegant .corp-content .page-head>div>h1{margin-bottom:5px}.theme-elegant .corp-content .page-head>div>.pill:first-child{margin-bottom:8px}
+
+
+/* Read-only Hawl reference for assets not yet included in an assessment */
+.hawl-badges.display-only{position:relative}.hawl-reference{display:inline-flex;align-items:center;margin-inline-start:5px;padding:3px 6px;border-radius:7px;background:#eef3f1;color:#667a74;font-size:9px;font-weight:750;border:1px dashed #b9c9c4}
+.theme-elegant .hawl-reference{background:#f3f7f5;color:#60756f;border-color:#b9cbc5}
