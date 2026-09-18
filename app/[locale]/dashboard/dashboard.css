@@ -9,3 +9,24 @@
 .theme-elegant .hero-metric,.theme-elegant .dash-customizer,.theme-elegant .cycle-card,.theme-elegant .value-card,.theme-elegant .status-card,.theme-elegant .recent-payments,.theme-elegant .preset-card{background:#101b2a;border-color:#243447}
 .theme-elegant .cycle-strip,.theme-elegant .recent-payments th{background:#132131}.theme-elegant .cycle-strip>div,.theme-elegant .value-bar{border-color:#243447}
 .theme-elegant .pro-currency{background:#132131}.theme-elegant .pro-currency a.active,.theme-elegant .btn.outline{background:#172638;color:#edf4f2;border-color:#2a4055}
+
+
+/* Layout 3 / Elegant Premium dashboard — presentation only */
+.theme-elegant .dashboard-pro{max-width:1540px}
+.theme-elegant .dash-welcome{padding:18px 20px;margin:0 0 16px;border-radius:20px;background:linear-gradient(115deg,#f0f8f4,#fbfdfc);border:1px solid #dce9e4}
+.theme-elegant .dash-eyebrow{color:#218068!important}.theme-elegant .dash-welcome h1{font-size:30px!important}
+.theme-elegant .hero-kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.theme-elegant .hero-metric{min-height:150px;padding:18px!important;border-radius:18px!important;box-shadow:0 9px 26px rgba(23,74,60,.065)!important}
+.theme-elegant .hero-metric:before{display:none}.theme-elegant .metric-top{display:flex;align-items:center;gap:10px}
+.theme-elegant .metric-top small{font-size:11px!important;color:#526d65!important}.theme-elegant .metric-icon{display:grid;width:39px;height:39px;place-items:center;flex:0 0 39px;border-radius:13px;background:#e5f5ee;color:#07834f;font-size:19px;font-weight:900}
+.theme-elegant .hero-metric strong{font-size:22px!important;margin-top:16px!important}.theme-elegant .hero-metric em{font-size:10px!important;color:#71877f!important}
+.theme-elegant .metric-accent{position:absolute;inset-inline:18px;bottom:13px;height:4px;border-radius:99px;background:#e8f0ed;overflow:hidden}.theme-elegant .metric-accent:after{content:'';display:block;width:58%;height:100%;border-radius:99px;background:#18a269}
+.theme-elegant .metric-remaining .metric-icon{background:#fff0eb;color:#c84b27}.theme-elegant .metric-remaining .metric-accent:after{background:#d85632;width:72%}
+.theme-elegant .metric-gain .metric-icon{background:#eaf3ff;color:#2477c5}.theme-elegant .metric-gold .metric-icon{background:#fff6df;color:#c58a08}
+.theme-elegant .cycle-card,.theme-elegant .value-card,.theme-elegant .status-card,.theme-elegant .recent-payments{border-radius:20px!important}
+.theme-elegant .pro-card-head h2,.theme-elegant .value-card h2,.theme-elegant .status-card h2{font-size:17px!important}
+.theme-elegant .cycle-strip{padding:8px!important;border-radius:14px!important;background:#f3f8f6!important}.theme-elegant .cycle-strip>div{padding:15px 17px!important}
+.theme-elegant .cycle-strip small{font-size:10px!important}.theme-elegant .cycle-strip strong{font-size:14px!important}
+.theme-elegant .dash-middle{grid-template-columns:1.25fr 1fr;gap:14px}.theme-elegant .value-bar{padding:15px 2px!important;font-size:11px!important}.theme-elegant .value-bar strong{font-size:12px!important}
+.theme-elegant .recent-payments .pro-card-head{border-bottom:1px solid #e5ece9}.theme-elegant .recent-payments th{height:42px}.theme-elegant .recent-payments td{height:48px;font-size:11px!important}
+@media(max-width:1250px){.theme-elegant .hero-kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:850px){.theme-elegant .hero-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.theme-elegant .hero-kpis{grid-template-columns:1fr}}
