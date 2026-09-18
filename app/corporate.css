@@ -128,3 +128,30 @@
 .theme-elegant .corp-content .card,.theme-elegant .corp-content section.card{background:#132233;border-color:#385064}
 .theme-elegant .corp-content .notice{color:#fff3c4}.theme-elegant .corp-content .success{color:#d9fff5}
 .theme-elegant .corp-content td.muted[colspan]{color:#c3d0cd!important;background:#132233}
+
+
+/* Elegant Premium — light, executive and high-contrast */
+.theme-elegant{--ink:#172b27;--muted:#687b76;--line:#dce6e2;--card:#ffffff;--soft:#f5f8f7;--accent:#176b58;--greensoft:#eaf5f1;--bluesoft:#eef5f7;--goldsoft:#faf5e7;background:#f4f7f6!important}
+.theme-elegant .corp-workspace,.theme-elegant .corp-content{background:#f4f7f6!important;color:#172b27}
+.theme-elegant .corp-content :is(h1,h2,h3,h4,strong){color:#16312b!important}
+.theme-elegant .corp-content :is(p,span,label,td,li){color:inherit}
+.theme-elegant .corp-content .muted,.theme-elegant .corp-content small,.theme-elegant .corp-content .section-kicker,.theme-elegant .corp-content .dash-eyebrow{color:#687b76!important}
+.theme-elegant .corp-content .card,.theme-elegant .corp-content section.card,.theme-elegant .hero-metric,.theme-elegant .dash-customizer,.theme-elegant .cycle-card,.theme-elegant .value-card,.theme-elegant .status-card,.theme-elegant .recent-payments,.theme-elegant .preset-card,.theme-elegant .split.section>.card{background:#fff!important;border-color:#dce6e2!important;box-shadow:0 8px 26px rgba(29,61,53,.055)!important}
+.theme-elegant .corp-content :is(input,select,textarea){background:#fff;color:#172b27;border-color:#cddbd6}
+.theme-elegant .corp-content :is(input,select,textarea)::placeholder{color:#8b9a96}
+.theme-elegant .corp-content .table th,.theme-elegant .recent-payments th{color:#415b54;background:#eef4f2!important;border-color:#dce6e2}
+.theme-elegant .corp-content .table td{color:#263e38;border-color:#e5ece9}
+.theme-elegant .corp-content .table tbody tr:nth-child(even){background:#fafcfb!important}
+.theme-elegant .corp-content .table tbody tr:hover{background:#f2f7f5!important}
+.theme-elegant .corp-content a:not(.btn){color:#176b58}
+.theme-elegant .corp-content .pill{color:#31524a;background:#edf5f2;border-color:#d0e1db}
+.theme-elegant .corp-content .btn.outline,.theme-elegant .corp-content .btn.secondary{color:#245449;background:#fff;border-color:#c9d9d4}
+.theme-elegant .corp-content .btn.outline:hover,.theme-elegant .corp-content .btn.secondary:hover{background:#edf5f2}
+.theme-elegant .cycle-strip,.theme-elegant .pro-currency{background:#eef4f2!important}
+.theme-elegant .cycle-strip>div,.theme-elegant .value-bar{border-color:#dce6e2!important}
+.theme-elegant .dash-welcome h1,.theme-elegant .hero-metric strong,.theme-elegant .pro-card-head h2,.theme-elegant .cycle-strip strong,.theme-elegant .value-bar strong{color:#16312b!important}
+.theme-elegant .dash-welcome p,.theme-elegant .hero-metric small,.theme-elegant .hero-metric em,.theme-elegant .cycle-strip small,.theme-elegant .value-bar{color:#687b76!important}
+.theme-elegant .pro-currency a.active{background:#fff;color:#176b58;box-shadow:0 2px 8px rgba(29,61,53,.1)}
+.theme-elegant .corp-content .notice{color:#604e19;background:#fff9e8;border-color:#eadca8}.theme-elegant .corp-content .success{color:#195b4b;background:#edf8f4;border-color:#b8dfd5}
+.theme-elegant .corp-content td.muted[colspan]{color:#687b76!important;background:#fafcfb}
+.theme-elegant .cycle-journey-steps>div{background:#fff;border-color:#dce6e2}.theme-elegant .cycle-journey-steps>div.done{background:#eaf5f1;border-color:#b8dacf}.theme-elegant .cycle-journey-steps>div.active{background:#e9f4f1;border-color:#176b58}
