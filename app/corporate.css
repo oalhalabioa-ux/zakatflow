@@ -42,3 +42,21 @@
 .account-hero{padding:26px!important;background:linear-gradient(135deg,#f8fcfb,#eef8f5)}.account-hero h1{margin:0 0 8px}
 .theme-elegant .account-hero{background:linear-gradient(135deg,#122334,#10202c)}
 @media(max-width:650px){.corp-content .page-head h1{font-size:24px}.corp-content>.container{padding-top:20px}}
+
+
+/* Core workflow readability — UI only */
+.corp-content .asset-kpi,.corp-content .grid>.card{position:relative;overflow:hidden}
+.corp-content .asset-kpi .metric,.corp-content .grid>.card .metric,.corp-content .grid>.card .kpi{font-variant-numeric:tabular-nums}
+.corp-content .asset-group{padding:0;overflow:hidden}.corp-content .asset-group>.asset-group-head{padding:18px 20px;margin:0;border-bottom:1px solid var(--line)}
+.corp-content .asset-group>div[style*="overflowX"]{padding:0 4px 6px}.corp-content .asset-group .table{margin:0}
+.corp-content details.zakat-detail summary{cursor:pointer;list-style:none}.corp-content details.zakat-detail summary::-webkit-details-marker{display:none}
+.corp-content details.zakat-detail[open]{min-width:320px}
+.corp-content .zakat-formula{background:var(--soft)!important}
+.corp-content .table .btn.secondary{white-space:nowrap}
+.corp-content .cycle-journey{border-radius:14px}
+.corp-content .success{border-radius:12px}.corp-content .notice{border-radius:12px}
+.theme-modern .asset-group,.theme-modern section.card{box-shadow:0 7px 24px rgba(20,45,38,.045)}
+.theme-modern .table thead th{background:#f4faf8}.theme-modern .table tbody tr:nth-child(even){background:#fbfdfc}
+.theme-elegant .table tbody tr:nth-child(even){background:#0e1927}.theme-elegant .table thead th{background:#132131}
+.theme-elegant .asset-group>.asset-group-head{border-color:#243447}.theme-elegant .zakat-formula{background:#132131!important}
+@media(max-width:800px){.corp-content .table{min-width:760px}.corp-content .asset-report-table{min-width:1050px}.corp-content .page-head{align-items:flex-start}.corp-content .page-head>div:last-child{max-width:100%}}
