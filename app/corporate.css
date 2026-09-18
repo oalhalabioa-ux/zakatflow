@@ -23,3 +23,22 @@
 .theme-elegant .portfolio-mini>div,.theme-elegant .dash-actions>a{background:#101b2a}.theme-elegant .zakat-card{background:linear-gradient(160deg,#211f18,#101b2a)}
 @media(min-width:1150px){.theme-modern .corp-sidebar{width:86px}.theme-modern .corp-sidebar .corp-label,.theme-modern .corp-sidebar .module-toggle b{display:none}.theme-modern .corp-workspace{margin-inline-start:86px}.theme-modern.sidebar-collapsed .corp-sidebar{width:86px}.theme-modern.sidebar-collapsed .corp-workspace{margin-inline-start:86px}.theme-modern .corp-icon{width:21px;height:21px}.theme-modern .corp-nav a,.theme-modern .corp-nav button{justify-content:center}.theme-picker button span{display:inline}}
 @media(max-width:800px){.theme-picker button span{display:none}}
+
+
+/* Shared presentation system — intentionally UI-only */
+.corp-content>.container{max-width:1380px}
+.corp-content .page-head{padding:4px 2px}.corp-content .page-head h1{font-size:28px;letter-spacing:-.45px}
+.corp-content .page-head h1+.muted{max-width:760px}
+.corp-content .section>.card,.corp-content section.card{transition:box-shadow .18s,border-color .18s}
+.corp-content section.card:hover{border-color:#cbdcd8}
+.corp-content .table thead th{font-size:11px;text-transform:none;letter-spacing:.01em}
+.corp-content .table tbody td{line-height:1.55}
+.corp-content .form-grid label{font-weight:650}.corp-content .form-grid input,.corp-content .form-grid select{min-height:42px}
+.corp-content .notice,.corp-content .success{margin:12px 0}
+.page-command{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.page-command .btn{min-height:40px}
+.report-card{position:relative;overflow:hidden;min-height:150px}.report-card:before{content:'';position:absolute;inset-inline-start:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.report-card h3{margin-top:0}.report-card .btn{margin-top:10px}
+.account-hero{padding:26px!important;background:linear-gradient(135deg,#f8fcfb,#eef8f5)}.account-hero h1{margin:0 0 8px}
+.theme-elegant .account-hero{background:linear-gradient(135deg,#122334,#10202c)}
+@media(max-width:650px){.corp-content .page-head h1{font-size:24px}.corp-content>.container{padding-top:20px}}
