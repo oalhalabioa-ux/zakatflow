@@ -69,3 +69,14 @@
 .cycle-journey-steps>div.done{background:var(--greensoft);border-color:#b8dfd5}.cycle-journey-steps>div.active{background:var(--bluesoft);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .theme-elegant .cycle-journey-steps>div.done{border-color:#23594d}.theme-elegant .cycle-journey-steps>div.active{border-color:#2bc59f}
 @media(max-width:700px){.cycle-journey-head{align-items:flex-start;flex-direction:column}.cycle-journey-head .pill{white-space:normal}}
+
+
+/* Secondary operational pages: shared visual language */
+.corp-content .split.section{gap:16px}.corp-content .split.section>.card{padding:20px}
+.corp-content .container>h1:first-child{margin-bottom:6px;font-size:28px;letter-spacing:-.45px}.corp-content .container>h1:first-child+.muted{max-width:760px;margin-top:0}
+.corp-content .card.section>h3:first-child{margin-top:0}.corp-content .card.section>.table{margin-top:10px}
+.corp-content .table td:first-child,.corp-content .table th:first-child{padding-inline-start:16px}.corp-content .table td:last-child,.corp-content .table th:last-child{padding-inline-end:16px}
+.corp-content .table .pill{font-weight:750}.corp-content .table a.btn.secondary{display:inline-flex;align-items:center}
+.theme-modern .split.section>.card{border-radius:18px}.theme-modern .card.section{border-radius:18px}
+.theme-elegant .container>h1:first-child{color:#edf4f2}.theme-elegant .split.section>.card{background:#101b2a;border-color:#243447}
+@media(max-width:850px){.corp-content .split.section{grid-template-columns:1fr}.corp-content .card.section{overflow-x:auto}}
