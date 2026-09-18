@@ -184,3 +184,10 @@
 .theme-elegant .payment-kpi.tone-prior .payment-kpi-icon{background:#fff5e5;color:#b97a13}.theme-elegant .payment-kpi.tone-prior .payment-kpi-accent:after{background:#d49a32}
 .theme-elegant .payment-kpi.tone-paid .payment-kpi-icon{background:#e5f6ed;color:#078650}.theme-elegant .payment-kpi.tone-unallocated .payment-kpi-icon{background:#eef3ff;color:#4b72b0}.theme-elegant .payment-kpi.tone-unallocated .payment-kpi-accent:after{background:#5d7fba}
 .theme-elegant .corp-content .card.section:has(.form-grid){border-radius:20px!important}.theme-elegant .corp-content .card.section:has(> .page-head){border-radius:20px!important}
+
+
+/* Layout 3 finishing pass — reports and operational tables */
+.theme-elegant .premium-report-card{min-height:176px;padding:20px!important;border-radius:19px!important;position:relative}.theme-elegant .premium-report-card .report-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:#e8f5f0;color:#087653;font-size:20px;font-weight:900;margin-bottom:16px}.theme-elegant .premium-report-card h3{font-size:16px!important;margin:0 0 7px}.theme-elegant .premium-report-card .btn{position:absolute;inset-inline-end:18px;bottom:17px}
+.theme-elegant .corp-content .table{border:1px solid #dce6e2;border-radius:14px;overflow:hidden}.theme-elegant .corp-content .table thead th{font-size:10px;text-transform:none;letter-spacing:.1px}.theme-elegant .corp-content .table tbody td{vertical-align:middle}
+.theme-elegant .corp-content .table .btn.secondary{border-radius:9px}.theme-elegant .corp-content .form-grid label{font-size:10px;font-weight:750;color:#536b64}.theme-elegant .corp-content .form-grid :is(input,select,textarea){margin-top:6px;border-radius:10px;min-height:42px}
+.theme-elegant .corp-content .page-head>div>h1{margin-bottom:5px}.theme-elegant .corp-content .page-head>div>.pill:first-child{margin-bottom:8px}
