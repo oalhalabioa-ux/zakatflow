@@ -94,3 +94,17 @@
 .corp-content .table tbody tr{transition:background .12s}.corp-content .table strong{font-variant-numeric:tabular-nums}
 .theme-elegant .success{border-color:#23594d}.theme-elegant .notice{border-color:#65562a}.theme-elegant td.muted[colspan]{background:#101b2a}
 @media(prefers-reduced-motion:reduce){.corp-shell *{scroll-behavior:auto!important;transition:none!important}}
+
+
+/* Product-wide visual audit: remaining modules */
+.corp-content :is(.container,.dashboard-pro){width:100%}
+.corp-content :is(.container,.dashboard-pro)>.section{margin-top:16px}
+.corp-content :is(.container,.dashboard-pro)>.card:not(.hero-metric){border-color:var(--line)}
+.corp-content :is(.container,.dashboard-pro) h2,.corp-content :is(.container,.dashboard-pro) h3{letter-spacing:-.12px}
+.corp-content .form-grid+ .btn,.corp-content .form-grid+button.btn{margin-top:14px}
+.corp-content .table{border-collapse:separate;border-spacing:0;width:100%}.corp-content .table th{position:relative}
+.corp-content .table tbody tr:last-child td{border-bottom:0}
+.theme-modern .corp-content :is(.container,.dashboard-pro)>.card:not(.hero-metric){box-shadow:0 7px 24px rgba(20,45,38,.045)}
+.theme-elegant .corp-content :is(.container,.dashboard-pro)>.card:not(.hero-metric){background:#101b2a;border-color:#243447}
+.theme-elegant .corp-content :is(.container,.dashboard-pro) h1,.theme-elegant .corp-content :is(.container,.dashboard-pro) h2,.theme-elegant .corp-content :is(.container,.dashboard-pro) h3{color:#edf4f2}
+@media(max-width:700px){.corp-content :is(.container,.dashboard-pro){padding-inline:12px}.corp-content .section{margin-top:12px}}
