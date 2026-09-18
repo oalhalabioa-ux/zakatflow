@@ -173,3 +173,14 @@
 .theme-elegant .asset-group{border-radius:20px!important}.theme-elegant .asset-group-head{background:linear-gradient(90deg,#f7fbf9,#fff)}.theme-elegant .asset-type-title{display:flex;align-items:center;gap:8px}.theme-elegant .asset-type-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#eaf5f1}
 .theme-elegant .sum-chip{display:inline-flex;align-items:center;padding:6px 9px;border-radius:9px;background:#edf6f2;margin-inline-end:6px;font-size:10px}.theme-elegant .sum-chip.due{background:#fff5e8}
 @media(max-width:1150px){.theme-elegant .corp-content .grid.section:has(.asset-kpi){grid-template-columns:repeat(3,1fr)}}@media(max-width:800px){.theme-elegant .corp-content .grid.section:has(.asset-kpi){grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.theme-elegant .corp-content .grid.section:has(.asset-kpi){grid-template-columns:1fr}}
+
+
+/* Layout 3 premium workflow KPIs — Assessment & Payments */
+.theme-elegant .workflow-kpi,.theme-elegant .payment-kpi{min-height:126px;padding:17px 18px!important;border-radius:18px!important;position:relative;overflow:hidden}
+.theme-elegant .workflow-kpi-head,.theme-elegant .payment-kpi-head{display:flex;align-items:center;gap:10px}.theme-elegant .workflow-kpi-icon,.theme-elegant .payment-kpi-icon{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border-radius:12px;background:#e7f5ef;color:#087653;font-size:17px;font-weight:900}
+.theme-elegant .workflow-kpi .metric,.theme-elegant .payment-kpi .kpi{font-size:19px!important;font-weight:850;color:#17372f;margin-top:15px}
+.theme-elegant .workflow-kpi-accent,.theme-elegant .payment-kpi-accent{position:absolute;inset-inline:18px;bottom:12px;height:4px;border-radius:99px;background:#e8f0ed}.theme-elegant .workflow-kpi-accent:after,.theme-elegant .payment-kpi-accent:after{content:'';display:block;width:58%;height:100%;border-radius:99px;background:#159667}
+.theme-elegant .payment-kpi.tone-remaining .payment-kpi-icon{background:#fff0e9;color:#c84c2a}.theme-elegant .payment-kpi.tone-remaining .payment-kpi-accent:after{background:#d45632;width:74%}
+.theme-elegant .payment-kpi.tone-prior .payment-kpi-icon{background:#fff5e5;color:#b97a13}.theme-elegant .payment-kpi.tone-prior .payment-kpi-accent:after{background:#d49a32}
+.theme-elegant .payment-kpi.tone-paid .payment-kpi-icon{background:#e5f6ed;color:#078650}.theme-elegant .payment-kpi.tone-unallocated .payment-kpi-icon{background:#eef3ff;color:#4b72b0}.theme-elegant .payment-kpi.tone-unallocated .payment-kpi-accent:after{background:#5d7fba}
+.theme-elegant .corp-content .card.section:has(.form-grid){border-radius:20px!important}.theme-elegant .corp-content .card.section:has(> .page-head){border-radius:20px!important}
