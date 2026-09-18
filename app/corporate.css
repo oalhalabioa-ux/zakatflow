@@ -108,3 +108,23 @@
 .theme-elegant .corp-content :is(.container,.dashboard-pro)>.card:not(.hero-metric){background:#101b2a;border-color:#243447}
 .theme-elegant .corp-content :is(.container,.dashboard-pro) h1,.theme-elegant .corp-content :is(.container,.dashboard-pro) h2,.theme-elegant .corp-content :is(.container,.dashboard-pro) h3{color:#edf4f2}
 @media(max-width:700px){.corp-content :is(.container,.dashboard-pro){padding-inline:12px}.corp-content .section{margin-top:12px}}
+
+
+/* Elegant theme readability correction */
+.theme-elegant{--ink:#f4f8f7;--muted:#c3d0cd;--line:#385064;--card:#132233;--soft:#182a3d;--accent:#48d7b2;--greensoft:#173a35;--bluesoft:#18354d;--goldsoft:#403820}
+.theme-elegant .corp-content{color:#f4f8f7}
+.theme-elegant .corp-content :is(p,span,label,td,li){color:inherit}
+.theme-elegant .corp-content .muted,.theme-elegant .corp-content small,.theme-elegant .corp-content .section-kicker,.theme-elegant .corp-content .dash-eyebrow{color:#c3d0cd!important}
+.theme-elegant .corp-content :is(h1,h2,h3,h4,strong){color:#fff!important}
+.theme-elegant .corp-content :is(input,select,textarea){background:#0d1927;color:#f7fbfa;border-color:#456075}
+.theme-elegant .corp-content :is(input,select,textarea)::placeholder{color:#91a5a1}
+.theme-elegant .corp-content .table th{color:#dce8e5;background:#192b3e}
+.theme-elegant .corp-content .table td{color:#edf4f2;border-color:#30475b}
+.theme-elegant .corp-content .table tbody tr:nth-child(even){background:#142536}
+.theme-elegant .corp-content a:not(.btn){color:#69dfc1}
+.theme-elegant .corp-content .pill{color:#edf7f4;background:#1b3142;border-color:#456075}
+.theme-elegant .corp-content .btn.outline,.theme-elegant .corp-content .btn.secondary{color:#f1f8f6;background:#1a3043;border-color:#48657b}
+.theme-elegant .corp-content .btn.outline:hover,.theme-elegant .corp-content .btn.secondary:hover{background:#223d52}
+.theme-elegant .corp-content .card,.theme-elegant .corp-content section.card{background:#132233;border-color:#385064}
+.theme-elegant .corp-content .notice{color:#fff3c4}.theme-elegant .corp-content .success{color:#d9fff5}
+.theme-elegant .corp-content td.muted[colspan]{color:#c3d0cd!important;background:#132233}
