@@ -60,3 +60,12 @@
 .theme-elegant .table tbody tr:nth-child(even){background:#0e1927}.theme-elegant .table thead th{background:#132131}
 .theme-elegant .asset-group>.asset-group-head{border-color:#243447}.theme-elegant .zakat-formula{background:#132131!important}
 @media(max-width:800px){.corp-content .table{min-width:760px}.corp-content .asset-report-table{min-width:1050px}.corp-content .page-head{align-items:flex-start}.corp-content .page-head>div:last-child{max-width:100%}}
+
+
+/* Unified Zakat cycle journey */
+.cycle-journey{padding:18px 20px}.cycle-journey-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:14px}.cycle-journey-head h3{margin:3px 0}.cycle-journey-steps{display:grid;grid-template-columns:repeat(7,minmax(112px,1fr));gap:7px;overflow-x:auto;padding-bottom:5px}
+.cycle-journey-steps>div{min-width:112px;padding:11px 10px;border:1px solid var(--line);border-radius:11px;background:var(--card)}
+.cycle-journey-steps span,.cycle-journey-steps strong{display:block}.cycle-journey-steps span{font-size:10px;font-weight:900;color:var(--muted);margin-bottom:3px}.cycle-journey-steps strong{font-size:12px}
+.cycle-journey-steps>div.done{background:var(--greensoft);border-color:#b8dfd5}.cycle-journey-steps>div.active{background:var(--bluesoft);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.theme-elegant .cycle-journey-steps>div.done{border-color:#23594d}.theme-elegant .cycle-journey-steps>div.active{border-color:#2bc59f}
+@media(max-width:700px){.cycle-journey-head{align-items:flex-start;flex-direction:column}.cycle-journey-head .pill{white-space:normal}}
