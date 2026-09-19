@@ -12,6 +12,8 @@ export default function Prices({
 
   const [prices, setPrices] = useState<any[]>([]);
   const [fx, setFx] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const [p, setP] = useState({
     asset_type: 'GOLD',
@@ -30,18 +32,36 @@ export default function Prices({
     source: 'Manual',
   });
 
-  const load = () => {
-    fetch('/api/prices')
-      .then((r) => r.json())
-      .then(setPrices);
+  const load = async () => {
+    setLoading(true);
+    setLoadError('');
 
-    fetch('/api/fx')
-      .then((r) => r.json())
-      .then(setFx);
+    const [priceResult, fxResult] = await Promise.all([
+      fetchList('/api/prices'),
+      fetchList('/api/fx'),
+    ]);
+
+    setPrices(priceResult.rows);
+    setFx(fxResult.rows);
+
+    const errors = [priceResult.error, fxResult.error].filter(Boolean);
+    if (errors.length) {
+      setLoadError(
+        errors.includes('UNAUTHORIZED')
+          ? ar
+            ? 'انتهت جلسة الدخول أو لم يتم تسجيل الدخول. سجّل الدخول ثم أعد فتح صفحة الأسعار.'
+            : 'Your session has expired or you are not signed in. Sign in, then reopen the prices page.'
+          : ar
+            ? 'تعذر تحميل الأسعار أو أسعار الصرف حالياً. حاول مرة أخرى.'
+            : 'Prices or FX rates could not be loaded. Please try again.',
+      );
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   async function savePrice() {
@@ -86,6 +106,18 @@ export default function Prices({
           ? 'سجل تاريخي للأسعار وسعر الصرف يستخدمه الاحتساب مع مصدر وتاريخ واضحين.'
           : 'Auditable historical prices and FX rates with source and valuation date.'}
       </p>
+
+      {loading && (
+        <div className="card section muted" role="status">
+          {ar ? 'جارٍ تحميل الأسعار وأسعار الصرف…' : 'Loading prices and FX rates…'}
+        </div>
+      )}
+
+      {loadError && (
+        <div className="notice" role="alert">
+          {loadError}
+        </div>
+      )}
 
       <div className="split section">
         <section className="card">
@@ -236,6 +268,29 @@ export default function Prices({
       </section>
     </main>
   );
+}
+
+async function fetchList(
+  url: string,
+): Promise<{ rows: any[]; error?: string }> {
+  try {
+    const response = await fetch(url);
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok || !Array.isArray(body)) {
+      return {
+        rows: [],
+        error:
+          body && typeof body === 'object' && typeof body.error === 'string'
+            ? body.error
+            : `HTTP_${response.status}`,
+      };
+    }
+
+    return { rows: body };
+  } catch {
+    return { rows: [], error: 'NETWORK_ERROR' };
+  }
 }
 
 function Field({
