@@ -1,347 +1,316 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-export const ASSET_COLS = [
-  ["asset", "الأصل", "Asset"],
-  ["date", "تاريخ الشراء", "Purchase date"],
-  ["weight", "الوزن", "Weight"],
-  ["hawl", "الحول", "Hawl"],
-  ["cost", "التكلفة", "Cost"],
-  ["current", "القيمة الحالية", "Current value"],
-  ["due", "الزكاة المستحقة", "Zakat due"],
-  ["paid", "المدفوعة", "Paid"],
-  ["remaining", "المتبقي", "Remaining"],
-  ["calculation", "الاحتساب الزكوي", "Zakat calculation"],
-  ["action", "الإجراء", "Action"],
-] as const;
-export type AssetColumn = (typeof ASSET_COLS)[number][0];
-type Size = "compact" | "normal" | "wide";
-type Design = "executive" | "cards" | "analytical";
-const orderDefault = ASSET_COLS.map((c) => c[0]) as AssetColumn[];
-const defaults = () =>
-  Object.fromEntries(ASSET_COLS.map((c) => [c[0], true])) as Record<
-    string,
-    boolean
-  >;
-function enhanceAssetRows(ar: boolean) {
-  document
-    .querySelectorAll<HTMLTableElement>(".asset-report-table")
-    .forEach((table) => {
-      table
-        .querySelectorAll("tbody tr:not(.asset-detail-row)")
-        .forEach((row) => {
-          if (row.querySelector(".asset-row-details")) return;
-          const cells = [...row.children] as HTMLElement[];
-          const action = cells[cells.length - 1];
-          if (!action) return;
-          const b = document.createElement("button");
-          b.type = "button";
-          b.className = "asset-row-details";
-          b.setAttribute(
-            "aria-label",
-            ar
-              ? "عرض تفاصيل العملية والاحتساب"
-              : "Show operation and calculation details",
-          );
-          b.textContent = "⌄";
-          action.prepend(b);
-          const detail = document.createElement("tr");
-          detail.className = "asset-detail-row";
-          const td = document.createElement("td");
-          td.colSpan = cells.length;
-          const box = document.createElement("details");
-          box.className = "asset-detail";
-          const summary = document.createElement("summary");
-          summary.textContent = ar
-            ? "تفاصيل العملية والاحتساب والدورة"
-            : "Operation, calculation and cycle details";
-          const grid = document.createElement("div");
-          grid.className = "asset-detail-grid";
-          const labels = ar
-            ? ["الأصل", "تاريخ الشراء", "الحول", "الزكاة"]
-            : ["Asset", "Purchase date", "Hawl", "Zakat"];
-          [0, 1, 3, 6].forEach((i, n) => {
-            const x = document.createElement("div");
-            const s = document.createElement("span");
-            s.textContent = labels[n];
-            const strong = document.createElement("strong");
-            strong.textContent = cells[i]?.textContent?.trim() || "—";
-            x.append(s, strong);
-            grid.append(x);
-          });
-          box.append(summary, grid);
-          td.append(box);
-          detail.append(td);
-          row.after(detail);
-          b.onclick = () => {
-            box.open = !box.open;
-          };
-        });
-    });
+import {
+  ASSET_COLUMNS,
+  type AssetColumn,
+  type AssetTablePreferences,
+  type AssetTablePreset,
+  type AssetTableSize,
+  assetTablePreset,
+  moveAssetColumn,
+  parseAssetTablePreferences,
+} from "@/lib/asset-table-preferences";
+
+type AssetsPageDesign = "executive" | "cards" | "analytical";
+type Panel = "table" | "design" | "delete" | null;
+
+const TABLE_STORAGE_KEY = "zf_asset_table_v4";
+const DESIGN_STORAGE_KEY = "zf_assets_design_v2";
+
+function isAssetsPageDesign(value: unknown): value is AssetsPageDesign {
+  return ["executive", "cards", "analytical"].includes(String(value));
 }
+
 export default function AssetTableTools({ ar }: { ar: boolean }) {
   const active = usePathname()?.includes("/assets");
-  const [open, setOpen] = useState(false),
-    [size, setSize] = useState<Size>("normal"),
-    [design, setDesign] = useState<Design>("executive"),
-    [visible, setVisible] = useState(defaults),
-    [order, setOrder] = useState(orderDefault),
-    [assets, setAssets] = useState<any[]>([]),
-    [selected, setSelected] = useState(""),
-    [msg, setMsg] = useState(""),
-    [saved, setSaved] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
+  const [settings, setSettings] = useState<AssetTablePreferences>(() =>
+    assetTablePreset("professional"),
+  );
+  const [design, setDesign] = useState<AssetsPageDesign>("executive");
+  const [dragged, setDragged] = useState<AssetColumn | null>(null);
+  const [dragOver, setDragOver] = useState<AssetColumn | null>(null);
+  const [assets, setAssets] = useState<any[]>([]);
+  const [selected, setSelected] = useState("");
+  const [msg, setMsg] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [loadingAssets, setLoadingAssets] = useState(false);
+
   useEffect(() => {
     if (!active) return;
-    try {
-      const p = JSON.parse(
-        localStorage.getItem("zf_asset_table_v3") ||
-          localStorage.getItem("zf_asset_table_v2") ||
-          "{}",
-      );
-      if (p.size) setSize(p.size);
-      if (["executive", "cards", "analytical"].includes(p.design))
-        setDesign(p.design);
-      if (p.visible) setVisible({ ...defaults(), ...p.visible });
-      if (p.order)
-        setOrder(
-          p.order.concat(orderDefault.filter((x) => !p.order.includes(x))),
-        );
-    } catch {}
+    const storedTable =
+      localStorage.getItem(TABLE_STORAGE_KEY) ||
+      localStorage.getItem("zf_asset_table_v3") ||
+      localStorage.getItem("zf_asset_table_v2");
+    setSettings(parseAssetTablePreferences(storedTable));
+
+    const storedDesign =
+      localStorage.getItem(DESIGN_STORAGE_KEY) ||
+      localStorage.getItem("zf_assets_design");
+    if (isAssetsPageDesign(storedDesign)) setDesign(storedDesign);
   }, [active]);
+
   if (!active) return null;
-  const emit = (x: any) =>
+
+  const emitSettings = (next: AssetTablePreferences) => {
     window.dispatchEvent(
-      new CustomEvent("zf-asset-table-settings", {
-        detail: {
-          size: x.size || size,
-          visible: x.visible || visible,
-          order: x.order || order,
-          design: x.design || design,
-        },
-      }),
+      new CustomEvent("zf-asset-table-settings", { detail: next }),
     );
-  const chooseDesign = (v: Design) => {
-    setDesign(v);
-    localStorage.setItem("zf_assets_design", v);
-    emit({ design: v });
   };
+
+  const updateSettings = (
+    update: (current: AssetTablePreferences) => AssetTablePreferences,
+  ) => {
+    const next = update(settings);
+    setSettings(next);
+    emitSettings(next);
+    setSaved(false);
+  };
+
+  const choosePreset = (preset: AssetTablePreset) => {
+    const next = assetTablePreset(preset);
+    setSettings(next);
+    emitSettings(next);
+    setSaved(false);
+  };
+
+  const applySize = (size: AssetTableSize) =>
+    updateSettings((current) => ({ ...current, size }));
+
+  const reorder = (from: AssetColumn, to: AssetColumn) => {
+    if (from === to) return;
+    updateSettings((current) => {
+      return { ...current, order: moveAssetColumn(current.order, from, to) };
+    });
+  };
+
+  const move = (column: AssetColumn, direction: number) => {
+    const index = settings.order.indexOf(column);
+    const target = settings.order[index + direction];
+    if (target) reorder(column, target);
+  };
+
   const saveSettings = () => {
-    localStorage.setItem(
-      "zf_asset_table_v3",
-      JSON.stringify({ size, visible, order }),
-    );
+    localStorage.setItem(TABLE_STORAGE_KEY, JSON.stringify(settings));
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2200);
   };
-  const applySize = (v: Size) => {
-    setSize(v);
-    emit({ size: v });
+
+  const chooseDesign = (next: AssetsPageDesign) => {
+    setDesign(next);
+    localStorage.setItem(DESIGN_STORAGE_KEY, next);
+    window.dispatchEvent(
+      new CustomEvent("zf-assets-page-design", { detail: { design: next } }),
+    );
   };
-  const move = (k: AssetColumn, d: number) => {
-    const i = order.indexOf(k),
-      j = i + d;
-    if (j < 0 || j >= order.length) return;
-    const n = [...order];
-    [n[i], n[j]] = [n[j], n[i]];
-    setOrder(n);
-    emit({ order: n });
-  };
-  const preset = (p: string) => {
-    let v: any = defaults(),
-      s: Size = "normal",
-      o: AssetColumn[] = orderDefault;
-    if (p === "compact") {
-      v = {
-        ...v,
-        weight: false,
-        paid: false,
-        remaining: false,
-        calculation: false,
-      };
-      s = "compact";
-      o = ["asset", "date", "hawl", "current", "due", "action"];
-    }
-    if (p === "dual") {
-      v = {
-        ...v,
-        weight: false,
-        cost: false,
-        paid: false,
-        remaining: false,
-        calculation: false,
-      };
-      o = ["asset", "current", "due", "hawl", "action"];
-    }
-    setVisible(v);
-    setSize(s);
-    setOrder(o);
-    emit({ visible: v, size: s, order: o });
-  };
+
   const openDelete = async () => {
-    const r = await fetch("/api/assets");
-    if (r.ok) setAssets(await r.json());
+    setPanel("delete");
+    setLoadingAssets(true);
+    setMsg("");
+    try {
+      const response = await fetch("/api/assets");
+      if (!response.ok) throw new Error("LOAD_FAILED");
+      setAssets(await response.json());
+    } catch {
+      setMsg(ar ? "تعذر تحميل قائمة الأصول" : "Could not load assets");
+    } finally {
+      setLoadingAssets(false);
+    }
   };
+
   const remove = async () => {
     if (!selected) return;
-    const r = await fetch("/api/assets/" + selected, { method: "DELETE" }),
-      j = await r.json().catch(() => ({}));
-    if (r.ok) location.reload();
-    else setMsg(j.error || (ar ? "تعذر الحذف" : "Delete failed"));
+    setMsg("");
+    const response = await fetch(`/api/assets/${selected}`, {
+      method: "DELETE",
+    });
+    const result = await response.json().catch(() => ({}));
+    if (response.ok) {
+      window.location.reload();
+      return;
+    }
+    setMsg(result.error || (ar ? "تعذر الحذف" : "Delete failed"));
   };
+
+  const togglePanel = (next: Exclude<Panel, null>) =>
+    setPanel((current) => (current === next ? null : next));
+
   return (
     <>
-      <style>{`.asset-table-tools{max-width:1240px;margin:14px auto -10px;padding:0 22px;position:relative}.att-bar{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.att-panel{position:absolute;z-index:25;top:46px;inset-inline-end:22px;width:min(560px,calc(100vw - 44px));max-height:calc(100vh - 140px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 18px 45px #0f231e26}.att-panel h4{margin:0 0 14px}.att-panel h5{margin:18px 0 8px;color:var(--muted)}.att-sizes,.att-presets,.att-designs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 14px}.att-sizes button,.att-presets button,.att-designs button,.att-save{min-height:38px;width:100%;display:flex;align-items:center;justify-content:center}.att-designs button.active{background:#0f7665;color:#fff}.att-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}.att-cols label{display:flex;align-items:center;gap:9px;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fbfdfc;cursor:pointer}.att-cols label:has(input:checked){border-color:#16836f;background:#effaf6}.att-cols input{width:18px;height:18px;accent-color:#16836f}.att-order{display:grid;gap:7px}.att-order-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:42px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;font-size:13px;background:#fbfdfc}.att-order-row>span:first-child{font-weight:600}.att-order-row button{width:32px;height:30px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}.att-save{margin-top:18px;border:0;background:#0f7665;color:#fff;border-radius:10px;font-weight:700;cursor:pointer}.att-save.saved{background:#176b4f}.att-save:focus-visible,.att-panel button:focus-visible,.att-cols label:focus-within{outline:3px solid #b8e5d9;outline-offset:2px}.asset-report-table th{resize:horizontal;overflow:auto;min-width:72px;cursor:col-resize}.asset-report-table th:first-child{min-width:150px}@media(max-width:600px){.att-cols{grid-template-columns:1fr}.att-sizes,.att-presets,.att-designs{grid-template-columns:1fr}.att-panel{inset-inline-end:8px;width:calc(100vw - 16px)}}`}</style>
+      <style>{`
+        .asset-table-tools{max-width:1240px;margin:14px auto -10px;padding:0 22px;position:relative}
+        .att-bar{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+        .att-panel{position:absolute;z-index:25;top:46px;inset-inline-end:22px;width:min(610px,calc(100vw - 44px));max-height:calc(100vh - 120px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 18px 45px #0f231e26}
+        .att-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+        .att-panel h4{margin:0}.att-panel h5{margin:20px 0 8px;color:var(--muted)}
+        .att-close{border:0;background:transparent;color:var(--muted);font-size:20px;cursor:pointer}
+        .att-presets{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+        .att-preset{min-height:76px;text-align:start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);cursor:pointer}
+        .att-preset strong,.att-preset small{display:block}.att-preset small{margin-top:5px;color:var(--muted);line-height:1.5}
+        .att-preset.active{background:#173f38;color:#fff;border-color:#173f38}.att-preset.active small{color:#d8e9e3}
+        .att-sizes,.att-designs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+        .att-sizes button,.att-designs button,.att-save{min-height:40px;width:100%;display:flex;align-items:center;justify-content:center}
+        .att-sizes button.active,.att-designs button.active{background:#0f7665;color:#fff;border-color:#0f7665}
+        .att-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .att-cols label{display:flex;align-items:center;gap:9px;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fbfdfc;cursor:pointer}
+        .att-cols label:has(input:checked){border-color:#16836f;background:#effaf6}.att-cols input{width:18px;height:18px;accent-color:#16836f}
+        .att-order{display:grid;gap:7px}.att-order-help{margin:0 0 9px;color:var(--muted);font-size:12px}
+        .att-order-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;font-size:13px;background:#fbfdfc;cursor:grab}
+        .att-order-row.dragged{opacity:.45}.att-order-row.drag-over,.att-order-row:focus-visible{border-color:#16836f;background:#effaf6;box-shadow:inset 0 0 0 1px #16836f}
+        .att-order-name{display:flex;align-items:center;gap:9px;font-weight:650}.att-drag-handle{font-size:18px;color:#5f746d}
+        .att-order-actions{display:flex;gap:4px}.att-order-actions button{width:34px;height:32px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}
+        .att-save{margin-top:18px;border:0;background:#0f7665;color:#fff;border-radius:10px;font-weight:700;cursor:pointer}.att-save.saved{background:#176b4f}
+        .att-note{padding:11px 12px;border-radius:10px;background:#f3f8f6;color:#526a62;font-size:13px;line-height:1.6}
+        .att-delete-actions{display:flex;gap:8px;margin-top:12px}.att-delete-actions select{flex:1}
+        .att-save:focus-visible,.att-panel button:focus-visible,.att-cols label:focus-within,.att-order-row:focus-visible{outline:3px solid #b8e5d9;outline-offset:2px}
+        .asset-report-table th{min-width:72px}.asset-report-table th[data-column=asset]{min-width:150px}
+        @media(max-width:600px){.att-cols{grid-template-columns:1fr}.att-presets,.att-sizes,.att-designs{grid-template-columns:1fr}.att-panel{inset-inline-end:8px;width:calc(100vw - 16px)}.att-bar{justify-content:stretch}.att-bar .btn{flex:1}}
+      `}</style>
       <div className="asset-table-tools">
         <div className="att-bar">
-          <button
-            className="btn secondary"
-            onClick={() =>
-              applySize(
-                size === "compact"
-                  ? "normal"
-                  : size === "normal"
-                    ? "wide"
-                    : "compact",
-              )
-            }
-          >
-            ↔ {ar ? "حجم الخانات" : "Cell size"}
+          <button type="button" className="btn secondary" aria-expanded={panel === "design"} onClick={() => togglePanel("design")}>
+            ◫ {ar ? "تصميم صفحة الأصول" : "Assets page design"}
           </button>
-          <button className="btn secondary" onClick={() => setOpen(!open)}>
+          <button type="button" className="btn secondary" aria-expanded={panel === "table"} onClick={() => togglePanel("table")}>
             ☷ {ar ? "تخصيص الجدول" : "Customize table"}
           </button>
-          <button className="btn secondary" onClick={openDelete}>
+          <button type="button" className="btn secondary" onClick={openDelete}>
             🗑 {ar ? "حذف أصل" : "Delete asset"}
           </button>
         </div>
-        {open && (
-          <div className="att-panel">
-            <h4>{ar ? "النماذج وتخصيص الجدول" : "Modes & customization"}</h4>
+
+        {panel === "table" && (
+          <div className="att-panel" role="dialog" aria-label={ar ? "تخصيص جدول الأصول" : "Customize assets table"}>
+            <div className="att-panel-head">
+              <h4>{ar ? "تخصيص جدول الأصول" : "Customize assets table"}</h4>
+              <button className="att-close" type="button" onClick={() => setPanel(null)} aria-label={ar ? "إغلاق" : "Close"}>×</button>
+            </div>
             <div className="att-presets">
-              <button className="btn" onClick={() => preset("compact")}>
-                {ar ? "1 مضغوط" : "1 Compact"}
+              <button type="button" className={`att-preset${settings.preset === "professional" ? " active" : ""}`} onClick={() => choosePreset("professional")}>
+                <strong>{ar ? "النموذج الاحترافي" : "Professional model"}</strong>
+                <small>{ar ? "جميع الأعمدة والتفاصيل المالية والزكوية" : "All financial and Zakat columns"}</small>
               </button>
-              <button
-                className="btn secondary"
-                onClick={() => preset("custom")}
-              >
-                {ar ? "2 مخصص" : "2 Custom"}
-              </button>
-              <button className="btn secondary" onClick={() => preset("dual")}>
-                {ar ? "3 مزدوج" : "3 Dual"}
+              <button type="button" className={`att-preset${settings.preset === "zakat" ? " active" : ""}`} onClick={() => choosePreset("zakat")}>
+                <strong>{ar ? "نموذج الزكاة والسداد" : "Zakat & payment model"}</strong>
+                <small>{ar ? "الاستحقاق والمدفوع والمتبقي والحول" : "Due, paid, remaining and Hawl"}</small>
               </button>
             </div>
-            <h5>{ar ? "تصميم صفحة الأصول" : "Assets page design"}</h5>
-            <div className="att-designs">
-              {(
-                [
-                  ["executive", "1 تنفيذي"],
-                  ["cards", "2 بطاقات"],
-                  ["analytical", "3 تحليلي"],
-                ] as const
-              ).map(([v, label]) => (
-                <button
-                  key={v}
-                  className={`btn ${design === v ? "active" : "secondary"}`}
-                  onClick={() => chooseDesign(v)}
-                >
-                  {ar ? label : v}
+
+            <h5>{ar ? "حجم الخانات" : "Cell size"}</h5>
+            <div className="att-sizes">
+              {(["compact", "normal", "wide"] as const).map((size) => (
+                <button type="button" key={size} className={`btn secondary${settings.size === size ? " active" : ""}`} onClick={() => applySize(size)}>
+                  {ar ? { compact: "صغير", normal: "متوسط", wide: "واسع" }[size] : { compact: "Compact", normal: "Normal", wide: "Wide" }[size]}
                 </button>
               ))}
             </div>
-            <div className="att-sizes">
-              <button className="btn" onClick={() => applySize("compact")}>
-                {ar ? "صغير" : "Compact"}
-              </button>
-              <button
-                className="btn secondary"
-                onClick={() => applySize("normal")}
-              >
-                {ar ? "متوسط" : "Normal"}
-              </button>
-              <button
-                className="btn secondary"
-                onClick={() => applySize("wide")}
-              >
-                {ar ? "واسع" : "Wide"}
-              </button>
-            </div>
+
             <h5>{ar ? "ترتيب الأعمدة" : "Column order"}</h5>
+            <p className="att-order-help">{ar ? "اسحب العمود وأفلته في موضعه الجديد، أو استخدم الأسهم." : "Drag and drop a column, or use the arrow buttons."}</p>
             <div className="att-order">
-              {order.map((k, i) => {
-                const c = ASSET_COLS.find((x) => x[0] === k)!;
+              {settings.order.map((key, index) => {
+                const column = ASSET_COLUMNS.find(([id]) => id === key)!;
                 return (
-                  <div className="att-order-row" key={k}>
-                    <span>☷ {ar ? c[1] : c[2]}</span>
-                    <span>
-                      <button
-                        className="btn secondary"
-                        disabled={!i}
-                        onClick={() => move(k, -1)}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        className="btn secondary"
-                        disabled={i === order.length - 1}
-                        onClick={() => move(k, 1)}
-                      >
-                        ↓
-                      </button>
+                  <div
+                    className={`att-order-row${dragged === key ? " dragged" : ""}${dragOver === key ? " drag-over" : ""}`}
+                    key={key}
+                    draggable
+                    tabIndex={0}
+                    onDragStart={(event) => {
+                      setDragged(key);
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", key);
+                    }}
+                    onDragEnd={() => {
+                      setDragged(null);
+                      setDragOver(null);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      setDragOver(key);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const from = event.dataTransfer.getData("text/plain") as AssetColumn;
+                      reorder(from, key);
+                      setDragged(null);
+                      setDragOver(null);
+                    }}
+                  >
+                    <span className="att-order-name"><span className="att-drag-handle" aria-hidden="true">⠿</span>{ar ? column[1] : column[2]}</span>
+                    <span className="att-order-actions">
+                      <button type="button" className="btn secondary" disabled={index === 0} onClick={() => move(key, -1)} aria-label={ar ? "تحريك للأعلى" : "Move up"}>↑</button>
+                      <button type="button" className="btn secondary" disabled={index === settings.order.length - 1} onClick={() => move(key, 1)} aria-label={ar ? "تحريك للأسفل" : "Move down"}>↓</button>
                     </span>
                   </div>
                 );
               })}
             </div>
+
             <h5>{ar ? "إظهار الأعمدة" : "Visible columns"}</h5>
             <div className="att-cols">
-              {ASSET_COLS.map((c) => (
-                <label key={c[0]}>
+              {ASSET_COLUMNS.map(([key, arabic, english]) => (
+                <label key={key}>
                   <input
                     type="checkbox"
-                    checked={visible[c[0]] !== false}
-                    onChange={(e) => {
-                      const n = { ...visible, [c[0]]: e.target.checked };
-                      setVisible(n);
-                      emit({ visible: n });
-                    }}
+                    checked={settings.visible[key] !== false}
+                    disabled={
+                      settings.visible[key] !== false &&
+                      Object.values(settings.visible).filter(Boolean).length === 1
+                    }
+                    onChange={(event) => updateSettings((current) => ({ ...current, visible: { ...current.visible, [key]: event.target.checked } }))}
                   />
-                  {ar ? c[1] : c[2]}
+                  {ar ? arabic : english}
                 </label>
               ))}
             </div>
-            <button
-              className={`att-save${saved ? " saved" : ""}`}
-              onClick={saveSettings}
-            >
-              {saved
-                ? ar
-                  ? "✓ تم حفظ التخصيص"
-                  : "✓ Customization saved"
-                : ar
-                  ? "حفظ الترتيب والأعمدة"
-                  : "Save order & columns"}
+            <button type="button" className={`att-save${saved ? " saved" : ""}`} onClick={saveSettings}>
+              {saved ? (ar ? "✓ تم حفظ التخصيص" : "✓ Customization saved") : (ar ? "حفظ النموذج والتخصيص" : "Save model & customization")}
             </button>
           </div>
         )}
-        {assets.length > 0 && (
-          <div className="att-panel" style={{ top: 92 }}>
-            <h4>{ar ? "حذف أصل غير مستخدم" : "Delete unused asset"}</h4>
-            <select
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-            >
-              <option value="">{ar ? "اختر الأصل" : "Select asset"}</option>
-              {assets.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
+
+        {panel === "design" && (
+          <div className="att-panel" role="dialog" aria-label={ar ? "تصميم صفحة الأصول" : "Assets page design"}>
+            <div className="att-panel-head">
+              <h4>{ar ? "تصميم صفحة الأصول" : "Assets page design"}</h4>
+              <button className="att-close" type="button" onClick={() => setPanel(null)} aria-label={ar ? "إغلاق" : "Close"}>×</button>
+            </div>
+            <p className="att-note">{ar ? "هذا الخيار مستقل عن نموذج الجدول وترتيب أعمدته." : "This setting is independent from the table model and column order."}</p>
+            <div className="att-designs">
+              {(["executive", "cards", "analytical"] as const).map((value) => (
+                <button type="button" key={value} className={`btn secondary${design === value ? " active" : ""}`} onClick={() => chooseDesign(value)}>
+                  {ar ? { executive: "تنفيذي", cards: "بطاقات", analytical: "تحليلي" }[value] : { executive: "Executive", cards: "Cards", analytical: "Analytical" }[value]}
+                </button>
               ))}
-            </select>
-            <button className="btn" disabled={!selected} onClick={remove}>
-              {ar ? "حذف آمن" : "Safe delete"}
-            </button>
-            {msg && <p>{msg}</p>}
+            </div>
+          </div>
+        )}
+
+        {panel === "delete" && (
+          <div className="att-panel" role="dialog" aria-label={ar ? "حذف أصل" : "Delete asset"}>
+            <div className="att-panel-head">
+              <h4>{ar ? "حذف أصل غير مستخدم" : "Delete unused asset"}</h4>
+              <button className="att-close" type="button" onClick={() => setPanel(null)} aria-label={ar ? "إغلاق" : "Close"}>×</button>
+            </div>
+            {loadingAssets ? (
+              <p className="muted">{ar ? "جارٍ تحميل الأصول…" : "Loading assets…"}</p>
+            ) : assets.length ? (
+              <div className="att-delete-actions">
+                <select value={selected} onChange={(event) => setSelected(event.target.value)}>
+                  <option value="">{ar ? "اختر الأصل" : "Select asset"}</option>
+                  {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
+                </select>
+                <button type="button" className="btn danger" disabled={!selected} onClick={remove}>{ar ? "حذف آمن" : "Safe delete"}</button>
+              </div>
+            ) : (
+              <p className="muted">{ar ? "لا توجد أصول متاحة للحذف." : "No assets are available to delete."}</p>
+            )}
+            {msg && <p className="notice">{msg}</p>}
           </div>
         )}
       </div>

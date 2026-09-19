@@ -1143,13 +1143,13 @@ textarea:focus {
   }
 }
 /* Asset table refinement: compact actions, Hawl badges, and expandable calculation details. */
-.asset-report-table td:last-child .btn {
+.asset-report-table .asset-edit-btn {
   padding: 4px 7px !important;
   font-size: 0 !important;
   min-width: 30px !important;
   border-radius: 7px;
 }
-.asset-report-table td:last-child .btn::after {
+.asset-report-table .asset-edit-btn::after {
   content: "✎";
   font-size: 13px;
 }
@@ -1187,6 +1187,78 @@ textarea:focus {
   gap: 8px;
   margin-top: 9px;
   font-size: 12px;
+}
+
+/* Assets page designs are independent from table presets and column settings. */
+.assets-page .asset-group,
+.assets-page .asset-kpi,
+.assets-page .asset-report-table,
+.assets-page .asset-report-table th,
+.assets-page .asset-report-table td {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.assets-page-executive .asset-group {
+  border-inline-start: 4px solid #0f7665;
+}
+.assets-page-executive .asset-report-table thead th {
+  background: #f1f7f4;
+  color: #183f35;
+}
+.assets-page-cards .asset-kpi {
+  border: 0;
+  box-shadow: 0 12px 28px rgba(20, 65, 52, 0.09);
+}
+.assets-page-cards .asset-group {
+  border: 0;
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(20, 65, 52, 0.1);
+}
+.assets-page-cards .asset-report-table {
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+.assets-page-cards .asset-report-table thead th {
+  background: transparent;
+  border-bottom: 0;
+  color: #5d716a;
+}
+.assets-page-cards .asset-report-table tbody tr {
+  background: #fff;
+  box-shadow: 0 5px 16px rgba(18, 63, 54, 0.08);
+}
+.assets-page-cards .asset-report-table tbody td {
+  border-block: 1px solid #e5eeea;
+}
+.assets-page-cards .asset-report-table tbody td:first-child {
+  border-inline-start: 1px solid #e5eeea;
+  border-start-start-radius: 10px;
+  border-end-start-radius: 10px;
+}
+.assets-page-cards .asset-report-table tbody td:last-child {
+  border-inline-end: 1px solid #e5eeea;
+  border-start-end-radius: 10px;
+  border-end-end-radius: 10px;
+}
+.assets-page-analytical .asset-kpi {
+  border-top: 3px solid #176d79;
+  border-radius: 8px;
+}
+.assets-page-analytical .asset-group {
+  border-radius: 8px;
+}
+.assets-page-analytical .asset-report-table thead th {
+  background: #123f46;
+  color: #fff;
+  border-color: #2f5f65;
+}
+.assets-page-analytical .asset-report-table tbody tr:nth-child(even) {
+  background: #eef6f6;
+}
+.assets-page-analytical .sum-chip {
+  border-radius: 6px;
 }
 .asset-detail-grid span {
   display: block;

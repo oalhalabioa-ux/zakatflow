@@ -1,5 +1,13 @@
 "use client";
 import { use, useEffect, useMemo, useState } from "react";
+import {
+  ASSET_COLUMNS,
+  type AssetColumn,
+  type AssetTablePreferences,
+  assetTablePreset,
+  parseAssetTablePreferences,
+  visibleAssetColumns,
+} from "@/lib/asset-table-preferences";
 type T =
   | "CASH"
   | "BANK"
@@ -21,20 +29,7 @@ const TYPES: Array<[T, string, string, string]> = [
   ["REAL_ESTATE", "عقار", "Real estate", "⌂"],
   ["OTHER", "أصل آخر", "Other", "•"],
 ];
-const COLS = [
-  "asset",
-  "date",
-  "weight",
-  "hawl",
-  "cost",
-  "current",
-  "due",
-  "paid",
-  "remaining",
-  "calculation",
-  "action",
-] as const;
-type Size = "compact" | "normal" | "wide";
+type AssetsPageDesign = "executive" | "cards" | "analytical";
 const FX = 3.75,
   empty: any = {
     asset_type: "CASH",
@@ -67,8 +62,6 @@ const hawlParts = (s?: string) => {
   const d = daysFrom(s);
   return { cycles: Math.floor(d / 354), extra: d % 354 };
 };
-const defaultVisible = () =>
-  Object.fromEntries(COLS.map((c) => [c, true])) as Record<string, boolean>;
 export default function Assets({
   params,
 }: {
@@ -81,69 +74,66 @@ export default function Assets({
     [edit, setEdit] = useState<string | null>(null),
     [saving, setSaving] = useState(false),
     [msg, setMsg] = useState(""),
+    [loadError, setLoadError] = useState(""),
+    [loading, setLoading] = useState(true),
     [usd, setUsd] = useState(false),
     [closed, setClosed] = useState<Record<string, boolean>>({}),
-    [visible, setVisible] = useState<Record<string, boolean>>(defaultVisible),
-    [tableSize, setTableSize] = useState<Size>("normal"),
-    [design, setDesign] = useState("executive"),
-    [columnOrder, setColumnOrder] = useState<string[]>([...COLS]);
+    [tablePreferences, setTablePreferences] =
+      useState<AssetTablePreferences>(() => assetTablePreset("professional")),
+    [design, setDesign] = useState<AssetsPageDesign>("executive");
   const cur = usd ? "USD" : "SAR",
     cv = (n: any) => (usd ? Number(n || 0) / FX : Number(n || 0));
   const load = async () => {
-    const r = await fetch("/api/assets");
-    setRows(r.ok ? await r.json() : []);
+    setLoading(true);
+    setLoadError("");
+    try {
+      const response = await fetch("/api/assets");
+      if (!response.ok) throw new Error("LOAD_FAILED");
+      setRows(await response.json());
+    } catch {
+      setRows([]);
+      setLoadError(
+        ar ? "تعذر تحميل الأصول. حاول تحديث الصفحة." : "Could not load assets. Refresh the page to try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => {
     void load();
     try {
-      const p = JSON.parse(
+      const storedPreferences =
+        localStorage.getItem("zf_asset_table_v4") ||
         localStorage.getItem("zf_asset_table_v3") ||
-          localStorage.getItem("zf_asset_table_v2") ||
-          "{}",
-      );
-      if (p.visible) setVisible({ ...defaultVisible(), ...p.visible });
-      if (["compact", "normal", "wide"].includes(p.size)) setTableSize(p.size);
-      if (Array.isArray(p.order)) setColumnOrder(p.order);
-      if (["executive", "cards", "analytical"].includes(p.design))
-        setDesign(p.design);
-      const savedDesign = localStorage.getItem("zf_assets_design");
+        localStorage.getItem("zf_asset_table_v2");
+      setTablePreferences(parseAssetTablePreferences(storedPreferences));
+      const savedDesign =
+        localStorage.getItem("zf_assets_design_v2") ||
+        localStorage.getItem("zf_assets_design");
       if (["executive", "cards", "analytical"].includes(savedDesign || ""))
-        setDesign(savedDesign!);
+        setDesign(savedDesign as AssetsPageDesign);
     } catch {}
-    const onSettings = (e: any) => {
-      if (e.detail?.visible)
-        setVisible({ ...defaultVisible(), ...e.detail.visible });
-      if (e.detail?.size) setTableSize(e.detail.size);
-      if (Array.isArray(e.detail?.order)) setColumnOrder(e.detail.order);
-      if (e.detail?.design) setDesign(e.detail.design);
+    const onSettings = (event: Event) => {
+      const detail = (event as CustomEvent<AssetTablePreferences>).detail;
+      setTablePreferences(parseAssetTablePreferences(JSON.stringify(detail)));
+    };
+    const onDesign = (event: Event) => {
+      const next = (event as CustomEvent<{ design: AssetsPageDesign }>).detail
+        ?.design;
+      if (next && ["executive", "cards", "analytical"].includes(next))
+        setDesign(next);
     };
     window.addEventListener("zf-asset-table-settings", onSettings);
-    return () =>
+    window.addEventListener("zf-assets-page-design", onDesign);
+    return () => {
       window.removeEventListener("zf-asset-table-settings", onSettings);
+      window.removeEventListener("zf-assets-page-design", onDesign);
+    };
   }, []);
-  useEffect(() => {
-    const reorder = () =>
-      document
-        .querySelectorAll<HTMLTableElement>(".asset-report-table")
-        .forEach((table) => {
-          const move = (row: Element) => {
-            const cells = [...row.children];
-            const keys = [...COLS].filter((x) => (visible as any)[x] !== false);
-            columnOrder
-              .filter((x) => (visible as any)[x] !== false)
-              .forEach((key) => {
-                const i = keys.indexOf(key as any);
-                if (i >= 0 && cells[i]) row.appendChild(cells[i]);
-              });
-          };
-          const head = table.tHead?.rows[0];
-          if (head) move(head);
-          table.tBodies[0]
-            ?.querySelectorAll("tr:not(.asset-detail-row)")
-            .forEach(move);
-        });
-    requestAnimationFrame(reorder);
-  }, [columnOrder, visible, rows]);
+  const orderedColumns = useMemo(
+    () => visibleAssetColumns(tablePreferences.order, tablePreferences.visible),
+    [tablePreferences.order, tablePreferences.visible],
+  );
   const m = (r: any, k: string) => Number(r?.metadata?.[k] || 0),
     val = (r: any) =>
       m(r, "market_value") ||
@@ -211,7 +201,6 @@ export default function Assets({
       (calc(r)?.statuses || []).includes("NOT_ASSESSED") &&
       (calc(r)?.lots || []).some((l: any) => l.hawl_start_date),
   );
-  const show = (c: string) => visible[c] !== false;
   const editRow = (r: any) => {
     const d = r.metadata || {};
     setEdit(r.id);
@@ -227,7 +216,75 @@ export default function Assets({
       purchase_date: d.purchase_date ?? "",
       is_zakatable: r.is_zakatable,
     });
-    scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const columnLabel = (column: AssetColumn) => {
+    const definition = ASSET_COLUMNS.find(([key]) => key === column)!;
+    return ar ? definition[1] : definition[2];
+  };
+  const renderAssetCell = (column: AssetColumn, row: any) => {
+    switch (column) {
+      case "asset":
+        return (
+          <strong className="asset-name-cell">
+            <span className="asset-row-icon" aria-hidden="true">
+              {icon(row.asset_type)}
+            </span>
+            {row.name}
+          </strong>
+        );
+      case "date":
+        return row.metadata?.purchase_date || "—";
+      case "weight":
+        return ["GOLD", "SILVER"].includes(row.asset_type)
+          ? `${fmt(m(row, "quantity"))} g`
+          : m(row, "quantity")
+            ? fmt(m(row, "quantity"))
+            : "—";
+      case "hawl":
+        return (
+          <HawlBadge
+            date={hawlDisplayDate(row)}
+            ar={ar}
+            displayOnly={
+              !hawlStart(row) &&
+              !lotHawlStart(row) &&
+              Boolean(
+                calc(row)?.hawl_display_only?.portfolio_nisab_reached_date,
+              )
+            }
+          />
+        );
+      case "cost":
+        return `${fmt(cv(costVal(row)))} ${cur}`;
+      case "current":
+        return <strong>{fmt(cv(val(row)))} {cur}</strong>;
+      case "due":
+        return `${fmt(cv(due(row)))} ${cur}`;
+      case "paid":
+        return `${fmt(cv(paid(row)))} ${cur}`;
+      case "remaining":
+        return `${fmt(cv(remaining(row)))} ${cur}`;
+      case "calculation":
+        return (
+          <ZakatCell
+            row={row}
+            ar={ar}
+            amount={`${fmt(cv(due(row)))} ${cur}`}
+          />
+        );
+      case "action":
+        return (
+          <button
+            type="button"
+            className="btn secondary asset-edit-btn"
+            onClick={() => editRow(row)}
+            aria-label={ar ? `تعديل ${row.name}` : `Edit ${row.name}`}
+          >
+            ✎
+          </button>
+        );
+    }
   };
   const save = async () => {
     if (!form.name || !form.purchase_date) {
@@ -262,7 +319,7 @@ export default function Assets({
       body: JSON.stringify(body),
     });
     if (r.ok) {
-      setForm(empty);
+      setForm({ ...empty });
       setEdit(null);
       setMsg(
         ar
@@ -270,12 +327,15 @@ export default function Assets({
           : "Saved — create a new Snapshot to refresh Zakat calculation",
       );
       await load();
-    } else setMsg(ar ? "تعذر الحفظ" : "Save failed");
+    } else {
+      const result = await r.json().catch(() => ({}));
+      setMsg(result.error || (ar ? "تعذر الحفظ" : "Save failed"));
+    }
     setSaving(false);
   };
   return (
-    <main className="container">
-      <style>{`.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th:first-child{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:#dcfce7;color:#166534}.hawl-days{background:#fce7f3;color:#9d174d}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafcfb;color:var(--ink);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
+    <main className={`container assets-page assets-page-${design}`}>
+      <style>{`.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:#dcfce7;color:#166534}.hawl-days{background:#fce7f3;color:#9d174d}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafcfb;color:var(--ink);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
       <div className="page-head">
         <div>
           <h1>
@@ -305,6 +365,7 @@ export default function Assets({
           </button>
         </div>
       </div>
+      {loadError && <div className="notice">{loadError}</div>}
       {retroPending.length > 0 && (
         <div className="notice">
           <strong>
@@ -496,7 +557,7 @@ export default function Assets({
             </select>
           </label>
         </div>
-        <button className="btn" onClick={save} disabled={saving}>
+        <button type="button" className="btn" onClick={save} disabled={saving}>
           {saving
             ? "…"
             : edit
@@ -506,9 +567,10 @@ export default function Assets({
         {edit && (
           <button
             className="btn secondary"
+            type="button"
             onClick={() => {
               setEdit(null);
-              setForm(empty);
+              setForm({ ...empty });
             }}
           >
             {ar ? "إلغاء" : "Cancel"}
@@ -523,6 +585,12 @@ export default function Assets({
           </span>{" "}
           {ar ? "تقرير الأصول" : "Asset report"}
         </h2>
+        {loading && <div className="card section muted">{ar ? "جارٍ تحميل الأصول…" : "Loading assets…"}</div>}
+        {!loading && !loadError && groups.length === 0 && (
+          <div className="card section muted">
+            {ar ? "لا توجد أصول بعد. أضف الأصل الأول من النموذج أعلاه." : "No assets yet. Add the first asset using the form above."}
+          </div>
+        )}
         {groups.map((g) => {
           const sub = g.rows.reduce((s, r) => s + val(r), 0),
             sd = g.rows.reduce((s, r) => s + due(r), 0),
@@ -558,6 +626,7 @@ export default function Assets({
                   </div>
                 </div>
                 <button
+                  type="button"
                   className="btn secondary collapse-btn"
                   onClick={() =>
                     setClosed((x) => ({ ...x, [g.type]: !x[g.type] }))
@@ -569,131 +638,28 @@ export default function Assets({
               {!isClosed && (
                 <div style={{ overflowX: "auto" }}>
                   <table
-                    className={`table asset-report-table asset-design-${design}`}
-                    data-size={tableSize}
+                    className="table asset-report-table"
+                    data-size={tablePreferences.size}
+                    data-preset={tablePreferences.preset}
                   >
                     <thead>
                       <tr>
-                        {show("asset") && <th>{ar ? "الأصل" : "Asset"}</th>}
-                        {show("date") && (
-                          <th>{ar ? "تاريخ الشراء" : "Purchase date"}</th>
-                        )}
-                        {show("weight") && (
-                          <th>{ar ? "الوزن / الكمية" : "Weight / Qty"}</th>
-                        )}
-                        {show("hawl") && <th>{ar ? "الحول" : "Hawl"}</th>}
-                        {show("cost") && <th>{ar ? "التكلفة" : "Cost"}</th>}
-                        {show("current") && (
-                          <th>{ar ? "القيمة الحالية" : "Current"}</th>
-                        )}
-                        {show("due") && (
-                          <th>{ar ? "الزكاة المستحقة" : "Zakat due"}</th>
-                        )}
-                        {show("paid") && <th>{ar ? "المدفوعة" : "Paid"}</th>}
-                        {show("remaining") && (
-                          <th>{ar ? "المتبقي" : "Remaining"}</th>
-                        )}
-                        {show("calculation") && (
-                          <th>
-                            {ar ? "الاحتساب الزكوي" : "Zakat calculation"}
+                        {orderedColumns.map((column) => (
+                          <th key={column} data-column={column}>
+                            {columnLabel(column)}
                           </th>
-                        )}
-                        {show("action") && <th>{ar ? "الإجراء" : "Action"}</th>}
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {g.rows.map((r) => (
-                        <>
-                          <tr key={r.id}>
-                            {show("asset") && (
-                              <td>
-                                <strong className="asset-name-cell">
-                                  <span
-                                    className="asset-row-icon"
-                                    aria-hidden="true"
-                                  >
-                                    {icon(r.asset_type)}
-                                  </span>
-                                  {r.name}
-                                </strong>
-                              </td>
-                            )}
-                            {show("date") && (
-                              <td>{r.metadata?.purchase_date || "—"}</td>
-                            )}
-                            {show("weight") && (
-                              <td>
-                                {["GOLD", "SILVER"].includes(r.asset_type)
-                                  ? `${fmt(m(r, "quantity"))} g`
-                                  : m(r, "quantity")
-                                    ? fmt(m(r, "quantity"))
-                                    : "—"}
-                              </td>
-                            )}
-                            {show("hawl") && (
-                              <td>
-                                <HawlBadge
-                                  date={hawlDisplayDate(r)}
-                                  ar={ar}
-                                  displayOnly={
-                                    !hawlStart(r) &&
-                                    !lotHawlStart(r) &&
-                                    Boolean(
-                                      calc(r)?.hawl_display_only
-                                        ?.portfolio_nisab_reached_date,
-                                    )
-                                  }
-                                />
-                              </td>
-                            )}
-                            {show("cost") && (
-                              <td>
-                                {fmt(cv(costVal(r)))} {cur}
-                              </td>
-                            )}
-                            {show("current") && (
-                              <td>
-                                <strong>
-                                  {fmt(cv(val(r)))} {cur}
-                                </strong>
-                              </td>
-                            )}
-                            {show("due") && (
-                              <td>
-                                {fmt(cv(due(r)))} {cur}
-                              </td>
-                            )}
-                            {show("paid") && (
-                              <td>
-                                {fmt(cv(paid(r)))} {cur}
-                              </td>
-                            )}
-                            {show("remaining") && (
-                              <td>
-                                {fmt(cv(remaining(r)))} {cur}
-                              </td>
-                            )}
-                            {show("calculation") && (
-                              <td>
-                                <ZakatCell
-                                  row={r}
-                                  ar={ar}
-                                  amount={`${fmt(cv(due(r)))} ${cur}`}
-                                />
-                              </td>
-                            )}
-                            {show("action") && (
-                              <td>
-                                <button
-                                  className="btn secondary asset-edit-btn"
-                                  onClick={() => editRow(r)}
-                                >
-                                  ✎
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        </>
+                      {g.rows.map((row) => (
+                        <tr key={row.id}>
+                          {orderedColumns.map((column) => (
+                            <td key={column} data-column={column}>
+                              {renderAssetCell(column, row)}
+                            </td>
+                          ))}
+                        </tr>
                       ))}
                     </tbody>
                   </table>
@@ -784,32 +750,6 @@ function ZakatCell({
         : ar
           ? "غير مؤهل"
           : "Not eligible";
-  const rate = Number(c.zakat_rate || 0),
-    eligible = Number(c.eligible_value || 0),
-    zakat = Number(c.zakat_amount || 0),
-    qty = Number(row.metadata?.quantity || 0),
-    karat = Number(row.metadata?.karat || 0),
-    lotPrice = Number(
-      c.lots?.find((x: any) => Number(x.valuation_price) > 0)
-        ?.valuation_price || 0,
-    );
-  let basis = "";
-  if (row.asset_type === "GOLD") {
-    const purity = karat > 0 && karat <= 24 ? karat / 24 : 1;
-    basis = `${fmt(qty)} g × ${(purity * 100).toFixed(2)}% × ${fmt(lotPrice)} SAR/g = ${fmt(Number(c.market_value || 0))} SAR`;
-  } else if (row.asset_type === "SILVER") {
-    const purity = karat > 24 ? karat / 1000 : karat > 0 ? karat / 24 : 1;
-    basis = `${fmt(qty)} g × ${(purity * 100).toFixed(2)}% × ${fmt(lotPrice)} SAR/g = ${fmt(Number(c.market_value || 0))} SAR`;
-  } else if (
-    ["STOCK", "INVENTORY"].includes(row.asset_type) &&
-    qty > 0 &&
-    lotPrice > 0
-  ) {
-    basis = `${fmt(qty)} × ${fmt(lotPrice)} SAR = ${fmt(Number(c.market_value || 0))} SAR`;
-  } else {
-    basis = `${fmt(Number(c.market_value || eligible))} SAR`;
-  }
-  const finalEq = `${fmt(eligible)} SAR × ${(rate * 100).toFixed(2)}% = ${fmt(zakat)} SAR`;
   return (
     <div className="zakat-result-compact">
       <strong>{amount}</strong> <span className="pill">{label}</span>
