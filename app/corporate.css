@@ -438,51 +438,51 @@
 .transactions-page .transaction-design-picker button{transition:background .16s,color .16s,box-shadow .16s,transform .16s}
 .transactions-page .transaction-design-picker button.active{box-shadow:0 5px 14px rgba(15,118,101,.2);transform:translateY(-1px)}
 
-.corp-content .transaction-design-executive>.transaction-entry-card{
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-executive>.transaction-entry-card{
   border:1px solid var(--tx-line)!important;
   border-inline-start:5px solid var(--tx-accent)!important;
   border-radius:12px!important;
   box-shadow:0 6px 20px rgba(18,63,54,.06)!important
 }
-.corp-content .transaction-design-executive>.transaction-ledger-card{border-radius:12px!important;overflow:hidden}
-.corp-content .transaction-design-executive .table thead th{background:#eaf4f0!important;color:#173f35!important;border-bottom:2px solid #c7ddd5!important}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-executive>.transaction-ledger-card{border-radius:12px!important;overflow:hidden}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-executive .table thead th{background:#eaf4f0!important;color:#173f35!important;border-bottom:2px solid #c7ddd5!important}
 .transaction-design-executive .transaction-design-picker button.active{background:#1d2d3d!important;border-color:#1d2d3d!important;color:#fff!important}
 
-.corp-content .transaction-design-timeline>.transaction-entry-card{
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-timeline>.transaction-entry-card{
   border:1px dashed #a8cbc0!important;
   border-radius:16px!important;
   background:linear-gradient(135deg,#fff,#f3faf7)!important;
   box-shadow:none!important
 }
-.corp-content .transaction-design-timeline>.transaction-ledger-card{
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-timeline>.transaction-ledger-card{
   border:0!important;
   border-inline-start:4px solid var(--tx-accent)!important;
   border-radius:10px!important;
   box-shadow:0 8px 24px rgba(18,63,54,.07)!important;
   overflow:hidden
 }
-.corp-content .transaction-design-timeline .table{border:0!important}
-.corp-content .transaction-design-timeline .table thead th{background:#f5faf8!important;color:#526b63!important}
-.corp-content .transaction-design-timeline .table tbody td:first-child{border-inline-start:4px solid var(--tx-accent)!important;font-weight:850;color:var(--tx-accent-dark)!important}
-.corp-content .transaction-design-timeline .table tbody tr:nth-child(even) td{background:#f7fbf9!important}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-timeline .table{border:0!important}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-timeline .table thead th{background:#f5faf8!important;color:#526b63!important}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-timeline .table tbody td:first-child{border-inline-start:4px solid var(--tx-accent)!important;font-weight:850;color:var(--tx-accent-dark)!important}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-timeline .table tbody tr:nth-child(even) td{background:#f7fbf9!important}
 .transaction-design-timeline .transaction-design-picker button.active{background:#176d79!important;border-color:#176d79!important;color:#fff!important}
 
-.corp-content .transaction-design-cashflow>.transaction-entry-card{
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-cashflow>.transaction-entry-card{
   border:0!important;
   border-radius:20px!important;
   background:linear-gradient(145deg,#fff,#f1f9f5)!important;
   box-shadow:var(--tx-shadow)!important
 }
-.corp-content .transaction-design-cashflow>.transaction-ledger-card{
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-cashflow>.transaction-ledger-card{
   border:0!important;
   border-radius:20px!important;
   box-shadow:0 16px 38px rgba(18,63,54,.13)!important;
   overflow:hidden
 }
-.corp-content .transaction-design-cashflow .table{border:0!important}
-.corp-content .transaction-design-cashflow .table thead th{background:var(--tx-accent-dark)!important;color:#fff!important;border-color:#315e54!important}
-.corp-content .transaction-design-cashflow .table tbody tr:nth-child(even) td{background:var(--tx-accent-soft)!important}
-.corp-content .transaction-design-cashflow .table tbody td:nth-child(4){font-weight:900;color:#087653!important;font-variant-numeric:tabular-nums}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-cashflow .table{border:0!important}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-cashflow .table thead th{background:var(--tx-accent-dark)!important;color:#fff!important;border-color:#315e54!important}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-cashflow .table tbody tr:nth-child(even) td{background:var(--tx-accent-soft)!important}
+:is(.theme-classic,.theme-modern,.theme-elegant) .corp-content .transaction-design-cashflow .table tbody td:nth-child(4){font-weight:900;color:#087653!important;font-variant-numeric:tabular-nums}
 .transaction-design-cashflow .transaction-design-picker button.active{background:#087653!important;border-color:#087653!important;color:#fff!important}
 
 .theme-elegant .transactions-page{--tx-line:#d7e9e1;--tx-surface:#fff;--tx-accent:#098451;--tx-accent-dark:#07563f;--tx-accent-soft:#edf7f2}
