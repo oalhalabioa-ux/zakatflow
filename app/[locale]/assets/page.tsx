@@ -85,6 +85,7 @@ export default function Assets({
     [closed, setClosed] = useState<Record<string, boolean>>({}),
     [visible, setVisible] = useState<Record<string, boolean>>(defaultVisible),
     [tableSize, setTableSize] = useState<Size>("normal"),
+    [design, setDesign] = useState("executive"),
     [columnOrder, setColumnOrder] = useState<string[]>([...COLS]);
   const cur = usd ? "USD" : "SAR",
     cv = (n: any) => (usd ? Number(n || 0) / FX : Number(n || 0));
@@ -103,12 +104,18 @@ export default function Assets({
       if (p.visible) setVisible({ ...defaultVisible(), ...p.visible });
       if (["compact", "normal", "wide"].includes(p.size)) setTableSize(p.size);
       if (Array.isArray(p.order)) setColumnOrder(p.order);
+      if (["executive", "cards", "analytical"].includes(p.design))
+        setDesign(p.design);
+      const savedDesign = localStorage.getItem("zf_assets_design");
+      if (["executive", "cards", "analytical"].includes(savedDesign || ""))
+        setDesign(savedDesign!);
     } catch {}
     const onSettings = (e: any) => {
       if (e.detail?.visible)
         setVisible({ ...defaultVisible(), ...e.detail.visible });
       if (e.detail?.size) setTableSize(e.detail.size);
       if (Array.isArray(e.detail?.order)) setColumnOrder(e.detail.order);
+      if (e.detail?.design) setDesign(e.detail.design);
     };
     window.addEventListener("zf-asset-table-settings", onSettings);
     return () =>
@@ -562,7 +569,7 @@ export default function Assets({
               {!isClosed && (
                 <div style={{ overflowX: "auto" }}>
                   <table
-                    className="table asset-report-table"
+                    className={`table asset-report-table asset-design-${design}`}
                     data-size={tableSize}
                   >
                     <thead>

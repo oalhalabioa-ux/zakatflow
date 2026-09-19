@@ -18,6 +18,7 @@
   --red: #b42318;
   --redsoft: #fff1ef;
 }
+.asset-design-cards .asset-report-table tbody tr:not(.asset-detail-row){box-shadow:0 4px 16px #123f3610;border-radius:12px}.asset-design-cards .asset-report-table{border-collapse:separate;border-spacing:0 8px}.asset-design-cards .asset-report-table thead{display:none}.asset-design-analytical .asset-report-table th{background:#123f36;color:#fff}.asset-design-analytical .asset-report-table tbody tr:nth-child(even){background:#f1f8f5}.transaction-design-picker{display:flex;align-items:center;gap:8px;justify-content:flex-start;margin-bottom:14px}.transaction-design-picker span{font-weight:700;margin-inline-end:8px}.transaction-design-picker button{border:1px solid #c9ddd6;background:#fff;color:#17483e;border-radius:9px;padding:8px 16px;cursor:pointer}.transaction-design-picker button.active{background:#0f7665;color:#fff;border-color:#0f7665}.transaction-design-timeline .table tbody tr{position:relative}.transaction-design-timeline .table tbody tr td:first-child{border-inline-start:4px solid #0f7665}.transaction-design-cashflow .table thead{background:#123f36;color:#fff}.transaction-design-cashflow .table tbody tr:nth-child(even){background:#eef8f4}.transaction-design-cashflow .section:last-child{box-shadow:0 12px 30px #123f3612}
 * {
   box-sizing: border-box;
 }
