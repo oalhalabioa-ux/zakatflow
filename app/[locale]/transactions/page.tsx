@@ -50,6 +50,8 @@ export default function Transactions() {
     base_value: "",
     notes: "",
     adjustment_direction: "IN",
+    proceeds_account_id: "",
+    disposal_zero_value: false,
   });
   const [msg, setMsg] = useState("");
   const load = async () => {
@@ -258,6 +260,14 @@ export default function Transactions() {
               ))}
             </select>
           </Field>
+          {form.transaction_type === "SALE" && (
+            <Field label="إيداع متحصلات البيع في">
+              <select value={form.proceeds_account_id} onChange={(e) => setForm({ ...form, proceeds_account_id: e.target.value })}>
+                <option value="">اختر الصندوق أو البنك</option>
+                {assets.filter((a) => a.asset_type === "CASH" || a.asset_type === "BANK").map((a) => <option key={a.id} value={a.id}>{a.name} — {a.asset_type}</option>)}
+              </select>
+            </Field>
+          )}
           {form.transaction_type === "ADJUSTMENT" && (
             <Field label="اتجاه التسوية">
               <select value={form.adjustment_direction} onChange={(e) => setForm({ ...form, adjustment_direction: e.target.value })}>
@@ -265,6 +275,9 @@ export default function Transactions() {
                 <option value="OUT">تخفيض الرصيد</option>
               </select>
             </Field>
+          )}
+          {form.transaction_type === "ADJUSTMENT" && form.adjustment_direction === "OUT" && (
+            <label className="muted"><input type="checkbox" checked={Boolean(form.disposal_zero_value)} onChange={(e) => setForm({ ...form, disposal_zero_value: e.target.checked, unit_price: e.target.checked ? 0 : form.unit_price, gross_value: e.target.checked ? 0 : form.gross_value, base_value: e.target.checked ? 0 : form.base_value })} /> استغناء عن أصل بقيمة صفرية — بدون أي أثر على النقدية</label>
           )}
           <Field label="التاريخ">
             <input
@@ -325,7 +338,7 @@ export default function Transactions() {
         <button
           className="btn"
           onClick={save}
-          disabled={!form.asset_account_id}
+          disabled={!form.asset_account_id || (form.transaction_type === "SALE" && !form.proceeds_account_id)}
         >
           إضافة
         </button>
