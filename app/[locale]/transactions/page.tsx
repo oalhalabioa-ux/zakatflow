@@ -235,9 +235,7 @@ export default function Transactions() {
           <Field label="الأصل">
             <select
               value={form.asset_account_id}
-              onChange={(e) =>
-                setForm({ ...form, asset_account_id: e.target.value })
-              }
+              onChange={(e) => { const selected = assets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, currency: selected?.currency || form.currency }); }}
             >
               {assets.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -302,17 +300,18 @@ export default function Transactions() {
             <input type="number" step="any" value={form.gross_value} readOnly />
           </Field>
           <Field label="عملة المعاملة">
-            <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} />
+            <input value={form.currency} onChange={(e) => { const currency=e.target.value.toUpperCase(); const same=currency===form.base_currency; setForm({ ...form, currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
           </Field>
           <Field label="العملة الأساسية">
-            <input value={form.base_currency} onChange={(e) => setForm({ ...form, base_currency: e.target.value.toUpperCase() })} />
+            <input value={form.base_currency} onChange={(e) => { const base_currency=e.target.value.toUpperCase(); const same=base_currency===form.currency; setForm({ ...form, base_currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
           </Field>
           <Field label="سعر الصرف">
             <input
               type="number"
               min="0"
               step="any"
-              value={form.fx_rate}
+              value={form.currency === form.base_currency ? 1 : form.fx_rate}
+              disabled={form.currency === form.base_currency}
               onChange={(e) => {
                 const fxRate = e.target.value;
                 setForm({ ...form, fx_rate: fxRate, base_value: (Number(form.gross_value) || 0) * (Number(fxRate) || 0) });
