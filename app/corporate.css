@@ -357,12 +357,13 @@
 .theme-elegant .footer{background:#fff;border-color:#e1ebe6;color:#687b76}
 
 .theme-elegant .corp-content{background:var(--elegant-page)!important;color:var(--elegant-text)!important}
-.theme-elegant .corp-content .card{
+.theme-elegant .corp-content .card:not(.asset-kpi):not(.asset-group){
   background:var(--elegant-surface)!important;
   border-color:var(--elegant-line)!important;
   color:var(--elegant-text)!important;
   box-shadow:var(--elegant-shadow)!important
 }
+.theme-elegant .corp-content :is(.asset-kpi,.asset-group){color:var(--elegant-text)!important}
 .theme-elegant .corp-content .container:not(.assets-page) .card{border-radius:12px!important}
 .theme-elegant .corp-content :is(h1,h2,h3,h4,strong){color:var(--elegant-heading)!important}
 .theme-elegant .corp-content :is(.muted,small,.section-kicker,.dash-eyebrow){color:var(--elegant-muted)!important}
@@ -377,9 +378,9 @@
 .theme-elegant .corp-content :is(.btn.secondary,.btn.outline):hover{background:#edf5f2!important;color:#07563f!important}
 .theme-elegant .corp-content :is(input,select,textarea){background:#fff!important;color:#172b27!important;border-color:#cddbd6!important;border-radius:9px}
 .theme-elegant .corp-content :is(input,select,textarea):focus{border-color:#168260!important;box-shadow:0 0 0 3px rgba(22,130,96,.12)!important}
-.theme-elegant .corp-content .table{border-color:var(--elegant-line)!important;border-radius:12px!important}
-.theme-elegant .corp-content .table thead th{background:#eef4f2!important;color:#415b54!important;border-color:#dce6e2!important}
-.theme-elegant .corp-content .table td{color:var(--elegant-text)!important;border-color:#e5ece9!important}
+.theme-elegant .corp-content .table:not(.asset-report-table){border-color:var(--elegant-line)!important;border-radius:12px!important}
+.theme-elegant .corp-content .table:not(.asset-report-table) thead th{background:#eef4f2!important;color:#415b54!important;border-color:#dce6e2!important}
+.theme-elegant .corp-content .table:not(.asset-report-table) td{color:var(--elegant-text)!important;border-color:#e5ece9!important}
 .theme-elegant .corp-content .pill{background:#edf5f2!important;color:#31524a!important;border-color:#d0e1db!important;border-radius:99px}
 
 .theme-elegant .corp-content :is(.kpi-icon,.dm-icon,.section-icon,.workflow-kpi-icon,.payment-kpi-icon,.report-icon,.asset-type-icon,.page-title-icon,.section-title-icon,.guide-step span){
