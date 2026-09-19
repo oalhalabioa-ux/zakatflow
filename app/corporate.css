@@ -323,3 +323,95 @@
 .theme-elegant .asset-report-table thead th{background:#f2f7f5!important;color:#49635b!important}
 .theme-elegant .asset-group-head{border-bottom:1px solid #dce7e3!important}
 @media(max-width:650px){.theme-elegant .asset-summary{display:grid;grid-template-columns:1fr;width:100%}.theme-elegant .sum-chip{min-width:0;width:100%}}
+
+
+/* Elegant theme parity — carry the approved dashboard palette across the product. */
+.theme-elegant{
+  --elegant-page:#f4f7f6;
+  --elegant-surface:#fff;
+  --elegant-heading:#142c26;
+  --elegant-text:#263e38;
+  --elegant-muted:#627b72;
+  --elegant-primary:#07563f;
+  --elegant-accent:#098451;
+  --elegant-accent-soft:#e6f6ed;
+  --elegant-line:#e1ebe6;
+  --elegant-shadow:0 5px 22px rgba(33,70,57,.045)
+}
+.theme-elegant .corp-sidebar{
+  background:#fff!important;
+  color:#263c34!important;
+  border-inline-end:1px solid #e2ebe6!important;
+  box-shadow:none!important
+}
+.theme-elegant .corp-brand strong{color:#07563f!important}
+.theme-elegant .corp-brand small{color:#6b8277!important}
+.theme-elegant .corp-mark{color:#087653!important;border-color:#087653!important}
+.theme-elegant .corp-brand-row,.theme-elegant .corp-sidebar-foot{border-color:#e7eee9!important}
+.theme-elegant :is(.corp-nav a,.corp-nav button,.corp-sidebar-foot a){color:#243c31!important;border-radius:7px}
+.theme-elegant :is(.corp-nav a,.corp-nav button,.corp-sidebar-foot a):hover{background:#e9f5ee!important;color:#07563f!important}
+.theme-elegant .corp-subnav{border-color:#e2ebe6!important}
+.theme-elegant .corp-nav-sep{background:#e2ebe6!important}
+.theme-elegant .sidebar-toggle{background:#eef5f0!important;color:#07563f!important}
+.theme-elegant .corp-avatar{background:#07563f!important;color:#fff!important}
+.theme-elegant .footer{background:#fff;border-color:#e1ebe6;color:#687b76}
+
+.theme-elegant .corp-content{background:var(--elegant-page)!important;color:var(--elegant-text)!important}
+.theme-elegant .corp-content .card{
+  background:var(--elegant-surface)!important;
+  border-color:var(--elegant-line)!important;
+  color:var(--elegant-text)!important;
+  box-shadow:var(--elegant-shadow)!important
+}
+.theme-elegant .corp-content .container:not(.assets-page) .card{border-radius:12px!important}
+.theme-elegant .corp-content :is(h1,h2,h3,h4,strong){color:var(--elegant-heading)!important}
+.theme-elegant .corp-content :is(.muted,small,.section-kicker,.dash-eyebrow){color:var(--elegant-muted)!important}
+.theme-elegant .corp-content .btn:not(.secondary):not(.outline):not(.danger){
+  background:var(--elegant-primary)!important;
+  border-color:var(--elegant-primary)!important;
+  color:#fff!important;
+  border-radius:7px
+}
+.theme-elegant .corp-content .btn:not(.secondary):not(.outline):not(.danger):hover{background:#0b684e!important;border-color:#0b684e!important}
+.theme-elegant .corp-content :is(.btn.secondary,.btn.outline){background:#fff!important;color:#245449!important;border-color:#c9d9d4!important;border-radius:7px}
+.theme-elegant .corp-content :is(.btn.secondary,.btn.outline):hover{background:#edf5f2!important;color:#07563f!important}
+.theme-elegant .corp-content :is(input,select,textarea){background:#fff!important;color:#172b27!important;border-color:#cddbd6!important;border-radius:9px}
+.theme-elegant .corp-content :is(input,select,textarea):focus{border-color:#168260!important;box-shadow:0 0 0 3px rgba(22,130,96,.12)!important}
+.theme-elegant .corp-content .table{border-color:var(--elegant-line)!important;border-radius:12px!important}
+.theme-elegant .corp-content .table thead th{background:#eef4f2!important;color:#415b54!important;border-color:#dce6e2!important}
+.theme-elegant .corp-content .table td{color:var(--elegant-text)!important;border-color:#e5ece9!important}
+.theme-elegant .corp-content .pill{background:#edf5f2!important;color:#31524a!important;border-color:#d0e1db!important;border-radius:99px}
+
+.theme-elegant .corp-content :is(.kpi-icon,.dm-icon,.section-icon,.workflow-kpi-icon,.payment-kpi-icon,.report-icon,.asset-type-icon,.page-title-icon,.section-title-icon,.guide-step span){
+  background:var(--elegant-accent-soft)!important;
+  color:var(--elegant-accent)!important;
+  border-color:#d7e9e1!important
+}
+.theme-elegant .corp-content :is(.kpi-icon,.dm-icon,.section-icon,.workflow-kpi-icon,.payment-kpi-icon,.report-icon,.asset-type-icon,.page-title-icon,.section-title-icon){border-radius:50%!important}
+.theme-elegant .corp-content :is(.asset-kpi-accent,.workflow-kpi-accent,.payment-kpi-accent){background:#e4f1eb!important}
+.theme-elegant .corp-content :is(.asset-kpi-accent,.workflow-kpi-accent,.payment-kpi-accent):after{background:#15985d!important}
+
+.theme-elegant .tone-cost .kpi-icon{background:#eef3ff!important;color:#4b78bd!important}
+.theme-elegant .tone-cost .asset-kpi-accent:after{background:#4b78bd!important}
+.theme-elegant .tone-gain .kpi-icon{background:#e9f7ee!important;color:#1a9d62!important}
+.theme-elegant .tone-gain .asset-kpi-accent:after{background:#1a9d62!important}
+.theme-elegant .tone-due .kpi-icon{background:#fff3e7!important;color:#d77a2d!important}
+.theme-elegant .tone-due .asset-kpi-accent:after{background:#d77a2d!important}
+.theme-elegant .tone-paid .kpi-icon{background:#e7f7f0!important;color:#078b59!important}
+.theme-elegant .tone-paid .asset-kpi-accent:after{background:#078b59!important}
+.theme-elegant .tone-count .kpi-icon{background:#f1edff!important;color:#7764b8!important}
+.theme-elegant .tone-count .asset-kpi-accent:after{background:#7764b8!important}
+.theme-elegant .tone-hawl .kpi-icon{background:#eef7fa!important;color:#47869b!important}
+.theme-elegant .tone-hawl .asset-kpi-accent:after{background:#47869b!important}
+.theme-elegant .payment-kpi.tone-remaining .payment-kpi-icon{background:#fff0e9!important;color:#c84c2a!important}
+.theme-elegant .payment-kpi.tone-remaining .payment-kpi-accent:after{background:#d45632!important}
+.theme-elegant .payment-kpi.tone-prior .payment-kpi-icon{background:#fff5e5!important;color:#b97a13!important}
+.theme-elegant .payment-kpi.tone-prior .payment-kpi-accent:after{background:#d49a32!important}
+.theme-elegant .payment-kpi.tone-unallocated .payment-kpi-icon{background:#eef3ff!important;color:#4b72b0!important}
+.theme-elegant .payment-kpi.tone-unallocated .payment-kpi-accent:after{background:#5d7fba!important}
+
+.theme-elegant .guide-hero{background:linear-gradient(135deg,#07563f,#0b684e)!important}
+.theme-elegant .guide-hero :is(h1,p,strong,small){color:#fff!important}
+.theme-elegant .guide-badge{background:rgba(255,255,255,.14)!important;color:#fff!important;border-color:rgba(255,255,255,.24)!important}
+.theme-elegant .step.active{background:#e6f6ed!important;border-color:#15985d!important;color:#07563f!important}
+.theme-elegant .cycle-journey-steps>div.active{background:#e6f6ed!important;border-color:#15985d!important}
