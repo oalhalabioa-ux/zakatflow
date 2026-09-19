@@ -1,10 +1,25 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 type Design = "executive" | "timeline" | "cashflow";
+type SortKey = "date" | "asset" | "type" | "value" | "currency";
+type SortDirection = "asc" | "desc";
+const numberFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function assetName(row: any) {
+  return row.asset_accounts?.name || row.asset_account_id || "—";
+}
+
 export default function Transactions() {
   const [rows, setRows] = useState<any[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
   const [design, setDesign] = useState<Design>("executive");
+  const [sort, setSort] = useState<{
+    key: SortKey;
+    direction: SortDirection;
+  }>({ key: "date", direction: "desc" });
   const [form, setForm] = useState<any>({
     asset_account_id: "",
     transaction_type: "ADD",
@@ -62,6 +77,36 @@ export default function Transactions() {
     setDesign(v);
     localStorage.setItem("zf_transactions_design", v);
   };
+  const sortedRows = useMemo(() => {
+    const valueOf = (row: any) => {
+      if (sort.key === "date") return String(row.transaction_date || "");
+      if (sort.key === "asset") return String(assetName(row));
+      if (sort.key === "type") return String(row.transaction_type || "");
+      if (sort.key === "currency") return String(row.base_currency || "");
+      return Number(row.base_value) || 0;
+    };
+    return [...rows].sort((a, b) => {
+      const left = valueOf(a);
+      const right = valueOf(b);
+      const compared =
+        typeof left === "number" && typeof right === "number"
+          ? left - right
+          : String(left).localeCompare(String(right), "ar", {
+              numeric: true,
+              sensitivity: "base",
+            });
+      return sort.direction === "asc" ? compared : -compared;
+    });
+  }, [rows, sort]);
+  const changeSort = (key: SortKey) => {
+    setSort((current) => ({
+      key,
+      direction:
+        current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+  const sortMark = (key: SortKey) =>
+    sort.key === key ? (sort.direction === "asc" ? "↑" : "↓") : "↕";
   return (
     <main
       className={`container transactions-page transaction-design-${design}`}
@@ -179,23 +224,34 @@ export default function Transactions() {
         {msg && <p className="muted">{msg}</p>}
       </div>
       <div className="card section transaction-ledger-card">
+        <div className="transaction-ledger-head">
+          <div>
+            <span className="transaction-ledger-kicker">سجل الحركة</span>
+            <h2>المعاملات المسجلة</h2>
+          </div>
+          <span className="transaction-ledger-count">
+            {numberFormatter.format(rows.length).replace(".00", "")} معاملة
+          </span>
+        </div>
         <table className="table">
           <thead>
             <tr>
-              <th>التاريخ</th>
-              <th>الأصل</th>
-              <th>النوع</th>
-              <th>القيمة</th>
-              <th>العملة</th>
+              <SortableHeader label="التاريخ" column="date" sort={sort} onSort={changeSort} mark={sortMark("date")} />
+              <SortableHeader label="الأصل" column="asset" sort={sort} onSort={changeSort} mark={sortMark("asset")} />
+              <SortableHeader label="النوع" column="type" sort={sort} onSort={changeSort} mark={sortMark("type")} />
+              <SortableHeader label="القيمة" column="value" sort={sort} onSort={changeSort} mark={sortMark("value")} />
+              <SortableHeader label="العملة" column="currency" sort={sort} onSort={changeSort} mark={sortMark("currency")} />
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {sortedRows.map((r) => (
               <tr key={r.id}>
                 <td>{r.transaction_date}</td>
-                <td>{r.asset_accounts?.name || r.asset_account_id}</td>
+                <td>{assetName(r)}</td>
                 <td>{r.transaction_type}</td>
-                <td>{r.base_value}</td>
+                <td className="transaction-value">
+                  {numberFormatter.format(Number(r.base_value) || 0)}
+                </td>
                 <td>{r.base_currency}</td>
               </tr>
             ))}
@@ -210,6 +266,34 @@ export default function Transactions() {
         </table>
       </div>
     </main>
+  );
+}
+
+function SortableHeader({
+  label,
+  column,
+  sort,
+  onSort,
+  mark,
+}: {
+  label: string;
+  column: SortKey;
+  sort: { key: SortKey; direction: SortDirection };
+  onSort: (key: SortKey) => void;
+  mark: string;
+}) {
+  const active = sort.key === column;
+  return (
+    <th aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
+      <button
+        type="button"
+        className={`transaction-sort${active ? " active" : ""}`}
+        onClick={() => onSort(column)}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true">{mark}</span>
+      </button>
+    </th>
   );
 }
 function Field({
