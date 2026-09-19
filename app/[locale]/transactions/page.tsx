@@ -43,10 +43,13 @@ export default function Transactions() {
     transaction_date: new Date().toISOString().slice(0, 10),
     quantity: 1,
     currency: "SAR",
+    unit_price: "",
     gross_value: "",
     base_currency: "SAR",
+    fx_rate: 1,
     base_value: "",
     notes: "",
+    adjustment_direction: "IN",
   });
   const [msg, setMsg] = useState("");
   const load = async () => {
@@ -91,6 +94,7 @@ export default function Transactions() {
       body: JSON.stringify({
         ...form,
         quantity: Number(form.quantity),
+        unit_price: form.unit_price === "" ? undefined : Number(form.unit_price),
         gross_value: Number(form.gross_value),
         base_value: Number(form.base_value),
       }),
@@ -144,12 +148,17 @@ export default function Transactions() {
     });
   }, [filteredRows, sort]);
   const summary = useMemo(
-    () => ({
+    () => {
+      const inflowTypes = new Set(["ADD", "OPENING_BALANCE", "PURCHASE", "TRANSFER_IN"]);
+      const outflowTypes = new Set(["SALE", "WITHDRAWAL", "TRANSFER_OUT", "ZAKAT_PAYMENT"]);
+      const inflows = rows.reduce((sum, row) => sum + (inflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : 0), 0);
+      const outflows = rows.reduce((sum, row) => sum + (outflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : 0), 0);
+      return ({
       count: rows.length,
-      total: rows.reduce(
-        (sum, row) => sum + (Number(row.base_value) || 0),
-        0,
-      ),
+      total: rows.reduce((sum, row) => sum + (Number(row.base_value) || 0), 0),
+      inflows,
+      outflows,
+      net: inflows - outflows,
       assets: new Set(rows.map((row) => row.asset_account_id).filter(Boolean))
         .size,
       latest:
@@ -158,7 +167,8 @@ export default function Transactions() {
           .filter(Boolean)
           .sort()
           .at(-1) || "—",
-    }),
+    });
+    },
     [rows],
   );
   const hasFilters = Boolean(query || typeFilter || dateFrom || dateTo);
@@ -199,8 +209,8 @@ export default function Transactions() {
         />
         <TransactionKpi
           icon="◆"
-          label="إجمالي القيم المسجلة"
-          value={displayMetric(`${numberFormatter.format(summary.total)} SAR`)}
+          label="صافي الحركة"
+          value={displayMetric(`${numberFormatter.format(summary.net)} SAR`)}
         />
         <TransactionKpi
           icon="▦"
@@ -225,9 +235,7 @@ export default function Transactions() {
           <Field label="الأصل">
             <select
               value={form.asset_account_id}
-              onChange={(e) =>
-                setForm({ ...form, asset_account_id: e.target.value })
-              }
+              onChange={(e) => { const selected = assets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, currency: selected?.currency || form.currency }); }}
             >
               {assets.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -250,6 +258,14 @@ export default function Transactions() {
               ))}
             </select>
           </Field>
+          {form.transaction_type === "ADJUSTMENT" && (
+            <Field label="اتجاه التسوية">
+              <select value={form.adjustment_direction} onChange={(e) => setForm({ ...form, adjustment_direction: e.target.value })}>
+                <option value="IN">زيادة الرصيد</option>
+                <option value="OUT">تخفيض الرصيد</option>
+              </select>
+            </Field>
+          )}
           <Field label="التاريخ">
             <input
               type="date"
@@ -264,35 +280,46 @@ export default function Transactions() {
               type="number"
               step="any"
               value={form.quantity}
-              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+              onChange={(e) => { const quantity = e.target.value; const grossValue = (Number(quantity) || 0) * (Number(form.unit_price) || 0); setForm({ ...form, quantity, gross_value: grossValue || "", base_value: grossValue ? grossValue * (Number(form.fx_rate) || 1) : "" }); }}
             />
           </Field>
-          <Field label="القيمة">
+          <Field label="سعر الوحدة">
             <input
               type="number"
+              min="0"
               step="any"
-              value={form.gross_value}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  quantity: e.target.value,
-                  gross_value: e.target.value,
-                  base_value: e.target.value,
-                })
-              }
+              value={form.unit_price}
+              onChange={(e) => {
+                const unitPrice = e.target.value;
+                const grossValue = (Number(form.quantity) || 0) * (Number(unitPrice) || 0);
+                setForm({ ...form, unit_price: unitPrice, gross_value: grossValue || "", base_value: grossValue ? grossValue * (Number(form.fx_rate) || 1) : "" });
+              }}
             />
           </Field>
-          <Field label="العملة">
+          <Field label="إجمالي القيمة">
+            <input type="number" step="any" value={form.gross_value} readOnly />
+          </Field>
+          <Field label="عملة المعاملة">
+            <input value={form.currency} onChange={(e) => { const currency=e.target.value.toUpperCase(); const same=currency===form.base_currency; setForm({ ...form, currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
+          </Field>
+          <Field label="العملة الأساسية">
+            <input value={form.base_currency} onChange={(e) => { const base_currency=e.target.value.toUpperCase(); const same=base_currency===form.currency; setForm({ ...form, base_currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
+          </Field>
+          <Field label="سعر الصرف">
             <input
-              value={form.currency}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  currency: e.target.value,
-                  base_currency: e.target.value,
-                })
-              }
+              type="number"
+              min="0"
+              step="any"
+              value={form.currency === form.base_currency ? 1 : form.fx_rate}
+              disabled={form.currency === form.base_currency}
+              onChange={(e) => {
+                const fxRate = e.target.value;
+                setForm({ ...form, fx_rate: fxRate, base_value: (Number(form.gross_value) || 0) * (Number(fxRate) || 0) });
+              }}
             />
+          </Field>
+          <Field label="القيمة بالعملة الأساسية">
+            <input type="number" step="any" value={form.base_value} readOnly />
           </Field>
         </div>
         <button
