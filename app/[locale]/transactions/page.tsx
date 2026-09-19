@@ -89,7 +89,7 @@ export default function Transactions() {
         كل عملية تدخل في الحساب تبدأ من هذا السجل. لا نحذف التاريخ؛ نستخدم
         Reversal.
       </p>
-      <div className="card section">
+      <div className="card section transaction-entry-card">
         <div className="form-grid">
           <Field label="الأصل">
             <select
@@ -178,7 +178,7 @@ export default function Transactions() {
         </button>
         {msg && <p className="muted">{msg}</p>}
       </div>
-      <div className="card section">
+      <div className="card section transaction-ledger-card">
         <table className="table">
           <thead>
             <tr>
