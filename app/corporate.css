@@ -217,6 +217,98 @@
 .theme-elegant .asset-row-icon{display:inline-grid;place-items:center;width:25px;height:25px;flex:0 0 25px;border-radius:8px;background:#f0f6f3;color:#176c57;border:1px solid #ddeae5;font-size:12px;font-weight:900}
 .theme-elegant .asset-name-cell{display:inline-flex;align-items:center;gap:8px}
 .theme-elegant .asset-kpi .kpi-icon{font-family:ui-sans-serif,system-ui,sans-serif;font-size:16px!important;color:#176c57!important;font-weight:900}
+
+/* Assets page design switcher: deliberately stronger than the corporate base theme. */
+.corp-content .assets-page-executive .asset-group{
+  border:1px solid #d8e6e1!important;
+  border-inline-start:5px solid #0f7665!important;
+  border-radius:10px!important;
+  box-shadow:0 5px 18px rgba(20,65,52,.06)!important;
+}
+.corp-content .assets-page-executive .asset-report-table thead th{
+  background:#eaf4f0!important;
+  color:#173f35!important;
+  border-bottom:2px solid #c7ddd5!important;
+}
+.corp-content .assets-page-executive .asset-kpi{
+  border-radius:10px!important;
+  box-shadow:0 5px 16px rgba(20,65,52,.07)!important;
+}
+
+.corp-content .assets-page-cards .asset-kpi{
+  border:1px solid #e4ece9!important;
+  border-top:1px solid #e4ece9!important;
+  border-radius:20px!important;
+  background:linear-gradient(145deg,#fff,#f7fbf9)!important;
+  box-shadow:0 14px 32px rgba(20,65,52,.13)!important;
+  transform:translateY(-2px);
+}
+.corp-content .assets-page-cards .asset-group{
+  border:0!important;
+  border-radius:22px!important;
+  background:linear-gradient(150deg,#fff,#f7fbf9)!important;
+  box-shadow:0 18px 42px rgba(20,65,52,.13)!important;
+  padding:22px!important;
+}
+.corp-content .assets-page-cards .asset-report-table{
+  border:0!important;
+  border-collapse:separate!important;
+  border-spacing:0 9px!important;
+  background:transparent!important;
+}
+.corp-content .assets-page-cards .asset-report-table thead th{
+  background:transparent!important;
+  color:#63766f!important;
+  border:0!important;
+}
+.corp-content .assets-page-cards .asset-report-table tbody tr{
+  background:#fff!important;
+  box-shadow:0 6px 18px rgba(18,63,54,.1)!important;
+}
+.corp-content .assets-page-cards .asset-report-table tbody td{
+  background:#fff!important;
+  border-block:1px solid #e3ece8!important;
+}
+.corp-content .assets-page-cards .asset-report-table tbody td:first-child{
+  border-inline-start:1px solid #e3ece8!important;
+  border-start-start-radius:12px;
+  border-end-start-radius:12px;
+}
+.corp-content .assets-page-cards .asset-report-table tbody td:last-child{
+  border-inline-end:1px solid #e3ece8!important;
+  border-start-end-radius:12px;
+  border-end-end-radius:12px;
+}
+
+.corp-content .assets-page-analytical .asset-kpi{
+  border:1px solid #cfdde0!important;
+  border-top:4px solid #176d79!important;
+  border-radius:5px!important;
+  background:#f8fbfc!important;
+  box-shadow:none!important;
+}
+.corp-content .assets-page-analytical .asset-group{
+  border:1px solid #cfdde0!important;
+  border-radius:5px!important;
+  box-shadow:none!important;
+}
+.corp-content .assets-page-analytical .asset-report-table{
+  border:1px solid #bfcfd3!important;
+  border-radius:0!important;
+}
+.corp-content .assets-page-analytical .asset-report-table thead th{
+  background:#123f46!important;
+  color:#fff!important;
+  border-color:#315e65!important;
+}
+.corp-content .assets-page-analytical .asset-report-table tbody tr:nth-child(even),
+.corp-content .assets-page-analytical .asset-report-table tbody tr:nth-child(even) td{
+  background:#eaf3f4!important;
+}
+.corp-content .assets-page-analytical .sum-chip{
+  border-radius:4px!important;
+  background:#edf4f5!important;
+}
 .theme-elegant .asset-summary{display:inline-flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #dce8e3}
 .theme-elegant .sum-chip{display:grid!important;grid-template-columns:auto auto;grid-template-areas:"icon label" "icon value";column-gap:8px;row-gap:2px;align-items:center;min-width:190px;padding:9px 12px!important;border:1px solid #d8e7e1!important;border-radius:11px!important;background:#f6faf8!important;margin:0!important}
 .theme-elegant .sum-chip.due{background:#fff9f0!important;border-color:#eadfc8!important}
