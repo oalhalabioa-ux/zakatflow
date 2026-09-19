@@ -203,6 +203,18 @@ export default function Assets({
       (calc(r)?.statuses || []).includes("NOT_ASSESSED") &&
       (calc(r)?.lots || []).some((l: any) => l.hawl_start_date),
   );
+  const indicatorValue = (value: string) =>
+    loading ? "…" : loadError ? "—" : value;
+  const indicatorSource = (source: string) =>
+    loading
+      ? ar
+        ? "جارٍ التحديث"
+        : "Updating"
+      : loadError
+        ? ar
+          ? "البيانات غير متاحة"
+          : "Data unavailable"
+        : source;
   const editRow = (r: any) => {
     const d = r.metadata || {};
     setEdit(r.id);
@@ -396,57 +408,57 @@ export default function Assets({
           i="◆"
           tone="value"
           t={ar ? "القيمة الحالية" : "Current value"}
-          v={`${fmt(cv(total))} ${cur}`}
-          source={ar ? "سجل التقييم" : "Valuation ledger"}
+          v={indicatorValue(`${fmt(cv(total))} ${cur}`)}
+          source={indicatorSource(ar ? "سجل التقييم" : "Valuation ledger")}
         />
         <K
           i="▤"
           tone="cost"
           t={ar ? "تكلفة الشراء" : "Purchase cost"}
-          v={`${fmt(cv(cost))} ${cur}`}
-          source={ar ? "سجل الأصول" : "Asset ledger"}
+          v={indicatorValue(`${fmt(cv(cost))} ${cur}`)}
+          source={indicatorSource(ar ? "سجل الأصول" : "Asset ledger")}
         />
         <K
           i="↗"
           tone="gain"
           t={ar ? "الربح / الخسارة" : "Gain / loss"}
-          v={`${fmt(cv(total - cost))} ${cur}`}
-          source={ar ? "محسوب مباشرة" : "Live calculation"}
+          v={indicatorValue(`${fmt(cv(total - cost))} ${cur}`)}
+          source={indicatorSource(ar ? "محسوب مباشرة" : "Live calculation")}
         />
         <K
           i="◉"
           tone="due"
           t={ar ? "الزكاة المحتسبة" : "Calculated Zakat"}
-          v={`${fmt(cv(totalDue))} ${cur}`}
-          source={ar ? "آخر Snapshot" : "Latest Snapshot"}
+          v={indicatorValue(`${fmt(cv(totalDue))} ${cur}`)}
+          source={indicatorSource(ar ? "آخر Snapshot" : "Latest Snapshot")}
         />
         <K
           i="✓"
           tone="paid"
           t={ar ? "المدفوع المخصص" : "Allocated paid"}
-          v={`${fmt(cv(totalPaid))} ${cur}`}
-          source={ar ? "تخصيصات السداد" : "Payment allocations"}
+          v={indicatorValue(`${fmt(cv(totalPaid))} ${cur}`)}
+          source={indicatorSource(ar ? "تخصيصات السداد" : "Payment allocations")}
         />
         <K
           i="▦"
           tone="count"
           t={ar ? "عدد الأصول" : "Assets"}
-          v={`${rows.length}`}
-          source={ar ? "السجل الفعلي" : "Live ledger"}
+          v={indicatorValue(`${rows.length}`)}
+          source={indicatorSource(ar ? "السجل الفعلي" : "Live ledger")}
         />
         <K
           i="◷"
           tone="hawl"
           t={ar ? "مؤهل بالحول" : "Hawl eligible"}
-          v={`${completed.length}`}
-          source={ar ? "آخر Snapshot" : "Latest Snapshot"}
+          v={indicatorValue(`${completed.length}`)}
+          source={indicatorSource(ar ? "آخر Snapshot" : "Latest Snapshot")}
         />
         <K
           i="!"
           tone="due"
           t={ar ? "استحقاق خلال 30 يوماً" : "Due within 30 days"}
-          v={`${near.length}`}
-          source={ar ? "تواريخ الحول" : "Hawl dates"}
+          v={indicatorValue(`${near.length}`)}
+          source={indicatorSource(ar ? "تواريخ الحول" : "Hawl dates")}
         />
       </section>
       <section className="card section">
