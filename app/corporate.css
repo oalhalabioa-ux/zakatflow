@@ -217,6 +217,13 @@
 .theme-elegant .asset-row-icon{display:inline-grid;place-items:center;width:25px;height:25px;flex:0 0 25px;border-radius:8px;background:#f0f6f3;color:#176c57;border:1px solid #ddeae5;font-size:12px;font-weight:900}
 .theme-elegant .asset-name-cell{display:inline-flex;align-items:center;gap:8px}
 .theme-elegant .asset-kpi .kpi-icon{font-family:ui-sans-serif,system-ui,sans-serif;font-size:16px!important;color:#176c57!important;font-weight:900}
+.asset-kpi-source{display:flex;align-items:center;gap:6px;margin-top:8px;color:#6c817a;font-size:9px;font-weight:750}
+.asset-kpi-source>span{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:#15985d;box-shadow:0 0 0 3px rgba(21,152,93,.11)}
+.asset-sort{width:100%;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;cursor:pointer;text-align:start}
+.asset-sort span:last-child{width:18px;height:18px;display:grid;place-items:center;border-radius:5px;color:#81948e;font-size:12px}
+.asset-sort.active span:last-child{background:rgba(15,118,101,.12);color:#07563f}
+.asset-sort:hover span:first-child{text-decoration:underline;text-underline-offset:3px}
+.theme-elegant .asset-kpi-source{color:#60776f}.theme-elegant .asset-sort.active span:last-child{background:#dff2ea;color:#07563f}
 
 /* Assets page design switcher: deliberately stronger than the corporate base theme. */
 .corp-content .assets-page-executive .asset-group{
