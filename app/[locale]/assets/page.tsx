@@ -3,9 +3,15 @@ import { use, useEffect, useMemo, useState } from "react";
 import {
   ASSET_COLUMNS,
   type AssetColumn,
+  type AssetSortColumn,
+  type AssetSortDirection,
   type AssetTablePreferences,
+  assetCostValue,
+  assetCurrentValue,
+  assetHawlDate,
   assetTablePreset,
   parseAssetTablePreferences,
+  sortAssetRows,
   visibleAssetColumns,
 } from "@/lib/asset-table-preferences";
 type T =
@@ -80,7 +86,11 @@ export default function Assets({
     [closed, setClosed] = useState<Record<string, boolean>>({}),
     [tablePreferences, setTablePreferences] =
       useState<AssetTablePreferences>(() => assetTablePreset("professional")),
-    [design, setDesign] = useState<AssetsPageDesign>("executive");
+    [design, setDesign] = useState<AssetsPageDesign>("executive"),
+    [sort, setSort] = useState<{
+      column: AssetSortColumn;
+      direction: AssetSortDirection;
+    }>({ column: "current", direction: "desc" });
   const cur = usd ? "USD" : "SAR",
     cv = (n: any) => (usd ? Number(n || 0) / FX : Number(n || 0));
   const load = async () => {
@@ -135,12 +145,8 @@ export default function Assets({
     [tablePreferences.order, tablePreferences.visible],
   );
   const m = (r: any, k: string) => Number(r?.metadata?.[k] || 0),
-    val = (r: any) =>
-      m(r, "market_value") ||
-      m(r, "estimated_value") ||
-      m(r, "purchase_value") ||
-      m(r, "opening_value"),
-    costVal = (r: any) => m(r, "purchase_value") || m(r, "opening_value");
+    val = assetCurrentValue,
+    costVal = assetCostValue;
   const calc = (r: any) => r.zakat_calculation || null,
     due = (r: any) => Number(calc(r)?.zakat_amount || 0),
     paid = (r: any) => Number(calc(r)?.paid_amount || 0),
@@ -155,11 +161,7 @@ export default function Assets({
       ?.map((x: any) => x.hawl_start_date)
       .filter(Boolean)
       .sort()?.[0];
-  const hawlDisplayDate = (r: any) =>
-    hawlStart(r) ||
-    lotHawlStart(r) ||
-    calc(r)?.hawl_display_only?.portfolio_nisab_reached_date ||
-    undefined;
+  const hawlDisplayDate = (r: any) => assetHawlDate(r) || undefined;
   const metal = form.asset_type === "GOLD" || form.asset_type === "SILVER",
     market = metal || form.asset_type === "STOCK",
     qty = market || form.asset_type === "INVENTORY";
@@ -222,6 +224,17 @@ export default function Assets({
     const definition = ASSET_COLUMNS.find(([key]) => key === column)!;
     return ar ? definition[1] : definition[2];
   };
+  const changeSort = (column: AssetSortColumn) => {
+    setSort((current) => ({
+      column,
+      direction:
+        current.column === column && current.direction === "asc"
+          ? "desc"
+          : "asc",
+    }));
+  };
+  const sortMark = (column: AssetSortColumn) =>
+    sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕";
   const renderAssetCell = (column: AssetColumn, row: any) => {
     switch (column) {
       case "asset":
@@ -384,48 +397,56 @@ export default function Assets({
           tone="value"
           t={ar ? "القيمة الحالية" : "Current value"}
           v={`${fmt(cv(total))} ${cur}`}
+          source={ar ? "سجل التقييم" : "Valuation ledger"}
         />
         <K
           i="▤"
           tone="cost"
           t={ar ? "تكلفة الشراء" : "Purchase cost"}
           v={`${fmt(cv(cost))} ${cur}`}
+          source={ar ? "سجل الأصول" : "Asset ledger"}
         />
         <K
           i="↗"
           tone="gain"
           t={ar ? "الربح / الخسارة" : "Gain / loss"}
           v={`${fmt(cv(total - cost))} ${cur}`}
+          source={ar ? "محسوب مباشرة" : "Live calculation"}
         />
         <K
           i="◉"
           tone="due"
           t={ar ? "الزكاة المحتسبة" : "Calculated Zakat"}
           v={`${fmt(cv(totalDue))} ${cur}`}
+          source={ar ? "آخر Snapshot" : "Latest Snapshot"}
         />
         <K
           i="✓"
           tone="paid"
           t={ar ? "المدفوع المخصص" : "Allocated paid"}
           v={`${fmt(cv(totalPaid))} ${cur}`}
+          source={ar ? "تخصيصات السداد" : "Payment allocations"}
         />
         <K
           i="▦"
           tone="count"
           t={ar ? "عدد الأصول" : "Assets"}
           v={`${rows.length}`}
+          source={ar ? "السجل الفعلي" : "Live ledger"}
         />
         <K
           i="◷"
           tone="hawl"
           t={ar ? "مؤهل بالحول" : "Hawl eligible"}
           v={`${completed.length}`}
+          source={ar ? "آخر Snapshot" : "Latest Snapshot"}
         />
         <K
           i="!"
           tone="due"
           t={ar ? "استحقاق خلال 30 يوماً" : "Due within 30 days"}
           v={`${near.length}`}
+          source={ar ? "تواريخ الحول" : "Hawl dates"}
         />
       </section>
       <section className="card section">
@@ -594,7 +615,8 @@ export default function Assets({
         {groups.map((g) => {
           const sub = g.rows.reduce((s, r) => s + val(r), 0),
             sd = g.rows.reduce((s, r) => s + due(r), 0),
-            isClosed = !!closed[g.type];
+            isClosed = !!closed[g.type],
+            sortedRows = sortAssetRows(g.rows, sort.column, sort.direction);
           return (
             <div className="card section asset-group" key={g.type}>
               <div className="page-head asset-group-head">
@@ -644,15 +666,44 @@ export default function Assets({
                   >
                     <thead>
                       <tr>
-                        {orderedColumns.map((column) => (
-                          <th key={column} data-column={column}>
-                            {columnLabel(column)}
-                          </th>
-                        ))}
+                        {orderedColumns.map((column) => {
+                          const sortable = column !== "action";
+                          const active = sortable && sort.column === column;
+                          return (
+                            <th
+                              key={column}
+                              data-column={column}
+                              aria-sort={
+                                active
+                                  ? sort.direction === "asc"
+                                    ? "ascending"
+                                    : "descending"
+                                  : undefined
+                              }
+                            >
+                              {sortable ? (
+                                <button
+                                  type="button"
+                                  className={`asset-sort${active ? " active" : ""}`}
+                                  onClick={() =>
+                                    changeSort(column as AssetSortColumn)
+                                  }
+                                >
+                                  <span>{columnLabel(column)}</span>
+                                  <span aria-hidden="true">
+                                    {sortMark(column as AssetSortColumn)}
+                                  </span>
+                                </button>
+                              ) : (
+                                columnLabel(column)
+                              )}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
-                      {g.rows.map((row) => (
+                      {sortedRows.map((row) => (
                         <tr key={row.id}>
                           {orderedColumns.map((column) => (
                             <td key={column} data-column={column}>
@@ -761,11 +812,13 @@ function K({
   v,
   i,
   tone,
+  source,
 }: {
   t: string;
   v: string;
   i: string;
   tone: string;
+  source: string;
 }) {
   return (
     <div className={`card asset-kpi tone-${tone}`}>
@@ -776,6 +829,10 @@ function K({
         <span className="muted">{t}</span>
       </div>
       <div className="metric">{v}</div>
+      <div className="asset-kpi-source">
+        <span aria-hidden="true" />
+        {source}
+      </div>
       <span className="asset-kpi-accent" aria-hidden="true" />
     </div>
   );
