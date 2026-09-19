@@ -13,6 +13,8 @@ export const ASSET_COLUMNS = [
 ] as const;
 
 export type AssetColumn = (typeof ASSET_COLUMNS)[number][0];
+export type AssetSortColumn = Exclude<AssetColumn, "action">;
+export type AssetSortDirection = "asc" | "desc";
 export type AssetTableSize = "compact" | "normal" | "wide";
 export type AssetTablePreset = "professional" | "zakat";
 
@@ -71,6 +73,106 @@ export function visibleAssetColumns(
   visible: Record<string, boolean>,
 ) {
   return normalizeAssetColumnOrder(order).filter((key) => visible[key] !== false);
+}
+
+const finiteNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const firstNumber = (...values: unknown[]) => {
+  for (const value of values) {
+    const number = finiteNumber(value);
+    if (number !== null) return number;
+  }
+  return 0;
+};
+
+export function assetCurrentValue(row: any) {
+  const metadata = row?.metadata || {};
+  return firstNumber(
+    row?.current_market_value,
+    metadata.market_value,
+    metadata.estimated_value,
+    metadata.purchase_value,
+    metadata.opening_value,
+  );
+}
+
+export function assetCostValue(row: any) {
+  const metadata = row?.metadata || {};
+  return firstNumber(metadata.purchase_value, metadata.opening_value);
+}
+
+export function assetHawlDate(row: any) {
+  const calculation = row?.zakat_calculation;
+  const assessed = (calculation?.lots || [])
+    .map((lot: any) => lot.hawl_start_date)
+    .filter(Boolean)
+    .sort()?.[0];
+  const active = (row?.lots || [])
+    .map((lot: any) => lot.hawl_start_date)
+    .filter(Boolean)
+    .sort()?.[0];
+  return (
+    assessed ||
+    active ||
+    calculation?.hawl_display_only?.portfolio_nisab_reached_date ||
+    ""
+  );
+}
+
+const assetSortValue = (row: any, column: AssetSortColumn) => {
+  const calculation = row?.zakat_calculation || {};
+  const due = Number(calculation.zakat_amount || 0);
+  const paid = Number(calculation.paid_amount || 0);
+  switch (column) {
+    case "asset":
+      return String(row?.name || "");
+    case "date":
+      return String(row?.metadata?.purchase_date || "");
+    case "weight":
+      return Number(row?.metadata?.quantity || 0);
+    case "hawl":
+      return assetHawlDate(row);
+    case "cost":
+      return assetCostValue(row);
+    case "current":
+      return assetCurrentValue(row);
+    case "due":
+      return due;
+    case "paid":
+      return paid;
+    case "remaining":
+      return Math.max(0, due - paid);
+    case "calculation":
+      return String((calculation.statuses || []).join(" "));
+  }
+};
+
+export function sortAssetRows(
+  rows: any[],
+  column: AssetSortColumn,
+  direction: AssetSortDirection,
+) {
+  const collator = new Intl.Collator("ar", {
+    numeric: true,
+    sensitivity: "base",
+  });
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => {
+      const a = assetSortValue(left.row, column);
+      const b = assetSortValue(right.row, column);
+      const compared =
+        typeof a === "number" && typeof b === "number"
+          ? a - b
+          : collator.compare(String(a), String(b));
+      const ordered = direction === "asc" ? compared : -compared;
+      return ordered || left.index - right.index;
+    })
+    .map(({ row }) => row);
 }
 
 export function assetTablePreset(
