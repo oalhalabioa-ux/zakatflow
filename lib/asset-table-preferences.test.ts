@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   ASSET_COLUMN_ORDER,
+  assetCostValue,
+  assetCurrentValue,
   assetTablePreset,
   moveAssetColumn,
   normalizeAssetColumnOrder,
   parseAssetTablePreferences,
+  sortAssetRows,
   visibleAssetColumns,
 } from "./asset-table-preferences";
 
@@ -46,5 +49,28 @@ describe("asset table preferences", () => {
     expect(parseAssetTablePreferences("not-json")).toEqual(
       assetTablePreset("professional"),
     );
+  });
+
+  it("uses an explicit zero market value instead of falling back to cost", () => {
+    const asset = {
+      current_market_value: 0,
+      metadata: { market_value: 0, purchase_value: 125000 },
+    };
+    expect(assetCurrentValue(asset)).toBe(0);
+    expect(assetCostValue(asset)).toBe(125000);
+  });
+
+  it("sorts asset rows numerically without mutating the source rows", () => {
+    const rows = [
+      { id: "a", current_market_value: 2500 },
+      { id: "b", current_market_value: 100 },
+      { id: "c", current_market_value: 900 },
+    ];
+    expect(sortAssetRows(rows, "current", "asc").map((row) => row.id)).toEqual([
+      "b",
+      "c",
+      "a",
+    ]);
+    expect(rows.map((row) => row.id)).toEqual(["a", "b", "c"]);
   });
 });
