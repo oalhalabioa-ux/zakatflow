@@ -437,6 +437,14 @@
 }
 .transactions-page .transaction-design-picker button{transition:background .16s,color .16s,box-shadow .16s,transform .16s}
 .transactions-page .transaction-design-picker button.active{box-shadow:0 5px 14px rgba(15,118,101,.2);transform:translateY(-1px)}
+.transaction-ledger-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}
+.transaction-ledger-head h2{margin:3px 0 0;font-size:19px}
+.transaction-ledger-kicker{display:block;color:#668078;font-size:10px;font-weight:850;letter-spacing:.04em}
+.transaction-ledger-count{display:inline-flex;align-items:center;min-height:31px;padding:5px 10px;border:1px solid var(--tx-line);border-radius:99px;background:var(--tx-accent-soft);color:var(--tx-accent-dark);font-size:11px;font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+.transaction-sort{width:100%;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;cursor:pointer;text-align:start}
+.transaction-sort span:last-child{width:18px;height:18px;display:grid;place-items:center;border-radius:5px;color:#81948e;font-size:12px}
+.transaction-sort.active span:last-child{background:rgba(15,118,101,.12);color:var(--tx-accent-dark)}
+.transaction-value{font-weight:850;font-variant-numeric:tabular-nums;direction:ltr;text-align:start}
 
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-executive>.transaction-entry-card{
   border:1px solid var(--tx-line)!important;
@@ -446,6 +454,8 @@
 }
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-executive>.transaction-ledger-card{border-radius:12px!important;overflow:hidden}
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-executive .table thead th{background:#eaf4f0!important;color:#173f35!important;border-bottom:2px solid #c7ddd5!important}
+.transaction-design-executive .transaction-ledger-head{padding-bottom:12px;border-bottom:1px solid var(--tx-line)}
+.transaction-design-executive .transaction-ledger-kicker{color:#526b63}
 .transaction-design-executive .transaction-design-picker button.active{background:#1d2d3d!important;border-color:#1d2d3d!important;color:#fff!important}
 
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-timeline>.transaction-entry-card{
@@ -465,6 +475,12 @@
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-timeline .table thead th{background:#f5faf8!important;color:#526b63!important}
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-timeline .table tbody td:first-child{border-inline-start:4px solid var(--tx-accent)!important;font-weight:850;color:var(--tx-accent-dark)!important}
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-timeline .table tbody tr:nth-child(even) td{background:#f7fbf9!important}
+.transaction-design-timeline .transaction-ledger-head{align-items:center;padding:2px 0 12px}
+.transaction-design-timeline .transaction-ledger-head h2{font-size:21px}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-timeline .table{border-collapse:separate!important;border-spacing:0 8px!important;background:transparent!important}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-timeline .table tbody td{background:#fff!important;border-block:1px solid #dce9e5!important}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-timeline .table tbody td:first-child{border-start-start-radius:10px;border-end-start-radius:10px}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-timeline .table tbody td:last-child{border-inline-end:1px solid #dce9e5!important;border-start-end-radius:10px;border-end-end-radius:10px}
 .transaction-design-timeline .transaction-design-picker button.active{background:#176d79!important;border-color:#176d79!important;color:#fff!important}
 
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow>.transaction-entry-card{
@@ -483,7 +499,15 @@
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table thead th{background:var(--tx-accent-dark)!important;color:#fff!important;border-color:#315e54!important}
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table tbody tr:nth-child(even) td{background:var(--tx-accent-soft)!important}
 :is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table tbody td:nth-child(4){font-weight:900;color:#087653!important;font-variant-numeric:tabular-nums}
+.transaction-design-cashflow .transaction-ledger-head{padding:4px 2px}.transaction-design-cashflow .transaction-ledger-head h2{font-size:22px;color:var(--tx-accent-dark)!important}
+.transaction-design-cashflow .transaction-ledger-count{background:var(--tx-accent-dark);border-color:var(--tx-accent-dark);color:#fff}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table{border-collapse:separate!important;border-spacing:0 7px!important;background:transparent!important}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table tbody tr{box-shadow:0 5px 16px rgba(18,63,54,.08)}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table tbody td{background:#fff!important;border-block:1px solid #e2ece8!important}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table tbody tr:nth-child(even) td{background:var(--tx-accent-soft)!important}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table tbody td:first-child{border-inline-start:1px solid #e2ece8!important;border-start-start-radius:12px;border-end-start-radius:12px}
+:is(.theme-classic,.theme-modern,.theme-elegant).corp-shell .corp-content .container.transactions-page.transaction-design-cashflow .table tbody td:last-child{border-inline-end:1px solid #e2ece8!important;border-start-end-radius:12px;border-end-end-radius:12px}
 .transaction-design-cashflow .transaction-design-picker button.active{background:#087653!important;border-color:#087653!important;color:#fff!important}
 
 .theme-elegant .transactions-page{--tx-line:#d7e9e1;--tx-surface:#fff;--tx-accent:#098451;--tx-accent-dark:#07563f;--tx-accent-soft:#edf7f2}
-@media(max-width:700px){.transactions-page .transaction-design-picker{display:grid;grid-template-columns:1fr 1fr 1fr;width:100%}.transactions-page .transaction-design-picker span{grid-column:1/-1}.transactions-page .transaction-design-picker button{padding-inline:8px}}
+@media(max-width:700px){.transactions-page .transaction-design-picker{display:grid;grid-template-columns:1fr 1fr 1fr;width:100%}.transactions-page .transaction-design-picker span{grid-column:1/-1}.transactions-page .transaction-design-picker button{padding-inline:8px}.transaction-ledger-head{align-items:flex-start;flex-direction:column}.transaction-ledger-card{overflow-x:auto}}
