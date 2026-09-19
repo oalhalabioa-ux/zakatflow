@@ -49,6 +49,7 @@ export default function Transactions() {
     fx_rate: 1,
     base_value: "",
     notes: "",
+    adjustment_direction: "IN",
   });
   const [msg, setMsg] = useState("");
   const load = async () => {
@@ -259,6 +260,14 @@ export default function Transactions() {
               ))}
             </select>
           </Field>
+          {form.transaction_type === "ADJUSTMENT" && (
+            <Field label="اتجاه التسوية">
+              <select value={form.adjustment_direction} onChange={(e) => setForm({ ...form, adjustment_direction: e.target.value })}>
+                <option value="IN">زيادة الرصيد</option>
+                <option value="OUT">تخفيض الرصيد</option>
+              </select>
+            </Field>
+          )}
           <Field label="التاريخ">
             <input
               type="date"
