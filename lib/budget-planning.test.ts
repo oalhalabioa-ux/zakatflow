@@ -11,6 +11,7 @@ describe('budget planning calculations',()=>{
  });
  it('uses forecast values independently of budget',()=>{
   const plan=createDefaultBudgetPlan(2027);
+  plan.lines.find(line=>line.category==='REVENUE')!.monthly_budget=Array(12).fill(500000);
   plan.lines[0].monthly_forecast=Array(12).fill(900000);
   const metrics=buildBudgetMetrics(plan);
   expect(metrics.forecastRevenue).toBeGreaterThan(metrics.revenue);
@@ -18,6 +19,7 @@ describe('budget planning calculations',()=>{
  });
  it('rolls forecast cash independently from budget cash',()=>{
   const plan=createDefaultBudgetPlan(2027);
+  plan.lines.find(line=>line.category==='REVENUE')!.monthly_budget=Array(12).fill(500000);
   plan.lines.find(line=>line.category==='REVENUE')!.monthly_forecast=Array(12).fill(1000000);
   const metrics=buildBudgetMetrics(plan);
   expect(metrics.forecastEndingCash).toBe(plan.opening_cash+metrics.forecastNetCash);

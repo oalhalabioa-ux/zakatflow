@@ -108,24 +108,22 @@ export function createCostCenterBudgetPlan(costCenter:'HQ'|'OPERATIONS',year=new
 }
 
 export function createDefaultBudgetPlan(year=new Date().getFullYear()+1):BudgetPlan{
- const annualGrowth=0.012,monthlyRate=Math.pow(1+annualGrowth,1/12)-1;
- const monthly=(value:number)=>Array.from({length:12},(_,i)=>Math.round(value*Math.pow(1+monthlyRate,i)));
- const flat=(value:number)=>Array(12).fill(value);
+ const empty=()=>Array(12).fill(0);
  const line=(category:BudgetLine['category'],name:string,line_type:BudgetLine['line_type'],sort_order:number,values:number[]):BudgetLine=>
   ({category,name,line_type,sort_order,monthly_budget:values,monthly_actual:Array(12).fill(0),monthly_forecast:[...values]});
  return {name:`الخطة المالية ${year}`,fiscal_year:year,currency:'SAR',scenario:'BASE',status:'DRAFT',
-  organization_name:'منشأتي',cost_center:'ALL',opening_cash:1000000,minimum_cash_target:500000,
-  assumptions:{revenue_growth:annualGrowth,cogs_ratio:0.35,zakat_rate:0.025,actual_through_month:0},notes:'',lines:[
-   line('REVENUE','الإيرادات التشغيلية','REVENUE',10,monthly(500000)),
-   line('REVENUE','إيرادات أخرى','REVENUE',20,flat(25000)),
-   line('COGS','تكلفة المبيعات','EXPENSE',30,monthly(175000)),
-   line('OPEX','الرواتب','EXPENSE',40,monthly(120000)),
-   line('OPEX','الإيجار والخدمات','EXPENSE',50,flat(35000)),
-   line('OPEX','التسويق','EXPENSE',60,flat(20000)),
-   line('OPEX','المصاريف المهنية','EXPENSE',70,flat(15000)),
-   line('OPEX','التقنية','EXPENSE',80,flat(12000)),
-   line('CAPEX','الإنفاق الرأسمالي','CASH',90,flat(150000)),
-   line('FINANCING','خدمة الدين','CASH',100,flat(40000)),
-   line('ZAKAT','مخصص ومدفوعات الزكاة','CASH',110,flat(20000))
+  organization_name:'',cost_center:'ALL',opening_cash:0,minimum_cash_target:0,
+  assumptions:{actual_through_month:0},notes:'',lines:[
+   line('REVENUE','الإيرادات التشغيلية','REVENUE',10,empty()),
+   line('REVENUE','إيرادات أخرى','REVENUE',20,empty()),
+   line('COGS','تكلفة المبيعات','EXPENSE',30,empty()),
+   line('OPEX','الرواتب','EXPENSE',40,empty()),
+   line('OPEX','الإيجار والخدمات','EXPENSE',50,empty()),
+   line('OPEX','التسويق','EXPENSE',60,empty()),
+   line('OPEX','المصاريف المهنية','EXPENSE',70,empty()),
+   line('OPEX','التقنية','EXPENSE',80,empty()),
+   line('CAPEX','الإنفاق الرأسمالي','CASH',90,empty()),
+   line('FINANCING','خدمة الدين','CASH',100,empty()),
+   line('ZAKAT','مخصص ومدفوعات الزكاة','CASH',110,empty())
   ]};
 }
