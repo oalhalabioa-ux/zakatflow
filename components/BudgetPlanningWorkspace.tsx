@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import {useSearchParams} from 'next/navigation';
-import type {BudgetPlan} from '@/lib/budget-planning';
+import type {BudgetLine,BudgetPlan} from '@/lib/budget-planning';
 import {buildBudgetMetrics,createDefaultBudgetPlan,MONTH_KEYS} from '@/lib/budget-planning';
 const AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const CATEGORY_LABELS_AR={REVENUE:'الإيرادات',COGS:'تكلفة المبيعات',OPEX:'المصروفات التشغيلية',CAPEX:'الإنفاق الرأسمالي',FINANCING:'خدمة الدين',ZAKAT:'الزكاة'};
