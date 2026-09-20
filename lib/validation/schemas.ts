@@ -12,9 +12,9 @@ export const budgetLineSchema=z.object({
  name:z.string().min(1).max(160),
  line_type:z.enum(['REVENUE','EXPENSE','CASH']),
  sort_order:z.coerce.number().int().nonnegative(),
- monthly_budget:z.array(z.coerce.number()).length(12),
- monthly_actual:z.array(z.coerce.number()).length(12).default(Array(12).fill(0)),
- monthly_forecast:z.array(z.coerce.number()).length(12).optional()
+ monthly_budget:z.array(z.coerce.number().finite().nonnegative()).length(12),
+ monthly_actual:z.array(z.coerce.number().finite().nonnegative()).length(12).default(Array(12).fill(0)),
+ monthly_forecast:z.array(z.coerce.number().finite().nonnegative()).length(12).optional()
 });
 
 export const budgetPlanSchema=z.object({
@@ -25,7 +25,7 @@ export const budgetPlanSchema=z.object({
  status:z.enum(['DRAFT','IN_REVIEW','APPROVED','ARCHIVED']).default('DRAFT'),
  organization_name:z.string().max(160).default(''),
  cost_center:z.string().max(120).default('ALL'),
- opening_cash:z.coerce.number().default(0),
+ opening_cash:z.coerce.number().finite().default(0),
  minimum_cash_target:z.coerce.number().nonnegative().default(0),
  assumptions:z.record(z.string(),z.any()).default({}),
  notes:z.string().max(5000).default(''),

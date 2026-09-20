@@ -37,17 +37,25 @@ export async function createBudgetPlan(input:unknown){
 export async function updateBudgetPlan(id:string,input:unknown){
  const parsed=budgetPlanSchema.parse(input),{lines,...planInput}=parsed;
  const {supabase,user}=await requireUser();
+ const {data:existing,error:existingError}=await supabase.from('budget_plans').select(PLAN_FIELDS).eq('id',id).eq('user_id',user.id).single();
+ if(existingError)throw existingError;
+ const {data:oldLines,error:oldLinesError}=await supabase.from('budget_lines').select('*').eq('plan_id',id).eq('user_id',user.id);
+ if(oldLinesError)throw oldLinesError;
  const {error}=await supabase.from('budget_plans').update({...planInput,updated_at:new Date().toISOString()}).eq('id',id).eq('user_id',user.id);
  if(error)throw error;
  const {error:deleteError}=await supabase.from('budget_lines').delete().eq('plan_id',id).eq('user_id',user.id);
- if(deleteError)throw deleteError;
+ if(deleteError){await supabase.from('budget_plans').update(existing).eq('id',id).eq('user_id',user.id);throw deleteError;}
  const {error:lineError}=await supabase.from('budget_lines').insert(lines.map(line=>({...line,id:undefined,plan_id:id,user_id:user.id})));
- if(lineError)throw lineError;
+ if(lineError){await supabase.from('budget_lines').delete().eq('plan_id',id).eq('user_id',user.id);if(oldLines?.length)await supabase.from('budget_lines').insert(oldLines.map(({id:_,created_at:__,updated_at:___,...line}:any)=>line));await supabase.from('budget_plans').update(existing).eq('id',id).eq('user_id',user.id);throw lineError;}
  return getBudgetPlan(id);
 }
 
 export async function submitBudgetPlan(id:string,status:'IN_REVIEW'|'APPROVED'){
  const {supabase,user}=await requireUser();
+ const {data:current,error:currentError}=await supabase.from('budget_plans').select('status').eq('id',id).eq('user_id',user.id).single();
+ if(currentError)throw currentError;
+ if(status==='IN_REVIEW'&&current.status!=='DRAFT')throw new Error('INVALID_STATUS_TRANSITION');
+ if(status==='APPROVED'&&current.status!=='IN_REVIEW')throw new Error('INVALID_STATUS_TRANSITION');
  const {data,error}=await supabase.from('budget_plans').update({status,updated_at:new Date().toISOString()}).eq('id',id).eq('user_id',user.id).select(PLAN_FIELDS).single();
  if(error)throw error;
  const {error:eventError}=await supabase.from('budget_approval_events').insert({plan_id:id,user_id:user.id,action:status,actor_id:user.id});
