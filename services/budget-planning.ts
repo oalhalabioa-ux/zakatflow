@@ -4,9 +4,15 @@ import type {BudgetLine,BudgetPlan} from '@/lib/budget-planning';
 
 const PLAN_FIELDS='id,name,fiscal_year,currency,scenario,status,organization_name,cost_center,opening_cash,minimum_cash_target,assumptions,notes,created_at,updated_at';
 
-export async function listBudgetPlans(){
+export async function listBudgetPlans(filters?:{fiscal_year?:string|null;organization_name?:string|null;scenario?:string|null;cost_center?:string|null}){
  const {supabase,user}=await requireUser();
- const {data,error}=await supabase.from('budget_plans').select(PLAN_FIELDS).eq('user_id',user.id).order('updated_at',{ascending:false}).order('fiscal_year',{ascending:false});
+ let query=supabase.from('budget_plans').select(PLAN_FIELDS).eq('user_id',user.id);
+ if(filters?.fiscal_year)query=query.eq('fiscal_year',Number(filters.fiscal_year));
+ if(filters?.organization_name)query=query.eq('organization_name',filters.organization_name);
+ if(filters?.scenario)query=query.eq('scenario',filters.scenario);
+ if(filters?.cost_center&&filters.cost_center!=='ALL')query=query.eq('cost_center',filters.cost_center);
+ else if(filters?.cost_center==='ALL')query=query.in('cost_center',['HQ','OPERATIONS']);
+ const {data,error}=await query.order('updated_at',{ascending:false}).order('fiscal_year',{ascending:false});
  if(error)throw error; return data;
 }
 
