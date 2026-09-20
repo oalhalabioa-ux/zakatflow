@@ -6,7 +6,7 @@ const PLAN_FIELDS='id,name,fiscal_year,currency,scenario,status,organization_nam
 
 export async function listBudgetPlans(){
  const {supabase,user}=await requireUser();
- const {data,error}=await supabase.from('budget_plans').select(PLAN_FIELDS).eq('user_id',user.id).order('fiscal_year',{ascending:false});
+ const {data,error}=await supabase.from('budget_plans').select(PLAN_FIELDS).eq('user_id',user.id).order('updated_at',{ascending:false}).order('fiscal_year',{ascending:false});
  if(error)throw error; return data;
 }
 
@@ -44,6 +44,7 @@ export async function submitBudgetPlan(id:string,status:'IN_REVIEW'|'APPROVED'){
  const {supabase,user}=await requireUser();
  const {data,error}=await supabase.from('budget_plans').update({status,updated_at:new Date().toISOString()}).eq('id',id).eq('user_id',user.id).select(PLAN_FIELDS).single();
  if(error)throw error;
- await supabase.from('budget_approval_events').insert({plan_id:id,user_id:user.id,action:status,actor_id:user.id});
+ const {error:eventError}=await supabase.from('budget_approval_events').insert({plan_id:id,user_id:user.id,action:status,actor_id:user.id});
+ if(eventError)throw eventError;
  return data;
 }
