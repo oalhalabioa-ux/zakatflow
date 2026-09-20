@@ -75,6 +75,38 @@ export function buildBudgetMetrics(plan:BudgetPlan){
  };
 }
 
+
+export const BUDGET_GROUPS:Record<string,string>={
+ 'الإيرادات التشغيلية':'الإيرادات التشغيلية','إيرادات أخرى':'إيرادات أخرى','تكلفة المبيعات':'تكلفة المبيعات',
+ 'رواتب إدارية':'الرواتب','رواتب تشغيلية':'الرواتب','الرواتب':'الرواتب',
+ 'إيجار المقر والخدمات':'الإيجارات والخدمات','إيجارات المواقع التشغيلية':'الإيجارات والخدمات','الإيجار والخدمات':'الإيجارات والخدمات',
+ 'التسويق والعلامة التجارية':'التسويق','تسويق تشغيلي':'التسويق','التسويق':'التسويق',
+ 'أتعاب مهنية واستشارات':'المصاريف المهنية','المصاريف المهنية':'المصاريف المهنية',
+ 'تقنية وأنظمة إدارية':'التقنية والأنظمة','أنظمة وتقنية تشغيلية':'التقنية والأنظمة','التقنية':'التقنية والأنظمة',
+ 'صيانة وتشغيل':'الصيانة والتشغيل','مواد ومستلزمات تشغيل':'المواد والمستلزمات','نقل ولوجستيات':'النقل واللوجستيات',
+ 'الإنفاق الرأسمالي':'الإنفاق الرأسمالي','خدمة الدين':'خدمة الدين','مخصص ومدفوعات الزكاة':'الزكاة'
+};
+export const budgetGroupName=(line:BudgetLine)=>BUDGET_GROUPS[line.name]??line.name;
+
+export function createCostCenterBudgetPlan(costCenter:'HQ'|'OPERATIONS',year=new Date().getFullYear()+1):BudgetPlan{
+ const base=createDefaultBudgetPlan(year),zero=()=>Array(12).fill(0);
+ const line=(category:BudgetLine['category'],name:string,line_type:BudgetLine['line_type'],sort_order:number):BudgetLine=>({category,name,line_type,sort_order,monthly_budget:zero(),monthly_actual:zero(),monthly_forecast:zero()});
+ const shared=[line('CAPEX','الإنفاق الرأسمالي','CASH',90),line('FINANCING','خدمة الدين','CASH',100),line('ZAKAT','مخصص ومدفوعات الزكاة','CASH',110)];
+ const lines=costCenter==='HQ'?[
+  line('REVENUE','إيرادات أخرى','REVENUE',20),
+  line('OPEX','رواتب إدارية','EXPENSE',40),line('OPEX','إيجار المقر والخدمات','EXPENSE',50),
+  line('OPEX','التسويق والعلامة التجارية','EXPENSE',60),line('OPEX','أتعاب مهنية واستشارات','EXPENSE',70),
+  line('OPEX','تقنية وأنظمة إدارية','EXPENSE',80),...shared
+ ]:[
+  line('REVENUE','الإيرادات التشغيلية','REVENUE',10),line('COGS','تكلفة المبيعات','EXPENSE',30),
+  line('OPEX','رواتب تشغيلية','EXPENSE',40),line('OPEX','إيجارات المواقع التشغيلية','EXPENSE',50),
+  line('OPEX','تسويق تشغيلي','EXPENSE',60),line('OPEX','صيانة وتشغيل','EXPENSE',70),
+  line('OPEX','مواد ومستلزمات تشغيل','EXPENSE',75),line('OPEX','نقل ولوجستيات','EXPENSE',78),
+  line('OPEX','أنظمة وتقنية تشغيلية','EXPENSE',80),...shared
+ ];
+ return {...base,id:undefined,name:`${costCenter==='HQ'?'الخطة المالية - الإدارة العامة':'الخطة المالية - التشغيل'} ${year}`,cost_center:costCenter,opening_cash:0,lines};
+}
+
 export function createDefaultBudgetPlan(year=new Date().getFullYear()+1):BudgetPlan{
  const monthly=(value:number)=>Array.from({length:12},(_,i)=>Math.round(value*Math.pow(1.012,i)));
  const flat=(value:number)=>Array(12).fill(value);
