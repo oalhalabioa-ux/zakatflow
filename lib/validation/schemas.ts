@@ -6,3 +6,28 @@ export const paymentSchema=z.object({hawl_cycle_id:z.string().uuid(),assessment_
 export const priceSchema=z.object({asset_type:z.enum(['GOLD','SILVER','STOCK','OTHER']),instrument_code:z.string().max(80).optional(),karat:z.coerce.number().positive().max(24).optional(),price_per_unit:z.coerce.number().positive(),currency:z.string().length(3),valuation_date:z.string(),source:z.string().min(1).max(120)});
 export const fxSchema=z.object({from_currency:z.string().length(3),to_currency:z.string().length(3),rate:z.coerce.number().positive(),valuation_date:z.string(),source:z.string().min(1).max(120)});
 export const notificationSchema=z.object({type:z.string().min(1).max(60),title:z.string().min(1).max(200),body:z.string().min(1).max(2000),scheduled_for:z.string().optional(),metadata:z.record(z.string(),z.any()).optional()});
+
+export const budgetLineSchema=z.object({
+ category:z.enum(['REVENUE','COGS','OPEX','CAPEX','FINANCING','ZAKAT']),
+ name:z.string().min(1).max(160),
+ line_type:z.enum(['REVENUE','EXPENSE','CASH']),
+ sort_order:z.coerce.number().int().nonnegative(),
+ monthly_budget:z.array(z.coerce.number()).length(12),
+ monthly_actual:z.array(z.coerce.number()).length(12).default(Array(12).fill(0)),
+ monthly_forecast:z.array(z.coerce.number()).length(12).optional()
+});
+
+export const budgetPlanSchema=z.object({
+ name:z.string().min(1).max(160),
+ fiscal_year:z.coerce.number().int().min(2000).max(2200),
+ currency:z.string().length(3).default('SAR'),
+ scenario:z.enum(['BASE','DOWNSIDE','UPSIDE']).default('BASE'),
+ status:z.enum(['DRAFT','IN_REVIEW','APPROVED','ARCHIVED']).default('DRAFT'),
+ organization_name:z.string().max(160).default(''),
+ cost_center:z.string().max(120).default('ALL'),
+ opening_cash:z.coerce.number().default(0),
+ minimum_cash_target:z.coerce.number().nonnegative().default(0),
+ assumptions:z.record(z.string(),z.any()).default({}),
+ notes:z.string().max(5000).default(''),
+ lines:z.array(budgetLineSchema).min(1)
+});
