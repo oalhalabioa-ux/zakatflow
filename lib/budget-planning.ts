@@ -38,6 +38,8 @@ export function buildBudgetMetrics(plan:BudgetPlan){
  });
  let cash=plan.opening_cash;
  const closingCash=monthly.map(month=>(cash+=month.netCash));
+ let forecastCash=plan.opening_cash;
+ const forecastClosingCash=monthly.map(month=>(forecastCash+=month.forecastNetCash));
  const annual={
   revenue:sum(monthly.map(m=>m.revenue)),cogs:sum(monthly.map(m=>m.cogs)),opex:sum(monthly.map(m=>m.opex)),
   capex:sum(monthly.map(m=>m.capex)),financing:sum(monthly.map(m=>m.financing)),zakat:sum(monthly.map(m=>m.zakat)),
@@ -51,7 +53,10 @@ export function buildBudgetMetrics(plan:BudgetPlan){
   budgetUtilization:annual.revenue?annual.actualRevenue/annual.revenue:0,
   forecastVariance:annual.revenue?(annual.forecastRevenue-annual.revenue)/annual.revenue:0,
   endingCash:closingCash[11]??plan.opening_cash,
-  minimumCashBuffer:Math.min(...closingCash)-plan.minimum_cash_target
+  minimumCashBuffer:Math.min(...closingCash)-plan.minimum_cash_target,
+  forecastClosingCash,
+  forecastEndingCash:forecastClosingCash[11]??plan.opening_cash,
+  forecastMinimumCashBuffer:Math.min(...forecastClosingCash)-plan.minimum_cash_target
  };
 }
 
