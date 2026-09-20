@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
+import {useSearchParams} from 'next/navigation';
 import type {BudgetPlan} from '@/lib/budget-planning';
 import {buildBudgetMetrics,createDefaultBudgetPlan,MONTH_KEYS} from '@/lib/budget-planning';
 const AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -13,8 +14,10 @@ const fmt=(value:number,currency='SAR')=>new Intl.NumberFormat('en-US',{maximumF
 const pct=(value:number)=>new Intl.NumberFormat('en-US',{style:'percent',maximumFractionDigits:1}).format(value);
 type Tab='dashboard'|'monthly'|'five-year'|'variance'|'forecast'|'cash-flow';
 export default function BudgetPlanningWorkspace({locale}:{locale:string}){
+ const searchParams=useSearchParams();
  const ar=locale==='ar',[plan,setPlan]=useState<BudgetPlan>(()=>createDefaultBudgetPlan(new Date().getFullYear()+1)),[tab,setTab]=useState<Tab>('dashboard'),[message,setMessage]=useState(''),[saving,setSaving]=useState(false),[loading,setLoading]=useState(true);
  useEffect(()=>{let active=true;(async()=>{try{const response=await fetch('/api/budget-plans',{cache:'no-store'});if(!response.ok)throw new Error('LOAD_FAILED');const plans=await response.json();if(active&&Array.isArray(plans)&&plans[0]?.id){const detail=await fetch(`/api/budget-plans/${plans[0].id}`,{cache:'no-store'});if(!detail.ok)throw new Error('LOAD_FAILED');const saved=await detail.json();if(active)setPlan(saved)}}catch{if(active)setMessage(ar?'تعذر تحميل الخطط المحفوظة.':'Could not load saved plans.')}finally{if(active)setLoading(false)}})();return()=>{active=false}},[ar]);
+ useEffect(()=>{const requested=searchParams.get('tab') as Tab|null;if(requested&&(['dashboard','monthly','five-year','variance','forecast','cash-flow'] as Tab[]).includes(requested))setTab(requested)},[searchParams]);
  const metrics=useMemo(()=>buildBudgetMetrics(plan),[plan]),months=ar?AR_MONTHS:[...MONTH_KEYS];
  const t={title:ar?'التخطيط المالي والموازنات':'Financial Planning & Budgeting',subtitle:ar?'تخطيط مالي متكامل للموازنة والتوقعات والسيولة والأداء.':'Integrated budgeting, forecasting, liquidity and performance planning.',dashboard:ar?'لوحة الموازنة':'Budget dashboard',monthly:ar?'الموازنة الشهرية':'Monthly budget',five:ar?'الخطة الخمسية':'Five-year plan',variance:ar?'الفعلي مقابل الموازنة':'Actual vs budget',forecast:ar?'التوقعات':'Forecast',cash:ar?'التدفقات النقدية':'Cash flow'};
  const tabs:Array<[Tab,string]>=[['dashboard',t.dashboard],['monthly',t.monthly],['five-year',t.five],['variance',t.variance],['forecast',t.forecast],['cash-flow',t.cash]];
