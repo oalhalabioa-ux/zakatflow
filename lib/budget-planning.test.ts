@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {buildBudgetMetrics,createDefaultBudgetPlan} from './budget-planning';
+import {buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan} from './budget-planning';
 
 describe('budget planning calculations',()=>{
  it('reconciles annual results to monthly values',()=>{
@@ -38,5 +38,14 @@ describe('budget planning calculations',()=>{
   const plan=createDefaultBudgetPlan(2027);
   const metrics=buildBudgetMetrics(plan);
   expect(metrics.forecastMinimumCashBuffer).toBe(Math.min(...metrics.forecastClosingCash)-plan.minimum_cash_target);
+ });
+ it('keeps cost-center templates distinct and editable',()=>{
+  const hq=createCostCenterBudgetPlan('HQ',2027),operations=createCostCenterBudgetPlan('OPERATIONS',2027);
+  expect(hq.cost_center).toBe('HQ');
+  expect(operations.cost_center).toBe('OPERATIONS');
+  expect(hq.lines.some(line=>line.name==='رواتب إدارية')).toBe(true);
+  expect(operations.lines.some(line=>line.name==='رواتب تشغيلية')).toBe(true);
+  expect(hq.lines.every(line=>line.monthly_budget.every(value=>value===0))).toBe(true);
+  expect(operations.lines.every(line=>line.monthly_budget.every(value=>value===0))).toBe(true);
  });
 });
