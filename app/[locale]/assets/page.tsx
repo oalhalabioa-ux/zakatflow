@@ -87,6 +87,7 @@ export default function Assets({
     [tablePreferences, setTablePreferences] =
       useState<AssetTablePreferences>(() => assetTablePreset("professional")),
     [design, setDesign] = useState<AssetsPageDesign>("executive"),
+    [lifecycleFilter, setLifecycleFilter] = useState<"ACTIVE"|"SOLD"|"DISPOSED"|"ALL">("ACTIVE"),
     [sort, setSort] = useState<{
       column: AssetSortColumn;
       direction: AssetSortDirection;
@@ -169,16 +170,12 @@ export default function Assets({
       ? (+form.quantity || 0) * (+form.purchase_price || 0)
       : +form.amount || 0,
     mv = market ? (+form.quantity || 0) * (+form.market_price || 0) : pc;
-  const groups = useMemo(
-    () =>
-      TYPES.map(([type]) => ({
-        type,
-        rows: rows.filter((r) => r.asset_type === type),
-      })).filter((g) => g.rows.length),
-    [rows],
-  );
-  const total = rows.reduce((s, r) => s + val(r), 0),
-    cost = rows.reduce((s, r) => s + costVal(r), 0),
+  const filteredRows = useMemo(() => lifecycleFilter === "ALL" ? rows : rows.filter((r) => (r.lifecycle_status || "ACTIVE") === lifecycleFilter), [rows,lifecycleFilter]);
+  const lifecycleCounts = useMemo(() => ({ACTIVE:rows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE").length,SOLD:rows.filter(r=>r.lifecycle_status==="SOLD").length,DISPOSED:rows.filter(r=>r.lifecycle_status==="DISPOSED").length,ALL:rows.length}),[rows]);
+  const groups = useMemo(() => TYPES.map(([type]) => ({type,rows: filteredRows.filter((r) => r.asset_type === type)})).filter((g) => g.rows.length),[filteredRows]);
+  const activeRows=rows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE");
+  const total = activeRows.reduce((s, r) => s + val(r), 0),
+    cost = activeRows.reduce((s, r) => s + Number(r.current_cost_value||0), 0),
     totalDue = rows.reduce((s, r) => s + due(r), 0),
     totalPaid = rows.reduce((s, r) => s + paid(r), 0),
     z = rows.filter((r) => r.is_zakatable),
@@ -256,10 +253,12 @@ export default function Assets({
               {icon(row.asset_type)}
             </span>
             {row.name}
+            {row.lifecycle_status==="SOLD" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مباع":"Sold"}</span>}
+            {row.lifecycle_status==="DISPOSED" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مستغنى عنه":"Disposed"}</span>}
           </strong>
         );
       case "date":
-        return row.metadata?.purchase_date || "—";
+        return row.lifecycle_status!=="ACTIVE" && row.lifecycle_exit_date ? `${row.metadata?.purchase_date || "—"} → ${row.lifecycle_exit_date}` : row.metadata?.purchase_date || "—";
       case "weight":
         return ["GOLD", "SILVER"].includes(row.asset_type)
           ? `${fmt(m(row, "quantity"))} g`
@@ -443,7 +442,7 @@ export default function Assets({
           i="▦"
           tone="count"
           t={ar ? "عدد الأصول" : "Assets"}
-          v={indicatorValue(`${rows.length}`)}
+          v={indicatorValue(`${activeRows.length}`)}
           source={indicatorSource(ar ? "السجل الفعلي" : "Live ledger")}
         />
         <K
@@ -612,6 +611,7 @@ export default function Assets({
         {msg && <p className="muted">{msg}</p>}
       </section>
       <section className="section">
+        <div className="asset-lifecycle-tabs" style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} onClick={()=>setLifecycleFilter(key)}>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div>
         <h2>
           <span className="section-title-icon" aria-hidden="true">
             ▤
