@@ -134,7 +134,7 @@ export default function Transactions() {
       if (sort.key === "asset") return String(assetName(row));
       if (sort.key === "type") return String(row.transaction_type || "");
       if (sort.key === "currency") return String(row.base_currency || "");
-      return Number(row.base_value) || 0;
+      const base = Number(row.base_value) || 0; return row.metadata?.asset_effect_base != null ? Number(row.metadata.asset_effect_base) : base;
     };
     return [...filteredRows].sort((a, b) => {
       const left = valueOf(a);
@@ -154,7 +154,7 @@ export default function Transactions() {
       const inflowTypes = new Set(["ADD", "OPENING_BALANCE", "PURCHASE", "TRANSFER_IN"]);
       const outflowTypes = new Set(["SALE", "WITHDRAWAL", "TRANSFER_OUT", "ZAKAT_PAYMENT"]);
       const inflows = rows.reduce((sum, row) => sum + (inflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : 0), 0);
-      const outflows = rows.reduce((sum, row) => sum + (outflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : 0), 0);
+      const outflows = rows.reduce((sum, row) => sum + (outflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : (row.metadata?.adjustment_direction === "OUT" ? Math.abs(Number(row.metadata?.asset_effect_base ?? row.base_value) || 0) : 0)), 0);
       return ({
       count: rows.length,
       total: rows.reduce((sum, row) => sum + (Number(row.base_value) || 0), 0),
