@@ -14,6 +14,13 @@ export default async function Dashboard({params, searchParams}: {params: Promise
   try { d = await getDashboard(); }
   catch (error) { unstable_rethrow(error); d = {loadError: true}; }
   return <>
+    <div className="container" style={{paddingBottom:0}}>
+      <div className="page-command" style={{justifyContent:'flex-end'}}>
+        <Link className="btn secondary" href={`/${locale}/budget-planning`}>
+          {locale === 'ar' ? 'التخطيط المالي والموازنات' : 'Financial Planning & Budgeting'}
+        </Link>
+      </div>
+    </div>
     <ElegantDashboard d={d} locale={locale} currency={currency}/>
     <DashboardOperations label={locale === 'ar' ? 'التخصيص وإدارة الدورة' : 'Customization & cycle management'}>
       <div className="container" style={{paddingBottom: 0}}><div className="pro-currency"><Link className={currency === 'SAR' ? 'active' : ''} href={`/${locale}/dashboard`}>SAR</Link><Link className={currency === 'USD' ? 'active' : ''} href={`/${locale}/dashboard?currency=USD`}>USD</Link></div></div>
