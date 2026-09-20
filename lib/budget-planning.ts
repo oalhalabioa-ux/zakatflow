@@ -21,6 +21,7 @@ const category=(lines:BudgetLine[],name:BudgetLine['category'],field:'monthly_bu
  sum(lines.filter(line=>line.category===name).map(line=>at(line,field,month)));
 
 export function buildBudgetMetrics(plan:BudgetPlan){
+ const actualThroughMonth=Math.max(0,Math.min(12,Number(plan.assumptions.actual_through_month??0)));
  const monthly=MONTH_KEYS.map((_,month)=>{
   const revenue=category(plan.lines,'REVENUE','monthly_budget',month);
   const cogs=category(plan.lines,'COGS','monthly_budget',month);
@@ -39,18 +40,20 @@ export function buildBudgetMetrics(plan:BudgetPlan){
   const forecastOutflow=sum(plan.lines.filter(line=>line.category!=='REVENUE').map(line=>at(line,'monthly_forecast',month)));
   return {revenue,cogs,opex,capex,financing,zakat,grossProfit:revenue-cogs,ebitda:revenue-cogs-opex,
    netCash:revenue-cogs-opex-capex-financing-zakat,actualRevenue,actualCogs,actualOpex,actualCapex,actualFinancing,actualZakat,actualOutflow,actualNetCash:actualRevenue-actualOutflow,
-   forecastRevenue,forecastOutflow,forecastNetCash:forecastRevenue-forecastOutflow};
+   forecastRevenue,forecastOutflow,forecastNetCash:forecastRevenue-forecastOutflow,rollingRevenue:month<actualThroughMonth?actualRevenue:forecastRevenue,rollingNetCash:month<actualThroughMonth?actualRevenue-actualOutflow:forecastRevenue-forecastOutflow};
  });
  let cash=plan.opening_cash;
  const closingCash=monthly.map(month=>(cash+=month.netCash));
  let forecastCash=plan.opening_cash;
- const forecastClosingCash=monthly.map(month=>(forecastCash+=month.forecastNetCash));
+ const forecastClosingCash=monthly.map(month=>(forecastCash+=month.rollingNetCash));
  const annual={
   revenue:sum(monthly.map(m=>m.revenue)),cogs:sum(monthly.map(m=>m.cogs)),opex:sum(monthly.map(m=>m.opex)),
   capex:sum(monthly.map(m=>m.capex)),financing:sum(monthly.map(m=>m.financing)),zakat:sum(monthly.map(m=>m.zakat)),
   grossProfit:sum(monthly.map(m=>m.grossProfit)),ebitda:sum(monthly.map(m=>m.ebitda)),
   netCash:sum(monthly.map(m=>m.netCash)),actualRevenue:sum(monthly.map(m=>m.actualRevenue)),actualCogs:sum(monthly.map(m=>m.actualCogs)),actualOpex:sum(monthly.map(m=>m.actualOpex)),actualCapex:sum(monthly.map(m=>m.actualCapex)),actualFinancing:sum(monthly.map(m=>m.actualFinancing)),actualZakat:sum(monthly.map(m=>m.actualZakat)),actualOutflow:sum(monthly.map(m=>m.actualOutflow)),actualNetCash:sum(monthly.map(m=>m.actualNetCash)),
-  forecastRevenue:sum(monthly.map(m=>m.forecastRevenue)),forecastNetCash:sum(monthly.map(m=>m.forecastNetCash))
+  forecastRevenue:sum(monthly.map(m=>m.rollingRevenue)),forecastNetCash:sum(monthly.map(m=>m.rollingNetCash)),
+  ytdBudgetRevenue:sum(monthly.slice(0,actualThroughMonth).map(m=>m.revenue)),ytdActualRevenue:sum(monthly.slice(0,actualThroughMonth).map(m=>m.actualRevenue)),
+  ytdBudgetOpex:sum(monthly.slice(0,actualThroughMonth).map(m=>m.opex)),ytdActualOpex:sum(monthly.slice(0,actualThroughMonth).map(m=>m.actualOpex))
  };
  return {...annual,monthly,closingCash,
   grossMargin:annual.revenue?annual.grossProfit/annual.revenue:0,
@@ -62,6 +65,8 @@ export function buildBudgetMetrics(plan:BudgetPlan){
   opexVariancePct:annual.opex?(annual.actualOpex-annual.opex)/annual.opex:0,
   netCashVariance:annual.actualNetCash-annual.netCash,
   forecastVariance:annual.revenue?(annual.forecastRevenue-annual.revenue)/annual.revenue:0,
+  actualThroughMonth,ytdRevenueVariance:annual.ytdActualRevenue-annual.ytdBudgetRevenue,ytdRevenueVariancePct:annual.ytdBudgetRevenue?(annual.ytdActualRevenue-annual.ytdBudgetRevenue)/annual.ytdBudgetRevenue:0,
+  ytdOpexVariance:annual.ytdActualOpex-annual.ytdBudgetOpex,ytdOpexVariancePct:annual.ytdBudgetOpex?(annual.ytdActualOpex-annual.ytdBudgetOpex)/annual.ytdBudgetOpex:0,
   endingCash:closingCash[11]??plan.opening_cash,
   minimumCashBuffer:Math.min(...closingCash)-plan.minimum_cash_target,
   forecastClosingCash,
@@ -77,7 +82,7 @@ export function createDefaultBudgetPlan(year=new Date().getFullYear()+1):BudgetP
   ({category,name,line_type,sort_order,monthly_budget:values,monthly_actual:Array(12).fill(0),monthly_forecast:[...values]});
  return {name:`الخطة المالية ${year}`,fiscal_year:year,currency:'SAR',scenario:'BASE',status:'DRAFT',
   organization_name:'منشأتي',cost_center:'ALL',opening_cash:1000000,minimum_cash_target:500000,
-  assumptions:{revenue_growth:0.012,cogs_ratio:0.35,zakat_rate:0.025},notes:'',lines:[
+  assumptions:{revenue_growth:0.012,cogs_ratio:0.35,zakat_rate:0.025,actual_through_month:0},notes:'',lines:[
    line('REVENUE','الإيرادات التشغيلية','REVENUE',10,monthly(500000)),
    line('REVENUE','إيرادات أخرى','REVENUE',20,flat(25000)),
    line('COGS','تكلفة المبيعات','EXPENSE',30,monthly(175000)),
