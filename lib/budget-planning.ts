@@ -108,13 +108,14 @@ export function createCostCenterBudgetPlan(costCenter:'HQ'|'OPERATIONS',year=new
 }
 
 export function createDefaultBudgetPlan(year=new Date().getFullYear()+1):BudgetPlan{
- const monthly=(value:number)=>Array.from({length:12},(_,i)=>Math.round(value*Math.pow(1.012,i)));
+ const annualGrowth=0.012,monthlyRate=Math.pow(1+annualGrowth,1/12)-1;
+ const monthly=(value:number)=>Array.from({length:12},(_,i)=>Math.round(value*Math.pow(1+monthlyRate,i)));
  const flat=(value:number)=>Array(12).fill(value);
  const line=(category:BudgetLine['category'],name:string,line_type:BudgetLine['line_type'],sort_order:number,values:number[]):BudgetLine=>
   ({category,name,line_type,sort_order,monthly_budget:values,monthly_actual:Array(12).fill(0),monthly_forecast:[...values]});
  return {name:`الخطة المالية ${year}`,fiscal_year:year,currency:'SAR',scenario:'BASE',status:'DRAFT',
   organization_name:'منشأتي',cost_center:'ALL',opening_cash:1000000,minimum_cash_target:500000,
-  assumptions:{revenue_growth:0.012,cogs_ratio:0.35,zakat_rate:0.025,actual_through_month:0},notes:'',lines:[
+  assumptions:{revenue_growth:annualGrowth,cogs_ratio:0.35,zakat_rate:0.025,actual_through_month:0},notes:'',lines:[
    line('REVENUE','الإيرادات التشغيلية','REVENUE',10,monthly(500000)),
    line('REVENUE','إيرادات أخرى','REVENUE',20,flat(25000)),
    line('COGS','تكلفة المبيعات','EXPENSE',30,monthly(175000)),
