@@ -166,3 +166,53 @@
 .theme-classic .budget-assumptions{padding:17px!important}
 @media(max-width:900px){.assumption-groups{grid-template-columns:1fr}.budget-tabs-heading{align-items:flex-start;flex-direction:column;gap:5px}}
 @media(max-width:560px){.budget-assumptions{padding:15px!important}.assumption-grid{grid-template-columns:1fr}.budget-tabs-section{margin-inline:-2px}.budget-tabs-heading strong{font-size:14px}.budget-tabs-section .budget-tabs{overflow-x:auto}.budget-tabs-section .budget-tabs button{flex:0 0 auto}}
+
+/* Compact horizontal drivers: performance in one row, zakat in one row. */
+.assumption-groups{grid-template-columns:minmax(0,1fr) minmax(0,1.18fr);gap:10px}
+.assumption-group{padding:12px;border-radius:11px}
+.assumption-group-title{gap:8px;margin-bottom:10px}
+.assumption-group-title>span{width:25px;height:25px;border-radius:7px;font-size:9px}
+.assumption-group-title strong{font-size:12px}
+.assumption-group-title small{font-size:9px}
+.assumption-group .assumption-grid{gap:7px}
+.assumption-group-performance .assumption-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.assumption-group-zakat .assumption-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.assumption-grid label{font-size:9px;display:block}
+.assumption-grid label::before{display:inline-grid;place-items:center;width:17px;height:17px;margin-inline-end:4px;border-radius:5px;background:#e8f5f0;color:var(--bp-green);font-size:9px;font-weight:900;vertical-align:middle}
+.assumption-group-performance .assumption-grid label:nth-child(1)::before{content:'↗'}
+.assumption-group-performance .assumption-grid label:nth-child(2)::before{content:'◒'}
+.assumption-group-performance .assumption-grid label:nth-child(3)::before{content:'⌁'}
+.assumption-group-performance .assumption-grid label:nth-child(4)::before{content:'▣'}
+.assumption-group-zakat .assumption-grid label:nth-child(1)::before{content:'◉';background:#e9f6f1}
+.assumption-group-zakat .assumption-grid label:nth-child(2)::before{content:'↗';background:#edf0ff;color:#4f5ed0}
+.assumption-group-zakat .assumption-grid label:nth-child(3)::before{content:'✎';background:#fff4e5;color:#ae741b}
+.assumption-group-zakat .assumption-grid label:nth-child(4)::before{content:'◷';background:#eaf3f8;color:#317f9b}
+.assumption-group-zakat .assumption-grid label:nth-child(5)::before{content:'✓';background:#f0edff;color:#7053b8}
+.assumption-input-wrap{position:relative;margin-top:5px}
+.assumption-input-wrap input{margin-top:0!important;padding-inline-end:26px!important;min-height:34px!important;font-size:12px!important;font-weight:800}
+.assumption-input-wrap span{position:absolute;inset-inline-end:10px;top:50%;transform:translateY(-50%);color:var(--bp-green);font-size:11px;font-weight:900;pointer-events:none}
+.assumption-grid input,.assumption-grid select{min-height:34px;margin-top:5px;padding:5px 8px;border-radius:8px;font-size:11px}
+.assumption-grid .budget-linked-value{min-height:34px;margin-top:5px;padding:5px 7px;border-radius:8px;font-size:9px;overflow:hidden}
+.assumption-grid .btn{min-height:29px;margin-top:5px;padding:4px 6px;font-size:8px;border-radius:7px}
+.budget-tabs-section{margin-top:12px;padding:8px 10px 7px;border-radius:11px}
+.budget-tabs-heading{padding:0 3px 7px}
+.budget-tabs-heading strong{font-size:13px}
+.budget-tabs-heading small,.budget-tabs-heading>span{font-size:9px}
+.budget-tabs-section .budget-tabs{gap:3px;padding:3px}
+.budget-tabs-section .budget-tabs button{min-height:32px;padding:7px 9px;font-size:10px}
+.budget-tabs-section .budget-tabs button::before{display:inline-block;margin-inline-end:5px;color:currentColor;font-size:11px;vertical-align:-1px}
+.budget-tabs-section .budget-tabs button:nth-child(1)::before{content:'▦'}
+.budget-tabs-section .budget-tabs button:nth-child(2)::before{content:'▤'}
+.budget-tabs-section .budget-tabs button:nth-child(3)::before{content:'▥'}
+.budget-tabs-section .budget-tabs button:nth-child(4)::before{content:'◑'}
+.budget-tabs-section .budget-tabs button:nth-child(5)::before{content:'⌁'}
+.budget-tabs-section .budget-tabs button:nth-child(6)::before{content:'⇄'}
+.budget-table-card{padding:14px!important}
+.budget-table-card .budget-card-head{margin-bottom:10px}
+.budget-table-card .budget-card-head h3{font-size:14px}
+.budget-table-card .budget-sheet thead th{padding:8px 5px;font-size:9px}
+.budget-table-card .budget-sheet tbody th{padding:7px 9px;font-size:10px}
+.budget-table-card .budget-sheet td input{min-height:31px;font-size:10px}
+@media(max-width:1280px){.assumption-group-performance .assumption-grid,.assumption-group-zakat .assumption-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.assumption-groups{grid-template-columns:1fr}.assumption-group-performance .assumption-grid,.assumption-group-zakat .assumption-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:650px){.assumption-group-performance .assumption-grid,.assumption-group-zakat .assumption-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.budget-tabs-heading{align-items:flex-start}.budget-tabs-section .budget-tabs button{font-size:9px;padding-inline:7px}}
