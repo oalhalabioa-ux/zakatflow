@@ -126,3 +126,43 @@
 .theme-elegant .budget-sheet td input{background:#fffaf0;border-color:#f1e4b7;border-radius:7px}
 @media(max-width:1280px){.theme-classic .budget-kpis,.theme-modern .budget-kpis,.theme-elegant .budget-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.theme-modern .budget-alerts{display:grid;grid-template-columns:1fr}.theme-modern .budget-alerts .budget-card-head{grid-column:auto}.theme-classic .budget-kpis,.theme-modern .budget-kpis,.theme-elegant .budget-kpis{grid-template-columns:1fr}}
+
+/* Assumptions and table navigation: make the planning flow easier to scan. */
+.budget-assumptions{padding:24px!important}
+.budget-assumptions>.budget-card-head{padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid var(--bp-border,#e4efeb)}
+.budget-assumptions .budget-card-head p{margin:7px 0 0;line-height:1.6}
+.assumption-groups{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px}
+.assumption-group{padding:16px;border:1px solid #e3eeea;border-radius:14px;background:#fbfefd}
+.assumption-group-performance{background:linear-gradient(145deg,#fbfefd,#f4fbf8)}
+.assumption-group-zakat{background:linear-gradient(145deg,#fcfbff,#f7f8ff);border-color:#e5e5f5}
+.assumption-group-title{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.assumption-group-title>span{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#e1f3ec;color:var(--bp-green);font-size:10px;font-weight:900}
+.assumption-group-zakat .assumption-group-title>span{background:#e9ebff;color:#4f5ed0}
+.assumption-group-title strong{display:block;font-size:13px}
+.assumption-group-title small{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.4}
+.assumption-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}
+.assumption-grid label{font-size:10px;line-height:1.4}
+.assumption-grid input,.assumption-grid select{min-height:42px;margin-top:6px;border-radius:9px}
+.assumption-grid .budget-linked-value{min-height:42px;margin-top:6px;font-size:10px}
+.assumption-grid .btn{min-height:34px;padding-inline:9px;font-size:10px}
+.budget-tabs-section{margin-top:18px;padding:12px 14px 10px;border:1px solid #e1ece8;border-radius:16px;background:linear-gradient(180deg,#ffffff,#f7fbf9);box-shadow:0 8px 20px rgba(26,63,53,.045)}
+.budget-tabs-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 4px 10px}
+.budget-tabs-heading small{display:block;color:var(--bp-green);font-size:10px;font-weight:850}
+.budget-tabs-heading strong{display:block;margin-top:2px;font-size:15px}
+.budget-tabs-heading>span{color:var(--muted);font-size:10px}
+.budget-tabs-section .approved-budget-tabs{position:static;margin:0;border:0;box-shadow:none;background:transparent;padding:0;backdrop-filter:none}
+.budget-tabs-section .budget-tabs button{flex:1 1 auto}
+.theme-modern .assumption-group-zakat{background:linear-gradient(145deg,#fbfbff,#f2f4ff);border-color:#e1e4ff}
+.theme-modern .assumption-group-performance{background:linear-gradient(145deg,#fff,#f7f9ff);border-color:#e1e4ff}
+.theme-modern .assumption-group-title>span{background:#edf0ff;color:#4f5ed0}
+.theme-modern .budget-tabs-section{border-color:#e1e4ff;background:linear-gradient(180deg,#fff,#f7f8ff);box-shadow:0 10px 24px rgba(49,86,179,.07)}
+.theme-modern .budget-tabs-heading small{color:#5362d3}
+.theme-classic .budget-tabs-section{border-radius:9px;padding:9px 10px;background:#f7fafb;box-shadow:none;border-color:#d9e3e6}
+.theme-classic .budget-tabs-heading{padding-bottom:8px}
+.theme-classic .assumption-groups{gap:9px}
+.theme-classic .assumption-group{border-radius:8px;padding:13px;background:#fbfcfd;border-color:#d9e3e6}
+.theme-classic .assumption-group-title{margin-bottom:10px}
+.theme-classic .assumption-group-title>span{border-radius:5px;background:#eaf1f3;color:#203a48}
+.theme-classic .budget-assumptions{padding:17px!important}
+@media(max-width:900px){.assumption-groups{grid-template-columns:1fr}.budget-tabs-heading{align-items:flex-start;flex-direction:column;gap:5px}}
+@media(max-width:560px){.budget-assumptions{padding:15px!important}.assumption-grid{grid-template-columns:1fr}.budget-tabs-section{margin-inline:-2px}.budget-tabs-heading strong{font-size:14px}.budget-tabs-section .budget-tabs{overflow-x:auto}.budget-tabs-section .budget-tabs button{flex:0 0 auto}}
