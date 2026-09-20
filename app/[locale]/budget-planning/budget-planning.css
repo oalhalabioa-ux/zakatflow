@@ -216,3 +216,42 @@
 @media(max-width:1280px){.assumption-group-performance .assumption-grid,.assumption-group-zakat .assumption-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:900px){.assumption-groups{grid-template-columns:1fr}.assumption-group-performance .assumption-grid,.assumption-group-zakat .assumption-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:650px){.assumption-group-performance .assumption-grid,.assumption-group-zakat .assumption-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.budget-tabs-heading{align-items:flex-start}.budget-tabs-section .budget-tabs button{font-size:9px;padding-inline:7px}}
+
+/* Monthly budget mockup: dense table with a focused summary rail. */
+.budget-table-layout{display:grid;grid-template-columns:minmax(0,1fr) 315px;gap:12px;direction:ltr;align-items:start;margin-top:12px}
+.budget-table-layout>.budget-table-card,.budget-table-layout>.budget-summary-card{direction:rtl;margin-top:0}
+.budget-table-layout .budget-table-card{min-width:0}
+.budget-summary-card{padding:18px!important;border:1px solid #e1ece8;box-shadow:0 10px 24px rgba(26,63,53,.05);background:linear-gradient(180deg,#fff,#f8fcfa)}
+.budget-summary-head{display:flex;align-items:flex-start;gap:10px;padding-bottom:14px;border-bottom:1px solid #e5efeb}
+.budget-summary-icon{display:grid;place-items:center;flex:0 0 auto;width:32px;height:32px;border-radius:9px;background:#e0f3ec;color:var(--bp-green);font-size:16px;font-weight:900}
+.budget-summary-icon.small{width:27px;height:27px;border-radius:7px;font-size:13px}
+.budget-summary-head small{display:block;color:var(--bp-green);font-size:10px;font-weight:850}
+.budget-summary-head h3{margin:2px 0 0;font-size:20px}
+.budget-summary-head p{margin:2px 0 0;color:var(--muted);font-size:9px}
+.budget-summary-list{margin-top:4px}
+.budget-summary-list>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #edf2f0}
+.budget-summary-list span,.budget-summary-allocation span{color:#59766d;font-size:10px}
+.budget-summary-list strong{font-size:12px;font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.budget-summary-list .summary-positive strong{color:var(--bp-green)}
+.budget-summary-progress{padding:16px 0;border-bottom:1px solid #e5efeb}
+.progress-head{display:flex;align-items:center;justify-content:space-between;font-size:10px}
+.progress-head span{color:var(--bp-green);font-weight:900;direction:ltr}
+.progress-track{height:8px;margin:10px 0 6px;border-radius:99px;background:#e7efec;overflow:hidden}
+.progress-track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#19a993,#0d755f)}
+.budget-summary-progress>small{color:var(--muted);font-size:9px}
+.budget-summary-allocation{display:flex;align-items:center;gap:8px;padding:15px 0;border-bottom:1px solid #e5efeb}
+.budget-summary-allocation strong{display:block;margin-top:3px;color:var(--bp-green);font-size:16px;direction:ltr;unicode-bidi:isolate}
+.budget-summary-note{display:flex;gap:8px;align-items:flex-start;margin-top:14px;padding:10px;border-radius:9px;background:#f0f8f5;color:#52736a}
+.budget-summary-note>span{color:var(--bp-green);font-size:15px}
+.budget-summary-note strong{display:block;font-size:10px}
+.budget-summary-note p{margin:3px 0 0;font-size:9px}
+.theme-modern .budget-summary-card{border-color:#e1e4ff;background:linear-gradient(180deg,#fff,#f7f8ff);box-shadow:0 10px 24px rgba(49,86,179,.07)}
+.theme-modern .budget-summary-icon{background:#edf0ff;color:#4f5ed0}
+.theme-modern .budget-summary-head small,.theme-modern .budget-summary-list .summary-positive strong,.theme-modern .budget-summary-allocation strong{color:#3156b3}
+.theme-modern .progress-track i{background:linear-gradient(90deg,#6575e4,#3156b3)}
+.theme-modern .budget-summary-note{background:#eef0ff;color:#4d5bab}
+.theme-classic .budget-table-layout{gap:9px}
+.theme-classic .budget-summary-card{border-radius:9px;padding:14px!important;box-shadow:none}
+.theme-classic .budget-summary-icon{border-radius:6px}
+@media(max-width:1050px){.budget-table-layout{grid-template-columns:minmax(0,1fr) 270px}}
+@media(max-width:820px){.budget-table-layout{grid-template-columns:1fr}.budget-summary-card{order:-1}.budget-summary-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.budget-summary-list>div{display:block;padding:8px;border:1px solid #e5efeb;border-radius:8px}.budget-summary-list strong{display:block;margin-top:5px}.budget-summary-progress,.budget-summary-allocation,.budget-summary-note{display:none}}
