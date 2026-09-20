@@ -1353,3 +1353,20 @@ textarea:focus {
     display: none;
   }
 }
+
+/* Financial Planning refined control surface */
+.budget-analysis-settings{position:relative;padding-top:70px!important;gap:18px!important}
+.budget-section-title{position:absolute;top:20px;inset-inline-end:26px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.budget-section-title small{color:var(--muted);font-size:12px}.budget-section-title strong{font-size:22px;color:var(--text)}
+.budget-data-status{background:linear-gradient(135deg,#eefaf5,#f5fbf8);border:1px solid #d9eee5;min-width:190px}
+.budget-data-status span{font-size:11px;color:#36836b}
+.refined-assumptions{padding:26px!important}.refined-assumptions .budget-card-head{align-items:flex-start;margin-bottom:22px}
+.refined-assumptions .budget-card-head h3{font-size:25px;margin:3px 0}.refined-assumptions .budget-card-head p{margin:0}
+.assumption-actions{display:flex;gap:10px;align-items:center}.assumption-grid{display:grid!important;grid-template-columns:repeat(4,minmax(180px,1fr));gap:16px!important}
+.assumption-grid label{padding:16px;border:1px solid #dfece7;border-radius:16px;background:linear-gradient(145deg,#fbfefd,#f1f9f6);font-weight:700}
+.assumption-grid label:nth-child(2){background:linear-gradient(145deg,#fffdfd,#fff2f2)}
+.assumption-grid label:last-child{background:linear-gradient(145deg,#fdfcff,#f4f2ff)}
+.assumption-grid input,.assumption-grid select{margin-top:10px;background:#fff!important;font-size:17px;font-weight:800}
+.forecast-method-note{margin-top:16px;padding:13px 16px;border-radius:12px;background:#eef6ff;color:#285b91;font-weight:650;font-size:13px}
+@media(max-width:1100px){.assumption-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}.budget-analysis-settings{padding-top:80px!important}}
+@media(max-width:700px){.assumption-grid{grid-template-columns:1fr}.assumption-actions{flex-wrap:wrap}.budget-section-title{position:static;align-items:flex-start}.budget-analysis-settings{padding-top:20px!important}}
