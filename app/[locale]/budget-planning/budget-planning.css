@@ -67,3 +67,62 @@
 @media(max-width:1280px){.budget-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.assumption-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.budget-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.budget-dashboard-grid{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}.budget-alerts{grid-column:1/-1}.five-year-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:760px){.budget-page-head{display:block}.budget-page-head .page-command{justify-content:stretch;max-width:none;margin-top:16px}.budget-page-head .page-command .btn{flex:1 1 140px}.approved-budget-tabs{top:4px}.budget-tabs{margin-inline:-4px}.budget-tabs button{padding-inline:12px;font-size:11px}.budget-filters,.assumption-grid,.budget-kpis,.budget-dashboard-grid,.five-year-kpis{grid-template-columns:1fr}.budget-section-title{display:block}.budget-status{justify-items:start;padding:10px 12px;margin-top:2px}.budget-chart-card,.budget-alerts,.five-year-card,.budget-table-card{padding:15px}.five-year-bars{height:200px;gap:6px}.budget-sheet{min-width:1380px}.budget-sheet tbody th{min-width:180px}.budget-table-card .budget-card-head{align-items:flex-start;flex-wrap:wrap}.assumption-actions{display:flex;flex-wrap:wrap;gap:8px}.assumption-actions .btn{flex:1 1 150px}}
 @media(prefers-reduced-motion:reduce){.budget-plan .btn{transition:none}.budget-plan .btn:hover:not(:disabled){transform:none}}
+
+/* Theme mapping for the approved design directions:
+   classic = C analytical workspace, modern = B smart SaaS, elegant = A executive. */
+.theme-classic .budget-plan{--bp-green:#1f6b64;--bp-teal:#317f9b;--bp-mint:#edf4f6;--bp-amber:#fff4df;--bp-red:#fff0f0;max-width:1500px;padding-block:24px}
+.theme-classic .budget-page-head h1{font-size:30px;letter-spacing:-.02em}
+.theme-classic .approved-budget-tabs{position:static;border-radius:8px;background:#f4f7f8;box-shadow:none;border-color:#d9e3e6}
+.theme-classic .budget-tabs button{border-radius:7px;padding:8px 12px;font-size:10px}
+.theme-classic .budget-tabs button.active{background:#203a48;color:#fff;box-shadow:none}
+.theme-classic .budget-filters{border-radius:9px;background:#f7fafb;box-shadow:none;padding:14px;gap:9px}
+.theme-classic .budget-kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.theme-classic .budget-kpi{min-height:120px;border-radius:9px;padding:14px;box-shadow:none}
+.theme-classic .budget-kpi strong{font-size:19px}
+.theme-classic .budget-dashboard-grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(220px,.75fr);gap:10px}
+.theme-classic .budget-chart-card,.theme-classic .budget-alerts,.theme-classic .five-year-card,.theme-classic .budget-table-card{border-radius:10px;padding:15px;box-shadow:none;border-color:#d9e3e6}
+.theme-classic .budget-sheet{border-spacing:1px}
+.theme-classic .budget-sheet th,.theme-classic .budget-sheet td{font-size:9px}
+.theme-classic .budget-sheet thead th{background:#eaf1f3;padding:9px 6px;border-radius:3px}
+.theme-classic .budget-sheet tbody th{min-width:190px;padding:8px 10px;border-radius:0}
+.theme-classic .budget-sheet td input{min-height:32px;border-radius:3px;background:#fbfcfd;border-color:#d9e3e6}
+.theme-classic .budget-table-scroll{border-radius:7px}
+.theme-classic .five-year-kpis{gap:8px}
+.theme-classic .five-year-kpis .budget-kpi{min-height:108px}
+
+.theme-modern .budget-plan{--bp-green:#3156b3;--bp-teal:#5c63d9;--bp-mint:#edf0ff;--bp-amber:#fff2dd;--bp-red:#ffecef;max-width:1440px;padding-block:28px}
+.theme-modern .budget-page-head h1{font-size:34px;letter-spacing:-.045em}
+.theme-modern .budget-page-head .budget-eyebrow{color:#4f5ed0}
+.theme-modern .approved-budget-tabs{border:0;background:linear-gradient(110deg,#243b80,#5265d5);box-shadow:0 12px 28px rgba(49,86,179,.18);border-radius:18px;padding:7px}
+.theme-modern .budget-tabs button{color:#dbe1ff;border-radius:12px;font-size:11px}
+.theme-modern .budget-tabs button.active{background:#fff;color:#3156b3;box-shadow:0 4px 12px rgba(18,29,88,.18)}
+.theme-modern .budget-filters{border-radius:20px;background:linear-gradient(135deg,#fff,#f4f6ff);border-color:#e0e4ff;box-shadow:0 12px 28px rgba(49,86,179,.07)}
+.theme-modern .budget-section-title small{color:#5362d3}
+.theme-modern .budget-status{background:#eef0ff;border-color:#dce1ff;color:#394da7}
+.theme-modern .budget-kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.theme-modern .budget-kpi{border-radius:20px;border-color:#e1e4ff;background:linear-gradient(145deg,#fff,#f8f9ff);box-shadow:0 12px 26px rgba(49,86,179,.08)}
+.theme-modern .budget-kpi-icon{background:#edf0ff;color:#4a5ed2}
+.theme-modern .budget-kpi:before{background:#5265d5}
+.theme-modern .budget-dashboard-grid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px}
+.theme-modern .budget-alerts{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.theme-modern .budget-alerts .budget-card-head{grid-column:1/-1}
+.theme-modern .budget-chart-card,.theme-modern .budget-alerts,.theme-modern .five-year-card,.theme-modern .budget-table-card{border-radius:20px;border-color:#e1e4ff;box-shadow:0 12px 28px rgba(49,86,179,.065)}
+.theme-modern .budget-table-scroll{border-color:#e1e4ff;border-radius:14px}
+.theme-modern .budget-sheet thead th{background:#eef0ff;color:#4051ad;border-radius:8px}
+.theme-modern .budget-sheet td input{background:#fbfbff;border-color:#dfe3ff;border-radius:9px}
+.theme-modern .five-year-bars b{background:linear-gradient(#6575e4,#3156b3)}
+
+.theme-elegant .budget-plan{--bp-green:#0d755f;--bp-teal:#19a993;--bp-mint:#e8f7f1;--bp-amber:#fff4d6;--bp-red:#fff0ef;max-width:1480px;padding-block:clamp(20px,3vw,42px)}
+.theme-elegant .budget-page-head h1{font-size:clamp(26px,3vw,38px);letter-spacing:-.04em}
+.theme-elegant .approved-budget-tabs{background:rgba(255,255,255,.94);border:1px solid #dfece7;border-radius:16px;box-shadow:0 7px 20px rgba(29,61,53,.06)}
+.theme-elegant .budget-tabs button{font-size:12px;padding:11px 16px}
+.theme-elegant .budget-tabs button.active{background:#e8f7f1;color:#0d755f;box-shadow:inset 0 -2px #0d755f,0 4px 12px rgba(13,117,95,.08)}
+.theme-elegant .budget-filters{background:linear-gradient(180deg,#fff,#f8fcfa);border-radius:18px;box-shadow:0 10px 26px rgba(29,61,53,.045)}
+.theme-elegant .budget-kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.theme-elegant .budget-kpi{min-height:154px;border-radius:18px;padding:18px;box-shadow:0 10px 24px rgba(29,61,53,.05)}
+.theme-elegant .budget-dashboard-grid{grid-template-columns:minmax(0,1.35fr) minmax(0,.9fr) minmax(250px,.85fr);gap:14px}
+.theme-elegant .budget-chart-card,.theme-elegant .budget-alerts,.theme-elegant .five-year-card,.theme-elegant .budget-table-card{border-radius:18px;box-shadow:0 10px 24px rgba(29,61,53,.045)}
+.theme-elegant .budget-sheet thead th{background:#edf7f3;border-radius:7px}
+.theme-elegant .budget-sheet td input{background:#fffaf0;border-color:#f1e4b7;border-radius:7px}
+@media(max-width:1280px){.theme-classic .budget-kpis,.theme-modern .budget-kpis,.theme-elegant .budget-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.theme-modern .budget-alerts{display:grid;grid-template-columns:1fr}.theme-modern .budget-alerts .budget-card-head{grid-column:auto}.theme-classic .budget-kpis,.theme-modern .budget-kpis,.theme-elegant .budget-kpis{grid-template-columns:1fr}}
