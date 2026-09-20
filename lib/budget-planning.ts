@@ -91,18 +91,18 @@ export const budgetGroupName=(line:BudgetLine)=>BUDGET_GROUPS[line.name]??line.n
 export function createCostCenterBudgetPlan(costCenter:'HQ'|'OPERATIONS',year=new Date().getFullYear()+1):BudgetPlan{
  const base=createDefaultBudgetPlan(year),zero=()=>Array(12).fill(0);
  const line=(category:BudgetLine['category'],name:string,line_type:BudgetLine['line_type'],sort_order:number):BudgetLine=>({category,name,line_type,sort_order,monthly_budget:zero(),monthly_actual:zero(),monthly_forecast:zero()});
- const shared=[line('CAPEX','الإنفاق الرأسمالي','CASH',90),line('FINANCING','خدمة الدين','CASH',100),line('ZAKAT','مخصص ومدفوعات الزكاة','CASH',110)];
+ const capex=line('CAPEX','الإنفاق الرأسمالي','CASH',90),financing=line('FINANCING','خدمة الدين','CASH',100),zakat=line('ZAKAT','مخصص ومدفوعات الزكاة','CASH',110);
  const lines=costCenter==='HQ'?[
   line('REVENUE','إيرادات أخرى','REVENUE',20),
   line('OPEX','رواتب إدارية','EXPENSE',40),line('OPEX','إيجار المقر والخدمات','EXPENSE',50),
   line('OPEX','التسويق والعلامة التجارية','EXPENSE',60),line('OPEX','أتعاب مهنية واستشارات','EXPENSE',70),
-  line('OPEX','تقنية وأنظمة إدارية','EXPENSE',80),...shared
+  line('OPEX','تقنية وأنظمة إدارية','EXPENSE',80),capex,financing,zakat
  ]:[
   line('REVENUE','الإيرادات التشغيلية','REVENUE',10),line('COGS','تكلفة المبيعات','EXPENSE',30),
   line('OPEX','رواتب تشغيلية','EXPENSE',40),line('OPEX','إيجارات المواقع التشغيلية','EXPENSE',50),
   line('OPEX','تسويق تشغيلي','EXPENSE',60),line('OPEX','صيانة وتشغيل','EXPENSE',70),
   line('OPEX','مواد ومستلزمات تشغيل','EXPENSE',75),line('OPEX','نقل ولوجستيات','EXPENSE',78),
-  line('OPEX','أنظمة وتقنية تشغيلية','EXPENSE',80),...shared
+  line('OPEX','أنظمة وتقنية تشغيلية','EXPENSE',80),capex
  ];
  return {...base,id:undefined,name:`${costCenter==='HQ'?'الخطة المالية - الإدارة العامة':'الخطة المالية - التشغيل'} ${year}`,cost_center:costCenter,opening_cash:0,lines};
 }
