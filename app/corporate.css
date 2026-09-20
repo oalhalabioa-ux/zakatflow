@@ -225,6 +225,53 @@
 .asset-sort:hover span:first-child{text-decoration:underline;text-underline-offset:3px}
 .theme-elegant .asset-kpi-source{color:#60776f}.theme-elegant .asset-sort.active span:last-child{background:#dff2ea;color:#07563f}
 
+/* Brand identity rebuild: shared section shell, navigation, cards, actions and tables. */
+.corp-shell{--brand-primary:#0f7665;--brand-secondary:#1d4350;--brand-bg:#f4f8f6;--brand-surface:#fff;--brand-surface-soft:#f8fcfa;--brand-border:#dce9e4;--brand-text:#18332d;--brand-muted:#6b817a;--brand-shadow:0 12px 30px rgba(24,70,58,.06);background:var(--brand-bg);color:var(--brand-text)}
+.corp-shell .corp-workspace{background:var(--brand-bg)}
+.corp-shell .corp-sidebar{background:linear-gradient(180deg,#11372f 0%,#0b2927 100%);border:0;box-shadow:8px 0 26px rgba(10,46,39,.13)}
+.corp-shell .corp-brand-row{height:88px;border-bottom:1px solid rgba(255,255,255,.12)}
+.corp-shell .corp-brand{gap:13px}.corp-shell .corp-mark{border-color:#b9ead9;color:#e9fff7;border-radius:10px;transform:none;background:rgba(255,255,255,.08)}
+.corp-shell .corp-brand strong{letter-spacing:-.03em}.corp-shell .corp-brand small{color:#a9ccc2}
+.corp-shell .corp-nav{padding:18px 12px;gap:5px}.corp-shell .corp-nav a,.corp-shell .corp-nav button,.corp-shell .corp-sidebar-foot a{border-radius:11px;padding:11px 13px;color:#d5e8e1;gap:12px;transition:background .16s,color .16s,transform .16s}
+.corp-shell .corp-nav a:hover,.corp-shell .corp-nav button:hover,.corp-shell .corp-sidebar-foot a:hover{background:rgba(255,255,255,.1);color:#fff;transform:translateX(-2px)}
+.corp-shell .corp-nav a.active,.corp-shell .corp-subnav a[aria-current="page"]{background:#e6f6f0;color:#0d6959}
+.corp-shell .corp-subnav{margin:3px 0 8px;padding-inline-start:12px;border-inline-start:1px solid rgba(184,235,219,.28)}
+.corp-shell .corp-subnav a{font-size:11px;padding-block:9px}.corp-shell .module-toggle{color:#effcf8!important;font-size:12px!important}
+.corp-shell .corp-topbar{height:72px;padding-inline:28px;background:rgba(255,255,255,.9);border-bottom:1px solid var(--brand-border);box-shadow:0 4px 18px rgba(24,70,58,.035);backdrop-filter:blur(14px)}
+.corp-shell .corp-search{height:40px;border-radius:12px;background:var(--brand-surface-soft);border-color:var(--brand-border);color:var(--brand-muted)}
+.corp-shell .corp-avatar{background:#d7eee6;color:#0b6656!important}.corp-shell .corp-top-actions{gap:12px;color:var(--brand-muted)}
+.corp-shell .corp-content>.container,.corp-shell .corp-content .container{max-width:1500px;padding:clamp(24px,3vw,42px) clamp(16px,3vw,42px)}
+.corp-shell .corp-content .page-head{padding:0 2px;margin-bottom:22px}.corp-shell .corp-content .page-head h1{font-size:clamp(26px,3vw,38px);font-weight:850;letter-spacing:-.04em;color:var(--brand-text);margin:0 0 8px}.corp-shell .corp-content .page-head h1+.muted{max-width:760px;color:var(--brand-muted)}
+.corp-shell .corp-content .section,.corp-shell .corp-content :is(.grid,.cards,.dash-kpis){gap:16px}.corp-shell .corp-content section.card,.corp-shell .corp-content .card{border:1px solid var(--brand-border);border-radius:18px;background:var(--brand-surface);box-shadow:var(--brand-shadow)}
+.corp-shell .corp-content section.card:hover,.corp-shell .corp-content .card:hover{border-color:#c6ded6;box-shadow:0 15px 34px rgba(24,70,58,.09)}
+.corp-shell .corp-content .btn{min-height:40px;border-radius:11px;background:var(--brand-primary);border-color:var(--brand-primary);padding-inline:15px;box-shadow:0 5px 12px rgba(15,118,101,.1)}
+.corp-shell .corp-content .btn:hover{background:#0b6758;transform:translateY(-1px)}.corp-shell .corp-content .btn.secondary{background:#fff;color:var(--brand-primary);border-color:#b8d8ce;box-shadow:none}.corp-shell .corp-content .btn.danger{background:#fff5f3;color:#b42318;border-color:#f1c4bd;box-shadow:none}
+.corp-shell .corp-content :is(input,select,textarea){min-height:42px;border-radius:11px;border-color:var(--brand-border);background:#fff;color:var(--brand-text)}
+.corp-shell .corp-content :is(input,select,textarea):focus{border-color:var(--brand-primary);box-shadow:0 0 0 4px rgba(15,118,101,.1)}
+.corp-shell .corp-content label{color:var(--brand-muted);font-size:11px;font-weight:750}.corp-shell .corp-content .form-grid{gap:14px}.corp-shell .corp-content .form-grid label{line-height:1.45}
+.corp-shell .corp-content .table{border:1px solid var(--brand-border);border-radius:14px;overflow:hidden;box-shadow:none;background:var(--brand-surface)}
+.corp-shell .corp-content .table th{height:44px;background:#eef7f3;color:#456b60;font-size:10px;font-weight:850;border-bottom:1px solid #d7e9e1}.corp-shell .corp-content .table td{height:48px;color:var(--brand-text);font-size:11px;border-bottom:1px solid #e8f0ed}.corp-shell .corp-content .table tbody tr:nth-child(even){background:#fbfdfc}.corp-shell .corp-content .table tbody tr:hover{background:#eff8f4}
+.corp-shell .corp-content .pill{border-radius:999px;padding:6px 10px;background:#e6f6f0;color:#0b6e5b;border-color:#bfe1d5;font-weight:800}
+.corp-shell .corp-content .notice{border-radius:13px;background:#fff9e8;border-color:#eedca8;color:#745514}.corp-shell .corp-content .success{border-radius:13px;background:#edf9f4;border-color:#b9dfd3;color:#155f4c}
+.corp-shell .footer{background:transparent;border-top:1px solid var(--brand-border);color:var(--brand-muted);padding:20px 42px}
+
+/* Classic = analytical C: compact, information-dense, table-first. */
+.theme-classic{--brand-primary:#1e6472;--brand-secondary:#293f50;--brand-bg:#f1f5f7;--brand-surface:#fff;--brand-surface-soft:#f7fafb;--brand-border:#d7e1e6;--brand-text:#243746;--brand-muted:#71818d;--brand-shadow:0 4px 14px rgba(35,61,76,.05)}
+.theme-classic .corp-sidebar{background:linear-gradient(180deg,#243948,#1b2b39);box-shadow:4px 0 16px rgba(23,40,58,.12)}.theme-classic .corp-content section.card,.theme-classic .corp-content .card{border-radius:10px;box-shadow:var(--brand-shadow)}
+.theme-classic .corp-content .page-head{margin-bottom:16px}.theme-classic .corp-content .page-head h1{font-size:30px}.theme-classic .corp-content .btn{border-radius:7px;box-shadow:none}.theme-classic .corp-content .table{border-radius:8px}.theme-classic .corp-content .table th{background:#eaf0f3;color:#415666;height:40px}.theme-classic .corp-content .table td{height:43px;font-size:10px}
+.theme-classic .corp-content .pill{border-radius:6px;background:#e7f0f3;color:#286075;border-color:#c8dce3}
+
+/* Modern = smart B: visual, modular and action-oriented. */
+.theme-modern{--brand-primary:#4355c7;--brand-secondary:#293c8f;--brand-bg:#f5f7ff;--brand-surface:#fff;--brand-surface-soft:#f7f8ff;--brand-border:#e0e4fa;--brand-text:#27345a;--brand-muted:#78829e;--brand-shadow:0 14px 34px rgba(55,72,169,.09)}
+.theme-modern .corp-sidebar{background:#fff;color:#334268;border-inline-end:1px solid #e0e4fa;box-shadow:6px 0 24px rgba(55,72,169,.06)}.theme-modern .corp-brand,.theme-modern .corp-nav a,.theme-modern .corp-nav button,.theme-modern .corp-sidebar-foot a{color:#3f4e7c}.theme-modern .corp-brand strong{color:#273c8f}.theme-modern .corp-brand small{color:#8290b0}.theme-modern .corp-mark{border-color:#5366db;color:#4355c7;background:#eef0ff}.theme-modern .corp-nav a:hover,.theme-modern .corp-nav button:hover,.theme-modern .corp-sidebar-foot a:hover{background:#eef0ff;color:#4355c7}.theme-modern .corp-nav a.active,.theme-modern .corp-subnav a[aria-current="page"]{background:#e9ecff;color:#4355c7}.theme-modern .module-toggle{color:#344775!important}.theme-modern .corp-topbar{background:rgba(255,255,255,.88);border-color:#e0e4fa}.theme-modern .corp-content .btn{background:linear-gradient(135deg,#5367df,#4355c7);border-color:#4355c7;border-radius:13px;box-shadow:0 8px 16px rgba(67,85,199,.2)}.theme-modern .corp-content .btn.secondary{background:#fff;color:#4355c7;border-color:#ccd3f6;box-shadow:none}.theme-modern .corp-content section.card,.theme-modern .corp-content .card{border-radius:20px}.theme-modern .corp-content .table{border-radius:16px;border-color:#e0e4fa}.theme-modern .corp-content .table th{background:#eef0ff;color:#4b5cb4}.theme-modern .corp-content .table tbody tr:hover{background:#f4f5ff}.theme-modern .corp-content .pill{background:#eef0ff;color:#4355c7;border-color:#d5daf9}
+
+/* Elegant = executive A: generous, calm and premium. */
+.theme-elegant{--brand-primary:#0d755f;--brand-secondary:#194d42;--brand-bg:#f5f9f7;--brand-surface:#fff;--brand-surface-soft:#f8fcfa;--brand-border:#dcebe5;--brand-text:#1a3b32;--brand-muted:#6c8179;--brand-shadow:0 14px 34px rgba(29,82,67,.065)}
+.theme-elegant .corp-sidebar{background:linear-gradient(180deg,#12483d,#0d332f);box-shadow:7px 0 26px rgba(17,73,60,.15)}.theme-elegant .corp-topbar{background:rgba(255,255,255,.9)!important;border-color:#dcebe5!important}.theme-elegant .corp-content .page-head{margin-bottom:26px}.theme-elegant .corp-content .page-head h1{font-size:clamp(28px,3vw,40px)!important}.theme-elegant .corp-content section.card,.theme-elegant .corp-content .card{border-radius:20px;box-shadow:var(--brand-shadow)}.theme-elegant .corp-content .table{border-radius:16px}.theme-elegant .corp-content .table th{background:#edf8f3;color:#3e6d5f;height:46px}.theme-elegant .corp-content .table td{height:52px}.theme-elegant .corp-content .btn{border-radius:12px}.theme-elegant .corp-content .pill{background:#e7f6ef;color:#0d755f;border-color:#c3e4d5}
+
+@media(max-width:900px){.corp-shell .corp-content>.container,.corp-shell .corp-content .container{padding-inline:18px}.corp-shell .corp-topbar{padding-inline:18px}.corp-shell .footer{padding-inline:18px}}
+@media(max-width:700px){.corp-shell .corp-content>.container,.corp-shell .corp-content .container{padding-inline:12px}.corp-shell .corp-content .page-head h1{font-size:26px}.corp-shell .corp-topbar{height:64px}.corp-shell .corp-top-actions{gap:8px}.corp-shell .theme-picker button span{display:none}}
+
 /* Assets page design switcher: deliberately stronger than the corporate base theme. */
 .corp-content .assets-page-executive .asset-group{
   border:1px solid #d8e6e1!important;
