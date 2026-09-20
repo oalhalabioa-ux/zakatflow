@@ -29,11 +29,16 @@ export function buildBudgetMetrics(plan:BudgetPlan){
   const financing=category(plan.lines,'FINANCING','monthly_budget',month);
   const zakat=category(plan.lines,'ZAKAT','monthly_budget',month);
   const actualRevenue=category(plan.lines,'REVENUE','monthly_actual',month);
+  const actualCogs=category(plan.lines,'COGS','monthly_actual',month);
+  const actualOpex=category(plan.lines,'OPEX','monthly_actual',month);
+  const actualCapex=category(plan.lines,'CAPEX','monthly_actual',month);
+  const actualFinancing=category(plan.lines,'FINANCING','monthly_actual',month);
+  const actualZakat=category(plan.lines,'ZAKAT','monthly_actual',month);
   const actualOutflow=sum(plan.lines.filter(line=>line.category!=='REVENUE').map(line=>at(line,'monthly_actual',month)));
   const forecastRevenue=category(plan.lines,'REVENUE','monthly_forecast',month);
   const forecastOutflow=sum(plan.lines.filter(line=>line.category!=='REVENUE').map(line=>at(line,'monthly_forecast',month)));
   return {revenue,cogs,opex,capex,financing,zakat,grossProfit:revenue-cogs,ebitda:revenue-cogs-opex,
-   netCash:revenue-cogs-opex-capex-financing-zakat,actualRevenue,actualOutflow,
+   netCash:revenue-cogs-opex-capex-financing-zakat,actualRevenue,actualCogs,actualOpex,actualCapex,actualFinancing,actualZakat,actualOutflow,actualNetCash:actualRevenue-actualOutflow,
    forecastRevenue,forecastOutflow,forecastNetCash:forecastRevenue-forecastOutflow};
  });
  let cash=plan.opening_cash;
@@ -44,13 +49,18 @@ export function buildBudgetMetrics(plan:BudgetPlan){
   revenue:sum(monthly.map(m=>m.revenue)),cogs:sum(monthly.map(m=>m.cogs)),opex:sum(monthly.map(m=>m.opex)),
   capex:sum(monthly.map(m=>m.capex)),financing:sum(monthly.map(m=>m.financing)),zakat:sum(monthly.map(m=>m.zakat)),
   grossProfit:sum(monthly.map(m=>m.grossProfit)),ebitda:sum(monthly.map(m=>m.ebitda)),
-  netCash:sum(monthly.map(m=>m.netCash)),actualRevenue:sum(monthly.map(m=>m.actualRevenue)),
+  netCash:sum(monthly.map(m=>m.netCash)),actualRevenue:sum(monthly.map(m=>m.actualRevenue)),actualCogs:sum(monthly.map(m=>m.actualCogs)),actualOpex:sum(monthly.map(m=>m.actualOpex)),actualCapex:sum(monthly.map(m=>m.actualCapex)),actualFinancing:sum(monthly.map(m=>m.actualFinancing)),actualZakat:sum(monthly.map(m=>m.actualZakat)),actualOutflow:sum(monthly.map(m=>m.actualOutflow)),actualNetCash:sum(monthly.map(m=>m.actualNetCash)),
   forecastRevenue:sum(monthly.map(m=>m.forecastRevenue)),forecastNetCash:sum(monthly.map(m=>m.forecastNetCash))
  };
  return {...annual,monthly,closingCash,
   grossMargin:annual.revenue?annual.grossProfit/annual.revenue:0,
   ebitdaMargin:annual.revenue?annual.ebitda/annual.revenue:0,
   budgetUtilization:annual.revenue?annual.actualRevenue/annual.revenue:0,
+  revenueVariance:annual.actualRevenue-annual.revenue,
+  revenueVariancePct:annual.revenue?(annual.actualRevenue-annual.revenue)/annual.revenue:0,
+  opexVariance:annual.actualOpex-annual.opex,
+  opexVariancePct:annual.opex?(annual.actualOpex-annual.opex)/annual.opex:0,
+  netCashVariance:annual.actualNetCash-annual.netCash,
   forecastVariance:annual.revenue?(annual.forecastRevenue-annual.revenue)/annual.revenue:0,
   endingCash:closingCash[11]??plan.opening_cash,
   minimumCashBuffer:Math.min(...closingCash)-plan.minimum_cash_target,
