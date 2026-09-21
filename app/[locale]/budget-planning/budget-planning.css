@@ -179,15 +179,15 @@
 .assumption-group-zakat .assumption-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
 .assumption-grid label{font-size:9px;display:block}
 .assumption-grid label::before{display:inline-grid;place-items:center;width:17px;height:17px;margin-inline-end:4px;border-radius:5px;background:#e8f5f0;color:var(--bp-green);font-size:9px;font-weight:900;vertical-align:middle}
-.assumption-group-performance .assumption-grid label:nth-child(1)::before{content:'↗'}
-.assumption-group-performance .assumption-grid label:nth-child(2)::before{content:'◒'}
-.assumption-group-performance .assumption-grid label:nth-child(3)::before{content:'⌁'}
-.assumption-group-performance .assumption-grid label:nth-child(4)::before{content:'▣'}
-.assumption-group-zakat .assumption-grid label:nth-child(1)::before{content:'◉';background:#e9f6f1}
-.assumption-group-zakat .assumption-grid label:nth-child(2)::before{content:'↗';background:#edf0ff;color:#4f5ed0}
-.assumption-group-zakat .assumption-grid label:nth-child(3)::before{content:'✎';background:#fff4e5;color:#ae741b}
-.assumption-group-zakat .assumption-grid label:nth-child(4)::before{content:'◷';background:#eaf3f8;color:#317f9b}
-.assumption-group-zakat .assumption-grid label:nth-child(5)::before{content:'✓';background:#f0edff;color:#7053b8}
+.assumption-group-performance .assumption-grid label:nth-child(1)::before{content:'â'}
+.assumption-group-performance .assumption-grid label:nth-child(2)::before{content:'â'}
+.assumption-group-performance .assumption-grid label:nth-child(3)::before{content:'â'}
+.assumption-group-performance .assumption-grid label:nth-child(4)::before{content:'â£'}
+.assumption-group-zakat .assumption-grid label:nth-child(1)::before{content:'â';background:#e9f6f1}
+.assumption-group-zakat .assumption-grid label:nth-child(2)::before{content:'â';background:#edf0ff;color:#4f5ed0}
+.assumption-group-zakat .assumption-grid label:nth-child(3)::before{content:'â';background:#fff4e5;color:#ae741b}
+.assumption-group-zakat .assumption-grid label:nth-child(4)::before{content:'â·';background:#eaf3f8;color:#317f9b}
+.assumption-group-zakat .assumption-grid label:nth-child(5)::before{content:'â';background:#f0edff;color:#7053b8}
 .assumption-input-wrap{position:relative;margin-top:5px}
 .assumption-input-wrap input{margin-top:0!important;padding-inline-end:26px!important;min-height:34px!important;font-size:12px!important;font-weight:800}
 .assumption-input-wrap span{position:absolute;inset-inline-end:10px;top:50%;transform:translateY(-50%);color:var(--bp-green);font-size:11px;font-weight:900;pointer-events:none}
@@ -201,12 +201,12 @@
 .budget-tabs-section .budget-tabs{gap:3px;padding:3px}
 .budget-tabs-section .budget-tabs button{min-height:32px;padding:7px 9px;font-size:10px}
 .budget-tabs-section .budget-tabs button::before{display:inline-block;margin-inline-end:5px;color:currentColor;font-size:11px;vertical-align:-1px}
-.budget-tabs-section .budget-tabs button:nth-child(1)::before{content:'▦'}
-.budget-tabs-section .budget-tabs button:nth-child(2)::before{content:'▤'}
-.budget-tabs-section .budget-tabs button:nth-child(3)::before{content:'▥'}
-.budget-tabs-section .budget-tabs button:nth-child(4)::before{content:'◑'}
-.budget-tabs-section .budget-tabs button:nth-child(5)::before{content:'⌁'}
-.budget-tabs-section .budget-tabs button:nth-child(6)::before{content:'⇄'}
+.budget-tabs-section .budget-tabs button:nth-child(1)::before{content:'â¦'}
+.budget-tabs-section .budget-tabs button:nth-child(2)::before{content:'â¤'}
+.budget-tabs-section .budget-tabs button:nth-child(3)::before{content:'â¥'}
+.budget-tabs-section .budget-tabs button:nth-child(4)::before{content:'â'}
+.budget-tabs-section .budget-tabs button:nth-child(5)::before{content:'â'}
+.budget-tabs-section .budget-tabs button:nth-child(6)::before{content:'â'}
 .budget-table-card{padding:14px!important}
 .budget-table-card .budget-card-head{margin-bottom:10px}
 .budget-table-card .budget-card-head h3{font-size:14px}
@@ -401,3 +401,101 @@
 .budget-table-card .budget-readonly-badge{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:7px;background:#f1f4f4;color:#6d807b;font-size:9px;font-weight:800;white-space:nowrap}
 @media(max-width:900px){.budget-workspace-tabs .approved-budget-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.budget-tabs-context{align-items:flex-start;flex-direction:column;gap:5px}}
 @media(max-width:560px){.budget-workspace-tabs{top:4px;padding:10px}.budget-workspace-tabs .approved-budget-tabs{display:flex;overflow-x:auto}.budget-workspace-tabs .budget-tabs button{flex:0 0 135px;min-height:39px;font-size:10px}.budget-workspace-tabs .budget-tabs-heading strong{font-size:14px}}
+
+/* Final responsive pass: keep the workspace inside the viewport at every size. */
+.budget-plan{width:100%;min-width:0;overflow-x:clip}
+.budget-plan :is(.card,.budget-filters,.budget-workspace-tabs,.budget-table-card,.budget-summary-card){min-width:0;max-width:100%;box-sizing:border-box}
+.budget-plan .budget-table-scroll{width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
+.budget-plan .budget-table-scroll::-webkit-scrollbar{height:8px}
+.budget-plan .budget-table-scroll::-webkit-scrollbar-thumb{background:#b9d9cf;border-radius:99px}
+.budget-plan .budget-table-scroll::-webkit-scrollbar-track{background:#f0f6f3;border-radius:99px}
+.budget-plan .budget-page-head{min-width:0}
+.budget-plan .budget-page-head>div:first-child{min-width:0}
+.budget-plan .budget-page-head h1,.budget-plan .budget-page-head p{overflow-wrap:anywhere}
+.budget-plan .budget-page-head .page-command{min-width:0}
+.budget-plan .budget-card-head{min-width:0;flex-wrap:wrap}
+.budget-plan .budget-card-head>div{min-width:0}
+.budget-plan .budget-card-head h3,.budget-plan .budget-card-head p{overflow-wrap:anywhere}
+.budget-plan .budget-card-head .assumption-actions{max-width:100%;flex-wrap:wrap}
+.budget-plan .budget-card-head .assumption-actions .btn{max-width:100%}
+
+@media (max-width:1100px){
+ .budget-plan{padding-inline:18px}
+ .budget-plan .budget-page-head .page-command{max-width:100%;justify-content:flex-start}
+ .budget-plan .budget-page-head .page-command .btn{flex:0 1 auto}
+ .budget-plan .budget-dashboard-primary,.budget-plan .budget-dashboard-bottom{gap:12px}
+}
+@media (max-width:760px){
+ .budget-plan{padding:18px 12px 30px}
+ .budget-plan .budget-page-head{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:12px;margin-bottom:14px}
+ .budget-plan .budget-page-head h1{font-size:clamp(22px,7vw,30px);line-height:1.22}
+ .budget-plan .budget-page-head .muted{font-size:12px;margin-bottom:0}
+ .budget-plan .budget-page-head .page-command{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:7px}
+ .budget-plan .budget-page-head .page-command .btn{width:100%;min-width:0;min-height:42px;padding-inline:8px;font-size:11px;white-space:normal;line-height:1.25}
+ .budget-plan .budget-page-head .page-command .btn:last-child:nth-child(4){grid-column:1/-1}
+ .budget-plan .approved-analysis-panel{padding:14px!important;gap:10px!important}
+ .budget-plan .approved-analysis-panel input,.budget-plan .approved-analysis-panel select{min-height:44px!important;height:44px!important;font-size:14px!important}
+ .budget-plan .budget-section-title{gap:4px;padding-bottom:8px}
+ .budget-plan .budget-section-title strong{font-size:17px}
+ .budget-plan .budget-section-title>span{line-height:1.5}
+ .budget-plan .assumptions-dropdown-panel{padding:13px!important}
+ .budget-plan .assumptions-panel-head{gap:10px;padding-bottom:11px}
+ .budget-plan .assumptions-panel-head h3{font-size:16px}
+ .budget-plan .assumptions-panel-head p{font-size:10px;line-height:1.5}
+ .budget-plan .assumptions-panel-head .assumption-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:7px}
+ .budget-plan .assumptions-panel-head .assumption-actions .btn{width:100%;min-height:40px;padding-inline:7px;font-size:10px}
+ .budget-plan .assumptions-dropdown-trigger{min-height:52px;padding:10px 9px}
+ .budget-plan .assumptions-dropdown-content{padding:0 10px 11px}
+ .budget-plan .assumptions-dropdown-content :is(input,select){min-height:42px;font-size:13px}
+ .budget-plan .budget-workspace-tabs{position:sticky;top:4px;margin-top:12px;padding:9px;border-radius:12px}
+ .budget-plan .budget-workspace-tabs .budget-tabs-heading{display:block;padding:0 1px 8px}
+ .budget-plan .budget-workspace-tabs .budget-tabs-heading strong{display:block;font-size:14px;line-height:1.35}
+ .budget-plan .budget-tabs-context{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:7px;margin-top:5px;font-size:9px}
+ .budget-plan .budget-tabs-context b{padding:4px 7px;font-size:9px}
+ .budget-plan .budget-workspace-tabs .approved-budget-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;overflow:visible;padding:4px}
+ .budget-plan .budget-workspace-tabs .budget-tabs button{min-width:0;min-height:46px;padding:6px 5px!important;font-size:10px;line-height:1.25;white-space:normal}
+ .budget-plan .budget-workspace-tabs .budget-tabs button::before{margin-inline-end:3px;font-size:10px}
+ .budget-plan .budget-kpi{min-height:126px;padding:14px}
+ .budget-plan .budget-kpi strong{font-size:20px}
+ .budget-plan .budget-dashboard-primary,.budget-plan .budget-dashboard-bottom{grid-template-columns:1fr!important}
+ .budget-plan .budget-dashboard-primary .budget-alerts{display:block!important;min-height:0}
+ .budget-plan .budget-dashboard-primary .budget-alert{display:flex;min-height:0;padding:12px 2px}
+ .budget-plan .budget-dashboard-bottom .budget-completion-card{grid-column:auto}
+ .budget-plan .budget-chart-card,.budget-plan .budget-alerts,.budget-plan .five-year-card,.budget-plan .budget-table-card,.budget-plan .budget-summary-card{padding:13px!important;border-radius:13px}
+ .budget-plan .budget-card-head h3{font-size:15px}
+ .budget-plan .budget-card-head small{font-size:9px}
+ .budget-plan .budget-table-card .budget-card-head{align-items:flex-start;gap:8px}
+ .budget-plan .budget-table-card .budget-card-head .assumption-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .budget-plan .budget-table-card .budget-card-head .assumption-actions .btn{width:100%;min-height:38px;padding-inline:6px;font-size:10px}
+ .budget-plan .budget-table-card .budget-table-scroll{border-radius:9px}
+ .budget-plan .budget-sheet{min-width:1080px}
+ .budget-plan .budget-sheet th,.budget-plan .budget-sheet td{font-size:10px}
+ .budget-plan .budget-sheet thead th{padding:9px 6px}
+ .budget-plan .budget-sheet tbody th{min-width:170px;padding:8px 9px;font-size:10px}
+ .budget-plan .budget-sheet td{min-width:76px}
+ .budget-plan .budget-sheet td input{min-height:42px;font-size:12px}
+ .budget-plan .budget-table-layout{grid-template-columns:1fr!important;gap:10px}
+ .budget-plan .budget-summary-card{order:-1}
+ .budget-plan .budget-summary-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .budget-plan .budget-summary-list>div{padding:8px 7px}
+ .budget-plan .budget-summary-list span{font-size:9px;line-height:1.35}
+ .budget-plan .budget-summary-list strong{font-size:11px}
+ .budget-plan .budget-summary-progress{display:block}
+ .budget-plan .budget-summary-allocation,.budget-plan .budget-summary-note{display:flex}
+ .budget-plan .budget-summary-progress{padding:11px 0}
+ .budget-plan .budget-summary-allocation{padding:11px 0}
+}
+@media (max-width:420px){
+ .budget-plan{padding-inline:9px}
+ .budget-plan .budget-page-head .page-command{grid-template-columns:1fr}
+ .budget-plan .budget-page-head .page-command .btn:last-child:nth-child(4){grid-column:auto}
+ .budget-plan .assumptions-panel-head .assumption-actions{grid-template-columns:1fr}
+ .budget-plan .budget-tabs-context{align-items:flex-start;flex-direction:column}
+ .budget-plan .budget-workspace-tabs .approved-budget-tabs{grid-template-columns:1fr 1fr}
+ .budget-plan .budget-workspace-tabs .budget-tabs button{min-height:50px;font-size:9px}
+ .budget-plan .budget-table-card .budget-card-head .assumption-actions{grid-template-columns:1fr}
+ .budget-plan .budget-summary-list{grid-template-columns:1fr}
+ .budget-plan .five-year-bars{gap:3px;padding-inline:0}
+ .budget-plan .five-year-bars strong{font-size:9px}
+ .budget-plan .five-year-bars small{font-size:7px;line-height:1.25}
+}
