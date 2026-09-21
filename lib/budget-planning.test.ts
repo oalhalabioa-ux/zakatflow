@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan} from './budget-planning';
+import {buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,normalizeCostCenterBudgetPlan} from './budget-planning';
 
 describe('budget planning calculations',()=>{
  it('reconciles annual results to monthly values',()=>{
@@ -47,5 +47,15 @@ describe('budget planning calculations',()=>{
   expect(operations.lines.some(line=>line.name==='رواتب تشغيلية')).toBe(true);
   expect(hq.lines.every(line=>line.monthly_budget.every(value=>value===0))).toBe(true);
   expect(operations.lines.every(line=>line.monthly_budget.every(value=>value===0))).toBe(true);
+ });
+ it('normalizes legacy lines without leaking another center into the list',()=>{
+  const legacy=createDefaultBudgetPlan(2027);
+  legacy.lines.find(line=>line.name==='الرواتب')!.monthly_budget[0]=125;
+  const hq=normalizeCostCenterBudgetPlan(legacy,'HQ');
+  const operations=normalizeCostCenterBudgetPlan(legacy,'OPERATIONS');
+  expect(hq.lines.map(line=>line.name)).toEqual(['إيرادات أخرى','رواتب إدارية','إيجار المقر والخدمات','التسويق والعلامة التجارية','أتعاب مهنية واستشارات','تقنية وأنظمة إدارية','الإنفاق الرأسمالي','خدمة الدين','مخصص ومدفوعات الزكاة']);
+  expect(operations.lines.map(line=>line.name)).toEqual(['الإيرادات التشغيلية','تكلفة المبيعات','رواتب تشغيلية','إيجارات المواقع التشغيلية','تسويق تشغيلي','صيانة وتشغيل','مواد ومستلزمات تشغيل','نقل ولوجستيات','أنظمة وتقنية تشغيلية','الإنفاق الرأسمالي']);
+  expect(hq.lines.find(line=>line.name==='رواتب إدارية')!.monthly_budget[0]).toBe(125);
+  expect(operations.lines.some(line=>line.name==='رواتب إدارية')).toBe(false);
  });
 });

@@ -11,6 +11,8 @@ export type BudgetPlan={
  assumptions:Record<string,unknown>;notes:string;lines:BudgetLine[];
 };
 
+export type BudgetCostCenter='ALL'|'HQ'|'OPERATIONS';
+
 export const MONTH_KEYS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as const;
 const sum=(values:number[])=>values.reduce((total,value)=>total+(Number(value)||0),0);
 const at=(line:BudgetLine,field:'monthly_budget'|'monthly_actual'|'monthly_forecast',month:number)=>{
@@ -105,6 +107,23 @@ export function createCostCenterBudgetPlan(costCenter:'HQ'|'OPERATIONS',year=new
   line('OPEX','أنظمة وتقنية تشغيلية','EXPENSE',80),capex
  ];
  return {...base,id:undefined,name:`${costCenter==='HQ'?'الخطة المالية - الإدارة العامة':'الخطة المالية - التشغيل'} ${year}`,cost_center:costCenter,opening_cash:0,lines};
+}
+
+const LEGACY_COST_CENTER_LINE_ALIASES:Record<'HQ'|'OPERATIONS',Record<string,string>>={
+ HQ:{'الرواتب':'رواتب إدارية','الإيجار والخدمات':'إيجار المقر والخدمات','التسويق':'التسويق والعلامة التجارية','المصاريف المهنية':'أتعاب مهنية واستشارات','التقنية':'تقنية وأنظمة إدارية'},
+ OPERATIONS:{'الرواتب':'رواتب تشغيلية','الإيجار والخدمات':'إيجارات المواقع التشغيلية','التسويق':'تسويق تشغيلي','التقنية':'أنظمة وتقنية تشغيلية'}
+};
+const twelve=(values:unknown)=>Array.from({length:12},(_,index)=>Math.max(0,Number(Array.isArray(values)?values[index]??0:0)||0));
+
+/** Keeps each cost-center plan on its own approved line-item list, including legacy plans. */
+export function normalizeCostCenterBudgetPlan(saved:BudgetPlan,costCenter:'HQ'|'OPERATIONS'):BudgetPlan{
+ const template=createCostCenterBudgetPlan(costCenter,saved.fiscal_year);
+ const aliases=LEGACY_COST_CENTER_LINE_ALIASES[costCenter];
+ const byName=new Map(saved.lines.map(line=>[aliases[line.name]??line.name,line]));
+ return {...saved,cost_center:costCenter,lines:template.lines.map(line=>{
+  const old=byName.get(line.name);
+  return old?{...line,id:old.id,name:line.name,category:line.category,line_type:line.line_type,sort_order:line.sort_order,monthly_budget:twelve(old.monthly_budget),monthly_actual:twelve(old.monthly_actual),monthly_forecast:twelve(old.monthly_forecast??old.monthly_budget)}:line;
+ })};
 }
 
 export function createDefaultBudgetPlan(year=new Date().getFullYear()+1):BudgetPlan{

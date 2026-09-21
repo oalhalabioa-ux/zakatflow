@@ -1,8 +1,17 @@
 import {requireUser} from './auth';
 import {budgetPlanSchema} from '@/lib/validation/schemas';
+import {normalizeCostCenterBudgetPlan} from '@/lib/budget-planning';
 import type {BudgetLine,BudgetPlan} from '@/lib/budget-planning';
 
 const PLAN_FIELDS='id,name,fiscal_year,currency,scenario,status,organization_name,cost_center,opening_cash,minimum_cash_target,assumptions,notes,created_at,updated_at';
+
+function parsePersistedPlan(input:unknown){
+ const parsed=budgetPlanSchema.parse(input);
+ if(parsed.cost_center!=='HQ'&&parsed.cost_center!=='OPERATIONS')throw new Error('SPECIFIC_COST_CENTER_REQUIRED');
+ const normalized=normalizeCostCenterBudgetPlan(parsed as BudgetPlan,parsed.cost_center);
+ const {lines,...planInput}=normalized;
+ return {lines,planInput};
+}
 
 export async function listBudgetPlans(filters?:{fiscal_year?:string|null;organization_name?:string|null;scenario?:string|null;cost_center?:string|null}){
  const {supabase,user}=await requireUser();
@@ -25,7 +34,7 @@ export async function getBudgetPlan(id:string):Promise<BudgetPlan>{
 }
 
 export async function createBudgetPlan(input:unknown){
- const parsed=budgetPlanSchema.parse(input),{lines,...planInput}=parsed;
+ const {lines,planInput}=parsePersistedPlan(input);
  const {supabase,user}=await requireUser();
  const {data:plan,error}=await supabase.from('budget_plans').insert({...planInput,user_id:user.id,created_by:user.id}).select(PLAN_FIELDS).single();
  if(error)throw error;
@@ -35,7 +44,7 @@ export async function createBudgetPlan(input:unknown){
 }
 
 export async function updateBudgetPlan(id:string,input:unknown){
- const parsed=budgetPlanSchema.parse(input),{lines,...planInput}=parsed;
+ const {lines,planInput}=parsePersistedPlan(input);
  const {supabase,user}=await requireUser();
  const {data:existing,error:existingError}=await supabase.from('budget_plans').select(PLAN_FIELDS).eq('id',id).eq('user_id',user.id).single();
  if(existingError)throw existingError;
