@@ -516,7 +516,7 @@
 .budget-variance-table .actual-budget-footnote{margin-top:10px;color:#7a8d87;font-size:11px}
 .budget-variance-table .actual-period-control{display:inline-flex;align-items:center;gap:6px;padding:4px 7px;border:1px solid #d6e7e1;border-radius:9px;background:#f7fbf9;color:#527169;font-size:10px;font-weight:800}
 .budget-variance-table .actual-period-control select{margin:0;min-height:28px;border:0;background:transparent;color:#173b34;font:inherit;padding:2px 5px;outline:0}
-.budget-variance-total-table{min-width:760px}
+.budget-variance-total-table{min-width:1450px}
 .budget-variance-total-table td,.budget-variance-total-table th{vertical-align:middle}
 .budget-tab-icon{display:inline-grid;place-items:center;width:21px;height:21px;margin-inline-end:6px;border:1px solid currentColor;border-radius:6px;font-size:13px;line-height:1;vertical-align:-4px}
 .budget-tabs-section .budget-tabs button::before{display:none!important;content:none!important}
@@ -556,6 +556,6 @@
  .cash-flow-note{font-size:9px;line-height:1.6}
  .budget-variance-table .actual-budget-summary{justify-content:flex-start}
  .budget-variance-table .actual-budget-footnote{font-size:10px;line-height:1.6}
- .budget-variance-total-table{min-width:700px}
+ .budget-variance-total-table{min-width:1280px}
  .budget-tab-icon{width:19px;height:19px;margin-inline-end:3px;font-size:11px}
 }
