@@ -694,3 +694,29 @@
  .budget-plan .approved-analysis-panel .budget-section-title strong{font-size:18px!important}
  .budget-plan .approved-analysis-panel .budget-data-status{min-width:0!important;width:100%!important;box-sizing:border-box!important}
 }
+
+/* Direction correction: physical placement keeps the approved RTL composition stable. */
+.budget-plan .approved-analysis-panel .budget-section-title{
+ right:24px!important;
+ left:24px!important;
+ inset-inline-start:auto!important;
+ inset-inline-end:auto!important;
+ align-items:stretch!important;
+}
+.budget-plan .approved-analysis-panel .budget-section-title>div,
+.budget-plan .approved-analysis-panel .budget-section-title>span{text-align:right!important}
+.budget-plan .approved-analysis-panel .budget-data-status{
+ left:24px!important;
+ right:auto!important;
+ inset-inline-start:auto!important;
+ inset-inline-end:auto!important;
+}
+@media(min-width:1101px){
+ .budget-plan .approved-analysis-panel{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+}
+@media(min-width:761px) and (max-width:1100px){
+ .budget-plan .approved-analysis-panel{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:8px!important;padding-inline:16px!important}
+ .budget-plan .approved-analysis-panel .budget-data-status{min-width:205px!important;left:16px!important}
+ .budget-plan .approved-analysis-panel .budget-section-title{right:16px!important;left:16px!important}
+ .budget-plan .approved-analysis-panel input,.budget-plan .approved-analysis-panel select{font-size:12px!important;padding-inline:8px!important}
+}
