@@ -748,3 +748,20 @@
  .budget-plan .approved-analysis-panel .analysis-settings-fields{grid-template-columns:1fr;gap:10px;margin-top:14px}
  .budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title strong{font-size:19px!important}
 }
+
+/* Cash-flow dashboard: fixed plotting area with an explicit zero line and monthly scale. */
+.budget-plan .dashboard-cash-card .budget-card-head{align-items:flex-start}
+.budget-plan .dashboard-cash-card .budget-card-head>div{min-width:0}
+.budget-plan .dashboard-cash-card .cash-flow-summary{display:block;margin-top:5px;color:#0d755f;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
+.budget-plan .dashboard-cash-card .cash-flow-summary.negative{color:#c74b43}
+.budget-plan .dashboard-cash-card .cash-mini-bars{position:relative;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));align-items:stretch;gap:7px;height:210px!important;min-height:210px!important;flex:0 0 210px!important;padding:10px 4px 0;border-bottom:1px solid #e5efeb;overflow:hidden}
+.budget-plan .dashboard-cash-card .cash-mini-zero-line{position:absolute;inset-inline:4px;top:50%;height:1px;background:#c9ded8;z-index:0}
+.budget-plan .dashboard-cash-card .cash-mini-column{position:relative;z-index:1;height:100%;min-width:0;display:grid;grid-template-rows:1fr auto;align-items:stretch;gap:7px;color:#6d877f;font-size:10px;text-align:center}
+.budget-plan .dashboard-cash-card .cash-mini-plot{position:relative;min-height:0;width:100%}
+.budget-plan .dashboard-cash-card .cash-mini-column i{position:absolute;left:14%;width:72%;min-height:3px;margin:0;border-radius:5px;display:block;transform:none}
+.budget-plan .dashboard-cash-card .cash-mini-column i.positive{background:linear-gradient(180deg,#19b48e,#0d8b6b)}
+.budget-plan .dashboard-cash-card .cash-mini-column i.negative{background:linear-gradient(180deg,#f18e8e,#d65b5b)}
+@media(max-width:760px){
+ .budget-plan .dashboard-cash-card .cash-mini-bars{height:180px!important;min-height:180px!important;flex-basis:180px!important;gap:4px}
+ .budget-plan .dashboard-cash-card .cash-flow-summary{font-size:10px}
+}
