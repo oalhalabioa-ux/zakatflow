@@ -720,3 +720,31 @@
  .budget-plan .approved-analysis-panel .budget-section-title{right:16px!important;left:16px!important}
  .budget-plan .approved-analysis-panel input,.budget-plan .approved-analysis-panel select{font-size:12px!important;padding-inline:8px!important}
 }
+
+/* Final structural layout: visible RTL heading, five-field filter row, and compact approval status. */
+.budget-plan .budget-page-head .page-command{align-items:flex-start}
+.budget-plan .approval-command{display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:148px}
+.budget-plan .approval-command .btn{width:100%}
+.budget-plan .approval-status{display:flex;align-items:center;justify-content:center;gap:5px;min-height:19px;padding:2px 7px;border:1px solid #d8eee5;border-radius:999px;background:#f1faf6;color:#52746b;font-size:9px;font-weight:750;line-height:1.2;white-space:nowrap}
+.budget-plan .approval-status-dot{width:6px;height:6px;border-radius:50%;background:#0d8b6b;box-shadow:0 0 0 3px #dcf3e9}
+
+.budget-plan .approved-analysis-panel{display:block!important;position:relative!important;grid-template-columns:none!important;gap:0!important;padding:20px 24px 22px!important;overflow:visible!important}
+.budget-plan .approved-analysis-panel .analysis-settings-header{display:flex;justify-content:flex-start;direction:rtl;width:100%;min-width:0}
+.budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title{position:static!important;inset:auto!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;width:100%;min-width:0;padding:0 0 13px!important;border-bottom:1px solid #e5efeb!important;text-align:right}
+.budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title>div{display:grid;gap:3px;width:100%;text-align:right}
+.budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title small,.budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title strong,.budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title>span{display:block;width:100%;text-align:right!important}
+.budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title small{font-size:11px!important;color:var(--bp-green)!important}
+.budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title strong{font-size:23px!important;line-height:1.2!important;color:#173b34!important}
+.budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title>span{margin-top:1px;font-size:10px!important;color:#718a83!important;padding:0!important;background:transparent!important}
+.budget-plan .approved-analysis-panel .analysis-settings-fields{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));direction:rtl;gap:14px;width:100%;min-width:0;margin-top:18px;align-items:end}
+.budget-plan .approved-analysis-panel .analysis-settings-fields>label{display:block;min-width:0}
+.budget-plan .approved-analysis-panel .analysis-settings-fields .filter-label{display:flex;align-items:center;gap:6px;min-height:22px;white-space:nowrap}
+.budget-plan .approved-analysis-panel .analysis-settings-fields input,.budget-plan .approved-analysis-panel .analysis-settings-fields select{width:100%!important;box-sizing:border-box!important;min-height:42px;height:42px;margin-top:6px;border-radius:10px;padding-inline:11px;font-size:13px;font-weight:700}
+
+@media(max-width:760px){
+ .budget-plan .budget-page-head .page-command{align-items:stretch}
+ .budget-plan .approval-command{width:100%;min-width:0}
+ .budget-plan .approved-analysis-panel{padding:16px!important}
+ .budget-plan .approved-analysis-panel .analysis-settings-fields{grid-template-columns:1fr;gap:10px;margin-top:14px}
+ .budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title strong{font-size:19px!important}
+}
