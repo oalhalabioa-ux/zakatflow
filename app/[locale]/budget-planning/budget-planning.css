@@ -530,6 +530,20 @@
 .cash-flow-settings-grid{gap:10px}
 .planning-subnav a .corp-icon{width:17px;height:17px;stroke-width:1.8}
 .planning-subnav a:hover{background:#e9f7f2;color:#08765f}
+.approved-analysis-panel .budget-section-title{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 2px 11px;border-bottom:1px solid #e5efeb}
+.approved-analysis-panel .budget-section-title strong{font-size:17px;letter-spacing:-.015em}
+.approved-analysis-panel .budget-section-title>span{padding:5px 9px;border-radius:999px;background:#eef8f4;color:#5b7a71;font-size:10px}
+.approved-analysis-panel>label{min-width:0}
+.approved-analysis-panel .filter-label{white-space:nowrap}
+.cash-flow-card-head{align-items:center}
+.cash-flow-card-head .cash-flow-settings{flex:0 1 auto;margin:0;padding:0;background:transparent;border:0;box-shadow:none;min-width:0}
+.cash-flow-card-head .cash-flow-settings .budget-section-title{display:none}
+.cash-flow-card-head .cash-flow-settings-grid{display:flex;align-items:center;gap:8px}
+.cash-flow-card-head .cash-flow-settings-grid label{display:flex;align-items:center;gap:5px;min-width:0;color:#527169;font-size:10px;white-space:nowrap}
+.cash-flow-card-head .cash-flow-settings-grid label>small{display:none}
+.cash-flow-card-head .cash-input-wrap{min-width:112px;padding-inline:7px;border-radius:8px;background:#f7fbf9}
+.cash-flow-card-head .cash-input-wrap input{min-height:28px;padding:4px 0;font-size:11px;font-weight:800}
+.cash-flow-card-head .cash-input-wrap b{font-size:9px}
 .budget-variance-table .budget-sheet th span{display:block;margin-bottom:3px;color:#76918a;font-size:10px;font-weight:600}
 .budget-variance-table .budget-sheet td strong{white-space:nowrap}
 .budget-variance-table .budget-sheet td input{min-width:86px}
@@ -558,4 +572,11 @@
  .budget-variance-table .actual-budget-footnote{font-size:10px;line-height:1.6}
  .budget-variance-total-table{min-width:1280px}
  .budget-tab-icon{width:19px;height:19px;margin-inline-end:3px;font-size:11px}
+ .approved-analysis-panel .budget-section-title{align-items:flex-start;gap:7px}
+ .approved-analysis-panel .budget-section-title>span{align-self:flex-start}
+ .cash-flow-card-head{display:grid;grid-template-columns:1fr;gap:8px}
+ .cash-flow-card-head .cash-flow-settings{width:100%}
+ .cash-flow-card-head .cash-flow-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .cash-flow-card-head .cash-flow-settings-grid label{justify-content:space-between;font-size:9px}
+ .cash-flow-card-head .cash-input-wrap{min-width:0;flex:1}
 }
