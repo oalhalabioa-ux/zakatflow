@@ -633,3 +633,64 @@
  .budget-plan .budget-kpis,.budget-plan .five-year-kpis{grid-template-columns:1fr}
  .budget-plan .budget-kpi,.budget-plan .five-year-kpis .budget-kpi{min-height:124px}
 }
+
+/* Analysis settings v2: dedicated header, balanced filter row, and safe RTL margins. */
+.budget-plan .approved-analysis-panel{
+ position:relative!important;
+ grid-template-columns:repeat(5,minmax(0,1fr))!important;
+ align-items:end!important;
+ gap:14px!important;
+ padding:92px 24px 22px!important;
+ overflow:hidden!important;
+}
+.budget-plan .approved-analysis-panel .budget-section-title{
+ position:absolute!important;
+ inset-inline-start:24px!important;
+ inset-inline-end:24px!important;
+ top:20px!important;
+ display:flex!important;
+ flex-direction:column!important;
+ align-items:flex-end!important;
+ justify-content:flex-start!important;
+ gap:3px!important;
+ padding:0 0 11px!important;
+ border-bottom:1px solid #e5efeb!important;
+}
+.budget-plan .approved-analysis-panel .budget-section-title>div{display:grid;gap:3px}
+.budget-plan .approved-analysis-panel .budget-section-title small{font-size:11px!important;color:var(--bp-green)!important}
+.budget-plan .approved-analysis-panel .budget-section-title strong{font-size:23px!important;line-height:1.2!important;color:#173b34!important}
+.budget-plan .approved-analysis-panel .budget-section-title>span{font-size:10px!important;color:#718a83!important;padding:0!important;background:transparent!important}
+.budget-plan .approved-analysis-panel .budget-data-status{
+ position:absolute!important;
+ inset-inline-start:24px!important;
+ top:18px!important;
+ min-width:238px!important;
+ min-height:58px!important;
+ height:auto!important;
+ display:flex!important;
+ flex-direction:row!important;
+ align-items:center!important;
+ justify-content:flex-start!important;
+ gap:10px!important;
+ padding:10px 13px!important;
+ border-radius:12px!important;
+ text-align:start!important;
+}
+.budget-plan .approved-analysis-panel .budget-data-status .status-icon{flex:0 0 auto}
+.budget-plan .approved-analysis-panel .budget-data-status>div{display:grid;gap:2px}
+.budget-plan .approved-analysis-panel .budget-data-status strong{font-size:15px!important;line-height:1.2!important}
+.budget-plan .approved-analysis-panel>label{min-width:0}
+.budget-plan .approved-analysis-panel .filter-label{min-height:22px!important;white-space:nowrap}
+.budget-plan .approved-analysis-panel input,.budget-plan .approved-analysis-panel select{width:100%!important;box-sizing:border-box!important}
+
+@media(max-width:1280px){
+ .budget-plan .approved-analysis-panel{grid-template-columns:repeat(3,minmax(0,1fr))!important;padding-top:92px!important}
+}
+@media(max-width:760px){
+ .budget-plan .approved-analysis-panel{grid-template-columns:1fr!important;padding:14px!important;gap:10px!important;overflow:visible!important}
+ .budget-plan .approved-analysis-panel .budget-section-title,
+ .budget-plan .approved-analysis-panel .budget-data-status{position:static!important;inset:auto!important}
+ .budget-plan .approved-analysis-panel .budget-section-title{align-items:flex-start!important;padding-bottom:8px!important}
+ .budget-plan .approved-analysis-panel .budget-section-title strong{font-size:18px!important}
+ .budget-plan .approved-analysis-panel .budget-data-status{min-width:0!important;width:100%!important;box-sizing:border-box!important}
+}
