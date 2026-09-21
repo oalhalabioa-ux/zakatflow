@@ -13,6 +13,16 @@ export type BudgetPlan={
 
 export type BudgetCostCenter='ALL'|'HQ'|'OPERATIONS';
 
+export function budgetVariancePercent(variance:number,budget:number):number|null{
+ return Number(budget)===0?null:Number(variance)/Number(budget);
+}
+
+export function isBudgetVarianceFavorable(category:BudgetLine['category'],budget:number,actual:number):boolean|null{
+ if(Number(budget)===0&&Number(actual)===0)return null;
+ const variance=Number(actual)-Number(budget);
+ return category==='REVENUE'?variance>=0:variance<=0;
+}
+
 export const MONTH_KEYS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as const;
 const sum=(values:number[])=>values.reduce((total,value)=>total+(Number(value)||0),0);
 const at=(line:BudgetLine,field:'monthly_budget'|'monthly_actual'|'monthly_forecast',month:number)=>{
@@ -119,7 +129,13 @@ const twelve=(values:unknown)=>Array.from({length:12},(_,index)=>Math.max(0,Numb
 export function normalizeCostCenterBudgetPlan(saved:BudgetPlan,costCenter:'HQ'|'OPERATIONS'):BudgetPlan{
  const template=createCostCenterBudgetPlan(costCenter,saved.fiscal_year);
  const aliases=LEGACY_COST_CENTER_LINE_ALIASES[costCenter];
- const byName=new Map(saved.lines.map(line=>[aliases[line.name]??line.name,line]));
+ const lineWeight=(line:BudgetLine)=>[...line.monthly_budget,...line.monthly_actual,...(line.monthly_forecast??[])].reduce((total,value)=>total+Math.abs(Number(value)||0),0);
+ const byName=new Map<string,BudgetLine>();
+ saved.lines.forEach(line=>{
+  const name=aliases[line.name]??line.name;
+  const previous=byName.get(name);
+  if(!previous||lineWeight(line)>=lineWeight(previous))byName.set(name,line);
+ });
  return {...saved,cost_center:costCenter,lines:template.lines.map(line=>{
   const old=byName.get(line.name);
   return old?{...line,id:old.id,name:line.name,category:line.category,line_type:line.line_type,sort_order:line.sort_order,monthly_budget:twelve(old.monthly_budget),monthly_actual:twelve(old.monthly_actual),monthly_forecast:twelve(old.monthly_forecast??old.monthly_budget)}:line;

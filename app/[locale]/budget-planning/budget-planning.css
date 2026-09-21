@@ -7,7 +7,8 @@
 .budget-plan{max-width:1480px;padding-block:clamp(20px,3vw,42px);color:#18332d}
 .executive-layout{--bp-surface:#ffffff;--bp-surface-soft:#f7fbf9;--bp-border:#e4efeb}
 .executive-layout .card{background:var(--bp-surface)}
-.budget-page-head{align-items:flex-start!important;gap:24px;margin-bottom:18px}
+.���z��
+�)�֧u�ݢ�i��k�G��*^budget-page-head{align-items:flex-start!important;gap:24px;margin-bottom:18px}
 .budget-page-head h1{letter-spacing:-.035em;line-height:1.12;margin:4px 0 8px;font-size:clamp(24px,3vw,36px)}
 .budget-page-head .muted{max-width:650px;line-height:1.65}
 .budget-page-head .page-command{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:510px}
@@ -157,7 +158,8 @@
 .theme-modern .assumption-group-title>span{background:#edf0ff;color:#4f5ed0}
 .theme-modern .budget-tabs-section{border-color:#e1e4ff;background:linear-gradient(180deg,#fff,#f7f8ff);box-shadow:0 10px 24px rgba(49,86,179,.07)}
 .theme-modern .budget-tabs-heading small{color:#5362d3}
-.theme-classic .budget-tabs-section{border-radius:9px;padding:9px 10px;background:#f7fafb;box-shadow:none;border-color:#d9e3e6}
+.theme-classic .budget-tab���z��
+�)�֧u�ݢ�i��k�G��*^s-section{border-radius:9px;padding:9px 10px;background:#f7fafb;box-shadow:none;border-color:#d9e3e6}
 .theme-classic .budget-tabs-heading{padding-bottom:8px}
 .theme-classic .assumption-groups{gap:9px}
 .theme-classic .assumption-group{border-radius:8px;padding:13px;background:#fbfcfd;border-color:#d9e3e6}
@@ -179,15 +181,15 @@
 .assumption-group-zakat .assumption-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
 .assumption-grid label{font-size:9px;display:block}
 .assumption-grid label::before{display:inline-grid;place-items:center;width:17px;height:17px;margin-inline-end:4px;border-radius:5px;background:#e8f5f0;color:var(--bp-green);font-size:9px;font-weight:900;vertical-align:middle}
-.assumption-group-performance .assumption-grid label:nth-child(1)::before{content:'â'}
-.assumption-group-performance .assumption-grid label:nth-child(2)::before{content:'â'}
-.assumption-group-performance .assumption-grid label:nth-child(3)::before{content:'â'}
-.assumption-group-performance .assumption-grid label:nth-child(4)::before{content:'â£'}
-.assumption-group-zakat .assumption-grid label:nth-child(1)::before{content:'â';background:#e9f6f1}
-.assumption-group-zakat .assumption-grid label:nth-child(2)::before{content:'â';background:#edf0ff;color:#4f5ed0}
-.assumption-group-zakat .assumption-grid label:nth-child(3)::before{content:'â';background:#fff4e5;color:#ae741b}
-.assumption-group-zakat .assumption-grid label:nth-child(4)::before{content:'â·';background:#eaf3f8;color:#317f9b}
-.assumption-group-zakat .assumption-grid label:nth-child(5)::before{content:'â';background:#f0edff;color:#7053b8}
+.assumption-group-performance .assumption-grid label:nth-child(1)::before{content:'↗'}
+.assumption-group-performance .assumption-grid label:nth-child(2)::before{content:'◒'}
+.assumption-group-performance .assumption-grid label:nth-child(3)::before{content:'⌁'}
+.assumption-group-performance .assumption-grid label:nth-child(4)::before{content:'▣'}
+.assumption-group-zakat .assumption-grid label:nth-child(1)::before{content:'◉';background:#e9f6f1}
+.assumption-group-zakat .assumption-grid label:nth-child(2)::before{content:'↗';background:#edf0ff;color:#4f5ed0}
+.assumption-group-zakat .assumption-grid label:nth-child(3)::before{content:'✎';background:#fff4e5;color:#ae741b}
+.assumption-group-zakat .assumption-grid label:nth-child(4)::before{content:'◷';background:#eaf3f8;color:#317f9b}
+.assumption-group-zakat .assumption-grid label:nth-child(5)::before{content:'✓';background:#f0edff;color:#7053b8}
 .assumption-input-wrap{position:relative;margin-top:5px}
 .assumption-input-wrap input{margin-top:0!important;padding-inline-end:26px!important;min-height:34px!important;font-size:12px!important;font-weight:800}
 .assumption-input-wrap span{position:absolute;inset-inline-end:10px;top:50%;transform:translateY(-50%);color:var(--bp-green);font-size:11px;font-weight:900;pointer-events:none}
@@ -201,12 +203,12 @@
 .budget-tabs-section .budget-tabs{gap:3px;padding:3px}
 .budget-tabs-section .budget-tabs button{min-height:32px;padding:7px 9px;font-size:10px}
 .budget-tabs-section .budget-tabs button::before{display:inline-block;margin-inline-end:5px;color:currentColor;font-size:11px;vertical-align:-1px}
-.budget-tabs-section .budget-tabs button:nth-child(1)::before{content:'â¦'}
-.budget-tabs-section .budget-tabs button:nth-child(2)::before{content:'â¤'}
-.budget-tabs-section .budget-tabs button:nth-child(3)::before{content:'â¥'}
-.budget-tabs-section .budget-tabs button:nth-child(4)::before{content:'â'}
-.budget-tabs-section .budget-tabs button:nth-child(5)::before{content:'â'}
-.budget-tabs-section .budget-tabs button:nth-child(6)::before{content:'â'}
+.budget-tabs-section .budget-tabs button:nth-child(1)::before{content:'▦'}
+.budget-tabs-section .budget-tabs button:nth-child(2)::before{content:'▤'}
+.budget-tabs-section .budget-tabs button:nth-child(3)::before{content:'▥'}
+.budget-tabs-section .budget-tabs button:nth-child(4)::before{content:'◑'}
+.budget-tabs-section .budget-tabs button:nth-child(5)::before{content:'⌁'}
+.budget-tabs-section .budget-tabs button:nth-child(6)::before{content:'⇄'}
 .budget-table-card{padding:14px!important}
 .budget-table-card .budget-card-head{margin-bottom:10px}
 .budget-table-card .budget-card-head h3{font-size:14px}
@@ -498,4 +500,46 @@
  .budget-plan .five-year-bars{gap:3px;padding-inline:0}
  .budget-plan .five-year-bars strong{font-size:9px}
  .budget-plan .five-year-bars small{font-size:7px;line-height:1.25}
+}
+
+/* Keep the planning flow intentional: assumptions first, analysis scope second. */
+.budget-plan.executive-layout{display:flex;flex-direction:column}
+.budget-plan.executive-layout>.budget-page-head{order:1}
+.budget-plan.executive-layout>.notice,.budget-plan.executive-layout>.success{order:2}
+.budget-plan.executive-layout>.assumptions-dropdown-panel{order:3}
+.budget-plan.executive-layout>.cash-flow-settings{order:3.5}
+.budget-plan.executive-layout>.approved-analysis-panel{order:4}
+.budget-plan.executive-layout>.budget-workspace-tabs{order:5}
+.budget-plan.executive-layout>#budget-workspace{order:6}
+.budget-plan.executive-layout>:is(.budget-page-head,.notice,.success,.assumptions-dropdown-panel,.approved-analysis-panel,.budget-workspace-tabs,#budget-workspace){width:100%;min-width:0}
+
+.budget-variance-table .actual-budget-summary{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.budget-variance-table .actual-budget-empty{padding:34px 20px;text-align:center;color:#6d847d;background:#f7fbf9;border:1px dashed #cfe2db;border-radius:12px}
+.budget-variance-table .actual-budget-footnote{margin-top:10px;color:#7a8d87;font-size:11px}
+.budget-variance-table .budget-sheet th span{display:block;margin-bottom:3px;color:#76918a;font-size:10px;font-weight:600}
+.budget-variance-table .budget-sheet td strong{white-space:nowrap}
+.budget-variance-table .budget-sheet td input{min-width:86px}
+.budget-variance-table .neutral{color:#71837e}
+.budget-variance-table .positive{color:#087f67}
+.budget-variance-table .negative{color:#c54b54}
+.cash-flow-settings{padding:18px 20px}
+.cash-flow-settings .budget-section-title{margin-bottom:14px}
+.cash-flow-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.cash-flow-settings-grid label{display:grid;gap:6px;color:#45645d;font-size:12px;font-weight:700}
+.cash-flow-settings-grid label>small{color:#7a8d87;font-size:10px;font-weight:500;line-height:1.5}
+.cash-input-wrap{display:flex;align-items:center;gap:8px;border:1px solid #d4e5df;border-radius:10px;background:#fbfefd;padding-inline:12px}
+.cash-input-wrap input{width:100%;min-width:0;border:0;background:transparent;padding:11px 0;color:#173b34;font:inherit;outline:0}
+.cash-input-wrap b{color:#6d847d;font-size:11px;white-space:nowrap}
+.cash-flow-note{margin-bottom:10px;padding:8px 10px;border-radius:8px;background:#f7fbf9;color:#718780;font-size:10px}
+
+@media (max-width:760px){
+ .budget-plan.executive-layout>.assumptions-dropdown-panel{order:3}
+ .budget-plan.executive-layout>.approved-analysis-panel{order:4}
+ .budget-plan.executive-layout>.cash-flow-settings{order:3.5}
+ .cash-flow-settings{padding:14px!important}
+ .cash-flow-settings-grid{grid-template-columns:1fr;gap:9px}
+ .cash-flow-settings-grid label{font-size:11px}
+ .cash-flow-note{font-size:9px;line-height:1.6}
+ .budget-variance-table .actual-budget-summary{justify-content:flex-start}
+ .budget-variance-table .actual-budget-footnote{font-size:10px;line-height:1.6}
 }

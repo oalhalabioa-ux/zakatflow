@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,normalizeCostCenterBudgetPlan} from './budget-planning';
+import {budgetVariancePercent,buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,isBudgetVarianceFavorable,normalizeCostCenterBudgetPlan} from './budget-planning';
 
 describe('budget planning calculations',()=>{
  it('reconciles annual results to monthly values',()=>{
@@ -57,5 +57,19 @@ describe('budget planning calculations',()=>{
   expect(operations.lines.map(line=>line.name)).toEqual(['الإيرادات التشغيلية','تكلفة المبيعات','رواتب تشغيلية','إيجارات المواقع التشغيلية','تسويق تشغيلي','صيانة وتشغيل','مواد ومستلزمات تشغيل','نقل ولوجستيات','أنظمة وتقنية تشغيلية','الإنفاق الرأسمالي']);
   expect(hq.lines.find(line=>line.name==='رواتب إدارية')!.monthly_budget[0]).toBe(125);
   expect(operations.lines.some(line=>line.name==='رواتب إدارية')).toBe(false);
+ });
+ it('selects meaningful rows when production data contains duplicate line items',()=>{
+  const saved=createCostCenterBudgetPlan('HQ',2027);
+  const salaries=saved.lines.find(line=>line.name==='رواتب إدارية')!;
+  const duplicate={...salaries,monthly_budget:Array(12).fill(900)};
+  saved.lines=[salaries,duplicate,...saved.lines.filter(line=>line!==salaries)];
+  const normalized=normalizeCostCenterBudgetPlan(saved,'HQ');
+  expect(normalized.lines.find(line=>line.name==='رواتب إدارية')!.monthly_budget[0]).toBe(900);
+ });
+ it('does not turn zero-budget variance into a false percentage or status',()=>{
+  expect(budgetVariancePercent(100,0)).toBeNull();
+  expect(isBudgetVarianceFavorable('OPEX',0,100)).toBe(false);
+  expect(isBudgetVarianceFavorable('REVENUE',0,100)).toBe(true);
+  expect(isBudgetVarianceFavorable('OPEX',0,0)).toBeNull();
  });
 });
