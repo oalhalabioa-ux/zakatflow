@@ -52,10 +52,35 @@ export async function updateBudgetPlan(id:string,input:unknown){
  if(oldLinesError)throw oldLinesError;
  const {error}=await supabase.from('budget_plans').update({...planInput,updated_at:new Date().toISOString()}).eq('id',id).eq('user_id',user.id);
  if(error)throw error;
- const {error:deleteError}=await supabase.from('budget_lines').delete().eq('plan_id',id).eq('user_id',user.id);
- if(deleteError){await supabase.from('budget_plans').update(existing).eq('id',id).eq('user_id',user.id);throw deleteError;}
- const {error:lineError}=await supabase.from('budget_lines').insert(lines.map(line=>({...line,id:undefined,plan_id:id,user_id:user.id})));
- if(lineError){await supabase.from('budget_lines').delete().eq('plan_id',id).eq('user_id',user.id);if(oldLines?.length)await supabase.from('budget_lines').insert(oldLines.map(({id:_,created_at:__,updated_at:___,...line}:any)=>line));await supabase.from('budget_plans').update(existing).eq('id',id).eq('user_id',user.id);throw lineError;}
+ // Normal saves must never clear the persisted budget rows. Update known rows and
+ // append only genuinely new rows; destructive cleanup belongs to an explicit
+ // budget-data clearing action, not to the regular save path.
+ const changedExisting:any[]=[];
+ const insertedIds:string[]=[];
+ try{
+  for(const line of lines){
+   const payload={...line,plan_id:id,user_id:user.id};
+   if(line.id){
+    const previous=oldLines?.find((old:any)=>old.id===line.id);
+    if(!previous)continue;
+    changedExisting.push(previous);
+    const {error:lineError}=await supabase.from('budget_lines').update({...payload,id:undefined}).eq('id',line.id).eq('plan_id',id).eq('user_id',user.id);
+    if(lineError)throw lineError;
+   }else{
+    const {data:created,error:lineError}=await supabase.from('budget_lines').insert({...payload,id:undefined}).select('id').single();
+    if(lineError)throw lineError;
+    if(created?.id)insertedIds.push(created.id);
+   }
+  }
+ }catch(lineError){
+  for(const previous of changedExisting){
+   const {id:lineId,...restore}=previous;
+   await supabase.from('budget_lines').update(restore).eq('id',lineId).eq('plan_id',id).eq('user_id',user.id);
+  }
+  if(insertedIds.length)await supabase.from('budget_lines').delete().in('id',insertedIds).eq('plan_id',id).eq('user_id',user.id);
+  await supabase.from('budget_plans').update(existing).eq('id',id).eq('user_id',user.id);
+  throw lineError;
+ }
  return getBudgetPlan(id);
 }
 
