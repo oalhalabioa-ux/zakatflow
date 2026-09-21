@@ -30,7 +30,12 @@ export async function getBudgetPlan(id:string):Promise<BudgetPlan>{
  const {data:plan,error}=await supabase.from('budget_plans').select(`${PLAN_FIELDS},budget_lines(*)`).eq('id',id).eq('user_id',user.id).single();
  if(error)throw error;
  const raw=plan as any;
- return {...raw,lines:(raw.budget_lines??[]).sort((a:BudgetLine,b:BudgetLine)=>a.sort_order-b.sort_order)};
+ const lines=(raw.budget_lines??[]).sort((a:BudgetLine,b:BudgetLine)=>a.sort_order-b.sort_order);
+ // Legacy plans may contain duplicated or cross-center rows. Normalize the
+ // response for display and calculations without deleting anything persisted.
+ return raw.cost_center==='HQ'||raw.cost_center==='OPERATIONS'
+  ? normalizeCostCenterBudgetPlan({...raw,lines},raw.cost_center)
+  : {...raw,lines};
 }
 
 export async function createBudgetPlan(input:unknown){
