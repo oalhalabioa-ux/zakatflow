@@ -1,5 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {budgetVariancePercent,buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,isBudgetVarianceFavorable,normalizeCostCenterBudgetPlan} from './budget-planning';
+import {budgetPlanSchema} from './validation/schemas';
 
 describe('budget planning calculations',()=>{
  it('reconciles annual results to monthly values',()=>{
@@ -65,6 +66,19 @@ describe('budget planning calculations',()=>{
   saved.lines=[salaries,duplicate,...saved.lines.filter(line=>line!==salaries)];
   const normalized=normalizeCostCenterBudgetPlan(saved,'HQ');
   expect(normalized.lines.find(line=>line.name==='رواتب إدارية')!.monthly_budget[0]).toBe(900);
+ });
+ it('keeps the latest edited duplicate even when its value is reduced to zero',()=>{
+  const saved=createCostCenterBudgetPlan('HQ',2027);
+  const salaries=saved.lines.find(line=>line.name==='رواتب إدارية')!;
+  const legacy={...salaries,id:'00000000-0000-0000-0000-000000000001',monthly_budget:Array(12).fill(900),updated_at:'2026-09-20T10:00:00.000Z'};
+  const edited={...salaries,id:'00000000-0000-0000-0000-000000000002',monthly_budget:Array(12).fill(0),updated_at:'2026-09-21T10:00:00.000Z'};
+  const normalized=normalizeCostCenterBudgetPlan({...saved,lines:[legacy,edited,...saved.lines.filter(line=>line!==salaries)]} as any,'HQ');
+  expect(normalized.lines.find(line=>line.name==='رواتب إدارية')!.monthly_budget[0]).toBe(0);
+ });
+ it('preserves budget line ids through request validation so saves update rows',()=>{
+  const plan=createCostCenterBudgetPlan('HQ',2027),id='00000000-0000-4000-8000-000000000003';
+  const parsed=budgetPlanSchema.parse({...plan,lines:plan.lines.map((line,index)=>index===0?{...line,id}:line)});
+  expect(parsed.lines[0].id).toBe(id);
  });
  it('does not turn zero-budget variance into a false percentage or status',()=>{
   expect(budgetVariancePercent(100,0)).toBeNull();

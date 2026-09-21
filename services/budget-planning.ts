@@ -69,7 +69,7 @@ export async function updateBudgetPlan(id:string,input:unknown){
     const previous=oldLines?.find((old:any)=>old.id===line.id);
     if(!previous)continue;
     changedExisting.push(previous);
-    const {error:lineError}=await supabase.from('budget_lines').update({...payload,id:undefined}).eq('id',line.id).eq('plan_id',id).eq('user_id',user.id);
+    const {error:lineError}=await supabase.from('budget_lines').update({...payload,id:undefined,updated_at:new Date().toISOString()}).eq('id',line.id).eq('plan_id',id).eq('user_id',user.id);
     if(lineError)throw lineError;
    }else{
     const {data:created,error:lineError}=await supabase.from('budget_lines').insert({...payload,id:undefined}).select('id').single();

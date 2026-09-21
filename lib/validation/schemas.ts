@@ -8,6 +8,7 @@ export const fxSchema=z.object({from_currency:z.string().length(3),to_currency:z
 export const notificationSchema=z.object({type:z.string().min(1).max(60),title:z.string().min(1).max(200),body:z.string().min(1).max(2000),scheduled_for:z.string().optional(),metadata:z.record(z.string(),z.any()).optional()});
 
 export const budgetLineSchema=z.object({
+ id:z.string().uuid().optional(),
  category:z.enum(['REVENUE','COGS','OPEX','CAPEX','FINANCING','ZAKAT']),
  name:z.string().min(1).max(160),
  line_type:z.enum(['REVENUE','EXPENSE','CASH']),

@@ -124,6 +124,11 @@ const LEGACY_COST_CENTER_LINE_ALIASES:Record<'HQ'|'OPERATIONS',Record<string,str
  OPERATIONS:{'الرواتب':'رواتب تشغيلية','الإيجار والخدمات':'إيجارات المواقع التشغيلية','التسويق':'تسويق تشغيلي','التقنية':'أنظمة وتقنية تشغيلية'}
 };
 const twelve=(values:unknown)=>Array.from({length:12},(_,index)=>Math.max(0,Number(Array.isArray(values)?values[index]??0:0)||0));
+const persistedLineDate=(line:BudgetLine)=>{
+ const value=(line as BudgetLine & {updated_at?:string}).updated_at;
+ const timestamp=value?Date.parse(value):Number.NaN;
+ return Number.isFinite(timestamp)?timestamp:0;
+};
 
 /** Keeps each cost-center plan on its own approved line-item list, including legacy plans. */
 export function normalizeCostCenterBudgetPlan(saved:BudgetPlan,costCenter:'HQ'|'OPERATIONS'):BudgetPlan{
@@ -134,7 +139,10 @@ export function normalizeCostCenterBudgetPlan(saved:BudgetPlan,costCenter:'HQ'|'
  saved.lines.forEach(line=>{
   const name=aliases[line.name]??line.name;
   const previous=byName.get(name);
-  if(!previous||lineWeight(line)>=lineWeight(previous))byName.set(name,line);
+  const lineDate=persistedLineDate(line),previousDate=previous?persistedLineDate(previous):0;
+  // Prefer the most recently edited persisted row. This keeps an intentional
+  // zero or reduction visible when legacy duplicate rows still exist.
+  if(!previous||lineDate>previousDate||(lineDate===previousDate&&lineWeight(line)>=lineWeight(previous)))byName.set(name,line);
  });
  return {...saved,cost_center:costCenter,lines:template.lines.map(line=>{
   const old=byName.get(line.name);
