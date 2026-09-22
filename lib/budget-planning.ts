@@ -11,7 +11,7 @@ export type BudgetPlan={
  assumptions:Record<string,unknown>;notes:string;lines:BudgetLine[];
 };
 
-export type BudgetCostCenter='ALL'|'HQ'|'OPERATIONS';
+export type BudgetCostCenter=string;
 
 export function budgetVariancePercent(variance:number,budget:number):number|null{
  return Number(budget)===0?null:Number(variance)/Number(budget);
@@ -147,7 +147,7 @@ export const BUDGET_GROUPS:Record<string,string>={
 };
 export const budgetGroupName=(line:BudgetLine)=>BUDGET_GROUPS[line.name]??line.name;
 
-export function createCostCenterBudgetPlan(costCenter:'HQ'|'OPERATIONS',year=new Date().getFullYear()+1):BudgetPlan{
+export function createCostCenterBudgetPlan(costCenter:string,year=new Date().getFullYear()+1):BudgetPlan{
  const base=createDefaultBudgetPlan(year),zero=()=>Array(12).fill(0);
  const line=(category:BudgetLine['category'],name:string,line_type:BudgetLine['line_type'],sort_order:number):BudgetLine=>({category,name,line_type,sort_order,monthly_budget:zero(),monthly_actual:zero(),monthly_forecast:zero()});
  const capex=line('CAPEX','الإنفاق الرأسمالي','CASH',90),financing=line('FINANCING','خدمة الدين','CASH',100),zakat=line('ZAKAT','مخصص ومدفوعات الزكاة','CASH',110);
@@ -163,7 +163,7 @@ export function createCostCenterBudgetPlan(costCenter:'HQ'|'OPERATIONS',year=new
   line('OPEX','مواد ومستلزمات تشغيل','EXPENSE',75),line('OPEX','نقل ولوجستيات','EXPENSE',78),
   line('OPEX','أنظمة وتقنية تشغيلية','EXPENSE',80),capex
  ];
- return {...base,id:undefined,name:`${costCenter==='HQ'?'الخطة المالية - الإدارة العامة':'الخطة المالية - التشغيل'} ${year}`,cost_center:costCenter,opening_cash:0,lines};
+ return {...base,id:undefined,name:`${costCenter==='HQ'?'الخطة المالية - الإدارة العامة':costCenter==='OPERATIONS'?'الخطة المالية - التشغيل':`الخطة المالية - ${costCenter}`} ${year}`,cost_center:costCenter,opening_cash:0,lines};
 }
 
 const LEGACY_COST_CENTER_LINE_ALIASES:Record<'HQ'|'OPERATIONS',Record<string,string>>={

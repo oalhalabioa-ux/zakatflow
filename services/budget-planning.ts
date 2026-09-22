@@ -7,8 +7,10 @@ const PLAN_FIELDS='id,name,fiscal_year,currency,scenario,status,organization_nam
 
 function parsePersistedPlan(input:unknown){
  const parsed=budgetPlanSchema.parse(input);
- if(parsed.cost_center!=='HQ'&&parsed.cost_center!=='OPERATIONS')throw new Error('SPECIFIC_COST_CENTER_REQUIRED');
- const normalized=normalizeCostCenterBudgetPlan(parsed as BudgetPlan,parsed.cost_center);
+ if(!parsed.cost_center||parsed.cost_center==='ALL')throw new Error('SPECIFIC_COST_CENTER_REQUIRED');
+ const normalized=parsed.cost_center==='HQ'||parsed.cost_center==='OPERATIONS'
+  ? normalizeCostCenterBudgetPlan(parsed as BudgetPlan,parsed.cost_center)
+  : parsed as BudgetPlan;
  const {lines,...planInput}=normalized;
  return {lines,planInput};
 }
@@ -20,7 +22,7 @@ export async function listBudgetPlans(filters?:{fiscal_year?:string|null;organiz
  if(filters?.organization_name)query=query.eq('organization_name',filters.organization_name);
  if(filters?.scenario)query=query.eq('scenario',filters.scenario);
  if(filters?.cost_center&&filters.cost_center!=='ALL')query=query.eq('cost_center',filters.cost_center);
- else if(filters?.cost_center==='ALL')query=query.in('cost_center',['HQ','OPERATIONS']);
+ else if(filters?.cost_center==='ALL')query=query.neq('cost_center','ALL');
  const {data,error}=await query.order('updated_at',{ascending:false}).order('fiscal_year',{ascending:false});
  if(error)throw error; return data;
 }
