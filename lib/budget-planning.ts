@@ -25,6 +25,53 @@ export function isBudgetVarianceFavorable(category:BudgetLine['category'],budget
 
 export const MONTH_KEYS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as const;
 const sum=(values:number[])=>values.reduce((total,value)=>total+(Number(value)||0),0);
+export const budgetScenarioFactor=(scenario:BudgetPlan['scenario'],category:BudgetLine['category'])=>{
+ if(scenario==='BASE')return 1;
+ if(scenario==='DOWNSIDE')return category==='REVENUE'?0.90:category==='OPEX'?1.05:1;
+ return category==='REVENUE'?1.10:category==='OPEX'?1.03:1;
+};
+
+/**
+ * Converts an annual growth assumption into a monthly factor.
+ * January is the budget baseline; December reaches the full annual rate.
+ */
+export const annualGrowthFactor=(annualGrowth:number,monthIndex:number)=>{
+ const growth=Math.max(-0.999,Number(annualGrowth)||0);
+ const month=Math.max(0,Math.min(11,Number(monthIndex)||0));
+ return Math.pow(1+growth,month/11);
+};
+
+/**
+ * Rebuilds forecasts from the entered budget and performance drivers.
+ * It never changes monthly_budget, monthly_actual, or cash settings.
+ */
+export function applyPerformanceDrivers(plan:BudgetPlan):BudgetLine[]{
+ const revenueGrowth=Number(plan.assumptions.revenue_growth??0);
+ const cogsRatio=Math.max(0,Number(plan.assumptions.cogs_ratio??0));
+ const opexGrowth=Number(plan.assumptions.opex_growth??0);
+ const revenueLines=plan.lines.filter(line=>line.category==='REVENUE');
+ const cogsLines=plan.lines.filter(line=>line.category==='COGS');
+ const cogsBudgetByMonth=MONTH_KEYS.map((_,month)=>sum(cogsLines.map(line=>Number(line.monthly_budget[month]||0))));
+ const revenueForecastByMonth=MONTH_KEYS.map((_,month)=>sum(revenueLines.map(line=>Number(line.monthly_budget[month]||0)*budgetScenarioFactor(plan.scenario,'REVENUE')*annualGrowthFactor(revenueGrowth,month))));
+
+ return plan.lines.map(line=>{
+  const scenario=budgetScenarioFactor(plan.scenario,line.category);
+  const forecast=line.monthly_budget.map((budget,month)=>{
+   if(line.category==='REVENUE')return Math.round(Number(budget||0)*scenario*annualGrowthFactor(revenueGrowth,month));
+   if(line.category==='COGS'){
+    const totalCogs=revenueForecastByMonth[month]*cogsRatio;
+    const budgetBasis=cogsBudgetByMonth[month];
+    const share=budgetBasis>0?Number(budget||0)/budgetBasis:(cogsLines.length?1/cogsLines.length:0);
+    return Math.round(totalCogs*share);
+   }
+   if(line.category==='OPEX')return Math.round(Number(budget||0)*scenario*annualGrowthFactor(opexGrowth,month));
+   // CAPEX growth is a five-year driver. Monthly forecasts stay aligned to
+   // the entered monthly budget, while financing and Zakat remain untouched.
+   return Math.round(Number(budget||0)*scenario);
+  });
+  return {...line,monthly_forecast:forecast};
+ });
+}
 const at=(line:BudgetLine,field:'monthly_budget'|'monthly_actual'|'monthly_forecast',month:number)=>{
  const source=field==='monthly_forecast'?(line.monthly_forecast??line.monthly_budget):line[field];
  return Number(source[month]??0);

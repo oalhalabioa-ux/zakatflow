@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {budgetVariancePercent,buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,isBudgetVarianceFavorable,normalizeCostCenterBudgetPlan,selectPersistedBudgetLine} from './budget-planning';
+import {annualGrowthFactor,applyPerformanceDrivers,budgetVariancePercent,buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,isBudgetVarianceFavorable,normalizeCostCenterBudgetPlan,selectPersistedBudgetLine} from './budget-planning';
 import {budgetPlanSchema} from './validation/schemas';
 
 describe('budget planning calculations',()=>{
@@ -17,6 +17,32 @@ describe('budget planning calculations',()=>{
   const metrics=buildBudgetMetrics(plan);
   expect(metrics.forecastRevenue).toBeGreaterThan(metrics.revenue);
   expect(metrics.forecastVariance).toBeGreaterThan(0);
+ });
+ it('applies performance drivers to forecasts without changing the entered budget',()=>{
+  const plan=createCostCenterBudgetPlan('OPERATIONS',2027);
+  const revenue=plan.lines.find(line=>line.category==='REVENUE')!;
+  const cogs=plan.lines.find(line=>line.category==='COGS')!;
+  const opex=plan.lines.find(line=>line.category==='OPEX')!;
+  revenue.monthly_budget=Array(12).fill(1000);
+  cogs.monthly_budget=Array(12).fill(300);
+  opex.monthly_budget=Array(12).fill(200);
+  plan.assumptions={revenue_growth:0.12,cogs_ratio:0.35,opex_growth:0.06,capex_growth:0.2};
+  const budgetBefore=plan.lines.map(line=>[...line.monthly_budget]);
+  const lines=applyPerformanceDrivers(plan);
+  const forecastRevenue=lines.find(line=>line.category==='REVENUE')!;
+  const forecastCogs=lines.find(line=>line.category==='COGS')!;
+  const forecastOpex=lines.find(line=>line.category==='OPEX')!;
+  expect(forecastRevenue.monthly_forecast?.[0]).toBe(1000);
+  expect(forecastRevenue.monthly_forecast?.[11]).toBe(1120);
+  expect(forecastCogs.monthly_forecast?.[11]).toBe(Math.round((forecastRevenue.monthly_forecast?.[11]??0)*0.35));
+  expect(forecastOpex.monthly_forecast?.[11]).toBe(212);
+  expect(forecastRevenue.monthly_budget).toEqual(budgetBefore[0]);
+  expect(forecastCogs.monthly_budget).toEqual(budgetBefore[1]);
+  expect(forecastOpex.monthly_budget).toEqual(budgetBefore[2]);
+ });
+ it('reaches the configured annual growth rate in December',()=>{
+  expect(annualGrowthFactor(0.12,0)).toBe(1);
+  expect(annualGrowthFactor(0.12,11)).toBeCloseTo(1.12);
  });
  it('rolls forecast cash independently from budget cash',()=>{
   const plan=createDefaultBudgetPlan(2027);
