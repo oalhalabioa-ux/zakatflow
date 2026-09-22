@@ -1,9 +1,10 @@
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
+import {DEFAULT_ORGANIZATION_NAME} from '@/lib/budget-planning';
 
 type Organization={id:string;name:string};
-type CostCenter={id:string;organization_id:string;code:string;name:string;active:boolean};
+type CostCenter={id:string;organization_id:string;code:string;display_code?:string|null;name:string;active:boolean};
 
 export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange}:{ar:boolean;value:string;onChange:(name:string)=>void;onCostCentersChange?:(centers:CostCenter[])=>void}){
  const [organizations,setOrganizations]=useState<Organization[]>([]);
@@ -43,13 +44,19 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
  };
  useEffect(()=>{loadOrganizations()},[]);
  useEffect(()=>{
-  const selected=organizations.find(item=>item.name===value);
-  if(selected&&selected.id!==selectedId){setSelectedId(selected.id);setOrganizationDraft(selected.name);loadCenters(selected.id)}
+  const preferredName=value||DEFAULT_ORGANIZATION_NAME;
+  const selected=organizations.find(item=>item.name===preferredName);
+  if(selected&&selected.id!==selectedId){setSelectedId(selected.id);setOrganizationDraft(selected.name);if(!value)onChange(selected.name);loadCenters(selected.id)}
  },[organizations,value,selectedId]);
  const selectedOrganization=useMemo(()=>organizations.find(item=>item.id===selectedId),[organizations,selectedId]);
 
  const chooseOrganization=(id:string)=>{
-  if(id==='__legacy__'){onChange(value);return}
+  if(id==='__legacy__'){onChange(value||DEFAULT_ORGANIZATION_NAME);return}
+  if(!id){
+   const defaultOrganization=organizations.find(item=>item.name===DEFAULT_ORGANIZATION_NAME);
+   if(defaultOrganization){setSelectedId(defaultOrganization.id);setOrganizationDraft(defaultOrganization.name);onChange(defaultOrganization.name);loadCenters(defaultOrganization.id,true)}
+   return;
+  }
   setSelectedId(id);
   const selected=organizations.find(item=>item.id===id);
   setOrganizationDraft(selected?.name??'');
@@ -60,8 +67,8 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
   setMessage('');
   setOpen(true);
   const fresh=await loadOrganizations(true);
-  const selected=fresh.find((item:Organization)=>item.name===value);
-  if(selected){setSelectedId(selected.id);setOrganizationDraft(selected.name);await loadCenters(selected.id,true)}
+  const selected=fresh.find((item:Organization)=>item.name===(value||DEFAULT_ORGANIZATION_NAME));
+  if(selected){setSelectedId(selected.id);setOrganizationDraft(selected.name);if(!value)onChange(selected.name);await loadCenters(selected.id,true)}
  };
  const createOrganization=async()=>{
  const name=newOrganization.trim();
@@ -121,9 +128,9 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
  return <>
   <div className="budget-organization-control">
    <select value={selectedId|| (legacyOption?'__legacy__':'')} onChange={event=>chooseOrganization(event.target.value)}>
-    <option value="">{ar?'اختر المنشأة':'Select organization'}</option>
+   <option value="">{ar?'المنشأة الافتراضية':'Default organization'}</option>
     {legacyOption&&<option value="__legacy__">{value}</option>}
-    {organizations.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
+    {organizations.map(item=><option key={item.id} value={item.id}>{item.name}{item.name===DEFAULT_ORGANIZATION_NAME?(ar?' — افتراضية':' — Default'):''}</option>)}
    </select>
    <button type="button" className="budget-organization-add" onClick={openManager} aria-label={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'} title={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'}>＋</button>
   </div>
@@ -132,8 +139,8 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
     <div className="budget-org-modal-head"><div><small>{ar?'مرجع نطاق الموازنة':'Budget scope reference'}</small><h2 id="budget-org-modal-title">{ar?'المنشآت ومراكز التكلفة':'Organizations & cost centers'}</h2></div><div className="budget-org-modal-actions"><button type="button" className="btn secondary" onClick={()=>void openManager()} disabled={loading}>{ar?'إعادة تحميل':'Reload'}</button><button type="button" className="budget-org-close" onClick={()=>setOpen(false)} aria-label={ar?'إغلاق':'Close'}>×</button></div></div>
     <div className="budget-org-modal-body">
      <div className="budget-org-section"><h3>{ar?'إضافة منشأة':'Add organization'}</h3><div className="budget-org-add-row"><input value={newOrganization} onChange={event=>setNewOrganization(event.target.value)} placeholder={ar?'اسم المنشأة':'Organization name'}/><button type="button" className="btn" disabled={saving} onClick={createOrganization}>{ar?'إضافة':'Add'}</button></div></div>
-     <div className="budget-org-section"><h3>{ar?'اختيار وتعديل المنشأة':'Select and rename organization'}</h3><select value={selectedId} onChange={event=>chooseOrganization(event.target.value)}><option value="">{ar?'اختر المنشأة':'Select organization'}</option>{organizations.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select>{selectedOrganization&&<div className="budget-org-add-row"><input value={organizationDraft} onChange={event=>setOrganizationDraft(event.target.value)}/><button type="button" className="btn secondary" disabled={saving} onClick={renameOrganization}>{ar?'حفظ الاسم':'Save name'}</button></div>}</div>
-     <div className="budget-org-section"><div className="budget-org-section-title"><h3>{ar?'مراكز التكلفة التابعة':'Organization cost centers'}</h3><small>{selectedOrganization?selectedOrganization.name:(ar?'اختر منشأة أولًا':'Select an organization first')}</small></div>{selectedOrganization&&<><div className="budget-org-add-row budget-org-center-add"><input value={newCode} onChange={event=>setNewCode(event.target.value)} placeholder={ar?'الرمز':'Code'}/><input value={newCenter} onChange={event=>setNewCenter(event.target.value)} placeholder={ar?'اسم مركز التكلفة':'Cost-center name'}/><button type="button" className="btn" disabled={saving} onClick={addCostCenter}>{ar?'إضافة وحفظ المركز':'Add & save center'}</button></div><div className="budget-org-center-list">{centers.length?centers.map(center=><div className="budget-org-center-row" key={center.id}><code>{center.code}</code><input value={centerDrafts[center.id]??center.name} onChange={event=>setCenterDrafts(current=>({...current,[center.id]:event.target.value}))}/><button type="button" className="btn secondary" disabled={saving} onClick={()=>renameCostCenter(center)}>{ar?'حفظ':'Save'}</button></div>):<p className="budget-org-empty">{ar?'لا توجد مراكز تكلفة مسجلة بعد.':'No cost centers registered yet.'}</p>}</div></>}</div>
+     <div className="budget-org-section"><h3>{ar?'اختيار وتعديل المنشأة':'Select and rename organization'}</h3><select value={selectedId} onChange={event=>chooseOrganization(event.target.value)}><option value="">{ar?'المنشأة الافتراضية':'Default organization'}</option>{organizations.map(item=><option key={item.id} value={item.id}>{item.name}{item.name===DEFAULT_ORGANIZATION_NAME?(ar?' — افتراضية':' — Default'):''}</option>)}</select>{selectedOrganization&&<div className="budget-org-add-row"><input value={organizationDraft} onChange={event=>setOrganizationDraft(event.target.value)}/><button type="button" className="btn secondary" disabled={saving} onClick={renameOrganization}>{ar?'حفظ الاسم':'Save name'}</button></div>}</div>
+     <div className="budget-org-section"><div className="budget-org-section-title"><h3>{ar?'مراكز التكلفة التابعة':'Organization cost centers'}</h3><small>{selectedOrganization?selectedOrganization.name:(ar?'المنشأة الافتراضية':'Default organization')}</small></div>{selectedOrganization&&<><div className="budget-org-add-row budget-org-center-add"><input value={newCode} onChange={event=>setNewCode(event.target.value)} placeholder={ar?'الرمز':'Code'}/><input value={newCenter} onChange={event=>setNewCenter(event.target.value)} placeholder={ar?'اسم مركز التكلفة':'Cost-center name'}/><button type="button" className="btn" disabled={saving} onClick={addCostCenter}>{ar?'إضافة وحفظ المركز':'Add & save center'}</button></div><div className="budget-org-center-list">{centers.length?centers.map(center=><div className="budget-org-center-row" key={center.id}><code>{center.display_code??center.code}</code><input value={centerDrafts[center.id]??center.name} onChange={event=>setCenterDrafts(current=>({...current,[center.id]:event.target.value}))}/><button type="button" className="btn secondary" disabled={saving} onClick={()=>renameCostCenter(center)}>{ar?'حفظ':'Save'}</button></div>):<p className="budget-org-empty">{ar?'لا توجد مراكز تكلفة مسجلة بعد.':'No cost centers registered yet.'}</p>}</div></>}</div>
      {message&&<div className="budget-org-message" role="status">{message}</div>}
     </div>
    </section>

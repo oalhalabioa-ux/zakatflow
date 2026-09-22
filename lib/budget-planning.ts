@@ -12,6 +12,7 @@ export type BudgetPlan={
 };
 
 export type BudgetCostCenter=string;
+export const DEFAULT_ORGANIZATION_NAME='شركة ليفانت القابضة';
 
 export function budgetVariancePercent(variance:number,budget:number):number|null{
  return Number(budget)===0?null:Number(variance)/Number(budget);
@@ -210,7 +211,7 @@ export function createDefaultBudgetPlan(year=new Date().getFullYear()+1):BudgetP
  const line=(category:BudgetLine['category'],name:string,line_type:BudgetLine['line_type'],sort_order:number,values:number[]):BudgetLine=>
   ({category,name,line_type,sort_order,monthly_budget:values,monthly_actual:Array(12).fill(0),monthly_forecast:[...values]});
  return {name:`الخطة المالية ${year}`,fiscal_year:year,currency:'SAR',scenario:'BASE',status:'DRAFT',
-  organization_name:'',cost_center:'ALL',opening_cash:0,minimum_cash_target:0,
+  organization_name:DEFAULT_ORGANIZATION_NAME,cost_center:'ALL',opening_cash:0,minimum_cash_target:0,
   assumptions:{actual_through_month:0},notes:'',lines:[
    line('REVENUE','الإيرادات التشغيلية','REVENUE',10,empty()),
    line('REVENUE','إيرادات أخرى','REVENUE',20,empty()),
