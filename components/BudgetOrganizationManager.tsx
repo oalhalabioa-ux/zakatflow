@@ -27,7 +27,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    const body=await response.json();
    if(Array.isArray(body))setOrganizations(body);
    return Array.isArray(body)?body:[];
-  }catch(error){if(showError)setMessage(ar?'تعذر تحميل المنشآت. أعد المحاولة.':(error instanceof Error?error.message:'Could not load organizations.'));return []}
+  }catch(error){if(showError)setMessage(ar?`تعذر تحميل المنشآت. أعد المحاولة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load organizations.'));return []}
   finally{setLoading(false)}
  };
  const loadCenters=async(organizationId:string,showError=false)=>{
@@ -39,7 +39,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    const next=Array.isArray(body)?body:[];
    setCenters(next);setCenterDrafts(Object.fromEntries(next.map((center:CostCenter)=>[center.id,center.name])));onCostCentersChange?.(next);
    return next;
-  }catch(error){if(showError)setMessage(ar?'تعذر تحميل مراكز التكلفة.':(error instanceof Error?error.message:'Could not load cost centers.'));return []}
+  }catch(error){if(showError)setMessage(ar?`تعذر تحميل مراكز التكلفة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load cost centers.'));return []}
  };
  useEffect(()=>{loadOrganizations()},[]);
  useEffect(()=>{
