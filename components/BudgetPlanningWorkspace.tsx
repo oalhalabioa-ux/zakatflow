@@ -24,14 +24,18 @@ export default function BudgetPlanningWorkspace({locale}:{locale:string}){
  const searchParams=useSearchParams();
  const ar=locale==='ar',[plan,setPlan]=useState<BudgetPlan>(()=>createDefaultBudgetPlan(new Date().getFullYear()+1)),[tab,setTab]=useState<Tab>('dashboard'),[message,setMessage]=useState(''),[saving,setSaving]=useState(false),[loading,setLoading]=useState(true),[selectedCostCenter,setSelectedCostCenter]=useState<CostCenter>('ALL'),[zakatLink,setZakatLink]=useState<{due:number;remaining:number;assessmentDate:string|null}|null>(null);
  const costCenterRequest=useRef(0);
+ const costCenterAbort=useRef<AbortController|null>(null);
  const savedPlanFingerprint=useRef('');
  const adoptPlan=(next:BudgetPlan,persisted=Boolean(next.id))=>{savedPlanFingerprint.current=persisted?budgetPlanFingerprint(next):'';setPlan(next)};
  const hasUnsavedChanges=plan.cost_center!=='ALL'&&(!plan.id||savedPlanFingerprint.current!==budgetPlanFingerprint(plan));
- const loadCostCenter=async(costCenter:CostCenter)=>{const requestId=++costCenterRequest.current,previousPlan=plan,previousCostCenter=selectedCostCenter;setLoading(true);setMessage('');let loadFailed=false;try{
+ const loadCostCenter=async(costCenter:CostCenter)=>{const requestId=++costCenterRequest.current,previousPlan=plan,previousCostCenter=selectedCostCenter;costCenterAbort.current?.abort();const controller=new AbortController();costCenterAbort.current=controller;setSelectedCostCenter(costCenter);setLoading(true);setMessage('');let loadFailed=false;try{
   const query=new URLSearchParams({fiscal_year:String(plan.fiscal_year),scenario:plan.scenario,cost_center:costCenter});
   const requestedOrganization=plan.organization_name.trim();
-  if(requestedOrganization)query.set('organization_name',requestedOrganization);
-  let response=await fetch(`/api/budget-plans?${query.toString()}`,{cache:'no-store'});
+  // The consolidated view must load both cost centers even when legacy data
+  // stores HQ and Operations under different organization labels. Keep the
+  // organization filter for a specific center only.
+  if(costCenter!=='ALL'&&requestedOrganization)query.set('organization_name',requestedOrganization);
+  let response=await fetch(`/api/budget-plans?${query.toString()}`,{cache:'no-store',signal:controller.signal});
   if(!response.ok)throw new Error('LOAD_FAILED');
   let plans=await response.json();
   // A consolidated view can have legacy plans recorded under different
@@ -40,21 +44,21 @@ export default function BudgetPlanningWorkspace({locale}:{locale:string}){
   // second operational plan under the wrong organization.
   if(costCenter!=='ALL'&&requestedOrganization&&Array.isArray(plans)&&plans.length===0){
    query.delete('organization_name');
-   response=await fetch(`/api/budget-plans?${query.toString()}`,{cache:'no-store'});
+   response=await fetch(`/api/budget-plans?${query.toString()}`,{cache:'no-store',signal:controller.signal});
    if(!response.ok)throw new Error('LOAD_FAILED');
    plans=await response.json();
   }
   if(requestId!==costCenterRequest.current)return;
   if(costCenter==='ALL'){
    if(Array.isArray(plans)&&plans.length){
-    const scopedPlans=requestedOrganization?plans.filter((p:any)=>String(p.organization_name||'')===requestedOrganization):plans;
+    const scopedPlans=plans;
     const latestByCenter=new Map<string,any>();
     scopedPlans.forEach((p:any)=>{if((p.cost_center==='HQ'||p.cost_center==='OPERATIONS')&&!latestByCenter.has(p.cost_center))latestByCenter.set(p.cost_center,p)});
-    const details=await Promise.all([...latestByCenter.values()].map(async(p:any)=>{const r=await fetch(`/api/budget-plans/${p.id}`,{cache:'no-store'});return r.ok?r.json():null}));
+    const details=await Promise.all([...latestByCenter.values()].map(async(p:any)=>{const r=await fetch(`/api/budget-plans/${p.id}`,{cache:'no-store',signal:controller.signal});return r.ok?r.json():null}));
     if(requestId!==costCenterRequest.current)return;
     const source=(details.filter(Boolean) as BudgetPlan[]).map(p=>normalizeCostCenterBudgetPlan(p,p.cost_center as 'HQ'|'OPERATIONS'));
     if(source.length){const base=createDefaultBudgetPlan(plan.fiscal_year),lines:BudgetLine[]=[];source.forEach(p=>p.lines.forEach(line=>lines.push({...line,id:undefined,name:`${line.name} · ${p.cost_center==='HQ'?(ar?'الإدارة العامة':'Head office'):(ar?'التشغيل':'Operations')}`,monthly_budget:[...line.monthly_budget],monthly_actual:[...line.monthly_actual],monthly_forecast:[...(line.monthly_forecast??line.monthly_budget)]})));const hq=source.find(p=>p.cost_center==='HQ'),organizations=[...new Set(source.map(p=>p.organization_name).filter(Boolean))],organization=organizations.length===1?organizations[0]:(requestedOrganization||'');const actualThrough=Math.min(...source.map(p=>Number(p.assumptions.actual_through_month??0)));adoptPlan({...base,id:undefined,name:`${ar?'الموازنة المجمعة':'Consolidated budget'} ${plan.fiscal_year}`,organization_name:organization,cost_center:'ALL',scenario:plan.scenario,status:source.length===2&&source.every(p=>p.status==='APPROVED')?'APPROVED':'DRAFT',opening_cash:source.reduce((s,p)=>s+Number(p.opening_cash||0),0),minimum_cash_target:Math.max(...source.map(p=>Number(p.minimum_cash_target||0))),assumptions:{...base.assumptions,...(hq?.assumptions??{}),actual_through_month:Number.isFinite(actualThrough)?actualThrough:0},lines:lines.sort((x,y)=>x.sort_order-y.sort_order)});return}}
-  }else if(Array.isArray(plans)&&plans[0]?.id){const detail=await fetch(`/api/budget-plans/${plans[0].id}`,{cache:'no-store'});if(requestId!==costCenterRequest.current)return;if(detail.ok){const saved=await detail.json();adoptPlan(normalizeCostCenterBudgetPlan(saved,costCenter as 'HQ'|'OPERATIONS'));return}}
+  }else if(Array.isArray(plans)&&plans[0]?.id){const detail=await fetch(`/api/budget-plans/${plans[0].id}`,{cache:'no-store',signal:controller.signal});if(requestId!==costCenterRequest.current)return;if(detail.ok){const saved=await detail.json();adoptPlan(normalizeCostCenterBudgetPlan(saved,costCenter as 'HQ'|'OPERATIONS'));return}}
   const fresh=costCenter==='HQ'||costCenter==='OPERATIONS'?createCostCenterBudgetPlan(costCenter,plan.fiscal_year):createDefaultBudgetPlan(plan.fiscal_year);adoptPlan({...fresh,id:undefined,organization_name:plan.organization_name,cost_center:costCenter,scenario:plan.scenario,opening_cash:0,minimum_cash_target:costCenter==='ALL'?0:fresh.minimum_cash_target,lines:costCenter==='ALL'?[]:fresh.lines,name:costCenter==='ALL'?`${ar?'الموازنة المجمعة':'Consolidated budget'} ${plan.fiscal_year}`:`${ar?'الخطة المالية':'Financial plan'} ${plan.fiscal_year} - ${costCenter==='HQ'?(ar?'الإدارة العامة':'Head office'):(ar?'التشغيل':'Operations')}`},false);
  }catch{loadFailed=true;if(requestId===costCenterRequest.current){setSelectedCostCenter(previousCostCenter);setPlan(previousPlan);setMessage(ar?'تعذر تحميل مركز التكلفة. تم الإبقاء على البيانات السابقة.':'Could not load cost center. Previous data was kept.')}}finally{if(requestId===costCenterRequest.current){if(!loadFailed)setSelectedCostCenter(costCenter);setLoading(false)}}};
  useEffect(()=>{const requested=searchParams.get('tab') as Tab|null;if(requested&&(['dashboard','monthly','five-year','variance','forecast','cash-flow'] as Tab[]).includes(requested))setTab(requested)},[searchParams]);
