@@ -130,6 +130,14 @@ const persistedLineDate=(line:BudgetLine)=>{
  return Number.isFinite(timestamp)?timestamp:0;
 };
 
+/** Selects one persisted row for a canonical line without deleting duplicates. */
+export function selectPersistedBudgetLine(line:BudgetLine,persisted:Array<BudgetLine & {id?:string;updated_at?:string}>,usedIds=new Set<string>()){
+ const direct=line.id?persisted.find(old=>old.id===line.id):undefined;
+ if(direct)return direct;
+ return persisted.filter(old=>old.category===line.category&&Number(old.sort_order)===Number(line.sort_order)&&!!old.id&&!usedIds.has(old.id))
+  .sort((a,b)=>persistedLineDate(b)-persistedLineDate(a))[0];
+}
+
 /** Keeps each cost-center plan on its own approved line-item list, including legacy plans. */
 export function normalizeCostCenterBudgetPlan(saved:BudgetPlan,costCenter:'HQ'|'OPERATIONS'):BudgetPlan{
  const template=createCostCenterBudgetPlan(costCenter,saved.fiscal_year);

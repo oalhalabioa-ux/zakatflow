@@ -1,6 +1,6 @@
 import {requireUser} from './auth';
 import {budgetPlanSchema} from '@/lib/validation/schemas';
-import {normalizeCostCenterBudgetPlan} from '@/lib/budget-planning';
+import {normalizeCostCenterBudgetPlan,selectPersistedBudgetLine} from '@/lib/budget-planning';
 import type {BudgetLine,BudgetPlan} from '@/lib/budget-planning';
 
 const PLAN_FIELDS='id,name,fiscal_year,currency,scenario,status,organization_name,cost_center,opening_cash,minimum_cash_target,assumptions,notes,created_at,updated_at';
@@ -41,6 +41,14 @@ export async function getBudgetPlan(id:string):Promise<BudgetPlan>{
 export async function createBudgetPlan(input:unknown){
  const {lines,planInput}=parsePersistedPlan(input);
  const {supabase,user}=await requireUser();
+ // The UI can legitimately lose the transient id while switching between
+ // cost-center views. Reuse the existing scoped plan instead of attempting a
+ // second insert that would hit the composite uniqueness constraint.
+ const {data:existing,error:lookupError}=await supabase.from('budget_plans').select('id').eq('user_id',user.id)
+  .eq('fiscal_year',planInput.fiscal_year).eq('scenario',planInput.scenario)
+  .eq('organization_name',planInput.organization_name).eq('cost_center',planInput.cost_center).maybeSingle();
+ if(lookupError)throw lookupError;
+ if(existing?.id)return updateBudgetPlan(existing.id,input);
  const {data:plan,error}=await supabase.from('budget_plans').insert({...planInput,user_id:user.id,created_by:user.id}).select(PLAN_FIELDS).single();
  if(error)throw error;
  const {error:lineError}=await supabase.from('budget_lines').insert(lines.map(line=>({...line,plan_id:plan.id,user_id:user.id})));
@@ -62,14 +70,15 @@ export async function updateBudgetPlan(id:string,input:unknown){
  // budget-data clearing action, not to the regular save path.
  const changedExisting:any[]=[];
  const insertedIds:string[]=[];
+ const usedLineIds=new Set<string>();
  try{
   for(const line of lines){
    const payload={...line,plan_id:id,user_id:user.id};
-   if(line.id){
-    const previous=oldLines?.find((old:any)=>old.id===line.id);
-    if(!previous)continue;
+   const previous=selectPersistedBudgetLine(line,oldLines??[],usedLineIds);
+   if(previous?.id){
+    usedLineIds.add(previous.id);
     changedExisting.push(previous);
-    const {error:lineError}=await supabase.from('budget_lines').update({...payload,id:undefined,updated_at:new Date().toISOString()}).eq('id',line.id).eq('plan_id',id).eq('user_id',user.id);
+    const {error:lineError}=await supabase.from('budget_lines').update({...payload,id:undefined,updated_at:new Date().toISOString()}).eq('id',previous.id).eq('plan_id',id).eq('user_id',user.id);
     if(lineError)throw lineError;
    }else{
     const {data:created,error:lineError}=await supabase.from('budget_lines').insert({...payload,id:undefined}).select('id').single();

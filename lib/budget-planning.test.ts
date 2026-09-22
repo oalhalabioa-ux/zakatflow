@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {budgetVariancePercent,buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,isBudgetVarianceFavorable,normalizeCostCenterBudgetPlan} from './budget-planning';
+import {budgetVariancePercent,buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,isBudgetVarianceFavorable,normalizeCostCenterBudgetPlan,selectPersistedBudgetLine} from './budget-planning';
 import {budgetPlanSchema} from './validation/schemas';
 
 describe('budget planning calculations',()=>{
@@ -74,6 +74,12 @@ describe('budget planning calculations',()=>{
   const edited={...salaries,id:'00000000-0000-0000-0000-000000000002',monthly_budget:Array(12).fill(0),updated_at:'2026-09-21T10:00:00.000Z'};
   const normalized=normalizeCostCenterBudgetPlan({...saved,lines:[legacy,edited,...saved.lines.filter(line=>line!==salaries)]} as any,'HQ');
   expect(normalized.lines.find(line=>line.name==='رواتب إدارية')!.monthly_budget[0]).toBe(0);
+ });
+ it('selects the newest persisted row when a cost-center line id is missing',()=>{
+  const template=createCostCenterBudgetPlan('OPERATIONS',2027),line=template.lines[0];
+  const old={...line,id:'00000000-0000-0000-0000-000000000010',updated_at:'2026-09-20T10:00:00.000Z'};
+  const newest={...line,id:'00000000-0000-0000-0000-000000000011',updated_at:'2026-09-21T10:00:00.000Z'};
+  expect(selectPersistedBudgetLine({...line,id:undefined},[old,newest])?.id).toBe(newest.id);
  });
  it('preserves budget line ids through request validation so saves update rows',()=>{
   const plan=createCostCenterBudgetPlan('HQ',2027),id='00000000-0000-4000-8000-000000000003';
