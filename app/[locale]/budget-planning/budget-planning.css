@@ -675,14 +675,9 @@
  .budget-plan .budget-dashboard-bottom .budget-completion-card .completion-meta{grid-column:1/-1;justify-content:flex-start}
 }
 
-.budget-report-export{display:flex;align-items:flex-end;gap:8px}
-.budget-report-export label{display:grid;gap:4px;min-width:150px;color:var(--muted);font-size:9px;font-weight:800}
-.budget-report-export select{min-height:39px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font:inherit}
-@media(max-width:750px){
- .budget-page-head .page-command .budget-report-export{grid-column:1/-1;display:flex;align-items:flex-end}
- .budget-report-export label{flex:1;min-width:0}
- .budget-report-export .btn{flex:0 0 auto}
-}
+.budget-plan .budget-report-export{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:132px;white-space:nowrap}
+.budget-plan .budget-report-export:before{content:'⇩';font-size:15px;line-height:1}
+.budget-plan .budget-report-export:disabled:before{opacity:.55}
 @media(max-width:420px){
  .budget-plan .budget-kpis,.budget-plan .five-year-kpis{grid-template-columns:1fr}
  .budget-plan .budget-kpi,.budget-plan .five-year-kpis .budget-kpi{min-height:124px}
@@ -917,7 +912,7 @@
 .budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title small{font-size:11px!important;color:var(--bp-green)!important}
 .budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title strong{font-size:23px!important;line-height:1.2!important;color:#173b34!important}
 .budget-plan .approved-analysis-panel .analysis-settings-header .budget-section-title>span{margin-top:1px;font-size:10px!important;color:#718a83!important;padding:0!important;background:transparent!important}
-.budget-plan .approved-analysis-panel .analysis-settings-fields{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));direction:rtl;gap:14px;width:100%;min-width:0;margin-top:18px;align-items:end}
+.budget-plan .approved-analysis-panel .analysis-settings-fields{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));direction:rtl;gap:14px;width:100%;min-width:0;margin-top:18px;align-items:end}
 .budget-plan .approved-analysis-panel .analysis-settings-fields>label{display:block;min-width:0}
 .budget-plan .approved-analysis-panel .analysis-settings-fields .filter-label{display:flex;align-items:center;gap:6px;min-height:22px;white-space:nowrap}
 .budget-plan .approved-analysis-panel .analysis-settings-fields input,.budget-plan .approved-analysis-panel .analysis-settings-fields select{width:100%!important;box-sizing:border-box!important;min-height:42px;height:42px;margin-top:6px;border-radius:10px;padding-inline:11px;font-size:13px;font-weight:700}

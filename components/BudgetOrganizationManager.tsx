@@ -18,7 +18,7 @@ const centerTypeLabel=(type:CostCenterType,ar:boolean)=>COST_CENTER_TYPES.find(i
 const sortOrganizations=(items:Organization[])=>[...items].sort((a,b)=>Number(a.sort_order??100)-Number(b.sort_order??100)||(a.organization_kind==='HOLDING'?0:1)-(b.organization_kind==='HOLDING'?0:1)||a.name.localeCompare(b.name,'ar'));
 const organizationOptionLabel=(item:Organization)=>item.organization_kind==='HOLDING'?'▣ '+item.name:'↳ '+item.name;
 
-export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange}:{ar:boolean;value:string;onChange:(name:string,options?:{defaultSelection?:boolean})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
+export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange,disabled=false}:{ar:boolean;value:string;disabled?:boolean;onChange:(name:string,options?:{defaultSelection?:boolean})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
  const [organizations,setOrganizations]=useState<Organization[]>([]);
  const [centers,setCenters]=useState<CostCenter[]>([]);
  const [selectedId,setSelectedId]=useState('');
@@ -145,7 +145,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
  const legacyOption=value&&!organizations.some(item=>item.name===value);
  return <>
   <div className="budget-organization-control">
-   <select value={selectedId|| (legacyOption?'__legacy__':'')} onChange={event=>chooseOrganization(event.target.value)}>
+   <select value={selectedId|| (legacyOption?'__legacy__':'')} disabled={disabled} onChange={event=>chooseOrganization(event.target.value)}>
    <option value="">{ar?'اختر منشأة':'Select organization'}</option>
     {legacyOption&&<option value="__legacy__">{value}</option>}
     {sortOrganizations(organizations).map(item=><option key={item.id} value={item.id}>{organizationOptionLabel(item)}</option>)}
