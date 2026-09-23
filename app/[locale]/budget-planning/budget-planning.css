@@ -1466,3 +1466,100 @@
   margin-bottom:22px;
  }
 }
+
+/* Pixel-stable KPI placement for the RTL executive cards. */
+.theme-elegant .budget-kpis .budget-kpi{
+ display:block!important;
+ min-height:154px;
+ padding:0 18px!important;
+ overflow:hidden;
+}
+.theme-elegant .budget-kpis .budget-kpi-head{
+ position:static;
+ display:block;
+ min-height:0;
+}
+.theme-elegant .budget-kpis .budget-kpi-head small{
+ position:absolute;
+ inset-block-start:20px;
+ inset-inline-start:18px;
+ width:calc(100% - 76px);
+ max-width:none;
+ padding:0;
+ text-align:right;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.theme-elegant .budget-kpis .budget-kpi-head .budget-kpi-icon{
+ position:absolute;
+ inset-block-start:14px;
+ inset-inline-end:18px;
+ width:40px;
+ height:40px;
+ margin:0;
+}
+.theme-elegant .budget-kpis .budget-kpi>strong{
+ position:absolute;
+ inset-block-start:50%;
+ inset-inline:18px;
+ display:flex;
+ align-items:baseline;
+ justify-content:flex-start;
+ width:auto;
+ margin:0;
+ transform:translateY(-52%);
+ direction:ltr;
+ text-align:left;
+ font-size:clamp(27px,2.35vw,35px)!important;
+ line-height:1;
+ white-space:nowrap;
+ overflow:visible;
+}
+.theme-elegant .budget-kpis .budget-kpi-footer{
+ position:absolute;
+ inset-block-end:22px;
+ inset-inline-start:18px;
+ inset-inline-end:18px;
+ display:flex;
+ justify-content:flex-start;
+ width:auto;
+ direction:rtl;
+}
+.theme-elegant .budget-kpis .budget-kpi-footer span{
+ min-height:23px;
+ padding:4px 10px;
+ font-size:10px;
+}
+@media(max-width:760px){
+ .theme-elegant .budget-kpis .budget-kpi{
+  min-height:140px;
+  padding-inline:12px!important;
+ }
+ .theme-elegant .budget-kpis .budget-kpi-head small{
+  inset-block-start:17px;
+  inset-inline-start:12px;
+  width:calc(100% - 56px);
+  font-size:11px;
+ }
+ .theme-elegant .budget-kpis .budget-kpi-head .budget-kpi-icon{
+  inset-block-start:12px;
+  inset-inline-end:12px;
+  width:34px;
+  height:34px;
+ }
+ .theme-elegant .budget-kpis .budget-kpi>strong{
+  inset-inline:12px;
+  font-size:clamp(23px,5.8vw,30px)!important;
+ }
+ .theme-elegant .budget-kpis .budget-kpi-footer{
+  inset-inline-start:12px;
+  inset-inline-end:12px;
+  inset-block-end:20px;
+ }
+ .theme-elegant .budget-kpis .budget-kpi-footer span{
+  min-height:21px;
+  padding:3px 8px;
+  font-size:9px;
+ }
+}
