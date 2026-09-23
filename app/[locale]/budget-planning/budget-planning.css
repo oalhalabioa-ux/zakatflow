@@ -1231,3 +1231,67 @@
   min-height:58px;
  }
 }
+
+/* Elegant desktop KPI row: keep the five executive indicators together,
+   enlarge the financial amount, and bring it closer to the progress rail. */
+@media(min-width:1050px){
+ .theme-elegant .budget-kpis{
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:14px;
+ }
+}
+.theme-elegant .budget-kpis .budget-kpi{
+ min-height:148px;
+ padding:16px 18px 18px;
+}
+.theme-elegant .budget-kpis .budget-kpi strong{
+ margin-top:auto;
+ margin-bottom:30px;
+ font-size:clamp(25px,2.35vw,33px)!important;
+ line-height:1;
+}
+.theme-elegant .budget-kpis .budget-kpi>span{
+ position:absolute;
+ inset-inline-end:18px;
+ bottom:23px;
+ width:auto;
+ max-width:calc(100% - 36px);
+ margin:0;
+}
+.theme-elegant .budget-kpis .budget-kpi:after,
+.theme-elegant .budget-kpis .budget-kpi:before{
+ bottom:10px;
+}
+@media(max-width:1049px) and (min-width:761px){
+ .theme-elegant .budget-kpis{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ }
+ .theme-elegant .budget-kpis .budget-kpi strong{
+  font-size:clamp(23px,3vw,30px)!important;
+ }
+}
+@media(max-width:760px){
+ .theme-elegant .budget-kpis .budget-kpi{
+  min-height:140px;
+ }
+ .theme-elegant .budget-kpis .budget-kpi strong{
+  margin-bottom:28px;
+  font-size:clamp(22px,5.8vw,28px)!important;
+ }
+ .theme-elegant .budget-kpis .budget-kpi>span{
+  inset-inline-end:12px;
+  bottom:21px;
+  max-width:calc(100% - 24px);
+ }
+}
+
+/* Give the financial comparison panel a little more horizontal weight on
+   desktop so the executive dashboard uses the available canvas evenly. */
+@media(min-width:1050px){
+ .theme-elegant .budget-dashboard-primary{
+  grid-template-columns:minmax(0,1.25fr) minmax(330px,1.05fr) minmax(220px,.7fr)!important;
+ }
+ .theme-elegant .budget-dashboard-primary .budget-variance-panel{
+  min-width:0;
+ }
+}
