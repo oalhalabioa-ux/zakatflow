@@ -1392,6 +1392,9 @@
  max-width:none;
  padding:5px 0 0 52px;
  text-align:right;
+ white-space:nowrap;
+ overflow:hidden;
+ text-overflow:ellipsis;
 }
 .theme-elegant .budget-kpis .budget-kpi-head .budget-kpi-icon{
  position:absolute;
@@ -1401,6 +1404,7 @@
 }
 .theme-elegant .budget-kpis .budget-kpi>strong{
  direction:ltr;
+ justify-self:stretch;
  justify-content:flex-start;
  text-align:left;
  margin-top:0;
@@ -1409,6 +1413,8 @@
  font-variant-numeric:tabular-nums;
 }
 .theme-elegant .budget-kpis .budget-kpi-footer{
+ inset-inline-start:18px;
+ inset-inline-end:18px;
  direction:rtl;
  justify-content:flex-start;
 }
@@ -1416,6 +1422,47 @@
  .theme-elegant .budget-kpis .budget-kpi>strong{font-size:clamp(26px,3.2vw,34px)!important}
 }
 @media(max-width:760px){
- .theme-elegant .budget-kpis .budget-kpi-head small{padding-inline-start:44px}
+ .theme-elegant .budget-kpis .budget-kpi-head small{padding-inline-start:0;padding-inline-end:44px}
  .theme-elegant .budget-kpis .budget-kpi>strong{margin-bottom:29px;font-size:clamp(24px,6.2vw,31px)!important}
+}
+
+/* Final executive composition: the two primary data panels share the row
+   equally; management alerts move to a compact full-width row below them. */
+@media(min-width:761px){
+ .theme-elegant .budget-dashboard-primary{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  align-items:stretch!important;
+ }
+ .theme-elegant .budget-dashboard-primary>.budget-chart-card{
+  min-width:0;
+  min-height:360px!important;
+  height:100%;
+  box-sizing:border-box;
+ }
+ .theme-elegant .budget-dashboard-primary>.budget-alerts{
+  grid-column:1/-1!important;
+  width:100%;
+  box-sizing:border-box;
+ }
+}
+
+/* Keep each KPI internally consistent: fixed header, centered value block,
+   and the status chip aligned to the right immediately above the rail. */
+.theme-elegant .budget-kpis .budget-kpi{
+ grid-template-rows:40px minmax(0,1fr)!important;
+}
+.theme-elegant .budget-kpis .budget-kpi>strong{
+ align-self:center;
+ margin:0 0 24px;
+}
+.theme-elegant .budget-kpis .budget-kpi-footer{
+ bottom:22px;
+}
+@media(max-width:760px){
+ .theme-elegant .budget-kpis .budget-kpi{
+  grid-template-rows:36px minmax(0,1fr)!important;
+ }
+ .theme-elegant .budget-kpis .budget-kpi>strong{
+  margin-bottom:22px;
+ }
 }
