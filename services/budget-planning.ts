@@ -32,7 +32,7 @@ export async function getBudgetPlan(id:string):Promise<BudgetPlan>{
  const {data:plan,error}=await supabase.from('budget_plans').select(`${PLAN_FIELDS},budget_lines(*)`).eq('id',id).eq('user_id',user.id).single();
  if(error)throw error;
  const raw=plan as any;
- const lines=(raw.budget_lines??[]).sort((a:BudgetLine,b:BudgetLine)=>a.sort_order-b.sort_order);
+ const lines=(raw.budget_lines??[]).filter((line:BudgetLine)=>line.active!==false).sort((a:BudgetLine,b:BudgetLine)=>a.sort_order-b.sort_order);
  // Legacy plans may contain duplicated or cross-center rows. Normalize the
  // response for display and calculations without deleting anything persisted.
  return raw.cost_center==='HQ'||raw.cost_center==='OPERATIONS'
@@ -53,7 +53,7 @@ export async function createBudgetPlan(input:unknown){
  if(existing?.id)return updateBudgetPlan(existing.id,input);
  const {data:plan,error}=await supabase.from('budget_plans').insert({...planInput,user_id:user.id,created_by:user.id}).select(PLAN_FIELDS).single();
  if(error)throw error;
- const {error:lineError}=await supabase.from('budget_lines').insert(lines.map(line=>({...line,plan_id:plan.id,user_id:user.id})));
+ const {error:lineError}=await supabase.from('budget_lines').insert(lines.map(line=>({...line,active:true,plan_id:plan.id,user_id:user.id})));
  if(lineError){await supabase.from('budget_plans').delete().eq('id',plan.id).eq('user_id',user.id);throw lineError;}
  return getBudgetPlan(plan.id);
 }
@@ -63,7 +63,7 @@ export async function updateBudgetPlan(id:string,input:unknown){
  const {supabase,user}=await requireUser();
  const {data:existing,error:existingError}=await supabase.from('budget_plans').select(PLAN_FIELDS).eq('id',id).eq('user_id',user.id).single();
  if(existingError)throw existingError;
- const {data:oldLines,error:oldLinesError}=await supabase.from('budget_lines').select('*').eq('plan_id',id).eq('user_id',user.id);
+ const {data:oldLines,error:oldLinesError}=await supabase.from('budget_lines').select('*').eq('plan_id',id).eq('user_id',user.id).eq('active',true);
  if(oldLinesError)throw oldLinesError;
  const {error}=await supabase.from('budget_plans').update({...planInput,updated_at:new Date().toISOString()}).eq('id',id).eq('user_id',user.id);
  if(error)throw error;
@@ -83,7 +83,7 @@ export async function updateBudgetPlan(id:string,input:unknown){
     const {error:lineError}=await supabase.from('budget_lines').update({...payload,id:undefined,updated_at:new Date().toISOString()}).eq('id',previous.id).eq('plan_id',id).eq('user_id',user.id);
     if(lineError)throw lineError;
    }else{
-    const {data:created,error:lineError}=await supabase.from('budget_lines').insert({...payload,id:undefined}).select('id').single();
+    const {data:created,error:lineError}=await supabase.from('budget_lines').insert({...payload,active:true,id:undefined}).select('id').single();
     if(lineError)throw lineError;
     if(created?.id)insertedIds.push(created.id);
    }

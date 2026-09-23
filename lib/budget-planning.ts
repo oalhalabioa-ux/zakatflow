@@ -1,7 +1,7 @@
 export type BudgetLine={
  id?:string;category:'REVENUE'|'COGS'|'OPEX'|'CAPEX'|'FINANCING'|'ZAKAT';
  name:string;line_type:'REVENUE'|'EXPENSE'|'CASH';sort_order:number;
- monthly_budget:number[];monthly_actual:number[];monthly_forecast?:number[];
+ monthly_budget:number[];monthly_actual:number[];monthly_forecast?:number[];active?:boolean;
 };
 
 export type BudgetPlan={
@@ -137,7 +137,11 @@ export function buildBudgetMetrics(plan:BudgetPlan){
 
 export const BUDGET_GROUPS:Record<string,string>={
  'الإيرادات التشغيلية':'الإيرادات التشغيلية','إيرادات أخرى':'إيرادات أخرى','تكلفة المبيعات':'تكلفة المبيعات',
+ 'إيرادات المشروع':'إيرادات المشروع','إيرادات أخرى للمشروع':'إيرادات المشروع','تكاليف مباشرة للمشروع':'التكاليف المباشرة للمشروع',
  'رواتب إدارية':'الرواتب','رواتب تشغيلية':'الرواتب','الرواتب':'الرواتب',
+ 'رواتب وأجور المشروع':'رواتب وأجور المشروع','إيجار ومرافق المشروع':'إيجار ومرافق المشروع','تسويق المشروع':'تسويق المشروع',
+ 'صيانة وتشغيل المشروع':'صيانة وتشغيل المشروع','مواد ومستلزمات المشروع':'مواد ومستلزمات المشروع','نقل ولوجستيات المشروع':'نقل ولوجستيات المشروع',
+ 'تقنية وأنظمة المشروع':'تقنية وأنظمة المشروع','أتعاب واستشارات المشروع':'أتعاب واستشارات المشروع','إنفاق رأسمالي للمشروع':'الإنفاق الرأسمالي للمشروع',
  'إيجار المقر والخدمات':'الإيجارات والخدمات','إيجارات المواقع التشغيلية':'الإيجارات والخدمات','الإيجار والخدمات':'الإيجارات والخدمات',
  'التسويق والعلامة التجارية':'التسويق','تسويق تشغيلي':'التسويق','التسويق':'التسويق',
  'أتعاب مهنية واستشارات':'المصاريف المهنية','المصاريف المهنية':'المصاريف المهنية',
@@ -212,9 +216,9 @@ const persistedLineDate=(line:BudgetLine)=>{
 
 /** Selects one persisted row for a canonical line without deleting duplicates. */
 export function selectPersistedBudgetLine(line:BudgetLine,persisted:Array<BudgetLine & {id?:string;updated_at?:string}>,usedIds=new Set<string>()){
- const direct=line.id?persisted.find(old=>old.id===line.id):undefined;
+ const direct=line.id?persisted.find(old=>old.active!==false&&old.id===line.id):undefined;
  if(direct)return direct;
- return persisted.filter(old=>old.category===line.category&&Number(old.sort_order)===Number(line.sort_order)&&!!old.id&&!usedIds.has(old.id))
+ return persisted.filter(old=>old.active!==false&&old.category===line.category&&Number(old.sort_order)===Number(line.sort_order)&&!!old.id&&!usedIds.has(old.id))
   .sort((a,b)=>persistedLineDate(b)-persistedLineDate(a))[0];
 }
 
