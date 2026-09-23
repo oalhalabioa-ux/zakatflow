@@ -210,7 +210,7 @@ export function selectPersistedBudgetLine(line:BudgetLine,persisted:Array<Budget
 
 /** Keeps each cost-center plan on its own approved line-item list, including legacy plans. */
 export function normalizeCostCenterBudgetPlan(saved:BudgetPlan,costCenter:'HQ'|'OPERATIONS'):BudgetPlan{
- const template=createCostCenterBudgetPlan(costCenter,saved.fiscal_year);
+ const template=createCostCenterBudgetPlan(costCenter,saved.fiscal_year,costCenter==='HQ'?'ADMIN':'OPERATING');
  const aliases=LEGACY_COST_CENTER_LINE_ALIASES[costCenter];
  const lineWeight=(line:BudgetLine)=>[...line.monthly_budget,...line.monthly_actual,...(line.monthly_forecast??[])].reduce((total,value)=>total+Math.abs(Number(value)||0),0);
  const byName=new Map<string,BudgetLine>();
