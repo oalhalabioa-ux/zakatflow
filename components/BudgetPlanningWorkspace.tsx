@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {useSearchParams} from 'next/navigation';
-import type {BudgetLine,BudgetPlan} from '@/lib/budget-planning';
+import type {BudgetCenterType,BudgetLine,BudgetPlan} from '@/lib/budget-planning';
 import {applyPerformanceDrivers,budgetGroupName,budgetScenarioFactor,budgetVariancePercent,buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,isBudgetVarianceFavorable,MONTH_KEYS,normalizeCostCenterBudgetPlan} from '@/lib/budget-planning';
 import BudgetOrganizationManager from './BudgetOrganizationManager';
 const AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -19,7 +19,7 @@ const selectedZakatPaymentMonths=(assumptions:Record<string,unknown>)=>{
 };
 type Tab='dashboard'|'monthly'|'five-year'|'variance'|'forecast'|'cash-flow';
 type CostCenter=string;
-type OrganizationCostCenter={id:string;organization_id:string;code:string;name:string;active:boolean};
+type OrganizationCostCenter={id:string;organization_id:string;code:string;name:string;center_type:BudgetCenterType;active:boolean};
 const budgetPlanFingerprint=(value:BudgetPlan)=>JSON.stringify({
  id:value.id??null,name:value.name,fiscal_year:value.fiscal_year,currency:value.currency,scenario:value.scenario,status:value.status,
  organization_name:value.organization_name,cost_center:value.cost_center,opening_cash:value.opening_cash,minimum_cash_target:value.minimum_cash_target,
@@ -70,7 +70,7 @@ export default function BudgetPlanningWorkspace({locale}:{locale:string}){
     const source=(details.filter(Boolean) as BudgetPlan[]).map(p=>p.cost_center==='HQ'||p.cost_center==='OPERATIONS'?normalizeCostCenterBudgetPlan(p,p.cost_center):p);
     if(source.length){const base=createDefaultBudgetPlan(plan.fiscal_year),lines:BudgetLine[]=[];source.forEach(p=>p.lines.forEach(line=>lines.push({...line,id:undefined,name:`${line.name} · ${centerLabel(p.cost_center)}`,monthly_budget:[...line.monthly_budget],monthly_actual:[...line.monthly_actual],monthly_forecast:[...(line.monthly_forecast??line.monthly_budget)]})));const hq=source.find(p=>p.cost_center==='HQ');const actualThrough=Math.min(...source.map(p=>Number(p.assumptions.actual_through_month??0)));adoptPlan({...base,id:undefined,name:`${ar?'الموازنة المجمعة':'Consolidated budget'} ${plan.fiscal_year}`,organization_name:requestedOrganization,cost_center:'ALL',scenario:plan.scenario,status:source.length>=2&&source.every(p=>p.status==='APPROVED')?'APPROVED':'DRAFT',opening_cash:source.reduce((s,p)=>s+Number(p.opening_cash||0),0),minimum_cash_target:Math.max(...source.map(p=>Number(p.minimum_cash_target||0))),assumptions:{...base.assumptions,...(hq?.assumptions??{}),actual_through_month:Number.isFinite(actualThrough)?actualThrough:0},lines:lines.sort((x,y)=>x.sort_order-y.sort_order)});return}}
   }else if(Array.isArray(plans)&&plans[0]?.id){const detail=await fetch(`/api/budget-plans/${plans[0].id}`,{cache:'no-store',signal:controller.signal});if(requestId!==costCenterRequest.current)return;if(detail.ok){const saved=await detail.json();adoptPlan(saved.cost_center==='HQ'||saved.cost_center==='OPERATIONS'?normalizeCostCenterBudgetPlan(saved,saved.cost_center):saved);return}}
-  const fresh=costCenter==='ALL'?createDefaultBudgetPlan(plan.fiscal_year):createCostCenterBudgetPlan(costCenter,plan.fiscal_year);adoptPlan({...fresh,id:undefined,organization_name:requestedOrganization,cost_center:costCenter,scenario:plan.scenario,opening_cash:0,minimum_cash_target:costCenter==='ALL'?0:fresh.minimum_cash_target,lines:costCenter==='ALL'?[]:fresh.lines,name:costCenter==='ALL'?`${ar?'الموازنة المجمعة':'Consolidated budget'} ${plan.fiscal_year}`:`${ar?'الخطة المالية':'Financial plan'} ${plan.fiscal_year} - ${centerLabel(costCenter)}`},false);
+  const centerType=organizationCostCenters.find(center=>center.code===costCenter)?.center_type??(costCenter==='HQ'?'ADMIN':costCenter==='OPERATIONS'?'OPERATING':'OPERATING');const fresh=costCenter==='ALL'?createDefaultBudgetPlan(plan.fiscal_year):createCostCenterBudgetPlan(costCenter,plan.fiscal_year,centerType);adoptPlan({...fresh,id:undefined,organization_name:requestedOrganization,cost_center:costCenter,scenario:plan.scenario,opening_cash:0,minimum_cash_target:costCenter==='ALL'?0:fresh.minimum_cash_target,lines:costCenter==='ALL'?[]:fresh.lines,name:costCenter==='ALL'?`${ar?'الموازنة المجمعة':'Consolidated budget'} ${plan.fiscal_year}`:`${ar?'الخطة المالية':'Financial plan'} ${plan.fiscal_year} - ${centerLabel(costCenter)}`},false);
  }catch{loadFailed=true;if(requestId===costCenterRequest.current){setSelectedCostCenter(previousCostCenter);setPlan(previousPlan);setMessage(ar?'تعذر تحميل مركز التكلفة. تم الإبقاء على البيانات السابقة.':'Could not load cost center. Previous data was kept.')}}finally{if(requestId===costCenterRequest.current){if(!loadFailed)setSelectedCostCenter(costCenter);setLoading(false)}}};
  useEffect(()=>{const requested=searchParams.get('tab') as Tab|null;if(requested&&(['dashboard','monthly','five-year','variance','forecast','cash-flow'] as Tab[]).includes(requested))setTab(requested)},[searchParams]);
  useEffect(()=>{loadCostCenter('ALL')},[ar]);
@@ -105,7 +105,7 @@ export default function BudgetPlanningWorkspace({locale}:{locale:string}){
  const normalizeDisplayedPlan=(saved:BudgetPlan)=>saved.cost_center==='HQ'||saved.cost_center==='OPERATIONS'?normalizeCostCenterBudgetPlan(saved,saved.cost_center):saved;
  const centerLabel=(code:string)=>organizationCostCenters.find(center=>center.code===code)?.name??(code==='HQ'?(ar?'الإدارة العامة':'Head office'):code==='OPERATIONS'?(ar?'التشغيل':'Operations'):code==='ALL'?(ar?'الكل — مجمع':'All — Consolidated'):code);
  const organizationChanged=(name:string)=>{setOrganizationCostCenters([]);setSelectedCostCenter('ALL');updatePlan('organization_name',name);void loadCostCenter('ALL',name)};
- const availableCostCenters=plan.organization_name?organizationCostCenters.map(center=>({code:center.code,name:center.name})):[];
+ const availableCostCenters=plan.organization_name?organizationCostCenters.map(center=>({code:center.code,name:center.name,center_type:center.center_type})):[];
  async function save(status?:'IN_REVIEW'|'APPROVED'){
   if(plan.cost_center==='ALL'||selectedCostCenter!==plan.cost_center){setMessage(ar?'اختر مركز تكلفة محددًا قبل الحفظ. العرض المجمع للقراءة فقط.':'Select a specific cost center before saving. The consolidated view is read-only.');return}
   if(!hasUnsavedChanges&&!status){setMessage(ar?'لا توجد تعديلات جديدة للحفظ.':'There are no new changes to save.');return}

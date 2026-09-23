@@ -101,7 +101,9 @@ export async function createEntity(orgId:string,input:{name:string;entity_type?:
  return data;
 }
 
-export type OrganizationCostCenter={id:string;organization_id:string;code:string;display_code?:string|null;name:string;active:boolean;created_at:string;updated_at:string};
+export type CostCenterType='ADMIN'|'OPERATING'|'INVESTMENT'|'TREASURY'|'FINANCING';
+const isCostCenterType=(value:unknown):value is CostCenterType=>typeof value==='string'&&['ADMIN','OPERATING','INVESTMENT','TREASURY','FINANCING'].includes(value);
+export type OrganizationCostCenter={id:string;organization_id:string;code:string;display_code?:string|null;name:string;center_type:CostCenterType;active:boolean;created_at:string;updated_at:string};
 
 export async function listCostCenters(organizationId:string){
  const {supabase}=await requireUser();
@@ -110,20 +112,23 @@ export async function listCostCenters(organizationId:string){
  return (data??[]) as OrganizationCostCenter[];
 }
 
-export async function createCostCenter(input:{organization_id:string;code:string;name:string}){
+export async function createCostCenter(input:{organization_id:string;code:string;name:string;center_type?:CostCenterType}){
  const {supabase}=await requireUser();
  const code=input.code.trim().toUpperCase(),name=input.name.trim();
- if(!code||!name)throw new Error('COST_CENTER_CODE_AND_NAME_REQUIRED');
- const {data,error}=await supabase.from('organization_cost_centers').insert({organization_id:input.organization_id,code,name}).select().single();
+ if(!code||!name||!isCostCenterType(input.center_type))throw new Error('COST_CENTER_CODE_NAME_AND_TYPE_REQUIRED');
+ const {data,error}=await supabase.from('organization_cost_centers').insert({organization_id:input.organization_id,code,name,center_type:input.center_type}).select().single();
  if(error)throw error;
  return data as OrganizationCostCenter;
 }
 
-export async function updateCostCenter(id:string,input:{name:string}){
+export async function updateCostCenter(id:string,input:{name:string;center_type?:CostCenterType}){
  const {supabase}=await requireUser();
  const name=input.name.trim();
  if(!name)throw new Error('COST_CENTER_NAME_REQUIRED');
- const {data,error}=await supabase.from('organization_cost_centers').update({name,updated_at:new Date().toISOString()}).eq('id',id).select().single();
+ if(input.center_type!==undefined&&!isCostCenterType(input.center_type))throw new Error('COST_CENTER_TYPE_INVALID');
+ const patch:{name:string;center_type?:CostCenterType;updated_at:string}={name,updated_at:new Date().toISOString()};
+ if(input.center_type!==undefined)patch.center_type=input.center_type;
+ const {data,error}=await supabase.from('organization_cost_centers').update(patch).eq('id',id).select().single();
  if(error)throw error;
  return data as OrganizationCostCenter;
 }

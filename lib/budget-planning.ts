@@ -147,15 +147,37 @@ export const BUDGET_GROUPS:Record<string,string>={
 };
 export const budgetGroupName=(line:BudgetLine)=>BUDGET_GROUPS[line.name]??line.name;
 
-export function createCostCenterBudgetPlan(costCenter:string,year=new Date().getFullYear()+1):BudgetPlan{
+export type BudgetCenterType='ADMIN'|'OPERATING'|'INVESTMENT'|'TREASURY'|'FINANCING';
+
+export const BUDGET_CENTER_TYPE_LABELS:Record<BudgetCenterType,{ar:string;en:string}>={
+ ADMIN:{ar:'إداري',en:'Administrative'},
+ OPERATING:{ar:'تشغيلي',en:'Operating'},
+ INVESTMENT:{ar:'استثماري',en:'Investment'},
+ TREASURY:{ar:'خزينة ورأس المال العامل',en:'Treasury & Working Capital'},
+ FINANCING:{ar:'تمويلي',en:'Financing'}
+};
+
+export function createCostCenterBudgetPlan(costCenter:string,year=new Date().getFullYear()+1,centerType:BudgetCenterType='OPERATING'):BudgetPlan{
  const base=createDefaultBudgetPlan(year),zero=()=>Array(12).fill(0);
  const line=(category:BudgetLine['category'],name:string,line_type:BudgetLine['line_type'],sort_order:number):BudgetLine=>({category,name,line_type,sort_order,monthly_budget:zero(),monthly_actual:zero(),monthly_forecast:zero()});
  const capex=line('CAPEX','الإنفاق الرأسمالي','CASH',90),financing=line('FINANCING','خدمة الدين','CASH',100),zakat=line('ZAKAT','مخصص ومدفوعات الزكاة','CASH',110);
- const lines=costCenter==='HQ'?[
+ const lines=centerType==='ADMIN'?[
   line('REVENUE','إيرادات أخرى','REVENUE',20),
   line('OPEX','رواتب إدارية','EXPENSE',40),line('OPEX','إيجار المقر والخدمات','EXPENSE',50),
   line('OPEX','التسويق والعلامة التجارية','EXPENSE',60),line('OPEX','أتعاب مهنية واستشارات','EXPENSE',70),
   line('OPEX','تقنية وأنظمة إدارية','EXPENSE',80),capex,financing,zakat
+ ]:centerType==='INVESTMENT'?[
+  line('REVENUE','إيرادات استثمارية','REVENUE',10),
+  line('CAPEX','اقتناء الأصول','CASH',90),line('CAPEX','استثمارات ومشاريع','CASH',92),
+  line('FINANCING','تمويل المشاريع','CASH',100),zakat
+ ]:centerType==='TREASURY'?[
+  line('REVENUE','تحصيلات العملاء','REVENUE',10),
+  line('OPEX','سداد الموردين','EXPENSE',30),
+  line('FINANCING','تحويلات الخزينة','CASH',100)
+ ]:centerType==='FINANCING'?[
+  line('FINANCING','القروض والتمويل','CASH',100),
+  line('FINANCING','سداد أصل الدين','CASH',102),
+  line('FINANCING','تكلفة التمويل','EXPENSE',104)
  ]:[
   line('REVENUE','الإيرادات التشغيلية','REVENUE',10),line('COGS','تكلفة المبيعات','EXPENSE',30),
   line('OPEX','رواتب تشغيلية','EXPENSE',40),line('OPEX','إيجارات المواقع التشغيلية','EXPENSE',50),
@@ -163,7 +185,8 @@ export function createCostCenterBudgetPlan(costCenter:string,year=new Date().get
   line('OPEX','مواد ومستلزمات تشغيل','EXPENSE',75),line('OPEX','نقل ولوجستيات','EXPENSE',78),
   line('OPEX','أنظمة وتقنية تشغيلية','EXPENSE',80),capex
  ];
- return {...base,id:undefined,name:`${costCenter==='HQ'?'الخطة المالية - الإدارة العامة':costCenter==='OPERATIONS'?'الخطة المالية - التشغيل':`الخطة المالية - ${costCenter}`} ${year}`,cost_center:costCenter,opening_cash:0,lines};
+ const typeLabel=BUDGET_CENTER_TYPE_LABELS[centerType]?.ar??centerType;
+ return {...base,id:undefined,name:`الخطة المالية - ${typeLabel} - ${costCenter}`+' '+year,cost_center:costCenter,opening_cash:0,lines};
 }
 
 const LEGACY_COST_CENTER_LINE_ALIASES:Record<'HQ'|'OPERATIONS',Record<string,string>>={
