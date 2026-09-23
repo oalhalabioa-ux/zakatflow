@@ -1295,3 +1295,83 @@
   min-width:0;
  }
 }
+
+/* Final elegant KPI composition: one aligned header, one dominant value,
+   and one compact status row anchored directly above the progress rail. */
+.theme-elegant .budget-kpis .budget-kpi{
+ display:grid!important;
+ grid-template-rows:auto 1fr auto;
+ align-items:stretch;
+}
+.theme-elegant .budget-kpis .budget-kpi-head{
+ display:flex;
+ align-items:flex-start;
+ justify-content:space-between;
+ gap:10px;
+ width:100%;
+ min-width:0;
+}
+.theme-elegant .budget-kpis .budget-kpi-head small{
+ width:auto;
+ max-width:calc(100% - 48px);
+ min-height:0;
+ padding:5px 0 0;
+ font-size:12px;
+ line-height:1.45;
+}
+.theme-elegant .budget-kpis .budget-kpi-head .budget-kpi-icon{
+ position:static;
+ inset:auto;
+ flex:0 0 40px;
+ width:40px;
+ height:40px;
+ margin:0;
+}
+.theme-elegant .budget-kpis .budget-kpi>strong{
+ align-self:end;
+ display:flex;
+ align-items:baseline;
+ justify-content:flex-start;
+ gap:8px;
+ width:100%;
+ margin:0 0 31px;
+ font-size:clamp(25px,2.35vw,33px)!important;
+ line-height:1;
+}
+.theme-elegant .budget-kpis .budget-kpi-footer{
+ position:absolute;
+ inset-inline:18px;
+ bottom:22px;
+ display:flex;
+ justify-content:flex-end;
+ min-width:0;
+}
+.theme-elegant .budget-kpis .budget-kpi-footer span{
+ display:inline-flex;
+ align-items:center;
+ width:auto;
+ max-width:100%;
+ min-height:23px;
+ margin:0;
+ padding:4px 9px;
+ overflow:hidden;
+ border:1px solid #e2eee9;
+ border-radius:999px;
+ background:#f4faf7;
+ color:#0d755f;
+ font-size:10px;
+ font-weight:800;
+ line-height:1.2;
+ white-space:nowrap;
+ text-overflow:ellipsis;
+}
+.theme-elegant .budget-kpis .budget-kpi.tone-amber .budget-kpi-footer span{background:#fffaf0;border-color:#f4e8c6;color:#a66d16}
+.theme-elegant .budget-kpis .budget-kpi.tone-blue .budget-kpi-footer span{background:#f1f6fc;border-color:#dce8f6;color:#3f74aa}
+.theme-elegant .budget-kpis .budget-kpi.tone-red .budget-kpi-footer span{background:#fff5f3;border-color:#f2dcd8;color:#bf4b43}
+@media(max-width:760px){
+ .theme-elegant .budget-kpis .budget-kpi-head .budget-kpi-icon{flex-basis:34px;width:34px;height:34px}
+ .theme-elegant .budget-kpis .budget-kpi-head small{font-size:11px}
+ .theme-elegant .budget-kpis .budget-kpi>strong{margin-bottom:29px;font-size:clamp(22px,5.8vw,28px)!important}
+ .theme-elegant .budget-kpis .budget-kpi-footer{inset-inline:12px;bottom:20px}
+ .theme-elegant .budget-kpis .budget-kpi-footer span{min-height:21px;padding:3px 7px;font-size:9px}
+}
