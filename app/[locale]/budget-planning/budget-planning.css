@@ -674,6 +674,15 @@
  .budget-plan .budget-dashboard-bottom .budget-completion-card{grid-template-columns:1fr auto;gap:10px}
  .budget-plan .budget-dashboard-bottom .budget-completion-card .completion-meta{grid-column:1/-1;justify-content:flex-start}
 }
+
+.budget-report-export{display:flex;align-items:flex-end;gap:8px}
+.budget-report-export label{display:grid;gap:4px;min-width:150px;color:var(--muted);font-size:9px;font-weight:800}
+.budget-report-export select{min-height:39px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font:inherit}
+@media(max-width:750px){
+ .budget-page-head .page-command .budget-report-export{grid-column:1/-1;display:flex;align-items:flex-end}
+ .budget-report-export label{flex:1;min-width:0}
+ .budget-report-export .btn{flex:0 0 auto}
+}
 @media(max-width:420px){
  .budget-plan .budget-kpis,.budget-plan .five-year-kpis{grid-template-columns:1fr}
  .budget-plan .budget-kpi,.budget-plan .five-year-kpis .budget-kpi{min-height:124px}
