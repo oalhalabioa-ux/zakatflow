@@ -1,3 +1,4 @@
-import {NextResponse} from 'next/server';import {createEntity,listEntities} from '@/services/organizations';
+import {NextResponse} from 'next/server';import {createEntity,listEntities,updateEntity} from '@/services/organizations';
 export async function GET(req:Request){try{const org=new URL(req.url).searchParams.get('organization_id');if(!org)return NextResponse.json({error:'organization_id required'},{status:400});return NextResponse.json(await listEntities(org))}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:400})}}
 export async function POST(req:Request){try{const b=await req.json();return NextResponse.json(await createEntity(b.organization_id,b),{status:201})}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:400})}}
+export async function PATCH(req:Request){try{const b=await req.json();if(!b.id)return NextResponse.json({error:'entity id required'},{status:400});return NextResponse.json(await updateEntity(b.id,b))}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:400})}}

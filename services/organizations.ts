@@ -60,6 +60,9 @@ export async function createOrganization(input:{
 
 export async function updateOrganization(id:string,input:{
  name:string;
+ legal_name?:string|null;
+ entity_type?:string;
+ base_currency?:string;
  parent_organization_id?:string|null;
  organization_kind?:'HOLDING'|'SUBSIDIARY';
  sort_order?:number;
@@ -75,6 +78,9 @@ export async function updateOrganization(id:string,input:{
  const {data:current,error:currentError}=await supabase.from('organizations').select('name').eq('id',id).single();
  if(currentError)throw currentError;
  const patch:Record<string,unknown>={name,updated_at:new Date().toISOString()};
+ if(input.legal_name!==undefined)patch.legal_name=input.legal_name?.trim()||null;
+ if(input.entity_type!==undefined)patch.entity_type=input.entity_type;
+ if(input.base_currency!==undefined)patch.base_currency=input.base_currency;
  if(input.parent_organization_id!==undefined)patch.parent_organization_id=input.parent_organization_id;
  if(input.organization_kind!==undefined)patch.organization_kind=input.organization_kind;
  if(input.sort_order!==undefined)patch.sort_order=Number(input.sort_order);
@@ -94,9 +100,22 @@ export async function listEntities(orgId:string){
  return data??[];
 }
 
-export async function createEntity(orgId:string,input:{name:string;entity_type?:string;base_currency?:string}){
+export async function createEntity(orgId:string,input:{name:string;entity_type?:string;base_currency?:string;registration_no?:string|null}){
  const {supabase}=await requireUser();
- const {data,error}=await supabase.from('organization_entities').insert({organization_id:orgId,name:input.name,entity_type:input.entity_type??'PERSON',base_currency:input.base_currency??'SAR'}).select().single();
+ const name=input.name.trim();if(!name)throw new Error('ENTITY_NAME_REQUIRED');
+ const {data,error}=await supabase.from('organization_entities').insert({organization_id:orgId,name,entity_type:input.entity_type??'PERSON',base_currency:input.base_currency??'SAR',registration_no:input.registration_no?.trim()||null}).select().single();
+ if(error)throw error;
+ return data;
+}
+
+export async function updateEntity(id:string,input:{name:string;entity_type?:string;base_currency?:string;registration_no?:string|null}){
+ const {supabase}=await requireUser();
+ const name=input.name.trim();if(!name)throw new Error('ENTITY_NAME_REQUIRED');
+ const patch:Record<string,unknown>={name};
+ if(input.entity_type!==undefined)patch.entity_type=input.entity_type;
+ if(input.base_currency!==undefined)patch.base_currency=input.base_currency;
+ if(input.registration_no!==undefined)patch.registration_no=input.registration_no?.trim()||null;
+ const {data,error}=await supabase.from('organization_entities').update(patch).eq('id',id).select().single();
  if(error)throw error;
  return data;
 }
