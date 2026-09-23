@@ -1141,3 +1141,93 @@
  .theme-elegant .budget-kpis{grid-template-columns:1fr}
  .theme-elegant .budget-kpis .budget-kpi{min-height:126px}
 }
+
+/* Elegant management alerts: compact decision cards instead of a stretched
+   column. The warning state keeps its emphasis while neutral statuses stay
+   quiet and scannable. */
+.theme-elegant .budget-dashboard-primary{
+ align-items:start;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts{
+ align-self:start;
+ min-height:0!important;
+ height:max-content;
+ padding:16px 18px!important;
+ background:linear-gradient(155deg,#ffffff 0%,#fbfefd 100%);
+ border:1px solid #dcece6;
+ box-shadow:0 12px 28px rgba(25,72,60,.065);
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-card-head{
+ margin-bottom:3px;
+ padding-bottom:12px;
+ border-bottom:1px solid #e5efeb;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-card-head h3{
+ font-size:18px;
+ line-height:1.25;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-card-head small{
+ font-size:10px;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .alert-icon{
+ width:32px;
+ height:32px;
+ border-radius:11px;
+ font-size:15px;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-alert{
+ flex:0 0 auto;
+ display:grid;
+ grid-template-columns:30px minmax(0,1fr);
+ align-items:center;
+ gap:10px;
+ min-height:62px;
+ padding:10px 0;
+ border-bottom:1px solid #e8f0ed;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-alert:last-child{
+ border-bottom:0;
+ padding-bottom:2px;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-alert>span{
+ width:30px;
+ height:30px;
+ border:1px solid #d7eee5;
+ border-radius:10px;
+ background:#eef9f5;
+ color:#0d755f;
+ font-size:14px;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-alert.warn{
+ margin-inline:-6px;
+ padding-inline:6px;
+ border:1px solid #f4e5c8;
+ border-radius:12px;
+ background:#fffaf0;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-alert.warn>span{
+ border-color:#f3dfb8;
+ background:#fff0d4;
+ color:#bd7812;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-alert strong{
+ display:block;
+ color:#24463d;
+ font-size:12px;
+ line-height:1.3;
+}
+.theme-elegant .budget-dashboard-primary>.budget-alerts .budget-alert p{
+ margin:3px 0 0;
+ color:#6d877f;
+ font-size:10px;
+ line-height:1.45;
+ overflow-wrap:anywhere;
+}
+@media(max-width:760px){
+ .theme-elegant .budget-dashboard-primary>.budget-alerts{
+  padding:14px!important;
+ }
+ .theme-elegant .budget-dashboard-primary>.budget-alerts .budget-alert{
+  min-height:58px;
+ }
+}
