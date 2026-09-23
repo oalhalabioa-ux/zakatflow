@@ -1016,3 +1016,128 @@
  .theme-elegant .budget-plan{padding-inline:12px!important;overflow-x:hidden}
  .theme-elegant .budget-plan .budget-chart-card,.theme-elegant .budget-plan .budget-alerts,.theme-elegant .budget-plan .five-year-card,.theme-elegant .budget-plan .dashboard-cash-card,.theme-elegant .budget-plan .budget-completion-card{width:100%;box-sizing:border-box}
 }
+
+/* Elegant KPI rail: a calmer executive hierarchy with stronger figures and
+   compact status chips. The desktop grid remains five-up and collapses
+   without clipping at tablet and phone widths. */
+.theme-elegant .budget-kpis{
+ grid-template-columns:minmax(0,1.12fr) minmax(0,1.12fr) repeat(3,minmax(0,1fr));
+ gap:16px;
+ margin-top:20px;
+}
+.theme-elegant .budget-kpis .budget-kpi{
+ position:relative;
+ min-height:164px;
+ padding:17px 18px 19px;
+ display:flex;
+ flex-direction:column;
+ align-items:flex-start;
+ justify-content:flex-start;
+ overflow:hidden;
+ border:1px solid #dcece6;
+ background:linear-gradient(145deg,#ffffff 0%,#fbfefd 72%,#f4faf7 100%);
+ box-shadow:0 12px 28px rgba(25,72,60,.065);
+}
+.theme-elegant .budget-kpis .budget-kpi:hover{
+ transform:translateY(-2px);
+ box-shadow:0 16px 30px rgba(25,72,60,.10);
+}
+.theme-elegant .budget-kpis .budget-kpi-icon{
+ position:absolute;
+ inset-block-start:16px;
+ inset-inline-end:16px;
+ width:40px;
+ height:40px;
+ margin:0;
+ border:1px solid rgba(13,117,95,.08);
+ border-radius:13px;
+ font-size:17px;
+}
+.theme-elegant .budget-kpis .budget-kpi small{
+ width:calc(100% - 48px);
+ min-height:38px;
+ padding-inline-end:2px;
+ color:#58776e;
+ font-size:12px;
+ font-weight:800;
+ line-height:1.45;
+}
+.theme-elegant .budget-kpis .budget-kpi strong{
+ display:flex;
+ align-items:baseline;
+ gap:8px;
+ width:100%;
+ min-width:0;
+ margin-top:13px;
+ color:#143c33;
+ font-size:clamp(24px,2.25vw,32px)!important;
+ font-weight:900;
+ line-height:1;
+ letter-spacing:-.045em;
+}
+.theme-elegant .budget-kpis .budget-kpi-value{
+ min-width:0;
+ overflow:hidden;
+ text-overflow:ellipsis;
+}
+.theme-elegant .budget-kpis .budget-kpi-unit{
+ flex:0 0 auto;
+ color:#718b83;
+ font-size:12px!important;
+ font-weight:850;
+ letter-spacing:0;
+}
+.theme-elegant .budget-kpis .budget-kpi>span{
+ display:inline-flex;
+ align-items:center;
+ width:max-content;
+ max-width:100%;
+ min-height:24px;
+ margin-top:auto;
+ padding:4px 9px;
+ overflow:hidden;
+ border:1px solid #e2eee9;
+ border-radius:999px;
+ background:#f4faf7;
+ color:#0d755f;
+ font-size:10px;
+ font-weight:800;
+ line-height:1.2;
+ white-space:nowrap;
+ text-overflow:ellipsis;
+}
+.theme-elegant .budget-kpis .budget-kpi:after,
+.theme-elegant .budget-kpis .budget-kpi:before{
+ inset-inline:18px;
+ bottom:11px;
+ height:5px;
+}
+.theme-elegant .budget-kpis .budget-kpi:after{background:#e6f0ed}
+.theme-elegant .budget-kpis .budget-kpi:before{background:linear-gradient(90deg,#0d755f,#28ad94)}
+.theme-elegant .budget-kpis .budget-kpi.tone-amber .budget-kpi-icon{background:#fff5dc;color:#b27418}
+.theme-elegant .budget-kpis .budget-kpi.tone-amber>span{background:#fffaf0;border-color:#f4e8c6;color:#a66d16}
+.theme-elegant .budget-kpis .budget-kpi.tone-amber:before{background:#d59b3e}
+.theme-elegant .budget-kpis .budget-kpi.tone-blue .budget-kpi-icon{background:#edf5ff;color:#3f74aa}
+.theme-elegant .budget-kpis .budget-kpi.tone-blue>span{background:#f1f6fc;border-color:#dce8f6;color:#3f74aa}
+.theme-elegant .budget-kpis .budget-kpi.tone-blue:before{background:#4b91bb}
+.theme-elegant .budget-kpis .budget-kpi.tone-red .budget-kpi-icon{background:#fff0ee;color:#c6534a}
+.theme-elegant .budget-kpis .budget-kpi.tone-red>span{background:#fff5f3;border-color:#f2dcd8;color:#bf4b43}
+.theme-elegant .budget-kpis .budget-kpi.tone-red:before{background:#d55d54}
+@media(max-width:1280px){
+ .theme-elegant .budget-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ .theme-elegant .budget-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}
+ .theme-elegant .budget-kpis .budget-kpi{min-height:140px;padding:14px 12px 17px}
+ .theme-elegant .budget-kpis .budget-kpi-icon{inset-block-start:13px;inset-inline-end:12px;width:34px;height:34px;border-radius:11px;font-size:14px}
+ .theme-elegant .budget-kpis .budget-kpi small{width:calc(100% - 38px);font-size:11px;line-height:1.35}
+ .theme-elegant .budget-kpis .budget-kpi strong{margin-top:10px;font-size:clamp(20px,5.5vw,26px)!important}
+ .theme-elegant .budget-kpis .budget-kpi-unit{font-size:10px!important}
+ .theme-elegant .budget-kpis .budget-kpi>span{min-height:22px;padding:3px 7px;font-size:9px}
+ .theme-elegant .budget-kpis .budget-kpi:after,
+ .theme-elegant .budget-kpis .budget-kpi:before{inset-inline:12px;bottom:9px}
+}
+@media(max-width:420px){
+ .theme-elegant .budget-kpis{grid-template-columns:1fr}
+ .theme-elegant .budget-kpis .budget-kpi{min-height:126px}
+}
