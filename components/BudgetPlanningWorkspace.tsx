@@ -4,6 +4,7 @@ import {useSearchParams} from 'next/navigation';
 import type {BudgetCenterType,BudgetLine,BudgetPlan} from '@/lib/budget-planning';
 import {applyPerformanceDrivers,budgetGroupName,budgetScenarioFactor,budgetVariancePercent,buildBudgetMetrics,createCostCenterBudgetPlan,createDefaultBudgetPlan,isBudgetVarianceFavorable,MONTH_KEYS,normalizeCostCenterBudgetPlan} from '@/lib/budget-planning';
 import BudgetOrganizationManager,{type BudgetOrganization} from './BudgetOrganizationManager';
+import {costCenterDisplayName,organizationDisplayName} from '@/lib/organization-display';
 const AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const CATEGORY_LABELS_AR={REVENUE:'الإيرادات',COGS:'تكلفة المبيعات',OPEX:'المصروفات التشغيلية',CAPEX:'الإنفاق الرأسمالي',FINANCING:'خدمة الدين',ZAKAT:'الزكاة'};
 const CATEGORY_LABELS_EN={REVENUE:'Revenue',COGS:'Cost of Sales',OPEX:'Operating Expenses',CAPEX:'Capital Expenditure',FINANCING:'Debt Service',ZAKAT:'Zakat'};
@@ -131,10 +132,10 @@ export default function BudgetPlanningWorkspace({locale}:{locale:string}){
  const updateCell=(lineIndex:number,field:'monthly_budget'|'monthly_actual'|'monthly_forecast',month:number,value:number)=>setPlan(current=>({...current,lines:current.lines.map((line,index)=>index===lineIndex?{...line,[field]:Array.from({length:12},(_,i)=>i===month?(Number(value)||0):Number((line[field]??line.monthly_budget)[i]??0))}:line)}));
  const copyJanuaryToAllMonths=()=>setPlan(current=>({...current,lines:current.lines.map(line=>{const january=Number(line.monthly_budget[0]??0);return {...line,monthly_budget:Array(12).fill(january)}})}));
  const normalizeDisplayedPlan=(saved:BudgetPlan)=>saved.cost_center==='HQ'||saved.cost_center==='OPERATIONS'?normalizeCostCenterBudgetPlan(saved,saved.cost_center):saved;
- const centerLabel=(code:string)=>organizationCostCenters.find(center=>center.code===code)?.name??(code==='HQ'?(ar?'الإدارة العامة':'Head office'):code==='OPERATIONS'?(ar?'التشغيل':'Operations'):code==='ALL'?(ar?'الكل — مجمع':'All — Consolidated'):code);
+ const centerLabel=(code:string)=>{const savedName=organizationCostCenters.find(center=>center.code===code)?.name;if(savedName)return costCenterDisplayName(savedName,ar);const fallback=code==='HQ'?(ar?'الإدارة العامة':'Head office'):code==='OPERATIONS'?(ar?'التشغيل':'Operations'):code==='ALL'?(ar?'الكل — مجمع':'All — Consolidated'):code;return costCenterDisplayName(fallback,ar)};
  const organizationChanged=(name:string,options?:{defaultSelection?:boolean})=>{setOrganizationCostCenters([]);setSelectedCostCenter('ALL');if(options?.defaultSelection){defaultAdminPending.current=true;defaultOrganizationName.current=name}updatePlan('organization_name',name);if(!allOrganizationsView)void loadCostCenter('ALL',name)};
  const costCentersChanged=(centers:OrganizationCostCenter[])=>{setOrganizationCostCenters(centers);if(!defaultAdminPending.current)return;const admin=centers.find(center=>center.center_type==='ADMIN');if(!admin)return;defaultAdminPending.current=false;void loadCostCenter(admin.code,defaultOrganizationName.current,admin.center_type)};
- const availableCostCenters=plan.organization_name?organizationCostCenters.map(center=>({code:center.code,name:center.name,center_type:center.center_type})):[];
+ const availableCostCenters=plan.organization_name?organizationCostCenters.map(center=>({code:center.code,name:costCenterDisplayName(center.name,ar),center_type:center.center_type})):[];
  async function save(status?:'IN_REVIEW'|'APPROVED'){
   if(plan.cost_center==='ALL'||selectedCostCenter!==plan.cost_center){setMessage(ar?'اختر مركز تكلفة محددًا قبل الحفظ. العرض المجمع للقراءة فقط.':'Select a specific cost center before saving. The consolidated view is read-only.');return}
   if(!hasUnsavedChanges&&!status){setMessage(ar?'لا توجد تعديلات جديدة للحفظ.':'There are no new changes to save.');return}
@@ -250,7 +251,7 @@ export default function BudgetPlanningWorkspace({locale}:{locale:string}){
    if(!rows.length){setMessage(ar?'لا توجد بيانات ظاهرة للتصدير وفق الاختيارات الحالية.':'There is no displayed data to export for the current selections.');return}
    const esc=(value:unknown)=>String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
    const table='<table border="1"><thead><tr>'+headers.map(value=>'<th>'+esc(value)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
-   const organizationName=allOrganizationsView?(ar?'جميع الشركات — بيانات مجمعة':'All companies — consolidated'):plan.organization_name;
+   const organizationName=allOrganizationsView?(ar?'جميع الشركات — بيانات مجمعة':'All companies — consolidated'):organizationDisplayName(plan.organization_name,ar);
    const tabName=tabs.find(([key])=>key===tab)?.[1]??t.dashboard;
    const title=ar?'تصدير الموازنة حسب العرض الحالي':'Budget export — current screen';
    const html='<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;direction:'+(ar?'rtl':'ltr')+'}table{border-collapse:collapse}th{background:#e8f3ef}th,td{padding:6px 9px;text-align:'+(ar?'right':'left')+'}</style></head><body><h2>'+esc(title)+'</h2><p>'+esc(organizationName)+' · '+esc(tabName)+' · '+plan.fiscal_year+' · '+esc(plan.scenario)+' · '+plan.currency+'</p>'+table+'</body></html>';
