@@ -105,7 +105,7 @@ export default function BudgetPlanningWorkspace({locale}:{locale:string}){
  const normalizeDisplayedPlan=(saved:BudgetPlan)=>saved.cost_center==='HQ'||saved.cost_center==='OPERATIONS'?normalizeCostCenterBudgetPlan(saved,saved.cost_center):saved;
  const centerLabel=(code:string)=>organizationCostCenters.find(center=>center.code===code)?.name??(code==='HQ'?(ar?'الإدارة العامة':'Head office'):code==='OPERATIONS'?(ar?'التشغيل':'Operations'):code==='ALL'?(ar?'الكل — مجمع':'All — Consolidated'):code);
  const organizationChanged=(name:string)=>{setOrganizationCostCenters([]);setSelectedCostCenter('ALL');updatePlan('organization_name',name);void loadCostCenter('ALL',name)};
- const availableCostCenters=plan.organization_name?[{code:'HQ',name:centerLabel('HQ')},{code:'OPERATIONS',name:centerLabel('OPERATIONS')},...organizationCostCenters.filter(center=>center.code!=='HQ'&&center.code!=='OPERATIONS').map(center=>({code:center.code,name:center.name}))]:[];
+ const availableCostCenters=plan.organization_name?organizationCostCenters.map(center=>({code:center.code,name:center.name})):[];
  async function save(status?:'IN_REVIEW'|'APPROVED'){
   if(plan.cost_center==='ALL'||selectedCostCenter!==plan.cost_center){setMessage(ar?'اختر مركز تكلفة محددًا قبل الحفظ. العرض المجمع للقراءة فقط.':'Select a specific cost center before saving. The consolidated view is read-only.');return}
   if(!hasUnsavedChanges&&!status){setMessage(ar?'لا توجد تعديلات جديدة للحفظ.':'There are no new changes to save.');return}
