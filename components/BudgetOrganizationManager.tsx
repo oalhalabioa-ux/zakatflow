@@ -2,8 +2,10 @@
 
 import {useEffect,useMemo,useState} from 'react';
 
-type Organization={id:string;name:string};
+type Organization={id:string;name:string;parent_organization_id?:string|null;organization_kind:'HOLDING'|'SUBSIDIARY';sort_order:number;created_at?:string};
 type CostCenter={id:string;organization_id:string;code:string;display_code?:string|null;name:string;active:boolean};
+const sortOrganizations=(items:Organization[])=>[...items].sort((a,b)=>Number(a.sort_order??100)-Number(b.sort_order??100)||(a.organization_kind==='HOLDING'?0:1)-(b.organization_kind==='HOLDING'?0:1)||a.name.localeCompare(b.name,'ar'));
+const organizationOptionLabel=(item:Organization)=>item.organization_kind==='HOLDING'?'▣ '+item.name:'↳ '+item.name;
 
 export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange}:{ar:boolean;value:string;onChange:(name:string)=>void;onCostCentersChange?:(centers:CostCenter[])=>void}){
  const [organizations,setOrganizations]=useState<Organization[]>([]);
@@ -25,7 +27,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    const response=await fetch('/api/organizations',{cache:'no-store'});
    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||`LOAD_FAILED_${response.status}`)}
    const body=await response.json();
-   if(Array.isArray(body))setOrganizations(body);
+   if(Array.isArray(body))setOrganizations(sortOrganizations(body));
    return Array.isArray(body)?body:[];
   }catch(error){if(showError)setMessage(ar?`تعذر تحميل المنشآت. أعد المحاولة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load organizations.'));return []}
   finally{setLoading(false)}
@@ -49,6 +51,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
   if(value&&!selected){setSelectedId('');setOrganizationDraft('');setCenters([]);onCostCentersChange?.([])}
  },[organizations,value,selectedId]);
  const selectedOrganization=useMemo(()=>organizations.find(item=>item.id===selectedId),[organizations,selectedId]);
+ const holdingOrganization=useMemo(()=>sortOrganizations(organizations).find(item=>item.organization_kind==='HOLDING'&&!item.parent_organization_id),[organizations]);
 
  const chooseOrganization=(id:string)=>{
   if(id==='__legacy__'){onChange(value);return}
@@ -67,19 +70,20 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
   setOpen(true);
   const fresh=await loadOrganizations(true);
   const selected=fresh.find((item:Organization)=>item.name===value);
-  if(selected){setSelectedId(selected.id);setOrganizationDraft(selected.name);if(!value)onChange(selected.name);await loadCenters(selected.id,true)}
+  if(selected){setSelectedId(selected.id);setOrganizationDraft(selected.name);await loadCenters(selected.id,true)}
   else if(!value){setSelectedId('');setOrganizationDraft('');setCenters([]);onCostCentersChange?.([])}
  };
  const createOrganization=async()=>{
  const name=newOrganization.trim();
+  const createAsHolding=organizations.length===0;
   if(!name){setMessage(ar?'أدخل اسم المنشأة أولًا.':'Enter the organization name first.');return}
   if(organizations.some(item=>item.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){setMessage(ar?'اسم المنشأة موجود بالفعل. اختره من القائمة أو استخدم اسمًا مختلفًا.':'That organization already exists. Choose it from the list or use a different name.');return}
   setSaving(true);setMessage('');
   try{
-   const response=await fetch('/api/organizations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name})});
+   const response=await fetch('/api/organizations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,parent_organization_id:createAsHolding?null:(holdingOrganization?.id??null),organization_kind:createAsHolding?'HOLDING':'SUBSIDIARY',sort_order:createAsHolding?10:Math.max(...organizations.map(item=>Number(item.sort_order??100)),10)+10})});
    const body=await response.json();
    if(!response.ok)throw new Error(body.error||'CREATE_FAILED');
-   setOrganizations(current=>[body,...current]);setSelectedId(body.id);setOrganizationDraft(body.name);setNewOrganization('');onChange(body.name);setCenters([]);onCostCentersChange?.([]);
+   setOrganizations(current=>sortOrganizations([body,...current]));setSelectedId(body.id);setOrganizationDraft(body.name);setNewOrganization('');onChange(body.name);setCenters([]);onCostCentersChange?.([]);
    setMessage(ar?'تمت إضافة المنشأة. يمكنك الآن إضافة مراكز التكلفة.':'Organization added. You can now add cost centers.');
   }catch(error){setMessage(ar?'تعذر إضافة المنشأة. قد يكون الاسم مستخدمًا.':(error instanceof Error?error.message:'Could not add organization.'))}
   finally{setSaving(false)}
@@ -130,7 +134,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    <select value={selectedId|| (legacyOption?'__legacy__':'')} onChange={event=>chooseOrganization(event.target.value)}>
    <option value="">{ar?'اختر منشأة':'Select organization'}</option>
     {legacyOption&&<option value="__legacy__">{value}</option>}
-    {organizations.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
+    {sortOrganizations(organizations).map(item=><option key={item.id} value={item.id}>{organizationOptionLabel(item)}</option>)}
    </select>
    <button type="button" className="budget-organization-add" onClick={openManager} aria-label={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'} title={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'}>＋</button>
   </div>
@@ -138,8 +142,8 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    <section className="budget-org-modal" role="dialog" aria-modal="true" aria-labelledby="budget-org-modal-title" dir={ar?'rtl':'ltr'}>
     <div className="budget-org-modal-head"><div><small>{ar?'مرجع نطاق الموازنة':'Budget scope reference'}</small><h2 id="budget-org-modal-title">{ar?'المنشآت ومراكز التكلفة':'Organizations & cost centers'}</h2></div><div className="budget-org-modal-actions"><button type="button" className="btn secondary" onClick={()=>void openManager()} disabled={loading}>{ar?'إعادة تحميل':'Reload'}</button><button type="button" className="budget-org-close" onClick={()=>setOpen(false)} aria-label={ar?'إغلاق':'Close'}>×</button></div></div>
     <div className="budget-org-modal-body">
-     <div className="budget-org-section"><h3>{ar?'إضافة منشأة':'Add organization'}</h3><div className="budget-org-add-row"><input value={newOrganization} onChange={event=>setNewOrganization(event.target.value)} placeholder={ar?'اسم المنشأة':'Organization name'}/><button type="button" className="btn" disabled={saving} onClick={createOrganization}>{ar?'إضافة':'Add'}</button></div></div>
-     <div className="budget-org-section"><h3>{ar?'اختيار وتعديل المنشأة':'Select and rename organization'}</h3><select value={selectedId} onChange={event=>chooseOrganization(event.target.value)}><option value="">{ar?'اختر منشأة':'Select organization'}</option>{organizations.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select>{selectedOrganization&&<div className="budget-org-add-row"><input value={organizationDraft} onChange={event=>setOrganizationDraft(event.target.value)}/><button type="button" className="btn secondary" disabled={saving} onClick={renameOrganization}>{ar?'حفظ الاسم':'Save name'}</button></div>}</div>
+     <div className="budget-org-section"><h3>{ar?'إضافة منشأة تابعة':'Add subsidiary organization'}</h3><small className="budget-org-hint">{ar?'ستُربط المنشأة الجديدة تلقائيًا بالمجموعة القابضة.':'New organizations are linked to the holding group automatically.'}</small><div className="budget-org-add-row"><input value={newOrganization} onChange={event=>setNewOrganization(event.target.value)} placeholder={ar?'اسم المنشأة':'Organization name'}/><button type="button" className="btn" disabled={saving} onClick={createOrganization}>{ar?'إضافة':'Add'}</button></div></div>
+     <div className="budget-org-section"><h3>{ar?'اختيار وتعديل المنشأة':'Select and rename organization'}</h3><select value={selectedId} onChange={event=>chooseOrganization(event.target.value)}><option value="">{ar?'اختر منشأة':'Select organization'}</option>{sortOrganizations(organizations).map(item=><option key={item.id} value={item.id}>{organizationOptionLabel(item)}</option>)}</select>{selectedOrganization&&<div className="budget-org-add-row"><input value={organizationDraft} onChange={event=>setOrganizationDraft(event.target.value)}/><button type="button" className="btn secondary" disabled={saving} onClick={renameOrganization}>{ar?'حفظ الاسم':'Save name'}</button></div>}</div>
      <div className="budget-org-section"><div className="budget-org-section-title"><h3>{ar?'مراكز التكلفة التابعة':'Organization cost centers'}</h3><small>{selectedOrganization?selectedOrganization.name:(ar?'اختر منشأة أولًا':'Select an organization first')}</small></div>{selectedOrganization&&<><div className="budget-org-add-row budget-org-center-add"><input value={newCode} onChange={event=>setNewCode(event.target.value)} placeholder={ar?'الرمز':'Code'}/><input value={newCenter} onChange={event=>setNewCenter(event.target.value)} placeholder={ar?'اسم مركز التكلفة':'Cost-center name'}/><button type="button" className="btn" disabled={saving} onClick={addCostCenter}>{ar?'إضافة وحفظ المركز':'Add & save center'}</button></div><div className="budget-org-center-list">{centers.length?centers.map(center=><div className="budget-org-center-row" key={center.id}><code>{center.display_code??center.code}</code><input value={centerDrafts[center.id]??center.name} onChange={event=>setCenterDrafts(current=>({...current,[center.id]:event.target.value}))}/><button type="button" className="btn secondary" disabled={saving} onClick={()=>renameCostCenter(center)}>{ar?'حفظ':'Save'}</button></div>):<p className="budget-org-empty">{ar?'لا توجد مراكز تكلفة مسجلة بعد.':'No cost centers registered yet.'}</p>}</div></>}</div>
      {message&&<div className="budget-org-message" role="status">{message}</div>}
     </div>
