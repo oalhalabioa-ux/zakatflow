@@ -679,6 +679,128 @@
  .budget-plan .budget-kpi,.budget-plan .five-year-kpis .budget-kpi{min-height:124px}
 }
 
+/* Mobile dashboard polish for the classic and elegant layouts. Keep the
+   desktop composition unchanged while removing desktop-only heights and
+   avoiding a multi-row tab wall on narrow screens. */
+@media (max-width: 760px){
+ .theme-classic .budget-plan,
+ .theme-elegant .budget-plan{
+   padding-inline:12px!important;
+   padding-block:16px 28px!important;
+ }
+
+ .theme-classic .budget-plan .budget-dashboard-primary>.budget-chart-card,
+ .theme-elegant .budget-plan .budget-dashboard-primary>.budget-chart-card{
+   min-height:0!important;
+ }
+
+ .theme-classic .budget-plan .budget-chart-card,
+ .theme-classic .budget-plan .budget-alerts,
+ .theme-classic .budget-plan .five-year-card,
+ .theme-classic .budget-plan .budget-table-card,
+ .theme-elegant .budget-plan .budget-chart-card,
+ .theme-elegant .budget-plan .budget-alerts,
+ .theme-elegant .budget-plan .five-year-card,
+ .theme-elegant .budget-plan .budget-table-card{
+   padding:13px!important;
+ }
+
+ .theme-classic .budget-plan .budget-workspace-tabs,
+ .theme-elegant .budget-plan .budget-workspace-tabs{
+   padding:9px!important;
+ }
+
+ .theme-classic .budget-plan .budget-workspace-tabs .approved-budget-tabs,
+ .theme-elegant .budget-plan .budget-workspace-tabs .approved-budget-tabs{
+   display:flex!important;
+   flex-wrap:nowrap!important;
+   overflow-x:auto!important;
+   overflow-y:hidden!important;
+   justify-content:flex-start!important;
+   scroll-snap-type:x proximity;
+   scrollbar-width:thin;
+ }
+
+ .theme-classic .budget-plan .budget-workspace-tabs .budget-tabs button,
+ .theme-elegant .budget-plan .budget-workspace-tabs .budget-tabs button{
+   flex:0 0 142px!important;
+   min-width:142px!important;
+   min-height:42px!important;
+   white-space:nowrap!important;
+   scroll-snap-align:start;
+ }
+
+ .theme-classic .budget-plan .budget-kpis,
+ .theme-elegant .budget-plan .budget-kpis{
+   grid-template-columns:repeat(2,minmax(0,1fr))!important;
+   gap:8px!important;
+ }
+
+ .theme-classic .budget-plan .budget-kpi,
+ .theme-elegant .budget-plan .budget-kpi{
+   min-height:132px!important;
+   padding:12px 10px!important;
+ }
+
+ .theme-classic .budget-plan .budget-kpi strong,
+ .theme-elegant .budget-plan .budget-kpi strong{
+   font-size:clamp(16px,4.8vw,21px)!important;
+ }
+
+ .theme-classic .budget-plan .budget-filters .analysis-settings-fields,
+ .theme-elegant .budget-plan .budget-filters .analysis-settings-fields{
+   gap:9px!important;
+ }
+
+ .theme-classic .budget-plan .line-chart,
+ .theme-elegant .budget-plan .line-chart{
+   height:218px!important;
+ }
+
+ .theme-classic .budget-plan .line-chart svg,
+ .theme-elegant .budget-plan .line-chart svg{
+   height:178px!important;
+ }
+}
+
+@media (min-width: 521px) and (max-width: 760px){
+ .theme-classic .budget-plan .analysis-settings-fields,
+ .theme-elegant .budget-plan .analysis-settings-fields{
+   grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ }
+}
+
+@media (max-width: 520px){
+ .theme-classic .budget-plan .budget-page-head .page-command,
+ .theme-elegant .budget-plan .budget-page-head .page-command{
+   grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ }
+
+ .theme-classic .budget-plan .budget-page-head .page-command .approval-command,
+ .theme-elegant .budget-plan .budget-page-head .page-command .approval-command{
+   grid-column:1/-1;
+ }
+
+ .theme-classic .budget-plan .budget-page-head .page-command .save-state,
+ .theme-elegant .budget-plan .budget-page-head .page-command .save-state{
+   grid-column:1/-1;
+   justify-self:start;
+ }
+}
+
+@media (max-width: 420px){
+ .theme-classic .budget-plan .budget-kpis,
+ .theme-elegant .budget-plan .budget-kpis{
+   grid-template-columns:1fr!important;
+ }
+
+ .theme-classic .budget-plan .budget-workspace-tabs .budget-tabs button,
+ .theme-elegant .budget-plan .budget-workspace-tabs .budget-tabs button{
+   flex-basis:132px!important;
+   min-width:132px!important;
+ }
+}
+
 /* Analysis settings v2: dedicated header, balanced filter row, and safe RTL margins. */
 .budget-plan .approved-analysis-panel{
  position:relative!important;
