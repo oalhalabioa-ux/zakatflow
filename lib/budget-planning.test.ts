@@ -75,6 +75,19 @@ describe('budget planning calculations',()=>{
   expect(hq.lines.every(line=>line.monthly_budget.every(value=>value===0))).toBe(true);
   expect(operations.lines.every(line=>line.monthly_budget.every(value=>value===0))).toBe(true);
  });
+ it('provides a dedicated operating-project template with project revenue and operating expenses',()=>{
+  const project=createCostCenterBudgetPlan('PROJECT-01',2027,'PROJECT_OPERATING');
+  expect(project.lines.map(line=>line.name)).toEqual([
+   'إيرادات المشروع','إيرادات أخرى للمشروع','تكاليف مباشرة للمشروع','رواتب وأجور المشروع',
+   'إيجار ومرافق المشروع','تسويق المشروع','صيانة وتشغيل المشروع','مواد ومستلزمات المشروع',
+   'نقل ولوجستيات المشروع','تقنية وأنظمة المشروع','أتعاب واستشارات المشروع','إنفاق رأسمالي للمشروع'
+  ]);
+  expect(project.lines.filter(line=>line.category==='REVENUE')).toHaveLength(2);
+  expect(project.lines.filter(line=>line.category==='COGS')).toHaveLength(1);
+  expect(project.lines.filter(line=>line.category==='OPEX')).toHaveLength(8);
+  expect(project.lines.some(line=>line.category==='FINANCING'||line.category==='ZAKAT')).toBe(false);
+  expect(project.lines.every(line=>line.monthly_budget.every(value=>value===0))).toBe(true);
+ });
  it('normalizes legacy lines without leaking another center into the list',()=>{
   const legacy=createDefaultBudgetPlan(2027);
   legacy.lines.find(line=>line.name==='الرواتب')!.monthly_budget[0]=125;

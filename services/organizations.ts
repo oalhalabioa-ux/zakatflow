@@ -101,8 +101,8 @@ export async function createEntity(orgId:string,input:{name:string;entity_type?:
  return data;
 }
 
-export type CostCenterType='ADMIN'|'OPERATING'|'INVESTMENT'|'TREASURY'|'FINANCING';
-const isCostCenterType=(value:unknown):value is CostCenterType=>typeof value==='string'&&['ADMIN','OPERATING','INVESTMENT','TREASURY','FINANCING'].includes(value);
+export type CostCenterType='ADMIN'|'OPERATING'|'PROJECT_OPERATING'|'INVESTMENT'|'TREASURY'|'FINANCING';
+const isCostCenterType=(value:unknown):value is CostCenterType=>typeof value==='string'&&['ADMIN','OPERATING','PROJECT_OPERATING','INVESTMENT','TREASURY','FINANCING'].includes(value);
 export type OrganizationCostCenter={id:string;organization_id:string;code:string;display_code?:string|null;name:string;center_type:CostCenterType;active:boolean;created_at:string;updated_at:string};
 
 export async function listCostCenters(organizationId:string){

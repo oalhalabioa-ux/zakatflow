@@ -3,11 +3,12 @@
 import {useEffect,useMemo,useState} from 'react';
 
 type Organization={id:string;name:string;parent_organization_id?:string|null;organization_kind:'HOLDING'|'SUBSIDIARY';sort_order:number;created_at?:string};
-type CostCenterType='ADMIN'|'OPERATING'|'INVESTMENT'|'TREASURY'|'FINANCING';
+type CostCenterType='ADMIN'|'OPERATING'|'PROJECT_OPERATING'|'INVESTMENT'|'TREASURY'|'FINANCING';
 type CostCenter={id:string;organization_id:string;code:string;display_code?:string|null;name:string;active:boolean;center_type:CostCenterType};
 const COST_CENTER_TYPES:Array<{value:CostCenterType;ar:string;en:string}>= [
  {value:'ADMIN',ar:'إداري',en:'Administrative'},
  {value:'OPERATING',ar:'تشغيلي',en:'Operating'},
+ {value:'PROJECT_OPERATING',ar:'مشاريع تشغيلية',en:'Operating Projects'},
  {value:'INVESTMENT',ar:'استثماري',en:'Investment'},
  {value:'TREASURY',ar:'خزينة ورأس المال العامل',en:'Treasury & Working Capital'},
  {value:'FINANCING',ar:'تمويلي',en:'Financing'}
