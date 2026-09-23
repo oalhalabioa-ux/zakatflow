@@ -2,7 +2,8 @@
 
 import {useEffect,useMemo,useState} from 'react';
 
-type Organization={id:string;name:string;parent_organization_id?:string|null;organization_kind:'HOLDING'|'SUBSIDIARY';sort_order:number;created_at?:string};
+export type BudgetOrganization={id:string;name:string;parent_organization_id?:string|null;organization_kind:'HOLDING'|'SUBSIDIARY';sort_order:number;created_at?:string};
+type Organization=BudgetOrganization;
 type CostCenterType='ADMIN'|'OPERATING'|'PROJECT_OPERATING'|'INVESTMENT'|'TREASURY'|'FINANCING';
 type CostCenter={id:string;organization_id:string;code:string;display_code?:string|null;name:string;active:boolean;center_type:CostCenterType};
 const COST_CENTER_TYPES:Array<{value:CostCenterType;ar:string;en:string}>= [
@@ -17,7 +18,7 @@ const centerTypeLabel=(type:CostCenterType,ar:boolean)=>COST_CENTER_TYPES.find(i
 const sortOrganizations=(items:Organization[])=>[...items].sort((a,b)=>Number(a.sort_order??100)-Number(b.sort_order??100)||(a.organization_kind==='HOLDING'?0:1)-(b.organization_kind==='HOLDING'?0:1)||a.name.localeCompare(b.name,'ar'));
 const organizationOptionLabel=(item:Organization)=>item.organization_kind==='HOLDING'?'▣ '+item.name:'↳ '+item.name;
 
-export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange}:{ar:boolean;value:string;onChange:(name:string)=>void;onCostCentersChange?:(centers:CostCenter[])=>void}){
+export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange}:{ar:boolean;value:string;onChange:(name:string,options?:{defaultSelection?:boolean})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
  const [organizations,setOrganizations]=useState<Organization[]>([]);
  const [centers,setCenters]=useState<CostCenter[]>([]);
  const [selectedId,setSelectedId]=useState('');
@@ -39,7 +40,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    const response=await fetch('/api/organizations',{cache:'no-store'});
    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||`LOAD_FAILED_${response.status}`)}
    const body=await response.json();
-   if(Array.isArray(body))setOrganizations(sortOrganizations(body));
+   if(Array.isArray(body)){const sorted=sortOrganizations(body);setOrganizations(sorted);onOrganizationsChange?.(sorted)}
    return Array.isArray(body)?body:[];
   }catch(error){if(showError)setMessage(ar?`تعذر تحميل المنشآت. أعد المحاولة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load organizations.'));return []}
   finally{setLoading(false)}
@@ -55,7 +56,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    return next;
   }catch(error){if(showError)setMessage(ar?`تعذر تحميل مراكز التكلفة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load cost centers.'));return []}
  };
- useEffect(()=>{loadOrganizations()},[]);
+ useEffect(()=>{void (async()=>{const loaded=await loadOrganizations();if(value)return;const holding=sortOrganizations(loaded as Organization[]).find(item=>item.organization_kind==='HOLDING'&&!item.parent_organization_id);if(!holding)return;setSelectedId(holding.id);setOrganizationDraft(holding.name);onChange(holding.name,{defaultSelection:true});await loadCenters(holding.id)})()},[]);
  useEffect(()=>{
   const selected=organizations.find(item=>item.name===value);
   if(selected&&selected.id!==selectedId){setSelectedId(selected.id);setOrganizationDraft(selected.name);loadCenters(selected.id)}
@@ -95,7 +96,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    const response=await fetch('/api/organizations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,parent_organization_id:createAsHolding?null:(holdingOrganization?.id??null),organization_kind:createAsHolding?'HOLDING':'SUBSIDIARY',sort_order:createAsHolding?10:Math.max(...organizations.map(item=>Number(item.sort_order??100)),10)+10})});
    const body=await response.json();
    if(!response.ok)throw new Error(body.error||'CREATE_FAILED');
-   setOrganizations(current=>sortOrganizations([body,...current]));setSelectedId(body.id);setOrganizationDraft(body.name);setNewOrganization('');onChange(body.name);setCenters([]);onCostCentersChange?.([]);
+   const updated=sortOrganizations([body,...organizations]);setOrganizations(updated);onOrganizationsChange?.(updated);setSelectedId(body.id);setOrganizationDraft(body.name);setNewOrganization('');onChange(body.name);setCenters([]);onCostCentersChange?.([]);
    setMessage(ar?'تمت إضافة المنشأة. يمكنك الآن إضافة مراكز التكلفة.':'Organization added. You can now add cost centers.');
   }catch(error){setMessage(ar?'تعذر إضافة المنشأة. قد يكون الاسم مستخدمًا.':(error instanceof Error?error.message:'Could not add organization.'))}
   finally{setSaving(false)}
@@ -110,7 +111,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    const response=await fetch('/api/organizations',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:selectedOrganization.id,name})});
    const body=await response.json();
    if(!response.ok)throw new Error(body.error||'UPDATE_FAILED');
-   setOrganizations(current=>current.map(item=>item.id===selectedOrganization.id?{...item,name:body.name}:item));onChange(body.name);setMessage(ar?'تم تعديل اسم المنشأة.':'Organization name updated.');
+   const updated=organizations.map(item=>item.id===selectedOrganization.id?{...item,name:body.name}:item);setOrganizations(updated);onOrganizationsChange?.(updated);onChange(body.name);setMessage(ar?'تم تعديل اسم المنشأة.':'Organization name updated.');
   }catch(error){setMessage(ar?'تعذر تعديل اسم المنشأة.':(error instanceof Error?error.message:'Could not update organization.'))}
   finally{setSaving(false)}
  };
