@@ -1375,3 +1375,47 @@
  .theme-elegant .budget-kpis .budget-kpi-footer{inset-inline:12px;bottom:20px}
  .theme-elegant .budget-kpis .budget-kpi-footer span{min-height:21px;padding:3px 7px;font-size:9px}
 }
+
+/* Final KPI alignment: icon on the physical left, value on the physical
+   left, and the status/percentage chip on the physical right above the rail. */
+.theme-elegant .budget-kpis .budget-kpi{
+ direction:rtl;
+}
+.theme-elegant .budget-kpis .budget-kpi-head{
+ position:relative;
+ display:block;
+ min-height:40px;
+}
+.theme-elegant .budget-kpis .budget-kpi-head small{
+ display:block;
+ width:100%;
+ max-width:none;
+ padding:5px 0 0 52px;
+ text-align:right;
+}
+.theme-elegant .budget-kpis .budget-kpi-head .budget-kpi-icon{
+ position:absolute;
+ inset-block-start:0;
+ inset-inline-end:0;
+ z-index:1;
+}
+.theme-elegant .budget-kpis .budget-kpi>strong{
+ direction:ltr;
+ justify-content:flex-start;
+ text-align:left;
+ margin-top:0;
+ margin-bottom:31px;
+ font-size:clamp(28px,2.6vw,38px)!important;
+ font-variant-numeric:tabular-nums;
+}
+.theme-elegant .budget-kpis .budget-kpi-footer{
+ direction:rtl;
+ justify-content:flex-start;
+}
+@media(max-width:1049px) and (min-width:761px){
+ .theme-elegant .budget-kpis .budget-kpi>strong{font-size:clamp(26px,3.2vw,34px)!important}
+}
+@media(max-width:760px){
+ .theme-elegant .budget-kpis .budget-kpi-head small{padding-inline-start:44px}
+ .theme-elegant .budget-kpis .budget-kpi>strong{margin-bottom:29px;font-size:clamp(24px,6.2vw,31px)!important}
+}
