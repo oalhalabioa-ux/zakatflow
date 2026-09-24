@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {useEffect,useState,type ReactNode} from 'react';
 
-type NavIconName='dashboard'|'module'|'assets'|'transactions'|'lots'|'assessments'|'payments'|'reports'|'vat'|'planning|'planningDashboard'|'monthly'|'fiveYear'|'variance'|'forecast'|'cashFlow'|'settings'|'notifications'|'guide'|'account'|'organization';
+type NavIconName='dashboard'|'module'|'assets'|'transactions'|'lots'|'assessments'|'payments'|'reports'|'vat'|'planning'|'planningDashboard'|'monthly'|'fiveYear'|'variance'|'forecast'|'cashFlow'|'settings'|'notifications'|'guide'|'account'|'organization';
 const I=({n}:{n:NavIconName})=>{const p:Record<NavIconName,ReactNode>={
  dashboard:<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></>,
  module:<><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M3 10h18"/></>, assets:<><path d="M4 7h16v12H4zM7 4h10v3M8 12h8M8 16h5"/></>,
