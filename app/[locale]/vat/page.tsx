@@ -1,0 +1,438 @@
+'use client';
+
+import { FormEvent, use, useEffect, useMemo, useState } from 'react';
+import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
+import { summarizeVatDocuments, type VatDocumentForSummary } from '@/lib/vat';
+import { organizationDisplayName } from '@/lib/organization-display';
+import './vat.css';
+
+type Organization = {
+  id: string;
+  name: string;
+  organization_kind?: 'HOLDING' | 'SUBSIDIARY';
+  parent_organization_id?: string | null;
+  sort_order?: number;
+};
+
+type VatProfile = {
+  id: string;
+  organization_id: string;
+  tax_registration_number: string | null;
+  registration_status: 'NOT_REGISTERED' | 'REGISTERED' | 'PENDING' | 'DEREGISTERED';
+  registration_date: string | null;
+  filing_frequency: VatFilingFrequency;
+  standard_rate: number;
+  period_start_month: number;
+};
+
+type VatDocument = VatDocumentForSummary & {
+  id: string;
+  document_number: string;
+  transaction_date: string;
+  counterparty_name: string;
+  document_type: 'SALES' | 'PURCHASE';
+  document_kind: 'INVOICE' | 'CREDIT_NOTE';
+  supply_type: 'STANDARD' | 'ZERO_RATED' | 'EXEMPT' | 'OUT_OF_SCOPE';
+  tax_rate: number;
+  tax_amount: number;
+  gross_amount: number;
+  notes?: string | null;
+};
+
+type VatProfileDraft = {
+  tax_registration_number: string;
+  registration_status: VatProfile['registration_status'];
+  registration_date: string;
+  filing_frequency: VatFilingFrequency;
+  standard_rate: string;
+  period_start_month: string;
+};
+
+type DocumentDraft = {
+  document_type: 'SALES' | 'PURCHASE';
+  document_kind: 'INVOICE' | 'CREDIT_NOTE';
+  document_number: string;
+  transaction_date: string;
+  counterparty_name: string;
+  counterparty_tax_number: string;
+  supply_type: 'STANDARD' | 'ZERO_RATED' | 'EXEMPT' | 'OUT_OF_SCOPE';
+  net_amount: string;
+  recoverable_percent: string;
+  notes: string;
+};
+
+type ApiData = { profile: VatProfile | null; period: { from: string; to: string }; documents: VatDocument[] };
+
+const currentMonth = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+};
+const emptyProfile: VatProfileDraft = {
+  tax_registration_number: '',
+  registration_status: 'NOT_REGISTERED',
+  registration_date: '',
+  filing_frequency: 'QUARTERLY',
+  standard_rate: '15',
+  period_start_month: '1',
+};
+const emptyDocument = (): DocumentDraft => ({
+  document_type: 'SALES',
+  document_kind: 'INVOICE',
+  document_number: '',
+  transaction_date: new Date().toISOString().slice(0, 10),
+  counterparty_name: '',
+  counterparty_tax_number: '',
+  supply_type: 'STANDARD',
+  net_amount: '',
+  recoverable_percent: '100',
+  notes: '',
+});
+
+export default function VatManagement({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = use(params);
+  const ar = locale === 'ar';
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organizationId, setOrganizationId] = useState('');
+  const [periodMonth, setPeriodMonth] = useState(currentMonth);
+  const [profile, setProfile] = useState<VatProfile | null>(null);
+  const [profileDraft, setProfileDraft] = useState<VatProfileDraft>(emptyProfile);
+  const [documents, setDocuments] = useState<VatDocument[]>([]);
+  const [period, setPeriod] = useState(() => getVatPeriod(currentMonth(), 'QUARTERLY'));
+  const [loadingOrganizations, setLoadingOrganizations] = useState(true);
+  const [loadingData, setLoadingData] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
+  const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  const sortedOrganizations = useMemo(
+    () => [...organizations].sort((a, b) => Number(a.sort_order ?? 100) - Number(b.sort_order ?? 100) || a.name.localeCompare(b.name)),
+    [organizations],
+  );
+  const selectedOrganization = organizations.find((organization) => organization.id === organizationId);
+  const summary = useMemo(() => summarizeVatDocuments(documents), [documents]);
+  const currentTaxRate = Number(profile?.standard_rate ?? profileDraft.standard_rate ?? 15);
+  const previewTax = draft.supply_type === 'STANDARD'
+    ? (Number(draft.net_amount || 0) * currentTaxRate / 100)
+    : 0;
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/organizations')
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+        return body as Organization[];
+      })
+      .then((rows) => {
+        if (!active) return;
+        setOrganizations(rows);
+        const holding = rows.find((item) => item.organization_kind === 'HOLDING' && !item.parent_organization_id);
+        setOrganizationId((holding ?? rows[0])?.id ?? '');
+      })
+      .catch((error) => setNotice({ kind: 'error', text: messageFor(error.message, ar) }))
+      .finally(() => { if (active) setLoadingOrganizations(false); });
+    return () => { active = false; };
+  }, [ar]);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    let active = true;
+    setLoadingData(true);
+    fetch(`/api/vat?organization_id=${encodeURIComponent(organizationId)}&period_month=${encodeURIComponent(periodMonth)}`)
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+        return body as ApiData;
+      })
+      .then((body) => {
+        if (!active) return;
+        setProfile(body.profile);
+        setDocuments(body.documents);
+        setPeriod(body.period);
+        setProfileDraft(body.profile ? {
+          tax_registration_number: body.profile.tax_registration_number ?? '',
+          registration_status: body.profile.registration_status,
+          registration_date: body.profile.registration_date ?? '',
+          filing_frequency: body.profile.filing_frequency,
+          standard_rate: String(body.profile.standard_rate),
+          period_start_month: String(body.profile.period_start_month),
+        } : emptyProfile);
+      })
+      .catch((error) => {
+        if (active) setNotice({ kind: 'error', text: messageFor(error.message, ar) });
+      })
+      .finally(() => { if (active) setLoadingData(false); });
+    return () => { active = false; };
+  }, [organizationId, periodMonth, ar]);
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!organizationId) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const response = await fetch('/api/vat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_profile',
+          organization_id: organizationId,
+          ...profileDraft,
+          tax_registration_number: profileDraft.tax_registration_number.trim() || null,
+          registration_date: profileDraft.registration_date || null,
+          standard_rate: Number(profileDraft.standard_rate),
+          period_start_month: Number(profileDraft.period_start_month),
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+      setProfile(body);
+      setProfileOpen(false);
+      setNotice({ kind: 'success', text: ar ? 'تم حفظ إعدادات ضريبة القيمة المضافة.' : 'VAT settings saved.' });
+    } catch (error: any) {
+      setNotice({ kind: 'error', text: messageFor(error.message, ar) });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addDocument(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!organizationId) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const response = await fetch('/api/vat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_document',
+          organization_id: organizationId,
+          ...draft,
+          net_amount: Number(draft.net_amount),
+          recoverable_percent: draft.document_type === 'PURCHASE' ? Number(draft.recoverable_percent) : 100,
+          counterparty_tax_number: draft.counterparty_tax_number.trim() || null,
+          notes: draft.notes.trim() || null,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+      setDraft(emptyDocument());
+      setNotice({ kind: 'success', text: ar ? 'تم تسجيل المستند الضريبي.' : 'VAT document recorded.' });
+      await reloadData();
+    } catch (error: any) {
+      setNotice({ kind: 'error', text: messageFor(error.message, ar) });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteDocument(documentId: string) {
+    if (!organizationId || !window.confirm(ar ? 'حذف هذا المستند من السجل؟' : 'Delete this document from the register?')) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(organizationId)}&document_id=${encodeURIComponent(documentId)}`, { method: 'DELETE' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+      setNotice({ kind: 'success', text: ar ? 'تم حذف المستند.' : 'Document deleted.' });
+      await reloadData();
+    } catch (error: any) {
+      setNotice({ kind: 'error', text: messageFor(error.message, ar) });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reloadData() {
+    if (!organizationId) return;
+    const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(organizationId)}&period_month=${encodeURIComponent(periodMonth)}`);
+    const body = await response.json();
+    if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+    setProfile(body.profile);
+    setDocuments(body.documents);
+    setPeriod(body.period);
+  }
+
+  const isRegistered = profile?.registration_status === 'REGISTERED';
+
+  return (
+    <main className="container vat-page" dir={ar ? 'rtl' : 'ltr'}>
+      <header className="vat-header">
+        <div>
+          <span className="vat-eyebrow">{ar ? 'الالتزام الضريبي' : 'TAX COMPLIANCE'}</span>
+          <h1>{ar ? 'إدارة ضريبة القيمة المضافة' : 'VAT management'}</h1>
+          <p>{ar ? 'إعداد بيانات التسجيل، تنظيم مستندات المبيعات والمشتريات، وتجهيز ملخص الإقرار.' : 'Manage registration details, sales and purchase documents, and prepare a return summary.'}</p>
+        </div>
+        <label className="vat-picker">
+          <span>{ar ? 'الشركة أو المؤسسة' : 'Company or organization'}</span>
+          <select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} disabled={loadingOrganizations || organizations.length === 0}>
+            {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
+          </select>
+        </label>
+      </header>
+
+      {notice && <div className={`vat-notice ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</div>}
+
+      {loadingOrganizations ? <div className="vat-loading" role="status">{ar ? 'جارٍ تحميل الشركات…' : 'Loading organizations…'}</div> : !organizations.length ? (
+        <section className="vat-panel vat-empty">
+          <h2>{ar ? 'لا توجد مؤسسة مرتبطة بالحساب' : 'No organization is linked to this account'}</h2>
+          <p>{ar ? 'أضف المؤسسة أولًا من صفحة الهيكل المؤسسي.' : 'Add an organization from Organization Structure first.'}</p>
+          <a className="vat-button primary" href={`/${locale}/organizations`}>{ar ? 'إدارة المؤسسات' : 'Manage organizations'}</a>
+        </section>
+      ) : (
+        <>
+          <section className="vat-panel vat-registration">
+            <div className="vat-panel-head">
+              <div>
+                <span className="vat-eyebrow">{ar ? 'ملف التسجيل' : 'REGISTRATION PROFILE'}</span>
+                <h2>{ar ? 'بيانات التسجيل والفترة الضريبية' : 'Registration and filing settings'}</h2>
+                <p>{selectedOrganization ? organizationDisplayName(selectedOrganization.name, ar) : ''} · {ar ? 'تأكد من مطابقة الدورية للفترة المعتمدة لدى الهيئة.' : 'Use the filing period assigned by the Authority.'}</p>
+              </div>
+              {profile && !profileOpen && <button type="button" className="vat-button secondary" onClick={() => setProfileOpen(true)}>{ar ? 'تعديل الإعدادات' : 'Edit settings'}</button>}
+            </div>
+
+            {profile && !profileOpen ? (
+              <div className="vat-profile-overview">
+                <div><small>{ar ? 'حالة التسجيل' : 'Registration'}</small><strong className={`vat-status ${profile.registration_status.toLowerCase()}`}>{registrationLabel(profile.registration_status, ar)}</strong></div>
+                <div><small>{ar ? 'الرقم الضريبي' : 'VAT number'}</small><strong>{profile.tax_registration_number || '—'}</strong></div>
+                <div><small>{ar ? 'دورية الإقرار' : 'Filing frequency'}</small><strong>{frequencyLabel(profile.filing_frequency, ar)}</strong></div>
+                <div><small>{ar ? 'النسبة الأساسية' : 'Standard rate'}</small><strong>{Number(profile.standard_rate).toFixed(2)}%</strong></div>
+              </div>
+            ) : (
+              <form className="vat-form-grid" onSubmit={saveProfile}>
+                <label><span>{ar ? 'حالة التسجيل' : 'Registration status'}</span><select value={profileDraft.registration_status} onChange={(event) => setProfileDraft({ ...profileDraft, registration_status: event.target.value as VatProfileDraft['registration_status'] })}><option value="NOT_REGISTERED">{ar ? 'غير مسجل' : 'Not registered'}</option><option value="REGISTERED">{ar ? 'مسجل' : 'Registered'}</option><option value="PENDING">{ar ? 'طلب قيد الإجراء' : 'Pending'}</option><option value="DEREGISTERED">{ar ? 'ملغى التسجيل' : 'Deregistered'}</option></select></label>
+                <label><span>{ar ? 'رقم التسجيل الضريبي' : 'VAT registration number'}</span><input value={profileDraft.tax_registration_number} maxLength={30} onChange={(event) => setProfileDraft({ ...profileDraft, tax_registration_number: event.target.value })} required={profileDraft.registration_status === 'REGISTERED'} placeholder={ar ? 'أدخل رقم التسجيل' : 'Enter registration number'} /></label>
+                <label><span>{ar ? 'تاريخ التسجيل' : 'Registration date'}</span><input type="date" value={profileDraft.registration_date} onChange={(event) => setProfileDraft({ ...profileDraft, registration_date: event.target.value })} /></label>
+                <label><span>{ar ? 'دورية الإقرار' : 'Filing frequency'}</span><select value={profileDraft.filing_frequency} onChange={(event) => setProfileDraft({ ...profileDraft, filing_frequency: event.target.value as VatFilingFrequency })}><option value="MONTHLY">{ar ? 'شهري' : 'Monthly'}</option><option value="QUARTERLY">{ar ? 'ربع سنوي' : 'Quarterly'}</option></select></label>
+                <label><span>{ar ? 'النسبة الأساسية' : 'Standard VAT rate'}</span><input type="text" value="15%" readOnly aria-readonly="true" /><small className="vat-field-hint">{ar ? 'النسبة الأساسية المعتمدة حاليًا في السعودية' : 'Current Saudi standard rate'}</small></label>
+                <label><span>{ar ? 'شهر بداية السنة الضريبية' : 'Tax year start month'}</span><select value={profileDraft.period_start_month} onChange={(event) => setProfileDraft({ ...profileDraft, period_start_month: event.target.value })}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{monthLabel(index + 1, ar)}</option>)}</select></label>
+                <div className="vat-form-actions">
+                  {profile && <button type="button" className="vat-button secondary" onClick={() => setProfileOpen(false)}>{ar ? 'إلغاء' : 'Cancel'}</button>}
+                  <button className="vat-button primary" disabled={saving}>{saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ ملف التسجيل' : 'Save registration')}</button>
+                </div>
+              </form>
+            )}
+          </section>
+
+          <section className="vat-panel vat-period-panel">
+            <div className="vat-period-title">
+              <div>
+                <span className="vat-eyebrow">{ar ? 'إعداد الإقرار' : 'RETURN PREPARATION'}</span>
+                <h2>{ar ? 'ملخص الفترة الضريبية' : 'Tax period summary'}</h2>
+              </div>
+              <label className="vat-period-select"><span>{ar ? 'اختر شهرًا ضمن الفترة' : 'Choose a month in the period'}</span><input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} /></label>
+            </div>
+            <div className="vat-period-range">{ar ? 'الفترة المحسوبة' : 'Calculated period'}: <strong>{period.from}</strong> — <strong>{period.to}</strong>{profile && <span> · {frequencyLabel(profile.filing_frequency, ar)}</span>}</div>
+            {!profile && <div className="vat-inline-warning">{ar ? 'أكمل ملف التسجيل أعلاه لبدء تسجيل المستندات.' : 'Complete the registration profile above before recording documents.'}</div>}
+            {profile && !isRegistered && <div className="vat-inline-warning">{ar ? 'يجب أن تكون حالة التسجيل «مسجل» حتى تتمكن من إضافة مستندات ضمن سجل الضريبة.' : 'Set the registration status to Registered before adding VAT documents.'}</div>}
+            <div className="vat-metrics">
+              <Metric label={ar ? 'صافي المبيعات' : 'Net sales'} value={`${money(summary.salesNet)} SAR`} />
+              <Metric label={ar ? 'ضريبة المخرجات' : 'Output VAT'} value={`${money(summary.outputTax)} SAR`} />
+              <Metric label={ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT'} value={`${money(summary.inputTax)} SAR`} />
+              <Metric label={Number(summary.netTax) >= 0 ? (ar ? 'ضريبة مستحقة' : 'VAT payable') : (ar ? 'رصيد ضريبي' : 'VAT credit')} value={`${Number(summary.netTax) >= 0 ? money(summary.taxPayable) : money(summary.taxCredit)} SAR`} emphasis />
+            </div>
+            <div className="vat-return-details">
+              <span>{ar ? 'مبيعات خاضعة للنسبة الصفرية' : 'Zero-rated sales'} <strong>{money(summary.zeroRatedSales)} SAR</strong></span>
+              <span>{ar ? 'مبيعات معفاة' : 'Exempt sales'} <strong>{money(summary.exemptSales)} SAR</strong></span>
+              <span>{ar ? 'مبيعات خارج النطاق' : 'Out-of-scope sales'} <strong>{money(summary.outOfScopeSales)} SAR</strong></span>
+              <span>{ar ? 'عدد المستندات' : 'Documents'} <strong>{summary.documentCount}</strong></span>
+            </div>
+          </section>
+
+          <section className="vat-panel">
+            <div className="vat-panel-head">
+              <div><span className="vat-eyebrow">{ar ? 'سجل المستندات' : 'DOCUMENT REGISTER'}</span><h2>{ar ? 'إضافة مستند مبيعات أو مشتريات' : 'Add a sales or purchase document'}</h2><p>{ar ? 'تُسجل المبالغ بالريال السعودي. يُحتسب مبلغ الضريبة من صافي المستند وفق نوع التوريد والنسبة المسجلة.' : 'Enter amounts in Saudi riyals. VAT is calculated from the net amount using the supply type and registered rate.'}</p></div>
+            </div>
+            <form className="vat-form-grid vat-document-form" onSubmit={addDocument}>
+              <label><span>{ar ? 'نوع المستند' : 'Register as'}</span><select value={draft.document_type} onChange={(event) => setDraft({ ...draft, document_type: event.target.value as DocumentDraft['document_type'] })}><option value="SALES">{ar ? 'مبيعات — ضريبة مخرجات' : 'Sales — output VAT'}</option><option value="PURCHASE">{ar ? 'مشتريات — ضريبة مدخلات' : 'Purchases — input VAT'}</option></select></label>
+              <label><span>{ar ? 'نوع القيد' : 'Document kind'}</span><select value={draft.document_kind} onChange={(event) => setDraft({ ...draft, document_kind: event.target.value as DocumentDraft['document_kind'] })}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option></select></label>
+              <label><span>{ar ? 'رقم المستند' : 'Document number'}</span><input required maxLength={80} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} /></label>
+              <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
+              <label><span>{ar ? 'اسم العميل أو المورد' : 'Customer or supplier'}</span><input required maxLength={160} value={draft.counterparty_name} onChange={(event) => setDraft({ ...draft, counterparty_name: event.target.value })} /></label>
+              <label><span>{ar ? 'الرقم الضريبي للطرف الآخر (اختياري)' : 'Counterparty VAT number (optional)'}</span><input maxLength={30} value={draft.counterparty_tax_number} onChange={(event) => setDraft({ ...draft, counterparty_tax_number: event.target.value })} /></label>
+              <label><span>{ar ? 'تصنيف التوريد' : 'Supply category'}</span><select value={draft.supply_type} onChange={(event) => setDraft({ ...draft, supply_type: event.target.value as DocumentDraft['supply_type'] })}><option value="STANDARD">{ar ? `خاضع للنسبة الأساسية (${currentTaxRate}%)` : `Standard rated (${currentTaxRate}%)`}</option><option value="ZERO_RATED">{ar ? 'خاضع للنسبة الصفرية' : 'Zero-rated'}</option><option value="EXEMPT">{ar ? 'معفى' : 'Exempt'}</option><option value="OUT_OF_SCOPE">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select></label>
+              <label><span>{ar ? 'صافي المبلغ (ريال)' : 'Net amount (SAR)'}</span><input required type="number" min="0.01" step="0.01" value={draft.net_amount} onChange={(event) => setDraft({ ...draft, net_amount: event.target.value })} /></label>
+              {draft.document_type === 'PURCHASE' && <label><span>{ar ? 'نسبة ضريبة المدخلات القابلة للخصم (%)' : 'Recoverable input VAT (%)'}</span><input required type="number" min="0" max="100" step="0.01" value={draft.recoverable_percent} onChange={(event) => setDraft({ ...draft, recoverable_percent: event.target.value })} /></label>}
+              <label className="vat-notes-field"><span>{ar ? 'ملاحظات' : 'Notes'}</span><input maxLength={1000} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
+              <div className="vat-tax-preview"><span>{ar ? 'الضريبة المحسوبة' : 'Calculated VAT'} <strong>{money(previewTax)} SAR</strong></span><span>{ar ? 'الإجمالي' : 'Gross total'} <strong>{money(Number(draft.net_amount || 0) + previewTax)} SAR</strong></span></div>
+              <button className="vat-button primary vat-submit" disabled={saving || !isRegistered}>{saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'إضافة إلى السجل' : 'Add to register')}</button>
+            </form>
+          </section>
+
+          <section className="vat-panel">
+            <div className="vat-panel-head vat-register-heading">
+              <div><h2>{ar ? 'مستندات الفترة' : 'Documents in this period'}</h2><p>{loadingData ? (ar ? 'جارٍ تحديث السجل…' : 'Refreshing register…') : `${documents.length} ${ar ? 'مستند' : 'documents'}`}</p></div>
+              <span className="vat-period-chip">{period.from} — {period.to}</span>
+            </div>
+            <div className="vat-table-wrap"><table className="vat-table">
+              <thead><tr><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'النوع' : 'Type'}</th><th>{ar ? 'رقم المستند' : 'Document'}</th><th>{ar ? 'العميل / المورد' : 'Counterparty'}</th><th>{ar ? 'التصنيف' : 'Supply'}</th><th>{ar ? 'الصافي' : 'Net'}</th><th>{ar ? 'الضريبة' : 'VAT'}</th><th>{ar ? 'الإجمالي' : 'Gross'}</th><th>{ar ? 'إجراء' : 'Action'}</th></tr></thead>
+              <tbody>
+                {documents.map((document) => <tr key={document.id}>
+                  <td>{document.transaction_date}</td><td><span className={`vat-type-pill ${document.document_type.toLowerCase()}`}>{document.document_type === 'SALES' ? (ar ? 'مبيعات' : 'Sales') : (ar ? 'مشتريات' : 'Purchase')}</span><small>{document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : ''}</small></td>
+                  <td><strong>{document.document_number}</strong></td><td>{document.counterparty_name}</td><td>{supplyLabel(document.supply_type, ar)}</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.net_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.tax_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.gross_amount)} SAR</td><td><button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button></td>
+                </tr>)}
+                {!documents.length && <tr><td colSpan={9} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : (ar ? 'لا توجد مستندات مسجلة لهذه الفترة.' : 'No VAT documents have been recorded for this period.')}</td></tr>}
+              </tbody>
+            </table></div>
+          </section>
+
+          <p className="vat-disclaimer">{ar ? 'هذه الشاشة لتجميع ومراجعة بيانات ضريبة القيمة المضافة فقط؛ لا ترسل الإقرار إلى هيئة الزكاة والضريبة والجمارك ولا تنشئ فواتير إلكترونية. راجع التصنيف الضريبي وقابلية الخصم ومواعيد الإقرار مع مسؤولك الضريبي قبل التقديم.' : 'This screen organizes and reviews VAT data only. It does not submit returns to ZATCA or generate e-invoices. Confirm tax classification, input VAT recovery and filing deadlines with your tax adviser before filing.'}</p>
+        </>
+      )}
+    </main>
+  );
+}
+
+function Metric({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return <div className={`vat-metric ${emphasis ? 'emphasis' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function money(value: string | number) {
+  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function frequencyLabel(frequency: VatFilingFrequency, ar: boolean) {
+  return frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly');
+}
+
+function registrationLabel(status: VatProfile['registration_status'], ar: boolean) {
+  const labels = {
+    NOT_REGISTERED: ar ? 'غير مسجل' : 'Not registered',
+    REGISTERED: ar ? 'مسجل' : 'Registered',
+    PENDING: ar ? 'قيد الإجراء' : 'Pending',
+    DEREGISTERED: ar ? 'ملغى' : 'Deregistered',
+  };
+  return labels[status];
+}
+
+function supplyLabel(supply: VatDocument['supply_type'], ar: boolean) {
+  const labels = {
+    STANDARD: ar ? 'أساسي' : 'Standard',
+    ZERO_RATED: ar ? 'صفري' : 'Zero-rated',
+    EXEMPT: ar ? 'معفى' : 'Exempt',
+    OUT_OF_SCOPE: ar ? 'خارج النطاق' : 'Out of scope',
+  };
+  return labels[supply];
+}
+
+function monthLabel(month: number, ar: boolean) {
+  const namesAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  const namesEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return (ar ? namesAr : namesEn)[month - 1];
+}
+
+function messageFor(code: string, ar: boolean) {
+  const labels: Record<string, [string, string]> = {
+    UNAUTHORIZED: ['يلزم تسجيل الدخول.', 'Please sign in.'],
+    ORGANIZATION_ACCESS_REQUIRED: ['ليس لديك صلاحية الوصول إلى هذه المؤسسة.', 'You do not have access to this organization.'],
+    ORGANIZATION_ADMIN_REQUIRED: ['إدارة الملف الضريبي متاحة لمالك المؤسسة أو مديرها.', 'Only organization owners and admins can manage VAT data.'],
+    VAT_REGISTRATION_NUMBER_REQUIRED: ['أدخل رقم التسجيل الضريبي للمؤسسة المسجلة.', 'Enter the VAT number for a registered organization.'],
+    VAT_REGISTRATION_REQUIRED: ['يجب حفظ حالة التسجيل كـ «مسجل» قبل إضافة المستندات.', 'Mark the organization as registered before adding documents.'],
+    VAT_PROFILE_REQUIRED: ['احفظ ملف التسجيل أولًا.', 'Save the VAT registration profile first.'],
+    VAT_DOCUMENT_NUMBER_EXISTS: ['رقم المستند مستخدم من قبل ضمن هذا النوع.', 'This document number already exists for this document type.'],
+    INVALID_PERIOD_MONTH: ['اختر شهرًا صحيحًا للفترة.', 'Choose a valid period month.'],
+  };
+  return labels[code]?.[ar ? 0 : 1] ?? code;
+}
