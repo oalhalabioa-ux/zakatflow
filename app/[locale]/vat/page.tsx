@@ -4,6 +4,8 @@ import { FormEvent, use, useEffect, useMemo, useState } from 'react';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { summarizeVatDocuments, type VatDocumentForSummary } from '@/lib/vat';
 import { organizationDisplayName } from '@/lib/organization-display';
+import { VatEInvoiceSetup } from '@/components/vat-einvoice-setup';
+import { VatEInvoiceRegister } from '@/components/vat-einvoice-register';
 import './vat.css';
 
 type Organization = {
@@ -315,6 +317,23 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               </form>
             )}
           </section>
+
+          {organizationId && <VatEInvoiceSetup
+            key={organizationId}
+            organizationId={organizationId}
+            organizationName={selectedOrganization?.name ?? ''}
+            vatNumber={profile?.tax_registration_number ?? ''}
+            registered={isRegistered}
+            ar={ar}
+          />}
+          {organizationId && <VatEInvoiceRegister
+            key={`invoices-${organizationId}`}
+            organizationId={organizationId}
+            organizationName={selectedOrganization?.name ?? ''}
+            vatNumber={profile?.tax_registration_number ?? ''}
+            registered={isRegistered}
+            ar={ar}
+          />}
 
           <section className="vat-panel vat-period-panel">
             <div className="vat-period-title">
