@@ -205,7 +205,7 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
         <h2>{ar ? 'استحقاق ضريبة الفترة' : 'Current period VAT due'}</h2>
         <p>{ar ? `آخر موعد للتقديم والسداد ${formatDate(periodTotals.dueDate ?? period.to, ar)}. المستحق بعد السداد: ${amount(periodOutstanding)} ريال.` : `File and pay by ${formatDate(periodTotals.dueDate ?? period.to, ar)}. Outstanding after payments: SAR ${amount(periodOutstanding)}.`}</p>
       </div>
-      <div className="vat-dashboard-alert-amount"><small>{ar ? 'المبلغ المستحق' : 'Amount due'}</small><strong>{amount(periodTotals.taxPayable)} SAR</strong><small>{ar ? filingLabel : filingLabel}</small></div>
+      <div className="vat-dashboard-alert-amount"><small>{ar ? 'المبلغ المستحق' : 'Amount due'}</small><strong>{amount(periodTotals.taxPayable)} SAR</strong><small>{filingLabel}</small></div>
       {Number(periodTotals.taxPayable) > 0 && <div className={`vat-cash-alert ${periodCashGap > 0 ? 'shortfall' : 'covered'}`} role="status">
         {periodCashGap > 0
           ? (ar ? `السيولة المخصصة أقل من المتبقي بمبلغ ${amount(periodCashGap)} ريال. يُنصح بتأمينه قبل ${formatDate(periodTotals.dueDate ?? period.to, ar)}.` : `Reserved cash is short by SAR ${amount(periodCashGap)}. Secure the difference before ${formatDate(periodTotals.dueDate ?? period.to, ar)}.`)
@@ -217,31 +217,47 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
 
     <section className="vat-dashboard-section">
       <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{ar ? 'الفترة المحددة' : 'SELECTED PERIOD'}</span><h2>{period.from} — {period.to}</h2></div><span className="vat-period-chip">{frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly')}</span></div>
-      <div className="vat-dashboard-cards">
-        <Metric label={ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT'} value={`${amount(periodTotals.salesBase)} SAR`} />
-        <Metric label={ar ? 'إجمالي المبيعات شامل الضريبة' : 'Sales including VAT'} value={`${amount(periodTotals.salesGross)} SAR`} />
-        <Metric label={ar ? 'إجمالي المشتريات قبل الضريبة' : 'Purchases before VAT'} value={`${amount(periodTotals.purchaseBase)} SAR`} />
-        <Metric label={ar ? 'ضريبة المخرجات للمبيعات' : 'Output VAT on sales'} value={`${amount(periodTotals.outputTax)} SAR`} />
-        <Metric label={ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT'} value={`${amount(periodTotals.inputTax)} SAR`} />
-        <Metric label={ar ? 'صافي الضريبة المستحقة' : 'Net VAT payable'} value={`${amount(periodTotals.taxPayable)} SAR`} emphasis />
-        <Metric label={ar ? 'ضريبة مدخلات فائضة' : 'VAT credit'} value={`${amount(periodTotals.taxCredit)} SAR`} />
-        <Metric label={ar ? 'المسدد حتى الآن' : 'Paid so far'} value={`${amount(periodTotals.paidAmount)} SAR`} />
-        <Metric label={ar ? 'المتبقي بعد السداد' : 'Outstanding after payments'} value={`${amount(periodOutstanding)} SAR`} />
-        <Metric label={ar ? 'السيولة المحجوزة' : 'Cash reserved'} value={`${amount(periodTotals.cashReservedAmount)} SAR`} />
+      <div className="vat-dashboard-groups">
+        <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} metrics={[
+          { label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(periodTotals.salesBase)} SAR` },
+          { label: ar ? 'إجمالي المبيعات شامل الضريبة' : 'Sales including VAT', value: `${amount(periodTotals.salesGross)} SAR` },
+          { label: ar ? 'ضريبة المخرجات' : 'Output VAT', value: `${amount(periodTotals.outputTax)} SAR` },
+        ]} />
+        <MetricRow title={ar ? 'المشتريات' : 'Purchases'} tone="purchases" ar={ar} metrics={[
+          { label: ar ? 'إجمالي المشتريات قبل الضريبة' : 'Purchases before VAT', value: `${amount(periodTotals.purchaseBase)} SAR` },
+          { label: ar ? 'ضريبة المشتريات قبل الاسترداد' : 'Purchase VAT before recovery', value: `${amount(periodTotals.purchaseVatBeforeRecovery)} SAR` },
+          { label: ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT', value: `${amount(periodTotals.inputTax)} SAR` },
+        ]} />
+        <MetricRow title={ar ? 'الموقف الضريبي والسداد' : 'Tax position and settlement'} tone="settlement" ar={ar} metrics={[
+          { label: ar ? 'صافي الضريبة المستحقة' : 'Net VAT payable', value: `${amount(periodTotals.taxPayable)} SAR`, emphasis: true },
+          { label: ar ? 'رصيد ضريبي' : 'VAT credit', value: `${amount(periodTotals.taxCredit)} SAR` },
+          { label: ar ? 'المسدد' : 'Paid', value: `${amount(periodTotals.paidAmount)} SAR` },
+          { label: ar ? 'المتبقي بعد السداد' : 'Outstanding', value: `${amount(periodOutstanding)} SAR` },
+          { label: ar ? 'السيولة المحجوزة' : 'Cash reserved', value: `${amount(periodTotals.cashReservedAmount)} SAR` },
+        ]} />
       </div>
     </section>
 
     <section className="vat-panel vat-annual-dashboard">
       <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{ar ? 'من بداية السنة الضريبية' : 'TAX YEAR TO DATE'}</span><h2>{formatDate(yearStart, ar)} — {period.to}</h2></div></div>
-      <div className="vat-dashboard-cards">
-        <Metric label={ar ? 'إجمالي المبيعات' : 'Total sales'} value={`${amount(annualTotals.salesBase)} SAR`} />
-        <Metric label={ar ? 'إجمالي المشتريات' : 'Total purchases'} value={`${amount(annualTotals.purchaseBase)} SAR`} />
-        <Metric label={ar ? 'ضريبة المخرجات' : 'Output VAT'} value={`${amount(annualTotals.outputTax)} SAR`} />
-        <Metric label={ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT'} value={`${amount(annualTotals.inputTax)} SAR`} />
-        <Metric label={ar ? 'صافي المستحق للسنة حتى الآن' : 'Net tax due year to date'} value={`${amount(annualTotals.taxPayable)} SAR`} emphasis />
-        <Metric label={ar ? 'المسدد خلال السنة' : 'Paid year to date'} value={`${amount(annualTotals.paidAmount)} SAR`} />
-        <Metric label={ar ? 'المتبقي السنوي' : 'Year-to-date outstanding'} value={`${amount(annualOutstanding)} SAR`} />
-        <Metric label={ar ? 'السيولة المحجوزة للسنة' : 'Year-to-date cash reserved'} value={`${amount(annualTotals.cashReservedAmount)} SAR`} />
+      <div className="vat-dashboard-groups">
+        <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} metrics={[
+          { label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(annualTotals.salesBase)} SAR` },
+          { label: ar ? 'إجمالي المبيعات شامل الضريبة' : 'Sales including VAT', value: `${amount(annualTotals.salesGross)} SAR` },
+          { label: ar ? 'ضريبة المخرجات' : 'Output VAT', value: `${amount(annualTotals.outputTax)} SAR` },
+        ]} />
+        <MetricRow title={ar ? 'المشتريات' : 'Purchases'} tone="purchases" ar={ar} metrics={[
+          { label: ar ? 'إجمالي المشتريات قبل الضريبة' : 'Purchases before VAT', value: `${amount(annualTotals.purchaseBase)} SAR` },
+          { label: ar ? 'ضريبة المشتريات قبل الاسترداد' : 'Purchase VAT before recovery', value: `${amount(annualTotals.purchaseVatBeforeRecovery)} SAR` },
+          { label: ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT', value: `${amount(annualTotals.inputTax)} SAR` },
+        ]} />
+        <MetricRow title={ar ? 'الموقف الضريبي والسداد' : 'Tax position and settlement'} tone="settlement" ar={ar} metrics={[
+          { label: ar ? 'صافي المستحق حتى تاريخه' : 'Net tax due to date', value: `${amount(annualTotals.taxPayable)} SAR`, emphasis: true },
+          { label: ar ? 'رصيد ضريبي' : 'VAT credit', value: `${amount(annualTotals.taxCredit)} SAR` },
+          { label: ar ? 'المسدد خلال السنة' : 'Paid year to date', value: `${amount(annualTotals.paidAmount)} SAR` },
+          { label: ar ? 'المتبقي السنوي' : 'Year-to-date outstanding', value: `${amount(annualOutstanding)} SAR` },
+          { label: ar ? 'السيولة المحجوزة للسنة' : 'Year-to-date cash reserved', value: `${amount(annualTotals.cashReservedAmount)} SAR` },
+        ]} />
       </div>
       {!periodSummary && <p className="vat-dashboard-source-note">{ar ? 'لم تُحفظ إجماليات يدوية لهذه الفترة بعد؛ يعرض النظام ما سجّلته في سجل المستندات. أدخل إجماليات الفترة من تبويب «إجماليات الفترة» إذا كانت بياناتك مجمعة.' : 'No aggregate totals are saved for this period yet; the dashboard uses the document register. Enter period totals in the “Period totals” tab if you report aggregated figures.'}</p>}
     </section>
@@ -301,6 +317,13 @@ function AmountField({ label, value, onChange, hint }: { label: string; value: s
 
 function Metric({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
   return <div className={`vat-metric ${emphasis ? 'emphasis' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function MetricRow({ title, tone, metrics }: { title: string; tone: 'sales' | 'purchases' | 'settlement'; ar: boolean; metrics: Array<{ label: string; value: string; emphasis?: boolean }> }) {
+  return <section className={`vat-metric-row ${tone}`}>
+    <h3>{title}</h3>
+    <div className="vat-metric-row-cards">{metrics.map((metric) => <Metric key={metric.label} {...metric} />)}</div>
+  </section>;
 }
 
 function valuesFrom(row: VatPeriodSummaryRecord | null): VatPeriodSummaryInputs {
