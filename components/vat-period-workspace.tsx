@@ -200,6 +200,7 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
     <section className="vat-panel vat-dashboard-alert vat-dashboard-hero">
       <div className="vat-dashboard-alert-copy">
         <span className={`vat-dashboard-state ${isPaid ? 'paid' : isOverdue ? 'overdue' : dueSoon ? 'soon' : 'upcoming'}`}>
+          <VatIcon name="calendar" />
           {isPaid ? (ar ? 'لا يوجد مبلغ مستحق للسداد' : 'No payment outstanding') : isOverdue ? (ar ? 'متأخر عن موعد السداد' : 'Payment overdue') : dueSoon ? (ar ? `الاستحقاق خلال ${daysToDue} يوم` : `Due in ${daysToDue} days`) : (ar ? 'موعد السداد قادم' : 'Upcoming due date')}
         </span>
         <h2>{ar ? 'استحقاق ضريبة الفترة' : 'Current period VAT due'}</h2>
@@ -218,22 +219,22 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
     <section className="vat-dashboard-section">
       <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{ar ? 'الفترة المحددة' : 'SELECTED PERIOD'}</span><h2>{period.from} — {period.to}</h2></div><span className="vat-period-chip">{frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly')}</span></div>
       <div className="vat-dashboard-groups">
-        <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} metrics={[
-          { label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(periodTotals.salesBase)} SAR` },
-          { label: ar ? 'إجمالي المبيعات شامل الضريبة' : 'Sales including VAT', value: `${amount(periodTotals.salesGross)} SAR` },
-          { label: ar ? 'ضريبة المخرجات' : 'Output VAT', value: `${amount(periodTotals.outputTax)} SAR` },
+        <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} icon="chart" metrics={[
+          { icon: 'coins', label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(periodTotals.salesBase)} SAR` },
+          { icon: 'receipt', label: ar ? 'إجمالي المبيعات شامل الضريبة' : 'Sales including VAT', value: `${amount(periodTotals.salesGross)} SAR` },
+          { icon: 'percent', label: ar ? 'ضريبة المخرجات' : 'Output VAT', value: `${amount(periodTotals.outputTax)} SAR` },
         ]} />
-        <MetricRow title={ar ? 'المشتريات' : 'Purchases'} tone="purchases" ar={ar} metrics={[
-          { label: ar ? 'إجمالي المشتريات قبل الضريبة' : 'Purchases before VAT', value: `${amount(periodTotals.purchaseBase)} SAR` },
-          { label: ar ? 'ضريبة المشتريات قبل الاسترداد' : 'Purchase VAT before recovery', value: `${amount(periodTotals.purchaseVatBeforeRecovery)} SAR` },
-          { label: ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT', value: `${amount(periodTotals.inputTax)} SAR` },
+        <MetricRow title={ar ? 'المشتريات' : 'Purchases'} tone="purchases" ar={ar} icon="bag" metrics={[
+          { icon: 'cart', label: ar ? 'إجمالي المشتريات قبل الضريبة' : 'Purchases before VAT', value: `${amount(periodTotals.purchaseBase)} SAR` },
+          { icon: 'receipt', label: ar ? 'ضريبة المشتريات قبل الاسترداد' : 'Purchase VAT before recovery', value: `${amount(periodTotals.purchaseVatBeforeRecovery)} SAR` },
+          { icon: 'shield', label: ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT', value: `${amount(periodTotals.inputTax)} SAR` },
         ]} />
-        <MetricRow title={ar ? 'الموقف الضريبي والسداد' : 'Tax position and settlement'} tone="settlement" ar={ar} metrics={[
-          { label: ar ? 'صافي الضريبة المستحقة' : 'Net VAT payable', value: `${amount(periodTotals.taxPayable)} SAR`, emphasis: true },
-          { label: ar ? 'رصيد ضريبي' : 'VAT credit', value: `${amount(periodTotals.taxCredit)} SAR` },
-          { label: ar ? 'المسدد' : 'Paid', value: `${amount(periodTotals.paidAmount)} SAR` },
-          { label: ar ? 'المتبقي بعد السداد' : 'Outstanding', value: `${amount(periodOutstanding)} SAR` },
-          { label: ar ? 'السيولة المحجوزة' : 'Cash reserved', value: `${amount(periodTotals.cashReservedAmount)} SAR` },
+        <MetricRow title={ar ? 'الموقف الضريبي والسداد' : 'Tax position and settlement'} tone="settlement" ar={ar} icon="scale" metrics={[
+          { icon: 'calculator', kind: 'due', label: ar ? 'صافي الضريبة المستحقة' : 'Net VAT payable', value: `${amount(periodTotals.taxPayable)} SAR`, emphasis: true },
+          { icon: 'credit', kind: 'credit', label: ar ? 'رصيد ضريبي' : 'VAT credit', value: `${amount(periodTotals.taxCredit)} SAR` },
+          { icon: 'check', kind: 'paid', label: ar ? 'المسدد' : 'Paid', value: `${amount(periodTotals.paidAmount)} SAR` },
+          { icon: 'clock', kind: 'outstanding', label: ar ? 'المتبقي بعد السداد' : 'Outstanding', value: `${amount(periodOutstanding)} SAR` },
+          { icon: 'wallet', kind: 'reserve', label: ar ? 'السيولة المحجوزة' : 'Cash reserved', value: `${amount(periodTotals.cashReservedAmount)} SAR` },
         ]} />
       </div>
     </section>
@@ -241,22 +242,22 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
     <section className="vat-panel vat-annual-dashboard">
       <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{ar ? 'من بداية السنة الضريبية' : 'TAX YEAR TO DATE'}</span><h2>{formatDate(yearStart, ar)} — {period.to}</h2></div></div>
       <div className="vat-dashboard-groups">
-        <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} metrics={[
-          { label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(annualTotals.salesBase)} SAR` },
-          { label: ar ? 'إجمالي المبيعات شامل الضريبة' : 'Sales including VAT', value: `${amount(annualTotals.salesGross)} SAR` },
-          { label: ar ? 'ضريبة المخرجات' : 'Output VAT', value: `${amount(annualTotals.outputTax)} SAR` },
+        <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} icon="chart" metrics={[
+          { icon: 'coins', label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(annualTotals.salesBase)} SAR` },
+          { icon: 'receipt', label: ar ? 'إجمالي المبيعات شامل الضريبة' : 'Sales including VAT', value: `${amount(annualTotals.salesGross)} SAR` },
+          { icon: 'percent', label: ar ? 'ضريبة المخرجات' : 'Output VAT', value: `${amount(annualTotals.outputTax)} SAR` },
         ]} />
-        <MetricRow title={ar ? 'المشتريات' : 'Purchases'} tone="purchases" ar={ar} metrics={[
-          { label: ar ? 'إجمالي المشتريات قبل الضريبة' : 'Purchases before VAT', value: `${amount(annualTotals.purchaseBase)} SAR` },
-          { label: ar ? 'ضريبة المشتريات قبل الاسترداد' : 'Purchase VAT before recovery', value: `${amount(annualTotals.purchaseVatBeforeRecovery)} SAR` },
-          { label: ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT', value: `${amount(annualTotals.inputTax)} SAR` },
+        <MetricRow title={ar ? 'المشتريات' : 'Purchases'} tone="purchases" ar={ar} icon="bag" metrics={[
+          { icon: 'cart', label: ar ? 'إجمالي المشتريات قبل الضريبة' : 'Purchases before VAT', value: `${amount(annualTotals.purchaseBase)} SAR` },
+          { icon: 'receipt', label: ar ? 'ضريبة المشتريات قبل الاسترداد' : 'Purchase VAT before recovery', value: `${amount(annualTotals.purchaseVatBeforeRecovery)} SAR` },
+          { icon: 'shield', label: ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT', value: `${amount(annualTotals.inputTax)} SAR` },
         ]} />
-        <MetricRow title={ar ? 'الموقف الضريبي والسداد' : 'Tax position and settlement'} tone="settlement" ar={ar} metrics={[
-          { label: ar ? 'صافي المستحق حتى تاريخه' : 'Net tax due to date', value: `${amount(annualTotals.taxPayable)} SAR`, emphasis: true },
-          { label: ar ? 'رصيد ضريبي' : 'VAT credit', value: `${amount(annualTotals.taxCredit)} SAR` },
-          { label: ar ? 'المسدد خلال السنة' : 'Paid year to date', value: `${amount(annualTotals.paidAmount)} SAR` },
-          { label: ar ? 'المتبقي السنوي' : 'Year-to-date outstanding', value: `${amount(annualOutstanding)} SAR` },
-          { label: ar ? 'السيولة المحجوزة للسنة' : 'Year-to-date cash reserved', value: `${amount(annualTotals.cashReservedAmount)} SAR` },
+        <MetricRow title={ar ? 'الموقف الضريبي والسداد' : 'Tax position and settlement'} tone="settlement" ar={ar} icon="scale" metrics={[
+          { icon: 'calculator', kind: 'due', label: ar ? 'صافي المستحق حتى تاريخه' : 'Net tax due to date', value: `${amount(annualTotals.taxPayable)} SAR`, emphasis: true },
+          { icon: 'credit', kind: 'credit', label: ar ? 'رصيد ضريبي' : 'VAT credit', value: `${amount(annualTotals.taxCredit)} SAR` },
+          { icon: 'check', kind: 'paid', label: ar ? 'المسدد خلال السنة' : 'Paid year to date', value: `${amount(annualTotals.paidAmount)} SAR` },
+          { icon: 'clock', kind: 'outstanding', label: ar ? 'المتبقي السنوي' : 'Year-to-date outstanding', value: `${amount(annualOutstanding)} SAR` },
+          { icon: 'wallet', kind: 'reserve', label: ar ? 'السيولة المحجوزة للسنة' : 'Year-to-date cash reserved', value: `${amount(annualTotals.cashReservedAmount)} SAR` },
         ]} />
       </div>
       {!periodSummary && <p className="vat-dashboard-source-note">{ar ? 'لم تُحفظ إجماليات يدوية لهذه الفترة بعد؛ يعرض النظام ما سجّلته في سجل المستندات. أدخل إجماليات الفترة من تبويب «إجماليات الفترة» إذا كانت بياناتك مجمعة.' : 'No aggregate totals are saved for this period yet; the dashboard uses the document register. Enter period totals in the “Period totals” tab if you report aggregated figures.'}</p>}
@@ -280,21 +281,21 @@ function VatFinancialGraphics({ periodTotals, ar }: { periodTotals: Totals; ar: 
 
   return <section className="vat-visual-grid" aria-label={ar ? 'رسوم توضيحية للفترة' : 'Period financial graphics'}>
     <article className="vat-visual-card">
-      <div className="vat-visual-heading"><span className="vat-visual-icon sales-icon" aria-hidden="true">↗</span><div><h3>{ar ? 'حركة المبيعات والمشتريات' : 'Sales and purchases'}</h3><p>{ar ? 'مقارنة صافي القيم للفترة' : 'Net value comparison for this period'}</p></div></div>
+      <div className="vat-visual-heading"><span className="vat-visual-icon sales-icon"><VatIcon name="chart" /></span><div><h3>{ar ? 'حركة المبيعات والمشتريات' : 'Sales and purchases'}</h3><p>{ar ? 'مقارنة صافي القيم للفترة' : 'Net value comparison for this period'}</p></div></div>
       <VisualBar label={ar ? 'المبيعات' : 'Sales'} value={sales} percent={sales / salesScale * 100} color="green" />
       <VisualBar label={ar ? 'المشتريات' : 'Purchases'} value={purchases} percent={purchases / salesScale * 100} color="blue" />
       <div className="vat-visual-footnote">{ar ? 'القيم قبل ضريبة القيمة المضافة' : 'Amounts exclude VAT'}</div>
     </article>
 
     <article className="vat-visual-card">
-      <div className="vat-visual-heading"><span className="vat-visual-icon tax-icon" aria-hidden="true">٪</span><div><h3>{ar ? 'مقارنة الضريبة' : 'VAT comparison'}</h3><p>{ar ? 'مخرجات المبيعات ومدخلات المشتريات' : 'Output tax and recoverable input tax'}</p></div></div>
+      <div className="vat-visual-heading"><span className="vat-visual-icon tax-icon"><VatIcon name="percent" /></span><div><h3>{ar ? 'مقارنة الضريبة' : 'VAT comparison'}</h3><p>{ar ? 'مخرجات المبيعات ومدخلات المشتريات' : 'Output tax and recoverable input tax'}</p></div></div>
       <VisualBar label={ar ? 'ضريبة المخرجات' : 'Output VAT'} value={output} percent={output / taxScale * 100} color="amber" />
       <VisualBar label={ar ? 'المدخلات القابلة للخصم' : 'Recoverable input'} value={input} percent={input / taxScale * 100} color="teal" />
       <div className="vat-visual-net"><span>{ar ? 'صافي المستحق' : 'Net payable'}</span><strong>{amount(periodTotals.taxPayable)} SAR</strong><small>{ar ? 'رصيد ضريبي' : 'Tax credit'}: {amount(periodTotals.taxCredit)} SAR</small></div>
     </article>
 
     <article className="vat-visual-card vat-settlement-card">
-      <div className="vat-visual-heading"><span className="vat-visual-icon cash-icon" aria-hidden="true">✓</span><div><h3>{ar ? 'تغطية الاستحقاق' : 'Settlement coverage'}</h3><p>{ar ? 'السداد والسيولة المحجوزة' : 'Payments and reserved cash'}</p></div></div>
+      <div className="vat-visual-heading"><span className="vat-visual-icon cash-icon"><VatIcon name="wallet" /></span><div><h3>{ar ? 'تغطية الاستحقاق' : 'Settlement coverage'}</h3><p>{ar ? 'السداد والسيولة المحجوزة' : 'Payments and reserved cash'}</p></div></div>
       <div className="vat-progress-label"><span>{ar ? 'المسدد من الضريبة' : 'VAT paid'}</span><strong>{amount(periodTotals.paidAmount)} / {amount(periodTotals.taxPayable)} SAR</strong></div>
       <div className="vat-progress-track" role="img" aria-label={ar ? `تم سداد ${Math.round(paidPercent)} بالمئة من المستحق` : `${Math.round(paidPercent)} percent of VAT due paid`}><span className="paid-progress" style={{ width: `${paidPercent}%` }} /></div>
       <div className="vat-progress-label"><span>{ar ? 'السيولة المحجوزة من المتبقي' : 'Cash reserved for outstanding'}</span><strong>{amount(periodTotals.cashReservedAmount)} / {amount(outstanding)} SAR</strong></div>
@@ -315,13 +316,36 @@ function AmountField({ label, value, onChange, hint }: { label: string; value: s
   return <label className="vat-summary-field"><span>{label}</span><div className="vat-money-input"><input required type="number" min="0" step="0.01" value={value} onChange={(event) => onChange(event.target.value)} /><span>SAR</span></div>{hint && <small>{hint}</small>}</label>;
 }
 
-function Metric({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
-  return <div className={`vat-metric ${emphasis ? 'emphasis' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
+type VatIconName = 'chart' | 'bag' | 'scale' | 'coins' | 'receipt' | 'percent' | 'cart' | 'shield' | 'calculator' | 'credit' | 'check' | 'clock' | 'wallet' | 'calendar';
+
+function VatIcon({ name }: { name: VatIconName }) {
+  const shared = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const drawings: Record<VatIconName, React.ReactNode> = {
+    chart: <><path d="M4 18V5" /><path d="M4 18h16" /><path d="m7 14 4-4 3 2 5-6" /><path d="M16 6h3v3" /></>,
+    bag: <><path d="M5 8h14l1 12H4L5 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></>,
+    scale: <><path d="M12 3v18" /><path d="M5 6h14" /><path d="m5 6-3 6h6L5 6Z" /><path d="m19 6-3 6h6l-3-6Z" /><path d="M8 21h8" /></>,
+    coins: <><ellipse cx="9" cy="7" rx="6" ry="3" /><path d="M3 7v5c0 1.7 2.7 3 6 3 1.1 0 2.1-.2 3-.5" /><path d="M3 12v5c0 1.7 2.7 3 6 3 1.2 0 2.3-.2 3.2-.6" /><ellipse cx="17" cy="15" rx="4" ry="2.5" /><path d="M13 15v4c0 1.4 1.8 2.5 4 2.5s4-1.1 4-2.5v-4" /></>,
+    receipt: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
+    percent: <><path d="m19 5-14 14" /><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="17" r="2.5" /></>,
+    cart: <><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 1.9-1.4L22 9H6" /><circle cx="10" cy="20" r="1" /><circle cx="18" cy="20" r="1" /></>,
+    shield: <><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" /><path d="m9 12 2 2 4-4" /></>,
+    calculator: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8M8 12h2m4 0h2m-8 4h2m4 0h2" /></>,
+    credit: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h3" /></>,
+    check: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></>,
+    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    wallet: <><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v16H6a3 3 0 0 1-3-3V7a.5.5 0 0 1 1 0v10" /><path d="M20 9h-5a2 2 0 0 0 0 4h5" /><path d="M15 11h.01" /></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /><path d="m9 15 2 2 4-4" /></>,
+  };
+  return <svg {...shared} viewBox="0 0 24 24" aria-hidden="true">{drawings[name]}</svg>;
 }
 
-function MetricRow({ title, tone, metrics }: { title: string; tone: 'sales' | 'purchases' | 'settlement'; ar: boolean; metrics: Array<{ label: string; value: string; emphasis?: boolean }> }) {
+function Metric({ icon, kind, label, value, emphasis = false }: { icon: VatIconName; kind?: 'due' | 'credit' | 'paid' | 'outstanding' | 'reserve'; label: string; value: string; emphasis?: boolean }) {
+  return <div className={`vat-metric ${kind ? `metric-${kind}` : ''} ${emphasis ? 'emphasis' : ''}`}><div className="vat-metric-label"><span className="vat-metric-icon"><VatIcon name={icon} /></span><span>{label}</span></div><strong>{value}</strong></div>;
+}
+
+function MetricRow({ title, tone, icon, metrics }: { title: string; tone: 'sales' | 'purchases' | 'settlement'; icon: VatIconName; ar: boolean; metrics: Array<{ icon: VatIconName; kind?: 'due' | 'credit' | 'paid' | 'outstanding' | 'reserve'; label: string; value: string; emphasis?: boolean }> }) {
   return <section className={`vat-metric-row ${tone}`}>
-    <h3>{title}</h3>
+    <h3><span className="vat-row-icon"><VatIcon name={icon} /></span>{title}</h3>
     <div className="vat-metric-row-cards">{metrics.map((metric) => <Metric key={metric.label} {...metric} />)}</div>
   </section>;
 }

@@ -1,7 +1,7 @@
-.vat-page { --vat-ink:var(--corp-text,#17332d); --vat-muted:var(--corp-muted,#71817c); --vat-line:var(--corp-border,#e3ece8); --vat-green:#08745c; --vat-accent:#08745c; --vat-blue:#5362c8; --vat-teal:#3697a0; --vat-gold:#ad7017; --vat-card:#fff; --vat-soft:#f7faf8; --vat-track:#edf2ef; max-width:1440px; padding-block:34px 64px; color:var(--vat-ink); }
-.theme-classic .vat-page { --vat-green:#294d68; --vat-accent:#2d6f8b; --vat-blue:#5476a4; --vat-teal:#39898d; --vat-gold:#9b6a1d; --vat-soft:#f5f7f9; --vat-track:#e9eef2; }
-.theme-modern .vat-page { --vat-green:#08756b; --vat-accent:#08756b; --vat-blue:#5475c8; --vat-teal:#349a91; --vat-gold:#b37a23; --vat-soft:#f1f9f6; --vat-track:#e8f1ed; }
-.theme-elegant .vat-page { --vat-ink:#172b27; --vat-muted:#687b76; --vat-line:#dce6e2; --vat-green:#176b58; --vat-accent:#176b58; --vat-blue:#6174b7; --vat-teal:#378c83; --vat-gold:#a77628; --vat-card:#fff; --vat-soft:#f4f8f6; --vat-track:#e8efec; }
+.vat-page { --vat-ink:var(--corp-text,#17332d); --vat-muted:var(--corp-muted,#71817c); --vat-line:var(--corp-border,#e3ece8); --vat-green:#08745c; --vat-accent:#08745c; --vat-blue:#5362c8; --vat-teal:#3697a0; --vat-gold:#ad7017; --vat-positive:#177a59; --vat-expense:#5362c8; --vat-warning:#a66a12; --vat-negative:#b34439; --vat-cash:#3976a8; --vat-card:#fff; --vat-soft:#f7faf8; --vat-track:#edf2ef; max-width:1440px; padding-block:34px 64px; color:var(--vat-ink); }
+.theme-classic .vat-page { --vat-green:#294d68; --vat-accent:#2d6f8b; --vat-blue:#5476a4; --vat-teal:#39898d; --vat-gold:#9b6a1d; --vat-positive:#277451; --vat-expense:#496c98; --vat-warning:#946214; --vat-negative:#a9443b; --vat-cash:#366f99; --vat-soft:#f5f7f9; --vat-track:#e9eef2; }
+.theme-modern .vat-page { --vat-green:#08756b; --vat-accent:#08756b; --vat-blue:#5475c8; --vat-teal:#349a91; --vat-gold:#b37a23; --vat-positive:#147958; --vat-expense:#596ac5; --vat-warning:#9a6412; --vat-negative:#b14439; --vat-cash:#3978ab; --vat-soft:#f1f9f6; --vat-track:#e8f1ed; }
+.theme-elegant .vat-page { --vat-ink:#172b27; --vat-muted:#687b76; --vat-line:#dce6e2; --vat-green:#176b58; --vat-accent:#176b58; --vat-blue:#6174b7; --vat-teal:#378c83; --vat-gold:#a77628; --vat-positive:#1a7251; --vat-expense:#596da5; --vat-warning:#91601c; --vat-negative:#a8463d; --vat-cash:#397394; --vat-card:#fff; --vat-soft:#f4f8f6; --vat-track:#e8efec; }
 .vat-header,.vat-panel-head,.vat-period-title { display:flex; align-items:center; justify-content:space-between; gap:22px; }
 .vat-header { margin-bottom:24px; }
 .vat-header h1 { margin:6px 0; font-size:clamp(1.8rem,3vw,2.35rem); letter-spacing:-.035em; }
@@ -68,7 +68,8 @@
 .vat-dashboard-alert-copy { display:grid; justify-items:start; gap:8px; }
 .vat-dashboard-alert-copy h2,.vat-dashboard-alert-copy p { margin:0; }
 .vat-dashboard-alert-copy p { color:var(--vat-muted); line-height:1.65; }
-.vat-dashboard-state { padding:6px 10px; border-radius:999px; font-size:.76rem; font-weight:800; }
+.vat-dashboard-state { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:.76rem; font-weight:800; }
+.vat-dashboard-state svg { width:15px; height:15px; flex:none; }
 .vat-dashboard-state.upcoming { background:#eef5f2; color:#24715c; }
 .vat-dashboard-state.soon { background:#fff3dc; color:#8b5a0a; }
 .vat-dashboard-state.overdue { background:#fff0ee; color:#a23d32; }
@@ -87,13 +88,26 @@
 .vat-metric-row.sales { --vat-row-accent:var(--vat-accent); }
 .vat-metric-row.purchases { --vat-row-accent:var(--vat-blue); }
 .vat-metric-row.settlement { --vat-row-accent:var(--vat-gold); }
-.vat-metric-row > h3 { display:flex; align-items:center; align-self:stretch; margin:0; padding-inline:8px; color:var(--vat-row-accent); font-size:.86rem; font-weight:800; }
+.vat-metric-row > h3 { display:flex; align-items:center; align-self:stretch; gap:9px; margin:0; padding-inline:8px; color:var(--vat-row-accent); font-size:.86rem; font-weight:800; }
+.vat-row-icon { display:grid; place-items:center; flex:0 0 34px; width:34px; height:34px; border-radius:10px; background:color-mix(in srgb,var(--vat-row-accent) 10%,var(--vat-card)); }
+.vat-row-icon svg { width:18px; height:18px; }
 .vat-metric-row-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; min-width:0; }
 .vat-metric-row.settlement .vat-metric-row-cards { grid-template-columns:repeat(5,minmax(0,1fr)); }
-.vat-metric-row .vat-metric { min-height:84px; padding:13px 14px; border-color:color-mix(in srgb,var(--vat-row-accent) 18%,var(--vat-line)); border-radius:11px; background:var(--vat-card); }
+.vat-metric-row .vat-metric { min-height:84px; align-content:space-between; gap:12px; padding:13px 14px; border-color:color-mix(in srgb,var(--vat-row-accent) 18%,var(--vat-line)); border-radius:11px; background:var(--vat-card); }
 .vat-metric-row .vat-metric.emphasis { background:color-mix(in srgb,var(--vat-accent) 8%,var(--vat-card)); border-color:color-mix(in srgb,var(--vat-accent) 27%,var(--vat-line)); }
 .vat-metric-row .vat-metric span { color:var(--vat-muted); font-size:.74rem; }
 .vat-metric-row .vat-metric strong { color:var(--vat-ink); font-size:clamp(.88rem,1.15vw,1.12rem); font-variant-numeric:tabular-nums; }
+.vat-metric-label { display:flex; align-items:center; gap:8px; min-width:0; }
+.vat-metric-label > span:last-child { line-height:1.45; }
+.vat-metric-icon { display:grid; place-items:center; flex:0 0 30px; width:30px; height:30px; border-radius:9px; background:color-mix(in srgb,var(--vat-row-accent) 10%,var(--vat-card)); color:var(--vat-row-accent); }
+.vat-metric-icon svg { width:16px; height:16px; }
+.vat-metric-row .vat-metric.metric-due { --vat-metric-accent:var(--vat-warning); }
+.vat-metric-row .vat-metric.metric-credit { --vat-metric-accent:var(--vat-teal); }
+.vat-metric-row .vat-metric.metric-paid { --vat-metric-accent:var(--vat-positive); }
+.vat-metric-row .vat-metric.metric-outstanding { --vat-metric-accent:var(--vat-negative); }
+.vat-metric-row .vat-metric.metric-reserve { --vat-metric-accent:var(--vat-cash); }
+.vat-metric-row .vat-metric[class*="metric-"] .vat-metric-icon { background:color-mix(in srgb,var(--vat-metric-accent) 10%,var(--vat-card)); color:var(--vat-metric-accent); }
+.vat-metric-row .vat-metric.metric-due strong,.vat-metric-row .vat-metric.metric-outstanding strong { color:var(--vat-metric-accent); }
 .theme-classic .vat-metric-row { border-radius:7px; }
 .theme-classic .vat-metric-row .vat-metric { border-radius:6px; }
 .theme-modern .vat-metric-row { border-radius:18px; padding:15px; }
@@ -104,7 +118,8 @@
 .vat-visual-heading { display:flex; align-items:center; gap:11px; min-height:42px; }
 .vat-visual-heading h3 { margin:0; font-size:.91rem; }
 .vat-visual-heading p { margin:4px 0 0; color:var(--vat-muted); font-size:.73rem; line-height:1.5; }
-.vat-visual-icon { display:grid; place-items:center; flex:0 0 39px; width:39px; height:39px; border-radius:12px; font-size:1.12rem; font-weight:800; }
+.vat-visual-icon { display:grid; place-items:center; flex:0 0 39px; width:39px; height:39px; border-radius:12px; }
+.vat-visual-icon svg { width:20px; height:20px; }
 .vat-visual-icon.sales-icon { background:color-mix(in srgb,var(--vat-accent) 11%,var(--vat-card)); color:var(--vat-accent); }
 .vat-visual-icon.tax-icon { background:color-mix(in srgb,var(--vat-gold) 11%,var(--vat-card)); color:var(--vat-gold); }
 .vat-visual-icon.cash-icon { background:color-mix(in srgb,var(--vat-blue) 11%,var(--vat-card)); color:var(--vat-blue); }
