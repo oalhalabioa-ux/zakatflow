@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import Decimal from 'decimal.js';
-import { vatDocumentSchema, vatProfileSchema } from '@/lib/validation/schemas';
+import { vatDocumentSchema, vatPeriodSummarySchema, vatProfileSchema } from '@/lib/validation/schemas';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
-import { calculateVatAmounts } from '@/lib/vat';
+import { calculateVatAmounts, summarizeVatDocuments } from '@/lib/vat';
+import { getVatPaymentDeadline, getVatYearStart, summarizePaidAndReserved, summarizeVatPeriodInputs, summarizeVatRowsWithDetail } from '@/lib/vat-period-summary';
 import { requireUser } from '@/services/auth';
 import { requireOrganizationAdmin, requireOrganizationMember } from '@/services/organization-access';
 
@@ -30,13 +31,14 @@ export async function GET(request: Request) {
       (profileResult.data?.filing_frequency ?? 'QUARTERLY') as VatFilingFrequency,
       Number(profileResult.data?.period_start_month ?? 1),
     );
+    const yearStart = getVatYearStart(period.to, Number(profileResult.data?.period_start_month ?? 1));
     const documents: Record<string, any>[] = [];
     for (let offset = 0; ; offset += 1000) {
       const { data, error } = await supabase
         .from('vat_documents')
         .select('*')
         .eq('organization_id', organizationId)
-        .gte('transaction_date', period.from)
+        .gte('transaction_date', yearStart)
         .lte('transaction_date', period.to)
         .order('transaction_date', { ascending: false })
         .order('created_at', { ascending: false })
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
       .select('id,invoice_number,invoice_category,issue_date,buyer_name,buyer_vat_number,organization_id')
       .eq('organization_id', organizationId)
       .eq('status', 'ISSUED')
-      .gte('issue_date', period.from)
+      .gte('issue_date', yearStart)
       .lte('issue_date', period.to)
       .order('issue_date', { ascending: false });
     if (invoiceError) throw invoiceError;
@@ -92,7 +94,69 @@ export async function GET(request: Request) {
       tax_amount: summary.tax_amount.toFixed(2),
       gross_amount: summary.gross_amount.toFixed(2),
     }));
-    return NextResponse.json({ profile: profileResult.data, period, documents: [...documents, ...issuedDocumentSummaries] });
+    const { data: summaryRows, error: summaryError } = await supabase.from('vat_period_summaries')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .gte('period_start', yearStart)
+      .lte('period_start', period.to)
+      .order('period_start', { ascending: true });
+    if (summaryError) throw summaryError;
+
+    const periodDocuments = [...documents, ...issuedDocumentSummaries].filter((document) =>
+      document.transaction_date >= period.from && document.transaction_date <= period.to,
+    );
+    const periodSummary = (summaryRows ?? []).find((row: any) => row.period_start === period.from && row.period_end === period.to) ?? null;
+    const rate = Number(profileResult.data?.standard_rate ?? 15);
+    const periodDocumentTotals = summarizeVatDocuments(periodDocuments);
+    const periodTotals = periodSummary
+      ? summarizeVatPeriodInputs(periodSummary, rate)
+      : {
+        ...periodDocumentTotals,
+        salesBase: periodDocumentTotals.salesNet,
+        salesGross: new Decimal(periodDocumentTotals.salesNet).add(periodDocumentTotals.outputTax).toFixed(2),
+        purchaseBase: periodDocumentTotals.purchaseNet,
+        purchaseVatBeforeRecovery: periodDocumentTotals.inputTax,
+      };
+    const annualTotals = summarizeVatRowsWithDetail(
+      [...documents, ...issuedDocumentSummaries],
+      summaryRows ?? [],
+      rate,
+    );
+    const coveredRanges = (summaryRows ?? []).filter((row: any) => row.period_start && row.period_end);
+    const unaggregatedDocuments = [...documents, ...issuedDocumentSummaries].filter((document) =>
+      !coveredRanges.some((row: any) => document.transaction_date >= row.period_start && document.transaction_date <= row.period_end),
+    );
+    const unaggregatedTotals = summarizeVatDocuments(unaggregatedDocuments);
+    const aggregateStats = (summaryRows ?? []).reduce((totals: Record<string, Decimal>, row: any) => {
+      const values = summarizeVatPeriodInputs(row, rate);
+      totals.salesBase = totals.salesBase.add(values.salesBase);
+      totals.salesGross = totals.salesGross.add(values.salesGross);
+      totals.purchaseBase = totals.purchaseBase.add(values.purchaseBase);
+      totals.purchaseVatBeforeRecovery = totals.purchaseVatBeforeRecovery.add(values.purchaseVatBeforeRecovery);
+      return totals;
+    }, { salesBase: new Decimal(0), salesGross: new Decimal(0), purchaseBase: new Decimal(0), purchaseVatBeforeRecovery: new Decimal(0) });
+    const annualPaidAndReserved = summarizePaidAndReserved((summaryRows ?? []) as any[]);
+    const annualSalesGross = aggregateStats.salesGross.add(unaggregatedTotals.salesNet).add(unaggregatedTotals.outputTax);
+    const annualSalesBase = aggregateStats.salesBase.add(unaggregatedTotals.salesNet);
+    const annualPurchaseBase = aggregateStats.purchaseBase.add(unaggregatedTotals.purchaseNet);
+    const annualPurchaseVatBeforeRecovery = aggregateStats.purchaseVatBeforeRecovery.add(unaggregatedTotals.inputTax);
+    return NextResponse.json({
+      profile: profileResult.data,
+      period,
+      yearStart,
+      periodSummary,
+      periodTotals: { ...periodTotals, paidAmount: periodSummary?.paid_amount ?? '0', cashReservedAmount: periodSummary?.cash_reserved_amount ?? '0', filingStatus: periodSummary?.filing_status ?? 'NOT_FILED', dueDate: getVatPaymentDeadline(period.to) },
+      annualTotals: {
+        ...annualTotals,
+        salesBase: annualSalesBase.toFixed(2),
+        salesGross: annualSalesGross.toFixed(2),
+        purchaseBase: annualPurchaseBase.toFixed(2),
+        purchaseVatBeforeRecovery: annualPurchaseVatBeforeRecovery.toFixed(2),
+        paidAmount: annualPaidAndReserved.paid.toFixed(2),
+        cashReservedAmount: annualPaidAndReserved.cashReserved.toFixed(2),
+      },
+      documents: periodDocuments,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: errorStatus(error.message) });
   }
@@ -129,6 +193,43 @@ export async function POST(request: Request) {
         entity_id: data.id,
         action: 'UPSERT',
         new_data: { ...data, tax_registration_number: data.tax_registration_number ? 'REDACTED' : null },
+      });
+      return NextResponse.json(data);
+    }
+
+    if (body.action === 'save_period_summary') {
+      const summary = vatPeriodSummarySchema.parse(body);
+      await requireOrganizationAdmin(supabase, user.id, summary.organization_id);
+      const { data: profile, error: profileError } = await supabase.from('vat_profiles')
+        .select('registration_status,filing_frequency,period_start_month')
+        .eq('organization_id', summary.organization_id)
+        .single();
+      if (profileError?.code === 'PGRST116') throw new Error('VAT_PROFILE_REQUIRED');
+      if (profileError) throw profileError;
+      if (profile.registration_status !== 'REGISTERED') throw new Error('VAT_REGISTRATION_REQUIRED');
+      const expectedPeriod = getVatPeriod(summary.period_start.slice(0, 7), profile.filing_frequency as VatFilingFrequency, Number(profile.period_start_month));
+      if (expectedPeriod.from !== summary.period_start || expectedPeriod.to !== summary.period_end) throw new Error('VAT_SUMMARY_PERIOD_MISMATCH');
+      const values = {
+        ...summary,
+        filed_at: summary.filed_at || null,
+        filing_reference: summary.filing_reference?.trim() || null,
+        paid_at: summary.paid_at || null,
+        payment_reference: summary.payment_reference?.trim() || null,
+        notes: summary.notes?.trim() || null,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      };
+      const { data, error } = await supabase.from('vat_period_summaries')
+        .upsert({ ...values, created_by: user.id }, { onConflict: 'organization_id,period_start,period_end' })
+        .select()
+        .single();
+      if (error) throw error;
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        entity_type: 'vat_period_summary',
+        entity_id: data.id,
+        action: 'UPSERT',
+        new_data: data,
       });
       return NextResponse.json(data);
     }

@@ -2,10 +2,12 @@
 
 import { FormEvent, KeyboardEvent, use, useEffect, useMemo, useState } from 'react';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
-import { summarizeVatDocuments, type VatDocumentForSummary } from '@/lib/vat';
+import type { VatDocumentForSummary } from '@/lib/vat';
 import { organizationDisplayName } from '@/lib/organization-display';
 import { VatEInvoiceSetup } from '@/components/vat-einvoice-setup';
 import { VatEInvoiceRegister } from '@/components/vat-einvoice-register';
+import { VatManagementDashboard, VatPeriodSummaryForm } from '@/components/vat-period-workspace';
+import type { VatPeriodSummaryRecord } from '@/lib/vat-period-summary';
 import './vat.css';
 
 type Organization = {
@@ -64,7 +66,21 @@ type DocumentDraft = {
   notes: string;
 };
 
-type ApiData = { profile: VatProfile | null; period: { from: string; to: string }; documents: VatDocument[] };
+type DashboardTotals = {
+  salesBase: string; salesGross: string; purchaseBase: string; purchaseVatBeforeRecovery: string;
+  outputTax: string; inputTax: string; taxPayable: string; taxCredit: string;
+  salesNet: string; purchaseNet: string; paidAmount: string; cashReservedAmount: string;
+  filingStatus?: string; dueDate?: string; zeroRatedSales: string; exemptSales: string; outOfScopeSales: string;
+};
+type ApiData = {
+  profile: VatProfile | null;
+  period: { from: string; to: string };
+  yearStart: string;
+  periodSummary: VatPeriodSummaryRecord | null;
+  periodTotals: DashboardTotals;
+  annualTotals: DashboardTotals;
+  documents: VatDocument[];
+};
 
 const currentMonth = () => {
   const today = new Date();
@@ -101,12 +117,16 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [profileDraft, setProfileDraft] = useState<VatProfileDraft>(emptyProfile);
   const [documents, setDocuments] = useState<VatDocument[]>([]);
   const [period, setPeriod] = useState(() => getVatPeriod(currentMonth(), 'QUARTERLY'));
+  const [yearStart, setYearStart] = useState(`${new Date().getFullYear()}-01-01`);
+  const [periodSummary, setPeriodSummary] = useState<VatPeriodSummaryRecord | null>(null);
+  const [periodTotals, setPeriodTotals] = useState<DashboardTotals>(emptyTotals());
+  const [annualTotals, setAnnualTotals] = useState<DashboardTotals>(emptyTotals());
   const [loadingOrganizations, setLoadingOrganizations] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [saving, setSaving] = useState(false);
   const [invoiceRefresh, setInvoiceRefresh] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'register' | 'einvoicing'>('register');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing'>('dashboard');
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
@@ -115,7 +135,6 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     [organizations],
   );
   const selectedOrganization = organizations.find((organization) => organization.id === organizationId);
-  const summary = useMemo(() => summarizeVatDocuments(documents), [documents]);
   const currentTaxRate = Number(profile?.standard_rate ?? profileDraft.standard_rate ?? 15);
   const previewTax = draft.supply_type === 'STANDARD'
     ? (Number(draft.net_amount || 0) * currentTaxRate / 100)
@@ -126,10 +145,11 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     const backward = ar ? 'ArrowRight' : 'ArrowLeft';
     if (![forward, backward, 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const nextTab = event.key === 'Home' ? 'register'
-      : event.key === 'End' ? 'einvoicing'
-        : event.key === forward ? (activeTab === 'register' ? 'einvoicing' : 'register')
-          : (activeTab === 'einvoicing' ? 'register' : 'einvoicing');
+    const tabs = ['dashboard', 'aggregate', 'register', 'einvoicing'] as const;
+    const current = tabs.indexOf(activeTab);
+    const nextTab = event.key === 'Home' ? tabs[0]
+      : event.key === 'End' ? tabs[tabs.length - 1]
+        : tabs[(current + (event.key === forward ? 1 : -1) + tabs.length) % tabs.length];
     setActiveTab(nextTab);
     document.getElementById(`vat-tab-${nextTab}`)?.focus();
   }
@@ -168,6 +188,10 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
         setProfile(body.profile);
         setDocuments(body.documents);
         setPeriod(body.period);
+        setYearStart(body.yearStart);
+        setPeriodSummary(body.periodSummary);
+        setPeriodTotals(body.periodTotals);
+        setAnnualTotals(body.annualTotals);
         setProfileDraft(body.profile ? {
           tax_registration_number: body.profile.tax_registration_number ?? '',
           registration_status: body.profile.registration_status,
@@ -271,6 +295,10 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     setProfile(body.profile);
     setDocuments(body.documents);
     setPeriod(body.period);
+    setYearStart(body.yearStart);
+    setPeriodSummary(body.periodSummary);
+    setPeriodTotals(body.periodTotals);
+    setAnnualTotals(body.annualTotals);
   }
 
   const isRegistered = profile?.registration_status === 'REGISTERED';
@@ -334,7 +362,22 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
             )}
           </section>
 
+          <section className="vat-panel vat-period-toolbar">
+            <div>
+              <span className="vat-eyebrow">{ar ? 'الفترة الضريبية' : 'TAX PERIOD'}</span>
+              <strong>{period.from} — {period.to}</strong>
+              <small>{profile ? frequencyLabel(profile.filing_frequency, ar) : (ar ? 'دورية افتراضية' : 'Default frequency')}</small>
+            </div>
+            <label className="vat-period-select"><span>{ar ? 'اختر شهرًا ضمن الفترة' : 'Choose a month in the period'}</span><input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} /></label>
+          </section>
+
           <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
+            <button id="vat-tab-dashboard" type="button" role="tab" aria-selected={activeTab === 'dashboard'} tabIndex={activeTab === 'dashboard' ? 0 : -1} aria-controls="vat-panel-dashboard" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
+              <strong>{ar ? 'لوحة الإدارة' : 'Management dashboard'}</strong><small>{ar ? 'المبيعات والضريبة والاستحقاق والسيولة' : 'Sales, VAT, deadlines and cash'}</small>
+            </button>
+            <button id="vat-tab-aggregate" type="button" role="tab" aria-selected={activeTab === 'aggregate'} tabIndex={activeTab === 'aggregate' ? 0 : -1} aria-controls="vat-panel-aggregate" className={activeTab === 'aggregate' ? 'active' : ''} onClick={() => setActiveTab('aggregate')}>
+              <strong>{ar ? 'إجماليات الفترة' : 'Period totals'}</strong><small>{ar ? 'إدخال مجمع للمبيعات والمشتريات' : 'Enter aggregated sales and purchases'}</small>
+            </button>
             <button
               id="vat-tab-register"
               type="button"
@@ -345,7 +388,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               className={activeTab === 'register' ? 'active' : ''}
               onClick={() => setActiveTab('register')}
             >
-              <strong>{ar ? 'الفواتير والملخص الضريبي' : 'Invoices & VAT summary'}</strong>
+              <strong>{ar ? 'سجل المستندات' : 'Document register'}</strong>
               <small>{ar ? 'تسجيل فواتير المبيعات والمشتريات' : 'Record sales and purchase invoices'}</small>
             </button>
             <button
@@ -363,32 +406,39 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
             </button>
           </nav>
 
-          <div id="vat-panel-register" role="tabpanel" aria-labelledby="vat-tab-register" hidden={activeTab !== 'register'}>
-          <section className="vat-panel vat-period-panel">
-            <div className="vat-period-title">
-              <div>
-                <span className="vat-eyebrow">{ar ? 'إعداد الإقرار' : 'RETURN PREPARATION'}</span>
-                <h2>{ar ? 'ملخص الفترة الضريبية' : 'Tax period summary'}</h2>
-              </div>
-              <label className="vat-period-select"><span>{ar ? 'اختر شهرًا ضمن الفترة' : 'Choose a month in the period'}</span><input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} /></label>
-            </div>
-            <div className="vat-period-range">{ar ? 'الفترة المحسوبة' : 'Calculated period'}: <strong>{period.from}</strong> — <strong>{period.to}</strong>{profile && <span> · {frequencyLabel(profile.filing_frequency, ar)}</span>}</div>
-            {!profile && <div className="vat-inline-warning">{ar ? 'أكمل ملف التسجيل أعلاه لبدء تسجيل المستندات.' : 'Complete the registration profile above before recording documents.'}</div>}
-            {profile && !isRegistered && <div className="vat-inline-warning">{ar ? 'يجب أن تكون حالة التسجيل «مسجل» حتى تتمكن من إضافة مستندات ضمن سجل الضريبة.' : 'Set the registration status to Registered before adding VAT documents.'}</div>}
-            <div className="vat-metrics">
-              <Metric label={ar ? 'صافي المبيعات' : 'Net sales'} value={`${money(summary.salesNet)} SAR`} />
-              <Metric label={ar ? 'ضريبة المخرجات' : 'Output VAT'} value={`${money(summary.outputTax)} SAR`} />
-              <Metric label={ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT'} value={`${money(summary.inputTax)} SAR`} />
-              <Metric label={Number(summary.netTax) >= 0 ? (ar ? 'ضريبة مستحقة' : 'VAT payable') : (ar ? 'رصيد ضريبي' : 'VAT credit')} value={`${Number(summary.netTax) >= 0 ? money(summary.taxPayable) : money(summary.taxCredit)} SAR`} emphasis />
-            </div>
-            <div className="vat-return-details">
-              <span>{ar ? 'مبيعات خاضعة للنسبة الصفرية' : 'Zero-rated sales'} <strong>{money(summary.zeroRatedSales)} SAR</strong></span>
-              <span>{ar ? 'مبيعات معفاة' : 'Exempt sales'} <strong>{money(summary.exemptSales)} SAR</strong></span>
-              <span>{ar ? 'مبيعات خارج النطاق' : 'Out-of-scope sales'} <strong>{money(summary.outOfScopeSales)} SAR</strong></span>
-              <span>{ar ? 'عدد المستندات' : 'Documents'} <strong>{summary.documentCount}</strong></span>
-            </div>
-          </section>
+          <div id="vat-panel-dashboard" role="tabpanel" aria-labelledby="vat-tab-dashboard" hidden={activeTab !== 'dashboard'}>
+            <VatManagementDashboard
+              period={period}
+              yearStart={yearStart}
+              frequency={profile?.filing_frequency ?? 'QUARTERLY'}
+              periodSummary={periodSummary}
+              periodTotals={periodTotals}
+              annualTotals={annualTotals}
+              standardRate={Number(profile?.standard_rate ?? 15)}
+              registered={isRegistered}
+              ar={ar}
+              organizationId={organizationId}
+              onSaved={() => setInvoiceRefresh((revision) => revision + 1)}
+            />
+          </div>
 
+          <div id="vat-panel-aggregate" role="tabpanel" aria-labelledby="vat-tab-aggregate" hidden={activeTab !== 'aggregate'}>
+            <VatPeriodSummaryForm
+              organizationId={organizationId}
+              period={period}
+              yearStart={yearStart}
+              frequency={profile?.filing_frequency ?? 'QUARTERLY'}
+              periodSummary={periodSummary}
+              periodTotals={periodTotals}
+              annualTotals={annualTotals}
+              standardRate={Number(profile?.standard_rate ?? 15)}
+              registered={isRegistered}
+              ar={ar}
+              onSaved={() => setInvoiceRefresh((revision) => revision + 1)}
+            />
+          </div>
+
+          <div id="vat-panel-register" role="tabpanel" aria-labelledby="vat-tab-register" hidden={activeTab !== 'register'}>
           <section className="vat-panel">
             <div className="vat-panel-head">
               <div><span className="vat-eyebrow">{ar ? 'إدخال يدوي للسجل' : 'MANUAL REGISTER ENTRY'}</span><h2>{ar ? 'تسجيل فاتورة أو مستند ضريبي' : 'Record an invoice or VAT document'}</h2><p>{ar ? 'أدخل بيانات مستند صادر من نظامك المحاسبي لاحتساب ملخص الضريبة. هذا الإدخال لا ينشئ فاتورة إلكترونية ولا يصدرها.' : 'Record invoice data from your accounting system for the VAT summary. This entry does not create or issue an e-invoice.'}</p></div>
@@ -468,6 +518,15 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
 
 function Metric({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
   return <div className={`vat-metric ${emphasis ? 'emphasis' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function emptyTotals(): DashboardTotals {
+  return {
+    salesBase: '0', salesGross: '0', purchaseBase: '0', purchaseVatBeforeRecovery: '0',
+    outputTax: '0', inputTax: '0', taxPayable: '0', taxCredit: '0', salesNet: '0', purchaseNet: '0',
+    paidAmount: '0', cashReservedAmount: '0', filingStatus: 'NOT_FILED', dueDate: '',
+    zeroRatedSales: '0', exemptSales: '0', outOfScopeSales: '0',
+  };
 }
 
 function money(value: string | number) {
