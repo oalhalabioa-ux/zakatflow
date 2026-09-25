@@ -197,7 +197,7 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
   const filingLabel = periodTotals.filingStatus === 'FILED' ? (ar ? 'تم تقديم الإقرار' : 'Return filed') : (ar ? 'بانتظار تقديم الإقرار' : 'Return not filed');
 
   return <>
-    <section className="vat-panel vat-dashboard-alert">
+    <section className="vat-panel vat-dashboard-alert vat-dashboard-hero">
       <div className="vat-dashboard-alert-copy">
         <span className={`vat-dashboard-state ${isPaid ? 'paid' : isOverdue ? 'overdue' : dueSoon ? 'soon' : 'upcoming'}`}>
           {isPaid ? (ar ? 'لا يوجد مبلغ مستحق للسداد' : 'No payment outstanding') : isOverdue ? (ar ? 'متأخر عن موعد السداد' : 'Payment overdue') : dueSoon ? (ar ? `الاستحقاق خلال ${daysToDue} يوم` : `Due in ${daysToDue} days`) : (ar ? 'موعد السداد قادم' : 'Upcoming due date')}
@@ -212,6 +212,8 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
           : (ar ? 'السيولة المخصصة تغطي المبلغ المتبقي المسجل.' : 'The recorded cash reserve covers the outstanding amount.')}
       </div>}
     </section>
+
+    <VatFinancialGraphics periodTotals={periodTotals} ar={ar} />
 
     <section className="vat-dashboard-section">
       <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{ar ? 'الفترة المحددة' : 'SELECTED PERIOD'}</span><h2>{period.from} — {period.to}</h2></div><span className="vat-period-chip">{frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly')}</span></div>
@@ -244,6 +246,53 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
       {!periodSummary && <p className="vat-dashboard-source-note">{ar ? 'لم تُحفظ إجماليات يدوية لهذه الفترة بعد؛ يعرض النظام ما سجّلته في سجل المستندات. أدخل إجماليات الفترة من تبويب «إجماليات الفترة» إذا كانت بياناتك مجمعة.' : 'No aggregate totals are saved for this period yet; the dashboard uses the document register. Enter period totals in the “Period totals” tab if you report aggregated figures.'}</p>}
     </section>
   </>;
+}
+
+function VatFinancialGraphics({ periodTotals, ar }: { periodTotals: Totals; ar: boolean }) {
+  const sales = Number(periodTotals.salesBase);
+  const purchases = Number(periodTotals.purchaseBase);
+  const output = Number(periodTotals.outputTax);
+  const input = Number(periodTotals.inputTax);
+  const due = Number(periodTotals.taxPayable);
+  const paid = Math.min(due, Number(periodTotals.paidAmount));
+  const outstanding = Math.max(0, due - paid);
+  const reserved = Math.min(outstanding, Number(periodTotals.cashReservedAmount));
+  const salesScale = Math.max(sales, purchases, 1);
+  const taxScale = Math.max(output, input, 1);
+  const paidPercent = due > 0 ? Math.min(100, paid / due * 100) : 100;
+  const reservePercent = outstanding > 0 ? Math.min(100, reserved / outstanding * 100) : 100;
+
+  return <section className="vat-visual-grid" aria-label={ar ? 'رسوم توضيحية للفترة' : 'Period financial graphics'}>
+    <article className="vat-visual-card">
+      <div className="vat-visual-heading"><span className="vat-visual-icon sales-icon" aria-hidden="true">↗</span><div><h3>{ar ? 'حركة المبيعات والمشتريات' : 'Sales and purchases'}</h3><p>{ar ? 'مقارنة صافي القيم للفترة' : 'Net value comparison for this period'}</p></div></div>
+      <VisualBar label={ar ? 'المبيعات' : 'Sales'} value={sales} percent={sales / salesScale * 100} color="green" />
+      <VisualBar label={ar ? 'المشتريات' : 'Purchases'} value={purchases} percent={purchases / salesScale * 100} color="blue" />
+      <div className="vat-visual-footnote">{ar ? 'القيم قبل ضريبة القيمة المضافة' : 'Amounts exclude VAT'}</div>
+    </article>
+
+    <article className="vat-visual-card">
+      <div className="vat-visual-heading"><span className="vat-visual-icon tax-icon" aria-hidden="true">٪</span><div><h3>{ar ? 'مقارنة الضريبة' : 'VAT comparison'}</h3><p>{ar ? 'مخرجات المبيعات ومدخلات المشتريات' : 'Output tax and recoverable input tax'}</p></div></div>
+      <VisualBar label={ar ? 'ضريبة المخرجات' : 'Output VAT'} value={output} percent={output / taxScale * 100} color="amber" />
+      <VisualBar label={ar ? 'المدخلات القابلة للخصم' : 'Recoverable input'} value={input} percent={input / taxScale * 100} color="teal" />
+      <div className="vat-visual-net"><span>{ar ? 'صافي المستحق' : 'Net payable'}</span><strong>{amount(periodTotals.taxPayable)} SAR</strong><small>{ar ? 'رصيد ضريبي' : 'Tax credit'}: {amount(periodTotals.taxCredit)} SAR</small></div>
+    </article>
+
+    <article className="vat-visual-card vat-settlement-card">
+      <div className="vat-visual-heading"><span className="vat-visual-icon cash-icon" aria-hidden="true">✓</span><div><h3>{ar ? 'تغطية الاستحقاق' : 'Settlement coverage'}</h3><p>{ar ? 'السداد والسيولة المحجوزة' : 'Payments and reserved cash'}</p></div></div>
+      <div className="vat-progress-label"><span>{ar ? 'المسدد من الضريبة' : 'VAT paid'}</span><strong>{amount(periodTotals.paidAmount)} / {amount(periodTotals.taxPayable)} SAR</strong></div>
+      <div className="vat-progress-track" role="img" aria-label={ar ? `تم سداد ${Math.round(paidPercent)} بالمئة من المستحق` : `${Math.round(paidPercent)} percent of VAT due paid`}><span className="paid-progress" style={{ width: `${paidPercent}%` }} /></div>
+      <div className="vat-progress-label"><span>{ar ? 'السيولة المحجوزة من المتبقي' : 'Cash reserved for outstanding'}</span><strong>{amount(periodTotals.cashReservedAmount)} / {amount(outstanding)} SAR</strong></div>
+      <div className="vat-progress-track" role="img" aria-label={ar ? `تغطي السيولة المحجوزة ${Math.round(reservePercent)} بالمئة من المتبقي` : `Reserved cash covers ${Math.round(reservePercent)} percent of the outstanding amount`}><span className="cash-progress" style={{ width: `${reservePercent}%` }} /></div>
+      <div className="vat-visual-footnote">{ar ? 'تُحدّث هذه القيم عند تسجيل السداد أو تعديل السيولة المحجوزة.' : 'Updated when payment or cash reserve figures are recorded.'}</div>
+    </article>
+  </section>;
+}
+
+function VisualBar({ label, value, percent, color }: { label: string; value: number; percent: number; color: string }) {
+  return <div className="vat-visual-bar-row">
+    <div className="vat-visual-bar-copy"><span>{label}</span><strong>{amount(value)} SAR</strong></div>
+    <div className="vat-visual-track" role="img" aria-label={`${label}: ${amount(value)} SAR`}><span className={`vat-visual-bar ${color}`} style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} /></div>
+  </div>;
 }
 
 function AmountField({ label, value, onChange, hint }: { label: string; value: string; onChange: (value: string) => void; hint?: string }) {
