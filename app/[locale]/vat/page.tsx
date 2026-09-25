@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, use, useEffect, useMemo, useState } from 'react';
+import { FormEvent, KeyboardEvent, use, useEffect, useMemo, useState } from 'react';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { summarizeVatDocuments, type VatDocumentForSummary } from '@/lib/vat';
 import { organizationDisplayName } from '@/lib/organization-display';
@@ -106,6 +106,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [saving, setSaving] = useState(false);
   const [invoiceRefresh, setInvoiceRefresh] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'register' | 'einvoicing'>('register');
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
@@ -119,6 +120,19 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const previewTax = draft.supply_type === 'STANDARD'
     ? (Number(draft.net_amount || 0) * currentTaxRate / 100)
     : 0;
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLElement>) {
+    const forward = ar ? 'ArrowLeft' : 'ArrowRight';
+    const backward = ar ? 'ArrowRight' : 'ArrowLeft';
+    if (![forward, backward, 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const nextTab = event.key === 'Home' ? 'register'
+      : event.key === 'End' ? 'einvoicing'
+        : event.key === forward ? (activeTab === 'register' ? 'einvoicing' : 'register')
+          : (activeTab === 'einvoicing' ? 'register' : 'einvoicing');
+    setActiveTab(nextTab);
+    document.getElementById(`vat-tab-${nextTab}`)?.focus();
+  }
 
   useEffect(() => {
     let active = true;
@@ -320,24 +334,36 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
             )}
           </section>
 
-          {organizationId && <VatEInvoiceSetup
-            key={organizationId}
-            organizationId={organizationId}
-            organizationName={selectedOrganization?.name ?? ''}
-            vatNumber={profile?.tax_registration_number ?? ''}
-            registered={isRegistered}
-            ar={ar}
-          />}
-          {organizationId && <VatEInvoiceRegister
-            key={`invoices-${organizationId}`}
-            organizationId={organizationId}
-            organizationName={selectedOrganization?.name ?? ''}
-            vatNumber={profile?.tax_registration_number ?? ''}
-            registered={isRegistered}
-            ar={ar}
-            onInvoiceIssued={() => setInvoiceRefresh((revision) => revision + 1)}
-          />}
+          <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
+            <button
+              id="vat-tab-register"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'register'}
+              tabIndex={activeTab === 'register' ? 0 : -1}
+              aria-controls="vat-panel-register"
+              className={activeTab === 'register' ? 'active' : ''}
+              onClick={() => setActiveTab('register')}
+            >
+              <strong>{ar ? 'الفواتير والملخص الضريبي' : 'Invoices & VAT summary'}</strong>
+              <small>{ar ? 'تسجيل فواتير المبيعات والمشتريات' : 'Record sales and purchase invoices'}</small>
+            </button>
+            <button
+              id="vat-tab-einvoicing"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'einvoicing'}
+              tabIndex={activeTab === 'einvoicing' ? 0 : -1}
+              aria-controls="vat-panel-einvoicing"
+              className={activeTab === 'einvoicing' ? 'active' : ''}
+              onClick={() => setActiveTab('einvoicing')}
+            >
+              <strong>{ar ? 'الفوترة الإلكترونية' : 'E-invoicing'}</strong>
+              <small>{ar ? 'متطلبات زاتكا والإعداد والإصدار' : 'ZATCA requirements, setup and issuance'}</small>
+            </button>
+          </nav>
 
+          <div id="vat-panel-register" role="tabpanel" aria-labelledby="vat-tab-register" hidden={activeTab !== 'register'}>
           <section className="vat-panel vat-period-panel">
             <div className="vat-period-title">
               <div>
@@ -365,7 +391,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
 
           <section className="vat-panel">
             <div className="vat-panel-head">
-              <div><span className="vat-eyebrow">{ar ? 'سجل المستندات' : 'DOCUMENT REGISTER'}</span><h2>{ar ? 'إضافة مستند مبيعات أو مشتريات' : 'Add a sales or purchase document'}</h2><p>{ar ? 'تُسجل المبالغ بالريال السعودي. يُحتسب مبلغ الضريبة من صافي المستند وفق نوع التوريد والنسبة المسجلة.' : 'Enter amounts in Saudi riyals. VAT is calculated from the net amount using the supply type and registered rate.'}</p></div>
+              <div><span className="vat-eyebrow">{ar ? 'إدخال يدوي للسجل' : 'MANUAL REGISTER ENTRY'}</span><h2>{ar ? 'تسجيل فاتورة أو مستند ضريبي' : 'Record an invoice or VAT document'}</h2><p>{ar ? 'أدخل بيانات مستند صادر من نظامك المحاسبي لاحتساب ملخص الضريبة. هذا الإدخال لا ينشئ فاتورة إلكترونية ولا يصدرها.' : 'Record invoice data from your accounting system for the VAT summary. This entry does not create or issue an e-invoice.'}</p></div>
             </div>
             <form className="vat-form-grid vat-document-form" onSubmit={addDocument}>
               <label><span>{ar ? 'نوع المستند' : 'Register as'}</span><select value={draft.document_type} onChange={(event) => setDraft({ ...draft, document_type: event.target.value as DocumentDraft['document_type'] })}><option value="SALES">{ar ? 'مبيعات — ضريبة مخرجات' : 'Sales — output VAT'}</option><option value="PURCHASE">{ar ? 'مشتريات — ضريبة مدخلات' : 'Purchases — input VAT'}</option></select></label>
@@ -401,6 +427,39 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           </section>
 
           <p className="vat-disclaimer">{ar ? 'تتضمن الملخصات الفواتير الصادرة المسجلة هنا. لا ترسل هذه الشاشة الإقرار إلى هيئة الزكاة والضريبة والجمارك، وإصدار QR للمرحلة الأولى لا يغني عن تكامل المرحلة الثانية عند انطباقه. راجع التصنيف الضريبي ومواعيد الإقرار قبل التقديم.' : 'Summaries include invoices issued here. This screen does not submit returns to ZATCA, and Phase 1 QR issuance does not replace Phase 2 integration when applicable. Review tax treatment and filing dates before submission.'}</p>
+          </div>
+          <div id="vat-panel-einvoicing" role="tabpanel" aria-labelledby="vat-tab-einvoicing" hidden={activeTab !== 'einvoicing'}>
+            <section className="vat-panel vat-einvoice-overview">
+              <div>
+                <span className="vat-eyebrow">{ar ? 'مساحة مستقلة لاستكمال المتطلبات' : 'SEPARATE WORKSPACE FOR REQUIREMENTS'}</span>
+                <h2>{ar ? 'إدارة الفاتورة الإلكترونية' : 'Electronic invoice management'}</h2>
+                <p>{ar ? 'هنا تُدار متطلبات الفوترة الإلكترونية وإعداد زاتكا ومسودة الفاتورة وإصدار QR. هذا المسار منفصل عن إدخال الفواتير المستخدم لاحتساب ملخص الضريبة.' : 'Manage e-invoicing requirements, ZATCA setup, invoice drafts and QR issuance here. This workflow is separate from the invoice register used for VAT summaries.'}</p>
+              </div>
+              <span className="vat-status pending">{ar ? 'استكمال المتطلبات قيد العمل' : 'Requirements review in progress'}</span>
+              <div className="vat-einvoice-steps" aria-label={ar ? 'آلية العمل' : 'Workflow'}>
+                <span><b>1</b>{ar ? 'إعداد بيانات الوحدة' : 'Set up the invoice unit'}</span>
+                <span><b>2</b>{ar ? 'إدخال الفاتورة ومراجعتها' : 'Enter and review the invoice'}</span>
+                <span><b>3</b>{ar ? 'اختبار المتطلبات والربط' : 'Validate requirements and integration'}</span>
+              </div>
+            </section>
+            {organizationId && <VatEInvoiceSetup
+              key={organizationId}
+              organizationId={organizationId}
+              organizationName={selectedOrganization?.name ?? ''}
+              vatNumber={profile?.tax_registration_number ?? ''}
+              registered={isRegistered}
+              ar={ar}
+            />}
+            {organizationId && <VatEInvoiceRegister
+              key={`invoices-${organizationId}`}
+              organizationId={organizationId}
+              organizationName={selectedOrganization?.name ?? ''}
+              vatNumber={profile?.tax_registration_number ?? ''}
+              registered={isRegistered}
+              ar={ar}
+              onInvoiceIssued={() => setInvoiceRefresh((revision) => revision + 1)}
+            />}
+          </div>
         </>
       )}
     </main>

@@ -1,507 +1,3 @@
-'use client';
-
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { groupImportRecords, parseCsv, rowsToRecords } from '@/lib/vat-einvoice-import';
-
-type InvoiceLine = {
-  item_name: string;
-  description: string;
-  quantity: string;
-  unit_code: string;
-  unit_price: string;
-  discount_amount: string;
-  tax_category: 'S' | 'Z' | 'E' | 'O';
-  tax_rate: string;
-  tax_exemption_reason_code: string;
-  tax_exemption_reason: string;
-};
-
-type Invoice = {
-  id: string;
-  invoice_number: string;
-  document_type: string;
-  invoice_category: string;
-  status: string;
-  issue_date: string;
-  currency: string;
-  payable_amount: string;
-  tax_total_amount: string;
-  qr_code: string | null;
-  seller_name: string;
-  seller_vat_number: string;
-  seller_address: string;
-  seller_building_number: string;
-  seller_district: string;
-  seller_city: string;
-  seller_postal_code: string;
-  buyer_name: string | null;
-  buyer_vat_number: string | null;
-  buyer_address: string | null;
-  buyer_city: string | null;
-  lines: Array<{ id: string; item_name: string; quantity: number; unit_price: string; tax_amount: string; gross_amount: string }>;
-};
-
-const emptyLine = (): InvoiceLine => ({
-  item_name: '', description: '', quantity: '1', unit_code: 'PCE', unit_price: '',
-  discount_amount: '0', tax_category: 'S', tax_rate: '15',
-  tax_exemption_reason_code: '', tax_exemption_reason: '',
-});
-
-export function VatEInvoiceRegister({
-  organizationId,
-  organizationName,
-  vatNumber,
-  registered,
-  ar,
-  onInvoiceIssued,
-}: {
-  organizationId: string;
-  organizationName: string;
-  vatNumber: string;
-  registered: boolean;
-  ar: boolean;
-  onInvoiceIssued?: () => void;
-}) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [canCreate, setCanCreate] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [category, setCategory] = useState<'STANDARD' | 'SIMPLIFIED'>('STANDARD');
-  const [documentType, setDocumentType] = useState<'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('INVOICE');
-  const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [issueTime, setIssueTime] = useState(() => new Date().toTimeString().slice(0, 5));
-  const [sellerName, setSellerName] = useState(organizationName);
-  const [sellerAddress, setSellerAddress] = useState('');
-  const [sellerBuilding, setSellerBuilding] = useState('');
-  const [sellerDistrict, setSellerDistrict] = useState('');
-  const [sellerAdditional, setSellerAdditional] = useState('');
-  const [sellerCity, setSellerCity] = useState('');
-  const [sellerPostalCode, setSellerPostalCode] = useState('');
-  const [buyerName, setBuyerName] = useState('');
-  const [buyerVatNumber, setBuyerVatNumber] = useState('');
-  const [buyerAddress, setBuyerAddress] = useState('');
-  const [buyerBuilding, setBuyerBuilding] = useState('');
-  const [buyerDistrict, setBuyerDistrict] = useState('');
-  const [buyerCity, setBuyerCity] = useState('');
-  const [buyerPostalCode, setBuyerPostalCode] = useState('');
-  const [billingReference, setBillingReference] = useState('');
-  const [noteReason, setNoteReason] = useState('');
-  const [lines, setLines] = useState<InvoiceLine[]>([emptyLine()]);
-  const importInput = useRef<HTMLInputElement>(null);
-  const [importing, setImporting] = useState(false);
-
-  useEffect(() => {
-    setSellerName(organizationName);
-  }, [organizationName]);
-
-  useEffect(() => {
-    if (!organizationId) return;
-    let active = true;
-    setLoading(true);
-    fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`)
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
-        return body;
-      })
-      .then((body) => {
-        if (!active) return;
-        setInvoices(body.invoices ?? []);
-        setCanCreate(Boolean(body.is_admin && registered));
-      })
-      .catch((error) => { if (active) setMessage({ error: true, text: messageFor(error.message, ar) }); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [organizationId, registered, ar]);
-
-  async function saveDraft(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      const response = await fetch('/api/vat/e-invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organization_id: organizationId,
-          invoice_number: invoiceNumber,
-          invoice_category: category,
-          document_type: documentType,
-          issue_date: issueDate,
-          issue_time: issueTime,
-          seller_name: sellerName,
-          seller_vat_number: vatNumber,
-          seller_address: sellerAddress,
-          seller_building_number: sellerBuilding,
-          seller_district: sellerDistrict,
-          seller_additional_number: sellerAdditional,
-          seller_city: sellerCity,
-          seller_postal_code: sellerPostalCode,
-          seller_country_code: 'SA',
-          buyer_name: buyerName || null,
-          buyer_vat_number: buyerVatNumber || null,
-          buyer_address: buyerAddress || null,
-          buyer_building_number: buyerBuilding || null,
-          buyer_district: buyerDistrict || null,
-          buyer_city: buyerCity || null,
-          buyer_postal_code: buyerPostalCode || null,
-          buyer_country_code: 'SA',
-          billing_reference: billingReference || null,
-          note_reason: noteReason || null,
-          currency: 'SAR',
-          lines: lines.map((line) => ({
-            ...line,
-            description: line.description || null,
-            tax_exemption_reason_code: line.tax_exemption_reason_code || null,
-            tax_exemption_reason: line.tax_exemption_reason || null,
-          })),
-        }),
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        if (body?.error === 'INVALID_EINVOICE_DRAFT') {
-          const issue = body.issues?.[0]?.message;
-          throw new Error(issue || body.error);
-        }
-        throw new Error(body?.error || `HTTP_${response.status}`);
-      }
-      setInvoices((current) => [body, ...current]);
-      setInvoiceNumber('');
-      setBuyerName('');
-      setBuyerVatNumber('');
-      setBuyerAddress('');
-      setBuyerBuilding('');
-      setBuyerDistrict('');
-      setBuyerCity('');
-      setBuyerPostalCode('');
-      setBillingReference('');
-      setNoteReason('');
-      setLines([emptyLine()]);
-      setMessage({ error: false, text: ar ? 'Ø­ÙÙØ¸Øª Ù…Ø³ÙˆØ¯Ø© Ø§Ù„ÙØ§ØªÙˆØ±Ø©. Ù„Ù… ØªØµØ¯Ø± ÙˆÙ„Ù… ØªÙØ±Ø³Ù„ Ø¥Ù„Ù‰ Ø²Ø§ØªÙƒØ§.' : 'Invoice draft saved. It has not been issued or sent to ZATCA.' });
-    } catch (error) {
-      setMessage({ error: true, text: messageFor(error instanceof Error ? error.message : 'UNKNOWN_ERROR', ar) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function importFile(file?: File) {
-    if (!file) return;
-    setImporting(true);
-    setMessage(null);
-    try {
-      if (file.size > 5 * 1024 * 1024) throw new Error('IMPORT_FILE_TOO_LARGE');
-      let rows: unknown[][];
-      if (/\.csv$/i.test(file.name)) {
-        rows = parseCsv(await file.text());
-      } else if (/\.xlsx$/i.test(file.name)) {
-        const ExcelJS = (await import('exceljs')).default;
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(await file.arrayBuffer());
-        const worksheet = workbook.worksheets[0];
-        if (!worksheet) throw new Error('IMPORT_FILE_EMPTY');
-        rows = worksheet.getSheetValues().slice(1).map((row) => Array.isArray(row) ? row.slice(1) : []);
-      } else {
-        throw new Error('IMPORT_FILE_TYPE_UNSUPPORTED');
-      }
-
-      const groups = groupImportRecords(rowsToRecords(rows));
-      let imported = 0;
-      const failures: string[] = [];
-      for (const group of groups) {
-        const first = group.rows[0];
-        const response = await fetch('/api/vat/e-invoices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            organization_id: organizationId,
-            invoice_number: group.invoiceNumber,
-            invoice_category: importCategory(first.invoice_category),
-            document_type: first.document_type || 'INVOICE',
-            issue_date: first.issue_date,
-            issue_time: normalizeTime(first.issue_time),
-            seller_name: first.seller_name || sellerName,
-            seller_vat_number: vatNumber,
-            seller_address: first.seller_address,
-            seller_building_number: first.seller_building_number,
-            seller_district: first.seller_district,
-            seller_additional_number: first.seller_additional_number,
-            seller_city: first.seller_city,
-            seller_postal_code: first.seller_postal_code,
-            buyer_name: first.buyer_name || null,
-            buyer_vat_number: first.buyer_vat_number || null,
-            buyer_address: first.buyer_address || null,
-            buyer_building_number: first.buyer_building_number || null,
-            buyer_district: first.buyer_district || null,
-            buyer_city: first.buyer_city || null,
-            buyer_postal_code: first.buyer_postal_code || null,
-            billing_reference: first.billing_reference || null,
-            note_reason: first.note_reason || null,
-            lines: group.rows.map((row) => ({
-              item_name: row.item_name,
-              description: row.description || null,
-              quantity: row.quantity,
-              unit_code: row.unit_code || 'PCE',
-              unit_price: row.unit_price,
-              discount_amount: row.discount_amount || '0',
-              tax_category: importTaxCategory(row.tax_category),
-              tax_rate: row.tax_rate || '15',
-              tax_exemption_reason_code: row.tax_exemption_reason_code || null,
-              tax_exemption_reason: row.tax_exemption_reason || null,
-            })),
-          }),
-        });
-        const body = await response.json();
-        if (response.ok) imported++;
-        else failures.push(`${group.invoiceNumber}: ${body?.issues?.[0]?.message || body?.error || response.status}`);
-      }
-      const refresh = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
-      if (refresh.ok) {
-        const body = await refresh.json();
-        setInvoices(body.invoices ?? []);
-      }
-      setMessage({
-        error: failures.length > 0,
-        text: ar
-          ? `ØªÙ… Ø§Ø³ØªÙŠØ±Ø§Ø¯ ${imported} Ù…Ø³ÙˆØ¯Ø©${failures.length ? `ØŒ ÙˆØªØ¹Ø°Ø± Ø§Ø³ØªÙŠØ±Ø§Ø¯ ${failures.length}: ${failures.slice(0, 3).join('Ø› ')}` : ''}.`
-          : `Imported ${imported} draft(s)${failures.length ? `; ${failures.length} failed: ${failures.slice(0, 3).join('; ')}` : '.'}`,
-      });
-    } catch (error) {
-      setMessage({ error: true, text: messageFor(error instanceof Error ? error.message : 'IMPORT_FAILED', ar) });
-    } finally {
-      setImporting(false);
-      if (importInput.current) importInput.current.value = '';
-    }
-  }
-
-  async function issueInvoice(invoice: Invoice) {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const response = await fetch('/api/vat/e-invoices/issue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organization_id: organizationId, invoice_id: invoice.id }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
-      setInvoices((current) => current.map((item) => item.id === invoice.id ? { ...item, ...body } : item));
-      onInvoiceIssued?.();
-      setMessage({ error: false, text: ar ? 'ØµØ¯Ø±Øª Ø§Ù„ÙØ§ØªÙˆØ±Ø© ÙˆØ­ÙÙØ¸ Ø±Ù…Ø² QR Ø¨ØµÙŠØºØ© Ø²Ø§ØªÙƒØ§ Ù„Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰.' : 'Invoice issued and its ZATCA Phase 1 QR payload was saved.' });
-    } catch (error) {
-      setMessage({ error: true, text: messageFor(error instanceof Error ? error.message : 'EINVOICE_ISSUE_FAILED', ar) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function printInvoice(invoice: Invoice) {
-    if (!invoice.qr_code) return;
-    const popup = window.open('', '_blank', 'width=900,height=1000');
-    if (!popup) {
-      setMessage({ error: true, text: ar ? 'Ø§Ø³Ù…Ø­ Ø¨Ø§Ù„Ù†ÙˆØ§ÙØ° Ø§Ù„Ù…Ù†Ø¨Ø«Ù‚Ø© Ù„Ø·Ø¨Ø§Ø¹Ø© Ø§Ù„ÙØ§ØªÙˆØ±Ø©.' : 'Allow pop-ups to print the invoice.' });
-      return;
-    }
-    try {
-    const QRCode = (await import('qrcode')).default;
-    const qrImage = await QRCode.toDataURL(invoice.qr_code, { errorCorrectionLevel: 'M', margin: 2, width: 220 });
-    const esc = escapeHtml;
-    popup.document.write(`<!doctype html><html lang="${ar ? 'ar' : 'en'}" dir="${ar ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${esc(invoice.invoice_number)}</title><style>
-      body{font:15px Arial,sans-serif;color:#12352e;margin:30px}.head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0b6b53;padding-bottom:18px}.brand{font-size:24px;font-weight:700}.muted{color:#61736f}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:24px 0}.box{border:1px solid #dbe6e2;border-radius:10px;padding:14px}.box h2{font-size:15px;margin:0 0 12px}.box p{margin:5px 0}.label{color:#61736f;font-size:12px}table{width:100%;border-collapse:collapse;margin-top:22px}th,td{text-align:start;border-bottom:1px solid #dbe6e2;padding:10px}th{background:#f0f6f3}.totals{margin:18px 0 0 auto;width:300px}.totals div{display:flex;justify-content:space-between;padding:6px}.qr{display:flex;justify-content:space-between;align-items:end;margin-top:28px}.qr img{width:155px}@media print{body{margin:12mm}button{display:none}}
-      </style></head><body>
-      <div class="head"><div><div class="brand">ZakatFlow</div><div class="muted">${ar ? 'ÙØ§ØªÙˆØ±Ø© Ø¶Ø±ÙŠØ¨ÙŠØ©' : 'Tax invoice'} Â· ${esc(invoice.invoice_number)}</div></div><div><strong>${ar ? 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥ØµØ¯Ø§Ø±' : 'Issue date'}</strong><br>${esc(invoice.issue_date)}</div></div>
-      <div class="grid"><div class="box"><h2>${ar ? 'Ø§Ù„Ø¨Ø§Ø¦Ø¹' : 'Seller'}</h2><p>${esc(invoice.seller_name)}</p><p>${esc(invoice.seller_vat_number)}</p><p>${esc(invoice.seller_address)}, ${esc(invoice.seller_district)}, ${esc(invoice.seller_city)}</p><p>${esc(invoice.seller_building_number)} Â· ${esc(invoice.seller_postal_code)}</p></div>
-      <div class="box"><h2>${ar ? 'Ø§Ù„Ù…Ø´ØªØ±ÙŠ' : 'Buyer'}</h2><p>${esc(invoice.buyer_name || 'â€”')}</p><p>${esc(invoice.buyer_vat_number || '')}</p><p>${esc(invoice.buyer_address || '')}</p><p>${esc(invoice.buyer_city || '')}</p></div></div>
-      <table><thead><tr><th>${ar ? 'Ø§Ù„Ø¨Ù†Ø¯' : 'Item'}</th><th>${ar ? 'Ø§Ù„ÙƒÙ…ÙŠØ©' : 'Qty'}</th><th>${ar ? 'Ø³Ø¹Ø± Ø§Ù„ÙˆØ­Ø¯Ø©' : 'Unit price'}</th><th>${ar ? 'Ø§Ù„Ø¶Ø±ÙŠØ¨Ø©' : 'VAT'}</th><th>${ar ? 'Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ' : 'Total'}</th></tr></thead><tbody>${invoice.lines.map((line) => `<tr><td>${esc(line.item_name)}</td><td>${esc(String(line.quantity))}</td><td>${formatAmount(line.unit_price)}</td><td>${formatAmount(line.tax_amount)}</td><td>${formatAmount(line.gross_amount)}</td></tr>`).join('')}</tbody></table>
-      <div class="totals"><div><span>${ar ? 'Ø¶Ø±ÙŠØ¨Ø© Ø§Ù„Ù‚ÙŠÙ…Ø© Ø§Ù„Ù…Ø¶Ø§ÙØ©' : 'VAT'}</span><strong>${formatAmount(invoice.tax_total_amount)} SAR</strong></div><div><span>${ar ? 'Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ø³ØªØ­Ù‚' : 'Total due'}</span><strong>${formatAmount(invoice.payable_amount)} SAR</strong></div></div>
-      <div class="qr"><span class="muted">${ar ? 'Ø±Ù…Ø² QR â€” ØµÙŠØºØ© Ø²Ø§ØªÙƒØ§ Ù„Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰' : 'QR code â€” ZATCA Phase 1 format'}</span><img src="${qrImage}" alt="ZATCA QR"></div><script>window.onload=()=>window.print()</script></body></html>`);
-    popup.document.close();
-    } catch {
-      popup.close();
-      setMessage({ error: true, text: ar ? 'ØªØ¹Ø°Ø± Ø¥Ø¹Ø¯Ø§Ø¯ Ù†Ø³Ø®Ø© Ø§Ù„Ø·Ø¨Ø§Ø¹Ø©. Ø£Ø¹Ø¯ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©.' : 'Could not prepare the printable invoice. Please retry.' });
-    }
-  }
-
-  function updateLine(index: number, changes: Partial<InvoiceLine>) {
-    setLines((current) => current.map((line, i) => i === index ? { ...line, ...changes } : line));
-  }
-
-  return (
-    <section className="vat-panel">
-      <div className="vat-panel-head">
-        <div>
-          <span className="vat-eyebrow">{ar ? 'Ø§Ù„ÙÙˆØ§ØªÙŠØ± Ø§Ù„ØµØ§Ø¯Ø±Ø©' : 'SALES INVOICES'}</span>
-          <h2>{ar ? 'Ø¥Ù†Ø´Ø§Ø¡ ÙØ§ØªÙˆØ±Ø© Ø¶Ø±ÙŠØ¨ÙŠØ©' : 'Create a tax invoice'}</h2>
-          <p>{ar ? 'Ø£Ù†Ø´Ø¦ ÙØ§ØªÙˆØ±Ø©ØŒ Ø§Ø³ØªÙˆØ±Ø¯Ù‡Ø§ Ù…Ù† CSV Ø£Ùˆ ExcelØŒ Ø«Ù… Ø£ØµØ¯Ø±Ù‡Ø§ Ù…Ø¹ Ø±Ù…Ø² QR Ø¨ØµÙŠØºØ© Ø²Ø§ØªÙƒØ§ Ù„Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰.' : 'Create an invoice, import CSV or Excel, then issue it with a ZATCA Phase 1 QR code.'}</p>
-        </div>
-      </div>
-      {!registered && <div className="vat-inline-warning">{ar ? 'ÙŠØ¬Ø¨ Ø¥ÙƒÙ…Ø§Ù„ ØªØ³Ø¬ÙŠÙ„ Ø¶Ø±ÙŠØ¨Ø© Ø§Ù„Ù‚ÙŠÙ…Ø© Ø§Ù„Ù…Ø¶Ø§ÙØ© Ù‚Ø¨Ù„ Ø¥Ù†Ø´Ø§Ø¡ ÙØ§ØªÙˆØ±Ø©.' : 'Complete VAT registration before creating an invoice.'}</div>}
-      {!canCreate && registered && <div className="vat-inline-warning">{ar ? 'Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„ÙÙˆØ§ØªÙŠØ± Ù…ØªØ§Ø­ Ù„Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø¤Ø³Ø³Ø© Ø£Ùˆ Ù…Ø¯ÙŠØ±Ù‡Ø§ ÙÙ‚Ø·.' : 'Only an organization owner or admin can create invoices.'}</div>}
-      {message && <div className={`vat-notice ${message.error ? 'error' : 'success'}`} role={message.error ? 'alert' : 'status'}>{message.text}</div>}
-
-      <div className="vat-einvoice-import-actions">
-        <input ref={importInput} type="file" accept=".csv,.xlsx" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
-        <button type="button" className="vat-button secondary" disabled={!canCreate || importing || busy} onClick={() => importInput.current?.click()}>{importing ? (ar ? 'Ø¬Ø§Ø±Ù Ø§Ù„Ø§Ø³ØªÙŠØ±Ø§Ø¯â€¦' : 'Importingâ€¦') : (ar ? 'Ø§Ø³ØªÙŠØ±Ø§Ø¯ CSV / Excel' : 'Import CSV / Excel')}</button>
-        <button type="button" className="vat-button secondary" onClick={downloadTemplate}>{ar ? 'ØªÙ†Ø²ÙŠÙ„ Ù†Ù…ÙˆØ°Ø¬ Ø§Ù„Ø§Ø³ØªÙŠØ±Ø§Ø¯' : 'Download import template'}</button>
-        <small>{ar ? 'ÙƒÙ„ ØµÙ ÙŠÙ…Ø«Ù„ Ø¨Ù†Ø¯Ù‹Ø§Ø› ÙƒØ±Ø± Ø±Ù‚Ù… Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ù„Ø¶Ù… Ø§Ù„Ø¨Ù†ÙˆØ¯ Ø¥Ù„Ù‰ ÙØ§ØªÙˆØ±Ø© ÙˆØ§Ø­Ø¯Ø©. Ø§Ù„Ø§Ø³ØªÙŠØ±Ø§Ø¯ ÙŠØ­ÙØ¸ Ù…Ø³ÙˆØ¯Ø§Øª.' : 'Each row is an invoice line; repeat the invoice number to group lines. Imports are saved as drafts.'}</small>
-      </div>
-
-      <form className="vat-form-grid vat-einvoice-form" onSubmit={saveDraft}>
-        <label><span>{ar ? 'Ø±Ù‚Ù… Ø§Ù„ÙØ§ØªÙˆØ±Ø©' : 'Invoice number'}</span><input required maxLength={100} value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} /></label>
-        <label><span>{ar ? 'Ù†ÙˆØ¹ Ø§Ù„ÙØ§ØªÙˆØ±Ø©' : 'Invoice type'}</span><select value={category} onChange={(event) => setCategory(event.target.value as typeof category)}><option value="STANDARD">{ar ? 'Ø¶Ø±ÙŠØ¨ÙŠØ© Ù‚ÙŠØ§Ø³ÙŠØ©' : 'Standard tax invoice'}</option><option value="SIMPLIFIED">{ar ? 'Ù…Ø¨Ø³Ø·Ø©' : 'Simplified'}</option></select></label>
-        <label><span>{ar ? 'Ù†ÙˆØ¹ Ø§Ù„Ù…Ø³ØªÙ†Ø¯' : 'Document type'}</span><select value={documentType} onChange={(event) => setDocumentType(event.target.value as typeof documentType)}><option value="INVOICE">{ar ? 'ÙØ§ØªÙˆØ±Ø©' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'Ø¥Ø´Ø¹Ø§Ø± Ø¯Ø§Ø¦Ù†' : 'Credit note'}</option><option value="DEBIT_NOTE">{ar ? 'Ø¥Ø´Ø¹Ø§Ø± Ù…Ø¯ÙŠÙ†' : 'Debit note'}</option></select></label>
-        <label><span>{ar ? 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥ØµØ¯Ø§Ø±' : 'Issue date'}</span><input required type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} /></label>
-        <label><span>{ar ? 'ÙˆÙ‚Øª Ø§Ù„Ø¥ØµØ¯Ø§Ø±' : 'Issue time'}</span><input required type="time" value={issueTime} onChange={(event) => setIssueTime(event.target.value)} /></label>
-        <label><span>{ar ? 'Ø§Ø³Ù… Ø§Ù„Ø¨Ø§Ø¦Ø¹' : 'Seller name'}</span><input required maxLength={200} value={sellerName} onChange={(event) => setSellerName(event.target.value)} /></label>
-        <label><span>{ar ? 'Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ø¶Ø±ÙŠØ¨ÙŠ Ù„Ù„Ø¨Ø§Ø¦Ø¹' : 'Seller VAT number'}</span><input value={vatNumber} readOnly /></label>
-        <label><span>{ar ? 'Ø§Ù„Ø´Ø§Ø±Ø¹' : 'Street'}</span><input required maxLength={250} value={sellerAddress} onChange={(event) => setSellerAddress(event.target.value)} /></label>
-        <label><span>{ar ? 'Ø±Ù‚Ù… Ø§Ù„Ù…Ø¨Ù†Ù‰ (4 Ø£Ø±Ù‚Ø§Ù…)' : 'Building number (4 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={sellerBuilding} onChange={(event) => setSellerBuilding(event.target.value)} /></label>
-        <label><span>{ar ? 'Ø§Ù„Ø­ÙŠ' : 'District'}</span><input required maxLength={120} value={sellerDistrict} onChange={(event) => setSellerDistrict(event.target.value)} /></label>
-        <label><span>{ar ? 'Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ø¥Ø¶Ø§ÙÙŠ (4 Ø£Ø±Ù‚Ø§Ù…)' : 'Additional number (4 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={sellerAdditional} onChange={(event) => setSellerAdditional(event.target.value)} /></label>
-        <label><span>{ar ? 'Ù…Ø¯ÙŠÙ†Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹' : 'Seller city'}</span><input required maxLength={120} value={sellerCity} onChange={(event) => setSellerCity(event.target.value)} /></label>
-        <label><span>{ar ? 'Ø§Ù„Ø±Ù…Ø² Ø§Ù„Ø¨Ø±ÙŠØ¯ÙŠ (5 Ø£Ø±Ù‚Ø§Ù…)' : 'Postal code (5 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{5}" maxLength={5} value={sellerPostalCode} onChange={(event) => setSellerPostalCode(event.target.value)} /></label>
-        {category === 'STANDARD' && <>
-          <label><span>{ar ? 'Ø§Ø³Ù… Ø§Ù„Ù…Ø´ØªØ±ÙŠ' : 'Buyer name'}</span><input required maxLength={200} value={buyerName} onChange={(event) => setBuyerName(event.target.value)} /></label>
-          <label><span>{ar ? 'Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ø¶Ø±ÙŠØ¨ÙŠ Ù„Ù„Ù…Ø´ØªØ±ÙŠ' : 'Buyer VAT number'}</span><input maxLength={15} value={buyerVatNumber} onChange={(event) => setBuyerVatNumber(event.target.value)} /></label>
-          <label><span>{ar ? 'Ø§Ù„Ø´Ø§Ø±Ø¹' : 'Street'}</span><input required maxLength={250} value={buyerAddress} onChange={(event) => setBuyerAddress(event.target.value)} /></label>
-          <label><span>{ar ? 'Ø±Ù‚Ù… Ø§Ù„Ù…Ø¨Ù†Ù‰ (4 Ø£Ø±Ù‚Ø§Ù…)' : 'Building number (4 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={buyerBuilding} onChange={(event) => setBuyerBuilding(event.target.value)} /></label>
-          <label><span>{ar ? 'Ø§Ù„Ø­ÙŠ' : 'District'}</span><input required maxLength={120} value={buyerDistrict} onChange={(event) => setBuyerDistrict(event.target.value)} /></label>
-          <label><span>{ar ? 'Ù…Ø¯ÙŠÙ†Ø© Ø§Ù„Ù…Ø´ØªØ±ÙŠ' : 'Buyer city'}</span><input required maxLength={120} value={buyerCity} onChange={(event) => setBuyerCity(event.target.value)} /></label>
-          <label><span>{ar ? 'Ø§Ù„Ø±Ù…Ø² Ø§Ù„Ø¨Ø±ÙŠØ¯ÙŠ (5 Ø£Ø±Ù‚Ø§Ù…)' : 'Postal code (5 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{5}" maxLength={5} value={buyerPostalCode} onChange={(event) => setBuyerPostalCode(event.target.value)} /></label>
-        </>}
-        {documentType !== 'INVOICE' && <>
-          <label><span>{ar ? 'Ù…Ø±Ø¬Ø¹ Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ©' : 'Original invoice reference'}</span><input required maxLength={100} value={billingReference} onChange={(event) => setBillingReference(event.target.value)} /></label>
-          <label><span>{ar ? 'Ø³Ø¨Ø¨ Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±' : 'Note reason'}</span><input required maxLength={500} value={noteReason} onChange={(event) => setNoteReason(event.target.value)} /></label>
-        </>}
-
-        <div className="vat-einvoice-lines">
-          <div className="vat-einvoice-lines-head"><strong>{ar ? 'Ø¨Ù†ÙˆØ¯ Ø§Ù„ÙØ§ØªÙˆØ±Ø©' : 'Invoice lines'}</strong><button type="button" className="vat-button secondary" onClick={() => setLines((current) => [...current, emptyLine()])}>{ar ? 'Ø¥Ø¶Ø§ÙØ© Ø¨Ù†Ø¯' : 'Add line'}</button></div>
-          {lines.map((line, index) => <fieldset className="vat-einvoice-line" key={index}>
-            <legend>{ar ? `Ø§Ù„Ø¨Ù†Ø¯ ${index + 1}` : `Line ${index + 1}`}</legend>
-            <label><span>{ar ? 'ÙˆØµÙ Ø§Ù„Ø³Ù„Ø¹Ø© Ø£Ùˆ Ø§Ù„Ø®Ø¯Ù…Ø©' : 'Item or service'}</span><input required maxLength={200} value={line.item_name} onChange={(event) => updateLine(index, { item_name: event.target.value })} /></label>
-            <label><span>{ar ? 'Ø§Ù„ÙƒÙ…ÙŠØ©' : 'Quantity'}</span><input required type="number" min="0.000001" step="0.000001" value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} /></label>
-            <label><span>{ar ? 'Ø³Ø¹Ø± Ø§Ù„ÙˆØ­Ø¯Ø© (Ø±ÙŠØ§Ù„)' : 'Unit price (SAR)'}</span><input required type="number" min="0" step="0.000001" value={line.unit_price} onChange={(event) => updateLine(index, { unit_price: event.target.value })} /></label>
-            <label><span>{ar ? 'Ø§Ù„Ø®ØµÙ… (Ø±ÙŠØ§Ù„)' : 'Discount (SAR)'}</span><input type="number" min="0" step="0.01" value={line.discount_amount} onChange={(event) => updateLine(index, { discount_amount: event.target.value })} /></label>
-            <label><span>{ar ? 'Ø§Ù„ØªØµÙ†ÙŠÙ Ø§Ù„Ø¶Ø±ÙŠØ¨ÙŠ' : 'Tax category'}</span><select value={line.tax_category} onChange={(event) => updateLine(index, { tax_category: event.target.value as InvoiceLine['tax_category'], tax_rate: event.target.value === 'S' ? '15' : '0' })}><option value="S">{ar ? 'Ù‚ÙŠØ§Ø³ÙŠ' : 'Standard'}</option><option value="Z">{ar ? 'ØµÙØ±ÙŠ' : 'Zero-rated'}</option><option value="E">{ar ? 'Ù…Ø¹ÙÙ‰' : 'Exempt'}</option><option value="O">{ar ? 'Ø®Ø§Ø±Ø¬ Ø§Ù„Ù†Ø·Ø§Ù‚' : 'Out of scope'}</option></select></label>
-            {line.tax_category === 'S' && <label><span>{ar ? 'Ù†Ø³Ø¨Ø© Ø§Ù„Ø¶Ø±ÙŠØ¨Ø© %' : 'VAT rate %'}</span><input required type="number" min="0.01" max="100" step="0.01" value={line.tax_rate} onChange={(event) => updateLine(index, { tax_rate: event.target.value })} /></label>}
-            {(line.tax_category === 'Z' || line.tax_category === 'E') && <>
-              <label><span>{ar ? 'Ø±Ù…Ø² Ø³Ø¨Ø¨ Ø§Ù„Ù…Ø¹Ø§Ù…Ù„Ø©' : 'Treatment reason code'}</span><input required maxLength={20} value={line.tax_exemption_reason_code} onChange={(event) => updateLine(index, { tax_exemption_reason_code: event.target.value })} /></label>
-              <label><span>{ar ? 'Ø´Ø±Ø­ Ø§Ù„Ø³Ø¨Ø¨' : 'Reason description'}</span><input required maxLength={500} value={line.tax_exemption_reason} onChange={(event) => updateLine(index, { tax_exemption_reason: event.target.value })} /></label>
-            </>}
-            {lines.length > 1 && <button type="button" className="vat-delete" aria-label={ar ? `Ø­Ø°Ù Ø§Ù„Ø¨Ù†Ø¯ ${index + 1}` : `Remove line ${index + 1}`} onClick={() => setLines((current) => current.filter((_, i) => i !== index))}>Ã—</button>}
-          </fieldset>)}
-        </div>
-        <div className="vat-form-actions"><button className="vat-button primary" disabled={!canCreate || busy || importing || !vatNumber}>{busy ? (ar ? 'Ø¬Ø§Ø±Ù Ø§Ù„Ø­ÙØ¸â€¦' : 'Savingâ€¦') : (ar ? 'Ø­ÙØ¸ ÙƒÙ…Ø³ÙˆØ¯Ø©' : 'Save as draft')}</button></div>
-      </form>
-
-      <div className="vat-einvoice-list" aria-live="polite">
-        {loading && <div className="vat-empty-row">{ar ? 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„ÙÙˆØ§ØªÙŠØ±â€¦' : 'Loading invoicesâ€¦'}</div>}
-        {!loading && invoices.map((invoice) => <div className="vat-einvoice-item" key={invoice.id}>
-          <div><strong>{invoice.invoice_number}</strong><small>{invoice.issue_date} Â· {invoice.invoice_category === 'STANDARD' ? (ar ? 'Ù‚ÙŠØ§Ø³ÙŠØ©' : 'Standard') : (ar ? 'Ù…Ø¨Ø³Ø·Ø©' : 'Simplified')} Â· {invoice.lines.length} {ar ? 'Ø¨Ù†ÙˆØ¯' : 'lines'}</small></div>
-          <div className="vat-einvoice-total">{formatAmount(invoice.payable_amount)} {invoice.currency}</div>
-          <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'ØµØ§Ø¯Ø±Ø© â€” QR Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰' : 'Issued â€” Phase 1 QR') : (ar ? 'Ù…Ø³ÙˆØ¯Ø©' : 'Draft')}</span>
-          <div className="vat-invoice-actions">
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || importing || !canCreate || invoice.document_type !== 'INVOICE'} onClick={() => void issueInvoice(invoice)}>{ar ? 'Ø¥ØµØ¯Ø§Ø±' : 'Issue'}</button>}
-            {invoice.status === 'ISSUED' && invoice.qr_code && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'Ø·Ø¨Ø§Ø¹Ø© / PDF' : 'Print / PDF'}</button>}
-          </div>
-        </div>)}
-        {!loading && !invoices.length && <div className="vat-empty-row">{ar ? 'Ù„Ø§ ØªÙˆØ¬Ø¯ ÙÙˆØ§ØªÙŠØ± Ø¨Ø¹Ø¯.' : 'No invoices yet.'}</div>}
-      </div>
-      <p className="vat-einvoice-help">{ar ? 'Ø±Ù…Ø² QR Ø¹Ù†Ø¯ Ø§Ù„Ø¥ØµØ¯Ø§Ø± ÙŠØ·Ø¨Ù‚ Ø­Ù‚ÙˆÙ„ Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰ (Ø§Ù„Ø§Ø³Ù…ØŒ Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ø¶Ø±ÙŠØ¨ÙŠØŒ Ø§Ù„ÙˆÙ‚ØªØŒ Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ ÙˆØ§Ù„Ø¶Ø±ÙŠØ¨Ø©). Ù„Ø§ ØªØ±Ø³Ù„ Ù‡Ø°Ù‡ Ø§Ù„Ø¹Ù…Ù„ÙŠØ© Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ø¥Ù„Ù‰ Ø²Ø§ØªÙƒØ§ ÙˆÙ„Ø§ ØªØ·Ø¨Ù‚ ØªÙƒØ§Ù…Ù„ Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø«Ø§Ù†ÙŠØ© Ø£Ùˆ Ø®ØªÙ… XML. Ø¥Ø°Ø§ ÙƒØ§Ù† Ù†Ø´Ø§Ø·Ùƒ Ø¶Ù…Ù† Ù…ÙˆØ¬Ø© Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø«Ø§Ù†ÙŠØ©ØŒ Ø£ÙƒÙ…Ù„ Ø±Ø¨Ø· Ø§Ù„Ø¥Ù†ØªØ§Ø¬ Ù‚Ø¨Ù„ Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯.' : 'Issuing creates the five Phase 1 QR fields (seller, VAT number, timestamp, total and VAT). It does not submit the invoice to ZATCA or apply Phase 2 XML stamping. If your business is in a Phase 2 wave, complete production onboarding before relying on this flow.'}</p>
-    </section>
-  );
-}
-
-function formatAmount(value: string | number) {
-  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function downloadTemplate() {
-  const columns = [
-    'invoice_number', 'invoice_category', 'document_type', 'issue_date', 'issue_time',
-    'seller_name', 'seller_address', 'seller_building_number', 'seller_district', 'seller_additional_number', 'seller_city', 'seller_postal_code',
-    'buyer_name', 'buyer_vat_number', 'buyer_address', 'buyer_building_number', 'buyer_district', 'buyer_city', 'buyer_postal_code',
-    'billing_reference', 'note_reason', 'item_name', 'description', 'quantity', 'unit_code', 'unit_price', 'discount_amount', 'tax_category', 'tax_rate', 'tax_exemption_reason_code', 'tax_exemption_reason',
-  ];
-  const blob = new Blob([`${columns.join(',')}\r\n`], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'zakatflow-vat-invoice-import-template.csv';
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function importCategory(value?: string): 'STANDARD' | 'SIMPLIFIED' {
-  const category = (value ?? '').trim().toUpperCase();
-  return category === 'SIMPLIFIED' || category === 'Ù…Ø¨Ø³Ø·Ø©' ? 'SIMPLIFIED' : 'STANDARD';
-}
-
-function importTaxCategory(value?: string): InvoiceLine['tax_category'] {
-  const category = (value ?? 'S').trim().toUpperCase();
-  if (category === 'Z' || category === 'ZERO_RATED' || category === 'ØµÙØ±ÙŠ') return 'Z';
-  if (category === 'E' || category === 'EXEMPT' || category === 'Ù…Ø¹ÙÙ‰') return 'E';
-  if (category === 'O' || category === 'OUT_OF_SCOPE' || category === 'Ø®Ø§Ø±Ø¬ Ø§Ù„Ù†Ø·Ø§Ù‚') return 'O';
-  return 'S';
-}
-
-function normalizeTime(value?: string) {
-  const raw = (value ?? '').trim();
-  if (/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(raw)) return raw.length === 5 ? `${raw}:00` : raw;
-  const fraction = Number(raw);
-  if (Number.isFinite(fraction) && fraction >= 0 && fraction < 1) {
-    const seconds = Math.round(fraction * 86400) % 86400;
-    return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-  }
-  return raw;
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
-}
-
-function messageFor(code: string, ar: boolean) {
-  const labels: Record<string, [string, string]> = {
-    UNAUTHORIZED: ['ÙŠÙ„Ø²Ù… ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„.', 'Please sign in.'],
-    ORGANIZATION_ACCESS_REQUIRED: ['Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø¤Ø³Ø³Ø©.', 'You do not have access to this organization.'],
-    ORGANIZATION_ADMIN_REQUIRED: ['Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ø³ÙˆØ¯Ø§Øª Ù…ØªØ§Ø­ Ù„Ù…Ø§Ù„Ùƒ Ø§Ù„Ù…Ø¤Ø³Ø³Ø© Ø£Ùˆ Ù…Ø¯ÙŠØ±Ù‡Ø§.', 'Only an organization owner or admin can create drafts.'],
-    VAT_PROFILE_REQUIRED: ['Ø§Ø­ÙØ¸ Ù…Ù„Ù Ø§Ù„ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¶Ø±ÙŠØ¨ÙŠ Ø£ÙˆÙ„Ù‹Ø§.', 'Save the VAT registration profile first.'],
-    VAT_REGISTRATION_REQUIRED: ['ÙŠØ¬Ø¨ Ø£Ù† ØªÙƒÙˆÙ† Ø§Ù„Ù…Ø¤Ø³Ø³Ø© Ù…Ø³Ø¬Ù„Ø© ÙÙŠ Ø¶Ø±ÙŠØ¨Ø© Ø§Ù„Ù‚ÙŠÙ…Ø© Ø§Ù„Ù…Ø¶Ø§ÙØ©.', 'The organization must be VAT registered.'],
-    SELLER_VAT_MISMATCH: ['ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ·Ø§Ø¨Ù‚ Ø±Ù‚Ù… Ø§Ù„Ø¨Ø§Ø¦Ø¹ Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ø¶Ø±ÙŠØ¨ÙŠ Ø§Ù„Ù…Ø³Ø¬Ù„ Ù„Ù„Ù…Ø¤Ø³Ø³Ø©.', 'The seller VAT number must match the organization profile.'],
-    EINVOICE_NUMBER_EXISTS: ['Ø±Ù‚Ù… Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ù…Ø³ØªØ®Ø¯Ù… Ù…Ù† Ù‚Ø¨Ù„ ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø¤Ø³Ø³Ø©.', 'This invoice number is already used in this organization.'],
-    PRECEDING_INVOICE_NOT_ISSUED: ['ÙŠØ¬Ø¨ Ø£Ù† ØªÙƒÙˆÙ† Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ© ØµØ§Ø¯Ø±Ø© Ù‚Ø¨Ù„ Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±.', 'The original invoice must be issued before creating a note.'],
-    NOTE_INVOICE_CATEGORY_MISMATCH: ['ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ·Ø§Ø¨Ù‚ Ù†ÙˆØ¹ Ø§Ù„Ø¥Ø´Ø¹Ø§Ø± Ù†ÙˆØ¹ Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ©.', 'The note category must match the original invoice.'],
-    STANDARD_TAX_RATE_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ù†Ø³Ø¨Ø© Ø¶Ø±ÙŠØ¨Ø© Ø£ÙƒØ¨Ø± Ù…Ù† ØµÙØ± Ù„Ù„Ø¨Ù†Ø¯ Ø§Ù„Ù‚ÙŠØ§Ø³ÙŠ.', 'Enter a VAT rate above zero for a standard line.'],
-    ZERO_TAX_RATE_REQUIRED: ['Ø§Ø³ØªØ®Ø¯Ù… Ù†Ø³Ø¨Ø© ØµÙØ±ÙŠØ© Ù„ØªØµÙ†ÙŠÙ Ø§Ù„Ø¨Ù†Ø¯ Ø§Ù„Ù…Ø­Ø¯Ø¯.', 'Use a zero rate for the selected tax category.'],
-    TAX_TREATMENT_REASON_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ø±Ù…Ø² ÙˆØ³Ø¨Ø¨ Ø§Ù„Ø¥Ø¹ÙØ§Ø¡ Ø£Ùˆ Ø§Ù„Ù†Ø³Ø¨Ø© Ø§Ù„ØµÙØ±ÙŠØ©.', 'Enter a reason code and description for exempt or zero-rated lines.'],
-    STANDARD_BUYER_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ø§Ø³Ù… Ø§Ù„Ù…Ø´ØªØ±ÙŠ Ù„Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ù‚ÙŠØ§Ø³ÙŠØ©.', 'Enter the buyer name for a standard invoice.'],
-    STANDARD_BUYER_ADDRESS_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù…Ø´ØªØ±ÙŠ Ù„Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ù‚ÙŠØ§Ø³ÙŠØ©.', 'Enter the buyer address for a standard invoice.'],
-    STANDARD_BUYER_CITY_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ù…Ø¯ÙŠÙ†Ø© Ø§Ù„Ù…Ø´ØªØ±ÙŠ Ù„Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ù‚ÙŠØ§Ø³ÙŠØ©.', 'Enter the buyer city for a standard invoice.'],
-    STANDARD_BUYER_DISTRICT_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ø­ÙŠ Ø§Ù„Ù…Ø´ØªØ±ÙŠ Ù„Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ù‚ÙŠØ§Ø³ÙŠØ©.', 'Enter the buyer district for a standard invoice.'],
-    STANDARD_BUYER_POSTAL_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ø§Ù„Ø±Ù…Ø² Ø§Ù„Ø¨Ø±ÙŠØ¯ÙŠ Ù„Ù„Ù…Ø´ØªØ±ÙŠ Ù…Ù† 5 Ø£Ø±Ù‚Ø§Ù….', 'Enter the buyer 5-digit postal code.'],
-    STANDARD_BUYER_BUILDING_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ø±Ù‚Ù… Ù…Ø¨Ù†Ù‰ Ø§Ù„Ù…Ø´ØªØ±ÙŠ Ù…Ù† 4 Ø£Ø±Ù‚Ø§Ù….', 'Enter the buyer 4-digit building number.'],
-    INVALID_SELLER_BUILDING_NUMBER: ['Ø±Ù‚Ù… Ù…Ø¨Ù†Ù‰ Ø§Ù„Ø¨Ø§Ø¦Ø¹ ÙŠØ¬Ø¨ Ø£Ù† ÙŠØªÙƒÙˆÙ† Ù…Ù† 4 Ø£Ø±Ù‚Ø§Ù….', 'Seller building number must contain 4 digits.'],
-    INVALID_SELLER_ADDITIONAL_NUMBER: ['Ø§Ù„Ø±Ù‚Ù… Ø§Ù„Ø¥Ø¶Ø§ÙÙŠ Ù„Ù„Ø¨Ø§Ø¦Ø¹ ÙŠØ¬Ø¨ Ø£Ù† ÙŠØªÙƒÙˆÙ† Ù…Ù† 4 Ø£Ø±Ù‚Ø§Ù….', 'Seller additional number must contain 4 digits.'],
-    INVALID_SELLER_POSTAL_CODE: ['Ø§Ù„Ø±Ù…Ø² Ø§Ù„Ø¨Ø±ÙŠØ¯ÙŠ Ù„Ù„Ø¨Ø§Ø¦Ø¹ ÙŠØ¬Ø¨ Ø£Ù† ÙŠØªÙƒÙˆÙ† Ù…Ù† 5 Ø£Ø±Ù‚Ø§Ù….', 'Seller postal code must contain 5 digits.'],
-    INVALID_BUYER_BUILDING_NUMBER: ['Ø±Ù‚Ù… Ù…Ø¨Ù†Ù‰ Ø§Ù„Ù…Ø´ØªØ±ÙŠ ÙŠØ¬Ø¨ Ø£Ù† ÙŠØªÙƒÙˆÙ† Ù…Ù† 4 Ø£Ø±Ù‚Ø§Ù….', 'Buyer building number must contain 4 digits.'],
-    INVALID_BUYER_POSTAL_CODE: ['Ø§Ù„Ø±Ù…Ø² Ø§Ù„Ø¨Ø±ÙŠØ¯ÙŠ Ù„Ù„Ù…Ø´ØªØ±ÙŠ ÙŠØ¬Ø¨ Ø£Ù† ÙŠØªÙƒÙˆÙ† Ù…Ù† 5 Ø£Ø±Ù‚Ø§Ù….', 'Buyer postal code must contain 5 digits.'],
-    NOTE_INVOICE_REFERENCE_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ù…Ø±Ø¬Ø¹ Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù„Ù„Ø¥Ø´Ø¹Ø§Ø±.', 'Enter the original invoice reference for this note.'],
-    NOTE_REASON_REQUIRED: ['Ø£Ø¯Ø®Ù„ Ø³Ø¨Ø¨ Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±.', 'Enter a reason for the note.'],
-    EINVOICE_NOT_DRAFT: ['Ù‡Ø°Ù‡ Ø§Ù„ÙØ§ØªÙˆØ±Ø© Ù„ÙŠØ³Øª Ù…Ø³ÙˆØ¯Ø© Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ø¥ØµØ¯Ø§Ø±.', 'This invoice is not a draft that can be issued.'],
-    NOTE_ISSUANCE_NOT_SUPPORTED: ['Ø¥ØµØ¯Ø§Ø± Ø§Ù„Ø¥Ø´Ø¹Ø§Ø±Ø§Øª Ø§Ù„Ø¯Ø§Ø¦Ù†Ø© Ø£Ùˆ Ø§Ù„Ù…Ø¯ÙŠÙ†Ø© ØºÙŠØ± Ù…ØªØ§Ø­ Ø­ØªÙ‰ Ø§Ù„Ø¢Ù†.', 'Credit and debit note issuance is not available yet.'],
-    EINVOICE_ISSUE_FAILED: ['ØªØ¹Ø°Ø± Ø¥ØµØ¯Ø§Ø± Ø§Ù„ÙØ§ØªÙˆØ±Ø©. ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ­Ø§ÙˆÙ„ Ù…Ø¬Ø¯Ø¯Ù‹Ø§.', 'Could not issue the invoice. Check the details and try again.'],
-    IMPORT_FILE_TOO_LARGE: ['Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù ÙŠØªØ¬Ø§ÙˆØ² 5 Ù…ÙŠØºØ§Ø¨Ø§ÙŠØª.', 'The file exceeds 5 MB.'],
-    IMPORT_FILE_EMPTY: ['Ø§Ù„Ù…Ù„Ù Ù„Ø§ ÙŠØ­ØªÙˆÙŠ Ø¹Ù„Ù‰ ØµÙÙˆÙ Ø¨ÙŠØ§Ù†Ø§Øª.', 'The file has no data rows.'],
-    IMPORT_HEADERS_MISSING: ['ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ­ØªÙˆÙŠ Ø§Ù„Ù…Ù„Ù Ø¹Ù„Ù‰ Ø¹Ù…ÙˆØ¯ÙŠ invoice_number Ùˆ item_name Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„.', 'The file must include invoice_number and item_name columns.'],
-    IMPORT_FILE_TYPE_UNSUPPORTED: ['Ø§Ø®ØªØ± Ù…Ù„Ù CSV Ø£Ùˆ Excel Ø¨ØµÙŠØºØ© XLSX.', 'Choose a CSV or XLSX Excel file.'],
-    IMPORT_TOO_MANY_INVOICES: ['Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ 200 ÙØ§ØªÙˆØ±Ø© ÙÙŠ Ø§Ù„Ø¹Ù…Ù„ÙŠØ© Ø§Ù„ÙˆØ§Ø­Ø¯Ø©.', 'Import up to 200 invoices at a time.'],
-    IMPORT_CSV_UNCLOSED_QUOTE: ['ÙŠÙˆØ¬Ø¯ Ø§Ù‚ØªØ¨Ø§Ø³ ØºÙŠØ± Ù…ØºÙ„Ù‚ ÙÙŠ Ù…Ù„Ù CSV.', 'A quoted field is not closed in the CSV file.'],
-    IMPORT_INVOICE_NUMBER_MISSING: ['ÙŠÙˆØ¬Ø¯ ØµÙ Ø¨Ù„Ø§ Ø±Ù‚Ù… ÙØ§ØªÙˆØ±Ø©.', 'A row is missing an invoice number.'],
-    EINVOICE_NOT_FOUND: ['Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„ÙØ§ØªÙˆØ±Ø©.', 'Invoice not found.'],
-    QR_FIELD_TOO_LONG: ['Ø¥Ø­Ø¯Ù‰ Ø¨ÙŠØ§Ù†Ø§Øª QR Ø£Ø·ÙˆÙ„ Ù…Ù† Ø§Ù„Ø­Ø¯ Ø§Ù„Ù…Ø³Ù…ÙˆØ­.', 'A QR field exceeds the supported size.'],
-  };
-  if (code.startsWith('LINE_DISCOUNT_EXCEEDS_AMOUNT:')) return ar ? 'Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø£Ù† ÙŠØªØ¬Ø§ÙˆØ² Ø§Ù„Ø®ØµÙ… Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ù‚ÙŠÙ…Ø© Ø§Ù„Ø¨Ù†Ø¯.' : 'A line discount cannot exceed the line amount.';
-  return labels[code]?.[ar ? 0 : 1] ?? (ar ? 'ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø§Ù„Ù…Ø³ÙˆØ¯Ø©. ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø«Ù… Ø£Ø¹Ø¯ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©.' : 'Could not save the draft. Check the details and try again.');
-}
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×}uÙ:-jZ.¶›­–)Þ³RwW6R6Æ–VçBs° ¦–×÷'B²f÷&ÔWfVçBÂW6TVffV7BÂW6U&VbÂW6U7FFRÒg&öÒw&V7Bs°¦–×÷'B²w&÷W–×÷'E&V6÷&G2Â'6T77bÂ&÷w5Fõ&V6÷&G2Òg&öÒtöÆ–"÷fBÖV–çfö–6RÖ–×÷'Bs° §G—R–çfö–6TÆ–æRÒ°¢—FVÕöæÖS¢7G&–æs°¢FW67&—F–öã¢7G&–æs°¢VçF—G“¢7G&–æs°¢Væ—Eö6öFS¢7G&–æs°¢Væ—E÷&–6S¢7G&–æs°¢F—66÷VçEöÖ÷VçC¢7G&–æs°¢F…ö6FVv÷'“¢u2rÂu¢rÂtRrÂtòs°¢F…÷&FS¢7G&–æs°¢F…öW†V×F–öå÷&V6öåö6öFS¢7G&–æs°¢F…öW†V×F–öå÷&V6öã¢7G&–æs°§Ó° §G—R–çfö–6RÒ°¢–C¢7G&–æs°¢–çfö–6UöçVÖ&W#¢7G&–æs°¢Fö7VÖVçE÷G—S¢7G&–æs°¢–çfö–6Uö6FVv÷'“¢7G&–æs°¢7FGW3¢7G&–æs°¢—77VUöFFS¢7G&–æs°¢7W'&Væ7“¢7G&–æs°¢–&ÆUöÖ÷VçC¢7G&–æs°¢F…÷F÷FÅöÖ÷VçC¢7G&–æs°¢%ö6öFS¢7G&–ærÂçVÆÃ°¢6VÆÆW%öæÖS¢7G&–æs°¢6VÆÆW%÷fEöçVÖ&W#¢7G&–æs°¢6VÆÆW%öFG&W73¢7G&–æs°¢6VÆÆW%ö'V–ÆF–æuöçVÖ&W#¢7G&–æs°¢6VÆÆW%öF—7G&–7C¢7G&–æs°¢6VÆÆW%ö6—G“¢7G&–æs°¢6VÆÆW%÷÷7FÅö6öFS¢7G&–æs°¢'W–W%öæÖS¢7G&–ærÂçVÆÃ°¢'W–W%÷fEöçVÖ&W#¢7G&–ærÂçVÆÃ°¢'W–W%öFG&W73¢7G&–ærÂçVÆÃ°¢'W–W%ö6—G“¢7G&–ærÂçVÆÃ°¢Æ–æW3¢'&“Ç²–C¢7G&–æs²—FVÕöæÖS¢7G&–æs²VçF—G“¢çVÖ&W#²Væ—E÷&–6S¢7G&–æs²F…öÖ÷VçC¢7G&–æs²w&÷75öÖ÷VçC¢7G&–ærÓã°§Ó° ¦6öç7BV×G”Æ–æRÒ‚“¢–çfö–6TÆ–æRÓâ‡°¢—FVÕöæÖS¢rrÂFW67&—F–öã¢rrÂVçF—G“¢srÂVæ—Eö6öFS¢u4RrÂVæ—E÷&–6S¢rrÀ¢F—66÷VçEöÖ÷VçC¢srÂF…ö6FVv÷'“¢u2rÂF…÷&FS¢sRrÀ¢F…öW†V×F–öå÷&V6öåö6öFS¢rrÂF…öW†V×F–öå÷&V6öã¢rrÀ§Ò“° ¦W‡÷'BgVæ7F–öâfDT–çfö–6U&Vv—7FW"‡°¢÷&væ—¦F–öä–BÀ¢÷&væ—¦F–öäæÖRÀ¢fDçVÖ&W"À¢&Vv—7FW&VBÀ¢"À¢öä–çfö–6T—77VVBÀ§Ó¢°¢÷&væ—¦F–öä–C¢7G&–æs°¢÷&væ—¦F–öäæÖS¢7G&–æs°¢fDçVÖ&W#¢7G&–æs°¢&Vv—7FW&VC¢&ööÆVã°¢#¢&ööÆVã°¢öä–çfö–6T—77VVCó¢‚’Óâfö–C°§Ò’°¢6öç7B¶–çfö–6W2Â6WD–çfö–6W5ÒÒW6U7FFSÄ–çfö–6UµÓâ…µÒ“°¢6öç7B¶6ä7&VFRÂ6WD6ä7&VFUÒÒW6U7FFR†fÇ6R“°¢6öç7B¶ÆöF–ærÂ6WDÆöF–æuÒÒW6U7FFR†fÇ6R“°¢6öç7B¶'W7’Â6WD'W7•ÒÒW6U7FFR†fÇ6R“°¢6öç7B¶ÖW76vRÂ6WDÖW76vUÒÒW6U7FFSÇ²W'&÷#¢&ööÆVã²FW‡C¢7G&–ærÒÂçVÆÃâ†çVÆÂ“°¢6öç7B¶–çfö–6TçVÖ&W"Â6WD–çfö–6TçVÖ&W%ÒÒW6U7FFR‚rr“°¢6öç7B¶6FVv÷'’Â6WD6FVv÷'•ÒÒW6U7FFSÂu5DäD$BrÂu4”ÕÄ”d”TBsâ‚u5DäD$Br“°¢6öç7B¶Fö7VÖVçEG—RÂ6WDFö7VÖVçEG—UÒÒW6U7FFSÂt”ådô”4RrÂt5$TD•EôäõDRrÂtDT$•EôäõDRsâ‚t”ådô”4Rr“°¢6öç7B¶—77VTFFRÂ6WD—77VTFFUÒÒW6U7FFR‚‚’ÓâæWrFFR‚’çFô•4õ7G&–ær‚’ç6Æ–6RƒÂ’“°¢6öç7B¶—77VUF–ÖRÂ6WD—77VUF–ÖUÒÒW6U7FFR‚‚’ÓâæWrFFR‚’çFõF–ÖU7G&–ær‚’ç6Æ–6RƒÂR’“°¢6öç7B·6VÆÆW$æÖRÂ6WE6VÆÆW$æÖUÒÒW6U7FFR†÷&væ—¦F–öäæÖR“°¢6öç7B·6VÆÆW$FG&W72Â6WE6VÆÆW$FG&W75ÒÒW6U7FFR‚rr“°¢6öç7B·6VÆÆW$'V–ÆF–ærÂ6WE6VÆÆW$'V–ÆF–æuÒÒW6U7FFR‚rr“°¢6öç7B·6VÆÆW$F—7G&–7BÂ6WE6VÆÆW$F—7G&–7EÒÒW6U7FFR‚rr“°¢6öç7B·6VÆÆW$FF—F–öæÂÂ6WE6VÆÆW$FF—F–öæÅÒÒW6U7FFR‚rr“°¢6öç7B·6VÆÆW$6—G’Â6WE6VÆÆW$6—G•ÒÒW6U7FFR‚rr“°¢6öç7B·6VÆÆW%÷7FÄ6öFRÂ6WE6VÆÆW%÷7FÄ6öFUÒÒW6U7FFR‚rr“°¢6öç7B¶'W–W$æÖRÂ6WD'W–W$æÖUÒÒW6U7FFR‚rr“°¢6öç7B¶'W–W%fDçVÖ&W"Â6WD'W–W%fDçVÖ&W%ÒÒW6U7FFR‚rr“°¢6öç7B¶'W–W$FG&W72Â6WD'W–W$FG&W75ÒÒW6U7FFR‚rr“°¢6öç7B¶'W–W$'V–ÆF–ærÂ6WD'W–W$'V–ÆF–æuÒÒW6U7FFR‚rr“°¢6öç7B¶'W–W$F—7G&–7BÂ6WD'W–W$F—7G&–7EÒÒW6U7FFR‚rr“°¢6öç7B¶'W–W$6—G’Â6WD'W–W$6—G•ÒÒW6U7FFR‚rr“°¢6öç7B¶'W–W%÷7FÄ6öFRÂ6WD'W–W%÷7FÄ6öFUÒÒW6U7FFR‚rr“°¢6öç7B¶&–ÆÆ–æu&VfW&Væ6RÂ6WD&–ÆÆ–æu&VfW&Væ6UÒÒW6U7FFR‚rr“°¢6öç7B¶æ÷FU&V6öâÂ6WDæ÷FU&V6öåÒÒW6U7FFR‚rr“°¢6öç7B¶Æ–æW2Â6WDÆ–æW5ÒÒW6U7FFSÄ–çfö–6TÆ–æUµÓâ…¶V×G”Æ–æR‚•Ò“°¢6öç7B–×÷'D–çWBÒW6U&VcÄ…DÔÄ–çWDVÆVÖVçCâ†çVÆÂ“°¢6öç7B¶–×÷'F–ærÂ6WD–×÷'F–æuÒÒW6U7FFR†fÇ6R“° ¢W6TVffV7B‚‚’Óâ°¢6WE6VÆÆW$æÖR†÷&væ—¦F–öäæÖR“°¢ÒÂ¶÷&væ—¦F–öäæÖUÒ“° ¢W6TVffV7B‚‚’Óâ°¢–b‚÷&væ—¦F–öä–B’&WGW&ã°¢ÆWB7F—fRÒG'VS°¢6WDÆöF–ær‡G'VR“°¢fWF6‚†ö’÷fBöRÖ–çfö–6W3ö÷&væ—¦F–öåö–CÒG¶Væ6öFUU$”6ö×öæVçB†÷&væ—¦F–öä–B—Ö¢çF†Vâ†7–æ2‡&W7öç6R’Óâ°¢6öç7B&öG’Òv—B&W7öç6Ræ§6öâ‚“°¢–b‚&W7öç6Ræö²’F‡&÷ræWrW'&÷"†&öG“òæW'&÷"ÇÂ…EEòG·&W7öç6Rç7FGW7Ö“°¢&WGW&â&öG“°¢Ò¢çF†Vâ‚†&öG’’Óâ°¢–b‚7F—fR’&WGW&ã°¢6WD–çfö–6W2†&öG’æ–çfö–6W2óòµÒ“°¢6WD6ä7&VFR„&ööÆVâ†&öG’æ—5öFÖ–âbb&Vv—7FW&VB’“°¢Ò¢æ6F6‚‚†W'&÷"’Óâ²–b†7F—fR’6WDÖW76vR‡²W'&÷#¢G'VRÂFW‡C¢ÖW76vTf÷"†W'&÷"æÖW76vRÂ"’Ò“²Ò¢æf–æÆÇ’‚‚’Óâ²–b†7F—fR’6WDÆöF–ær†fÇ6R“²Ò“°¢&WGW&â‚’Óâ²7F—fRÒfÇ6S²Ó°¢ÒÂ¶÷&væ—¦F–öä–BÂ&Vv—7FW&VBÂ%Ò“° ¢7–æ2gVæ7F–öâ6fTG&gB†WfVçC¢f÷&ÔWfVçCÄ…DÔÄf÷&ÔVÆVÖVçCâ’°¢WfVçBç&WfVçDFVfVÇB‚“°¢6WD'W7’‡G'VR“°¢6WDÖW76vR†çVÆÂ“°¢G'’°¢6öç7B&W7öç6RÒv—BfWF6‚‚rö’÷fBöRÖ–çfö–6W2rÂ°¢ÖWF†öC¢uõ5BrÀ¢†VFW'3¢²t6öçFVçBÕG—Rs¢vÆ–6F–öâö§6öârÒÀ¢&öG“¢¥4ôâç7G&–æv–g’‡°¢÷&væ—¦F–öåö–C¢÷&væ—¦F–öä–BÀ¢–çfö–6UöçVÖ&W#¢–çfö–6TçVÖ&W"À¢–çfö–6Uö6FVv÷'“¢6FVv÷'’À¢Fö7VÖVçE÷G—S¢Fö7VÖVçEG—RÀ¢—77VUöFFS¢—77VTFFRÀ¢—77VU÷F–ÖS¢—77VUF–ÖRÀ¢6VÆÆW%öæÖS¢6VÆÆW$æÖRÀ¢6VÆÆW%÷fEöçVÖ&W#¢fDçVÖ&W"À¢6VÆÆW%öFG&W73¢6VÆÆW$FG&W72À¢6VÆÆW%ö'V–ÆF–æuöçVÖ&W#¢6VÆÆW$'V–ÆF–ærÀ¢6VÆÆW%öF—7G&–7C¢6VÆÆW$F—7G&–7BÀ¢6VÆÆW%öFF—F–öæÅöçVÖ&W#¢6VÆÆW$FF—F–öæÂÀ¢6VÆÆW%ö6—G“¢6VÆÆW$6—G’À¢6VÆÆW%÷÷7FÅö6öFS¢6VÆÆW%÷7FÄ6öFRÀ¢6VÆÆW%ö6÷VçG'•ö6öFS¢u4rÀ¢'W–W%öæÖS¢'W–W$æÖRÇÂçVÆÂÀ¢'W–W%÷fEöçVÖ&W#¢'W–W%fDçVÖ&W"ÇÂçVÆÂÀ¢'W–W%öFG&W73¢'W–W$FG&W72ÇÂçVÆÂÀ¢'W–W%ö'V–ÆF–æuöçVÖ&W#¢'W–W$'V–ÆF–ærÇÂçVÆÂÀ¢'W–W%öF—7G&–7C¢'W–W$F—7G&–7BÇÂçVÆÂÀ¢'W–W%ö6—G“¢'W–W$6—G’ÇÂçVÆÂÀ¢'W–W%÷÷7FÅö6öFS¢'W–W%÷7FÄ6öFRÇÂçVÆÂÀ¢'W–W%ö6÷VçG'•ö6öFS¢u4rÀ¢&–ÆÆ–æu÷&VfW&Væ6S¢&–ÆÆ–æu&VfW&Væ6RÇÂçVÆÂÀ¢æ÷FU÷&V6öã¢æ÷FU&V6öâÇÂçVÆÂÀ¢7W'&Væ7“¢u4"rÀ¢Æ–æW3¢Æ–æW2æÖ‚†Æ–æR’Óâ‡°¢ââæÆ–æRÀ¢FW67&—F–öã¢Æ–æRæFW67&—F–öâÇÂçVÆÂÀ¢F…öW†V×F–öå÷&V6öåö6öFS¢Æ–æRçF…öW†V×F–öå÷&V6öåö6öFRÇÂçVÆÂÀ¢F…öW†V×F–öå÷&V6öã¢Æ–æRçF…öW†V×F–öå÷&V6öâÇÂçVÆÂÀ¢Ò’’À¢Ò’À¢Ò“°¢6öç7B&öG’Òv—B&W7öç6Ræ§6öâ‚“°¢–b‚&W7öç6Ræö²’°¢–b†&öG“òæW'&÷"ÓÓÒt”ådÄ”EôT”ådô”4UôE$eBr’°¢6öç7B—77VRÒ&öG’æ—77VW3òå³ÓòæÖW76vS°¢F‡&÷ræWrW'&÷"†—77VRÇÂ&öG’æW'&÷"“°¢Ð¢F‡&÷ræWrW'&÷"†&öG“òæW'&÷"ÇÂ…EEòG·&W7öç6Rç7FGW7Ö“°¢Ð¢6WD–çfö–6W2‚†7W'&VçB’Óâ¶&öG’Âââæ7W'&VçEÒ“°¢6WD–çfö–6TçVÖ&W"‚rr“°¢6WD'W–W$æÖR‚rr“°¢6WD'W–W%fDçVÖ&W"‚rr“°¢6WD'W–W$FG&W72‚rr“°¢6WD'W–W$'V–ÆF–ær‚rr“°¢6WD'W–W$F—7G&–7B‚rr“°¢6WD'W–W$6—G’‚rr“°¢6WD'W–W%÷7FÄ6öFR‚rr“°¢6WD&–ÆÆ–æu&VfW&Væ6R‚rr“°¢6WDæ÷FU&V6öâ‚rr“°¢6WDÆ–æW2…¶V×G”Æ–æR‚•Ò“°¢6WDÖW76vR‡²W'&÷#¢fÇ6RÂFW‡C¢"ò}ŠÝ˜ý˜‹Š¢˜]‹=˜ŠýŠ’Š}˜M˜Š}Š­˜‹Š’â˜M˜RŠ­‹]Šý‹˜˜M˜RŠ­˜ý‹‹=˜BŠ]˜M˜’‹-Š}Š­˜=Šrâr¢t–çfö–6RG&gB6fVBâ—B†2æ÷B&VVâ—77VVB÷"6VçBFò¤D4ârÒ“°¢Ò6F6‚†W'&÷"’°¢6WDÖW76vR‡²W'&÷#¢G'VRÂFW‡C¢ÖW76vTf÷"†W'&÷"–ç7Fæ6VöbW'&÷"òW'&÷"æÖW76vR¢uTä´äõtåôU%$õ"rÂ"’Ò“°¢Òf–æÆÇ’°¢6WD'W7’†fÇ6R“°¢Ð¢Ð ¢7–æ2gVæ7F–öâ–×÷'Df–ÆR†f–ÆSó¢f–ÆR’°¢–b‚f–ÆR’&WGW&ã°¢6WD–×÷'F–ær‡G'VR“°¢6WDÖW76vR†çVÆÂ“°¢G'’°¢–b†f–ÆRç6—¦RâR¢#B¢#B’F‡&÷ræWrW'&÷"‚t”Õõ%Eôd”ÄUõDôõôÄ$tRr“°¢ÆWB&÷w3¢Væ¶æ÷våµÕµÓ°¢–b‚õÂæ77bBö’çFW7B†f–ÆRææÖR’’°¢&÷w2Ò'6T77b†v—Bf–ÆRçFW‡B‚’“°¢ÒVÇ6R–b‚õÂç†Ç7‚Bö’çFW7B†f–ÆRææÖR’’°¢6öç7BW†6VÄ¥2Ò†v—B–×÷'B‚vW†6VÆ§2r’’æFVfVÇC°¢6öç7Bv÷&¶&öö²ÒæWrW†6VÄ¥2åv÷&¶&öö²‚“°¢v—Bv÷&¶&öö²ç†Ç7‚æÆöB†v—Bf–ÆRæ'&”'VffW"‚’“°¢6öç7Bv÷&·6†VWBÒv÷&¶&öö²çv÷&·6†VWG5³Ó°¢–b‚v÷&·6†VWB’F‡&÷ræWrW'&÷"‚t”Õõ%Eôd”ÄUôTÕE’r“°¢&÷w2Òv÷&·6†VWBævWE6†VWEfÇVW2‚’ç6Æ–6Rƒ’æÖ‚‡&÷r’Óâ'&’æ—4'&’‡&÷r’ò&÷rç6Æ–6Rƒ’¢µÒ“°¢ÒVÇ6R°¢F‡&÷ræWrW'&÷"‚t”Õõ%Eôd”ÄUõE•UõTå5Uõ%DTBr“°¢Ð ¢6öç7Bw&÷W2Òw&÷W–×÷'E&V6÷&G2‡&÷w5Fõ&V6÷&G2‡&÷w2’“°¢ÆWB–×÷'FVBÒ°¢6öç7Bf–ÇW&W3¢7G&–æuµÒÒµÓ°¢f÷"†6öç7Bw&÷Wöbw&÷W2’°¢6öç7Bf—'7BÒw&÷Wç&÷w5³Ó°¢6öç7B&W7öç6RÒv—BfWF6‚‚rö’÷fBöRÖ–çfö–6W2rÂ°¢ÖWF†öC¢uõ5BrÀ¢†VFW'3¢²t6öçFVçBÕG—Rs¢vÆ–6F–öâö§6öârÒÀ¢&öG“¢¥4ôâç7G&–æv–g’‡°¢÷&væ—¦F–öåö–C¢÷&væ—¦F–öä–BÀ¢–çfö–6UöçVÖ&W#¢w&÷Wæ–çfö–6TçVÖ&W"À¢–çfö–6Uö6FVv÷'“¢–×÷'D6FVv÷'’†f—'7Bæ–çfö–6Uö6FVv÷'’’À¢Fö7VÖVçE÷G—S¢f—'7BæFö7VÖVçE÷G—RÇÂt”ådô”4RrÀ¢—77VUöFFS¢f—'7Bæ—77VUöFFRÀ¢—77VU÷F–ÖS¢æ÷&ÖÆ—¦UF–ÖR†f—'7Bæ—77VU÷F–ÖR’À¢6VÆÆW%öæÖS¢f—'7Bç6VÆÆW%öæÖRÇÂ6VÆÆW$æÖRÀ¢6VÆÆW%÷fEöçVÖ&W#¢fDçVÖ&W"À¢6VÆÆW%öFG&W73¢f—'7Bç6VÆÆW%öFG&W72À¢6VÆÆW%ö'V–ÆF–æuöçVÖ&W#¢f—'7Bç6VÆÆW%ö'V–ÆF–æuöçVÖ&W"À¢6VÆÆW%öF—7G&–7C¢f—'7Bç6VÆÆW%öF—7G&–7BÀ¢6VÆÆW%öFF—F–öæÅöçVÖ&W#¢f—'7Bç6VÆÆW%öFF—F–öæÅöçVÖ&W"À¢6VÆÆW%ö6—G“¢f—'7Bç6VÆÆW%ö6—G’À¢6VÆÆW%÷÷7FÅö6öFS¢f—'7Bç6VÆÆW%÷÷7FÅö6öFRÀ¢'W–W%öæÖS¢f—'7Bæ'W–W%öæÖRÇÂçVÆÂÀ¢'W–W%÷fEöçVÖ&W#¢f—'7Bæ'W–W%÷fEöçVÖ&W"ÇÂçVÆÂÀ¢'W–W%öFG&W73¢f—'7Bæ'W–W%öFG&W72ÇÂçVÆÂÀ¢'W–W%ö'V–ÆF–æuöçVÖ&W#¢f—'7Bæ'W–W%ö'V–ÆF–æuöçVÖ&W"ÇÂçVÆÂÀ¢'W–W%öF—7G&–7C¢f—'7Bæ'W–W%öF—7G&–7BÇÂçVÆÂÀ¢'W–W%ö6—G“¢f—'7Bæ'W–W%ö6—G’ÇÂçVÆÂÀ¢'W–W%÷÷7FÅö6öFS¢f—'7Bæ'W–W%÷÷7FÅö6öFRÇÂçVÆÂÀ¢&–ÆÆ–æu÷&VfW&Væ6S¢f—'7Bæ&–ÆÆ–æu÷&VfW&Væ6RÇÂçVÆÂÀ¢æ÷FU÷&V6öã¢f—'7Bææ÷FU÷&V6öâÇÂçVÆÂÀ¢Æ–æW3¢w&÷Wç&÷w2æÖ‚‡&÷r’Óâ‡°¢—FVÕöæÖS¢&÷ræ—FVÕöæÖRÀ¢FW67&—F–öã¢&÷ræFW67&—F–öâÇÂçVÆÂÀ¢VçF—G“¢&÷rçVçF—G’À¢Væ—Eö6öFS¢&÷rçVæ—Eö6öFRÇÂu4RrÀ¢Væ—E÷&–6S¢&÷rçVæ—E÷&–6RÀ¢F—66÷VçEöÖ÷VçC¢&÷ræF—66÷VçEöÖ÷VçBÇÂsrÀ¢F…ö6FVv÷'“¢–×÷'EF„6FVv÷'’‡&÷rçF…ö6FVv÷'’’À¢F…÷&FS¢&÷rçF…÷&FRÇÂsRrÀ¢F…öW†V×F–öå÷&V6öåö6öFS¢&÷rçF…öW†V×F–öå÷&V6öåö6öFRÇÂçVÆÂÀ¢F…öW†V×F–öå÷&V6öã¢&÷rçF…öW†V×F–öå÷&V6öâÇÂçVÆÂÀ¢Ò’’À¢Ò’À¢Ò“°¢6öç7B&öG’Òv—B&W7öç6Ræ§6öâ‚“°¢–b‡&W7öç6Ræö²’–×÷'FVB²³°¢VÇ6Rf–ÇW&W2çW6‚†G¶w&÷Wæ–çfö–6TçVÖ&W'Ó¢G¶&öG“òæ—77VW3òå³ÓòæÖW76vRÇÂ&öG“òæW'&÷"ÇÂ&W7öç6Rç7FGW7Ö“°¢Ð¢6öç7B&Vg&W6‚Òv—BfWF6‚†ö’÷fBöRÖ–çfö–6W3ö÷&væ—¦F–öåö–CÒG¶Væ6öFUU$”6ö×öæVçB†÷&væ—¦F–öä–B—Ö“°¢–b‡&Vg&W6‚æö²’°¢6öç7B&öG’Òv—B&Vg&W6‚æ§6öâ‚“°¢6WD–çfö–6W2†&öG’æ–çfö–6W2óòµÒ“°¢Ð¢6WDÖW76vR‡°¢W'&÷#¢f–ÇW&W2æÆVæwF‚âÀ¢FW‡C¢ ¢òŠ­˜RŠ}‹=Š­˜­‹Š}ŠòG¶–×÷'FVGÒ˜]‹=˜ŠýŠ’G¶f–ÇW&W2æÆVæwF‚òˆÂ˜Š­‹‹‹Š}‹=Š­˜­‹Š}ŠòG¶f–ÇW&W2æÆVæwF‡Ó¢G¶f–ÇW&W2ç6Æ–6RƒÂ2’æ¦ö–â‚}‰²r—Ö¢rwÒæ ¢¢–×÷'FVBG¶–×÷'FVGÒG&gB‡2’G¶f–ÇW&W2æÆVæwF‚ò²G¶f–ÇW&W2æÆVæwF‡Òf–ÆVC¢G¶f–ÇW&W2ç6Æ–6RƒÂ2’æ¦ö–â‚s²r—Ö¢râwÖÀ¢Ò“°¢Ò6F6‚†W'&÷"’°¢6WDÖW76vR‡²W'&÷#¢G'VRÂFW‡C¢ÖW76vTf÷"†W'&÷"–ç7Fæ6VöbW'&÷"òW'&÷"æÖW76vR¢t”Õõ%Eôd”ÄTBrÂ"’Ò“°¢Òf–æÆÇ’°¢6WD–×÷'F–ær†fÇ6R“°¢–b†–×÷'D–çWBæ7W'&VçB’–×÷'D–çWBæ7W'&VçBçfÇVRÒrs°¢Ð¢Ð ¢7–æ2gVæ7F–öâ—77VT–çfö–6R†–çfö–6S¢–çfö–6R’°¢6WD'W7’‡G'VR“°¢6WDÖW76vR†çVÆÂ“°¢G'’°¢6öç7B&W7öç6RÒv—BfWF6‚‚rö’÷fBöRÖ–çfö–6W2ö—77VRrÂ°¢ÖWF†öC¢uõ5BrÀ¢†VFW'3¢²t6öçFVçBÕG—Rs¢vÆ–6F–öâö§6öârÒÀ¢&öG“¢¥4ôâç7G&–æv–g’‡²÷&væ—¦F–öåö–C¢÷&væ—¦F–öä–BÂ–çfö–6Uö–C¢–çfö–6Ræ–BÒ’À¢Ò“°¢6öç7B&öG’Òv—B&W7öç6Ræ§6öâ‚“°¢–b‚&W7öç6Ræö²’F‡&÷ræWrW'&÷"†&öG“òæW'&÷"ÇÂ…EEòG·&W7öç6Rç7FGW7Ö“°¢6WD–çfö–6W2‚†7W'&VçB’Óâ7W'&VçBæÖ‚†—FVÒ’Óâ—FVÒæ–BÓÓÒ–çfö–6Ræ–Bò²ââæ—FVÒÂââæ&öG’Ò¢—FVÒ’“°¢öä–çfö–6T—77VVCòâ‚“°¢6WDÖW76vR‡²W'&÷#¢fÇ6RÂFW‡C¢"ò}‹]Šý‹Š¢Š}˜M˜Š}Š­˜‹Š’˜ŠÝ˜ý˜‹‚‹˜]‹""Š‹]˜­‹­Š’‹-Š}Š­˜=Šr˜M˜M˜]‹ŠÝ˜MŠ’Š}˜MŠ=˜˜M˜’âr¢t–çfö–6R—77VVBæB—G2¤D4†6R"–ÆöBv26fVBârÒ“°¢Ò6F6‚†W'&÷"’°¢6WDÖW76vR‡²W'&÷#¢G'VRÂFW‡C¢ÖW76vTf÷"†W'&÷"–ç7Fæ6VöbW'&÷"òW'&÷"æÖW76vR¢tT”ådô”4Uô•55TUôd”ÄTBrÂ"’Ò“°¢Òf–æÆÇ’°¢6WD'W7’†fÇ6R“°¢Ð¢Ð ¢7–æ2gVæ7F–öâ&–çD–çfö–6R†–çfö–6S¢–çfö–6R’°¢–b‚–çfö–6Rç%ö6öFR’&WGW&ã°¢6öç7B÷WÒv–æF÷ræ÷Vâ‚rrÂuö&Ææ²rÂwv–GFƒÓ“Æ†V–v‡CÓr“°¢–b‚÷W’°¢6WDÖW76vR‡²W'&÷#¢G'VRÂFW‡C¢"ò}Š}‹=˜]ŠÒŠŠ}˜M˜m˜Š}˜‹Š}˜M˜]˜mŠŠ½˜-Š’˜M‹}ŠŠ}‹Š’Š}˜M˜Š}Š­˜‹Š’âr¢tÆÆ÷r÷×W2Fò&–çBF†R–çfö–6RârÒ“°¢&WGW&ã°¢Ð¢G'’°¢6öç7B$6öFRÒ†v—B–×÷'B‚w&6öFRr’’æFVfVÇC°¢6öç7B$–ÖvRÒv—B$6öFRçFôFFU$Â†–çfö–6Rç%ö6öFRÂ²W'&÷$6÷'&V7F–öäÆWfVÃ¢tÒrÂÖ&v–ã¢"Âv–GFƒ¢##Ò“°¢6öç7BW62ÒW66T‡FÖÃ°¢÷WæFö7VÖVçBçw&—FR†ÂFö7G—R‡FÖÃãÆ‡FÖÂÆæsÒ"G¶"òv"r¢vVâwÒ"F—#Ò"G¶"òw'FÂr¢vÇG"wÒ#ãÆ†VCãÆÖWF6†'6WCÒ'WFbÓ‚#ãÇF—FÆSâG¶W62†–çfö–6Ræ–çfö–6UöçVÖ&W"—ÓÂ÷F—FÆSãÇ7G–ÆSà¢&öG—¶föçC£W‚&–ÂÇ6ç2×6W&–c¶6öÆ÷#¢3#3S&S¶Ö&v–ã£3‡Òæ†VG¶F—7Æ“¦fÆWƒ¶§W7F–g’Ö6öçFVçC§76RÖ&WGvVVã¶Æ–vâÖ—FV×3¦fÆW‚×7F'C¶&÷&FW"Ö&÷GFöÓ£'‚6öÆ–B3#f#S3·FF–ærÖ&÷GFöÓ£‡‡Òæ'&æG¶föçB×6—¦S£#Gƒ¶föçB×vV–v‡C£sÒæ×WFVG¶6öÆ÷#¢3cs3fgÒæw&–G¶F—7Æ“¦w&–C¶w&–B×FV×ÆFRÖ6öÇVÖç3£g"g#¶v£‡ƒ¶Ö&v–ã£#G‚Òæ&÷‡¶&÷&FW#£‚6öÆ–B6F&SfS#¶&÷&FW"×&F—W3£ƒ·FF–æs£G‡Òæ&÷‚ƒ'¶föçB×6—¦S£Wƒ¶Ö&v–ã£'‡Òæ&÷‚¶Ö&v–ã£W‚ÒæÆ&VÇ¶6öÆ÷#¢3cs3fc¶föçB×6—¦S£'‡×F&ÆW·v–GFƒ£S¶&÷&FW"Ö6öÆÆ6S¦6öÆÆ6S¶Ö&v–â×F÷£#'‡×F‚ÇFG·FW‡BÖÆ–vã§7F'C¶&÷&FW"Ö&÷GFöÓ£‚6öÆ–B6F&SfS#·FF–æs£‡×F‡¶&6¶w&÷VæC¢6ccfc7ÒçF÷FÇ7¶Ö&v–ã£‡‚WFó·v–GFƒ£3‡ÒçF÷FÇ2F—g¶F—7Æ“¦fÆWƒ¶§W7F–g’Ö6öçFVçC§76RÖ&WGvVVã·FF–æs£g‡Òç'¶F—7Æ“¦fÆWƒ¶§W7F–g’Ö6öçFVçC§76RÖ&WGvVVã¶Æ–vâÖ—FV×3¦VæC¶Ö&v–â×F÷£#‡‡Òç"–Öw·v–GFƒ£SW‡ÔÖVF–&–çG¶&öG—¶Ö&v–ã£&Ö×Ö'WGFöç¶F—7Æ“¦æöæW×Ð¢Â÷7G–ÆSãÂö†VCãÆ&öG“à¢ÆF—b6Æ73Ò&†VB#ãÆF—cãÆF—b6Æ73Ò&'&æB#å¦¶DfÆ÷sÂöF—cãÆF—b6Æ73Ò&×WFVB#âG¶"ò}˜Š}Š­˜‹Š’‹m‹˜­Š˜­Š’r¢uF‚–çfö–6RwÒ+rG¶W62†–çfö–6Ræ–çfö–6UöçVÖ&W"—ÓÂöF—cãÂöF—cãÆF—cãÇ7G&öæsâG¶"ò}Š­Š}‹˜­ŠâŠ}˜MŠ]‹]ŠýŠ}‹r¢t—77VRFFRwÓÂ÷7G&öæsãÆ'#âG¶W62†–çfö–6Ræ—77VUöFFR—ÓÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò&w&–B#ãÆF—b6Æ73Ò&&÷‚#ãÆƒ#âG¶"ò}Š}˜MŠŠ}Šm‹’r¢u6VÆÆW"wÓÂöƒ#ãÇâG¶W62†–çfö–6Rç6VÆÆW%öæÖR—ÓÂ÷ãÇâG¶W62†–çfö–6Rç6VÆÆW%÷fEöçVÖ&W"—ÓÂ÷ãÇâG¶W62†–çfö–6Rç6VÆÆW%öFG&W72—ÒÂG¶W62†–çfö–6Rç6VÆÆW%öF—7G&–7B—ÒÂG¶W62†–çfö–6Rç6VÆÆW%ö6—G’—ÓÂ÷ãÇâG¶W62†–çfö–6Rç6VÆÆW%ö'V–ÆF–æuöçVÖ&W"—Ò+rG¶W62†–çfö–6Rç6VÆÆW%÷÷7FÅö6öFR—ÓÂ÷ãÂöF—cà¢ÆF—b6Æ73Ò&&÷‚#ãÆƒ#âG¶"ò}Š}˜M˜]‹MŠ­‹˜¢r¢t'W–W"wÓÂöƒ#ãÇâG¶W62†–çfö–6Ræ'W–W%öæÖRÇÂ~(	Br—ÓÂ÷ãÇâG¶W62†–çfö–6Ræ'W–W%÷fEöçVÖ&W"ÇÂrr—ÓÂ÷ãÇâG¶W62†–çfö–6Ræ'W–W%öFG&W72ÇÂrr—ÓÂ÷ãÇâG¶W62†–çfö–6Ræ'W–W%ö6—G’ÇÂrr—ÓÂ÷ãÂöF—cãÂöF—cà¢ÇF&ÆSãÇF†VCãÇG#ãÇFƒâG¶"ò}Š}˜MŠ˜mŠòr¢t—FVÒwÓÂ÷FƒãÇFƒâG¶"ò}Š}˜M˜=˜]˜­Š’r¢uG’wÓÂ÷FƒãÇFƒâG¶"ò}‹=‹‹Š}˜M˜ŠÝŠýŠ’r¢uVæ—B&–6RwÓÂ÷FƒãÇFƒâG¶"ò}Š}˜M‹m‹˜­ŠŠ’r¢udBwÓÂ÷FƒãÇFƒâG¶"ò}Š}˜MŠ]ŠÍ˜]Š}˜M˜¢r¢uF÷FÂwÓÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG“âG¶–çfö–6RæÆ–æW2æÖ‚†Æ–æR’ÓâÇG#ãÇFCâG¶W62†Æ–æRæ—FVÕöæÖR—ÓÂ÷FCãÇFCâG¶W62…7G&–ær†Æ–æRçVçF—G’’—ÓÂ÷FCãÇFCâG¶f÷&ÖDÖ÷VçB†Æ–æRçVæ—E÷&–6R—ÓÂ÷FCãÇFCâG¶f÷&ÖDÖ÷VçB†Æ–æRçF…öÖ÷VçB—ÓÂ÷FCãÇFCâG¶f÷&ÖDÖ÷VçB†Æ–æRæw&÷75öÖ÷VçB—ÓÂ÷FCãÂ÷G#æ’æ¦ö–â‚rr—ÓÂ÷F&öG“ãÂ÷F&ÆSà¢ÆF—b6Æ73Ò'F÷FÇ2#ãÆF—cãÇ7ãâG¶"ò}‹m‹˜­ŠŠ’Š}˜M˜-˜­˜]Š’Š}˜M˜]‹mŠ}˜Š’r¢udBwÓÂ÷7ããÇ7G&öæsâG¶f÷&ÖDÖ÷VçB†–çfö–6RçF…÷F÷FÅöÖ÷VçB—Ò4#Â÷7G&öæsãÂöF—cãÆF—cãÇ7ãâG¶"ò}Š}˜MŠ]ŠÍ˜]Š}˜M˜¢Š}˜M˜]‹=Š­ŠÝ˜"r¢uF÷FÂGVRwÓÂ÷7ããÇ7G&öæsâG¶f÷&ÖDÖ÷VçB†–çfö–6Rç–&ÆUöÖ÷VçB—Ò4#Â÷7G&öæsãÂöF—cãÂöF—cà¢ÆF—b6Æ73Ò'"#ãÇ7â6Æ73Ò&×WFVB#âG¶"ò}‹˜]‹""(	B‹]˜­‹­Š’‹-Š}Š­˜=Šr˜M˜M˜]‹ŠÝ˜MŠ’Š}˜MŠ=˜˜M˜’r¢u"6öFR(	B¤D4†6Rf÷&ÖBwÓÂ÷7ããÆ–Ör7&3Ò"G·$–ÖvWÒ"ÇCÒ%¤D4"#ãÂöF—cãÇ67&—Cçv–æF÷ræöæÆöCÒ‚“Óçv–æF÷rç&–çB‚“Â÷67&—CãÂö&öG“ãÂö‡FÖÃæ“°¢÷WæFö7VÖVçBæ6Æ÷6R‚“°¢Ò6F6‚°¢÷Wæ6Æ÷6R‚“°¢6WDÖW76vR‡²W'&÷#¢G'VRÂFW‡C¢"ò}Š­‹‹‹Š]‹ŠýŠ}Šò˜m‹=ŠíŠ’Š}˜M‹}ŠŠ}‹Š’âŠ=‹ŠòŠ}˜M˜]ŠÝŠ}˜˜MŠ’âr¢t6÷VÆBæ÷B&W&RF†R&–çF&ÆR–çfö–6RâÆV6R&WG'’ârÒ“°¢Ð¢Ð ¢gVæ7F–öâWFFTÆ–æR†–æFWƒ¢çVÖ&W"Â6†ævW3¢'F–ÃÄ–çfö–6TÆ–æSâ’°¢6WDÆ–æW2‚†7W'&VçB’Óâ7W'&VçBæÖ‚†Æ–æRÂ’’Óâ’ÓÓÒ–æFW‚ò²ââæÆ–æRÂââæ6†ævW2Ò¢Æ–æR’“°¢Ð ¢&WGW&â€¢Ç6V7F–öâ6Æ74æÖSÒ'fB×æVÂ#à¢ÆF—b6Æ74æÖSÒ'fB×æVÂÖ†VB#à¢ÆF—cà¢Ç7â6Æ74æÖSÒ'fBÖW–V'&÷r#ç¶"ò}Š}˜M˜˜Š}Š­˜­‹Š}˜M‹]Š}Šý‹Š’r¢u4ÄU2”ådô”4U2wÓÂ÷7ãà¢Æƒ#ç¶"ò}Š]˜m‹MŠ}Š˜Š}Š­˜‹Š’‹m‹˜­Š˜­Š’r¢t7&VFRF‚–çfö–6RwÓÂöƒ#à¢Çç¶"ò}Š=˜m‹MŠb˜Š}Š­˜‹ŠˆÂŠ}‹=Š­˜‹Šý˜}Šr˜]˜b55bŠ=˜‚W†6VÍˆÂŠ½˜RŠ=‹]Šý‹˜}Šr˜]‹’‹˜]‹""Š‹]˜­‹­Š’‹-Š}Š­˜=Šr˜M˜M˜]‹ŠÝ˜MŠ’Š}˜MŠ=˜˜M˜’âr¢t7&VFRâ–çfö–6RÂ–×÷'B55b÷"W†6VÂÂF†Vâ—77VR—Bv—F‚¤D4†6R"6öFRâwÓÂ÷à¢ÂöF—cà¢ÂöF—cà¢²&Vv—7FW&VBbbÆF—b6Æ74æÖSÒ'fBÖ–æÆ–æR×v&æ–ær#ç¶"ò}˜­ŠÍŠ‚Š]˜=˜]Š}˜BŠ­‹=ŠÍ˜­˜B‹m‹˜­ŠŠ’Š}˜M˜-˜­˜]Š’Š}˜M˜]‹mŠ}˜Š’˜-Š˜BŠ]˜m‹MŠ}Š˜Š}Š­˜‹Š’âr¢t6ö×ÆWFRdB&Vv—7G&F–öâ&Vf÷&R7&VF–ærâ–çfö–6RâwÓÂöF—cçÐ¢²6ä7&VFRbb&Vv—7FW&VBbbÆF—b6Æ74æÖSÒ'fBÖ–æÆ–æR×v&æ–ær#ç¶"ò}Š]˜m‹MŠ}ŠŠ}˜M˜˜Š}Š­˜­‹˜]Š­Š}ŠÒ˜M˜]Š}˜M˜2Š}˜M˜]ŠM‹=‹=Š’Š=˜‚˜]Šý˜­‹˜}Šr˜˜-‹râr¢töæÇ’â÷&væ—¦F–öâ÷væW"÷"FÖ–â6â7&VFR–çfö–6W2âwÓÂöF—cçÐ¢¶ÖW76vRbbÆF—b6Æ74æÖS×¶fBÖæ÷F–6RG¶ÖW76vRæW'&÷"òvW'&÷"r¢w7V66W72wÖÒ&öÆS×¶ÖW76vRæW'&÷"òvÆW'Br¢w7FGW2wÓç¶ÖW76vRçFW‡GÓÂöF—cçÐ ¢ÆF—b6Æ74æÖSÒ'fBÖV–çfö–6RÖ–×÷'BÖ7F–öç2#à¢Æ–çWB&Vc×¶–×÷'D–çWGÒG—SÒ&f–ÆR"66WCÒ"æ77bÂç†Ç7‚"†–FFVâöä6†ævS×²†WfVçB’Óâfö–B–×÷'Df–ÆR†WfVçBçF&vWBæf–ÆW3òå³Ò—Òóà¢Æ'WGFöâG—SÒ&'WGFöâ"6Æ74æÖSÒ'fBÖ'WGFöâ6V6öæF'’"F—6&ÆVC×²6ä7&VFRÇÂ–×÷'F–ærÇÂ'W7—Òöä6Æ–6³×²‚’Óâ–×÷'D–çWBæ7W'&VçCýu×kh‘éì¶»§q«^vŸfb·f(œ€è€¥ÍÑÉ¥Ðôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÄÈÁôÙ…±Õ”õíÍ•±±•É¥ÍÑÉ¥Ñô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•ÑM•±±•É¥ÍÑÉ¥Ð¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸfbÇffƒbŸfb—bÛbŸff(€ ÐƒbbÇfbŸf¤œ€è€‘‘¥Ñ¥½¹…°¹Õµ‰•È€ Ð‘¥¥ÑÌ¤ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•¥¹ÁÕÑ5½‘”ô‰¹Õµ•É¥ŒˆÁ…ÑÑ•É¸ô‰lÀ´åuìÑôˆµ…á1•¹Ñ õìÑôÙ…±Õ”õíÍ•±±•É‘‘¥Ñ¥½¹…±ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•ÑM•±±•É‘‘¥Ñ¥½¹…°¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€Ÿfb¿f+fb¤ƒbŸfb£bŸb›bäœ€è€M•±±•È¥Ñäôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÄÈÁôÙ…±Õ”õíÍ•±±•É¥Ñåô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•ÑM•±±•É¥Ñä¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸfbÇfbÈƒbŸfb£bÇf+b¿f(€ ÔƒbbÇfbŸf¤œ€è€A½ÍÑ…°½‘”€ Ô‘¥¥ÑÌ¤ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•¥¹ÁÕÑ5½‘”ô‰¹Õµ•É¥ŒˆÁ…ÑÑ•É¸ô‰lÀ´åuìÕôˆµ…á1•¹Ñ õìÕôÙ…±Õ”õíÍ•±±•ÉA½ÍÑ…±½‘•ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•ÑM•±±•ÉA½ÍÑ…±½‘”¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€ð½‘¥Øø(€€€€€€€€ð½™¥•±‘Í•Ðø((€€€€€€€í…Ñ•½Éä€ôôô€MQ9Iœ€˜˜€ñ™¥•±‘Í•Ð±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µÉ½ÕÀˆø(€€€€€€€€€€ñ±••¹ùí…È€ü€Ÿb£f+bŸfbŸb¨ƒbŸffbÓb«bÇf(œ€è€	Õå•È‘•Ñ…¥±Ìôð½±••¹ø(€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µÉ½ÕÀµÉ¥ˆø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸbÏfƒbŸffbÓb«bÇf(œ€è€	Õå•È¹…µ”ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÈÀÁôÙ…±Õ”õí‰Õå•É9…µ•ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ	Õå•É9…µ”¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸfbÇffƒbŸfbÛbÇf+b£f(ƒfffbÓb«bÇf(œ€è€	Õå•ÈYP¹Õµ‰•Èôð½ÍÁ…¸øñ¥¹ÁÕÐµ…á1•¹Ñ õìÄÕôÙ…±Õ”õí‰Õå•ÉY…Ñ9Õµ‰•Éô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ	Õå•ÉY…Ñ9Õµ‰•È¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸfbÓbŸbÇbäœ€è€MÑÉ••Ðôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÈÔÁôÙ…±Õ”õí‰Õå•É‘‘É•ÍÍô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ	Õå•É‘‘É•ÍÌ¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbÇffƒbŸffb£ff$€ ÐƒbbÇfbŸf¤œ€è€	Õ¥±‘¥¹œ¹Õµ‰•È€ Ð‘¥¥ÑÌ¤ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•¥¹ÁÕÑ5½‘”ô‰¹Õµ•É¥ŒˆÁ…ÑÑ•É¸ô‰lÀ´åuìÑôˆµ…á1•¹Ñ õìÑôÙ…±Õ”õí‰Õå•É	Õ¥±‘¥¹ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ	Õå•É	Õ¥±‘¥¹œ¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸfb·f(œ€è€¥ÍÑÉ¥Ðôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÄÈÁôÙ…±Õ”õí‰Õå•É¥ÍÑÉ¥Ñô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ	Õå•É¥ÍÑÉ¥Ð¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€Ÿfb¿f+fb¤ƒbŸffbÓb«bÇf(œ€è€	Õå•È¥Ñäôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÄÈÁôÙ…±Õ”õí‰Õå•É¥Ñåô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ	Õå•É¥Ñä¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸfbÇfbÈƒbŸfb£bÇf+b¿f(€ ÔƒbbÇfbŸf¤œ€è€A½ÍÑ…°½‘”€ Ô‘¥¥ÑÌ¤ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•¥¹ÁÕÑ5½‘”ô‰¹Õµ•É¥ŒˆÁ…ÑÑ•É¸ô‰lÀ´åuìÕôˆµ…á1•¹Ñ õìÕôÙ…±Õ”õí‰Õå•ÉA½ÍÑ…±½‘•ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ	Õå•ÉA½ÍÑ…±½‘”¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€ð½‘¥Øø(€€€€€€€€ð½™¥•±‘Í•Ðùô((€€€€€€€í‘½Õµ•¹ÑQåÁ”€„ôô€%9Y=%œ€˜˜€ñ™¥•±‘Í•Ð±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µÉ½ÕÀˆø(€€€€€€€€€€ñ±••¹ùí…È€ü€Ÿb£f+bŸfbŸb¨ƒbŸfb—bÓbçbŸbÄœ€è€É•‘¥Ð½È‘•‰¥Ð¹½Ñ”‘•Ñ…¥±Ìôð½±••¹ø(€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µÉ½ÕÀµÉ¥Ù…Ðµ•¥¹Ù½¥”µÉ½ÕÀµÉ¥µ¹…ÉÉ½Üˆø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸfbÇb³bäƒbŸffbŸb«f#bÇb¤ƒbŸfbb×ff+b¤œ€è€=É¥¥¹…°¥¹Ù½¥”É•™•É•¹”ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÄÀÁôÙ…±Õ”õí‰¥±±¥¹I•™•É•¹•ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ	¥±±¥¹I•™•É•¹”¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbÏb£b ƒbŸfb—bÓbçbŸbÄœ€è€9½Ñ”É•…Í½¸ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÔÀÁôÙ…±Õ”õí¹½Ñ•I•…Í½¹ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÍ•Ñ9½Ñ•I•…Í½¸¡•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”¥ô€¼øð½±…‰•°ø(€€€€€€€€€€ð½‘¥Øø(€€€€€€€€ð½™¥•±‘Í•Ðùô((€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µ±¥¹•Ìˆø(€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µ±¥¹•Ìµ¡•…ˆøñÍÑÉ½¹œùí…È€ü€Ÿb£ff#b¼ƒbŸffbŸb«f#bÇb¤œ€è€%¹Ù½¥”±¥¹•Ìôð½ÍÑÉ½¹œøñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÍ9…µ”ô‰Ù…Ðµ‰ÕÑÑ½¸Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøÍ•Ñ1¥¹•Ì ¡ÕÉÉ•¹Ð¤€ôøl¸¸¹ÕÉÉ•¹Ð°•µÁÑå1¥¹” ¥t¥ôùí…È€ü€Ÿb—bÛbŸfb¤ƒb£fb¼œ€è€‘±¥¹”ôð½‰ÕÑÑ½¸øð½‘¥Øø(€€€€€€€€€í±¥¹•Ì¹µ…À ¡±¥¹”°¥¹‘•à¤€ôø€ñ™¥•±‘Í•Ð±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µ±¥¹”ˆ­•äõí¥¹‘•áôø(€€€€€€€€€€€€ñ±••¹ùí…È€üƒbŸfb£fb¼€‘í¥¹‘•à€¬€Åõ€€è1¥¹”€‘í¥¹‘•à€¬€Åõôð½±••¹ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€Ÿf#b×fƒbŸfbÏfbçb¤ƒbf ƒbŸfb»b¿fb¤œ€è€%Ñ•´½ÈÍ•ÉÙ¥”ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÈÀÁôÙ…±Õ”õí±¥¹”¹¥Ñ•µ}¹…µ•ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÕÁ‘…Ñ•1¥¹”¡¥¹‘•à°ì¥Ñ•µ}¹…µ”è•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”ô¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸffff+b¤œ€è€EÕ…¹Ñ¥Ñäôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•ÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀ¸ÀÀÀÀÀÄˆÍÑ•ÀôˆÀ¸ÀÀÀÀÀÄˆÙ…±Õ”õí±¥¹”¹ÅÕ…¹Ñ¥Ñåô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÕÁ‘…Ñ•1¥¹”¡¥¹‘•à°ìÅÕ…¹Ñ¥Ñäè•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”ô¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbÏbçbÄƒbŸff#b·b¿b¤€£bÇf+bŸf¤œ€è€U¹¥ÐÁÉ¥”€¡MH¤ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•ÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀˆÍÑ•ÀôˆÀ¸ÀÀÀÀÀÄˆÙ…±Õ”õí±¥¹”¹Õ¹¥Ñ}ÁÉ¥•ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÕÁ‘…Ñ•1¥¹”¡¥¹‘•à°ìÕ¹¥Ñ}ÁÉ¥”è•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”ô¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸfb»b×f€£bÇf+bŸf¤œ€è€¥Í½Õ¹Ð€¡MH¤ôð½ÍÁ…¸øñ¥¹ÁÕÐÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀˆÍÑ•ÀôˆÀ¸ÀÄˆÙ…±Õ”õí±¥¹”¹‘¥Í½Õ¹Ñ}…µ½Õ¹Ñô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÕÁ‘…Ñ•1¥¹”¡¥¹‘•à°ì‘¥Í½Õ¹Ñ}…µ½Õ¹Ðè•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”ô¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbŸfb«b×ff+fƒbŸfbÛbÇf+b£f(œ€è€Q…à…Ñ•½Éäôð½ÍÁ…¸øñÍ•±•ÐÙ…±Õ”õí±¥¹”¹Ñ…á}…Ñ•½Éåô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÕÁ‘…Ñ•1¥¹”¡¥¹‘•à°ìÑ…á}…Ñ•½Éäè•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”…Ì%¹Ù½¥•1¥¹•lÑ…á}…Ñ•½Éät°Ñ…á}É…Ñ”è•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”€ôôô€Lœ€ü€œÄÔœ€è€œÀœô¥ôøñ½ÁÑ¥½¸Ù…±Õ”ô‰Lˆùí…È€ü€Ÿff+bŸbÏf(œ€è€MÑ…¹‘…Éôð½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰hˆùí…È€ü€Ÿb×fbÇf(œ€è€i•É¼µÉ…Ñ•ôð½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰ˆùí…È€ü€Ÿfbçff$œ€è€á•µÁÐôð½½ÁÑ¥½¸øñ½ÁÑ¥½¸Ù…±Õ”ô‰<ˆùí…È€ü€Ÿb»bŸbÇb°ƒbŸffbßbŸfœ€è€=ÕÐ½˜Í½Á”ôð½½ÁÑ¥½¸øð½Í•±•Ðøð½±…‰•°ø(€€€€€€€€€€€í±¥¹”¹Ñ…á}…Ñ•½Éä€ôôô€Lœ€˜˜€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸfbÏb£b¤ƒbŸfbÛbÇf+b£b¤€”œ€è€YPÉ…Ñ”€”ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•ÑåÁ”ô‰¹Õµ‰•Èˆµ¥¸ôˆÀ¸ÀÄˆµ…àôˆÄÀÀˆÍÑ•ÀôˆÀ¸ÀÄˆÙ…±Õ”õí±¥¹”¹Ñ…á}É…Ñ•ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÕÁ‘…Ñ•1¥¹”¡¥¹‘•à°ìÑ…á}É…Ñ”è•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”ô¥ô€¼øð½±…‰•°ùô(€€€€€€€€€€€ì¡±¥¹”¹Ñ…á}…Ñ•½Éä€ôôô€hœñð±¥¹”¹Ñ…á}…Ñ•½Éä€ôôô€œ¤€˜˜€ðø(€€€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbÇfbÈƒbÏb£b ƒbŸffbçbŸffb¤œ€è€QÉ•…Ñµ•¹ÐÉ•…Í½¸½‘”ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÈÁôÙ…±Õ”õí±¥¹”¹Ñ…á}•á•µÁÑ¥½¹}É•…Í½¹}½‘•ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÕÁ‘…Ñ•1¥¹”¡¥¹‘•à°ìÑ…á}•á•µÁÑ¥½¹}É•…Í½¹}½‘”è•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”ô¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€€€ñ±…‰•°øñÍÁ…¸ùí…È€ü€ŸbÓbÇb´ƒbŸfbÏb£b œ€è€I•…Í½¸‘•ÍÉ¥ÁÑ¥½¸ôð½ÍÁ…¸øñ¥¹ÁÕÐÉ•ÅÕ¥É•µ…á1•¹Ñ õìÔÀÁôÙ…±Õ”õí±¥¹”¹Ñ…á}•á•µÁÑ¥½¹}É•…Í½¹ô½¹¡…¹”õì¡•Ù•¹Ð¤€ôøÕÁ‘…Ñ•1¥¹”¡¥¹‘•à°ìÑ…á}•á•µÁÑ¥½¹}É•…Í½¸è•Ù•¹Ð¹Ñ…É•Ð¹Ù…±Õ”ô¥ô€¼øð½±…‰•°ø(€€€€€€€€€€€€ð¼ùô(€€€€€€€€€€€í±¥¹•Ì¹±•¹Ñ €ø€Ä€˜˜€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÍ9…µ”ô‰Ù…Ðµ‘•±•Ñ”ˆ…É¥„µ±…‰•°õí…È€üƒb·bÃfƒbŸfb£fb¼€‘í¥¹‘•à€¬€Åõ€€èI•µ½Ù”±¥¹”€‘í¥¹‘•à€¬€Åõô½¹±¥¬õì ¤€ôøÍ•Ñ1¥¹•Ì ¡ÕÉÉ•¹Ð¤€ôøÕÉÉ•¹Ð¹™¥±Ñ•È ¡|°¤¤€ôø¤€„ôô¥¹‘•à¤¥ôû\ð½‰ÕÑÑ½¸ùô(€€€€€€€€€€ð½™¥•±‘Í•Ðø¥ô(€€€€€€€€ð½‘¥Øø(€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ™½É´µ…Ñ¥½¹Ìˆøñ‰ÕÑÑ½¸±…ÍÍ9…µ”ô‰Ù…Ðµ‰ÕÑÑ½¸ÁÉ¥µ…Éäˆ‘¥Í…‰±•õì……¹É•…Ñ”ñð‰ÕÍäñð¥µÁ½ÉÑ¥¹œñð€…Ù…Ñ9Õµ‰•Éôùí‰ÕÍä€ü€¡…È€ü€Ÿb³bŸbÇf4ƒbŸfb·fbãŠ˜œ€è€M…Ù¥¹ŸŠ˜œ¤€è€¡…È€ü€Ÿb·fbàƒffbÏf#b¿b¤œ€è€M…Ù”…Ì‘É…™Ðœ¥ôð½‰ÕÑÑ½¸øð½‘¥Øø(€€€€€€ð½™½É´ø((€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µ±¥ÍÐˆ…É¥„µ±¥Ù”ô‰Á½±¥Ñ”ˆø(€€€€€€€í±½…‘¥¹œ€˜˜€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•µÁÑäµÉ½Üˆùí…È€ü€Ÿb³bŸbÇf4ƒb«b·ff+fƒbŸfff#bŸb«f+bÇŠ˜œ€è€1½…‘¥¹œ¥¹Ù½¥•ÏŠ˜ôð½‘¥Øùô(€€€€€€€ì…±½…‘¥¹œ€˜˜¥¹Ù½¥•Ì¹µ…À ¡¥¹Ù½¥”¤€ôø€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µ¥Ñ•´ˆ­•äõí¥¹Ù½¥”¹¥‘ôø(€€€€€€€€€€ñ‘¥ØøñÍÑÉ½¹œùí¥¹Ù½¥”¹¥¹Ù½¥•}¹Õµ‰•Éôð½ÍÑÉ½¹œøñÍµ…±°ùí¥¹Ù½¥”¹¥ÍÍÕ•}‘…Ñ•ôƒ
+Üí¥¹Ù½¥”¹¥¹Ù½¥•}…Ñ•½Éä€ôôô€MQ9Iœ€ü€¡…È€ü€Ÿff+bŸbÏf+b¤œ€è€MÑ…¹‘…Éœ¤€è€¡…È€ü€Ÿfb£bÏbßb¤œ€è€M¥µÁ±¥™¥•œ¥ôƒ
+Üí¥¹Ù½¥”¹±¥¹•Ì¹±•¹Ñ¡ôí…È€ü€Ÿb£ff#b¼œ€è€±¥¹•Ìôð½Íµ…±°øð½‘¥Øø(€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µÑ½Ñ…°ˆùí™½Éµ…Ñµ½Õ¹Ð¡¥¹Ù½¥”¹Á…å…‰±•}…µ½Õ¹Ð¥ôí¥¹Ù½¥”¹ÕÉÉ•¹åôð½‘¥Øø(€€€€€€€€€€ñÍÁ…¸±…ÍÍ9…µ”õíÙ…ÐµÍÑ…ÑÕÌ€‘í¥¹Ù½¥”¹ÍÑ…ÑÕÌ€ôôô€%MMUœ€ü€É•¥ÍÑ•É•œ€è€œõôùí¥¹Ù½¥”¹ÍÑ…ÑÕÌ€ôôô€%MMUœ€ü€¡…È€ü€Ÿb×bŸb¿bÇb¤ƒŠPEHƒbŸffbÇb·fb¤ƒbŸfbf#ff$œ€è€%ÍÍÕ•ƒŠPA¡…Í”€ÄEHœ¤€è€¡…È€ü€ŸfbÏf#b¿b¤œ€è€É…™Ðœ¥ôð½ÍÁ…¸ø(€€€€€€€€€€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ¥¹Ù½¥”µ…Ñ¥½¹Ìˆø(€€€€€€€€€€€í¥¹Ù½¥”¹ÍÑ…ÑÕÌ€ôôô€IPœ€˜˜€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÍ9…µ”ô‰Ù…Ðµ‰ÕÑÑ½¸ÁÉ¥µ…Éäˆ‘¥Í…‰±•õí‰ÕÍäñð¥µÁ½ÉÑ¥¹œñð€……¹É•…Ñ”ñð¥¹Ù½¥”¹‘½Õµ•¹Ñ}ÑåÁ”€„ôô€%9Y=%ô½¹±¥¬õì ¤€ôøÙ½¥¥ÍÍÕ•%¹Ù½¥”¡¥¹Ù½¥”¥ôùí…È€ü€Ÿb—b×b¿bŸbÄœ€è€%ÍÍÕ”ôð½‰ÕÑÑ½¸ùô(€€€€€€€€€€€í¥¹Ù½¥”¹ÍÑ…ÑÕÌ€ôôô€%MMUœ€˜˜¥¹Ù½¥”¹ÅÉ}½‘”€˜˜€ñ‰ÕÑÑ½¸ÑåÁ”ô‰‰ÕÑÑ½¸ˆ±…ÍÍ9…µ”ô‰Ù…Ðµ‰ÕÑÑ½¸Í•½¹‘…Éäˆ½¹±¥¬õì ¤€ôøÙ½¥ÁÉ¥¹Ñ%¹Ù½¥”¡¥¹Ù½¥”¥ôùí…È€ü€Ÿbßb£bŸbçb¤€¼Aœ€è€AÉ¥¹Ð€¼Aôð½‰ÕÑÑ½¸ùô(€€€€€€€€€€ð½‘¥Øø(€€€€€€€€ð½‘¥Øø¥ô(€€€€€€€ì…±½…‘¥¹œ€˜˜€…¥¹Ù½¥•Ì¹±•¹Ñ €˜˜€ñ‘¥Ø±…ÍÍ9…µ”ô‰Ù…Ðµ•µÁÑäµÉ½Üˆùí…È€ü€Ÿfbœƒb«f#b³b¼ƒff#bŸb«f+bÄƒb£bçb¼¸œ€è€9¼¥¹Ù½¥•Ìå•Ð¸ôð½‘¥Øùô(€€€€€€ð½‘¥Øø(€€€€€€ñÀ±…ÍÍ9…µ”ô‰Ù…Ðµ•¥¹Ù½¥”µ¡•±Àˆùí…È€ü€ŸbÇfbÈEHƒbçfb¼ƒbŸfb—b×b¿bŸbÄƒf+bßb£fƒb·ff#fƒbŸffbÇb·fb¤ƒbŸfbf#ff$€£bŸfbŸbÏfb0ƒbŸfbÇffƒbŸfbÛbÇf+b£f+b0ƒbŸff#fb«b0ƒbŸfb—b³fbŸff(ƒf#bŸfbÛbÇf+b£b¤¤¸ƒfbœƒb«bÇbÏfƒfbÃfƒbŸfbçfff+b¤ƒbŸffbŸb«f#bÇb¤ƒb—ff$ƒbËbŸb«fbœƒf#fbœƒb«bßb£fƒb«fbŸffƒbŸffbÇb·fb¤ƒbŸfb¯bŸff+b¤ƒbf ƒb»b«fa50¸ƒb—bÃbœƒfbŸfƒfbÓbŸbßfƒbÛffƒff#b³b¤ƒbŸffbÇb·fb¤ƒbŸfb¯bŸff+b§b0ƒbfffƒbÇb£bÜƒbŸfb—fb«bŸb°ƒfb£fƒbŸfbŸbçb«fbŸb¼¸œ€è€%ÍÍÕ¥¹œÉ•…Ñ•ÌÑ¡”™¥Ù”A¡…Í”€ÄEH™¥•±‘Ì€¡Í•±±•È°YP¹Õµ‰•È°Ñ¥µ•ÍÑ…µÀ°Ñ½Ñ…°…¹YP¤¸%Ð‘½•Ì¹½ÐÍÕ‰µ¥ÐÑ¡”¥¹Ù½¥”Ñ¼iQ½È…ÁÁ±äA¡…Í”€Èa50ÍÑ…µÁ¥¹œ¸%˜å½ÕÈ‰ÕÍ¥¹•ÍÌ¥Ì¥¸„A¡…Í”€ÈÝ…Ù”°½µÁ±•Ñ”ÁÉ½‘ÕÑ¥½¸½¹‰½…É‘¥¹œ‰•™½É”É•±å¥¹œ½¸Ñ¡¥Ì™±½Ü¸ôð½Àø(€€€€ð½Í•Ñ¥½¸ø(€€¤ì)ô()™Õ¹Ñ¥½¸™½Éµ…Ñµ½Õ¹Ð¡Ù…±Õ”èÍÑÉ¥¹œð¹Õµ‰•È¤ì(€É•ÑÕÉ¸9Õµ‰•È¡Ù…±Õ”ñð€À¤¹Ñ½1½…±•MÑÉ¥¹œ •¸µULœ°ìµ¥¹¥µÕµÉ…Ñ¥½¹¥¥ÑÌè€È°µ…á¥µÕµÉ…Ñ¥½¹¥¥ÑÌè€Èô¤ì)ô()™Õ¹Ñ¥½¸‘½Ý¹±½…‘Q•µÁ±…Ñ” ¤ì(€½¹ÍÐ½±Õµ¹Ì€ôl(€€€€¥¹Ù½¥•}¹Õµ‰•Èœ°€¥¹Ù½¥•}…Ñ•½Éäœ°€‘½Õµ•¹Ñ}ÑåÁ”œ°€¥ÍÍÕ•}‘…Ñ”œ°€¥ÍÍÕ•}Ñ¥µ”œ°(€€€€Í•±±•É}¹…µ”œ°€Í•±±•É}…‘‘É•ÍÌœ°€Í•±±•É}‰Õ¥±‘¥¹}¹Õµ‰•Èœ°€Í•±±•É}‘¥ÍÑÉ¥Ðœ°€Í•±±•É}…‘‘¥Ñ¥½¹…±}¹Õµ‰•Èœ°€Í•±±•É}¥Ñäœ°€Í•±±•É}Á½ÍÑ…±}½‘”œ°(€€€€‰Õå•É}¹…µ”œ°€‰Õå•É}Ù…Ñ}¹Õµ‰•Èœ°€‰Õå•É}…‘‘É•ÍÌœ°€‰Õå•É}‰Õ¥±‘¥¹}¹Õµ‰•Èœ°€‰Õå•É}‘¥ÍÑÉ¥Ðœ°€‰Õå•É}¥Ñäœ°€‰Õå•É}Á½ÍÑ…±}½‘”œ°(€€€€‰¥±±¥¹}É•™•É•¹”œ°€¹½Ñ•}É•…Í½¸œ°€¥Ñ•µ}¹…µ”œ°€‘•ÍÉ¥ÁÑ¥½¸œ°€ÅÕ…¹Ñ¥Ñäœ°€Õ¹¥Ñ}½‘”œ°€Õ¹¥Ñ}ÁÉ¥”œ°€‘¥Í½Õ¹Ñ}…µ½Õ¹Ðœ°€Ñ…á}…Ñ•½Éäœ°€Ñ…á}É…Ñ”œ°€Ñ…á}•á•µÁÑ¥½¹}É•…Í½¹}½‘”œ°€Ñ…á}•á•µÁÑ¥½¹}É•…Í½¸œ°(€tì(€½¹ÍÐ‰±½ˆ€ô¹•Ü	±½ˆ¡m€‘í½±Õµ¹Ì¹©½¥¸ œ°œ¥õqÉq¹t°ìÑåÁ”è€Ñ•áÐ½ÍØí¡…ÉÍ•ÐõÕÑ˜´àœô¤ì(€½¹ÍÐÕÉ°€ôUI0¹É•…Ñ•=‰©•ÑUI0¡‰±½ˆ¤ì(€½¹ÍÐ±¥¹¬€ô‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð „œ¤ì(€±¥¹¬¹¡É•˜€ôÕÉ°ì(€±¥¹¬¹‘½Ý¹±½…€ô€é…­…Ñ™±½ÜµÙ…Ðµ¥¹Ù½¥”µ¥µÁ½ÉÐµÑ•µÁ±…Ñ”¹ÍØœì(€±¥¹¬¹±¥¬ ¤ì(€UI0¹É•Ù½­•=‰©•ÑUI0¡ÕÉ°¤ì)ô()™Õ¹Ñ¥½¸¥µÁ½ÉÑ…Ñ•½Éä¡Ù…±Õ”üèÍÑÉ¥¹œ¤è€MQ9Iœð€M%5A1%%œì(€½¹ÍÐ…Ñ•½Éä€ô€¡Ù…±Õ”€üü€œœ¤¹ÑÉ¥´ ¤¹Ñ½UÁÁ•É…Í” ¤ì(€É•ÑÕÉ¸…Ñ•½Éä€ôôô€M%5A1%%œñð…Ñ•½Éä€ôôô€Ÿfb£bÏbßb¤œ€ü€M%5A1%%œ€è€MQ9Iœì)ô()™Õ¹Ñ¥½¸¥µÁ½ÉÑQ…á…Ñ•½Éä¡Ù…±Õ”üèÍÑÉ¥¹œ¤è%¹Ù½¥•1¥¹•lÑ…á}…Ñ•½Éätì(€½¹ÍÐ…Ñ•½Éä€ô€¡Ù…±Õ”€üü€Lœ¤¹ÑÉ¥´ ¤¹Ñ½UÁÁ•É…Í” ¤ì(€¥˜€¡…Ñ•½Éä€ôôô€hœñð…Ñ•½Éä€ôôô€iI=}IQœñð…Ñ•½Éä€ôôô€Ÿb×fbÇf(œ¤É•ÑÕÉ¸€hœì(€¥˜€¡…Ñ•½Éä€ôôô€œñð…Ñ•½Éä€ôôô€a5APœñð…Ñ•½Éä€ôôô€Ÿfbçff$œ¤É•ÑÕÉ¸€œì(€¥˜€¡…Ñ•½Éä€ôôô€<œñð…Ñ•½Éä€ôôô€=UQ}=}M=Aœñð…Ñ•½Éä€ôôô€Ÿb»bŸbÇb°ƒbŸffbßbŸfœ¤É•ÑÕÉ¸€<œì(€É•ÑÕÉ¸€Lœì)ô()™Õ¹Ñ¥½¸¹½Éµ…±¥é•Q¥µ”¡Ù…±Õ”üèÍÑÉ¥¹œ¤ì(€½¹ÍÐÉ…Ü€ô€¡Ù…±Õ”€üü€œœ¤¹ÑÉ¥´ ¤ì(€¥˜€ ½x¡lÀÅuq‘ðÉlÀ´Ít¤élÀ´Õuq élÀ´Õuq¤ü¼¹Ñ•ÍÐ¡É…Ü¤¤É•ÑÕÉ¸É…Ü¹±•¹Ñ €ôôô€Ô€ü€‘íÉ…ÝôèÀÁ€€èÉ…Üì(€½¹ÍÐ™É…Ñ¥½¸€ô9Õµ‰•È¡É…Ü¤ì(€¥˜€¡9Õµ‰•È¹¥Í¥¹¥Ñ”¡™É…Ñ¥½¸¤€˜˜™É…Ñ¥½¸€øô€À€˜˜™É…Ñ¥½¸€ð€Ä¤ì(€€€½¹ÍÐÍ•½¹‘Ì€ô5…Ñ ¹É½Õ¹¡™É…Ñ¥½¸€¨€àØÐÀÀ¤€”€àØÐÀÀì(€€€É•ÑÕÉ¸€‘íMÑÉ¥¹œ¡5…Ñ ¹™±½½È¡Í•½¹‘Ì€¼€ÌØÀÀ¤¤¹Á…‘MÑ…ÉÐ È°€œÀœ¥ôè‘íMÑÉ¥¹œ¡5…Ñ ¹™±½½È¡Í•½¹‘Ì€¼€ØÀ¤€”€ØÀ¤¹Á…‘MÑ…ÉÐ È°€œÀœ¥ôè‘íMÑÉ¥¹œ¡Í•½¹‘Ì€”€ØÀ¤¹Á…‘MÑ…ÉÐ È°€œÀœ¥õ€ì(€ô(€É•ÑÕÉ¸É…Üì)ô()™Õ¹Ñ¥½¸•Í…Á•!Ñµ°¡Ù…±Õ”èÍÑÉ¥¹œ¤ì(€É•ÑÕÉ¸Ù…±Õ”¹É•Á±…” ½l˜ðøˆt½œ°€¡¡…È¤€ôø€¡ì€œ˜œè€œ™…µÀìœ°€œðœè€œ™±Ðìœ°€œøœè€œ™Ðìœ°€œˆœè€œ™ÅÕ½Ðìœ°€ˆœˆè€œ˜ŒÌäìœô¥m¡…Ét„¤ì)ô()™Õ¹Ñ¥½¸µ•ÍÍ…•½È¡½‘”èÍÑÉ¥¹œ°…Èè‰½½±•…¸¤ì(€½¹ÍÐ±…‰•±ÌèI•½ÉñÍÑÉ¥¹œ°mÍÑÉ¥¹œ°ÍÑÉ¥¹tø€ôì(€€€U9UQ!=I%ièlŸf+fbËfƒb«bÏb³f+fƒbŸfb¿b»f#f¸œ°€A±•…Í”Í¥¸¥¸¸t°(€€€=I9%iQ%=9}MM}IEU%IèlŸff+bÌƒfb¿f+fƒb×fbŸb·f+b¤ƒbŸff#b×f#fƒb—ff$ƒfbÃfƒbŸffb“bÏbÏb¤¸œ°€e½Ô‘¼¹½Ð¡…Ù”…•ÍÌÑ¼Ñ¡¥Ì½É…¹¥é…Ñ¥½¸¸t°(€€€=I9%iQ%=9}5%9}IEU%IèlŸb—fbÓbŸb„ƒbŸffbÏf#b¿bŸb¨ƒfb«bŸb´ƒffbŸffƒbŸffb“bÏbÏb¤ƒbf ƒfb¿f+bÇfbœ¸œ°€=¹±ä…¸½É…¹¥é…Ñ¥½¸½Ý¹•È½È…‘µ¥¸…¸É•…Ñ”‘É…™ÑÌ¸t°(€€€YQ}AI=%1}IEU%IèlŸbŸb·fbàƒfffƒbŸfb«bÏb³f+fƒbŸfbÛbÇf+b£f(ƒbf#ff/bœ¸œ°€M…Ù”Ñ¡”YPÉ•¥ÍÑÉ…Ñ¥½¸ÁÉ½™¥±”™¥ÉÍÐ¸t°(€€€YQ}I%MQIQ%=9}IEU%IèlŸf+b³b ƒbfƒb«ff#fƒbŸffb“bÏbÏb¤ƒfbÏb³fb¤ƒff(ƒbÛbÇf+b£b¤ƒbŸfff+fb¤ƒbŸffbÛbŸfb¤¸œ°€Q¡”½É…¹¥é…Ñ¥½¸µÕÍÐ‰”YPÉ•¥ÍÑ•É•¸t°(€€€M11I}YQ}5%M5Q èlŸf+b³b ƒbfƒf+bßbŸb£fƒbÇffƒbŸfb£bŸb›bäƒbŸfbÇffƒbŸfbÛbÇf+b£f(ƒbŸffbÏb³fƒfffb“bÏbÏb¤¸œ°€Q¡”Í•±±•ÈYP¹Õµ‰•ÈµÕÍÐµ…Ñ Ñ¡”½É…¹¥é…Ñ¥½¸ÁÉ½™¥±”¸t°(€€€%9Y=%}9U5	I}a%MQLèlŸbÇffƒbŸffbŸb«f#bÇb¤ƒfbÏb«b»b¿fƒffƒfb£fƒff(ƒfbÃfƒbŸffb“bÏbÏb¤¸œ°€Q¡¥Ì¥¹Ù½¥”¹Õµ‰•È¥Ì…±É•…‘äÕÍ•¥¸Ñ¡¥Ì½É…¹¥é…Ñ¥½¸¸t°(€€€AI%9}%9Y=%}9=Q}%MMUèlŸf+b³b ƒbfƒb«ff#fƒbŸffbŸb«f#bÇb¤ƒbŸfbb×ff+b¤ƒb×bŸb¿bÇb¤ƒfb£fƒb—fbÓbŸb„ƒbŸfb—bÓbçbŸbÄ¸œ°€Q¡”½É¥¥¹…°¥¹Ù½¥”µÕÍÐ‰”¥ÍÍÕ•‰•™½É”É•…Ñ¥¹œ„¹½Ñ”¸t°(€€€9=Q}%9Y=%}Q=Ie}5%M5Q èlŸf+b³b ƒbfƒf+bßbŸb£fƒff#bäƒbŸfb—bÓbçbŸbÄƒff#bäƒbŸffbŸb«f#bÇb¤ƒbŸfbb×ff+b¤¸œ°€Q¡”¹½Ñ”…Ñ•½ÉäµÕÍÐµ…Ñ Ñ¡”½É¥¥¹…°¥¹Ù½¥”¸t°(€€€MQ9I}Qa}IQ}IEU%IèlŸbb¿b»fƒfbÏb£b¤ƒbÛbÇf+b£b¤ƒbfb£bÄƒffƒb×fbÄƒffb£fb¼ƒbŸfff+bŸbÏf(¸œ°€¹Ñ•È„YPÉ…Ñ”…‰½Ù”é•É¼™½È„ÍÑ…¹‘…É±¥¹”¸t°(€€€iI=}Qa}IQ}IEU%IèlŸbŸbÏb«b»b¿fƒfbÏb£b¤ƒb×fbÇf+b¤ƒfb«b×ff+fƒbŸfb£fb¼ƒbŸffb·b¿b¼¸œ°€UÍ”„é•É¼É…Ñ”™½ÈÑ¡”Í•±•Ñ•Ñ…à…Ñ•½Éä¸t°(€€€Qa}QIQ59Q}IM=9}IEU%IèlŸbb¿b»fƒbÇfbÈƒf#bÏb£b ƒbŸfb—bçfbŸb„ƒbf ƒbŸffbÏb£b¤ƒbŸfb×fbÇf+b¤¸œ°€¹Ñ•È„É•…Í½¸½‘”…¹‘•ÍÉ¥ÁÑ¥½¸™½È•á•µÁÐ½Èé•É¼µÉ…Ñ•±¥¹•Ì¸t°(€€€MQ9I}	UeI}IEU%IèlŸbb¿b»fƒbŸbÏfƒbŸffbÓb«bÇf(ƒfffbŸb«f#bÇb¤ƒbŸfff+bŸbÏf+b¤¸œ°€¹Ñ•ÈÑ¡”‰Õå•È¹…µ”™½È„ÍÑ…¹‘…É¥¹Ù½¥”¸t°(€€€MQ9I}	UeI}IMM}IEU%IèlŸbb¿b»fƒbçff#bŸfƒbŸffbÓb«bÇf(ƒfffbŸb«f#bÇb¤ƒbŸfff+bŸbÏf+b¤¸œ°€¹Ñ•ÈÑ¡”‰Õå•È…‘‘É•ÍÌ™½È„ÍÑ…¹‘…É¥¹Ù½¥”¸t°(€€€MQ9I}	UeI}%Qe}IEU%IèlŸbb¿b»fƒfb¿f+fb¤ƒbŸffbÓb«bÇf(ƒfffbŸb«f#bÇb¤ƒbŸfff+bŸbÏf+b¤¸œ°€¹Ñ•ÈÑ¡”‰Õå•È¥Ñä™½È„ÍÑ…¹‘…É¥¹Ù½¥”¸t°(€€€MQ9I}	UeI}%MQI%Q}IEU%IèlŸbb¿b»fƒb·f(ƒbŸffbÓb«bÇf(ƒfffbŸb«f#bÇb¤ƒbŸfff+bŸbÏf+b¤¸œ°€¹Ñ•ÈÑ¡”‰Õå•È‘¥ÍÑÉ¥Ð™½È„ÍÑ…¹‘…É¥¹Ù½¥”¸t°(€€€MQ9I}	UeI}A=MQ1}IEU%IèlŸbb¿b»fƒbŸfbÇfbÈƒbŸfb£bÇf+b¿f(ƒfffbÓb«bÇf(ƒff€ÔƒbbÇfbŸf¸œ°€¹Ñ•ÈÑ¡”‰Õå•È€Ôµ‘¥¥ÐÁ½ÍÑ…°½‘”¸t°(€€€MQ9I}	UeI}	U%1%9}IEU%IèlŸbb¿b»fƒbÇffƒfb£ff$ƒbŸffbÓb«bÇf(ƒff€ÐƒbbÇfbŸf¸œ°€¹Ñ•ÈÑ¡”‰Õå•È€Ðµ‘¥¥Ð‰Õ¥±‘¥¹œ¹Õµ‰•È¸t°(€€€%9Y1%}M11I}	U%1%9}9U5	HèlŸbÇffƒfb£ff$ƒbŸfb£bŸb›bäƒf+b³b ƒbfƒf+b«ff#fƒff€ÐƒbbÇfbŸf¸œ°€M•±±•È‰Õ¥±‘¥¹œ¹Õµ‰•ÈµÕÍÐ½¹Ñ…¥¸€Ð‘¥¥ÑÌ¸t°(€€€%9Y1%}M11I}%Q%=91}9U5	HèlŸbŸfbÇffƒbŸfb—bÛbŸff(ƒffb£bŸb›bäƒf+b³b ƒbfƒf+b«ff#fƒff€ÐƒbbÇfbŸf¸œ°€M•±±•È…‘‘¥Ñ¥½¹…°¹Õµ‰•ÈµÕÍÐ½¹Ñ…¥¸€Ð‘¥¥ÑÌ¸t°(€€€%9Y1%}M11I}A=MQ1}=èlŸbŸfbÇfbÈƒbŸfb£bÇf+b¿f(ƒffb£bŸb›bäƒf+b³b ƒbfƒf+b«ff#fƒff€ÔƒbbÇfbŸf¸œ°€M•±±•ÈÁ½ÍÑ…°½‘”µÕÍÐ½¹Ñ…¥¸€Ô‘¥¥ÑÌ¸t°(€€€%9Y1%}	UeI}	U%1%9}9U5	HèlŸbÇffƒfb£ff$ƒbŸffbÓb«bÇf(ƒf+b³b ƒbfƒf+b«ff#fƒff€ÐƒbbÇfbŸf¸œ°€	Õå•È‰Õ¥±‘¥¹œ¹Õµ‰•ÈµÕÍÐ½¹Ñ…¥¸€Ð‘¥¥ÑÌ¸t°(€€€%9Y1%}	UeI}A=MQ1}=èlŸbŸfbÇfbÈƒbŸfb£bÇf+b¿f(ƒfffbÓb«bÇf(ƒf+b³b ƒbfƒf+b«ff#fƒff€ÔƒbbÇfbŸf¸œ°€	Õå•ÈÁ½ÍÑ…°½‘”µÕÍÐ½¹Ñ…¥¸€Ô‘¥¥ÑÌ¸t°(€€€9=Q}%9Y=%}II9}IEU%IèlŸbb¿b»fƒfbÇb³bäƒbŸffbŸb«f#bÇb¤ƒbŸfbb×ff+b¤ƒffb—bÓbçbŸbÄ¸œ°€¹Ñ•ÈÑ¡”½É¥¥¹…°¥¹Ù½¥”É•™•É•¹”™½ÈÑ¡¥Ì¹½Ñ”¸t°(€€€9=Q}IM=9}IEU%IèlŸbb¿b»fƒbÏb£b ƒbŸfb—bÓbçbŸbÄ¸œ°€¹Ñ•È„É•…Í½¸™½ÈÑ¡”¹½Ñ”¸t°(€€€%9Y=%}9=Q}IPèlŸfbÃfƒbŸffbŸb«f#bÇb¤ƒff+bÏb¨ƒfbÏf#b¿b¤ƒfbŸb£fb¤ƒffb—b×b¿bŸbÄ¸œ°€Q¡¥Ì¥¹Ù½¥”¥Ì¹½Ð„‘É…™ÐÑ¡…Ð…¸‰”¥ÍÍÕ•¸t°(€€€9=Q}%MMU9}9=Q}MUAA=IQèlŸb—b×b¿bŸbÄƒbŸfb—bÓbçbŸbÇbŸb¨ƒbŸfb¿bŸb›fb¤ƒbf ƒbŸffb¿f+fb¤ƒbëf+bÄƒfb«bŸb´ƒb·b«f$ƒbŸfb‹f¸œ°€É•‘¥Ð…¹‘•‰¥Ð¹½Ñ”¥ÍÍÕ…¹”¥Ì¹½Ð…Ù…¥±…‰±”å•Ð¸t°(€€€%9Y=%}%MMU}%1èlŸb«bçbÃbÄƒb—b×b¿bŸbÄƒbŸffbŸb«f#bÇb¤¸ƒb«b·ffƒffƒbŸfb£f+bŸfbŸb¨ƒf#b·bŸf#fƒfb³b¿b¿f/bœ¸œ°€½Õ±¹½Ð¥ÍÍÕ”Ñ¡”¥¹Ù½¥”¸¡•¬Ñ¡”‘•Ñ…¥±Ì…¹ÑÉä……¥¸¸t°(€€€%5A=IQ}%1}Q==}1IèlŸb·b³fƒbŸffffƒf+b«b³bŸf#bÈ€Ôƒff+bëbŸb£bŸf+b¨¸œ°€Q¡”™¥±”•á••‘Ì€Ô5¸t°(€€€%5A=IQ}%1}5AQdèlŸbŸffffƒfbœƒf+b·b«f#f(ƒbçff$ƒb×ff#fƒb£f+bŸfbŸb¨¸œ°€Q¡”™¥±”¡…Ì¹¼‘…Ñ„É½ÝÌ¸t°(€€€%5A=IQ}!IM}5%MM%9èlŸf+b³b ƒbfƒf+b·b«f#f(ƒbŸffffƒbçff$ƒbçff#b¿f(¥¹Ù½¥•}¹Õµ‰•Èƒf ¥Ñ•µ}¹…µ”ƒbçff$ƒbŸfbff¸œ°€Q¡”™¥±”µÕÍÐ¥¹±Õ‘”¥¹Ù½¥•}¹Õµ‰•È…¹¥Ñ•µ}¹…µ”½±Õµ¹Ì¸t°(€€€%5A=IQ}%1}QeA}U9MUAA=IQèlŸbŸb»b«bÄƒfffMXƒbf á•°ƒb£b×f+bëb¤a1M`¸œ°€¡½½Í”„MX½Èa1M`á•°™¥±”¸t°(€€€%5A=IQ}Q==}59e}%9Y=%LèlŸbŸfb·b¼ƒbŸfbfb×f$€ÈÀÀƒfbŸb«f#bÇb¤ƒff(ƒbŸfbçfff+b¤ƒbŸff#bŸb·b¿b¤¸œ°€%µÁ½ÉÐÕÀÑ¼€ÈÀÀ¥¹Ù½¥•Ì…Ð„Ñ¥µ”¸t°(€€€%5A=IQ}MY}U91=M}EU=QèlŸf+f#b³b¼ƒbŸfb«b£bŸbÌƒbëf+bÄƒfbëffƒff(ƒfffMX¸œ°€ÅÕ½Ñ•™¥•±¥Ì¹½Ð±½Í•¥¸Ñ¡”MX™¥±”¸t°(€€€%5A=IQ}%9Y=%}9U5	I}5%MM%9èlŸf+f#b³b¼ƒb×fƒb£fbœƒbÇffƒfbŸb«f#bÇb¤¸œ°€É½Ü¥Ìµ¥ÍÍ¥¹œ…¸¥¹Ù½¥”¹Õµ‰•È¸t°(€€€%9Y=%}9=Q}=U9èlŸffƒf+b«fƒbŸfbçb¯f#bÄƒbçff$ƒbŸffbŸb«f#bÇb¤¸œ°€%¹Ù½¥”¹½Ð™½Õ¹¸t°(€€€EI}%1}Q==}1=9èlŸb—b·b¿f$ƒb£f+bŸfbŸb¨EHƒbbßf#fƒffƒbŸfb·b¼ƒbŸffbÏff#b´¸œ°€EH™¥•±•á••‘ÌÑ¡”ÍÕÁÁ½ÉÑ•Í¥é”¸t°(€ôì(€¥˜€¡½‘”¹ÍÑ…ÉÑÍ]¥Ñ  1%9}%M=U9Q}aM}5=U9Pèœ¤¤É•ÑÕÉ¸…È€ü€Ÿfbœƒf+fffƒbfƒf+b«b³bŸf#bÈƒbŸfb»b×fƒb—b³fbŸff(ƒff+fb¤ƒbŸfb£fb¼¸œ€è€±¥¹”‘¥Í½Õ¹Ð…¹¹½Ð•á••Ñ¡”±¥¹”…µ½Õ¹Ð¸œì(€É•ÑÕÉ¸±…‰•±Ím½‘•tü¹m…È€ü€À€è€Åt€üü€¡…È€ü€Ÿb«bçbÃbÄƒb·fbàƒbŸffbÏf#b¿b¤¸ƒb«b·ffƒffƒbŸfb£f+bŸfbŸb¨ƒb¯fƒbbçb¼ƒbŸffb·bŸf#fb¤¸œ€è€½Õ±¹½ÐÍ…Ù”Ñ¡”‘É…™Ð¸¡•¬Ñ¡”‘•Ñ…¥±Ì…¹ÑÉä……¥¸¸œ¤ì)ô(
