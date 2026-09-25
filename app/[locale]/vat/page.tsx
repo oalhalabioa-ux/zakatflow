@@ -39,6 +39,7 @@ type VatDocument = VatDocumentForSummary & {
   tax_amount: number;
   gross_amount: number;
   notes?: string | null;
+  is_einvoice?: boolean;
 };
 
 type VatProfileDraft = {
@@ -103,6 +104,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [loadingOrganizations, setLoadingOrganizations] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [invoiceRefresh, setInvoiceRefresh] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
@@ -166,7 +168,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
       })
       .finally(() => { if (active) setLoadingData(false); });
     return () => { active = false; };
-  }, [organizationId, periodMonth, ar]);
+  }, [organizationId, periodMonth, ar, invoiceRefresh]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -333,6 +335,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
             vatNumber={profile?.tax_registration_number ?? ''}
             registered={isRegistered}
             ar={ar}
+            onInvoiceIssued={() => setInvoiceRefresh((revision) => revision + 1)}
           />}
 
           <section className="vat-panel vat-period-panel">
@@ -389,15 +392,15 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               <thead><tr><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'النوع' : 'Type'}</th><th>{ar ? 'رقم المستند' : 'Document'}</th><th>{ar ? 'العميل / المورد' : 'Counterparty'}</th><th>{ar ? 'التصنيف' : 'Supply'}</th><th>{ar ? 'الصافي' : 'Net'}</th><th>{ar ? 'الضريبة' : 'VAT'}</th><th>{ar ? 'الإجمالي' : 'Gross'}</th><th>{ar ? 'إجراء' : 'Action'}</th></tr></thead>
               <tbody>
                 {documents.map((document) => <tr key={document.id}>
-                  <td>{document.transaction_date}</td><td><span className={`vat-type-pill ${document.document_type.toLowerCase()}`}>{document.document_type === 'SALES' ? (ar ? 'مبيعات' : 'Sales') : (ar ? 'مشتريات' : 'Purchase')}</span><small>{document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : ''}</small></td>
-                  <td><strong>{document.document_number}</strong></td><td>{document.counterparty_name}</td><td>{supplyLabel(document.supply_type, ar)}</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.net_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.tax_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.gross_amount)} SAR</td><td><button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button></td>
+                  <td>{document.transaction_date}</td><td><span className={`vat-type-pill ${document.document_type.toLowerCase()}`}>{document.document_type === 'SALES' ? (ar ? 'مبيعات' : 'Sales') : (ar ? 'مشتريات' : 'Purchase')}</span><small>{document.is_einvoice ? (ar ? 'فاتورة إلكترونية صادرة' : 'Issued e-invoice') : document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : ''}</small></td>
+                  <td><strong>{document.document_number}</strong></td><td>{document.counterparty_name}</td><td>{supplyLabel(document.supply_type, ar)}</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.net_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.tax_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.gross_amount)} SAR</td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'تدار من سجل الفواتير' : 'Manage in invoice register'}</span> : <button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button>}</td>
                 </tr>)}
                 {!documents.length && <tr><td colSpan={9} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : (ar ? 'لا توجد مستندات مسجلة لهذه الفترة.' : 'No VAT documents have been recorded for this period.')}</td></tr>}
               </tbody>
             </table></div>
           </section>
 
-          <p className="vat-disclaimer">{ar ? 'هذه الشاشة لتجميع ومراجعة بيانات ضريبة القيمة المضافة فقط؛ لا ترسل الإقرار إلى هيئة الزكاة والضريبة والجمارك ولا تنشئ فواتير إلكترونية. راجع التصنيف الضريبي وقابلية الخصم ومواعيد الإقرار مع مسؤولك الضريبي قبل التقديم.' : 'This screen organizes and reviews VAT data only. It does not submit returns to ZATCA or generate e-invoices. Confirm tax classification, input VAT recovery and filing deadlines with your tax adviser before filing.'}</p>
+          <p className="vat-disclaimer">{ar ? 'تتضمن الملخصات الفواتير الصادرة المسجلة هنا. لا ترسل هذه الشاشة الإقرار إلى هيئة الزكاة والضريبة والجمارك، وإصدار QR للمرحلة الأولى لا يغني عن تكامل المرحلة الثانية عند انطباقه. راجع التصنيف الضريبي ومواعيد الإقرار قبل التقديم.' : 'Summaries include invoices issued here. This screen does not submit returns to ZATCA, and Phase 1 QR issuance does not replace Phase 2 integration when applicable. Review tax treatment and filing dates before submission.'}</p>
         </>
       )}
     </main>

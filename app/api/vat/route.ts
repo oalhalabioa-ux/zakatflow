@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import Decimal from 'decimal.js';
 import { vatDocumentSchema, vatProfileSchema } from '@/lib/validation/schemas';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { calculateVatAmounts } from '@/lib/vat';
@@ -44,7 +45,54 @@ export async function GET(request: Request) {
       documents.push(...(data ?? []));
       if (!data || data.length < 1000) break;
     }
-    return NextResponse.json({ profile: profileResult.data, period, documents });
+    const { data: issuedInvoices, error: invoiceError } = await supabase.from('vat_einvoices')
+      .select('id,invoice_number,invoice_category,issue_date,buyer_name,buyer_vat_number,organization_id')
+      .eq('organization_id', organizationId)
+      .eq('status', 'ISSUED')
+      .gte('issue_date', period.from)
+      .lte('issue_date', period.to)
+      .order('issue_date', { ascending: false });
+    if (invoiceError) throw invoiceError;
+    const invoiceIds = (issuedInvoices ?? []).map((invoice: { id: string }) => invoice.id);
+    const { data: invoiceLines, error: invoiceLinesError } = invoiceIds.length
+      ? await supabase.from('vat_einvoice_lines').select('invoice_id,tax_category,tax_rate,line_extension_amount,tax_amount').in('invoice_id', invoiceIds)
+      : { data: [], error: null };
+    if (invoiceLinesError) throw invoiceLinesError;
+    const invoicesById = new Map((issuedInvoices ?? []).map((invoice: any) => [invoice.id, invoice]));
+    const summaries = new Map<string, any>();
+    for (const line of invoiceLines ?? []) {
+      const invoice = invoicesById.get(line.invoice_id);
+      if (!invoice) continue;
+      const key = `${invoice.id}:${line.tax_category}:${line.tax_rate}`;
+      const summary = summaries.get(key) ?? {
+        id: `einvoice-${key}`,
+        organization_id: organizationId,
+        document_type: 'SALES',
+        document_kind: 'INVOICE',
+        document_number: invoice.invoice_number,
+        transaction_date: invoice.issue_date,
+        counterparty_name: invoice.buyer_name || invoice.invoice_category,
+        counterparty_tax_number: invoice.buyer_vat_number,
+        supply_type: ({ S: 'STANDARD', Z: 'ZERO_RATED', E: 'EXEMPT', O: 'OUT_OF_SCOPE' } as Record<string, string>)[line.tax_category],
+        tax_rate: line.tax_rate,
+        recoverable_percent: '100.00',
+        net_amount: new Decimal(0),
+        tax_amount: new Decimal(0),
+        gross_amount: new Decimal(0),
+        is_einvoice: true,
+      };
+      summary.net_amount = summary.net_amount.plus(line.line_extension_amount);
+      summary.tax_amount = summary.tax_amount.plus(line.tax_amount);
+      summary.gross_amount = summary.gross_amount.plus(line.line_extension_amount).plus(line.tax_amount);
+      summaries.set(key, summary);
+    }
+    const issuedDocumentSummaries = Array.from(summaries.values(), (summary) => ({
+      ...summary,
+      net_amount: summary.net_amount.toFixed(2),
+      tax_amount: summary.tax_amount.toFixed(2),
+      gross_amount: summary.gross_amount.toFixed(2),
+    }));
+    return NextResponse.json({ profile: profileResult.data, period, documents: [...documents, ...issuedDocumentSummaries] });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: errorStatus(error.message) });
   }

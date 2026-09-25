@@ -64,6 +64,10 @@
 .vat-delete:disabled { opacity:.5; cursor:not-allowed; }
 .vat-disclaimer { margin:0; padding:4px 2px; color:var(--vat-muted); font-size:.82rem; line-height:1.8; }
 .vat-einvoice-help { margin:16px 0 0; color:var(--vat-muted); font-size:.81rem; line-height:1.7; }
+.vat-einvoice-import-actions { display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin:14px 0; }
+.vat-einvoice-import-actions small { color:var(--vat-muted); font-size:.76rem; }
+.vat-invoice-actions { display:flex!important; grid-auto-flow:column; align-items:center; gap:7px; }
+.vat-invoice-actions .vat-button { padding:8px 12px; font-size:.78rem; }
 .vat-einvoice-list { display:grid; gap:8px; margin-top:18px; }
 .vat-einvoice-item { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 14px; border:1px solid var(--vat-line); border-radius:11px; background:#f9fbfa; }
 .vat-einvoice-item > div { display:grid; gap:4px; }
