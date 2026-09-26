@@ -150,6 +150,8 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false);
   const [periodDetailsOpen, setPeriodDetailsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing'>('dashboard');
+  const [registerDirection, setRegisterDirection] = useState<'SALES' | 'PURCHASE'>('SALES');
+  const [salesEntryMode, setSalesEntryMode] = useState<'ACCOUNTING' | 'ZAKATFLOW'>('ACCOUNTING');
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
@@ -183,6 +185,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const branchOrganizationKey = branchOrganizationIds.join(',');
   const hasBranches = branchOrganizationIds.length > 0;
   const currentTaxRate = Number(profile?.standard_rate ?? profileDraft.standard_rate ?? 15);
+  const registerDocuments = documents.filter((document) => document.document_type === registerDirection);
   const previewTax = draft.supply_type === 'STANDARD'
     ? (Number(draft.net_amount || 0) * currentTaxRate / 100)
     : 0;
@@ -347,7 +350,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
-      setDraft(emptyDocument());
+      setDraft({ ...emptyDocument(), document_type: registerDirection });
       setNotice({ kind: 'success', text: ar ? 'تم تسجيل المستند الضريبي.' : 'VAT document recorded.' });
       await reloadData();
     } catch (error: any) {
@@ -522,8 +525,8 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               className={activeTab === 'register' ? 'active' : ''}
               onClick={() => setActiveTab('register')}
             >
-              <strong>{ar ? 'سجل المستندات' : 'Document register'}</strong>
-              <small>{ar ? 'تسجيل فواتير المبيعات والمشتريات' : 'Record sales and purchase invoices'}</small>
+              <strong>{ar ? 'الفواتير' : 'Invoices'}</strong>
+              <small>{ar ? 'مساحة موحدة للمبيعات والمشتريات' : 'One workspace for sales and purchases'}</small>
             </button>
             <button
               id="vat-tab-einvoicing"
@@ -535,8 +538,8 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               className={activeTab === 'einvoicing' ? 'active' : ''}
               onClick={() => setActiveTab('einvoicing')}
             >
-              <strong>{ar ? 'الفوترة الإلكترونية' : 'E-invoicing'}</strong>
-              <small>{ar ? 'متطلبات زاتكا والإعداد والإصدار' : 'ZATCA requirements, setup and issuance'}</small>
+              <strong>{ar ? 'إعداد وربط زاتكا' : 'ZATCA setup'}</strong>
+              <small>{ar ? 'تهيئة الوحدة والشهادة' : 'Invoice unit and certificate setup'}</small>
             </button>
           </nav>
 
@@ -575,12 +578,41 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           </div>
 
           <div id="vat-panel-register" role="tabpanel" aria-labelledby="vat-tab-register" hidden={activeTab !== 'register'}>
+          <div className="vat-invoice-direction" role="group" aria-label={ar ? 'نوع الفاتورة' : 'Invoice direction'}>
+            <button type="button" aria-pressed={registerDirection === 'SALES'} className={registerDirection === 'SALES' ? 'active sales' : ''} onClick={() => { setRegisterDirection('SALES'); setDraft((current) => ({ ...current, document_type: 'SALES', counterparty_contact_id: '', counterparty_name: '', counterparty_tax_number: '' })); }}>
+              <strong>{ar ? 'فاتورة بيع' : 'Sales invoice'}</strong><small>{ar ? 'عميل · ضريبة مخرجات · إصدار اختياري من زكاة فلو' : 'Customer · output VAT · optional ZakatFlow issuance'}</small>
+            </button>
+            <button type="button" aria-pressed={registerDirection === 'PURCHASE'} className={registerDirection === 'PURCHASE' ? 'active purchase' : ''} onClick={() => { setRegisterDirection('PURCHASE'); setDraft((current) => ({ ...current, document_type: 'PURCHASE', counterparty_contact_id: '', counterparty_name: '', counterparty_tax_number: '' })); }}>
+              <strong>{ar ? 'فاتورة شراء' : 'Purchase invoice'}</strong><small>{ar ? 'مورد · ضريبة مدخلات · فاتورة مستلمة' : 'Supplier · input VAT · received invoice'}</small>
+            </button>
+          </div>
+          {registerDirection === 'SALES' && <div className="vat-invoice-source-switch" role="group" aria-label={ar ? 'مصدر فاتورة المبيعات' : 'Sales invoice source'}>
+            <button type="button" aria-pressed={salesEntryMode === 'ACCOUNTING'} className={salesEntryMode === 'ACCOUNTING' ? 'active' : ''} onClick={() => setSalesEntryMode('ACCOUNTING')}>{ar ? 'تسجيل فاتورة من نظام محاسبي' : 'Record an invoice from accounting software'}</button>
+            <button type="button" aria-pressed={salesEntryMode === 'ZAKATFLOW'} className={salesEntryMode === 'ZAKATFLOW' ? 'active' : ''} onClick={() => setSalesEntryMode('ZAKATFLOW')}>{ar ? 'إنشاء فاتورة في زكاة فلو' : 'Create an invoice in ZakatFlow'}</button>
+          </div>}
+          {registerDirection === 'SALES' && salesEntryMode === 'ZAKATFLOW' && organizationId && <VatEInvoiceRegister
+            key={`invoices-${organizationId}`}
+            organizationId={organizationId}
+            sellerProfile={{
+              registered_name: profile?.registered_name ?? '',
+              seller_street: profile?.seller_street ?? '',
+              seller_building_number: profile?.seller_building_number ?? '',
+              seller_district: profile?.seller_district ?? '',
+              seller_additional_number: profile?.seller_additional_number ?? '',
+              seller_city: profile?.seller_city ?? '',
+              seller_postal_code: profile?.seller_postal_code ?? '',
+            }}
+            vatNumber={profile?.tax_registration_number ?? ''}
+            registered={isRegistered}
+            ar={ar}
+            onInvoiceIssued={() => setInvoiceRefresh((revision) => revision + 1)}
+          />}
+          {(registerDirection === 'PURCHASE' || salesEntryMode === 'ACCOUNTING') && <>
           <section className="vat-panel">
             <div className="vat-panel-head">
-              <div><span className="vat-eyebrow">{ar ? 'إدخال يدوي للسجل' : 'MANUAL REGISTER ENTRY'}</span><h2>{ar ? 'تسجيل فاتورة أو مستند ضريبي' : 'Record an invoice or VAT document'}</h2><p>{ar ? 'أدخل بيانات مستند صادر من نظامك المحاسبي لاحتساب ملخص الضريبة. هذا الإدخال لا ينشئ فاتورة إلكترونية ولا يصدرها.' : 'Record invoice data from your accounting system for the VAT summary. This entry does not create or issue an e-invoice.'}</p></div>
+              <div><span className="vat-eyebrow">{registerDirection === 'PURCHASE' ? (ar ? 'فاتورة مورد مستلمة' : 'RECEIVED SUPPLIER INVOICE') : (ar ? 'تسجيل من نظام محاسبي' : 'ACCOUNTING SYSTEM ENTRY')}</span><h2>{registerDirection === 'PURCHASE' ? (ar ? 'تسجيل فاتورة مشتريات' : 'Record a purchase invoice') : (ar ? 'تسجيل فاتورة مبيعات' : 'Record a sales invoice')}</h2><p>{registerDirection === 'PURCHASE' ? (ar ? 'أدخل المبالغ والتصنيف الضريبي من فاتورة المورد لحساب ضريبة المدخلات. هذا المسار لا يصدر فاتورة إلى زاتكا ولا يحفظ صورة الفاتورة أو بنودها.' : 'Enter amounts and tax treatment from the supplier invoice to calculate input VAT. This records tax values only; it does not issue an invoice to ZATCA or store invoice images or lines.') : (ar ? 'سجّل بيانات الفاتورة الصادرة من نظامك المحاسبي لاحتساب ملخص الضريبة. لا تُنشأ هنا فاتورة إلكترونية جديدة.' : 'Record an invoice issued by your accounting system for the VAT summary. This does not create a new e-invoice.')}</p></div>
             </div>
             <form className="vat-form-grid vat-document-form" onSubmit={addDocument}>
-              <label><span>{ar ? 'نوع المستند' : 'Register as'}</span><select value={draft.document_type} onChange={(event) => setDraft({ ...draft, document_type: event.target.value as DocumentDraft['document_type'], counterparty_contact_id: '', counterparty_name: '', counterparty_tax_number: '' })}><option value="SALES">{ar ? 'مبيعات — ضريبة مخرجات' : 'Sales — output VAT'}</option><option value="PURCHASE">{ar ? 'مشتريات — ضريبة مدخلات' : 'Purchases — input VAT'}</option></select></label>
               <label><span>{ar ? 'نوع القيد' : 'Document kind'}</span><select value={draft.document_kind} onChange={(event) => setDraft({ ...draft, document_kind: event.target.value as DocumentDraft['document_kind'] })}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option></select></label>
               <label><span>{ar ? 'رقم المستند' : 'Document number'}</span><input required maxLength={80} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} /></label>
               <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
@@ -612,35 +644,36 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
 
           <section className="vat-panel">
             <div className="vat-panel-head vat-register-heading">
-              <div><h2>{ar ? 'مستندات الفترة' : 'Documents in this period'}</h2><p>{loadingData ? (ar ? 'جارٍ تحديث السجل…' : 'Refreshing register…') : `${documents.length} ${ar ? 'مستند' : 'documents'}`}</p></div>
+              <div><h2>{registerDirection === 'PURCHASE' ? (ar ? 'فواتير المشتريات في الفترة' : 'Purchase invoices in this period') : (ar ? 'فواتير المبيعات المسجلة' : 'Registered sales invoices')} </h2><p>{loadingData ? (ar ? 'جارٍ تحديث السجل…' : 'Refreshing register…') : `${registerDocuments.length} ${ar ? 'مستند' : 'documents'}`}</p></div>
               <span className="vat-period-chip">{period.from} — {period.to}</span>
             </div>
             <div className="vat-table-wrap"><table className="vat-table">
               <thead><tr><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'النوع' : 'Type'}</th><th>{ar ? 'رقم المستند' : 'Document'}</th><th>{ar ? 'العميل / المورد' : 'Counterparty'}</th><th>{ar ? 'التصنيف' : 'Supply'}</th><th>{ar ? 'الصافي' : 'Net'}</th><th>{ar ? 'الضريبة' : 'VAT'}</th><th>{ar ? 'الإجمالي' : 'Gross'}</th><th>{ar ? 'إجراء' : 'Action'}</th></tr></thead>
               <tbody>
-                {documents.map((document) => <tr key={document.id}>
+                {registerDocuments.map((document) => <tr key={document.id}>
                   <td>{document.transaction_date}</td><td><span className={`vat-type-pill ${document.document_type.toLowerCase()}`}>{document.document_type === 'SALES' ? (ar ? 'مبيعات' : 'Sales') : (ar ? 'مشتريات' : 'Purchase')}</span><small>{document.is_einvoice ? (ar ? 'فاتورة إلكترونية صادرة' : 'Issued e-invoice') : document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : ''}</small></td>
                   <td><strong>{document.document_number}</strong></td><td>{document.counterparty_name}</td><td>{supplyLabel(document.supply_type, ar)}</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.net_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.tax_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.gross_amount)} SAR</td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'تدار من سجل الفواتير' : 'Manage in invoice register'}</span> : <button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button>}</td>
                 </tr>)}
-                {!documents.length && <tr><td colSpan={9} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : (ar ? 'لا توجد مستندات مسجلة لهذه الفترة.' : 'No VAT documents have been recorded for this period.')}</td></tr>}
+                {!registerDocuments.length && <tr><td colSpan={9} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : (registerDirection === 'PURCHASE' ? (ar ? 'لا توجد فواتير مشتريات مسجلة لهذه الفترة.' : 'No purchase invoices have been recorded for this period.') : (ar ? 'لا توجد فواتير مبيعات مسجلة لهذه الفترة.' : 'No sales invoices have been recorded for this period.'))}</td></tr>}
               </tbody>
             </table></div>
           </section>
 
           <p className="vat-disclaimer">{ar ? 'تتضمن الملخصات الفواتير الصادرة المسجلة هنا. لا ترسل هذه الشاشة الإقرار إلى هيئة الزكاة والضريبة والجمارك، وإصدار QR للمرحلة الأولى لا يغني عن تكامل المرحلة الثانية عند انطباقه. راجع التصنيف الضريبي ومواعيد الإقرار قبل التقديم.' : 'Summaries include invoices issued here. This screen does not submit returns to ZATCA, and Phase 1 QR issuance does not replace Phase 2 integration when applicable. Review tax treatment and filing dates before submission.'}</p>
+          </>}
           </div>
           <div id="vat-panel-einvoicing" role="tabpanel" aria-labelledby="vat-tab-einvoicing" hidden={activeTab !== 'einvoicing'}>
             <section className="vat-panel vat-einvoice-overview">
               <div>
-                <span className="vat-eyebrow">{ar ? 'مساحة مستقلة لاستكمال المتطلبات' : 'SEPARATE WORKSPACE FOR REQUIREMENTS'}</span>
-                <h2>{ar ? 'إدارة الفاتورة الإلكترونية' : 'Electronic invoice management'}</h2>
-                <p>{ar ? 'هنا تُدار متطلبات الفوترة الإلكترونية وإعداد زاتكا ومسودة الفاتورة وإصدار QR. هذا المسار منفصل عن إدخال الفواتير المستخدم لاحتساب ملخص الضريبة.' : 'Manage e-invoicing requirements, ZATCA setup, invoice drafts and QR issuance here. This workflow is separate from the invoice register used for VAT summaries.'}</p>
+                <span className="vat-eyebrow">{ar ? 'متطلبات الفوترة الإلكترونية' : 'E-INVOICING REQUIREMENTS'}</span>
+                <h2>{ar ? 'إعداد وحدة الفوترة وربط زاتكا' : 'Invoice unit and ZATCA connection'}</h2>
+                <p>{ar ? 'تُجهّز الوحدة والشهادة والاختبار هنا. إنشاء مسودة فاتورة المبيعات وإصدارها من زكاة فلو متاحان ضمن تبويب «الفواتير»؛ أما فاتورة الشراء فهي مستند مستلم ولا تُصدرها المنشأة إلى زاتكا.' : 'Prepare the invoice unit, certificate and tests here. Sales invoice drafts and issuance are under “Invoices”. Purchase invoices are received documents and are not issued to ZATCA by your organization.'}</p>
               </div>
               <span className="vat-status pending">{ar ? 'استكمال المتطلبات قيد العمل' : 'Requirements review in progress'}</span>
               <div className="vat-einvoice-steps" aria-label={ar ? 'آلية العمل' : 'Workflow'}>
                 <span><b>1</b>{ar ? 'إعداد بيانات الوحدة' : 'Set up the invoice unit'}</span>
-                <span><b>2</b>{ar ? 'إدخال الفاتورة ومراجعتها' : 'Enter and review the invoice'}</span>
-                <span><b>3</b>{ar ? 'اختبار المتطلبات والربط' : 'Validate requirements and integration'}</span>
+                <span><b>2</b>{ar ? 'طلب شهادة المحاكاة' : 'Request a simulation certificate'}</span>
+                <span><b>3</b>{ar ? 'الاختبار ثم تهيئة الإنتاج' : 'Test, then configure production'}</span>
               </div>
             </section>
             {organizationId && <VatEInvoiceSetup
@@ -655,23 +688,6 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
                 setProfileDetailsOpen(true);
                 requestAnimationFrame(() => document.getElementById('vat-registration-profile')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
               }}
-            />}
-            {organizationId && <VatEInvoiceRegister
-              key={`invoices-${organizationId}`}
-              organizationId={organizationId}
-              sellerProfile={{
-                registered_name: profile?.registered_name ?? '',
-                seller_street: profile?.seller_street ?? '',
-                seller_building_number: profile?.seller_building_number ?? '',
-                seller_district: profile?.seller_district ?? '',
-                seller_additional_number: profile?.seller_additional_number ?? '',
-                seller_city: profile?.seller_city ?? '',
-                seller_postal_code: profile?.seller_postal_code ?? '',
-              }}
-              vatNumber={profile?.tax_registration_number ?? ''}
-              registered={isRegistered}
-              ar={ar}
-              onInvoiceIssued={() => setInvoiceRefresh((revision) => revision + 1)}
             />}
           </div>
         </>

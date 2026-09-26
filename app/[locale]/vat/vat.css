@@ -134,6 +134,15 @@
 .vat-tabs button small { color:var(--vat-muted); font-size:.77rem; line-height:1.45; }
 .vat-tabs button.active { border-color:#cfe1d9; background:#fff; box-shadow:0 3px 12px rgb(25 61 50 / 6%); }
 .vat-tabs button:focus-visible { outline:3px solid rgb(8 116 92 / 26%); outline-offset:2px; }
+.vat-invoice-direction { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0 0 13px; }
+.vat-invoice-direction button { display:grid; gap:5px; min-height:68px; padding:13px 16px; border:1px solid var(--vat-line); border-radius:12px; background:var(--vat-card); color:var(--vat-ink); cursor:pointer; text-align:start; font:inherit; }
+.vat-invoice-direction button strong { font-size:.9rem; }
+.vat-invoice-direction button small { color:var(--vat-muted); font-size:.73rem; line-height:1.4; }
+.vat-invoice-direction button.active { border-color:color-mix(in srgb,var(--vat-accent) 42%,var(--vat-line)); background:color-mix(in srgb,var(--vat-accent) 6%,var(--vat-card)); box-shadow:0 3px 12px rgb(25 61 50 / 5%); }
+.vat-invoice-direction button:focus-visible,.vat-invoice-source-switch button:focus-visible { outline:3px solid color-mix(in srgb,var(--vat-accent) 26%,transparent); outline-offset:2px; }
+.vat-invoice-source-switch { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 12px; padding:4px; border:1px solid var(--vat-line); border-radius:12px; background:var(--vat-soft); }
+.vat-invoice-source-switch button { min-height:38px; padding:8px 13px; border:1px solid transparent; border-radius:9px; background:transparent; color:var(--vat-muted); cursor:pointer; font:inherit; font-size:.77rem; font-weight:700; }
+.vat-invoice-source-switch button.active { border-color:var(--vat-line); background:var(--vat-card); color:var(--vat-green); box-shadow:0 2px 8px rgb(25 61 50 / 5%); }
 .vat-einvoice-overview { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:10px 20px; border-color:#d9e9e3; background:linear-gradient(130deg,#f9fcfa,#f3f8f5); }
 .vat-einvoice-overview > div:first-child p { max-width:850px; margin:6px 0 0; color:var(--vat-muted); line-height:1.7; }
 .vat-einvoice-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; grid-column:1/-1; margin-top:8px; }

@@ -232,6 +232,11 @@ export function VatEInvoiceRegister({
       }
 
       const groups = groupImportRecords(rowsToRecords(rows));
+      const notesUnsupported = groups.some((group) => {
+        const type = (group.rows[0].document_type ?? '').trim().toUpperCase();
+        return ['CREDIT_NOTE', 'DEBIT_NOTE', 'CREDIT NOTE', 'DEBIT NOTE', 'إشعار دائن', 'إشعار مدين'].includes(type);
+      });
+      if (notesUnsupported) throw new Error('EINVOICE_NOTES_NOT_SUPPORTED');
       let imported = 0;
       const failures: string[] = [];
       for (const group of groups) {
@@ -380,7 +385,7 @@ export function VatEInvoiceRegister({
           <div className="vat-einvoice-group-grid">
             <label><span>{ar ? 'رقم الفاتورة' : 'Invoice number'}</span><input required maxLength={100} value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} /></label>
             <label><span>{ar ? 'نوع الفاتورة' : 'Invoice type'}</span><select value={category} onChange={(event) => setCategory(event.target.value as typeof category)}><option value="STANDARD">{ar ? 'ضريبية قياسية' : 'Standard tax invoice'}</option><option value="SIMPLIFIED">{ar ? 'مبسطة' : 'Simplified'}</option></select></label>
-            <label><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={documentType} onChange={(event) => setDocumentType(event.target.value as typeof documentType)}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option><option value="DEBIT_NOTE">{ar ? 'إشعار مدين' : 'Debit note'}</option></select></label>
+            <label><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={documentType} onChange={(event) => setDocumentType(event.target.value as typeof documentType)}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE" disabled>{ar ? 'إشعار دائن — غير متاح حاليًا' : 'Credit note — not available yet'}</option><option value="DEBIT_NOTE" disabled>{ar ? 'إشعار مدين — غير متاح حاليًا' : 'Debit note — not available yet'}</option></select></label>
             <label><span>{ar ? 'تاريخ الإصدار' : 'Issue date'}</span><input required type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} /></label>
             <label><span>{ar ? 'وقت الإصدار' : 'Issue time'}</span><input required type="time" value={issueTime} onChange={(event) => setIssueTime(event.target.value)} /></label>
           </div>
@@ -556,6 +561,7 @@ function messageFor(code: string, ar: boolean) {
     INVALID_BUYER_ADDITIONAL_NUMBER: ['الرقم الإضافي للمشتري يجب أن يتكون من 4 أرقام.', 'Buyer additional number must contain 4 digits.'],
     NOTE_INVOICE_REFERENCE_REQUIRED: ['أدخل مرجع الفاتورة الأصلية للإشعار.', 'Enter the original invoice reference for this note.'],
     NOTE_REASON_REQUIRED: ['أدخل سبب الإشعار.', 'Enter a reason for the note.'],
+    EINVOICE_NOTES_NOT_SUPPORTED: ['استيراد الإشعارات الدائنة والمدينة غير متاح حاليًا؛ استورد الفواتير فقط.', 'Credit and debit note import is not available yet; import invoices only.'],
     EINVOICE_NOT_DRAFT: ['هذه الفاتورة ليست مسودة قابلة للإصدار.', 'This invoice is not a draft that can be issued.'],
     NOTE_ISSUANCE_NOT_SUPPORTED: ['إصدار الإشعارات الدائنة أو المدينة غير متاح حتى الآن.', 'Credit and debit note issuance is not available yet.'],
     EINVOICE_ISSUE_FAILED: ['تعذر إصدار الفاتورة. تحقق من البيانات وحاول مجددًا.', 'Could not issue the invoice. Check the details and try again.'],
