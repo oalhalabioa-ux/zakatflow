@@ -10,6 +10,7 @@ function errorResponse(error: unknown) {
   const known = new Set([
     'UNAUTHORIZED', 'ORGANIZATION_ACCESS_REQUIRED', 'ORGANIZATION_ADMIN_REQUIRED',
     'VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH',
+    'SELLER_PROFILE_INCOMPLETE', 'VAT_CONTACT_NOT_FOUND', 'VAT_CONTACT_TYPE_MISMATCH',
     'EINVOICE_CONNECTION_MISMATCH', 'PRECEDING_INVOICE_NOT_ISSUED',
     'NOTE_INVOICE_CATEGORY_MISMATCH', 'EINVOICE_NUMBER_EXISTS',
   ]);
@@ -18,7 +19,7 @@ function errorResponse(error: unknown) {
     : 'EINVOICE_REQUEST_FAILED';
   const status = code === 'UNAUTHORIZED' ? 401
     : code === 'ORGANIZATION_ACCESS_REQUIRED' || code === 'ORGANIZATION_ADMIN_REQUIRED' ? 403
-      : ['VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH', 'PRECEDING_INVOICE_NOT_ISSUED', 'EINVOICE_NUMBER_EXISTS'].includes(code) ? 409
+      : ['VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH', 'SELLER_PROFILE_INCOMPLETE', 'PRECEDING_INVOICE_NOT_ISSUED', 'EINVOICE_NUMBER_EXISTS'].includes(code) ? 409
         : code === 'EINVOICE_REQUEST_FAILED' ? 500 : 400;
   return NextResponse.json({ error: code }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
@@ -74,13 +75,34 @@ export async function POST(request: Request) {
     await requireOrganizationAdmin(supabase, user.id, draft.organization_id);
 
     const { data: profile, error: profileError } = await supabase.from('vat_profiles')
-      .select('registration_status,tax_registration_number')
+      .select('registration_status,tax_registration_number,registered_name,seller_street,seller_building_number,seller_district,seller_additional_number,seller_city,seller_postal_code')
       .eq('organization_id', draft.organization_id)
       .maybeSingle();
     if (profileError) throw profileError;
     if (!profile) throw new Error('VAT_PROFILE_REQUIRED');
     if (profile.registration_status !== 'REGISTERED') throw new Error('VAT_REGISTRATION_REQUIRED');
     if (profile.tax_registration_number?.trim() !== draft.seller_vat_number) throw new Error('SELLER_VAT_MISMATCH');
+    const sellerValues = {
+      seller_name: profile.registered_name?.trim(),
+      seller_address: profile.seller_street?.trim(),
+      seller_building_number: profile.seller_building_number?.trim(),
+      seller_district: profile.seller_district?.trim(),
+      seller_additional_number: profile.seller_additional_number?.trim(),
+      seller_city: profile.seller_city?.trim(),
+      seller_postal_code: profile.seller_postal_code?.trim(),
+    };
+    if (Object.values(sellerValues).some((value) => !value)) throw new Error('SELLER_PROFILE_INCOMPLETE');
+
+    if (draft.buyer_contact_id) {
+      const { data: buyerContact, error: buyerContactError } = await supabase.from('vat_contacts')
+        .select('id,contact_type')
+        .eq('id', draft.buyer_contact_id)
+        .eq('organization_id', draft.organization_id)
+        .maybeSingle();
+      if (buyerContactError) throw buyerContactError;
+      if (!buyerContact) throw new Error('VAT_CONTACT_NOT_FOUND');
+      if (buyerContact.contact_type !== 'CUSTOMER' && buyerContact.contact_type !== 'BOTH') throw new Error('VAT_CONTACT_TYPE_MISMATCH');
+    }
 
     if (draft.connection_id) {
       const { data: connection, error: connectionError } = await supabase.from('vat_einvoice_connections')
@@ -109,7 +131,8 @@ export async function POST(request: Request) {
     const { lines, ...header } = draft;
     const { data: invoice, error: insertError } = await supabase.from('vat_einvoices').insert({
       ...header,
-      seller_postal_code: draft.seller_postal_code || null,
+      ...sellerValues,
+      buyer_contact_id: draft.buyer_contact_id || null,
       buyer_name: draft.buyer_name || null,
       buyer_vat_number: draft.buyer_vat_number || null,
       buyer_address: draft.buyer_address || null,

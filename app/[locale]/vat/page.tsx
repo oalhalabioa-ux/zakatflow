@@ -7,6 +7,7 @@ import { organizationDisplayName } from '@/lib/organization-display';
 import { VatEInvoiceSetup } from '@/components/vat-einvoice-setup';
 import { VatEInvoiceRegister } from '@/components/vat-einvoice-register';
 import { VatManagementDashboard, VatPeriodSummaryForm } from '@/components/vat-period-workspace';
+import { VatContactPicker, type VatContact } from '@/components/vat-contact-picker';
 import type { VatPeriodSummaryRecord } from '@/lib/vat-period-summary';
 import { aggregateVatDashboardTotals, type VatDashboardTotals } from '@/lib/vat-dashboard-summary';
 import './vat.css';
@@ -28,6 +29,13 @@ type VatProfile = {
   filing_frequency: VatFilingFrequency;
   standard_rate: number;
   period_start_month: number;
+  registered_name: string | null;
+  seller_street: string | null;
+  seller_building_number: string | null;
+  seller_district: string | null;
+  seller_additional_number: string | null;
+  seller_city: string | null;
+  seller_postal_code: string | null;
 };
 
 type VatDocument = VatDocumentForSummary & {
@@ -52,6 +60,13 @@ type VatProfileDraft = {
   filing_frequency: VatFilingFrequency;
   standard_rate: string;
   period_start_month: string;
+  registered_name: string;
+  seller_street: string;
+  seller_building_number: string;
+  seller_district: string;
+  seller_additional_number: string;
+  seller_city: string;
+  seller_postal_code: string;
 };
 
 type DocumentDraft = {
@@ -61,6 +76,7 @@ type DocumentDraft = {
   transaction_date: string;
   counterparty_name: string;
   counterparty_tax_number: string;
+  counterparty_contact_id: string;
   supply_type: 'STANDARD' | 'ZERO_RATED' | 'EXEMPT' | 'OUT_OF_SCOPE';
   net_amount: string;
   recoverable_percent: string;
@@ -88,6 +104,13 @@ const emptyProfile: VatProfileDraft = {
   filing_frequency: 'QUARTERLY',
   standard_rate: '15',
   period_start_month: '1',
+  registered_name: '',
+  seller_street: '',
+  seller_building_number: '',
+  seller_district: '',
+  seller_additional_number: '',
+  seller_city: '',
+  seller_postal_code: '',
 };
 const emptyDocument = (): DocumentDraft => ({
   document_type: 'SALES',
@@ -96,6 +119,7 @@ const emptyDocument = (): DocumentDraft => ({
   transaction_date: new Date().toISOString().slice(0, 10),
   counterparty_name: '',
   counterparty_tax_number: '',
+  counterparty_contact_id: '',
   supply_type: 'STANDARD',
   net_amount: '',
   recoverable_percent: '100',
@@ -230,7 +254,14 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           filing_frequency: body.profile.filing_frequency,
           standard_rate: String(body.profile.standard_rate),
           period_start_month: String(body.profile.period_start_month),
-        } : emptyProfile);
+          registered_name: body.profile.registered_name ?? organizations.find((organization) => organization.id === organizationId)?.name ?? '',
+          seller_street: body.profile.seller_street ?? '',
+          seller_building_number: body.profile.seller_building_number ?? '',
+          seller_district: body.profile.seller_district ?? '',
+          seller_additional_number: body.profile.seller_additional_number ?? '',
+          seller_city: body.profile.seller_city ?? '',
+          seller_postal_code: body.profile.seller_postal_code ?? '',
+        } : { ...emptyProfile, registered_name: organizations.find((organization) => organization.id === organizationId)?.name ?? '' });
       })
       .catch((error) => {
         if (!active) return;
@@ -271,6 +302,13 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           ...profileDraft,
           tax_registration_number: profileDraft.tax_registration_number.trim() || null,
           registration_date: profileDraft.registration_date || null,
+          registered_name: profileDraft.registered_name.trim() || null,
+          seller_street: profileDraft.seller_street.trim() || null,
+          seller_building_number: profileDraft.seller_building_number.trim() || null,
+          seller_district: profileDraft.seller_district.trim() || null,
+          seller_additional_number: profileDraft.seller_additional_number.trim() || null,
+          seller_city: profileDraft.seller_city.trim() || null,
+          seller_postal_code: profileDraft.seller_postal_code.trim() || null,
           standard_rate: Number(profileDraft.standard_rate),
           period_start_month: Number(profileDraft.period_start_month),
         }),
@@ -302,6 +340,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           ...draft,
           net_amount: Number(draft.net_amount),
           recoverable_percent: draft.document_type === 'PURCHASE' ? Number(draft.recoverable_percent) : 100,
+          counterparty_contact_id: draft.counterparty_contact_id || null,
           counterparty_tax_number: draft.counterparty_tax_number.trim() || null,
           notes: draft.notes.trim() || null,
         }),
@@ -411,6 +450,19 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
                 <label><span>{ar ? 'دورية الإقرار' : 'Filing frequency'}</span><select value={profileDraft.filing_frequency} onChange={(event) => setProfileDraft({ ...profileDraft, filing_frequency: event.target.value as VatFilingFrequency })}><option value="MONTHLY">{ar ? 'شهري' : 'Monthly'}</option><option value="QUARTERLY">{ar ? 'ربع سنوي' : 'Quarterly'}</option></select></label>
                 <label><span>{ar ? 'النسبة الأساسية' : 'Standard VAT rate'}</span><input type="text" value="15%" readOnly aria-readonly="true" /><small className="vat-field-hint">{ar ? 'النسبة الأساسية المعتمدة حاليًا في السعودية' : 'Current Saudi standard rate'}</small></label>
                 <label><span>{ar ? 'شهر بداية السنة الضريبية' : 'Tax year start month'}</span><select value={profileDraft.period_start_month} onChange={(event) => setProfileDraft({ ...profileDraft, period_start_month: event.target.value })}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{monthLabel(index + 1, ar)}</option>)}</select></label>
+                <fieldset className="vat-einvoice-group vat-profile-seller-fields">
+                  <legend>{ar ? 'بيانات البائع والعنوان الوطني' : 'Seller and national address details'}</legend>
+                  <div className="vat-einvoice-group-grid">
+                    <label><span>{ar ? 'الاسم النظامي المسجل' : 'Registered legal name'}</span><input required={profileDraft.registration_status === 'REGISTERED'} maxLength={200} value={profileDraft.registered_name} onChange={(event) => setProfileDraft({ ...profileDraft, registered_name: event.target.value })} /></label>
+                    <label><span>{ar ? 'الشارع' : 'Street'}</span><input required={profileDraft.registration_status === 'REGISTERED'} maxLength={250} value={profileDraft.seller_street} onChange={(event) => setProfileDraft({ ...profileDraft, seller_street: event.target.value })} /></label>
+                    <label><span>{ar ? 'رقم المبنى (4 أرقام)' : 'Building number (4 digits)'}</span><input required={profileDraft.registration_status === 'REGISTERED'} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={profileDraft.seller_building_number} onChange={(event) => setProfileDraft({ ...profileDraft, seller_building_number: event.target.value })} /></label>
+                    <label><span>{ar ? 'الحي' : 'District'}</span><input required={profileDraft.registration_status === 'REGISTERED'} maxLength={120} value={profileDraft.seller_district} onChange={(event) => setProfileDraft({ ...profileDraft, seller_district: event.target.value })} /></label>
+                    <label><span>{ar ? 'الرقم الإضافي (4 أرقام)' : 'Additional number (4 digits)'}</span><input required={profileDraft.registration_status === 'REGISTERED'} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={profileDraft.seller_additional_number} onChange={(event) => setProfileDraft({ ...profileDraft, seller_additional_number: event.target.value })} /></label>
+                    <label><span>{ar ? 'المدينة' : 'City'}</span><input required={profileDraft.registration_status === 'REGISTERED'} maxLength={120} value={profileDraft.seller_city} onChange={(event) => setProfileDraft({ ...profileDraft, seller_city: event.target.value })} /></label>
+                    <label><span>{ar ? 'الرمز البريدي (5 أرقام)' : 'Postal code (5 digits)'}</span><input required={profileDraft.registration_status === 'REGISTERED'} inputMode="numeric" pattern="[0-9]{5}" maxLength={5} value={profileDraft.seller_postal_code} onChange={(event) => setProfileDraft({ ...profileDraft, seller_postal_code: event.target.value })} /></label>
+                  </div>
+                  <small className="vat-field-hint">{ar ? 'تظهر هذه البيانات تلقائيًا في الفواتير الإلكترونية الصادرة عن هذه المؤسسة.' : 'These details populate e-invoices issued by this organization.'}</small>
+                </fieldset>
                 <div className="vat-form-actions">
                   {profile && <button type="button" className="vat-button secondary" onClick={() => setProfileOpen(false)}>{ar ? 'إلغاء' : 'Cancel'}</button>}
                   <button className="vat-button primary" disabled={saving}>{saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ ملف التسجيل' : 'Save registration')}</button>
@@ -528,12 +580,27 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               <div><span className="vat-eyebrow">{ar ? 'إدخال يدوي للسجل' : 'MANUAL REGISTER ENTRY'}</span><h2>{ar ? 'تسجيل فاتورة أو مستند ضريبي' : 'Record an invoice or VAT document'}</h2><p>{ar ? 'أدخل بيانات مستند صادر من نظامك المحاسبي لاحتساب ملخص الضريبة. هذا الإدخال لا ينشئ فاتورة إلكترونية ولا يصدرها.' : 'Record invoice data from your accounting system for the VAT summary. This entry does not create or issue an e-invoice.'}</p></div>
             </div>
             <form className="vat-form-grid vat-document-form" onSubmit={addDocument}>
-              <label><span>{ar ? 'نوع المستند' : 'Register as'}</span><select value={draft.document_type} onChange={(event) => setDraft({ ...draft, document_type: event.target.value as DocumentDraft['document_type'] })}><option value="SALES">{ar ? 'مبيعات — ضريبة مخرجات' : 'Sales — output VAT'}</option><option value="PURCHASE">{ar ? 'مشتريات — ضريبة مدخلات' : 'Purchases — input VAT'}</option></select></label>
+              <label><span>{ar ? 'نوع المستند' : 'Register as'}</span><select value={draft.document_type} onChange={(event) => setDraft({ ...draft, document_type: event.target.value as DocumentDraft['document_type'], counterparty_contact_id: '', counterparty_name: '', counterparty_tax_number: '' })}><option value="SALES">{ar ? 'مبيعات — ضريبة مخرجات' : 'Sales — output VAT'}</option><option value="PURCHASE">{ar ? 'مشتريات — ضريبة مدخلات' : 'Purchases — input VAT'}</option></select></label>
               <label><span>{ar ? 'نوع القيد' : 'Document kind'}</span><select value={draft.document_kind} onChange={(event) => setDraft({ ...draft, document_kind: event.target.value as DocumentDraft['document_kind'] })}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option></select></label>
               <label><span>{ar ? 'رقم المستند' : 'Document number'}</span><input required maxLength={80} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} /></label>
               <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
-              <label><span>{ar ? 'اسم العميل أو المورد' : 'Customer or supplier'}</span><input required maxLength={160} value={draft.counterparty_name} onChange={(event) => setDraft({ ...draft, counterparty_name: event.target.value })} /></label>
-              <label><span>{ar ? 'الرقم الضريبي للطرف الآخر (اختياري)' : 'Counterparty VAT number (optional)'}</span><input maxLength={30} value={draft.counterparty_tax_number} onChange={(event) => setDraft({ ...draft, counterparty_tax_number: event.target.value })} /></label>
+              <div className="vat-document-contact-field">
+                <VatContactPicker
+                  key={`${organizationId}-${draft.document_type}`}
+                  organizationId={organizationId}
+                  role={draft.document_type === 'SALES' ? 'CUSTOMER' : 'SUPPLIER'}
+                  ar={ar}
+                  label={draft.document_type === 'SALES' ? (ar ? 'العميل / المشتري' : 'Customer / buyer') : (ar ? 'المورد' : 'Supplier')}
+                  value={draft.counterparty_contact_id}
+                  required
+                  onChange={(contact: VatContact | null) => setDraft({
+                    ...draft,
+                    counterparty_contact_id: contact?.id ?? '',
+                    counterparty_name: contact?.name ?? '',
+                    counterparty_tax_number: contact?.vat_number ?? '',
+                  })}
+                />
+              </div>
               <label><span>{ar ? 'تصنيف التوريد' : 'Supply category'}</span><select value={draft.supply_type} onChange={(event) => setDraft({ ...draft, supply_type: event.target.value as DocumentDraft['supply_type'] })}><option value="STANDARD">{ar ? `خاضع للنسبة الأساسية (${currentTaxRate}%)` : `Standard rated (${currentTaxRate}%)`}</option><option value="ZERO_RATED">{ar ? 'خاضع للنسبة الصفرية' : 'Zero-rated'}</option><option value="EXEMPT">{ar ? 'معفى' : 'Exempt'}</option><option value="OUT_OF_SCOPE">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select></label>
               <label><span>{ar ? 'صافي المبلغ (ريال)' : 'Net amount (SAR)'}</span><input required type="number" min="0.01" step="0.01" value={draft.net_amount} onChange={(event) => setDraft({ ...draft, net_amount: event.target.value })} /></label>
               {draft.document_type === 'PURCHASE' && <label><span>{ar ? 'نسبة ضريبة المدخلات القابلة للخصم (%)' : 'Recoverable input VAT (%)'}</span><input required type="number" min="0" max="100" step="0.01" value={draft.recoverable_percent} onChange={(event) => setDraft({ ...draft, recoverable_percent: event.target.value })} /></label>}
@@ -587,7 +654,15 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
             {organizationId && <VatEInvoiceRegister
               key={`invoices-${organizationId}`}
               organizationId={organizationId}
-              organizationName={selectedOrganization?.name ?? ''}
+              sellerProfile={{
+                registered_name: profile?.registered_name ?? '',
+                seller_street: profile?.seller_street ?? '',
+                seller_building_number: profile?.seller_building_number ?? '',
+                seller_district: profile?.seller_district ?? '',
+                seller_additional_number: profile?.seller_additional_number ?? '',
+                seller_city: profile?.seller_city ?? '',
+                seller_postal_code: profile?.seller_postal_code ?? '',
+              }}
               vatNumber={profile?.tax_registration_number ?? ''}
               registered={isRegistered}
               ar={ar}
@@ -656,6 +731,8 @@ function messageFor(code: string, ar: boolean) {
     VAT_REGISTRATION_REQUIRED: ['يجب حفظ حالة التسجيل كـ «مسجل» قبل إضافة المستندات.', 'Mark the organization as registered before adding documents.'],
     VAT_PROFILE_REQUIRED: ['احفظ ملف التسجيل أولًا.', 'Save the VAT registration profile first.'],
     VAT_DOCUMENT_NUMBER_EXISTS: ['رقم المستند مستخدم من قبل ضمن هذا النوع.', 'This document number already exists for this document type.'],
+    VAT_CONTACT_NOT_FOUND: ['الجهة المختارة غير موجودة في المؤسسة.', 'The selected contact was not found in this organization.'],
+    VAT_CONTACT_TYPE_MISMATCH: ['نوع الجهة لا يتوافق مع مبيعات أو مشتريات المستند.', 'This contact type does not match the document direction.'],
     INVALID_PERIOD_MONTH: ['اختر شهرًا صحيحًا للفترة.', 'Choose a valid period month.'],
   };
   return labels[code]?.[ar ? 0 : 1] ?? code;

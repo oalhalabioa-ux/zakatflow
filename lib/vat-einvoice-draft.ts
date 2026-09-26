@@ -30,6 +30,7 @@ const invoiceLineSchema = z.object({
 
 export const vatEInvoiceDraftSchema = z.object({
   organization_id: z.string().uuid(),
+  buyer_contact_id: z.string().uuid().optional().nullable(),
   connection_id: z.string().uuid().optional().nullable(),
   invoice_number: z.string().trim().min(1).max(100),
   document_type: z.enum(['INVOICE', 'CREDIT_NOTE', 'DEBIT_NOTE']).default('INVOICE'),

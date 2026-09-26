@@ -246,6 +246,20 @@ export async function POST(request: Request) {
       if (profileError) throw profileError;
       if (profile.registration_status !== 'REGISTERED') throw new Error('VAT_REGISTRATION_REQUIRED');
 
+      let contact: { id: string; contact_type: string; name: string; vat_number: string | null } | null = null;
+      if (document.counterparty_contact_id) {
+        const { data, error } = await supabase.from('vat_contacts')
+          .select('id,contact_type,name,vat_number')
+          .eq('id', document.counterparty_contact_id)
+          .eq('organization_id', document.organization_id)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error('VAT_CONTACT_NOT_FOUND');
+        const expectedType = document.document_type === 'SALES' ? 'CUSTOMER' : 'SUPPLIER';
+        if (data.contact_type !== expectedType && data.contact_type !== 'BOTH') throw new Error('VAT_CONTACT_TYPE_MISMATCH');
+        contact = data;
+      }
+
       const taxRate = document.supply_type === 'STANDARD' ? Number(profile.standard_rate) : 0;
       const amounts = calculateVatAmounts(document.net_amount, taxRate);
       const { data, error } = await supabase.from('vat_documents').insert({
@@ -256,8 +270,9 @@ export async function POST(request: Request) {
         document_kind: document.document_kind,
         document_number: document.document_number,
         transaction_date: document.transaction_date,
-        counterparty_name: document.counterparty_name,
-        counterparty_tax_number: document.counterparty_tax_number?.trim() || null,
+        counterparty_contact_id: contact?.id ?? null,
+        counterparty_name: contact?.name ?? document.counterparty_name,
+        counterparty_tax_number: contact?.vat_number ?? (document.counterparty_tax_number?.trim() || null),
         supply_type: document.supply_type,
         net_amount: amounts.netAmount,
         tax_rate: taxRate.toFixed(2),

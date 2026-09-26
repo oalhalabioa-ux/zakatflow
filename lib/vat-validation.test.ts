@@ -7,6 +7,13 @@ const profile = {
   filing_frequency: 'QUARTERLY',
   standard_rate: 15,
   period_start_month: 1,
+  registered_name: 'Test Company LLC',
+  seller_street: 'King Fahd Road',
+  seller_building_number: '1234',
+  seller_district: 'Al Olaya',
+  seller_additional_number: '5678',
+  seller_city: 'Riyadh',
+  seller_postal_code: '12345',
 };
 
 describe('VAT validation', () => {
@@ -23,6 +30,7 @@ describe('VAT validation', () => {
       document_kind: 'INVOICE',
       document_number: 'INV-100',
       transaction_date: '2026-09-01',
+      counterparty_contact_id: '9a22f4ce-13ad-4780-8f7a-70e056f99c18',
       counterparty_name: 'Test customer',
       supply_type: 'STANDARD',
       net_amount: 100,

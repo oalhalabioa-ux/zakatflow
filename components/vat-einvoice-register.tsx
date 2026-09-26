@@ -2,6 +2,17 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { groupImportRecords, parseCsv, rowsToRecords } from '@/lib/vat-einvoice-import';
+import { VatContactPicker, type VatContact } from '@/components/vat-contact-picker';
+
+type SellerProfile = {
+  registered_name: string;
+  seller_street: string;
+  seller_building_number: string;
+  seller_district: string;
+  seller_additional_number: string;
+  seller_city: string;
+  seller_postal_code: string;
+};
 
 type InvoiceLine = {
   item_name: string;
@@ -49,14 +60,14 @@ const emptyLine = (): InvoiceLine => ({
 
 export function VatEInvoiceRegister({
   organizationId,
-  organizationName,
+  sellerProfile,
   vatNumber,
   registered,
   ar,
   onInvoiceIssued,
 }: {
   organizationId: string;
-  organizationName: string;
+  sellerProfile: SellerProfile;
   vatNumber: string;
   registered: boolean;
   ar: boolean;
@@ -72,13 +83,7 @@ export function VatEInvoiceRegister({
   const [documentType, setDocumentType] = useState<'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('INVOICE');
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [issueTime, setIssueTime] = useState(() => new Date().toTimeString().slice(0, 5));
-  const [sellerName, setSellerName] = useState(organizationName);
-  const [sellerAddress, setSellerAddress] = useState('');
-  const [sellerBuilding, setSellerBuilding] = useState('');
-  const [sellerDistrict, setSellerDistrict] = useState('');
-  const [sellerAdditional, setSellerAdditional] = useState('');
-  const [sellerCity, setSellerCity] = useState('');
-  const [sellerPostalCode, setSellerPostalCode] = useState('');
+  const [buyerContactId, setBuyerContactId] = useState('');
   const [buyerName, setBuyerName] = useState('');
   const [buyerVatNumber, setBuyerVatNumber] = useState('');
   const [buyerAddress, setBuyerAddress] = useState('');
@@ -86,15 +91,30 @@ export function VatEInvoiceRegister({
   const [buyerDistrict, setBuyerDistrict] = useState('');
   const [buyerCity, setBuyerCity] = useState('');
   const [buyerPostalCode, setBuyerPostalCode] = useState('');
+  const [buyerAdditional, setBuyerAdditional] = useState('');
   const [billingReference, setBillingReference] = useState('');
   const [noteReason, setNoteReason] = useState('');
   const [lines, setLines] = useState<InvoiceLine[]>([emptyLine()]);
   const importInput = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const sellerProfileReady = Boolean(
+    sellerProfile.registered_name.trim() && sellerProfile.seller_street.trim() &&
+    /^\d{4}$/.test(sellerProfile.seller_building_number) && sellerProfile.seller_district.trim() &&
+    /^\d{4}$/.test(sellerProfile.seller_additional_number) && sellerProfile.seller_city.trim() &&
+    /^\d{5}$/.test(sellerProfile.seller_postal_code),
+  );
 
   useEffect(() => {
-    setSellerName(organizationName);
-  }, [organizationName]);
+    setBuyerContactId('');
+    setBuyerName('');
+    setBuyerVatNumber('');
+    setBuyerAddress('');
+    setBuyerBuilding('');
+    setBuyerDistrict('');
+    setBuyerAdditional('');
+    setBuyerCity('');
+    setBuyerPostalCode('');
+  }, [organizationId]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -131,20 +151,22 @@ export function VatEInvoiceRegister({
           document_type: documentType,
           issue_date: issueDate,
           issue_time: issueTime,
-          seller_name: sellerName,
+          buyer_contact_id: buyerContactId || null,
+          seller_name: sellerProfile.registered_name,
           seller_vat_number: vatNumber,
-          seller_address: sellerAddress,
-          seller_building_number: sellerBuilding,
-          seller_district: sellerDistrict,
-          seller_additional_number: sellerAdditional,
-          seller_city: sellerCity,
-          seller_postal_code: sellerPostalCode,
+          seller_address: sellerProfile.seller_street,
+          seller_building_number: sellerProfile.seller_building_number,
+          seller_district: sellerProfile.seller_district,
+          seller_additional_number: sellerProfile.seller_additional_number,
+          seller_city: sellerProfile.seller_city,
+          seller_postal_code: sellerProfile.seller_postal_code,
           seller_country_code: 'SA',
           buyer_name: buyerName || null,
           buyer_vat_number: buyerVatNumber || null,
           buyer_address: buyerAddress || null,
           buyer_building_number: buyerBuilding || null,
           buyer_district: buyerDistrict || null,
+          buyer_additional_number: buyerAdditional || null,
           buyer_city: buyerCity || null,
           buyer_postal_code: buyerPostalCode || null,
           buyer_country_code: 'SA',
@@ -170,10 +192,12 @@ export function VatEInvoiceRegister({
       setInvoices((current) => [body, ...current]);
       setInvoiceNumber('');
       setBuyerName('');
+      setBuyerContactId('');
       setBuyerVatNumber('');
       setBuyerAddress('');
       setBuyerBuilding('');
       setBuyerDistrict('');
+      setBuyerAdditional('');
       setBuyerCity('');
       setBuyerPostalCode('');
       setBillingReference('');
@@ -222,19 +246,21 @@ export function VatEInvoiceRegister({
             document_type: first.document_type || 'INVOICE',
             issue_date: first.issue_date,
             issue_time: normalizeTime(first.issue_time),
-            seller_name: first.seller_name || sellerName,
+            buyer_contact_id: null,
+            seller_name: sellerProfile.registered_name,
             seller_vat_number: vatNumber,
-            seller_address: first.seller_address,
-            seller_building_number: first.seller_building_number,
-            seller_district: first.seller_district,
-            seller_additional_number: first.seller_additional_number,
-            seller_city: first.seller_city,
-            seller_postal_code: first.seller_postal_code,
+            seller_address: sellerProfile.seller_street,
+            seller_building_number: sellerProfile.seller_building_number,
+            seller_district: sellerProfile.seller_district,
+            seller_additional_number: sellerProfile.seller_additional_number,
+            seller_city: sellerProfile.seller_city,
+            seller_postal_code: sellerProfile.seller_postal_code,
             buyer_name: first.buyer_name || null,
             buyer_vat_number: first.buyer_vat_number || null,
             buyer_address: first.buyer_address || null,
             buyer_building_number: first.buyer_building_number || null,
             buyer_district: first.buyer_district || null,
+            buyer_additional_number: first.buyer_additional_number || null,
             buyer_city: first.buyer_city || null,
             buyer_postal_code: first.buyer_postal_code || null,
             billing_reference: first.billing_reference || null,
@@ -343,9 +369,9 @@ export function VatEInvoiceRegister({
 
       <div className="vat-einvoice-import-actions">
         <input ref={importInput} type="file" accept=".csv,.xlsx" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
-        <button type="button" className="vat-button secondary" disabled={!canCreate || importing || busy} onClick={() => importInput.current?.click()}>{importing ? (ar ? 'جارٍ الاستيراد…' : 'Importing…') : (ar ? 'استيراد CSV / Excel' : 'Import CSV / Excel')}</button>
+        <button type="button" className="vat-button secondary" disabled={!canCreate || !sellerProfileReady || importing || busy} onClick={() => importInput.current?.click()}>{importing ? (ar ? 'جارٍ الاستيراد…' : 'Importing…') : (ar ? 'استيراد CSV / Excel' : 'Import CSV / Excel')}</button>
         <button type="button" className="vat-button secondary" onClick={downloadTemplate}>{ar ? 'تنزيل نموذج الاستيراد' : 'Download import template'}</button>
-        <small>{ar ? 'كل صف يمثل بندًا؛ كرر رقم الفاتورة لضم البنود إلى فاتورة واحدة. الاستيراد يحفظ مسودات.' : 'Each row is an invoice line; repeat the invoice number to group lines. Imports are saved as drafts.'}</small>
+        <small>{ar ? 'كل صف يمثل بندًا؛ كرر رقم الفاتورة لضم البنود إلى فاتورة واحدة. الاستيراد يحفظ مسودات، وبيانات البائع تُسحب من ملف التسجيل.' : 'Each row is an invoice line; repeat the invoice number to group lines. Imports save drafts, and seller details come from the registration profile.'}</small>
       </div>
 
       <form className="vat-form-grid vat-einvoice-form" onSubmit={saveDraft}>
@@ -362,26 +388,47 @@ export function VatEInvoiceRegister({
 
         <fieldset className="vat-einvoice-group">
           <legend>{ar ? 'بيانات البائع' : 'Seller details'}</legend>
-          <div className="vat-einvoice-group-grid">
-            <label><span>{ar ? 'اسم البائع' : 'Seller name'}</span><input required maxLength={200} value={sellerName} onChange={(event) => setSellerName(event.target.value)} /></label>
-            <label><span>{ar ? 'الرقم الضريبي للبائع' : 'Seller VAT number'}</span><input value={vatNumber} readOnly /></label>
-            <label><span>{ar ? 'الشارع' : 'Street'}</span><input required maxLength={250} value={sellerAddress} onChange={(event) => setSellerAddress(event.target.value)} /></label>
-            <label><span>{ar ? 'رقم المبنى (4 أرقام)' : 'Building number (4 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={sellerBuilding} onChange={(event) => setSellerBuilding(event.target.value)} /></label>
-            <label><span>{ar ? 'الحي' : 'District'}</span><input required maxLength={120} value={sellerDistrict} onChange={(event) => setSellerDistrict(event.target.value)} /></label>
-            <label><span>{ar ? 'الرقم الإضافي (4 أرقام)' : 'Additional number (4 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={sellerAdditional} onChange={(event) => setSellerAdditional(event.target.value)} /></label>
-            <label><span>{ar ? 'مدينة البائع' : 'Seller city'}</span><input required maxLength={120} value={sellerCity} onChange={(event) => setSellerCity(event.target.value)} /></label>
-            <label><span>{ar ? 'الرمز البريدي (5 أرقام)' : 'Postal code (5 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{5}" maxLength={5} value={sellerPostalCode} onChange={(event) => setSellerPostalCode(event.target.value)} /></label>
+          <div className="vat-seller-profile-summary">
+            <div><small>{ar ? 'الاسم النظامي' : 'Registered name'}</small><strong>{sellerProfile.registered_name || '—'}</strong></div>
+            <div><small>{ar ? 'الرقم الضريبي' : 'VAT number'}</small><strong dir="ltr">{vatNumber || '—'}</strong></div>
+            <div><small>{ar ? 'العنوان الوطني' : 'National address'}</small><strong>{[sellerProfile.seller_street, sellerProfile.seller_building_number, sellerProfile.seller_district, sellerProfile.seller_additional_number, sellerProfile.seller_city, sellerProfile.seller_postal_code].filter(Boolean).join(' · ') || '—'}</strong></div>
+            <p>{ar ? 'تُسحب بيانات البائع من ملف التسجيل، وتحديثها متاح من إعدادات ملف التسجيل.' : 'Seller details come from the VAT registration profile. Update them in registration settings.'}</p>
           </div>
+          {!sellerProfileReady && <div className="vat-inline-warning">{ar ? 'أكمل بيانات الاسم النظامي والعنوان الوطني في ملف تسجيل الضريبة قبل حفظ أو استيراد الفواتير.' : 'Complete the legal name and national address in the VAT registration profile before saving or importing invoices.'}</div>}
         </fieldset>
 
         {category === 'STANDARD' && <fieldset className="vat-einvoice-group">
           <legend>{ar ? 'بيانات المشتري' : 'Buyer details'}</legend>
           <div className="vat-einvoice-group-grid">
+            <div className="vat-document-contact-field vat-einvoice-buyer-picker">
+              <VatContactPicker
+                key={`${organizationId}-einvoice-buyer`}
+                organizationId={organizationId}
+                role="CUSTOMER"
+                ar={ar}
+                label={ar ? 'العميل / المشتري المحفوظ' : 'Saved customer / buyer'}
+                value={buyerContactId}
+                required
+                requireSaudiAddress
+                onChange={(contact: VatContact | null) => {
+                  setBuyerContactId(contact?.id ?? '');
+                  setBuyerName(contact?.name ?? '');
+                  setBuyerVatNumber(contact?.vat_number ?? '');
+                  setBuyerAddress(contact?.street ?? '');
+                  setBuyerBuilding(contact?.building_number ?? '');
+                  setBuyerDistrict(contact?.district ?? '');
+                  setBuyerAdditional(contact?.additional_number ?? '');
+                  setBuyerCity(contact?.city ?? '');
+                  setBuyerPostalCode(contact?.postal_code ?? '');
+                }}
+              />
+            </div>
             <label><span>{ar ? 'اسم المشتري' : 'Buyer name'}</span><input required maxLength={200} value={buyerName} onChange={(event) => setBuyerName(event.target.value)} /></label>
             <label><span>{ar ? 'الرقم الضريبي للمشتري' : 'Buyer VAT number'}</span><input maxLength={15} value={buyerVatNumber} onChange={(event) => setBuyerVatNumber(event.target.value)} /></label>
             <label><span>{ar ? 'الشارع' : 'Street'}</span><input required maxLength={250} value={buyerAddress} onChange={(event) => setBuyerAddress(event.target.value)} /></label>
             <label><span>{ar ? 'رقم المبنى (4 أرقام)' : 'Building number (4 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={buyerBuilding} onChange={(event) => setBuyerBuilding(event.target.value)} /></label>
             <label><span>{ar ? 'الحي' : 'District'}</span><input required maxLength={120} value={buyerDistrict} onChange={(event) => setBuyerDistrict(event.target.value)} /></label>
+            <label><span>{ar ? 'الرقم الإضافي (4 أرقام)' : 'Additional number (4 digits)'}</span><input inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={buyerAdditional} onChange={(event) => setBuyerAdditional(event.target.value)} /></label>
             <label><span>{ar ? 'مدينة المشتري' : 'Buyer city'}</span><input required maxLength={120} value={buyerCity} onChange={(event) => setBuyerCity(event.target.value)} /></label>
             <label><span>{ar ? 'الرمز البريدي (5 أرقام)' : 'Postal code (5 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{5}" maxLength={5} value={buyerPostalCode} onChange={(event) => setBuyerPostalCode(event.target.value)} /></label>
           </div>
@@ -412,7 +459,7 @@ export function VatEInvoiceRegister({
             {lines.length > 1 && <button type="button" className="vat-delete" aria-label={ar ? `حذف البند ${index + 1}` : `Remove line ${index + 1}`} onClick={() => setLines((current) => current.filter((_, i) => i !== index))}>×</button>}
           </fieldset>)}
         </div>
-        <div className="vat-form-actions"><button className="vat-button primary" disabled={!canCreate || busy || importing || !vatNumber}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ كمسودة' : 'Save as draft')}</button></div>
+        <div className="vat-form-actions"><button className="vat-button primary" disabled={!canCreate || !sellerProfileReady || busy || importing || !vatNumber}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ كمسودة' : 'Save as draft')}</button></div>
       </form>
 
       <div className="vat-einvoice-list" aria-live="polite">
@@ -440,8 +487,7 @@ function formatAmount(value: string | number) {
 function downloadTemplate() {
   const columns = [
     'invoice_number', 'invoice_category', 'document_type', 'issue_date', 'issue_time',
-    'seller_name', 'seller_address', 'seller_building_number', 'seller_district', 'seller_additional_number', 'seller_city', 'seller_postal_code',
-    'buyer_name', 'buyer_vat_number', 'buyer_address', 'buyer_building_number', 'buyer_district', 'buyer_city', 'buyer_postal_code',
+    'buyer_name', 'buyer_vat_number', 'buyer_address', 'buyer_building_number', 'buyer_district', 'buyer_additional_number', 'buyer_city', 'buyer_postal_code',
     'billing_reference', 'note_reason', 'item_name', 'description', 'quantity', 'unit_code', 'unit_price', 'discount_amount', 'tax_category', 'tax_rate', 'tax_exemption_reason_code', 'tax_exemption_reason',
   ];
   const blob = new Blob([`${columns.join(',')}\r\n`], { type: 'text/csv;charset=utf-8' });
@@ -489,6 +535,9 @@ function messageFor(code: string, ar: boolean) {
     VAT_PROFILE_REQUIRED: ['احفظ ملف التسجيل الضريبي أولًا.', 'Save the VAT registration profile first.'],
     VAT_REGISTRATION_REQUIRED: ['يجب أن تكون المؤسسة مسجلة في ضريبة القيمة المضافة.', 'The organization must be VAT registered.'],
     SELLER_VAT_MISMATCH: ['يجب أن يطابق رقم البائع الرقم الضريبي المسجل للمؤسسة.', 'The seller VAT number must match the organization profile.'],
+    SELLER_PROFILE_INCOMPLETE: ['أكمل الاسم النظامي والعنوان الوطني في ملف التسجيل قبل حفظ الفاتورة.', 'Complete the legal name and national address in the registration profile before saving.'],
+    VAT_CONTACT_NOT_FOUND: ['الجهة المختارة غير موجودة في المؤسسة.', 'The selected contact was not found in this organization.'],
+    VAT_CONTACT_TYPE_MISMATCH: ['الجهة المحددة ليست مسجلة كعميل.', 'The selected contact is not registered as a customer.'],
     EINVOICE_NUMBER_EXISTS: ['رقم الفاتورة مستخدم من قبل في هذه المؤسسة.', 'This invoice number is already used in this organization.'],
     PRECEDING_INVOICE_NOT_ISSUED: ['يجب أن تكون الفاتورة الأصلية صادرة قبل إنشاء الإشعار.', 'The original invoice must be issued before creating a note.'],
     NOTE_INVOICE_CATEGORY_MISMATCH: ['يجب أن يطابق نوع الإشعار نوع الفاتورة الأصلية.', 'The note category must match the original invoice.'],
@@ -506,6 +555,7 @@ function messageFor(code: string, ar: boolean) {
     INVALID_SELLER_POSTAL_CODE: ['الرمز البريدي للبائع يجب أن يتكون من 5 أرقام.', 'Seller postal code must contain 5 digits.'],
     INVALID_BUYER_BUILDING_NUMBER: ['رقم مبنى المشتري يجب أن يتكون من 4 أرقام.', 'Buyer building number must contain 4 digits.'],
     INVALID_BUYER_POSTAL_CODE: ['الرمز البريدي للمشتري يجب أن يتكون من 5 أرقام.', 'Buyer postal code must contain 5 digits.'],
+    INVALID_BUYER_ADDITIONAL_NUMBER: ['الرقم الإضافي للمشتري يجب أن يتكون من 4 أرقام.', 'Buyer additional number must contain 4 digits.'],
     NOTE_INVOICE_REFERENCE_REQUIRED: ['أدخل مرجع الفاتورة الأصلية للإشعار.', 'Enter the original invoice reference for this note.'],
     NOTE_REASON_REQUIRED: ['أدخل سبب الإشعار.', 'Enter a reason for the note.'],
     EINVOICE_NOT_DRAFT: ['هذه الفاتورة ليست مسودة قابلة للإصدار.', 'This invoice is not a draft that can be issued.'],
