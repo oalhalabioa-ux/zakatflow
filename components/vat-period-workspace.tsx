@@ -34,6 +34,8 @@ type Props = {
   standardRate: number;
   registered: boolean;
   ar: boolean;
+  reportScope?: 'COMPANY' | 'GROUP';
+  reportOrganizationCount?: number;
   onSaved: () => void;
 };
 
@@ -185,7 +187,7 @@ export function VatPeriodSummaryForm({ organizationId, period, periodSummary, st
   );
 }
 
-export function VatManagementDashboard({ period, yearStart, frequency, periodSummary, periodTotals, annualTotals, ar }: Props) {
+export function VatManagementDashboard({ period, yearStart, frequency, periodSummary, periodTotals, annualTotals, ar, reportScope = 'COMPANY', reportOrganizationCount = 1 }: Props) {
   const today = todayInRiyadh();
   const daysToDue = daysBetween(today, periodTotals.dueDate ?? period.to);
   const periodOutstanding = Math.max(0, Number(periodTotals.taxPayable) - Number(periodTotals.paidAmount));
@@ -195,6 +197,7 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
   const isOverdue = !isPaid && daysToDue < 0;
   const dueSoon = !isPaid && daysToDue >= 0 && daysToDue <= 7;
   const filingLabel = periodTotals.filingStatus === 'FILED' ? (ar ? 'تم تقديم الإقرار' : 'Return filed') : (ar ? 'بانتظار تقديم الإقرار' : 'Return not filed');
+  const groupReport = reportScope === 'GROUP';
 
   return <>
     <section className="vat-panel vat-dashboard-alert vat-dashboard-hero">
@@ -204,7 +207,9 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
           {isPaid ? (ar ? 'لا يوجد مبلغ مستحق للسداد' : 'No payment outstanding') : isOverdue ? (ar ? 'متأخر عن موعد السداد' : 'Payment overdue') : dueSoon ? (ar ? `الاستحقاق خلال ${daysToDue} يوم` : `Due in ${daysToDue} days`) : (ar ? 'موعد السداد قادم' : 'Upcoming due date')}
         </span>
         <h2>{ar ? 'استحقاق ضريبة الفترة' : 'Current period VAT due'}</h2>
-        <p>{ar ? `آخر موعد للتقديم والسداد ${formatDate(periodTotals.dueDate ?? period.to, ar)}. المستحق بعد السداد: ${amount(periodOutstanding)} ريال.` : `File and pay by ${formatDate(periodTotals.dueDate ?? period.to, ar)}. Outstanding after payments: SAR ${amount(periodOutstanding)}.`}</p>
+        <p>{groupReport
+          ? (ar ? `إجمالي ${reportOrganizationCount} منشآت. أقرب موعد إقرار بينها ${formatDate(periodTotals.dueDate ?? period.to, ar)}؛ يُحتسب كل التزام مستقلًا.` : `${reportOrganizationCount} entities combined. Earliest filing date: ${formatDate(periodTotals.dueDate ?? period.to, ar)}; each entity’s VAT is kept separate.`)
+          : (ar ? `آخر موعد للتقديم والسداد ${formatDate(periodTotals.dueDate ?? period.to, ar)}. المستحق بعد السداد: ${amount(periodOutstanding)} ريال.` : `File and pay by ${formatDate(periodTotals.dueDate ?? period.to, ar)}. Outstanding after payments: SAR ${amount(periodOutstanding)}.`)}</p>
       </div>
       <div className="vat-dashboard-alert-amount"><small>{ar ? 'المبلغ المستحق' : 'Amount due'}</small><strong>{amount(periodTotals.taxPayable)} SAR</strong><small>{filingLabel}</small></div>
       {Number(periodTotals.taxPayable) > 0 && <div className={`vat-cash-alert ${periodCashGap > 0 ? 'shortfall' : 'covered'}`} role="status">
@@ -214,10 +219,14 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
       </div>}
     </section>
 
+    {groupReport && <div className="vat-group-report-note" role="note">{ar
+      ? 'المبالغ المعروضة مجموع الشركة وفروعها، مع إبقاء مستحقات وأرصدة كل منشأة منفصلة دون مقاصة بينها. قد تختلف فترات الإقرار ومواعيدها حسب إعداد كل منشأة.'
+      : 'Amounts combine the company and its branches while keeping each entity’s VAT payable and credit separate. Filing periods and deadlines may differ by entity.'}</div>}
+
     <VatFinancialGraphics periodTotals={periodTotals} ar={ar} />
 
     <section className="vat-dashboard-section">
-      <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{ar ? 'الفترة المحددة' : 'SELECTED PERIOD'}</span><h2>{period.from} — {period.to}</h2></div><span className="vat-period-chip">{frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly')}</span></div>
+      <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{groupReport ? (ar ? 'الشركة والفروع' : 'COMPANY AND BRANCHES') : (ar ? 'الفترة المحددة' : 'SELECTED PERIOD')}</span><h2>{period.from} — {period.to}</h2></div><span className="vat-period-chip">{groupReport ? (ar ? `${reportOrganizationCount} منشآت` : `${reportOrganizationCount} entities`) : frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly')}</span></div>
       <div className="vat-dashboard-groups">
         <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} icon="chart" metrics={[
           { icon: 'coins', label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(periodTotals.salesBase)} SAR` },

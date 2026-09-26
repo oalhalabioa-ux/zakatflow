@@ -8,6 +8,7 @@ import { VatEInvoiceSetup } from '@/components/vat-einvoice-setup';
 import { VatEInvoiceRegister } from '@/components/vat-einvoice-register';
 import { VatManagementDashboard, VatPeriodSummaryForm } from '@/components/vat-period-workspace';
 import type { VatPeriodSummaryRecord } from '@/lib/vat-period-summary';
+import { aggregateVatDashboardTotals, type VatDashboardTotals } from '@/lib/vat-dashboard-summary';
 import './vat.css';
 
 type Organization = {
@@ -66,19 +67,13 @@ type DocumentDraft = {
   notes: string;
 };
 
-type DashboardTotals = {
-  salesBase: string; salesGross: string; purchaseBase: string; purchaseVatBeforeRecovery: string;
-  outputTax: string; inputTax: string; taxPayable: string; taxCredit: string;
-  salesNet: string; purchaseNet: string; paidAmount: string; cashReservedAmount: string;
-  filingStatus?: string; dueDate?: string; zeroRatedSales: string; exemptSales: string; outOfScopeSales: string;
-};
 type ApiData = {
   profile: VatProfile | null;
   period: { from: string; to: string };
   yearStart: string;
   periodSummary: VatPeriodSummaryRecord | null;
-  periodTotals: DashboardTotals;
-  annualTotals: DashboardTotals;
+  periodTotals: VatDashboardTotals;
+  annualTotals: VatDashboardTotals;
   documents: VatDocument[];
 };
 
@@ -119,8 +114,10 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [period, setPeriod] = useState(() => getVatPeriod(currentMonth(), 'QUARTERLY'));
   const [yearStart, setYearStart] = useState(`${new Date().getFullYear()}-01-01`);
   const [periodSummary, setPeriodSummary] = useState<VatPeriodSummaryRecord | null>(null);
-  const [periodTotals, setPeriodTotals] = useState<DashboardTotals>(emptyTotals());
-  const [annualTotals, setAnnualTotals] = useState<DashboardTotals>(emptyTotals());
+  const [periodTotals, setPeriodTotals] = useState<VatDashboardTotals>(emptyTotals());
+  const [annualTotals, setAnnualTotals] = useState<VatDashboardTotals>(emptyTotals());
+  const [reportScope, setReportScope] = useState<'COMPANY' | 'GROUP'>('COMPANY');
+  const [branchVatData, setBranchVatData] = useState<ApiData[]>([]);
   const [loadingOrganizations, setLoadingOrganizations] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -135,6 +132,30 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     [organizations],
   );
   const selectedOrganization = organizations.find((organization) => organization.id === organizationId);
+  const reportOrganizationIds = useMemo(() => {
+    if (!organizationId) return [];
+    const children = new Map<string, string[]>();
+    for (const organization of organizations) {
+      if (!organization.parent_organization_id) continue;
+      const list = children.get(organization.parent_organization_id) ?? [];
+      list.push(organization.id);
+      children.set(organization.parent_organization_id, list);
+    }
+    const descendants: string[] = [];
+    const visited = new Set([organizationId]);
+    const queue = [...(children.get(organizationId) ?? [])];
+    while (queue.length) {
+      const id = queue.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      descendants.push(id);
+      queue.push(...(children.get(id) ?? []));
+    }
+    return [organizationId, ...descendants];
+  }, [organizationId, organizations]);
+  const branchOrganizationIds = reportOrganizationIds.slice(1);
+  const branchOrganizationKey = branchOrganizationIds.join(',');
+  const hasBranches = branchOrganizationIds.length > 0;
   const currentTaxRate = Number(profile?.standard_rate ?? profileDraft.standard_rate ?? 15);
   const previewTax = draft.supply_type === 'STANDARD'
     ? (Number(draft.net_amount || 0) * currentTaxRate / 100)
@@ -177,13 +198,20 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     if (!organizationId) return;
     let active = true;
     setLoadingData(true);
-    fetch(`/api/vat?organization_id=${encodeURIComponent(organizationId)}&period_month=${encodeURIComponent(periodMonth)}`)
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
-        return body as ApiData;
-      })
-      .then((body) => {
+    setBranchVatData([]);
+    const load = async (id: string): Promise<ApiData> => {
+      const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(id)}&period_month=${encodeURIComponent(periodMonth)}`);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+      return body as ApiData;
+    };
+    Promise.all([
+      load(organizationId),
+      reportScope === 'GROUP'
+        ? Promise.all(branchOrganizationIds.map(load))
+        : Promise.resolve([] as ApiData[]),
+    ])
+      .then(([body, branches]) => {
         if (!active) return;
         setProfile(body.profile);
         setDocuments(body.documents);
@@ -192,6 +220,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
         setPeriodSummary(body.periodSummary);
         setPeriodTotals(body.periodTotals);
         setAnnualTotals(body.annualTotals);
+        setBranchVatData(branches);
         setProfileDraft(body.profile ? {
           tax_registration_number: body.profile.tax_registration_number ?? '',
           registration_status: body.profile.registration_status,
@@ -202,11 +231,28 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
         } : emptyProfile);
       })
       .catch((error) => {
-        if (active) setNotice({ kind: 'error', text: messageFor(error.message, ar) });
+        if (!active) return;
+        if (reportScope === 'GROUP') setReportScope('COMPANY');
+        setNotice({ kind: 'error', text: reportScope === 'GROUP'
+          ? (ar ? 'تعذر تحميل بيانات جميع الفروع؛ أُعيد التقرير إلى مستوى الشركة.' : 'Could not load every branch; the report has been reset to company level.')
+          : messageFor(error.message, ar) });
       })
       .finally(() => { if (active) setLoadingData(false); });
     return () => { active = false; };
-  }, [organizationId, periodMonth, ar, invoiceRefresh]);
+  }, [organizationId, periodMonth, ar, invoiceRefresh, reportScope, branchOrganizationKey]);
+
+  useEffect(() => {
+    if (!hasBranches && reportScope === 'GROUP') setReportScope('COMPANY');
+  }, [hasBranches, reportScope]);
+
+  const dashboardPeriodTotals = useMemo(
+    () => reportScope === 'GROUP' ? aggregateVatDashboardTotals([periodTotals, ...branchVatData.map((branch) => branch.periodTotals)]) : periodTotals,
+    [reportScope, periodTotals, branchVatData],
+  );
+  const dashboardAnnualTotals = useMemo(
+    () => reportScope === 'GROUP' ? aggregateVatDashboardTotals([annualTotals, ...branchVatData.map((branch) => branch.annualTotals)]) : annualTotals,
+    [reportScope, annualTotals, branchVatData],
+  );
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -313,7 +359,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
         </div>
         <label className="vat-picker">
           <span>{ar ? 'الشركة أو المؤسسة' : 'Company or organization'}</span>
-          <select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} disabled={loadingOrganizations || organizations.length === 0}>
+            <select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setReportScope('COMPANY'); }} disabled={loadingOrganizations || organizations.length === 0}>
             {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
           </select>
         </label>
@@ -368,7 +414,10 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               <strong>{period.from} — {period.to}</strong>
               <small>{profile ? frequencyLabel(profile.filing_frequency, ar) : (ar ? 'دورية افتراضية' : 'Default frequency')}</small>
             </div>
-            <label className="vat-period-select"><span>{ar ? 'اختر شهرًا ضمن الفترة' : 'Choose a month in the period'}</span><input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} /></label>
+            <div className="vat-period-controls">
+              <label className="vat-period-select"><span>{ar ? 'اختر شهرًا ضمن الفترة' : 'Choose a month in the period'}</span><input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} /></label>
+              {activeTab === 'dashboard' && hasBranches && <label className="vat-period-select vat-report-scope"><span>{ar ? 'مستوى التقرير' : 'Report level'}</span><select value={reportScope} onChange={(event) => setReportScope(event.target.value as 'COMPANY' | 'GROUP')}><option value="COMPANY">{ar ? 'الشركة الحالية' : 'Selected company'}</option><option value="GROUP">{ar ? `الشركة وفروعها (${branchOrganizationIds.length})` : `Company and branches (${branchOrganizationIds.length})`}</option></select><small>{ar ? 'يؤثر الاختيار على لوحة الإدارة فقط.' : 'Applies to the management dashboard only.'}</small></label>}
+            </div>
           </section>
 
           <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
@@ -407,19 +456,21 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           </nav>
 
           <div id="vat-panel-dashboard" role="tabpanel" aria-labelledby="vat-tab-dashboard" hidden={activeTab !== 'dashboard'}>
-            <VatManagementDashboard
+            {reportScope === 'GROUP' && loadingData ? <div className="vat-loading" role="status">{ar ? 'جارٍ تجميع بيانات الشركة والفروع…' : 'Loading company and branch totals…'}</div> : <VatManagementDashboard
               period={period}
               yearStart={yearStart}
               frequency={profile?.filing_frequency ?? 'QUARTERLY'}
               periodSummary={periodSummary}
-              periodTotals={periodTotals}
-              annualTotals={annualTotals}
+              periodTotals={dashboardPeriodTotals}
+              annualTotals={dashboardAnnualTotals}
               standardRate={Number(profile?.standard_rate ?? 15)}
               registered={isRegistered}
               ar={ar}
+              reportScope={reportScope}
+              reportOrganizationCount={reportScope === 'GROUP' ? reportOrganizationIds.length : 1}
               organizationId={organizationId}
               onSaved={() => setInvoiceRefresh((revision) => revision + 1)}
-            />
+            />}
           </div>
 
           <div id="vat-panel-aggregate" role="tabpanel" aria-labelledby="vat-tab-aggregate" hidden={activeTab !== 'aggregate'}>
@@ -520,7 +571,7 @@ function Metric({ label, value, emphasis = false }: { label: string; value: stri
   return <div className={`vat-metric ${emphasis ? 'emphasis' : ''}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
-function emptyTotals(): DashboardTotals {
+function emptyTotals(): VatDashboardTotals {
   return {
     salesBase: '0', salesGross: '0', purchaseBase: '0', purchaseVatBeforeRecovery: '0',
     outputTax: '0', inputTax: '0', taxPayable: '0', taxCredit: '0', salesNet: '0', purchaseNet: '0',
