@@ -20,6 +20,7 @@ describe('VAT validation', () => {
   it('requires a registration number for registered organizations', () => {
     expect(vatProfileSchema.safeParse(profile).success).toBe(false);
     expect(vatProfileSchema.safeParse({ ...profile, tax_registration_number: '310000000000003' }).success).toBe(true);
+    expect(vatProfileSchema.safeParse({ ...profile, tax_registration_number: '12345' }).success).toBe(false);
     expect(vatProfileSchema.safeParse({ ...profile, standard_rate: 5, tax_registration_number: '310000000000003' }).success).toBe(false);
   });
 

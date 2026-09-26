@@ -40,7 +40,7 @@ function statusFor(error: unknown) {
   if (message === 'EINVOICE_REQUEST_FAILED') return 500;
   if (message === 'FATOORA_COMPLIANCE_REQUEST_FAILED') return 502;
   if (message === 'VAT_PROFILE_REQUIRED' || message === 'VAT_REGISTRATION_REQUIRED') return 409;
-  if (message === 'EINVOICE_SETUP_ALREADY_EXISTS' || message === 'COMPLIANCE_ALREADY_REQUESTED') return 409;
+  if (message === 'EINVOICE_SETUP_ALREADY_EXISTS' || message === 'EINVOICE_SETUP_LOCKED' || message === 'COMPLIANCE_ALREADY_REQUESTED') return 409;
   return 400;
 }
 
@@ -49,7 +49,7 @@ function safeErrorCode(error: unknown) {
   const knownCodes = new Set([
     'UNAUTHORIZED', 'ORGANIZATION_ADMIN_REQUIRED', 'ORGANIZATION_ACCESS_REQUIRED',
     'AWS_KMS_NOT_CONFIGURED', 'AWS_ROLE_PERMISSION_REQUIRED', 'VAT_PROFILE_REQUIRED',
-    'VAT_REGISTRATION_REQUIRED', 'EINVOICE_SETUP_ALREADY_EXISTS', 'COMPLIANCE_ALREADY_REQUESTED',
+    'VAT_REGISTRATION_REQUIRED', 'EINVOICE_SETUP_ALREADY_EXISTS', 'EINVOICE_SETUP_LOCKED', 'COMPLIANCE_ALREADY_REQUESTED',
     'INVALID_EINVOICE_SETUP', 'INVALID_EINVOICE_OTP', 'VAT_NUMBER_MISMATCH',
     'EINVOICE_SETUP_REQUIRED', 'USER_EMAIL_REQUIRED',
   ]);
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     const [{ data: profile, error: profileError }, { data: connections, error }] = await Promise.all([
       supabase.from('vat_profiles').select('registration_status,tax_registration_number').eq('organization_id', organizationId).maybeSingle(),
       isAdmin ? supabase.from('vat_einvoice_connections')
-        .select('id,organization_id,environment,status,taxpayer_vat_number,common_name,legal_name,branch_name,branch_location,industry,egs_serial_number,invoice_type,last_error_code,created_at,updated_at')
+        .select('id,organization_id,environment,status,taxpayer_vat_number,common_name,legal_name,branch_name,branch_location,industry,egs_serial_number,invoice_type,last_error_code,created_at,updated_at,kms_key_arn,credentials_secret_arn')
         .eq('organization_id', organizationId)
         .order('environment') : Promise.resolve({ data: [], error: null }),
     ]);
@@ -79,7 +79,27 @@ export async function GET(request: Request) {
     return NextResponse.json({
       available: profile?.registration_status === 'REGISTERED',
       is_admin: isAdmin,
-      connections: connections ?? [],
+      connections: (connections ?? []).map((connection: any) => ({
+        id: connection.id,
+        organization_id: connection.organization_id,
+        environment: connection.environment,
+        status: connection.status,
+        taxpayer_vat_number: connection.taxpayer_vat_number,
+        common_name: connection.common_name,
+        legal_name: connection.legal_name,
+        branch_name: connection.branch_name,
+        branch_location: connection.branch_location,
+        industry: connection.industry,
+        invoice_type: connection.invoice_type,
+        last_error_code: connection.last_error_code,
+        created_at: connection.created_at,
+        updated_at: connection.updated_at,
+        can_edit_setup: (
+          ['KEY_READY', 'ERROR'].includes(connection.status) && !connection.credentials_secret_arn
+        ) || (
+          !connection.kms_key_arn && !connection.credentials_secret_arn && ['NOT_CONFIGURED', 'ERROR'].includes(connection.status)
+        ),
+      })),
     });
   } catch (error) {
     const code = safeErrorCode(error);
@@ -214,16 +234,19 @@ export async function POST(request: Request) {
     }
 
     const { data: existing, error: existingError } = await supabase.from('vat_einvoice_connections')
-      .select('id,kms_key_arn,status').eq('organization_id', organizationId).eq('environment', environment).maybeSingle();
+      .select('id,kms_key_arn,status,credentials_secret_arn').eq('organization_id', organizationId).eq('environment', environment).maybeSingle();
     if (existingError) throw existingError;
-    if (existing?.kms_key_arn) return NextResponse.json({ error: 'EINVOICE_SETUP_ALREADY_EXISTS' }, { status: 409 });
+    const editingReadySetup = Boolean(existing?.kms_key_arn && ['KEY_READY', 'ERROR'].includes(existing.status) && !existing.credentials_secret_arn);
+    if (existing?.credentials_secret_arn || (existing?.kms_key_arn && !editingReadySetup)) {
+      return NextResponse.json({ error: 'EINVOICE_SETUP_LOCKED' }, { status: 409 });
+    }
 
     if (environment !== 'SIMULATION') return NextResponse.json({ error: 'PRODUCTION_ONBOARDING_LOCKED' }, { status: 409 });
 
     const values = {
       organization_id: organizationId,
       environment,
-      status: 'NOT_CONFIGURED',
+      status: editingReadySetup ? 'KEY_READY' : 'NOT_CONFIGURED',
       taxpayer_vat_number: taxpayerVatNumber,
       common_name: commonName,
       legal_name: legalName,
@@ -232,13 +255,25 @@ export async function POST(request: Request) {
       industry,
       egs_serial_number: zatcaEgsSerialNumber(),
       invoice_type: invoiceType,
-      kms_key_arn: null,
+      kms_key_arn: editingReadySetup ? existing!.kms_key_arn : null,
       last_error_code: null,
       updated_at: new Date().toISOString(),
     };
     const query = existing
       ? supabase.from('vat_einvoice_connections').update(values).eq('id', existing.id)
       : supabase.from('vat_einvoice_connections').insert({ ...values, created_by: user.id });
+    if (editingReadySetup) {
+      const { data, error } = await query.select('id,organization_id,environment,status,taxpayer_vat_number,common_name,legal_name,branch_name,branch_location,industry,egs_serial_number,invoice_type,last_error_code,created_at,updated_at').single();
+      if (error) throw error;
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        entity_type: 'vat_einvoice_connection',
+        entity_id: data.id,
+        action: 'SETUP_UPDATED',
+        new_data: { environment, common_name: commonName, branch_name: branchName, status: data.status },
+      });
+      return NextResponse.json({ ...data, can_edit_setup: true }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
+    }
     const { data: connection, error } = await query.select('id').single();
     if (error) throw error;
     const kms = awsKmsClient();
@@ -268,7 +303,7 @@ export async function POST(request: Request) {
       action: 'KEY_CREATED',
       new_data: { organization_id: organizationId, environment, status: 'KEY_READY' },
     });
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json({ ...data, can_edit_setup: true }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const code = safeErrorCode(error);
     return NextResponse.json({ error: code }, { status: statusFor(new Error(code)) });

@@ -121,6 +121,8 @@
 .vat-form-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:end; }
 .vat-form-grid > label { display:grid; gap:7px; min-width:0; color:#4d625b; font-size:.81rem; font-weight:700; }
 .vat-field-hint { color:var(--vat-muted); font-size:.73rem; font-weight:500; line-height:1.5; }
+.vat-inline-link { padding:0; border:0; background:none; color:var(--vat-green); cursor:pointer; font:inherit; font-weight:750; text-decoration:underline; text-underline-offset:2px; }
+.vat-number-edit-hint { grid-column:1 / -1; margin-top:-5px; }
 .vat-form-actions { display:flex; justify-content:flex-end; align-items:center; gap:9px; grid-column:1/-1; }
 .vat-button { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:9px 15px; border:1px solid transparent; border-radius:10px; cursor:pointer; font:inherit; font-size:.86rem; font-weight:750; text-decoration:none; }
 .vat-button:disabled { opacity:.55; cursor:not-allowed; }

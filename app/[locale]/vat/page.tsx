@@ -417,7 +417,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
       ) : (
         <>
           <div className={`vat-settings-grid ${profileOpen || !profile ? 'is-editing' : ''}`}>
-            <section className={`vat-panel vat-registration vat-config-panel ${profile && !profileOpen ? 'has-summary' : ''}`}>
+            <section id="vat-registration-profile" className={`vat-panel vat-registration vat-config-panel ${profile && !profileOpen ? 'has-summary' : ''}`}>
               {profile && !profileOpen ? (
                 <div className={`vat-config-summary ${profileDetailsOpen ? 'is-open' : ''}`}>
                   <button type="button" className="vat-config-summary-trigger" aria-expanded={profileDetailsOpen} aria-label={profileDetailsOpen ? (ar ? 'إخفاء تفاصيل التسجيل' : 'Hide registration details') : (ar ? 'عرض تفاصيل التسجيل' : 'Show registration details')} aria-controls="vat-registration-details" onClick={() => setProfileDetailsOpen((open) => !open)}>
@@ -445,7 +445,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
                   </div>
                   <form className="vat-form-grid" onSubmit={saveProfile}>
                 <label><span>{ar ? 'حالة التسجيل' : 'Registration status'}</span><select value={profileDraft.registration_status} onChange={(event) => setProfileDraft({ ...profileDraft, registration_status: event.target.value as VatProfileDraft['registration_status'] })}><option value="NOT_REGISTERED">{ar ? 'غير مسجل' : 'Not registered'}</option><option value="REGISTERED">{ar ? 'مسجل' : 'Registered'}</option><option value="PENDING">{ar ? 'طلب قيد الإجراء' : 'Pending'}</option><option value="DEREGISTERED">{ar ? 'ملغى التسجيل' : 'Deregistered'}</option></select></label>
-                <label><span>{ar ? 'رقم التسجيل الضريبي' : 'VAT registration number'}</span><input value={profileDraft.tax_registration_number} maxLength={30} onChange={(event) => setProfileDraft({ ...profileDraft, tax_registration_number: event.target.value })} required={profileDraft.registration_status === 'REGISTERED'} placeholder={ar ? 'أدخل رقم التسجيل' : 'Enter registration number'} /></label>
+                <label><span>{ar ? 'رقم التسجيل الضريبي' : 'VAT registration number'}</span><input value={profileDraft.tax_registration_number} maxLength={15} inputMode="numeric" pattern="3[0-9]{13}3" onChange={(event) => setProfileDraft({ ...profileDraft, tax_registration_number: event.target.value })} required={profileDraft.registration_status === 'REGISTERED'} placeholder={ar ? '15 رقمًا، يبدأ وينتهي بالرقم 3' : '15 digits, starting and ending with 3'} /><small className="vat-field-hint">{ar ? 'يمكنك تصحيح الرقم من هنا؛ ثم يتحدث تلقائيًا في إعداد وحدة الفوترة قبل إرسالها إلى زاتكا.' : 'Correct the number here; it will update in the invoice unit setup before submission to ZATCA.'}</small></label>
                 <label><span>{ar ? 'تاريخ التسجيل' : 'Registration date'}</span><input type="date" value={profileDraft.registration_date} onChange={(event) => setProfileDraft({ ...profileDraft, registration_date: event.target.value })} /></label>
                 <label><span>{ar ? 'دورية الإقرار' : 'Filing frequency'}</span><select value={profileDraft.filing_frequency} onChange={(event) => setProfileDraft({ ...profileDraft, filing_frequency: event.target.value as VatFilingFrequency })}><option value="MONTHLY">{ar ? 'شهري' : 'Monthly'}</option><option value="QUARTERLY">{ar ? 'ربع سنوي' : 'Quarterly'}</option></select></label>
                 <label><span>{ar ? 'النسبة الأساسية' : 'Standard VAT rate'}</span><input type="text" value="15%" readOnly aria-readonly="true" /><small className="vat-field-hint">{ar ? 'النسبة الأساسية المعتمدة حاليًا في السعودية' : 'Current Saudi standard rate'}</small></label>
@@ -644,12 +644,17 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               </div>
             </section>
             {organizationId && <VatEInvoiceSetup
-              key={organizationId}
+              key={`${organizationId}-${profile?.tax_registration_number ?? ''}`}
               organizationId={organizationId}
               organizationName={selectedOrganization?.name ?? ''}
               vatNumber={profile?.tax_registration_number ?? ''}
               registered={isRegistered}
               ar={ar}
+              onEditRegistration={() => {
+                setProfileOpen(true);
+                setProfileDetailsOpen(true);
+                requestAnimationFrame(() => document.getElementById('vat-registration-profile')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+              }}
             />}
             {organizationId && <VatEInvoiceRegister
               key={`invoices-${organizationId}`}
@@ -728,6 +733,7 @@ function messageFor(code: string, ar: boolean) {
     ORGANIZATION_ACCESS_REQUIRED: ['ليس لديك صلاحية الوصول إلى هذه المؤسسة.', 'You do not have access to this organization.'],
     ORGANIZATION_ADMIN_REQUIRED: ['إدارة الملف الضريبي متاحة لمالك المؤسسة أو مديرها.', 'Only organization owners and admins can manage VAT data.'],
     VAT_REGISTRATION_NUMBER_REQUIRED: ['أدخل رقم التسجيل الضريبي للمؤسسة المسجلة.', 'Enter the VAT number for a registered organization.'],
+    INVALID_VAT_REGISTRATION_NUMBER: ['رقم التسجيل الضريبي يجب أن يتكون من 15 رقمًا ويبدأ وينتهي بالرقم 3.', 'The VAT registration number must contain 15 digits and start and end with 3.'],
     VAT_REGISTRATION_REQUIRED: ['يجب حفظ حالة التسجيل كـ «مسجل» قبل إضافة المستندات.', 'Mark the organization as registered before adding documents.'],
     VAT_PROFILE_REQUIRED: ['احفظ ملف التسجيل أولًا.', 'Save the VAT registration profile first.'],
     VAT_DOCUMENT_NUMBER_EXISTS: ['رقم المستند مستخدم من قبل ضمن هذا النوع.', 'This document number already exists for this document type.'],

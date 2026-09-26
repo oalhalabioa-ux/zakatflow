@@ -24,6 +24,7 @@ export const vatProfileSchema=z.object({
 }).superRefine((p,ctx)=>{
  if(p.registration_status==='REGISTERED'){
   if(!p.tax_registration_number?.trim())ctx.addIssue({code:'custom',message:'VAT_REGISTRATION_NUMBER_REQUIRED',path:['tax_registration_number']});
+  else if(!/^3\d{13}3$/.test(p.tax_registration_number.trim()))ctx.addIssue({code:'custom',message:'INVALID_VAT_REGISTRATION_NUMBER',path:['tax_registration_number']});
   const fields:[keyof typeof p,string][]=[['registered_name','SELLER_REGISTERED_NAME_REQUIRED'],['seller_street','SELLER_STREET_REQUIRED'],['seller_building_number','SELLER_BUILDING_NUMBER_REQUIRED'],['seller_district','SELLER_DISTRICT_REQUIRED'],['seller_additional_number','SELLER_ADDITIONAL_NUMBER_REQUIRED'],['seller_city','SELLER_CITY_REQUIRED'],['seller_postal_code','SELLER_POSTAL_CODE_REQUIRED']];
   for(const [field,message] of fields)if(!p[field])ctx.addIssue({code:'custom',message,path:[field]});
  }
