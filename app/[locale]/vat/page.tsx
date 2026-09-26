@@ -123,6 +123,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [saving, setSaving] = useState(false);
   const [invoiceRefresh, setInvoiceRefresh] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileDetailsOpen, setProfileDetailsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing'>('dashboard');
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
@@ -375,22 +376,56 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
         </section>
       ) : (
         <>
-          <section className="vat-panel vat-registration">
-            <div className="vat-panel-head">
-              <div>
-                <span className="vat-eyebrow">{ar ? 'ملف التسجيل' : 'REGISTRATION PROFILE'}</span>
-                <h2>{ar ? 'بيانات التسجيل والفترة الضريبية' : 'Registration and filing settings'}</h2>
-                <p>{selectedOrganization ? organizationDisplayName(selectedOrganization.name, ar) : ''} · {ar ? 'تأكد من مطابقة الدورية للفترة المعتمدة لدى الهيئة.' : 'Use the filing period assigned by the Authority.'}</p>
+          <section className={`vat-panel vat-registration ${profile && !profileOpen ? 'has-summary' : ''}`}>
+            {profile && !profileOpen ? (
+              <div className={`vat-registration-summary ${profileDetailsOpen ? 'is-open' : ''}`}>
+                <button type="button" className="vat-registration-summary-toggle" aria-expanded={profileDetailsOpen} aria-controls="vat-registration-details" onClick={() => setProfileDetailsOpen((open) => !open)}>
+                  <span className="vat-registration-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2v-12.5a2 2 0 0 1 2-2Z"/><path d="M14 4v4h4M8.5 12h7M8.5 15.5h7"/></svg></span>
+                  <span className="vat-registration-summary-copy">
+                    <span className="vat-eyebrow">{ar ? 'ملف التسجيل الضريبي' : 'VAT REGISTRATION PROFILE'}</span>
+                    <strong>{selectedOrganization ? organizationDisplayName(selectedOrganization.name, ar) : (ar ? 'الجهة المحددة' : 'Selected organization')}</strong>
+                    <small>{ar ? 'إعدادات التسجيل والفترة الضريبية' : 'Registration and filing settings'}</small>
+                  </span>
+                  <span className="vat-registration-summary-status">
+                    <small>{ar ? 'حالة التسجيل' : 'Registration status'}</small>
+                    <strong className={`vat-status ${profile.registration_status.toLowerCase()}`}>{registrationLabel(profile.registration_status, ar)}</strong>
+                  </span>
+                  <span className="vat-registration-summary-data">
+                    <span><small>{ar ? 'الرقم الضريبي' : 'VAT number'}</small><strong dir="ltr">{profile.tax_registration_number || '—'}</strong></span>
+                    <span><small>{ar ? 'دورية الإقرار' : 'Filing frequency'}</small><strong>{frequencyLabel(profile.filing_frequency, ar)}</strong></span>
+                  </span>
+                  <span className="vat-profile-toggle-label">
+                    <span>{profileDetailsOpen ? (ar ? 'إخفاء التفاصيل' : 'Hide details') : (ar ? 'عرض التفاصيل' : 'View details')}</span>
+                    <svg className={profileDetailsOpen ? 'is-open' : ''} viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </span>
+                </button>
+                <button type="button" className="vat-button secondary vat-registration-edit" onClick={() => setProfileOpen(true)}>
+                  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m12.8 4.2 3 3M4 16l3.2-.7L15.8 6.7a1.5 1.5 0 0 0-2.1-2.1L5.1 13.2 4 16Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <span>{ar ? 'تعديل' : 'Edit'}</span>
+                </button>
               </div>
-              {profile && !profileOpen && <button type="button" className="vat-button secondary" onClick={() => setProfileOpen(true)}>{ar ? 'تعديل الإعدادات' : 'Edit settings'}</button>}
-            </div>
+            ) : (
+              <div className="vat-panel-head">
+                <div>
+                  <span className="vat-eyebrow">{ar ? 'ملف التسجيل' : 'REGISTRATION PROFILE'}</span>
+                  <h2>{ar ? 'بيانات التسجيل والفترة الضريبية' : 'Registration and filing settings'}</h2>
+                  <p>{selectedOrganization ? organizationDisplayName(selectedOrganization.name, ar) : ''} · {ar ? 'تأكد من مطابقة الدورية للفترة المعتمدة لدى الهيئة.' : 'Use the filing period assigned by the Authority.'}</p>
+                </div>
+              </div>
+            )}
 
             {profile && !profileOpen ? (
-              <div className="vat-profile-overview">
-                <div><small>{ar ? 'حالة التسجيل' : 'Registration'}</small><strong className={`vat-status ${profile.registration_status.toLowerCase()}`}>{registrationLabel(profile.registration_status, ar)}</strong></div>
-                <div><small>{ar ? 'الرقم الضريبي' : 'VAT number'}</small><strong>{profile.tax_registration_number || '—'}</strong></div>
-                <div><small>{ar ? 'دورية الإقرار' : 'Filing frequency'}</small><strong>{frequencyLabel(profile.filing_frequency, ar)}</strong></div>
-                <div><small>{ar ? 'النسبة الأساسية' : 'Standard rate'}</small><strong>{Number(profile.standard_rate).toFixed(2)}%</strong></div>
+              <div id="vat-registration-details" className={`vat-profile-details ${profileDetailsOpen ? 'is-open' : ''}`} hidden={!profileDetailsOpen}>
+                <div className="vat-profile-details-heading">
+                  <strong>{ar ? 'تفاصيل ملف التسجيل' : 'Registration details'}</strong>
+                  <span>{ar ? 'بيانات مرجعية لإعداد الإقرارات الضريبية' : 'Reference details for VAT return preparation'}</span>
+                </div>
+                <div className="vat-profile-overview">
+                  <div><small>{ar ? 'حالة التسجيل' : 'Registration'}</small><strong className={`vat-status ${profile.registration_status.toLowerCase()}`}>{registrationLabel(profile.registration_status, ar)}</strong></div>
+                  <div><small>{ar ? 'الرقم الضريبي' : 'VAT number'}</small><strong dir="ltr">{profile.tax_registration_number || '—'}</strong></div>
+                  <div><small>{ar ? 'دورية الإقرار' : 'Filing frequency'}</small><strong>{frequencyLabel(profile.filing_frequency, ar)}</strong></div>
+                  <div><small>{ar ? 'النسبة الأساسية' : 'Standard rate'}</small><strong>{Number(profile.standard_rate).toFixed(2)}%</strong></div>
+                </div>
               </div>
             ) : (
               <form className="vat-form-grid" onSubmit={saveProfile}>
