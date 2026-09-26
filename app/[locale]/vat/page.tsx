@@ -409,14 +409,23 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           </section>
 
           <section className="vat-panel vat-period-toolbar">
-            <div>
-              <span className="vat-eyebrow">{ar ? 'الفترة الضريبية' : 'TAX PERIOD'}</span>
-              <strong>{period.from} — {period.to}</strong>
-              <small>{profile ? frequencyLabel(profile.filing_frequency, ar) : (ar ? 'دورية افتراضية' : 'Default frequency')}</small>
+            <div className="vat-period-overview">
+              <span className="vat-period-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17M7.5 14h3M13.5 14h3"/></svg></span>
+              <div className="vat-period-info">
+                <span className="vat-eyebrow">{ar ? 'الفترة الضريبية' : 'TAX PERIOD'}</span>
+                <strong>{period.from} — {period.to}</strong>
+                <div className="vat-period-meta"><small>{ar ? 'موعد الإقرار والسداد' : 'Filing and payment period'}</small><span className="vat-period-frequency">{profile ? frequencyLabel(profile.filing_frequency, ar) : (ar ? 'دورية افتراضية' : 'Default frequency')}</span></div>
+              </div>
             </div>
             <div className="vat-period-controls">
-              <label className="vat-period-select"><span>{ar ? 'اختر شهرًا ضمن الفترة' : 'Choose a month in the period'}</span><input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} /></label>
-              {activeTab === 'dashboard' && hasBranches && <label className="vat-period-select vat-report-scope"><span>{ar ? 'مستوى التقرير' : 'Report level'}</span><select value={reportScope} onChange={(event) => setReportScope(event.target.value as 'COMPANY' | 'GROUP')}><option value="COMPANY">{ar ? 'الشركة الحالية' : 'Selected company'}</option><option value="GROUP">{ar ? `الشركة وفروعها (${branchOrganizationIds.length})` : `Company and branches (${branchOrganizationIds.length})`}</option></select><small>{ar ? 'يؤثر الاختيار على لوحة الإدارة فقط.' : 'Applies to the management dashboard only.'}</small></label>}
+              <label className="vat-period-select vat-filter-field">
+                <span className="vat-filter-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17"/></svg>{ar ? 'الشهر ضمن الفترة' : 'Month in period'}</span>
+                <input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} />
+              </label>
+              {activeTab === 'dashboard' && hasBranches && <label className="vat-period-select vat-report-scope vat-filter-field">
+                <span className="vat-filter-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="7" rx="1.5"/><path d="M6 11v8M18 11v8M3.5 19h17M8 7.5h.01M12 7.5h.01M16 7.5h.01M8 15h.01M12 15h.01M16 15h.01"/></svg>{ar ? 'نطاق التقرير' : 'Report scope'}</span>
+                <select title={ar ? 'يؤثر هذا الاختيار على لوحة الإدارة فقط.' : 'This setting applies to the management dashboard only.'} value={reportScope} onChange={(event) => setReportScope(event.target.value as 'COMPANY' | 'GROUP')}><option value="COMPANY">{ar ? 'الشركة الحالية' : 'Selected company'}</option><option value="GROUP">{ar ? `الشركة وفروعها (${branchOrganizationIds.length})` : `Company and branches (${branchOrganizationIds.length})`}</option></select>
+              </label>}
             </div>
           </section>
 
