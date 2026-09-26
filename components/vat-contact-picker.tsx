@@ -122,7 +122,7 @@ export function VatContactPicker({
         <option value="">{ar ? 'اختر جهة محفوظة أو أضف جهة جديدة' : 'Choose a saved contact or add a new one'}</option>
         {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}{contact.vat_number ? ` · ${contact.vat_number}` : ''}</option>)}
       </select>
-      {requireSaudiAddress && value && <small className="vat-contact-picker-hint">{ar ? 'ستُستخدم بيانات العنوان المحفوظة لملء الفاتورة، ويمكن تعديلها لهذه الفاتورة فقط.' : 'Saved address details fill the invoice and can be changed for this invoice only.'}</small>}
+      {requireSaudiAddress && value && <small className="vat-contact-picker-hint">{ar ? 'تُستخدم بيانات العنوان المحفوظة تلقائيًا في الفاتورة.' : 'Saved address details are added to the invoice automatically.'}</small>}
       {error && !dialogOpen && <small className="vat-contact-error" role="alert">{error}</small>}
 
       {dialogOpen && typeof document !== 'undefined' && createPortal(<div className="vat-contact-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDialogOpen(false); }}>

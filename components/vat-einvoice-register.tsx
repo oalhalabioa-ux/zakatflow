@@ -423,14 +423,12 @@ export function VatEInvoiceRegister({
                 }}
               />
             </div>
-            <label><span>{ar ? 'اسم المشتري' : 'Buyer name'}</span><input required maxLength={200} value={buyerName} onChange={(event) => setBuyerName(event.target.value)} /></label>
-            <label><span>{ar ? 'الرقم الضريبي للمشتري' : 'Buyer VAT number'}</span><input maxLength={15} value={buyerVatNumber} onChange={(event) => setBuyerVatNumber(event.target.value)} /></label>
-            <label><span>{ar ? 'الشارع' : 'Street'}</span><input required maxLength={250} value={buyerAddress} onChange={(event) => setBuyerAddress(event.target.value)} /></label>
-            <label><span>{ar ? 'رقم المبنى (4 أرقام)' : 'Building number (4 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={buyerBuilding} onChange={(event) => setBuyerBuilding(event.target.value)} /></label>
-            <label><span>{ar ? 'الحي' : 'District'}</span><input required maxLength={120} value={buyerDistrict} onChange={(event) => setBuyerDistrict(event.target.value)} /></label>
-            <label><span>{ar ? 'الرقم الإضافي (4 أرقام)' : 'Additional number (4 digits)'}</span><input inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={buyerAdditional} onChange={(event) => setBuyerAdditional(event.target.value)} /></label>
-            <label><span>{ar ? 'مدينة المشتري' : 'Buyer city'}</span><input required maxLength={120} value={buyerCity} onChange={(event) => setBuyerCity(event.target.value)} /></label>
-            <label><span>{ar ? 'الرمز البريدي (5 أرقام)' : 'Postal code (5 digits)'}</span><input required inputMode="numeric" pattern="[0-9]{5}" maxLength={5} value={buyerPostalCode} onChange={(event) => setBuyerPostalCode(event.target.value)} /></label>
+            {buyerContactId && <div className="vat-seller-profile-summary" aria-live="polite">
+              <div><small>{ar ? 'المشتري المحدد' : 'Selected buyer'}</small><strong>{buyerName}</strong></div>
+              {buyerVatNumber && <div><small>{ar ? 'الرقم الضريبي' : 'VAT number'}</small><strong dir="ltr">{buyerVatNumber}</strong></div>}
+              <div><small>{ar ? 'العنوان الوطني' : 'National address'}</small><strong>{[buyerAddress, buyerBuilding, buyerDistrict, buyerAdditional, buyerCity, buyerPostalCode].filter(Boolean).join(' · ') || '—'}</strong></div>
+              <p>{ar ? 'ستُستخدم بيانات المشتري المحفوظة تلقائيًا في الفاتورة. لتصحيحها، حدّث بياناته من قائمة العملاء.' : 'Saved buyer details are added to the invoice automatically. Update them in the customer list if they need correction.'}</p>
+            </div>}
           </div>
         </fieldset>}
 
