@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export type VatContact = {
   id: string;
@@ -64,6 +65,9 @@ export function VatContactPicker({
 
   async function saveContact(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // This picker is rendered inside invoice forms. Keep the contact form's
+    // submit from triggering the surrounding invoice/document form as well.
+    event.stopPropagation();
     setBusy(true);
     setError('');
     try {
@@ -121,7 +125,7 @@ export function VatContactPicker({
       {requireSaudiAddress && value && <small className="vat-contact-picker-hint">{ar ? 'ستُستخدم بيانات العنوان المحفوظة لملء الفاتورة، ويمكن تعديلها لهذه الفاتورة فقط.' : 'Saved address details fill the invoice and can be changed for this invoice only.'}</small>}
       {error && !dialogOpen && <small className="vat-contact-error" role="alert">{error}</small>}
 
-      {dialogOpen && <div className="vat-contact-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDialogOpen(false); }}>
+      {dialogOpen && typeof document !== 'undefined' && createPortal(<div className="vat-contact-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDialogOpen(false); }}>
         <section className="vat-contact-dialog" role="dialog" aria-modal="true" aria-labelledby={`vat-contact-dialog-title-${role}`}>
           <div className="vat-contact-dialog-head">
             <div><span className="vat-eyebrow">{ar ? 'جهات المؤسسة' : 'ORGANIZATION CONTACTS'}</span><h3 id={`vat-contact-dialog-title-${role}`}>{ar ? `إضافة ${role === 'CUSTOMER' ? 'عميل' : 'مورد'}` : `Add ${role === 'CUSTOMER' ? 'customer' : 'supplier'}`}</h3></div>
@@ -146,7 +150,7 @@ export function VatContactPicker({
             </div>
           </form>
         </section>
-      </div>}
+      </div>, document.body)}
     </div>
   );
 }
