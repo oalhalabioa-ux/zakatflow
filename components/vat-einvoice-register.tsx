@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { Fragment, FormEvent, useEffect, useRef, useState } from 'react';
 import { groupImportRecords, parseCsv, rowsToRecords } from '@/lib/vat-einvoice-import';
 import { VatContactPicker, type VatContact } from '@/components/vat-contact-picker';
 
@@ -52,9 +52,9 @@ type Invoice = {
   lines: Array<{ id: string; item_name: string; quantity: number; unit_price: string; tax_amount: string; gross_amount: string }>;
 };
 
-const emptyLine = (): InvoiceLine => ({
+const emptyLine = (taxRate = '15'): InvoiceLine => ({
   item_name: '', description: '', quantity: '1', unit_code: 'PCE', unit_price: '',
-  discount_amount: '0', tax_category: 'S', tax_rate: '15',
+  discount_amount: '0', tax_category: 'S', tax_rate: taxRate,
   tax_exemption_reason_code: '', tax_exemption_reason: '',
 });
 
@@ -62,6 +62,7 @@ export function VatEInvoiceRegister({
   organizationId,
   sellerProfile,
   vatNumber,
+  standardTaxRate,
   registered,
   ar,
   onInvoiceIssued,
@@ -69,6 +70,7 @@ export function VatEInvoiceRegister({
   organizationId: string;
   sellerProfile: SellerProfile;
   vatNumber: string;
+  standardTaxRate: number;
   registered: boolean;
   ar: boolean;
   onInvoiceIssued?: () => void;
@@ -78,6 +80,8 @@ export function VatEInvoiceRegister({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
+  const [showDraftForm, setShowDraftForm] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [category, setCategory] = useState<'STANDARD' | 'SIMPLIFIED'>('STANDARD');
   const [documentType, setDocumentType] = useState<'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('INVOICE');
@@ -94,7 +98,7 @@ export function VatEInvoiceRegister({
   const [buyerAdditional, setBuyerAdditional] = useState('');
   const [billingReference, setBillingReference] = useState('');
   const [noteReason, setNoteReason] = useState('');
-  const [lines, setLines] = useState<InvoiceLine[]>([emptyLine()]);
+  const [lines, setLines] = useState<InvoiceLine[]>(() => [emptyLine(String(standardTaxRate))]);
   const importInput = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const sellerProfileReady = Boolean(
@@ -202,8 +206,11 @@ export function VatEInvoiceRegister({
       setBuyerPostalCode('');
       setBillingReference('');
       setNoteReason('');
-      setLines([emptyLine()]);
-      setMessage({ error: false, text: ar ? 'حُفظت مسودة الفاتورة. لم تصدر ولم تُرسل إلى زاتكا.' : 'Invoice draft saved. It has not been issued or sent to ZATCA.' });
+      setLines([emptyLine(String(standardTaxRate))]);
+      setShowDraftForm(false);
+      setMessage({ error: false, text: documentType === 'INVOICE'
+        ? (ar ? 'حُفظت مسودة الفاتورة. لم تصدر ولم تُرسل إلى زاتكا.' : 'Invoice draft saved. It has not been issued or sent to ZATCA.')
+        : (ar ? 'حُفظت مسودة الإشعار. إصدار الإشعارات غير متاح حاليًا.' : 'Note draft saved. Issuing credit/debit notes is not available yet.') });
     } catch (error) {
       setMessage({ error: true, text: messageFor(error instanceof Error ? error.message : 'UNKNOWN_ERROR', ar) });
     } finally {
@@ -359,17 +366,57 @@ export function VatEInvoiceRegister({
     setLines((current) => current.map((line, i) => i === index ? { ...line, ...changes } : line));
   }
 
+  function startDraft(type: 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE') {
+    setInvoiceNumber('');
+    setBuyerContactId('');
+    setBuyerName('');
+    setBuyerVatNumber('');
+    setBuyerAddress('');
+    setBuyerBuilding('');
+    setBuyerDistrict('');
+    setBuyerAdditional('');
+    setBuyerCity('');
+    setBuyerPostalCode('');
+    setBillingReference('');
+    setNoteReason('');
+    setLines([emptyLine(String(standardTaxRate))]);
+    setDocumentType(type);
+    setShowDraftForm(true);
+    setAddMenuOpen(false);
+    setMessage(null);
+  }
+
+  function lineAmounts(line: InvoiceLine) {
+    const quantity = Number(line.quantity || 0);
+    const unitPrice = Number(line.unit_price || 0);
+    const discount = Number(line.discount_amount || 0);
+    const net = Math.max(0, quantity * unitPrice - discount);
+    const tax = line.tax_category === 'S' ? net * Number(line.tax_rate || 0) / 100 : 0;
+    return { net, tax, total: net + tax };
+  }
+
   return (
     <section className="vat-panel">
-      <div className="vat-panel-head">
+      <div className="vat-panel-head vat-einvoice-register-heading">
         <div>
           <span className="vat-eyebrow">{ar ? 'الفواتير الصادرة' : 'SALES INVOICES'}</span>
-          <h2>{ar ? 'إنشاء فاتورة ضريبية' : 'Create a tax invoice'}</h2>
-          <p>{ar ? 'أنشئ فاتورة، استوردها من CSV أو Excel، ثم أصدرها مع رمز QR بصيغة زاتكا للمرحلة الأولى.' : 'Create an invoice, import CSV or Excel, then issue it with a ZATCA Phase 1 QR code.'}</p>
+          <h2>{ar ? 'الفواتير والإشعارات' : 'Invoices and notes'}</h2>
+          <p>{ar ? 'أضف مستندًا، أدخل بنوده، ثم احفظه كمسودة للمراجعة.' : 'Add a document, enter its line items, and save it as a draft for review.'}</p>
+        </div>
+        <div className="vat-add-menu-wrap">
+          <button type="button" className="vat-button primary vat-add-document" aria-expanded={addMenuOpen} onClick={() => setAddMenuOpen((open) => !open)} disabled={!canCreate || !sellerProfileReady || busy || importing}>
+            <span aria-hidden="true">＋</span>{ar ? 'إضافة' : 'Add'}
+          </button>
+          {addMenuOpen && <div className="vat-add-menu" role="group" aria-label={ar ? 'نوع المستند الجديد' : 'New document type'}>
+            <button type="button" onClick={() => startDraft('INVOICE')}><strong>{ar ? 'فاتورة' : 'Invoice'}</strong><small>{ar ? 'إنشاء فاتورة بيع جديدة' : 'Create a new sales invoice'}</small></button>
+            <button type="button" onClick={() => startDraft('CREDIT_NOTE')}><strong>{ar ? 'إشعار دائن' : 'Credit note'}</strong><small>{ar ? 'مسودة مرتبطة بفاتورة أصلية' : 'Draft linked to an original invoice'}</small></button>
+            <button type="button" onClick={() => startDraft('DEBIT_NOTE')}><strong>{ar ? 'إشعار مدين' : 'Debit note'}</strong><small>{ar ? 'مسودة مرتبطة بفاتورة أصلية' : 'Draft linked to an original invoice'}</small></button>
+          </div>}
         </div>
       </div>
       {!registered && <div className="vat-inline-warning">{ar ? 'يجب إكمال تسجيل ضريبة القيمة المضافة قبل إنشاء فاتورة.' : 'Complete VAT registration before creating an invoice.'}</div>}
       {!canCreate && registered && <div className="vat-inline-warning">{ar ? 'إنشاء الفواتير متاح لمالك المؤسسة أو مديرها فقط.' : 'Only an organization owner or admin can create invoices.'}</div>}
+      {showDraftForm && documentType !== 'INVOICE' && <div className="vat-inline-warning">{ar ? 'يمكن حفظ الإشعار كمسودة الآن؛ إصدار الإشعارات الدائنة والمدينة غير متاح بعد.' : 'This note can be saved as a draft. Issuing credit and debit notes is not available yet.'}</div>}
       {message && <div className={`vat-notice ${message.error ? 'error' : 'success'}`} role={message.error ? 'alert' : 'status'}>{message.text}</div>}
 
       <div className="vat-einvoice-import-actions">
@@ -379,13 +426,13 @@ export function VatEInvoiceRegister({
         <small>{ar ? 'كل صف يمثل بندًا؛ كرر رقم الفاتورة لضم البنود إلى فاتورة واحدة. الاستيراد يحفظ مسودات، وبيانات البائع تُسحب من ملف التسجيل.' : 'Each row is an invoice line; repeat the invoice number to group lines. Imports save drafts, and seller details come from the registration profile.'}</small>
       </div>
 
-      <form className="vat-form-grid vat-einvoice-form" onSubmit={saveDraft}>
+      {showDraftForm && <form className="vat-form-grid vat-einvoice-form" onSubmit={saveDraft}>
         <fieldset className="vat-einvoice-group">
-          <legend>{ar ? 'بيانات الفاتورة' : 'Invoice details'}</legend>
+          <legend>{documentType === 'INVOICE' ? (ar ? 'بيانات الفاتورة' : 'Invoice details') : (ar ? 'بيانات الإشعار' : 'Note details')}</legend>
           <div className="vat-einvoice-group-grid">
             <label><span>{ar ? 'رقم الفاتورة' : 'Invoice number'}</span><input required maxLength={100} value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} /></label>
             <label><span>{ar ? 'نوع الفاتورة' : 'Invoice type'}</span><select value={category} onChange={(event) => setCategory(event.target.value as typeof category)}><option value="STANDARD">{ar ? 'ضريبية قياسية' : 'Standard tax invoice'}</option><option value="SIMPLIFIED">{ar ? 'مبسطة' : 'Simplified'}</option></select></label>
-            <label><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={documentType} onChange={(event) => setDocumentType(event.target.value as typeof documentType)}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE" disabled>{ar ? 'إشعار دائن — غير متاح حاليًا' : 'Credit note — not available yet'}</option><option value="DEBIT_NOTE" disabled>{ar ? 'إشعار مدين — غير متاح حاليًا' : 'Debit note — not available yet'}</option></select></label>
+            <div className="vat-document-type-summary"><small>{ar ? 'نوع المستند' : 'Document type'}</small><strong>{documentType === 'INVOICE' ? (ar ? 'فاتورة' : 'Invoice') : documentType === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'إشعار مدين' : 'Debit note')}</strong></div>
             <label><span>{ar ? 'تاريخ الإصدار' : 'Issue date'}</span><input required type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} /></label>
             <label><span>{ar ? 'وقت الإصدار' : 'Issue time'}</span><input required type="time" value={issueTime} onChange={(event) => setIssueTime(event.target.value)} /></label>
           </div>
@@ -446,29 +493,34 @@ export function VatEInvoiceRegister({
         </fieldset>}
 
         <div className="vat-einvoice-lines">
-          <div className="vat-einvoice-lines-head"><strong>{ar ? 'بنود الفاتورة' : 'Invoice lines'}</strong><button type="button" className="vat-button secondary" onClick={() => setLines((current) => [...current, emptyLine()])}>{ar ? 'إضافة بند' : 'Add line'}</button></div>
-          {lines.map((line, index) => <fieldset className="vat-einvoice-line" key={index}>
-            <legend>{ar ? `البند ${index + 1}` : `Line ${index + 1}`}</legend>
-            <label><span>{ar ? 'وصف السلعة أو الخدمة' : 'Item or service'}</span><input required maxLength={200} value={line.item_name} onChange={(event) => updateLine(index, { item_name: event.target.value })} /></label>
-            <label><span>{ar ? 'الكمية' : 'Quantity'}</span><input required type="number" min="0.000001" step="0.000001" value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} /></label>
-            <label><span>{ar ? 'سعر الوحدة (ريال)' : 'Unit price (SAR)'}</span><input required type="number" min="0" step="0.000001" value={line.unit_price} onChange={(event) => updateLine(index, { unit_price: event.target.value })} /></label>
-            <label><span>{ar ? 'الخصم (ريال)' : 'Discount (SAR)'}</span><input type="number" min="0" step="0.01" value={line.discount_amount} onChange={(event) => updateLine(index, { discount_amount: event.target.value })} /></label>
-            <label><span>{ar ? 'التصنيف الضريبي' : 'Tax category'}</span><select value={line.tax_category} onChange={(event) => updateLine(index, { tax_category: event.target.value as InvoiceLine['tax_category'], tax_rate: event.target.value === 'S' ? '15' : '0' })}><option value="S">{ar ? 'قياسي' : 'Standard'}</option><option value="Z">{ar ? 'صفري' : 'Zero-rated'}</option><option value="E">{ar ? 'معفى' : 'Exempt'}</option><option value="O">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select></label>
-            {line.tax_category === 'S' && <label><span>{ar ? 'نسبة الضريبة %' : 'VAT rate %'}</span><input required type="number" min="0.01" max="100" step="0.01" value={line.tax_rate} onChange={(event) => updateLine(index, { tax_rate: event.target.value })} /></label>}
-            {(line.tax_category === 'Z' || line.tax_category === 'E') && <>
-              <label><span>{ar ? 'رمز سبب المعاملة' : 'Treatment reason code'}</span><input required maxLength={20} value={line.tax_exemption_reason_code} onChange={(event) => updateLine(index, { tax_exemption_reason_code: event.target.value })} /></label>
-              <label><span>{ar ? 'شرح السبب' : 'Reason description'}</span><input required maxLength={500} value={line.tax_exemption_reason} onChange={(event) => updateLine(index, { tax_exemption_reason: event.target.value })} /></label>
-            </>}
-            {lines.length > 1 && <button type="button" className="vat-delete" aria-label={ar ? `حذف البند ${index + 1}` : `Remove line ${index + 1}`} onClick={() => setLines((current) => current.filter((_, i) => i !== index))}>×</button>}
-          </fieldset>)}
+          <div className="vat-einvoice-lines-head"><div><strong>{ar ? 'بنود المستند' : 'Document lines'}</strong><small>{ar ? 'الأسعار بالريال السعودي وقبل الضريبة' : 'Prices in SAR, excluding VAT'}</small></div><div className="vat-einvoice-line-tools"><button type="button" className="vat-button secondary" onClick={() => setLines((current) => [...current, emptyLine(String(standardTaxRate))])}><span aria-hidden="true">＋</span>{ar ? 'إضافة بند' : 'Add line'}</button><button type="button" className="vat-button secondary" onClick={() => setLines([emptyLine(String(standardTaxRate))])}>{ar ? 'مسح البنود' : 'Clear lines'}</button></div></div>
+          <div className="vat-einvoice-line-scroll"><table className="vat-einvoice-line-table">
+            <thead><tr><th>{ar ? 'الوصف / الصنف' : 'Description / item'}</th><th>{ar ? 'الكمية' : 'Qty'}</th><th>{ar ? 'سعر الوحدة' : 'Unit price'}</th><th>{ar ? 'التصنيف الضريبي' : 'Tax treatment'}</th><th>{ar ? 'الخصم' : 'Discount'}</th><th>{ar ? 'الإجمالي' : 'Total'}</th><th><span className="vat-sr-only">{ar ? 'إجراء' : 'Action'}</span></th></tr></thead>
+            <tbody>{lines.map((line, index) => <Fragment key={index}>
+              <tr>
+                <td><input aria-label={ar ? `وصف البند ${index + 1}` : `Line ${index + 1} description`} required maxLength={200} placeholder={ar ? 'أدخل السلعة أو الخدمة' : 'Enter item or service'} value={line.item_name} onChange={(event) => updateLine(index, { item_name: event.target.value })} /></td>
+                <td><input aria-label={ar ? `كمية البند ${index + 1}` : `Line ${index + 1} quantity`} required type="number" min="0.000001" step="0.000001" value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} /></td>
+                <td><input aria-label={ar ? `سعر البند ${index + 1}` : `Line ${index + 1} unit price`} required type="number" min="0" step="0.000001" placeholder={ar ? 'المبلغ' : 'Amount'} value={line.unit_price} onChange={(event) => updateLine(index, { unit_price: event.target.value })} /></td>
+                <td><div className="vat-einvoice-tax-cell"><select aria-label={ar ? `تصنيف البند ${index + 1}` : `Line ${index + 1} tax treatment`} value={line.tax_category} onChange={(event) => updateLine(index, { tax_category: event.target.value as InvoiceLine['tax_category'], tax_rate: event.target.value === 'S' ? String(standardTaxRate) : '0' })}><option value="S">{ar ? 'قياسي' : 'Standard'}</option><option value="Z">{ar ? 'صفري' : 'Zero-rated'}</option><option value="E">{ar ? 'معفى' : 'Exempt'}</option><option value="O">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select>{line.tax_category === 'S' && <input aria-label={ar ? `نسبة ضريبة البند ${index + 1}` : `Line ${index + 1} VAT rate`} required type="number" min="0.01" max="100" step="0.01" value={line.tax_rate} onChange={(event) => updateLine(index, { tax_rate: event.target.value })} />}</div></td>
+                <td><input aria-label={ar ? `خصم البند ${index + 1}` : `Line ${index + 1} discount`} type="number" min="0" step="0.01" value={line.discount_amount} onChange={(event) => updateLine(index, { discount_amount: event.target.value })} /></td>
+                <td className="vat-einvoice-line-total">{formatAmount(lineAmounts(line).total)} <small>SAR</small></td>
+                <td>{lines.length > 1 && <button type="button" className="vat-delete" aria-label={ar ? `حذف البند ${index + 1}` : `Remove line ${index + 1}`} onClick={() => setLines((current) => current.filter((_, i) => i !== index))}>×</button>}</td>
+              </tr>
+              {(line.tax_category === 'Z' || line.tax_category === 'E') && <tr className="vat-einvoice-tax-reason"><td colSpan={7}><div>
+                <label><span>{ar ? 'رمز سبب المعاملة' : 'Treatment reason code'}</span><input required maxLength={20} value={line.tax_exemption_reason_code} onChange={(event) => updateLine(index, { tax_exemption_reason_code: event.target.value })} /></label>
+                <label><span>{ar ? 'شرح السبب' : 'Reason description'}</span><input required maxLength={500} value={line.tax_exemption_reason} onChange={(event) => updateLine(index, { tax_exemption_reason: event.target.value })} /></label>
+              </div></td></tr>}
+            </Fragment>)}</tbody>
+          </table></div>
+          <div className="vat-einvoice-line-summary"><span>{ar ? 'صافي البنود' : 'Subtotal'} <strong>{formatAmount(lines.reduce((sum, line) => sum + lineAmounts(line).net, 0))} SAR</strong></span><span>{ar ? 'ضريبة القيمة المضافة' : 'VAT'} <strong>{formatAmount(lines.reduce((sum, line) => sum + lineAmounts(line).tax, 0))} SAR</strong></span><span>{ar ? 'الإجمالي المستحق' : 'Total due'} <strong>{formatAmount(lines.reduce((sum, line) => sum + lineAmounts(line).total, 0))} SAR</strong></span></div>
         </div>
-        <div className="vat-form-actions"><button className="vat-button primary" disabled={!canCreate || !sellerProfileReady || busy || importing || !vatNumber}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ كمسودة' : 'Save as draft')}</button></div>
-      </form>
+        <div className="vat-form-actions"><button type="button" className="vat-button secondary" onClick={() => { setShowDraftForm(false); setAddMenuOpen(false); }}>{ar ? 'إلغاء' : 'Cancel'}</button><button className="vat-button primary" disabled={!canCreate || !sellerProfileReady || busy || importing || !vatNumber}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ كمسودة' : 'Save as draft')}</button></div>
+      </form>}
 
       <div className="vat-einvoice-list" aria-live="polite">
         {loading && <div className="vat-empty-row">{ar ? 'جارٍ تحميل الفواتير…' : 'Loading invoices…'}</div>}
         {!loading && invoices.map((invoice) => <div className="vat-einvoice-item" key={invoice.id}>
-          <div><strong>{invoice.invoice_number}</strong><small>{invoice.issue_date} · {invoice.invoice_category === 'STANDARD' ? (ar ? 'قياسية' : 'Standard') : (ar ? 'مبسطة' : 'Simplified')} · {invoice.lines.length} {ar ? 'بنود' : 'lines'}</small></div>
+          <div><strong>{invoice.invoice_number}</strong><small>{invoice.document_type !== 'INVOICE' ? (invoice.document_type === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'إشعار مدين' : 'Debit note')) : (ar ? 'فاتورة' : 'Invoice')} · {invoice.issue_date} · {invoice.invoice_category === 'STANDARD' ? (ar ? 'قياسية' : 'Standard') : (ar ? 'مبسطة' : 'Simplified')} · {invoice.lines.length} {ar ? 'بنود' : 'lines'}</small></div>
           <div className="vat-einvoice-total">{formatAmount(invoice.payable_amount)} {invoice.currency}</div>
           <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : (ar ? 'مسودة' : 'Draft')}</span>
           <div className="vat-invoice-actions">

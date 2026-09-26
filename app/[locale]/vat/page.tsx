@@ -152,6 +152,8 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing'>('dashboard');
   const [registerDirection, setRegisterDirection] = useState<'SALES' | 'PURCHASE'>('SALES');
   const [salesEntryMode, setSalesEntryMode] = useState<'ACCOUNTING' | 'ZAKATFLOW'>('ACCOUNTING');
+  const [registerFormOpen, setRegisterFormOpen] = useState(false);
+  const [registerAddMenuOpen, setRegisterAddMenuOpen] = useState(false);
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
@@ -351,6 +353,8 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
       setDraft({ ...emptyDocument(), document_type: registerDirection });
+      setRegisterFormOpen(false);
+      setRegisterAddMenuOpen(false);
       setNotice({ kind: 'success', text: ar ? 'تم تسجيل المستند الضريبي.' : 'VAT document recorded.' });
       await reloadData();
     } catch (error: any) {
@@ -358,6 +362,13 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     } finally {
       setSaving(false);
     }
+  }
+
+  function startRegisterEntry(kind: DocumentDraft['document_kind']) {
+    setDraft({ ...emptyDocument(), document_type: registerDirection, document_kind: kind });
+    setRegisterFormOpen(true);
+    setRegisterAddMenuOpen(false);
+    setNotice(null);
   }
 
   async function deleteDocument(documentId: string) {
@@ -579,16 +590,16 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
 
           <div id="vat-panel-register" role="tabpanel" aria-labelledby="vat-tab-register" hidden={activeTab !== 'register'}>
           <div className="vat-invoice-direction" role="group" aria-label={ar ? 'نوع الفاتورة' : 'Invoice direction'}>
-            <button type="button" aria-pressed={registerDirection === 'SALES'} className={registerDirection === 'SALES' ? 'active sales' : ''} onClick={() => { setRegisterDirection('SALES'); setDraft((current) => ({ ...current, document_type: 'SALES', counterparty_contact_id: '', counterparty_name: '', counterparty_tax_number: '' })); }}>
+            <button type="button" aria-pressed={registerDirection === 'SALES'} className={registerDirection === 'SALES' ? 'active sales' : ''} onClick={() => { setRegisterDirection('SALES'); setRegisterFormOpen(false); setRegisterAddMenuOpen(false); setDraft((current) => ({ ...current, document_type: 'SALES', counterparty_contact_id: '', counterparty_name: '', counterparty_tax_number: '' })); }}>
               <strong>{ar ? 'فاتورة بيع' : 'Sales invoice'}</strong><small>{ar ? 'عميل · ضريبة مخرجات · إصدار اختياري من زكاة فلو' : 'Customer · output VAT · optional ZakatFlow issuance'}</small>
             </button>
-            <button type="button" aria-pressed={registerDirection === 'PURCHASE'} className={registerDirection === 'PURCHASE' ? 'active purchase' : ''} onClick={() => { setRegisterDirection('PURCHASE'); setDraft((current) => ({ ...current, document_type: 'PURCHASE', counterparty_contact_id: '', counterparty_name: '', counterparty_tax_number: '' })); }}>
+            <button type="button" aria-pressed={registerDirection === 'PURCHASE'} className={registerDirection === 'PURCHASE' ? 'active purchase' : ''} onClick={() => { setRegisterDirection('PURCHASE'); setRegisterFormOpen(false); setRegisterAddMenuOpen(false); setDraft((current) => ({ ...current, document_type: 'PURCHASE', counterparty_contact_id: '', counterparty_name: '', counterparty_tax_number: '' })); }}>
               <strong>{ar ? 'فاتورة شراء' : 'Purchase invoice'}</strong><small>{ar ? 'مورد · ضريبة مدخلات · فاتورة مستلمة' : 'Supplier · input VAT · received invoice'}</small>
             </button>
           </div>
           {registerDirection === 'SALES' && <div className="vat-invoice-source-switch" role="group" aria-label={ar ? 'مصدر فاتورة المبيعات' : 'Sales invoice source'}>
-            <button type="button" aria-pressed={salesEntryMode === 'ACCOUNTING'} className={salesEntryMode === 'ACCOUNTING' ? 'active' : ''} onClick={() => setSalesEntryMode('ACCOUNTING')}>{ar ? 'تسجيل فاتورة من نظام محاسبي' : 'Record an invoice from accounting software'}</button>
-            <button type="button" aria-pressed={salesEntryMode === 'ZAKATFLOW'} className={salesEntryMode === 'ZAKATFLOW' ? 'active' : ''} onClick={() => setSalesEntryMode('ZAKATFLOW')}>{ar ? 'إنشاء فاتورة في زكاة فلو' : 'Create an invoice in ZakatFlow'}</button>
+            <button type="button" aria-pressed={salesEntryMode === 'ACCOUNTING'} className={salesEntryMode === 'ACCOUNTING' ? 'active' : ''} onClick={() => { setSalesEntryMode('ACCOUNTING'); setRegisterFormOpen(false); setRegisterAddMenuOpen(false); }}>{ar ? 'تسجيل فاتورة من نظام محاسبي' : 'Record an invoice from accounting software'}</button>
+            <button type="button" aria-pressed={salesEntryMode === 'ZAKATFLOW'} className={salesEntryMode === 'ZAKATFLOW' ? 'active' : ''} onClick={() => { setSalesEntryMode('ZAKATFLOW'); setRegisterFormOpen(false); setRegisterAddMenuOpen(false); }}>{ar ? 'إنشاء فاتورة في زكاة فلو' : 'Create an invoice in ZakatFlow'}</button>
           </div>}
           {registerDirection === 'SALES' && salesEntryMode === 'ZAKATFLOW' && organizationId && <VatEInvoiceRegister
             key={`invoices-${organizationId}`}
@@ -603,17 +614,25 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               seller_postal_code: profile?.seller_postal_code ?? '',
             }}
             vatNumber={profile?.tax_registration_number ?? ''}
+            standardTaxRate={Number(profile?.standard_rate ?? 15)}
             registered={isRegistered}
             ar={ar}
             onInvoiceIssued={() => setInvoiceRefresh((revision) => revision + 1)}
           />}
           {(registerDirection === 'PURCHASE' || salesEntryMode === 'ACCOUNTING') && <>
           <section className="vat-panel">
-            <div className="vat-panel-head">
-              <div><span className="vat-eyebrow">{registerDirection === 'PURCHASE' ? (ar ? 'فاتورة مورد مستلمة' : 'RECEIVED SUPPLIER INVOICE') : (ar ? 'تسجيل من نظام محاسبي' : 'ACCOUNTING SYSTEM ENTRY')}</span><h2>{registerDirection === 'PURCHASE' ? (ar ? 'تسجيل فاتورة مشتريات' : 'Record a purchase invoice') : (ar ? 'تسجيل فاتورة مبيعات' : 'Record a sales invoice')}</h2><p>{registerDirection === 'PURCHASE' ? (ar ? 'أدخل المبالغ والتصنيف الضريبي من فاتورة المورد لحساب ضريبة المدخلات. هذا المسار لا يصدر فاتورة إلى زاتكا ولا يحفظ صورة الفاتورة أو بنودها.' : 'Enter amounts and tax treatment from the supplier invoice to calculate input VAT. This records tax values only; it does not issue an invoice to ZATCA or store invoice images or lines.') : (ar ? 'سجّل بيانات الفاتورة الصادرة من نظامك المحاسبي لاحتساب ملخص الضريبة. لا تُنشأ هنا فاتورة إلكترونية جديدة.' : 'Record an invoice issued by your accounting system for the VAT summary. This does not create a new e-invoice.')}</p></div>
+            <div className="vat-panel-head vat-register-entry-head">
+              <div><span className="vat-eyebrow">{registerDirection === 'PURCHASE' ? (ar ? 'فاتورة مورد مستلمة' : 'RECEIVED SUPPLIER INVOICE') : (ar ? 'تسجيل من نظام محاسبي' : 'ACCOUNTING SYSTEM ENTRY')}</span><h2>{registerDirection === 'PURCHASE' ? (ar ? 'فواتير المشتريات' : 'Purchase invoices') : (ar ? 'فواتير المبيعات' : 'Sales invoices')}</h2><p>{registerDirection === 'PURCHASE' ? (ar ? 'يسجل هذا المسار ملخص الضريبة من فاتورة المورد، ولا يحفظ بنودها حاليًا.' : 'This path records the supplier invoice tax summary; line items are not stored here yet.') : (ar ? 'يسجّل إجماليات فاتورة صادرة من نظامك المحاسبي لاحتسابها ضريبيًا، ولا ينشئ فاتورة إلكترونية أو يحفظ بنودها.' : 'This records tax totals from your accounting invoice; it does not create an e-invoice or store its line items.')}</p></div>
+              <div className="vat-add-menu-wrap">
+                <button type="button" className="vat-button primary vat-add-document" aria-expanded={registerAddMenuOpen} onClick={() => setRegisterAddMenuOpen((open) => !open)} disabled={!isRegistered || saving}><span aria-hidden="true">＋</span>{ar ? 'إضافة' : 'Add'}</button>
+                {registerAddMenuOpen && <div className="vat-add-menu" role="group" aria-label={ar ? 'نوع المستند الجديد' : 'New document type'}>
+                  <button type="button" onClick={() => startRegisterEntry('INVOICE')}><strong>{ar ? 'فاتورة' : 'Invoice'}</strong><small>{ar ? 'تسجيل فاتورة من النظام المحاسبي' : 'Record an accounting-system invoice'}</small></button>
+                  <button type="button" onClick={() => startRegisterEntry('CREDIT_NOTE')}><strong>{ar ? 'إشعار دائن' : 'Credit note'}</strong><small>{ar ? 'تسجيل إشعار دائن على فاتورة سابقة' : 'Record a credit note against an earlier invoice'}</small></button>
+                </div>}
+              </div>
             </div>
-            <form className="vat-form-grid vat-document-form" onSubmit={addDocument}>
-              <label><span>{ar ? 'نوع القيد' : 'Document kind'}</span><select value={draft.document_kind} onChange={(event) => setDraft({ ...draft, document_kind: event.target.value as DocumentDraft['document_kind'] })}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option></select></label>
+            {registerFormOpen && <form className="vat-form-grid vat-document-form" onSubmit={addDocument}>
+              <div className="vat-document-type-summary"><small>{ar ? 'نوع المستند' : 'Document type'}</small><strong>{draft.document_kind === 'INVOICE' ? (ar ? 'فاتورة' : 'Invoice') : (ar ? 'إشعار دائن' : 'Credit note')}</strong></div>
               <label><span>{ar ? 'رقم المستند' : 'Document number'}</span><input required maxLength={80} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} /></label>
               <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
               <div className="vat-document-contact-field">
@@ -636,10 +655,10 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               <label><span>{ar ? 'تصنيف التوريد' : 'Supply category'}</span><select value={draft.supply_type} onChange={(event) => setDraft({ ...draft, supply_type: event.target.value as DocumentDraft['supply_type'] })}><option value="STANDARD">{ar ? `خاضع للنسبة الأساسية (${currentTaxRate}%)` : `Standard rated (${currentTaxRate}%)`}</option><option value="ZERO_RATED">{ar ? 'خاضع للنسبة الصفرية' : 'Zero-rated'}</option><option value="EXEMPT">{ar ? 'معفى' : 'Exempt'}</option><option value="OUT_OF_SCOPE">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select></label>
               <label><span>{ar ? 'صافي المبلغ (ريال)' : 'Net amount (SAR)'}</span><input required type="number" min="0.01" step="0.01" value={draft.net_amount} onChange={(event) => setDraft({ ...draft, net_amount: event.target.value })} /></label>
               {draft.document_type === 'PURCHASE' && <label><span>{ar ? 'نسبة ضريبة المدخلات القابلة للخصم (%)' : 'Recoverable input VAT (%)'}</span><input required type="number" min="0" max="100" step="0.01" value={draft.recoverable_percent} onChange={(event) => setDraft({ ...draft, recoverable_percent: event.target.value })} /></label>}
-              <label className="vat-notes-field"><span>{ar ? 'ملاحظات' : 'Notes'}</span><input maxLength={1000} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
+              <label className="vat-notes-field"><span>{draft.document_kind === 'CREDIT_NOTE' ? (ar ? 'مرجع الفاتورة وسبب الإشعار' : 'Original invoice reference and reason') : (ar ? 'ملاحظات' : 'Notes')}</span><input required={draft.document_kind === 'CREDIT_NOTE'} maxLength={1000} placeholder={draft.document_kind === 'CREDIT_NOTE' ? (ar ? 'رقم الفاتورة الأصلية وسبب الإشعار' : 'Original invoice number and reason') : undefined} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
               <div className="vat-tax-preview"><span>{ar ? 'الضريبة المحسوبة' : 'Calculated VAT'} <strong>{money(previewTax)} SAR</strong></span><span>{ar ? 'الإجمالي' : 'Gross total'} <strong>{money(Number(draft.net_amount || 0) + previewTax)} SAR</strong></span></div>
-              <button className="vat-button primary vat-submit" disabled={saving || !isRegistered}>{saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'إضافة إلى السجل' : 'Add to register')}</button>
-            </form>
+              <div className="vat-form-actions"><button type="button" className="vat-button secondary" onClick={() => { setRegisterFormOpen(false); setRegisterAddMenuOpen(false); }}>{ar ? 'إلغاء' : 'Cancel'}</button><button className="vat-button primary vat-submit" disabled={saving || !isRegistered}>{saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ في السجل' : 'Save to register')}</button></div>
+            </form>}
           </section>
 
           <section className="vat-panel">
