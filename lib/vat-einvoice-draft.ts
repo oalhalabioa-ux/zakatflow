@@ -38,7 +38,8 @@ export const vatEInvoiceDraftSchema = z.object({
   issue_date: z.string().date(),
   due_date: z.string().date().optional().nullable(),
   issue_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, 'INVALID_ISSUE_TIME'),
-  currency: z.literal('SAR').default('SAR'),
+  currency: z.string().trim().regex(/^[A-Z]{3}$/, 'INVALID_CURRENCY_CODE').default('SAR'),
+  exchange_rate: z.coerce.number().finite().positive().max(1_000_000).default(1),
   seller_name: z.string().trim().min(1).max(200),
   seller_vat_number: z.string().trim().regex(/^3\d{13}3$/, 'INVALID_SELLER_VAT_NUMBER'),
   seller_address: z.string().trim().min(1).max(250),
@@ -65,6 +66,9 @@ export const vatEInvoiceDraftSchema = z.object({
 }).superRefine((invoice, context) => {
   if (invoice.due_date && invoice.due_date < invoice.issue_date) {
     context.addIssue({ code: 'custom', message: 'DUE_DATE_BEFORE_ISSUE_DATE', path: ['due_date'] });
+  }
+  if (invoice.currency === 'SAR' && invoice.exchange_rate !== 1) {
+    context.addIssue({ code: 'custom', message: 'SAR_EXCHANGE_RATE_MUST_BE_ONE', path: ['exchange_rate'] });
   }
   if (invoice.invoice_category === 'STANDARD') {
     if (!invoice.buyer_name?.trim()) context.addIssue({ code: 'custom', message: 'STANDARD_BUYER_REQUIRED', path: ['buyer_name'] });

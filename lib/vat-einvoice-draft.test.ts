@@ -34,9 +34,9 @@ describe('VAT e-invoice drafts', () => {
     expect(result.success).toBe(false);
   });
 
-  it('only accepts SAR until foreign-currency tax conversion is implemented', () => {
-    const result = vatEInvoiceDraftSchema.safeParse({ ...baseDraft, currency: 'USD' });
-    expect(result.success).toBe(false);
+  it('accepts ISO currency with its conversion rate and requires the SAR rate to stay one', () => {
+    expect(vatEInvoiceDraftSchema.safeParse({ ...baseDraft, currency: 'USD', exchange_rate: 3.75 }).success).toBe(true);
+    expect(vatEInvoiceDraftSchema.safeParse({ ...baseDraft, currency: 'SAR', exchange_rate: 3.75 }).success).toBe(false);
   });
 
   it('accepts an optional due date on or after issue date', () => {

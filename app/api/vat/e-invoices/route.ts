@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import Decimal from 'decimal.js';
 import { calculateVatEInvoiceDraft, vatEInvoiceDraftSchema } from '@/lib/vat-einvoice-draft';
 import { requireUser } from '@/services/auth';
 import { requireOrganizationAdmin, requireOrganizationMember } from '@/services/organization-access';
@@ -13,6 +14,7 @@ function errorResponse(error: unknown) {
     'SELLER_PROFILE_INCOMPLETE', 'VAT_CONTACT_NOT_FOUND', 'VAT_CONTACT_TYPE_MISMATCH',
     'EINVOICE_CONNECTION_MISMATCH', 'PRECEDING_INVOICE_NOT_ISSUED',
     'NOTE_INVOICE_CATEGORY_MISMATCH', 'EINVOICE_NUMBER_EXISTS',
+    'CURRENCY_NOT_ACTIVE', 'SAR_EXCHANGE_RATE_MUST_BE_ONE',
   ]);
   const code = known.has(message) || message.startsWith('LINE_DISCOUNT_EXCEEDS_AMOUNT:')
     ? message
@@ -74,6 +76,14 @@ export async function POST(request: Request) {
     const draft = parsed.data;
     await requireOrganizationAdmin(supabase, user.id, draft.organization_id);
 
+    const { data: currency, error: currencyError } = await supabase.from('currencies')
+      .select('code')
+      .eq('code', draft.currency)
+      .eq('active', true)
+      .maybeSingle();
+    if (currencyError) throw currencyError;
+    if (!currency) throw new Error('CURRENCY_NOT_ACTIVE');
+
     const { data: profile, error: profileError } = await supabase.from('vat_profiles')
       .select('registration_status,tax_registration_number,registered_name,seller_street,seller_building_number,seller_district,seller_additional_number,seller_city,seller_postal_code')
       .eq('organization_id', draft.organization_id)
@@ -128,6 +138,10 @@ export async function POST(request: Request) {
     }
 
     const calculated = calculateVatEInvoiceDraft(draft);
+    const taxTotalAmountSar = new Decimal(calculated.totals.tax_total_amount)
+      .mul(draft.exchange_rate)
+      .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+      .toFixed(2);
     const { lines, ...header } = draft;
     const { data: invoice, error: insertError } = await supabase.from('vat_einvoices').insert({
       ...header,
@@ -144,9 +158,11 @@ export async function POST(request: Request) {
       preceding_invoice_id: draft.preceding_invoice_id || null,
       note_reason: draft.note_reason || null,
       ...calculated.totals,
+      exchange_rate: draft.exchange_rate,
+      tax_total_amount_sar: taxTotalAmountSar,
       status: 'DRAFT',
       created_by: user.id,
-    }).select('id,organization_id,invoice_uuid,invoice_number,document_type,invoice_category,status,issue_date,issue_time,currency,created_at').single();
+    }).select('id,organization_id,invoice_uuid,invoice_number,document_type,invoice_category,status,issue_date,issue_time,currency,exchange_rate,tax_total_amount_sar,created_at').single();
     if (insertError) {
       if (insertError.code === '23505') throw new Error('EINVOICE_NUMBER_EXISTS');
       throw insertError;
