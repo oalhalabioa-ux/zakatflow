@@ -2,7 +2,7 @@
 
 import { Fragment, FormEvent, useEffect, useRef, useState } from 'react';
 import { groupImportRecords, parseCsv, rowsToRecords } from '@/lib/vat-einvoice-import';
-import { normalizeInvoiceLinePrice, previewInvoiceLine } from '@/lib/vat-invoice-price-mode';
+import { applyInvoiceLineDiscount, normalizeInvoiceLinePrice, previewInvoiceLine } from '@/lib/vat-invoice-price-mode';
 import { VatContactPicker, type VatContact } from '@/components/vat-contact-picker';
 
 type SellerProfile = {
@@ -92,6 +92,7 @@ export function VatEInvoiceRegister({
   const [issueTime, setIssueTime] = useState(() => new Date().toTimeString().slice(0, 5));
   const [pricesIncludeTax, setPricesIncludeTax] = useState(false);
   const [showAdditionalLineFields, setShowAdditionalLineFields] = useState(false);
+  const [discountMode, setDiscountMode] = useState<'NONE' | 'AMOUNT' | 'PERCENT'>('AMOUNT');
   const [buyerContactId, setBuyerContactId] = useState('');
   const [buyerName, setBuyerName] = useState('');
   const [buyerVatNumber, setBuyerVatNumber] = useState('');
@@ -185,7 +186,7 @@ export function VatEInvoiceRegister({
           currency: 'SAR',
           lines: lines.map((line) => ({
             ...line,
-            ...normalizeInvoiceLinePrice(line, pricesIncludeTax),
+            ...normalizeInvoiceLinePrice(lineForCalculation(line), pricesIncludeTax),
             description: line.description || null,
             tax_exemption_reason_code: line.tax_exemption_reason_code || null,
             tax_exemption_reason: line.tax_exemption_reason || null,
@@ -394,6 +395,7 @@ export function VatEInvoiceRegister({
     setLines([emptyLine(String(standardTaxRate))]);
     setPricesIncludeTax(false);
     setShowAdditionalLineFields(false);
+    setDiscountMode('AMOUNT');
     setDocumentType(type);
     setShowDraftForm(true);
     setAddMenuOpen(false);
@@ -401,7 +403,12 @@ export function VatEInvoiceRegister({
   }
 
   function lineAmounts(line: InvoiceLine) {
-    return previewInvoiceLine(line, pricesIncludeTax);
+    try { return previewInvoiceLine(lineForCalculation(line), pricesIncludeTax); }
+    catch { return { net: 0, tax: 0, total: 0 }; }
+  }
+
+  function lineForCalculation(line: InvoiceLine): InvoiceLine {
+    return applyInvoiceLineDiscount(line, discountMode);
   }
 
   return (
@@ -507,28 +514,31 @@ export function VatEInvoiceRegister({
             <div className="vat-einvoice-lines-heading"><span className="vat-einvoice-section-icon" aria-hidden="true">▤</span><div><strong>{ar ? 'بنود الفاتورة' : 'Invoice items'}</strong><small>{ar ? 'أدخل البنود وسيتم احتساب الضريبة والإجماليات تلقائيًا.' : 'Enter line items; tax and totals are calculated automatically.'}</small></div></div>
             <div className="vat-einvoice-lines-controls">
               <label className="vat-einvoice-currency"><span>{ar ? 'العملة' : 'Currency'}</span><strong>SAR <small>ر.س</small></strong></label>
-              <label className="vat-einvoice-tax-mode"><input type="checkbox" checked={pricesIncludeTax} onChange={(event) => setPricesIncludeTax(event.target.checked)} /><span>{ar ? 'الأسعار شاملة الضريبة' : 'Prices include tax'}</span></label>
-              <button type="button" className="vat-button secondary vat-edit-fields" aria-expanded={showAdditionalLineFields} onClick={() => setShowAdditionalLineFields((value) => !value)}>{ar ? 'حقول إضافية' : 'Edit fields'} <span aria-hidden="true">{showAdditionalLineFields ? '⌃' : '⌄'}</span></button>
+              <label className="vat-einvoice-price-mode"><span>{ar ? 'طريقة عرض السعر' : 'Price mode'}</span><select value={pricesIncludeTax ? 'INCLUSIVE' : 'EXCLUSIVE'} onChange={(event) => setPricesIncludeTax(event.target.value === 'INCLUSIVE')}><option value="EXCLUSIVE">{ar ? 'غير شامل الضريبة' : 'Exclusive of tax'}</option><option value="INCLUSIVE">{ar ? 'شامل الضريبة' : 'Inclusive of tax'}</option></select></label>
+              <button type="button" className="vat-button secondary vat-edit-fields" aria-expanded={showAdditionalLineFields} onClick={() => setShowAdditionalLineFields((value) => !value)}>{ar ? 'تعديل الحقول' : 'Edit fields'} <span aria-hidden="true">{showAdditionalLineFields ? '⌃' : '⌄'}</span></button>
             </div>
           </div>
-          <div className="vat-einvoice-lines-head"><small>{ar ? 'الوصف، الكمية، سعر الوحدة والمعاملة الضريبية' : 'Description, quantity, unit price and tax treatment'}</small><div className="vat-einvoice-line-tools"><button type="button" className="vat-button secondary" onClick={() => setLines((current) => [...current, emptyLine(String(standardTaxRate))])}><span aria-hidden="true">＋</span>{ar ? 'إضافة بند' : 'Add line'}</button><button type="button" className="vat-button secondary" onClick={() => setLines([emptyLine(String(standardTaxRate))])}>{ar ? 'مسح البنود' : 'Clear lines'}</button></div></div>
+          {showAdditionalLineFields && <div className="vat-einvoice-field-settings"><label><span>{ar ? 'طريقة الخصم' : 'Discount type'}</span><select value={discountMode} onChange={(event) => { setDiscountMode(event.target.value as typeof discountMode); setLines((current) => current.map((line) => ({ ...line, discount_amount: '0' }))); }}><option value="NONE">{ar ? 'بدون خصم' : 'No discount'}</option><option value="AMOUNT">{ar ? 'خصم بقيمة' : 'Fixed amount'}</option><option value="PERCENT">{ar ? 'خصم بنسبة مئوية' : 'Percentage discount'}</option></select></label><small>{ar ? 'سيظهر حقل الخصم المحدد ضمن بنود الفاتورة.' : 'The selected discount field will appear in invoice lines.'}</small></div>}
+          <div className="vat-einvoice-lines-head"><small>{ar ? 'الوصف، الكمية، سعر الوحدة والمعاملة الضريبية' : 'Description, qty, unit price and tax treatment'}</small><div className="vat-einvoice-line-tools"><button type="button" className="vat-button secondary vat-clear-lines" onClick={() => setLines([emptyLine(String(standardTaxRate))])}>{ar ? 'مسح البنود' : 'Clear lines'}</button></div></div>
           <div className="vat-einvoice-line-scroll"><table className="vat-einvoice-line-table">
-            <thead><tr><th>{ar ? 'الوصف / الصنف' : 'Description / item'}</th><th>{ar ? 'الكمية' : 'Qty'}</th><th>{ar ? 'سعر الوحدة' : 'Unit price'}</th><th>{ar ? 'نسبة الضريبة' : 'Tax rate'}</th>{showAdditionalLineFields && <><th>{ar ? 'وحدة القياس' : 'Unit'}</th><th>{ar ? 'الخصم' : 'Discount'}</th></>}<th>{ar ? 'الإجمالي' : 'Total'}</th><th><span className="vat-sr-only">{ar ? 'إجراء' : 'Action'}</span></th></tr></thead>
+            <thead><tr><th>{ar ? 'الوصف / الصنف' : 'Description / item'}</th><th>{ar ? 'الكمية' : 'Qty'}</th><th>{ar ? 'سعر الوحدة' : 'Unit price'}</th><th>{ar ? 'نسبة الضريبة' : 'Tax rate'}</th>{showAdditionalLineFields && <th>{ar ? 'وحدة القياس' : 'Unit'}</th>}{showAdditionalLineFields && discountMode !== 'NONE' && <th>{discountMode === 'PERCENT' ? (ar ? 'الخصم %' : 'Discount %') : (ar ? 'الخصم (قيمة)' : 'Discount amount')}</th>}<th>{ar ? 'الإجمالي' : 'Total'}</th><th><span className="vat-sr-only">{ar ? 'إجراء' : 'Action'}</span></th></tr></thead>
             <tbody>{lines.map((line, index) => <Fragment key={index}>
               <tr>
                 <td><input aria-label={ar ? `وصف البند ${index + 1}` : `Line ${index + 1} description`} required maxLength={200} placeholder={ar ? 'أدخل السلعة أو الخدمة' : 'Enter item or service'} value={line.item_name} onChange={(event) => updateLine(index, { item_name: event.target.value })} /></td>
                 <td><input aria-label={ar ? `كمية البند ${index + 1}` : `Line ${index + 1} quantity`} required type="number" min="0.000001" step="0.000001" value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} /></td>
                 <td><input aria-label={ar ? `سعر البند ${index + 1}` : `Line ${index + 1} unit price`} required type="number" min="0" step="0.000001" placeholder={ar ? 'المبلغ' : 'Amount'} value={line.unit_price} onChange={(event) => updateLine(index, { unit_price: event.target.value })} /></td>
                 <td><div className="vat-einvoice-tax-cell"><select aria-label={ar ? `تصنيف البند ${index + 1}` : `Line ${index + 1} tax treatment`} value={line.tax_category} onChange={(event) => updateLine(index, { tax_category: event.target.value as InvoiceLine['tax_category'], tax_rate: event.target.value === 'S' ? String(standardTaxRate) : '0' })}><option value="S">{ar ? 'قياسي' : 'Standard'}</option><option value="Z">{ar ? 'صفري' : 'Zero-rated'}</option><option value="E">{ar ? 'معفى' : 'Exempt'}</option><option value="O">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select>{line.tax_category === 'S' ? <input aria-label={ar ? `نسبة ضريبة البند ${index + 1}` : `Line ${index + 1} VAT rate`} required type="number" min="0.01" max="100" step="0.01" value={line.tax_rate} onChange={(event) => updateLine(index, { tax_rate: event.target.value })} /> : <span className="vat-einvoice-zero-rate">0%</span>}</div></td>
-                {showAdditionalLineFields && <><td><select aria-label={ar ? `وحدة البند ${index + 1}` : `Line ${index + 1} unit`} value={line.unit_code} onChange={(event) => updateLine(index, { unit_code: event.target.value })}><option value="PCE">{ar ? 'قطعة' : 'Piece'}</option><option value="HUR">{ar ? 'ساعة' : 'Hour'}</option><option value="DAY">{ar ? 'يوم' : 'Day'}</option><option value="KGM">{ar ? 'كجم' : 'Kilogram'}</option><option value="LTR">{ar ? 'لتر' : 'Litre'}</option><option value="MTR">{ar ? 'متر' : 'Metre'}</option></select></td><td><input aria-label={ar ? `خصم البند ${index + 1}` : `Line ${index + 1} discount`} type="number" min="0" step="0.01" value={line.discount_amount} onChange={(event) => updateLine(index, { discount_amount: event.target.value })} /></td></>}
+                {showAdditionalLineFields && <td><select aria-label={ar ? `وحدة البند ${index + 1}` : `Line ${index + 1} unit`} value={line.unit_code} onChange={(event) => updateLine(index, { unit_code: event.target.value })}><option value="PCE">{ar ? 'قطعة' : 'Piece'}</option><option value="HUR">{ar ? 'ساعة' : 'Hour'}</option><option value="DAY">{ar ? 'يوم' : 'Day'}</option><option value="KGM">{ar ? 'كجم' : 'Kilogram'}</option><option value="LTR">{ar ? 'لتر' : 'Litre'}</option><option value="MTR">{ar ? 'متر' : 'Metre'}</option></select></td>}
+                {showAdditionalLineFields && discountMode !== 'NONE' && <td><input aria-label={discountMode === 'PERCENT' ? (ar ? `نسبة خصم البند ${index + 1}` : `Line ${index + 1} discount percentage`) : (ar ? `قيمة خصم البند ${index + 1}` : `Line ${index + 1} discount amount`)} type="number" min="0" max={discountMode === 'PERCENT' ? 100 : undefined} step="0.01" value={line.discount_amount} onChange={(event) => updateLine(index, { discount_amount: event.target.value })} /></td>}
                 <td className="vat-einvoice-line-total">{formatAmount(lineAmounts(line).total)} <small>SAR</small></td>
                 <td>{lines.length > 1 && <button type="button" className="vat-delete" aria-label={ar ? `حذف البند ${index + 1}` : `Remove line ${index + 1}`} onClick={() => setLines((current) => current.filter((_, i) => i !== index))}>×</button>}</td>
               </tr>
-              {(line.tax_category === 'Z' || line.tax_category === 'E') && <tr className="vat-einvoice-tax-reason"><td colSpan={showAdditionalLineFields ? 8 : 6}><div>
+              {(line.tax_category === 'Z' || line.tax_category === 'E') && <tr className="vat-einvoice-tax-reason"><td colSpan={6 + Number(showAdditionalLineFields) + Number(showAdditionalLineFields && discountMode !== 'NONE')}><div>
                 <label><span>{ar ? 'رمز سبب المعاملة' : 'Treatment reason code'}</span><input required maxLength={20} value={line.tax_exemption_reason_code} onChange={(event) => updateLine(index, { tax_exemption_reason_code: event.target.value })} /></label>
                 <label><span>{ar ? 'شرح السبب' : 'Reason description'}</span><input required maxLength={500} value={line.tax_exemption_reason} onChange={(event) => updateLine(index, { tax_exemption_reason: event.target.value })} /></label>
               </div></td></tr>}
             </Fragment>)}</tbody>
+            <tfoot><tr><td colSpan={6 + Number(showAdditionalLineFields) + Number(showAdditionalLineFields && discountMode !== 'NONE')}><button type="button" className="vat-add-line-inline" onClick={() => setLines((current) => [...current, emptyLine(String(standardTaxRate))])}><span aria-hidden="true">＋</span>{ar ? 'إضافة بند' : 'Add item'}</button></td></tr></tfoot>
           </table></div>
           <div className="vat-einvoice-line-summary"><span>{ar ? 'صافي البنود' : 'Subtotal'} <strong>{formatAmount(lines.reduce((sum, line) => sum + lineAmounts(line).net, 0))} SAR</strong></span><span>{ar ? 'ضريبة القيمة المضافة' : 'VAT'} <strong>{formatAmount(lines.reduce((sum, line) => sum + lineAmounts(line).tax, 0))} SAR</strong></span><span>{ar ? 'الإجمالي المستحق' : 'Total due'} <strong>{formatAmount(lines.reduce((sum, line) => sum + lineAmounts(line).total, 0))} SAR</strong></span></div>
         </div>

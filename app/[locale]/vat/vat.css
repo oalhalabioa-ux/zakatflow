@@ -361,10 +361,17 @@
 .vat-einvoice-currency > span { color:var(--vat-muted); font-size:.63rem; }
 .vat-einvoice-currency > strong { color:var(--vat-ink); font-size:.76rem; }
 .vat-einvoice-currency > strong small { color:var(--vat-muted); font-size:.66rem; font-weight:600; }
+.vat-einvoice-price-mode { display:grid; gap:3px; min-width:180px; }
+.vat-einvoice-price-mode > span { color:var(--vat-muted); font-size:.63rem; }
+.vat-einvoice-price-mode select { min-height:35px; padding:6px 9px; border:1px solid var(--vat-line); border-radius:9px; background:var(--vat-card); color:var(--vat-ink); font:inherit; font-size:.7rem; font-weight:650; }
 .vat-einvoice-tax-mode { display:flex; align-items:center; gap:7px; min-height:34px; padding:0 9px; border:1px solid var(--vat-line); border-radius:9px; color:var(--vat-ink); font-size:.71rem; font-weight:650; cursor:pointer; }
 .vat-einvoice-tax-mode input { width:15px!important; min-height:15px!important; height:15px; margin:0; accent-color:var(--vat-green); }
 .vat-einvoice-lines-controls .vat-edit-fields { display:inline-flex; align-items:center; gap:7px; min-height:35px; padding:7px 10px; font-size:.72rem; }
 .vat-einvoice-lines-controls .vat-edit-fields > span { color:var(--vat-green); font-size:.94rem; line-height:1; }
+.vat-einvoice-field-settings { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 13px; border:1px solid var(--vat-line); border-radius:11px; background:var(--vat-soft); }
+.vat-einvoice-field-settings label { display:flex; align-items:center; gap:9px; color:var(--vat-ink); font-size:.74rem; font-weight:750; }
+.vat-einvoice-field-settings select { width:auto; min-width:180px; min-height:36px; padding:6px 10px; font-size:.74rem; }
+.vat-einvoice-field-settings > small { color:var(--vat-muted); font-size:.7rem; }
 .vat-einvoice-lines-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .vat-einvoice-line { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:12px; min-width:0; margin:0; padding:15px; border:1px solid var(--vat-line); border-radius:12px; }
 .vat-einvoice-line legend { padding:0 7px; color:var(--vat-green); font-size:.79rem; font-weight:750; }
@@ -391,6 +398,11 @@
 .vat-einvoice-line-table th { padding:10px 9px; border-bottom:1px solid var(--vat-line); background:color-mix(in srgb,var(--vat-green) 6%,var(--vat-card)); color:var(--vat-muted); font-size:.72rem; font-weight:750; white-space:nowrap; }
 .vat-einvoice-line-table td { padding:9px; border-bottom:1px solid color-mix(in srgb,var(--vat-line) 72%,transparent); vertical-align:middle; }
 .vat-einvoice-line-table tbody tr:last-child td { border-bottom:0; }
+.vat-einvoice-line-table tfoot td { padding:8px 10px; border-top:1px solid var(--vat-line); background:color-mix(in srgb,var(--vat-green) 3%,var(--vat-card)); }
+.vat-add-line-inline { display:inline-flex; align-items:center; gap:5px; min-height:30px; padding:4px 9px; border:1px dashed color-mix(in srgb,var(--vat-green) 42%,var(--vat-line)); border-radius:8px; background:var(--vat-card); color:var(--vat-green); font:inherit; font-size:.7rem; font-weight:750; cursor:pointer; }
+.vat-add-line-inline:hover,.vat-add-line-inline:focus-visible { outline:0; border-style:solid; background:color-mix(in srgb,var(--vat-green) 8%,var(--vat-card)); }
+.vat-add-line-inline > span { font-size:.9rem; line-height:1; }
+.vat-clear-lines { min-height:31px!important; padding:5px 9px!important; font-size:.68rem!important; }
 .vat-einvoice-line-table input,.vat-einvoice-line-table select { width:100%; min-width:0; min-height:40px; padding:8px 9px; border:1px solid var(--vat-line); border-radius:8px; background:var(--vat-card); color:var(--vat-ink); font:inherit; font-size:.79rem; }
 .vat-einvoice-line-table td:first-child { min-width:220px; }
 .vat-einvoice-line-table td:nth-child(2) { width:94px; }

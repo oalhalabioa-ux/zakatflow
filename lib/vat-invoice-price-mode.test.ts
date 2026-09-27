@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeInvoiceLinePrice, previewInvoiceLine } from './vat-invoice-price-mode';
+import { applyInvoiceLineDiscount, normalizeInvoiceLinePrice, previewInvoiceLine } from './vat-invoice-price-mode';
 
 describe('VAT invoice price mode', () => {
   it('splits tax-inclusive unit price and discount into net and VAT', () => {
@@ -14,5 +14,12 @@ describe('VAT invoice price mode', () => {
     expect(previewInvoiceLine(standard, false)).toEqual({ net: 200, tax: 30, total: 230 });
     expect(normalizeInvoiceLinePrice(standard, false)).toBe(standard);
     expect(normalizeInvoiceLinePrice(zeroRated, true)).toBe(zeroRated);
+  });
+
+  it('converts a percentage discount to a rounded amount before tax normalization', () => {
+    const line = { quantity: '3', unit_price: '100', discount_amount: '12.5', tax_category: 'S' as const, tax_rate: '15' };
+    const discounted = applyInvoiceLineDiscount(line, 'PERCENT');
+    expect(discounted.discount_amount).toBe('37.50');
+    expect(previewInvoiceLine(discounted, false)).toEqual({ net: 262.5, tax: 39.375, total: 301.875 });
   });
 });

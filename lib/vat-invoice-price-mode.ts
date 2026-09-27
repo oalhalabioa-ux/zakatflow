@@ -8,6 +8,19 @@ export type PriceModeLine = {
   tax_rate: string;
 };
 
+export function applyInvoiceLineDiscount<T extends PriceModeLine>(line: T, discountMode: 'NONE' | 'AMOUNT' | 'PERCENT'): T {
+  if (discountMode === 'NONE') return { ...line, discount_amount: '0' };
+  if (discountMode === 'AMOUNT') return line;
+  const enteredPercent = new Decimal(line.discount_amount || 0);
+  if (enteredPercent.gt(100)) throw new Error('VAT_LINE_DISCOUNT_PERCENT_EXCEEDS_100');
+  const amount = new Decimal(line.quantity || 0)
+    .mul(line.unit_price || 0)
+    .mul(enteredPercent)
+    .div(100)
+    .toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  return { ...line, discount_amount: amount.toFixed(2) };
+}
+
 export function previewInvoiceLine(line: PriceModeLine, pricesIncludeTax: boolean) {
   const quantity = new Decimal(line.quantity || 0);
   const unitPrice = new Decimal(line.unit_price || 0);
