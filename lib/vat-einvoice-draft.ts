@@ -36,6 +36,7 @@ export const vatEInvoiceDraftSchema = z.object({
   document_type: z.enum(['INVOICE', 'CREDIT_NOTE', 'DEBIT_NOTE']).default('INVOICE'),
   invoice_category: z.enum(['STANDARD', 'SIMPLIFIED']),
   issue_date: z.string().date(),
+  due_date: z.string().date().optional().nullable(),
   issue_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, 'INVALID_ISSUE_TIME'),
   currency: z.literal('SAR').default('SAR'),
   seller_name: z.string().trim().min(1).max(200),
@@ -62,6 +63,9 @@ export const vatEInvoiceDraftSchema = z.object({
   note_reason: z.string().trim().max(500).optional().nullable(),
   lines: z.array(invoiceLineSchema).min(1).max(500),
 }).superRefine((invoice, context) => {
+  if (invoice.due_date && invoice.due_date < invoice.issue_date) {
+    context.addIssue({ code: 'custom', message: 'DUE_DATE_BEFORE_ISSUE_DATE', path: ['due_date'] });
+  }
   if (invoice.invoice_category === 'STANDARD') {
     if (!invoice.buyer_name?.trim()) context.addIssue({ code: 'custom', message: 'STANDARD_BUYER_REQUIRED', path: ['buyer_name'] });
     if (!invoice.buyer_address?.trim()) context.addIssue({ code: 'custom', message: 'STANDARD_BUYER_ADDRESS_REQUIRED', path: ['buyer_address'] });

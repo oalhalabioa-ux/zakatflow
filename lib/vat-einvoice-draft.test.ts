@@ -39,6 +39,13 @@ describe('VAT e-invoice drafts', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts an optional due date on or after issue date', () => {
+    expect(vatEInvoiceDraftSchema.safeParse({ ...baseDraft, due_date: '2026-10-24' }).success).toBe(true);
+    const invalid = vatEInvoiceDraftSchema.safeParse({ ...baseDraft, due_date: '2026-09-23' });
+    expect(invalid.success).toBe(false);
+    if (!invalid.success) expect(invalid.error.issues.some((issue) => issue.message === 'DUE_DATE_BEFORE_ISSUE_DATE')).toBe(true);
+  });
+
   it('requires Saudi national address components for the seller and standard buyer', () => {
     const result = vatEInvoiceDraftSchema.safeParse({
       ...baseDraft,

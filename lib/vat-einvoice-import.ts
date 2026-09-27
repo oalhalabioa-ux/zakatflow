@@ -4,6 +4,7 @@ const HEADER_ALIASES: Record<string, string> = {
   'رقم الفاتورة': 'invoice_number',
   'نوع الفاتورة': 'invoice_category',
   'تاريخ الإصدار': 'issue_date',
+  'تاريخ الاستحقاق': 'due_date',
   'وقت الإصدار': 'issue_time',
   'اسم البائع': 'seller_name',
   'عنوان البائع': 'seller_address',
