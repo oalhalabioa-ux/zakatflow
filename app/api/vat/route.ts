@@ -3,6 +3,7 @@ import Decimal from 'decimal.js';
 import { vatDocumentSchema, vatPeriodSummarySchema, vatProfileSchema } from '@/lib/validation/schemas';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { calculateVatAmounts, summarizeVatDocuments } from '@/lib/vat';
+import { calculateVatDocumentLines } from '@/lib/vat-document-lines';
 import { getVatPaymentDeadline, getVatYearStart, summarizePaidAndReserved, summarizeVatPeriodInputs, summarizeVatRowsWithDetail } from '@/lib/vat-period-summary';
 import { requireUser } from '@/services/auth';
 import { requireOrganizationAdmin, requireOrganizationMember } from '@/services/organization-access';
@@ -102,12 +103,17 @@ export async function GET(request: Request) {
       .order('period_start', { ascending: true });
     if (summaryError) throw summaryError;
 
+    const summaryDocuments = documents.flatMap((document: any) => Array.isArray(document.line_items) && document.line_items.length
+      ? document.line_items.map((line: any) => ({ ...document, supply_type: line.supply_type, net_amount: line.net_amount, tax_rate: line.tax_rate, tax_amount: line.tax_amount }))
+      : [document]);
+    const summarySourceDocuments = [...summaryDocuments, ...issuedDocumentSummaries];
     const periodDocuments = [...documents, ...issuedDocumentSummaries].filter((document) =>
       document.transaction_date >= period.from && document.transaction_date <= period.to,
     );
+    const periodSummaryDocuments = summarySourceDocuments.filter((document) => document.transaction_date >= period.from && document.transaction_date <= period.to);
     const periodSummary = (summaryRows ?? []).find((row: any) => row.period_start === period.from && row.period_end === period.to) ?? null;
     const rate = Number(profileResult.data?.standard_rate ?? 15);
-    const periodDocumentTotals = summarizeVatDocuments(periodDocuments);
+    const periodDocumentTotals = summarizeVatDocuments(periodSummaryDocuments);
     const periodTotals = periodSummary
       ? summarizeVatPeriodInputs(periodSummary, rate)
       : {
@@ -118,12 +124,12 @@ export async function GET(request: Request) {
         purchaseVatBeforeRecovery: periodDocumentTotals.inputTax,
       };
     const annualTotals = summarizeVatRowsWithDetail(
-      [...documents, ...issuedDocumentSummaries],
+      summarySourceDocuments,
       summaryRows ?? [],
       rate,
     );
     const coveredRanges = (summaryRows ?? []).filter((row: any) => row.period_start && row.period_end);
-    const unaggregatedDocuments = [...documents, ...issuedDocumentSummaries].filter((document) =>
+    const unaggregatedDocuments = summarySourceDocuments.filter((document) =>
       !coveredRanges.some((row: any) => document.transaction_date >= row.period_start && document.transaction_date <= row.period_end),
     );
     const unaggregatedTotals = summarizeVatDocuments(unaggregatedDocuments);
@@ -260,8 +266,10 @@ export async function POST(request: Request) {
         contact = data;
       }
 
-      const taxRate = document.supply_type === 'STANDARD' ? Number(profile.standard_rate) : 0;
-      const amounts = calculateVatAmounts(document.net_amount, taxRate);
+      const lineCalculation = document.lines?.length ? calculateVatDocumentLines(document.lines, profile.standard_rate) : null;
+      const supplyType = lineCalculation?.lines[0]?.supply_type ?? document.supply_type;
+      const taxRate = supplyType === 'STANDARD' ? Number(profile.standard_rate) : 0;
+      const amounts = lineCalculation ?? calculateVatAmounts(document.net_amount, taxRate);
       const { data, error } = await supabase.from('vat_documents').insert({
         organization_id: document.organization_id,
         user_id: user.id,
@@ -273,12 +281,13 @@ export async function POST(request: Request) {
         counterparty_contact_id: contact?.id ?? null,
         counterparty_name: contact?.name ?? document.counterparty_name,
         counterparty_tax_number: contact?.vat_number ?? (document.counterparty_tax_number?.trim() || null),
-        supply_type: document.supply_type,
+        supply_type: supplyType,
         net_amount: amounts.netAmount,
-        tax_rate: taxRate.toFixed(2),
+        tax_rate: lineCalculation ? (Number(amounts.netAmount) ? (Number(amounts.taxAmount) / Number(amounts.netAmount) * 100).toFixed(2) : '0.00') : taxRate.toFixed(2),
         tax_amount: amounts.taxAmount,
         recoverable_percent: document.document_type === 'PURCHASE' ? document.recoverable_percent : 100,
         gross_amount: amounts.grossAmount,
+        line_items: lineCalculation?.lines ?? null,
         currency: 'SAR',
         notes: document.notes?.trim() || null,
       }).select().single();

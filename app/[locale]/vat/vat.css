@@ -284,6 +284,17 @@
 .vat-return-details strong { color:var(--vat-ink); white-space:nowrap; }
 .vat-document-form { grid-template-columns:repeat(4,minmax(0,1fr)); }
 .vat-document-form .vat-notes-field { grid-column:span 2; }
+.vat-accounting-lines { grid-column:1/-1; min-width:0; padding:14px; border:1px solid var(--vat-line); border-radius:12px; background:var(--vat-soft); }
+.vat-accounting-lines-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.vat-accounting-lines-head > div { display:grid; gap:4px; }
+.vat-accounting-lines-head strong { color:var(--vat-ink); font-size:.9rem; }
+.vat-accounting-lines-head small { color:var(--vat-muted); font-size:.76rem; }
+.vat-accounting-lines-table { display:grid; gap:7px; overflow-x:auto; }
+.vat-accounting-line { display:grid; grid-template-columns:minmax(160px,2fr) 82px 112px 100px minmax(150px,1.4fr) 95px 32px; align-items:center; gap:7px; min-width:850px; }
+.vat-accounting-line-labels { padding:0 2px 5px; color:var(--vat-muted); font-size:.7rem; font-weight:700; }
+.vat-accounting-line input,.vat-accounting-line select { width:100%; min-width:0; min-height:39px; padding:8px 9px; border:1px solid var(--vat-line); border-radius:8px; background:var(--vat-surface,#fff); color:var(--vat-ink); font:inherit; font-size:.78rem; }
+.vat-accounting-line strong { text-align:end; color:var(--vat-ink); font-size:.78rem; white-space:nowrap; }
+.vat-accounting-lines + .vat-notes-field { grid-column:span 2; }
 .vat-tax-preview { display:flex; flex-wrap:wrap; gap:10px 22px; grid-column:span 3; align-items:center; min-height:42px; padding:9px 12px; border-radius:9px; background:#f5f8f6; color:var(--vat-muted); font-size:.82rem; }
 .vat-tax-preview strong { margin-inline-start:5px; color:var(--vat-ink); }
 .vat-submit { justify-self:end; min-width:145px; }
