@@ -2,6 +2,7 @@ import Decimal from 'decimal.js';
 
 export type VatDocumentLineInput = {
   description: string;
+  unit?: string;
   quantity: number | string;
   unit_price: number | string;
   discount_amount?: number | string;
@@ -24,6 +25,7 @@ export function calculateVatDocumentLines(lines: VatDocumentLineInput[], standar
     const tax = net.mul(taxRate).div(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
     return {
       description: line.description.trim(),
+      ...(line.unit?.trim() ? { unit: line.unit.trim() } : {}),
       quantity: new Decimal(line.quantity).toFixed(3),
       unit_price: new Decimal(line.unit_price).toFixed(2),
       discount_amount: discount.toFixed(2),

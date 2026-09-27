@@ -12,6 +12,7 @@ import { VatContactPicker, type VatContact } from '@/components/vat-contact-pick
 import type { VatPeriodSummaryRecord } from '@/lib/vat-period-summary';
 import { aggregateVatDashboardTotals, type VatDashboardTotals } from '@/lib/vat-dashboard-summary';
 import { calculateVatDocumentLines } from '@/lib/vat-document-lines';
+import { resolveVatExchangeRate, type VatFxRate } from '@/lib/vat-invoice-currency';
 import './vat.css';
 
 type Organization = {
@@ -20,7 +21,10 @@ type Organization = {
   organization_kind?: 'HOLDING' | 'SUBSIDIARY';
   parent_organization_id?: string | null;
   sort_order?: number;
+  base_currency?: string;
 };
+
+type VatCurrency = { code: string; name_ar: string; name_en: string; symbol: string | null; decimals: number };
 
 type VatProfile = {
   id: string;
@@ -52,6 +56,12 @@ type VatDocument = VatDocumentForSummary & {
   tax_rate: number;
   tax_amount: number;
   gross_amount: number;
+  currency?: string;
+  source_currency?: string;
+  exchange_rate?: string | number;
+  source_net_amount?: string | number;
+  source_tax_amount?: string | number;
+  source_gross_amount?: string | number;
   notes?: string | null;
   is_einvoice?: boolean;
 };
@@ -88,6 +98,7 @@ type DocumentDraft = {
 
 type DocumentLineDraft = {
   description: string;
+  unit: string;
   quantity: string;
   unit_price: string;
   discount_amount: string;
@@ -138,7 +149,7 @@ const emptyDocument = (): DocumentDraft => ({
   recoverable_percent: '100',
   notes: '',
 });
-const emptyDocumentLine = (): DocumentLineDraft => ({ description: '', quantity: '1', unit_price: '', discount_amount: '0', discount_mode: 'AMOUNT', supply_type: 'STANDARD' });
+const emptyDocumentLine = (): DocumentLineDraft => ({ description: '', unit: '', quantity: '1', unit_price: '', discount_amount: '0', discount_mode: 'AMOUNT', supply_type: 'STANDARD' });
 
 export default function VatManagement({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = use(params);
@@ -170,6 +181,14 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [registerAddMenuOpen, setRegisterAddMenuOpen] = useState(false);
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [accountingLines, setAccountingLines] = useState<DocumentLineDraft[]>([emptyDocumentLine()]);
+  const [currencies, setCurrencies] = useState<VatCurrency[]>([]);
+  const [fxRates, setFxRates] = useState<VatFxRate[]>([]);
+  const [invoiceCurrency, setInvoiceCurrency] = useState('SAR');
+  const [exchangeRate, setExchangeRate] = useState('1');
+  const [accountingPriceDisplay, setAccountingPriceDisplay] = useState<'UNIT' | 'LINE'>('UNIT');
+  const [accountingDiscountMode, setAccountingDiscountMode] = useState<'NONE' | 'AMOUNT' | 'PERCENT'>('AMOUNT');
+  const [showAccountingFields, setShowAccountingFields] = useState(false);
+  const [showAccountingUnits, setShowAccountingUnits] = useState(false);
   const [serviceCatalog, setServiceCatalog] = useState<string[]>([]);
   const [activeLineIndex, setActiveLineIndex] = useState(0);
   const [serviceAddForIndex, setServiceAddForIndex] = useState<number | null>(null);
@@ -206,14 +225,28 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const branchOrganizationKey = branchOrganizationIds.join(',');
   const hasBranches = branchOrganizationIds.length > 0;
   const currentTaxRate = Number(profile?.standard_rate ?? profileDraft.standard_rate ?? 15);
+  const baseCurrency = (selectedOrganization?.base_currency || 'SAR').toUpperCase();
+  const isForeignCurrency = invoiceCurrency !== baseCurrency;
+  const resolvedRate = isForeignCurrency ? Number(exchangeRate) : 1;
+  const currencyName = (code: string) => {
+    const currency = currencies.find((item) => item.code === code);
+    return currency ? `${currency.code} — ${ar ? currency.name_ar : currency.name_en}` : code;
+  };
+  const displayInvoiceAmount = (value: string | number, code: string) => `${money(value)} ${code}`;
   const accountingLineTotals = useMemo(() => {
     const lines = accountingLines.map((line) => {
       try {
+        const quantity = new Decimal(line.quantity || 0);
+        const enteredPrice = new Decimal(line.unit_price || 0);
+        const unitPrice = accountingPriceDisplay === 'LINE' && quantity.gt(0)
+          ? enteredPrice.div(quantity).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toString()
+          : line.unit_price || '0';
         return calculateVatDocumentLines([{
           ...line,
           description: line.description.trim() || '—',
-          unit_price: line.unit_price || '0',
-          discount_amount: line.discount_amount || '0',
+          unit_price: unitPrice,
+          discount_amount: accountingDiscountMode === 'NONE' ? '0' : line.discount_amount || '0',
+          discount_mode: accountingDiscountMode === 'PERCENT' ? 'PERCENT' : 'AMOUNT',
         }], currentTaxRate).lines[0];
       } catch {
         return null;
@@ -223,7 +256,15 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
       .reduce((total, line) => total.add(line?.[key] ?? 0), new Decimal(0))
       .toFixed(2);
     return { lines, netAmount: sum('net_amount'), taxAmount: sum('tax_amount'), grossAmount: sum('gross_amount') };
-  }, [accountingLines, currentTaxRate]);
+  }, [accountingLines, currentTaxRate, accountingDiscountMode, accountingPriceDisplay]);
+  const accountingBaseTotals = useMemo(() => {
+    if (!Number.isFinite(resolvedRate) || resolvedRate <= 0) return null;
+    const sumBase = (key: 'net_amount' | 'tax_amount' | 'gross_amount') => accountingLineTotals.lines
+      .reduce((total, line) => total.add(new Decimal(line?.[key] ?? 0).mul(resolvedRate).toDecimalPlaces(2, Decimal.ROUND_HALF_UP)), new Decimal(0))
+      .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+      .toFixed(2);
+    return { netAmount: sumBase('net_amount'), taxAmount: sumBase('tax_amount'), grossAmount: sumBase('gross_amount') };
+  }, [accountingLineTotals, resolvedRate]);
   const registerDocuments = documents.filter((document) => document.document_type === registerDirection);
   const previewTax = draft.supply_type === 'STANDARD'
     ? (Number(draft.net_amount || 0) * currentTaxRate / 100)
@@ -261,6 +302,44 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
       .finally(() => { if (active) setLoadingOrganizations(false); });
     return () => { active = false; };
   }, [ar]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/currencies')
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+        return body as VatCurrency[];
+      })
+      .then((rows) => { if (active) setCurrencies(rows); })
+      .catch((error) => { if (active) setNotice({ kind: 'error', text: messageFor(error.message, ar) }); });
+    return () => { active = false; };
+  }, [ar]);
+
+  useEffect(() => {
+    if (!organizationId) { setFxRates([]); return; }
+    let active = true;
+    fetch(`/api/fx?organization_id=${encodeURIComponent(organizationId)}`)
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+        return body as VatFxRate[];
+      })
+      .then((rows) => { if (active) setFxRates(rows); })
+      .catch((error) => { if (active) setNotice({ kind: 'error', text: messageFor(error.message, ar) }); });
+    return () => { active = false; };
+  }, [organizationId, ar]);
+
+  useEffect(() => {
+    if (!selectedOrganization) return;
+    setInvoiceCurrency((selectedOrganization.base_currency || 'SAR').toUpperCase());
+    setExchangeRate('1');
+  }, [organizationId, selectedOrganization?.base_currency]);
+
+  useEffect(() => {
+    const rate = resolveVatExchangeRate(fxRates, invoiceCurrency, baseCurrency, draft.transaction_date);
+    setExchangeRate(rate ?? '');
+  }, [fxRates, invoiceCurrency, baseCurrency, draft.transaction_date]);
 
   useEffect(() => {
     if (!organizationId) { setServiceCatalog([]); return; }
@@ -404,10 +483,22 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     setNotice(null);
     try {
       const usesInvoiceLines = registerDirection === 'SALES' && salesEntryMode === 'ACCOUNTING';
-      const lineCalculation = usesInvoiceLines ? calculateVatDocumentLines(accountingLines.map((line) => ({
-        ...line,
-        discount_mode: line.discount_mode,
-      })), currentTaxRate) : null;
+      if (usesInvoiceLines && isForeignCurrency && (!Number.isFinite(resolvedRate) || resolvedRate <= 0)) {
+        throw new Error('VAT_EXCHANGE_RATE_REQUIRED');
+      }
+      const lineCalculation = usesInvoiceLines ? calculateVatDocumentLines(accountingLines.map((line) => {
+        const quantity = new Decimal(line.quantity || 0);
+        const enteredPrice = new Decimal(line.unit_price || 0);
+        const unitPrice = accountingPriceDisplay === 'LINE' && quantity.gt(0)
+          ? enteredPrice.div(quantity).toDecimalPlaces(6, Decimal.ROUND_HALF_UP).toString()
+          : line.unit_price || '0';
+        return {
+          ...line,
+          unit_price: unitPrice,
+          discount_amount: accountingDiscountMode === 'NONE' ? '0' : line.discount_amount || '0',
+          discount_mode: accountingDiscountMode === 'PERCENT' ? 'PERCENT' : 'AMOUNT',
+        };
+      }), currentTaxRate) : null;
       const response = await fetch('/api/vat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -417,7 +508,9 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           ...draft,
           supply_type: lineCalculation?.lines[0]?.supply_type ?? draft.supply_type,
           net_amount: Number(lineCalculation?.netAmount ?? draft.net_amount),
-          lines: lineCalculation?.lines.map(({ description, quantity, unit_price, discount_amount, supply_type }) => ({ description, quantity, unit_price, discount_amount, supply_type })),
+          lines: lineCalculation?.lines.map((line, index) => ({ description: line.description, unit: accountingLines[index]?.unit || undefined, quantity: line.quantity, unit_price: line.unit_price, discount_amount: line.discount_amount, supply_type: line.supply_type })),
+          currency: usesInvoiceLines ? invoiceCurrency : baseCurrency,
+          exchange_rate: usesInvoiceLines ? resolvedRate : 1,
           recoverable_percent: draft.document_type === 'PURCHASE' ? Number(draft.recoverable_percent) : 100,
           counterparty_contact_id: draft.counterparty_contact_id || null,
           counterparty_tax_number: draft.counterparty_tax_number.trim() || null,
@@ -731,6 +824,16 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
                 <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
               </div>
               {registerDirection === 'SALES' ? <div className="vat-accounting-lines">
+                <div className="vat-accounting-toolbar">
+                  <label className="vat-currency-select"><span>{ar ? 'عملة الفاتورة' : 'Invoice currency'}</span><select value={invoiceCurrency} onChange={(event) => setInvoiceCurrency(event.target.value)}>{Array.from(new Set([baseCurrency, ...currencies.map((currency) => currency.code)])).map((code) => <option key={code} value={code}>{currencyName(code)}</option>)}</select></label>
+                  {isForeignCurrency && <label className="vat-toolbar-rate"><span>{ar ? `سعر التحويل إلى ${baseCurrency}` : `Rate to ${baseCurrency}`}</span><input inputMode="decimal" type="number" min="0.00000001" step="any" value={exchangeRate} onChange={(event) => setExchangeRate(event.target.value)} placeholder={ar ? 'سعر الصرف' : 'Exchange rate'} /></label>}
+                  <button type="button" className="vat-button secondary vat-edit-fields" aria-expanded={showAccountingFields} onClick={() => setShowAccountingFields((value) => !value)}>{ar ? 'تعديل الحقول' : 'Edit fields'} <span aria-hidden="true">{showAccountingFields ? '⌃' : '⌄'}</span></button>
+                </div>
+                {showAccountingFields && <div className="vat-accounting-field-settings">
+                  <label><span>{ar ? 'طريقة عرض السعر' : 'Price display'}</span><select value={accountingPriceDisplay} onChange={(event) => setAccountingPriceDisplay(event.target.value as typeof accountingPriceDisplay)}><option value="UNIT">{ar ? 'سعر الوحدة' : 'Unit price'}</option><option value="LINE">{ar ? 'إجمالي البند' : 'Line total'}</option></select></label>
+                  <label><span>{ar ? 'الخصم' : 'Discount'}</span><select value={accountingDiscountMode} onChange={(event) => { const mode = event.target.value as typeof accountingDiscountMode; setAccountingDiscountMode(mode); setAccountingLines((lines) => lines.map((line) => ({ ...line, discount_amount: '0', discount_mode: mode === 'PERCENT' ? 'PERCENT' : 'AMOUNT' }))); }}><option value="NONE">{ar ? 'بدون خصم' : 'No discount'}</option><option value="AMOUNT">{ar ? 'خصم بقيمة' : 'Fixed amount'}</option><option value="PERCENT">{ar ? 'خصم بنسبة مئوية' : 'Percentage discount'}</option></select></label>
+                  <label className="vat-unit-toggle"><input type="checkbox" checked={showAccountingUnits} onChange={(event) => setShowAccountingUnits(event.target.checked)} /><span>{ar ? 'إظهار وحدة القياس' : 'Show unit of measure'}</span></label>
+                </div>}
                 <div className="vat-accounting-lines-head"><div><strong>{ar ? 'بنود الفاتورة' : 'Invoice lines'}</strong><small>{ar ? 'اختر خدمة محفوظة أو أضف وصفًا جديدًا؛ الأسعار قبل الضريبة.' : 'Choose a saved service or add a new description; prices are before VAT.'}</small></div><div className="vat-line-catalog-actions"><select aria-label={ar ? 'اختيار خدمة محفوظة أو إضافة بند' : 'Choose a saved service or add an item'} value="" onChange={(event) => {
                   const selected = event.target.value;
                   if (selected === '__add__') { setServiceAddForIndex(activeLineIndex); setServiceNameDraft(''); return; }
@@ -738,29 +841,28 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
                 }}><option value="">{ar ? 'اختيار خدمة…' : 'Choose service…'}</option><option value="__add__">{ar ? '＋ إضافة بند جديد' : '＋ Add new item'}</option>{serviceCatalog.map((item) => <option key={item} value={item}>{item}</option>)}</select><button type="button" className="vat-button secondary" onClick={() => { setActiveLineIndex(accountingLines.length); setAccountingLines((lines) => [...lines, emptyDocumentLine()]); }}>{ar ? '＋ إضافة بند' : '＋ Add line'}</button></div></div>
                 {serviceCatalog.length > 0 && <div className="vat-service-catalog-strip" aria-label={ar ? 'الخدمات المحفوظة' : 'Saved services'}>{serviceCatalog.map((item) => <button type="button" key={item} onClick={() => setAccountingLines((lines) => lines.map((line, index) => index === activeLineIndex ? { ...line, description: item } : line))}>{item}</button>)}</div>}
                 {serviceAddForIndex !== null && <div className="vat-service-add-form"><label><span>{ar ? 'اسم الخدمة أو البند الجديد' : 'New service or item name'}</span><input autoFocus maxLength={200} value={serviceNameDraft} onChange={(event) => setServiceNameDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addServiceToCatalog(); } }} /></label><button type="button" className="vat-button primary" disabled={!serviceNameDraft.trim()} onClick={addServiceToCatalog}>{ar ? 'حفظ واختيار' : 'Save and select'}</button><button type="button" className="vat-button secondary" onClick={() => setServiceAddForIndex(null)}>{ar ? 'إلغاء' : 'Cancel'}</button></div>}
-                <div className="vat-accounting-lines-table"><div className="vat-accounting-line vat-accounting-line-labels"><span>{ar ? 'وصف البند' : 'Description'}</span><span>{ar ? 'الكمية' : 'Qty'}</span><span>{ar ? 'سعر الوحدة' : 'Unit price'}</span><span>{ar ? 'الخصم' : 'Discount'}</span><span>{ar ? 'المعاملة الضريبية' : 'Tax treatment'}</span><span>{ar ? 'الصافي' : 'Net'}</span><span aria-hidden="true"></span></div>
+                <div className={`vat-accounting-lines-table ${showAccountingUnits ? 'with-units' : ''} ${accountingDiscountMode === 'NONE' ? 'without-discount' : ''}`}><div className="vat-accounting-line vat-accounting-line-labels"><span>{ar ? 'وصف البند' : 'Description'}</span>{showAccountingUnits && <span>{ar ? 'الوحدة' : 'Unit'}</span>}<span>{ar ? 'الكمية' : 'Qty'}</span><span>{accountingPriceDisplay === 'UNIT' ? (ar ? 'سعر الوحدة' : 'Unit price') : (ar ? 'إجمالي البند' : 'Line total')}</span>{accountingDiscountMode !== 'NONE' && <span>{accountingDiscountMode === 'PERCENT' ? (ar ? 'الخصم %' : 'Discount %') : (ar ? 'الخصم (قيمة)' : 'Discount amount')}</span>}<span>{ar ? 'المعاملة الضريبية' : 'Tax treatment'}</span><span>{ar ? 'الصافي' : 'Net'}</span><span aria-hidden="true"></span></div>
                   {accountingLines.map((line, index) => <div className="vat-accounting-line" key={index}>
                     <input aria-label={ar ? 'وصف البند' : 'Description'} required maxLength={200} placeholder={ar ? 'مثال: خدمات استشارية' : 'e.g. Consulting services'} value={line.description} onFocus={() => setActiveLineIndex(index)} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item))} />
+                    {showAccountingUnits && <input aria-label={ar ? 'وحدة القياس' : 'Unit of measure'} maxLength={24} placeholder={ar ? 'وحدة' : 'Unit'} value={line.unit} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, unit: event.target.value } : item))} />}
                     <input aria-label={ar ? 'الكمية' : 'Quantity'} required type="number" min="0.001" step="0.001" value={line.quantity} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: event.target.value } : item))} />
-                    <input aria-label={ar ? 'سعر الوحدة' : 'Unit price'} required type="number" min="0" step="0.01" value={line.unit_price} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, unit_price: event.target.value } : item))} />
-                    <div className="vat-accounting-discount">
-                      <select aria-label={ar ? 'نوع الخصم' : 'Discount type'} value={line.discount_mode} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, discount_mode: event.target.value as DocumentLineDraft['discount_mode'], discount_amount: '0' } : item))}>
-                        <option value="AMOUNT">{ar ? 'مبلغ' : 'Amount'}</option><option value="PERCENT">{ar ? 'نسبة %' : 'Percent %'}</option>
-                      </select>
-                      <input aria-label={line.discount_mode === 'PERCENT' ? (ar ? 'نسبة الخصم' : 'Discount percentage') : (ar ? 'قيمة الخصم' : 'Discount amount')} type="number" min="0" max={line.discount_mode === 'PERCENT' ? 100 : undefined} step="0.01" value={line.discount_amount} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, discount_amount: event.target.value } : item))} />
-                    </div>
+                    <input aria-label={accountingPriceDisplay === 'UNIT' ? (ar ? 'سعر الوحدة' : 'Unit price') : (ar ? 'إجمالي البند' : 'Line total')} required type="number" min="0" step="0.01" value={line.unit_price} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, unit_price: event.target.value } : item))} />
+                    {accountingDiscountMode !== 'NONE' && <input aria-label={accountingDiscountMode === 'PERCENT' ? (ar ? 'نسبة الخصم' : 'Discount percentage') : (ar ? 'قيمة الخصم' : 'Discount amount')} type="number" min="0" max={accountingDiscountMode === 'PERCENT' ? 100 : undefined} step="0.01" value={line.discount_amount} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, discount_amount: event.target.value } : item))} />}
                     <select aria-label={ar ? 'المعاملة الضريبية' : 'Tax treatment'} value={line.supply_type} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, supply_type: event.target.value as DocumentLineDraft['supply_type'] } : item))}><option value="STANDARD">{ar ? `أساسي ${currentTaxRate}%` : `Standard ${currentTaxRate}%`}</option><option value="ZERO_RATED">{ar ? 'صفري' : 'Zero-rated'}</option><option value="EXEMPT">{ar ? 'معفى' : 'Exempt'}</option><option value="OUT_OF_SCOPE">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select>
-                    <strong>{money(accountingLineTotals.lines[index]?.net_amount ?? 0)}</strong><button type="button" className="vat-delete" aria-label={ar ? 'حذف البند' : 'Remove line'} disabled={accountingLines.length === 1} onClick={() => setAccountingLines((lines) => lines.filter((_, itemIndex) => itemIndex !== index))}>×</button>
+                    <strong>{money(accountingLineTotals.lines[index]?.net_amount ?? 0)} {invoiceCurrency}</strong><button type="button" className="vat-delete" aria-label={ar ? 'حذف البند' : 'Remove line'} disabled={accountingLines.length === 1} onClick={() => setAccountingLines((lines) => lines.filter((_, itemIndex) => itemIndex !== index))}>×</button>
                   </div>)}
                 </div>
               </div> : <>
                 <label><span>{ar ? 'تصنيف التوريد' : 'Supply category'}</span><select value={draft.supply_type} onChange={(event) => setDraft({ ...draft, supply_type: event.target.value as DocumentDraft['supply_type'] })}><option value="STANDARD">{ar ? `خاضع للنسبة الأساسية (${currentTaxRate}%)` : `Standard rated (${currentTaxRate}%)`}</option><option value="ZERO_RATED">{ar ? 'خاضع للنسبة الصفرية' : 'Zero-rated'}</option><option value="EXEMPT">{ar ? 'معفى' : 'Exempt'}</option><option value="OUT_OF_SCOPE">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select></label>
-                <label><span>{ar ? 'صافي المبلغ (ريال)' : 'Net amount (SAR)'}</span><input required type="number" min="0.01" step="0.01" value={draft.net_amount} onChange={(event) => setDraft({ ...draft, net_amount: event.target.value })} /></label>
+                <label><span>{ar ? `صافي المبلغ (${baseCurrency})` : `Net amount (${baseCurrency})`}</span><input required type="number" min="0.01" step="0.01" value={draft.net_amount} onChange={(event) => setDraft({ ...draft, net_amount: event.target.value })} /></label>
               </>}
               {draft.document_type === 'PURCHASE' && <label><span>{ar ? 'نسبة ضريبة المدخلات القابلة للخصم (%)' : 'Recoverable input VAT (%)'}</span><input required type="number" min="0" max="100" step="0.01" value={draft.recoverable_percent} onChange={(event) => setDraft({ ...draft, recoverable_percent: event.target.value })} /></label>}
               <label className="vat-notes-field"><span>{draft.document_kind === 'CREDIT_NOTE' ? (ar ? 'مرجع الفاتورة وسبب الإشعار' : 'Original invoice reference and reason') : (ar ? 'ملاحظات' : 'Notes')}</span><input required={draft.document_kind === 'CREDIT_NOTE'} maxLength={1000} placeholder={draft.document_kind === 'CREDIT_NOTE' ? (ar ? 'رقم الفاتورة الأصلية وسبب الإشعار' : 'Original invoice number and reason') : undefined} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
-              <div className="vat-tax-preview"><span>{ar ? 'صافي الفاتورة' : 'Invoice net'} <strong>{money(registerDirection === 'SALES' ? accountingLineTotals.netAmount : Number(draft.net_amount || 0))} SAR</strong></span><span>{ar ? 'الضريبة المحسوبة' : 'Calculated VAT'} <strong>{money(registerDirection === 'SALES' ? accountingLineTotals.taxAmount : previewTax)} SAR</strong></span><span>{ar ? 'الإجمالي' : 'Gross total'} <strong>{money(registerDirection === 'SALES' ? accountingLineTotals.grossAmount : Number(draft.net_amount || 0) + previewTax)} SAR</strong></span></div>
-              <div className="vat-form-actions"><button type="button" className="vat-button secondary" onClick={() => { setRegisterFormOpen(false); setRegisterAddMenuOpen(false); }}>{ar ? 'إلغاء' : 'Cancel'}</button><button className="vat-button primary vat-submit" disabled={saving || !isRegistered}>{saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ في السجل' : 'Save to register')}</button></div>
+              {registerDirection === 'SALES' ? <div className="vat-accounting-totals">
+                <div className="vat-accounting-totals-rate"><span>{ar ? 'عملة الفاتورة' : 'Invoice currency'}</span><strong>{invoiceCurrency}</strong>{isForeignCurrency && <small>{ar ? `1 ${invoiceCurrency} = ${Number.isFinite(resolvedRate) && resolvedRate > 0 ? money(resolvedRate) : '—'} ${baseCurrency}` : `1 ${invoiceCurrency} = ${Number.isFinite(resolvedRate) && resolvedRate > 0 ? money(resolvedRate) : '—'} ${baseCurrency}`}</small>}</div>
+                {([{key:'netAmount',label:ar?'الإجمالي قبل الضريبة':'Net before VAT'},{key:'taxAmount',label:ar?'ضريبة القيمة المضافة':'VAT'},{key:'grossAmount',label:ar?'الإجمالي شامل الضريبة':'Total including VAT'}] as const).map((item) => <div className={item.key === 'grossAmount' ? 'is-grand-total' : ''} key={item.key}><span>{item.label}</span><strong>{displayInvoiceAmount(accountingLineTotals[item.key], invoiceCurrency)}</strong>{isForeignCurrency && <small>{accountingBaseTotals ? displayInvoiceAmount(accountingBaseTotals[item.key], baseCurrency) : (ar ? 'أدخل سعر التحويل لإظهار ما يعادلها' : 'Enter an exchange rate to show the base amount')}</small>}</div>)}
+              </div> : <div className="vat-tax-preview"><span>{ar ? 'صافي الفاتورة' : 'Invoice net'} <strong>{money(Number(draft.net_amount || 0))} {baseCurrency}</strong></span><span>{ar ? 'الضريبة المحسوبة' : 'Calculated VAT'} <strong>{money(previewTax)} {baseCurrency}</strong></span><span>{ar ? 'الإجمالي' : 'Gross total'} <strong>{money(Number(draft.net_amount || 0) + previewTax)} {baseCurrency}</strong></span></div>}
+              <div className="vat-form-actions"><button type="button" className="vat-button secondary" onClick={() => { setRegisterFormOpen(false); setRegisterAddMenuOpen(false); }}>{ar ? 'إلغاء' : 'Cancel'}</button><button className="vat-button primary vat-submit" disabled={saving || !isRegistered || (registerDirection === 'SALES' && isForeignCurrency && (!Number.isFinite(resolvedRate) || resolvedRate <= 0))}>{saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ في السجل' : 'Save to register')}</button></div>
             </form>}
           </section>
 
@@ -774,7 +876,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               <tbody>
                 {registerDocuments.map((document) => <tr key={document.id}>
                   <td>{document.transaction_date}</td><td><span className={`vat-type-pill ${document.document_type.toLowerCase()}`}>{document.document_type === 'SALES' ? (ar ? 'مبيعات' : 'Sales') : (ar ? 'مشتريات' : 'Purchase')}</span><small>{document.is_einvoice ? (ar ? 'فاتورة إلكترونية صادرة' : 'Issued e-invoice') : document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : ''}</small></td>
-                  <td><strong>{document.document_number}</strong></td><td>{document.counterparty_name}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.net_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.tax_amount)} SAR</td><td>{document.document_kind === 'CREDIT_NOTE' ? '−' : ''}{money(document.gross_amount)} SAR</td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'تدار من سجل الفواتير' : 'Manage in invoice register'}</span> : <button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button>}</td>
+                  <td><strong>{document.document_number}</strong></td><td>{document.counterparty_name}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td>{vatDocumentAmount(document, 'gross')}</td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'تدار من سجل الفواتير' : 'Manage in invoice register'}</span> : <button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button>}</td>
                 </tr>)}
                 {!registerDocuments.length && <tr><td colSpan={9} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : (registerDirection === 'PURCHASE' ? (ar ? 'لا توجد فواتير مشتريات مسجلة لهذه الفترة.' : 'No purchase invoices have been recorded for this period.') : (ar ? 'لا توجد فواتير مبيعات مسجلة لهذه الفترة.' : 'No sales invoices have been recorded for this period.'))}</td></tr>}
               </tbody>
@@ -835,6 +937,15 @@ function money(value: string | number) {
   return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function vatDocumentAmount(document: VatDocument, part: 'net' | 'tax' | 'gross') {
+  const currency = document.currency || 'SAR';
+  const sourceCurrency = document.source_currency || currency;
+  const baseAmount = document[`${part}_amount` as 'net_amount' | 'tax_amount' | 'gross_amount'];
+  const sourceAmount = document[`source_${part}_amount` as 'source_net_amount' | 'source_tax_amount' | 'source_gross_amount'];
+  const sign = document.document_kind === 'CREDIT_NOTE' ? '−' : '';
+  return <>{sign}{money(baseAmount)} {currency}{sourceCurrency !== currency && sourceAmount !== undefined && <small>{sign}{money(sourceAmount)} {sourceCurrency}</small>}</>;
+}
+
 function frequencyLabel(frequency: VatFilingFrequency, ar: boolean) {
   return frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly');
 }
@@ -875,7 +986,11 @@ function messageFor(code: string, ar: boolean) {
     VAT_REGISTRATION_REQUIRED: ['يجب حفظ حالة التسجيل كـ «مسجل» قبل إضافة المستندات.', 'Mark the organization as registered before adding documents.'],
     VAT_PROFILE_REQUIRED: ['احفظ ملف التسجيل أولًا.', 'Save the VAT registration profile first.'],
     VAT_DOCUMENT_NUMBER_EXISTS: ['رقم المستند مستخدم من قبل ضمن هذا النوع.', 'This document number already exists for this document type.'],
+    VAT_CURRENCY_NOT_ACTIVE: ['العملة المختارة غير مفعّلة. حدّث قائمة العملات ثم أعد المحاولة.', 'The selected currency is not active. Refresh the currency list and try again.'],
+    VAT_SAME_CURRENCY_RATE_MUST_BE_ONE: ['عندما تتطابق عملة الفاتورة مع العملة الأساسية، يجب أن يكون سعر التحويل 1.', 'The exchange rate must be 1 when invoice and base currencies match.'],
+    VAT_EXCHANGE_RATE_REQUIRED: ['أدخل سعر التحويل إلى عملة الشركة الأساسية قبل الحفظ.', 'Enter the conversion rate to the organization base currency before saving.'],
     VAT_LINE_DISCOUNT_EXCEEDS_AMOUNT: ['لا يمكن أن يتجاوز الخصم إجمالي قيمة البند.', 'The discount cannot exceed the line amount.'],
+    VAT_LINE_DISCOUNT_PERCENT_EXCEEDS_100: ['لا يمكن أن تتجاوز نسبة الخصم 100٪.', 'The discount percentage cannot exceed 100%.'],
     VAT_CONTACT_NOT_FOUND: ['الجهة المختارة غير موجودة في المؤسسة.', 'The selected contact was not found in this organization.'],
     VAT_CONTACT_TYPE_MISMATCH: ['نوع الجهة لا يتوافق مع مبيعات أو مشتريات المستند.', 'This contact type does not match the document direction.'],
     INVALID_PERIOD_MONTH: ['اختر شهرًا صحيحًا للفترة.', 'Choose a valid period month.'],

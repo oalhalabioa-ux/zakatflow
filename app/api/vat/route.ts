@@ -4,6 +4,7 @@ import { vatDocumentSchema, vatPeriodSummarySchema, vatProfileSchema } from '@/l
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { calculateVatAmounts, summarizeVatDocuments } from '@/lib/vat';
 import { calculateVatDocumentLines } from '@/lib/vat-document-lines';
+import { convertVatAmountToBase, convertVatLineToBase } from '@/lib/vat-invoice-currency';
 import { getVatPaymentDeadline, getVatYearStart, summarizePaidAndReserved, summarizeVatPeriodInputs, summarizeVatRowsWithDetail } from '@/lib/vat-period-summary';
 import { requireUser } from '@/services/auth';
 import { requireOrganizationAdmin, requireOrganizationMember } from '@/services/organization-access';
@@ -219,6 +220,7 @@ export async function POST(request: Request) {
       if (profileError?.code === 'PGRST116') throw new Error('VAT_PROFILE_REQUIRED');
       if (profileError) throw profileError;
       if (profile.registration_status !== 'REGISTERED') throw new Error('VAT_REGISTRATION_REQUIRED');
+
       const expectedPeriod = getVatPeriod(summary.period_start.slice(0, 7), profile.filing_frequency as VatFilingFrequency, Number(profile.period_start_month));
       if (expectedPeriod.from !== summary.period_start || expectedPeriod.to !== summary.period_end) throw new Error('VAT_SUMMARY_PERIOD_MISMATCH');
       const values = {
@@ -258,6 +260,22 @@ export async function POST(request: Request) {
       if (profileError) throw profileError;
       if (profile.registration_status !== 'REGISTERED') throw new Error('VAT_REGISTRATION_REQUIRED');
 
+      const { data: organization, error: organizationError } = await supabase
+        .from('organizations')
+        .select('base_currency')
+        .eq('id', document.organization_id)
+        .single();
+      if (organizationError) throw organizationError;
+      const baseCurrency = String(organization.base_currency || 'SAR').toUpperCase();
+      const { data: activeCurrencies, error: currencyError } = await supabase
+        .from('currencies')
+        .select('code')
+        .eq('active', true)
+        .in('code', [document.currency, baseCurrency]);
+      if (currencyError) throw currencyError;
+      if ((activeCurrencies ?? []).length !== new Set([document.currency, baseCurrency]).size) throw new Error('VAT_CURRENCY_NOT_ACTIVE');
+      if (document.currency === baseCurrency && document.exchange_rate !== 1) throw new Error('VAT_SAME_CURRENCY_RATE_MUST_BE_ONE');
+
       let contact: { id: string; contact_type: string; name: string; vat_number: string | null } | null = null;
       if (document.counterparty_contact_id) {
         const { data, error } = await supabase.from('vat_contacts')
@@ -275,7 +293,19 @@ export async function POST(request: Request) {
       const lineCalculation = document.lines?.length ? calculateVatDocumentLines(document.lines, profile.standard_rate) : null;
       const supplyType = lineCalculation?.lines[0]?.supply_type ?? document.supply_type;
       const taxRate = supplyType === 'STANDARD' ? Number(profile.standard_rate) : 0;
-      const amounts = lineCalculation ?? calculateVatAmounts(document.net_amount, taxRate);
+      const sourceAmounts = lineCalculation ?? calculateVatAmounts(document.net_amount, taxRate);
+      const fxRate = new Decimal(document.exchange_rate);
+      const baseLines = lineCalculation?.lines.map((line) => convertVatLineToBase(line, fxRate.toString())) ?? null;
+      const baseAmounts = baseLines ? {
+        netAmount: baseLines.reduce((sum, line) => sum.plus(line.net_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
+        taxAmount: baseLines.reduce((sum, line) => sum.plus(line.tax_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
+        grossAmount: baseLines.reduce((sum, line) => sum.plus(line.gross_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
+      } : {
+        netAmount: convertVatAmountToBase(sourceAmounts.netAmount, fxRate.toString()),
+        taxAmount: convertVatAmountToBase(sourceAmounts.taxAmount, fxRate.toString()),
+        grossAmount: convertVatAmountToBase(sourceAmounts.grossAmount, fxRate.toString()),
+      };
+      const sourceTaxRate = lineCalculation ? (Number(sourceAmounts.netAmount) ? (Number(sourceAmounts.taxAmount) / Number(sourceAmounts.netAmount) * 100).toFixed(2) : '0.00') : taxRate.toFixed(2);
       const { data, error } = await supabase.from('vat_documents').insert({
         organization_id: document.organization_id,
         user_id: user.id,
@@ -288,13 +318,18 @@ export async function POST(request: Request) {
         counterparty_name: contact?.name ?? document.counterparty_name,
         counterparty_tax_number: contact?.vat_number ?? (document.counterparty_tax_number?.trim() || null),
         supply_type: supplyType,
-        net_amount: amounts.netAmount,
-        tax_rate: lineCalculation ? (Number(amounts.netAmount) ? (Number(amounts.taxAmount) / Number(amounts.netAmount) * 100).toFixed(2) : '0.00') : taxRate.toFixed(2),
-        tax_amount: amounts.taxAmount,
+        net_amount: baseAmounts.netAmount,
+        tax_rate: sourceTaxRate,
+        tax_amount: baseAmounts.taxAmount,
         recoverable_percent: document.document_type === 'PURCHASE' ? document.recoverable_percent : 100,
-        gross_amount: amounts.grossAmount,
-        line_items: lineCalculation?.lines ?? null,
-        currency: 'SAR',
+        gross_amount: baseAmounts.grossAmount,
+        line_items: baseLines,
+        currency: baseCurrency,
+        source_currency: document.currency,
+        exchange_rate: fxRate.toString(),
+        source_net_amount: sourceAmounts.netAmount,
+        source_tax_amount: sourceAmounts.taxAmount,
+        source_gross_amount: sourceAmounts.grossAmount,
         notes: document.notes?.trim() || null,
       }).select().single();
       if (error?.code === '23505') return NextResponse.json({ error: 'VAT_DOCUMENT_NUMBER_EXISTS' }, { status: 409 });
