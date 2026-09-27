@@ -5,6 +5,7 @@ export type VatDocumentLineInput = {
   quantity: number | string;
   unit_price: number | string;
   discount_amount?: number | string;
+  discount_mode?: 'AMOUNT' | 'PERCENT';
   supply_type: 'STANDARD' | 'ZERO_RATED' | 'EXEMPT' | 'OUT_OF_SCOPE';
 };
 
@@ -12,7 +13,11 @@ export function calculateVatDocumentLines(lines: VatDocumentLineInput[], standar
   const rate = new Decimal(standardRate || 0);
   const detailedLines = lines.map((line) => {
     const grossBeforeDiscount = new Decimal(line.quantity).mul(line.unit_price).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
-    const discount = new Decimal(line.discount_amount || 0).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    const enteredDiscount = new Decimal(line.discount_amount || 0);
+    if (line.discount_mode === 'PERCENT' && enteredDiscount.gt(100)) throw new Error('VAT_LINE_DISCOUNT_PERCENT_EXCEEDS_100');
+    const discount = (line.discount_mode === 'PERCENT'
+      ? grossBeforeDiscount.mul(enteredDiscount).div(100)
+      : enteredDiscount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
     if (discount.gt(grossBeforeDiscount)) throw new Error('VAT_LINE_DISCOUNT_EXCEEDS_AMOUNT');
     const net = grossBeforeDiscount.sub(discount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
     const taxRate = line.supply_type === 'STANDARD' ? rate : new Decimal(0);

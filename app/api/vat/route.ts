@@ -146,6 +146,11 @@ export async function GET(request: Request) {
     const annualSalesBase = aggregateStats.salesBase.add(unaggregatedTotals.salesNet);
     const annualPurchaseBase = aggregateStats.purchaseBase.add(unaggregatedTotals.purchaseNet);
     const annualPurchaseVatBeforeRecovery = aggregateStats.purchaseVatBeforeRecovery.add(unaggregatedTotals.inputTax);
+    const savedServices = Array.from(new Set(documents.flatMap((document) =>
+      (Array.isArray(document.line_items) ? document.line_items : [])
+        .map((line: { description?: unknown }) => typeof line.description === 'string' ? line.description.trim() : '')
+        .filter(Boolean),
+    ))).sort((a, b) => a.localeCompare(b));
     return NextResponse.json({
       profile: profileResult.data,
       period,
@@ -162,6 +167,7 @@ export async function GET(request: Request) {
         cashReservedAmount: annualPaidAndReserved.cashReserved.toFixed(2),
       },
       documents: periodDocuments,
+      service_catalog: savedServices,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: errorStatus(error.message) });

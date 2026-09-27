@@ -110,7 +110,7 @@ export function VatContactPicker({
       <div className="vat-contact-picker-head">
         <label htmlFor={`vat-contact-${role}-${organizationId}`}><span>{label}</span></label>
         {canManage && <button type="button" className="vat-contact-add" onClick={() => { setError(''); setDialogOpen(true); }}>
-          <span aria-hidden="true">+</span>{ar ? `إضافة ${role === 'CUSTOMER' ? 'عميل' : 'مورد'}` : `Add ${role === 'CUSTOMER' ? 'customer' : 'supplier'}`}
+          <span aria-hidden="true">+</span>{ar ? 'إضافة' : 'Add'}
         </button>}
       </div>
       <select
@@ -119,7 +119,7 @@ export function VatContactPicker({
         value={value}
         onChange={(event) => onChange(contacts.find((contact) => contact.id === event.target.value) ?? null)}
       >
-        <option value="">{ar ? 'اختر جهة محفوظة أو أضف جهة جديدة' : 'Choose a saved contact or add a new one'}</option>
+        <option value="">{ar ? 'اختر جهة' : 'Select contact'}</option>
         {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}{contact.vat_number ? ` · ${contact.vat_number}` : ''}</option>)}
       </select>
       {requireSaudiAddress && value && <small className="vat-contact-picker-hint">{ar ? 'تُستخدم بيانات العنوان المحفوظة تلقائيًا في الفاتورة.' : 'Saved address details are added to the invoice automatically.'}</small>}
