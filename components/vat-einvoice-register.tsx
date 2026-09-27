@@ -600,17 +600,18 @@ export function VatEInvoiceRegister({
             </Fragment>)}</tbody>
             <tfoot><tr><td colSpan={6 + Number(showUnitColumn) + Number(discountMode !== 'NONE')}><button type="button" className="vat-add-line-inline" onClick={() => setLines((current) => [...current, emptyLine(String(standardTaxRate))])}><span aria-hidden="true">＋</span>{ar ? 'إضافة بند' : 'Add item'}</button></td></tr></tfoot>
           </table></div>
-          <div className="vat-einvoice-line-summary" aria-label={ar ? 'ملخص الفاتورة' : 'Invoice summary'}>
+          <div className="vat-einvoice-line-summary" role="group" aria-label={ar ? 'ملخص الفاتورة' : 'Invoice summary'}>
+            <div className="vat-einvoice-summary-fx">
+              <small><span aria-hidden="true">ⓘ</span>{ar ? 'سعر الصرف المستخدم' : 'Exchange rate'}</small>
+              <strong>{currency === 'SAR' ? (ar ? 'العملة الأساسية · SAR' : 'Base currency · SAR') : <bdi dir="ltr">1 {currency} = {formatAmount(Number(exchangeRate || 0))} SAR</bdi>}</strong>
+            </div>
             <div className="vat-einvoice-summary-item">
-              <span className="vat-einvoice-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3.75h7l4 4v12.5H7z"/><path d="M14 3.75v4h4M9.5 12h6M9.5 15.5h6"/></svg></span>
-              <span className="vat-einvoice-summary-copy"><small>{ar ? 'صافي البنود' : 'Subtotal'}</small><strong>{formatAmount(subtotal)} <small>{currency}</small></strong>{currency !== 'SAR' && <em>{formatAmount(subtotal * Number(exchangeRate || 0))} SAR</em>}</span>
+              <span className="vat-einvoice-summary-copy"><small>{ar ? 'الإجمالي قبل الضريبة' : 'Subtotal before VAT'}</small><strong>{formatAmount(subtotal)} <small>{currency}</small></strong>{currency !== 'SAR' && <em>{formatAmount(subtotal * Number(exchangeRate || 0))} SAR</em>}</span>
             </div>
             <div className="vat-einvoice-summary-item tax">
-              <span className="vat-einvoice-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><circle cx="7.5" cy="7.5" r="2.25"/><circle cx="16.5" cy="16.5" r="2.25"/></svg></span>
               <span className="vat-einvoice-summary-copy"><small>{ar ? 'ضريبة القيمة المضافة' : 'VAT'}</small><strong>{formatAmount(totalTax)} <small>{currency}</small></strong>{currency !== 'SAR' && <em>{formatAmount(totalTax * Number(exchangeRate || 0))} SAR</em>}</span>
             </div>
             <div className="vat-einvoice-summary-item total">
-              <span className="vat-einvoice-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M3.5 10h17M7.5 14.5h3"/></svg></span>
               <span className="vat-einvoice-summary-copy"><small>{ar ? 'الإجمالي المستحق' : 'Total due'}</small><strong>{formatAmount(grandTotal)} <small>{currency}</small></strong>{currency !== 'SAR' && <em>{formatAmount(grandTotal * Number(exchangeRate || 0))} SAR</em>}</span>
             </div>
           </div>
