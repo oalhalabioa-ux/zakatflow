@@ -852,10 +852,31 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               </>}
               {draft.document_type === 'PURCHASE' && <label><span>{ar ? 'نسبة ضريبة المدخلات القابلة للخصم (%)' : 'Recoverable input VAT (%)'}</span><input required type="number" min="0" max="100" step="0.01" value={draft.recoverable_percent} onChange={(event) => setDraft({ ...draft, recoverable_percent: event.target.value })} /></label>}
               <label className="vat-notes-field"><span>{draft.document_kind === 'CREDIT_NOTE' ? (ar ? 'مرجع الفاتورة وسبب الإشعار' : 'Original invoice reference and reason') : (ar ? 'ملاحظات' : 'Notes')}</span><input required={draft.document_kind === 'CREDIT_NOTE'} maxLength={1000} placeholder={draft.document_kind === 'CREDIT_NOTE' ? (ar ? 'رقم الفاتورة الأصلية وسبب الإشعار' : 'Original invoice number and reason') : undefined} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
-              {usesAccountingLines ? <div className="vat-accounting-totals">
-                <div className="vat-accounting-totals-rate"><span>{ar ? 'عملة الفاتورة' : 'Invoice currency'}</span><strong>{invoiceCurrency}</strong>{isForeignCurrency && <small>{ar ? `1 ${invoiceCurrency} = ${Number.isFinite(resolvedRate) && resolvedRate > 0 ? money(resolvedRate) : '—'} ${baseCurrency}` : `1 ${invoiceCurrency} = ${Number.isFinite(resolvedRate) && resolvedRate > 0 ? money(resolvedRate) : '—'} ${baseCurrency}`}</small>}</div>
-                {([{key:'netAmount',label:ar?'الإجمالي قبل الضريبة':'Net before VAT'},{key:'taxAmount',label:ar?'ضريبة القيمة المضافة':'VAT'},{key:'grossAmount',label:ar?'الإجمالي شامل الضريبة':'Total including VAT'}] as const).map((item) => <div className={item.key === 'grossAmount' ? 'is-grand-total' : ''} key={item.key}><span>{item.label}</span><strong>{displayInvoiceAmount(accountingLineTotals[item.key], invoiceCurrency)}</strong>{isForeignCurrency && <small>{accountingBaseTotals ? displayInvoiceAmount(accountingBaseTotals[item.key], baseCurrency) : (ar ? 'أدخل سعر التحويل لإظهار ما يعادلها' : 'Enter an exchange rate to show the base amount')}</small>}</div>)}
-              </div> : <div className="vat-tax-preview"><span>{ar ? 'صافي الفاتورة' : 'Invoice net'} <strong>{money(Number(draft.net_amount || 0))} {baseCurrency}</strong></span><span>{ar ? 'الضريبة المحسوبة' : 'Calculated VAT'} <strong>{money(previewTax)} {baseCurrency}</strong></span><span>{ar ? 'الإجمالي' : 'Gross total'} <strong>{money(Number(draft.net_amount || 0) + previewTax)} {baseCurrency}</strong></span></div>}
+              {usesAccountingLines ? <section className="vat-accounting-totals" aria-label={ar ? 'ملخص الفاتورة' : 'Invoice summary'}>
+                <header className="vat-accounting-summary-heading">
+                  <span className="vat-accounting-summary-icon" aria-hidden="true">▤</span>
+                  <div><h3>{ar ? 'ملخص الفاتورة' : 'Invoice summary'}</h3><p>{ar ? 'تفصيل المبالغ بالعملة المختارة وبالعملة الأساسية.' : 'Amounts in the selected currency and the base currency.'}</p></div>
+                </header>
+                <div className={`vat-accounting-currency-grid ${isForeignCurrency ? 'has-base-currency' : ''}`}>
+                  <section className="vat-accounting-currency-card invoice-currency">
+                    <header><span className="vat-accounting-currency-icon" aria-hidden="true">¤</span><div><small>{ar ? 'عملة الفاتورة' : 'Invoice currency'}</small><strong>{currencyName(invoiceCurrency)}</strong></div><b className="vat-currency-code">{invoiceCurrency}</b></header>
+                    <div className="vat-accounting-summary-rows">
+                      <div><span>{ar ? 'الإجمالي قبل الضريبة' : 'Subtotal before VAT'}</span><strong>{displayInvoiceAmount(accountingLineTotals.netAmount, invoiceCurrency)}</strong></div>
+                      <div><span>{ar ? 'ضريبة القيمة المضافة' : 'Value added tax'}</span><strong>{displayInvoiceAmount(accountingLineTotals.taxAmount, invoiceCurrency)}</strong></div>
+                      <div className="is-grand-total"><span>{ar ? 'الإجمالي شامل الضريبة' : 'Total including VAT'}</span><strong>{displayInvoiceAmount(accountingLineTotals.grossAmount, invoiceCurrency)}</strong></div>
+                    </div>
+                  </section>
+                  {isForeignCurrency && <section className="vat-accounting-currency-card base-currency">
+                    <header><span className="vat-accounting-currency-icon base" aria-hidden="true">﷼</span><div><small>{ar ? 'ما يعادلها بالعملة الأساسية' : 'Base currency equivalent'}</small><strong>{currencyName(baseCurrency)}</strong></div><b className="vat-currency-code">{baseCurrency}</b></header>
+                    {accountingBaseTotals ? <div className="vat-accounting-summary-rows">
+                      <div><span>{ar ? 'الإجمالي قبل الضريبة' : 'Subtotal before VAT'}</span><strong>{displayInvoiceAmount(accountingBaseTotals.netAmount, baseCurrency)}</strong></div>
+                      <div><span>{ar ? 'ضريبة القيمة المضافة' : 'Value added tax'}</span><strong>{displayInvoiceAmount(accountingBaseTotals.taxAmount, baseCurrency)}</strong></div>
+                      <div className="is-grand-total"><span>{ar ? 'الإجمالي شامل الضريبة' : 'Total including VAT'}</span><strong>{displayInvoiceAmount(accountingBaseTotals.grossAmount, baseCurrency)}</strong></div>
+                    </div> : <p className="vat-accounting-rate-hint">{ar ? 'أدخل سعر التحويل لإظهار المبالغ بالعملة الأساسية.' : 'Enter an exchange rate to show amounts in the base currency.'}</p>}
+                    <div className="vat-accounting-rate-note"><span aria-hidden="true">↔</span>{ar ? `سعر التحويل: 1 ${invoiceCurrency} = ${Number.isFinite(resolvedRate) && resolvedRate > 0 ? money(resolvedRate) : '—'} ${baseCurrency}` : `Exchange rate: 1 ${invoiceCurrency} = ${Number.isFinite(resolvedRate) && resolvedRate > 0 ? money(resolvedRate) : '—'} ${baseCurrency}`}</div>
+                  </section>}
+                </div>
+              </section> : <div className="vat-tax-preview"><span>{ar ? 'صافي الفاتورة' : 'Invoice net'} <strong>{money(Number(draft.net_amount || 0))} {baseCurrency}</strong></span><span>{ar ? 'الضريبة المحسوبة' : 'Calculated VAT'} <strong>{money(previewTax)} {baseCurrency}</strong></span><span>{ar ? 'الإجمالي' : 'Gross total'} <strong>{money(Number(draft.net_amount || 0) + previewTax)} {baseCurrency}</strong></span></div>}
               <div className="vat-form-actions"><button type="button" className="vat-button secondary" onClick={() => { setRegisterFormOpen(false); setRegisterAddMenuOpen(false); }}>{ar ? 'إلغاء' : 'Cancel'}</button><button className="vat-button primary vat-submit" disabled={saving || !isRegistered || (usesAccountingLines && isForeignCurrency && (!Number.isFinite(resolvedRate) || resolvedRate <= 0))}>{saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? 'حفظ في السجل' : 'Save to register')}</button></div>
             </form>}
           </section>

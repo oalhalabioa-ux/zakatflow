@@ -335,15 +335,34 @@
 .vat-accounting-lines + .vat-notes-field { grid-column:span 2; }
 .vat-tax-preview { display:flex; flex-wrap:wrap; gap:10px 22px; grid-column:span 3; align-items:center; min-height:42px; padding:9px 12px; border-radius:9px; background:#f5f8f6; color:var(--vat-muted); font-size:.82rem; }
 .vat-tax-preview strong { margin-inline-start:5px; color:var(--vat-ink); }
-.vat-accounting-totals { display:grid; grid-column:1/-1; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; overflow:hidden; border:1px solid var(--vat-line); border-radius:12px; background:linear-gradient(110deg,var(--vat-card),var(--vat-soft)); }
-.vat-accounting-totals > div { display:grid; align-content:center; gap:7px; min-width:0; min-height:88px; padding:13px 16px; border-inline-start:1px solid var(--vat-line); }
-.vat-accounting-totals > div:first-child { border-inline-start:0; }
-.vat-accounting-totals span { color:var(--vat-muted); font-size:.72rem; font-weight:700; }
-.vat-accounting-totals strong { color:var(--vat-ink); font-size:1rem; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
-.vat-accounting-totals small { color:var(--vat-muted); font-size:.72rem; font-variant-numeric:tabular-nums; }
-.vat-accounting-totals .is-grand-total { background:color-mix(in srgb,var(--vat-green) 7%,var(--vat-card)); }
-.vat-accounting-totals .is-grand-total strong { color:var(--vat-green); font-size:1.12rem; }
-.vat-accounting-totals-rate strong { color:var(--vat-green); }
+.vat-accounting-totals { display:grid; grid-column:1/-1; gap:14px; padding:17px; border:1px solid color-mix(in srgb,var(--vat-green) 20%,var(--vat-line)); border-radius:16px; background:linear-gradient(120deg,color-mix(in srgb,var(--vat-green) 3%,var(--vat-card)),var(--vat-card) 58%,color-mix(in srgb,var(--vat-accent) 3%,var(--vat-card))); }
+.vat-accounting-summary-heading { display:flex; align-items:center; gap:11px; }
+.vat-accounting-summary-icon { display:grid; flex:0 0 auto; place-items:center; width:38px; height:38px; border:1px solid color-mix(in srgb,var(--vat-green) 18%,var(--vat-line)); border-radius:12px; background:color-mix(in srgb,var(--vat-green) 9%,var(--vat-card)); color:var(--vat-green); font-size:1.05rem; }
+.vat-accounting-summary-heading h3 { margin:0; color:var(--vat-ink); font-size:.98rem; font-weight:800; }
+.vat-accounting-summary-heading p { margin:3px 0 0; color:var(--vat-muted); font-size:.72rem; }
+.vat-accounting-currency-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+.vat-accounting-currency-grid.has-base-currency { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.vat-accounting-currency-card { min-width:0; overflow:hidden; border:1px solid var(--vat-line); border-radius:13px; background:var(--vat-card); }
+.vat-accounting-currency-card > header { display:flex; align-items:center; gap:10px; min-height:62px; padding:11px 13px; border-bottom:1px solid var(--vat-line); background:color-mix(in srgb,var(--vat-green) 4%,var(--vat-card)); }
+.vat-accounting-currency-card.base-currency > header { background:color-mix(in srgb,var(--vat-accent) 5%,var(--vat-card)); }
+.vat-accounting-currency-icon { display:grid; flex:0 0 auto; place-items:center; width:34px; height:34px; border-radius:11px; background:color-mix(in srgb,var(--vat-green) 12%,var(--vat-card)); color:var(--vat-green); font-size:1.16rem; font-weight:800; }
+.vat-accounting-currency-icon.base { background:color-mix(in srgb,var(--vat-accent) 13%,var(--vat-card)); color:var(--vat-accent); font-size:.9rem; }
+.vat-accounting-currency-card > header > div { display:grid; gap:3px; min-width:0; }
+.vat-accounting-currency-card > header small { color:var(--vat-muted); font-size:.68rem; }
+.vat-accounting-currency-card > header strong { color:var(--vat-ink); font-size:.84rem; }
+.vat-currency-code { margin-inline-start:auto; padding:5px 8px; border:1px solid var(--vat-line); border-radius:8px; background:var(--vat-card); color:var(--vat-muted); font-size:.68rem; font-variant-numeric:tabular-nums; }
+.vat-accounting-summary-rows { padding:3px 13px; }
+.vat-accounting-summary-rows > div { display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:39px; border-bottom:1px solid color-mix(in srgb,var(--vat-line) 72%,transparent); }
+.vat-accounting-summary-rows > div:last-child { border-bottom:0; }
+.vat-accounting-summary-rows span { color:var(--vat-muted); font-size:.73rem; font-weight:650; }
+.vat-accounting-summary-rows strong { color:var(--vat-ink); font-size:.81rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.vat-accounting-summary-rows > .is-grand-total { min-height:47px; margin-inline:-13px; padding-inline:13px; background:color-mix(in srgb,var(--vat-green) 7%,var(--vat-card)); }
+.vat-accounting-summary-rows > .is-grand-total span { color:var(--vat-ink); font-weight:800; }
+.vat-accounting-summary-rows > .is-grand-total strong { color:var(--vat-green); font-size:.96rem; font-weight:850; }
+.vat-accounting-rate-note { display:flex; align-items:center; gap:6px; padding:8px 13px; border-top:1px dashed var(--vat-line); color:var(--vat-muted); font-size:.67rem; font-variant-numeric:tabular-nums; }
+.vat-accounting-rate-note > span { color:var(--vat-accent); font-size:.92rem; }
+.vat-accounting-rate-hint { margin:0; padding:18px 13px; color:var(--vat-muted); font-size:.75rem; }
+@media(max-width:760px) { .vat-accounting-currency-grid.has-base-currency { grid-template-columns:1fr; } }
 .vat-submit { justify-self:end; min-width:145px; }
 .vat-register-heading { align-items:center; margin-bottom:14px; }
 .vat-period-chip { padding:7px 10px; border:1px solid var(--vat-line); border-radius:999px; color:var(--vat-muted); font-size:.78rem; white-space:nowrap; }
