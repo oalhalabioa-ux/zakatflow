@@ -14,6 +14,7 @@ function errorResponse(error: unknown) {
     'SELLER_PROFILE_INCOMPLETE', 'VAT_CONTACT_NOT_FOUND', 'VAT_CONTACT_TYPE_MISMATCH',
     'EINVOICE_CONNECTION_MISMATCH', 'PRECEDING_INVOICE_NOT_ISSUED',
     'NOTE_INVOICE_CATEGORY_MISMATCH', 'EINVOICE_NUMBER_EXISTS',
+    'EINVOICE_DRAFT_NOT_FOUND', 'EINVOICE_DRAFT_LOCKED',
     'CURRENCY_NOT_ACTIVE', 'SAR_EXCHANGE_RATE_MUST_BE_ONE',
   ]);
   const code = known.has(message) || message.startsWith('LINE_DISCOUNT_EXCEEDS_AMOUNT:')
@@ -21,7 +22,8 @@ function errorResponse(error: unknown) {
     : 'EINVOICE_REQUEST_FAILED';
   const status = code === 'UNAUTHORIZED' ? 401
     : code === 'ORGANIZATION_ACCESS_REQUIRED' || code === 'ORGANIZATION_ADMIN_REQUIRED' ? 403
-      : ['VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH', 'SELLER_PROFILE_INCOMPLETE', 'PRECEDING_INVOICE_NOT_ISSUED', 'EINVOICE_NUMBER_EXISTS'].includes(code) ? 409
+      : code === 'EINVOICE_DRAFT_NOT_FOUND' ? 404
+        : ['VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH', 'SELLER_PROFILE_INCOMPLETE', 'PRECEDING_INVOICE_NOT_ISSUED', 'EINVOICE_NUMBER_EXISTS', 'EINVOICE_DRAFT_LOCKED'].includes(code) ? 409
         : code === 'EINVOICE_REQUEST_FAILED' ? 500 : 400;
   return NextResponse.json({ error: code }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
@@ -198,6 +200,150 @@ export async function POST(request: Request) {
         // Keep the original failure response; a draft can be safely inspected and cleaned up later.
       }
     }
+    return errorResponse(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { supabase, user } = await requireUser();
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json() as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: 'INVALID_JSON_BODY' }, { status: 400 });
+    }
+    const invoiceId = typeof body.invoice_id === 'string' ? body.invoice_id : '';
+    const { invoice_id: _invoiceId, ...draftBody } = body;
+    const parsed = vatEInvoiceDraftSchema.safeParse(draftBody);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'INVALID_EINVOICE_DRAFT', issues: parsed.error.issues.map(({ path, message }) => ({ path, message })) }, { status: 400 });
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId)) {
+      return NextResponse.json({ error: 'EINVOICE_DRAFT_NOT_FOUND' }, { status: 404 });
+    }
+    const draft = parsed.data;
+    await requireOrganizationAdmin(supabase, user.id, draft.organization_id);
+
+    const { data: existing, error: existingError } = await supabase.from('vat_einvoices')
+      .select('*')
+      .eq('id', invoiceId)
+      .eq('organization_id', draft.organization_id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) throw new Error('EINVOICE_DRAFT_NOT_FOUND');
+    if (existing.status !== 'DRAFT') throw new Error('EINVOICE_DRAFT_LOCKED');
+
+    const { data: currency, error: currencyError } = await supabase.from('currencies')
+      .select('code')
+      .eq('code', draft.currency)
+      .eq('active', true)
+      .maybeSingle();
+    if (currencyError) throw currencyError;
+    if (!currency) throw new Error('CURRENCY_NOT_ACTIVE');
+
+    const { data: profile, error: profileError } = await supabase.from('vat_profiles')
+      .select('registration_status,tax_registration_number,registered_name,seller_street,seller_building_number,seller_district,seller_additional_number,seller_city,seller_postal_code')
+      .eq('organization_id', draft.organization_id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) throw new Error('VAT_PROFILE_REQUIRED');
+    if (profile.registration_status !== 'REGISTERED') throw new Error('VAT_REGISTRATION_REQUIRED');
+    if (profile.tax_registration_number?.trim() !== draft.seller_vat_number) throw new Error('SELLER_VAT_MISMATCH');
+    const sellerValues = {
+      seller_name: profile.registered_name?.trim(),
+      seller_address: profile.seller_street?.trim(),
+      seller_building_number: profile.seller_building_number?.trim(),
+      seller_district: profile.seller_district?.trim(),
+      seller_additional_number: profile.seller_additional_number?.trim(),
+      seller_city: profile.seller_city?.trim(),
+      seller_postal_code: profile.seller_postal_code?.trim(),
+    };
+    if (Object.values(sellerValues).some((value) => !value)) throw new Error('SELLER_PROFILE_INCOMPLETE');
+
+    if (draft.buyer_contact_id) {
+      const { data: buyerContact, error: buyerContactError } = await supabase.from('vat_contacts')
+        .select('id,contact_type')
+        .eq('id', draft.buyer_contact_id)
+        .eq('organization_id', draft.organization_id)
+        .maybeSingle();
+      if (buyerContactError) throw buyerContactError;
+      if (!buyerContact) throw new Error('VAT_CONTACT_NOT_FOUND');
+      if (buyerContact.contact_type !== 'CUSTOMER' && buyerContact.contact_type !== 'BOTH') throw new Error('VAT_CONTACT_TYPE_MISMATCH');
+    }
+
+    const calculated = calculateVatEInvoiceDraft(draft);
+    const taxTotalAmountSar = new Decimal(calculated.totals.tax_total_amount)
+      .mul(draft.exchange_rate)
+      .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+      .toFixed(2);
+    const { lines, ...header } = draft;
+    const updateValues = {
+      ...header,
+      ...sellerValues,
+      buyer_contact_id: draft.buyer_contact_id || null,
+      buyer_name: draft.buyer_name || null,
+      buyer_vat_number: draft.buyer_vat_number || null,
+      buyer_address: draft.buyer_address || null,
+      buyer_building_number: draft.buyer_building_number || null,
+      buyer_district: draft.buyer_district || null,
+      buyer_additional_number: draft.buyer_additional_number || null,
+      buyer_city: draft.buyer_city || null,
+      buyer_postal_code: draft.buyer_postal_code || null,
+      buyer_country_code: draft.buyer_country_code || null,
+      billing_reference: draft.billing_reference || null,
+      note_reason: draft.note_reason || null,
+      ...calculated.totals,
+      exchange_rate: draft.exchange_rate,
+      tax_total_amount_sar: taxTotalAmountSar,
+    };
+
+    const { data: oldLines, error: oldLinesError } = await supabase.from('vat_einvoice_lines')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .order('line_number');
+    if (oldLinesError) throw oldLinesError;
+
+    const { data: updatedInvoice, error: updateError } = await supabase.from('vat_einvoices')
+      .update(updateValues)
+      .eq('id', invoiceId)
+      .eq('organization_id', draft.organization_id)
+      .eq('status', 'DRAFT')
+      .select('*')
+      .maybeSingle();
+    if (updateError) {
+      if (updateError.code === '23505') throw new Error('EINVOICE_NUMBER_EXISTS');
+      throw updateError;
+    }
+    if (!updatedInvoice) throw new Error('EINVOICE_DRAFT_LOCKED');
+
+    const { error: deleteError } = await supabase.from('vat_einvoice_lines').delete().eq('invoice_id', invoiceId);
+    if (deleteError) {
+      const { id: _id, ...oldHeader } = existing;
+      await supabase.from('vat_einvoices').update(oldHeader).eq('id', invoiceId).eq('status', 'DRAFT');
+      throw deleteError;
+    }
+    const { data: savedLines, error: insertLinesError } = await supabase.from('vat_einvoice_lines').insert(
+      calculated.lines.map((line) => ({ ...line, invoice_id: invoiceId }))
+    ).select('*');
+    if (insertLinesError) {
+      await supabase.from('vat_einvoice_lines').delete().eq('invoice_id', invoiceId);
+      if (oldLines?.length) await supabase.from('vat_einvoice_lines').insert(oldLines);
+      const { id: _id, ...oldHeader } = existing;
+      await supabase.from('vat_einvoices').update(oldHeader).eq('id', invoiceId).eq('status', 'DRAFT');
+      if (insertLinesError.code === '23505') throw new Error('EINVOICE_NUMBER_EXISTS');
+      throw insertLinesError;
+    }
+
+    await supabase.from('audit_logs').insert({
+      user_id: user.id,
+      entity_type: 'vat_einvoice',
+      entity_id: invoiceId,
+      action: 'DRAFT_UPDATED',
+      new_data: { invoice_number: draft.invoice_number, line_count: lines.length, status: 'DRAFT' },
+    });
+    return NextResponse.json({ ...updatedInvoice, lines: savedLines ?? [] }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
     return errorResponse(error);
   }
 }

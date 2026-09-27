@@ -563,8 +563,13 @@
 }
 
 /* Native ZakatFlow invoice: buyer starts the metadata row; totals form the closing summary row. */
-.vat-einvoice-first-row { grid-template-columns:minmax(220px,1.35fr) repeat(3,minmax(0,1fr)); }
+.vat-einvoice-first-row { grid-template-columns:minmax(150px,1.35fr) repeat(4,minmax(120px,1fr)) minmax(104px,.8fr); }
 .vat-einvoice-first-row .vat-einvoice-buyer-picker { grid-column:auto; }
+.vat-einvoice-first-row .vat-document-type-summary.is-arabic { grid-column:-2/-1; min-height:43px; }
+.vat-einvoice-first-row .vat-contact-picker-hint { display:none; }
+.vat-einvoice-time-row { display:flex; grid-column:1/-1; justify-content:flex-start; margin-top:-4px; }
+.vat-einvoice-time-row > label { display:grid; gap:6px; width:min(210px,100%); color:var(--vat-muted); font-size:.77rem; font-weight:700; }
+.vat-einvoice-seller-warning { grid-column:1/-1; }
 .vat-einvoice-line-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); align-items:stretch; gap:0; margin-top:4px; padding:12px; border:1px solid var(--vat-line); border-radius:13px; background:color-mix(in srgb,var(--vat-green) 3%,var(--vat-card)); }
 .vat-einvoice-summary-fx,.vat-einvoice-summary-item { display:grid; align-content:center; gap:8px; min-width:0; min-height:82px; padding:12px 16px; border-inline-start:1px solid var(--vat-line); }
 .vat-einvoice-summary-fx { border-inline-start:0; }
@@ -578,7 +583,7 @@
 .vat-einvoice-summary-copy > strong > small { font-size:.82em; font-weight:700; }
 .vat-einvoice-summary-copy > em { color:var(--vat-muted); font-size:.78rem; font-style:normal; font-variant-numeric:tabular-nums; }
 .vat-einvoice-summary-item.total .vat-einvoice-summary-copy > small,.vat-einvoice-summary-item.total .vat-einvoice-summary-copy > strong { color:var(--vat-positive); }
-@media(max-width:980px) { .vat-einvoice-first-row { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:1100px) { .vat-einvoice-first-row { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:760px) { .vat-einvoice-line-summary { grid-template-columns:repeat(2,minmax(0,1fr)); padding:9px; } .vat-einvoice-summary-fx,.vat-einvoice-summary-item { min-height:72px; padding:10px; } .vat-einvoice-summary-item.total { grid-column:1/-1; margin-top:7px; } }
-@media(max-width:640px) { .vat-einvoice-first-row { grid-template-columns:1fr; } }
+@media(max-width:640px) { .vat-einvoice-first-row { grid-template-columns:1fr; } .vat-einvoice-first-row .vat-document-type-summary.is-arabic { grid-column:auto; } }
 @media(max-width:400px) { .vat-einvoice-line-summary { grid-template-columns:1fr; } .vat-einvoice-summary-item.total { grid-column:auto; } }
