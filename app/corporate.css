@@ -524,32 +524,12 @@
   .corp-shell.sidebar-mobile-open .corp-mobile-backdrop{display:block;position:fixed;inset:0;z-index:60;width:100%;height:100%;border:0;background:rgba(13,26,38,.42);cursor:pointer}
 }
 
-/* Distinguish the modern palette from Elegant and make the sidebar control easy to spot. */
-.theme-modern{--corp-bg:#f2f4ff;--corp-border:#dfe3f5;--corp-text:#242d52;--corp-muted:#707b9e;--corp-navy:#424fb3;--corp-navy-2:#35419e;--corp-green:#5e6cdf;--corp-blue:#4e6bd2;--corp-gold:#a97627}
-.theme-modern .corp-workspace,.theme-modern .corp-content{background:#f2f4ff;color:#242d52}
-.theme-modern .corp-sidebar{background:linear-gradient(165deg,#232d69 0%,#303b83 54%,#3c4797 100%);color:#eef0ff;border-inline-end:1px solid #4653a0;box-shadow:8px 0 28px rgba(35,45,105,.15)}
-.theme-modern .corp-brand,.theme-modern .corp-nav a,.theme-modern .corp-nav button,.theme-modern .corp-sidebar-foot a{color:#e4e8ff}
-.theme-modern .corp-brand strong{color:#fff}.theme-modern .corp-brand small{color:#bbc4fa}.theme-modern .corp-mark{border-color:#c5ccff;color:#fff}
-.theme-modern .corp-brand-row,.theme-modern .corp-sidebar-foot{border-color:rgba(226,231,255,.14)}
-.theme-modern .corp-nav a:hover,.theme-modern .corp-nav button:hover,.theme-modern .corp-sidebar-foot a:hover{background:rgba(233,236,255,.12);color:#fff}
-.theme-modern .corp-nav a[aria-current="page"]{background:rgba(233,236,255,.15);color:#fff;box-shadow:inset 3px 0 #aab4ff}
-.theme-modern .corp-subnav{border-color:rgba(226,231,255,.2)}.theme-modern .corp-nav-sep{background:rgba(226,231,255,.17)}
-.theme-modern .corp-topbar{background:#fff;border-color:#e2e5f4}.theme-modern .corp-top-actions{color:#39436e}
-.theme-modern .corp-search{background:#f8f9ff;border-color:#e0e4f5;color:#7680a0}
-.theme-modern .theme-picker{background:#eef0ff;border-color:#dce1fa}.theme-modern .theme-picker button{color:#68739a}.theme-modern .theme-picker button.active{background:#fff;color:#4251bd;box-shadow:0 2px 7px rgba(48,61,151,.16)}
-.theme-modern .corp-content .card{background:#fff;border-color:#e1e5f4;box-shadow:0 8px 24px rgba(45,57,132,.045)}
-.theme-modern .corp-content .page-head h1,.theme-modern .corp-content .metric{color:#252e57}
-.theme-modern .corp-content .table th{background:#f0f2ff;color:#4c587f}.theme-modern .corp-content .table td{color:#344064}.theme-modern .corp-content .table tbody tr:hover{background:#f6f7ff}
-.sidebar-toggle{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;padding:0;border:1px solid rgba(255,255,255,.35);border-radius:11px;background:rgba(255,255,255,.13);color:#fff;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}
-.sidebar-toggle:hover{border-color:rgba(255,255,255,.7);background:rgba(255,255,255,.23)}
+/* Keep the existing sidebar presentation; make only its open/close control easier to see. */
+.sidebar-toggle{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;padding:0;border:1px solid #08756b;border-radius:9px;background:#08756b;color:#fff;cursor:pointer;transition:background .18s ease,border-color .18s ease}
+.sidebar-toggle:hover{border-color:#075d55;background:#075d55}
 .sidebar-toggle:focus-visible{outline:3px solid #9eafff;outline-offset:2px}
-.sidebar-toggle-icon{display:block;width:22px;height:22px;transition:transform .18s ease}
+.sidebar-toggle-icon{display:block;width:20px;height:20px;transition:transform .18s ease}
 .corp-shell[dir="rtl"] .sidebar-toggle[aria-expanded="false"] .sidebar-toggle-icon,.corp-shell[dir="ltr"] .sidebar-toggle[aria-expanded="true"] .sidebar-toggle-icon{transform:rotate(180deg)}
-.sidebar-collapsed .corp-brand-row{gap:7px;min-height:104px;height:104px;padding:9px 4px}
-.sidebar-collapsed .sidebar-toggle{flex-basis:36px;width:36px;height:36px}
-.sidebar-collapsed .sidebar-toggle-icon{width:21px;height:21px}
-.theme-modern.sidebar-collapsed .corp-sidebar{width:66px}.theme-modern.sidebar-collapsed .corp-workspace{margin-inline-start:66px}
-.theme-modern.sidebar-collapsed .corp-brand-row{gap:7px;padding-inline:4px}.theme-modern.sidebar-collapsed .corp-mark{width:27px;height:27px;font-size:15px}
-.theme-modern.sidebar-collapsed .sidebar-toggle{border-color:#a9b2ef;background:#eef0ff;color:#414fb3}.theme-modern.sidebar-collapsed .sidebar-toggle:hover{border-color:#7583df;background:#e2e6ff}
-@media(max-width:1000px){.theme-modern.sidebar-collapsed .corp-sidebar{width:66px}.theme-modern.sidebar-collapsed .corp-workspace{margin-inline-start:66px}}
-@media(max-width:700px){.theme-modern.sidebar-mobile-open .corp-sidebar{width:min(290px,88vw)}.theme-modern.sidebar-mobile-open .corp-brand-row{height:92px;min-height:92px;padding:0 12px}.theme-modern.sidebar-mobile-open .sidebar-toggle{flex-basis:38px;width:38px;height:38px}}
+.sidebar-collapsed .sidebar-toggle{flex-basis:32px;width:32px;height:32px}
+.theme-modern .sidebar-toggle{border-color:#4355c7;background:#4355c7;color:#fff}
+.theme-modern .sidebar-toggle:hover{border-color:#3445b1;background:#3445b1}
