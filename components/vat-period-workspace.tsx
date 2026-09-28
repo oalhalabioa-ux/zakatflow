@@ -43,7 +43,7 @@ const text = (value: unknown) => String(value ?? '0');
 const amount = (value: string | number) => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const todayInRiyadh = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(new Date());
 
-export function VatPeriodSummaryForm({ organizationId, period, periodSummary, standardRate, registered, ar, onSaved }: Props) {
+export function VatPeriodSummaryForm({ organizationId, period, periodSummary, periodTotals, standardRate, registered, ar, onSaved }: Props) {
   const [inputs, setInputs] = useState<VatPeriodSummaryInputs>(() => valuesFrom(periodSummary));
   const [filingStatus, setFilingStatus] = useState<'NOT_FILED' | 'FILED'>(periodSummary?.filing_status ?? 'NOT_FILED');
   const [filedAt, setFiledAt] = useState(periodSummary?.filed_at ?? '');
@@ -70,6 +70,11 @@ export function VatPeriodSummaryForm({ organizationId, period, periodSummary, st
 
   const outputVat = Number(inputs.sales_standard_base || 0) * standardRate / 100
     + Number(inputs.reverse_charge_base || 0) * standardRate / 100;
+  const salesBase = Number(inputs.sales_standard_base || 0)
+    + Number(inputs.sales_zero_rated_base || 0)
+    + Number(inputs.sales_exempt_base || 0)
+    + Number(inputs.sales_out_of_scope_base || 0);
+  const salesGross = salesBase + Number(inputs.sales_standard_base || 0) * standardRate / 100;
   const purchaseVat = Number(inputs.purchases_standard_base || 0) * standardRate / 100
     + Number(inputs.imports_vat_paid || 0)
     + Number(inputs.reverse_charge_base || 0) * standardRate / 100;
@@ -121,51 +126,53 @@ export function VatPeriodSummaryForm({ organizationId, period, periodSummary, st
 
   return (
     <section className="vat-panel">
-      <div className="vat-panel-head">
+      <div className="vat-panel-head vat-period-summary-head">
         <div>
-          <span className="vat-eyebrow">{ar ? 'إدخال إجمالي الفترة' : 'PERIOD TOTALS INPUT'}</span>
-          <h2>{ar ? 'إدخال ملخص المبيعات والمشتريات' : 'Enter sales and purchase totals'}</h2>
-          <p>{ar ? 'أدخل الإجماليات للفترة المحددة. تُستخدم هذه البيانات بدلًا من تفاصيل الفواتير المسجلة للفترة نفسها لتجنب احتسابها مرتين.' : 'Enter totals for the selected period. These totals replace detailed invoice entries for that period in the dashboard to prevent double counting.'}</p>
+          <span className="vat-eyebrow">{ar ? 'إدخال مجمع' : 'AGGREGATE ENTRY'}</span>
+          <h2>{ar ? 'إجماليات الفترة' : 'Period totals'}</h2>
+          <p>{ar ? 'أدخل الوعاء لكل تصنيف، وسيحسب النظام الضريبة تلقائيًا. تحل هذه الإجماليات محل تفاصيل الفواتير للفترة نفسها في لوحة الإدارة.' : 'Enter the taxable base for each category; VAT is calculated automatically. These totals replace invoice details for the same period in the dashboard.'}</p>
         </div>
+        <span className="vat-period-entry-chip"><VatIcon name="calendar" />{formatDate(period.from, ar)} — {formatDate(period.to, ar)}</span>
       </div>
       {!registered && <div className="vat-inline-warning">{ar ? 'أكمل تسجيل ضريبة القيمة المضافة قبل حفظ إجماليات الفترة.' : 'Complete VAT registration before saving period totals.'}</div>}
       {notice && <div className={`vat-notice ${notice.error ? 'error' : 'success'}`} role={notice.error ? 'alert' : 'status'}>{notice.text}</div>}
       <form className="vat-period-summary-form" onSubmit={save}>
-        <fieldset className="vat-summary-group">
-          <legend>{ar ? 'المبيعات' : 'Sales'}</legend>
-          <div className="vat-summary-grid">
-            <AmountField label={ar ? `خاضعة للنسبة الأساسية ${standardRate}%` : `Standard-rated ${standardRate}%`} value={text(inputs.sales_standard_base)} onChange={(value) => setNumber('sales_standard_base', value)} hint={ar ? 'يحسب النظام ضريبة المخرجات تلقائيًا.' : 'Output VAT is calculated automatically.'} />
-            <AmountField label={ar ? 'خاضعة للنسبة الصفرية' : 'Zero-rated'} value={text(inputs.sales_zero_rated_base)} onChange={(value) => setNumber('sales_zero_rated_base', value)} />
-            <AmountField label={ar ? 'معفاة' : 'Exempt'} value={text(inputs.sales_exempt_base)} onChange={(value) => setNumber('sales_exempt_base', value)} />
-            <AmountField label={ar ? 'خارج النطاق' : 'Out of scope'} value={text(inputs.sales_out_of_scope_base)} onChange={(value) => setNumber('sales_out_of_scope_base', value)} />
+        <div className="vat-period-entry-grid">
+          <PeriodTotalsCard title={ar ? 'المبيعات' : 'Sales'} icon="chart" tone="sales" ar={ar} columns={[ar ? 'تصنيف العملية' : 'Supply type', ar ? 'الوعاء' : 'Tax base', ar ? 'ضريبة المخرجات' : 'Output VAT']} rows={[
+            { label: ar ? `خاضعة للنسبة الأساسية ${standardRate}%` : `Standard-rated ${standardRate}%`, value: text(inputs.sales_standard_base), onChange: (value) => setNumber('sales_standard_base', value), tax: Number(inputs.sales_standard_base || 0) * standardRate / 100 },
+            { label: ar ? 'خاضعة للنسبة الصفرية' : 'Zero-rated', value: text(inputs.sales_zero_rated_base), onChange: (value) => setNumber('sales_zero_rated_base', value), tax: 0 },
+            { label: ar ? 'معفاة' : 'Exempt', value: text(inputs.sales_exempt_base), onChange: (value) => setNumber('sales_exempt_base', value), tax: 0 },
+            { label: ar ? 'خارج نطاق الضريبة' : 'Out of scope', value: text(inputs.sales_out_of_scope_base), onChange: (value) => setNumber('sales_out_of_scope_base', value), tax: 0 },
+          ]} totalLabel={ar ? 'إجمالي المبيعات' : 'Total sales'} totalBase={salesBase} totalTax={Number(inputs.sales_standard_base || 0) * standardRate / 100} />
+          <PeriodTotalsCard title={ar ? 'المشتريات' : 'Purchases'} icon="bag" tone="purchases" ar={ar} columns={[ar ? 'تصنيف العملية' : 'Supply type', ar ? 'الوعاء' : 'Tax base', ar ? 'الضريبة قبل الاسترداد' : 'VAT before recovery']} rows={[
+            { label: ar ? `خاضعة للنسبة الأساسية ${standardRate}%` : `Standard-rated ${standardRate}%`, value: text(inputs.purchases_standard_base), onChange: (value) => setNumber('purchases_standard_base', value), tax: Number(inputs.purchases_standard_base || 0) * standardRate / 100 },
+            { label: ar ? 'خاضعة للنسبة الصفرية' : 'Zero-rated', value: text(inputs.purchases_zero_rated_base), onChange: (value) => setNumber('purchases_zero_rated_base', value), tax: 0 },
+            { label: ar ? 'معفاة' : 'Exempt', value: text(inputs.purchases_exempt_base), onChange: (value) => setNumber('purchases_exempt_base', value), tax: 0 },
+            { label: ar ? 'خارج نطاق الضريبة' : 'Out of scope', value: text(inputs.purchases_out_of_scope_base), onChange: (value) => setNumber('purchases_out_of_scope_base', value), tax: 0 },
+          ]} totalLabel={ar ? 'إجمالي الضريبة قبل الاسترداد' : 'Total VAT before recovery'} totalBase={Number(inputs.purchases_standard_base || 0) + Number(inputs.purchases_zero_rated_base || 0) + Number(inputs.purchases_exempt_base || 0) + Number(inputs.purchases_out_of_scope_base || 0) + Number(inputs.imports_goods_base || 0) + Number(inputs.reverse_charge_base || 0)} totalTax={purchaseVat} />
+        </div>
+
+        <fieldset className="vat-summary-group vat-period-adjustments">
+          <legend>{ar ? 'تفاصيل الاستيراد والاحتساب العكسي' : 'Imports and reverse-charge details'}</legend>
+          <div className="vat-period-adjustment-grid">
+            <AmountField label={ar ? 'أساس استيراد السلع' : 'Imported goods base'} value={text(inputs.imports_goods_base)} onChange={(value) => setNumber('imports_goods_base', value)} />
+            <AmountField label={ar ? 'ضريبة الاستيراد المدفوعة فعليًا' : 'Import VAT actually paid'} value={text(inputs.imports_vat_paid)} onChange={(value) => setNumber('imports_vat_paid', value)} />
+            <AmountField label={ar ? 'خدمات خاضعة للاحتساب العكسي' : 'Reverse-charge services base'} value={text(inputs.reverse_charge_base)} onChange={(value) => setNumber('reverse_charge_base', value)} />
+            <label className="vat-summary-field"><span>{ar ? 'نسبة المدخلات القابلة للخصم' : 'Recoverable input VAT'}</span><div className="vat-percent-input"><input required type="number" min="0" max="100" step="0.01" value={text(inputs.input_tax_recoverable_percent)} onChange={(event) => setNumber('input_tax_recoverable_percent', event.target.value)} /><span>%</span></div></label>
           </div>
+          <p className="vat-period-adjustment-hint">{ar ? 'ضريبة الاستيراد تدخل بالقيمة الفعلية، والاحتساب العكسي يُضاف إلى ضريبة المخرجات والمدخلات وفق نسبة الاسترداد.' : 'Enter actual import VAT. Reverse-charge VAT is included in output and input VAT, subject to the recovery percentage.'}</p>
         </fieldset>
 
-        <fieldset className="vat-summary-group">
-          <legend>{ar ? 'المشتريات والمدخلات' : 'Purchases and input VAT'}</legend>
-          <div className="vat-summary-grid">
-            <AmountField label={ar ? `خاضعة للنسبة الأساسية ${standardRate}%` : `Standard-rated ${standardRate}%`} value={text(inputs.purchases_standard_base)} onChange={(value) => setNumber('purchases_standard_base', value)} hint={ar ? 'تُحسب الضريبة على الأساس المسجل.' : 'VAT is calculated from the entered base.'} />
-            <AmountField label={ar ? 'خاضعة للنسبة الصفرية' : 'Zero-rated'} value={text(inputs.purchases_zero_rated_base)} onChange={(value) => setNumber('purchases_zero_rated_base', value)} />
-            <AmountField label={ar ? 'معفاة' : 'Exempt'} value={text(inputs.purchases_exempt_base)} onChange={(value) => setNumber('purchases_exempt_base', value)} />
-            <AmountField label={ar ? 'خارج النطاق' : 'Out of scope'} value={text(inputs.purchases_out_of_scope_base)} onChange={(value) => setNumber('purchases_out_of_scope_base', value)} />
-            <AmountField label={ar ? 'أساس استيراد السلع' : 'Imported goods base'} value={text(inputs.imports_goods_base)} onChange={(value) => setNumber('imports_goods_base', value)} hint={ar ? 'يُضاف لقيمة المشتريات؛ أدخل ضريبة الجمارك الفعلية في الحقل التالي.' : 'Included in purchases; enter actual customs VAT below.'} />
-            <AmountField label={ar ? 'ضريبة الاستيراد المدفوعة' : 'Import VAT paid'} value={text(inputs.imports_vat_paid)} onChange={(value) => setNumber('imports_vat_paid', value)} />
-            <AmountField label={ar ? 'خدمات خاضعة للاحتساب العكسي' : 'Reverse-charge services base'} value={text(inputs.reverse_charge_base)} onChange={(value) => setNumber('reverse_charge_base', value)} hint={ar ? 'تُضاف ضريبتها إلى المخرجات والمدخلات القابلة للخصم.' : 'Calculated in output and recoverable input VAT.'} />
-            <label className="vat-summary-field"><span>{ar ? 'نسبة ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT percentage'}</span><div className="vat-percent-input"><input required type="number" min="0" max="100" step="0.01" value={text(inputs.input_tax_recoverable_percent)} onChange={(event) => setNumber('input_tax_recoverable_percent', event.target.value)} /><span>%</span></div><small>{ar ? 'تُطبق على ضريبة المشتريات والاستيراد والاحتساب العكسي.' : 'Applied to purchase, import and reverse-charge VAT.'}</small></label>
-          </div>
-        </fieldset>
-
-        <section className="vat-summary-preview" aria-live="polite">
-          <strong>{ar ? 'احتساب أولي للفترة' : 'Period calculation preview'}</strong>
-          <span>{ar ? 'ضريبة المخرجات' : 'Output VAT'} <b>{amount(outputVat)} SAR</b></span>
-          <span>{ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT'} <b>{amount(recoverableVat)} SAR</b></span>
-          <span>{ar ? 'المستحق التقديري' : 'Estimated payable'} <b>{amount(estimatedDue)} SAR</b></span>
-          {Number(paidAmount) > 0 && <span>{ar ? 'المتبقي بعد السداد' : 'Outstanding after payments'} <b>{amount(currentOutstanding)} SAR</b></span>}
-          {Number(cashReservedAmount) > 0 && <span className={cashGap > 0 ? 'shortfall' : 'covered'}>{ar ? 'فجوة السيولة المخصصة' : 'Cash reserve gap'} <b>{amount(cashGap)} SAR</b></span>}
+        <section className="vat-period-kpis" aria-live="polite" aria-label={ar ? 'ملخص الضريبة' : 'VAT summary'}>
+          <div className="vat-period-kpi sales"><span>{ar ? 'إجمالي المبيعات' : 'Total sales'}</span><strong>{amount(salesGross)} <small>SAR</small></strong><em>{ar ? 'شامل ضريبة المخرجات' : 'Including output VAT'}</em></div>
+          <div className="vat-period-kpi output"><span>{ar ? 'ضريبة المخرجات' : 'Output VAT'}</span><strong>{amount(outputVat)} <small>SAR</small></strong><em>{ar ? 'على المبيعات والاحتساب العكسي' : 'Sales and reverse charge'}</em></div>
+          <div className="vat-period-kpi input"><span>{ar ? 'المدخلات القابلة للخصم' : 'Recoverable input VAT'}</span><strong>{amount(recoverableVat)} <small>SAR</small></strong><em>{ar ? `نسبة الاسترداد ${text(inputs.input_tax_recoverable_percent)}%` : `${text(inputs.input_tax_recoverable_percent)}% recovery`}</em></div>
+          <div className="vat-period-kpi payable"><span>{ar ? 'صافي الضريبة المستحقة' : 'Net VAT payable'}</span><strong>{amount(estimatedDue)} <small>SAR</small></strong><em>{ar ? 'المخرجات ناقص المدخلات القابلة للخصم' : 'Output VAT less recoverable input VAT'}</em></div>
         </section>
 
         <fieldset className="vat-summary-group">
           <legend>{ar ? 'الإقرار والسداد والسيولة' : 'Return, payment and cash reserve'}</legend>
+          <div className="vat-period-deadline"><VatIcon name="calendar" /><span>{ar ? 'آخر موعد للتقديم والسداد' : 'Filing and payment deadline'}</span><strong>{formatDate(periodTotals.dueDate ?? period.to, ar)}</strong><small>{ar ? 'يرجى توفير السيولة قبل تاريخ الاستحقاق.' : 'Reserve funds before the due date.'}</small></div>
           <div className="vat-summary-grid">
             <label className="vat-summary-field"><span>{ar ? 'حالة الإقرار' : 'Return status'}</span><select value={filingStatus} onChange={(event) => { const value = event.target.value as typeof filingStatus; setFilingStatus(value); if (value === 'FILED' && !filedAt) setFiledAt(todayInRiyadh()); }}>{option('NOT_FILED', ar ? 'لم يقدم بعد' : 'Not filed')}{option('FILED', ar ? 'تم تقديمه في زاتكا' : 'Filed with ZATCA')}</select></label>
             {filingStatus === 'FILED' && <>
@@ -178,6 +185,7 @@ export function VatPeriodSummaryForm({ organizationId, period, periodSummary, st
               <label className="vat-summary-field"><span>{ar ? 'مرجع السداد (اختياري)' : 'Payment reference (optional)'}</span><input maxLength={120} value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} /></label>
             </>}
             <AmountField label={ar ? 'السيولة المحجوزة للسداد' : 'Cash reserved for VAT'} value={cashReservedAmount} onChange={setCashReservedAmount} hint={ar ? 'تُقارن بالرصيد المتبقي لتنبيه الإدارة عن النقص.' : 'Compared with the outstanding balance to flag a shortfall.'} />
+            <div className={`vat-period-cash-gap ${cashGap > 0 ? 'shortfall' : 'covered'}`}><span>{ar ? (cashGap > 0 ? 'سيولة إضافية مطلوبة' : 'تغطية السيولة') : (cashGap > 0 ? 'Additional cash needed' : 'Cash coverage')}</span><strong>{amount(cashGap)} SAR</strong></div>
             <label className="vat-summary-field vat-summary-notes"><span>{ar ? 'ملاحظات' : 'Notes'}</span><input maxLength={1000} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
           </div>
         </fieldset>
@@ -323,6 +331,34 @@ function VisualBar({ label, value, percent, color }: { label: string; value: num
 
 function AmountField({ label, value, onChange, hint }: { label: string; value: string; onChange: (value: string) => void; hint?: string }) {
   return <label className="vat-summary-field"><span>{label}</span><div className="vat-money-input"><input required type="number" min="0" step="0.01" value={value} onChange={(event) => onChange(event.target.value)} /><span>SAR</span></div>{hint && <small>{hint}</small>}</label>;
+}
+
+function PeriodTotalsCard({ title, icon, tone, columns, rows, totalLabel, totalBase, totalTax, ar }: {
+  title: string;
+  icon: 'chart' | 'bag';
+  tone: 'sales' | 'purchases';
+  columns: [string, string, string];
+  rows: Array<{ label: string; value: string; onChange: (value: string) => void; tax: number }>;
+  totalLabel: string;
+  totalBase: number;
+  totalTax: number;
+  ar: boolean;
+}) {
+  return <section className={`vat-period-entry-card ${tone}`}>
+    <h3><span className="vat-period-entry-icon"><VatIcon name={icon} /></span>{title}</h3>
+    <div className="vat-period-table-wrap">
+      <table className="vat-period-table">
+        <thead><tr><th scope="col">{columns[0]}</th><th scope="col">{columns[1]}</th><th scope="col">{columns[2]}</th></tr></thead>
+        <tbody>{rows.map((row) => <tr key={row.label}>
+          <th scope="row">{row.label}</th>
+          <td><input required aria-label={`${row.label} — ${columns[1]}`} type="number" min="0" step="0.01" value={row.value} onChange={(event) => row.onChange(event.target.value)} /></td>
+          <td><span className="vat-period-calculated" dir="ltr">{amount(row.tax)}</span></td>
+        </tr>)}</tbody>
+        <tfoot><tr><th scope="row">{totalLabel}</th><td><strong dir="ltr">{amount(totalBase)}</strong></td><td><strong dir="ltr">{amount(totalTax)}</strong></td></tr></tfoot>
+      </table>
+    </div>
+    <p className="vat-period-card-note">{ar ? 'تُحسب الضريبة تلقائيًا وفق تصنيف العملية.' : 'VAT is calculated automatically from the supply type.'}</p>
+  </section>;
 }
 
 type VatIconName = 'chart' | 'bag' | 'scale' | 'coins' | 'receipt' | 'percent' | 'cart' | 'shield' | 'calculator' | 'credit' | 'check' | 'clock' | 'wallet' | 'calendar';

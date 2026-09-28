@@ -283,6 +283,63 @@
 .vat-summary-preview b { margin-inline-start:4px; color:var(--vat-ink); white-space:nowrap; }
 .vat-summary-preview .shortfall { color:#a23d32; }
 .vat-summary-preview .covered { color:#14674f; }
+.vat-period-summary-head { align-items:center; margin-bottom:16px; }
+.vat-period-summary-head h2 { margin:4px 0 3px; font-size:1.28rem; letter-spacing:-.02em; }
+.vat-period-summary-head p { max-width:820px; font-size:.79rem; line-height:1.55; }
+.vat-period-entry-chip { display:inline-flex; align-items:center; gap:7px; flex:0 0 auto; padding:8px 11px; border:1px solid color-mix(in srgb,var(--vat-accent) 18%,var(--vat-line)); border-radius:10px; background:color-mix(in srgb,var(--vat-accent) 5%,var(--vat-card)); color:var(--vat-accent); font-size:.74rem; font-weight:750; }
+.vat-period-entry-chip svg { width:16px; height:16px; }
+.vat-period-summary-form { gap:13px; }
+.vat-period-entry-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:13px; }
+.vat-period-entry-card { min-width:0; overflow:hidden; padding:14px; border:1px solid var(--vat-line); border-radius:14px; background:var(--vat-card); }
+.vat-period-entry-card h3 { display:flex; align-items:center; gap:9px; margin:0 0 11px; color:var(--vat-ink); font-size:.94rem; }
+.vat-period-entry-icon { display:grid; place-items:center; flex:0 0 32px; width:32px; height:32px; border:1px solid color-mix(in srgb,var(--vat-entry-tone) 20%,var(--vat-line)); border-radius:10px; background:color-mix(in srgb,var(--vat-entry-tone) 8%,var(--vat-card)); color:var(--vat-entry-tone); }
+.vat-period-entry-icon svg { width:18px; height:18px; }
+.vat-period-entry-card.sales { --vat-entry-tone:var(--vat-positive); }
+.vat-period-entry-card.purchases { --vat-entry-tone:var(--vat-expense); }
+.vat-period-table-wrap { width:100%; overflow-x:auto; }
+.vat-period-table { width:100%; min-width:510px; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+.vat-period-table th,.vat-period-table td { padding:8px 7px; border-bottom:1px solid var(--vat-line); text-align:start; }
+.vat-period-table thead th { padding-block:8px; background:var(--vat-soft); color:var(--vat-muted); font-size:.68rem; font-weight:750; }
+.vat-period-table thead th:first-child { width:39%; border-radius:0 8px 8px 0; }
+.vat-period-table thead th:nth-child(2) { width:35%; }
+.vat-period-table thead th:last-child { width:26%; border-radius:8px 0 0 8px; }
+.vat-period-table tbody th { color:var(--vat-ink); font-size:.75rem; font-weight:650; line-height:1.35; }
+.vat-period-table tbody td input { min-width:105px; min-height:36px; padding:6px 8px; border-color:var(--vat-line); border-radius:8px; font-size:.78rem; font-variant-numeric:tabular-nums; }
+.vat-period-calculated { display:block; color:var(--vat-muted); font-size:.77rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.vat-period-table tfoot th,.vat-period-table tfoot td { padding-block:10px; border-bottom:0; background:color-mix(in srgb,var(--vat-entry-tone) 8%,var(--vat-card)); color:var(--vat-ink); font-size:.76rem; font-weight:800; }
+.vat-period-table tfoot th { border-radius:0 0 8px 8px; }
+.vat-period-table tfoot td:last-child { border-radius:8px 0 0 8px; }
+.vat-period-table tfoot strong { font-size:.8rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.vat-period-card-note { margin:9px 0 0; color:var(--vat-muted); font-size:.68rem; }
+.vat-period-adjustments { padding:12px 15px; }
+.vat-period-adjustments > legend { font-size:.8rem; }
+.vat-period-adjustment-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; align-items:flex-end; }
+.vat-period-adjustment-grid .vat-summary-field { gap:5px; font-size:.72rem; }
+.vat-period-adjustment-grid input { min-height:38px; padding:7px 9px; font-size:.8rem; }
+.vat-period-adjustment-hint { margin:8px 0 0; color:var(--vat-muted); font-size:.68rem; line-height:1.45; }
+.vat-period-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+.vat-period-kpi { display:grid; align-content:start; gap:6px; min-width:0; min-height:100px; padding:12px 13px; border:1px solid var(--vat-line); border-radius:12px; background:var(--vat-card); }
+.vat-period-kpi > span { color:var(--vat-muted); font-size:.71rem; font-weight:700; }
+.vat-period-kpi strong { overflow-wrap:anywhere; color:var(--vat-ink); font-size:1.06rem; font-variant-numeric:tabular-nums; line-height:1.2; }
+.vat-period-kpi strong small { color:var(--vat-muted); font-size:.63rem; font-weight:650; }
+.vat-period-kpi em { color:var(--vat-muted); font-size:.63rem; font-style:normal; line-height:1.4; }
+.vat-period-kpi.output { border-top:2px solid var(--vat-positive); }
+.vat-period-kpi.input { border-top:2px solid var(--vat-blue); }
+.vat-period-kpi.sales { border-top:2px solid var(--vat-teal); }
+.vat-period-kpi.payable { border-color:color-mix(in srgb,var(--vat-accent) 29%,var(--vat-line)); background:color-mix(in srgb,var(--vat-accent) 7%,var(--vat-card)); }
+.vat-period-kpi.payable strong { color:var(--vat-accent); font-size:1.16rem; }
+.vat-period-deadline { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:4px 9px; margin:0 0 13px; padding:10px 12px; border:1px solid color-mix(in srgb,var(--vat-warning) 24%,var(--vat-line)); border-radius:10px; background:color-mix(in srgb,var(--vat-warning) 6%,var(--vat-card)); }
+.vat-period-deadline svg { grid-row:span 2; width:19px; height:19px; color:var(--vat-warning); }
+.vat-period-deadline span { color:var(--vat-muted); font-size:.71rem; font-weight:700; }
+.vat-period-deadline strong { grid-column:3; grid-row:1 / span 2; color:var(--vat-ink); font-size:.82rem; }
+.vat-period-deadline small { color:var(--vat-muted); font-size:.67rem; }
+.vat-period-cash-gap { display:grid; align-content:center; gap:5px; min-height:68px; padding:10px 12px; border:1px solid var(--vat-line); border-radius:10px; background:var(--vat-soft); }
+.vat-period-cash-gap span { color:var(--vat-muted); font-size:.72rem; font-weight:700; }
+.vat-period-cash-gap strong { color:var(--vat-ink); font-size:.86rem; font-variant-numeric:tabular-nums; }
+.vat-period-cash-gap.shortfall { border-color:color-mix(in srgb,var(--vat-negative) 24%,var(--vat-line)); background:color-mix(in srgb,var(--vat-negative) 5%,var(--vat-card)); }
+.vat-period-cash-gap.shortfall strong { color:var(--vat-negative); }
+.vat-period-cash-gap.covered { border-color:color-mix(in srgb,var(--vat-positive) 20%,var(--vat-line)); background:color-mix(in srgb,var(--vat-positive) 5%,var(--vat-card)); }
+.vat-period-cash-gap.covered strong { color:var(--vat-positive); }
 .vat-annual-dashboard { background:var(--vat-soft); }
 .vat-inline-warning { margin:14px 0; padding:12px 14px; border:1px solid #f0dfb6; border-radius:10px; background:#fff9eb; color:#7a5d21; line-height:1.6; }
 .vat-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
@@ -595,3 +652,6 @@
 @media(max-width:760px) { .vat-einvoice-line-summary { grid-template-columns:repeat(2,minmax(0,1fr)); padding:9px; } .vat-einvoice-summary-fx,.vat-einvoice-summary-item { min-height:72px; padding:10px; } .vat-einvoice-summary-item.total { grid-column:1/-1; margin-top:7px; } }
 @media(max-width:640px) { .vat-einvoice-first-row { grid-template-columns:1fr; } .vat-einvoice-first-row .vat-document-type-summary.is-arabic { grid-column:auto; } }
 @media(max-width:400px) { .vat-einvoice-line-summary { grid-template-columns:1fr; } .vat-einvoice-summary-item.total { grid-column:auto; } }
+@media(max-width:980px) { .vat-period-entry-grid { grid-template-columns:1fr; } .vat-period-adjustment-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:640px) { .vat-period-summary-head { align-items:flex-start; } .vat-period-entry-chip { align-self:flex-start; } .vat-period-adjustment-grid,.vat-period-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .vat-period-deadline { grid-template-columns:auto minmax(0,1fr); } .vat-period-deadline strong { grid-column:2; grid-row:auto; justify-self:start; } .vat-period-deadline svg { grid-row:1 / span 3; } }
+@media(max-width:420px) { .vat-period-adjustment-grid,.vat-period-kpis { grid-template-columns:1fr; } .vat-period-entry-chip { max-width:100%; font-size:.66rem; } .vat-period-table { min-width:470px; } }
