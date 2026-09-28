@@ -55,6 +55,7 @@
 .prices-button:hover:not(:disabled) { transform: translateY(-1px); }
 .prices-button:disabled { opacity: .55; cursor: not-allowed; }
 .prices-button.primary { background: var(--prices-green); color: #fff; }
+.theme-elegant .corp-content .prices-button.primary { color: #fff; }
 .prices-button.primary:hover:not(:disabled) { background: #075f4c; }
 .prices-button.secondary { border-color: #cfe1d9; background: #f8fbf9; color: var(--prices-green); }
 .prices-section-heading { margin-bottom: 18px; }
