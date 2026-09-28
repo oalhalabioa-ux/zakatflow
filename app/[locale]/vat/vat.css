@@ -655,3 +655,57 @@
 @media(max-width:980px) { .vat-period-entry-grid { grid-template-columns:1fr; } .vat-period-adjustment-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:640px) { .vat-period-summary-head { align-items:flex-start; } .vat-period-entry-chip { align-self:flex-start; } .vat-period-adjustment-grid,.vat-period-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .vat-period-deadline { grid-template-columns:auto minmax(0,1fr); } .vat-period-deadline strong { grid-column:2; grid-row:auto; justify-self:start; } .vat-period-deadline svg { grid-row:1 / span 3; } }
 @media(max-width:420px) { .vat-period-adjustment-grid,.vat-period-kpis { grid-template-columns:1fr; } .vat-period-entry-chip { max-width:100%; font-size:.66rem; } .vat-period-table { min-width:470px; } }
+
+/* Invoice register: compact workbench hierarchy shared by accounting entries and e-invoices. */
+.vat-invoice-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:0 0 14px; }
+.vat-invoice-kpi { position:relative; display:grid; align-content:center; gap:6px; min-width:0; min-height:88px; overflow:hidden; padding:13px 15px; border:1px solid var(--vat-line); border-radius:13px; background:var(--vat-card); }
+.vat-invoice-kpi::before { position:absolute; inset-block:0; inset-inline-start:0; width:3px; background:var(--vat-kpi-tone,var(--vat-accent)); content:""; }
+.vat-invoice-kpi > span { color:var(--vat-muted); font-size:.72rem; font-weight:700; }
+.vat-invoice-kpi > strong { overflow-wrap:anywhere; color:var(--vat-ink); font-size:1.12rem; font-variant-numeric:tabular-nums; }
+.vat-invoice-kpi > strong small { color:var(--vat-muted); font-size:.64rem; font-weight:650; }
+.vat-invoice-kpi > small { overflow:hidden; color:var(--vat-muted); font-size:.65rem; text-overflow:ellipsis; white-space:nowrap; }
+.vat-invoice-kpi > i { position:absolute; inset-inline-end:13px; inset-block-start:12px; display:grid; place-items:center; width:27px; height:27px; border-radius:9px; background:color-mix(in srgb,var(--vat-kpi-tone,var(--vat-accent)) 9%,var(--vat-card)); color:var(--vat-kpi-tone,var(--vat-accent)); font-size:.83rem; font-style:normal; font-weight:800; }
+.vat-invoice-kpi.count { --vat-kpi-tone:var(--vat-blue); }
+.vat-invoice-kpi.net { --vat-kpi-tone:var(--vat-teal); }
+.vat-invoice-kpi.tax { --vat-kpi-tone:var(--vat-positive); }
+.vat-invoice-kpi.gross { --vat-kpi-tone:var(--vat-accent); }
+.vat-register-direction { display:flex; width:max-content; max-width:100%; gap:4px; margin:0 0 11px; padding:4px; border:1px solid var(--vat-line); border-radius:11px; background:var(--vat-soft); }
+.vat-register-direction button { display:flex; align-items:center; gap:8px; min-width:152px; min-height:39px; padding:7px 12px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--vat-muted); text-align:center; }
+.vat-register-direction button strong { font-size:.8rem; }
+.vat-register-direction button small { color:inherit; font-size:.67rem; }
+.vat-register-direction button.active { border-color:color-mix(in srgb,var(--vat-accent) 23%,var(--vat-line)); background:var(--vat-card); color:var(--vat-accent); box-shadow:0 2px 7px rgb(20 44 37 / 6%); }
+.vat-invoice-source-switch { width:max-content; max-width:100%; margin:0 0 12px; }
+.vat-invoice-source-switch button { min-height:35px; padding:7px 11px; font-size:.72rem; }
+.vat-register-entry-head { margin-bottom:13px; }
+.vat-register-entry-head h2 { margin:3px 0; }
+.vat-register-entry-head p { max-width:760px; font-size:.75rem; }
+.vat-register-heading { align-items:center; margin-bottom:12px; }
+.vat-register-heading h2 { margin:4px 0 2px; font-size:1rem; }
+.vat-register-heading p { font-size:.72rem; }
+.vat-register-heading .vat-period-chip { display:inline-flex; align-items:center; gap:6px; }
+.vat-register-heading .vat-period-chip > span { color:var(--vat-accent); font-size:.9rem; }
+.vat-invoice-register-toolbar { display:grid; grid-template-columns:minmax(240px,1fr) minmax(155px,.52fr) minmax(180px,.63fr); align-items:end; gap:9px; margin:0 0 9px; }
+.vat-invoice-search,.vat-invoice-filter { display:grid; gap:5px; min-width:0; color:var(--vat-muted); font-size:.68rem; font-weight:700; }
+.vat-invoice-search { position:relative; }
+.vat-invoice-search-icon { position:absolute; inset-inline-start:11px; inset-block-end:8px; color:var(--vat-muted); font-size:1.2rem; line-height:1; pointer-events:none; }
+.vat-invoice-search input { min-height:38px; padding-inline-start:34px; border-color:var(--vat-line); border-radius:9px; font-size:.75rem; }
+.vat-invoice-filter select { min-height:38px; padding:6px 9px; border-color:var(--vat-line); border-radius:9px; font-size:.74rem; }
+.vat-invoice-register-hint { margin:0 0 10px; padding:8px 10px; border:1px solid color-mix(in srgb,var(--vat-blue) 15%,var(--vat-line)); border-radius:9px; background:color-mix(in srgb,var(--vat-blue) 4%,var(--vat-card)); color:var(--vat-muted); font-size:.69rem; line-height:1.5; }
+.vat-table-wrap { overflow-x:auto; border-color:var(--vat-line); border-radius:11px; }
+.vat-table { min-width:1120px; white-space:normal; }
+.vat-table th,.vat-table td { padding:10px 11px; border-bottom-color:var(--vat-line); vertical-align:middle; }
+.vat-table th { background:var(--vat-soft); color:var(--vat-muted); font-size:.68rem; line-height:1.4; }
+.vat-table td { color:var(--vat-ink); font-size:.74rem; font-variant-numeric:tabular-nums; }
+.vat-table tbody tr:hover { background:color-mix(in srgb,var(--vat-accent) 3%,var(--vat-card)); }
+.vat-table .vat-invoice-counterparty { min-width:170px; }
+.vat-invoice-counterparty strong { display:block; max-width:225px; overflow:hidden; font-size:.76rem; text-overflow:ellipsis; }
+.vat-invoice-counterparty small { min-height:1em; font-size:.62rem; }
+.vat-invoice-number { color:var(--vat-accent); font-size:.73rem; }
+.vat-invoice-gross { font-weight:800; }
+.vat-type-pill.invoice { background:color-mix(in srgb,var(--vat-blue) 9%,var(--vat-card)); color:var(--vat-blue); }
+.vat-type-pill.credit { background:color-mix(in srgb,var(--vat-warning) 10%,var(--vat-card)); color:var(--vat-warning); }
+.vat-invoice-source { display:inline-flex; align-items:center; max-width:140px; padding:4px 7px; border:1px solid var(--vat-line); border-radius:999px; background:var(--vat-soft); color:var(--vat-muted); font-size:.62rem; line-height:1.4; }
+.vat-invoice-source.electronic { border-color:color-mix(in srgb,var(--vat-positive) 20%,var(--vat-line)); background:color-mix(in srgb,var(--vat-positive) 7%,var(--vat-card)); color:var(--vat-positive); }
+@media(max-width:980px) { .vat-invoice-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .vat-invoice-register-toolbar { grid-template-columns:minmax(220px,1fr) repeat(2,minmax(140px,.55fr)); } }
+@media(max-width:640px) { .vat-invoice-kpis { gap:7px; } .vat-invoice-kpi { min-height:78px; padding:10px; } .vat-invoice-kpi > strong { font-size:.94rem; } .vat-invoice-kpi > i { inset-inline-end:8px; inset-block-start:8px; width:23px; height:23px; } .vat-register-direction { width:100%; } .vat-register-direction button { min-width:0; flex:1; flex-direction:column; justify-content:center; gap:2px; padding:6px; } .vat-register-direction button small { font-size:.61rem; } .vat-invoice-source-switch { display:grid; width:100%; grid-template-columns:1fr; } .vat-invoice-register-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); } .vat-invoice-search { grid-column:1/-1; } .vat-register-heading { align-items:flex-start; } .vat-register-heading .vat-period-chip { max-width:48%; white-space:normal; } }
+@media(max-width:400px) { .vat-invoice-kpis { grid-template-columns:1fr; } .vat-invoice-kpi { min-height:68px; } .vat-invoice-register-toolbar { grid-template-columns:1fr; } .vat-invoice-search { grid-column:auto; } }
