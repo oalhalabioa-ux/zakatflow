@@ -713,17 +713,29 @@
 }
 .theme-modern .ed-cycle-control {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   justify-items: center;
 }
 .theme-modern .ed-cycle-link {
   display: flex;
-  gap: 10px;
+  gap: 9px;
   align-items: center;
-  padding: 11px 17px;
+  min-height: 46px;
+  padding: 8px 14px;
   border-radius: 10px;
   background: #126b82;
   color: #fff !important;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.theme-modern .ed-cycle-link svg {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+}
+.theme-modern .ed-cycle-control > small {
+  font-size: 13px;
+  line-height: 1.35;
 }
 .theme-modern .ed-currency {
   display: flex;
