@@ -152,8 +152,11 @@ const emptyDocument = (): DocumentDraft => ({
 });
 const emptyDocumentLine = (): DocumentLineDraft => ({ description: '', unit: '', quantity: '1', unit_price: '', discount_amount: '0', discount_mode: 'AMOUNT', supply_type: 'STANDARD' });
 
-export default function VatManagement({ params }: { params: Promise<{ locale: string }> }) {
+export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ section?: string | string[] }> }) {
   const { locale } = use(params);
+  const { section } = use(searchParams);
+  const requestedSection = Array.isArray(section) ? section[0] : section;
+  const initialTab = requestedSection === 'invoices' ? 'register' : requestedSection === 'einvoicing' ? 'einvoicing' : requestedSection === 'aggregate' ? 'aggregate' : 'dashboard';
   const ar = locale === 'ar';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
@@ -175,7 +178,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false);
   const [periodDetailsOpen, setPeriodDetailsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing'>(initialTab);
   const [registerDirection, setRegisterDirection] = useState<'SALES' | 'PURCHASE'>('SALES');
   const [salesEntryMode, setSalesEntryMode] = useState<'ACCOUNTING' | 'ZAKATFLOW'>('ACCOUNTING');
   const [registerFormOpen, setRegisterFormOpen] = useState(false);
@@ -268,6 +271,15 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     ? (Number(draft.net_amount || 0) * currentTaxRate / 100)
     : 0;
 
+  useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
+
+  function selectTab(tab: 'dashboard' | 'aggregate' | 'register' | 'einvoicing') {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('section', tab === 'register' ? 'invoices' : tab);
+    window.history.replaceState(null, '', url.toString());
+  }
+
   function handleTabKeyDown(event: KeyboardEvent<HTMLElement>) {
     const forward = ar ? 'ArrowLeft' : 'ArrowRight';
     const backward = ar ? 'ArrowRight' : 'ArrowLeft';
@@ -278,7 +290,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     const nextTab = event.key === 'Home' ? tabs[0]
       : event.key === 'End' ? tabs[tabs.length - 1]
         : tabs[(current + (event.key === forward ? 1 : -1) + tabs.length) % tabs.length];
-    setActiveTab(nextTab);
+    selectTab(nextTab);
     document.getElementById(`vat-tab-${nextTab}`)?.focus();
   }
 
@@ -567,9 +579,9 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
     <main className="container vat-page" dir={ar ? 'rtl' : 'ltr'}>
       <header className="vat-header">
         <div>
-          <span className="vat-eyebrow">{ar ? 'الالتزام الضريبي' : 'TAX COMPLIANCE'}</span>
-          <h1>{ar ? 'إدارة ضريبة القيمة المضافة' : 'VAT management'}</h1>
-          <p>{ar ? 'إعداد بيانات التسجيل، تنظيم مستندات المبيعات والمشتريات، وتجهيز ملخص الإقرار.' : 'Manage registration details, sales and purchase documents, and prepare a return summary.'}</p>
+          <span className="vat-eyebrow">{ar ? 'الضرائب والفوترة' : 'TAX & INVOICING'}</span>
+          <h1>{ar ? 'إدارة الضرائب والفوترة' : 'Tax & invoicing management'}</h1>
+          <p>{ar ? 'مساحة موحدة لإدارة ضريبة القيمة المضافة، وفواتير المبيعات والمشتريات، ومتطلبات الفوترة الإلكترونية.' : 'A unified workspace for VAT, sales and purchase invoices, and e-invoicing requirements.'}</p>
         </div>
         <label className="vat-picker">
           <span>{ar ? 'الشركة أو المؤسسة' : 'Company or organization'}</span>
@@ -679,10 +691,10 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
           </div>
 
           <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
-            <button id="vat-tab-dashboard" type="button" role="tab" aria-selected={activeTab === 'dashboard'} tabIndex={activeTab === 'dashboard' ? 0 : -1} aria-controls="vat-panel-dashboard" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
+            <button id="vat-tab-dashboard" type="button" role="tab" aria-selected={activeTab === 'dashboard'} tabIndex={activeTab === 'dashboard' ? 0 : -1} aria-controls="vat-panel-dashboard" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>
               <strong><span className="vat-tab-icon dashboard" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5h16"/><path d="M6.5 16V11M12 16V5M17.5 16V8"/></svg></span>{ar ? 'لوحة الإدارة' : 'Management dashboard'}</strong><small>{ar ? 'المبيعات والضريبة والاستحقاق والسيولة' : 'Sales, VAT, deadlines and cash'}</small>
             </button>
-            <button id="vat-tab-aggregate" type="button" role="tab" aria-selected={activeTab === 'aggregate'} tabIndex={activeTab === 'aggregate' ? 0 : -1} aria-controls="vat-panel-aggregate" className={activeTab === 'aggregate' ? 'active' : ''} onClick={() => setActiveTab('aggregate')}>
+            <button id="vat-tab-aggregate" type="button" role="tab" aria-selected={activeTab === 'aggregate'} tabIndex={activeTab === 'aggregate' ? 0 : -1} aria-controls="vat-panel-aggregate" className={activeTab === 'aggregate' ? 'active' : ''} onClick={() => selectTab('aggregate')}>
               <strong><span className="vat-tab-icon aggregate" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8 7.5h8M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 15h.01M12 15h.01M15.5 15h.01"/></svg></span>{ar ? 'إجماليات الفترة' : 'Period totals'}</strong><small>{ar ? 'إدخال مجمع للمبيعات والمشتريات' : 'Enter aggregated sales and purchases'}</small>
             </button>
             <button
@@ -693,7 +705,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               tabIndex={activeTab === 'register' ? 0 : -1}
               aria-controls="vat-panel-register"
               className={activeTab === 'register' ? 'active' : ''}
-              onClick={() => setActiveTab('register')}
+              onClick={() => selectTab('register')}
             >
               <strong><span className="vat-tab-icon invoices" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M10 12h5M10 16h5"/></svg></span>{ar ? 'الفواتير' : 'Invoices'}</strong>
               <small>{ar ? 'مساحة موحدة للمبيعات والمشتريات' : 'One workspace for sales and purchases'}</small>
@@ -706,7 +718,7 @@ export default function VatManagement({ params }: { params: Promise<{ locale: st
               tabIndex={activeTab === 'einvoicing' ? 0 : -1}
               aria-controls="vat-panel-einvoicing"
               className={activeTab === 'einvoicing' ? 'active' : ''}
-              onClick={() => setActiveTab('einvoicing')}
+              onClick={() => selectTab('einvoicing')}
             >
               <strong><span className="vat-tab-icon zatca" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5 19 6v5.2c0 4.2-2.8 7.5-7 9.3-4.2-1.8-7-5.1-7-9.3V6z"/><path d="m9 12 2 2 4-4"/></svg></span>{ar ? 'إعداد وربط زاتكا' : 'ZATCA setup'}</strong>
               <small>{ar ? 'تهيئة الوحدة والشهادة' : 'Invoice unit and certificate setup'}</small>
