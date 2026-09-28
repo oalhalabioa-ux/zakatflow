@@ -97,8 +97,8 @@ export async function POST(request: Request) {
       if (!data) throw new Error('ACCOUNT_ORGANIZATION_MISMATCH');
     }
     const { data, error } = kind === 'account'
-      ? await supabase.from('liquidity_accounts').insert({ ...payload, created_by: user.id }).select().single()
-      : await supabase.from('liquidity_flows').insert({ ...payload, created_by: user.id }).select().single();
+      ? await supabase.from('liquidity_accounts').insert(payload).select().single()
+      : await supabase.from('liquidity_flows').insert(payload).select().single();
     if (error) throw error;
     return NextResponse.json(data, { status: 201 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_SAVE_FAILED' }, { status: status(error) }); }
