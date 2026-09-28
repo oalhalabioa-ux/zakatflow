@@ -10,12 +10,16 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { id } = await params;
     const { supabase, user } = await requireUser();
     const { data: account } = await supabase.from('liquidity_accounts').select('id,organization_id').eq('id', id).maybeSingle();
-    const { data: flow } = account ? { data: null } : await supabase.from('liquidity_flows').select('id,organization_id').eq('id', id).maybeSingle();
+    const { data: flow } = account ? { data: null } : await supabase.from('liquidity_flows').select('id,organization_id,transfer_id').eq('id', id).maybeSingle();
     const record = account ?? flow;
     if (!record) return NextResponse.json({ error: 'LIQUIDITY_RECORD_NOT_FOUND' }, { status: 404 });
     await requireOrganizationMember(supabase, user.id, record.organization_id);
     if (!await canWrite(supabase,user.id,record.organization_id)) return NextResponse.json({ error: 'ORGANIZATION_ADMIN_REQUIRED' }, { status: 403 });
-    const result = account ? await supabase.from('liquidity_accounts').delete().eq('id', id) : await supabase.from('liquidity_flows').delete().eq('id', id);
+    const result = account
+      ? await supabase.from('liquidity_accounts').delete().eq('id', id)
+      : flow?.transfer_id
+        ? await supabase.rpc('delete_liquidity_transfer', { p_transfer_id: flow.transfer_id })
+        : await supabase.from('liquidity_flows').delete().eq('id', id);
     if (result.error) throw result.error;
     return NextResponse.json({ ok: true });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_DELETE_FAILED' }, { status: error instanceof Error && error.message === 'UNAUTHORIZED' ? 401 : 400 }); }
