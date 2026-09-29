@@ -13,12 +13,14 @@ const accountSchema = z.object({
 });
 const flowSchema = z.object({
   organization_id: z.string().uuid(), entity_id: z.string().uuid().nullable().optional(), account_id: z.string().uuid().nullable().optional(),
-  direction: z.enum(['INFLOW','OUTFLOW']), flow_type: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OPERATING'),
+  direction: z.enum(['INFLOW','OUTFLOW']), flow_type: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OPERATING'), category_id: z.string().uuid().nullable().optional(),
   title: z.string().trim().min(1).max(160), counterparty: z.string().max(160).default(''), counterparty_id: z.string().uuid().nullable().optional(), due_date: z.string().date(), amount: z.coerce.number().positive(),
   currency: z.string().length(3).default('SAR'), base_amount: z.coerce.number().positive(), status: z.enum(['ACTUAL','CONFIRMED','EXPECTED']).default('EXPECTED'),
   source: z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).default('MANUAL'), reference: z.string().max(120).default(''), notes: z.string().max(500).default(''),
 });
-const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
+const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), party_type_id: z.string().uuid().nullable().optional(), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
+const categorySchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH') });
+const partyTypeSchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80) });
 const transferSchema = z.object({
   organization_id: z.string().uuid(), source_account_id: z.string().uuid(), destination_account_id: z.string().uuid(),
   amount: z.coerce.number().positive(), exchange_rate: z.coerce.number().positive(), transfer_date: z.string().date(),
@@ -46,14 +48,16 @@ export async function GET(request: Request) {
         if (membership) organizationIds.push(child.id);
       }
     }
-    const [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult] = await Promise.all([
+    const [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult] = await Promise.all([
       supabase.from('liquidity_accounts').select('*').in('organization_id', organizationIds).eq('active', true).order('created_at'),
       supabase.from('liquidity_flows').select('*').in('organization_id', organizationIds).order('due_date', { ascending: true }).limit(1500),
       supabase.from('organization_entities').select('id,name,organization_id,entity_type').in('organization_id', organizationIds).eq('active', true).order('name'),
       supabase.from('organizations').select('id,name,entity_type,base_currency').in('id', organizationIds),
       supabase.from('fx_rates').select('organization_id,from_currency,to_currency,rate,valuation_date').or(`organization_id.is.null,organization_id.in.(${organizationIds.join(',')})`).order('valuation_date',{ascending:false}).limit(600),
+      supabase.from('liquidity_flow_categories').select('*').in('organization_id', organizationIds).eq('active', true).order('is_system', { ascending: false }).order('name_ar'),
+      supabase.from('liquidity_party_types').select('*').in('organization_id', organizationIds).eq('active', true).order('is_system', { ascending: false }).order('name_ar'),
     ]);
-    for (const result of [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult]) if (result.error) throw result.error;
+    for (const result of [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult]) if (result.error) throw result.error;
     const { data: counterparties, error: counterpartiesError } = await supabase.from('liquidity_counterparties').select('*').in('organization_id', organizationIds).order('name');
     if (counterpartiesError) throw counterpartiesError;
     const organizations = organizationsResult.data ?? [];
@@ -90,7 +94,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], fx_missing: fxMissing });
+    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], fx_missing: fxMissing });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
@@ -99,7 +103,37 @@ export async function POST(request: Request) {
     const { supabase, user } = await requireUser();
     const body = await request.json();
     const kind = body.kind;
-    if (kind === 'counterparty') { const input = counterpartySchema.parse(body); await requireOrganizationMember(supabase, user.id, input.organization_id); if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED'); const { data, error } = await supabase.from('liquidity_counterparties').insert(input).select().single(); if (error) throw error; return NextResponse.json(data, { status: 201 }); }
+    if (kind === 'category') {
+      const input = categorySchema.parse(body);
+      await requireOrganizationMember(supabase, user.id, input.organization_id);
+      if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
+      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
+      if (error) throw error;
+      return NextResponse.json(data, { status: 201 });
+    }
+    if (kind === 'party_type') {
+      const input = partyTypeSchema.parse(body);
+      await requireOrganizationMember(supabase, user.id, input.organization_id);
+      if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
+      const { data, error } = await supabase.from('liquidity_party_types').insert(input).select().single();
+      if (error) throw error;
+      return NextResponse.json(data, { status: 201 });
+    }
+    if (kind === 'counterparty') {
+      const input = counterpartySchema.parse(body);
+      await requireOrganizationMember(supabase, user.id, input.organization_id);
+      if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
+      let payload: any = input;
+      if (input.party_type_id) {
+        const { data: type, error: typeError } = await supabase.from('liquidity_party_types').select('id,code').eq('id', input.party_type_id).eq('organization_id', input.organization_id).eq('active', true).maybeSingle();
+        if (typeError) throw typeError;
+        if (!type) throw new Error('PARTY_TYPE_ORGANIZATION_MISMATCH');
+        payload = { ...input, party_type: ['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER'].includes(type.code) ? type.code : 'OTHER' };
+      }
+      const { data, error } = await supabase.from('liquidity_counterparties').insert(payload).select().single();
+      if (error) throw error;
+      return NextResponse.json(data, { status: 201 });
+    }
     if (kind === 'transfer') {
       const input = transferSchema.parse(body);
       await requireOrganizationMember(supabase, user.id, input.organization_id);
@@ -174,6 +208,13 @@ export async function POST(request: Request) {
       if (!data) throw new Error('ACCOUNT_ORGANIZATION_MISMATCH');
     }
     if (kind === 'flow' && payload.counterparty_id) { const { data: counterparty, error } = await supabase.from('liquidity_counterparties').select('id,name').eq('id', payload.counterparty_id).eq('organization_id', payload.organization_id).eq('active', true).maybeSingle(); if (error) throw error; if (!counterparty) throw new Error('COUNTERPARTY_ORGANIZATION_MISMATCH'); payload = { ...payload, counterparty: counterparty.name }; }
+    if (kind === 'flow' && payload.category_id) {
+      const { data: category, error } = await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction').eq('id', payload.category_id).eq('organization_id', payload.organization_id).eq('active', true).maybeSingle();
+      if (error) throw error;
+      if (!category) throw new Error('CATEGORY_ORGANIZATION_MISMATCH');
+      if (category.allowed_direction !== 'BOTH' && category.allowed_direction !== payload.direction) throw new Error('CATEGORY_DIRECTION_NOT_ALLOWED');
+      payload = { ...payload, flow_type: category.flow_group };
+    }
     const { data, error } = kind === 'account'
       ? await supabase.from('liquidity_accounts').insert(payload).select().single()
       : await supabase.from('liquidity_flows').insert(payload).select().single();
@@ -181,4 +222,3 @@ export async function POST(request: Request) {
     return NextResponse.json(data, { status: 201 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_SAVE_FAILED' }, { status: status(error) }); }
 }
-
