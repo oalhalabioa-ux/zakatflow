@@ -14,10 +14,11 @@ const accountSchema = z.object({
 const flowSchema = z.object({
   organization_id: z.string().uuid(), entity_id: z.string().uuid().nullable().optional(), account_id: z.string().uuid().nullable().optional(),
   direction: z.enum(['INFLOW','OUTFLOW']), flow_type: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OPERATING'),
-  title: z.string().trim().min(1).max(160), counterparty: z.string().max(160).default(''), due_date: z.string().date(), amount: z.coerce.number().positive(),
+  title: z.string().trim().min(1).max(160), counterparty: z.string().max(160).default(''), counterparty_id: z.string().uuid().nullable().optional(), due_date: z.string().date(), amount: z.coerce.number().positive(),
   currency: z.string().length(3).default('SAR'), base_amount: z.coerce.number().positive(), status: z.enum(['ACTUAL','CONFIRMED','EXPECTED']).default('EXPECTED'),
   source: z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).default('MANUAL'), reference: z.string().max(120).default(''), notes: z.string().max(500).default(''),
 });
+const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
 const transferSchema = z.object({
   organization_id: z.string().uuid(), source_account_id: z.string().uuid(), destination_account_id: z.string().uuid(),
   amount: z.coerce.number().positive(), exchange_rate: z.coerce.number().positive(), transfer_date: z.string().date(),
@@ -25,6 +26,7 @@ const transferSchema = z.object({
   reference: z.string().max(120).default(''), notes: z.string().max(500).default(''),
 });
 const status = (e: unknown) => e instanceof Error && e.message === 'UNAUTHORIZED' ? 401 : e instanceof Error && /ACCESS_REQUIRED|ADMIN_REQUIRED/.test(e.message) ? 403 : 400;
+const canWriteLiquidity = async (supabase: any, userId: string, organizationId: string) => { const { data } = await supabase.from('organization_members').select('role').eq('organization_id', organizationId).eq('user_id', userId).eq('status', 'ACTIVE').maybeSingle(); return !!data && ['OWNER','ADMIN','ACCOUNTANT','ADVISOR'].includes(data.role); };
 
 export async function GET(request: Request) {
   try {
@@ -52,6 +54,8 @@ export async function GET(request: Request) {
       supabase.from('fx_rates').select('organization_id,from_currency,to_currency,rate,valuation_date').or(`organization_id.is.null,organization_id.in.(${organizationIds.join(',')})`).order('valuation_date',{ascending:false}).limit(600),
     ]);
     for (const result of [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult]) if (result.error) throw result.error;
+    const { data: counterparties, error: counterpartiesError } = await supabase.from('liquidity_counterparties').select('*').in('organization_id', organizationIds).order('name');
+    if (counterpartiesError) throw counterpartiesError;
     const organizations = organizationsResult.data ?? [];
     let accounts: any[] = accountsResult.data ?? [];
     let flows: any[] = flowsResult.data ?? [];
@@ -72,7 +76,7 @@ export async function GET(request: Request) {
       }
       const convert = (row: any) => {
         const rate = multipliers.get(row.organization_id) ?? 1;
-        return { ...row, current_balance_base: Number(row.current_balance_base) * rate, restricted_balance_base: Number(row.restricted_balance_base) * rate, uncleared_balance_base: Number(row.uncleared_balance_base) * rate, base_amount: row.base_amount == null ? undefined : Number(row.base_amount) * rate, fx_conversion_missing: rate === 0 };
+        return { ...row, current_balance_base: Number(row.current_balance_base) * rate, restricted_balance_base: Number(row.restricted_balance_base) * rate, uncleared_balance_base: Number(row.uncleared_balance_base) * rate, raw_base_amount: row.base_amount == null ? undefined : Number(row.base_amount), base_amount: row.base_amount == null ? undefined : Number(row.base_amount) * rate, fx_conversion_missing: rate === 0 };
       };
       accounts = accounts.map(convert);
       flows = flows.map(convert);
@@ -86,7 +90,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], fx_missing: fxMissing });
+    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], fx_missing: fxMissing });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
@@ -95,6 +99,7 @@ export async function POST(request: Request) {
     const { supabase, user } = await requireUser();
     const body = await request.json();
     const kind = body.kind;
+    if (kind === 'counterparty') { const input = counterpartySchema.parse(body); await requireOrganizationMember(supabase, user.id, input.organization_id); if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED'); const { data, error } = await supabase.from('liquidity_counterparties').insert(input).select().single(); if (error) throw error; return NextResponse.json(data, { status: 201 }); }
     if (kind === 'transfer') {
       const input = transferSchema.parse(body);
       await requireOrganizationMember(supabase, user.id, input.organization_id);
@@ -152,7 +157,7 @@ export async function POST(request: Request) {
       return NextResponse.json(data, { status: 201 });
     }
     if (kind !== 'account' && kind !== 'flow') return NextResponse.json({ error: 'LIQUIDITY_RECORD_KIND_REQUIRED' }, { status: 400 });
-    const payload: any = kind === 'account' ? accountSchema.parse(body) : flowSchema.parse(body);
+    let payload: any = kind === 'account' ? accountSchema.parse(body) : flowSchema.parse(body);
     await requireOrganizationMember(supabase, user.id, payload.organization_id);
     await requireOrganizationAdmin(supabase, user.id, payload.organization_id).catch(async () => {
       const { data: membership } = await supabase.from('organization_members').select('role').eq('organization_id', payload.organization_id).eq('user_id', user.id).eq('status', 'ACTIVE').maybeSingle();
@@ -168,6 +173,7 @@ export async function POST(request: Request) {
       if (error) throw error;
       if (!data) throw new Error('ACCOUNT_ORGANIZATION_MISMATCH');
     }
+    if (kind === 'flow' && payload.counterparty_id) { const { data: counterparty, error } = await supabase.from('liquidity_counterparties').select('id,name').eq('id', payload.counterparty_id).eq('organization_id', payload.organization_id).eq('active', true).maybeSingle(); if (error) throw error; if (!counterparty) throw new Error('COUNTERPARTY_ORGANIZATION_MISMATCH'); payload = { ...payload, counterparty: counterparty.name }; }
     const { data, error } = kind === 'account'
       ? await supabase.from('liquidity_accounts').insert(payload).select().single()
       : await supabase.from('liquidity_flows').insert(payload).select().single();
@@ -175,3 +181,4 @@ export async function POST(request: Request) {
     return NextResponse.json(data, { status: 201 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_SAVE_FAILED' }, { status: status(error) }); }
 }
+
