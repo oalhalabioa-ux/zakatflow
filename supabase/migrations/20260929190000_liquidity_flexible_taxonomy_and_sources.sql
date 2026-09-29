@@ -8,7 +8,7 @@ create table if not exists public.liquidity_flow_categories (
   allowed_direction text not null default 'BOTH' check (allowed_direction in ('INFLOW','OUTFLOW','BOTH')),
   active boolean not null default true,
   is_system boolean not null default false,
-  created_by uuid not null default auth.uid() references auth.users(id),
+  created_by uuid default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (organization_id, code),
@@ -23,7 +23,7 @@ create table if not exists public.liquidity_party_types (
   name_en text not null check (nullif(trim(name_en), '') is not null),
   is_system boolean not null default false,
   active boolean not null default true,
-  created_by uuid not null default auth.uid() references auth.users(id),
+  created_by uuid default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
   unique (organization_id, code),
   unique (id, organization_id)
