@@ -81,7 +81,8 @@ declare
   v_destination_flow_id uuid;
   v_source_group_id uuid;
   v_destination_group_id uuid;
-  v_flow_type text;
+  v_source_flow_type text;
+  v_destination_flow_type text;
 begin
   if v_user_id is null then raise exception 'UNAUTHORIZED'; end if;
   if p_source_organization_id = p_destination_organization_id then raise exception 'INTERCOMPANY_ENTITIES_MUST_DIFFER'; end if;
@@ -113,7 +114,8 @@ begin
   if v_source.id is null then raise exception 'TRANSFER_ACCOUNT_NOT_FOUND'; end if;
   if p_transaction_type <> 'ON_BEHALF' and v_destination.id is null then raise exception 'TRANSFER_ACCOUNT_NOT_FOUND'; end if;
 
-  v_flow_type := case p_transaction_type when 'LOAN' then 'FINANCING' when 'CAPITAL' then 'INVESTMENT' else 'OPERATING' end;
+  v_source_flow_type := case p_transaction_type when 'ON_BEHALF' then 'OPERATING' else 'INVESTMENT' end;
+  v_destination_flow_type := case p_transaction_type when 'ON_BEHALF' then 'OPERATING' else 'FINANCING' end;
   v_source_group_id := v_source.entity_id;
   v_destination_group_id := v_destination.entity_id;
   insert into public.liquidity_intercompany_transfers (
@@ -133,7 +135,7 @@ begin
     organization_id, entity_id, account_id, intercompany_transfer_id, direction, flow_type, title, counterparty,
     due_date, amount, currency, base_amount, status, source, reference, notes, created_by
   ) values (
-    p_source_organization_id, v_source_group_id, v_source.id, v_transfer_id, 'OUTFLOW', v_flow_type,
+    p_source_organization_id, v_source_group_id, v_source.id, v_transfer_id, 'OUTFLOW', v_source_flow_type,
     coalesce(nullif(trim(p_source_title),''),'Transfer to '||v_destination_org.name), v_destination_org.name, p_transfer_date,
     round(p_source_amount,4), v_source.currency, round(p_source_base_amount,4), 'ACTUAL', 'MANUAL',
     coalesce(p_reference,''), coalesce(p_notes,''), v_user_id
@@ -143,7 +145,7 @@ begin
       organization_id, entity_id, account_id, intercompany_transfer_id, direction, flow_type, title, counterparty,
       due_date, amount, currency, base_amount, status, source, reference, notes, created_by
     ) values (
-      p_destination_organization_id, v_destination_group_id, v_destination.id, v_transfer_id, 'INFLOW', v_flow_type,
+      p_destination_organization_id, v_destination_group_id, v_destination.id, v_transfer_id, 'INFLOW', v_destination_flow_type,
       coalesce(nullif(trim(p_destination_title),''),'Transfer from '||v_source_org.name), v_source_org.name, p_transfer_date,
       round(p_destination_amount,4), v_destination.currency, round(p_destination_base_amount,4), 'ACTUAL', 'MANUAL',
       coalesce(p_reference,''), coalesce(p_notes,''), v_user_id
