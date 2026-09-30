@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
+import styles from './users.module.css';
 
 type Organization = { id: string; name: string };
 type Member = { user_id: string; email: string; name: string; role: string; status: string; created_at: string; custom_role_id?: string | null; custom_role_name?: string | null };
@@ -8,12 +9,27 @@ type Invitation = { id: string; email: string; role: string; expires_at: string;
 type CustomRole = { id: string; name: string; description: string; permissions: string[]; member_count: number };
 const memberRoles = ['ADMIN', 'ACCOUNTANT', 'ADVISOR', 'VIEWER', 'SHARIA_REVIEWER'];
 const invitationRoles = ['ACCOUNTANT', 'ADVISOR', 'VIEWER', 'SHARIA_REVIEWER'];
-const permissionOptions: { key: string; ar: string; en: string }[] = [
-  { key: 'liquidity.view', ar: 'عرض السيولة', en: 'View liquidity' }, { key: 'liquidity.edit', ar: 'إدارة السيولة', en: 'Manage liquidity' },
-  { key: 'vat.view', ar: 'عرض ضريبة القيمة المضافة', en: 'View VAT' }, { key: 'vat.edit', ar: 'إدارة بيانات الضريبة والفواتير', en: 'Manage VAT data and invoices' }, { key: 'vat.issue', ar: 'إصدار الفواتير الإلكترونية', en: 'Issue e-invoices' },
-  { key: 'organization.view', ar: 'عرض بيانات الجهة', en: 'View organization data' }, { key: 'organization.edit', ar: 'إدارة الكيانات ومراكز التكلفة', en: 'Manage entities and cost centers' },
-  { key: 'zakat.view', ar: 'عرض التقييمات المجمعة', en: 'View consolidated assessments' }, { key: 'zakat.edit', ar: 'إدارة التقييمات المجمعة', en: 'Manage consolidated assessments' },
+type PermissionOption = { key: string; ar: string; en: string; arHelp: string; enHelp: string };
+const permissionGroups: { key: string; ar: string; en: string; arDescription: string; enDescription: string; permissions: PermissionOption[] }[] = [
+  { key: 'liquidity', ar: 'إدارة السيولة', en: 'Liquidity', arDescription: 'الحسابات والتدفقات والتحويلات النقدية', enDescription: 'Accounts, cash flows, and transfers', permissions: [
+    { key: 'liquidity.view', ar: 'عرض البيانات', en: 'View data', arHelp: 'مشاهدة أرصدة وحركات السيولة.', enHelp: 'View cash balances and activity.' },
+    { key: 'liquidity.edit', ar: 'إدارة البيانات', en: 'Manage data', arHelp: 'إضافة البيانات وتعديلها وحذفها.', enHelp: 'Add, edit, and delete records.' },
+  ] },
+  { key: 'vat', ar: 'الضريبة والفوترة', en: 'VAT & invoicing', arDescription: 'بيانات ضريبة القيمة المضافة والفواتير', enDescription: 'VAT records and invoices', permissions: [
+    { key: 'vat.view', ar: 'عرض البيانات', en: 'View data', arHelp: 'مشاهدة الملفات والسجلات الضريبية.', enHelp: 'View tax profiles and records.' },
+    { key: 'vat.edit', ar: 'إدارة البيانات والفواتير', en: 'Manage records and invoices', arHelp: 'إنشاء وتعديل السجلات والفواتير المسودة.', enHelp: 'Create and edit records and draft invoices.' },
+    { key: 'vat.issue', ar: 'إصدار الفواتير الإلكترونية', en: 'Issue e-invoices', arHelp: 'اعتماد الفواتير الإلكترونية وإصدارها.', enHelp: 'Finalize and issue electronic invoices.' },
+  ] },
+  { key: 'organization', ar: 'بيانات الجهة', en: 'Organization', arDescription: 'الكيانات ومراكز التكلفة وأسعار الصرف', enDescription: 'Entities, cost centers, and exchange rates', permissions: [
+    { key: 'organization.view', ar: 'عرض البيانات', en: 'View data', arHelp: 'مشاهدة الهيكل وبيانات الجهة.', enHelp: 'View organization structure and data.' },
+    { key: 'organization.edit', ar: 'إدارة الكيانات ومراكز التكلفة', en: 'Manage entities and cost centers', arHelp: 'إضافة الكيانات ومراكز التكلفة وتعديلها.', enHelp: 'Add and edit entities and cost centers.' },
+  ] },
+  { key: 'zakat', ar: 'الزكاة المجمعة', en: 'Consolidated zakat', arDescription: 'التقييمات المعدة على مستوى الجهة', enDescription: 'Assessments prepared for the organization', permissions: [
+    { key: 'zakat.view', ar: 'عرض التقييمات', en: 'View assessments', arHelp: 'مشاهدة التقييمات المجمعة.', enHelp: 'View consolidated assessments.' },
+    { key: 'zakat.edit', ar: 'إدارة التقييمات', en: 'Manage assessments', arHelp: 'إنشاء التقييمات المجمعة وتعديلها.', enHelp: 'Create and edit consolidated assessments.' },
+  ] },
 ];
+const permissionOptions = permissionGroups.flatMap(group => group.permissions);
 const labels: Record<string, [string, string]> = {
   OWNER: ['مالك', 'Owner'], ADMIN: ['مسؤول', 'Admin'], ACCOUNTANT: ['محاسب', 'Accountant'],
   ADVISOR: ['مستشار', 'Advisor'], VIEWER: ['مشاهد', 'Viewer'], SHARIA_REVIEWER: ['مراجع شرعي', 'Sharia reviewer'],
@@ -67,6 +83,27 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   const rolePayload = (value: string) => value.startsWith('CUSTOM:') ? { role: 'CUSTOM', custom_role_id: value.slice(7) } : { role: value, custom_role_id: null };
   const roleLabel = (value: string, customRoleName?: string | null) => customRoleName || (value.startsWith('CUSTOM:') ? customRoles.find(item => item.id === value.slice(7))?.name : null) || labels[value]?.[ar ? 0 : 1] || value;
   const roleOptions = (builtins: string[]) => <>{builtins.map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}{customRoles.map(item => <option key={item.id} value={`CUSTOM:${item.id}`}>{item.name}</option>)}</>;
+  const changeRolePermission = (key: string, checked: boolean) => {
+    const prerequisites: Record<string, string[]> = {
+      'liquidity.edit': ['liquidity.view'],
+      'vat.edit': ['vat.view'],
+      'vat.issue': ['vat.edit', 'vat.view'],
+      'organization.edit': ['organization.view'],
+      'zakat.edit': ['zakat.view'],
+    };
+    const dependents: Record<string, string[]> = {
+      'liquidity.view': ['liquidity.edit'],
+      'vat.view': ['vat.edit', 'vat.issue'],
+      'vat.edit': ['vat.issue'],
+      'organization.view': ['organization.edit'],
+      'zakat.view': ['zakat.edit'],
+    };
+    setRolePermissions(current => {
+      if (checked) return [...new Set([...current, ...(prerequisites[key] ?? []), key])];
+      const removed = new Set([key, ...(dependents[key] ?? [])]);
+      return current.filter(permission => !removed.has(permission));
+    });
+  };
 
   const inviteMessage = ar
     ? `دعوة للانضمام إلى ${organization?.name ?? 'الجهة'} في زكاة فلو\nالبريد المدعو: ${inviteEmail}\nالدور: ${roleLabel(inviteRole)}\nسجّل الدخول بالبريد نفسه لقبول الدعوة (صالحة لمدة 7 أيام): ${inviteUrl}`
@@ -154,19 +191,42 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
       {!loading && !organizations.length && <p className="muted">{ar ? 'لا توجد جهات متاحة في حسابك.' : 'No organizations are available in your account.'}</p>}
     </section>
     {organization && <>
-      <section className="card" style={{ marginBottom: 20 }}><h2>{ar ? 'الأدوار المخصصة' : 'Custom roles'}</h2><p className="muted">{ar ? 'أنشئ دورًا وحدد صلاحياته على وحدات الجهة. إدارة المستخدمين والأدوار تبقى للمالك والمسؤول.' : 'Create a role and choose its permissions for organization modules. User and role administration stays with owners and admins.'}</p>
-        <form onSubmit={saveCustomRole} style={{ display: 'grid', gap: 12, marginBottom: 18 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
-            <label style={{ display: 'grid', gap: 6 }}><span>{ar ? 'اسم الدور' : 'Role name'}</span><input required minLength={2} maxLength={60} value={roleName} onChange={event => setRoleName(event.target.value)} style={{ padding: 10 }} /></label>
-            <label style={{ display: 'grid', gap: 6 }}><span>{ar ? 'الوصف' : 'Description'}</span><input maxLength={240} value={roleDescription} onChange={event => setRoleDescription(event.target.value)} style={{ padding: 10 }} /></label>
+      <section className="card" style={{ marginBottom: 20 }}>
+        <div className={styles.sectionHeading}>
+          <div><h2>{ar ? 'الأدوار المخصصة' : 'Custom roles'}</h2><p className="muted">{ar ? 'أنشئ أدوارًا تناسب فريقك، واختر ما يمكن لكل دور عرضه أو إدارته.' : 'Create roles for your team and choose what each role can view or manage.'}</p></div>
+          <span className={styles.roleCount}>{customRoles.length} {ar ? 'دور' : customRoles.length === 1 ? 'role' : 'roles'}</span>
+        </div>
+        <form onSubmit={saveCustomRole} className={styles.roleEditor}>
+          <div className={styles.editorTitle}>
+            <div><span className={styles.stepLabel}>{editingRoleId ? (ar ? 'تعديل' : 'EDIT') : (ar ? 'دور جديد' : 'NEW ROLE')}</span><h3>{editingRoleId ? (ar ? 'تعديل الدور' : 'Edit role') : (ar ? 'إنشاء دور جديد' : 'Create a role')}</h3></div>
+            {rolePermissions.length > 0 && <span className={styles.selectedCount}>{rolePermissions.length} {ar ? 'صلاحية محددة' : `permission${rolePermissions.length === 1 ? '' : 's'} selected`}</span>}
           </div>
-          <strong>{ar ? 'الصلاحيات' : 'Permissions'}</strong>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
-            {permissionOptions.map(item => <label key={item.key} style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={rolePermissions.includes(item.key)} onChange={event => setRolePermissions(current => event.target.checked ? [...current, item.key] : current.filter(key => key !== item.key))} />{ar ? item.ar : item.en}</label>)}
+          <div className={styles.roleFields}>
+            <label className={styles.fieldLabel}><span>{ar ? 'اسم الدور' : 'Role name'}</span><input required minLength={2} maxLength={60} value={roleName} onChange={event => setRoleName(event.target.value)} placeholder={ar ? 'مثال: مسؤول السيولة' : 'e.g. Cash manager'} /></label>
+            <label className={styles.fieldLabel}><span>{ar ? 'الوصف' : 'Description'} <small>{ar ? 'اختياري' : 'Optional'}</small></span><input maxLength={240} value={roleDescription} onChange={event => setRoleDescription(event.target.value)} placeholder={ar ? 'ما مسؤوليات هذا الدور؟' : 'What is this role responsible for?'} /></label>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}><button className="btn" type="submit" disabled={busy}>{editingRoleId ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'إنشاء الدور' : 'Create role')}</button>{editingRoleId && <button className="btn secondary" type="button" onClick={() => { setEditingRoleId(''); setRoleName(''); setRoleDescription(''); setRolePermissions([]); }}>{ar ? 'إلغاء' : 'Cancel'}</button>}</div>
+          <div className={styles.permissionHeader}><div><h4>{ar ? 'صلاحيات الدور' : 'Role permissions'}</h4><p className="muted">{ar ? 'اختر صلاحيات العرض والإدارة لكل وحدة.' : 'Choose view and management access for each module.'}</p></div><span>{ar ? 'تُضاف صلاحية العرض تلقائيًا عند اختيار الإدارة' : 'View access is included with management access'}</span></div>
+          <div className={styles.permissionGrid}>
+            {permissionGroups.map(group => <section className={styles.permissionGroup} key={group.key} aria-labelledby={`permission-group-${group.key}`}>
+              <div className={styles.groupHeading}><div><h5 id={`permission-group-${group.key}`}>{ar ? group.ar : group.en}</h5><p>{ar ? group.arDescription : group.enDescription}</p></div><span>{group.permissions.filter(item => rolePermissions.includes(item.key)).length}/{group.permissions.length}</span></div>
+              <div className={styles.permissionList}>{group.permissions.map(item => <label className={`${styles.permissionOption} ${rolePermissions.includes(item.key) ? styles.permissionSelected : ''}`} key={item.key}>
+                <input type="checkbox" checked={rolePermissions.includes(item.key)} onChange={event => changeRolePermission(item.key, event.target.checked)} />
+                <span className={styles.permissionText}><strong>{ar ? item.ar : item.en}</strong><small>{ar ? item.arHelp : item.enHelp}</small></span>
+              </label>)}</div>
+            </section>)}
+          </div>
+          <div className={styles.editorActions}>
+            <button className="btn" type="submit" disabled={busy || roleName.trim().length < 2}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : editingRoleId ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'إنشاء الدور' : 'Create role')}</button>
+            {editingRoleId && <button className="btn secondary" type="button" disabled={busy} onClick={() => { setEditingRoleId(''); setRoleName(''); setRoleDescription(''); setRolePermissions([]); }}>{ar ? 'إلغاء التعديل' : 'Cancel editing'}</button>}
+          </div>
         </form>
-        {customRoles.length ? <div style={{ display: 'grid', gap: 8 }}>{customRoles.map(item => <div key={item.id} style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><strong>{item.name}</strong><div className="muted">{item.description || (ar ? 'بلا وصف' : 'No description')} · {item.permissions.length} {ar ? 'صلاحية' : 'permissions'} · {item.member_count} {ar ? 'عضو' : 'members'}</div></div><div style={{ display: 'flex', gap: 8 }}><button className="btn secondary" type="button" disabled={busy} onClick={() => { setEditingRoleId(item.id); setRoleName(item.name); setRoleDescription(item.description); setRolePermissions(item.permissions); }}>{ar ? 'تعديل' : 'Edit'}</button><button className="btn secondary" type="button" disabled={busy} onClick={() => void deleteCustomRole(item.id)}>{ar ? 'حذف' : 'Delete'}</button></div></div>)}</div> : <p className="muted">{ar ? 'لم تُنشأ أدوار مخصصة بعد.' : 'No custom roles yet.'}</p>}
+        <div className={styles.rolesListHeading}><h3>{ar ? 'الأدوار المنشأة' : 'Created roles'}</h3><span>{customRoles.length}</span></div>
+        {customRoles.length ? <div className={styles.rolesGrid}>{customRoles.map(item => <article className={styles.roleCard} key={item.id}>
+          <div className={styles.roleCardHeader}><div className={styles.roleMark} aria-hidden="true">{item.name.trim().slice(0, 1).toLocaleUpperCase()}</div><div className={styles.roleCardTitle}><h4>{item.name}</h4><p>{item.description || (ar ? 'لا يوجد وصف' : 'No description')}</p></div></div>
+          <div className={styles.roleMeta}><span>{item.member_count} {ar ? 'عضو' : item.member_count === 1 ? 'member' : 'members'}</span><span>{item.permissions.length} {ar ? 'صلاحية' : 'permissions'}</span></div>
+          <div className={styles.permissionChips}>{item.permissions.length ? item.permissions.map(key => <span key={key}>{permissionOptions.find(permission => permission.key === key)?.[ar ? 'ar' : 'en'] ?? key}</span>) : <span>{ar ? 'بلا صلاحيات محددة' : 'No permissions selected'}</span>}</div>
+          <div className={styles.roleCardActions}><button className="btn secondary" type="button" disabled={busy} onClick={() => { setEditingRoleId(item.id); setRoleName(item.name); setRoleDescription(item.description); setRolePermissions(item.permissions); }}>{ar ? 'تعديل' : 'Edit'}</button><button className="btn danger" type="button" disabled={busy} onClick={() => void deleteCustomRole(item.id)}>{ar ? 'حذف' : 'Delete'}</button></div>
+        </article>)}</div> : <div className={styles.emptyRoles}><span aria-hidden="true">＋</span><div><strong>{ar ? 'لا توجد أدوار مخصصة بعد' : 'No custom roles yet'}</strong><p>{ar ? 'أنشئ أول دور، ثم اسنده إلى عضو أو دعوة.' : 'Create the first role, then assign it to a member or invitation.'}</p></div></div>}
       </section>
       <section className="card" style={{ marginBottom: 20 }}><h2>{ar ? 'دعوة مستخدم' : 'Invite a user'}</h2><p className="muted">{ar ? 'يُنشأ رابط دعوة صالح لمدة سبعة أيام. على المدعو تسجيل الدخول بالبريد نفسه لقبولها.' : 'The invite link is valid for seven days. The invitee must sign in with the same email to accept it.'}</p>
         <form onSubmit={createInvite} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(150px, 1fr) auto', gap: 10, alignItems: 'end' }}>

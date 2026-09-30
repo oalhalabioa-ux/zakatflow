@@ -1,0 +1,386 @@
+.sectionHeading,
+.editorTitle,
+.permissionHeader,
+.groupHeading,
+.roleCardHeader,
+.roleMeta,
+.editorActions,
+.roleCardActions,
+.emptyRoles {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sectionHeading {
+  margin-bottom: 18px;
+}
+
+.sectionHeading h2,
+.editorTitle h3,
+.permissionHeader h4,
+.rolesListHeading h3,
+.roleCard h4 {
+  margin: 0;
+}
+
+.sectionHeading p,
+.permissionHeader p,
+.groupHeading p,
+.roleCardTitle p,
+.emptyRoles p {
+  margin: 5px 0 0;
+}
+
+.roleCount,
+.selectedCount,
+.groupHeading > span,
+.roleMeta > span,
+.rolesListHeading > span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--accent2);
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.roleEditor {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fbfefd 0%, #f4f9f7 100%);
+}
+
+.editorTitle {
+  align-items: flex-start;
+}
+
+.editorTitle h3 {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.stepLabel {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: var(--accent2);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.roleFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fieldLabel {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fieldLabel small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.fieldLabel input {
+  margin: 0;
+  min-height: 44px;
+  border-color: var(--line);
+  background: #fff;
+}
+
+.permissionHeader {
+  align-items: flex-end;
+  padding-top: 2px;
+}
+
+.permissionHeader h4 {
+  font-size: 15px;
+}
+
+.permissionHeader > span {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: end;
+}
+
+.permissionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.permissionGroup {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--card);
+}
+
+.groupHeading {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.groupHeading h5 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.groupHeading p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.groupHeading > span {
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+.permissionList {
+  display: grid;
+  gap: 7px;
+}
+
+.permissionOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: #f7faf9;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.permissionOption:hover {
+  border-color: #b7d8d1;
+  background: #f2f9f7;
+}
+
+.permissionOption:focus-within {
+  outline: 3px solid #0b766e25;
+  outline-offset: 1px;
+}
+
+.permissionOption input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.permissionSelected {
+  border-color: #a7d3ca;
+  background: var(--soft);
+}
+
+.permissionText {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.permissionText strong {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.permissionText small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.editorActions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.editorActions button {
+  min-height: 42px;
+}
+
+.rolesListHeading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 22px 0 12px;
+}
+
+.rolesListHeading h3 {
+  font-size: 15px;
+}
+
+.rolesListHeading > span {
+  min-width: 26px;
+  padding: 3px 8px;
+  text-align: center;
+}
+
+.rolesGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.roleCard {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--card);
+}
+
+.roleCardHeader {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.roleMark {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--soft);
+  color: var(--accent2);
+  font-weight: 850;
+}
+
+.roleCardTitle {
+  min-width: 0;
+}
+
+.roleCardTitle h4 {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.roleCardTitle p {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.roleMeta {
+  justify-content: flex-start;
+  margin: 13px 0 10px;
+}
+
+.roleMeta > span {
+  padding: 4px 9px;
+  background: #f7faf9;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.permissionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 28px;
+}
+
+.permissionChips span {
+  max-width: 100%;
+  border-radius: 6px;
+  background: #f2f5f4;
+  color: #566560;
+  padding: 4px 7px;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.roleCardActions {
+  justify-content: flex-start;
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+
+.roleCardActions .btn {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.emptyRoles {
+  justify-content: flex-start;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: #fbfdfc;
+}
+
+.emptyRoles > span {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--accent2);
+  font-size: 20px;
+}
+
+.emptyRoles strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.emptyRoles p {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .permissionGrid,
+  .rolesGrid,
+  .roleFields {
+    grid-template-columns: 1fr;
+  }
+
+  .roleEditor {
+    padding: 14px;
+  }
+
+  .sectionHeading,
+  .permissionHeader {
+    align-items: flex-start;
+  }
+
+  .permissionHeader {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .permissionHeader > span {
+    text-align: start;
+  }
+}
