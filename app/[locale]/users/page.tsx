@@ -18,7 +18,8 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   const [organizationId, setOrganizationId] = useState('');
   const [members, setMembers] = useState<Member[]>([]); const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [email, setEmail] = useState(''); const [role, setRole] = useState('ACCOUNTANT');
-  const [inviteUrl, setInviteUrl] = useState(''); const [notice, setNotice] = useState('');
+  const [inviteUrl, setInviteUrl] = useState(''); const [inviteEmail, setInviteEmail] = useState(''); const [inviteRole, setInviteRole] = useState('ACCOUNTANT');
+  const [canShare, setCanShare] = useState(false); const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
   const organization = useMemo(() => organizations.find(item => item.id === organizationId), [organizations, organizationId]);
 
@@ -47,6 +48,12 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
 
   useEffect(() => { void loadOrganizations(); }, [loadOrganizations]);
   useEffect(() => { void loadUsers(organizationId); }, [loadUsers, organizationId]);
+  useEffect(() => { setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function'); }, []);
+
+  const inviteMessage = ar
+    ? `دعوة للانضمام إلى ${organization?.name ?? 'الجهة'} في زكاة فلو\nالبريد المدعو: ${inviteEmail}\nالدور: ${labels[inviteRole]?.[0] ?? inviteRole}\nسجّل الدخول بالبريد نفسه لقبول الدعوة (صالحة لمدة 7 أيام): ${inviteUrl}`
+    : `You are invited to join ${organization?.name ?? 'the organization'} on ZakatFlow.\nInvited email: ${inviteEmail}\nRole: ${labels[inviteRole]?.[1] ?? inviteRole}\nSign in using the same email to accept (valid for 7 days): ${inviteUrl}`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(inviteMessage)}`;
 
   async function createInvite(event: React.FormEvent) {
     event.preventDefault(); if (!organizationId) return; setBusy(true); setNotice(''); setInviteUrl('');
@@ -54,10 +61,28 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
       const response = await fetch('/api/organizations/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, email, role, locale }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
-      setInviteUrl(body.invite_url); setEmail(''); setNotice(ar ? 'أنشئت الدعوة. انسخ الرابط وأرسله للمدعو.' : 'Invitation created. Copy the link and send it to the invitee.');
+      setInviteUrl(body.invite_url); setInviteEmail(email.trim()); setInviteRole(role); setEmail(''); setNotice(ar ? 'أنشئت الدعوة. اختر طريقة المشاركة المناسبة.' : 'Invitation created. Choose how to share it.');
       await loadUsers(organizationId);
     } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
     finally { setBusy(false); }
+  }
+
+  async function copyInviteLink() {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setNotice(ar ? 'تم نسخ رابط الدعوة.' : 'Invite link copied.');
+    } catch {
+      setNotice(ar ? 'تعذر النسخ تلقائيًا. حدّد الرابط وانسخه يدويًا.' : 'Could not copy automatically. Select and copy the link manually.');
+    }
+  }
+
+  async function shareInvite() {
+    if (!navigator.share) return;
+    try {
+      await navigator.share({ title: ar ? 'دعوة زكاة فلو' : 'ZakatFlow invitation', text: inviteMessage, url: inviteUrl });
+    } catch (error) {
+      if (error instanceof Error && error.name !== 'AbortError') setNotice(ar ? 'تعذرت المشاركة من الجهاز.' : 'Device sharing failed.');
+    }
   }
 
   async function updateMember(member: Member, nextRole: string, nextStatus: string) {
@@ -85,7 +110,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
     <header style={{ marginBottom: 24 }}><span className="pill">{ar ? 'إدارة الوصول' : 'ACCESS MANAGEMENT'}</span><h1>{ar ? 'المستخدمون والصلاحيات' : 'Users & permissions'}</h1><p className="muted">{ar ? 'اربط حسابات الدخول بالجهات، وأدر أدوار الأعضاء والدعوات.' : 'Link sign-in accounts to organizations, and manage member roles and invitations.'}</p></header>
     {notice && <div className="card" role="status" style={{ marginBottom: 16 }}>{notice}</div>}
     <section className="card" style={{ marginBottom: 20 }}>
-      <label style={{ display: 'grid', gap: 8, maxWidth: 540 }}><strong>{ar ? 'الجهة' : 'Organization'}</strong><select value={organizationId} onChange={event => { setOrganizationId(event.target.value); setInviteUrl(''); }} disabled={loading || !organizations.length} style={{ padding: 12 }}>
+      <label style={{ display: 'grid', gap: 8, maxWidth: 540 }}><strong>{ar ? 'الجهة' : 'Organization'}</strong><select value={organizationId} onChange={event => { setOrganizationId(event.target.value); setInviteUrl(''); setInviteEmail(''); }} disabled={loading || !organizations.length} style={{ padding: 12 }}>
         {organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
       {!loading && !organizations.length && <p className="muted">{ar ? 'لا توجد جهات متاحة في حسابك.' : 'No organizations are available in your account.'}</p>}
@@ -97,7 +122,11 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
           <label style={{ display: 'grid', gap: 6 }}><span>{ar ? 'الدور' : 'Role'}</span><select value={role} onChange={event => setRole(event.target.value)} style={{ padding: 11 }}>{invitationRoles.map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}</select></label>
           <button className="btn" type="submit" disabled={busy}>{ar ? 'إنشاء الدعوة' : 'Create invite'}</button>
         </form>
-        {inviteUrl && <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}><input readOnly value={inviteUrl} aria-label={ar ? 'رابط الدعوة' : 'Invite link'} style={{ flex: 1, minWidth: 240, padding: 10 }} /><button className="btn secondary" type="button" onClick={() => void navigator.clipboard.writeText(inviteUrl).then(() => setNotice(ar ? 'تم نسخ رابط الدعوة.' : 'Invite link copied.'))}>{ar ? 'نسخ الرابط' : 'Copy link'}</button></div>}
+        {inviteUrl && <><div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          <a className="btn" href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ background: '#25D366', color: '#102116' }}>{ar ? 'مشاركة عبر واتساب' : 'Share via WhatsApp'}</a>
+          {canShare && <button className="btn secondary" type="button" onClick={() => void shareInvite()}>{ar ? 'مشاركة…' : 'Share…'}</button>}
+          <button className="btn secondary" type="button" onClick={() => void copyInviteLink()}>{ar ? 'نسخ الرابط' : 'Copy link'}</button>
+        </div><input readOnly value={inviteUrl} aria-label={ar ? 'رابط الدعوة' : 'Invite link'} style={{ width: '100%', marginTop: 10, padding: 10 }} /></>}
       </section>
       <section className="card" style={{ marginBottom: 20, overflowX: 'auto' }}><h2>{ar ? 'أعضاء الجهة' : 'Organization members'}</h2>
         <table className="table"><thead><tr><th>{ar ? 'المستخدم' : 'User'}</th><th>{ar ? 'الدور' : 'Role'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th>{ar ? 'إجراءات' : 'Actions'}</th></tr></thead><tbody>
