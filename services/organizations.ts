@@ -151,17 +151,3 @@ export async function updateCostCenter(id:string,input:{name:string;center_type?
  if(error)throw error;
  return data as OrganizationCostCenter;
 }
-
-export async function createInvitation(orgId:string,email:string,role:string){
- const {supabase}=await requireUser();
- const {data,error}=await supabase.from('organization_invitations').insert({organization_id:orgId,email,role}).select().single();
- if(error)throw error;
- return data;
-}
-
-export async function listInvitations(orgId:string){
- const {supabase}=await requireUser();
- const {data,error}=await supabase.from('organization_invitations').select('*').eq('organization_id',orgId).order('created_at',{ascending:false});
- if(error)throw error;
- return data??[];
-}
