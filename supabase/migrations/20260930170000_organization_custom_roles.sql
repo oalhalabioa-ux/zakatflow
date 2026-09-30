@@ -175,7 +175,7 @@ begin
   if auth.uid() is null then raise exception 'UNAUTHORIZED'; end if;
   select m.role into v_actor_role from public.organization_members m
     where m.organization_id=p_organization_id and m.user_id=auth.uid() and m.status='ACTIVE';
-  if v_actor_role not in ('OWNER','ADMIN') then raise exception 'ORGANIZATION_ADMIN_REQUIRED'; end if;
+  if v_actor_role is null or v_actor_role not in ('OWNER','ADMIN') then raise exception 'ORGANIZATION_ADMIN_REQUIRED'; end if;
   if p_custom_role_id is not null then
     select r.name into v_role_name from public.organization_roles r
       where r.id=p_custom_role_id and r.organization_id=p_organization_id;
@@ -238,7 +238,7 @@ begin
   if auth.uid() is null then raise exception 'UNAUTHORIZED'; end if;
   select m.role into v_actor_role from public.organization_members m
     where m.organization_id=p_organization_id and m.user_id=auth.uid() and m.status='ACTIVE';
-  if v_actor_role not in ('OWNER','ADMIN') then raise exception 'ORGANIZATION_ADMIN_REQUIRED'; end if;
+  if v_actor_role is null or v_actor_role not in ('OWNER','ADMIN') then raise exception 'ORGANIZATION_ADMIN_REQUIRED'; end if;
   if p_custom_role_id is not null then
     if not exists(select 1 from public.organization_roles r where r.id=p_custom_role_id and r.organization_id=p_organization_id) then raise exception 'ROLE_NOT_FOUND'; end if;
     v_next_role := 'CUSTOM';
