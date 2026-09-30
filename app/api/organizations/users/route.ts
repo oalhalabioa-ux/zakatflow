@@ -31,8 +31,9 @@ export async function POST(request: Request) {
     const organizationId = String(body.organization_id ?? '');
     const email = String(body.email ?? '').trim().toLowerCase();
     const role = String(body.role ?? '');
+    const customRoleId = typeof body.custom_role_id === 'string' ? body.custom_role_id : null;
     const locale = body.locale === 'en' ? 'en' : 'ar';
-    if (!organizationId || !email || !roles.has(role)) {
+    if (!organizationId || !email || (!roles.has(role) && !(role === 'CUSTOM' && customRoleId))) {
       return NextResponse.json({ error: 'INVITATION_DETAILS_INVALID' }, { status: 400 });
     }
     const { supabase } = await requireUser();
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
       p_organization_id: organizationId,
       p_email: email,
       p_role: role,
+      p_custom_role_id: customRoleId,
     });
     if (error) throw error;
     const invitation = data?.[0];
@@ -59,7 +61,8 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { organization_id: organizationId, user_id: userId, role, status } = body;
-    if (!organizationId || !userId || !['OWNER','ADMIN','ACCOUNTANT','ADVISOR','VIEWER','SHARIA_REVIEWER'].includes(role) || !['ACTIVE','INACTIVE'].includes(status)) {
+    const customRoleId = typeof body.custom_role_id === 'string' ? body.custom_role_id : null;
+    if (!organizationId || !userId || (!['OWNER','ADMIN','ACCOUNTANT','ADVISOR','VIEWER','SHARIA_REVIEWER'].includes(role) && !(role === 'CUSTOM' && customRoleId)) || !['ACTIVE','INACTIVE'].includes(status)) {
       return NextResponse.json({ error: 'MEMBER_DETAILS_INVALID' }, { status: 400 });
     }
     const { supabase } = await requireUser();
@@ -68,6 +71,7 @@ export async function PATCH(request: Request) {
       p_user_id: userId,
       p_role: role,
       p_status: status,
+      p_custom_role_id: customRoleId,
     });
     if (error) throw error;
     return NextResponse.json({ ok: true });
