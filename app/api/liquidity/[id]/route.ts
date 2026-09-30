@@ -13,9 +13,9 @@ const schema=z.object({
 }).refine(v=>Object.keys(v).length>0);
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){try{
  const{id}=await params;const{supabase,user}=await requireUser();const body=schema.parse(await request.json());
- const{data:record,error:lookupError}=await supabase.from('liquidity_flows').select('id,organization_id,transfer_id,direction').eq('id',id).maybeSingle();
+ const{data:record,error:lookupError}=await supabase.from('liquidity_flows').select('id,organization_id,transfer_id,intercompany_transfer_id,direction').eq('id',id).maybeSingle();
  if(lookupError)throw lookupError;if(!record)return NextResponse.json({error:'LIQUIDITY_RECORD_NOT_FOUND'},{status:404});
- if(record.transfer_id)return NextResponse.json({error:'TRANSFER_LEGS_CANNOT_BE_EDITED_HERE'},{status:409});
+ if(record.transfer_id||record.intercompany_transfer_id)return NextResponse.json({error:'TRANSFER_LEGS_CANNOT_BE_EDITED_HERE'},{status:409});
  await requireOrganizationMember(supabase,user.id,record.organization_id);
  if(!await canWrite(supabase,user.id,record.organization_id))return NextResponse.json({error:'ORGANIZATION_ADMIN_REQUIRED'},{status:403});
  for(const [field,table] of [['account_id','liquidity_accounts'],['entity_id','organization_entities'],['counterparty_id','liquidity_counterparties']] as const){
@@ -31,16 +31,23 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { id } = await params;
     const { supabase, user } = await requireUser();
     const { data: account } = await supabase.from('liquidity_accounts').select('id,organization_id').eq('id', id).maybeSingle();
-    const { data: flow } = account ? { data: null } : await supabase.from('liquidity_flows').select('id,organization_id,transfer_id').eq('id', id).maybeSingle();
+    const { data: flow } = account ? { data: null } : await supabase.from('liquidity_flows').select('id,organization_id,transfer_id,intercompany_transfer_id').eq('id', id).maybeSingle();
     const record = account ?? flow;
     if (!record) return NextResponse.json({ error: 'LIQUIDITY_RECORD_NOT_FOUND' }, { status: 404 });
     await requireOrganizationMember(supabase, user.id, record.organization_id);
     if (!await canWrite(supabase,user.id,record.organization_id)) return NextResponse.json({ error: 'ORGANIZATION_ADMIN_REQUIRED' }, { status: 403 });
-    const result = account
-      ? await supabase.from('liquidity_accounts').delete().eq('id', id)
-      : flow?.transfer_id
-        ? await supabase.rpc('delete_liquidity_transfer', { p_transfer_id: flow.transfer_id })
-        : await supabase.from('liquidity_flows').delete().eq('id', id);
+    let result;
+    if (account) result = await supabase.from('liquidity_accounts').delete().eq('id', id);
+    else if (flow?.transfer_id) result = await supabase.rpc('delete_liquidity_transfer', { p_transfer_id: flow.transfer_id });
+    else if (flow?.intercompany_transfer_id) {
+      const { data: transfer, error: transferError } = await supabase.from('liquidity_intercompany_transfers').select('id,holding_organization_id,source_organization_id,destination_organization_id').eq('id', flow.intercompany_transfer_id).single();
+      if (transferError) throw transferError;
+      for (const organizationId of [transfer.holding_organization_id,transfer.source_organization_id,transfer.destination_organization_id]) {
+        await requireOrganizationMember(supabase,user.id,organizationId);
+        if (!await canWrite(supabase,user.id,organizationId)) return NextResponse.json({error:'ORGANIZATION_ADMIN_REQUIRED'},{status:403});
+      }
+      result = await supabase.rpc('delete_liquidity_intercompany_transfer', { p_transfer_id: flow.intercompany_transfer_id });
+    } else result = await supabase.from('liquidity_flows').delete().eq('id', id);
     if (result.error) throw result.error;
     return NextResponse.json({ ok: true });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_DELETE_FAILED' }, { status: error instanceof Error && error.message === 'UNAUTHORIZED' ? 401 : 400 }); }
