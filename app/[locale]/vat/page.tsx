@@ -695,20 +695,40 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                 <span className={`vat-config-plus ${periodDetailsOpen ? 'is-open' : ''}`} aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg></span>
               </button>
               <div id="vat-period-details" className="vat-config-details vat-period-details" hidden={!periodDetailsOpen}>
-                <p className="vat-period-help">{ar ? 'اختر شهرًا من الفترة وحدد نطاق بيانات لوحة الإدارة.' : 'Choose a month in the period and set the dashboard reporting scope.'}</p>
+                <p className="vat-period-help">{ar ? 'اختر شهرًا لعرض مستنداته وإجمالياته ضمن الفترة الضريبية.' : 'Choose a month to view its documents and totals within this tax period.'}</p>
                 <div className="vat-period-controls vat-period-config-controls">
                   <label className="vat-period-select vat-filter-field">
                     <span className="vat-filter-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17"/></svg>{ar ? 'الشهر ضمن الفترة' : 'Month in period'}</span>
                     <input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} />
                   </label>
-                  {activeTab === 'dashboard' && hasBranches && <label className="vat-period-select vat-report-scope vat-filter-field">
-                    <span className="vat-filter-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="7" rx="1.5"/><path d="M6 11v8M18 11v8M3.5 19h17M8 7.5h.01M12 7.5h.01M16 7.5h.01M8 15h.01M12 15h.01M16 15h.01"/></svg>{ar ? 'نطاق التقرير' : 'Report scope'}</span>
-                    <select title={ar ? 'يؤثر هذا الاختيار على لوحة الإدارة فقط.' : 'This setting applies to the management dashboard only.'} value={reportScope} onChange={(event) => setReportScope(event.target.value as 'COMPANY' | 'GROUP')}><option value="COMPANY">{ar ? 'الشركة الحالية' : 'Selected company'}</option><option value="GROUP">{ar ? `الشركة وفروعها (${branchOrganizationIds.length})` : `Company and branches (${branchOrganizationIds.length})`}</option></select>
-                  </label>}
                 </div>
               </div>
             </section>
           </div>
+
+          {activeTab === 'dashboard' && hasBranches && <section className={`vat-report-scope-bar ${reportScope === 'GROUP' ? 'is-group' : ''}`} aria-labelledby="vat-report-scope-title">
+            <div className="vat-report-scope-copy">
+              <span className="vat-report-scope-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="4" width="17" height="7" rx="1.5"/><path d="M6 11v8M18 11v8M3.5 19h17M8 7.5h.01M12 7.5h.01M16 7.5h.01M8 15h.01M12 15h.01M16 15h.01"/></svg></span>
+              <div>
+                <span className="vat-eyebrow">{ar ? 'نطاق التقرير' : 'REPORT SCOPE'}</span>
+                <h2 id="vat-report-scope-title">{ar ? 'عرض بيانات الضرائب' : 'Tax reporting scope'}</h2>
+                <p>{ar ? 'حدّد مستوى تجميع المؤشرات المعروضة في لوحة الإدارة.' : 'Choose how tax figures are grouped on the management dashboard.'}</p>
+              </div>
+            </div>
+            <div className="vat-report-scope-actions">
+              <div className="vat-report-scope-toggle" role="group" aria-label={ar ? 'نطاق التقرير' : 'Report scope'}>
+                <button type="button" className={`vat-report-scope-option ${reportScope === 'COMPANY' ? 'active' : ''}`} aria-pressed={reportScope === 'COMPANY'} onClick={() => setReportScope('COMPANY')}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h16M6.5 20V5.5A1.5 1.5 0 0 1 8 4h8a1.5 1.5 0 0 1 1.5 1.5V20M9 8h.01M12 8h.01M15 8h.01M9 11.5h.01M12 11.5h.01M15 11.5h.01M10 20v-4h4v4"/></svg>
+                  <span><strong>{ar ? 'الشركة' : 'Company'}</strong><small>{ar ? 'الجهة المحددة' : 'Selected entity'}</small></span>
+                </button>
+                <button type="button" className={`vat-report-scope-option ${reportScope === 'GROUP' ? 'active' : ''}`} aria-pressed={reportScope === 'GROUP'} onClick={() => setReportScope('GROUP')}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3.5" width="8" height="5.5" rx="1.5"/><rect x="3" y="15" width="7" height="5.5" rx="1.5"/><rect x="14" y="15" width="7" height="5.5" rx="1.5"/><path d="M12 9v3.5M6.5 15v-2.5h11V15"/></svg>
+                  <span><strong>{ar ? 'الشركة وفروعها' : 'Company and branches'}</strong><small>{ar ? `${reportOrganizationIds.length} جهات ضمن التقرير` : `${reportOrganizationIds.length} entities in report`}</small></span>
+                </button>
+              </div>
+              <small className="vat-report-scope-footnote">{ar ? 'يؤثر الاختيار على مؤشرات لوحة الإدارة فقط.' : 'This setting affects management dashboard figures only.'}</small>
+            </div>
+          </section>}
 
           <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
             <button id="vat-tab-dashboard" type="button" role="tab" aria-selected={activeTab === 'dashboard'} tabIndex={activeTab === 'dashboard' ? 0 : -1} aria-controls="vat-panel-dashboard" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>
