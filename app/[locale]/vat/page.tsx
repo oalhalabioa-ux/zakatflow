@@ -166,6 +166,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [reportFrequency, setReportFrequency] = useState<VatFilingFrequency>('QUARTERLY');
   const [reportFrequencyTouched, setReportFrequencyTouched] = useState(false);
   const [profile, setProfile] = useState<VatProfile | null>(null);
+  const [profileLoadState, setProfileLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [profileDraft, setProfileDraft] = useState<VatProfileDraft>(emptyProfile);
   const [documents, setDocuments] = useState<VatDocument[]>([]);
   const [period, setPeriod] = useState(() => getVatPeriod(currentMonth(), 'QUARTERLY'));
@@ -441,6 +442,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         setPeriodTotals(body.periodTotals);
         setAnnualTotals(body.annualTotals);
         setBranchVatData(branches);
+        setProfileLoadState('ready');
         setProfileDraft(body.profile ? {
           tax_registration_number: body.profile.tax_registration_number ?? '',
           registration_status: body.profile.registration_status,
@@ -459,6 +461,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
       })
       .catch((error) => {
         if (!active) return;
+        setProfileLoadState('error');
         if (reportScope === 'GROUP') setReportScope('COMPANY');
         setNotice({ kind: 'error', text: reportScope === 'GROUP'
           ? (ar ? 'تعذر تحميل بيانات جميع الفروع؛ أُعيد التقرير إلى مستوى الشركة.' : 'Could not load every branch; the report has been reset to company level.')
@@ -681,8 +684,19 @@ export default function VatManagement({ params, searchParams }: { params: Promis
       ) : (
         <>
           <div className={`vat-settings-grid ${profileOpen || !profile ? 'is-editing' : ''}`}>
-            <section id="vat-registration-profile" className={`vat-panel vat-registration vat-config-panel ${profile && !profileOpen ? 'has-summary' : ''}`}>
-              {profile && !profileOpen ? (
+            <section id="vat-registration-profile" className={`vat-panel vat-registration vat-config-panel ${profile && !profileOpen ? 'has-summary' : ''} ${!profile && profileLoadState === 'loading' ? 'is-loading' : ''} ${!profile && profileLoadState === 'error' ? 'is-load-error' : ''}`}>
+              {!profile && profileLoadState === 'loading' ? (
+                <div className="vat-registration-loading" role="status" aria-live="polite">
+                  <span className="vat-registration-loading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2v-12.5a2 2 0 0 1 2-2Z"/><path d="M14 4v4h4M8.5 12h7M8.5 15.5h7"/></svg></span>
+                  <span><strong>{ar ? 'ملف التسجيل' : 'Registration file'}</strong><small>{ar ? 'جارٍ تحميل بيانات المنشأة…' : 'Loading organization details…'}</small></span>
+                  <i aria-hidden="true" />
+                </div>
+              ) : !profile && profileLoadState === 'error' ? (
+                <div className="vat-registration-load-error" role="alert">
+                  <div><strong>{ar ? 'تعذر تحميل ملف التسجيل' : 'Could not load the registration file'}</strong><small>{ar ? 'أعد المحاولة لعرض بيانات المنشأة قبل تعديلها.' : 'Retry to load the organization details before editing.'}</small></div>
+                  <button type="button" className="vat-button secondary" onClick={() => { setProfileLoadState('loading'); setInvoiceRefresh((revision) => revision + 1); }}>{ar ? 'إعادة المحاولة' : 'Retry'}</button>
+                </div>
+              ) : profile && !profileOpen ? (
                 <div className={`vat-config-summary ${profileDetailsOpen ? 'is-open' : ''}`}>
                   <button type="button" className="vat-config-summary-trigger" aria-expanded={profileDetailsOpen} aria-label={profileDetailsOpen ? (ar ? 'إخفاء تفاصيل التسجيل' : 'Hide registration details') : (ar ? 'عرض تفاصيل التسجيل' : 'Show registration details')} aria-controls="vat-registration-details" onClick={() => setProfileDetailsOpen((open) => !open)}>
                     <span className="vat-config-icon registration" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2v-12.5a2 2 0 0 1 2-2Z"/><path d="M14 4v4h4M8.5 12h7M8.5 15.5h7"/></svg></span>
@@ -706,13 +720,18 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                       <p>{selectedOrganization ? organizationDisplayName(selectedOrganization.name, ar) : ''}</p>
                     </div>
                   </div>
-                  <form className="vat-form-grid" onSubmit={saveProfile}>
-                <label><span>{ar ? 'حالة التسجيل' : 'Registration status'}</span><select value={profileDraft.registration_status} onChange={(event) => setProfileDraft({ ...profileDraft, registration_status: event.target.value as VatProfileDraft['registration_status'] })}><option value="NOT_REGISTERED">{ar ? 'غير مسجل' : 'Not registered'}</option><option value="REGISTERED">{ar ? 'مسجل' : 'Registered'}</option><option value="PENDING">{ar ? 'طلب قيد الإجراء' : 'Pending'}</option><option value="DEREGISTERED">{ar ? 'ملغى التسجيل' : 'Deregistered'}</option></select></label>
-                <label><span>{ar ? 'رقم التسجيل الضريبي' : 'VAT registration number'}</span><input value={profileDraft.tax_registration_number} maxLength={15} inputMode="numeric" pattern="3[0-9]{13}3" onChange={(event) => setProfileDraft({ ...profileDraft, tax_registration_number: event.target.value })} required={profileDraft.registration_status === 'REGISTERED'} placeholder={ar ? '15 رقمًا، يبدأ وينتهي بالرقم 3' : '15 digits, starting and ending with 3'} /><small className="vat-field-hint">{ar ? 'يمكنك تصحيح الرقم من هنا؛ ثم يتحدث تلقائيًا في إعداد وحدة الفوترة قبل إرسالها إلى زاتكا.' : 'Correct the number here; it will update in the invoice unit setup before submission to ZATCA.'}</small></label>
-                <label><span>{ar ? 'تاريخ التسجيل' : 'Registration date'}</span><input type="date" value={profileDraft.registration_date} onChange={(event) => setProfileDraft({ ...profileDraft, registration_date: event.target.value })} /></label>
-                <label><span>{ar ? 'دورية الإقرار' : 'Filing frequency'}</span><select value={profileDraft.filing_frequency} onChange={(event) => setProfileDraft({ ...profileDraft, filing_frequency: event.target.value as VatFilingFrequency })}><option value="MONTHLY">{ar ? 'شهري' : 'Monthly'}</option><option value="QUARTERLY">{ar ? 'ربع سنوي' : 'Quarterly'}</option></select></label>
-                <label><span>{ar ? 'النسبة الأساسية' : 'Standard VAT rate'}</span><input type="text" value="15%" readOnly aria-readonly="true" /><small className="vat-field-hint">{ar ? 'النسبة الأساسية المعتمدة حاليًا في السعودية' : 'Current Saudi standard rate'}</small></label>
-                <label><span>{ar ? 'شهر بداية السنة الضريبية' : 'Tax year start month'}</span><select value={profileDraft.period_start_month} onChange={(event) => setProfileDraft({ ...profileDraft, period_start_month: event.target.value })}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{monthLabel(index + 1, ar)}</option>)}</select></label>
+                  <form className="vat-form-grid vat-profile-form" onSubmit={saveProfile}>
+                <fieldset className="vat-einvoice-group vat-profile-registration-fields">
+                  <legend>{ar ? 'بيانات التسجيل الضريبي' : 'Tax registration details'}</legend>
+                  <div className="vat-einvoice-group-grid">
+                    <label><span>{ar ? 'حالة التسجيل' : 'Registration status'}</span><select value={profileDraft.registration_status} onChange={(event) => setProfileDraft({ ...profileDraft, registration_status: event.target.value as VatProfileDraft['registration_status'] })}><option value="NOT_REGISTERED">{ar ? 'غير مسجل' : 'Not registered'}</option><option value="REGISTERED">{ar ? 'مسجل' : 'Registered'}</option><option value="PENDING">{ar ? 'طلب قيد الإجراء' : 'Pending'}</option><option value="DEREGISTERED">{ar ? 'ملغى التسجيل' : 'Deregistered'}</option></select></label>
+                    <label><span>{ar ? 'رقم التسجيل الضريبي' : 'VAT registration number'}</span><input value={profileDraft.tax_registration_number} maxLength={15} inputMode="numeric" pattern="3[0-9]{13}3" onChange={(event) => setProfileDraft({ ...profileDraft, tax_registration_number: event.target.value })} required={profileDraft.registration_status === 'REGISTERED'} placeholder={ar ? '15 رقمًا، يبدأ وينتهي بالرقم 3' : '15 digits, starting and ending with 3'} /><small className="vat-field-hint">{ar ? 'سيُستخدم هذا الرقم في إعداد وحدة الفوترة قبل إرسالها إلى زاتكا.' : 'Used by the invoice unit before submitting it to ZATCA.'}</small></label>
+                    <label><span>{ar ? 'تاريخ التسجيل' : 'Registration date'}</span><input type="date" value={profileDraft.registration_date} onChange={(event) => setProfileDraft({ ...profileDraft, registration_date: event.target.value })} /></label>
+                    <label><span>{ar ? 'دورية الإقرار' : 'Filing frequency'}</span><select value={profileDraft.filing_frequency} onChange={(event) => setProfileDraft({ ...profileDraft, filing_frequency: event.target.value as VatFilingFrequency })}><option value="MONTHLY">{ar ? 'شهري' : 'Monthly'}</option><option value="QUARTERLY">{ar ? 'ربع سنوي' : 'Quarterly'}</option></select></label>
+                    <label><span>{ar ? 'النسبة الأساسية' : 'Standard VAT rate'}</span><input type="text" value="15%" readOnly aria-readonly="true" /><small className="vat-field-hint">{ar ? 'النسبة الأساسية المعتمدة حاليًا في السعودية' : 'Current Saudi standard rate'}</small></label>
+                    <label><span>{ar ? 'شهر بداية السنة الضريبية' : 'Tax year start month'}</span><select value={profileDraft.period_start_month} onChange={(event) => setProfileDraft({ ...profileDraft, period_start_month: event.target.value })}>{Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{monthLabel(index + 1, ar)}</option>)}</select></label>
+                  </div>
+                </fieldset>
                 <fieldset className="vat-einvoice-group vat-profile-seller-fields">
                   <legend>{ar ? 'بيانات البائع والعنوان الوطني' : 'Seller and national address details'}</legend>
                   <div className="vat-einvoice-group-grid">
@@ -746,7 +765,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           <section className="vat-report-toolbar" aria-label={ar ? 'مرشحات تقرير الضرائب' : 'Tax report filters'}>
             <label className="vat-report-filter vat-report-organization">
               <span className="vat-filter-label">{ar ? 'الشركة أو المؤسسة' : 'Company or organization'}</span>
-              <select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setReportScope('COMPANY'); }} disabled={loadingOrganizations || organizations.length === 0}>
+              <select value={organizationId} onChange={(event) => { setProfileLoadState('loading'); setProfile(null); setProfileOpen(false); setProfileDetailsOpen(false); setOrganizationId(event.target.value); setReportScope('COMPANY'); }} disabled={loadingOrganizations || organizations.length === 0}>
                 {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
               </select>
             </label>
