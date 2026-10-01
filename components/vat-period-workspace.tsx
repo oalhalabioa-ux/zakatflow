@@ -301,7 +301,7 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
 
     <VatFinancialGraphics periodTotals={periodTotals} ar={ar} />
 
-    <section className="vat-dashboard-section">
+    <section className="vat-panel vat-dashboard-section">
       <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{groupReport ? (ar ? 'الشركة والفروع' : 'COMPANY AND BRANCHES') : (ar ? 'الفترة المحددة' : 'SELECTED PERIOD')}</span><h2 dir="ltr">{monthRange(period.from, period.to, ar)}</h2></div><span className="vat-period-chip">{groupReport ? (ar ? `${reportOrganizationCount} منشآت` : `${reportOrganizationCount} entities`) : frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly')}</span></div>
       <div className="vat-dashboard-groups">
         <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} icon="chart" metrics={[
