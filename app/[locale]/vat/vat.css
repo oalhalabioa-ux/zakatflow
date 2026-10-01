@@ -1,17 +1,17 @@
-.vat-page { --vat-ink:var(--corp-text,#17332d); --vat-muted:var(--corp-muted,#71817c); --vat-line:var(--corp-border,#e3ece8); --vat-green:#08745c; --vat-accent:#08745c; --vat-blue:#5362c8; --vat-teal:#3697a0; --vat-gold:#ad7017; --vat-positive:#177a59; --vat-expense:#5362c8; --vat-warning:#a66a12; --vat-negative:#b34439; --vat-cash:#3976a8; --vat-card:#fff; --vat-soft:#f7faf8; --vat-track:#edf2ef; max-width:1440px; padding-block:34px 64px; color:var(--vat-ink); }
-.theme-classic .vat-page { --vat-green:#294d68; --vat-accent:#2d6f8b; --vat-blue:#5476a4; --vat-teal:#39898d; --vat-gold:#9b6a1d; --vat-positive:#277451; --vat-expense:#496c98; --vat-warning:#946214; --vat-negative:#a9443b; --vat-cash:#366f99; --vat-soft:#f5f7f9; --vat-track:#e9eef2; }
-.theme-modern .vat-page { --vat-green:#08756b; --vat-accent:#08756b; --vat-blue:#5475c8; --vat-teal:#349a91; --vat-gold:#b37a23; --vat-positive:#147958; --vat-expense:#596ac5; --vat-warning:#9a6412; --vat-negative:#b14439; --vat-cash:#3978ab; --vat-soft:#f1f9f6; --vat-track:#e8f1ed; }
-.theme-elegant .vat-page { --vat-ink:#172b27; --vat-muted:#687b76; --vat-line:#dce6e2; --vat-green:#176b58; --vat-accent:#176b58; --vat-blue:#6174b7; --vat-teal:#378c83; --vat-gold:#a77628; --vat-positive:#1a7251; --vat-expense:#596da5; --vat-warning:#91601c; --vat-negative:#a8463d; --vat-cash:#397394; --vat-card:#fff; --vat-soft:#f4f8f6; --vat-track:#e8efec; }
+.vat-page { --vat-ink:var(--brand-text,var(--corp-text,var(--ink,#17332d))); --vat-muted:var(--brand-muted,var(--corp-muted,var(--muted,#71817c))); --vat-line:var(--brand-border,var(--corp-border,var(--line,#e3ece8))); --vat-green:var(--brand-primary,#08745c); --vat-accent:var(--brand-primary,var(--accent,#08745c)); --vat-blue:var(--blue,#5362c8); --vat-teal:var(--vat-green); --vat-gold:var(--gold,#ad7017); --vat-positive:var(--green,#177a59); --vat-expense:var(--vat-blue); --vat-warning:var(--warn,#a66a12); --vat-negative:var(--danger,#b34439); --vat-cash:var(--blue,#3976a8); --vat-card:var(--brand-surface,var(--card,#fff)); --vat-soft:var(--brand-surface-soft,var(--soft,#f7faf8)); --vat-track:var(--brand-surface-soft,var(--soft,#edf2ef)); max-width:1440px; padding-block:34px 64px; color:var(--vat-ink); }
+.theme-classic .vat-page { --vat-blue:#5476a4; --vat-teal:#39898d; --vat-gold:#9b6a1d; --vat-positive:#277451; --vat-warning:#946214; --vat-negative:#a9443b; --vat-expense:#496c98; --vat-cash:#366f99; }
+.theme-modern .vat-page { --vat-blue:#596bd0; --vat-teal:#498da0; --vat-gold:#a77c37; --vat-positive:#147958; --vat-warning:#9a6412; --vat-negative:#b14439; --vat-expense:#596ac5; --vat-cash:#3978ab; }
+.theme-elegant .vat-page { --vat-blue:#6174b7; --vat-teal:#378c83; --vat-gold:#a77628; --vat-positive:#1a7251; --vat-warning:#91601c; --vat-negative:#a8463d; --vat-expense:#596da5; --vat-cash:#397394; }
 .vat-header,.vat-panel-head,.vat-period-title { display:flex; align-items:center; justify-content:space-between; gap:22px; }
 .vat-header { margin-bottom:24px; }
 .vat-header h1 { margin:6px 0; font-size:clamp(1.8rem,3vw,2.35rem); letter-spacing:-.035em; }
 .vat-header p,.vat-panel-head p { margin:0; color:var(--vat-muted); line-height:1.65; }
 .vat-eyebrow { color:var(--vat-green); font-size:.72rem; font-weight:800; letter-spacing:.11em; }
 .vat-picker,.vat-period-select { display:grid; gap:7px; min-width:min(300px,100%); color:var(--vat-muted); font-size:.82rem; font-weight:700; }
-.vat-page input,.vat-page select { width:100%; min-height:43px; border:1px solid #d8e4df; border-radius:10px; background:#fff; padding:9px 12px; color:var(--vat-ink); font:inherit; outline:none; }
+.vat-page input,.vat-page select { width:100%; min-height:43px; border:1px solid var(--vat-line); border-radius:10px; background:var(--vat-card); padding:9px 12px; color:var(--vat-ink); font:inherit; outline:none; }
 .vat-page select { color-scheme:light; }
-.vat-page select option { background:#fff; color:#17332d; }
-.vat-page input:focus,.vat-page select:focus { border-color:#4c9b83; box-shadow:0 0 0 3px rgb(8 116 92 / 12%); }
+.vat-page select option { background:var(--vat-card); color:var(--vat-ink); }
+.vat-page input:focus,.vat-page select:focus { border-color:var(--vat-accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--vat-accent) 12%,transparent); }
 .vat-contact-picker { display:grid; gap:8px; min-width:0; }
 .vat-contact-picker-head { display:flex; justify-content:space-between; align-items:center; gap:8px; color:#4d625b; font-size:.79rem; font-weight:700; }
 .vat-contact-picker-head label { min-width:0; }
@@ -830,4 +830,49 @@
   .vat-obligation-item { grid-template-columns:30px minmax(0,1fr); }
   .vat-obligation-icon { width:30px; height:30px; }
   .vat-obligation-amount { grid-column:2; display:flex; flex-direction:row; align-items:center; justify-content:space-between; width:100%; }
+}
+
+/* Compact registration access and theme-aware VAT surfaces. */
+.vat-settings-grid { display:flex; justify-content:flex-start; gap:12px; margin:0 0 12px; }
+.vat-settings-grid.is-editing { display:block; }
+.vat-settings-grid > .vat-panel { min-width:0; }
+.vat-registration.vat-config-panel.has-summary { position:relative; width:max-content; max-width:100%; overflow:visible; padding:0; border:0; background:transparent; box-shadow:none; }
+.vat-registration.vat-config-panel.has-summary .vat-config-summary { grid-template-columns:auto auto; gap:6px; min-height:0; padding:0; background:transparent; }
+.vat-registration.vat-config-panel.has-summary .vat-config-summary::before { display:none; }
+.vat-registration.vat-config-panel.has-summary .vat-config-summary-trigger { display:flex; width:auto; min-height:34px; gap:7px; padding:5px 9px; border:1px solid color-mix(in srgb,var(--vat-green) 22%,var(--vat-line)); border-radius:9px; background:color-mix(in srgb,var(--vat-green) 5%,var(--vat-card)); }
+.vat-registration.vat-config-panel.has-summary .vat-config-icon { width:20px; height:20px; border-radius:6px; }
+.vat-registration.vat-config-panel.has-summary .vat-config-icon svg { width:14px; height:14px; }
+.vat-registration.vat-config-panel.has-summary .vat-config-copy { display:block; }
+.vat-registration.vat-config-panel.has-summary .vat-config-copy > strong { font-size:.74rem; }
+.vat-registration.vat-config-panel.has-summary .vat-config-copy > small { display:none; }
+.vat-registration.vat-config-panel.has-summary .vat-config-summary-trigger .vat-status { padding:3px 6px; font-size:.64rem; }
+.vat-registration.vat-config-panel.has-summary .vat-config-plus { width:20px; height:20px; }
+.vat-registration.vat-config-panel.has-summary .vat-config-plus svg { width:12px; height:12px; }
+.vat-registration.vat-config-panel.has-summary .vat-icon-button { flex-basis:32px; width:32px; height:32px; border-radius:9px; }
+.vat-registration.vat-config-panel.has-summary .vat-config-details { position:absolute; z-index:40; inset-block-start:calc(100% + 8px); inset-inline-start:0; width:min(430px,calc(100vw - 32px)); padding:12px; border:1px solid var(--vat-line); border-radius:13px; background:var(--vat-card); box-shadow:0 14px 34px color-mix(in srgb,var(--vat-ink) 12%,transparent); }
+.vat-registration.vat-config-panel.has-summary .vat-config-details-grid { gap:7px; }
+.vat-registration.vat-config-panel.has-summary .vat-config-details-grid > div { min-height:48px; padding:7px 9px; border-color:var(--vat-line); background:var(--vat-soft); }
+.vat-page input,.vat-page select { border-color:var(--vat-line); background-color:var(--vat-card); }
+.vat-page :is(.vat-form-grid > label,.vat-einvoice-group-grid > label,.vat-einvoice-line label,.vat-summary-field,.vat-contact-picker-head) { color:var(--vat-muted); }
+.vat-page .vat-einvoice-overview { border-color:color-mix(in srgb,var(--vat-accent) 18%,var(--vat-line)); background:linear-gradient(130deg,color-mix(in srgb,var(--vat-accent) 5%,var(--vat-card)),color-mix(in srgb,var(--vat-soft) 65%,var(--vat-card))); }
+.vat-page .vat-einvoice-steps span { border-color:var(--vat-line); background:var(--vat-card); color:var(--vat-ink); }
+.vat-page .vat-einvoice-steps b { background:color-mix(in srgb,var(--vat-green) 11%,var(--vat-card)); color:var(--vat-green); }
+.vat-page .vat-dashboard-state.upcoming,.vat-page .vat-dashboard-state.paid,.vat-page .vat-dashboard-hero .vat-dashboard-state.upcoming,.vat-page .vat-dashboard-hero .vat-dashboard-state.paid,.vat-page .vat-cash-alert.covered,.vat-page .vat-dashboard-hero .vat-cash-alert.covered { background:color-mix(in srgb,var(--vat-positive) 10%,var(--vat-card)); color:var(--vat-positive); }
+.vat-page .vat-dashboard-state.soon,.vat-page .vat-dashboard-hero .vat-dashboard-state.soon { background:color-mix(in srgb,var(--vat-warning) 11%,var(--vat-card)); color:var(--vat-warning); }
+.vat-page .vat-dashboard-state.overdue,.vat-page .vat-dashboard-hero .vat-dashboard-state.overdue,.vat-page .vat-cash-alert.shortfall,.vat-page .vat-dashboard-hero .vat-cash-alert.shortfall { background:color-mix(in srgb,var(--vat-negative) 9%,var(--vat-card)); color:var(--vat-negative); }
+.vat-page .vat-summary-preview { border-color:color-mix(in srgb,var(--vat-positive) 22%,var(--vat-line)); background:color-mix(in srgb,var(--vat-positive) 5%,var(--vat-card)); }
+.vat-page .vat-summary-preview .shortfall { color:var(--vat-negative); }
+.vat-page .vat-summary-preview .covered { color:var(--vat-positive); }
+.vat-page .vat-inline-warning { border-color:color-mix(in srgb,var(--vat-warning) 24%,var(--vat-line)); background:color-mix(in srgb,var(--vat-warning) 8%,var(--vat-card)); color:var(--vat-warning); }
+.vat-page .vat-metric { border-color:var(--vat-line); background:var(--vat-card); }
+.vat-page .vat-metric.emphasis { border-color:color-mix(in srgb,var(--vat-accent) 26%,var(--vat-line)); background:color-mix(in srgb,var(--vat-accent) 7%,var(--vat-card)); }
+.vat-page .vat-tax-preview,.vat-page .vat-einvoice-item { border-color:var(--vat-line); background:var(--vat-soft); color:var(--vat-muted); }
+.vat-page .vat-table th { border-color:var(--vat-line); background:var(--vat-soft); color:var(--vat-muted); }
+.vat-page .vat-table td { border-color:var(--vat-line); color:var(--vat-ink); }
+.vat-page .vat-type-pill { background:color-mix(in srgb,var(--vat-positive) 10%,var(--vat-card)); color:var(--vat-positive); }
+.vat-page .vat-type-pill.purchase { background:color-mix(in srgb,var(--vat-blue) 10%,var(--vat-card)); color:var(--vat-blue); }
+.vat-page .vat-delete { border-color:color-mix(in srgb,var(--vat-negative) 28%,var(--vat-line)); background:color-mix(in srgb,var(--vat-negative) 5%,var(--vat-card)); color:var(--vat-negative); }
+@media(max-width:640px) {
+  .vat-settings-grid { justify-content:flex-start; gap:8px; margin:0 0 9px; }
+  .vat-registration.vat-config-panel.has-summary .vat-config-summary { padding:0; }
 }
