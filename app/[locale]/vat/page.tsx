@@ -7,7 +7,7 @@ import type { VatDocumentForSummary } from '@/lib/vat';
 import { organizationDisplayName } from '@/lib/organization-display';
 import { VatEInvoiceSetup } from '@/components/vat-einvoice-setup';
 import { VatEInvoiceRegister } from '@/components/vat-einvoice-register';
-import { VatManagementDashboard, VatPeriodSummaryForm } from '@/components/vat-period-workspace';
+import { VatManagementDashboard, VatPeriodSummaryForm, type VatMonthlyTrendPoint, type VatUpcomingObligation } from '@/components/vat-period-workspace';
 import { VatContactPicker, type VatContact } from '@/components/vat-contact-picker';
 import type { VatPeriodSummaryRecord } from '@/lib/vat-period-summary';
 import { aggregateVatDashboardTotals, type VatDashboardTotals } from '@/lib/vat-dashboard-summary';
@@ -172,6 +172,8 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [annualTotals, setAnnualTotals] = useState<VatDashboardTotals>(emptyTotals());
   const [reportScope, setReportScope] = useState<'COMPANY' | 'GROUP'>('COMPANY');
   const [branchVatData, setBranchVatData] = useState<ApiData[]>([]);
+  const [monthlyTrend, setMonthlyTrend] = useState<VatMonthlyTrendPoint[]>([]);
+  const [monthlyTrendLoading, setMonthlyTrendLoading] = useState(false);
   const [loadingOrganizations, setLoadingOrganizations] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -466,6 +468,65 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     () => reportScope === 'GROUP' ? aggregateVatDashboardTotals([annualTotals, ...branchVatData.map((branch) => branch.annualTotals)]) : annualTotals,
     [reportScope, annualTotals, branchVatData],
   );
+  const upcomingObligations = useMemo<VatUpcomingObligation[]>(() => {
+    const sources = reportScope === 'GROUP'
+      ? [
+        { id: organizationId, name: selectedOrganization?.name, period, totals: periodTotals },
+        ...branchVatData.map((branch, index) => ({
+          id: branchOrganizationIds[index] ?? `branch-${index}`,
+          name: organizations.find((organization) => organization.id === branchOrganizationIds[index])?.name,
+          period: branch.period,
+          totals: branch.periodTotals,
+        })),
+      ]
+      : [{ id: organizationId, name: selectedOrganization?.name, period, totals: periodTotals }];
+    return sources.map((source) => {
+      const amountDue = Math.max(0, Number(source.totals.taxPayable) - Number(source.totals.paidAmount));
+      const dueDate = source.totals.dueDate ?? source.period.to;
+      if (!amountDue || !dueDate) return null;
+      return {
+        id: source.id,
+        organizationName: source.name ? organizationDisplayName(source.name, ar) : (ar ? 'الجهة المحددة' : 'Selected entity'),
+        dueDate,
+        outstandingAmount: amountDue.toFixed(2),
+      };
+    }).filter((row): row is VatUpcomingObligation => row !== null).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }, [reportScope, organizationId, selectedOrganization?.name, period, periodTotals, branchVatData, branchOrganizationIds, organizations, ar]);
+
+  useEffect(() => {
+    if (!organizationId || !period.from || !period.to) { setMonthlyTrend([]); return; }
+    let active = true;
+    const months = monthsInRange(period.from, period.to);
+    const entityIds = reportScope === 'GROUP' ? reportOrganizationIds : [organizationId];
+    setMonthlyTrendLoading(true);
+    Promise.all(months.map(async (month) => {
+      const entities = await Promise.all(entityIds.map(async (id) => {
+        const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(id)}&period_month=${encodeURIComponent(month)}`);
+        const body = await response.json();
+        if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
+        const data = body as ApiData;
+        const seen = new Set<string>();
+        return data.documents.filter((document) => {
+          const key = document.id || `${document.document_type}:${document.document_number}:${document.transaction_date}`;
+          if (!document.transaction_date.startsWith(month) || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }));
+      let outputTax = new Decimal(0);
+      let inputTax = new Decimal(0);
+      for (const document of entities.flat()) {
+        const sign = document.document_kind === 'CREDIT_NOTE' ? -1 : 1;
+        const tax = new Decimal(document.tax_amount || 0).mul(sign);
+        if (document.document_type === 'SALES') outputTax = outputTax.add(tax);
+        else inputTax = inputTax.add(tax.mul(document.recoverable_percent || 0).div(100));
+      }
+      return { month, outputTax: outputTax.toFixed(2), inputTax: inputTax.toFixed(2) };
+    })).then((rows) => { if (active) setMonthlyTrend(rows); })
+      .catch(() => { if (active) setMonthlyTrend([]); })
+      .finally(() => { if (active) setMonthlyTrendLoading(false); });
+    return () => { active = false; };
+  }, [organizationId, period.from, period.to, reportScope, reportOrganizationIds]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -603,12 +664,6 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           <h1>{ar ? 'إدارة الضرائب والفوترة' : 'Tax & invoicing management'}</h1>
           <p>{ar ? 'مساحة موحدة لإدارة ضريبة القيمة المضافة، وفواتير المبيعات والمشتريات، ومتطلبات الفوترة الإلكترونية.' : 'A unified workspace for VAT, sales and purchase invoices, and e-invoicing requirements.'}</p>
         </div>
-        <label className="vat-picker">
-          <span>{ar ? 'الشركة أو المؤسسة' : 'Company or organization'}</span>
-            <select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setReportScope('COMPANY'); }} disabled={loadingOrganizations || organizations.length === 0}>
-            {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
-          </select>
-        </label>
       </header>
 
       {notice && <div className={`vat-notice ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</div>}
@@ -621,7 +676,37 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         </section>
       ) : (
         <>
-          <div className={`vat-settings-grid ${profileOpen || !profile ? 'is-editing' : ''}`}>
+          <section className="vat-report-toolbar" aria-label={ar ? 'مرشحات تقرير الضرائب' : 'Tax report filters'}>
+            <label className="vat-report-filter vat-report-organization">
+              <span className="vat-filter-label">{ar ? 'الشركة أو المؤسسة' : 'Company or organization'}</span>
+              <select value={organizationId} onChange={(event) => { setOrganizationId(event.target.value); setReportScope('COMPANY'); }} disabled={loadingOrganizations || organizations.length === 0}>
+                {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
+              </select>
+            </label>
+            <div className="vat-report-filter vat-report-period-filter">
+              <span className="vat-filter-label">{ar ? 'الفترة الضريبية' : 'Tax period'}</span>
+              <strong dir="ltr">{period.from} — {period.to}</strong>
+              <div className="vat-report-period-meta">
+                <span className="vat-period-frequency">{profile ? frequencyLabel(profile.filing_frequency, ar) : (ar ? 'دورية افتراضية' : 'Default frequency')}</span>
+                <label className="vat-report-month-select"><span>{ar ? 'شهر التقرير' : 'Report month'}</span><input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} /></label>
+              </div>
+            </div>
+            <div className="vat-report-filter vat-report-scope-filter">
+              <span className="vat-filter-label">{ar ? 'نطاق التقرير' : 'Report scope'}</span>
+              <div className="vat-report-scope-toggle" role="group" aria-label={ar ? 'نطاق التقرير' : 'Report scope'}>
+                <button type="button" className={`vat-report-scope-option ${reportScope === 'COMPANY' ? 'active' : ''}`} aria-pressed={reportScope === 'COMPANY'} onClick={() => setReportScope('COMPANY')}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h16M6.5 20V5.5A1.5 1.5 0 0 1 8 4h8a1.5 1.5 0 0 1 1.5 1.5V20M9 8h.01M12 8h.01M15 8h.01M9 11.5h.01M12 11.5h.01M15 11.5h.01M10 20v-4h4v4"/></svg>
+                  <span><strong>{ar ? 'الشركة' : 'Company'}</strong><small>{ar ? 'الجهة المحددة' : 'Selected entity'}</small></span>
+                </button>
+                <button type="button" className={`vat-report-scope-option ${reportScope === 'GROUP' ? 'active' : ''}`} aria-pressed={reportScope === 'GROUP'} disabled={!hasBranches} onClick={() => setReportScope('GROUP')}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3.5" width="8" height="5.5" rx="1.5"/><rect x="3" y="15" width="7" height="5.5" rx="1.5"/><rect x="14" y="15" width="7" height="5.5" rx="1.5"/><path d="M12 9v3.5M6.5 15v-2.5h11V15"/></svg>
+                  <span><strong>{ar ? 'الشركة وفروعها' : 'Company and branches'}</strong><small>{hasBranches ? (ar ? `${reportOrganizationIds.length} جهات ضمن التقرير` : `${reportOrganizationIds.length} entities in report`) : (ar ? 'لا توجد فروع مرتبطة' : 'No branches linked')}</small></span>
+                </button>
+              </div>
+              <small className="vat-report-scope-footnote">{ar ? 'يؤثر النطاق على لوحة الإدارة فقط.' : 'Scope affects the dashboard only.'}</small>
+            </div>
+          </section>
+          {activeTab === 'einvoicing' && <div className={`vat-settings-grid ${profileOpen || !profile ? 'is-editing' : ''}`}>
             <section id="vat-registration-profile" className={`vat-panel vat-registration vat-config-panel ${profile && !profileOpen ? 'has-summary' : ''}`}>
               {profile && !profileOpen ? (
                 <div className={`vat-config-summary ${profileDetailsOpen ? 'is-open' : ''}`}>
@@ -683,52 +768,30 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                 </div>
               </div>}
             </section>
+          </div>}
 
-            <section className={`vat-panel vat-config-panel vat-period-config ${periodDetailsOpen ? 'is-open' : ''}`}>
-              <button type="button" className="vat-config-summary-trigger vat-period-summary-trigger" aria-expanded={periodDetailsOpen} aria-label={periodDetailsOpen ? (ar ? 'إخفاء خيارات الفترة الضريبية' : 'Hide tax period options') : (ar ? 'عرض خيارات الفترة الضريبية' : 'Show tax period options')} aria-controls="vat-period-details" onClick={() => setPeriodDetailsOpen((open) => !open)}>
-                <span className="vat-config-icon period" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17M7.5 14h3M13.5 14h3"/></svg></span>
-                <span className="vat-config-copy">
-                  <span className="vat-eyebrow">{ar ? 'الفترة الضريبية' : 'TAX PERIOD'}</span>
-                  <strong dir="ltr">{period.from} — {period.to}</strong>
-                  <small><span>{ar ? 'الدورية' : 'Frequency'}</span><span className="vat-period-frequency">{profile ? frequencyLabel(profile.filing_frequency, ar) : (ar ? 'دورية افتراضية' : 'Default frequency')}</span></small>
-                </span>
-                <span className={`vat-config-plus ${periodDetailsOpen ? 'is-open' : ''}`} aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg></span>
-              </button>
-              <div id="vat-period-details" className="vat-config-details vat-period-details" hidden={!periodDetailsOpen}>
-                <p className="vat-period-help">{ar ? 'اختر شهرًا لعرض مستنداته وإجمالياته ضمن الفترة الضريبية.' : 'Choose a month to view its documents and totals within this tax period.'}</p>
-                <div className="vat-period-controls vat-period-config-controls">
-                  <label className="vat-period-select vat-filter-field">
-                    <span className="vat-filter-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17"/></svg>{ar ? 'الشهر ضمن الفترة' : 'Month in period'}</span>
-                    <input type="month" value={periodMonth} onChange={(event) => setPeriodMonth(event.target.value)} />
-                  </label>
-                </div>
-              </div>
-            </section>
+
+
+          <div id="vat-panel-dashboard" role="tabpanel" aria-labelledby="vat-tab-dashboard" hidden={activeTab !== 'dashboard'}>
+            {reportScope === 'GROUP' && loadingData ? <div className="vat-loading" role="status">{ar ? 'جارٍ تجميع بيانات الشركة والفروع…' : 'Loading company and branch totals…'}</div> : <VatManagementDashboard
+              period={period}
+              yearStart={yearStart}
+              frequency={profile?.filing_frequency ?? 'QUARTERLY'}
+              periodSummary={periodSummary}
+              periodTotals={dashboardPeriodTotals}
+              annualTotals={dashboardAnnualTotals}
+              standardRate={Number(profile?.standard_rate ?? 15)}
+              registered={isRegistered}
+              ar={ar}
+              reportScope={reportScope}
+              reportOrganizationCount={reportScope === 'GROUP' ? reportOrganizationIds.length : 1}
+              monthlyTrend={monthlyTrend}
+              monthlyTrendLoading={monthlyTrendLoading}
+              upcomingObligations={upcomingObligations}
+              organizationId={organizationId}
+              onSaved={() => setInvoiceRefresh((revision) => revision + 1)}
+            />}
           </div>
-
-          {activeTab === 'dashboard' && hasBranches && <section className={`vat-report-scope-bar ${reportScope === 'GROUP' ? 'is-group' : ''}`} aria-labelledby="vat-report-scope-title">
-            <div className="vat-report-scope-copy">
-              <span className="vat-report-scope-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="4" width="17" height="7" rx="1.5"/><path d="M6 11v8M18 11v8M3.5 19h17M8 7.5h.01M12 7.5h.01M16 7.5h.01M8 15h.01M12 15h.01M16 15h.01"/></svg></span>
-              <div>
-                <span className="vat-eyebrow">{ar ? 'نطاق التقرير' : 'REPORT SCOPE'}</span>
-                <h2 id="vat-report-scope-title">{ar ? 'عرض بيانات الضرائب' : 'Tax reporting scope'}</h2>
-                <p>{ar ? 'حدّد مستوى تجميع المؤشرات المعروضة في لوحة الإدارة.' : 'Choose how tax figures are grouped on the management dashboard.'}</p>
-              </div>
-            </div>
-            <div className="vat-report-scope-actions">
-              <div className="vat-report-scope-toggle" role="group" aria-label={ar ? 'نطاق التقرير' : 'Report scope'}>
-                <button type="button" className={`vat-report-scope-option ${reportScope === 'COMPANY' ? 'active' : ''}`} aria-pressed={reportScope === 'COMPANY'} onClick={() => setReportScope('COMPANY')}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h16M6.5 20V5.5A1.5 1.5 0 0 1 8 4h8a1.5 1.5 0 0 1 1.5 1.5V20M9 8h.01M12 8h.01M15 8h.01M9 11.5h.01M12 11.5h.01M15 11.5h.01M10 20v-4h4v4"/></svg>
-                  <span><strong>{ar ? 'الشركة' : 'Company'}</strong><small>{ar ? 'الجهة المحددة' : 'Selected entity'}</small></span>
-                </button>
-                <button type="button" className={`vat-report-scope-option ${reportScope === 'GROUP' ? 'active' : ''}`} aria-pressed={reportScope === 'GROUP'} onClick={() => setReportScope('GROUP')}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3.5" width="8" height="5.5" rx="1.5"/><rect x="3" y="15" width="7" height="5.5" rx="1.5"/><rect x="14" y="15" width="7" height="5.5" rx="1.5"/><path d="M12 9v3.5M6.5 15v-2.5h11V15"/></svg>
-                  <span><strong>{ar ? 'الشركة وفروعها' : 'Company and branches'}</strong><small>{ar ? `${reportOrganizationIds.length} جهات ضمن التقرير` : `${reportOrganizationIds.length} entities in report`}</small></span>
-                </button>
-              </div>
-              <small className="vat-report-scope-footnote">{ar ? 'يؤثر الاختيار على مؤشرات لوحة الإدارة فقط.' : 'This setting affects management dashboard figures only.'}</small>
-            </div>
-          </section>}
 
           <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
             <button id="vat-tab-dashboard" type="button" role="tab" aria-selected={activeTab === 'dashboard'} tabIndex={activeTab === 'dashboard' ? 0 : -1} aria-controls="vat-panel-dashboard" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>
@@ -764,24 +827,6 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               <small>{ar ? 'تهيئة الوحدة والشهادة' : 'Invoice unit and certificate setup'}</small>
             </button>
           </nav>
-
-          <div id="vat-panel-dashboard" role="tabpanel" aria-labelledby="vat-tab-dashboard" hidden={activeTab !== 'dashboard'}>
-            {reportScope === 'GROUP' && loadingData ? <div className="vat-loading" role="status">{ar ? 'جارٍ تجميع بيانات الشركة والفروع…' : 'Loading company and branch totals…'}</div> : <VatManagementDashboard
-              period={period}
-              yearStart={yearStart}
-              frequency={profile?.filing_frequency ?? 'QUARTERLY'}
-              periodSummary={periodSummary}
-              periodTotals={dashboardPeriodTotals}
-              annualTotals={dashboardAnnualTotals}
-              standardRate={Number(profile?.standard_rate ?? 15)}
-              registered={isRegistered}
-              ar={ar}
-              reportScope={reportScope}
-              reportOrganizationCount={reportScope === 'GROUP' ? reportOrganizationIds.length : 1}
-              organizationId={organizationId}
-              onSaved={() => setInvoiceRefresh((revision) => revision + 1)}
-            />}
-          </div>
 
           <div id="vat-panel-aggregate" role="tabpanel" aria-labelledby="vat-tab-aggregate" hidden={activeTab !== 'aggregate'}>
             <VatPeriodSummaryForm
@@ -1050,6 +1095,17 @@ function monthLabel(month: number, ar: boolean) {
   const namesAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
   const namesEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   return (ar ? namesAr : namesEn)[month - 1];
+}
+
+function monthsInRange(from: string, to: string) {
+  const start = new Date(`${from.slice(0, 7)}-01T00:00:00Z`);
+  const end = new Date(`${to.slice(0, 7)}-01T00:00:00Z`);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start > end) return [];
+  const months: string[] = [];
+  for (const cursor = new Date(start); cursor <= end; cursor.setUTCMonth(cursor.getUTCMonth() + 1)) {
+    months.push(`${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`);
+  }
+  return months;
 }
 
 function messageFor(code: string, ar: boolean) {
