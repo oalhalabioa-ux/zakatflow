@@ -688,13 +688,12 @@ export default function VatManagement({ params, searchParams }: { params: Promis
             </label>
             <div className="vat-report-filter vat-report-period-filter">
               <span className="vat-filter-label">{ar ? 'الفترة الضريبية' : 'Tax period'}</span>
-              <strong dir="ltr">{reportPeriod.from} — {reportPeriod.to}</strong>
               <div className="vat-report-period-controls">
                 <div className="vat-report-frequency-toggle" role="group" aria-label={ar ? 'دورية التقرير' : 'Report frequency'}>
                   {(['MONTHLY', 'QUARTERLY'] as const).map((frequency) => <button type="button" key={frequency} className={reportFrequency === frequency ? 'active' : ''} aria-pressed={reportFrequency === frequency} onClick={() => { setReportFrequencyTouched(true); setReportFrequency(frequency); }}>{frequencyLabel(frequency, ar)}</button>)}
                 </div>
               </div>
-              <label className="vat-report-period-select"><span>{reportFrequency === 'MONTHLY' ? (ar ? 'الشهر' : 'Month') : (ar ? 'الربع' : 'Quarter')}</span><select value={reportFrequency === 'MONTHLY' ? periodMonth : `${periodMonth.slice(0, 4)}-${String(Math.floor((Number(periodMonth.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, '0')}`} onChange={(event) => setPeriodMonth(event.target.value)}>
+              <label className="vat-report-period-select"><span className="vat-sr-only">{reportFrequency === 'MONTHLY' ? (ar ? 'شهر التقرير' : 'Report month') : (ar ? 'ربع التقرير' : 'Report quarter')}</span><select aria-label={reportFrequency === 'MONTHLY' ? (ar ? 'اختر شهر التقرير' : 'Choose report month') : (ar ? 'اختر ربع التقرير' : 'Choose report quarter')} value={reportFrequency === 'MONTHLY' ? periodMonth : `${periodMonth.slice(0, 4)}-${String(Math.floor((Number(periodMonth.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, '0')}`} onChange={(event) => setPeriodMonth(event.target.value)}>
                 {reportFrequency === 'MONTHLY'
                   ? Array.from({ length: 10 }, (_, index) => new Date().getUTCFullYear() - 9 + index).flatMap((year) => Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
                     const value = `${year}-${String(month).padStart(2, '0')}`;
@@ -705,9 +704,6 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                     return <option key={value} value={value}>{ar ? `الربع ${['الأول', 'الثاني', 'الثالث', 'الرابع'][quarter - 1]}` : `Q${quarter}`} {year}</option>;
                   }))}
               </select></label>
-              <small className="vat-period-frequency-note">{ar
-                ? `دورية الإقرار الرسمية: ${profile ? frequencyLabel(profile.filing_frequency, ar) : 'ربع سنوي'}${isOfficialFilingPeriod ? '' : ' · عرض تحليلي للفترة'}`
-                : `Official filing frequency: ${profile ? frequencyLabel(profile.filing_frequency, ar) : 'Quarterly'}${isOfficialFilingPeriod ? '' : ' · Analytical period view'}`}</small>
             </div>
             <div className="vat-report-filter vat-report-scope-filter">
               <span className="vat-filter-label">{ar ? 'نطاق التقرير' : 'Report scope'}</span>
