@@ -302,7 +302,7 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
     <VatFinancialGraphics periodTotals={periodTotals} ar={ar} />
 
     <section className="vat-dashboard-section">
-      <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{groupReport ? (ar ? 'الشركة والفروع' : 'COMPANY AND BRANCHES') : (ar ? 'الفترة المحددة' : 'SELECTED PERIOD')}</span><h2>{period.from} — {period.to}</h2></div><span className="vat-period-chip">{groupReport ? (ar ? `${reportOrganizationCount} منشآت` : `${reportOrganizationCount} entities`) : frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly')}</span></div>
+      <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{groupReport ? (ar ? 'الشركة والفروع' : 'COMPANY AND BRANCHES') : (ar ? 'الفترة المحددة' : 'SELECTED PERIOD')}</span><h2 dir="ltr">{monthRange(period.from, period.to, ar)}</h2></div><span className="vat-period-chip">{groupReport ? (ar ? `${reportOrganizationCount} منشآت` : `${reportOrganizationCount} entities`) : frequency === 'MONTHLY' ? (ar ? 'شهري' : 'Monthly') : (ar ? 'ربع سنوي' : 'Quarterly')}</span></div>
       <div className="vat-dashboard-groups">
         <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} icon="chart" metrics={[
           { icon: 'coins', label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(periodTotals.salesBase)} SAR` },
@@ -325,7 +325,7 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
     </section>
 
     <section className="vat-panel vat-annual-dashboard">
-      <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{ar ? 'من بداية السنة الضريبية' : 'TAX YEAR TO DATE'}</span><h2>{formatDate(yearStart, ar)} — {period.to}</h2></div></div>
+      <div className="vat-dashboard-section-head"><div><span className="vat-eyebrow">{ar ? 'من بداية السنة الضريبية' : 'TAX YEAR TO DATE'}</span><h2 dir="ltr">{monthRange(yearStart, period.to, ar)}</h2></div></div>
       <div className="vat-dashboard-groups">
         <MetricRow title={ar ? 'المبيعات' : 'Sales'} tone="sales" ar={ar} icon="chart" metrics={[
           { icon: 'coins', label: ar ? 'إجمالي المبيعات قبل الضريبة' : 'Sales before VAT', value: `${amount(annualTotals.salesBase)} SAR` },
@@ -483,6 +483,16 @@ function monthLabel(value: string, ar: boolean) {
   const namesAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
   const namesEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   return (ar ? namesAr : namesEn)[month - 1] ?? value;
+}
+
+function monthRange(from: string, to: string, ar: boolean) {
+  const monthName = (date: string) => new Intl.DateTimeFormat(ar ? 'ar-SA' : 'en-US', {
+    month: ar ? 'long' : 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`));
+  const start = monthName(from);
+  const end = monthName(to);
+  return start === end ? start : `${start}–${end}`;
 }
 
 function formatDate(date: string, ar: boolean) {

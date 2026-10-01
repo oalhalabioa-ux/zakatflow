@@ -796,6 +796,7 @@
 .vat-dashboard-details[open] > summary { margin-bottom:12px; border-bottom:1px solid var(--vat-line); }
 .vat-dashboard-details > .vat-panel,.vat-dashboard-details > .vat-visual-grid { margin-inline:13px; }
 .vat-dashboard-details > .vat-panel:last-child { margin-bottom:13px; }
+.vat-dashboard-details > .vat-annual-dashboard { margin-inline:0; padding:13px 0; }
 .vat-report-analytical-note { margin:0; padding:18px; }
 .vat-report-analytical-note strong { color:var(--vat-green); font-size:.9rem; }
 .vat-report-analytical-note p { margin:7px 0 0; color:var(--vat-muted); font-size:.77rem; line-height:1.7; }
@@ -876,3 +877,5 @@
   .vat-settings-grid { justify-content:flex-start; gap:8px; margin:0 0 9px; }
   .vat-registration.vat-config-panel.has-summary .vat-config-summary { padding:0; }
 }
+.vat-settings-grid > .vat-registration { margin-right:auto; }
+.vat-tabs { margin:0 0 16px; }

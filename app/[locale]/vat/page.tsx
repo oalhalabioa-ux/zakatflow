@@ -786,6 +786,23 @@ export default function VatManagement({ params, searchParams }: { params: Promis
 
 
 
+          <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
+            <button id="vat-tab-dashboard" type="button" role="tab" aria-selected={activeTab === 'dashboard'} tabIndex={activeTab === 'dashboard' ? 0 : -1} aria-controls="vat-panel-dashboard" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>
+              <strong><span className="vat-tab-icon dashboard" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5h16"/><path d="M6.5 16V11M12 16V5M17.5 16V8"/></svg></span>{ar ? 'لوحة الإدارة' : 'Management dashboard'}</strong><small>{ar ? 'المبيعات والضريبة والاستحقاق والسيولة' : 'Sales, VAT, deadlines and cash'}</small>
+            </button>
+            <button id="vat-tab-aggregate" type="button" role="tab" aria-selected={activeTab === 'aggregate'} tabIndex={activeTab === 'aggregate' ? 0 : -1} aria-controls="vat-panel-aggregate" className={activeTab === 'aggregate' ? 'active' : ''} onClick={() => selectTab('aggregate')}>
+              <strong><span className="vat-tab-icon aggregate" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8 7.5h8M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 15h.01M12 15h.01M15.5 15h.01"/></svg></span>{ar ? 'إجماليات الفترة' : 'Period totals'}</strong><small>{ar ? 'إدخال مجمع للمبيعات والمشتريات' : 'Enter aggregated sales and purchases'}</small>
+            </button>
+            <button id="vat-tab-register" type="button" role="tab" aria-selected={activeTab === 'register'} tabIndex={activeTab === 'register' ? 0 : -1} aria-controls="vat-panel-register" className={activeTab === 'register' ? 'active' : ''} onClick={() => selectTab('register')}>
+              <strong><span className="vat-tab-icon invoices" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M10 12h5M10 16h5"/></svg></span>{ar ? 'الفواتير' : 'Invoices'}</strong>
+              <small>{ar ? 'مساحة موحدة للمبيعات والمشتريات' : 'One workspace for sales and purchases'}</small>
+            </button>
+            <button id="vat-tab-einvoicing" type="button" role="tab" aria-selected={activeTab === 'einvoicing'} tabIndex={activeTab === 'einvoicing' ? 0 : -1} aria-controls="vat-panel-einvoicing" className={activeTab === 'einvoicing' ? 'active' : ''} onClick={() => selectTab('einvoicing')}>
+              <strong><span className="vat-tab-icon zatca" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5 19 6v5.2c0 4.2-2.8 7.5-7 9.3-4.2-1.8-7-5.1-7-9.3V6z"/><path d="m9 12 2 2 4-4"/></svg></span>{ar ? 'إعداد وربط زاتكا' : 'ZATCA setup'}</strong>
+              <small>{ar ? 'تهيئة الوحدة والشهادة' : 'Invoice unit and certificate setup'}</small>
+            </button>
+          </nav>
+
           <div id="vat-panel-dashboard" role="tabpanel" aria-labelledby="vat-tab-dashboard" hidden={activeTab !== 'dashboard'}>
             {reportScope === 'GROUP' && loadingData ? <div className="vat-loading" role="status">{ar ? 'جارٍ تجميع بيانات الشركة والفروع…' : 'Loading company and branch totals…'}</div> : <VatManagementDashboard
               period={period}
@@ -806,41 +823,6 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               onSaved={() => setInvoiceRefresh((revision) => revision + 1)}
             />}
           </div>
-
-          <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
-            <button id="vat-tab-dashboard" type="button" role="tab" aria-selected={activeTab === 'dashboard'} tabIndex={activeTab === 'dashboard' ? 0 : -1} aria-controls="vat-panel-dashboard" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>
-              <strong><span className="vat-tab-icon dashboard" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5h16"/><path d="M6.5 16V11M12 16V5M17.5 16V8"/></svg></span>{ar ? 'لوحة الإدارة' : 'Management dashboard'}</strong><small>{ar ? 'المبيعات والضريبة والاستحقاق والسيولة' : 'Sales, VAT, deadlines and cash'}</small>
-            </button>
-            <button id="vat-tab-aggregate" type="button" role="tab" aria-selected={activeTab === 'aggregate'} tabIndex={activeTab === 'aggregate' ? 0 : -1} aria-controls="vat-panel-aggregate" className={activeTab === 'aggregate' ? 'active' : ''} onClick={() => selectTab('aggregate')}>
-              <strong><span className="vat-tab-icon aggregate" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8 7.5h8M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 15h.01M12 15h.01M15.5 15h.01"/></svg></span>{ar ? 'إجماليات الفترة' : 'Period totals'}</strong><small>{ar ? 'إدخال مجمع للمبيعات والمشتريات' : 'Enter aggregated sales and purchases'}</small>
-            </button>
-            <button
-              id="vat-tab-register"
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'register'}
-              tabIndex={activeTab === 'register' ? 0 : -1}
-              aria-controls="vat-panel-register"
-              className={activeTab === 'register' ? 'active' : ''}
-              onClick={() => selectTab('register')}
-            >
-              <strong><span className="vat-tab-icon invoices" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M10 12h5M10 16h5"/></svg></span>{ar ? 'الفواتير' : 'Invoices'}</strong>
-              <small>{ar ? 'مساحة موحدة للمبيعات والمشتريات' : 'One workspace for sales and purchases'}</small>
-            </button>
-            <button
-              id="vat-tab-einvoicing"
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'einvoicing'}
-              tabIndex={activeTab === 'einvoicing' ? 0 : -1}
-              aria-controls="vat-panel-einvoicing"
-              className={activeTab === 'einvoicing' ? 'active' : ''}
-              onClick={() => selectTab('einvoicing')}
-            >
-              <strong><span className="vat-tab-icon zatca" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3.5 19 6v5.2c0 4.2-2.8 7.5-7 9.3-4.2-1.8-7-5.1-7-9.3V6z"/><path d="m9 12 2 2 4-4"/></svg></span>{ar ? 'إعداد وربط زاتكا' : 'ZATCA setup'}</strong>
-              <small>{ar ? 'تهيئة الوحدة والشهادة' : 'Invoice unit and certificate setup'}</small>
-            </button>
-          </nav>
 
           <div id="vat-panel-aggregate" role="tabpanel" aria-labelledby="vat-tab-aggregate" hidden={activeTab !== 'aggregate'}>
             {isOfficialFilingPeriod ? <VatPeriodSummaryForm
