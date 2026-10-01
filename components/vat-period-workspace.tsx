@@ -39,6 +39,9 @@ type Props = {
   onSaved: () => void;
 };
 
+export type VatMonthlyTrendPoint = { month: string; outputTax: string; inputTax: string };
+export type VatUpcomingObligation = { id: string; organizationName: string; dueDate: string; outstandingAmount: string };
+
 const text = (value: unknown) => String(value ?? '0');
 const amount = (value: string | number) => Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const todayInRiyadh = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(new Date());
@@ -195,7 +198,11 @@ export function VatPeriodSummaryForm({ organizationId, period, periodSummary, pe
   );
 }
 
-export function VatManagementDashboard({ period, yearStart, frequency, periodSummary, periodTotals, annualTotals, ar, reportScope = 'COMPANY', reportOrganizationCount = 1 }: Props) {
+export function VatManagementDashboard({ period, yearStart, frequency, periodSummary, periodTotals, annualTotals, ar, reportScope = 'COMPANY', reportOrganizationCount = 1, monthlyTrend = [], monthlyTrendLoading = false, upcomingObligations = [] }: Props & {
+  monthlyTrend?: VatMonthlyTrendPoint[];
+  monthlyTrendLoading?: boolean;
+  upcomingObligations?: VatUpcomingObligation[];
+}) {
   const today = todayInRiyadh();
   const daysToDue = daysBetween(today, periodTotals.dueDate ?? period.to);
   const periodOutstanding = Math.max(0, Number(periodTotals.taxPayable) - Number(periodTotals.paidAmount));
@@ -207,7 +214,72 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
   const filingLabel = periodTotals.filingStatus === 'FILED' ? (ar ? 'تم تقديم الإقرار' : 'Return filed') : (ar ? 'بانتظار تقديم الإقرار' : 'Return not filed');
   const groupReport = reportScope === 'GROUP';
 
+  const summaryMetrics = [
+    { key: 'output', label: ar ? 'ضريبة المخرجات' : 'Output VAT', value: periodTotals.outputTax, symbol: '↗' },
+    { key: 'input', label: ar ? 'ضريبة المدخلات القابلة للخصم' : 'Recoverable input VAT', value: periodTotals.inputTax, symbol: '↙' },
+    { key: 'due', label: ar ? 'صافي الضريبة المستحقة' : 'Net VAT due', value: periodTotals.taxPayable, symbol: 'Σ' },
+    { key: 'paid', label: ar ? 'المسدد خلال الفترة' : 'Paid this period', value: periodTotals.paidAmount, symbol: '✓' },
+  ];
+  const chartMaximum = Math.max(1, ...monthlyTrend.flatMap((item) => [Number(item.outputTax) || 0, Number(item.inputTax) || 0]));
+
   return <>
+    <section className="vat-summary-cards" aria-label={ar ? 'مؤشرات ضريبة الفترة' : 'Tax period indicators'}>
+      {summaryMetrics.map((metric) => <article className={`vat-summary-card ${metric.key}`} key={metric.key}>
+        <div className="vat-summary-card-top"><span>{metric.label}</span><span className="vat-summary-card-icon" aria-hidden="true">{metric.symbol}</span></div>
+        <strong dir="ltr">{amount(metric.value)} <small>SAR</small></strong>
+        <small>{ar ? 'الفترة المحددة' : 'Selected period'}</small>
+      </article>)}
+    </section>
+
+    {groupReport && <div className="vat-group-report-note" role="note">{ar
+      ? 'المبالغ المعروضة مجموع الشركة وفروعها، مع إبقاء مستحقات وأرصدة كل منشأة منفصلة دون مقاصة بينها. قد تختلف فترات الإقرار ومواعيدها حسب إعداد كل منشأة.'
+      : 'Amounts combine the company and its branches while keeping each entity’s VAT payable and credit separate. Filing periods and deadlines may differ by entity.'}</div>}
+
+    <section className="vat-dashboard-overview-grid">
+      <article className="vat-panel vat-monthly-chart-card">
+        <div className="vat-overview-card-heading">
+          <div><span className="vat-eyebrow">{ar ? 'حركة الفترة' : 'PERIOD ACTIVITY'}</span><h2>{ar ? 'ملخص الضريبة حسب الشهر' : 'VAT by month'}</h2><p>{ar ? 'من الفواتير المسجلة في الفترة المحددة' : 'From invoices registered in the selected period'}</p></div>
+          <span className="vat-overview-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16M6.5 16v-5M12 16V5M17.5 16V8"/></svg></span>
+        </div>
+        <div className="vat-chart-legend"><span><i className="output" />{ar ? 'ضريبة المخرجات' : 'Output VAT'}</span><span><i className="input" />{ar ? 'ضريبة المدخلات' : 'Input VAT'}</span></div>
+        {monthlyTrendLoading ? <div className="vat-monthly-chart-loading" role="status">{ar ? 'جارٍ تحميل حركة الفواتير…' : 'Loading invoice activity…'}</div> : monthlyTrend.length ? <div className="vat-monthly-chart" role="img" aria-label={ar ? 'مقارنة ضريبة المخرجات والمدخلات شهريًا' : 'Monthly output and input VAT comparison'}>
+          {monthlyTrend.map((item) => {
+            const output = Number(item.outputTax) || 0;
+            const input = Number(item.inputTax) || 0;
+            return <div className="vat-month-column" key={item.month}>
+              <div className="vat-month-bars">
+                <span className="vat-month-bar output" title={`${ar ? 'ضريبة المخرجات' : 'Output VAT'}: ${amount(output)} SAR`} style={{ height: `${output > 0 ? Math.max(4, output / chartMaximum * 100) : 0}%` }} />
+                <span className="vat-month-bar input" title={`${ar ? 'ضريبة المدخلات' : 'Input VAT'}: ${amount(input)} SAR`} style={{ height: `${input > 0 ? Math.max(4, input / chartMaximum * 100) : 0}%` }} />
+              </div>
+              <strong>{monthLabel(item.month, ar)}</strong>
+              <small>{amount(output)} / {amount(input)}</small>
+            </div>;
+          })}
+        </div> : <div className="vat-monthly-chart-empty">{ar ? 'لا توجد فواتير مسجلة في هذه الفترة.' : 'No invoices are registered in this period.'}</div>}
+        <small className="vat-chart-note">{ar ? 'الترتيب في كل شهر: المخرجات / المدخلات. لا توزّع إجماليات الإقرار اليدوية على الأشهر.' : 'Bars show output / input VAT. Manually entered return totals are not allocated across months.'}</small>
+      </article>
+
+      <article className="vat-panel vat-upcoming-card">
+        <div className="vat-overview-card-heading">
+          <div><span className="vat-eyebrow">{groupReport ? (ar ? 'حسب كل منشأة' : 'BY ENTITY') : (ar ? 'الفترة الضريبية' : 'TAX PERIOD')}</span><h2>{ar ? 'الاستحقاقات القادمة' : 'Upcoming obligations'}</h2><p>{ar ? 'المبالغ المتبقية ومواعيدها' : 'Outstanding amounts and due dates'}</p></div>
+          <span className="vat-overview-heading-icon calendar" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17"/></svg></span>
+        </div>
+        {upcomingObligations.length ? <ul className="vat-obligation-list">
+          {upcomingObligations.slice(0, 4).map((item) => {
+            const days = daysBetween(today, item.dueDate);
+            const status = days < 0 ? 'overdue' : days <= 7 ? 'soon' : 'upcoming';
+            return <li className="vat-obligation-item" key={item.id}>
+              <span className="vat-obligation-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M10 12h5M10 16h5"/></svg></span>
+              <div className="vat-obligation-copy"><strong>{item.organizationName}</strong><small>{ar ? 'موعد السداد' : 'Due'} · {formatDate(item.dueDate, ar)}</small></div>
+              <div className="vat-obligation-amount"><span className={`vat-dashboard-state ${status}`}>{status === 'overdue' ? (ar ? 'متأخر' : 'Overdue') : status === 'soon' ? (ar ? 'قريبًا' : 'Due soon') : (ar ? 'قادم' : 'Upcoming')}</span><strong>{amount(item.outstandingAmount)} SAR</strong></div>
+            </li>;
+          })}
+        </ul> : <div className="vat-obligations-empty"><span aria-hidden="true">✓</span><div><strong>{ar ? 'لا توجد مبالغ مستحقة غير مسددة' : 'No unpaid VAT obligations'}</strong><small>{ar ? 'لا توجد التزامات متبقية ضمن الفترة المحددة.' : 'There are no outstanding amounts in the selected period.'}</small></div></div>}
+      </article>
+    </section>
+
+    <details className="vat-dashboard-details">
+      <summary>{ar ? 'التفاصيل والتحليل المالي للفترة' : 'Period details and financial analysis'}</summary>
     <section className="vat-panel vat-dashboard-alert vat-dashboard-hero">
       <div className="vat-dashboard-alert-copy">
         <span className={`vat-dashboard-state ${isPaid ? 'paid' : isOverdue ? 'overdue' : dueSoon ? 'soon' : 'upcoming'}`}>
@@ -226,10 +298,6 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
           : (ar ? 'السيولة المخصصة تغطي المبلغ المتبقي المسجل.' : 'The recorded cash reserve covers the outstanding amount.')}
       </div>}
     </section>
-
-    {groupReport && <div className="vat-group-report-note" role="note">{ar
-      ? 'المبالغ المعروضة مجموع الشركة وفروعها، مع إبقاء مستحقات وأرصدة كل منشأة منفصلة دون مقاصة بينها. قد تختلف فترات الإقرار ومواعيدها حسب إعداد كل منشأة.'
-      : 'Amounts combine the company and its branches while keeping each entity’s VAT payable and credit separate. Filing periods and deadlines may differ by entity.'}</div>}
 
     <VatFinancialGraphics periodTotals={periodTotals} ar={ar} />
 
@@ -279,6 +347,7 @@ export function VatManagementDashboard({ period, yearStart, frequency, periodSum
       </div>
       {!periodSummary && <p className="vat-dashboard-source-note">{ar ? 'لم تُحفظ إجماليات يدوية لهذه الفترة بعد؛ يعرض النظام ما سجّلته في سجل المستندات. أدخل إجماليات الفترة من تبويب «إجماليات الفترة» إذا كانت بياناتك مجمعة.' : 'No aggregate totals are saved for this period yet; the dashboard uses the document register. Enter period totals in the “Period totals” tab if you report aggregated figures.'}</p>}
     </section>
+    </details>
   </>;
 }
 
@@ -407,6 +476,13 @@ function daysBetween(from: string, to: string) {
   const [fromYear, fromMonth, fromDay] = from.split('-').map(Number);
   const [toYear, toMonth, toDay] = to.split('-').map(Number);
   return Math.ceil((Date.UTC(toYear, toMonth - 1, toDay) - Date.UTC(fromYear, fromMonth - 1, fromDay)) / 86400000);
+}
+
+function monthLabel(value: string, ar: boolean) {
+  const month = Number(value.slice(5, 7));
+  const namesAr = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  const namesEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return (ar ? namesAr : namesEn)[month - 1] ?? value;
 }
 
 function formatDate(date: string, ar: boolean) {
