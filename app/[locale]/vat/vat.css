@@ -796,8 +796,7 @@
 .vat-dashboard-details[open] > summary { margin-bottom:12px; border-bottom:1px solid var(--vat-line); }
 .vat-dashboard-details > .vat-panel,.vat-dashboard-details > .vat-visual-grid { margin-inline:13px; }
 .vat-dashboard-details > .vat-panel:last-child { margin-bottom:13px; }
-.vat-dashboard-details > .vat-dashboard-section { margin-inline:35px; }
-@media(max-width:640px) { .vat-dashboard-details > .vat-dashboard-section { margin-inline:29px; } }
+.vat-dashboard-details > .vat-dashboard-section { background:var(--vat-soft); }
 .vat-report-analytical-note { margin:0; padding:18px; }
 .vat-report-analytical-note strong { color:var(--vat-green); font-size:.9rem; }
 .vat-report-analytical-note p { margin:7px 0 0; color:var(--vat-muted); font-size:.77rem; line-height:1.7; }
