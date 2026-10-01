@@ -879,3 +879,23 @@
 }
 .vat-settings-grid > .vat-registration { margin-right:auto; }
 .vat-tabs { margin:0 0 16px; }
+.vat-registration-loading,.vat-registration-load-error { display:flex; align-items:center; gap:11px; min-height:55px; margin:0 0 12px; padding:9px 12px; border:1px solid var(--vat-line); border-radius:11px; background:color-mix(in srgb,var(--vat-soft) 72%,var(--vat-card)); color:var(--vat-muted); }
+.vat-panel.vat-registration.is-loading,.vat-panel.vat-registration.is-load-error { margin:0; padding:0; border:0; background:transparent; box-shadow:none; }
+.vat-registration-loading-icon { display:grid; flex:0 0 32px; place-items:center; width:32px; height:32px; border:1px solid color-mix(in srgb,var(--vat-green) 18%,var(--vat-line)); border-radius:9px; background:color-mix(in srgb,var(--vat-green) 7%,var(--vat-card)); color:var(--vat-green); }
+.vat-registration-loading-icon svg { width:18px; height:18px; }
+.vat-registration-loading > span:nth-child(2),.vat-registration-load-error > div { display:grid; gap:3px; min-width:0; }
+.vat-registration-loading strong,.vat-registration-load-error strong { color:var(--vat-ink); font-size:.78rem; }
+.vat-registration-loading small,.vat-registration-load-error small { color:var(--vat-muted); font-size:.68rem; line-height:1.4; }
+.vat-registration-loading > i { position:relative; display:block; flex:1 1 auto; height:5px; overflow:hidden; border-radius:999px; background:color-mix(in srgb,var(--vat-green) 11%,var(--vat-card)); }
+.vat-registration-loading > i::after { position:absolute; inset-block:0; inset-inline-start:0; width:34%; border-radius:inherit; background:color-mix(in srgb,var(--vat-green) 62%,var(--vat-card)); content:""; animation:vat-registration-progress 1.25s ease-in-out infinite alternate; }
+.vat-registration-load-error { justify-content:space-between; border-color:color-mix(in srgb,var(--vat-negative) 24%,var(--vat-line)); background:color-mix(in srgb,var(--vat-negative) 5%,var(--vat-card)); }
+.vat-registration-load-error .vat-button { min-height:34px; padding:6px 10px; font-size:.71rem; }
+.vat-profile-form { gap:13px; }
+.vat-profile-registration-fields,.vat-profile-seller-fields { padding:14px; background:color-mix(in srgb,var(--vat-soft) 34%,var(--vat-card)); }
+.vat-profile-registration-fields .vat-einvoice-group-grid,.vat-profile-seller-fields .vat-einvoice-group-grid { align-items:start; gap:12px 14px; }
+.vat-profile-registration-fields .vat-einvoice-group-grid > label,.vat-profile-seller-fields .vat-einvoice-group-grid > label { gap:6px; }
+.vat-profile-registration-fields .vat-field-hint { line-height:1.4; }
+.vat-profile-seller-fields > .vat-field-hint { display:block; margin-top:10px; line-height:1.5; }
+.vat-profile-form .vat-form-actions { padding-top:2px; }
+@keyframes vat-registration-progress { from { transform:translateX(-8%); } to { transform:translateX(205%); } }
+@media(max-width:640px) { .vat-registration-loading,.vat-registration-load-error { align-items:flex-start; } .vat-registration-loading > i { align-self:center; min-width:42px; } .vat-profile-registration-fields,.vat-profile-seller-fields { padding:11px; } }
