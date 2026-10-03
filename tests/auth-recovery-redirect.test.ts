@@ -4,7 +4,7 @@ import {
   getAuthCallbackUrl,
   getAuthOrigin,
   getRecoveryRedirectUrl,
-} from '@/lib/auth/recovery-redirect';
+} from '../lib/auth/recovery-redirect';
 
 describe('QA recovery redirect flow', () => {
   it('normalizes Vercel deployment hosts to the stable QA origin', () => {
