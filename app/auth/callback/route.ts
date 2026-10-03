@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
+import { establishRecoverySession } from '@/lib/auth/recovery-session';
 
 export async function GET(req:Request){
  const url=new URL(req.url);const code=url.searchParams.get('code');const invite=url.searchParams.get('invite');let next=url.searchParams.get('next')||'/ar/dashboard';
  if(!next.startsWith('/')||next.startsWith('//')||next.includes('\\')||/[\u0000-\u001f]/.test(next)) next='/ar/dashboard';
  if(code){
   const supabase=await supabaseServer();
-  const {error}=await supabase.auth.exchangeCodeForSession(code);
-  if(!error){
+  const {session,error}=await establishRecoverySession(supabase,code);
+  if(session&&!error){
    if(invite){
     const {error:inviteError}=await supabase.rpc('accept_organization_invitation',{p_token:invite});
     if(inviteError){
