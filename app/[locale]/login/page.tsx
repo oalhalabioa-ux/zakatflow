@@ -1,6 +1,7 @@
 'use client';
 import {use, useEffect, useState} from 'react';
 import {supabaseBrowser} from '@/lib/supabase/browser';
+import {getAuthCallbackUrl, getRecoveryRedirectUrl} from '@/lib/auth/recovery-redirect';
 
 type Provider='google'|'facebook'|'apple';
 export default function Login({params}:{params:Promise<{locale:string}>}){
@@ -9,7 +10,7 @@ export default function Login({params}:{params:Promise<{locale:string}>}){
  const [showPassword,setShowPassword]=useState(false);const [forgot,setForgot]=useState(false);
  const [invite,setInvite]=useState<string|null>(null);const [error,setError]=useState<string|null>(null);
  useEffect(()=>{const query=new URLSearchParams(location.search);setInvite(query.get('invite'));setError(query.get('error'))},[]);
- const callback=()=>{const params=new URLSearchParams({next:`/${locale}/dashboard`});if(invite)params.set('invite',invite);return `${location.origin}/auth/callback?${params.toString()}`};
+ const callback=()=>getAuthCallbackUrl(location.origin,locale,undefined,invite);
  const validEmail=()=>{if(!email.trim()||!/^\S+@\S+\.\S+$/.test(email.trim())){setMsg(ar?'أدخل بريدًا إلكترونيًا صحيحًا.':'Enter a valid email address.');return false}return true};
  const friendlyError=(value:string)=>{const text=value.toLowerCase();if(text.includes('invalid login credentials'))return ar?'البريد أو كلمة المرور غير صحيحة.':'Email or password is incorrect.';if(text.includes('email not confirmed'))return ar?'أكد بريدك الإلكتروني أولًا.':'Confirm your email address first.';if(text.includes('rate limit'))return ar?'تم إرسال طلبات كثيرة مؤخرًا. انتظر قليلًا ثم أعد المحاولة.':'Too many requests. Please wait and try again.';return ar?'تعذر إكمال العملية. حاول مرة أخرى.':'Unable to complete the request. Please try again.'};
  async function passwordLogin(){if(!validEmail()||!password){setMsg(ar?'أدخل كلمة المرور.':'Enter your password.');return}setBusy('password');setMsg('');const supabase=supabaseBrowser();const {error}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password});if(error){setBusy('');setMsg(friendlyError(error.message));return}if(invite){const {error:inviteError}=await supabase.rpc('accept_organization_invitation',{p_token:invite});if(inviteError){await supabase.auth.signOut();setBusy('');setError(inviteError.message.includes('EMAIL_MISMATCH')?'invite_email':'invite_invalid');return}}setBusy('');location.assign(`/${locale}/dashboard`)}
