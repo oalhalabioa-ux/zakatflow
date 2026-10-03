@@ -1,7 +1,7 @@
 export const QA_AUTH_ORIGIN = 'https://zakatflow-git-feature-auth-password-login-qa-oalhalabioa-9334.vercel.app';
 
 function trimOrigin(value: string): string {
-  return value.replace(/\\/+$/, '');
+  return value.replace(/\/+$/, '');
 }
 
 /**
