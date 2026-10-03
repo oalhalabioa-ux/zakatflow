@@ -22,6 +22,15 @@ export function getAuthOrigin(currentOrigin: string, configuredOrigin?: string):
   return trimOrigin(currentOrigin);
 }
 
+export function canonicalizeAuthUrl(currentHref: string, configuredOrigin?: string): string {
+  const current = new URL(currentHref);
+  const canonical = new URL(getAuthOrigin(current.origin, configuredOrigin));
+  if (canonical.origin === current.origin) return current.toString();
+  current.protocol = canonical.protocol;
+  current.host = canonical.host;
+  return current.toString();
+}
+
 export function getRecoveryRedirectUrl(currentOrigin: string, configuredOrigin?: string): string {
   return `${getAuthOrigin(currentOrigin, configuredOrigin)}/auth/reset-password`;
 }
