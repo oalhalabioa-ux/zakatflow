@@ -15,8 +15,8 @@ jobs:
       QA_BRANCH: feature/auth-password-login-qa
       SUPABASE_URL: https://wtzgzmcgcqouziqzsfnl.supabase.co
       SUPABASE_PROJECT_REF: wtzgzmcgcqouziqzsfnl
-      # Non-secret QA publishable key configured as an Environment variable.
-      SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+      # QA publishable key stored as an encrypted Environment secret.
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
       E2E_OWNER_PASSWORD: ${{ secrets.E2E_OWNER_PASSWORD }}
       E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
