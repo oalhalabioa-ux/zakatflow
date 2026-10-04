@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   launch-operational-integration-vat-qa:
-    name: Run VAT classification QA harness
+    name: Run VAT operational QA harness
     runs-on: ubuntu-latest
     environment: financial-core-qa
     env:
@@ -18,6 +18,8 @@ jobs:
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
       E2E_OWNER_PASSWORD: ${{ secrets.E2E_OWNER_PASSWORD }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
       E2E_REQUIRE_CONFIG: 'true'
 
     steps:
@@ -37,6 +39,8 @@ jobs:
           test -n "$SUPABASE_PUBLISHABLE_KEY"
           test -n "$E2E_OWNER_EMAIL"
           test -n "$E2E_OWNER_PASSWORD"
+          test -n "$E2E_ADMIN_EMAIL"
+          test -n "$E2E_ADMIN_PASSWORD"
           echo "Testing VAT QA commit: $(git rev-parse HEAD)"
 
       - name: Setup Node.js
@@ -48,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Run authenticated VAT classification harness
+      - name: Run authenticated VAT operational harness
         shell: bash
         run: |
           set -euo pipefail
