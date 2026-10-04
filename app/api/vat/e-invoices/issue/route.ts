@@ -11,6 +11,8 @@ const issueSchema = z.object({
   entity_id: z.string().uuid().optional(),
 });
 
+const PREPARABLE_STATUSES = new Set(['ISSUED', 'SUBMITTED', 'CLEARED', 'REPORTED']);
+
 function firstRow<T>(data: T | T[] | null): T | null {
   return Array.isArray(data) ? (data[0] ?? null) : data;
 }
@@ -23,16 +25,16 @@ export async function POST(request: Request) {
     const body = parsed.data;
     await requireOrganizationAdmin(supabase, user.id, body.organization_id);
 
-    // Validate Financial Core routing before issuing. This prevents an invoice from
-    // becoming immutable/issued while its recognition event cannot be prepared.
     const { data: source, error: sourceError } = await supabase.from('vat_einvoices')
-      .select('id,organization_id,status,due_date,buyer_contact_id')
+      .select('*')
       .eq('id', body.invoice_id)
       .eq('organization_id', body.organization_id)
       .maybeSingle();
     if (sourceError) throw sourceError;
     if (!source) throw new Error('EINVOICE_NOT_FOUND');
-    if (source.status !== 'DRAFT') throw new Error('EINVOICE_NOT_DRAFT');
+    if (source.status !== 'DRAFT' && !PREPARABLE_STATUSES.has(source.status)) {
+      throw new Error('EINVOICE_NOT_PREPARABLE');
+    }
     if (!source.due_date) throw new Error('EINVOICE_DUE_DATE_REQUIRED_FOR_FINANCIAL_CORE');
     if (!source.buyer_contact_id) throw new Error('EINVOICE_BUYER_CONTACT_REQUIRED_FOR_FINANCIAL_CORE');
 
@@ -58,13 +60,33 @@ export async function POST(request: Request) {
       entityId = entities![0].id;
     }
 
-    const { data: issueData, error: issueError } = await supabase.rpc('issue_vat_einvoice', { p_invoice_id: body.invoice_id });
-    if (issueError) throw issueError;
-    const invoice = firstRow(issueData);
-    if (!invoice || (invoice as { organization_id?: string }).organization_id !== body.organization_id) throw new Error('EINVOICE_NOT_FOUND');
+    // Preflight the classifications needed by the Phase 2C sales adapter before
+    // making the VAT document immutable. This reduces partial issue failures.
+    const { data: classifications, error: classificationsError } = await supabase
+      .from('financial_classifications')
+      .select('classification_type')
+      .eq('organization_id', body.organization_id)
+      .in('classification_type', ['REVENUE', 'TAX']);
+    if (classificationsError) throw classificationsError;
+    const classificationTypes = new Set((classifications ?? []).map((item) => item.classification_type));
+    if (!classificationTypes.has('REVENUE') || !classificationTypes.has('TAX')) {
+      throw new Error('VAT_FINANCIAL_CLASSIFICATIONS_REQUIRED');
+    }
 
-    // Recognition is created through the existing Phase 2C adapter. It remains
-    // COMMITTED until independently approved and posted; settlement stays separate.
+    // DRAFT is issued once. If issuance succeeded previously but Financial Core
+    // preparation failed, an already-issued lifecycle state can safely retry only
+    // the idempotent prepare adapter without issuing the invoice again.
+    let invoice: Record<string, unknown> = source as Record<string, unknown>;
+    if (source.status === 'DRAFT') {
+      const { data: issueData, error: issueError } = await supabase.rpc('issue_vat_einvoice', { p_invoice_id: body.invoice_id });
+      if (issueError) throw issueError;
+      const issued = firstRow(issueData);
+      if (!issued || (issued as { organization_id?: string }).organization_id !== body.organization_id) {
+        throw new Error('EINVOICE_NOT_FOUND');
+      }
+      invoice = issued as Record<string, unknown>;
+    }
+
     const { data: eventData, error: eventError } = await supabase.rpc('prepare_vat_financial_event', {
       p_source_table: 'vat_einvoices',
       p_source_id: body.invoice_id,
@@ -76,7 +98,7 @@ export async function POST(request: Request) {
     if (!financialEventId) throw new Error('VAT_FINANCIAL_EVENT_NOT_CREATED');
 
     return NextResponse.json({
-      ...(invoice as Record<string, unknown>),
+      ...invoice,
       financial_core: {
         event_id: financialEventId,
         status: 'COMMITTED',
@@ -92,6 +114,7 @@ export async function POST(request: Request) {
       VAT_REGISTRATION_REQUIRED: 409,
       EINVOICE_NOT_FOUND: 404,
       EINVOICE_NOT_DRAFT: 409,
+      EINVOICE_NOT_PREPARABLE: 409,
       NOTE_ISSUANCE_NOT_SUPPORTED: 409,
       EINVOICE_DUE_DATE_REQUIRED_FOR_FINANCIAL_CORE: 409,
       EINVOICE_BUYER_CONTACT_REQUIRED_FOR_FINANCIAL_CORE: 409,
