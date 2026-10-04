@@ -10,7 +10,12 @@ const orgId = process.env.E2E_ORGANIZATION_ID ?? '85acbac0-e8b4-434c-a22b-3ec13b
 const holdingId = process.env.E2E_HOLDING_ID ?? '4673c66d-698d-43bb-b638-28dd556bbc27';
 const recognitionEventId = process.env.E2E_RECOGNITION_EVENT_ID ?? 'c5a33326-0719-4b63-81f4-de27257e8681';
 const writeFixture = process.env.E2E_WRITE_FIXTURE === 'true';
-const configured = Boolean(url && anonKey && process.env.E2E_OWNER_EMAIL && process.env.E2E_OWNER_PASSWORD);
+const configured = Boolean(
+  url && anonKey &&
+  process.env.E2E_OWNER_EMAIL && process.env.E2E_OWNER_PASSWORD &&
+  process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD &&
+  process.env.E2E_VIEWER_EMAIL && process.env.E2E_VIEWER_PASSWORD,
+);
 
 function env(role: Role, suffix: 'EMAIL' | 'PASSWORD' | 'USER_ID') {
   return process.env[`E2E_${role.toUpperCase()}_${suffix}`];
@@ -118,11 +123,11 @@ describe.skipIf(!configured)('Authenticated Financial Core QA E2E', () => {
   });
 
   afterAll(async () => {
-    await Promise.all([owner?.client.auth.signOut(), admin?.client.auth.signOut(), viewer?.client.auth.signOut()]);
     // Fixture cleanup is intentionally opt-in and never touches historical Phase 2F data.
     if (createdPlanId && process.env.E2E_CLEANUP === 'true') {
       await owner.client.from('budget_plans').delete().eq('id', createdPlanId).eq('user_id', owner.userId);
     }
+    await Promise.all([owner?.client.auth.signOut(), admin?.client.auth.signOut(), viewer?.client.auth.signOut()]);
   });
 
   it('auth smoke: creates real sessions with expected identities', () => {
