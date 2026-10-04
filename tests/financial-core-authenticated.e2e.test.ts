@@ -123,6 +123,44 @@ describe.skipIf(!configured)('Authenticated Financial Core QA E2E', () => {
       if (mapError && !mapError.message.includes('ALREADY_MAPPED') && !mapError.message.includes('OVERLAPPING_MAPPING_DENIED')) throw new Error(mapError.message);
     }
     if (!planId) throw new Error('E2E_PLAN_ID_REQUIRED');
+
+    // Consolidation requires exactly one company-level plan for every organization
+    // in the holding tree. Bootstrap the holding plan through the authenticated
+    // Owner session and the same RLS/RPC path used by the application.
+    if (writeFixture) {
+      const holdingPlanName = 'Phase 2E Authenticated E2E Holding 2026';
+      const holdingOrgName = 'Phase 2E QA E2E Holding 20261003';
+      let holdingPlanId = '';
+
+      const { data: existingHolding, error: holdingLookupError } = await owner.client
+        .from('budget_plans')
+        .select('id')
+        .eq('user_id', owner.userId)
+        .eq('fiscal_year', 2026)
+        .eq('scenario', 'BASE')
+        .eq('organization_name', holdingOrgName)
+        .eq('cost_center', 'ALL')
+        .maybeSingle();
+      if (holdingLookupError) throw new Error(holdingLookupError.message);
+
+      if (existingHolding?.id) holdingPlanId = existingHolding.id;
+      else {
+        const { data: holdingPlan, error: holdingPlanError } = await owner.client.from('budget_plans').insert({
+          name: holdingPlanName, fiscal_year: 2026, currency: 'SAR', scenario: 'BASE',
+          status: 'DRAFT', organization_name: holdingOrgName, cost_center: 'ALL',
+          opening_cash: 0, minimum_cash_target: 0, assumptions: {}, notes: 'QA consolidation fixture',
+          user_id: owner.userId, created_by: owner.userId,
+        }).select('id').single();
+        if (holdingPlanError || !holdingPlan) throw new Error(holdingPlanError?.message ?? 'E2E_HOLDING_PLAN_CREATE_FAILED');
+        holdingPlanId = holdingPlan.id;
+      }
+
+      const { error: holdingBindError } = await owner.client.rpc('configure_financial_budget', {
+        p_key: `phase2e-e2e-holding-bind-${holdingPlanId}`,
+        p_payload: { action: 'BIND_PLAN', organization_id: holdingId, plan_id: holdingPlanId, entity_id: null, cost_center_id: null, fiscal_start: '2026-01-01' },
+      });
+      if (holdingBindError && !holdingBindError.message.includes('ALREADY_BOUND')) throw new Error(holdingBindError.message);
+    }
   });
 
   afterAll(async () => {
