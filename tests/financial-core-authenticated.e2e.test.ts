@@ -16,6 +16,9 @@ const configured = Boolean(
   process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD &&
   process.env.E2E_VIEWER_EMAIL && process.env.E2E_VIEWER_PASSWORD,
 );
+if (process.env.E2E_REQUIRE_CONFIG === 'true' && !configured) {
+  throw new Error('E2E_CONFIG_MISSING: set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and all E2E_*_EMAIL/E2E_*_PASSWORD QA secrets');
+}
 
 function env(role: Role, suffix: 'EMAIL' | 'PASSWORD' | 'USER_ID') {
   return process.env[`E2E_${role.toUpperCase()}_${suffix}`];
