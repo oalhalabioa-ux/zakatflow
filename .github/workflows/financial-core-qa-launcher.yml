@@ -24,6 +24,8 @@ jobs:
       E2E_VIEWER_EMAIL: ${{ secrets.E2E_VIEWER_EMAIL }}
       E2E_VIEWER_PASSWORD: ${{ secrets.E2E_VIEWER_PASSWORD }}
       E2E_REQUIRE_CONFIG: 'true'
+      E2E_WRITE_FIXTURE: 'true'
+      E2E_CLASSIFICATION_ID: a2f6a98f-3fd2-4d1d-a92e-8c0911ac9685
 
     steps:
       - name: Checkout QA branch
