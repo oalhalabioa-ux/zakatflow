@@ -21,11 +21,12 @@ describe('QA recovery redirect flow', () => {
 
   it('uses one origin for forgot-password, callback, and reset', () => {
     const origin = 'https://zakatflow-9h16dlmm1-oalhalabioa-9334.vercel.app';
-    expect(getRecoveryRedirectUrl(origin)).toBe(`${QA_AUTH_ORIGIN}/auth/reset-password`);
+    expect(getRecoveryRedirectUrl(origin, 'ar')).toBe(`${QA_AUTH_ORIGIN}/auth/callback?next=%2Fauth%2Freset-password`);
     expect(getAuthCallbackUrl(origin, 'ar')).toBe(
       `${QA_AUTH_ORIGIN}/auth/callback?next=%2Far%2Fdashboard`,
     );
-    expect(new URL(getRecoveryRedirectUrl(origin)).origin).toBe(
+    expect(new URL(getRecoveryRedirectUrl(origin, 'ar')).pathname).toBe('/auth/callback');
+    expect(new URL(getRecoveryRedirectUrl(origin, 'ar')).origin).toBe(
       new URL(getAuthCallbackUrl(origin, 'ar')).origin,
     );
   });
