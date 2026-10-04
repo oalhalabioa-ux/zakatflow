@@ -1,0 +1,50 @@
+name: Operational Integration V1 VAT QA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  operational-integration-vat:
+    name: Operational Integration V1 VAT prerequisites
+    runs-on: ubuntu-latest
+    environment: financial-core-qa
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://wtzgzmcgcqouziqzsfnl.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
+      E2E_OWNER_PASSWORD: ${{ secrets.E2E_OWNER_PASSWORD }}
+      E2E_REQUIRE_CONFIG: 'true'
+      E2E_ORGANIZATION_ID: 85acbac0-e8b4-434c-a22b-3ec13b55e1a7
+
+    steps:
+      - name: Verify QA target and required secret presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "feature/operational-integration-v1-vat"
+          test "$NEXT_PUBLIC_SUPABASE_URL" = "https://wtzgzmcgcqouziqzsfnl.supabase.co"
+          test -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          test -n "$E2E_OWNER_EMAIL"
+          test -n "$E2E_OWNER_PASSWORD"
+          echo "QA target and required credentials are present; values are not printed."
+
+      - name: Checkout QA branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/operational-integration-v1-vat
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run authenticated VAT prerequisite harness
+        run: npx vitest run tests/operational-integration-v1-vat.e2e.test.ts
