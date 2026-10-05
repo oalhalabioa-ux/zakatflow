@@ -56,6 +56,19 @@ describe('Operational Integration V1 Cash settlement regression',()=>{
   expect(flow?.direction).toBe('OUTFLOW')
  },30000)
 
+ it('allocates the two settlement events as 50 and 65 to the same expected flow',async()=>{
+  const {data,error}=await owner.from('liquidity_flow_settlement_allocations').select('financial_event_id,flow_id,amount,base_amount,allocation_type').eq('organization_id',ORG).in('financial_event_id',[SETTLEMENT_50,SETTLEMENT_65])
+  if(error)throw error
+  expect(data).toHaveLength(2)
+  const partial=data?.find(x=>x.financial_event_id===SETTLEMENT_50)
+  const final=data?.find(x=>x.financial_event_id===SETTLEMENT_65)
+  expect(n(partial?.amount)).toBe(50)
+  expect(n(final?.amount)).toBe(65)
+  expect(partial?.flow_id).toBe(final?.flow_id)
+  expect(partial?.allocation_type).toBe('PAYMENT')
+  expect(final?.allocation_type).toBe('PAYMENT')
+ },30000)
+
  it('moves the operating cash account by 115 exactly once',async()=>{
   const {data,error}=await owner.from('liquidity_accounts').select('current_balance').eq('organization_id',ORG).eq('id',ACCOUNT).single()
   if(error)throw error
