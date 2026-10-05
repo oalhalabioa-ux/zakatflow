@@ -330,6 +330,16 @@ export default function Assets({
       setMsg(ar ? "أدخل الاسم وتاريخ الشراء" : "Enter name and purchase date");
       return;
     }
+    if (form.ownership_scope === "ORGANIZATION" && !form.organization_id) {
+      setMsg(ar ? "اختر المؤسسة المالكة للأصل" : "Choose the organization that owns the asset");
+      return;
+    }
+    if (!!form.asset_class_code !== !!form.asset_type_code) {
+      setMsg(ar ? "اختر فئة الأصل ونوعه معًا" : "Choose both asset class and asset type");
+      return;
+    }
+    const selectedV2Type = catalog.types.find((x:any) => x.code === form.asset_type_code);
+    const compatibleLegacyType = selectedV2Type?.default_legacy_asset_type || form.asset_type;
     setSaving(true);
     const metadata: any = {
       purchase_value: pc,
@@ -345,7 +355,7 @@ export default function Assets({
     if (form.purpose) metadata.purpose = form.purpose;
     const body = {
       ...(edit ? { id: edit } : {}),
-      asset_type: form.asset_type,
+      asset_type: compatibleLegacyType,
       name: form.name,
       currency: "SAR",
       unit: metal ? "g" : form.asset_type === "STOCK" ? "share" : "unit",
