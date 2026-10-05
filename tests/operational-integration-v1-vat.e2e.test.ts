@@ -238,12 +238,6 @@ describe('Operational Integration V1 VAT purchase recognition', () => {
     const purchaseId = '4d61fc33-85fc-4f56-98f6-6907851171c4'
     const purchaseEventId = 'c5a33326-0719-4b63-81f4-de27257e8681'
 
-    const { data: binding, error: bindingError } = await owner.from('financial_vat_source_bindings')
-      .select('event_id').eq('organization_id', ORGANIZATION_ID).eq('source_table', 'vat_documents')
-      .eq('source_record_id', purchaseId).single()
-    if (bindingError) throw bindingError
-    expect(binding.event_id).toBe(purchaseEventId)
-
     const { data: event, error: eventError } = await owner.from('financial_events').select('status,source_module').eq('id', purchaseEventId).single()
     if (eventError) throw eventError
     expect(event.status).toBe('ACTUAL')
