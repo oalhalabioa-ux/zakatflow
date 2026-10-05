@@ -249,7 +249,7 @@ export default function Transactions() {
               ))}
             </select>
           </Field>
-          {form.asset_account_id && (() => { const selected=assets.find((a)=>a.id===form.asset_account_id); return selected ? <div className="notice"><strong>تصنيف الأصل:</strong> {selected.asset_class_code || "Legacy"} / {assetTypeLabel(selected)} · <strong>الملكية:</strong> {assetOwnerLabel(selected)}{form.transaction_type==="PURCHASE" && selected.ownership_scope==="ORGANIZATION" ? " · شراء أصل مؤسسي (CAPEX/Asset)، وليس مصروفًا تشغيليًا" : ""}</div> : null; })()}
+          {form.asset_account_id && (() => { const selected=assets.find((a)=>a.id===form.asset_account_id); return selected ? <div className="notice"><strong>تصنيف الأصل:</strong> {selected.asset_class_code || "Legacy"} / {assetTypeLabel(selected)} · <strong>الملكية:</strong> {assetOwnerLabel(selected)}{form.transaction_type==="PURCHASE" && selected.ownership_scope==="ORGANIZATION" ? " · شراء أصل مؤسسي — المعالجة المالية حسب تصنيف الأصل، وليس مصروفًا تشغيليًا (OPEX) تلقائيًا" : ""}</div> : null; })()}
           <Field label="النوع">
             <select
               value={form.transaction_type}
