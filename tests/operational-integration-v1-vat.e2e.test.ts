@@ -240,7 +240,7 @@ describe('Operational Integration V1 VAT purchase recognition', () => {
     let { data: supplier } = await owner.from('vat_contacts').select('*').eq('organization_id', ORGANIZATION_ID).in('contact_type', ['SUPPLIER','BOTH']).limit(1).maybeSingle()
     if (!supplier) {
       const created = await owner.from('vat_contacts').insert({ organization_id: ORGANIZATION_ID, contact_type: 'SUPPLIER', name: 'Operational VAT E2E Supplier', street: 'QA Street', building_number: '4321', district: 'QA District', additional_number: '8765', city: 'Riyadh', postal_code: '12345', country_code: 'SA', created_by: ownerUserId }).select('*').single()
-      if (created.error || !created.data) throw new Error('E2E_VAT_SUPPLIER_CREATE_FAILED')
+      if (created.error || !created.data) throw new Error('E2E_VAT_SUPPLIER_CREATE_FAILED:' + (created.error?.message ?? ''))
       supplier = created.data
     }
     const today = new Date().toISOString().slice(0,10)
