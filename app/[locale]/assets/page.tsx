@@ -48,6 +48,14 @@ const FX = 3.75,
     purpose: "",
     purchase_date: "",
     is_zakatable: true,
+    ownership_scope: "PERSONAL",
+    organization_id: null,
+    entity_id: null,
+    cost_center_id: null,
+    asset_class_code: null,
+    asset_type_code: null,
+    acquisition_mode: "OPENING_BALANCE",
+    funding_account_id: "",
   };
 const fmt = (n: any) =>
   new Intl.NumberFormat("en-US", {
@@ -82,6 +90,7 @@ export default function Assets({
     [msg, setMsg] = useState(""),
     [loadError, setLoadError] = useState(""),
     [loading, setLoading] = useState(true),
+    [catalog, setCatalog] = useState<any>({ organizations: [], entities: [], cost_centers: [], classes: [], types: [] }),
     [usd, setUsd] = useState(false),
     [closed, setClosed] = useState<Record<string, boolean>>({}),
     [tablePreferences, setTablePreferences] =
@@ -101,6 +110,8 @@ export default function Assets({
       const response = await fetch("/api/assets");
       if (!response.ok) throw new Error("LOAD_FAILED");
       setRows(await response.json());
+      const catalogResponse = await fetch("/api/assets/catalog");
+      if (catalogResponse.ok) setCatalog(await catalogResponse.json());
     } catch {
       setRows([]);
       setLoadError(
@@ -226,6 +237,12 @@ export default function Assets({
       purpose: d.purpose ?? "",
       purchase_date: d.purchase_date ?? "",
       is_zakatable: r.is_zakatable,
+      ownership_scope: r.ownership_scope || "PERSONAL",
+      organization_id: r.organization_id ?? null,
+      entity_id: r.entity_id ?? null,
+      cost_center_id: r.cost_center_id ?? null,
+      asset_class_code: r.asset_class_code ?? null,
+      asset_type_code: r.asset_type_code ?? null,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -315,12 +332,27 @@ export default function Assets({
       setMsg(ar ? "أدخل الاسم وتاريخ الشراء" : "Enter name and purchase date");
       return;
     }
+    if (form.ownership_scope === "ORGANIZATION" && !form.organization_id) {
+      setMsg(ar ? "اختر المؤسسة المالكة للأصل" : "Choose the organization that owns the asset");
+      return;
+    }
+    if (!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && !form.funding_account_id) {
+      setMsg(ar ? "اختر حساب النقد أو البنك الشخصي المستخدم في الشراء" : "Choose the personal cash or bank account used for the purchase");
+      return;
+    }
+    if (!!form.asset_class_code !== !!form.asset_type_code) {
+      setMsg(ar ? "اختر فئة الأصل ونوعه معًا" : "Choose both asset class and asset type");
+      return;
+    }
+    const selectedV2Type = catalog.types.find((x:any) => x.code === form.asset_type_code);
+    const compatibleLegacyType = selectedV2Type?.default_legacy_asset_type || form.asset_type;
     setSaving(true);
     const metadata: any = {
       purchase_value: pc,
       market_value: mv,
       estimated_value: mv,
       purchase_date: form.purchase_date,
+      funding_account_id: !edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" ? form.funding_account_id : undefined,
     };
     if (form.amount) metadata.opening_value = +form.amount;
     if (form.quantity) metadata.quantity = +form.quantity;
@@ -330,12 +362,18 @@ export default function Assets({
     if (form.purpose) metadata.purpose = form.purpose;
     const body = {
       ...(edit ? { id: edit } : {}),
-      asset_type: form.asset_type,
+      asset_type: compatibleLegacyType,
       name: form.name,
       currency: "SAR",
       unit: metal ? "g" : form.asset_type === "STOCK" ? "share" : "unit",
       is_zakatable: form.is_zakatable,
-      metadata,
+      ownership_scope: form.ownership_scope || "PERSONAL",
+      organization_id: form.ownership_scope === "ORGANIZATION" ? form.organization_id : null,
+      entity_id: form.ownership_scope === "ORGANIZATION" ? form.entity_id : null,
+      cost_center_id: form.ownership_scope === "ORGANIZATION" ? form.cost_center_id : null,
+      asset_class_code: form.asset_class_code || null,
+      asset_type_code: form.asset_type_code || null,
+      metadata: {...metadata, acquisition_mode: !edit ? (form.acquisition_mode || "OPENING_BALANCE") : (form.metadata?.acquisition_mode || "OPENING_BALANCE")},
     };
     const r = await fetch("/api/assets", {
       method: edit ? "PUT" : "POST",
@@ -472,6 +510,34 @@ export default function Assets({
               : "Add asset"}
         </h3>
         <div className="form-grid">
+          {!edit && <label>
+            {ar ? "طريقة الاقتناء" : "Acquisition"}
+            <select value={form.acquisition_mode || "OPENING_BALANCE"} onChange={(e)=>setForm({...form,acquisition_mode:e.target.value,funding_account_id:""})}>
+              <option value="OPENING_BALANCE">{ar ? "رصيد افتتاحي / أصل موجود" : "Opening balance / existing asset"}</option>
+              <option value="PURCHASE">{ar ? "شراء أصل جديد" : "Purchase new asset"}</option>
+            </select>
+          </label>}
+          <label>
+            {ar ? "الملكية" : "Ownership"}
+            <select value={form.ownership_scope || "PERSONAL"} onChange={(e) => setForm({...form,ownership_scope:e.target.value,organization_id:null,entity_id:null,cost_center_id:null})}>
+              <option value="PERSONAL">{ar ? "شخصي" : "Personal"}</option>
+              <option value="ORGANIZATION">{ar ? "مؤسسي / شركة" : "Organization / Company"}</option>
+            </select>
+          </label>
+          {!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && <label>
+            {ar ? "الدفع من الحساب الشخصي" : "Pay from personal account"}
+            <select value={form.funding_account_id || ""} onChange={(e)=>setForm({...form,funding_account_id:e.target.value})}>
+              <option value="">{ar ? "اختر حساب النقد / البنك" : "Choose cash / bank account"}</option>
+              {rows.filter((x:any)=>!x.organization_id && (!x.ownership_scope || x.ownership_scope==="PERSONAL") && ["CASH","BANK"].includes(x.asset_type)).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </label>}
+          {form.ownership_scope === "ORGANIZATION" && (<>
+            <label>{ar ? "الشركة / المؤسسة" : "Organization"}<select value={form.organization_id || ""} onChange={(e)=>setForm({...form,organization_id:e.target.value||null,entity_id:null,cost_center_id:null})}><option value="">{ar?"اختر الشركة":"Choose organization"}</option>{catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
+            <label>{ar ? "الفرع / الكيان" : "Entity"}<select value={form.entity_id || ""} onChange={(e)=>setForm({...form,entity_id:e.target.value||null})}><option value="">{ar?"بدون / اختر":"None / choose"}</option>{catalog.entities.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+            <label>{ar ? "مركز التكلفة" : "Cost center"}<select value={form.cost_center_id || ""} onChange={(e)=>setForm({...form,cost_center_id:e.target.value||null})}><option value="">{ar?"بدون / اختر":"None / choose"}</option>{catalog.cost_centers.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+          </>)}
+          <label>{ar ? "فئة الأصل" : "Asset class"}<select value={form.asset_class_code || ""} onChange={(e)=>setForm({...form,asset_class_code:e.target.value||null,asset_type_code:null})}><option value="">{ar?"التصنيف القديم / غير محدد":"Legacy / not specified"}</option>{catalog.classes.map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>
+          {form.asset_class_code && <label>{ar ? "نوع الأصل التفصيلي" : "Asset type"}<select value={form.asset_type_code || ""} onChange={(e)=>setForm({...form,asset_type_code:e.target.value||null})}><option value="">{ar?"اختر النوع":"Choose type"}</option>{catalog.types.filter((x:any)=>x.class_code===form.asset_class_code).map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>}
           <label>
             {ar ? "نوع الأصل" : "Type"}
             <select
@@ -499,7 +565,7 @@ export default function Assets({
             />
           </label>
           <label>
-            {ar ? "تاريخ الشراء / التملك" : "Purchase date"}
+            {!edit && form.acquisition_mode === "OPENING_BALANCE" ? (ar ? "تاريخ التملك / الرصيد الافتتاحي" : "Ownership / opening date") : (ar ? "تاريخ الشراء" : "Purchase date")}
             <input
               type="date"
               value={form.purchase_date}
@@ -567,7 +633,7 @@ export default function Assets({
             </>
           ) : (
             <label>
-              {ar ? "القيمة / الرصيد" : "Value / balance"}
+              {!edit && form.acquisition_mode === "PURCHASE" ? (ar ? "قيمة الشراء" : "Purchase value") : (ar ? "القيمة / الرصيد الافتتاحي" : "Opening value / balance")}
               <input
                 type="number"
                 step="0.01"

@@ -16,6 +16,9 @@ const numberFormatter = new Intl.NumberFormat("en-US", {
 });
 const integerFormatter = new Intl.NumberFormat("en-US");
 
+function assetTypeLabel(asset: any) { return asset?.asset_type_code || asset?.asset_class_code || asset?.asset_type || '—'; }
+function assetOwnerLabel(asset: any) { return asset?.ownership_scope === 'ORGANIZATION' ? 'مؤسسي' : 'شخصي'; }
+
 function assetName(row: any) {
   return row.asset_accounts?.name || row.asset_account_id || "—";
 }
@@ -241,11 +244,12 @@ export default function Transactions() {
             >
               {assets.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name} — {a.asset_type}
+                  {a.name} — {assetTypeLabel(a)} — {assetOwnerLabel(a)}
                 </option>
               ))}
             </select>
           </Field>
+          {form.asset_account_id && (() => { const selected=assets.find((a)=>a.id===form.asset_account_id); return selected ? <div className="notice"><strong>تصنيف الأصل:</strong> {selected.asset_class_code || "Legacy"} / {assetTypeLabel(selected)} · <strong>الملكية:</strong> {assetOwnerLabel(selected)}{form.transaction_type==="PURCHASE" && selected.ownership_scope==="ORGANIZATION" ? " · شراء أصل مؤسسي — المعالجة المالية حسب تصنيف الأصل، وليس مصروفًا تشغيليًا (OPEX) تلقائيًا" : ""}</div> : null; })()}
           <Field label="النوع">
             <select
               value={form.transaction_type}
@@ -264,7 +268,7 @@ export default function Transactions() {
             <Field label="إيداع متحصلات البيع في">
               <select value={form.proceeds_account_id} onChange={(e) => setForm({ ...form, proceeds_account_id: e.target.value })}>
                 <option value="">اختر الصندوق أو البنك</option>
-                {assets.filter((a) => a.asset_type === "CASH" || a.asset_type === "BANK").map((a) => <option key={a.id} value={a.id}>{a.name} — {a.asset_type}</option>)}
+                {assets.filter((a) => a.asset_type === "CASH" || a.asset_type === "BANK").map((a) => <option key={a.id} value={a.id}>{a.name} — {assetTypeLabel(a)} — {assetOwnerLabel(a)}</option>)}
               </select>
             </Field>
           )}

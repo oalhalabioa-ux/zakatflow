@@ -1,0 +1,15 @@
+import {describe,expect,it} from 'vitest';
+import {allowedEventActions,financialEventActionSchema,type EventPermissions} from './financial-event-command';
+const user='11111111-1111-4111-8111-111111111111';
+const other='22222222-2222-4222-8222-222222222222';
+const permissions:EventPermissions={'financial_core.view':true,'financial_core.create':true,'financial_core.approve':true,'financial_core.post':true,'liquidity.edit':true,'vat.view':true,'organization.edit':true};
+const event={status:'COMMITTED',event_type:'EXPENSE',source_module:'OPERATIONAL_CONSOLE',created_by:user};
+describe('Operational permission boundary',()=>{
+ it('never exposes self approval even to an owner',()=>{expect(allowedEventActions(event,user,permissions,false)).not.toContain('APPROVE');expect(allowedEventActions(event,other,permissions,false)).toContain('APPROVE');});
+ it('requires independent approval for recognition and posting',()=>{expect(allowedEventActions(event,other,permissions,false)).not.toContain('ACTUAL');expect(allowedEventActions(event,user,permissions,true)).toContain('ACTUAL');});
+ it('cannot recognize settlement through generic transition',()=>{const actions=allowedEventActions({...event,event_type:'SETTLEMENT'},user,permissions,true);expect(actions).toContain('POST_SETTLEMENT');expect(actions).not.toContain('ACTUAL');expect(allowedEventActions({...event,event_type:'SETTLEMENT'},user,{...permissions,'liquidity.edit':false},true)).not.toContain('POST_SETTLEMENT');});
+ it('requires VAT and cash permissions for source recognition',()=>{expect(allowedEventActions({...event,source_module:'VAT_INTEGRATION'},user,{...permissions,'vat.view':false},true)).not.toContain('RECOGNIZE_VAT');expect(allowedEventActions({...event,source_module:'VAT_INTEGRATION'},user,permissions,true)).toContain('RECOGNIZE_VAT');});
+ it('shows no mutations for view only users',()=>{const readOnly=Object.fromEntries(Object.keys(permissions).map(key=>[key,key==='financial_core.view'])) as EventPermissions;expect(allowedEventActions(event,other,readOnly,true)).toEqual([]);});
+ it('restricts VAT sources and rejects forged command fields',()=>{const command={action:'PREPARE_VAT',organization_id:user,source_table:'vat_documents',source_id:other,entity_id:user,due_date:'2027-01-15'};expect(financialEventActionSchema.safeParse(command).success).toBe(true);expect(financialEventActionSchema.safeParse({...command,source_table:'auth.users'}).success).toBe(false);expect(financialEventActionSchema.safeParse({...command,created_by:other}).success).toBe(false);});
+ it('requires explicit obligation/flow allocation for payment',()=>{const command={action:'POST_SETTLEMENT',organization_id:user,event_id:other,account_id:user,direction:'OUTFLOW',settlement_date:'2027-01-15',amount:50,currency:'SAR',exchange_rate:1,base_amount:50,allocations:[]};expect(financialEventActionSchema.safeParse(command).success).toBe(false);expect(financialEventActionSchema.safeParse({...command,allocations:[{obligation_id:user,flow_id:other,amount:50,base_amount:50,flow_amount:50,flow_currency:'SAR',flow_exchange_rate:1}]}).success).toBe(true);});
+});

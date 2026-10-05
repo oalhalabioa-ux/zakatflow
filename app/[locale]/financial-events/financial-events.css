@@ -1,0 +1,15 @@
+.financial-events-console{max-width:1440px;margin:auto;padding:24px;color:var(--ink)}
+.financial-events-console header,.financial-events-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.financial-events-console section,.financial-events-console article{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-block:18px}
+.financial-events-console h1{margin:0}.financial-events-console p{color:var(--muted)}
+.financial-events-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.financial-events-console label{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.financial-events-console input,.financial-events-console select{width:100%;min-width:0;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}
+.financial-events-console button{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--accent);color:white;cursor:pointer}
+.financial-events-console button:disabled{opacity:.45;cursor:not-allowed}.financial-events-console button[aria-pressed=true]{outline:3px solid var(--accent)}
+.financial-events-console form button{margin-block-start:16px}.financial-events-console details{margin-block:16px}.financial-events-console summary{cursor:pointer}
+.financial-events-scroll{overflow:auto}.financial-events-console table{width:100%;border-collapse:collapse;min-width:650px}.financial-events-console th,.financial-events-console td{padding:12px;text-align:start;border-bottom:1px solid var(--line)}
+.financial-events-console [role=alert]{color:var(--danger);white-space:pre-wrap}.financial-events-console [role=status]{color:var(--accent)}
+.financial-events-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.financial-events-kpis div{border:1px solid var(--line);padding:16px;border-radius:10px}.financial-events-kpis strong{display:block;font-size:24px;direction:ltr;text-align:start}
+.financial-events-console code{overflow-wrap:anywhere}.financial-events-console .notice{padding:12px;background:var(--soft);border-radius:8px}
+@media(max-width:700px){.financial-events-console{padding:12px}.financial-events-grid{grid-template-columns:1fr}.financial-events-kpis{grid-template-columns:1fr}.financial-events-console section{padding:14px}}
