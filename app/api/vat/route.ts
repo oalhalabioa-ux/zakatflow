@@ -341,6 +341,37 @@ export async function POST(request: Request) {
         action: 'CREATE',
         new_data: { id: data.id, organization_id: data.organization_id, document_type: data.document_type, document_number: data.document_number, transaction_date: data.transaction_date, net_amount: data.net_amount, tax_amount: data.tax_amount },
       });
+
+      // Purchase VAT recognition is prepared in Financial Core at document creation.
+      // Recognition remains non-cash; settlement is handled separately by Cash Management.
+      if (document.document_type === 'PURCHASE') {
+        const { data: entities, error: entityError } = await supabase.from('organization_entities')
+          .select('id').eq('organization_id', document.organization_id).eq('active', true).limit(2);
+        if (entityError) throw entityError;
+        if (!entities || entities.length !== 1) throw new Error('VAT_FINANCIAL_ENTITY_REQUIRED');
+
+        const { data: requiredClasses, error: classError } = await supabase.from('financial_classifications')
+          .select('classification_type').eq('organization_id', document.organization_id)
+          .in('classification_type', ['OPEX', 'TAX']);
+        if (classError) throw classError;
+        const types = new Set((requiredClasses ?? []).map((row: any) => row.classification_type));
+        if (!types.has('OPEX') || !types.has('TAX')) throw new Error('VAT_FINANCIAL_CLASSIFICATIONS_REQUIRED');
+
+        const { data: prepared, error: prepareError } = await supabase.rpc('prepare_vat_financial_event', {
+          p_source_table: 'vat_documents',
+          p_source_id: data.id,
+          p_entity_id: entities[0].id,
+          p_due_date: document.transaction_date,
+        });
+        if (prepareError) throw prepareError;
+        const preparedRow = Array.isArray(prepared) ? prepared[0] : prepared;
+        const financialEventId = typeof preparedRow === 'string' ? preparedRow : (preparedRow?.event_id ?? preparedRow?.id ?? null);
+        return NextResponse.json({
+          ...data,
+          financial_core: { event_id: financialEventId, status: 'COMMITTED', recognition: 'PENDING_INDEPENDENT_APPROVAL' },
+        }, { status: 201 });
+      }
+
       return NextResponse.json(data, { status: 201 });
     }
 
