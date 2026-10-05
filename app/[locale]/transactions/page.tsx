@@ -16,7 +16,10 @@ const numberFormatter = new Intl.NumberFormat("en-US", {
 });
 const integerFormatter = new Intl.NumberFormat("en-US");
 
-function assetTypeLabel(asset: any) { return asset?.asset_type_code || asset?.asset_class_code || asset?.asset_type || '—'; }\nfunction assetOwnerLabel(asset: any) { return asset?.ownership_scope === 'ORGANIZATION' ? 'مؤسسي' : 'شخصي'; }\n\nfunction assetName(row: any) {
+function assetTypeLabel(asset: any) { return asset?.asset_type_code || asset?.asset_class_code || asset?.asset_type || '—'; }
+function assetOwnerLabel(asset: any) { return asset?.ownership_scope === 'ORGANIZATION' ? 'مؤسسي' : 'شخصي'; }
+
+function assetName(row: any) {
   return row.asset_accounts?.name || row.asset_account_id || "—";
 }
 
