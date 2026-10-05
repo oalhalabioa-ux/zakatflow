@@ -183,7 +183,7 @@ describe('Operational Integration V1 VAT sales recognition', () => {
     expect(obligations?.length).toBe(1)
     const obligation = obligations![0] as Record<string, unknown>
     expect(String(obligation.obligation_type ?? obligation.direction ?? '')).toContain('RECEIVABLE')
-    expect(Math.abs(numeric(obligation, ['original_amount', 'amount', 'base_amount', 'gross_amount']))).toBe(115)
+    expect(Math.abs(numeric(obligation, ['settleable_amount', 'settleable_base_amount']))).toBe(115)
 
     const { data: settlements, error: settlementError } = await owner.from('liquidity_settlements').select('id').eq('financial_event_id', eventId)
     if (settlementError) throw settlementError
@@ -207,7 +207,7 @@ describe('Operational Integration V1 VAT sales recognition', () => {
     expect(event.status).toBe('ACTUAL')
 
     const { data: bindings, error: bindingError } = await owner.from('financial_vat_source_bindings').select('event_id')
-      .eq('organization_id', ORGANIZATION_ID).eq('source_table', 'vat_einvoices').eq('source_id', invoiceId)
+      .eq('organization_id', ORGANIZATION_ID).eq('source_table', 'vat_einvoices').eq('source_record_id', invoiceId)
     if (bindingError) throw bindingError
     expect(bindings ?? []).toHaveLength(1)
     expect(bindings?.[0]?.event_id).toBe(eventId)
