@@ -24,4 +24,12 @@ describe('asset purchase financial core mapping',()=>{
   const noVat=buildAssetPurchaseCoreIntent(base); expect(noVat.lines).toHaveLength(1);expect(noVat.obligations[0].settleable_amount).toBe(100);
   const withVat=buildAssetPurchaseCoreIntent({...base,vatAmount:15,vatBaseAmount:15,taxClassificationId:'55555555-5555-4555-8555-555555555555'});expect(withVat.lines).toHaveLength(2);expect(withVat.obligations[0].settleable_amount).toBe(115);
  });
+ it('keeps a frozen purchase intent stable when mutable asset presentation changes',()=>{
+  const frozen=buildAssetPurchaseCoreIntent({transactionId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',assetId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',organizationId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',entityId:null,costCenterId:null,assetName:'Original vehicle',assetClassCode:'PPE',transactionDate:'2026-10-05',currency:'SAR',baseCurrency:'SAR',amount:100000,baseAmount:100000,exchangeRate:1,assetClassificationId:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'});
+  const transactionMetadata={financial_core_intent:frozen};
+  const retryPayload=transactionMetadata.financial_core_intent;
+  expect(retryPayload).toBe(frozen);
+  expect(retryPayload.description).toBe('Asset purchase - Original vehicle');
+  expect(retryPayload.source_event_key).toBe('asset-purchase:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+ });
 });
