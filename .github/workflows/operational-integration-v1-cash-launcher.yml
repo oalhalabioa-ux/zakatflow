@@ -1,0 +1,59 @@
+name: Operational Integration V1 Cash QA Launcher
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  launch-operational-integration-cash-qa:
+    name: Run Cash operational QA harness
+    runs-on: ubuntu-latest
+    environment: financial-core-qa
+    env:
+      QA_BRANCH: feature/operational-integration-v1-cash
+      SUPABASE_URL: https://wtzgzmcgcqouziqzsfnl.supabase.co
+      SUPABASE_PROJECT_REF: wtzgzmcgcqouziqzsfnl
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
+      E2E_OWNER_PASSWORD: ${{ secrets.E2E_OWNER_PASSWORD }}
+
+    steps:
+      - name: Checkout Cash QA branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/operational-integration-v1-cash
+          persist-credentials: false
+
+      - name: Verify QA target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$QA_BRANCH" = "feature/operational-integration-v1-cash"
+          test "$SUPABASE_PROJECT_REF" = "wtzgzmcgcqouziqzsfnl"
+          test "$SUPABASE_URL" = "https://wtzgzmcgcqouziqzsfnl.supabase.co"
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
+          test -n "$E2E_OWNER_EMAIL"
+          test -n "$E2E_OWNER_PASSWORD"
+          echo "Testing Cash QA commit: $(git rev-parse HEAD)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run authenticated Cash operational harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+          npx vitest run tests/operational-integration-v1-cash.e2e.test.ts
