@@ -237,10 +237,8 @@ describe('Operational Integration V1 VAT purchase recognition', () => {
   it('prepares purchase 100 + VAT 15 as OPEX + TAX + PAYABLE with no cash movement', async () => {
     const { data: accountsBefore } = await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id', ORGANIZATION_ID).eq('active', true)
     const before = new Map((accountsBefore ?? []).map((a) => [a.id, Number(a.current_balance ?? 0)]))
-    let { data: supplier } = await owner.from('vat_contacts').select('*').eq('organization_id', ORGANIZATION_ID).in('contact_type', ['SUPPLIER','BOTH']).limit(1).maybeSingle()
-    if (!supplier) {
-      throw new Error('E2E_VAT_SUPPLIER_FIXTURE_REQUIRED')
-    }
+    const supplierId = 'c52ba260-1299-4633-9517-6eed98eeedd8'
+    const supplier = { id: supplierId, name: 'Phase 2F QA Supplier', vat_number: null }
     const today = new Date().toISOString().slice(0,10)
     const inserted = await owner.from('vat_documents').insert({
       organization_id: ORGANIZATION_ID, user_id: ownerUserId, created_by: ownerUserId, document_type: 'PURCHASE', document_kind: 'INVOICE',
