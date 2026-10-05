@@ -48,6 +48,12 @@ const FX = 3.75,
     purpose: "",
     purchase_date: "",
     is_zakatable: true,
+    ownership_scope: "PERSONAL",
+    organization_id: null,
+    entity_id: null,
+    cost_center_id: null,
+    asset_class_code: null,
+    asset_type_code: null,
   };
 const fmt = (n: any) =>
   new Intl.NumberFormat("en-US", {
@@ -226,6 +232,12 @@ export default function Assets({
       purpose: d.purpose ?? "",
       purchase_date: d.purchase_date ?? "",
       is_zakatable: r.is_zakatable,
+      ownership_scope: r.ownership_scope || "PERSONAL",
+      organization_id: r.organization_id ?? null,
+      entity_id: r.entity_id ?? null,
+      cost_center_id: r.cost_center_id ?? null,
+      asset_class_code: r.asset_class_code ?? null,
+      asset_type_code: r.asset_type_code ?? null,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -335,6 +347,12 @@ export default function Assets({
       currency: "SAR",
       unit: metal ? "g" : form.asset_type === "STOCK" ? "share" : "unit",
       is_zakatable: form.is_zakatable,
+      ownership_scope: form.ownership_scope || "PERSONAL",
+      organization_id: form.ownership_scope === "ORGANIZATION" ? form.organization_id : null,
+      entity_id: form.ownership_scope === "ORGANIZATION" ? form.entity_id : null,
+      cost_center_id: form.ownership_scope === "ORGANIZATION" ? form.cost_center_id : null,
+      asset_class_code: form.asset_class_code || null,
+      asset_type_code: form.asset_type_code || null,
       metadata,
     };
     const r = await fetch("/api/assets", {
@@ -472,6 +490,18 @@ export default function Assets({
               : "Add asset"}
         </h3>
         <div className="form-grid">
+          <label>
+            {ar ? "الملكية" : "Ownership"}
+            <select value={form.ownership_scope || "PERSONAL"} onChange={(e) => setForm({...form,ownership_scope:e.target.value,organization_id:null,entity_id:null,cost_center_id:null})}>
+              <option value="PERSONAL">{ar ? "شخصي" : "Personal"}</option>
+              <option value="ORGANIZATION">{ar ? "مؤسسي / شركة" : "Organization / Company"}</option>
+            </select>
+          </label>
+          {form.ownership_scope === "ORGANIZATION" && (
+            <div className="notice" style={{gridColumn:"1 / -1"}}>
+              {ar ? "سيتم اختيار الشركة والفرع ومركز التكلفة من الهيكل التنظيمي بعد تفعيل كتالوج الأصول المؤسسية في بيئة QA. لا يمكن حفظ أصل مؤسسي بدون شركة." : "Organization, entity and cost center will come from the organization hierarchy after the institutional asset catalog is enabled in QA. An organization asset cannot be saved without an organization."}
+            </div>
+          )}
           <label>
             {ar ? "نوع الأصل" : "Type"}
             <select
