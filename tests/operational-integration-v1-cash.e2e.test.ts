@@ -92,6 +92,25 @@ describe('Operational Integration V1 Cash settlement regression',()=>{
   expect(final?.allocation_type).toBe('PAYMENT')
  },30000)
 
+ it('reconciles recognition and both settlement events as MATCHED',async()=>{
+  const {data,error}=await owner.from('financial_core_cash_reconciliation').select('financial_event_id,event_type,reconciliation_status,cash_settled_amount').eq('organization_id',ORG).eq('liquidity_flow_id','f9c8ea81-b91e-4555-b187-2d159265d7b4')
+  if(error)throw error
+  expect(data).toHaveLength(3)
+  expect(data?.every(x=>x.reconciliation_status==='MATCHED'&&n(x.cash_settled_amount)===115)).toBe(true)
+  expect(data?.filter(x=>x.event_type==='SETTLEMENT')).toHaveLength(2)
+  expect(data?.filter(x=>x.financial_event_id===RECOGNITION)).toHaveLength(1)
+ },30000)
+
+ it('reports the expected flow as fully settled with no outstanding cash',async()=>{
+  const {data,error}=await owner.from('liquidity_flow_settlement_reconciliation').select('expected_amount,settled_amount,expected_outstanding,settlement_status,net_actual_cash_allocated').eq('organization_id',ORG).eq('flow_id','f9c8ea81-b91e-4555-b187-2d159265d7b4').single()
+  if(error)throw error
+  expect(n(data.expected_amount)).toBe(115)
+  expect(n(data.settled_amount)).toBe(115)
+  expect(n(data.expected_outstanding)).toBe(0)
+  expect(n(data.net_actual_cash_allocated)).toBe(115)
+  expect(data.settlement_status).toBe('SETTLED')
+ },30000)
+
  it('moves the operating cash account by 115 exactly once',async()=>{
   const {data,error}=await owner.from('liquidity_accounts').select('current_balance').eq('organization_id',ORG).eq('id',ACCOUNT).single()
   if(error)throw error
