@@ -232,3 +232,57 @@ describe('Operational Integration V1 VAT sales recognition', () => {
     await admin.auth.signOut()
   })
 })
+
+describe('Operational Integration V1 VAT purchase recognition', () => {
+  it('prepares purchase 100 + VAT 15 as OPEX + TAX + PAYABLE with no cash movement', async () => {
+    const { data: accountsBefore } = await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id', ORGANIZATION_ID).eq('active', true)
+    const before = new Map((accountsBefore ?? []).map((a) => [a.id, Number(a.current_balance ?? 0)]))
+    let { data: supplier } = await owner.from('vat_contacts').select('*').eq('organization_id', ORGANIZATION_ID).in('contact_type', ['SUPPLIER','BOTH']).limit(1).maybeSingle()
+    if (!supplier) {
+      const created = await owner.from('vat_contacts').insert({ organization_id: ORGANIZATION_ID, contact_type: 'SUPPLIER', name: 'Operational VAT E2E Supplier', street: 'QA Street', building_number: '4321', district: 'QA District', additional_number: '8765', city: 'Riyadh', postal_code: '12345', country_code: 'SA', created_by: ownerUserId }).select('*').single()
+      if (created.error || !created.data) throw new Error('E2E_VAT_SUPPLIER_CREATE_FAILED')
+      supplier = created.data
+    }
+    const today = new Date().toISOString().slice(0,10)
+    const inserted = await owner.from('vat_documents').insert({
+      organization_id: ORGANIZATION_ID, user_id: ownerUserId, created_by: ownerUserId, document_type: 'PURCHASE', document_kind: 'INVOICE',
+      document_number: 'E2E-PURCHASE-' + Date.now(), transaction_date: today, counterparty_contact_id: supplier.id, counterparty_name: supplier.name,
+      counterparty_tax_number: supplier.vat_number ?? null, supply_type: 'STANDARD', net_amount: 100, tax_rate: 15, tax_amount: 15,
+      recoverable_percent: 100, gross_amount: 115, currency: 'SAR', source_currency: 'SAR', exchange_rate: 1,
+      source_net_amount: 100, source_tax_amount: 15, source_gross_amount: 115, line_items: null, notes: 'Operational Integration V1 Purchase VAT E2E'
+    }).select('id').single()
+    if (inserted.error || !inserted.data) throw new Error('E2E_PURCHASE_CREATE_FAILED:' + (inserted.error?.message ?? ''))
+    const purchaseId = inserted.data.id
+    const prepared = await owner.rpc('prepare_vat_financial_event', { p_source_table: 'vat_documents', p_source_id: purchaseId, p_entity_id: entityId, p_due_date: today })
+    if (prepared.error) throw new Error('E2E_PURCHASE_PREPARE_FAILED:' + prepared.error.message)
+    const raw = Array.isArray(prepared.data) ? prepared.data[0] : prepared.data
+    const purchaseEventId = typeof raw === 'string' ? raw : (raw?.event_id ?? raw?.id ?? '')
+    const retry = await owner.rpc('prepare_vat_financial_event', { p_source_table: 'vat_documents', p_source_id: purchaseId, p_entity_id: entityId, p_due_date: today })
+    if (retry.error) throw retry.error
+    const rr = Array.isArray(retry.data) ? retry.data[0] : retry.data
+    expect(typeof rr === 'string' ? rr : (rr?.event_id ?? rr?.id ?? '')).toBe(purchaseEventId)
+    const { data: lines, error: lineError } = await owner.from('financial_event_lines').select('*').eq('event_id', purchaseEventId)
+    if (lineError) throw lineError
+    const classRows = await classifications()
+    const typeById = new Map(classRows.map((x) => [x.id, x.classification_type]))
+    expect(Math.abs(numeric((lines ?? []).find((x) => typeById.get(x.classification_id) === 'OPEX') ?? {}, ['base_amount','amount']))).toBe(100)
+    expect(Math.abs(numeric((lines ?? []).find((x) => typeById.get(x.classification_id) === 'TAX') ?? {}, ['base_amount','amount']))).toBe(15)
+    const { data: obligations, error: obligationError } = await owner.from('financial_event_obligations').select('*').eq('event_id', purchaseEventId)
+    if (obligationError) throw obligationError
+    expect(obligations ?? []).toHaveLength(1)
+    expect(String(obligations?.[0]?.obligation_type ?? '')).toContain('PAYABLE')
+    expect(Math.abs(numeric((obligations?.[0] ?? {}) as Record<string, unknown>, ['settleable_amount','settleable_base_amount']))).toBe(115)
+    const approval = await admin.rpc('approve_financial_event', { p_event_id: purchaseEventId, p_note: 'Operational Purchase VAT E2E approval' })
+    if (approval.error) throw new Error('E2E_PURCHASE_APPROVAL_FAILED:' + approval.error.message)
+    const post = await owner.rpc('post_vat_financial_event', { p_event_id: purchaseEventId })
+    if (post.error) throw new Error('E2E_PURCHASE_POST_FAILED:' + post.error.message)
+    const { data: event } = await owner.from('financial_events').select('status').eq('id', purchaseEventId).single()
+    expect(event?.status).toBe('ACTUAL')
+    const { data: settlements } = await owner.from('liquidity_settlements').select('id').eq('financial_event_id', purchaseEventId)
+    expect(settlements ?? []).toHaveLength(0)
+    const { data: accountsAfter } = await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id', ORGANIZATION_ID).eq('active', true)
+    for (const account of accountsAfter ?? []) expect(Number(account.current_balance ?? 0)).toBe(before.get(account.id) ?? 0)
+    console.log('VAT_PURCHASE_E2E_RECOGNITION=OPEX_100,INPUT_VAT_15,PAYABLE_115')
+    console.log('VAT_PURCHASE_E2E_CASH_MOVEMENT=0')
+  }, 30000)
+})
