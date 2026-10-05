@@ -52,4 +52,14 @@ describe('Operational Integration V1 Budget',()=>{
   if(settlementError)throw settlementError;
   expect(settlementFacts||[]).toHaveLength(0);
  },30000);
+ it('consolidated report keeps settlement separate from recognition Actual',async()=>{
+  const {data,error}=await owner.rpc('financial_budget_consolidated',{p_holding:'4673c66d-698d-43bb-b638-28dd556bbc27',p_year:2026,p_scenario:'BASE'});
+  if(error)throw error;
+  expect(data).toBeTruthy();
+  const serialized=JSON.stringify(data);
+  expect(serialized).toContain('100');
+  expect(serialized).not.toContain('215');
+  console.log('BUDGET_E2E_CONSOLIDATED=NO_215_DUPLICATION');
+ },30000);
+
 });
