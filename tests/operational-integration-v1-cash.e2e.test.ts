@@ -56,6 +56,29 @@ describe('Operational Integration V1 Cash settlement regression',()=>{
   expect(flow?.direction).toBe('OUTFLOW')
  },30000)
 
+ it('requires and records independent approval before settlement posting',async()=>{
+  const {data:events,error:eventError}=await owner.from('financial_events').select('id,created_by').eq('organization_id',ORG).in('id',[SETTLEMENT_50,SETTLEMENT_65])
+  if(eventError)throw eventError
+  const {data:approvals,error:approvalError}=await owner.from('financial_event_approvals').select('event_id,approver_id,decision').eq('organization_id',ORG).in('event_id',[SETTLEMENT_50,SETTLEMENT_65])
+  if(approvalError)throw approvalError
+  for(const id of [SETTLEMENT_50,SETTLEMENT_65]){
+   const event=events?.find(x=>x.id===id)
+   const approval=approvals?.find(x=>x.event_id===id&&x.decision==='APPROVED')
+   expect(event).toBeTruthy()
+   expect(approval).toBeTruthy()
+   expect(approval?.approver_id).not.toBe(event?.created_by)
+  }
+ },30000)
+
+ it('posts exactly two cash settlement ledger rows for 50 and 65',async()=>{
+  const {data,error}=await owner.from('liquidity_settlements').select('financial_event_id,account_id,direction,amount,base_amount,status').eq('organization_id',ORG).in('financial_event_id',[SETTLEMENT_50,SETTLEMENT_65])
+  if(error)throw error
+  expect(data).toHaveLength(2)
+  const amounts=(data||[]).map(x=>n(x.amount)).sort((a,b)=>a-b)
+  expect(amounts).toEqual([50,65])
+  expect(data?.every(x=>x.account_id===ACCOUNT&&x.direction==='OUTFLOW'&&x.status==='POSTED')).toBe(true)
+ },30000)
+
  it('allocates the two settlement events as 50 and 65 to the same expected flow',async()=>{
   const {data,error}=await owner.from('liquidity_flow_settlement_allocations').select('financial_event_id,flow_id,amount,base_amount,allocation_type').eq('organization_id',ORG).in('financial_event_id',[SETTLEMENT_50,SETTLEMENT_65])
   if(error)throw error
