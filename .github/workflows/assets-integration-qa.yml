@@ -1,0 +1,29 @@
+name: Assets Integration QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/[locale]/assets/**'
+      - 'app/[locale]/transactions/**'
+      - 'app/api/assets/**'
+      - 'app/api/transactions/**'
+      - 'services/assets.ts'
+      - 'services/transactions.ts'
+      - 'lib/asset-financial-core.ts'
+      - 'tests/asset-financial-core.test.ts'
+      - 'supabase/migrations/20261005*_assets_v2_*.sql'
+      - '.github/workflows/assets-integration-qa.yml'
+  workflow_dispatch:
+jobs:
+  assets-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run typecheck
+      - run: npx vitest run tests/asset-financial-core.test.ts
+      - run: npm run build
