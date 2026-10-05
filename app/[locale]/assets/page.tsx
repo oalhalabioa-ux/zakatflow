@@ -334,7 +334,11 @@ export default function Assets({
       setMsg(ar ? "اختر المؤسسة المالكة للأصل" : "Choose the organization that owns the asset");
       return;
     }
-    if (!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && !form.funding_account_id) {\n      setMsg(ar ? "اختر حساب النقد أو البنك الشخصي المستخدم في الشراء" : "Choose the personal cash or bank account used for the purchase");\n      return;\n    }\n    if (!!form.asset_class_code !== !!form.asset_type_code) {
+    if (!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && !form.funding_account_id) {
+      setMsg(ar ? "اختر حساب النقد أو البنك الشخصي المستخدم في الشراء" : "Choose the personal cash or bank account used for the purchase");
+      return;
+    }
+    if (!!form.asset_class_code !== !!form.asset_type_code) {
       setMsg(ar ? "اختر فئة الأصل ونوعه معًا" : "Choose both asset class and asset type");
       return;
     }
