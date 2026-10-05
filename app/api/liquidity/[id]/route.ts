@@ -28,10 +28,14 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const{data:account,error:accountError}=await supabase.from('liquidity_accounts').select('id,currency').eq('id',accountId).eq('organization_id',record.organization_id).maybeSingle();
    if(accountError)throw accountError;if(!account)return NextResponse.json({error:'ACCOUNT_ORGANIZATION_MISMATCH'},{status:400});
    if(account.currency!==record.currency)return NextResponse.json({error:'SETTLEMENT_ACCOUNT_CURRENCY_MISMATCH'},{status:400});
-   const{data:link,error:linkError}=await supabase.from('financial_event_links').select('event_id').eq('organization_id',record.organization_id).eq('link_type','CASH_FLOW').eq('target_module','liquidity_flows').eq('target_record_id',record.id).maybeSingle();
-   if(linkError)throw linkError;if(!link)return NextResponse.json({error:'CORE_RECOGNITION_LINK_REQUIRED'},{status:409});
-   const{data:recognition,error:recognitionError}=await supabase.from('financial_events').select('id,status,entity_id,counterparty_id,base_currency').eq('organization_id',record.organization_id).eq('id',link.event_id).maybeSingle();
-   if(recognitionError)throw recognitionError;if(!recognition||recognition.status!=='ACTUAL')return NextResponse.json({error:'CORE_RECOGNITION_MUST_BE_ACTUAL'},{status:409});
+   const{data:links,error:linkError}=await supabase.from('financial_event_links').select('event_id').eq('organization_id',record.organization_id).eq('link_type','CASH_FLOW').eq('target_module','liquidity_flows').eq('target_record_id',record.id);
+   if(linkError)throw linkError;if(!links?.length)return NextResponse.json({error:'CORE_RECOGNITION_LINK_REQUIRED'},{status:409});
+   const linkedEventIds=[...new Set(links.map((item:any)=>item.event_id))];
+   const{data:recognitions,error:recognitionError}=await supabase.from('financial_events').select('id,status,entity_id,counterparty_id,base_currency,event_type').eq('organization_id',record.organization_id).in('id',linkedEventIds).neq('event_type','SETTLEMENT');
+   if(recognitionError)throw recognitionError;if(!recognitions?.length)return NextResponse.json({error:'CORE_RECOGNITION_LINK_REQUIRED'},{status:409});
+   if(recognitions.length!==1)return NextResponse.json({error:'MULTIPLE_CORE_RECOGNITIONS_REQUIRE_SELECTION'},{status:409});
+   const recognition=recognitions[0];
+   if(recognition.status!=='ACTUAL')return NextResponse.json({error:'CORE_RECOGNITION_MUST_BE_ACTUAL'},{status:409});
    const{data:balances,error:balanceError}=await supabase.from('financial_event_obligation_balances').select('obligation_id,obligation_type,outstanding_base_amount').eq('organization_id',record.organization_id).eq('event_id',recognition.id).gt('outstanding_base_amount',0);
    if(balanceError)throw balanceError;if(!balances?.length)return NextResponse.json({error:'NO_OUTSTANDING_OBLIGATION'},{status:409});
    if(balances.length!==1)return NextResponse.json({error:'MULTIPLE_OBLIGATIONS_REQUIRE_ALLOCATION'},{status:409});
