@@ -54,6 +54,8 @@ const FX = 3.75,
     cost_center_id: null,
     asset_class_code: null,
     asset_type_code: null,
+    acquisition_mode: "OPENING_BALANCE",
+    funding_account_id: "",
   };
 const fmt = (n: any) =>
   new Intl.NumberFormat("en-US", {
@@ -370,7 +372,8 @@ export default function Assets({
       cost_center_id: form.ownership_scope === "ORGANIZATION" ? form.cost_center_id : null,
       asset_class_code: form.asset_class_code || null,
       asset_type_code: form.asset_type_code || null,
-      metadata,
+      funding_account_id: !edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" ? form.funding_account_id : undefined,
+      metadata: {...metadata, acquisition_mode: !edit ? (form.acquisition_mode || "OPENING_BALANCE") : (form.metadata?.acquisition_mode || "OPENING_BALANCE")},
     };
     const r = await fetch("/api/assets", {
       method: edit ? "PUT" : "POST",
@@ -507,6 +510,13 @@ export default function Assets({
               : "Add asset"}
         </h3>
         <div className="form-grid">
+          {!edit && <label>
+            {ar ? "طريقة الاقتناء" : "Acquisition"}
+            <select value={form.acquisition_mode || "OPENING_BALANCE"} onChange={(e)=>setForm({...form,acquisition_mode:e.target.value,funding_account_id:""})}>
+              <option value="OPENING_BALANCE">{ar ? "رصيد افتتاحي / أصل موجود" : "Opening balance / existing asset"}</option>
+              <option value="PURCHASE">{ar ? "شراء أصل جديد" : "Purchase new asset"}</option>
+            </select>
+          </label>}
           <label>
             {ar ? "الملكية" : "Ownership"}
             <select value={form.ownership_scope || "PERSONAL"} onChange={(e) => setForm({...form,ownership_scope:e.target.value,organization_id:null,entity_id:null,cost_center_id:null})}>
@@ -514,6 +524,13 @@ export default function Assets({
               <option value="ORGANIZATION">{ar ? "مؤسسي / شركة" : "Organization / Company"}</option>
             </select>
           </label>
+          {!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && <label>
+            {ar ? "الدفع من الحساب الشخصي" : "Pay from personal account"}
+            <select value={form.funding_account_id || ""} onChange={(e)=>setForm({...form,funding_account_id:e.target.value})}>
+              <option value="">{ar ? "اختر حساب النقد / البنك" : "Choose cash / bank account"}</option>
+              {rows.filter((x:any)=>!x.organization_id && (!x.ownership_scope || x.ownership_scope==="PERSONAL") && ["CASH","BANK"].includes(x.asset_type)).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </label>}
           {form.ownership_scope === "ORGANIZATION" && (<>
             <label>{ar ? "الشركة / المؤسسة" : "Organization"}<select value={form.organization_id || ""} onChange={(e)=>setForm({...form,organization_id:e.target.value||null,entity_id:null,cost_center_id:null})}><option value="">{ar?"اختر الشركة":"Choose organization"}</option>{catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
             <label>{ar ? "الفرع / الكيان" : "Entity"}<select value={form.entity_id || ""} onChange={(e)=>setForm({...form,entity_id:e.target.value||null})}><option value="">{ar?"بدون / اختر":"None / choose"}</option>{catalog.entities.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
@@ -548,7 +565,7 @@ export default function Assets({
             />
           </label>
           <label>
-            {ar ? "تاريخ الشراء / التملك" : "Purchase date"}
+            {!edit && form.acquisition_mode === "OPENING_BALANCE" ? (ar ? "تاريخ التملك / الرصيد الافتتاحي" : "Ownership / opening date") : (ar ? "تاريخ الشراء" : "Purchase date")}
             <input
               type="date"
               value={form.purchase_date}
@@ -616,7 +633,7 @@ export default function Assets({
             </>
           ) : (
             <label>
-              {ar ? "القيمة / الرصيد" : "Value / balance"}
+              {!edit && form.acquisition_mode === "PURCHASE" ? (ar ? "قيمة الشراء" : "Purchase value") : (ar ? "القيمة / الرصيد الافتتاحي" : "Opening value / balance")}
               <input
                 type="number"
                 step="0.01"
