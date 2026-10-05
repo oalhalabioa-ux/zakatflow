@@ -352,6 +352,7 @@ export default function Assets({
       market_value: mv,
       estimated_value: mv,
       purchase_date: form.purchase_date,
+      funding_account_id: !edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" ? form.funding_account_id : undefined,
     };
     if (form.amount) metadata.opening_value = +form.amount;
     if (form.quantity) metadata.quantity = +form.quantity;
@@ -372,7 +373,6 @@ export default function Assets({
       cost_center_id: form.ownership_scope === "ORGANIZATION" ? form.cost_center_id : null,
       asset_class_code: form.asset_class_code || null,
       asset_type_code: form.asset_type_code || null,
-      funding_account_id: !edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" ? form.funding_account_id : undefined,
       metadata: {...metadata, acquisition_mode: !edit ? (form.acquisition_mode || "OPENING_BALANCE") : (form.metadata?.acquisition_mode || "OPENING_BALANCE")},
     };
     const r = await fetch("/api/assets", {
