@@ -5,12 +5,16 @@ export async function listTransactions(){const {supabase,user}=await requireUser
 async function recognizeOrganizationAssetPurchase(supabase:any,user:any,transaction:any,asset:any){
  const existingStatus=transaction?.metadata?.financial_core_status;
  if(existingStatus==='RECOGNIZED'&&transaction?.metadata?.financial_event_id)return transaction;
- const financialClass=assetPurchaseFinancialClass(asset.asset_class_code);
- const {data:classification,error:classificationError}=await supabase.from('financial_classifications').select('id').eq('organization_id',asset.organization_id).eq('classification_type',financialClass).eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
- if(classificationError)throw classificationError;
- if(!classification){const metadata={...(transaction.metadata??{}),financial_core_status:'CLASSIFICATION_REQUIRED',financial_classification_type:financialClass};await supabase.from('transactions').update({metadata}).eq('id',transaction.id).eq('user_id',user.id);throw new Error('ASSET_FINANCIAL_CLASSIFICATION_REQUIRED');}
- const fxRate=Number(transaction.metadata?.fx_rate??(Number(transaction.gross_value)>0?Number(transaction.base_value)/Number(transaction.gross_value):1));
  const storedIntent=transaction?.metadata?.financial_core_intent;
+ const financialClass=transaction?.metadata?.financial_classification_type??assetPurchaseFinancialClass(asset.asset_class_code);
+ let classification:any=null;
+ if(!storedIntent){
+  const {data,error:classificationError}=await supabase.from('financial_classifications').select('id').eq('organization_id',asset.organization_id).eq('classification_type',financialClass).eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
+  if(classificationError)throw classificationError;
+  classification=data;
+  if(!classification){const metadata={...(transaction.metadata??{}),financial_core_status:'CLASSIFICATION_REQUIRED',financial_classification_type:financialClass};await supabase.from('transactions').update({metadata}).eq('id',transaction.id).eq('user_id',user.id);throw new Error('ASSET_FINANCIAL_CLASSIFICATION_REQUIRED');}
+ }
+ const fxRate=Number(transaction.metadata?.fx_rate??(Number(transaction.gross_value)>0?Number(transaction.base_value)/Number(transaction.gross_value):1));
  const payload=storedIntent??buildAssetPurchaseCoreIntent({transactionId:transaction.id,assetId:asset.id,organizationId:asset.organization_id,entityId:asset.entity_id??null,costCenterId:asset.cost_center_id??null,assetName:asset.name??asset.asset_type_code??'Asset',assetClassCode:asset.asset_class_code,transactionDate:transaction.transaction_date,currency:transaction.currency,baseCurrency:transaction.base_currency,amount:Number(transaction.gross_value),baseAmount:Number(transaction.base_value),exchangeRate:fxRate,assetClassificationId:classification.id});
  if(!storedIntent){const intentMetadata={...(transaction.metadata??{}),financial_core_intent:payload,financial_core_status:'PENDING_RECOGNITION',financial_classification_type:financialClass};const{data:intentTx,error:intentError}=await supabase.from('transactions').update({metadata:intentMetadata}).eq('id',transaction.id).eq('user_id',user.id).select().single();if(intentError)throw intentError;transaction=intentTx;}
  const {data:eventId,error:eventError}=await supabase.rpc('create_financial_event_command',{p_payload:payload});
