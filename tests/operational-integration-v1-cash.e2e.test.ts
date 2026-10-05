@@ -92,6 +92,23 @@ describe('Operational Integration V1 Cash settlement regression',()=>{
   expect(final?.allocation_type).toBe('PAYMENT')
  },30000)
 
+ it('keeps recognition at OPEX 100 + VAT 15 while settlements remain PAYABLE-only',async()=>{
+  const ids=[RECOGNITION,SETTLEMENT_50,SETTLEMENT_65]
+  const {data:lines,error:lineError}=await owner.from('financial_event_lines').select('event_id,base_amount,classification_id').eq('organization_id',ORG).in('event_id',ids)
+  if(lineError)throw lineError
+  const classificationIds=[...new Set((lines||[]).map(x=>x.classification_id))]
+  const {data:classes,error:classError}=await owner.from('financial_classifications').select('id,classification_type').in('id',classificationIds)
+  if(classError)throw classError
+  const typeOf=(id:string)=>classes?.find(x=>x.id===id)?.classification_type
+  const recognition=(lines||[]).filter(x=>x.event_id===RECOGNITION).map(x=>[typeOf(x.classification_id),n(x.base_amount)])
+  expect(recognition).toEqual(expect.arrayContaining([['OPEX',100],['TAX',15]]))
+  const settlements=(lines||[]).filter(x=>x.event_id!==RECOGNITION)
+  expect(settlements.reduce((s,x)=>s+n(x.base_amount),0)).toBe(115)
+  expect(settlements.every(x=>typeOf(x.classification_id)==='PAYABLE')).toBe(true)
+  expect(settlements.some(x=>['OPEX','TAX'].includes(String(typeOf(x.classification_id))))).toBe(false)
+  console.log('CASH_E2E_RECOGNITION=OPEX_100,VAT_15;SETTLEMENT_PAYABLE_ONLY_115')
+ },30000)
+
  it('reconciles recognition and both settlement events as MATCHED',async()=>{
   const {data,error}=await owner.from('financial_core_cash_reconciliation').select('financial_event_id,event_type,reconciliation_status,cash_settled_amount').eq('organization_id',ORG).eq('liquidity_flow_id','f9c8ea81-b91e-4555-b187-2d159265d7b4')
   if(error)throw error
