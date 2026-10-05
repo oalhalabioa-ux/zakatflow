@@ -88,6 +88,7 @@ export default function Assets({
     [msg, setMsg] = useState(""),
     [loadError, setLoadError] = useState(""),
     [loading, setLoading] = useState(true),
+    [catalog, setCatalog] = useState<any>({ organizations: [], entities: [], cost_centers: [], classes: [], types: [] }),
     [usd, setUsd] = useState(false),
     [closed, setClosed] = useState<Record<string, boolean>>({}),
     [tablePreferences, setTablePreferences] =
@@ -107,6 +108,8 @@ export default function Assets({
       const response = await fetch("/api/assets");
       if (!response.ok) throw new Error("LOAD_FAILED");
       setRows(await response.json());
+      const catalogResponse = await fetch("/api/assets/catalog");
+      if (catalogResponse.ok) setCatalog(await catalogResponse.json());
     } catch {
       setRows([]);
       setLoadError(
@@ -497,11 +500,13 @@ export default function Assets({
               <option value="ORGANIZATION">{ar ? "مؤسسي / شركة" : "Organization / Company"}</option>
             </select>
           </label>
-          {form.ownership_scope === "ORGANIZATION" && (
-            <div className="notice" style={{gridColumn:"1 / -1"}}>
-              {ar ? "سيتم اختيار الشركة والفرع ومركز التكلفة من الهيكل التنظيمي بعد تفعيل كتالوج الأصول المؤسسية في بيئة QA. لا يمكن حفظ أصل مؤسسي بدون شركة." : "Organization, entity and cost center will come from the organization hierarchy after the institutional asset catalog is enabled in QA. An organization asset cannot be saved without an organization."}
-            </div>
-          )}
+          {form.ownership_scope === "ORGANIZATION" && (<>
+            <label>{ar ? "الشركة / المؤسسة" : "Organization"}<select value={form.organization_id || ""} onChange={(e)=>setForm({...form,organization_id:e.target.value||null,entity_id:null,cost_center_id:null})}><option value="">{ar?"اختر الشركة":"Choose organization"}</option>{catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
+            <label>{ar ? "الفرع / الكيان" : "Entity"}<select value={form.entity_id || ""} onChange={(e)=>setForm({...form,entity_id:e.target.value||null})}><option value="">{ar?"بدون / اختر":"None / choose"}</option>{catalog.entities.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+            <label>{ar ? "مركز التكلفة" : "Cost center"}<select value={form.cost_center_id || ""} onChange={(e)=>setForm({...form,cost_center_id:e.target.value||null})}><option value="">{ar?"بدون / اختر":"None / choose"}</option>{catalog.cost_centers.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+          </>)}
+          <label>{ar ? "فئة الأصل" : "Asset class"}<select value={form.asset_class_code || ""} onChange={(e)=>setForm({...form,asset_class_code:e.target.value||null,asset_type_code:null})}><option value="">{ar?"التصنيف القديم / غير محدد":"Legacy / not specified"}</option>{catalog.classes.map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>
+          {form.asset_class_code && <label>{ar ? "نوع الأصل التفصيلي" : "Asset type"}<select value={form.asset_type_code || ""} onChange={(e)=>setForm({...form,asset_type_code:e.target.value||null})}><option value="">{ar?"اختر النوع":"Choose type"}</option>{catalog.types.filter((x:any)=>x.class_code===form.asset_class_code).map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>}
           <label>
             {ar ? "نوع الأصل" : "Type"}
             <select
