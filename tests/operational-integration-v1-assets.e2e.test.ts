@@ -48,10 +48,10 @@ describe('Operational Integration V1 Assets',()=>{
 
   const event=await owner.from('financial_events').select('status').eq('id',first.data).single(); if(event.error)throw event.error;
   expect(event.data.status).toBe('DRAFT');
-  const lines=await owner.from('financial_event_lines').select('classification_id,direction,base_amount').eq('event_id',first.data); if(lines.error)throw lines.error;
+  const lines=await owner.from('financial_event_lines').select('classification_id,base_amount,cash_direction,vat_amount').eq('event_id',first.data); if(lines.error)throw lines.error;
   expect((lines.data||[]).every((x:any)=>x.classification_id===classificationId)).toBe(true);
-  expect((lines.data||[]).filter((x:any)=>x.direction==='DEBIT').reduce((s:number,x:any)=>s+n(x.base_amount),0)).toBe(100);
-  const obs=await owner.from('financial_event_obligations').select('original_amount,settled_amount').eq('financial_event_id',first.data); if(obs.error)throw obs.error;
+  expect(lines.data).toHaveLength(1); expect(lines.data?.[0]?.classification_id).toBe(classificationId); expect(n(lines.data?.[0]?.base_amount)).toBe(100); expect(lines.data?.[0]?.cash_direction).toBe('NON_CASH'); expect(n(lines.data?.[0]?.vat_amount)).toBe(0);
+  const obs=await owner.from('financial_event_obligations').select('obligation_type,settleable_amount,settleable_base_amount').eq('event_id',first.data); if(obs.error)throw obs.error;
   expect((obs.data||[]).reduce((s:number,x:any)=>s+n(x.original_amount),0)).toBe(100);
   expect((obs.data||[]).reduce((s:number,x:any)=>s+n(x.settled_amount),0)).toBe(0);
 
