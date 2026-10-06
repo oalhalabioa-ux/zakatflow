@@ -4,16 +4,25 @@ function trimOrigin(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
+function isPreviewDeployment(hostname: string): boolean {
+  return hostname.endsWith('.vercel.app')
+    && hostname.startsWith('zakatflow-')
+    && hostname !== 'zakatflow-mauve.vercel.app'
+    && hostname !== 'zakatflow-oalhalabioa-9334.vercel.app'
+    && hostname !== 'zakatflow-git-main-oalhalabioa-9334.vercel.app';
+}
+
 /**
  * Keep PKCE verifier storage and every auth callback on one browser origin.
- * QA Preview uses its stable branch alias; local development keeps its own origin.
+ * Production aliases stay on Production. Preview deployments use the stable
+ * Auth QA branch alias unless an explicit configured origin is provided.
  */
 export function getAuthOrigin(currentOrigin: string, configuredOrigin?: string): string {
   const configured = configuredOrigin?.trim();
   if (configured) return trimOrigin(configured);
   try {
     const url = new URL(currentOrigin);
-    if (url.hostname.endsWith('.vercel.app') && url.hostname.startsWith('zakatflow-')) {
+    if (isPreviewDeployment(url.hostname)) {
       return QA_AUTH_ORIGIN;
     }
   } catch {
