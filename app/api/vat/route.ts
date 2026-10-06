@@ -17,6 +17,56 @@ const errorStatus = (message: string) => {
   return 400;
 };
 
+
+async function ensureInvoiceCashForecast(supabase: any, userId: string, document: any, eventId: string, counterpartyId: string | null, baseCurrency: string) {
+  const sourceEventKey = `vat_documents:${document.id}:cash-forecast`;
+  const { data: existing, error: existingError } = await supabase.from('liquidity_flows')
+    .select('id').eq('organization_id', document.organization_id).eq('source_module', 'VAT_INTEGRATION').eq('source_event_key', sourceEventKey).maybeSingle();
+  if (existingError) throw existingError;
+  let flowId = existing?.id ?? null;
+  if (!flowId) {
+    const { data: flow, error: flowError } = await supabase.from('liquidity_flows').insert({
+      organization_id: document.organization_id,
+      entity_id: null,
+      account_id: null,
+      direction: document.document_type === 'SALES' ? 'INFLOW' : 'OUTFLOW',
+      flow_type: 'OPERATING',
+      title: `${document.document_type === 'SALES' ? 'Invoice receivable' : 'Invoice payable'} · ${document.document_number}`,
+      counterparty: document.counterparty_name,
+      counterparty_id: counterpartyId,
+      due_date: document.due_date,
+      amount: document.gross_amount,
+      currency: baseCurrency,
+      base_amount: document.gross_amount,
+      status: 'EXPECTED',
+      source: 'INVOICE',
+      reference: document.document_number,
+      notes: 'Generated from invoice due date; settlement must clear the linked Financial Core obligation.',
+      created_by: userId,
+      source_module: 'VAT_INTEGRATION',
+      source_record_id: document.id,
+      source_event_key: sourceEventKey,
+      settled_amount: 0,
+      settlement_status: 'UNSETTLED',
+    }).select('id').single();
+    if (flowError) throw flowError;
+    flowId = flow.id;
+  }
+  const { data: link, error: linkError } = await supabase.from('financial_event_links').select('id')
+    .eq('organization_id', document.organization_id).eq('event_id', eventId).eq('link_type', 'CASH_FLOW')
+    .eq('target_module', 'liquidity_flows').eq('target_record_id', flowId).maybeSingle();
+  if (linkError) throw linkError;
+  if (!link) {
+    const { error } = await supabase.from('financial_event_links').insert({
+      organization_id: document.organization_id, event_id: eventId, link_type: 'CASH_FLOW',
+      target_module: 'liquidity_flows', target_record_id: flowId,
+      metadata: { purpose: 'INVOICE_DUE_FORECAST', due_date: document.due_date, source_document_id: document.id },
+    });
+    if (error) throw error;
+  }
+  return flowId;
+}
+
 export async function GET(request: Request) {
   try {
     const { supabase, user } = await requireUser();
@@ -314,6 +364,7 @@ export async function POST(request: Request) {
         document_kind: document.document_kind,
         document_number: document.document_number,
         transaction_date: document.transaction_date,
+        due_date: document.due_date,
         counterparty_contact_id: contact?.id ?? null,
         counterparty_name: contact?.name ?? document.counterparty_name,
         counterparty_tax_number: contact?.vat_number ?? (document.counterparty_tax_number?.trim() || null),
@@ -367,7 +418,7 @@ export async function POST(request: Request) {
           p_source_table: 'vat_documents',
           p_source_id: data.id,
           p_entity_id: entities[0].id,
-          p_due_date: document.transaction_date,
+          p_due_date: document.due_date,
         });
         if (prepareError) throw prepareError;
         const preparedRow = Array.isArray(prepared) ? prepared[0] : prepared;
