@@ -63,6 +63,25 @@ export async function executeFinancialEventAction(input:unknown){
   case 'APPROVE':requirePermission('financial_core.approve');if(event?.created_by===user.id)throw new Error('CREATOR_CANNOT_APPROVE_OWN_EVENT');return unwrap(await supabase.rpc('approve_financial_event',{p_event_id:command.event_id,p_note:command.note}));
   case 'RECOGNIZE_VAT':requirePermission('financial_core.post');requirePermission('vat.view');requirePermission('liquidity.edit');return unwrap(await supabase.rpc('post_vat_financial_event',{p_event_id:command.event_id}));
   case 'POST_SETTLEMENT':requirePermission('financial_core.post');requirePermission('liquidity.edit');return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:command.account_id,p_direction:command.direction,p_settlement_date:command.settlement_date,p_amount:command.amount,p_currency:command.currency,p_exchange_rate:command.exchange_rate,p_base_amount:command.base_amount,p_allocations:command.allocations}));
+  case 'POST_SAVED_SETTLEMENT':{
+   requirePermission('financial_core.post');requirePermission('liquidity.edit');
+   if(event?.event_type!=='SETTLEMENT')throw new Error('SETTLEMENT_EVENT_REQUIRED');
+   const instruction=unwrap(await supabase.from('financial_event_links').select('target_record_id,metadata').eq('organization_id',org).eq('event_id',command.event_id).eq('link_type','OTHER').eq('target_module','liquidity_flows').contains('metadata',{purpose:'SETTLEMENT_INSTRUCTION'}).maybeSingle());
+   if(!instruction)throw new Error('SETTLEMENT_INSTRUCTION_REQUIRED');
+   const m=(instruction.metadata||{}) as Record<string,any>;const accountId=command.account_id??m.account_id;
+   if(!accountId)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');
+   const account=unwrap(await supabase.from('liquidity_accounts').select('id,currency').eq('organization_id',org).eq('id',accountId).single());
+   if(!account)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');
+   if(account.currency!==m.currency)throw new Error('SETTLEMENT_ACCOUNT_CURRENCY_MISMATCH');
+   const balance=unwrap(await supabase.from('financial_event_obligation_balances').select('obligation_id,outstanding_base_amount').eq('organization_id',org).eq('obligation_id',m.obligation_id).single());
+   if(!balance)throw new Error('SETTLEMENT_OBLIGATION_REQUIRED');
+   if(Number(balance.outstanding_base_amount)+0.0001<Number(m.base_amount))throw new Error('SETTLEMENT_EXCEEDS_OUTSTANDING');
+   const flow=unwrap(await supabase.from('liquidity_flows').select('id,currency,settled_amount,amount').eq('organization_id',org).eq('id',instruction.target_record_id).single());
+   if(!flow)throw new Error('SETTLEMENT_FLOW_REQUIRED');
+   const flowOutstanding=Math.max(0,Number(flow.amount)-Number(flow.settled_amount||0));
+   if(flowOutstanding+0.0001<Number(m.amount))throw new Error('SETTLEMENT_EXCEEDS_FLOW_OUTSTANDING');
+   return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:accountId,p_direction:m.direction,p_settlement_date:m.settlement_date,p_amount:Number(m.amount),p_currency:m.currency,p_exchange_rate:Number(m.exchange_rate),p_base_amount:Number(m.base_amount),p_allocations:[{obligation_id:m.obligation_id,flow_id:instruction.target_record_id,amount:Number(m.amount),base_amount:Number(m.base_amount),flow_amount:Number(m.amount),flow_currency:flow.currency,flow_exchange_rate:Number(m.exchange_rate)}]}));
+  }
   case 'CLASSIFICATION':requirePermission('organization.edit');return unwrap(await supabase.from('financial_classifications').insert({organization_id:org,code:command.code,name:command.name,classification_type:command.classification_type,created_by:user.id}).select('id').single());
   case 'ROUTE':return unwrap(await supabase.rpc('configure_financial_budget',{p_key:command.key,p_payload:{action:'ROUTE',organization_id:org,event_id:command.event_id,entity_id:command.entity_id,cost_center_id:command.cost_center_id}}));
  }
