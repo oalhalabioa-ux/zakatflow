@@ -288,12 +288,15 @@ export async function POST(request: Request) {
     }
     if (kind === 'flow' && payload.counterparty_id) { const { data: counterparty, error } = await supabase.from('liquidity_counterparties').select('id,name').eq('id', payload.counterparty_id).eq('organization_id', payload.organization_id).eq('active', true).maybeSingle(); if (error) throw error; if (!counterparty) throw new Error('COUNTERPARTY_ORGANIZATION_MISMATCH'); payload = { ...payload, counterparty: counterparty.name }; }
     if (kind === 'flow' && payload.category_id) {
-      const { data: category, error } = await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction').eq('id', payload.category_id).eq('organization_id', payload.organization_id).eq('active', true).maybeSingle();
+      const { data: category, error } = await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction,financial_classification_type').eq('id', payload.category_id).eq('organization_id', payload.organization_id).eq('active', true).maybeSingle();
       if (error) throw error;
       if (!category) throw new Error('CATEGORY_ORGANIZATION_MISMATCH');
       if (category.allowed_direction !== 'BOTH' && category.allowed_direction !== payload.direction) throw new Error('CATEGORY_DIRECTION_NOT_ALLOWED');
       payload = { ...payload, flow_type: category.flow_group };
+      if (payload.source === 'MANUAL' && !category.financial_classification_type) throw new Error('LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED');
     }
+    if (kind === 'flow' && payload.source === 'MANUAL' && !payload.category_id) throw new Error('LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED');
+    if (kind === 'flow' && payload.status === 'ACTUAL') throw new Error('LIQUIDITY_ACTUAL_REQUIRES_SETTLEMENT_ACTION');
     const { data, error } = kind === 'account'
       ? await supabase.from('liquidity_accounts').insert(payload).select().single()
       : await supabase.from('liquidity_flows').insert(payload).select().single();
