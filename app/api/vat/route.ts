@@ -8,6 +8,7 @@ import { convertVatAmountToBase, convertVatLineToBase } from '@/lib/vat-invoice-
 import { getVatPaymentDeadline, getVatYearStart, summarizePaidAndReserved, summarizeVatPeriodInputs, summarizeVatRowsWithDetail } from '@/lib/vat-period-summary';
 import { requireUser } from '@/services/auth';
 import { requireOrganizationAdmin, requireOrganizationMember } from '@/services/organization-access';
+import { executeFinancialEventAction } from '@/services/financial-events';
 
 const errorStatus = (message: string) => {
   if (message === 'UNAUTHORIZED') return 401;
@@ -423,10 +424,74 @@ export async function POST(request: Request) {
         if (prepareError) throw prepareError;
         const preparedRow = Array.isArray(prepared) ? prepared[0] : prepared;
         const financialEventId = typeof preparedRow === 'string' ? preparedRow : (preparedRow?.event_id ?? preparedRow?.id ?? null);
+        if (!financialEventId) throw new Error('VAT_FINANCIAL_EVENT_REQUIRED');
+        const { data: eventHeader, error: eventHeaderError } = await supabase.from('financial_events')
+          .select('counterparty_id').eq('organization_id', document.organization_id).eq('id', financialEventId).single();
+        if (eventHeaderError) throw eventHeaderError;
+        const cashFlowId = await ensureInvoiceCashForecast(supabase, user.id, { ...data, due_date: document.due_date }, financialEventId, eventHeader.counterparty_id, baseCurrency);
         return NextResponse.json({
           ...data,
-          financial_core: { event_id: financialEventId, status: 'COMMITTED', recognition: 'PENDING_INDEPENDENT_APPROVAL' },
+          due_date: document.due_date,
+          financial_core: { event_id: financialEventId, status: 'COMMITTED', recognition: 'PENDING_APPROVAL', cash_flow_id: cashFlowId },
         }, { status: 201 });
+      }
+
+      if (document.document_type === 'SALES') {
+        const { data: entities, error: entityError } = await supabase.from('organization_entities')
+          .select('id').eq('organization_id', document.organization_id).eq('active', true).limit(2);
+        if (entityError) throw entityError;
+        if (!entities || entities.length !== 1) throw new Error('VAT_FINANCIAL_ENTITY_REQUIRED');
+
+        const { data: requiredClasses, error: classError } = await supabase.from('financial_classifications')
+          .select('id,classification_type').eq('organization_id', document.organization_id)
+          .in('classification_type', ['REVENUE', 'TAX']).eq('active', true);
+        if (classError) throw classError;
+        const revenueClass = (requiredClasses ?? []).find((row: any) => row.classification_type === 'REVENUE');
+        const taxClass = (requiredClasses ?? []).find((row: any) => row.classification_type === 'TAX');
+        if (!revenueClass || !taxClass) throw new Error('VAT_FINANCIAL_CLASSIFICATIONS_REQUIRED');
+        if (!contact?.id) throw new Error('VAT_STABLE_CONTACT_REQUIRED');
+
+        let { data: counterpartyMap, error: mapError } = await supabase.from('financial_vat_counterparty_map')
+          .select('counterparty_id').eq('organization_id', document.organization_id).eq('vat_contact_id', contact.id).maybeSingle();
+        if (mapError) throw mapError;
+        let counterpartyId = counterpartyMap?.counterparty_id ?? null;
+        if (!counterpartyId) {
+          const { data: counterparty, error: counterpartyError } = await supabase.from('liquidity_counterparties').insert({
+            organization_id: document.organization_id, name: contact.name, party_type: 'CUSTOMER',
+            contact_name: '', phone: '', email: '', notes: `VAT identity projection: ${contact.id}`, created_by: user.id,
+          }).select('id').single();
+          if (counterpartyError) throw counterpartyError;
+          counterpartyId = counterparty.id;
+          const { error: bindError } = await supabase.from('financial_vat_counterparty_map').insert({
+            organization_id: document.organization_id, vat_contact_id: contact.id, counterparty_id: counterpartyId, created_by: user.id,
+          });
+          if (bindError) throw bindError;
+        }
+
+        const lines: any[] = [{
+          line_number: 1, description: 'Sales revenue recognition', classification_id: revenueClass.id, cost_center_id: null,
+          amount: Number(data.net_amount), currency: baseCurrency, exchange_rate: 1, base_amount: Number(data.net_amount),
+          cash_direction: 'NON_CASH', vat_treatment: 'OUT_OF_SCOPE', vat_rate: 0, vat_amount: 0,
+        }];
+        if (Number(data.tax_amount) > 0) lines.push({
+          line_number: 2, description: 'Output VAT recognition', classification_id: taxClass.id, cost_center_id: null,
+          amount: Number(data.tax_amount), currency: baseCurrency, exchange_rate: 1, base_amount: Number(data.tax_amount),
+          cash_direction: 'NON_CASH', vat_treatment: 'OUT_OF_SCOPE', vat_rate: 0, vat_amount: 0,
+        });
+        const created = await executeFinancialEventAction({ action: 'CREATE', payload: {
+          organization_id: document.organization_id, entity_id: entities[0].id, counterparty_id: counterpartyId,
+          event_type: 'REVENUE', source_module: 'OPERATIONAL_CONSOLE', source_record_id: data.id,
+          source_event_key: `vat_documents:${data.id}`, event_date: document.transaction_date, due_date: document.due_date,
+          base_currency: baseCurrency, description: `Sales invoice ${document.document_number}`, lines,
+          obligations: [{ obligation_key: 'invoice-gross', obligation_type: 'RECEIVABLE', settleable_amount: Number(data.gross_amount), currency: baseCurrency, exchange_rate: 1, base_currency: baseCurrency, settleable_base_amount: Number(data.gross_amount) }],
+          links: [{ link_type: 'SOURCE', target_module: 'vat_documents', target_record_id: data.id, metadata: { document_type: 'SALES' } }],
+        }});
+        const financialEventId = typeof created === 'string' ? created : ((created as any)?.event_id ?? (created as any)?.id ?? null);
+        if (!financialEventId) throw new Error('VAT_FINANCIAL_EVENT_REQUIRED');
+        await executeFinancialEventAction({ action: 'TRANSITION', organization_id: document.organization_id, event_id: financialEventId, status: 'PLANNED', note: 'Sales invoice recognition prepared' });
+        await executeFinancialEventAction({ action: 'TRANSITION', organization_id: document.organization_id, event_id: financialEventId, status: 'COMMITTED', note: 'Sales invoice pending approval' });
+        const cashFlowId = await ensureInvoiceCashForecast(supabase, user.id, { ...data, due_date: document.due_date }, financialEventId, counterpartyId, baseCurrency);
+        return NextResponse.json({ ...data, due_date: document.due_date, financial_core: { event_id: financialEventId, status: 'COMMITTED', recognition: 'PENDING_APPROVAL', cash_flow_id: cashFlowId } }, { status: 201 });
       }
 
       return NextResponse.json(data, { status: 201 });
