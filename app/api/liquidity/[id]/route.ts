@@ -22,7 +22,8 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
  for(const [field,table] of [['account_id','liquidity_accounts'],['entity_id','organization_entities'],['counterparty_id','liquidity_counterparties']] as const){
    const value=body[field];if(value){const{data,error}=await supabase.from(table).select('id').eq('id',value).eq('organization_id',record.organization_id).maybeSingle();if(error)throw error;if(!data)return NextResponse.json({error:field.toUpperCase()+'_ORGANIZATION_MISMATCH'},{status:400});}
  }
- if(body.status==='ACTUAL'&&record.source_module&&record.source_module!=='MANUAL'&&record.settlement_status!=='SETTLED'){
+ if(body.status==='ACTUAL'&&record.settlement_status!=='SETTLED'){
+   if(!record.source_module||record.source_module==='MANUAL')return NextResponse.json({error:'MANUAL_ACTUAL_REQUIRES_CASH_POSTING'},{status:409});
    const accountId=body.account_id??record.account_id;
    if(!accountId)return NextResponse.json({error:'SETTLEMENT_ACCOUNT_REQUIRED'},{status:400});
    const{data:account,error:accountError}=await supabase.from('liquidity_accounts').select('id,currency').eq('id',accountId).eq('organization_id',record.organization_id).maybeSingle();
