@@ -6,7 +6,8 @@ import styles from './users.module.css';
 type Organization = { id: string; name: string };
 type Member = { user_id: string; email: string; name: string; role: string; status: string; created_at: string; custom_role_id?: string | null; custom_role_name?: string | null };
 type Invitation = { id: string; email: string; role: string; expires_at: string; accepted_at: string | null; created_at: string; custom_role_id?: string | null; custom_role_name?: string | null };
-type CustomRole = { id: string; name: string; description: string; permissions: string[]; member_count: number };
+type CustomRole = { id: string; name: string; description: string; permissions: string[]; member_count: number; role_key?: string | null; is_system_template?: boolean; is_editable?: boolean; amount_limits?: Record<string, number> };
+type PermissionOverride = { user_id:string; permission:string; effect:'ALLOW'|'DENY'; amount_limit:number|null; currency:string|null };
 const memberRoles = ['ADMIN', 'ACCOUNTANT', 'ADVISOR', 'VIEWER', 'SHARIA_REVIEWER'];
 const invitationRoles = ['ACCOUNTANT', 'ADVISOR', 'VIEWER', 'SHARIA_REVIEWER'];
 type PermissionOption = { key: string; ar: string; en: string; arHelp: string; enHelp: string };
@@ -63,6 +64,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   const [organizationId, setOrganizationId] = useState('');
   const [members, setMembers] = useState<Member[]>([]); const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
+  const [approvalPolicy,setApprovalPolicy]=useState('OWNER_CONTROLLED'); const [permissionOverrides,setPermissionOverrides]=useState<PermissionOverride[]>([]); const [governanceReady,setGovernanceReady]=useState(false);
   const [email, setEmail] = useState(''); const [role, setRole] = useState('ACCOUNTANT');
   const [inviteUrl, setInviteUrl] = useState(''); const [inviteEmail, setInviteEmail] = useState(''); const [inviteRole, setInviteRole] = useState('ACCOUNTANT');
   const [roleName, setRoleName] = useState(''); const [roleDescription, setRoleDescription] = useState(''); const [rolePermissions, setRolePermissions] = useState<string[]>([]); const [editingRoleId, setEditingRoleId] = useState('');
@@ -83,18 +85,23 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
 
   const loadUsers = useCallback(async (id: string) => {
     if (!id) { setMembers([]); setInvitations([]); setCustomRoles([]); return; }
-    const [response, rolesResponse] = await Promise.all([
+    const [response, rolesResponse, governanceResponse] = await Promise.all([
       fetch(`/api/organizations/users?organization_id=${encodeURIComponent(id)}`, { cache: 'no-store' }),
       fetch(`/api/organizations/roles?organization_id=${encodeURIComponent(id)}`, { cache: 'no-store' }),
+      fetch(`/api/organizations/permissions?organization_id=${encodeURIComponent(id)}`, { cache: 'no-store' }),
     ]);
     const body = await response.json().catch(() => ({}));
     const roleBody = await rolesResponse.json().catch(() => ({}));
+    const governanceBody = await governanceResponse.json().catch(() => ({}));
     if (!response.ok) {
       setMembers([]); setInvitations([]); setCustomRoles([]);
       setNotice(response.status === 403 ? (ar ? 'تتطلب إدارة المستخدمين صلاحية مالك أو مسؤول في الجهة المحددة.' : 'User management requires owner or admin access to the selected organization.') : (ar ? 'تعذر تحميل المستخدمين.' : 'Could not load users.'));
       return;
     }
-    setMembers(body.users ?? []); setInvitations(body.invitations ?? []); setCustomRoles(rolesResponse.ok ? roleBody.roles ?? [] : []); setNotice('');
+    setMembers(body.users ?? []); setInvitations(body.invitations ?? []);
+    const governedRoles=governanceResponse.ok ? governanceBody.roles ?? [] : [];
+    setCustomRoles(governedRoles.length ? governedRoles.map((r:CustomRole)=>({...r,member_count:(roleBody.roles??[]).find((x:CustomRole)=>x.id===r.id)?.member_count??0})) : (rolesResponse.ok ? roleBody.roles ?? [] : []));
+    setApprovalPolicy(governanceBody.approval_policy ?? 'OWNER_CONTROLLED'); setPermissionOverrides(governanceBody.overrides ?? []); setGovernanceReady(governanceResponse.ok); setNotice('');
   }, [ar]);
 
   useEffect(() => { void loadOrganizations(); }, [loadOrganizations]);
@@ -129,6 +136,9 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
     : `You are invited to join ${organization?.name ?? 'the organization'} on ZakatFlow.\nInvited email: ${inviteEmail}\nRole: ${roleLabel(inviteRole)}\nSign in using the same email to accept (valid for 7 days): ${inviteUrl}`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(inviteMessage)}`;
 
+  async function seedDefaultRoles(){setBusy(true);setNotice('');try{const r=await fetch('/api/organizations/permissions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId})});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');await loadUsers(organizationId);setNotice(ar?'تم تجهيز الأدوار الافتراضية القابلة للتعديل.':'Editable default roles are ready.');}catch(e){setNotice(message(e instanceof Error?e.message:'',ar));}finally{setBusy(false);}}
+  async function savePolicy(policy:string){setBusy(true);try{const r=await fetch('/api/organizations/permissions',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,action:'policy',policy})});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');setApprovalPolicy(policy);setNotice(ar?'تم حفظ سياسة الاعتماد.':'Approval policy saved.');}catch(e){setNotice(message(e instanceof Error?e.message:'',ar));}finally{setBusy(false);}}
+  async function setOverride(userId:string,permission:string,effect:string){setBusy(true);try{const r=await fetch('/api/organizations/permissions',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,action:'override',user_id:userId,permission,effect:effect||null})});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');await loadUsers(organizationId);setNotice(ar?'تم حفظ الاستثناء على صلاحيات المستخدم.':'User permission override saved.');}catch(e){setNotice(message(e instanceof Error?e.message:'',ar));}finally{setBusy(false);}}
   async function createInvite(event: React.FormEvent) {
     event.preventDefault(); if (!organizationId) return; setBusy(true); setNotice(''); setInviteUrl('');
     try {
@@ -182,7 +192,10 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   async function saveCustomRole(event: React.FormEvent) {
     event.preventDefault(); if (!organizationId) return; setBusy(true); setNotice('');
     try {
-      const response = await fetch('/api/organizations/roles', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, id: editingRoleId || undefined, name: roleName, description: roleDescription, permissions: rolePermissions }) });
+      const templateRole = customRoles.find(item => item.id === editingRoleId && item.is_system_template);
+      const response = templateRole
+        ? await fetch('/api/organizations/permissions', { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ organization_id:organizationId, action:'role', role_id:templateRole.id, permissions:rolePermissions, amount_limits:templateRole.amount_limits ?? {} }) })
+        : await fetch('/api/organizations/roles', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, id: editingRoleId || undefined, name: roleName, description: roleDescription, permissions: rolePermissions }) });
       const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
       setRoleName(''); setRoleDescription(''); setRolePermissions([]); setEditingRoleId(''); await loadUsers(organizationId);
       setNotice(ar ? 'تم حفظ الدور وصلاحياته.' : 'Role and permissions saved.');
@@ -246,6 +259,17 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
           <div className={styles.permissionChips}>{item.permissions.length ? item.permissions.map(key => <span key={key}>{permissionOptions.find(permission => permission.key === key)?.[ar ? 'ar' : 'en'] ?? key}</span>) : <span>{ar ? 'بلا صلاحيات محددة' : 'No permissions selected'}</span>}</div>
           <div className={styles.roleCardActions}><button className="btn secondary" type="button" disabled={busy} onClick={() => { setEditingRoleId(item.id); setRoleName(item.name); setRoleDescription(item.description); setRolePermissions(item.permissions); }}>{ar ? 'تعديل' : 'Edit'}</button><button className="btn danger" type="button" disabled={busy} onClick={() => void deleteCustomRole(item.id)}>{ar ? 'حذف' : 'Delete'}</button></div>
         </article>)}</div> : <div className={styles.emptyRoles}><span aria-hidden="true">＋</span><div><strong>{ar ? 'لا توجد أدوار مخصصة بعد' : 'No custom roles yet'}</strong><p>{ar ? 'أنشئ أول دور، ثم اسنده إلى عضو أو دعوة.' : 'Create the first role, then assign it to a member or invitation.'}</p></div></div>}
+      </section>
+      <section className="card" style={{marginBottom:20}}>
+        <h2>{ar?'حوكمة الأدوار والاعتماد':'Roles & approval governance'}</h2>
+        <p className="muted">{ar?'أدوار جاهزة قابلة للتعديل، مع سياسة اعتماد واستثناءات صلاحيات لكل مستخدم.':'Editable role templates, approval policy, and per-user permission overrides.'}</p>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'end',marginBottom:16}}>
+          <label style={{display:'grid',gap:6,minWidth:280}}><span>{ar?'سياسة الاعتماد':'Approval policy'}</span><select value={approvalPolicy} disabled={busy||!governanceReady} onChange={e=>void savePolicy(e.target.value)}><option value="OWNER_CONTROLLED">{ar?'تحكم المالك — يسمح للمالك بالاعتماد الذاتي':'Owner controlled'}</option><option value="ROLE_BASED">{ar?'حسب الدور والصلاحيات':'Role based'}</option><option value="STRICT_SEGREGATION">{ar?'فصل صارم — المنشئ لا يعتمد عمليته':'Strict segregation'}</option></select></label>
+          <button className="btn secondary" type="button" disabled={busy} onClick={()=>void seedDefaultRoles()}>{ar?'تجهيز/استعادة الأدوار الافتراضية':'Seed/restore default roles'}</button>
+        </div>
+        <div className={styles.roleGrid}>{customRoles.filter(r=>r.is_system_template).map(r=><article className={styles.roleCard} key={r.id}><div><strong>{r.name}</strong><p>{r.description}</p></div><div className={styles.permissionChips}>{r.permissions.map(k=><span key={k}>{permissionOptions.find(p=>p.key===k)?.[ar?'ar':'en']??k}</span>)}</div><button className="btn secondary" type="button" onClick={()=>{setEditingRoleId(r.id);setRoleName(r.name);setRoleDescription(r.description);setRolePermissions(r.permissions);}}>{ar?'تعديل الصلاحيات':'Edit permissions'}</button></article>)}</div>
+        <h3 style={{marginTop:18}}>{ar?'استثناءات المستخدمين':'User overrides'}</h3>
+        <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?'المستخدم':'User'}</th><th>{ar?'الصلاحية':'Permission'}</th><th>{ar?'الحالة':'Override'}</th></tr></thead><tbody>{members.filter(m=>m.role!=='OWNER').flatMap(m=>permissionOptions.map(p=>{const ov=permissionOverrides.find(x=>x.user_id===m.user_id&&x.permission===p.key);return <tr key={m.user_id+p.key}><td>{m.name||m.email}</td><td>{p[ar?'ar':'en']}</td><td><select disabled={busy} value={ov?.effect??''} onChange={e=>void setOverride(m.user_id,p.key,e.target.value)}><option value="">{ar?'يرث من الدور':'Inherit role'}</option><option value="ALLOW">{ar?'سماح إضافي':'Allow'}</option><option value="DENY">{ar?'منع صريح':'Deny'}</option></select></td></tr>;}))}</tbody></table></div>
       </section>
       <section className="card" style={{ marginBottom: 20 }}><h2>{ar ? 'دعوة مستخدم' : 'Invite a user'}</h2><p className="muted">{ar ? 'يُنشأ رابط دعوة صالح لمدة سبعة أيام. على المدعو تسجيل الدخول بالبريد نفسه لقبولها.' : 'The invite link is valid for seven days. The invitee must sign in with the same email to accept it.'}</p>
         <form onSubmit={createInvite} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 2fr) minmax(150px, 1fr) auto', gap: 10, alignItems: 'end' }}>
