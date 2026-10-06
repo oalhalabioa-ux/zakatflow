@@ -4,6 +4,7 @@ import { requireUser } from '@/services/auth';
 import { requireOrganizationMember, requireOrganizationAdmin } from '@/services/organization-access';
 import { calculateLiquidityTransfer } from '@/lib/liquidity-transfer';
 import { calculateIntercompanyTransfer } from '@/lib/intercompany-transfer';
+import { executeFinancialEventAction } from '@/services/financial-events';
 
 const accountSchema = z.object({
   organization_id: z.string().uuid(), entity_id: z.string().uuid().nullable().optional(),
@@ -20,7 +21,7 @@ const flowSchema = z.object({
   source: z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).default('MANUAL'), reference: z.string().max(120).default(''), notes: z.string().max(500).default(''),
 });
 const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), party_type_id: z.string().uuid().nullable().optional(), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
-const categorySchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH') });
+const categorySchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH'), financial_classification_type: z.enum(['REVENUE','OPEX','CAPEX','ASSET','LIABILITY','RECEIVABLE','PAYABLE','FINANCING','INVESTMENT','EQUITY','TAX','ZAKAT','TRANSFER','OTHER']).nullable().optional() });
 const partyTypeSchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80) });
 const transferSchema = z.object({
   organization_id: z.string().uuid(), source_account_id: z.string().uuid(), destination_account_id: z.string().uuid(),
@@ -297,6 +298,32 @@ export async function POST(request: Request) {
       ? await supabase.from('liquidity_accounts').insert(payload).select().single()
       : await supabase.from('liquidity_flows').insert(payload).select().single();
     if (error) throw error;
+    if (kind === 'flow' && data && payload.source === 'MANUAL' && payload.category_id) {
+      const { data: category, error: categoryError } = await supabase.from('liquidity_flow_categories').select('financial_classification_type').eq('id',payload.category_id).eq('organization_id',payload.organization_id).single();
+      if (categoryError) throw categoryError;
+      const treatment = category?.financial_classification_type;
+      if (treatment) {
+        const obligationType = payload.direction === 'OUTFLOW' ? 'PAYABLE' : 'RECEIVABLE';
+        const [{ data: recognitionClass, error: recognitionClassError }, { data: obligationClass, error: obligationClassError }, { data: organization, error: organizationError }] = await Promise.all([
+          supabase.from('financial_classifications').select('id').eq('organization_id',payload.organization_id).eq('classification_type',treatment).eq('active',true).limit(1).maybeSingle(),
+          supabase.from('financial_classifications').select('id').eq('organization_id',payload.organization_id).eq('classification_type',obligationType).eq('active',true).limit(1).maybeSingle(),
+          supabase.from('organizations').select('base_currency').eq('id',payload.organization_id).single()
+        ]);
+        if (recognitionClassError) throw recognitionClassError;if(obligationClassError) throw obligationClassError;if(organizationError) throw organizationError;
+        if (!recognitionClass || !obligationClass) throw new Error('LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED');
+        const sourceKey = `liquidity:${data.id}:recognition`;
+        const eventType = treatment === 'CAPEX' || treatment === 'ASSET' || treatment === 'INVESTMENT' ? 'ASSET_PURCHASE' : payload.direction === 'INFLOW' ? 'REVENUE' : 'EXPENSE';
+        const created:any = await executeFinancialEventAction({action:'CREATE',payload:{organization_id:payload.organization_id,entity_id:payload.entity_id,counterparty_id:payload.counterparty_id,event_type:eventType,source_module:'LIQUIDITY',source_event_key:sourceKey,event_date:payload.due_date,due_date:payload.due_date,base_currency:organization.base_currency,description:payload.title,lines:[{line_number:1,description:payload.title,classification_id:recognitionClass.id,cost_center_id:null,amount:payload.amount,currency:payload.currency,exchange_rate:payload.base_amount/payload.amount,base_amount:payload.base_amount,cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0}],obligations:[{obligation_type:obligationType,classification_id:obligationClass.id,amount:payload.amount,currency:payload.currency,exchange_rate:payload.base_amount/payload.amount,base_amount:payload.base_amount,due_date:payload.due_date}] }});
+        const eventId = typeof created === 'string' ? created : (created?.event_id ?? created?.id);
+        if (!eventId) throw new Error('LIQUIDITY_RECOGNITION_EVENT_ID_MISSING');
+        await supabase.from('financial_event_links').upsert({organization_id:payload.organization_id,event_id:eventId,link_type:'CASH_FLOW',target_module:'liquidity_flows',target_record_id:data.id},{onConflict:'organization_id,event_id,link_type,target_module,target_record_id'});
+        await supabase.from('liquidity_flows').update({source_module:'LIQUIDITY',source_record_id:data.id,source_event_key:sourceKey}).eq('id',data.id);
+        const { data: event } = await supabase.from('financial_events').select('status').eq('id',eventId).single();
+        if(event?.status==='DRAFT') await executeFinancialEventAction({action:'TRANSITION',organization_id:payload.organization_id,event_id:eventId,status:'PLANNED',note:'Created from Liquidity Management'});
+        const { data: planned } = await supabase.from('financial_events').select('status').eq('id',eventId).single();
+        if(planned?.status==='PLANNED') await executeFinancialEventAction({action:'TRANSITION',organization_id:payload.organization_id,event_id:eventId,status:'COMMITTED',note:'Confirmed cash-flow obligation'});
+      }
+    }
     return NextResponse.json(data, { status: 201 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_SAVE_FAILED' }, { status: status(error) }); }
 }
