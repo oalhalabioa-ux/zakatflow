@@ -1,5 +1,6 @@
 import {beforeAll,describe,it,expect} from 'vitest';
 import {createClient,type SupabaseClient} from '@supabase/supabase-js';
+import {buildAssetPurchaseCoreIntent} from '../lib/asset-financial-core';
 
 const URL=process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL||'';
 const KEY=process.env.SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY||'';
@@ -40,7 +41,7 @@ describe('Operational Integration V1 Assets',()=>{
   if(tx.error)throw tx.error;
 
   const classificationId=c.data?.id; expect(classificationId).toBeTruthy();
-  const payload={organization_id:ORG,entity_id:ENTITY,cost_center_id:COST,event_type:'ASSET_PURCHASE',event_date:tx.data.transaction_date,currency:'SAR',base_currency:'SAR',exchange_rate:1,source_module:'ASSETS',source_document_type:'ASSET_PURCHASE',source_document_id:tx.data.id,description:marker,lines:[{classification_id:classificationId!,direction:'DEBIT',amount:100,base_amount:100,description:marker},{classification_type:'PAYABLE',direction:'CREDIT',amount:100,base_amount:100,description:marker}]};
+  const payload=buildAssetPurchaseCoreIntent({transactionId:tx.data.id,assetId:asset.data.id,organizationId:ORG,entityId:ENTITY,costCenterId:COST,assetName:marker,assetClassCode:'PPE',transactionDate:tx.data.transaction_date,currency:'SAR',baseCurrency:'SAR',amount:100,baseAmount:100,exchangeRate:1,assetClassificationId:classificationId!});
   const first=await owner.rpc('create_financial_event_command',{p_payload:payload}); if(first.error)throw first.error;
   const second=await owner.rpc('create_financial_event_command',{p_payload:payload}); if(second.error)throw second.error;
   expect(second.data).toBe(first.data);
