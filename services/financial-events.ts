@@ -33,6 +33,7 @@ export async function financialEventDetail(organization:string,eventId:string){
  const results=await Promise.all(names.map(name=>supabase.from(name).select('*').eq('organization_id',organization).eq('event_id',eventId)));
  const data=Object.fromEntries(results.map((result,index)=>[names[index],unwrap(result)]));
  const approvals=data.financial_event_approvals as {decision:string;approver_id:string}[];
+ const canSelfApprove=event.created_by===user.id?Boolean(unwrap(await supabase.rpc('can_self_approve_financial_event',{p_org:organization}))):false;
  const balances=unwrap(await supabase.from('financial_event_obligation_balances').select('*').eq('organization_id',organization).eq('event_id',eventId));
  const links=data.financial_event_links as {link_type:string;target_module:string;target_record_id:string}[];
  const flowIds=links.filter(x=>x.link_type==='CASH_FLOW'&&x.target_module==='liquidity_flows').map(x=>x.target_record_id);
@@ -40,7 +41,7 @@ export async function financialEventDetail(organization:string,eventId:string){
  const reconciliation=flowIds.length?unwrap(await supabase.from('liquidity_flow_settlement_reconciliation').select('*').eq('organization_id',organization).in('flow_id',flowIds)):[];
  const applications=unwrap(await supabase.from('financial_event_obligation_allocations').select('*').eq('organization_id',organization).eq('application_event_id',eventId));
  const settlements=unwrap(await supabase.from('liquidity_settlements').select('*').eq('organization_id',organization).eq('financial_event_id',eventId));
- return{event,permissions,allowedActions:allowedEventActions(event,user.id,permissions,approvals.some(a=>a.decision==='APPROVED'&&a.approver_id!==event.created_by)),balances,flows,reconciliation,applications,settlements,...data};
+ return{event,permissions,allowedActions:allowedEventActions(event,user.id,permissions,approvals.some(a=>a.decision==='APPROVED'),canSelfApprove),canSelfApprove,balances,flows,reconciliation,applications,settlements,...data};
 }
 export async function executeFinancialEventAction(input:unknown){
  const command=financialEventActionSchema.parse(input);const org=command.action==='CREATE'?command.payload.organization_id:command.organization_id;
@@ -60,7 +61,7 @@ export async function executeFinancialEventAction(input:unknown){
    requirePermission(command.status==='ACTUAL'?'financial_core.post':'financial_core.create');
    if(command.status==='ACTUAL'&&(event?.event_type==='SETTLEMENT'||event?.source_module==='VAT_INTEGRATION'))throw new Error('DEDICATED_POST_ACTION_REQUIRED');
    return unwrap(await supabase.rpc('transition_financial_event',{p_event_id:command.event_id,p_new_status:command.status,p_note:command.note}));
-  case 'APPROVE':requirePermission('financial_core.approve');if(event?.created_by===user.id)throw new Error('CREATOR_CANNOT_APPROVE_OWN_EVENT');return unwrap(await supabase.rpc('approve_financial_event',{p_event_id:command.event_id,p_note:command.note}));
+  case 'APPROVE':requirePermission('financial_core.approve');return unwrap(await supabase.rpc('approve_financial_event',{p_event_id:command.event_id,p_note:command.note}));
   case 'RECOGNIZE_VAT':requirePermission('financial_core.post');requirePermission('vat.view');requirePermission('liquidity.edit');return unwrap(await supabase.rpc('post_vat_financial_event',{p_event_id:command.event_id}));
   case 'POST_SETTLEMENT':requirePermission('financial_core.post');requirePermission('liquidity.edit');return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:command.account_id,p_direction:command.direction,p_settlement_date:command.settlement_date,p_amount:command.amount,p_currency:command.currency,p_exchange_rate:command.exchange_rate,p_base_amount:command.base_amount,p_allocations:command.allocations}));
   case 'POST_SAVED_SETTLEMENT':{
