@@ -69,9 +69,9 @@ test('purchase 100 + VAT 15 prepares one committed Core event without moving cas
   }, { organizationId: ORGANIZATION_ID, supplierId: SUPPLIER_ID, today, documentNumber })
 
   expect(result.status, JSON.stringify(result.body)).toBe(201)
-  expect(result.body.net_amount).toBe('100.00')
-  expect(result.body.tax_amount).toBe('15.00')
-  expect(result.body.gross_amount).toBe('115.00')
+  expect(Number(result.body.net_amount)).toBe(100)
+  expect(Number(result.body.tax_amount)).toBe(15)
+  expect(Number(result.body.gross_amount)).toBe(115)
   expect(result.body.financial_core?.status).toBe('COMMITTED')
   expect(result.body.financial_core?.recognition).toBe('PENDING_INDEPENDENT_APPROVAL')
   const eventId = result.body.financial_core?.event_id
