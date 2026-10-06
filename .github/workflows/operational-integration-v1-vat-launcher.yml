@@ -59,3 +59,31 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
           NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY" \
           npx vitest run tests/operational-integration-v1-vat.e2e.test.ts
+
+      - name: Install browser E2E runtime
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start QA application
+        shell: bash
+        run: |
+          NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+          npm run dev -- --hostname 127.0.0.1 > /tmp/zakatflow-vat-e2e.log 2>&1 &
+          echo $! > /tmp/zakatflow-vat-e2e.pid
+          for i in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3000/en/login >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/zakatflow-vat-e2e.log
+          exit 1
+
+      - name: Run VAT purchase browser E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+          E2E_APP_URL="http://127.0.0.1:3000" \
+          npx playwright test tests/operational-integration-v1-vat.browser.spec.ts --project=chromium --workers=1
