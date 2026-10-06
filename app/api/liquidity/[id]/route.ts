@@ -36,7 +36,20 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(recognitionError)throw recognitionError;if(!recognitions?.length)return NextResponse.json({error:'CORE_RECOGNITION_LINK_REQUIRED'},{status:409});
    if(recognitions.length!==1)return NextResponse.json({error:'MULTIPLE_CORE_RECOGNITIONS_REQUIRE_SELECTION'},{status:409});
    const recognition=recognitions[0];
-   if(recognition.status!=='ACTUAL')return NextResponse.json({error:'CORE_RECOGNITION_MUST_BE_ACTUAL'},{status:409});
+   if(recognition.status!=='ACTUAL'){
+     try{
+       if(recognition.status==='COMMITTED')await executeFinancialEventAction({action:'APPROVE',organization_id:record.organization_id,event_id:recognition.id,note:'Approved from Cash Management before settlement'});
+       const{data:approved,error:approvedError}=await supabase.from('financial_events').select('status').eq('organization_id',record.organization_id).eq('id',recognition.id).single();if(approvedError)throw approvedError;
+       if(approved?.status==='COMMITTED')return NextResponse.json({id:record.id,status:record.status,recognition_event_id:recognition.id,recognition_status:'PENDING_APPROVAL',error:'CORE_RECOGNITION_PENDING_APPROVAL'},{status:202});
+       if(approved?.status!=='ACTUAL')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:recognition.id,status:'ACTUAL',note:'Recognition posted before cash settlement'});
+     }catch(error){
+       const message=error instanceof Error?error.message:'CORE_RECOGNITION_PENDING_APPROVAL';
+       if(/APPROVE|SELF_APPROVAL|SEGREGATION|PERMISSION|DENIED/i.test(message))return NextResponse.json({id:record.id,status:record.status,recognition_event_id:recognition.id,recognition_status:'PENDING_APPROVAL',error:'CORE_RECOGNITION_PENDING_APPROVAL'},{status:202});
+       throw error;
+     }
+     const{data:posted,error:postedError}=await supabase.from('financial_events').select('status').eq('organization_id',record.organization_id).eq('id',recognition.id).single();if(postedError)throw postedError;
+     if(posted?.status!=='ACTUAL')return NextResponse.json({id:record.id,status:record.status,recognition_event_id:recognition.id,recognition_status:'PENDING_APPROVAL',error:'CORE_RECOGNITION_PENDING_APPROVAL'},{status:202});
+   }
    const{data:balances,error:balanceError}=await supabase.from('financial_event_obligation_balances').select('obligation_id,obligation_type,outstanding_base_amount').eq('organization_id',record.organization_id).eq('event_id',recognition.id).gt('outstanding_base_amount',0);
    if(balanceError)throw balanceError;if(!balances?.length)return NextResponse.json({error:'NO_OUTSTANDING_OBLIGATION'},{status:409});
    if(balances.length!==1)return NextResponse.json({error:'MULTIPLE_OBLIGATIONS_REQUIRE_ALLOCATION'},{status:409});
