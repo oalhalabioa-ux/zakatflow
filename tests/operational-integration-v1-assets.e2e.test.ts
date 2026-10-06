@@ -70,12 +70,24 @@ describe('Operational Integration V1 Assets',()=>{
   const approval=await owner.rpc('approve_financial_event',{p_event_id:first.data,p_note:'Owner-controlled QA self approval'}); if(approval.error)throw approval.error;
   const approved=await owner.from('financial_event_approvals').select('approver_id,decision').eq('event_id',first.data).eq('decision','APPROVED').maybeSingle(); if(approved.error)throw approved.error; expect(approved.data?.approver_id).toBe(userId);
   const canSelf=await owner.rpc('can_self_approve_financial_event',{p_org:ORG}); if(canSelf.error)throw canSelf.error; expect(canSelf.data).toBe(true);
+  const validApproval=await owner.rpc('financial_event_has_valid_approval',{p_event_id:first.data}); if(validApproval.error)throw validApproval.error; expect(validApproval.data).toBe(true);
+  const actual=await owner.rpc('transition_financial_event',{p_event_id:first.data,p_new_status:'ACTUAL',p_note:'Owner-controlled QA posting'}); if(actual.error)throw actual.error; expect(actual.data).toBe('ACTUAL');
+  const posted=await owner.from('financial_events').select('status,posted_by').eq('id',first.data).single(); if(posted.error)throw posted.error; expect(posted.data.status).toBe('ACTUAL'); expect(posted.data.posted_by).toBe(userId);
+
+  const contact=await owner.from('vat_contacts').select('id').eq('organization_id',ORG).in('contact_type',['SUPPLIER','BOTH']).limit(1).maybeSingle(); if(contact.error)throw contact.error;
+  let contactId=contact.data?.id;
+  if(!contactId){const nc=await owner.from('vat_contacts').insert({organization_id:ORG,contact_type:'SUPPLIER',name:'QA Asset Supplier '+marker,created_by:userId}).select('id').single();if(nc.error)throw nc.error;contactId=nc.data.id;}
+  const doc=await owner.from('vat_documents').insert({organization_id:ORG,user_id:userId,created_by:userId,document_type:'PURCHASE',document_kind:'INVOICE',document_number:'QA-'+marker,transaction_date:tx.data.transaction_date,counterparty_contact_id:contactId,counterparty_name:'QA Asset Supplier',supply_type:'STANDARD',net_amount:100,tax_rate:15,tax_amount:15,recoverable_percent:100,gross_amount:115,currency:'SAR',source_currency:'SAR',exchange_rate:1,source_net_amount:100,source_tax_amount:15,source_gross_amount:115,asset_transaction_id:tx.data.id}).select('id').single();if(doc.error)throw doc.error;
+  const bind=await owner.rpc('bind_asset_purchase_vat_document',{p_document_id:doc.data.id,p_transaction_id:tx.data.id});if(bind.error)throw bind.error;expect(bind.data).toBe(first.data);
+  const binding=await owner.from('financial_vat_source_bindings').select('event_id,is_alias').eq('organization_id',ORG).eq('source_table','vat_documents').eq('source_record_id',doc.data.id).single();if(binding.error)throw binding.error;expect(binding.data.event_id).toBe(first.data);expect(binding.data.is_alias).toBe(true);
+  const allEvents=await owner.from('financial_events').select('id').eq('organization_id',ORG).or(`id.eq.${first.data},source_record_id.eq.${doc.data.id}`);if(allEvents.error)throw allEvents.error;expect(allEvents.data).toHaveLength(1);
+  console.log('ASSET_VAT_SINGLE_EVENT=PASS');
 
   const after=await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id',ORG).eq('active',true).order('id'); if(after.error)throw after.error;
   expect(after.data).toEqual(before.data);
   console.log('ASSETS_E2E=CAPEX_100,INPUT_VAT_15,PAYABLE_115,OUTSTANDING_115,NO_OPEX');
   console.log('ASSETS_E2E_CASH_MOVEMENT=0');
-  console.log('ASSETS_E2E_APPROVAL=OWNER_SELF_APPROVAL_PASS');
+  console.log('ASSETS_E2E_APPROVAL=OWNER_SELF_APPROVAL_AND_ACTUAL_PASS');
   console.log('ASSETS_E2E_IDEMPOTENT_EVENT='+first.data);
  },30000);
 });
