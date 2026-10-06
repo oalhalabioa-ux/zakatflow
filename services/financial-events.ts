@@ -5,7 +5,7 @@ import {z} from 'zod';
 
 const scopes:EventPermission[]=['financial_core.view','financial_core.create','financial_core.approve','financial_core.post','liquidity.edit','vat.view','organization.edit'];
 function unwrap<T>(result:{data:T;error:{message:string}|null}):T{if(result.error)throw new Error(result.error.message);return result.data;}
-async function session(){assertFinancialBudgetQA();return requireUser();}
+async function session(){return requireUser();}
 async function scope(organization:string){
  z.string().uuid().parse(organization);const context=await session();
  const values=await Promise.all(scopes.map(async permission=>[permission,unwrap(await context.supabase.rpc('has_organization_permission',{p_organization_id:organization,p_permission:permission}))]));
