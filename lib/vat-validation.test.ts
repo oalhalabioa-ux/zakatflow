@@ -31,6 +31,7 @@ describe('VAT validation', () => {
       document_kind: 'INVOICE',
       document_number: 'INV-100',
       transaction_date: '2026-09-01',
+      due_date: '2026-09-30',
       counterparty_contact_id: '9a22f4ce-13ad-4780-8f7a-70e056f99c18',
       counterparty_name: 'Test customer',
       supply_type: 'STANDARD',
