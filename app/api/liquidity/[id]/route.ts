@@ -23,7 +23,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const value=body[field];if(value){const{data,error}=await supabase.from(table).select('id').eq('id',value).eq('organization_id',record.organization_id).maybeSingle();if(error)throw error;if(!data)return NextResponse.json({error:field.toUpperCase()+'_ORGANIZATION_MISMATCH'},{status:400});}
  }
  if(body.status==='ACTUAL'&&record.settlement_status!=='SETTLED'){
-   if(!record.source_module||record.source_module==='MANUAL')return NextResponse.json({error:'CORE_RECOGNITION_LINK_REQUIRED'},{status:409});
+   if(!record.source_module||record.source_module==='MANUAL')return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const accountId=body.account_id??record.account_id;
    if(!accountId)return NextResponse.json({error:'SETTLEMENT_ACCOUNT_REQUIRED'},{status:400});
    const{data:account,error:accountError}=await supabase.from('liquidity_accounts').select('id,currency').eq('id',accountId).eq('organization_id',record.organization_id).maybeSingle();
