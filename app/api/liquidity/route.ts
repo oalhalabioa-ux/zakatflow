@@ -70,8 +70,14 @@ export async function GET(request: Request) {
         : Promise.resolve({ data: [], error: null }),
     ]);
     for (const result of [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, intercompanyTransfersResult]) if (result.error) throw result.error;
-    const { data: counterparties, error: counterpartiesError } = await supabase.from('liquidity_counterparties').select('*').in('organization_id', organizationIds).order('name');
+    const [{ data: counterparties, error: counterpartiesError }, { data: counterpartyBalances, error: balancesError }, { data: openItems, error: openItemsError }] = await Promise.all([
+      supabase.from('liquidity_counterparties').select('*').in('organization_id', organizationIds).order('name'),
+      supabase.from('financial_counterparty_balances').select('*').in('organization_id', organizationIds),
+      supabase.from('financial_counterparty_open_items').select('*').in('organization_id', organizationIds).gt('outstanding_base_amount', 0).order('due_date', { ascending: true }),
+    ]);
     if (counterpartiesError) throw counterpartiesError;
+    if (balancesError) throw balancesError;
+    if (openItemsError) throw openItemsError;
     const organizations = organizationsResult.data ?? [];
     let accounts: any[] = accountsResult.data ?? [];
     let flows: any[] = flowsResult.data ?? [];
@@ -106,7 +112,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing });
+    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
