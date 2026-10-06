@@ -9,7 +9,7 @@ const ORG='85acbac0-e8b4-434c-a22b-3ec13b55e1a7'
 const RECOGNITION='c5a33326-0719-4b63-81f4-de27257e8681'
 const SETTLEMENT_50='2e79815c-0dbb-4f71-bb60-286266de75ad'
 const SETTLEMENT_65='92a1df4f-6ac2-430e-a710-2235e89a7e4c'
-const ACCOUNT='dd7cce04-d75d-4880-ac03-77f0f82d6a3a'
+const ACCOUNT='dd7cce04-d75c-4880-ac03-77f0f82d6a3a'
 
 let owner:SupabaseClient
 const n=(v:unknown)=>Number(v||0)
