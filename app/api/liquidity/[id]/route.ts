@@ -44,8 +44,12 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
      if(event?.status==='DRAFT')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:eventId,status:'PLANNED',note:'Legacy liquidity recognition'});
      const{data:planned}=await supabase.from('financial_events').select('status').eq('id',eventId).single();
      if(planned?.status==='PLANNED')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:eventId,status:'COMMITTED',note:'Legacy liquidity obligation'});
-     const{data:committed}=await supabase.from('financial_events').select('status').eq('id',eventId).single();
-     if(committed?.status==='COMMITTED')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:eventId,status:'ACTUAL',note:'Activated from legacy liquidity settlement'});
+     const{data:committed}=await supabase.from('financial_events').select('status,created_by').eq('id',eventId).single();
+     if(committed?.status==='COMMITTED'){
+       const{data:approval,error:approvalError}=await supabase.from('financial_event_approvals').select('id,approver_id,decision').eq('organization_id',record.organization_id).eq('event_id',eventId).eq('decision','APPROVED').maybeSingle();if(approvalError)throw approvalError;
+       if(!approval||approval.approver_id===committed.created_by)return NextResponse.json({id:record.id,status:record.status,settlement_status:'RECOGNITION_PENDING_APPROVAL',recognition_event_id:eventId,error:'CORE_RECOGNITION_APPROVAL_REQUIRED'},{status:202});
+       await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:eventId,status:'ACTUAL',note:'Activated after independent approval'});
+     }
      const{error:flowLinkError}=await supabase.from('liquidity_flows').update({source_module:'LIQUIDITY',source_record_id:record.id,source_event_key:recognitionKey,updated_at:new Date().toISOString()}).eq('id',record.id);if(flowLinkError)throw flowLinkError;
      record.source_module='LIQUIDITY';record.source_record_id=record.id;record.source_event_key=recognitionKey;
    }
