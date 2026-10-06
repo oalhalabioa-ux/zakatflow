@@ -49,6 +49,7 @@ type VatDocument = VatDocumentForSummary & {
   id: string;
   document_number: string;
   transaction_date: string;
+  due_date?: string | null;
   counterparty_name: string;
   counterparty_tax_number?: string | null;
   document_type: 'SALES' | 'PURCHASE';
@@ -89,6 +90,7 @@ type DocumentDraft = {
   document_kind: 'INVOICE' | 'CREDIT_NOTE';
   document_number: string;
   transaction_date: string;
+  due_date: string;
   counterparty_name: string;
   counterparty_tax_number: string;
   counterparty_contact_id: string;
@@ -143,6 +145,7 @@ const emptyDocument = (): DocumentDraft => ({
   document_kind: 'INVOICE',
   document_number: '',
   transaction_date: new Date().toISOString().slice(0, 10),
+  due_date: new Date().toISOString().slice(0, 10),
   counterparty_name: '',
   counterparty_tax_number: '',
   counterparty_contact_id: '',
@@ -930,6 +933,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                 <label><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={draft.document_kind} onChange={(event) => setDraft({ ...draft, document_kind: event.target.value as DocumentDraft['document_kind'], notes: event.target.value === 'INVOICE' ? '' : draft.notes })}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option></select></label>
                 <label><span>{ar ? 'رقم المستند' : 'Document number'}</span><input required maxLength={80} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} /></label>
                 <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
+                <label><span>{ar ? 'تاريخ الاستحقاق' : 'Due date'}</span><input required type="date" min={draft.transaction_date} value={draft.due_date} onChange={(event) => setDraft({ ...draft, due_date: event.target.value })} /></label>
               </div>
               {usesAccountingLines ? <div className="vat-accounting-lines">
                 <div className="vat-accounting-toolbar">
