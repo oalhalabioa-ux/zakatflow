@@ -20,7 +20,7 @@ const flowSchema = z.object({
   currency: z.string().length(3).default('SAR'), base_amount: z.coerce.number().positive(), status: z.enum(['ACTUAL','CONFIRMED','EXPECTED']).default('EXPECTED'),
   source: z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).default('MANUAL'), reference: z.string().max(120).default(''), notes: z.string().max(500).default(''),
 });
-const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), party_type_id: z.string().uuid().nullable().optional(), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
+const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), party_type_id: z.string().uuid().nullable().optional(), roles: z.array(z.enum(['CUSTOMER','SUPPLIER','ASSET_SUPPLIER','INVESTEE','INVESTMENT_MANAGER','LENDER','BORROWER','EMPLOYEE','GOVERNMENT','TAX_AUTHORITY','RELATED_PARTY','OTHER'])).max(12).optional(), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
 const categorySchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH'), financial_classification_type: z.enum(['REVENUE','OPEX','CAPEX','ASSET','LIABILITY','RECEIVABLE','PAYABLE','FINANCING','INVESTMENT','EQUITY','TAX','ZAKAT','TRANSFER','OTHER']).nullable().optional() });
 const partyTypeSchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80) });
 const transferSchema = z.object({
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         if (membership) organizationIds.push(child.id);
       }
     }
-    const [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, intercompanyTransfersResult] = await Promise.all([
+    const [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, counterpartyRolesResult, intercompanyTransfersResult] = await Promise.all([
       supabase.from('liquidity_accounts').select('*').in('organization_id', organizationIds).eq('active', true).order('created_at'),
       supabase.from('liquidity_flows').select('*').in('organization_id', organizationIds).order('due_date', { ascending: true }).limit(1500),
       supabase.from('organization_entities').select('id,name,organization_id,entity_type').in('organization_id', organizationIds).eq('active', true).order('name'),
@@ -65,11 +65,12 @@ export async function GET(request: Request) {
       supabase.from('fx_rates').select('organization_id,from_currency,to_currency,rate,valuation_date').or(`organization_id.is.null,organization_id.in.(${organizationIds.join(',')})`).order('valuation_date',{ascending:false}).limit(600),
       supabase.from('liquidity_flow_categories').select('*').in('organization_id', organizationIds).eq('active', true).order('is_system', { ascending: false }).order('name_ar'),
       supabase.from('liquidity_party_types').select('*').in('organization_id', organizationIds).eq('active', true).order('is_system', { ascending: false }).order('name_ar'),
+      supabase.from('liquidity_counterparty_roles').select('organization_id,counterparty_id,role_code').in('organization_id', organizationIds).eq('active', true),
       organization.organization_kind === 'HOLDING' && params.get('scope') === 'group'
         ? supabase.from('liquidity_intercompany_transfers').select('*').eq('holding_organization_id', organizationId).in('source_organization_id', organizationIds).in('destination_organization_id', organizationIds).order('transfer_date', { ascending: false }).limit(1000)
         : Promise.resolve({ data: [], error: null }),
     ]);
-    for (const result of [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, intercompanyTransfersResult]) if (result.error) throw result.error;
+    for (const result of [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, counterpartyRolesResult, intercompanyTransfersResult]) if (result.error) throw result.error;
     const { data: counterparties, error: counterpartiesError } = await supabase.from('liquidity_counterparties').select('*').in('organization_id', organizationIds).order('name');
     if (counterpartiesError) throw counterpartiesError;
     const organizations = organizationsResult.data ?? [];
@@ -106,7 +107,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing });
+    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: (counterparties ?? []).map((party:any)=>({...party,roles:(counterpartyRolesResult.data??[]).filter((role:any)=>role.counterparty_id===party.id).map((role:any)=>role.role_code)})), categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
@@ -142,188 +143,13 @@ export async function POST(request: Request) {
         if (!type) throw new Error('PARTY_TYPE_ORGANIZATION_MISMATCH');
         payload = { ...input, party_type: ['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER'].includes(type.code) ? type.code : 'OTHER' };
       }
-      const { data, error } = await supabase.from('liquidity_counterparties').insert(payload).select().single();
+      const { roles = [], ...partyPayload } = payload;
+      const { data, error } = await supabase.from('liquidity_counterparties').insert(partyPayload).select().single();
       if (error) throw error;
-      return NextResponse.json(data, { status: 201 });
+      const defaultRoles = partyPayload.party_type === 'BOTH' ? ['CUSTOMER','SUPPLIER'] : partyPayload.party_type === 'CUSTOMER' ? ['CUSTOMER'] : partyPayload.party_type === 'SUPPLIER' ? ['SUPPLIER'] : [];
+      const roleCodes = [...new Set([...(roles as string[]),...defaultRoles])];
+      if (roleCodes.length) { const { error: roleError } = await supabase.from('liquidity_counterparty_roles').insert(roleCodes.map(role_code=>({organization_id:input.organization_id,counterparty_id:data.id,role_code,created_by:user.id}))); if (roleError) throw roleError; }
+      return NextResponse.json({...data,roles:roleCodes}, { status: 201 });
     }
     if (kind === 'intercompany_transfer') {
       const input = intercompanyTransferSchema.parse(body);
-      const organizationIds = [...new Set([input.holding_organization_id, input.source_organization_id, input.destination_organization_id])];
-      for (const organizationId of organizationIds) {
-        await requireOrganizationMember(supabase, user.id, organizationId);
-        if (!await canWriteLiquidity(supabase, user.id, organizationId)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
-      }
-      const [{ data: accounts, error: accountsError }, { data: organizations, error: organizationsError }] = await Promise.all([
-        supabase.from('liquidity_accounts').select('id,organization_id,entity_id,name,currency,active').in('id', [input.source_account_id,input.destination_account_id]),
-        supabase.from('organizations').select('id,name,base_currency,organization_kind,parent_organization_id').in('id', organizationIds),
-      ]);
-      if (accountsError) throw accountsError;
-      if (organizationsError) throw organizationsError;
-      const source = accounts?.find((row: any) => row.id === input.source_account_id && row.organization_id === input.source_organization_id);
-      const destination = input.destination_account_id ? accounts?.find((row: any) => row.id === input.destination_account_id && row.organization_id === input.destination_organization_id) : null;
-      const holding = organizations?.find((row: any) => row.id === input.holding_organization_id);
-      const sourceOrg = organizations?.find((row: any) => row.id === input.source_organization_id);
-      const destinationOrg = organizations?.find((row: any) => row.id === input.destination_organization_id);
-      const onBehalf = input.transaction_type === 'ON_BEHALF';
-      if (!source?.active || (!onBehalf && !destination?.active) || (onBehalf && input.destination_account_id)) throw new Error('TRANSFER_ACCOUNT_NOT_FOUND');
-      if (holding?.organization_kind !== 'HOLDING' || !sourceOrg || !destinationOrg) throw new Error('INTERCOMPANY_ORGANIZATION_NOT_FOUND');
-      const destinationCurrency = onBehalf ? destinationOrg.base_currency : destination!.currency;
-      const currencies = [...new Set([source.currency,destinationCurrency].filter((code: string, index: number) => code !== [sourceOrg.base_currency,destinationOrg.base_currency][index]))];
-      const { data: rates, error: ratesError } = currencies.length
-        ? await supabase.from('fx_rates').select('organization_id,from_currency,to_currency,rate,valuation_date').or(`organization_id.in.(${input.source_organization_id},${input.destination_organization_id}),organization_id.is.null`).lte('valuation_date', input.transfer_date).order('valuation_date',{ascending:false}).limit(600)
-        : { data: [], error: null };
-      if (ratesError) throw ratesError;
-      const baseRate = (organizationId: string, code: string) => {
-        const organization = organizations?.find((row: any) => row.id === organizationId);
-        if (!organization) throw new Error('INTERCOMPANY_ORGANIZATION_NOT_FOUND');
-        if (code === organization.base_currency) return 1;
-        const scoped = (rates ?? []).filter((row: any) => row.organization_id === organizationId);
-        const global = (rates ?? []).filter((row: any) => row.organization_id === null);
-        for (const rows of [scoped,global]) {
-          const direct = rows.find((row: any) => row.from_currency === code && row.to_currency === organization.base_currency);
-          if (direct && Number(direct.rate) > 0) return Number(direct.rate);
-          const inverse = rows.find((row: any) => row.from_currency === organization.base_currency && row.to_currency === code);
-          if (inverse && Number(inverse.rate) > 0) return 1 / Number(inverse.rate);
-        }
-        throw new Error(`TRANSFER_BASE_RATE_REQUIRED:${code}`);
-      };
-      const computed = calculateIntercompanyTransfer({
-        holdingOrganizationId: input.holding_organization_id,
-        sourceOrganizationId: input.source_organization_id,
-        destinationOrganizationId: input.destination_organization_id,
-        sourceAccountId: source.id, destinationAccountId: destination?.id ?? null, transactionType: input.transaction_type,
-        sourceParentOrganizationId: sourceOrg.parent_organization_id,
-        destinationParentOrganizationId: destinationOrg.parent_organization_id,
-        amount: input.amount,
-        exchangeRate: source.currency === destinationCurrency ? 1 : input.exchange_rate,
-        sourceBaseRate: baseRate(input.source_organization_id, source.currency),
-        destinationBaseRate: onBehalf ? 1 : baseRate(input.destination_organization_id, destination!.currency),
-      });
-      const { data, error } = await supabase.rpc('create_liquidity_intercompany_transfer', {
-        p_holding_organization_id: input.holding_organization_id,
-        p_source_organization_id: input.source_organization_id, p_source_account_id: source.id,
-        p_destination_organization_id: input.destination_organization_id, p_destination_account_id: destination?.id ?? null,
-        p_transaction_type: input.transaction_type, p_source_amount: computed.sourceAmount,
-        p_destination_amount: computed.destinationAmount, p_source_base_amount: computed.sourceBaseAmount,
-        p_destination_base_amount: computed.destinationBaseAmount,
-        p_exchange_rate: source.currency === destinationCurrency ? 1 : input.exchange_rate,
-        p_transfer_date: input.transfer_date, p_source_title: input.source_title, p_destination_title: input.destination_title,
-        p_reference: input.reference, p_notes: input.notes,
-      });
-      if (error) throw error;
-      return NextResponse.json(data, { status: 201 });
-    }
-    if (kind === 'transfer') {
-      const input = transferSchema.parse(body);
-      await requireOrganizationMember(supabase, user.id, input.organization_id);
-      await requireOrganizationAdmin(supabase, user.id, input.organization_id).catch(async () => {
-        const { data: membership } = await supabase.from('organization_members').select('role').eq('organization_id', input.organization_id).eq('user_id', user.id).eq('status', 'ACTIVE').maybeSingle();
-        if (!membership || !['OWNER','ADMIN','ACCOUNTANT','ADVISOR'].includes(membership.role)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
-      });
-      const [{ data: accounts, error: accountsError }, { data: organization, error: organizationError }] = await Promise.all([
-        supabase.from('liquidity_accounts').select('id,organization_id,currency,active').in('id', [input.source_account_id, input.destination_account_id]).eq('organization_id', input.organization_id),
-        supabase.from('organizations').select('base_currency').eq('id', input.organization_id).single(),
-      ]);
-      if (accountsError) throw accountsError;
-      if (organizationError) throw organizationError;
-      const source = accounts?.find((account: any) => account.id === input.source_account_id);
-      const destination = accounts?.find((account: any) => account.id === input.destination_account_id);
-      if (!source?.active || !destination?.active) throw new Error('TRANSFER_ACCOUNT_NOT_FOUND');
-      if (input.source_account_id === input.destination_account_id) throw new Error('TRANSFER_ACCOUNTS_MUST_DIFFER');
-      const currencies = [...new Set([source.currency, destination.currency].filter((code: string) => code !== organization.base_currency))];
-      const { data: rates, error: ratesError } = currencies.length ? await supabase.from('fx_rates').select('organization_id,from_currency,to_currency,rate,valuation_date').or(`organization_id.eq.${input.organization_id},organization_id.is.null`).lte('valuation_date', input.transfer_date).in('from_currency', currencies.concat(organization.base_currency)).order('valuation_date', { ascending: false }).limit(300) : { data: [], error: null };
-      if (ratesError) throw ratesError;
-      const baseRate = (code: string) => {
-        if (code === organization.base_currency) return 1;
-        const scoped = (rates ?? []).filter((row: any) => row.organization_id === input.organization_id);
-        const global = (rates ?? []).filter((row: any) => row.organization_id === null);
-        for (const rows of [scoped, global]) {
-          const direct = rows.find((row: any) => row.from_currency === code && row.to_currency === organization.base_currency);
-          if (direct && Number(direct.rate) > 0) return Number(direct.rate);
-          const inverse = rows.find((row: any) => row.from_currency === organization.base_currency && row.to_currency === code);
-          if (inverse && Number(inverse.rate) > 0) return 1 / Number(inverse.rate);
-        }
-        throw new Error(`TRANSFER_BASE_RATE_REQUIRED:${code}`);
-      };
-      const computed = calculateLiquidityTransfer({
-        sourceAccountId: input.source_account_id, destinationAccountId: input.destination_account_id,
-        sourceOrganizationId: input.organization_id, destinationOrganizationId: input.organization_id,
-        amount: input.amount, exchangeRate: source.currency === destination.currency ? 1 : input.exchange_rate,
-        sourceBaseRate: baseRate(source.currency), destinationBaseRate: baseRate(destination.currency),
-      });
-      const { data, error } = await supabase.rpc('create_liquidity_transfer', {
-        p_organization_id: input.organization_id,
-        p_source_account_id: input.source_account_id,
-        p_destination_account_id: input.destination_account_id,
-        p_source_amount: computed.sourceAmount,
-        p_destination_amount: computed.destinationAmount,
-        p_source_base_amount: computed.sourceBaseAmount,
-        p_destination_base_amount: computed.destinationBaseAmount,
-        p_exchange_rate: source.currency === destination.currency ? 1 : input.exchange_rate,
-        p_transfer_date: input.transfer_date,
-        p_source_title: input.source_title,
-        p_destination_title: input.destination_title,
-        p_reference: input.reference,
-        p_notes: input.notes,
-      });
-      if (error) throw error;
-      return NextResponse.json(data, { status: 201 });
-    }
-    if (kind !== 'account' && kind !== 'flow') return NextResponse.json({ error: 'LIQUIDITY_RECORD_KIND_REQUIRED' }, { status: 400 });
-    let payload: any = kind === 'account' ? accountSchema.parse(body) : flowSchema.parse(body);
-    await requireOrganizationMember(supabase, user.id, payload.organization_id);
-    await requireOrganizationAdmin(supabase, user.id, payload.organization_id).catch(async () => {
-      const { data: membership } = await supabase.from('organization_members').select('role').eq('organization_id', payload.organization_id).eq('user_id', user.id).eq('status', 'ACTIVE').maybeSingle();
-      if (!membership || !['OWNER','ADMIN','ACCOUNTANT','ADVISOR'].includes(membership.role)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
-    });
-    if (payload.entity_id) {
-      const { data, error } = await supabase.from('organization_entities').select('id').eq('id', payload.entity_id).eq('organization_id', payload.organization_id).maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error('ENTITY_ORGANIZATION_MISMATCH');
-    }
-    if (kind === 'flow' && payload.account_id) {
-      const { data, error } = await supabase.from('liquidity_accounts').select('id').eq('id', payload.account_id).eq('organization_id', payload.organization_id).maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error('ACCOUNT_ORGANIZATION_MISMATCH');
-    }
-    if (kind === 'flow' && payload.counterparty_id) { const { data: counterparty, error } = await supabase.from('liquidity_counterparties').select('id,name').eq('id', payload.counterparty_id).eq('organization_id', payload.organization_id).eq('active', true).maybeSingle(); if (error) throw error; if (!counterparty) throw new Error('COUNTERPARTY_ORGANIZATION_MISMATCH'); payload = { ...payload, counterparty: counterparty.name }; }
-    if (kind === 'flow' && payload.category_id) {
-      const { data: category, error } = await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction').eq('id', payload.category_id).eq('organization_id', payload.organization_id).eq('active', true).maybeSingle();
-      if (error) throw error;
-      if (!category) throw new Error('CATEGORY_ORGANIZATION_MISMATCH');
-      if (category.allowed_direction !== 'BOTH' && category.allowed_direction !== payload.direction) throw new Error('CATEGORY_DIRECTION_NOT_ALLOWED');
-      payload = { ...payload, flow_type: category.flow_group };
-    }
-    const { data, error } = kind === 'account'
-      ? await supabase.from('liquidity_accounts').insert(payload).select().single()
-      : await supabase.from('liquidity_flows').insert(payload).select().single();
-    if (error) throw error;
-    if (kind === 'flow' && data && payload.source === 'MANUAL' && payload.category_id) {
-      const { data: category, error: categoryError } = await supabase.from('liquidity_flow_categories').select('financial_classification_type').eq('id',payload.category_id).eq('organization_id',payload.organization_id).single();
-      if (categoryError) throw categoryError;
-      const treatment = category?.financial_classification_type;
-      if (treatment) {
-        const obligationType = payload.direction === 'OUTFLOW' ? 'PAYABLE' : 'RECEIVABLE';
-        const [{ data: recognitionClass, error: recognitionClassError }, { data: obligationClass, error: obligationClassError }, { data: organization, error: organizationError }] = await Promise.all([
-          supabase.from('financial_classifications').select('id').eq('organization_id',payload.organization_id).eq('classification_type',treatment).eq('active',true).limit(1).maybeSingle(),
-          supabase.from('financial_classifications').select('id').eq('organization_id',payload.organization_id).eq('classification_type',obligationType).eq('active',true).limit(1).maybeSingle(),
-          supabase.from('organizations').select('base_currency').eq('id',payload.organization_id).single()
-        ]);
-        if (recognitionClassError) throw recognitionClassError;if(obligationClassError) throw obligationClassError;if(organizationError) throw organizationError;
-        if (!recognitionClass || !obligationClass) throw new Error('LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED');
-        const sourceKey = `liquidity:${data.id}:recognition`;
-        const eventType = treatment === 'CAPEX' || treatment === 'ASSET' || treatment === 'INVESTMENT' ? 'ASSET_PURCHASE' : payload.direction === 'INFLOW' ? 'REVENUE' : 'EXPENSE';
-        const created:any = await executeFinancialEventAction({action:'CREATE',payload:{organization_id:payload.organization_id,entity_id:payload.entity_id,counterparty_id:payload.counterparty_id,event_type:eventType,source_module:'OPERATIONAL_CONSOLE',source_record_id:data.id,source_event_key:sourceKey,event_date:payload.due_date,due_date:payload.due_date,base_currency:organization.base_currency,description:payload.title,lines:[{line_number:1,description:payload.title,classification_id:recognitionClass.id,cost_center_id:null,amount:payload.amount,currency:payload.currency,exchange_rate:payload.base_amount/payload.amount,base_amount:payload.base_amount,cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0}],obligations:[{obligation_key:`liquidity:${data.id}:obligation`,obligation_type:obligationType,settleable_amount:payload.amount,currency:payload.currency,exchange_rate:payload.base_amount/payload.amount,base_currency:organization.base_currency,settleable_base_amount:payload.base_amount}] }});
-        const eventId = typeof created === 'string' ? created : (created?.event_id ?? created?.id);
-        if (!eventId) throw new Error('LIQUIDITY_RECOGNITION_EVENT_ID_MISSING');
-        await supabase.from('financial_event_links').upsert({organization_id:payload.organization_id,event_id:eventId,link_type:'CASH_FLOW',target_module:'liquidity_flows',target_record_id:data.id},{onConflict:'organization_id,event_id,link_type,target_module,target_record_id'});
-        await supabase.from('liquidity_flows').update({source_module:'LIQUIDITY',source_record_id:data.id,source_event_key:sourceKey}).eq('id',data.id);
-        const { data: event } = await supabase.from('financial_events').select('status').eq('id',eventId).single();
-        if(event?.status==='DRAFT') await executeFinancialEventAction({action:'TRANSITION',organization_id:payload.organization_id,event_id:eventId,status:'PLANNED',note:'Created from Liquidity Management'});
-        const { data: planned } = await supabase.from('financial_events').select('status').eq('id',eventId).single();
-        if(planned?.status==='PLANNED') await executeFinancialEventAction({action:'TRANSITION',organization_id:payload.organization_id,event_id:eventId,status:'COMMITTED',note:'Confirmed cash-flow obligation'});
-      }
-    }
-    return NextResponse.json(data, { status: 201 });
-  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_SAVE_FAILED' }, { status: status(error) }); }
-}
