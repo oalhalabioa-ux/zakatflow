@@ -50,7 +50,6 @@ describe('Operational Integration V1 Assets',()=>{
   const event=await owner.from('financial_events').select('status').eq('id',first.data).single(); if(event.error)throw event.error;
   expect(event.data.status).toBe('DRAFT');
   const lines=await owner.from('financial_event_lines').select('classification_id,base_amount,cash_direction,vat_amount').eq('event_id',first.data); if(lines.error)throw lines.error;
-  expect((lines.data||[]).every((x:any)=>x.classification_id===classificationId)).toBe(true);
   expect(lines.data).toHaveLength(2); const capexLine=lines.data?.find((x:any)=>x.classification_id===classificationId); const taxLine=lines.data?.find((x:any)=>x.classification_id===tax.data.id); expect(n(capexLine?.base_amount)).toBe(100); expect(n(taxLine?.base_amount)).toBe(15); expect(lines.data?.every((x:any)=>x.cash_direction==='NON_CASH')).toBe(true); expect(lines.data?.every((x:any)=>n(x.vat_amount)===0)).toBe(true);
   const obs=await owner.from('financial_event_obligations').select('obligation_type,settleable_amount,settleable_base_amount').eq('event_id',first.data); if(obs.error)throw obs.error;
   expect(obs.data).toHaveLength(1); expect(obs.data?.[0]?.obligation_type).toBe('PAYABLE'); expect(n(obs.data?.[0]?.settleable_amount)).toBe(115); expect(n(obs.data?.[0]?.settleable_base_amount)).toBe(115);
