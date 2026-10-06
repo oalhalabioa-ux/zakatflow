@@ -68,8 +68,8 @@ export async function executeFinancialEventAction(input:unknown){
    if(event?.event_type!=='SETTLEMENT')throw new Error('SETTLEMENT_EVENT_REQUIRED');
    const instruction=unwrap(await supabase.from('financial_event_links').select('target_record_id,metadata').eq('organization_id',org).eq('event_id',command.event_id).eq('link_type','OTHER').eq('target_module','liquidity_flows').contains('metadata',{purpose:'SETTLEMENT_INSTRUCTION'}).maybeSingle());
    if(!instruction)throw new Error('SETTLEMENT_INSTRUCTION_REQUIRED');
-   const m=(instruction.metadata||{}) as Record<string,any>;const accountId=command.account_id??m.account_id;
-   if(!accountId)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');
+   const m=(instruction.metadata||{}) as Record<string,any>;const accountId=command.account_id??m.account_id;const settlementDate=command.settlement_date??m.settlement_date;
+   if(!accountId)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');if(!settlementDate)throw new Error('SETTLEMENT_DATE_REQUIRED');
    const account=unwrap(await supabase.from('liquidity_accounts').select('id,currency').eq('organization_id',org).eq('id',accountId).single());
    if(!account)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');
    if(account.currency!==m.currency)throw new Error('SETTLEMENT_ACCOUNT_CURRENCY_MISMATCH');
@@ -78,9 +78,14 @@ export async function executeFinancialEventAction(input:unknown){
    if(Number(balance.outstanding_base_amount)+0.0001<Number(m.base_amount))throw new Error('SETTLEMENT_EXCEEDS_OUTSTANDING');
    const flow=unwrap(await supabase.from('liquidity_flows').select('id,currency,settled_amount,amount').eq('organization_id',org).eq('id',instruction.target_record_id).single());
    if(!flow)throw new Error('SETTLEMENT_FLOW_REQUIRED');
+   const flowAmount=Number(m.flow_amount??m.amount),flowCurrency=String(m.flow_currency??flow.currency),flowExchangeRate=Number(m.flow_exchange_rate??m.exchange_rate);
+   if(flowCurrency!==flow.currency)throw new Error('SETTLEMENT_FLOW_CURRENCY_MISMATCH');
    const flowOutstanding=Math.max(0,Number(flow.amount)-Number(flow.settled_amount||0));
-   if(flowOutstanding+0.0001<Number(m.amount))throw new Error('SETTLEMENT_EXCEEDS_FLOW_OUTSTANDING');
-   return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:accountId,p_direction:m.direction,p_settlement_date:m.settlement_date,p_amount:Number(m.amount),p_currency:m.currency,p_exchange_rate:Number(m.exchange_rate),p_base_amount:Number(m.base_amount),p_allocations:[{obligation_id:m.obligation_id,flow_id:instruction.target_record_id,amount:Number(m.amount),base_amount:Number(m.base_amount),flow_amount:Number(m.amount),flow_currency:flow.currency,flow_exchange_rate:Number(m.exchange_rate)}]}));
+   if(flowOutstanding+0.0001<flowAmount)throw new Error('SETTLEMENT_EXCEEDS_FLOW_OUTSTANDING');
+   if(accountId!==m.account_id||settlementDate!==m.settlement_date){
+    unwrap(await supabase.from('financial_event_links').insert({organization_id:org,event_id:command.event_id,link_type:'OTHER',target_module:'liquidity_flows',target_record_id:instruction.target_record_id,metadata:{purpose:'SETTLEMENT_EXECUTION_OVERRIDE',original_account_id:m.account_id,actual_account_id:accountId,original_settlement_date:m.settlement_date,actual_settlement_date:settlementDate,changed_by:user.id,changed_at:new Date().toISOString()}}));
+   }
+   return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:accountId,p_direction:m.direction,p_settlement_date:settlementDate,p_amount:Number(m.amount),p_currency:m.currency,p_exchange_rate:Number(m.exchange_rate),p_base_amount:Number(m.base_amount),p_allocations:[{obligation_id:m.obligation_id,flow_id:instruction.target_record_id,amount:Number(m.amount),base_amount:Number(m.base_amount),flow_amount:flowAmount,flow_currency:flowCurrency,flow_exchange_rate:flowExchangeRate}]}));
   }
   case 'CLASSIFICATION':requirePermission('organization.edit');return unwrap(await supabase.from('financial_classifications').insert({organization_id:org,code:command.code,name:command.name,classification_type:command.classification_type,created_by:user.id}).select('id').single());
   case 'ROUTE':return unwrap(await supabase.rpc('configure_financial_budget',{p_key:command.key,p_payload:{action:'ROUTE',organization_id:org,event_id:command.event_id,entity_id:command.entity_id,cost_center_id:command.cost_center_id}}));
