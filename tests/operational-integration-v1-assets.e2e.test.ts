@@ -20,6 +20,18 @@ beforeAll(async()=>{
 });
 
 describe('Operational Integration V1 Assets',()=>{
+ it('seeds editable default roles and keeps owner authority',async()=>{
+  const seed=await owner.rpc('seed_default_organization_roles',{p_org:ORG}); if(seed.error)throw seed.error;
+  const roles=await owner.from('organization_roles').select('role_key,permissions,is_editable,is_system_template').eq('organization_id',ORG).not('role_key','is',null); if(roles.error)throw roles.error;
+  expect(roles.data).toHaveLength(8);
+  const accountant=roles.data?.find((r:any)=>r.role_key==='ACCOUNTANT'); const cfo=roles.data?.find((r:any)=>r.role_key==='CFO'); const treasury=roles.data?.find((r:any)=>r.role_key==='TREASURY');
+  expect(accountant?.permissions).toContain('financial_core.create'); expect(accountant?.permissions).not.toContain('financial_core.approve'); expect(accountant?.permissions).not.toContain('financial_core.self_approve');
+  expect(cfo?.permissions).toContain('financial_core.approve'); expect(treasury?.permissions).toContain('liquidity.settle');
+  expect(roles.data?.every((r:any)=>r.is_editable&&r.is_system_template)).toBe(true);
+  const ownerApprove=await owner.rpc('effective_organization_permission',{p_org:ORG,p_permission:'financial_core.approve'}); if(ownerApprove.error)throw ownerApprove.error; expect(ownerApprove.data).toBe(true);
+  console.log('PERMISSIONS_E2E=8_EDITABLE_ROLES,ACCOUNTANT_NO_APPROVE,CFO_APPROVE,TREASURY_SETTLE,OWNER_AUTHORITY');
+ },30000);
+
  it('recognizes PPE purchase as CAPEX/payable once without cash movement',async()=>{
   expect(URL).toContain('wtzgzmcgcqouziqzsfnl');
   const cls=await owner.from('asset_classes').select('financial_classification_type').eq('code','PPE').single();
