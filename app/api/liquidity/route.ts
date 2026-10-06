@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       const input = categorySchema.parse(body);
       await requireOrganizationMember(supabase, user.id, input.organization_id);
       if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
-      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
+      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, created_by: user.id, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
       if (error) throw error;
       return NextResponse.json(data, { status: 201 });
     }
@@ -301,32 +301,7 @@ export async function POST(request: Request) {
       ? await supabase.from('liquidity_accounts').insert(payload).select().single()
       : await supabase.from('liquidity_flows').insert(payload).select().single();
     if (error) throw error;
-    if (kind === 'flow' && data && payload.source === 'MANUAL' && payload.category_id) {
-      const { data: category, error: categoryError } = await supabase.from('liquidity_flow_categories').select('financial_classification_type').eq('id',payload.category_id).eq('organization_id',payload.organization_id).single();
-      if (categoryError) throw categoryError;
-      const treatment = category?.financial_classification_type;
-      if (treatment) {
-        const obligationType = payload.direction === 'OUTFLOW' ? 'PAYABLE' : 'RECEIVABLE';
-        const [{ data: recognitionClass, error: recognitionClassError }, { data: obligationClass, error: obligationClassError }, { data: organization, error: organizationError }] = await Promise.all([
-          supabase.from('financial_classifications').select('id').eq('organization_id',payload.organization_id).eq('classification_type',treatment).eq('active',true).limit(1).maybeSingle(),
-          supabase.from('financial_classifications').select('id').eq('organization_id',payload.organization_id).eq('classification_type',obligationType).eq('active',true).limit(1).maybeSingle(),
-          supabase.from('organizations').select('base_currency').eq('id',payload.organization_id).single()
-        ]);
-        if (recognitionClassError) throw recognitionClassError;if(obligationClassError) throw obligationClassError;if(organizationError) throw organizationError;
-        if (!recognitionClass || !obligationClass) throw new Error('LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED');
-        const sourceKey = `liquidity:${data.id}:recognition`;
-        const eventType = treatment === 'CAPEX' || treatment === 'ASSET' || treatment === 'INVESTMENT' ? 'ASSET_PURCHASE' : payload.direction === 'INFLOW' ? 'REVENUE' : 'EXPENSE';
-        const created:any = await executeFinancialEventAction({action:'CREATE',payload:{organization_id:payload.organization_id,entity_id:payload.entity_id,counterparty_id:payload.counterparty_id,event_type:eventType,source_module:'OPERATIONAL_CONSOLE',source_record_id:data.id,source_event_key:sourceKey,event_date:payload.due_date,due_date:payload.due_date,base_currency:organization.base_currency,description:payload.title,lines:[{line_number:1,description:payload.title,classification_id:recognitionClass.id,cost_center_id:null,amount:payload.amount,currency:payload.currency,exchange_rate:payload.base_amount/payload.amount,base_amount:payload.base_amount,cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0}],obligations:[{obligation_key:`liquidity:${data.id}:obligation`,obligation_type:obligationType,settleable_amount:payload.amount,currency:payload.currency,exchange_rate:payload.base_amount/payload.amount,base_currency:organization.base_currency,settleable_base_amount:payload.base_amount}] }});
-        const eventId = typeof created === 'string' ? created : (created?.event_id ?? created?.id);
-        if (!eventId) throw new Error('LIQUIDITY_RECOGNITION_EVENT_ID_MISSING');
-        await supabase.from('financial_event_links').upsert({organization_id:payload.organization_id,event_id:eventId,link_type:'CASH_FLOW',target_module:'liquidity_flows',target_record_id:data.id},{onConflict:'organization_id,event_id,link_type,target_module,target_record_id'});
-        await supabase.from('liquidity_flows').update({source_module:'LIQUIDITY',source_record_id:data.id,source_event_key:sourceKey}).eq('id',data.id);
-        const { data: event } = await supabase.from('financial_events').select('status').eq('id',eventId).single();
-        if(event?.status==='DRAFT') await executeFinancialEventAction({action:'TRANSITION',organization_id:payload.organization_id,event_id:eventId,status:'PLANNED',note:'Created from Liquidity Management'});
-        const { data: planned } = await supabase.from('financial_events').select('status').eq('id',eventId).single();
-        if(planned?.status==='PLANNED') await executeFinancialEventAction({action:'TRANSITION',organization_id:payload.organization_id,event_id:eventId,status:'COMMITTED',note:'Confirmed cash-flow obligation'});
-      }
-    }
+    // EXPECTED manual flows are forecast-only. Financial recognition is created idempotently when the user confirms the flow.
     return NextResponse.json(data, { status: 201 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_SAVE_FAILED' }, { status: status(error) }); }
 }
