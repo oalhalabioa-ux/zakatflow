@@ -71,10 +71,13 @@ export async function executeFinancialEventAction(input:unknown){
    const m=(instruction.metadata||{}) as Record<string,any>;const accountId=command.account_id??m.account_id;
    if(!accountId)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');
    const account=unwrap(await supabase.from('liquidity_accounts').select('id,currency').eq('organization_id',org).eq('id',accountId).single());
+   if(!account)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');
    if(account.currency!==m.currency)throw new Error('SETTLEMENT_ACCOUNT_CURRENCY_MISMATCH');
    const balance=unwrap(await supabase.from('financial_event_obligation_balances').select('obligation_id,outstanding_base_amount').eq('organization_id',org).eq('obligation_id',m.obligation_id).single());
+   if(!balance)throw new Error('SETTLEMENT_OBLIGATION_REQUIRED');
    if(Number(balance.outstanding_base_amount)+0.0001<Number(m.base_amount))throw new Error('SETTLEMENT_EXCEEDS_OUTSTANDING');
    const flow=unwrap(await supabase.from('liquidity_flows').select('id,currency,settled_amount,amount').eq('organization_id',org).eq('id',instruction.target_record_id).single());
+   if(!flow)throw new Error('SETTLEMENT_FLOW_REQUIRED');
    const flowOutstanding=Math.max(0,Number(flow.amount)-Number(flow.settled_amount||0));
    if(flowOutstanding+0.0001<Number(m.amount))throw new Error('SETTLEMENT_EXCEEDS_FLOW_OUTSTANDING');
    return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:accountId,p_direction:m.direction,p_settlement_date:m.settlement_date,p_amount:Number(m.amount),p_currency:m.currency,p_exchange_rate:Number(m.exchange_rate),p_base_amount:Number(m.base_amount),p_allocations:[{obligation_id:m.obligation_id,flow_id:instruction.target_record_id,amount:Number(m.amount),base_amount:Number(m.base_amount),flow_amount:Number(m.amount),flow_currency:flow.currency,flow_exchange_rate:Number(m.exchange_rate)}]}));
