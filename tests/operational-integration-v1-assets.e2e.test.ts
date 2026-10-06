@@ -52,8 +52,7 @@ describe('Operational Integration V1 Assets',()=>{
   expect((lines.data||[]).every((x:any)=>x.classification_id===classificationId)).toBe(true);
   expect(lines.data).toHaveLength(1); expect(lines.data?.[0]?.classification_id).toBe(classificationId); expect(n(lines.data?.[0]?.base_amount)).toBe(100); expect(lines.data?.[0]?.cash_direction).toBe('NON_CASH'); expect(n(lines.data?.[0]?.vat_amount)).toBe(0);
   const obs=await owner.from('financial_event_obligations').select('obligation_type,settleable_amount,settleable_base_amount').eq('event_id',first.data); if(obs.error)throw obs.error;
-  expect((obs.data||[]).reduce((s:number,x:any)=>s+n(x.original_amount),0)).toBe(100);
-  expect((obs.data||[]).reduce((s:number,x:any)=>s+n(x.settled_amount),0)).toBe(0);
+  expect(obs.data).toHaveLength(1); expect(obs.data?.[0]?.obligation_type).toBe('PAYABLE'); expect(n(obs.data?.[0]?.settleable_amount)).toBe(100); expect(n(obs.data?.[0]?.settleable_base_amount)).toBe(100);
 
   const after=await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id',ORG).eq('active',true).order('id'); if(after.error)throw after.error;
   expect(after.data).toEqual(before.data);
