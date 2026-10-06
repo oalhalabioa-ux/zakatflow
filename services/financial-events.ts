@@ -5,7 +5,7 @@ import {z} from 'zod';
 
 const scopes:EventPermission[]=['financial_core.view','financial_core.create','financial_core.approve','financial_core.post','liquidity.edit','vat.view','organization.edit'];
 function unwrap<T>(result:{data:T;error:{message:string}|null}):T{if(result.error)throw new Error(result.error.message);return result.data;}
-async function session(){assertFinancialBudgetQA();return requireUser();}
+async function session(){return requireUser();}
 async function scope(organization:string){
  z.string().uuid().parse(organization);const context=await session();
  const values=await Promise.all(scopes.map(async permission=>[permission,unwrap(await context.supabase.rpc('has_organization_permission',{p_organization_id:organization,p_permission:permission}))]));
@@ -13,8 +13,9 @@ async function scope(organization:string){
  if(!permissions['financial_core.view'])throw new Error('FINANCIAL_CORE_VIEW_DENIED');
  return {...context,permissions};
 }
-export async function financialEventContext(){const{user,supabase}=await session();return{userId:user.id,environment:'Financial Core QA',project:'wtzgzmcgcqouziqzsfnl',organizations:unwrap(await supabase.from('organizations').select('id,name,base_currency').order('name'))};}
+export async function financialEventContext(){assertFinancialBudgetQA();const{user,supabase}=await session();return{userId:user.id,environment:'Financial Core QA',project:'wtzgzmcgcqouziqzsfnl',organizations:unwrap(await supabase.from('organizations').select('id,name,base_currency').order('name'))};}
 export async function financialEventWorkspace(organization:string){
+ assertFinancialBudgetQA();
  const{supabase,user,permissions}=await scope(organization);
  const tables=['organization_entities','organization_cost_centers','financial_classifications','liquidity_counterparties','liquidity_accounts'] as const;
  const results=await Promise.all(tables.map(table=>supabase.from(table).select('*').eq('organization_id',organization).eq('active',true).order('name')));
@@ -25,6 +26,7 @@ export async function financialEventWorkspace(organization:string){
  return{userId:user.id,permissions,events,sources,invoices,...records};
 }
 export async function financialEventDetail(organization:string,eventId:string){
+ assertFinancialBudgetQA();
  z.string().uuid().parse(eventId);const{supabase,user,permissions}=await scope(organization);
  const event=unwrap(await supabase.from('financial_events').select('*').eq('organization_id',organization).eq('id',eventId).single());
  const names=['financial_event_lines','financial_event_obligations','financial_event_approvals','financial_event_status_history','financial_event_links'] as const;
