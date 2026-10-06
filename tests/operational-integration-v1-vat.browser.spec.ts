@@ -24,11 +24,13 @@ test('purchase 100 + VAT 15 prepares one committed Core event without moving cas
   if (beforeResult.error) throw beforeResult.error
   const before = new Map((beforeResult.data ?? []).map(a => [a.id, Number(a.current_balance ?? 0)]))
 
+  // Authenticate through the real login UI. Do not couple the financial test to a specific
+  // post-login route: locale/onboarding redirects may legitimately differ in QA.
   await page.goto(`${APP_URL}/en/login`)
   await page.getByLabel('Email address').fill(email!)
   await page.getByLabel('Password').fill(password!)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.waitForURL(/\/en\/dashboard/, { timeout: 30000 })
+  await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 30000 })
 
   const today = new Date().toISOString().slice(0, 10)
   const documentNumber = `E2E-PURCHASE-${Date.now()}`
