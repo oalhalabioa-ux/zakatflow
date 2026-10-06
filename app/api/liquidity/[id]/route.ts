@@ -10,7 +10,7 @@ const schema=z.object({
  title:z.string().trim().min(1).max(160).optional(),counterparty:z.string().max(160).optional(),counterparty_id:z.string().uuid().nullable().optional(),
  amount:z.coerce.number().positive().optional(),base_amount:z.coerce.number().positive().optional(),currency:z.string().length(3).optional(),
  account_id:z.string().uuid().nullable().optional(),entity_id:z.string().uuid().nullable().optional(),
- source:z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).optional(),notes:z.string().max(500).optional(),reference:z.string().max(120).optional()
+ source:z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).optional(),settlement_date:z.string().date().optional(),notes:z.string().max(500).optional(),reference:z.string().max(120).optional()
 }).refine(v=>Object.keys(v).length>0);
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){try{
  const{id}=await params;const{supabase,user}=await requireUser();const body=schema.parse(await request.json());
@@ -23,7 +23,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const value=body[field];if(value){const{data,error}=await supabase.from(table).select('id').eq('id',value).eq('organization_id',record.organization_id).maybeSingle();if(error)throw error;if(!data)return NextResponse.json({error:field.toUpperCase()+'_ORGANIZATION_MISMATCH'},{status:400});}
  }
  if(body.status==='ACTUAL'&&record.settlement_status!=='SETTLED'){
-   if(!record.source_module||record.source_module==='MANUAL')return NextResponse.json({error:'MANUAL_ACTUAL_REQUIRES_CASH_POSTING'},{status:409});
+   if(!record.source_module||record.source_module==='MANUAL')return NextResponse.json({error:'CORE_RECOGNITION_LINK_REQUIRED'},{status:409});
    const accountId=body.account_id??record.account_id;
    if(!accountId)return NextResponse.json({error:'SETTLEMENT_ACCOUNT_REQUIRED'},{status:400});
    const{data:account,error:accountError}=await supabase.from('liquidity_accounts').select('id,currency').eq('id',accountId).eq('organization_id',record.organization_id).maybeSingle();
@@ -47,7 +47,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const classificationType=balances[0].obligation_type as 'PAYABLE'|'RECEIVABLE';
    const{data:classification,error:classError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',classificationType).eq('active',true).limit(1).maybeSingle();
    if(classError)throw classError;if(!classification)return NextResponse.json({error:'SETTLEMENT_CLASSIFICATION_REQUIRED'},{status:409});
-   const settlementDate=new Date().toISOString().slice(0,10);
+   const settlementDate=body.settlement_date??new Date().toISOString().slice(0,10);
    const exchangeRate=remainingBase/remainingAmount;
    const settlementSourceKey=`liquidity:${record.id}:settlement:${Number(record.settled_amount||0)}`;
    const{data:existingSettlement,error:existingSettlementError}=await supabase.from('financial_events').select('id,status').eq('organization_id',record.organization_id).eq('event_type','SETTLEMENT').eq('source_module','OPERATIONAL_CONSOLE').eq('source_event_key',settlementSourceKey).maybeSingle();
@@ -60,7 +60,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(settlementEvent?.status==='DRAFT')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:settlementEventId,status:'PLANNED',note:'Created from Cash Management'});
    const{data:afterPlanned}=await supabase.from('financial_events').select('status').eq('id',settlementEventId).single();
    if(afterPlanned?.status==='PLANNED')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:settlementEventId,status:'COMMITTED',note:'Pending independent settlement approval'});
-   if(body.account_id&&body.account_id!==record.account_id){const{error:updateAccountError}=await supabase.from('liquidity_flows').update({account_id:body.account_id,updated_at:new Date().toISOString()}).eq('id',id);if(updateAccountError)throw updateAccountError;}
+   // Keep the originally expected account on the flow for audit. The selected actual account is stored on cash posting after approval.
    return NextResponse.json({id:record.id,status:record.status,settlement_status:'PENDING_APPROVAL',settlement_event_id:settlementEventId,recognition_event_id:recognition.id,obligation_id:balances[0].obligation_id,amount:remainingAmount,base_amount:remainingBase,account_id:accountId},{status:202});
  }
  if(body.category_id){const{data:category,error}=await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction').eq('id',body.category_id).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();if(error)throw error;if(!category)return NextResponse.json({error:'CATEGORY_ORGANIZATION_MISMATCH'},{status:400});const direction=body.direction||record.direction;if(category.allowed_direction!=='BOTH'&&category.allowed_direction!==direction)return NextResponse.json({error:'CATEGORY_DIRECTION_NOT_ALLOWED'},{status:400});body.flow_type=category.flow_group;}
