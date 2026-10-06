@@ -70,12 +70,15 @@ describe('Operational Integration V1 Assets',()=>{
   const approval=await owner.rpc('approve_financial_event',{p_event_id:first.data,p_note:'Owner-controlled QA self approval'}); if(approval.error)throw approval.error;
   const approved=await owner.from('financial_event_approvals').select('approver_id,decision').eq('event_id',first.data).eq('decision','APPROVED').maybeSingle(); if(approved.error)throw approved.error; expect(approved.data?.approver_id).toBe(userId);
   const canSelf=await owner.rpc('can_self_approve_financial_event',{p_org:ORG}); if(canSelf.error)throw canSelf.error; expect(canSelf.data).toBe(true);
+  const validApproval=await owner.rpc('financial_event_has_valid_approval',{p_event_id:first.data}); if(validApproval.error)throw validApproval.error; expect(validApproval.data).toBe(true);
+  const actual=await owner.rpc('transition_financial_event',{p_event_id:first.data,p_new_status:'ACTUAL',p_note:'Owner-controlled QA posting'}); if(actual.error)throw actual.error; expect(actual.data).toBe('ACTUAL');
+  const posted=await owner.from('financial_events').select('status,posted_by').eq('id',first.data).single(); if(posted.error)throw posted.error; expect(posted.data.status).toBe('ACTUAL'); expect(posted.data.posted_by).toBe(userId);
 
   const after=await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id',ORG).eq('active',true).order('id'); if(after.error)throw after.error;
   expect(after.data).toEqual(before.data);
   console.log('ASSETS_E2E=CAPEX_100,INPUT_VAT_15,PAYABLE_115,OUTSTANDING_115,NO_OPEX');
   console.log('ASSETS_E2E_CASH_MOVEMENT=0');
-  console.log('ASSETS_E2E_APPROVAL=OWNER_SELF_APPROVAL_PASS');
+  console.log('ASSETS_E2E_APPROVAL=OWNER_SELF_APPROVAL_AND_ACTUAL_PASS');
   console.log('ASSETS_E2E_IDEMPOTENT_EVENT='+first.data);
  },30000);
 });
