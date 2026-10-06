@@ -31,6 +31,7 @@ describe('Operational Integration V1 Assets',()=>{
    const x=await owner.from('financial_classifications').insert({organization_id:ORG,code:'QA_ASSET_CAPEX',name:'Assets Operational QA CAPEX',classification_type:'CAPEX',active:true,is_system:true,metadata:{qa_fixture:true},created_by:userId}).select('id').single();
    if(x.error)throw x.error; c={...c,data:x.data};
   }
+  const tax=await owner.from('financial_classifications').select('id').eq('organization_id',ORG).eq('classification_type','TAX').eq('active',true).limit(1).single(); if(tax.error)throw tax.error;
   const before=await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id',ORG).eq('active',true).order('id');
   if(before.error)throw before.error;
 
@@ -41,7 +42,7 @@ describe('Operational Integration V1 Assets',()=>{
   if(tx.error)throw tx.error;
 
   const classificationId=c.data?.id; expect(classificationId).toBeTruthy();
-  const payload=buildAssetPurchaseCoreIntent({transactionId:tx.data.id,assetId:asset.data.id,organizationId:ORG,entityId:ENTITY,costCenterId:COST,assetName:marker,assetClassCode:'PPE',transactionDate:tx.data.transaction_date,currency:'SAR',baseCurrency:'SAR',amount:100,baseAmount:100,exchangeRate:1,assetClassificationId:classificationId!});
+  const payload=buildAssetPurchaseCoreIntent({transactionId:tx.data.id,assetId:asset.data.id,organizationId:ORG,entityId:ENTITY,costCenterId:COST,assetName:marker,assetClassCode:'PPE',transactionDate:tx.data.transaction_date,currency:'SAR',baseCurrency:'SAR',amount:100,baseAmount:100,exchangeRate:1,vatAmount:15,vatBaseAmount:15,assetClassificationId:classificationId!,taxClassificationId:tax.data.id});
   const first=await owner.rpc('create_financial_event_command',{p_payload:payload}); if(first.error)throw first.error;
   const second=await owner.rpc('create_financial_event_command',{p_payload:payload}); if(second.error)throw second.error;
   expect(second.data).toBe(first.data);
@@ -50,13 +51,13 @@ describe('Operational Integration V1 Assets',()=>{
   expect(event.data.status).toBe('DRAFT');
   const lines=await owner.from('financial_event_lines').select('classification_id,base_amount,cash_direction,vat_amount').eq('event_id',first.data); if(lines.error)throw lines.error;
   expect((lines.data||[]).every((x:any)=>x.classification_id===classificationId)).toBe(true);
-  expect(lines.data).toHaveLength(1); expect(lines.data?.[0]?.classification_id).toBe(classificationId); expect(n(lines.data?.[0]?.base_amount)).toBe(100); expect(lines.data?.[0]?.cash_direction).toBe('NON_CASH'); expect(n(lines.data?.[0]?.vat_amount)).toBe(0);
+  expect(lines.data).toHaveLength(2); const capexLine=lines.data?.find((x:any)=>x.classification_id===classificationId); const taxLine=lines.data?.find((x:any)=>x.classification_id===tax.data.id); expect(n(capexLine?.base_amount)).toBe(100); expect(n(taxLine?.base_amount)).toBe(15); expect(lines.data?.every((x:any)=>x.cash_direction==='NON_CASH')).toBe(true); expect(lines.data?.every((x:any)=>n(x.vat_amount)===0)).toBe(true);
   const obs=await owner.from('financial_event_obligations').select('obligation_type,settleable_amount,settleable_base_amount').eq('event_id',first.data); if(obs.error)throw obs.error;
-  expect(obs.data).toHaveLength(1); expect(obs.data?.[0]?.obligation_type).toBe('PAYABLE'); expect(n(obs.data?.[0]?.settleable_amount)).toBe(100); expect(n(obs.data?.[0]?.settleable_base_amount)).toBe(100);
+  expect(obs.data).toHaveLength(1); expect(obs.data?.[0]?.obligation_type).toBe('PAYABLE'); expect(n(obs.data?.[0]?.settleable_amount)).toBe(115); expect(n(obs.data?.[0]?.settleable_base_amount)).toBe(115);
 
   const after=await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id',ORG).eq('active',true).order('id'); if(after.error)throw after.error;
   expect(after.data).toEqual(before.data);
-  console.log('ASSETS_E2E=CAPEX_100,PAYABLE_100,OUTSTANDING_100,NO_OPEX');
+  console.log('ASSETS_E2E=CAPEX_100,INPUT_VAT_15,PAYABLE_115,OUTSTANDING_115,NO_OPEX');
   console.log('ASSETS_E2E_CASH_MOVEMENT=0');
   console.log('ASSETS_E2E_IDEMPOTENT_EVENT='+first.data);
  },30000);
