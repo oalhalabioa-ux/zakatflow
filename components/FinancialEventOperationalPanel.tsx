@@ -5,7 +5,7 @@ import type {EventPermissions} from '@/lib/financial-event-command';
 
 type Row=Record<string,any>;
 type Workspace={permissions:EventPermissions;events:Row[];sources:Row[];invoices:Row[];organization_entities:Row[];organization_cost_centers:Row[];financial_classifications:Row[];liquidity_counterparties:Row[];liquidity_accounts:Row[]};
-type Detail={event:Row;permissions:EventPermissions;allowedActions:string[];balances:Row[];flows:Row[];reconciliation:Row[];applications:Row[];settlements:Row[];financial_event_lines:Row[];financial_event_obligations:Row[];financial_event_approvals:Row[];financial_event_status_history:Row[];financial_event_links:Row[]};
+type Detail={event:Row;permissions:EventPermissions;allowedActions:string[];canSelfApprove:boolean;balances:Row[];flows:Row[];reconciliation:Row[];applications:Row[];settlements:Row[];financial_event_lines:Row[];financial_event_obligations:Row[];financial_event_approvals:Row[];financial_event_status_history:Row[];financial_event_links:Row[]};
 async function api(query:string,body?:unknown){const response=await fetch(`/api/financial-events${query}`,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});const result=await response.json();if(!response.ok)throw new Error(result.error??'REQUEST_FAILED');return result;}
 const fields=(form:HTMLFormElement)=>Object.fromEntries(new FormData(form).entries()) as Record<string,string>;
 const nullable=(value:string)=>value||null;
