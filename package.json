@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run",
+    "test": "vitest run --exclude 'tests/*.e2e.test.ts'",
     "test:e2e:financial-core": "E2E_REQUIRE_CONFIG=true vitest run tests/financial-core-authenticated.e2e.test.ts",
     "typecheck": "tsc --noEmit",
     "test:watch": "vitest",
