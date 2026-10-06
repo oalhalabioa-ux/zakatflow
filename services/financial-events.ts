@@ -3,12 +3,12 @@ import {assertFinancialBudgetQA} from './financial-budget';
 import {financialEventActionSchema,allowedEventActions,type EventPermissions,type EventPermission} from '../lib/financial-event-command';
 import {z} from 'zod';
 
-const scopes:EventPermission[]=['financial_core.view','financial_core.create','financial_core.approve','financial_core.post','liquidity.edit','vat.view','organization.edit'];
+const scopes:EventPermission[]=['financial_core.view','financial_core.create','financial_core.approve','financial_core.post','liquidity.edit','liquidity.settle','vat.view','organization.edit'];
 function unwrap<T>(result:{data:T;error:{message:string}|null}):T{if(result.error)throw new Error(result.error.message);return result.data;}
 async function session(){return requireUser();}
 async function scope(organization:string){
  z.string().uuid().parse(organization);const context=await session();
- const values=await Promise.all(scopes.map(async permission=>[permission,unwrap(await context.supabase.rpc('has_organization_permission',{p_organization_id:organization,p_permission:permission}))]));
+ const values=await Promise.all(scopes.map(async permission=>[permission,unwrap(await context.supabase.rpc('effective_organization_permission',{p_org:organization,p_permission:permission,p_amount:null,p_currency:null}))]));
  const permissions=Object.fromEntries(values) as EventPermissions;
  if(!permissions['financial_core.view'])throw new Error('FINANCIAL_CORE_VIEW_DENIED');
  return {...context,permissions};
@@ -63,9 +63,9 @@ export async function executeFinancialEventAction(input:unknown){
    return unwrap(await supabase.rpc('transition_financial_event',{p_event_id:command.event_id,p_new_status:command.status,p_note:command.note}));
   case 'APPROVE':requirePermission('financial_core.approve');return unwrap(await supabase.rpc('approve_financial_event',{p_event_id:command.event_id,p_note:command.note}));
   case 'RECOGNIZE_VAT':requirePermission('financial_core.post');requirePermission('vat.view');requirePermission('liquidity.edit');return unwrap(await supabase.rpc('post_vat_financial_event',{p_event_id:command.event_id}));
-  case 'POST_SETTLEMENT':requirePermission('financial_core.post');requirePermission('liquidity.edit');return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:command.account_id,p_direction:command.direction,p_settlement_date:command.settlement_date,p_amount:command.amount,p_currency:command.currency,p_exchange_rate:command.exchange_rate,p_base_amount:command.base_amount,p_allocations:command.allocations}));
+  case 'POST_SETTLEMENT':requirePermission('financial_core.post');requirePermission('liquidity.edit');requirePermission('liquidity.settle');return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:command.account_id,p_direction:command.direction,p_settlement_date:command.settlement_date,p_amount:command.amount,p_currency:command.currency,p_exchange_rate:command.exchange_rate,p_base_amount:command.base_amount,p_allocations:command.allocations}));
   case 'POST_SAVED_SETTLEMENT':{
-   requirePermission('financial_core.post');requirePermission('liquidity.edit');
+   requirePermission('financial_core.post');requirePermission('liquidity.edit');requirePermission('liquidity.settle');
    if(event?.event_type!=='SETTLEMENT')throw new Error('SETTLEMENT_EVENT_REQUIRED');
    const instruction=unwrap(await supabase.from('financial_event_links').select('target_record_id,metadata').eq('organization_id',org).eq('event_id',command.event_id).eq('link_type','OTHER').eq('target_module','liquidity_flows').contains('metadata',{purpose:'SETTLEMENT_INSTRUCTION'}).maybeSingle());
    if(!instruction)throw new Error('SETTLEMENT_INSTRUCTION_REQUIRED');
