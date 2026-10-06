@@ -14,7 +14,7 @@ export async function GET(){
     if(classes.error||types.error) throw classes.error||types.error;
     if(!ids.length) return NextResponse.json({organizations:[],entities:[],cost_centers:[],classes:classes.data??[],types:types.data??[]});
     const [orgs,entities,centers]=await Promise.all([
-      supabase.from('organizations').select('id,name').in('id',ids),
+      supabase.from('organizations').select('id,name,organization_kind').in('id',ids),
       supabase.from('organization_entities').select('id,organization_id,name').in('organization_id',ids).eq('active',true),
       supabase.from('organization_cost_centers').select('id,organization_id,name,center_type').in('organization_id',ids).eq('active',true)
     ]);

@@ -91,6 +91,10 @@ export default function Assets({
     [loadError, setLoadError] = useState(""),
     [loading, setLoading] = useState(true),
     [catalog, setCatalog] = useState<any>({ organizations: [], entities: [], cost_centers: [], classes: [], types: [] }),
+    [assetScope, setAssetScope] = useState<"PERSONAL"|"ORGANIZATION">("PERSONAL"),
+    [scopeOrgId, setScopeOrgId] = useState(""),
+    [scopeEntityId, setScopeEntityId] = useState(""),
+    [scopeCostCenterId, setScopeCostCenterId] = useState(""),
     [usd, setUsd] = useState(false),
     [closed, setClosed] = useState<Record<string, boolean>>({}),
     [tablePreferences, setTablePreferences] =
@@ -134,6 +138,11 @@ export default function Assets({
         localStorage.getItem("zf_assets_design");
       if (["executive", "cards", "analytical"].includes(savedDesign || ""))
         setDesign(savedDesign as AssetsPageDesign);
+      const savedScope = localStorage.getItem("zf-assets-scope");
+      if (savedScope === "ORGANIZATION" || savedScope === "PERSONAL") setAssetScope(savedScope);
+      setScopeOrgId(localStorage.getItem("zf-assets-scope-org") || "");
+      setScopeEntityId(localStorage.getItem("zf-assets-scope-entity") || "");
+      setScopeCostCenterId(localStorage.getItem("zf-assets-scope-cost-center") || "");
     } catch {}
     const onSettings = (event: Event) => {
       const detail = (event as CustomEvent<AssetTablePreferences>).detail;
@@ -152,6 +161,27 @@ export default function Assets({
       window.removeEventListener("zf-assets-page-design", onDesign);
     };
   }, []);
+  useEffect(() => {
+    if (!catalog.organizations.length || scopeOrgId) return;
+    const preferred = catalog.organizations.find((o:any) => o.organization_kind === "HOLDING") || catalog.organizations[0];
+    if (preferred) setScopeOrgId(preferred.id);
+  }, [catalog.organizations, scopeOrgId]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("zf-assets-scope", assetScope);
+      localStorage.setItem("zf-assets-scope-org", scopeOrgId);
+      localStorage.setItem("zf-assets-scope-entity", scopeEntityId);
+      localStorage.setItem("zf-assets-scope-cost-center", scopeCostCenterId);
+    } catch {}
+    if (!edit) setForm((current:any) => ({
+      ...current,
+      ownership_scope: assetScope,
+      organization_id: assetScope === "ORGANIZATION" ? (scopeOrgId || null) : null,
+      entity_id: assetScope === "ORGANIZATION" ? (scopeEntityId || null) : null,
+      cost_center_id: assetScope === "ORGANIZATION" ? (scopeCostCenterId || null) : null,
+      funding_account_id: assetScope === "PERSONAL" ? current.funding_account_id : "",
+    }));
+  }, [assetScope, scopeOrgId, scopeEntityId, scopeCostCenterId, edit]);
   const orderedColumns = useMemo(
     () => visibleAssetColumns(tablePreferences.order, tablePreferences.visible),
     [tablePreferences.order, tablePreferences.visible],
@@ -181,15 +211,23 @@ export default function Assets({
       ? (+form.quantity || 0) * (+form.purchase_price || 0)
       : +form.amount || 0,
     mv = market ? (+form.quantity || 0) * (+form.market_price || 0) : pc;
-  const filteredRows = useMemo(() => lifecycleFilter === "ALL" ? rows : rows.filter((r) => (r.lifecycle_status || "ACTIVE") === lifecycleFilter), [rows,lifecycleFilter]);
-  const lifecycleCounts = useMemo(() => ({ACTIVE:rows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE").length,SOLD:rows.filter(r=>r.lifecycle_status==="SOLD").length,DISPOSED:rows.filter(r=>r.lifecycle_status==="DISPOSED").length,ALL:rows.length}),[rows]);
+  const scopedRows = useMemo(() => rows.filter((r:any) => {
+    const ownership = r.ownership_scope || (r.organization_id ? "ORGANIZATION" : "PERSONAL");
+    if (assetScope === "PERSONAL") return ownership === "PERSONAL" && !r.organization_id;
+    if (ownership !== "ORGANIZATION" || r.organization_id !== scopeOrgId) return false;
+    if (scopeEntityId && r.entity_id !== scopeEntityId) return false;
+    if (scopeCostCenterId && r.cost_center_id !== scopeCostCenterId) return false;
+    return true;
+  }), [rows, assetScope, scopeOrgId, scopeEntityId, scopeCostCenterId]);
+  const filteredRows = useMemo(() => lifecycleFilter === "ALL" ? scopedRows : scopedRows.filter((r) => (r.lifecycle_status || "ACTIVE") === lifecycleFilter), [scopedRows,lifecycleFilter]);
+  const lifecycleCounts = useMemo(() => ({ACTIVE:scopedRows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE").length,SOLD:scopedRows.filter(r=>r.lifecycle_status==="SOLD").length,DISPOSED:scopedRows.filter(r=>r.lifecycle_status==="DISPOSED").length,ALL:scopedRows.length}),[scopedRows]);
   const groups = useMemo(() => TYPES.map(([type]) => ({type,rows: filteredRows.filter((r) => r.asset_type === type)})).filter((g) => g.rows.length),[filteredRows]);
-  const activeRows=rows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE");
+  const activeRows=scopedRows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE");
   const total = activeRows.reduce((s, r) => s + val(r), 0),
     cost = activeRows.reduce((s, r) => s + Number(r.current_cost_value||0), 0),
-    totalDue = rows.reduce((s, r) => s + due(r), 0),
-    totalPaid = rows.reduce((s, r) => s + paid(r), 0),
-    z = rows.filter((r) => r.is_zakatable),
+    totalDue = scopedRows.reduce((s, r) => s + due(r), 0),
+    totalPaid = scopedRows.reduce((s, r) => s + paid(r), 0),
+    z = scopedRows.filter((r) => r.is_zakatable),
     completed = z.filter((r) => (calc(r)?.statuses || []).includes("ELIGIBLE")),
     near = z.filter((r) => {
       const d = calc(r)
@@ -205,7 +243,7 @@ export default function Assets({
   const info = (t: string) => TYPES.find((x) => x[0] === t),
     label = (t: string) => info(t)?.[ar ? 1 : 2] || t,
     icon = (t: string) => info(t)?.[3] || "💼";
-  const retroPending = rows.filter(
+  const retroPending = scopedRows.filter(
     (r) =>
       r.is_zakatable &&
       (calc(r)?.statuses || []).includes("NOT_ASSESSED") &&
@@ -226,6 +264,11 @@ export default function Assets({
   const editRow = (r: any) => {
     const d = r.metadata || {};
     setEdit(r.id);
+    const rowScope = r.ownership_scope || (r.organization_id ? "ORGANIZATION" : "PERSONAL");
+    setAssetScope(rowScope);
+    setScopeOrgId(r.organization_id || "");
+    setScopeEntityId(r.entity_id || "");
+    setScopeCostCenterId(r.cost_center_id || "");
     setForm({
       asset_type: r.asset_type,
       name: r.name,
@@ -381,7 +424,7 @@ export default function Assets({
       body: JSON.stringify(body),
     });
     if (r.ok) {
-      setForm({ ...empty });
+      setForm({ ...empty, ownership_scope: assetScope, organization_id: assetScope === "ORGANIZATION" ? (scopeOrgId || null) : null, entity_id: assetScope === "ORGANIZATION" ? (scopeEntityId || null) : null, cost_center_id: assetScope === "ORGANIZATION" ? (scopeCostCenterId || null) : null });
       setEdit(null);
       setMsg(
         ar
@@ -397,7 +440,7 @@ export default function Assets({
   };
   return (
     <main className={`container assets-page assets-page-${design}`}>
-      <style>{`.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:#dcfce7;color:#166534}.hawl-days{background:#fce7f3;color:#9d174d}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafcfb;color:var(--ink);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
+      <style>{`.asset-scope-bar{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.2fr) minmax(200px,1fr) minmax(200px,1fr);gap:12px;align-items:end;padding:16px 18px}.asset-scope-bar label{display:grid;gap:6px;font-size:12px;font-weight:700}.asset-scope-bar select{width:100%}.asset-scope-title{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.asset-scope-title strong{font-size:14px}.asset-scope-title span{font-size:11px;color:var(--muted)}@media(max-width:900px){.asset-scope-bar{grid-template-columns:1fr 1fr}}@media(max-width:620px){.asset-scope-bar{grid-template-columns:1fr}}.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:#dcfce7;color:#166534}.hawl-days{background:#fce7f3;color:#9d174d}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafcfb;color:var(--ink);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
       <div className="page-head">
         <div>
           <h1>
@@ -427,6 +470,42 @@ export default function Assets({
           </button>
         </div>
       </div>
+      <section className="card section asset-scope-bar">
+        <div className="asset-scope-title">
+          <strong>{ar ? "نطاق الأصول" : "Asset scope"}</strong>
+          <span>{ar ? "يُطبّق على المؤشرات والتقرير وأي أصل جديد" : "Applies to KPIs, report and every new asset"}</span>
+        </div>
+        <label>
+          {ar ? "الملكية" : "Ownership"}
+          <select value={assetScope} onChange={(e) => { const next=e.target.value as "PERSONAL"|"ORGANIZATION"; setAssetScope(next); setScopeEntityId(""); setScopeCostCenterId(""); }}>
+            <option value="PERSONAL">{ar ? "شخصي" : "Personal"}</option>
+            <option value="ORGANIZATION">{ar ? "مؤسسي / شركة" : "Organization / Company"}</option>
+          </select>
+        </label>
+        {assetScope === "ORGANIZATION" && <>
+          <label>
+            {ar ? "الشركة / المؤسسة" : "Organization"}
+            <select value={scopeOrgId} onChange={(e)=>{setScopeOrgId(e.target.value);setScopeEntityId("");setScopeCostCenterId("");}}>
+              <option value="">{ar ? "اختر الشركة" : "Choose organization"}</option>
+              {catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </label>
+          <label>
+            {ar ? "الفرع / الكيان" : "Entity"}
+            <select value={scopeEntityId} onChange={(e)=>setScopeEntityId(e.target.value)}>
+              <option value="">{ar ? "كل الفروع / الجهة الرئيسية" : "All entities / main organization"}</option>
+              {catalog.entities.filter((x:any)=>x.organization_id===scopeOrgId).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </label>
+          <label>
+            {ar ? "مركز التكلفة" : "Cost center"}
+            <select value={scopeCostCenterId} onChange={(e)=>setScopeCostCenterId(e.target.value)}>
+              <option value="">{ar ? "كل مراكز التكلفة" : "All cost centers"}</option>
+              {catalog.cost_centers.filter((x:any)=>x.organization_id===scopeOrgId).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </label>
+        </>}
+      </section>
       {loadError && <div className="notice">{loadError}</div>}
       {retroPending.length > 0 && (
         <div className="notice">
@@ -517,13 +596,6 @@ export default function Assets({
               <option value="PURCHASE">{ar ? "شراء أصل جديد" : "Purchase new asset"}</option>
             </select>
           </label>}
-          <label>
-            {ar ? "الملكية" : "Ownership"}
-            <select value={form.ownership_scope || "PERSONAL"} onChange={(e) => setForm({...form,ownership_scope:e.target.value,organization_id:null,entity_id:null,cost_center_id:null})}>
-              <option value="PERSONAL">{ar ? "شخصي" : "Personal"}</option>
-              <option value="ORGANIZATION">{ar ? "مؤسسي / شركة" : "Organization / Company"}</option>
-            </select>
-          </label>
           {!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && <label>
             {ar ? "الدفع من الحساب الشخصي" : "Pay from personal account"}
             <select value={form.funding_account_id || ""} onChange={(e)=>setForm({...form,funding_account_id:e.target.value})}>
@@ -531,11 +603,6 @@ export default function Assets({
               {rows.filter((x:any)=>!x.organization_id && (!x.ownership_scope || x.ownership_scope==="PERSONAL") && ["CASH","BANK"].includes(x.asset_type)).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           </label>}
-          {form.ownership_scope === "ORGANIZATION" && (<>
-            <label>{ar ? "الشركة / المؤسسة" : "Organization"}<select value={form.organization_id || ""} onChange={(e)=>setForm({...form,organization_id:e.target.value||null,entity_id:null,cost_center_id:null})}><option value="">{ar?"اختر الشركة":"Choose organization"}</option>{catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
-            <label>{ar ? "الفرع / الكيان" : "Entity"}<select value={form.entity_id || ""} onChange={(e)=>setForm({...form,entity_id:e.target.value||null})}><option value="">{ar?"بدون / اختر":"None / choose"}</option>{catalog.entities.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-            <label>{ar ? "مركز التكلفة" : "Cost center"}<select value={form.cost_center_id || ""} onChange={(e)=>setForm({...form,cost_center_id:e.target.value||null})}><option value="">{ar?"بدون / اختر":"None / choose"}</option>{catalog.cost_centers.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-          </>)}
           <label>{ar ? "فئة الأصل" : "Asset class"}<select value={form.asset_class_code || ""} onChange={(e)=>setForm({...form,asset_class_code:e.target.value||null,asset_type_code:null})}><option value="">{ar?"التصنيف القديم / غير محدد":"Legacy / not specified"}</option>{catalog.classes.map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>
           {form.asset_class_code && <label>{ar ? "نوع الأصل التفصيلي" : "Asset type"}<select value={form.asset_type_code || ""} onChange={(e)=>setForm({...form,asset_type_code:e.target.value||null})}><option value="">{ar?"اختر النوع":"Choose type"}</option>{catalog.types.filter((x:any)=>x.class_code===form.asset_class_code).map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>}
           <label>
@@ -668,7 +735,7 @@ export default function Assets({
             type="button"
             onClick={() => {
               setEdit(null);
-              setForm({ ...empty });
+              setForm({ ...empty, ownership_scope: assetScope, organization_id: assetScope === "ORGANIZATION" ? (scopeOrgId || null) : null, entity_id: assetScope === "ORGANIZATION" ? (scopeEntityId || null) : null, cost_center_id: assetScope === "ORGANIZATION" ? (scopeCostCenterId || null) : null });
             }}
           >
             {ar ? "إلغاء" : "Cancel"}
