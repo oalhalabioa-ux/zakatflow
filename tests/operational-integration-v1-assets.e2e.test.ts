@@ -47,7 +47,7 @@ describe('Operational Integration V1 Assets',()=>{
   expect(second.data).toBe(first.data);
 
   const event=await owner.from('financial_events').select('status').eq('id',first.data).single(); if(event.error)throw event.error;
-  expect(event.data.status).toBe('COMMITTED');
+  expect(event.data.status).toBe('DRAFT');
   const lines=await owner.from('financial_event_lines').select('classification_type,direction,base_amount').eq('event_id',first.data); if(lines.error)throw lines.error;
   expect((lines.data||[]).some((x:any)=>x.classification_type==='OPEX')).toBe(false);
   expect((lines.data||[]).filter((x:any)=>x.direction==='DEBIT').reduce((s:number,x:any)=>s+n(x.base_amount),0)).toBe(100);
