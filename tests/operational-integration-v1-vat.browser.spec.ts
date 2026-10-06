@@ -24,13 +24,21 @@ test('purchase 100 + VAT 15 prepares one committed Core event without moving cas
   if (beforeResult.error) throw beforeResult.error
   const before = new Map((beforeResult.data ?? []).map(a => [a.id, Number(a.current_balance ?? 0)]))
 
-  // Authenticate through the real login UI. Do not couple the financial test to a specific
-  // post-login route: locale/onboarding redirects may legitimately differ in QA.
-  await page.goto(`${APP_URL}/en/login`)
-  await page.getByLabel('Email address').fill(email!)
-  await page.getByLabel('Password').fill(password!)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 30000 })
+  // Seed the authenticated Supabase SSR cookie from the already-proven QA login.
+  // This keeps the test focused on the real /api/vat operational path rather than UI redirects.
+  const session = auth.data.session
+  if (!session) throw new Error('E2E_SESSION_REQUIRED')
+  const cookieName = `sb-${QA_PROJECT_REF}-auth-token`
+  const cookieValue = 'base64-' + Buffer.from(JSON.stringify(session)).toString('base64url')
+  await page.context().addCookies([{
+    name: cookieName,
+    value: cookieValue,
+    url: APP_URL,
+    httpOnly: false,
+    secure: false,
+    sameSite: 'Lax',
+  }])
+  await page.goto(`${APP_URL}/en`)
 
   const today = new Date().toISOString().slice(0, 10)
   const documentNumber = `E2E-PURCHASE-${Date.now()}`
