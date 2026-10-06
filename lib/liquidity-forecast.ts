@@ -4,8 +4,10 @@ export type LiquidityForecastFlow = {
   status: 'ACTUAL' | 'CONFIRMED' | 'EXPECTED';
   base_amount: number | string;
   transfer_id?: string | null;
+  settlement_status?: string | null;
 };
 export type ForecastWeek = { label: string; from: string; to: string; balance: number; inflow: number; outflow: number };
+export const isLiquidityFlowSettled = (flow: Pick<LiquidityForecastFlow,'status'|'settlement_status'>) => flow.status === 'ACTUAL' || flow.settlement_status === 'SETTLED';
 const dateKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`;
 export function buildLiquidityForecast(available: number, flows: LiquidityForecastFlow[], startDate: string, count = 13): ForecastWeek[] {
   const start = new Date(`${startDate}T00:00:00.000Z`);
@@ -14,7 +16,7 @@ export function buildLiquidityForecast(available: number, flows: LiquidityForeca
     const fromDate = new Date(start); fromDate.setUTCDate(start.getUTCDate() + index * 7);
     const toDate = new Date(fromDate); toDate.setUTCDate(fromDate.getUTCDate() + 6);
     const from = dateKey(fromDate), to = dateKey(toDate);
-    const due = flows.filter(flow => !flow.transfer_id && flow.status !== 'ACTUAL' && flow.due_date >= from && flow.due_date <= to);
+    const due = flows.filter(flow => !flow.transfer_id && !isLiquidityFlowSettled(flow) && flow.due_date >= from && flow.due_date <= to);
     const inflow = due.filter(flow => flow.direction === 'INFLOW').reduce((sum, flow) => sum + Number(flow.base_amount || 0), 0);
     const outflow = due.filter(flow => flow.direction === 'OUTFLOW').reduce((sum, flow) => sum + Number(flow.base_amount || 0), 0);
     balance += inflow - outflow;
@@ -23,7 +25,7 @@ export function buildLiquidityForecast(available: number, flows: LiquidityForeca
 }
 export function buildScenarioForecast(available: number, flows: LiquidityForecastFlow[], startDate: string, delayReceiptsDays: number, expenseIncreasePercent: number, count = 13): ForecastWeek[] {
   const start = new Date(`${startDate}T00:00:00.000Z`);
-  const adjusted = flows.filter(flow => !flow.transfer_id && flow.status !== 'ACTUAL').map(flow => {
+  const adjusted = flows.filter(flow => !flow.transfer_id && !isLiquidityFlowSettled(flow)).map(flow => {
     if (flow.direction === 'INFLOW') {
       const shifted = new Date(`${flow.due_date}T00:00:00.000Z`);
       shifted.setUTCDate(shifted.getUTCDate() + delayReceiptsDays);
@@ -34,7 +36,7 @@ export function buildScenarioForecast(available: number, flows: LiquidityForecas
   return buildLiquidityForecast(available, adjusted, dateKey(start), count);
 }
 export function getOutstandingLiquidityCommitments<T extends LiquidityForecastFlow>(flows: T[], asOf: string): T[] {
-  return flows.filter(flow => !flow.transfer_id && flow.direction === 'OUTFLOW' && flow.status !== 'ACTUAL').sort((a, b) => Number(a.due_date >= asOf) - Number(b.due_date >= asOf) || a.due_date.localeCompare(b.due_date));
+  return flows.filter(flow => !flow.transfer_id && flow.direction === 'OUTFLOW' && !isLiquidityFlowSettled(flow)).sort((a, b) => Number(a.due_date >= asOf) - Number(b.due_date >= asOf) || a.due_date.localeCompare(b.due_date));
 }
 export function lowestForecastBalance(available: number, weeks: Pick<ForecastWeek,'balance'>[]) {
   return Math.min(Number(available || 0), ...weeks.map(week => week.balance));
