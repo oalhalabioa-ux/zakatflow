@@ -331,6 +331,7 @@ export async function POST(request: Request) {
         source_tax_amount: sourceAmounts.taxAmount,
         source_gross_amount: sourceAmounts.grossAmount,
         notes: document.notes?.trim() || null,
+        asset_transaction_id: document.asset_transaction_id ?? null,
       }).select().single();
       if (error?.code === '23505') return NextResponse.json({ error: 'VAT_DOCUMENT_NUMBER_EXISTS' }, { status: 409 });
       if (error) throw error;
@@ -345,6 +346,11 @@ export async function POST(request: Request) {
       // Purchase VAT recognition is prepared in Financial Core at document creation.
       // Recognition remains non-cash; settlement is handled separately by Cash Management.
       if (document.document_type === 'PURCHASE') {
+        if (document.asset_transaction_id) {
+          const { data: eventId, error: bindError } = await supabase.rpc('bind_asset_purchase_vat_document', { p_document_id: data.id, p_transaction_id: document.asset_transaction_id });
+          if (bindError) throw bindError;
+          return NextResponse.json({ ...data, asset_transaction_id: document.asset_transaction_id, financial_core: { event_id: eventId, status: 'SINGLE_ASSET_PURCHASE_EVENT', recognition: 'ASSET_CAPEX_PLUS_INPUT_VAT' } }, { status: 201 });
+        }
         const { data: entities, error: entityError } = await supabase.from('organization_entities')
           .select('id').eq('organization_id', document.organization_id).eq('active', true).limit(2);
         if (entityError) throw entityError;
