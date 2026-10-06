@@ -56,10 +56,14 @@ describe('Operational Integration V1 Budget',()=>{
   const {data,error}=await owner.rpc('financial_budget_consolidated',{p_holding:'4673c66d-698d-43bb-b638-28dd556bbc27',p_year:2026,p_scenario:'BASE'});
   if(error)throw error;
   expect(data).toBeTruthy();
-  const serialized=JSON.stringify(data);
-  expect(serialized).toContain('100');
-  expect(serialized).not.toContain('215');
-  console.log('BUDGET_E2E_CONSOLIDATED=NO_215_DUPLICATION');
+  const consolidated=data as any;
+  expect(n(consolidated?.core_actual)).toBe(100);
+  expect(n(consolidated?.core_actual)).not.toBe(215);
+  const companyRows=(consolidated?.company_reports||[]).flatMap((report:any)=>report?.rows||[]);
+  const operatingRows=companyRows.filter((row:any)=>row.budget_line_id===LINE);
+  expect(operatingRows.reduce((sum:number,row:any)=>sum+n(row.actual_amount),0)).toBe(100);
+  expect(operatingRows.reduce((sum:number,row:any)=>sum+n(row.paid_settled_gross),0)).toBe(115);
+  console.log('BUDGET_E2E_CONSOLIDATED=CORE_ACTUAL_100,PAID_115,NO_DUPLICATION');
  },30000);
 
 });
