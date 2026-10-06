@@ -23,14 +23,14 @@ export const financialEventActionSchema=z.discriminatedUnion('action',[
 export type FinancialEventAction=z.infer<typeof financialEventActionSchema>;
 export type EventPermission='financial_core.create'|'financial_core.approve'|'financial_core.post'|'financial_core.view'|'liquidity.edit'|'vat.view'|'organization.edit';
 export type EventPermissions=Record<EventPermission,boolean>;
-export function allowedEventActions(event:{status:string;event_type:string;source_module:string;created_by:string},user:string,permissions:EventPermissions,independentlyApproved:boolean){
+export function allowedEventActions(event:{status:string;event_type:string;source_module:string;created_by:string},user:string,permissions:EventPermissions,independentlyApproved:boolean,canSelfApprove=false){
  const actions:string[]=[];
  if(permissions['financial_core.create']){
   if(event.status==='DRAFT')actions.push('PLANNED');
   if(event.status==='PLANNED')actions.push('COMMITTED');
   if(['DRAFT','PLANNED','COMMITTED'].includes(event.status))actions.push('CANCELLED');
  }
- if(event.status==='COMMITTED'&&permissions['financial_core.approve']&&event.created_by!==user&&!independentlyApproved)actions.push('APPROVE');
+ if(event.status==='COMMITTED'&&permissions['financial_core.approve']&&(event.created_by!==user||canSelfApprove)&&!independentlyApproved)actions.push('APPROVE');
  if(event.status==='COMMITTED'&&independentlyApproved&&permissions['financial_core.post']){
   if(event.event_type==='SETTLEMENT'){if(permissions['liquidity.edit'])actions.push('POST_SETTLEMENT');}
   else if(event.source_module==='VAT_INTEGRATION'){if(permissions['vat.view']&&permissions['liquidity.edit'])actions.push('RECOGNIZE_VAT');}
