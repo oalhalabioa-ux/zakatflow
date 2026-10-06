@@ -54,10 +54,16 @@ describe('Operational Integration V1 Assets',()=>{
   const obs=await owner.from('financial_event_obligations').select('obligation_type,settleable_amount,settleable_base_amount').eq('event_id',first.data); if(obs.error)throw obs.error;
   expect(obs.data).toHaveLength(1); expect(obs.data?.[0]?.obligation_type).toBe('PAYABLE'); expect(n(obs.data?.[0]?.settleable_amount)).toBe(115); expect(n(obs.data?.[0]?.settleable_base_amount)).toBe(115);
 
+  for(const status of ['PLANNED','COMMITTED']){const t=await owner.rpc('transition_financial_event',{p_event_id:first.data,p_new_status:status,p_note:'Assets operational QA'});if(t.error)throw t.error;}
+  const approval=await owner.rpc('approve_financial_event',{p_event_id:first.data,p_note:'Owner-controlled QA self approval'}); if(approval.error)throw approval.error;
+  const approved=await owner.from('financial_event_approvals').select('approver_id,decision').eq('event_id',first.data).eq('decision','APPROVED').maybeSingle(); if(approved.error)throw approved.error; expect(approved.data?.approver_id).toBe(userId);
+  const canSelf=await owner.rpc('can_self_approve_financial_event',{p_org:ORG}); if(canSelf.error)throw canSelf.error; expect(canSelf.data).toBe(true);
+
   const after=await owner.from('liquidity_accounts').select('id,current_balance').eq('organization_id',ORG).eq('active',true).order('id'); if(after.error)throw after.error;
   expect(after.data).toEqual(before.data);
   console.log('ASSETS_E2E=CAPEX_100,INPUT_VAT_15,PAYABLE_115,OUTSTANDING_115,NO_OPEX');
   console.log('ASSETS_E2E_CASH_MOVEMENT=0');
+  console.log('ASSETS_E2E_APPROVAL=OWNER_SELF_APPROVAL_PASS');
   console.log('ASSETS_E2E_IDEMPOTENT_EVENT='+first.data);
  },30000);
 });
