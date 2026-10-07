@@ -136,6 +136,7 @@ export function VatEInvoiceRegister({
   const importInput = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
+  const [noteSource, setNoteSource] = useState<Invoice | null>(null);
   const sellerProfileReady = Boolean(
     sellerProfile.registered_name.trim() && sellerProfile.seller_street.trim() &&
     /^\d{4}$/.test(sellerProfile.seller_building_number) && sellerProfile.seller_district.trim() &&
@@ -217,11 +218,31 @@ export function VatEInvoiceRegister({
     setBusy(true);
     setMessage(null);
     try {
+      let accountingDocumentId: string | null = null;
+      if (!editingDraftId && documentType !== 'INVOICE') {
+        if (!noteSource?.accounting_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
+        const accountingResponse = await fetch('/api/vat', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+            action:'add_document', organization_id:organizationId, document_type:'SALES', document_kind:documentType,
+            document_number:invoiceNumber, transaction_date:issueDate, due_date:dueDate || issueDate,
+            preceding_document_id:noteSource.accounting_document_id, counterparty_contact_id:buyerContactId,
+            counterparty_name:buyerName, counterparty_tax_number:buyerVatNumber || null,
+            supply_type:lines[0]?.tax_category === 'S' ? 'STANDARD' : lines[0]?.tax_category === 'Z' ? 'ZERO_RATED' : lines[0]?.tax_category === 'E' ? 'EXEMPT' : 'OUT_OF_SCOPE',
+            net_amount:lines.reduce((sum,line)=>sum + Number(line.quantity||0)*Number(line.unit_price||0)-Number(line.discount_amount||0),0),
+            lines:lines.map(line=>({description:line.item_name || line.description || 'Adjustment',unit:line.unit_code,quantity:Number(line.quantity),unit_price:Number(line.unit_price),discount_amount:Number(line.discount_amount||0),supply_type:line.tax_category === 'S' ? 'STANDARD' : line.tax_category === 'Z' ? 'ZERO_RATED' : line.tax_category === 'E' ? 'EXEMPT' : 'OUT_OF_SCOPE'})),
+            currency, exchange_rate:Number(exchangeRate), recoverable_percent:100, notes:noteReason || billingReference,
+          })
+        });
+        const accountingBody = await accountingResponse.json();
+        if (!accountingResponse.ok) throw new Error(accountingBody?.error || `HTTP_${accountingResponse.status}`);
+        accountingDocumentId = accountingBody.id;
+      }
       const response = await fetch('/api/vat/e-invoices', {
         method: editingDraftId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(editingDraftId ? { invoice_id: editingDraftId } : {}),
+          ...(!editingDraftId && accountingDocumentId ? { accounting_document_id: accountingDocumentId } : {}),
           organization_id: organizationId,
           invoice_number: invoiceNumber,
           invoice_category: category,
@@ -273,6 +294,7 @@ export function VatEInvoiceRegister({
         ? current.map((invoice) => invoice.id === editingDraftId ? { ...invoice, ...body } : invoice)
         : [body, ...current]);
       setEditingDraftId(null);
+      setNoteSource(null);
       setInvoiceNumber('');
       setDueDate('');
       setBuyerName('');
@@ -460,6 +482,7 @@ export function VatEInvoiceRegister({
   function startNote(invoice: Invoice, kind: 'CREDIT_NOTE'|'DEBIT_NOTE') {
     if (!invoice.accounting_document_id || invoice.status !== 'ISSUED') return;
     setEditingDraftId(null);
+    setNoteSource(invoice);
     setDocumentType(kind);
     setCategory(invoice.invoice_category as typeof category);
     setInvoiceNumber(`${invoice.invoice_number}-${kind === 'CREDIT_NOTE' ? 'CN' : 'DN'}`);
