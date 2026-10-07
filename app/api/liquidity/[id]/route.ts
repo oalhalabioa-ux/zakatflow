@@ -89,8 +89,12 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const{data:balances,error:balanceError}=await supabase.from('financial_event_obligation_balances').select('obligation_id,obligation_type,outstanding_base_amount').eq('organization_id',record.organization_id).eq('event_id',recognition.id).gt('outstanding_base_amount',0);
    if(balanceError)throw balanceError;if(!balances?.length)return NextResponse.json({error:'NO_OUTSTANDING_OBLIGATION'},{status:409});
    if(balances.length!==1)return NextResponse.json({error:'MULTIPLE_OBLIGATIONS_REQUIRE_ALLOCATION'},{status:409});
-   const remainingAmount=Math.max(0,Number(record.amount)-Number(record.settled_amount||0));
-   const remainingBase=Number(balances[0].outstanding_base_amount);
+   const flowOutstanding=Math.max(0,Number(record.amount)-Number(record.settled_amount||0));
+   const obligationOutstandingBase=Number(balances[0].outstanding_base_amount);
+   const requestedAmount=body.amount??flowOutstanding;
+   const requestedBase=body.base_amount??(flowOutstanding>0?obligationOutstandingBase*(Number(requestedAmount)/flowOutstanding):0);
+   const remainingAmount=Math.min(flowOutstanding,Number(requestedAmount));
+   const remainingBase=Math.min(obligationOutstandingBase,Number(requestedBase));
    if(!(remainingAmount>0&&remainingBase>0))return NextResponse.json({error:'NO_OUTSTANDING_OBLIGATION'},{status:409});
    if(!['PAYABLE','RECEIVABLE'].includes(balances[0].obligation_type))return NextResponse.json({error:'UNSUPPORTED_SETTLEMENT_OBLIGATION_TYPE'},{status:409});
    const classificationType=balances[0].obligation_type as 'PAYABLE'|'RECEIVABLE';
