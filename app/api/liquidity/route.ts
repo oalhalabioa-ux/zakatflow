@@ -20,7 +20,7 @@ const flowSchema = z.object({
   currency: z.string().length(3).default('SAR'), base_amount: z.coerce.number().positive(), status: z.enum(['ACTUAL','CONFIRMED','EXPECTED']).default('EXPECTED'),
   source: z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).default('MANUAL'), reference: z.string().max(120).default(''), notes: z.string().max(500).default(''),
 });
-const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), party_type_id: z.string().uuid().nullable().optional(), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
+const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), party_type_id: z.string().uuid().nullable().optional(), roles: z.array(z.enum(['CUSTOMER','SUPPLIER','ASSET_SUPPLIER','INVESTEE','INVESTMENT_MANAGER','LENDER','BORROWER','EMPLOYEE','GOVERNMENT','TAX_AUTHORITY','RELATED_PARTY','OTHER'])).max(12).optional(), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
 const categorySchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH'), financial_classification_type: z.enum(['REVENUE','OPEX','CAPEX','ASSET','LIABILITY','RECEIVABLE','PAYABLE','FINANCING','INVESTMENT','EQUITY','TAX','ZAKAT','TRANSFER','OTHER']).nullable().optional() });
 const partyTypeSchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80) });
 const transferSchema = z.object({
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         if (membership) organizationIds.push(child.id);
       }
     }
-    const [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, intercompanyTransfersResult] = await Promise.all([
+    const [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, counterpartyRolesResult, intercompanyTransfersResult] = await Promise.all([
       supabase.from('liquidity_accounts').select('*').in('organization_id', organizationIds).eq('active', true).order('created_at'),
       supabase.from('liquidity_flows').select('*').in('organization_id', organizationIds).order('due_date', { ascending: true }).limit(1500),
       supabase.from('organization_entities').select('id,name,organization_id,entity_type').in('organization_id', organizationIds).eq('active', true).order('name'),
@@ -65,11 +65,12 @@ export async function GET(request: Request) {
       supabase.from('fx_rates').select('organization_id,from_currency,to_currency,rate,valuation_date').or(`organization_id.is.null,organization_id.in.(${organizationIds.join(',')})`).order('valuation_date',{ascending:false}).limit(600),
       supabase.from('liquidity_flow_categories').select('*').in('organization_id', organizationIds).eq('active', true).order('is_system', { ascending: false }).order('name_ar'),
       supabase.from('liquidity_party_types').select('*').in('organization_id', organizationIds).eq('active', true).order('is_system', { ascending: false }).order('name_ar'),
+      supabase.from('liquidity_counterparty_roles').select('organization_id,counterparty_id,role_code').in('organization_id', organizationIds).eq('active', true),
       organization.organization_kind === 'HOLDING' && params.get('scope') === 'group'
         ? supabase.from('liquidity_intercompany_transfers').select('*').eq('holding_organization_id', organizationId).in('source_organization_id', organizationIds).in('destination_organization_id', organizationIds).order('transfer_date', { ascending: false }).limit(1000)
         : Promise.resolve({ data: [], error: null }),
     ]);
-    for (const result of [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, intercompanyTransfersResult]) if (result.error) throw result.error;
+    for (const result of [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, counterpartyRolesResult, intercompanyTransfersResult]) if (result.error) throw result.error;
     const { data: counterparties, error: counterpartiesError } = await supabase.from('liquidity_counterparties').select('*').in('organization_id', organizationIds).order('name');
     if (counterpartiesError) throw counterpartiesError;
     const organizations = organizationsResult.data ?? [];
@@ -106,7 +107,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing });
+    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows, entities: entitiesResult.data ?? [], counterparties: (counterparties ?? []).map((party:any)=>({...party,roles:(counterpartyRolesResult.data??[]).filter((role:any)=>role.counterparty_id===party.id).map((role:any)=>role.role_code)})), categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
@@ -142,9 +143,13 @@ export async function POST(request: Request) {
         if (!type) throw new Error('PARTY_TYPE_ORGANIZATION_MISMATCH');
         payload = { ...input, party_type: ['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER'].includes(type.code) ? type.code : 'OTHER' };
       }
-      const { data, error } = await supabase.from('liquidity_counterparties').insert(payload).select().single();
+      const { roles = [], ...partyPayload } = payload;
+      const { data, error } = await supabase.from('liquidity_counterparties').insert(partyPayload).select().single();
       if (error) throw error;
-      return NextResponse.json(data, { status: 201 });
+      const defaultRoles = partyPayload.party_type === 'BOTH' ? ['CUSTOMER','SUPPLIER'] : partyPayload.party_type === 'CUSTOMER' ? ['CUSTOMER'] : partyPayload.party_type === 'SUPPLIER' ? ['SUPPLIER'] : [];
+      const roleCodes = [...new Set([...(roles as string[]),...defaultRoles])];
+      if (roleCodes.length) { const { error: roleError } = await supabase.from('liquidity_counterparty_roles').insert(roleCodes.map(role_code=>({organization_id:input.organization_id,counterparty_id:data.id,role_code,created_by:user.id}))); if (roleError) throw roleError; }
+      return NextResponse.json({...data,roles:roleCodes}, { status: 201 });
     }
     if (kind === 'intercompany_transfer') {
       const input = intercompanyTransferSchema.parse(body);
