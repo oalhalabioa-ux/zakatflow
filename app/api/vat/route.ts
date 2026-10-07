@@ -113,6 +113,16 @@ export async function GET(request: Request) {
       documents.push(...(data ?? []));
       if (!data || data.length < 1000) break;
     }
+    const documentIds = documents.map((document) => document.id);
+    const { data: documentFlows, error: documentFlowsError } = documentIds.length
+      ? await supabase.from('liquidity_flows')
+          .select('id,source_record_id,direction,amount,settled_amount,settlement_status,status,currency,due_date')
+          .eq('organization_id', organizationId).eq('source_module','VAT_INTEGRATION').in('source_record_id', documentIds)
+      : { data: [], error: null };
+    if (documentFlowsError) throw documentFlowsError;
+    const flowByDocument = new Map((documentFlows ?? []).map((flow: any) => [flow.source_record_id, flow]));
+    for (const document of documents) document.cash_flow = flowByDocument.get(document.id) ?? null;
+
     const { data: issuedInvoices, error: invoiceError } = await supabase.from('vat_einvoices')
       .select('id,invoice_number,invoice_category,issue_date,buyer_name,buyer_vat_number,organization_id')
       .eq('organization_id', organizationId)
