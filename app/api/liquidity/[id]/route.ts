@@ -90,6 +90,37 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
      const{data:posted,error:postedError}=await supabase.from('financial_events').select('status').eq('organization_id',record.organization_id).eq('id',recognition.id).single();if(postedError)throw postedError;
      if(posted?.status!=='ACTUAL')return NextResponse.json({id:record.id,status:record.status,recognition_event_id:recognition.id,recognition_status:'PENDING_APPROVAL',error:'CORE_RECOGNITION_PENDING_APPROVAL'},{status:202});
    }
+   const{data:actualCategory,error:actualCategoryError}=record.category_id?await supabase.from('liquidity_flow_categories').select('financial_classification_type').eq('id',record.category_id).eq('organization_id',record.organization_id).maybeSingle():{data:null,error:null};
+   if(actualCategoryError)throw actualCategoryError;
+   const actualTreatment=actualCategory?.financial_classification_type;
+   if(actualTreatment==='FINANCING'||actualTreatment==='EQUITY'){
+     if(actualTreatment==='FINANCING'&&record.direction!=='INFLOW')return NextResponse.json({error:'FINANCING_PRINCIPAL_REPAYMENT_REQUIRES_EXISTING_PAYABLE'},{status:409});
+     const flowOutstanding=Math.max(0,Number(record.amount)-Number(record.settled_amount||0));
+     const remainingAmount=Math.min(flowOutstanding,Number(body.amount??flowOutstanding));
+     const remainingBase=Math.min(Number(record.base_amount)*(remainingAmount/Number(record.amount)),Number(body.base_amount??Number(record.base_amount)*(remainingAmount/Number(record.amount))));
+     if(!(remainingAmount>0&&remainingBase>0))return NextResponse.json({error:'NO_OUTSTANDING_CASH_MOVEMENT'},{status:409});
+     const{data:cashClass,error:cashClassError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',actualTreatment).eq('active',true).limit(1).maybeSingle();
+     if(cashClassError)throw cashClassError;if(!cashClass)return NextResponse.json({error:'SETTLEMENT_CLASSIFICATION_REQUIRED'},{status:409});
+     const settlementDate=body.settlement_date??new Date().toISOString().slice(0,10),exchangeRate=remainingBase/remainingAmount;
+     const settlementSourceKey=`liquidity:${record.id}:cash-realization:${Number(record.settled_amount||0)}`;
+     const{data:existingCashEvent,error:existingCashEventError}=await supabase.from('financial_events').select('id,status').eq('organization_id',record.organization_id).eq('event_type','SETTLEMENT').eq('source_module','OPERATIONAL_CONSOLE').eq('source_event_key',settlementSourceKey).maybeSingle();
+     if(existingCashEventError)throw existingCashEventError;
+     let cashEvent:any=existingCashEvent;
+     if(!cashEvent)cashEvent=await executeFinancialEventAction({action:'CREATE',payload:{organization_id:record.organization_id,entity_id:recognition.entity_id,counterparty_id:recognition.counterparty_id,event_type:'SETTLEMENT',source_module:'OPERATIONAL_CONSOLE',source_event_key:settlementSourceKey,event_date:settlementDate,due_date:null,base_currency:recognition.base_currency,description:`Cash realization · ${record.title}`,lines:[{line_number:1,description:`Cash realization · ${record.title}`,classification_id:cashClass.id,cost_center_id:null,amount:remainingAmount,currency:record.currency,exchange_rate:exchangeRate,base_amount:remainingBase,cash_direction:record.direction,vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0}],obligations:[],links:[{link_type:'SETTLEMENT_OF',related_event_id:recognition.id,metadata:{purpose:'NONALLOCATING_CASH_REALIZATION'}},{link_type:'CASH_FLOW',target_module:'liquidity_flows',target_record_id:record.id,metadata:{purpose:'NONALLOCATING_CASH_REALIZATION'}}]}});
+     const cashEventId=typeof cashEvent==='string'?cashEvent:(cashEvent?.event_id??cashEvent?.id);if(!cashEventId)throw new Error('SETTLEMENT_EVENT_ID_MISSING');
+     const{data:cashState,error:cashStateError}=await supabase.from('financial_events').select('status').eq('id',cashEventId).single();if(cashStateError)throw cashStateError;
+     if(cashState.status==='DRAFT')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:cashEventId,status:'PLANNED',note:'Created from Cash Management'});
+     const{data:cashPlanned}=await supabase.from('financial_events').select('status').eq('id',cashEventId).single();
+     if(cashPlanned?.status==='PLANNED')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:cashEventId,status:'COMMITTED',note:'Pending independent cash approval'});
+     try{
+       const posted:any=await executeFinancialEventAction({action:'POST_NONALLOCATING_CASH',organization_id:record.organization_id,event_id:cashEventId,recognition_event_id:recognition.id,flow_id:record.id,account_id:accountId,direction:record.direction,settlement_date:settlementDate,amount:remainingAmount,currency:record.currency,exchange_rate:exchangeRate,base_amount:remainingBase,treatment:actualTreatment});
+       return NextResponse.json({id:record.id,status:'ACTUAL',settlement_status:'SETTLED',settlement_event_id:cashEventId,recognition_event_id:recognition.id,cash_posting:posted});
+     }catch(error){
+       const message=error instanceof Error?error.message:'CASH_POST_PENDING_APPROVAL';
+       if(/VALID_APPROVAL_REQUIRED|APPROVE|SELF_APPROVAL|SEGREGATION|PERMISSION|DENIED/i.test(message))return NextResponse.json({id:record.id,status:record.status,settlement_status:'PENDING_APPROVAL',settlement_event_id:cashEventId,recognition_event_id:recognition.id,error:'CASH_POST_PENDING_APPROVAL'},{status:202});
+       throw error;
+     }
+   }
    const{data:balances,error:balanceError}=await supabase.from('financial_event_obligation_balances').select('obligation_id,obligation_type,outstanding_base_amount').eq('organization_id',record.organization_id).eq('event_id',recognition.id).gt('outstanding_base_amount',0);
    if(balanceError)throw balanceError;if(!balances?.length)return NextResponse.json({error:'NO_OUTSTANDING_OBLIGATION'},{status:409});
    if(balances.length!==1)return NextResponse.json({error:'MULTIPLE_OBLIGATIONS_REQUIRE_ALLOCATION'},{status:409});
