@@ -56,6 +56,10 @@ export async function POST(request: Request) {
         throw new Error('EINVOICE_NOT_FOUND');
       }
       invoice = issued as Record<string, unknown>;
+      const issuedStatus = String((issued as Record<string, unknown>).status || 'ISSUED');
+      const { error: accountingStatusError } = await supabase.from('vat_documents')
+        .update({ zatca_status: issuedStatus }).eq('organization_id', body.organization_id).eq('id', source.accounting_document_id);
+      if (accountingStatusError) throw accountingStatusError;
     }
 
     return NextResponse.json({
