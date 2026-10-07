@@ -32,11 +32,32 @@ describe('liquidity AR/AP operational safeguards',()=>{
  it('rejects recognition event type drift from the selected financial treatment',()=>{
    expect(liquidity).toContain('LIQUIDITY_RECOGNITION_TREATMENT_MISMATCH');
    expect(liquidity).toContain("existing.event_type!==eventType");
-   expect(liquidity).toContain("treatment==='LIABILITY'||treatment==='FINANCING'||treatment==='EQUITY'?'LIABILITY'");
+   expect(liquidity).toContain("treatment==='LIABILITY'||treatment==='FINANCING'?'LIABILITY':treatment==='EQUITY'?'ADJUSTMENT'");
+ });
+ it('keeps financing principal and equity out of revenue expense and receivables',()=>{
+   expect(liquidity).toContain("FINANCING_PRINCIPAL_REPAYMENT_REQUIRES_EXISTING_PAYABLE");
+   expect(liquidity).toContain("const obligationType=(treatment==='FINANCING'||treatment==='LIABILITY')?'PAYABLE'");
+   expect(liquidity).toContain("const createsObligation=treatment!=='EQUITY'");
+   expect(liquidity).toContain("obligations:createsObligation?");
+   expect(liquidity).toContain("action:'POST_NONALLOCATING_CASH'");
+   expect(liquidity).toContain("actualTreatment==='FINANCING'||actualTreatment==='EQUITY'");
+ });
+ it('posts an independently approved saved settlement instead of leaving it pending forever',()=>{
+   expect(liquidity).toContain("action:'POST_SAVED_SETTLEMENT'");
+   expect(liquidity).toContain("settlement_status:'SETTLED'");
+   expect(liquidity).toContain("error:'SETTLEMENT_PENDING_APPROVAL'");
+
+
  });
  it('routes receivable payable and transfers away from new recognition',()=>{
    expect(liquidity).toContain("['RECEIVABLE','PAYABLE','TRANSFER'].includes(treatment)");
    expect(ui).toContain('Use Transfers for movements between cash accounts');
    expect(ui).toContain('settles an existing obligation');
  });
+ it('matches counterparties to the accounting treatment before recognition',()=>{
+   expect(liquidity).toContain("allowed_financial_classifications");
+   expect(liquidity).toContain("COUNTERPARTY_ACCOUNTING_CLASSIFICATION_MISMATCH");
+   expect(liquidity).toContain("partyType.code!=='OTHER'");
+ });
+
 });
