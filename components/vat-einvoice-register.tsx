@@ -224,7 +224,7 @@ export function VatEInvoiceRegister({
     setMessage(null);
     try {
       let accountingDocumentId: string | null = null;
-      if (!editingDraftId && !accountingSourceId) {
+      if (!accountingSourceId) {
         if (documentType !== 'INVOICE' && !noteSource?.accounting_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
         if (!buyerContactId) throw new Error('VAT_STABLE_CONTACT_REQUIRED');
         const accountingLines = lines.map((line) => {
@@ -259,7 +259,7 @@ export function VatEInvoiceRegister({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(editingDraftId ? { invoice_id: editingDraftId } : {}),
-          ...(!editingDraftId && (accountingDocumentId || accountingSourceId) ? { accounting_document_id: accountingDocumentId || accountingSourceId } : {}),
+          ...(accountingDocumentId || accountingSourceId ? { accounting_document_id: accountingDocumentId || accountingSourceId } : {}),
           organization_id: organizationId,
           invoice_number: invoiceNumber,
           invoice_category: category,
