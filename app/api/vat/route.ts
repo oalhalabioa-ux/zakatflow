@@ -531,7 +531,7 @@ export async function POST(request: Request) {
         });
         const created = await executeFinancialEventAction({ action: 'CREATE', payload: {
           organization_id: document.organization_id, entity_id: entities[0].id, counterparty_id: counterpartyId,
-          event_type: 'REVENUE', source_module: 'VAT_INTEGRATION', source_record_id: data.id,
+          event_type: 'REVENUE', source_module: 'OPERATIONAL_CONSOLE', source_record_id: data.id,
           source_event_key: `vat_documents:${data.id}`, event_date: document.transaction_date, due_date: document.due_date,
           base_currency: baseCurrency, description: `Sales invoice ${document.document_number}`, lines,
           obligations: [{ obligation_key: 'invoice-gross', obligation_type: 'RECEIVABLE', settleable_amount: Number(data.gross_amount), currency: baseCurrency, exchange_rate: 1, base_currency: baseCurrency, settleable_base_amount: Number(data.gross_amount) }],
