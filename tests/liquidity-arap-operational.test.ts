@@ -36,10 +36,17 @@ describe('liquidity AR/AP operational safeguards',()=>{
  });
  it('keeps financing principal and equity out of revenue expense and receivables',()=>{
    expect(liquidity).toContain("FINANCING_PRINCIPAL_REPAYMENT_REQUIRES_EXISTING_PAYABLE");
-   expect(liquidity).toContain("EQUITY_DISTRIBUTION_REQUIRES_EQUITY_MOVEMENT_PATH");
    expect(liquidity).toContain("const obligationType=(treatment==='FINANCING'||treatment==='LIABILITY')?'PAYABLE'");
    expect(liquidity).toContain("const createsObligation=treatment!=='EQUITY'");
    expect(liquidity).toContain("obligations:createsObligation?");
+   expect(liquidity).toContain("action:'POST_NONALLOCATING_CASH'");
+   expect(liquidity).toContain("actualTreatment==='FINANCING'||actualTreatment==='EQUITY'");
+ });
+ it('posts an independently approved saved settlement instead of leaving it pending forever',()=>{
+   expect(liquidity).toContain("action:'POST_SAVED_SETTLEMENT'");
+   expect(liquidity).toContain("settlement_status:'SETTLED'");
+   expect(liquidity).toContain("error:'SETTLEMENT_PENDING_APPROVAL'");
+
 
  });
  it('routes receivable payable and transfers away from new recognition',()=>{
