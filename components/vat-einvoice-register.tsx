@@ -137,6 +137,10 @@ export function VatEInvoiceRegister({
   const [importing, setImporting] = useState(false);
   const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
   const [noteSource, setNoteSource] = useState<Invoice | null>(null);
+  const [collectionInvoice, setCollectionInvoice] = useState<Invoice | null>(null);
+  const [collectionAccountId, setCollectionAccountId] = useState('');
+  const [collectionAmount, setCollectionAmount] = useState('');
+  const [collectionDate, setCollectionDate] = useState(() => new Date().toISOString().slice(0,10));
   const [accountingSourceId, setAccountingSourceId] = useState<string | null>(null);
   const sellerProfileReady = Boolean(
     sellerProfile.registered_name.trim() && sellerProfile.seller_street.trim() &&
@@ -463,38 +467,43 @@ export function VatEInvoiceRegister({
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
-  async function collectInvoice(invoice: Invoice) {
+  function openCollection(invoice: Invoice) {
     if (!invoice.cash_flow?.id) {
       setMessage({ error: true, text: ar ? 'لا يوجد تدفق قبض مرتبط بهذه الفاتورة المحاسبية.' : 'No collection flow is linked to this accounting invoice.' });
       return;
     }
     const outstanding = Math.max(0, Number(invoice.cash_flow.amount) - Number(invoice.cash_flow.settled_amount || 0));
-    if (outstanding <= 0) return;
     const eligibleAccounts = cashAccounts.filter((account) => account.currency === invoice.cash_flow?.currency);
     if (!eligibleAccounts.length) {
-      setMessage({ error:true, text: ar ? 'لا يوجد حساب بنكي/صندوق نشط بنفس عملة الفاتورة.' : 'No active bank/cash account uses the invoice currency.' }); return;
-    }
-    const choices = eligibleAccounts.map((account,index) => `${index+1}. ${account.name} (${account.currency})`).join('\n');
-    const choice = window.prompt((ar ? 'اختر حساب القبض برقم الخيار:' : 'Choose the collection account by number:') + '\n' + choices, '1');
-    if (!choice) return;
-    const accountId = eligibleAccounts[Number(choice)-1]?.id;
-    if (!accountId) { setMessage({error:true,text:ar?'اختيار الحساب غير صحيح.':'Invalid account selection.'}); return; }
-    const amountText = window.prompt(ar ? `مبلغ القبض (المتبقي ${formatAmount(outstanding)} ${invoice.cash_flow.currency}):` : `Collection amount (outstanding ${formatAmount(outstanding)} ${invoice.cash_flow.currency}):`, String(outstanding));
-    if (!amountText) return;
-    const amount = Number(amountText);
-    if (!(amount > 0) || amount > outstanding) {
-      setMessage({ error: true, text: ar ? 'مبلغ القبض غير صحيح أو أكبر من الرصيد المتبقي.' : 'Collection amount is invalid or exceeds the outstanding balance.' });
+      setMessage({ error:true, text: ar ? 'لا يوجد حساب بنكي/صندوق نشط بنفس عملة الفاتورة.' : 'No active bank/cash account uses the invoice currency.' });
       return;
+    }
+    setCollectionInvoice(invoice);
+    setCollectionAccountId(eligibleAccounts[0]?.id || '');
+    setCollectionAmount(String(outstanding));
+    setCollectionDate(new Date().toISOString().slice(0,10));
+    setMessage(null);
+  }
+
+  async function confirmCollection() {
+    const invoice = collectionInvoice;
+    if (!invoice?.cash_flow?.id) return;
+    const outstanding = Math.max(0, Number(invoice.cash_flow.amount) - Number(invoice.cash_flow.settled_amount || 0));
+    const amount = Number(collectionAmount);
+    if (!collectionAccountId) { setMessage({error:true,text:ar?'اختر حساب القبض.':'Choose a collection account.'}); return; }
+    if (!(amount > 0) || amount > outstanding) {
+      setMessage({ error:true, text:ar?'مبلغ القبض يجب أن يكون أكبر من صفر ولا يتجاوز المتبقي.':'Collection amount must be positive and not exceed outstanding.' }); return;
     }
     setBusy(true); setMessage(null);
     try {
-      const response = await fetch(`/api/liquidity/${invoice.cash_flow.id}`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ status:'ACTUAL', account_id:accountId, amount, settlement_date:new Date().toISOString().slice(0,10) }) });
+      const response = await fetch(`/api/liquidity/${invoice.cash_flow.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status:'ACTUAL',account_id:collectionAccountId,amount,settlement_date:collectionDate}) });
       const body = await response.json();
       if (!response.ok && response.status !== 202) throw new Error(body?.error || `HTTP_${response.status}`);
       const refresh = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
       if (refresh.ok) setInvoices((await refresh.json()).invoices ?? []);
-      setMessage({ error: false, text: response.status === 202 ? (ar ? 'تم تسجيل القبض وهو بانتظار الموافقة المالية.' : 'Collection recorded and is pending financial approval.') : (ar ? 'تم تسجيل القبض وتحديث الذمة والسيولة.' : 'Collection posted; receivable and liquidity were updated.') });
-    } catch (error) { setMessage({ error:true, text:messageFor(error instanceof Error ? error.message : 'COLLECTION_FAILED', ar) }); }
+      setCollectionInvoice(null);
+      setMessage({error:false,text:response.status===202?(ar?'تم تسجيل القبض وهو بانتظار الموافقة المالية.':'Collection recorded and is pending financial approval.'):(ar?'تم تسجيل القبض وتحديث الذمة والسيولة.':'Collection posted; receivable and liquidity were updated.')});
+    } catch(error) { setMessage({error:true,text:messageFor(error instanceof Error?error.message:'COLLECTION_FAILED',ar)}); }
     finally { setBusy(false); }
   }
 
@@ -794,6 +803,19 @@ export function VatEInvoiceRegister({
         <div className="vat-form-actions"><button type="button" className="vat-button secondary" onClick={() => { setShowDraftForm(false); setEditingDraftId(null); setAddMenuOpen(false); }}>{ar ? 'إلغاء' : 'Cancel'}</button><button className="vat-button primary" disabled={!canCreate || !sellerProfileReady || busy || importing || !vatNumber || !Number.isFinite(Number(exchangeRate)) || Number(exchangeRate) <= 0}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? (editingDraftId ? 'حفظ التعديلات' : 'حفظ كمسودة') : (editingDraftId ? 'Save changes' : 'Save as draft'))}</button></div>
       </form>}
 
+      {collectionInvoice?.cash_flow && <div className="vat-import-panel">
+        <div className="vat-section-heading"><div><h4>{ar ? 'تسجيل قبض الفاتورة' : 'Record invoice collection'}</h4><p>{ar ? `فاتورة ${collectionInvoice.invoice_number} · العميل: ${collectionInvoice.buyer_name || '—'}` : `Invoice ${collectionInvoice.invoice_number} · Customer: ${collectionInvoice.buyer_name || '—'}`}</p></div></div>
+        <div className="vat-grid">
+          <label><span>{ar ? 'إجمالي الفاتورة' : 'Invoice total'}</span><input value={`${formatAmount(collectionInvoice.cash_flow.amount)} ${collectionInvoice.cash_flow.currency}`} disabled /></label>
+          <label><span>{ar ? 'المقبوض سابقًا' : 'Previously collected'}</span><input value={`${formatAmount(collectionInvoice.cash_flow.settled_amount || 0)} ${collectionInvoice.cash_flow.currency}`} disabled /></label>
+          <label><span>{ar ? 'المتبقي' : 'Outstanding'}</span><input value={`${formatAmount(Math.max(0,Number(collectionInvoice.cash_flow.amount)-Number(collectionInvoice.cash_flow.settled_amount||0)))} ${collectionInvoice.cash_flow.currency}`} disabled /></label>
+          <label><span>{ar ? 'مبلغ القبض' : 'Collection amount'}</span><input type="number" min="0.01" step="0.01" value={collectionAmount} onChange={(e)=>setCollectionAmount(e.target.value)} /></label>
+          <label><span>{ar ? 'تاريخ القبض' : 'Collection date'}</span><input type="date" value={collectionDate} onChange={(e)=>setCollectionDate(e.target.value)} /></label>
+          <label><span>{ar ? 'حساب القبض' : 'Collection account'}</span><select value={collectionAccountId} onChange={(e)=>setCollectionAccountId(e.target.value)}>{cashAccounts.filter(a=>a.currency===collectionInvoice.cash_flow?.currency).map(a=><option key={a.id} value={a.id}>{a.name} ({a.currency})</option>)}</select></label>
+        </div>
+        <div className="vat-form-actions"><button type="button" className="vat-button secondary" disabled={busy} onClick={()=>setCollectionInvoice(null)}>{ar?'إلغاء':'Cancel'}</button><button type="button" className="vat-button primary" disabled={busy || !collectionAccountId || !collectionAmount || !collectionDate} onClick={()=>void confirmCollection()}>{busy?(ar?'جارٍ التسجيل…':'Posting…'):(ar?'تأكيد القبض':'Confirm collection')}</button></div>
+      </div>}
+
       <div className="vat-einvoice-list" aria-live="polite">
         {loading && <div className="vat-empty-row">{ar ? 'جارٍ تحميل الفواتير…' : 'Loading invoices…'}</div>}
         {!loading && invoices.map((invoice) => <div className="vat-einvoice-item" key={invoice.id}>
@@ -803,7 +825,7 @@ export function VatEInvoiceRegister({
           <div className="vat-invoice-actions">
             {invoice.status === 'ACCOUNTING_READY' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => prepareAccountingInvoiceForZatca(invoice)}>{ar ? 'تجهيز وإصدار ZATCA' : 'Prepare & issue ZATCA'}</button>}
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
-            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => void collectInvoice(invoice)}>{ar ? `قبض المتبقي ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}` : `Collect ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}`}</button>}
+            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => openCollection(invoice)}>{ar ? `قبض المتبقي ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}` : `Collect ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}`}</button>}
             {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) === 0 && <span className="vat-status registered">{ar ? 'مسددة' : 'Paid'}</span>}
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE' || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار ZATCA' : 'Issue ZATCA'}</button>}
             {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}>{ar ? 'إشعار دائن' : 'Credit note'}</button>}
