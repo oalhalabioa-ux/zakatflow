@@ -54,4 +54,10 @@ describe('liquidity AR/AP operational safeguards',()=>{
    expect(ui).toContain('Use Transfers for movements between cash accounts');
    expect(ui).toContain('settles an existing obligation');
  });
+ it('matches counterparties to the accounting treatment before recognition',()=>{
+   expect(liquidity).toContain("allowed_financial_classifications");
+   expect(liquidity).toContain("COUNTERPARTY_ACCOUNTING_CLASSIFICATION_MISMATCH");
+   expect(liquidity).toContain("partyType.code!=='OTHER'");
+ });
+
 });
