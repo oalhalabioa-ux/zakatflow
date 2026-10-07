@@ -113,3 +113,14 @@ describe('VAT e-invoice drafts', () => {
     expect(() => calculateVatEInvoiceDraft(draft)).toThrow('LINE_DISCOUNT_EXCEEDS_AMOUNT:1');
   });
 });
+
+
+describe('invoice rounding parity', () => {
+  it('keeps grouped VAT consistent with the invoice header for many small lines', () => {
+    const draft = vatEInvoiceDraftSchema.parse({ ...baseDraft, lines: Array.from({ length: 10 }, () => ({ item_name: 'Small item', quantity: 1, unit_price: 0.03, tax_category: 'S', tax_rate: 15 })) });
+    const calculated = calculateVatEInvoiceDraft(draft);
+    expect(calculated.totals.tax_total_amount).toBe('0.05');
+    expect(calculated.taxBreakdowns.reduce((sum, group) => sum + Math.round(Number(group.tax_amount) * 100), 0)).toBe(5);
+    expect(calculated.totals.payable_amount).toBe('0.35');
+  });
+});

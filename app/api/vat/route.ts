@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Decimal from 'decimal.js';
+import { invoiceSummaryLines, standaloneIssuedInvoices } from '@/lib/vat-invoice-workflow';
 import { vatDocumentSchema, vatPeriodSummarySchema, vatProfileSchema } from '@/lib/validation/schemas';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { calculateVatAmounts, summarizeVatDocuments } from '@/lib/vat';
@@ -124,19 +125,20 @@ export async function GET(request: Request) {
     for (const document of documents) document.cash_flow = flowByDocument.get(document.id) ?? null;
 
     const { data: issuedInvoices, error: invoiceError } = await supabase.from('vat_einvoices')
-      .select('id,invoice_number,invoice_category,issue_date,buyer_name,buyer_vat_number,organization_id')
+      .select('id,invoice_number,invoice_category,issue_date,buyer_name,buyer_vat_number,organization_id,accounting_document_id')
       .eq('organization_id', organizationId)
       .eq('status', 'ISSUED')
       .gte('issue_date', yearStart)
       .lte('issue_date', period.to)
       .order('issue_date', { ascending: false });
     if (invoiceError) throw invoiceError;
-    const invoiceIds = (issuedInvoices ?? []).map((invoice: { id: string }) => invoice.id);
+    const standaloneInvoices = standaloneIssuedInvoices(issuedInvoices ?? []);
+    const invoiceIds = standaloneInvoices.map((invoice: { id: string }) => invoice.id);
     const { data: invoiceLines, error: invoiceLinesError } = invoiceIds.length
       ? await supabase.from('vat_einvoice_lines').select('invoice_id,tax_category,tax_rate,line_extension_amount,tax_amount').in('invoice_id', invoiceIds)
       : { data: [], error: null };
     if (invoiceLinesError) throw invoiceLinesError;
-    const invoicesById = new Map((issuedInvoices ?? []).map((invoice: any) => [invoice.id, invoice]));
+    const invoicesById = new Map(standaloneInvoices.map((invoice: any) => [invoice.id, invoice]));
     const summaries = new Map<string, any>();
     for (const line of invoiceLines ?? []) {
       const invoice = invoicesById.get(line.invoice_id);
@@ -178,9 +180,7 @@ export async function GET(request: Request) {
       .order('period_start', { ascending: true });
     if (summaryError) throw summaryError;
 
-    const summaryDocuments = documents.flatMap((document: any) => Array.isArray(document.line_items) && document.line_items.length
-      ? document.line_items.map((line: any) => ({ ...document, supply_type: line.supply_type, net_amount: line.net_amount, tax_rate: line.tax_rate, tax_amount: line.tax_amount }))
-      : [document]);
+    const summaryDocuments = documents.flatMap((document: any) => invoiceSummaryLines(document));
     const summarySourceDocuments = [...summaryDocuments, ...issuedDocumentSummaries];
     const periodDocuments = [...documents, ...issuedDocumentSummaries].filter((document) =>
       document.transaction_date >= period.from && document.transaction_date <= period.to,
@@ -340,8 +340,8 @@ export async function POST(request: Request) {
       const baseLines = lineCalculation?.lines.map((line) => convertVatLineToBase(line, fxRate.toString())) ?? null;
       const baseAmounts = baseLines ? {
         netAmount: baseLines.reduce((sum, line) => sum.plus(line.net_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
-        taxAmount: baseLines.reduce((sum, line) => sum.plus(line.tax_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
-        grossAmount: baseLines.reduce((sum, line) => sum.plus(line.gross_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
+        taxAmount: convertVatAmountToBase(sourceAmounts.taxAmount, fxRate.toString()),
+        grossAmount: new Decimal(baseLines.reduce((sum, line) => sum.plus(line.net_amount), new Decimal(0))).plus(convertVatAmountToBase(sourceAmounts.taxAmount, fxRate.toString())).toFixed(2),
       } : {
         netAmount: convertVatAmountToBase(sourceAmounts.netAmount, fxRate.toString()),
         taxAmount: convertVatAmountToBase(sourceAmounts.taxAmount, fxRate.toString()),
@@ -415,8 +415,8 @@ export async function POST(request: Request) {
       const baseLines = lineCalculation?.lines.map((line) => convertVatLineToBase(line, fxRate.toString())) ?? null;
       const baseAmounts = baseLines ? {
         netAmount: baseLines.reduce((sum, line) => sum.plus(line.net_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
-        taxAmount: baseLines.reduce((sum, line) => sum.plus(line.tax_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
-        grossAmount: baseLines.reduce((sum, line) => sum.plus(line.gross_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
+        taxAmount: convertVatAmountToBase(sourceAmounts.taxAmount, fxRate.toString()),
+        grossAmount: new Decimal(baseLines.reduce((sum, line) => sum.plus(line.net_amount), new Decimal(0))).plus(convertVatAmountToBase(sourceAmounts.taxAmount, fxRate.toString())).toFixed(2),
       } : {
         netAmount: convertVatAmountToBase(sourceAmounts.netAmount, fxRate.toString()),
         taxAmount: convertVatAmountToBase(sourceAmounts.taxAmount, fxRate.toString()),

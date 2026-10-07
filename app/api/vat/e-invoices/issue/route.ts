@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/services/auth';
 import { requireOrganizationAdmin } from '@/services/organization-access';
 import { z } from 'zod';
+import Decimal from 'decimal.js';
+import { requestErrorMessage } from '@/lib/vat-invoice-workflow';
 
 export const runtime = 'nodejs';
 
@@ -37,12 +39,22 @@ export async function POST(request: Request) {
     }
     if (!source.accounting_document_id) throw new Error('EINVOICE_ACCOUNTING_SOURCE_REQUIRED');
     const { data: accountingDocument, error: accountingError } = await supabase.from('vat_documents')
-      .select('id,organization_id,document_type,document_number,due_date')
+      .select('id,organization_id,document_type,document_kind,document_number,due_date,transaction_date,counterparty_contact_id,currency,source_currency,source_net_amount,source_tax_amount,source_gross_amount,net_amount,tax_amount,gross_amount,exchange_rate')
       .eq('id', source.accounting_document_id)
       .eq('organization_id', body.organization_id)
       .maybeSingle();
     if (accountingError) throw accountingError;
     if (!accountingDocument || accountingDocument.document_type !== 'SALES') throw new Error('EINVOICE_ACCOUNTING_SOURCE_REQUIRED');
+
+    if (accountingDocument.document_kind !== source.document_type || accountingDocument.document_number !== source.invoice_number
+      || accountingDocument.counterparty_contact_id !== source.buyer_contact_id
+      || (accountingDocument.source_currency || accountingDocument.currency) !== source.currency
+      || accountingDocument.transaction_date !== source.issue_date
+      || (accountingDocument.due_date || accountingDocument.transaction_date) !== (source.due_date || source.issue_date)
+      || !new Decimal(accountingDocument.source_net_amount ?? accountingDocument.net_amount).eq(source.tax_exclusive_amount)
+      || !new Decimal(accountingDocument.source_tax_amount ?? accountingDocument.tax_amount).eq(source.tax_total_amount)
+      || !new Decimal(accountingDocument.source_gross_amount ?? accountingDocument.gross_amount).eq(source.payable_amount)
+      || !new Decimal(accountingDocument.exchange_rate || 1).eq(source.exchange_rate || 1)) throw new Error('EINVOICE_ACCOUNTING_SOURCE_MISMATCH');
 
     // DRAFT is issued once. If issuance succeeded previously but Financial Core
     // preparation failed, an already-issued lifecycle state can safely retry only
@@ -56,11 +68,13 @@ export async function POST(request: Request) {
         throw new Error('EINVOICE_NOT_FOUND');
       }
       invoice = issued as Record<string, unknown>;
-      const issuedStatus = String((issued as Record<string, unknown>).status || 'ISSUED');
-      const { error: accountingStatusError } = await supabase.from('vat_documents')
-        .update({ zatca_status: issuedStatus }).eq('organization_id', body.organization_id).eq('id', source.accounting_document_id);
-      if (accountingStatusError) throw accountingStatusError;
+
     }
+
+    const issuedStatus = String(invoice.status || 'ISSUED');
+    const { error: accountingStatusError } = await supabase.from('vat_documents')
+        .update({ zatca_status: issuedStatus }).eq('organization_id', body.organization_id).eq('id', source.accounting_document_id);
+    if (accountingStatusError) throw accountingStatusError;
 
     return NextResponse.json({
       ...invoice,
@@ -71,7 +85,7 @@ export async function POST(request: Request) {
       },
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
-    const details = error instanceof Error ? error.message : '';
+    const details = requestErrorMessage(error);
     const known: Record<string, number> = {
       UNAUTHORIZED: 401,
       ORGANIZATION_ACCESS_REQUIRED: 403,
@@ -82,6 +96,8 @@ export async function POST(request: Request) {
       EINVOICE_NOT_PREPARABLE: 409,
       NOTE_ISSUANCE_NOT_SUPPORTED: 409,
       EINVOICE_ACCOUNTING_SOURCE_REQUIRED: 409,
+      EINVOICE_ACCOUNTING_SOURCE_MISMATCH: 409,
+      VAT_ISSUE_FORBIDDEN: 403,
       QR_FIELD_TOO_LONG: 400,
       QR_PAYLOAD_TOO_LONG: 400,
     };
