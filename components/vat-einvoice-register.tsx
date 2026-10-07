@@ -135,6 +135,7 @@ export function VatEInvoiceRegister({
   const [lines, setLines] = useState<InvoiceLine[]>(() => [emptyLine(String(standardTaxRate))]);
   const importInput = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
   const sellerProfileReady = Boolean(
     sellerProfile.registered_name.trim() && sellerProfile.seller_street.trim() &&
     /^\d{4}$/.test(sellerProfile.seller_building_number) && sellerProfile.seller_district.trim() &&
@@ -175,6 +176,13 @@ export function VatEInvoiceRegister({
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [organizationId, registered, ar]);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    fetch(`/api/liquidity?organization_id=${encodeURIComponent(organizationId)}`).then(r => r.ok ? r.json() : null).then(body => {
+      if (body?.accounts) setCashAccounts(body.accounts.map((a: any) => ({ id:a.id, name:a.name, currency:a.currency })));
+    }).catch(() => undefined);
+  }, [organizationId]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -421,8 +429,15 @@ export function VatEInvoiceRegister({
     }
     const outstanding = Math.max(0, Number(invoice.cash_flow.amount) - Number(invoice.cash_flow.settled_amount || 0));
     if (outstanding <= 0) return;
-    const accountId = window.prompt(ar ? 'أدخل معرف الحساب البنكي/الصندوق الذي تم القبض عليه:' : 'Enter the bank/cash account ID used for collection:');
-    if (!accountId) return;
+    const eligibleAccounts = cashAccounts.filter((account) => account.currency === invoice.cash_flow?.currency);
+    if (!eligibleAccounts.length) {
+      setMessage({ error:true, text: ar ? 'لا يوجد حساب بنكي/صندوق نشط بنفس عملة الفاتورة.' : 'No active bank/cash account uses the invoice currency.' }); return;
+    }
+    const choices = eligibleAccounts.map((account,index) => `${index+1}. ${account.name} (${account.currency})`).join('\n');
+    const choice = window.prompt((ar ? 'اختر حساب القبض برقم الخيار:' : 'Choose the collection account by number:') + '\n' + choices, '1');
+    if (!choice) return;
+    const accountId = eligibleAccounts[Number(choice)-1]?.id;
+    if (!accountId) { setMessage({error:true,text:ar?'اختيار الحساب غير صحيح.':'Invalid account selection.'}); return; }
     const amountText = window.prompt(ar ? `مبلغ القبض (المتبقي ${formatAmount(outstanding)} ${invoice.cash_flow.currency}):` : `Collection amount (outstanding ${formatAmount(outstanding)} ${invoice.cash_flow.currency}):`, String(outstanding));
     if (!amountText) return;
     const amount = Number(amountText);
