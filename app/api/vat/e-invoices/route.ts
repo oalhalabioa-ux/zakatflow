@@ -71,7 +71,10 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: 'INVALID_JSON_BODY' }, { status: 400 });
     }
-    const parsed = vatEInvoiceDraftSchema.safeParse(requestBody);
+    const rawBody = requestBody as Record<string, unknown>;
+    const accountingDocumentId = typeof rawBody?.accounting_document_id === 'string' ? rawBody.accounting_document_id : null;
+    if (rawBody && 'accounting_document_id' in rawBody) delete rawBody.accounting_document_id;
+    const parsed = vatEInvoiceDraftSchema.safeParse(rawBody);
     if (!parsed.success) {
       return NextResponse.json({ error: 'INVALID_EINVOICE_DRAFT', issues: parsed.error.issues.map(({ path, message }) => ({ path, message })) }, { status: 400 });
     }
@@ -176,6 +179,10 @@ export async function POST(request: Request) {
     ).select('*');
     if (lineError) throw lineError;
 
+    if (accountingDocumentId) {
+      const { error: linkError } = await supabase.rpc('link_zatca_accounting_document', { p_einvoice_id: invoice.id, p_document_id: accountingDocumentId });
+      if (linkError) throw linkError;
+    }
     await supabase.from('audit_logs').insert({
       user_id: user.id,
       entity_type: 'vat_einvoice',
@@ -190,7 +197,7 @@ export async function POST(request: Request) {
         status: 'DRAFT',
       },
     });
-    return NextResponse.json({ ...invoice, ...calculated.totals, lines: savedLines ?? [] }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ...invoice, accounting_document_id: accountingDocumentId, ...calculated.totals, lines: savedLines ?? [] }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     if (createdInvoiceId) {
       try {
