@@ -67,6 +67,7 @@ type VatDocument = VatDocumentForSummary & {
   source_gross_amount?: string | number;
   notes?: string | null;
   is_einvoice?: boolean;
+  cash_flow?: { id:string; direction:'INFLOW'|'OUTFLOW'; amount:string; settled_amount:string; settlement_status:string; status:string; currency:string; due_date:string|null } | null;
 };
 
 type VatProfileDraft = {
@@ -172,6 +173,11 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [profileLoadState, setProfileLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [profileDraft, setProfileDraft] = useState<VatProfileDraft>(emptyProfile);
   const [documents, setDocuments] = useState<VatDocument[]>([]);
+  const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
+  const [paymentDocument, setPaymentDocument] = useState<VatDocument | null>(null);
+  const [paymentAccountId, setPaymentAccountId] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0,10));
   const [period, setPeriod] = useState(() => getVatPeriod(currentMonth(), 'QUARTERLY'));
   const reportPeriod = useMemo(() => getVatPeriod(periodMonth, reportFrequency, 1), [periodMonth, reportFrequency]);
   const [yearStart, setYearStart] = useState(`${new Date().getFullYear()}-01-01`);
@@ -668,6 +674,36 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     setRegisterFormOpen(true); setRegisterAddMenuOpen(false); setNotice(null);
   }
 
+  function openPurchasePayment(document: VatDocument) {
+    const flow = document.cash_flow;
+    if (!flow?.id || flow.direction !== 'OUTFLOW') {
+      setNotice({kind:'error',text:ar?'لا يوجد تدفق سداد مرتبط بهذه الفاتورة. يجب استكمال ربطها بالأساس المالي أولًا.':'No payable cash flow is linked to this invoice. Complete its Financial Core link first.'});
+      return;
+    }
+    const outstanding=Math.max(0,Number(flow.amount)-Number(flow.settled_amount||0));
+    if (!(outstanding>0)) { setNotice({kind:'success',text:ar?'الفاتورة مسددة بالكامل.':'Invoice is fully paid.'}); return; }
+    const eligible=cashAccounts.filter(account=>account.currency===flow.currency);
+    if(!eligible.length){setNotice({kind:'error',text:ar?'لا يوجد حساب بنكي/صندوق نشط بنفس عملة الفاتورة.':'No active bank/cash account uses the invoice currency.'});return;}
+    setPaymentDocument(document); setPaymentAccountId(eligible[0].id); setPaymentAmount(String(outstanding)); setPaymentDate(new Date().toISOString().slice(0,10)); setNotice(null);
+  }
+
+  async function confirmPurchasePayment() {
+    const document=paymentDocument, flow=document?.cash_flow;
+    if(!document||!flow?.id)return;
+    const outstanding=Math.max(0,Number(flow.amount)-Number(flow.settled_amount||0)), amount=Number(paymentAmount);
+    if(!paymentAccountId){setNotice({kind:'error',text:ar?'اختر حساب السداد.':'Choose a payment account.'});return;}
+    if(!(amount>0)||amount>outstanding){setNotice({kind:'error',text:ar?'مبلغ السداد يجب أن يكون أكبر من صفر ولا يتجاوز المتبقي.':'Payment must be positive and not exceed outstanding.'});return;}
+    setSaving(true);setNotice(null);
+    try{
+      const response=await fetch(`/api/liquidity/${flow.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'ACTUAL',account_id:paymentAccountId,amount,settlement_date:paymentDate})});
+      const body=await response.json();
+      if(!response.ok&&response.status!==202)throw new Error(body?.error||`HTTP_${response.status}`);
+      setPaymentDocument(null);
+      setNotice({kind:'success',text:response.status===202?(ar?'تم تسجيل السداد وهو بانتظار الموافقة المالية.':'Payment recorded and is pending financial approval.'):(ar?'تم تسجيل السداد وتحديث ذمة المورد والسيولة.':'Payment posted; supplier payable and liquidity were updated.')});
+      await reloadData();
+    }catch(error:any){setNotice({kind:'error',text:messageFor(error.message||'PAYMENT_FAILED',ar)});}finally{setSaving(false);}
+  }
+
   async function deleteDocument(documentId: string) {
     if (!organizationId || !window.confirm(ar ? 'حذف هذا المستند من السجل؟' : 'Delete this document from the register?')) return;
     setSaving(true);
@@ -690,6 +726,13 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     setInvoiceRefresh((revision) => revision + 1);
   }
 
+  useEffect(() => {
+    if (!organizationId) return;
+    fetch(`/api/liquidity?organization_id=${encodeURIComponent(organizationId)}`).then(r=>r.ok?r.json():null).then(body=>{
+      if(body?.accounts)setCashAccounts(body.accounts.map((a:any)=>({id:a.id,name:a.name,currency:a.currency})));
+    }).catch(()=>undefined);
+  },[organizationId]);
+
   const isRegistered = profile?.registration_status === 'REGISTERED';
 
   return (
@@ -703,6 +746,18 @@ export default function VatManagement({ params, searchParams }: { params: Promis
       </header>
 
       {notice && <div className={`vat-notice ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</div>}
+      {paymentDocument?.cash_flow && <section className="vat-panel" aria-label={ar?'تأكيد سداد فاتورة المشتريات':'Confirm purchase invoice payment'}>
+        <div className="vat-panel-head"><div><span className="vat-eyebrow">{ar?'سداد المورد':'SUPPLIER PAYMENT'}</span><h2>{ar?'تسجيل وتأكيد سداد الفاتورة':'Record and confirm invoice payment'}</h2><p>{paymentDocument.counterparty_name} · {paymentDocument.document_number}</p></div></div>
+        <div className="vat-form-grid">
+          <label><span>{ar?'إجمالي الفاتورة':'Invoice total'}</span><input readOnly value={money(paymentDocument.cash_flow.amount)} /></label>
+          <label><span>{ar?'المسدد سابقًا':'Previously paid'}</span><input readOnly value={money(paymentDocument.cash_flow.settled_amount||0)} /></label>
+          <label><span>{ar?'المتبقي':'Outstanding'}</span><input readOnly value={money(Math.max(0,Number(paymentDocument.cash_flow.amount)-Number(paymentDocument.cash_flow.settled_amount||0)))} /></label>
+          <label><span>{ar?'مبلغ السداد':'Payment amount'}</span><input type="number" min="0.01" step="0.01" value={paymentAmount} onChange={e=>setPaymentAmount(e.target.value)} /></label>
+          <label><span>{ar?'تاريخ السداد':'Payment date'}</span><input type="date" value={paymentDate} onChange={e=>setPaymentDate(e.target.value)} /></label>
+          <label><span>{ar?'الحساب البنكي / الصندوق':'Bank / cash account'}</span><select value={paymentAccountId} onChange={e=>setPaymentAccountId(e.target.value)}>{cashAccounts.filter(a=>a.currency===paymentDocument.cash_flow?.currency).map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></label>
+        </div>
+        <div className="vat-form-actions"><button type="button" className="vat-button secondary" onClick={()=>setPaymentDocument(null)} disabled={saving}>{ar?'إلغاء':'Cancel'}</button><button type="button" className="vat-button primary" onClick={()=>void confirmPurchasePayment()} disabled={saving}>{saving?(ar?'جارٍ السداد…':'Paying…'):(ar?'تأكيد السداد':'Confirm payment')}</button></div>
+      </section>}
 
       {loadingOrganizations ? <div className="vat-loading" role="status">{ar ? 'جارٍ تحميل الشركات…' : 'Loading organizations…'}</div> : !organizations.length ? (
         <section className="vat-panel vat-empty">
@@ -1042,7 +1097,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               <tbody>
                 {filteredRegisterDocuments.map((document) => <tr key={document.id}>
                   <td className="vat-invoice-counterparty"><strong>{document.counterparty_name || (ar ? 'بدون اسم جهة' : 'Unnamed counterparty')}</strong><small>{document.counterparty_tax_number || ''}</small></td><td><span className={`vat-type-pill ${document.document_kind === 'CREDIT_NOTE' ? 'credit' : 'invoice'}`}>{document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'فاتورة ضريبية' : 'Tax invoice')}</span></td>
-                  <td><strong className="vat-invoice-number">{document.document_number}</strong></td><td dir="ltr">{document.transaction_date}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td className="vat-invoice-gross">{vatDocumentAmount(document, 'gross')}</td><td><span className={`vat-invoice-source ${document.is_einvoice ? 'electronic' : ''}`}>{document.is_einvoice ? (ar ? 'زكاة فلو · إلكترونية' : 'ZakatFlow · e-invoice') : (ar ? 'إدخال محاسبي' : 'Accounting entry')}</span></td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'عرض' : 'View'}</span> : <span className="vat-row-actions">{['SALES','PURCHASE'].includes(document.document_type) && document.document_kind === 'INVOICE' && !(document as any).asset_transaction_id && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}>{ar ? 'تعديل' : 'Edit'}</button>}<button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button></span>}</td>
+                  <td><strong className="vat-invoice-number">{document.document_number}</strong></td><td dir="ltr">{document.transaction_date}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td className="vat-invoice-gross">{vatDocumentAmount(document, 'gross')}</td><td><span className={`vat-invoice-source ${document.is_einvoice ? 'electronic' : ''}`}>{document.is_einvoice ? (ar ? 'زكاة فلو · إلكترونية' : 'ZakatFlow · e-invoice') : (ar ? 'إدخال محاسبي' : 'Accounting entry')}</span></td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'عرض' : 'View'}</span> : <span className="vat-row-actions">{document.document_type === 'PURCHASE' && document.document_kind === 'INVOICE' && document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)>0 && <button type="button" className="vat-button primary" onClick={() => openPurchasePayment(document)} disabled={saving}>{ar ? 'سداد' : 'Pay'}</button>}{['SALES','PURCHASE'].includes(document.document_type) && document.document_kind === 'INVOICE' && !(document as any).asset_transaction_id && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}>{ar ? 'تعديل' : 'Edit'}</button>}<button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button></span>}</td>
                 </tr>)}
                 {!filteredRegisterDocuments.length && <tr><td colSpan={10} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : registerDocuments.length ? (ar ? 'لا توجد مستندات تطابق خيارات البحث.' : 'No documents match these filters.') : (registerDirection === 'PURCHASE' ? (ar ? 'لا توجد فواتير مشتريات مسجلة لهذه الفترة.' : 'No purchase invoices have been recorded for this period.') : (ar ? 'لا توجد فواتير مبيعات مسجلة لهذه الفترة.' : 'No sales invoices have been recorded for this period.'))}</td></tr>}
               </tbody>
