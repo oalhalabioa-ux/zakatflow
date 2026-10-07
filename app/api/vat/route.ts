@@ -312,6 +312,46 @@ export async function POST(request: Request) {
       return NextResponse.json(data);
     }
 
+    if (body.action === 'update_document') {
+      const documentId = typeof body.document_id === 'string' ? body.document_id : '';
+      const document = vatDocumentSchema.parse(body);
+      if (!documentId || document.document_type !== 'SALES' || document.document_kind !== 'INVOICE') throw new Error('VAT_DOCUMENT_EDIT_NOT_ALLOWED');
+      await requireOrganizationAdmin(supabase, user.id, document.organization_id);
+      const { data: profile, error: profileError } = await supabase.from('vat_profiles').select('standard_rate').eq('organization_id', document.organization_id).single();
+      if (profileError) throw profileError;
+      const { data: organization, error: organizationError } = await supabase.from('organizations').select('base_currency').eq('id', document.organization_id).single();
+      if (organizationError) throw organizationError;
+      const baseCurrency = String(organization.base_currency || 'SAR').toUpperCase();
+      const lineCalculation = document.lines?.length ? calculateVatDocumentLines(document.lines, profile.standard_rate) : null;
+      const supplyType = lineCalculation?.lines[0]?.supply_type ?? document.supply_type;
+      const taxRate = supplyType === 'STANDARD' ? Number(profile.standard_rate) : 0;
+      const sourceAmounts = lineCalculation ?? calculateVatAmounts(document.net_amount, taxRate);
+      const fxRate = new Decimal(document.exchange_rate);
+      const baseLines = lineCalculation?.lines.map((line) => convertVatLineToBase(line, fxRate.toString())) ?? null;
+      const baseAmounts = baseLines ? {
+        netAmount: baseLines.reduce((sum, line) => sum.plus(line.net_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
+        taxAmount: baseLines.reduce((sum, line) => sum.plus(line.tax_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
+        grossAmount: baseLines.reduce((sum, line) => sum.plus(line.gross_amount), new Decimal(0)).toDecimalPlaces(2).toFixed(2),
+      } : {
+        netAmount: convertVatAmountToBase(sourceAmounts.netAmount, fxRate.toString()),
+        taxAmount: convertVatAmountToBase(sourceAmounts.taxAmount, fxRate.toString()),
+        grossAmount: convertVatAmountToBase(sourceAmounts.grossAmount, fxRate.toString()),
+      };
+      const sourceTaxRate = lineCalculation ? (Number(sourceAmounts.netAmount) ? (Number(sourceAmounts.taxAmount) / Number(sourceAmounts.netAmount) * 100).toFixed(2) : '0.00') : taxRate.toFixed(2);
+      const { data: contact, error: contactError } = await supabase.from('vat_contacts').select('id,name,vat_number,contact_type').eq('id',document.counterparty_contact_id).eq('organization_id',document.organization_id).maybeSingle();
+      if (contactError) throw contactError;
+      if (!contact || !['CUSTOMER','BOTH'].includes(contact.contact_type)) throw new Error('VAT_CONTACT_TYPE_MISMATCH');
+      const { data: amended, error: amendError } = await supabase.rpc('amend_unissued_sales_invoice', {
+        p_document_id:documentId,p_document_number:document.document_number,p_transaction_date:document.transaction_date,p_due_date:document.due_date,
+        p_contact_id:contact.id,p_counterparty_name:contact.name,p_counterparty_tax_number:contact.vat_number || '',
+        p_supply_type:supplyType,p_net:Number(baseAmounts.netAmount),p_tax_rate:Number(sourceTaxRate),p_tax:Number(baseAmounts.taxAmount),p_gross:Number(baseAmounts.grossAmount),
+        p_line_items:baseLines,p_notes:document.notes?.trim() || null,
+      });
+      if (amendError) throw amendError;
+      await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'vat_document',entity_id:documentId,action:'AMEND_BEFORE_ISSUANCE',new_data:{document_number:document.document_number,gross_amount:baseAmounts.grossAmount,due_date:document.due_date}});
+      return NextResponse.json({id:amended,updated:true});
+    }
+
     if (body.action === 'add_document') {
       const document = vatDocumentSchema.parse(body);
       await requireOrganizationAdmin(supabase, user.id, document.organization_id);
