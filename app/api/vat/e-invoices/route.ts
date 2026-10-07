@@ -64,7 +64,7 @@ export async function GET(request: Request) {
       invoiceLines.push(line);
       linesByInvoice.set(line.invoice_id, invoiceLines);
     }
-    return NextResponse.json({ is_admin: ['OWNER', 'ADMIN'].includes(membership.role), invoices: (invoices ?? []).map((invoice: { id: string }) => ({
+    return NextResponse.json({ is_admin: ['OWNER', 'ADMIN'].includes(membership.role), invoices: (invoices ?? []).map((invoice: any) => ({
       ...invoice,
       accounting_document: invoice.accounting_document_id ? accountingById.get(invoice.accounting_document_id) ?? null : null,
       cash_flow: invoice.accounting_document_id ? cashByDocument.get(invoice.accounting_document_id) ?? null : null,
