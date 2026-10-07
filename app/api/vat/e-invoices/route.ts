@@ -28,47 +28,6 @@ function errorResponse(error: unknown) {
   return NextResponse.json({ error: code }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
-async function syncAccountingSalesInvoice(supabase: any, userId: string, invoice: any) {
-  if (invoice.document_type !== 'INVOICE' || !invoice.due_date) return null;
-  const { data: existing, error: existingError } = await supabase.from('sales_accounting_invoices')
-    .select('*').eq('organization_id', invoice.organization_id).eq('source_zatca_invoice_id', invoice.id).maybeSingle();
-  if (existingError) throw existingError;
-  if (existing && existing.status !== 'DRAFT') throw new Error('ACCOUNTING_INVOICE_LOCKED');
-
-  const { data: entities, error: entityError } = await supabase.from('organization_entities')
-    .select('id').eq('organization_id', invoice.organization_id).eq('active', true).limit(2);
-  if (entityError) throw entityError;
-  if (!entities || entities.length !== 1) throw new Error('VAT_FINANCIAL_ENTITY_REQUIRED');
-
-  const values = {
-    organization_id: invoice.organization_id,
-    entity_id: entities[0].id,
-    invoice_number: invoice.invoice_number,
-    status: 'DRAFT',
-    invoice_date: invoice.issue_date,
-    due_date: invoice.due_date,
-    currency: invoice.currency,
-    exchange_rate: invoice.exchange_rate || 1,
-    customer_contact_id: invoice.buyer_contact_id || null,
-    customer_name: invoice.buyer_name || 'Customer',
-    net_amount: invoice.tax_exclusive_amount,
-    tax_amount: invoice.tax_total_amount,
-    total_amount: invoice.payable_amount,
-    source_zatca_invoice_id: invoice.id,
-    document_type: 'INVOICE',
-    updated_at: new Date().toISOString(),
-  };
-  let accounting = existing;
-  if (existing) {
-    const { data, error } = await supabase.from('sales_accounting_invoices').update(values).eq('id', existing.id).select('*').single();
-    if (error) throw error; accounting = data;
-  } else {
-    const { data, error } = await supabase.from('sales_accounting_invoices').insert({ ...values, created_by: userId }).select('*').single();
-    if (error) throw error; accounting = data;
-  }
-  return accounting;
-}
-
 export async function GET(request: Request) {
   try {
     const { supabase, user } = await requireUser();
@@ -383,8 +342,7 @@ export async function PATCH(request: Request) {
       action: 'DRAFT_UPDATED',
       new_data: { invoice_number: draft.invoice_number, line_count: lines.length, status: 'DRAFT' },
     });
-    const accountingInvoice = await syncAccountingSalesInvoice(supabase, user.id, updatedInvoice);
-    return NextResponse.json({ ...updatedInvoice, lines: savedLines ?? [], accounting_invoice: accountingInvoice ? { id: accountingInvoice.id, status: accountingInvoice.status } : null }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ...updatedInvoice, lines: savedLines ?? [] }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return errorResponse(error);
   }
