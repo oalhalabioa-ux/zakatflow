@@ -64,6 +64,12 @@ export async function GET(request: Request) {
     if (cashError) throw cashError;
     const accountingById = new Map((accountingDocuments ?? []).map((row: any) => [row.id,row]));
     const cashByDocument = new Map((cashFlows ?? []).map((row: any) => [row.source_record_id,row]));
+    const pendingIds = (pendingAccounting ?? []).filter((doc:any)=>!linkedAccountingIds.has(doc.id)).map((doc:any)=>doc.id);
+    const { data: pendingFlows, error: pendingFlowError } = pendingIds.length
+      ? await supabase.from('liquidity_flows').select('id,source_record_id,amount,settled_amount,settlement_status,status,currency,due_date').eq('organization_id',organizationId).eq('source_module','VAT_INTEGRATION').in('source_record_id',pendingIds)
+      : { data: [], error: null };
+    if (pendingFlowError) throw pendingFlowError;
+    const pendingFlowByDoc = new Map((pendingFlows ?? []).map((row:any)=>[row.source_record_id,row]));
     const linesByInvoice = new Map<string, unknown[]>();
     for (const line of lines ?? []) {
       const invoiceLines = linesByInvoice.get(line.invoice_id) ?? [];
