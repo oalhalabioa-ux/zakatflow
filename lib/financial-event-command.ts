@@ -17,6 +17,7 @@ export const financialEventActionSchema=z.discriminatedUnion('action',[
  z.object({action:z.literal('RECOGNIZE_VAT'),organization_id:uuid,event_id:uuid}).strict(),
  z.object({action:z.literal('POST_SETTLEMENT'),organization_id:uuid,event_id:uuid,account_id:uuid,direction:z.enum(['INFLOW','OUTFLOW']),settlement_date:z.string().date(),amount:money,currency,exchange_rate:money,base_amount:money,allocations:z.array(z.object({obligation_id:uuid,flow_id:uuid,amount:money,base_amount:money,flow_amount:money,flow_currency:currency,flow_exchange_rate:money}).strict()).min(1).max(50)}).strict(),
  z.object({action:z.literal('POST_SAVED_SETTLEMENT'),organization_id:uuid,event_id:uuid,account_id:uuid.optional(),settlement_date:z.string().date().optional()}).strict(),
+ z.object({action:z.literal('POST_NONALLOCATING_CASH'),organization_id:uuid,event_id:uuid,recognition_event_id:uuid,flow_id:uuid,account_id:uuid,direction:z.enum(['INFLOW','OUTFLOW']),settlement_date:z.string().date(),amount:money,currency,exchange_rate:money,base_amount:money,treatment:z.enum(['FINANCING','EQUITY'])}).strict(),
  z.object({action:z.literal('CLASSIFICATION'),organization_id:uuid,code:z.string().trim().min(1).max(60),name:z.string().trim().min(1).max(160),classification_type:z.enum(['REVENUE','OPEX','CAPEX','ASSET','LIABILITY','FINANCING','INVESTMENT','EQUITY','TAX','ZAKAT','RECEIVABLE','PAYABLE','TRANSFER','OTHER'])}).strict(),
  z.object({action:z.literal('ROUTE'),...dimensions,entity_id:uuid,event_id:uuid,key:text}).strict()
 ]);
