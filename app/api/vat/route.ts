@@ -315,7 +315,7 @@ export async function POST(request: Request) {
     if (body.action === 'update_document') {
       const documentId = typeof body.document_id === 'string' ? body.document_id : '';
       const document = vatDocumentSchema.parse(body);
-      if (!documentId || document.document_type !== 'SALES' || document.document_kind !== 'INVOICE') throw new Error('VAT_DOCUMENT_EDIT_NOT_ALLOWED');
+      if (!documentId || !['SALES','PURCHASE'].includes(document.document_type) || document.document_kind !== 'INVOICE' || document.asset_transaction_id) throw new Error('VAT_DOCUMENT_EDIT_NOT_ALLOWED');
       await requireOrganizationAdmin(supabase, user.id, document.organization_id);
       const { data: profile, error: profileError } = await supabase.from('vat_profiles').select('standard_rate').eq('organization_id', document.organization_id).single();
       if (profileError) throw profileError;
@@ -340,13 +340,16 @@ export async function POST(request: Request) {
       const sourceTaxRate = lineCalculation ? (Number(sourceAmounts.netAmount) ? (Number(sourceAmounts.taxAmount) / Number(sourceAmounts.netAmount) * 100).toFixed(2) : '0.00') : taxRate.toFixed(2);
       const { data: contact, error: contactError } = await supabase.from('vat_contacts').select('id,name,vat_number,contact_type').eq('id',document.counterparty_contact_id).eq('organization_id',document.organization_id).maybeSingle();
       if (contactError) throw contactError;
-      if (!contact || !['CUSTOMER','BOTH'].includes(contact.contact_type)) throw new Error('VAT_CONTACT_TYPE_MISMATCH');
-      const { data: amended, error: amendError } = await supabase.rpc('amend_unissued_sales_invoice', {
+      if (!contact || ![(document.document_type === 'SALES' ? 'CUSTOMER' : 'SUPPLIER'),'BOTH'].includes(contact.contact_type)) throw new Error('VAT_CONTACT_TYPE_MISMATCH');
+      const amendmentRpc = document.document_type === 'PURCHASE' ? 'amend_unsettled_purchase_invoice' : 'amend_unissued_sales_invoice';
+      const amendmentArgs = {
         p_document_id:documentId,p_document_number:document.document_number,p_transaction_date:document.transaction_date,p_due_date:document.due_date,
         p_contact_id:contact.id,p_counterparty_name:contact.name,p_counterparty_tax_number:contact.vat_number || '',
         p_supply_type:supplyType,p_net:Number(baseAmounts.netAmount),p_tax_rate:Number(sourceTaxRate),p_tax:Number(baseAmounts.taxAmount),p_gross:Number(baseAmounts.grossAmount),
+        ...(document.document_type === 'PURCHASE' ? { p_recoverable_percent: document.recoverable_percent } : {}),
         p_line_items:baseLines,p_notes:document.notes?.trim() || null,
-      });
+      };
+      const { data: amended, error: amendError } = await supabase.rpc(amendmentRpc, amendmentArgs);
       if (amendError) throw amendError;
       await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'vat_document',entity_id:documentId,action:'AMEND_BEFORE_ISSUANCE',new_data:{document_number:document.document_number,gross_amount:baseAmounts.grossAmount,due_date:document.due_date}});
       return NextResponse.json({id:amended,updated:true});
