@@ -804,7 +804,7 @@ export function VatEInvoiceRegister({
       </form>}
 
       {collectionInvoice?.cash_flow && <div className="vat-import-panel">
-        <div className="vat-section-heading"><div><h4>{ar ? 'تسجيل قبض الفاتورة' : 'Record invoice collection'}</h4><p>{ar ? `فاتورة ${collectionInvoice.invoice_number} · العميل: ${collectionInvoice.buyer_name || '—'}` : `Invoice ${collectionInvoice.invoice_number} · Customer: ${collectionInvoice.buyer_name || '—'}`}</p></div></div>
+        <div className="vat-section-heading"><div><h4>{ar ? 'تسجيل وتأكيد قبض الفاتورة' : 'Record and confirm invoice collection'}</h4><p>{ar ? `فاتورة ${collectionInvoice.invoice_number} · العميل: ${collectionInvoice.buyer_name || '—'}` : `Invoice ${collectionInvoice.invoice_number} · Customer: ${collectionInvoice.buyer_name || '—'}`}</p></div></div>
         <div className="vat-grid">
           <label><span>{ar ? 'إجمالي الفاتورة' : 'Invoice total'}</span><input value={`${formatAmount(collectionInvoice.cash_flow.amount)} ${collectionInvoice.cash_flow.currency}`} disabled /></label>
           <label><span>{ar ? 'المقبوض سابقًا' : 'Previously collected'}</span><input value={`${formatAmount(collectionInvoice.cash_flow.settled_amount || 0)} ${collectionInvoice.cash_flow.currency}`} disabled /></label>
