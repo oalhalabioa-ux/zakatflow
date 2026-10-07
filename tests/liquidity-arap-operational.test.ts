@@ -25,6 +25,11 @@ describe('liquidity AR/AP operational safeguards',()=>{
    expect(vat).toContain('due_date: document.due_date');
    expect(vat).toContain("link_type: 'CASH_FLOW'");
  });
+ it('rejects recognition event type drift from the selected financial treatment',()=>{
+   expect(liquidity).toContain('LIQUIDITY_RECOGNITION_TREATMENT_MISMATCH');
+   expect(liquidity).toContain("existing.event_type!==eventType");
+   expect(liquidity).toContain("treatment==='LIABILITY'||treatment==='FINANCING'||treatment==='EQUITY'?'LIABILITY'");
+ });
  it('routes receivable payable and transfers away from new recognition',()=>{
    expect(liquidity).toContain("['RECEIVABLE','PAYABLE','TRANSFER'].includes(treatment)");
    expect(ui).toContain('Use Transfers for movements between cash accounts');
