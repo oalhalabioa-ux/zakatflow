@@ -278,7 +278,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'INVALID_JSON_BODY' }, { status: 400 });
     }
     const invoiceId = typeof body.invoice_id === 'string' ? body.invoice_id : '';
-    const { invoice_id: _invoiceId, ...draftBody } = body;
+    const accountingDocumentId = typeof body.accounting_document_id === 'string' ? body.accounting_document_id : null;
+    const { invoice_id: _invoiceId, accounting_document_id: _accountingDocumentId, ...draftBody } = body;
     const parsed = vatEInvoiceDraftSchema.safeParse(draftBody);
     if (!parsed.success) {
       return NextResponse.json({ error: 'INVALID_EINVOICE_DRAFT', issues: parsed.error.issues.map(({ path, message }) => ({ path, message })) }, { status: 400 });
@@ -367,6 +368,11 @@ export async function PATCH(request: Request) {
       .eq('invoice_id', invoiceId)
       .order('line_number');
     if (oldLinesError) throw oldLinesError;
+
+    if (accountingDocumentId && !existing.accounting_document_id) {
+      const { error: linkError } = await supabase.rpc('link_zatca_accounting_document', { p_einvoice_id: invoiceId, p_document_id: accountingDocumentId });
+      if (linkError) throw linkError;
+    }
 
     const { data: updatedInvoice, error: updateError } = await supabase.from('vat_einvoices')
       .update(updateValues)
