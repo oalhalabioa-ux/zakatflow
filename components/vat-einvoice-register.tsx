@@ -348,6 +348,22 @@ export function VatEInvoiceRegister({
     }
   }
 
+  async function deleteDraft(invoice: Invoice) {
+    if (invoice.status !== 'DRAFT') return;
+    const prompt = ar ? 'حذف المسودة رقم ' + invoice.invoice_number + '؟ لا يمكن التراجع عن الحذف.' : 'Delete draft ' + invoice.invoice_number + '? This cannot be undone.';
+    if (!window.confirm(prompt)) return;
+    setBusy(true); setMessage(null);
+    try {
+      const response = await fetch('/api/vat/e-invoices?invoice_id=' + encodeURIComponent(invoice.id), { method: 'DELETE' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error || ('HTTP_' + response.status));
+      setInvoices((current) => current.filter((item) => item.id !== invoice.id));
+      setMessage({ error:false, text: ar ? 'تم حذف المسودة غير المصدرة بأمان.' : 'The unissued draft was deleted safely.' });
+    } catch (error) {
+      setMessage({ error:true, text: messageFor(error instanceof Error ? error.message : 'UNKNOWN_ERROR', ar) });
+    } finally { setBusy(false); }
+  }
+
   async function importFile(file?: File) {
     if (!file) return;
     setImporting(true);
@@ -847,6 +863,7 @@ export function VatEInvoiceRegister({
             {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => openCollection(invoice)}>{ar ? `قبض المتبقي ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}` : `Collect ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}`}</button>}
             {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) === 0 && <span className="vat-status registered">{ar ? 'مسددة' : 'Paid'}</span>}
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE' || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار ZATCA' : 'Issue ZATCA'}</button>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id} onClick={() => void deleteDraft(invoice)}>{ar ? 'حذف' : 'Delete'}</button>}
             {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}>{ar ? 'إشعار دائن' : 'Credit note'}</button>}
             {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}>{ar ? 'إشعار مدين' : 'Debit note'}</button>}
             {invoice.status === 'ISSUED' && invoice.qr_code && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'عرض / PDF' : 'View / PDF'}</button>}
@@ -953,8 +970,16 @@ function messageFor(code: string, ar: boolean) {
     IMPORT_CSV_UNCLOSED_QUOTE: ['يوجد اقتباس غير مغلق في ملف CSV.', 'A quoted field is not closed in the CSV file.'],
     IMPORT_INVOICE_NUMBER_MISSING: ['يوجد صف بلا رقم فاتورة.', 'A row is missing an invoice number.'],
     EINVOICE_NOT_FOUND: ['لم يتم العثور على الفاتورة.', 'Invoice not found.'],
+    EINVOICE_DELETE_ISSUED_FORBIDDEN: ['لا يمكن حذف فاتورة صادرة. استخدم إشعارًا دائنًا أو مدينًا.', 'An issued invoice cannot be deleted. Use a credit or debit note.'],
+    EINVOICE_DELETE_SETTLED_FORBIDDEN: ['لا يمكن حذف فاتورة بدأ عليها قبض أو تسوية.', 'An invoice with collection or settlement activity cannot be deleted.'],
+    VAT_DOCUMENT_NUMBER_EXISTS: ['رقم الفاتورة مستخدم محاسبيًا من قبل في هذه المؤسسة.', 'This invoice number already exists in the accounting register.'],
+    VAT_FINANCIAL_ENTITY_REQUIRED: ['يجب ضبط كيان مالي واحد نشط للمنشأة قبل الحفظ.', 'Configure exactly one active financial entity before saving.'],
+    VAT_FINANCIAL_CLASSIFICATIONS_REQUIRED: ['تصنيفات الإيراد والضريبة في الأساس المالي غير مكتملة.', 'Financial Core revenue/tax classifications are incomplete.'],
+    VAT_STABLE_CONTACT_REQUIRED: ['اختر عميلاً محفوظًا من قائمة العملاء قبل الحفظ.', 'Select a saved customer before saving.'],
     QR_FIELD_TOO_LONG: ['إحدى بيانات QR أطول من الحد المسموح.', 'A QR field exceeds the supported size.'],
   };
   if (code.startsWith('LINE_DISCOUNT_EXCEEDS_AMOUNT:')) return ar ? 'لا يمكن أن يتجاوز الخصم إجمالي قيمة البند.' : 'A line discount cannot exceed the line amount.';
-  return labels[code]?.[ar ? 0 : 1] ?? (ar ? 'تعذر حفظ المسودة. تحقق من البيانات ثم أعد المحاولة.' : 'Could not save the draft. Check the details and try again.');
+  if (labels[code]) return labels[code][ar ? 0 : 1];
+  const safeCode = /^[A-Z0-9_:-]+$/.test(code) ? code : 'UNKNOWN_ERROR';
+  return ar ? 'تعذر حفظ المسودة (' + safeCode + ').' : 'Could not save the draft (' + safeCode + ').';
 }
