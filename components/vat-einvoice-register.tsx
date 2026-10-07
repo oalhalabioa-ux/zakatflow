@@ -137,6 +137,7 @@ export function VatEInvoiceRegister({
   const [importing, setImporting] = useState(false);
   const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
   const [noteSource, setNoteSource] = useState<Invoice | null>(null);
+  const [accountingSourceId, setAccountingSourceId] = useState<string | null>(null);
   const sellerProfileReady = Boolean(
     sellerProfile.registered_name.trim() && sellerProfile.seller_street.trim() &&
     /^\d{4}$/.test(sellerProfile.seller_building_number) && sellerProfile.seller_district.trim() &&
@@ -242,7 +243,7 @@ export function VatEInvoiceRegister({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(editingDraftId ? { invoice_id: editingDraftId } : {}),
-          ...(!editingDraftId && accountingDocumentId ? { accounting_document_id: accountingDocumentId } : {}),
+          ...(!editingDraftId && (accountingDocumentId || accountingSourceId) ? { accounting_document_id: accountingDocumentId || accountingSourceId } : {}),
           organization_id: organizationId,
           invoice_number: invoiceNumber,
           invoice_category: category,
@@ -295,6 +296,7 @@ export function VatEInvoiceRegister({
         : [body, ...current]);
       setEditingDraftId(null);
       setNoteSource(null);
+      setAccountingSourceId(null);
       setInvoiceNumber('');
       setDueDate('');
       setBuyerName('');
@@ -446,6 +448,7 @@ export function VatEInvoiceRegister({
 
   function prepareAccountingInvoiceForZatca(invoice: Invoice) {
     setEditingDraftId(null);
+    setAccountingSourceId(invoice.accounting_document_id || null);
     setDocumentType('INVOICE');
     setInvoiceNumber(invoice.invoice_number);
     setIssueDate(invoice.issue_date);
