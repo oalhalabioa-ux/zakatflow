@@ -25,6 +25,10 @@ describe('liquidity AR/AP operational safeguards',()=>{
    expect(vat).toContain('due_date: document.due_date');
    expect(vat).toContain("link_type: 'CASH_FLOW'");
  });
+ it('allows manual confirmation at the main organization level without forcing a child entity',()=>{
+   expect(liquidity).toContain('const entityId=body.entity_id??record.entity_id??null');
+   expect(liquidity).not.toContain("if(!entityId)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_ENTITY_REQUIRED'");
+ });
  it('rejects recognition event type drift from the selected financial treatment',()=>{
    expect(liquidity).toContain('LIQUIDITY_RECOGNITION_TREATMENT_MISMATCH');
    expect(liquidity).toContain("existing.event_type!==eventType");

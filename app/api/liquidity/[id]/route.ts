@@ -28,8 +28,8 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const{data:category,error:categoryError}=await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction,financial_classification_type').eq('id',categoryId).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();
    if(categoryError)throw categoryError;if(!category?.financial_classification_type)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const direction=body.direction??record.direction;if(category.allowed_direction!=='BOTH'&&category.allowed_direction!==direction)return NextResponse.json({error:'CATEGORY_DIRECTION_NOT_ALLOWED'},{status:400});
-   const entityId=body.entity_id??record.entity_id;
-   if(!entityId)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_ENTITY_REQUIRED'},{status:409});
+   // A flow may belong directly to the organization (entity_id = null). Only validate entity ownership when an entity is explicitly selected.
+   const entityId=body.entity_id??record.entity_id??null;
    const treatment=category.financial_classification_type;
    const manualRecognitionTreatments=['REVENUE','OPEX','CAPEX','ASSET','INVESTMENT','TAX','ZAKAT','LIABILITY','FINANCING','EQUITY'];
    if(['RECEIVABLE','PAYABLE','TRANSFER'].includes(treatment))return NextResponse.json({error:'LIQUIDITY_CLASSIFICATION_REQUIRES_EXISTING_OBLIGATION_OR_TRANSFER'},{status:409});
