@@ -25,6 +25,22 @@ async function ensureInvoiceCashForecast(supabase: any, userId: string, document
     .select('id').eq('organization_id', document.organization_id).eq('source_module', 'VAT_INTEGRATION').eq('source_event_key', sourceEventKey).maybeSingle();
   if (existingError) throw existingError;
   let flowId = existing?.id ?? null;
+  if (flowId) {
+    const { data: currentFlow, error: currentFlowError } = await supabase.from('liquidity_flows')
+      .select('settled_amount,settlement_status').eq('organization_id', document.organization_id).eq('id', flowId).single();
+    if (currentFlowError) throw currentFlowError;
+    if (Number(currentFlow.settled_amount || 0) === 0 && currentFlow.settlement_status === 'UNSETTLED') {
+      const { error: updateError } = await supabase.from('liquidity_flows').update({
+        due_date: document.due_date,
+        amount: document.gross_amount,
+        base_amount: document.gross_amount,
+        counterparty: document.counterparty_name,
+        counterparty_id: counterpartyId,
+        updated_at: new Date().toISOString(),
+      }).eq('organization_id', document.organization_id).eq('id', flowId);
+      if (updateError) throw updateError;
+    }
+  }
   if (!flowId) {
     const { data: flow, error: flowError } = await supabase.from('liquidity_flows').insert({
       organization_id: document.organization_id,
