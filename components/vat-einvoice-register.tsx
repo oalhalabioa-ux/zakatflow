@@ -444,6 +444,22 @@ export function VatEInvoiceRegister({
     }
   }
 
+  function prepareAccountingInvoiceForZatca(invoice: Invoice) {
+    setEditingDraftId(null);
+    setDocumentType('INVOICE');
+    setInvoiceNumber(invoice.invoice_number);
+    setIssueDate(invoice.issue_date);
+    setDueDate(invoice.due_date || invoice.issue_date);
+    setCurrency(invoice.currency);
+    setExchangeRate(String(invoice.exchange_rate || 1));
+    setBuyerContactId(invoice.buyer_contact_id || '');
+    setBuyerName(invoice.buyer_name || '');
+    setBuyerVatNumber(invoice.buyer_vat_number || '');
+    setLines(invoice.lines.map((line)=>({ item_name:line.item_name,description:line.description || '',quantity:String(line.quantity),unit_code:line.unit_code,unit_price:String(line.unit_price),discount_amount:String(line.discount_amount),tax_category:line.tax_category,tax_rate:String(line.tax_rate),tax_exemption_reason_code:line.tax_exemption_reason_code || '',tax_exemption_reason:line.tax_exemption_reason || '' })));
+    setShowDraftForm(true);
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
   async function collectInvoice(invoice: Invoice) {
     if (!invoice.cash_flow?.id) {
       setMessage({ error: true, text: ar ? 'لا يوجد تدفق قبض مرتبط بهذه الفاتورة المحاسبية.' : 'No collection flow is linked to this accounting invoice.' });
@@ -780,8 +796,9 @@ export function VatEInvoiceRegister({
         {!loading && invoices.map((invoice) => <div className="vat-einvoice-item" key={invoice.id}>
           <div><strong>{invoice.invoice_number}</strong><small>{invoice.document_type !== 'INVOICE' ? (invoice.document_type === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'إشعار مدين' : 'Debit note')) : (ar ? 'فاتورة' : 'Invoice')} · {invoice.issue_date}{invoice.due_date ? ` · ${ar ? 'استحقاق' : 'Due'}: ${invoice.due_date}` : ''} · {invoice.invoice_category === 'STANDARD' ? (ar ? 'قياسية' : 'Standard') : (ar ? 'مبسطة' : 'Simplified')} · {invoice.lines.length} {ar ? 'بنود' : 'lines'}</small></div>
           <div className="vat-einvoice-total">{formatAmount(invoice.payable_amount)} {invoice.currency}{invoice.currency !== 'SAR' && invoice.exchange_rate && <small className="vat-einvoice-sar-total">{formatAmount(Number(invoice.payable_amount) * Number(invoice.exchange_rate))} SAR</small>}</div>
-          <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : (ar ? 'مسودة' : 'Draft')}</span>
+          <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : invoice.status === 'ACCOUNTING_READY' ? (ar ? 'جاهزة للإصدار' : 'Ready to issue') : (ar ? 'مسودة' : 'Draft')}</span>
           <div className="vat-invoice-actions">
+            {invoice.status === 'ACCOUNTING_READY' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => prepareAccountingInvoiceForZatca(invoice)}>{ar ? 'تجهيز وإصدار ZATCA' : 'Prepare & issue ZATCA'}</button>}
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
             {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => void collectInvoice(invoice)}>{ar ? `قبض المتبقي ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}` : `Collect ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}`}</button>}
             {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) === 0 && <span className="vat-status registered">{ar ? 'مسددة' : 'Paid'}</span>}
