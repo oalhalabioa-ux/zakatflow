@@ -59,12 +59,9 @@ async function ensureInvoiceCashForecast(supabase: any, userId: string, document
       source: 'INVOICE',
       reference: document.document_number,
       notes: 'Generated from invoice due date; settlement must clear the linked Financial Core obligation.',
-      created_by: userId,
       source_module: 'VAT_INTEGRATION',
       source_record_id: document.id,
       source_event_key: sourceEventKey,
-      settled_amount: 0,
-      settlement_status: 'UNSETTLED',
     }).select('id').single();
     if (flowError) throw flowError;
     flowId = flow.id;
