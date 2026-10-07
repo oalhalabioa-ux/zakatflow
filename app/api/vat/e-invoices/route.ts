@@ -76,12 +76,29 @@ export async function GET(request: Request) {
       invoiceLines.push(line);
       linesByInvoice.set(line.invoice_id, invoiceLines);
     }
-    return NextResponse.json({ is_admin: ['OWNER', 'ADMIN'].includes(membership.role), invoices: (invoices ?? []).map((invoice: any) => ({
-      ...invoice,
-      accounting_document: invoice.accounting_document_id ? accountingById.get(invoice.accounting_document_id) ?? null : null,
+    const issuedRows = (invoices ?? []).map((invoice:any)=>({
+      ...invoice, accounting_document: invoice.accounting_document_id ? accountingById.get(invoice.accounting_document_id) ?? null : null,
       cash_flow: invoice.accounting_document_id ? cashByDocument.get(invoice.accounting_document_id) ?? null : null,
       lines: linesByInvoice.get(invoice.id) ?? [],
-    })) }, { headers: { 'Cache-Control': 'no-store' } });
+    }));
+    const pendingRows = (pendingAccounting ?? []).filter((doc:any)=>!linkedAccountingIds.has(doc.id)).map((doc:any)=>({
+      id:'accounting:'+doc.id, invoice_number:doc.document_number, document_type:'INVOICE', invoice_category:'STANDARD',
+      status:'ACCOUNTING_READY', issue_date:doc.transaction_date, issue_time:'00:00', due_date:doc.due_date,
+      currency:doc.currency, exchange_rate:String(doc.exchange_rate || 1), payable_amount:String(doc.gross_amount),
+      tax_total_amount:String(doc.tax_amount), qr_code:null, seller_name:'', seller_vat_number:'', seller_address:'',
+      seller_building_number:'', seller_district:'', seller_city:'', seller_postal_code:'',
+      buyer_name:doc.counterparty_name, buyer_contact_id:doc.counterparty_contact_id, buyer_vat_number:doc.counterparty_tax_number,
+      buyer_address:null,buyer_city:null,accounting_document_id:doc.id,
+      accounting_document:{id:doc.id,document_number:doc.document_number,document_kind:doc.document_kind,zatca_status:doc.zatca_status},
+      cash_flow:pendingFlowByDoc.get(doc.id) ?? null,
+      lines:(Array.isArray(doc.line_items)?doc.line_items:[]).map((line:any,index:number)=>({
+        id:'accounting-line:'+doc.id+':'+index,item_name:line.description || 'Item',description:line.description || null,
+        quantity:Number(line.quantity || 1),unit_code:line.unit || 'PCE',unit_price:String(line.unit_price || 0),
+        discount_amount:String(line.discount_amount || 0),tax_category:line.supply_type==='STANDARD'?'S':line.supply_type==='ZERO_RATED'?'Z':line.supply_type==='EXEMPT'?'E':'O',
+        tax_rate:String(line.tax_rate || 0),tax_exemption_reason_code:null,tax_exemption_reason:null,tax_amount:String(line.tax_amount || 0),gross_amount:String(line.gross_amount || 0)
+      }))
+    }));
+    return NextResponse.json({ is_admin:['OWNER','ADMIN'].includes(membership.role), invoices:[...issuedRows,...pendingRows] }, { headers:{'Cache-Control':'no-store'} });
   } catch (error) {
     return errorResponse(error);
   }
