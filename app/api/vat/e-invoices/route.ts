@@ -46,6 +46,12 @@ export async function GET(request: Request) {
       ? await supabase.from('vat_einvoice_lines').select('*').in('invoice_id', ids).order('line_number')
       : { data: [], error: null };
     if (lineError) throw lineError;
+    const linkedAccountingIds = new Set((invoices ?? []).map((invoice: any) => invoice.accounting_document_id).filter(Boolean));
+    const { data: pendingAccounting, error: pendingAccountingError } = await supabase.from('vat_documents')
+      .select('id,document_number,document_kind,transaction_date,due_date,counterparty_name,counterparty_contact_id,counterparty_tax_number,net_amount,tax_amount,gross_amount,currency,exchange_rate,line_items,zatca_status')
+      .eq('organization_id', organizationId).eq('document_type','SALES').eq('document_kind','INVOICE')
+      .order('created_at',{ascending:false}).limit(200);
+    if (pendingAccountingError) throw pendingAccountingError;
     const accountingIds = (invoices ?? []).map((invoice: any) => invoice.accounting_document_id).filter(Boolean);
     const { data: accountingDocuments, error: accountingError } = accountingIds.length
       ? await supabase.from('vat_documents').select('id,document_number,document_kind,zatca_status').in('id', accountingIds)
