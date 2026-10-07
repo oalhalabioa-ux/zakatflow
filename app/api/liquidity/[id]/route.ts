@@ -31,7 +31,9 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const entityId=body.entity_id??record.entity_id;
    if(!entityId)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_ENTITY_REQUIRED'},{status:409});
    const treatment=category.financial_classification_type;
+   const manualRecognitionTreatments=['REVENUE','OPEX','CAPEX','ASSET','INVESTMENT','TAX','ZAKAT','LIABILITY','FINANCING','EQUITY'];
    if(['RECEIVABLE','PAYABLE','TRANSFER'].includes(treatment))return NextResponse.json({error:'LIQUIDITY_CLASSIFICATION_REQUIRES_EXISTING_OBLIGATION_OR_TRANSFER'},{status:409});
+   if(!manualRecognitionTreatments.includes(treatment))return NextResponse.json({error:'LIQUIDITY_FINANCIAL_TREATMENT_NOT_SUPPORTED'},{status:409});
    const obligationType=direction==='OUTFLOW'?'PAYABLE':'RECEIVABLE';
    const[{data:recognitionClass,error:recognitionClassError},{data:obligationClass,error:obligationClassError},{data:organization,error:organizationError}]=await Promise.all([
      supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',treatment).eq('active',true).limit(1).maybeSingle(),
@@ -42,7 +44,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(!recognitionClass||!obligationClass)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const amount=Number(body.amount??record.amount),baseAmount=Number(body.base_amount??record.base_amount),currency=body.currency??record.currency,dueDate=body.due_date??record.due_date,title=body.title??record.title,counterpartyId=body.counterparty_id??record.counterparty_id;
    const sourceKey=`liquidity:${record.id}:recognition`;
-   const eventType=treatment==='CAPEX'||treatment==='ASSET'||treatment==='INVESTMENT'?'ASSET_PURCHASE':treatment==='REVENUE'?'REVENUE':treatment==='OPEX'||treatment==='TAX'||treatment==='ZAKAT'?'EXPENSE':'OTHER';
+   const eventType=treatment==='CAPEX'||treatment==='ASSET'||treatment==='INVESTMENT'?'ASSET_PURCHASE':treatment==='REVENUE'?'REVENUE':treatment==='OPEX'||treatment==='TAX'||treatment==='ZAKAT'?'EXPENSE':treatment==='LIABILITY'||treatment==='FINANCING'||treatment==='EQUITY'?'LIABILITY':'ADJUSTMENT';
    const{data:existing,error:existingError}=await supabase.from('financial_events').select('id,status').eq('organization_id',record.organization_id).eq('source_event_key',sourceKey).maybeSingle();if(existingError)throw existingError;
    let eventId=existing?.id;
    if(!eventId){
