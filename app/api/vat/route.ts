@@ -501,12 +501,21 @@ export async function POST(request: Request) {
         if (mapError) throw mapError;
         let counterpartyId = counterpartyMap?.counterparty_id ?? null;
         if (!counterpartyId) {
+          const { data: projectedCounterparty, error: projectedError } = await supabase.from('liquidity_counterparties')
+            .select('id').eq('organization_id', document.organization_id)
+            .eq('notes', `VAT identity projection: ${contact.id}`).eq('active', true).maybeSingle();
+          if (projectedError) throw projectedError;
+          counterpartyId = projectedCounterparty?.id ?? null;
+        }
+        if (!counterpartyId) {
           const { data: counterparty, error: counterpartyError } = await supabase.from('liquidity_counterparties').insert({
             organization_id: document.organization_id, name: contact.name, party_type: 'CUSTOMER',
             contact_name: '', phone: '', email: '', notes: `VAT identity projection: ${contact.id}`,
           }).select('id').single();
           if (counterpartyError) throw counterpartyError;
           counterpartyId = counterparty.id;
+        }
+        if (!counterpartyMap?.counterparty_id) {
           const { error: bindError } = await supabase.from('financial_vat_counterparty_map').insert({
             organization_id: document.organization_id, vat_contact_id: contact.id, counterparty_id: counterpartyId, created_by: user.id,
           });
