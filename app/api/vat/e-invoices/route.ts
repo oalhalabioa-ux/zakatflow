@@ -13,7 +13,7 @@ function errorResponse(error: unknown) {
     'VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH',
     'SELLER_PROFILE_INCOMPLETE', 'VAT_CONTACT_NOT_FOUND', 'VAT_CONTACT_TYPE_MISMATCH',
     'EINVOICE_CONNECTION_MISMATCH', 'PRECEDING_INVOICE_NOT_ISSUED',
-    'NOTE_INVOICE_CATEGORY_MISMATCH', 'EINVOICE_NUMBER_EXISTS',
+    'NOTE_INVOICE_CATEGORY_MISMATCH', 'EINVOICE_NUMBER_EXISTS', 'ACCOUNTING_INVOICE_NUMBER_EXISTS',
     'EINVOICE_DRAFT_NOT_FOUND', 'EINVOICE_DRAFT_LOCKED',
     'CURRENCY_NOT_ACTIVE', 'SAR_EXCHANGE_RATE_MUST_BE_ONE',
   ]);
@@ -23,7 +23,7 @@ function errorResponse(error: unknown) {
   const status = code === 'UNAUTHORIZED' ? 401
     : code === 'ORGANIZATION_ACCESS_REQUIRED' || code === 'ORGANIZATION_ADMIN_REQUIRED' ? 403
       : code === 'EINVOICE_DRAFT_NOT_FOUND' ? 404
-        : ['VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH', 'SELLER_PROFILE_INCOMPLETE', 'PRECEDING_INVOICE_NOT_ISSUED', 'EINVOICE_NUMBER_EXISTS', 'EINVOICE_DRAFT_LOCKED'].includes(code) ? 409
+        : ['VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH', 'SELLER_PROFILE_INCOMPLETE', 'PRECEDING_INVOICE_NOT_ISSUED', 'EINVOICE_NUMBER_EXISTS', 'ACCOUNTING_INVOICE_NUMBER_EXISTS', 'EINVOICE_DRAFT_LOCKED'].includes(code) ? 409
         : code === 'EINVOICE_REQUEST_FAILED' ? 500 : 400;
   return NextResponse.json({ error: code }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
@@ -123,6 +123,20 @@ export async function POST(request: Request) {
     }
     const draft = parsed.data;
     await requireOrganizationAdmin(supabase, user.id, draft.organization_id);
+
+    if (draft.document_type === 'INVOICE') {
+      const { data: sameNumberAccounting, error: sameNumberError } = await supabase.from('vat_documents')
+        .select('id,document_number')
+        .eq('organization_id', draft.organization_id)
+        .eq('document_type', 'SALES')
+        .eq('document_kind', 'INVOICE')
+        .eq('document_number', draft.invoice_number)
+        .maybeSingle();
+      if (sameNumberError) throw sameNumberError;
+      if (sameNumberAccounting && sameNumberAccounting.id !== accountingDocumentId) {
+        throw new Error('ACCOUNTING_INVOICE_NUMBER_EXISTS');
+      }
+    }
 
     const { data: currency, error: currencyError } = await supabase.from('currencies')
       .select('code')
