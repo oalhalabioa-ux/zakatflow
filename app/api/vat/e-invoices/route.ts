@@ -417,3 +417,18 @@ export async function PATCH(request: Request) {
     return errorResponse(error);
   }
 }
+
+
+export async function DELETE(request: Request) {
+  try {
+    const { supabase } = await requireUser();
+    const params = new URL(request.url).searchParams;
+    const invoiceId = params.get('invoice_id');
+    if (!invoiceId) return NextResponse.json({ error: 'EINVOICE_NOT_FOUND' }, { status: 404 });
+    const { data, error } = await supabase.rpc('delete_unissued_zatca_draft_bundle', { p_einvoice_id: invoiceId });
+    if (error) throw error;
+    return NextResponse.json(data ?? { deleted: true }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
