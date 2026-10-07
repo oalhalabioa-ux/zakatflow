@@ -32,7 +32,15 @@ describe('liquidity AR/AP operational safeguards',()=>{
  it('rejects recognition event type drift from the selected financial treatment',()=>{
    expect(liquidity).toContain('LIQUIDITY_RECOGNITION_TREATMENT_MISMATCH');
    expect(liquidity).toContain("existing.event_type!==eventType");
-   expect(liquidity).toContain("treatment==='LIABILITY'||treatment==='FINANCING'||treatment==='EQUITY'?'LIABILITY'");
+   expect(liquidity).toContain("treatment==='LIABILITY'||treatment==='FINANCING'?'LIABILITY':treatment==='EQUITY'?'ADJUSTMENT'");
+ });
+ it('keeps financing principal and equity out of revenue expense and receivables',()=>{
+   expect(liquidity).toContain("FINANCING_PRINCIPAL_REPAYMENT_REQUIRES_EXISTING_PAYABLE");
+   expect(liquidity).toContain("EQUITY_DISTRIBUTION_REQUIRES_EQUITY_MOVEMENT_PATH");
+   expect(liquidity).toContain("const obligationType=(treatment==='FINANCING'||treatment==='LIABILITY')?'PAYABLE'");
+   expect(liquidity).toContain("const createsObligation=treatment!=='EQUITY'");
+   expect(liquidity).toContain("obligations:createsObligation?");
+
  });
  it('routes receivable payable and transfers away from new recognition',()=>{
    expect(liquidity).toContain("['RECEIVABLE','PAYABLE','TRANSFER'].includes(treatment)");
