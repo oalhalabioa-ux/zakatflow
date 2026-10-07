@@ -45,6 +45,13 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(recognitionClassError)throw recognitionClassError;if(obligationClassError)throw obligationClassError;if(organizationError)throw organizationError;
    if(!recognitionClass||(createsObligation&&!obligationClass))return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const amount=Number(body.amount??record.amount),baseAmount=Number(body.base_amount??record.base_amount),currency=body.currency??record.currency,dueDate=body.due_date??record.due_date,title=body.title??record.title,counterpartyId=body.counterparty_id??record.counterparty_id;
+   if(counterpartyId){
+     const{data:party,error:partyError}=await supabase.from('liquidity_counterparties').select('id,party_type,party_type_id').eq('id',counterpartyId).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();
+     if(partyError)throw partyError;if(!party)return NextResponse.json({error:'COUNTERPARTY_ORGANIZATION_MISMATCH'},{status:400});
+     const typeQuery=party.party_type_id?supabase.from('liquidity_party_types').select('code,allowed_financial_classifications').eq('id',party.party_type_id).eq('organization_id',record.organization_id).maybeSingle():supabase.from('liquidity_party_types').select('code,allowed_financial_classifications').eq('organization_id',record.organization_id).eq('code',party.party_type).maybeSingle();
+     const{data:partyType,error:partyTypeError}=await typeQuery;if(partyTypeError)throw partyTypeError;
+     if(partyType?.allowed_financial_classifications?.length&&!partyType.allowed_financial_classifications.includes(treatment)&&partyType.code!=='OTHER')return NextResponse.json({error:'COUNTERPARTY_ACCOUNTING_CLASSIFICATION_MISMATCH',party_type:partyType.code,treatment},{status:409});
+   }
    const sourceKey=`liquidity:${record.id}:recognition`;
    const eventType=treatment==='CAPEX'||treatment==='ASSET'||treatment==='INVESTMENT'?'ASSET_PURCHASE':treatment==='REVENUE'?'REVENUE':treatment==='OPEX'||treatment==='TAX'||treatment==='ZAKAT'?'EXPENSE':treatment==='LIABILITY'||treatment==='FINANCING'?'LIABILITY':treatment==='EQUITY'?'ADJUSTMENT':'ADJUSTMENT';
    const{data:existing,error:existingError}=await supabase.from('financial_events').select('id,status,event_type').eq('organization_id',record.organization_id).eq('source_event_key',sourceKey).maybeSingle();if(existingError)throw existingError;
