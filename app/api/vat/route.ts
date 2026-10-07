@@ -503,7 +503,7 @@ export async function POST(request: Request) {
         if (!counterpartyId) {
           const { data: counterparty, error: counterpartyError } = await supabase.from('liquidity_counterparties').insert({
             organization_id: document.organization_id, name: contact.name, party_type: 'CUSTOMER',
-            contact_name: '', phone: '', email: '', notes: `VAT identity projection: ${contact.id}`, created_by: user.id,
+            contact_name: '', phone: '', email: '', notes: `VAT identity projection: ${contact.id}`,
           }).select('id').single();
           if (counterpartyError) throw counterpartyError;
           counterpartyId = counterparty.id;
