@@ -35,7 +35,6 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(['RECEIVABLE','PAYABLE','TRANSFER'].includes(treatment))return NextResponse.json({error:'LIQUIDITY_CLASSIFICATION_REQUIRES_EXISTING_OBLIGATION_OR_TRANSFER'},{status:409});
    if(!manualRecognitionTreatments.includes(treatment))return NextResponse.json({error:'LIQUIDITY_FINANCIAL_TREATMENT_NOT_SUPPORTED'},{status:409});
    if(treatment==='FINANCING'&&direction==='OUTFLOW')return NextResponse.json({error:'FINANCING_PRINCIPAL_REPAYMENT_REQUIRES_EXISTING_PAYABLE'},{status:409});
-   if(treatment==='EQUITY'&&direction==='OUTFLOW')return NextResponse.json({error:'EQUITY_DISTRIBUTION_REQUIRES_EQUITY_MOVEMENT_PATH'},{status:409});
    const createsObligation=treatment!=='EQUITY';
    const obligationType=(treatment==='FINANCING'||treatment==='LIABILITY')?'PAYABLE':direction==='OUTFLOW'?'PAYABLE':'RECEIVABLE';
    const[{data:recognitionClass,error:recognitionClassError},{data:obligationClass,error:obligationClassError},{data:organization,error:organizationError}]=await Promise.all([
@@ -155,7 +154,14 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const{data:afterPlanned}=await supabase.from('financial_events').select('status').eq('id',settlementEventId).single();
    if(afterPlanned?.status==='PLANNED')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:settlementEventId,status:'COMMITTED',note:'Pending independent settlement approval'});
    // Keep the originally expected account on the flow for audit. The selected actual account is stored on cash posting after approval.
-   return NextResponse.json({id:record.id,status:record.status,settlement_status:'PENDING_APPROVAL',settlement_event_id:settlementEventId,recognition_event_id:recognition.id,obligation_id:balances[0].obligation_id,amount:remainingAmount,base_amount:remainingBase,account_id:accountId},{status:202});
+   try{
+     const posted:any=await executeFinancialEventAction({action:'POST_SAVED_SETTLEMENT',organization_id:record.organization_id,event_id:settlementEventId,account_id:accountId,settlement_date:settlementDate});
+     return NextResponse.json({id:record.id,status:'ACTUAL',settlement_status:'SETTLED',settlement_event_id:settlementEventId,recognition_event_id:recognition.id,obligation_id:balances[0].obligation_id,amount:remainingAmount,base_amount:remainingBase,account_id:accountId,cash_posting:posted});
+   }catch(error){
+     const message=error instanceof Error?error.message:'SETTLEMENT_PENDING_APPROVAL';
+     if(/VALID_APPROVAL_REQUIRED|APPROVE|SELF_APPROVAL|SEGREGATION|PERMISSION|DENIED/i.test(message))return NextResponse.json({id:record.id,status:record.status,settlement_status:'PENDING_APPROVAL',settlement_event_id:settlementEventId,recognition_event_id:recognition.id,obligation_id:balances[0].obligation_id,amount:remainingAmount,base_amount:remainingBase,account_id:accountId,error:'SETTLEMENT_PENDING_APPROVAL'},{status:202});
+     throw error;
+   }
  }
  if(body.category_id){const{data:category,error}=await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction,financial_classification_type').eq('id',body.category_id).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();if(error)throw error;if(!category)return NextResponse.json({error:'CATEGORY_ORGANIZATION_MISMATCH'},{status:400});const direction=body.direction||record.direction;if(category.allowed_direction!=='BOTH'&&category.allowed_direction!==direction)return NextResponse.json({error:'CATEGORY_DIRECTION_NOT_ALLOWED'},{status:400});if(record.source==='MANUAL'&&!category.financial_classification_type)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});body.flow_type=category.flow_group;}
  const update:any={...body,updated_at:new Date().toISOString()};
