@@ -46,14 +46,28 @@ export async function GET(request: Request) {
       ? await supabase.from('vat_einvoice_lines').select('*').in('invoice_id', ids).order('line_number')
       : { data: [], error: null };
     if (lineError) throw lineError;
+    const accountingIds = (invoices ?? []).map((invoice: any) => invoice.accounting_document_id).filter(Boolean);
+    const { data: accountingDocuments, error: accountingError } = accountingIds.length
+      ? await supabase.from('vat_documents').select('id,document_number,document_kind,zatca_status').in('id', accountingIds)
+      : { data: [], error: null };
+    if (accountingError) throw accountingError;
+    const { data: cashFlows, error: cashError } = accountingIds.length
+      ? await supabase.from('liquidity_flows').select('id,source_record_id,amount,settled_amount,settlement_status,status,currency,due_date')
+          .eq('organization_id', organizationId).eq('source_module','VAT_INTEGRATION').in('source_record_id', accountingIds)
+      : { data: [], error: null };
+    if (cashError) throw cashError;
+    const accountingById = new Map((accountingDocuments ?? []).map((row: any) => [row.id,row]));
+    const cashByDocument = new Map((cashFlows ?? []).map((row: any) => [row.source_record_id,row]));
     const linesByInvoice = new Map<string, unknown[]>();
     for (const line of lines ?? []) {
       const invoiceLines = linesByInvoice.get(line.invoice_id) ?? [];
       invoiceLines.push(line);
       linesByInvoice.set(line.invoice_id, invoiceLines);
     }
-    return NextResponse.json({ is_admin: ['OWNER', 'ADMIN'].includes(membership.role), invoices: (invoices ?? []).map((invoice: { id: string }) => ({
+    return NextResponse.json({ is_admin: ['OWNER', 'ADMIN'].includes(membership.role), invoices: (invoices ?? []).map((invoice: any) => ({
       ...invoice,
+      accounting_document: invoice.accounting_document_id ? accountingById.get(invoice.accounting_document_id) ?? null : null,
+      cash_flow: invoice.accounting_document_id ? cashByDocument.get(invoice.accounting_document_id) ?? null : null,
       lines: linesByInvoice.get(invoice.id) ?? [],
     })) }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
@@ -71,7 +85,10 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: 'INVALID_JSON_BODY' }, { status: 400 });
     }
-    const parsed = vatEInvoiceDraftSchema.safeParse(requestBody);
+    const rawBody = requestBody as Record<string, unknown>;
+    const accountingDocumentId = typeof rawBody?.accounting_document_id === 'string' ? rawBody.accounting_document_id : null;
+    if (rawBody && 'accounting_document_id' in rawBody) delete rawBody.accounting_document_id;
+    const parsed = vatEInvoiceDraftSchema.safeParse(rawBody);
     if (!parsed.success) {
       return NextResponse.json({ error: 'INVALID_EINVOICE_DRAFT', issues: parsed.error.issues.map(({ path, message }) => ({ path, message })) }, { status: 400 });
     }
@@ -176,6 +193,10 @@ export async function POST(request: Request) {
     ).select('*');
     if (lineError) throw lineError;
 
+    if (accountingDocumentId) {
+      const { error: linkError } = await supabase.rpc('link_zatca_accounting_document', { p_einvoice_id: invoice.id, p_document_id: accountingDocumentId });
+      if (linkError) throw linkError;
+    }
     await supabase.from('audit_logs').insert({
       user_id: user.id,
       entity_type: 'vat_einvoice',
@@ -190,7 +211,7 @@ export async function POST(request: Request) {
         status: 'DRAFT',
       },
     });
-    return NextResponse.json({ ...invoice, ...calculated.totals, lines: savedLines ?? [] }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ...invoice, accounting_document_id: accountingDocumentId, ...calculated.totals, lines: savedLines ?? [] }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     if (createdInvoiceId) {
       try {

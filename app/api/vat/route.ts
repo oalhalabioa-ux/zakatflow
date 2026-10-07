@@ -400,6 +400,7 @@ export async function POST(request: Request) {
         source_gross_amount: sourceAmounts.grossAmount,
         notes: document.notes?.trim() || null,
         asset_transaction_id: document.asset_transaction_id ?? null,
+        preceding_document_id: document.preceding_document_id ?? null,
       }).select().single();
       if (error?.code === '23505') return NextResponse.json({ error: 'VAT_DOCUMENT_NUMBER_EXISTS' }, { status: 409 });
       if (error) throw error;
@@ -450,6 +451,34 @@ export async function POST(request: Request) {
           due_date: document.due_date,
           financial_core: { event_id: financialEventId, status: 'COMMITTED', recognition: 'PENDING_APPROVAL', cash_flow_id: cashFlowId },
         }, { status: 201 });
+      }
+
+      if (document.document_type === 'SALES' && document.document_kind !== 'INVOICE') {
+        if (!document.preceding_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
+        const { data: originalDocument, error: originalDocumentError } = await supabase.from('vat_documents')
+          .select('id,document_type,document_kind,counterparty_contact_id,currency,due_date')
+          .eq('organization_id', document.organization_id).eq('id', document.preceding_document_id).maybeSingle();
+        if (originalDocumentError) throw originalDocumentError;
+        if (!originalDocument || originalDocument.document_type !== 'SALES' || originalDocument.document_kind !== 'INVOICE') throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
+        if (originalDocument.counterparty_contact_id !== contact?.id || originalDocument.currency !== baseCurrency) throw new Error('VAT_NOTE_ORIGINAL_IDENTITY_OR_CURRENCY_MISMATCH');
+        const { data: originalLink, error: originalLinkError } = await supabase.from('financial_event_links')
+          .select('event_id').eq('organization_id', document.organization_id).eq('link_type','SOURCE')
+          .eq('target_module','vat_documents').eq('target_record_id', originalDocument.id).maybeSingle();
+        if (originalLinkError) throw originalLinkError;
+        if (!originalLink?.event_id) throw new Error('VAT_ORIGINAL_FINANCIAL_EVENT_REQUIRED');
+        const { data: entities, error: entityError } = await supabase.from('organization_entities')
+          .select('id').eq('organization_id', document.organization_id).eq('active', true).limit(2);
+        if (entityError) throw entityError;
+        if (!entities || entities.length !== 1) throw new Error('VAT_FINANCIAL_ENTITY_REQUIRED');
+        const { data: prepared, error: prepareError } = await supabase.rpc('prepare_vat_financial_event', {
+          p_source_table: 'vat_documents', p_source_id: data.id, p_entity_id: entities[0].id,
+          p_due_date: document.due_date, p_original_event_id: originalLink.event_id,
+        });
+        if (prepareError) throw prepareError;
+        const preparedRow = Array.isArray(prepared) ? prepared[0] : prepared;
+        const financialEventId = typeof preparedRow === 'string' ? preparedRow : (preparedRow?.event_id ?? preparedRow?.id ?? null);
+        if (!financialEventId) throw new Error('VAT_FINANCIAL_EVENT_REQUIRED');
+        return NextResponse.json({ ...data, financial_core: { event_id: financialEventId, status: 'COMMITTED', adjustment_of: originalLink.event_id } }, { status: 201 });
       }
 
       if (document.document_type === 'SALES') {

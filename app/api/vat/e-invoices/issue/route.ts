@@ -35,43 +35,14 @@ export async function POST(request: Request) {
     if (source.status !== 'DRAFT' && !PREPARABLE_STATUSES.has(source.status)) {
       throw new Error('EINVOICE_NOT_PREPARABLE');
     }
-    if (!source.due_date) throw new Error('EINVOICE_DUE_DATE_REQUIRED_FOR_FINANCIAL_CORE');
-    if (!source.buyer_contact_id) throw new Error('EINVOICE_BUYER_CONTACT_REQUIRED_FOR_FINANCIAL_CORE');
-
-    let entityId = body.entity_id ?? null;
-    if (entityId) {
-      const { data: entity, error: entityError } = await supabase.from('organization_entities')
-        .select('id')
-        .eq('id', entityId)
-        .eq('organization_id', body.organization_id)
-        .eq('active', true)
-        .maybeSingle();
-      if (entityError) throw entityError;
-      if (!entity) throw new Error('EINVOICE_FINANCIAL_ENTITY_INVALID');
-    } else {
-      const { data: entities, error: entitiesError } = await supabase.from('organization_entities')
-        .select('id')
-        .eq('organization_id', body.organization_id)
-        .eq('active', true)
-        .order('created_at')
-        .limit(2);
-      if (entitiesError) throw entitiesError;
-      if ((entities ?? []).length !== 1) throw new Error('EINVOICE_FINANCIAL_ENTITY_REQUIRED');
-      entityId = entities![0].id;
-    }
-
-    // Preflight the classifications needed by the Phase 2C sales adapter before
-    // making the VAT document immutable. This reduces partial issue failures.
-    const { data: classifications, error: classificationsError } = await supabase
-      .from('financial_classifications')
-      .select('classification_type')
+    if (!source.accounting_document_id) throw new Error('EINVOICE_ACCOUNTING_SOURCE_REQUIRED');
+    const { data: accountingDocument, error: accountingError } = await supabase.from('vat_documents')
+      .select('id,organization_id,document_type,document_number,due_date')
+      .eq('id', source.accounting_document_id)
       .eq('organization_id', body.organization_id)
-      .in('classification_type', ['REVENUE', 'TAX']);
-    if (classificationsError) throw classificationsError;
-    const classificationTypes = new Set((classifications ?? []).map((item) => item.classification_type));
-    if (!classificationTypes.has('REVENUE') || !classificationTypes.has('TAX')) {
-      throw new Error('VAT_FINANCIAL_CLASSIFICATIONS_REQUIRED');
-    }
+      .maybeSingle();
+    if (accountingError) throw accountingError;
+    if (!accountingDocument || accountingDocument.document_type !== 'SALES') throw new Error('EINVOICE_ACCOUNTING_SOURCE_REQUIRED');
 
     // DRAFT is issued once. If issuance succeeded previously but Financial Core
     // preparation failed, an already-issued lifecycle state can safely retry only
@@ -85,24 +56,18 @@ export async function POST(request: Request) {
         throw new Error('EINVOICE_NOT_FOUND');
       }
       invoice = issued as Record<string, unknown>;
+      const issuedStatus = String((issued as Record<string, unknown>).status || 'ISSUED');
+      const { error: accountingStatusError } = await supabase.from('vat_documents')
+        .update({ zatca_status: issuedStatus }).eq('organization_id', body.organization_id).eq('id', source.accounting_document_id);
+      if (accountingStatusError) throw accountingStatusError;
     }
-
-    const { data: eventData, error: eventError } = await supabase.rpc('prepare_vat_financial_event', {
-      p_source_table: 'vat_einvoices',
-      p_source_id: body.invoice_id,
-      p_entity_id: entityId,
-      p_due_date: source.due_date,
-    });
-    if (eventError) throw eventError;
-    const financialEventId = firstRow(eventData);
-    if (!financialEventId) throw new Error('VAT_FINANCIAL_EVENT_NOT_CREATED');
 
     return NextResponse.json({
       ...invoice,
-      financial_core: {
-        event_id: financialEventId,
-        status: 'COMMITTED',
-        recognition: 'PENDING_INDEPENDENT_APPROVAL',
+      accounting_source: {
+        document_id: accountingDocument.id,
+        status: 'LINKED',
+        financial_effect: 'UNCHANGED_ON_ZATCA_ISSUE',
       },
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
@@ -116,13 +81,7 @@ export async function POST(request: Request) {
       EINVOICE_NOT_DRAFT: 409,
       EINVOICE_NOT_PREPARABLE: 409,
       NOTE_ISSUANCE_NOT_SUPPORTED: 409,
-      EINVOICE_DUE_DATE_REQUIRED_FOR_FINANCIAL_CORE: 409,
-      EINVOICE_BUYER_CONTACT_REQUIRED_FOR_FINANCIAL_CORE: 409,
-      EINVOICE_FINANCIAL_ENTITY_INVALID: 409,
-      EINVOICE_FINANCIAL_ENTITY_REQUIRED: 409,
-      VAT_FINANCIAL_CLASSIFICATIONS_REQUIRED: 409,
-      VAT_FINANCIAL_PREPARE_DENIED: 403,
-      VAT_FINANCIAL_EVENT_NOT_CREATED: 500,
+      EINVOICE_ACCOUNTING_SOURCE_REQUIRED: 409,
       QR_FIELD_TOO_LONG: 400,
       QR_PAYLOAD_TOO_LONG: 400,
     };

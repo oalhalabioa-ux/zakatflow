@@ -61,6 +61,9 @@ type Invoice = {
   buyer_postal_code?: string | null;
   billing_reference?: string | null;
   note_reason?: string | null;
+  accounting_document_id?: string | null;
+  accounting_document?: { id: string; document_number: string; document_kind: string; zatca_status: string } | null;
+  cash_flow?: { id: string; amount: string; settled_amount: string; settlement_status: string; status: string; currency: string; due_date: string } | null;
   lines: Array<{
     id: string; item_name: string; description: string | null; quantity: number; unit_code: string;
     unit_price: string; discount_amount: string; tax_category: InvoiceLine['tax_category']; tax_rate: string;
@@ -132,6 +135,8 @@ export function VatEInvoiceRegister({
   const [lines, setLines] = useState<InvoiceLine[]>(() => [emptyLine(String(standardTaxRate))]);
   const importInput = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
+  const [noteSource, setNoteSource] = useState<Invoice | null>(null);
   const sellerProfileReady = Boolean(
     sellerProfile.registered_name.trim() && sellerProfile.seller_street.trim() &&
     /^\d{4}$/.test(sellerProfile.seller_building_number) && sellerProfile.seller_district.trim() &&
@@ -175,6 +180,13 @@ export function VatEInvoiceRegister({
 
   useEffect(() => {
     if (!organizationId) return;
+    fetch(`/api/liquidity?organization_id=${encodeURIComponent(organizationId)}`).then(r => r.ok ? r.json() : null).then(body => {
+      if (body?.accounts) setCashAccounts(body.accounts.map((a: any) => ({ id:a.id, name:a.name, currency:a.currency })));
+    }).catch(() => undefined);
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (!organizationId) return;
     let active = true;
     Promise.all([
       fetch('/api/currencies').then((response) => response.ok ? response.json() : []),
@@ -206,11 +218,31 @@ export function VatEInvoiceRegister({
     setBusy(true);
     setMessage(null);
     try {
+      let accountingDocumentId: string | null = null;
+      if (!editingDraftId && documentType !== 'INVOICE') {
+        if (!noteSource?.accounting_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
+        const accountingResponse = await fetch('/api/vat', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+            action:'add_document', organization_id:organizationId, document_type:'SALES', document_kind:documentType,
+            document_number:invoiceNumber, transaction_date:issueDate, due_date:dueDate || issueDate,
+            preceding_document_id:noteSource.accounting_document_id, counterparty_contact_id:buyerContactId,
+            counterparty_name:buyerName, counterparty_tax_number:buyerVatNumber || null,
+            supply_type:lines[0]?.tax_category === 'S' ? 'STANDARD' : lines[0]?.tax_category === 'Z' ? 'ZERO_RATED' : lines[0]?.tax_category === 'E' ? 'EXEMPT' : 'OUT_OF_SCOPE',
+            net_amount:lines.reduce((sum,line)=>sum + Number(line.quantity||0)*Number(line.unit_price||0)-Number(line.discount_amount||0),0),
+            lines:lines.map(line=>({description:line.item_name || line.description || 'Adjustment',unit:line.unit_code,quantity:Number(line.quantity),unit_price:Number(line.unit_price),discount_amount:Number(line.discount_amount||0),supply_type:line.tax_category === 'S' ? 'STANDARD' : line.tax_category === 'Z' ? 'ZERO_RATED' : line.tax_category === 'E' ? 'EXEMPT' : 'OUT_OF_SCOPE'})),
+            currency, exchange_rate:Number(exchangeRate), recoverable_percent:100, notes:noteReason || billingReference,
+          })
+        });
+        const accountingBody = await accountingResponse.json();
+        if (!accountingResponse.ok) throw new Error(accountingBody?.error || `HTTP_${accountingResponse.status}`);
+        accountingDocumentId = accountingBody.id;
+      }
       const response = await fetch('/api/vat/e-invoices', {
         method: editingDraftId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(editingDraftId ? { invoice_id: editingDraftId } : {}),
+          ...(!editingDraftId && accountingDocumentId ? { accounting_document_id: accountingDocumentId } : {}),
           organization_id: organizationId,
           invoice_number: invoiceNumber,
           invoice_category: category,
@@ -262,6 +294,7 @@ export function VatEInvoiceRegister({
         ? current.map((invoice) => invoice.id === editingDraftId ? { ...invoice, ...body } : invoice)
         : [body, ...current]);
       setEditingDraftId(null);
+      setNoteSource(null);
       setInvoiceNumber('');
       setDueDate('');
       setBuyerName('');
@@ -409,6 +442,68 @@ export function VatEInvoiceRegister({
     } finally {
       setBusy(false);
     }
+  }
+
+  async function collectInvoice(invoice: Invoice) {
+    if (!invoice.cash_flow?.id) {
+      setMessage({ error: true, text: ar ? 'لا يوجد تدفق قبض مرتبط بهذه الفاتورة المحاسبية.' : 'No collection flow is linked to this accounting invoice.' });
+      return;
+    }
+    const outstanding = Math.max(0, Number(invoice.cash_flow.amount) - Number(invoice.cash_flow.settled_amount || 0));
+    if (outstanding <= 0) return;
+    const eligibleAccounts = cashAccounts.filter((account) => account.currency === invoice.cash_flow?.currency);
+    if (!eligibleAccounts.length) {
+      setMessage({ error:true, text: ar ? 'لا يوجد حساب بنكي/صندوق نشط بنفس عملة الفاتورة.' : 'No active bank/cash account uses the invoice currency.' }); return;
+    }
+    const choices = eligibleAccounts.map((account,index) => `${index+1}. ${account.name} (${account.currency})`).join('\n');
+    const choice = window.prompt((ar ? 'اختر حساب القبض برقم الخيار:' : 'Choose the collection account by number:') + '\n' + choices, '1');
+    if (!choice) return;
+    const accountId = eligibleAccounts[Number(choice)-1]?.id;
+    if (!accountId) { setMessage({error:true,text:ar?'اختيار الحساب غير صحيح.':'Invalid account selection.'}); return; }
+    const amountText = window.prompt(ar ? `مبلغ القبض (المتبقي ${formatAmount(outstanding)} ${invoice.cash_flow.currency}):` : `Collection amount (outstanding ${formatAmount(outstanding)} ${invoice.cash_flow.currency}):`, String(outstanding));
+    if (!amountText) return;
+    const amount = Number(amountText);
+    if (!(amount > 0) || amount > outstanding) {
+      setMessage({ error: true, text: ar ? 'مبلغ القبض غير صحيح أو أكبر من الرصيد المتبقي.' : 'Collection amount is invalid or exceeds the outstanding balance.' });
+      return;
+    }
+    setBusy(true); setMessage(null);
+    try {
+      const response = await fetch(`/api/liquidity/${invoice.cash_flow.id}`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ status:'ACTUAL', account_id:accountId, amount, settlement_date:new Date().toISOString().slice(0,10) }) });
+      const body = await response.json();
+      if (!response.ok && response.status !== 202) throw new Error(body?.error || `HTTP_${response.status}`);
+      const refresh = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
+      if (refresh.ok) setInvoices((await refresh.json()).invoices ?? []);
+      setMessage({ error: false, text: response.status === 202 ? (ar ? 'تم تسجيل القبض وهو بانتظار الموافقة المالية.' : 'Collection recorded and is pending financial approval.') : (ar ? 'تم تسجيل القبض وتحديث الذمة والسيولة.' : 'Collection posted; receivable and liquidity were updated.') });
+    } catch (error) { setMessage({ error:true, text:messageFor(error instanceof Error ? error.message : 'COLLECTION_FAILED', ar) }); }
+    finally { setBusy(false); }
+  }
+
+  function startNote(invoice: Invoice, kind: 'CREDIT_NOTE'|'DEBIT_NOTE') {
+    if (!invoice.accounting_document_id || invoice.status !== 'ISSUED') return;
+    setEditingDraftId(null);
+    setNoteSource(invoice);
+    setDocumentType(kind);
+    setCategory(invoice.invoice_category as typeof category);
+    setInvoiceNumber(`${invoice.invoice_number}-${kind === 'CREDIT_NOTE' ? 'CN' : 'DN'}`);
+    setIssueDate(new Date().toISOString().slice(0,10));
+    setDueDate(new Date().toISOString().slice(0,10));
+    setCurrency(invoice.currency);
+    setExchangeRate(String(invoice.exchange_rate || 1));
+    setBuyerContactId(invoice.buyer_contact_id || '');
+    setBuyerName(invoice.buyer_name || '');
+    setBuyerVatNumber(invoice.buyer_vat_number || '');
+    setBuyerAddress(invoice.buyer_address || '');
+    setBuyerBuilding(invoice.buyer_building_number || '');
+    setBuyerDistrict(invoice.buyer_district || '');
+    setBuyerAdditional(invoice.buyer_additional_number || '');
+    setBuyerCity(invoice.buyer_city || '');
+    setBuyerPostalCode(invoice.buyer_postal_code || '');
+    setBillingReference(invoice.invoice_number);
+    setNoteReason('');
+    setLines(invoice.lines.map((line) => ({ item_name:line.item_name, description:line.description || '', quantity:String(line.quantity), unit_code:line.unit_code, unit_price:String(line.unit_price), discount_amount:String(line.discount_amount), tax_category:line.tax_category, tax_rate:String(line.tax_rate), tax_exemption_reason_code:line.tax_exemption_reason_code || '', tax_exemption_reason:line.tax_exemption_reason || '' })));
+    setShowDraftForm(true);
+    window.scrollTo({ top:0, behavior:'smooth' });
   }
 
   function editDraft(invoice: Invoice) {
@@ -688,8 +783,12 @@ export function VatEInvoiceRegister({
           <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : (ar ? 'مسودة' : 'Draft')}</span>
           <div className="vat-invoice-actions">
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE'} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار' : 'Issue'}</button>}
-            {invoice.status === 'ISSUED' && invoice.qr_code && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'طباعة / PDF' : 'Print / PDF'}</button>}
+            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => void collectInvoice(invoice)}>{ar ? `قبض المتبقي ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}` : `Collect ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}`}</button>}
+            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) === 0 && <span className="vat-status registered">{ar ? 'مسددة' : 'Paid'}</span>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE' || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار ZATCA' : 'Issue ZATCA'}</button>}
+            {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}>{ar ? 'إشعار دائن' : 'Credit note'}</button>}
+            {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}>{ar ? 'إشعار مدين' : 'Debit note'}</button>}
+            {invoice.status === 'ISSUED' && invoice.qr_code && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'عرض / PDF' : 'View / PDF'}</button>}
           </div>
         </div>)}
         {!loading && !invoices.length && <div className="vat-empty-row">{ar ? 'لا توجد فواتير بعد.' : 'No invoices yet.'}</div>}
