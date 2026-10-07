@@ -555,6 +555,7 @@ export function VatEInvoiceRegister({
   function editDraft(invoice: Invoice) {
     if (invoice.status !== 'DRAFT') return;
     setEditingDraftId(invoice.id);
+    setAccountingSourceId(invoice.accounting_document_id || null);
     setDocumentType(invoice.document_type as typeof documentType);
     setCategory(invoice.invoice_category as typeof category);
     setInvoiceNumber(invoice.invoice_number);
