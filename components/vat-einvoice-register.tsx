@@ -307,9 +307,15 @@ export function VatEInvoiceRegister({
         }
         throw new Error(body?.error || `HTTP_${response.status}`);
       }
-      setInvoices((current) => editingDraftId
-        ? current.map((invoice) => invoice.id === editingDraftId ? { ...invoice, ...body } : invoice)
-        : [body, ...current]);
+      const refreshed = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
+      if (refreshed.ok) {
+        const refreshedBody = await refreshed.json();
+        setInvoices(refreshedBody.invoices ?? []);
+      } else {
+        setInvoices((current) => editingDraftId
+          ? current.map((invoice) => invoice.id === editingDraftId ? { ...invoice, ...body } : invoice)
+          : [body, ...current]);
+      }
       setEditingDraftId(null);
       setNoteSource(null);
       setAccountingSourceId(null);
@@ -833,7 +839,7 @@ export function VatEInvoiceRegister({
         {!loading && invoices.map((invoice) => <div className="vat-einvoice-item" key={invoice.id}>
           <div><strong>{invoice.invoice_number}</strong><small>{invoice.document_type !== 'INVOICE' ? (invoice.document_type === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'إشعار مدين' : 'Debit note')) : (ar ? 'فاتورة' : 'Invoice')} · {invoice.issue_date}{invoice.due_date ? ` · ${ar ? 'استحقاق' : 'Due'}: ${invoice.due_date}` : ''} · {invoice.invoice_category === 'STANDARD' ? (ar ? 'قياسية' : 'Standard') : (ar ? 'مبسطة' : 'Simplified')} · {invoice.lines.length} {ar ? 'بنود' : 'lines'}</small></div>
           <div className="vat-einvoice-total">{formatAmount(invoice.payable_amount)} {invoice.currency}{invoice.currency !== 'SAR' && invoice.exchange_rate && <small className="vat-einvoice-sar-total">{formatAmount(Number(invoice.payable_amount) * Number(invoice.exchange_rate))} SAR</small>}</div>
-          <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : invoice.status === 'ACCOUNTING_READY' ? (ar ? 'جاهزة للإصدار' : 'Ready to issue') : (ar ? 'مسودة' : 'Draft')}</span>
+          <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : invoice.status === 'ACCOUNTING_READY' ? (ar ? 'جاهزة للإصدار' : 'Ready to issue') : invoice.status === 'DRAFT' && !invoice.accounting_document_id ? (ar ? 'مسودة غير مرتبطة محاسبيًا' : 'Unlinked accounting draft') : (ar ? 'مسودة' : 'Draft')}</span>
           <div className="vat-invoice-actions">
             {invoice.status === 'ACCOUNTING_READY' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => prepareAccountingInvoiceForZatca(invoice)}>{ar ? 'تجهيز وإصدار ZATCA' : 'Prepare & issue ZATCA'}</button>}
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
