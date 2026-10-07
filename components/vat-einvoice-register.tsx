@@ -224,18 +224,30 @@ export function VatEInvoiceRegister({
     setMessage(null);
     try {
       let accountingDocumentId: string | null = null;
-      if (!editingDraftId && documentType !== 'INVOICE') {
-        if (!noteSource?.accounting_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
+      if (!editingDraftId && !accountingSourceId) {
+        if (documentType !== 'INVOICE' && !noteSource?.accounting_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
+        if (!buyerContactId) throw new Error('VAT_STABLE_CONTACT_REQUIRED');
+        const accountingLines = lines.map((line) => {
+          const normalized = normalizeInvoiceLinePrice(lineForCalculation(line), pricesIncludeTax);
+          return {
+            description: line.item_name || line.description || (documentType === 'INVOICE' ? 'Sale' : 'Adjustment'),
+            unit: line.unit_code,
+            quantity: Number(line.quantity),
+            unit_price: Number(normalized.unit_price),
+            discount_amount: Number(normalized.discount_amount || 0),
+            supply_type: line.tax_category === 'S' ? 'STANDARD' : line.tax_category === 'Z' ? 'ZERO_RATED' : line.tax_category === 'E' ? 'EXEMPT' : 'OUT_OF_SCOPE',
+          };
+        });
         const accountingResponse = await fetch('/api/vat', {
           method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
             action:'add_document', organization_id:organizationId, document_type:'SALES', document_kind:documentType,
             document_number:invoiceNumber, transaction_date:issueDate, due_date:dueDate || issueDate,
-            preceding_document_id:noteSource.accounting_document_id, counterparty_contact_id:buyerContactId,
-            counterparty_name:buyerName, counterparty_tax_number:buyerVatNumber || null,
-            supply_type:lines[0]?.tax_category === 'S' ? 'STANDARD' : lines[0]?.tax_category === 'Z' ? 'ZERO_RATED' : lines[0]?.tax_category === 'E' ? 'EXEMPT' : 'OUT_OF_SCOPE',
-            net_amount:lines.reduce((sum,line)=>sum + Number(line.quantity||0)*Number(line.unit_price||0)-Number(line.discount_amount||0),0),
-            lines:lines.map(line=>({description:line.item_name || line.description || 'Adjustment',unit:line.unit_code,quantity:Number(line.quantity),unit_price:Number(line.unit_price),discount_amount:Number(line.discount_amount||0),supply_type:line.tax_category === 'S' ? 'STANDARD' : line.tax_category === 'Z' ? 'ZERO_RATED' : line.tax_category === 'E' ? 'EXEMPT' : 'OUT_OF_SCOPE'})),
-            currency, exchange_rate:Number(exchangeRate), recoverable_percent:100, notes:noteReason || billingReference,
+            ...(documentType !== 'INVOICE' ? { preceding_document_id: noteSource?.accounting_document_id } : {}),
+            counterparty_contact_id:buyerContactId, counterparty_name:buyerName, counterparty_tax_number:buyerVatNumber || null,
+            supply_type:accountingLines[0]?.supply_type || 'STANDARD',
+            net_amount:accountingLines.reduce((sum,line)=>sum + line.quantity*line.unit_price-line.discount_amount,0),
+            lines:accountingLines, currency, exchange_rate:Number(exchangeRate), recoverable_percent:100,
+            notes:noteReason || billingReference || (documentType === 'INVOICE' ? 'Created from ZATCA invoice workspace' : null),
           })
         });
         const accountingBody = await accountingResponse.json();
