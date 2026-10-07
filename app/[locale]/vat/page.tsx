@@ -646,16 +646,16 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   }
 
   function startEditDocument(document: VatDocument) {
-    if (document.is_einvoice || document.document_type !== 'SALES' || document.document_kind !== 'INVOICE') return;
+    if (document.is_einvoice || !['SALES','PURCHASE'].includes(document.document_type) || document.document_kind !== 'INVOICE' || (document as any).asset_transaction_id) return;
     const rate = Number(document.exchange_rate || 1) || 1;
     const sourceLines = Array.isArray((document as any).line_items) ? (document as any).line_items : [];
     setEditingDocumentId(document.id);
     setDraft({
-      document_type:'SALES', document_kind:'INVOICE', document_number:document.document_number,
+      document_type:document.document_type as 'SALES'|'PURCHASE', document_kind:'INVOICE', document_number:document.document_number,
       transaction_date:document.transaction_date, due_date:document.due_date || document.transaction_date,
       counterparty_name:document.counterparty_name, counterparty_tax_number:document.counterparty_tax_number || '',
       counterparty_contact_id:(document as any).counterparty_contact_id || '', supply_type:document.supply_type,
-      net_amount:String(Number((document as any).source_net_amount ?? document.net_amount)), recoverable_percent:'100', notes:document.notes || '',
+      net_amount:String(Number((document as any).source_net_amount ?? document.net_amount)), recoverable_percent:String(document.recoverable_percent ?? 100), notes:document.notes || '',
     });
     setAccountingLines(sourceLines.length ? sourceLines.map((line:any)=>({
       description:line.description || '', unit:line.unit || '', quantity:String(line.quantity || 1),
@@ -1042,7 +1042,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               <tbody>
                 {filteredRegisterDocuments.map((document) => <tr key={document.id}>
                   <td className="vat-invoice-counterparty"><strong>{document.counterparty_name || (ar ? 'بدون اسم جهة' : 'Unnamed counterparty')}</strong><small>{document.counterparty_tax_number || ''}</small></td><td><span className={`vat-type-pill ${document.document_kind === 'CREDIT_NOTE' ? 'credit' : 'invoice'}`}>{document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'فاتورة ضريبية' : 'Tax invoice')}</span></td>
-                  <td><strong className="vat-invoice-number">{document.document_number}</strong></td><td dir="ltr">{document.transaction_date}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td className="vat-invoice-gross">{vatDocumentAmount(document, 'gross')}</td><td><span className={`vat-invoice-source ${document.is_einvoice ? 'electronic' : ''}`}>{document.is_einvoice ? (ar ? 'زكاة فلو · إلكترونية' : 'ZakatFlow · e-invoice') : (ar ? 'إدخال محاسبي' : 'Accounting entry')}</span></td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'عرض' : 'View'}</span> : <span className="vat-row-actions">{document.document_type === 'SALES' && document.document_kind === 'INVOICE' && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}>{ar ? 'تعديل' : 'Edit'}</button>}<button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button></span>}</td>
+                  <td><strong className="vat-invoice-number">{document.document_number}</strong></td><td dir="ltr">{document.transaction_date}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td className="vat-invoice-gross">{vatDocumentAmount(document, 'gross')}</td><td><span className={`vat-invoice-source ${document.is_einvoice ? 'electronic' : ''}`}>{document.is_einvoice ? (ar ? 'زكاة فلو · إلكترونية' : 'ZakatFlow · e-invoice') : (ar ? 'إدخال محاسبي' : 'Accounting entry')}</span></td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'عرض' : 'View'}</span> : <span className="vat-row-actions">{['SALES','PURCHASE'].includes(document.document_type) && document.document_kind === 'INVOICE' && !(document as any).asset_transaction_id && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}>{ar ? 'تعديل' : 'Edit'}</button>}<button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button></span>}</td>
                 </tr>)}
                 {!filteredRegisterDocuments.length && <tr><td colSpan={10} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : registerDocuments.length ? (ar ? 'لا توجد مستندات تطابق خيارات البحث.' : 'No documents match these filters.') : (registerDirection === 'PURCHASE' ? (ar ? 'لا توجد فواتير مشتريات مسجلة لهذه الفترة.' : 'No purchase invoices have been recorded for this period.') : (ar ? 'لا توجد فواتير مبيعات مسجلة لهذه الفترة.' : 'No sales invoices have been recorded for this period.'))}</td></tr>}
               </tbody>
