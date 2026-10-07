@@ -61,6 +61,9 @@ type Invoice = {
   buyer_postal_code?: string | null;
   billing_reference?: string | null;
   note_reason?: string | null;
+  accounting_document_id?: string | null;
+  accounting_document?: { id: string; document_number: string; document_kind: string; zatca_status: string } | null;
+  cash_flow?: { id: string; amount: string; settled_amount: string; settlement_status: string; status: string; currency: string; due_date: string } | null;
   lines: Array<{
     id: string; item_name: string; description: string | null; quantity: number; unit_code: string;
     unit_price: string; discount_amount: string; tax_category: InvoiceLine['tax_category']; tax_rate: string;
@@ -411,6 +414,60 @@ export function VatEInvoiceRegister({
     }
   }
 
+  async function collectInvoice(invoice: Invoice) {
+    if (!invoice.cash_flow?.id) {
+      setMessage({ error: true, text: ar ? 'لا يوجد تدفق قبض مرتبط بهذه الفاتورة المحاسبية.' : 'No collection flow is linked to this accounting invoice.' });
+      return;
+    }
+    const outstanding = Math.max(0, Number(invoice.cash_flow.amount) - Number(invoice.cash_flow.settled_amount || 0));
+    if (outstanding <= 0) return;
+    const accountId = window.prompt(ar ? 'أدخل معرف الحساب البنكي/الصندوق الذي تم القبض عليه:' : 'Enter the bank/cash account ID used for collection:');
+    if (!accountId) return;
+    const amountText = window.prompt(ar ? `مبلغ القبض (المتبقي ${formatAmount(outstanding)} ${invoice.cash_flow.currency}):` : `Collection amount (outstanding ${formatAmount(outstanding)} ${invoice.cash_flow.currency}):`, String(outstanding));
+    if (!amountText) return;
+    const amount = Number(amountText);
+    if (!(amount > 0) || amount > outstanding) {
+      setMessage({ error: true, text: ar ? 'مبلغ القبض غير صحيح أو أكبر من الرصيد المتبقي.' : 'Collection amount is invalid or exceeds the outstanding balance.' });
+      return;
+    }
+    setBusy(true); setMessage(null);
+    try {
+      const response = await fetch(`/api/liquidity/${invoice.cash_flow.id}`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ status:'ACTUAL', account_id:accountId, amount, settlement_date:new Date().toISOString().slice(0,10) }) });
+      const body = await response.json();
+      if (!response.ok && response.status !== 202) throw new Error(body?.error || `HTTP_${response.status}`);
+      const refresh = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
+      if (refresh.ok) setInvoices((await refresh.json()).invoices ?? []);
+      setMessage({ error: false, text: response.status === 202 ? (ar ? 'تم تسجيل القبض وهو بانتظار الموافقة المالية.' : 'Collection recorded and is pending financial approval.') : (ar ? 'تم تسجيل القبض وتحديث الذمة والسيولة.' : 'Collection posted; receivable and liquidity were updated.') });
+    } catch (error) { setMessage({ error:true, text:messageFor(error instanceof Error ? error.message : 'COLLECTION_FAILED', ar) }); }
+    finally { setBusy(false); }
+  }
+
+  function startNote(invoice: Invoice, kind: 'CREDIT_NOTE'|'DEBIT_NOTE') {
+    if (!invoice.accounting_document_id || invoice.status !== 'ISSUED') return;
+    setEditingDraftId(null);
+    setDocumentType(kind);
+    setCategory(invoice.invoice_category as typeof category);
+    setInvoiceNumber(`${invoice.invoice_number}-${kind === 'CREDIT_NOTE' ? 'CN' : 'DN'}`);
+    setIssueDate(new Date().toISOString().slice(0,10));
+    setDueDate(new Date().toISOString().slice(0,10));
+    setCurrency(invoice.currency);
+    setExchangeRate(String(invoice.exchange_rate || 1));
+    setBuyerContactId(invoice.buyer_contact_id || '');
+    setBuyerName(invoice.buyer_name || '');
+    setBuyerVatNumber(invoice.buyer_vat_number || '');
+    setBuyerAddress(invoice.buyer_address || '');
+    setBuyerBuilding(invoice.buyer_building_number || '');
+    setBuyerDistrict(invoice.buyer_district || '');
+    setBuyerAdditional(invoice.buyer_additional_number || '');
+    setBuyerCity(invoice.buyer_city || '');
+    setBuyerPostalCode(invoice.buyer_postal_code || '');
+    setBillingReference(invoice.invoice_number);
+    setNoteReason('');
+    setLines(invoice.lines.map((line) => ({ item_name:line.item_name, description:line.description || '', quantity:String(line.quantity), unit_code:line.unit_code, unit_price:String(line.unit_price), discount_amount:String(line.discount_amount), tax_category:line.tax_category, tax_rate:String(line.tax_rate), tax_exemption_reason_code:line.tax_exemption_reason_code || '', tax_exemption_reason:line.tax_exemption_reason || '' })));
+    setShowDraftForm(true);
+    window.scrollTo({ top:0, behavior:'smooth' });
+  }
+
   function editDraft(invoice: Invoice) {
     if (invoice.status !== 'DRAFT') return;
     setEditingDraftId(invoice.id);
@@ -688,8 +745,12 @@ export function VatEInvoiceRegister({
           <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : (ar ? 'مسودة' : 'Draft')}</span>
           <div className="vat-invoice-actions">
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE'} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار' : 'Issue'}</button>}
-            {invoice.status === 'ISSUED' && invoice.qr_code && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'طباعة / PDF' : 'Print / PDF'}</button>}
+            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => void collectInvoice(invoice)}>{ar ? `قبض المتبقي ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}` : `Collect ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}`}</button>}
+            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) === 0 && <span className="vat-status registered">{ar ? 'مسددة' : 'Paid'}</span>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE' || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار ZATCA' : 'Issue ZATCA'}</button>}
+            {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}>{ar ? 'إشعار دائن' : 'Credit note'}</button>}
+            {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}>{ar ? 'إشعار مدين' : 'Debit note'}</button>}
+            {invoice.status === 'ISSUED' && invoice.qr_code && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'عرض / PDF' : 'View / PDF'}</button>}
           </div>
         </div>)}
         {!loading && !invoices.length && <div className="vat-empty-row">{ar ? 'لا توجد فواتير بعد.' : 'No invoices yet.'}</div>}
