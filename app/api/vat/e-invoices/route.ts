@@ -28,51 +28,6 @@ function errorResponse(error: unknown) {
   return NextResponse.json({ error: code }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
-async function syncDraftInvoiceLiquidity(supabase: any, userId: string, invoice: any) {
-  if (invoice.document_type !== 'INVOICE' || !invoice.due_date) return null;
-  const sourceEventKey = `vat_einvoices:${invoice.id}:cash-forecast`;
-  const { data: existing, error: existingError } = await supabase.from('liquidity_flows')
-    .select('id,settled_amount,settlement_status')
-    .eq('organization_id', invoice.organization_id)
-    .eq('source_module', 'VAT_EINVOICE')
-    .eq('source_event_key', sourceEventKey)
-    .maybeSingle();
-  if (existingError) throw existingError;
-  if (existing && (Number(existing.settled_amount || 0) !== 0 || existing.settlement_status !== 'UNSETTLED')) return existing.id;
-  const counterpartyName = invoice.buyer_name || 'Customer';
-  const values = {
-    organization_id: invoice.organization_id,
-    entity_id: null,
-    account_id: null,
-    direction: 'INFLOW',
-    flow_type: 'OPERATING',
-    title: `Invoice receivable · ${invoice.invoice_number}`,
-    counterparty: counterpartyName,
-    due_date: invoice.due_date,
-    amount: invoice.payable_amount,
-    currency: invoice.currency,
-    base_amount: new Decimal(invoice.payable_amount).mul(invoice.exchange_rate || 1).toDecimalPlaces(2).toFixed(2),
-    status: 'EXPECTED',
-    source: 'INVOICE',
-    reference: invoice.invoice_number,
-    source_module: 'VAT_EINVOICE',
-    source_record_id: invoice.id,
-    source_event_key: sourceEventKey,
-    notes: 'Expected collection generated from e-invoice draft due date',
-    updated_at: new Date().toISOString(),
-  };
-  if (existing) {
-    const { error } = await supabase.from('liquidity_flows').update(values).eq('id', existing.id).eq('organization_id', invoice.organization_id);
-    if (error) throw error;
-    return existing.id;
-  }
-  const { data: created, error } = await supabase.from('liquidity_flows')
-    .insert({ ...values, settled_amount: 0, settlement_status: 'UNSETTLED', created_by: userId })
-    .select('id').single();
-  if (error) throw error;
-  return created.id;
-}
-
 export async function GET(request: Request) {
   try {
     const { supabase, user } = await requireUser();
@@ -380,15 +335,14 @@ export async function PATCH(request: Request) {
       throw insertLinesError;
     }
 
-    const cashFlowId = await syncDraftInvoiceLiquidity(supabase, user.id, updatedInvoice);
     await supabase.from('audit_logs').insert({
       user_id: user.id,
       entity_type: 'vat_einvoice',
       entity_id: invoiceId,
       action: 'DRAFT_UPDATED',
-      new_data: { invoice_number: draft.invoice_number, line_count: lines.length, status: 'DRAFT', cash_flow_id: cashFlowId },
+      new_data: { invoice_number: draft.invoice_number, line_count: lines.length, status: 'DRAFT' },
     });
-    return NextResponse.json({ ...updatedInvoice, lines: savedLines ?? [], liquidity_cash_flow_id: cashFlowId }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ...updatedInvoice, lines: savedLines ?? [] }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return errorResponse(error);
   }
