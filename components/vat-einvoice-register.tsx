@@ -1,5 +1,6 @@
 'use client';
 
+import { vatEInvoiceRegisterUrl, type InvoiceRegisterTarget } from '@/lib/vat-einvoice-register-target';
 import { vatNoteMessages } from '@/lib/vat-note-messages';
 
 import { Fragment, FormEvent, useEffect, useState } from 'react';
@@ -98,6 +99,7 @@ export function VatEInvoiceRegister({
   registered,
   ar,
   onInvoiceIssued,
+  registerTarget,
 }: {
   organizationId: string;
   sellerProfile: SellerProfile;
@@ -106,7 +108,9 @@ export function VatEInvoiceRegister({
   registered: boolean;
   ar: boolean;
   onInvoiceIssued?: () => void;
+  registerTarget?: InvoiceRegisterTarget;
 }) {
+  const listUrl = vatEInvoiceRegisterUrl(organizationId, registerTarget);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [canCreate, setCanCreate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -187,7 +191,7 @@ export function VatEInvoiceRegister({
     if (!organizationId) return;
     let active = true;
     setLoading(true);
-    fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`)
+    fetch(listUrl)
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
@@ -203,7 +207,7 @@ export function VatEInvoiceRegister({
       .catch((error) => { if (active) setMessage({ error: true, text: messageFor(error.message, ar) }); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [organizationId, registered, ar]);
+  }, [organizationId, registered, ar, listUrl]);
 
   useEffect(() => {
     if (!organizationId) return;
@@ -339,10 +343,10 @@ export function VatEInvoiceRegister({
         }
         throw new Error(body?.error || `HTTP_${response.status}`);
       }
-      const refreshed = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
+      const refreshed = await fetch(listUrl);
       if (refreshed.ok) {
         const refreshedBody = await refreshed.json();
-        setInvoices(refreshedBody.invoices ?? []);
+        setInvoices(registerTarget && !editingDraftId && body?.id && !(refreshedBody.invoices ?? []).some((item: Invoice) => item.id === body.id) ? [body, ...(refreshedBody.invoices ?? [])] : refreshedBody.invoices ?? []);
       } else {
         setInvoices((current) => editingDraftId
           ? current.map((invoice) => invoice.id === editingDraftId ? { ...invoice, ...body } : invoice)
@@ -407,7 +411,7 @@ export function VatEInvoiceRegister({
       const response = await fetch(invoice.document_type === 'INVOICE' ? '/api/vat/recognition' : '/api/vat/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ organization_id:organizationId, document_id:invoice.accounting_document_id }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || 'VAT_NOTE_POST_FAILED');
-      const refresh = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
+      const refresh = await fetch(listUrl);
       if (refresh.ok) setInvoices((await refresh.json()).invoices ?? []);
       onInvoiceIssued?.();
       setMessage({ error:false, text:response.status===202 ? (ar?'الإشعار بانتظار الموافقة حسب سياسة المنشأة.':'Note awaits approval under organization policy.') : (ar?(invoice.document_type === 'INVOICE'?'تم اعتماد الفاتورة محاسبيًا دون حركة نقدية.':'تم ترحيل أثر الإشعار وتحديث الذمم والسيولة المتوقعة. رد المبلغ يحتاج تسوية منفصلة.'):'Note posted; obligations and cash forecast updated. Refund requires a separate settlement.') });
@@ -499,7 +503,7 @@ export function VatEInvoiceRegister({
       const response = await fetch(`/api/liquidity/${invoice.cash_flow.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status:'ACTUAL',account_id:collectionAccountId,amount,settlement_date:collectionDate}) });
       const body = await response.json();
       if (!response.ok && response.status !== 202) throw new Error(body?.error || `HTTP_${response.status}`);
-      const refresh = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
+      const refresh = await fetch(listUrl);
       if (refresh.ok) setInvoices((await refresh.json()).invoices ?? []);
       setCollectionInvoice(null);
       setMessage({error:false,text:response.status===202?(body.settlement_event_id ? (ar?'حُفظ سند القبض بانتظار الموافقة؛ لم يتحرك رصيد البنك بعد.':'Receipt saved pending approval; the bank balance has not changed.') : (ar?'لم يُسجل القبض بعد: الفاتورة بانتظار الموافقة المالية.':'Collection has not been recorded: invoice recognition needs financial approval.')):(ar?'تم تسجيل القبض وتحديث الذمة والسيولة.':'Collection posted; receivable and liquidity were updated.')});
@@ -817,7 +821,7 @@ export function VatEInvoiceRegister({
       </div>}
 
       {receiptInvoice?.accounting_document_id && <VatInvoiceReceipts key={`${organizationId}:${receiptInvoice.accounting_document_id}`} organizationId={organizationId} documentId={receiptInvoice.accounting_document_id} invoiceNumber={receiptInvoice.invoice_number} accounts={cashAccounts} canEdit={canCreate} ar={ar} onClose={() => setReceiptInvoice(null)} onPosted={() => {
-        fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`).then(async (response) => { if (response.ok) setInvoices((await response.json()).invoices ?? []); }).catch(() => undefined);
+        fetch(listUrl).then(async (response) => { if (response.ok) setInvoices((await response.json()).invoices ?? []); }).catch(() => undefined);
         onInvoiceIssued?.();
       }} />}
       <InvoiceRegisterFilters value={filters} onChange={setFilters} ar={ar} count={visibleInvoices.length} total={invoices.length} currencies={[...new Set(invoices.map(invoice => invoice.currency))].sort()} statuses={[['DRAFT',ar?'مسودة':'Draft'],['ACCOUNTING_READY',ar?'جاهزة للإصدار':'Ready to issue'],['ISSUED',ar?'صادرة':'Issued'],['CLEARED',ar?'معتمدة':'Cleared'],['REPORTED',ar?'مبلغ عنها':'Reported'],['SUBMITTED',ar?'مرسلة':'Submitted'],['REJECTED',ar?'مرفوضة':'Rejected'],['VOID',ar?'ملغاة':'Void']]} categories={[['STANDARD',ar?'ضريبية':'Standard'],['SIMPLIFIED',ar?'مبسطة':'Simplified']]} />

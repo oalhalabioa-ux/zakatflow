@@ -38,12 +38,18 @@ export async function GET(request: Request) {
     const organizationId = new URL(request.url).searchParams.get('organization_id');
     if (!organizationId) return NextResponse.json({ error: 'ORGANIZATION_ID_REQUIRED' }, { status: 400 });
     const membership = await requireOrganizationMember(supabase, user.id, organizationId);
-    const { data: invoices, error } = await supabase.from('vat_einvoices')
+    const queryParams = new URL(request.url).searchParams;
+    const targetInvoiceId = queryParams.get('target_invoice_id'), targetDocumentId = queryParams.get('target_document_id');
+    if ([targetInvoiceId,targetDocumentId].some(id => id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))) return NextResponse.json({error:'EINVOICE_NOT_FOUND'},{status:400});
+    let invoiceQuery = supabase.from('vat_einvoices')
       .select('*')
       .eq('organization_id', organizationId)
       .order('issue_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(200);
+    if (targetInvoiceId) invoiceQuery = invoiceQuery.eq('id',targetInvoiceId);
+    else if (targetDocumentId) invoiceQuery = invoiceQuery.eq('accounting_document_id',targetDocumentId);
+    const { data: invoices, error } = await invoiceQuery;
     if (error) throw error;
     const ids = (invoices ?? []).map((invoice: { id: string }) => invoice.id);
     const { data: lines, error: lineError } = ids.length
@@ -51,10 +57,12 @@ export async function GET(request: Request) {
       : { data: [], error: null };
     if (lineError) throw lineError;
     const linkedAccountingIds = new Set((invoices ?? []).map((invoice: any) => invoice.accounting_document_id).filter(Boolean));
-    const { data: pendingAccounting, error: pendingAccountingError } = await supabase.from('vat_documents')
+    let pendingQuery = supabase.from('vat_documents')
       .select('id,document_number,document_kind,transaction_date,due_date,counterparty_name,counterparty_contact_id,counterparty_tax_number,net_amount,tax_amount,gross_amount,currency,source_currency,source_net_amount,source_tax_amount,source_gross_amount,exchange_rate,line_items,zatca_status')
       .eq('organization_id', organizationId).eq('document_type','SALES').eq('document_kind','INVOICE')
       .order('created_at',{ascending:false}).limit(200);
+    if (targetDocumentId || targetInvoiceId) pendingQuery = pendingQuery.eq('id', targetDocumentId || invoices?.[0]?.accounting_document_id || '00000000-0000-0000-0000-000000000000');
+    const { data: pendingAccounting, error: pendingAccountingError } = await pendingQuery;
     if (pendingAccountingError) throw pendingAccountingError;
     const contactIds = [...new Set((pendingAccounting ?? []).map((doc: any) => doc.counterparty_contact_id).filter(Boolean))];
     const { data: contacts, error: contactsError } = contactIds.length

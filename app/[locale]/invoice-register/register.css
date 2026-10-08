@@ -1,0 +1,15 @@
+
+.vat-unified-page .vat-unified-company { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:20px 0; }
+.vat-unified-page .vat-unified-company select { min-width:220px; max-width:100%; padding:10px; border:1px solid var(--vat-line); border-radius:8px; background:var(--vat-card); color:var(--vat-ink); }
+.vat-unified-page .vat-unified-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+.vat-unified-page .vat-unified-metrics > div { padding:16px; border:1px solid var(--vat-line); background:var(--vat-soft); border-radius:12px; display:grid; gap:6px; }
+.vat-unified-page .vat-unified-metrics small { color:var(--vat-muted); }.vat-unified-page .vat-unified-metrics strong { font-size:1.5rem; color:var(--vat-accent); }
+.vat-unified-page .vat-unified-controls { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }.vat-unified-page .vat-unified-controls label { display:flex; gap:8px; align-items:center; font-size:.8rem; }
+.vat-unified-page .vat-unified-drafts input { min-height:16px; width:16px; padding:0; accent-color:var(--vat-accent); }
+.vat-unified-page .vat-unified-table td small { display:block; color:var(--vat-muted); margin-top:5px; }.vat-unified-page .vat-unified-table .selected { background:var(--vat-soft); }
+.vat-unified-page .vat-unified-caption { text-align:start; padding:10px; font-size:.8rem; color:var(--vat-muted); }.vat-unified-page .vat-unified-issue { font-size:.73rem; }
+.vat-unified-page .vat-unified-actions { display:flex; gap:6px; flex-wrap:wrap; }.vat-unified-page .vat-unified-actions .vat-button { min-height:32px; padding:6px 9px; font-size:.72rem; white-space:nowrap; }
+.vat-unified-page .vat-unified-details { margin-top:16px; padding:18px; border:1px solid var(--vat-line); border-radius:12px; background:var(--vat-soft); }.vat-unified-page .vat-unified-details dl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }.vat-unified-page .vat-unified-details dt { color:var(--vat-muted); font-size:.75rem; }.vat-unified-page .vat-unified-details dd { margin:6px 0; font-weight:600; }.vat-unified-page .vat-unified-details p { color:var(--vat-muted); font-size:.82rem; line-height:1.7; }
+@media(max-width:800px) { .vat-unified-page .vat-unified-metrics,.vat-unified-page .vat-unified-details dl { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+.vat-unified-page .vat-unified-edit-lines { grid-column:1 / -1; display:grid; gap:12px; }.vat-unified-page .vat-unified-edit-lines > .vat-form-grid { padding:12px; border:1px solid var(--vat-line); border-radius:10px; }
