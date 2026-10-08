@@ -1046,6 +1046,9 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               </div>
             </div>
             {registerFormOpen && <form className="vat-form-grid vat-document-form" onSubmit={addDocument}>
+              <fieldset className="vat-invoice-entry-header">
+                <legend>{draft.document_kind === 'INVOICE' ? (ar ? 'بيانات الفاتورة' : 'Invoice details') : (ar ? 'بيانات الإشعار' : 'Note details')}</legend>
+                <div className="vat-invoice-entry-fields">
               <div className="vat-document-contact-field">
                 {selectedNoteOriginal ? <label><span>{ar?'الجهة المرتبطة بالأصل':'Original counterparty'}</span><input value={draft.counterparty_name} readOnly /></label> : <VatContactPicker
                   key={`${organizationId}-${draft.document_type}`}
@@ -1069,6 +1072,8 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                 <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
                 <label><span>{ar ? 'تاريخ الاستحقاق' : 'Due date'}</span><input required type="date" min={draft.transaction_date} value={draft.due_date} onChange={(event) => setDraft({ ...draft, due_date: event.target.value })} /></label>
               </div>
+                </div>
+              </fieldset>
               {draft.document_kind !== 'INVOICE' && <label><span>{ar?'الفاتورة الأصلية المرتبطة':'Linked original invoice'}</span><select required value={draft.preceding_document_id || ''} onChange={event=>{
                 const original=noteOriginals.find(row=>row.id===event.target.value);
                 setDraft(current=>({...current,preceding_document_id:original?.id || null,counterparty_contact_id:original?.counterparty_contact_id || '',counterparty_name:original?.counterparty_name || '',counterparty_tax_number:original?.counterparty_tax_number || '',recoverable_percent:String(original?.recoverable_percent ?? 100)}));
