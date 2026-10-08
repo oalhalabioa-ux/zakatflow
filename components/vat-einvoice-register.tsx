@@ -783,7 +783,7 @@ export function VatEInvoiceRegister({
         <fieldset className="vat-einvoice-group">
           <legend>{documentType === 'INVOICE' ? (ar ? 'بيانات الفاتورة' : 'Invoice details') : (ar ? 'بيانات الإشعار' : 'Note details')}</legend>
           <div className="vat-einvoice-group-grid vat-einvoice-first-row">
-            {category === 'STANDARD' && <div className="vat-document-contact-field vat-einvoice-buyer-picker">
+            <div className="vat-document-contact-field vat-einvoice-buyer-picker">
               <VatContactPicker
                 key={`${organizationId}-einvoice-buyer`}
                 organizationId={organizationId}
@@ -792,7 +792,7 @@ export function VatEInvoiceRegister({
                 label={ar ? 'العميل / المشتري' : 'Customer / buyer'}
                 value={buyerContactId}
                 required
-                requireSaudiAddress
+                requireSaudiAddress={category === 'STANDARD'}
                 onChange={(contact: VatContact | null) => {
                   setBuyerContactId(contact?.id ?? '');
                   setBuyerName(contact?.name ?? '');
@@ -805,14 +805,11 @@ export function VatEInvoiceRegister({
                   setBuyerPostalCode(contact?.postal_code ?? '');
                 }}
               />
-            </div>}
+              {category === 'SIMPLIFIED' && <small>{ar ? 'اختر العميل لربط الفاتورة بالمستحق وسندات القبض؛ تفاصيل العنوان غير مطلوبة للمبسطة.' : 'Select a customer to link the receivable and receipts; address details are not required for simplified invoices.'}</small>}
+            </div>
             <label><span>{ar ? 'نوع الفاتورة' : 'Invoice type'}</span><select value={category} onChange={(event) => {
               const nextCategory = event.target.value as typeof category;
               setCategory(nextCategory);
-              if (nextCategory === 'SIMPLIFIED') {
-                setBuyerContactId(''); setBuyerName(''); setBuyerVatNumber(''); setBuyerAddress('');
-                setBuyerBuilding(''); setBuyerDistrict(''); setBuyerAdditional(''); setBuyerCity(''); setBuyerPostalCode('');
-              }
             }}><option value="STANDARD">{ar ? 'ضريبية قياسية' : 'Standard tax invoice'}</option><option value="SIMPLIFIED">{ar ? 'مبسطة' : 'Simplified'}</option></select></label>
             <label><span>{ar ? 'رقم الفاتورة' : 'Invoice number'}</span><input required maxLength={100} value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} /></label>
             <label><span>{ar ? 'تاريخ الفاتورة' : 'Invoice date'}</span><input required type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} /></label>
