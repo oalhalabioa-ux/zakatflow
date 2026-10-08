@@ -28,7 +28,7 @@ const emptyDraft: Draft = {
 };
 
 export function VatContactPicker({
-  organizationId, role, ar, label, value, required = false, requireSaudiAddress = false, onChange,
+  organizationId, role, ar, label, value, required = false, requireSaudiAddress = false, compactAdd = false, onChange,
 }: {
   organizationId: string;
   role: 'CUSTOMER' | 'SUPPLIER';
@@ -37,6 +37,7 @@ export function VatContactPicker({
   value: string;
   required?: boolean;
   requireSaudiAddress?: boolean;
+  compactAdd?: boolean;
   onChange: (contact: VatContact | null) => void;
 }) {
   const pickerId = useId();
@@ -143,10 +144,10 @@ export function VatContactPicker({
 
   return (
     <div className="vat-contact-picker">
-      <div className="vat-contact-picker-head">
+      <div className={`vat-contact-picker-head ${compactAdd ? 'is-compact' : ''}`}>
         <label htmlFor={`vat-contact-${role}-${organizationId}-${pickerId}`}><span>{label}</span></label>
-        {canManage && <button type="button" className="vat-contact-add" onClick={() => { setEditingContact(null); setDraft(emptyDraft); setError(''); setDialogOpen(true); }}>
-          <span aria-hidden="true">+</span>{ar ? 'إضافة' : 'Add'}
+        {canManage && <button type="button" className={`vat-contact-add ${compactAdd ? 'vat-contact-add-icon' : ''}`} aria-label={ar ? (role === 'CUSTOMER' ? 'إضافة عميل' : 'إضافة مورد') : (role === 'CUSTOMER' ? 'Add customer' : 'Add supplier')} title={ar ? (role === 'CUSTOMER' ? 'إضافة عميل' : 'إضافة مورد') : (role === 'CUSTOMER' ? 'Add customer' : 'Add supplier')} onClick={() => { setEditingContact(null); setDraft(emptyDraft); setError(''); setDialogOpen(true); }}>
+          <span aria-hidden="true">+</span>{!compactAdd && (ar ? 'إضافة' : 'Add')}
         </button>}
         {canManage && value && <button type="button" className="vat-contact-add" onClick={() => {
           const contact = contacts.find(item => item.id === value); if (!contact) return;
