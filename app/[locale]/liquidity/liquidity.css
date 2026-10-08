@@ -43,3 +43,5 @@
 @media(max-width:720px){.liq-parties-head{align-items:flex-start}.liq-parties-head .liq-submit{width:100%;justify-content:center}.liq-party-actions{align-items:flex-end}.liq-party-actions .liq-cancel{height:34px;padding:0 7px}}
 @media print{body *{visibility:hidden!important}.liq-party-detail,.liq-party-detail *{visibility:visible!important}.liq-party-detail{position:absolute!important;inset:0!important;width:100%!important;border:0!important;box-shadow:none!important}.liq-party-detail .liq-flow-actions,.liq-party-detail .liq-status select,.liq-party-actions{display:none!important}}
 
+
+.liq-party-summary-controls{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}.liq-party-empty-toggle{display:inline-flex;align-items:center;gap:6px;color:var(--liq-muted);font-size:11px;cursor:pointer}.liq-party-empty-toggle input{width:14px;height:14px;margin:0;accent-color:var(--liq-accent)}
