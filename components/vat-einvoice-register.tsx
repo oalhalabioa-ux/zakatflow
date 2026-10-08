@@ -4,6 +4,9 @@ import { Fragment, FormEvent, useEffect, useState } from 'react';
 import { applyInvoiceLineDiscount, normalizeInvoiceLinePrice, previewInvoiceLine } from '@/lib/vat-invoice-price-mode';
 import { vatEInvoiceDraftSchema, calculateVatEInvoiceDraft } from '@/lib/vat-einvoice-draft';
 import { VatInvoiceReceipts } from '@/components/vat-invoice-receipts';
+import { invoicePrintHtml } from '@/lib/vat-invoice-print';
+import { InvoiceRegisterFilters } from '@/components/invoice-register-filters';
+import { emptyInvoiceFilters, filterInvoiceRows, invoicePaymentState } from '@/lib/invoice-register-filters';
 import { VatContactPicker, type VatContact } from '@/components/vat-contact-picker';
 
 type SellerProfile = {
@@ -43,6 +46,7 @@ type Invoice = {
   tax_total_amount_sar?: string;
   payable_amount: string;
   tax_total_amount: string;
+  tax_exclusive_amount?: string;
   qr_code: string | null;
   seller_name: string;
   seller_vat_number: string;
@@ -102,6 +106,8 @@ export function VatEInvoiceRegister({
   const [canCreate, setCanCreate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [filters, setFilters] = useState({ ...emptyInvoiceFilters });
+  const visibleInvoices = filterInvoiceRows(invoices, filters, invoice => ({ id:invoice.id, number:invoice.invoice_number, name:invoice.buyer_name || '', date:invoice.issue_date, due:invoice.due_date, status:invoice.status, category:invoice.invoice_category, currency:invoice.currency, baseAmount:Number(invoice.payable_amount) * Number(invoice.exchange_rate || 1), flow:invoice.cash_flow }));
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
   const [showDraftForm, setShowDraftForm] = useState(false);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
@@ -225,11 +231,11 @@ export function VatEInvoiceRegister({
 
   useEffect(() => {
     if (currency === 'SAR') { setExchangeRate('1'); return; }
-    if (editingDraftId) return;
+    if (editingDraftId || accountingSourceId) return;
     const latest = fxRates.find((item) => item.from_currency === currency && item.to_currency === 'SAR')
       ?? fxRates.find((item) => item.from_currency === 'SAR' && item.to_currency === currency);
-    if (latest) setExchangeRate(String(latest.from_currency === currency ? latest.rate : (1 / Number(latest.rate))));
-  }, [currency, fxRates, editingDraftId]);
+    setExchangeRate(latest ? String(latest.from_currency === currency ? latest.rate : (1 / Number(latest.rate))) : '');
+  }, [currency, fxRates, editingDraftId, accountingSourceId]);
 
   async function saveDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -551,32 +557,23 @@ export function VatEInvoiceRegister({
   }
 
   async function printInvoice(invoice: Invoice) {
-    if (!invoice.qr_code) return;
-    const popup = window.open('', '_blank', 'width=900,height=1000');
-    if (!popup) {
-      setMessage({ error: true, text: ar ? 'اسمح بالنوافذ المنبثقة لطباعة الفاتورة.' : 'Allow pop-ups to print the invoice.' });
-      return;
-    }
+    const popup = window.open('', '_blank');
+    if (!popup) { setMessage({error:true,text:ar?'اسمح بالنوافذ المنبثقة لطباعة الفاتورة.':'Allow pop-ups to print the invoice.'}); return; }
+    popup.opener = null;
     try {
-    const QRCode = (await import('qrcode')).default;
-    const qrImage = await QRCode.toDataURL(invoice.qr_code, { errorCorrectionLevel: 'M', margin: 2, width: 220 });
-    const esc = escapeHtml;
-    popup.document.write(`<!doctype html><html lang="${ar ? 'ar' : 'en'}" dir="${ar ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${esc(invoice.invoice_number)}</title><style>
-      body{font:15px Arial,sans-serif;color:#12352e;margin:30px}.head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0b6b53;padding-bottom:18px}.brand{font-size:24px;font-weight:700}.muted{color:#61736f}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:24px 0}.box{border:1px solid #dbe6e2;border-radius:10px;padding:14px}.box h2{font-size:15px;margin:0 0 12px}.box p{margin:5px 0}.label{color:#61736f;font-size:12px}table{width:100%;border-collapse:collapse;margin-top:22px}th,td{text-align:start;border-bottom:1px solid #dbe6e2;padding:10px}th{background:#f0f6f3}.totals{margin:18px 0 0 auto;width:300px}.totals div{display:flex;justify-content:space-between;padding:6px}.qr{display:flex;justify-content:space-between;align-items:end;margin-top:28px}.qr img{width:155px}@media print{body{margin:12mm}button{display:none}}
-      </style></head><body>
-      <div class="head"><div><div class="brand">ZakatFlow</div><div class="muted">${ar ? 'فاتورة ضريبية' : 'Tax invoice'} · ${esc(invoice.invoice_number)}</div></div><div><strong>${ar ? 'تاريخ الإصدار' : 'Issue date'}</strong><br>${esc(invoice.issue_date)}${invoice.due_date ? `<p>${ar ? 'تاريخ الاستحقاق' : 'Due date'}: ${esc(invoice.due_date)}</p>` : ''}</div></div>
-      <div class="grid"><div class="box"><h2>${ar ? 'البائع' : 'Seller'}</h2><p>${esc(invoice.seller_name)}</p><p>${esc(invoice.seller_vat_number)}</p><p>${esc(invoice.seller_address)}, ${esc(invoice.seller_district)}, ${esc(invoice.seller_city)}</p><p>${esc(invoice.seller_building_number)} · ${esc(invoice.seller_postal_code)}</p></div>
-      <div class="box"><h2>${ar ? 'المشتري' : 'Buyer'}</h2><p>${esc(invoice.buyer_name || '—')}</p><p>${esc(invoice.buyer_vat_number || '')}</p><p>${esc(invoice.buyer_address || '')}</p><p>${esc(invoice.buyer_city || '')}</p></div></div>
-      <table><thead><tr><th>${ar ? 'البند' : 'Item'}</th><th>${ar ? 'الكمية' : 'Qty'}</th><th>${ar ? 'سعر الوحدة' : 'Unit price'}</th><th>${ar ? 'الضريبة' : 'VAT'}</th><th>${ar ? 'الإجمالي' : 'Total'}</th></tr></thead><tbody>${invoice.lines.map((line) => `<tr><td>${esc(line.item_name)}</td><td>${esc(String(line.quantity))}</td><td>${formatAmount(line.unit_price)} ${esc(invoice.currency)}</td><td>${formatAmount(line.tax_amount)} ${esc(invoice.currency)}</td><td>${formatAmount(line.gross_amount)} ${esc(invoice.currency)}</td></tr>`).join('')}</tbody></table>
-      <div class="totals"><div><span>${ar ? 'ضريبة القيمة المضافة' : 'VAT'}</span><strong>${formatAmount(invoice.tax_total_amount)} ${esc(invoice.currency)}</strong></div>${invoice.currency !== 'SAR' ? `<div><span>${ar ? 'ضريبة القيمة المضافة بالريال' : 'VAT in SAR'}</span><strong>${formatAmount(invoice.tax_total_amount_sar || 0)} SAR</strong></div>` : ''}<div><span>${ar ? 'الإجمالي المستحق' : 'Total due'}</span><strong>${formatAmount(invoice.payable_amount)} ${esc(invoice.currency)}</strong></div>${invoice.currency !== 'SAR' ? `<div><span>${ar ? 'سعر الصرف إلى الريال' : 'Exchange rate to SAR'}</span><strong>${esc(String(invoice.exchange_rate || 1))}</strong></div>` : ''}</div>
-      <div class="qr"><span class="muted">${ar ? 'رمز QR — صيغة زاتكا للمرحلة الأولى' : 'QR code — ZATCA Phase 1 format'}</span><img src="${qrImage}" alt="ZATCA QR"></div><script>window.onload=()=>window.print()</script></body></html>`);
-    popup.document.close();
-    } catch {
-      popup.close();
-      setMessage({ error: true, text: ar ? 'تعذر إعداد نسخة الطباعة. أعد المحاولة.' : 'Could not prepare the printable invoice. Please retry.' });
-    }
+      const draft = ['DRAFT','ACCOUNTING_READY'].includes(invoice.status);
+      const qrImage = !draft && invoice.qr_code ? await (await import('qrcode')).default.toDataURL(invoice.qr_code,{errorCorrectionLevel:'M',margin:2,width:220}) : null;
+      popup.document.write(invoicePrintHtml({
+        number:invoice.invoice_number,date:invoice.issue_date,due:invoice.due_date,currency:invoice.currency,exchangeRate:invoice.exchange_rate,
+        title:invoice.document_type==='CREDIT_NOTE'?(ar?'إشعار دائن':'Credit note'):invoice.document_type==='DEBIT_NOTE'?(ar?'إشعار مدين':'Debit note'):invoice.invoice_category==='SIMPLIFIED'?(ar?'فاتورة ضريبية مبسطة':'Simplified tax invoice'):(ar?'فاتورة ضريبية':'Tax invoice'),
+        draft,seller:{name:invoice.seller_name,vat:invoice.seller_vat_number,street:invoice.seller_address,district:invoice.seller_district,city:invoice.seller_city,building:invoice.seller_building_number,postal:invoice.seller_postal_code},
+        buyer:{name:invoice.buyer_name || '',vat:invoice.buyer_vat_number,street:invoice.buyer_address,district:invoice.buyer_district,city:invoice.buyer_city,building:invoice.buyer_building_number,postal:invoice.buyer_postal_code},
+        net:invoice.tax_exclusive_amount ?? Number(invoice.payable_amount)-Number(invoice.tax_total_amount),tax:invoice.tax_total_amount,total:invoice.payable_amount,note:invoice.note_reason,
+        lines:invoice.lines.map(line=>({name:line.item_name,quantity:line.quantity,unitPrice:line.unit_price,discount:line.discount_amount,tax:line.tax_amount,total:line.gross_amount})),
+      },ar,qrImage));
+      popup.document.close();
+    } catch { popup.close(); setMessage({error:true,text:ar?'تعذر إعداد نسخة الطباعة. أعد المحاولة.':'Could not prepare the printable invoice. Retry.'}); }
   }
-
   function updateLine(index: number, changes: Partial<InvoiceLine>) {
     setLines((current) => current.map((line, i) => i === index ? { ...line, ...changes } : line));
   }
@@ -795,26 +792,28 @@ export function VatEInvoiceRegister({
         fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`).then(async (response) => { if (response.ok) setInvoices((await response.json()).invoices ?? []); }).catch(() => undefined);
         onInvoiceIssued?.();
       }} />}
+      <InvoiceRegisterFilters value={filters} onChange={setFilters} ar={ar} count={visibleInvoices.length} total={invoices.length} currencies={[...new Set(invoices.map(invoice => invoice.currency))].sort()} statuses={[['DRAFT',ar?'مسودة':'Draft'],['ACCOUNTING_READY',ar?'جاهزة للإصدار':'Ready to issue'],['ISSUED',ar?'صادرة':'Issued'],['CLEARED',ar?'معتمدة':'Cleared'],['REPORTED',ar?'مبلغ عنها':'Reported'],['SUBMITTED',ar?'مرسلة':'Submitted'],['REJECTED',ar?'مرفوضة':'Rejected'],['VOID',ar?'ملغاة':'Void']]} categories={[['STANDARD',ar?'ضريبية':'Standard'],['SIMPLIFIED',ar?'مبسطة':'Simplified']]} />
       <div className="vat-einvoice-list" aria-live="polite">
         {loading && <div className="vat-empty-row">{ar ? 'جارٍ تحميل الفواتير…' : 'Loading invoices…'}</div>}
-        {!loading && invoices.map((invoice) => <div className="vat-einvoice-item" key={invoice.id}>
-          <div><strong>{invoice.invoice_number}</strong><small>{invoice.document_type !== 'INVOICE' ? (invoice.document_type === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'إشعار مدين' : 'Debit note')) : (ar ? 'فاتورة' : 'Invoice')} · {invoice.issue_date}{invoice.due_date ? ` · ${ar ? 'استحقاق' : 'Due'}: ${invoice.due_date}` : ''} · {invoice.invoice_category === 'STANDARD' ? (ar ? 'قياسية' : 'Standard') : (ar ? 'مبسطة' : 'Simplified')} · {invoice.lines.length} {ar ? 'بنود' : 'lines'}</small></div>
+        {!loading && visibleInvoices.map((invoice) => <div className="vat-einvoice-item" key={invoice.id}>
+          <div><strong>{invoice.invoice_number} <span className="vat-invoice-party">{invoice.buyer_name || (ar ? 'عميل غير محدد' : 'No customer')}</span></strong><small>{invoice.document_type !== 'INVOICE' ? (invoice.document_type === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'إشعار مدين' : 'Debit note')) : (ar ? 'فاتورة' : 'Invoice')} · {invoice.issue_date}{invoice.due_date ? ` · ${ar ? 'استحقاق' : 'Due'}: ${invoice.due_date}` : ''} · {invoice.invoice_category === 'STANDARD' ? (ar ? 'قياسية' : 'Standard') : (ar ? 'مبسطة' : 'Simplified')} · {invoice.lines.length} {ar ? 'بنود' : 'lines'}</small></div>
           <div className="vat-einvoice-total">{formatAmount(invoice.payable_amount)} {invoice.currency}{invoice.currency !== 'SAR' && invoice.exchange_rate && <small className="vat-einvoice-sar-total">{formatAmount(Number(invoice.payable_amount) * Number(invoice.exchange_rate))} SAR</small>}</div>
           <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : invoice.status === 'ACCOUNTING_READY' ? (ar ? 'جاهزة للإصدار' : 'Ready to issue') : invoice.status === 'DRAFT' && !invoice.accounting_document_id ? (ar ? 'مسودة غير مرتبطة محاسبيًا' : 'Unlinked accounting draft') : invoice.status === 'DRAFT' ? (ar ? 'مسودة' : 'Draft') : ({ SUBMITTED: ar ? 'مرسلة' : 'Submitted', CLEARED: ar ? 'معتمدة من زاتكا' : 'Cleared', REPORTED: ar ? 'تم الإبلاغ' : 'Reported', REJECTED: ar ? 'مرفوضة' : 'Rejected', VOID: ar ? 'ملغاة' : 'Void' } as Record<string,string>)[invoice.status] || invoice.status}</span>
-          <div className="vat-invoice-actions">
+          {invoice.cash_flow && <div className="vat-invoice-outstanding"><small>{ar ? 'المتبقي' : 'Outstanding'}</small><strong>{formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))} {invoice.cash_flow.currency}</strong><small>{invoicePaymentState({id:invoice.id,number:'',name:'',date:'',currency:invoice.currency,baseAmount:0,flow:invoice.cash_flow}) === 'PARTIAL' ? (ar ? 'تحصيل جزئي' : 'Partially collected') : ''}</small></div>}
+          <div className="vat-invoice-actions" role="group" aria-label={ar ? `إجراءات الفاتورة ${invoice.invoice_number}` : `Invoice ${invoice.invoice_number} actions`}>
             {invoice.accounting_document_id && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => { setReceiptInvoice(invoice); setCollectionInvoice(null); }}>{ar ? 'سندات القبض' : 'Receipts'}</button>}
             {invoice.status === 'ACCOUNTING_READY' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => prepareAccountingInvoiceForZatca(invoice)}>{ar ? 'تجهيز مسودة زاتكا' : 'Prepare ZATCA draft'}</button>}
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
-            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={() => openCollection(invoice)}>{ar ? `قبض المتبقي ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}` : `Collect ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}`}</button>}
+            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={() => openCollection(invoice)}>{ar ? 'قبض' : 'Collect'}</button>}
             {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) === 0 && <span className="vat-status registered">{ar ? 'مسددة' : 'Paid'}</span>}
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE' || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار ZATCA' : 'Issue ZATCA'}</button>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => void deleteDraft(invoice)}>{ar ? 'حذف' : 'Delete'}</button>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button vat-action-danger" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => void deleteDraft(invoice)}>{ar ? 'حذف' : 'Delete'}</button>}
             {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}>{ar ? 'إشعار دائن' : 'Credit note'}</button>}
             {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}>{ar ? 'إشعار مدين' : 'Debit note'}</button>}
-            {invoice.status === 'ISSUED' && invoice.qr_code && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'عرض / PDF' : 'View / PDF'}</button>}
+            {!['VOID','REJECTED'].includes(invoice.status) && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'طباعة / PDF' : 'Print / PDF'}</button>}
           </div>
         </div>)}
-        {!loading && !invoices.length && <div className="vat-empty-row">{ar ? 'لا توجد فواتير بعد.' : 'No invoices yet.'}</div>}
+        {!loading && !visibleInvoices.length && <div className="vat-empty-row">{invoices.length ? (ar ? 'لا توجد فواتير تطابق الفلاتر.' : 'No invoices match the filters.') : (ar ? 'لا توجد فواتير بعد.' : 'No invoices yet.')}</div>}
       </div>
       <p className="vat-einvoice-help">{ar ? 'رمز QR عند الإصدار يطبق حقول المرحلة الأولى (الاسم، الرقم الضريبي، الوقت، الإجمالي والضريبة). لا ترسل هذه العملية الفاتورة إلى زاتكا ولا تطبق تكامل المرحلة الثانية أو ختم XML. إذا كان نشاطك ضمن موجة المرحلة الثانية، أكمل ربط الإنتاج قبل الاعتماد.' : 'Issuing creates the five Phase 1 QR fields (seller, VAT number, timestamp, total and VAT). It does not submit the invoice to ZATCA or apply Phase 2 XML stamping. If your business is in a Phase 2 wave, complete production onboarding before relying on this flow.'}</p>
     </section>
@@ -823,10 +822,6 @@ export function VatEInvoiceRegister({
 
 function formatAmount(value: string | number) {
   return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 }
 
 function messageFor(code: string, ar: boolean) {

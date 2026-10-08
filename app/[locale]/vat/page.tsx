@@ -5,6 +5,10 @@ import Decimal from 'decimal.js';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { summarizeVatDocuments, type VatDocumentForSummary } from '@/lib/vat';
 import { organizationDisplayName } from '@/lib/organization-display';
+import { invoicePrintHtml } from '@/lib/vat-invoice-print';
+import { VatContactsManager } from '@/components/vat-contacts-manager';
+import { InvoiceRegisterFilters } from '@/components/invoice-register-filters';
+import { emptyInvoiceFilters, filterInvoiceRows } from '@/lib/invoice-register-filters';
 import { VatEInvoiceSetup } from '@/components/vat-einvoice-setup';
 import { VatEInvoiceRegister } from '@/components/vat-einvoice-register';
 import { VatManagementDashboard, VatPeriodSummaryForm, type VatMonthlyTrendPoint, type VatUpcomingObligation } from '@/components/vat-period-workspace';
@@ -201,6 +205,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [registerFormOpen, setRegisterFormOpen] = useState(false);
   const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
   const [registerAddMenuOpen, setRegisterAddMenuOpen] = useState(false);
+  const [registerFilters, setRegisterFilters] = useState({ ...emptyInvoiceFilters });
   const [registerSearch, setRegisterSearch] = useState('');
   const [registerKindFilter, setRegisterKindFilter] = useState<'ALL' | 'INVOICE' | 'CREDIT_NOTE'>('ALL');
   const [registerSourceFilter, setRegisterSourceFilter] = useState<'ALL' | 'EINVOICE' | 'ACCOUNTING'>('ALL');
@@ -292,14 +297,14 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     return { netAmount: sumBase('net_amount'), taxAmount: sumBase('tax_amount'), grossAmount: sumBase('gross_amount') };
   }, [accountingLineTotals, resolvedRate]);
   const registerDocuments = useMemo(() => documents.filter((document) => document.document_type === registerDirection), [documents, registerDirection]);
-  const filteredRegisterDocuments = registerDocuments.filter((document) => {
+  const filteredRegisterDocuments = filterInvoiceRows(registerDocuments.filter((document) => {
     const query = registerSearch.trim().toLocaleLowerCase();
     const matchesSearch = !query || document.counterparty_name.toLocaleLowerCase().includes(query) || document.document_number.toLocaleLowerCase().includes(query);
     const matchesKind = registerKindFilter === 'ALL' || document.document_kind === registerKindFilter;
     const matchesSource = registerSourceFilter === 'ALL'
       || (registerSourceFilter === 'EINVOICE' ? document.is_einvoice : !document.is_einvoice);
     return matchesSearch && matchesKind && matchesSource;
-  });
+  }), registerFilters, document => ({ id:document.id, number:document.document_number, name:document.counterparty_name, date:document.transaction_date, due:document.due_date, currency:document.source_currency || document.currency || baseCurrency, baseAmount:Number(document.gross_amount), flow:document.cash_flow }));
   const registerSummary = useMemo(() => registerDocuments.reduce((totals, document) => {
     const sign = document.document_kind === 'CREDIT_NOTE' ? -1 : 1;
     return {
@@ -674,6 +679,22 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     setRegisterFormOpen(true); setRegisterAddMenuOpen(false); setNotice(null);
   }
 
+  function printAccountingDocument(document: VatDocument) {
+    const popup = window.open('', '_blank');
+    if (!popup) { setNotice({kind:'error',text:ar?'اسمح بالنوافذ المنبثقة للطباعة.':'Allow pop-ups to print.'}); return; }
+    popup.opener = null;
+    const rate = Number(document.exchange_rate || 1), currency = document.source_currency || document.currency || baseCurrency;
+    const party = { name:document.counterparty_name, vat:document.counterparty_tax_number };
+    const ownParty = { name:profile?.registered_name || selectedOrganization?.name || '', vat:profile?.tax_registration_number, street:profile?.seller_street, district:profile?.seller_district, city:profile?.seller_city, building:profile?.seller_building_number, postal:profile?.seller_postal_code };
+    const lines = (document.line_items || []) as Array<{description?:string;quantity?:string|number;unit_price?:string|number;source_unit_price?:string|number;discount_amount?:string|number;source_discount_amount?:string|number;net_amount?:string|number;source_net_amount?:string|number;tax_amount?:string|number;source_tax_amount?:string|number;gross_amount?:string|number;source_gross_amount?:string|number}>;
+    popup.document.write(invoicePrintHtml({ number:document.document_number,date:document.transaction_date,due:document.due_date,currency,exchangeRate:rate,baseCurrency,
+      title:document.document_kind==='CREDIT_NOTE'?(ar?'نسخة سجل إشعار دائن':'Credit note register copy'):document.document_type==='PURCHASE'?(ar?'نسخة سجل فاتورة مشتريات':'Purchase invoice register copy'):(ar?'نسخة سجل فاتورة مبيعات':'Sales invoice register copy'),
+      draft:false,recordCopy:true,seller:document.document_type==='PURCHASE'?party:ownParty,buyer:document.document_type==='PURCHASE'?ownParty:party,
+      net:document.source_net_amount ?? document.net_amount,tax:document.source_tax_amount ?? document.tax_amount,total:document.source_gross_amount ?? document.gross_amount,note:document.notes,
+      lines:lines.map(line=>({name:line.description || '',quantity:line.quantity || 1,unitPrice:line.source_unit_price ?? Number(line.unit_price || 0)/rate,discount:line.source_discount_amount ?? Number(line.discount_amount || 0)/rate,net:line.source_net_amount ?? Number(line.net_amount || 0)/rate,tax:line.source_tax_amount ?? Number(line.tax_amount || 0)/rate,total:line.source_gross_amount ?? Number(line.gross_amount || 0)/rate})),
+    },ar)); popup.document.close();
+  }
+
   function openPurchasePayment(document: VatDocument) {
     const flow = document.cash_flow;
     if (!flow?.id || flow.direction !== 'OUTFLOW') {
@@ -944,6 +965,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           </div>
 
           <div id="vat-panel-register" role="tabpanel" aria-labelledby="vat-tab-register" hidden={activeTab !== 'register'}>
+          <VatContactsManager key={organizationId} organizationId={organizationId} ar={ar} />
           <div className="vat-invoice-kpis" aria-label={ar ? 'ملخص سجل الفواتير' : 'Invoice register summary'}>
             <div className="vat-invoice-kpi count"><span>{ar ? 'مستندات الفترة' : 'Period documents'}</span><strong>{registerDocuments.length}</strong><small>{ar ? `${registerDirection === 'SALES' ? 'مبيعات' : 'مشتريات'} · ${period.from} — ${period.to}` : `${registerDirection === 'SALES' ? 'Sales' : 'Purchases'} · ${period.from} — ${period.to}`}</small></div>
             <div className="vat-invoice-kpi net"><span>{registerDirection === 'SALES' ? (ar ? 'المبيعات قبل الضريبة' : 'Sales before VAT') : (ar ? 'المشتريات قبل الضريبة' : 'Purchases before VAT')}</span><strong>{money(registerSummary.net.toFixed(2))} <small>{baseCurrency}</small></strong><i aria-hidden="true">↗</i></div>
@@ -1043,7 +1065,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                     <input aria-label={accountingPriceDisplay === 'UNIT' ? (ar ? 'سعر الوحدة' : 'Unit price') : (ar ? 'إجمالي البند' : 'Line total')} required type="number" min="0" step="0.01" value={line.unit_price} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, unit_price: event.target.value } : item))} />
                     {accountingDiscountMode !== 'NONE' && <input aria-label={accountingDiscountMode === 'PERCENT' ? (ar ? 'نسبة الخصم' : 'Discount percentage') : (ar ? 'قيمة الخصم' : 'Discount amount')} type="number" min="0" max={accountingDiscountMode === 'PERCENT' ? 100 : undefined} step="0.01" value={line.discount_amount} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, discount_amount: event.target.value } : item))} />}
                     <select aria-label={ar ? 'المعاملة الضريبية' : 'Tax treatment'} value={line.supply_type} onChange={(event) => setAccountingLines((lines) => lines.map((item, itemIndex) => itemIndex === index ? { ...item, supply_type: event.target.value as DocumentLineDraft['supply_type'] } : item))}><option value="STANDARD">{ar ? `أساسي ${currentTaxRate}%` : `Standard ${currentTaxRate}%`}</option><option value="ZERO_RATED">{ar ? 'صفري' : 'Zero-rated'}</option><option value="EXEMPT">{ar ? 'معفى' : 'Exempt'}</option><option value="OUT_OF_SCOPE">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select>
-                    <div className="vat-accounting-line-total"><strong>{displayInvoiceAmount(accountingLineTotals.lines[index]?.gross_amount ?? 0, invoiceCurrency)}</strong><small>{ar ? 'صافي' : 'Net'} {money(accountingLineTotals.lines[index]?.net_amount ?? 0)} · {ar ? 'ضريبة' : 'VAT'} {money(accountingLineTotals.lines[index]?.tax_amount ?? 0)}</small></div><button type="button" className="vat-delete" aria-label={ar ? 'حذف البند' : 'Remove line'} disabled={accountingLines.length === 1} onClick={() => { setAccountingLines((lines) => lines.filter((_, itemIndex) => itemIndex !== index)); setServiceAddForIndex((current) => current === index ? null : current !== null && current > index ? current - 1 : current); }}>×</button>
+                    <div className="vat-accounting-line-total"><strong>{displayInvoiceAmount(accountingLineTotals.lines[index]?.gross_amount ?? 0, invoiceCurrency)}</strong><small>{ar ? 'صافي' : 'Net'} {money(accountingLineTotals.lines[index]?.net_amount ?? 0)} · {ar ? 'ضريبة' : 'VAT'} {money(accountingLineTotals.lines[index]?.tax_amount ?? 0)}</small></div><button type="button" className="vat-button vat-action-danger" aria-label={ar ? 'حذف البند' : 'Remove line'} disabled={accountingLines.length === 1} onClick={() => { setAccountingLines((lines) => lines.filter((_, itemIndex) => itemIndex !== index)); setServiceAddForIndex((current) => current === index ? null : current !== null && current > index ? current - 1 : current); }}>×</button>
                   </div>{serviceAddForIndex === index && <div className="vat-service-add-inline"><label><span>{ar ? 'اسم الخدمة الجديدة' : 'New service name'}</span><input autoFocus maxLength={200} value={serviceNameDraft} onChange={(event) => setServiceNameDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addServiceToCatalog(); } }} /></label><button type="button" className="vat-button primary" disabled={!serviceNameDraft.trim()} onClick={addServiceToCatalog}>{ar ? 'إضافة واختيار' : 'Add and select'}</button><button type="button" className="vat-button secondary" onClick={() => { setServiceAddForIndex(null); setServiceNameDraft(''); }}>{ar ? 'إلغاء' : 'Cancel'}</button></div>}</div>)}
                 </div>
               </div> : <>
@@ -1087,17 +1109,18 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               <span className="vat-period-chip"><span aria-hidden="true">◷</span>{period.from} — {period.to}</span>
             </div>
             <div className="vat-invoice-register-toolbar">
-              <label className="vat-invoice-search"><span className="vat-invoice-search-icon" aria-hidden="true">⌕</span><input type="search" value={registerSearch} onChange={(event) => setRegisterSearch(event.target.value)} placeholder={ar ? 'ابحث باسم العميل أو رقم الفاتورة' : 'Search customer or invoice number'} aria-label={ar ? 'البحث في الفواتير' : 'Search invoices'} /></label>
+              <label className="vat-invoice-search"><span className="vat-invoice-search-icon" aria-hidden="true">⌕</span><input type="search" value={registerSearch} onChange={(event) => setRegisterSearch(event.target.value)} placeholder={ar ? 'ابحث باسم الجهة أو رقم الفاتورة' : 'Search contact or invoice number'} aria-label={ar ? 'البحث في الفواتير' : 'Search invoices'} /></label>
               <label className="vat-invoice-filter"><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={registerKindFilter} onChange={(event) => setRegisterKindFilter(event.target.value as typeof registerKindFilter)}><option value="ALL">{ar ? 'كل الأنواع' : 'All types'}</option><option value="INVOICE">{ar ? 'فواتير' : 'Invoices'}</option><option value="CREDIT_NOTE">{ar ? 'إشعارات دائنة' : 'Credit notes'}</option></select></label>
               <label className="vat-invoice-filter"><span>{ar ? 'المصدر' : 'Source'}</span><select value={registerSourceFilter} onChange={(event) => setRegisterSourceFilter(event.target.value as typeof registerSourceFilter)}><option value="ALL">{ar ? 'كل المصادر' : 'All sources'}</option><option value="EINVOICE">{ar ? 'صادرة من زكاة فلو' : 'Issued by ZakatFlow'}</option><option value="ACCOUNTING">{ar ? 'مسجلة من نظام محاسبي' : 'Accounting entry'}</option></select></label>
             </div>
+            <InvoiceRegisterFilters value={registerFilters} onChange={setRegisterFilters} ar={ar} count={filteredRegisterDocuments.length} total={registerDocuments.length} showSearch={false} currencies={[...new Set(registerDocuments.map(document => document.source_currency || document.currency || baseCurrency))].sort()} />
             <p className="vat-invoice-register-hint">{ar ? 'مسودات الفواتير الإلكترونية قابلة للتعديل قبل الإصدار النهائي. بيانات البائع محفوظة في ملف التسجيل وتظهر في الطباعة وملف PDF.' : 'E-invoice drafts can be edited before final issuance. Seller details are saved in the registration profile and appear in print and PDF.'}</p>
             <div className="vat-table-wrap"><table className="vat-table">
               <thead><tr><th>{registerDirection === 'PURCHASE' ? (ar ? 'المورد' : 'Supplier') : (ar ? 'العميل / المشتري' : 'Customer / buyer')}</th><th>{ar ? 'نوع المستند' : 'Document type'}</th><th>{ar ? 'رقم الفاتورة' : 'Invoice number'}</th><th>{ar ? 'تاريخ الفاتورة' : 'Invoice date'}</th><th>{ar ? 'التصنيف الضريبي' : 'Tax category'}</th><th>{ar ? 'قبل الضريبة' : 'Before VAT'}</th><th>{ar ? 'الضريبة' : 'VAT'}</th><th>{ar ? 'شامل الضريبة' : 'Including VAT'}</th><th>{ar ? 'المصدر' : 'Source'}</th><th>{ar ? 'إجراءات' : 'Actions'}</th></tr></thead>
               <tbody>
                 {filteredRegisterDocuments.map((document) => <tr key={document.id}>
                   <td className="vat-invoice-counterparty"><strong>{document.counterparty_name || (ar ? 'بدون اسم جهة' : 'Unnamed counterparty')}</strong><small>{document.counterparty_tax_number || ''}</small></td><td><span className={`vat-type-pill ${document.document_kind === 'CREDIT_NOTE' ? 'credit' : 'invoice'}`}>{document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'فاتورة ضريبية' : 'Tax invoice')}</span></td>
-                  <td><strong className="vat-invoice-number">{document.document_number}</strong></td><td dir="ltr">{document.transaction_date}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td className="vat-invoice-gross">{vatDocumentAmount(document, 'gross')}</td><td><span className={`vat-invoice-source ${document.is_einvoice ? 'electronic' : ''}`}>{document.is_einvoice ? (ar ? 'زكاة فلو · إلكترونية' : 'ZakatFlow · e-invoice') : (ar ? 'إدخال محاسبي' : 'Accounting entry')}</span></td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'عرض' : 'View'}</span> : <span className="vat-row-actions">{document.document_type === 'PURCHASE' && document.document_kind === 'INVOICE' && <button type="button" className="vat-button primary" onClick={() => openPurchasePayment(document)} disabled={saving || Boolean(document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0)}>{document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0 ? (ar ? 'مسدد' : 'Paid') : (ar ? 'سداد' : 'Pay')}</button>}{['SALES','PURCHASE'].includes(document.document_type) && document.document_kind === 'INVOICE' && !(document as any).asset_transaction_id && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}>{ar ? 'تعديل' : 'Edit'}</button>}<button type="button" className="vat-delete" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>×</button></span>}</td>
+                  <td><strong className="vat-invoice-number">{document.document_number}</strong></td><td dir="ltr">{document.transaction_date}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td className="vat-invoice-gross">{vatDocumentAmount(document, 'gross')}</td><td><span className={`vat-invoice-source ${document.is_einvoice ? 'electronic' : ''}`}>{document.is_einvoice ? (ar ? 'زكاة فلو · إلكترونية' : 'ZakatFlow · e-invoice') : (ar ? 'إدخال محاسبي' : 'Accounting entry')}</span></td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'عرض' : 'View'}</span> : <span className="vat-row-actions"><button type="button" className="vat-button secondary" onClick={() => printAccountingDocument(document)}>{ar?'طباعة / PDF':'Print / PDF'}</button>{document.document_type === 'PURCHASE' && document.document_kind === 'INVOICE' && <button type="button" className="vat-button primary" onClick={() => openPurchasePayment(document)} disabled={saving || Boolean(document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0)}>{document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0 ? (ar ? 'مسدد' : 'Paid') : (ar ? 'سداد' : 'Pay')}</button>}{['SALES','PURCHASE'].includes(document.document_type) && document.document_kind === 'INVOICE' && !(document as any).asset_transaction_id && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}>{ar ? 'تعديل' : 'Edit'}</button>}<button type="button" className="vat-button vat-action-danger" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>{ar ? 'حذف' : 'Delete'}</button></span>}</td>
                 </tr>)}
                 {!filteredRegisterDocuments.length && <tr><td colSpan={10} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : registerDocuments.length ? (ar ? 'لا توجد مستندات تطابق خيارات البحث.' : 'No documents match these filters.') : (registerDirection === 'PURCHASE' ? (ar ? 'لا توجد فواتير مشتريات مسجلة لهذه الفترة.' : 'No purchase invoices have been recorded for this period.') : (ar ? 'لا توجد فواتير مبيعات مسجلة لهذه الفترة.' : 'No sales invoices have been recorded for this period.'))}</td></tr>}
               </tbody>
