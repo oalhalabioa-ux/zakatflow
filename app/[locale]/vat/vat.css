@@ -23,7 +23,7 @@
 .vat-contact-dialog { width:min(680px,100%); max-height:min(90vh,850px); overflow:auto; padding:22px; border:1px solid var(--vat-line); border-radius:18px; background:#fff; color:var(--vat-ink); opacity:1; box-shadow:0 24px 80px rgb(0 0 0 / 28%); }
 .vat-contact-dialog-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; }
 .vat-contact-dialog-head h3 { margin:5px 0 0; font-size:1.1rem; }
-.vat-contact-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-items:end; }
+.vat-contact-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-items:flex-end; }
 .vat-contact-form > label { display:grid; gap:6px; min-width:0; color:var(--vat-muted); font-size:.76rem; font-weight:700; }
 .vat-contact-form-wide { grid-column:1/-1; }
 .vat-contact-dialog-note { grid-column:1/-1; margin:0; color:var(--vat-muted); font-size:.74rem; line-height:1.55; }
@@ -120,7 +120,7 @@
 .vat-status.registered { background:color-mix(in srgb,var(--vat-positive) 11%,var(--vat-card)); color:var(--vat-positive); }
 .vat-status.pending { background:color-mix(in srgb,var(--vat-warning) 12%,var(--vat-card)); color:var(--vat-warning); }
 .vat-status.deregistered { background:color-mix(in srgb,var(--vat-negative) 10%,var(--vat-card)); color:var(--vat-negative); }
-.vat-form-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:end; }
+.vat-form-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:flex-end; }
 .vat-form-grid > label { display:grid; gap:7px; min-width:0; color:#4d625b; font-size:.81rem; font-weight:700; }
 .vat-field-hint { color:var(--vat-muted); font-size:.73rem; font-weight:500; line-height:1.5; }
 .vat-inline-link { padding:0; border:0; background:none; color:var(--vat-green); cursor:pointer; font:inherit; font-weight:750; text-decoration:underline; text-underline-offset:2px; }
@@ -173,7 +173,7 @@
 .vat-period-meta { display:flex; align-items:center; gap:8px; min-width:0; }
 .vat-period-meta small { color:var(--vat-muted); font-size:.71rem; }
 .vat-period-frequency { padding:3px 8px; border:1px solid color-mix(in srgb,var(--vat-accent) 16%,var(--vat-line)); border-radius:999px; background:color-mix(in srgb,var(--vat-accent) 7%,var(--vat-card)); color:var(--vat-accent); font-size:.68rem; font-weight:750; white-space:nowrap; }
-.vat-period-controls { display:grid; grid-template-columns:minmax(190px,.88fr) minmax(235px,1.12fr); align-items:end; gap:10px; padding:10px; border:1px solid var(--vat-line); border-radius:15px; background:color-mix(in srgb,var(--vat-soft) 72%,var(--vat-card)); }
+.vat-period-controls { display:grid; grid-template-columns:minmax(190px,.88fr) minmax(235px,1.12fr); align-items:flex-end; gap:10px; padding:10px; border:1px solid var(--vat-line); border-radius:15px; background:color-mix(in srgb,var(--vat-soft) 72%,var(--vat-card)); }
 .vat-period-toolbar .vat-period-select.vat-filter-field { display:grid; gap:5px; min-width:0; color:var(--vat-muted); font-size:.73rem; }
 .vat-filter-label { display:flex; align-items:center; gap:6px; min-height:17px; color:var(--vat-muted); font-size:.72rem; font-weight:750; }
 .vat-filter-label svg { flex:0 0 15px; width:15px; height:15px; color:var(--vat-accent); }
@@ -273,7 +273,7 @@
 .vat-period-summary-form { display:grid; gap:17px; }
 .vat-summary-group { min-width:0; margin:0; padding:17px; border:1px solid var(--vat-line); border-radius:13px; }
 .vat-summary-group > legend { padding:0 8px; color:var(--vat-green); font-size:.87rem; font-weight:800; }
-.vat-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:end; }
+.vat-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:flex-end; }
 .vat-summary-field { display:grid; gap:6px; min-width:0; color:#4d625b; font-size:.78rem; font-weight:700; }
 .vat-summary-field small { color:var(--vat-muted); font-size:.72rem; font-weight:500; line-height:1.5; }
 .vat-money-input,.vat-percent-input { display:flex; align-items:center; gap:8px; }
@@ -351,9 +351,9 @@
 .vat-return-details { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 14px; margin-top:14px; padding-top:14px; border-top:1px solid var(--vat-line); }
 .vat-return-details span { display:flex; justify-content:space-between; gap:8px; color:var(--vat-muted); font-size:.79rem; }
 .vat-return-details strong { color:var(--vat-ink); white-space:nowrap; }
-.vat-document-form { grid-template-columns:minmax(210px,1fr) repeat(3,minmax(0,1fr)); align-items:end; }
+.vat-document-form { grid-template-columns:minmax(210px,1fr) repeat(3,minmax(0,1fr)); align-items:flex-end; }
 .vat-document-contact-field { grid-column:span 1; min-width:0; }
-.vat-document-meta { display:grid; grid-column:span 3; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:10px; min-width:0; padding:0 0 12px; border-bottom:1px solid var(--vat-line); }
+.vat-document-meta { display:grid; grid-column:span 3; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:flex-end; gap:10px; min-width:0; padding:0 0 12px; border-bottom:1px solid var(--vat-line); }
 .vat-document-meta > label { display:grid; gap:5px; min-width:0; color:var(--vat-muted); font-size:.72rem; font-weight:700; }
 .vat-document-meta > label input,.vat-document-meta > label select { min-width:0; min-height:40px; padding:8px 10px; border:1px solid var(--vat-line); border-radius:9px; background:var(--vat-card); color:var(--vat-ink); font:inherit; font-size:.79rem; }
 .vat-document-form .vat-notes-field { grid-column:span 2; }
@@ -399,7 +399,7 @@
 .vat-accounting-line-labels { padding:0 2px 5px; color:var(--vat-muted); font-size:.7rem; font-weight:700; }
 .vat-accounting-line input,.vat-accounting-line select { width:100%; min-width:0; min-height:39px; padding:8px 9px; border:1px solid var(--vat-line); border-radius:8px; background:var(--vat-surface,#fff); color:var(--vat-ink); font:inherit; font-size:.78rem; }
 .vat-accounting-line select:first-of-type { border-color:color-mix(in srgb,var(--vat-green) 28%,var(--vat-line)); background-color:var(--vat-card); }
-.vat-service-add-inline { display:grid; grid-column:1/-1; grid-template-columns:minmax(180px,1fr) auto auto; align-items:end; gap:8px; min-width:890px; padding:10px; border:1px solid color-mix(in srgb,var(--vat-green) 22%,var(--vat-line)); border-radius:10px; background:color-mix(in srgb,var(--vat-green) 4%,var(--vat-card)); }
+.vat-service-add-inline { display:grid; grid-column:1/-1; grid-template-columns:minmax(180px,1fr) auto auto; align-items:flex-end; gap:8px; min-width:890px; padding:10px; border:1px solid color-mix(in srgb,var(--vat-green) 22%,var(--vat-line)); border-radius:10px; background:color-mix(in srgb,var(--vat-green) 4%,var(--vat-card)); }
 .vat-service-add-inline label { display:grid; gap:5px; min-width:0; color:var(--vat-muted); font-size:.72rem; font-weight:700; }
 .vat-service-add-inline input { min-height:38px; padding:8px 9px; border:1px solid var(--vat-line); border-radius:8px; background:var(--vat-card); color:var(--vat-ink); font:inherit; font-size:.78rem; }
 .vat-service-add-inline .vat-button { min-height:38px; padding:7px 11px; white-space:nowrap; }
@@ -474,7 +474,7 @@
 .vat-einvoice-form { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .vat-einvoice-group { grid-column:1/-1; min-width:0; margin:0; padding:16px; border:1px solid var(--vat-line); border-radius:12px; }
 .vat-einvoice-group > legend { padding:0 7px; color:var(--vat-green); font-size:.82rem; font-weight:800; }
-.vat-einvoice-group-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; align-items:end; }
+.vat-einvoice-group-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; align-items:flex-end; }
 .vat-einvoice-group-grid-narrow { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .vat-einvoice-group-grid > label { display:grid; gap:6px; min-width:0; color:#4d625b; font-size:.77rem; font-weight:700; }
 .vat-einvoice-group-grid > label > span > small { margin-inline-start:5px; color:var(--vat-muted); font-size:.65rem; font-weight:500; }
@@ -502,7 +502,7 @@
 .vat-einvoice-field-settings select { width:auto; min-width:180px; min-height:36px; padding:6px 10px; font-size:.74rem; }
 .vat-einvoice-field-settings > small { color:var(--vat-muted); font-size:.7rem; }
 .vat-einvoice-lines-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.vat-einvoice-line { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:12px; min-width:0; margin:0; padding:15px; border:1px solid var(--vat-line); border-radius:12px; }
+.vat-einvoice-line { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:flex-end; gap:12px; min-width:0; margin:0; padding:15px; border:1px solid var(--vat-line); border-radius:12px; }
 .vat-einvoice-line legend { padding:0 7px; color:var(--vat-green); font-size:.79rem; font-weight:750; }
 .vat-einvoice-line label { display:grid; gap:6px; min-width:0; color:#4d625b; font-size:.77rem; font-weight:700; }
 .vat-einvoice-line .vat-delete { justify-self:end; }
@@ -609,7 +609,7 @@
 .vat-einvoice-field-settings select { width:auto; min-width:180px; min-height:36px; padding:6px 10px; font-size:.74rem; }
 .vat-einvoice-field-settings .vat-einvoice-field-toggle { justify-content:center; min-height:36px; padding:0 10px; border:1px solid var(--vat-line); border-radius:9px; cursor:pointer; }
 .vat-einvoice-field-toggle input { width:15px!important; min-height:15px!important; height:15px; margin:0; accent-color:var(--vat-green); }
-.vat-einvoice-fx-rate { display:flex; flex-wrap:wrap; align-items:end; gap:10px; padding:9px 12px; border:1px solid color-mix(in srgb,var(--vat-accent) 30%,var(--vat-line)); border-radius:10px; background:color-mix(in srgb,var(--vat-accent) 5%,var(--vat-card)); }
+.vat-einvoice-fx-rate { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; padding:9px 12px; border:1px solid color-mix(in srgb,var(--vat-accent) 30%,var(--vat-line)); border-radius:10px; background:color-mix(in srgb,var(--vat-accent) 5%,var(--vat-card)); }
 .vat-einvoice-fx-rate label { display:grid; gap:4px; width:min(230px,100%); color:var(--vat-muted); font-size:.68rem; font-weight:700; }
 .vat-einvoice-fx-rate input { min-height:34px; padding:6px 9px; border:1px solid var(--vat-line); border-radius:8px; background:var(--vat-card); color:var(--vat-ink); font:inherit; }
 .vat-einvoice-fx-rate > small { color:var(--vat-muted); font-size:.68rem; }
@@ -686,7 +686,7 @@
 .vat-register-heading p { font-size:.72rem; }
 .vat-register-heading .vat-period-chip { display:inline-flex; align-items:center; gap:6px; }
 .vat-register-heading .vat-period-chip > span { color:var(--vat-accent); font-size:.9rem; }
-.vat-invoice-register-toolbar { display:grid; grid-template-columns:minmax(240px,1fr) minmax(155px,.52fr) minmax(180px,.63fr); align-items:end; gap:9px; margin:0 0 9px; }
+.vat-invoice-register-toolbar { display:grid; grid-template-columns:minmax(240px,1fr) minmax(155px,.52fr) minmax(180px,.63fr); align-items:flex-end; gap:9px; margin:0 0 9px; }
 .vat-invoice-search,.vat-invoice-filter { display:grid; gap:5px; min-width:0; color:var(--vat-muted); font-size:.68rem; font-weight:700; }
 .vat-invoice-search { position:relative; }
 .vat-invoice-search-icon { position:absolute; inset-inline-start:11px; inset-block-end:8px; color:var(--vat-muted); font-size:1.2rem; line-height:1; pointer-events:none; }
@@ -902,7 +902,7 @@
 
 /* Shared invoice registers: compact filters and consistent, readable actions. */
 .vat-register-filters{margin:16px 0;padding:14px;border:1px solid var(--vat-line);border-radius:12px;background:var(--vat-soft)}
-.vat-register-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.vat-register-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:flex-end}
 .vat-register-filter-grid .vat-invoice-filter{display:grid;gap:5px;min-width:0}
 .vat-register-filter-grid input,.vat-register-filter-grid select{width:100%;min-height:38px;border:1px solid var(--vat-line);background:var(--vat-card);color:var(--vat-ink);border-radius:7px;padding:7px 9px;font:inherit;font-size:.78rem}
 .vat-filter-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:.78rem;color:var(--vat-muted)}
@@ -924,3 +924,6 @@
 .vat-contacts-manager-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px}
 .vat-contacts-manager-grid>div>small{display:block;color:var(--vat-muted);margin-top:6px;overflow-wrap:anywhere}
 @media(max-width:640px){.vat-contacts-manager-grid{grid-template-columns:1fr}}
+
+.vat-report-draft-control{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0}.vat-report-draft-control label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}.vat-report-draft-control input{accent-color:var(--vat-accent);width:16px;height:16px;min-height:16px;padding:0}.vat-report-draft-control small{color:var(--vat-muted);font-size:12px}
+.vat-payment-badge{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:5px 10px;font-size:12px;font-weight:600;width:fit-content;white-space:nowrap}.vat-payment-badge:before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}.vat-payment-badge.paid{color:#167345;background:#e7f5ec}.vat-payment-badge.partial{color:#946000;background:#fff2d5}.vat-payment-badge.unpaid{color:#b53232;background:#fdeaea}.vat-payment-badge.unlinked,.vat-payment-badge.neutral{color:var(--vat-muted);background:var(--vat-soft)}

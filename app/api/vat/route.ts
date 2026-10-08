@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Decimal from 'decimal.js';
+import { isVatReportDocument } from '@/lib/vat-report-scope';
 import { invoiceSummaryLines, standaloneIssuedInvoices } from '@/lib/vat-invoice-workflow';
 import { vatDocumentSchema, vatPeriodSummarySchema, vatProfileSchema } from '@/lib/validation/schemas';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
@@ -87,6 +88,7 @@ export async function GET(request: Request) {
     const { supabase, user } = await requireUser();
     const params = new URL(request.url).searchParams;
     const organizationId = params.get('organization_id');
+    const includeDrafts = params.get('include_drafts') === 'true';
     const periodMonth = params.get('period_month') ?? new Date().toISOString().slice(0, 7);
     if (!organizationId) return NextResponse.json({ error: 'ORGANIZATION_ID_REQUIRED' }, { status: 400 });
     await requireOrganizationMember(supabase, user.id, organizationId);
@@ -125,9 +127,9 @@ export async function GET(request: Request) {
     for (const document of documents) document.cash_flow = flowByDocument.get(document.id) ?? null;
 
     const { data: issuedInvoices, error: invoiceError } = await supabase.from('vat_einvoices')
-      .select('id,invoice_number,invoice_category,issue_date,buyer_name,buyer_vat_number,organization_id,accounting_document_id')
+      .select('id,invoice_number,invoice_category,document_type,status,issue_date,buyer_name,buyer_vat_number,organization_id,accounting_document_id')
       .eq('organization_id', organizationId)
-      .eq('status', 'ISSUED')
+      .in('status', ['ISSUED','CLEARED','REPORTED','SUBMITTED'])
       .gte('issue_date', yearStart)
       .lte('issue_date', period.to)
       .order('issue_date', { ascending: false });
@@ -148,7 +150,8 @@ export async function GET(request: Request) {
         id: `einvoice-${key}`,
         organization_id: organizationId,
         document_type: 'SALES',
-        document_kind: 'INVOICE',
+        document_kind: invoice.document_type,
+        zatca_status: invoice.status,
         document_number: invoice.invoice_number,
         transaction_date: invoice.issue_date,
         counterparty_name: invoice.buyer_name || invoice.invoice_category,
@@ -180,13 +183,16 @@ export async function GET(request: Request) {
       .order('period_start', { ascending: true });
     if (summaryError) throw summaryError;
 
-    const summaryDocuments = documents.flatMap((document: any) => invoiceSummaryLines(document));
+    for (const document of documents) document.in_tax_report = isVatReportDocument(document as any, includeDrafts);
+    const reportDocuments = documents.filter(document => document.in_tax_report);
+    const reportSummaryRows = includeDrafts ? [] : (summaryRows ?? []);
+    const summaryDocuments = reportDocuments.flatMap((document: any) => invoiceSummaryLines(document));
     const summarySourceDocuments = [...summaryDocuments, ...issuedDocumentSummaries];
     const periodDocuments = [...documents, ...issuedDocumentSummaries].filter((document) =>
       document.transaction_date >= period.from && document.transaction_date <= period.to,
     );
     const periodSummaryDocuments = summarySourceDocuments.filter((document) => document.transaction_date >= period.from && document.transaction_date <= period.to);
-    const periodSummary = (summaryRows ?? []).find((row: any) => row.period_start === period.from && row.period_end === period.to) ?? null;
+    const periodSummary = reportSummaryRows.find((row: any) => row.period_start === period.from && row.period_end === period.to) ?? null;
     const rate = Number(profileResult.data?.standard_rate ?? 15);
     const periodDocumentTotals = summarizeVatDocuments(periodSummaryDocuments);
     const periodTotals = periodSummary
@@ -200,15 +206,15 @@ export async function GET(request: Request) {
       };
     const annualTotals = summarizeVatRowsWithDetail(
       summarySourceDocuments,
-      summaryRows ?? [],
+      reportSummaryRows,
       rate,
     );
-    const coveredRanges = (summaryRows ?? []).filter((row: any) => row.period_start && row.period_end);
+    const coveredRanges = reportSummaryRows.filter((row: any) => row.period_start && row.period_end);
     const unaggregatedDocuments = summarySourceDocuments.filter((document) =>
       !coveredRanges.some((row: any) => document.transaction_date >= row.period_start && document.transaction_date <= row.period_end),
     );
     const unaggregatedTotals = summarizeVatDocuments(unaggregatedDocuments);
-    const aggregateStats = (summaryRows ?? []).reduce((totals: Record<string, Decimal>, row: any) => {
+    const aggregateStats = reportSummaryRows.reduce((totals: Record<string, Decimal>, row: any) => {
       const values = summarizeVatPeriodInputs(row, rate);
       totals.salesBase = totals.salesBase.add(values.salesBase);
       totals.salesGross = totals.salesGross.add(values.salesGross);
@@ -228,6 +234,9 @@ export async function GET(request: Request) {
     ))).sort((a, b) => a.localeCompare(b));
     return NextResponse.json({
       profile: profileResult.data,
+      summary_note_review: Boolean(periodSummary && periodSummaryDocuments.some((document:any)=>document.document_kind !== 'INVOICE')),
+      detail_period_totals: periodDocumentTotals,
+      report_mode: includeDrafts ? 'REVIEW_WITH_DRAFTS' : 'ISSUED_ONLY',
       period,
       yearStart,
       periodSummary,
@@ -423,7 +432,7 @@ export async function POST(request: Request) {
         grossAmount: convertVatAmountToBase(sourceAmounts.grossAmount, fxRate.toString()),
       };
       const sourceTaxRate = lineCalculation ? (Number(sourceAmounts.netAmount) ? (Number(sourceAmounts.taxAmount) / Number(sourceAmounts.netAmount) * 100).toFixed(2) : '0.00') : taxRate.toFixed(2);
-      const { data, error } = await supabase.from('vat_documents').insert({
+      const documentValues = {
         organization_id: document.organization_id,
         user_id: user.id,
         created_by: user.id,
@@ -451,7 +460,13 @@ export async function POST(request: Request) {
         notes: document.notes?.trim() || null,
         asset_transaction_id: document.asset_transaction_id ?? null,
         preceding_document_id: document.preceding_document_id ?? null,
-      }).select().single();
+      };
+      if (document.document_kind !== 'INVOICE') {
+        const { data: note, error: noteError } = await supabase.rpc('create_vat_note_document', { p_values: documentValues });
+        if (noteError) throw noteError;
+        return NextResponse.json(note, { status: 201 });
+      }
+      const { data, error } = await supabase.from('vat_documents').insert(documentValues).select().single();
       if (error?.code === '23505') return NextResponse.json({ error: 'VAT_DOCUMENT_NUMBER_EXISTS' }, { status: 409 });
       if (error) throw error;
       await supabase.from('audit_logs').insert({
@@ -501,34 +516,6 @@ export async function POST(request: Request) {
           due_date: document.due_date,
           financial_core: { event_id: financialEventId, status: 'COMMITTED', recognition: 'PENDING_APPROVAL', cash_flow_id: cashFlowId },
         }, { status: 201 });
-      }
-
-      if (document.document_type === 'SALES' && document.document_kind !== 'INVOICE') {
-        if (!document.preceding_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
-        const { data: originalDocument, error: originalDocumentError } = await supabase.from('vat_documents')
-          .select('id,document_type,document_kind,counterparty_contact_id,currency,due_date')
-          .eq('organization_id', document.organization_id).eq('id', document.preceding_document_id).maybeSingle();
-        if (originalDocumentError) throw originalDocumentError;
-        if (!originalDocument || originalDocument.document_type !== 'SALES' || originalDocument.document_kind !== 'INVOICE') throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
-        if (originalDocument.counterparty_contact_id !== contact?.id || originalDocument.currency !== baseCurrency) throw new Error('VAT_NOTE_ORIGINAL_IDENTITY_OR_CURRENCY_MISMATCH');
-        const { data: originalLink, error: originalLinkError } = await supabase.from('financial_event_links')
-          .select('event_id').eq('organization_id', document.organization_id).eq('link_type','SOURCE')
-          .eq('target_module','vat_documents').eq('target_record_id', originalDocument.id).maybeSingle();
-        if (originalLinkError) throw originalLinkError;
-        if (!originalLink?.event_id) throw new Error('VAT_ORIGINAL_FINANCIAL_EVENT_REQUIRED');
-        const { data: entities, error: entityError } = await supabase.from('organization_entities')
-          .select('id').eq('organization_id', document.organization_id).eq('active', true).limit(2);
-        if (entityError) throw entityError;
-        if (!entities || entities.length !== 1) throw new Error('VAT_FINANCIAL_ENTITY_REQUIRED');
-        const { data: prepared, error: prepareError } = await supabase.rpc('prepare_vat_financial_event', {
-          p_source_table: 'vat_documents', p_source_id: data.id, p_entity_id: entities[0].id,
-          p_due_date: document.due_date, p_original_event_id: originalLink.event_id,
-        });
-        if (prepareError) throw prepareError;
-        const preparedRow = Array.isArray(prepared) ? prepared[0] : prepared;
-        const financialEventId = typeof preparedRow === 'string' ? preparedRow : (preparedRow?.event_id ?? preparedRow?.id ?? null);
-        if (!financialEventId) throw new Error('VAT_FINANCIAL_EVENT_REQUIRED');
-        return NextResponse.json({ ...data, financial_core: { event_id: financialEventId, status: 'COMMITTED', adjustment_of: originalLink.event_id } }, { status: 201 });
       }
 
       if (document.document_type === 'SALES') {

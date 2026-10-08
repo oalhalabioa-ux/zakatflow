@@ -73,6 +73,19 @@ export async function GET(request: Request) {
           .eq('organization_id', organizationId).eq('source_module','VAT_INTEGRATION').in('source_record_id', accountingIds)
       : { data: [], error: null };
     if (cashError) throw cashError;
+    const { data: noteBindings, error: bindingError } = accountingIds.length
+      ? await supabase.from('financial_vat_source_bindings').select('source_record_id,event_id').eq('organization_id',organizationId).eq('source_table','vat_documents').in('source_record_id',accountingIds)
+      : { data: [], error: null };
+    if (bindingError) throw bindingError;
+    const {data: sourceLinks,error:sourceLinkError} = accountingIds.length ? await supabase.from('financial_event_links').select('event_id,target_record_id').eq('organization_id',organizationId).eq('link_type','SOURCE').eq('target_module','vat_documents').in('target_record_id',accountingIds) : {data:[],error:null};
+    if(sourceLinkError)throw sourceLinkError;
+    const eventIds = [...new Set([...(noteBindings ?? []).map((row:any)=>row.event_id),...(sourceLinks ?? []).map((row:any)=>row.event_id)])];
+    const { data: financialEvents, error: financialError } = eventIds.length
+      ? await supabase.from('financial_events').select('id,status').eq('organization_id',organizationId).in('id',eventIds)
+      : { data: [], error: null };
+    if (financialError) throw financialError;
+    const eventsById = new Map((financialEvents ?? []).map((row:any)=>[row.id,row]));
+    const eventsByDoc = new Map([...(sourceLinks ?? []).map((row:any)=>[row.target_record_id,eventsById.get(row.event_id)] as const),...(noteBindings ?? []).map((row:any)=>[row.source_record_id,eventsById.get(row.event_id)] as const)]);
     const accountingById = new Map((accountingDocuments ?? []).map((row: any) => [row.id,row]));
     const cashByDocument = new Map((cashFlows ?? []).map((row: any) => [row.source_record_id,row]));
     const pendingIds = (pendingAccounting ?? []).filter((doc:any)=>!linkedAccountingIds.has(doc.id)).map((doc:any)=>doc.id);
@@ -89,6 +102,7 @@ export async function GET(request: Request) {
     }
     const issuedRows = (invoices ?? []).map((invoice:any)=>({
       ...invoice, accounting_document: invoice.accounting_document_id ? accountingById.get(invoice.accounting_document_id) ?? null : null,
+      financial_event: eventsByDoc.get(invoice.accounting_document_id) ?? null,
       cash_flow: invoice.accounting_document_id ? cashByDocument.get(invoice.accounting_document_id) ?? null : null,
       lines: linesByInvoice.get(invoice.id) ?? [],
     }));

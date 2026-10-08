@@ -4,6 +4,7 @@ import { Fragment, FormEvent, useEffect, useState } from 'react';
 import { applyInvoiceLineDiscount, normalizeInvoiceLinePrice, previewInvoiceLine } from '@/lib/vat-invoice-price-mode';
 import { vatEInvoiceDraftSchema, calculateVatEInvoiceDraft } from '@/lib/vat-einvoice-draft';
 import { VatInvoiceReceipts } from '@/components/vat-invoice-receipts';
+import { InvoicePaymentBadge } from '@/components/invoice-payment-badge';
 import { invoicePrintHtml } from '@/lib/vat-invoice-print';
 import { InvoiceRegisterFilters } from '@/components/invoice-register-filters';
 import { emptyInvoiceFilters, filterInvoiceRows, invoicePaymentState } from '@/lib/invoice-register-filters';
@@ -35,6 +36,8 @@ type InvoiceLine = {
 type Invoice = {
   id: string;
   invoice_number: string;
+  preceding_invoice_id?: string | null;
+  financial_event?: { id: string; status: string } | null;
   document_type: string;
   invoice_category: string;
   status: string;
@@ -138,6 +141,7 @@ export function VatEInvoiceRegister({
   const [buyerPostalCode, setBuyerPostalCode] = useState('');
   const [buyerAdditional, setBuyerAdditional] = useState('');
   const [billingReference, setBillingReference] = useState('');
+  const [precedingInvoiceId, setPrecedingInvoiceId] = useState<string | null>(null);
   const [noteReason, setNoteReason] = useState('');
   const [lines, setLines] = useState<InvoiceLine[]>(() => [emptyLine(String(standardTaxRate))]);
   const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
@@ -273,6 +277,7 @@ export function VatEInvoiceRegister({
           buyer_postal_code: buyerPostalCode || null,
           buyer_country_code: 'SA',
           billing_reference: billingReference || null,
+          preceding_invoice_id: precedingInvoiceId,
           note_reason: noteReason || null,
           lines: lines.map((line) => ({
             ...line,
@@ -356,6 +361,7 @@ export function VatEInvoiceRegister({
       setBuyerCity('');
       setBuyerPostalCode('');
       setBillingReference('');
+    setPrecedingInvoiceId(null);
       setNoteReason('');
       setLines([emptyLine(String(standardTaxRate))]);
       setPricesIncludeTax(false);
@@ -365,7 +371,7 @@ export function VatEInvoiceRegister({
       setShowDraftForm(false);
       setMessage({ error: false, text: documentType === 'INVOICE'
         ? (ar ? (editingDraftId ? 'حُفظت تعديلات المسودة. لم تصدر ولم تُرسل إلى زاتكا.' : 'حُفظت مسودة الفاتورة. لم تصدر ولم تُرسل إلى زاتكا.') : (editingDraftId ? 'Draft changes saved. It has not been issued or sent to ZATCA.' : 'Invoice draft saved. It has not been issued or sent to ZATCA.'))
-        : (ar ? 'حُفظت مسودة الإشعار. إصدار الإشعارات غير متاح حاليًا.' : 'Note draft saved. Issuing credit/debit notes is not available yet.') });
+        : (ar ? 'حُفظت مسودة الإشعار المرتبط. أصدر الإشعار ثم اعتمد أثره المحاسبي.' : 'Linked note draft saved. Issue it, then post its accounting effect.') });
     } catch (error) {
       setMessage({ error: true, text: messageFor(error instanceof Error ? error.message : 'UNKNOWN_ERROR', ar) });
     } finally {
@@ -390,6 +396,21 @@ export function VatEInvoiceRegister({
         ? (ar ? 'تعذر حذف المسودة. أعد المحاولة؛ لم يتم تأكيد الحذف.' : 'Could not delete the draft. Retry; deletion was not confirmed.')
         : messageFor(code, ar) });
     } finally { setBusy(false); }
+  }
+
+  async function postNote(invoice: Invoice) {
+    if (!invoice.accounting_document_id) return;
+    setBusy(true); setMessage(null);
+    try {
+      const response = await fetch(invoice.document_type === 'INVOICE' ? '/api/vat/recognition' : '/api/vat/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ organization_id:organizationId, document_id:invoice.accounting_document_id }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error || 'VAT_NOTE_POST_FAILED');
+      const refresh = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
+      if (refresh.ok) setInvoices((await refresh.json()).invoices ?? []);
+      onInvoiceIssued?.();
+      setMessage({ error:false, text:response.status===202 ? (ar?'الإشعار بانتظار الموافقة حسب سياسة المنشأة.':'Note awaits approval under organization policy.') : (ar?(invoice.document_type === 'INVOICE'?'تم اعتماد الفاتورة محاسبيًا دون حركة نقدية.':'تم ترحيل أثر الإشعار وتحديث الذمم والسيولة المتوقعة. رد المبلغ يحتاج تسوية منفصلة.'):'Note posted; obligations and cash forecast updated. Refund requires a separate settlement.') });
+    } catch(error) { setMessage({error:true,text:messageFor(error instanceof Error?error.message:'VAT_NOTE_POST_FAILED',ar)}); }
+    finally { setBusy(false); }
   }
 
   async function issueInvoice(invoice: Invoice) {
@@ -424,6 +445,7 @@ export function VatEInvoiceRegister({
     setBuyerPostalCode(invoice.buyer_postal_code || '');
     setBuyerAdditional(invoice.buyer_additional_number || '');
     setBillingReference('');
+    setPrecedingInvoiceId(null);
     setNoteReason('');
     setPricesIncludeTax(false);
     setDiscountMode('AMOUNT');
@@ -484,7 +506,7 @@ export function VatEInvoiceRegister({
   }
 
   function startNote(invoice: Invoice, kind: 'CREDIT_NOTE'|'DEBIT_NOTE') {
-    if (!invoice.accounting_document_id || invoice.status !== 'ISSUED') return;
+    if (!invoice.accounting_document_id || !['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status)) return;
     setEditingDraftId(null);
     setNoteSource(invoice);
     setAccountingSourceId(null);
@@ -505,6 +527,7 @@ export function VatEInvoiceRegister({
     setBuyerCity(invoice.buyer_city || '');
     setBuyerPostalCode(invoice.buyer_postal_code || '');
     setBillingReference(invoice.invoice_number);
+    setPrecedingInvoiceId(invoice.id);
     setNoteReason('');
     setLines(invoice.lines.map((line) => ({ item_name:line.item_name, description:line.description || '', quantity:String(line.quantity), unit_code:line.unit_code, unit_price:String(line.unit_price), discount_amount:String(line.discount_amount), tax_category:line.tax_category, tax_rate:String(line.tax_rate), tax_exemption_reason_code:line.tax_exemption_reason_code || '', tax_exemption_reason:line.tax_exemption_reason || '' })));
     setShowDraftForm(true);
@@ -515,6 +538,7 @@ export function VatEInvoiceRegister({
     if (invoice.status !== 'DRAFT') return;
     setEditingDraftId(invoice.id);
     setNoteSource(null);
+    setPrecedingInvoiceId(invoice.preceding_invoice_id || null);
     setAccountingSourceId(invoice.accounting_document_id || null);
     setDocumentType(invoice.document_type as typeof documentType);
     setCategory(invoice.invoice_category as typeof category);
@@ -596,6 +620,7 @@ export function VatEInvoiceRegister({
     setBuyerCity('');
     setBuyerPostalCode('');
     setBillingReference('');
+    setPrecedingInvoiceId(null);
     setNoteReason('');
     setLines([emptyLine(String(standardTaxRate))]);
     setPricesIncludeTax(false);
@@ -716,7 +741,8 @@ export function VatEInvoiceRegister({
         {documentType !== 'INVOICE' && <fieldset className="vat-einvoice-group">
           <legend>{ar ? 'بيانات الإشعار' : 'Credit or debit note details'}</legend>
           <div className="vat-einvoice-group-grid vat-einvoice-group-grid-narrow">
-            <label><span>{ar ? 'مرجع الفاتورة الأصلية' : 'Original invoice reference'}</span><input required maxLength={100} value={billingReference} onChange={(event) => setBillingReference(event.target.value)} /></label>
+            <label><span>{ar?'الفاتورة الأصلية':'Original invoice'}</span><select required value={precedingInvoiceId || ''} onChange={event=>{const original=invoices.find(row=>row.id===event.target.value);if(original)startNote(original,documentType as 'CREDIT_NOTE'|'DEBIT_NOTE');}}><option value="">{ar?'اختر الفاتورة الأصلية الصادرة':'Choose issued original'}</option>{invoices.filter(row=>row.document_type==='INVOICE' && row.accounting_document_id && ['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(row.status)).map(row=><option key={row.id} value={row.id}>{row.invoice_number} · {row.buyer_name}</option>)}</select></label>
+            <label><span>{ar ? 'مرجع الفاتورة الأصلية' : 'Original invoice reference'}</span><input required maxLength={100} value={billingReference} readOnly={Boolean(precedingInvoiceId)} onChange={(event) => setBillingReference(event.target.value)} /></label>
             <label><span>{ar ? 'سبب الإشعار' : 'Note reason'}</span><input required maxLength={500} value={noteReason} onChange={(event) => setNoteReason(event.target.value)} /></label>
           </div>
         </fieldset>}
@@ -725,7 +751,7 @@ export function VatEInvoiceRegister({
           <div className="vat-einvoice-lines-toolbar">
             <div className="vat-einvoice-lines-heading"><span className="vat-einvoice-section-icon" aria-hidden="true">▤</span><div><strong>{ar ? 'بنود الفاتورة' : 'Invoice items'}</strong><small>{ar ? 'أدخل البنود وسيتم احتساب الضريبة والإجماليات تلقائيًا.' : 'Enter line items; tax and totals are calculated automatically.'}</small></div></div>
             <div className="vat-einvoice-lines-controls">
-              <label className="vat-einvoice-currency"><span>{ar ? 'العملة' : 'Currency'}</span><select value={currency} onChange={(event) => setCurrency(event.target.value)}>{currencies.map((item) => <option key={item.code} value={item.code}>{item.code} · {ar ? item.name_ar : item.name_en}</option>)}</select></label>
+              <label className="vat-einvoice-currency"><span>{ar ? 'العملة' : 'Currency'}</span><select disabled={Boolean(precedingInvoiceId)} value={currency} onChange={(event) => setCurrency(event.target.value)}>{currencies.map((item) => <option key={item.code} value={item.code}>{item.code} · {ar ? item.name_ar : item.name_en}</option>)}</select></label>
               <button type="button" className="vat-button secondary vat-edit-fields" aria-expanded={fieldsMenuOpen} aria-controls="vat-einvoice-field-settings" onClick={() => setFieldsMenuOpen((value) => !value)}>{ar ? 'تعديل الحقول' : 'Edit fields'} <span aria-hidden="true">{fieldsMenuOpen ? '⌃' : '⌄'}</span></button>
             </div>
           </div>
@@ -800,16 +826,20 @@ export function VatEInvoiceRegister({
           <div className="vat-einvoice-total">{formatAmount(invoice.payable_amount)} {invoice.currency}{invoice.currency !== 'SAR' && invoice.exchange_rate && <small className="vat-einvoice-sar-total">{formatAmount(Number(invoice.payable_amount) * Number(invoice.exchange_rate))} SAR</small>}</div>
           <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : invoice.status === 'ACCOUNTING_READY' ? (ar ? 'جاهزة للإصدار' : 'Ready to issue') : invoice.status === 'DRAFT' && !invoice.accounting_document_id ? (ar ? 'مسودة غير مرتبطة محاسبيًا' : 'Unlinked accounting draft') : invoice.status === 'DRAFT' ? (ar ? 'مسودة' : 'Draft') : ({ SUBMITTED: ar ? 'مرسلة' : 'Submitted', CLEARED: ar ? 'معتمدة من زاتكا' : 'Cleared', REPORTED: ar ? 'تم الإبلاغ' : 'Reported', REJECTED: ar ? 'مرفوضة' : 'Rejected', VOID: ar ? 'ملغاة' : 'Void' } as Record<string,string>)[invoice.status] || invoice.status}</span>
           {invoice.cash_flow && <div className="vat-invoice-outstanding"><small>{ar ? 'المتبقي' : 'Outstanding'}</small><strong>{formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))} {invoice.cash_flow.currency}</strong><small>{invoicePaymentState({id:invoice.id,number:'',name:'',date:'',currency:invoice.currency,baseAmount:0,flow:invoice.cash_flow}) === 'PARTIAL' ? (ar ? 'تحصيل جزئي' : 'Partially collected') : ''}</small></div>}
+          <InvoicePaymentBadge flow={invoice.cash_flow} ar={ar} note={invoice.document_type !== 'INVOICE'} />
           <div className="vat-invoice-actions" role="group" aria-label={ar ? `إجراءات الفاتورة ${invoice.invoice_number}` : `Invoice ${invoice.invoice_number} actions`}>
             {invoice.accounting_document_id && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => { setReceiptInvoice(invoice); setCollectionInvoice(null); }}>{ar ? 'سندات القبض' : 'Receipts'}</button>}
             {invoice.status === 'ACCOUNTING_READY' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => prepareAccountingInvoiceForZatca(invoice)}>{ar ? 'تجهيز مسودة زاتكا' : 'Prepare ZATCA draft'}</button>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
-            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={() => openCollection(invoice)}>{ar ? 'قبض' : 'Collect'}</button>}
-            {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) === 0 && <span className="vat-status registered">{ar ? 'مسددة' : 'Paid'}</span>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE' || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار ZATCA' : 'Issue ZATCA'}</button>}
+            {invoice.document_type === 'INVOICE' && invoice.financial_event && invoice.financial_event.status === 'COMMITTED' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={()=>postNote(invoice)}>{ar?'اعتماد المحاسبة':'Post accounting'}</button>}
+            {invoice.document_type !== 'INVOICE' && ['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.financial_event?.status !== 'ACTUAL' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => postNote(invoice)}>{ar ? 'اعتماد الأثر المحاسبي' : 'Post accounting effect'}</button>}
+            {invoice.document_type !== 'INVOICE' && invoice.financial_event?.status === 'ACTUAL' && <span className="vat-payment-badge paid">{ar ? 'الأثر مرحّل' : 'Effect posted'}</span>}
+            {invoice.document_type !== 'INVOICE' && invoice.cash_flow && <a className="vat-button secondary" href={ar?'/ar/liquidity':'/en/liquidity'}>{ar?'تسوية الإشعار في السيولة':'Settle note in liquidity'}</a>}
+            {invoice.status === 'DRAFT' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
+            {invoice.document_type === 'INVOICE' && invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={() => openCollection(invoice)}>{ar ? 'قبض' : 'Collect'}</button>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || !canCreate || editingDraftId === invoice.id || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار — QR المرحلة الأولى' : 'Issue — Phase 1 QR'}</button>}
             {invoice.status === 'DRAFT' && <button type="button" className="vat-button vat-action-danger" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => void deleteDraft(invoice)}>{ar ? 'حذف' : 'Delete'}</button>}
-            {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}>{ar ? 'إشعار دائن' : 'Credit note'}</button>}
-            {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}>{ar ? 'إشعار مدين' : 'Debit note'}</button>}
+            {['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}>{ar ? 'إشعار دائن' : 'Credit note'}</button>}
+            {['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}>{ar ? 'إشعار مدين' : 'Debit note'}</button>}
             {!['VOID','REJECTED'].includes(invoice.status) && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'طباعة / PDF' : 'Print / PDF'}</button>}
           </div>
         </div>)}
@@ -833,6 +863,11 @@ function messageFor(code: string, ar: boolean) {
     STANDARD_TAX_RATE_MISMATCH: ['نسبة الضريبة القياسية يجب أن تطابق النسبة المسجلة للمنشأة.', 'Standard tax rate must match the organization registration.'],
     EINVOICE_ACCOUNTING_SOURCE_MISMATCH: ['بيانات الفاتورة لا تطابق مصدرها المحاسبي.', 'Invoice details do not match the accounting source.'],
     EINVOICE_DRAFT_LOCKED: ['الفاتورة صادرة ولا تقبل التعديل المباشر.', 'The issued invoice cannot be edited directly.'],
+    VAT_NOTE_MUST_BE_ISSUED: ['أصدر الإشعار قبل ترحيل أثره.', 'Issue the note before posting its effect.'],
+    VAT_ORIGINAL_RECOGNITION_REQUIRED: ['اعتمد الفاتورة الأصلية محاسبيًا أولًا.', 'Post original invoice recognition first.'],
+    VAT_CREDIT_EXCEEDS_ORIGINAL: ['إجمالي الإشعارات الدائنة يتجاوز قيمة الفاتورة الأصلية أو ضريبتها.', 'Credits exceed original invoice value or VAT.'],
+    VAT_NOTE_FILED_PERIOD_LOCKED: ['هذه الفترة مقدمة؛ اختر الفترة الصحيحة للإشعار وراجع معالجة التصحيح.', 'Period is filed; choose the correct note period and review correction treatment.'],
+    VAT_NOTE_ORIGINAL_IDENTITY_OR_CURRENCY_MISMATCH: ['يجب مطابقة العميل والعملة وسعر الصرف مع الأصل.', 'Customer, currency and FX must match original.'],
     VAT_DOCUMENT_SETTLED_LOCKED: ['بدأ القبض على هذه الفاتورة؛ لا يمكن تغيير قيمتها أو عميلها.', 'Collection has started; invoice value and customer are locked.'],
     VAT_FINANCIAL_EVENT_LOCKED: ['الفاتورة مرحلة محاسبيًا؛ استخدم إجراء تصحيح معتمد.', 'The accounting event is posted; use an approved correction.'],
     SETTLEMENT_INSTRUCTION_CONFLICT: ['يوجد سند قبض محفوظ ببيانات مختلفة. افتح سندات قبض الفاتورة لمراجعته وتعديله قبل إعادة التنفيذ.', 'A saved receipt has different details. Open the invoice receipts to review and amend it before retrying.'],
