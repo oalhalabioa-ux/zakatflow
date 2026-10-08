@@ -937,8 +937,8 @@
 .vat-report-draft-control label { display:flex; align-items:center; gap:7px; color:var(--vat-ink); font-size:.7rem; cursor:pointer; }
 .vat-report-draft-control label svg { width:15px; height:15px; flex-shrink:0; }
 .vat-report-draft-control small { color:var(--vat-muted); font-size:.61rem; line-height:1.6; }
-.vat-page .vat-report-draft-control input.vat-draft-switch { appearance:none; position:relative; width:30px; min-width:30px; height:18px; min-height:18px; margin:0; padding:0; border:1px solid var(--vat-line); border-radius:20px; background:var(--vat-muted); cursor:pointer; }
-.vat-draft-switch::after { content:''; position:absolute; top:2px; left:2px; width:12px; height:12px; background:#fff; border-radius:50%; transition:transform .15s; }
+.vat-page .vat-report-draft-control input.vat-draft-switch { appearance:none; position:relative; width:26px; min-width:26px; height:14px; min-height:14px; margin:0; padding:0; border:1px solid var(--vat-line); border-radius:4px; background:var(--vat-muted); cursor:pointer; }
+.vat-draft-switch::after { content:''; position:absolute; top:2px; left:2px; width:8px; height:8px; background:#fff; border-radius:2px; transition:transform .15s; }
 .vat-page .vat-report-draft-control input.vat-draft-switch:checked { background:var(--vat-green); border-color:var(--vat-green); }
 .vat-draft-switch:checked::after { transform:translateX(12px); }
 .vat-draft-switch:focus-visible { outline:2px solid var(--vat-accent); outline-offset:3px; }
