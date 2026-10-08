@@ -1021,3 +1021,7 @@
 .vat-einvoice-field-settings .vat-einvoice-currency > span { font-size:inherit; color:inherit; }
 .vat-einvoice-time-row > label { width:min(140px,100%); font-weight:500; }
 .vat-page .vat-einvoice-time-row input { min-height:35px; height:35px; padding:6px 9px; font-size:.78rem; font-weight:500; }
+
+.vat-document-form .vat-accounting-toolbar .vat-edit-fields-icon { display:inline-flex; align-items:center; justify-content:center; width:35px; height:35px; min-height:35px; padding:0; }
+.vat-accounting-field-settings .vat-currency-select { min-width:0; width:100%; }
+.vat-accounting-field-settings .vat-currency-select select { width:100%; }
