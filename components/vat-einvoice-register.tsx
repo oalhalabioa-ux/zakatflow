@@ -1,7 +1,6 @@
 'use client';
 
-import { Fragment, FormEvent, useEffect, useRef, useState } from 'react';
-import { groupImportRecords, parseCsv, rowsToRecords } from '@/lib/vat-einvoice-import';
+import { Fragment, FormEvent, useEffect, useState } from 'react';
 import { applyInvoiceLineDiscount, normalizeInvoiceLinePrice, previewInvoiceLine } from '@/lib/vat-invoice-price-mode';
 import { vatEInvoiceDraftSchema, calculateVatEInvoiceDraft } from '@/lib/vat-einvoice-draft';
 import { VatInvoiceReceipts } from '@/components/vat-invoice-receipts';
@@ -135,8 +134,6 @@ export function VatEInvoiceRegister({
   const [billingReference, setBillingReference] = useState('');
   const [noteReason, setNoteReason] = useState('');
   const [lines, setLines] = useState<InvoiceLine[]>(() => [emptyLine(String(standardTaxRate))]);
-  const importInput = useRef<HTMLInputElement>(null);
-  const [importing, setImporting] = useState(false);
   const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
   const [noteSource, setNoteSource] = useState<Invoice | null>(null);
   const [receiptInvoice, setReceiptInvoice] = useState<Invoice | null>(null);
@@ -382,107 +379,11 @@ export function VatEInvoiceRegister({
       setInvoices((current) => current.filter((item) => item.id !== invoice.id));
       setMessage({ error:false, text: ar ? 'تم حذف المسودة غير المصدرة بأمان.' : 'The unissued draft was deleted safely.' });
     } catch (error) {
-      setMessage({ error:true, text: messageFor(error instanceof Error ? error.message : 'UNKNOWN_ERROR', ar) });
+      const code = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
+      setMessage({ error:true, text: code === 'EINVOICE_REQUEST_FAILED' || code === 'UNKNOWN_ERROR'
+        ? (ar ? 'تعذر حذف المسودة. أعد المحاولة؛ لم يتم تأكيد الحذف.' : 'Could not delete the draft. Retry; deletion was not confirmed.')
+        : messageFor(code, ar) });
     } finally { setBusy(false); }
-  }
-
-  async function importFile(file?: File) {
-    if (!file) return;
-    setImporting(true);
-    setMessage(null);
-    try {
-      if (file.size > 5 * 1024 * 1024) throw new Error('IMPORT_FILE_TOO_LARGE');
-      let rows: unknown[][];
-      if (/\.csv$/i.test(file.name)) {
-        rows = parseCsv(await file.text());
-      } else if (/\.xlsx$/i.test(file.name)) {
-        const ExcelJS = (await import('exceljs')).default;
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(await file.arrayBuffer());
-        const worksheet = workbook.worksheets[0];
-        if (!worksheet) throw new Error('IMPORT_FILE_EMPTY');
-        rows = worksheet.getSheetValues().slice(1).map((row) => Array.isArray(row) ? row.slice(1) : []);
-      } else {
-        throw new Error('IMPORT_FILE_TYPE_UNSUPPORTED');
-      }
-
-      const groups = groupImportRecords(rowsToRecords(rows));
-      const notesUnsupported = groups.some((group) => {
-        const type = (group.rows[0].document_type ?? '').trim().toUpperCase();
-        return ['CREDIT_NOTE', 'DEBIT_NOTE', 'CREDIT NOTE', 'DEBIT NOTE', 'إشعار دائن', 'إشعار مدين'].includes(type);
-      });
-      if (notesUnsupported) throw new Error('EINVOICE_NOTES_NOT_SUPPORTED');
-      let imported = 0;
-      const failures: string[] = [];
-      for (const group of groups) {
-        const first = group.rows[0];
-        const response = await fetch('/api/vat/e-invoices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            organization_id: organizationId,
-            invoice_number: group.invoiceNumber,
-            invoice_category: importCategory(first.invoice_category),
-            document_type: first.document_type || 'INVOICE',
-            issue_date: first.issue_date,
-            due_date: (first as { due_date?: string }).due_date || null,
-            issue_time: normalizeTime(first.issue_time),
-            buyer_contact_id: null,
-            seller_name: sellerProfile.registered_name,
-            seller_vat_number: vatNumber,
-            seller_address: sellerProfile.seller_street,
-            seller_building_number: sellerProfile.seller_building_number,
-            seller_district: sellerProfile.seller_district,
-            seller_additional_number: sellerProfile.seller_additional_number,
-            seller_city: sellerProfile.seller_city,
-            seller_postal_code: sellerProfile.seller_postal_code,
-            buyer_name: first.buyer_name || null,
-            buyer_vat_number: first.buyer_vat_number || null,
-            buyer_address: first.buyer_address || null,
-            buyer_building_number: first.buyer_building_number || null,
-            buyer_district: first.buyer_district || null,
-            buyer_additional_number: first.buyer_additional_number || null,
-            buyer_city: first.buyer_city || null,
-            buyer_postal_code: first.buyer_postal_code || null,
-            billing_reference: first.billing_reference || null,
-            note_reason: first.note_reason || null,
-            lines: group.rows.map((row) => ({
-              item_name: row.item_name,
-              description: row.description || null,
-              quantity: row.quantity,
-              unit_code: row.unit_code || 'PCE',
-              unit_price: row.unit_price,
-              discount_amount: row.discount_amount || '0',
-              tax_category: importTaxCategory(row.tax_category),
-              tax_rate: row.tax_rate || '15',
-              tax_exemption_reason_code: row.tax_exemption_reason_code || null,
-              tax_exemption_reason: row.tax_exemption_reason || null,
-            })),
-          }),
-        });
-        const body = await response.json();
-        if (response.ok) imported++;
-        else failures.push(`${group.invoiceNumber}: ${body?.issues?.[0]?.message || body?.error || response.status}`);
-      }
-      const refresh = await fetch(`/api/vat/e-invoices?organization_id=${encodeURIComponent(organizationId)}`);
-      if (refresh.ok) {
-        const body = await refresh.json();
-        setInvoices(body.invoices ?? []);
-        const names = (body.invoices ?? []).flatMap((invoice: Invoice) => invoice.lines.map((line) => line.item_name));
-        setServiceCatalog((current) => Array.from(new Set([...current, ...names].filter(Boolean))));
-      }
-      setMessage({
-        error: failures.length > 0,
-        text: ar
-          ? `تم استيراد ${imported} مسودة${failures.length ? `، وتعذر استيراد ${failures.length}: ${failures.slice(0, 3).join('؛ ')}` : ''}.`
-          : `Imported ${imported} draft(s)${failures.length ? `; ${failures.length} failed: ${failures.slice(0, 3).join('; ')}` : '.'}`,
-      });
-    } catch (error) {
-      setMessage({ error: true, text: messageFor(error instanceof Error ? error.message : 'IMPORT_FAILED', ar) });
-    } finally {
-      setImporting(false);
-      if (importInput.current) importInput.current.value = '';
-    }
   }
 
   async function issueInvoice(invoice: Invoice) {
@@ -757,7 +658,7 @@ export function VatEInvoiceRegister({
           <p>{ar ? 'أضف مستندًا، أدخل بنوده، ثم احفظه كمسودة للمراجعة.' : 'Add a document, enter its line items, and save it as a draft for review.'}</p>
         </div>
         <div className="vat-add-menu-wrap">
-          <button type="button" className="vat-button primary vat-add-document" aria-expanded={addMenuOpen} onClick={() => setAddMenuOpen((open) => !open)} disabled={!canCreate || !sellerProfileReady || busy || importing}>
+          <button type="button" className="vat-button primary vat-add-document" aria-expanded={addMenuOpen} onClick={() => setAddMenuOpen((open) => !open)} disabled={!canCreate || !sellerProfileReady || busy}>
             <span aria-hidden="true">＋</span>{ar ? 'إضافة' : 'Add'}
           </button>
           {addMenuOpen && <div className="vat-add-menu" role="group" aria-label={ar ? 'نوع المستند الجديد' : 'New document type'}>
@@ -771,13 +672,6 @@ export function VatEInvoiceRegister({
       {!canCreate && registered && <div className="vat-inline-warning">{ar ? 'إنشاء الفواتير متاح لمالك المؤسسة أو مديرها فقط.' : 'Only an organization owner or admin can create invoices.'}</div>}
       {showDraftForm && documentType !== 'INVOICE' && <div className="vat-inline-warning">{ar ? 'يمكن حفظ الإشعار كمسودة الآن؛ إصدار الإشعارات الدائنة والمدينة غير متاح بعد.' : 'This note can be saved as a draft. Issuing credit and debit notes is not available yet.'}</div>}
       {message && <div className={`vat-notice ${message.error ? 'error' : 'success'}`} role={message.error ? 'alert' : 'status'}>{message.text}</div>}
-
-      <div className="vat-einvoice-import-actions">
-        <input ref={importInput} type="file" accept=".csv,.xlsx" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
-        <button type="button" className="vat-button secondary" disabled={!canCreate || !sellerProfileReady || importing || busy} onClick={() => importInput.current?.click()}>{importing ? (ar ? 'جارٍ الاستيراد…' : 'Importing…') : (ar ? 'استيراد CSV / Excel' : 'Import CSV / Excel')}</button>
-        <button type="button" className="vat-button secondary" onClick={downloadTemplate}>{ar ? 'تنزيل نموذج الاستيراد' : 'Download import template'}</button>
-        <small>{ar ? 'كل صف يمثل بندًا؛ كرر رقم الفاتورة لضم البنود إلى فاتورة واحدة. الاستيراد يحفظ مسودات، وبيانات البائع تُسحب من ملف التسجيل.' : 'Each row is an invoice line; repeat the invoice number to group lines. Imports save drafts, and seller details come from the registration profile.'}</small>
-      </div>
 
       {showDraftForm && <form className="vat-form-grid vat-einvoice-form" onSubmit={saveDraft}>
         <fieldset className="vat-einvoice-group">
@@ -881,7 +775,7 @@ export function VatEInvoiceRegister({
             </div>
           </div>
         </div>
-        <div className="vat-form-actions"><button type="button" className="vat-button secondary" disabled={busy} onClick={() => { setShowDraftForm(false); setEditingDraftId(null); setAccountingSourceId(null); setNoteSource(null); setAddMenuOpen(false); }}>{ar ? 'إلغاء' : 'Cancel'}</button><button className="vat-button primary" disabled={!canCreate || !sellerProfileReady || busy || importing || !vatNumber || !Number.isFinite(Number(exchangeRate)) || Number(exchangeRate) <= 0}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? (editingDraftId ? 'حفظ التعديلات' : 'حفظ كمسودة') : (editingDraftId ? 'Save changes' : 'Save as draft'))}</button></div>
+        <div className="vat-form-actions"><button type="button" className="vat-button secondary" disabled={busy} onClick={() => { setShowDraftForm(false); setEditingDraftId(null); setAccountingSourceId(null); setNoteSource(null); setAddMenuOpen(false); }}>{ar ? 'إلغاء' : 'Cancel'}</button><button className="vat-button primary" disabled={!canCreate || !sellerProfileReady || busy || !vatNumber || !Number.isFinite(Number(exchangeRate)) || Number(exchangeRate) <= 0}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : (ar ? (editingDraftId ? 'حفظ التعديلات' : 'حفظ كمسودة') : (editingDraftId ? 'Save changes' : 'Save as draft'))}</button></div>
       </form>}
 
       {collectionInvoice?.cash_flow && <div className="vat-import-panel">
@@ -910,11 +804,11 @@ export function VatEInvoiceRegister({
           <div className="vat-invoice-actions">
             {invoice.accounting_document_id && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => { setReceiptInvoice(invoice); setCollectionInvoice(null); }}>{ar ? 'سندات القبض' : 'Receipts'}</button>}
             {invoice.status === 'ACCOUNTING_READY' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => prepareAccountingInvoiceForZatca(invoice)}>{ar ? 'تجهيز مسودة زاتكا' : 'Prepare ZATCA draft'}</button>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}>{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</button>}
             {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={() => openCollection(invoice)}>{ar ? `قبض المتبقي ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}` : `Collect ${formatAmount(Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)))}`}</button>}
             {invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) === 0 && <span className="vat-status registered">{ar ? 'مسددة' : 'Paid'}</span>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE' || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار ZATCA' : 'Issue ZATCA'}</button>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || importing || !canCreate || editingDraftId === invoice.id} onClick={() => void deleteDraft(invoice)}>{ar ? 'حذف' : 'Delete'}</button>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || !canCreate || editingDraftId === invoice.id || invoice.document_type !== 'INVOICE' || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}>{ar ? 'إصدار ZATCA' : 'Issue ZATCA'}</button>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => void deleteDraft(invoice)}>{ar ? 'حذف' : 'Delete'}</button>}
             {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}>{ar ? 'إشعار دائن' : 'Credit note'}</button>}
             {invoice.status === 'ISSUED' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}>{ar ? 'إشعار مدين' : 'Debit note'}</button>}
             {invoice.status === 'ISSUED' && invoice.qr_code && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}>{ar ? 'عرض / PDF' : 'View / PDF'}</button>}
@@ -929,45 +823,6 @@ export function VatEInvoiceRegister({
 
 function formatAmount(value: string | number) {
   return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function downloadTemplate() {
-  const columns = [
-    'invoice_number', 'invoice_category', 'document_type', 'issue_date', 'due_date', 'issue_time',
-    'buyer_name', 'buyer_vat_number', 'buyer_address', 'buyer_building_number', 'buyer_district', 'buyer_additional_number', 'buyer_city', 'buyer_postal_code',
-    'billing_reference', 'note_reason', 'item_name', 'description', 'quantity', 'unit_code', 'unit_price', 'discount_amount', 'tax_category', 'tax_rate', 'tax_exemption_reason_code', 'tax_exemption_reason',
-  ];
-  const blob = new Blob([`${columns.join(',')}\r\n`], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'zakatflow-vat-invoice-import-template.csv';
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function importCategory(value?: string): 'STANDARD' | 'SIMPLIFIED' {
-  const category = (value ?? '').trim().toUpperCase();
-  return category === 'SIMPLIFIED' || category === 'مبسطة' ? 'SIMPLIFIED' : 'STANDARD';
-}
-
-function importTaxCategory(value?: string): InvoiceLine['tax_category'] {
-  const category = (value ?? 'S').trim().toUpperCase();
-  if (category === 'Z' || category === 'ZERO_RATED' || category === 'صفري') return 'Z';
-  if (category === 'E' || category === 'EXEMPT' || category === 'معفى') return 'E';
-  if (category === 'O' || category === 'OUT_OF_SCOPE' || category === 'خارج النطاق') return 'O';
-  return 'S';
-}
-
-function normalizeTime(value?: string) {
-  const raw = (value ?? '').trim();
-  if (/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(raw)) return raw.length === 5 ? `${raw}:00` : raw;
-  const fraction = Number(raw);
-  if (Number.isFinite(fraction) && fraction >= 0 && fraction < 1) {
-    const seconds = Math.round(fraction * 86400) % 86400;
-    return `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-  }
-  return raw;
 }
 
 function escapeHtml(value: string) {
@@ -1034,6 +889,8 @@ function messageFor(code: string, ar: boolean) {
     EINVOICE_NOT_FOUND: ['لم يتم العثور على الفاتورة.', 'Invoice not found.'],
     EINVOICE_DELETE_ISSUED_FORBIDDEN: ['لا يمكن حذف فاتورة صادرة. استخدم إشعارًا دائنًا أو مدينًا.', 'An issued invoice cannot be deleted. Use a credit or debit note.'],
     EINVOICE_DELETE_SETTLED_FORBIDDEN: ['لا يمكن حذف فاتورة بدأ عليها قبض أو تسوية.', 'An invoice with collection or settlement activity cannot be deleted.'],
+    EINVOICE_DELETE_FINANCIAL_LOCKED: ['لا يمكن حذف مسودة ارتبطت بتسجيل مالي معتمد أو فعلي أو موازنة.', 'A draft linked to approved or actual recognition or a budget cannot be deleted.'],
+    EINVOICE_DELETE_REFERENCED_FORBIDDEN: ['لا يمكن حذف مسودة مرتبطة بمستندات أخرى.', 'A draft referenced by other documents cannot be deleted.'],
     VAT_DOCUMENT_NUMBER_EXISTS: ['رقم الفاتورة مستخدم محاسبيًا من قبل في هذه المؤسسة.', 'This invoice number already exists in the accounting register.'],
     VAT_FINANCIAL_ENTITY_REQUIRED: ['يجب ضبط كيان مالي واحد نشط للمنشأة قبل الحفظ.', 'Configure exactly one active financial entity before saving.'],
     VAT_FINANCIAL_CLASSIFICATIONS_REQUIRED: ['تصنيفات الإيراد والضريبة في الأساس المالي غير مكتملة.', 'Financial Core revenue/tax classifications are incomplete.'],
