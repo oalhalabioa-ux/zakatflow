@@ -2,8 +2,9 @@
 
 import { vatNoteMessages } from '@/lib/vat-note-messages';
 
-import { FormEvent, KeyboardEvent, use, useEffect, useMemo, useState } from 'react';
+import { FormEvent, KeyboardEvent, use, useEffect, useMemo, useRef, useState } from 'react';
 import Decimal from 'decimal.js';
+import { vatDocumentSchema } from '@/lib/validation/schemas';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { summarizeVatDocuments, type VatDocumentForSummary } from '@/lib/vat';
 import { organizationDisplayName } from '@/lib/organization-display';
@@ -216,6 +217,16 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [salesEntryMode, setSalesEntryMode] = useState<'ACCOUNTING' | 'ZAKATFLOW'>('ACCOUNTING');
   const [registerFormOpen, setRegisterFormOpen] = useState(false);
   const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+  const [invoiceSequenceInitialized, setInvoiceSequenceInitialized] = useState(false);
+  const [reservedAccountingNumber, setReservedAccountingNumber] = useState<string | null>(null);
+  const sequenceRequest = useRef(0);
+  useEffect(() => {
+    sequenceRequest.current += 1;
+    setInvoiceSequenceInitialized(false);
+    setReservedAccountingNumber(null);
+    setEditingDocumentId(null);
+    setRegisterFormOpen(false);
+  }, [organizationId, registerDirection, salesEntryMode]);
   const [registerAddMenuOpen, setRegisterAddMenuOpen] = useState(false);
   const [registerFilters, setRegisterFilters] = useState({ ...emptyInvoiceFilters });
   const [summaryNoteReview, setSummaryNoteReview] = useState(false);
@@ -616,7 +627,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
 
   async function addDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!organizationId) return;
+    if (!organizationId || saving) return;
     setSaving(true);
     setNotice(null);
     try {
@@ -630,10 +641,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         discountMode: accountingDiscountMode,
         pricesIncludeVat: accountingPricesIncludeVat,
       }), currentTaxRate) : null;
-      const response = await fetch('/api/vat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const payload = {
           action: editingDocumentId ? 'update_document' : 'add_document',
           ...(editingDocumentId ? { document_id: editingDocumentId } : {}),
           organization_id: organizationId,
@@ -647,12 +655,30 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           counterparty_contact_id: draft.counterparty_contact_id || null,
           counterparty_tax_number: draft.counterparty_tax_number.trim() || null,
           notes: draft.notes.trim() || null,
-        }),
+        };
+      const validated = vatDocumentSchema.safeParse(payload);
+      if (!validated.success) throw new Error(validated.error.issues[0]?.message || 'INVALID_VAT_DOCUMENT');
+      if (!editingDocumentId && draft.document_type === 'SALES' && draft.document_kind === 'INVOICE') {
+        let number = reservedAccountingNumber;
+        if (!number) {
+          const response = await fetch('/api/vat/invoice-numbering', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({organization_id:organizationId,first_number:draft.document_number})});
+          const body = await response.json();
+          if (!response.ok) throw new Error(body.error || 'INVOICE_NUMBERING_FAILED');
+          number = body.invoice_number as string;
+          setReservedAccountingNumber(number);
+          setInvoiceSequenceInitialized(true);
+          setDraft(current => ({...current,document_number:number!}));
+        }
+        payload.document_number = number;
+      }
+      const response = await fetch('/api/vat', {
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
       setDraft({ ...emptyDocument(), document_type: registerDirection });
       setEditingDocumentId(null);
+      setReservedAccountingNumber(null);
       setAccountingLines([emptyDocumentLine()]);
       setRegisterFormOpen(false);
       setRegisterAddMenuOpen(false);
@@ -677,19 +703,38 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     finally { setSaving(false); }
   }
 
-  function startRegisterEntry(kind: DocumentDraft['document_kind']) {
-    setDraft({ ...emptyDocument(), document_type: registerDirection, document_kind: kind });
-    if (kind !== 'INVOICE') fetch(`/api/vat/notes?organization_id=${encodeURIComponent(organizationId || '')}&side=${registerDirection}`).then(async response=>{if(!response.ok)throw new Error('VAT_NOTE_ORIGINAL_LOAD_FAILED');return response.json();}).then(body=>setNoteOriginals(body.originals || [])).catch(error=>setNotice({kind:'error',text:messageFor(error.message,ar)}));
-    setAccountingLines([emptyDocumentLine()]);
-    setRegisterFormOpen(true);
-    setRegisterAddMenuOpen(false);
+  async function startRegisterEntry(kind: DocumentDraft['document_kind']) {
+    if (saving) return;
+    const requestId = ++sequenceRequest.current;
+    let nextNumber = '';
     setNotice(null);
+    try {
+      if (registerDirection === 'SALES' && kind === 'INVOICE') {
+        setSaving(true);
+        const response = await fetch(`/api/vat/invoice-numbering?organization_id=${encodeURIComponent(organizationId)}`);
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'INVOICE_NUMBERING_FAILED');
+        if (requestId !== sequenceRequest.current) return;
+        setInvoiceSequenceInitialized(Boolean(body.initialized));
+        nextNumber = body.next_number || '';
+      }
+      setEditingDocumentId(null);
+      setReservedAccountingNumber(null);
+      setDraft({ ...emptyDocument(), document_type: registerDirection, document_kind: kind, document_number:nextNumber });
+      if (kind !== 'INVOICE') fetch(`/api/vat/notes?organization_id=${encodeURIComponent(organizationId || '')}&side=${registerDirection}`).then(async response=>{if(!response.ok)throw new Error('VAT_NOTE_ORIGINAL_LOAD_FAILED');return response.json();}).then(body=>setNoteOriginals(body.originals || [])).catch(error=>setNotice({kind:'error',text:messageFor(error.message,ar)}));
+      setAccountingLines([emptyDocumentLine()]);
+      setRegisterFormOpen(true);
+      setRegisterAddMenuOpen(false);
+    } catch(error:any) {
+      setNotice({kind:'error',text:messageFor(error.message,ar)});
+    } finally { setSaving(false); }
   }
 
   function startEditDocument(document: VatDocument) {
     if (document.is_einvoice || !['SALES','PURCHASE'].includes(document.document_type) || document.document_kind !== 'INVOICE' || (document as any).asset_transaction_id) return;
     const rate = Number(document.exchange_rate || 1) || 1;
     const sourceLines = Array.isArray((document as any).line_items) ? (document as any).line_items : [];
+    setReservedAccountingNumber(null);
     setEditingDocumentId(document.id);
     setDraft({
       document_type:document.document_type as 'SALES'|'PURCHASE', document_kind:'INVOICE', document_number:document.document_number,
@@ -1068,7 +1113,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               </div>
               <div className="vat-document-meta">
                 <label><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={draft.document_kind} onChange={(event) => startRegisterEntry(event.target.value as DocumentDraft['document_kind'])}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option><option value="DEBIT_NOTE">{ar ? 'إشعار مدين' : 'Debit note'}</option></select></label>
-                <label><span>{ar ? 'رقم المستند' : 'Document number'}</span><input required maxLength={80} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} /></label>
+                <label><span>{ar ? 'رقم المستند' : 'Document number'}</span><input required maxLength={100} readOnly={!editingDocumentId && draft.document_type === 'SALES' && draft.document_kind === 'INVOICE' && (invoiceSequenceInitialized || Boolean(reservedAccountingNumber))} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} />{!editingDocumentId && draft.document_type === 'SALES' && draft.document_kind === 'INVOICE' && <small className="vat-field-hint">{invoiceSequenceInitialized ? (ar ? 'الرقم التالي من التسلسل المشترك بين المحاسبي وزاتكا؛ يُحجز عند الحفظ.' : 'Next number in the shared accounting/ZATCA sequence; allocated on save.') : (ar ? 'أدخل أول رقم مرة واحدة؛ يتابع المحاسبي وزاتكا التسلسل نفسه.' : 'Enter the first number once; accounting and ZATCA share the same sequence.')}</small>}</label>
                 <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
                 <label><span>{ar ? 'تاريخ الاستحقاق' : 'Due date'}</span><input required type="date" min={draft.transaction_date} value={draft.due_date} onChange={(event) => setDraft({ ...draft, due_date: event.target.value })} /></label>
               </div>
@@ -1326,6 +1371,10 @@ function monthsInRange(from: string, to: string) {
 function messageFor(code: string, ar: boolean) {
   const labels: Record<string, [string, string]> = {
     ...vatNoteMessages,
+    INVOICE_NUMBERING_FAILED: ['تعذر تحميل أو حجز رقم الفاتورة. حاول مجددًا.', 'Could not load or reserve an invoice number. Try again.'],
+    INVOICE_SEQUENCE_START_INVALID: ['أدخل رقم البداية منتهيًا بأرقام موجبة، مثل 100 أو INV-0001.', 'Enter a starting number ending in positive digits, e.g. 100 or INV-0001.'],
+    INVOICE_SEQUENCE_START_EXISTS: ['رقم البداية مستخدم بالفعل. اختر أول رقم غير مستخدم.', 'The starting number already exists. Choose an unused first number.'],
+    INVOICE_SEQUENCE_EXHAUSTED: ['تعذر تخصيص رقم آخر في هذا التسلسل.', 'Could not allocate another number in this sequence.'],
     UNAUTHORIZED: ['يلزم تسجيل الدخول.', 'Please sign in.'],
     ORGANIZATION_ACCESS_REQUIRED: ['ليس لديك صلاحية الوصول إلى هذه المؤسسة.', 'You do not have access to this organization.'],
     ORGANIZATION_ADMIN_REQUIRED: ['إدارة الملف الضريبي متاحة لمالك المؤسسة أو مديرها.', 'Only organization owners and admins can manage VAT data.'],
