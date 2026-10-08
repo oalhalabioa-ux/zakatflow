@@ -7,6 +7,10 @@ declare
   existing text;
   n text;
 begin
+  if has_table_privilege('authenticated','public.vat_invoice_number_sequences','DELETE')
+    or has_table_privilege('authenticated','public.vat_invoice_number_sequences','TRUNCATE') then
+    raise exception 'Excess counter privileges';
+  end if;
   if (public.peek_vat_invoice_number(org)->>'initialized')::boolean then
     raise exception 'Test requires an unconfigured sequence';
   end if;
