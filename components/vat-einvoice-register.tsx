@@ -1,5 +1,7 @@
 'use client';
 
+import { vatNoteMessages } from '@/lib/vat-note-messages';
+
 import { Fragment, FormEvent, useEffect, useState } from 'react';
 import { applyInvoiceLineDiscount, normalizeInvoiceLinePrice, previewInvoiceLine } from '@/lib/vat-invoice-price-mode';
 import { vatEInvoiceDraftSchema, calculateVatEInvoiceDraft } from '@/lib/vat-einvoice-draft';
@@ -856,6 +858,7 @@ function formatAmount(value: string | number) {
 
 function messageFor(code: string, ar: boolean) {
   const labels: Record<string, [string, string]> = {
+    ...vatNoteMessages,
     UNAUTHORIZED: ['يلزم تسجيل الدخول.', 'Please sign in.'],
     ORGANIZATION_ACCESS_REQUIRED: ['ليس لديك صلاحية الوصول إلى هذه المؤسسة.', 'You do not have access to this organization.'],
     ORGANIZATION_ADMIN_REQUIRED: ['إنشاء المسودات متاح لمالك المؤسسة أو مديرها.', 'Only an organization owner or admin can create drafts.'],
