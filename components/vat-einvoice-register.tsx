@@ -125,6 +125,9 @@ export function VatEInvoiceRegister({
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [sequenceInitialized, setSequenceInitialized] = useState(false);
+  const [numberReserved, setNumberReserved] = useState(false);
+  const [createdAccountingSourceId, setCreatedAccountingSourceId] = useState<string | null>(null);
   const [category, setCategory] = useState<'STANDARD' | 'SIMPLIFIED'>('STANDARD');
   const [documentType, setDocumentType] = useState<'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('INVOICE');
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -170,6 +173,9 @@ export function VatEInvoiceRegister({
 
   useEffect(() => {
     setInvoices([]);
+    setCreatedAccountingSourceId(null);
+    setNumberReserved(false);
+    setSequenceInitialized(false);
     setCashAccounts([]);
     setCanCreate(false);
     setShowDraftForm(false);
@@ -300,8 +306,19 @@ export function VatEInvoiceRegister({
       if (!validated.success) throw new Error(validated.error.issues[0]?.message || "INVALID_EINVOICE_DRAFT");
       if (validated.data.lines.some((line) => line.tax_category === 'S' && line.tax_rate !== standardTaxRate)) throw new Error('STANDARD_TAX_RATE_MISMATCH');
       calculateVatEInvoiceDraft(validated.data);
+      if (!buyerContactId && !accountingSourceId) throw new Error('VAT_STABLE_CONTACT_REQUIRED');
+      let savedInvoiceNumber = invoiceNumber;
+      if (documentType === 'INVOICE' && !editingDraftId && !accountingSourceId && !numberReserved) {
+        const numberingResponse = await fetch('/api/vat/invoice-numbering', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({organization_id:organizationId,first_number:invoiceNumber}) });
+        const numberingBody = await numberingResponse.json();
+        if (!numberingResponse.ok) throw new Error(numberingBody.error || 'INVOICE_NUMBERING_FAILED');
+        savedInvoiceNumber = numberingBody.invoice_number;
+        draftPayload.invoice_number = savedInvoiceNumber;
+        setInvoiceNumber(savedInvoiceNumber); setNumberReserved(true); setSequenceInitialized(true);
+      }
       let accountingDocumentId: string | null = null;
-      if (!accountingSourceId) {
+      const synchronizingRetry = !editingDraftId && documentType === 'INVOICE' && createdAccountingSourceId && createdAccountingSourceId === accountingSourceId;
+      if (!accountingSourceId || synchronizingRetry) {
         if (documentType !== 'INVOICE' && !noteSource?.accounting_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
         if (!buyerContactId) throw new Error('VAT_STABLE_CONTACT_REQUIRED');
         const accountingLines = lines.map((line) => {
@@ -317,8 +334,8 @@ export function VatEInvoiceRegister({
         });
         const accountingResponse = await fetch('/api/vat', {
           method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
-            action:'add_document', organization_id:organizationId, document_type:'SALES', document_kind:documentType,
-            document_number:invoiceNumber, transaction_date:issueDate, due_date:dueDate || issueDate,
+            action:synchronizingRetry?'update_document':'add_document', ...(synchronizingRetry ? {document_id:accountingSourceId}:{}), organization_id:organizationId, document_type:'SALES', document_kind:documentType,
+            document_number:savedInvoiceNumber, transaction_date:issueDate, due_date:dueDate || issueDate,
             ...(documentType !== 'INVOICE' ? { preceding_document_id: noteSource?.accounting_document_id } : {}),
             counterparty_contact_id:buyerContactId, counterparty_name:buyerName, counterparty_tax_number:buyerVatNumber || null,
             supply_type:accountingLines[0]?.supply_type || 'STANDARD',
@@ -332,6 +349,7 @@ export function VatEInvoiceRegister({
         accountingDocumentId = accountingBody.id;
         // Preserve the created source across a failed ZATCA save so retry never creates a second sale.
         setAccountingSourceId(accountingDocumentId);
+        setCreatedAccountingSourceId(accountingDocumentId);
       }
       const response = await fetch('/api/vat/e-invoices', {
         method: editingDraftId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' },
@@ -444,6 +462,8 @@ export function VatEInvoiceRegister({
   }
 
   function prepareAccountingInvoiceForZatca(invoice: Invoice) {
+    setCreatedAccountingSourceId(null);
+    setNumberReserved(false);
     setEditingDraftId(null);
     setAccountingSourceId(invoice.accounting_document_id || null);
     setNoteSource(null);
@@ -517,6 +537,8 @@ export function VatEInvoiceRegister({
   function startNote(invoice: Invoice, kind: 'CREDIT_NOTE'|'DEBIT_NOTE') {
     if (!invoice.accounting_document_id || !['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status)) return;
     setEditingDraftId(null);
+    setCreatedAccountingSourceId(null);
+    setNumberReserved(false);
     setNoteSource(invoice);
     setAccountingSourceId(null);
     setDocumentType(kind);
@@ -544,6 +566,8 @@ export function VatEInvoiceRegister({
   }
 
   function editDraft(invoice: Invoice) {
+    setCreatedAccountingSourceId(null);
+    setNumberReserved(false);
     if (invoice.status !== 'DRAFT') return;
     setEditingDraftId(invoice.id);
     setNoteSource(null);
@@ -611,13 +635,26 @@ export function VatEInvoiceRegister({
     setLines((current) => current.map((line, i) => i === index ? { ...line, ...changes } : line));
   }
 
-  function startDraft(type: 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE') {
+  async function startDraft(type: 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE') {
+    if (busy) return;
+    let nextNumber = '';
+    if (type === 'INVOICE') {
+      setBusy(true);
+      try {
+        const response = await fetch(`/api/vat/invoice-numbering?organization_id=${encodeURIComponent(organizationId)}`,{cache:'no-store'});
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'INVOICE_NUMBERING_FAILED');
+        setSequenceInitialized(body.initialized); nextNumber = body.next_number || '';
+      } catch (error) { setMessage({error:true,text:messageFor(error instanceof Error?error.message:'INVOICE_NUMBERING_FAILED',ar)}); return; }
+      finally {setBusy(false);}
+    }
+    setNumberReserved(false); setCreatedAccountingSourceId(null);
     setEditingDraftId(null);
     setAccountingSourceId(null);
     setNoteSource(null);
     setIssueDate(new Date().toISOString().slice(0,10));
     setIssueTime(new Date().toTimeString().slice(0,5));
-    setInvoiceNumber('');
+    setInvoiceNumber(nextNumber);
     setDueDate('');
     setBuyerContactId('');
     setBuyerName('');
@@ -736,7 +773,7 @@ export function VatEInvoiceRegister({
               const nextCategory = event.target.value as typeof category;
               setCategory(nextCategory);
             }}><option value="STANDARD">{ar ? 'ضريبية قياسية' : 'Standard tax invoice'}</option><option value="SIMPLIFIED">{ar ? 'مبسطة' : 'Simplified'}</option></select></label>
-            <label><span>{ar ? 'رقم الفاتورة' : 'Invoice number'}</span><input required maxLength={100} value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} /></label>
+            <label><span>{ar ? 'رقم الفاتورة' : 'Invoice number'}</span><input required maxLength={100} value={invoiceNumber} readOnly={documentType === 'INVOICE' && !editingDraftId && (numberReserved || (!accountingSourceId && sequenceInitialized))} onChange={(event) => setInvoiceNumber(event.target.value)} />{documentType === 'INVOICE' && !editingDraftId && !accountingSourceId && <small className="vat-field-hint">{sequenceInitialized ? (ar?'ترقيم تلقائي؛ يُحجز الرقم عند الحفظ وقد يتغير إذا حفظ مستخدم آخر قبلك.':'Automatic numbering; allocated on save and may change if another user saves first.') : (ar?'أدخل أول رقم مرة واحدة، مثل 100 أو INV-0001، ثم يتابع النظام تلقائيًا لكل شركة.':'Enter the first number once, e.g. 100 or INV-0001; numbering then continues for this company.')}</small>}</label>
             <label><span>{ar ? 'تاريخ الفاتورة' : 'Invoice date'}</span><input required type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} /></label>
             <label><span>{ar ? 'تاريخ الاستحقاق' : 'Due date'} <small>{ar ? 'اختياري' : 'Optional'}</small></span><input type="date" min={issueDate} value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
             <div className={`vat-document-type-summary ${ar ? 'is-arabic' : ''}`}><small>{ar ? 'نوع المستند' : 'Document type'}</small><strong>{documentType === 'INVOICE' ? (ar ? 'فاتورة' : 'Invoice') : documentType === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'إشعار مدين' : 'Debit note')}</strong></div>
@@ -885,6 +922,10 @@ function messageFor(code: string, ar: boolean) {
     SETTLEMENT_EXCEEDS_FLOW_OUTSTANDING: ['المبلغ يتجاوز المتبقي الحالي. حدّث الفواتير وأدخل المبلغ الصحيح.', 'Amount exceeds current outstanding. Refresh and enter the correct amount.'],
     SETTLEMENT_FLOW_ACCOUNT_MISMATCH: ['هذا المستحق مرتبط بحساب قبض محدد؛ اختر الحساب نفسه.', 'This receivable is linked to a collection account; use that account.'],
     EINVOICE_REQUEST_FAILED: ['تعذر الحفظ. راجع البيانات؛ لم يتم تأكيد الحفظ.', 'Save failed. Review the details; saving was not confirmed.'],
+    INVOICE_NUMBERING_FAILED: ['تعذر قراءة تسلسل الفواتير. أعد المحاولة.','Could not load invoice numbering. Retry.'],
+    INVOICE_SEQUENCE_START_INVALID: ['أدخل رقم بداية ينتهي بأرقام، مثل 100 أو INV-0001.','Enter a starting number ending in digits, e.g. 100 or INV-0001.'],
+    INVOICE_SEQUENCE_START_EXISTS: ['رقم البداية مستخدم مسبقًا. اختر رقمًا جديدًا أو جهّز الفاتورة الموجودة من السجل.','Starting number already exists. Choose an unused number or prepare the existing invoice from the register.'],
+    INVOICE_SEQUENCE_EXHAUSTED: ['تعذر تخصيص رقم جديد للتسلسل. راجع مسؤول النظام.','Could not allocate a new sequence number. Contact your administrator.'],
     ACCOUNTING_INVOICE_NUMBER_EXISTS: ['رقم الفاتورة مستخدم محاسبيًا؛ افتح الفاتورة من السجل لتجهيزها لزاتكا.', 'This number exists in accounting. Prepare that invoice from the register.'],
     VAT_PROFILE_REQUIRED: ['احفظ ملف التسجيل الضريبي أولًا.', 'Save the VAT registration profile first.'],
     VAT_REGISTRATION_REQUIRED: ['يجب أن تكون المؤسسة مسجلة في ضريبة القيمة المضافة.', 'The organization must be VAT registered.'],
