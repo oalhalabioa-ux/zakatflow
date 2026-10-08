@@ -1,0 +1,16 @@
+export const vatNoteMessages: Record<string, [string, string]> = {
+  VAT_NOTE_REFERENCE_AND_REASON_REQUIRED: ['اختر الفاتورة الأصلية وأدخل سبب الإشعار.', 'Choose the original invoice and enter the note reason.'],
+  VAT_NOTE_DATE_BEFORE_ORIGINAL: ['لا يمكن أن يسبق تاريخ الإشعار تاريخ الفاتورة الأصلية.', 'The note date cannot precede the original invoice.'],
+  VAT_NOTE_ORIGINAL_IDENTITY_OR_CURRENCY_MISMATCH: ['يجب أن تطابق الجهة والعملة وسعر الصرف الفاتورة الأصلية.', 'Counterparty, currency and FX must match the original invoice.'],
+  VAT_NOTE_FILED_PERIOD_LOCKED: ['هذه الفترة مقدمة؛ راجع الفترة الصحيحة للإشعار ومعالجة تصحيح الإقرار.', 'This period is filed; review the correct note period and return correction treatment.'],
+  VAT_NOTE_RECOVERY_MUST_MATCH_ORIGINAL: ['يجب أن تطابق نسبة خصم ضريبة المدخلات الفاتورة الأصلية.', 'Input VAT recovery must match the original invoice.'],
+  VAT_NOTE_AMOUNT_INVALID: ['راجع مبالغ الإشعار والضريبة وسعر الصرف.', 'Check note amounts, VAT and exchange rate.'],
+  VAT_ORIGINAL_FINANCIAL_EVENT_REQUIRED: ['الفاتورة الأصلية تحتاج مصدرًا محاسبيًا مرتبطًا قبل إنشاء الإشعار.', 'The original invoice needs linked accounting recognition before creating a note.'],
+  VAT_ORIGINAL_OBLIGATION_REQUIRED: ['لا يوجد استحقاق محاسبي مرتبط بالفاتورة الأصلية؛ راجع اعتمادها.', 'No accounting obligation is linked to the original invoice; review its recognition.'],
+  VAT_ORIGINAL_RECOGNITION_REQUIRED: ['اعتمد محاسبة الفاتورة الأصلية أولًا ثم أعد ترحيل الإشعار.', 'Post original invoice recognition first, then retry the note.'],
+  VAT_NOTE_MUST_BE_ISSUED: ['أصدر الإشعار قبل اعتماد أثره المحاسبي.', 'Issue the note before posting its accounting effect.'],
+  VAT_CREDIT_EXCEEDS_ORIGINAL: ['إجمالي الإشعارات الدائنة يتجاوز قيمة الأصل أو ضريبته.', 'Credit notes exceed the original value or VAT.'],
+  VAT_NOTE_BOUND_SOURCE_IMMUTABLE: ['الإشعار مرتبط بمحاسبته؛ احذف المسودة غير المعتمدة وأعد إنشاءها لتغيير مبالغها.', 'The note is bound to accounting; delete and recreate the unapproved draft to change amounts.'],
+  VAT_NOTE_FINANCIAL_SOURCE_CHANGED: ['بيانات الإشعار لا تطابق مصدره المحاسبي؛ راجع الربط قبل الترحيل.', 'Note data no longer matches its accounting source; review the link before posting.'],
+  VAT_NOTE_NOT_FOUND: ['لم يتم العثور على الإشعار في المنشأة الحالية.', 'Note not found in the current organization.'],
+};

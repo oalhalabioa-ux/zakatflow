@@ -1,5 +1,7 @@
 'use client';
 
+import { vatNoteMessages } from '@/lib/vat-note-messages';
+
 import { FormEvent, KeyboardEvent, use, useEffect, useMemo, useState } from 'react';
 import Decimal from 'decimal.js';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
@@ -1305,6 +1307,7 @@ function monthsInRange(from: string, to: string) {
 
 function messageFor(code: string, ar: boolean) {
   const labels: Record<string, [string, string]> = {
+    ...vatNoteMessages,
     UNAUTHORIZED: ['يلزم تسجيل الدخول.', 'Please sign in.'],
     ORGANIZATION_ACCESS_REQUIRED: ['ليس لديك صلاحية الوصول إلى هذه المؤسسة.', 'You do not have access to this organization.'],
     ORGANIZATION_ADMIN_REQUIRED: ['إدارة الملف الضريبي متاحة لمالك المؤسسة أو مديرها.', 'Only organization owners and admins can manage VAT data.'],
