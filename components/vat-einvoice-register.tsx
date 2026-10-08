@@ -128,6 +128,7 @@ export function VatEInvoiceRegister({
   const [sequenceInitialized, setSequenceInitialized] = useState(false);
   const [numberReserved, setNumberReserved] = useState(false);
   const [createdAccountingSourceId, setCreatedAccountingSourceId] = useState<string | null>(null);
+  const [createdAccountingSourceIsSar, setCreatedAccountingSourceIsSar] = useState(false);
   const [category, setCategory] = useState<'STANDARD' | 'SIMPLIFIED'>('STANDARD');
   const [documentType, setDocumentType] = useState<'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('INVOICE');
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -317,7 +318,9 @@ export function VatEInvoiceRegister({
         setInvoiceNumber(savedInvoiceNumber); setNumberReserved(true); setSequenceInitialized(true);
       }
       let accountingDocumentId: string | null = null;
-      const synchronizingRetry = !editingDraftId && documentType === 'INVOICE' && createdAccountingSourceId && createdAccountingSourceId === accountingSourceId;
+      // The amendment RPC accepts SAR amounts. Preserve foreign-currency sources
+      // and let the server enforce a match instead of overwriting their FX amounts.
+      const synchronizingRetry = !editingDraftId && documentType === 'INVOICE' && createdAccountingSourceIsSar && currency === 'SAR' && Number(exchangeRate) === 1 && createdAccountingSourceId && createdAccountingSourceId === accountingSourceId;
       if (!accountingSourceId || synchronizingRetry) {
         if (documentType !== 'INVOICE' && !noteSource?.accounting_document_id) throw new Error('VAT_ORIGINAL_ACCOUNTING_INVOICE_REQUIRED');
         if (!buyerContactId) throw new Error('VAT_STABLE_CONTACT_REQUIRED');
@@ -350,6 +353,7 @@ export function VatEInvoiceRegister({
         // Preserve the created source across a failed ZATCA save so retry never creates a second sale.
         setAccountingSourceId(accountingDocumentId);
         setCreatedAccountingSourceId(accountingDocumentId);
+        setCreatedAccountingSourceIsSar(currency === 'SAR' && Number(exchangeRate) === 1);
       }
       const response = await fetch('/api/vat/e-invoices', {
         method: editingDraftId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' },
