@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Decimal from 'decimal.js';
+import { requestErrorMessage } from '@/lib/vat-invoice-workflow';
 import { calculateVatEInvoiceDraft, vatEInvoiceDraftSchema } from '@/lib/vat-einvoice-draft';
 import { requireUser } from '@/services/auth';
 import { requireOrganizationAdmin, requireOrganizationMember } from '@/services/organization-access';
@@ -7,14 +8,16 @@ import { requireOrganizationAdmin, requireOrganizationMember } from '@/services/
 export const runtime = 'nodejs';
 
 function errorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
+  const message = requestErrorMessage(error);
   const known = new Set([
     'UNAUTHORIZED', 'ORGANIZATION_ACCESS_REQUIRED', 'ORGANIZATION_ADMIN_REQUIRED',
     'VAT_PROFILE_REQUIRED', 'VAT_REGISTRATION_REQUIRED', 'SELLER_VAT_MISMATCH',
     'SELLER_PROFILE_INCOMPLETE', 'VAT_CONTACT_NOT_FOUND', 'VAT_CONTACT_TYPE_MISMATCH',
     'EINVOICE_CONNECTION_MISMATCH', 'PRECEDING_INVOICE_NOT_ISSUED',
     'NOTE_INVOICE_CATEGORY_MISMATCH', 'EINVOICE_NUMBER_EXISTS', 'ACCOUNTING_INVOICE_NUMBER_EXISTS',
-    'EINVOICE_DRAFT_NOT_FOUND', 'EINVOICE_DRAFT_LOCKED',
+    'EINVOICE_DRAFT_NOT_FOUND', 'EINVOICE_DRAFT_LOCKED', 'EINVOICE_NOT_FOUND',
+    'EINVOICE_DELETE_ISSUED_FORBIDDEN', 'EINVOICE_DELETE_SETTLED_FORBIDDEN',
+    'EINVOICE_ACCOUNTING_SOURCE_MISMATCH', 'EINVOICE_ACCOUNTING_BASE_CURRENCY_UNSUPPORTED', 'STANDARD_TAX_RATE_MISMATCH', 'VAT_DOCUMENT_SETTLED_LOCKED', 'VAT_FINANCIAL_EVENT_LOCKED', 'VAT_COUNTERPARTY_MAPPING_REQUIRED',
     'CURRENCY_NOT_ACTIVE', 'SAR_EXCHANGE_RATE_MUST_BE_ONE',
   ]);
   const code = known.has(message) || message.startsWith('LINE_DISCOUNT_EXCEEDS_AMOUNT:')
@@ -48,17 +51,24 @@ export async function GET(request: Request) {
     if (lineError) throw lineError;
     const linkedAccountingIds = new Set((invoices ?? []).map((invoice: any) => invoice.accounting_document_id).filter(Boolean));
     const { data: pendingAccounting, error: pendingAccountingError } = await supabase.from('vat_documents')
-      .select('id,document_number,document_kind,transaction_date,due_date,counterparty_name,counterparty_contact_id,counterparty_tax_number,net_amount,tax_amount,gross_amount,currency,exchange_rate,line_items,zatca_status')
+      .select('id,document_number,document_kind,transaction_date,due_date,counterparty_name,counterparty_contact_id,counterparty_tax_number,net_amount,tax_amount,gross_amount,currency,source_currency,source_net_amount,source_tax_amount,source_gross_amount,exchange_rate,line_items,zatca_status')
       .eq('organization_id', organizationId).eq('document_type','SALES').eq('document_kind','INVOICE')
       .order('created_at',{ascending:false}).limit(200);
     if (pendingAccountingError) throw pendingAccountingError;
+    const contactIds = [...new Set((pendingAccounting ?? []).map((doc: any) => doc.counterparty_contact_id).filter(Boolean))];
+    const { data: contacts, error: contactsError } = contactIds.length
+      ? await supabase.from('vat_contacts').select('id,street,building_number,district,additional_number,city,postal_code')
+          .eq('organization_id', organizationId).in('id', contactIds)
+      : { data: [], error: null };
+    if (contactsError) throw contactsError;
+    const contactsById = new Map((contacts ?? []).map((contact: any) => [contact.id, contact]));
     const accountingIds = (invoices ?? []).map((invoice: any) => invoice.accounting_document_id).filter(Boolean);
     const { data: accountingDocuments, error: accountingError } = accountingIds.length
       ? await supabase.from('vat_documents').select('id,document_number,document_kind,zatca_status').in('id', accountingIds)
       : { data: [], error: null };
     if (accountingError) throw accountingError;
     const { data: cashFlows, error: cashError } = accountingIds.length
-      ? await supabase.from('liquidity_flows').select('id,source_record_id,amount,settled_amount,settlement_status,status,currency,due_date')
+      ? await supabase.from('liquidity_flows').select('id,source_record_id,account_id,amount,settled_amount,settlement_status,status,currency,due_date')
           .eq('organization_id', organizationId).eq('source_module','VAT_INTEGRATION').in('source_record_id', accountingIds)
       : { data: [], error: null };
     if (cashError) throw cashError;
@@ -66,7 +76,7 @@ export async function GET(request: Request) {
     const cashByDocument = new Map((cashFlows ?? []).map((row: any) => [row.source_record_id,row]));
     const pendingIds = (pendingAccounting ?? []).filter((doc:any)=>!linkedAccountingIds.has(doc.id)).map((doc:any)=>doc.id);
     const { data: pendingFlows, error: pendingFlowError } = pendingIds.length
-      ? await supabase.from('liquidity_flows').select('id,source_record_id,amount,settled_amount,settlement_status,status,currency,due_date').eq('organization_id',organizationId).eq('source_module','VAT_INTEGRATION').in('source_record_id',pendingIds)
+      ? await supabase.from('liquidity_flows').select('id,source_record_id,account_id,amount,settled_amount,settlement_status,status,currency,due_date').eq('organization_id',organizationId).eq('source_module','VAT_INTEGRATION').in('source_record_id',pendingIds)
       : { data: [], error: null };
     if (pendingFlowError) throw pendingFlowError;
     const pendingFlowByDoc = new Map((pendingFlows ?? []).map((row:any)=>[row.source_record_id,row]));
@@ -84,17 +94,22 @@ export async function GET(request: Request) {
     const pendingRows = (pendingAccounting ?? []).filter((doc:any)=>!linkedAccountingIds.has(doc.id)).map((doc:any)=>({
       id:'accounting:'+doc.id, invoice_number:doc.document_number, document_type:'INVOICE', invoice_category:'STANDARD',
       status:'ACCOUNTING_READY', issue_date:doc.transaction_date, issue_time:'00:00', due_date:doc.due_date,
-      currency:doc.currency, exchange_rate:String(doc.exchange_rate || 1), payable_amount:String(doc.gross_amount),
-      tax_total_amount:String(doc.tax_amount), qr_code:null, seller_name:'', seller_vat_number:'', seller_address:'',
+      currency:doc.source_currency || doc.currency, exchange_rate:String(doc.exchange_rate || 1), payable_amount:String(doc.source_gross_amount ?? doc.gross_amount),
+      tax_total_amount:String(doc.source_tax_amount ?? doc.tax_amount), qr_code:null, seller_name:'', seller_vat_number:'', seller_address:'',
       seller_building_number:'', seller_district:'', seller_city:'', seller_postal_code:'',
       buyer_name:doc.counterparty_name, buyer_contact_id:doc.counterparty_contact_id, buyer_vat_number:doc.counterparty_tax_number,
-      buyer_address:null,buyer_city:null,accounting_document_id:doc.id,
+      buyer_address:(contactsById.get(doc.counterparty_contact_id) as any)?.street || null,
+      buyer_city:(contactsById.get(doc.counterparty_contact_id) as any)?.city || null,
+      buyer_building_number:(contactsById.get(doc.counterparty_contact_id) as any)?.building_number || null,
+      buyer_district:(contactsById.get(doc.counterparty_contact_id) as any)?.district || null,
+      buyer_postal_code:(contactsById.get(doc.counterparty_contact_id) as any)?.postal_code || null,
+      buyer_additional_number:(contactsById.get(doc.counterparty_contact_id) as any)?.additional_number || null, accounting_document_id:doc.id,
       accounting_document:{id:doc.id,document_number:doc.document_number,document_kind:doc.document_kind,zatca_status:doc.zatca_status},
       cash_flow:pendingFlowByDoc.get(doc.id) ?? null,
       lines:(Array.isArray(doc.line_items)?doc.line_items:[]).map((line:any,index:number)=>({
         id:'accounting-line:'+doc.id+':'+index,item_name:line.description || 'Item',description:line.description || null,
-        quantity:Number(line.quantity || 1),unit_code:line.unit || 'PCE',unit_price:String(line.unit_price || 0),
-        discount_amount:String(line.discount_amount || 0),tax_category:line.supply_type==='STANDARD'?'S':line.supply_type==='ZERO_RATED'?'Z':line.supply_type==='EXEMPT'?'E':'O',
+        quantity:Number(line.quantity || 1),unit_code:line.unit || 'PCE',unit_price:String(line.source_unit_price ?? Number(line.unit_price || 0)/Number(doc.exchange_rate || 1)),
+        discount_amount:String(line.source_discount_amount ?? Number(line.discount_amount || 0)/Number(doc.exchange_rate || 1)),tax_category:line.supply_type==='STANDARD'?'S':line.supply_type==='ZERO_RATED'?'Z':line.supply_type==='EXEMPT'?'E':'O',
         tax_rate:String(line.tax_rate || 0),tax_exemption_reason_code:null,tax_exemption_reason:null,tax_amount:String(line.tax_amount || 0),gross_amount:String(line.gross_amount || 0)
       }))
     }));
@@ -114,6 +129,7 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: 'INVALID_JSON_BODY' }, { status: 400 });
     }
+    if (!requestBody || typeof requestBody !== 'object' || Array.isArray(requestBody)) return NextResponse.json({ error: 'INVALID_JSON_BODY' }, { status: 400 });
     const rawBody = requestBody as Record<string, unknown>;
     const accountingDocumentId = typeof rawBody?.accounting_document_id === 'string' ? rawBody.accounting_document_id : null;
     if (rawBody && 'accounting_document_id' in rawBody) delete rawBody.accounting_document_id;
@@ -147,7 +163,7 @@ export async function POST(request: Request) {
     if (!currency) throw new Error('CURRENCY_NOT_ACTIVE');
 
     const { data: profile, error: profileError } = await supabase.from('vat_profiles')
-      .select('registration_status,tax_registration_number,registered_name,seller_street,seller_building_number,seller_district,seller_additional_number,seller_city,seller_postal_code')
+      .select('registration_status,standard_rate,tax_registration_number,registered_name,seller_street,seller_building_number,seller_district,seller_additional_number,seller_city,seller_postal_code')
       .eq('organization_id', draft.organization_id)
       .maybeSingle();
     if (profileError) throw profileError;
@@ -199,7 +215,22 @@ export async function POST(request: Request) {
       if (precedingInvoice.invoice_category !== draft.invoice_category) throw new Error('NOTE_INVOICE_CATEGORY_MISMATCH');
     }
 
+    if (draft.lines.some((line) => line.tax_category === 'S' && line.tax_rate !== Number(profile.standard_rate))) throw new Error('STANDARD_TAX_RATE_MISMATCH');
     const calculated = calculateVatEInvoiceDraft(draft);
+    if (accountingDocumentId) {
+      const { data: source, error: sourceError } = await supabase.from('vat_documents')
+        .select('id,document_type,document_kind,document_number,counterparty_contact_id,source_currency,currency,exchange_rate,source_net_amount,source_tax_amount,source_gross_amount,net_amount,tax_amount,gross_amount,transaction_date,due_date')
+        .eq('organization_id', draft.organization_id).eq('id', accountingDocumentId).maybeSingle();
+      if (sourceError) throw sourceError;
+      if (!source || source.document_type !== 'SALES' || source.document_kind !== draft.document_type
+        || source.document_number !== draft.invoice_number || source.counterparty_contact_id !== draft.buyer_contact_id
+        || (source.source_currency || source.currency) !== draft.currency
+        || source.transaction_date !== draft.issue_date || (source.due_date || source.transaction_date) !== (draft.due_date || draft.issue_date)
+        || !new Decimal(source.source_net_amount ?? source.net_amount).eq(calculated.totals.tax_exclusive_amount)
+        || !new Decimal(source.source_tax_amount ?? source.tax_amount).eq(calculated.totals.tax_total_amount)
+        || !new Decimal(source.source_gross_amount ?? source.gross_amount).eq(calculated.totals.payable_amount)
+        || !new Decimal(source.exchange_rate || 1).eq(draft.exchange_rate)) throw new Error('EINVOICE_ACCOUNTING_SOURCE_MISMATCH');
+    }
     const taxTotalAmountSar = new Decimal(calculated.totals.tax_total_amount)
       .mul(draft.exchange_rate)
       .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
@@ -274,6 +305,7 @@ export async function PATCH(request: Request) {
     let body: Record<string, unknown>;
     try {
       body = await request.json() as Record<string, unknown>;
+      if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'INVALID_JSON_BODY' }, { status: 400 });
     } catch {
       return NextResponse.json({ error: 'INVALID_JSON_BODY' }, { status: 400 });
     }
@@ -308,7 +340,7 @@ export async function PATCH(request: Request) {
     if (!currency) throw new Error('CURRENCY_NOT_ACTIVE');
 
     const { data: profile, error: profileError } = await supabase.from('vat_profiles')
-      .select('registration_status,tax_registration_number,registered_name,seller_street,seller_building_number,seller_district,seller_additional_number,seller_city,seller_postal_code')
+      .select('registration_status,standard_rate,tax_registration_number,registered_name,seller_street,seller_building_number,seller_district,seller_additional_number,seller_city,seller_postal_code')
       .eq('organization_id', draft.organization_id)
       .maybeSingle();
     if (profileError) throw profileError;
@@ -337,6 +369,7 @@ export async function PATCH(request: Request) {
       if (buyerContact.contact_type !== 'CUSTOMER' && buyerContact.contact_type !== 'BOTH') throw new Error('VAT_CONTACT_TYPE_MISMATCH');
     }
 
+    if (draft.lines.some((line) => line.tax_category === 'S' && line.tax_rate !== Number(profile.standard_rate))) throw new Error('STANDARD_TAX_RATE_MISMATCH');
     const calculated = calculateVatEInvoiceDraft(draft);
     const taxTotalAmountSar = new Decimal(calculated.totals.tax_total_amount)
       .mul(draft.exchange_rate)
@@ -363,47 +396,19 @@ export async function PATCH(request: Request) {
       tax_total_amount_sar: taxTotalAmountSar,
     };
 
-    const { data: oldLines, error: oldLinesError } = await supabase.from('vat_einvoice_lines')
-      .select('*')
-      .eq('invoice_id', invoiceId)
-      .order('line_number');
-    if (oldLinesError) throw oldLinesError;
-
-    if (accountingDocumentId && !existing.accounting_document_id) {
-      const { error: linkError } = await supabase.rpc('link_zatca_accounting_document', { p_einvoice_id: invoiceId, p_document_id: accountingDocumentId });
-      if (linkError) throw linkError;
+    if (accountingDocumentId && existing.accounting_document_id && accountingDocumentId !== existing.accounting_document_id) {
+      throw new Error('EINVOICE_ACCOUNTING_SOURCE_MISMATCH');
     }
-
-    const { data: updatedInvoice, error: updateError } = await supabase.from('vat_einvoices')
-      .update(updateValues)
-      .eq('id', invoiceId)
-      .eq('organization_id', draft.organization_id)
-      .eq('status', 'DRAFT')
-      .select('*')
-      .maybeSingle();
+    const { data: updatedInvoice, error: updateError } = await supabase.rpc('amend_zatca_draft_atomic', {
+      p_invoice_id: invoiceId,
+      p_header: { ...updateValues, accounting_document_id: existing.accounting_document_id || accountingDocumentId || null },
+      p_lines: calculated.lines,
+    });
     if (updateError) {
       if (updateError.code === '23505') throw new Error('EINVOICE_NUMBER_EXISTS');
       throw updateError;
     }
     if (!updatedInvoice) throw new Error('EINVOICE_DRAFT_LOCKED');
-
-    const { error: deleteError } = await supabase.from('vat_einvoice_lines').delete().eq('invoice_id', invoiceId);
-    if (deleteError) {
-      const { id: _id, ...oldHeader } = existing;
-      await supabase.from('vat_einvoices').update(oldHeader).eq('id', invoiceId).eq('status', 'DRAFT');
-      throw deleteError;
-    }
-    const { data: savedLines, error: insertLinesError } = await supabase.from('vat_einvoice_lines').insert(
-      calculated.lines.map((line) => ({ ...line, invoice_id: invoiceId }))
-    ).select('*');
-    if (insertLinesError) {
-      await supabase.from('vat_einvoice_lines').delete().eq('invoice_id', invoiceId);
-      if (oldLines?.length) await supabase.from('vat_einvoice_lines').insert(oldLines);
-      const { id: _id, ...oldHeader } = existing;
-      await supabase.from('vat_einvoices').update(oldHeader).eq('id', invoiceId).eq('status', 'DRAFT');
-      if (insertLinesError.code === '23505') throw new Error('EINVOICE_NUMBER_EXISTS');
-      throw insertLinesError;
-    }
 
     await supabase.from('audit_logs').insert({
       user_id: user.id,
@@ -412,7 +417,7 @@ export async function PATCH(request: Request) {
       action: 'DRAFT_UPDATED',
       new_data: { invoice_number: draft.invoice_number, line_count: lines.length, status: 'DRAFT' },
     });
-    return NextResponse.json({ ...updatedInvoice, lines: savedLines ?? [] }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(updatedInvoice, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return errorResponse(error);
   }

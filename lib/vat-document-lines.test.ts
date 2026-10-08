@@ -33,3 +33,10 @@ describe('calculateVatDocumentLines', () => {
     ], 15)).toThrow('VAT_LINE_DISCOUNT_PERCENT_EXCEEDS_100');
   });
 });
+
+
+it('matches grouped invoice VAT for low-value accounting lines', () => {
+  const result = calculateVatDocumentLines(Array.from({ length: 10 }, () => ({ description: 'Small item', quantity: 1, unit_price: '0.03', supply_type: 'STANDARD' as const })), 15);
+  expect(result.taxAmount).toBe('0.05');
+  expect(result.grossAmount).toBe('0.35');
+});

@@ -26,8 +26,8 @@ export function calculateVatDocumentLines(lines: VatDocumentLineInput[], standar
     return {
       description: line.description.trim(),
       ...(line.unit?.trim() ? { unit: line.unit.trim() } : {}),
-      quantity: new Decimal(line.quantity).toFixed(3),
-      unit_price: new Decimal(line.unit_price).toFixed(2),
+      quantity: new Decimal(line.quantity).toFixed(6),
+      unit_price: new Decimal(line.unit_price).toFixed(6),
       discount_amount: discount.toFixed(2),
       supply_type: line.supply_type,
       net_amount: net.toFixed(2),
@@ -37,6 +37,13 @@ export function calculateVatDocumentLines(lines: VatDocumentLineInput[], standar
     };
   });
   const net = detailedLines.reduce((total, line) => total.add(line.net_amount), new Decimal(0));
-  const tax = detailedLines.reduce((total, line) => total.add(line.tax_amount), new Decimal(0));
+  const taxBases = new Map<string, { net: Decimal; rate: Decimal }>();
+  for (const line of detailedLines) {
+    const key = `${line.supply_type}:${line.tax_rate}`;
+    const group = taxBases.get(key) ?? { net: new Decimal(0), rate: new Decimal(line.tax_rate) };
+    group.net = group.net.plus(line.net_amount);
+    taxBases.set(key, group);
+  }
+  const tax = Array.from(taxBases.values()).reduce((total, group) => total.plus(group.net.mul(group.rate).div(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP)), new Decimal(0));
   return { lines: detailedLines, netAmount: net.toFixed(2), taxAmount: tax.toFixed(2), grossAmount: net.add(tax).toFixed(2) };
 }

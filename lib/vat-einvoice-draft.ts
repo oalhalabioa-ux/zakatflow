@@ -94,7 +94,7 @@ function amount(value: Decimal) {
   return value.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
 }
 
-export function calculateVatEInvoiceDraft(draft: VatEInvoiceDraft) {
+export function calculateVatEInvoiceDraft(draft: Pick<VatEInvoiceDraft, 'lines'>) {
   let lineExtensionTotal = new Decimal(0);
   const taxBases = new Map<string, { taxCategory: string; taxRate: Decimal; taxableAmount: Decimal }>();
   const lines = draft.lines.map((line, index) => {

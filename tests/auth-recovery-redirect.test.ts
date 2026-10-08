@@ -1,17 +1,16 @@
 import {describe, expect, it} from 'vitest';
 import {
-  QA_AUTH_ORIGIN,
   canonicalizeAuthUrl,
   getAuthCallbackUrl,
   getAuthOrigin,
   getRecoveryRedirectUrl,
 } from '../lib/auth/recovery-redirect';
 
-describe('QA recovery redirect flow', () => {
-  it('normalizes a unique preview deployment before any auth operation', () => {
+describe('deployment recovery redirect flow', () => {
+  it('keeps a unique preview on its own origin before auth operations', () => {
     const unique = 'https://zakatflow-9h16dlmm1-oalhalabioa-9334.vercel.app/ar/login?invite=qa-safe';
     const canonical = canonicalizeAuthUrl(unique);
-    expect(canonical).toBe(`${QA_AUTH_ORIGIN}/ar/login?invite=qa-safe`);
+    expect(canonical).toBe(unique);
     expect(canonicalizeAuthUrl(canonical)).toBe(canonical);
   });
 
@@ -35,12 +34,18 @@ describe('QA recovery redirect flow', () => {
     expect(getAuthOrigin('http://localhost:3000')).toBe('http://localhost:3000');
   });
 
-  it('uses one QA origin for forgot-password, callback, and reset on previews', () => {
+  it('keeps forgot-password, callback, and reset on the same preview', () => {
     const origin = 'https://zakatflow-9h16dlmm1-oalhalabioa-9334.vercel.app';
-    expect(getRecoveryRedirectUrl(origin, 'ar')).toBe(`${QA_AUTH_ORIGIN}/auth/callback?next=%2Fauth%2Freset-password`);
+    expect(getRecoveryRedirectUrl(origin, 'ar')).toBe(`${origin}/auth/callback?next=%2Fauth%2Freset-password`);
     expect(getAuthCallbackUrl(origin, 'ar')).toBe(
-      `${QA_AUTH_ORIGIN}/auth/callback?next=%2Far%2Fdashboard`,
+      `${origin}/auth/callback?next=%2Far%2Fdashboard`,
     );
+  });
+
+  it('supports an explicitly configured callback origin without dropping the invite', () => {
+    const stable = 'https://staging.example.com';
+    expect(canonicalizeAuthUrl('https://preview.example.com/ar/login?invite=safe', `${stable}/`)).toBe(`${stable}/ar/login?invite=safe`);
+    expect(getAuthCallbackUrl('https://preview.example.com', 'ar', stable, 'safe')).toBe(`${stable}/auth/callback?next=%2Far%2Fdashboard&invite=safe`);
   });
 
   it('preserves the safe callback next target', () => {
