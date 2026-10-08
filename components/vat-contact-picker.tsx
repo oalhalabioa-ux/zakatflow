@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export type VatContact = {
@@ -39,6 +39,7 @@ export function VatContactPicker({
   requireSaudiAddress?: boolean;
   onChange: (contact: VatContact | null) => void;
 }) {
+  const pickerId = useId();
   const previousFocus = useRef<HTMLElement | null>(null);
   const busyRef = useRef(false);
   const dialogRef = useRef<HTMLElement>(null);
@@ -143,7 +144,7 @@ export function VatContactPicker({
   return (
     <div className="vat-contact-picker">
       <div className="vat-contact-picker-head">
-        <label htmlFor={`vat-contact-${role}-${organizationId}`}><span>{label}</span></label>
+        <label htmlFor={`vat-contact-${role}-${organizationId}-${pickerId}`}><span>{label}</span></label>
         {canManage && <button type="button" className="vat-contact-add" onClick={() => { setEditingContact(null); setDraft(emptyDraft); setError(''); setDialogOpen(true); }}>
           <span aria-hidden="true">+</span>{ar ? 'إضافة' : 'Add'}
         </button>}
@@ -153,7 +154,7 @@ export function VatContactPicker({
         }}>{ar ? 'تعديل البيانات' : 'Edit details'}</button>}
       </div>
       <select
-        id={`vat-contact-${role}-${organizationId}`}
+        id={`vat-contact-${role}-${organizationId}-${pickerId}`}
         required={required}
         value={value}
         onChange={(event) => onChange(contacts.find((contact) => contact.id === event.target.value) ?? null)}
