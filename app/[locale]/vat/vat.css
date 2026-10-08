@@ -899,3 +899,28 @@
 .vat-profile-form .vat-form-actions { padding-top:2px; }
 @keyframes vat-registration-progress { from { transform:translateX(-8%); } to { transform:translateX(205%); } }
 @media(max-width:640px) { .vat-registration-loading,.vat-registration-load-error { align-items:flex-start; } .vat-registration-loading > i { align-self:center; min-width:42px; } .vat-profile-registration-fields,.vat-profile-seller-fields { padding:11px; } }
+
+/* Shared invoice registers: compact filters and consistent, readable actions. */
+.vat-register-filters{margin:16px 0;padding:14px;border:1px solid var(--vat-line);border-radius:12px;background:var(--vat-soft)}
+.vat-register-filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.vat-register-filter-grid .vat-invoice-filter{display:grid;gap:5px;min-width:0}
+.vat-register-filter-grid input,.vat-register-filter-grid select{width:100%;min-height:38px;border:1px solid var(--vat-line);background:var(--vat-card);color:var(--vat-ink);border-radius:7px;padding:7px 9px;font:inherit;font-size:.78rem}
+.vat-filter-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:.78rem;color:var(--vat-muted)}
+.vat-filter-footer .vat-button{padding:6px 12px;font-size:.75rem}
+.vat-invoice-actions,.vat-row-actions{display:flex!important;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px}
+.vat-invoice-actions .vat-button,.vat-row-actions .vat-button{min-height:34px;padding:7px 11px;border-radius:7px;font-size:.75rem;line-height:1.3;white-space:nowrap;font-weight:600}
+.vat-button.vat-action-danger{border:1px solid #e8c8c8;background:transparent;color:#a03434}
+.vat-button.vat-action-danger:hover:not(:disabled){background:#fbeeee;border-color:#b94444}
+.vat-invoice-actions .vat-button:focus-visible,.vat-row-actions .vat-button:focus-visible{outline:2px solid var(--vat-accent,#117b67);outline-offset:3px}
+.vat-einvoice-item{display:grid;grid-template-columns:minmax(210px,1fr) minmax(130px,auto) minmax(120px,auto);gap:12px 20px;align-items:center;padding:16px;background:var(--vat-card)}
+.vat-einvoice-item .vat-invoice-actions{grid-column:1/-1;border-top:1px solid var(--vat-line);padding-top:12px}
+.vat-einvoice-item .vat-invoice-party{display:block;font-size:.8rem;color:var(--vat-muted);font-weight:500;margin-top:3px}
+.vat-invoice-outstanding{display:grid;gap:2px;color:var(--vat-muted)}
+.vat-invoice-outstanding strong{font-variant-numeric:tabular-nums;color:var(--vat-ink)}
+.vat-contact-picker-head{flex-wrap:wrap;gap:8px}
+.vat-contact-picker-head label{margin-inline-end:auto}
+@media(max-width:640px){.vat-register-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.vat-filter-search{grid-column:1/-1}.vat-einvoice-item{grid-template-columns:1fr 1fr}.vat-einvoice-item>div:first-child{grid-column:1/-1}.vat-einvoice-item>.vat-status{justify-self:start}.vat-einvoice-item .vat-invoice-actions{justify-content:flex-start}.vat-register-filters{padding:10px}}
+.vat-contacts-manager>summary{cursor:pointer;font-weight:700;color:var(--vat-ink);padding:4px 0}
+.vat-contacts-manager-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px}
+.vat-contacts-manager-grid>div>small{display:block;color:var(--vat-muted);margin-top:6px;overflow-wrap:anywhere}
+@media(max-width:640px){.vat-contacts-manager-grid{grid-template-columns:1fr}}
