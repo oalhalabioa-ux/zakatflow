@@ -6,7 +6,7 @@ import { vatNoteMessages } from '@/lib/vat-note-messages';
 import Decimal from 'decimal.js';
 import { InvoiceActionLabel } from './invoice-action-label';
 import { InvoiceRegisterTotals } from './invoice-register-totals';
-import { Fragment, FormEvent, useEffect, useState } from 'react';
+import { Fragment, FormEvent, useEffect, useId, useState } from 'react';
 import { applyInvoiceLineDiscount, normalizeInvoiceLinePrice, previewInvoiceLine } from '@/lib/vat-invoice-price-mode';
 import { vatEInvoiceDraftSchema, calculateVatEInvoiceDraft } from '@/lib/vat-einvoice-draft';
 import { VatInvoiceReceipts } from '@/components/vat-invoice-receipts';
@@ -114,6 +114,7 @@ export function VatEInvoiceRegister({
   registerTarget?: InvoiceRegisterTarget;
 }) {
   const listUrl = vatEInvoiceRegisterUrl(organizationId, registerTarget);
+  const invoiceNumberHintId = useId();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [canCreate, setCanCreate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -751,6 +752,7 @@ export function VatEInvoiceRegister({
           <div className="vat-einvoice-group-grid vat-einvoice-first-row">
             <div className="vat-document-contact-field vat-einvoice-buyer-picker">
               <VatContactPicker
+                compactAdd
                 key={`${organizationId}-einvoice-buyer`}
                 organizationId={organizationId}
                 role="CUSTOMER"
@@ -777,7 +779,7 @@ export function VatEInvoiceRegister({
               const nextCategory = event.target.value as typeof category;
               setCategory(nextCategory);
             }}><option value="STANDARD">{ar ? 'ضريبية قياسية' : 'Standard tax invoice'}</option><option value="SIMPLIFIED">{ar ? 'مبسطة' : 'Simplified'}</option></select></label>
-            <label><span>{ar ? 'رقم الفاتورة' : 'Invoice number'}</span><input required maxLength={100} value={invoiceNumber} readOnly={documentType === 'INVOICE' && !editingDraftId && (numberReserved || (!accountingSourceId && sequenceInitialized))} onChange={(event) => setInvoiceNumber(event.target.value)} />{documentType === 'INVOICE' && !editingDraftId && !accountingSourceId && <small className="vat-field-hint">{sequenceInitialized ? (ar?'تسلسل مشترك مع المحاسبي؛ يُحجز الرقم عند الحفظ وقد يتغير إذا حفظ مستخدم آخر قبلك.':'Shared accounting sequence; allocated on save and may change if another user saves first.') : (ar?'أدخل أول رقم مرة واحدة، مثل 100 أو INV-0001، ثم يتابع المحاسبي وزاتكا التسلسل نفسه للشركة.':'Enter the first number once, e.g. 100 or INV-0001; accounting and ZATCA then share this company’s sequence.')}</small>}</label>
+            <label className="vat-number-field"><span>{ar ? 'رقم الفاتورة' : 'Invoice number'}</span><input aria-describedby={documentType === 'INVOICE' && !editingDraftId && !accountingSourceId ? invoiceNumberHintId : undefined} required maxLength={100} value={invoiceNumber} readOnly={documentType === 'INVOICE' && !editingDraftId && (numberReserved || (!accountingSourceId && sequenceInitialized))} onChange={(event) => setInvoiceNumber(event.target.value)} />{documentType === 'INVOICE' && !editingDraftId && !accountingSourceId && <small id={invoiceNumberHintId} role="tooltip" className="vat-field-hint vat-number-tooltip">{sequenceInitialized ? (ar?'تسلسل مشترك مع المحاسبي؛ يُحجز الرقم عند الحفظ وقد يتغير إذا حفظ مستخدم آخر قبلك.':'Shared accounting sequence; allocated on save and may change if another user saves first.') : (ar?'أدخل أول رقم مرة واحدة، مثل 100 أو INV-0001، ثم يتابع المحاسبي وزاتكا التسلسل نفسه للشركة.':'Enter the first number once, e.g. 100 or INV-0001; accounting and ZATCA then share this company’s sequence.')}</small>}</label>
             <label><span>{ar ? 'تاريخ الفاتورة' : 'Invoice date'}</span><input required type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} /></label>
             <label><span>{ar ? 'تاريخ الاستحقاق' : 'Due date'} <small>{ar ? 'اختياري' : 'Optional'}</small></span><input type="date" min={issueDate} value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
             <div className={`vat-document-type-summary ${ar ? 'is-arabic' : ''}`}><small>{ar ? 'نوع المستند' : 'Document type'}</small><strong>{documentType === 'INVOICE' ? (ar ? 'فاتورة' : 'Invoice') : documentType === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'إشعار مدين' : 'Debit note')}</strong></div>
@@ -801,12 +803,12 @@ export function VatEInvoiceRegister({
           <div className="vat-einvoice-lines-toolbar">
             <div className="vat-einvoice-lines-heading"><span className="vat-einvoice-section-icon" aria-hidden="true">▤</span><div><strong>{ar ? 'بنود الفاتورة' : 'Invoice items'}</strong><small>{ar ? 'أدخل البنود وسيتم احتساب الضريبة والإجماليات تلقائيًا.' : 'Enter line items; tax and totals are calculated automatically.'}</small></div></div>
             <div className="vat-einvoice-lines-controls">
-              <label className="vat-einvoice-currency"><span>{ar ? 'العملة' : 'Currency'}</span><select disabled={Boolean(precedingInvoiceId)} value={currency} onChange={(event) => setCurrency(event.target.value)}>{currencies.map((item) => <option key={item.code} value={item.code}>{item.code} · {ar ? item.name_ar : item.name_en}</option>)}</select></label>
-              <button type="button" className="vat-button secondary vat-edit-fields" aria-expanded={fieldsMenuOpen} aria-controls="vat-einvoice-field-settings" onClick={() => setFieldsMenuOpen((value) => !value)}>{ar ? 'تعديل الحقول' : 'Edit fields'} <span aria-hidden="true">{fieldsMenuOpen ? '⌃' : '⌄'}</span></button>
+              <button type="button" className="vat-button secondary vat-edit-fields vat-edit-fields-icon" aria-label={ar ? 'تعديل الحقول' : 'Edit fields'} title={ar ? 'تعديل الحقول' : 'Edit fields'} aria-expanded={fieldsMenuOpen} aria-controls="vat-einvoice-field-settings" onClick={() => setFieldsMenuOpen((value) => !value)}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 7h7m4 0h5M4 17h3m4 0h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
             </div>
           </div>
           {currency !== 'SAR' && <div className="vat-einvoice-fx-rate"><label><span>{ar ? `سعر الصرف (${currency} إلى SAR)` : `Exchange rate (${currency} to SAR)`}</span><input required type="number" min="0.0000000001" step="0.0000000001" value={exchangeRate} onChange={(event) => setExchangeRate(event.target.value)} /></label><small>{latestFxDate ? (ar ? `آخر سعر محفوظ بتاريخ ${latestFxDate} — يمكنك تعديله لهذه الفاتورة.` : `Latest saved rate: ${latestFxDate}. You can adjust it for this invoice.`) : (ar ? 'لا يوجد سعر صرف محفوظ لهذه العملة؛ أدخل السعر يدويًا.' : 'No saved exchange rate for this currency. Enter it manually.')}</small></div>}
           {fieldsMenuOpen && <div className="vat-einvoice-field-settings" id="vat-einvoice-field-settings" role="group" aria-label={ar ? 'إعدادات حقول الفاتورة' : 'Invoice field settings'}>
+              <label className="vat-einvoice-currency"><span>{ar ? 'العملة' : 'Currency'}</span><select disabled={Boolean(precedingInvoiceId)} value={currency} onChange={(event) => setCurrency(event.target.value)}>{currencies.map((item) => <option key={item.code} value={item.code}>{item.code} · {ar ? item.name_ar : item.name_en}</option>)}</select></label>
             <label><span>{ar ? 'طريقة عرض السعر' : 'Price mode'}</span><select value={pricesIncludeTax ? 'INCLUSIVE' : 'EXCLUSIVE'} onChange={(event) => setPricesIncludeTax(event.target.value === 'INCLUSIVE')}><option value="EXCLUSIVE">{ar ? 'غير شامل الضريبة' : 'Exclusive of tax'}</option><option value="INCLUSIVE">{ar ? 'شامل الضريبة' : 'Inclusive of tax'}</option></select></label>
             <label><span>{ar ? 'طريقة الخصم' : 'Discount type'}</span><select value={discountMode} onChange={(event) => { setDiscountMode(event.target.value as typeof discountMode); setLines((current) => current.map((line) => ({ ...line, discount_amount: '0' }))); }}><option value="NONE">{ar ? 'بدون خصم' : 'No discount'}</option><option value="AMOUNT">{ar ? 'خصم بقيمة' : 'Fixed amount'}</option><option value="PERCENT">{ar ? 'خصم بنسبة مئوية' : 'Percentage discount'}</option></select></label>
             <label className="vat-einvoice-field-toggle"><input type="checkbox" checked={showUnitColumn} onChange={(event) => setShowUnitColumn(event.target.checked)} /><span>{ar ? 'إظهار وحدة القياس' : 'Show unit'}</span></label>

@@ -1007,3 +1007,17 @@
   .vat-invoice-entry-fields { grid-template-columns:1fr; }
   .vat-invoice-entry-fields .vat-document-contact-field { grid-column:auto; }
 }
+
+/* Compact e-invoice controls; number guidance does not affect the header layout. */
+.vat-number-field { position:relative; }
+.vat-number-tooltip { position:absolute; z-index:30; inset-block-start:calc(100% + 7px); inset-inline-start:0; width:280px; max-width:calc(100vw - 48px); padding:10px 12px; border:1px solid var(--vat-line); border-radius:9px; background:var(--vat-card); color:var(--vat-ink); box-shadow:0 5px 18px #0002; visibility:hidden; opacity:0; }
+.vat-number-field:hover .vat-number-tooltip,.vat-number-field:focus-within .vat-number-tooltip { visibility:visible; opacity:1; }
+.vat-contact-picker-head.is-compact { justify-content:flex-start; }
+.vat-contact-picker-head.is-compact label { margin-inline-end:0; }
+.vat-contact-picker-head.is-compact .vat-contact-add:not(.vat-contact-add-icon) { margin-inline-start:auto; }
+.vat-contact-picker-head .vat-contact-add-icon { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; min-height:26px; padding:0; font-size:18px; line-height:1; }
+.vat-einvoice-lines-controls .vat-edit-fields-icon { display:inline-flex; align-items:center; justify-content:center; width:35px; height:35px; min-height:35px; padding:0; }
+.vat-einvoice-field-settings .vat-einvoice-currency { display:flex; padding-inline:0; border-inline-end:0; }
+.vat-einvoice-field-settings .vat-einvoice-currency > span { font-size:inherit; color:inherit; }
+.vat-einvoice-time-row > label { width:min(140px,100%); font-weight:500; }
+.vat-page .vat-einvoice-time-row input { min-height:35px; height:35px; padding:6px 9px; font-size:.78rem; font-weight:500; }
