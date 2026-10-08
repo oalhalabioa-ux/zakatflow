@@ -49,6 +49,8 @@ export function VatInvoiceReceipts({ organizationId, documentId, invoiceNumber, 
       const code = error instanceof Error ? error.message : '';
       setMessage(code === 'RECEIPT_EDIT_LOCKED'
         ? (ar ? 'السند معتمد أو مرحّل ولا يقبل التعديل المباشر.' : 'Approved or posted receipts cannot be edited directly.')
+        : code === 'SETTLEMENT_FLOW_ACCOUNT_MISMATCH'
+          ? (ar ? 'المستحق مرتبط بحساب قبض محدد؛ اختر الحساب نفسه.' : 'The receivable is linked to a collection account; use that account.')
         : code === 'SETTLEMENT_EXCEEDS_FLOW_OUTSTANDING'
           ? (ar ? 'المبلغ يتجاوز المتبقي الحالي للفاتورة.' : 'Amount exceeds the current invoice balance.')
           : (ar ? 'تعذر حفظ تعديل السند. تحقق من الحساب والتاريخ والمبلغ.' : 'Could not save receipt changes. Check account, date and amount.'));

@@ -19,6 +19,7 @@ begin
  if f.id is null or f.source_module<>'VAT_INTEGRATION' or f.direction<>'INFLOW' then raise exception 'RECEIPT_NOT_FOUND'; end if;
  select * into a from public.liquidity_accounts where id=p_account_id and organization_id=e.organization_id and active;
  if a.id is null or a.currency<>f.currency then raise exception 'SETTLEMENT_ACCOUNT_CURRENCY_MISMATCH'; end if;
+ if f.account_id is not null and f.account_id<>p_account_id then raise exception 'SETTLEMENT_FLOW_ACCOUNT_MISMATCH'; end if;
  if p_date is null or p_amount is null or p_amount<=0 then raise exception 'SETTLEMENT_AMOUNT_INVALID'; end if;
  if p_amount>f.amount-coalesce(f.settled_amount,0) then raise exception 'SETTLEMENT_EXCEEDS_FLOW_OUTSTANDING'; end if;
  m:=l.metadata; v_rate:=(m->>'exchange_rate')::numeric; v_base:=round(p_amount*v_rate,4);

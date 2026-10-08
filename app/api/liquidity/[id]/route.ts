@@ -75,6 +75,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(!record.source_module||record.source_module==='MANUAL')return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const accountId=body.account_id??record.account_id;
    if(!accountId)return NextResponse.json({error:'SETTLEMENT_ACCOUNT_REQUIRED'},{status:400});
+   if(record.account_id&&record.account_id!==accountId)return NextResponse.json({error:'SETTLEMENT_FLOW_ACCOUNT_MISMATCH'},{status:409});
    const{data:account,error:accountError}=await supabase.from('liquidity_accounts').select('id,currency').eq('active',true).eq('id',accountId).eq('organization_id',record.organization_id).maybeSingle();
    if(accountError)throw accountError;if(!account)return NextResponse.json({error:'ACCOUNT_ORGANIZATION_MISMATCH'},{status:400});
    if(account.currency!==record.currency)return NextResponse.json({error:'SETTLEMENT_ACCOUNT_CURRENCY_MISMATCH'},{status:400});

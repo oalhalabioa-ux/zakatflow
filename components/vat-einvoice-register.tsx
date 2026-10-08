@@ -987,6 +987,7 @@ function messageFor(code: string, ar: boolean) {
     VAT_FINANCIAL_EVENT_LOCKED: ['الفاتورة مرحلة محاسبيًا؛ استخدم إجراء تصحيح معتمد.', 'The accounting event is posted; use an approved correction.'],
     SETTLEMENT_INSTRUCTION_CONFLICT: ['يوجد سند قبض محفوظ ببيانات مختلفة. افتح سندات قبض الفاتورة لمراجعته وتعديله قبل إعادة التنفيذ.', 'A saved receipt has different details. Open the invoice receipts to review and amend it before retrying.'],
     SETTLEMENT_EXCEEDS_FLOW_OUTSTANDING: ['المبلغ يتجاوز المتبقي الحالي. حدّث الفواتير وأدخل المبلغ الصحيح.', 'Amount exceeds current outstanding. Refresh and enter the correct amount.'],
+    SETTLEMENT_FLOW_ACCOUNT_MISMATCH: ['هذا المستحق مرتبط بحساب قبض محدد؛ اختر الحساب نفسه.', 'This receivable is linked to a collection account; use that account.'],
     EINVOICE_REQUEST_FAILED: ['تعذر الحفظ. راجع البيانات؛ لم يتم تأكيد الحفظ.', 'Save failed. Review the details; saving was not confirmed.'],
     ACCOUNTING_INVOICE_NUMBER_EXISTS: ['رقم الفاتورة مستخدم محاسبيًا؛ افتح الفاتورة من السجل لتجهيزها لزاتكا.', 'This number exists in accounting. Prepare that invoice from the register.'],
     VAT_PROFILE_REQUIRED: ['احفظ ملف التسجيل الضريبي أولًا.', 'Save the VAT registration profile first.'],

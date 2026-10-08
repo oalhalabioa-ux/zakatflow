@@ -5,11 +5,10 @@ begin;
 alter table public.liquidity_flows disable trigger phase2c_expected_integrity;
 -- Mirror current Production core write grants and owner/admin RLS only within this test transaction.
 -- QA omits the application audit table; emulate its insert contract inside the transaction.
-create table if not exists public.audit_logs(id bigint generated always as identity,user_id uuid,entity_type text,entity_id uuid,action text,old_data jsonb,new_data jsonb);
+create table if not exists public.audit_logs(id uuid primary key default gen_random_uuid(),user_id uuid,entity_type text,entity_id uuid,action text,old_data jsonb,new_data jsonb);
 alter table public.audit_logs enable row level security;
 create policy review_qa_audit_insert on public.audit_logs for insert to authenticated with check(user_id=auth.uid());
 grant insert on public.audit_logs to authenticated;
-grant usage on sequence public.audit_logs_id_seq to authenticated;
 grant update on public.liquidity_flows to authenticated;
 -- Match Production's column-scoped customer projection permission, without widening it.
 grant insert(organization_id,name,party_type,contact_name,phone,email,notes) on public.liquidity_counterparties to authenticated;
