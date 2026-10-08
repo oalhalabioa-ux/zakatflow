@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 
 export type VatDocumentForSummary = {
   document_type: 'SALES' | 'PURCHASE';
-  document_kind: 'INVOICE' | 'CREDIT_NOTE';
+  document_kind: 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE';
   supply_type: 'STANDARD' | 'ZERO_RATED' | 'EXEMPT' | 'OUT_OF_SCOPE';
   net_amount: number | string;
   tax_amount: number | string;

@@ -5,6 +5,7 @@ import Decimal from 'decimal.js';
 import { getVatPeriod, type VatFilingFrequency } from '@/lib/vat-period';
 import { summarizeVatDocuments, type VatDocumentForSummary } from '@/lib/vat';
 import { organizationDisplayName } from '@/lib/organization-display';
+import { InvoicePaymentBadge } from '@/components/invoice-payment-badge';
 import { invoicePrintHtml } from '@/lib/vat-invoice-print';
 import { VatContactsManager } from '@/components/vat-contacts-manager';
 import { InvoiceRegisterFilters } from '@/components/invoice-register-filters';
@@ -57,7 +58,8 @@ type VatDocument = VatDocumentForSummary & {
   counterparty_name: string;
   counterparty_tax_number?: string | null;
   document_type: 'SALES' | 'PURCHASE';
-  document_kind: 'INVOICE' | 'CREDIT_NOTE';
+  document_kind: 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE';
+  in_tax_report?: boolean;
   line_items?: Array<{ supply_type: 'STANDARD' | 'ZERO_RATED' | 'EXEMPT' | 'OUT_OF_SCOPE' }> | null;
   supply_type: 'STANDARD' | 'ZERO_RATED' | 'EXEMPT' | 'OUT_OF_SCOPE';
   tax_rate: number;
@@ -92,7 +94,9 @@ type VatProfileDraft = {
 
 type DocumentDraft = {
   document_type: 'SALES' | 'PURCHASE';
-  document_kind: 'INVOICE' | 'CREDIT_NOTE';
+  document_kind: 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE';
+  in_tax_report?: boolean;
+  preceding_document_id?: string | null;
   document_number: string;
   transaction_date: string;
   due_date: string;
@@ -117,6 +121,7 @@ type DocumentLineDraft = {
 
 type ApiData = {
   profile: VatProfile | null;
+  summary_note_review?: boolean;
   period: { from: string; to: string };
   yearStart: string;
   periodSummary: VatPeriodSummaryRecord | null;
@@ -206,9 +211,12 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
   const [registerAddMenuOpen, setRegisterAddMenuOpen] = useState(false);
   const [registerFilters, setRegisterFilters] = useState({ ...emptyInvoiceFilters });
+  const [summaryNoteReview, setSummaryNoteReview] = useState(false);
+  const [includeDrafts, setIncludeDrafts] = useState(false);
   const [registerSearch, setRegisterSearch] = useState('');
-  const [registerKindFilter, setRegisterKindFilter] = useState<'ALL' | 'INVOICE' | 'CREDIT_NOTE'>('ALL');
+  const [registerKindFilter, setRegisterKindFilter] = useState<'ALL' | 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('ALL');
   const [registerSourceFilter, setRegisterSourceFilter] = useState<'ALL' | 'EINVOICE' | 'ACCOUNTING'>('ALL');
+  const [noteOriginals, setNoteOriginals] = useState<Array<VatDocument & { counterparty_contact_id: string; recoverable_percent: number }>>([]);
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [accountingLines, setAccountingLines] = useState<DocumentLineDraft[]>([emptyDocumentLine()]);
   const [currencies, setCurrencies] = useState<VatCurrency[]>([]);
@@ -262,7 +270,8 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const currentTaxRate = Number(profile?.standard_rate ?? profileDraft.standard_rate ?? 15);
   const baseCurrency = (selectedOrganization?.base_currency || 'SAR').toUpperCase();
   const isForeignCurrency = invoiceCurrency !== baseCurrency;
-  const resolvedRate = isForeignCurrency ? Number(exchangeRate) : 1;
+  const selectedNoteOriginal = noteOriginals.find(row => row.id === draft.preceding_document_id);
+  const resolvedRate = selectedNoteOriginal ? Number(selectedNoteOriginal.exchange_rate || 1) : isForeignCurrency ? Number(exchangeRate) : 1;
   const currencyName = (code: string) => {
     const currency = currencies.find((item) => item.code === code);
     return currency ? `${currency.code} — ${ar ? currency.name_ar : currency.name_en}` : code;
@@ -428,7 +437,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     setBranchVatData([]);
     const reportMonths = monthsInRange(reportPeriod.from, reportPeriod.to);
     const load = async (id: string, month: string): Promise<ApiData> => {
-      const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(id)}&period_month=${encodeURIComponent(month)}`);
+      const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(id)}&period_month=${encodeURIComponent(month)}&include_drafts=${includeDrafts}`);
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
       return body as ApiData;
@@ -454,6 +463,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         setPeriod(reportPeriod);
         setYearStart(body.yearStart);
         setPeriodSummary(body.periodSummary);
+        setSummaryNoteReview(Boolean(body.summary_note_review || branches.some(row=>row.summary_note_review)));
         setPeriodTotals(body.periodTotals);
         setAnnualTotals(body.annualTotals);
         setBranchVatData(branches);
@@ -484,7 +494,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
       })
       .finally(() => { if (active) setLoadingData(false); });
     return () => { active = false; };
-  }, [organizationId, periodMonth, reportFrequency, reportPeriod.from, reportPeriod.to, reportFrequencyTouched, ar, invoiceRefresh, reportScope, branchOrganizationKey]);
+  }, [organizationId, periodMonth, reportFrequency, reportPeriod.from, reportPeriod.to, reportFrequencyTouched, ar, invoiceRefresh, reportScope, branchOrganizationKey, includeDrafts]);
 
   useEffect(() => {
     if (!hasBranches && reportScope === 'GROUP') setReportScope('COMPANY');
@@ -532,14 +542,14 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     setMonthlyTrendLoading(true);
     Promise.all(months.map(async (month) => {
       const entities = await Promise.all(entityIds.map(async (id) => {
-        const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(id)}&period_month=${encodeURIComponent(month)}`);
+        const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(id)}&period_month=${encodeURIComponent(month)}&include_drafts=${includeDrafts}`);
         const body = await response.json();
         if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
         const data = body as ApiData;
         const seen = new Set<string>();
         return data.documents.filter((document) => {
           const key = document.id || `${document.document_type}:${document.document_number}:${document.transaction_date}`;
-          if (!document.transaction_date.startsWith(month) || seen.has(key)) return false;
+          if (document.in_tax_report === false || !document.transaction_date.startsWith(month) || seen.has(key)) return false;
           seen.add(key);
           return true;
         });
@@ -557,7 +567,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
       .catch(() => { if (active) setMonthlyTrend([]); })
       .finally(() => { if (active) setMonthlyTrendLoading(false); });
     return () => { active = false; };
-  }, [organizationId, period.from, period.to, reportScope, reportOrganizationIds]);
+  }, [organizationId, period.from, period.to, reportScope, reportOrganizationIds, includeDrafts, invoiceRefresh]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -648,8 +658,21 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     }
   }
 
+  async function postAccountingNote(document: VatDocument) {
+    setSaving(true); setNotice(null);
+    try {
+      const response = await fetch(document.document_kind === 'INVOICE' ? '/api/vat/recognition' : '/api/vat/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({organization_id:organizationId,document_id:document.id})});
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'VAT_NOTE_POST_FAILED');
+      setInvoiceRefresh(value=>value+1);
+      setNotice({kind:'success',text:response.status===202 ? (ar?'الإشعار بانتظار الموافقة المالية.':'Note awaits financial approval.') : (ar?'تم ترحيل أثر الإشعار؛ التسوية النقدية إجراء منفصل.':'Note effect posted; cash settlement is separate.')});
+    } catch(error:any) { setNotice({kind:'error',text:messageFor(error.message,ar)}); }
+    finally { setSaving(false); }
+  }
+
   function startRegisterEntry(kind: DocumentDraft['document_kind']) {
     setDraft({ ...emptyDocument(), document_type: registerDirection, document_kind: kind });
+    if (kind !== 'INVOICE') fetch(`/api/vat/notes?organization_id=${encodeURIComponent(organizationId || '')}&side=${registerDirection}`).then(async response=>{if(!response.ok)throw new Error('VAT_NOTE_ORIGINAL_LOAD_FAILED');return response.json();}).then(body=>setNoteOriginals(body.originals || [])).catch(error=>setNotice({kind:'error',text:messageFor(error.message,ar)}));
     setAccountingLines([emptyDocumentLine()]);
     setRegisterFormOpen(true);
     setRegisterAddMenuOpen(false);
@@ -910,6 +933,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
 
 
 
+          <div className="vat-report-draft-control"><label><input type="checkbox" role="switch" checked={includeDrafts} onChange={event => setIncludeDrafts(event.target.checked)} />{ar ? 'تضمين المسودات في التقرير' : 'Include drafts in report'}</label><small>{includeDrafts ? (ar ? 'عرض مراجعة لتفاصيل الفواتير؛ يستبعد الملخصات اليدوية ولا يغيّر الإقرار المحفوظ.' : 'Invoice-detail review; excludes manual summaries and does not change the saved return.') : (ar ? 'المبيعات الصادرة وفواتير الموردين المسجلة؛ مع الملخصات المحفوظة إن وجدت.' : 'Issued sales and recorded supplier invoices; saved summaries are used where available.')}</small></div>
           <nav className="vat-tabs" role="tablist" aria-label={ar ? 'أقسام ضريبة القيمة المضافة' : 'VAT sections'} onKeyDown={handleTabKeyDown}>
             <button id="vat-tab-dashboard" type="button" role="tab" aria-selected={activeTab === 'dashboard'} tabIndex={activeTab === 'dashboard' ? 0 : -1} aria-controls="vat-panel-dashboard" className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => selectTab('dashboard')}>
               <strong><span className="vat-tab-icon dashboard" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5h16"/><path d="M6.5 16V11M12 16V5M17.5 16V8"/></svg></span>{ar ? 'لوحة الإدارة' : 'Management dashboard'}</strong><small>{ar ? 'المبيعات والضريبة والاستحقاق والسيولة' : 'Sales, VAT, deadlines and cash'}</small>
@@ -927,6 +951,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
             </button>
           </nav>
 
+          {summaryNoteReview && !includeDrafts && <p className="vat-disclaimer" role="status">{ar?'توجد إشعارات في فترة لها ملخص محفوظ. الأرقام المعروضة تستخدم الملخص؛ راجع تفاصيل الإشعارات وحدّث الإجماليات غير المقدمة قبل تقديم الإقرار. مفتاح المسودات يعرض حساب التفاصيل للمقارنة.':'Notes exist in a period with a saved summary. Displayed totals use that summary; reconcile notes and update unfiled totals before filing. Draft review shows detail totals for comparison.'}</p>}
           <div id="vat-panel-dashboard" role="tabpanel" aria-labelledby="vat-tab-dashboard" hidden={activeTab !== 'dashboard'}>
             {reportScope === 'GROUP' && loadingData ? <div className="vat-loading" role="status">{ar ? 'جارٍ تجميع بيانات الشركة والفروع…' : 'Loading company and branch totals…'}</div> : <VatManagementDashboard
               period={period}
@@ -949,7 +974,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           </div>
 
           <div id="vat-panel-aggregate" role="tabpanel" aria-labelledby="vat-tab-aggregate" hidden={activeTab !== 'aggregate'}>
-            {isOfficialFilingPeriod ? <VatPeriodSummaryForm
+            {isOfficialFilingPeriod && !includeDrafts ? <VatPeriodSummaryForm
               organizationId={organizationId}
               period={period}
               yearStart={yearStart}
@@ -961,7 +986,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               registered={isRegistered}
               ar={ar}
               onSaved={() => setInvoiceRefresh((revision) => revision + 1)}
-            /> : <section className="vat-panel vat-report-analytical-note"><strong>{ar ? 'هذه فترة تحليلية' : 'Analytical reporting period'}</strong><p>{ar ? 'يمكنك استعراض الفواتير وإجمالياتها لهذه الفترة. إدخال ملخص الإقرار وحالة السداد متاحان فقط عند اختيار فترة الإقرار الرسمية للمنشأة.' : 'You can review invoices and totals for this period. Filing summaries and payment status are available only for the organization’s official filing period.'}</p></section>}
+            /> : <section className="vat-panel vat-report-analytical-note"><strong>{includeDrafts ? (ar?'عرض مراجعة يشمل المسودات':'Draft-inclusive review') : (ar ? 'هذه فترة تحليلية' : 'Analytical reporting period')}</strong><p>{includeDrafts ? (ar?'أوقف تضمين المسودات للعودة إلى الملخص الرسمي المحفوظ وإمكانية تعديله.':'Turn off draft review to return to the saved official summary and editing.') : ar ? 'يمكنك استعراض الفواتير وإجمالياتها لهذه الفترة. إدخال ملخص الإقرار وحالة السداد متاحان فقط عند اختيار فترة الإقرار الرسمية للمنشأة.' : 'You can review invoices and totals for this period. Filing summaries and payment status are available only for the organization’s official filing period.'}</p></section>}
           </div>
 
           <div id="vat-panel-register" role="tabpanel" aria-labelledby="vat-tab-register" hidden={activeTab !== 'register'}>
@@ -1010,13 +1035,13 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                 <button type="button" className="vat-button primary vat-add-document" aria-expanded={registerAddMenuOpen} onClick={() => setRegisterAddMenuOpen((open) => !open)} disabled={!isRegistered || saving}><span aria-hidden="true">＋</span>{ar ? 'إضافة' : 'Add'}</button>
                 {registerAddMenuOpen && <div className="vat-add-menu" role="group" aria-label={ar ? 'نوع المستند الجديد' : 'New document type'}>
                   <button type="button" onClick={() => startRegisterEntry('INVOICE')}><strong>{ar ? 'فاتورة' : 'Invoice'}</strong><small>{ar ? 'تسجيل فاتورة من النظام المحاسبي' : 'Record an accounting-system invoice'}</small></button>
-                  <button type="button" onClick={() => startRegisterEntry('CREDIT_NOTE')}><strong>{ar ? 'إشعار دائن' : 'Credit note'}</strong><small>{ar ? 'تسجيل إشعار دائن على فاتورة سابقة' : 'Record a credit note against an earlier invoice'}</small></button>
+                  <button type="button" onClick={() => startRegisterEntry('CREDIT_NOTE')}><strong>{ar ? 'إشعار دائن' : 'Credit note'}</strong><small>{ar ? 'تسجيل إشعار دائن على فاتورة سابقة' : 'Record a credit note against an earlier invoice'}</small></button><button type="button" onClick={() => startRegisterEntry('DEBIT_NOTE')}><strong>{ar?'إشعار مدين':'Debit note'}</strong><small>{ar?'زيادة مرتبطة بفاتورة أصلية':'Increase linked to original invoice'}</small></button>
                 </div>}
               </div>
             </div>
             {registerFormOpen && <form className="vat-form-grid vat-document-form" onSubmit={addDocument}>
               <div className="vat-document-contact-field">
-                <VatContactPicker
+                {selectedNoteOriginal ? <label><span>{ar?'الجهة المرتبطة بالأصل':'Original counterparty'}</span><input value={draft.counterparty_name} readOnly /></label> : <VatContactPicker
                   key={`${organizationId}-${draft.document_type}`}
                   organizationId={organizationId}
                   role={draft.document_type === 'SALES' ? 'CUSTOMER' : 'SUPPLIER'}
@@ -1030,17 +1055,22 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                     counterparty_name: contact?.name ?? '',
                     counterparty_tax_number: contact?.vat_number ?? '',
                   })}
-                />
+                />}
               </div>
               <div className="vat-document-meta">
-                <label><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={draft.document_kind} onChange={(event) => setDraft({ ...draft, document_kind: event.target.value as DocumentDraft['document_kind'], notes: event.target.value === 'INVOICE' ? '' : draft.notes })}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option></select></label>
+                <label><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={draft.document_kind} onChange={(event) => startRegisterEntry(event.target.value as DocumentDraft['document_kind'])}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option><option value="DEBIT_NOTE">{ar ? 'إشعار مدين' : 'Debit note'}</option></select></label>
                 <label><span>{ar ? 'رقم المستند' : 'Document number'}</span><input required maxLength={80} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} /></label>
                 <label><span>{ar ? 'التاريخ الضريبي' : 'Tax date'}</span><input required type="date" value={draft.transaction_date} onChange={(event) => setDraft({ ...draft, transaction_date: event.target.value })} /></label>
                 <label><span>{ar ? 'تاريخ الاستحقاق' : 'Due date'}</span><input required type="date" min={draft.transaction_date} value={draft.due_date} onChange={(event) => setDraft({ ...draft, due_date: event.target.value })} /></label>
               </div>
+              {draft.document_kind !== 'INVOICE' && <label><span>{ar?'الفاتورة الأصلية المرتبطة':'Linked original invoice'}</span><select required value={draft.preceding_document_id || ''} onChange={event=>{
+                const original=noteOriginals.find(row=>row.id===event.target.value);
+                setDraft(current=>({...current,preceding_document_id:original?.id || null,counterparty_contact_id:original?.counterparty_contact_id || '',counterparty_name:original?.counterparty_name || '',counterparty_tax_number:original?.counterparty_tax_number || '',recoverable_percent:String(original?.recoverable_percent ?? 100)}));
+                if(original){setInvoiceCurrency(original.source_currency || original.currency || baseCurrency);setExchangeRate(String(original.exchange_rate || 1));}
+              }}><option value="">{ar?'اختر فاتورة أصلية':'Choose original invoice'}</option>{noteOriginals.map(original=><option key={original.id} value={original.id}>{original.document_number} · {original.counterparty_name} · {original.transaction_date}</option>)}</select></label>}
               {usesAccountingLines ? <div className="vat-accounting-lines">
                 <div className="vat-accounting-toolbar">
-                  <label className="vat-currency-select"><span>{ar ? 'عملة الفاتورة' : 'Invoice currency'}</span><select value={invoiceCurrency} onChange={(event) => setInvoiceCurrency(event.target.value)}>{Array.from(new Set([baseCurrency, ...currencies.map((currency) => currency.code)])).map((code) => <option key={code} value={code}>{currencyName(code)}</option>)}</select></label>
+                  <label className="vat-currency-select"><span>{ar ? 'عملة الفاتورة' : 'Invoice currency'}</span><select disabled={Boolean(selectedNoteOriginal)} value={invoiceCurrency} onChange={(event) => setInvoiceCurrency(event.target.value)}>{Array.from(new Set([baseCurrency, ...currencies.map((currency) => currency.code)])).map((code) => <option key={code} value={code}>{currencyName(code)}</option>)}</select></label>
                   {isForeignCurrency && <label className="vat-toolbar-rate"><span>{ar ? `سعر التحويل إلى ${baseCurrency}` : `Rate to ${baseCurrency}`}</span><input inputMode="decimal" type="number" min="0.00000001" step="any" value={exchangeRate} onChange={(event) => setExchangeRate(event.target.value)} placeholder={ar ? 'سعر الصرف' : 'Exchange rate'} /></label>}
                   <label className="vat-price-tax-mode"><span>{ar ? 'طريقة احتساب السعر' : 'Price tax mode'}</span><select value={accountingPricesIncludeVat ? 'INCLUSIVE' : 'EXCLUSIVE'} onChange={(event) => setAccountingPricesIncludeVat(event.target.value === 'INCLUSIVE')}><option value="EXCLUSIVE">{ar ? 'الأسعار غير شاملة الضريبة' : 'Prices exclude VAT'}</option><option value="INCLUSIVE">{ar ? 'الأسعار شاملة الضريبة' : 'Prices include VAT'}</option></select></label>
                   <button type="button" className="vat-button secondary vat-edit-fields" aria-expanded={showAccountingFields} onClick={() => setShowAccountingFields((value) => !value)}>{ar ? 'تعديل الحقول' : 'Edit fields'} <span aria-hidden="true">{showAccountingFields ? '⌃' : '⌄'}</span></button>
@@ -1072,8 +1102,8 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                 <label><span>{ar ? 'تصنيف التوريد' : 'Supply category'}</span><select value={draft.supply_type} onChange={(event) => setDraft({ ...draft, supply_type: event.target.value as DocumentDraft['supply_type'] })}><option value="STANDARD">{ar ? `خاضع للنسبة الأساسية (${currentTaxRate}%)` : `Standard rated (${currentTaxRate}%)`}</option><option value="ZERO_RATED">{ar ? 'خاضع للنسبة الصفرية' : 'Zero-rated'}</option><option value="EXEMPT">{ar ? 'معفى' : 'Exempt'}</option><option value="OUT_OF_SCOPE">{ar ? 'خارج النطاق' : 'Out of scope'}</option></select></label>
                 <label><span>{ar ? `صافي المبلغ (${baseCurrency})` : `Net amount (${baseCurrency})`}</span><input required type="number" min="0.01" step="0.01" value={draft.net_amount} onChange={(event) => setDraft({ ...draft, net_amount: event.target.value })} /></label>
               </>}
-              {draft.document_type === 'PURCHASE' && <label><span>{ar ? 'نسبة ضريبة المدخلات القابلة للخصم (%)' : 'Recoverable input VAT (%)'}</span><input required type="number" min="0" max="100" step="0.01" value={draft.recoverable_percent} onChange={(event) => setDraft({ ...draft, recoverable_percent: event.target.value })} /></label>}
-              <label className="vat-notes-field"><span>{draft.document_kind === 'CREDIT_NOTE' ? (ar ? 'مرجع الفاتورة وسبب الإشعار' : 'Original invoice reference and reason') : (ar ? 'ملاحظات' : 'Notes')}</span><input required={draft.document_kind === 'CREDIT_NOTE'} maxLength={1000} placeholder={draft.document_kind === 'CREDIT_NOTE' ? (ar ? 'رقم الفاتورة الأصلية وسبب الإشعار' : 'Original invoice number and reason') : undefined} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
+              {draft.document_type === 'PURCHASE' && <label><span>{ar ? 'نسبة ضريبة المدخلات القابلة للخصم (%)' : 'Recoverable input VAT (%)'}</span><input required type="number" min="0" max="100" step="0.01" readOnly={Boolean(selectedNoteOriginal)} value={draft.recoverable_percent} onChange={(event) => setDraft({ ...draft, recoverable_percent: event.target.value })} /></label>}
+              <label className="vat-notes-field"><span>{draft.document_kind !== 'INVOICE' ? (ar ? 'مرجع الفاتورة وسبب الإشعار' : 'Original invoice reference and reason') : (ar ? 'ملاحظات' : 'Notes')}</span><input required={draft.document_kind !== 'INVOICE'} maxLength={1000} placeholder={draft.document_kind !== 'INVOICE' ? (ar ? 'رقم الفاتورة الأصلية وسبب الإشعار' : 'Original invoice number and reason') : undefined} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
               {usesAccountingLines ? <section className="vat-accounting-totals" aria-label={ar ? 'ملخص الفاتورة' : 'Invoice summary'}>
                 <header className="vat-accounting-summary-heading">
                   <span className="vat-accounting-summary-icon" aria-hidden="true">▤</span>
@@ -1110,19 +1140,19 @@ export default function VatManagement({ params, searchParams }: { params: Promis
             </div>
             <div className="vat-invoice-register-toolbar">
               <label className="vat-invoice-search"><span className="vat-invoice-search-icon" aria-hidden="true">⌕</span><input type="search" value={registerSearch} onChange={(event) => setRegisterSearch(event.target.value)} placeholder={ar ? 'ابحث باسم الجهة أو رقم الفاتورة' : 'Search contact or invoice number'} aria-label={ar ? 'البحث في الفواتير' : 'Search invoices'} /></label>
-              <label className="vat-invoice-filter"><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={registerKindFilter} onChange={(event) => setRegisterKindFilter(event.target.value as typeof registerKindFilter)}><option value="ALL">{ar ? 'كل الأنواع' : 'All types'}</option><option value="INVOICE">{ar ? 'فواتير' : 'Invoices'}</option><option value="CREDIT_NOTE">{ar ? 'إشعارات دائنة' : 'Credit notes'}</option></select></label>
+              <label className="vat-invoice-filter"><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={registerKindFilter} onChange={(event) => setRegisterKindFilter(event.target.value as typeof registerKindFilter)}><option value="ALL">{ar ? 'كل الأنواع' : 'All types'}</option><option value="INVOICE">{ar ? 'فواتير' : 'Invoices'}</option><option value="CREDIT_NOTE">{ar ? 'إشعارات دائنة' : 'Credit notes'}</option><option value="DEBIT_NOTE">{ar ? 'إشعارات مدينة' : 'Debit notes'}</option></select></label>
               <label className="vat-invoice-filter"><span>{ar ? 'المصدر' : 'Source'}</span><select value={registerSourceFilter} onChange={(event) => setRegisterSourceFilter(event.target.value as typeof registerSourceFilter)}><option value="ALL">{ar ? 'كل المصادر' : 'All sources'}</option><option value="EINVOICE">{ar ? 'صادرة من زكاة فلو' : 'Issued by ZakatFlow'}</option><option value="ACCOUNTING">{ar ? 'مسجلة من نظام محاسبي' : 'Accounting entry'}</option></select></label>
             </div>
             <InvoiceRegisterFilters value={registerFilters} onChange={setRegisterFilters} ar={ar} count={filteredRegisterDocuments.length} total={registerDocuments.length} showSearch={false} currencies={[...new Set(registerDocuments.map(document => document.source_currency || document.currency || baseCurrency))].sort()} />
             <p className="vat-invoice-register-hint">{ar ? 'مسودات الفواتير الإلكترونية قابلة للتعديل قبل الإصدار النهائي. بيانات البائع محفوظة في ملف التسجيل وتظهر في الطباعة وملف PDF.' : 'E-invoice drafts can be edited before final issuance. Seller details are saved in the registration profile and appear in print and PDF.'}</p>
             <div className="vat-table-wrap"><table className="vat-table">
-              <thead><tr><th>{registerDirection === 'PURCHASE' ? (ar ? 'المورد' : 'Supplier') : (ar ? 'العميل / المشتري' : 'Customer / buyer')}</th><th>{ar ? 'نوع المستند' : 'Document type'}</th><th>{ar ? 'رقم الفاتورة' : 'Invoice number'}</th><th>{ar ? 'تاريخ الفاتورة' : 'Invoice date'}</th><th>{ar ? 'التصنيف الضريبي' : 'Tax category'}</th><th>{ar ? 'قبل الضريبة' : 'Before VAT'}</th><th>{ar ? 'الضريبة' : 'VAT'}</th><th>{ar ? 'شامل الضريبة' : 'Including VAT'}</th><th>{ar ? 'المصدر' : 'Source'}</th><th>{ar ? 'إجراءات' : 'Actions'}</th></tr></thead>
+              <thead><tr><th>{registerDirection === 'PURCHASE' ? (ar ? 'المورد' : 'Supplier') : (ar ? 'العميل / المشتري' : 'Customer / buyer')}</th><th>{ar ? 'نوع المستند' : 'Document type'}</th><th>{ar ? 'رقم الفاتورة' : 'Invoice number'}</th><th>{ar ? 'تاريخ الفاتورة' : 'Invoice date'}</th><th>{ar ? 'التصنيف الضريبي' : 'Tax category'}</th><th>{ar ? 'قبل الضريبة' : 'Before VAT'}</th><th>{ar ? 'الضريبة' : 'VAT'}</th><th>{ar ? 'شامل الضريبة' : 'Including VAT'}</th><th>{ar ? 'حالة السداد' : 'Payment status'}</th><th>{ar ? 'المصدر' : 'Source'}</th><th>{ar ? 'إجراءات' : 'Actions'}</th></tr></thead>
               <tbody>
                 {filteredRegisterDocuments.map((document) => <tr key={document.id}>
-                  <td className="vat-invoice-counterparty"><strong>{document.counterparty_name || (ar ? 'بدون اسم جهة' : 'Unnamed counterparty')}</strong><small>{document.counterparty_tax_number || ''}</small></td><td><span className={`vat-type-pill ${document.document_kind === 'CREDIT_NOTE' ? 'credit' : 'invoice'}`}>{document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : (ar ? 'فاتورة ضريبية' : 'Tax invoice')}</span></td>
-                  <td><strong className="vat-invoice-number">{document.document_number}</strong></td><td dir="ltr">{document.transaction_date}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td className="vat-invoice-gross">{vatDocumentAmount(document, 'gross')}</td><td><span className={`vat-invoice-source ${document.is_einvoice ? 'electronic' : ''}`}>{document.is_einvoice ? (ar ? 'زكاة فلو · إلكترونية' : 'ZakatFlow · e-invoice') : (ar ? 'إدخال محاسبي' : 'Accounting entry')}</span></td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'عرض' : 'View'}</span> : <span className="vat-row-actions"><button type="button" className="vat-button secondary" onClick={() => printAccountingDocument(document)}>{ar?'طباعة / PDF':'Print / PDF'}</button>{document.document_type === 'PURCHASE' && document.document_kind === 'INVOICE' && <button type="button" className="vat-button primary" onClick={() => openPurchasePayment(document)} disabled={saving || Boolean(document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0)}>{document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0 ? (ar ? 'مسدد' : 'Paid') : (ar ? 'سداد' : 'Pay')}</button>}{['SALES','PURCHASE'].includes(document.document_type) && document.document_kind === 'INVOICE' && !(document as any).asset_transaction_id && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}>{ar ? 'تعديل' : 'Edit'}</button>}<button type="button" className="vat-button vat-action-danger" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>{ar ? 'حذف' : 'Delete'}</button></span>}</td>
+                  <td className="vat-invoice-counterparty"><strong>{document.counterparty_name || (ar ? 'بدون اسم جهة' : 'Unnamed counterparty')}</strong><small>{document.counterparty_tax_number || ''}</small></td><td><span className={`vat-type-pill ${document.document_kind === 'CREDIT_NOTE' ? 'credit' : 'invoice'}`}>{document.document_kind === 'CREDIT_NOTE' ? (ar ? 'إشعار دائن' : 'Credit note') : document.document_kind === 'DEBIT_NOTE' ? (ar ? 'إشعار مدين' : 'Debit note') : (ar ? 'فاتورة ضريبية' : 'Tax invoice')}</span></td>
+                  <td><strong className="vat-invoice-number">{document.document_number}</strong></td><td dir="ltr">{document.transaction_date}</td><td>{document.line_items && new Set(document.line_items.map((line) => line.supply_type)).size > 1 ? (ar ? 'متعدد التصنيفات' : 'Mixed tax categories') : supplyLabel(document.supply_type, ar)}</td><td>{vatDocumentAmount(document, 'net')}</td><td>{vatDocumentAmount(document, 'tax')}</td><td className="vat-invoice-gross">{vatDocumentAmount(document, 'gross')}</td><td><InvoicePaymentBadge flow={document.cash_flow} ar={ar} note={document.document_kind !== 'INVOICE'} /></td><td><span className={`vat-invoice-source ${document.is_einvoice ? 'electronic' : ''}`}>{document.is_einvoice ? (ar ? 'زكاة فلو · إلكترونية' : 'ZakatFlow · e-invoice') : (ar ? 'إدخال محاسبي' : 'Accounting entry')}</span></td><td>{document.is_einvoice ? <span className="vat-field-hint">{ar ? 'عرض' : 'View'}</span> : <span className="vat-row-actions"><button type="button" className="vat-button secondary" onClick={() => printAccountingDocument(document)}>{ar?'طباعة / PDF':'Print / PDF'}</button>{document.document_type === 'PURCHASE' && document.document_kind === 'INVOICE' && <button type="button" className="vat-button primary" onClick={() => openPurchasePayment(document)} disabled={saving || Boolean(document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0)}>{document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0 ? (ar ? 'مسدد' : 'Paid') : (ar ? 'سداد' : 'Pay')}</button>}{['SALES','PURCHASE'].includes(document.document_type) && document.document_kind === 'INVOICE' && !(document as any).asset_transaction_id && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}>{ar ? 'تعديل' : 'Edit'}</button>}{<button type="button" className="vat-button secondary" disabled={saving} onClick={()=>void postAccountingNote(document)}>{ar?(document.document_kind === 'INVOICE'?'اعتماد المحاسبة':'اعتماد الأثر المحاسبي'):'Post accounting effect'}</button>}{document.document_kind !== 'INVOICE' && document.cash_flow && <a className="vat-button secondary" href={ar?'/ar/liquidity':'/en/liquidity'}>{ar?'تسوية في السيولة':'Settle in liquidity'}</a>}<button type="button" className="vat-button vat-action-danger" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}>{ar ? 'حذف' : 'Delete'}</button></span>}</td>
                 </tr>)}
-                {!filteredRegisterDocuments.length && <tr><td colSpan={10} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : registerDocuments.length ? (ar ? 'لا توجد مستندات تطابق خيارات البحث.' : 'No documents match these filters.') : (registerDirection === 'PURCHASE' ? (ar ? 'لا توجد فواتير مشتريات مسجلة لهذه الفترة.' : 'No purchase invoices have been recorded for this period.') : (ar ? 'لا توجد فواتير مبيعات مسجلة لهذه الفترة.' : 'No sales invoices have been recorded for this period.'))}</td></tr>}
+                {!filteredRegisterDocuments.length && <tr><td colSpan={11} className="vat-empty-row">{loadingData ? (ar ? 'جارٍ التحميل…' : 'Loading…') : registerDocuments.length ? (ar ? 'لا توجد مستندات تطابق خيارات البحث.' : 'No documents match these filters.') : (registerDirection === 'PURCHASE' ? (ar ? 'لا توجد فواتير مشتريات مسجلة لهذه الفترة.' : 'No purchase invoices have been recorded for this period.') : (ar ? 'لا توجد فواتير مبيعات مسجلة لهذه الفترة.' : 'No sales invoices have been recorded for this period.'))}</td></tr>}
               </tbody>
             </table></div>
           </section>
@@ -1194,7 +1224,7 @@ function combineReportData(rows: ApiData[], reportPeriod: { from: string; to: st
     : rows.length > 1 && rows.every((row) => row.profile?.filing_frequency === 'MONTHLY')
       ? aggregateVatDashboardTotals(rows.map((row) => row.periodTotals))
       : (() => {
-        const summary = summarizeVatDocuments(documents);
+        const summary = summarizeVatDocuments(documents.filter(document => document.in_tax_report !== false));
         const salesGross = new Decimal(summary.salesNet).add(summary.outputTax).toFixed(2);
         return {
           ...emptyTotals(),
@@ -1212,6 +1242,7 @@ function combineReportData(rows: ApiData[], reportPeriod: { from: string; to: st
   return {
     ...source,
     period: reportPeriod,
+    summary_note_review: rows.some(row=>row.summary_note_review),
     periodSummary,
     periodTotals,
     documents,

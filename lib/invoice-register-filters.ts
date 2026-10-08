@@ -8,12 +8,12 @@ export const emptyInvoiceFilters: InvoiceFilters = {
 export type InvoiceSearchRow = {
   id: string; number: string; name: string; date: string; due?: string | null;
   status?: string; category?: string; currency: string; baseAmount: number;
-  flow?: { amount: string | number; settled_amount: string | number } | null;
+  flow?: { amount: string | number; settled_amount: string | number; settlement_status?: string } | null;
 };
 export function invoicePaymentState(row: InvoiceSearchRow) {
   if (!row.flow) return 'UNLINKED';
   const amount = Number(row.flow.amount), settled = Number(row.flow.settled_amount);
-  if (amount > 0 && settled >= amount) return 'PAID';
+  if ((amount > 0 && settled >= amount) || (amount === 0 && row.flow.settlement_status === 'SETTLED')) return 'PAID';
   return settled > 0 ? 'PARTIAL' : 'UNPAID';
 }
 export function filterInvoiceRows<T>(items: T[], filters: InvoiceFilters, rowFor: (item: T) => InvoiceSearchRow,
