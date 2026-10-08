@@ -974,3 +974,36 @@
 .vat-register-totals > small { color:var(--vat-muted); font-size:.65rem; line-height:1.6; }
 @media(max-width:1100px) { .vat-report-toolbar { grid-template-columns:1fr; } .vat-report-scope-filter { grid-column:auto; } }
 @media(max-width:640px) { .vat-register-switch-row { gap:8px; } .vat-register-switch-row .vat-register-direction { width:auto; flex:1; } .vat-register-switch-row .vat-register-direction button { min-width:0; flex-direction:row; } .vat-register-switch-row .vat-invoice-source-switch { display:flex; width:auto; } .vat-contacts-menu { margin-inline-start:0; } .vat-contacts-dropdown { inset-inline-start:0; inset-inline-end:auto; } .vat-add-document { min-width:0; } .vat-register-total-row { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; } .vat-register-total-row > span:first-child { grid-column:1/-1; } }
+
+/* Keep entry controls aligned without affecting report filters or other pages. */
+.vat-document-form .vat-invoice-entry-header { grid-column:1/-1; min-width:0; margin:0; padding:14px 16px 16px; border:1px solid var(--vat-line); border-radius:12px; }
+.vat-invoice-entry-header legend { padding:0 7px; color:var(--vat-green); font-size:.8rem; font-weight:650; }
+.vat-invoice-entry-fields { display:grid; grid-template-columns:minmax(230px,1.7fr) repeat(4,minmax(125px,1fr)); align-items:start; gap:12px; }
+.vat-invoice-entry-fields .vat-document-contact-field { grid-column:auto; }
+.vat-invoice-entry-fields .vat-document-meta { display:contents; }
+.vat-invoice-entry-fields .vat-document-meta > label,.vat-invoice-entry-fields .vat-document-contact-field > label { display:grid; align-content:start; gap:6px; min-width:0; font-size:.75rem; font-weight:600; color:var(--vat-muted); }
+.vat-invoice-entry-fields .vat-document-meta > label > span,.vat-invoice-entry-fields .vat-document-contact-field > label > span,.vat-invoice-entry-fields .vat-contact-picker-head { display:flex; align-items:center; min-height:28px; font-size:.75rem; font-weight:600; }
+.vat-invoice-entry-fields .vat-contact-picker { gap:6px; }
+.vat-invoice-entry-fields .vat-contact-add { min-height:26px; padding:3px 8px; font-size:.7rem; }
+.vat-page .vat-invoice-entry-fields :is(input,select) { box-sizing:border-box; width:100%; height:42px; min-height:42px; padding:8px 10px; border-radius:9px; font-size:.83rem; font-weight:500; }
+.vat-document-form .vat-accounting-toolbar { flex-wrap:wrap; align-items:flex-end; gap:12px; }
+.vat-document-form .vat-accounting-toolbar > label { min-width:0; gap:6px; font-size:.75rem; font-weight:600; }
+.vat-document-form .vat-currency-select { flex:0 1 240px; }
+.vat-document-form .vat-price-tax-mode { flex:0 1 300px; }
+.vat-document-form .vat-accounting-toolbar :is(input,select) { box-sizing:border-box; height:42px; min-height:42px; font-size:.83rem; font-weight:500; }
+.vat-document-form .vat-accounting-toolbar .vat-edit-fields { margin-inline-start:auto; min-height:36px; }
+@media(max-width:1200px) {
+  .vat-invoice-entry-fields { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .vat-invoice-entry-fields .vat-document-contact-field { grid-column:span 2; }
+}
+@media(max-width:700px) {
+  .vat-invoice-entry-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .vat-document-form .vat-invoice-entry-header { padding:10px 12px 12px; }
+  .vat-document-form .vat-accounting-toolbar { flex-direction:row; }
+  .vat-document-form .vat-accounting-toolbar > label { flex:1 1 220px; width:auto; }
+  .vat-document-form .vat-accounting-toolbar .vat-edit-fields { margin-inline-start:0; }
+}
+@media(max-width:440px) {
+  .vat-invoice-entry-fields { grid-template-columns:1fr; }
+  .vat-invoice-entry-fields .vat-document-contact-field { grid-column:auto; }
+}
