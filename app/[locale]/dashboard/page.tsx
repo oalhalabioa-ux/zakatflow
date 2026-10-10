@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import ZakatMetricsRefresh from '@/components/ZakatMetricsRefresh';
 import {getDashboard} from '@/services/dashboard';
 import CustomDashboard from '@/components/CustomDashboard';
 import ElegantDashboard from '@/components/ElegantDashboard';
@@ -14,6 +15,7 @@ export default async function Dashboard({params, searchParams}: {params: Promise
   try { d = await getDashboard(); }
   catch (error) { unstable_rethrow(error); d = {loadError: true}; }
   return <>
+    <ZakatMetricsRefresh/>
     <div className="container" style={{paddingBottom:0}}>
       <div className="page-command" style={{justifyContent:'flex-end'}}>
         <Link className="btn secondary" href={`/${locale}/budget-planning`}>
