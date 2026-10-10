@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import { requireUser } from './auth';
 import { transactionSchema } from '@/lib/validation/schemas';
 import {assetPurchaseFinancialClass,buildAssetPurchaseCoreIntent} from '@/lib/asset-financial-core';
-export async function listTransactions(){const {supabase,user}=await requireUser();const {data,error}=await supabase.from('transactions').select('*,asset_accounts!inner(name,asset_type,ownership_scope)').or(`user_id.eq.${user.id},asset_accounts.ownership_scope.eq.ORGANIZATION`).order('transaction_date',{ascending:false});if(error)throw error;return data;}
+export async function listTransactions(){const {supabase,user}=await requireUser();const {data,error}=await supabase.from('transactions').select('*,asset_accounts!inner(name,asset_type,ownership_scope)').order('transaction_date',{ascending:false});if(error)throw error;return data;}
 async function recognizeOrganizationAssetPurchase(supabase:any,user:any,transaction:any,asset:any){
  const existingStatus=transaction?.metadata?.financial_core_status;
  if(existingStatus==='RECOGNIZED'&&transaction?.metadata?.financial_event_id)return transaction;
