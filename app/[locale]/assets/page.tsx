@@ -15,6 +15,7 @@ import {
   visibleAssetColumns,
 } from "@/lib/asset-table-preferences";
 import { ASSET_DISPLAY_CLASSES, assetDisplayClass, assetTypeIcon, catalogDisplayClass } from "@/lib/asset-classification-display";
+import AssetActionsMenu from "@/components/assets/AssetActionsMenu";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
 import AssetLifecyclePanel from "@/components/assets/AssetLifecyclePanel";
 type T =
@@ -95,6 +96,7 @@ export default function Assets({
     [saving, setSaving] = useState(false),
     [requestId,setRequestId]=useState(""),
     [operationAsset,setOperationAsset]=useState<any>(null),
+    [reviewEvent,setReviewEvent]=useState<{id:string;name:string}|null>(null),
     [msg, setMsg] = useState(""),
     [loadError, setLoadError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -378,16 +380,12 @@ export default function Assets({
           />
         );
       case "action":
-        return (
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}><button
-            type="button"
-            className="btn secondary asset-edit-btn"
-            onClick={() => editRow(row)}
-            aria-label={ar ? `تعديل ${row.name}` : `Edit ${row.name}`}
-          >
-            ✎
-          </button>{row.ownership_scope==="ORGANIZATION"&&row.current_quantity>0&&<button type="button" className="btn secondary" style={{fontSize:11,padding:4}} onClick={()=>setOperationAsset(row)}>{ar?"عمليات الأصل":"Asset operations"}</button>}{(row.financial_review_events||[]).map((e:any)=><AssetFinancialReview key={e.id} eventId={e.id} ar={ar} onChanged={()=>void load()}/>)}{row.ownership_scope!=="ORGANIZATION"&&row.current_quantity>0&&<a className="btn secondary" style={{fontSize:11,padding:4}} href={`/${locale}/transactions`}>{ar?"بيع / استبعاد":"Sale / disposal"}</a>}</div>
-        );
+        return <AssetActionsMenu name={row.name} ar={ar}>{close=><>
+          <button type="button" onClick={()=>{close();editRow(row);}}><span aria-hidden="true">✎</span> {ar?"تعديل الأصل":"Edit asset"}</button>
+          {row.current_quantity>0&&(row.ownership_scope==="ORGANIZATION"?<button type="button" onClick={()=>{close();setOperationAsset(row);}}><span aria-hidden="true">⚙</span> {ar?"إهلاك / بيع / استبعاد":"Depreciation / sale / disposal"}</button>:<a href={`/${locale}/transactions`} onClick={close}><span aria-hidden="true">↗</span> {ar?"بيع / استبعاد":"Sale / disposal"}</a>)}
+          {(row.financial_review_events||[]).map((e:any,index:number)=><button type="button" key={e.id} onClick={()=>{close();setReviewEvent({id:e.id,name:row.name});}}><span aria-hidden="true">✓</span> {ar?"المراجعة المالية":"Financial review"}{row.financial_review_events.length>1?` (${index+1})`:""}</button>)}
+        </>}</AssetActionsMenu>;
+
     }
   };
   const save = async () => {
@@ -601,6 +599,7 @@ export default function Assets({
           source={indicatorSource(ar ? "تواريخ الحول" : "Hawl dates")}
         />
       </section>
+      {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><button type="button" className="btn secondary" onClick={()=>setReviewEvent(null)}>{ar?"إغلاق المراجعة":"Close review"}</button></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
       {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
       {formOpen&&<section className="card section">
         <h3>
@@ -980,7 +979,7 @@ function ZakatCell({
   return (
     <div className="zakat-result-compact">
       <strong>{amount}</strong> <span className="pill">{label}</span>
-      <details style={{marginTop:6}}><summary>{ar ? "أساس الاحتساب المحفوظ" : "Saved valuation basis"}</summary>
+      <details className="asset-valuation-details"><summary aria-label={ar?"أساس الاحتساب المحفوظ":"Saved valuation basis"} title={ar?"أساس الاحتساب المحفوظ":"Saved valuation basis"}><span aria-hidden="true">▸</span></summary><div className="asset-valuation-content">
         <div className="muted">{ar ? "تاريخ التقييم" : "Valuation date"}: {c.valuation_date} · {ar ? "الدورة" : "Cycle"}: {c.cycle_number??"—"}</div>
         {(c.lots??[]).map((l:any)=><div key={l.id??l.lot_id} style={{marginTop:6,fontSize:11}}>
           {ar ? "الكمية" : "Quantity"}: {fmt(l.quantity)} · {ar ? "السعر" : "Price"}: {l.valuation_price==null?"—":fmt(l.valuation_price)} {l.valuation_currency}
@@ -988,7 +987,7 @@ function ZakatCell({
           <br/>{ar ? "المصدر" : "Source"}: {l.valuation_snapshot?.priceSource??c.snapshot?.priceSource??"—"}
         </div>)}
         <div className="muted">{ar ? "مدفوعات تاريخية لكل الدورات" : "Historical payments across cycles"}: {fmt(c.historical_paid_amount)} {c.currency}</div>
-      </details>
+      </div></details>
     </div>
   );
 }
