@@ -55,7 +55,7 @@ export async function listAssets(){
  const referenced=assetReportAssessments(cycles,assessments);
  const ids=[...new Set([...referenced.map(r=>r.assessment.id),...(latest?[latest.id]:[])])];
  if(!ids.length)return assets.map((a:any)=>({...a,zakat_calculation:null,zakat_cycle_calculations:[]}));
- const {data:lines,error}=await supabase.from('zakat_assessment_lines').select('*,lots!inner(asset_account_id,hawl_start_date,hawl_due_date)').eq('user_id',user.id).in('assessment_id',ids);
+ const {data:lines,error}=await supabase.from('zakat_assessment_lines').select('*,lots!inner(asset_account_id,hawl_start_date,hawl_due_date)').in('assessment_id',ids);
  if(error)throw error;
  const calculationsByAssessment=new Map<string,any[]>();
  const selections=[...referenced];
