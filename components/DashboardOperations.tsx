@@ -8,11 +8,11 @@ export default function DashboardOperations({children, label}: {children: ReactN
   useEffect(() => {
     const node = ref.current, shell = node?.closest('.corp-shell');
     if (!node || !shell) return;
-    let lastElegant: boolean | undefined;
+    let lastTheme: string | undefined;
     const sync = () => {
-      const elegant = shell.classList.contains('theme-elegant');
-      if (lastElegant !== elegant) node.open = !elegant;
-      lastElegant = elegant;
+      const theme = shell.classList.contains('theme-elegant') ? 'elegant' : shell.classList.contains('theme-modern') ? 'modern' : 'classic';
+      if (lastTheme !== theme) node.open = theme === 'classic';
+      lastTheme = theme;
     };
     sync();
     const observer = new MutationObserver(sync);

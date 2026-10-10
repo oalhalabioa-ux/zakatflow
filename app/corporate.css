@@ -623,3 +623,6 @@
 .assets-page .asset-scope-bar{grid-template-columns:repeat(3,minmax(180px,1fr))}
 @media(max-width:900px){.assets-page .asset-scope-bar{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.assets-page .asset-scope-bar{grid-template-columns:1fr}}
+
+.zakat-workspace-tabs a{gap:8px}
+.zakat-tab-icon{width:18px;height:18px;flex:none}
