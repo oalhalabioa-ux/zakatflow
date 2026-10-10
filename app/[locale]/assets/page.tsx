@@ -534,33 +534,22 @@ export default function Assets({
     }
     } catch {setMsg(ar ? "تعذر الاتصال؛ حدّث البيانات قبل إعادة المحاولة." : "Connection failed. Refresh before retrying.");} finally {setSaving(false);}
   };
+  const scopeControl = usageMode==="BOTH"?<div className="asset-owner-switch" role="group" aria-label={ar?"نطاق عرض الأصول":"Asset view scope"}>{([["PERSONAL",ar?"♙ شخصي":"♙ Personal"],["ORGANIZATION",ar?"▥ مؤسسي":"▥ Organization"]] as const).map(([key,text])=><button key={key} type="button" className={`btn ${assetScope===key?"":"secondary"}`} aria-pressed={assetScope===key} onClick={()=>{setAssetScope(key);setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");}}>{text}</button>)}</div>:<strong>{usageMode==="PERSONAL"?(ar?"♙ شخصي":"♙ Personal"):(ar?"▥ مؤسسي":"▥ Organization")}</strong>;
   return (
     <main className={`container assets-page assets-page-${design}`}>
       <style>{`.asset-detail-type{font-size:11px;margin-inline-start:8px}.asset-owner-switch{display:flex;gap:6px;flex-wrap:wrap}.asset-scope-bar{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.2fr) minmax(200px,1fr) minmax(200px,1fr);gap:12px;align-items:end;padding:16px 18px}.asset-scope-bar label{display:grid;gap:6px;font-size:12px;font-weight:700}.asset-scope-bar select{width:100%}.asset-scope-title{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.asset-scope-title strong{font-size:14px}.asset-scope-title span{font-size:11px;color:var(--muted)}@media(max-width:900px){.asset-scope-bar{grid-template-columns:1fr 1fr}}@media(max-width:620px){.asset-scope-bar{grid-template-columns:1fr}}.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:#dcfce7;color:#166534}.hawl-days{background:#fce7f3;color:#9d174d}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafcfb;color:var(--ink);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
-      <div className="page-head">
-        <div>
-          <h1>
-            <span className="page-title-icon" aria-hidden="true">
-              ▥
-            </span>{" "}
-            {ar ? "الأصول" : "Assets"}
-          </h1>
-          <p className="muted">
-            {ar
-              ? "الزكاة والحول أدناه من الاحتساب المحفوظ للدورة المعروضة. المستحق النهائي وأسعاره ثابتة، والسداد يُخصم منه."
-              : "Zakat and Hawl come from the displayed cycle’s saved assessment. Final liability and prices stay frozen; payments reduce that liability."}
-          </p>
-        </div>
-        <span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span>
+      <div className="asset-page-header">
+        <div className="asset-page-heading"><h1><span className="page-title-icon" aria-hidden="true">▥</span> {ar?"الأصول":"Assets"}</h1>{scopeControl}</div>
+        <AssetsPageToolbar ar={ar} onAdd={()=>setFormOpen(true)} onUsage={()=>setUsageOpen(!usageOpen)} usageOpen={usageOpen}/>
       </div>
-      <AssetsPageToolbar ar={ar} onAdd={()=>setFormOpen(true)} onUsage={()=>setUsageOpen(!usageOpen)} usageOpen={usageOpen}/>
+      <div className="asset-page-subtitle"><p className="muted">{ar?"الزكاة والحول من الاحتساب المحفوظ للدورة المعروضة. المستحق النهائي وأسعاره ثابتة، والسداد يُخصم منه.":"Zakat and Hawl come from the displayed cycle’s saved assessment. Final liability and prices stay frozen; payments reduce that liability."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
       {usageOpen&&<section className="card section"><label>{ar?"استخدام مساحة العمل للأصول":"Asset workspace usage"}<select value={usageMode} disabled={loading||usageSaving} onChange={e=>void saveUsage(e.target.value as typeof usageMode)}><option value="BOTH">{ar?"شخصي ومؤسسي":"Personal and organization"}</option><option value="PERSONAL">{ar?"شخصي فقط":"Personal only"}</option><option value="ORGANIZATION">{ar?"مؤسسي فقط":"Organization only"}</option></select></label><p className="muted">{ar?"هذا إعداد للعرض فقط. يمكن العودة إلى النطاق الآخر من هنا؛ لا ينقل ملكية الأصول ولا يغيّر أرصدتها.":"Display preference only. Switch back here; ownership and balances are unchanged."}</p></section>}
-      <section className={`card section asset-scope-bar ${assetScope==="PERSONAL"?"is-personal":""}`}>
+      {assetScope === "ORGANIZATION" && <section className="card section asset-scope-bar">
         <div className="asset-scope-title">
           <strong>{ar ? "عرض الأصول" : "Asset view"}</strong>
           <span>{ar ? "يُطبّق على المؤشرات والتقرير فقط" : "Applies to KPIs and report only"}</span>
         </div>
-        {usageMode==="BOTH"?<div className="asset-owner-switch" role="group" aria-label={ar?"نطاق عرض الأصول":"Asset view scope"}>{([["PERSONAL",ar?"♙ شخصي":"♙ Personal"],["ORGANIZATION",ar?"▥ مؤسسي":"▥ Organization"]] as const).map(([key,text])=><button key={key} type="button" className={`btn ${assetScope===key?"":"secondary"}`} aria-pressed={assetScope===key} onClick={()=>{setAssetScope(key);setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");}}>{text}</button>)}</div>:<strong>{usageMode==="PERSONAL"?(ar?"♙ شخصي":"♙ Personal"):(ar?"▥ مؤسسي":"▥ Organization")}</strong>}
+
         {assetScope === "ORGANIZATION" && <>
           <label>
             {ar ? "الشركة / المؤسسة" : "Organization"}
@@ -584,7 +573,7 @@ export default function Assets({
             </select>
           </label>
         </>}
-      </section>
+      </section>}
       {loadError && <div className="notice">{loadError}</div>}
       {!showingExited && retroPending.length > 0 && (
         <div className="notice">
@@ -831,13 +820,13 @@ export default function Assets({
       {msg&&<p role="status" className="muted">{msg}</p>}
       <section className="section">
 
-        <h2>
+        {!showingExited&&<h2>
           <span className="section-title-icon" aria-hidden="true">
             ▤
           </span>{" "}
           {ar ? "تقرير الأصول" : "Asset report"}
-        </h2>
-        {lifecycleFilter==="DISPOSED"&&<p className="notice">{ar?"الإجماليات أدناه تعرض الوزن والتكلفة التاريخية قبل الاستغناء، وليست سعر السوق قبل الاستغناء. القيمة الحالية صفر، ولا تدخل هذه القيم في إجماليات الأصول النشطة.":"Weight and cost below describe the disposed quantity before disposal. Current value is zero; these historical figures are excluded from active asset totals."}</p>}
+        </h2>}
+        {lifecycleFilter==="DISPOSED"&&<p className="asset-exit-caption">{ar?"الإجماليات أدناه تعرض الوزن والتكلفة التاريخية قبل الاستغناء، وليست سعر السوق قبل الاستغناء. القيمة الحالية صفر، ولا تدخل هذه القيم في إجماليات الأصول النشطة.":"Weight and cost below describe the disposed quantity before disposal. Current value is zero; these historical figures are excluded from active asset totals."}</p>}
         <div className="form-grid asset-report-filters" style={{marginBottom:16}}><div className="asset-group-toggle-wrap"><span className="muted asset-filter-label">{ar?"تجميع التقرير":"Report grouping"}</span><button type="button" role="switch" aria-checked={groupBy==="TYPE"} aria-label={ar?"تجميع بحسب النوع":"Group by type"} title={ar?"يمين: فئة · يسار: نوع":"Right: class · Left: type"} className="asset-group-toggle" onPointerDown={e=>{if(e.button===0)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerUp={e=>{if(e.button!==0)return;const rect=e.currentTarget.getBoundingClientRect();setGroupBy(e.clientX<rect.left+rect.width/2?"TYPE":"CLASS");}} onClick={e=>{if(e.detail===0)setGroupBy(groupBy==="TYPE"?"CLASS":"TYPE");}} onKeyDown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();setGroupBy(e.key==="ArrowLeft"?"TYPE":"CLASS");}}}><span className="asset-group-type" aria-hidden="true">{ar?"نوع":"Type"}</span><span className="asset-group-class" aria-hidden="true">{ar?"فئة":"Class"}</span><span className="asset-group-knob" aria-hidden="true"/></button></div><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label><div className="asset-status-filter"><span className="muted asset-filter-label">{ar?"حالة الأصول":"Asset status"}</span><div className="asset-lifecycle-tabs">{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} aria-pressed={lifecycleFilter===key} onClick={()=>setLifecycleFilter(key)}>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div></div></div>
         {["SOLD","DISPOSED","ALL"].includes(lifecycleFilter)&&displayRows.some(r=>["SOLD","DISPOSED"].includes(r.lifecycle_status))&&!loading&&!loadError&&<div className="card section asset-exit-summary-card">{historicalSummary(displayRows,true)}</div>}
         {loading && <div className="card section muted">{ar ? "جارٍ تحميل الأصول…" : "Loading assets…"}</div>}
@@ -852,7 +841,7 @@ export default function Assets({
             isClosed = !!closed[g.type],
             sortedRows = sortAssetRows(g.rows, sort.column, sort.direction);
           return (
-            <div className="card section asset-group" key={g.type}>
+            <div className={`card section asset-group${showingExited?" is-exited":""}`} key={g.type}>
               <div className="page-head asset-group-head">
                 <div>
                   <h3 className="asset-type-title">
