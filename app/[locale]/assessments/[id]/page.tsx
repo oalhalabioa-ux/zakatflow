@@ -21,6 +21,7 @@ export default function AssessmentDetail({
   }, [id]);
 
   async function confirm() {
+    if (!window.confirm(ar ? 'اعتماد هذا الاحتساب نهائيًا وتثبيت مبلغه وأسعاره وتطبيق الرصيد المرحّل؟ لن يمكن إعادة احتسابه بعد الاعتماد.' : 'Finalize this assessment, freeze its amount and prices, and apply carried credit? Recalculation will be locked.')) return;
     const r = await fetch('/api/assessments/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -32,7 +33,7 @@ export default function AssessmentDetail({
     setMsg(
       r.ok
         ? ar
-          ? 'تم اعتماد الاحتساب'
+          ? 'تم اعتماد الاحتساب النهائي وتطبيق الرصيد المرحّل'
           : 'Assessment confirmed'
         : j.error
     );
@@ -57,13 +58,13 @@ export default function AssessmentDetail({
             {ar ? 'التقارير' : 'Reports'}
           </Link>
 
-          {a.status === 'CALCULATED' && (
+          {a.status === 'CALCULATED' && a.assessment_kind !== 'FINAL' && (
             <button
               className="btn"
               style={{ marginInlineStart: 8 }}
               onClick={confirm}
             >
-              {ar ? 'اعتماد' : 'Confirm'}
+              {ar ? 'اعتماد نهائي' : 'Finalize'}
             </button>
           )}
         </div>

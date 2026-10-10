@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import {startNextCycle} from './zakat-cycles';
 import { requireUser } from './auth';
 import { calculateAssessment } from '@/engine/assessment';
 import { calculateHawl } from '@/engine/hawl';
@@ -35,6 +36,7 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const marketValue=(l:any)=>valuation(l).marketValueBase;
  const poolValue=zakatableLots.reduce((s:any,l:any)=>s.add(marketValue(l)),new Decimal(0));
  let {data:cycle,error:cycleError}=await supabase.from('zakat_hawl_cycles').select('*').eq('user_id',user.id).in('status',['OPEN','ACTIVE']).order('cycle_no',{ascending:false}).limit(1).maybeSingle();if(cycleError)throw cycleError;
+ if(!cycle&&poolValue.gte(nisabValue)){const{data:previous}=await supabase.from('zakat_hawl_cycles').select('id').eq('user_id',user.id).in('status',['CLOSED','PAID']).order('cycle_no',{ascending:false}).limit(1).maybeSingle();if(previous)cycle=await startNextCycle(previous.id);}
  if(!cycle&&poolValue.gte(nisabValue)){const startMethod=input.nisab_start_method??'MANUAL';const start=startMethod==='HISTORICAL_RECORDED'?historicalNisabDate(zakatableLots,nisabValue,input.assessment_date):input.nisab_reached_date;if(!start)throw new Error(startMethod==='HISTORICAL_RECORDED'?'HISTORICAL_NISAB_DATE_NOT_DERIVABLE':'PORTFOLIO_NISAB_DATE_REQUIRED');if(start>input.assessment_date)throw new Error('NISAB_DATE_AFTER_ASSESSMENT');const due=calculateHawl(method.calendar_type==='GREGORIAN'?'GREGORIAN':'HIJRI_TABULAR',new Date(start+'T00:00:00Z'),new Date(start+'T00:00:00Z')).dueDate.toISOString().slice(0,10);const {data:last}=await supabase.from('zakat_hawl_cycles').select('cycle_no').eq('user_id',user.id).order('cycle_no',{ascending:false}).limit(1).maybeSingle();const ins=await supabase.from('zakat_hawl_cycles').insert({user_id:user.id,cycle_no:Number(last?.cycle_no||0)+1,nisab_standard:standard,nisab_value_base:nisabValue.toString(),nisab_reached_date:start,hawl_start_date:start,hawl_due_date:due,status:'ACTIVE',price_mode:priceMode,price_source:priceMode==='REFERENCE'?(input.price_source??prices?.[0]?.source??'market_prices'):'USER_MANUAL',gold_price:goldPrice||null,silver_price:silverPrice||null,snapshot:{cycle_anchor_source:startMethod==='HISTORICAL_RECORDED'?'HISTORICAL_RECORDED_ACQUISITION_VALUES':'USER_CONFIRMED_PORTFOLIO_NISAB_DATE',historical_derivation:startMethod==='HISTORICAL_RECORDED'?{basis:'recorded original lot values accumulated by acquisition date',threshold:nisabValue.toString()}:null}}).select().single();if(ins.error)throw ins.error;cycle=ins.data;}
  const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date).map((lot:any)=>{
   const account=lot.asset_accounts;const v=valuation(lot);
@@ -49,4 +51,12 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const{data:assessment,error:saveError}=await supabase.rpc('save_zakat_assessment_snapshot',{p_assessment:assessmentPayload,p_lines:lines,p_revision_of:revisionOf??null});
  if(saveError)throw saveError;return{assessment,lines,cycle};
 }
-export async function confirmAssessment(id:string){const {supabase,user}=await requireUser();const {data,error}=await supabase.from('zakat_assessments').update({status:'CONFIRMED'}).eq('id',id).eq('user_id',user.id).eq('status','CALCULATED').select().single();if(error)throw error;await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'zakat_assessment',entity_id:id,action:'CONFIRM',new_data:data});return data;}
+export async function confirmAssessment(id:string){
+ const {supabase,user}=await requireUser();
+ const {data:a,error}=await supabase.from('zakat_assessments').select('id,hawl_cycle_id').eq('id',id).eq('user_id',user.id).single();
+ if(error)throw error;if(!a.hawl_cycle_id)throw new Error('ASSESSMENT_CYCLE_REQUIRED');
+ const {error:finalError}=await supabase.rpc('close_zakat_cycle',{p_cycle_id:a.hawl_cycle_id,p_final_assessment_id:a.id});
+ if(finalError)throw finalError;
+ const {data:final, error:readError}=await supabase.from('zakat_assessments').select('*').eq('id',id).eq('user_id',user.id).single();
+ if(readError)throw readError;return final;
+}

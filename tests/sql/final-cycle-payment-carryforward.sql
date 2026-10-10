@@ -2,9 +2,9 @@
 create temporary table asset_control_results(test text,passed boolean);
 grant all on asset_control_results to authenticated;
 do $$
-declare uid uuid;aid uuid;tid uuid;linked_tid uuid;cid uuid;mid uuid;lid1 uuid;lid2 uuid;assessment jsonb;payment uuid;err text;payload jsonb;line_items jsonb;
+declare uid uuid;aid uuid;tid uuid;linked_tid uuid;cid uuid;mid uuid;lid1 uuid;lid2 uuid;assessment jsonb;payment uuid;payment2 uuid;payment3 uuid;cid2 uuid;assessment2 jsonb;allocation_ids jsonb;err text;payload jsonb;line_items jsonb;
 begin
- uid:=gen_random_uuid();insert into auth.users(id,email,aud,role) values(uid,'asset-fifo-'||uid||'@example.invalid','authenticated','authenticated');insert into public.profiles(id,base_currency) values(uid,'SAR') on conflict(id) do nothing;
+ uid:=gen_random_uuid();insert into auth.users(id,email,aud,role) values(uid,'final-fifo-'||uid||'@example.invalid','authenticated','authenticated');insert into public.profiles(id,base_currency) values(uid,'SAR') on conflict(id) do nothing;
  select id into mid from public.zakat_methods where code='INDEPENDENT_LOTS' limit 1;
  perform set_config('request.jwt.claim.sub',uid::text,true);set local role authenticated;
  insert into public.asset_accounts(user_id,asset_type,name,currency,unit,metadata) values(uid,'GOLD','QA delete and FIFO','SAR','g','{}') returning id into aid;
@@ -28,11 +28,37 @@ begin
  insert into public.zakat_payments(user_id,assessment_id,hawl_cycle_id,payment_date,amount,currency,base_amount) values(uid,(assessment->>'id')::uuid,cid,'2026-10-10',150,'SAR',150) returning id into payment;
  perform public.allocate_zakat_payment_fifo(payment);
  insert into asset_control_results select 'older_due_paid_before_newer',coalesce((select sum(allocated_amount) from public.zakat_payment_allocations where payment_id=payment and lot_id=lid1),0)=100 and coalesce((select sum(allocated_amount) from public.zakat_payment_allocations where payment_id=payment and lot_id=lid2),0)=50;
+ select jsonb_agg(id order by id) into allocation_ids from public.zakat_payment_allocations where payment_id=payment;
  perform public.allocate_zakat_payment_fifo(payment);
+ insert into asset_control_results select 'retry_preserves_existing_allocation_ids',allocation_ids=(select jsonb_agg(id order by id) from public.zakat_payment_allocations where payment_id=payment);
  insert into asset_control_results select 'fifo_retry_no_duplicate', (select sum(allocated_amount)=150 from public.zakat_payment_allocations where payment_id=payment);
+
+ -- Excess first settles cycle 1; no credit is consumed by a preview.
+ payment2:=(public.write_zakat_payment(jsonb_build_object('hawl_cycle_id',cid,'payment_date','2026-10-11','amount',100,'base_amount',100,'currency','SAR'))->>'id')::uuid;
+ insert into asset_control_results select 'final_due_capped_and_paid', (select sum(allocated_amount)=200 from public.zakat_payment_allocations where hawl_cycle_id=cid) and (select status='PAID' from public.zakat_hawl_cycles where id=cid);
+ insert into asset_control_results select 'excess_credit_50', (select base_amount-coalesce((select sum(allocated_amount) from public.zakat_payment_allocations where payment_id=payment2),0)=50 from public.zakat_payments where id=payment2);
+ insert into public.zakat_hawl_cycles(user_id,cycle_no,nisab_standard,nisab_value_base,nisab_reached_date,hawl_start_date,hawl_due_date,status) values(uid,20001,'GOLD',3400,'2026-01-01','2026-01-01','2027-01-01','ACTIVE') returning id into cid2;
+ payload:=payload||jsonb_build_object('hawl_cycle_id',cid2);assessment2:=public.save_zakat_assessment_snapshot(payload,line_items,null);
+ begin perform public.write_zakat_payment(jsonb_build_object('hawl_cycle_id',cid2,'payment_date','2026-10-11','amount',10,'base_amount',10,'currency','SAR'));raise exception 'EXPECTED_FINAL_BLOCK';exception when others then if sqlerrm<>'CYCLE_NOT_FINALIZED' then raise;end if;end;
+ insert into asset_control_results values('nonfinal_cycle_payment_reference_blocked',true);
+ perform public.reconcile_final_zakat_payments();
+ insert into asset_control_results select 'preview_does_not_consume_credit',not exists(select 1 from public.zakat_payment_allocations where hawl_cycle_id=cid2);
+ perform public.close_zakat_cycle(cid2,(assessment2->>'id')::uuid);
+ insert into asset_control_results select 'finalization_applies_credit_50', (select coalesce(sum(allocated_amount),0)=50 from public.zakat_payment_allocations where hawl_cycle_id=cid2 and payment_id=payment2);
+ perform public.reconcile_final_zakat_payments();
+ insert into asset_control_results select 'credit_retry_once',(select sum(allocated_amount)=250 from public.zakat_payment_allocations where user_id=uid);
+ payment3:=(public.write_zakat_payment(jsonb_build_object('hawl_cycle_id',cid2,'payment_date','2026-10-12','amount',250,'base_amount',250,'currency','SAR'))->>'id')::uuid;
+ insert into asset_control_results select 'second_final_cycle_paid_and_excess_100',(select sum(allocated_amount)=400 from public.zakat_payment_allocations where user_id=uid) and (select status='PAID' from public.zakat_hawl_cycles where id=cid2);
+ -- Editing an earlier payment reflows all later payments atomically.
+ perform public.write_zakat_payment(jsonb_build_object('hawl_cycle_id',cid,'payment_date','2026-10-11','amount',20,'base_amount',20,'currency','SAR'),payment2);
+ insert into asset_control_results select 'edit_prior_payment_keeps_oldest_first',(select sum(allocated_amount)=200 from public.zakat_payment_allocations where hawl_cycle_id=cid) and (select sum(allocated_amount)=30 from public.zakat_payment_allocations where payment_id=payment3 and hawl_cycle_id=cid);
+ perform public.write_zakat_payment('{}',payment3,true);
+ insert into asset_control_results select 'delete_reopens_balance_and_removes_credit',(select status='CLOSED' from public.zakat_hawl_cycles where id=cid) and (select sum(allocated_amount)=170 from public.zakat_payment_allocations where hawl_cycle_id=cid) and not exists(select 1 from public.zakat_payment_allocations where hawl_cycle_id=cid2);
  perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
  begin perform public.delete_unlinked_asset_transaction(linked_tid);raise exception 'EXPECTED_OWNER_BLOCK';exception when others then if sqlerrm<>'TRANSACTION_NOT_FOUND' then raise;end if;end;
  insert into asset_control_results values('other_user_delete_blocked',true);
+ begin perform public.write_zakat_payment('{}',payment,true);raise exception 'EXPECTED_OWNER_BLOCK';exception when others then if sqlerrm<>'PAYMENT_NOT_FOUND' then raise;end if;end;
+ insert into asset_control_results values('other_user_payment_blocked',true);
 end $$;
 reset role;
 select * from asset_control_results;
