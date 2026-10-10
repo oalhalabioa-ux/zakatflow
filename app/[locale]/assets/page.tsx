@@ -253,6 +253,7 @@ export default function Assets({
     return Array.from(byType.values()).sort((a,b)=>a.title.localeCompare(b.title,ar?"ar":"en"));
   },[displayRows,ar,groupBy,catalog.types]);
   const typeName=(r:any)=>{const t=catalog.types.find((x:any)=>x.code===r.asset_type_code);return t?(ar?t.name_ar:t.name_en):TYPES.find(x=>x[0]===r.asset_type)?.[ar?1:2]||r.asset_type;};
+  const showingExited = lifecycleFilter === "SOLD" || lifecycleFilter === "DISPOSED";
   const historicalSummary=(items:any[],withDetails=false)=>{
     const exited=items.filter(r=>["SOLD","DISPOSED"].includes(r.lifecycle_status));
     if(!exited.length)return null;
@@ -269,16 +270,23 @@ export default function Assets({
       entry.quantity+=Number(sold?r.sold_quantity:r.disposed_quantity)||0;
       quantities.set(key,entry);
     }
-    return <div><div className="asset-summary" aria-label={ar?"إجماليات الأصول الخارجة":"Exited asset totals"}>
-      <span className="sum-chip"><span>{ar?"التكلفة قبل البيع / الاستغناء":"Cost before sale / disposal"}</span><strong>{unknownCost?"—":fmt(historicalCost)} {cur}</strong></span>
-      {exited.some(r=>r.lifecycle_status==="SOLD")&&<span className="sum-chip"><span>{ar?"حصيلة البيع":"Sale proceeds"}</span><strong>{fmt(proceeds)} {cur}</strong></span>}
-      {Array.from(quantities.entries()).map(([key,q])=><span className="sum-chip" key={key}><span>{q.title} · {ar?(q.unit==="g"?"الوزن قبل الخروج":"الكمية قبل الخروج"):(q.unit==="g"?"Weight before exit":"Quantity before exit")}</span><strong>{fmt(q.quantity)} {q.unit==="g"?(ar?"غرام":"g"):q.unit}</strong></span>)}
+    return <div className={withDetails?"asset-exit-overview":""}>
+      <div className={withDetails?"asset-exit-totals":"asset-summary"} aria-label={ar?"إجماليات الأصول الخارجة":"Exited asset totals"}>
+        <div className={withDetails?"asset-exit-metric":"sum-chip"}>
+          {withDetails&&<span className="asset-exit-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 9h18M16 13h5v4h-5z"/></svg></span>}
+          <div><span>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":lifecycleFilter==="SOLD"?"التكلفة قبل البيع":"التكلفة قبل البيع / الاستغناء"):"Cost before exit"}</span><strong>{unknownCost?"—":fmt(historicalCost)} {cur}</strong></div>
+        </div>
+        {Array.from(quantities.entries()).sort((a,b)=>a[1].title.localeCompare(b[1].title,ar?"ar":"en")).map(([key,q])=><div className={withDetails?"asset-exit-metric":"sum-chip"} key={key}>
+          {withDetails&&<span className={`asset-exit-metric-icon ${key.startsWith("GOLD")?"is-gold":"is-metal"}`} aria-hidden="true">{assetTypeIcon(key.split(":")[0])}</span>}
+          <div><span>{q.title} · {ar?(q.unit==="g"?(lifecycleFilter==="DISPOSED"?"الوزن قبل الاستغناء":"الوزن قبل الخروج"):(lifecycleFilter==="DISPOSED"?"الكمية قبل الاستغناء":"الكمية قبل الخروج")):(q.unit==="g"?"Weight before exit":"Quantity before exit")}</span><strong>{fmt(q.quantity)} {q.unit==="g"?(ar?"غرام":"g"):q.unit}</strong></div>
+        </div>)}
+        {exited.some(r=>r.lifecycle_status==="SOLD")&&<div className={withDetails?"asset-exit-metric":"sum-chip"}><div><span>{ar?"حصيلة البيع":"Sale proceeds"}</span><strong>{fmt(proceeds)} {cur}</strong></div></div>}
+      </div>
       {unknownCost&&<small className="muted">{ar?"تكلفة بعض عمليات البيع القديمة غير محفوظة؛ لا تُستبدل بحصيلة البيع أو بسعر السوق الحالي.":"Some historical sale costs are unavailable; proceeds and current quotes are not used as substitutes."}</small>}
-    </div>
-      {withDetails&&<details style={{marginTop:12}}><summary style={{cursor:"pointer",color:"var(--brand)",fontSize:13}}>{ar?"التفاصيل · عمليات البيع والاستغناء":"Details · sale and disposal transactions"}</summary>
-        <div style={{overflowX:"auto",marginTop:12}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th><th>{ar?"العملية":"Operation"}</th><th>{ar?"الوزن / الكمية":"Weight / quantity"}</th><th>{ar?"التكلفة قبل الخروج":"Cost before exit"}</th><th>{ar?"حصيلة البيع":"Sale proceeds"}</th></tr></thead><tbody>
+      {withDetails&&<details className="asset-exit-history"><summary><svg className="asset-exit-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>{ar?"التفاصيل":"Details"}</summary>
+        <div className="asset-exit-history-panel"><h4>{ar?"سجل عمليات البيع والاستغناء":"Sale and disposal history"}</h4><div className="asset-exit-table-scroll"><table className="table asset-exit-table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th><th>{ar?"العملية":"Operation"}</th><th>{ar?"الوزن / الكمية":"Weight / quantity"}</th><th>{ar?"التكلفة قبل الخروج":"Cost before exit"}</th><th>{ar?"حصيلة البيع":"Sale proceeds"}</th></tr></thead><tbody>
           {exited.flatMap(r=>(r.exit_history||[]).filter((tx:any)=>tx.kind===r.lifecycle_status).map((tx:any)=><tr key={tx.id}><td>{r.name}</td><td>{assetTypeIcon(r.asset_type_code||r.asset_type)} {typeName(r)}</td><td>{tx.date}</td><td>{tx.kind==="SOLD"?(ar?"بيع":"Sale"):(ar?"استغناء":"Disposal")}</td><td>{fmt(tx.quantity)} {["GOLD","SILVER"].includes(r.asset_type)?(ar?"غرام":"g"):r.unit||""}</td><td>{tx.cost==null?"—":`${fmt(tx.cost)} ${cur}`}</td><td>{tx.kind==="SOLD"?`${fmt(tx.proceeds)} ${cur}`:"—"}</td></tr>))}
-        </tbody></table></div>
+        </tbody></table></div></div>
       </details>}
     </div>;
   };
@@ -578,7 +586,7 @@ export default function Assets({
         </>}
       </section>
       {loadError && <div className="notice">{loadError}</div>}
-      {retroPending.length > 0 && (
+      {!showingExited && retroPending.length > 0 && (
         <div className="notice">
           <strong>
             {ar ? "أصول خارج الاحتساب المعروض" : "Assets outside the displayed assessment"}
@@ -590,7 +598,7 @@ export default function Assets({
           </div>
         </div>
       )}
-      <section className="grid section">
+      {!showingExited && <section className="grid section">
         <K
           i="◆"
           tone="value"
@@ -647,7 +655,7 @@ export default function Assets({
           v={indicatorValue(`${near.length}`)}
           source={indicatorSource(ar ? "تواريخ الحول" : "Hawl dates")}
         />
-      </section>
+      </section>}
       {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><button type="button" className="btn secondary" onClick={()=>setReviewEvent(null)}>{ar?"إغلاق المراجعة":"Close review"}</button></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
       {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
       {formOpen&&<section className="card section">
@@ -830,8 +838,8 @@ export default function Assets({
           {ar ? "تقرير الأصول" : "Asset report"}
         </h2>
         {lifecycleFilter==="DISPOSED"&&<p className="notice">{ar?"الإجماليات أدناه تعرض الوزن والتكلفة التاريخية قبل الاستغناء، وليست سعر السوق قبل الاستغناء. القيمة الحالية صفر، ولا تدخل هذه القيم في إجماليات الأصول النشطة.":"Weight and cost below describe the disposed quantity before disposal. Current value is zero; these historical figures are excluded from active asset totals."}</p>}
-        <div className="form-grid asset-report-filters" style={{marginBottom:16}}><div className="asset-group-toggle-wrap"><span className="muted asset-filter-label">{ar?"تجميع التقرير":"Report grouping"}</span><button type="button" role="switch" aria-checked={groupBy==="TYPE"} aria-label={ar?"تجميع بحسب النوع":"Group by type"} title={ar?"يمين: فئة · يسار: نوع":"Right: class · Left: type"} className="asset-group-toggle" onPointerDown={e=>{if(e.button===0)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerUp={e=>{if(e.button!==0)return;const rect=e.currentTarget.getBoundingClientRect();setGroupBy(e.clientX<rect.left+rect.width/2?"TYPE":"CLASS");}} onClick={e=>{if(e.detail===0)setGroupBy(groupBy==="TYPE"?"CLASS":"TYPE");}} onKeyDown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();setGroupBy(e.key==="ArrowLeft"?"TYPE":"CLASS");}}}><span className="asset-group-type" aria-hidden="true">{ar?"نوع":"Type"}</span><span className="asset-group-class" aria-hidden="true">{ar?"فئة":"Class"}</span><span className="asset-group-knob" aria-hidden="true"/></button></div><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label><div className="asset-status-filter"><span className="muted asset-filter-label">{ar?"حالة الأصول":"Asset status"}</span><div className="asset-lifecycle-tabs">{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} onClick={()=>setLifecycleFilter(key)}>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div></div></div>
-        {["SOLD","DISPOSED","ALL"].includes(lifecycleFilter)&&displayRows.some(r=>["SOLD","DISPOSED"].includes(r.lifecycle_status))&&!loading&&!loadError&&<div className="card section">{historicalSummary(displayRows,true)}</div>}
+        <div className="form-grid asset-report-filters" style={{marginBottom:16}}><div className="asset-group-toggle-wrap"><span className="muted asset-filter-label">{ar?"تجميع التقرير":"Report grouping"}</span><button type="button" role="switch" aria-checked={groupBy==="TYPE"} aria-label={ar?"تجميع بحسب النوع":"Group by type"} title={ar?"يمين: فئة · يسار: نوع":"Right: class · Left: type"} className="asset-group-toggle" onPointerDown={e=>{if(e.button===0)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerUp={e=>{if(e.button!==0)return;const rect=e.currentTarget.getBoundingClientRect();setGroupBy(e.clientX<rect.left+rect.width/2?"TYPE":"CLASS");}} onClick={e=>{if(e.detail===0)setGroupBy(groupBy==="TYPE"?"CLASS":"TYPE");}} onKeyDown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();setGroupBy(e.key==="ArrowLeft"?"TYPE":"CLASS");}}}><span className="asset-group-type" aria-hidden="true">{ar?"نوع":"Type"}</span><span className="asset-group-class" aria-hidden="true">{ar?"فئة":"Class"}</span><span className="asset-group-knob" aria-hidden="true"/></button></div><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label><div className="asset-status-filter"><span className="muted asset-filter-label">{ar?"حالة الأصول":"Asset status"}</span><div className="asset-lifecycle-tabs">{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} aria-pressed={lifecycleFilter===key} onClick={()=>setLifecycleFilter(key)}>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div></div></div>
+        {["SOLD","DISPOSED","ALL"].includes(lifecycleFilter)&&displayRows.some(r=>["SOLD","DISPOSED"].includes(r.lifecycle_status))&&!loading&&!loadError&&<div className="card section asset-exit-summary-card">{historicalSummary(displayRows,true)}</div>}
         {loading && <div className="card section muted">{ar ? "جارٍ تحميل الأصول…" : "Loading assets…"}</div>}
         {!loading && !loadError && groups.length === 0 && (
           <div className="card section muted">
@@ -852,8 +860,8 @@ export default function Assets({
                     {g.title}{" "}
                     <span className="pill">{g.rows.length}</span>
                   </h3>
-                  {historicalSummary(g.rows)}
-                  <div className="asset-summary">
+                  {!showingExited&&historicalSummary(g.rows)}
+                  {!showingExited&&<div className="asset-summary">
                     <span className="sum-chip">
                       <span className="sum-icon" aria-hidden="true">
                         ◆
@@ -872,7 +880,7 @@ export default function Assets({
                         {fmt(cv(sd))} {cur}
                       </strong>
                     </span>
-                  </div>
+                  </div>}
                 </div>
                 <button
                   type="button"
@@ -884,7 +892,11 @@ export default function Assets({
                   {isClosed ? "＋" : "−"}
                 </button>
               </div>
-              {!isClosed && (
+              {!isClosed && (showingExited ? <div className="asset-exit-table-scroll"><table className="table asset-exit-table"><thead><tr>
+                <th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"الوزن قبل الخروج / الكمية":"Weight / quantity before exit"}</th><th>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":"التكلفة قبل البيع"):"Cost before exit"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th><th>{ar?"الإجراء":"Action"}</th>
+              </tr></thead><tbody>{sortedRows.map(row=>{const sold=row.lifecycle_status==="SOLD";const amount=sold?row.sold_cost_value:row.disposed_cost_value;const date=(row.exit_history||[]).filter((tx:any)=>tx.kind===row.lifecycle_status).map((tx:any)=>tx.date).sort().at(-1);return <tr key={row.id}>
+                <td><strong className="asset-name-cell"><span className="asset-row-icon" aria-hidden="true">{assetTypeIcon(row.asset_type_code||row.asset_type)}</span>{row.name}</strong></td><td>{typeName(row)}</td><td>{fmt(Number(sold?row.sold_quantity:row.disposed_quantity)||0)} {["GOLD","SILVER"].includes(row.asset_type)?(ar?"غرام":"g"):row.unit||""}</td><td>{amount==null?"—":`${fmt(Number(amount))} ${cur}`}</td><td>{date||"—"}</td><td>{renderAssetCell("action",row)}</td>
+              </tr>;})}</tbody></table></div> : (
                 <div style={{ overflowX: "auto" }}>
                   <table
                     className="table asset-report-table"
@@ -942,7 +954,7 @@ export default function Assets({
                     </tbody>
                   </table>
                 </div>
-              )}
+              ))}
             </div>
           );
         })}
