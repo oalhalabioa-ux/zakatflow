@@ -102,7 +102,7 @@ export function assetCurrentValue(row: any) {
 
 export function assetCostValue(row: any) {
   const metadata = row?.metadata || {};
-  return firstNumber(metadata.purchase_value, metadata.opening_value);
+  return firstNumber(row?.current_cost_value, metadata.purchase_value, metadata.opening_value);
 }
 
 export function assetHawlDate(row: any) {
@@ -133,7 +133,7 @@ const assetSortValue = (row: any, column: AssetSortColumn) => {
     case "date":
       return String(row?.metadata?.purchase_date || "");
     case "weight":
-      return Number(row?.metadata?.quantity || 0);
+      return firstNumber(row?.current_quantity, row?.metadata?.quantity);
     case "hawl":
       return assetHawlDate(row);
     case "cost":

@@ -85,6 +85,8 @@ export default function AssessmentDetail({
           <thead>
             <tr>
               <th>Asset / Lot</th>
+              <th>{ar ? "سعر التقييم المحفوظ" : "Saved price"}</th>
+              <th>{ar ? "النقاوة / سعر الصرف" : "Purity / FX"}</th>
               <th>Market Value</th>
               <th>Eligible</th>
               <th>Zakat</th>
@@ -94,9 +96,11 @@ export default function AssessmentDetail({
           </thead>
 
           <tbody>
-            {(x.lines || []).map((l: any) => (
+            {(x.lines || a.zakat_assessment_lines || []).map((l: any) => (
               <tr key={l.id}>
                 <td>{l.lot_id}</td>
+                <td>{l.valuation_price ?? "—"} {l.valuation_currency}<br/>{l.valuation_snapshot?.priceSource ?? a.calculation_snapshot?.priceSource ?? "—"}</td>
+                <td>{l.valuation_snapshot?.purity ?? "—"} / {l.fx_rate ?? "—"}</td>
                 <td>{l.market_value}</td>
                 <td>{l.eligible_value}</td>
                 <td>{l.zakat_amount}</td>
