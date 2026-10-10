@@ -107,6 +107,7 @@ export default function Assets({
     [usageSaving,setUsageSaving]=useState(false),
     [classFilter,setClassFilter]=useState("ALL"),
     [typeFilter,setTypeFilter]=useState("ALL"),
+    [groupBy,setGroupBy]=useState<"CLASS"|"TYPE">("CLASS"),
     [scopeOrgId, setScopeOrgId] = useState(""),
     [scopeEntityId, setScopeEntityId] = useState(""),
     [scopeCostCenterId, setScopeCostCenterId] = useState(""),
@@ -234,7 +235,22 @@ export default function Assets({
   const filteredRows = useMemo(() => lifecycleFilter === "ALL" ? scopedRows : scopedRows.filter((r) => (r.lifecycle_status || "ACTIVE") === lifecycleFilter), [scopedRows,lifecycleFilter]);
   const lifecycleCounts = useMemo(() => ({ACTIVE:scopedRows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE").length,SOLD:scopedRows.filter(r=>r.lifecycle_status==="SOLD").length,DISPOSED:scopedRows.filter(r=>r.lifecycle_status==="DISPOSED").length,ALL:scopedRows.length}),[scopedRows]);
   const displayRows=useMemo(()=>filteredRows.filter(r=>(classFilter==="ALL"||assetDisplayClass(r)===classFilter)&&(typeFilter==="ALL"||(r.asset_type_code||r.asset_type)===typeFilter)),[filteredRows,classFilter,typeFilter]);
-  const groups=useMemo(()=>ASSET_DISPLAY_CLASSES.map(([type,nameAr,nameEn,symbol])=>({type,title:ar?nameAr:nameEn,symbol,rows:displayRows.filter(r=>assetDisplayClass(r)===type)})).filter(g=>g.rows.length),[displayRows,ar]);
+  const groups=useMemo(()=>{
+    if(groupBy==="CLASS")return ASSET_DISPLAY_CLASSES.map(([type,nameAr,nameEn,symbol])=>({type:`CLASS:${type}`,title:ar?nameAr:nameEn,symbol,rows:displayRows.filter(r=>assetDisplayClass(r)===type)})).filter(g=>g.rows.length);
+    const byType=new Map<string,{type:string;title:string;symbol:string;rows:any[]}>();
+    for(const row of displayRows){
+      const code=row.asset_type_code||row.asset_type||"UNKNOWN";
+      let group=byType.get(code);
+      if(!group){
+        const catalogType=catalog.types.find((t:any)=>t.code===code);
+        const title=(catalogType?(ar?catalogType.name_ar:catalogType.name_en):TYPES.find(t=>t[0]===row.asset_type)?.[ar?1:2])||code;
+        group={type:`TYPE:${code}`,title,symbol:assetTypeIcon(code),rows:[]};
+        byType.set(code,group);
+      }
+      group.rows.push(row);
+    }
+    return Array.from(byType.values()).sort((a,b)=>a.title.localeCompare(b.title,ar?"ar":"en"));
+  },[displayRows,ar,groupBy,catalog.types]);
   const typeName=(r:any)=>{const t=catalog.types.find((x:any)=>x.code===r.asset_type_code);return t?(ar?t.name_ar:t.name_en):TYPES.find(x=>x[0]===r.asset_type)?.[ar?1:2]||r.asset_type;};
   const activeRows=scopedRows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE");
   const total = activeRows.reduce((s, r) => s + val(r), 0),
@@ -780,7 +796,7 @@ export default function Assets({
           </span>{" "}
           {ar ? "تقرير الأصول" : "Asset report"}
         </h2>
-        <div className="form-grid" style={{marginBottom:16}}><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label></div>
+        <div className="form-grid" style={{marginBottom:16}}><label>{ar?"تجميع التقرير":"Group report"}<select value={groupBy} onChange={e=>setGroupBy(e.target.value as "CLASS"|"TYPE")}><option value="CLASS">{ar?"بحسب الفئة":"By class"}</option><option value="TYPE">{ar?"بحسب النوع":"By type"}</option></select></label><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label></div>
         {loading && <div className="card section muted">{ar ? "جارٍ تحميل الأصول…" : "Loading assets…"}</div>}
         {!loading && !loadError && groups.length === 0 && (
           <div className="card section muted">
