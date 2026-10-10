@@ -1,0 +1,6 @@
+import {NextResponse} from 'next/server';
+import {requireUser} from '@/services/auth';
+import {z} from 'zod';
+const schema=z.object({asset_usage_mode:z.enum(['PERSONAL','ORGANIZATION','BOTH'])}).strict();
+export async function GET(){try{const {supabase,user}=await requireUser();const {data,error}=await supabase.from('user_settings').select('asset_usage_mode').eq('user_id',user.id).maybeSingle();if(error)throw error;return NextResponse.json({asset_usage_mode:data?.asset_usage_mode||'BOTH'});}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:500});}}
+export async function PUT(req:Request){try{const input=schema.parse(await req.json());const {supabase,user}=await requireUser();const {data:existing,error:readError}=await supabase.from('user_settings').select('user_id').eq('user_id',user.id).maybeSingle();if(readError)throw readError;const query=existing?supabase.from('user_settings').update(input).eq('user_id',user.id):supabase.from('user_settings').insert({...input,user_id:user.id});const {data,error}=await query.select('asset_usage_mode').single();if(error)throw error;return NextResponse.json(data);}catch(e:any){return NextResponse.json({error:e instanceof z.ZodError?'INVALID_ASSET_USAGE_MODE':e.message},{status:e.message==='UNAUTHORIZED'?401:400});}}
