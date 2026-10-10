@@ -16,3 +16,15 @@ export function calculateGregorianHawl(startDate:Date,assessmentDate:Date):HawlR
 export function calculateTabularHijriHawl(startDate:Date,assessmentDate:Date):HawlResult{const h=gregorianToHijri(startDate);const g=hijriToGregorian(h.year+1,h.month,h.day);const dueDate=new Date(Date.UTC(g.y,g.m-1,g.d));const daysRemaining=Math.max(0,Math.ceil((dueDate.getTime()-assessmentDate.getTime())/86400000));return{dueDate,completed:assessmentDate>=dueDate,daysRemaining};}
 
 export function calculateHawl(calendar:HawlCalendar,startDate:Date,assessmentDate:Date){if(calendar==='GREGORIAN')return calculateGregorianHawl(startDate,assessmentDate);return calculateTabularHijriHawl(startDate,assessmentDate);}
+
+/** Advance only past finalized coverage. Open revisions never advance a lot's hawl. */
+export function nextUnassessedHawlPeriod(calendar:HawlCalendar,originStart:string,coveredThrough:string|null,assessmentDate:string){
+ let start=originStart,period=1;
+ for(;period<=200;period++){
+  const result=calculateHawl(calendar,new Date(start+'T00:00:00Z'),new Date(assessmentDate+'T00:00:00Z'));
+  const due=result.dueDate.toISOString().slice(0,10);
+  if(!coveredThrough||due>coveredThrough)return{hawlStartDate:start,hawlDueDate:due,hawlPeriod:period,coveredThrough,completed:result.completed};
+  start=due;
+ }
+ throw new Error('HAWL_PERIOD_RANGE_EXCEEDED');
+}

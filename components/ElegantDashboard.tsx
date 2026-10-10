@@ -168,10 +168,10 @@ export default function ElegantDashboard({
     },
     {
       key: "due",
-      label: t("الزكاة المستحقة", "Zakat due"),
+      label: t("الاستحقاق النهائي المثبت", "Frozen final liability"),
       value: d.explicitZakahDueSar,
       known: assessmentKnown,
-      note: `${t("الدورة الحالية · وفق الاحتساب", "Current cycle · assessed amount")} · ${Number(d.zakatableValueSar) > 0 ? ((Number(d.explicitZakahDueSar || 0) / Number(d.zakatableValueSar)) * 100).toFixed(2) : "0.00"}%`,
+      note: `${t("جميع الدورات النهائية · أسعار مثبتة", "All final cycles · frozen prices")} · ${Number(d.zakatableValueSar) > 0 ? ((Number(d.explicitZakahDueSar || 0) / Number(d.zakatableValueSar)) * 100).toFixed(2) : "0.00"}%`,
       percent:
         Number(d.zakatableValueSar) > 0
           ? Math.min(
@@ -192,16 +192,19 @@ export default function ElegantDashboard({
     },
     {
       key: "clock",
-      label: t("المتبقي للسداد", "Remaining"),
+      label: t("المتبقي النهائي للسداد", "Final outstanding balance"),
       value: d.remainingZakahSar,
       known: paymentKnown,
-      note:
-        d.daysToDue == null
-          ? t("لم يُحدّد تاريخ الاستحقاق", "No due date set")
-          : Number(d.daysToDue) < 0
-            ? `${t("متأخر", "Overdue")} ${Math.abs(d.daysToDue)} ${t("يومًا", "days")}`
-            : `${t("يستحق خلال", "Due in")} ${d.daysToDue} ${t("يومًا", "days")}`,
+      note: t("بعد طرح السداد المخصص للدورات النهائية", "After payments allocated to final cycles"),
       percent: Number(d.explicitZakahDueSar) > 0 ? 100 - paid : 0,
+    },
+    {
+      key: "open", label:t("تقدير الدورة المفتوحة", "Open-cycle estimate"),value:d.openCycleEstimateSar,known:assessmentKnown,
+      note:t("آخر احتساب فقط · قابل لإعادة الاحتساب", "Latest snapshot only · recalculable"),percent:0,
+    },
+    {
+      key: "asof",label:t("الإجمالي حتى آخر احتساب", "Balance as of latest assessment"),value:d.asOfZakahBalanceSar,known:paymentKnown,
+      note:`${t("المتبقي النهائي + التقدير المفتوح", "Final balance + open estimate")} · ${t("رصيد مرحّل", "Carried credit")}: ${money(d.carriedZakahCreditSar)} ${currency}`,percent:0,
     },
   ];
   const steps = [
