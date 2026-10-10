@@ -666,6 +666,7 @@ export default function Assets({
               }
             />
           </label>
+          {!qty && !["CASH","BANK"].includes(form.asset_type) && <label>{ar?"الكمية / عدد الوحدات":"Quantity / units"}<input type="number" min="0.00000001" step="any" disabled={Boolean(edit&&form.has_financial_history)} value={form.quantity||"1"} onChange={e=>setForm({...form,quantity:e.target.value})}/><small>{ar?"القيمة أدناه إجمالي الوحدات، وليست سعر الوحدة.":"The value below is the total for all units."}</small></label>}
           {qty ? (
             <>
               <label>
