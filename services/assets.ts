@@ -11,7 +11,7 @@ export async function listAssets(){
  const [accounts,lotResult,exits,profileResult,cycleResult,assessmentResult,allocationResult,orgResult,operationResult]=await Promise.all([
   supabase.from('asset_accounts').select('*').order('created_at',{ascending:false}),
   supabase.from('lots').select('id,asset_account_id,original_quantity,remaining_quantity,remaining_value_base,hawl_start_date,hawl_due_date,acquisition_date,status,metadata'),
-  supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,quantity,base_value,metadata,created_at').in('transaction_type',['PURCHASE','SALE','ADJUSTMENT']).order('created_at',{ascending:false}),
+  supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,quantity,base_value,metadata,created_at').in('transaction_type',['PURCHASE','SALE','ADJUSTMENT']).or('metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('created_at',{ascending:false}),
   supabase.from('profiles').select('base_currency').eq('id',user.id).single(),
   supabase.from('zakat_hawl_cycles').select('id,cycle_no,hawl_start_date,status,assessment_id,final_assessment_id').eq('user_id',user.id).order('cycle_no',{ascending:false}),
   supabase.from('zakat_assessments').select('id,assessment_date,valuation_date,status,nisab_value_base,zakat_rate,calculation_snapshot,hawl_cycle_id,currency,superseded_by').eq('user_id',user.id).neq('status','CANCELLED').order('assessment_date',{ascending:false}).order('created_at',{ascending:false}),
