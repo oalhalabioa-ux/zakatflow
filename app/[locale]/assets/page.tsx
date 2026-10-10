@@ -508,8 +508,8 @@ export default function Assets({
           </h1>
           <p className="muted">
             {ar
-              ? "الزكاة والحول أدناه من آخر Snapshot لمحرك الاحتساب، وليست من القيم القديمة المخزنة في الأصل."
-              : "Zakat and Hawl below come from the latest engine Snapshot, not legacy asset metadata."}
+              ? "الزكاة والحول أدناه من الاحتساب المحفوظ للدورة المعروضة. المستحق النهائي وأسعاره ثابتة، والسداد يُخصم منه."
+              : "Zakat and Hawl come from the displayed cycle’s saved assessment. Final liability and prices stay frozen; payments reduce that liability."}
           </p>
         </div>
         <span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span>
@@ -550,12 +550,12 @@ export default function Assets({
       {retroPending.length > 0 && (
         <div className="notice">
           <strong>
-            {ar ? "أصول تحتاج إعادة احتساب" : "Assets awaiting recalculation"}
+            {ar ? "أصول خارج الاحتساب المعروض" : "Assets outside the displayed assessment"}
           </strong>
           <div className="muted">
             {ar
-              ? `${retroPending.length} أصل/أصول لها حول محفوظ لكنها غير موجودة في آخر Snapshot. إعادة احتساب الدورة الحالية ستضمها دون تعديل Snapshot مغلق.`
-              : `${retroPending.length} asset(s) have persisted Hawl data but are missing from the latest Snapshot. Recalculating the current cycle will include them without changing closed snapshots.`}
+              ? `${retroPending.length} أصل/أصول لها حول محفوظ لكنها غير موجودة في الاحتساب المعروض. تُراجع ضمن احتساب الدورة المفتوحة أو الدورة الجديدة؛ الاحتساب النهائي السابق يبقى محفوظًا دون تعديل.`
+              : `${retroPending.length} asset(s) have saved Hawl data but are outside the displayed assessment. Review them in an open or new cycle; the previous final assessment remains unchanged.`}
           </div>
         </div>
       )}
@@ -586,7 +586,7 @@ export default function Assets({
           tone="due"
           t={ar ? "الزكاة المحتسبة" : "Calculated Zakat"}
           v={indicatorValue(`${fmt(cv(totalDue))} ${cur}`)}
-          source={indicatorSource(ar ? "آخر Snapshot" : "Latest Snapshot")}
+          source={indicatorSource(ar ? "احتساب الدورة المعروضة" : "Displayed cycle assessment")}
         />
         <K
           i="✓"
@@ -607,7 +607,7 @@ export default function Assets({
           tone="hawl"
           t={ar ? "مؤهل بالحول" : "Hawl eligible"}
           v={indicatorValue(`${completed.length}`)}
-          source={indicatorSource(ar ? "آخر Snapshot" : "Latest Snapshot")}
+          source={indicatorSource(ar ? "احتساب الدورة المعروضة" : "Displayed cycle assessment")}
         />
         <K
           i="!"
