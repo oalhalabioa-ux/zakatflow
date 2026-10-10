@@ -15,6 +15,7 @@ import {
   visibleAssetColumns,
 } from "@/lib/asset-table-preferences";
 import { ASSET_DISPLAY_CLASSES, assetDisplayClass, assetTypeIcon, catalogDisplayClass } from "@/lib/asset-classification-display";
+import {assetReportCalculation, type AssetCycleScope} from "@/lib/asset-zakat-report";
 import AssetsPageToolbar from "@/components/assets/AssetsPageToolbar";
 import AssetActionsMenu from "@/components/assets/AssetActionsMenu";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
@@ -109,6 +110,7 @@ export default function Assets({
     [classFilter,setClassFilter]=useState("ALL"),
     [typeFilter,setTypeFilter]=useState("ALL"),
     [groupBy,setGroupBy]=useState<"CLASS"|"TYPE">("CLASS"),
+    [cycleScope,setCycleScope]=useState<AssetCycleScope>("DISPLAYED"),
     [scopeOrgId, setScopeOrgId] = useState(""),
     [scopeEntityId, setScopeEntityId] = useState(""),
     [scopeCostCenterId, setScopeCostCenterId] = useState(""),
@@ -206,7 +208,7 @@ export default function Assets({
   const calc = (r: any) => r.zakat_calculation || null,
     due = (r: any) => Number(calc(r)?.zakat_amount || 0),
     paid = (r: any) => Number(calc(r)?.paid_amount || 0),
-    remaining = (r: any) => Math.max(0, due(r) - paid(r));
+    remaining = (r: any) => Number(calc(r)?.remaining_amount ?? Math.max(0, due(r) - paid(r)));
   const hawlStart = (r: any) =>
     calc(r)
       ?.lots?.map((x: any) => x.hawl_start_date)
@@ -232,7 +234,7 @@ export default function Assets({
     if (scopeEntityId && r.entity_id !== scopeEntityId) return false;
     if (scopeCostCenterId && r.cost_center_id !== scopeCostCenterId) return false;
     return true;
-  }), [rows, assetScope, scopeOrgId, scopeEntityId, scopeCostCenterId]);
+  }).map(r=>cycleScope==="DISPLAYED"?r:{...r,zakat_calculation:assetReportCalculation(r.zakat_cycle_calculations||[],cycleScope)}), [rows, assetScope, scopeOrgId, scopeEntityId, scopeCostCenterId,cycleScope]);
   const filteredRows = useMemo(() => lifecycleFilter === "ALL" ? scopedRows : scopedRows.filter((r) => (r.lifecycle_status || "ACTIVE") === lifecycleFilter), [scopedRows,lifecycleFilter]);
   const lifecycleCounts = useMemo(() => ({ACTIVE:scopedRows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE").length,SOLD:scopedRows.filter(r=>r.lifecycle_status==="SOLD").length,DISPOSED:scopedRows.filter(r=>r.lifecycle_status==="DISPOSED").length,ALL:scopedRows.length}),[scopedRows]);
   const displayRows=useMemo(()=>filteredRows.filter(r=>(classFilter==="ALL"||assetDisplayClass(r)===classFilter)&&(typeFilter==="ALL"||(r.asset_type_code||r.asset_type)===typeFilter)),[filteredRows,classFilter,typeFilter]);
@@ -300,7 +302,7 @@ export default function Assets({
     near = z.filter((r) => {
       const d = calc(r)
         ?.lots?.map((x: any) => x.hawl_due_date)
-        .filter(Boolean)
+        .filter((date:string) => date && date >= new Date().toISOString().slice(0,10))
         .sort()?.[0];
       if (!d) return false;
       const n = Math.ceil(
@@ -317,6 +319,7 @@ export default function Assets({
       (calc(r)?.statuses || []).includes("NOT_ASSESSED") &&
       (calc(r)?.lots || []).some((l: any) => l.hawl_start_date),
   );
+  const cycleScopeLabel = cycleScope === "ALL" ? (ar?"المغلقة + آخر احتساب للمفتوحة":"Closed + latest open assessments") : cycleScope === "CLOSED" ? (ar?"الدورات المغلقة":"Closed cycles") : cycleScope === "OPEN" ? (ar?"آخر احتساب للدورات المفتوحة":"Latest open-cycle assessments") : (ar?"احتساب الدورة المعروضة":"Displayed cycle assessment");
   const indicatorValue = (value: string) =>
     loading ? "…" : loadError ? "—" : value;
   const indicatorSource = (source: string) =>
@@ -542,7 +545,7 @@ export default function Assets({
         <div className="asset-page-heading"><h1><span className="page-title-icon" aria-hidden="true">▥</span> {ar?"الأصول":"Assets"}</h1>{scopeControl}</div>
         <AssetsPageToolbar ar={ar} onAdd={()=>setFormOpen(true)} onUsage={()=>setUsageOpen(!usageOpen)} usageOpen={usageOpen}/>
       </div>
-      <div className="asset-page-subtitle"><p className="muted">{ar?"الزكاة والحول من الاحتساب المحفوظ للدورة المعروضة. المستحق النهائي وأسعاره ثابتة، والسداد يُخصم منه.":"Zakat and Hawl come from the displayed cycle’s saved assessment. Final liability and prices stay frozen; payments reduce that liability."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
+      <div className="asset-page-subtitle"><p className="muted">{ar?"نطاق الدورات المحدد ينعكس على مؤشرات الزكاة والجدول. الشامل يجمع النهائي المثبّت وآخر تقدير للمفتوحة، والسداد يُخصم من دورته.":"Cycle scope updates Zakat indicators and the table. Comprehensive combines frozen finals and latest open estimates; payments reduce their own cycle."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
       {usageOpen&&<section className="card section"><label>{ar?"استخدام مساحة العمل للأصول":"Asset workspace usage"}<select value={usageMode} disabled={loading||usageSaving} onChange={e=>void saveUsage(e.target.value as typeof usageMode)}><option value="BOTH">{ar?"شخصي ومؤسسي":"Personal and organization"}</option><option value="PERSONAL">{ar?"شخصي فقط":"Personal only"}</option><option value="ORGANIZATION">{ar?"مؤسسي فقط":"Organization only"}</option></select></label><p className="muted">{ar?"هذا إعداد للعرض فقط. يمكن العودة إلى النطاق الآخر من هنا؛ لا ينقل ملكية الأصول ولا يغيّر أرصدتها.":"Display preference only. Switch back here; ownership and balances are unchanged."}</p></section>}
       {assetScope === "ORGANIZATION" && <section className="card section asset-scope-bar">
         <div className="asset-scope-title">
@@ -614,14 +617,14 @@ export default function Assets({
           tone="due"
           t={ar ? "الزكاة المحتسبة" : "Calculated Zakat"}
           v={indicatorValue(`${fmt(cv(totalDue))} ${cur}`)}
-          source={indicatorSource(ar ? "احتساب الدورة المعروضة" : "Displayed cycle assessment")}
+          source={indicatorSource(cycleScopeLabel)}
         />
         <K
           i="✓"
           tone="paid"
-          t={ar ? "مدفوع الاحتساب المعروض" : "Displayed assessment paid"}
+          t={ar ? "المسدّد ضمن نطاق الدورات" : "Paid within cycle scope"}
           v={indicatorValue(`${fmt(cv(totalPaid))} ${cur}`)}
-          source={indicatorSource(ar ? "الدورة نفسها فقط" : "Same cycle only")}
+          source={indicatorSource(cycleScopeLabel)}
         />
         <K
           i="▦"
@@ -635,7 +638,7 @@ export default function Assets({
           tone="hawl"
           t={ar ? "مؤهل بالحول" : "Hawl eligible"}
           v={indicatorValue(`${completed.length}`)}
-          source={indicatorSource(ar ? "احتساب الدورة المعروضة" : "Displayed cycle assessment")}
+          source={indicatorSource(cycleScopeLabel)}
         />
         <K
           i="!"
@@ -826,6 +829,15 @@ export default function Assets({
           </span>{" "}
           {ar ? "تقرير الأصول" : "Asset report"}
         </h2>}
+        <div className="asset-cycle-scope">
+          <label>{ar?"نطاق الدورات":"Cycle scope"}<select value={cycleScope} onChange={e=>setCycleScope(e.target.value as AssetCycleScope)} disabled={loading||!!loadError||assetScope==="ORGANIZATION"}>
+            <option value="DISPLAYED">{ar?"العرض الحالي":"Current view"}</option>
+            <option value="ALL">{ar?"شامل · المغلقة والمفتوحة":"Comprehensive · closed and open"}</option>
+            <option value="CLOSED">{ar?"الدورات المغلقة":"Closed cycles"}</option>
+            <option value="OPEN">{ar?"الدورات المفتوحة":"Open cycles"}</option>
+          </select></label>
+          <span className="muted">{ar?"يحدّث مؤشرات الزكاة والجدول؛ تفاصيل كل دورة وأسعارها تحت السهم.":"Updates Zakat indicators and table; each cycle’s saved prices are under the details arrow."}</span>
+        </div>
         {lifecycleFilter==="DISPOSED"&&<p className="asset-exit-caption">{ar?"الإجماليات أدناه تعرض الوزن والتكلفة التاريخية قبل الاستغناء، وليست سعر السوق قبل الاستغناء. القيمة الحالية صفر، ولا تدخل هذه القيم في إجماليات الأصول النشطة.":"Weight and cost below describe the disposed quantity before disposal. Current value is zero; these historical figures are excluded from active asset totals."}</p>}
         <div className="form-grid asset-report-filters" style={{marginBottom:16}}><div className="asset-group-toggle-wrap"><span className="muted asset-filter-label">{ar?"تجميع التقرير":"Report grouping"}</span><button type="button" role="switch" aria-checked={groupBy==="TYPE"} aria-label={ar?"تجميع بحسب النوع":"Group by type"} title={ar?"يمين: فئة · يسار: نوع":"Right: class · Left: type"} className="asset-group-toggle" onPointerDown={e=>{if(e.button===0)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerUp={e=>{if(e.button!==0)return;const rect=e.currentTarget.getBoundingClientRect();setGroupBy(e.clientX<rect.left+rect.width/2?"TYPE":"CLASS");}} onClick={e=>{if(e.detail===0)setGroupBy(groupBy==="TYPE"?"CLASS":"TYPE");}} onKeyDown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();setGroupBy(e.key==="ArrowLeft"?"TYPE":"CLASS");}}}><span className="asset-group-type" aria-hidden="true">{ar?"نوع":"Type"}</span><span className="asset-group-class" aria-hidden="true">{ar?"فئة":"Class"}</span><span className="asset-group-knob" aria-hidden="true"/></button></div><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label><div className="asset-status-filter"><span className="muted asset-filter-label">{ar?"حالة الأصول":"Asset status"}</span><div className="asset-lifecycle-tabs">{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} aria-pressed={lifecycleFilter===key} onClick={()=>setLifecycleFilter(key)}>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div></div></div>
         {["SOLD","DISPOSED","ALL"].includes(lifecycleFilter)&&displayRows.some(r=>["SOLD","DISPOSED"].includes(r.lifecycle_status))&&!loading&&!loadError&&<div className="card section asset-exit-summary-card">{historicalSummary(displayRows,true)}</div>}
@@ -1013,6 +1025,17 @@ function ZakatCell({
       </span>
     );
   }
+  if(c.cycle_calculations) return <div className="zakat-result-compact">
+    <strong>{amount}</strong> <span className="pill">{ar?"حسب نطاق الدورات":"Cycle scope"}</span>
+    <details className="asset-valuation-details"><summary aria-label={ar?"تفاصيل الدورات وأسعار الاحتساب":"Cycle details and saved prices"} title={ar?"تفاصيل الدورات وأسعار الاحتساب":"Cycle details and saved prices"}><span aria-hidden="true">▸</span></summary><div className="asset-valuation-content">
+      {c.cycle_calculations.map((cycle:any)=><section key={cycle.assessment_id} className="asset-cycle-detail">
+        <strong>{ar?"الدورة":"Cycle"} #{cycle.cycle_number} · {cycle.cycle_closed?(ar?"مغلقة · سعر مثبت":"Closed · frozen price"):(ar?"مفتوحة · تقدير":"Open · estimate")}</strong>
+        <div><bdi>{cycle.cycle_start_date}</bdi> → <bdi>{cycle.cycle_end_date}</bdi></div>
+        <div>{ar?"المحتسب":"Assessed"}: {fmt(cycle.zakat_amount)} {cycle.currency} · {ar?"المسدّد":"Paid"}: {fmt(cycle.paid_amount)} {cycle.currency} · {ar?"المتبقي":"Remaining"}: {fmt(cycle.remaining_amount)} {cycle.currency}</div>
+        {cycle.lots.map((lot:any)=><div key={lot.id??lot.lot_id}>{ar?"الكمية":"Quantity"}: {fmt(lot.quantity)} · {ar?"السعر المحفوظ":"Saved price"}: {lot.valuation_price==null?"—":fmt(lot.valuation_price)} {lot.valuation_currency}</div>)}
+      </section>)}
+    </div></details>
+  </div>;
   const s = c.statuses || [];
   const label = s.includes("ELIGIBLE")
     ? ar

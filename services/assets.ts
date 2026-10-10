@@ -1,4 +1,5 @@
 import { requireUser } from './auth';
+import {assetReportAssessments} from '@/lib/asset-zakat-report';
 import { assetSchema } from '@/lib/validation/schemas';
 import { randomUUID } from 'node:crypto';
 import {assetLedgerBalance,assetLifecycleStatus,assetZakatPayments,disposedAssetHistory,soldAssetHistory} from '@/lib/asset-ledger';
@@ -13,7 +14,7 @@ export async function listAssets(){
   supabase.from('lots').select('id,asset_account_id,original_quantity,remaining_quantity,remaining_value_base,hawl_start_date,hawl_due_date,acquisition_date,status,metadata'),
   supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,quantity,base_value,metadata,created_at').in('transaction_type',['PURCHASE','SALE','ADJUSTMENT']).or('metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('created_at',{ascending:false}),
   supabase.from('profiles').select('base_currency').eq('id',user.id).single(),
-  supabase.from('zakat_hawl_cycles').select('id,cycle_no,hawl_start_date,status,assessment_id,final_assessment_id').eq('user_id',user.id).order('cycle_no',{ascending:false}),
+  supabase.from('zakat_hawl_cycles').select('id,cycle_no,hawl_start_date,hawl_due_date,status,assessment_id,final_assessment_id,snapshot').eq('user_id',user.id).order('cycle_no',{ascending:false}),
   supabase.from('zakat_assessments').select('id,assessment_date,valuation_date,status,nisab_value_base,zakat_rate,calculation_snapshot,hawl_cycle_id,currency,superseded_by').eq('user_id',user.id).neq('status','CANCELLED').order('assessment_date',{ascending:false}).order('created_at',{ascending:false}),
   supabase.from('zakat_payment_allocations').select('assessment_id,assessment_line_id,lot_id,asset_account_id,allocated_amount,hawl_cycle_id').eq('user_id',user.id),
   supabase.from('organizations').select('id,base_currency'),
@@ -51,15 +52,21 @@ export async function listAssets(){
    })),
    lifecycle_exit_value:lifecycle_status==='SOLD'?Number(exit?.base_value||0):0};
  });
- if(!latest)return assets.map((a:any)=>({...a,zakat_calculation:null}));
- const {data:lines,error}=await supabase.from('zakat_assessment_lines').select('*,lots!inner(asset_account_id,hawl_start_date,hawl_due_date)').eq('assessment_id',latest.id);
+ const referenced=assetReportAssessments(cycles,assessments);
+ const ids=[...new Set([...referenced.map(r=>r.assessment.id),...(latest?[latest.id]:[])])];
+ if(!ids.length)return assets.map((a:any)=>({...a,zakat_calculation:null,zakat_cycle_calculations:[]}));
+ const {data:lines,error}=await supabase.from('zakat_assessment_lines').select('*,lots!inner(asset_account_id,hawl_start_date,hawl_due_date)').eq('user_id',user.id).in('assessment_id',ids);
  if(error)throw error;
- const {currentByLot,currentByAsset,historicalByAsset}=assetZakatPayments(allocationResult.data??[],latest);
+ const calculationsByAssessment=new Map<string,any[]>();
+ const selections=[...referenced];
+ if(latest&&!selections.some(r=>r.assessment.id===latest.id))selections.push({assessment:latest,cycle:displayCycle,closed:!!displayCycle&&['CLOSED','PAID'].includes(displayCycle.status)});
+ for(const {assessment:latest,cycle,closed} of selections){
+  const {currentByLot,currentByAsset,historicalByAsset}=assetZakatPayments(allocationResult.data??[],latest);
  const byAsset=new Map<string,any>();
  const common={assessment_id:latest.id,assessment_date:latest.assessment_date,valuation_date:latest.valuation_date,
-  assessment_status:latest.status,cycle_number:displayCycle?.cycle_no??null,hawl_cycle_id:latest.hawl_cycle_id,currency:latest.currency,
-  nisab_value_base:Number(latest.nisab_value_base||0),zakat_rate:Number(latest.zakat_rate||0),snapshot:latest.calculation_snapshot};
- for(const line of lines??[]){
+  assessment_status:latest.status,cycle_number:cycle?.cycle_no??null,hawl_cycle_id:latest.hawl_cycle_id,currency:latest.currency,
+  nisab_value_base:Number(latest.nisab_value_base||0),zakat_rate:Number(latest.zakat_rate||0),snapshot:latest.calculation_snapshot,cycle_closed:closed,cycle_start_date:cycle?.hawl_start_date??null,cycle_end_date:latest.assessment_date};
+ for(const line of (lines??[]).filter((line:any)=>line.assessment_id===latest.id)){
   const lot:any=Array.isArray(line.lots)?line.lots[0]:line.lots;
   if(!lot?.asset_account_id)continue;
   const frozen=(line as any).valuation_snapshot??{};
@@ -73,17 +80,24 @@ export async function listAssets(){
    remaining_amount:Math.max(0,Number(line.zakat_amount||0)-linePaid)});
   byAsset.set(lot.asset_account_id,x);
  }
- return assets.map((a:any)=>{
-  if(a.ownership_scope==='ORGANIZATION')return{...a,zakat_calculation:null};
+ const calculations=assets.map((a:any)=>{
+  if(a.ownership_scope==='ORGANIZATION')return null;
   const x=byAsset.get(a.id)??{...common,zakat_amount:0,paid_amount:0,market_value:0,eligible_value:0,statuses:['NOT_ASSESSED'],
    lots:a.lots.map((l:any)=>({...l,status:'NOT_ASSESSED'})),hawl_display_only:{portfolio_nisab_reached_date:activeCycle?.hawl_start_date??null}};
   x.paid_amount=currentByAsset.get(a.id)||0;
+  if(cycle?.snapshot?.historical_settled)x.paid_amount=x.zakat_amount;
   x.remaining_amount=Math.max(0,x.zakat_amount-x.paid_amount);
   x.credit_amount=Math.max(0,x.paid_amount-x.zakat_amount);
   x.payment_status=x.paid_amount<=0?'UNPAID':x.remaining_amount<=0?'PAID':'PARTIALLY_PAID';
   x.historical_paid_amount=historicalByAsset.get(a.id)||0;
-  return {...a,zakat_calculation:x};
+  return x;
  });
+  calculationsByAssessment.set(latest.id,calculations);
+ }
+ return assets.map((a:any,index:number)=>({...a,
+  zakat_calculation:latest?calculationsByAssessment.get(latest.id)?.[index]??null:null,
+  zakat_cycle_calculations:referenced.map(r=>calculationsByAssessment.get(r.assessment.id)?.[index]).filter((c:any)=>c&&!c.statuses.includes('NOT_ASSESSED'))
+ }));
 }
 async function validateAssetOwnership(supabase:any,user:any,parsed:any){
  if(parsed.asset_type_code){const{data,error}=await supabase.from('asset_types_v2').select('code,class_code,default_legacy_asset_type').eq('code',parsed.asset_type_code).eq('active',true).maybeSingle();if(error)throw error;if(!data||data.class_code!==parsed.asset_class_code||data.default_legacy_asset_type!==parsed.asset_type)throw new Error('ASSET_CLASS_TYPE_MISMATCH');}

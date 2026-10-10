@@ -145,7 +145,7 @@ const assetSortValue = (row: any, column: AssetSortColumn) => {
     case "paid":
       return paid;
     case "remaining":
-      return Math.max(0, due - paid);
+      return Number(calculation.remaining_amount ?? Math.max(0, due - paid));
     case "calculation":
       return String((calculation.statuses || []).join(" "));
   }
