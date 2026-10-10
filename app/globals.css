@@ -1293,28 +1293,24 @@ textarea:focus {
 .metal-price-strip {
   margin-top: 2px;
 }
-.metal-price-strip > section {
-  padding: 0 10px;
-}
+.metal-price-strip > section { padding: 0; }
+.metal-price-strip > section.is-open { padding: 10px 12px; }
 .metal-price-toggle {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  justify-content: center;
   align-items: center;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  padding: 8px 2px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 800;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--brand);
+  padding: 0;
   cursor: pointer;
 }
-.metal-price-toggle span:last-child {
-  color: var(--accent);
-  font-size: 18px;
-  line-height: 1;
-}
+.metal-price-toggle:hover,
+.metal-price-toggle[aria-expanded=true] { background: var(--bg); border-color: var(--brand); }
+.metal-price-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
 .metal-price-strip .page-head {
   margin-bottom: 3px;
 }
@@ -1415,13 +1411,19 @@ textarea:focus {
 .asset-valuation-details>summary:hover{background:var(--soft,#edf4f4)}
 .asset-valuation-content{white-space:normal;min-width:220px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card,#fff)}
 
-.asset-group-toggle-wrap{display:flex;align-items:flex-end;padding-bottom:8px}
-.asset-group-toggle{display:inline-flex;align-items:center;gap:7px;padding:4px 0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
-.asset-group-toggle-track{display:inline-flex;align-items:center;width:30px;height:18px;padding:2px;background:var(--line,#cad8dd);border-radius:12px;direction:ltr}
-.asset-group-toggle-track>span{width:14px;height:14px;border-radius:50%;background:var(--card,#fff);box-shadow:0 1px 3px #0002;transition:transform .15s}
-.asset-group-toggle[aria-checked=true] .asset-group-toggle-track{background:var(--brand,#216d72)}
-.asset-group-toggle[aria-checked=true] .asset-group-toggle-track>span{transform:translateX(12px)}
-.asset-group-toggle:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
-
-.asset-report-filters{grid-template-columns:max-content minmax(0,1fr) minmax(0,1fr)}
-@media(max-width:700px){.asset-report-filters{grid-template-columns:1fr 1fr}.asset-report-filters .asset-group-toggle-wrap{grid-column:1/-1;padding-bottom:0}}
+.asset-group-toggle-wrap,.asset-status-filter{display:flex;flex-direction:column;gap:8px;align-self:end}
+.asset-filter-label{font-size:12px;line-height:18px}
+.asset-group-toggle{position:relative;width:96px;height:34px;margin-bottom:3px;border:1px solid var(--line);border-radius:20px;background:var(--soft,var(--bg));direction:ltr;touch-action:pan-y;cursor:ew-resize;color:var(--ink);font:inherit;font-size:12px;flex-shrink:0}
+.asset-group-toggle>span:not(.asset-group-knob){position:absolute;width:50%;height:100%;top:0;display:flex;align-items:center;justify-content:center}
+.asset-group-type{left:0}.asset-group-class{right:0}
+.asset-group-knob{position:absolute;left:4px;top:3px;width:40px;height:26px;border-radius:20px;background:var(--brand);transform:translateX(46px);transition:transform .18s}
+.asset-group-knob:after{content:"";position:absolute;left:17px;top:9px;width:5px;height:8px;border-left:1px solid #fff9;border-right:1px solid #fff9}
+.asset-group-toggle[aria-checked=true] .asset-group-knob{transform:translateX(0)}
+.asset-group-toggle[aria-checked=true] .asset-group-type,.asset-group-toggle[aria-checked=false] .asset-group-class{visibility:hidden}
+.asset-group-toggle:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+.asset-report-filters{grid-template-columns:max-content minmax(130px,1fr) minmax(130px,1fr) max-content;align-items:end;gap:12px}
+.asset-lifecycle-tabs{display:flex;gap:5px;align-items:center;height:40px}
+.asset-lifecycle-tabs .btn{padding:7px 9px;font-size:12px;white-space:nowrap;height:40px}
+.asset-lifecycle-tabs .pill{font-size:10px;padding:2px 5px;margin-inline-start:3px}
+@media(max-width:800px){.asset-report-filters{grid-template-columns:max-content 1fr 1fr}.asset-status-filter{grid-column:2/-1}.asset-lifecycle-tabs{flex-wrap:wrap;height:auto}}
+@media(max-width:700px){.asset-report-filters{grid-template-columns:1fr 1fr}.asset-group-toggle-wrap{grid-column:1/-1}.asset-status-filter{grid-column:1/-1}}

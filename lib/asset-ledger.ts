@@ -45,3 +45,18 @@ export function disposedAssetHistory(assetId:string,transactions:any[]){
   return {disposed_quantity:disposed.reduce((sum,t)=>sum.add(t.quantity??0),new Decimal(0)).toNumber(),
     disposed_cost_value:disposed.reduce((sum,t)=>sum.add(t.metadata?.disposed_cost_base??t.metadata?.cost_basis_base??t.base_value??0),new Decimal(0)).toNumber()};
 }
+
+// Historical sale cost comes from FIFO allocations, never from sale proceeds
+// or today's market quote. Missing cost remains unknown rather than zero.
+export function soldAssetHistory(assetId:string,transactions:any[],allocations:any[]){
+  const sales=transactions.filter(t=>t.asset_account_id===assetId&&t.transaction_type==='SALE'&&!t.metadata?.lifecycle_reversed);
+  let cost=new Decimal(0),known=true;
+  for(const sale of sales){
+    const lines=allocations.filter(a=>a.transaction_id===sale.id);
+    const amount=lines.length?lines.reduce((sum,a)=>sum.add(a.value_base??0),new Decimal(0)).toNumber():sale.metadata?.cost_basis_base;
+    if(amount==null)known=false;else cost=cost.add(amount);
+  }
+  return {sold_quantity:sales.reduce((sum,t)=>sum.add(t.quantity??0),new Decimal(0)).toNumber(),
+    sold_cost_value:known?cost.toNumber():null,
+    sold_proceeds_value:sales.reduce((sum,t)=>sum.add(t.base_value??0),new Decimal(0)).toNumber()};
+}
