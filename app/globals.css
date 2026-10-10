@@ -1414,3 +1414,14 @@ textarea:focus {
 .asset-valuation-details[open]>summary span{transform:rotate(90deg)}
 .asset-valuation-details>summary:hover{background:var(--soft,#edf4f4)}
 .asset-valuation-content{white-space:normal;min-width:220px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card,#fff)}
+
+.asset-group-toggle-wrap{display:flex;align-items:flex-end;padding-bottom:8px}
+.asset-group-toggle{display:inline-flex;align-items:center;gap:7px;padding:4px 0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
+.asset-group-toggle-track{display:inline-flex;align-items:center;width:30px;height:18px;padding:2px;background:var(--line,#cad8dd);border-radius:12px;direction:ltr}
+.asset-group-toggle-track>span{width:14px;height:14px;border-radius:50%;background:var(--card,#fff);box-shadow:0 1px 3px #0002;transition:transform .15s}
+.asset-group-toggle[aria-checked=true] .asset-group-toggle-track{background:var(--brand,#216d72)}
+.asset-group-toggle[aria-checked=true] .asset-group-toggle-track>span{transform:translateX(12px)}
+.asset-group-toggle:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+
+.asset-report-filters{grid-template-columns:max-content minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:700px){.asset-report-filters{grid-template-columns:1fr 1fr}.asset-report-filters .asset-group-toggle-wrap{grid-column:1/-1;padding-bottom:0}}
