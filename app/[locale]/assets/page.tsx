@@ -14,6 +14,8 @@ import {
   sortAssetRows,
   visibleAssetColumns,
 } from "@/lib/asset-table-preferences";
+import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
+import AssetLifecyclePanel from "@/components/assets/AssetLifecyclePanel";
 type T =
   | "CASH"
   | "BANK"
@@ -36,8 +38,8 @@ const TYPES: Array<[T, string, string, string]> = [
   ["OTHER", "أصل آخر", "Other", "•"],
 ];
 type AssetsPageDesign = "executive" | "cards" | "analytical";
-const FX = 3.75,
-  empty: any = {
+const empty: any = {
+    currency:"SAR", fx_rate:"1", vat_amount:"0", recoverable_percent:"100", counterparty_id:"", invoice_reference:"", due_date:"",
     asset_type: "CASH",
     name: "",
     amount: "",
@@ -87,15 +89,16 @@ export default function Assets({
     [form, setForm] = useState<any>(empty),
     [edit, setEdit] = useState<string | null>(null),
     [saving, setSaving] = useState(false),
+    [requestId,setRequestId]=useState(""),
+    [operationAsset,setOperationAsset]=useState<any>(null),
     [msg, setMsg] = useState(""),
     [loadError, setLoadError] = useState(""),
     [loading, setLoading] = useState(true),
-    [catalog, setCatalog] = useState<any>({ organizations: [], entities: [], cost_centers: [], classes: [], types: [] }),
+    [catalog, setCatalog] = useState<any>({ organizations: [], entities: [], cost_centers: [], classes: [], types: [], suppliers:[] }),
     [assetScope, setAssetScope] = useState<"PERSONAL"|"ORGANIZATION">("PERSONAL"),
     [scopeOrgId, setScopeOrgId] = useState(""),
     [scopeEntityId, setScopeEntityId] = useState(""),
     [scopeCostCenterId, setScopeCostCenterId] = useState(""),
-    [usd, setUsd] = useState(false),
     [closed, setClosed] = useState<Record<string, boolean>>({}),
     [tablePreferences, setTablePreferences] =
       useState<AssetTablePreferences>(() => assetTablePreset("professional")),
@@ -105,8 +108,8 @@ export default function Assets({
       column: AssetSortColumn;
       direction: AssetSortDirection;
     }>({ column: "current", direction: "desc" });
-  const cur = usd ? "USD" : "SAR",
-    cv = (n: any) => (usd ? Number(n || 0) / FX : Number(n || 0));
+  const baseCurrency=assetScope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR":catalog.base_currency||"SAR";
+  const cur = baseCurrency, cv = (n: any) => Number(n || 0);
   const load = async () => {
     setLoading(true);
     setLoadError("");
@@ -273,6 +276,7 @@ export default function Assets({
       asset_type: r.asset_type,
       name: r.name,
       amount: d.opening_value ?? d.purchase_value ?? "",
+      fx_rate:d.fx_rate??1,vat_amount:d.vat_amount??0,recoverable_percent:d.recoverable_percent??100,counterparty_id:d.counterparty_id??"",invoice_reference:d.invoice_reference??"",due_date:d.due_date??"",
       metadata: d, currency: r.currency, unit:r.unit, expected_updated_at:r.updated_at,
       has_financial_history:r.has_financial_history,
       acquisition_mode:d.acquisition_mode??"OPENING_BALANCE",
@@ -362,14 +366,14 @@ export default function Assets({
         );
       case "action":
         return (
-          <button
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}><button
             type="button"
             className="btn secondary asset-edit-btn"
             onClick={() => editRow(row)}
             aria-label={ar ? `تعديل ${row.name}` : `Edit ${row.name}`}
           >
             ✎
-          </button>
+          </button>{row.ownership_scope==="ORGANIZATION"&&row.current_quantity>0&&<button type="button" className="btn secondary" style={{fontSize:11,padding:4}} onClick={()=>setOperationAsset(row)}>{ar?"عمليات الأصل":"Asset operations"}</button>}{(row.financial_review_events||[]).map((e:any)=><AssetFinancialReview key={e.id} eventId={e.id} ar={ar} onChanged={()=>void load()}/>)}{row.ownership_scope!=="ORGANIZATION"&&row.current_quantity>0&&<a className="btn secondary" style={{fontSize:11,padding:4}} href={`/${locale}/transactions`}>{ar?"بيع / استبعاد":"Sale / disposal"}</a>}</div>
         );
     }
   };
@@ -392,9 +396,11 @@ export default function Assets({
     }
     const selectedV2Type = catalog.types.find((x:any) => x.code === form.asset_type_code);
     const compatibleLegacyType = selectedV2Type?.default_legacy_asset_type || form.asset_type;
+    const nextRequestId=requestId||crypto.randomUUID();if(!edit&&!requestId)setRequestId(nextRequestId);
     setSaving(true);
     const metadata: any = {
       ...(edit ? form.metadata ?? {} : {}),
+      fx_rate:Number(form.fx_rate),vat_amount:Number(form.vat_amount||0),recoverable_percent:Number(form.recoverable_percent??100),counterparty_id:form.counterparty_id||null,invoice_reference:form.invoice_reference||null,due_date:form.due_date||null,
       purchase_value: pc,
       market_value: mv,
       estimated_value: mv,
@@ -416,14 +422,15 @@ export default function Assets({
         metadata.market_price_source="USER_MANUAL";metadata.market_valuation_date=new Date().toISOString().slice(0,10);metadata.market_value_auto=false;metadata.market_price_currency=form.currency;
       }
     }
-    if(edit && form.has_financial_history) for(const key of ["quantity","purchase_value","opening_value","purchase_price","karat","purity","purchase_date","acquisition_mode","funding_account_id"]) {
+    if(edit && form.has_financial_history) for(const key of ["quantity","purchase_value","opening_value","purchase_price","karat","purity","purchase_date","acquisition_mode","funding_account_id","fx_rate","vat_amount","recoverable_percent","counterparty_id","invoice_reference","due_date"]) {
       if(form.metadata?.[key]===undefined)delete metadata[key];else metadata[key]=form.metadata[key];
     }
     const body = {
       ...(edit ? { id: edit } : {}),
       asset_type: compatibleLegacyType,
       name: form.name,
-      currency: edit ? form.currency : "SAR",
+      currency: form.currency,
+      ...(!edit?{request_id:nextRequestId}:{}),
       ...(edit ? {expected_updated_at:form.expected_updated_at}:{}),
       unit: edit ? form.unit : metal ? "g" : form.asset_type === "STOCK" ? "share" : "unit",
       is_zakatable: form.is_zakatable,
@@ -443,7 +450,7 @@ export default function Assets({
     });
     if (r.ok) {
       setForm({ ...empty, ownership_scope: assetScope, organization_id: assetScope === "ORGANIZATION" ? (scopeOrgId || null) : null, entity_id: assetScope === "ORGANIZATION" ? (scopeEntityId || null) : null, cost_center_id: assetScope === "ORGANIZATION" ? (scopeCostCenterId || null) : null });
-      setEdit(null);
+      setEdit(null);setRequestId("");
       setMsg(
         ar
           ? "تم الحفظ — أنشئ Snapshot جديد لتحديث الاحتساب الزكوي"
@@ -473,20 +480,7 @@ export default function Assets({
               : "Zakat and Hawl below come from the latest engine Snapshot, not legacy asset metadata."}
           </p>
         </div>
-        <div>
-          <button
-            className={`btn ${usd ? "secondary" : ""}`}
-            onClick={() => setUsd(false)}
-          >
-            🇸🇦 SAR
-          </button>{" "}
-          <button
-            className={`btn ${!usd ? "secondary" : ""}`}
-            onClick={() => setUsd(true)}
-          >
-            🇺🇸 USD
-          </button>
-        </div>
+        <span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span>
       </div>
       <section className="card section asset-scope-bar">
         <div className="asset-scope-title">
@@ -595,6 +589,7 @@ export default function Assets({
           source={indicatorSource(ar ? "تواريخ الحول" : "Hawl dates")}
         />
       </section>
+      {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
       <section className="card section">
         <h3>
           {edit ? "✏️ " : "＋ "}
@@ -622,13 +617,22 @@ export default function Assets({
               {rows.filter((x:any)=>!x.organization_id && (!x.ownership_scope || x.ownership_scope==="PERSONAL") && ["CASH","BANK"].includes(x.asset_type)).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           </label>}
+          <label>{ar?"عملة الأصل":"Asset currency"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.currency} onChange={e=>setForm({...form,currency:e.target.value,fx_rate:"",funding_account_id:""})}>{["SAR","USD","AED","EUR","GBP","KWD","BHD","QAR","OMR","JOD","EGP"].map(c=><option key={c}>{c}</option>)}</select></label>
+          <label>{ar?"سعر الصرف إلى عملة الأساس بتاريخ الاقتناء":"Acquisition exchange rate to base currency"}<input type="number" min="0.00000001" step="any" disabled={Boolean(edit&&form.has_financial_history)} value={form.fx_rate} onChange={e=>setForm({...form,fx_rate:e.target.value})}/><small>{ar?"الأساس: ":"Base: "}{form.ownership_scope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===form.organization_id)?.base_currency||"SAR":catalog.base_currency||"SAR"}</small></label>
+          {!edit&&form.acquisition_mode==="PURCHASE"&&form.ownership_scope==="ORGANIZATION"&&<>
+            <label>{ar?"المورد":"Supplier"}<select value={form.counterparty_id} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">{ar?"اختر المورد":"Choose supplier"}</option>{(catalog.suppliers||[]).filter((x:any)=>x.organization_id===form.organization_id&&["SUPPLIER","BOTH"].includes(x.party_type)).map((x:any)=><option value={x.id} key={x.id}>{x.name}</option>)}</select><a href={`/${locale}/liquidity?tab=counterparties`}>{ar?"إدارة الموردين":"Manage suppliers"}</a></label>
+            <label>{ar?"رقم فاتورة المورد":"Supplier invoice reference"}<input value={form.invoice_reference} onChange={e=>setForm({...form,invoice_reference:e.target.value})}/></label>
+            <label>{ar?"تاريخ استحقاق السداد":"Payment due date"}<input type="date" min={form.purchase_date} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>
+            <label>{ar?"ضريبة المدخلات بعملة الأصل":"Input VAT in asset currency"}<input type="number" min="0" step="any" value={form.vat_amount} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></label>
+            <label>{ar?"نسبة الضريبة القابلة للاسترداد %":"Recoverable VAT %"}<input type="number" min="0" max="100" value={form.recoverable_percent} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/><small>{ar?"الجزء غير القابل للاسترداد يضاف لتكلفة الأصل؛ السداد إجراء مستقل.":"Nonrecoverable VAT is capitalized; payment is separate."}</small></label>
+          </>}
           <label>{ar ? "فئة الأصل" : "Asset class"}<select disabled={Boolean(edit && form.has_financial_history)} value={form.asset_class_code || ""} onChange={(e)=>setForm({...form,asset_class_code:e.target.value||null,asset_type_code:null})}><option value="">{ar?"التصنيف القديم / غير محدد":"Legacy / not specified"}</option>{catalog.classes.map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>
-          {form.asset_class_code && <label>{ar ? "نوع الأصل التفصيلي" : "Asset type"}<select disabled={Boolean(edit && form.has_financial_history)} value={form.asset_type_code || ""} onChange={(e)=>setForm({...form,asset_type_code:e.target.value||null})}><option value="">{ar?"اختر النوع":"Choose type"}</option>{catalog.types.filter((x:any)=>x.class_code===form.asset_class_code).map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>}
+          {form.asset_class_code && <label>{ar ? "نوع الأصل التفصيلي" : "Asset type"}<select disabled={Boolean(edit && form.has_financial_history)} value={form.asset_type_code || ""} onChange={(e)=>setForm({...form,asset_type_code:e.target.value||null,asset_type:catalog.types.find((t:any)=>t.code===e.target.value)?.default_legacy_asset_type||form.asset_type})}><option value="">{ar?"اختر النوع":"Choose type"}</option>{catalog.types.filter((x:any)=>x.class_code===form.asset_class_code).map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>}
           <label>
             {ar ? "نوع الأصل" : "Type"}
             <select
-              disabled={Boolean(edit && form.has_financial_history)}
-              value={form.asset_type}
+              disabled={Boolean(form.asset_type_code || (edit && form.has_financial_history))}
+              value={catalog.types.find((t:any)=>t.code===form.asset_type_code)?.default_legacy_asset_type||form.asset_type}
               onChange={(e) =>
                 setForm({
                   ...form,

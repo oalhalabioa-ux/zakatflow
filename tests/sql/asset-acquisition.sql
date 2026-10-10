@@ -1,0 +1,50 @@
+-- Run in Financial Core QA inside BEGIN/ROLLBACK; no production fixtures.
+create temporary table asset_acquisition_test_results(test text,passed boolean);
+grant select,insert on asset_acquisition_test_results to authenticated;
+do $$
+declare uid uuid; cash jsonb; asset jsonb; retry jsonb;foreign_cash jsonb;foreign_asset jsonb;sale jsonb;req uuid:=gen_random_uuid();p jsonb; before_count integer; failed boolean:=false;total numeric;
+begin
+ select id into uid from public.profiles where base_currency='SAR' limit 1;
+ perform set_config('request.jwt.claim.sub',uid::text,true);
+ set local role authenticated;
+ p:=jsonb_build_object('name','QA cash acquisition','asset_type','CASH','currency','SAR','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',1,'purchase_value',1000,'purchase_date','2026-01-01','acquisition_mode','OPENING_BALANCE'));
+ cash:=public.create_asset_with_acquisition(p,req);
+ retry:=public.create_asset_with_acquisition(p,req);
+ insert into asset_acquisition_test_results values('retry_same_request_has_one_asset',cash->>'id'=retry->>'id');
+ select count(*) into before_count from public.asset_accounts where user_id=uid;
+ begin perform public.create_asset_with_acquisition(p||jsonb_build_object('name','Different payload'),req);exception when others then failed:=sqlerrm='ASSET_REQUEST_CONFLICT';end;
+ insert into asset_acquisition_test_results values('changed_retry_rejected',failed);
+ p:=jsonb_build_object('name','QA funded purchase','asset_type','OTHER','currency','SAR','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',2,'purchase_value',400,'purchase_date','2026-02-01','acquisition_mode','PURCHASE','funding_account_id',cash->>'id'));
+ asset:=public.create_asset_with_acquisition(p,gen_random_uuid());
+ select sum(remaining_value_base) into total from public.lots where asset_account_id=(cash->>'id')::uuid;
+ insert into asset_acquisition_test_results values('purchase_debits_exact_value',total=600);
+ select sum(remaining_quantity) into total from public.lots where asset_account_id=(asset->>'id')::uuid;
+ insert into asset_acquisition_test_results values('purchase_has_lot',total=2);
+ select count(*) into before_count from public.asset_accounts where user_id=uid;failed:=false;
+ begin perform public.create_asset_with_acquisition(jsonb_set(p,'{metadata,purchase_value}','1000000'),gen_random_uuid());exception when others then failed:=sqlerrm='PERSONAL_PURCHASE_INSUFFICIENT_FUNDS';end;
+ insert into asset_acquisition_test_results values('insufficient_funds_rolls_back_asset',failed and before_count=(select count(*) from public.asset_accounts where user_id=uid));
+ select sum(remaining_value_base) into total from public.lots where asset_account_id=(cash->>'id')::uuid;
+ insert into asset_acquisition_test_results values('failed_purchase_does_not_debit',total=600);
+ failed:=false;begin perform public.create_asset_with_acquisition(jsonb_set(p,'{currency}','"USD"'),gen_random_uuid());exception when others then failed:=sqlerrm='ASSET_ACQUISITION_INVALID';end;
+ insert into asset_acquisition_test_results values('foreign_currency_requires_explicit_rate',failed);
+
+ p:=jsonb_build_object('name','QA foreign cash','asset_type','CASH','currency','USD','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',1,'purchase_value',200,'purchase_date','2026-01-01','acquisition_mode','OPENING_BALANCE','fx_rate',3.75));
+ foreign_cash:=public.create_asset_with_acquisition(p,gen_random_uuid());
+ p:=jsonb_build_object('name','QA foreign sold asset','asset_type','OTHER','currency','USD','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',2,'purchase_value',100,'purchase_date','2026-01-01','acquisition_mode','OPENING_BALANCE','fx_rate',3.75));
+ foreign_asset:=public.create_asset_with_acquisition(p,gen_random_uuid());
+ sale:=public.post_sale_with_proceeds(uid,(foreign_asset->>'id')::uuid,(foreign_cash->>'id')::uuid,'2026-02-01',1,60,'USD','SAR',225,null);
+ insert into asset_acquisition_test_results values('foreign_sale_deposits_quote_not_base',(select currency='USD' and gross_value=60 and base_value=225 from public.transactions where id=(sale->>'proceeds_transaction_id')::uuid));
+ insert into asset_acquisition_test_results values('foreign_sale_realized_gain', (sale->>'cost_basis_base')::numeric=187.5 and (sale->>'realized_gain_base')::numeric=37.5);
+ p:=p||jsonb_build_object('metadata',(p->'metadata')||jsonb_build_object('acquisition_mode','PURCHASE','funding_account_id',foreign_cash->>'id','quantity',1,'purchase_value',50));req:=gen_random_uuid();
+ retry:=public.purchase_existing_asset((foreign_asset->>'id')::uuid,p,req);sale:=public.purchase_existing_asset((foreign_asset->>'id')::uuid,p,req);
+ insert into asset_acquisition_test_results values('existing_purchase_retry_is_idempotent',retry->>'id'=sale->>'id');
+ select sum(remaining_value_base) into total from public.lots where asset_account_id=(foreign_cash->>'id')::uuid;
+ insert into asset_acquisition_test_results values('foreign_existing_purchase_debits_exactly_once',total=787.5);
+ perform public.post_asset_disposal(uid,(foreign_asset->>'id')::uuid,'2026-03-01',2,null);
+ insert into asset_acquisition_test_results values('foreign_disposal_releases_all_balance',(select sum(remaining_quantity)=0 and sum(remaining_value_base)=0 from public.lots where asset_account_id=(foreign_asset->>'id')::uuid));
+ perform set_config('request.jwt.claim.sub','',true);failed:=false;
+ begin perform public.create_asset_with_acquisition(p,gen_random_uuid());exception when others then failed:=sqlerrm='UNAUTHORIZED';end;
+ insert into asset_acquisition_test_results values('anonymous_purchase_denied',failed);
+end $$;
+select * from asset_acquisition_test_results;
+do $$ begin if exists(select 1 from asset_acquisition_test_results where not passed) then raise exception 'ASSET_ACQUISITION_TEST_FAILED';end if;end $$;

@@ -124,6 +124,8 @@ export async function GET(request: Request) {
       : { data: [], error: null };
     if (documentFlowsError) throw documentFlowsError;
     const flowByDocument = new Map((documentFlows ?? []).map((flow: any) => [flow.source_record_id, flow]));
+    const assetDocs=documents.filter(d=>d.asset_transaction_id);
+    if(assetDocs.length){const{data:bindings,error:be}=await supabase.from('financial_vat_source_bindings').select('source_record_id,event_id').eq('organization_id',organizationId).eq('source_table','vat_documents').in('source_record_id',assetDocs.map(d=>d.id));if(be)throw be;const ids=(bindings||[]).map(b=>b.event_id);if(ids.length){const{data:links,error:le}=await supabase.from('financial_event_links').select('event_id,target_record_id').eq('organization_id',organizationId).eq('link_type','CASH_FLOW').eq('target_module','liquidity_flows').in('event_id',ids);if(le)throw le;const flowIds=(links||[]).map(l=>l.target_record_id);if(flowIds.length){const{data:flows,error:fe}=await supabase.from('liquidity_flows').select('id,direction,amount,settled_amount,settlement_status,status,currency,due_date').eq('organization_id',organizationId).in('id',flowIds);if(fe)throw fe;for(const b of bindings||[]){const link=(links||[]).find(l=>l.event_id===b.event_id);const flow=(flows||[]).find(f=>f.id===link?.target_record_id);if(flow)flowByDocument.set(b.source_record_id,flow);}}}}
     for (const document of documents) document.cash_flow = flowByDocument.get(document.id) ?? null;
 
     const { data: issuedInvoices, error: invoiceError } = await supabase.from('vat_einvoices')
@@ -461,6 +463,7 @@ export async function POST(request: Request) {
         asset_transaction_id: document.asset_transaction_id ?? null,
         preceding_document_id: document.preceding_document_id ?? null,
       };
+      if(document.asset_transaction_id){const{data,error}=await supabase.rpc('create_asset_vat_document',{p_values:documentValues});if(error)throw error;return NextResponse.json(data,{status:201});}
       if (document.document_kind !== 'INVOICE') {
         const { data: note, error: noteError } = await supabase.rpc('create_vat_note_document', { p_values: documentValues });
         if (noteError) throw noteError;
