@@ -15,6 +15,7 @@ import {
   visibleAssetColumns,
 } from "@/lib/asset-table-preferences";
 import { ASSET_DISPLAY_CLASSES, assetDisplayClass, assetTypeIcon, catalogDisplayClass } from "@/lib/asset-classification-display";
+import AssetsPageToolbar from "@/components/assets/AssetsPageToolbar";
 import AssetActionsMenu from "@/components/assets/AssetActionsMenu";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
 import AssetLifecyclePanel from "@/components/assets/AssetLifecyclePanel";
@@ -544,9 +545,9 @@ export default function Assets({
         </div>
         <span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span>
       </div>
-      <div className="page-head"><button type="button" className="btn" onClick={()=>setFormOpen(true)}>{ar?"＋ إضافة أصل":"＋ Add asset"}</button><button type="button" className="btn secondary" onClick={()=>setUsageOpen(!usageOpen)}>{ar?"⚙ إعداد الاستخدام":"⚙ Usage settings"}</button></div>
+      <AssetsPageToolbar ar={ar} onAdd={()=>setFormOpen(true)} onUsage={()=>setUsageOpen(!usageOpen)} usageOpen={usageOpen}/>
       {usageOpen&&<section className="card section"><label>{ar?"استخدام مساحة العمل للأصول":"Asset workspace usage"}<select value={usageMode} disabled={loading||usageSaving} onChange={e=>void saveUsage(e.target.value as typeof usageMode)}><option value="BOTH">{ar?"شخصي ومؤسسي":"Personal and organization"}</option><option value="PERSONAL">{ar?"شخصي فقط":"Personal only"}</option><option value="ORGANIZATION">{ar?"مؤسسي فقط":"Organization only"}</option></select></label><p className="muted">{ar?"هذا إعداد للعرض فقط. يمكن العودة إلى النطاق الآخر من هنا؛ لا ينقل ملكية الأصول ولا يغيّر أرصدتها.":"Display preference only. Switch back here; ownership and balances are unchanged."}</p></section>}
-      <section className="card section asset-scope-bar">
+      <section className={`card section asset-scope-bar ${assetScope==="PERSONAL"?"is-personal":""}`}>
         <div className="asset-scope-title">
           <strong>{ar ? "عرض الأصول" : "Asset view"}</strong>
           <span>{ar ? "يُطبّق على المؤشرات والتقرير فقط" : "Applies to KPIs and report only"}</span>
