@@ -1,7 +1,7 @@
 import { requireUser } from './auth';
 import { assetSchema } from '@/lib/validation/schemas';
 import { randomUUID } from 'node:crypto';
-import {assetLedgerBalance,assetZakatPayments,disposedAssetHistory} from '@/lib/asset-ledger';
+import {assetLedgerBalance,assetZakatPayments,disposedAssetHistory,soldAssetHistory} from '@/lib/asset-ledger';
 
 function openingValues(asset:any){const m=asset.metadata??{};const quantity=Number(m.quantity??(asset.asset_type==='CASH'||asset.asset_type==='BANK'?1:0));const value=Number(m.purchase_value??m.opening_value??m.market_value??m.estimated_value??0);const unitPrice=quantity>0?Number(m.purchase_price??(value/quantity)):value;const date=m.purchase_date;return{quantity,value,unitPrice,date}}
 function currentValuation(asset:any){const m=asset.metadata??{};const value=Number(m.market_value??m.estimated_value??m.purchase_value??m.opening_value??0);return{current_market_value:value,current_market_price:m.market_price_per_unit??m.market_price??null,current_valuation_date:m.market_valuation_date??null,current_valuation_source:m.market_price_source??(m.market_value_auto?'MARKET_PRICE':'ASSET_METADATA'),current_valuation_currency:m.market_price_currency??asset.currency,current_valuation_auto:Boolean(m.market_value_auto)}}
@@ -20,6 +20,9 @@ export async function listAssets(){
   supabase.from('asset_lifecycle_commands').select('asset_account_id,financial_event_id,operation,created_at').order('created_at',{ascending:false})
  ]);
  for(const result of [accounts,lotResult,exits,profileResult,cycleResult,assessmentResult,allocationResult,orgResult,operationResult])if(result.error)throw result.error;
+ const saleIds=(exits.data??[]).filter((t:any)=>t.transaction_type==='SALE'&&!t.metadata?.lifecycle_reversed).map((t:any)=>t.id);
+ const exitAllocationResult=saleIds.length?await supabase.from('transaction_allocations').select('transaction_id,value_base').in('transaction_id',saleIds):{data:[],error:null};
+ if(exitAllocationResult.error)throw exitAllocationResult.error;
  const lots=lotResult.data??[],cycles=cycleResult.data??[],assessments=assessmentResult.data??[];
  const activeCycle=cycles.find((c:any)=>['OPEN','ACTIVE'].includes(c.status));
  const displayCycle=[...cycles].reverse().find((c:any)=>c.final_assessment_id&&c.status!=='PAID')??activeCycle??cycles.find((c:any)=>c.final_assessment_id||c.assessment_id);
@@ -40,6 +43,12 @@ export async function listAssets(){
   return {...a,financial_review_events:reviews,acquisition_transaction_id:purchase?.metadata?.financial_event_id?purchase?.id:null,financial_event_id:purchase?.metadata?.financial_event_id??null,...currentValuation(a),...balance,has_financial_history:assetLots.length>0,lots:assetLots.filter((l:any)=>Number(l.remaining_quantity)>0),lifecycle_status,
    lifecycle_exit_date:lifecycle_status==='ACTIVE'?null:exit?.transaction_date??null,
    ...disposedAssetHistory(a.id,exits.data??[]),
+   ...soldAssetHistory(a.id,exits.data??[],exitAllocationResult.data??[]),
+   exit_history:(exits.data??[]).filter((t:any)=>t.asset_account_id===a.id&&!t.metadata?.lifecycle_reversed&&(t.transaction_type==='SALE'||t.metadata?.reason==='DISPOSAL_ZERO_VALUE')).map((t:any)=>({
+    id:t.id,date:t.transaction_date,kind:t.transaction_type==='SALE'?'SOLD':'DISPOSED',quantity:Number(t.quantity||0),
+    cost:t.transaction_type==='SALE'?soldAssetHistory(a.id,[t],exitAllocationResult.data??[]).sold_cost_value:disposedAssetHistory(a.id,[t]).disposed_cost_value,
+    proceeds:t.transaction_type==='SALE'?Number(t.base_value||0):0
+   })),
    lifecycle_exit_value:lifecycle_status==='SOLD'?Number(exit?.base_value||0):0};
  });
  if(!latest)return assets.map((a:any)=>({...a,zakat_calculation:null}));
