@@ -357,12 +357,14 @@ export default function Assets({
         );
       case "date":
         return row.lifecycle_status!=="ACTIVE" && row.lifecycle_exit_date ? `${row.metadata?.purchase_date || "—"} → ${row.lifecycle_exit_date}` : row.metadata?.purchase_date || "—";
-      case "weight":
+      case "weight": {
+        const quantity=row.lifecycle_status==="DISPOSED"?row.disposed_quantity:(row.current_quantity??m(row,"quantity"));
         return ["GOLD", "SILVER"].includes(row.asset_type)
-          ? `${fmt(row.current_quantity??m(row, "quantity"))} g`
-          : (row.current_quantity??m(row, "quantity"))
-            ? fmt(row.current_quantity??m(row, "quantity"))
+          ? `${fmt(quantity)} g`
+          : quantity
+            ? fmt(quantity)
             : "—";
+      }
       case "hawl":
         return (
           <HawlBadge
@@ -378,7 +380,7 @@ export default function Assets({
           />
         );
       case "cost":
-        return `${fmt(cv(costVal(row)))} ${cur}`;
+        return <span title={row.lifecycle_status==="DISPOSED"?(ar?"تكلفة الجزء المستغنى عنه قبل الاستبعاد":"Historical cost of disposed quantity"):undefined}>{fmt(cv(row.lifecycle_status==="DISPOSED"?row.disposed_cost_value:costVal(row)))} {cur}</span>;
       case "current":
         return <strong>{fmt(cv(val(row)))} {cur}</strong>;
       case "due":
@@ -796,6 +798,7 @@ export default function Assets({
           </span>{" "}
           {ar ? "تقرير الأصول" : "Asset report"}
         </h2>
+        {lifecycleFilter==="DISPOSED"&&<p className="notice">{ar?"الوزن والتكلفة أدناه للجزء المستغنى عنه قبل الاستبعاد. القيمة الحالية صفر، ولا تدخل هذه القيم في إجماليات الأصول النشطة.":"Weight and cost below describe the disposed quantity before disposal. Current value is zero; these historical figures are excluded from active asset totals."}</p>}
         <div className="form-grid" style={{marginBottom:16}}><label>{ar?"تجميع التقرير":"Group report"}<select value={groupBy} onChange={e=>setGroupBy(e.target.value as "CLASS"|"TYPE")}><option value="CLASS">{ar?"بحسب الفئة":"By class"}</option><option value="TYPE">{ar?"بحسب النوع":"By type"}</option></select></label><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label></div>
         {loading && <div className="card section muted">{ar ? "جارٍ تحميل الأصول…" : "Loading assets…"}</div>}
         {!loading && !loadError && groups.length === 0 && (
@@ -818,6 +821,7 @@ export default function Assets({
                     <span className="pill">{g.rows.length}</span>
                   </h3>
                   <div className="asset-summary">
+                    {lifecycleFilter==="DISPOSED"&&<span className="sum-chip"><span>{ar?"تكلفة المستغنى عنها":"Disposed historical cost"}</span><strong>{fmt(g.rows.reduce((sum,r)=>sum+Number(r.disposed_cost_value||0),0))} {cur}</strong></span>}
                     <span className="sum-chip">
                       <span className="sum-icon" aria-hidden="true">
                         ◆

@@ -1,7 +1,7 @@
 import { requireUser } from './auth';
 import { assetSchema } from '@/lib/validation/schemas';
 import { randomUUID } from 'node:crypto';
-import {assetLedgerBalance,assetZakatPayments} from '@/lib/asset-ledger';
+import {assetLedgerBalance,assetZakatPayments,disposedAssetHistory} from '@/lib/asset-ledger';
 
 function openingValues(asset:any){const m=asset.metadata??{};const quantity=Number(m.quantity??(asset.asset_type==='CASH'||asset.asset_type==='BANK'?1:0));const value=Number(m.purchase_value??m.opening_value??m.market_value??m.estimated_value??0);const unitPrice=quantity>0?Number(m.purchase_price??(value/quantity)):value;const date=m.purchase_date;return{quantity,value,unitPrice,date}}
 function currentValuation(asset:any){const m=asset.metadata??{};const value=Number(m.market_value??m.estimated_value??m.purchase_value??m.opening_value??0);return{current_market_value:value,current_market_price:m.market_price_per_unit??m.market_price??null,current_valuation_date:m.market_valuation_date??null,current_valuation_source:m.market_price_source??(m.market_value_auto?'MARKET_PRICE':'ASSET_METADATA'),current_valuation_currency:m.market_price_currency??asset.currency,current_valuation_auto:Boolean(m.market_value_auto)}}
@@ -11,7 +11,7 @@ export async function listAssets(){
  const [accounts,lotResult,exits,profileResult,cycleResult,assessmentResult,allocationResult,orgResult,operationResult]=await Promise.all([
   supabase.from('asset_accounts').select('*').order('created_at',{ascending:false}),
   supabase.from('lots').select('id,asset_account_id,original_quantity,remaining_quantity,remaining_value_base,hawl_start_date,hawl_due_date,acquisition_date,status,metadata'),
-  supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,base_value,metadata,created_at').in('transaction_type',['PURCHASE','SALE','ADJUSTMENT']).order('created_at',{ascending:false}),
+  supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,quantity,base_value,metadata,created_at').in('transaction_type',['PURCHASE','SALE','ADJUSTMENT']).order('created_at',{ascending:false}),
   supabase.from('profiles').select('base_currency').eq('id',user.id).single(),
   supabase.from('zakat_hawl_cycles').select('id,cycle_no,hawl_start_date,status,assessment_id,final_assessment_id').eq('user_id',user.id).order('cycle_no',{ascending:false}),
   supabase.from('zakat_assessments').select('id,assessment_date,valuation_date,status,nisab_value_base,zakat_rate,calculation_snapshot,hawl_cycle_id,currency,superseded_by').eq('user_id',user.id).neq('status','CANCELLED').order('assessment_date',{ascending:false}).order('created_at',{ascending:false}),
@@ -39,6 +39,7 @@ export async function listAssets(){
   const reviews=[...(operationResult.data??[]).filter((o:any)=>o.asset_account_id===a.id&&o.financial_event_id).map((o:any)=>({id:o.financial_event_id})),...(exits.data??[]).filter((t:any)=>t.asset_account_id===a.id&&t.transaction_type==='PURCHASE'&&t.metadata?.financial_event_id).map((t:any)=>({id:t.metadata.financial_event_id}))];
   return {...a,financial_review_events:reviews,acquisition_transaction_id:purchase?.metadata?.financial_event_id?purchase?.id:null,financial_event_id:purchase?.metadata?.financial_event_id??null,...currentValuation(a),...balance,has_financial_history:assetLots.length>0,lots:assetLots.filter((l:any)=>Number(l.remaining_quantity)>0),lifecycle_status,
    lifecycle_exit_date:lifecycle_status==='ACTIVE'?null:exit?.transaction_date??null,
+   ...disposedAssetHistory(a.id,exits.data??[]),
    lifecycle_exit_value:lifecycle_status==='SOLD'?Number(exit?.base_value||0):0};
  });
  if(!latest)return assets.map((a:any)=>({...a,zakat_calculation:null}));

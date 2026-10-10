@@ -39,3 +39,9 @@ export function assetZakatPayments(allocations: any[], assessment: any) {
   }
   return {currentByLot, currentByAsset, historicalByAsset};
 }
+
+export function disposedAssetHistory(assetId:string,transactions:any[]){
+  const disposed=transactions.filter(t=>t.asset_account_id===assetId&&t.metadata?.reason==='DISPOSAL_ZERO_VALUE'&&!t.metadata?.lifecycle_reversed);
+  return {disposed_quantity:disposed.reduce((sum,t)=>sum.add(t.quantity??0),new Decimal(0)).toNumber(),
+    disposed_cost_value:disposed.reduce((sum,t)=>sum.add(t.metadata?.disposed_cost_base??t.metadata?.cost_basis_base??t.base_value??0),new Decimal(0)).toNumber()};
+}
