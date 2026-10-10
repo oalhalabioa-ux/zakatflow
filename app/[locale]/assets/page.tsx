@@ -319,6 +319,7 @@ export default function Assets({
       (calc(r)?.statuses || []).includes("NOT_ASSESSED") &&
       (calc(r)?.lots || []).some((l: any) => l.hawl_start_date),
   );
+  const pendingInOpen = retroPending.filter(r => (r.zakat_cycle_calculations || []).some((c:any) => !c.cycle_closed)).length;
   const cycleScopeLabel = cycleScope === "ALL" ? (ar?"المغلقة + آخر احتساب للمفتوحة":"Closed + latest open assessments") : cycleScope === "CLOSED" ? (ar?"الدورات المغلقة":"Closed cycles") : cycleScope === "OPEN" ? (ar?"آخر احتساب للدورات المفتوحة":"Latest open-cycle assessments") : (ar?"احتساب الدورة المعروضة":"Displayed cycle assessment");
   const indicatorValue = (value: string) =>
     loading ? "…" : loadError ? "—" : value;
@@ -578,18 +579,6 @@ export default function Assets({
         </>}
       </section>}
       {loadError && <div className="notice">{loadError}</div>}
-      {!showingExited && retroPending.length > 0 && (
-        <div className="notice">
-          <strong>
-            {ar ? "أصول خارج الاحتساب المعروض" : "Assets outside the displayed assessment"}
-          </strong>
-          <div className="muted">
-            {ar
-              ? `${retroPending.length} أصل/أصول لها حول محفوظ لكنها غير موجودة في الاحتساب المعروض. تُراجع ضمن احتساب الدورة المفتوحة أو الدورة الجديدة؛ الاحتساب النهائي السابق يبقى محفوظًا دون تعديل.`
-              : `${retroPending.length} asset(s) have saved Hawl data but are outside the displayed assessment. Review them in an open or new cycle; the previous final assessment remains unchanged.`}
-          </div>
-        </div>
-      )}
       {!showingExited && <section className="grid section">
         <K
           i="◆"
@@ -960,6 +949,18 @@ export default function Assets({
           );
         })}
       </section>
+      {!showingExited && retroPending.length > 0 && (
+        <aside className="notice asset-report-notice" role="note">
+          <strong>{ar ? "أصول غير مشمولة باحتساب الدورة المعروضة" : "Assets outside the displayed cycle assessment"}</strong>
+          {pendingInOpen > 0 && <p className="muted">{ar
+            ? `${pendingInOpen} من الأصول غير مشمولة باحتساب الدورة المعروضة، ولها احتساب ضمن الدورة المفتوحة. اختر «شامل» أو «الدورات المفتوحة» لعرض احتسابها.`
+            : `${pendingInOpen} asset(s) are outside the displayed cycle assessment and have a saved calculation in an open cycle. Choose Comprehensive or Open cycles to view it.`}</p>}
+          {retroPending.length > pendingInOpen && <p className="muted">{ar
+            ? `${retroPending.length - pendingInOpen} من الأصول لها بيانات حول محفوظة ولم تُشمل باحتساب ضمن النطاق المختار. راجعها عند احتساب الدورة المفتوحة أو الجديدة.`
+            : `${retroPending.length - pendingInOpen} asset(s) have saved Hawl dates but no assessment in this scope. Review them when calculating an open or new cycle.`}</p>}
+          <small>{ar ? "الاحتساب النهائي للدورة المغلقة وأسعاره يبقيان محفوظين." : "The closed cycle’s final assessment and prices remain preserved."}</small>
+        </aside>
+      )}
     </main>
   );
 }
