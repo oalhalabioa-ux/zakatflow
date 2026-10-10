@@ -34,6 +34,7 @@ export default function Transactions() {
     key: SortKey;
     direction: SortDirection;
   }>({ key: "date", direction: "desc" });
+  const [showDeleted,setShowDeleted]=useState(false);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -61,12 +62,12 @@ export default function Transactions() {
   const selectedAsset=assets.find(a=>a.id===form.asset_account_id);
   const ownerBase=selectedAsset?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selectedAsset.organization_id)?.base_currency:catalog.base_currency;
   const [msg, setMsg] = useState("");
-  const load = async () => {
+  const load = async (deleted=showDeleted) => {
     setLoading(true);
     setLoadError("");
     try {
       const [transactionsResponse, assetsResponse,catalogResponse] = await Promise.all([
-        fetch("/api/transactions"),
+        fetch(`/api/transactions${deleted?"?deleted=true":""}`),
         fetch("/api/assets"),
         fetch("/api/assets/catalog"),
       ]);
@@ -97,6 +98,18 @@ export default function Transactions() {
   useEffect(() => {
     void load();
   }, []);
+  const [deletingId,setDeletingId]=useState<string|null>(null);
+  async function restoreTransaction(row:any){setDeletingId(row.id);try{const r=await fetch("/api/transactions",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:row.id})});if(!r.ok)throw Error("تعذر استعادة العملية");setMsg("تمت استعادة العملية");await load();}catch(e:any){setMsg(e.message);}finally{setDeletingId(null);}}
+  async function removeTransaction(row:any){
+    if(!confirm("حذف هذه العملية غير المرتبطة؟ سيُحفظ سجل الحذف للمراجعة."))return;
+    setDeletingId(row.id);setMsg("");
+    try{
+      const response=await fetch("/api/transactions",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id:row.id})});
+      const result=await response.json();
+      if(!response.ok)throw Error(result.error?.includes("TRANSACTION_DELETE_LINKED")?"العملية مرتبطة بأثر مالي أو أصل؛ لا يمكن حذفها.":"تعذر حذف العملية.");
+      setMsg("تم حذف العملية غير المرتبطة وحفظ سجلها للمراجعة.");await load();
+    }catch(error:any){setMsg(error.message);}finally{setDeletingId(null);}
+  }
   async function save() {
     setMsg("جار الحفظ…");
     const r = await fetch("/api/transactions", {
@@ -162,11 +175,11 @@ export default function Transactions() {
     () => {
       const inflowTypes = new Set(["ADD", "OPENING_BALANCE", "PURCHASE", "TRANSFER_IN"]);
       const outflowTypes = new Set(["SALE", "WITHDRAWAL", "TRANSFER_OUT", "ZAKAT_PAYMENT"]);
-      const inflows = rows.reduce((sum, row) => sum + (inflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : 0), 0);
-      const outflows = rows.reduce((sum, row) => sum + (outflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : (row.metadata?.adjustment_direction === "OUT" ? Math.abs(Number(row.metadata?.asset_effect_base ?? row.base_value) || 0) : 0)), 0);
+      const inflows = rows.filter(r=>!r.metadata?.asset_deleted).reduce((sum, row) => sum + (inflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : 0), 0);
+      const outflows = rows.filter(r=>!r.metadata?.asset_deleted).reduce((sum, row) => sum + (outflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : (row.metadata?.adjustment_direction === "OUT" ? Math.abs(Number(row.metadata?.asset_effect_base ?? row.base_value) || 0) : 0)), 0);
       return ({
-      count: rows.length,
-      total: rows.reduce((sum, row) => sum + (Number(row.base_value) || 0), 0),
+      count: rows.filter(r=>!r.metadata?.asset_deleted).length,
+      total: rows.filter(r=>!r.metadata?.asset_deleted).reduce((sum, row) => sum + (Number(row.base_value) || 0), 0),
       inflows,
       outflows,
       net: inflows - outflows,
@@ -366,7 +379,7 @@ export default function Transactions() {
             {integerFormatter.format(filteredRows.length)} من {integerFormatter.format(rows.length)}
           </span>
         </div>
-        <div className="transaction-filters">
+        <div className="transaction-filters"><button type="button" className="btn secondary" aria-pressed={showDeleted} onClick={()=>{setShowDeleted(!showDeleted);void load(!showDeleted);}}>{showDeleted?"العودة للعمليات":"العمليات المحذوفة"}</button>
           <label>
             <span>بحث</span>
             <input
@@ -428,7 +441,7 @@ export default function Transactions() {
                 <SortableHeader label="الأصل" column="asset" sort={sort} onSort={changeSort} mark={sortMark("asset")} />
                 <SortableHeader label="النوع" column="type" sort={sort} onSort={changeSort} mark={sortMark("type")} />
                 <SortableHeader label="القيمة" column="value" sort={sort} onSort={changeSort} mark={sortMark("value")} />
-                <SortableHeader label="العملة" column="currency" sort={sort} onSort={changeSort} mark={sortMark("currency")} />
+                <SortableHeader label="العملة" column="currency" sort={sort} onSort={changeSort} mark={sortMark("currency")} /><th>الإجراء</th>
               </tr>
             </thead>
             <tbody>
@@ -440,12 +453,12 @@ export default function Transactions() {
                   <td className="transaction-value">
                     {numberFormatter.format(Number(r.base_value) || 0)}
                   </td>
-                  <td>{r.base_currency}</td>
+                  <td>{r.base_currency}</td><td>{showDeleted?<button type="button" className="btn secondary" disabled={Boolean(deletingId)} onClick={()=>void restoreTransaction(r)}>استعادة</button>:r.can_delete?<button type="button" className="btn secondary" title="حذف العملية غير المرتبطة" aria-label={`حذف عملية ${assetName(r)} بتاريخ ${r.transaction_date}`} disabled={Boolean(deletingId)} onClick={()=>void removeTransaction(r)}>🗑</button>:<span className="muted" title="مرتبطة بأصل أو أثر مالي؛ الحذف غير متاح">🔒</span>}</td>
                 </tr>
               ))}
               {!loading && sortedRows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="muted">
+                  <td colSpan={6} className="muted">
                     {hasFilters
                       ? "لا توجد معاملات مطابقة للفلاتر الحالية."
                       : "لا توجد معاملات بعد."}

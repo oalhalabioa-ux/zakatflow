@@ -2,7 +2,9 @@ import {randomUUID} from 'node:crypto';
 import { requireUser } from './auth';
 import { transactionSchema } from '@/lib/validation/schemas';
 import {assetPurchaseFinancialClass,buildAssetPurchaseCoreIntent} from '@/lib/asset-financial-core';
-export async function listTransactions(){const {supabase,user}=await requireUser();const {data,error}=await supabase.from('transactions').select('*,asset_accounts!inner(name,asset_type,ownership_scope)').order('transaction_date',{ascending:false});if(error)throw error;return data;}
+export async function listTransactions(deleted=false){const {supabase,user}=await requireUser();const {data,error}=await supabase.from('transactions').select('*,asset_accounts!inner(name,asset_type,ownership_scope)').or(deleted?'metadata->>asset_deleted.eq.true':'metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('transaction_date',{ascending:false});if(error)throw error;if(!data?.length)return [];const{data:eligibility,error:guardError}=await supabase.rpc('asset_transaction_delete_eligibility',{p_ids:data.map(t=>t.id)});if(guardError)throw guardError;const guards=new Map((eligibility??[]).map((g:any)=>[g.transaction_id,g]));return data.map(t=>({...t,...(guards.get(t.id) as any)}));}
+export async function deleteUnlinkedAssetTransaction(id:string){const{supabase}=await requireUser();const{data,error}=await supabase.rpc('delete_unlinked_asset_transaction',{p_transaction_id:id});if(error)throw error;return data;}
+export async function restoreUnlinkedAssetTransaction(id:string){const{supabase}=await requireUser();const{data,error}=await supabase.rpc('restore_unlinked_asset_transaction',{p_transaction_id:id});if(error)throw error;return data;}
 async function recognizeOrganizationAssetPurchase(supabase:any,user:any,transaction:any,asset:any){
  const existingStatus=transaction?.metadata?.financial_core_status;
  if(existingStatus==='RECOGNIZED'&&transaction?.metadata?.financial_event_id)return transaction;
