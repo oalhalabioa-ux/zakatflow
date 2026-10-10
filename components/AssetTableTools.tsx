@@ -25,6 +25,7 @@ function isAssetsPageDesign(value: unknown): value is AssetsPageDesign {
 
 export default function AssetTableTools({ ar }: { ar: boolean }) {
   const active = usePathname()?.includes("/assets");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [settings, setSettings] = useState<AssetTablePreferences>(() =>
     assetTablePreset("professional"),
@@ -171,15 +172,16 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
       `}</style>
       <div className="asset-table-tools">
         <div className="att-bar">
-          <button type="button" className="btn secondary" aria-expanded={panel === "design"} onClick={() => togglePanel("design")}>
-            ◫ {ar ? "تصميم صفحة الأصول" : "Assets page design"}
+          <button type="button" className="asset-toolbar-icon" aria-label={ar ? "تصميم صفحة الأصول" : "Assets page design"} title={ar ? "تصميم صفحة الأصول" : "Assets page design"} aria-expanded={panel === "design"} onClick={() => togglePanel("design")}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>
           </button>
-          <button type="button" className="btn secondary" aria-expanded={panel === "table"} onClick={() => togglePanel("table")}>
-            ☷ {ar ? "تخصيص الجدول" : "Customize table"}
+          <button type="button" className="asset-toolbar-icon" aria-label={ar ? "تخصيص الجدول" : "Customize table"} title={ar ? "تخصيص الجدول" : "Customize table"} aria-expanded={panel === "table"} onClick={() => togglePanel("table")}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M9 6h12M9 12h12M9 18h12M3 6h2M3 12h2M3 18h2"/></svg>
           </button>
-          <button type="button" className="btn secondary" onClick={openDelete}>
-            🗑 {ar ? "حذف أصل" : "Delete asset"}
-          </button>
+          <div className="asset-toolbar-more">
+            <button type="button" className="asset-toolbar-icon" aria-label={ar ? "المزيد من خيارات الأصول" : "More asset options"} title={ar ? "المزيد من خيارات الأصول" : "More asset options"} aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} onKeyDown={event=>{if(event.key==="Escape")setMoreOpen(false);}}>⋯</button>
+            {moreOpen&&<div className="asset-toolbar-menu"><button type="button" onClick={()=>{setMoreOpen(false);void openDelete();}}>{ar ? "حذف أصل" : "Delete asset"}</button></div>}
+          </div>
         </div>
 
         {panel === "table" && (
