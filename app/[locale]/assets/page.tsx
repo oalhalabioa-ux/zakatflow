@@ -272,10 +272,13 @@ export default function Assets({
     setForm({
       asset_type: r.asset_type,
       name: r.name,
-      amount: d.opening_value ?? "",
+      amount: d.opening_value ?? d.purchase_value ?? "",
+      metadata: d, currency: r.currency, unit:r.unit, expected_updated_at:r.updated_at,
+      has_financial_history:r.has_financial_history,
+      acquisition_mode:d.acquisition_mode??"OPENING_BALANCE",
       quantity: d.quantity ?? "",
       purchase_price: d.purchase_price ?? "",
-      market_price: d.market_price ?? "",
+      market_price: d.market_price_per_unit ?? d.market_price ?? "",
       karat: d.karat ?? 24,
       purpose: d.purpose ?? "",
       purchase_date: d.purchase_date ?? "",
@@ -321,9 +324,9 @@ export default function Assets({
         return row.lifecycle_status!=="ACTIVE" && row.lifecycle_exit_date ? `${row.metadata?.purchase_date || "—"} → ${row.lifecycle_exit_date}` : row.metadata?.purchase_date || "—";
       case "weight":
         return ["GOLD", "SILVER"].includes(row.asset_type)
-          ? `${fmt(m(row, "quantity"))} g`
-          : m(row, "quantity")
-            ? fmt(m(row, "quantity"))
+          ? `${fmt(row.current_quantity??m(row, "quantity"))} g`
+          : (row.current_quantity??m(row, "quantity"))
+            ? fmt(row.current_quantity??m(row, "quantity"))
             : "—";
       case "hawl":
         return (
@@ -391,11 +394,12 @@ export default function Assets({
     const compatibleLegacyType = selectedV2Type?.default_legacy_asset_type || form.asset_type;
     setSaving(true);
     const metadata: any = {
+      ...(edit ? form.metadata ?? {} : {}),
       purchase_value: pc,
       market_value: mv,
       estimated_value: mv,
       purchase_date: form.purchase_date,
-      funding_account_id: !edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" ? form.funding_account_id : undefined,
+      ...(!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" ? {funding_account_id:form.funding_account_id}:{}),
     };
     if (form.amount) metadata.opening_value = +form.amount;
     if (form.quantity) metadata.quantity = +form.quantity;
@@ -403,12 +407,25 @@ export default function Assets({
     if (form.market_price) metadata.market_price = +form.market_price;
     if (metal) metadata.karat = +form.karat;
     if (form.purpose) metadata.purpose = form.purpose;
+    if(edit){
+      for(const key of ["market_value","estimated_value"]) {
+        if(form.metadata?.[key]===undefined)delete metadata[key];else metadata[key]=form.metadata[key];
+      }
+      if(market && Number(form.market_price)!==Number(form.metadata?.market_price_per_unit??form.metadata?.market_price??0)) {
+        metadata.market_price_per_unit=Number(form.market_price);metadata.market_value=mv;metadata.estimated_value=mv;
+        metadata.market_price_source="USER_MANUAL";metadata.market_valuation_date=new Date().toISOString().slice(0,10);metadata.market_value_auto=false;metadata.market_price_currency=form.currency;
+      }
+    }
+    if(edit && form.has_financial_history) for(const key of ["quantity","purchase_value","opening_value","purchase_price","karat","purity","purchase_date","acquisition_mode","funding_account_id"]) {
+      if(form.metadata?.[key]===undefined)delete metadata[key];else metadata[key]=form.metadata[key];
+    }
     const body = {
       ...(edit ? { id: edit } : {}),
       asset_type: compatibleLegacyType,
       name: form.name,
-      currency: "SAR",
-      unit: metal ? "g" : form.asset_type === "STOCK" ? "share" : "unit",
+      currency: edit ? form.currency : "SAR",
+      ...(edit ? {expected_updated_at:form.expected_updated_at}:{}),
+      unit: edit ? form.unit : metal ? "g" : form.asset_type === "STOCK" ? "share" : "unit",
       is_zakatable: form.is_zakatable,
       ownership_scope: form.ownership_scope || "PERSONAL",
       organization_id: form.ownership_scope === "ORGANIZATION" ? form.organization_id : null,
@@ -416,8 +433,9 @@ export default function Assets({
       cost_center_id: form.ownership_scope === "ORGANIZATION" ? form.cost_center_id : null,
       asset_class_code: form.asset_class_code || null,
       asset_type_code: form.asset_type_code || null,
-      metadata: {...metadata, acquisition_mode: !edit ? (form.acquisition_mode || "OPENING_BALANCE") : (form.metadata?.acquisition_mode || "OPENING_BALANCE")},
+      metadata: edit ? metadata : {...metadata,acquisition_mode:form.acquisition_mode||"OPENING_BALANCE"},
     };
+    try {
     const r = await fetch("/api/assets", {
       method: edit ? "PUT" : "POST",
       headers: { "content-type": "application/json" },
@@ -434,9 +452,9 @@ export default function Assets({
       await load();
     } else {
       const result = await r.json().catch(() => ({}));
-      setMsg(result.error || (ar ? "تعذر الحفظ" : "Save failed"));
+      setMsg(result.error==='ASSET_FINANCIAL_FIELDS_LOCKED' ? (ar ? "بيانات الاقتناء مرتبطة بحركات مالية؛ صححها من سجل المعاملات بعكس الحركة وتسجيل الصحيحة." : "Acquisition is linked to financial movements. Correct it through the transaction ledger.") : result.error==='ASSET_EDIT_CONFLICT' ? (ar ? "تغير الأصل أثناء التعديل. حدّث الصفحة وأعد المحاولة." : "The asset changed. Refresh and retry.") : result.error || (ar ? "تعذر الحفظ" : "Save failed"));
     }
-    setSaving(false);
+    } catch {setMsg(ar ? "تعذر الاتصال؛ حدّث البيانات قبل إعادة المحاولة." : "Connection failed. Refresh before retrying.");} finally {setSaving(false);}
   };
   return (
     <main className={`container assets-page assets-page-${design}`}>
@@ -477,7 +495,7 @@ export default function Assets({
         </div>
         <label>
           {ar ? "الملكية" : "Ownership"}
-          <select value={assetScope} onChange={(e) => { const next=e.target.value as "PERSONAL"|"ORGANIZATION"; setAssetScope(next); setScopeEntityId(""); setScopeCostCenterId(""); }}>
+          <select disabled={Boolean(edit)} value={assetScope} onChange={(e) => { const next=e.target.value as "PERSONAL"|"ORGANIZATION"; setAssetScope(next); setScopeEntityId(""); setScopeCostCenterId(""); }}>
             <option value="PERSONAL">{ar ? "شخصي" : "Personal"}</option>
             <option value="ORGANIZATION">{ar ? "مؤسسي / شركة" : "Organization / Company"}</option>
           </select>
@@ -485,21 +503,21 @@ export default function Assets({
         {assetScope === "ORGANIZATION" && <>
           <label>
             {ar ? "الشركة / المؤسسة" : "Organization"}
-            <select value={scopeOrgId} onChange={(e)=>{setScopeOrgId(e.target.value);setScopeEntityId("");setScopeCostCenterId("");}}>
+            <select disabled={Boolean(edit)} value={scopeOrgId} onChange={(e)=>{setScopeOrgId(e.target.value);setScopeEntityId("");setScopeCostCenterId("");}}>
               <option value="">{ar ? "اختر الشركة" : "Choose organization"}</option>
               {catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </label>
           <label>
             {ar ? "الفرع / الكيان" : "Entity"}
-            <select value={scopeEntityId} onChange={(e)=>setScopeEntityId(e.target.value)}>
+            <select disabled={Boolean(edit)} value={scopeEntityId} onChange={(e)=>setScopeEntityId(e.target.value)}>
               <option value="">{ar ? "كل الفروع / الجهة الرئيسية" : "All entities / main organization"}</option>
               {catalog.entities.filter((x:any)=>x.organization_id===scopeOrgId).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           </label>
           <label>
             {ar ? "مركز التكلفة" : "Cost center"}
-            <select value={scopeCostCenterId} onChange={(e)=>setScopeCostCenterId(e.target.value)}>
+            <select disabled={Boolean(edit)} value={scopeCostCenterId} onChange={(e)=>setScopeCostCenterId(e.target.value)}>
               <option value="">{ar ? "كل مراكز التكلفة" : "All cost centers"}</option>
               {catalog.cost_centers.filter((x:any)=>x.organization_id===scopeOrgId).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
@@ -537,7 +555,7 @@ export default function Assets({
         <K
           i="↗"
           tone="gain"
-          t={ar ? "الربح / الخسارة" : "Gain / loss"}
+          t={ar ? "فرق التقييم الحالي" : "Current valuation difference"}
           v={indicatorValue(`${fmt(cv(total - cost))} ${cur}`)}
           source={indicatorSource(ar ? "محسوب مباشرة" : "Live calculation")}
         />
@@ -551,9 +569,9 @@ export default function Assets({
         <K
           i="✓"
           tone="paid"
-          t={ar ? "المدفوع المخصص" : "Allocated paid"}
+          t={ar ? "مدفوع الاحتساب المعروض" : "Displayed assessment paid"}
           v={indicatorValue(`${fmt(cv(totalPaid))} ${cur}`)}
-          source={indicatorSource(ar ? "تخصيصات السداد" : "Payment allocations")}
+          source={indicatorSource(ar ? "الدورة نفسها فقط" : "Same cycle only")}
         />
         <K
           i="▦"
@@ -588,6 +606,7 @@ export default function Assets({
               ? "إضافة أصل"
               : "Add asset"}
         </h3>
+        {edit && form.has_financial_history && <p className="muted">{ar ? "بيانات الاقتناء محمية لارتباطها بحركات. يمكن تعديل الاسم والتقييم الحالي؛ التصحيح المالي من سجل المعاملات. الاحتسابات السابقة تحتفظ بأسعارها." : "Acquisition data is protected. Edit the name or current valuation; correct financial data in the transaction ledger. Previous assessments retain their prices."}</p>}
         <div className="form-grid">
           {!edit && <label>
             {ar ? "طريقة الاقتناء" : "Acquisition"}
@@ -603,11 +622,12 @@ export default function Assets({
               {rows.filter((x:any)=>!x.organization_id && (!x.ownership_scope || x.ownership_scope==="PERSONAL") && ["CASH","BANK"].includes(x.asset_type)).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           </label>}
-          <label>{ar ? "فئة الأصل" : "Asset class"}<select value={form.asset_class_code || ""} onChange={(e)=>setForm({...form,asset_class_code:e.target.value||null,asset_type_code:null})}><option value="">{ar?"التصنيف القديم / غير محدد":"Legacy / not specified"}</option>{catalog.classes.map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>
-          {form.asset_class_code && <label>{ar ? "نوع الأصل التفصيلي" : "Asset type"}<select value={form.asset_type_code || ""} onChange={(e)=>setForm({...form,asset_type_code:e.target.value||null})}><option value="">{ar?"اختر النوع":"Choose type"}</option>{catalog.types.filter((x:any)=>x.class_code===form.asset_class_code).map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>}
+          <label>{ar ? "فئة الأصل" : "Asset class"}<select disabled={Boolean(edit && form.has_financial_history)} value={form.asset_class_code || ""} onChange={(e)=>setForm({...form,asset_class_code:e.target.value||null,asset_type_code:null})}><option value="">{ar?"التصنيف القديم / غير محدد":"Legacy / not specified"}</option>{catalog.classes.map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>
+          {form.asset_class_code && <label>{ar ? "نوع الأصل التفصيلي" : "Asset type"}<select disabled={Boolean(edit && form.has_financial_history)} value={form.asset_type_code || ""} onChange={(e)=>setForm({...form,asset_type_code:e.target.value||null})}><option value="">{ar?"اختر النوع":"Choose type"}</option>{catalog.types.filter((x:any)=>x.class_code===form.asset_class_code).map((x:any)=><option key={x.code} value={x.code}>{ar?x.name_ar:x.name_en}</option>)}</select></label>}
           <label>
             {ar ? "نوع الأصل" : "Type"}
             <select
+              disabled={Boolean(edit && form.has_financial_history)}
               value={form.asset_type}
               onChange={(e) =>
                 setForm({
@@ -635,6 +655,7 @@ export default function Assets({
             {!edit && form.acquisition_mode === "OPENING_BALANCE" ? (ar ? "تاريخ التملك / الرصيد الافتتاحي" : "Ownership / opening date") : (ar ? "تاريخ الشراء" : "Purchase date")}
             <input
               type="date"
+              disabled={Boolean(edit && form.has_financial_history)}
               value={form.purchase_date}
               onChange={(e) =>
                 setForm({ ...form, purchase_date: e.target.value })
@@ -654,7 +675,8 @@ export default function Assets({
                 <input
                   type="number"
                   step="0.001"
-                  value={form.quantity}
+                  disabled={Boolean(edit && form.has_financial_history)}
+              value={form.quantity}
                   onChange={(e) =>
                     setForm({ ...form, quantity: e.target.value })
                   }
@@ -665,7 +687,8 @@ export default function Assets({
                 <input
                   type="number"
                   step="0.01"
-                  value={form.purchase_price}
+                  disabled={Boolean(edit && form.has_financial_history)}
+              value={form.purchase_price}
                   onChange={(e) =>
                     setForm({ ...form, purchase_price: e.target.value })
                   }
@@ -690,7 +713,8 @@ export default function Assets({
                   <input
                     type="number"
                     step="0.001"
-                    value={form.karat}
+                    disabled={Boolean(edit && form.has_financial_history)}
+              value={form.karat}
                     onChange={(e) =>
                       setForm({ ...form, karat: e.target.value })
                     }
@@ -704,7 +728,8 @@ export default function Assets({
               <input
                 type="number"
                 step="0.01"
-                value={form.amount}
+                disabled={Boolean(edit && form.has_financial_history)}
+              value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
               />
             </label>
@@ -912,7 +937,7 @@ function ZakatCell({
   amount: string;
 }) {
   const c = row.zakat_calculation;
-  if (!row.is_zakatable)
+  if (!row.is_zakatable && !Number(c?.zakat_amount))
     return <span className="pill">{ar ? "غير زكوي" : "Exempt"}</span>;
   if (!c)
     return <span className="pill">{ar ? "غير محتسب" : "Not assessed"}</span>;
@@ -949,6 +974,15 @@ function ZakatCell({
   return (
     <div className="zakat-result-compact">
       <strong>{amount}</strong> <span className="pill">{label}</span>
+      <details style={{marginTop:6}}><summary>{ar ? "أساس الاحتساب المحفوظ" : "Saved valuation basis"}</summary>
+        <div className="muted">{ar ? "تاريخ التقييم" : "Valuation date"}: {c.valuation_date} · {ar ? "الدورة" : "Cycle"}: {c.cycle_number??"—"}</div>
+        {(c.lots??[]).map((l:any)=><div key={l.id??l.lot_id} style={{marginTop:6,fontSize:11}}>
+          {ar ? "الكمية" : "Quantity"}: {fmt(l.quantity)} · {ar ? "السعر" : "Price"}: {l.valuation_price==null?"—":fmt(l.valuation_price)} {l.valuation_currency}
+          <br/>{ar ? "النقاوة" : "Purity"}: {l.valuation_snapshot?.purity??"—"} · {ar ? "سعر الصرف" : "FX"}: {l.fx_rate??"—"}
+          <br/>{ar ? "المصدر" : "Source"}: {l.valuation_snapshot?.priceSource??c.snapshot?.priceSource??"—"}
+        </div>)}
+        <div className="muted">{ar ? "مدفوعات تاريخية لكل الدورات" : "Historical payments across cycles"}: {fmt(c.historical_paid_amount)} {c.currency}</div>
+      </details>
     </div>
   );
 }

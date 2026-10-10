@@ -1,0 +1,58 @@
+-- Run inside a transaction followed by ROLLBACK. No real balances are altered.
+create temporary table snapshot_test_results(name text,passed boolean) on commit drop;
+grant all on snapshot_test_results to authenticated;
+do $$
+declare uid uuid;aid uuid;tid uuid;lid uuid;cid uuid;mid uuid;rate numeric;v1 jsonb;v2 jsonb;payload jsonb;lines jsonb;lineid uuid;pay1 uuid;pay2 uuid;before_count int;err text;
+begin
+ select id into uid from public.profiles where base_currency='SAR' limit 1;
+ select id,zakat_rate into mid,rate from public.zakat_methods where code='INDEPENDENT_LOTS' limit 1;
+ if uid is null or mid is null then raise exception 'TEST_SETUP_MISSING';end if;
+ perform set_config('request.jwt.claim.sub',uid::text,true);
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',uid,'role','authenticated')::text,true);
+ execute 'set local role authenticated';
+ insert into public.asset_accounts(user_id,asset_type,name,currency,unit,metadata) values(uid,'GOLD','ROLLBACK ONLY SNAPSHOT TEST','SAR','g','{"quantity":100,"purchase_value":30000,"purchase_date":"2025-01-01","karat":24,"market_price":300}'::jsonb) returning id into aid;
+ insert into public.transactions(user_id,asset_account_id,transaction_type,transaction_date,quantity,unit_price,currency,gross_value,base_currency,base_value,created_by) values(uid,aid,'OPENING_BALANCE','2025-01-01',100,300,'SAR',30000,'SAR',30000,uid) returning id into tid;
+ insert into public.lots(user_id,asset_account_id,source_transaction_id,acquisition_date,hawl_start_date,original_quantity,remaining_quantity,original_value_base,remaining_value_base) values(uid,aid,tid,'2025-01-01','2025-01-01',100,100,30000,30000) returning id into lid;
+ insert into public.zakat_hawl_cycles(user_id,cycle_no,nisab_standard,nisab_value_base,nisab_reached_date,hawl_start_date,hawl_due_date,status) values(uid,(select coalesce(max(cycle_no),0)+10000 from public.zakat_hawl_cycles where user_id=uid),'GOLD',25500,'2025-01-01','2025-01-01','2026-01-01','ACTIVE') returning id into cid;
+ payload:=jsonb_build_object('assessment_date','2026-10-10','valuation_date','2026-10-10','method_id',mid,'nisab_standard','GOLD','nisab_quantity',85,'nisab_value_base',25500,'total_zakatable_value',30000,'zakat_rate',rate,'zakat_due',30000*rate,'currency','SAR','hawl_cycle_id',cid,'calculation_snapshot',jsonb_build_object('schemaVersion',2,'candidateLots',1,'priceMode','MANUAL','priceSource','USER_MANUAL','calendarType','HIJRI_TABULAR','prices',jsonb_build_object('gold',300,'silver',4),'metalPrices',jsonb_build_object('GOLD',jsonb_build_object('price',300,'currency','SAR','fxRate',1))));
+ lines:=jsonb_build_array(jsonb_build_object('lot_id',lid,'quantity',100,'valuation_price',300,'valuation_currency','SAR','fx_rate',1,'market_value',30000,'eligible_value',30000,'zakat_amount',30000*rate,'eligibility_status','ELIGIBLE','reason_code','ELIGIBLE','explanation','rollback test','valuation_snapshot',jsonb_build_object('assetName','ROLLBACK ONLY SNAPSHOT TEST','assetType','GOLD','assetId',aid,'quantity',100,'purity',1,'unitPrice',300,'priceCurrency','SAR','fxRate',1,'priceSource','USER_MANUAL','marketValueBase',30000,'hawlStartDate','2025-01-01','hawlDueDate','2026-01-01','valuationDate','2026-10-10')));
+ v1:=public.save_zakat_assessment_snapshot(payload,lines,null);
+ select id into lineid from public.zakat_assessment_lines where assessment_id=(v1->>'id')::uuid;
+ insert into snapshot_test_results values('atomic_parent_and_lines',lineid is not null);
+ begin update public.zakat_assessments set zakat_due=1 where id=(v1->>'id')::uuid;raise exception 'EXPECTED_LOCK';exception when others then get stacked diagnostics err=message_text;if err<>'ASSESSMENT_SNAPSHOT_LOCKED' then raise exception 'WRONG_PARENT_LOCK: %',err;end if;end;
+ begin update public.zakat_assessment_lines set valuation_price=1 where id=lineid;raise exception 'EXPECTED_LOCK';exception when others then get stacked diagnostics err=message_text;if err<>'ASSESSMENT_SNAPSHOT_LOCKED' then raise exception 'WRONG_LINE_LOCK: %',err;end if;end;
+ insert into snapshot_test_results values('immutable_prices_and_amounts',true);
+ begin update public.asset_accounts set metadata=jsonb_set(metadata,'{quantity}','120') where id=aid;raise exception 'EXPECTED_LOCK';exception when others then get stacked diagnostics err=message_text;if err<>'ASSET_FINANCIAL_FIELDS_LOCKED' then raise exception 'WRONG_ASSET_LOCK: %',err;end if;end;
+ update public.asset_accounts set name='ROLLBACK ONLY RENAMED',metadata=jsonb_set(metadata,'{market_price}','350') where id=aid;
+ insert into snapshot_test_results values('description_and_current_market_edit',true);
+ insert into snapshot_test_results values('market_edit_does_not_change_saved_price',(select valuation_price=300 from public.zakat_assessment_lines where id=lineid));
+ select count(*) into before_count from public.zakat_assessments where user_id=uid;
+ begin perform public.save_zakat_assessment_snapshot(payload,jsonb_set(lines,'{0,quantity}','999'),(v1->>'id')::uuid);raise exception 'EXPECTED_BALANCE_CONFLICT';exception when others then get stacked diagnostics err=message_text;if err<>'ASSESSMENT_BALANCE_CHANGED' then raise exception 'WRONG_BALANCE_ERROR: %',err;end if;end;
+ insert into snapshot_test_results values('invalid_save_has_no_partial_rows',(select count(*)=before_count from public.zakat_assessments where user_id=uid));
+ payload:=jsonb_set(jsonb_set(jsonb_set(jsonb_set(payload,'{nisab_value_base}','29750'),'{total_zakatable_value}','35000'),'{zakat_due}',to_jsonb(35000*rate)),'{calculation_snapshot,metalPrices,GOLD,price}','350');
+ payload:=jsonb_set(payload,'{calculation_snapshot,prices,gold}','350');
+ lines:=jsonb_set(jsonb_set(jsonb_set(jsonb_set(lines,'{0,valuation_price}','350'),'{0,market_value}','35000'),'{0,eligible_value}','35000'),'{0,zakat_amount}',to_jsonb(35000*rate));
+ lines:=jsonb_set(jsonb_set(lines,'{0,valuation_snapshot,unitPrice}','350'),'{0,valuation_snapshot,marketValueBase}','35000');
+ v2:=public.save_zakat_assessment_snapshot(payload,lines,(v1->>'id')::uuid);
+ insert into snapshot_test_results values('revision_preserves_original',(select superseded_by=(v2->>'id')::uuid and zakat_due=30000*rate from public.zakat_assessments where id=(v1->>'id')::uuid));
+ begin perform public.save_zakat_assessment_snapshot(payload,lines,(v1->>'id')::uuid);raise exception 'EXPECTED_STALE_REVISION';exception when others then get stacked diagnostics err=message_text;if err<>'ASSESSMENT_SUPERSEDED' then raise exception 'WRONG_STALE_ERROR: %',err;end if;end;
+ insert into snapshot_test_results values('stale_revision_rejected',true);
+ insert into public.zakat_payments(user_id,assessment_id,hawl_cycle_id,payment_date,amount,currency,base_amount) values(uid,(v1->>'id')::uuid,cid,'2026-10-10',500,'SAR',500) returning id into pay1;
+ perform public.allocate_zakat_payment_fifo(pay1);
+ insert into public.zakat_payments(user_id,assessment_id,hawl_cycle_id,payment_date,amount,currency,base_amount) values(uid,(v2->>'id')::uuid,cid,'2026-10-10',1000,'SAR',1000) returning id into pay2;
+ perform public.allocate_zakat_payment_fifo(pay2);
+ insert into snapshot_test_results values('same_cycle_revisions_do_not_double_allocate',(select sum(allocated_amount)=35000*rate from public.zakat_payment_allocations where hawl_cycle_id=cid));
+ perform public.allocate_zakat_payment_fifo(pay2);
+ insert into snapshot_test_results values('payment_retry_is_idempotent',(select sum(allocated_amount)=35000*rate from public.zakat_payment_allocations where hawl_cycle_id=cid));
+
+ perform public.close_zakat_cycle(cid,(v2->>'id')::uuid);
+ insert into snapshot_test_results values('closed_cycle_retains_final_price',(select snapshot->'finalValuation'->'prices'->>'gold'='350' from public.zakat_hawl_cycles where id=cid));
+ begin update public.zakat_hawl_cycles set gold_price=1 where id=cid;raise exception 'EXPECTED_CLOSED_LOCK';exception when others then get stacked diagnostics err=message_text;if err<>'CLOSED_CYCLE_ASSESSMENT_LOCKED' then raise exception 'WRONG_CYCLE_ERROR: %',err;end if;end;
+ begin perform public.save_zakat_assessment_snapshot(payload,lines,(v2->>'id')::uuid);raise exception 'EXPECTED_CLOSED_LOCK';exception when others then get stacked diagnostics err=message_text;if err<>'CLOSED_CYCLE_ASSESSMENT_LOCKED' then raise exception 'WRONG_CLOSED_ERROR: %',err;end if;end;
+ insert into snapshot_test_results values('closed_cycle_cannot_recalculate',true);
+ perform set_config('request.jwt.claim.sub','',true);perform set_config('request.jwt.claims','{}',true);
+ begin perform public.save_zakat_assessment_snapshot(payload,lines,null);raise exception 'EXPECTED_AUTH_ERROR';exception when others then get stacked diagnostics err=message_text;if err<>'UNAUTHORIZED' then raise exception 'WRONG_AUTH_ERROR: %',err;end if;end;
+ insert into snapshot_test_results values('unauthorized_save_rejected',true);
+end $$;
+reset role;
+select jsonb_agg(jsonb_build_object('test',name,'passed',passed)) as results from snapshot_test_results;
