@@ -60,3 +60,9 @@ export function soldAssetHistory(assetId:string,transactions:any[],allocations:a
     sold_cost_value:known?cost.toNumber():null,
     sold_proceeds_value:sales.reduce((sum,t)=>sum.add(t.base_value??0),new Decimal(0)).toNumber()};
 }
+
+export function assetLifecycleStatus(quantity:number,latestExit?:any){
+ if(quantity>0||!latestExit)return 'ACTIVE';
+ if(latestExit.transaction_type==='SALE')return 'SOLD';
+ return latestExit.metadata?.reason==='DISPOSAL_ZERO_VALUE'?'DISPOSED':'ACTIVE';
+}
