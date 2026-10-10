@@ -22,7 +22,7 @@ export async function listAssets(){
  for(const result of [accounts,lotResult,exits,profileResult,cycleResult,assessmentResult,allocationResult,orgResult,operationResult])if(result.error)throw result.error;
  const lots=lotResult.data??[],cycles=cycleResult.data??[],assessments=assessmentResult.data??[];
  const activeCycle=cycles.find((c:any)=>['OPEN','ACTIVE'].includes(c.status));
- const displayCycle=activeCycle??cycles.find((c:any)=>c.final_assessment_id||c.assessment_id);
+ const displayCycle=[...cycles].reverse().find((c:any)=>c.final_assessment_id&&c.status!=='PAID')??activeCycle??cycles.find((c:any)=>c.final_assessment_id||c.assessment_id);
  const selectedId=displayCycle?.final_assessment_id??displayCycle?.assessment_id;
  const latest=selectedId?assessments.find((a:any)=>a.id===selectedId):(!activeCycle?assessments.find((a:any)=>!a.superseded_by):null);
  const baseCurrency=profileResult.data?.base_currency||'SAR';
