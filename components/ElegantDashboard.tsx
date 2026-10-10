@@ -33,6 +33,11 @@ function Icon({ kind }: { kind: string }) {
         <path d="M4 5v6c0 4 16 4 16 0V5M4 11v6c0 4 16 4 16 0v-6" />
       </>
     ),
+    metals: (
+      <>
+        <path d="m3 17 3-9h5l3 9H3Zm9 0 3-9h4l3 9H12ZM6 8l1-3h11l1 3" />
+      </>
+    ),
     pool: (
       <>
         <rect x="5" y="2" width="14" height="20" rx="2" />
@@ -140,6 +145,7 @@ export default function ElegantDashboard({
   const assessmentKnown =
     !d.loadError && health.assessments !== false && health.cycles !== false;
   const paymentKnown = assessmentKnown && health.allocations !== false;
+  const weight = (v: unknown) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(Number(v) || 0);
   const metrics = [
     {
       key: "assets",
@@ -205,6 +211,14 @@ export default function ElegantDashboard({
     {
       key: "asof",label:t("الإجمالي حتى آخر احتساب", "Balance as of latest assessment"),value:d.asOfZakahBalanceSar,known:paymentKnown,
       note:`${t("المتبقي النهائي + التقدير المفتوح", "Final balance + open estimate")} · ${t("رصيد مرحّل", "Carried credit")}: ${money(d.carriedZakahCreditSar)} ${currency}`,percent:0,
+    },
+    {
+      key: "metals",
+      label: t("إجمالي وزن المعادن", "Total metal weights"),
+      value: 0,
+      known: !d.loadError && health.assets !== false,
+      note: t("الأصول النشطة فقط · دون المباعة والمستغنى عنها", "Active holdings only · excludes sold and disposed assets"),
+      percent: null,
     },
   ];
   const steps = [
@@ -298,9 +312,18 @@ export default function ElegantDashboard({
                 <Icon kind={m.key} />
               </span>
             </div>
-            <strong className="ed-number">
-              {m.known ? amount(m.value) : "—"}
-            </strong>
+            {m.key === "metals" && m.known ? (
+              <dl className="ed-metal-weights">
+                {[{ label: t("الذهب", "Gold"), value: d.goldWeightKg }, { label: t("الفضة", "Silver"), value: d.silverWeightKg }].map((metal) => (
+                  <div key={metal.label}>
+                    <dt>{metal.label}</dt>
+                    <dd><bdi>{weight(metal.value)} <span className="ed-unit">{t("كجم", "kg")}</span></bdi></dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <strong className="ed-number">{m.known ? amount(m.value) : "—"}</strong>
+            )}
             <p>
               {m.known ? m.note : t("البيانات غير متاحة", "Data unavailable")}
             </p>
