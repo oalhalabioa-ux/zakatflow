@@ -1,7 +1,7 @@
 import { requireUser } from './auth';
 import { assetSchema } from '@/lib/validation/schemas';
 import { randomUUID } from 'node:crypto';
-import {assetLedgerBalance,assetZakatPayments,disposedAssetHistory,soldAssetHistory} from '@/lib/asset-ledger';
+import {assetLedgerBalance,assetLifecycleStatus,assetZakatPayments,disposedAssetHistory,soldAssetHistory} from '@/lib/asset-ledger';
 
 function openingValues(asset:any){const m=asset.metadata??{};const quantity=Number(m.quantity??(asset.asset_type==='CASH'||asset.asset_type==='BANK'?1:0));const value=Number(m.purchase_value??m.opening_value??m.market_value??m.estimated_value??0);const unitPrice=quantity>0?Number(m.purchase_price??(value/quantity)):value;const date=m.purchase_date;return{quantity,value,unitPrice,date}}
 function currentValuation(asset:any){const m=asset.metadata??{};const value=Number(m.market_value??m.estimated_value??m.purchase_value??m.opening_value??0);return{current_market_value:value,current_market_price:m.market_price_per_unit??m.market_price??null,current_valuation_date:m.market_valuation_date??null,current_valuation_source:m.market_price_source??(m.market_value_auto?'MARKET_PRICE':'ASSET_METADATA'),current_valuation_currency:m.market_price_currency??asset.currency,current_valuation_auto:Boolean(m.market_value_auto)}}
@@ -37,7 +37,7 @@ export async function listAssets(){
   const availableLots=a.ownership_scope==='ORGANIZATION'?lots.filter((l:any)=>!l.metadata?.recognition_pending):lots;
   const balance=assetLedgerBalance(a,availableLots,assetBase);
   const exit=exitByAsset.get(a.id);
-  const lifecycle_status=balance.current_quantity>0||!exit?'ACTIVE':exit.transaction_type==='SALE'?'SOLD':exit.metadata?.reason==='DISPOSAL_ZERO_VALUE'?'DISPOSED':'ACTIVE';
+  const lifecycle_status=assetLifecycleStatus(balance.current_quantity,exit);
   const purchase=(exits.data??[]).find((t:any)=>t.asset_account_id===a.id&&t.transaction_type==='PURCHASE');
   const reviews=[...(operationResult.data??[]).filter((o:any)=>o.asset_account_id===a.id&&o.financial_event_id).map((o:any)=>({id:o.financial_event_id})),...(exits.data??[]).filter((t:any)=>t.asset_account_id===a.id&&t.transaction_type==='PURCHASE'&&t.metadata?.financial_event_id).map((t:any)=>({id:t.metadata.financial_event_id}))];
   return {...a,financial_review_events:reviews,acquisition_transaction_id:purchase?.metadata?.financial_event_id?purchase?.id:null,financial_event_id:purchase?.metadata?.financial_event_id??null,...currentValuation(a),...balance,has_financial_history:assetLots.length>0,lots:assetLots.filter((l:any)=>Number(l.remaining_quantity)>0),lifecycle_status,
