@@ -101,6 +101,7 @@ type VatProfileDraft = {
 };
 
 type DocumentDraft = {
+  asset_transaction_id?:string|null;
   document_type: 'SALES' | 'PURCHASE';
   document_kind: 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE';
   in_tax_report?: boolean;
@@ -235,6 +236,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [registerKindFilter, setRegisterKindFilter] = useState<'ALL' | 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('ALL');
   const [registerSourceFilter, setRegisterSourceFilter] = useState<'ALL' | 'EINVOICE' | 'ACCOUNTING'>('ALL');
   const [noteOriginals, setNoteOriginals] = useState<Array<VatDocument & { counterparty_contact_id: string; recoverable_percent: number }>>([]);
+  const [assetTransactions,setAssetTransactions]=useState<any[]>([]);
   const [draft, setDraft] = useState<DocumentDraft>(emptyDocument);
   const [accountingLines, setAccountingLines] = useState<DocumentLineDraft[]>([emptyDocumentLine()]);
   const [currencies, setCurrencies] = useState<VatCurrency[]>([]);
@@ -401,6 +403,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     return () => { active = false; };
   }, [ar]);
 
+  useEffect(()=>{let active=true;fetch('/api/transactions').then(r=>r.ok?r.json():[]).then(rows=>{if(active)setAssetTransactions(rows.filter((t:any)=>t.organization_id===organizationId&&['PURCHASE','SALE'].includes(t.transaction_type)&&t.metadata?.financial_event_id));}).catch(()=>{if(active)setAssetTransactions([])});return()=>{active=false};},[organizationId]);
   useEffect(() => {
     if (!organizationId) { setFxRates([]); return; }
     let active = true;
@@ -1113,6 +1116,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                   })}
                 />}
               </div>
+              {!editingDocumentId&&draft.document_kind==='INVOICE'&&<label><span>{ar?'ربط بحركة أصل — نفس القيد المالي':'Link an asset transaction — reuse its financial event'}</span><select value={draft.asset_transaction_id||''} onChange={e=>{const t=assetTransactions.find(t=>t.id===e.target.value);if(!t){setDraft({...draft,asset_transaction_id:null});return;}setDraft({...draft,asset_transaction_id:t.id,transaction_date:t.transaction_date,due_date:t.metadata?.due_date||t.transaction_date,document_number:draft.document_type==='PURCHASE'?(t.reference||draft.document_number):draft.document_number,recoverable_percent:String(t.metadata?.recoverable_percent??100)});setInvoiceCurrency(t.currency);setExchangeRate(String(t.metadata?.fx_rate??1));setAccountingPricesIncludeVat(false);setAccountingLines([{...emptyDocumentLine(),description:t.asset_accounts?.name||'Asset',quantity:String(t.quantity||1),unit_price:String(Number(t.gross_value)/(Number(t.quantity)||1)),supply_type:Number(t.metadata?.vat_amount)>0?'STANDARD':'OUT_OF_SCOPE'}]);}}><option value="">{ar?'فاتورة مستقلة':'Standalone invoice'}</option>{assetTransactions.filter(t=>t.transaction_type===(draft.document_type==='PURCHASE'?'PURCHASE':'SALE')).map(t=><option value={t.id} key={t.id}>{t.asset_accounts?.name} · {t.transaction_date} · {t.gross_value} {t.currency}</option>)}</select><small>{ar?'يجب أن تتطابق القيمة والضريبة والعملة والصرف والاستحقاق مع حركة الأصل المحفوظة.':'Net, VAT, currency, exchange rate and due date must match the saved asset transaction.'}</small></label>}
               <div className="vat-document-meta">
                 <label><span>{ar ? 'نوع المستند' : 'Document type'}</span><select value={draft.document_kind} onChange={(event) => startRegisterEntry(event.target.value as DocumentDraft['document_kind'])}><option value="INVOICE">{ar ? 'فاتورة' : 'Invoice'}</option><option value="CREDIT_NOTE">{ar ? 'إشعار دائن' : 'Credit note'}</option><option value="DEBIT_NOTE">{ar ? 'إشعار مدين' : 'Debit note'}</option></select></label>
                 <label className="vat-number-field"><span>{ar ? 'رقم المستند' : 'Document number'}</span><input aria-describedby={!editingDocumentId && draft.document_type === 'SALES' && draft.document_kind === 'INVOICE' ? accountingNumberHintId : undefined} required maxLength={100} readOnly={!editingDocumentId && draft.document_type === 'SALES' && draft.document_kind === 'INVOICE' && (invoiceSequenceInitialized || Boolean(reservedAccountingNumber))} value={draft.document_number} onChange={(event) => setDraft({ ...draft, document_number: event.target.value })} />{!editingDocumentId && draft.document_type === 'SALES' && draft.document_kind === 'INVOICE' && <small id={accountingNumberHintId} role="tooltip" className="vat-field-hint vat-number-tooltip">{invoiceSequenceInitialized ? (ar ? 'الرقم التالي من التسلسل المشترك بين المحاسبي وزاتكا؛ يُحجز عند الحفظ.' : 'Next number in the shared accounting/ZATCA sequence; allocated on save.') : (ar ? 'أدخل أول رقم مرة واحدة؛ يتابع المحاسبي وزاتكا التسلسل نفسه.' : 'Enter the first number once; accounting and ZATCA share the same sequence.')}</small>}</label>

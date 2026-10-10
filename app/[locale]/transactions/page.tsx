@@ -56,14 +56,19 @@ export default function Transactions() {
     proceeds_account_id: "",
     disposal_zero_value: false,
   });
+  const [catalog,setCatalog]=useState<any>({});
+  const [requestId,setRequestId]=useState(()=>crypto.randomUUID());
+  const selectedAsset=assets.find(a=>a.id===form.asset_account_id);
+  const ownerBase=selectedAsset?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selectedAsset.organization_id)?.base_currency:catalog.base_currency;
   const [msg, setMsg] = useState("");
   const load = async () => {
     setLoading(true);
     setLoadError("");
     try {
-      const [transactionsResponse, assetsResponse] = await Promise.all([
+      const [transactionsResponse, assetsResponse,catalogResponse] = await Promise.all([
         fetch("/api/transactions"),
         fetch("/api/assets"),
+        fetch("/api/assets/catalog"),
       ]);
       if (!transactionsResponse.ok || !assetsResponse.ok)
         throw new Error("LOAD_FAILED");
@@ -71,6 +76,7 @@ export default function Transactions() {
         transactionsResponse.json(),
         assetsResponse.json(),
       ]);
+      const catalogData=await catalogResponse.json();setCatalog(catalogData);
       setRows(transactions);
       setAssets(assetRows);
       if (assetRows[0] && !form.asset_account_id)
@@ -78,7 +84,7 @@ export default function Transactions() {
           ...current,
           asset_account_id: assetRows[0].id,
           currency: assetRows[0].currency,
-          base_currency: assetRows[0].currency,
+          base_currency: assetRows[0].ownership_scope==="ORGANIZATION"?catalogData.organizations?.find((o:any)=>o.id===assetRows[0].organization_id)?.base_currency:catalogData.base_currency,
         }));
     } catch {
       setRows([]);
@@ -97,7 +103,7 @@ export default function Transactions() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        ...form,
+        ...form,request_id:requestId,funding_account_id:form.funding_account_id||null,counterparty_id:form.counterparty_id||null,due_date:form.due_date||null,vat_amount:Number(form.vat_amount||0),recoverable_percent:Number(form.recoverable_percent??100),
         quantity: Number(form.quantity),
         unit_price: form.unit_price === "" ? undefined : Number(form.unit_price),
         gross_value: Number(form.gross_value),
@@ -109,7 +115,7 @@ export default function Transactions() {
         ? "تمت إضافة المعاملة وإنشاء Lot عند انطباق القاعدة."
         : (await r.json()).error || "خطأ",
     );
-    if (r.ok) load();
+    if (r.ok) {setRequestId(crypto.randomUUID());load();}
   }
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("ar");
@@ -215,7 +221,7 @@ export default function Transactions() {
         <TransactionKpi
           icon="◆"
           label="صافي الحركة"
-          value={displayMetric(`${numberFormatter.format(summary.net)} SAR`)}
+          value={displayMetric(new Set(rows.map(r=>r.base_currency)).size>1?"عملات متعددة":`${numberFormatter.format(summary.net)} ${rows[0]?.base_currency||catalog.base_currency||""}`)}
         />
         <TransactionKpi
           icon="▦"
@@ -240,7 +246,7 @@ export default function Transactions() {
           <Field label="الأصل">
             <select
               value={form.asset_account_id}
-              onChange={(e) => { const selected = assets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, currency: selected?.currency || form.currency }); }}
+              onChange={(e) => { const selected = assets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
             >
               {assets.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -316,11 +322,13 @@ export default function Transactions() {
           <Field label="إجمالي القيمة">
             <input type="number" step="any" value={form.gross_value} readOnly />
           </Field>
+          {form.transaction_type==="PURCHASE"&&<><Field label="ضريبة الفاتورة (بعملة المعاملة)"><input type="number" min="0" step="any" value={form.vat_amount||0} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></Field>{selectedAsset?.ownership_scope==="ORGANIZATION"?<><Field label="المورد"><select value={form.counterparty_id||""} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">اختر المورد</option>{(catalog.counterparties||[]).filter((p:any)=>p.organization_id===selectedAsset.organization_id&&["SUPPLIER","BOTH"].includes(p.party_type)).map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="رقم الفاتورة"><input value={form.reference||""} onChange={e=>setForm({...form,reference:e.target.value})}/></Field><Field label="تاريخ استحقاق الدفع"><input type="date" min={form.transaction_date} value={form.due_date||""} onChange={e=>setForm({...form,due_date:e.target.value})}/></Field><Field label="نسبة استرداد الضريبة %"><input type="number" min="0" max="100" value={form.recoverable_percent??100} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/></Field></>:<Field label="حساب تمويل الشراء"><select value={form.funding_account_id||""} onChange={e=>setForm({...form,funding_account_id:e.target.value})}><option value="">اختر حساب التمويل</option>{assets.filter(a=>a.ownership_scope==="PERSONAL"&&["CASH","BANK"].includes(a.asset_type)&&a.currency===form.currency).map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></Field>}</>}
+          {selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE"&&<div className="notice">الإهلاك والبيع والاستبعاد المؤسسي متاحة من عمليات الأصل في <a href="assets">صفحة الأصول</a> مع الاعتماد المالي.</div>}
           <Field label="عملة المعاملة">
-            <input value={form.currency} onChange={(e) => { const currency=e.target.value.toUpperCase(); const same=currency===form.base_currency; setForm({ ...form, currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
+            <input readOnly value={form.currency} onChange={(e) => { const currency=e.target.value.toUpperCase(); const same=currency===form.base_currency; setForm({ ...form, currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
           </Field>
           <Field label="العملة الأساسية">
-            <input value={form.base_currency} onChange={(e) => { const base_currency=e.target.value.toUpperCase(); const same=base_currency===form.currency; setForm({ ...form, base_currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
+            <input readOnly value={ownerBase||form.base_currency} onChange={(e) => { const base_currency=e.target.value.toUpperCase(); const same=base_currency===form.currency; setForm({ ...form, base_currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
           </Field>
           <Field label="سعر الصرف">
             <input
@@ -342,7 +350,7 @@ export default function Transactions() {
         <button
           className="btn"
           onClick={save}
-          disabled={!form.asset_account_id || (form.transaction_type === "SALE" && !form.proceeds_account_id)}
+          disabled={!form.asset_account_id || (selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE") || (form.transaction_type === "SALE" && !form.proceeds_account_id)}
         >
           إضافة
         </button>
