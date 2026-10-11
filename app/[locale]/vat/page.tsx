@@ -10,6 +10,7 @@ import { summarizeVatDocuments, type VatDocumentForSummary } from '@/lib/vat';
 import { organizationDisplayName } from '@/lib/organization-display';
 import { InvoiceIcon, InvoiceActionLabel } from '@/components/invoice-action-label';
 import { InvoiceRegisterTotals } from '@/components/invoice-register-totals';
+import { VatFinancialReports } from '@/components/vat-financial-reports';
 import { UnifiedInvoiceRegister } from '@/components/unified-invoice-register';
 import '../invoice-register/register.css';
 import { InvoicePaymentBadge } from '@/components/invoice-payment-badge';
@@ -179,7 +180,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const { locale } = use(params);
   const { section } = use(searchParams);
   const requestedSection = Array.isArray(section) ? section[0] : section;
-  const initialTab = requestedSection === 'unified' ? 'unified' : requestedSection === 'invoices' ? 'register' : requestedSection === 'einvoicing' ? 'einvoicing' : requestedSection === 'aggregate' ? 'aggregate' : 'dashboard';
+  const initialTab = requestedSection === 'reports' ? 'reports' : requestedSection === 'unified' ? 'unified' : requestedSection === 'invoices' ? 'register' : requestedSection === 'einvoicing' ? 'einvoicing' : requestedSection === 'aggregate' ? 'aggregate' : 'dashboard';
   const ar = locale === 'ar';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
@@ -213,7 +214,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false);
   const [periodDetailsOpen, setPeriodDetailsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing' | 'unified'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing' | 'unified' | 'reports'>(initialTab);
   const [registerDirection, setRegisterDirection] = useState<'SALES' | 'PURCHASE'>('SALES');
   const [salesEntryMode, setSalesEntryMode] = useState<'ACCOUNTING' | 'ZAKATFLOW'>('ACCOUNTING');
   const [registerFormOpen, setRegisterFormOpen] = useState(false);
@@ -350,7 +351,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
 
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
-  function selectTab(tab: 'dashboard' | 'aggregate' | 'register' | 'einvoicing' | 'unified') {
+  function selectTab(tab: 'dashboard' | 'aggregate' | 'register' | 'einvoicing' | 'unified' | 'reports') {
     setActiveTab(tab);
     const url = new URL(window.location.href);
     url.searchParams.set('section', tab === 'register' ? 'invoices' : tab);
@@ -362,7 +363,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     const backward = ar ? 'ArrowRight' : 'ArrowLeft';
     if (![forward, backward, 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const tabs = ['dashboard', 'aggregate', 'register', 'unified'] as const;
+    const tabs = ['dashboard', 'aggregate', 'register', 'unified', 'reports'] as const;
     const current = tabs.findIndex(tab => tab === activeTab);
     const nextTab = event.key === 'Home' ? tabs[0]
       : event.key === 'End' ? tabs[tabs.length - 1]
@@ -1003,6 +1004,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               <small>{ar ? 'مساحة موحدة للمبيعات والمشتريات' : 'One workspace for sales and purchases'}</small>
             </button>
             <button id="vat-tab-unified" type="button" role="tab" aria-selected={activeTab === 'unified'} tabIndex={activeTab === 'unified' ? 0 : -1} aria-controls="vat-panel-unified" className={activeTab === 'unified' ? 'active' : ''} onClick={() => selectTab('unified')}><strong><span className="vat-tab-icon invoices" aria-hidden="true"><InvoiceIcon name="receipt" /></span>{ar?'التقرير الموحد':'Unified report'}</strong><small>{ar?'سجل الفواتير والإشعارات وحالاتها':'Invoice and note register with status'}</small></button>
+            <button id="vat-tab-reports" type="button" role="tab" aria-selected={activeTab === 'reports'} tabIndex={activeTab === 'reports' ? 0 : -1} aria-controls="vat-panel-reports" className={activeTab === 'reports' ? 'active' : ''} onClick={() => selectTab('reports')}><strong><span className="vat-tab-icon invoices" aria-hidden="true"><InvoiceIcon name="users" /></span>{ar?'التقارير المالية':'Financial reports'}</strong><small>{ar?'الأرصدة وكشوف الحساب والمبيعات والمشتريات':'Balances, statements, sales and purchases'}</small></button>
           </nav>
 
           {summaryNoteReview && !includeDrafts && <p className="vat-disclaimer" role="status">{ar?'توجد إشعارات في فترة لها ملخص محفوظ. الأرقام المعروضة تستخدم الملخص؛ راجع تفاصيل الإشعارات وحدّث الإجماليات غير المقدمة قبل تقديم الإقرار. مفتاح المسودات يعرض حساب التفاصيل للمقارنة.':'Notes exist in a period with a saved summary. Displayed totals use that summary; reconcile notes and update unfiled totals before filing. Draft review shows detail totals for comparison.'}</p>}
@@ -1230,6 +1232,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           <p className="vat-disclaimer">{ar ? 'تتضمن الملخصات الفواتير الصادرة المسجلة هنا. لا ترسل هذه الشاشة الإقرار إلى هيئة الزكاة والضريبة والجمارك، وإصدار QR للمرحلة الأولى لا يغني عن تكامل المرحلة الثانية عند انطباقه. راجع التصنيف الضريبي ومواعيد الإقرار قبل التقديم.' : 'Summaries include invoices issued here. This screen does not submit returns to ZATCA, and Phase 1 QR issuance does not replace Phase 2 integration when applicable. Review tax treatment and filing dates before submission.'}</p>
           </>}
           </div>
+          <div id="vat-panel-reports" role="tabpanel" aria-labelledby="vat-tab-reports" hidden={activeTab !== 'reports'}>{activeTab === 'reports' && organizationId && <VatFinancialReports organizationIds={reportScope === 'GROUP' ? reportOrganizationIds : [organizationId]} organizationName={selectedOrganization?.name || ''} baseCurrency={baseCurrency} ar={ar} refresh={invoiceRefresh} />}</div>
           <div id="vat-panel-unified" className="vat-unified-page" role="tabpanel" aria-labelledby="vat-tab-unified" hidden={activeTab !== 'unified'}>{activeTab === 'unified' && organizationId && <UnifiedInvoiceRegister key={organizationId} organizationId={organizationId} ar={ar} refresh={invoiceRefresh} />}</div>
           <div id="vat-panel-einvoicing" role="region" aria-label={ar?'إعداد وربط زاتكا':'ZATCA setup'} hidden={activeTab !== 'einvoicing'}>
             <section className="vat-panel vat-einvoice-overview">
