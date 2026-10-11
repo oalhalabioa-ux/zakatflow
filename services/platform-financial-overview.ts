@@ -1,4 +1,4 @@
-import Decimal from 'decimal.js';
+import {platformAssetSummary} from '@/lib/platform-asset-summary';
 import {listAssets} from './assets';
 import {platformOrganizationTree} from '@/lib/platform-organization-tree';
 import {requireUser} from './auth';
@@ -12,7 +12,7 @@ import {GET as readLiquidity} from '@/app/api/liquidity/route';
 
 // Reuse the authenticated module read handlers in-process. No HTTP loop, writes,
 // service-role access, new financial recognition rules. Budget groups are read-only saved-plan totals.
-export async function getPlatformFinancialOverview(q:{organization?:string;plan?:string;month?:string;scope?:string;budget_scope?:string;year?:string;scenario?:string;level?:string}) {
+export async function getPlatformFinancialOverview(q:{organization?:string;plan?:string;month?:string;scope?:string;budget_scope?:string;year?:string;scenario?:string;level?:string;asset_basis?:string}) {
   const {supabase,user}=await requireUser();
   const institutional=q.scope==='ORGANIZATION';
   const [members,plans]=await Promise.all([
@@ -59,10 +59,11 @@ export async function getPlatformFinancialOverview(q:{organization?:string;plan?
     institutional&&organization?listAssets().catch(()=>null):null,
   ]);
   const activeAssets=assetRows?.filter((a:any)=>a.ownership_scope==='ORGANIZATION'&&reportIds.includes(a.organization_id)&&a.status==='ACTIVE'&&a.lifecycle_status==='ACTIVE');
-  const organizationAssets=activeAssets&&currencyKnown?{allocation:Object.entries(activeAssets.reduce((groups:Record<string,number>,a:any)=>{groups[a.asset_type]=(groups[a.asset_type]??0)+Number(a.current_market_value??0);return groups},{})).map(([name,value])=>({name,value:Number(value)})),count:activeAssets.length,value:activeAssets.reduce((sum:Decimal,a:any)=>sum.add(a.current_market_value??0),new Decimal(0)).toFixed(2),goldWeightKg:activeAssets.filter((a:any)=>a.asset_type==='GOLD').reduce((sum:Decimal,a:any)=>sum.add(a.current_quantity??0),new Decimal(0)).div(1000).toFixed(3),silverWeightKg:activeAssets.filter((a:any)=>a.asset_type==='SILVER').reduce((sum:Decimal,a:any)=>sum.add(a.current_quantity??0),new Decimal(0)).div(1000).toFixed(3)}:null;
   const vat=platformGroupVat(vatReads);
   const cash=platformGroupCash(cashReads);
-  return {organizations,organizationTree,organization,organizationAssets,group,reportOrganizations,reportIds,currencyKnown,vatPeriodMismatch:vatReads.length>0&&vatReads.every(Boolean)&&!vat,plans:availablePlans.filter(p=>p.organization_name===organization?.name&&p.cost_center!=='ALL'),selectedPlan,month,today,budgetScope,year,years,scenario,budgetReadFailed,budgetSourceCount:sources.length,budgetApprovedSourceCount:sources.filter(p=>p.status==='APPROVED').length,missingBudgetCompanies,
+  const assetBasis=q.asset_basis==='MARKET'?'MARKET':'BOOK';
+  const organizationAssets=currencyKnown?platformAssetSummary(activeAssets??null,cash,assetBasis):null;
+  return {assetBasis,organizations,organizationTree,organization,organizationAssets,group,reportOrganizations,reportIds,currencyKnown,vatPeriodMismatch:vatReads.length>0&&vatReads.every(Boolean)&&!vat,plans:availablePlans.filter(p=>p.organization_name===organization?.name&&p.cost_center!=='ALL'),selectedPlan,month,today,budgetScope,year,years,scenario,budgetReadFailed,budgetSourceCount:sources.length,budgetApprovedSourceCount:sources.filter(p=>p.status==='APPROVED').length,missingBudgetCompanies,
     vat,
     cash:cash?platformLiquiditySummary(cash,today):null,
     budget};
