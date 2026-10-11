@@ -3,13 +3,13 @@ begin;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
 set local role authenticated;
 do $$
-declare uid uuid:=auth.uid();mid uuid;cid uuid:=gen_random_uuid();aid uuid:=gen_random_uuid();oldid uuid:=gen_random_uuid();otherid uuid:=gen_random_uuid();paidid uuid:=gen_random_uuid();result jsonb;snap jsonb;blocked boolean;
+declare uid uuid:=auth.uid();mid uuid;cid uuid:=gen_random_uuid();aid uuid:=gen_random_uuid();oldid uuid:=gen_random_uuid();otherid uuid:=gen_random_uuid();paidid uuid:=gen_random_uuid();historicalid uuid:=gen_random_uuid();result jsonb;snap jsonb;blocked boolean;
 begin
  select id into mid from public.zakat_methods limit 1;
  insert into public.zakat_hawl_cycles(id,user_id,cycle_no,nisab_standard,nisab_reached_date,hawl_start_date,hawl_due_date,status)
  values(cid,uid,99001,'SILVER','2026-03-06','2026-03-06','2027-02-24','OPEN');
  insert into public.zakat_assessments(id,user_id,assessment_date,valuation_date,method_id,nisab_standard,nisab_quantity,nisab_value_base,zakat_rate,currency,status,hawl_cycle_id,calculation_snapshot)
- select x,uid,'2026-10-11','2026-10-11',mid,'SILVER',595,5000,.025,'SAR','CALCULATED',cid,'{"schemaVersion":2,"candidateLots":1,"prices":{"gold":500,"silver":7}}'::jsonb from unnest(array[aid,oldid,paidid]) x;
+ select x,uid,'2026-10-11','2026-10-11',mid,'SILVER',595,5000,.025,'SAR','CALCULATED',cid,'{"schemaVersion":2,"candidateLots":1,"prices":{"gold":500,"silver":7}}'::jsonb from unnest(array[aid,oldid,paidid,historicalid]) x;
  update public.zakat_assessments set superseded_by=aid where id=oldid;
  update public.zakat_hawl_cycles set assessment_id=aid where id=cid;
  insert into public.zakat_assessment_lines(assessment_id,quantity,valuation_price,valuation_currency,market_value,eligible_value,zakat_amount,eligibility_status,explanation,valuation_snapshot)
@@ -36,8 +36,13 @@ begin
  blocked:=false;begin perform public.cancel_open_zakat_assessment(otherid);exception when others then if sqlerrm<>'ASSESSMENT_NOT_FOUND' then raise;end if;blocked:=true;end;
  if not blocked then raise exception 'QA_UNKNOWN_NOT_REJECTED';end if;
  update public.zakat_hawl_cycles set assessment_id=paidid,final_assessment_id=paidid,final_zakat_due=0,status='CLOSED' where id=cid;
- blocked:=false;begin perform public.cancel_open_zakat_assessment(oldid);exception when others then if sqlerrm<>'ASSESSMENT_PROTECTED' then raise;end if;blocked:=true;end;
- if not blocked then raise exception 'QA_CLOSED_NOT_PROTECTED';end if;
+ result:=public.cancel_open_zakat_assessment(historicalid);
+ if (select status::text from public.zakat_assessments where id=historicalid)<>'CANCELLED' then raise exception 'QA_CLOSED_PREVIEW_NOT_CANCELLED';end if;
+ if (select final_assessment_id from public.zakat_hawl_cycles where id=cid) is distinct from paidid or (select final_zakat_due from public.zakat_hawl_cycles where id=cid)<>0 then raise exception 'QA_FINAL_CHANGED';end if;
+ blocked:=false;begin update public.zakat_assessments set zakat_due=99 where id=historicalid;exception when others then if sqlerrm<>'ASSESSMENT_SNAPSHOT_LOCKED' then raise;end if;blocked:=true;end;
+ if not blocked then raise exception 'QA_CLOSED_PREVIEW_VALUE_NOT_PROTECTED';end if;
+ blocked:=false;begin perform public.cancel_open_zakat_assessment(paidid);exception when others then if sqlerrm<>'ASSESSMENT_PROTECTED' then raise;end if;blocked:=true;end;
+ if not blocked then raise exception 'QA_FINAL_NOT_PROTECTED';end if;
 end $$;
-select 'PASS: previous/current cancellation, snapshot retention, idempotency, payment/closed protection, cross-user and unauthenticated rejection' result;
+select 'PASS: previous/current cancellation, snapshot retention, idempotency, unused closed previews, payment/final/current protection, cross-user and unauthenticated rejection' result;
 rollback;
