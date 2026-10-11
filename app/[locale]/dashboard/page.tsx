@@ -42,7 +42,7 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
    <Link href={scopeHref('PERSONAL')} className={personal?'active':''} aria-current={personal?'page':undefined}><span aria-hidden="true">♙</span>{ar?'شخصي':'Personal'}</Link>
    <Link href={scopeHref('ORGANIZATION')} className={!personal?'active':''} aria-current={!personal?'page':undefined}><span aria-hidden="true">▥</span>{ar?'مؤسسي':'Organization'}</Link>
   </nav>
-  {!personal&&<form className="card platform-scope" action={url('dashboard')} method="get">
+  {!personal&&<form key={`${financial?.organization?.id}:${financial?.selectedPlan?.id}:${financial?.month}`} className="card platform-scope" action={url('dashboard')} method="get">
    <input type="hidden" name="scope" value="ORGANIZATION"/>
    <label>{ar?'المنشأة · السيولة والضرائب':'Organization · cash and tax'}<select name="organization" defaultValue={financial?.organization?.id??''}><option value="" disabled>{ar?'اختر منشأة':'Select organization'}</option>{financial?.organizationTree.map(({organization:o,depth})=><option key={o.id} value={o.id}>{`${depth?"　".repeat(depth)+"↳ ":""}${o.name} · ${o.base_currency}${o.parent_organization_id?` · ${ar?"شركة فرعية":"Subsidiary"}`:o.organization_kind==='HOLDING'?` · ${ar?"الشركة الأم":"Parent company"}`:""}`}</option>)}</select></label>
    <label>{ar?'الفترة الضريبية':'Tax period'}<input type="month" name="month" defaultValue={financial?.month}/></label>
