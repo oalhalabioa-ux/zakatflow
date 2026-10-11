@@ -118,3 +118,12 @@
 .theme-modern .platform-summary-card strong{direction:ltr;text-align:end;unicode-bidi:isolate;white-space:nowrap;font-size:clamp(18px,1.5vw,23px);clear:both}
 .theme-modern .platform-summary-card small{padding-inline-start:0}
 @media(max-width:600px){.theme-modern .platform-summary-card strong{font-size:20px}}
+
+.theme-modern .platform-module--metrics{display:flex;flex-direction:column;align-items:stretch}
+.theme-modern .platform-module--metrics .platform-module-head{margin-bottom:18px}
+.theme-modern .platform-module--metrics .platform-module-art{display:none}
+.theme-modern .platform-module--metrics .platform-module-standard{display:grid;margin-bottom:18px;gap:12px}
+.theme-modern .platform-module--metrics .platform-module-links{display:flex;margin-top:auto}
+.theme-modern .platform-module--metrics .platform-module-open{border-top:1px solid var(--brand-border);padding-top:14px}
+.platform-personal .platform-module-metrics dd{direction:ltr;text-align:end;unicode-bidi:isolate;font-size:clamp(17px,1.5vw,22px)}
+.platform-personal .platform-module-metrics .platform-scope-note dd{direction:inherit;text-align:inherit;font-size:11px}
