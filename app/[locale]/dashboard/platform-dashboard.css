@@ -58,3 +58,54 @@
 .corp-shell .platform-settings-panel{position:absolute;inset-inline-end:0;top:calc(100% + 10px);width:min(540px,80vw);padding:18px;z-index:35;border:1px solid var(--brand-border);box-shadow:0 10px 30px #0002;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .platform-settings-panel label{min-width:0}.platform-settings-wide{grid-column:1/-1}
 @media(max-width:600px){.corp-shell .platform-settings-panel{position:fixed;inset-inline:5vw;top:110px;width:90vw;max-height:70vh;overflow:auto}.platform-settings-panel{grid-template-columns:1fr}}
+
+.platform-level-switch{display:flex;align-items:center;padding:4px;gap:4px;background:var(--brand-surface-soft);border:1px solid var(--brand-border);border-radius:11px;align-self:flex-end}
+.platform-level-switch a{padding:9px 14px;font-size:12px;font-weight:700;color:var(--brand-primary);white-space:nowrap;border-radius:8px;text-decoration:none}
+.platform-level-switch a.active{background:var(--brand-primary);color:#fff}
+@media(max-width:600px){.platform-level-switch{flex:1;justify-content:center}.platform-level-switch a{flex:1;text-align:center;padding-inline:8px}}
+.platform-modern-badge,.platform-module-modern,.platform-module-art,.platform-kpi-watermark,.platform-summary-card>.platform-mini-chart{display:none}
+.platform-title-row{display:flex;align-items:center;gap:14px}
+.platform-mini-chart{margin:0;width:160px;max-width:100%;color:var(--brand-primary)}
+.platform-mini-chart svg{display:block;width:100%;height:80px}
+.platform-mini-chart figcaption,.platform-mini-chart small{display:block;font-size:10px;color:var(--brand-muted);text-align:center;margin-top:4px}
+.platform-chart-empty{opacity:.45}
+.theme-modern .platform-dashboard{padding-top:20px}
+.theme-modern .platform-welcome{margin-bottom:12px}.theme-modern .platform-welcome :is(.platform-eyebrow,p,.btn){display:none}
+.theme-modern .platform-welcome h1{font-size:28px;margin:0}
+.theme-modern .platform-modern-badge{display:inline-flex;align-items:center;gap:6px;background:#e9ecff;color:var(--brand-primary);font-size:11px;border-radius:20px;padding:6px 11px}
+.theme-modern .platform-owner-switch{margin-bottom:16px;gap:0;padding:3px;border-radius:12px}
+.theme-modern .platform-owner-switch a{font-size:13px;padding:8px 20px;border-radius:10px;min-width:130px;border-color:transparent}
+.theme-modern .platform-owner-switch a.active,.theme-modern .platform-level-switch a.active{background:linear-gradient(135deg,#5367df,#4355c7);box-shadow:0 3px 8px #4355c722}
+.theme-modern .platform-scope{padding:14px 18px;margin-bottom:16px;border-radius:16px;gap:18px}
+.theme-modern .platform-scope>label{max-width:460px;margin-inline-end:auto}
+.theme-modern .platform-scope>button{min-width:40px;font-size:11px;padding-inline:12px}
+.theme-modern .platform-level-switch{margin-inline:auto}
+.theme-modern .platform-summary{gap:14px}
+.theme-modern .platform-summary .platform-summary-card{border:1px solid var(--brand-border)!important;padding:18px 20px;min-height:150px;overflow:hidden;box-shadow:0 7px 22px #4355c708}
+.theme-modern .platform-summary-card .platform-summary-icon{float:inline-start;display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:#eef0ff;margin:0 0 12px 10px}
+.theme-modern .platform-summary-card small{font-size:12px;font-weight:700;color:var(--brand-text);padding-inline-start:46px;min-height:32px;line-height:1.7}
+.theme-modern .platform-summary-card strong{font-size:23px;color:var(--brand-text);margin:10px 0 7px;position:relative;z-index:1}
+.theme-modern .platform-summary-note{font-size:10px;display:block;max-width:72%;line-height:1.5;color:var(--brand-muted)}
+.theme-modern .platform-summary-card>.platform-mini-chart{display:block;position:absolute;width:84px;inset-inline-end:12px;bottom:10px;opacity:.6}
+.theme-modern .platform-summary-card>.platform-mini-chart svg{height:35px}.theme-modern .platform-summary-card>.platform-mini-chart figcaption{font-size:8px}
+.theme-modern .platform-kpi-watermark{display:block;position:absolute;inset-inline-end:14px;bottom:12px;color:var(--brand-primary);opacity:.09}
+.theme-modern .platform-kpi-watermark svg{width:65px;height:65px}
+.theme-modern .platform-section-heading{margin:24px 0 12px}.theme-modern .platform-section-heading h2{font-size:21px}.theme-modern .platform-section-heading p{font-size:11px}
+.theme-modern .platform-modules{gap:16px}
+.theme-modern .platform-module{padding:20px 22px;display:grid;grid-template-columns:minmax(0,1fr) 180px;align-items:center;column-gap:20px;min-height:178px;position:relative}
+.theme-modern .platform-module-head{grid-column:1;gap:10px;margin:0;align-self:start}
+.theme-modern .platform-module-head h2{font-size:20px}
+.theme-modern .platform-module-head p{font-size:12px;line-height:1.8}
+.theme-modern .platform-module-icon{width:40px;height:40px;border-radius:12px;background:#eef0ff}
+.theme-modern .platform-module-art{display:grid;place-items:center;grid-column:2;grid-row:1/4;min-width:0;color:var(--brand-primary)}
+.theme-modern .platform-module-art>svg{width:105px;height:105px;opacity:.2}
+.theme-modern .platform-module-standard,.theme-modern .platform-module-links{display:none}
+.theme-modern .platform-module-modern{display:block;grid-column:1/-1;grid-row:4}
+.theme-modern .platform-module-modern summary{cursor:pointer;list-style:none;font-size:11px;color:var(--brand-muted);padding-top:12px}
+.theme-modern .platform-module-modern summary::-webkit-details-marker{display:none}
+.theme-modern .platform-module-modern[open] summary{margin-bottom:12px}
+.theme-modern .platform-module-modern .platform-module-metrics{margin-bottom:0}
+.theme-modern .platform-module-open{grid-column:1;grid-row:2;border:0;padding:10px 0 0;font-size:12px;justify-content:flex-start;gap:16px}
+.theme-modern .platform-module-metrics dd{font-size:18px}
+@media(max-width:1050px){.theme-modern .platform-summary-card strong{font-size:21px}.theme-modern .platform-module{grid-template-columns:minmax(0,1fr) 125px;gap:12px}.theme-modern .platform-module-head{flex-wrap:wrap}}
+@media(max-width:600px){.theme-modern .platform-title-row{flex-wrap:wrap}.theme-modern .platform-scope{gap:10px}.theme-modern .platform-scope>label{min-width:100%;max-width:none}.theme-modern .platform-level-switch{margin-inline:0}.theme-modern .platform-module{grid-template-columns:minmax(0,1fr) 110px;padding:18px}.theme-modern .platform-module-art .platform-mini-chart{width:110px}.theme-modern .platform-summary-note{max-width:65%}.theme-modern .platform-summary-card strong{font-size:23px}}
