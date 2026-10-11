@@ -967,7 +967,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                   <span><strong>{ar ? 'الشركة وفروعها' : 'Company and branches'}</strong><small>{hasBranches ? (ar ? `${reportOrganizationIds.length} جهات ضمن التقرير` : `${reportOrganizationIds.length} entities in report`) : (ar ? 'لا توجد فروع مرتبطة' : 'No branches linked')}</small></span>
                 </button>
               </div>
-              <small className="vat-report-scope-footnote">{ar ? 'يؤثر النطاق على لوحة الإدارة فقط.' : 'Scope affects the dashboard only.'}</small>
+              <small className="vat-report-scope-footnote">{ar ? 'يؤثر النطاق على لوحة الإدارة والتقارير المالية.' : 'Scope affects the dashboard and financial reports.'}</small>
               <div className="vat-report-draft-control"><label><input className="vat-draft-switch" type="checkbox" role="switch" checked={includeDrafts} onChange={event => setIncludeDrafts(event.target.checked)} /><InvoiceIcon name={includeDrafts ? 'unlock' : 'lock'} />{ar ? 'تضمين المسودات في التقرير' : 'Include drafts in report'}</label><small>{includeDrafts ? (ar ? 'عرض مراجعة لتفاصيل الفواتير؛ يستبعد الملخصات اليدوية ولا يغيّر الإقرار المحفوظ.' : 'Invoice-detail review; excludes manual summaries and does not change the saved return.') : (ar ? 'المبيعات الصادرة وفواتير الموردين المسجلة؛ مع الملخصات المحفوظة إن وجدت.' : 'Issued sales and recorded supplier invoices; saved summaries are used where available.')}</small></div>
             </div>
             <div className="vat-report-filter vat-report-period-filter">
