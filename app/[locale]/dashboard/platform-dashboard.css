@@ -28,3 +28,15 @@
 @media(max-width:1100px){.platform-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.platform-modules{grid-template-columns:1fr}.platform-welcome,.corp-shell .platform-administration{align-items:flex-start;flex-direction:column}}
 @media(max-width:450px){.platform-summary{grid-template-columns:1fr}.corp-shell .platform-module{padding:18px}.platform-module-head h2{font-size:17px}}
+
+.platform-scope{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:20px;padding:18px}
+.platform-scope label{display:grid;gap:7px;flex:1;min-width:170px;font-size:12px;color:var(--brand-muted)}
+.platform-scope select,.platform-scope input{width:100%;padding:9px;border:1px solid var(--brand-border);border-radius:8px;background:var(--brand-surface);color:var(--brand-text);font:inherit}
+.platform-summary-card{display:block;color:var(--brand-text);text-decoration:none;position:relative;min-width:0}
+.platform-summary-icon{display:block;color:var(--brand-primary);margin-bottom:12px}.platform-summary-icon svg{width:22px;height:22px}
+.platform-summary-card:hover{border-color:var(--brand-primary)!important}
+.platform-scope-note{grid-column:1/-1;font-size:11px;color:var(--brand-muted);margin:0}
+
+.platform-module-metrics .platform-scope-note{background:transparent;padding:0}
+.platform-module-metrics .platform-scope-note dd{font-size:11px;font-weight:400;color:var(--brand-muted);line-height:1.8;margin:4px 0}
+.platform-scope :is(select,input,button):focus-visible{outline:2px solid var(--brand-primary);outline-offset:3px}
