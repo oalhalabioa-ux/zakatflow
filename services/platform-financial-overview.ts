@@ -3,14 +3,15 @@ import {listAssets} from './assets';
 import {platformOrganizationTree} from '@/lib/platform-organization-tree';
 import {requireUser} from './auth';
 import {listBudgetPlans,getBudgetPlan} from './budget-planning';
+import {dashboardBudgetOrganizations,dashboardBudgetSources,combineDashboardBudgets,type DashboardBudgetScope} from '@/lib/platform-budget-summary';
 import {buildBudgetMetrics} from '@/lib/budget-planning';
 import {platformLiquiditySummary} from '@/lib/platform-liquidity-summary';
 import {GET as readVat} from '@/app/api/vat/route';
 import {GET as readLiquidity} from '@/app/api/liquidity/route';
 
 // Reuse the authenticated module read handlers in-process. No HTTP loop, writes,
-// service-role access, cross-company sums or new financial recognition rules.
-export async function getPlatformFinancialOverview(q:{organization?:string;plan?:string;month?:string;scope?:string}) {
+// service-role access, new financial recognition rules. Budget groups are read-only saved-plan totals.
+export async function getPlatformFinancialOverview(q:{organization?:string;plan?:string;month?:string;scope?:string;budget_scope?:string;year?:string;scenario?:string}) {
   const {supabase,user}=await requireUser();
   const institutional=q.scope==='ORGANIZATION';
   const [members,plans]=await Promise.all([
@@ -27,22 +28,35 @@ export async function getPlatformFinancialOverview(q:{organization?:string;plan?
   const organization=organizations.find(o=>o.id===q.organization)??organizations.find(o=>o.organization_kind==='HOLDING')??organizations[0]??null;
   const availablePlans=(plans??[]).filter(p=>p.status!=='ARCHIVED');
   if(institutional&&q.plan&&!availablePlans.some(p=>p.id===q.plan))throw new Error('BUDGET_PLAN_ACCESS_REQUIRED');
-  const selectedPlan=availablePlans.find(p=>p.id===q.plan&&p.organization_name===organization?.name)??availablePlans.find(p=>p.organization_name===organization?.name)??null;
+  const budgetScope:DashboardBudgetScope=q.budget_scope==='PLAN'?'PLAN':q.budget_scope==='GROUP'?'GROUP':'COMPANY';
+  const budgetOrganizations=organization?dashboardBudgetOrganizations(organizations,organization.id,budgetScope==='GROUP'):[];
+  const budgetNames=budgetOrganizations.map(o=>o.name);
+  const scopedHeaders=availablePlans.filter(p=>budgetNames.includes(p.organization_name)&&p.cost_center!=='ALL');
+  const referencePlan=availablePlans.find(p=>p.id===q.plan&&p.organization_name===organization?.name&&p.cost_center!=='ALL')??scopedHeaders[0]??null;
+  const year=/^20\d{2}$/.test(q.year??'')?Number(q.year):referencePlan?.fiscal_year??new Date().getFullYear();
+  const scenario=['BASE','DOWNSIDE','UPSIDE'].includes(q.scenario??'')?q.scenario!:referencePlan?.scenario??'BASE';
+  const matching=dashboardBudgetSources(availablePlans,budgetNames,year,scenario);
+  const selectedPlan=matching.find(p=>p.id===q.plan)??matching.find(p=>p.organization_name===organization?.name)??matching[0]??null;
+  const sources=budgetScope==='PLAN'?matching.filter(p=>p.id===selectedPlan?.id):matching;
+  const years=[...new Set([year,...scopedHeaders.map(p=>p.fiscal_year)])].sort((a,b)=>b-a);
+  const missingBudgetCompanies=budgetOrganizations.filter(o=>!sources.some(p=>p.organization_name===o.name)).map(o=>o.name);
+  let budgetReadFailed=false;
+  async function readBudget(){try{const details=await Promise.all(sources.map(p=>getBudgetPlan(p.id)));const combined=budgetScope==='PLAN'?details[0]??null:combineDashboardBudgets(details,organization?.name??'',organization?.base_currency??'SAR');return combined?{metrics:buildBudgetMetrics(combined),plan:combined}:null;}catch{budgetReadFailed=true;return null;}}
   const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
   const month=/^\d{4}-(0[1-9]|1[0-2])$/.test(q.month??'')?q.month!:today.slice(0,7);
   async function read(handler:(req:Request)=>Promise<Response>,path:string) {
     try {const response=await handler(new Request(`https://zakatflow.local${path}`));return response.ok?await response.json():null;}catch{return null;}
   }
-  const [vat,cash,plan,assetRows]=await Promise.all([
+  const [vat,cash,budget,assetRows]=await Promise.all([
     institutional&&organization?read(readVat,`/api/vat?organization_id=${organization.id}&period_month=${month}`):null,
     institutional&&organization?read(readLiquidity,`/api/liquidity?organization_id=${organization.id}`):null,
-    selectedPlan?getBudgetPlan(selectedPlan.id).catch(()=>null):null,
+    institutional?readBudget():null,
     institutional&&organization?listAssets().catch(()=>null):null,
   ]);
   const activeAssets=assetRows?.filter((a:any)=>a.ownership_scope==='ORGANIZATION'&&a.organization_id===organization?.id&&a.status==='ACTIVE'&&a.lifecycle_status==='ACTIVE');
   const organizationAssets=activeAssets?{count:activeAssets.length,value:activeAssets.reduce((sum:Decimal,a:any)=>sum.add(a.current_market_value??0),new Decimal(0)).toFixed(2),goldWeightKg:activeAssets.filter((a:any)=>a.asset_type==='GOLD').reduce((sum:Decimal,a:any)=>sum.add(a.current_quantity??0),new Decimal(0)).div(1000).toFixed(3),silverWeightKg:activeAssets.filter((a:any)=>a.asset_type==='SILVER').reduce((sum:Decimal,a:any)=>sum.add(a.current_quantity??0),new Decimal(0)).div(1000).toFixed(3)}:null;
-  return {organizations,organizationTree,organization,organizationAssets,plans:availablePlans.filter(p=>p.organization_name===organization?.name),selectedPlan,month,today,
+  return {organizations,organizationTree,organization,organizationAssets,plans:availablePlans.filter(p=>p.organization_name===organization?.name&&p.cost_center!=='ALL'),selectedPlan,month,today,budgetScope,year,years,scenario,budgetReadFailed,budgetSourceCount:sources.length,budgetApprovedSourceCount:sources.filter(p=>p.status==='APPROVED').length,missingBudgetCompanies,
     vat:vat?{totals:vat.periodTotals,period:vat.period,profileConfigured:!!vat.profile}:null,
     cash:cash?platformLiquiditySummary(cash,today):null,
-    budget:plan?{metrics:buildBudgetMetrics(plan),plan}:null};
+    budget};
 }
