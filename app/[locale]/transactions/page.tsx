@@ -61,6 +61,8 @@ export default function Transactions() {
   const [requestId,setRequestId]=useState(()=>crypto.randomUUID());
   const selectedAsset=assets.find(a=>a.id===form.asset_account_id);
   const ownerBase=selectedAsset?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selectedAsset.organization_id)?.base_currency:catalog.base_currency;
+  const [entryOpen, setEntryOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const load = async (deleted=showDeleted) => {
     setLoading(true);
@@ -71,7 +73,7 @@ export default function Transactions() {
         fetch("/api/assets"),
         fetch("/api/assets/catalog"),
       ]);
-      if (!transactionsResponse.ok || !assetsResponse.ok)
+      if (!transactionsResponse.ok || !assetsResponse.ok || !catalogResponse.ok)
         throw new Error("LOAD_FAILED");
       const [transactions, assetRows] = await Promise.all([
         transactionsResponse.json(),
@@ -80,13 +82,6 @@ export default function Transactions() {
       const catalogData=await catalogResponse.json();setCatalog(catalogData);
       setRows(transactions);
       setAssets(assetRows);
-      if (assetRows[0] && !form.asset_account_id)
-        setForm((current: any) => ({
-          ...current,
-          asset_account_id: assetRows[0].id,
-          currency: assetRows[0].currency,
-          base_currency: assetRows[0].ownership_scope==="ORGANIZATION"?catalogData.organizations?.find((o:any)=>o.id===assetRows[0].organization_id)?.base_currency:catalogData.base_currency,
-        }));
     } catch {
       setRows([]);
       setAssets([]);
@@ -111,6 +106,9 @@ export default function Transactions() {
     }catch(error:any){setMsg(error.message);}finally{setDeletingId(null);}
   }
   async function save() {
+    if (saving || !form.asset_account_id) return;
+    setSaving(true);
+    try {
     setMsg("جار الحفظ…");
     const r = await fetch("/api/transactions", {
       method: "POST",
@@ -125,10 +123,11 @@ export default function Transactions() {
     });
     setMsg(
       r.ok
-        ? "تمت إضافة المعاملة وإنشاء Lot عند انطباق القاعدة."
+        ? "تم حفظ المعاملة وتحديث رصيد الأصل."
         : (await r.json()).error || "خطأ",
     );
-    if (r.ok) {setRequestId(crypto.randomUUID());load();}
+    if (r.ok) {setRequestId(crypto.randomUUID());setEntryOpen(false);setForm((x:any)=>({...x,asset_account_id:"",quantity:1,unit_price:"",gross_value:"",base_value:"",proceeds_account_id:"",funding_account_id:"",counterparty_id:"",vat_amount:"",notes:""}));await load();}
+    } catch { setMsg("تعذر حفظ المعاملة. حاول مرة أخرى."); } finally { setSaving(false); }
   }
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("ar");
@@ -211,7 +210,7 @@ export default function Transactions() {
     <main className="container transactions-page">
       <div className="page-head transaction-page-head">
         <div>
-          <span className="pill">TRANSACTION LEDGER</span>
+          <span className="pill">سجل العمليات</span>
           <h1>
             <span className="page-title-icon" aria-hidden="true">
               ⇄
@@ -219,11 +218,12 @@ export default function Transactions() {
             سجل المعاملات
           </h1>
           <p className="muted">
-            كل حركة تدخل في الحساب تبدأ من هذا السجل، ويحفظ التصحيح عن طريق
-            Reversal دون حذف التاريخ.
+            تابع حركة الأصول وابحث في العمليات. أضف المعاملة بعد تحديد الأصل ونوع الحركة وقيمتها.
           </p>
         </div>
+        <button type="button" className="btn" aria-expanded={entryOpen} aria-controls="transaction-entry" onClick={()=>{setEntryOpen(!entryOpen);setMsg("");}}>＋ إضافة معاملة</button>
       </div>
+      {msg && !entryOpen && <p role="status" className="notice">{msg}</p>}
       {loadError && <div className="notice">{loadError}</div>}
       <section className="transaction-kpis section">
         <TransactionKpi
@@ -247,20 +247,23 @@ export default function Transactions() {
           value={displayMetric(summary.latest)}
         />
       </section>
-      <div className="card section transaction-entry-card">
+      {entryOpen && <div id="transaction-entry" className="card section transaction-entry-card">
         <div className="transaction-section-head">
           <div>
             <span className="transaction-ledger-kicker">إدخال حركة جديدة</span>
             <h2>إضافة معاملة</h2>
           </div>
-          <span className="pill">تُحفظ في السجل</span>
+          <button type="button" className="btn secondary" disabled={saving} onClick={()=>setEntryOpen(false)}>إغلاق النموذج ×</button>
         </div>
+        <p className="muted">١. اختر الأصل ونوع الحركة · ٢. أدخل التاريخ والكمية والقيمة · ٣. راجع البيانات واحفظ</p>
         <div className="form-grid">
+          <h3 className="transaction-form-section-title">بيانات الحركة</h3>
           <Field label="الأصل">
             <select
               value={form.asset_account_id}
-              onChange={(e) => { const selected = assets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
+              onChange={(e) => { const selected = assets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",counterparty_id:"",currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
             >
+              <option value="">اختر الأصل</option>
               {assets.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} — {assetTypeLabel(a)} — {assetOwnerLabel(a)}
@@ -311,6 +314,7 @@ export default function Transactions() {
               }
             />
           </Field>
+          <h3 className="transaction-form-section-title">الكمية والتقييم</h3>
           <Field label="الكمية">
             <input
               type="number"
@@ -335,8 +339,9 @@ export default function Transactions() {
           <Field label="إجمالي القيمة">
             <input type="number" step="any" value={form.gross_value} readOnly />
           </Field>
-          {form.transaction_type==="PURCHASE"&&<><Field label="ضريبة الفاتورة (بعملة المعاملة)"><input type="number" min="0" step="any" value={form.vat_amount||0} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></Field>{selectedAsset?.ownership_scope==="ORGANIZATION"?<><Field label="المورد"><select value={form.counterparty_id||""} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">اختر المورد</option>{(catalog.counterparties||[]).filter((p:any)=>p.organization_id===selectedAsset.organization_id&&["SUPPLIER","BOTH"].includes(p.party_type)).map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="رقم الفاتورة"><input value={form.reference||""} onChange={e=>setForm({...form,reference:e.target.value})}/></Field><Field label="تاريخ استحقاق الدفع"><input type="date" min={form.transaction_date} value={form.due_date||""} onChange={e=>setForm({...form,due_date:e.target.value})}/></Field><Field label="نسبة استرداد الضريبة %"><input type="number" min="0" max="100" value={form.recoverable_percent??100} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/></Field></>:<Field label="حساب تمويل الشراء"><select value={form.funding_account_id||""} onChange={e=>setForm({...form,funding_account_id:e.target.value})}><option value="">اختر حساب التمويل</option>{assets.filter(a=>a.ownership_scope==="PERSONAL"&&["CASH","BANK"].includes(a.asset_type)&&a.currency===form.currency).map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></Field>}</>}
+          {form.transaction_type==="PURCHASE"&&<><h3 className="transaction-form-section-title">الفاتورة والتمويل</h3><Field label="ضريبة الفاتورة (بعملة المعاملة)"><input type="number" min="0" step="any" value={form.vat_amount||0} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></Field>{selectedAsset?.ownership_scope==="ORGANIZATION"?<><Field label="المورد"><select value={form.counterparty_id||""} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">اختر المورد</option>{(catalog.counterparties||[]).filter((p:any)=>p.organization_id===selectedAsset.organization_id&&["SUPPLIER","BOTH"].includes(p.party_type)).map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="رقم الفاتورة"><input value={form.reference||""} onChange={e=>setForm({...form,reference:e.target.value})}/></Field><Field label="تاريخ استحقاق الدفع"><input type="date" min={form.transaction_date} value={form.due_date||""} onChange={e=>setForm({...form,due_date:e.target.value})}/></Field><Field label="نسبة استرداد الضريبة %"><input type="number" min="0" max="100" value={form.recoverable_percent??100} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/></Field></>:<Field label="حساب تمويل الشراء"><select value={form.funding_account_id||""} onChange={e=>setForm({...form,funding_account_id:e.target.value})}><option value="">اختر حساب التمويل</option>{assets.filter(a=>a.ownership_scope==="PERSONAL"&&["CASH","BANK"].includes(a.asset_type)&&a.currency===form.currency).map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></Field>}</>}
           {selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE"&&<div className="notice">الإهلاك والبيع والاستبعاد المؤسسي متاحة من عمليات الأصل في <a href="assets">صفحة الأصول</a> مع الاعتماد المالي.</div>}
+          <h3 className="transaction-form-section-title">العملة وسعر الصرف</h3>
           <Field label="عملة المعاملة">
             <input readOnly value={form.currency} onChange={(e) => { const currency=e.target.value.toUpperCase(); const same=currency===form.base_currency; setForm({ ...form, currency, fx_rate:same?1:form.fx_rate, base_value:same?form.gross_value:(Number(form.gross_value)||0)*(Number(form.fx_rate)||1) }); }} />
           </Field>
@@ -359,16 +364,17 @@ export default function Transactions() {
           <Field label="القيمة بالعملة الأساسية">
             <input type="number" step="any" value={form.base_value} readOnly />
           </Field>
+          <label className="transaction-form-notes">ملاحظات المعاملة<textarea value={form.notes} rows={2} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="مرجع أو تفاصيل إضافية (اختياري)"/></label>
         </div>
         <button
           className="btn"
           onClick={save}
-          disabled={!form.asset_account_id || (selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE") || (form.transaction_type === "SALE" && !form.proceeds_account_id)}
+          disabled={saving || !form.asset_account_id || (selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE") || (form.transaction_type === "SALE" && !form.proceeds_account_id)}
         >
-          إضافة
+          {saving ? "جارٍ الحفظ…" : "حفظ المعاملة"}
         </button>
-        {msg && <p className="muted">{msg}</p>}
-      </div>
+        {msg && <p role="status" className="muted">{msg}</p>}
+      </div>}
       <div className="card section transaction-ledger-card">
         <div className="transaction-ledger-head">
           <div>

@@ -1,11 +1,12 @@
+import {invalidateZakatViews} from '@/lib/zakat-view-refresh';
 import {NextResponse} from 'next/server';import {requireUser} from '@/services/auth';import {calculateAndSaveAssessment} from '@/services/assessments';
 export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){try{const{id}=await params;const{supabase,user}=await requireUser();const{data,error}=await supabase.from('zakat_assessments').select('*,zakat_methods(code,name_ar,name_en),zakat_assessment_lines(*)').eq('id',id).eq('user_id',user.id).single();if(error)throw error;return NextResponse.json(data)}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:404})}}
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){try{
  const{id}=await params;const{supabase,user}=await requireUser();const body=await req.json();
  const{data:old,error}=await supabase.from('zakat_assessments').select('*').eq('id',id).eq('user_id',user.id).single();if(error||!old)throw new Error('ASSESSMENT_NOT_FOUND');
- const{data:cycle,error:ce}=old.hawl_cycle_id?await supabase.from('zakat_hawl_cycles').select('id,status,assessment_id').eq('id',old.hawl_cycle_id).eq('user_id',user.id).single():{data:null,error:null};
+ const{data:cycle,error:ce}=old.hawl_cycle_id?await supabase.from('zakat_hawl_cycles').select('id,status,assessment_id,final_assessment_id,final_zakat_due').eq('id',old.hawl_cycle_id).eq('user_id',user.id).single():{data:null,error:null};
  if(ce)throw ce;
- if(!cycle||!['OPEN','ACTIVE'].includes(cycle.status))return NextResponse.json({error:'CLOSED_CYCLE_ASSESSMENT_LOCKED'},{status:409});
+ if(!cycle||!['OPEN','ACTIVE'].includes(cycle.status)||cycle.final_assessment_id||cycle.final_zakat_due!=null||old.status==='CANCELLED')return NextResponse.json({error:'CLOSED_CYCLE_ASSESSMENT_LOCKED'},{status:409});
  if(cycle.assessment_id!==id||old.superseded_by)return NextResponse.json({error:'ASSESSMENT_SUPERSEDED'},{status:409});
  const s=old.calculation_snapshot??{};
  const result=await calculateAndSaveAssessment({assessment_date:body.assessment_date??old.assessment_date,
@@ -16,4 +17,10 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
   price_source:body.price_source},id);
  return NextResponse.json({...result,ok:true,replaced_assessment_id:id});
  }catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:400})}}
-export async function DELETE(_:Request,{params}:{params:Promise<{id:string}>}){try{const{id}=await params;const{supabase,user}=await requireUser();const{data:a,error}=await supabase.from('zakat_assessments').select('id,status,hawl_cycle_id,calculation_snapshot').eq('id',id).eq('user_id',user.id).single();if(error||!a)throw new Error('ASSESSMENT_NOT_FOUND');if(a.hawl_cycle_id||a.calculation_snapshot?.schemaVersion>=2)throw new Error('ASSESSMENT_SNAPSHOT_LOCKED');const[{count:payments},{count:allocations},{count:finalRefs}]=await Promise.all([supabase.from('zakat_payments').select('id',{count:'exact',head:true}).eq('user_id',user.id).eq('assessment_id',id),supabase.from('zakat_payment_allocations').select('id',{count:'exact',head:true}).eq('user_id',user.id).eq('assessment_id',id),supabase.from('zakat_hawl_cycles').select('id',{count:'exact',head:true}).eq('user_id',user.id).eq('final_assessment_id',id)]);if((payments||0)>0||(allocations||0)>0||(finalRefs||0)>0)return NextResponse.json({error:'ASSESSMENT_PROTECTED',reason:'PAYMENT_OR_FINAL_CYCLE_LINK'},{status:409});const{error:lineError}=await supabase.from('zakat_assessment_lines').delete().eq('assessment_id',id);if(lineError)throw lineError;const{error:deleteError}=await supabase.from('zakat_assessments').delete().eq('id',id).eq('user_id',user.id);if(deleteError)throw deleteError;await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'zakat_assessment',entity_id:id,action:'DELETE_UNUSED_ASSESSMENT',old_data:a});return NextResponse.json({ok:true,id})}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:400})}}
+export async function DELETE(_:Request,{params}:{params:Promise<{id:string}>}) {
+ try {
+  const {id}=await params;const {supabase}=await requireUser();
+  const {data,error}=await supabase.rpc('cancel_open_zakat_assessment',{p_assessment_id:id});
+  if(error)throw error;invalidateZakatViews();return NextResponse.json(data);
+ }catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:e.message==='ASSESSMENT_NOT_FOUND'?404:e.message==='ASSESSMENT_PROTECTED'?409:400})}
+}

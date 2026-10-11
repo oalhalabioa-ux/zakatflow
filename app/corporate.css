@@ -634,3 +634,57 @@
 .asset-cycle-detail+.asset-cycle-detail{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .asset-cycle-detail{line-height:1.8}
 @media(max-width:600px){.asset-cycle-scope label{width:100%;justify-content:space-between}.asset-cycle-scope select{min-width:0;max-width:75%}}
+
+/* Theme-consistent assets and customization, including legacy page presets. */
+.corp-shell .assets-page :is(.asset-kpi,.asset-group,.asset-scope-bar,.asset-group-summary,.asset-exit-summary){background:var(--brand-surface)!important;border-color:var(--brand-border)!important;color:var(--brand-text)!important}
+.corp-shell .assets-page :is(.asset-kpi .metric,.asset-kpi .kpi,.asset-group h3){color:var(--brand-text)!important}
+.corp-shell .assets-page :is(.kpi-icon,.asset-type-icon,.asset-class-icon){background:var(--brand-surface-soft)!important;color:var(--brand-primary)!important;border-color:var(--brand-border)!important}
+.corp-shell .assets-page .asset-kpi-accent{background:var(--brand-border)!important}
+.corp-shell .assets-page .asset-kpi-accent:after{background:var(--brand-primary)!important}
+.corp-shell .assets-page .asset-report-table :is(th,td){border-color:var(--brand-border)!important;color:var(--brand-text)!important}
+.corp-shell .assets-page .asset-report-table thead th{background:var(--brand-surface-soft)!important}
+.corp-shell .assets-page .asset-report-table tbody tr{background:var(--brand-surface)!important}
+.corp-shell .assets-page .asset-report-table tbody tr:nth-child(even){background:var(--brand-surface-soft)!important}
+.corp-shell .att-panel{background:var(--brand-surface)!important;border-color:var(--brand-border)!important;color:var(--brand-text)!important;box-shadow:var(--brand-shadow)}
+.corp-shell .att-preset.active :is(strong,small){color:#fff!important}
+.corp-shell :is(.att-sizes,.att-designs) button.active{background:var(--brand-primary)!important;color:#fff!important;border-color:var(--brand-primary)!important}
+.corp-shell .dash-customizer{padding:24px}
+.corp-shell .dash-customizer .preset-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.corp-shell .dash-customizer .preset-card{padding:16px;text-align:start;min-height:96px;background:var(--brand-surface)!important;border:1px solid var(--brand-border)!important;border-radius:12px}
+.corp-shell .dash-customizer .preset-card strong{font-size:15px;color:var(--brand-text)!important;display:block}
+.corp-shell .dash-customizer .preset-card span{font-size:12px;color:var(--brand-muted)!important;display:block;margin-top:6px;line-height:1.6}
+.corp-shell .dash-customizer .preset-card.active{border-color:var(--brand-primary)!important;background:var(--brand-surface-soft)!important;box-shadow:inset 0 0 0 1px var(--brand-primary)}
+.corp-shell .customizer-section-title{font-size:14px;margin:24px 0 10px}
+.corp-shell .dash-customizer .widget-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
+.corp-shell .dash-customizer .widget-picker label{display:flex;align-items:center;gap:10px;padding:13px;border-radius:10px;background:var(--brand-surface)!important;border:1px solid var(--brand-border)!important;color:var(--brand-text)!important;font-size:13px;cursor:pointer}
+.corp-shell .dash-customizer .widget-picker label.selected{border-color:var(--brand-primary)!important;background:var(--brand-surface-soft)!important}
+.corp-shell .dash-customizer input[type=checkbox]{width:18px;height:18px;accent-color:var(--brand-primary)}
+.corp-shell .payments-page .payment-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.corp-shell .payments-page .payment-kpi .kpi{color:var(--brand-text)!important;font-size:clamp(18px,1.5vw,25px);line-height:1.5;white-space:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;margin-top:16px}
+.corp-shell .payments-page .payment-kpi{min-height:148px;padding:18px}
+.corp-shell .payments-page .payment-kpi-head .muted{font-size:12px;line-height:1.6;color:var(--brand-muted)!important}
+.corp-shell .transactions-page{--tx-accent:var(--brand-primary);--tx-accent-soft:var(--brand-surface-soft);--tx-ink:var(--brand-text);--tx-muted:var(--brand-muted);--tx-border:var(--brand-border)}
+.corp-shell .transactions-page .transaction-page-head{align-items:center;gap:16px}
+.corp-shell .transactions-page .transaction-entry-card .form-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;padding:18px 0}
+.corp-shell .transactions-page .transaction-entry-card .form-grid>.notice{grid-column:1/-1;margin:0}
+.corp-shell .transactions-page .transaction-entry-card label{font-size:13px;line-height:1.8}
+.corp-shell .transactions-page :is(.transaction-kpi,.transaction-entry-card,.transaction-ledger-card){background:var(--brand-surface)!important;border-color:var(--brand-border)!important}
+.corp-shell .transactions-page :is(.transaction-kpi-icon,.transaction-ledger-count){color:var(--brand-primary)!important;background:var(--brand-surface-soft)!important}
+.corp-shell :is(.att-panel,.dash-customizer) :is(button,input):focus-visible{outline:2px solid var(--brand-primary);outline-offset:3px}
+@media(max-width:1100px){.corp-shell .payments-page .payment-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.corp-shell .dash-customizer :is(.preset-grid,.widget-picker),.corp-shell .payments-page .payment-kpis,.corp-shell .transactions-page .transaction-entry-card .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.corp-shell .dash-customizer :is(.preset-grid,.widget-picker),.corp-shell .payments-page .payment-kpis,.corp-shell .transactions-page .transaction-entry-card .form-grid{grid-template-columns:1fr}}
+.corp-shell .assets-page :is(.asset-group-head,.sum-chip,.sum-chip.due){background:var(--brand-surface-soft)!important;border-color:var(--brand-border)!important;color:var(--brand-text)!important}
+.corp-shell .assets-page .sum-chip :is(.sum-icon,strong){color:var(--brand-primary)!important}
+.corp-shell .assets-page .sum-chip .sum-icon{background:var(--brand-surface)!important}
+.corp-shell .transactions-page{--tx-accent-dark:var(--brand-text);--tx-line:var(--brand-border);--tx-surface:var(--brand-surface)}
+.corp-shell .transactions-page .transaction-filters{background:var(--brand-surface-soft)!important;border-color:var(--brand-border)!important;grid-template-columns:auto minmax(180px,1.5fr) repeat(3,minmax(120px,1fr)) auto}
+.corp-shell .transactions-page :is(.transaction-ledger-kicker,.transaction-filters label){color:var(--brand-muted)!important;font-size:12px}
+@media(max-width:1100px){.corp-shell .transactions-page .transaction-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.corp-shell .transactions-page .transaction-filters{grid-template-columns:1fr}}
+.corp-shell .transactions-page .transaction-form-section-title{grid-column:1/-1;margin:8px 0 0;padding:12px 0 0;border-top:1px solid var(--brand-border);font-size:14px;color:var(--brand-primary)!important}
+.corp-shell .transactions-page .transaction-form-section-title:first-child{border:0;padding-top:0;margin-top:0}
+.corp-shell .transactions-page .transaction-form-notes{grid-column:1/-1;display:grid;gap:6px}
+.corp-shell .att-panel{max-height:60dvh}
+.corp-shell .att-save{position:sticky;bottom:0;box-shadow:0 0 0 8px var(--brand-surface)}
+@media(max-width:600px){.corp-shell .att-panel{position:fixed;inset-inline:8px;top:80px;max-height:calc(100dvh - 96px);width:auto}}

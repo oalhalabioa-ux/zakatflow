@@ -144,29 +144,29 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
       <style>{`
         .asset-table-tools{max-width:1240px;margin:14px auto -10px;padding:0 22px;position:relative}
         .att-bar{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-        .att-panel{position:absolute;z-index:25;top:46px;inset-inline-end:22px;width:min(610px,calc(100vw - 44px));max-height:calc(100vh - 120px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 18px 45px #0f231e26}
+        .att-panel{position:absolute;z-index:25;top:46px;inset-inline-end:22px;width:min(610px,calc(100vw - 44px));max-height:calc(100vh - 120px);overflow:auto;background:var(--brand-surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 18px 45px #0f231e26}
         .att-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
         .att-panel h4{margin:0}.att-panel h5{margin:20px 0 8px;color:var(--muted)}
         .att-close{border:0;background:transparent;color:var(--muted);font-size:20px;cursor:pointer}
         .att-presets{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-        .att-preset{min-height:76px;text-align:start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);cursor:pointer}
+        .att-preset{min-height:76px;text-align:start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--brand-surface);color:var(--brand-text);cursor:pointer}
         .att-preset strong,.att-preset small{display:block}.att-preset small{margin-top:5px;color:var(--muted);line-height:1.5}
-        .att-preset.active{background:#173f38;color:#fff;border-color:#173f38}.att-preset.active small{color:#d8e9e3}
+        .att-preset.active{background:var(--brand-primary);color:#fff;border-color:var(--brand-primary)}.att-preset.active small{color:#fff}
         .att-sizes,.att-designs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
         .att-sizes button,.att-designs button,.att-save{min-height:40px;width:100%;display:flex;align-items:center;justify-content:center}
-        .att-sizes button.active,.att-designs button.active{background:#0f7665;color:#fff;border-color:#0f7665}
+        .att-sizes button.active,.att-designs button.active{background:var(--brand-primary);color:#fff;border-color:var(--brand-primary)}
         .att-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .att-cols label{display:flex;align-items:center;gap:9px;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fbfdfc;cursor:pointer}
-        .att-cols label:has(input:checked){border-color:#16836f;background:#effaf6}.att-cols input{width:18px;height:18px;accent-color:#16836f}
-        .att-order{display:grid;gap:7px}.att-order-help{margin:0 0 9px;color:var(--muted);font-size:12px}
-        .att-order-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;font-size:13px;background:#fbfdfc;cursor:grab}
-        .att-order-row.dragged{opacity:.45}.att-order-row.drag-over,.att-order-row:focus-visible{border-color:#16836f;background:#effaf6;box-shadow:inset 0 0 0 1px #16836f}
-        .att-order-name{display:flex;align-items:center;gap:9px;font-weight:650}.att-drag-handle{font-size:18px;color:#5f746d}
+        .att-cols label{display:flex;align-items:center;gap:9px;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--brand-surface-soft);cursor:pointer}
+        .att-cols label:has(input:checked){border-color:var(--brand-primary);background:var(--brand-surface-soft)}.att-cols input{width:18px;height:18px;accent-color:var(--brand-primary)}
+        .att-order{display:grid;gap:7px;max-height:330px;overflow:auto}.att-order-name input{width:18px;height:18px;accent-color:var(--brand-primary)}.att-order-help{margin:0 0 9px;color:var(--muted);font-size:12px}
+        .att-order-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;font-size:13px;background:var(--brand-surface-soft);cursor:grab}
+        .att-order-row.dragged{opacity:.45}.att-order-row.drag-over,.att-order-row:focus-visible{border-color:var(--brand-primary);background:var(--brand-surface-soft);box-shadow:inset 0 0 0 1px var(--brand-primary)}
+        .att-order-name{display:flex;align-items:center;gap:9px;font-weight:650}.att-drag-handle{font-size:18px;color:var(--brand-muted)}
         .att-order-actions{display:flex;gap:4px}.att-order-actions button{width:34px;height:32px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}
-        .att-save{margin-top:18px;border:0;background:#0f7665;color:#fff;border-radius:10px;font-weight:700;cursor:pointer}.att-save.saved{background:#176b4f}
-        .att-note{padding:11px 12px;border-radius:10px;background:#f3f8f6;color:#526a62;font-size:13px;line-height:1.6}
+        .att-save{margin-top:18px;border:0;background:var(--brand-primary);color:#fff;border-radius:10px;font-weight:700;cursor:pointer}.att-save.saved{background:var(--brand-secondary)}
+        .att-note{padding:11px 12px;border-radius:10px;background:var(--brand-surface-soft);color:var(--brand-muted);font-size:13px;line-height:1.6}
         .att-delete-actions{display:flex;gap:8px;margin-top:12px}.att-delete-actions select{flex:1}
-        .att-save:focus-visible,.att-panel button:focus-visible,.att-cols label:focus-within,.att-order-row:focus-visible{outline:3px solid #b8e5d9;outline-offset:2px}
+        .att-save:focus-visible,.att-panel button:focus-visible,.att-cols label:focus-within,.att-order-row:focus-visible{outline:3px solid var(--brand-primary);outline-offset:2px}
         .asset-report-table th{min-width:72px}.asset-report-table th[data-column=asset]{min-width:150px}
         @media(max-width:600px){.att-cols{grid-template-columns:1fr}.att-presets,.att-sizes,.att-designs{grid-template-columns:1fr}.att-panel{inset-inline-end:8px;width:calc(100vw - 16px)}.att-bar{justify-content:stretch}.att-bar .btn{flex:1}}
       `}</style>
@@ -210,8 +210,8 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
               ))}
             </div>
 
-            <h5>{ar ? "ترتيب الأعمدة" : "Column order"}</h5>
-            <p className="att-order-help">{ar ? "اسحب العمود وأفلته في موضعه الجديد، أو استخدم الأسهم." : "Drag and drop a column, or use the arrow buttons."}</p>
+            <h5>{ar ? "الأعمدة: الإظهار والترتيب" : "Columns: visibility & order"}</h5>
+            <p className="att-order-help">{ar ? "حدد الأعمدة المطلوبة، ورتبها بالسحب أو باستخدام الأسهم." : "Drag and drop a column, or use the arrow buttons."}</p>
             <div className="att-order">
               {settings.order.map((key, index) => {
                 const column = ASSET_COLUMNS.find(([id]) => id === key)!;
@@ -243,7 +243,7 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
                       setDragOver(null);
                     }}
                   >
-                    <span className="att-order-name"><span className="att-drag-handle" aria-hidden="true">⠿</span>{ar ? column[1] : column[2]}</span>
+                    <label className="att-order-name"><input type="checkbox" checked={settings.visible[key] !== false} disabled={settings.visible[key] !== false && Object.values(settings.visible).filter(Boolean).length === 1} onChange={(event) => updateSettings((current) => ({ ...current, visible: { ...current.visible, [key]: event.target.checked } }))}/><span className="att-drag-handle" aria-hidden="true">⠿</span>{ar ? column[1] : column[2]}</label>
                     <span className="att-order-actions">
                       <button type="button" className="btn secondary" disabled={index === 0} onClick={() => move(key, -1)} aria-label={ar ? "تحريك للأعلى" : "Move up"}>↑</button>
                       <button type="button" className="btn secondary" disabled={index === settings.order.length - 1} onClick={() => move(key, 1)} aria-label={ar ? "تحريك للأسفل" : "Move down"}>↓</button>
@@ -253,23 +253,6 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
               })}
             </div>
 
-            <h5>{ar ? "إظهار الأعمدة" : "Visible columns"}</h5>
-            <div className="att-cols">
-              {ASSET_COLUMNS.map(([key, arabic, english]) => (
-                <label key={key}>
-                  <input
-                    type="checkbox"
-                    checked={settings.visible[key] !== false}
-                    disabled={
-                      settings.visible[key] !== false &&
-                      Object.values(settings.visible).filter(Boolean).length === 1
-                    }
-                    onChange={(event) => updateSettings((current) => ({ ...current, visible: { ...current.visible, [key]: event.target.checked } }))}
-                  />
-                  {ar ? arabic : english}
-                </label>
-              ))}
-            </div>
             <button type="button" className={`att-save${saved ? " saved" : ""}`} onClick={saveSettings}>
               {saved ? (ar ? "✓ تم حفظ التخصيص" : "✓ Customization saved") : (ar ? "حفظ النموذج والتخصيص" : "Save model & customization")}
             </button>
