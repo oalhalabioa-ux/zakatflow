@@ -23,7 +23,7 @@ export default function DashboardGraphic({ title, points, currency, line = false
         {[22, 72, 122].map(level => <line key={level} x1="24" x2="376" y1={level} y2={level} stroke="currentColor" opacity=".1" />)}
         <line x1="24" x2="376" y1={zero} y2={zero} stroke="currentColor" opacity=".35" />
         <polyline points={path} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
-        {points.map((point, index) => <circle key={index} cx={x(index)} cy={y(point.value)} r="3.5" fill={point.value < 0 ? '#b74436' : 'currentColor'}><title>{point.label}: {format(point.value)} {currency}</title></circle>)}
+        {points.map((point, index) => <circle key={index} cx={x(index)} cy={y(point.value)} r="3.5" fill={point.value < 0 ? '#b74436' : 'currentColor'}><title>{`${point.label}: ${format(point.value)} ${currency}`}</title></circle>)}
         <text x="24" y="146" textAnchor="start">{points[0].label}</text><text x="376" y="146" textAnchor="end">{points[points.length - 1].label}</text>
         <text x="24" y="14" textAnchor="start">{compact(max)}</text>
       </svg>
