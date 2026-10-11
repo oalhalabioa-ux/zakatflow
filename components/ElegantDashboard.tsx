@@ -284,7 +284,7 @@ export default function ElegantDashboard({
               <Link
                 key={x}
                 aria-current={currency === x ? "true" : undefined}
-                href={`${path("dashboard")}?currency=${x}`}
+                href={`${path("assets/dashboard")}?currency=${x}`}
               >
                 {x}
               </Link>

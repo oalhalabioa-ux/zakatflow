@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 const pages = [
-  { route: "dashboard", ar: "الداشبورد", en: "Dashboard" },
+  { route: "assets/dashboard", ar: "لوحة الأصول", en: "Assets dashboard" },
   { route: "assets", ar: "الأصول", en: "Assets" },
   { route: "transactions", ar: "العمليات", en: "Transactions" },
   { route: "assessments", ar: "احتساب الزكاة", en: "Zakat assessment" },
@@ -13,7 +13,7 @@ const pages = [
 ] as const;
 
 const icons: Record<(typeof pages)[number]["route"], ReactNode> = {
-  dashboard: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
+  "assets/dashboard": <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
   assets: <><path d="M4 7h16v12H4zM7 4h10v3M8 12h8M8 16h5"/></>,
   transactions: <><path d="M4 7h14M14 3l4 4-4 4M20 17H6M10 13l-4 4 4 4"/></>,
   assessments: <><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M14 11h2M8 15h2M14 15h2M8 18h8"/></>,
@@ -23,7 +23,8 @@ const icons: Record<(typeof pages)[number]["route"], ReactNode> = {
 
 export default function ZakatWorkspaceTabs({ locale }: { locale: string }) {
   const pathname = usePathname();
-  const activeRoute = pathname?.split("/")[2];
+  const tail = pathname?.split("/").slice(2).join("/") || "";
+  const activeRoute = tail.startsWith("dashboard/report") ? "assets/dashboard" : pages.find(page=>tail===page.route || tail.startsWith(`${page.route}/`))?.route;
   if (!pages.some((page) => page.route === activeRoute)) return null;
 
   const ar = locale === "ar";
