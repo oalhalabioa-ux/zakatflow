@@ -41,3 +41,17 @@ export function getOutstandingLiquidityCommitments<T extends LiquidityForecastFl
 export function lowestForecastBalance(available: number, weeks: Pick<ForecastWeek,'balance'>[]) {
   return Math.min(Number(available || 0), ...weeks.map(week => week.balance));
 }
+/** One shared signed scale for every week; zero has no artificial minimum width. */
+export function liquidityForecastScale(balances: number[]) {
+  const min = Math.min(0, ...balances);
+  const max = Math.max(0, ...balances);
+  const range = max - min || 1;
+  return {
+    zero: -min / range * 100,
+    position: (balance: number) => (balance - min) / range * 100,
+    bar: (balance: number) => ({
+      left: (Math.min(0, balance) - min) / range * 100,
+      width: Math.abs(balance) / range * 100,
+    }),
+  };
+}

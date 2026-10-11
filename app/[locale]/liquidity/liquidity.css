@@ -45,3 +45,5 @@
 
 
 .liq-party-summary-controls{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}.liq-party-empty-toggle{display:inline-flex;align-items:center;gap:6px;color:var(--liq-muted);font-size:11px;cursor:pointer}.liq-party-empty-toggle input{width:14px;height:14px;margin:0;accent-color:var(--liq-accent)}
+
+.liq-week-bar{position:relative;direction:ltr}.liq-week-bar i{position:absolute;top:0;transition:width .2s ease,left .2s ease}.liq-week-zero{position:absolute;top:0;bottom:0;width:1px;background:var(--liq-muted);z-index:1}
