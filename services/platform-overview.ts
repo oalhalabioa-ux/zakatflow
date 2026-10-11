@@ -2,12 +2,12 @@ import {requireUser} from './auth';
 
 // Counts only: organizational cash, VAT and budgets must not be combined across
 // entities/currencies or reconstructed outside their established report engines.
-export async function getPlatformOverview(organizationId?:string,organizationName?:string) {
+export async function getPlatformOverview(organizationId?:string,organizationName?:string,reportIds?:string[]) {
   const {supabase,user}=await requireUser();
   const {data:members,error}=await supabase.from('organization_members')
     .select('organization_id').eq('user_id',user.id).eq('status','ACTIVE');
-  const ids=Array.from(new Set((members??[]).map(x=>x.organization_id))).filter(id=>!organizationId||id===organizationId);
-  if(organizationId&&!ids.length)throw new Error("ORGANIZATION_ACCESS_REQUIRED");
+  const ids=Array.from(new Set((members??[]).map(x=>x.organization_id))).filter(id=>reportIds?reportIds.includes(id):!organizationId||id===organizationId);
+  if(organizationId&&(!ids.includes(organizationId)||reportIds?.some(id=>!ids.includes(id))))throw new Error("ORGANIZATION_ACCESS_REQUIRED");
   async function count(query:PromiseLike<{count:number|null;error:unknown}>) {
     try {const r=await query;return r.error?null:r.count??0;}catch{return null;}
   }
