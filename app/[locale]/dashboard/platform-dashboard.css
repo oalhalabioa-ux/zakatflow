@@ -115,6 +115,6 @@
 .platform-refresh-icon{display:none;width:20px;height:20px}
 .theme-modern .platform-refresh-text{display:none}.theme-modern .platform-refresh-icon{display:block}
 .theme-modern .platform-scope>.platform-refresh{width:40px;height:40px;padding:10px;min-width:40px}
-.theme-modern .platform-summary-card strong{direction:ltr;unicode-bidi:isolate;white-space:nowrap;font-size:clamp(18px,1.5vw,23px);clear:both}
+.theme-modern .platform-summary-card strong{direction:ltr;text-align:end;unicode-bidi:isolate;white-space:nowrap;font-size:clamp(18px,1.5vw,23px);clear:both}
 .theme-modern .platform-summary-card small{padding-inline-start:0}
 @media(max-width:600px){.theme-modern .platform-summary-card strong{font-size:20px}}
