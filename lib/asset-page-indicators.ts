@@ -12,6 +12,8 @@ export function assetPageIndicators(rows: any[], today: string) {
   const zakatable = active.filter(r => r.is_zakatable);
   const nextDue = (r: any) => {
     // Monitor the new Hawl, not the frozen dates of a prior closed cycle.
+    const currentDates=(r.lots||[]).map((l:any)=>l.current_hawl_due_date).filter(Boolean);
+    if(currentDates.length)return currentDates.filter((d:string)=>d>=today).sort()[0];
     const openLots = (r.zakat_cycle_calculations || []).filter((c: any) => !c.cycle_closed).flatMap((c: any) => c.lots || []);
     return [...openLots, ...(r.lots || [])].map((l: any) => l.hawl_due_date).filter((d: string) => d && d >= today).sort()[0];
   };
