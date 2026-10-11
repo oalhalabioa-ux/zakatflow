@@ -129,6 +129,26 @@
 .platform-personal .platform-module-metrics .platform-scope-note dd{direction:inherit;text-align:inherit;font-size:11px}
 
 /* Elegant executive overview: scoped to the home dashboard. */
+.dashboard-graphic{display:none}
+.theme-elegant .dashboard-graphic{display:block;margin:0 0 20px;padding:18px;border:1px solid var(--brand-border);border-radius:14px;background:var(--brand-surface-soft);color:var(--brand-primary)}
+.theme-elegant .dashboard-graphic figcaption{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:750;margin-bottom:16px}
+.theme-elegant .dashboard-graphic figcaption small{font-size:11px;color:var(--brand-muted)}
+.theme-elegant .dashboard-graphic svg{display:block;width:100%;height:auto;max-height:190px;direction:ltr}
+.theme-elegant .dashboard-graphic svg text{font-size:10px;fill:var(--brand-muted)}
+.theme-elegant .dashboard-graphic-bars{display:grid;gap:14px;margin:0}
+.theme-elegant .dashboard-graphic-bars>div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:7px 12px}
+.theme-elegant .dashboard-graphic-bars dt{font-size:12px;color:var(--brand-text)}
+.theme-elegant .dashboard-graphic-bars dd{margin:0;font-size:13px;font-weight:750;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.theme-elegant .dashboard-graphic-track{grid-column:1/-1;position:relative;height:7px;background:var(--brand-border);border-radius:8px;direction:ltr}
+.theme-elegant .dashboard-graphic-track span{position:absolute;height:100%;background:var(--brand-primary);border-radius:8px}
+.theme-elegant .dashboard-graphic-zero{position:absolute;width:1px;height:11px;top:-2px;background:var(--brand-muted)}
+.theme-elegant .dashboard-graphic-details{font-size:12px;margin-top:12px}
+.theme-elegant .dashboard-graphic-details summary{cursor:pointer;min-height:28px}
+.theme-elegant .dashboard-graphic-details dl{margin:12px 0 0;display:grid;gap:8px}
+.theme-elegant .dashboard-graphic-details dl>div{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.theme-elegant .dashboard-graphic-details dd{margin:0;overflow-wrap:anywhere}
+.theme-elegant .dashboard-graphic-empty{color:var(--brand-muted);padding:24px 0;text-align:center;font-size:13px}
+@media(max-width:450px){.theme-elegant .dashboard-graphic{padding:14px}.theme-elegant .dashboard-graphic-bars>div{grid-template-columns:1fr}.theme-elegant .dashboard-graphic-bars dd{text-align:end}.theme-elegant .dashboard-graphic-track{grid-column:1}}
 .theme-elegant .platform-dashboard{padding-block:24px 36px}
 .theme-elegant .platform-welcome{margin-bottom:20px;align-items:center}
 .theme-elegant .platform-welcome h1{font-size:clamp(25px,2.2vw,34px);font-weight:800;line-height:1.4}
