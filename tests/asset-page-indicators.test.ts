@@ -17,6 +17,11 @@ describe('asset page indicators',()=>{
   it('uses new Hawl dates rather than closed-cycle dates for the next 30 days',()=>{
     expect(assetPageIndicators([gold,cash,disposed],'2026-10-11').near.map(r=>r.id)).toEqual(['c']);
   });
+  it('uses authoritative current periods for new assets before their first assessment',()=>{
+    const newAsset={...gold,zakat_calculation:null,zakat_cycle_calculations:[],lots:[{hawl_due_date:null,current_hawl_due_date:'2026-10-20'}]};
+    expect(assetPageIndicators([newAsset],'2026-10-11').near).toHaveLength(1);
+    expect(assetPageIndicators([{...gold,lots:[{current_hawl_due_date:'2027-02-24'}]}],'2026-10-11').near).toHaveLength(0);
+  });
   it('handles empty scopes and ratios without fabricated progress',()=>{
     expect(assetPageIndicators([],'2026-10-11')).toMatchObject({total:0,cost:0,totalDue:0,totalPaid:0,near:[]});
     expect(indicatorPercent(5,25)).toBe(20);
