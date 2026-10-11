@@ -688,3 +688,16 @@
 .corp-shell .att-panel{max-height:60dvh}
 .corp-shell .att-save{position:sticky;bottom:0;box-shadow:0 0 0 8px var(--brand-surface)}
 @media(max-width:600px){.corp-shell .att-panel{position:fixed;inset-inline:8px;top:80px;max-height:calc(100dvh - 96px);width:auto}}
+
+/* Real KPI ratios and keyboard-accessible asset breakdowns. */
+.corp-shell .assets-page button.asset-kpi{font:inherit;text-align:start;width:100%;cursor:pointer}
+.corp-shell .assets-page button.asset-kpi:hover{border-color:var(--brand-primary)!important}
+.corp-shell .assets-page button.asset-kpi:focus-visible{outline:2px solid var(--brand-primary);outline-offset:3px}
+.corp-shell .assets-page button.asset-kpi:disabled{cursor:default}
+.corp-shell .assets-page .asset-kpi-ratio{display:block;color:var(--brand-muted);font-size:11px;margin-top:10px;line-height:1.6}
+.corp-shell .assets-page .asset-kpi-accent:after{width:var(--asset-kpi-percent,0%)!important;transition:width .2s ease}
+.assets-page .asset-indicator-details{scroll-margin-top:90px}
+
+.corp-shell .assets-page button.asset-kpi{padding-bottom:34px!important}
+.corp-shell .assets-page .asset-kpi-accent{position:absolute;inset-inline:18px;bottom:12px;height:4px;border-radius:99px}
+.corp-shell .assets-page .asset-kpi-accent:after{content:'';display:block;height:100%;border-radius:99px}

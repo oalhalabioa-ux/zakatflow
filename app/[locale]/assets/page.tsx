@@ -1,5 +1,5 @@
 "use client";
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState, useRef } from "react";
 import {
   ASSET_COLUMNS,
   type AssetColumn,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/asset-table-preferences";
 import { ASSET_DISPLAY_CLASSES, assetDisplayClass, assetTypeIcon, catalogDisplayClass } from "@/lib/asset-classification-display";
 import {assetReportCalculation, type AssetCycleScope} from "@/lib/asset-zakat-report";
+import {assetPageIndicators,indicatorPercent} from '@/lib/asset-page-indicators';
 import AssetsPageToolbar from "@/components/assets/AssetsPageToolbar";
 import AssetActionsMenu from "@/components/assets/AssetActionsMenu";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
@@ -110,6 +111,7 @@ export default function Assets({
     [classFilter,setClassFilter]=useState("ALL"),
     [typeFilter,setTypeFilter]=useState("ALL"),
     [groupBy,setGroupBy]=useState<"CLASS"|"TYPE">("CLASS"),
+    [metricDetail,setMetricDetail]=useState<string|null>(null),
     [cycleScope,setCycleScope]=useState<AssetCycleScope>("DISPLAYED"),
     [scopeOrgId, setScopeOrgId] = useState(""),
     [scopeEntityId, setScopeEntityId] = useState(""),
@@ -125,28 +127,38 @@ export default function Assets({
     }>({ column: "current", direction: "desc" });
   const baseCurrency=assetScope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR":catalog.base_currency||"SAR";
   const cur = baseCurrency, cv = (n: any) => Number(n || 0);
-  const load = async () => {
-    setLoading(true);
+  const loadVersion=useRef(0);
+  const load = async (background=false) => {
+    const version=++loadVersion.current;
+    if(!background)setLoading(true);
     setLoadError("");
     try {
-      const response = await fetch("/api/assets");
+      const response = await fetch("/api/assets",{cache:"no-store"});
       if (!response.ok) throw new Error("LOAD_FAILED");
-      setRows(await response.json());
+      const nextRows=await response.json();
+      if(version!==loadVersion.current)return;
+      setRows(nextRows);
       const catalogResponse = await fetch("/api/assets/catalog");
-      if (catalogResponse.ok) setCatalog(await catalogResponse.json());
+      const nextCatalog=catalogResponse.ok?await catalogResponse.json():null;
+      if(version!==loadVersion.current)return;
+      if(nextCatalog)setCatalog(nextCatalog);
       const preferenceResponse=await fetch("/api/assets/preferences");
-      if(preferenceResponse.ok){const preference=await preferenceResponse.json();setUsageMode(preference.asset_usage_mode);if(preference.asset_usage_mode!=="BOTH")setAssetScope(preference.asset_usage_mode);}
+      if(preferenceResponse.ok){const preference=await preferenceResponse.json();if(version!==loadVersion.current)return;setUsageMode(preference.asset_usage_mode);if(preference.asset_usage_mode!=="BOTH")setAssetScope(preference.asset_usage_mode);}
     } catch {
+      if(version!==loadVersion.current)return;
       setRows([]);
       setLoadError(
         ar ? "تعذر تحميل الأصول. حاول تحديث الصفحة." : "Could not load assets. Refresh the page to try again.",
       );
     } finally {
-      setLoading(false);
+      if(version===loadVersion.current)setLoading(false);
     }
   };
   useEffect(() => {
     void load();
+    const refresh=()=>{if(document.visibilityState==="visible")void load(true)};
+    window.addEventListener("focus",refresh);
+    const refreshTimer=window.setInterval(refresh,30000);
     try {
       const storedPreferences =
         localStorage.getItem("zf_asset_table_v4") ||
@@ -177,6 +189,9 @@ export default function Assets({
     window.addEventListener("zf-asset-table-settings", onSettings);
     window.addEventListener("zf-assets-page-design", onDesign);
     return () => {
+      ++loadVersion.current;
+      window.removeEventListener("focus",refresh);
+      window.clearInterval(refreshTimer);
       window.removeEventListener("zf-asset-table-settings", onSettings);
       window.removeEventListener("zf-assets-page-design", onDesign);
     };
@@ -292,24 +307,10 @@ export default function Assets({
       </details>}
     </div>;
   };
-  const activeRows=scopedRows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE");
-  const total = activeRows.reduce((s, r) => s + val(r), 0),
-    cost = activeRows.reduce((s, r) => s + Number(r.current_cost_value||0), 0),
-    totalDue = scopedRows.reduce((s, r) => s + due(r), 0),
-    totalPaid = scopedRows.reduce((s, r) => s + paid(r), 0),
-    z = scopedRows.filter((r) => r.is_zakatable),
-    completed = z.filter((r) => (calc(r)?.statuses || []).includes("ELIGIBLE")),
-    near = z.filter((r) => {
-      const d = calc(r)
-        ?.lots?.map((x: any) => x.hawl_due_date)
-        .filter((date:string) => date && date >= new Date().toISOString().slice(0,10))
-        .sort()?.[0];
-      if (!d) return false;
-      const n = Math.ceil(
-        (new Date(`${d}T00:00:00`).getTime() - Date.now()) / 86400000,
-      );
-      return n >= 0 && n <= 30;
-    });
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
+  const indicators=assetPageIndicators(displayRows,today);
+  const scopeIndicators=assetPageIndicators(scopedRows,today);
+  const {active:activeRows,total,cost,totalDue,totalPaid,completed,near}=indicators;
   const info = (t: string) => TYPES.find((x) => x[0] === t),
     label = (t: string) => info(t)?.[ar ? 1 : 2] || t,
     icon = (t: string) => info(t)?.[3] || "💼";
@@ -321,6 +322,18 @@ export default function Assets({
   );
   const pendingInOpen = retroPending.filter(r => (r.zakat_cycle_calculations || []).some((c:any) => !c.cycle_closed)).length;
   const cycleScopeLabel = cycleScope === "ALL" ? (ar?"المغلقة + آخر احتساب للمفتوحة":"Closed + latest open assessments") : cycleScope === "CLOSED" ? (ar?"الدورات المغلقة":"Closed cycles") : cycleScope === "OPEN" ? (ar?"آخر احتساب للدورات المفتوحة":"Latest open-cycle assessments") : (ar?"احتساب الدورة المعروضة":"Displayed cycle assessment");
+  const money=(v:number)=>`${fmt(v)} ${cur}`;
+  const metricCards=[
+    {key:'value',icon:'◆',title:ar?'القيمة الحالية':'Current value',value:money(total),source:ar?'سجل التقييم':'Valuation ledger',percent:indicatorPercent(total,scopeIndicators.total),percentLabel:ar?'من قيمة الأصول النشطة في النطاق':'Of active asset value in scope',rows:activeRows,detail:(r:any)=>money(val(r))},
+    {key:'cost',icon:'▤',title:ar?'تكلفة الشراء':'Purchase cost',value:money(cost),source:ar?'سجل الأصول':'Asset ledger',percent:indicatorPercent(cost,scopeIndicators.cost),percentLabel:ar?'من تكلفة الأصول النشطة في النطاق':'Of active asset cost in scope',rows:activeRows,detail:(r:any)=>money(Number(r.current_cost_value||0))},
+    {key:'gain',icon:'↗',title:ar?'فرق التقييم الحالي':'Current valuation difference',value:money(total-cost),source:ar?'القيمة الحالية − التكلفة':'Current value − cost',percent:indicatorPercent(total-cost,cost),percentLabel:ar?'نسبة فرق التقييم إلى التكلفة':'Valuation difference / cost',rows:activeRows,detail:(r:any)=>money(val(r)-Number(r.current_cost_value||0))},
+    {key:'due',icon:'◉',title:ar?'الزكاة المحتسبة':'Calculated Zakat',value:money(totalDue),source:cycleScopeLabel,percent:indicatorPercent(totalDue,indicators.eligibleValue),percentLabel:ar?'من الوعاء المؤهل المحفوظ':'Of saved eligible base',rows:displayRows.filter(r=>due(r)>0),detail:(r:any)=>money(due(r))},
+    {key:'paid',icon:'✓',title:ar?'المسدّد ضمن نطاق الدورات':'Paid within cycle scope',value:money(totalPaid),source:cycleScopeLabel,percent:indicatorPercent(totalPaid,totalDue),percentLabel:ar?'من الزكاة المحتسبة':'Of calculated Zakat',rows:displayRows.filter(r=>paid(r)>0),detail:(r:any)=>money(paid(r))},
+    {key:'count',icon:'▦',title:ar?'عدد الأصول النشطة':'Active assets',value:String(activeRows.length),source:ar?'السجل الفعلي':'Live ledger',percent:indicatorPercent(activeRows.length,scopeIndicators.active.length),percentLabel:ar?'من الأصول النشطة في النطاق':'Of active assets in scope',rows:activeRows,detail:()=> '1'},
+    {key:'hawl',icon:'◷',title:ar?'مؤهل بالحول':'Hawl eligible',value:String(completed.length),source:cycleScopeLabel,percent:indicatorPercent(completed.length,displayRows.filter(r=>r.is_zakatable).length),percentLabel:ar?'من الأصول الزكوية المعروضة':'Of displayed zakatable assets',rows:completed,detail:(r:any)=>money(due(r))},
+    {key:'near',icon:'!',title:ar?'استحقاق خلال 30 يوماً':'Due within 30 days',value:String(near.length),source:ar?'تواريخ الحول الحالي':'Current Hawl dates',percent:indicatorPercent(near.length,indicators.zakatable.length),percentLabel:ar?'من الأصول الزكوية النشطة':'Of active zakatable assets',rows:near,detail:(r:any)=>indicators.nextDue(r)||'—'},
+  ];
+  const selectedMetric=metricCards.find(card=>card.key===metricDetail);
   const indicatorValue = (value: string) =>
     loading ? "…" : loadError ? "—" : value;
   const indicatorSource = (source: string) =>
@@ -579,63 +592,18 @@ export default function Assets({
         </>}
       </section>}
       {loadError && <div className="notice">{loadError}</div>}
-      {!showingExited && <section className="grid section">
-        <K
-          i="◆"
-          tone="value"
-          t={ar ? "القيمة الحالية" : "Current value"}
-          v={indicatorValue(`${fmt(cv(total))} ${cur}`)}
-          source={indicatorSource(ar ? "سجل التقييم" : "Valuation ledger")}
-        />
-        <K
-          i="▤"
-          tone="cost"
-          t={ar ? "تكلفة الشراء" : "Purchase cost"}
-          v={indicatorValue(`${fmt(cv(cost))} ${cur}`)}
-          source={indicatorSource(ar ? "سجل الأصول" : "Asset ledger")}
-        />
-        <K
-          i="↗"
-          tone="gain"
-          t={ar ? "فرق التقييم الحالي" : "Current valuation difference"}
-          v={indicatorValue(`${fmt(cv(total - cost))} ${cur}`)}
-          source={indicatorSource(ar ? "محسوب مباشرة" : "Live calculation")}
-        />
-        <K
-          i="◉"
-          tone="due"
-          t={ar ? "الزكاة المحتسبة" : "Calculated Zakat"}
-          v={indicatorValue(`${fmt(cv(totalDue))} ${cur}`)}
-          source={indicatorSource(cycleScopeLabel)}
-        />
-        <K
-          i="✓"
-          tone="paid"
-          t={ar ? "المسدّد ضمن نطاق الدورات" : "Paid within cycle scope"}
-          v={indicatorValue(`${fmt(cv(totalPaid))} ${cur}`)}
-          source={indicatorSource(cycleScopeLabel)}
-        />
-        <K
-          i="▦"
-          tone="count"
-          t={ar ? "عدد الأصول" : "Assets"}
-          v={indicatorValue(`${activeRows.length}`)}
-          source={indicatorSource(ar ? "السجل الفعلي" : "Live ledger")}
-        />
-        <K
-          i="◷"
-          tone="hawl"
-          t={ar ? "مؤهل بالحول" : "Hawl eligible"}
-          v={indicatorValue(`${completed.length}`)}
-          source={indicatorSource(cycleScopeLabel)}
-        />
-        <K
-          i="!"
-          tone="due"
-          t={ar ? "استحقاق خلال 30 يوماً" : "Due within 30 days"}
-          v={indicatorValue(`${near.length}`)}
-          source={indicatorSource(ar ? "تواريخ الحول" : "Hawl dates")}
-        />
+      {!showingExited && <section className="grid section" aria-label={ar?"مؤشرات الأصول":"Asset indicators"}>
+        {metricCards.map(card=><K key={card.key} i={card.icon} tone={card.key} t={card.title}
+          v={indicatorValue(card.value)} source={indicatorSource(card.source)}
+          percent={loading||loadError?null:card.percent} percentLabel={card.percentLabel}
+          disabled={loading||!!loadError} expanded={metricDetail===card.key}
+          detailsLabel={ar?"التفاصيل":"Details"} onClick={()=>setMetricDetail(metricDetail===card.key?null:card.key)}/>) }
+      </section>}
+      {!showingExited&&selectedMetric&&!loading&&!loadError&&<section id="asset-indicator-details" className="card section asset-indicator-details" aria-label={ar?"تفاصيل المؤشر":"Indicator details"}>
+        <div className="page-head"><h3>{selectedMetric.title} · {selectedMetric.value}</h3><button type="button" className="btn secondary" onClick={()=>setMetricDetail(null)}>{ar?"إغلاق التفاصيل":"Close details"}</button></div>
+        <p className="muted">{selectedMetric.source} · {ar?"وفق النطاق والفلاتر الحالية":"Using current scope and filters"}</p>
+        <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{selectedMetric.title}</th></tr></thead><tbody>{selectedMetric.rows.map(r=><tr key={r.id}><td>{r.name}</td><td>{typeName(r)}</td><td>{selectedMetric.detail(r)}</td></tr>)}</tbody></table></div>
+        {!selectedMetric.rows.length&&<p className="muted">{ar?"لا توجد أصول مطابقة لهذا المؤشر.":"No matching assets for this indicator."}</p>}
       </section>}
       {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><button type="button" className="btn secondary" onClick={()=>setReviewEvent(null)}>{ar?"إغلاق المراجعة":"Close review"}</button></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
       {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
@@ -1073,16 +1041,17 @@ function K({
   v,
   i,
   tone,
-  source,
+  source, percent, percentLabel, disabled, expanded, detailsLabel, onClick,
 }: {
   t: string;
   v: string;
   i: string;
   tone: string;
   source: string;
+  percent:number|null;percentLabel:string;disabled:boolean;expanded:boolean;detailsLabel:string;onClick:()=>void;
 }) {
   return (
-    <div className={`card asset-kpi tone-${tone}`}>
+    <button type="button" className={`card asset-kpi tone-${tone}`} disabled={disabled} onClick={onClick} aria-expanded={expanded} aria-controls={expanded?"asset-indicator-details":undefined} title={detailsLabel}>
       <div className="asset-kpi-head">
         <span className="kpi-icon" aria-hidden="true">
           {i}
@@ -1094,7 +1063,8 @@ function K({
         <span aria-hidden="true" />
         {source}
       </div>
-      <span className="asset-kpi-accent" aria-hidden="true" />
-    </div>
+      <small className="asset-kpi-ratio">{percent==null?"—":`${new Intl.NumberFormat("en-US",{maximumFractionDigits:1}).format(percent)}%`} · {percentLabel}</small>
+      <span className="asset-kpi-accent" aria-hidden="true" style={{"--asset-kpi-percent":`${Math.min(100,Math.abs(percent??0))}%`} as import("react").CSSProperties}/>
+    </button>
   );
 }
