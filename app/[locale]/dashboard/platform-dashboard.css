@@ -40,3 +40,12 @@
 .platform-module-metrics .platform-scope-note{background:transparent;padding:0}
 .platform-module-metrics .platform-scope-note dd{font-size:11px;font-weight:400;color:var(--brand-muted);line-height:1.8;margin:4px 0}
 .platform-scope :is(select,input,button):focus-visible{outline:2px solid var(--brand-primary);outline-offset:3px}
+
+.platform-owner-switch{display:flex;width:fit-content;gap:8px;padding:6px;border:1px solid var(--brand-border);border-radius:18px;background:var(--brand-surface);margin-bottom:20px}
+.platform-owner-switch a{display:flex;align-items:center;justify-content:center;gap:10px;min-width:130px;padding:13px 20px;border:1px solid var(--brand-border);border-radius:14px;color:var(--brand-primary);background:var(--brand-surface);font-size:17px;font-weight:750;text-decoration:none}
+.platform-owner-switch a.active{background:var(--brand-primary);border-color:var(--brand-primary);color:var(--brand-primary-contrast,#fff)}
+.platform-owner-switch a span{font-size:24px;line-height:1}
+.platform-organization-context{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;margin-bottom:18px;border-inline-start:3px solid var(--brand-primary)!important}
+.platform-organization-context span,.platform-organization-context small{font-size:12px;color:var(--brand-muted)}
+.platform-organization-context strong{font-size:15px;color:var(--brand-primary)}
+@media(max-width:450px){.platform-owner-switch{width:100%}.platform-owner-switch a{min-width:0;flex:1}}
