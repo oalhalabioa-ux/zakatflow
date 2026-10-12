@@ -1,4 +1,5 @@
 'use client';
+import {Money,CurrencyScope} from './DisplayCurrency';
 import Decimal from 'decimal.js';
 import {invoiceSourceLabel} from '@/lib/asset-invoice-source';
 import { InvoiceRegisterTotals } from './invoice-register-totals';
@@ -12,7 +13,7 @@ const accountingLabels: Record<string, [string,string]> = { ACTUAL: ['مرحّل
 const issueLabels: Record<string, [string,string]> = { REGISTERED:['مسجلة من المصدر','Recorded at source'], DRAFT: ['مسودة','Draft'], NOT_ISSUED: ['غير مصدرة','Not issued'], ISSUED: ['صادرة — QR المرحلة الأولى','Issued — Phase 1 QR'], CLEARED: ['معتمدة','Cleared'], REPORTED: ['مبلّغ عنها','Reported'], SUBMITTED: ['مرسلة','Submitted'], REJECTED: ['مرفوضة','Rejected'], VOID: ['ملغاة','Void'] };
 const kindLabels: Record<string, [string,string]> = { INVOICE: ['فاتورة','Invoice'], CREDIT_NOTE: ['إشعار دائن','Credit note'], DEBIT_NOTE: ['إشعار مدين','Debit note'] };
 const label = (labels: Record<string,[string,string]>, key: string, ar: boolean) => labels[key]?.[ar ? 0 : 1] || key;
-const money = (value: number | string, currency: string) => `${Number(value).toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2})} ${currency}`;
+const money = (value:number|string,currency:string)=><Money value={value} currency={currency}/>;
 export function UnifiedInvoiceRegister({ organizationId, ar, refresh }: { organizationId: string; ar: boolean; refresh: number }) {
   const [rows, setRows] = useState<UnifiedInvoice[]>([]);
   const [loading, setLoading] = useState(true);

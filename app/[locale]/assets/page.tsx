@@ -1,4 +1,5 @@
 "use client";
+import {CurrencyScope,Money,useDisplayMoney} from "@/components/DisplayCurrency";
 import { use, useEffect, useMemo, useState, useRef } from "react";
 import {
   ASSET_COLUMNS,
@@ -291,18 +292,18 @@ export default function Assets({
       <div className={withDetails?"asset-exit-totals":"asset-summary"} aria-label={ar?"إجماليات الأصول الخارجة":"Exited asset totals"}>
         <div className={withDetails?"asset-exit-metric":"sum-chip"}>
           {withDetails&&<span className="asset-exit-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 9h18M16 13h5v4h-5z"/></svg></span>}
-          <div><span>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":lifecycleFilter==="SOLD"?"التكلفة قبل البيع":"التكلفة قبل البيع / الاستغناء"):"Cost before exit"}</span><strong>{unknownCost?"—":fmt(historicalCost)} {cur}</strong></div>
+          <div><span>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":lifecycleFilter==="SOLD"?"التكلفة قبل البيع":"التكلفة قبل البيع / الاستغناء"):"Cost before exit"}</span><strong>{unknownCost?"—":<Money value={historicalCost} currency={cur}/>}</strong></div>
         </div>
         {Array.from(quantities.entries()).sort((a,b)=>a[1].title.localeCompare(b[1].title,ar?"ar":"en")).map(([key,q])=><div className={withDetails?"asset-exit-metric":"sum-chip"} key={key}>
           {withDetails&&<span className={`asset-exit-metric-icon ${key.startsWith("GOLD")?"is-gold":"is-metal"}`} aria-hidden="true">{assetTypeIcon(key.split(":")[0])}</span>}
           <div><span>{q.title} · {ar?(q.unit==="g"?(lifecycleFilter==="DISPOSED"?"الوزن قبل الاستغناء":"الوزن قبل الخروج"):(lifecycleFilter==="DISPOSED"?"الكمية قبل الاستغناء":"الكمية قبل الخروج")):(q.unit==="g"?"Weight before exit":"Quantity before exit")}</span><strong>{fmt(q.quantity)} {q.unit==="g"?(ar?"غرام":"g"):q.unit}</strong></div>
         </div>)}
-        {exited.some(r=>r.lifecycle_status==="SOLD")&&<div className={withDetails?"asset-exit-metric":"sum-chip"}><div><span>{ar?"حصيلة البيع":"Sale proceeds"}</span><strong>{fmt(proceeds)} {cur}</strong></div></div>}
+        {exited.some(r=>r.lifecycle_status==="SOLD")&&<div className={withDetails?"asset-exit-metric":"sum-chip"}><div><span>{ar?"حصيلة البيع":"Sale proceeds"}</span><strong><Money value={proceeds} currency={cur}/></strong></div></div>}
       </div>
       {unknownCost&&<small className="muted">{ar?"تكلفة بعض عمليات البيع القديمة غير محفوظة؛ لا تُستبدل بحصيلة البيع أو بسعر السوق الحالي.":"Some historical sale costs are unavailable; proceeds and current quotes are not used as substitutes."}</small>}
       {withDetails&&<details className="asset-exit-history"><summary><svg className="asset-exit-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>{ar?"التفاصيل":"Details"}</summary>
         <div className="asset-exit-history-panel"><h4>{ar?"سجل عمليات البيع والاستغناء":"Sale and disposal history"}</h4><div className="asset-exit-table-scroll"><table className="table asset-exit-table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th><th>{ar?"العملية":"Operation"}</th><th>{ar?"الوزن / الكمية":"Weight / quantity"}</th><th>{ar?"التكلفة قبل الخروج":"Cost before exit"}</th><th>{ar?"حصيلة البيع":"Sale proceeds"}</th></tr></thead><tbody>
-          {exited.flatMap(r=>(r.exit_history||[]).filter((tx:any)=>tx.kind===r.lifecycle_status).map((tx:any)=><tr key={tx.id}><td>{r.name}</td><td>{assetTypeIcon(r.asset_type_code||r.asset_type)} {typeName(r)}</td><td>{tx.date}</td><td>{tx.kind==="SOLD"?(ar?"بيع":"Sale"):(ar?"استغناء":"Disposal")}</td><td>{fmt(tx.quantity)} {["GOLD","SILVER"].includes(r.asset_type)?(ar?"غرام":"g"):r.unit||""}</td><td>{tx.cost==null?"—":`${fmt(tx.cost)} ${cur}`}</td><td>{tx.kind==="SOLD"?`${fmt(tx.proceeds)} ${cur}`:"—"}</td></tr>))}
+          {exited.flatMap(r=>(r.exit_history||[]).filter((tx:any)=>tx.kind===r.lifecycle_status).map((tx:any)=><tr key={tx.id}><td>{r.name}</td><td>{assetTypeIcon(r.asset_type_code||r.asset_type)} {typeName(r)}</td><td>{tx.date}</td><td>{tx.kind==="SOLD"?(ar?"بيع":"Sale"):(ar?"استغناء":"Disposal")}</td><td>{fmt(tx.quantity)} {["GOLD","SILVER"].includes(r.asset_type)?(ar?"غرام":"g"):r.unit||""}</td><td>{tx.cost==null?"—":<Money value={tx.cost} currency={cur}/>}</td><td>{tx.kind==="SOLD"?<Money value={tx.proceeds} currency={cur}/>:"—"}</td></tr>))}
         </tbody></table></div></div>
       </details>}
     </div>;
@@ -322,15 +323,16 @@ export default function Assets({
   );
   const pendingInOpen = retroPending.filter(r => (r.zakat_cycle_calculations || []).some((c:any) => !c.cycle_closed)).length;
   const cycleScopeLabel = cycleScope === "ALL" ? (ar?"المغلقة + آخر احتساب للمفتوحة":"Closed + latest open assessments") : cycleScope === "CLOSED" ? (ar?"الدورات المغلقة":"Closed cycles") : cycleScope === "OPEN" ? (ar?"آخر احتساب للدورات المفتوحة":"Latest open-cycle assessments") : (ar?"احتساب الدورة المعروضة":"Displayed cycle assessment");
-  const money=(v:number)=>`${fmt(v)} ${cur}`;
+  const money=useDisplayMoney();
+  const assetMoney=(v:number)=>money(v,cur);
   const metricCards=[
-    {key:'value',icon:'◆',title:ar?'القيمة الحالية':'Current value',value:money(total),source:ar?'سجل التقييم':'Valuation ledger',percent:indicatorPercent(total,scopeIndicators.total),percentLabel:ar?'من قيمة الأصول النشطة في النطاق':'Of active asset value in scope',rows:activeRows,detail:(r:any)=>money(val(r))},
-    {key:'cost',icon:'▤',title:ar?'تكلفة الشراء':'Purchase cost',value:money(cost),source:ar?'سجل الأصول':'Asset ledger',percent:indicatorPercent(cost,scopeIndicators.cost),percentLabel:ar?'من تكلفة الأصول النشطة في النطاق':'Of active asset cost in scope',rows:activeRows,detail:(r:any)=>money(Number(r.current_cost_value||0))},
-    {key:'gain',icon:'↗',title:ar?'فرق التقييم الحالي':'Current valuation difference',value:money(total-cost),source:ar?'القيمة الحالية − التكلفة':'Current value − cost',percent:indicatorPercent(total-cost,cost),percentLabel:ar?'نسبة فرق التقييم إلى التكلفة':'Valuation difference / cost',rows:activeRows,detail:(r:any)=>money(val(r)-Number(r.current_cost_value||0))},
-    {key:'due',icon:'◉',title:ar?'الزكاة المحتسبة':'Calculated Zakat',value:money(totalDue),source:cycleScopeLabel,percent:indicatorPercent(totalDue,indicators.eligibleValue),percentLabel:ar?'من الوعاء المؤهل المحفوظ':'Of saved eligible base',rows:displayRows.filter(r=>due(r)>0),detail:(r:any)=>money(due(r))},
-    {key:'paid',icon:'✓',title:ar?'المسدّد ضمن نطاق الدورات':'Paid within cycle scope',value:money(totalPaid),source:cycleScopeLabel,percent:indicatorPercent(totalPaid,totalDue),percentLabel:ar?'من الزكاة المحتسبة':'Of calculated Zakat',rows:displayRows.filter(r=>paid(r)>0),detail:(r:any)=>money(paid(r))},
+    {key:'value',icon:'◆',title:ar?'القيمة الحالية':'Current value',value:assetMoney(total),source:ar?'سجل التقييم':'Valuation ledger',percent:indicatorPercent(total,scopeIndicators.total),percentLabel:ar?'من قيمة الأصول النشطة في النطاق':'Of active asset value in scope',rows:activeRows,detail:(r:any)=>assetMoney(val(r))},
+    {key:'cost',icon:'▤',title:ar?'تكلفة الشراء':'Purchase cost',value:assetMoney(cost),source:ar?'سجل الأصول':'Asset ledger',percent:indicatorPercent(cost,scopeIndicators.cost),percentLabel:ar?'من تكلفة الأصول النشطة في النطاق':'Of active asset cost in scope',rows:activeRows,detail:(r:any)=>assetMoney(Number(r.current_cost_value||0))},
+    {key:'gain',icon:'↗',title:ar?'فرق التقييم الحالي':'Current valuation difference',value:assetMoney(total-cost),source:ar?'القيمة الحالية − التكلفة':'Current value − cost',percent:indicatorPercent(total-cost,cost),percentLabel:ar?'نسبة فرق التقييم إلى التكلفة':'Valuation difference / cost',rows:activeRows,detail:(r:any)=>assetMoney(val(r)-Number(r.current_cost_value||0))},
+    {key:'due',icon:'◉',title:ar?'الزكاة المحتسبة':'Calculated Zakat',value:assetMoney(totalDue),source:cycleScopeLabel,percent:indicatorPercent(totalDue,indicators.eligibleValue),percentLabel:ar?'من الوعاء المؤهل المحفوظ':'Of saved eligible base',rows:displayRows.filter(r=>due(r)>0),detail:(r:any)=>assetMoney(due(r))},
+    {key:'paid',icon:'✓',title:ar?'المسدّد ضمن نطاق الدورات':'Paid within cycle scope',value:assetMoney(totalPaid),source:cycleScopeLabel,percent:indicatorPercent(totalPaid,totalDue),percentLabel:ar?'من الزكاة المحتسبة':'Of calculated Zakat',rows:displayRows.filter(r=>paid(r)>0),detail:(r:any)=>assetMoney(paid(r))},
     {key:'count',icon:'▦',title:ar?'عدد الأصول النشطة':'Active assets',value:String(activeRows.length),source:ar?'السجل الفعلي':'Live ledger',percent:indicatorPercent(activeRows.length,scopeIndicators.active.length),percentLabel:ar?'من الأصول النشطة في النطاق':'Of active assets in scope',rows:activeRows,detail:()=> '1'},
-    {key:'hawl',icon:'◷',title:ar?'مؤهل بالحول':'Hawl eligible',value:String(completed.length),source:cycleScopeLabel,percent:indicatorPercent(completed.length,displayRows.filter(r=>r.is_zakatable).length),percentLabel:ar?'من الأصول الزكوية المعروضة':'Of displayed zakatable assets',rows:completed,detail:(r:any)=>money(due(r))},
+    {key:'hawl',icon:'◷',title:ar?'مؤهل بالحول':'Hawl eligible',value:String(completed.length),source:cycleScopeLabel,percent:indicatorPercent(completed.length,displayRows.filter(r=>r.is_zakatable).length),percentLabel:ar?'من الأصول الزكوية المعروضة':'Of displayed zakatable assets',rows:completed,detail:(r:any)=>assetMoney(due(r))},
     {key:'near',icon:'!',title:ar?'استحقاق خلال 30 يوماً':'Due within 30 days',value:String(near.length),source:ar?'تواريخ الحول الحالي':'Current Hawl dates',percent:indicatorPercent(near.length,indicators.zakatable.length),percentLabel:ar?'من الأصول الزكوية النشطة':'Of active zakatable assets',rows:near,detail:(r:any)=>indicators.nextDue(r)||'—'},
   ];
   const selectedMetric=metricCards.find(card=>card.key===metricDetail);
@@ -435,22 +437,22 @@ export default function Assets({
           />
         );
       case "cost":
-        if(row.lifecycle_status==="SOLD")return <span title={ar?"تكلفة الجزء المباع قبل البيع":"Historical cost of sold quantity"}>{row.sold_cost_value==null?"—":`${fmt(cv(row.sold_cost_value))} ${cur}`}</span>;
-        return <span title={row.lifecycle_status==="DISPOSED"?(ar?"تكلفة الجزء المستغنى عنه قبل الاستبعاد":"Historical cost of disposed quantity"):undefined}>{fmt(cv(row.lifecycle_status==="DISPOSED"?row.disposed_cost_value:costVal(row)))} {cur}</span>;
+        if(row.lifecycle_status==="SOLD")return <span title={ar?"تكلفة الجزء المباع قبل البيع":"Historical cost of sold quantity"}>{row.sold_cost_value==null?"—":<Money value={cv(row.sold_cost_value)} currency={cur}/>}</span>;
+        return <span title={row.lifecycle_status==="DISPOSED"?(ar?"تكلفة الجزء المستغنى عنه قبل الاستبعاد":"Historical cost of disposed quantity"):undefined}><Money value={cv(row.lifecycle_status==="DISPOSED"?row.disposed_cost_value:costVal(row))} currency={cur}/></span>;
       case "current":
-        return <strong>{fmt(cv(val(row)))} {cur}</strong>;
+        return <strong><Money value={cv(val(row))} currency={cur}/></strong>;
       case "due":
-        return `${fmt(cv(due(row)))} ${cur}`;
+        return <Money value={cv(due(row))} currency={cur}/>;
       case "paid":
-        return `${fmt(cv(paid(row)))} ${cur}`;
+        return <Money value={cv(paid(row))} currency={cur}/>;
       case "remaining":
-        return `${fmt(cv(remaining(row)))} ${cur}`;
+        return <Money value={cv(remaining(row))} currency={cur}/>;
       case "calculation":
         return (
           <ZakatCell
             row={row}
             ar={ar}
-            amount={`${fmt(cv(due(row)))} ${cur}`}
+            amount={<Money value={cv(due(row))} currency={cur}/>}
           />
         );
       case "action":
@@ -553,7 +555,7 @@ export default function Assets({
   };
   const scopeControl = usageMode==="BOTH"?<div className="asset-owner-switch" role="group" aria-label={ar?"نطاق عرض الأصول":"Asset view scope"}>{([["PERSONAL",ar?"♙ شخصي":"♙ Personal"],["ORGANIZATION",ar?"▥ مؤسسي":"▥ Organization"]] as const).map(([key,text])=><button key={key} type="button" className={`btn ${assetScope===key?"":"secondary"}`} aria-pressed={assetScope===key} onClick={()=>{setAssetScope(key);setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");}}>{text}</button>)}</div>:<strong>{usageMode==="PERSONAL"?(ar?"♙ شخصي":"♙ Personal"):(ar?"▥ مؤسسي":"▥ Organization")}</strong>;
   return (
-    <main className={`container assets-page assets-page-${design}`}>
+    <main className={`container assets-page assets-page-${design}`}><CurrencyScope currency={baseCurrency} organizationId={assetScope==="ORGANIZATION"?scopeOrgId:undefined}/>
       <style>{`.asset-detail-type{font-size:11px;margin-inline-start:8px}.asset-owner-switch{display:flex;gap:6px;flex-wrap:wrap}.asset-scope-bar{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.2fr) minmax(200px,1fr) minmax(200px,1fr);gap:12px;align-items:end;padding:16px 18px}.asset-scope-bar label{display:grid;gap:6px;font-size:12px;font-weight:700}.asset-scope-bar select{width:100%}.asset-scope-title{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.asset-scope-title strong{font-size:14px}.asset-scope-title span{font-size:11px;color:var(--muted)}@media(max-width:900px){.asset-scope-bar{grid-template-columns:1fr 1fr}}@media(max-width:620px){.asset-scope-bar{grid-template-columns:1fr}}.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:var(--brand-surface-soft);color:var(--brand-primary)}.hawl-days{background:var(--brand-surface-soft);color:var(--brand-text)}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--brand-surface-soft);color:var(--brand-text);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
       <div className="asset-page-header">
         <div className="asset-page-heading"><h1><span className="page-title-icon" aria-hidden="true">▥</span> {ar?"الأصول":"Assets"}</h1>{scopeControl}</div>
@@ -826,7 +828,7 @@ export default function Assets({
                       </span>
                       <span>{ar ? "إجمالي القيمة" : "Total value"}</span>
                       <strong>
-                        {fmt(cv(sub))} {cur}
+                        <Money value={cv(sub)} currency={cur}/>
                       </strong>
                     </span>
                     <span className="sum-chip due">
@@ -835,7 +837,7 @@ export default function Assets({
                       </span>
                       <span>{ar ? "زكاة Snapshot" : "Snapshot Zakat"}</span>
                       <strong>
-                        {fmt(cv(sd))} {cur}
+                        <Money value={cv(sd)} currency={cur}/>
                       </strong>
                     </span>
                   </div>}
@@ -853,7 +855,7 @@ export default function Assets({
               {!isClosed && (showingExited ? <div className="asset-exit-table-scroll"><table className="table asset-exit-table"><thead><tr>
                 <th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"الوزن قبل الخروج / الكمية":"Weight / quantity before exit"}</th><th>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":"التكلفة قبل البيع"):"Cost before exit"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th><th>{ar?"الإجراء":"Action"}</th>
               </tr></thead><tbody>{sortedRows.map(row=>{const sold=row.lifecycle_status==="SOLD";const amount=sold?row.sold_cost_value:row.disposed_cost_value;const date=(row.exit_history||[]).filter((tx:any)=>tx.kind===row.lifecycle_status).map((tx:any)=>tx.date).sort().at(-1);return <tr key={row.id}>
-                <td><strong className="asset-name-cell"><span className="asset-row-icon" aria-hidden="true">{assetTypeIcon(row.asset_type_code||row.asset_type)}</span>{row.name}</strong></td><td>{typeName(row)}</td><td>{fmt(Number(sold?row.sold_quantity:row.disposed_quantity)||0)} {["GOLD","SILVER"].includes(row.asset_type)?(ar?"غرام":"g"):row.unit||""}</td><td>{amount==null?"—":`${fmt(Number(amount))} ${cur}`}</td><td>{date||"—"}</td><td>{renderAssetCell("action",row)}</td>
+                <td><strong className="asset-name-cell"><span className="asset-row-icon" aria-hidden="true">{assetTypeIcon(row.asset_type_code||row.asset_type)}</span>{row.name}</strong></td><td>{typeName(row)}</td><td>{fmt(Number(sold?row.sold_quantity:row.disposed_quantity)||0)} {["GOLD","SILVER"].includes(row.asset_type)?(ar?"غرام":"g"):row.unit||""}</td><td>{amount==null?"—":<Money value={Number(amount)} currency={cur}/>}</td><td>{date||"—"}</td><td>{renderAssetCell("action",row)}</td>
               </tr>;})}</tbody></table></div> : (
                 <div style={{ overflowX: "auto" }}>
                   <table
@@ -973,7 +975,7 @@ function ZakatCell({
 }: {
   row: any;
   ar: boolean;
-  amount: string;
+  amount: React.ReactNode;
 }) {
   const c = row.zakat_calculation;
   if (!row.is_zakatable && !Number(c?.zakat_amount))
@@ -1000,7 +1002,7 @@ function ZakatCell({
       {c.cycle_calculations.map((cycle:any)=><section key={cycle.assessment_id} className="asset-cycle-detail">
         <strong>{ar?"الدورة":"Cycle"} #{cycle.cycle_number} · {cycle.cycle_closed?(ar?"مغلقة · سعر مثبت":"Closed · frozen price"):(ar?"مفتوحة · تقدير":"Open · estimate")}</strong>
         <div><bdi>{cycle.cycle_start_date}</bdi> → <bdi>{cycle.cycle_end_date}</bdi></div>
-        <div>{ar?"المحتسب":"Assessed"}: {fmt(cycle.zakat_amount)} {cycle.currency} · {ar?"المسدّد":"Paid"}: {fmt(cycle.paid_amount)} {cycle.currency} · {ar?"المتبقي":"Remaining"}: {fmt(cycle.remaining_amount)} {cycle.currency}</div>
+        <div>{ar?"المحتسب":"Assessed"}: <Money value={cycle.zakat_amount} currency={cycle.currency}/> · {ar?"المسدّد":"Paid"}: <Money value={cycle.paid_amount} currency={cycle.currency}/> · {ar?"المتبقي":"Remaining"}: <Money value={cycle.remaining_amount} currency={cycle.currency}/></div>
         {cycle.lots.map((lot:any)=><div key={lot.id??lot.lot_id}>{ar?"الكمية":"Quantity"}: {fmt(lot.quantity)} · {ar?"السعر المحفوظ":"Saved price"}: {lot.valuation_price==null?"—":fmt(lot.valuation_price)} {lot.valuation_currency}</div>)}
       </section>)}
     </div></details>
