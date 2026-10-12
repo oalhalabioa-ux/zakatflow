@@ -1,4 +1,5 @@
 'use client';
+import {Money,CurrencyScope} from '@/components/DisplayCurrency';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -45,7 +46,7 @@ export default function LotDetail() {
         <Card t={ar ? 'الأصل' : 'Asset'} v={x.asset_accounts?.name} />
         <Card
           t={ar ? 'القيمة المتبقية' : 'Remaining Value'}
-          v={`${x.remaining_value_base}`}
+          v={<Money value={x.remaining_value_base} currency={x.transactions?.base_currency || "SAR"}/>}
         />
         <Card
           t={ar ? 'بداية الحول' : 'Hawl Start'}
@@ -82,7 +83,7 @@ export default function LotDetail() {
               <tr key={a.id}>
                 <td>{a.transaction_id}</td>
                 <td>{a.quantity}</td>
-                <td>{a.value_base}</td>
+                <td><Money value={a.value_base} currency={x.transactions?.base_currency || "SAR"}/></td>
                 <td>{a.allocation_method}</td>
               </tr>
             ))}
@@ -108,7 +109,7 @@ export default function LotDetail() {
               <tr key={a.id}>
                 <td>{a.zakat_assessments?.assessment_date}</td>
                 <td>{a.eligibility_status}</td>
-                <td>{a.zakat_amount}</td>
+                <td><Money value={a.zakat_amount} currency={a.zakat_assessments?.currency || x.transactions?.base_currency || "SAR"}/></td>
                 <td>{a.explanation}</td>
               </tr>
             ))}

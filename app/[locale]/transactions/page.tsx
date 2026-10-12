@@ -463,7 +463,7 @@ export default function Transactions() {
                   <td><strong>{assetName(r)}</strong></td>
                   <td><span className="pill transaction-type-pill">{transactionTypeLabel(r.transaction_type)}</span></td>
                   <td className="transaction-value">
-                    <Money value={r.base_value} currency={r.base_currency}/>
+                    <Money value={r.base_value} currency={r.base_currency} organizationId={r.organization_id}/>
                   </td>
                   <td>{r.base_currency}</td><td>{showDeleted?<button type="button" className="btn secondary" disabled={Boolean(deletingId)} onClick={()=>void restoreTransaction(r)}>استعادة</button>:r.can_delete?<button type="button" className="btn secondary" title="حذف العملية غير المرتبطة" aria-label={`حذف عملية ${assetName(r)} بتاريخ ${r.transaction_date}`} disabled={Boolean(deletingId)} onClick={()=>void removeTransaction(r)}>🗑</button>:<span className="muted" title="مرتبطة بأصل أو أثر مالي؛ الحذف غير متاح">🔒</span>}</td>
                 </tr>

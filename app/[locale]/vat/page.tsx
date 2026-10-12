@@ -1010,7 +1010,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
 
           {summaryNoteReview && !includeDrafts && <p className="vat-disclaimer" role="status">{ar?'توجد إشعارات في فترة لها ملخص محفوظ. الأرقام المعروضة تستخدم الملخص؛ راجع تفاصيل الإشعارات وحدّث الإجماليات غير المقدمة قبل تقديم الإقرار. مفتاح المسودات يعرض حساب التفاصيل للمقارنة.':'Notes exist in a period with a saved summary. Displayed totals use that summary; reconcile notes and update unfiled totals before filing. Draft review shows detail totals for comparison.'}</p>}
           <div id="vat-panel-dashboard" role="tabpanel" aria-labelledby="vat-tab-dashboard" hidden={activeTab !== 'dashboard'}>
-            {reportScope === 'GROUP' && loadingData ? <div className="vat-loading" role="status">{ar ? 'جارٍ تجميع بيانات الشركة والفروع…' : 'Loading company and branch totals…'}</div> : <VatManagementDashboard
+            {reportScope === 'GROUP' && loadingData ? <div className="vat-loading" role="status">{ar ? 'جارٍ تجميع بيانات الشركة والفروع…' : 'Loading company and branch totals…'}</div> : <VatManagementDashboard currency={baseCurrency}
               period={period}
               yearStart={yearStart}
               frequency={profile?.filing_frequency ?? 'QUARTERLY'}
@@ -1031,7 +1031,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           </div>
 
           <div id="vat-panel-aggregate" role="tabpanel" aria-labelledby="vat-tab-aggregate" hidden={activeTab !== 'aggregate'}>
-            {isOfficialFilingPeriod && !includeDrafts ? <VatPeriodSummaryForm
+            {isOfficialFilingPeriod && !includeDrafts ? <VatPeriodSummaryForm currency={baseCurrency}
               organizationId={organizationId}
               period={period}
               yearStart={yearStart}
@@ -1335,7 +1335,7 @@ function vatDocumentAmount(document: VatDocument, part: 'net' | 'tax' | 'gross')
   const baseAmount = document[`${part}_amount` as 'net_amount' | 'tax_amount' | 'gross_amount'];
   const sourceAmount = document[`source_${part}_amount` as 'source_net_amount' | 'source_tax_amount' | 'source_gross_amount'];
   const sign = document.document_kind === 'CREDIT_NOTE' ? '−' : '';
-  return <>{sign}{money(baseAmount)} {currency}{sourceCurrency !== currency && sourceAmount !== undefined && <small>{sign}{money(sourceAmount)} {sourceCurrency}</small>}</>;
+  return <>{sign}<Money value={baseAmount} currency={currency}/>{sourceCurrency !== currency && sourceAmount !== undefined && <small>{sign}<Money value={sourceAmount} currency={sourceCurrency}/></small>}</>;
 }
 
 function frequencyLabel(frequency: VatFilingFrequency, ar: boolean) {

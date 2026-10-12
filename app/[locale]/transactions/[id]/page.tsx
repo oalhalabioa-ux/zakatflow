@@ -1,4 +1,5 @@
 'use client';
+import {Money,CurrencyScope} from '@/components/DisplayCurrency';
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -47,7 +48,7 @@ export default function TxDetail({
   }
 
   return (
-    <main className="container">
+    <main className="container"><CurrencyScope currency={x.base_currency || "SAR"} organizationId={x.organization_id || undefined}/>
       <div className="page-head">
         <div>
           <h1>{ar ? 'تفاصيل المعاملة' : 'Transaction Detail'}</h1>
@@ -73,7 +74,7 @@ export default function TxDetail({
       <div className="grid section">
         <Card t="Type" v={x.transaction_type} />
         <Card t="Date" v={x.transaction_date} />
-        <Card t="Value" v={`${x.base_value} ${x.base_currency}`} />
+        <Card t="Value" v={<Money value={x.base_value} currency={x.base_currency} organizationId={x.organization_id}/>} />
         <Card t="Asset" v={x.asset_accounts?.name} />
       </div>
 
@@ -99,7 +100,7 @@ export default function TxDetail({
                   </Link>
                 </td>
                 <td>{a.quantity}</td>
-                <td>{a.value_base}</td>
+                <td><Money value={a.value_base} currency={x.base_currency} organizationId={x.organization_id}/></td>
                 <td>{a.allocation_method}</td>
               </tr>
             ))}
