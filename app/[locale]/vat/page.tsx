@@ -1,4 +1,5 @@
 'use client';
+import {CurrencyScope,Money} from '@/components/DisplayCurrency';
 
 import { vatNoteMessages } from '@/lib/vat-note-messages';
 
@@ -838,7 +839,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const isRegistered = profile?.registration_status === 'REGISTERED';
 
   return (
-    <main className="container vat-page" dir={ar ? 'rtl' : 'ltr'}>
+    <main className="container vat-page" dir={ar ? 'rtl' : 'ltr'}><CurrencyScope currency={baseCurrency} organizationId={organizationId||undefined}/>
       <header className="vat-header">
         <div>
           <span className="vat-eyebrow">{ar ? 'الضرائب والفوترة' : 'TAX & INVOICING'}</span>
@@ -1048,9 +1049,9 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           <div id="vat-panel-register" role="tabpanel" aria-labelledby="vat-tab-register" hidden={activeTab !== 'register'}>
           <div className="vat-invoice-kpis" aria-label={ar ? 'ملخص سجل الفواتير' : 'Invoice register summary'}>
             <div className="vat-invoice-kpi count"><span>{ar ? 'مستندات الفترة' : 'Period documents'}</span><strong>{registerDocuments.length}</strong><small>{ar ? `${registerDirection === 'SALES' ? 'مبيعات' : 'مشتريات'} · ${period.from} — ${period.to}` : `${registerDirection === 'SALES' ? 'Sales' : 'Purchases'} · ${period.from} — ${period.to}`}</small></div>
-            <div className="vat-invoice-kpi net"><span>{registerDirection === 'SALES' ? (ar ? 'المبيعات قبل الضريبة' : 'Sales before VAT') : (ar ? 'المشتريات قبل الضريبة' : 'Purchases before VAT')}</span><strong>{money(registerSummary.net.toFixed(2))} <small>{baseCurrency}</small></strong><i aria-hidden="true">↗</i></div>
-            <div className="vat-invoice-kpi tax"><span>{registerDirection === 'SALES' ? (ar ? 'ضريبة المخرجات' : 'Output VAT') : (ar ? 'ضريبة المدخلات' : 'Input VAT')}</span><strong>{money(registerSummary.tax.toFixed(2))} <small>{baseCurrency}</small></strong><i aria-hidden="true">%</i></div>
-            <div className="vat-invoice-kpi gross"><span>{ar ? 'الإجمالي شامل الضريبة' : 'Total including VAT'}</span><strong>{money(registerSummary.gross.toFixed(2))} <small>{baseCurrency}</small></strong><i aria-hidden="true">▤</i></div>
+            <div className="vat-invoice-kpi net"><span>{registerDirection === 'SALES' ? (ar ? 'المبيعات قبل الضريبة' : 'Sales before VAT') : (ar ? 'المشتريات قبل الضريبة' : 'Purchases before VAT')}</span><strong><Money value={registerSummary.net.toFixed(2)} currency={baseCurrency}/></strong><i aria-hidden="true">↗</i></div>
+            <div className="vat-invoice-kpi tax"><span>{registerDirection === 'SALES' ? (ar ? 'ضريبة المخرجات' : 'Output VAT') : (ar ? 'ضريبة المدخلات' : 'Input VAT')}</span><strong><Money value={registerSummary.tax.toFixed(2)} currency={baseCurrency}/></strong><i aria-hidden="true">%</i></div>
+            <div className="vat-invoice-kpi gross"><span>{ar ? 'الإجمالي شامل الضريبة' : 'Total including VAT'}</span><strong><Money value={registerSummary.gross.toFixed(2)} currency={baseCurrency}/></strong><i aria-hidden="true">▤</i></div>
           </div>
           <div className="vat-register-switch-row">
           <div className="vat-invoice-direction vat-register-direction" role="group" aria-label={ar ? 'نوع الفاتورة' : 'Invoice direction'}>

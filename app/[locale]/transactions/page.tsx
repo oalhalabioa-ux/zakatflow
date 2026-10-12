@@ -1,4 +1,5 @@
 "use client";
+import {Money,useDisplayMoney} from "@/components/DisplayCurrency";
 import { useEffect, useMemo, useState } from "react";
 type SortKey = "date" | "asset" | "type" | "value" | "currency";
 type SortDirection = "asc" | "desc";
@@ -28,6 +29,7 @@ function transactionTypeLabel(type: string) {
 }
 
 export default function Transactions() {
+  const money=useDisplayMoney();
   const [rows, setRows] = useState<any[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
   const [sort, setSort] = useState<{
@@ -236,7 +238,7 @@ export default function Transactions() {
         <TransactionKpi
           icon="◆"
           label="صافي الحركة"
-          value={displayMetric(new Set(rows.map(r=>r.base_currency)).size>1?"عملات متعددة":`${numberFormatter.format(summary.net)} ${rows[0]?.base_currency||catalog.base_currency||""}`)}
+          value={displayMetric(new Set(rows.map(r=>r.base_currency)).size>1?"عملات متعددة":money(summary.net,rows[0]?.base_currency||catalog.base_currency||"SAR"))}
         />
         <TransactionKpi
           icon="▦"
@@ -461,7 +463,7 @@ export default function Transactions() {
                   <td><strong>{assetName(r)}</strong></td>
                   <td><span className="pill transaction-type-pill">{transactionTypeLabel(r.transaction_type)}</span></td>
                   <td className="transaction-value">
-                    {numberFormatter.format(Number(r.base_value) || 0)}
+                    <Money value={r.base_value} currency={r.base_currency}/>
                   </td>
                   <td>{r.base_currency}</td><td>{showDeleted?<button type="button" className="btn secondary" disabled={Boolean(deletingId)} onClick={()=>void restoreTransaction(r)}>استعادة</button>:r.can_delete?<button type="button" className="btn secondary" title="حذف العملية غير المرتبطة" aria-label={`حذف عملية ${assetName(r)} بتاريخ ${r.transaction_date}`} disabled={Boolean(deletingId)} onClick={()=>void removeTransaction(r)}>🗑</button>:<span className="muted" title="مرتبطة بأصل أو أثر مالي؛ الحذف غير متاح">🔒</span>}</td>
                 </tr>

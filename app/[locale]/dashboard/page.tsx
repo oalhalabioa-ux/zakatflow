@@ -1,3 +1,4 @@
+import {CurrencyScope,Money} from '@/components/DisplayCurrency';
 import Link from 'next/link';
 import type {ReactNode} from 'react';
 import {unstable_rethrow} from 'next/navigation';
@@ -23,7 +24,7 @@ function ScopeIcon({kind}:{kind:'personal'|'company'|'group'}) {
 function Module({kind,title,description,href,children,links,ar,visual,elegantVisual,showMetrics=false}:{showMetrics?:boolean;visual?:ReactNode;elegantVisual?:ReactNode;kind:'assets'|'zakat'|'tax'|'cash'|'budget';title:string;description:string;href:string;children:ReactNode;links:Array<{title:string;href:string}>;ar:boolean}) {
  return <section className={`card platform-module ${showMetrics?'platform-module--metrics':''}`}><div className="platform-module-head"><span className="platform-module-icon"><ModuleIcon kind={kind}/></span><div><h2>{title}</h2><p>{description}</p></div></div><div className="platform-module-art">{visual??<ModuleIcon kind={kind}/>}</div>{elegantVisual}<dl className="platform-module-metrics platform-module-standard">{children}</dl>{!showMetrics&&<details className="platform-module-modern"><summary>{ar?'المؤشرات والتفاصيل':'Indicators & details'} <span aria-hidden="true">⌄</span></summary><dl className="platform-module-metrics">{children}</dl></details>}<nav className="platform-module-links" aria-label={title}>{links.map(x=><Link key={x.href} href={x.href}>{x.title}</Link>)}</nav><Link className="platform-module-open" href={href}>{ar?'فتح لوحة الموديول':'Open module dashboard'} <span aria-hidden="true">{ar?'←':'→'}</span></Link></section>;
 }
-function Metric({label,value}:{label:string;value:string}) {return <div><dt>{label}</dt><dd>{value}</dd></div>;}
+function Metric({label,value}:{label:string;value:ReactNode}) {return <div><dt>{label}</dt><dd>{value}</dd></div>;}
 export default async function Dashboard({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{organization?:string;plan?:string;month?:string;scope?:string;budget_scope?:string;year?:string;scenario?:string;level?:string;asset_basis?:string}>}) {
  const [{locale},q]=await Promise.all([params,searchParams]),ar=locale==='ar';
  const safely=async<T,>(fn:()=>Promise<T>):Promise<T|null>=>{try{return await fn();}catch(e){unstable_rethrow(e);return null;}};
@@ -33,19 +34,19 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
  const scopeHref=(scope:string)=>`${urlForLocale(locale)}?${new URLSearchParams({scope,...(q.organization?{organization:q.organization}:{}),...(q.month?{month:q.month}:{}),...(q.budget_scope?{budget_scope:q.budget_scope}:{}),...(q.year?{year:q.year}:{}),...(q.scenario?{scenario:q.scenario}:{}),...(q.level?{level:q.level}:{}),...(q.asset_basis?{asset_basis:q.asset_basis}:{})})}`;
  const assetsKnown=!!assets&&assets.dataHealth?.assets!==false;
  const liabilityKnown=!!assets&&(['assessments','cycles','allocations','payments'] as const).every(key=>assets.dataHealth?.[key]!==false);
- const money=(v:unknown,known=liabilityKnown)=>known?`${fmt(v)} SAR`:'—';
+ const money=(v:unknown,known=liabilityKnown)=>known?<Money value={Number(v)} currency="SAR"/>:'—';
  const url=(path:string)=>`/${locale}/${path}`;
  const links=(items:Array<[string,string]>)=>items.map(([path,title])=>({href:url(path),title}));
  const orgCurrency=financial?.organization?.base_currency??'SAR';
- const orgMoney=(v:unknown,known:boolean)=>known?`${fmt(v)} ${orgCurrency}`:'—';
- const budgetMoney=(v:unknown)=>financial?.budget?`${fmt(v)} ${financial.budget.plan.currency}`:'—';
+ const orgMoney=(v:unknown,known:boolean)=>known?<Money value={Number(v)} currency={orgCurrency}/>:'—';
+ const budgetMoney=(v:unknown)=>financial?.budget?<Money value={Number(v)} currency={financial.budget.plan.currency}/>:'—';
  const reportLabel=financial?.group?`${financial.organization?.name??'—'} · ${ar?'الشركة وفروعها':'Company and subsidiaries'}`:financial?.organization?.name??'—';
  const levelHref=(level:string)=>`${url('dashboard')}?${new URLSearchParams({scope:'ORGANIZATION',organization:financial?.organization?.id??'',level,...(q.asset_basis?{asset_basis:q.asset_basis}:{}),...(q.month?{month:q.month}:{}),...(q.year?{year:q.year}:{}),...(q.scenario?{scenario:q.scenario}:{}),...(q.budget_scope==='PLAN'&&level==='COMPANY'?{budget_scope:'PLAN'}:{})})}`;
  const cash=financial?.cash,vat=financial?.vat,budget=financial?.budget;
  const assetBasisLabel=financial?.assetBasis==='MARKET'?(ar?'السوقية المتاحة / الدفترية عند غياب السعر':'Available market value / book fallback'):(ar?'القيمة الدفترية الصافية':'Net book value');
  const budgetLabel=financial?.budgetScope==='PLAN'?(financial?.selectedPlan?.name??'—'):financial?.budgetScope==='GROUP'?(ar?'الشركة وفروعها':'Company and subsidiaries'):(ar?'الموازنة الكلية للشركة':'Total company budget');
  const incomplete=personal?(!assetsKnown||!liabilityKnown):(!financial||!!financial.organization&&(!cash||!vat||!financial.organizationAssets)||financial.budgetReadFailed||!!financial.organization&&(!modules||Object.values(modules).some(x=>x==null)));
- return <main className={`container platform-dashboard ${personal?'platform-personal':''}`}><ZakatMetricsRefresh/>
+ return <main className={`container platform-dashboard ${personal?'platform-personal':''}`}><CurrencyScope currency={personal?'SAR':orgCurrency} organizationId={personal?undefined:financial?.organization?.id}/><ZakatMetricsRefresh/>
   <header className="platform-welcome"><div><span className="platform-eyebrow">ZAKATFLOW</span><div className="platform-title-row"><h1>{ar?'اللوحة الرئيسية':'Main dashboard'}</h1><span className="platform-modern-badge">{ar?'الثيم العصري':'Modern theme'} ✧</span></div><p>{ar?'نظرة موحدة على الموديولات، مع لوحة متخصصة لكل مجال.':'A unified overview with a dedicated dashboard for each module.'}</p></div><Link className="btn secondary" href={url('organizations')}>{ar?'المنشآت والصلاحيات':'Organizations & access'}</Link></header>
   {!personal&&financial&&!financial.currencyKnown&&<p className="notice">{ar?'تختلف العملات الأساسية للشركات؛ يلزم تقرير تحويل عملات لعرض إجمالي نقدي موحد.':'Company base currencies differ; a currency-conversion report is required for unified monetary totals.'}</p>}
   {!personal&&financial?.vatPeriodMismatch&&<p className="notice">{ar?'تختلف الفترات الضريبية للشركات؛ راجع ضريبة كل شركة على حدة.':'Company tax periods differ; review each company separately.'}</p>}

@@ -1,3 +1,5 @@
+"use client";
+import {Money,useDisplayMoney} from "./DisplayCurrency";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { allocationSegments, hawlProgress } from "@/lib/dashboard-presentation";
@@ -113,15 +115,8 @@ export default function ElegantDashboard({
 }) {
   const ar = locale === "ar",
     t = (a: string, e: string) => (ar ? a : e);
-  const money = (v: unknown) =>
-    new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(
-      (Number(v) || 0) / (currency === "USD" ? 3.75 : 1),
-    );
-  const amount = (v: unknown) => (
-    <bdi>
-      {money(v)} <span className="ed-unit">{currency}</span>
-    </bdi>
-  );
+  const money = useDisplayMoney();
+  const amount = (v: unknown) => <Money value={v} currency="SAR"/>;
   const path = (p: string) => `/${locale}/${p}`;
   const c = d.activeCycle;
   const progress = hawlProgress(
@@ -210,7 +205,7 @@ export default function ElegantDashboard({
     },
     {
       key: "asof",label:t("الإجمالي حتى آخر احتساب", "Balance as of latest assessment"),value:d.asOfZakahBalanceSar,known:paymentKnown,
-      note:`${t("المتبقي النهائي + التقدير المفتوح", "Final balance + open estimate")} · ${t("رصيد مرحّل", "Carried credit")}: ${money(d.carriedZakahCreditSar)} ${currency}`,percent:0,
+      note:`${t("المتبقي النهائي + التقدير المفتوح", "Final balance + open estimate")} · ${t("رصيد مرحّل", "Carried credit")}: ${money(d.carriedZakahCreditSar)}`,percent:0,
     },
     {
       key: "metals",
@@ -236,14 +231,14 @@ export default function ElegantDashboard({
     {
       title: t("السداد", "Payments"),
       detail: paymentKnown
-        ? `${money(d.allocatedZakahPaidSar)} ${currency}`
+        ? `${money(d.allocatedZakahPaidSar)}`
         : "—",
       done: paymentKnown && Number(d.allocatedZakahPaidSar) > 0,
     },
     {
       title: t("اكتمال السداد", "Payment completed"),
       detail: paymentKnown
-        ? `${t("المتبقي", "Remaining")}: ${money(d.remainingZakahSar)} ${currency}`
+        ? `${t("المتبقي", "Remaining")}: ${money(d.remainingZakahSar)}`
         : "—",
       done:
         paymentKnown &&
@@ -276,20 +271,7 @@ export default function ElegantDashboard({
             <bdi>{c?.hawl_start_date || "—"}</bdi> —{" "}
             <bdi>{c?.hawl_due_date || "—"}</bdi>
           </small>
-          <nav
-            aria-label={t("عملة العرض", "Display currency")}
-            className="ed-currency"
-          >
-            {["SAR", "USD"].map((x) => (
-              <Link
-                key={x}
-                aria-current={currency === x ? "true" : undefined}
-                href={`${path("assets/dashboard")}?currency=${x}`}
-              >
-                {x}
-              </Link>
-            ))}
-          </nav>
+
         </div>
       </header>
       {missing && (
@@ -362,7 +344,7 @@ export default function ElegantDashboard({
                 <strong>
                   <bdi>{money(d.totalCurrentSar)}</bdi>
                 </strong>
-                <small>{currency}</small>
+
               </div>
             </div>
             <ul className="ed-legend">
@@ -426,12 +408,7 @@ export default function ElegantDashboard({
                       }}
                     />
                   </div>
-                  <bdi>
-                    {new Intl.NumberFormat("en-US", {
-                      maximumFractionDigits: 2,
-                    }).format(Number(x.zakat_due) || 0)}
-                  </bdi>
-                  <small>{x.currency || "SAR"}</small>
+                  <Money value={x.zakat_due} currency={x.currency || "SAR"}/>
                   <time dateTime={x.assessment_date}>{x.assessment_date}</time>
                 </div>
               ))}
@@ -513,10 +490,7 @@ export default function ElegantDashboard({
                   </div>
                   <strong>
                     <bdi>
-                      {new Intl.NumberFormat("en-US", {
-                        maximumFractionDigits: 2,
-                      }).format(Number(p.amount) || 0)}{" "}
-                      <span className="ed-unit">{p.currency}</span>
+                      <Money value={p.amount} currency={p.currency}/>
                     </bdi>
                   </strong>
                 </li>
