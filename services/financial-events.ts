@@ -72,6 +72,11 @@ export async function executeFinancialEventAction(input:unknown){
    if(!instruction)throw new Error('SETTLEMENT_INSTRUCTION_REQUIRED');
    const m=(instruction.metadata||{}) as Record<string,any>;const accountId=command.account_id??m.account_id;const settlementDate=command.settlement_date??m.settlement_date;
    if(!accountId)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');if(!settlementDate)throw new Error('SETTLEMENT_DATE_REQUIRED');
+   const existing=unwrap(await supabase.from('liquidity_settlements').select('id,account_id,settlement_date').eq('organization_id',org).eq('financial_event_id',command.event_id).maybeSingle());
+   if(existing){
+    if((command.account_id&&command.account_id!==existing.account_id)||(command.settlement_date&&command.settlement_date!==existing.settlement_date))throw Error('IDEMPOTENCY_CONFLICT');
+    return unwrap(await supabase.rpc('post_financial_settlement',{p_financial_event_id:command.event_id,p_account_id:existing.account_id,p_direction:m.direction,p_settlement_date:existing.settlement_date,p_amount:Number(m.amount),p_currency:m.currency,p_exchange_rate:Number(m.exchange_rate),p_base_amount:Number(m.base_amount),p_allocations:[{obligation_id:m.obligation_id,flow_id:instruction.target_record_id,amount:Number(m.amount),base_amount:Number(m.base_amount),flow_amount:Number(m.flow_amount??m.amount),flow_currency:String(m.flow_currency??m.currency),flow_exchange_rate:Number(m.flow_exchange_rate??m.exchange_rate)}]}));
+   }
    const account=unwrap(await supabase.from('liquidity_accounts').select('id,currency').eq('organization_id',org).eq('id',accountId).single());
    if(!account)throw new Error('SETTLEMENT_ACCOUNT_REQUIRED');
    if(account.currency!==m.currency)throw new Error('SETTLEMENT_ACCOUNT_CURRENCY_MISMATCH');

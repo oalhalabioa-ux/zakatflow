@@ -20,6 +20,8 @@ import {assetReportCalculation, type AssetCycleScope} from "@/lib/asset-zakat-re
 import {assetPageIndicators,indicatorPercent} from '@/lib/asset-page-indicators';
 import AssetsPageToolbar from "@/components/assets/AssetsPageToolbar";
 import AssetActionsMenu from "@/components/assets/AssetActionsMenu";
+import AssetPurchasePanel from "@/components/assets/AssetPurchasePanel";
+import {assetPurchaseAmounts,assetPurchaseStatus} from "@/lib/asset-purchase-workspace";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
 import AssetLifecyclePanel from "@/components/assets/AssetLifecyclePanel";
 type T =
@@ -45,7 +47,7 @@ const TYPES: Array<[T, string, string, string]> = [
 ];
 type AssetsPageDesign = "executive" | "cards" | "analytical";
 const empty: any = {
-    currency:"SAR", fx_rate:"1", vat_amount:"0", recoverable_percent:"100", counterparty_id:"", invoice_reference:"", due_date:"",
+    currency:"SAR", fx_rate:"1", vat_input_mode:"PERCENT",vat_rate:"15",vat_amount:"0", recoverable_percent:"100", counterparty_id:"", invoice_reference:"", due_date:"",
     asset_type: "CASH",
     name: "",
     amount: "",
@@ -100,6 +102,7 @@ export default function Assets({
     [saving, setSaving] = useState(false),
     [requestId,setRequestId]=useState(""),
     [operationAsset,setOperationAsset]=useState<any>(null),
+    [purchaseAsset,setPurchaseAsset]=useState<string|null>(null),
     [reviewEvent,setReviewEvent]=useState<{id:string;name:string}|null>(null),
     [msg, setMsg] = useState(""),
     [loadError, setLoadError] = useState(""),
@@ -361,7 +364,7 @@ export default function Assets({
       display_class: assetDisplayClass(r),
       name: r.name,
       amount: d.opening_value ?? d.purchase_value ?? "",
-      fx_rate:d.fx_rate??1,vat_amount:d.vat_amount??0,recoverable_percent:d.recoverable_percent??100,counterparty_id:d.counterparty_id??"",invoice_reference:d.invoice_reference??"",due_date:d.due_date??"",
+      vat_input_mode:d.vat_input_mode??"AMOUNT",vat_rate:d.vat_rate??15,fx_rate:d.fx_rate??1,vat_amount:d.vat_amount??0,recoverable_percent:d.recoverable_percent??100,counterparty_id:d.counterparty_id??"",invoice_reference:d.invoice_reference??"",due_date:d.due_date??"",
       metadata: d, currency: r.currency, unit:r.unit, expected_updated_at:r.updated_at,
       has_financial_history:r.has_financial_history,
       acquisition_mode:d.acquisition_mode??"OPENING_BALANCE",
@@ -406,6 +409,7 @@ export default function Assets({
               {assetTypeIcon(row.asset_type_code||row.asset_type)}
             </span>
             {row.name}
+            {row.financial_event_id&&<><span className="pill">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span><button type="button" className="btn secondary" onClick={()=>setPurchaseAsset(row.id)}>{ar?"تفاصيل الشراء والإجراءات":"Purchase details and actions"}</button></>}
             <span className="pill asset-detail-type">{typeName(row)}</span>
             {assetDisplayClass(row)==="UNCLASSIFIED"&&<small className="muted">{ar?"استكمال التصنيف":"Awaiting classification"}</small>}
             {row.lifecycle_status==="SOLD" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مباع":"Sold"}</span>}
@@ -437,6 +441,7 @@ export default function Assets({
           />
         );
       case "cost":
+        if(row.pending_purchase_cost_base>0)return <span><Money value={cv(row.pending_purchase_cost_base)} currency={cur}/><small className="muted"> {ar?"قيمة المسودة":"Draft value"}</small></span>;
         if(row.lifecycle_status==="SOLD")return <span title={ar?"تكلفة الجزء المباع قبل البيع":"Historical cost of sold quantity"}>{row.sold_cost_value==null?"—":<Money value={cv(row.sold_cost_value)} currency={cur}/>}</span>;
         return <span title={row.lifecycle_status==="DISPOSED"?(ar?"تكلفة الجزء المستغنى عنه قبل الاستبعاد":"Historical cost of disposed quantity"):undefined}><Money value={cv(row.lifecycle_status==="DISPOSED"?row.disposed_cost_value:costVal(row))} currency={cur}/></span>;
       case "current":
@@ -457,6 +462,7 @@ export default function Assets({
         );
       case "action":
         return <AssetActionsMenu name={row.name} ar={ar}>{close=><>
+          {row.financial_event_id&&<button type="button" onClick={()=>{close();setPurchaseAsset(row.id);}}>{ar?"شراء الأصل / اعتماد / سداد / طباعة":"Purchase / approval / payment / print"}</button>}
           <button type="button" onClick={()=>{close();editRow(row);}}><span aria-hidden="true">✎</span> {ar?"تعديل الأصل":"Edit asset"}</button>
           {row.current_quantity>0&&(row.ownership_scope==="ORGANIZATION"?<button type="button" onClick={()=>{close();setOperationAsset(row);}}><span aria-hidden="true">⚙</span> {ar?"إهلاك / بيع / استبعاد":"Depreciation / sale / disposal"}</button>:<a href={`/${locale}/transactions`} onClick={close}><span aria-hidden="true">↗</span> {ar?"بيع / استبعاد":"Sale / disposal"}</a>)}
           {(row.financial_review_events||[]).map((e:any,index:number)=><button type="button" key={e.id} onClick={()=>{close();setReviewEvent({id:e.id,name:row.name});}}><span aria-hidden="true">✓</span> {ar?"المراجعة المالية":"Financial review"}{row.financial_review_events.length>1?` (${index+1})`:""}</button>)}
@@ -486,10 +492,11 @@ export default function Assets({
     const selectedV2Type = catalog.types.find((x:any) => x.code === form.asset_type_code);
     const compatibleLegacyType = selectedV2Type?.default_legacy_asset_type || form.asset_type;
     const nextRequestId=requestId||crypto.randomUUID();if(!edit&&!requestId)setRequestId(nextRequestId);
+    let purchaseTax:number;try{purchaseTax=assetPurchaseAmounts(pc,form.vat_input_mode==="PERCENT"?form.vat_rate:form.vat_amount,form.vat_input_mode).tax;}catch{setMsg(ar?"تحقق من قيمة الشراء ونسبة الضريبة (0–100%)":"Check purchase value and VAT rate (0–100%)");return;}
     setSaving(true);
     const metadata: any = {
       ...(edit ? form.metadata ?? {} : {}),
-      fx_rate:Number(form.fx_rate),vat_amount:Number(form.vat_amount||0),recoverable_percent:Number(form.recoverable_percent??100),counterparty_id:form.counterparty_id||null,invoice_reference:form.invoice_reference||null,due_date:form.due_date||null,
+      fx_rate:Number(form.fx_rate),vat_input_mode:form.vat_input_mode,vat_rate:form.vat_input_mode==="PERCENT"?Number(form.vat_rate):null,vat_amount:purchaseTax,recoverable_percent:Number(form.recoverable_percent??100),counterparty_id:form.counterparty_id||null,invoice_reference:form.invoice_reference||null,due_date:form.due_date||null,
       purchase_value: pc,
       market_value: mv,
       estimated_value: mv,
@@ -512,7 +519,7 @@ export default function Assets({
         metadata.market_price_source="USER_MANUAL";metadata.market_valuation_date=new Date().toISOString().slice(0,10);metadata.market_value_auto=false;metadata.market_price_currency=form.currency;
       }
     }
-    if(edit && form.has_financial_history) for(const key of ["quantity","purchase_value","opening_value","purchase_price","karat","purity","purchase_date","acquisition_mode","funding_account_id","fx_rate","vat_amount","recoverable_percent","counterparty_id","invoice_reference","due_date"]) {
+    if(edit && form.has_financial_history) for(const key of ["quantity","purchase_value","opening_value","purchase_price","karat","purity","purchase_date","acquisition_mode","funding_account_id","fx_rate","vat_input_mode","vat_rate","vat_amount","recoverable_percent","counterparty_id","invoice_reference","due_date"]) {
       if(form.metadata?.[key]===undefined)delete metadata[key];else metadata[key]=form.metadata[key];
     }
     const body = {
@@ -607,6 +614,7 @@ export default function Assets({
         <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{selectedMetric.title}</th></tr></thead><tbody>{selectedMetric.rows.map(r=><tr key={r.id}><td>{r.name}</td><td>{typeName(r)}</td><td>{selectedMetric.detail(r)}</td></tr>)}</tbody></table></div>
         {!selectedMetric.rows.length&&<p className="muted">{ar?"لا توجد أصول مطابقة لهذا المؤشر.":"No matching assets for this indicator."}</p>}
       </section>}
+      {purchaseAsset&&<AssetPurchasePanel key={purchaseAsset} assetId={purchaseAsset} ar={ar} onChanged={()=>void load()} onClose={()=>setPurchaseAsset(null)}/>}
       {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><button type="button" className="btn secondary" onClick={()=>setReviewEvent(null)}>{ar?"إغلاق المراجعة":"Close review"}</button></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
       {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
       {formOpen&&<section className="card section">
@@ -648,7 +656,8 @@ export default function Assets({
             <label>{ar?"المورد":"Supplier"}<select value={form.counterparty_id} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">{ar?"اختر المورد":"Choose supplier"}</option>{(catalog.suppliers||[]).filter((x:any)=>x.organization_id===form.organization_id&&["SUPPLIER","BOTH"].includes(x.party_type)).map((x:any)=><option value={x.id} key={x.id}>{x.name}</option>)}</select><a href={`/${locale}/liquidity?tab=counterparties`}>{ar?"إدارة الموردين":"Manage suppliers"}</a></label>
             <label>{ar?"رقم فاتورة المورد":"Supplier invoice reference"}<input value={form.invoice_reference} onChange={e=>setForm({...form,invoice_reference:e.target.value})}/></label>
             <label>{ar?"تاريخ استحقاق السداد":"Payment due date"}<input type="date" min={form.purchase_date} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>
-            <label>{ar?"ضريبة المدخلات بعملة الأصل":"Input VAT in asset currency"}<input type="number" min="0" step="any" value={form.vat_amount} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></label>
+            <label>{ar?"إدخال الضريبة":"VAT entry"}<select value={form.vat_input_mode} onChange={e=>setForm({...form,vat_input_mode:e.target.value})}><option value="PERCENT">{ar?"نسبة %":"Percentage %"}</option><option value="AMOUNT">{ar?"مبلغ":"Amount"}</option></select></label>
+            <label>{form.vat_input_mode==="PERCENT"?(ar?"نسبة الضريبة %":"VAT rate %"):(ar?"مبلغ الضريبة":"VAT amount")}<input type="number" min="0" max={form.vat_input_mode==="PERCENT"?100:undefined} step="any" value={form.vat_input_mode==="PERCENT"?form.vat_rate:form.vat_amount} onChange={e=>setForm({...form,[form.vat_input_mode==="PERCENT"?"vat_rate":"vat_amount"]:e.target.value})}/></label>
             <label>{ar?"نسبة الضريبة القابلة للاسترداد %":"Recoverable VAT %"}<input type="number" min="0" max="100" value={form.recoverable_percent} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/><small>{ar?"الجزء غير القابل للاسترداد يضاف لتكلفة الأصل؛ السداد إجراء مستقل.":"Nonrecoverable VAT is capitalized; payment is separate."}</small></label>
           </>}
           <label>{ar?"فئة الأصل":"Asset class"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.display_class||""} onChange={e=>setForm({...form,display_class:e.target.value,classification_changed:true,asset_class_code:null,asset_type_code:null})}><option value="">{ar?"اختر الفئة":"Choose class"}</option>{ASSET_DISPLAY_CLASSES.filter(c=>c[0]!=="UNCLASSIFIED"||edit).map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label>

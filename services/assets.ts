@@ -10,7 +10,7 @@ async function ensureOpeningLot(supabase:any,user:any,asset:any){if(asset?.owner
 export async function listAssets(){
  const {supabase,user}=await requireUser();
  const [accounts,lotResult,exits,profileResult,cycleResult,assessmentResult,allocationResult,orgResult,operationResult,methodResult]=await Promise.all([
-  supabase.from('asset_accounts').select('*').order('created_at',{ascending:false}),
+  supabase.from('asset_accounts').select('*').or('metadata->>archived.is.null,metadata->>archived.neq.true').order('created_at',{ascending:false}),
   supabase.from('lots').select('id,asset_account_id,original_quantity,remaining_quantity,remaining_value_base,hawl_start_date,hawl_due_date,acquisition_date,status,metadata'),
   supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,quantity,base_value,metadata,created_at').in('transaction_type',['PURCHASE','SALE','ADJUSTMENT']).or('metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('created_at',{ascending:false}),
   supabase.from('profiles').select('base_currency,zakat_method_id').eq('id',user.id).single(),
@@ -37,6 +37,9 @@ export async function listAssets(){
  const baseCurrency=profileResult.data?.base_currency||'SAR';
  const exitByAsset=new Map<string,any>();
  for(const tx of exits.data??[])if(['SALE','ADJUSTMENT'].includes(tx.transaction_type)&&!tx.metadata?.lifecycle_reversed&&!exitByAsset.has(tx.asset_account_id))exitByAsset.set(tx.asset_account_id,tx);
+ const reviewIds=[...new Set((exits.data??[]).map((t:any)=>t.metadata?.financial_event_id).filter(Boolean))];
+ const eventResult=reviewIds.length?await supabase.from('financial_events').select('id,status').in('id',reviewIds):{data:[],error:null};if(eventResult.error)throw eventResult.error;
+ const eventStatuses=new Map((eventResult.data??[]).map((e:any)=>[e.id,e.status]));
  const assets=(accounts.data??[]).map((a:any)=>{
   const assetLots=lots.filter((l:any)=>l.asset_account_id===a.id);
   const assetBase=a.ownership_scope==='ORGANIZATION'?(orgResult.data??[]).find((o:any)=>o.id===a.organization_id)?.base_currency??a.currency:baseCurrency;
@@ -46,7 +49,7 @@ export async function listAssets(){
   const lifecycle_status=assetLifecycleStatus(balance.current_quantity,exit);
   const purchase=(exits.data??[]).find((t:any)=>t.asset_account_id===a.id&&t.transaction_type==='PURCHASE');
   const reviews=[...(operationResult.data??[]).filter((o:any)=>o.asset_account_id===a.id&&o.financial_event_id).map((o:any)=>({id:o.financial_event_id})),...(exits.data??[]).filter((t:any)=>t.asset_account_id===a.id&&t.transaction_type==='PURCHASE'&&t.metadata?.financial_event_id).map((t:any)=>({id:t.metadata.financial_event_id}))];
-  return {...a,financial_review_events:reviews,acquisition_transaction_id:purchase?.metadata?.financial_event_id?purchase?.id:null,financial_event_id:purchase?.metadata?.financial_event_id??null,...currentValuation(a),...balance,has_financial_history:assetLots.length>0,lots:assetLots.filter((l:any)=>Number(l.remaining_quantity)>0).map((l:any)=>({...l,current_hawl_start_date:currentPeriods.get(l.id)?.hawl_start_date??null,current_hawl_due_date:currentPeriods.get(l.id)?.hawl_due_date??null})),lifecycle_status,
+  return {...a,financial_event_status:eventStatuses.get(purchase?.metadata?.financial_event_id)??null,pending_purchase_cost_base:assetLots.filter((l:any)=>l.metadata?.recognition_pending).reduce((v:number,l:any)=>v+Number(l.remaining_value_base||0),0),financial_review_events:reviews,acquisition_transaction_id:purchase?.metadata?.financial_event_id?purchase?.id:null,financial_event_id:purchase?.metadata?.financial_event_id??null,...currentValuation(a),...balance,has_financial_history:assetLots.length>0,lots:assetLots.filter((l:any)=>Number(l.remaining_quantity)>0).map((l:any)=>({...l,current_hawl_start_date:currentPeriods.get(l.id)?.hawl_start_date??null,current_hawl_due_date:currentPeriods.get(l.id)?.hawl_due_date??null})),lifecycle_status,
    lifecycle_exit_date:lifecycle_status==='ACTIVE'?null:exit?.transaction_date??null,
    ...disposedAssetHistory(a.id,exits.data??[]),
    ...soldAssetHistory(a.id,exits.data??[],exitAllocationResult.data??[]),
