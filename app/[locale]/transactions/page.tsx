@@ -36,6 +36,8 @@ export default function Transactions() {
   }>({ key: "date", direction: "desc" });
   const [showDeleted,setShowDeleted]=useState(false);
   const [query, setQuery] = useState("");
+  const [sourceTransactionId,setSourceTransactionId]=useState('');
+  useEffect(()=>{setSourceTransactionId(new URLSearchParams(window.location.search).get('transaction_id')||'')},[]);
   const [typeFilter, setTypeFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -146,9 +148,9 @@ export default function Transactions() {
       const date = String(row.transaction_date || "");
       const matchesFrom = !dateFrom || date >= dateFrom;
       const matchesTo = !dateTo || date <= dateTo;
-      return matchesQuery && matchesType && matchesFrom && matchesTo;
+      return (!sourceTransactionId || row.id === sourceTransactionId) && matchesQuery && matchesType && matchesFrom && matchesTo;
     });
-  }, [rows, query, typeFilter, dateFrom, dateTo]);
+  }, [rows, query, typeFilter, dateFrom, dateTo, sourceTransactionId]);
   const sortedRows = useMemo(() => {
     const valueOf = (row: any) => {
       if (sort.key === "date") return String(row.transaction_date || "");
@@ -194,7 +196,7 @@ export default function Transactions() {
     },
     [rows],
   );
-  const hasFilters = Boolean(query || typeFilter || dateFrom || dateTo);
+  const hasFilters = Boolean(sourceTransactionId || query || typeFilter || dateFrom || dateTo);
   const displayMetric = (value: string) =>
     loading ? "…" : loadError ? "—" : value;
   const changeSort = (key: SortKey) => {
@@ -430,6 +432,8 @@ export default function Transactions() {
               className="btn secondary transaction-clear-filters"
               onClick={() => {
                 setQuery("");
+                setSourceTransactionId('');
+                window.history.replaceState({},'',window.location.pathname);
                 setTypeFilter("");
                 setDateFrom("");
                 setDateTo("");

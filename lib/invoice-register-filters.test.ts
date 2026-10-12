@@ -24,3 +24,8 @@ describe('invoice register filtering', () => {
     expect(filterInvoiceRows(rows,{...emptyInvoiceFilters,from:'2026-10-05',to:'2026-10-01'},row=>row)).toEqual([]);
   });
 });
+
+it('filters invoice origin independently of document category',()=>{
+ const sourced=[{id:'asset',number:'1',name:'Vendor',date:'2026-10-01',currency:'SAR',baseAmount:115,source:'ASSETS'},{id:'vat',number:'2',name:'Vendor',date:'2026-10-01',currency:'SAR',baseAmount:115,source:'INVOICING'}];
+ expect(filterInvoiceRows(sourced,{...emptyInvoiceFilters,source:'ASSETS'},r=>r).map(r=>r.id)).toEqual(['asset']);
+});
