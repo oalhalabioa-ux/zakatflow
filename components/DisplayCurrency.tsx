@@ -25,6 +25,7 @@ export function CurrencyScope({currency,organizationId}:{currency:string;organiz
  const {setScope}=useContext(Context),pathname=usePathname();
  useEffect(()=>{setScope({currency:currency.toUpperCase(),organizationId})},[currency,organizationId,setScope,pathname]);return null;
 }
+export function useDisplayCurrencyCode(currency:string){const {mode,rates,today}=useContext(Context);const result=displayAmount(0,currency,mode,rates,today);return result.currency+(result.missing?' *':'');}
 export function useDisplayMoney(){
  const {mode,rates,today}=useContext(Context);
  return (value:unknown,currency='SAR',_locale?:string)=>{const amount=displayAmount(value,currency,mode,rates,today);return amount.value==null?'—':new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(amount.value)+' '+amount.currency+(amount.missing?' *':'')};
