@@ -6,7 +6,7 @@ import { requireOrganizationMember } from '@/services/organization-access';
 import { executeFinancialEventAction } from '@/services/financial-events';
 const canWrite=async(supabase:any,userId:string,organizationId:string)=>{const{data}=await supabase.from('organization_members').select('role').eq('organization_id',organizationId).eq('user_id',userId).eq('status','ACTIVE').maybeSingle();return !!data&&['OWNER','ADMIN','ACCOUNTANT','ADVISOR'].includes(data.role)};
 const schema=z.object({
- status:z.enum(['ACTUAL','CONFIRMED','EXPECTED']).optional(),direction:z.enum(['INFLOW','OUTFLOW']).optional(),
+ request_id:z.string().uuid().optional(),status:z.enum(['ACTUAL','CONFIRMED','EXPECTED']).optional(),direction:z.enum(['INFLOW','OUTFLOW']).optional(),
  flow_type:z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).optional(),category_id:z.string().uuid().nullable().optional(),due_date:z.string().date().optional(),
  title:z.string().trim().min(1).max(160).optional(),counterparty:z.string().max(160).optional(),counterparty_id:z.string().uuid().nullable().optional(),
  amount:z.coerce.number().positive().optional(),base_amount:z.coerce.number().positive().optional(),currency:z.string().length(3).optional(),
@@ -69,29 +69,39 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    const{data:updated,error:updateError}=await supabase.from('liquidity_flows').update({status:'CONFIRMED',flow_type:category.flow_group,category_id:categoryId,source_module:'LIQUIDITY',source_record_id:record.id,source_event_key:sourceKey,updated_at:new Date().toISOString()}).eq('id',record.id).select().single();if(updateError)throw updateError;
    return NextResponse.json({...updated,recognition_event_id:eventId,recognition_status:'COMMITTED'});
  }
+ if(body.status==='ACTUAL'&&body.request_id){
+  const{data:prior,error:priorError}=await supabase.from('financial_events').select('id').eq('organization_id',record.organization_id).eq('source_module','OPERATIONAL_CONSOLE').eq('source_event_key',`liquidity:${record.id}:request:${body.request_id}`).eq('event_type','SETTLEMENT').maybeSingle();if(priorError)throw priorError;
+  if(prior){
+   const{data:instruction,error:ie}=await supabase.from('financial_event_links').select('metadata').eq('organization_id',record.organization_id).eq('event_id',prior.id).eq('link_type','OTHER').eq('target_record_id',record.id).contains('metadata',{purpose:'SETTLEMENT_INSTRUCTION'}).maybeSingle();if(ie)throw ie;
+   if(!instruction||!settlementInstructionMatches(instruction.metadata,{accountId:body.account_id??instruction.metadata.account_id,date:body.settlement_date??instruction.metadata.settlement_date,amount:Number(body.amount??instruction.metadata.amount),baseAmount:Number(body.base_amount??instruction.metadata.base_amount)}))throw Error('IDEMPOTENCY_CONFLICT');
+   const posted=await executeFinancialEventAction({action:'POST_SAVED_SETTLEMENT',organization_id:record.organization_id,event_id:prior.id,account_id:body.account_id??undefined,settlement_date:body.settlement_date});
+   const{data:current,error:currentError}=await supabase.from('liquidity_flows').select('status,settlement_status,settled_amount').eq('id',record.id).eq('organization_id',record.organization_id).single();if(currentError)throw currentError;
+   return NextResponse.json({id:record.id,...current,settlement_event_id:prior.id,cash_posting:posted});
+  }
+ }
  if(body.status==='ACTUAL'&&record.settlement_status==='SETTLED')return NextResponse.json({error:'NO_OUTSTANDING_OBLIGATION'},{status:409});
  if(body.status==='ACTUAL'&&record.settlement_status!=='SETTLED'){
    validateCollectionAmount(body.amount??Math.max(0,Number(record.amount)-Number(record.settled_amount||0)),Math.max(0,Number(record.amount)-Number(record.settled_amount||0)));
    if(!record.source_module||record.source_module==='MANUAL')return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const accountId=body.account_id??record.account_id;
    if(!accountId)return NextResponse.json({error:'SETTLEMENT_ACCOUNT_REQUIRED'},{status:400});
-   if(record.account_id&&record.account_id!==accountId)return NextResponse.json({error:'SETTLEMENT_FLOW_ACCOUNT_MISMATCH'},{status:409});
    const{data:account,error:accountError}=await supabase.from('liquidity_accounts').select('id,currency').eq('active',true).eq('id',accountId).eq('organization_id',record.organization_id).maybeSingle();
    if(accountError)throw accountError;if(!account)return NextResponse.json({error:'ACCOUNT_ORGANIZATION_MISMATCH'},{status:400});
    if(account.currency!==record.currency)return NextResponse.json({error:'SETTLEMENT_ACCOUNT_CURRENCY_MISMATCH'},{status:400});
    const{data:links,error:linkError}=await supabase.from('financial_event_links').select('event_id').eq('organization_id',record.organization_id).eq('link_type','CASH_FLOW').eq('target_module','liquidity_flows').eq('target_record_id',record.id);
    if(linkError)throw linkError;if(!links?.length)return NextResponse.json({error:'CORE_RECOGNITION_LINK_REQUIRED'},{status:409});
    const linkedEventIds=[...new Set(links.map((item:any)=>item.event_id))];
-   const{data:recognitions,error:recognitionError}=await supabase.from('financial_events').select('id,status,entity_id,counterparty_id,base_currency,event_type').eq('organization_id',record.organization_id).in('id',linkedEventIds).neq('event_type','SETTLEMENT');
+   const{data:recognitions,error:recognitionError}=await supabase.from('financial_events').select('id,status,entity_id,counterparty_id,base_currency,event_type,source_module').eq('organization_id',record.organization_id).in('id',linkedEventIds).neq('event_type','SETTLEMENT');
    if(recognitionError)throw recognitionError;if(!recognitions?.length)return NextResponse.json({error:'CORE_RECOGNITION_LINK_REQUIRED'},{status:409});
    if(recognitions.length!==1)return NextResponse.json({error:'MULTIPLE_CORE_RECOGNITIONS_REQUIRE_SELECTION'},{status:409});
    const recognition=recognitions[0];
    if(recognition.status!=='ACTUAL'){
      try{
-       if(recognition.status==='COMMITTED')await executeFinancialEventAction({action:'APPROVE',organization_id:record.organization_id,event_id:recognition.id,note:'Approved from Cash Management before settlement'});
-       const{data:approved,error:approvedError}=await supabase.from('financial_events').select('status').eq('organization_id',record.organization_id).eq('id',recognition.id).single();if(approvedError)throw approvedError;
-       if(approved?.status==='COMMITTED')return NextResponse.json({id:record.id,status:record.status,recognition_event_id:recognition.id,recognition_status:'PENDING_APPROVAL',error:'CORE_RECOGNITION_PENDING_APPROVAL'},{status:202});
-       if(approved?.status!=='ACTUAL')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:recognition.id,status:'ACTUAL',note:'Recognition posted before cash settlement'});
+       if(recognition.status==='DRAFT')await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:recognition.id,status:'PLANNED',note:'Prepare recognition before settlement'});
+       if(['DRAFT','PLANNED'].includes(recognition.status))await executeFinancialEventAction({action:'TRANSITION',organization_id:record.organization_id,event_id:recognition.id,status:'COMMITTED',note:'Submit recognition before settlement'});
+       const{data:valid,error:approvalError}=await supabase.rpc('financial_event_has_valid_approval',{p_event_id:recognition.id});if(approvalError)throw approvalError;
+       if(!valid)await executeFinancialEventAction({action:'APPROVE',organization_id:record.organization_id,event_id:recognition.id,note:'Approved before cash settlement'});
+       await executeFinancialEventAction(recognition.source_module==='VAT_INTEGRATION'?{action:'RECOGNIZE_VAT',organization_id:record.organization_id,event_id:recognition.id}:{action:'TRANSITION',organization_id:record.organization_id,event_id:recognition.id,status:'ACTUAL',note:'Recognition posted before cash settlement'});
      }catch(error){
        const message=requestErrorMessage(error)||'CORE_RECOGNITION_PENDING_APPROVAL';
        if(/APPROVE|SELF_APPROVAL|SEGREGATION|PERMISSION|DENIED/i.test(message))return NextResponse.json({id:record.id,status:record.status,recognition_event_id:recognition.id,recognition_status:'PENDING_APPROVAL',error:'CORE_RECOGNITION_PENDING_APPROVAL'},{status:202});
@@ -149,7 +159,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(classError)throw classError;if(!classification)return NextResponse.json({error:'SETTLEMENT_CLASSIFICATION_REQUIRED'},{status:409});
    const settlementDate=body.settlement_date??new Date().toISOString().slice(0,10);
    const exchangeRate=remainingBase/remainingAmount;
-   const settlementSourceKey=`liquidity:${record.id}:settlement:${Number(record.settled_amount||0)}`;
+   const settlementSourceKey=body.request_id?`liquidity:${record.id}:request:${body.request_id}`:`liquidity:${record.id}:settlement:${Number(record.settled_amount||0)}`;
    const{data:existingSettlement,error:existingSettlementError}=await supabase.from('financial_events').select('id,status').eq('organization_id',record.organization_id).eq('event_type','SETTLEMENT').eq('source_module','OPERATIONAL_CONSOLE').eq('source_event_key',settlementSourceKey).maybeSingle();
    if(existingSettlementError)throw existingSettlementError;
    let created:any=existingSettlement;
@@ -172,7 +182,8 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
      if(approvalLookupError)throw approvalLookupError;
      if(!hasApproval)await executeFinancialEventAction({action:'APPROVE',organization_id:record.organization_id,event_id:settlementEventId,note:'Approve invoice cash settlement under organization policy'});
      const posted:any=await executeFinancialEventAction({action:'POST_SAVED_SETTLEMENT',organization_id:record.organization_id,event_id:settlementEventId,account_id:accountId,settlement_date:settlementDate});
-     return NextResponse.json({id:record.id,status:'ACTUAL',settlement_status:'SETTLED',settlement_event_id:settlementEventId,recognition_event_id:recognition.id,obligation_id:balances[0].obligation_id,amount:remainingAmount,base_amount:remainingBase,account_id:accountId,cash_posting:posted});
+     const{data:updated,error:updateLookupError}=await supabase.from('liquidity_flows').select('status,settlement_status,settled_amount').eq('id',record.id).eq('organization_id',record.organization_id).single();if(updateLookupError)throw updateLookupError;
+     return NextResponse.json({id:record.id,...updated,settlement_event_id:settlementEventId,recognition_event_id:recognition.id,obligation_id:balances[0].obligation_id,amount:remainingAmount,base_amount:remainingBase,account_id:accountId,cash_posting:posted});
    }catch(error){
      const message=requestErrorMessage(error)||'SETTLEMENT_PENDING_APPROVAL';
      if(/VALID_APPROVAL_REQUIRED|APPROVE|SELF_APPROVAL|SEGREGATION|PERMISSION|DENIED/i.test(message))return NextResponse.json({id:record.id,status:record.status,settlement_status:'PENDING_APPROVAL',settlement_event_id:settlementEventId,recognition_event_id:recognition.id,obligation_id:balances[0].obligation_id,amount:remainingAmount,base_amount:remainingBase,account_id:accountId,error:'SETTLEMENT_PENDING_APPROVAL'},{status:202});

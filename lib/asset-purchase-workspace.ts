@@ -1,0 +1,13 @@
+import Decimal from 'decimal.js';
+export const assetPurchaseStatus=(status:string,ar=true)=>(({DRAFT:ar?'مسودة · بانتظار الاعتماد':'Draft · awaiting approval',PLANNED:ar?'مجهزة للاعتماد':'Prepared',COMMITTED:ar?'بانتظار الاعتماد المالي':'Awaiting financial approval',ACTUAL:ar?'معتمد ومرحل ماليًا':'Approved and posted',CANCELLED:ar?'ملغاة':'Cancelled',REVERSED:ar?'معكوسة':'Reversed'} as Record<string,string>)[status]??status);
+export function assetPurchaseAmounts(net:unknown,vat:unknown,mode='AMOUNT'){
+ const n=new Decimal(String(net||0)),v=new Decimal(String(vat||0));
+ if(!n.isFinite()||n.lt(0)||!v.isFinite()||v.lt(0)||(mode==='PERCENT'&&v.gt(100)))throw Error('ASSET_PURCHASE_VALUES_INVALID');
+ const tax=(mode==='PERCENT'?n.mul(v).div(100):v).toDecimalPlaces(2,Decimal.ROUND_HALF_UP);
+ return {net:n.toNumber(),tax:tax.toNumber(),gross:n.plus(tax).toNumber()};
+}
+const escape=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+export function assetPurchasePrint(asset:any,status:string,supplier:string,ar=true){
+ const m=asset.metadata??{},amount=assetPurchaseAmounts(m.purchase_value,m.vat_amount),money=(v:number)=>`${v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} ${escape(asset.currency)}`;
+ return `<!doctype html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${escape(asset.name)}</title><style>body{font-family:Arial,sans-serif;margin:36px;color:#183b41}h1{font-size:23px}table{border-collapse:collapse;width:100%;margin-top:24px}th,td{padding:12px;border:1px solid #ddd;text-align:inherit}small{color:#555}@page{size:A4;margin:18mm}</style></head><body><h1>${ar?'كشف شراء أصل':'Asset purchase statement'}</h1><h2>${escape(asset.name)}</h2><p>${escape(assetPurchaseStatus(status,ar))}</p><p>${ar?'المورد':'Supplier'}: ${escape(supplier)} · ${ar?'رقم الفاتورة':'Invoice'}: ${escape(m.invoice_reference)}</p><p>${ar?'تاريخ الشراء':'Purchase date'}: ${escape(m.purchase_date)} · ${ar?'الاستحقاق':'Due date'}: ${escape(m.due_date)}</p><table><tr><th>${ar?'الصافي':'Net'}</th><th>${ar?'الضريبة':'VAT'}</th><th>${ar?'الإجمالي':'Total'}</th></tr><tr><td>${money(amount.net)}</td><td>${money(amount.tax)}</td><td>${money(amount.gross)}</td></tr></table><p><small>${ar?'بالعملة الأصلية المسجلة. كشف داخلي، وليس فاتورة ضريبية جديدة.':'Recorded source currency. Internal statement; does not issue a new tax invoice.'}</small></p></body></html>`;
+}
