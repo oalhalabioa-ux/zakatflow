@@ -2,17 +2,18 @@
 import { emptyInvoiceFilters, type InvoiceFilters } from '@/lib/invoice-register-filters';
 
 export function InvoiceRegisterFilters({ value, onChange, currencies, statuses = [], categories = [], ar, count, total,
-  showSearch = true }: {
+  showSearch = true, sources = [] }: {
   value: InvoiceFilters; onChange: (value: InvoiceFilters) => void; currencies: string[];
-  statuses?: Array<[string, string]>; categories?: Array<[string, string]>; ar: boolean; count: number; total: number; showSearch?: boolean;
+  sources?: Array<[string, string]>; statuses?: Array<[string, string]>; categories?: Array<[string, string]>; ar: boolean; count: number; total: number; showSearch?: boolean;
 }) {
   const change = (key: keyof InvoiceFilters, next: string) => onChange({ ...value, [key]: next });
   const select = (key: keyof InvoiceFilters, label: string, options: Array<[string, string]>) =>
-    <label className="vat-invoice-filter"><span>{label}</span><select value={value[key]} onChange={event => change(key, event.target.value)}>{options.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select></label>;
+    <label className="vat-invoice-filter"><span>{label}</span><select value={value[key] || 'ALL'} onChange={event => change(key, event.target.value)}>{options.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select></label>;
   const all: [string, string] = ['ALL', ar ? 'الكل' : 'All'];
   return <div className="vat-register-filters">
     <div className="vat-register-filter-grid">
       {showSearch && <label className="vat-invoice-filter vat-filter-search"><span>{ar ? 'البحث' : 'Search'}</span><input type="search" value={value.query} onChange={event => change('query', event.target.value)} placeholder={ar ? 'رقم الفاتورة أو اسم الجهة' : 'Invoice number or contact name'} /></label>}
+      {sources.length > 0 && select('source', ar ? 'المصدر' : 'Source', [all, ...sources])}
       {statuses.length > 0 && select('status', ar ? 'حالة الفاتورة' : 'Invoice status', [all, ...statuses])}
       {categories.length > 0 && select('category', ar ? 'الفئة' : 'Category', [all, ...categories])}
       {select('currency', ar ? 'العملة' : 'Currency', [all, ...currencies.map(code => [code, code] as [string, string])])}

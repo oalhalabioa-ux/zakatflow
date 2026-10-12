@@ -1,13 +1,13 @@
 export type InvoiceFilters = {
-  query: string; status: string; category: string; currency: string; payment: string;
+  source?: string; query: string; status: string; category: string; currency: string; payment: string;
   from: string; to: string; sort: string;
 };
 export const emptyInvoiceFilters: InvoiceFilters = {
-  query: '', status: 'ALL', category: 'ALL', currency: 'ALL', payment: 'ALL', from: '', to: '', sort: 'DATE_DESC',
+  source: 'ALL', query: '', status: 'ALL', category: 'ALL', currency: 'ALL', payment: 'ALL', from: '', to: '', sort: 'DATE_DESC',
 };
 export type InvoiceSearchRow = {
   id: string; number: string; name: string; date: string; due?: string | null;
-  status?: string; category?: string; currency: string; baseAmount: number;
+  source?: string; status?: string; category?: string; currency: string; baseAmount: number;
   flow?: { amount: string | number; settled_amount: string | number; settlement_status?: string } | null;
 };
 export function invoicePaymentState(row: InvoiceSearchRow) {
@@ -22,6 +22,7 @@ export function filterInvoiceRows<T>(items: T[], filters: InvoiceFilters, rowFor
   return items.map(item => ({ item, row: rowFor(item) })).filter(({ row }) => {
     const state = invoicePaymentState(row);
     return (!query || `${row.number} ${row.name}`.toLocaleLowerCase().includes(query))
+      && (!filters.source || filters.source === 'ALL' || (row.source || 'INVOICING') === filters.source)
       && (filters.status === 'ALL' || row.status === filters.status)
       && (filters.category === 'ALL' || row.category === filters.category)
       && (filters.currency === 'ALL' || row.currency === filters.currency)

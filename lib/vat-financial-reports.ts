@@ -1,9 +1,10 @@
 import Decimal from 'decimal.js';
+import type { InvoiceSource } from './asset-invoice-source';
 export type ReportEvent = {id:string;organization_id:string;counterparty_id:string|null;event_date:string;due_date:string|null;status:string;description:string;source_record_id?:string|null};
 export type ReportObligation = {id:string;event_id:string;organization_id:string;obligation_type:string;settleable_base_amount:number|string;base_currency:string;adjusts_obligation_id?:string|null;adjustment_effect?:string|null};
 export type ReportAllocation = {id:string;organization_id:string;application_event_id:string;obligation_id:string;source_advance_obligation_id?:string|null;base_amount:number|string;allocation_type:string};
 export type ReportMovement = {id:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;due:string|null;reference:string;description:string;currency:string;amount:number;advance:boolean;kind:string};
-export type ReportInvoice = {id:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;reference:string;currency:string;net:number;tax:number;total:number;classification:string};
+export type ReportInvoice = {source?:InvoiceSource;id:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;reference:string;currency:string;net:number;tax:number;total:number;classification:string};
 export type ReportData = {movements:ReportMovement[];invoices:ReportInvoice[];organizations:Array<{id:string;name:string}>;unposted:number};
 const n=(v:number|string)=>new Decimal(v||0);
 export function buildReportMovements(events:ReportEvent[],obligations:ReportObligation[],allocations:ReportAllocation[],parties:Array<{id:string;organization_id:string;name:string}>,references:Map<string,string>,sourceSides:Map<string,'SALES'|'PURCHASE'>=new Map()):ReportMovement[]{
