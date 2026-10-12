@@ -1,4 +1,5 @@
 'use client';
+import {Money,CurrencyScope} from '@/components/DisplayCurrency';
 
 import { use, useEffect, useMemo, useState } from 'react';
 import './prices.css';
@@ -7,6 +8,7 @@ import { organizationDisplayName } from '@/lib/organization-display';
 type Organization = {
   id: string;
   name: string;
+  base_currency?: string;
   parent_organization_id?: string | null;
   organization_kind?: 'HOLDING' | 'SUBSIDIARY';
   sort_order?: number;
@@ -219,6 +221,7 @@ export default function Prices({
         text: ar ? 'تم حفظ سعر الصرف لهذه المؤسسة.' : 'FX rate saved for this organization.',
       });
       setFxDraft((draft) => ({ ...draft, rate: '' }));
+      window.dispatchEvent(new Event('zf-fx-rates-updated'));
       await loadRates(organizationId);
     } catch (error: any) {
       setNotice({ kind: 'error', text: messageFor(error.message, ar) });
@@ -273,7 +276,7 @@ export default function Prices({
   const selectedOrganization = organizations.find((item) => item.id === organizationId);
 
   return (
-    <main className="container prices-page" dir={ar ? 'rtl' : 'ltr'}>
+    <main className="container prices-page" dir={ar ? 'rtl' : 'ltr'}><CurrencyScope currency={organizations.find(o=>o.id===organizationId)?.base_currency || "SAR"} organizationId={organizationId || undefined}/>
       <header className="prices-header">
         <div>
           <span className="prices-eyebrow">
@@ -552,7 +555,7 @@ export default function Prices({
               <table className="prices-table">
                 <thead><tr><th>{ar ? 'نوع الأصل' : 'Asset type'}</th><th>{ar ? 'العيار' : 'Karat'}</th><th>{ar ? 'السعر' : 'Price'}</th><th>{ar ? 'العملة' : 'Currency'}</th><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'المصدر' : 'Source'}</th></tr></thead>
                 <tbody>
-                  {prices.map((price) => <tr key={price.id}><td>{assetLabel(price.asset_type, ar)}</td><td>{price.karat ?? '—'}</td><td>{price.price_per_unit}</td><td>{price.currency}</td><td>{price.valuation_date}</td><td>{price.source}</td></tr>)}
+                  {prices.map((price) => <tr key={price.id}><td>{assetLabel(price.asset_type, ar)}</td><td>{price.karat ?? '—'}</td><td><Money value={price.price_per_unit} currency={price.currency} precision={6} organizationId={organizationId || null}/></td><td>{price.currency}</td><td>{price.valuation_date}</td><td>{price.source}</td></tr>)}
                   {!prices.length && <tr><td colSpan={6} className="prices-table-empty">{ratesLoading ? (ar ? 'جارٍ تحميل الأسعار…' : 'Loading prices…') : (ar ? 'لا توجد أسعار مسجلة.' : 'No prices recorded.')}</td></tr>}
                 </tbody>
               </table>

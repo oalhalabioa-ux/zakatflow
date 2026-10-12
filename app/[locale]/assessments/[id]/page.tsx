@@ -1,4 +1,5 @@
 'use client';
+import {Money,CurrencyScope} from '@/components/DisplayCurrency';
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -46,7 +47,7 @@ export default function AssessmentDetail({
   const a = x.assessment || x;
 
   return (
-    <main className="container">
+    <main className="container"><CurrencyScope currency={a.currency || "SAR"} organizationId={a.organization_id || undefined}/>
       <div className="page-head">
         <div>
           <h1>{ar ? 'تفاصيل احتساب الزكاة' : 'Zakat Assessment'}</h1>
@@ -75,8 +76,8 @@ export default function AssessmentDetail({
       <div className="grid section">
         <Card t="Assessment Date" v={a.assessment_date} />
         <Card t="Valuation Date" v={a.valuation_date} />
-        <Card t="Zakatable Value" v={a.total_zakatable_value} />
-        <Card t="Zakat Due" v={`${a.zakat_due} ${a.currency}`} />
+        <Card t="Zakatable Value" v={<Money value={a.total_zakatable_value} currency={a.currency}/>} />
+        <Card t="Zakat Due" v={<Money value={a.zakat_due} currency={a.currency}/>} />
       </div>
 
       <section className="card section">
@@ -100,11 +101,11 @@ export default function AssessmentDetail({
             {(x.lines || a.zakat_assessment_lines || []).map((l: any) => (
               <tr key={l.id}>
                 <td>{l.lot_id}</td>
-                <td>{l.valuation_price ?? "—"} {l.valuation_currency}<br/>{l.valuation_snapshot?.priceSource ?? a.calculation_snapshot?.priceSource ?? "—"}</td>
+                <td>{l.valuation_price==null?"—":<Money value={l.valuation_price} currency={l.valuation_currency} precision={6}/>}<br/>{l.valuation_snapshot?.priceSource ?? a.calculation_snapshot?.priceSource ?? "—"}</td>
                 <td>{l.valuation_snapshot?.purity ?? "—"} / {l.fx_rate ?? "—"}</td>
-                <td>{l.market_value}</td>
-                <td>{l.eligible_value}</td>
-                <td>{l.zakat_amount}</td>
+                <td><Money value={l.market_value} currency={a.currency}/></td>
+                <td><Money value={l.eligible_value} currency={a.currency}/></td>
+                <td><Money value={l.zakat_amount} currency={a.currency}/></td>
                 <td>
                   <span className="pill">{l.eligibility_status}</span>
                 </td>

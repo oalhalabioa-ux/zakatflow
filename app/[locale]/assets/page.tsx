@@ -1003,7 +1003,7 @@ function ZakatCell({
         <strong>{ar?"الدورة":"Cycle"} #{cycle.cycle_number} · {cycle.cycle_closed?(ar?"مغلقة · سعر مثبت":"Closed · frozen price"):(ar?"مفتوحة · تقدير":"Open · estimate")}</strong>
         <div><bdi>{cycle.cycle_start_date}</bdi> → <bdi>{cycle.cycle_end_date}</bdi></div>
         <div>{ar?"المحتسب":"Assessed"}: <Money value={cycle.zakat_amount} currency={cycle.currency}/> · {ar?"المسدّد":"Paid"}: <Money value={cycle.paid_amount} currency={cycle.currency}/> · {ar?"المتبقي":"Remaining"}: <Money value={cycle.remaining_amount} currency={cycle.currency}/></div>
-        {cycle.lots.map((lot:any)=><div key={lot.id??lot.lot_id}>{ar?"الكمية":"Quantity"}: {fmt(lot.quantity)} · {ar?"السعر المحفوظ":"Saved price"}: {lot.valuation_price==null?"—":fmt(lot.valuation_price)} {lot.valuation_currency}</div>)}
+        {cycle.lots.map((lot:any)=><div key={lot.id??lot.lot_id}>{ar?"الكمية":"Quantity"}: {fmt(lot.quantity)} · {ar?"السعر المحفوظ":"Saved price"}: {lot.valuation_price==null?"—":<Money value={lot.valuation_price} currency={lot.valuation_currency} precision={6}/>}</div>)}
       </section>)}
     </div></details>
   </div>;
@@ -1029,11 +1029,11 @@ function ZakatCell({
       <details className="asset-valuation-details"><summary aria-label={ar?"أساس الاحتساب المحفوظ":"Saved valuation basis"} title={ar?"أساس الاحتساب المحفوظ":"Saved valuation basis"}><span aria-hidden="true">▸</span></summary><div className="asset-valuation-content">
         <div className="muted">{ar ? "تاريخ التقييم" : "Valuation date"}: {c.valuation_date} · {ar ? "الدورة" : "Cycle"}: {c.cycle_number??"—"}</div>
         {(c.lots??[]).map((l:any)=><div key={l.id??l.lot_id} style={{marginTop:6,fontSize:11}}>
-          {ar ? "الكمية" : "Quantity"}: {fmt(l.quantity)} · {ar ? "السعر" : "Price"}: {l.valuation_price==null?"—":fmt(l.valuation_price)} {l.valuation_currency}
+          {ar ? "الكمية" : "Quantity"}: {fmt(l.quantity)} · {ar ? "السعر" : "Price"}: {l.valuation_price==null?"—":<Money value={l.valuation_price} currency={l.valuation_currency} precision={6}/>}
           <br/>{ar ? "النقاوة" : "Purity"}: {l.valuation_snapshot?.purity??"—"} · {ar ? "سعر الصرف" : "FX"}: {l.fx_rate??"—"}
           <br/>{ar ? "المصدر" : "Source"}: {l.valuation_snapshot?.priceSource??c.snapshot?.priceSource??"—"}
         </div>)}
-        <div className="muted">{ar ? "مدفوعات تاريخية لكل الدورات" : "Historical payments across cycles"}: {fmt(c.historical_paid_amount)} {c.currency}</div>
+        <div className="muted">{ar ? "مدفوعات تاريخية لكل الدورات" : "Historical payments across cycles"}: <Money value={c.historical_paid_amount} currency={c.currency}/></div>
       </div></details>
     </div>
   );
