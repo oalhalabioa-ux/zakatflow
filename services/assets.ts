@@ -47,7 +47,7 @@ export async function listAssets(){
   const balance=assetLedgerBalance(a,availableLots,assetBase);
   const exit=exitByAsset.get(a.id);
   const lifecycle_status=assetLifecycleStatus(balance.current_quantity,exit);
-  const purchase=(exits.data??[]).find((t:any)=>t.asset_account_id===a.id&&t.transaction_type==='PURCHASE');
+  const purchase=(exits.data??[]).filter((t:any)=>t.asset_account_id===a.id&&t.transaction_type==='PURCHASE').sort((x:any,y:any)=>String(x.created_at).localeCompare(String(y.created_at)))[0];
   const reviews=[...(operationResult.data??[]).filter((o:any)=>o.asset_account_id===a.id&&o.financial_event_id).map((o:any)=>({id:o.financial_event_id})),...(exits.data??[]).filter((t:any)=>t.asset_account_id===a.id&&t.transaction_type==='PURCHASE'&&t.metadata?.financial_event_id).map((t:any)=>({id:t.metadata.financial_event_id}))];
   return {...a,financial_event_status:eventStatuses.get(purchase?.metadata?.financial_event_id)??null,pending_purchase_cost_base:assetLots.filter((l:any)=>l.metadata?.recognition_pending).reduce((v:number,l:any)=>v+Number(l.remaining_value_base||0),0),financial_review_events:reviews,acquisition_transaction_id:purchase?.metadata?.financial_event_id?purchase?.id:null,financial_event_id:purchase?.metadata?.financial_event_id??null,...currentValuation(a),...balance,has_financial_history:assetLots.length>0,lots:assetLots.filter((l:any)=>Number(l.remaining_quantity)>0).map((l:any)=>({...l,current_hawl_start_date:currentPeriods.get(l.id)?.hawl_start_date??null,current_hawl_due_date:currentPeriods.get(l.id)?.hawl_due_date??null})),lifecycle_status,
    lifecycle_exit_date:lifecycle_status==='ACTIVE'?null:exit?.transaction_date??null,

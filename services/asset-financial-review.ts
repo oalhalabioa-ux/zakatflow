@@ -15,12 +15,15 @@ export async function assetFinancialReview(eventId:string){
  const[{data:approved,error:ap},{data:canSelf,error:cs}]=await Promise.all([supabase.rpc('financial_event_has_valid_approval',{p_event_id:event.id}),supabase.rpc('can_self_approve_financial_event',{p_org:event.organization_id})]);if(ap||cs)throw ap||cs;
  const allowedActions=allowedEventActions(event,user.id,permissions,!!approved,!!canSelf);
  if(['DRAFT','PLANNED','COMMITTED'].includes(event.status)&&(event.status==='COMMITTED'||permissions['financial_core.create'])&&permissions['financial_core.post']&&(approved||(permissions['financial_core.approve']&&(event.created_by!==user.id||canSelf))))allowedActions.push('APPROVE_AND_POST');
- return{event,approved:!!approved,permissions,allowedActions};
+ const{data:reverseBlock,error:rb}=event.status==='ACTUAL'?await supabase.rpc('asset_financial_reverse_block_reason',{p_event_id:event.id}):{data:'ASSET_REVERSE_REQUIRES_POSTED',error:null};if(rb)throw rb;
+ if(event.status==='ACTUAL'&&!reverseBlock)allowedActions.push('REVERSED');
+ return{reverseBlock,event,approved:!!approved,permissions,allowedActions};
 }
-export async function actOnAssetFinancialReview(eventId:string,action:string){
+export async function actOnAssetFinancialReview(eventId:string,action:string,reason?:string){
  let review=await assetFinancialReview(eventId);
  if(action==='APPROVE_AND_POST'&&review.event.status==='ACTUAL')return review;
  if(!review.allowedActions.includes(action))throw Error('ASSET_EVENT_ACTION_DENIED');
+ if(action==='REVERSED'){const{supabase}=await requireUser();const{data,error}=await supabase.rpc('reverse_asset_financial_event',{p_event_id:eventId,p_reason:reason});if(error)throw error;return data;}
  const transition=(status:string)=>executeFinancialEventAction({action:'TRANSITION',organization_id:review.event.organization_id,event_id:eventId,status,note:'Asset financial workflow'});
  if(action==='APPROVE_AND_POST'){
   if(review.event.status==='DRAFT')await transition('PLANNED');

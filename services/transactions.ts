@@ -2,7 +2,30 @@ import {randomUUID} from 'node:crypto';
 import { requireUser } from './auth';
 import { transactionSchema } from '@/lib/validation/schemas';
 import {assetPurchaseFinancialClass,buildAssetPurchaseCoreIntent} from '@/lib/asset-financial-core';
-export async function listTransactions(deleted=false){const {supabase,user}=await requireUser();const {data,error}=await supabase.from('transactions').select('*,asset_accounts!inner(name,asset_type,ownership_scope)').or(deleted?'metadata->>asset_deleted.eq.true':'metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('transaction_date',{ascending:false});if(error)throw error;if(!data?.length)return [];const{data:eligibility,error:guardError}=await supabase.rpc('asset_transaction_delete_eligibility',{p_ids:data.map(t=>t.id)});if(guardError)throw guardError;const guards=new Map((eligibility??[]).map((g:any)=>[g.transaction_id,g]));return data.map(t=>({...t,...(guards.get(t.id) as any)}));}
+const assetSelect='id,name,asset_type,ownership_scope,organization_id,entity_id,cost_center_id,currency,metadata';
+export async function listTransactions(deleted=false){
+ const{supabase}=await requireUser();
+ const[{data:records,error},{data:commands,error:ce}]=await Promise.all([
+  supabase.from('transactions').select(`*,asset_accounts!inner(${assetSelect})`).or(deleted?'metadata->>asset_deleted.eq.true':'metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('transaction_date',{ascending:false}),
+  deleted?Promise.resolve({data:[],error:null}):supabase.from('asset_lifecycle_commands').select(`*,asset_accounts!inner(${assetSelect})`).order('created_at',{ascending:false})]);
+ if(error||ce)throw error||ce;
+ const visibleIds=new Set((records??[]).map((r:any)=>r.id));
+ const pending=(commands??[]).filter((c:any)=>!c.transaction_id||!visibleIds.has(c.transaction_id)).map((c:any)=>({id:c.id,is_lifecycle_draft:true,lifecycle_command:c,asset_account_id:c.asset_account_id,organization_id:c.organization_id,entity_id:c.asset_accounts.entity_id,transaction_type:c.operation==='SALE'?'SALE':'ADJUSTMENT',transaction_date:c.operation_date,quantity:c.quantity,gross_value:c.amount,base_value:c.amount,currency:null,base_currency:null,created_at:c.created_at,created_by:c.created_by,user_id:c.created_by,asset_accounts:c.asset_accounts,metadata:{operation:c.operation,vat_amount:c.vat_amount,financial_event_id:c.financial_event_id,asset_effect_base:-Number(c.book_effect)}}));
+ const rows=[...(records??[]),...pending];if(!rows.length)return [];
+ const eventIds=[...new Set(rows.map((t:any)=>t.metadata?.financial_event_id).filter(Boolean))];
+ const[{data:events,error:ee},{data:balances,error:be},{data:parties,error:pe},{data:entities,error:en},{data:centers,error:cc},{data:orgs,error:oe},{data:eligibility,error:ge}]=await Promise.all([
+  eventIds.length?supabase.from('financial_events').select('id,status,source_module,event_type,counterparty_id,due_date,base_currency').in('id',eventIds):Promise.resolve({data:[],error:null}),
+  eventIds.length?supabase.from('financial_event_obligation_balances').select('*').in('event_id',eventIds):Promise.resolve({data:[],error:null}),
+  supabase.from('liquidity_counterparties').select('id,name'),supabase.from('organization_entities').select('id,name'),supabase.from('organization_cost_centers').select('id,name'),supabase.from('organizations').select('id,name,base_currency'),
+  records?.length?supabase.rpc('asset_transaction_delete_eligibility',{p_ids:records.map((t:any)=>t.id)}):Promise.resolve({data:[],error:null})]);
+ for(const e of[ee,be,pe,en,cc,oe,ge])if(e)throw e;
+ const guards=new Map((eligibility??[]).map((g:any)=>[g.transaction_id,g])),eventMap=new Map((events??[]).map((e:any)=>[e.id,e]));
+ return rows.map((t:any)=>{
+  const e:any=eventMap.get(t.metadata?.financial_event_id),owned=(balances??[]).filter((o:any)=>o.event_id===e?.id),cmd=(commands??[]).find((c:any)=>c.transaction_id===t.id||c.id===t.id),org=(orgs??[]).find((o:any)=>o.id===t.organization_id);
+  const base=t.base_currency??e?.base_currency??org?.base_currency??t.asset_accounts.currency;
+  return{...t,currency:t.currency??base,base_currency:base,...(guards.get(t.id) as any),lifecycle_command:cmd??t.lifecycle_command,operation_type:cmd?.operation??t.metadata?.operation??t.transaction_type,financial_event_status:e?.status??null,source_label:e?.source_module==='ASSET_LIFECYCLE'?'عمليات الأصل':e?.source_module==='ASSETS_INTEGRATION'||t.metadata?.source==='ATOMIC_ASSET_ACQUISITION'?'الأصول':'سجل العمليات',counterparty_name:(parties??[]).find((p:any)=>p.id===(e?.counterparty_id??t.metadata?.counterparty_id))?.name??null,counterparty_id:e?.counterparty_id??t.metadata?.counterparty_id??null,entity_name:(entities??[]).find((p:any)=>p.id===(t.entity_id??t.asset_accounts.entity_id))?.name??null,cost_center_name:(centers??[]).find((p:any)=>p.id===(t.metadata?.cost_center_id??t.asset_accounts.cost_center_id))?.name??null,organization_name:org?.name??null,due_date:e?.due_date??t.metadata?.due_date??null,obligation_balances:owned,applied_base_amount:owned.reduce((n:number,o:any)=>n+Number(o.applied_base_amount??0),0),outstanding_base_amount:owned.reduce((n:number,o:any)=>n+Number(o.outstanding_base_amount??0),0)};
+ });
+}
 export async function deleteUnlinkedAssetTransaction(id:string){const{supabase}=await requireUser();const{data,error}=await supabase.rpc('delete_unlinked_asset_transaction',{p_transaction_id:id});if(error)throw error;return data;}
 export async function restoreUnlinkedAssetTransaction(id:string){const{supabase}=await requireUser();const{data,error}=await supabase.rpc('restore_unlinked_asset_transaction',{p_transaction_id:id});if(error)throw error;return data;}
 async function recognizeOrganizationAssetPurchase(supabase:any,user:any,transaction:any,asset:any){
