@@ -1,4 +1,10 @@
 "use client";
+import ActionButton,{ActionIconGlyph} from "@/components/ActionButton";
+import AssetOperationDetails from "@/components/assets/AssetOperationDetails";
+import {operationColumns,defaultOperationColumns,operationReportAmounts,operationColumnValue,operationFilteredSummary,operationReportState,operationStateLabel,operationTypeLabel,operationExportRows,type OperationColumn} from "@/lib/asset-operation-report";
+import {vatReportPrintHtml} from "@/lib/vat-report-print";
+import {reportCsv} from "@/lib/vat-financial-reports";
+import {useParams} from "next/navigation";
 import {Money,useDisplayMoney} from "@/components/DisplayCurrency";
 import { useEffect, useMemo, useState } from "react";
 type SortKey = "date" | "asset" | "type" | "value" | "currency";
@@ -29,7 +35,9 @@ function transactionTypeLabel(type: string) {
 }
 
 export default function Transactions() {
-  const money=useDisplayMoney();
+  const money=useDisplayMoney();const params=useParams();const ar=params.locale!=="en";
+  const [selectedOperation,setSelectedOperation]=useState<any>(null),[sourceFilter,setSourceFilter]=useState(''),[stateFilter,setStateFilter]=useState(''),[reportColumns,setReportColumns]=useState<OperationColumn[]>([...defaultOperationColumns]);
+  const t=(a:string,e:string)=>ar?a:e;
   const [rows, setRows] = useState<any[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
   const [sort, setSort] = useState<{
@@ -127,7 +135,7 @@ export default function Transactions() {
     });
     setMsg(
       r.ok
-        ? "تم حفظ المعاملة وتحديث رصيد الأصل."
+        ? selectedAsset?.ownership_scope==="ORGANIZATION"?"تم حفظ مسودة الشراء. أكمل الاعتماد والترحيل من التفاصيل والإجراءات.":"تم حفظ المعاملة وتحديث رصيد الأصل."
         : (await r.json()).error || "خطأ",
     );
     if (r.ok) {setRequestId(crypto.randomUUID());setEntryOpen(false);setForm((x:any)=>({...x,asset_account_id:"",quantity:1,unit_price:"",gross_value:"",base_value:"",proceeds_account_id:"",funding_account_id:"",counterparty_id:"",vat_amount:"",notes:""}));await load();}
@@ -138,7 +146,7 @@ export default function Transactions() {
     return rows.filter((row) => {
       const matchesQuery =
         !normalizedQuery ||
-        assetName(row).toLocaleLowerCase("ar").includes(normalizedQuery) ||
+        `${assetName(row)} ${row.reference??row.metadata?.invoice_reference??""} ${row.counterparty_name??""}`.toLocaleLowerCase("ar").includes(normalizedQuery) ||
         String(row.transaction_type || "")
           .toLocaleLowerCase("ar")
           .includes(normalizedQuery) ||
@@ -146,13 +154,13 @@ export default function Transactions() {
           .toLocaleLowerCase("ar")
           .includes(normalizedQuery);
       const matchesType =
-        !typeFilter || row.transaction_type === typeFilter;
+        !typeFilter || (row.operation_type??row.transaction_type) === typeFilter;
       const date = String(row.transaction_date || "");
       const matchesFrom = !dateFrom || date >= dateFrom;
       const matchesTo = !dateTo || date <= dateTo;
-      return (!sourceTransactionId || row.id === sourceTransactionId) && matchesQuery && matchesType && matchesFrom && matchesTo;
+      return (!sourceTransactionId || row.id === sourceTransactionId) && matchesQuery && matchesType && matchesFrom && matchesTo && (!sourceFilter||row.source_label===sourceFilter) && (!stateFilter||operationReportState(row)===stateFilter);
     });
-  }, [rows, query, typeFilter, dateFrom, dateTo, sourceTransactionId]);
+  }, [rows, query, typeFilter, dateFrom, dateTo, sourceTransactionId,sourceFilter,stateFilter]);
   const sortedRows = useMemo(() => {
     const valueOf = (row: any) => {
       if (sort.key === "date") return String(row.transaction_date || "");
@@ -174,31 +182,15 @@ export default function Transactions() {
       return sort.direction === "asc" ? compared : -compared;
     });
   }, [filteredRows, sort]);
-  const summary = useMemo(
-    () => {
-      const inflowTypes = new Set(["ADD", "OPENING_BALANCE", "PURCHASE", "TRANSFER_IN"]);
-      const outflowTypes = new Set(["SALE", "WITHDRAWAL", "TRANSFER_OUT", "ZAKAT_PAYMENT"]);
-      const inflows = rows.filter(r=>!r.metadata?.asset_deleted).reduce((sum, row) => sum + (inflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : 0), 0);
-      const outflows = rows.filter(r=>!r.metadata?.asset_deleted).reduce((sum, row) => sum + (outflowTypes.has(row.transaction_type) ? Number(row.base_value) || 0 : (row.metadata?.adjustment_direction === "OUT" ? Math.abs(Number(row.metadata?.asset_effect_base ?? row.base_value) || 0) : 0)), 0);
-      return ({
-      count: rows.filter(r=>!r.metadata?.asset_deleted).length,
-      total: rows.filter(r=>!r.metadata?.asset_deleted).reduce((sum, row) => sum + (Number(row.base_value) || 0), 0),
-      inflows,
-      outflows,
-      net: inflows - outflows,
-      assets: new Set(rows.map((row) => row.asset_account_id).filter(Boolean))
-        .size,
-      latest:
-        rows
-          .map((row) => String(row.transaction_date || ""))
-          .filter(Boolean)
-          .sort()
-          .at(-1) || "—",
-    });
-    },
-    [rows],
-  );
-  const hasFilters = Boolean(sourceTransactionId || query || typeFilter || dateFrom || dateTo);
+  const summary=useMemo(()=>operationFilteredSummary(filteredRows),[filteredRows]);
+  function exportReport(kind:'PDF'|'CSV'){
+    if(kind==='CSV'){const url=URL.createObjectURL(new Blob([reportCsv(operationExportRows(sortedRows,ar))],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='asset-operations.csv';link.click();URL.revokeObjectURL(url);return;}
+    const selected=[...reportColumns];if(!selected.includes('currency'))selected.push('currency');
+    const win=window.open('','_blank');if(!win){setMsg(t('اسمح بفتح نافذة الطباعة','Allow the print window'));return;}win.opener=null;
+    const columns=selected.map(key=>operationColumns.find(c=>c[0]===key)![ar?1:2]);
+    win.document.write(vatReportPrintHtml(t('تقرير عمليات الأصول','Asset operations report'),`${dateFrom||'—'} → ${dateTo||'—'} · ${sortedRows.length} ${t('عملية','operations')}`,columns,sortedRows.map(row=>selected.map(key=>operationColumnValue(row,key,ar))),ar,'#24616f').replace('الفواتير والتسويات المعتمدة · المبالغ حسب عملة التقرير','العمليات وفق الفلاتر والحالة الظاهرة · المبالغ بالعملات المسجلة').replace('Posted invoices and settlements · Amounts in report currency','Operations by active filters and status · Recorded currencies'));win.document.close();
+  }
+  const hasFilters = Boolean(sourceTransactionId || query || typeFilter || dateFrom || dateTo || sourceFilter || stateFilter);
   const displayMetric = (value: string) =>
     loading ? "…" : loadError ? "—" : value;
   const changeSort = (key: SortKey) => {
@@ -225,7 +217,7 @@ export default function Transactions() {
             تابع حركة الأصول وابحث في العمليات. أضف المعاملة بعد تحديد الأصل ونوع الحركة وقيمتها.
           </p>
         </div>
-        <button type="button" className="btn" aria-expanded={entryOpen} aria-controls="transaction-entry" onClick={()=>{setEntryOpen(!entryOpen);setMsg("");}}>＋ إضافة معاملة</button>
+        <ActionButton icon="plus" label={t("إضافة معاملة","Add transaction")} aria-expanded={entryOpen} aria-controls="transaction-entry" onClick={()=>{setEntryOpen(!entryOpen);setMsg("");}}/>
       </div>
       {msg && !entryOpen && <p role="status" className="notice">{msg}</p>}
       {loadError && <div className="notice">{loadError}</div>}
@@ -237,8 +229,8 @@ export default function Transactions() {
         />
         <TransactionKpi
           icon="◆"
-          label="صافي الحركة"
-          value={displayMetric(new Set(rows.map(r=>r.base_currency)).size>1?"عملات متعددة":money(summary.net,rows[0]?.base_currency||catalog.base_currency||"SAR"))}
+          label="صافي أثر الأصول المرحل"
+          value={displayMetric(summary.net==null?"عملات متعددة":money(summary.net,summary.currency||catalog.base_currency||"SAR"))}
         />
         <TransactionKpi
           icon="▦"
@@ -257,7 +249,7 @@ export default function Transactions() {
             <span className="transaction-ledger-kicker">إدخال حركة جديدة</span>
             <h2>إضافة معاملة</h2>
           </div>
-          <button type="button" className="btn secondary" disabled={saving} onClick={()=>setEntryOpen(false)}>إغلاق النموذج ×</button>
+          <ActionButton icon="close" label={t("إغلاق النموذج","Close form")} disabled={saving} onClick={()=>setEntryOpen(false)}/>
         </div>
         <p className="muted">١. اختر الأصل ونوع الحركة · ٢. أدخل التاريخ والكمية والقيمة · ٣. راجع البيانات واحفظ</p>
         <div className="form-grid">
@@ -370,13 +362,7 @@ export default function Transactions() {
           </Field>
           <label className="transaction-form-notes">ملاحظات المعاملة<textarea value={form.notes} rows={2} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="مرجع أو تفاصيل إضافية (اختياري)"/></label>
         </div>
-        <button
-          className="btn"
-          onClick={save}
-          disabled={saving || !form.asset_account_id || (selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE") || (form.transaction_type === "SALE" && !form.proceeds_account_id)}
-        >
-          {saving ? "جارٍ الحفظ…" : "حفظ المعاملة"}
-        </button>
+        <ActionButton icon="save" label={saving?t("جار الحفظ","Saving"):t("حفظ المعاملة","Save transaction")} showLabel onClick={save} disabled={saving||!form.asset_account_id||(selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE")||(form.transaction_type==="SALE"&&!form.proceeds_account_id)}/>
         {msg && <p role="status" className="muted">{msg}</p>}
       </div>}
       <div className="card section transaction-ledger-card">
@@ -389,13 +375,13 @@ export default function Transactions() {
             {integerFormatter.format(filteredRows.length)} من {integerFormatter.format(rows.length)}
           </span>
         </div>
-        <div className="transaction-filters"><button type="button" className="btn secondary" aria-pressed={showDeleted} onClick={()=>{setShowDeleted(!showDeleted);void load(!showDeleted);}}>{showDeleted?"العودة للعمليات":"العمليات المحذوفة"}</button>
+        <div className="transaction-filters"><ActionButton icon="history" label={showDeleted?t("العودة للعمليات","Back to operations"):t("العمليات المحذوفة","Deleted operations")} aria-pressed={showDeleted} onClick={()=>{setShowDeleted(!showDeleted);void load(!showDeleted);}}/>
           <label>
             <span>بحث</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="اسم الأصل أو نوع المعاملة"
+              placeholder="الأصل أو المرجع أو الطرف المقابل"
             />
           </label>
           <label>
@@ -405,13 +391,15 @@ export default function Transactions() {
               onChange={(event) => setTypeFilter(event.target.value)}
             >
               <option value="">جميع الأنواع</option>
-              {TRANSACTION_TYPES.map(([value, label]) => (
+              {[...TRANSACTION_TYPES,["DEPRECIATION","إهلاك"],["DISPOSAL","استبعاد"]].map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
             </select>
           </label>
+          <label><span>{t('المصدر','Source')}</span><select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">{t('كل المصادر','All sources')}</option>{[...new Set(rows.map(r=>r.source_label).filter(Boolean))].map(source=><option key={source} value={source}>{source}</option>)}</select></label>
+          <label><span>{t('الحالة','Status')}</span><select value={stateFilter} onChange={e=>setStateFilter(e.target.value)}><option value="">{t('كل الحالات','All states')}</option>{['RECORDED','DRAFT','PLANNED','COMMITTED','ACTUAL','REVERSED','CANCELLED','UNLINKED'].map(state=><option key={state} value={state}>{operationStateLabel(state,ar)}</option>)}</select></label>
           <label>
             <span>من تاريخ</span>
             <input
@@ -431,9 +419,9 @@ export default function Transactions() {
           {hasFilters && (
             <button
               type="button"
-              className="btn secondary transaction-clear-filters"
+              title={t("مسح الفلاتر","Clear filters")} aria-label={t("مسح الفلاتر","Clear filters")} className="btn secondary transaction-clear-filters"
               onClick={() => {
-                setQuery("");
+                setSourceFilter("");setStateFilter("");setQuery("");
                 setSourceTransactionId('');
                 window.history.replaceState({},'',window.location.pathname);
                 setTypeFilter("");
@@ -441,45 +429,13 @@ export default function Transactions() {
                 setDateTo("");
               }}
             >
-              مسح الفلاتر
+              <ActionIconGlyph name="filter"/> مسح الفلاتر
             </button>
           )}
         </div>
-        <div className="transaction-table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <SortableHeader label="التاريخ" column="date" sort={sort} onSort={changeSort} mark={sortMark("date")} />
-                <SortableHeader label="الأصل" column="asset" sort={sort} onSort={changeSort} mark={sortMark("asset")} />
-                <SortableHeader label="النوع" column="type" sort={sort} onSort={changeSort} mark={sortMark("type")} />
-                <SortableHeader label="القيمة" column="value" sort={sort} onSort={changeSort} mark={sortMark("value")} />
-                <SortableHeader label="العملة" column="currency" sort={sort} onSort={changeSort} mark={sortMark("currency")} /><th>الإجراء</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRows.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.transaction_date}</td>
-                  <td><strong>{assetName(r)}</strong></td>
-                  <td><span className="pill transaction-type-pill">{transactionTypeLabel(r.transaction_type)}</span></td>
-                  <td className="transaction-value">
-                    <Money value={r.base_value} currency={r.base_currency} organizationId={r.organization_id}/>
-                  </td>
-                  <td>{r.base_currency}</td><td>{showDeleted?<button type="button" className="btn secondary" disabled={Boolean(deletingId)} onClick={()=>void restoreTransaction(r)}>استعادة</button>:r.can_delete?<button type="button" className="btn secondary" title="حذف العملية غير المرتبطة" aria-label={`حذف عملية ${assetName(r)} بتاريخ ${r.transaction_date}`} disabled={Boolean(deletingId)} onClick={()=>void removeTransaction(r)}>🗑</button>:<span className="muted" title="مرتبطة بأصل أو أثر مالي؛ الحذف غير متاح">🔒</span>}</td>
-                </tr>
-              ))}
-              {!loading && sortedRows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="muted">
-                    {hasFilters
-                      ? "لا توجد معاملات مطابقة للفلاتر الحالية."
-                      : "لا توجد معاملات بعد."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <div className="operation-report-actions"><details><summary className="btn secondary action-button" title={t('تخصيص الأعمدة','Choose columns')} aria-label={t('تخصيص الأعمدة','Choose columns')}><ActionIconGlyph name="filter"/></summary><div className="form-grid">{operationColumns.map(([key,label,en])=><label key={key}><input type="checkbox" checked={reportColumns.includes(key)} disabled={['date','asset'].includes(key)} onChange={e=>setReportColumns(cols=>e.target.checked?operationColumns.map(c=>c[0]).filter(k=>cols.includes(k)||k===key):cols.filter(k=>k!==key))}/>{ar?label:en}</label>)}</div></details><ActionButton icon="print" label={t('طباعة التقرير PDF','Print report PDF')} onClick={()=>exportReport('PDF')}/><ActionButton icon="download" label={t('تصدير التقرير CSV','Export report CSV')} onClick={()=>exportReport('CSV')}/><small>{t('المبالغ بعملة عرض الأساس؛ التصدير بالعملات المسجلة. الفلاتر تنعكس على المؤشرات، والمسودات لا تدخل صافي الأثر المرحل.','Filters apply to indicators and exports. Drafts are excluded from posted net movement.')}</small></div>
+        {selectedOperation&&<AssetOperationDetails key={selectedOperation.id} record={selectedOperation} ar={ar} onClose={()=>setSelectedOperation(null)} onChanged={()=>void load()}/>}
+        <div className="transaction-table-wrap"><table className="table"><thead><tr>{reportColumns.map(key=>{const column=operationColumns.find(c=>c[0]===key)!;return ['date','asset','type','currency'].includes(key)?<SortableHeader key={key} label={column[ar?1:2]} column={key as SortKey} sort={sort} onSort={changeSort} mark={sortMark(key as SortKey)}/>:<th key={key}>{column[ar?1:2]}</th>})}<th>{t('الإجراءات','Actions')}</th></tr></thead><tbody>{sortedRows.map(row=><tr key={row.id}>{reportColumns.map(key=>{const v=operationColumnValue(row,key,ar),cash=['net','tax','total','unitPrice','baseTotal','applied','outstanding','bookEffect','gain'].includes(key),baseMoney=['baseTotal','applied','outstanding','bookEffect','gain'].includes(key);return <td key={key}>{key==='status'?<span className="pill">{v}</span>:typeof v==='number'&&cash?<Money value={key==='net'?operationReportAmounts(row).baseNet:key==='tax'?operationReportAmounts(row).baseTax:key==='total'?operationReportAmounts(row).baseTotal:key==='unitPrice'?v*operationReportAmounts(row).fx:v} currency={row.base_currency} organizationId={row.organization_id}/>:key==='asset'?<><strong>{v}</strong><small className="operation-status-note">{row.reference??row.metadata?.invoice_reference??row.counterparty_name??''}</small></>:key==='type'?<>{v}<small className="operation-status-note">{row.source_label}</small></>:typeof v==='number'?numberFormatter.format(v):v}</td>})}<td><ActionButton icon="details" label={t('التفاصيل والإجراءات','Details and actions')} onClick={()=>setSelectedOperation(row)}/></td></tr>)}{!loading&&!sortedRows.length&&<tr><td colSpan={reportColumns.length+1} className="muted">{hasFilters?'لا توجد معاملات مطابقة للفلاتر الحالية.':'لا توجد معاملات بعد.'}</td></tr>}</tbody></table></div>
       </div>
     </main>
   );
@@ -524,7 +480,7 @@ function SortableHeader({
       <button
         type="button"
         className={`transaction-sort${active ? " active" : ""}`}
-        onClick={() => onSort(column)}
+        title={label} aria-label={label} onClick={() => onSort(column)}
       >
         <span>{label}</span>
         <span aria-hidden="true">{mark}</span>

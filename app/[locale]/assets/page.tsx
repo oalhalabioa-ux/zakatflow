@@ -19,7 +19,8 @@ import { ASSET_DISPLAY_CLASSES, assetDisplayClass, assetTypeIcon, catalogDisplay
 import {assetReportCalculation, type AssetCycleScope} from "@/lib/asset-zakat-report";
 import {assetPageIndicators,indicatorPercent} from '@/lib/asset-page-indicators';
 import AssetsPageToolbar from "@/components/assets/AssetsPageToolbar";
-import AssetActionsMenu from "@/components/assets/AssetActionsMenu";
+import ActionButton,{ActionIconGlyph} from "@/components/ActionButton";
+import AssetDetails from "@/components/assets/AssetDetails";
 import AssetPurchasePanel from "@/components/assets/AssetPurchasePanel";
 import {assetPurchaseAmounts,assetPurchaseStatus} from "@/lib/asset-purchase-workspace";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
@@ -102,7 +103,7 @@ export default function Assets({
     [saving, setSaving] = useState(false),
     [requestId,setRequestId]=useState(""),
     [operationAsset,setOperationAsset]=useState<any>(null),
-    [purchaseAsset,setPurchaseAsset]=useState<string|null>(null),
+    [detailAsset,setDetailAsset]=useState<any>(null),
     [reviewEvent,setReviewEvent]=useState<{id:string;name:string}|null>(null),
     [msg, setMsg] = useState(""),
     [loadError, setLoadError] = useState(""),
@@ -409,7 +410,8 @@ export default function Assets({
               {assetTypeIcon(row.asset_type_code||row.asset_type)}
             </span>
             {row.name}
-            {row.financial_event_id&&<><span className="pill">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span><button type="button" className="btn secondary" onClick={()=>setPurchaseAsset(row.id)}>{ar?"تفاصيل الشراء والإجراءات":"Purchase details and actions"}</button></>}
+            {row.financial_event_id&&<span className="pill">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span>}
+            {!orderedColumns.includes("action")&&<ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>setDetailAsset(row)}/>}
             <span className="pill asset-detail-type">{typeName(row)}</span>
             {assetDisplayClass(row)==="UNCLASSIFIED"&&<small className="muted">{ar?"استكمال التصنيف":"Awaiting classification"}</small>}
             {row.lifecycle_status==="SOLD" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مباع":"Sold"}</span>}
@@ -461,12 +463,7 @@ export default function Assets({
           />
         );
       case "action":
-        return <AssetActionsMenu name={row.name} ar={ar}>{close=><>
-          {row.financial_event_id&&<button type="button" onClick={()=>{close();setPurchaseAsset(row.id);}}>{ar?"شراء الأصل / اعتماد / سداد / طباعة":"Purchase / approval / payment / print"}</button>}
-          <button type="button" onClick={()=>{close();editRow(row);}}><span aria-hidden="true">✎</span> {ar?"تعديل الأصل":"Edit asset"}</button>
-          {row.current_quantity>0&&(row.ownership_scope==="ORGANIZATION"?<button type="button" onClick={()=>{close();setOperationAsset(row);}}><span aria-hidden="true">⚙</span> {ar?"إهلاك / بيع / استبعاد":"Depreciation / sale / disposal"}</button>:<a href={`/${locale}/transactions`} onClick={close}><span aria-hidden="true">↗</span> {ar?"بيع / استبعاد":"Sale / disposal"}</a>)}
-          {(row.financial_review_events||[]).map((e:any,index:number)=><button type="button" key={e.id} onClick={()=>{close();setReviewEvent({id:e.id,name:row.name});}}><span aria-hidden="true">✓</span> {ar?"المراجعة المالية":"Financial review"}{row.financial_review_events.length>1?` (${index+1})`:""}</button>)}
-        </>}</AssetActionsMenu>;
+        return <ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{setDetailAsset(row);setReviewEvent(null);setOperationAsset(null);}}/>;
 
     }
   };
@@ -560,7 +557,7 @@ export default function Assets({
     }
     } catch {setMsg(ar ? "تعذر الاتصال؛ حدّث البيانات قبل إعادة المحاولة." : "Connection failed. Refresh before retrying.");} finally {setSaving(false);}
   };
-  const scopeControl = usageMode==="BOTH"?<div className="asset-owner-switch" role="group" aria-label={ar?"نطاق عرض الأصول":"Asset view scope"}>{([["PERSONAL",ar?"♙ شخصي":"♙ Personal"],["ORGANIZATION",ar?"▥ مؤسسي":"▥ Organization"]] as const).map(([key,text])=><button key={key} type="button" className={`btn ${assetScope===key?"":"secondary"}`} aria-pressed={assetScope===key} onClick={()=>{setAssetScope(key);setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");}}>{text}</button>)}</div>:<strong>{usageMode==="PERSONAL"?(ar?"♙ شخصي":"♙ Personal"):(ar?"▥ مؤسسي":"▥ Organization")}</strong>;
+  const scopeControl = usageMode==="BOTH"?<div className="asset-owner-switch" role="group" aria-label={ar?"نطاق عرض الأصول":"Asset view scope"}>{([["PERSONAL",ar?"♙ شخصي":"♙ Personal"],["ORGANIZATION",ar?"▥ مؤسسي":"▥ Organization"]] as const).map(([key,text])=><button key={key} type="button" className={`btn ${assetScope===key?"":"secondary"}`} title={text} aria-label={text} aria-pressed={assetScope===key} onClick={()=>{setAssetScope(key);setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");}}>{text}</button>)}</div>:<strong>{usageMode==="PERSONAL"?(ar?"♙ شخصي":"♙ Personal"):(ar?"▥ مؤسسي":"▥ Organization")}</strong>;
   return (
     <main className={`container assets-page assets-page-${design}`}><CurrencyScope currency={baseCurrency} organizationId={assetScope==="ORGANIZATION"?scopeOrgId:undefined}/>
       <style>{`.asset-detail-type{font-size:11px;margin-inline-start:8px}.asset-owner-switch{display:flex;gap:6px;flex-wrap:wrap}.asset-scope-bar{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.2fr) minmax(200px,1fr) minmax(200px,1fr);gap:12px;align-items:end;padding:16px 18px}.asset-scope-bar label{display:grid;gap:6px;font-size:12px;font-weight:700}.asset-scope-bar select{width:100%}.asset-scope-title{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.asset-scope-title strong{font-size:14px}.asset-scope-title span{font-size:11px;color:var(--muted)}@media(max-width:900px){.asset-scope-bar{grid-template-columns:1fr 1fr}}@media(max-width:620px){.asset-scope-bar{grid-template-columns:1fr}}.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:var(--brand-surface-soft);color:var(--brand-primary)}.hawl-days{background:var(--brand-surface-soft);color:var(--brand-text)}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--brand-surface-soft);color:var(--brand-text);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
@@ -609,13 +606,13 @@ export default function Assets({
           detailsLabel={ar?"التفاصيل":"Details"} onClick={()=>setMetricDetail(metricDetail===card.key?null:card.key)}/>) }
       </section>}
       {!showingExited&&selectedMetric&&!loading&&!loadError&&<section id="asset-indicator-details" className="card section asset-indicator-details" aria-label={ar?"تفاصيل المؤشر":"Indicator details"}>
-        <div className="page-head"><h3>{selectedMetric.title} · {selectedMetric.value}</h3><button type="button" className="btn secondary" onClick={()=>setMetricDetail(null)}>{ar?"إغلاق التفاصيل":"Close details"}</button></div>
+        <div className="page-head"><h3>{selectedMetric.title} · {selectedMetric.value}</h3><ActionButton icon="close" label={ar?"إغلاق التفاصيل":"Close details"} onClick={()=>setMetricDetail(null)}/></div>
         <p className="muted">{selectedMetric.source} · {ar?"وفق النطاق والفلاتر الحالية":"Using current scope and filters"}</p>
         <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{selectedMetric.title}</th></tr></thead><tbody>{selectedMetric.rows.map(r=><tr key={r.id}><td>{r.name}</td><td>{typeName(r)}</td><td>{selectedMetric.detail(r)}</td></tr>)}</tbody></table></div>
         {!selectedMetric.rows.length&&<p className="muted">{ar?"لا توجد أصول مطابقة لهذا المؤشر.":"No matching assets for this indicator."}</p>}
       </section>}
-      {purchaseAsset&&<AssetPurchasePanel key={purchaseAsset} assetId={purchaseAsset} ar={ar} onChanged={()=>void load()} onClose={()=>setPurchaseAsset(null)}/>}
-      {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><button type="button" className="btn secondary" onClick={()=>setReviewEvent(null)}>{ar?"إغلاق المراجعة":"Close review"}</button></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
+      {detailAsset&&(detailAsset.financial_event_id?<AssetPurchasePanel key={detailAsset.id} assetId={detailAsset.id} ar={ar} onChanged={()=>void load()} onClose={()=>setDetailAsset(null)} extraActions={<><ActionButton icon="edit" label={ar?"تعديل الاسم والتقييم الحالي":"Edit name and current valuation"} onClick={()=>{editRow(detailAsset);setDetailAsset(null);}}/>{detailAsset.current_quantity>0&&<ActionButton icon="operations" label={ar?"بيع أو إهلاك أو استبعاد":"Sale, depreciation or disposal"} onClick={()=>{setOperationAsset(detailAsset);setDetailAsset(null);}}/>}{detailAsset.financial_review_events?.map((e:any,i:number)=><ActionButton icon="history" key={e.id} label={`${ar?"السجل والمراجعة المالية":"Financial review and history"}${detailAsset.financial_review_events.length>1?` (${i+1})`:''}`} onClick={()=>setReviewEvent({id:e.id,name:detailAsset.name})}/>)}</>}/>:<AssetDetails key={detailAsset.id} asset={detailAsset} ar={ar} onClose={()=>setDetailAsset(null)} onEdit={()=>{editRow(detailAsset);setDetailAsset(null);}} onLifecycle={()=>{if(detailAsset.ownership_scope==="ORGANIZATION")setOperationAsset(detailAsset);else window.location.href=`/${locale}/transactions`;setDetailAsset(null);}} onReview={id=>setReviewEvent({id,name:detailAsset.name})}/>)}
+      {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><ActionButton icon="close" label={ar?"إغلاق المراجعة":"Close review"} onClick={()=>setReviewEvent(null)}/></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
       {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
       {formOpen&&<section className="card section">
         <h3>
@@ -768,24 +765,9 @@ export default function Assets({
             </select>
           </label>
         </div>
-        <button type="button" className="btn" onClick={save} disabled={saving}>
-          {saving
-            ? "…"
-            : edit
-              ? "✓ " + (ar ? "حفظ التعديلات" : "Save changes")
-              : "＋ " + (ar ? "حفظ الأصل" : "Save asset")}
-        </button>
+        <ActionButton icon="save" label={saving?(ar?"جار الحفظ":"Saving"):edit?(ar?"حفظ التعديلات":"Save changes"):(ar?"حفظ الأصل":"Save asset")} showLabel onClick={save} disabled={saving}/>
         {(
-          <button
-            className="btn secondary"
-            type="button"
-            onClick={() => {
-              setEdit(null);setRequestId("");setFormOpen(false);
-              setForm({...empty});
-            }}
-          >
-            {ar ? "إغلاق" : "Close"}
-          </button>
+          <ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={()=>{setEdit(null);setRequestId("");setFormOpen(false);setForm({...empty});}}/>
         )}
       </section>}
       {msg&&<p role="status" className="muted">{msg}</p>}
@@ -807,7 +789,7 @@ export default function Assets({
           <span className="muted">{ar?"يحدّث مؤشرات الزكاة والجدول؛ تفاصيل كل دورة وأسعارها تحت السهم.":"Updates Zakat indicators and table; each cycle’s saved prices are under the details arrow."}</span>
         </div>
         {lifecycleFilter==="DISPOSED"&&<p className="asset-exit-caption">{ar?"الإجماليات أدناه تعرض الوزن والتكلفة التاريخية قبل الاستغناء، وليست سعر السوق قبل الاستغناء. القيمة الحالية صفر، ولا تدخل هذه القيم في إجماليات الأصول النشطة.":"Weight and cost below describe the disposed quantity before disposal. Current value is zero; these historical figures are excluded from active asset totals."}</p>}
-        <div className="form-grid asset-report-filters" style={{marginBottom:16}}><div className="asset-group-toggle-wrap"><span className="muted asset-filter-label">{ar?"تجميع التقرير":"Report grouping"}</span><button type="button" role="switch" aria-checked={groupBy==="TYPE"} aria-label={ar?"تجميع بحسب النوع":"Group by type"} title={ar?"يمين: فئة · يسار: نوع":"Right: class · Left: type"} className="asset-group-toggle" onPointerDown={e=>{if(e.button===0)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerUp={e=>{if(e.button!==0)return;const rect=e.currentTarget.getBoundingClientRect();setGroupBy(e.clientX<rect.left+rect.width/2?"TYPE":"CLASS");}} onClick={e=>{if(e.detail===0)setGroupBy(groupBy==="TYPE"?"CLASS":"TYPE");}} onKeyDown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();setGroupBy(e.key==="ArrowLeft"?"TYPE":"CLASS");}}}><span className="asset-group-type" aria-hidden="true">{ar?"نوع":"Type"}</span><span className="asset-group-class" aria-hidden="true">{ar?"فئة":"Class"}</span><span className="asset-group-knob" aria-hidden="true"/></button></div><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label><div className="asset-status-filter"><span className="muted asset-filter-label">{ar?"حالة الأصول":"Asset status"}</span><div className="asset-lifecycle-tabs">{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} aria-pressed={lifecycleFilter===key} onClick={()=>setLifecycleFilter(key)}>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div></div></div>
+        <div className="form-grid asset-report-filters" style={{marginBottom:16}}><div className="asset-group-toggle-wrap"><span className="muted asset-filter-label">{ar?"تجميع التقرير":"Report grouping"}</span><button type="button" role="switch" aria-checked={groupBy==="TYPE"} aria-label={ar?"تجميع بحسب النوع":"Group by type"} title={ar?"يمين: فئة · يسار: نوع":"Right: class · Left: type"} className="asset-group-toggle" onPointerDown={e=>{if(e.button===0)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerUp={e=>{if(e.button!==0)return;const rect=e.currentTarget.getBoundingClientRect();setGroupBy(e.clientX<rect.left+rect.width/2?"TYPE":"CLASS");}} onClick={e=>{if(e.detail===0)setGroupBy(groupBy==="TYPE"?"CLASS":"TYPE");}} onKeyDown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();setGroupBy(e.key==="ArrowLeft"?"TYPE":"CLASS");}}}><span className="asset-group-type" aria-hidden="true">{ar?"نوع":"Type"}</span><span className="asset-group-class" aria-hidden="true">{ar?"فئة":"Class"}</span><span className="asset-group-knob" aria-hidden="true"/></button></div><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label><div className="asset-status-filter"><span className="muted asset-filter-label">{ar?"حالة الأصول":"Asset status"}</span><div className="asset-lifecycle-tabs">{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} title={label} aria-label={label} aria-pressed={lifecycleFilter===key} onClick={()=>setLifecycleFilter(key)}><ActionIconGlyph name={key==="DISPOSED"?"delete":key==="SOLD"?"collect":key==="ALL"?"history":"post"}/>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div></div></div>
         {["SOLD","DISPOSED","ALL"].includes(lifecycleFilter)&&displayRows.some(r=>["SOLD","DISPOSED"].includes(r.lifecycle_status))&&!loading&&!loadError&&<div className="card section asset-exit-summary-card">{historicalSummary(displayRows,true)}</div>}
         {loading && <div className="card section muted">{ar ? "جارٍ تحميل الأصول…" : "Loading assets…"}</div>}
         {!loading && !loadError && groups.length === 0 && (
@@ -892,7 +874,7 @@ export default function Assets({
                               {sortable ? (
                                 <button
                                   type="button"
-                                  className={`asset-sort${active ? " active" : ""}`}
+                                  title={columnLabel(column)} aria-label={columnLabel(column)} className={`asset-sort${active ? " active" : ""}`}
                                   onClick={() =>
                                     changeSort(column as AssetSortColumn)
                                   }
