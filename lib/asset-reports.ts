@@ -1,0 +1,14 @@
+import Decimal from 'decimal.js';
+import {operationReportState} from './asset-operation-report';
+export type AssetReportScope={scope:string;organizationId:string;entityId:string;query:string;category:string;status:string};
+export function assetReportState(asset:any){return asset.financial_event_status??(asset.organization_id&&asset.metadata?.acquisition_mode==='PURCHASE'?'UNLINKED':'RECORDED');}
+export function isRecognizedAsset(asset:any){return ['RECORDED','ACTUAL'].includes(assetReportState(asset));}
+export function filterReportAssets(assets:any[],filter:AssetReportScope){return assets.filter(a=>{
+ const organization=a.ownership_scope==='ORGANIZATION'||Boolean(a.organization_id);
+ return (filter.scope==='ORGANIZATION'?organization&&a.organization_id===filter.organizationId:!organization)&&(!filter.entityId||a.entity_id===filter.entityId)&&(!filter.category||(a.asset_class_code??a.asset_type)===filter.category)&&(!filter.status||(filter.status==='POSTED'?isRecognizedAsset(a):!isRecognizedAsset(a)))&&(!filter.query||`${a.name} ${a.asset_type} ${a.metadata?.invoice_reference??''}`.toLocaleLowerCase().includes(filter.query.toLocaleLowerCase()));
+});}
+export function reportAssetTotals(assets:any[]){const recognized=assets.filter(isRecognizedAsset);const groups=new Map<string,{currency:string;cost:Decimal;market:Decimal;gain:number;percent:number|null;count:number;eligible:Decimal;zakat:Decimal}>();
+ for(const a of recognized){const currency=a.current_value_currency??a.currency;const group=groups.get(currency)??{currency,cost:new Decimal(0),market:new Decimal(0),gain:0,percent:null,count:0,eligible:new Decimal(0),zakat:new Decimal(0)};group.cost=group.cost.add(a.current_cost_value??0);group.market=group.market.add(a.current_market_value??0);group.count++;if(a.zakat_calculation?.currency===currency){group.eligible=group.eligible.add(a.zakat_calculation.eligible_value??0);group.zakat=group.zakat.add(a.zakat_calculation.zakat_amount??0);}groups.set(currency,group);}
+ return {drafts:assets.length-recognized.length,recognized:recognized.length,groups:[...groups.values()].map(g=>({...g,cost:g.cost.toNumber(),market:g.market.toNumber(),gain:g.market.minus(g.cost).toNumber(),percent:g.cost.gt(0)?g.market.minus(g.cost).div(g.cost).mul(100).toNumber():null,eligible:g.eligible.toNumber(),zakat:g.zakat.toNumber()}))};}
+export function filterReportMovements(rows:any[],assets:any[],from:string,to:string){const ids=new Set(assets.map(a=>a.id));return rows.filter(r=>ids.has(r.asset_account_id)&&(!from||r.transaction_date>=from)&&(!to||r.transaction_date<=to));}
+export function postedReportMovements(rows:any[]){return rows.filter(r=>['ACTUAL','RECORDED'].includes(operationReportState(r))&&!r.metadata?.lifecycle_reversed&&!r.metadata?.asset_deleted);}
