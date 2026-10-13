@@ -757,3 +757,21 @@
 .corp-shell .corp-content .btn:not(.secondary):not(.outline):not(.danger):not(.ghost) :is(span,strong,small,b,i){color:inherit!important}
 .corp-shell .corp-content .btn svg{color:inherit}
 .corp-shell .corp-content .btn:not(.secondary):not(.outline):not(.danger):not(.ghost):is(:hover,:focus-visible,:disabled){color:#fff!important}
+
+.invoice-actions-anchor{display:inline-flex;vertical-align:middle}
+.invoice-actions-trigger.vat-button{width:38px;min-width:38px;height:38px;padding:8px!important}
+.invoice-actions-trigger svg{width:20px;height:20px}
+.invoice-actions-strip{position:fixed;inset:auto;margin:0;padding:10px;border:1px solid var(--brand-border,#d7e1e6);border-radius:12px;background:var(--brand-surface,#fff);color:var(--brand-text,#243746);box-shadow:0 10px 30px #0003;width:max-content;max-width:min(520px,calc(100vw - 24px));overflow:visible;z-index:150}
+.invoice-actions-strip:popover-open{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.invoice-actions-strip:not(:popover-open){display:none}
+.invoice-actions-strip .vat-button{min-width:40px;width:40px;height:40px;padding:8px!important;position:relative;flex:none;justify-content:center}
+.invoice-actions-strip .vat-action-icon-content svg{width:20px;height:20px}
+.invoice-actions-strip .vat-action-tooltip{display:none!important}
+.invoice-actions-strip .vat-button[data-action-label]:is(:hover,:focus-visible)::after{content:attr(data-action-label);position:absolute;bottom:calc(100% + 8px);inset-inline-end:0;white-space:nowrap;background:var(--brand-surface,#fff);color:var(--brand-text,#243746);border:1px solid var(--brand-border,#d7e1e6);padding:7px 10px;border-radius:7px;box-shadow:0 4px 14px #0002;font-size:12px;pointer-events:none;z-index:2}
+.invoice-actions-strip .vat-action-danger{margin-inline-start:8px;border-inline-start:2px solid var(--brand-border,#d7e1e6)!important;color:#b42318!important;background:#fff5f3!important}
+@media(max-width:600px){.invoice-actions-strip{max-width:calc(100vw - 24px);gap:6px;padding:8px}.invoice-actions-strip .vat-button{width:44px;height:44px;min-width:44px}}
+.invoice-details-card .invoice-detail-statuses{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.invoice-dialog-actions .vat-button{position:relative;min-width:40px;min-height:40px;padding:8px!important}
+.invoice-dialog-actions .vat-action-icon-content svg{width:20px;height:20px}
+.invoice-dialog-actions .vat-action-danger{margin-inline-start:auto}
+.asset-details-dialog>.vat-unified-action-panel{margin:0;border:0;border-radius:0;padding:22px;max-width:none}

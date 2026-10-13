@@ -1,4 +1,6 @@
 'use client';
+import InvoiceDetailsDialog,{invoiceDetailRow} from "./invoice-details-dialog";
+import InvoiceActionsPopover from "./invoice-actions-popover";
 import {Money} from './DisplayCurrency';
 
 import { vatEInvoiceRegisterUrl, type InvoiceRegisterTarget } from '@/lib/vat-einvoice-register-target';
@@ -161,6 +163,7 @@ export function VatEInvoiceRegister({
   const [lines, setLines] = useState<InvoiceLine[]>(() => [emptyLine(String(standardTaxRate))]);
   const [cashAccounts, setCashAccounts] = useState<Array<{id:string;name:string;currency:string}>>([]);
   const [noteSource, setNoteSource] = useState<Invoice | null>(null);
+  const [invoiceDetails,setInvoiceDetails]=useState<Invoice|null>(null);
   const [receiptInvoice, setReceiptInvoice] = useState<Invoice | null>(null);
   const [collectionInvoice, setCollectionInvoice] = useState<Invoice | null>(null);
   const [collectionAccountId, setCollectionAccountId] = useState('');
@@ -218,7 +221,8 @@ export function VatEInvoiceRegister({
       })
       .catch((error) => { if (active) setMessage({ error: true, text: messageFor(error.message, ar) }); })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+
+  return () => { active = false; };
   }, [organizationId, registered, ar, listUrl]);
 
   useEffect(() => {
@@ -723,6 +727,21 @@ export function VatEInvoiceRegister({
   const totalTax = Number(previewTotals?.tax_total_amount || 0);
   const grandTotal = Number(previewTotals?.payable_amount || 0);
 
+    const invoiceActions=(invoice:Invoice)=><> 
+            {invoice.accounting_document_id && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => { setReceiptInvoice(invoice); setCollectionInvoice(null); }}><InvoiceActionLabel icon="receipt">{ar ? 'سندات القبض' : 'Receipts'}</InvoiceActionLabel></button>}
+            {invoice.status === 'ACCOUNTING_READY' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => prepareAccountingInvoiceForZatca(invoice)}><InvoiceActionLabel icon="issue">{ar ? 'تجهيز مسودة زاتكا' : 'Prepare ZATCA draft'}</InvoiceActionLabel></button>}
+            {invoice.document_type === 'INVOICE' && invoice.financial_event && invoice.financial_event.status === 'COMMITTED' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={()=>postNote(invoice)}><InvoiceActionLabel icon="post">{ar?'اعتماد المحاسبة':'Post accounting'}</InvoiceActionLabel></button>}
+            {invoice.document_type !== 'INVOICE' && ['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.financial_event?.status !== 'ACTUAL' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => postNote(invoice)}><InvoiceActionLabel icon="post">{ar ? 'اعتماد الأثر المحاسبي' : 'Post accounting effect'}</InvoiceActionLabel></button>}
+            {invoice.document_type !== 'INVOICE' && invoice.financial_event?.status === 'ACTUAL' && <span className="vat-payment-badge paid">{ar ? 'الأثر مرحّل' : 'Effect posted'}</span>}
+            {invoice.document_type !== 'INVOICE' && invoice.cash_flow && <a className="vat-button secondary" href={ar?'/ar/liquidity':'/en/liquidity'}><InvoiceActionLabel icon="pay">{ar?'تسوية الإشعار في السيولة':'Settle note in liquidity'}</InvoiceActionLabel></a>}
+            {invoice.status === 'DRAFT' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}><InvoiceActionLabel icon="edit">{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</InvoiceActionLabel></button>}
+            {invoice.document_type === 'INVOICE' && invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={() => openCollection(invoice)}><InvoiceActionLabel icon="collect">{ar ? 'قبض' : 'Collect'}</InvoiceActionLabel></button>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || !canCreate || editingDraftId === invoice.id || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}><InvoiceActionLabel icon="issue">{ar ? 'إصدار — QR المرحلة الأولى' : 'Issue — Phase 1 QR'}</InvoiceActionLabel></button>}
+            {invoice.status === 'DRAFT' && <button type="button" className="vat-button vat-action-danger" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => void deleteDraft(invoice)}><InvoiceActionLabel icon="delete">{ar ? 'حذف' : 'Delete'}</InvoiceActionLabel></button>}
+            {['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}><InvoiceActionLabel icon="credit">{ar ? 'إشعار دائن' : 'Credit note'}</InvoiceActionLabel></button>}
+            {['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}><InvoiceActionLabel icon="debit">{ar ? 'إشعار مدين' : 'Debit note'}</InvoiceActionLabel></button>}
+            {!['VOID','REJECTED'].includes(invoice.status) && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}><InvoiceActionLabel icon="print">{ar ? 'طباعة / PDF' : 'Print / PDF'}</InvoiceActionLabel></button>}
+          </>;
   return (
     <section className="vat-panel">
       <div className="vat-panel-head vat-einvoice-register-heading">
@@ -872,6 +891,7 @@ export function VatEInvoiceRegister({
         onInvoiceIssued?.();
       }} />}
       <InvoiceRegisterFilters value={filters} onChange={setFilters} ar={ar} count={visibleInvoices.length} total={invoices.length} currencies={[...new Set(invoices.map(invoice => invoice.currency))].sort()} statuses={[['DRAFT',ar?'مسودة':'Draft'],['ACCOUNTING_READY',ar?'جاهزة للإصدار':'Ready to issue'],['ISSUED',ar?'صادرة':'Issued'],['CLEARED',ar?'معتمدة':'Cleared'],['REPORTED',ar?'مبلغ عنها':'Reported'],['SUBMITTED',ar?'مرسلة':'Submitted'],['REJECTED',ar?'مرفوضة':'Rejected'],['VOID',ar?'ملغاة':'Void']]} categories={[['STANDARD',ar?'ضريبية':'Standard'],['SIMPLIFIED',ar?'مبسطة':'Simplified']]} />
+      {invoiceDetails&&<InvoiceDetailsDialog row={invoiceDetailRow(invoiceDetails,true)} organizationId={organizationId} ar={ar} onClose={()=>setInvoiceDetails(null)} actions={invoiceActions(invoiceDetails)}/>}
       <div className="vat-einvoice-list" aria-live="polite">
         {loading && <div className="vat-empty-row">{ar ? 'جارٍ تحميل الفواتير…' : 'Loading invoices…'}</div>}
         {!loading && visibleInvoices.map((invoice) => <div className="vat-einvoice-item" key={invoice.id}>
@@ -880,21 +900,7 @@ export function VatEInvoiceRegister({
           <span className={`vat-status ${invoice.status === 'ISSUED' ? 'registered' : ''}`}>{invoice.status === 'ISSUED' ? (ar ? 'صادرة — QR المرحلة الأولى' : 'Issued — Phase 1 QR') : invoice.status === 'ACCOUNTING_READY' ? (ar ? 'جاهزة للإصدار' : 'Ready to issue') : invoice.status === 'DRAFT' && !invoice.accounting_document_id ? (ar ? 'مسودة غير مرتبطة محاسبيًا' : 'Unlinked accounting draft') : invoice.status === 'DRAFT' ? (ar ? 'مسودة' : 'Draft') : ({ SUBMITTED: ar ? 'مرسلة' : 'Submitted', CLEARED: ar ? 'معتمدة من زاتكا' : 'Cleared', REPORTED: ar ? 'تم الإبلاغ' : 'Reported', REJECTED: ar ? 'مرفوضة' : 'Rejected', VOID: ar ? 'ملغاة' : 'Void' } as Record<string,string>)[invoice.status] || invoice.status}</span>
           {invoice.cash_flow && <div className="vat-invoice-outstanding"><small>{ar ? 'المتبقي' : 'Outstanding'}</small><strong><Money value={Math.max(0,Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0))} currency={invoice.cash_flow.currency}/></strong><small>{invoicePaymentState({id:invoice.id,number:'',name:'',date:'',currency:invoice.currency,baseAmount:0,flow:invoice.cash_flow}) === 'PARTIAL' ? (ar ? 'تحصيل جزئي' : 'Partially collected') : ''}</small></div>}
           <InvoicePaymentBadge flow={invoice.cash_flow} ar={ar} note={invoice.document_type !== 'INVOICE'} />
-          <div className="vat-invoice-actions" role="group" aria-label={ar ? `إجراءات الفاتورة ${invoice.invoice_number}` : `Invoice ${invoice.invoice_number} actions`}>
-            {invoice.accounting_document_id && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => { setReceiptInvoice(invoice); setCollectionInvoice(null); }}><InvoiceActionLabel icon="receipt">{ar ? 'سندات القبض' : 'Receipts'}</InvoiceActionLabel></button>}
-            {invoice.status === 'ACCOUNTING_READY' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => prepareAccountingInvoiceForZatca(invoice)}><InvoiceActionLabel icon="issue">{ar ? 'تجهيز مسودة زاتكا' : 'Prepare ZATCA draft'}</InvoiceActionLabel></button>}
-            {invoice.document_type === 'INVOICE' && invoice.financial_event && invoice.financial_event.status === 'COMMITTED' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={()=>postNote(invoice)}><InvoiceActionLabel icon="post">{ar?'اعتماد المحاسبة':'Post accounting'}</InvoiceActionLabel></button>}
-            {invoice.document_type !== 'INVOICE' && ['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.financial_event?.status !== 'ACTUAL' && <button type="button" className="vat-button primary" disabled={busy || !canCreate} onClick={() => postNote(invoice)}><InvoiceActionLabel icon="post">{ar ? 'اعتماد الأثر المحاسبي' : 'Post accounting effect'}</InvoiceActionLabel></button>}
-            {invoice.document_type !== 'INVOICE' && invoice.financial_event?.status === 'ACTUAL' && <span className="vat-payment-badge paid">{ar ? 'الأثر مرحّل' : 'Effect posted'}</span>}
-            {invoice.document_type !== 'INVOICE' && invoice.cash_flow && <a className="vat-button secondary" href={ar?'/ar/liquidity':'/en/liquidity'}><InvoiceActionLabel icon="pay">{ar?'تسوية الإشعار في السيولة':'Settle note in liquidity'}</InvoiceActionLabel></a>}
-            {invoice.status === 'DRAFT' && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => editDraft(invoice)}><InvoiceActionLabel icon="edit">{ar ? (editingDraftId === invoice.id ? 'قيد التعديل' : 'تعديل') : (editingDraftId === invoice.id ? 'Editing' : 'Edit')}</InvoiceActionLabel></button>}
-            {invoice.document_type === 'INVOICE' && invoice.cash_flow && Math.max(0, Number(invoice.cash_flow.amount)-Number(invoice.cash_flow.settled_amount||0)) > 0 && <button type="button" className="vat-button secondary" disabled={busy || !canCreate} onClick={() => openCollection(invoice)}><InvoiceActionLabel icon="collect">{ar ? 'قبض' : 'Collect'}</InvoiceActionLabel></button>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button primary" disabled={busy || !canCreate || editingDraftId === invoice.id || !invoice.accounting_document_id} onClick={() => void issueInvoice(invoice)}><InvoiceActionLabel icon="issue">{ar ? 'إصدار — QR المرحلة الأولى' : 'Issue — Phase 1 QR'}</InvoiceActionLabel></button>}
-            {invoice.status === 'DRAFT' && <button type="button" className="vat-button vat-action-danger" disabled={busy || !canCreate || editingDraftId === invoice.id} onClick={() => void deleteDraft(invoice)}><InvoiceActionLabel icon="delete">{ar ? 'حذف' : 'Delete'}</InvoiceActionLabel></button>}
-            {['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'CREDIT_NOTE')}><InvoiceActionLabel icon="credit">{ar ? 'إشعار دائن' : 'Credit note'}</InvoiceActionLabel></button>}
-            {['ISSUED','CLEARED','REPORTED','SUBMITTED'].includes(invoice.status) && invoice.document_type === 'INVOICE' && <button type="button" className="vat-button secondary" disabled={busy} onClick={() => startNote(invoice,'DEBIT_NOTE')}><InvoiceActionLabel icon="debit">{ar ? 'إشعار مدين' : 'Debit note'}</InvoiceActionLabel></button>}
-            {!['VOID','REJECTED'].includes(invoice.status) && <button type="button" className="vat-button secondary" onClick={() => void printInvoice(invoice)}><InvoiceActionLabel icon="print">{ar ? 'طباعة / PDF' : 'Print / PDF'}</InvoiceActionLabel></button>}
-          </div>
+          <InvoiceActionsPopover label={ar ? `إجراءات الفاتورة ${invoice.invoice_number}` : `Invoice ${invoice.invoice_number} actions`}><button type="button" className="vat-button secondary" onClick={()=>setInvoiceDetails(invoice)}><InvoiceActionLabel icon="receipt">{ar?"عرض التفاصيل":"View details"}</InvoiceActionLabel></button>{invoiceActions(invoice)}</InvoiceActionsPopover>
         </div>)}
         {!loading && !visibleInvoices.length && <div className="vat-empty-row">{invoices.length ? (ar ? 'لا توجد فواتير تطابق الفلاتر.' : 'No invoices match the filters.') : (ar ? 'لا توجد فواتير بعد.' : 'No invoices yet.')}</div>}
       </div>
