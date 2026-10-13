@@ -1,0 +1,72 @@
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','f10bd630-6e35-4513-a9b3-4908d1b00c3c',true);
+DO $test$
+DECLARE bank uuid;aid uuid;cid uuid;op uuid;c jsonb;t jsonb;b text;failure text;replay uuid;req uuid;
+BEGIN
+ SELECT base_currency INTO b FROM public.profiles WHERE id=auth.uid();
+ c:=public.create_asset_with_acquisition(jsonb_build_object('name','QA personal investment rollback bank','asset_type','BANK','currency',b,'ownership_scope','PERSONAL','unit','unit','is_zakatable',true,'metadata',jsonb_build_object('acquisition_mode','OPENING_BALANCE','quantity',1000,'purchase_value',1000,'purchase_date','2025-01-01','fx_rate',1)),gen_random_uuid());bank:=(c->>'id')::uuid;
+ UPDATE public.lots SET hawl_start_date='2025-07-01',origin_hawl_start_date='2025-07-01',zakatable_pool_entered_date='2025-07-01' WHERE asset_account_id=bank;
+ t:=jsonb_build_object('name','QA personal deposit','instrument','DEPOSIT','ownership_scope','PERSONAL','organization_id',null,'entity_id',null,'cost_center_id',null,'party_name','QA bank','currency',b,'principal',100,'face_value',100,'fees',0,'annual_rate',6,'start_date','2026-01-01','maturity_date','2026-04-01','interest_basis','ACT_365','zakat_basis','HIJRI_354','zakat_rate',2.5,'zakat_base',100,'zakat_treatment','COVERED','zakat_assessment_mode','INSTITUTION_COVERED','zakat_coverage_from','2026-01-01','zakat_coverage_to','2026-04-01','zakat_coverage_reference','QA institution paid capital zakat contract','inflation_rate',3,'fx_rate',1,'funding_account_id',bank,'reference','QA-ROLLBACK','notes','Synthetic rollback only');
+ c:=public.investment_command('SAVE',null,t,gen_random_uuid());cid:=(c->>'id')::uuid;aid:=(c->>'asset_account_id')::uuid;
+ BEGIN UPDATE public.asset_accounts SET name='Unauthorized'WHERE id=aid;failure:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN failure:=SQLERRM;END;
+ IF failure='NOT_BLOCKED'THEN RAISE EXCEPTION 'DIRECT_ASSET_TAMPER_ALLOWED';END IF;
+ c:=public.investment_command('PREPARE',cid,jsonb_build_object('kind','FUND','date','2026-01-01','account_id',bank,'amount',100,'fx_rate',1,'notes','Personal transfer'),gen_random_uuid());op:=(c->>'id')::uuid;
+ PERFORM public.investment_command('APPROVE',op);PERFORM public.investment_command('POST',op);
+ IF(SELECT sum(remaining_value_base)FROM public.lots WHERE asset_account_id=bank)<>900 OR(SELECT sum(remaining_value_base)FROM public.lots WHERE asset_account_id=aid)<>100 THEN RAISE EXCEPTION 'PERSONAL_FUND_BALANCE_FAILED';END IF;
+ IF EXISTS(SELECT 1 FROM public.lots WHERE asset_account_id=aid AND origin_hawl_start_date IS DISTINCT FROM '2025-07-01'::date)THEN RAISE EXCEPTION 'HAWL_ORIGIN_RESET_ON_TRANSFER';END IF;
+ BEGIN UPDATE public.lots SET remaining_value_base=999 WHERE asset_account_id=aid;failure:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN failure:=SQLERRM;END;
+ IF failure='NOT_BLOCKED'THEN RAISE EXCEPTION 'DIRECT_LOT_TAMPER_ALLOWED';END IF;
+ IF EXISTS(SELECT 1 FROM public.investment_zakat_lot_coverage('HIJRI_TABULAR')cv JOIN public.lots l ON l.id=cv.lot_id WHERE l.asset_account_id=aid AND cv.covered_days<>90) THEN RAISE EXCEPTION 'COVERAGE_90_DAYS_FAILED';END IF;
+ IF EXISTS(SELECT 1 FROM public.investment_zakat_lot_coverage('HIJRI_TABULAR')cv JOIN public.lots l ON l.id=cv.lot_id WHERE l.asset_account_id=bank AND cv.covered_days<>0) THEN RAISE EXCEPTION 'OTHER_CASH_EXCLUDED';END IF;
+ c:=public.investment_command('PREPARE',cid,jsonb_build_object('kind','REDEEM','date','2026-02-15','account_id',bank,'amount',100,'fx_rate',1,'notes','Return principal'),gen_random_uuid());op:=(c->>'id')::uuid;
+ PERFORM public.investment_command('APPROVE',op);PERFORM public.investment_command('POST',op);PERFORM public.investment_command('POST',op);
+ IF(SELECT sum(remaining_value_base)FROM public.lots WHERE asset_account_id=bank)<>1000 OR(SELECT sum(remaining_value_base)FROM public.lots WHERE asset_account_id=aid)<>0 THEN RAISE EXCEPTION 'PERSONAL_REDEEM_REPLAY_FAILED';END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.lots WHERE asset_account_id=bank AND source_transaction_id IN(SELECT id FROM public.transactions WHERE asset_account_id=bank AND transaction_type='TRANSFER_IN')AND origin_hawl_start_date='2025-07-01')THEN RAISE EXCEPTION 'HAWL_RETURN_CONTINUITY_FAILED';END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.investment_zakat_lot_coverage('HIJRI_TABULAR')cv JOIN public.lots l ON l.id=cv.lot_id WHERE l.asset_account_id=bank AND l.hawl_continuity_source_lot_id IS NOT NULL AND cv.covered_days=45) THEN RAISE EXCEPTION 'EARLY_REDEMPTION_COVERAGE_CONTINUITY_FAILED';END IF;
+ BEGIN
+  PERFORM public.investment_command('SAVE',null,t||jsonb_build_object('zakat_coverage_reference',''),gen_random_uuid());failure:='NOT_BLOCKED';
+ EXCEPTION WHEN OTHERS THEN failure:=SQLERRM;END;
+ IF failure='NOT_BLOCKED' THEN RAISE EXCEPTION 'UNDOCUMENTED_COVERAGE_ALLOWED';END IF;
+ c:=public.investment_command('SAVE',null,t,gen_random_uuid());cid:=(c->>'id')::uuid;req:=gen_random_uuid();
+ c:=public.investment_command('REPLACE',cid,t||jsonb_build_object('name','QA replacement draft'),req);replay:=(c->>'id')::uuid;
+ IF public.investment_command('REPLACE',cid,t||jsonb_build_object('name','QA replacement draft'),req)->>'id'<>replay::text OR(SELECT status FROM public.investment_contracts WHERE id=cid)<>'CANCELLED'THEN RAISE EXCEPTION 'REPLACEMENT_REPLAY_FAILED';END IF;
+ c:=public.investment_command('PREPARE',replay,jsonb_build_object('kind','FUND','date','2026-01-01','account_id',bank,'amount',100,'fx_rate',1,'notes','Cancelled before cash'),gen_random_uuid());PERFORM public.investment_command('CANCEL_OPERATION',(c->>'id')::uuid);
+ PERFORM public.investment_command('CANCEL',replay);
+ PERFORM set_config('qa.investment.result','institution_coverage_90_days_early_return_45_days_other_cash_hawl_continuity_pass',true);
+END $test$;
+DO $test$
+DECLARE bank uuid;aid uuid;cid uuid;op uuid;mid uuid;cycle uuid;l record;cv record;t jsonb;c jsonb;payload jsonb;line jsonb;result jsonb;due date;failure text;payments_before bigint;
+BEGIN
+ SELECT id INTO mid FROM public.zakat_methods WHERE code='INDEPENDENT_LOTS' LIMIT 1;
+ SELECT count(*) INTO payments_before FROM public.zakat_payments WHERE user_id=auth.uid();
+ due:=public.zakat_next_hawl_date('2025-07-01','HIJRI');
+ c:=public.create_asset_with_acquisition(jsonb_build_object('name','QA full covered year bank','asset_type','BANK','currency','SAR','ownership_scope','PERSONAL','unit','unit','is_zakatable',true,'metadata',jsonb_build_object('acquisition_mode','OPENING_BALANCE','quantity',100,'purchase_value',100,'purchase_date','2025-07-01','fx_rate',1)),gen_random_uuid());bank:=(c->>'id')::uuid;
+ UPDATE public.lots SET hawl_start_date='2025-07-01',origin_hawl_start_date='2025-07-01',zakatable_pool_entered_date='2025-07-01' WHERE asset_account_id=bank;
+ t:=jsonb_build_object('name','QA full covered year deposit','instrument','DEPOSIT','ownership_scope','PERSONAL','organization_id',null,'entity_id',null,'cost_center_id',null,'party_name','QA bank','currency','SAR','principal',100,'face_value',100,'fees',0,'annual_rate',6,'start_date','2025-07-01','maturity_date',due,'interest_basis','ACT_365','zakat_basis','HIJRI_TABULAR','zakat_rate',2.5,'zakat_base',100,'zakat_treatment','COVERED','zakat_assessment_mode','INSTITUTION_COVERED','zakat_coverage_from','2025-07-01','zakat_coverage_to',due,'zakat_coverage_reference','QA institution covered full Hijri year','inflation_rate',3,'fx_rate',1,'funding_account_id',bank,'reference','QA-ROLLBACK','notes','Synthetic rollback only');
+ c:=public.investment_command('SAVE',null,t,gen_random_uuid());cid:=(c->>'id')::uuid;aid:=(c->>'asset_account_id')::uuid;
+ c:=public.investment_command('PREPARE',cid,jsonb_build_object('kind','FUND','date','2025-07-01','account_id',bank,'amount',100,'fx_rate',1,'notes','QA full year coverage'),gen_random_uuid());op:=(c->>'id')::uuid;
+ PERFORM public.investment_command('APPROVE',op);PERFORM public.investment_command('POST',op);
+ SELECT lot.*,hp.hawl_due_date period_due,hp.hawl_period period_no INTO l FROM public.lots lot JOIN public.zakat_lot_hawl_periods('HIJRI')hp ON hp.lot_id=lot.id WHERE lot.asset_account_id=aid;
+ SELECT * INTO cv FROM public.investment_zakat_lot_coverage('HIJRI') WHERE lot_id=l.id;
+ IF cv.covered_days<>cv.period_days OR cv.covered_days NOT IN(354,355) THEN RAISE EXCEPTION 'FULL_HIJRI_COVERAGE_FAILED';END IF;
+ INSERT INTO public.zakat_hawl_cycles(user_id,cycle_no,nisab_standard,nisab_value_base,nisab_reached_date,hawl_start_date,hawl_due_date,status) VALUES(auth.uid(),(SELECT coalesce(max(cycle_no),0)+30000 FROM public.zakat_hawl_cycles WHERE user_id=auth.uid()),'GOLD',0.85,'2025-07-01','2025-07-01',due,'ACTIVE') RETURNING id INTO cycle;
+ payload:=jsonb_build_object('assessment_date','2026-10-13','valuation_date','2026-10-13','method_id',mid,'nisab_standard','GOLD','nisab_quantity',85,'nisab_value_base',0.85,'total_zakatable_value',0,'zakat_rate',0.025,'zakat_due',0,'currency','SAR','hawl_cycle_id',cycle,'calculation_snapshot',jsonb_build_object('schemaVersion',2,'hawlPeriodPolicy','FINAL_COVERAGE_V1','candidateLots',1,'nisabQualificationBasis','PORTFOLIO_MARKET_VALUE','nisabQualificationValue',100,'priceMode','MANUAL','priceSource','USER_MANUAL','calendarType','HIJRI','prices',jsonb_build_object('gold',0.01,'silver',0.01),'metalPrices',jsonb_build_object('GOLD',jsonb_build_object('price',0.01,'fxRate',1))));
+ line:=jsonb_build_array(jsonb_build_object('lot_id',l.id,'quantity',1,'valuation_price',100,'valuation_currency','SAR','fx_rate',1,'market_value',100,'eligible_value',0,'zakat_amount',0,'eligibility_status','ELIGIBLE','reason_code','INSTITUTION_COVERED_PERIOD','explanation','QA externally covered year, no cash payment','valuation_snapshot',jsonb_build_object('purity',1,'hawlStartDate',l.hawl_start_date,'hawlDueDate',due,'hawlPeriod',l.period_no,'institutionCoverage',jsonb_build_object('coveredDays',cv.covered_days,'periodDays',cv.period_days,'intervals',cv.coverage_intervals))));
+ BEGIN
+  PERFORM public.save_zakat_assessment_snapshot(payload,jsonb_set(line,'{0,valuation_snapshot,institutionCoverage,coveredDays}','1'::jsonb),null);failure:='NOT_BLOCKED';
+ EXCEPTION WHEN OTHERS THEN failure:=SQLERRM;END;
+ IF failure<>'ASSESSMENT_EXTERNAL_COVERAGE_MISMATCH' THEN RAISE EXCEPTION 'FORGED_COVERAGE_NOT_BLOCKED: %',failure;END IF;
+ result:=public.save_zakat_assessment_snapshot(payload,line,null);
+ c:=public.investment_command('PREPARE',cid,jsonb_build_object('kind','REDEEM','date',due-1,'account_id',bank,'amount',100,'fx_rate',1,'notes','QA redemption prepared before final assessment'),gen_random_uuid());op:=(c->>'id')::uuid;
+ PERFORM public.investment_command('APPROVE',op);
+ PERFORM public.close_zakat_cycle(cycle,(result->>'id')::uuid);
+ IF NOT EXISTS(SELECT 1 FROM public.zakat_lot_hawl_periods('HIJRI') WHERE lot_id=l.id AND hawl_period=2 AND hawl_start_date=due) THEN RAISE EXCEPTION 'FULL_COVERED_YEAR_REPEATED';END IF;
+ BEGIN PERFORM public.investment_command('POST',op);failure:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN failure:=SQLERRM;END;
+ IF failure<>'INVESTMENT_REDEMPTION_FINAL_COVERAGE_LOCKED' THEN RAISE EXCEPTION 'FINAL_COVERAGE_REDEMPTION_NOT_BLOCKED: %',failure;END IF;
+ IF payments_before<>(SELECT count(*) FROM public.zakat_payments WHERE user_id=auth.uid()) THEN RAISE EXCEPTION 'ESTIMATE_CREATED_FAKE_CASH_PAYMENT';END IF;
+ PERFORM set_config('qa.investment.full_coverage_result','full_hijri_year_zero_internal_zakat_no_fake_payment_hawl_advances_forgery_and_backdated_post_blocked',true);
+END $test$;
+SET CONSTRAINTS ALL IMMEDIATE;
+SELECT current_setting('qa.investment.result')AS test_result,current_setting('qa.investment.full_coverage_result')AS full_year_result;
+ROLLBACK;
