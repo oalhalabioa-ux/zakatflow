@@ -1,0 +1,9 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const f=vi.hoisted(()=>({auth:vi.fn(),review:vi.fn(),event:false,historySelect:vi.fn(),historyOrder:vi.fn()}));
+vi.mock('./auth',()=>({requireUser:f.auth}));
+vi.mock('./asset-financial-review',()=>({assetFinancialReview:f.review}));
+import {assetOperationWorkspace} from './asset-operation-workspace';
+const id='11111111-1111-4111-8111-111111111111',user='22222222-2222-4222-8222-222222222222';
+beforeEach(()=>{vi.clearAllMocks();f.event=false;f.review.mockResolvedValue({event:{organization_id:null,source_module:'LEGACY'},permissions:{},approved:false});f.auth.mockResolvedValue({user:{id:user},supabase:{rpc:async()=>({data:[],error:null}),from:(table:string)=>{let query='';const result=()=>({data:table==='transactions'?(query==='id'?null:{id,user_id:user,transaction_type:'ADJUSTMENT',metadata:f.event?{financial_event_id:id}:null,asset_accounts:{id,user_id:user,organization_id:null}}):table==='asset_lifecycle_commands'?null:[],error:null});const chain:any={select:(s:string)=>{query=s;if(table==='financial_event_status_history')f.historySelect(s);return chain;},eq:()=>chain,in:()=>chain,limit:()=>chain,order:(s:string)=>{if(table==='financial_event_status_history')f.historyOrder(s);return chain;},maybeSingle:async()=>result(),then:(resolve:any)=>Promise.resolve(result()).then(resolve)};return chain;}}});});
+it('loads an existing transaction with null metadata and no lifecycle command',async()=>{const data=await assetOperationWorkspace(id);expect(data.record.id).toBe(id);expect(data.review).toBeNull();expect(f.review).not.toHaveBeenCalled();});
+it('reads financial history using the stored changed_at column',async()=>{f.event=true;await assetOperationWorkspace(id);expect(f.historySelect).toHaveBeenCalledWith('id,from_status,to_status,note,actor_id,created_at:changed_at');expect(f.historyOrder).toHaveBeenCalledWith('changed_at');});
