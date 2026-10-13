@@ -15,7 +15,7 @@ export async function assetOperationWorkspace(id:string){
  if(review&&(review.event.organization_id!==asset.organization_id||(review.event.source_module==='ASSETS_INTEGRATION'&&review.event.source_record_id!==tx?.id)||(review.event.source_module==='ASSET_LIFECYCLE'&&(lifecycle?.asset_account_id!==asset.id||(tx&&lifecycle.transaction_id!==tx.id)))))throw Error('ASSET_EVENT_SCOPE_MISMATCH');
  const entityIds=[id,asset.id,eventId].filter(Boolean);
  const[{data:history,error:he},{data:audit,error:ae},{data:balances,error:be},{data:parties,error:pa}]=await Promise.all([
-  eventId?supabase.from('financial_event_status_history').select('id,from_status,to_status,note,actor_id,created_at').eq('event_id',eventId).order('created_at',{ascending:false}).limit(50):Promise.resolve({data:[],error:null}),
+  eventId?supabase.from('financial_event_status_history').select('id,from_status,to_status,note,actor_id,created_at:changed_at').eq('event_id',eventId).order('changed_at',{ascending:false}).limit(50):Promise.resolve({data:[],error:null}),
   supabase.from('audit_logs').select('id,action,created_at,user_id').in('entity_id',entityIds).order('created_at',{ascending:false}).limit(50),
   eventId?supabase.from('financial_event_obligation_balances').select('*').eq('event_id',eventId):Promise.resolve({data:[],error:null}),
   asset.organization_id?supabase.from('liquidity_counterparties').select('id,name,party_type').eq('organization_id',asset.organization_id).eq('active',true):Promise.resolve({data:[],error:null})]);for(const e of[he,ae,be,pa])if(e)throw e;
