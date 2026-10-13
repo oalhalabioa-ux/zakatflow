@@ -6,7 +6,7 @@ export async function assetOperationWorkspace(id:string){
  const{data:tx,error}=await supabase.from('transactions').select('*,asset_accounts!inner(*)').eq('id',id).maybeSingle();if(error)throw error;
  const{data:cmd,error:ce}=tx?{data:null,error:null}:await supabase.from('asset_lifecycle_commands').select('*,asset_accounts!inner(*)').eq('id',id).single();if(ce)throw ce;
  if(!tx&&!cmd)throw Error('TRANSACTION_NOT_FOUND');
- const asset=tx?.asset_accounts??cmd.asset_accounts,eventId=tx?.metadata?.financial_event_id??cmd.financial_event_id;
+ const asset=tx?.asset_accounts??cmd?.asset_accounts,eventId=tx?.metadata?.financial_event_id??cmd?.financial_event_id;
  const[{data:first,error:fe},{data:canEdit,error:pe}]=await Promise.all([
   supabase.from('transactions').select('id').eq('asset_account_id',asset.id).eq('transaction_type','PURCHASE').order('created_at').limit(1).maybeSingle(),
   asset.organization_id?supabase.rpc('has_organization_permission',{p_organization_id:asset.organization_id,p_permission:'assets.edit'}):Promise.resolve({data:asset.user_id===user.id,error:null})]);if(fe||pe)throw fe||pe;
