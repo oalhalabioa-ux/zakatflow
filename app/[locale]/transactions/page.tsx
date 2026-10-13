@@ -375,9 +375,9 @@ export default function Transactions() {
             {integerFormatter.format(filteredRows.length)} من {integerFormatter.format(rows.length)}
           </span>
         </div>
-        <div className="transaction-filters"><ActionButton icon="history" label={showDeleted?t("العودة للعمليات","Back to operations"):t("العمليات المحذوفة","Deleted operations")} aria-pressed={showDeleted} onClick={()=>{setShowDeleted(!showDeleted);void load(!showDeleted);}}/>
-          <label>
-            <span>بحث</span>
+        <div className="transaction-filters" role="group" aria-label={t("تصفية المعاملات","Filter transactions")}>
+          <label className="transaction-filter-search">
+            <span>{t("بحث","Search")}</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -416,6 +416,7 @@ export default function Transactions() {
               onChange={(event) => setDateTo(event.target.value)}
             />
           </label>
+          <div className="transaction-filter-controls"><ActionButton icon="history" showLabel label={showDeleted?t("العودة للعمليات","Back to operations"):t("العمليات المحذوفة","Deleted operations")} aria-pressed={showDeleted} onClick={()=>{setShowDeleted(!showDeleted);void load(!showDeleted);}}/>
           {hasFilters && (
             <button
               type="button"
@@ -431,9 +432,9 @@ export default function Transactions() {
             >
               <ActionIconGlyph name="filter"/> مسح الفلاتر
             </button>
-          )}
+          )}</div>
         </div>
-        <div className="operation-report-actions"><details><summary className="btn secondary action-button" title={t('تخصيص الأعمدة','Choose columns')} aria-label={t('تخصيص الأعمدة','Choose columns')}><ActionIconGlyph name="filter"/></summary><div className="form-grid">{operationColumns.map(([key,label,en])=><label key={key}><input type="checkbox" checked={reportColumns.includes(key)} disabled={['date','asset'].includes(key)} onChange={e=>setReportColumns(cols=>e.target.checked?operationColumns.map(c=>c[0]).filter(k=>cols.includes(k)||k===key):cols.filter(k=>k!==key))}/>{ar?label:en}</label>)}</div></details><ActionButton icon="print" label={t('طباعة التقرير PDF','Print report PDF')} onClick={()=>exportReport('PDF')}/><ActionButton icon="download" label={t('تصدير التقرير CSV','Export report CSV')} onClick={()=>exportReport('CSV')}/><small>{t('المبالغ بعملة عرض الأساس؛ التصدير بالعملات المسجلة. الفلاتر تنعكس على المؤشرات، والمسودات لا تدخل صافي الأثر المرحل.','Filters apply to indicators and exports. Drafts are excluded from posted net movement.')}</small></div>
+        <div className="operation-report-actions transaction-report-toolbar"><details><summary className="btn secondary action-button" title={t('تخصيص الأعمدة','Choose columns')} aria-label={t('تخصيص الأعمدة','Choose columns')}><ActionIconGlyph name="filter"/><span>{t("الأعمدة","Columns")}</span></summary><div className="form-grid transaction-column-menu">{operationColumns.map(([key,label,en])=><label key={key}><input type="checkbox" checked={reportColumns.includes(key)} disabled={['date','asset'].includes(key)} onChange={e=>setReportColumns(cols=>e.target.checked?operationColumns.map(c=>c[0]).filter(k=>cols.includes(k)||k===key):cols.filter(k=>k!==key))}/>{ar?label:en}</label>)}</div></details><ActionButton icon="print" showLabel label={t('طباعة التقرير PDF','Print report PDF')} onClick={()=>exportReport('PDF')}/><ActionButton icon="download" showLabel label={t('تصدير التقرير CSV','Export report CSV')} onClick={()=>exportReport('CSV')}/><small>{t('المبالغ بعملة عرض الأساس؛ التصدير بالعملات المسجلة. الفلاتر تنعكس على المؤشرات، والمسودات لا تدخل صافي الأثر المرحل.','Filters apply to indicators and exports. Drafts are excluded from posted net movement.')}</small></div>
         {selectedOperation&&<AssetOperationDetails key={selectedOperation.id} record={selectedOperation} ar={ar} onClose={()=>setSelectedOperation(null)} onChanged={()=>void load()}/>}
         <div className="transaction-table-wrap"><table className="table"><thead><tr>{reportColumns.map(key=>{const column=operationColumns.find(c=>c[0]===key)!;return ['date','asset','type','currency'].includes(key)?<SortableHeader key={key} label={column[ar?1:2]} column={key as SortKey} sort={sort} onSort={changeSort} mark={sortMark(key as SortKey)}/>:<th key={key}>{column[ar?1:2]}</th>})}<th>{t('الإجراءات','Actions')}</th></tr></thead><tbody>{sortedRows.map(row=><tr key={row.id}>{reportColumns.map(key=>{const v=operationColumnValue(row,key,ar),cash=['net','tax','total','unitPrice','baseTotal','applied','outstanding','bookEffect','gain'].includes(key),baseMoney=['baseTotal','applied','outstanding','bookEffect','gain'].includes(key);return <td key={key}>{key==='status'?<span className="pill">{v}</span>:typeof v==='number'&&cash?<Money value={key==='net'?operationReportAmounts(row).baseNet:key==='tax'?operationReportAmounts(row).baseTax:key==='total'?operationReportAmounts(row).baseTotal:key==='unitPrice'?v*operationReportAmounts(row).fx:v} currency={row.base_currency} organizationId={row.organization_id}/>:key==='asset'?<><strong>{v}</strong><small className="operation-status-note">{row.reference??row.metadata?.invoice_reference??row.counterparty_name??''}</small></>:key==='type'?<>{v}<small className="operation-status-note">{row.source_label}</small></>:typeof v==='number'?numberFormatter.format(v):v}</td>})}<td><ActionButton icon="details" label={t('التفاصيل والإجراءات','Details and actions')} onClick={()=>setSelectedOperation(row)}/></td></tr>)}{!loading&&!sortedRows.length&&<tr><td colSpan={reportColumns.length+1} className="muted">{hasFilters?'لا توجد معاملات مطابقة للفلاتر الحالية.':'لا توجد معاملات بعد.'}</td></tr>}</tbody></table></div>
       </div>
