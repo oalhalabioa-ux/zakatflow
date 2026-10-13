@@ -412,7 +412,7 @@ export default function Assets({
             </span>
             {row.name}
             {row.financial_event_id&&<span className="pill">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span>}
-            {!orderedColumns.includes("action")&&<ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>setDetailAsset(row)}/>}
+            {!orderedColumns.includes("action")&&<ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{if(row.metadata?.investment_id)window.location.href=`/${locale}/investments?investment_id=${row.metadata.investment_id}`;else setDetailAsset(row);}}/>}
             <span className="pill asset-detail-type">{typeName(row)}</span>
             {assetDisplayClass(row)==="UNCLASSIFIED"&&<small className="muted">{ar?"استكمال التصنيف":"Awaiting classification"}</small>}
             {row.lifecycle_status==="SOLD" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مباع":"Sold"}</span>}
@@ -464,7 +464,7 @@ export default function Assets({
           />
         );
       case "action":
-        return <ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{setDetailAsset(row);setReviewEvent(null);setOperationAsset(null);}}/>;
+        return <ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{if(row.metadata?.investment_id)window.location.href=`/${locale}/investments?investment_id=${row.metadata.investment_id}`;else{setDetailAsset(row);setReviewEvent(null);setOperationAsset(null);}}}/>;
 
     }
   };
@@ -659,7 +659,7 @@ export default function Assets({
             <label>{ar?"نسبة الضريبة القابلة للاسترداد %":"Recoverable VAT %"}<input type="number" min="0" max="100" value={form.recoverable_percent} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/><small>{ar?"الجزء غير القابل للاسترداد يضاف لتكلفة الأصل؛ السداد إجراء مستقل.":"Nonrecoverable VAT is capitalized; payment is separate."}</small></label>
           </>}
           <label>{ar?"فئة الأصل":"Asset class"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.display_class||""} onChange={e=>setForm({...form,display_class:e.target.value,classification_changed:true,asset_class_code:null,asset_type_code:null})}><option value="">{ar?"اختر الفئة":"Choose class"}</option>{ASSET_DISPLAY_CLASSES.filter(c=>c[0]!=="UNCLASSIFIED"||edit).map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label>
-          <label>{ar?"نوع الأصل":"Asset type"}<select disabled={Boolean((edit&&form.has_financial_history)||!form.display_class)} value={form.asset_type_code||""} onChange={e=>{const t=catalog.types.find((x:any)=>x.code===e.target.value);setForm({...form,asset_class_code:t?.class_code||null,asset_type_code:t?.code||null,asset_type:t?.default_legacy_asset_type||form.asset_type,karat:t?.default_legacy_asset_type==="SILVER"?"999":"24"});}}><option value="">{edit&&!form.asset_type_code?`${assetTypeIcon(form.asset_type)} ${label(form.asset_type)} — ${ar?"التصنيف المحفوظ":"Saved classification"}`:(ar?"اختر النوع":"Choose type")}</option>{catalog.types.filter((x:any)=>catalogDisplayClass(x)===form.display_class).map((x:any)=><option key={x.code} value={x.code}>{assetTypeIcon(x.code)} {ar?x.name_ar:x.name_en}</option>)}</select></label>
+          <label>{ar?"نوع الأصل":"Asset type"}<select disabled={Boolean((edit&&form.has_financial_history)||!form.display_class)} value={form.asset_type_code||""} onChange={e=>{const t=catalog.types.find((x:any)=>x.code===e.target.value);setForm({...form,asset_class_code:t?.class_code||null,asset_type_code:t?.code||null,asset_type:t?.default_legacy_asset_type||form.asset_type,karat:t?.default_legacy_asset_type==="SILVER"?"999":"24"});}}><option value="">{edit&&!form.asset_type_code?`${assetTypeIcon(form.asset_type)} ${label(form.asset_type)} — ${ar?"التصنيف المحفوظ":"Saved classification"}`:(ar?"اختر النوع":"Choose type")}</option>{catalog.types.filter((x:any)=>catalogDisplayClass(x)===form.display_class&&!["DEPOSIT","BOND","SUKUK_BOND"].includes(x.code)).map((x:any)=><option key={x.code} value={x.code}>{assetTypeIcon(x.code)} {ar?x.name_ar:x.name_en}</option>)}</select></label>
           {edit&&!form.asset_type_code&&<p className="muted">{ar?"النوع السابق محفوظ دون تغيير. الأصول المرتبطة بحركات لا يعاد تصنيفها من هذا النموذج.":"Existing type is preserved. Assets with financial history cannot be reclassified here."}</p>}
           {["PROPERTY","INVESTMENT","METALS"].includes(form.display_class)&&<label>{ar?"غرض الاحتفاظ":"Holding purpose"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.holding_purpose||""} onChange={e=>setForm({...form,holding_purpose:e.target.value})}><option value="">{ar?"غير محدد":"Not specified"}</option><option value="USE">{ar?"استخدام":"Use"}</option><option value="RENT">{ar?"تأجير":"Rental"}</option><option value="INVESTMENT">{ar?"استثمار":"Investment"}</option><option value="TRADE">{ar?"متاجرة":"Trading"}</option></select><small>{ar?"معلومة وصفية؛ الأهلية الزكوية تحدد بشكل مستقل.":"Descriptive; Zakat eligibility is set separately."}</small></label>}
           <label>

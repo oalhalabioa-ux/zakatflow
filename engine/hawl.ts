@@ -1,6 +1,20 @@
 export type HawlResult = { dueDate: Date; completed: boolean; daysRemaining: number };
 export type HawlCalendar = 'GREGORIAN' | 'HIJRI_TABULAR';
 
+/** Half-open UTC interval, split by tabular Hijri years (354 or 355 days). */
+export function tabularHijriYearSegments(start:string,end:string){
+ const finish=new Date(end+'T00:00:00Z');let cursor=new Date(start+'T00:00:00Z');
+ if(!Number.isFinite(+cursor)||!Number.isFinite(+finish)||finish<=cursor)throw new Error('INVALID_PERIOD');
+ const result:Array<{year:number;days:number;yearDays:number}>=[];
+ for(let i=0;cursor<finish&&i<100;i++){
+  const h=gregorianToHijri(cursor),a=hijriToGregorian(h.year,1,1),b=hijriToGregorian(h.year+1,1,1);
+  const first=new Date(Date.UTC(a.y,a.m-1,a.d)),next=new Date(Date.UTC(b.y,b.m-1,b.d)),stop=new Date(Math.min(+finish,+next));
+  if(stop<=cursor)throw new Error('INVALID_HIJRI_BOUNDARY');
+  result.push({year:h.year,days:(+stop-+cursor)/86400000,yearDays:(+next-+first)/86400000});cursor=stop;
+ }
+ if(cursor<finish)throw new Error('PERIOD_TOO_LONG');return result;
+}
+
 function addOneGregorianYear(date: Date) {
   const d = new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
   const m=d.getUTCMonth(); d.setUTCFullYear(d.getUTCFullYear()+1); if(d.getUTCMonth()!==m)d.setUTCDate(0); return d;

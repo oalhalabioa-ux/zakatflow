@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import {operationReportState} from './asset-operation-report';
 export type AssetReportScope={scope:string;organizationId:string;entityId:string;query:string;category:string;status:string};
-export function assetReportState(asset:any){return asset.financial_event_status??(asset.organization_id&&asset.metadata?.acquisition_mode==='PURCHASE'?'UNLINKED':'RECORDED');}
+export function assetReportState(asset:any){if(asset.metadata?.investment_id)return ['ACTIVE','CLOSED'].includes(asset.metadata.investment_status)?'ACTUAL':asset.metadata.investment_status??'DRAFT';return asset.financial_event_status??(asset.organization_id&&asset.metadata?.acquisition_mode==='PURCHASE'?'UNLINKED':'RECORDED');}
 export function isRecognizedAsset(asset:any){return ['RECORDED','ACTUAL'].includes(assetReportState(asset));}
 export function filterReportAssets(assets:any[],filter:AssetReportScope){return assets.filter(a=>{
  const organization=a.ownership_scope==='ORGANIZATION'||Boolean(a.organization_id);
