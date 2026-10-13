@@ -1,7 +1,15 @@
 import {describe,it,expect} from 'vitest';
 import {investmentProjection as project,investmentTermsSchema as schema,type InvestmentTerms} from './investments';
-const terms:InvestmentTerms={name:'Test',instrument:'DEPOSIT',ownership_scope:'PERSONAL',organization_id:null,entity_id:null,cost_center_id:null,party_name:'Bank',currency:'SAR',principal:100000,face_value:100000,fees:0,annual_rate:6,start_date:'2027-01-01',maturity_date:'2027-04-01',interest_basis:'ACT_365',zakat_basis:'HIJRI_354',zakat_rate:2.5,zakat_base:100000,zakat_treatment:'INVESTOR',inflation_rate:3,fx_rate:1,funding_account_id:'10000000-0000-4000-8000-000000000001',reference:'',notes:''};
+const terms:InvestmentTerms={name:'Test',instrument:'DEPOSIT',ownership_scope:'PERSONAL',organization_id:null,entity_id:null,cost_center_id:null,party_name:'Bank',currency:'SAR',principal:100000,face_value:100000,fees:0,annual_rate:6,start_date:'2027-01-01',maturity_date:'2027-04-01',interest_basis:'ACT_365',zakat_basis:'HIJRI_354',zakat_rate:2.5,zakat_base:100000,zakat_treatment:'INVESTOR',inflation_rate:3,fx_rate:1,funding_account_id:'10000000-0000-4000-8000-000000000001',reference:'',notes:'',zakat_assessment_mode:'INTERNAL',zakat_coverage_from:'',zakat_coverage_to:'',zakat_coverage_reference:''};
 describe('investment estimates',()=>{
+ it('requires a documented full-capital coverage period and defaults old contracts to internal assessment',()=>{
+  expect(schema.parse(terms).zakat_assessment_mode).toBe('INTERNAL');
+  const covered={...terms,zakat_treatment:'COVERED',zakat_assessment_mode:'INSTITUTION_COVERED',zakat_coverage_from:terms.start_date,zakat_coverage_to:terms.maturity_date,zakat_coverage_reference:'Bank contract'};
+  expect(schema.safeParse(covered).success).toBe(true);
+  expect(schema.safeParse({...covered,zakat_coverage_reference:''}).success).toBe(false);
+  expect(schema.safeParse({...covered,zakat_coverage_to:'2027-04-02'}).success).toBe(false);
+  expect(schema.safeParse({...covered,zakat_treatment:'DEDUCTED'}).success).toBe(false);
+ });
  it('uses 90/354 for zakat, independently of the interest basis',()=>{
   const a=project(terms),b=project({...terms,interest_basis:'ACT_360'});
   expect(a.days).toBe(90);expect(a.zakat).toBe(635.5932);expect(b.zakat).toBe(a.zakat);

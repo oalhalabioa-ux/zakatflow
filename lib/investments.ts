@@ -11,6 +11,8 @@ export const investmentTermsSchema=z.object({
  start_date:z.string().date(),maturity_date:z.string().date(),interest_basis:z.enum(['ACT_365','ACT_360']),
  zakat_basis:z.enum(['HIJRI_354','HIJRI_TABULAR']),zakat_rate:z.number().finite().min(0).max(100),zakat_base:money,
  zakat_treatment:z.enum(['INVESTOR','DEDUCTED','COVERED']),inflation_rate:z.number().finite().min(-99).max(1000),
+ zakat_assessment_mode:z.enum(['INTERNAL','INSTITUTION_COVERED']).default('INTERNAL'),
+ zakat_coverage_from:z.string().default(''),zakat_coverage_to:z.string().default(''),zakat_coverage_reference:z.string().trim().max(200).default(''),
  fx_rate:z.number().finite().positive().max(1e6),funding_account_id:z.string().uuid(),
  reference:z.string().trim().max(200).default(''),notes:z.string().trim().max(2000).default('')
 }).strict().superRefine((t,c)=>{
@@ -19,6 +21,11 @@ export const investmentTermsSchema=z.object({
  if(t.ownership_scope==='ORGANIZATION'&&!t.organization_id)c.addIssue({code:'custom',path:['organization_id'],message:'اختر المؤسسة'});
  if(t.ownership_scope==='PERSONAL'&&(t.organization_id||t.entity_id||t.cost_center_id))c.addIssue({code:'custom',message:'نطاق شخصي غير صالح'});
  if(t.instrument==='DEPOSIT'&&t.face_value!==t.principal)c.addIssue({code:'custom',path:['face_value'],message:'قيمة استرداد الوديعة تساوي رأس المال'});
+ if(t.zakat_assessment_mode==='INSTITUTION_COVERED'){
+  if(t.instrument!=='DEPOSIT'||t.zakat_treatment!=='COVERED'||t.zakat_base!==t.principal)c.addIssue({code:'custom',message:'التغطية الخارجية لرأس مال الوديعة بالكامل مع تحمل الجهة للزكاة'});
+  if(!z.string().date().safeParse(t.zakat_coverage_from).success||!z.string().date().safeParse(t.zakat_coverage_to).success||t.zakat_coverage_from<t.start_date||t.zakat_coverage_to>t.maturity_date||t.zakat_coverage_to<=t.zakat_coverage_from)c.addIssue({code:'custom',message:'حدد فترة تغطية صحيحة ضمن مدة الوديعة'});
+  if(!t.zakat_coverage_reference)c.addIssue({code:'custom',path:['zakat_coverage_reference'],message:'مرجع إثبات التغطية لدى الجهة مطلوب'});
+ }else if(t.zakat_coverage_from||t.zakat_coverage_to||t.zakat_coverage_reference)c.addIssue({code:'custom',message:'حقول التغطية تخص خيار مزكّى عنه لدى الجهة'});
 });
 export type InvestmentTerms=z.infer<typeof investmentTermsSchema>;
 export function investmentProjection(t:InvestmentTerms){
