@@ -751,3 +751,9 @@
 .purchase-summary-grid strong{display:block;margin-top:8px;font-size:18px;overflow-wrap:anywhere}
 .asset-details-dialog [hidden]{display:none!important}
 @media(max-width:600px){.asset-details-dialog{width:100%;height:100dvh;max-height:100dvh;margin:0;border-radius:0}.asset-details-dialog>.operation-detail-card{padding:16px!important}.asset-details-dialog .page-head{top:-16px}.asset-details-dialog .asset-details-footer{bottom:-16px}.asset-details-dialog .operation-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.purchase-summary-grid{grid-template-columns:1fr}.asset-details-tabs{gap:6px}}
+
+/* Filled actions must keep their foreground when a theme or form overrides text. */
+.corp-shell .corp-content .btn:not(.secondary):not(.outline):not(.danger):not(.ghost){color:#fff!important}
+.corp-shell .corp-content .btn:not(.secondary):not(.outline):not(.danger):not(.ghost) :is(span,strong,small,b,i){color:inherit!important}
+.corp-shell .corp-content .btn svg{color:inherit}
+.corp-shell .corp-content .btn:not(.secondary):not(.outline):not(.danger):not(.ghost):is(:hover,:focus-visible,:disabled){color:#fff!important}
