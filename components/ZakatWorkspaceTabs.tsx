@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const pages = [
   { route: "assets/dashboard", ar: "لوحة الأصول", en: "Assets dashboard" },
   { route: "assets", ar: "الأصول", en: "Assets" },
+  { route: "investments", ar: "الاستثمارات", en: "Investments" },
   { route: "transactions", ar: "العمليات", en: "Transactions" },
   { route: "assessments", ar: "احتساب الزكاة", en: "Zakat assessment" },
   { route: "payments", ar: "دفعات الزكاة", en: "Zakat payments" },
@@ -15,6 +16,7 @@ const pages = [
 const icons: Record<(typeof pages)[number]["route"], ReactNode> = {
   "assets/dashboard": <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
   assets: <><path d="M4 7h16v12H4zM7 4h10v3M8 12h8M8 16h5"/></>,
+  investments: <><path d="m3 8 9-5 9 5H3ZM4 21h16M5 18h14M7 10v6M12 10v6M17 10v6"/></>,
   transactions: <><path d="M4 7h14M14 3l4 4-4 4M20 17H6M10 13l-4 4 4 4"/></>,
   assessments: <><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M14 11h2M8 15h2M14 15h2M8 18h8"/></>,
   payments: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18m-7 5 2 2 4-4"/></>,
@@ -31,7 +33,7 @@ export default function ZakatWorkspaceTabs({ locale }: { locale: string }) {
   return (
     <nav
       className="zakat-workspace-tabs"
-      aria-label={ar ? "صفحات الأصول والزكاة" : "Assets and Zakat pages"}
+      aria-label={ar ? "صفحات الأصول والاستثمارات والزكاة" : "Assets, Investments and Zakat pages"}
     >
       {pages.map((page) => (
         <Link
