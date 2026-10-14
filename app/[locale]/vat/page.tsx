@@ -179,9 +179,10 @@ const emptyDocument = (): DocumentDraft => ({
 });
 const emptyDocumentLine = (): DocumentLineDraft => ({ description: '', unit: '', quantity: '1', unit_price: '', discount_amount: '0', discount_mode: 'AMOUNT', supply_type: 'STANDARD' });
 
-export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ section?: string | string[]; organization_id?:string | string[] }> }) {
+export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ section?: string | string[]; organization_id?:string | string[]; direction?:string | string[] }> }) {
   const { locale } = use(params);
-  const { section,organization_id:requestedOrganization } = use(searchParams);
+  const { section,organization_id:requestedOrganization,direction:requestedDirection } = use(searchParams);
+  const initialDirection=(Array.isArray(requestedDirection)?requestedDirection[0]:requestedDirection)==='PURCHASE'?'PURCHASE':'SALES';
   const initialOrganization=Array.isArray(requestedOrganization)?requestedOrganization[0]:requestedOrganization;
   const requestedSection = Array.isArray(section) ? section[0] : section;
   const initialTab = requestedSection === 'reports' ? 'reports' : requestedSection === 'unified' ? 'unified' : requestedSection === 'invoices' ? 'register' : requestedSection === 'einvoicing' ? 'einvoicing' : requestedSection === 'aggregate' ? 'aggregate' : 'dashboard';
@@ -219,7 +220,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false);
   const [periodDetailsOpen, setPeriodDetailsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'aggregate' | 'register' | 'einvoicing' | 'unified' | 'reports'>(initialTab);
-  const [registerDirection, setRegisterDirection] = useState<'SALES' | 'PURCHASE'>('SALES');
+  const [registerDirection, setRegisterDirection] = useState<'SALES' | 'PURCHASE'>(initialDirection);
   const [salesEntryMode, setSalesEntryMode] = useState<'ACCOUNTING' | 'ZAKATFLOW'>('ACCOUNTING');
   const [registerFormOpen, setRegisterFormOpen] = useState(false);
   const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
@@ -355,6 +356,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     : 0;
 
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
+  useEffect(() => { setRegisterDirection(initialDirection); }, [initialDirection]);
 
   function selectTab(tab: 'dashboard' | 'aggregate' | 'register' | 'einvoicing' | 'unified' | 'reports') {
     setActiveTab(tab);
