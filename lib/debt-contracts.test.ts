@@ -1,0 +1,8 @@
+import {it,expect} from 'vitest';
+import {debtContractSchema,installmentSchedule} from './debt-contracts';
+const id='11111111-1111-4111-8111-111111111111';
+const p={organization_id:id,request_id:id,kind:'LOAN',mode:'NEW',side:'RECEIVABLE',counterparty_id:id,entity_id:null,account_id:id,category:'O_AR_LOAN',description:'Loan principal',reference:'L-1',date:'2026-10-14',currency:'SAR',exchange_rate:1,principal:100,schedule:[{amount:60,due_date:'2026-11-01'},{amount:40,due_date:'2026-12-01'}]};
+it('keeps exact principal across installments and clamps month-end dates',()=>{expect(installmentSchedule(100,3,'2028-01-31')).toEqual([{amount:33.3333,due_date:'2028-01-31'},{amount:33.3333,due_date:'2028-02-29'},{amount:33.3334,due_date:'2028-03-31'}]);});
+it('requires matching side, category, funding account and schedule totals',()=>{expect(debtContractSchema.safeParse(p).success).toBe(true);for(const q of [{category:'O_AP_LOAN'},{account_id:null},{principal:101},{kind:'EMPLOYEE_ADVANCE',side:'PAYABLE'},{schedule:[{amount:100,due_date:'2026-09-01'}]},{created_by:id}])expect(debtContractSchema.safeParse({...p,...q}).success).toBe(false);});
+it('permits noncash opening debt and rejects new funding disguised as opening',()=>{expect(debtContractSchema.safeParse({...p,kind:'OPENING',mode:'OPENING',account_id:null,category:'O_AR_CUSTOMER'}).success).toBe(true);expect(debtContractSchema.safeParse({...p,kind:'OPENING'}).success).toBe(false);});
+it('rejects invalid installment counts and nonfinite amounts',()=>{for(const n of [0,49,1.5])expect(()=>installmentSchedule(100,n,'2026-11-01')).toThrow();expect(()=>installmentSchedule(Infinity,1,'2026-11-01')).toThrow();});

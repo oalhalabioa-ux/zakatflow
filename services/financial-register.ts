@@ -75,6 +75,9 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   result.debts=result.debts.map(d=>({...d,reference:advanceReferences.get(d.eventId!)??references.get(eventMap.get(d.eventId!)?.source_record_id??'')??d.eventId??d.id}));
   for(const d of result.debts){const sourceId=eventMap.get(d.eventId!)?.source_record_id;const side=sourceId?sides.get(sourceId):undefined;if(side)sourceDebtSides.set(d.id,side);}
   result.debtMovements=buildReportMovements(events,obligations,allocations,parties,references,sides);
+  const installmentDue=new Map(links.filter(l=>l.metadata?.obligation_id&&l.metadata?.due_date).map(l=>[l.metadata.obligation_id,l.metadata.due_date]));
+  result.debts=result.debts.map(d=>({...d,dueDate:installmentDue.get(d.id)??d.dueDate}));
+  result.debtMovements=result.debtMovements.map(m=>({...m,due:installmentDue.get(m.debtId)??m.due}));
   if(ids.length>1)result.warnings.push('GROUP_BEFORE_INTERCOMPANY_ELIMINATION');
  }
  const categories=await all(()=>{const q=supabase.from('financial_debt_categories').select('*');return scope==='PERSONAL'?q.eq('owner_id',user.id):q.in('organization_id',ids);},['origin','record_id']);
