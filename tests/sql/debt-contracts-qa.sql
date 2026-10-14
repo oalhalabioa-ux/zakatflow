@@ -1,0 +1,53 @@
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','f10bd630-6e35-4513-a9b3-4908d1b00c3c',true);
+DO $test$
+DECLARE org uuid:='85acbac0-e8b4-434c-a22b-3ec13b55e1a7';party uuid:='d86a111c-d392-4f09-adc1-13f9e72a1c53';p jsonb;r jsonb;eid uuid;cid uuid;bank uuid;ob uuid;fid uuid;v numeric;before_bank numeric;err text;loan_side text;pay uuid;rev uuid;sid uuid;cls uuid;payment_payload jsonb;flow2 uuid;ob2 uuid;funded numeric;
+BEGIN
+ bank:=(public.open_financial_account(jsonb_build_object('request_id',gen_random_uuid(),'scope','ORGANIZATION','organization_id',org,'type','BANK','name','QA debt contracts rollback bank','currency','SAR','opening_balance',1000,'opening_date','2026-10-01','fx_rate',1))->>'id')::uuid;SELECT current_balance INTO before_bank FROM liquidity_accounts WHERE id=bank;
+ p:=jsonb_build_object('organization_id',org,'request_id',gen_random_uuid(),'kind','OPENING','mode','OPENING','side','PAYABLE','counterparty_id',party,'entity_id',null,'account_id',null,'category','O_AP_SUPPLIER','description','QA opening balance rollback','reference','QA-OPEN','date','2026-10-14','currency','SAR','exchange_rate',1,'principal',100,'schedule',jsonb_build_array(jsonb_build_object('amount',60,'due_date','2026-11-01'),jsonb_build_object('amount',40,'due_date','2026-12-01')));
+ r:=create_debt_contract(p);cid:=(r->>'id')::uuid;eid:=(r->>'eventId')::uuid;
+ IF EXISTS(SELECT 1 FROM financial_counterparty_open_items WHERE event_id=eid)THEN RAISE EXCEPTION 'PENDING_CONTRACT_COUNTED_AS_ACTUAL';END IF;
+ IF(create_debt_contract(p)->>'id')::uuid<>cid THEN RAISE EXCEPTION 'REPLAY_DUPLICATED';END IF;
+ BEGIN PERFORM post_debt_contract(cid);err:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN err:=SQLERRM;END;
+ IF err<>'VALID_APPROVAL_REQUIRED'THEN RAISE EXCEPTION 'APPROVAL_NOT_ENFORCED:%',err;END IF;
+ PERFORM approve_financial_event(eid,'QA approval');PERFORM post_debt_contract(cid);PERFORM post_debt_contract(cid);
+ IF(SELECT current_balance FROM liquidity_accounts WHERE id=bank)<>before_bank OR EXISTS(SELECT 1 FROM liquidity_settlements WHERE financial_event_id=eid)THEN RAISE EXCEPTION 'OPENING_CHANGED_CASH';END IF;
+ IF(SELECT sum(outstanding_base_amount)FROM financial_event_obligation_balances WHERE event_id=eid)<>100 THEN RAISE EXCEPTION 'OPENING_BALANCE_WRONG';END IF;
+ IF(SELECT count(distinct due_date)FROM financial_counterparty_open_items WHERE event_id=eid)<>2 THEN RAISE EXCEPTION 'INSTALLMENT_DATES_NOT_REFLECTED';END IF;
+ IF(SELECT count(*)FROM financial_event_links WHERE event_id=eid AND metadata->>'purpose'='DEBT_INSTALLMENT')<>2 THEN RAISE EXCEPTION 'SCHEDULE_FLOW_COUNT_WRONG';END IF;
+ SELECT id INTO ob FROM financial_event_obligations WHERE event_id=eid AND obligation_key='installment:1';fid:=ensure_debt_flow(ob);
+ IF ensure_debt_flow(ob)<>fid THEN RAISE EXCEPTION 'FLOW_REPLAY_DUPLICATED';END IF;
+ IF(SELECT count(*)FROM financial_event_links WHERE event_id=eid AND link_type='CASH_FLOW')<>2 THEN RAISE EXCEPTION 'EXTRA_FLOW_CREATED';END IF;
+ BEGIN UPDATE financial_event_lines SET amount=1 WHERE event_id=eid;err:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN err:=SQLERRM;END;
+ IF EXISTS(SELECT 1 FROM financial_event_lines WHERE event_id=eid AND amount<>100)THEN RAISE EXCEPTION 'IMMUTABILITY_FAILED:%',err;END IF;
+
+ FOREACH loan_side IN ARRAY ARRAY['RECEIVABLE','PAYABLE'] LOOP
+  SELECT current_balance INTO before_bank FROM liquidity_accounts WHERE id=bank;
+  p:=p||jsonb_build_object('request_id',gen_random_uuid(),'kind','LOAN','mode','NEW','side',loan_side,'account_id',bank,'category',case when loan_side='RECEIVABLE'then 'O_AR_LOAN'else 'O_AP_LOAN'end);
+  r:=create_debt_contract(p);cid:=(r->>'id')::uuid;eid:=(r->>'eventId')::uuid;
+  PERFORM approve_financial_event(eid,'QA loan approval');PERFORM post_debt_contract(cid);PERFORM post_debt_contract(cid);
+  funded:=before_bank+case when loan_side='RECEIVABLE'then -100 else 100 end;
+  IF(SELECT current_balance FROM liquidity_accounts WHERE id=bank)<>funded OR(SELECT sum(outstanding_base_amount)FROM financial_event_obligation_balances WHERE event_id=eid)<>100 THEN RAISE EXCEPTION 'FUNDING_SETTLED_PRINCIPAL_OR_DUPLICATED_CASH';END IF;
+  SELECT id INTO ob FROM financial_event_obligations WHERE event_id=eid AND obligation_key='installment:1';
+  SELECT id INTO ob2 FROM financial_event_obligations WHERE event_id=eid AND obligation_key='installment:2';fid:=ensure_debt_flow(ob);flow2:=ensure_debt_flow(ob2);
+  SELECT id INTO cls FROM financial_classifications WHERE organization_id=org AND classification_type=loan_side AND active LIMIT 1;
+  payment_payload:=jsonb_build_object('organization_id',org,'entity_id',null,'counterparty_id',party,'event_type','SETTLEMENT','source_module','OPERATIONAL_CONSOLE','source_event_key','qa-loan-payment:'||gen_random_uuid(),'event_date','2026-10-14','due_date',null,'base_currency','SAR','description','QA loan repayment rollback','lines',jsonb_build_array(jsonb_build_object('line_number',1,'classification_id',cls,'description','Principal repayment','amount',30,'currency','SAR','exchange_rate',1,'base_amount',30,'cash_direction',case when loan_side='RECEIVABLE'then 'INFLOW'else 'OUTFLOW'end,'vat_treatment','OUT_OF_SCOPE','vat_rate',0,'vat_amount',0)),'obligations','[]'::jsonb,'links',jsonb_build_array(jsonb_build_object('link_type','OTHER','target_module','liquidity_flows','target_record_id',fid,'metadata',jsonb_build_object('purpose','SETTLEMENT_INSTRUCTION','account_id',bank,'settlement_date','2026-10-14','recognition_event_id',eid,'obligation_id',ob,'direction',case when loan_side='RECEIVABLE'then 'INFLOW'else 'OUTFLOW'end,'amount',30,'currency','SAR','exchange_rate',1,'base_amount',30,'flow_amount',30,'flow_currency','SAR','flow_exchange_rate',1))));
+  pay:=create_financial_event_command(payment_payload);PERFORM transition_financial_event(pay,'PLANNED','QA');PERFORM transition_financial_event(pay,'COMMITTED','QA');PERFORM approve_financial_event(pay,'QA');
+  BEGIN PERFORM post_financial_settlement(pay,bank,case when loan_side='RECEIVABLE'then 'INFLOW'else 'OUTFLOW'end,'2026-10-14',30,'SAR',1,30,jsonb_build_array(jsonb_build_object('obligation_id',ob,'flow_id',flow2,'amount',30,'base_amount',30,'flow_amount',30,'flow_currency','SAR','flow_exchange_rate',1)));err:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN err:=SQLERRM;END;
+  IF err<>'DEBT_INSTALLMENT_FLOW_MISMATCH'THEN RAISE EXCEPTION 'CROSS_INSTALLMENT_NOT_BLOCKED:%',err;END IF;
+  PERFORM post_financial_settlement(pay,bank,case when loan_side='RECEIVABLE'then 'INFLOW'else 'OUTFLOW'end,'2026-10-14',30,'SAR',1,30,jsonb_build_array(jsonb_build_object('obligation_id',ob,'flow_id',fid,'amount',30,'base_amount',30,'flow_amount',30,'flow_currency','SAR','flow_exchange_rate',1)));
+  IF(SELECT outstanding_base_amount FROM financial_event_obligation_balances WHERE obligation_id=ob)<>30 OR(SELECT outstanding_base_amount FROM financial_event_obligation_balances WHERE obligation_id=ob2)<>40 OR(SELECT settled_amount FROM liquidity_flows WHERE id=fid)<>30 OR(SELECT settled_amount FROM liquidity_flows WHERE id=flow2)<>0 THEN RAISE EXCEPTION 'PARTIAL_REPAYMENT_ALLOCATION_WRONG';END IF;
+  payment_payload:=jsonb_set(payment_payload,'{event_type}','"REVERSAL"');payment_payload:=jsonb_set(payment_payload,'{source_event_key}',to_jsonb('qa-loan-reversal:'||gen_random_uuid()));payment_payload:=jsonb_set(payment_payload,'{lines,0,cash_direction}',to_jsonb(case when loan_side='RECEIVABLE'then 'OUTFLOW'else 'INFLOW'end));payment_payload:=jsonb_set(payment_payload,'{links}',jsonb_build_array(jsonb_build_object('link_type','REVERSAL_OF','related_event_id',pay)));
+  rev:=create_financial_event_command(payment_payload);PERFORM transition_financial_event(rev,'PLANNED','QA');PERFORM transition_financial_event(rev,'COMMITTED','QA');PERFORM approve_financial_event(rev,'QA');SELECT id INTO sid FROM liquidity_settlements WHERE financial_event_id=pay;
+  PERFORM reverse_financial_settlement(sid,rev,'QA loan repayment reversal');PERFORM reverse_financial_settlement(sid,rev,'QA loan repayment reversal');
+  IF(SELECT current_balance FROM liquidity_accounts WHERE id=bank)<>funded OR(SELECT outstanding_base_amount FROM financial_event_obligation_balances WHERE obligation_id=ob)<>60 OR(SELECT settled_amount FROM liquidity_flows WHERE id=fid)<>0 THEN RAISE EXCEPTION 'REPAYMENT_REVERSAL_NOT_RECONCILED';END IF;
+ END LOOP;
+ PERFORM set_config('request.jwt.claim.sub','8ec4c7f9-83b4-4307-9d5e-de7590fa121b',true);
+ IF EXISTS(SELECT 1 FROM debt_contracts WHERE id=cid)THEN RAISE EXCEPTION 'CONTRACT_RLS_LEAK';END IF;
+ BEGIN PERFORM post_debt_contract(cid);err:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN err:=SQLERRM;END;
+ IF err<>'DEBT_CONTRACT_ACCESS_DENIED'THEN RAISE EXCEPTION 'CONTRACT_CROSS_USER_NOT_BLOCKED:%',err;END IF;
+ PERFORM set_config('qa.debt_contract.result',jsonb_build_object('opening_cash_unchanged',true,'approval_required',true,'two_installment_flows',true,'replay_safe',true,'immutable',true,'new_lending_and_borrowing',true,'partial_repayment',true,'cross_installment_blocked',true,'repayment_reversal',true,'cross_user_blocked',true,'rollback',true)::text,true);
+END $test$;
+SELECT current_setting('qa.debt_contract.result')::jsonb result;
+ROLLBACK;
