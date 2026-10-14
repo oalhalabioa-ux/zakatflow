@@ -793,7 +793,7 @@
 @media(max-width:800px){.investment-form,.investment-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:450px){.investment-form{grid-template-columns:1fr}.investment-filters label{min-width:130px}.investment-toolbar h1{font-size:24px}}
 
 /* Investment workspace: consistent gutters, distinct instruments and clear metrics. */
-.corp-shell .investment-workspace{box-sizing:border-box;width:100%;min-width:0;padding:clamp(12px,1.6vw,24px);margin-inline:auto}
+.corp-shell .investment-workspace{box-sizing:border-box;width:100%;min-width:0;padding:24px 30px;margin-inline:auto}
 .investment-workspace .investment-page-header{align-items:flex-start;gap:20px;margin:0 0 24px}
 .investment-heading{display:flex;align-items:flex-start;gap:14px;min-width:0;flex:1}
 .investment-heading h1{margin:0 0 7px;line-height:1.4}.investment-heading p{margin:0;color:var(--brand-muted);font-size:13px;line-height:1.9}
@@ -815,6 +815,8 @@
 .investment-name-cell{display:flex;align-items:center;gap:11px}.investment-name-cell>div{display:grid;gap:6px;min-width:0}.investment-name-cell strong{font-size:13px;overflow-wrap:anywhere}.investment-row-icon{width:34px;height:34px;border-radius:9px}.investment-row-icon svg{width:19px;height:19px}
 .investment-export summary{box-sizing:border-box;min-width:42px;min-height:42px;align-items:center;justify-content:center;list-style:none}.investment-export summary::-webkit-details-marker{display:none}.investment-export>div{top:calc(100% + 8px);min-width:140px;box-shadow:var(--brand-shadow);z-index:20}
 .investment-workspace .action-hover-label{background:var(--brand-surface);color:var(--brand-text);border-color:var(--brand-border)}
+@media(max-width:1000px){.corp-shell .investment-workspace{padding:20px 18px}}
+@media(max-width:700px){.corp-shell .investment-workspace{padding:16px 10px}}
 @media(max-width:1100px){.investment-workspace .investment-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){.corp-shell .investment-workspace{padding:12px 4px}.investment-workspace .investment-page-header{gap:16px;margin-bottom:18px}.investment-page-actions{width:100%}.investment-heading-icon{width:40px;height:40px}.investment-heading-icon svg{width:23px;height:23px}.investment-tabs .action-button.btn{padding:10px;font-size:12px}.investment-workspace .investment-filters{padding:14px;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}.investment-workspace .investment-metric{padding:15px 12px;gap:9px}.investment-metric-icon{width:30px;height:30px}.investment-metric-icon svg{width:18px;height:18px}.investment-workspace .investment-metric strong{font-size:19px}}
+@media(max-width:600px){.investment-workspace .investment-page-header{gap:16px;margin-bottom:18px}.investment-page-actions{width:100%}.investment-heading-icon{width:40px;height:40px}.investment-heading-icon svg{width:23px;height:23px}.investment-tabs .action-button.btn{padding:10px;font-size:12px}.investment-workspace .investment-filters{padding:14px;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}.investment-workspace .investment-metric{padding:15px 12px;gap:9px}.investment-metric-icon{width:30px;height:30px}.investment-metric-icon svg{width:18px;height:18px}.investment-workspace .investment-metric strong{font-size:19px}}
 @media(max-width:380px){.investment-workspace .investment-overview{grid-template-columns:1fr}.investment-tabs .action-button-wrap{flex-basis:100%}}
