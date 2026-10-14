@@ -23,3 +23,8 @@ it('reads posted advances with consumed balances and keeps all invoice-flow link
  tables.liquidity_flows=[{id:'flow',organization_id:org,currency:'USD',amount:100,settled_amount:10}];
  const result=await advanceWorkspace(org);expect(result.advances[0]).toMatchObject({id:'advance',outstanding_base_amount:15,consumed_advance_base_amount:22.5});expect(result.flows[0].eventIds).toEqual(['application','invoice']);expect(m.action).not.toHaveBeenCalled();
 });
+it('loads active organization party categories without changing or guessing party roles',async()=>{
+ tables.liquidity_party_types=[{id:'assets',organization_id:org,active:true,code:'ASSET_SUPPLIER',name_ar:'مورد أصول',name_en:'Asset supplier'},{id:'hidden',organization_id:'other',active:true,code:'SUPPLIER'},{id:'inactive',organization_id:org,active:false,code:'CUSTOMER'}];
+ tables.liquidity_counterparties[0].party_type='OTHER';tables.liquidity_counterparties[0].party_type_id='assets';
+ const result=await advanceWorkspace(org);expect(result.partyTypes?.map(t=>t.id)).toEqual(['assets']);expect(result.parties[0]).toMatchObject({party_type:'OTHER',party_type_id:'assets'});expect(m.action).not.toHaveBeenCalled();
+});

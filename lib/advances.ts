@@ -8,4 +8,9 @@ export const advanceCommandSchema=z.discriminatedUnion('action',[
 ]);
 export function advanceAmounts(amount:number,rate:number){if(!Number.isFinite(amount)||!Number.isFinite(rate)||amount<=0||rate<=0)throw Error('ADVANCE_AMOUNT_INVALID');const base=new Decimal(amount).mul(rate).toDecimalPlaces(4).toNumber();if(base<=0)throw Error('ADVANCE_AMOUNT_INVALID');return {amount,base};}
 export function compatibleAdvance(a:any,o:any){return a.organization_id===o.organization_id&&a.currency===o.currency&&a.base_currency===o.base_currency&&Number(a.exchange_rate)===Number(o.exchange_rate)&&((a.obligation_type==='SUPPLIER_ADVANCE'&&o.obligation_type==='PAYABLE')||(a.obligation_type==='CUSTOMER_ADVANCE'&&o.obligation_type==='RECEIVABLE'));}
-export type AdvanceWorkspace={baseCurrency:string;parties:any[];accounts:any[];entities:any[];advances:any[];obligations:any[];flows:any[];requests:any[];canCreate:boolean};
+export type AdvanceWorkspace={baseCurrency:string;parties:any[];accounts:any[];entities:any[];advances:any[];obligations:any[];flows:any[];requests:any[];canCreate:boolean;partyTypes?:AdvancePartyType[]};
+
+export type AdvancePartyType={id:string;code:string;name_ar:string;name_en:string};
+export function advancePartyCode(p:{party_type:string;party_type_id?:string|null},types:AdvancePartyType[]){return types.find(t=>t.id===p.party_type_id)?.code??p.party_type;}
+export function advancePartyMatches(p:{party_type:string;party_type_id?:string|null},types:AdvancePartyType[],side:string){const code=advancePartyCode(p,types);return code==='BOTH'||(side==='SUPPLIER_ADVANCE'?['SUPPLIER','ASSET_SUPPLIER'].includes(code):code==='CUSTOMER');}
+export function filterAdvanceParties<T extends {party_type:string;party_type_id?:string|null}>(parties:T[],types:AdvancePartyType[],side:string,category='',showAll=false){return parties.filter(p=>(showAll||advancePartyMatches(p,types,side))&&(!category||advancePartyCode(p,types)===category));}
