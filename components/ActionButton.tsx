@@ -7,5 +7,5 @@ export function ActionIconGlyph({name}:{name:ActionIcon}){
  return paths[name]?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>:<InvoiceIcon name={name as InvoiceIconName}/>;
 }
 export default function ActionButton({icon,label,showLabel=false,className='',children,...props}:ButtonHTMLAttributes<HTMLButtonElement>&{icon:ActionIcon;label:string;showLabel?:boolean}){
- return <span className="action-button-wrap"><button type="button" {...props} aria-label={label} title={label} className={`btn secondary action-button ${showLabel?'action-with-label':''} ${className}`}><ActionIconGlyph name={icon}/>{showLabel&&<span>{label}</span>}{children}</button><span className="action-hover-label" aria-hidden="true">{label}</span></span>;
+ return <span className="action-button-wrap"><button type="button" {...props} aria-label={label} title={showLabel?undefined:label} className={`btn secondary action-button ${showLabel?'action-with-label':''} ${className}`}><ActionIconGlyph name={icon}/>{showLabel&&<span>{label}</span>}{children}</button>{!showLabel&&<span className="action-hover-label" aria-hidden="true">{label}</span>}</span>;
 }
