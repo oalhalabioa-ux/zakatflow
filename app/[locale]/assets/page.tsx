@@ -1,4 +1,5 @@
 "use client";
+import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import Link from "next/link";
 import {CurrencyScope,Money,useDisplayMoney} from "@/components/DisplayCurrency";
 import { use, useEffect, useMemo, useState, useRef } from "react";
@@ -98,6 +99,7 @@ export default function Assets({
 }) {
   const { locale } = use(params),
     ar = locale === "ar";
+  const [assetScope,setAssetScope]=useWorkspaceScope();
   const [rows, setRows] = useState<any[]>([]),
     [form, setForm] = useState<any>(empty),
     [edit, setEdit] = useState<string | null>(null),
@@ -111,10 +113,7 @@ export default function Assets({
     [loadError, setLoadError] = useState(""),
     [loading, setLoading] = useState(true),
     [catalog, setCatalog] = useState<any>({ organizations: [], entities: [], cost_centers: [], classes: [], types: [], suppliers:[] }),
-    [assetScope, setAssetScope] = useState<"PERSONAL"|"ORGANIZATION">("PERSONAL"),
-    [usageMode, setUsageMode] = useState<"PERSONAL"|"ORGANIZATION"|"BOTH">("BOTH"),
-    [usageOpen,setUsageOpen]=useState(false),
-    [usageSaving,setUsageSaving]=useState(false),
+
     [classFilter,setClassFilter]=useState("ALL"),
     [typeFilter,setTypeFilter]=useState("ALL"),
     [groupBy,setGroupBy]=useState<"CLASS"|"TYPE">("CLASS"),
@@ -132,6 +131,7 @@ export default function Assets({
       column: AssetSortColumn;
       direction: AssetSortDirection;
     }>({ column: "current", direction: "desc" });
+  useEffect(()=>{setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");setDetailAsset(null);setOperationAsset(null);setFormOpen(false);setEdit(null)},[assetScope]);
   const baseCurrency=assetScope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR":catalog.base_currency||"SAR";
   const cur = baseCurrency, cv = (n: any) => Number(n || 0);
   const loadVersion=useRef(0);
@@ -149,8 +149,6 @@ export default function Assets({
       const nextCatalog=catalogResponse.ok?await catalogResponse.json():null;
       if(version!==loadVersion.current)return;
       if(nextCatalog)setCatalog(nextCatalog);
-      const preferenceResponse=await fetch("/api/assets/preferences");
-      if(preferenceResponse.ok){const preference=await preferenceResponse.json();if(version!==loadVersion.current)return;setUsageMode(preference.asset_usage_mode);if(preference.asset_usage_mode!=="BOTH")setAssetScope(preference.asset_usage_mode);}
     } catch {
       if(version!==loadVersion.current)return;
       setRows([]);
@@ -177,8 +175,7 @@ export default function Assets({
         localStorage.getItem("zf_assets_design");
       if (["executive", "cards", "analytical"].includes(savedDesign || ""))
         setDesign(savedDesign as AssetsPageDesign);
-      const savedScope = localStorage.getItem("zf-assets-scope");
-      if (savedScope === "ORGANIZATION" || savedScope === "PERSONAL") setAssetScope(savedScope);
+
       setScopeOrgId(localStorage.getItem("zf-assets-scope-org") || "");
       setScopeEntityId(localStorage.getItem("zf-assets-scope-entity") || "");
       setScopeCostCenterId(localStorage.getItem("zf-assets-scope-cost-center") || "");
@@ -216,10 +213,6 @@ export default function Assets({
       localStorage.setItem("zf-assets-scope-cost-center", scopeCostCenterId);
     } catch {}
   }, [assetScope, scopeOrgId, scopeEntityId, scopeCostCenterId]);
-  const saveUsage=async(next:"PERSONAL"|"ORGANIZATION"|"BOTH")=>{
-    setUsageSaving(true);
-    try{const r=await fetch("/api/assets/preferences",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({asset_usage_mode:next})});if(!r.ok)throw new Error();setUsageMode(next);if(next!=="BOTH")setAssetScope(next);setMsg(ar?"تم حفظ إعداد الاستخدام؛ ملكية الأصول لم تتغير.":"Usage saved; asset ownership is unchanged.");}catch{setMsg(ar?"تعذر حفظ إعداد الاستخدام":"Could not save usage preference");}finally{setUsageSaving(false);}
-  };
   const orderedColumns = useMemo(
     () => visibleAssetColumns(tablePreferences.order, tablePreferences.visible),
     [tablePreferences.order, tablePreferences.visible],
@@ -559,16 +552,14 @@ export default function Assets({
     }
     } catch {setMsg(ar ? "تعذر الاتصال؛ حدّث البيانات قبل إعادة المحاولة." : "Connection failed. Refresh before retrying.");} finally {setSaving(false);}
   };
-  const scopeControl = usageMode==="BOTH"?<div className="asset-owner-switch" role="group" aria-label={ar?"نطاق عرض الأصول":"Asset view scope"}>{([["PERSONAL",ar?"♙ شخصي":"♙ Personal"],["ORGANIZATION",ar?"▥ مؤسسي":"▥ Organization"]] as const).map(([key,text])=><button key={key} type="button" className={`btn ${assetScope===key?"":"secondary"}`} title={text} aria-label={text} aria-pressed={assetScope===key} onClick={()=>{setAssetScope(key);setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");}}>{text}</button>)}</div>:<strong>{usageMode==="PERSONAL"?(ar?"♙ شخصي":"♙ Personal"):(ar?"▥ مؤسسي":"▥ Organization")}</strong>;
   return (
     <main className={`container assets-page assets-page-${design}`}><CurrencyScope currency={baseCurrency} organizationId={assetScope==="ORGANIZATION"?scopeOrgId:undefined}/>
       <style>{`.asset-detail-type{font-size:11px;margin-inline-start:8px}.asset-owner-switch{display:flex;gap:6px;flex-wrap:wrap}.asset-scope-bar{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.2fr) minmax(200px,1fr) minmax(200px,1fr);gap:12px;align-items:end;padding:16px 18px}.asset-scope-bar label{display:grid;gap:6px;font-size:12px;font-weight:700}.asset-scope-bar select{width:100%}.asset-scope-title{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.asset-scope-title strong{font-size:14px}.asset-scope-title span{font-size:11px;color:var(--muted)}@media(max-width:900px){.asset-scope-bar{grid-template-columns:1fr 1fr}}@media(max-width:620px){.asset-scope-bar{grid-template-columns:1fr}}.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:var(--brand-surface-soft);color:var(--brand-primary)}.hawl-days{background:var(--brand-surface-soft);color:var(--brand-text)}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--brand-surface-soft);color:var(--brand-text);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
       <div className="asset-page-header">
-        <div className="asset-page-heading"><h1><span className="page-title-icon" aria-hidden="true">▥</span> {ar?"الأصول":"Assets"}</h1>{scopeControl}</div>
-        <AssetsPageToolbar ar={ar} onAdd={()=>setFormOpen(true)} onUsage={()=>setUsageOpen(!usageOpen)} usageOpen={usageOpen}/>
+        <div className="asset-page-heading"><h1><span className="page-title-icon" aria-hidden="true">▥</span> {ar?"الأصول":"Assets"}</h1></div>
+        <AssetsPageToolbar ar={ar} onAdd={()=>setFormOpen(true)}/>
       </div>
       <div className="asset-page-subtitle"><p className="muted">{ar?"نطاق الدورات المحدد ينعكس على مؤشرات الزكاة والجدول. الشامل يجمع النهائي المثبّت وآخر تقدير للمفتوحة، والسداد يُخصم من دورته.":"Cycle scope updates Zakat indicators and the table. Comprehensive combines frozen finals and latest open estimates; payments reduce their own cycle."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
-      {usageOpen&&<section className="card section"><label>{ar?"استخدام مساحة العمل للأصول":"Asset workspace usage"}<select value={usageMode} disabled={loading||usageSaving} onChange={e=>void saveUsage(e.target.value as typeof usageMode)}><option value="BOTH">{ar?"شخصي ومؤسسي":"Personal and organization"}</option><option value="PERSONAL">{ar?"شخصي فقط":"Personal only"}</option><option value="ORGANIZATION">{ar?"مؤسسي فقط":"Organization only"}</option></select></label><p className="muted">{ar?"هذا إعداد للعرض فقط. يمكن العودة إلى النطاق الآخر من هنا؛ لا ينقل ملكية الأصول ولا يغيّر أرصدتها.":"Display preference only. Switch back here; ownership and balances are unchanged."}</p></section>}
       {assetScope === "ORGANIZATION" && <section className="card section asset-scope-bar">
         <div className="asset-scope-title">
           <strong>{ar ? "عرض الأصول" : "Asset view"}</strong>
