@@ -17,6 +17,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
  const{id}=await params;const{supabase,user}=await requireUser();const body=schema.parse(await request.json());
  const{data:record,error:lookupError}=await supabase.from('liquidity_flows').select('id,organization_id,entity_id,account_id,counterparty_id,transfer_id,intercompany_transfer_id,direction,amount,currency,base_amount,status,source_module,source_record_id,source_event_key,settled_amount,settlement_status,title,category_id,due_date,source,counterparty,reference,notes').eq('id',id).maybeSingle();
  if(lookupError)throw lookupError;if(!record)return NextResponse.json({error:'LIQUIDITY_RECORD_NOT_FOUND'},{status:404});
+ if(record.source_module==='ADVANCE_WORKSPACE')return NextResponse.json({error:'ADVANCE_MANAGE_FROM_SOURCE'},{status:409});
  if(record.source_module==='INVESTMENTS')return NextResponse.json({error:'INVESTMENT_FLOW_MANAGE_FROM_SOURCE'},{status:409});
  if(record.transfer_id||record.intercompany_transfer_id)return NextResponse.json({error:'TRANSFER_LEGS_CANNOT_BE_EDITED_HERE'},{status:409});
  await requireOrganizationMember(supabase,user.id,record.organization_id);
@@ -24,14 +25,20 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
  for(const [field,table] of [['account_id','liquidity_accounts'],['entity_id','organization_entities'],['counterparty_id','liquidity_counterparties']] as const){
    const value=body[field];if(value){const{data,error}=await supabase.from(table).select('id').eq('id',value).eq('organization_id',record.organization_id).maybeSingle();if(error)throw error;if(!data)return NextResponse.json({error:field.toUpperCase()+'_ORGANIZATION_MISMATCH'},{status:400});}
  }
+ if(['CONFIRMED','ACTUAL'].includes(body.status??'')&&(body.category_id??record.category_id)){
+  const category=await supabase.from('liquidity_flow_categories').select('treatment_code').eq('organization_id',record.organization_id).eq('id',body.category_id??record.category_id).maybeSingle();
+  if(category.error)throw category.error;
+  if(['CUSTOMER_ADVANCE','SUPPLIER_PREPAYMENT'].includes(category.data?.treatment_code??''))return NextResponse.json({error:'ADVANCE_USE_DEDICATED_WORKFLOW'},{status:409});
+ }
  if(body.status==='CONFIRMED'&&record.status!=='CONFIRMED'&&record.source==='MANUAL'){
    const categoryId=body.category_id??record.category_id;
    if(!categoryId)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
-   const{data:category,error:categoryError}=await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction,financial_classification_type').eq('id',categoryId).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();
+   const{data:category,error:categoryError}=await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction,financial_classification_type,treatment_code').eq('id',categoryId).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();
    if(categoryError)throw categoryError;if(!category?.financial_classification_type)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const direction=body.direction??record.direction;if(category.allowed_direction!=='BOTH'&&category.allowed_direction!==direction)return NextResponse.json({error:'CATEGORY_DIRECTION_NOT_ALLOWED'},{status:400});
    // A flow may belong directly to the organization (entity_id = null). Only validate entity ownership when an entity is explicitly selected.
    const entityId=body.entity_id??record.entity_id??null;
+   if(['CUSTOMER_ADVANCE','SUPPLIER_PREPAYMENT'].includes(category.treatment_code))return NextResponse.json({error:'ADVANCE_USE_DEDICATED_WORKFLOW'},{status:409});
    const treatment=category.financial_classification_type;
    const manualRecognitionTreatments=['REVENUE','OPEX','CAPEX','ASSET','INVESTMENT','TAX','ZAKAT','LIABILITY','FINANCING','EQUITY'];
    if(['RECEIVABLE','PAYABLE','TRANSFER'].includes(treatment))return NextResponse.json({error:'LIQUIDITY_CLASSIFICATION_REQUIRES_EXISTING_OBLIGATION_OR_TRANSFER'},{status:409});
@@ -203,6 +210,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { supabase, user } = await requireUser();
     const { data: account } = await supabase.from('liquidity_accounts').select('id,organization_id').eq('id', id).maybeSingle();
     const { data: flow } = account ? { data: null } : await supabase.from('liquidity_flows').select('id,organization_id,transfer_id,intercompany_transfer_id,source_module').eq('id', id).maybeSingle();
+    if(flow?.source_module==='ADVANCE_WORKSPACE')return NextResponse.json({error:'ADVANCE_MANAGE_FROM_SOURCE'},{status:409});
     if(flow?.source_module==='INVESTMENTS')return NextResponse.json({error:'INVESTMENT_FLOW_MANAGE_FROM_SOURCE'},{status:409});
     const record = account ?? flow;
     if (!record) return NextResponse.json({ error: 'LIQUIDITY_RECORD_NOT_FOUND' }, { status: 404 });
