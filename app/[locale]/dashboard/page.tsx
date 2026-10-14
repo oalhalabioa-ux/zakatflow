@@ -5,6 +5,7 @@ import {unstable_rethrow} from 'next/navigation';
 import {getDashboard} from '@/services/dashboard';
 import {getPlatformOverview} from '@/services/platform-overview';
 import {getPlatformFinancialOverview} from '@/services/platform-financial-overview';
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import DashboardGraphic from '@/components/DashboardGraphic';
 import PlatformMiniChart from '@/components/PlatformMiniChart';
 import ZakatMetricsRefresh from '@/components/ZakatMetricsRefresh';
@@ -51,15 +52,13 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
   {!personal&&financial&&!financial.currencyKnown&&<p className="notice">{ar?'تختلف العملات الأساسية للشركات؛ يلزم تقرير تحويل عملات لعرض إجمالي نقدي موحد.':'Company base currencies differ; a currency-conversion report is required for unified monetary totals.'}</p>}
   {!personal&&financial?.vatPeriodMismatch&&<p className="notice">{ar?'تختلف الفترات الضريبية للشركات؛ راجع ضريبة كل شركة على حدة.':'Company tax periods differ; review each company separately.'}</p>}
   {incomplete&&<p role="alert" className="notice">{ar?'تعذر تحديث بعض المؤشرات؛ تظهر علامة — بدلاً من أرقام غير مؤكدة. افتح الموديول لإعادة التحقق.':'Some indicators could not be refreshed. Unavailable values show —. Open the module to check.'}</p>}
-  <nav className="platform-owner-switch" aria-label={ar?'نطاق اللوحة الرئيسية':'Dashboard scope'}>
-   <Link href={scopeHref('PERSONAL')} className={personal?'active':''} aria-current={personal?'page':undefined}><ScopeIcon kind="personal"/>{ar?'شخصي':'Personal'}</Link>
-   <Link href={scopeHref('ORGANIZATION')} className={!personal?'active':''} aria-current={!personal?'page':undefined}><ScopeIcon kind="company"/>{ar?'مؤسسي':'Organization'}</Link>
-  </nav>
-  {!personal&&<form key={`${financial?.organization?.id}:${financial?.selectedPlan?.id}:${financial?.month}:${financial?.budgetScope}:${financial?.year}:${financial?.scenario}:${financial?.group}:${financial?.assetBasis}`} className="card platform-scope" action={url('dashboard')} method="get">
+  {!personal&&<form key={`${financial?.organization?.id}:${financial?.selectedPlan?.id}:${financial?.month}:${financial?.budgetScope}:${financial?.year}:${financial?.scenario}:${financial?.group}:${financial?.assetBasis}`} id="dashboard-scope-form" className="card platform-scope" action={url('dashboard')} method="get">
    <input type="hidden" name="scope" value="ORGANIZATION"/>
    <input type="hidden" name="level" value={financial?.group?'GROUP':'COMPANY'}/>
-   <label>{ar?'المنشأة':'Organization'}<select name="organization" defaultValue={financial?.organization?.id??''}><option value="" disabled>{ar?'اختر منشأة':'Select organization'}</option>{financial?.organizationTree.map(({organization:o,depth})=><option key={o.id} value={o.id}>{`${depth?"　".repeat(depth)+"↳ ":"▥ "}${o.name} · ${o.base_currency}`}</option>)}</select></label>
-   <nav className="platform-level-switch" aria-label={ar?'مستوى اللوحة':'Dashboard level'}><Link href={levelHref('COMPANY')} aria-current={!financial?.group?'page':undefined} className={!financial?.group?'active':''}><ScopeIcon kind="company"/>{ar?'الشركة':'Company'}</Link><Link href={levelHref('GROUP')} aria-current={financial?.group?'page':undefined} className={financial?.group?'active':''}><ScopeIcon kind="group"/>{ar?'الشركة وفروعها':'Company and subsidiaries'}</Link></nav>
+   <TopbarOrganizationControls>
+   <label>{ar?'المنشأة':'Organization'}<select form="dashboard-scope-form" name="organization" defaultValue={financial?.organization?.id??''}><option value="" disabled>{ar?'اختر منشأة':'Select organization'}</option>{financial?.organizationTree.map(({organization:o,depth})=><option key={o.id} value={o.id}>{`${depth?"　".repeat(depth)+"↳ ":"▥ "}${o.name} · ${o.base_currency}`}</option>)}</select></label>
+   <nav className="corp-company-level" aria-label={ar?'مستوى اللوحة':'Dashboard level'}><Link href={levelHref('COMPANY')} aria-current={!financial?.group?'page':undefined} className={!financial?.group?'active':''}><ScopeIcon kind="company"/>{ar?'الشركة':'Company'}</Link><Link href={levelHref('GROUP')} aria-current={financial?.group?'page':undefined} className={financial?.group?'active':''}><ScopeIcon kind="group"/>{ar?'الشركة وفروعها':'Company and subsidiaries'}</Link></nav>
+   </TopbarOrganizationControls>
    <details className="platform-settings"><summary aria-label={ar?'إعدادات اللوحة':'Dashboard settings'} title={ar?'إعدادات اللوحة':'Dashboard settings'}><span aria-hidden="true">⚙</span></summary><div className="card platform-settings-panel">
     <label>{ar?'أساس عرض الأصول':'Asset valuation basis'}<select name="asset_basis" defaultValue={financial?.assetBasis??'BOOK'}><option value="BOOK">{ar?'القيمة الدفترية الصافية':'Net book value'}</option><option value="MARKET">{ar?'القيمة السوقية المتاحة':'Available market value'}</option></select></label>
     <label>{ar?'الفترة الضريبية':'Tax period'}<input type="month" name="month" defaultValue={financial?.month}/></label>
