@@ -1,0 +1,8 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+const m=vi.hoisted(()=>({auth:vi.fn(),rpc:vi.fn()}));vi.mock('../../../services/auth',()=>({requireUser:m.auth}));import {POST} from './route';
+const command={origin:'CORE',record_id:'11111111-1111-4111-8111-111111111111',category:'O_AP_SUPPLIER'};
+beforeEach(()=>{vi.resetAllMocks();m.auth.mockResolvedValue({supabase:{rpc:m.rpc}});m.rpc.mockResolvedValue({data:{category:command.category},error:null});});
+const request=(body:unknown,origin=true)=>new Request('https://app.test/api/debt-categories',{method:'POST',headers:origin?{origin:'https://app.test'}:{},body:JSON.stringify(body)});
+it('requires same-origin requests and rejects untrusted ownership before any write',async()=>{expect((await POST(request(command,false))).status).toBe(403);expect((await POST(request({...command,user_id:command.record_id}))).status).toBe(400);expect(m.rpc).not.toHaveBeenCalled();});
+it('passes only the record identity and validated category to the caller scoped RPC',async()=>{const r=await POST(request(command));expect(r.status).toBe(200);expect(m.rpc).toHaveBeenCalledWith('assign_debt_category',{p_origin:'CORE',p_record_id:command.record_id,p_category:'O_AP_SUPPLIER'});expect(r.headers.get('cache-control')).toBe('no-store');});
+it('preserves access denial and hides raw database details',async()=>{m.rpc.mockResolvedValueOnce({data:null,error:{message:'DEBT_CATEGORY_ACCESS_DENIED'}});expect((await POST(request(command))).status).toBe(403);m.rpc.mockResolvedValueOnce({data:null,error:{message:'private database detail'}});expect(await(await POST(request(command))).json()).toEqual({error:'DEBT_CATEGORY_FAILED'});});
