@@ -1,4 +1,5 @@
 'use client';
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import InvoiceDetailsDialog,{invoiceDetailRow} from "@/components/invoice-details-dialog";
 import InvoiceActionsPopover from "@/components/invoice-actions-popover";
 import {CurrencyScope,Money} from '@/components/DisplayCurrency';
@@ -959,27 +960,13 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           </div>
 
           <section className="vat-report-toolbar" aria-label={ar ? 'مرشحات تقرير الضرائب' : 'Tax report filters'}>
-            <label className="vat-report-filter vat-report-organization">
+<TopbarOrganizationControls>            <label className="vat-report-filter vat-report-organization">
               <span className="vat-filter-label">{ar ? 'الشركة أو المؤسسة' : 'Company or organization'}</span>
               <select value={organizationId} onChange={(event) => { setProfileLoadState('loading'); setProfile(null); setProfileOpen(false); setProfileDetailsOpen(false); setOrganizationId(event.target.value); setReportScope('COMPANY'); }} disabled={loadingOrganizations || organizations.length === 0}>
                 {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
               </select>
-            </label>
-            <div className="vat-report-filter vat-report-scope-filter">
-              <span className="vat-filter-label">{ar ? 'نطاق التقرير' : 'Report scope'}</span>
-              <div className="vat-report-scope-toggle" role="group" aria-label={ar ? 'نطاق التقرير' : 'Report scope'}>
-                <button type="button" className={`vat-report-scope-option ${reportScope === 'COMPANY' ? 'active' : ''}`} aria-pressed={reportScope === 'COMPANY'} onClick={() => setReportScope('COMPANY')}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h16M6.5 20V5.5A1.5 1.5 0 0 1 8 4h8a1.5 1.5 0 0 1 1.5 1.5V20M9 8h.01M12 8h.01M15 8h.01M9 11.5h.01M12 11.5h.01M15 11.5h.01M10 20v-4h4v4"/></svg>
-                  <span><strong>{ar ? 'الشركة' : 'Company'}</strong><small>{ar ? 'الجهة المحددة' : 'Selected entity'}</small></span>
-                </button>
-                <button type="button" className={`vat-report-scope-option ${reportScope === 'GROUP' ? 'active' : ''}`} aria-pressed={reportScope === 'GROUP'} disabled={!hasBranches} onClick={() => setReportScope('GROUP')}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="3.5" width="8" height="5.5" rx="1.5"/><rect x="3" y="15" width="7" height="5.5" rx="1.5"/><rect x="14" y="15" width="7" height="5.5" rx="1.5"/><path d="M12 9v3.5M6.5 15v-2.5h11V15"/></svg>
-                  <span><strong>{ar ? 'الشركة وفروعها' : 'Company and branches'}</strong><small>{hasBranches ? (ar ? `${reportOrganizationIds.length} جهات ضمن التقرير` : `${reportOrganizationIds.length} entities in report`) : (ar ? 'لا توجد فروع مرتبطة' : 'No branches linked')}</small></span>
-                </button>
-              </div>
-              <small className="vat-report-scope-footnote">{ar ? 'يؤثر النطاق على لوحة الإدارة والتقارير المالية.' : 'Scope affects the dashboard and financial reports.'}</small>
+            </label><div className="corp-company-level" role="group" aria-label={ar?'نطاق التقرير':'Report scope'}><button type="button" aria-pressed={reportScope==='COMPANY'} onClick={()=>setReportScope('COMPANY')}>{ar?'الشركة':'Company'}</button><button type="button" aria-pressed={reportScope==='GROUP'} disabled={!hasBranches} onClick={()=>setReportScope('GROUP')}>{ar?'الشركة وفروعها':'Company and subsidiaries'}</button></div></TopbarOrganizationControls>
               <div className="vat-report-draft-control"><label><input className="vat-draft-switch" type="checkbox" role="switch" checked={includeDrafts} onChange={event => setIncludeDrafts(event.target.checked)} /><InvoiceIcon name={includeDrafts ? 'unlock' : 'lock'} />{ar ? 'تضمين المسودات في التقرير' : 'Include drafts in report'}</label><small>{includeDrafts ? (ar ? 'عرض مراجعة لتفاصيل الفواتير؛ يستبعد الملخصات اليدوية ولا يغيّر الإقرار المحفوظ.' : 'Invoice-detail review; excludes manual summaries and does not change the saved return.') : (ar ? 'المبيعات الصادرة وفواتير الموردين المسجلة؛ مع الملخصات المحفوظة إن وجدت.' : 'Issued sales and recorded supplier invoices; saved summaries are used where available.')}</small></div>
-            </div>
             <div className="vat-report-filter vat-report-period-filter">
               <span className="vat-filter-label">{ar ? 'الفترة الضريبية' : 'Tax period'}</span>
               <div className="vat-report-period-controls">
