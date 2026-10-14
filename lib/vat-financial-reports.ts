@@ -1,9 +1,9 @@
 import Decimal from 'decimal.js';
 import type { InvoiceSource } from './asset-invoice-source';
-export type ReportEvent = {id:string;organization_id:string;counterparty_id:string|null;event_date:string;due_date:string|null;status:string;description:string;source_record_id?:string|null;entity_id?:string|null};
+export type ReportEvent = {id:string;source_module?:string;organization_id:string;counterparty_id:string|null;event_date:string;due_date:string|null;status:string;description:string;source_record_id?:string|null;entity_id?:string|null};
 export type ReportObligation = {id:string;event_id:string;organization_id:string;obligation_type:string;settleable_base_amount:number|string;base_currency:string;adjusts_obligation_id?:string|null;adjustment_effect?:string|null};
 export type ReportAllocation = {id:string;organization_id:string;application_event_id:string;obligation_id:string;source_advance_obligation_id?:string|null;base_amount:number|string;allocation_type:string};
-export type ReportMovement = {id:string;createdAt?:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;due:string|null;reference:string;description:string;currency:string;amount:number;advance:boolean;kind:string;entityId?:string|null};
+export type ReportMovement = {id:string;createdAt?:string;debtId?:string;category?:string;source?:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;due:string|null;reference:string;description:string;currency:string;amount:number;advance:boolean;kind:string;entityId?:string|null};
 export type ReportInvoice = {source?:InvoiceSource;id:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;reference:string;currency:string;net:number;tax:number;total:number;classification:string};
 export type ReportData = {movements:ReportMovement[];invoices:ReportInvoice[];organizations:Array<{id:string;name:string}>;unposted:number};
 const n=(v:number|string)=>new Decimal(v||0);
@@ -22,7 +22,7 @@ export function buildReportMovements(events:ReportEvent[],obligations:ReportObli
   const opposite=(side==='SALES'&&root.obligation_type==='PAYABLE')||(side==='PURCHASE'&&root.obligation_type==='RECEIVABLE');
   const factor=advance||opposite?-1:1;
   const partyKey=`${owner.organization_id}:${owner.counterparty_id||'unmapped:'+owner.id}`;
-  rows.push({id,entityId:owner.entity_id??null,organizationId:owner.organization_id,partyKey,partyName:names.get(partyKey)||'—',side,date:event.event_date,due:owner.due_date,reference:references.get(event.source_record_id||'')||event.id,description:event.description,currency:root.base_currency,amount:amount.mul(factor).toNumber(),advance,kind});
+  rows.push({id,debtId:root.id,source:owner.source_module,entityId:owner.entity_id??null,organizationId:owner.organization_id,partyKey,partyName:names.get(partyKey)||'—',side,date:event.event_date,due:owner.due_date,reference:references.get(event.source_record_id||'')||event.id,description:event.description,currency:root.base_currency,amount:amount.mul(factor).toNumber(),advance,kind});
  }
  for(const ob of obligations){const e=byEvent.get(ob.event_id);if(!e)continue;const sign=ob.adjustment_effect==='DECREASE'?-1:1;const advance=ob.obligation_type.endsWith('_ADVANCE');add('ob:'+ob.id,e,ob,n(ob.settleable_base_amount).mul(sign),ob.adjusts_obligation_id?'ADJUSTMENT':advance?'ADVANCE':'INVOICE');}
  for(const a of allocations){const e=byEvent.get(a.application_event_id),ob=byOb.get(a.obligation_id);if(!e||!ob||a.organization_id!==ob.organization_id)continue;add('allocation:'+a.id,e,ob,n(a.base_amount).negated(),a.allocation_type);

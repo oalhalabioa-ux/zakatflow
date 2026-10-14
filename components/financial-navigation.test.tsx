@@ -18,3 +18,4 @@ it('preserves personal scope between all debt pages and exposes personal payable
  const html=renderToStaticMarkup(<FinancialRegisterWorkspace locale="ar" view="debts" initialScope="PERSONAL" initialDebtSide="PAYABLE"/>);
  expect(html).toContain('/ar/payables?scope=PERSONAL');expect(html).toContain('/ar/receivables?scope=PERSONAL');expect(html).toContain('إضافة التزام شخصي');expect(html).toContain('value="PERSONAL" selected=""');
 });
+it('offers categories only for the selected scope and debt side while keeping source and maturity separate',()=>{const html=renderToStaticMarkup(<FinancialRegisterWorkspace locale="ar" view="debts" initialScope="PERSONAL" initialDebtSide="PAYABLE"/>);expect(html).toContain('value="P_AP_LOAN"');expect(html).not.toContain('value="P_AR_RENT"');expect(html).toContain('حسب الفئة والاستحقاق');expect(html).toContain('جميع المصادر');expect(html).toContain('غير متداول');});

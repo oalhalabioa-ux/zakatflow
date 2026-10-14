@@ -1,0 +1,5 @@
+import {NextResponse} from 'next/server';
+import {z} from 'zod';
+import {requireUser} from '../../../services/auth';
+import {categoryCommandSchema} from '../../../lib/debt-categories';
+export async function POST(request:Request){const headers={'Cache-Control':'no-store'};try{if(request.headers.get('origin')!==new URL(request.url).origin)return NextResponse.json({error:'ORIGIN_REQUIRED'},{status:403,headers});const p=categoryCommandSchema.parse(await request.json()),{supabase}=await requireUser();const {data,error}=await supabase.rpc('assign_debt_category',{p_origin:p.origin,p_record_id:p.record_id,p_category:p.category});if(error)throw error;return NextResponse.json(data,{headers});}catch(e){const raw=e instanceof z.ZodError?'VALIDATION_FAILED':e&&typeof e==='object'&&'message'in e?String(e.message):'';const code=/^[A-Z][A-Z_]+$/.test(raw)?raw:'DEBT_CATEGORY_FAILED';return NextResponse.json({error:code},{status:code==='UNAUTHORIZED'?401:/DENIED/.test(code)?403:code==='DEBT_CATEGORY_FAILED'?500:400,headers});}}
