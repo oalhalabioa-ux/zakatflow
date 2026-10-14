@@ -141,7 +141,7 @@ create or replace function private.guard_debt_source_flow()returns trigger langu
  if old.source_module in('DEBT_CONTRACTS','DEBT_FUNDING','DEBT_LINK')then
   if tg_op='DELETE'then raise exception 'DEBT_FLOW_MANAGE_FROM_SOURCE';end if;
   if row(new.organization_id,new.entity_id,new.direction,new.amount,new.currency,new.base_amount,new.due_date,new.counterparty_id,new.source_module,new.source_record_id,new.source_event_key)is distinct from row(old.organization_id,old.entity_id,old.direction,old.amount,old.currency,old.base_amount,old.due_date,old.counterparty_id,old.source_module,old.source_record_id,old.source_event_key)then raise exception 'DEBT_FLOW_MANAGE_FROM_SOURCE';end if;
- end if;return new;end $$;
+ end if;if tg_op='DELETE'then return old;end if;return new;end $$;
 create trigger debt_source_flow_guard before update or delete on public.liquidity_flows for each row execute function private.guard_debt_source_flow();
 -- The shared subledger uses actual recognition and each contract installment date.
 create or replace view public.financial_counterparty_open_items with(security_invoker=true)as
