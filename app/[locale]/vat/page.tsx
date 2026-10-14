@@ -179,9 +179,10 @@ const emptyDocument = (): DocumentDraft => ({
 });
 const emptyDocumentLine = (): DocumentLineDraft => ({ description: '', unit: '', quantity: '1', unit_price: '', discount_amount: '0', discount_mode: 'AMOUNT', supply_type: 'STANDARD' });
 
-export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ section?: string | string[] }> }) {
+export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ section?: string | string[]; organization_id?:string | string[] }> }) {
   const { locale } = use(params);
-  const { section } = use(searchParams);
+  const { section,organization_id:requestedOrganization } = use(searchParams);
+  const initialOrganization=Array.isArray(requestedOrganization)?requestedOrganization[0]:requestedOrganization;
   const requestedSection = Array.isArray(section) ? section[0] : section;
   const initialTab = requestedSection === 'reports' ? 'reports' : requestedSection === 'unified' ? 'unified' : requestedSection === 'invoices' ? 'register' : requestedSection === 'einvoicing' ? 'einvoicing' : requestedSection === 'aggregate' ? 'aggregate' : 'dashboard';
   const ar = locale === 'ar';
@@ -388,12 +389,14 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         if (!active) return;
         setOrganizations(rows);
         const holding = rows.find((item) => item.organization_kind === 'HOLDING' && !item.parent_organization_id);
-        setOrganizationId((holding ?? rows[0])?.id ?? '');
+        const requested=rows.find(item=>item.id===initialOrganization);
+        if(initialOrganization&&!requested){setOrganizationId('');setNotice({kind:'error',text:ar?'المنشأة المحددة غير متاحة لحسابك. اختر منشأة متاحة للمتابعة.':'The requested organization is unavailable. Choose an accessible organization to continue.'});}
+        else setOrganizationId((requested ?? holding ?? rows[0])?.id ?? '');
       })
       .catch((error) => setNotice({ kind: 'error', text: messageFor(error.message, ar) }))
       .finally(() => { if (active) setLoadingOrganizations(false); });
     return () => { active = false; };
-  }, [ar]);
+  }, [ar,initialOrganization]);
 
   useEffect(() => {
     let active = true;
