@@ -1,4 +1,5 @@
 'use client';
+import TopbarOrganizationControls from './TopbarOrganizationControls';
 import {useCallback,useEffect,useState,useRef,type FormEvent} from 'react';
 import Link from 'next/link';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
@@ -84,7 +85,8 @@ export default function InvestmentWorkspace({locale}:{locale:string}){
   {error&&<p role="alert" className="error">{error}</p>}
   <div className="investment-tabs">{Object.entries(kinds).map(([value,label])=><ActionButton key={value} icon={instrumentIcons[value as InvestmentTerms['instrument']]} label={label} showLabel aria-pressed={kind===value} onClick={()=>setKind(value as InvestmentTerms['instrument'])}/>)}</div>
   <div className="investment-filters">
-   {scope==='ORGANIZATION'&&<><label>المؤسسة<select value={org} onChange={e=>{setOrg(e.target.value);setEntity('');}}><option value="">جميع المؤسسات</option>{catalog.organizations.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label><label>الكيان<select value={entity} onChange={e=>setEntity(e.target.value)}><option value="">جميع الكيانات</option>{catalog.entities.filter(e=>!org||e.organization_id===org).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label></>}
+   {scope==='ORGANIZATION'&&<TopbarOrganizationControls>   {scope==='ORGANIZATION'&&<><label>المؤسسة<select value={org} onChange={e=>{setOrg(e.target.value);setEntity('');}}><option value="">جميع المؤسسات</option>{catalog.organizations.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label><label>الكيان<select value={entity} onChange={e=>setEntity(e.target.value)}><option value="">جميع الكيانات</option>{catalog.entities.filter(e=>!org||e.organization_id===org).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label></>}
+</TopbarOrganizationControls>}
    <label>بحث<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="اسم الاستثمار، الجهة أو المرجع"/></label>
    <label>الحالة<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">الكل</option>{['DRAFT','ACTIVE','CLOSED','CANCELLED'].map(s=><option key={s} value={s}>{investmentStatusLabel(s)}</option>)}</select></label>
   </div>

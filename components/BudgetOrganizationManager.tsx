@@ -1,6 +1,7 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
+import TopbarOrganizationControls from './TopbarOrganizationControls';
+import {useEffect,useMemo,useState,type ReactNode} from 'react';
 import {organizationDisplayName} from '@/lib/organization-display';
 
 export type BudgetOrganization={id:string;name:string;parent_organization_id?:string|null;organization_kind:'HOLDING'|'SUBSIDIARY';sort_order:number;created_at?:string};
@@ -19,7 +20,7 @@ const centerTypeLabel=(type:CostCenterType,ar:boolean)=>COST_CENTER_TYPES.find(i
 const sortOrganizations=(items:Organization[])=>[...items].sort((a,b)=>Number(a.sort_order??100)-Number(b.sort_order??100)||(a.organization_kind==='HOLDING'?0:1)-(b.organization_kind==='HOLDING'?0:1)||a.name.localeCompare(b.name,'ar'));
 const organizationOptionLabel=(item:Organization,ar:boolean)=>item.organization_kind==='HOLDING'?'▣ '+organizationDisplayName(item.name,ar):'↳ '+organizationDisplayName(item.name,ar);
 
-export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange,disabled=false}:{ar:boolean;value:string;disabled?:boolean;onChange:(name:string,options?:{defaultSelection?:boolean})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
+export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange,disabled=false,topbar=false}:{topbar?:boolean;ar:boolean;value:string;disabled?:boolean;onChange:(name:string,options?:{defaultSelection?:boolean})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
  const [organizations,setOrganizations]=useState<Organization[]>([]);
  const [centers,setCenters]=useState<CostCenter[]>([]);
  const [selectedId,setSelectedId]=useState('');
@@ -144,15 +145,16 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
  };
 
  const legacyOption=value&&!organizations.some(item=>item.name===value);
+ const wrapPicker=(picker:ReactNode)=>topbar?<TopbarOrganizationControls>{picker}</TopbarOrganizationControls>:picker;
  return <>
-  <div className="budget-organization-control">
-   <select value={selectedId|| (legacyOption?'__legacy__':'')} disabled={disabled} onChange={event=>chooseOrganization(event.target.value)}>
+ {wrapPicker(  <div className="budget-organization-control">
+   <select aria-label={ar?'المنشأة':'Organization'} value={selectedId|| (legacyOption?'__legacy__':'')} disabled={disabled} onChange={event=>chooseOrganization(event.target.value)}>
    <option value="">{ar?'اختر منشأة':'Select organization'}</option>
     {legacyOption&&<option value="__legacy__">{value}</option>}
     {sortOrganizations(organizations).map(item=><option key={item.id} value={item.id}>{organizationOptionLabel(item,ar)}</option>)}
    </select>
    <button type="button" className="budget-organization-add" onClick={openManager} aria-label={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'} title={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'}>＋</button>
-  </div>
+  </div>)}
   {open&&<div className="budget-org-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setOpen(false)}}>
    <section className="budget-org-modal" role="dialog" aria-modal="true" aria-labelledby="budget-org-modal-title" dir={ar?'rtl':'ltr'}>
     <div className="budget-org-modal-head"><div><small>{ar?'مرجع نطاق الموازنة':'Budget scope reference'}</small><h2 id="budget-org-modal-title">{ar?'المنشآت ومراكز التكلفة':'Organizations & cost centers'}</h2></div><div className="budget-org-modal-actions"><button type="button" className="btn secondary" onClick={()=>void openManager()} disabled={loading}>{ar?'إعادة تحميل':'Reload'}</button><button type="button" className="budget-org-close" onClick={()=>setOpen(false)} aria-label={ar?'إغلاق':'Close'}>×</button></div></div>

@@ -1,4 +1,5 @@
 "use client";
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import Link from "next/link";
 import {CurrencyScope,Money,useDisplayMoney} from "@/components/DisplayCurrency";
@@ -560,12 +561,7 @@ export default function Assets({
         <AssetsPageToolbar ar={ar} onAdd={()=>setFormOpen(true)}/>
       </div>
       <div className="asset-page-subtitle"><p className="muted">{ar?"نطاق الدورات المحدد ينعكس على مؤشرات الزكاة والجدول. الشامل يجمع النهائي المثبّت وآخر تقدير للمفتوحة، والسداد يُخصم من دورته.":"Cycle scope updates Zakat indicators and the table. Comprehensive combines frozen finals and latest open estimates; payments reduce their own cycle."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
-      {assetScope === "ORGANIZATION" && <section className="card section asset-scope-bar">
-        <div className="asset-scope-title">
-          <strong>{ar ? "عرض الأصول" : "Asset view"}</strong>
-          <span>{ar ? "يُطبّق على المؤشرات والتقرير فقط" : "Applies to KPIs and report only"}</span>
-        </div>
-
+      {assetScope==='ORGANIZATION'&&<TopbarOrganizationControls>
         {assetScope === "ORGANIZATION" && <>
           <label>
             {ar ? "الشركة / المؤسسة" : "Organization"}
@@ -589,7 +585,7 @@ export default function Assets({
             </select>
           </label>
         </>}
-      </section>}
+      </TopbarOrganizationControls>}
       {loadError && <div className="notice">{loadError}</div>}
       {!showingExited && <section className="grid section" aria-label={ar?"مؤشرات الأصول":"Asset indicators"}>
         {metricCards.map(card=><K key={card.key} i={card.icon} tone={card.key} t={card.title}
