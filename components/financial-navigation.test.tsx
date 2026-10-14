@@ -13,3 +13,8 @@ it('shows three debt links only on debt pages with exactly one active page',()=>
  }
  for(const view of ['cash','position'] as const)expect(renderToStaticMarkup(<FinancialRegisterWorkspace locale="ar" view={view}/>)).not.toContain('finance-module-nav');
 });
+
+it('preserves personal scope between all debt pages and exposes personal payable entry',()=>{
+ const html=renderToStaticMarkup(<FinancialRegisterWorkspace locale="ar" view="debts" initialScope="PERSONAL" initialDebtSide="PAYABLE"/>);
+ expect(html).toContain('/ar/payables?scope=PERSONAL');expect(html).toContain('/ar/receivables?scope=PERSONAL');expect(html).toContain('إضافة التزام شخصي');expect(html).toContain('value="PERSONAL" selected=""');
+});

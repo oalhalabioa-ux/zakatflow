@@ -1,3 +1,4 @@
+import {personalPayableRecords} from '../lib/personal-payables';
 import {requireUser} from './auth';
 import {requireOrganizationMember} from './organization-access';
 import {assetLedgerBalance} from '../lib/asset-ledger';
@@ -35,9 +36,13 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   function signed(t:any,depth=0):number{if(depth>10)throw new Error('REVERSAL_CHAIN_INVALID');if(t.transaction_type==='REVERSAL'){const original=byId.get(t.reversal_of_transaction_id);if(!original)throw new Error('REVERSAL_SOURCE_REQUIRED');return -signed(original,depth+1);}const out=['SALE','WITHDRAWAL','TRANSFER_OUT','ZAKAT_PAYMENT'].includes(t.transaction_type)||t.transaction_type==='ADJUSTMENT'&&t.metadata?.adjustment_direction==='OUT';return Number(t.base_value)*(out?-1:1);}
   result.cashMovements=transactions.filter(t=>cashAssets.some((a:any)=>a.id===t.asset_account_id)&&!t.metadata?.asset_deleted).map(t=>({id:t.id,accountId:t.asset_account_id,date:t.transaction_date,createdAt:t.created_at,currency:t.base_currency,amount:signed(t),description:t.notes||t.transaction_type,reference:t.reference||t.id,source:'ASSETS'}));
   const personalDebts=new Map(assets.filter((a:any)=>a.asset_type==='RECEIVABLE').map((a:any)=>[a.id,a]));
-  result.debtMovements=transactions.filter(t=>personalDebts.has(t.asset_account_id)&&!t.metadata?.asset_deleted).map(t=>({id:t.id,organizationId:'PERSONAL',partyKey:t.asset_account_id,partyName:(personalDebts.get(t.asset_account_id) as any).name,side:'SALES' as const,date:t.transaction_date,due:(personalDebts.get(t.asset_account_id) as any).metadata?.due_date||null,reference:t.reference||t.id,description:t.notes||t.transaction_type,currency:t.base_currency,amount:signed(t),advance:false,kind:t.transaction_type})).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+  result.debtMovements=transactions.filter(t=>personalDebts.has(t.asset_account_id)&&!t.metadata?.asset_deleted).map(t=>({id:t.id,createdAt:t.created_at,organizationId:'PERSONAL',partyKey:t.asset_account_id,partyName:(personalDebts.get(t.asset_account_id) as any).name,side:'SALES' as const,date:t.transaction_date,due:(personalDebts.get(t.asset_account_id) as any).metadata?.due_date||null,reference:t.reference||t.id,description:t.notes||t.transaction_type,currency:t.base_currency,amount:signed(t),advance:false,kind:t.transaction_type})).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
   result.debts=assets.filter((a:any)=>a.asset_type==='RECEIVABLE'&&Number(a.current_market_value)>0).map((a:any)=>({id:a.id,partyKey:a.id,partyName:a.name,organizationId:null,entityId:null,side:'RECEIVABLE',currency:a.current_value_currency,amount:Number(a.current_market_value),date:a.metadata?.purchase_date||asOf,dueDate:a.metadata?.due_date||null,description:a.name,source:'PERSONAL_ASSETS',eventId:null}));
-  result.warnings.push('PERSONAL_RECEIVABLES_ONLY');
+  const [personalPayables,personalPayments]=await Promise.all([all(()=>supabase.from('personal_payables').select('*').eq('user_id',user.id)),all(()=>supabase.from('personal_payable_payments').select('*').eq('user_id',user.id))]);
+  const payables=personalPayableRecords(personalPayables,personalPayments,transactions);
+  result.debts.push(...payables.debts);result.debtMovements.push(...payables.movements);result.debtMovements.sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt??'').localeCompare(b.createdAt??'')||({INVOICE:0,PAYMENT:1,REVERSAL:2}[a.kind as 'INVOICE']??1)-({INVOICE:0,PAYMENT:1,REVERSAL:2}[b.kind as 'INVOICE']??1)||a.id.localeCompare(b.id));
+  result.personalPayments=payables.history;
+
  }else{
   const [accounts,settlements,flows,events,obligations,allocations,parties,balances,entities,links,documents]=await Promise.all([
    all(()=>supabase.from('liquidity_accounts').select('*').in('organization_id',ids).in('account_type',['BANK','CASH','WALLET']).eq('active',true)),
