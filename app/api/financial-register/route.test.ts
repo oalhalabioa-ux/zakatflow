@@ -1,0 +1,13 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+const mocks=vi.hoisted(()=>({requireUser:vi.fn(),register:vi.fn(),rpc:vi.fn()}));
+vi.mock('../../../services/auth',()=>({requireUser:mocks.requireUser}));
+vi.mock('../../../services/financial-register',()=>({financialRegister:mocks.register}));
+import {GET,POST} from './route';
+const id='11111111-1111-4111-8111-111111111111';
+const payload={request_id:id,scope:'PERSONAL',type:'BANK',name:'Bank',currency:'SAR',opening_balance:0,opening_date:'2026-10-01',fx_rate:1};
+const post=(p:unknown)=>POST(new Request('https://test/api/financial-register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}));
+beforeEach(()=>{vi.resetAllMocks();mocks.requireUser.mockResolvedValue({supabase:{rpc:mocks.rpc}});});
+it('returns unauthenticated and malformed scopes without exposing report data',async()=>{mocks.register.mockRejectedValue(new Error('UNAUTHORIZED'));expect((await GET(new Request('https://test/api/financial-register'))).status).toBe(401);expect((await GET(new Request('https://test/api/financial-register?scope=INVALID'))).status).toBe(400);expect(mocks.register).toHaveBeenCalledTimes(1);});
+it('uses a single typed opening RPC, adds no caching and does not perform raw balance writes',async()=>{mocks.rpc.mockResolvedValue({data:{id},error:null});const r=await post(payload);expect(r.status).toBe(201);expect(r.headers.get('Cache-Control')).toBe('no-store');expect(mocks.rpc).toHaveBeenCalledWith('open_financial_account',{p_payload:expect.objectContaining(payload)});});
+it('rejects extra keys and organizational receivable bypass before RPC',async()=>{expect((await post({...payload,created_by:id})).status).toBe(400);expect((await post({...payload,scope:'ORGANIZATION',organization_id:id,type:'RECEIVABLE',opening_balance:100})).status).toBe(400);expect(mocks.rpc).not.toHaveBeenCalled();});
+it('preserves known database command errors and hides unexpected database details',async()=>{mocks.rpc.mockResolvedValue({error:{message:'CASH_INSUFFICIENT_BALANCE'}});const p={action:'TRANSFER',request_id:id,source_id:id,destination_id:'22222222-2222-4222-8222-222222222222',amount:100,date:'2026-10-01',notes:'Transfer'};const r=await post(p);expect(r.status).toBe(400);expect((await r.json()).error).toBe('CASH_INSUFFICIENT_BALANCE');mocks.rpc.mockResolvedValue({error:{message:'secret SQL internals'}});const failed=await post(payload);expect(failed.status).toBe(500);expect((await failed.json()).error).toBe('ACCOUNT_OPENING_FAILED');});
