@@ -1,4 +1,5 @@
 'use client';
+import TopbarCompanyLevel from '@/components/TopbarGroupSwitch';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import InvoiceDetailsDialog,{invoiceDetailRow} from "@/components/invoice-details-dialog";
 import InvoiceActionsPopover from "@/components/invoice-actions-popover";
@@ -965,7 +966,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
               <select value={organizationId} onChange={(event) => { setProfileLoadState('loading'); setProfile(null); setProfileOpen(false); setProfileDetailsOpen(false); setOrganizationId(event.target.value); setReportScope('COMPANY'); }} disabled={loadingOrganizations || organizations.length === 0}>
                 {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
               </select>
-            </label><div className="corp-company-level" role="group" aria-label={ar?'نطاق التقرير':'Report scope'}><button type="button" aria-pressed={reportScope==='COMPANY'} onClick={()=>setReportScope('COMPANY')}>{ar?'الشركة':'Company'}</button><button type="button" aria-pressed={reportScope==='GROUP'} disabled={!hasBranches} onClick={()=>setReportScope('GROUP')}>{ar?'الشركة وفروعها':'Company and subsidiaries'}</button></div></TopbarOrganizationControls>
+            </label><TopbarCompanyLevel ar={ar} checked={reportScope==='GROUP'} groupDisabled={!hasBranches} onChange={value=>setReportScope(value?'GROUP':'COMPANY')}/></TopbarOrganizationControls>
               <div className="vat-report-draft-control"><label><input className="vat-draft-switch" type="checkbox" role="switch" checked={includeDrafts} onChange={event => setIncludeDrafts(event.target.checked)} /><InvoiceIcon name={includeDrafts ? 'unlock' : 'lock'} />{ar ? 'تضمين المسودات في التقرير' : 'Include drafts in report'}</label><small>{includeDrafts ? (ar ? 'عرض مراجعة لتفاصيل الفواتير؛ يستبعد الملخصات اليدوية ولا يغيّر الإقرار المحفوظ.' : 'Invoice-detail review; excludes manual summaries and does not change the saved return.') : (ar ? 'المبيعات الصادرة وفواتير الموردين المسجلة؛ مع الملخصات المحفوظة إن وجدت.' : 'Issued sales and recorded supplier invoices; saved summaries are used where available.')}</small></div>
             <div className="vat-report-filter vat-report-period-filter">
               <span className="vat-filter-label">{ar ? 'الفترة الضريبية' : 'Tax period'}</span>
