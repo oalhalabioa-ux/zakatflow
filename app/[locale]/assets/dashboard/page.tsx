@@ -1,24 +1,12 @@
-import {CurrencyScope} from '@/components/DisplayCurrency';
-import ZakatMetricsRefresh from '@/components/ZakatMetricsRefresh';
+import AssetsDashboardWorkspace from '@/components/AssetsDashboardWorkspace';
 import {getDashboard} from '@/services/dashboard';
-import CustomDashboard from '@/components/CustomDashboard';
-import ElegantDashboard from '@/components/ElegantDashboard';
-import DashboardOperations from '@/components/DashboardOperations';
+import {unstable_rethrow} from 'next/navigation';
 import '../../dashboard/dashboard.css';
 import '../../dashboard/elegant-dashboard.css';
-import {unstable_rethrow} from 'next/navigation';
+import './organization-assets.css';
 
-export default async function Dashboard({params, searchParams}: {params: Promise<{locale: string}>; searchParams: Promise<{currency?: string}>}) {
-  const {locale} = await params, q = await searchParams;
-  const currency = 'SAR';
-  let d: any;
-  try { d = await getDashboard(); }
-  catch (error) { unstable_rethrow(error); d = {loadError: true}; }
-  return <>
-    <CurrencyScope currency="SAR"/><ZakatMetricsRefresh/>
-    <ElegantDashboard d={d} locale={locale} currency={currency}/>
-    <DashboardOperations label={locale === 'ar' ? 'التخصيص وإدارة الدورة' : 'Customization & cycle management'}>
-      <CustomDashboard d={d} locale={locale} currency={currency}/>
-    </DashboardOperations>
-  </>;
+export default async function Dashboard({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{scope?:string}>}){
+ const [{locale},q]=await Promise.all([params,searchParams]);const scope=q.scope==='ORGANIZATION'?'ORGANIZATION':'PERSONAL';let data=null;
+ if(scope==='PERSONAL')try{data=await getDashboard()}catch(error){unstable_rethrow(error)}
+ return <AssetsDashboardWorkspace locale={locale} initialScope={scope} initialData={data}/>;
 }
