@@ -45,7 +45,7 @@ export default function FinancialRegisterWorkspace({locale,view,initialScope='PE
  const endpoint=useMemo(()=>'/api/financial-register?scope='+scope+((view==='debts'||view==='debt-report')?'&view=debts':'')+(scope==='ORGANIZATION'?'&organization_id='+org+(group?'&group=1':''):''),[scope,org,group,view]);
  const load=useCallback(async(signal?:AbortSignal)=>{if(scope==='ORGANIZATION'&&!org){setLoading(false);return;}setLoading(true);setData(null);setError('');try{const r=await fetch(endpoint,{cache:'no-store',signal}),d=await r.json();if(!r.ok)throw new Error(d.error);if(!signal?.aborted)setData(d);}catch(e){if(!signal?.aborted)setError(errors[(e as Error).message]??(e as Error).message);}finally{if(!signal?.aborted)setLoading(false);}},[endpoint,scope,org]);
  useEffect(()=>{const controller=new AbortController();void load(controller.signal);return()=>controller.abort();},[load]);
- useEffect(()=>{setSelectedId('');setParty('');setEntity('');setCurrency('');setCategory('');setMaturity('');setSourceFilter('');},[scope,org,group]);
+ useEffect(()=>{setQuery('');setStatementSide(initialDebtSide==='PAYABLE'?'PURCHASE':'SALES');setSelectedId('');setParty('');setEntity('');setCurrency('');setCategory('');setMaturity('');setSourceFilter('');},[scope,org,group,initialDebtSide,view]);
  const base=data?.baseCurrency??catalog?.base_currency??'SAR',scopeName=scope==='PERSONAL'?'شخصي':catalog?.organizations.find((o:any)=>o.id===org)?.name??'مؤسسي';
  const matches=(name:string)=>!query||name.toLocaleLowerCase().includes(query.toLocaleLowerCase());
  const accounts=(data?.accounts??[]).filter(a=>(!entity||a.entityId===entity)&&(!currency||a.currency===currency)&&matches(a.name));
