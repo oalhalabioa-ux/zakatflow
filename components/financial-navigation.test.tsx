@@ -7,7 +7,7 @@ import FinancialRegisterWorkspace from './FinancialRegisterWorkspace';
 it('shows unified workspace links only on debt pages with exactly one active page',()=>{
  for(const [view,side,current] of [['debts','RECEIVABLE','receivables'],['debts','PAYABLE','payables'],['debt-report','RECEIVABLE','debt-report']] as const){
  const html=renderToStaticMarkup(<FinancialRegisterWorkspace locale="ar" view={view} initialScope="ORGANIZATION" initialDebtSide={side}/>),nav=html.match(/<nav class="finance-module-nav[^"]*"[^>]*>(.*?)<\/nav>/)?.[1]??'';
- expect([...nav.matchAll(/href="\/ar\/([^?]+)\?scope=ORGANIZATION"/g)].map(m=>m[1])).toEqual(['debts','receivables','payables','loans','employee-advances','debt-advances','debt-report']);
+ expect([...nav.matchAll(/href="\/ar\/([^?]+)\?scope=ORGANIZATION"/g)].map(m=>m[1])).toEqual(['debts','receivables','payables','loans','employee-advances','debt-advances','debt-collection','debt-report']);
  expect((nav.match(/aria-current="page"/g)??[])).toHaveLength(1);
  expect(nav).toContain('aria-current="page" href="/ar/'+current+'?scope=ORGANIZATION"');
  }

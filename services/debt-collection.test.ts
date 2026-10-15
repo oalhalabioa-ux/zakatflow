@@ -1,0 +1,9 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({auth:vi.fn(),member:vi.fn(),register:vi.fn(),rpc:vi.fn()}));
+vi.mock('./auth',()=>({requireUser:m.auth}));vi.mock('./organization-access',()=>({requireOrganizationMember:m.member}));vi.mock('./financial-register',()=>({financialRegister:m.register}));
+import {recordDebtFollowup} from './debt-collection';
+const id='11111111-1111-4111-8111-111111111111',p={request_id:id,scope:'ORGANIZATION',organization_id:id,debt_id:id,status:'PROMISED',action_date:'2026-10-15',next_date:null,promise_date:'2026-11-01',promise_amount:40,assignee_id:null,note:'Client follow-up'};
+beforeEach(()=>{vi.resetAllMocks();m.auth.mockResolvedValue({supabase:{rpc:m.rpc},user:{id}});m.register.mockResolvedValue({debts:[{id,side:'RECEIVABLE',amount:50}]});m.rpc.mockResolvedValue({data:id,error:null})});
+it('derives organization ownership and target type instead of trusting client financial metadata',async()=>{await recordDebtFollowup(p);expect(m.member).toHaveBeenCalledWith({rpc:m.rpc},id,id);expect(m.register).toHaveBeenCalledWith('ORGANIZATION',id,false,true);expect(m.rpc).toHaveBeenCalledWith('record_debt_followup',{p_payload:expect.objectContaining({target_type:'CORE',organization_id:id,promise_amount:40})})});
+it('blocks promises over current balances and out-of-scope debt targets before writing',async()=>{await expect(recordDebtFollowup({...p,promise_amount:60})).rejects.toThrow('PROMISE_EXCEEDS_BALANCE');m.register.mockResolvedValueOnce({debts:[]});await expect(recordDebtFollowup(p)).rejects.toThrow('FOLLOWUP_TARGET_INVALID');expect(m.rpc).not.toHaveBeenCalled()});
+it('requires membership and rejects forged owner fields',async()=>{m.member.mockRejectedValueOnce(Error('ORGANIZATION_ACCESS_REQUIRED'));await expect(recordDebtFollowup(p)).rejects.toThrow('ORGANIZATION_ACCESS_REQUIRED');await expect(recordDebtFollowup({...p,user_id:id})).rejects.toThrow();expect(m.rpc).not.toHaveBeenCalled()});
