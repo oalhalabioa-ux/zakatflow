@@ -1,0 +1,11 @@
+import React from 'react';
+import {expect,it,vi} from 'vitest';
+vi.stubGlobal('React',React);
+import {renderToStaticMarkup} from 'react-dom/server';
+vi.mock('./DisplayCurrency',()=>({CurrencyScope:()=>null,useDisplayMoney:()=>((value:number)=>'SAR '+value.toFixed(2))}));
+vi.mock('./AdvancePayments',()=>({default:()=>null}));
+vi.mock('./DebtSettlementPicker',()=>({default:()=>null}));
+import {FlowTable} from './LiquidityWorkspace';
+const flow:any={id:'f',organization_id:'org',entity_id:null,account_id:null,direction:'INFLOW',flow_type:'OPERATING',title:'تحصيل',counterparty:'عميل',due_date:'2026-10-15',amount:8050,base_amount:8050,currency:'SAR',status:'EXPECTED',source:'MANUAL',reference:'',notes:''};
+it('keeps seven table cells per row and isolates the signed amount from RTL text',()=>{const html=renderToStaticMarkup(<FlowTable ar flows={[flow]} currency="SAR" locale="ar" remove={vi.fn()} edit={vi.fn()}/>),body=html.split('<tbody>')[1];expect(body.match(/<td\b/g)).toHaveLength(7);expect(html).toContain('<bdi dir="ltr">+ SAR 8050.00</bdi>');expect(html).toContain('class="liq-flow-actions"><div class="liq-flow-action-buttons">');expect(html).toContain('aria-label="تعديل التدفق"')});
+it('retains the header and a correctly spanned empty state when filters match no rows',()=>{const html=renderToStaticMarkup(<FlowTable ar flows={[]} currency="SAR" locale="ar" remove={vi.fn()}/>);expect(html).toContain('<thead>');expect(html).toContain('colSpan="7"');expect(html).toContain('لا توجد تدفقات مطابقة')});
