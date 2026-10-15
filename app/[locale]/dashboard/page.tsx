@@ -3,24 +3,18 @@ import Link from 'next/link';
 import type {ReactNode} from 'react';
 import {unstable_rethrow} from 'next/navigation';
 import {getDashboard} from '@/services/dashboard';
-import {getPlatformOverview} from '@/services/platform-overview';
 import {getPlatformFinancialOverview} from '@/services/platform-financial-overview';
-import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
+import DashboardScopeControls from '@/components/DashboardScopeControls';
 import DashboardGraphic from '@/components/DashboardGraphic';
 import PlatformMiniChart from '@/components/PlatformMiniChart';
 import ZakatMetricsRefresh from '@/components/ZakatMetricsRefresh';
 import './platform-dashboard.css';
 
-const urlForLocale=(locale:string)=>`/${locale}/dashboard`;
 const fmt=(v:unknown)=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);
 const count=(v:number|null|undefined)=>v==null?'—':new Intl.NumberFormat('en-US').format(v);
 function ModuleIcon({kind}:{kind:'assets'|'zakat'|'tax'|'cash'|'budget'}) {
  const paths={zakat:<><path d="m12 2 3 3h4v4l3 3-3 3v4h-4l-3 3-3-3H5v-4l-3-3 3-3V5h4z"/><path d="m8 12 3 3 5-6"/></>,assets:<><path d="M3 8h18v12H3zM7 4h10v4M8 12h8M8 16h5"/></>,tax:<><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h3"/></>,cash:<><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18m-5 5h2M7 3v2"/></>,budget:<><path d="M4 20h16M6 16V9m6 7V4m6 12v-5"/></>};
  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[kind]}</svg>;
-}
-function ScopeIcon({kind}:{kind:'personal'|'company'|'group'}) {
- const paths={personal:<><circle cx="12" cy="7" r="3"/><path d="M5 21v-3a7 7 0 0 1 14 0v3z"/></>,company:<><rect x="6" y="3" width="12" height="18" rx="1"/><path d="M10 7h4m-4 4h4m-4 4h4m-3 6v-3h2v3"/></>,group:<><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-5h14v5"/></>};
- return <svg className="platform-scope-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[kind]}</svg>;
 }
 function Module({kind,title,description,href,children,links,ar,visual,elegantVisual,showMetrics=false}:{showMetrics?:boolean;visual?:ReactNode;elegantVisual?:ReactNode;kind:'assets'|'zakat'|'tax'|'cash'|'budget';title:string;description:string;href:string;children:ReactNode;links:Array<{title:string;href:string}>;ar:boolean}) {
  return <section className={`card platform-module ${showMetrics?'platform-module--metrics':''}`}><div className="platform-module-head"><span className="platform-module-icon"><ModuleIcon kind={kind}/></span><div><h2>{title}</h2><p>{description}</p></div></div><div className="platform-module-art">{visual??<ModuleIcon kind={kind}/>}</div>{elegantVisual}<dl className="platform-module-metrics platform-module-standard">{children}</dl>{!showMetrics&&<details className="platform-module-modern"><summary>{ar?'المؤشرات والتفاصيل':'Indicators & details'} <span aria-hidden="true">⌄</span></summary><dl className="platform-module-metrics">{children}</dl></details>}<nav className="platform-module-links" aria-label={title}>{links.map(x=><Link key={x.href} href={x.href}>{x.title}</Link>)}</nav><Link className="platform-module-open" href={href}>{ar?'فتح لوحة الموديول':'Open module dashboard'} <span aria-hidden="true">{ar?'←':'→'}</span></Link></section>;
@@ -30,9 +24,8 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
  const [{locale},q]=await Promise.all([params,searchParams]),ar=locale==='ar';
  const safely=async<T,>(fn:()=>Promise<T>):Promise<T|null>=>{try{return await fn();}catch(e){unstable_rethrow(e);return null;}};
  const personal=q.scope!=='ORGANIZATION';
- const [assets,financial]=await Promise.all([personal?safely(getDashboard):null,safely(()=>getPlatformFinancialOverview(q))]);
- const modules=!personal&&financial?.organization?await safely(()=>getPlatformOverview(financial.organization!.id,financial.organization!.name,financial.reportIds)):null;
- const scopeHref=(scope:string)=>`${urlForLocale(locale)}?${new URLSearchParams({scope,...(q.organization?{organization:q.organization}:{}),...(q.month?{month:q.month}:{}),...(q.budget_scope?{budget_scope:q.budget_scope}:{}),...(q.year?{year:q.year}:{}),...(q.scenario?{scenario:q.scenario}:{}),...(q.level?{level:q.level}:{}),...(q.asset_basis?{asset_basis:q.asset_basis}:{})})}`;
+ const [assets,financial]=await Promise.all([personal?safely(getDashboard):null,!personal?safely(()=>getPlatformFinancialOverview(q)):null]);
+ const modules=financial?.modules??null;
  const assetsKnown=!!assets&&assets.dataHealth?.assets!==false;
  const liabilityKnown=!!assets&&(['assessments','cycles','allocations','payments'] as const).every(key=>assets.dataHealth?.[key]!==false);
  const money=(v:unknown,known=liabilityKnown)=>known?<Money value={Number(v)} currency="SAR"/>:'—';
@@ -42,7 +35,6 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
  const orgMoney=(v:unknown,known:boolean)=>known?<Money value={Number(v)} currency={orgCurrency}/>:'—';
  const budgetMoney=(v:unknown)=>financial?.budget?<Money value={Number(v)} currency={financial.budget.plan.currency}/>:'—';
  const reportLabel=financial?.group?`${financial.organization?.name??'—'} · ${ar?'الشركة وفروعها':'Company and subsidiaries'}`:financial?.organization?.name??'—';
- const levelHref=(level:string)=>`${url('dashboard')}?${new URLSearchParams({scope:'ORGANIZATION',organization:financial?.organization?.id??'',level,...(q.asset_basis?{asset_basis:q.asset_basis}:{}),...(q.month?{month:q.month}:{}),...(q.year?{year:q.year}:{}),...(q.scenario?{scenario:q.scenario}:{}),...(q.budget_scope==='PLAN'&&level==='COMPANY'?{budget_scope:'PLAN'}:{})})}`;
  const cash=financial?.cash,vat=financial?.vat,budget=financial?.budget;
  const assetBasisLabel=financial?.assetBasis==='MARKET'?(ar?'السوقية المتاحة / الدفترية عند غياب السعر':'Available market value / book fallback'):(ar?'القيمة الدفترية الصافية':'Net book value');
  const budgetLabel=financial?.budgetScope==='PLAN'?(financial?.selectedPlan?.name??'—'):financial?.budgetScope==='GROUP'?(ar?'الشركة وفروعها':'Company and subsidiaries'):(ar?'الموازنة الكلية للشركة':'Total company budget');
@@ -55,10 +47,8 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
   {!personal&&<form key={`${financial?.organization?.id}:${financial?.selectedPlan?.id}:${financial?.month}:${financial?.budgetScope}:${financial?.year}:${financial?.scenario}:${financial?.group}:${financial?.assetBasis}`} id="dashboard-scope-form" className="card platform-scope" action={url('dashboard')} method="get">
    <input type="hidden" name="scope" value="ORGANIZATION"/>
    <input type="hidden" name="level" value={financial?.group?'GROUP':'COMPANY'}/>
-   <TopbarOrganizationControls>
-   <label>{ar?'المنشأة':'Organization'}<select form="dashboard-scope-form" name="organization" defaultValue={financial?.organization?.id??''}><option value="" disabled>{ar?'اختر منشأة':'Select organization'}</option>{financial?.organizationTree.map(({organization:o,depth})=><option key={o.id} value={o.id}>{`${depth?"　".repeat(depth)+"↳ ":"▥ "}${o.name} · ${o.base_currency}`}</option>)}</select></label>
-   <nav className="corp-company-level" aria-label={ar?'مستوى اللوحة':'Dashboard level'}><Link href={levelHref('COMPANY')} aria-current={!financial?.group?'page':undefined} className={!financial?.group?'active':''}><ScopeIcon kind="company"/>{ar?'الشركة':'Company'}</Link><Link href={levelHref('GROUP')} aria-current={financial?.group?'page':undefined} className={financial?.group?'active':''}><ScopeIcon kind="group"/>{ar?'الشركة وفروعها':'Company and subsidiaries'}</Link></nav>
-   </TopbarOrganizationControls>
+   <input type="hidden" name="organization" value={financial?.organization?.id??''}/>
+   <DashboardScopeControls locale={locale} organizations={financial?.organizationTree??[]} organizationId={financial?.organization?.id??''} group={!!financial?.group} query={q}/>
    <details className="platform-settings"><summary aria-label={ar?'إعدادات اللوحة':'Dashboard settings'} title={ar?'إعدادات اللوحة':'Dashboard settings'}><span aria-hidden="true">⚙</span></summary><div className="card platform-settings-panel">
     <label>{ar?'أساس عرض الأصول':'Asset valuation basis'}<select name="asset_basis" defaultValue={financial?.assetBasis??'BOOK'}><option value="BOOK">{ar?'القيمة الدفترية الصافية':'Net book value'}</option><option value="MARKET">{ar?'القيمة السوقية المتاحة':'Available market value'}</option></select></label>
     <label>{ar?'الفترة الضريبية':'Tax period'}<input type="month" name="month" defaultValue={financial?.month}/></label>

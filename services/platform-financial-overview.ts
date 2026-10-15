@@ -1,6 +1,7 @@
 import {platformAssetSummary} from '@/lib/platform-asset-summary';
 import {listAssets} from './assets';
 import {platformOrganizationTree} from '@/lib/platform-organization-tree';
+import {getPlatformOverview} from './platform-overview';
 import {requireUser} from './auth';
 import {listBudgetPlans,getBudgetPlan} from './budget-planning';
 import {dashboardBudgetOrganizations,dashboardBudgetSources,combineDashboardBudgets,type DashboardBudgetScope} from '@/lib/platform-budget-summary';
@@ -52,18 +53,19 @@ export async function getPlatformFinancialOverview(q:{organization?:string;plan?
   async function read(handler:(req:Request)=>Promise<Response>,path:string) {
     try {const response=await handler(new Request(`https://zakatflow.local${path}`));return response.ok?await response.json():null;}catch{return null;}
   }
-  const [vatReads,cashReads,budget,assetRows]=await Promise.all([
+  const [vatReads,cashReads,budget,assetRows,modules]=await Promise.all([
     institutional&&currencyKnown?Promise.all(reportOrganizations.map(o=>read(readVat,`/api/vat?organization_id=${o.id}&period_month=${month}`))):Promise.resolve([]),
     institutional&&currencyKnown?Promise.all(reportOrganizations.map(o=>read(readLiquidity,`/api/liquidity?organization_id=${o.id}`))):Promise.resolve([]),
     institutional?readBudget():null,
     institutional&&organization?listAssets().catch(()=>null):null,
+    institutional&&organization?getPlatformOverview(organization.id,organization.name,reportIds).catch(()=>null):null,
   ]);
   const activeAssets=assetRows?.filter((a:any)=>a.ownership_scope==='ORGANIZATION'&&reportIds.includes(a.organization_id)&&a.status==='ACTIVE'&&a.lifecycle_status==='ACTIVE');
   const vat=platformGroupVat(vatReads);
   const cash=platformGroupCash(cashReads);
   const assetBasis=q.asset_basis==='MARKET'?'MARKET':'BOOK';
   const organizationAssets=currencyKnown?platformAssetSummary(activeAssets??null,cash,assetBasis):null;
-  return {assetBasis,organizations,organizationTree,organization,organizationAssets,group,reportOrganizations,reportIds,currencyKnown,vatPeriodMismatch:vatReads.length>0&&vatReads.every(Boolean)&&!vat,plans:availablePlans.filter(p=>p.organization_name===organization?.name&&p.cost_center!=='ALL'),selectedPlan,month,today,budgetScope,year,years,scenario,budgetReadFailed,budgetSourceCount:sources.length,budgetApprovedSourceCount:sources.filter(p=>p.status==='APPROVED').length,missingBudgetCompanies,
+  return {modules,assetBasis,organizations,organizationTree,organization,organizationAssets,group,reportOrganizations,reportIds,currencyKnown,vatPeriodMismatch:vatReads.length>0&&vatReads.every(Boolean)&&!vat,plans:availablePlans.filter(p=>p.organization_name===organization?.name&&p.cost_center!=='ALL'),selectedPlan,month,today,budgetScope,year,years,scenario,budgetReadFailed,budgetSourceCount:sources.length,budgetApprovedSourceCount:sources.filter(p=>p.status==='APPROVED').length,missingBudgetCompanies,
     vat,
     cash:cash?platformLiquiditySummary(cash,today):null,
     budget};
