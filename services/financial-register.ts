@@ -9,7 +9,7 @@ import {riyadhToday,type RegisterData,type CashMovement,type DebtItem} from '../
 
 async function inBatches(ids:string[],query:(ids:string[])=>any){const rows:any[]=[];for(let i=0;i<ids.length;i+=150)rows.push(...await all(()=>query(ids.slice(i,i+150))));return rows;}
 async function all(query:()=>any,keys=['id']):Promise<any[]>{const rows:any[]=[];for(let offset=0;offset<50000;offset+=500){let q=query();for(const key of keys)q=q.order(key);const r=await q.range(offset,offset+499);if(r.error)throw r.error;rows.push(...r.data);if(r.data.length<500)return rows;}throw new Error('REPORT_TOO_LARGE');}
-export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organizationId:string|null,group:boolean):Promise<RegisterData>{
+export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organizationId:string|null,group:boolean,debtOnly=false):Promise<RegisterData>{
  const {supabase,user}=await requireUser();const asOf=riyadhToday();
  const [{data:profile,error:profileError},organizations]=await Promise.all([supabase.from('profiles').select('base_currency').eq('id',user.id).single(),all(()=>supabase.from('organizations').select('id,name,base_currency,parent_organization_id,organization_kind'))]);if(profileError)throw profileError;
  let ids:string[]=[];if(scope==='ORGANIZATION'){
@@ -21,8 +21,8 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   }
  }
  const baseCurrency=scope==='PERSONAL'?profile.base_currency:organizations.find(o=>o.id===organizationId).base_currency;
- const assetQuery=()=>{const q=supabase.from('asset_accounts').select('*').or('metadata->>archived.is.null,metadata->>archived.neq.true');return scope==='PERSONAL'?q.eq('user_id',user.id).is('organization_id',null):q.in('organization_id',ids);};
- const [rawAssets,assetTransactions]=await Promise.all([all(assetQuery),all(()=>{const q=supabase.from('transactions').select('id,asset_account_id,organization_id,transaction_type,reference,metadata');return scope==='PERSONAL'?q.eq('user_id',user.id).is('organization_id',null):q.in('organization_id',ids);})]);
+ const assetQuery=()=>{const q=supabase.from('asset_accounts').select('*').or('metadata->>archived.is.null,metadata->>archived.neq.true');if(debtOnly)q.in('asset_type',['CASH','BANK','RECEIVABLE']);return scope==='PERSONAL'?q.eq('user_id',user.id).is('organization_id',null):q.in('organization_id',ids);};
+ const [rawAssets,assetTransactions]=await Promise.all([debtOnly&&scope==='ORGANIZATION'?Promise.resolve([]):all(assetQuery),debtOnly?Promise.resolve([]):all(()=>{const q=supabase.from('transactions').select('id,asset_account_id,organization_id,transaction_type,reference,metadata');return scope==='PERSONAL'?q.eq('user_id',user.id).is('organization_id',null):q.in('organization_id',ids);})]);
  const eventIds=[...new Set<string>(assetTransactions.map(t=>t.metadata?.financial_event_id).filter(Boolean))];
  const [lots,statuses]=await Promise.all([inBatches(rawAssets.map(a=>a.id),ids=>supabase.from('lots').select('*').in('asset_account_id',ids)),inBatches(eventIds,ids=>supabase.from('financial_events').select('id,status').in('id',ids))]);
  const lotsByAsset=new Map<string,any[]>();for(const l of lots)if(!l.metadata?.recognition_pending)lotsByAsset.set(l.asset_account_id,[...(lotsByAsset.get(l.asset_account_id)??[]),l]);
@@ -52,9 +52,9 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
 
  }else{
   const [accounts,settlements,flows,events,obligations,allocations,parties,balances,entities,links,documents]=await Promise.all([
-   all(()=>supabase.from('liquidity_accounts').select('*').in('organization_id',ids).in('account_type',['BANK','CASH','WALLET']).eq('active',true)),
-   all(()=>supabase.from('liquidity_settlements').select('*').in('organization_id',ids).in('status',['POSTED','REVERSED'])),
-   all(()=>supabase.from('liquidity_flows').select('id,organization_id,account_id,direction,due_date,amount,currency,title,reference,source_module,transfer_id,created_at').in('organization_id',ids).eq('status','ACTUAL')),
+   debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_accounts').select('*').in('organization_id',ids).in('account_type',['BANK','CASH','WALLET']).eq('active',true)),
+   debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_settlements').select('*').in('organization_id',ids).in('status',['POSTED','REVERSED'])),
+   debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_flows').select('id,organization_id,account_id,direction,due_date,amount,currency,title,reference,source_module,transfer_id,created_at').in('organization_id',ids).eq('status','ACTUAL')),
    all(()=>supabase.from('financial_events').select('id,organization_id,entity_id,counterparty_id,event_date,due_date,status,description,source_record_id,source_module,source_event_key').in('organization_id',ids)),
    all(()=>supabase.from('financial_event_obligations').select('*').in('organization_id',ids)),
    all(()=>supabase.from('financial_event_obligation_allocations').select('*').in('organization_id',ids)),
@@ -74,7 +74,8 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   result.cashMovements.push(...flows.filter(f=>!coveredFlows.has(f.id)&&!postedSourceKeys.some(k=>k.includes(f.id))).map(f=>({id:'flow:'+f.id,accountId:f.account_id,date:f.due_date,createdAt:f.created_at,currency:f.currency,amount:Number(f.amount)*(f.direction==='INFLOW'?1:-1),description:f.title,reference:f.reference||f.id,source:f.transfer_id?'TRANSFER':'LEGACY_FLOW'})));
   result.debts=balances.flatMap((b:any):DebtItem[]=>{const e=eventMap.get(b.event_id);if(!e||e.status!=='ACTUAL')return [];const side=['RECEIVABLE','PAYABLE','CUSTOMER_ADVANCE','SUPPLIER_ADVANCE'].includes(b.obligation_type)?b.obligation_type:'UNAPPLIED';return [{id:b.obligation_id,partyKey:e.organization_id+':'+(e.counterparty_id||'unmapped:'+e.id),partyName:partyMap.get(e.organization_id+':'+e.counterparty_id)||'غير محدد',organizationId:e.organization_id,entityId:e.entity_id,side,currency:b.base_currency,amount:Number(b.outstanding_base_amount),dueDate:e.due_date,date:e.event_date,description:e.description,source:e.source_module,eventId:e.id,originalCurrency:b.currency,originalAmount:Number(b.settleable_amount),exchangeRate:Number(b.exchange_rate),totalBase:Number(b.adjusted_settleable_base_amount),appliedBase:Number(side.endsWith('_ADVANCE')?b.consumed_advance_base_amount:b.applied_base_amount)}];});
   const references=new Map<string,string>(documents.map(d=>[d.id,d.document_number])),sides=new Map<string,'SALES'|'PURCHASE'>(documents.map(d=>[d.id,d.document_type]));
-  for(const tx of assetTransactions){const ref=tx.reference||tx.metadata?.invoice_reference;if(ref&&!references.has(tx.id))references.set(tx.id,ref);}
+  const referenceTransactions=debtOnly?await inBatches([...new Set<string>(events.filter(e=>['ASSETS_INTEGRATION','ASSET_LIFECYCLE'].includes(e.source_module)).map(e=>e.source_record_id).filter(Boolean))],batch=>supabase.from('transactions').select('id,reference,metadata').in('organization_id',ids).in('id',batch)):assetTransactions;
+  for(const tx of referenceTransactions){const ref=tx.reference||tx.metadata?.invoice_reference;if(ref&&!references.has(tx.id))references.set(tx.id,ref);}
   for(const l of links.filter(l=>l.target_module==='vat_documents')){const e=eventMap.get(l.event_id),d=documents.find(d=>d.id===l.target_record_id);if(e?.source_record_id&&d){references.set(e.source_record_id,d.document_number);sides.set(e.source_record_id,d.document_type);}}
   const advanceReferences=new Map(links.filter(l=>l.metadata?.purpose==='ADVANCE_REQUEST'&&l.metadata?.reference).map(l=>[l.event_id,String(l.metadata.reference)]));
   result.debts=result.debts.map(d=>({...d,reference:advanceReferences.get(d.eventId!)??references.get(eventMap.get(d.eventId!)?.source_record_id??'')??d.eventId??d.id}));
