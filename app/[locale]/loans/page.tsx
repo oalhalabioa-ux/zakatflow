@@ -1,4 +1,4 @@
-import LoansWorkspace from '@/components/LoansWorkspace';
+import FinancingScopeWorkspace from '@/components/FinancingScopeWorkspace';
 import '../financial-register.css';
 import '../debt-finance.css';
-export default async function Page({params}:{params:Promise<{locale:string}>}){return <LoansWorkspace locale={(await params).locale}/>;}
+export default async function Page({params}:{params:Promise<{locale:string}>}){return <FinancingScopeWorkspace locale={(await params).locale} kind="LOAN"/>}

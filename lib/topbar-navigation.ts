@@ -1,5 +1,5 @@
 export type WorkspaceScope='PERSONAL'|'ORGANIZATION';
-const scoped=new Set(['dashboard','debts','cash-and-banks','receivables','payables','debt-report','financial-position','assets/dashboard','assets','investments','reports']);
+const scoped=new Set(['loans','debt-advances','dashboard','debts','cash-and-banks','receivables','payables','debt-report','financial-position','assets/dashboard','assets','investments','reports']);
 export const isClientWorkspaceScope=(path:string)=>scoped.has(path)&&path!=='dashboard';
 export function currentWorkspaceScope(path:string,query:string):WorkspaceScope{const q=new URLSearchParams(query),value=q.get('scope');if(scoped.has(path)&&['PERSONAL','ORGANIZATION'].includes(value??''))return value as WorkspaceScope;return ['employee-advances','debt-advances','debt-openings','payables','vat','liquidity','loans','budget-planning','organizations','users'].includes(path)?'ORGANIZATION':'PERSONAL';}
 export function workspaceScopeHref(locale:string,path:string,query:string,scope:WorkspaceScope){const q=new URLSearchParams(scoped.has(path)?query:'');q.set('scope',scope);return '/'+locale+'/'+(scoped.has(path)?path:'dashboard')+'?'+q;}
