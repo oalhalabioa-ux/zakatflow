@@ -1,4 +1,5 @@
 'use client';
+import {useWorkspaceScope} from '../hooks/useWorkspaceScope';
 import TopbarCompanyLevel from './TopbarGroupSwitch';
 import TopbarOrganizationControls from './TopbarOrganizationControls';
 import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent,type ReactNode} from 'react';
@@ -24,7 +25,7 @@ function Metric({label,value,icon,note}:{label:string;value:ReactNode;icon:Actio
 
 export default function FinancialRegisterWorkspace({locale,view,initialScope='PERSONAL',initialDebtSide='RECEIVABLE'}:{locale:string;view:View;initialScope?:'PERSONAL'|'ORGANIZATION';initialDebtSide?:'RECEIVABLE'|'PAYABLE'}){
  const ar=locale==='ar',today=riyadhToday();
- const [scope,setScope]=useState(initialScope),[org,setOrg]=useState(''),[group,setGroup]=useState(false),[entity,setEntity]=useState(''),[query,setQuery]=useState(''),[currency,setCurrency]=useState('');
+ const [scope]=useWorkspaceScope(initialScope);const [org,setOrg]=useState(''),[group,setGroup]=useState(false),[entity,setEntity]=useState(''),[query,setQuery]=useState(''),[currency,setCurrency]=useState('');
 
  const [data,setData]=useState<RegisterData|null>(null),[catalog,setCatalog]=useState<any>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[tab,setTab]=useState(view==='debt-report'?'summary':view==='debts'?initialDebtSide:view==='position'?'summary':'all');
  const [categoryDebt,setCategoryDebt]=useState<DebtItem|null>(null),[category,setCategory]=useState(''),[maturity,setMaturity]=useState(''),[sourceFilter,setSourceFilter]=useState('');
@@ -34,7 +35,7 @@ export default function FinancialRegisterWorkspace({locale,view,initialScope='PE
  const [from,setFrom]=useState(today.slice(0,4)+'-01-01'),[to,setTo]=useState(today),[selectedId,setSelectedId]=useState(''),[party,setParty]=useState(''),[statementSide,setStatementSide]=useState<'SALES'|'PURCHASE'>(initialDebtSide==='PAYABLE'?'PURCHASE':'SALES');
  const [opening,setOpening]=useState<Record<string,string>|null>(null),[transfer,setTransfer]=useState<Record<string,string>|null>(null);const requestId=useRef('');
  useEffect(()=>{const controller=new AbortController();fetch('/api/assets/catalog',{signal:controller.signal}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error);setCatalog(d);const saved=localStorage.getItem('zf-liquidity-org');setOrg(d.organizations.find((o:any)=>o.id===saved)?.id??d.organizations.find((o:any)=>o.organization_kind==='HOLDING')?.id??d.organizations[0]?.id??'');}).catch(e=>{if(e.name!=='AbortError'){setError(errors[e.message]??e.message);setLoading(false);}});return()=>controller.abort();},[]);
- useEffect(()=>{setScope(initialScope);setGroup(false);setOpening(null);setTransfer(null);setPayable(null);setPersonalPayable(null);setShowAdvances(false);setShowOpening(false);setTab(view==='debt-report'?'summary':view==='debts'?initialDebtSide:view==='position'?'summary':'all');},[initialScope,initialDebtSide,view]);
+ useEffect(()=>{setGroup(false);setOpening(null);setTransfer(null);setPayable(null);setPersonalPayable(null);setShowAdvances(false);setShowOpening(false);setTab(view==='debt-report'?'summary':view==='debts'?initialDebtSide:view==='position'?'summary':'all');},[scope,initialDebtSide,view]);
  useEffect(()=>{if(scope==='ORGANIZATION'&&org)localStorage.setItem('zf-liquidity-org',org);},[scope,org]);
  const endpoint=useMemo(()=>'/api/financial-register?scope='+scope+(scope==='ORGANIZATION'?'&organization_id='+org+(group?'&group=1':''):''),[scope,org,group]);
  const load=useCallback(async(signal?:AbortSignal)=>{if(!catalog||scope==='ORGANIZATION'&&!org){setLoading(false);return;}setLoading(true);setData(null);setError('');try{const r=await fetch(endpoint,{cache:'no-store',signal}),d=await r.json();if(!r.ok)throw new Error(d.error);if(!signal?.aborted)setData(d);}catch(e){if(!signal?.aborted)setError(errors[(e as Error).message]??(e as Error).message);}finally{if(!signal?.aborted)setLoading(false);}},[catalog,endpoint,scope,org]);
