@@ -1,0 +1,7 @@
+import {expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({workspace:vi.fn(),save:vi.fn()}));
+vi.mock('../../../services/debt-collection',()=>({debtCollectionWorkspace:m.workspace,recordDebtFollowup:m.save}));
+import {GET,POST} from './route';
+it('rejects cross-origin follow-up writes before invoking the service',async()=>{m.save.mockClear();const r=await POST(new Request('https://app.test/api/debt-collection',{method:'POST',headers:{origin:'https://other.test'},body:'{}'}));expect(r.status).toBe(403);expect(m.save).not.toHaveBeenCalled()});
+it('passes explicit group and personal scope and never caches financial results',async()=>{m.workspace.mockResolvedValueOnce({});const r=await GET(new Request('https://app.test/api/debt-collection?scope=ORGANIZATION&organization_id=org&group=1'));expect(m.workspace).toHaveBeenLastCalledWith('ORGANIZATION','org',true);expect(r.headers.get('Cache-Control')).toBe('no-store');expect((await GET(new Request('https://app.test/api/debt-collection?scope=INVALID'))).status).toBe(400)});
+it('returns safe unauthenticated and permission errors',async()=>{m.workspace.mockRejectedValueOnce(Error('UNAUTHORIZED'));expect((await GET(new Request('https://app.test/api/debt-collection?scope=PERSONAL'))).status).toBe(401);m.save.mockRejectedValueOnce(Error('FOLLOWUP_ACCESS_DENIED'));expect((await POST(new Request('https://app.test/api/debt-collection',{method:'POST',headers:{origin:'https://app.test'},body:'{}'}))).status).toBe(403)});
