@@ -5,3 +5,12 @@ const rows=[{id:'a',title:'أقساط مورد',counterparty:'شركة ليفا�
 it('defaults to the complete current month, including leap-year February',()=>{expect(defaultLiquidityFlowFilters('2024-02-15')).toMatchObject({from:'2024-02-01',to:'2024-02-29'});expect(filterLiquidityFlows(rows,defaultLiquidityFlowFilters('2026-10-15'),'2026-10-15').map(r=>r.id)).toEqual(['a','b'])});
 it('combines due-date endpoints, account, direction, type, status and Arabic search without mutating input',()=>{const result=filterLiquidityFlows(rows,{...empty,from:'2026-10-31',to:'2026-10-31',query:'رواتب اكتوبر',direction:'OUTFLOW',flow_type:'PAYROLL',status:'CONFIRMED',account_id:'bank'},'2026-10-15');expect(result.map(r=>r.id)).toEqual(['b']);expect(rows.map(r=>r.id)).toEqual(['a','b','c']);expect(filterLiquidityFlows(rows,{...empty,query:'inv-17 ليفانت'},'2026-10-15').map(r=>r.id)).toEqual(['a'])});
 it('uses settlement-aware status and overdue filters, and supports unassigned accounts',()=>{expect(filterLiquidityFlows(rows,{...empty,status:'ACTUAL'},'2026-10-15').map(r=>r.id)).toEqual(['a']);expect(filterLiquidityFlows(rows,{...empty,status:'OVERDUE'},'2026-10-15').map(r=>r.id)).toEqual(['c']);expect(filterLiquidityFlows(rows,{...empty,status:'EXPECTED',account_id:'UNASSIGNED'},'2026-10-15').map(r=>r.id)).toEqual(['c']);expect(filterLiquidityFlows(rows,{...empty,from:'2026-11-01',to:'2026-10-01'},'2026-10-15')).toEqual([]);expect(liquidityFlowTypeLabel('INVESTMENT',true)).toBe('استثماري');expect(liquidityFlowTypeLabel('CUSTOM',true)).toBe('CUSTOM')});
+it('sorts filtered results without changing totals or mutating row order',async()=>{
+ const {sortLiquidityFlows,liquidityFlowResultSummary}=await import('./liquidity-flow-filters');
+ const amounts=rows.map((r,i)=>({...r,base_amount:[0.1,0.2,1][i]}));
+ const sorted=sortLiquidityFlows(amounts,{key:'amount',order:'desc'});expect(sorted.map(r=>r.id)).toEqual(['c','a','b']);expect(amounts.map(r=>r.id)).toEqual(['a','b','c']);
+ expect(liquidityFlowResultSummary(sorted,'2026-10-15')).toEqual({count:3,incoming:1,outgoing:0.3,net:0.7,openOut:0.2,overdueOut:0});
+ const matched=filterLiquidityFlows(amounts,{...empty,direction:'OUTFLOW',status:'CONFIRMED'},'2026-10-15');expect(liquidityFlowResultSummary(matched,'2026-10-15')).toMatchObject({count:1,incoming:0,outgoing:0.2,openOut:0.2});
+ expect(liquidityFlowResultSummary([],'2026-10-15')).toEqual({count:0,incoming:0,outgoing:0,net:0,openOut:0,overdueOut:0});
+ expect(sortLiquidityFlows(amounts,{key:'status',order:'asc'}).map(r=>r.id)).toEqual(['c','b','a']);
+});
