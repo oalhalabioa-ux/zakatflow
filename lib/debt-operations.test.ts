@@ -1,0 +1,8 @@
+import {expect,it} from 'vitest';
+import {debtOperationPrepareSchema} from './debt-operations';
+import {personalFinancingSchema} from './personal-financing';
+const id='11111111-1111-4111-8111-111111111111';
+const common={request_id:id,organization_id:id,target_id:id,date:'2026-10-15',reason:'Move unpaid installments'};
+it('rescheduling accepts dates only and rejects a duplicate obligation or a principal rewrite',()=>{const payload={...common,kind:'RESCHEDULE',dates:[{obligation_id:id,due_date:'2027-01-31'}]};expect(debtOperationPrepareSchema.safeParse(payload).success).toBe(true);expect(debtOperationPrepareSchema.safeParse({...payload,dates:[...payload.dates,...payload.dates]}).success).toBe(false);expect(debtOperationPrepareSchema.safeParse({...payload,principal:300}).success).toBe(false)});
+it('refunds require a bank, positive amount and an auditable reason',()=>{const p={...common,kind:'REFUND',account_id:id,amount:30};expect(debtOperationPrepareSchema.safeParse(p).success).toBe(true);expect(debtOperationPrepareSchema.safeParse({...p,amount:-30}).success).toBe(false);expect(debtOperationPrepareSchema.safeParse({...p,reason:'x'}).success).toBe(false)});
+it('personal funded lending and borrowing support both loans and advances without an opening mode',()=>{for(const kind of ['LOAN','ADVANCE'])for(const side of ['RECEIVABLE','PAYABLE']){const p={action:'FUND',request_id:id,kind,side,party:'Test',description:'Fund principal',reference:'A',amount:100,date:'2026-10-15',due_date:'2027-01-01',account_id:id};expect(personalFinancingSchema.safeParse(p).success).toBe(true);expect(personalFinancingSchema.safeParse({...p,amount:0.12345}).success).toBe(false);expect(personalFinancingSchema.safeParse({...p,mode:'OPENING'}).success).toBe(false)}});

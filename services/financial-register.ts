@@ -44,6 +44,11 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const payables=personalPayableRecords(personalPayables,personalPayments,transactions);
   result.debts.push(...payables.debts);result.debtMovements.push(...payables.movements);result.debtMovements.sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt??'').localeCompare(b.createdAt??'')||({INVOICE:0,PAYMENT:1,REVERSAL:2}[a.kind as 'INVOICE']??1)-({INVOICE:0,PAYMENT:1,REVERSAL:2}[b.kind as 'INVOICE']??1)||a.id.localeCompare(b.id));
   result.personalPayments=payables.history;
+  const personalFinancings=await all(()=>supabase.from('personal_financings').select('id,kind,side,receivable_id,payable_id').eq('user_id',user.id));
+  const advances=new Map(personalFinancings.filter(f=>f.kind==='ADVANCE').map(f=>[f.receivable_id??f.payable_id,f]));
+  result.debts=result.debts.map(d=>advances.has(d.id)?{...d,side:advances.get(d.id).side==='RECEIVABLE'?'SUPPLIER_ADVANCE':'CUSTOMER_ADVANCE'}:d);
+  result.debtMovements=result.debtMovements.map(m=>advances.has(m.debtId)?{...m,advance:true,side:advances.get(m.debtId).side==='RECEIVABLE'?'PURCHASE':'SALES',amount:-m.amount}:m);
+
 
  }else{
   const [accounts,settlements,flows,events,obligations,allocations,parties,balances,entities,links,documents]=await Promise.all([
@@ -85,10 +90,10 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
  result.debts=result.debts.map(d=>{
   const origin=d.organizationId?'CORE':d.source==='PERSONAL_PAYABLE'?'PERSONAL_PAYABLE':'PERSONAL_RECEIVABLE';
   const saved=categoryMap.get(origin+':'+d.id),inferred=inferDebtCategory(scope,d.side,d.source,sourceDebtSides.get(d.id));
-  return {...d,category:saved??inferred,categoryInferred:!saved&&inferred!=='UNCLASSIFIED',categoryOrigin:['RECEIVABLE','PAYABLE'].includes(d.side)?origin:undefined};
+  return {...d,category:['SUPPLIER_ADVANCE','CUSTOMER_ADVANCE'].includes(d.side)?d.side:saved??inferred,categoryInferred:!saved&&inferred!=='UNCLASSIFIED',categoryOrigin:['RECEIVABLE','PAYABLE'].includes(d.side)?origin:undefined};
  });
  const classifiedDebts=new Map(result.debts.map(d=>[d.id,d]));
- result.debtMovements=result.debtMovements.map(m=>{const origin=scope==='ORGANIZATION'?'CORE':m.side==='SALES'?'PERSONAL_RECEIVABLE':'PERSONAL_PAYABLE';return {...m,source:scope==='PERSONAL'?(m.side==='SALES'?'PERSONAL_ASSETS':'PERSONAL_PAYABLE'):m.source,category:categoryMap.get(origin+':'+m.debtId)??classifiedDebts.get(m.debtId??'')?.category??'UNCLASSIFIED'};});
+ result.debtMovements=result.debtMovements.map(m=>{const origin=scope==='ORGANIZATION'?'CORE':m.side==='SALES'?'PERSONAL_RECEIVABLE':'PERSONAL_PAYABLE';return {...m,source:scope==='PERSONAL'?(m.side==='SALES'?'PERSONAL_ASSETS':'PERSONAL_PAYABLE'):m.source,category:m.advance?(m.side==='SALES'?'CUSTOMER_ADVANCE':'SUPPLIER_ADVANCE'):categoryMap.get(origin+':'+m.debtId)??classifiedDebts.get(m.debtId??'')?.category??'UNCLASSIFIED'};});
  result.assets=assets.filter((a:any)=>isRecognizedAsset(a)&&!['SOLD','DISPOSED','REDEEMED','CANCELLED'].includes(a.lifecycle_status)).filter((a:any)=>scope==='ORGANIZATION'||!['CASH','BANK','RECEIVABLE'].includes(a.asset_type)).map((a:any)=>({id:a.id,name:a.name,type:a.asset_type,currency:a.current_value_currency,cost:Number(a.current_cost_value),market:Number(a.current_market_value),organizationId:a.organization_id??null,entityId:a.entity_id??null,category:['CASH','BANK'].includes(a.asset_type)?'LEGACY_CASH':a.asset_type==='RECEIVABLE'?'LEGACY_RECEIVABLE':a.metadata?.investment_id||a.asset_class_code==='INVESTMENT'||a.asset_type==='STOCK'?'INVESTMENT':'ASSET',source:a.metadata?.investment_id?'INVESTMENTS':'ASSETS'}));
  if(result.assets.some(a=>a.category.startsWith('LEGACY_')&&(a.cost||a.market)))result.warnings.push('LEGACY_FINANCIAL_ASSETS_NOT_DOUBLED');
  return result;

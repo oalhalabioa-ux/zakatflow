@@ -14,7 +14,7 @@ describe('workspace scope routing',()=>{
   for(const path of ['debt-report','financial-position','assets','investments','reports'])expect(currentWorkspaceScope(path,'')).toBe('PERSONAL');
   expect(currentWorkspaceScope('payables','')).toBe('ORGANIZATION');
  });
- it('routes modules without a scope filter to the scoped dashboard',()=>expect(workspaceScopeHref('ar','loans','organization=x','PERSONAL')).toBe('/ar/dashboard?scope=PERSONAL'));
+ it('routes modules without a scope filter to the scoped dashboard',()=>expect(workspaceScopeHref('ar','budget-planning','organization=x','PERSONAL')).toBe('/ar/dashboard?scope=PERSONAL'));
  it('finds Arabic labels despite diacritics and alef variants',()=>{
   expect(searchNavigation('إِسْتِثْمَارات').map(x=>x[0])).toContain('investments');
   expect(searchNavigation('إيرادات').map(x=>x[0])).toContain('vat?section=reports');
