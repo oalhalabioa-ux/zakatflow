@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {currentWorkspaceScope,workspaceScopeHref,navigationHref,searchNavigation} from './topbar-navigation';
 describe('workspace scope routing',()=>{
  it('keeps each dual-scope module on its own page and preserves unrelated filters',()=>{
-  for(const path of ['dashboard','assets','investments','reports','cash-and-banks','receivables','payables','debt-report','financial-position']){
+  for(const path of ['dashboard','assets','assets/dashboard','investments','reports','cash-and-banks','receivables','payables','debt-report','financial-position']){
    const href=workspaceScopeHref('ar',path,'scope=PERSONAL&tab=movements&organization=org','ORGANIZATION');
    expect(href).toBe('/ar/'+path+'?scope=ORGANIZATION&tab=movements&organization=org');
    expect(currentWorkspaceScope(path,'scope=ORGANIZATION')).toBe('ORGANIZATION');

@@ -3,7 +3,7 @@ import {updateClientWorkspaceScope} from './workspace-scope-client';
 afterEach(()=>vi.unstubAllGlobals());
 function browser(path:string,search=''){const value={location:{pathname:'/ar/'+path,search},history:{pushState:vi.fn(),replaceState:vi.fn()},dispatchEvent:vi.fn()};vi.stubGlobal('window',value);return value;}
 it('changes every client-owned scope through history and the filter event',()=>{
- for(const path of ['assets','investments','reports','cash-and-banks','receivables','payables','debt-report','financial-position']){
+ for(const path of ['assets','assets/dashboard','investments','reports','cash-and-banks','receivables','payables','debt-report','financial-position']){
   const b=browser(path,'?scope=PERSONAL&tab=statement');expect(updateClientWorkspaceScope('ORGANIZATION')).toBe(true);
   expect(b.history.pushState).toHaveBeenCalledWith(null,'','/ar/'+path+'?scope=ORGANIZATION&tab=statement');
   const event=b.dispatchEvent.mock.calls[0][0] as CustomEvent;expect(event.type).toBe('zf-workspace-scope');expect(event.detail).toBe('ORGANIZATION');
