@@ -16,6 +16,13 @@ export async function debtContracts(org:string,kind?:'OPENING'|'LOAN'|'EMPLOYEE_
  const statuses=new Map(events.map(e=>[e.id,e.status])),installments=new Map<string,any[]>();for(const b of balances){const rows=installments.get(b.event_id)??[];rows.push(b);installments.set(b.event_id,rows)}
  return {...catalog,contracts:contracts.map(c=>({...c,status:statuses.get(c.financial_event_id),installments:(installments.get(c.financial_event_id)??[]).sort((a,b)=>Number(a.obligation_key?.split(':')[1])-Number(b.obligation_key?.split(':')[1]))}))};}
 
+export async function debtContractsGroup(org:string,kind?:'OPENING'|'LOAN'|'EMPLOYEE_ADVANCE'){
+ const {supabase}=await ctx(org);const root=unwrap(await supabase.from('organizations').select('id,organization_kind').eq('id',org).single());
+ const children=root.organization_kind==='HOLDING'?unwrap(await supabase.from('organizations').select('id').eq('parent_organization_id',org)):[];
+ const results=await Promise.all([org,...children.map((o:any)=>o.id)].map(id=>debtContracts(id,kind)));
+ return {...results[0],parties:results.flatMap(r=>r.parties),accounts:results.flatMap(r=>r.accounts),entities:results.flatMap(r=>r.entities),contracts:results.flatMap(r=>r.contracts.map(c=>({...c,organization_id:r.organization.id,organization_name:r.organization.name,base_currency:r.organization.base_currency}))),group:true};
+}
+
 export async function debtContractAction(input:unknown){const h=z.object({action:z.enum(['CREATE','APPROVE','POST','CANCEL']),organization_id:z.string().uuid()}).passthrough().parse(input);const {supabase}=await ctx(h.organization_id);
  if(h.action==='CREATE'){const {action,...payload}=h;const p=debtContractSchema.parse(payload);return unwrap(await supabase.rpc('create_debt_contract',{p_payload:p}));}
  const p=z.object({action:z.enum(['APPROVE','POST','CANCEL']),organization_id:z.string().uuid(),id:z.string().uuid(),reason:z.string().trim().min(3).max(500)}).strict().parse(input);
