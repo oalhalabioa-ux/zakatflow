@@ -967,7 +967,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                 {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
               </select>
             </label><TopbarCompanyLevel ar={ar} checked={reportScope==='GROUP'} groupDisabled={!hasBranches} onChange={value=>setReportScope(value?'GROUP':'COMPANY')}/></TopbarOrganizationControls>
-              <div className="vat-report-draft-control"><label><input className="vat-draft-switch" type="checkbox" role="switch" checked={includeDrafts} onChange={event => setIncludeDrafts(event.target.checked)} /><InvoiceIcon name={includeDrafts ? 'unlock' : 'lock'} />{ar ? 'تضمين المسودات في التقرير' : 'Include drafts in report'}</label><small>{includeDrafts ? (ar ? 'عرض مراجعة لتفاصيل الفواتير؛ يستبعد الملخصات اليدوية ولا يغيّر الإقرار المحفوظ.' : 'Invoice-detail review; excludes manual summaries and does not change the saved return.') : (ar ? 'المبيعات الصادرة وفواتير الموردين المسجلة؛ مع الملخصات المحفوظة إن وجدت.' : 'Issued sales and recorded supplier invoices; saved summaries are used where available.')}</small></div>
+
             <div className="vat-report-filter vat-report-period-filter">
               <span className="vat-filter-label">{ar ? 'الفترة الضريبية' : 'Tax period'}</span>
               <div className="vat-report-period-controls">
@@ -986,7 +986,9 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                 </select></label>
               </div>
             </div>
+            <div className="vat-report-draft-control"><span className="vat-filter-label">{ar ? 'خيارات التقرير' : 'Report options'}</span><label><input className="vat-draft-switch" type="checkbox" role="switch" checked={includeDrafts} onChange={event => setIncludeDrafts(event.target.checked)} /><InvoiceIcon name={includeDrafts ? 'unlock' : 'lock'} />{ar ? 'تضمين المسودات' : 'Include drafts'}</label></div>
           </section>
+          <p className="vat-report-filter-note" role="status">{includeDrafts ? (ar ? 'عرض مراجعة لتفاصيل الفواتير؛ يستبعد الملخصات اليدوية ولا يغيّر الإقرار المحفوظ.' : 'Invoice-detail review; excludes manual summaries and does not change the saved return.') : (ar ? 'المبيعات الصادرة وفواتير الموردين المسجلة؛ مع الملخصات المحفوظة إن وجدت.' : 'Issued sales and recorded supplier invoices; saved summaries are used where available.')}</p>
 
 
 
