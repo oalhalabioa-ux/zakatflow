@@ -84,3 +84,7 @@
  .yqa-provider-row .yqa-microsoft{width:18px;height:18px;flex-shrink:0}
 }
 .yqa-card h2{text-align:start}
+@media(min-width:761px){
+ .yqa{grid-template-columns:minmax(0,1.06fr) minmax(0,1fr)}
+ .yqa-card{max-width:550px;padding-inline:28px}
+}
