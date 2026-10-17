@@ -9,6 +9,9 @@ import DashboardGraphic from '@/components/DashboardGraphic';
 import PlatformMiniChart from '@/components/PlatformMiniChart';
 import ZakatMetricsRefresh from '@/components/ZakatMetricsRefresh';
 import './platform-dashboard.css';
+import '../../yaqeen-dashboard.css';
+import YaqeenDashboard from '@/components/YaqeenDashboard';
+import {yaqeenDashboardModel} from '@/lib/yaqeen-dashboard-model';
 
 const fmt=(v:unknown)=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);
 const count=(v:number|null|undefined)=>v==null?'—':new Intl.NumberFormat('en-US').format(v);
@@ -61,6 +64,7 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
    <button className="btn platform-refresh" type="submit" aria-label={ar?'تحديث العرض':'Update view'} title={ar?'تحديث العرض':'Update view'}><span className="platform-refresh-text">{ar?'تحديث العرض':'Update view'}</span><svg className="platform-refresh-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M20 8a8 8 0 1 0 0 8M20 3v6h-6"/></svg></button>
   </form>}
 
+  <div className="yaqeen-only"><YaqeenDashboard model={yaqeenDashboardModel({assets,financial,personal,ar,locale})} ar={ar} locale={locale}/></div><div className="yaqeen-legacy-dashboard">
   <section className="platform-summary" aria-label={ar?'مؤشرات جميع الموديولات':'All module indicators'}>
    {(personal?[
     {kind:'assets' as const,label:ar?'القيمة الحالية للأصول':'Current asset value',value:money(assets?.totalCurrentSar,assetsKnown),note:ar?'الأصول الشخصية':'Personal assets',href:url('assets/dashboard')},
@@ -120,5 +124,5 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
    </Module></>}
   </div>
   {!personal&&<section className="card platform-administration"><div><h2>{ar?'إدارة المنصة':'Platform administration'}</h2><p>{ar?`${financial?.organizations.length??0} منشآت ضمن عضوياتك النشطة`:`${financial?.organizations.length??0} organizations with active membership`}</p></div><nav aria-label={ar?'إدارة المنصة':'Platform administration'}><Link href={url('organizations')}>{ar?'الهيكل المؤسسي':'Organizations'}</Link><Link href={url('users')}>{ar?'المستخدمون والصلاحيات':'Users & permissions'}</Link><Link href={url('account')}>{ar?'الإعدادات':'Settings'}</Link></nav></section>}
- </main>;
+ </div></main>;
 }
