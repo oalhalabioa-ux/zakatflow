@@ -83,3 +83,4 @@
  .yqa-provider-row .yqa-google{font-size:20px}
  .yqa-provider-row .yqa-microsoft{width:18px;height:18px;flex-shrink:0}
 }
+.yqa-card h2{text-align:start}
