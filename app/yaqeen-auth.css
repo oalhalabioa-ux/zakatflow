@@ -88,3 +88,4 @@
  .yqa{grid-template-columns:minmax(0,1.06fr) minmax(0,1fr)}
  .yqa-card{max-width:550px;padding-inline:28px}
 }
+@media(min-width:1151px){.yqa-card{transform:translateX(-6vw)}}
