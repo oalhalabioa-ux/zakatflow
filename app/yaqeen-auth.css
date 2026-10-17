@@ -89,3 +89,15 @@
  .yqa-card{max-width:550px;padding-inline:28px}
 }
 @media(min-width:1151px){.yqa-card{transform:translateX(-6vw)}}
+/* Source backdrop: clear opening x=768..1223 in a 1536×1024 image.
+   Follow the same cover scale as the photograph, rather than a viewport offset. */
+@media(min-width:1151px) and (min-height:740px){
+ .yqa-card{
+  position:absolute;
+  left:calc(50% + max(14.8112vw,22.2168svh));
+  top:50%;
+  width:calc(max(29.6224vw,44.4336svh) - 24px);
+  max-width:none;
+  transform:translate(-50%,-50%);
+ }
+}
