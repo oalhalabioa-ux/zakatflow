@@ -1,0 +1,3 @@
+'use client';
+import {useEffect,useRef,useState,type ReactNode} from 'react';
+export default function YaqeenMonitorFrame({children}:{children:ReactNode}){const stage=useRef<HTMLDivElement>(null);const[scale,setScale]=useState(.45);useEffect(()=>{if(!stage.current)return;const observer=new ResizeObserver(([entry])=>setScale(entry.contentRect.width/1536));observer.observe(stage.current);return()=>observer.disconnect();},[]);return <div className="ysb-frame-stage" ref={stage}><div className="ysb-frame-canvas" style={{transform:`scale(${scale})`}}><img src="/brand/yaqeen-monitor-b.webp" width="1536" height="1024" alt="" className="ysb-frame-photo"/><div className="ysb-frame-screen">{children}</div></div></div>}
