@@ -1,83 +1,18 @@
 import Link from 'next/link';
-
-const features = [
-  { icon: '↺', title: 'سجل مالي موثوق', description: 'كل حركة محفوظة وقابلة للتتبع، مع المعالجة العكسية بدل حذف التاريخ المالي.' },
-  { icon: '◎', title: 'احتساب قابل للتفسير', description: 'اعرف كيف وصل النظام إلى الزكاة المستحقة، من الأصل إلى الدفعة والمعاملة.' },
-  { icon: '✓', title: 'مراجعة واعتماد', description: 'مسار واضح للمراجعة المحاسبية والشرعية قبل اعتماد النتيجة وتسجيل الدفع.' },
-];
-
-const steps = [
-  ['01', 'سجّل الأصول', 'ذهب، نقد، استثمارات وأصول تجارية في سجل واحد.'],
-  ['02', 'تابع الحول والقيمة', 'المنصة تتابع تواريخ التملك والأسعار وقواعد الأهلية.'],
-  ['03', 'راجع واعتمد', 'نتيجة مفهومة وتقارير جاهزة للمراجعة والدفع.'],
-];
-
-export default function Home() {
-  return (
-    <main className="landing" dir="rtl">
-      <header className="landing-nav">
-        <Link className="landing-brand" href="/">
-          <span className="brand-mark">ز</span>
-          <span>ZakatFlow<small>إدارة الزكاة بوضوح</small></span>
-        </Link>
-        <nav aria-label="التنقل الرئيسي">
-          <a href="#features">المزايا</a><a href="#how-it-works">كيف تعمل؟</a><Link href="/ar/guide">دليل الاستخدام</Link>
-        </nav>
-        <div className="landing-nav-actions">
-          <Link className="landing-login" href="/ar/login">تسجيل الدخول</Link>
-          <Link className="btn landing-nav-cta" href="/ar/dashboard">فتح المنصة</Link>
-        </div>
-      </header>
-
-      <section className="landing-hero">
-        <div className="hero-copy">
-          <span className="eyebrow"><i /> منصة متكاملة لإدارة الزكاة</span>
-          <h1>زكاتك محسوبة.<br /><em>موثّقة ومفهومة.</em></h1>
-          <p>من تسجيل الأصول والمعاملات إلى احتساب الحول والنصاب والمراجعة والدفع؛ يمنحك ZakatFlow سجلاً واحداً دقيقاً وقابلاً للتدقيق.</p>
-          <div className="hero-actions">
-            <Link className="btn landing-primary" href="/ar/dashboard">ابدأ إدارة الزكاة <span>←</span></Link>
-            <Link className="btn landing-secondary" href="/ar/assessments">جرّب الاحتساب</Link>
-          </div>
-          <div className="trust-row"><span>✓ سجل مالي متكامل</span><span>✓ عربي وإنجليزي</span><span>✓ للأفراد والمؤسسات</span></div>
-        </div>
-
-        <div className="hero-product" aria-label="معاينة لوحة ZakatFlow">
-          <div className="product-glow" />
-          <div className="product-window">
-            <div className="product-head"><div><span className="mini-mark">ز</span><b>ZakatFlow</b></div><span className="window-pill">الحول الحالي</span></div>
-            <div className="product-body">
-              <div className="product-title"><span><small>نظرة عامة</small><strong>ملخص الزكاة</strong></span><span className="period">1447 هـ</span></div>
-              <div className="hero-metrics">
-                <div><small>قيمة الأصول</small><strong>1,248,500</strong><span>ريال سعودي</span></div>
-                <div className="due"><small>الزكاة المستحقة</small><strong>31,212.50</strong><span>تم الاحتساب بنجاح</span></div>
-              </div>
-              <div className="allocation-card">
-                <div className="allocation-head"><b>توزيع الوعاء الزكوي</b><span>عرض التقرير</span></div>
-                <div className="bar-row"><span>النقد والسيولة</span><i><b style={{width: '82%'}} /></i><strong>48%</strong></div>
-                <div className="bar-row"><span>الذهب والمعادن</span><i><b style={{width: '58%'}} /></i><strong>31%</strong></div>
-                <div className="bar-row"><span>الاستثمارات</span><i><b style={{width: '39%'}} /></i><strong>21%</strong></div>
-              </div>
-              <div className="product-status"><span><i /> جميع البيانات محدّثة</span><b>آخر تحديث: اليوم</b></div>
-            </div>
-          </div>
-          <div className="verified-card"><span>✓</span><div><b>الاحتساب مكتمل</b><small>النتيجة جاهزة للمراجعة</small></div></div>
-        </div>
-      </section>
-
-      <section className="landing-strip" aria-label="قيم المنصة"><span><b>01</b> الدقة والشفافية</span><span><b>02</b> سجل قابل للتدقيق</span><span><b>03</b> مراجعة محاسبية وشرعية</span><span><b>04</b> كيانات متعددة</span></section>
-
-      <section className="landing-section" id="features">
-        <div className="section-heading"><span className="eyebrow"><i /> مصممة للثقة</span><h2>كل ما تحتاجه لإدارة الزكاة<br />في مكان واحد</h2><p>أدوات عملية تحول البيانات المالية إلى نتيجة واضحة يمكن مراجعتها والاعتماد عليها.</p></div>
-        <div className="landing-features">{features.map((feature) => <article className="landing-feature" key={feature.title}><span className="feature-icon">{feature.icon}</span><h3>{feature.title}</h3><p>{feature.description}</p><span className="feature-link">اعرف المزيد ←</span></article>)}</div>
-      </section>
-
-      <section className="landing-section process-section" id="how-it-works">
-        <div className="section-heading compact"><span className="eyebrow"><i /> رحلة واضحة</span><h2>من الأصل إلى الزكاة المستحقة</h2></div>
-        <div className="process-grid">{steps.map(([number, title, description]) => <article className="process-step" key={number}><span>{number}</span><div><h3>{title}</h3><p>{description}</p></div></article>)}</div>
-      </section>
-
-      <section className="landing-cta"><div><span>ابدأ اليوم</span><h2>حوّل إدارة الزكاة إلى عملية<br />منظمة وواضحة.</h2></div><Link className="btn cta-button" href="/ar/dashboard">فتح ZakatFlow <span>←</span></Link></section>
-      <footer className="landing-footer"><div className="landing-brand"><span className="brand-mark">ز</span><span>ZakatFlow<small>إدارة الزكاة بوضوح</small></span></div><p>منصة لإدارة الزكاة بسجل مالي قابل للمراجعة ونتائج قابلة للتفسير.</p><span>© 2026 ZakatFlow</span></footer>
-    </main>
-  );
+import YaqeenBrand from '../components/YaqeenBrand';
+import YaqeenPreview from '../components/YaqeenPreview';
+import {ActionIconGlyph,type ActionIcon} from '../components/ActionButton';
+import './yaqeen-website.css';
+const modules:Array<[string,string,string,string,ActionIcon]>=[['الإدارة المالية','Financial operations','الذمم والسلف والقروض، وسجل العمليات والاعتماد.','Receivables, payables, advances, loans and approval workflows.','bank'],['السيولة والتدفقات','Cash & liquidity','نظرة على النقد والاستحقاقات، وتوقعات التدفق والتحويلات.','Cash positions, due dates, forecasts and account transfers.','trend'],['التخطيط والموازنات','Planning & budgets','موازنات شهرية وخطط وتوقعات ومقارنة الأداء الفعلي.','Monthly budgets, plans, forecasts and actual performance.','history'],['الأصول والاستثمارات','Assets & investments','سجل الأصول وعملياتها، والودائع والسندات والصكوك.','Asset registers and operations, deposits, bonds and sukuk.','investment'],['الزكاة','Zakat','تقييم الأصول ومتابعة الحول والاحتساب والدفعات.','Asset valuation, holding periods, assessments and payments.','certificate'],['الضريبة والفوترة','Tax & invoicing','فواتير المبيعات والمشتريات، والضريبة والتقارير.','Sales and purchase invoices, VAT and financial reports.','receipt'],['التقارير والتحليلات','Reports & insights','أرصدة واستحقاقات وتقارير قابلة للتصفية والتصدير.','Filterable balances, maturities and exportable reports.','details'],['الشركات والفروع','Companies & branches','نطاق الشركة وفروعها، ومراكز التكلفة والصلاحيات.','Company and subsidiary scope, cost centers and permissions.','users']];
+export async function generateMetadata({searchParams}:{searchParams:Promise<{lang?:string}>}){const en=(await searchParams).lang==='en';return {title:en?'Yaqeen Business — Clarity for your business':'يقين الأعمال — أعمالك بوضوح. قراراتك بيقين.',description:en?'Smart finance and business: liquidity, budgets, assets, zakat, invoicing and financial reports.':'منصة الإدارة المالية والأعمال الذكية: السيولة والموازنات والأصول والزكاة والفوترة والتقارير.',openGraph:{siteName:'YAQEEN BUSINESS',type:'website'}};}
+export default async function Home({searchParams}:{searchParams:Promise<{lang?:string}>}){
+ const ar=(await searchParams).lang!=='en',locale=ar?'ar':'en',login=`/${locale}/login`;
+ return <main className="yq-site" dir={ar?'rtl':'ltr'} lang={locale}><a className="yq-skip" href="#main-content">{ar?'انتقل إلى المحتوى':'Skip to content'}</a><header className="yq-nav"><Link href={ar?'/':'/?lang=en'} aria-label={ar?'يقين الأعمال الرئيسية':'Yaqeen Business home'}><YaqeenBrand/></Link><nav aria-label={ar?'التنقل الرئيسي':'Main navigation'}><a href="#features">{ar?'المميزات':'Features'}</a><a href="#solutions">{ar?'حلول الأعمال':'Solutions'}</a><a href="#modules">{ar?'الموديولات':'Modules'}</a><a href="#sectors">{ar?'القطاعات':'Sectors'}</a></nav><div className="yq-nav-actions"><Link className="yq-language" href={ar?'/?lang=en':'/'} lang={ar?'en':'ar'}>{ar?'EN':'العربية'}</Link><Link className="yq-login" href={login}>{ar?'تسجيل الدخول':'Sign in'}</Link><Link className="yq-button" href={login}>{ar?'ابدأ الآن':'Get started'} <span aria-hidden="true">↗</span></Link></div></header>
+ <section className="yq-hero" id="main-content"><div className="yq-hero-copy"><span className="yq-eyebrow">{ar?'يقين الأعمال · YAQEEN BUSINESS':'YAQEEN BUSINESS'}</span><h1>{ar?'أعمالك بوضوح.':'Clarity for your business.'}<br/><em>{ar?'قراراتك بيقين.':'Confidence in every decision.'}</em></h1><p>{ar?'منصة الإدارة المالية والأعمال الذكية. اجمع السيولة والموازنات والأصول والزكاة والفواتير والتقارير في مساحة واحدة، وافهم الصورة المالية قبل اتخاذ القرار.':'The smart finance and business platform. Bring liquidity, budgets, assets, zakat, invoicing and reporting into one workspace—and understand your financial picture before you decide.'}</p><div className="yq-actions"><Link className="yq-button" href={login}>{ar?'ابدأ رحلتك':'Start your journey'} <span aria-hidden="true">↗</span></Link><a className="yq-button yq-outline" href="#dashboard">{ar?'استكشف المنصة':'Explore the platform'} <span aria-hidden="true">↓</span></a></div><ul className="yq-hero-points">{(ar?['شخصي ومؤسسي','شركات وفروع','عربي وEnglish']:['Personal & business','Companies & subsidiaries','Arabic & English']).map(t=><li key={t}>{t}</li>)}</ul></div><div className="yq-hero-visual"><div className="yq-orbit"/><YaqeenPreview ar={ar}/><div className="yq-mobile-preview"><small>{ar?'السيولة المتاحة':'Available cash'}</small><strong dir="ltr">470,000</strong><span>SAR · {ar?'بيانات توضيحية':'Sample data'}</span><div className="yq-mini-bars">{[30,50,38,65,55,80,72].map((v,i)=><i key={i} style={{height:v+'%'}}/>)}</div></div><p className="yq-preview-note">{ar?'تصور توضيحي للواجهة — الأرقام أمثلة وليست بيانات عملاء.':'Illustrative interface — figures are examples, never customer data.'}</p></div></section>
+ <section className="yq-section" id="modules"><div className="yq-section-heading"><span className="yq-eyebrow">{ar?'من التفاصيل إلى الصورة الكاملة':'From details to the bigger picture'}</span><h2>{ar?'أدوات مترابطة. رؤية أوضح.':'Connected tools. A clearer view.'}</h2><p>{ar?'ابدأ بما تحتاجه اليوم، وانتقل بين الوحدات ضمن سياق مالي واحد.':'Start with what you need today and move between modules in one financial context.'}</p></div><div className="yq-modules">{modules.map(([a,e,ad,ed,icon],i)=><article key={e}><span className="yq-module-icon"><ActionIconGlyph name={icon}/></span><small>{String(i+1).padStart(2,'0')}</small><h3>{ar?a:e}</h3><p>{ar?ad:ed}</p><span className="yq-available">{ar?'متاح في المنصة':'Available in the platform'}</span></article>)}</div><p className="yq-capability-note">{ar?'الربط الخارجي للفوترة يتطلب إعداد المنشأة والخدمة؛ وجود الوحدة لا يعني اعتمادًا تنظيميًا أو تكاملًا مفعّلًا تلقائيًا.':'External e-invoicing connections require organization and service setup; module availability does not imply regulatory certification or an automatically active integration.'}</p></section>
+ <section className="yq-dashboard-section" id="dashboard"><div className="yq-section-heading"><span className="yq-eyebrow">{ar?'مساحة واحدة للمتابعة':'One workspace to follow through'}</span><h2>{ar?'الأرقام أمامك. والسياق معها.':'The numbers—and the context behind them.'}</h2><p>{ar?'انتقل من المؤشر إلى الوحدة المختصة، وتابع الأرصدة والاستحقاقات والموازنات دون فقدان نطاق الشركة.':'Move from an indicator to its module and follow balances, maturities and budgets while retaining company context.'}</p></div><YaqeenPreview ar={ar}/><div className="yq-dashboard-caption"><b>{ar?'معاينة توضيحية':'Illustrative preview'}</b><span>{ar?'المؤشرات الفعلية تتحدد حسب بياناتك وصلاحياتك والنطاق المختار.':'Live indicators depend on your data, permissions and selected scope.'}</span></div></section>
+ <section className="yq-section yq-solutions" id="solutions"><div><span className="yq-eyebrow">{ar?'تنظيم يناسب طريقة عملك':'Organization that fits how you work'}</span><h2>{ar?'من حسابك الشخصي إلى مجموعتك.':'From your own finances to your group.'}</h2><p>{ar?'اختر النطاق المناسب، ثم اعمل على البيانات التي تخصه بوضوح.':'Choose your scope, then work with its relevant data clearly.'}</p></div><div>{(ar?[['للأفراد','أصولك واستثماراتك وزكاتك والتزاماتك في مكان واحد.'],['للمنشآت','تابع السيولة والذمم والفواتير والموازنات ضمن الشركة.'],['للمجموعات والفروع','عرض الشركة أو الشركة وفروعها، مع صلاحيات لكل منشأة.']]:[['For individuals','Assets, investments, zakat and obligations in one place.'],['For companies','Liquidity, balances, invoices and budgets within the company.'],['For groups & subsidiaries','Company or consolidated scope, with organization-level permissions.']]).map(([t,d],i)=><article key={t}><span>0{i+1}</span><div><h3>{t}</h3><p>{d}</p></div></article>)}</div></section>
+ <section className="yq-feature-band" id="features"><div className="yq-section-heading"><span className="yq-eyebrow">{ar?'وضوح يساعدك على الإنجاز':'Clarity that helps you act'}</span><h2>{ar?'صُممت للعمل اليومي والقرار المالي.':'Built for daily work and financial decisions.'}</h2></div><div className="yq-features">{(ar?[['سجل قابل للتتبع','اعرف مصدر الحركة وحالتها والتسويات المرتبطة بها.'],['تقارير مرنة','فلاتر وتصدير حيث تدعمه الوحدة، مع فصل العملات والنطاقات.'],['صلاحيات واضحة','عرض وإجراءات مرتبطة بصلاحيات المستخدم والمنشأة.'],['واجهة تتكيف معك','العربية والإنجليزية وأربعة تصاميم، مع دعم الشاشات الصغيرة.']]:[['Traceable records','Follow the source, state and linked settlements of a transaction.'],['Flexible reporting','Filters and supported exports, with separate currencies and scopes.'],['Explicit permissions','Views and actions follow user and organization permissions.'],['An interface that adapts','Arabic, English and four themes, with small-screen layouts.']]).map(([t,d],i)=><article key={t}><ActionIconGlyph name={(['history','details','users','investment'] as ActionIcon[])[i]}/><h3>{t}</h3><p>{d}</p></article>)}</div></section>
+ <section className="yq-section" id="sectors"><div className="yq-section-heading"><span className="yq-eyebrow">{ar?'حلول مالية مشتركة':'Shared financial needs'}</span><h2>{ar?'أنشطة مختلفة. انضباط مالي واحد.':'Different activities. One financial discipline.'}</h2><p>{ar?'استخدامات للمتابعة المالية والموازنات والأصول، دون ادعاء نظام تشغيلي متخصص لكل قطاع.':'Use cases for financial monitoring, budgeting and assets—not a specialized operational system for every sector.'}</p></div><div className="yq-sectors">{(ar?['الخدمات المهنية','العقارات والاستثمارات','التجارة','المجموعات متعددة الأنشطة']:['Professional services','Property & investments','Trading','Diversified groups']).map((t,i)=><article key={t}><span>0{i+1}</span><h3>{t}</h3><ActionIconGlyph name={(['bank','investment','receipt','users'] as ActionIcon[])[i]}/></article>)}</div></section>
+ <section className="yq-final"><span className="yq-eyebrow">YAQEEN BUSINESS</span><h2>{ar?'ابدأ بصورة مالية أكثر وضوحًا.':'Start with a clearer financial picture.'}</h2><p>{ar?'سجّل الدخول أو أنشئ حسابك عبر خيارات الدخول المتاحة.':'Sign in or create an account through the available sign-in options.'}</p><Link className="yq-button" href={login}>{ar?'ابدأ الآن':'Get started'} <span aria-hidden="true">↗</span></Link></section><footer className="yq-footer"><div><YaqeenBrand/><p>{ar?'منصة الإدارة المالية والأعمال الذكية':'Smart Finance & Business Platform'}</p></div><nav aria-label={ar?'روابط المنصة':'Platform links'}><a href="#modules">{ar?'الموديولات':'Modules'}</a><a href="#solutions">{ar?'حلول الأعمال':'Solutions'}</a><Link href={`/${locale}/guide`}>{ar?'الدليل والمساعدة':'Guide & help'}</Link><Link href={login}>{ar?'الدخول وإنشاء حساب':'Sign in & account creation'}</Link></nav><div><b>{ar?'أعمالك بوضوح. قراراتك بيقين.':'Clarity in business. Confidence in decisions.'}</b><p>© 2026 YAQEEN BUSINESS</p><Link href={ar?'/?lang=en':'/'}>{ar?'English':'العربية'}</Link></div></footer></main>;
 }
