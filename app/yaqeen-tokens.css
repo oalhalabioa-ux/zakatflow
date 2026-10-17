@@ -1,0 +1,17 @@
+/* Official Yaqeen Business palette. All modules inherit these exact tokens.
+   Keep declarations scoped: Classic, Modern and Elegant retain their palettes. */
+.theme-yaqeen-business{
+ --yq-primary-navy:#0F2D4A;
+ --yq-secondary-navy:#24496A;
+ --yq-royal-gold:#BD8B3C;
+ --yq-deep-green:#176346;
+ --yq-light-gold:#EAD7B4;
+ --yq-light-green:#E6F2EA;
+ --yq-page-background:#F8F9FB;
+ --yq-card:#FFFFFF;
+ --yq-border:#E4EAF0;
+ /* Destructive/error status only; inherits the application's established red. */
+ --yq-danger:var(--corp-red);
+ --yq-shadow:0 4px 18px rgb(15 45 74 / 4%);
+ --yq-shadow-dialog:0 20px 60px rgb(15 45 74 / 15%);
+}
