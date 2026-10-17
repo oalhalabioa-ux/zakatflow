@@ -38,7 +38,7 @@
 .yqd-donut>div{background:var(--yq-card);border-radius:50%;width:110px;height:110px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;text-align:center}
 .yqd-donut strong{font-size:14px;font-variant-numeric:tabular-nums;direction:ltr;color:var(--yq-primary-navy)}
 .yqd-donut small{font-size:10px;color:var(--yq-secondary-navy)}
-.yqd-allocation ul{list-style:none;margin:0;padding:0;min-width:120px;flex:1;direction:rtl}
+.yqd-allocation ul{list-style:none;margin:0;padding:0;min-width:120px;max-width:260px;flex:1;direction:rtl}
 .yqd-allocation li{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--yq-secondary-navy);margin:10px 0}
 .yqd-allocation li b{margin-inline-start:auto;font-weight:700;color:var(--yq-primary-navy)}
 .yqd-bottom{display:grid;grid-template-columns:1fr 1.1fr .9fr;direction:ltr;gap:16px}

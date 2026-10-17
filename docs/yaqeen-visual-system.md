@@ -16,6 +16,6 @@ Approved by the user on 2026-10-17. The source of truth is `app/yaqeen-tokens.cs
 
 Visual balance is an approximate composition target: 70% light surfaces, 20% navy, 7% gold, 3% green/status colors. Financial figures stay navy, including gains; positive meaning may appear in the corresponding icon or state badge. Green is never used as a generic allocation category, for an unpaid invoice or solely because a budget value exists.
 
-Chart series and allocations consume CSS token references from `lib/yaqeen-dashboard-presentation.ts`. Income/inflows are navy and spending/outflows are gold. Budget favorability requires a known direction (higher for revenue, lower for spending); unavailable or unknown values stay neutral. Existing destructive/error red is reserved for negative/error states.
+Chart series and allocations consume CSS token references from `lib/yaqeen-dashboard-presentation.ts`. Income/inflows are navy and spending/outflows are gold. Budget favorability requires a known direction (higher for revenue, lower for spending); unavailable or unknown values stay neutral. Existing application dark red (#B42318) is reserved for negative/error states; it is not a brand accent.
 
 Keep dashboards responsive with 6 KPI columns on wide screens, 3 on medium screens and 2 on mobile, retaining readable card content.
