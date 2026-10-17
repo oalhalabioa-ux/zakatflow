@@ -89,19 +89,6 @@
  .yqa-card{max-width:550px;padding-inline:28px}
 }
 @media(min-width:1151px){.yqa-card{transform:translateX(-6vw)}}
-/* Source backdrop: clear opening x=768..1223 in a 1536×1024 image.
-   Follow the same cover scale as the photograph, rather than a viewport offset. */
-@media(min-width:1151px) and (min-height:740px){
- .yqa-card{
-  position:absolute;
-  left:calc(50% + max(14.8112vw,22.2168svh));
-  top:50%;
-  width:clamp(420px,max(36vw,54svh),590px);
-  max-width:none;
-  transform:translate(-50%,-50%);
- }
-}
-
 /* Login palette and viewport-fit rules, matched to the approved reference. */
 .yqa{
  color:#f7f4ed;
@@ -141,49 +128,50 @@
 }
 .yqa-card .yqa-footnote{color:#596577}
 
-@media(min-width:1151px) and (min-height:560px){
- .yqa-card{
-  max-height:calc(100svh - 32px);
-  overflow-y:auto;
-  overscroll-behavior:contain;
-  scrollbar-width:thin;
-  scrollbar-color:#d3c5aa transparent;
- }
+/* Crisp, consistently sized SVG icons; preserve the existing composition. */
+.yqa .yqa-icon{display:block;flex-shrink:0;width:17px;height:17px}
+.yqa-languages a{display:inline-flex;align-items:center;gap:8px}
+.yqa .yqa-languages .yqa-icon{width:16px;height:16px}
+.yqa .yqa-pillars .yqa-icon{width:30px;height:30px}
+.yqa-input>.yqa-icon{color:#536173;order:-1}
+.yqa-input button{display:grid;place-items:center;padding:8px;min-width:34px;min-height:34px}
+.yqa-tabs button{gap:8px}
+.yqa-submit .yqa-icon{width:18px;height:18px}
+.yqa-other{display:inline-flex;align-items:center;justify-content:center;gap:4px}
+.yqa .yqa-other .yqa-icon{width:14px;height:14px}
+.yqa-provider-row .yqa-google{font-size:20px;line-height:1}
+.yqa-provider-row .yqa-microsoft{width:17px;height:17px;flex-shrink:0}
+/* A taller, narrower card, centered within the same architectural opening.
+   Its width follows the background's cover scale (opening x=768..1223). */
+.yqa-card{max-height:none;overflow:visible;min-height:clamp(680px,88svh,940px);display:flex;flex-direction:column;justify-content:center;padding-block:clamp(24px,4svh,44px)}
+.yqa-card>.yaqeen-brand-art{align-self:center;flex-shrink:0}
+.yqa-card h2{margin-top:8px;margin-bottom:8px}
+.yqa-card>p{font-size:13px;line-height:1.8;margin-bottom:16px}
+.yqa-tabs{margin:20px 0}
+.yqa-tabs button{min-height:46px}
+.yqa-input{min-height:48px}
+.yqa-submit{min-height:48px}
+.yqa-or{margin:22px 0}
+.yqa .yqa-remember{margin:18px 0}
+.yqa-card .yqa-footnote{margin-top:18px}
+@media(min-width:1151px){
+ .yqa-card{position:relative;left:auto;top:auto;transform:none;max-width:500px;width:100%;justify-self:center}
 }
-@media(min-width:1151px) and (max-height:739px){
- .yqa-card{
-  position:absolute;
-  left:calc(50% + max(14.8112vw,22.2168svh));
-  top:50%;
-  width:clamp(420px,max(36vw,54svh),590px);
-  max-width:none;
-  transform:translate(-50%,-50%);
- }
- .yqa-card{padding:clamp(12px,2.2svh,20px) clamp(24px,2.1vw,32px)}
- .yqa-card>.yaqeen-brand-art{height:clamp(44px,8svh,66px);width:clamp(88px,10vw,132px)}
- .yqa-card h2{font-size:clamp(20px,3svh,24px);margin:1px 0 3px}
- .yqa-card>p{font-size:11px;line-height:1.45;margin-bottom:clamp(6px,1.3svh,10px)}
- .yqa-tabs{margin:clamp(6px,1.3svh,10px) 0;gap:8px}
- .yqa-tabs button{padding:6px 8px}
- .yqa form label{margin-bottom:clamp(5px,1svh,8px)}
- .yqa-input{min-height:38px;margin-top:4px}
- .yqa-input input{padding:7px 0!important}
- .yqa-submit{min-height:38px}
- .yqa-or{margin:clamp(5px,1.1svh,9px) 0}
- .yqa-provider-row{margin:4px 0}
- .yqa-provider-row .yqa-provider{min-height:36px}
- .yqa .yqa-remember{margin:clamp(4px,1svh,8px) 0;min-height:24px}
- .yqa-card .yqa-footnote{margin-top:5px;line-height:1.4}
+@media(min-width:1151px) and (min-height:740px){
+ .yqa{min-height:max(100svh,760px)}
+ .yqa-card{position:absolute;left:calc(50% + max(14.8112vw,22.2168svh));top:50%;width:clamp(370px,max(27vw,40.5svh),500px);max-width:none;transform:translate(-50%,-50%)}
 }
-@media(min-width:1151px) and (max-height:559px){
- .yqa-card{
-  max-height:calc(100svh - 20px);
-  overflow-y:auto;
-  overscroll-behavior:contain;
-  scrollbar-width:thin;
-  scrollbar-color:#d3c5aa transparent;
- }
+@media(min-width:761px) and (max-height:739px){
+ .yqa{align-items:start;padding-top:54px;padding-bottom:28px}
+ .yqa-card{min-height:680px;max-width:450px;width:100%;transform:none;position:static;justify-self:center;padding:28px 24px}
 }
-@media(max-width:1150px){
- .yqa-card{max-height:calc(100svh - 24px);overflow-y:auto;overscroll-behavior:contain}
+@media(min-width:761px) and (max-width:1150px){
+ .yqa-card{max-width:450px;padding-inline:24px}
+}
+@media(max-width:760px){
+ .yqa{padding:56px 14px 24px;align-items:start}
+ .yqa-card{width:100%;max-width:420px;min-height:clamp(680px,88svh,860px);padding:28px 20px;overflow:visible;max-height:none}
+ .yqa-card>.yaqeen-brand-art{width:130px;height:80px}
+ .yqa-tabs button{font-size:11px;gap:6px}
+ .yqa-card .yqa-footnote{margin-top:18px}
 }
