@@ -63,3 +63,23 @@
  .yqa-or{margin:8px 0}
  .yqa-tabs{margin:10px 0}
 }
+
+/* Give the card more breathing room; keep social sign-in in one row. */
+@media(min-width:761px){
+ .yqa{grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);padding-inline:8vw}
+ .yqa-card{max-width:590px;padding:24px 32px}
+ .yqa-card>.yaqeen-brand-art{width:145px;height:86px}
+ .yqa-tabs{margin:18px 0}
+ .yqa form label{margin-bottom:14px}
+ .yqa-or{margin:16px 0}
+}
+.yqa-provider-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:6px 0}
+.yqa-provider-row .yqa-provider{margin:0;gap:8px;min-width:0;min-height:44px;font-size:12px;padding:8px}
+.yqa-provider-row .yqa-provider-pending{opacity:.65}
+@media(max-width:760px){
+ .yqa-card{padding:20px 18px}
+ .yqa-provider-row{gap:8px}
+ .yqa-provider-row .yqa-provider{font-size:10px;gap:6px;padding:7px 4px}
+ .yqa-provider-row .yqa-google{font-size:20px}
+ .yqa-provider-row .yqa-microsoft{width:18px;height:18px;flex-shrink:0}
+}
