@@ -94,3 +94,5 @@
 .yq-reference-site .yq-final-b{background-image:linear-gradient(90deg,#071a2b08 0%,#071a2b30 35%,#071a2bbd 60%,#071a2bea 100%);background-color:#071a2b}
 .yq-reference-site .yq-final-b:after{content:'';position:absolute;inset:0;z-index:-2;background:url('/brand/yaqeen-hero-b-approved.webp') center 57%/cover;transform:scaleX(-1);pointer-events:none}
 @media(max-width:760px){.yq-reference-site .yq-final-b{background-image:linear-gradient(90deg,#071a2b66,#071a2bbd)}}
+.yq-reference-site .yq-final-b:before{background:linear-gradient(90deg,#071a2b08 0%,#071a2b30 35%,#071a2bbd 60%,#071a2bea 100%)}
+@media(max-width:760px){.yq-reference-site .yq-final-b:before{background:linear-gradient(90deg,#071a2b66,#071a2bbd)}}
