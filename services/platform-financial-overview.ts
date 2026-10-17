@@ -1,3 +1,4 @@
+import {yaqeenRecentAccountingDocuments} from '../lib/yaqeen-recent-documents';
 import {platformAssetSummary} from '@/lib/platform-asset-summary';
 import {listAssets} from './assets';
 import {platformOrganizationTree} from '@/lib/platform-organization-tree';
@@ -66,6 +67,8 @@ export async function getPlatformFinancialOverview(q:{organization?:string;plan?
   const assetBasis=q.asset_basis==='MARKET'?'MARKET':'BOOK';
   const organizationAssets=currencyKnown?platformAssetSummary(activeAssets??null,cash,assetBasis):null;
   return {modules,assetBasis,organizations,organizationTree,organization,organizationAssets,group,reportOrganizations,reportIds,currencyKnown,vatPeriodMismatch:vatReads.length>0&&vatReads.every(Boolean)&&!vat,plans:availablePlans.filter(p=>p.organization_name===organization?.name&&p.cost_center!=='ALL'),selectedPlan,month,today,budgetScope,year,years,scenario,budgetReadFailed,budgetSourceCount:sources.length,budgetApprovedSourceCount:sources.filter(p=>p.status==='APPROVED').length,missingBudgetCompanies,
+    // Presentation only: reuse the VAT documents already read under each organization permission.
+    recentDocuments:yaqeenRecentAccountingDocuments(vatReads),
     vat,
     cash:cash?platformLiquiditySummary(cash,today):null,
     budget};
