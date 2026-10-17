@@ -48,3 +48,20 @@
 .yq-site[lang="en"] .ysb-copy{direction:ltr;text-align:left}
 .yq-site[lang="en"] .ysb-copy>h2{font-size:clamp(24px,2.25vw,35px)!important;white-space:normal}
 .yq-site[lang="en"] .ysb-benefits>div{flex-direction:row;text-align:left}
+/* B palette: deeper charcoal navy, crisp data and restrained champagne gold. */
+.ysb-frame-screen .ysb-app{background:#0a1b29;color:#edf3f7}
+.ysb-frame-screen .ysb-app aside{background:linear-gradient(135deg,#112b3d,#091e2e);color:#c6d3dd;border-right:1px solid #38505e88}
+.ysb-frame-screen .ysb-app aside .active{background:linear-gradient(110deg,#e0bc7b,#be914b);color:#102536;box-shadow:0 3px 10px #0003}
+.ysb-frame-screen .ysb-app-main>header>div{background:#1a3345;color:#bccad4;border:1px solid #314c5d}
+.ysb-frame-screen .ysb-app-main>header,.ysb-frame-screen .ysb-app-main>header>b{color:#c1d0da}
+.ysb-frame-screen .ysb-kpis>div{background:linear-gradient(125deg,#1b3447,#142b3d);border-color:#334d5d;box-shadow:0 5px 12px #0002}
+.ysb-frame-screen .ysb-kpis small{color:#d1dde5}.ysb-frame-screen .ysb-kpis strong{color:#fff;text-shadow:0 1px 2px #0004}.ysb-frame-screen .ysb-kpis span{color:#9bbba7}
+.ysb-frame-screen .ysb-app section{background:linear-gradient(135deg,#162d3f,#102637);border-color:#314b5b;box-shadow:0 5px 14px #0002}
+.ysb-frame-screen .ysb-app h4{color:#f1f5f8}.ysb-frame-screen .ysb-allocation li{color:#c5d4df}.ysb-frame-screen .ysb-allocation li b{color:#dbe5ed}
+.ysb-frame-screen .ysb-donut{background:conic-gradient(#d4aa65 0 45%,#7393a5 45% 70%,#c4ced5 70% 90%,#415b6d 90%);box-shadow:0 4px 12px #0002}
+.ysb-frame-screen .ysb-donut b{background:#142b3d;color:#f2f6f9}
+.ysb-frame-screen .ysb-bars{background:repeating-linear-gradient(to top,#91a5b51c 0 1px,transparent 1px 37px);border-color:#738c9d66}
+.ysb-frame-screen .ysb-bars b{background:linear-gradient(#f0d39a,#c89b54 80%);box-shadow:0 0 5px #e0b76b12}.ysb-frame-screen .ysb-bars i{background:linear-gradient(#6d8798,#3b5669)}
+.ysb-frame-screen .ysb-chart-legend,.ysb-frame-screen .ysb-months{color:#bccdd9}
+.ysb-frame-screen .ysb-table table{color:#d5e0e8}.ysb-frame-screen .ysb-table th{color:#b3c6d3;border-color:#4b627266}.ysb-frame-screen .ysb-table td{border-color:#405b6d44}
+.ysb-frame-screen .ysb-table td>span{color:#bddbc7;background:#315f493d;border:1px solid #7ca18d33}.ysb-frame-screen .ysb-table td>span.pending{color:#e4c78e;background:#86682d38;border-color:#c49d5c33}
