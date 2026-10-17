@@ -1,0 +1,4 @@
+import {expect,it} from 'vitest';
+import {invoiceTone,budgetTone} from './yaqeen-dashboard-presentation';
+it('reserves positive invoice styling for payment completion',()=>{for(const status of ['DRAFT','ISSUED','POSTED','UNSETTLED',undefined])expect(invoiceTone(status)).toBe('neutral');expect(invoiceTone('SETTLED')).toBe('positive');expect(invoiceTone('PARTIAL')).toBe('warning');expect(invoiceTone('OVERDUE')).toBe('negative')});
+it('evaluates budget favorability according to revenue versus spending',()=>{expect(budgetTone(110,100,'higher')).toBe('positive');expect(budgetTone(90,100,'higher')).toBe('negative');expect(budgetTone(90,100,'lower')).toBe('positive');expect(budgetTone(110,100,'lower')).toBe('negative');expect(budgetTone(100,0,'higher')).toBe('neutral');expect(budgetTone(NaN,100,'higher')).toBe('neutral');expect(budgetTone(100,100)).toBe('neutral')});
