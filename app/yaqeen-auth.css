@@ -96,7 +96,7 @@
   position:absolute;
   left:calc(50% + max(14.8112vw,22.2168svh));
   top:50%;
-  width:calc(max(29.6224vw,44.4336svh) - 64px);
+  width:calc(max(29.6224vw,44.4336svh) - 40px);
   max-width:none;
   transform:translate(-50%,-50%);
  }
