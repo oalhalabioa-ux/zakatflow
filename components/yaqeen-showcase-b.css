@@ -44,3 +44,7 @@
 .ysb-frame-screen .ysb-table td>span{font-size:9px;padding:4px 5px}
 .ysb-note{bottom:0}
 @media(max-width:760px){.ysb-visual{padding:0 0 18px;margin:0 -22px}.ysb-note{font-size:7px;padding-inline:12px}}
+
+.yq-site[lang="en"] .ysb-copy{direction:ltr;text-align:left}
+.yq-site[lang="en"] .ysb-copy>h2{font-size:clamp(24px,2.25vw,35px)!important;white-space:normal}
+.yq-site[lang="en"] .ysb-benefits>div{flex-direction:row;text-align:left}
