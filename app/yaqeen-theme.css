@@ -50,3 +50,5 @@
 .corp-shell.theme-yaqeen-business :is(.kpi-icon,.dm-icon,.section-icon){background:var(--yq-light-gold)!important;color:var(--yq-primary-navy)!important}
 .corp-shell.theme-yaqeen-business :is(.corp-workspace-scope,.corp-company-level) button[aria-pressed=true]{color:var(--yq-primary-navy)!important;background:var(--yq-royal-gold)}
 .corp-shell.theme-yaqeen-business .corp-content :is(.asset-lifecycle-tabs,.asset-report-tabs,.investment-tabs) button[aria-pressed=true]{color:var(--yq-primary-navy)!important;background:var(--yq-royal-gold)!important;border-color:var(--yq-royal-gold)!important}
+/* Module-specific totals must remain navy when the shared action accent is gold. */
+.corp-shell.theme-yaqeen-business .corp-content :is(.sum-chip strong,.debt-voucher-preview strong,.opening-summary strong){color:var(--yq-primary-navy)!important}
