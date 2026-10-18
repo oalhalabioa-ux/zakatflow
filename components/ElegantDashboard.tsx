@@ -1,6 +1,5 @@
 "use client";
 import {Money,useDisplayMoney} from "./DisplayCurrency";
-import YaqeenKpiGlyph from "./YaqeenKpiGlyph";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { allocationSegments, hawlProgress } from "@/lib/dashboard-presentation";
@@ -292,7 +291,7 @@ export default function ElegantDashboard({
             <div className="ed-metric-heading">
               <h2>{m.label}</h2>
               <span className="ed-icon">
-                <YaqeenKpiGlyph kind={m.key} fallback={<Icon kind={m.key} />}/>
+                <Icon kind={m.key} />
               </span>
             </div>
             {m.key === "metals" && m.known ? (
