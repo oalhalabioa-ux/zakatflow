@@ -18,6 +18,7 @@ import {
   sortAssetRows,
   visibleAssetColumns,
 } from "@/lib/asset-table-preferences";
+import AssetTypeGlyph from "@/components/AssetTypeGlyph";
 import { ASSET_DISPLAY_CLASSES, assetDisplayClass, assetTypeIcon, catalogDisplayClass } from "@/lib/asset-classification-display";
 import {assetReportCalculation, type AssetCycleScope} from "@/lib/asset-zakat-report";
 import {assetPageIndicators,indicatorPercent} from '@/lib/asset-page-indicators';
@@ -403,7 +404,7 @@ export default function Assets({
         return (
           <strong className="asset-name-cell">
             <span className="asset-row-icon" aria-hidden="true">
-              {assetTypeIcon(row.asset_type_code||row.asset_type)}
+              <AssetTypeGlyph code={row.asset_type_code||row.asset_type} fallback={assetTypeIcon(row.asset_type_code||row.asset_type)}/>
             </span>
             {row.name}
             {row.financial_event_id&&<span className="pill">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span>}
@@ -797,7 +798,7 @@ export default function Assets({
               <div className="page-head asset-group-head">
                 <div>
                   <h3 className="asset-type-title">
-                    <span className="asset-type-icon">{g.symbol}</span>
+                    <span className="asset-type-icon"><AssetTypeGlyph code={g.type} fallback={g.symbol}/></span>
                     {g.title}{" "}
                     <span className="pill">{g.rows.length}</span>
                   </h3>
@@ -805,7 +806,7 @@ export default function Assets({
                   {!showingExited&&<div className="asset-summary">
                     <span className="sum-chip">
                       <span className="sum-icon" aria-hidden="true">
-                        ◆
+                        <AssetTypeGlyph code="INVESTMENT" fallback="◆"/>
                       </span>
                       <span>{ar ? "إجمالي القيمة" : "Total value"}</span>
                       <strong>
@@ -814,7 +815,7 @@ export default function Assets({
                     </span>
                     <span className="sum-chip due">
                       <span className="sum-icon" aria-hidden="true">
-                        ◉
+                        <AssetTypeGlyph code="SUKUK" fallback="◉"/>
                       </span>
                       <span>{ar ? "زكاة Snapshot" : "Snapshot Zakat"}</span>
                       <strong>
@@ -826,6 +827,8 @@ export default function Assets({
                 <button
                   type="button"
                   className="btn secondary collapse-btn"
+                  aria-expanded={!isClosed}
+                  aria-label={`${isClosed?(ar?"توسيع":"Expand"):(ar?"طي":"Collapse")} ${g.title}`}
                   onClick={() =>
                     setClosed((x) => ({ ...x, [g.type]: !x[g.type] }))
                   }
@@ -836,7 +839,7 @@ export default function Assets({
               {!isClosed && (showingExited ? <div className="asset-exit-table-scroll"><table className="table asset-exit-table"><thead><tr>
                 <th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"الوزن قبل الخروج / الكمية":"Weight / quantity before exit"}</th><th>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":"التكلفة قبل البيع"):"Cost before exit"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th><th>{ar?"الإجراء":"Action"}</th>
               </tr></thead><tbody>{sortedRows.map(row=>{const sold=row.lifecycle_status==="SOLD";const amount=sold?row.sold_cost_value:row.disposed_cost_value;const date=(row.exit_history||[]).filter((tx:any)=>tx.kind===row.lifecycle_status).map((tx:any)=>tx.date).sort().at(-1);return <tr key={row.id}>
-                <td><strong className="asset-name-cell"><span className="asset-row-icon" aria-hidden="true">{assetTypeIcon(row.asset_type_code||row.asset_type)}</span>{row.name}</strong></td><td>{typeName(row)}</td><td>{fmt(Number(sold?row.sold_quantity:row.disposed_quantity)||0)} {["GOLD","SILVER"].includes(row.asset_type)?(ar?"غرام":"g"):row.unit||""}</td><td>{amount==null?"—":<Money value={Number(amount)} currency={cur}/>}</td><td>{date||"—"}</td><td>{renderAssetCell("action",row)}</td>
+                <td><strong className="asset-name-cell"><span className="asset-row-icon" aria-hidden="true"><AssetTypeGlyph code={row.asset_type_code||row.asset_type} fallback={assetTypeIcon(row.asset_type_code||row.asset_type)}/></span>{row.name}</strong></td><td>{typeName(row)}</td><td>{fmt(Number(sold?row.sold_quantity:row.disposed_quantity)||0)} {["GOLD","SILVER"].includes(row.asset_type)?(ar?"غرام":"g"):row.unit||""}</td><td>{amount==null?"—":<Money value={Number(amount)} currency={cur}/>}</td><td>{date||"—"}</td><td>{renderAssetCell("action",row)}</td>
               </tr>;})}</tbody></table></div> : (
                 <div style={{ overflowX: "auto" }}>
                   <table
