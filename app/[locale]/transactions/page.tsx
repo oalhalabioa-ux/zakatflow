@@ -1,4 +1,5 @@
 "use client";
+import YaqeenFilterSelect from "@/components/YaqeenFilterSelect";
 import ActionButton,{ActionIconGlyph} from "@/components/ActionButton";
 import DetailsDialog from "@/components/assets/DetailsDialog";
 import AssetOperationDetails from "@/components/assets/AssetOperationDetails";
@@ -379,30 +380,17 @@ export default function Transactions() {
         <div className="transaction-filters" role="group" aria-label={t("تصفية المعاملات","Filter transactions")}>
           <label className="transaction-filter-search">
             <span>{t("بحث","Search")}</span>
-            <input
+            <span className="transaction-search-control"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="الأصل أو المرجع أو الطرف المقابل"
-            />
+              placeholder={t("ابحث بالأصل أو المرجع أو الجهة","Search asset, reference or counterparty")}
+            /></span>
           </label>
+          <div className="transaction-filter-field"><span>{t('نوع المعاملة','Transaction type')}</span><YaqeenFilterSelect label={t('نوع المعاملة','Transaction type')} value={typeFilter} onChange={setTypeFilter} options={[{value:'',label:t('جميع الأنواع','All types')},...[...TRANSACTION_TYPES,['DEPRECIATION','إهلاك'],['DISPOSAL','استبعاد']].map(([value,label])=>({value,label:ar?label:operationTypeLabel(value,false)}))]}/></div>
+          <div className="transaction-filter-field"><span>{t('المصدر','Source')}</span><YaqeenFilterSelect label={t('المصدر','Source')} value={sourceFilter} onChange={setSourceFilter} options={[{value:'',label:t('كل المصادر','All sources')},...[...new Set(rows.map(r=>r.source_label).filter(Boolean))].map(source=>({value:source,label:source}))]}/></div>
+          <div className="transaction-filter-field"><span>{t('الحالة','Status')}</span><YaqeenFilterSelect label={t('الحالة','Status')} value={stateFilter} onChange={setStateFilter} options={[{value:'',label:t('كل الحالات','All states')},...['RECORDED','DRAFT','PLANNED','COMMITTED','ACTUAL','REVERSED','CANCELLED','UNLINKED'].map(state=>({value:state,label:operationStateLabel(state,ar)}))]}/></div>
           <label>
-            <span>نوع المعاملة</span>
-            <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-            >
-              <option value="">جميع الأنواع</option>
-              {[...TRANSACTION_TYPES,["DEPRECIATION","إهلاك"],["DISPOSAL","استبعاد"]].map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label><span>{t('المصدر','Source')}</span><select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)}><option value="">{t('كل المصادر','All sources')}</option>{[...new Set(rows.map(r=>r.source_label).filter(Boolean))].map(source=><option key={source} value={source}>{source}</option>)}</select></label>
-          <label><span>{t('الحالة','Status')}</span><select value={stateFilter} onChange={e=>setStateFilter(e.target.value)}><option value="">{t('كل الحالات','All states')}</option>{['RECORDED','DRAFT','PLANNED','COMMITTED','ACTUAL','REVERSED','CANCELLED','UNLINKED'].map(state=><option key={state} value={state}>{operationStateLabel(state,ar)}</option>)}</select></label>
-          <label>
-            <span>من تاريخ</span>
+            <span>{t("من تاريخ","From date")}</span>
             <input
               type="date"
               value={dateFrom}
@@ -410,7 +398,7 @@ export default function Transactions() {
             />
           </label>
           <label>
-            <span>إلى تاريخ</span>
+            <span>{t("إلى تاريخ","To date")}</span>
             <input
               type="date"
               value={dateTo}
@@ -431,11 +419,11 @@ export default function Transactions() {
                 setDateTo("");
               }}
             >
-              <ActionIconGlyph name="filter"/> مسح الفلاتر
+              <span className="transaction-clear-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="m4 14 10-10 7 7-10 10H7l-3-3v-4Zm5-5 7 7M9 21h12"/></svg></span><span className="transaction-clear-label">{t("مسح الفلاتر","Clear filters")}</span>
             </button>
           )}</div>
         </div>
-        <div className="operation-report-actions transaction-report-toolbar"><details><summary className="btn secondary action-button" title={t('تخصيص الأعمدة','Choose columns')} aria-label={t('تخصيص الأعمدة','Choose columns')}><ActionIconGlyph name="filter"/><span>{t("الأعمدة","Columns")}</span></summary><div className="form-grid transaction-column-menu">{operationColumns.map(([key,label,en])=><label key={key}><input type="checkbox" checked={reportColumns.includes(key)} disabled={['date','asset'].includes(key)} onChange={e=>setReportColumns(cols=>e.target.checked?operationColumns.map(c=>c[0]).filter(k=>cols.includes(k)||k===key):cols.filter(k=>k!==key))}/>{ar?label:en}</label>)}</div></details><ActionButton icon="print" showLabel label={t('طباعة التقرير PDF','Print report PDF')} onClick={()=>exportReport('PDF')}/><ActionButton icon="download" showLabel label={t('تصدير التقرير CSV','Export report CSV')} onClick={()=>exportReport('CSV')}/><small>{t('المبالغ بعملة عرض الأساس؛ التصدير بالعملات المسجلة. الفلاتر تنعكس على المؤشرات، والمسودات لا تدخل صافي الأثر المرحل.','Filters apply to indicators and exports. Drafts are excluded from posted net movement.')}</small></div>
+        <div className="operation-report-actions transaction-report-toolbar"><details><summary className="btn secondary action-button" title={t('تخصيص الأعمدة','Choose columns')} aria-label={t('تخصيص الأعمدة','Choose columns')}><ActionIconGlyph name="filter"/><span>{t("الأعمدة","Columns")}</span></summary><div className="form-grid transaction-column-menu">{operationColumns.map(([key,label,en])=><label key={key}><input type="checkbox" checked={reportColumns.includes(key)} disabled={['date','asset'].includes(key)} onChange={e=>setReportColumns(cols=>e.target.checked?operationColumns.map(c=>c[0]).filter(k=>cols.includes(k)||k===key):cols.filter(k=>k!==key))}/>{ar?label:en}</label>)}</div></details><span className="transaction-legacy-exports"><ActionButton icon="print" showLabel label={t('طباعة التقرير PDF','Print report PDF')} onClick={()=>exportReport('PDF')}/><ActionButton icon="download" showLabel label={t('تصدير التقرير CSV','Export report CSV')} onClick={()=>exportReport('CSV')}/></span><details className="transaction-export-menu" onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus()}}}><summary className="btn secondary action-button"><ActionIconGlyph name="download"/><span>{t('تصدير التقرير','Export report')}</span><svg className="transaction-export-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m5 7 5 5 5-5"/></svg></summary><div className="transaction-export-options"><button type="button" onClick={e=>{e.currentTarget.closest('details')?.removeAttribute('open');exportReport('PDF')}}><ActionIconGlyph name="print"/>{t('طباعة / حفظ PDF','Print / save PDF')}</button><button type="button" onClick={e=>{e.currentTarget.closest('details')?.removeAttribute('open');exportReport('CSV')}}><ActionIconGlyph name="download"/>{t('تصدير CSV','Export CSV')}</button></div></details><small>{t('المبالغ بعملة عرض الأساس؛ التصدير بالعملات المسجلة. الفلاتر تنعكس على المؤشرات، والمسودات لا تدخل صافي الأثر المرحل.','Filters apply to indicators and exports. Drafts are excluded from posted net movement.')}</small></div>
         {selectedOperation&&<DetailsDialog label={t("تفاصيل العملية والإجراءات","Operation details and actions")} onClose={()=>setSelectedOperation(null)}><AssetOperationDetails key={selectedOperation.id} record={selectedOperation} ar={ar} onClose={()=>setSelectedOperation(null)} onChanged={()=>void load()}/></DetailsDialog>}
         <div className="transaction-table-wrap"><table className="table"><thead><tr>{reportColumns.map(key=>{const column=operationColumns.find(c=>c[0]===key)!;return ['date','asset','type','currency'].includes(key)?<SortableHeader key={key} label={column[ar?1:2]} column={key as SortKey} sort={sort} onSort={changeSort} mark={sortMark(key as SortKey)}/>:<th key={key}>{column[ar?1:2]}</th>})}<th>{t('الإجراءات','Actions')}</th></tr></thead><tbody>{sortedRows.map(row=><tr key={row.id}>{reportColumns.map(key=>{const v=operationColumnValue(row,key,ar),cash=['net','tax','total','unitPrice','baseTotal','applied','outstanding','bookEffect','gain'].includes(key),baseMoney=['baseTotal','applied','outstanding','bookEffect','gain'].includes(key);return <td key={key}>{key==='status'?<span className="pill">{v}</span>:typeof v==='number'&&cash?<Money value={key==='net'?operationReportAmounts(row).baseNet:key==='tax'?operationReportAmounts(row).baseTax:key==='total'?operationReportAmounts(row).baseTotal:key==='unitPrice'?v*operationReportAmounts(row).fx:v} currency={row.base_currency} organizationId={row.organization_id}/>:key==='asset'?<><strong>{v}</strong><small className="operation-status-note">{row.reference??row.metadata?.invoice_reference??row.counterparty_name??''}</small></>:key==='type'?<>{v}<small className="operation-status-note">{row.source_label}</small></>:typeof v==='number'?numberFormatter.format(v):v}</td>})}<td><ActionButton icon="details" label={t('التفاصيل والإجراءات','Details and actions')} onClick={()=>{if(row.metadata?.investment_id)window.location.href=`/${ar?'ar':'en'}/investments?investment_id=${row.metadata.investment_id}`;else setSelectedOperation(row);}}/></td></tr>)}{!loading&&!sortedRows.length&&<tr><td colSpan={reportColumns.length+1} className="muted">{hasFilters?'لا توجد معاملات مطابقة للفلاتر الحالية.':'لا توجد معاملات بعد.'}</td></tr>}</tbody></table></div>
       </div>
