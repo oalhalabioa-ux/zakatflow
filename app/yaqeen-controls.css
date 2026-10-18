@@ -2,34 +2,34 @@
 .yq-filter-select{display:contents}.yq-filter-custom,.transaction-export-menu,.transaction-clear-icon,.transaction-search-control>svg{display:none}
 .transaction-search-control,.transaction-legacy-exports{display:contents}
 .transaction-filter-field{display:grid;gap:8px;min-width:0;font-size:12px;color:var(--brand-muted)}
-.corp-shell.theme-yaqeen-business .corp-content{--yq-control-ink:#0F2D4A;--yq-control-line:#E4EAF0;--yq-control-hover:#C6CFEC;--yq-control-selected:#EAD7B4}
-.corp-shell.theme-yaqeen-business .corp-content :is(select,.yq-filter-trigger){background:#fff!important;color:#0F2D4A!important;border:1px solid #E4EAF0!important;border-radius:9px;min-width:0;max-width:100%;font:inherit;line-height:1.5;box-shadow:none}
+.corp-shell.theme-yaqeen-business .corp-content{--yq-control-ink:#0F2D4A;--yq-control-line:#EAD7B4;--yq-control-hover:#FCFAF6;--yq-control-selected:#F7F0E3;--yq-table-head:#FBF8F2}
+.corp-shell.theme-yaqeen-business .corp-content :is(select,.yq-filter-trigger){background:#fff!important;color:#0F2D4A!important;border:1px solid var(--yq-control-line)!important;border-radius:9px;min-width:0;max-width:100%;font:inherit;line-height:1.5;box-shadow:none}
 .corp-shell.theme-yaqeen-business .corp-content select{min-height:40px;padding:8px 12px}
 .corp-shell.theme-yaqeen-business .corp-content select:disabled{opacity:.6;cursor:not-allowed}
 .corp-shell.theme-yaqeen-business .corp-content :is(select,.yq-filter-trigger):hover:not(:disabled){border-color:#668FB4!important}
 .corp-shell.theme-yaqeen-business .corp-content :is(select,input,textarea,.yq-filter-trigger):focus-visible{outline:2px solid #BD8B3C;outline-offset:2px}
 .corp-shell.theme-yaqeen-business .corp-content select option{color:#0F2D4A;background:#fff}
-.corp-shell.theme-yaqeen-business .corp-content select option:checked{background:#EAD7B4;color:#0F2D4A}
+.corp-shell.theme-yaqeen-business .corp-content select option:checked{background:var(--yq-control-selected);color:#0F2D4A}
 /* Native customizable pickers retain browser keyboard, typeahead and mobile behavior. */
 @supports(appearance:base-select){
  .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]){appearance:base-select}
- .corp-shell.theme-yaqeen-business .corp-content select:not([multiple])::picker(select){appearance:base-select;background:#fff;color:#0F2D4A;border:1px solid #E4EAF0;border-radius:11px;padding:5px;box-shadow:0 10px 28px rgb(15 45 74 / 12%);max-height:min(360px,60dvh);overflow:auto}
+ .corp-shell.theme-yaqeen-business .corp-content select:not([multiple])::picker(select){appearance:base-select;background:#fff;color:#0F2D4A;border:1px solid var(--yq-control-line);border-radius:11px;padding:5px;box-shadow:0 10px 28px rgb(15 45 74 / 12%);max-height:min(360px,60dvh);overflow:auto}
  .corp-shell.theme-yaqeen-business .corp-content select:not([multiple])::picker-icon{color:#0F2D4A;font-size:12px}
  .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]) option{padding:9px 12px;border-radius:7px;min-height:36px;gap:10px}
- .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]) option:is(:hover,:focus){background:#C6CFEC;color:#0F2D4A;outline:none}
- .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]) option:checked{background:#EAD7B4;color:#0F2D4A}
+ .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]) option:is(:hover,:focus){background:var(--yq-control-hover);color:#0F2D4A;outline:none}
+ .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]) option:checked{background:var(--yq-control-selected);color:#0F2D4A}
  .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]) option::checkmark{color:#0F2D4A}
 }
-.corp-shell.theme-yaqeen-business .corp-content :is(.filters,.filter-bar,.filter-panel,.finance-filters,.finance-statement-filters,.finance-classification-filters,.asset-report-filters,.transaction-filters,.investment-filters,.debt-collection-filters,.budget-filters,.vat-register-filters,.vat-financial-report-filters,.liq-filter-panel,.orgs-filter){background:#fff!important;border:1px solid #E4EAF0!important;border-radius:12px;box-shadow:none;padding:14px;gap:10px}
+.corp-shell.theme-yaqeen-business .corp-content :is(.filters,.filter-bar,.filter-panel,.finance-filters,.finance-statement-filters,.finance-classification-filters,.asset-report-filters,.transaction-filters,.investment-filters,.debt-collection-filters,.budget-filters,.vat-register-filters,.vat-financial-report-filters,.liq-filter-panel,.orgs-filter){background:#fff!important;border:1px solid var(--yq-control-line)!important;border-radius:12px;box-shadow:none;padding:14px;gap:10px}
 .corp-shell.theme-yaqeen-business .corp-content :is(.filters,.filter-bar,.filter-panel,.finance-filters,.finance-statement-filters,.asset-report-filters,.transaction-filters,.investment-filters,.debt-collection-filters,.budget-filters,.vat-register-filters,.vat-financial-report-filters,.liq-flow-filters,.orgs-filter) :is(label,.filter-label,.transaction-filter-field){color:#52657A!important;font-size:12px;gap:6px;min-width:0}
-.corp-shell.theme-yaqeen-business .corp-content :is(.filters,.filter-bar,.filter-panel,.finance-filters,.finance-statement-filters,.asset-report-filters,.transaction-filters,.investment-filters,.debt-collection-filters,.budget-filters,.vat-register-filters,.vat-financial-report-filters,.liq-flow-filters,.orgs-filter) :is(input:not([type=checkbox]):not([type=radio]),select,.yq-filter-trigger){height:40px;min-height:40px;min-width:0;width:100%;padding:8px 12px;border:1px solid #E4EAF0!important;border-radius:9px;background-color:#fff!important;color:#0F2D4A!important;font-size:13px}
+.corp-shell.theme-yaqeen-business .corp-content :is(.filters,.filter-bar,.filter-panel,.finance-filters,.finance-statement-filters,.asset-report-filters,.transaction-filters,.investment-filters,.debt-collection-filters,.budget-filters,.vat-register-filters,.vat-financial-report-filters,.liq-flow-filters,.orgs-filter) :is(input:not([type=checkbox]):not([type=radio]),select,.yq-filter-trigger){height:40px;min-height:40px;min-width:0;width:100%;padding:8px 12px;border:1px solid var(--yq-control-line)!important;border-radius:9px;background-color:#fff!important;color:#0F2D4A!important;font-size:13px}
 .corp-shell.theme-yaqeen-business .corp-content input::placeholder{color:#73849A;opacity:1}
 .corp-shell.theme-yaqeen-business .corp-content input[type=date]{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230F2D4A' stroke-width='1.7'%3E%3Crect x='4' y='5' width='16' height='16' rx='3'/%3E%3Cpath d='M4 10h16M8 2v6M16 2v6'/%3E%3Cpath d='M8 14h3' stroke='%23BD8B3C'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:20px;color:#0F2D4A}
 .corp-shell.theme-yaqeen-business .corp-content input[type=date]::-webkit-calendar-picker-indicator{opacity:0;cursor:pointer}
-.corp-shell.theme-yaqeen-business .corp-content :is([role=listbox],[role=menu],.asset-toolbar-menu,.asset-report-column-menu,.asset-actions-popover,.vat-add-menu,.debt-add-menu,.vat-contacts-dropdown,.transaction-column-menu,.transaction-export-options){background:#fff!important;color:#0F2D4A!important;border:1px solid #E4EAF0!important;border-radius:11px;box-shadow:0 10px 28px rgb(15 45 74 / 12%)}
+.corp-shell.theme-yaqeen-business .corp-content :is([role=listbox],[role=menu],.asset-toolbar-menu,.asset-report-column-menu,.asset-actions-popover,.vat-add-menu,.debt-add-menu,.vat-contacts-dropdown,.transaction-column-menu,.transaction-export-options){background:#fff!important;color:#0F2D4A!important;border:1px solid var(--yq-control-line)!important;border-radius:11px;box-shadow:0 10px 28px rgb(15 45 74 / 12%)}
 .corp-shell.theme-yaqeen-business .corp-content :is([role=option],[role=menuitem],.asset-toolbar-menu button,.vat-add-menu button,.debt-add-menu button,.transaction-export-options button):not(.danger):not(.destructive){color:#0F2D4A;background:#fff;border-radius:7px}
-.corp-shell.theme-yaqeen-business .corp-content :is([role=option],[role=menuitem],.asset-toolbar-menu button,.vat-add-menu button,.debt-add-menu button,.transaction-export-options button):is(:hover,:focus-visible):not(.danger):not(.destructive){background:#C6CFEC!important;color:#0F2D4A!important}
-.corp-shell.theme-yaqeen-business .corp-content [role=option][aria-selected=true]{background:#EAD7B4!important;color:#0F2D4A!important}
+.corp-shell.theme-yaqeen-business .corp-content :is([role=option],[role=menuitem],.asset-toolbar-menu button,.vat-add-menu button,.debt-add-menu button,.transaction-export-options button):is(:hover,:focus-visible):not(.danger):not(.destructive){background:var(--yq-control-hover)!important;color:#0F2D4A!important}
+.corp-shell.theme-yaqeen-business .corp-content [role=option][aria-selected=true]{background:var(--yq-control-selected)!important;color:#0F2D4A!important}
 /* Approved transaction layout and shared keyboard-accessible custom dropdown. */
 .corp-shell.theme-yaqeen-business .corp-content .yq-filter-native{display:none}
 .corp-shell.theme-yaqeen-business .corp-content .yq-filter-custom{display:block;position:relative;min-width:0}
@@ -42,7 +42,7 @@
 .corp-shell.theme-yaqeen-business .corp-content .yq-filter-options button svg{width:16px;height:16px;flex:none}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-filters{grid-template-columns:minmax(250px,1.7fr) repeat(3,minmax(135px,1fr));padding:14px!important;gap:12px!important;overflow:visible}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-filter-controls{grid-column:3/-1;min-height:40px;gap:8px}
-.corp-shell.theme-yaqeen-business .transactions-page .transaction-filter-controls .btn{min-height:40px;height:40px;border-color:#E4EAF0;color:#0F2D4A;background:#fff}
+.corp-shell.theme-yaqeen-business .transactions-page .transaction-filter-controls .btn{min-height:40px;height:40px;border-color:var(--yq-control-line);color:#0F2D4A;background:#fff}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-clear-label{display:none}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-clear-icon{display:inline-flex}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-clear-icon svg{width:20px;height:20px}
@@ -50,8 +50,8 @@
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-search-control{position:relative;display:block}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-search-control>svg{display:block;position:absolute;inset-inline-start:11px;top:11px;width:18px;height:18px;color:#0F2D4A;pointer-events:none}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-search-control input{padding-inline-start:38px!important}
-.corp-shell.theme-yaqeen-business .transactions-page .transaction-report-toolbar{border:1px solid #E4EAF0;border-radius:11px;padding:10px;background:#fff;align-items:center;gap:8px}
-.corp-shell.theme-yaqeen-business .transactions-page .transaction-report-toolbar :is(.btn,summary){min-height:38px;color:#0F2D4A;border-color:#E4EAF0;background:#fff}
+.corp-shell.theme-yaqeen-business .transactions-page .transaction-report-toolbar{border:1px solid var(--yq-control-line);border-radius:11px;padding:10px;background:#fff;align-items:center;gap:8px}
+.corp-shell.theme-yaqeen-business .transactions-page .transaction-report-toolbar :is(.btn,summary){min-height:38px;color:#0F2D4A;border-color:var(--yq-control-line);background:#fff}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-report-toolbar :is(summary,.btn):hover{background:#F8F9FB;border-color:#BD8B3C}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-report-toolbar summary svg{width:18px;height:18px}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-report-toolbar small{font-size:11px;color:#52657A}
@@ -61,10 +61,15 @@
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-export-options{position:absolute;z-index:60;inset-inline-start:0;top:calc(100% + 6px);min-width:190px;padding:5px}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-export-options button{display:flex;align-items:center;gap:10px;width:100%;border:0;padding:10px;font:inherit;font-size:13px;white-space:nowrap;text-align:start;cursor:pointer}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-export-options svg{width:18px;height:18px}
-.corp-shell.theme-yaqeen-business .transactions-page .transaction-table-wrap th{background:#F8F9FB!important;color:#0F2D4A!important;border-color:#E4EAF0}
+.corp-shell.theme-yaqeen-business .transactions-page .transaction-table-wrap th{background:var(--yq-table-head)!important;color:#0F2D4A!important;border-color:var(--yq-control-line)}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-table-wrap th button{color:#0F2D4A;background:transparent}
 @media(max-width:1100px){.corp-shell.theme-yaqeen-business .transactions-page .transaction-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.corp-shell.theme-yaqeen-business .transactions-page .transaction-filter-search{grid-column:span 3}.corp-shell.theme-yaqeen-business .transactions-page .transaction-filter-controls{grid-column:auto}}
 @media(max-width:700px){.corp-shell.theme-yaqeen-business .transactions-page .transaction-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.corp-shell.theme-yaqeen-business .transactions-page .transaction-filter-search{grid-column:span 2}.corp-shell.theme-yaqeen-business .transactions-page .transaction-filter-controls{grid-column:1/-1;justify-content:flex-start}.corp-shell.theme-yaqeen-business .transactions-page .transaction-report-toolbar small{flex-basis:100%}}
 @media(max-width:450px){.corp-shell.theme-yaqeen-business .transactions-page .transaction-filters{grid-template-columns:minmax(0,1fr)}.corp-shell.theme-yaqeen-business .transactions-page .transaction-filter-search{grid-column:1}.corp-shell.theme-yaqeen-business .corp-content .yq-filter-options{min-width:0}}
 .corp-shell.theme-yaqeen-business .transactions-page .transaction-sort span:last-child{color:#668FB4;background:transparent}
-.corp-shell.theme-yaqeen-business .transactions-page .transaction-sort.active span:last-child{background:#EAD7B4;color:#0F2D4A}
+.corp-shell.theme-yaqeen-business .transactions-page .transaction-sort.active span:last-child{background:var(--yq-control-selected);color:#0F2D4A}
+
+/* Approved module palettes: ivory for finance, pearl gray for planning. */
+.corp-shell.theme-yaqeen-business .corp-content:has(.budget-plan){--yq-control-line:#E4EAF0;--yq-control-hover:#FAFBFC;--yq-control-selected:#EEF0F4;--yq-table-head:#F5F6F8}
+.corp-shell.theme-yaqeen-business .corp-content :is(table,.table)>thead>tr>th{background:var(--yq-table-head)!important;color:#0F2D4A!important;border-color:var(--yq-control-line)!important}
+.corp-shell.theme-yaqeen-business .corp-content :is(table,.table)>thead>tr>th :is(button,span){color:inherit}
