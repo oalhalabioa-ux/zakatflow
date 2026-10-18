@@ -6,10 +6,10 @@
  background:#F8F9FB;color:#0F2D4A;min-width:0;
 }
 /* Expanded group and selected page are separate states. */
-.theme-yaqeen-business .corp-nav .assets-module-toggle[aria-expanded=true]{background:rgb(234 215 180 / 9%);box-shadow:inset -3px 0 #BD8B3C;color:#EAD7B4}
-.theme-yaqeen-business[dir=ltr] .corp-nav .assets-module-toggle[aria-expanded=true]{box-shadow:inset 3px 0 #BD8B3C}
-.theme-yaqeen-business .assets-subnav{border-inline-start:1px solid rgb(234 215 180 / 30%);margin-inline-start:19px;padding-inline-start:5px;background:rgb(255 255 255 / 2%)}
-.corp-shell.theme-yaqeen-business .corp-nav .assets-subnav a[aria-current=page]{background:#996B28;color:#fff!important;border-inline-start:3px solid #EAD7B4}
+.theme-yaqeen-business:not(.sidebar-collapsed) .corp-nav .assets-module-toggle[aria-expanded=true]{background:rgb(234 215 180 / 9%);box-shadow:inset -3px 0 #BD8B3C;color:#EAD7B4}
+.theme-yaqeen-business:not(.sidebar-collapsed)[dir=ltr] .corp-nav .assets-module-toggle[aria-expanded=true]{box-shadow:inset 3px 0 #BD8B3C}
+.theme-yaqeen-business:not(.sidebar-collapsed) .assets-subnav{border-inline-start:1px solid rgb(234 215 180 / 30%);margin-inline-start:19px;padding-inline-start:5px;background:rgb(255 255 255 / 2%)}
+.corp-shell.theme-yaqeen-business .corp-nav .assets-subnav a[aria-current=page]{background:linear-gradient(100deg,#d7ba7c,#c5a15a);color:#fff!important;border-inline-start:3px solid #f6dfac}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content>.container{max-width:1600px;width:100%;padding:20px 24px}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(h1,h2,h3){color:#0F2D4A}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content h1{font-size:clamp(22px,2vw,29px);line-height:1.5}
@@ -135,3 +135,8 @@
 @media print{.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.card,.yqa-summary-group,.ed-panel){box-shadow:none;break-inside:avoid}.yqa-summary-metric.is-featured{background:white!important}.yqa-summary-metric.is-featured :is(strong,svg){color:#0F2D4A!important}}
 
 @media(max-width:760px){.theme-yaqeen-business[data-asset-workspace=true] .ed-allocation{flex-direction:column;gap:16px}.theme-yaqeen-business[data-asset-workspace=true] .ed-legend{width:100%}.theme-yaqeen-business[data-asset-workspace=true] .ed-ring{width:150px;height:150px}.theme-yaqeen-business[data-asset-workspace=true] .ed-ring>div{width:108px;height:108px}}
+
+/* Keep the collapsed icon rail free of expanded-group decoration. */
+.corp-shell.theme-yaqeen-business.sidebar-collapsed .corp-nav .assets-module-toggle{box-shadow:none}
+.corp-shell.theme-yaqeen-business.sidebar-collapsed .assets-subnav{border:0;margin-inline-start:0;padding-inline-start:0;background:transparent}
+.corp-shell.theme-yaqeen-business.sidebar-collapsed .corp-nav .assets-subnav a[aria-current=page]{border-inline-start:0}
