@@ -127,7 +127,7 @@ export default function ElegantDashboard({
   const paid = Math.max(0, Math.min(100, Number(d.zakatPaymentPct) || 0));
   const segments = allocationSegments(d.assetAllocation || []);
   const gradient = segments.length
-    ? `conic-gradient(${segments.map((s, i) => `${colors[i % colors.length]} ${s.start}% ${s.end}%`).join(",")})`
+    ? `conic-gradient(${segments.map((s, i) => `var(--asset-chart-${i % 6 + 1}, ${colors[i % colors.length]}) ${s.start}% ${s.end}%`).join(",")})`
     : "#e7efec";
   // Each bar is a saved assessment, not an invented annual observation.
   const history = [...(d.latestAssessments || [])].slice(0, 6).reverse();
@@ -352,7 +352,7 @@ export default function ElegantDashboard({
                 <li key={s.type}>
                   <span
                     className="ed-dot"
-                    style={{ background: colors[i % colors.length] }}
+                    style={{ background: `var(--asset-chart-${i % 6 + 1}, ${colors[i % colors.length]})` }}
                   />
                   <span>{types[s.type]?.[ar ? 0 : 1] || s.type}</span>
                   <bdi>{money(s.value)}</bdi>
@@ -426,7 +426,7 @@ export default function ElegantDashboard({
                 <div
                   className="ed-ring ed-hawl-ring"
                   style={{
-                    background: `conic-gradient(#087653 ${progress.percent}%, #dcefe6 0)`,
+                    background: `conic-gradient(var(--asset-chart-1, #087653) ${progress.percent}%, var(--asset-chart-6, #dcefe6) 0)`,
                   }}
                 >
                   <div>
