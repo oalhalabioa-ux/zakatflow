@@ -18,7 +18,6 @@ import {
   sortAssetRows,
   visibleAssetColumns,
 } from "@/lib/asset-table-preferences";
-import AssetTypeGlyph from "@/components/AssetTypeGlyph";
 import { ASSET_DISPLAY_CLASSES, assetDisplayClass, assetTypeIcon, catalogDisplayClass } from "@/lib/asset-classification-display";
 import {assetReportCalculation, type AssetCycleScope} from "@/lib/asset-zakat-report";
 import {assetPageIndicators,indicatorPercent} from '@/lib/asset-page-indicators';
@@ -404,7 +403,7 @@ export default function Assets({
         return (
           <strong className="asset-name-cell">
             <span className="asset-row-icon" aria-hidden="true">
-              <AssetTypeGlyph code={row.asset_type_code||row.asset_type} fallback={assetTypeIcon(row.asset_type_code||row.asset_type)}/>
+              {assetTypeIcon(row.asset_type_code||row.asset_type)}
             </span>
             {row.name}
             {row.financial_event_id&&<span className="pill">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span>}
@@ -598,459 +597,489 @@ export default function Assets({
       {!showingExited&&selectedMetric&&!loading&&!loadError&&<section id="asset-indicator-details" className="card section asset-indicator-details" aria-label={ar?"تفاصيل المؤشر":"Indicator details"}>
         <div className="page-head"><h3>{selectedMetric.title} · {selectedMetric.value}</h3><ActionButton icon="close" label={ar?"إغلاق التفاصيل":"Close details"} onClick={()=>setMetricDetail(null)}/></div>
         <p className="muted">{selectedMetric.source} · {ar?"وفق النطاق والفلاتر الحالية":"Using current scope and filters"}</p>
-        <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{selectedMetric.title}</th></tr></thead><tbody>{selectedMetric.rows.map(r=><tr key={r.id}><td>{r.name}</td><td>{typeName(r)}</td><td>{selectedMetric.detail(r)}</td></tr>)}</tbody></table></div>
-        {!selectedMetric.rows.length&&<p className="muted">{ar?"لا توجد أصول مطابقة لهذا المؤشر.":"No matching assets for this indicator."}</p>}
-      </section>}
-      {detailAsset&&<DetailsDialog label={ar?"تفاصيل الأصل والإجراءات":"Asset details and actions"} onClose={()=>setDetailAsset(null)}>{(detailAsset.financial_event_id?<AssetPurchasePanel key={detailAsset.id} assetId={detailAsset.id} ar={ar} onChanged={()=>void load()} onClose={()=>setDetailAsset(null)} extraActions={<><ActionButton icon="edit" label={ar?"تعديل الاسم والتقييم الحالي":"Edit name and current valuation"} onClick={()=>{editRow(detailAsset);setDetailAsset(null);}}/>{detailAsset.current_quantity>0&&<ActionButton icon="operations" label={ar?"بيع أو إهلاك أو استبعاد":"Sale, depreciation or disposal"} onClick={()=>{setOperationAsset(detailAsset);setDetailAsset(null);}}/>}{detailAsset.financial_review_events?.map((e:any,i:number)=><ActionButton icon="history" key={e.id} label={`${ar?"السجل والمراجعة المالية":"Financial review and history"}${detailAsset.financial_review_events.length>1?` (${i+1})`:''}`} onClick={()=>{setReviewEvent({id:e.id,name:detailAsset.name});setDetailAsset(null);}}/>)}</>}/>:<AssetDetails key={detailAsset.id} asset={detailAsset} ar={ar} onClose={()=>setDetailAsset(null)} onEdit={()=>{editRow(detailAsset);setDetailAsset(null);}} onLifecycle={()=>{if(detailAsset.ownership_scope==="ORGANIZATION")setOperationAsset(detailAsset);else window.location.href=`/${locale}/transactions`;setDetailAsset(null);}} onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}/>)}</DetailsDialog>}
-      {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><ActionButton icon="close" label={ar?"إغلاق المراجعة":"Close review"} onClick={()=>setReviewEvent(null)}/></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
-      {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
-      {formOpen&&<section className="card section">
-        <h3>
-          {edit ? "✏️ " : "＋ "}
-          {edit
-            ? ar
-              ? "تعديل الأصل"
-              : "Edit asset"
-            : ar
-              ? "إضافة أصل"
-              : "Add asset"}
-        </h3>
-        {edit && form.has_financial_history && <p className="muted">{ar ? "بيانات الاقتناء محمية لارتباطها بحركات. يمكن تعديل الاسم والتقييم الحالي؛ التصحيح المالي من سجل المعاملات. الاحتسابات السابقة تحتفظ بأسعارها." : "Acquisition data is protected. Edit the name or current valuation; correct financial data in the transaction ledger. Previous assessments retain their prices."}</p>}
-        {!edit&&<p className="muted">{ar?"إضافة النقد والحسابات البنكية من قسم النقد والبنوك، والديون من قسم الذمم.":"Create cash/bank accounts in Cash & Banks and receivables in Receivables."} <Link href={`/${locale}/cash-and-banks`}>{ar?"النقد والبنوك":"Cash & banks"}</Link> · <Link href={`/${locale}/receivables`}>{ar?"الذمم":"Receivables"}</Link></p>}
-        <div className="form-grid">
-          <label>{ar?"ملكية الأصل":"Asset ownership"}<select disabled={Boolean(edit)} value={form.ownership_scope} onChange={e=>setForm({...form,ownership_scope:e.target.value,organization_id:null,entity_id:null,cost_center_id:null,counterparty_id:"",funding_account_id:"",currency:catalog.base_currency||"SAR",fx_rate:"1"})}><option value="">{ar?"اختر المالك":"Choose owner"}</option><option value="PERSONAL">{ar?"♙ شخصي — باسمي":"♙ Personal — owned by me"}</option><option value="ORGANIZATION">{ar?"▥ مؤسسي — باسم شركة":"▥ Organization — company owned"}</option></select></label>
-          {form.ownership_scope==="ORGANIZATION"&&<>
-            <label>{ar?"الشركة المالكة":"Owning organization"}<select disabled={Boolean(edit)} value={form.organization_id||""} onChange={e=>{const org=catalog.organizations.find((o:any)=>o.id===e.target.value);setForm({...form,organization_id:e.target.value||null,entity_id:null,cost_center_id:null,counterparty_id:"",currency:org?.base_currency||"SAR",fx_rate:"1"});}}><option value="">{ar?"اختر الشركة المالكة":"Choose owning organization"}</option>{catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
-            <label>{ar?"الفرع المالك":"Owning entity"}<select disabled={Boolean(edit)} value={form.entity_id||""} onChange={e=>setForm({...form,entity_id:e.target.value||null,cost_center_id:null})}><option value="">{ar?"الجهة الرئيسية":"Main organization"}</option>{catalog.entities.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-            <label>{ar?"مركز تكلفة الأصل":"Asset cost center"}<select disabled={Boolean(edit)} value={form.cost_center_id||""} onChange={e=>setForm({...form,cost_center_id:e.target.value||null})}><option value="">{ar?"غير محدد":"Not specified"}</option>{catalog.cost_centers.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-          </>}
-          {!edit && <label>
-            {ar ? "طريقة الاقتناء" : "Acquisition"}
-            <select value={form.acquisition_mode || "OPENING_BALANCE"} onChange={(e)=>setForm({...form,acquisition_mode:e.target.value,funding_account_id:""})}>
-              <option value="OPENING_BALANCE">{ar ? "رصيد افتتاحي / أصل موجود" : "Opening balance / existing asset"}</option>
-              {!["CASH","BANK","RECEIVABLE"].includes(form.asset_type)&&<option value="PURCHASE">{ar ? "شراء أصل جديد" : "Purchase new asset"}</option>}
-            </select>
-          </label>}
-          {!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && <label>
-            {ar ? "الدفع من الحساب الشخصي" : "Pay from personal account"}
-            <select value={form.funding_account_id || ""} onChange={(e)=>setForm({...form,funding_account_id:e.target.value})}>
-              <option value="">{ar ? "اختر حساب النقد / البنك" : "Choose cash / bank account"}</option>
-              {rows.filter((x:any)=>!x.organization_id && (!x.ownership_scope || x.ownership_scope==="PERSONAL") && ["CASH","BANK"].includes(x.asset_type)).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
-            </select>
-          </label>}
-          <label>{ar?"عملة الأصل":"Asset currency"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.currency} onChange={e=>setForm({...form,currency:e.target.value,fx_rate:"",funding_account_id:""})}>{["SAR","USD","AED","EUR","GBP","KWD","BHD","QAR","OMR","JOD","EGP"].map(c=><option key={c}>{c}</option>)}</select></label>
-          <label>{ar?"سعر الصرف إلى عملة الأساس بتاريخ الاقتناء":"Acquisition exchange rate to base currency"}<input type="number" min="0.00000001" step="any" disabled={Boolean(edit&&form.has_financial_history)} value={form.fx_rate} onChange={e=>setForm({...form,fx_rate:e.target.value})}/><small>{ar?"الأساس: ":"Base: "}{form.ownership_scope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===form.organization_id)?.base_currency||"SAR":catalog.base_currency||"SAR"}</small></label>
-          {!edit&&form.acquisition_mode==="PURCHASE"&&form.ownership_scope==="ORGANIZATION"&&<>
-            <label>{ar?"المورد":"Supplier"}<select value={form.counterparty_id} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">{ar?"اختر المورد":"Choose supplier"}</option>{(catalog.suppliers||[]).filter((x:any)=>x.organization_id===form.organization_id&&["SUPPLIER","BOTH"].includes(x.party_type)).map((x:any)=><option value={x.id} key={x.id}>{x.name}</option>)}</select><a href={`/${locale}/liquidity?tab=counterparties`}>{ar?"إدارة الموردين":"Manage suppliers"}</a></label>
-            <label>{ar?"رقم فاتورة المورد":"Supplier invoice reference"}<input value={form.invoice_reference} onChange={e=>setForm({...form,invoice_reference:e.target.value})}/></label>
-            <label>{ar?"تاريخ استحقاق السداد":"Payment due date"}<input type="date" min={form.purchase_date} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>
-            <label>{ar?"إدخال الضريبة":"VAT entry"}<select value={form.vat_input_mode} onChange={e=>setForm({...form,vat_input_mode:e.target.value})}><option value="PERCENT">{ar?"نسبة %":"Percentage %"}</option><option value="AMOUNT">{ar?"مبلغ":"Amount"}</option></select></label>
-            <label>{form.vat_input_mode==="PERCENT"?(ar?"نسبة الضريبة %":"VAT rate %"):(ar?"مبلغ الضريبة":"VAT amount")}<input type="number" min="0" max={form.vat_input_mode==="PERCENT"?100:undefined} step="any" value={form.vat_input_mode==="PERCENT"?form.vat_rate:form.vat_amount} onChange={e=>setForm({...form,[form.vat_input_mode==="PERCENT"?"vat_rate":"vat_amount"]:e.target.value})}/></label>
-            <label>{ar?"نسبة الضريبة القابلة للاسترداد %":"Recoverable VAT %"}<input type="number" min="0" max="100" value={form.recoverable_percent} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/><small>{ar?"الجزء غير القابل للاسترداد يضاف لتكلفة الأصل؛ السداد إجراء مستقل.":"Nonrecoverable VAT is capitalized; payment is separate."}</small></label>
-          </>}
-          <label>{ar?"فئة الأصل":"Asset class"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.display_class||""} onChange={e=>setForm({...form,display_class:e.target.value,classification_changed:true,asset_class_code:null,asset_type_code:null})}><option value="">{ar?"اختر الفئة":"Choose class"}</option>{ASSET_DISPLAY_CLASSES.filter(c=>c[0]!=="UNCLASSIFIED"||edit).map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label>
-          <label>{ar?"نوع الأصل":"Asset type"}<select required={!edit} disabled={Boolean((edit&&form.has_financial_history)||!form.display_class)} value={form.asset_type_code||""} onChange={e=>{const t=catalog.types.find((x:any)=>x.code===e.target.value);setForm({...form,asset_class_code:t?.class_code||null,asset_type_code:t?.code||null,asset_type:t?.default_legacy_asset_type||form.asset_type,karat:t?.default_legacy_asset_type==="SILVER"?"999":"24"});}}><option value="">{edit&&!form.asset_type_code?`${assetTypeIcon(form.asset_type)} ${label(form.asset_type)} — ${ar?"التصنيف المحفوظ":"Saved classification"}`:(ar?"اختر النوع":"Choose type")}</option>{catalog.types.filter((x:any)=>catalogDisplayClass(x)===form.display_class&&!["DEPOSIT","BOND","SUKUK_BOND"].includes(x.code)&&(Boolean(edit)||!["CASH","BANK","RECEIVABLE"].includes(x.default_legacy_asset_type))).map((x:any)=><option key={x.code} value={x.code}>{assetTypeIcon(x.code)} {ar?x.name_ar:x.name_en}</option>)}</select></label>
-          {edit&&!form.asset_type_code&&<p className="muted">{ar?"النوع السابق محفوظ دون تغيير. الأصول المرتبطة بحركات لا يعاد تصنيفها من هذا النموذج.":"Existing type is preserved. Assets with financial history cannot be reclassified here."}</p>}
-          {["PROPERTY","INVESTMENT","METALS"].includes(form.display_class)&&<label>{ar?"غرض الاحتفاظ":"Holding purpose"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.holding_purpose||""} onChange={e=>setForm({...form,holding_purpose:e.target.value})}><option value="">{ar?"غير محدد":"Not specified"}</option><option value="USE">{ar?"استخدام":"Use"}</option><option value="RENT">{ar?"تأجير":"Rental"}</option><option value="INVESTMENT">{ar?"استثمار":"Investment"}</option><option value="TRADE">{ar?"متاجرة":"Trading"}</option></select><small>{ar?"معلومة وصفية؛ الأهلية الزكوية تحدد بشكل مستقل.":"Descriptive; Zakat eligibility is set separately."}</small></label>}
-          <label>
-            {ar ? "اسم الأصل" : "Name"}
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </label>
-          <label>
-            {!edit && form.acquisition_mode === "OPENING_BALANCE" ? (ar ? "تاريخ التملك / الرصيد الافتتاحي" : "Ownership / opening date") : (ar ? "تاريخ الشراء" : "Purchase date")}
-            <input
-              type="date"
-              disabled={Boolean(edit && form.has_financial_history)}
-              value={form.purchase_date}
-              onChange={(e) =>
-                setForm({ ...form, purchase_date: e.target.value })
-              }
-            />
-          </label>
-          {!qty && !["CASH","BANK"].includes(form.asset_type) && <label>{ar?"الكمية / عدد الوحدات":"Quantity / units"}<input type="number" min="0.00000001" step="any" disabled={Boolean(edit&&form.has_financial_history)} value={form.quantity||"1"} onChange={e=>setForm({...form,quantity:e.target.value})}/><small>{ar?"القيمة أدناه إجمالي الوحدات، وليست سعر الوحدة.":"The value below is the total for all units."}</small></label>}
-          {qty ? (
-            <>
-              <label>
-                {metal
-                  ? ar
-                    ? "الوزن بالغرام"
-                    : "Weight g"
-                  : ar
-                    ? "الكمية"
-                    : "Quantity"}
-                <input
-                  type="number"
-                  step="0.001"
-                  disabled={Boolean(edit && form.has_financial_history)}
-              value={form.quantity}
-                  onChange={(e) =>
-                    setForm({ ...form, quantity: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                {ar ? "سعر الشراء" : "Purchase price"}
-                <input
-                  type="number"
-                  step="0.01"
-                  disabled={Boolean(edit && form.has_financial_history)}
-              value={form.purchase_price}
-                  onChange={(e) =>
-                    setForm({ ...form, purchase_price: e.target.value })
-                  }
-                />
-              </label>
-              {market && (
-                <label>
-                  {ar ? "سعر السوق" : "Market price"}
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.market_price}
-                    onChange={(e) =>
-                      setForm({ ...form, market_price: e.target.value })
-                    }
-                  />
-                </label>
-              )}
-              {metal && (
-                <label>
-                  {ar ? "العيار / النقاوة" : "Karat / purity"}
-                  <input
-                    type="number"
-                    step="0.001"
-                    disabled={Boolean(edit && form.has_financial_history)}
-              value={form.karat}
-                    onChange={(e) =>
-                      setForm({ ...form, karat: e.target.value })
-                    }
-                  />
-                </label>
-              )}
-            </>
-          ) : (
-            <label>
-              {!edit && form.acquisition_mode === "PURCHASE" ? (ar ? "قيمة الشراء" : "Purchase value") : (ar ? "القيمة / الرصيد الافتتاحي" : "Opening value / balance")}
-              <input
-                type="number"
-                step="0.01"
-                disabled={Boolean(edit && form.has_financial_history)}
-              value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              />
-            </label>
-          )}
-          <label>
-            {ar ? "زكوي؟" : "Zakatable?"}
-            <select
-              value={form.is_zakatable ? "1" : "0"}
-              onChange={(e) =>
-                setForm({ ...form, is_zakatable: e.target.value === "1" })
-              }
-            >
-              <option value="1">✓ {ar ? "نعم" : "Yes"}</option>
-              <option value="0">— {ar ? "لا" : "No"}</option>
-            </select>
-          </label>
-        </div>
-        <ActionButton icon="save" label={saving?(ar?"جار الحفظ":"Saving"):edit?(ar?"حفظ التعديلات":"Save changes"):(ar?"حفظ الأصل":"Save asset")} showLabel onClick={save} disabled={saving}/>
-        {(
-          <ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={()=>{setEdit(null);setRequestId("");setFormOpen(false);setForm({...empty});}}/>
-        )}
-      </section>}
-      {msg&&<p role="status" className="muted">{msg}</p>}
-      <section className="section">
+        <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{selectedMetric.title}</th></tr></thead><tbody>{selectedMetric.r…20425 tokens truncated…ame="ed-panel">
+      <header>
+        <h2>{title}</h2>
+        <Link href={href}>
+          {action}
+          <span aria-hidden="true"> ←</span>
+        </Link>
+      </header>
+      {children}
+    </section>
+  );
+}
 
-        {!showingExited&&<h2>
-          <span className="section-title-icon" aria-hidden="true">
-            ▤
-          </span>{" "}
-          {ar ? "تقرير الأصول" : "Asset report"}
-        </h2>}
-        <div className="asset-cycle-scope">
-          <label>{ar?"نطاق الدورات":"Cycle scope"}<select value={cycleScope} onChange={e=>setCycleScope(e.target.value as AssetCycleScope)} disabled={loading||!!loadError||assetScope==="ORGANIZATION"}>
-            <option value="DISPLAYED">{ar?"العرض الحالي":"Current view"}</option>
-            <option value="ALL">{ar?"شامل · المغلقة والمفتوحة":"Comprehensive · closed and open"}</option>
-            <option value="CLOSED">{ar?"الدورات المغلقة":"Closed cycles"}</option>
-            <option value="OPEN">{ar?"الدورات المفتوحة":"Open cycles"}</option>
-          </select></label>
-          <span className="muted">{ar?"يحدّث مؤشرات الزكاة والجدول؛ تفاصيل كل دورة وأسعارها تحت السهم.":"Updates Zakat indicators and table; each cycle’s saved prices are under the details arrow."}</span>
+export default function ElegantDashboard({
+  d,
+  locale,
+  currency,
+}: {
+  d: any;
+  locale: string;
+  currency: string;
+}) {
+  const ar = locale === "ar",
+    t = (a: string, e: string) => (ar ? a : e);
+  const money = useDisplayMoney();
+  const amount = (v: unknown) => <Money value={v} currency="SAR"/>;
+  const path = (p: string) => `/${locale}/${p}`;
+  const c = d.activeCycle;
+  const progress = hawlProgress(
+    c?.hawl_start_date,
+    c?.hawl_due_date,
+    d.asOfDate,
+  );
+  const paid = Math.max(0, Math.min(100, Number(d.zakatPaymentPct) || 0));
+  const segments = allocationSegments(d.assetAllocation || []);
+  const gradient = segments.length
+    ? `conic-gradient(${segments.map((s, i) => `var(--asset-chart-${i % 6 + 1}, ${colors[i % colors.length]}) ${s.start}% ${s.end}%`).join(",")})`
+    : "#e7efec";
+  // Each bar is a saved assessment, not an invented annual observation.
+  const history = [...(d.latestAssessments || [])].slice(0, 6).reverse();
+  const maxDue = Math.max(
+    1,
+    ...history.map((x: any) => Number(x.zakat_due) || 0),
+  );
+  const health = d.dataHealth || {};
+  const missing = d.loadError || Object.values(health).some((v) => v === false);
+  const assessmentKnown =
+    !d.loadError && health.assessments !== false && health.cycles !== false;
+  const paymentKnown = assessmentKnown && health.allocations !== false;
+  const weight = (v: unknown) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(Number(v) || 0);
+  const metrics = [
+    {
+      key: "assets",
+      label: t("إجمالي الأصول", "Total assets"),
+      value: d.totalCurrentSar,
+      known: !d.loadError,
+      note: `${d.assetCount || 0} ${t("أصل نشط", "active assets")}`,
+      percent: Number(d.totalCurrentSar) > 0 ? 100 : 0,
+    },
+    {
+      key: "pool",
+      label: t("الوعاء الزكوي", "Zakatable amount"),
+      value: d.zakatableValueSar,
+      known: assessmentKnown,
+      note: d.latestAssessmentDate
+        ? `${t("آخر احتساب", "Assessed")} · ${d.latestAssessmentDate}`
+        : t("وفق الأصول المسجلة", "Based on registered assets"),
+      percent:
+        Number(d.totalCurrentSar) > 0
+          ? Math.min(
+              100,
+              (Number(d.zakatableValueSar || 0) / Number(d.totalCurrentSar)) *
+                100,
+            )
+          : 0,
+    },
+    {
+      key: "due",
+      label: t("الاستحقاق النهائي المثبت", "Frozen final liability"),
+      value: d.explicitZakahDueSar,
+      known: assessmentKnown,
+      note: `${t("جميع الدورات النهائية · أسعار مثبتة", "All final cycles · frozen prices")} · ${Number(d.zakatableValueSar) > 0 ? ((Number(d.explicitZakahDueSar || 0) / Number(d.zakatableValueSar)) * 100).toFixed(2) : "0.00"}%`,
+      percent:
+        Number(d.zakatableValueSar) > 0
+          ? Math.min(
+              100,
+              (Number(d.explicitZakahDueSar || 0) /
+                Number(d.zakatableValueSar)) *
+                100,
+            )
+          : 0,
+    },
+    {
+      key: "paid",
+      label: t("المسدّد حتى الآن", "Paid so far"),
+      value: d.allocatedZakahPaidSar,
+      known: paymentKnown,
+      note: `${paid.toFixed(1)}% ${t("من المستحق", "of amount due")}`,
+      percent: paid,
+    },
+    {
+      key: "clock",
+      label: t("المتبقي النهائي للسداد", "Final outstanding balance"),
+      value: d.remainingZakahSar,
+      known: paymentKnown,
+      note: t("بعد طرح السداد المخصص للدورات النهائية", "After payments allocated to final cycles"),
+      percent: Number(d.explicitZakahDueSar) > 0 ? 100 - paid : 0,
+    },
+    {
+      key: "open", label:t("تقدير الدورة المفتوحة", "Open-cycle estimate"),value:d.openCycleEstimateSar,known:assessmentKnown,
+      note:t("آخر احتساب فقط · قابل لإعادة الاحتساب", "Latest snapshot only · recalculable"),percent:0,
+    },
+    {
+      key: "asof",label:t("الإجمالي حتى آخر احتساب", "Balance as of latest assessment"),value:d.asOfZakahBalanceSar,known:paymentKnown,
+      note:`${t("المتبقي النهائي + التقدير المفتوح", "Final balance + open estimate")} · ${t("رصيد مرحّل", "Carried credit")}: ${money(d.carriedZakahCreditSar)}`,percent:0,
+    },
+    {
+      key: "metals",
+      label: t("إجمالي وزن المعادن", "Total metal weights"),
+      value: 0,
+      known: !d.loadError && health.assets !== false,
+      note: t("الأصول النشطة فقط · دون المباعة والمستغنى عنها", "Active holdings only · excludes sold and disposed assets"),
+      percent: null,
+    },
+  ];
+  const steps = [
+    {
+      title: t("تسجيل الأصول", "Assets recorded"),
+      detail: `${d.assetCount || 0} ${t("أصل نشط", "active assets")}`,
+      done: Number(d.assetCount) > 0,
+    },
+    {
+      title: t("الاحتساب الزكوي", "Zakat assessment"),
+      detail:
+        d.latestAssessmentDate || t("لا يوجد احتساب بعد", "Not assessed yet"),
+      done: !!d.latestAssessmentDate && health.assessments !== false,
+    },
+    {
+      title: t("السداد", "Payments"),
+      detail: paymentKnown
+        ? `${money(d.allocatedZakahPaidSar)}`
+        : "—",
+      done: paymentKnown && Number(d.allocatedZakahPaidSar) > 0,
+    },
+    {
+      title: t("اكتمال السداد", "Payment completed"),
+      detail: paymentKnown
+        ? `${t("المتبقي", "Remaining")}: ${money(d.remainingZakahSar)}`
+        : "—",
+      done:
+        paymentKnown &&
+        Number(d.explicitZakahDueSar) > 0 &&
+        Number(d.remainingZakahSar) === 0,
+    },
+  ];
+  return (
+    <div className="ed-dashboard" dir={ar ? "rtl" : "ltr"}>
+      <header className="ed-welcome">
+        <div>
+          <p className="ed-eyebrow">ZAKATFLOW</p>
+          <h1>{t("نظرة عامة على زكاتك", "Your Zakat overview")}</h1>
+          <p>
+            {t(
+              "أصولك، استحقاقاتك، وخطوتك التالية في مكان واحد.",
+              "Your assets, obligations and next steps in one place.",
+            )}
+          </p>
         </div>
-        {lifecycleFilter==="DISPOSED"&&<p className="asset-exit-caption">{ar?"الإجماليات أدناه تعرض الوزن والتكلفة التاريخية قبل الاستغناء، وليست سعر السوق قبل الاستغناء. القيمة الحالية صفر، ولا تدخل هذه القيم في إجماليات الأصول النشطة.":"Weight and cost below describe the disposed quantity before disposal. Current value is zero; these historical figures are excluded from active asset totals."}</p>}
-        <div className="form-grid asset-report-filters" style={{marginBottom:16}}><div className="asset-group-toggle-wrap"><span className="muted asset-filter-label">{ar?"تجميع التقرير":"Report grouping"}</span><button type="button" role="switch" aria-checked={groupBy==="TYPE"} aria-label={ar?"تجميع بحسب النوع":"Group by type"} title={ar?"يمين: فئة · يسار: نوع":"Right: class · Left: type"} className="asset-group-toggle" onPointerDown={e=>{if(e.button===0)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerUp={e=>{if(e.button!==0)return;const rect=e.currentTarget.getBoundingClientRect();setGroupBy(e.clientX<rect.left+rect.width/2?"TYPE":"CLASS");}} onClick={e=>{if(e.detail===0)setGroupBy(groupBy==="TYPE"?"CLASS":"TYPE");}} onKeyDown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();setGroupBy(e.key==="ArrowLeft"?"TYPE":"CLASS");}}}><span className="asset-group-type" aria-hidden="true">{ar?"نوع":"Type"}</span><span className="asset-group-class" aria-hidden="true">{ar?"فئة":"Class"}</span><span className="asset-group-knob" aria-hidden="true"/></button></div><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label><div className="asset-status-filter"><span className="muted asset-filter-label">{ar?"حالة الأصول":"Asset status"}</span><div className="asset-lifecycle-tabs">{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} title={label} aria-label={label} aria-pressed={lifecycleFilter===key} onClick={()=>setLifecycleFilter(key)}><ActionIconGlyph name={key==="DISPOSED"?"delete":key==="SOLD"?"collect":key==="ALL"?"history":"post"}/>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div></div></div>
-        {["SOLD","DISPOSED","ALL"].includes(lifecycleFilter)&&displayRows.some(r=>["SOLD","DISPOSED"].includes(r.lifecycle_status))&&!loading&&!loadError&&<div className="card section asset-exit-summary-card">{historicalSummary(displayRows,true)}</div>}
-        {loading && <div className="card section muted">{ar ? "جارٍ تحميل الأصول…" : "Loading assets…"}</div>}
-        {!loading && !loadError && groups.length === 0 && (
-          <div className="card section muted">
-            {ar ? "لا توجد أصول مطابقة في نطاق العرض الحالي. راجع النطاق والفلاتر أعلاه." : "No assets match this view. Check the scope and filters above."}
-          </div>
-        )}
-        {groups.map((g) => {
-          const sub = g.rows.reduce((s, r) => s + val(r), 0),
-            sd = g.rows.reduce((s, r) => s + due(r), 0),
-            isClosed = !!closed[g.type],
-            sortedRows = sortAssetRows(g.rows, sort.column, sort.direction);
-          return (
-            <div className={`card section asset-group${showingExited?" is-exited":""}`} key={g.type}>
-              <div className="page-head asset-group-head">
-                <div>
-                  <h3 className="asset-type-title">
-                    <span className="asset-type-icon"><AssetTypeGlyph code={g.type} fallback={g.symbol}/></span>
-                    {g.title}{" "}
-                    <span className="pill">{g.rows.length}</span>
-                  </h3>
-                  {!showingExited&&historicalSummary(g.rows)}
-                  {!showingExited&&<div className="asset-summary">
-                    <span className="sum-chip">
-                      <span className="sum-icon" aria-hidden="true">
-                        <AssetTypeGlyph code="INVESTMENT" fallback="◆"/>
-                      </span>
-                      <span>{ar ? "إجمالي القيمة" : "Total value"}</span>
-                      <strong>
-                        <Money value={cv(sub)} currency={cur}/>
-                      </strong>
-                    </span>
-                    <span className="sum-chip due">
-                      <span className="sum-icon" aria-hidden="true">
-                        <AssetTypeGlyph code="SUKUK" fallback="◉"/>
-                      </span>
-                      <span>{ar ? "زكاة Snapshot" : "Snapshot Zakat"}</span>
-                      <strong>
-                        <Money value={cv(sd)} currency={cur}/>
-                      </strong>
-                    </span>
-                  </div>}
-                </div>
-                <button
-                  type="button"
-                  className="btn secondary collapse-btn"
-                  aria-expanded={!isClosed}
-                  aria-label={`${isClosed?(ar?"توسيع":"Expand"):(ar?"طي":"Collapse")} ${g.title}`}
-                  onClick={() =>
-                    setClosed((x) => ({ ...x, [g.type]: !x[g.type] }))
-                  }
-                >
-                  {isClosed ? "＋" : "−"}
-                </button>
+        <div className="ed-cycle-control">
+          <Link className="ed-cycle-link" href={path("assessments")}>
+            <Icon kind="clock" />
+            {c
+              ? `${t("الدورة الزكوية", "Zakat cycle")} #${c.cycle_no}`
+              : t("إعداد الدورة الزكوية", "Set up Zakat cycle")}
+            <span aria-hidden="true">‹</span>
+          </Link>
+          <small>
+            <bdi>{c?.hawl_start_date || "—"}</bdi> —{" "}
+            <bdi>{c?.hawl_due_date || "—"}</bdi>
+          </small>
+
+        </div>
+      </header>
+      {missing && (
+        <p className="ed-warning" role="status">
+          {t(
+            "تعذر تحميل بعض البيانات. المؤشرات غير المتاحة معروضة بشرطة، وليست رصيدًا صفريًا.",
+            "Some data could not be loaded. Unavailable indicators show a dash, not a zero balance.",
+          )}
+        </p>
+      )}
+      <section
+        className="ed-kpis"
+        aria-label={t("المؤشرات المالية", "Financial indicators")}
+      >
+        {metrics.map((m) => (
+          <article key={m.key} className={`ed-metric ed-metric-${m.key}`}>
+            <div className="ed-metric-heading">
+              <h2>{m.label}</h2>
+              <span className="ed-icon">
+                <Icon kind={m.key} />
+              </span>
+            </div>
+            {m.key === "metals" && m.known ? (
+              <dl className="ed-metal-weights">
+                {[{ label: t("الذهب", "Gold"), value: d.goldWeightKg }, { label: t("الفضة", "Silver"), value: d.silverWeightKg }].map((metal) => (
+                  <div key={metal.label}>
+                    <dt>{metal.label}</dt>
+                    <dd><bdi>{weight(metal.value)} <span className="ed-unit">{t("كجم", "kg")}</span></bdi></dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <strong className="ed-number">{m.known ? amount(m.value) : "—"}</strong>
+            )}
+            <p>
+              {m.known ? m.note : t("البيانات غير متاحة", "Data unavailable")}
+            </p>
+            {m.percent != null && m.known && (
+              <progress max={100} value={m.percent} aria-label={m.label} />
+            )}
+          </article>
+        ))}
+      </section>
+      {Number(d.priorCyclesUnpaidSar) > 0 && (
+        <aside className="ed-warning">
+          {t("رصيد مستحق من دورات سابقة", "Prior-cycle balance")}:{" "}
+          {amount(d.priorCyclesUnpaidSar)}{" "}
+          <Link href={path("payments")}>
+            {t("مراجعة السداد", "Review payments")} ←
+          </Link>
+        </aside>
+      )}
+      <div className="ed-grid">
+        <Panel
+          title={t("توزيع الأصول", "Asset allocation")}
+          href={path("assets")}
+          action={t("عرض الكل", "View all")}
+        >
+          <div className="ed-allocation">
+            <div
+              className="ed-ring"
+              style={{ background: gradient }}
+              role="img"
+              aria-label={t(
+                "توزيع قيمة الأصول حسب الفئة؛ التفاصيل في القائمة المجاورة",
+                "Asset value by category; details in adjacent list",
+              )}
+            >
+              <div>
+                <strong>
+                  <bdi>{money(d.totalCurrentSar)}</bdi>
+                </strong>
+
               </div>
-              {!isClosed && (showingExited ? <div className="asset-exit-table-scroll"><table className="table asset-exit-table"><thead><tr>
-                <th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"الوزن قبل الخروج / الكمية":"Weight / quantity before exit"}</th><th>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":"التكلفة قبل البيع"):"Cost before exit"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th><th>{ar?"الإجراء":"Action"}</th>
-              </tr></thead><tbody>{sortedRows.map(row=>{const sold=row.lifecycle_status==="SOLD";const amount=sold?row.sold_cost_value:row.disposed_cost_value;const date=(row.exit_history||[]).filter((tx:any)=>tx.kind===row.lifecycle_status).map((tx:any)=>tx.date).sort().at(-1);return <tr key={row.id}>
-                <td><strong className="asset-name-cell"><span className="asset-row-icon" aria-hidden="true"><AssetTypeGlyph code={row.asset_type_code||row.asset_type} fallback={assetTypeIcon(row.asset_type_code||row.asset_type)}/></span>{row.name}</strong></td><td>{typeName(row)}</td><td>{fmt(Number(sold?row.sold_quantity:row.disposed_quantity)||0)} {["GOLD","SILVER"].includes(row.asset_type)?(ar?"غرام":"g"):row.unit||""}</td><td>{amount==null?"—":<Money value={Number(amount)} currency={cur}/>}</td><td>{date||"—"}</td><td>{renderAssetCell("action",row)}</td>
-              </tr>;})}</tbody></table></div> : (
-                <div style={{ overflowX: "auto" }}>
-                  <table
-                    className="table asset-report-table"
-                    data-size={tablePreferences.size}
-                    data-preset={tablePreferences.preset}
-                  >
-                    <thead>
-                      <tr>
-                        {orderedColumns.map((column) => {
-                          const sortable = column !== "action";
-                          const active = sortable && sort.column === column;
-                          return (
-                            <th
-                              key={column}
-                              data-column={column}
-                              aria-sort={
-                                active
-                                  ? sort.direction === "asc"
-                                    ? "ascending"
-                                    : "descending"
-                                  : undefined
-                              }
-                            >
-                              {sortable ? (
-                                <button
-                                  type="button"
-                                  title={columnLabel(column)} aria-label={columnLabel(column)} className={`asset-sort${active ? " active" : ""}`}
-                                  onClick={() =>
-                                    changeSort(column as AssetSortColumn)
-                                  }
-                                >
-                                  <span>{columnLabel(column)}</span>
-                                  <span aria-hidden="true">
-                                    {sortMark(column as AssetSortColumn)}
-                                  </span>
-                                </button>
-                              ) : (
-                                columnLabel(column)
-                              )}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedRows.map((row) => (
-                        <tr key={row.id}>
-                          {orderedColumns.map((column) => (
-                            <td key={column} data-column={column}>
-                              {renderAssetCell(column, row)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            </div>
+            <ul className="ed-legend">
+              {segments.map((s, i) => (
+                <li key={s.type}>
+                  <span
+                    className="ed-dot"
+                    style={{ background: `var(--asset-chart-${i % 6 + 1}, ${colors[i % colors.length]})` }}
+                  />
+                  <span>{types[s.type]?.[ar ? 0 : 1] || s.type}</span>
+                  <bdi>{money(s.value)}</bdi>
+                  <small>
+                    <bdi>{s.percent.toFixed(1)}%</bdi>
+                  </small>
+                </li>
+              ))}
+            </ul>
+          </div>
+          {!segments.length && (
+            <p className="ed-empty">
+              {t(
+                "لا توجد قيم موجبة مسجلة لعرض التوزيع.",
+                "No positive asset values available.",
+              )}
+            </p>
+          )}
+        </Panel>
+        <Panel
+          title={t("اتجاه الزكاة", "Zakat trend")}
+          href={path("reports")}
+          action={t("عرض التقرير", "View report")}
+        >
+          <p className="ed-caption">
+            {t(
+              "المستحق في آخر الاحتسابات المحفوظة",
+              "Due across recent saved assessments",
+            )}
+          </p>
+          {health.assessments === false || !history.length ? (
+            <p className="ed-empty">
+              {t(
+                "يظهر الاتجاه بعد حفظ احتساب زكوي.",
+                "Save an assessment to see the trend.",
+              )}
+            </p>
+          ) : (
+            <div
+              className="ed-chart"
+              aria-label={t(
+                "مبالغ الزكاة بحسب تاريخ الاحتساب",
+                "Zakat by assessment date",
+              )}
+            >
+              {history.map((x: any) => (
+                <div className="ed-bar-column" key={x.id}>
+                  <div className="ed-bar-space">
+                    <div
+                      className="ed-bar"
+                      style={{
+                        height: `${(Math.max(0, Number(x.zakat_due) || 0) / maxDue) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <Money value={x.zakat_due} currency={x.currency || "SAR"}/>
+                  <time dateTime={x.assessment_date}>{x.assessment_date}</time>
                 </div>
               ))}
             </div>
-          );
-        })}
-      </section>
-      {!showingExited && retroPending.length > 0 && (
-        <aside className="notice asset-report-notice" role="note">
-          <strong>{ar ? "أصول غير مشمولة باحتساب الدورة المعروضة" : "Assets outside the displayed cycle assessment"}</strong>
-          {pendingInOpen > 0 && <p className="muted">{ar
-            ? `${pendingInOpen} من الأصول غير مشمولة باحتساب الدورة المعروضة، ولها احتساب ضمن الدورة المفتوحة. اختر «شامل» أو «الدورات المفتوحة» لعرض احتسابها.`
-            : `${pendingInOpen} asset(s) are outside the displayed cycle assessment and have a saved calculation in an open cycle. Choose Comprehensive or Open cycles to view it.`}</p>}
-          {retroPending.length > pendingInOpen && <p className="muted">{ar
-            ? `${retroPending.length - pendingInOpen} من الأصول لها بيانات حول محفوظة ولم تُشمل باحتساب ضمن النطاق المختار. راجعها عند احتساب الدورة المفتوحة أو الجديدة.`
-            : `${retroPending.length - pendingInOpen} asset(s) have saved Hawl dates but no assessment in this scope. Review them when calculating an open or new cycle.`}</p>}
-          <small>{ar ? "الاحتساب النهائي للدورة المغلقة وأسعاره يبقيان محفوظين." : "The closed cycle’s final assessment and prices remain preserved."}</small>
-        </aside>
-      )}
-    </main>
-  );
-}
-function HawlBadge({
-  date,
-  ar,
-  displayOnly = false,
-}: {
-  date?: string;
-  ar: boolean;
-  displayOnly?: boolean;
-}) {
-  const h = hawlParts(date);
-  if (!h) return <span className="pill">{ar ? "لم يبدأ" : "Not started"}</span>;
-  return (
-    <span
-      className={`hawl-badges${displayOnly ? " display-only" : ""}`}
-      title={
-        displayOnly
-          ? ar
-            ? "مدة مرجعية للمحفظة فقط — لم تُثبت كبداية حول لهذا الأصل"
-            : "Portfolio reference only — not persisted as this asset Hawl start"
-          : undefined
-      }
-    >
-      <span className="hawl-cycle">
-        <b>{h.cycles}</b> {ar ? "حول" : "Hawl"}
-      </span>
-      <span className="hawl-days">
-        <b>{h.extra}</b> {ar ? "يوم" : "days"}
-      </span>
-      {displayOnly && (
-        <span className="hawl-reference">{ar ? "مرجعي" : "Reference"}</span>
-      )}
-    </span>
-  );
-}
-function ZakatCell({
-  row,
-  ar,
-  amount,
-}: {
-  row: any;
-  ar: boolean;
-  amount: React.ReactNode;
-}) {
-  const c = row.zakat_calculation;
-  if (!row.is_zakatable && !Number(c?.zakat_amount))
-    return <span className="pill">{ar ? "غير زكوي" : "Exempt"}</span>;
-  if (!c)
-    return <span className="pill">{ar ? "غير محتسب" : "Not assessed"}</span>;
-  if (c.statuses?.includes("NOT_ASSESSED")) {
-    const hasPersistedHawl = (c.lots || []).some((l: any) => l.hawl_start_date);
-    return (
-      <span className="pill">
-        {hasPersistedHawl
-          ? ar
-            ? "بانتظار إعادة الاحتساب"
-            : "Awaiting recalculation"
-          : ar
-            ? "غير محتسب"
-            : "Not assessed"}
-      </span>
-    );
-  }
-  if(c.cycle_calculations) return <div className="zakat-result-compact">
-    <strong>{amount}</strong> <span className="pill">{ar?"حسب نطاق الدورات":"Cycle scope"}</span>
-    <details className="asset-valuation-details"><summary aria-label={ar?"تفاصيل الدورات وأسعار الاحتساب":"Cycle details and saved prices"} title={ar?"تفاصيل الدورات وأسعار الاحتساب":"Cycle details and saved prices"}><span aria-hidden="true">▸</span></summary><div className="asset-valuation-content">
-      {c.cycle_calculations.map((cycle:any)=><section key={cycle.assessment_id} className="asset-cycle-detail">
-        <strong>{ar?"الدورة":"Cycle"} #{cycle.cycle_number} · {cycle.cycle_closed?(ar?"مغلقة · سعر مثبت":"Closed · frozen price"):(ar?"مفتوحة · تقدير":"Open · estimate")}</strong>
-        <div><bdi>{cycle.cycle_start_date}</bdi> → <bdi>{cycle.cycle_end_date}</bdi></div>
-        <div>{ar?"المحتسب":"Assessed"}: <Money value={cycle.zakat_amount} currency={cycle.currency}/> · {ar?"المسدّد":"Paid"}: <Money value={cycle.paid_amount} currency={cycle.currency}/> · {ar?"المتبقي":"Remaining"}: <Money value={cycle.remaining_amount} currency={cycle.currency}/></div>
-        {cycle.lots.map((lot:any)=><div key={lot.id??lot.lot_id}>{ar?"الكمية":"Quantity"}: {fmt(lot.quantity)} · {ar?"السعر المحفوظ":"Saved price"}: {lot.valuation_price==null?"—":<Money value={lot.valuation_price} currency={lot.valuation_currency} precision={6}/>}</div>)}
-      </section>)}
-    </div></details>
-  </div>;
-  const s = c.statuses || [];
-  const label = s.includes("ELIGIBLE")
-    ? ar
-      ? "مؤهل"
-      : "Eligible"
-    : s.includes("HAWL_NOT_COMPLETED")
-      ? ar
-        ? "لم يكتمل الحول"
-        : "Hawl pending"
-      : s.includes("BELOW_NISAB")
-        ? ar
-          ? "أقل من النصاب"
-          : "Below Nisab"
-        : ar
-          ? "غير مؤهل"
-          : "Not eligible";
-  return (
-    <div className="zakat-result-compact">
-      <strong>{amount}</strong> <span className="pill">{label}</span>
-      <details className="asset-valuation-details"><summary aria-label={ar?"أساس الاحتساب المحفوظ":"Saved valuation basis"} title={ar?"أساس الاحتساب المحفوظ":"Saved valuation basis"}><span aria-hidden="true">▸</span></summary><div className="asset-valuation-content">
-        <div className="muted">{ar ? "تاريخ التقييم" : "Valuation date"}: {c.valuation_date} · {ar ? "الدورة" : "Cycle"}: {c.cycle_number??"—"}</div>
-        {(c.lots??[]).map((l:any)=><div key={l.id??l.lot_id} style={{marginTop:6,fontSize:11}}>
-          {ar ? "الكمية" : "Quantity"}: {fmt(l.quantity)} · {ar ? "السعر" : "Price"}: {l.valuation_price==null?"—":<Money value={l.valuation_price} currency={l.valuation_currency} precision={6}/>}
-          <br/>{ar ? "النقاوة" : "Purity"}: {l.valuation_snapshot?.purity??"—"} · {ar ? "سعر الصرف" : "FX"}: {l.fx_rate??"—"}
-          <br/>{ar ? "المصدر" : "Source"}: {l.valuation_snapshot?.priceSource??c.snapshot?.priceSource??"—"}
-        </div>)}
-        <div className="muted">{ar ? "مدفوعات تاريخية لكل الدورات" : "Historical payments across cycles"}: <Money value={c.historical_paid_amount} currency={c.currency}/></div>
-      </div></details>
+          )}
+        </Panel>
+        <Panel
+          title={t("تقدم السنة الزكوية", "Zakat year progress")}
+          href={path("lots")}
+          action={t("عرض التفاصيل", "View details")}
+        >
+          {progress ? (
+            <>
+              <div className="ed-hawl">
+                <div
+                  className="ed-ring ed-hawl-ring"
+                  style={{
+                    background: `conic-gradient(var(--asset-chart-1, #087653) ${progress.percent}%, var(--asset-chart-6, #dcefe6) 0)`,
+                  }}
+                >
+                  <div>
+                    <strong>{Math.round(progress.percent)}%</strong>
+                  </div>
+                </div>
+                <div>
+                  <strong className="ed-days">
+                    {progress.elapsed} <small>{t("يومًا", "days")}</small>
+                  </strong>
+                  <p>
+                    {t("من أصل", "of")} {progress.total} {t("يومًا", "days")}
+                  </p>
+                </div>
+              </div>
+              <div className="ed-timeline">
+                <div>
+                  <span />
+                  {t("البداية", "Start")}
+                  <time>{c.hawl_start_date}</time>
+                </div>
+                <div>
+                  <span />
+                  {t("اليوم", "Today")}
+                  <time>{d.asOfDate}</time>
+                </div>
+                <div>
+                  <span />
+                  {t("الاستحقاق", "Due")}
+                  <time>{c.hawl_due_date}</time>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="ed-empty">
+              {t(
+                "حدّد بداية الحول وتاريخ الاستحقاق لعرض التقدم.",
+                "Set the Hawl start and due date to see progress.",
+              )}
+            </p>
+          )}
+        </Panel>
+        <Panel
+          title={t("أحدث المدفوعات", "Recent payments")}
+          href={path("payments")}
+          action={t("عرض الكل", "View all")}
+        >
+          <ul className="ed-list">
+            {(health.payments === false ? [] : d.recentPayments || [])
+              .slice(0, 5)
+              .map((p: any) => (
+                <li key={p.id}>
+                  <span className="ed-list-icon">
+                    <Icon kind="paid" />
+                  </span>
+                  <div>
+                    <span>
+                      {p.beneficiary || t("دفعة زكاة", "Zakat payment")}
+                    </span>
+                    <time>{p.payment_date}</time>
+                  </div>
+                  <strong>
+                    <bdi>
+                      <Money value={p.amount} currency={p.currency}/>
+                    </bdi>
+                  </strong>
+                </li>
+              ))}
+          </ul>
+          {(!d.recentPayments?.length || health.payments === false) && (
+            <p className="ed-empty">
+              {health.payments === false
+                ? t("المدفوعات غير متاحة حاليًا", "Payments unavailable")
+                : t("لا توجد مدفوعات مسجلة بعد", "No payments recorded yet")}
+            </p>
+          )}
+        </Panel>
+        <Panel
+          title={t("أهم الأصول", "Top assets")}
+          href={path("assets")}
+          action={t("عرض الأصول", "View assets")}
+        >
+          <ul className="ed-list">
+            {(d.topAssets || []).slice(0, 5).map((a: any, i: number) => (
+              <li key={a.id}>
+                <span className="ed-list-icon" style={{ color: colors[i] }}>
+                  <Icon kind="assets" />
+                </span>
+                <div>
+                  <span>{a.name}</span>
+                  <small>{types[a.type]?.[ar ? 0 : 1] || a.type}</small>
+                </div>
+                <strong>{amount(a.value)}</strong>
+                <small>
+                  <bdi>
+                    {Number(d.totalCurrentSar) > 0
+                      ? (
+                          (Number(a.value) / Number(d.totalCurrentSar)) *
+                          100
+                        ).toFixed(1)
+                      : "—"}
+                    %
+                  </bdi>
+                </small>
+              </li>
+            ))}
+          </ul>
+          {!d.topAssets?.length && (
+            <p className="ed-empty">
+              {t(
+                "أضف أصلًا لعرض محفظتك هنا.",
+                "Add an asset to see your portfolio here.",
+              )}
+            </p>
+          )}
+        </Panel>
+        <Panel
+          title={t("حالة الزكاة", "Zakat status")}
+          href={path("assessments")}
+          action={t("عرض التفاصيل", "View details")}
+        >
+          <ol className="ed-steps">
+            {steps.map((s, i) => (
+              <li key={s.title} className={s.done ? "is-done" : ""}>
+                <span className="ed-step-icon" aria-hidden="true">
+                  {s.done ? "✓" : i + 1}
+                </span>
+                <div>
+                  <strong>{s.title}</strong>
+                  <small>{s.detail}</small>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Panel>
+      </div>
+      <p className="ed-footnote">
+        {t(
+          "القيم حسب البيانات المسجلة. الاحتساب والسداد مرتبطان بالدورة الزكوية الحالية.",
+          "Values reflect recorded data. Assessment and payments relate to the current Zakat cycle.",
+        )}
+        {currency === "USD" &&
+          t(
+            " · تحويل العرض: 1 USD = 3.75 SAR.",
+            " · Display conversion: 1 USD = 3.75 SAR.",
+          )}
+      </p>
     </div>
-  );
-}
-function K({
-  t,
-  v,
-  i,
-  tone,
-  source, percent, percentLabel, disabled, expanded, detailsLabel, onClick,
-}: {
-  t: string;
-  v: string;
-  i: string;
-  tone: string;
-  source: string;
-  percent:number|null;percentLabel:string;disabled:boolean;expanded:boolean;detailsLabel:string;onClick:()=>void;
-}) {
-  return (
-    <button type="button" className={`card asset-kpi tone-${tone}`} disabled={disabled} onClick={onClick} aria-expanded={expanded} aria-controls={expanded?"asset-indicator-details":undefined} title={detailsLabel}>
-      <div className="asset-kpi-head">
-        <span className="kpi-icon" aria-hidden="true">
-          {i}
-        </span>
-        <span className="muted">{t}</span>
-      </div>
-      <div className="metric">{v}</div>
-      <div className="asset-kpi-source">
-        <span aria-hidden="true" />
-        {source}
-      </div>
-      <small className="asset-kpi-ratio">{percent==null?"—":`${new Intl.NumberFormat("en-US",{maximumFractionDigits:1}).format(percent)}%`} · {percentLabel}</small>
-      <span className="asset-kpi-accent" aria-hidden="true" style={{"--asset-kpi-percent":`${Math.min(100,Math.abs(percent??0))}%`} as import("react").CSSProperties}/>
-    </button>
   );
 }
