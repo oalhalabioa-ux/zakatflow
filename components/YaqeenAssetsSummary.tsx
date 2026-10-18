@@ -3,7 +3,7 @@ import Link from 'next/link';
 import {Money} from './DisplayCurrency';
 import {ActionIconGlyph,type ActionIcon} from './ActionButton';
 
-type Metric={label:string;value:unknown;icon:ActionIcon;featured?:boolean;note?:string;known:boolean;positive?:boolean};
+type Metric={label:string;value:unknown;icon:ActionIcon;featured?:boolean;note?:string;known:boolean;positive?:boolean;negative?:boolean};
 export default function YaqeenAssetsSummary({d,locale}:{d:any;locale:string}){
  const ar=locale==='ar',t=(a:string,e:string)=>ar?a:e;
  const health=d.dataHealth||{},assetsKnown=!d.loadError&&health.assets!==false;
@@ -12,7 +12,7 @@ export default function YaqeenAssetsSummary({d,locale}:{d:any;locale:string}){
  const assets:Metric[]=[
   {label:t('إجمالي التكلفة','Total cost'),value:d.totalPurchaseSar,icon:'investment',known:assetsKnown},
   {label:t('القيمة السوقية','Market value'),value:d.totalCurrentSar,icon:'trend',known:assetsKnown,featured:true},
-  {label:t('الربح / الخسارة غير المحققة','Unrealized gain / loss'),value:d.gainSar,icon:'trend',known:assetsKnown,positive:Number(d.gainSar)>0,note:d.gainPct==null?'—':`${Number(d.gainPct).toFixed(2)}%`},
+  {label:t('الربح / الخسارة غير المحققة','Unrealized gain / loss'),value:d.gainSar,icon:'trend',known:assetsKnown,positive:Number(d.gainSar)>0,negative:Number(d.gainSar)<0,note:d.gainPct==null?'—':`${Number(d.gainPct).toFixed(2)}%`},
   {label:t('الوعاء الزكوي','Zakatable amount'),value:d.zakatableValueSar,icon:'certificate',known:assessmentKnown},
  ];
  const zakat:Metric[]=[
@@ -22,7 +22,7 @@ export default function YaqeenAssetsSummary({d,locale}:{d:any;locale:string}){
   {label:t('تقدير الدورة المفتوحة','Open-cycle estimate'),value:d.openCycleEstimateSar,icon:'history',known:assessmentKnown,note:t('قابل لإعادة الاحتساب','Recalculable')},
   {label:t('الإجمالي حتى آخر احتساب','Balance at last assessment'),value:d.asOfZakahBalanceSar,icon:'investment',known:paymentKnown,note:t('بعد الرصيد المرحّل','After carried credit')},
  ];
- const render=(m:Metric)=><article key={m.label} className={`yqa-summary-metric${m.featured?' is-featured':''}`}><div><span>{m.label}</span><ActionIconGlyph name={m.icon}/></div><strong>{m.known?<Money value={m.value} currency="SAR"/>:'—'}</strong>{m.note&&<small className={m.known&&m.positive?'is-positive':undefined}>{m.note}</small>}</article>;
+ const render=(m:Metric)=><article key={m.label} className={`yqa-summary-metric${m.featured?' is-featured':''}`}><div><span>{m.label}</span><ActionIconGlyph name={m.icon}/></div><strong>{m.known?<Money value={m.value} currency="SAR"/>:'—'}</strong>{m.note&&<small className={m.known&&m.positive?'is-positive':m.known&&m.negative?'is-negative':undefined}>{m.note}</small>}</article>;
  const weight=(value:unknown)=>new Intl.NumberFormat('en-US',{maximumFractionDigits:3}).format(Number(value)||0);
  return <section className="yaqeen-only yqa-assets-summary" aria-label={t('ملخص الأصول والزكاة','Assets and Zakat summary')}>
   <header className="yqa-assets-heading"><div><h1>{t('لوحة الأصول والزكاة','Assets & Zakat dashboard')}</h1><p>{t('أصولك وقيمتها واستحقاقات الزكاة وفق البيانات المسجلة','Asset values and Zakat obligations from recorded data')}</p></div><Link className="btn secondary" href={`/${locale}/assessments`}><ActionIconGlyph name="history"/>{d.activeCycle?`${t('الدورة','Cycle')} #${d.activeCycle.cycle_no}`:t('احتساب الزكاة','Zakat assessment')}</Link></header>
