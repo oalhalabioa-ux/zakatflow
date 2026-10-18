@@ -122,6 +122,13 @@
 .theme-yaqeen-business[data-asset-workspace=true] .dashboard-operations>summary{display:block;cursor:pointer;margin:0 24px 18px;padding:12px 16px;border:1px solid #E4EAF0;border-radius:9px;background:white;color:#24496A;font-size:13px}
 .theme-yaqeen-business[data-asset-workspace=true] .allocation-ring{background:conic-gradient(#0F2D4A var(--p),#EAD7B4 0)}
 .theme-yaqeen-business[data-asset-workspace=true] .payment-ring{background:conic-gradient(#24496A var(--paid),#DCE7F0 0)}
+
+.theme-yaqeen-business[data-asset-workspace=true] .ed-list-icon{color:#24496A!important}
+.theme-yaqeen-business[data-asset-workspace=true] .corp-content .transaction-kpi{--tx-accent:#24496A!important;--tx-accent-soft:#DCE7F0!important;--tx-accent-dark:#0F2D4A!important}
+.theme-yaqeen-business[data-asset-workspace=true] .corp-content .transaction-kpi:nth-child(even){--tx-accent:#BD8B3C!important;--tx-accent-soft:#EAD7B4!important}
+.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-row-icon{color:#24496A;background:#DCE7F0}
+.theme-yaqeen-business[data-asset-workspace=true] .asset-report-bar meter::-moz-meter-bar{background:#24496A}
+
 @media(min-width:1600px){.yqa-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.yqa-summary-grid.zakat{grid-template-columns:repeat(5,minmax(0,1fr))}.yqa-summary-grid.zakat .yqa-summary-metric:last-child{grid-column:auto}}
 @media(max-width:1100px){.yqa-summary-groups{grid-template-columns:1fr}.yqa-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.yqa-summary-grid.zakat{grid-template-columns:repeat(3,minmax(0,1fr))}.yqa-summary-grid.zakat .yqa-summary-metric:last-child{grid-column:span 2}}
 @media(max-width:760px){.theme-yaqeen-business .yqa-assets-summary,.theme-yaqeen-business[data-asset-workspace=true] .ed-dashboard{padding:16px 12px}.theme-yaqeen-business[data-asset-workspace=true] .corp-content>.container{padding:16px 12px}.yqa-assets-heading{align-items:flex-start}.yqa-assets-heading p{font-size:11px}.yqa-summary-grid,.yqa-summary-grid.zakat{grid-template-columns:repeat(2,minmax(0,1fr))}.yqa-summary-grid.zakat .yqa-summary-metric:last-child{grid-column:span 2}.yqa-summary-group{padding:12px}.yqa-summary-metric{padding:11px}.theme-yaqeen-business[data-asset-workspace=true] .ed-grid{grid-template-columns:minmax(0,1fr)}.theme-yaqeen-business[data-asset-workspace=true] .ed-panel{padding:15px}.yqa-assets-context{gap:10px 16px}.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.asset-report-filters,.transaction-filters){grid-template-columns:repeat(2,minmax(0,1fr));flex-wrap:wrap}}
