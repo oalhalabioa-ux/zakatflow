@@ -1,16 +1,16 @@
-/* Final palette trial: Assets & Zakat overview only, Yaqeen only. */
+/* Approved Yaqeen Assets & Zakat overview palette and model-three KPI presentation. */
 .corp-shell.theme-yaqeen-business[data-asset-overview=true]{--yqo-navy:#0F2D4A;--yqo-deep:#0A223B;--yqo-secondary:#24496A;--yqo-blue:#668FB4;--yqo-light-blue:#B9D0E3;--yqo-gold:#BD8B3C;--yqo-light-gold:#EAD7B4}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content{--brand-muted:#52657A;--muted:#52657A;--asset-chart-1:#0F2D4A;--asset-chart-2:#24496A;--asset-chart-3:#668FB4;--asset-chart-4:#B9D0E3;--asset-chart-5:#BD8B3C;--asset-chart-6:#EAD7B4;background:#F8F9FB}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-summary{max-width:none;padding:18px 24px 0}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading{margin-bottom:18px}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading p{color:#52657A}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-group{padding:0;border-color:#E4EAF0;overflow:hidden;box-shadow:0 3px 14px rgb(15 45 74 / 3%)}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .yqa-summary-group h2{margin:0;padding:14px 16px;background:linear-gradient(100deg,#0F2D4A,#0A223B);color:#fff;font-size:16px;min-height:53px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .yqa-summary-group h2{margin:0 16px;padding:13px 0 11px;background:transparent;color:#0F2D4A;font-size:16px;min-height:48px;display:flex;align-items:center;justify-content:flex-start;flex-direction:row;border-bottom:1px solid #E4EAF0;gap:9px}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-group h2 svg{color:#BD8B3C;width:23px;height:23px}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid{padding:13px;gap:10px;grid-auto-rows:minmax(120px,1fr)}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid{padding:13px;gap:10px;grid-auto-rows:minmax(112px,1fr)}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric,
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured,
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat .yqa-summary-metric:last-child{background:#fff;border-color:#E4EAF0;min-height:120px;display:flex;flex-direction:column}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat .yqa-summary-metric:last-child{background:#fff;border-color:#E4EAF0;min-height:112px;display:flex;flex-direction:column}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div,
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured>div{color:#0F2D4A;font-size:12px;line-height:1.6;align-items:flex-start}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric strong,
@@ -63,3 +63,30 @@
  .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat{grid-template-columns:repeat(5,minmax(0,1fr))}
  .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat .yqa-summary-metric:last-child{grid-column:auto}
 }
+
+/* Model three: restrained headings, one navy asset card and one light-gold Zakat card. */
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading h1{display:flex;align-items:center;gap:10px;font-size:clamp(22px,2vw,30px);line-height:1.4}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading h1::before{content:"";display:block;flex:none;width:27px;height:27px;background:#BD8B3C;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7'%3E%3Crect x='3' y='3' width='7' height='7' rx='1'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1'/%3E%3C/svg%3E") center/contain no-repeat}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading p{margin-top:5px;font-size:12px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric{padding:12px 14px;border-radius:10px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div{flex-direction:row-reverse;justify-content:flex-start;align-items:center;gap:9px;min-height:34px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div>svg{width:32px;height:32px;padding:6px;border-radius:8px;background:#DCE7F0}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric:nth-child(even)>div>svg{background:#F8F9FB}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric strong{margin-top:10px;line-height:1.4}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured{background:linear-gradient(120deg,#0F2D4A,#24496A);border-color:#0F2D4A}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured>div{color:#EAD7B4;align-items:center}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured strong{color:#fff}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured>div>svg{color:#BD8B3C;background:#EAD7B4}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat .yqa-summary-metric:last-child{background:linear-gradient(120deg,#FFFFFF,#EAD7B4);border-color:#BD8B3C}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat .yqa-summary-metric:last-child>div>svg{color:#BD8B3C;background:#EAD7B4}
+@media(max-width:760px){
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading{align-items:center;gap:10px}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading h1{font-size:20px;gap:7px}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading h1::before{width:22px;height:22px}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading p{font-size:11px;line-height:1.6}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric{padding:10px}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div{gap:6px;font-size:11px}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div>svg{width:27px;height:27px;padding:5px}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric strong{font-size:17px}
+}
+@media print{.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured strong{color:#0F2D4A!important}}
