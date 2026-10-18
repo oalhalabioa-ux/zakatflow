@@ -9,12 +9,12 @@
 .theme-yaqeen-business .corp-nav .assets-module-toggle[aria-expanded=true]{background:rgb(234 215 180 / 9%);box-shadow:inset -3px 0 #BD8B3C;color:#EAD7B4}
 .theme-yaqeen-business[dir=ltr] .corp-nav .assets-module-toggle[aria-expanded=true]{box-shadow:inset 3px 0 #BD8B3C}
 .theme-yaqeen-business .assets-subnav{border-inline-start:1px solid rgb(234 215 180 / 30%);margin-inline-start:19px;padding-inline-start:5px;background:rgb(255 255 255 / 2%)}
-.theme-yaqeen-business .assets-subnav a[aria-current=page]{background:#BD8B3C;color:#fff!important;border-inline-start:3px solid #EAD7B4}
+.corp-shell.theme-yaqeen-business .corp-nav .assets-subnav a[aria-current=page]{background:#996B28;color:#fff!important;border-inline-start:3px solid #EAD7B4}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content>.container{max-width:1600px;width:100%;padding:20px 24px}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(h1,h2,h3){color:#0F2D4A}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content h1{font-size:clamp(22px,2vw,29px);line-height:1.5}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.card,.ed-panel,.ed-metric,.asset-group){background:#fff;border:1px solid #E4EAF0;border-radius:12px;box-shadow:0 3px 16px rgb(15 45 74 / 3%)}
-.theme-yaqeen-business[data-asset-workspace=true] .corp-content .btn:not(.secondary):not(.outline):not(.danger){background:#A7752D;border-color:#A7752D;color:#fff!important;box-shadow:none}
+.theme-yaqeen-business[data-asset-workspace=true] .corp-content .btn:not(.secondary):not(.outline):not(.danger){background:#996B28;border-color:#996B28;color:#fff!important;box-shadow:none}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content .btn:not(.secondary):not(.outline):not(.danger):hover{background:#926321;border-color:#926321}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.btn.secondary,.btn.outline){background:#fff;border-color:#E4EAF0;color:#24496A;box-shadow:none}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.btn,.action-button){border-radius:8px;min-height:35px;font-size:12px}
@@ -22,7 +22,7 @@
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(input,textarea)::placeholder{color:#7C8DA0}
 .theme-yaqeen-business[data-asset-workspace=true] .zakat-workspace-tabs{background:#fff;border:1px solid #E4EAF0;border-radius:10px;padding:5px;gap:4px;box-shadow:none;overflow-x:auto;flex-wrap:nowrap}
 .theme-yaqeen-business[data-asset-workspace=true] .zakat-workspace-tabs a{color:#24496A;white-space:nowrap;border-radius:7px;padding:9px 12px;font-size:12px}
-.theme-yaqeen-business[data-asset-workspace=true] .zakat-workspace-tabs a[aria-current=page]{background:#A7752D;color:#fff;box-shadow:none}
+.theme-yaqeen-business[data-asset-workspace=true] .zakat-workspace-tabs a[aria-current=page]{background:#996B28;color:#fff;box-shadow:none}
 /* Two real-data summary groups, assets on the inline-start side. */
 .yqa-assets-summary{display:none}
 .theme-yaqeen-business .yqa-assets-summary{display:block;max-width:1600px;margin:auto;padding:20px 24px 0}
@@ -77,7 +77,7 @@
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content tbody tr:nth-child(even){background:#F8F9FB}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content tbody tr:hover{background:#F3F6F9}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.transaction-table-wrap,.asset-exit-table-scroll){max-width:100%;overflow-x:auto;border:1px solid #E4EAF0;border-radius:10px}
-.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.asset-report-tabs,.asset-lifecycle-tabs,.investment-tabs) button[aria-pressed=true]{background:#A7752D!important;border-color:#A7752D!important;color:#fff!important}
+.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.asset-report-tabs,.asset-lifecycle-tabs,.investment-tabs) button[aria-pressed=true]{background:#996B28!important;border-color:#996B28!important;color:#fff!important}
 .theme-yaqeen-business[data-asset-workspace=true] .assessment-source-tabs [aria-selected=true]{background:#0F2D4A;color:white}
 .theme-yaqeen-business[data-asset-workspace=true] .org-assets-allocation meter::-webkit-meter-optimum-value{background:#24496A}
 .theme-yaqeen-business[data-asset-workspace=true] .org-assets-allocation meter::-moz-meter-bar{background:#24496A}

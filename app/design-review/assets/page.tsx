@@ -6,6 +6,7 @@ import ElegantDashboard from '../../../components/ElegantDashboard';
 import ZakatWorkspaceTabs from '../../../components/ZakatWorkspaceTabs';
 import '../../corporate.css';
 import '../../yaqeen-theme.css';
+import '../../yaqeen-dashboard.css';
 import '../../[locale]/dashboard/elegant-dashboard.css';
 import '../../yaqeen-assets.css';
 export const metadata={title:'Assets design review',robots:{index:false,follow:false}};
