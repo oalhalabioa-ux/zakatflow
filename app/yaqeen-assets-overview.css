@@ -1,0 +1,65 @@
+/* Final palette trial: Assets & Zakat overview only, Yaqeen only. */
+.corp-shell.theme-yaqeen-business[data-asset-overview=true]{--yqo-navy:#0F2D4A;--yqo-deep:#0A223B;--yqo-secondary:#24496A;--yqo-blue:#668FB4;--yqo-light-blue:#B9D0E3;--yqo-gold:#BD8B3C;--yqo-light-gold:#EAD7B4}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content{--brand-muted:#52657A;--muted:#52657A;--asset-chart-1:#0F2D4A;--asset-chart-2:#24496A;--asset-chart-3:#668FB4;--asset-chart-4:#B9D0E3;--asset-chart-5:#BD8B3C;--asset-chart-6:#EAD7B4;background:#F8F9FB}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-summary{max-width:none;padding:18px 24px 0}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading{margin-bottom:18px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading p{color:#52657A}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-group{padding:0;border-color:#E4EAF0;overflow:hidden;box-shadow:0 3px 14px rgb(15 45 74 / 3%)}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .yqa-summary-group h2{margin:0;padding:14px 16px;background:linear-gradient(100deg,#0F2D4A,#0A223B);color:#fff;font-size:16px;min-height:53px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-group h2 svg{color:#BD8B3C;width:23px;height:23px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid{padding:13px;gap:10px;grid-auto-rows:minmax(120px,1fr)}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric,
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured,
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat .yqa-summary-metric:last-child{background:#fff;border-color:#E4EAF0;min-height:120px;display:flex;flex-direction:column}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div,
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured>div{color:#0F2D4A;font-size:12px;line-height:1.6;align-items:flex-start}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric strong,
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured strong{color:#0F2D4A;font-size:clamp(18px,1.5vw,26px);line-height:1.5;letter-spacing:-.025em}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric svg,
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured svg{color:#24496A}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric:nth-child(even) svg{color:#BD8B3C}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric small{color:#52657A;margin-top:auto;padding-top:7px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric .is-positive{align-self:flex-start;color:#176346;background:#E6F2EA;padding:3px 8px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-context{color:#52657A;margin-top:12px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:16px 24px 0}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-chart{min-width:0;background:white;border:1px solid #E4EAF0;border-radius:12px;padding:18px;box-shadow:0 3px 14px rgb(15 45 74 / 3%)}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-chart header{min-height:54px;margin-bottom:12px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-chart h2{color:#0F2D4A;font-size:15px;margin:0 0 6px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-chart header p{color:#52657A;font-size:11px;margin:0;line-height:1.6}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-distribution{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px;min-height:210px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-donut{height:148px;width:148px;border-radius:50%;display:grid;place-items:center;flex:none}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-donut>div{height:104px;width:104px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:white;text-align:center;padding:6px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-donut strong{font-size:15px;color:#0F2D4A;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-donut small{font-size:10px;color:#52657A}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-distribution ul{flex:1;min-width:125px;list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-distribution li{display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:3px 7px;font-size:11px;color:#24496A}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-distribution li i{height:8px;width:8px;border-radius:50%;border:1px solid rgb(15 45 74 / 12%)}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-distribution li b{font-size:10px;font-weight:600;direction:ltr}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-distribution li small{grid-column:2/-1;font-size:10px;color:#52657A;font-variant-numeric:tabular-nums}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-comparison{display:flex;gap:22px;min-height:210px;padding:8px 8px 0;direction:rtl}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-comparison>div{flex:1;min-width:0;text-align:center;display:flex;flex-direction:column;gap:8px;font-size:11px;color:#24496A}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-comparison strong{color:#0F2D4A;font-size:12px;font-variant-numeric:tabular-nums}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-bar-space{height:155px;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid #E4EAF0;background:repeating-linear-gradient(to top,transparent 0,transparent 38px,#E4EAF0 38px,#E4EAF0 39px)}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-bar-space>span{width:52%;max-width:58px;min-width:20px;border-radius:4px 4px 0 0}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-empty{padding:60px 15px;text-align:center;color:#52657A;font-size:12px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .ed-dashboard{max-width:none;padding-top:16px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .ed-grid>.ed-panel:first-child{display:none}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .btn:not(.secondary):not(.outline):not(.danger){background:#0F2D4A;border-color:#0F2D4A;color:white!important}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .btn.secondary{background:white;color:#0F2D4A;border-color:#E4EAF0}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content :is(table,.table) th{background:#E9EFF5;color:#0F2D4A}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .org-asset-metric{background:white!important;border-color:#E4EAF0}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .org-asset-metric :is(h2,strong,.ed-number){color:#0F2D4A!important}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .org-asset-metric p{color:#52657A}
+@media(min-width:1600px){.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat{grid-template-columns:repeat(5,minmax(0,1fr))}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat .yqa-summary-metric:last-child{grid-column:auto}}
+@media(max-width:1100px){.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-charts{grid-template-columns:repeat(2,minmax(0,1fr))}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-chart:last-child{grid-column:1/-1}}
+@media(max-width:760px){.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-summary{padding:16px 12px 0}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-charts{grid-template-columns:minmax(0,1fr);margin:14px 12px 0;gap:12px}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqo-chart{padding:15px}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-group h2{font-size:15px}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid{padding:10px;gap:8px}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric{padding:10px}.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric strong{font-size:18px}}
+
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric .is-negative{align-self:flex-start;color:#B4534B;background:#FBEDEB;padding:3px 8px;border-radius:20px;direction:ltr}
+
+/* Assets first, Zakat second: each summary occupies the full dashboard width. */
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-groups{grid-template-columns:minmax(0,1fr)}
+@media(min-width:1000px){
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat{grid-template-columns:repeat(5,minmax(0,1fr))}
+ .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-grid.zakat .yqa-summary-metric:last-child{grid-column:auto}
+}

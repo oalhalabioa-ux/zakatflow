@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import {zakatAllocationPresentation} from '@/lib/yaqeen-assets-overview';
 import { requireUser } from './auth';
 import {zakatLiabilitySummary} from '@/lib/zakat-liability-summary';
 import {assetLedgerBalance,assetLifecycleStatus} from '@/lib/asset-ledger';
@@ -18,7 +19,7 @@ export async function getDashboard(){
  // Reuse the already-authorized asset rows; no additional queries or writes.
  const assetAllocation=Object.entries(rows.reduce((groups:Record<string,Decimal>,a:any)=>{groups[a.asset_type]=(groups[a.asset_type]||new Decimal(0)).add(current(a));return groups},{} as Record<string,Decimal>)).map(([type,value])=>({type,value:value.toFixed(2)}));
  const topAssets=rows.map((a:any)=>({id:a.id,name:a.name,type:a.asset_type,value:current(a).toFixed(2)})).sort((a:any,b:any)=>Number(b.value)-Number(a.value)).slice(0,5);
- const presentation={assetAllocation,topAssets,asOfDate:new Date().toISOString().slice(0,10)};
+ const presentation={assetAllocation,topAssets,zakatAllocation:zakatAllocationPresentation(assessmentLines,assets??[]),asOfDate:new Date().toISOString().slice(0,10)};
  const valuationDates=rows.map((a:any)=>a?.metadata?.market_valuation_date).filter(Boolean).sort();
  return{...presentation,assetCount:rows.length,totalCurrentSar:totalCurrent.toFixed(2),totalPurchaseSar:totalPurchase.toFixed(2),gainSar:totalCurrent.sub(totalPurchase).toFixed(2),gainPct:totalPurchase.gt(0)?totalCurrent.sub(totalPurchase).div(totalPurchase).mul(100).toFixed(2):'0.00',zakatableValueSar:(latest?assessedBase:rawZakatableValue).toFixed(2),rawZakatableAssetsValueSar:rawZakatableValue.toFixed(2),hawlCompleted:eligibleAssets.size,hawlValueSar:hawlValue.toFixed(2),upcoming30:upcomingAssets.size,goldWeightKg:goldWeightKg.toFixed(3),silverWeightKg:silverWeightKg.toFixed(3),explicitZakahDueSar:cycleDue.toFixed(2),allocatedZakahPaidSar:allocatedPaid.toFixed(2),remainingZakahSar:remaining.toFixed(2),priorCyclesUnpaidSar:priorUnpaid.toFixed(2),totalOutstandingZakahSar:summary.finalRemaining.toFixed(2),openCycleEstimateSar:summary.openEstimate.toFixed(2),asOfZakahBalanceSar:summary.asOf.toFixed(2),carriedZakahCreditSar:summary.credit.toFixed(2),projectedAfterCreditSar:summary.afterCredit.toFixed(2),zakatPaymentPct:paymentPct.toFixed(2),assessedZakatableValueSar:assessedBase.toFixed(2),latestAssessmentDate:latest?.assessment_date??null,latestAssessmentStatus:latest?.status??null,currentValuationSource:'ASSET_CURRENT_MARKET_VALUE',currentValuationDate:valuationDates.at(-1)??null,activeCycle,latestClosedCycle,closedCycleBalances:closedBalances,cycleCount:cycles.length,daysToDue,latestAssessments:assessments,recentPayments:payments.slice(0,10),dataHealth:{assets:true,assessments:!assessmentResult.error,assessmentLines:!(lineResult as any).error,allocations:!allocationResult.error,payments:!paymentResult.error,cycles:!cycleResult.error}};
 }
