@@ -1,13 +1,6 @@
 /* Final palette trial: Assets & Zakat overview only, Yaqeen only. */
 .corp-shell.theme-yaqeen-business[data-asset-overview=true]{--yqo-navy:#0F2D4A;--yqo-deep:#0A223B;--yqo-secondary:#24496A;--yqo-blue:#668FB4;--yqo-light-blue:#B9D0E3;--yqo-gold:#BD8B3C;--yqo-light-gold:#EAD7B4}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-sidebar{background:linear-gradient(180deg,#0F2D4A,#0A223B)}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-nav .assets-subnav a[aria-current=page]{background:linear-gradient(100deg,#BD8B3C,#EAD7B4);color:#0A223B!important;border-inline-start-color:#BD8B3C;font-weight:700}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .sidebar-toggle{background:#BD8B3C;border-color:#BD8B3C;color:#0A223B!important}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content{--brand-muted:#52657A;--muted:#52657A;--asset-chart-1:#0F2D4A;--asset-chart-2:#24496A;--asset-chart-3:#668FB4;--asset-chart-4:#B9D0E3;--asset-chart-5:#BD8B3C;--asset-chart-6:#EAD7B4;background:#F8F9FB}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .zakat-workspace-tabs{background:#0F2D4A;border-color:#0F2D4A;padding:6px;gap:3px}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .zakat-workspace-tabs a{color:#fff;border-radius:6px;border:0}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .zakat-workspace-tabs a:hover{background:#24496A;color:#EAD7B4}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .zakat-workspace-tabs a[aria-current=page]{background:#BD8B3C;color:#0A223B;font-weight:700;box-shadow:inset 0 -3px #EAD7B4}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-summary{max-width:none;padding:18px 24px 0}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading{margin-bottom:18px}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading p{color:#52657A}
