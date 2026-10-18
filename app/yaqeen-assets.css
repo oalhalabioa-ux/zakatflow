@@ -157,8 +157,6 @@
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-row-icon{width:32px;height:32px;border-radius:9px;flex:none}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button .pill{background:#C6CFEC;color:#0F2D4A;border:0}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button[aria-pressed=true] .pill{background:#EAD7B4;color:#0F2D4A}
-.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.asset-report-filters,.asset-cycle-scope) :is(input,select){background:white;border-color:#C6CFEC;color:#0F2D4A;accent-color:#BD8B3C}
-.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content select option:checked{background:#C6CFEC;color:#0F2D4A}
 
 /* Report group headings, summary chips and sorting share the same visual language. */
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-group>.asset-group-head{background:#fff!important;border-bottom:1px solid #E4EAF0!important;border-inline-start:3px solid #C6CFEC;padding:15px 18px;align-items:center;gap:14px}
