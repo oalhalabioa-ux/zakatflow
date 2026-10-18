@@ -1,7 +1,7 @@
 import type {ReactNode} from 'react';
 /** SVGs in Yaqeen; keep the existing symbols in the other three themes. */
-export default function AssetTypeGlyph({code,fallback}:{code:string;fallback:ReactNode}){
- const type=code.replace(/^(TYPE|CLASS):/,'');
+export default function AssetTypeGlyph({code,fallback}:{code:string|null|undefined;fallback:ReactNode}){
+ const type=(code||'OTHER').replace(/^(TYPE|CLASS):/,'');
  const bank=<><path d="m3 8 9-5 9 5H3ZM4 21h16M7 11v6M12 11v6M17 11v6"/></>;
  const building=<><path d="M4 21V7l8-4 8 4v14H4ZM9 21v-5h6v5M8 9h1m6 0h1M8 12h1m6 0h1"/></>;
  const box=<><path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10M8 5l9 4"/></>;
