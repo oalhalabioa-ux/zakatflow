@@ -1,13 +1,9 @@
 'use client';
-import {useEffect} from 'react';
+import {useEffect,useRef,useTransition} from 'react';
+import {subscribeDashboardRefresh} from '../lib/dashboard-refresh';
 import {useRouter} from 'next/navigation';
 export default function ZakatMetricsRefresh(){
- const router=useRouter();
- useEffect(()=>{
-  const refresh=()=>{if(document.visibilityState==='visible')router.refresh()};
-  window.addEventListener('focus',refresh);
-  const timer=window.setInterval(refresh,30000);
-  return()=>{window.removeEventListener('focus',refresh);window.clearInterval(timer)};
- },[router]);
+ const router=useRouter(),[pending,startTransition]=useTransition(),busy=useRef(false);busy.current=pending;
+ useEffect(()=>subscribeDashboardRefresh(()=>startTransition(()=>router.refresh()),{isBusy:()=>busy.current}),[router]);
  return null;
 }
