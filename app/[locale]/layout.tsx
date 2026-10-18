@@ -7,4 +7,5 @@ import '../yaqeen-theme.css';
 import '../yaqeen-dashboard.css';
 import '../yaqeen-auth.css';
 import '../yaqeen-assets.css';
+import '../yaqeen-controls.css';
 export default async function LocaleLayout({children,params}:{children:React.ReactNode,params:Promise<{locale:string}>}){const{locale}=await params;return <DisplayCurrencyProvider locale={locale}><CorporateShell locale={locale}><ZakatWorkspaceTabs locale={locale}/><AssessmentCycleStartTools ar={locale==='ar'}/>{children}</CorporateShell></DisplayCurrencyProvider>}
