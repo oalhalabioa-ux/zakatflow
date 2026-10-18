@@ -69,7 +69,7 @@
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading h1::before{content:"";display:block;flex:none;width:27px;height:27px;background:#BD8B3C;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.7'%3E%3Crect x='3' y='3' width='7' height='7' rx='1'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1'/%3E%3C/svg%3E") center/contain no-repeat}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-assets-heading p{margin-top:5px;font-size:12px}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric{padding:12px 14px;border-radius:10px}
-.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div{flex-direction:row-reverse;justify-content:flex-start;align-items:center;gap:9px;min-height:34px}
+.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div{flex-direction:row-reverse;justify-content:flex-end;align-items:center;gap:9px;min-height:34px}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric>div>svg{width:32px;height:32px;padding:6px;border-radius:8px;background:#DCE7F0}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric:nth-child(even)>div>svg{background:#F8F9FB}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric strong{margin-top:10px;line-height:1.4}
