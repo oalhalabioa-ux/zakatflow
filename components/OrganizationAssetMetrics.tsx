@@ -1,5 +1,4 @@
 'use client';
-import YaqeenKpiGlyph from './YaqeenKpiGlyph';
 import {Money} from './DisplayCurrency';
 import {ActionIconGlyph,type ActionIcon} from './ActionButton';
 import type {organizationAssetDashboard} from '../lib/organization-assets-dashboard';
@@ -18,5 +17,5 @@ export default function OrganizationAssetMetrics({summary:s,ar}:{summary:Summary
  {key:'cash',label:ar?'النقد والبنوك':'Cash and banks',value:s.cash,icon:'bank',note:ar?'جزء من الأصول المتداولة':'Included in current assets',share:share(s.cash)},
  {key:'receivables',label:ar?'الذمم المدينة والدفعات للموردين':'Receivables and supplier advances',value:s.receivables,icon:'receipt',note:ar?'جزء من الأصول المتداولة':'Included in current assets',share:share(s.receivables)}
  ];
- return <div className="org-assets-metrics" aria-label={ar?'مؤشرات الأصول المؤسسية':'Corporate asset indicators'}>{fields.map(m=><article className={`ed-metric hero-metric org-asset-metric org-asset-metric-${m.key}`} key={m.key} data-negative={m.key==='gain'&&m.value<0||undefined}><div className="ed-metric-heading metric-top"><h2>{m.label}</h2><span className="ed-icon metric-icon" aria-hidden="true"><YaqeenKpiGlyph kind={m.icon} fallback={<ActionIconGlyph name={m.icon}/>}/></span></div><strong className="ed-number"><Money value={m.value} currency={s.currency}/></strong><p>{m.note}</p>{m.share!=null&&<div className="org-asset-metric-share"><small>{percent(m.share)} · {ar?'من إجمالي التكلفة':'of total cost'}</small><progress max={100} value={m.share} aria-label={m.label}/></div>}</article>)}</div>;
+ return <div className="org-assets-metrics" aria-label={ar?'مؤشرات الأصول المؤسسية':'Corporate asset indicators'}>{fields.map(m=><article className={`ed-metric hero-metric org-asset-metric org-asset-metric-${m.key}`} key={m.key} data-negative={m.key==='gain'&&m.value<0||undefined}><div className="ed-metric-heading metric-top"><h2>{m.label}</h2><span className="ed-icon metric-icon" aria-hidden="true"><ActionIconGlyph name={m.icon}/></span></div><strong className="ed-number"><Money value={m.value} currency={s.currency}/></strong><p>{m.note}</p>{m.share!=null&&<div className="org-asset-metric-share"><small>{percent(m.share)} · {ar?'من إجمالي التكلفة':'of total cost'}</small><progress max={100} value={m.share} aria-label={m.label}/></div>}</article>)}</div>;
 }
