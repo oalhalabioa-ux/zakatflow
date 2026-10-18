@@ -16,3 +16,8 @@
 .corp-shell.theme-yaqeen-business .corp-content :is(h1,h2,h3,h4,h5,h6){color:#0F2D4A}
 .corp-shell.theme-yaqeen-business .corp-workspace .corp-workspace-scope button[aria-pressed=true]{background:#0F2D4A;border-color:#0F2D4A;color:#fff}
 .corp-shell.theme-yaqeen-business .corp-workspace :is(.corp-search-trigger,.corp-language-switch,.corp-top-icon){color:#0F2D4A}
+
+/* Complementary light blue for Yaqeen controls, outside the sidebar. */
+.corp-shell.theme-yaqeen-business{--yaqeen-control-soft:#C6CFEC}
+.corp-shell.theme-yaqeen-business .corp-workspace :is(.corp-search-trigger,.corp-language-switch,.corp-top-icon,.corp-currency-trigger):hover{background:var(--yaqeen-control-soft);color:#0F2D4A;border-color:var(--yaqeen-control-soft)}
+.corp-shell.theme-yaqeen-business .corp-content :is(input,select,textarea):focus-visible{outline:2px solid #24496A;outline-offset:2px;box-shadow:0 0 0 4px rgb(198 207 236 / 35%)}
