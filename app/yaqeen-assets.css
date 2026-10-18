@@ -182,6 +182,6 @@
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .yaqeen-kpi-legacy{display:none}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .yaqeen-kpi-glyph{--yk-ink:#0F2D4A;--yk-gold:#BD8B3C;--yk-pale:#C6CFEC;--yk-blue:#668FB4;--yk-light-gold:#EAD7B4;display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .yaqeen-kpi-art{display:block;width:34px;height:34px;padding:0;background:transparent;border:0;box-shadow:none;border-radius:0}
-.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .ed-icon:has(.yaqeen-kpi-glyph){background:transparent!important;border:0!important;box-shadow:none;padding:0}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.ed-icon,.metric-icon):has(.yaqeen-kpi-glyph){background:transparent!important;border:0!important;box-shadow:none;padding:0}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .yqa-summary-metric.is-featured .yaqeen-kpi-glyph{--yk-ink:#FFFFFF;--yk-pale:#B9D0E3}
 @media(max-width:760px){.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .yaqeen-kpi-glyph{width:30px;height:30px}.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .yaqeen-kpi-art{width:29px;height:29px}}
