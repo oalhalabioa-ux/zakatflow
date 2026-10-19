@@ -73,3 +73,8 @@
 .corp-shell.theme-yaqeen-business .corp-content:has(.budget-plan){--yq-control-line:#E4EAF0;--yq-control-hover:#FAFBFC;--yq-control-selected:#EEF0F4;--yq-table-head:#F5F6F8}
 .corp-shell.theme-yaqeen-business .corp-content :is(table,.table)>thead>tr>th{background:var(--yq-table-head)!important;color:#0F2D4A!important;border-color:var(--yq-control-line)!important}
 .corp-shell.theme-yaqeen-business .corp-content :is(table,.table)>thead>tr>th :is(button,span){color:inherit}
+/* Customizable native select: keep its value and picker arrow on one row. */
+@supports(appearance:base-select){
+ .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]):not([size]){display:inline-flex!important;flex-direction:row!important;align-items:center;justify-content:space-between;gap:10px;white-space:nowrap}
+ .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]):not([size])::picker-icon{display:block;flex:0 0 auto;margin-inline-start:auto;align-self:center;line-height:1}
+}
