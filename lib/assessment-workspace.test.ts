@@ -1,0 +1,6 @@
+import {it,expect} from 'vitest';
+import {assessmentWorkspaceSource,assessmentWorkspaceModel} from './assessment-workspace';
+import {currentWorkspaceScope,navigationHref} from './topbar-navigation';
+it('retains corporate assessment scope through asset links and direct navigation',()=>{expect(navigationHref('ar','assessments','ORGANIZATION')).toBe('/ar/assessments?scope=ORGANIZATION');expect(currentWorkspaceScope('assessments','','ORGANIZATION')).toBe('ORGANIZATION');expect(currentWorkspaceScope('assessments','scope=PERSONAL','ORGANIZATION')).toBe('PERSONAL');});
+it('opens the existing corporate manual assessment even when source requests the personal register',()=>{expect(assessmentWorkspaceSource('ORGANIZATION','REGISTER')).toBe('MANUAL');expect(assessmentWorkspaceModel('ORGANIZATION','SIMPLE')).toBe('SIMPLE');expect(assessmentWorkspaceModel('ORGANIZATION','SAUDI')).toBe('SAUDI');});
+it('restores the personal register or manual choice with its own personal calculation',()=>{expect(assessmentWorkspaceSource('PERSONAL','REGISTER')).toBe('REGISTER');expect(assessmentWorkspaceSource('PERSONAL','MANUAL')).toBe('MANUAL');expect(assessmentWorkspaceModel('PERSONAL','SAUDI')).toBe('PERSONAL');});
