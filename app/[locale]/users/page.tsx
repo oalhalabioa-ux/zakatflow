@@ -23,6 +23,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   const [permissionSearch,setPermissionSearch]=useState('');
   const [overrideUser,setOverrideUser]=useState('');
   const [roleSearch,setRoleSearch]=useState('');
+  const [presetId,setPresetId]=useState('');
   const [actorRole,setActorRole]=useState('');
   const [actorId,setActorId]=useState('');
   const [dataLoading,setDataLoading]=useState(false);
@@ -86,8 +87,8 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   const roleLabel = (value: string, customRoleName?: string | null) => customRoleName || (value.startsWith('CUSTOM:') ? customRoles.find(item => item.id === value.slice(7))?.name : null) || labels[value]?.[ar ? 0 : 1] || value;
   const roleOptions = (builtins: string[]) => <>{builtins.map(value => <option key={value} value={value}>{roleLabel(value)}</option>)}{customRoles.map(item => <option key={item.id} value={`CUSTOM:${item.id}`}>{item.name}</option>)}</>;
   const changeRolePermission = (key:string,checked:boolean) => setRolePermissions(current=>toggleRolePermission(current,key,checked));
-  const resetEditor=()=>{setEditingRoleId('');setRoleName('');setRoleDescription('');setRolePermissions([]);setPermissionSearch('');};
-  const beginEdit=(item:CustomRole)=>{setEditingRoleId(item.id);setRoleName(item.name);setRoleDescription(item.description);setRolePermissions(item.permissions);setActiveTab('create');};
+  const resetEditor=()=>{setPresetId('');setEditingRoleId('');setRoleName('');setRoleDescription('');setRolePermissions([]);setPermissionSearch('');};
+  const beginEdit=(item:CustomRole)=>{setPresetId('');setEditingRoleId(item.id);setRoleName(item.name);setRoleDescription(item.description);setRolePermissions(item.permissions);setActiveTab('create');};
   const editingTemplate=customRoles.some(r=>r.id===editingRoleId&&r.is_system_template);
   const visibleGroups=permissionGroups.map(g=>({...g,permissions:g.permissions.filter(p=>`${g.ar} ${g.en} ${p.ar} ${p.en} ${p.key}`.toLowerCase().includes(permissionSearch.toLowerCase()))})).filter(g=>g.permissions.length);
   const tabs=[{key:'roles',ar:'الأدوار المنشأة',en:'Created roles',icon:'roles'},{key:'create',ar:editingRoleId?'تعديل الدور':'إنشاء دور',en:editingRoleId?'Edit role':'Create role',icon:'add'},{key:'members',ar:'المستخدمون',en:'Members',icon:'users'},{key:'invites',ar:'الدعوات',en:'Invitations',icon:'mail'},{key:'governance',ar:'الحوكمة والصلاحيات',en:'Governance & access',icon:'shield'}];
@@ -158,7 +159,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
         ? await fetch('/api/organizations/permissions', { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ organization_id:organizationId, action:'role', role_id:templateRole.id, permissions:rolePermissions, amount_limits:templateRole.amount_limits ?? {} }) })
         : await fetch('/api/organizations/roles', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, id: editingRoleId || undefined, name: roleName, description: roleDescription, permissions: rolePermissions }) });
       const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
-      setRoleName(''); setRoleDescription(''); setRolePermissions([]); setEditingRoleId(''); setActiveTab('roles'); await loadUsers(organizationId);
+      setRoleName(''); setRoleDescription(''); setRolePermissions([]); setEditingRoleId('');setPresetId('');setPermissionSearch(''); setActiveTab('roles'); await loadUsers(organizationId);
       setNotice(ar ? 'تم حفظ الدور وصلاحياته.' : 'Role and permissions saved.');
     } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
     finally { setBusy(false); }
@@ -202,7 +203,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
           <span className={styles.roleCount}>{customRoles.length} {ar ? 'دور' : customRoles.length === 1 ? 'role' : 'roles'}</span>
         </div>
         <form hidden={activeTab!=='create'} onSubmit={saveCustomRole} className={styles.roleEditor}>
-          {!editingRoleId&&<label className={styles.fieldLabel}><span>{ar?'البدء من قالب مقترح':'Start from a suggested template'}</span><select key={organizationId+':'+editingRoleId} defaultValue="" onChange={e=>{const preset=rolePresets.find(p=>p.id===e.target.value);if(preset){setRoleName(preset[ar?'ar':'en']);setRoleDescription('');setRolePermissions(preset.permissions.reduce((values,key)=>toggleRolePermission(values,key,true),[] as string[]));}else resetEditor();}}><option value="">{ar?'دور مخصص فارغ':'Blank custom role'}</option>{rolePresets.map(p=><option key={p.id} value={p.id}>{p[ar?'ar':'en']}</option>)}</select><small>{ar?'القالب اقتراح قابل للمراجعة؛ لا يتم إنشاء الدور أو تغيير أي مستخدم قبل الحفظ والإسناد.':'Templates are suggestions; no role or member changes until saved and assigned.'}</small></label>}
+          {!editingRoleId&&<label className={styles.fieldLabel}><span>{ar?'البدء من قالب مقترح':'Start from a suggested template'}</span><select value={presetId} onChange={e=>{setPresetId(e.target.value);const preset=rolePresets.find(p=>p.id===e.target.value);if(preset){setRoleName(preset[ar?'ar':'en']);setRoleDescription('');setRolePermissions(preset.permissions.reduce((values,key)=>toggleRolePermission(values,key,true),[] as string[]));}else resetEditor();}}><option value="">{ar?'دور مخصص فارغ':'Blank custom role'}</option>{rolePresets.map(p=><option key={p.id} value={p.id}>{p[ar?'ar':'en']}</option>)}</select><small>{ar?'القالب اقتراح قابل للمراجعة؛ لا يتم إنشاء الدور أو تغيير أي مستخدم قبل الحفظ والإسناد.':'Templates are suggestions; no role or member changes until saved and assigned.'}</small></label>}
           <p className={styles.accessNote}>{ar?'الصلاحيات مرتبطة بالمنشأة المحددة فقط. تستخدم الوحدات الجديدة الصلاحيات المشتركة الموضحة في تبويب الحوكمة. القالب التنفيذي يتضمن الاعتماد اللازم للترحيل؛ افصل المسؤوليات بسياسة الاعتماد المناسبة.':'Permissions apply only to the selected organization. New modules share controls listed under Governance. The settlement template includes approval needed for posting; use approval policy to separate duties.'}</p>
           <div className={styles.editorTitle}>
             <div><span className={styles.stepLabel}>{editingRoleId ? (ar ? 'تعديل' : 'EDIT') : (ar ? 'دور جديد' : 'NEW ROLE')}</span><h3>{editingRoleId ? (ar ? 'تعديل الدور' : 'Edit role') : (ar ? 'إنشاء دور جديد' : 'Create a role')}</h3></div>
@@ -215,6 +216,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
           <div className={styles.permissionHeader}><div><h4>{ar ? 'صلاحيات الدور' : 'Role permissions'}</h4><p className="muted">{ar ? 'اختر صلاحيات العرض والإدارة لكل وحدة.' : 'Choose view and management access for each module.'}</p></div><span>{ar ? 'تُضاف صلاحية العرض تلقائيًا عند اختيار الإدارة' : 'View access is included with management access'}</span></div>
           <label className={styles.fieldLabel}><span>{ar?'بحث في الوحدات والصلاحيات':'Search modules and permissions'}</span><input type="search" value={permissionSearch} onChange={e=>setPermissionSearch(e.target.value)} placeholder={ar?'مثال: الأصول، الاعتماد، السداد':'e.g. assets, approval, settlement'}/></label>
           {rolePermissions.some(p=>SENSITIVE_PERMISSIONS.has(p))&&<p className={styles.accessNote}>{ar?'يتضمن الدور صلاحيات حساسة للاعتماد أو الترحيل أو السداد. راجع فصل المهام قبل الإسناد.':'This role includes sensitive approval, posting or settlement permissions. Review segregation of duties before assignment.'}</p>}
+          {!visibleGroups.length&&<p className="muted">{ar?'لا توجد صلاحيات مطابقة للبحث.':'No permissions match your search.'}</p>}
           <div className={styles.permissionGrid}>
             {visibleGroups.map(group => <section className={styles.permissionGroup} key={group.key} aria-labelledby={`permission-group-${group.key}`}>
               <div className={styles.groupHeading}><div><h5 id={`permission-group-${group.key}`}>{ar ? group.ar : group.en}</h5><p>{ar ? group.arDescription : group.enDescription}</p></div><span>{group.permissions.filter(item => rolePermissions.includes(item.key)).length}/{group.permissions.length}</span></div>
@@ -226,7 +228,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
           </div>
           <div className={styles.editorActions}>
             <button className="btn" type="submit" disabled={busy || (editingTemplate && actorRole!=='OWNER') || roleName.trim().length < 2}>{busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : editingRoleId ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'إنشاء الدور' : 'Create role')}</button>
-            {editingRoleId && <button className="btn secondary" type="button" disabled={busy} onClick={() => { setEditingRoleId(''); setRoleName(''); setRoleDescription(''); setRolePermissions([]); }}>{ar ? 'إلغاء التعديل' : 'Cancel editing'}</button>}
+            {editingRoleId && <button className="btn secondary" type="button" disabled={busy} onClick={resetEditor}>{ar ? 'إلغاء التعديل' : 'Cancel editing'}</button>}
           </div>
         </form>
         <div hidden={activeTab!=='roles'}>
