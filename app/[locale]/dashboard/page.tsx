@@ -1,7 +1,7 @@
 import {CurrencyScope,Money} from '@/components/DisplayCurrency';
 import Link from 'next/link';
 import type {ReactNode} from 'react';
-import {unstable_rethrow} from 'next/navigation';
+import {redirect,unstable_rethrow} from 'next/navigation';
 import {getDashboard} from '@/services/dashboard';
 import {getPlatformFinancialOverview} from '@/services/platform-financial-overview';
 import DashboardActionBridge from '@/components/DashboardActionBridge';
@@ -28,7 +28,7 @@ function Module({kind,title,description,href,children,links,ar,visual,elegantVis
 function Metric({label,value}:{label:string;value:ReactNode}) {return <div><dt>{label}</dt><dd>{value}</dd></div>;}
 export default async function Dashboard({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{organization?:string;plan?:string;month?:string;scope?:string;budget_scope?:string;year?:string;scenario?:string;level?:string;asset_basis?:string}>}) {
  const [{locale},q]=await Promise.all([params,searchParams]),ar=locale==='ar';
- const safely=async<T,>(fn:()=>Promise<T>):Promise<T|null>=>{try{return await fn();}catch(e){unstable_rethrow(e);return null;}};
+ const safely=async<T,>(fn:()=>Promise<T>):Promise<T|null>=>{try{return await fn();}catch(e){unstable_rethrow(e);if(e instanceof Error&&e.message==='UNAUTHORIZED')redirect('/'+locale+'/login');return null;}};
  const personal=q.scope!=='ORGANIZATION';
  const [assets,financial]=await Promise.all([personal?safely(getDashboard):null,!personal?safely(()=>getPlatformFinancialOverview(q)):null]);
  const modules=financial?.modules??null;
