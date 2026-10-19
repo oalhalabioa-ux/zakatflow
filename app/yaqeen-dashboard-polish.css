@@ -50,3 +50,8 @@
  .corp-shell.theme-yaqeen-business .platform-dashboard .platform-settings-panel{position:fixed;inset-inline:5vw;top:110px;width:90vw;max-height:70dvh;overflow:auto}
 }
 @media(prefers-reduced-motion:reduce){.corp-shell.theme-yaqeen-business .platform-dashboard .yqd-kpi{transition:none}}
+/* Preserve readable gold-button text against older global button overrides. */
+.corp-shell.theme-yaqeen-business .platform-dashboard .platform-scope>.platform-refresh,.corp-shell.theme-yaqeen-business .platform-dashboard .yqd-welcome>button{color:#0F2D4A!important}
+.corp-shell.theme-yaqeen-business .platform-dashboard .yqd-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(min-width:1600px){.corp-shell.theme-yaqeen-business .platform-dashboard .yqd-kpis{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:760px){.corp-shell.theme-yaqeen-business .platform-dashboard .yqd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
