@@ -1,0 +1,12 @@
+/* Original theme-specific icon is used only in the collapsed navigation rail. */
+.corp-sidebar .collapsed-sidebar-brand{display:none;flex:none;object-fit:contain}
+.corp-shell.sidebar-collapsed .corp-sidebar .corp-mark{width:40px!important;height:44px!important;border:0!important;background:none!important;box-shadow:none!important;padding:0!important;transform:none!important;display:grid!important;place-items:center}
+.corp-shell.sidebar-collapsed .corp-sidebar .corp-mark>.yaqeen-brand-art{display:none!important}
+.corp-shell.sidebar-collapsed .corp-sidebar .collapsed-sidebar-brand{display:block;width:40px;height:44px}
+.corp-shell.sidebar-collapsed .corp-sidebar .corp-brand{gap:0}
+@media(min-width:701px) and (max-width:1000px){
+ .corp-shell:not(.sidebar-mobile-open) .corp-sidebar .corp-mark{width:40px!important;height:44px!important;border:0!important;background:none!important;box-shadow:none!important;padding:0!important;transform:none!important;display:grid!important;place-items:center}
+ .corp-shell:not(.sidebar-mobile-open) .corp-sidebar .corp-mark>.yaqeen-brand-art{display:none!important}
+ .corp-shell:not(.sidebar-mobile-open) .corp-sidebar .collapsed-sidebar-brand{display:block;width:40px;height:44px}
+ .corp-shell:not(.sidebar-mobile-open) .corp-sidebar .corp-brand{gap:0}
+}
