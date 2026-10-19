@@ -90,3 +90,5 @@
  .corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric strong{font-size:17px}
 }
 @media print{.corp-shell.theme-yaqeen-business[data-asset-overview=true] .yqa-summary-metric.is-featured strong{color:#0F2D4A!important}}
+/* Contrast repair only; corporate asset layout remains pending design approval. */
+.theme-yaqeen-business .org-assets-dashboard .org-assets-metrics :is(p,small){color:#52657A!important}

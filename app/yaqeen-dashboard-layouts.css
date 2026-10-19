@@ -154,3 +154,17 @@
 @media(prefers-reduced-motion:reduce){.yql-root .yql-metric{transition:none}}
 
 .yql-root .yql-mini-legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:10px;color:#52657A}.yql-root .yql-mini-legend>span{display:flex;align-items:center;gap:5px}.yql-root .yql-mini-legend i{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+/* Single compact action row, shared by all three dashboard layouts. */
+.theme-yaqeen-business .platform-dashboard .yql-heading{align-items:center;gap:16px}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:100%;min-width:0}
+.theme-yaqeen-business .platform-dashboard #yql-main-action-slot{display:contents}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions .platform-scope{margin:0!important;padding:0!important;gap:6px;display:flex;align-items:center;width:auto}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions :is(button,.platform-settings>summary){box-sizing:border-box;height:32px!important;min-height:32px!important;padding:5px 10px!important;font-size:11px!important;border-radius:7px!important;line-height:20px!important;font-weight:650}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions .platform-settings>summary{display:flex;align-items:center;justify-content:center;width:32px!important;padding:0!important;background:#fff!important;color:#0F2D4A!important;border:1px solid #E4EAF0}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions .platform-refresh{background:#BD8B3C!important;border-color:#BD8B3C!important;color:#0F2D4A!important}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions .yql-customize{background:#0F2D4A!important;color:#fff!important;border-color:#0F2D4A!important}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions .yql-refresh-sources{background:#fff!important;color:#0F2D4A!important;border-color:#B9D0E3!important}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions button :is(span,svg){color:inherit!important}
+.theme-yaqeen-business .platform-dashboard .yql-heading-actions .yql-layout-badge{order:10;line-height:20px;padding:5px 8px;font-size:10px;color:#24496A;background:#f7f2e9}
+.theme-yaqeen-business .platform-dashboard .yql-source-status{margin-block:4px 10px;min-height:0;font-size:10px}
+@media(max-width:1100px){.theme-yaqeen-business .platform-dashboard .yql-heading{align-items:flex-start;flex-direction:column}.theme-yaqeen-business .platform-dashboard .yql-heading-actions{width:100%;justify-content:flex-start}}

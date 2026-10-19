@@ -3,11 +3,18 @@ export type LiquidityForecastFlow = {
   due_date: string;
   status: 'ACTUAL' | 'CONFIRMED' | 'EXPECTED';
   base_amount: number | string;
+  amount?: number|string;
+  settled_amount?: number|string;
   transfer_id?: string | null;
   settlement_status?: string | null;
 };
 export type ForecastWeek = { label: string; from: string; to: string; balance: number; inflow: number; outflow: number };
 export const isLiquidityFlowSettled = (flow: Pick<LiquidityForecastFlow,'status'|'settlement_status'>) => flow.status === 'ACTUAL' || flow.settlement_status === 'SETTLED';
+/** Settled cash must not be forecast a second time. */
+export function remainingLiquidityFlowBase(flow:Pick<LiquidityForecastFlow,'base_amount'|'amount'|'settled_amount'>){
+ const base=Number(flow.base_amount??0),amount=Number(flow.amount??0),settled=Number(flow.settled_amount??0);
+ return Math.max(0,amount>0?base*(1-Math.min(1,Math.max(0,settled/amount))):base);
+}
 const dateKey = (date: Date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`;
 export function buildLiquidityForecast(available: number, flows: LiquidityForecastFlow[], startDate: string, count = 13): ForecastWeek[] {
   const start = new Date(`${startDate}T00:00:00.000Z`);
@@ -17,8 +24,8 @@ export function buildLiquidityForecast(available: number, flows: LiquidityForeca
     const toDate = new Date(fromDate); toDate.setUTCDate(fromDate.getUTCDate() + 6);
     const from = dateKey(fromDate), to = dateKey(toDate);
     const due = flows.filter(flow => !flow.transfer_id && !isLiquidityFlowSettled(flow) && flow.due_date >= from && flow.due_date <= to);
-    const inflow = due.filter(flow => flow.direction === 'INFLOW').reduce((sum, flow) => sum + Number(flow.base_amount || 0), 0);
-    const outflow = due.filter(flow => flow.direction === 'OUTFLOW').reduce((sum, flow) => sum + Number(flow.base_amount || 0), 0);
+    const inflow = due.filter(flow => flow.direction === 'INFLOW').reduce((sum, flow) => sum + remainingLiquidityFlowBase(flow), 0);
+    const outflow = due.filter(flow => flow.direction === 'OUTFLOW').reduce((sum, flow) => sum + remainingLiquidityFlowBase(flow), 0);
     balance += inflow - outflow;
     return { label: fromDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', timeZone: 'UTC' }), from, to, balance, inflow, outflow };
   });

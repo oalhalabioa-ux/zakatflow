@@ -4,6 +4,7 @@ import type {ReactNode} from 'react';
 import {unstable_rethrow} from 'next/navigation';
 import {getDashboard} from '@/services/dashboard';
 import {getPlatformFinancialOverview} from '@/services/platform-financial-overview';
+import DashboardActionBridge from '@/components/DashboardActionBridge';
 import DashboardScopeControls from '@/components/DashboardScopeControls';
 import DashboardGraphic from '@/components/DashboardGraphic';
 import PlatformMiniChart from '@/components/PlatformMiniChart';
@@ -49,7 +50,7 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
   {!personal&&financial&&!financial.currencyKnown&&<p className="notice">{ar?'تختلف العملات الأساسية للشركات؛ يلزم تقرير تحويل عملات لعرض إجمالي نقدي موحد.':'Company base currencies differ; a currency-conversion report is required for unified monetary totals.'}</p>}
   {!personal&&financial?.vatPeriodMismatch&&<p className="notice">{ar?'تختلف الفترات الضريبية للشركات؛ راجع ضريبة كل شركة على حدة.':'Company tax periods differ; review each company separately.'}</p>}
   {incomplete&&<p role="alert" className="notice">{ar?'تعذر تحديث بعض المؤشرات؛ تظهر علامة — بدلاً من أرقام غير مؤكدة. افتح الموديول لإعادة التحقق.':'Some indicators could not be refreshed. Unavailable values show —. Open the module to check.'}</p>}
-  {!personal&&<form key={`${financial?.organization?.id}:${financial?.selectedPlan?.id}:${financial?.month}:${financial?.budgetScope}:${financial?.year}:${financial?.scenario}:${financial?.group}:${financial?.assetBasis}`} id="dashboard-scope-form" className="card platform-scope" action={url('dashboard')} method="get">
+  {!personal&&<DashboardActionBridge><form key={`${financial?.organization?.id}:${financial?.selectedPlan?.id}:${financial?.month}:${financial?.budgetScope}:${financial?.year}:${financial?.scenario}:${financial?.group}:${financial?.assetBasis}`} id="dashboard-scope-form" className="card platform-scope" action={url('dashboard')} method="get">
    <input type="hidden" name="scope" value="ORGANIZATION"/>
    <input type="hidden" name="level" value={financial?.group?'GROUP':'COMPANY'}/>
    <input type="hidden" name="organization" value={financial?.organization?.id??''}/>
@@ -63,8 +64,8 @@ export default async function Dashboard({params,searchParams}:{params:Promise<{l
     <label className="platform-settings-wide">{ar?'الموازنة المرجعية / المركز':'Reference budget / cost center'}<select name="plan" defaultValue={financial?.selectedPlan?.id??''}><option value="">{ar?'اختر موازنة':'Select budget'}</option>{financial?.plans.map(p=><option key={p.id} value={p.id}>{p.name} · {p.fiscal_year} · {p.currency}</option>)}</select></label>
     <button className="btn platform-settings-wide" type="submit">{ar?'تطبيق الإعدادات':'Apply settings'}</button>
    </div></details>
-   <button className="btn platform-refresh" type="submit" aria-label={ar?'تحديث العرض':'Update view'} title={ar?'تحديث العرض':'Update view'}><span className="platform-refresh-text">{ar?'تحديث العرض':'Update view'}</span><svg className="platform-refresh-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M20 8a8 8 0 1 0 0 8M20 3v6h-6"/></svg></button>
-  </form>}
+   <button className="btn platform-refresh" type="submit" aria-label={ar?'تحديث العرض':'Update view'}><span className="platform-refresh-text">{ar?'تحديث العرض':'Update view'}</span><svg className="platform-refresh-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M20 8a8 8 0 1 0 0 8M20 3v6h-6"/></svg></button>
+  </form></DashboardActionBridge>}
 
   <div className="yaqeen-only"><YaqeenDashboard model={yaqeenDashboardModel({assets,financial,personal,ar,locale})} ar={ar} locale={locale}/></div><div className="yaqeen-legacy-dashboard">
   <section className="platform-summary" aria-label={ar?'مؤشرات جميع الموديولات':'All module indicators'}>
