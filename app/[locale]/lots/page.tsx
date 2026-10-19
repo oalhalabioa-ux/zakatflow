@@ -1,7 +1,11 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/components/WorkspaceLink';
+import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
+import {organizationScopeIds} from '@/lib/workspace-organization';
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
+import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 
 export default function Lots({
   params,
@@ -11,6 +15,7 @@ export default function Lots({
   const { locale } = use(params);
   const ar = locale === 'ar';
 
+  const [scope]=useWorkspaceScope(),[org,setOrg]=useState(''),[group,setGroup]=useState(false),[organizations,setOrganizations]=useState<any[]>([]);
   const [rows, setRows] = useState<any[]>([]);
 
   useEffect(() => {
@@ -19,8 +24,10 @@ export default function Lots({
       .then(setRows);
   }, []);
 
+  useEffect(()=>{const c=new AbortController();fetch('/api/assets/catalog',{signal:c.signal}).then(r=>r.ok?r.json():null).then(d=>{if(d&&!c.signal.aborted)setOrganizations(d.organizations)}).catch(()=>{});return()=>c.abort()},[]);
+  const ids=organizationScopeIds(organizations,org,group),visible=rows.filter(row=>scope==='PERSONAL'?!row.asset_accounts?.organization_id:ids.has(row.asset_accounts?.organization_id));
   return (
-    <main className="container">
+    <main className="container">{scope==='ORGANIZATION'&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={org} onChange={setOrg} group={group} onGroupChange={setGroup}/></TopbarOrganizationControls>}
       <div className="page-head">
         <div>
           <h1>Lots & {ar ? 'الحول' : 'Hawl'}</h1>
@@ -46,7 +53,7 @@ export default function Lots({
           </thead>
 
           <tbody>
-            {rows.map((r) => (
+            {visible.map((r) => (
               <tr key={r.id}>
                 <td>{r.asset_accounts?.name || r.asset_account_id}</td>
                 <td>{r.remaining_quantity}</td>

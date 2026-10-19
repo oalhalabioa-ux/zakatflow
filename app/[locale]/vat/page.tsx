@@ -1,5 +1,6 @@
 'use client';
 import TopbarCompanyLevel from '@/components/TopbarGroupSwitch';
+import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import InvoiceDetailsDialog,{invoiceDetailRow} from "@/components/invoice-details-dialog";
 import InvoiceActionsPopover from "@/components/invoice-actions-popover";
@@ -961,12 +962,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           </div>
 
           <section className="vat-report-toolbar" aria-label={ar ? 'مرشحات تقرير الضرائب' : 'Tax report filters'}>
-<TopbarOrganizationControls>            <label className="vat-report-filter vat-report-organization">
-              <span className="vat-filter-label">{ar ? 'الشركة أو المؤسسة' : 'Company or organization'}</span>
-              <select value={organizationId} onChange={(event) => { setProfileLoadState('loading'); setProfile(null); setProfileOpen(false); setProfileDetailsOpen(false); setOrganizationId(event.target.value); setReportScope('COMPANY'); }} disabled={loadingOrganizations || organizations.length === 0}>
-                {sortedOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{organizationDisplayName(organization.name, ar)}</option>)}
-              </select>
-            </label><TopbarCompanyLevel ar={ar} checked={reportScope==='GROUP'} groupDisabled={!hasBranches} onChange={value=>setReportScope(value?'GROUP':'COMPANY')}/></TopbarOrganizationControls>
+<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={organizationId} onChange={id=>{if(id!==organizationId){setProfileLoadState('loading');setProfile(null);setProfileOpen(false);setProfileDetailsOpen(false);setOrganizationId(id);}}} group={reportScope==='GROUP'} onGroupChange={value=>setReportScope(value?'GROUP':'COMPANY')} disabled={loadingOrganizations}/></TopbarOrganizationControls>
 
             <div className="vat-report-filter vat-report-period-filter">
               <span className="vat-filter-label">{ar ? 'الفترة الضريبية' : 'Tax period'}</span>

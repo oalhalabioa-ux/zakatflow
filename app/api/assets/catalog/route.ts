@@ -15,7 +15,7 @@ export async function GET(){
     if(classes.error||types.error) throw classes.error||types.error;
     if(!ids.length) return NextResponse.json({base_currency:profile.data?.base_currency||'SAR',organizations:[],entities:[],cost_centers:[],classes:classes.data??[],types:types.data??[]});
     const [orgs,entities,centers,suppliers]=await Promise.all([
-      supabase.from('organizations').select('id,name,organization_kind,base_currency').in('id',ids),
+      supabase.from('organizations').select('id,name,organization_kind,parent_organization_id,sort_order,base_currency').in('id',ids),
       supabase.from('organization_entities').select('id,organization_id,name').in('organization_id',ids).eq('active',true),
       supabase.from('organization_cost_centers').select('id,organization_id,name,center_type').in('organization_id',ids).eq('active',true),
       supabase.from('liquidity_counterparties').select('id,organization_id,name,party_type').in('organization_id',ids).in('party_type',['SUPPLIER','BOTH','CUSTOMER'])

@@ -1,3 +1,4 @@
+import {organizationScopeIds} from '../lib/workspace-organization';
 import {inferDebtCategory} from '../lib/debt-categories';
 import {personalPayableRecords} from '../lib/personal-payables';
 import {requireUser} from './auth';
@@ -15,8 +16,9 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
  let ids:string[]=[];if(scope==='ORGANIZATION'){
   if(!organizationId)throw new Error('ORGANIZATION_ID_REQUIRED');await requireOrganizationMember(supabase,user.id,organizationId);ids=[organizationId];
   const root=organizations.find(o=>o.id===organizationId);if(!root)throw new Error('ORGANIZATION_ACCESS_REQUIRED');
-  if(group&&root.organization_kind==='HOLDING'){
-   const children=organizations.filter(o=>o.parent_organization_id===organizationId);
+  if(group){
+   const descendants=organizationScopeIds(organizations,organizationId,true);
+   const children=organizations.filter(o=>o.id!==organizationId&&descendants.has(o.id));
    for(const child of children){try{await requireOrganizationMember(supabase,user.id,child.id);ids.push(child.id);}catch{throw new Error('GROUP_MEMBER_ACCESS_REQUIRED');}}
   }
  }

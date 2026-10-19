@@ -1,3 +1,4 @@
+import {organizationScopeIds} from '../lib/workspace-organization';
 import {requireUser} from './auth';
 import {requireOrganizationMember} from './organization-access';
 import {debtContractSchema} from '../lib/debt-contracts';
@@ -18,7 +19,9 @@ export async function debtContracts(org:string,kind?:'OPENING'|'LOAN'|'EMPLOYEE_
 
 export async function debtContractsGroup(org:string,kind?:'OPENING'|'LOAN'|'EMPLOYEE_ADVANCE'){
  const {supabase}=await ctx(org);const root=unwrap(await supabase.from('organizations').select('id,organization_kind').eq('id',org).single());
- const children=root.organization_kind==='HOLDING'?unwrap(await supabase.from('organizations').select('id').eq('parent_organization_id',org)):[];
+ const organizations=unwrap(await supabase.from('organizations').select('id,name,parent_organization_id'));
+ const ids=organizationScopeIds(organizations,org,true);
+ const children=organizations.filter((o:any)=>o.id!==org&&ids.has(o.id));
  const results=await Promise.all([org,...children.map((o:any)=>o.id)].map(id=>debtContracts(id,kind)));
  return {...results[0],parties:results.flatMap(r=>r.parties),accounts:results.flatMap(r=>r.accounts),entities:results.flatMap(r=>r.entities),contracts:results.flatMap(r=>r.contracts.map(c=>({...c,organization_id:r.organization.id,organization_name:r.organization.name,base_currency:r.organization.base_currency}))),group:true};
 }

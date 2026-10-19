@@ -1,3 +1,4 @@
+import {organizationScopeIds} from '@/lib/workspace-organization';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireUser } from '@/services/auth';
@@ -49,10 +50,11 @@ export async function GET(request: Request) {
     const { data: organization, error: orgError } = await supabase.from('organizations').select('id,name,entity_type,base_currency,organization_kind,parent_organization_id').eq('id', organizationId).single();
     if (orgError) throw orgError;
     let organizationIds = [organizationId];
-    if (params.get('scope') === 'group' && organization.organization_kind === 'HOLDING') {
-      const { data: children, error } = await supabase.from('organizations').select('id,name,entity_type,base_currency,organization_kind,parent_organization_id').eq('parent_organization_id', organizationId);
+    if (params.get('scope') === 'group') {
+      const { data: children, error } = await supabase.from('organizations').select('id,name,entity_type,base_currency,organization_kind,parent_organization_id');
       if (error) throw error;
-      for (const child of children ?? []) {
+      const descendants=organizationScopeIds(children??[],organizationId,true);
+      for (const child of (children??[]).filter(o=>o.id!==organizationId&&descendants.has(o.id))) {
         const { data: membership } = await supabase.from('organization_members').select('user_id').eq('organization_id', child.id).eq('user_id', user.id).eq('status', 'ACTIVE').maybeSingle();
         if (membership) organizationIds.push(child.id);
       }

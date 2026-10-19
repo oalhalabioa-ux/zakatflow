@@ -1,5 +1,7 @@
 'use client';
 
+import WorkspaceOrganizationPicker from './WorkspaceOrganizationPicker';
+import {organizationTree,organizationOptionLabel,preferredOrganization,rememberedOrganization,rememberedCompanyGroup,rememberOrganization} from '../lib/workspace-organization';
 import TopbarOrganizationControls from './TopbarOrganizationControls';
 import {useEffect,useMemo,useState,type ReactNode} from 'react';
 import {organizationDisplayName} from '@/lib/organization-display';
@@ -17,10 +19,9 @@ const COST_CENTER_TYPES:Array<{value:CostCenterType;ar:string;en:string}>= [
  {value:'FINANCING',ar:'تمويلي',en:'Financing'}
 ];
 const centerTypeLabel=(type:CostCenterType,ar:boolean)=>COST_CENTER_TYPES.find(item=>item.value===type)?.[ar?'ar':'en']??type;
-const sortOrganizations=(items:Organization[])=>[...items].sort((a,b)=>Number(a.sort_order??100)-Number(b.sort_order??100)||(a.organization_kind==='HOLDING'?0:1)-(b.organization_kind==='HOLDING'?0:1)||a.name.localeCompare(b.name,'ar'));
-const organizationOptionLabel=(item:Organization,ar:boolean)=>item.organization_kind==='HOLDING'?'▣ '+organizationDisplayName(item.name,ar):'↳ '+organizationDisplayName(item.name,ar);
+const sortOrganizations=(items:Organization[])=>organizationTree(items).map(row=>row.organization);
 
-export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange,disabled=false,topbar=false}:{topbar?:boolean;ar:boolean;value:string;disabled?:boolean;onChange:(name:string,options?:{defaultSelection?:boolean})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
+export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange,disabled=false,topbar=false}:{topbar?:boolean;ar:boolean;value:string;disabled?:boolean;onChange:(name:string,options?:{defaultSelection?:boolean;group?:boolean})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
  const [organizations,setOrganizations]=useState<Organization[]>([]);
  const [centers,setCenters]=useState<CostCenter[]>([]);
  const [selectedId,setSelectedId]=useState('');
@@ -58,7 +59,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    return next;
   }catch(error){if(showError)setMessage(ar?`تعذر تحميل مراكز التكلفة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load cost centers.'));return []}
  };
- useEffect(()=>{void (async()=>{const loaded=await loadOrganizations();if(value)return;const holding=sortOrganizations(loaded as Organization[]).find(item=>item.organization_kind==='HOLDING'&&!item.parent_organization_id);if(!holding)return;setSelectedId(holding.id);setOrganizationDraft(holding.name);onChange(holding.name,{defaultSelection:true});await loadCenters(holding.id)})()},[]);
+ useEffect(()=>{void (async()=>{const loaded=await loadOrganizations();const saved=rememberedOrganization();if(value&&!saved)return;const holding=preferredOrganization(loaded as Organization[],saved);if(!holding)return;setSelectedId(holding.id);setOrganizationDraft(holding.name);onChange(holding.name,{defaultSelection:true,group:rememberedCompanyGroup()&&(loaded as Organization[]).some(o=>o.parent_organization_id===holding.id)});await loadCenters(holding.id)})()},[]);
  useEffect(()=>{
   const selected=organizations.find(item=>item.name===value);
   if(selected&&selected.id!==selectedId){setSelectedId(selected.id);setOrganizationDraft(selected.name);loadCenters(selected.id)}
@@ -69,6 +70,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
  const holdingOrganization=useMemo(()=>sortOrganizations(organizations).find(item=>item.organization_kind==='HOLDING'&&!item.parent_organization_id),[organizations]);
 
  const chooseOrganization=(id:string)=>{
+  if(organizations.some(o=>o.id===id))rememberOrganization(id);
   if(id==='__legacy__'){onChange(value);return}
   if(!id){
    setSelectedId('');setOrganizationDraft('');setCenters([]);onCostCentersChange?.([]);onChange('');
@@ -148,11 +150,8 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
  const wrapPicker=(picker:ReactNode)=>topbar?<TopbarOrganizationControls>{picker}</TopbarOrganizationControls>:picker;
  return <>
  {wrapPicker(  <div className="budget-organization-control">
-   <select aria-label={ar?'المنشأة':'Organization'} value={selectedId|| (legacyOption?'__legacy__':'')} disabled={disabled} onChange={event=>chooseOrganization(event.target.value)}>
-   <option value="">{ar?'اختر منشأة':'Select organization'}</option>
-    {legacyOption&&<option value="__legacy__">{value}</option>}
-    {sortOrganizations(organizations).map(item=><option key={item.id} value={item.id}>{organizationOptionLabel(item,ar)}</option>)}
-   </select>
+   <WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={selectedId} onChange={chooseOrganization} disabled={disabled} restore={false}/>
+   {legacyOption&&<small>{value}</small>}
    <button type="button" className="budget-organization-add" onClick={openManager} aria-label={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'} title={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'}>＋</button>
   </div>)}
   {open&&<div className="budget-org-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setOpen(false)}}>

@@ -5,7 +5,7 @@ export async function listLots(){
   const {supabase,user}=await requireUser();
   const {data,error}=await supabase
     .from('lots')
-    .select('*,asset_accounts(name,asset_type,currency,is_zakatable),transactions!lots_source_transaction_id_fkey(transaction_date)')
+    .select('*,asset_accounts(name,asset_type,currency,is_zakatable,organization_id,ownership_scope),transactions!lots_source_transaction_id_fkey(transaction_date)')
     .eq('user_id',user.id)
     .order('hawl_due_date',{ascending:true,nullsFirst:false});
   if(error)throw error;

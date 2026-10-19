@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from './WorkspaceLink';
 import {usePathname,useSearchParams} from 'next/navigation';
 import {Suspense,type ReactNode} from 'react';
 

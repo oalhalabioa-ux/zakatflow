@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from './WorkspaceLink';
 import {ActionIconGlyph,type ActionIcon} from './ActionButton';
 const icons:Record<string,ActionIcon>={debts:'trend',receivables:'collect',payables:'pay',loans:'bank','employee-advances':'users','debt-advances':'receipt','debt-report':'history','debt-collection':'operations'};
 import {debtWorkspaceLinks} from '../lib/debt-workspace';
