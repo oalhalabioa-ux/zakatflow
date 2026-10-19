@@ -55,3 +55,4 @@
 .corp-shell.theme-yaqeen-business .platform-dashboard .yqd-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(min-width:1600px){.corp-shell.theme-yaqeen-business .platform-dashboard .yqd-kpis{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(max-width:760px){.corp-shell.theme-yaqeen-business .platform-dashboard .yqd-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.corp-shell.theme-yaqeen-business .corp-content #dashboard-scope-form.platform-scope>button.platform-refresh{color:#0F2D4A!important}
