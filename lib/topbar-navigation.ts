@@ -1,5 +1,5 @@
 export type WorkspaceScope='PERSONAL'|'ORGANIZATION';
-const scoped=new Set(['transactions','lots','debt-collection','loans','debt-advances','dashboard','debts','cash-and-banks','receivables','payables','debt-report','financial-position','assets/dashboard','assets','investments','reports']);
+const scoped=new Set(['assessments','transactions','lots','debt-collection','loans','debt-advances','dashboard','debts','cash-and-banks','receivables','payables','debt-report','financial-position','assets/dashboard','assets','investments','reports']);
 export const isWorkspaceScopePage=(path:string)=>scoped.has(path);
 export const workspaceScopeStorageKey='zf-workspace-scope';
 export function rememberedWorkspaceScope():WorkspaceScope|undefined{try{const s=sessionStorage.getItem(workspaceScopeStorageKey);return s==='PERSONAL'||s==='ORGANIZATION'?s:undefined}catch{return undefined}}
