@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/services/auth';
+import {normalizeRolePermissions,permissionKeys} from '@/lib/role-permission-catalog';
 
 const errorStatus = (message: string) =>
   message === 'UNAUTHORIZED' ? 401 :
-  message.includes('ADMIN_REQUIRED') ? 403 :
+  message.includes('ADMIN_REQUIRED') || message.includes('OWNER_REQUIRED') ? 403 :
   message === 'ROLE_IN_USE' ? 409 : 400;
 
 export async function GET(request: Request) {
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
     if (error) throw error;
     return NextResponse.json({ roles: data ?? [] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'REQUEST_FAILED';
+    const message = error && typeof error==='object' && 'message' in error ? String(error.message) : 'REQUEST_FAILED';
     return NextResponse.json({ error: message }, { status: errorStatus(message) });
   }
 }
@@ -26,7 +27,8 @@ export async function POST(request: Request) {
     const organizationId = String(body.organization_id ?? '');
     const name = String(body.name ?? '').trim();
     const description = String(body.description ?? '').trim();
-    const permissions = Array.isArray(body.permissions) ? body.permissions.filter((value: unknown): value is string => typeof value === 'string') : [];
+    if(!Array.isArray(body.permissions) || body.permissions.some((value:unknown)=>typeof value!=='string'||!permissionKeys.has(value)))return NextResponse.json({error:'ROLE_PERMISSION_INVALID'},{status:400});
+    const permissions=normalizeRolePermissions(body.permissions);
     if (!organizationId || name.length < 2 || name.length > 60 || description.length > 240) {
       return NextResponse.json({ error: 'ROLE_DETAILS_INVALID' }, { status: 400 });
     }
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
     if (error) throw error;
     return NextResponse.json({ role: data?.[0] ?? null });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'REQUEST_FAILED';
+    const message = error && typeof error==='object' && 'message' in error ? String(error.message) : 'REQUEST_FAILED';
     return NextResponse.json({ error: message }, { status: errorStatus(message) });
   }
 }
@@ -57,7 +59,7 @@ export async function DELETE(request: Request) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'REQUEST_FAILED';
+    const message = error && typeof error==='object' && 'message' in error ? String(error.message) : 'REQUEST_FAILED';
     return NextResponse.json({ error: message }, { status: errorStatus(message) });
   }
 }
