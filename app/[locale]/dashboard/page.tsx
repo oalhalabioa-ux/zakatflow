@@ -10,6 +10,7 @@ import PlatformMiniChart from '@/components/PlatformMiniChart';
 import ZakatMetricsRefresh from '@/components/ZakatMetricsRefresh';
 import './platform-dashboard.css';
 import '../../yaqeen-dashboard.css';
+import '../../yaqeen-dashboard-polish.css';
 import YaqeenDashboard from '@/components/YaqeenDashboard';
 import {yaqeenDashboardModel} from '@/lib/yaqeen-dashboard-model';
 
