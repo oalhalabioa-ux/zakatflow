@@ -1,0 +1,91 @@
+/* Approved payment layout. Deliberately scoped to Yaqeen; legacy themes keep their view. */
+.corp-shell.theme-yaqeen-business .yq-zakat-payments{--zp-ink:#0F2D4A;--zp-muted:#52657A;--zp-gold:#BD8B3C;--zp-line:#EAD7B4;--zp-ivory:#FCFAF6;--zp-soft:#FBF8F2;max-width:1600px;width:100%;padding:24px 26px 40px;color:var(--zp-ink);background:#F8F9FB;min-width:0}
+.theme-yaqeen-business .yq-zakat-payments *{box-sizing:border-box}
+.theme-yaqeen-business .yq-zakat-payments :is(h1,h2,h3,p){margin:0}
+.theme-yaqeen-business .yq-zakat-payments :is(h1,h2,h3,strong){color:var(--zp-ink)!important}
+.theme-yaqeen-business .yq-zakat-payments h1{font-size:clamp(24px,2.1vw,32px);font-weight:800;line-height:1.4}
+.theme-yaqeen-business .yq-zakat-payments :is(h2,h3){font-size:17px;font-weight:750;line-height:1.5}
+.theme-yaqeen-business .yq-zakat-payments :is(.zpay-page-head,.zpay-section-head){display:flex;align-items:center;justify-content:space-between;gap:18px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-page-head{margin-bottom:24px}
+.theme-yaqeen-business .yq-zakat-payments :is(.zpay-page-head,.zpay-section-head) p{color:var(--zp-muted);font-size:12px;line-height:1.8;margin-top:5px;max-width:850px}
+.theme-yaqeen-business .yq-zakat-payments :is(.zpay-header-actions,.zpay-row-actions,.zpay-form-actions){display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.theme-yaqeen-business .yq-zakat-payments .zpay-header-actions{flex-shrink:0}
+.corp-shell.theme-yaqeen-business .yq-zakat-payments .zpay-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:6px 13px;border:1px solid var(--zp-line)!important;border-radius:6px;background:#fff!important;color:var(--zp-ink)!important;font:inherit;font-size:12px;font-weight:650;line-height:1.5;text-decoration:none;cursor:pointer;box-shadow:none!important}
+.corp-shell.theme-yaqeen-business .yq-zakat-payments .zpay-primary{background:var(--zp-ink)!important;color:#fff!important;border-color:var(--zp-ink)!important}
+.theme-yaqeen-business .yq-zakat-payments .zpay-btn:hover:not(:disabled){background:var(--zp-soft)!important}
+.theme-yaqeen-business .yq-zakat-payments .zpay-primary:hover:not(:disabled){background:#24496A!important;color:#fff!important}
+.theme-yaqeen-business .yq-zakat-payments .zpay-btn:disabled{opacity:.5;cursor:not-allowed}
+.theme-yaqeen-business .yq-zakat-payments :is(button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--zp-gold);outline-offset:3px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-icon{display:inline-flex;width:21px;height:21px;align-items:center;justify-content:center;flex:0 0 21px;color:inherit;background:none!important;border:0!important}
+.theme-yaqeen-business .yq-zakat-payments .zpay-icon svg{width:100%;height:100%;color:inherit}
+.theme-yaqeen-business .yq-zakat-payments .zpay-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-kpi{min-height:120px;padding:20px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--zp-line);border-radius:7px;box-shadow:0 2px 8px rgb(15 45 74 / 2%);min-width:0}
+.theme-yaqeen-business .yq-zakat-payments .zpay-kpi>div{min-width:0}
+.theme-yaqeen-business .yq-zakat-payments .zpay-kpi>div>span{display:block;font-size:12px;color:var(--zp-muted);line-height:1.7;min-height:40px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-kpi strong{display:block;font-size:clamp(18px,1.65vw,25px);font-weight:800;line-height:1.6;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.theme-yaqeen-business .yq-zakat-payments .zpay-kpi>.zpay-icon{width:25px;height:25px;flex-basis:25px;margin-top:4px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-explanation{font-size:11px;color:var(--zp-muted);line-height:1.8;margin:12px 0 20px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-card{margin:0 0 20px;padding:20px;background:#fff;border:1px solid var(--zp-line);border-radius:7px;box-shadow:0 2px 9px rgb(15 45 74 / 2%);min-width:0;scroll-margin-top:90px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-section-head{margin-bottom:17px;align-items:flex-start}
+.theme-yaqeen-business .yq-zakat-payments :is(.zpay-tag,.zpay-count){padding:4px 9px;background:var(--zp-soft);border:1px solid var(--zp-line);border-radius:5px;color:var(--zp-ink);font-size:11px;line-height:1.6;white-space:nowrap}
+.theme-yaqeen-business .yq-zakat-payments .zpay-count{background:#fff}
+.theme-yaqeen-business .yq-zakat-payments .zpay-steps{display:grid;grid-template-columns:repeat(7,minmax(96px,1fr));gap:0;list-style:none;overflow-x:auto;margin:0;padding:8px 0 4px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-steps li{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 5px;font-size:12px;text-align:center;min-width:96px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-steps li:not(:last-child):after{content:'';position:absolute;top:17px;inset-inline-start:calc(50% + 17px);width:calc(100% - 34px);border-top:2px solid #24496A;z-index:0}
+.theme-yaqeen-business .yq-zakat-payments .zpay-steps li.active:after{border-top:2px dashed #E4EAF0}
+.theme-yaqeen-business .yq-zakat-payments .zpay-steps li>span{position:relative;z-index:1;display:grid;place-items:center;width:36px;height:36px;background:#0F2D4A;color:#fff;border:1px solid #0F2D4A;border-radius:50%;font-size:12px;font-weight:650;direction:ltr}
+.theme-yaqeen-business .yq-zakat-payments .zpay-steps li.active>span{background:#EAD7B4;color:#0F2D4A;border:1px solid #BD8B3C}
+.theme-yaqeen-business .yq-zakat-payments .zpay-steps li.future>span{background:#F8F9FB;color:#52657A;border-color:#E4EAF0}
+.theme-yaqeen-business .yq-zakat-payments .zpay-steps strong{font-size:11px;font-weight:600}
+.theme-yaqeen-business .yq-zakat-payments .zpay-table-scroll{width:100%;overflow-x:auto;border-radius:5px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-table{width:100%;min-width:850px;border-collapse:collapse;font-size:12px;color:var(--zp-ink);line-height:1.7;background:#fff}
+.theme-yaqeen-business .yq-zakat-payments .zpay-table :is(th,td){padding:11px 10px;text-align:start;border:0;border-bottom:1px solid #E4EAF0;vertical-align:middle}
+.theme-yaqeen-business .yq-zakat-payments .zpay-table th{background:var(--zp-soft)!important;color:var(--zp-ink)!important;font-weight:700;border-block:1px solid var(--zp-line);white-space:nowrap}
+.theme-yaqeen-business .yq-zakat-payments .zpay-table td{background:#fff;color:var(--zp-ink)!important}
+.theme-yaqeen-business .yq-zakat-payments .zpay-table td small{display:block;font-size:10px;color:var(--zp-muted)}
+.theme-yaqeen-business .yq-zakat-payments .zpay-date{white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums}
+.theme-yaqeen-business .yq-zakat-payments .zpay-status{display:inline-block;padding:3px 8px;border-radius:30px;font-size:10px;line-height:1.6;white-space:nowrap}
+.theme-yaqeen-business .yq-zakat-payments .zpay-status.pending{background:#FBF3E5;color:#75531F}
+.theme-yaqeen-business .yq-zakat-payments .zpay-status.estimate{background:#F0F4F8;color:#24496A}
+.theme-yaqeen-business .yq-zakat-payments .zpay-status.settled{background:#E6F2EA;color:#176346}
+.theme-yaqeen-business .yq-zakat-payments .zpay-row-actions{gap:5px;flex-wrap:nowrap}
+.theme-yaqeen-business .yq-zakat-payments .zpay-row-actions .zpay-btn{font-size:10px;padding:4px 8px;white-space:nowrap;min-height:29px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-row-actions .zpay-btn .zpay-icon{width:15px;height:15px;flex-basis:15px}
+.corp-shell.theme-yaqeen-business .yq-zakat-payments .action-button{display:inline-flex;align-items:center;justify-content:center;padding:5px;width:29px;min-height:29px;height:29px;border:1px solid var(--zp-line)!important;background:#fff!important;color:#0F2D4A!important;border-radius:5px;box-shadow:none!important}
+.theme-yaqeen-business .yq-zakat-payments .action-button svg{width:17px;height:17px;stroke:currentColor}
+.theme-yaqeen-business .yq-zakat-payments .zpay-footnote{font-size:11px;line-height:1.9;color:var(--zp-muted);margin-top:12px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-entry-layout{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(260px,1fr);gap:20px;align-items:stretch}
+.theme-yaqeen-business .yq-zakat-payments .zpay-form{border:1px solid #E4EAF0;padding:15px;border-radius:6px;min-width:0}
+.theme-yaqeen-business .yq-zakat-payments .zpay-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px 18px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-fields label{display:flex;flex-direction:column;gap:7px;min-width:0;color:var(--zp-ink);font-size:12px;font-weight:600}
+.corp-shell.theme-yaqeen-business .yq-zakat-payments .zpay-fields :is(input,select,textarea){width:100%;max-width:100%;min-width:0;margin:0;border:1px solid #E4EAF0!important;border-radius:5px!important;padding:8px 10px;background:#fff!important;color:#0F2D4A!important;font:inherit;font-size:12px;font-weight:400;box-shadow:none!important;line-height:1.6;min-height:38px}
+.corp-shell.theme-yaqeen-business .yq-zakat-payments .zpay-fields select{background:#FCFAF6!important;border-color:#EAD7B4!important;padding-inline-end:30px}
+.corp-shell.theme-yaqeen-business .yq-zakat-payments .zpay-fields select option{background:#fff!important;color:#0F2D4A!important}
+.corp-shell.theme-yaqeen-business .yq-zakat-payments .zpay-fields select option:checked{background:#F7F0E3!important}
+.theme-yaqeen-business .yq-zakat-payments .zpay-fields :is(input,textarea)::placeholder{color:#7C8997;opacity:1}
+.theme-yaqeen-business .yq-zakat-payments .zpay-fields input:read-only{background:#F8F9FB!important}
+.theme-yaqeen-business .yq-zakat-payments .zpay-fields :disabled{opacity:.8;color:#52657A!important}
+.theme-yaqeen-business .yq-zakat-payments .zpay-fields textarea{resize:vertical;min-height:65px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-wide{grid-column:1/-1}
+.theme-yaqeen-business .yq-zakat-payments .zpay-form-actions{margin-top:17px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact{display:flex;flex-direction:column;padding:20px 18px;background:#FCFAF6;border-radius:6px;min-width:0}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact dl{margin:0}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact dl>div{display:flex;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid #E4EAF0;font-size:12px;line-height:1.7}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact dt{color:#52657A;max-width:65%}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact dd{margin:0;color:#0F2D4A;font-weight:700;text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact .zpay-impact-total{border-bottom:1px solid #EAD7B4}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact-total dd{font-size:16px;font-weight:800}
+.theme-yaqeen-business .yq-zakat-payments .zpay-impact>.zpay-footnote{margin-top:auto;padding-top:28px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-insufficient{font-size:11px;line-height:1.8;padding:9px;background:#FFF3F1;color:#9A4039;border:1px solid #F0D2CE;border-radius:5px;margin-top:12px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-notice{font-size:12px;line-height:1.9;background:#FCFAF6;color:#0F2D4A;border:1px solid #EAD7B4;border-radius:5px;padding:10px 12px;margin-block:12px;display:flex;align-items:center;gap:12px;justify-content:space-between}
+.theme-yaqeen-business .yq-zakat-payments .zpay-warning{border-color:#F0D2CE;background:#FFF7F5}
+.theme-yaqeen-business .yq-zakat-payments .zpay-allocation td{background:#FCFAF6!important;padding:16px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-allocation-head{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:12px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-allocation-head span{font-size:11px;color:#52657A}
+.theme-yaqeen-business .yq-zakat-payments .zpay-allocation-item{display:flex;flex-wrap:wrap;gap:14px;padding-block:5px}
+.theme-yaqeen-business .yq-zakat-payments .zpay-empty{font-size:13px;color:#52657A;padding:20px;text-align:center}
+@media(max-width:1150px){.corp-shell.theme-yaqeen-business .yq-zakat-payments{padding:20px 16px}.theme-yaqeen-business .yq-zakat-payments .zpay-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.theme-yaqeen-business .yq-zakat-payments .zpay-entry-layout{grid-template-columns:minmax(0,1.7fr) minmax(235px,1fr)}.theme-yaqeen-business .yq-zakat-payments .zpay-impact{padding:16px 12px}}
+@media(max-width:850px){.theme-yaqeen-business .yq-zakat-payments .zpay-entry-layout{grid-template-columns:1fr}.theme-yaqeen-business .yq-zakat-payments .zpay-impact>.zpay-footnote{padding-top:12px}.theme-yaqeen-business .yq-zakat-payments .zpay-page-head{align-items:flex-start;flex-direction:column}.theme-yaqeen-business .yq-zakat-payments .zpay-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.corp-shell.theme-yaqeen-business .yq-zakat-payments{padding:16px 10px 26px}.theme-yaqeen-business .yq-zakat-payments .zpay-card{padding:14px 12px}.theme-yaqeen-business .yq-zakat-payments .zpay-kpis{gap:8px}.theme-yaqeen-business .yq-zakat-payments .zpay-kpi{padding:13px 10px;min-height:115px;gap:6px}.theme-yaqeen-business .yq-zakat-payments .zpay-kpi strong{font-size:17px}.theme-yaqeen-business .yq-zakat-payments .zpay-kpi>div>span{font-size:11px}.theme-yaqeen-business .yq-zakat-payments .zpay-kpi>.zpay-icon{width:19px;height:19px;flex-basis:19px}.theme-yaqeen-business .yq-zakat-payments .zpay-fields{grid-template-columns:1fr}.theme-yaqeen-business .yq-zakat-payments .zpay-section-head{gap:9px}.theme-yaqeen-business .yq-zakat-payments :is(h2,h3){font-size:15px}.theme-yaqeen-business .yq-zakat-payments .zpay-tag{white-space:normal;max-width:125px}.theme-yaqeen-business .yq-zakat-payments .zpay-steps{grid-template-columns:repeat(7,100px)}.theme-yaqeen-business .yq-zakat-payments .zpay-form{padding:12px}.theme-yaqeen-business .yq-zakat-payments .zpay-form-actions .zpay-primary{flex:1}}
+@media print{body:has(.theme-yaqeen-business .yq-zakat-payments) :is(.corp-sidebar,.corp-topbar,.corp-footer,.corp-content>nav){display:none!important}.corp-shell.theme-yaqeen-business:has(.yq-zakat-payments),.theme-yaqeen-business:has(.yq-zakat-payments) .corp-content{display:block!important;margin:0!important;padding:0!important;width:100%!important}.corp-shell.theme-yaqeen-business .yq-zakat-payments{padding:0;max-width:none;background:#fff}.theme-yaqeen-business .yq-zakat-payments :is(.zpay-header-actions,.zpay-entry,.zpay-row-actions){display:none!important}.theme-yaqeen-business .yq-zakat-payments .zpay-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}.theme-yaqeen-business .yq-zakat-payments .zpay-card{box-shadow:none;break-inside:avoid}.theme-yaqeen-business .yq-zakat-payments .zpay-table{min-width:0;font-size:9px}.theme-yaqeen-business .yq-zakat-payments .zpay-table-scroll{overflow:visible}}
