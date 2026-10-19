@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/services/auth';
+import { requireOrganizationAdmin } from '@/services/organization-access';
 
 const roles = new Set(['ACCOUNTANT', 'ADVISOR', 'VIEWER', 'SHARIA_REVIEWER']);
 const errorStatus = (message: string) =>
@@ -11,16 +12,17 @@ export async function GET(request: Request) {
   try {
     const organizationId = new URL(request.url).searchParams.get('organization_id');
     if (!organizationId) return NextResponse.json({ error: 'ORGANIZATION_REQUIRED' }, { status: 400 });
-    const { supabase } = await requireUser();
+    const { supabase, user } = await requireUser();
+    const actor = await requireOrganizationAdmin(supabase,user.id,organizationId);
     const [{ data: users, error: usersError }, { data: invitations, error: invitationsError }] = await Promise.all([
       supabase.rpc('list_organization_users', { p_organization_id: organizationId }),
       supabase.rpc('list_organization_invitations', { p_organization_id: organizationId }),
     ]);
     if (usersError) throw usersError;
     if (invitationsError) throw invitationsError;
-    return NextResponse.json({ users: users ?? [], invitations: invitations ?? [] });
+    return NextResponse.json({ users: users ?? [], invitations: invitations ?? [], actor_role:actor.role, actor_user_id:user.id });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'REQUEST_FAILED';
+    const message = error && typeof error==='object' && 'message' in error ? String(error.message) : 'REQUEST_FAILED';
     return NextResponse.json({ error: message }, { status: errorStatus(message) });
   }
 }
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
       invite_url: `${origin}/${locale}/login?invite=${encodeURIComponent(invitation.token)}`,
     }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'REQUEST_FAILED';
+    const message = error && typeof error==='object' && 'message' in error ? String(error.message) : 'REQUEST_FAILED';
     return NextResponse.json({ error: message }, { status: errorStatus(message) });
   }
 }
@@ -76,7 +78,7 @@ export async function PATCH(request: Request) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'REQUEST_FAILED';
+    const message = error && typeof error==='object' && 'message' in error ? String(error.message) : 'REQUEST_FAILED';
     return NextResponse.json({ error: message }, { status: errorStatus(message) });
   }
 }
@@ -90,7 +92,7 @@ export async function DELETE(request: Request) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'REQUEST_FAILED';
+    const message = error && typeof error==='object' && 'message' in error ? String(error.message) : 'REQUEST_FAILED';
     return NextResponse.json({ error: message }, { status: errorStatus(message) });
   }
 }
