@@ -8,7 +8,7 @@ async function writePayment(input:unknown,id:string|null=null,remove=false){
  const {supabase}=await requireUser();
  const payload=remove?{}:paymentSchema.parse(input);
  const {data,error}=await supabase.rpc('write_zakat_payment',{p_input:payload,p_payment_id:id,p_delete:remove});
- if(error)throw error;invalidateZakatViews();return data;
+ if(error)throw Error(error.message);invalidateZakatViews();return data;
 }
 export async function createPayment(input:unknown){return writePayment(input)}
 export async function updatePayment(input:unknown){const raw=input as any;if(!raw.id)throw new Error('PAYMENT_ID_REQUIRED');return writePayment(input,raw.id)}
