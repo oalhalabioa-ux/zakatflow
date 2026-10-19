@@ -10,3 +10,12 @@
  .corp-shell:not(.sidebar-mobile-open) .corp-sidebar .collapsed-sidebar-brand{display:block;width:40px;height:44px}
  .corp-shell:not(.sidebar-mobile-open) .corp-sidebar .corp-brand{gap:0}
 }
+/* Approved light-theme headers: clear icon, compact toggle and readable brand label. */
+.corp-shell:is(.theme-modern,.theme-elegant):not(.sidebar-collapsed) .corp-sidebar .corp-brand-row{gap:8px;padding-inline:12px;min-height:92px;height:auto;padding-block:12px}
+.corp-shell:is(.theme-modern,.theme-elegant):not(.sidebar-collapsed) .corp-sidebar .corp-brand{gap:9px;padding:0;min-width:0}
+.corp-shell:is(.theme-modern,.theme-elegant) .corp-sidebar .corp-mark{border:0!important;background:none!important;box-shadow:none!important;transform:none!important;padding:0!important;width:42px;height:46px;display:grid!important;place-items:center}
+.corp-shell:is(.theme-modern,.theme-elegant) .corp-sidebar .corp-mark>.yaqeen-brand-art{display:none!important}
+.corp-shell:is(.theme-modern,.theme-elegant) .corp-sidebar .collapsed-sidebar-brand{display:block;width:40px;height:44px}
+.corp-shell:is(.theme-modern,.theme-elegant):not(.sidebar-collapsed) .corp-sidebar .corp-brand strong{font-size:18px;line-height:1.5;white-space:nowrap}
+.corp-shell:is(.theme-modern,.theme-elegant):not(.sidebar-collapsed) .corp-sidebar .corp-brand small{font-size:9px;line-height:1.6;margin-top:2px;text-wrap:balance}
+.corp-shell:is(.theme-modern,.theme-elegant) .corp-sidebar .sidebar-toggle{width:28px;height:28px;flex:none;border-radius:7px;display:grid;place-items:center}
