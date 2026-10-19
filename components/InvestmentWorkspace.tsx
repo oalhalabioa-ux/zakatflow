@@ -1,4 +1,6 @@
 'use client';
+import {organizationScopeIds} from '../lib/workspace-organization';
+import WorkspaceOrganizationPicker from './WorkspaceOrganizationPicker';
 import TopbarOrganizationControls from './TopbarOrganizationControls';
 import {useCallback,useEffect,useState,useRef,type FormEvent} from 'react';
 import Link from 'next/link';
@@ -15,7 +17,7 @@ type Contract={id:string;status:string;terms:InvestmentTerms;created_at:string;s
 type Operation={account_id:string;id:string;contract_id:string;kind:string;status:string;operation_date:string;amount:number;withheld_zakat:number;exchange_rate:number;notes:string;recognition_status?:string};
 type Bank={id:string;name:string;currency:string;organization_id?:string};
 type Workspace={contracts:Contract[];operations:Operation[];personalAccounts:Bank[];organizationAccounts:Bank[];baseCurrency:string};
-type Catalog={organizations:Array<{id:string;name:string;base_currency:string}>;entities:Array<{id:string;organization_id:string;name:string}>;cost_centers:Array<{id:string;organization_id:string;name:string}>};
+type Catalog={organizations:Array<{id:string;name:string;base_currency:string;parent_organization_id?:string|null;organization_kind?:string}>;entities:Array<{id:string;organization_id:string;name:string}>;cost_centers:Array<{id:string;organization_id:string;name:string}>};
 const empty:Workspace={contracts:[],operations:[],personalAccounts:[],organizationAccounts:[],baseCurrency:'SAR'};
 const instrumentIcons:Record<InvestmentTerms['instrument'],ActionIcon>={DEPOSIT:'bank',BOND:'certificate',SUKUK:'investment'};
 const kinds={DEPOSIT:'الودائع البنكية',BOND:'السندات',SUKUK:'الصكوك'};
@@ -28,7 +30,7 @@ const errors:Record<string,string>={INVESTMENT_COVERAGE_INVALID:'راجع فتر
 export default function InvestmentWorkspace({locale}:{locale:string}){
  const ar=locale==='ar';const [w,setW]=useState(empty),[catalog,setCatalog]=useState<Catalog>({organizations:[],entities:[],cost_centers:[]});
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const [scope]=useWorkspaceScope();const [org,setOrg]=useState(''),[entity,setEntity]=useState(''),[kind,setKind]=useState<InvestmentTerms['instrument']>('DEPOSIT'),[query,setQuery]=useState(''),[status,setStatus]=useState('');
+ const [scope]=useWorkspaceScope();const [org,setOrg]=useState(''),[group,setGroup]=useState(false),[entity,setEntity]=useState(''),[kind,setKind]=useState<InvestmentTerms['instrument']>('DEPOSIT'),[query,setQuery]=useState(''),[status,setStatus]=useState('');
  const [selectedId,setSelectedId]=useState<string|null>(null),[tab,setTab]=useState('details');
  const [form,setForm]=useState<Record<string,string>|null>(null),[replaceId,setReplaceId]=useState<string|null>(null);
  const [operation,setOperation]=useState<Record<string,string>|null>(null);
@@ -44,7 +46,8 @@ export default function InvestmentWorkspace({locale}:{locale:string}){
  useEffect(()=>{const c=new AbortController();load(c.signal).catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setLoading(false);});const id=new URLSearchParams(window.location.search).get('investment_id');if(id)setSelectedId(id);return()=>c.abort();},[load]);
  const ui=investmentPresentation[kind],formUI=form?investmentPresentation[form.instrument as InvestmentTerms['instrument']]:null;
  const selected=w.contracts.find(c=>c.id===selectedId),ops=w.operations.filter(o=>o.contract_id===selectedId);
- const rows=w.contracts.filter(c=>c.terms.ownership_scope===scope&&(scope==='PERSONAL'||!org||c.terms.organization_id===org)&&(!entity||c.terms.entity_id===entity)&&c.terms.instrument===kind&&(!status||c.status===status)&&[c.terms.name,c.terms.party_name,c.terms.reference].join(' ').toLowerCase().includes(query.toLowerCase()));
+ const organizationIds=organizationScopeIds(catalog.organizations,org,group);
+ const rows=w.contracts.filter(c=>c.terms.ownership_scope===scope&&(scope==='PERSONAL'||organizationIds.has(c.terms.organization_id??''))&&(!entity||c.terms.entity_id===entity)&&c.terms.instrument===kind&&(!status||c.status===status)&&[c.terms.name,c.terms.party_name,c.terms.reference].join(' ').toLowerCase().includes(query.toLowerCase()));
  const selectedBanks=(t:{ownership_scope:string;organization_id?:string|null;currency?:string})=>(t.ownership_scope==='PERSONAL'?w.personalAccounts.filter(b=>b.currency===w.baseCurrency):w.organizationAccounts.filter(b=>b.organization_id===t.organization_id)).filter(b=>!t.currency||b.currency===t.currency);
  const base=(owner:string,organization?:string|null)=>owner==='PERSONAL'?w.baseCurrency:catalog.organizations.find(o=>o.id===organization)?.base_currency??w.baseCurrency;
  async function act(action:string,id?:string,payload?:unknown,request_id?:string){
@@ -88,7 +91,7 @@ export default function InvestmentWorkspace({locale}:{locale:string}){
   <div className="investment-tabs">{Object.entries(kinds).map(([value,label])=><ActionButton key={value} icon={instrumentIcons[value as InvestmentTerms['instrument']]} label={label} showLabel aria-pressed={kind===value} onClick={()=>setKind(value as InvestmentTerms['instrument'])}/>)}</div>
   <div className="investment-instrument-guide"><span className="investment-heading-icon"><ActionIconGlyph name={instrumentIcons[kind]}/></span><div><h2>{ui.title}</h2><p>{ui.description}</p><small>{ui.termsNote}</small></div></div>
   <div className="investment-filters">
-   {scope==='ORGANIZATION'&&<TopbarOrganizationControls>   {scope==='ORGANIZATION'&&<><label>المؤسسة<select value={org} onChange={e=>{setOrg(e.target.value);setEntity('');}}><option value="">جميع المؤسسات</option>{catalog.organizations.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label><label>الكيان<select value={entity} onChange={e=>setEntity(e.target.value)}><option value="">جميع الكيانات</option>{catalog.entities.filter(e=>!org||e.organization_id===org).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label></>}
+   {scope==='ORGANIZATION'&&<TopbarOrganizationControls>   {scope==='ORGANIZATION'&&<><WorkspaceOrganizationPicker ar={ar} organizations={catalog.organizations} value={org} onChange={id=>{setOrg(id);setEntity('');}} group={group} onGroupChange={value=>{setGroup(value);setEntity('');}}/><label>الكيان<select value={entity} onChange={e=>setEntity(e.target.value)}><option value="">جميع الكيانات</option>{catalog.entities.filter(e=>!org||e.organization_id===org).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label></>}
 </TopbarOrganizationControls>}
    <label>بحث<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="اسم الاستثمار، الجهة أو المرجع"/></label>
    <label>الحالة<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">الكل</option>{['DRAFT','ACTIVE','CLOSED','CANCELLED'].map(s=><option key={s} value={s}>{investmentStatusLabel(s)}</option>)}</select></label>

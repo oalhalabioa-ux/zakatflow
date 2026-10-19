@@ -1,4 +1,6 @@
 "use client";
+import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
+import {organizationScopeIds} from '@/lib/workspace-organization';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import Link from "next/link";
@@ -121,6 +123,7 @@ export default function Assets({
     [metricDetail,setMetricDetail]=useState<string|null>(null),
     [cycleScope,setCycleScope]=useState<AssetCycleScope>("DISPLAYED"),
     [scopeOrgId, setScopeOrgId] = useState(""),
+    [scopeGroup,setScopeGroup]=useState(false),
     [scopeEntityId, setScopeEntityId] = useState(""),
     [scopeCostCenterId, setScopeCostCenterId] = useState(""),
     [closed, setClosed] = useState<Record<string, boolean>>({}),
@@ -177,7 +180,7 @@ export default function Assets({
       if (["executive", "cards", "analytical"].includes(savedDesign || ""))
         setDesign(savedDesign as AssetsPageDesign);
 
-      setScopeOrgId(localStorage.getItem("zf-assets-scope-org") || "");
+
       setScopeEntityId(localStorage.getItem("zf-assets-scope-entity") || "");
       setScopeCostCenterId(localStorage.getItem("zf-assets-scope-cost-center") || "");
     } catch {}
@@ -243,14 +246,15 @@ export default function Assets({
       ? (+form.quantity || 0) * (+form.purchase_price || 0)
       : +form.amount || 0,
     mv = market ? (+form.quantity || 0) * (+form.market_price || 0) : pc;
+  const selectedOrganizationIds=useMemo(()=>organizationScopeIds(catalog.organizations,scopeOrgId,scopeGroup),[catalog.organizations,scopeOrgId,scopeGroup]);
   const scopedRows = useMemo(() => rows.filter((r:any) => {
     const ownership = r.ownership_scope || (r.organization_id ? "ORGANIZATION" : "PERSONAL");
     if (assetScope === "PERSONAL") return ownership === "PERSONAL" && !r.organization_id;
-    if (ownership !== "ORGANIZATION" || r.organization_id !== scopeOrgId) return false;
+    if (ownership !== "ORGANIZATION" || !selectedOrganizationIds.has(r.organization_id)) return false;
     if (scopeEntityId && r.entity_id !== scopeEntityId) return false;
     if (scopeCostCenterId && r.cost_center_id !== scopeCostCenterId) return false;
     return true;
-  }).map(r=>cycleScope==="DISPLAYED"?r:{...r,zakat_calculation:assetReportCalculation(r.zakat_cycle_calculations||[],cycleScope)}), [rows, assetScope, scopeOrgId, scopeEntityId, scopeCostCenterId,cycleScope]);
+  }).map(r=>cycleScope==="DISPLAYED"?r:{...r,zakat_calculation:assetReportCalculation(r.zakat_cycle_calculations||[],cycleScope)}), [rows, assetScope, selectedOrganizationIds,scopeEntityId, scopeCostCenterId,cycleScope]);
   const filteredRows = useMemo(() => lifecycleFilter === "ALL" ? scopedRows : scopedRows.filter((r) => (r.lifecycle_status || "ACTIVE") === lifecycleFilter), [scopedRows,lifecycleFilter]);
   const lifecycleCounts = useMemo(() => ({ACTIVE:scopedRows.filter(r=>(r.lifecycle_status||"ACTIVE")==="ACTIVE").length,SOLD:scopedRows.filter(r=>r.lifecycle_status==="SOLD").length,DISPOSED:scopedRows.filter(r=>r.lifecycle_status==="DISPOSED").length,ALL:scopedRows.length}),[scopedRows]);
   const displayRows=useMemo(()=>filteredRows.filter(r=>(classFilter==="ALL"||assetDisplayClass(r)===classFilter)&&(typeFilter==="ALL"||(r.asset_type_code||r.asset_type)===typeFilter)),[filteredRows,classFilter,typeFilter]);
@@ -563,13 +567,7 @@ export default function Assets({
       <div className="asset-page-subtitle"><p className="muted">{ar?"نطاق الدورات المحدد ينعكس على مؤشرات الزكاة والجدول. الشامل يجمع النهائي المثبّت وآخر تقدير للمفتوحة، والسداد يُخصم من دورته.":"Cycle scope updates Zakat indicators and the table. Comprehensive combines frozen finals and latest open estimates; payments reduce their own cycle."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
       {assetScope==='ORGANIZATION'&&<TopbarOrganizationControls>
         {assetScope === "ORGANIZATION" && <>
-          <label>
-            {ar ? "الشركة / المؤسسة" : "Organization"}
-            <select value={scopeOrgId} onChange={(e)=>{setScopeOrgId(e.target.value);setScopeEntityId("");setScopeCostCenterId("");}}>
-              <option value="">{ar ? "اختر الشركة" : "Choose organization"}</option>
-              {catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          </label>
+          <WorkspaceOrganizationPicker ar={ar} organizations={catalog.organizations} value={scopeOrgId} onChange={id=>{setScopeOrgId(id);setScopeEntityId("");setScopeCostCenterId("");}} group={scopeGroup} onGroupChange={value=>{setScopeGroup(value);setScopeEntityId("");setScopeCostCenterId("");}}/>
           <label>
             {ar ? "الفرع / الكيان" : "Entity"}
             <select value={scopeEntityId} onChange={(e)=>setScopeEntityId(e.target.value)}>

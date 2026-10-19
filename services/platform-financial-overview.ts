@@ -1,3 +1,4 @@
+import {preferredOrganization} from '../lib/workspace-organization';
 import {yaqeenRecentAccountingDocuments} from '../lib/yaqeen-recent-documents';
 import {platformAssetSummary} from '@/lib/platform-asset-summary';
 import {listAssets} from './assets';
@@ -28,7 +29,7 @@ export async function getPlatformFinancialOverview(q:{organization?:string;plan?
   const organizationTree=platformOrganizationTree(orgs.data??[]);
   const organizations=organizationTree.map(x=>x.organization);
   if(q.organization&&!organizations.some(o=>o.id===q.organization))throw new Error('ORGANIZATION_ACCESS_REQUIRED');
-  const organization=organizations.find(o=>o.id===q.organization)??organizations.find(o=>o.organization_kind==='HOLDING')??organizations[0]??null;
+  const organization=preferredOrganization(organizations,q.organization)??null;
   const availablePlans=(plans??[]).filter(p=>p.status!=='ARCHIVED');
   if(institutional&&q.plan&&!availablePlans.some(p=>p.id===q.plan))throw new Error('BUDGET_PLAN_ACCESS_REQUIRED');
   const group=q.level==='GROUP';

@@ -1,4 +1,8 @@
 "use client";
+import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
+import {organizationScopeIds} from '@/lib/workspace-organization';
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
+import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 import YaqeenFilterSelect from "@/components/YaqeenFilterSelect";
 import ActionButton,{ActionIconGlyph} from "@/components/ActionButton";
 import DetailsDialog from "@/components/assets/DetailsDialog";
@@ -40,6 +44,7 @@ export default function Transactions() {
   const money=useDisplayMoney();const params=useParams();const ar=params.locale!=="en";
   const [selectedOperation,setSelectedOperation]=useState<any>(null),[sourceFilter,setSourceFilter]=useState(''),[stateFilter,setStateFilter]=useState(''),[reportColumns,setReportColumns]=useState<OperationColumn[]>([...defaultOperationColumns]);
   const t=(a:string,e:string)=>ar?a:e;
+  const [scope]=useWorkspaceScope(),[org,setOrg]=useState(''),[group,setGroup]=useState(false);
   const [rows, setRows] = useState<any[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
   const [sort, setSort] = useState<{
@@ -145,7 +150,10 @@ export default function Transactions() {
   }
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("ar");
+    const ids=organizationScopeIds(catalog.organizations??[],org,group);
     return rows.filter((row) => {
+      const owner=row.asset_accounts,company=row.organization_id??owner?.organization_id;
+      if(scope==='PERSONAL'?(company||owner?.ownership_scope==='ORGANIZATION'):!ids.has(company))return false;
       const matchesQuery =
         !normalizedQuery ||
         `${assetName(row)} ${row.reference??row.metadata?.invoice_reference??""} ${row.counterparty_name??""}`.toLocaleLowerCase("ar").includes(normalizedQuery) ||
@@ -162,7 +170,7 @@ export default function Transactions() {
       const matchesTo = !dateTo || date <= dateTo;
       return (!sourceTransactionId || row.id === sourceTransactionId) && matchesQuery && matchesType && matchesFrom && matchesTo && (!sourceFilter||row.source_label===sourceFilter) && (!stateFilter||operationReportState(row)===stateFilter);
     });
-  }, [rows, query, typeFilter, dateFrom, dateTo, sourceTransactionId,sourceFilter,stateFilter]);
+  }, [rows, scope,org,group,catalog.organizations,query, typeFilter, dateFrom, dateTo, sourceTransactionId,sourceFilter,stateFilter]);
   const sortedRows = useMemo(() => {
     const valueOf = (row: any) => {
       if (sort.key === "date") return String(row.transaction_date || "");
@@ -206,6 +214,7 @@ export default function Transactions() {
     sort.key === key ? (sort.direction === "asc" ? "↑" : "↓") : "↕";
   return (
     <main className="container transactions-page">
+      {scope==='ORGANIZATION'&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} organizations={catalog.organizations??[]} value={org} onChange={setOrg} group={group} onGroupChange={setGroup}/></TopbarOrganizationControls>}
       <div className="page-head transaction-page-head">
         <div>
           <span className="pill">سجل العمليات</span>
@@ -262,7 +271,7 @@ export default function Transactions() {
               onChange={(e) => { const selected = assets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",counterparty_id:"",currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
             >
               <option value="">اختر الأصل</option>
-              {assets.map((a) => (
+              {assets.filter(a=>scope==='PERSONAL'?!a.organization_id:organizationScopeIds(catalog.organizations??[],org,group).has(a.organization_id)).map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} — {assetTypeLabel(a)} — {assetOwnerLabel(a)}
                 </option>

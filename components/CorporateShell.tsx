@@ -2,7 +2,7 @@
 import '../app/[locale]/debt-finance.css';
 import DebtWorkspaceNavigation from './DebtWorkspaceNavigation';
 import {useWorkspaceScope} from '../hooks/useWorkspaceScope';
-import Link from 'next/link';
+import Link from './WorkspaceLink';
 import YaqeenBrand from './YaqeenBrand';
 import SidebarQueryLink from './SidebarQueryLink';
 import CollapsedSidebarBrand from './CollapsedSidebarBrand';

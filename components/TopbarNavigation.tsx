@@ -2,13 +2,16 @@
 import {useEffect,useRef,useState,useOptimistic} from 'react';
 import {usePathname,useRouter,useSearchParams} from 'next/navigation';
 import Link from 'next/link';
+import {useWorkspaceScope} from '../hooks/useWorkspaceScope';
+import {isWorkspaceScopePage,rememberWorkspaceScope,rememberedWorkspaceScope} from '../lib/topbar-navigation';
+import {rememberedOrganization,rememberedCompanyGroup} from '../lib/workspace-organization';
 import {updateClientWorkspaceScope} from '../lib/workspace-scope-client';
 import {useWorkspaceNavigation} from './WorkspaceNavigation';
 import {currentWorkspaceScope,workspaceScopeHref,searchNavigation,navigationHref,type WorkspaceScope} from '../lib/topbar-navigation';
 export default function TopbarNavigation({locale}:{locale:string}){
  const {pending,navigate:changeWorkspace}=useWorkspaceNavigation();
- const path=usePathname(),q=useSearchParams(),router=useRouter(),ar=locale==='ar',page=path.split('/').slice(2).join('/'),scope=currentWorkspaceScope(page,q.toString()),[query,setQuery]=useState(''),[open,setOpen]=useState(false),[active,setActive]=useState(0);const [displayScope,chooseDisplayScope]=useOptimistic(scope);const searchTrigger=useRef<HTMLButtonElement>(null),root=useRef<HTMLDivElement>(null),input=useRef<HTMLInputElement>(null);const results=searchNavigation(query);
- useEffect(()=>{window.dispatchEvent(new CustomEvent('zf-workspace-scope',{detail:scope}))},[scope,page]);
+ const path=usePathname(),q=useSearchParams(),router=useRouter(),ar=locale==='ar',page=path.split('/').slice(2).join('/'),[scope]=useWorkspaceScope(currentWorkspaceScope(page,q.toString())),[query,setQuery]=useState(''),[open,setOpen]=useState(false),[active,setActive]=useState(0);const [displayScope,chooseDisplayScope]=useOptimistic(scope);const searchTrigger=useRef<HTMLButtonElement>(null),root=useRef<HTMLDivElement>(null),input=useRef<HTMLInputElement>(null);const results=searchNavigation(query);
+ useEffect(()=>{const resolved=currentWorkspaceScope(page,q.toString(),rememberedWorkspaceScope());if(isWorkspaceScopePage(page)){rememberWorkspaceScope(resolved);if(!q.has('scope')){const href=workspaceScopeHref(locale,page,q.toString(),resolved);if(page==='dashboard'){const params=new URLSearchParams(href.split('?')[1]);const org=rememberedOrganization();if(org)params.set('organization',org);params.set('level',rememberedCompanyGroup()?'GROUP':'COMPANY');router.replace('/'+locale+'/'+page+'?'+params,{scroll:false});}else updateClientWorkspaceScope(resolved,true);}}window.dispatchEvent(new CustomEvent('zf-workspace-scope',{detail:resolved}))},[page,q,locale,router]);
  useEffect(()=>{if(open)input.current?.focus()},[open]);
  useEffect(()=>{setOpen(false);setQuery('');setActive(0)},[path,q.toString()]);
  useEffect(()=>{function outside(e:PointerEvent){if(!root.current?.contains(e.target as Node))setOpen(false)}function shortcut(e:KeyboardEvent){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();input.current?.focus();setOpen(true)}}document.addEventListener('pointerdown',outside);document.addEventListener('keydown',shortcut);return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',shortcut)}},[]);
