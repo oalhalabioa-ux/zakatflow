@@ -34,7 +34,8 @@ export default function YaqeenFinancialSignals({scope,organizationId,organizatio
    if(results[1].status==='fulfilled'&&scope==='PERSONAL')for(const d of results[1].value?.debts??[]){
     if(!d.dueDate||!['RECEIVABLE','PAYABLE'].includes(d.side))continue;add({id:'debt:'+d.id,date:d.dueDate,label:d.partyName,source:ar?'استحقاق ذمة':'Balance due',amount:Number(d.amount),currency:d.currency,direction:d.side==='PAYABLE'?'OUT':'IN',href:'/'+locale+'/'+(d.side==='PAYABLE'?'payables':'receivables')});
    }
-   setUpcoming(maturities.sort((a,b)=>a.date.localeCompare(b.date)).slice(0,12));
+   maturities.sort((a,b)=>a.date.localeCompare(b.date));
+   setUpcoming([...maturities.filter(r=>r.date<today).slice(-8),...maturities.filter(r=>r.date>=today).slice(0,16)]);
    setErrors(results.flatMap((r,i)=>r.status==='rejected'?[ar?(i?'تعذر تحديث القروض؛ راجع الصلاحيات أو أعد المحاولة.':'تعذر تحديث الودائع؛ أعد المحاولة.'):(i?'Loans unavailable; check access or retry.':'Deposits unavailable; retry.')]:[]));
    setUpdated(new Intl.DateTimeFormat(ar?'ar-SA':'en',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Riyadh'}).format(new Date()));setLoading(false);
   });return()=>controller.abort();
