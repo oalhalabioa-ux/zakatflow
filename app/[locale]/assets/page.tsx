@@ -138,21 +138,26 @@ export default function Assets({
   useEffect(()=>{setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");setDetailAsset(null);setOperationAsset(null);setFormOpen(false);setEdit(null)},[assetScope]);
   const baseCurrency=assetScope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR":catalog.base_currency||"SAR";
   const cur = baseCurrency, cv = (n: any) => Number(n || 0);
-  const loadVersion=useRef(0);
+  const loadVersion=useRef(0),loadBusy=useRef(false),catalogLoaded=useRef(false);
   const load = async (background=false) => {
+    if(loadBusy.current)return;
+    loadBusy.current=true;
     const version=++loadVersion.current;
     if(!background)setLoading(true);
     setLoadError("");
+    const catalogRequest=catalogLoaded.current?null:fetch("/api/assets/catalog",{cache:"no-store"}).catch(()=>null);
     try {
       const response = await fetch("/api/assets",{cache:"no-store"});
       if (!response.ok) throw new Error("LOAD_FAILED");
       const nextRows=await response.json();
       if(version!==loadVersion.current)return;
       setRows(nextRows);
-      const catalogResponse = await fetch("/api/assets/catalog");
-      const nextCatalog=catalogResponse.ok?await catalogResponse.json():null;
-      if(version!==loadVersion.current)return;
-      if(nextCatalog)setCatalog(nextCatalog);
+      if(catalogRequest){
+        const catalogResponse=await catalogRequest;
+        const nextCatalog=catalogResponse?.ok?await catalogResponse.json():null;
+        if(version!==loadVersion.current)return;
+        if(nextCatalog){setCatalog(nextCatalog);catalogLoaded.current=true;}
+      }
     } catch {
       if(version!==loadVersion.current)return;
       setRows([]);
@@ -160,6 +165,7 @@ export default function Assets({
         ar ? "تعذر تحميل الأصول. حاول تحديث الصفحة." : "Could not load assets. Refresh the page to try again.",
       );
     } finally {
+      loadBusy.current=false;
       if(version===loadVersion.current)setLoading(false);
     }
   };
