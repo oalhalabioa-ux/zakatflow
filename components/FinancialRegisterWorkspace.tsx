@@ -13,7 +13,8 @@ import ActionButton,{ActionIconGlyph,type ActionIcon} from './ActionButton';
 import PayableMoney from './PayableMoney';
 import PayableDetails from './PayableDetails';
 import AdvancePayments from './AdvancePayments';
-import LoansWorkspace from './LoansWorkspace';
+import dynamic from 'next/dynamic';
+const LoansWorkspace=dynamic(()=>import('./LoansWorkspace'));
 import DebtContractForm from './DebtContractForm';
 import DebtCategoryDialog from './DebtCategoryDialog';
 import {categoryName,categoryOptions,debtMaturity,maturityNames,categorySummary,debtSourceName} from '../lib/debt-categories';
@@ -39,6 +40,7 @@ export default function FinancialRegisterWorkspace({locale,view,initialScope='PE
  const [data,setData]=useState<RegisterData|null>(null),[catalog,setCatalog]=useState<any>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[tab,setTab]=useState(view==='debt-report'?'summary':view==='debts'?initialDebtSide:view==='position'?'summary':'all');
  const [categoryDebt,setCategoryDebt]=useState<DebtItem|null>(null),[category,setCategory]=useState(''),[maturity,setMaturity]=useState(''),[sourceFilter,setSourceFilter]=useState('');
  const [personalPayable,setPersonalPayable]=useState<string|null>(null);
+ const [qardOpen,setQardOpen]=useState(false);
  const [contractKind,setContractKind]=useState<'LOAN'|'EMPLOYEE_ADVANCE'|null>(null);
  const [showAdvances,setShowAdvances]=useState(false),[showOpening,setShowOpening]=useState(false);
  const [payable,setPayable]=useState<{id:string;organizationId:string}|null>(null),[debtStatus,setDebtStatus]=useState('OPEN');
@@ -104,7 +106,7 @@ export default function FinancialRegisterWorkspace({locale,view,initialScope='PE
  {label:initialDebtSide==='PAYABLE'?'فاتورة شراء / استحقاق':'فاتورة بيع / استحقاق',description:'إنشاء من المصدر لمنع تكرار الذمة',icon:'receipt',href:`/${locale}/vat?section=invoices&organization_id=${org}&direction=${initialDebtSide==='PAYABLE'?'PURCHASE':'SALES'}`},
  {label:initialDebtSide==='PAYABLE'?'دفعة مقدمة مستلمة':'دفعة مقدمة مدفوعة',description:'طلب نقدي ثم تخصيص على الاستحقاق',icon:'plus',onClick:()=>setShowAdvances(true)},
  {label:'عقد تمويل بنسبة',description:'متناقص أو ثابت · أصل وتكلفة لكل قسط',icon:'bank',href:`/${locale}/loans?scope=ORGANIZATION`},
- 
+
  {label:'استعراض سندات الافتتاح',description:'حالات الاعتماد والتنفيذ والاستحقاقات',icon:'details',href:`/${locale}/debt-openings`}
  ]:[{label:initialDebtSide==='PAYABLE'?'إثبات التزام شخصي قائم':'إضافة ذمة مدينة افتتاحية',description:'رصيد سابق؛ لا ينشئ تمويلًا أو حركة نقدية',icon:'history',onClick:()=>initialDebtSide==='PAYABLE'?setPersonalPayable('NEW'):openAccount('RECEIVABLE')},{label:initialDebtSide==='PAYABLE'?'قرض مستلم جديد':'قرض ممنوح جديد',description:'تمويل فعلي مع تحديث النقد والذمة مرة واحدة',icon:'bank',onClick:()=>setPersonalFunding('LOAN')},{label:'دفعة مقدمة شخصية',description:'دفع أو قبض مقدم مرتبط بالحساب',icon:'plus',onClick:()=>setPersonalFunding('ADVANCE')}]}/>}
  <details className="finance-export"><summary aria-label="طباعة / تصدير" title="طباعة / تصدير"><ActionIconGlyph name="print"/></summary><div><ActionButton icon="print" label="PDF" showLabel disabled={!canExport} onClick={()=>exportReport('pdf')}/><ActionButton icon="download" label="CSV" showLabel disabled={!canExport} onClick={()=>exportReport('csv')}/></div></details></div></header>
@@ -132,7 +134,7 @@ export default function FinancialRegisterWorkspace({locale,view,initialScope='PE
   {categoryDebt&&<DebtCategoryDialog key={categoryDebt.id} debt={categoryDebt} onClose={()=>setCategoryDebt(null)} onChanged={()=>{void load();}}/>}
   {personalFunding&&data&&<PersonalFinancingForm data={data} kind={personalFunding} initialSide={debtContext?.side==='PAYABLE'?'PAYABLE':initialDebtSide} initialDebt={debtContext} onClose={()=>{setPersonalFunding(null);setDebtContext(undefined)}} onChanged={()=>void load()}/>}
   {personalPayable&&data&&<PersonalPayableDialog key={personalPayable} id={personalPayable} data={data} initialDebt={debtContext} onClose={()=>{setPersonalPayable(null);setDebtContext(undefined)}} onChanged={()=>{void load();}}/>}
-  {view==='debts'&&scope==='ORGANIZATION'&&<details className="card"><summary>سندات القروض الحسنة · الاعتماد والأقساط</summary><LoansWorkspace locale={locale} productMode="QARD" initialSide={initialDebtSide} organizationId={org} organizationGroup={group} embedded/></details>}
+  {view==='debts'&&scope==='ORGANIZATION'&&<details className="card" onToggle={e=>setQardOpen(e.currentTarget.open)}><summary>سندات القروض الحسنة · الاعتماد والأقساط</summary>{qardOpen&&<LoansWorkspace locale={locale} productMode="QARD" initialSide={initialDebtSide} organizationId={org} organizationGroup={group} embedded/>}</details>}
   {contractKind&&<DebtContractForm organizationId={org} initialKind={contractKind} initialSide={initialDebtSide} onClose={()=>setContractKind(null)} onSaved={()=>void load()}/>}
   {showOpening&&<DebtContractForm organizationId={org} initialKind="OPENING" initialSide={initialDebtSide} onClose={()=>setShowOpening(false)} onSaved={()=>void load()}/>}
   {showAdvances&&<AdvancePayments key={org} organizationId={org} initialSide={initialDebtSide==='PAYABLE'?'CUSTOMER_ADVANCE':'SUPPLIER_ADVANCE'} onClose={()=>setShowAdvances(false)} onChanged={()=>{void load();}}/>}
