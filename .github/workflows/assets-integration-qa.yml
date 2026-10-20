@@ -3,27 +3,34 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'app/[locale]/assets/**'
-      - 'app/[locale]/transactions/**'
-      - 'app/api/assets/**'
-      - 'app/api/transactions/**'
-      - 'services/assets.ts'
-      - 'services/transactions.ts'
-      - 'lib/asset-financial-core.ts'
-      - 'tests/asset-financial-core.test.ts'
-      - 'supabase/migrations/20261005*_assets_v2_*.sql'
+      - 'app/**'
+      - 'components/**'
+      - 'services/**'
+      - 'lib/**'
+      - 'tests/**'
+      - 'supabase/migrations/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
       - '.github/workflows/assets-integration-qa.yml'
   workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: financial-workspace-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   assets-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
-      - run: npm install
+      - run: npm ci
       - run: npm run typecheck
-      - run: npx vitest run tests/asset-financial-core.test.ts
+      - run: npm test
       - run: npm run build
