@@ -1,3 +1,4 @@
+import {applyPersonalDebtLinks} from '../lib/personal-debt-parties';
 import {organizationScopeIds} from '../lib/workspace-organization';
 import {inferDebtCategory} from '../lib/debt-categories';
 import {personalPayableRecords} from '../lib/personal-payables';
@@ -41,12 +42,13 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   result.cashMovements=transactions.filter(t=>cashAssets.some((a:any)=>a.id===t.asset_account_id)&&!t.metadata?.asset_deleted).map(t=>({id:t.id,accountId:t.asset_account_id,date:t.transaction_date,createdAt:t.created_at,currency:t.base_currency,amount:signed(t),description:t.notes||t.transaction_type,reference:t.reference||t.id,source:'ASSETS'}));
   const personalDebts=new Map(assets.filter((a:any)=>a.asset_type==='RECEIVABLE').map((a:any)=>[a.id,a]));
   result.debtMovements=transactions.filter(t=>personalDebts.has(t.asset_account_id)&&!t.metadata?.asset_deleted).map(t=>({id:t.id,debtId:t.asset_account_id,createdAt:t.created_at,organizationId:'PERSONAL',partyKey:t.asset_account_id,partyName:(personalDebts.get(t.asset_account_id) as any).name,side:'SALES' as const,date:t.transaction_date,due:(personalDebts.get(t.asset_account_id) as any).metadata?.due_date||null,reference:t.reference||t.id,description:t.notes||t.transaction_type,currency:t.base_currency,amount:signed(t),advance:false,kind:t.transaction_type})).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
-  result.debts=assets.filter((a:any)=>a.asset_type==='RECEIVABLE'&&Number(a.current_market_value)>0).map((a:any)=>({id:a.id,partyKey:a.id,partyName:a.name,organizationId:null,entityId:null,side:'RECEIVABLE',currency:a.current_value_currency,amount:Number(a.current_market_value),date:a.metadata?.purchase_date||asOf,dueDate:a.metadata?.due_date||null,description:a.name,source:'PERSONAL_ASSETS',eventId:null}));
+  result.debts=assets.filter((a:any)=>a.asset_type==='RECEIVABLE').map((a:any)=>({id:a.id,partyKey:a.id,partyName:a.name,organizationId:null,entityId:null,side:'RECEIVABLE',currency:a.current_value_currency,amount:Number(a.current_market_value),date:a.metadata?.purchase_date||asOf,dueDate:a.metadata?.due_date||null,description:a.name,source:'PERSONAL_ASSETS',eventId:null}));
   const [personalPayables,personalPayments]=await Promise.all([all(()=>supabase.from('personal_payables').select('*').eq('user_id',user.id)),all(()=>supabase.from('personal_payable_payments').select('*').eq('user_id',user.id))]);
   const payables=personalPayableRecords(personalPayables,personalPayments,transactions);
   result.debts.push(...payables.debts);result.debtMovements.push(...payables.movements);result.debtMovements.sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt??'').localeCompare(b.createdAt??'')||({INVOICE:0,PAYMENT:1,REVERSAL:2}[a.kind as 'INVOICE']??1)-({INVOICE:0,PAYMENT:1,REVERSAL:2}[b.kind as 'INVOICE']??1)||a.id.localeCompare(b.id));
   result.personalPayments=payables.history;
   const personalFinancings=await all(()=>supabase.from('personal_financings').select('id,kind,side,receivable_id,payable_id').eq('user_id',user.id));
+  const links=await all(()=>supabase.from('personal_debt_links').select('record_id,side,party_key,party_name').eq('user_id',user.id));const linked=applyPersonalDebtLinks(result,links);result.debts=linked.debts;result.debtMovements=linked.debtMovements;
   const advances=new Map(personalFinancings.filter(f=>f.kind==='ADVANCE').map(f=>[f.receivable_id??f.payable_id,f]));
   result.debts=result.debts.map(d=>advances.has(d.id)?{...d,side:advances.get(d.id).side==='RECEIVABLE'?'SUPPLIER_ADVANCE':'CUSTOMER_ADVANCE'}:d);
   result.debtMovements=result.debtMovements.map(m=>advances.has(m.debtId)?{...m,advance:true,side:advances.get(m.debtId).side==='RECEIVABLE'?'PURCHASE':'SALES',amount:-m.amount}:m);

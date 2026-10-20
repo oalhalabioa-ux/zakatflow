@@ -2,7 +2,7 @@ import {debtCategorySchema} from './debt-categories';
 import {z} from 'zod';
 const uuid=z.string().uuid(),money=z.number().finite().positive().max(1e12).refine(n=>Math.abs(n*10000-Math.round(n*10000))<0.00001);
 export const personalPayableCommandSchema=z.discriminatedUnion('action',[
- z.object({action:z.literal('CREATE'),category:debtCategorySchema.refine(c=>c.startsWith('P_AP_')).optional(),request_id:uuid,party:z.string().trim().min(1).max(120),description:z.string().trim().min(3).max(500),amount:money,date:z.string().date(),due_date:z.string().date().nullable(),reference:z.string().trim().max(120)}).strict(),
+ z.object({action:z.literal('CREATE'),source_debt_id:uuid.optional(),category:debtCategorySchema.refine(c=>c.startsWith('P_AP_')).optional(),request_id:uuid,party:z.string().trim().min(1).max(120),description:z.string().trim().min(3).max(500),amount:money,date:z.string().date(),due_date:z.string().date().nullable(),reference:z.string().trim().max(120)}).strict(),
  z.object({action:z.literal('PAY'),request_id:uuid,payable_id:uuid,account_id:uuid,amount:money,date:z.string().date(),notes:z.string().trim().min(3).max(500)}).strict(),
  z.object({action:z.literal('REVERSE_PAYMENT'),payable_id:uuid,payment_id:uuid,reason:z.string().trim().min(3).max(500)}).strict(),
  z.object({action:z.literal('CANCEL'),payable_id:uuid,reason:z.string().trim().min(3).max(500)}).strict()

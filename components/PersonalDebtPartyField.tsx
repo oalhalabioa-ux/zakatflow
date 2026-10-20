@@ -1,0 +1,9 @@
+'use client';
+import {useState} from 'react';
+import ActionButton from './ActionButton';
+import type {RegisterData} from '../lib/financial-register';
+import {personalDebtParties} from '../lib/personal-debt-parties';
+export default function PersonalDebtPartyField({data,side,name,sourceId='',onChange,disabled=false}:{data:RegisterData;side:string;name:string;sourceId?:string;onChange:(name:string,id:string)=>void;disabled?:boolean}){
+ const [adding,setAdding]=useState(false),[search,setSearch]=useState('');const rows=personalDebtParties(data,side),chosen=data.debts.find(d=>d.id===sourceId),visible=rows.filter(d=>d.id===sourceId||d.partyKey===chosen?.partyKey||d.partyName.includes(search));
+ return <div className="finance-wide debt-party-picker"><div className="finance-form"><label>بحث عن جهة<input type="search" value={search} disabled={disabled} onChange={e=>setSearch(e.target.value)} placeholder="ابحث في جهات الذمم الشخصية"/></label><label>الجهة<select required={!adding} value={adding?'':chosen?(rows.find(d=>d.partyKey===chosen.partyKey)?.id??sourceId):sourceId} disabled={disabled||adding} onChange={e=>{const d=data.debts.find(d=>d.id===e.target.value);onChange(d?.partyName??'',d?.id??'')}}><option value="">اختر جهة قائمة</option>{visible.map(d=><option key={d.partyKey} value={d.id}>{d.partyName} · {d.currency} · {d.reference??d.id.slice(0,8)}</option>)}</select></label></div><ActionButton icon="plus" label={adding?'اختيار جهة قائمة':'إضافة جهة'} showLabel disabled={disabled} onClick={()=>{setAdding(!adding);onChange('','')}}/>{adding&&<label>اسم الجهة الجديدة<input required maxLength={120} value={name} disabled={disabled} onChange={e=>onChange(e.target.value,'')}/><small>تُحفظ الجهة مع السند؛ لا ينشأ رصيد أو حركة نقدية قبل حفظه.</small></label>}{chosen&&<small>الحركة الجديدة سند مستقل على حساب {chosen.partyName}، ولا تعدّل الرصيد الافتتاحي.</small>}</div>;
+}
