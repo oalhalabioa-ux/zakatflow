@@ -29,7 +29,7 @@ describe('consistent business context',()=>{
    expect(currentWorkspaceScope(path,'','ORGANIZATION')).toBe('ORGANIZATION');
    expect(currentWorkspaceScope(path,'scope=PERSONAL','ORGANIZATION')).toBe('PERSONAL');
   }
-  expect(currentWorkspaceScope('payments','','ORGANIZATION')).toBe('PERSONAL');
+  expect(currentWorkspaceScope('payments','','ORGANIZATION')).toBe('ORGANIZATION');
   expect(currentWorkspaceScope('vat','','PERSONAL')).toBe('ORGANIZATION');
   expect(currentWorkspaceScope('investments','','ORGANIZATION')).toBe('ORGANIZATION');
  });

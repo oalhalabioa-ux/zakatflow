@@ -5,13 +5,11 @@ const liquidity={accounts:[{current_balance_base:1000,restricted_balance_base:20
 describe('financial company asset indicators',()=>{
  it('uses book balances after approved depreciation and adds operational cash/receivables only once',()=>{
   const result=platformAssetSummary([asset('PPE','MACHINERY',80),asset('INTANGIBLE','SOFTWARE',50),asset('INVENTORY','GOLD',40),asset('FINANCIAL','BANK',1000),asset('FINANCIAL','RECEIVABLE',300)],liquidity);
-  expect(result).toMatchObject({current:'1340.00',fixed:'80.00',intangible:'50.00',value:'1470.00',cash:'1000.00',excludedCount:2});
+  expect(result).toMatchObject({current:'1300.00',fixed:'80.00',intangible:'50.00',value:'1430.00',cash:'1000.00',excludedCount:3});
  });
- it('keeps investments and unspecified metal usage outside PPE and current assets',()=>{
-  expect(platformAssetCategory(asset('INVESTMENT','INVESTMENT_PROPERTY'))).toBe('other');
-  expect(platformAssetCategory(asset('FINANCIAL','GOLD'))).toBe('other');
-  expect(platformAssetCategory(asset('INVENTORY','SILVER'))).toBe('current');
-  expect(platformAssetSummary([asset('INVESTMENT','FUND',250)],liquidity)).toMatchObject({other:'250.00',otherCount:1,value:'1550.00'});
+ it('reports investments separately and excludes precious metals from company indicators',()=>{
+  expect(platformAssetCategory(asset('INVESTMENT','INVESTMENT_PROPERTY'))).toBe('investment');
+  expect(platformAssetSummary([asset('INVESTMENT','FUND',250),asset('INVENTORY','GOLD',40),asset('INVENTORY','SILVER',60)],liquidity)).toMatchObject({investment:'250.00',other:'0.00',otherCount:0,value:'1550.00',excludedCount:2});
  });
  it('excludes personal, sold and disposed assets',()=>{
   expect(platformAssetSummary([asset('PPE','BUILDING',100,{ownership_scope:'PERSONAL'}),asset('PPE','BUILDING',100,{lifecycle_status:'SOLD'}),asset('PPE','BUILDING',100,{lifecycle_status:'DISPOSED'})],liquidity)).toMatchObject({count:0,fixed:'0.00',value:'1300.00'});

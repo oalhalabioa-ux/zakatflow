@@ -29,6 +29,7 @@ import DetailsDialog from "@/components/assets/DetailsDialog";
 import AssetDetails from "@/components/assets/AssetDetails";
 import AssetPurchasePanel from "@/components/assets/AssetPurchasePanel";
 import {assetPurchaseAmounts,assetPurchaseStatus} from "@/lib/asset-purchase-workspace";
+import {isAssetPurchaseAllowed} from "@/lib/assets-acquisition";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
 import AssetLifecyclePanel from "@/components/assets/AssetLifecyclePanel";
 type T =
@@ -173,7 +174,6 @@ export default function Assets({
     void load();
     const refresh=()=>{if(document.visibilityState==="visible")void load(true)};
     window.addEventListener("focus",refresh);
-    const refreshTimer=window.setInterval(refresh,30000);
     try {
       const storedPreferences =
         localStorage.getItem("zf_asset_table_v4") ||
@@ -205,7 +205,6 @@ export default function Assets({
     return () => {
       ++loadVersion.current;
       window.removeEventListener("focus",refresh);
-      window.clearInterval(refreshTimer);
       window.removeEventListener("zf-asset-table-settings", onSettings);
       window.removeEventListener("zf-assets-page-design", onDesign);
     };
@@ -484,6 +483,12 @@ export default function Assets({
       setMsg(ar ? "اختر المؤسسة المالكة للأصل" : "Choose the organization that owns the asset");
       return;
     }
+    const selectedV2Type = catalog.types.find((x:any) => x.code === form.asset_type_code);
+    const purchaseAllowed = isAssetPurchaseAllowed(selectedV2Type);
+    if (!edit && form.acquisition_mode === "PURCHASE" && !purchaseAllowed) {
+      setMsg(ar ? "هذا التصنيف لا يُسجل كشراء أصل؛ سجّله من مسار النقد أو الذمم أو الاستثمار المناسب." : "This classification cannot use asset purchase; use its cash, receivable, or investment workflow.");
+      return;
+    }
     if (!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && !form.funding_account_id) {
       setMsg(ar ? "اختر حساب النقد أو البنك الشخصي المستخدم في الشراء" : "Choose the personal cash or bank account used for the purchase");
       return;
@@ -492,7 +497,6 @@ export default function Assets({
       setMsg(ar ? "اختر فئة الأصل ونوعه معًا" : "Choose both asset class and asset type");
       return;
     }
-    const selectedV2Type = catalog.types.find((x:any) => x.code === form.asset_type_code);
     const compatibleLegacyType = selectedV2Type?.default_legacy_asset_type || form.asset_type;
     const nextRequestId=requestId||crypto.randomUUID();if(!edit&&!requestId)setRequestId(nextRequestId);
     let purchaseTax:number;try{purchaseTax=assetPurchaseAmounts(pc,form.vat_input_mode==="PERCENT"?form.vat_rate:form.vat_amount,form.vat_input_mode).tax;}catch{setMsg(ar?"تحقق من قيمة الشراء ونسبة الضريبة (0–100%)":"Check purchase value and VAT rate (0–100%)");return;}
@@ -540,7 +544,7 @@ export default function Assets({
       cost_center_id: form.ownership_scope === "ORGANIZATION" ? form.cost_center_id : null,
       asset_class_code: form.asset_class_code || null,
       asset_type_code: form.asset_type_code || null,
-      metadata: edit ? metadata : {...metadata,acquisition_mode:form.acquisition_mode||"OPENING_BALANCE"},
+      metadata: edit ? metadata : {...metadata,acquisition_mode:purchaseAllowed?(form.acquisition_mode||"OPENING_BALANCE"):"OPENING_BALANCE"},
     };
     try {
     const r = await fetch("/api/assets", {
@@ -631,7 +635,7 @@ export default function Assets({
             {ar ? "طريقة الاقتناء" : "Acquisition"}
             <select value={form.acquisition_mode || "OPENING_BALANCE"} onChange={(e)=>setForm({...form,acquisition_mode:e.target.value,funding_account_id:""})}>
               <option value="OPENING_BALANCE">{ar ? "رصيد افتتاحي / أصل موجود" : "Opening balance / existing asset"}</option>
-              {!["CASH","BANK","RECEIVABLE"].includes(form.asset_type)&&<option value="PURCHASE">{ar ? "شراء أصل جديد" : "Purchase new asset"}</option>}
+              {isAssetPurchaseAllowed(catalog.types.find((x:any)=>x.code===form.asset_type_code))&&<option value="PURCHASE">{ar ? "شراء أصل جديد" : "Purchase new asset"}</option>}
             </select>
           </label>}
           {!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && <label>
@@ -651,8 +655,8 @@ export default function Assets({
             <label>{form.vat_input_mode==="PERCENT"?(ar?"نسبة الضريبة %":"VAT rate %"):(ar?"مبلغ الضريبة":"VAT amount")}<input type="number" min="0" max={form.vat_input_mode==="PERCENT"?100:undefined} step="any" value={form.vat_input_mode==="PERCENT"?form.vat_rate:form.vat_amount} onChange={e=>setForm({...form,[form.vat_input_mode==="PERCENT"?"vat_rate":"vat_amount"]:e.target.value})}/></label>
             <label>{ar?"نسبة الضريبة القابلة للاسترداد %":"Recoverable VAT %"}<input type="number" min="0" max="100" value={form.recoverable_percent} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/><small>{ar?"الجزء غير القابل للاسترداد يضاف لتكلفة الأصل؛ السداد إجراء مستقل.":"Nonrecoverable VAT is capitalized; payment is separate."}</small></label>
           </>}
-          <label>{ar?"فئة الأصل":"Asset class"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.display_class||""} onChange={e=>setForm({...form,display_class:e.target.value,classification_changed:true,asset_class_code:null,asset_type_code:null})}><option value="">{ar?"اختر الفئة":"Choose class"}</option>{ASSET_DISPLAY_CLASSES.filter(c=>c[0]!=="UNCLASSIFIED"||edit).map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label>
-          <label>{ar?"نوع الأصل":"Asset type"}<select required={!edit} disabled={Boolean((edit&&form.has_financial_history)||!form.display_class)} value={form.asset_type_code||""} onChange={e=>{const t=catalog.types.find((x:any)=>x.code===e.target.value);setForm({...form,asset_class_code:t?.class_code||null,asset_type_code:t?.code||null,asset_type:t?.default_legacy_asset_type||form.asset_type,karat:t?.default_legacy_asset_type==="SILVER"?"999":"24"});}}><option value="">{edit&&!form.asset_type_code?`${assetTypeIcon(form.asset_type)} ${label(form.asset_type)} — ${ar?"التصنيف المحفوظ":"Saved classification"}`:(ar?"اختر النوع":"Choose type")}</option>{catalog.types.filter((x:any)=>catalogDisplayClass(x)===form.display_class&&!["DEPOSIT","BOND","SUKUK_BOND"].includes(x.code)&&(Boolean(edit)||!["CASH","BANK","RECEIVABLE"].includes(x.default_legacy_asset_type))).map((x:any)=><option key={x.code} value={x.code}>{assetTypeIcon(x.code)} {ar?x.name_ar:x.name_en}</option>)}</select></label>
+          <label>{ar?"فئة الأصل":"Asset class"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.display_class||""} onChange={e=>setForm({...form,display_class:e.target.value,classification_changed:true,asset_class_code:null,asset_type_code:null,acquisition_mode:"OPENING_BALANCE",funding_account_id:""})}><option value="">{ar?"اختر الفئة":"Choose class"}</option>{ASSET_DISPLAY_CLASSES.filter(c=>c[0]!=="UNCLASSIFIED"||edit).map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label>
+          <label>{ar?"نوع الأصل":"Asset type"}<select required={!edit} disabled={Boolean((edit&&form.has_financial_history)||!form.display_class)} value={form.asset_type_code||""} onChange={e=>{const t=catalog.types.find((x:any)=>x.code===e.target.value);setForm({...form,asset_class_code:t?.class_code||null,asset_type_code:t?.code||null,asset_type:t?.default_legacy_asset_type||form.asset_type,acquisition_mode:isAssetPurchaseAllowed(t)?form.acquisition_mode:"OPENING_BALANCE",funding_account_id:isAssetPurchaseAllowed(t)?form.funding_account_id:"",karat:t?.default_legacy_asset_type==="SILVER"?"999":"24"});}}><option value="">{edit&&!form.asset_type_code?`${assetTypeIcon(form.asset_type)} ${label(form.asset_type)} — ${ar?"التصنيف المحفوظ":"Saved classification"}`:(ar?"اختر النوع":"Choose type")}</option>{catalog.types.filter((x:any)=>catalogDisplayClass(x)===form.display_class&&!["DEPOSIT","BOND","SUKUK_BOND"].includes(x.code)&&(Boolean(edit)||!["CASH","BANK","RECEIVABLE"].includes(x.default_legacy_asset_type))).map((x:any)=><option key={x.code} value={x.code}>{assetTypeIcon(x.code)} {ar?x.name_ar:x.name_en}</option>)}</select></label>
           {edit&&!form.asset_type_code&&<p className="muted">{ar?"النوع السابق محفوظ دون تغيير. الأصول المرتبطة بحركات لا يعاد تصنيفها من هذا النموذج.":"Existing type is preserved. Assets with financial history cannot be reclassified here."}</p>}
           {["PROPERTY","INVESTMENT","METALS"].includes(form.display_class)&&<label>{ar?"غرض الاحتفاظ":"Holding purpose"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.holding_purpose||""} onChange={e=>setForm({...form,holding_purpose:e.target.value})}><option value="">{ar?"غير محدد":"Not specified"}</option><option value="USE">{ar?"استخدام":"Use"}</option><option value="RENT">{ar?"تأجير":"Rental"}</option><option value="INVESTMENT">{ar?"استثمار":"Investment"}</option><option value="TRADE">{ar?"متاجرة":"Trading"}</option></select><small>{ar?"معلومة وصفية؛ الأهلية الزكوية تحدد بشكل مستقل.":"Descriptive; Zakat eligibility is set separately."}</small></label>}
           <label>
