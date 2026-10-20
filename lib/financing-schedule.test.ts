@@ -1,0 +1,8 @@
+import{it,expect}from 'vitest';import{financingSchedule,financingTotals,type FinancingTerms}from './financing-schedule';
+const t:FinancingTerms={principal:12000,annualRate:12,method:'DECLINING',repayment:'EQUAL_PRINCIPAL',count:12,frequencyMonths:1,startDate:'2026-01-01',firstDueDate:'2026-02-01',yearDays:365};
+it('calculates actual-day declining principal',()=>{const r=financingSchedule(t);expect(r[0].finance).toBe(122.3014);expect(r[0].closing).toBe(11000);expect(financingTotals(r).principal).toBe(12000);expect(r.at(-1)?.closing).toBe(0)});
+it('reconciles flat annual charges including rounding',()=>{const r=financingSchedule({...t,method:'FLAT'});expect(financingTotals(r).finance).toBe(1440);expect(r[1].finance).toBe(110.4658)});
+it('level payments reconcile the residual',()=>{const r=financingSchedule({...t,principal:100000.1234,repayment:'EQUAL_PAYMENT'});expect(r[0].total).toBe(r[1].total);expect(financingTotals(r).principal).toBe(100000.1234);expect(r.at(-1)?.closing).toBe(0)});
+it('explicit lunar denominator changes charge',()=>expect(financingSchedule({...t,yearDays:354})[0].finance).toBeGreaterThan(financingSchedule(t)[0].finance));
+it('zero-rate loans retain the final principal rounding',()=>{const r=financingSchedule({...t,annualRate:0,principal:100,count:3});expect(financingTotals(r)).toEqual({principal:100,finance:0,total:100});expect(r.at(-1)?.principal).toBe(33.3334)});
+it('rejects ambiguous and invalid terms',()=>{expect(()=>financingSchedule({...t,method:'FLAT',repayment:'EQUAL_PAYMENT'})).toThrow();expect(()=>financingSchedule({...t,firstDueDate:t.startDate})).toThrow();expect(()=>financingSchedule({...t,yearDays:366 as any})).toThrow()});
