@@ -7,7 +7,7 @@ const edit=z.object({asset_id:z.string().uuid(),expected_updated_at:z.string(),c
 async function context(id:string){
  z.string().uuid().parse(id);const{supabase}=await requireUser();
  const{data:asset,error}=await supabase.from('asset_accounts').select('*').eq('id',id).single();if(error)throw error;
- const{data:tx,error:te}=await supabase.from('transactions').select('id,metadata').eq('asset_account_id',id).eq('transaction_type','PURCHASE').order('created_at').limit(1).single();if(te)throw te;
+ const{data:tx,error:te}=await supabase.from('transactions').select('id,metadata,purchase_number').eq('asset_account_id',id).eq('transaction_type','PURCHASE').order('created_at').limit(1).single();if(te)throw te;
  const eventId=tx.metadata?.financial_event_id;if(!eventId)throw Error('ASSET_PURCHASE_REQUIRED');
  const review=await assetFinancialReview(eventId);if(review.event.source_module!=='ASSETS_INTEGRATION'||review.event.source_record_id!==tx.id||review.event.organization_id!==asset.organization_id)throw Error('ASSET_EVENT_SCOPE_MISMATCH');
  const[{data:banks,error:be},{data:parties,error:pe},{data:links,error:le},{data:balances,error:oe},{data:canEdit,error:ce}]=await Promise.all([
@@ -20,7 +20,7 @@ async function context(id:string){
  const flowId=links?.[0]?.target_record_id;
  const{data:flow,error:fe}=flowId?await supabase.from('liquidity_flows').select('id,amount,base_amount,currency,settled_amount,settlement_status,due_date').eq('id',flowId).eq('organization_id',asset.organization_id).single():{data:null,error:null};if(fe)throw fe;
  const pending=['DRAFT','PLANNED','COMMITTED'].includes(review.event.status)&&!review.approved;
- return{asset,reverseBlock:review.reverseBlock,event:review.event,allowedActions:review.allowedActions,approved:review.approved,can_edit:!!canEdit&&review.permissions['financial_core.create']&&pending,can_archive:!!canEdit&&review.permissions['financial_core.create']&&pending,banks:banks??[],suppliers:parties??[],flow,balances:balances??[]};
+ return{asset,purchase_number:tx.purchase_number,reverseBlock:review.reverseBlock,event:review.event,allowedActions:review.allowedActions,approved:review.approved,can_edit:!!canEdit&&review.permissions['financial_core.create']&&pending,can_archive:!!canEdit&&review.permissions['financial_core.create']&&pending,banks:banks??[],suppliers:parties??[],flow,balances:balances??[]};
 }
 const failure=(e:any)=>NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:/DENIED/.test(e.message)?403:409,headers});
 export async function GET(req:Request){try{return NextResponse.json(await context(new URL(req.url).searchParams.get('asset_id')||''),{headers});}catch(e){return failure(e);}}

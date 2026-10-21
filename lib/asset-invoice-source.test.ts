@@ -4,6 +4,7 @@ const t:AssetInvoiceTransaction={id:'purchase',organization_id:'org',asset_accou
 const e:AssetInvoiceEvent={id:'event',organization_id:'org',source_module:'ASSETS_INTEGRATION',source_record_id:'purchase',status:'ACTUAL',counterparty_id:'supplier',due_date:'2026-11-01'};
 const parties=[{id:'supplier',organization_id:'org',name:'Vendor'}];
 describe('automatic asset purchase invoice projection',()=>{
+ it('keeps the internal purchase number separate from the supplier reference',()=>{expect(assetPurchaseInvoices([{...t,purchase_number:'PUR-2026-000002'}],[e],parties,[])[0]).toMatchObject({purchaseNumber:'PUR-2026-000002',reference:'SUP-1',total:115})});
  it('preserves invoice net, VAT and gross in source/base currencies even with partially capitalized VAT',()=>{expect(assetPurchaseInvoices([t],[e],parties,[])[0]).toMatchObject({reference:'SUP-1',partyName:'Vendor',net:100,tax:15,total:115,baseNet:375,baseTax:56.25,baseTotal:431.25,due:'2026-11-01'})});
  it('does not duplicate an existing VAT alias, regardless of its register page',()=>{expect(assetPurchaseInvoices([t],[e],parties,[{organization_id:'org',asset_transaction_id:'purchase'}])).toEqual([])});
  it('does not hide a transaction because of an alias in another organization',()=>{expect(assetPurchaseInvoices([t],[e],parties,[{organization_id:'other',asset_transaction_id:'purchase'}])).toHaveLength(1)});
