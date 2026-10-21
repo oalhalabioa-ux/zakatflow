@@ -21,7 +21,7 @@ export function investmentPortfolio(instruments:PortfolioInstrument[],operations
    const ids=new Set(rows.filter(c=>c.terms.instrument===kind&&c.status!=='DRAFT').map(c=>c.id));
    return {kind,label:portfolioKindLabels[kind],activeCount:kind==='CONTRACT'?contractRows.filter(c=>c.state==='ACTIVE').length:active.length,
     carrying:add(active.reduce((s,c)=>add(s,investmentProjection(c.terms).cost),0),contractRows.reduce((s,c)=>add(s,c.summary.managed),0)),
-    projectedIncome:kind==='CONTRACT'?null:active.reduce((s,c)=>add(s,investmentProjection(c.terms).coupon),0),
+    projectedIncome:kind==='CONTRACT'?null:active.reduce((s,c)=>add(s,investmentProjection(c.terms).gross),0),
     declaredIncome:contractRows.reduce((s,c)=>add(s,c.summary.profitDeclared),0),
     settledIncome:add(operations.filter(o=>ids.has(o.contract_id)&&o.kind==='INCOME'&&o.status==='POSTED').reduce((s,o)=>add(s,Number(o.amount)),0),contractRows.reduce((s,c)=>add(s,Math.max(0,new Decimal(c.summary.profitDeclared).minus(c.summary.profitDue).toNumber())),0))};
   });

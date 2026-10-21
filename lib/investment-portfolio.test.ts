@@ -12,8 +12,11 @@ describe('investment portfolio',()=>{
   const instruments=[instrument('d'),instrument('b',{instrument:'BOND',principal:950,fees:10}),instrument('s',{instrument:'SUKUK',principal:2000,face_value:2000}),instrument('draft',{},'DRAFT'),instrument('cancel',{},'CANCELLED')];
   const operations=[{contract_id:'d',kind:'INCOME',status:'POSTED',amount:5},{contract_id:'b',kind:'INCOME',status:'POSTED',amount:2},{contract_id:'s',kind:'INCOME',status:'PREPARED',amount:999},{contract_id:'draft',kind:'INCOME',status:'POSTED',amount:999},{contract_id:'cancel',kind:'INCOME',status:'POSTED',amount:999}];
   const [p]=investmentPortfolio(instruments,operations,[contract(),contract({id:'incoming',direction:'INCOMING'}),contract({id:'draft-contract',state:'DRAFT'}),contract({id:'cancel-contract',state:'CANCELLED'})],'2026-10-21');
-  expect(p.invested).toBe(4260);expect(p.projectedIncome).toBe(200);expect(p.declaredIncome).toBe(80);expect(p.settledIncome).toBe(57);expect(p.profitDue).toBe(30);expect(p.returnDue).toBe(50);expect(p.activeCount).toBe(4);expect(p.draftCount).toBe(2);
+  expect(p.invested).toBe(4260);expect(p.projectedIncome).toBe(250);expect(p.declaredIncome).toBe(80);expect(p.settledIncome).toBe(57);expect(p.profitDue).toBe(30);expect(p.returnDue).toBe(50);expect(p.activeCount).toBe(4);expect(p.draftCount).toBe(2);
   expect(p.allocation.map(a=>a.kind)).toEqual(['DEPOSIT','SUKUK','BOND','CONTRACT']);expect(p.allocation[3].projectedIncome).toBeNull();
+ });
+ it('includes the redemption premium or discount in projected return before fees and zakat',()=>{
+  const [p]=investmentPortfolio([instrument('premium',{instrument:'BOND',principal:1100,face_value:1000})],[],[],'2026-10-21');expect(p.projectedIncome).toBe(-50);
  });
  it('keeps currencies separate and never uses the recorded FX rate to invent a combined total',()=>{
   const p=investmentPortfolio([instrument('sar'),instrument('usd',{currency:'USD',fx_rate:3.75})],[],[contract({currency:'EUR'})],'2026-10-21');
