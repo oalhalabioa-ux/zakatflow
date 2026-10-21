@@ -27,3 +27,8 @@
 @media(max-width:1000px){.investment-portfolio-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.investment-portfolio-intro{align-items:flex-start;flex-direction:column;padding:16px}.investment-portfolio-intro h2{font-size:18px}.investment-portfolio-kpi{padding:13px}.investment-portfolio-kpis{gap:8px}.investment-portfolio-allocation,.investment-portfolio-maturities{padding:12px}}
 @media(max-width:380px){.investment-portfolio-kpis{grid-template-columns:1fr}}
+
+.investment-portfolio{min-width:0;max-width:100%}
+.investment-portfolio-kpi .display-money{max-width:100%;flex-wrap:wrap}
+.investment-portfolio-kpi .display-money>span{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:480px){.investment-portfolio-kpis{grid-template-columns:1fr}}
