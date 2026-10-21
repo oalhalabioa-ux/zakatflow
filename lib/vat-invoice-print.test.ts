@@ -4,6 +4,10 @@ const invoice: PrintableInvoice = { number:'7',date:'2026-10-08',currency:'SAR',
   seller:{name:'البائع'},buyer:{name:'العميل'},net:100,tax:15,total:115,
   lines:[{name:'خدمة',quantity:1,unitPrice:100,tax:15,total:115}] };
 describe('invoice print safety and lifecycle', () => {
+  it('prints the internal and supplier numbers separately and escapes supplier input',()=>{
+    const html=invoicePrintHtml({...invoice,number:'PUR-2026-000012',supplierNumber:'<SUP-9>'},true);
+    expect(html).toContain('PUR-2026-000012');expect(html).toContain('رقم فاتورة المورد');expect(html).toContain('&lt;SUP-9&gt;');expect(html).not.toContain('<SUP-9>');
+  });
   it('marks drafts and omits QR even if supplied', () => {
     const html=invoicePrintHtml(invoice,true,'data:image/png;base64,AAAA');
     expect(html).toContain('مسودة — غير مصدرة'); expect(html).not.toContain('<img');

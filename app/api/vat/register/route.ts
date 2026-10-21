@@ -14,11 +14,11 @@ export async function GET(request: Request) {
     if (!organizationId || !Number.isSafeInteger(offset) || offset < 0) return NextResponse.json({ error: 'INVALID_REGISTER_QUERY' }, { status: 400 });
     await requireOrganizationMember(supabase, user.id, organizationId);
     const [documentsResult, standaloneResult, assetsResult] = await Promise.all([
-      supabase.from('vat_documents').select('id,asset_transaction_id,document_number,counterparty_name,transaction_date,due_date,document_type,document_kind,zatca_status,currency,source_currency,source_gross_amount,source_tax_amount,gross_amount,tax_amount,preceding_document_id')
+      supabase.from('vat_documents').select('id,purchase_number,asset_transaction_id,document_number,counterparty_name,transaction_date,due_date,document_type,document_kind,zatca_status,currency,source_currency,source_gross_amount,source_tax_amount,gross_amount,tax_amount,preceding_document_id')
         .eq('organization_id', organizationId).order('transaction_date', { ascending: false }).order('id').range(offset, offset + pageSize),
       supabase.from('vat_einvoices').select('id,accounting_document_id,invoice_number,buyer_name,issue_date,due_date,document_type,status,currency,payable_amount,tax_total_amount,exchange_rate,preceding_invoice_id,billing_reference')
         .eq('organization_id', organizationId).is('accounting_document_id', null).order('issue_date', { ascending: false }).order('id').range(offset, offset + pageSize),
-      supabase.from('transactions').select('id,organization_id,asset_account_id,transaction_type,transaction_date,reference,currency,base_currency,gross_value,base_value,metadata,reversal_of_transaction_id').eq('organization_id',organizationId).eq('transaction_type','PURCHASE').order('transaction_date',{ascending:false}).order('id').range(offset,offset+pageSize),
+      supabase.from('transactions').select('id,purchase_number,organization_id,asset_account_id,transaction_type,transaction_date,reference,currency,base_currency,gross_value,base_value,metadata,reversal_of_transaction_id').eq('organization_id',organizationId).eq('transaction_type','PURCHASE').order('transaction_date',{ascending:false}).order('id').range(offset,offset+pageSize),
     ]);
     if (assetsResult.error) throw assetsResult.error;
     const assetTransactions = (assetsResult.data || []).slice(0,pageSize);
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     const assetInvoices=assetPurchaseInvoices(assetTransactions,events.data||[],assetParties.data||[],assetBindings.data||[]);
     const rows = buildUnifiedInvoices(documents, [...(electronic.data || []), ...standalone], flows.data || [], statusByDocument, new Map((originals.data || []).map(o => [o.id, o.document_number])));
     for(const row of rows){if(row.sourceTransactionId)row.flow=(assetFlows.data||[]).find(f=>f.source_record_id===row.sourceTransactionId)||row.flow;}
-    for(const a of assetInvoices)rows.push({id:'asset:'+a.id,documentId:null,electronicId:null,source:'ASSETS',sourceTransactionId:a.id,side:'PURCHASE',kind:'INVOICE',category:'INVOICE',number:a.reference,name:a.partyName,date:a.date,due:a.due,currency:a.currency,baseAmount:a.baseTotal,total:a.total,tax:a.tax,accountingStatus:a.accountingStatus,status:'REGISTERED',originalId:null,originalNumber:null,flow:(assetFlows.data||[]).find(f=>f.source_record_id===a.id)||null});
+    for(const a of assetInvoices)rows.push({id:'asset:'+a.id,documentId:null,electronicId:null,source:'ASSETS',sourceTransactionId:a.id,side:'PURCHASE',kind:'INVOICE',category:'INVOICE',number:a.purchaseNumber||a.reference,supplierNumber:a.reference,name:a.partyName,date:a.date,due:a.due,currency:a.currency,baseAmount:a.baseTotal,total:a.total,tax:a.tax,accountingStatus:a.accountingStatus,status:'REGISTERED',originalId:null,originalNumber:null,flow:(assetFlows.data||[]).find(f=>f.source_record_id===a.id)||null});
     return NextResponse.json({ rows, nextOffset: documentsResult.data.length > pageSize || standaloneResult.data.length > pageSize || assetsResult.data.length > pageSize ? offset + pageSize : null }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';

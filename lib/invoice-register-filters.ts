@@ -6,7 +6,7 @@ export const emptyInvoiceFilters: InvoiceFilters = {
   source: 'ALL', query: '', status: 'ALL', category: 'ALL', currency: 'ALL', payment: 'ALL', from: '', to: '', sort: 'DATE_DESC',
 };
 export type InvoiceSearchRow = {
-  id: string; number: string; name: string; date: string; due?: string | null;
+  id: string; number: string; supplierNumber?: string | null; name: string; date: string; due?: string | null;
   source?: string; status?: string; category?: string; currency: string; baseAmount: number;
   flow?: { amount: string | number; settled_amount: string | number; settlement_status?: string } | null;
 };
@@ -21,7 +21,7 @@ export function filterInvoiceRows<T>(items: T[], filters: InvoiceFilters, rowFor
   const query = filters.query.trim().toLocaleLowerCase();
   return items.map(item => ({ item, row: rowFor(item) })).filter(({ row }) => {
     const state = invoicePaymentState(row);
-    return (!query || `${row.number} ${row.name}`.toLocaleLowerCase().includes(query))
+    return (!query || `${row.number} ${row.supplierNumber || ''} ${row.name}`.toLocaleLowerCase().includes(query))
       && (!filters.source || filters.source === 'ALL' || (row.source || 'INVOICING') === filters.source)
       && (filters.status === 'ALL' || row.status === filters.status)
       && (filters.category === 'ALL' || row.category === filters.category)

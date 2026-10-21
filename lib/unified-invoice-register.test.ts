@@ -4,6 +4,13 @@ import { filterInvoiceRows, emptyInvoiceFilters } from './invoice-register-filte
 const document = { id:'doc',document_number:'INV-1',counterparty_name:'Customer',transaction_date:'2025-01-02',due_date:'2025-02-02',document_type:'SALES' as const,document_kind:'INVOICE',zatca_status:'NOT_ISSUED',currency:'SAR',source_currency:'USD',source_gross_amount:'115',source_tax_amount:'15',gross_amount:'431.25',tax_amount:'56.25' };
 const electronic = { id:'e',accounting_document_id:'doc',invoice_number:'INV-1',buyer_name:'Customer',issue_date:'2025-01-02',due_date:null,document_type:'INVOICE',status:'ISSUED',currency:'USD',payable_amount:'115',tax_total_amount:'15' };
 describe('unified invoice register', () => {
+  it('shows and searches both purchase numbers while keeping sales numbers unchanged',()=>{
+    const purchase={...document,document_type:'PURCHASE' as const,document_number:'SUPPLIER-918',purchase_number:'PUR-2026-000001'};
+    const rows=buildUnifiedInvoices([purchase],[],[],new Map(),new Map());
+    expect(rows[0]).toMatchObject({number:'PUR-2026-000001',supplierNumber:'SUPPLIER-918',total:115,tax:15});
+    for(const query of ['PUR-2026-000001','SUPPLIER-918'])expect(filterInvoiceRows(rows,{...emptyInvoiceFilters,query},r=>r)).toHaveLength(1);
+    expect(buildUnifiedInvoices([document],[],[],new Map(),new Map())[0]).toMatchObject({number:'INV-1',supplierNumber:null});
+  });
   it('joins the accounting and electronic document once, retaining independent financial and payment states', () => {
     const rows = buildUnifiedInvoices([document],[electronic],[{ id:'flow',source_record_id:'doc',amount:'431.25',settled_amount:'100',settlement_status:'PARTIAL',currency:'SAR',direction:'INFLOW',due_date:null }],new Map([['doc','COMMITTED']]),new Map());
     expect(rows).toHaveLength(1);
