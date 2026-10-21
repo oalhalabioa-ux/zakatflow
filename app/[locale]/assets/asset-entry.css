@@ -113,3 +113,7 @@
 @media(max-width:600px){.corp-shell .corp-content .asset-entry .form-grid,.asset-entry .form-grid,.asset-entry-quick-add .form-grid{grid-template-columns:minmax(0,1fr)}.asset-entry-quick-add{width:calc(100vw - 32px)}.asset-entry-quick-add fieldset,.asset-entry-quick-header,.asset-entry-quick-actions{padding:16px}}
 
 .asset-entry .asset-entry-tax-row{grid-column:1/-1}
+.asset-details-dialog:has(>.asset-entry-quick-add){width:min(700px,calc(100vw - 32px));max-width:none;padding:0;border-radius:14px}
+.asset-details-dialog>.asset-entry-quick-add{width:100%;max-width:none}
+.asset-entry-quick-header{background:color-mix(in srgb,var(--brand-primary) 5%,var(--brand-surface))}
+.corp-shell .corp-content .asset-entry-quick-add .asset-entry-quick-actions .action-button-wrap:first-child .action-button{background:var(--brand-primary)!important;color:#fff!important;border-color:var(--brand-primary)!important}
