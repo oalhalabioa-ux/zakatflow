@@ -1,0 +1,9 @@
+import {describe,it,expect} from 'vitest';
+import {assetEntryQuote,acquisitionValuation,type AssetEntryRate} from './asset-entry-details';
+const row=(extra:Partial<AssetEntryRate>={}):AssetEntryRate=>({id:'a',organization_id:null,from_currency:'USD',to_currency:'SAR',rate:3.75,valuation_date:'2026-10-20',source:'saved',...extra});
+describe('asset entry saved quotes and initial valuation',()=>{
+ it('uses company rates ahead of global rates, excluding future and other company rates',()=>{const rows=[row(),row({id:'b',organization_id:'org',rate:3.7,valuation_date:'2026-10-19'}),row({id:'c',organization_id:'other',rate:100}),row({id:'d',organization_id:'org',rate:99,valuation_date:'2026-10-22'})];expect(assetEntryQuote(rows,'USD','SAR','2026-10-21','org')?.rate).toBe(3.7);expect(assetEntryQuote(rows,'USD','SAR','2026-10-21',null)?.rate).toBe(3.75)});
+ it('supports inverse quotes and refuses guessed or future conversions',()=>{expect(assetEntryQuote([row({from_currency:'SAR',to_currency:'USD',rate:.25})],'USD','SAR','2026-10-21',null)?.rate).toBe(4);expect(assetEntryQuote([],'USD','SAR','2026-10-21',null)).toBeNull();expect(assetEntryQuote([row()],'USD','SAR','2026-10-19',null)).toBeNull();expect(assetEntryQuote([],'SAR','SAR','2026-10-21',null)?.rate).toBe(1)});
+ it('sets purchase market value to net purchase value, ignoring stale separate valuations and VAT',()=>{const m=acquisitionValuation({acquisition_mode:'PURCHASE',purchase_value:100,quantity:2,vat_amount:15,market_value:999,market_price:900},'SAR');expect(m.market_value).toBe(100);expect(m.market_price_per_unit).toBe(50);expect(m.estimated_value).toBe(100)});
+ it('keeps independent opening valuation and valid zero valuation',()=>{const m={acquisition_mode:'OPENING_BALANCE',purchase_value:100,market_value:0};expect(acquisitionValuation(m,'SAR')).toEqual(m)});
+});
