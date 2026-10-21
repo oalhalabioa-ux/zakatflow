@@ -696,7 +696,7 @@ export default function Assets({
                 <label>
                   {metal?(ar?"سعر السوق للغرام":"Market price per gram"):(ar?"سعر السوق للوحدة":"Market price per unit")}
                   <input
-                    type="number" min="0" required
+                    type="number" min="0" required={!edit}
                     step="0.01"
                     value={form.market_price}
                     onChange={(e) =>
