@@ -1,0 +1,10 @@
+/** Read-only projections: never create a duplicate asset account for corporate cash or AR. */
+export function projectFinancialAssets(accounts:any[],balances:any[],events:any[],parties:any[],organizations:any[]){
+ const orgs=new Map(organizations.map(o=>[o.id,o]));
+ const eventMap=new Map(events.map(e=>[e.id,e]));
+ const partyMap=new Map(parties.map(p=>[`${p.organization_id}:${p.id}`,p.name]));
+ const base=(id:string,type:string,org:string,entity:string|null,name:string,currency:string,value:number,date:string|null,source:string,extra:any={})=>({id,asset_type:type,name,currency,ownership_scope:'ORGANIZATION',organization_id:org,entity_id:entity,cost_center_id:null,asset_type_code:type,asset_class_code:'FINANCIAL',unit:'unit',is_zakatable:false,current_quantity:1,current_cost_value:value,current_market_value:value,current_value_currency:currency,has_financial_history:true,lifecycle_status:'ACTIVE',financial_event_status:'ACTUAL',lots:[],zakat_calculation:null,zakat_cycle_calculations:[],metadata:{purchase_date:date,acquisition_mode:'OPENING_BALANCE',register_source:source,source_record_id:id,...extra}});
+ const cash=accounts.filter(a=>a.active!==false&&['CASH','BANK','WALLET'].includes(a.account_type)&&orgs.has(a.organization_id)).map(a=>base(`cash:${a.id}`,a.account_type==='WALLET'?'CASH':a.account_type,a.organization_id,a.entity_id,a.name,orgs.get(a.organization_id).base_currency,Number(a.current_balance_base||0),a.metadata?.opening_date??null,'cash-and-banks',{source_record_id:a.id,native_currency:a.currency,native_balance:Number(a.current_balance||0)}));
+ const debt=balances.flatMap(b=>{const e=eventMap.get(b.event_id);if(!e||e.status!=='ACTUAL'||b.obligation_type!=='RECEIVABLE'||!orgs.has(e.organization_id)||Number(b.outstanding_base_amount)<=0)return [];return [base(`receivable:${b.obligation_id}`,'RECEIVABLE',e.organization_id,e.entity_id,`${partyMap.get(`${e.organization_id}:${e.counterparty_id}`)||'—'} · ${e.description||''}`,b.base_currency,Number(b.outstanding_base_amount),e.event_date,'receivables',{source_record_id:b.obligation_id,due_date:e.due_date,financial_event_id:e.id})];});
+ return [...cash,...debt];
+}
