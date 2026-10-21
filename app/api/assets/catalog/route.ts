@@ -18,7 +18,7 @@ export async function GET(){
       supabase.from('organizations').select('id,name,organization_kind,parent_organization_id,sort_order,base_currency').in('id',ids),
       supabase.from('organization_entities').select('id,organization_id,name').in('organization_id',ids).eq('active',true),
       supabase.from('organization_cost_centers').select('id,organization_id,name,center_type').in('organization_id',ids).eq('active',true),
-      supabase.from('liquidity_counterparties').select('id,organization_id,name,party_type').in('organization_id',ids).eq('active',true)
+      supabase.from('liquidity_counterparties').select('id,organization_id,name,party_type').in('organization_id',ids).in('party_type',['SUPPLIER','BOTH','CUSTOMER'])
     ]);
     const error=orgs.error||entities.error||centers.error||suppliers.error||classes.error||types.error;
     if(error) throw error;
@@ -27,4 +27,3 @@ export async function GET(){
     return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:500});
   }
 }
-

@@ -114,7 +114,7 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
     try {
       const response = await fetch("/api/assets");
       if (!response.ok) throw new Error("LOAD_FAILED");
-      setAssets((await response.json()).filter((asset:any)=>!asset.metadata?.register_source));
+      setAssets(await response.json());
     } catch {
       setMsg(ar ? "تعذر تحميل قائمة الأصول" : "Could not load assets");
     } finally {
@@ -302,4 +302,3 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
     </>
   );
 }
-

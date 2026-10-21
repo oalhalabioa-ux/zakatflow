@@ -1,7 +1,3 @@
-import {financialAssetProjection} from './financial-asset-projection';
-import {openFinancialAccount} from './financial-account-opening';
-import {financialOpeningFromAsset} from '../lib/asset-entry';
-import {debtContractAction} from './debt-contracts';
 import { requireUser } from './auth';
 import {assetReportAssessments} from '@/lib/asset-zakat-report';
 import { assetSchema } from '@/lib/validation/schemas';
@@ -44,8 +40,7 @@ export async function listAssets(){
  const reviewIds=[...new Set((exits.data??[]).map((t:any)=>t.metadata?.financial_event_id).filter(Boolean))];
  const eventResult=reviewIds.length?await supabase.from('financial_events').select('id,status').in('id',reviewIds):{data:[],error:null};if(eventResult.error)throw eventResult.error;
  const eventStatuses=new Map((eventResult.data??[]).map((e:any)=>[e.id,e.status]));
- const projected=await financialAssetProjection(supabase,orgResult.data??[]);
- const assets=[...(accounts.data??[]).map((a:any)=>{
+ const assets=(accounts.data??[]).map((a:any)=>{
   const assetLots=lots.filter((l:any)=>l.asset_account_id===a.id);
   const assetBase=a.ownership_scope==='ORGANIZATION'?(orgResult.data??[]).find((o:any)=>o.id===a.organization_id)?.base_currency??a.currency:baseCurrency;
   const availableLots=a.ownership_scope==='ORGANIZATION'?lots.filter((l:any)=>!l.metadata?.recognition_pending):lots;
@@ -64,7 +59,7 @@ export async function listAssets(){
     proceeds:t.transaction_type==='SALE'?Number(t.base_value||0):0
    })),
    lifecycle_exit_value:lifecycle_status==='SOLD'?Number(exit?.base_value||0):0};
- }),...projected];
+ });
  const referenced=assetReportAssessments(cycles,assessments);
  const ids=[...new Set([...referenced.map(r=>r.assessment.id),...(latest?[latest.id]:[])])];
  if(!ids.length)return assets.map((a:any)=>({...a,zakat_calculation:null,zakat_cycle_calculations:[]}));
@@ -125,16 +120,6 @@ export async function createAsset(input:unknown){
  const parsed=assetSchema.parse(input);const{supabase,user}=await requireUser();
  await validateAssetOwnership(supabase,user,parsed);
  const requestId=(input as any)?.request_id||randomUUID();
- if(['CASH','BANK','RECEIVABLE'].includes(parsed.asset_type)){
-  const m=parsed.metadata??{};
-  if(m.acquisition_mode==='PURCHASE')throw Error('USE_FINANCIAL_OPENING');
-  if(parsed.asset_type==='RECEIVABLE'&&parsed.ownership_scope==='ORGANIZATION'){
-   const value=Number(m.purchase_value??0),date=String(m.purchase_date??'');
-   return debtContractAction({action:'CREATE',organization_id:parsed.organization_id,request_id:requestId,kind:'OPENING',mode:'OPENING',side:'RECEIVABLE',counterparty_id:m.counterparty_id,entity_id:parsed.entity_id??null,account_id:null,category:m.debt_category,description:parsed.name,reference:String(m.invoice_reference||requestId),date,currency:parsed.currency,exchange_rate:Number(m.fx_rate),principal:value,schedule:[{amount:value,due_date:String(m.due_date||date)}]});
-  }
-  return openFinancialAccount(financialOpeningFromAsset(parsed,requestId));
- }
-
  const{data,error}=await supabase.rpc('create_asset_with_acquisition',{p_asset:parsed,p_request_id:requestId});
  if(error)throw error;return data;
 }
@@ -169,4 +154,3 @@ export async function deleteAsset(id:string){
  await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'asset_account',entity_id:id,action:'DELETE_UNUSED_ASSET',old_data:asset,new_data:{linked}});
  return{ok:true,id};
 }
-
