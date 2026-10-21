@@ -1,4 +1,5 @@
 "use client";
+import "./asset-entry.css";
 import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 import {organizationScopeIds} from '@/lib/workspace-organization';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
@@ -472,7 +473,16 @@ export default function Assets({
 
     }
   };
+  const closeAssetForm=()=>{setEdit(null);setRequestId("");setFormOpen(false);setForm({...empty});setMsg("");};
+  const entryAmount=(value:number)=>`${new Intl.NumberFormat(ar?'ar-SA':'en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number.isFinite(value)?value:0)} ${form.currency}`;
+  let entryTax:ReturnType<typeof assetPurchaseAmounts>|null=null;
+  if(!edit&&form.acquisition_mode==='PURCHASE'&&form.ownership_scope==='ORGANIZATION'){
+    try{entryTax=assetPurchaseAmounts(pc,form.vat_input_mode==='PERCENT'?form.vat_rate:form.vat_amount,form.vat_input_mode);}catch{/* Invalid input is reported by form validation on submit. */}
+  }
+  useEffect(()=>{if(formOpen){document.getElementById('asset-entry-title')?.focus({preventScroll:true});document.getElementById('asset-entry-title')?.scrollIntoView({block:'start',behavior:'smooth'});}},[formOpen]);
   const save = async () => {
+    if(saving)return;
+    setMsg("");
     if (!form.name || !form.purchase_date) {
       setMsg(ar ? "أدخل الاسم وتاريخ الشراء" : "Enter name and purchase date");
       return;
@@ -572,7 +582,7 @@ export default function Assets({
       <style>{`.asset-detail-type{font-size:11px;margin-inline-start:8px}.asset-owner-switch{display:flex;gap:6px;flex-wrap:wrap}.asset-scope-bar{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.2fr) minmax(200px,1fr) minmax(200px,1fr);gap:12px;align-items:end;padding:16px 18px}.asset-scope-bar label{display:grid;gap:6px;font-size:12px;font-weight:700}.asset-scope-bar select{width:100%}.asset-scope-title{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.asset-scope-title strong{font-size:14px}.asset-scope-title span{font-size:11px;color:var(--muted)}@media(max-width:900px){.asset-scope-bar{grid-template-columns:1fr 1fr}}@media(max-width:620px){.asset-scope-bar{grid-template-columns:1fr}}.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:var(--brand-surface-soft);color:var(--brand-primary)}.hawl-days{background:var(--brand-surface-soft);color:var(--brand-text)}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--brand-surface-soft);color:var(--brand-text);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
       <div className="asset-page-header">
         <div className="asset-page-heading"><h1><span className="page-title-icon" aria-hidden="true">▥</span> {ar?"الأصول":"Assets"}</h1></div>
-        <AssetsPageToolbar ar={ar} onAdd={()=>setFormOpen(true)}/>
+        <AssetsPageToolbar ar={ar} onAdd={()=>{if(!formOpen){setEdit(null);setRequestId("");setMsg("");setForm({...empty,ownership_scope:assetScope,organization_id:assetScope==='ORGANIZATION'?scopeOrgId||null:null,entity_id:assetScope==='ORGANIZATION'?scopeEntityId||null:null,cost_center_id:assetScope==='ORGANIZATION'?scopeCostCenterId||null:null,currency:baseCurrency});setFormOpen(true);}else document.getElementById('asset-entry-title')?.focus();}}/>
       </div>
       <div className="asset-page-subtitle"><p className="muted">{ar?"نطاق الدورات المحدد ينعكس على مؤشرات الزكاة والجدول. الشامل يجمع النهائي المثبّت وآخر تقدير للمفتوحة، والسداد يُخصم من دورته.":"Cycle scope updates Zakat indicators and the table. Comprehensive combines frozen finals and latest open estimates; payments reduce their own cycle."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
       {assetScope==='ORGANIZATION'&&<TopbarOrganizationControls>
@@ -611,66 +621,37 @@ export default function Assets({
       {detailAsset&&<DetailsDialog label={ar?"تفاصيل الأصل والإجراءات":"Asset details and actions"} onClose={()=>setDetailAsset(null)}>{(detailAsset.financial_event_id?<AssetPurchasePanel key={detailAsset.id} assetId={detailAsset.id} ar={ar} onChanged={()=>void load()} onClose={()=>setDetailAsset(null)} extraActions={<><ActionButton icon="edit" label={ar?"تعديل الاسم والتقييم الحالي":"Edit name and current valuation"} onClick={()=>{editRow(detailAsset);setDetailAsset(null);}}/>{detailAsset.current_quantity>0&&<ActionButton icon="operations" label={ar?"بيع أو إهلاك أو استبعاد":"Sale, depreciation or disposal"} onClick={()=>{setOperationAsset(detailAsset);setDetailAsset(null);}}/>}{detailAsset.financial_review_events?.map((e:any,i:number)=><ActionButton icon="history" key={e.id} label={`${ar?"السجل والمراجعة المالية":"Financial review and history"}${detailAsset.financial_review_events.length>1?` (${i+1})`:''}`} onClick={()=>{setReviewEvent({id:e.id,name:detailAsset.name});setDetailAsset(null);}}/>)}</>}/>:<AssetDetails key={detailAsset.id} asset={detailAsset} ar={ar} onClose={()=>setDetailAsset(null)} onEdit={()=>{editRow(detailAsset);setDetailAsset(null);}} onLifecycle={()=>{if(detailAsset.ownership_scope==="ORGANIZATION")setOperationAsset(detailAsset);else window.location.href=`/${locale}/transactions`;setDetailAsset(null);}} onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}/>)}</DetailsDialog>}
       {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><ActionButton icon="close" label={ar?"إغلاق المراجعة":"Close review"} onClick={()=>setReviewEvent(null)}/></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
       {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
-      {formOpen&&<section className="card section">
-        <h3>
-          {edit ? "✏️ " : "＋ "}
-          {edit
-            ? ar
-              ? "تعديل الأصل"
-              : "Edit asset"
-            : ar
-              ? "إضافة أصل"
-              : "Add asset"}
-        </h3>
-        {edit && form.has_financial_history && <p className="muted">{ar ? "بيانات الاقتناء محمية لارتباطها بحركات. يمكن تعديل الاسم والتقييم الحالي؛ التصحيح المالي من سجل المعاملات. الاحتسابات السابقة تحتفظ بأسعارها." : "Acquisition data is protected. Edit the name or current valuation; correct financial data in the transaction ledger. Previous assessments retain their prices."}</p>}
-        {!edit&&<p className="muted">{ar?"إضافة النقد والحسابات البنكية من قسم النقد والبنوك، والديون من قسم الذمم.":"Create cash/bank accounts in Cash & Banks and receivables in Receivables."} <Link href={`/${locale}/cash-and-banks`}>{ar?"النقد والبنوك":"Cash & banks"}</Link> · <Link href={`/${locale}/receivables`}>{ar?"الذمم":"Receivables"}</Link></p>}
-        <div className="form-grid">
-          <label>{ar?"ملكية الأصل":"Asset ownership"}<select disabled={Boolean(edit)} value={form.ownership_scope} onChange={e=>setForm({...form,ownership_scope:e.target.value,organization_id:null,entity_id:null,cost_center_id:null,counterparty_id:"",funding_account_id:"",currency:catalog.base_currency||"SAR",fx_rate:"1"})}><option value="">{ar?"اختر المالك":"Choose owner"}</option><option value="PERSONAL">{ar?"♙ شخصي — باسمي":"♙ Personal — owned by me"}</option><option value="ORGANIZATION">{ar?"▥ مؤسسي — باسم شركة":"▥ Organization — company owned"}</option></select></label>
+      {formOpen&&<section className="card section asset-entry" aria-labelledby="asset-entry-title">
+        <div className="asset-entry-header"><div><span className="asset-entry-eyebrow">{ar?"سجل الأصول":"Asset register"}</span><h3 id="asset-entry-title" tabIndex={-1}>{edit?(ar?"تعديل الأصل":"Edit asset"):(ar?"إضافة أصل":"Add asset")}</h3><p>{ar?"حدّد الأصل وملكيته، ثم راجع القيم قبل الحفظ.":"Define the asset and its ownership, then review the values."}</p></div><ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={closeAssetForm}/></div>
+        {edit&&form.has_financial_history&&<p className="asset-entry-notice">{ar?"بيانات الاقتناء محمية لارتباطها بحركات. يمكنك تعديل الاسم والتقييم الحالي؛ التصحيح المالي من سجل المعاملات.":"Acquisition data is protected by financial history. You can edit the name and current valuation; financial corrections belong in the transaction ledger."}</p>}
+        <form onSubmit={e=>{e.preventDefault();void save();}} aria-busy={saving}>
+          <fieldset className="asset-entry-fields" disabled={saving}>
+<fieldset className="asset-entry-group"><legend><span aria-hidden="true">01</span>{ar?"الملكية وطريقة الاقتناء":"Ownership & acquisition"}</legend><p className="asset-entry-hint">{ar?"سيُسجّل الأصل باسم المالك المحدد أدناه.":"The asset will be recorded under the owner below."}</p><div className="form-grid">          <label>{ar?"ملكية الأصل *":"Asset ownership"}<select required disabled={Boolean(edit)} value={form.ownership_scope} onChange={e=>setForm({...form,ownership_scope:e.target.value,organization_id:null,entity_id:null,cost_center_id:null,counterparty_id:"",funding_account_id:"",currency:catalog.base_currency||"SAR",fx_rate:"1"})}><option value="">{ar?"اختر المالك":"Choose owner"}</option><option value="PERSONAL">{ar?"♙ شخصي — باسمي":"♙ Personal — owned by me"}</option><option value="ORGANIZATION">{ar?"▥ مؤسسي — باسم شركة":"▥ Organization — company owned"}</option></select></label>
           {form.ownership_scope==="ORGANIZATION"&&<>
-            <label>{ar?"الشركة المالكة":"Owning organization"}<select disabled={Boolean(edit)} value={form.organization_id||""} onChange={e=>{const org=catalog.organizations.find((o:any)=>o.id===e.target.value);setForm({...form,organization_id:e.target.value||null,entity_id:null,cost_center_id:null,counterparty_id:"",currency:org?.base_currency||"SAR",fx_rate:"1"});}}><option value="">{ar?"اختر الشركة المالكة":"Choose owning organization"}</option>{catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
+            <label>{ar?"الشركة المالكة *":"Owning organization"}<select required disabled={Boolean(edit)} value={form.organization_id||""} onChange={e=>{const org=catalog.organizations.find((o:any)=>o.id===e.target.value);setForm({...form,organization_id:e.target.value||null,entity_id:null,cost_center_id:null,counterparty_id:"",currency:org?.base_currency||"SAR",fx_rate:"1"});}}><option value="">{ar?"اختر الشركة المالكة":"Choose owning organization"}</option>{catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
             <label>{ar?"الفرع المالك":"Owning entity"}<select disabled={Boolean(edit)} value={form.entity_id||""} onChange={e=>setForm({...form,entity_id:e.target.value||null,cost_center_id:null})}><option value="">{ar?"الجهة الرئيسية":"Main organization"}</option>{catalog.entities.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
             <label>{ar?"مركز تكلفة الأصل":"Asset cost center"}<select disabled={Boolean(edit)} value={form.cost_center_id||""} onChange={e=>setForm({...form,cost_center_id:e.target.value||null})}><option value="">{ar?"غير محدد":"Not specified"}</option>{catalog.cost_centers.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
           </>}
-          {!edit && <label>
-            {ar ? "طريقة الاقتناء" : "Acquisition"}
-            <select value={form.acquisition_mode || "OPENING_BALANCE"} onChange={(e)=>setForm({...form,acquisition_mode:e.target.value,funding_account_id:""})}>
-              <option value="OPENING_BALANCE">{ar ? "رصيد افتتاحي / أصل موجود" : "Opening balance / existing asset"}</option>
-              <option value="PURCHASE" disabled={Boolean(form.asset_type_code)&&!isAssetPurchaseAllowed(catalog.types.find((x:any)=>x.code===form.asset_type_code))}>{ar ? "شراء أصل جديد" : "Purchase new asset"}</option>
-            </select>
-            <small>{!form.asset_type_code?(ar?"للشراء، اختر «شراء أصل جديد» ثم حدّد فئة الأصل ونوعه أدناه.":"To purchase, choose Purchase new asset, then select the asset class and type below."):!isAssetPurchaseAllowed(catalog.types.find((x:any)=>x.code===form.asset_type_code))?(ar?"هذا النوع يُسجّل من مسار النقد أو الذمم أو الاستثمار المخصص، ولا يُشترى من هذا السند.":"Use the dedicated cash, receivable, or investment workflow for this type."):form.acquisition_mode==="PURCHASE"?(ar?"شراء جديد؛ اختر المورد للمؤسسة أو حساب الدفع الشخصي. الرصيد السابق يُسجّل كرصيد افتتاحي.":"New purchase: select the company supplier or personal funding account. Use opening balance for an existing asset."):null}</small>
-          </label>}
-          {!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && <label>
-            {ar ? "الدفع من الحساب الشخصي" : "Pay from personal account"}
-            <select value={form.funding_account_id || ""} onChange={(e)=>setForm({...form,funding_account_id:e.target.value})}>
-              <option value="">{ar ? "اختر حساب النقد / البنك" : "Choose cash / bank account"}</option>
-              {rows.filter((x:any)=>!x.organization_id && (!x.ownership_scope || x.ownership_scope==="PERSONAL") && ["CASH","BANK"].includes(x.asset_type)).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
-            </select>
-          </label>}
-          <label>{ar?"عملة الأصل":"Asset currency"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.currency} onChange={e=>setForm({...form,currency:e.target.value,fx_rate:"",funding_account_id:""})}>{["SAR","USD","AED","EUR","GBP","KWD","BHD","QAR","OMR","JOD","EGP"].map(c=><option key={c}>{c}</option>)}</select></label>
-          <label>{ar?"سعر الصرف إلى عملة الأساس بتاريخ الاقتناء":"Acquisition exchange rate to base currency"}<input type="number" min="0.00000001" step="any" disabled={Boolean(edit&&form.has_financial_history)} value={form.fx_rate} onChange={e=>setForm({...form,fx_rate:e.target.value})}/><small>{ar?"الأساس: ":"Base: "}{form.ownership_scope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===form.organization_id)?.base_currency||"SAR":catalog.base_currency||"SAR"}</small></label>
-          {!edit&&form.acquisition_mode==="PURCHASE"&&form.ownership_scope==="ORGANIZATION"&&<>
-            <label>{ar?"المورد":"Supplier"}<select value={form.counterparty_id} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">{ar?"اختر المورد":"Choose supplier"}</option>{(catalog.suppliers||[]).filter((x:any)=>x.organization_id===form.organization_id&&["SUPPLIER","BOTH"].includes(x.party_type)).map((x:any)=><option value={x.id} key={x.id}>{x.name}</option>)}</select><a href={`/${locale}/liquidity?tab=counterparties`}>{ar?"إدارة الموردين":"Manage suppliers"}</a></label>
-            <label>{ar?"رقم فاتورة المورد":"Supplier invoice reference"}<input value={form.invoice_reference} onChange={e=>setForm({...form,invoice_reference:e.target.value})}/></label>
-            <label>{ar?"تاريخ استحقاق السداد":"Payment due date"}<input type="date" min={form.purchase_date} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>
-            <label>{ar?"إدخال الضريبة":"VAT entry"}<select value={form.vat_input_mode} onChange={e=>setForm({...form,vat_input_mode:e.target.value})}><option value="PERCENT">{ar?"نسبة %":"Percentage %"}</option><option value="AMOUNT">{ar?"مبلغ":"Amount"}</option></select></label>
-            <label>{form.vat_input_mode==="PERCENT"?(ar?"نسبة الضريبة %":"VAT rate %"):(ar?"مبلغ الضريبة":"VAT amount")}<input type="number" min="0" max={form.vat_input_mode==="PERCENT"?100:undefined} step="any" value={form.vat_input_mode==="PERCENT"?form.vat_rate:form.vat_amount} onChange={e=>setForm({...form,[form.vat_input_mode==="PERCENT"?"vat_rate":"vat_amount"]:e.target.value})}/></label>
-            <label>{ar?"نسبة الضريبة القابلة للاسترداد %":"Recoverable VAT %"}<input type="number" min="0" max="100" value={form.recoverable_percent} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/><small>{ar?"الجزء غير القابل للاسترداد يضاف لتكلفة الأصل؛ السداد إجراء مستقل.":"Nonrecoverable VAT is capitalized; payment is separate."}</small></label>
-          </>}
-          <label>{ar?"فئة الأصل":"Asset class"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.display_class||""} onChange={e=>setForm({...form,display_class:e.target.value,classification_changed:true,asset_class_code:null,asset_type_code:null,acquisition_mode:form.acquisition_mode,funding_account_id:""})}><option value="">{ar?"اختر الفئة":"Choose class"}</option>{ASSET_DISPLAY_CLASSES.filter(c=>Boolean(edit)||!["UNCLASSIFIED","CASH","RECEIVABLE"].includes(c[0])).map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label>
-          <label>{ar?"نوع الأصل":"Asset type"}<select required={!edit} disabled={Boolean((edit&&form.has_financial_history)||!form.display_class)} value={form.asset_type_code||""} onChange={e=>{const t=catalog.types.find((x:any)=>x.code===e.target.value);setForm({...form,asset_class_code:t?.class_code||null,asset_type_code:t?.code||null,asset_type:t?.default_legacy_asset_type||form.asset_type,acquisition_mode:!t||isAssetPurchaseAllowed(t)?form.acquisition_mode:"OPENING_BALANCE",funding_account_id:isAssetPurchaseAllowed(t)?form.funding_account_id:"",karat:t?.default_legacy_asset_type==="SILVER"?"999":"24"});}}><option value="">{edit&&!form.asset_type_code?`${assetTypeIcon(form.asset_type)} ${label(form.asset_type)} — ${ar?"التصنيف المحفوظ":"Saved classification"}`:(ar?"اختر النوع":"Choose type")}</option>{catalog.types.filter((x:any)=>catalogDisplayClass(x)===form.display_class&&!["DEPOSIT","BOND","SUKUK_BOND"].includes(x.code)&&(Boolean(edit)||!["CASH","BANK","RECEIVABLE"].includes(x.default_legacy_asset_type))).map((x:any)=><option key={x.code} value={x.code}>{assetTypeIcon(x.code)} {ar?x.name_ar:x.name_en}</option>)}</select></label>
+</div></fieldset>          {!edit&&<fieldset className="asset-entry-modes"><legend>{ar?"طريقة الاقتناء":"Acquisition method"}</legend>
+            {([['OPENING_BALANCE',ar?'أصل موجود / رصيد افتتاحي':'Existing asset / opening balance',ar?'تسجيل أصل تملكه مسبقاً، دون عملية شراء جديدة.':'Record an asset already owned, without a new purchase.'],['PURCHASE',ar?'شراء أصل جديد':'Purchase new asset',ar?'تسجيل شراء مع بيانات المورد أو حساب الدفع الشخصي.':'Record a purchase with supplier or personal payment details.']] as const).map(([value,title,description])=><label key={value} className={`asset-entry-mode ${form.acquisition_mode===value?'is-selected':''}`}><input type="radio" name="asset-acquisition" value={value} checked={form.acquisition_mode===value} disabled={value==='PURCHASE'&&Boolean(form.asset_type_code)&&!isAssetPurchaseAllowed(catalog.types.find((x:any)=>x.code===form.asset_type_code))} onChange={()=>setForm({...form,acquisition_mode:value,funding_account_id:""})}/><span><strong>{title}</strong><small>{description}</small></span></label>)}
+            {form.asset_type_code&&!isAssetPurchaseAllowed(catalog.types.find((x:any)=>x.code===form.asset_type_code))&&<p className="muted">{ar?'هذا النوع له مسار مستقل ولا يُشترى من هذا السند.':'This type uses a dedicated workflow and cannot be purchased here.'}</p>}
+          </fieldset>}
+<fieldset className="asset-entry-group"><legend><span aria-hidden="true">02</span>{ar?"تعريف الأصل":"Asset details"}</legend><p className="asset-entry-hint">{ar?"اختر الفئة أولاً لعرض أنواع الأصول المتاحة.":"Choose a class first to see available asset types."}</p><div className="form-grid">          <label>{ar?"فئة الأصل *":"Asset class"}<select required={!edit} disabled={Boolean(edit&&form.has_financial_history)} value={form.display_class||""} onChange={e=>setForm({...form,display_class:e.target.value,classification_changed:true,asset_class_code:null,asset_type_code:null,acquisition_mode:form.acquisition_mode,funding_account_id:""})}><option value="">{ar?"اختر الفئة":"Choose class"}</option>{ASSET_DISPLAY_CLASSES.filter(c=>Boolean(edit)||!["UNCLASSIFIED","CASH","RECEIVABLE"].includes(c[0])).map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label>
+          <label>{ar?"نوع الأصل *":"Asset type"}<select required={!edit} disabled={Boolean((edit&&form.has_financial_history)||!form.display_class)} value={form.asset_type_code||""} onChange={e=>{const t=catalog.types.find((x:any)=>x.code===e.target.value);setForm({...form,asset_class_code:t?.class_code||null,asset_type_code:t?.code||null,asset_type:t?.default_legacy_asset_type||form.asset_type,acquisition_mode:!t||isAssetPurchaseAllowed(t)?form.acquisition_mode:"OPENING_BALANCE",funding_account_id:isAssetPurchaseAllowed(t)?form.funding_account_id:"",karat:t?.default_legacy_asset_type==="SILVER"?"999":"24"});}}><option value="">{edit&&!form.asset_type_code?`${assetTypeIcon(form.asset_type)} ${label(form.asset_type)} — ${ar?"التصنيف المحفوظ":"Saved classification"}`:(ar?"اختر النوع":"Choose type")}</option>{catalog.types.filter((x:any)=>catalogDisplayClass(x)===form.display_class&&!["DEPOSIT","BOND","SUKUK_BOND"].includes(x.code)&&(Boolean(edit)||!["CASH","BANK","RECEIVABLE"].includes(x.default_legacy_asset_type))).map((x:any)=><option key={x.code} value={x.code}>{assetTypeIcon(x.code)} {ar?x.name_ar:x.name_en}</option>)}</select></label>
           {edit&&!form.asset_type_code&&<p className="muted">{ar?"النوع السابق محفوظ دون تغيير. الأصول المرتبطة بحركات لا يعاد تصنيفها من هذا النموذج.":"Existing type is preserved. Assets with financial history cannot be reclassified here."}</p>}
-          {["PROPERTY","INVESTMENT","METALS"].includes(form.display_class)&&<label>{ar?"غرض الاحتفاظ":"Holding purpose"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.holding_purpose||""} onChange={e=>setForm({...form,holding_purpose:e.target.value})}><option value="">{ar?"غير محدد":"Not specified"}</option><option value="USE">{ar?"استخدام":"Use"}</option><option value="RENT">{ar?"تأجير":"Rental"}</option><option value="INVESTMENT">{ar?"استثمار":"Investment"}</option><option value="TRADE">{ar?"متاجرة":"Trading"}</option></select><small>{ar?"معلومة وصفية؛ الأهلية الزكوية تحدد بشكل مستقل.":"Descriptive; Zakat eligibility is set separately."}</small></label>}
           <label>
-            {ar ? "اسم الأصل" : "Name"}
-            <input
+            {ar ? "اسم الأصل *" : "Name"}
+            <input required maxLength={200} placeholder={ar?"مثال: سيارة التوصيل — الرياض":"e.g. Delivery vehicle — Riyadh"}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </label>
+</div></fieldset><fieldset className="asset-entry-group"><legend><span aria-hidden="true">03</span>{ar?"القيم وتاريخ التملك":"Values & ownership date"}</legend><p className="asset-entry-hint">{ar?"أدخل القيمة بعملة الأصل. تكلفة الوحدة تختلف عن الإجمالي.":"Enter values in the asset currency. Unit cost and total cost are separate."}</p><div className="form-grid">          <label>{ar?"عملة الأصل *":"Asset currency"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.currency} onChange={e=>setForm({...form,currency:e.target.value,fx_rate:"",funding_account_id:""})}>{["SAR","USD","AED","EUR","GBP","KWD","BHD","QAR","OMR","JOD","EGP"].map(c=><option key={c}>{c}</option>)}</select></label>
+          <label>{ar?"سعر الصرف إلى عملة الأساس بتاريخ الاقتناء":"Acquisition exchange rate to base currency"}<input type="number" required min="0.00000001" step="any" disabled={Boolean(edit&&form.has_financial_history)} value={form.fx_rate} onChange={e=>setForm({...form,fx_rate:e.target.value})}/><small>{ar?"الأساس: ":"Base: "}{form.ownership_scope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===form.organization_id)?.base_currency||"SAR":catalog.base_currency||"SAR"}</small></label>
           <label>
-            {!edit && form.acquisition_mode === "OPENING_BALANCE" ? (ar ? "تاريخ التملك / الرصيد الافتتاحي" : "Ownership / opening date") : (ar ? "تاريخ الشراء" : "Purchase date")}
+            {!edit && form.acquisition_mode === "OPENING_BALANCE" ? (ar ? "تاريخ التملك / الرصيد الافتتاحي *" : "Ownership / opening date") : (ar ? "تاريخ الشراء *" : "Purchase date")}
             <input
-              type="date"
+              type="date" required
               disabled={Boolean(edit && form.has_financial_history)}
               value={form.purchase_date}
               onChange={(e) =>
@@ -690,8 +671,8 @@ export default function Assets({
                     ? "الكمية"
                     : "Quantity"}
                 <input
-                  type="number"
-                  step="0.001"
+                  type="number" min="0.00000001" required
+                  step="any"
                   disabled={Boolean(edit && form.has_financial_history)}
               value={form.quantity}
                   onChange={(e) =>
@@ -700,9 +681,9 @@ export default function Assets({
                 />
               </label>
               <label>
-                {ar ? "سعر الشراء" : "Purchase price"}
+                {metal?(ar?"تكلفة الغرام":"Cost per gram"):(ar?"تكلفة الوحدة":"Cost per unit")}
                 <input
-                  type="number"
+                  type="number" min="0" required
                   step="0.01"
                   disabled={Boolean(edit && form.has_financial_history)}
               value={form.purchase_price}
@@ -713,9 +694,9 @@ export default function Assets({
               </label>
               {market && (
                 <label>
-                  {ar ? "سعر السوق" : "Market price"}
+                  {metal?(ar?"سعر السوق للغرام":"Market price per gram"):(ar?"سعر السوق للوحدة":"Market price per unit")}
                   <input
-                    type="number"
+                    type="number" min="0" required={!edit}
                     step="0.01"
                     value={form.market_price}
                     onChange={(e) =>
@@ -728,7 +709,7 @@ export default function Assets({
                 <label>
                   {ar ? "العيار / النقاوة" : "Karat / purity"}
                   <input
-                    type="number"
+                    type="number" min="0" required
                     step="0.001"
                     disabled={Boolean(edit && form.has_financial_history)}
               value={form.karat}
@@ -743,7 +724,7 @@ export default function Assets({
             <label>
               {!edit && form.acquisition_mode === "PURCHASE" ? (ar ? "قيمة الشراء" : "Purchase value") : (ar ? "القيمة / الرصيد الافتتاحي" : "Opening value / balance")}
               <input
-                type="number"
+                type="number" min="0" required
                 step="0.01"
                 disabled={Boolean(edit && form.has_financial_history)}
               value={form.amount}
@@ -751,6 +732,22 @@ export default function Assets({
               />
             </label>
           )}
+</div></fieldset>{!edit&&form.acquisition_mode==='PURCHASE'&&form.ownership_scope&&<fieldset className="asset-entry-group"><legend><span aria-hidden="true">04</span>{ar?"بيانات الشراء":"Purchase details"}</legend><p className="asset-entry-hint">{ar?"للمؤسسة: المورد والضريبة والاستحقاق. للشخصي: حساب الدفع.":"Company: supplier, VAT and due date. Personal: payment account."}</p><div className="form-grid">          {!edit && form.ownership_scope === "PERSONAL" && form.acquisition_mode === "PURCHASE" && <label>
+            {ar ? "الدفع من الحساب الشخصي *" : "Pay from personal account"}
+            <select required value={form.funding_account_id || ""} onChange={(e)=>setForm({...form,funding_account_id:e.target.value})}>
+              <option value="">{ar ? "اختر حساب النقد / البنك" : "Choose cash / bank account"}</option>
+              {rows.filter((x:any)=>!x.organization_id && (!x.ownership_scope || x.ownership_scope==="PERSONAL") && ["CASH","BANK"].includes(x.asset_type)).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </label>}
+          {!edit&&form.acquisition_mode==="PURCHASE"&&form.ownership_scope==="ORGANIZATION"&&<>
+            <label>{ar?"المورد":"Supplier"}<select value={form.counterparty_id} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">{ar?"اختر المورد":"Choose supplier"}</option>{(catalog.suppliers||[]).filter((x:any)=>x.organization_id===form.organization_id&&["SUPPLIER","BOTH"].includes(x.party_type)).map((x:any)=><option value={x.id} key={x.id}>{x.name}</option>)}</select><a href={`/${locale}/liquidity?tab=counterparties`}>{ar?"إدارة الموردين":"Manage suppliers"}</a></label>
+            <label>{ar?"رقم فاتورة المورد":"Supplier invoice reference"}<input value={form.invoice_reference} onChange={e=>setForm({...form,invoice_reference:e.target.value})}/></label>
+            <label>{ar?"تاريخ استحقاق السداد":"Payment due date"}<input type="date" min={form.purchase_date} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>
+            <label>{ar?"إدخال الضريبة":"VAT entry"}<select value={form.vat_input_mode} onChange={e=>setForm({...form,vat_input_mode:e.target.value})}><option value="PERCENT">{ar?"نسبة %":"Percentage %"}</option><option value="AMOUNT">{ar?"مبلغ":"Amount"}</option></select></label>
+            <label>{form.vat_input_mode==="PERCENT"?(ar?"نسبة الضريبة %":"VAT rate %"):(ar?"مبلغ الضريبة":"VAT amount")}<input type="number" min="0" max={form.vat_input_mode==="PERCENT"?100:undefined} step="any" value={form.vat_input_mode==="PERCENT"?form.vat_rate:form.vat_amount} onChange={e=>setForm({...form,[form.vat_input_mode==="PERCENT"?"vat_rate":"vat_amount"]:e.target.value})}/></label>
+            <label>{ar?"نسبة الضريبة القابلة للاسترداد %":"Recoverable VAT %"}<input type="number" min="0" max="100" value={form.recoverable_percent} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/><small>{ar?"الجزء غير القابل للاسترداد يضاف لتكلفة الأصل؛ السداد إجراء مستقل.":"Nonrecoverable VAT is capitalized; payment is separate."}</small></label>
+          </>}
+</div></fieldset>}<fieldset className="asset-entry-group"><legend><span aria-hidden="true">◇</span>{ar?"الغرض والزكاة":"Purpose & Zakat"}</legend><p className="asset-entry-hint">{ar?"غرض الاحتفاظ معلومة وصفية؛ الأهلية الزكوية تحدد بشكل مستقل.":"Holding purpose is descriptive; Zakat eligibility is set separately."}</p><div className="form-grid">          {["PROPERTY","INVESTMENT","METALS"].includes(form.display_class)&&<label>{ar?"غرض الاحتفاظ":"Holding purpose"}<select disabled={Boolean(edit&&form.has_financial_history)} value={form.holding_purpose||""} onChange={e=>setForm({...form,holding_purpose:e.target.value})}><option value="">{ar?"غير محدد":"Not specified"}</option><option value="USE">{ar?"استخدام":"Use"}</option><option value="RENT">{ar?"تأجير":"Rental"}</option><option value="INVESTMENT">{ar?"استثمار":"Investment"}</option><option value="TRADE">{ar?"متاجرة":"Trading"}</option></select><small>{ar?"معلومة وصفية؛ الأهلية الزكوية تحدد بشكل مستقل.":"Descriptive; Zakat eligibility is set separately."}</small></label>}
           <label>
             {ar ? "زكوي؟" : "Zakatable?"}
             <select
@@ -763,13 +760,22 @@ export default function Assets({
               <option value="0">— {ar ? "لا" : "No"}</option>
             </select>
           </label>
-        </div>
-        <ActionButton icon="save" label={saving?(ar?"جار الحفظ":"Saving"):edit?(ar?"حفظ التعديلات":"Save changes"):(ar?"حفظ الأصل":"Save asset")} showLabel onClick={save} disabled={saving}/>
-        {(
-          <ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={()=>{setEdit(null);setRequestId("");setFormOpen(false);setForm({...empty});}}/>
-        )}
+</div></fieldset>
+          </fieldset>
+          <aside className="asset-entry-summary" aria-label={ar?"ملخص القيم المدخلة":"Entered values summary"}>
+            <div className="asset-entry-summary-heading"><h4>{ar?"ملخص الأصل":"Asset summary"}</h4><span>{form.currency}</span></div>
+            <dl><div><dt>{ar?(form.acquisition_mode==='PURCHASE'?'قيمة الشراء قبل الضريبة':'قيمة الأصل المدخلة'):(form.acquisition_mode==='PURCHASE'?'Purchase value before VAT':'Entered asset value')}</dt><dd data-testid="asset-entry-net">{entryAmount(pc)}</dd></div>
+            {qty&&<div><dt>{ar?"طريقة الحساب":"Calculation"}</dt><dd>{form.quantity||'—'} × {form.purchase_price||'—'} {form.currency}</dd></div>}
+            {entryTax!==null&&<><div><dt>{ar?"ضريبة القيمة المضافة":"VAT"}</dt><dd data-testid="asset-entry-tax">{entryAmount(entryTax.tax)}</dd></div><div className="asset-entry-total"><dt>{ar?"إجمالي الفاتورة":"Invoice total"}</dt><dd data-testid="asset-entry-gross">{entryAmount(entryTax.gross)}</dd></div></>}
+            {market&&<div><dt>{ar?"القيمة السوقية المدخلة":"Entered market value"}</dt><dd>{entryAmount(mv)}</dd></div>}</dl>
+            <p>{edit?(ar?"راجع التعديلات قبل الحفظ.":"Review changes before saving."):form.acquisition_mode==='PURCHASE'?(form.ownership_scope==='ORGANIZATION'?(ar?"يُحفظ الشراء كمسودة للمراجعة والترحيل. السداد إجراء مستقل.":"The purchase is saved as a draft for review and posting. Payment is separate."):(ar?"يُسجّل الشراء على حساب الدفع الشخصي المحدد.":"The purchase is recorded against the selected personal payment account.")):(ar?"رصيد افتتاحي لأصل موجود؛ لا يمثل شراءً جديداً.":"An opening balance for an existing asset, without a new purchase.")}</p>
+          </aside>
+          {msg&&<p role="alert" className="asset-entry-error">{msg}</p>}
+          <div className="asset-entry-footer"><ActionButton type="submit" icon="save" label={saving?(ar?"جار الحفظ…":"Saving…"):edit?(ar?"حفظ التعديلات":"Save changes"):(ar?"حفظ الأصل":"Save asset")} showLabel disabled={saving}/><ActionButton icon="close" label={ar?"إلغاء":"Cancel"} showLabel disabled={saving} onClick={closeAssetForm}/><span>{ar?"راجع المالك وطريقة الاقتناء والقيمة قبل الحفظ.":"Check ownership, acquisition method and value before saving."}</span></div>
+        </form>
+        {!edit&&<p className="asset-entry-links">{ar?"تريد إضافة حساب أو ذمة؟":"Adding an account or receivable?"} <Link href={`/${locale}/cash-and-banks`}>{ar?"النقد والبنوك":"Cash & banks"}</Link> · <Link href={`/${locale}/receivables`}>{ar?"الذمم":"Receivables"}</Link></p>}
       </section>}
-      {msg&&<p role="status" className="muted">{msg}</p>}
+      {msg&&!formOpen&&<p role="status" className="muted">{msg}</p>}
       <section className="section">
 
         {!showingExited&&<h2>
