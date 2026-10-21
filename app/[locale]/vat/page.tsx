@@ -341,12 +341,12 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const registerDocuments = useMemo(() => documents.filter((document) => document.document_type === registerDirection), [documents, registerDirection]);
   const filteredRegisterDocuments = filterInvoiceRows(registerDocuments.filter((document) => {
     const query = registerSearch.trim().toLocaleLowerCase();
-    const matchesSearch = !query || document.counterparty_name.toLocaleLowerCase().includes(query) || document.document_number.toLocaleLowerCase().includes(query);
+    const matchesSearch = !query || document.counterparty_name.toLocaleLowerCase().includes(query) || document.document_number.toLocaleLowerCase().includes(query) || Boolean(document.purchase_number?.toLocaleLowerCase().includes(query));
     const matchesKind = registerKindFilter === 'ALL' || document.document_kind === registerKindFilter;
     const matchesSource = registerSourceFilter === 'ALL'
       || (registerSourceFilter === 'EINVOICE' ? document.is_einvoice : !document.is_einvoice);
     return matchesSearch && matchesKind && matchesSource;
-  }), registerFilters, document => ({ id:document.id, number:document.document_number, name:document.counterparty_name, date:document.transaction_date, due:document.due_date, currency:document.source_currency || document.currency || baseCurrency, baseAmount:Number(document.gross_amount), flow:document.cash_flow }));
+  }), registerFilters, document => ({ id:document.id, number:document.purchase_number||document.document_number,supplierNumber:document.purchase_number?document.document_number:null, name:document.counterparty_name, date:document.transaction_date, due:document.due_date, currency:document.source_currency || document.currency || baseCurrency, baseAmount:Number(document.gross_amount), flow:document.cash_flow }));
   const registerSummary = useMemo(() => registerDocuments.reduce((totals, document) => {
     const sign = document.document_kind === 'CREDIT_NOTE' ? -1 : 1;
     return {
