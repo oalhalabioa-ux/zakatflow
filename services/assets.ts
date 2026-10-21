@@ -6,6 +6,8 @@ import { requireUser } from './auth';
 import {assetReportAssessments} from '@/lib/asset-zakat-report';
 import { assetSchema } from '@/lib/validation/schemas';
 import { randomUUID } from 'node:crypto';
+import {resolveAssetEntryFx} from './asset-entry-fx';
+import {acquisitionValuation} from '@/lib/asset-entry-details';
 import {assetLedgerBalance,assetLifecycleStatus,assetZakatPayments,disposedAssetHistory,soldAssetHistory} from '@/lib/asset-ledger';
 
 function openingValues(asset:any){const m=asset.metadata??{};const quantity=Number(m.quantity??(asset.asset_type==='CASH'||asset.asset_type==='BANK'?1:0));const value=Number(m.purchase_value??m.opening_value??m.market_value??m.estimated_value??0);const unitPrice=quantity>0?Number(m.purchase_price??(value/quantity)):value;const date=m.purchase_date;return{quantity,value,unitPrice,date}}
@@ -124,6 +126,8 @@ async function validateAssetOwnership(supabase:any,user:any,parsed:any){
 export async function createAsset(input:unknown){
  const parsed=assetSchema.parse(input);const{supabase,user}=await requireUser();
  await validateAssetOwnership(supabase,user,parsed);
+ const quote=await resolveAssetEntryFx(supabase,user.id,parsed.currency,String(parsed.metadata?.purchase_date||''),parsed.ownership_scope==='ORGANIZATION'?parsed.organization_id??null:null);
+ parsed.metadata=acquisitionValuation({...parsed.metadata,fx_rate:quote.rate,fx_rate_id:quote.row?.id??null,fx_rate_date:quote.row?.valuation_date??parsed.metadata?.purchase_date,fx_rate_source:quote.row?.source??'BASE_CURRENCY'},parsed.currency);
  const requestId=(input as any)?.request_id||randomUUID();
  if(['CASH','BANK','RECEIVABLE'].includes(parsed.asset_type)){
   const m=parsed.metadata??{};
@@ -169,4 +173,3 @@ export async function deleteAsset(id:string){
  await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'asset_account',entity_id:id,action:'DELETE_UNUSED_ASSET',old_data:asset,new_data:{linked}});
  return{ok:true,id};
 }
-

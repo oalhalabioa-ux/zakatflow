@@ -148,7 +148,7 @@ export async function POST(request: Request) {
         const { data: type, error: typeError } = await supabase.from('liquidity_party_types').select('id,code').eq('id', input.party_type_id).eq('organization_id', input.organization_id).eq('active', true).maybeSingle();
         if (typeError) throw typeError;
         if (!type) throw new Error('PARTY_TYPE_ORGANIZATION_MISMATCH');
-        payload = { ...input, party_type: ['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER'].includes(type.code) ? type.code : 'OTHER' };
+        payload = { ...input, party_type: ['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER'].includes(type.code) ? type.code : input.party_type };
       }
       const { data, error } = await supabase.from('liquidity_counterparties').insert(payload).select().single();
       if (error) throw error;

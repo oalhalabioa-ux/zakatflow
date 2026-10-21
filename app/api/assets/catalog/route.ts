@@ -14,17 +14,17 @@ export async function GET(){
     ]);
     if(classes.error||types.error) throw classes.error||types.error;
     if(!ids.length) return NextResponse.json({base_currency:profile.data?.base_currency||'SAR',organizations:[],entities:[],cost_centers:[],classes:classes.data??[],types:types.data??[]});
-    const [orgs,entities,centers,suppliers]=await Promise.all([
+    const [orgs,entities,centers,suppliers,partyTypes]=await Promise.all([
       supabase.from('organizations').select('id,name,organization_kind,parent_organization_id,sort_order,base_currency').in('id',ids),
       supabase.from('organization_entities').select('id,organization_id,name').in('organization_id',ids).eq('active',true),
       supabase.from('organization_cost_centers').select('id,organization_id,name,center_type').in('organization_id',ids).eq('active',true),
-      supabase.from('liquidity_counterparties').select('id,organization_id,name,party_type').in('organization_id',ids).eq('active',true)
+      supabase.from('liquidity_counterparties').select('id,organization_id,name,party_type').in('organization_id',ids).eq('active',true),
+      supabase.from('liquidity_party_types').select('id,organization_id,code,name_ar,name_en').in('organization_id',ids).eq('active',true)
     ]);
-    const error=orgs.error||entities.error||centers.error||suppliers.error||classes.error||types.error;
+    const error=orgs.error||entities.error||centers.error||suppliers.error||partyTypes.error||classes.error||types.error;
     if(error) throw error;
-    return NextResponse.json({base_currency:profile.data?.base_currency||'SAR',counterparties:suppliers.data??[],suppliers:suppliers.data??[],organizations:orgs.data??[],entities:entities.data??[],cost_centers:centers.data??[],classes:classes.data??[],types:types.data??[]});
+    return NextResponse.json({base_currency:profile.data?.base_currency||'SAR',party_types:partyTypes.data??[],counterparties:suppliers.data??[],suppliers:suppliers.data??[],organizations:orgs.data??[],entities:entities.data??[],cost_centers:centers.data??[],classes:classes.data??[],types:types.data??[]});
   }catch(e:any){
     return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:500});
   }
 }
-
