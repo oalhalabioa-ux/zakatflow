@@ -181,7 +181,7 @@
 /* Plain asset symbols: inherit the adjacent text color, with no colored tile. */
 .assets-page .asset-report-table td{font-size:13px;line-height:1.65;vertical-align:middle}
 .assets-page .asset-report-table :is(td,th):is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]){font-variant-numeric:tabular-nums;white-space:nowrap}
-.assets-page .asset-report-table td:is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]){text-align:left;direction:ltr}
+.assets-page .asset-report-table td:is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]){text-align:center;direction:ltr}
 .assets-page .asset-report-table .asset-name-cell{line-height:1.8;gap:8px;flex-wrap:wrap}
 .assets-page .asset-state{display:inline-flex;align-items:center;padding:3px 9px;border-radius:7px;background:var(--brand-surface-soft);color:var(--brand-text);font-size:12px;font-weight:500;white-space:nowrap}
 .assets-page .asset-state.is-draft{background:#fbf4e7;color:#785617}
@@ -198,7 +198,7 @@
 .assets-page .asset-name-meta small{font:inherit}
 .assets-page .asset-report-table th,.assets-page .asset-report-table td{text-align:start}
 .assets-page .asset-report-table th .asset-sort{justify-content:flex-start;gap:7px}
-.assets-page .asset-report-table th:is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]) .asset-sort{justify-content:flex-end}
+.assets-page .asset-report-table th:is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]) .asset-sort{justify-content:center}
 .assets-page .asset-report-table :is(th,td):is([data-column=date],[data-column=status],[data-column=action]){text-align:center}
 .assets-page .asset-report-table th:is([data-column=date],[data-column=status]) .asset-sort{justify-content:center}
 .assets-page .asset-report-table td[data-column=date]{direction:ltr;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -219,3 +219,8 @@
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] :is(th,td){border-radius:0;border-color:#E2E8F0}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] th{background:#F1F5F9;color:#17384D}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] tbody tr:hover{background:#F8FAFC!important}
+
+/* Center numeric values and their headings on the same column axis. */
+.assets-page .asset-report-table :is(th,td):is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight],[data-column=hawl]){text-align:center}
+.assets-page .asset-report-table th[data-column=hawl] .asset-sort{justify-content:center}
+.assets-page .asset-report-table[data-scope=PERSONAL] .hawl-badges{align-items:center}
