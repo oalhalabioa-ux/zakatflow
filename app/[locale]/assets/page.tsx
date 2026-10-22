@@ -429,19 +429,21 @@ export default function Assets({
         return row.table_cost_center_name || "—";
       case "asset":
         return (
-          <strong className="asset-name-cell">
+          <div className="asset-name-cell asset-name-layout">
             <span className="asset-row-icon" aria-hidden="true">
               {assetTypeIcon(row.asset_type_code||row.asset_type)}
             </span>
-            {row.name}
-            {row.metadata?.register_source&&<small className="muted">{ar?"رصيد مباشر من السجل المالي · ":"Live financial register balance · "}</small>}
+            <div className="asset-name-content">
+            <strong className="asset-name-title">{row.name}</strong>
+            <div className="asset-name-meta"><span className="asset-detail-type">{typeName(row)}</span>
+            {row.metadata?.register_source&&<small>{ar?"رصيد مباشر من السجل المالي":"Live financial register balance"}</small>}</div>
             {row.financial_event_id&&!orderedColumns.includes("status")&&<span className="pill asset-state">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span>}
             {!orderedColumns.includes("action")&&<ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{if(row.metadata?.register_source)window.location.href=`/${locale}/${row.metadata.register_source}?scope=ORGANIZATION`;else if(row.metadata?.investment_id)window.location.href=`/${locale}/investments?investment_id=${row.metadata.investment_id}`;else setDetailAsset(row);}}/>}
-            <span className="pill asset-detail-type">{typeName(row)}</span>
             {assetDisplayClass(row)==="UNCLASSIFIED"&&<small className="muted">{ar?"استكمال التصنيف":"Awaiting classification"}</small>}
             {row.lifecycle_status==="SOLD" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مباع":"Sold"}</span>}
             {row.lifecycle_status==="DISPOSED" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مستغنى عنه":"Disposed"}</span>}
-          </strong>
+            </div>
+          </div>
         );
       case "date":
         return row.lifecycle_status!=="ACTIVE" && row.lifecycle_exit_date ? `${row.metadata?.purchase_date || "—"} → ${row.lifecycle_exit_date}` : row.metadata?.purchase_date || "—";
@@ -468,7 +470,7 @@ export default function Assets({
           />
         );
       case "cost":
-        if(row.pending_purchase_cost_base>0)return <span><Money value={cv(row.pending_purchase_cost_base)} currency={cur}/><small className="muted"> {ar?"قيمة المسودة":"Draft value"}</small></span>;
+        if(row.pending_purchase_cost_base>0)return <span className="asset-draft-value"><Money value={cv(row.pending_purchase_cost_base)} currency={cur}/><small>{ar?"قيمة المسودة":"Draft value"}</small></span>;
         if(row.lifecycle_status==="SOLD")return <span title={ar?"تكلفة الجزء المباع قبل البيع":"Historical cost of sold quantity"}>{row.sold_cost_value==null?"—":<Money value={cv(row.sold_cost_value)} currency={cur}/>}</span>;
         return <span title={row.lifecycle_status==="DISPOSED"?(ar?"تكلفة الجزء المستغنى عنه قبل الاستبعاد":"Historical cost of disposed quantity"):undefined}><Money value={cv(row.lifecycle_status==="DISPOSED"?row.disposed_cost_value:costVal(row))} currency={cur}/></span>;
       case "current":
