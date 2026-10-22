@@ -37,6 +37,28 @@ function nativeVerify(xml: string) {
 }
 
 describe('isolated XAdES signed XML preparation', () => {
+  it('attaches a simplified QR while preserving both signed references and source-currency VAT', async () => {
+    for (const document_type of ['INVOICE', 'CREDIT_NOTE', 'DEBIT_NOTE']) {
+      const input = { ...draft, invoice_category: 'SIMPLIFIED', currency: 'USD', exchange_rate: 3.75, document_type, ...(document_type === 'INVOICE' ? {} : { billing_reference: 'ORIGINAL-1', note_reason: 'Correction' }) };
+      const result = await prepareSignedZatcaXml(input, context, { ...options, includeSimplifiedQr: true }, signer);
+      expect(result.qrPayload).toBeTruthy();
+      expect(result.xml).toContain('<cbc:ID>QR</cbc:ID>');
+      expect((await prepareZatcaInvoiceHash(result.xml)).invoiceHashBase64).toBe(result.invoiceHashBase64);
+      const bytes = Buffer.from(result.qrPayload!, 'base64');
+      const values: Buffer[] = [];
+      for (let i = 0; i < bytes.length;) { i++; const size = bytes[i++]; values.push(bytes.subarray(i, i + size)); i += size; }
+      expect(values[3].toString()).toBe('230.00');
+      expect(values[4].toString()).toBe('30.00');
+      expect(values[5]).toEqual(Buffer.from(result.invoiceHashBase64, 'base64'));
+      if (process.env.ZATCA_NATIVE_XMLSEC === '1') { const verified = nativeVerify(result.xml); expect(verified.status, verified.stderr).toBe(0); }
+    }
+  });
+  it('defers standard QR to the clearance flow before contacting the signer', async () => {
+    const callback = vi.fn(signer);
+    await expect(prepareSignedZatcaXml(draft, context, { ...options, includeSimplifiedQr: true }, callback)).rejects.toThrow('STANDARD_QR_REQUIRES_CLEARANCE');
+    expect(callback).not.toHaveBeenCalled();
+  });
+
   it.runIf(process.env.ZATCA_NATIVE_XMLSEC === '1')('independently verifies both references and rejects modified financial data, signed properties and signature', async () => {
     const result = await prepareSignedZatcaXml(draft, context, options, signer);
     const good = nativeVerify(result.xml);

@@ -2,6 +2,8 @@ import { createHash, createPublicKey, verify, X509Certificate } from 'node:crypt
 import { buildUnsignedZatcaXml } from './zatca-phase2-xml';
 import { inspectZatcaSigningCertificate } from './zatca-signing-certificate';
 import { prepareZatcaInvoiceHash } from './zatca-xml-hash';
+import { prepareSimplifiedPhaseTwoQr } from './zatca-phase2-qr';
+import { vatEInvoiceDraftSchema } from './vat-einvoice-draft';
 
 const ds = 'http://www.w3.org/2000/09/xmldsig#';
 const c14n = 'http://www.w3.org/2006/12/xml-c14n11';
@@ -12,6 +14,8 @@ const digest = (bytes: string | Uint8Array) => createHash('sha256').update(bytes
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]!));
 
 export interface XadesPreparationOptions {
+  /** Optional experimental simplified QR; standard QR must follow clearance. */
+  includeSimplifiedQr?: boolean;
   certificate: string;
   expectedFingerprintSha256: string;
   /** Ordered issuer certificates through root, canonical base64 DER, no leaf. */
@@ -36,11 +40,14 @@ async function canonicalElement(xml: string, xpath: string) {
 /** Internal cryptographic preparation ONLY. Never submit or mark as issued.
  * Chain linkage checks below are NOT full PKIX/profile/identity/revocation checks
  * and the supplied policy/root is NOT a trust decision. No production caller.
- * No QR, chain allocation, financial write or authority request is performed.
+ * Optional simplified QR is also preparation only. No chain allocation, financial
+ * write or authority request is performed.
  */
 export async function prepareSignedZatcaXml(
   draft: unknown, context: unknown, options: XadesPreparationOptions, sign: XadesPreparationSigner,
 ) {
+  const invoice = vatEInvoiceDraftSchema.strict().parse(draft);
+  const includeSimplifiedQr = options.includeSimplifiedQr === true;
   const at = new Date(options.signingTime.getTime());
   const leaf = inspectZatcaSigningCertificate(options.certificate, options.expectedFingerprintSha256, at);
   const policy = { ...options.policy };
@@ -65,7 +72,8 @@ export async function prepareSignedZatcaXml(
     child = issuer;
   }
   if (!child.checkIssued(child) || !child.verify(child.publicKey)) throw new Error('CERTIFICATE_CHAIN_ROOT_REQUIRED');
-  const prepared = buildUnsignedZatcaXml(draft, context);
+  const prepared = buildUnsignedZatcaXml(invoice, context);
+  if (includeSimplifiedQr && prepared.transactionTypeCode !== '0200000') throw new Error('STANDARD_QR_REQUIRES_CLEARANCE');
   const invoiceHash = (await prepareZatcaInvoiceHash(prepared.xml)).invoiceHashBase64;
   const transform = (xpath: string) => `<ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116"><ds:XPath>${xpath}</ds:XPath></ds:Transform>`;
   const hashElement = (value: string) => `<ds:DigestMethod Algorithm="${sha256}"/><ds:DigestValue>${value}</ds:DigestValue>`;
@@ -85,9 +93,18 @@ export async function prepareSignedZatcaXml(
   const signature = Buffer.from(result.signatureValue, 'base64');
   if (result.algorithm !== ecdsa || signature.length !== 64 || signature.toString('base64') !== result.signatureValue
       || !verify('sha256', Buffer.from(canonicalSignedInfo), { key: createPublicKey({ key: leaf.publicKeySpki, format: 'der', type: 'spki' }), dsaEncoding: 'ieee-p1363' }, signature)) throw new Error('INVALID_XADES_SIGNATURE');
-  const xml = assemble(propertiesHash, result.signatureValue);
+  let xml = assemble(propertiesHash, result.signatureValue);
+  let qrPayload: string | undefined;
+  if (includeSimplifiedQr) {
+    qrPayload = prepareSimplifiedPhaseTwoQr({
+      sellerName: invoice.seller_name, sellerVatNumber: invoice.seller_vat_number,
+      timestamp: `${invoice.issue_date}T${invoice.issue_time.length === 5 ? invoice.issue_time + ':00' : invoice.issue_time}+03:00`,
+      totalWithVat: prepared.totals.tax_inclusive_amount, vatTotal: prepared.totals.tax_total_amount,
+    }, { invoiceHash: Buffer.from(invoiceHash, 'base64'), xmlSignature: signature, certificateDer: Buffer.from(leaf.certificateDerBase64, 'base64') }).payload;
+    xml = xml.replace('<cac:Signature>', `<cac:AdditionalDocumentReference><cbc:ID>QR</cbc:ID><cac:Attachment><cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">${qrPayload}</cbc:EmbeddedDocumentBinaryObject></cac:Attachment></cac:AdditionalDocumentReference><cac:Signature>`);
+  }
   if ((await prepareZatcaInvoiceHash(xml)).invoiceHashBase64 !== invoiceHash
       || digest(await canonicalElement(xml, '//xades:SignedProperties')) !== propertiesHash
       || await canonicalElement(xml, '//ds:SignedInfo') !== canonicalSignedInfo) throw new Error('XADES_REFERENCE_CHANGED');
-  return { xml, invoiceHashBase64: invoiceHash, stage: 'SIGNED_XML_PREPARATION_ONLY' as const };
+  return { xml, invoiceHashBase64: invoiceHash, qrPayload, stage: 'SIGNED_XML_PREPARATION_ONLY' as const };
 }

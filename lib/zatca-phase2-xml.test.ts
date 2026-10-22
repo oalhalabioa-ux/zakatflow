@@ -4,6 +4,19 @@ import {buildUnsignedZatcaXml} from './zatca-phase2-xml';
 const draft={organization_id:'a800b1c2-df4a-4a79-9b91-4a451ce2858a',invoice_number:'INV-2026-0001',invoice_category:'STANDARD',issue_date:'2026-10-22',issue_time:'12:00',seller_name:'شركة الاختبار',seller_vat_number:'312345678901233',seller_address:'King Fahd Road',seller_building_number:'1234',seller_district:'Olaya',seller_additional_number:'5678',seller_postal_code:'12345',seller_city:'Riyadh',buyer_name:'Customer LLC',buyer_vat_number:'312345678901233',buyer_address:'Customer street',buyer_building_number:'4321',buyer_district:'Olaya',buyer_city:'Riyadh',buyer_postal_code:'54321',lines:[{item_name:'Consulting service',quantity:2,unit_price:100,tax_category:'S',tax_rate:15}]};
 const context={invoiceUuid:'a800b1c2-df4a-4a79-9b91-4a451ce2858b',invoiceCounter:'1',previousInvoiceHash:Buffer.alloc(32).toString('base64'),supplyDate:'2026-10-22',sellerId:{scheme:'CRN',value:'1010000000'},paymentMeansCode:'30'};
 describe('unsigned ZATCA XML preparation',()=>{
+ it('uses the current seller identification schemes and supports buyer TIN without punctuation in identifiers',()=>{
+  expect(()=>buildUnsignedZatcaXml(draft,{...context,sellerId:{scheme:'NAT',value:'1234'}})).toThrow();
+  expect(()=>buildUnsignedZatcaXml(draft,{...context,sellerId:{scheme:'CRN',value:'101-123'}})).toThrow();
+  expect(()=>buildUnsignedZatcaXml(draft,{...context,buyerId:{scheme:'TIN',value:'101 123'}})).toThrow();
+  expect(buildUnsignedZatcaXml(draft,{...context,buyerId:{scheme:'TIN',value:'101123'}}).xml).toContain('schemeID="TIN">101123');
+ });
+ it('does not fabricate optional buyer additional number or region to satisfy legacy SDK checks',()=>{
+  const without=buildUnsignedZatcaXml(draft,context).xml.split('<cac:AccountingCustomerParty>')[1].split('</cac:AccountingCustomerParty>')[0];
+  expect(without).not.toContain('PlotIdentification');expect(without).not.toContain('CountrySubentity');
+  const withAdditional=buildUnsignedZatcaXml({...draft,buyer_additional_number:'1234'},context).xml;
+  expect(withAdditional).toContain('<cbc:PlotIdentification>1234</cbc:PlotIdentification>');
+ });
+
  it('rejects exemption reasons attached to a standard-rate line rather than exporting contradictory VAT data',()=>{
   for(const reason of [{tax_exemption_reason_code:'VATEX-SA-29'},{tax_exemption_reason:'Exempt service'}])expect(()=>buildUnsignedZatcaXml({...draft,lines:[{...draft.lines[0],...reason}]},context)).toThrow('STANDARD_TAX_EXEMPTION_NOT_ALLOWED');
  });

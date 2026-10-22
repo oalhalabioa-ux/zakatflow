@@ -32,6 +32,14 @@ The SDK returned process exit code **0** for all nine global validation failures
 
 ## Gates that remain
 
+### Follow-up against the published XML standard v1.2 (19 May 2023)
+
+Reviewed the current official specification's BR-KSA-10/63/65: the Saudi buyer mandatory address list does not require the optional additional number or `CountrySubentity`; BR-KSA-65 checks additional-number length if present. Existing preparation fixtures contain the listed mandatory address fields. The legacy package's extra address checks therefore remain legacy-version diagnostics, not a demonstrated need to fabricate missing current mandatory fields. The XML builder preserves buyer additional number when supplied. This specification review is not a replacement for current SDK/simulation acceptance.
+
+Also aligned preparation-context identification with BR-KSA-08/14: seller schemes CRN/MOM/MLS/700/SAG/OTH, buyer TIN support, alphanumeric identifier values. These preparation-only guards do not change production organization/contact records.
+
+Reference: https://www.zatca.gov.sa/ar/E-Invoicing/SystemsDevelopers/Documents/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf
+
 1. Obtain/confirm the current official SDK/profile and reconcile address rules, mixed VAT categories and the XAdES SigningCertificateV2/schema version difference already recorded in the Phase 2 progress document.
 2. Complete QR, full certificate trust/profile/identity/revocation checks, approved policy configuration, atomic unit chain and saved-document integration.
 3. Run signed documents through the appropriate SDK and live simulation using the configured AWS keys/certificates. No global SDK/compliance/production acceptance is claimed by this review.

@@ -11,8 +11,8 @@ export const zatcaXmlContextSchema=z.object({
   invoiceCounter:z.string().regex(/^[1-9][0-9]*$/).max(30),
   previousInvoiceHash:z.string().min(1).max(128),
   supplyDate:z.string().date(),
-  sellerId:z.object({scheme:z.enum(['CRN','MOM','MLS','700','SAG','NAT','GCC','IQA','PAS','OTH']),value:z.string().trim().min(1).max(100)}),
-  buyerId:z.object({scheme:z.enum(['CRN','MOM','MLS','700','SAG','NAT','GCC','IQA','PAS','OTH']),value:z.string().trim().min(1).max(100)}).optional(),
+  sellerId:z.object({scheme:z.enum(['CRN','MOM','MLS','700','SAG','OTH']),value:z.string().trim().regex(/^[A-Za-z0-9]+$/).max(100)}),
+  buyerId:z.object({scheme:z.enum(['TIN','CRN','MOM','MLS','700','SAG','NAT','GCC','IQA','PAS','OTH']),value:z.string().trim().regex(/^[A-Za-z0-9]+$/).max(100)}).optional(),
   paymentMeansCode:z.enum(['10','30','42','48','1']),
 }).strict();
 export type ZatcaXmlContext=z.infer<typeof zatcaXmlContextSchema>;
