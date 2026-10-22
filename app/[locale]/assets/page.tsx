@@ -15,6 +15,7 @@ import {CurrencyScope,Money,useDisplayMoney} from "@/components/DisplayCurrency"
 import { use, useEffect, useMemo, useState, useRef } from "react";
 import {
   ASSET_COLUMNS,
+  readAssetTablePreferences,
   type AssetColumn,
   type AssetSortColumn,
   type AssetSortDirection,
@@ -185,11 +186,6 @@ export default function Assets({
     const refresh=()=>{if(document.visibilityState==="visible")void load(true)};
     window.addEventListener("focus",refresh);
     try {
-      const storedPreferences =
-        localStorage.getItem("zf_asset_table_v4") ||
-        localStorage.getItem("zf_asset_table_v3") ||
-        localStorage.getItem("zf_asset_table_v2");
-      setTablePreferences(parseAssetTablePreferences(storedPreferences));
       const savedDesign =
         localStorage.getItem("zf_assets_design_v2") ||
         localStorage.getItem("zf_assets_design");
@@ -200,22 +196,16 @@ export default function Assets({
       setScopeEntityId(localStorage.getItem("zf-assets-scope-entity") || "");
       setScopeCostCenterId(localStorage.getItem("zf-assets-scope-cost-center") || "");
     } catch {}
-    const onSettings = (event: Event) => {
-      const detail = (event as CustomEvent<AssetTablePreferences>).detail;
-      setTablePreferences(parseAssetTablePreferences(JSON.stringify(detail)));
-    };
     const onDesign = (event: Event) => {
       const next = (event as CustomEvent<{ design: AssetsPageDesign }>).detail
         ?.design;
       if (next && ["executive", "cards", "analytical"].includes(next))
         setDesign(next);
     };
-    window.addEventListener("zf-asset-table-settings", onSettings);
     window.addEventListener("zf-assets-page-design", onDesign);
     return () => {
       ++loadVersion.current;
       window.removeEventListener("focus",refresh);
-      window.removeEventListener("zf-asset-table-settings", onSettings);
       window.removeEventListener("zf-assets-page-design", onDesign);
     };
   }, []);
@@ -232,6 +222,15 @@ export default function Assets({
       localStorage.setItem("zf-assets-scope-cost-center", scopeCostCenterId);
     } catch {}
   }, [assetScope, scopeOrgId, scopeEntityId, scopeCostCenterId]);
+  useEffect(() => {
+    try { setTablePreferences(readAssetTablePreferences(localStorage, assetScope)); } catch { setTablePreferences(assetTablePreset(assetScope === "ORGANIZATION" ? "corporate" : "professional")); }
+    const receive = (event: Event) => {
+      const detail = (event as CustomEvent<{scope: string; preferences: AssetTablePreferences}>).detail;
+      if (detail?.scope === assetScope) setTablePreferences(parseAssetTablePreferences(JSON.stringify(detail.preferences), assetScope));
+    };
+    window.addEventListener("zf-asset-table-settings", receive);
+    return () => window.removeEventListener("zf-asset-table-settings", receive);
+  }, [assetScope]);
   const orderedColumns = useMemo(
     () => visibleAssetColumns(tablePreferences.order, tablePreferences.visible),
     [tablePreferences.order, tablePreferences.visible],
@@ -354,7 +353,8 @@ export default function Assets({
     {key:'hawl',icon:'◷',title:ar?'مؤهل بالحول':'Hawl eligible',value:String(completed.length),source:cycleScopeLabel,percent:indicatorPercent(completed.length,displayRows.filter(r=>r.is_zakatable).length),percentLabel:ar?'من الأصول الزكوية المعروضة':'Of displayed zakatable assets',rows:completed,detail:(r:any)=>assetMoney(due(r))},
     {key:'near',icon:'!',title:ar?'استحقاق خلال 30 يوماً':'Due within 30 days',value:String(near.length),source:ar?'تواريخ الحول الحالي':'Current Hawl dates',percent:indicatorPercent(near.length,indicators.zakatable.length),percentLabel:ar?'من الأصول الزكوية النشطة':'Of active zakatable assets',rows:near,detail:(r:any)=>indicators.nextDue(r)||'—'},
   ];
-  const selectedMetric=metricCards.find(card=>card.key===metricDetail);
+  const displayedMetricCards=assetScope === "ORGANIZATION" ? metricCards.filter(card=>["value","cost","gain","count"].includes(card.key)) : metricCards;
+  const selectedMetric=displayedMetricCards.find(card=>card.key===metricDetail);
   const indicatorValue = (value: string) =>
     loading ? "…" : loadError ? "—" : value;
   const indicatorSource = (source: string) =>
@@ -402,6 +402,7 @@ export default function Assets({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const columnLabel = (column: AssetColumn) => {
+    if (column === "date" && assetScope === "ORGANIZATION") return ar ? "تاريخ الاقتناء" : "Acquisition date";
     const definition = ASSET_COLUMNS.find(([key]) => key === column)!;
     return ar ? definition[1] : definition[2];
   };
@@ -418,6 +419,14 @@ export default function Assets({
     sort.column === column ? (sort.direction === "asc" ? "↑" : "↓") : "↕";
   const renderAssetCell = (column: AssetColumn, row: any) => {
     switch (column) {
+      case "classification": {
+        const classification = ASSET_DISPLAY_CLASSES.find(([key]) => key === assetDisplayClass(row));
+        return classification ? (ar ? classification[1] : classification[2]) : "—";
+      }
+      case "status":
+        return <span className={`asset-state ${row.financial_event_status === "DRAFT" ? "is-draft" : ""}`}>{row.financial_event_id ? assetPurchaseStatus(row.financial_event_status || "DRAFT", ar) : row.lifecycle_status === "SOLD" ? (ar ? "مباع" : "Sold") : row.lifecycle_status === "DISPOSED" ? (ar ? "مستغنى عنه" : "Disposed") : (ar ? "نشط" : "Active")}</span>;
+      case "center":
+        return row.table_cost_center_name || "—";
       case "asset":
         return (
           <strong className="asset-name-cell">
@@ -426,7 +435,7 @@ export default function Assets({
             </span>
             {row.name}
             {row.metadata?.register_source&&<small className="muted">{ar?"رصيد مباشر من السجل المالي · ":"Live financial register balance · "}</small>}
-            {row.financial_event_id&&<span className="pill">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span>}
+            {row.financial_event_id&&!orderedColumns.includes("status")&&<span className="pill asset-state">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span>}
             {!orderedColumns.includes("action")&&<ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{if(row.metadata?.register_source)window.location.href=`/${locale}/${row.metadata.register_source}?scope=ORGANIZATION`;else if(row.metadata?.investment_id)window.location.href=`/${locale}/investments?investment_id=${row.metadata.investment_id}`;else setDetailAsset(row);}}/>}
             <span className="pill asset-detail-type">{typeName(row)}</span>
             {assetDisplayClass(row)==="UNCLASSIFIED"&&<small className="muted">{ar?"استكمال التصنيف":"Awaiting classification"}</small>}
@@ -463,6 +472,7 @@ export default function Assets({
         if(row.lifecycle_status==="SOLD")return <span title={ar?"تكلفة الجزء المباع قبل البيع":"Historical cost of sold quantity"}>{row.sold_cost_value==null?"—":<Money value={cv(row.sold_cost_value)} currency={cur}/>}</span>;
         return <span title={row.lifecycle_status==="DISPOSED"?(ar?"تكلفة الجزء المستغنى عنه قبل الاستبعاد":"Historical cost of disposed quantity"):undefined}><Money value={cv(row.lifecycle_status==="DISPOSED"?row.disposed_cost_value:costVal(row))} currency={cur}/></span>;
       case "current":
+        if (row.pending_purchase_cost_base > 0 && !row.current_cost_value) return <span className="muted">{ar ? "بانتظار الترحيل" : "Pending posting"}</span>;
         return <strong><Money value={cv(val(row))} currency={cur}/></strong>;
       case "due":
         return <Money value={cv(due(row))} currency={cur}/>;
@@ -605,7 +615,7 @@ export default function Assets({
         <div className="asset-page-heading"><h1><span className="page-title-icon" aria-hidden="true">▥</span> {ar?"الأصول":"Assets"}</h1></div>
         <AssetsPageToolbar ar={ar} onAdd={()=>{if(!formOpen){setEdit(null);setRequestId("");setMsg("");setSubmitted(false);setForm({...empty,purchase_date:entryToday(),ownership_scope:assetScope,organization_id:assetScope==='ORGANIZATION'?scopeOrgId||null:null,entity_id:assetScope==='ORGANIZATION'?scopeEntityId||null:null,cost_center_id:assetScope==='ORGANIZATION'?scopeCostCenterId||null:null,currency:baseCurrency});setFormOpen(true);}else document.getElementById('asset-entry-title')?.focus();}}/>
       </div>
-      <div className="asset-page-subtitle"><p className="muted">{ar?"نطاق الدورات المحدد ينعكس على مؤشرات الزكاة والجدول. الشامل يجمع النهائي المثبّت وآخر تقدير للمفتوحة، والسداد يُخصم من دورته.":"Cycle scope updates Zakat indicators and the table. Comprehensive combines frozen finals and latest open estimates; payments reduce their own cycle."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
+      <div className="asset-page-subtitle"><p className="muted">{assetScope === "ORGANIZATION" ? (ar ? "سجل الأصول المؤسسية وتقييمها؛ مراجعة الزكاة ضمن نماذج تقييم المنشأة." : "Corporate asset register and valuations; review Zakat in organization assessment models.") : ar?"نطاق الدورات المحدد ينعكس على مؤشرات الزكاة والجدول. الشامل يجمع النهائي المثبّت وآخر تقدير للمفتوحة، والسداد يُخصم من دورته.":"Cycle scope updates Zakat indicators and the table. Comprehensive combines frozen finals and latest open estimates; payments reduce their own cycle."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
       {assetScope==='ORGANIZATION'&&<TopbarOrganizationControls>
         {assetScope === "ORGANIZATION" && <>
           <WorkspaceOrganizationPicker ar={ar} organizations={catalog.organizations} value={scopeOrgId} onChange={id=>{setScopeOrgId(id);setScopeEntityId("");setScopeCostCenterId("");}} group={scopeGroup} onGroupChange={value=>{setScopeGroup(value);setScopeEntityId("");setScopeCostCenterId("");}}/>
@@ -627,7 +637,7 @@ export default function Assets({
       </TopbarOrganizationControls>}
       {loadError && <div className="notice">{loadError}</div>}
       {!showingExited && <section className="grid section" aria-label={ar?"مؤشرات الأصول":"Asset indicators"}>
-        {metricCards.map(card=><K key={card.key} i={card.icon} tone={card.key} t={card.title}
+        {displayedMetricCards.map(card=><K key={card.key} i={card.icon} tone={card.key} t={card.title}
           v={indicatorValue(card.value)} source={indicatorSource(card.source)}
           percent={loading||loadError?null:card.percent} percentLabel={card.percentLabel}
           disabled={loading||!!loadError} expanded={metricDetail===card.key}
@@ -739,15 +749,15 @@ export default function Assets({
           </span>{" "}
           {ar ? "تقرير الأصول" : "Asset report"}
         </h2>}
-        <div className="asset-cycle-scope">
-          <label>{ar?"نطاق الدورات":"Cycle scope"}<select value={cycleScope} onChange={e=>setCycleScope(e.target.value as AssetCycleScope)} disabled={loading||!!loadError||assetScope==="ORGANIZATION"}>
+        {assetScope === "PERSONAL" && <div className="asset-cycle-scope">
+          <label>{ar?"نطاق الدورات":"Cycle scope"}<select value={cycleScope} onChange={e=>setCycleScope(e.target.value as AssetCycleScope)} disabled={loading||!!loadError}>
             <option value="DISPLAYED">{ar?"العرض الحالي":"Current view"}</option>
             <option value="ALL">{ar?"شامل · المغلقة والمفتوحة":"Comprehensive · closed and open"}</option>
             <option value="CLOSED">{ar?"الدورات المغلقة":"Closed cycles"}</option>
             <option value="OPEN">{ar?"الدورات المفتوحة":"Open cycles"}</option>
           </select></label>
           <span className="muted">{ar?"يحدّث مؤشرات الزكاة والجدول؛ تفاصيل كل دورة وأسعارها تحت السهم.":"Updates Zakat indicators and table; each cycle’s saved prices are under the details arrow."}</span>
-        </div>
+        </div>}
         {lifecycleFilter==="DISPOSED"&&<p className="asset-exit-caption">{ar?"الإجماليات أدناه تعرض الوزن والتكلفة التاريخية قبل الاستغناء، وليست سعر السوق قبل الاستغناء. القيمة الحالية صفر، ولا تدخل هذه القيم في إجماليات الأصول النشطة.":"Weight and cost below describe the disposed quantity before disposal. Current value is zero; these historical figures are excluded from active asset totals."}</p>}
         <div className="form-grid asset-report-filters" style={{marginBottom:16}}><div className="asset-group-toggle-wrap"><span className="muted asset-filter-label">{ar?"تجميع التقرير":"Report grouping"}</span><button type="button" role="switch" aria-checked={groupBy==="TYPE"} aria-label={ar?"تجميع بحسب النوع":"Group by type"} title={ar?"يمين: فئة · يسار: نوع":"Right: class · Left: type"} className="asset-group-toggle" onPointerDown={e=>{if(e.button===0)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerUp={e=>{if(e.button!==0)return;const rect=e.currentTarget.getBoundingClientRect();setGroupBy(e.clientX<rect.left+rect.width/2?"TYPE":"CLASS");}} onClick={e=>{if(e.detail===0)setGroupBy(groupBy==="TYPE"?"CLASS":"TYPE");}} onKeyDown={e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();setGroupBy(e.key==="ArrowLeft"?"TYPE":"CLASS");}}}><span className="asset-group-type" aria-hidden="true">{ar?"نوع":"Type"}</span><span className="asset-group-class" aria-hidden="true">{ar?"فئة":"Class"}</span><span className="asset-group-knob" aria-hidden="true"/></button></div><label>{ar?"تصفية حسب الفئة":"Filter by class"}<select value={classFilter} onChange={e=>{setClassFilter(e.target.value);setTypeFilter("ALL");}}><option value="ALL">{ar?"جميع الفئات":"All classes"}</option>{ASSET_DISPLAY_CLASSES.map(c=><option key={c[0]} value={c[0]}>{c[3]} {ar?c[1]:c[2]}</option>)}</select></label><label>{ar?"تصفية حسب النوع":"Filter by type"}<select value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="ALL">{ar?"جميع الأنواع":"All types"}</option>{Array.from(new Map(filteredRows.filter(r=>classFilter==="ALL"||assetDisplayClass(r)===classFilter).map(r=>[r.asset_type_code||r.asset_type,r])).entries()).map(([key,r])=><option key={key} value={key}>{assetTypeIcon(key)} {typeName(r)}</option>)}</select></label><div className="asset-status-filter"><span className="muted asset-filter-label">{ar?"حالة الأصول":"Asset status"}</span><div className="asset-lifecycle-tabs">{([["ACTIVE",ar?"نشطة":"Active"],["SOLD",ar?"مباعة":"Sold"],["DISPOSED",ar?"مستغنى عنها":"Disposed"],["ALL",ar?"الكل":"All"]] as const).map(([key,label])=><button key={key} type="button" className={`btn ${lifecycleFilter===key?"":"secondary"}`} title={label} aria-label={label} aria-pressed={lifecycleFilter===key} onClick={()=>setLifecycleFilter(key)}><ActionIconGlyph name={key==="DISPOSED"?"delete":key==="SOLD"?"collect":key==="ALL"?"history":"post"}/>{label} <span className="pill">{lifecycleCounts[key]}</span></button>)}</div></div></div>
         {["SOLD","DISPOSED","ALL"].includes(lifecycleFilter)&&displayRows.some(r=>["SOLD","DISPOSED"].includes(r.lifecycle_status))&&!loading&&!loadError&&<div className="card section asset-exit-summary-card">{historicalSummary(displayRows,true)}</div>}
@@ -761,7 +771,7 @@ export default function Assets({
           const sub = g.rows.reduce((s, r) => s + val(r), 0),
             sd = g.rows.reduce((s, r) => s + due(r), 0),
             isClosed = !!closed[g.type],
-            sortedRows = sortAssetRows(g.rows, sort.column, sort.direction);
+            sortedRows = sortAssetRows(g.rows.map(row => ({...row, table_cost_center_name: catalog.cost_centers.find((center: any) => center.id === row.cost_center_id)?.name || ""})), sort.column, sort.direction);
           return (
             <div className={`card section asset-group${showingExited?" is-exited":""}`} key={g.type}>
               <div className="page-head asset-group-head">
@@ -782,7 +792,7 @@ export default function Assets({
                         <Money value={cv(sub)} currency={cur}/>
                       </strong>
                     </span>
-                    <span className="sum-chip due">
+                    {assetScope === "PERSONAL" && <span className="sum-chip due">
                       <span className="sum-icon" aria-hidden="true">
                         ◉
                       </span>
@@ -790,7 +800,7 @@ export default function Assets({
                       <strong>
                         <Money value={cv(sd)} currency={cur}/>
                       </strong>
-                    </span>
+                    </span>}
                   </div>}
                 </div>
                 <button
@@ -815,6 +825,7 @@ export default function Assets({
                     className="table asset-report-table"
                     data-size={tablePreferences.size}
                     data-preset={tablePreferences.preset}
+                    data-scope={assetScope}
                   >
                     <thead>
                       <tr>
@@ -872,7 +883,7 @@ export default function Assets({
           );
         })}
       </section>
-      {!showingExited && retroPending.length > 0 && (
+      {assetScope === "PERSONAL" && !showingExited && retroPending.length > 0 && (
         <aside className="notice asset-report-notice" role="note">
           <strong>{ar ? "أصول غير مشمولة باحتساب الدورة المعروضة" : "Assets outside the displayed cycle assessment"}</strong>
           {pendingInOpen > 0 && <p className="muted">{ar

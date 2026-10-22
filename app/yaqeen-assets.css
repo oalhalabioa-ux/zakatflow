@@ -170,6 +170,16 @@
 @media(max-width:650px){.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-summary{display:grid;grid-template-columns:1fr}.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-summary>.sum-chip{min-width:0;width:100%}}
 
 /* Plain asset symbols: inherit the adjacent text color, with no colored tile. */
+.assets-page .asset-report-table td{font-size:13px;line-height:1.65;vertical-align:middle}
+.assets-page .asset-report-table :is(td,th):is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]){font-variant-numeric:tabular-nums;white-space:nowrap}
+.assets-page .asset-report-table td:is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]){text-align:left;direction:ltr}
+.assets-page .asset-report-table .asset-name-cell{line-height:1.8;gap:8px;flex-wrap:wrap}
+.assets-page .asset-state{display:inline-flex;align-items:center;padding:3px 9px;border-radius:7px;background:var(--brand-surface-soft);color:var(--brand-text);font-size:12px;font-weight:500;white-space:nowrap}
+.assets-page .asset-state.is-draft{background:#fbf4e7;color:#785617}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table tbody tr:nth-child(even){background:#f7f9fc}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table tbody tr:hover{background:#eef3f8}
+.assets-page .asset-report-table[data-scope=ORGANIZATION] :is(th,td)[data-column=center]{min-width:130px}
+.assets-page .asset-report-table[data-scope=ORGANIZATION] :is(th,td)[data-column=classification]{min-width:160px}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.kpi-icon,.payment-kpi-icon,.workflow-kpi-icon,.transaction-kpi-icon,.page-title-icon,.asset-type-icon,.asset-row-icon,.ed-icon,.ed-list-icon,.metric-icon,.sum-icon){background:none!important;color:inherit!important;border:0!important;box-shadow:none!important;border-radius:0!important;padding:0!important;font-variant-emoji:text}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.kpi-icon,.payment-kpi-icon,.workflow-kpi-icon,.transaction-kpi-icon,.page-title-icon,.asset-type-icon,.asset-row-icon,.ed-icon,.ed-list-icon,.metric-icon,.sum-icon) svg{color:inherit!important;background:none!important;box-shadow:none!important;border:0!important}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.yqa-summary-metric>div>svg,.yqa-summary-group h2 svg){color:inherit!important;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important;width:22px;height:22px;flex:none}
