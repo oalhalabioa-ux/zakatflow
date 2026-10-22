@@ -1,0 +1,36 @@
+name: ZATCA Cryptography QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lib/zatca*'
+      - 'lib/vat-einvoice-draft*'
+      - 'lib/vat-zatca-csr*'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/zatca-cryptography-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zatca-cryptography-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-xml-signatures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install independent XML signature verifier
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xmlsec1
+      - run: npm run typecheck
+      - name: Verify prepared signatures and tamper rejection
+        run: npx vitest run lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
+        env:
+          ZATCA_NATIVE_XMLSEC: '1'
