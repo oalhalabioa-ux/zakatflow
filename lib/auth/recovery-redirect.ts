@@ -14,6 +14,20 @@ export function getAuthOrigin(currentOrigin: string, configuredOrigin?: string):
   return trimOrigin(currentOrigin);
 }
 
+/** A reverse proxy may expose its internal bind address in Request.url. */
+export function getAuthServerOrigin(requestUrl: string, configuredOrigin?: string): string {
+  const request = new URL(requestUrl);
+  const internal = ['0.0.0.0', '127.0.0.1', 'localhost', '[::]', '[::1]'].includes(request.hostname);
+  if (internal && configuredOrigin?.trim()) {
+    const configured = new URL(configuredOrigin.trim());
+    if (configured.protocol !== 'https:' && configured.protocol !== 'http:') {
+      throw new Error('INVALID_AUTH_APP_URL');
+    }
+    return configured.origin;
+  }
+  return request.origin;
+}
+
 export function canonicalizeAuthUrl(currentHref: string, configuredOrigin?: string): string {
   const current = new URL(currentHref);
   const canonical = new URL(getAuthOrigin(current.origin, configuredOrigin));

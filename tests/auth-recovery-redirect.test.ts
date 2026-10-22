@@ -3,10 +3,25 @@ import {
   canonicalizeAuthUrl,
   getAuthCallbackUrl,
   getAuthOrigin,
+  getAuthServerOrigin,
   getRecoveryRedirectUrl,
 } from '../lib/auth/recovery-redirect';
 
 describe('deployment recovery redirect flow', () => {
+  it('uses the public app origin when Hostinger exposes its internal bind address', () => {
+    const origin = getAuthServerOrigin('https://0.0.0.0:3000/auth/callback?code=example', 'https://www.yaqeenbiz.com/');
+    expect(new URL('/ar/dashboard', origin).href).toBe('https://www.yaqeenbiz.com/ar/dashboard');
+    expect(new URL('/ar/login?error=auth', origin).href).toBe('https://www.yaqeenbiz.com/ar/login?error=auth');
+  });
+
+  it('keeps public previews on their own origin even when app URL points to production', () => {
+    expect(getAuthServerOrigin('https://preview.example.com/auth/callback', 'https://www.yaqeenbiz.com')).toBe('https://preview.example.com');
+    expect(getAuthServerOrigin('http://localhost:3000/auth/callback')).toBe('http://localhost:3000');
+  });
+
+  it('rejects non-web schemes in the configured proxy fallback', () => {
+    expect(() => getAuthServerOrigin('http://0.0.0.0:3000/auth/callback', 'javascript:alert(1)')).toThrow('INVALID_AUTH_APP_URL');
+  });
   it('keeps a unique preview on its own origin before auth operations', () => {
     const unique = 'https://zakatflow-9h16dlmm1-oalhalabioa-9334.vercel.app/ar/login?invite=qa-safe';
     const canonical = canonicalizeAuthUrl(unique);
