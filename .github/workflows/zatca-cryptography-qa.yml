@@ -3,6 +3,8 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'tests/fixtures/zatca-phase2-ledger.sql'
+      - 'tests/zatca-ledger-postgres.py'
       - 'lib/zatca*'
       - 'lib/vat-einvoice-draft*'
       - 'lib/vat-zatca-csr*'
@@ -34,3 +36,34 @@ jobs:
         run: npx vitest run lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
         env:
           ZATCA_NATIVE_XMLSEC: '1'
+
+  ledger-storage-contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15.18
+        env:
+          POSTGRES_PASSWORD: disposable-qa-only
+          POSTGRES_DB: zatca_ledger_qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+      - name: Verify isolated ledger transactions and simultaneous requests
+        run: python3 tests/zatca-ledger-postgres.py
+        env:
+          ZATCA_LEDGER_DISPOSABLE_QA: '1'
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: zatca_ledger_qa
+          PGPASSWORD: disposable-qa-only
