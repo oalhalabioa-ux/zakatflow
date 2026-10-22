@@ -1,22 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {useWorkspaceScope} from "@/hooks/useWorkspaceScope";
 import { usePathname } from "next/navigation";
 import {
   ASSET_COLUMNS,
+  CORPORATE_COLUMN_ORDER,
+  PERSONAL_COLUMN_ORDER,
+  assetTableStorageKey,
+  readAssetTablePreferences,
   type AssetColumn,
   type AssetTablePreferences,
   type AssetTablePreset,
   type AssetTableSize,
   assetTablePreset,
   moveAssetColumn,
-  parseAssetTablePreferences,
 } from "@/lib/asset-table-preferences";
 
 type AssetsPageDesign = "executive" | "cards" | "analytical";
 type Panel = "table" | "design" | "delete" | null;
 
-const TABLE_STORAGE_KEY = "zf_asset_table_v4";
 const DESIGN_STORAGE_KEY = "zf_assets_design_v2";
 
 function isAssetsPageDesign(value: unknown): value is AssetsPageDesign {
@@ -25,6 +28,9 @@ function isAssetsPageDesign(value: unknown): value is AssetsPageDesign {
 
 export default function AssetTableTools({ ar }: { ar: boolean }) {
   const active = usePathname()?.includes("/assets");
+  const [scope] = useWorkspaceScope();
+  const corporate = scope === "ORGANIZATION";
+  const columns = corporate ? CORPORATE_COLUMN_ORDER : PERSONAL_COLUMN_ORDER;
   const [moreOpen, setMoreOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [settings, setSettings] = useState<AssetTablePreferences>(() =>
@@ -41,23 +47,20 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
 
   useEffect(() => {
     if (!active) return;
-    const storedTable =
-      localStorage.getItem(TABLE_STORAGE_KEY) ||
-      localStorage.getItem("zf_asset_table_v3") ||
-      localStorage.getItem("zf_asset_table_v2");
-    setSettings(parseAssetTablePreferences(storedTable));
+    setSettings(readAssetTablePreferences(localStorage, scope));
+    setSaved(false);
 
     const storedDesign =
       localStorage.getItem(DESIGN_STORAGE_KEY) ||
       localStorage.getItem("zf_assets_design");
     if (isAssetsPageDesign(storedDesign)) setDesign(storedDesign);
-  }, [active]);
+  }, [active, scope]);
 
   if (!active) return null;
 
   const emitSettings = (next: AssetTablePreferences) => {
     window.dispatchEvent(
-      new CustomEvent("zf-asset-table-settings", { detail: next }),
+      new CustomEvent("zf-asset-table-settings", { detail: { scope, preferences: next } }),
     );
   };
 
@@ -88,13 +91,14 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
   };
 
   const move = (column: AssetColumn, direction: number) => {
-    const index = settings.order.indexOf(column);
-    const target = settings.order[index + direction];
+    const available = settings.order.filter(key => columns.includes(key));
+    const index = available.indexOf(column);
+    const target = available[index + direction];
     if (target) reorder(column, target);
   };
 
   const saveSettings = () => {
-    localStorage.setItem(TABLE_STORAGE_KEY, JSON.stringify(settings));
+    localStorage.setItem(assetTableStorageKey(scope), JSON.stringify(settings));
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2200);
   };
@@ -190,7 +194,9 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
               <h4>{ar ? "تخصيص جدول الأصول" : "Customize assets table"}</h4>
               <button className="att-close" type="button" onClick={() => setPanel(null)} aria-label={ar ? "إغلاق" : "Close"}>×</button>
             </div>
+            <p className="att-note">{corporate ? (ar ? "تخصيص مستقل للمؤسسي: بيانات الأصول وتقييمها. الزكاة تُراجع ضمن نماذج تقييم المنشأة." : "Independent corporate settings for assets and valuations. Review Zakat in organization assessment models.") : (ar ? "تخصيص مستقل للشخصي: الأصول والزكاة والسداد." : "Independent personal settings for assets, Zakat and payments.")}</p>
             <div className="att-presets">
+              {corporate ? <button type="button" className="att-preset active" onClick={() => choosePreset("corporate")}><strong>{ar ? "النموذج المؤسسي" : "Corporate model"}</strong><small>{ar ? "التصنيف والحالة ومركز التكلفة والتكلفة والقيمة الحالية" : "Classification, status, cost center, cost and current value"}</small></button> : <>
               <button type="button" className={`att-preset${settings.preset === "professional" ? " active" : ""}`} onClick={() => choosePreset("professional")}>
                 <strong>{ar ? "النموذج الاحترافي" : "Professional model"}</strong>
                 <small>{ar ? "جميع الأعمدة والتفاصيل المالية والزكوية" : "All financial and Zakat columns"}</small>
@@ -199,6 +205,7 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
                 <strong>{ar ? "نموذج الزكاة والسداد" : "Zakat & payment model"}</strong>
                 <small>{ar ? "الاستحقاق والمدفوع والمتبقي والحول" : "Due, paid, remaining and Hawl"}</small>
               </button>
+              </>}
             </div>
 
             <h5>{ar ? "حجم الخانات" : "Cell size"}</h5>
@@ -213,7 +220,7 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
             <h5>{ar ? "الأعمدة: الإظهار والترتيب" : "Columns: visibility & order"}</h5>
             <p className="att-order-help">{ar ? "حدد الأعمدة المطلوبة، ورتبها بالسحب أو باستخدام الأسهم." : "Drag and drop a column, or use the arrow buttons."}</p>
             <div className="att-order">
-              {settings.order.map((key, index) => {
+              {settings.order.filter(key => columns.includes(key)).map((key, index, available) => {
                 const column = ASSET_COLUMNS.find(([id]) => id === key)!;
                 return (
                   <div
@@ -246,7 +253,7 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
                     <label className="att-order-name"><input type="checkbox" checked={settings.visible[key] !== false} disabled={settings.visible[key] !== false && Object.values(settings.visible).filter(Boolean).length === 1} onChange={(event) => updateSettings((current) => ({ ...current, visible: { ...current.visible, [key]: event.target.checked } }))}/><span className="att-drag-handle" aria-hidden="true">⠿</span>{ar ? column[1] : column[2]}</label>
                     <span className="att-order-actions">
                       <button type="button" className="btn secondary" disabled={index === 0} onClick={() => move(key, -1)} aria-label={ar ? "تحريك للأعلى" : "Move up"}>↑</button>
-                      <button type="button" className="btn secondary" disabled={index === settings.order.length - 1} onClick={() => move(key, 1)} aria-label={ar ? "تحريك للأسفل" : "Move down"}>↓</button>
+                      <button type="button" className="btn secondary" disabled={index === available.length - 1} onClick={() => move(key, 1)} aria-label={ar ? "تحريك للأسفل" : "Move down"}>↓</button>
                     </span>
                   </div>
                 );
@@ -302,4 +309,3 @@ export default function AssetTableTools({ ar }: { ar: boolean }) {
     </>
   );
 }
-

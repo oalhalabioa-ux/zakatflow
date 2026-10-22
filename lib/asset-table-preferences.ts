@@ -10,13 +10,25 @@ export const ASSET_COLUMNS = [
   ["remaining", "المتبقي", "Remaining"],
   ["calculation", "حالة الاستحقاق", "Eligibility status"],
   ["action", "الإجراء", "Action"],
+  ["classification", "التصنيف", "Classification"],
+  ["status", "حالة الأصل", "Asset status"],
+  ["center", "مركز التكلفة", "Cost center"],
 ] as const;
 
 export type AssetColumn = (typeof ASSET_COLUMNS)[number][0];
 export type AssetSortColumn = Exclude<AssetColumn, "action">;
 export type AssetSortDirection = "asc" | "desc";
 export type AssetTableSize = "compact" | "normal" | "wide";
-export type AssetTablePreset = "professional" | "zakat";
+export type AssetTablePreset = "professional" | "zakat" | "corporate";
+export type AssetTableScope = "PERSONAL" | "ORGANIZATION";
+export const CORPORATE_COLUMN_ORDER: AssetColumn[] = ["asset", "classification", "date", "status", "center", "cost", "current", "action"];
+export const PERSONAL_COLUMN_ORDER = ASSET_COLUMNS.map(([key]) => key).filter(key => !["classification", "status", "center"].includes(key));
+export const assetTableStorageKey = (scope: AssetTableScope) => `zf_asset_table_v5_${scope}`;
+export function readAssetTablePreferences(storage: Pick<Storage, "getItem">, scope: AssetTableScope) {
+  const saved = storage.getItem(assetTableStorageKey(scope));
+  const legacy = scope === "PERSONAL" ? storage.getItem("zf_asset_table_v4") || storage.getItem("zf_asset_table_v3") || storage.getItem("zf_asset_table_v2") : null;
+  return parseAssetTablePreferences(saved || legacy, scope);
+}
 
 export const ASSET_COLUMN_ORDER = ASSET_COLUMNS.map(
   ([key]) => key,
@@ -128,6 +140,12 @@ const assetSortValue = (row: any, column: AssetSortColumn) => {
   const due = Number(calculation.zakat_amount || 0);
   const paid = Number(calculation.paid_amount || 0);
   switch (column) {
+    case "classification":
+      return String(row?.asset_class_code || row?.asset_type_code || row?.asset_type || "");
+    case "status":
+      return String(row?.financial_event_status || row?.lifecycle_status || "ACTIVE");
+    case "center":
+      return String(row?.table_cost_center_name || "");
     case "asset":
       return String(row?.name || "");
     case "date":
@@ -178,34 +196,33 @@ export function sortAssetRows(
 export function assetTablePreset(
   preset: AssetTablePreset,
 ): AssetTablePreferences {
+  const columns = preset === "corporate" ? CORPORATE_COLUMN_ORDER : preset === "zakat" ? ZAKAT_COLUMN_ORDER : PERSONAL_COLUMN_ORDER;
   const visible = Object.fromEntries(
-    ASSET_COLUMN_ORDER.map((key) => [
-      key,
-      preset === "professional" || ZAKAT_COLUMN_ORDER.includes(key),
-    ]),
+    ASSET_COLUMN_ORDER.map((key) => [key, columns.includes(key)]),
   ) as Record<AssetColumn, boolean>;
 
   return {
     version: 4,
     preset,
-    size: preset === "professional" ? "normal" : "compact",
+    size: preset === "zakat" ? "compact" : "normal",
     visible,
     order: normalizeAssetColumnOrder(
-      preset === "professional" ? ASSET_COLUMN_ORDER : ZAKAT_COLUMN_ORDER,
+      columns,
     ),
   };
 }
 
 export function parseAssetTablePreferences(
   raw: string | null,
+  scope: AssetTableScope = "PERSONAL",
 ): AssetTablePreferences {
-  const fallback = assetTablePreset("professional");
+  const fallback = assetTablePreset(scope === "ORGANIZATION" ? "corporate" : "professional");
   if (!raw) return fallback;
 
   try {
     const parsed = JSON.parse(raw);
     const preset: AssetTablePreset =
-      parsed?.preset === "zakat" ? "zakat" : "professional";
+      scope === "ORGANIZATION" ? "corporate" : parsed?.preset === "zakat" ? "zakat" : "professional";
     const base = assetTablePreset(preset);
     const size: AssetTableSize = ["compact", "normal", "wide"].includes(
       parsed?.size,
@@ -215,11 +232,13 @@ export function parseAssetTablePreferences(
     const visible = Object.fromEntries(
       ASSET_COLUMN_ORDER.map((key) => [
         key,
-        typeof parsed?.visible?.[key] === "boolean"
+        (scope !== "ORGANIZATION" || CORPORATE_COLUMN_ORDER.includes(key)) && typeof parsed?.visible?.[key] === "boolean"
           ? parsed.visible[key]
           : base.visible[key],
       ]),
     ) as Record<AssetColumn, boolean>;
+
+    if (!Object.values(visible).some(Boolean)) visible.asset = true;
 
     return {
       version: 4,

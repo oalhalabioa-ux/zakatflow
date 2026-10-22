@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   ASSET_COLUMN_ORDER,
+  PERSONAL_COLUMN_ORDER,
+  CORPORATE_COLUMN_ORDER,
+  assetTableStorageKey,
+  readAssetTablePreferences,
   assetCostValue,
   assetCurrentValue,
   assetTablePreset,
@@ -21,8 +25,30 @@ describe("asset table preferences", () => {
   it("provides a professional model with every column", () => {
     const preferences = assetTablePreset("professional");
     expect(visibleAssetColumns(preferences.order, preferences.visible)).toEqual(
-      ASSET_COLUMN_ORDER,
+      PERSONAL_COLUMN_ORDER,
     );
+  });
+
+  it("defaults corporate tables to valuations without personal Zakat or payment columns", () => {
+    const preferences = parseAssetTablePreferences(null, "ORGANIZATION");
+    expect(preferences.preset).toBe("corporate");
+    expect(visibleAssetColumns(preferences.order, preferences.visible)).toEqual(CORPORATE_COLUMN_ORDER);
+    const restored = parseAssetTablePreferences(JSON.stringify(assetTablePreset("professional")), "ORGANIZATION");
+    for (const key of ["due", "paid", "remaining", "hawl", "calculation"] as const) expect(restored.visible[key]).toBe(false);
+  });
+
+  it("migrates legacy settings only for personal and preserves separate saved customizations", () => {
+    const legacy = assetTablePreset("zakat");
+    const values = new Map([["zf_asset_table_v4", JSON.stringify(legacy)]]);
+    const storage = {getItem: (key: string) => values.get(key) ?? null};
+    expect(readAssetTablePreferences(storage, "PERSONAL")).toEqual(legacy);
+    expect(readAssetTablePreferences(storage, "ORGANIZATION").preset).toBe("corporate");
+    const corporate = assetTablePreset("corporate");
+    corporate.visible.center = false;
+    corporate.size = "wide";
+    values.set(assetTableStorageKey("ORGANIZATION"), JSON.stringify(corporate));
+    expect(readAssetTablePreferences(storage, "ORGANIZATION")).toEqual(corporate);
+    expect(readAssetTablePreferences(storage, "PERSONAL")).toEqual(legacy);
   });
 
   it("provides a concise model focused on zakat and payment", () => {
