@@ -488,6 +488,8 @@ export default function Assets({
             row={row}
             ar={ar}
             amount={<Money value={cv(due(row))} currency={cur}/>}
+            personalStyle={assetScope === "PERSONAL"}
+            showAmount={assetScope !== "PERSONAL" || !orderedColumns.includes("due")}
           />
         );
       case "action":
@@ -938,32 +940,33 @@ function ZakatCell({
   row,
   ar,
   amount,
+  personalStyle = false,
+  showAmount = true,
 }: {
   row: any;
   ar: boolean;
   amount: React.ReactNode;
+  personalStyle?: boolean;
+  showAmount?: boolean;
 }) {
   const c = row.zakat_calculation;
+  const status = (label: string, eligible = false) => (
+    <span className={personalStyle ? `asset-eligibility-status${eligible ? " is-eligible" : ""}` : "pill"}>
+      {personalStyle && <span className="asset-eligibility-dot" aria-hidden="true"/>}{label}
+    </span>
+  );
   if (!row.is_zakatable && !Number(c?.zakat_amount))
-    return <span className="pill">{ar ? "غير زكوي" : "Exempt"}</span>;
+    return status(ar ? "غير زكوي" : "Exempt");
   if (!c)
-    return <span className="pill">{ar ? "غير محتسب" : "Not assessed"}</span>;
+    return status(ar ? "غير محتسب" : "Not assessed");
   if (c.statuses?.includes("NOT_ASSESSED")) {
     const hasPersistedHawl = (c.lots || []).some((l: any) => l.hawl_start_date);
-    return (
-      <span className="pill">
-        {hasPersistedHawl
-          ? ar
-            ? "بانتظار إعادة الاحتساب"
-            : "Awaiting recalculation"
-          : ar
-            ? "غير محتسب"
-            : "Not assessed"}
-      </span>
-    );
+    return status(hasPersistedHawl
+      ? (ar ? "بانتظار إعادة الاحتساب" : "Awaiting recalculation")
+      : (ar ? "غير محتسب" : "Not assessed"));
   }
   if(c.cycle_calculations) return <div className="zakat-result-compact">
-    <strong>{amount}</strong> <span className="pill">{ar?"حسب نطاق الدورات":"Cycle scope"}</span>
+    {showAmount && <strong>{amount}</strong>} {status(ar?"حسب نطاق الدورات":"Cycle scope")}
     <details className="asset-valuation-details"><summary aria-label={ar?"تفاصيل الدورات وأسعار الاحتساب":"Cycle details and saved prices"} title={ar?"تفاصيل الدورات وأسعار الاحتساب":"Cycle details and saved prices"}><span aria-hidden="true">▸</span></summary><div className="asset-valuation-content">
       {c.cycle_calculations.map((cycle:any)=><section key={cycle.assessment_id} className="asset-cycle-detail">
         <strong>{ar?"الدورة":"Cycle"} #{cycle.cycle_number} · {cycle.cycle_closed?(ar?"مغلقة · سعر مثبت":"Closed · frozen price"):(ar?"مفتوحة · تقدير":"Open · estimate")}</strong>
@@ -976,8 +979,8 @@ function ZakatCell({
   const s = c.statuses || [];
   const label = s.includes("ELIGIBLE")
     ? ar
-      ? "مؤهل"
-      : "Eligible"
+      ? (personalStyle ? "مستحق للزكاة" : "مؤهل")
+      : (personalStyle ? "Zakat due" : "Eligible")
     : s.includes("HAWL_NOT_COMPLETED")
       ? ar
         ? "لم يكتمل الحول"
@@ -991,7 +994,7 @@ function ZakatCell({
           : "Not eligible";
   return (
     <div className="zakat-result-compact">
-      <strong>{amount}</strong> <span className="pill">{label}</span>
+      {showAmount && <strong>{amount}</strong>} {status(label, s.includes("ELIGIBLE"))}
       <details className="asset-valuation-details"><summary aria-label={ar?"أساس الاحتساب المحفوظ":"Saved valuation basis"} title={ar?"أساس الاحتساب المحفوظ":"Saved valuation basis"}><span aria-hidden="true">▸</span></summary><div className="asset-valuation-content">
         <div className="muted">{ar ? "تاريخ التقييم" : "Valuation date"}: {c.valuation_date} · {ar ? "الدورة" : "Cycle"}: {c.cycle_number??"—"}</div>
         {(c.lots??[]).map((l:any)=><div key={l.id??l.lot_id} style={{marginTop:6,fontSize:11}}>
