@@ -10,12 +10,15 @@ Base production: `906495d1`. This branch is preparation work, not a complete Pha
 - Explicit supplier registration identifier, supply date and payment method; buyer identifier required for standard invoices; actual original invoice number and reason required for notes.
 - Rejects XML-invalid characters, unsupported top-level inputs (including prepaid amounts), missing exemption reasons, mixed outside-scope categories and conflicting grouped exemption reasons. Existing workflows and financial writers are untouched.
 - Isolated AWS KMS signing primitive: accepts an immutable key ARN and the expected certificate public key, verifies secp256k1/key usage/algorithm and exact key matching, hashes caller-supplied canonical SignedInfo once, requests `DIGEST` signing, converts strict DER ECDSA into XMLDSig r||s, and independently verifies every returned signature before returning it. No HTTP endpoint or production import is added.
+- Certificate preflight: exactly one PEM or canonical base64 DER certificate, pinned to the authorized EGS unit's stored SHA-256 fingerprint; rejects malformed/trailing/bundled input, expired/not-yet-valid certificates, CA signers and incompatible key curves. Extracts exact certificate DER, raw SHA-256 certificate digest, decimal serial and public SPKI. This does not establish certificate trust, identity, profile/key-usage conformity or revocation status.
+- Invoice reference hash preparation: pinned `libxml2-wasm` 0.7.1 for native libxml2 Canonical XML 1.1 without comments after namespace-aware exclusions of UBLExtensions, cac:Signature and QR document references. Rejects DTD/entity declarations, processing instructions, XML 1.1/non-UTF-8 declarations, unknown namespace prefixes, wrong/nested invoice roots and oversized input. Preserves significant whitespace and does not normalize/reformat financial content.
 
 ## Validation completed
 
 - TypeScript passed.
 - 27 tests passed across XML preparation (16), existing draft calculations (9) and existing CSR signing callback (2).
 - Follow-up: TypeScript and all 51 tests passed, including 24 new signer tests covering independently verified IEEE-P1363 signatures, incompatible keys, certificate-key mismatch, altered content, double hashing, malformed DER, invalid responses and AWS errors. AWS transport is mocked with ephemeral synthetic local EC keys; no live KMS operation or ZATCA acceptance is claimed.
+- Latest follow-up: TypeScript and all 87 focused tests passed: 16 certificate preflight, 20 hash/canonicalization, 24 signer, 16 XML preparation, 9 draft and 2 CSR. Certificate fixtures are generated and removed during tests using OpenSSL; certificate digest is checked independently by the OpenSSL CLI. An additional temporary verification compared the full canonical bytes and SHA-256 hashes of all nine synthetic invoice fixtures against native `xmllint --c14n11`: 9/9 passed. The committed canonicalization vector was also checked against native xmllint; CI does not need xmllint installed.
 - Nine generated synthetic documents passed the official OASIS UBL 2.1 Invoice XSD using an independent lxml validator: six document/category combinations, foreign currency, discount and mixed tax categories.
 - These are preparation/schema checks, not ZATCA business-rule, cryptographic-signature or authority acceptance results. ZATCA SDK and sandbox compliance remain required.
 
@@ -27,6 +30,8 @@ Supported preparation scope follows the existing domestic invoice DTO. Exports, 
 
 `createZatcaKmsSigner` is a server-side primitive only. It does not canonicalize XML, validate certificate trust/expiry/revocation, construct XAdES or authorize tenants. Its caller must load the correct unit and certificate under authorization, supply the certificate's SPKI and canonical SignedInfo, and verify references. It must never be exposed as a generic signing endpoint. Its successful result does not mean an invoice is signed or accepted end to end.
 
+`inspectZatcaSigningCertificate` and `prepareZatcaInvoiceHash` are also not imported by production routes. Certificate pins must come from saved, authorized unit onboarding, not client-supplied pins. Do not treat preflight as a trust decision: environment-specific trust anchors, certificate path/profile/key usage, VAT/EGS identity binding and revocation checks remain mandatory. Recheck time/revocation at actual signing. Hash preparation must run on the final document namespace context; adding/moving namespace declarations or pretty-printing afterwards can invalidate reference hashes. SignedInfo and SignedProperties canonicalization, references, XAdES envelope and QR assembly are not implemented yet. Runtime packaging of the WASM asset still requires testing when the module is wired into an actual backend deployment.
+
 ## Approved infrastructure direction
 
 Owner approved AWS for signing/key protection on 2026-10-22; account creation is deferred until live tests require it. Keep current application hosting. Use separate QA/production units and tenant/unit-bound signing keys and credential secrets. A protected server-side signing service is the intended hosting-independent boundary; authentication, tenant authorization, replay protection, audit and deployment remain to be implemented and tested. The existing Vercel OIDC onboarding adapter is not yet portable to Hostinger. Never solve that by exposing cloud credentials or private keys in the browser.
@@ -34,7 +39,7 @@ Owner approved AWS for signing/key protection on 2026-10-22; account creation is
 ## Remaining implementation and acceptance gates
 
 1. Atomic per-unit invoice counter/previous-hash chain and immutable invoice snapshot. Keep these distinct from sales/purchase document numbering. Handle simultaneous issuance, retries and rejected submissions.
-2. Canonicalization, SHA-256 invoice hash, certificate-bound XAdES signature and Phase 2 QR. Verify signatures and certificate/key matching independently.
+2. Invoice reference C14N 1.1/hash and certificate preflight primitives are prepared; complete canonical SignedInfo/SignedProperties, certificate path/profile/identity/revocation validation, certificate-bound XAdES envelope and Phase 2 QR. Verify the complete signature and all references independently.
 3. Wire saved invoice snapshots to the preparation component, including supplier registration identity, actual supply date and original note invoice number. Preserve financial/foreign-currency identity checks.
 4. Run the current ZATCA SDK and compliance scenarios for each supported standard/simplified invoice/note category. Reject unsupported inputs rather than silently changing financial meaning.
 5. Simulation certificate onboarding and authenticated compliance submissions; persist sanitized authority responses and retry state.
@@ -56,5 +61,8 @@ Owner approved AWS for signing/key protection on 2026-10-22; account creation is
 - OASIS UBL 2.1 XSD distribution: https://docs.oasis-open.org/ubl/os-UBL-2.1/UBL-2.1.zip
 - AWS KMS Sign API (DIGEST semantics and DER response): https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
 - XMLDSig ECDSA signature encoding: https://www.w3.org/TR/xmldsig-core1/#sec-ECDSA
+- Canonical XML 1.1: https://www.w3.org/TR/xml-c14n11/
+- libxml2 WASM source/API: https://github.com/jameslan/libxml2-wasm
+- Node X509Certificate API: https://nodejs.org/api/crypto.html#class-x509certificate
 
 Validation fixtures/schemas and browser/cloud credentials are not committed. No production invoice or schema was changed.
