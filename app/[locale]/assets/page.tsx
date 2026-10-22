@@ -470,7 +470,7 @@ export default function Assets({
           />
         );
       case "cost":
-        if(row.pending_purchase_cost_base>0)return <span className="asset-draft-value"><Money value={cv(row.pending_purchase_cost_base)} currency={cur}/><small>{ar?"قيمة المسودة":"Draft value"}</small></span>;
+        if(row.pending_purchase_cost_base>0)return <Money value={cv(row.pending_purchase_cost_base)} currency={cur}/>;
         if(row.lifecycle_status==="SOLD")return <span title={ar?"تكلفة الجزء المباع قبل البيع":"Historical cost of sold quantity"}>{row.sold_cost_value==null?"—":<Money value={cv(row.sold_cost_value)} currency={cur}/>}</span>;
         return <span title={row.lifecycle_status==="DISPOSED"?(ar?"تكلفة الجزء المستغنى عنه قبل الاستبعاد":"Historical cost of disposed quantity"):undefined}><Money value={cv(row.lifecycle_status==="DISPOSED"?row.disposed_cost_value:costVal(row))} currency={cur}/></span>;
       case "current":
