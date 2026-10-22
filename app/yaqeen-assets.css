@@ -206,3 +206,16 @@
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.kpi-icon,.payment-kpi-icon,.workflow-kpi-icon,.transaction-kpi-icon,.page-title-icon,.asset-type-icon,.asset-row-icon,.ed-icon,.ed-list-icon,.metric-icon,.sum-icon) svg{color:inherit!important;background:none!important;box-shadow:none!important;border:0!important}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.yqa-summary-metric>div>svg,.yqa-summary-group h2 svg){color:inherit!important;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important;width:22px;height:22px;flex:none}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .yqa-assets-heading h1::before{background:currentColor!important}
+
+/* Personal eligibility stays distinct from the monetary Zakat columns. */
+.assets-page .asset-eligibility-status{display:inline-flex;align-items:center;gap:7px;color:#64748B;font-size:12px;font-weight:500;white-space:nowrap;background:none;border:0;padding:0}
+.assets-page .asset-eligibility-status.is-eligible{color:#21624E;font-weight:600}
+.assets-page .asset-eligibility-dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:currentColor}
+.assets-page .asset-report-table[data-scope=PERSONAL] .hawl-badges{display:inline-flex;flex-direction:column;gap:0;line-height:1.6;color:var(--brand-muted,var(--muted))}
+.assets-page .asset-report-table[data-scope=PERSONAL] :is(.hawl-cycle,.hawl-days){padding:0;border-radius:0;background:none;color:inherit;font-size:11px}
+.assets-page .asset-report-table[data-scope=PERSONAL] td[data-column=calculation] .zakat-result-compact{font-weight:400;gap:7px}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL]{border-spacing:0;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] tbody tr{background:#fff!important;box-shadow:none;border-radius:0}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] :is(th,td){border-radius:0;border-color:#E2E8F0}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] th{background:#F1F5F9;color:#17384D}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] tbody tr:hover{background:#F8FAFC!important}
