@@ -16,6 +16,9 @@ Base production: `906495d1`. This branch is preparation work, not a complete Pha
 
 ## Validation completed
 
+- Owner supplied a Java SDK package subsequently identified as 3.0.8. Ran it locally against nine unsigned fixtures: 9/9 XSD passed, 8/9 EN passed, **0/9 global SDK passes**. All nine SDK invoice hashes matched the application's hash. Address checks, missing simplified stamp/QR and a document-global mixed-tax rule are detailed in `docs/zatca-sdk-3.0.8-review.md`. SDK exit status was zero on failures; an isolated fail-closed report parser and regression tests were added. Current official SDK/profile confirmation remains required; the prior download block no longer means no SDK was ever run.
+- After the SDK review, TypeScript and 110 focused tests passed with native XMLSec enabled, including 14 SDK report-parser cases and a new guard against exemption reasons directly attached to standard-rate lines. This test-suite pass is separate from the zero global legacy SDK fixture passes above.
+
 - TypeScript passed.
 - 27 tests passed across XML preparation (16), existing draft calculations (9) and existing CSR signing callback (2).
 - Follow-up: TypeScript and all 51 tests passed, including 24 new signer tests covering independently verified IEEE-P1363 signatures, incompatible keys, certificate-key mismatch, altered content, double hashing, malformed DER, invalid responses and AWS errors. AWS transport is mocked with ephemeral synthetic local EC keys; no live KMS operation or ZATCA acceptance is claimed.

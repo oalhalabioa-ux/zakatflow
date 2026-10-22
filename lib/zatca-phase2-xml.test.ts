@@ -4,6 +4,9 @@ import {buildUnsignedZatcaXml} from './zatca-phase2-xml';
 const draft={organization_id:'a800b1c2-df4a-4a79-9b91-4a451ce2858a',invoice_number:'INV-2026-0001',invoice_category:'STANDARD',issue_date:'2026-10-22',issue_time:'12:00',seller_name:'شركة الاختبار',seller_vat_number:'312345678901233',seller_address:'King Fahd Road',seller_building_number:'1234',seller_district:'Olaya',seller_additional_number:'5678',seller_postal_code:'12345',seller_city:'Riyadh',buyer_name:'Customer LLC',buyer_vat_number:'312345678901233',buyer_address:'Customer street',buyer_building_number:'4321',buyer_district:'Olaya',buyer_city:'Riyadh',buyer_postal_code:'54321',lines:[{item_name:'Consulting service',quantity:2,unit_price:100,tax_category:'S',tax_rate:15}]};
 const context={invoiceUuid:'a800b1c2-df4a-4a79-9b91-4a451ce2858b',invoiceCounter:'1',previousInvoiceHash:Buffer.alloc(32).toString('base64'),supplyDate:'2026-10-22',sellerId:{scheme:'CRN',value:'1010000000'},paymentMeansCode:'30'};
 describe('unsigned ZATCA XML preparation',()=>{
+ it('rejects exemption reasons attached to a standard-rate line rather than exporting contradictory VAT data',()=>{
+  for(const reason of [{tax_exemption_reason_code:'VATEX-SA-29'},{tax_exemption_reason:'Exempt service'}])expect(()=>buildUnsignedZatcaXml({...draft,lines:[{...draft.lines[0],...reason}]},context)).toThrow('STANDARD_TAX_EXEMPTION_NOT_ALLOWED');
+ });
  it.each(['STANDARD','SIMPLIFIED'])('maps all three %s document types to explicit UBL codes',category=>{
   for(const[type,code]of [['INVOICE','388'],['CREDIT_NOTE','381'],['DEBIT_NOTE','383']]){
    const result=buildUnsignedZatcaXml({...draft,invoice_category:category,document_type:type,...(type==='INVOICE'?{}:{billing_reference:'ORIGINAL-10',note_reason:'Returned service'})},context);

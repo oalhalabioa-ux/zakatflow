@@ -44,6 +44,7 @@ export function buildUnsignedZatcaXml(input:unknown,contextInput:unknown){
   const categories=new Set(d.lines.map(l=>l.tax_category));
   if(categories.has('O')&&categories.size>1)throw Error('OUT_OF_SCOPE_CATEGORY_MIXED');
   for(const l of d.lines){
+    if(l.tax_category==='S'&&(l.tax_exemption_reason_code||l.tax_exemption_reason))throw Error('STANDARD_TAX_EXEMPTION_NOT_ALLOWED');
     if(l.tax_category!=='S'&&(!l.tax_exemption_reason_code||!l.tax_exemption_reason))throw Error('XML_TAX_REASON_REQUIRED');
     if(l.tax_category==='O'&&l.tax_exemption_reason_code!=='VATEX-SA-OOS')throw Error('OUT_OF_SCOPE_REASON_CODE_INVALID');
     // Unit codes are externally specified identifiers, never arbitrary XML names.
