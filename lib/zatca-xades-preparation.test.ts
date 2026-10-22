@@ -41,7 +41,9 @@ describe('isolated XAdES signed XML preparation', () => {
     const result = await prepareSignedZatcaXml(draft, context, options, signer);
     const good = nativeVerify(result.xml);
     expect(good.status, good.stderr).toBe(0);
-    expect(good.stderr).toContain('2/2');
+    // Exit status is XMLSec's verification contract; success text differs
+    // between 1.2 and 1.3. Tamper both reference targets below to exercise them.
+    expect((result.xml.match(/<ds:Reference /g) || []).length).toBe(2);
     for (const xml of [result.xml.replace('230.00', '231.00'), result.xml.replace('synthetic-test-policy', 'changed-policy'), result.xml.replace(/(<ds:SignatureValue>)(.)/, (_, prefix: string, first: string) => prefix + (first === 'A' ? 'B' : 'A'))]) expect(nativeVerify(xml).status).not.toBe(0);
   });
   it.each(['STANDARD', 'SIMPLIFIED'])('prepares all three %s document types with stable invoice references', async invoice_category => {
