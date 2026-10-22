@@ -9,11 +9,13 @@ Base production: `906495d1`. This branch is preparation work, not a complete Pha
 - Preserves source currency, separate SAR VAT total, supplied UUID, invoice counter and previous hash. It does not allocate, increment or fabricate chain state.
 - Explicit supplier registration identifier, supply date and payment method; buyer identifier required for standard invoices; actual original invoice number and reason required for notes.
 - Rejects XML-invalid characters, unsupported top-level inputs (including prepaid amounts), missing exemption reasons, mixed outside-scope categories and conflicting grouped exemption reasons. Existing workflows and financial writers are untouched.
+- Isolated AWS KMS signing primitive: accepts an immutable key ARN and the expected certificate public key, verifies secp256k1/key usage/algorithm and exact key matching, hashes caller-supplied canonical SignedInfo once, requests `DIGEST` signing, converts strict DER ECDSA into XMLDSig r||s, and independently verifies every returned signature before returning it. No HTTP endpoint or production import is added.
 
 ## Validation completed
 
 - TypeScript passed.
 - 27 tests passed across XML preparation (16), existing draft calculations (9) and existing CSR signing callback (2).
+- Follow-up: TypeScript and all 51 tests passed, including 24 new signer tests covering independently verified IEEE-P1363 signatures, incompatible keys, certificate-key mismatch, altered content, double hashing, malformed DER, invalid responses and AWS errors. AWS transport is mocked with ephemeral synthetic local EC keys; no live KMS operation or ZATCA acceptance is claimed.
 - Nine generated synthetic documents passed the official OASIS UBL 2.1 Invoice XSD using an independent lxml validator: six document/category combinations, foreign currency, discount and mixed tax categories.
 - These are preparation/schema checks, not ZATCA business-rule, cryptographic-signature or authority acceptance results. ZATCA SDK and sandbox compliance remain required.
 
@@ -22,6 +24,12 @@ Base production: `906495d1`. This branch is preparation work, not a complete Pha
 `buildUnsignedZatcaXml` is not imported by any production route. Its output is labelled `UNSIGNED_PREPARATION`; it contains no signature or issuance QR. It must not be submitted or used to mark a document ISSUED/CLEARED/REPORTED. The current Phase 1 issuing flow is unchanged.
 
 Supported preparation scope follows the existing domestic invoice DTO. Exports, advance-payment adjustments, document charges, self-billing and other special transaction indicators are not implemented. They require explicit models and acceptance tests before support is claimed. Invoice unit codes and exemption identifiers still require ZATCA SDK/business-rule validation.
+
+`createZatcaKmsSigner` is a server-side primitive only. It does not canonicalize XML, validate certificate trust/expiry/revocation, construct XAdES or authorize tenants. Its caller must load the correct unit and certificate under authorization, supply the certificate's SPKI and canonical SignedInfo, and verify references. It must never be exposed as a generic signing endpoint. Its successful result does not mean an invoice is signed or accepted end to end.
+
+## Approved infrastructure direction
+
+Owner approved AWS for signing/key protection on 2026-10-22; account creation is deferred until live tests require it. Keep current application hosting. Use separate QA/production units and tenant/unit-bound signing keys and credential secrets. A protected server-side signing service is the intended hosting-independent boundary; authentication, tenant authorization, replay protection, audit and deployment remain to be implemented and tested. The existing Vercel OIDC onboarding adapter is not yet portable to Hostinger. Never solve that by exposing cloud credentials or private keys in the browser.
 
 ## Remaining implementation and acceptance gates
 
@@ -46,5 +54,7 @@ Supported preparation scope follows the existing domestic invoice DTO. Exports, 
 - ZATCA Security Features Implementation Standards: https://zatca.gov.sa/ar/E-Invoicing/SystemsDevelopers/Documents/20230519_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards_vF.pdf
 - Official validation toolbox: https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/ComplianceEnablementToolbox/Pages/DownloadSDK.aspx
 - OASIS UBL 2.1 XSD distribution: https://docs.oasis-open.org/ubl/os-UBL-2.1/UBL-2.1.zip
+- AWS KMS Sign API (DIGEST semantics and DER response): https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
+- XMLDSig ECDSA signature encoding: https://www.w3.org/TR/xmldsig-core1/#sec-ECDSA
 
 Validation fixtures/schemas and browser/cloud credentials are not committed. No production invoice or schema was changed.
