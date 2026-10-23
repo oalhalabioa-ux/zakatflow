@@ -53,6 +53,8 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const personalFinancings=await all(()=>supabase.from('personal_financings').select('id,kind,side,receivable_id,payable_id').eq('user_id',user.id));
   const links=await all(()=>supabase.from('personal_debt_links').select('record_id,side,party_key,party_name').eq('user_id',user.id));const linked=applyPersonalDebtLinks(result,links);const profiles=await all(()=>supabase.from('personal_debt_parties').select('id,party_key,name').eq('user_id',user.id));const aliases=new Map(profiles.map(p=>[p.party_key,p.name]));result.debts=linked.debts.map(d=>({...d,partyName:aliases.get(d.partyKey)??d.partyName}));result.debtMovements=linked.debtMovements.map(m=>({...m,partyName:aliases.get(m.partyKey)??m.partyName}));
   const advances=new Map(personalFinancings.filter(f=>f.kind==='ADVANCE').map(f=>[f.receivable_id??f.payable_id,f]));
+  const fundedPayables=new Set(personalFinancings.map(f=>f.payable_id).filter(Boolean));
+  result.debts=result.debts.map(d=>({...d,financialLocked:fundedPayables.has(d.id)}));
   result.debts=result.debts.map(d=>advances.has(d.id)?{...d,side:advances.get(d.id).side==='RECEIVABLE'?'SUPPLIER_ADVANCE':'CUSTOMER_ADVANCE'}:d);
   result.debtMovements=result.debtMovements.map(m=>advances.has(m.debtId)?{...m,advance:true,side:advances.get(m.debtId).side==='RECEIVABLE'?'PURCHASE':'SALES',amount:-m.amount}:m);
 
