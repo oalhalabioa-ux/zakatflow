@@ -211,7 +211,7 @@ begin
  if position('CORPORATE_ZAKAT_SOURCE_NAMESPACE_RESERVED' in definition)=0 then
   if position('return private.phase2c_create_financial_event_internal(p_payload)' in definition)=0 then raise exception 'CORPORATE_ZAKAT_CORE_WRAPPER_CHANGED';end if;
   definition:=replace(definition,'return private.phase2c_create_financial_event_internal(p_payload)',
-   'if trim(p_payload->>''source_module'')=''ZAKAT_ASSESSMENT'' and coalesce(current_setting(''app.corporate_zakat'',true),) is distinct from nullif(p_payload->>source_record_id,) then raise exception ''CORPORATE_ZAKAT_SOURCE_NAMESPACE_RESERVED'';end if;return private.phase2c_create_financial_event_internal(p_payload)');
+   $patch$if trim(p_payload->>'source_module')='ZAKAT_ASSESSMENT' and coalesce(current_setting('app.corporate_zakat',true),'') is distinct from nullif(p_payload->>'source_record_id','') then raise exception 'CORPORATE_ZAKAT_SOURCE_NAMESPACE_RESERVED';end if;return private.phase2c_create_financial_event_internal(p_payload)$patch$);
   execute definition;
  end if;
 end $guard$;
