@@ -851,7 +851,7 @@
   .corp-shell.sidebar-mobile-open .corp-sidebar{width:min(300px,calc(100vw - 32px));animation:corp-drawer-enter .2s ease-out}
   .corp-shell.sidebar-mobile-open[dir="rtl"] .corp-sidebar{--drawer-start:100%}
   .corp-shell.sidebar-mobile-open[dir="ltr"] .corp-sidebar{--drawer-start:-100%}
-  .corp-shell.sidebar-mobile-open .sidebar-toggle{display:none}
+  .corp-shell.sidebar-mobile-open .sidebar-toggle{display:none!important}
   .corp-shell .corp-drawer-close{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid currentColor;border-radius:9px;background:transparent;color:inherit;font-size:28px;cursor:pointer}
   .corp-shell .corp-mobile-menu{width:44px;height:44px}
   .corp-shell.sidebar-mobile-open .corp-brand-row{height:auto;min-height:92px;gap:8px;padding-block:max(8px,env(safe-area-inset-top))}
