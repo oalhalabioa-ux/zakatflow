@@ -9,3 +9,8 @@
 .yq-site[lang="en"] .yb-nav nav{direction:ltr}
 .yq-site[lang="en"] .yb-copy .yb-description{font-size:15px;line-height:1.9}
 @media(max-width:760px){.yq-site[lang="en"] .yb-copy h1{font-size:clamp(29px,7.8vw,38px)}.yq-site[lang="en"] .yb-actions{justify-content:flex-start}.yq-site[lang="en"] .yb-copy .yb-description{font-size:14px}}
+
+/* Keep the descriptor attached to the public-site logo, away from the headline. */
+.yb-nav{height:148px}.yb-brand-lockup{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:240px;flex-shrink:0}.yq-site .yb-brand-lockup .yaqeen-tagline{align-items:center;text-align:center;gap:2px;width:100%}.yq-site .yb-brand-lockup .yaqeen-tagline [lang="ar"]{font-size:11px}.yq-site .yb-brand-lockup .yaqeen-tagline [lang="en"]{font-size:10px}.yq-site[lang="ar"] .yb-copy h1{position:relative;left:24px;max-width:calc(100% - 24px)}
+@media(max-width:1150px){.yb-nav{height:130px}.yb-brand-lockup{width:205px}.yq-site .yb-brand-lockup .yaqeen-tagline [lang="ar"]{font-size:10px}.yq-site .yb-brand-lockup .yaqeen-tagline [lang="en"]{font-size:9px}}
+@media(max-width:760px){.yb-nav{height:120px;flex-wrap:nowrap}.yb-brand-lockup{width:175px;gap:3px}.yb-nav nav.open{top:120px}.yq-site .yb-brand-lockup .yaqeen-tagline [lang="ar"]{font-size:9px}.yq-site .yb-brand-lockup .yaqeen-tagline [lang="en"]{font-size:8px}.yq-site[lang="ar"] .yb-copy h1{left:0;max-width:100%}}
