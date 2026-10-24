@@ -6,6 +6,10 @@ on:
       - 'tests/fixtures/zatca-phase2-ledger.sql'
       - 'tests/zatca-ledger-postgres.py'
       - 'lib/zatca*'
+      - 'services/zatca-phase2-access*'
+      - 'services/auth.ts'
+      - 'services/organization-access.ts'
+      - 'lib/supabase/server.ts'
       - 'lib/vat-einvoice-draft*'
       - 'lib/vat-zatca-csr*'
       - 'package.json'
@@ -33,7 +37,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xmlsec1
       - run: npm run typecheck
       - name: Verify prepared signatures and tamper rejection
-        run: npx vitest run lib/zatca-reserved-preparation.test.ts lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
+        run: npx vitest run services/zatca-phase2-access.test.ts lib/zatca-reserved-preparation.test.ts lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
         env:
           ZATCA_NATIVE_XMLSEC: '1'
 
