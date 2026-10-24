@@ -859,8 +859,8 @@
   .corp-shell.sidebar-mobile-open .corp-nav :is(a,button),.corp-shell.sidebar-mobile-open .corp-sidebar-foot a{min-height:44px}
   .corp-shell.sidebar-mobile-open .corp-subnav{padding-inline-start:15px;border-inline-start:1px solid #ffffff12}
   .corp-shell.sidebar-mobile-open .corp-sidebar-foot{padding-bottom:max(16px,env(safe-area-inset-bottom))}
-  .corp-shell.theme-yaqeen-business.sidebar-mobile-open .corp-mark{width:145px!important;height:78px!important}
-  .corp-shell.theme-yaqeen-business.sidebar-mobile-open .corp-mark>.yaqeen-brand-art{display:inline-flex!important;width:145px!important;height:78px!important}
+  .corp-shell.theme-yaqeen-business.sidebar-mobile-open .corp-sidebar .corp-mark{width:145px!important;height:78px!important}
+  .corp-shell.theme-yaqeen-business.sidebar-mobile-open .corp-sidebar .corp-mark>.yaqeen-brand-art{display:inline-flex!important;width:145px!important;height:78px!important}
   .corp-shell.theme-yaqeen-business.sidebar-mobile-open .corp-brand .corp-label{display:none!important}
   .corp-shell.theme-yaqeen-business.sidebar-mobile-open .collapsed-sidebar-brand{display:none!important}
   .corp-drawer-close:focus-visible,.corp-mobile-menu:focus-visible{outline:3px solid #c5a15a;outline-offset:2px}
