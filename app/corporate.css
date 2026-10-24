@@ -886,7 +886,7 @@
   .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .corp-label,
   .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-nav .corp-label,
   .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-sidebar-foot .corp-label{display:none!important}
-  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .corp-mark{width:40px!important;height:44px!important;display:grid!important;place-items:center}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .corp-mark{width:40px!important;height:44px!important;border:0!important;background:none!important;box-shadow:none!important;padding:0!important;transform:none!important;display:grid!important;place-items:center}
   .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .corp-mark>.yaqeen-brand-art{display:none!important}
   .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .collapsed-sidebar-brand{display:block!important;width:40px;height:44px}
   .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-nav{padding:12px 8px}
