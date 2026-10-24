@@ -28,3 +28,20 @@ it('returns identical corporate debts and statements without reading asset valua
 
 it('includes recursive descendants without including unrelated companies',async()=>{fixtures.organizations=[{id:org,name:'Parent',base_currency:'SAR',organization_kind:'HOLDING'},{id:'child',name:'Child',base_currency:'SAR',parent_organization_id:org},{id:'grandchild',name:'Grandchild',base_currency:'SAR',parent_organization_id:'child'},{id:'other',name:'Other',base_currency:'SAR'}];const r=await financialRegister('ORGANIZATION',org,true);expect(r.organizationIds).toEqual([org,'child','grandchild']);expect(mocks.member.mock.calls.map(c=>c[2])).toEqual([org,'child','grandchild']);});
 it('denies recursive group reads before reading balances if a grandchild is inaccessible',async()=>{fixtures.organizations=[{id:org,name:'Parent',base_currency:'SAR',organization_kind:'HOLDING'},{id:'child',name:'Child',parent_organization_id:org},{id:'grandchild',name:'Grandchild',parent_organization_id:'child'}];mocks.member.mockImplementation(async(_s,_u,id)=>{if(id==='grandchild')throw Error('denied')});await expect(financialRegister('ORGANIZATION',org,true)).rejects.toThrow('GROUP_MEMBER_ACCESS_REQUIRED');expect(reads).not.toContain('liquidity_accounts');});
+it('retains saved classification through the register and both corporate dashboard presentations',async()=>{
+ const {organizationAssetDashboard}=await import('../lib/organization-assets-dashboard');
+ const {corporateAssetCategory,corporateAssetPresentation}=await import('../lib/corporate-asset-presentation');
+ const kinds=[['OTHER','PPE','MACHINERY'],['REAL_ESTATE','PPE','BUILDING'],['OTHER','INTANGIBLE','SOFTWARE'],['REAL_ESTATE','INVESTMENT','INVESTMENT_LAND'],['OTHER','OTHER','OTHER_ASSET']];
+ fixtures.asset_accounts=kinds.map(([asset_type,asset_class_code,asset_type_code],i)=>({id:'asset-'+i,name:asset_type_code,user_id:'actor',organization_id:org,ownership_scope:'ORGANIZATION',status:'ACTIVE',asset_type,asset_class_code,asset_type_code,currency:'SAR',metadata:{acquisition_mode:'OPENING_BALANCE'}}));
+ fixtures.lots=kinds.map((_,i)=>({id:'lot-'+i,asset_account_id:'asset-'+i,original_quantity:1,remaining_quantity:1,remaining_value_base:100}));
+ const before=JSON.stringify(fixtures.asset_accounts);
+ const result=await financialRegister('ORGANIZATION',org,false);
+ expect(result.assets[0]).toMatchObject({type:'OTHER',assetClassCode:'PPE',assetTypeCode:'MACHINERY'});
+ const [summary]=organizationAssetDashboard(result);
+ expect(summary).toMatchObject({fixed:200,intangible:100,investment:100,other:100,totalCost:500,totalMarket:500});
+ expect(result.assets.map(corporateAssetCategory)).toEqual(['fixed','fixed','intangible','investment','other']);
+ const view=corporateAssetPresentation(summary);
+ expect(view.categories.find(c=>c.key==='fixed')).toMatchObject({cost:200,market:200});
+ expect(view.categories.find(c=>c.key==='other')).toMatchObject({cost:100,market:100});
+ expect(JSON.stringify(fixtures.asset_accounts)).toBe(before);
+});

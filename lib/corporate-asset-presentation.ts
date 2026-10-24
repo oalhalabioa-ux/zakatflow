@@ -1,12 +1,12 @@
 import Decimal from 'decimal.js';
-import {platformAssetCategory} from './platform-asset-summary';
+import {organizationAssetCategory} from './organization-assets-dashboard';
 import type {RegisterAsset} from './financial-register';
 import type {organizationAssetDashboard} from './organization-assets-dashboard';
 export type CorporateAssetSummary=ReturnType<typeof organizationAssetDashboard>[number];
 export const corporateAssetCategories=['current','fixed','intangible','investment','other'] as const;
 export type CorporateAssetCategory=typeof corporateAssetCategories[number];
 export function corporateAssetCategory(asset:RegisterAsset):CorporateAssetCategory {
- return asset.category==='INVESTMENT'?'investment':platformAssetCategory({asset_type:asset.type});
+ return organizationAssetCategory(asset);
 }
 /** Present the existing currency summary; operational balances enter only the current category. */
 export function corporateAssetPresentation(summary:CorporateAssetSummary){

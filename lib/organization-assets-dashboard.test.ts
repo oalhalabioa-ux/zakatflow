@@ -9,3 +9,7 @@ it('groups corporate assets and uses operational balances instead of legacy dupl
 });
 it('never combines values in different currencies',()=>{const rows=organizationAssetDashboard(data({assets:[asset('LAND',10,12,'ASSET','SAR'),asset('LAND',20,23,'ASSET','USD')]}));expect(rows.map(s=>[s.currency,s.totalCost])).toEqual([['SAR',10],['USD',20]]);});
 it('keeps uncategorized assets under other and empty verified data at zero',()=>{expect(organizationAssetDashboard(data({assets:[asset('UNKNOWN',7,8)]}))[0].other).toBe(7);expect(organizationAssetDashboard(data({}))[0].totalCost).toBe(0);});
+it('prefers saved classes and detailed types over legacy OTHER while retaining legacy fallback',()=>{
+ const [s]=organizationAssetDashboard(data({assets:[{...asset('OTHER',30,35),assetClassCode:'INTANGIBLE',assetTypeCode:'SOFTWARE'},{...asset('REAL_ESTATE',100,120),assetClassCode:'PPE',assetTypeCode:'BUILDING'},asset('MACHINERY',50,60),asset('UNKNOWN',7,8)]}));
+ expect(s).toMatchObject({intangible:30,fixed:150,other:7,totalCost:187,totalMarket:223});
+});
