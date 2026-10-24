@@ -47,6 +47,10 @@ class Permissions(unittest.TestCase):
 
     def test_default_explicit_role_grants_are_revoked_not_just_public(self):
         for role in ['anon','authenticated','service_role']:
+            self.assertEqual(query('select has_function_privilege('+sql(role)+",'zatca_preparation.finalize_saved(uuid,text,uuid,uuid,text,text,text)','EXECUTE')"),'f')
+            for table in ['reservation_config','finalization_audit']:
+                self.assertEqual(query('select has_table_privilege('+sql(role)+",'zatca_preparation."+table+"','SELECT')"),'f')
+                self.assertEqual(query('select has_table_privilege('+sql(role)+",'zatca_preparation."+table+"','TRUNCATE')"),'f')
             for privilege in ['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']:
                 self.assertEqual(query('select has_table_privilege('+sql(role)+",'zatca_preparation.entries',"+sql(privilege)+')'),'f')
             self.assertEqual(query('select has_function_privilege('+sql(role)+",'zatca_preparation.reserve_saved(uuid,uuid,text,jsonb)','EXECUTE')"),'f')
@@ -77,7 +81,7 @@ if __name__=='__main__':
     end $$;
     grant usage on schema public,auth to authenticated;
     grant execute on function auth.uid() to authenticated;
-    create function public.has_organization_permission(p_org uuid,p_permission text) returns boolean
+    create or replace function public.has_organization_permission(p_org uuid,p_permission text) returns boolean
     language sql stable security definer set search_path=pg_catalog as $$
       select case when p_org is null then null else exists(select 1 from public.organization_members
         where organization_id=p_org and user_id=auth.uid() and role in ('OWNER','ADMIN') and status='ACTIVE') end

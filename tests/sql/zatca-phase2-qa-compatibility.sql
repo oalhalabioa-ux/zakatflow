@@ -8,7 +8,8 @@ declare
   actor uuid; org uuid:=gen_random_uuid(); connection uuid:=gen_random_uuid();
   frozen uuid:=gen_random_uuid(); editable uuid:=gen_random_uuid(); invoice_uuid uuid:=gen_random_uuid();
   header jsonb; draft jsonb; lines jsonb; amounts jsonb; totals jsonb; context jsonb; expected jsonb;
-  reserved zatca_preparation.entries; reason text; changed bigint; tests integer:=0; row_id uuid;
+  reserved zatca_preparation.entries; prepared zatca_preparation.entries; repeated zatca_preparation.entries;
+  artifact text:='<synthetic-QA-storage-payload/>'; artifact_hash text; reason text; changed bigint; tests integer:=0; row_id uuid;
 begin
   select user_id into actor from public.organization_members where role='OWNER' and status='ACTIVE' order by created_at limit 1;
   if actor is null then raise exception 'QA_EXISTING_OWNER_REQUIRED'; end if;
@@ -62,7 +63,11 @@ begin
     or has_table_privilege('authenticated','zatca_preparation.entries','UPDATE')
     or has_table_privilege('authenticated','zatca_preparation.entries','TRUNCATE')
     or has_function_privilege('authenticated','zatca_preparation.reserve_saved(uuid,uuid,text,jsonb)','EXECUTE')
-    or has_function_privilege('anon','zatca_preparation.source_is_frozen(uuid,uuid)','EXECUTE') then raise exception 'QA_PRIVATE_GRANTS_UNSAFE'; end if; tests:=tests+1;
+    or has_function_privilege('anon','zatca_preparation.source_is_frozen(uuid,uuid)','EXECUTE')
+    or has_function_privilege('authenticated','zatca_preparation.finalize_saved(uuid,text,uuid,uuid,text,text,text)','EXECUTE')
+    or has_table_privilege('authenticated','zatca_preparation.reservation_config','SELECT')
+    or has_table_privilege('authenticated','zatca_preparation.finalization_audit','SELECT')
+    or has_table_privilege('authenticated','zatca_preparation.finalization_audit','TRUNCATE') then raise exception 'QA_PRIVATE_GRANTS_UNSAFE'; end if; tests:=tests+1;
   reset role;
   reserved:=zatca_preparation.reserve_saved(org,frozen,'SIMULATION',expected); tests:=tests+1;
   set local role authenticated;
@@ -80,6 +85,50 @@ begin
   perform public.issue_vat_einvoice(editable); tests:=tests+1;
   if not exists(select 1 from public.vat_einvoices where id=editable and status='ISSUED') then raise exception 'QA_UNRESERVED_ISSUE_FAILED'; end if;
 
+  -- Private backend stand-in: storage payload is deliberately NOT signed UBL.
+  -- Actual cryptographic binding is verified separately by native XMLSec tests.
+  reset role;
+  artifact_hash:=encode(sha256(convert_to(artifact,'UTF8')),'base64');
+  begin
+    update public.organization_members set status='INACTIVE' where organization_id=org and user_id=actor;
+    perform zatca_preparation.finalize_saved(org,'SIMULATION',connection,reserved.reservation_id,reserved.snapshot_digest,artifact_hash,artifact);
+    reason:='NOT_BLOCKED';
+  exception when others then reason:=sqlerrm; end;
+  if reason<>'ORGANIZATION_ADMIN_REQUIRED' then raise exception 'QA_FINALIZATION_REVOCATION_GUARD:%',reason; end if; tests:=tests+1;
+  begin
+    update public.vat_einvoice_connections set kms_key_arn='QA_ONLY_CHANGED_KEY_REFERENCE' where id=connection;
+    perform zatca_preparation.finalize_saved(org,'SIMULATION',connection,reserved.reservation_id,reserved.snapshot_digest,artifact_hash,artifact);
+    reason:='NOT_BLOCKED';
+  exception when others then reason:=sqlerrm; end;
+  if reason<>'UNIT_CONFIGURATION_CHANGED' then raise exception 'QA_FINALIZATION_CONFIG_GUARD:%',reason; end if; tests:=tests+1;
+  begin
+    perform zatca_preparation.finalize_saved(org,'SIMULATION',connection,reserved.reservation_id,repeat('0',64),artifact_hash,artifact);
+    reason:='NOT_BLOCKED';
+  exception when others then reason:=sqlerrm; end;
+  if reason<>'SNAPSHOT_DIGEST_MISMATCH' then raise exception 'QA_FINALIZATION_DIGEST_GUARD:%',reason; end if;
+  if exists(select 1 from zatca_preparation.finalization_audit where reservation_id=reserved.reservation_id) then raise exception 'QA_DENIED_FINALIZATION_CREATED_AUDIT'; end if; tests:=tests+1;
+  prepared:=zatca_preparation.finalize_saved(org,'SIMULATION',connection,reserved.reservation_id,reserved.snapshot_digest,artifact_hash,artifact);
+  if prepared.state<>'PREPARED' or not exists(select 1 from public.vat_einvoices where id=frozen and status='DRAFT')
+    or not exists(select 1 from zatca_preparation.finalization_audit where reservation_id=reserved.reservation_id and actor_id=actor)
+    then raise exception 'QA_PREPARATION_STATE_OR_AUDIT_WRONG'; end if; tests:=tests+1;
+  repeated:=zatca_preparation.finalize_saved(org,'SIMULATION',connection,reserved.reservation_id,reserved.snapshot_digest,artifact_hash,artifact);
+  if to_jsonb(repeated) is distinct from to_jsonb(prepared)
+    or (select count(*) from zatca_preparation.finalization_audit where reservation_id=reserved.reservation_id)<>1
+    or (select last_counter from zatca_preparation.units where unit_id=connection)<>1 then raise exception 'QA_FINALIZATION_RETRY_DUPLICATED'; end if; tests:=tests+1;
+  begin
+    update zatca_preparation.finalization_audit set actor_id=gen_random_uuid() where reservation_id=reserved.reservation_id;
+    reason:='NOT_BLOCKED';
+  exception when others then reason:=sqlerrm; end;
+  if reason<>'PREPARATION_PROVENANCE_IMMUTABLE' then raise exception 'QA_FINALIZATION_AUDIT_MUTABLE:%',reason; end if; tests:=tests+1;
+  begin
+    update zatca_preparation.reservation_config set connection_stamp=repeat('0',64) where reservation_id=reserved.reservation_id;
+    reason:='NOT_BLOCKED';
+  exception when others then reason:=sqlerrm; end;
+  if reason<>'PREPARATION_PROVENANCE_IMMUTABLE' then raise exception 'QA_RESERVATION_CONFIG_MUTABLE:%',reason; end if; tests:=tests+1;
+  set local role authenticated;
+  begin perform public.issue_vat_einvoice(frozen); reason:='NOT_BLOCKED'; exception when others then reason:=sqlerrm; end;
+  if reason<>'EINVOICE_SOURCE_FROZEN' then raise exception 'QA_PREPARED_SOURCE_ISSUE_BYPASS:%',reason; end if; tests:=tests+1;
+
   perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
   perform set_config('request.jwt.claims',jsonb_build_object('sub',auth.uid(),'role','authenticated')::text,true);
   if exists(select 1 from public.vat_einvoices where organization_id=org)
@@ -94,6 +143,6 @@ begin
     or exists(select 1 from public.vat_documents where organization_id=org) then raise exception 'QA_UNEXPECTED_FINANCIAL_WRITE'; end if; tests:=tests+1;
   perform set_config('qa.phase2.compatibility',jsonb_build_object('passed',tests,'actual_rls',true,
     'frozen_edit_denied',true,'unreserved_amend_and_issue',true,'definer_issue_blocked',true,
-    'private_ledger_inaccessible',true,'outsider_isolated',true,'no_financial_projection',true,'rollback',true)::text,true);
+    'private_ledger_inaccessible',true,'fresh_finalization_authorization',true,'prepared_state_only',true,'single_finalization_audit',true,'outsider_isolated',true,'no_financial_projection',true,'rollback',true)::text,true);
 end $test$;
 select current_setting('qa.phase2.compatibility')::jsonb as test_result;

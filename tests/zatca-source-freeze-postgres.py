@@ -2,6 +2,8 @@
 Run after zatca-ledger-postgres.py on the SAME new disposable database.
 """
 from concurrent.futures import ThreadPoolExecutor
+import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -59,6 +61,20 @@ class SourceFreeze(unittest.TestCase):
     def reserve(self, snapshot=None):
         args=[self.org,self.doc,'SIMULATION',json.dumps(self.snapshot if snapshot is None else snapshot)]
         return 'select row_to_json(r) from zatca_preparation.reserve_saved('+','.join(map(sql,args))+') r;'
+
+    def reserved(self):
+        return json.loads(query(self.auth()+self.reserve()).splitlines()[-1])
+
+    def finalize(self,e,payload='<synthetic-storage-artifact/>',digest=None):
+        args=[self.org,'SIMULATION',self.connection,e['reservation_id'],digest or e['snapshot_digest'],
+          base64.b64encode(hashlib.sha256(payload.encode()).digest()).decode(),payload]
+        return 'select row_to_json(r) from zatca_preparation.finalize_saved('+','.join(map(sql,args))+') r;'
+
+    def audit_count(self):
+        return query('select count(*) from zatca_preparation.finalization_audit where reservation_id in(select reservation_id from zatca_preparation.entries where document_id='+sql(self.doc)+')')
+
+    def head(self):
+        return query('select last_counter from zatca_preparation.units where unit_id='+sql(self.connection))
 
     def frozen(self):
         return query('select count(*) from zatca_preparation.entries where document_id='+sql(self.doc))
@@ -203,6 +219,95 @@ class SourceFreeze(unittest.TestCase):
             query("update public.organization_members set status='INACTIVE' where user_id="+sql(self.actor));reserve.result()
         query(self.auth()+self.reserve(),'ORGANIZATION_ADMIN_REQUIRED')
         self.assertEqual(self.frozen(),'1')
+
+    def test_authorized_finalization_preserves_source_and_records_exactly_one_actor(self):
+        e=self.reserved(); a=json.loads(query(self.auth()+self.finalize(e)).splitlines()[-1])
+        b=json.loads(query(self.auth()+self.finalize(e)).splitlines()[-1])
+        self.assertEqual(a,b);self.assertEqual(a['state'],'PREPARED');self.assertEqual(self.head(),'1')
+        self.assertEqual(self.audit_count(),'1')
+        self.assertEqual(query('select actor_id from zatca_preparation.finalization_audit where reservation_id='+sql(e['reservation_id'])),self.actor)
+        self.assertEqual(query('select status from public.vat_einvoices where id='+sql(self.doc)),'DRAFT')
+        query("update public.vat_einvoices set status='ISSUED' where id="+sql(self.doc),'EINVOICE_SOURCE_FROZEN')
+
+    def test_finalization_requires_fresh_subject_and_membership(self):
+        e=self.reserved();query(self.finalize(e),'UNAUTHORIZED')
+        query("update public.organization_members set status='INACTIVE' where user_id="+sql(self.actor))
+        query(self.auth()+self.finalize(e),'ORGANIZATION_ADMIN_REQUIRED')
+        self.assertEqual(self.audit_count(),'0');self.assertEqual(self.head(),'0')
+
+    def test_finalization_rechecks_connection_references_and_readiness(self):
+        e=self.reserved()
+        for field,value,error in [('kms_key_arn','QA_ROTATED_KEY','UNIT_CONFIGURATION_CHANGED'),
+          ('credentials_secret_arn','QA_ROTATED_SECRET','UNIT_CONFIGURATION_CHANGED'),
+          ('egs_serial_number','QA_CHANGED_EGS','UNIT_CONFIGURATION_CHANGED'),
+          ('status','ERROR','EINVOICE_CONNECTION_NOT_READY'),('taxpayer_vat_number','399999999999993','SELLER_VAT_MISMATCH')]:
+            query('begin;update public.vat_einvoice_connections set '+field+'='+sql(value)+' where id='+sql(self.connection)+';'+self.auth()+self.finalize(e),error)
+        self.assertEqual(self.audit_count(),'0');self.assertEqual(self.head(),'0')
+
+    def test_finalization_scope_cannot_cross_company_unit_or_environment(self):
+        e=self.reserved();statement=self.finalize(e)
+        query(self.auth()+statement.replace(sql(self.org),sql(str(uuid.uuid4())),1),'ORGANIZATION_ADMIN_REQUIRED')
+        for old,new in [(sql(self.connection),sql(str(uuid.uuid4()))),(sql(e['reservation_id']),sql(str(uuid.uuid4()))),("'SIMULATION'","'PRODUCTION'")]:
+            query(self.auth()+statement.replace(old,new,1),'RESERVATION_NOT_FOUND')
+        self.assertEqual(self.audit_count(),'0');self.assertEqual(self.head(),'0')
+
+    def test_finalization_checks_explicit_issue_permission(self):
+        e=self.reserved()
+        query("begin;create or replace function public.has_organization_permission(p_org uuid,p_permission text) returns boolean language sql stable as $$ select false $$;"+self.auth()+self.finalize(e),'VAT_ISSUE_FORBIDDEN')
+        self.assertEqual(self.audit_count(),'0');self.assertEqual(self.head(),'0')
+
+    def test_finalization_rejects_missing_original_connection_provenance(self):
+        args=[self.org,'SIMULATION',self.connection,self.doc,self.invoice,json.dumps(self.snapshot)]
+        e=json.loads(query('select row_to_json(r) from zatca_preparation.reserve('+','.join(map(sql,args))+') r'))
+        query(self.auth()+self.finalize(e),'RESERVATION_CONFIG_REQUIRED')
+        self.assertEqual(self.audit_count(),'0');self.assertEqual(self.head(),'0')
+
+    def test_finalization_refuses_prepared_artifact_without_atomic_audit(self):
+        e=self.reserved();query(self.finalize(e).replace('finalize_saved(', 'finalize('))
+        query(self.auth()+self.finalize(e),'FINALIZATION_AUDIT_REQUIRED')
+        self.assertEqual(self.audit_count(),'0');self.assertEqual(self.head(),'1')
+
+    def test_finalization_mismatch_does_not_create_audit_or_rewrite_artifact(self):
+        e=self.reserved();query(self.auth()+self.finalize(e,digest='0'*64),'SNAPSHOT_DIGEST_MISMATCH')
+        self.assertEqual(self.audit_count(),'0')
+        query(self.auth()+self.finalize(e))
+        query(self.auth()+self.finalize(e,payload='<different/>'),'PREPARED_ARTIFACT_CONFLICT')
+        self.assertEqual(self.audit_count(),'1');self.assertEqual(self.head(),'1')
+
+    def test_provenance_and_finalization_audit_are_immutable(self):
+        e=self.reserved();query(self.auth()+self.finalize(e))
+        for table in ['reservation_config','finalization_audit']:
+            query('delete from zatca_preparation.'+table+' where reservation_id='+sql(e['reservation_id']),'PREPARATION_PROVENANCE_IMMUTABLE')
+            column='connection_stamp'
+            query('update zatca_preparation.'+table+' set '+column+"='FORGED' where reservation_id="+sql(e['reservation_id']),'PREPARATION_PROVENANCE_IMMUTABLE')
+
+    def test_conflicting_audit_rolls_back_artifact_and_head(self):
+        e=self.reserved()
+        insert='insert into zatca_preparation.finalization_audit values('+','.join(map(sql,[e['reservation_id'],self.actor,'bad','bad','bad']))+',now());'
+        query('begin;'+insert+self.auth()+self.finalize(e),'FINALIZATION_AUDIT_CONFLICT')
+        self.assertEqual(self.audit_count(),'0');self.assertEqual(self.head(),'0')
+        self.assertEqual(self.reserved()['state'],'RESERVED')
+
+    def test_twelve_concurrent_finalizers_record_one_audit_and_head(self):
+        e=self.reserved()
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            results=list(pool.map(lambda _:query(self.auth()+self.finalize(e)),range(12)))
+        self.assertEqual(len(set(results)),1);self.assertEqual(self.audit_count(),'1');self.assertEqual(self.head(),'1')
+
+    def test_revocation_before_finalization_denies_stale_worker(self):
+        e=self.reserved();app='qa-finalize-revoke-'+self.doc
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            revoke=pool.submit(query,'set application_name='+sql(app)+";begin;update public.organization_members set status='INACTIVE' where user_id="+sql(self.actor)+';select pg_sleep(0.8);commit;')
+            self.wait_lock(app);query(self.auth()+self.finalize(e),'ORGANIZATION_ADMIN_REQUIRED');revoke.result()
+        self.assertEqual(self.audit_count(),'0');self.assertEqual(self.head(),'0')
+
+    def test_revocation_after_finalization_lock_applies_before_retry(self):
+        e=self.reserved();app='qa-finalize-held-'+self.doc
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            finalize=pool.submit(query,'set application_name='+sql(app)+';begin;'+self.auth()+self.finalize(e)+'select pg_sleep(0.8);commit;')
+            self.wait_lock(app);query("update public.organization_members set status='INACTIVE' where user_id="+sql(self.actor));finalize.result()
+        query(self.auth()+self.finalize(e),'ORGANIZATION_ADMIN_REQUIRED')
+        self.assertEqual(self.audit_count(),'1');self.assertEqual(self.head(),'1')
 
 
 if __name__=='__main__':

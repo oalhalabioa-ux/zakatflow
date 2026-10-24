@@ -240,8 +240,10 @@ it.runIf(process.env.ZATCA_SOURCE_FREEZE_QA === '1')('signs the exact atomically
   const artifact = await prepareReservedZatcaArtifact(reservation, scope, { ...options, includeSimplifiedQr: true }, signer);
   const verified = nativeVerify(artifact.xml); expect(verified.status, verified.stderr).toBe(0);
   const a = artifact.finalizeArguments;
-  const saved = JSON.parse(query('select row_to_json(r) from zatca_preparation.finalize(' + [a.p_org, a.p_environment, a.p_unit, a.p_reservation, a.p_snapshot_digest, a.p_invoice_hash, a.p_prepared_xml].map(q).join(',') + ') r'));
+  const saved = JSON.parse(query("select set_config('request.jwt.claim.sub'," + q(actor) + ",false);select row_to_json(r) from zatca_preparation.finalize_saved(" + [a.p_org, a.p_environment, a.p_unit, a.p_reservation, a.p_snapshot_digest, a.p_invoice_hash, a.p_prepared_xml].map(q).join(',') + ') r').split('\n').at(-1)!);
   expect(saved.state).toBe('PREPARED'); expect(saved.prepared_xml).toBe(artifact.xml);
+  expect(query('select actor_id from zatca_preparation.finalization_audit where reservation_id=' + q(reservation.reservation_id))).toBe(actor);
+  expect(query('select count(*) from zatca_preparation.finalization_audit where reservation_id=' + q(reservation.reservation_id))).toBe('1');
   expect(() => query("update public.vat_einvoices set status='ISSUED' where id=" + q(scope.documentId))).toThrow('EINVOICE_SOURCE_FROZEN');
   expect(() => query('update public.vat_einvoice_lines set unit_price=999 where invoice_id=' + q(scope.documentId))).toThrow('EINVOICE_SOURCE_FROZEN');
 });
