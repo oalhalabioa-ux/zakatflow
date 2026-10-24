@@ -852,7 +852,16 @@
   .corp-shell.sidebar-mobile-open[dir="rtl"] .corp-sidebar{--drawer-start:100%}
   .corp-shell.sidebar-mobile-open[dir="ltr"] .corp-sidebar{--drawer-start:-100%}
   .corp-shell.sidebar-mobile-open .sidebar-toggle{display:none!important}
-  .corp-shell .corp-drawer-close{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid currentColor;border-radius:9px;background:transparent;color:inherit;font-size:28px;cursor:pointer}
+  .corp-shell .corp-drawer-close{position:relative;isolation:isolate;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:0;border-radius:9px;background:transparent;color:#fff;cursor:pointer}
+  .corp-shell .corp-drawer-close::before{content:"";position:absolute;inset:6px;z-index:-1;border-radius:8px;background:#08756b;transition:filter .16s ease}
+  .corp-shell .corp-drawer-close:hover::before{filter:brightness(1.08)}
+  .corp-shell .corp-drawer-close svg{width:18px;height:18px}
+  .corp-shell[dir="ltr"] .corp-drawer-close svg{transform:rotate(180deg)}
+  .corp-shell.theme-modern .corp-drawer-close::before{background:#4355c7}
+  .corp-shell.theme-elegant .corp-drawer-close{color:#07563f}
+  .corp-shell.theme-elegant .corp-drawer-close::before{background:#eef5f0}
+  .corp-shell.theme-yaqeen-business .corp-drawer-close{color:#0f2d4a}
+  .corp-shell.theme-yaqeen-business .corp-drawer-close::before{background:#c5a15a}
   .corp-shell .corp-mobile-menu{width:44px;height:44px}
   .corp-shell.sidebar-mobile-open .corp-brand-row{height:auto;min-height:92px;gap:8px;padding-block:max(8px,env(safe-area-inset-top))}
   .corp-shell.sidebar-mobile-open .corp-nav{flex:1;overflow-y:auto;overflow-x:hidden}
@@ -867,3 +876,23 @@
 }
 @keyframes corp-drawer-enter{from{transform:translateX(var(--drawer-start,100%));opacity:.7}to{transform:translateX(0);opacity:1}}
 @media(prefers-reduced-motion:reduce){.corp-shell .corp-sidebar,.corp-shell .corp-workspace{transition:none}.corp-shell.sidebar-mobile-open .corp-sidebar{animation:none}}
+
+/* The first mobile tap reveals the same icon rail used on desktop. */
+@media(max-width:1000px){
+  .corp-shell.sidebar-mobile-rail .corp-sidebar{width:72px}
+  .corp-shell.theme-modern.sidebar-mobile-rail .corp-sidebar{width:86px}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand-row{flex-direction:column;justify-content:center;gap:0;padding:8px 7px;min-height:112px}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand{justify-content:center;padding:4px 0;flex:none}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .corp-label,
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-nav .corp-label,
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-sidebar-foot .corp-label{display:none!important}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .corp-mark{width:40px!important;height:44px!important;border:0!important;background:none!important;box-shadow:none!important;padding:0!important;transform:none!important;display:grid!important;place-items:center}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .corp-mark>.yaqeen-brand-art{display:none!important}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-brand .collapsed-sidebar-brand{display:block!important;width:40px;height:44px}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-nav{padding:12px 8px}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-nav :is(a,button),
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-sidebar-foot a{justify-content:center;padding:10px 0;gap:0}
+  .corp-shell.sidebar-mobile-rail .corp-sidebar .corp-subnav{padding:0;border:0}
+  .corp-shell.sidebar-mobile-rail[dir="rtl"] .corp-drawer-close svg{transform:rotate(180deg)}
+  .corp-shell.sidebar-mobile-rail[dir="ltr"] .corp-drawer-close svg{transform:none}
+}
