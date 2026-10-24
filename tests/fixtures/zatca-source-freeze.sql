@@ -13,6 +13,13 @@ language sql immutable security invoker set search_path=pg_catalog as $$
   select coalesce(jsonb_object_agg(key,value),'{}'::jsonb) from jsonb_each(value) where key=any(fields)
 $$;
 
+-- Owner-only default lookup. The separately reviewed QA permission adapter can
+-- replace only this boolean primitive, without exposing the ledger to app roles.
+create function zatca_preparation.source_is_frozen(p_org uuid,p_invoice uuid) returns boolean
+language sql volatile security invoker set search_path=pg_catalog as $$
+select exists(select 1 from zatca_preparation.entries where organization_id=p_org and document_id=p_invoice)
+$$;
+
 create function zatca_preparation.guard_source() returns trigger
 language plpgsql security invoker set search_path=pg_catalog as $$
 declare ids uuid[]; parent_id uuid; org uuid;
@@ -28,7 +35,7 @@ begin
   -- Sorting both parents also protects moving a line between invoices.
   for parent_id in select distinct x from unnest(ids) x order by x loop
     select organization_id into org from public.vat_einvoices where id=parent_id for update;
-    if exists(select 1 from zatca_preparation.entries where organization_id=org and document_id=parent_id) then
+    if zatca_preparation.source_is_frozen(org,parent_id) then
       raise exception 'EINVOICE_SOURCE_FROZEN';
     end if;
     if tg_table_name<>'vat_einvoices' then

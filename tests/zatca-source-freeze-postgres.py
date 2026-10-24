@@ -43,7 +43,7 @@ class SourceFreeze(unittest.TestCase):
         self.ctx=dict(supplyDate='2026-10-24',sellerId=dict(scheme='CRN',value='1010000000'),paymentMeansCode='30')
         header={**self.draft,**self.totals,'id':self.doc,'invoice_uuid':self.invoice,'status':'DRAFT','updated_at':'2026-10-24T00:00:00Z'}
         line={**self.line,**self.amounts,'id':str(uuid.uuid4()),'invoice_id':self.doc}
-        query('insert into public.organization_members values('+','.join(map(sql,[self.org,self.actor,'ADMIN','ACTIVE']))+');'+
+        query(self.auth()+'insert into public.organization_members values('+','.join(map(sql,[self.org,self.actor,'ADMIN','ACTIVE']))+');'+
           'insert into public.vat_einvoice_connections values('+','.join(map(sql,[self.connection,self.org,'SIMULATION','COMPLIANCE_PASSED','312345678901233','TEST-EGS','1100']))+');'+
           'insert into public.vat_einvoices select * from jsonb_populate_record(null::public.vat_einvoices,'+sql(json.dumps(header))+');'+
           'insert into public.vat_einvoice_lines select * from jsonb_populate_record(null::public.vat_einvoice_lines,'+sql(json.dumps(line))+');'+
