@@ -848,7 +848,7 @@
 @media(max-width:1000px){
   .corp-shell .corp-sidebar{display:none;height:100dvh}
   .corp-shell .corp-workspace{margin-inline-start:0!important;min-width:0}
-  .corp-shell.sidebar-mobile-open .corp-sidebar{width:min(300px,calc(100vw - 32px));animation:corp-drawer-enter .2s ease-out}
+  .corp-shell.sidebar-mobile-open .corp-sidebar{width:max-content;max-width:calc(100vw - 32px);animation:corp-drawer-enter .2s ease-out}
   .corp-shell.sidebar-mobile-open[dir="rtl"] .corp-sidebar{--drawer-start:100%}
   .corp-shell.sidebar-mobile-open[dir="ltr"] .corp-sidebar{--drawer-start:-100%}
   .corp-shell.sidebar-mobile-open .sidebar-toggle{display:none!important}
