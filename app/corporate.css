@@ -512,7 +512,7 @@
 .theme-modern.sidebar-collapsed .corp-sidebar .corp-label,.theme-modern.sidebar-collapsed .corp-sidebar .module-toggle b{display:none}
 .theme-modern.sidebar-collapsed .corp-nav a,.theme-modern.sidebar-collapsed .corp-nav button,.theme-modern.sidebar-collapsed .corp-sidebar-foot a{justify-content:center}
 .corp-mobile-menu,.corp-mobile-backdrop{display:none}
-@media(max-width:700px){
+@media(max-width:1000px){
   .corp-mobile-menu{display:grid;place-items:center;width:38px;height:38px;flex:none;border:1px solid var(--corp-border);border-radius:9px;background:#fff;color:var(--corp-text);font-size:20px;cursor:pointer}
   .corp-shell.sidebar-mobile-open .corp-sidebar{display:flex;position:fixed;inset-block:0;inset-inline-start:0;inset-inline-end:auto;width:min(270px,calc(100vw - 24px));max-width:100vw;box-sizing:border-box;overflow-x:hidden;z-index:61;box-shadow:0 0 0 1px #17283a12,14px 0 36px #17283a30}
   .corp-shell.sidebar-mobile-open .corp-sidebar,.corp-shell.sidebar-mobile-open .corp-sidebar *{box-sizing:border-box}
@@ -840,3 +840,30 @@
 
 .corp-navigation-progress{position:fixed;top:65px;inset-inline-end:16px;z-index:190;display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--brand-border);border-radius:9px;background:var(--brand-surface);color:var(--brand-primary);box-shadow:var(--brand-shadow);font-size:12px}.corp-navigation-progress>span{width:13px;height:13px;border:2px solid var(--brand-border);border-top-color:var(--brand-primary);border-radius:50%;animation:corp-scope-spin .7s linear infinite}.corp-shell:has(.corp-navigation-progress) .corp-content{opacity:.45;pointer-events:none}.corp-shell .corp-organization-controls button:disabled,.corp-shell .corp-workspace-scope button:disabled{cursor:wait;opacity:.7}@keyframes corp-scope-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.corp-navigation-progress>span{animation:none}}
 .corp-shell .corp-company-level button{gap:5px}.corp-shell .corp-company-level button svg{width:16px;height:16px;flex-shrink:0}.corp-shell .corp-company-level button[aria-pressed=false]{color:var(--brand-muted)}.corp-shell .corp-company-level button[aria-pressed=true]{color:#fff!important;background:var(--brand-primary)}
+
+/* Tablets and phones use an overlay, leaving the full content width available. */
+.corp-drawer-close{display:none}
+.corp-shell .corp-nav{min-height:0;overscroll-behavior-y:contain;align-content:start}
+.corp-shell .corp-brand-row,.corp-shell .corp-sidebar-foot{flex-shrink:0}
+@media(max-width:1000px){
+  .corp-shell .corp-sidebar{display:none;height:100dvh}
+  .corp-shell .corp-workspace{margin-inline-start:0!important;min-width:0}
+  .corp-shell.sidebar-mobile-open .corp-sidebar{width:min(300px,calc(100vw - 32px));animation:corp-drawer-enter .2s ease-out}
+  .corp-shell.sidebar-mobile-open[dir="rtl"] .corp-sidebar{--drawer-start:100%}
+  .corp-shell.sidebar-mobile-open[dir="ltr"] .corp-sidebar{--drawer-start:-100%}
+  .corp-shell.sidebar-mobile-open .sidebar-toggle{display:none!important}
+  .corp-shell .corp-drawer-close{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid currentColor;border-radius:9px;background:transparent;color:inherit;font-size:28px;cursor:pointer}
+  .corp-shell .corp-mobile-menu{width:44px;height:44px}
+  .corp-shell.sidebar-mobile-open .corp-brand-row{height:auto;min-height:92px;gap:8px;padding-block:max(8px,env(safe-area-inset-top))}
+  .corp-shell.sidebar-mobile-open .corp-nav{flex:1;overflow-y:auto;overflow-x:hidden}
+  .corp-shell.sidebar-mobile-open .corp-nav :is(a,button),.corp-shell.sidebar-mobile-open .corp-sidebar-foot a{min-height:44px}
+  .corp-shell.sidebar-mobile-open .corp-subnav{padding-inline-start:15px;border-inline-start:1px solid #ffffff12}
+  .corp-shell.sidebar-mobile-open .corp-sidebar-foot{padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  .corp-shell.theme-yaqeen-business.sidebar-mobile-open .corp-sidebar .corp-mark{width:145px!important;height:78px!important}
+  .corp-shell.theme-yaqeen-business.sidebar-mobile-open .corp-sidebar .corp-mark>.yaqeen-brand-art{display:inline-flex!important;width:145px!important;height:78px!important}
+  .corp-shell.theme-yaqeen-business.sidebar-mobile-open .corp-brand .corp-label{display:none!important}
+  .corp-shell.theme-yaqeen-business.sidebar-mobile-open .collapsed-sidebar-brand{display:none!important}
+  .corp-drawer-close:focus-visible,.corp-mobile-menu:focus-visible{outline:3px solid #c5a15a;outline-offset:2px}
+}
+@keyframes corp-drawer-enter{from{transform:translateX(var(--drawer-start,100%));opacity:.7}to{transform:translateX(0);opacity:1}}
+@media(prefers-reduced-motion:reduce){.corp-shell .corp-sidebar,.corp-shell .corp-workspace{transition:none}.corp-shell.sidebar-mobile-open .corp-sidebar{animation:none}}
