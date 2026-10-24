@@ -25,3 +25,6 @@
 @media(min-width:761px) and (max-width:1150px){.yb-copy{padding-top:10px}}
 @media(min-width:1001px){.yb-nav nav{margin-left:52px}}
 @media(max-width:760px){.yb-heading-lead{margin-inline-end:.22em}.yb-navy-heading em{display:block}}
+/* Share the gold headline's column with its description and actions. */
+@media(min-width:761px){.yq-site[lang="ar"] .yb-copy{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:calc(clamp(34px,3.5vw,56px)*.22);direction:rtl}.yq-site[lang="ar"] .yb-copy .yb-navy-heading{grid-column:1/-1;grid-template-columns:subgrid}.yq-site[lang="ar"] .yb-copy .yb-description,.yq-site[lang="ar"] .yb-copy .yb-actions{grid-column:2;position:static;left:auto;width:100%;min-width:0}.yq-site[lang="ar"] .yb-copy .yb-pillars{grid-column:1/-1}}
+@media(min-width:761px) and (max-width:1150px){.yq-site[lang="ar"] .yb-copy{column-gap:7.7px}}
