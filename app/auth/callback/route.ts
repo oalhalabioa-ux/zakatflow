@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { establishRecoverySession } from '@/lib/auth/recovery-session';
+import { getAuthServerOrigin } from '@/lib/auth/recovery-redirect';
 
 export async function GET(req:Request){
  const url=new URL(req.url);const code=url.searchParams.get('code');const invite=url.searchParams.get('invite');let next=url.searchParams.get('next')||'/ar/dashboard';
+ const origin=getAuthServerOrigin(req.url,process.env.NODE_ENV==='production'?process.env.NEXT_PUBLIC_APP_URL:undefined);
  if(!next.startsWith('/')||next.startsWith('//')||next.includes('\\')||/[\u0000-\u001f]/.test(next)) next='/ar/dashboard';
  if(code){
   const supabase=await supabaseServer();
@@ -14,14 +16,14 @@ export async function GET(req:Request){
     if(inviteError){
      await supabase.auth.signOut();
      const locale=next.startsWith('/en/')?'en':'ar';
-     const login=new URL(`/${locale}/login`,url.origin);
+     const login=new URL(`/${locale}/login`,origin);
      login.searchParams.set('error',inviteError.message.includes('EMAIL_MISMATCH')?'invite_email':'invite_invalid');
      return NextResponse.redirect(login);
     }
    }
-   return NextResponse.redirect(new URL(next,url.origin));
+   return NextResponse.redirect(new URL(next,origin));
   }
  }
  const locale=next.startsWith('/en/')?'en':'ar';
- return NextResponse.redirect(new URL(`/${locale}/login?error=auth`,url.origin));
+ return NextResponse.redirect(new URL(`/${locale}/login?error=auth`,origin));
 }

@@ -1,5 +1,6 @@
+import {payableReference} from './payable-presentation';
 import {buildLiquidityForecast,isLiquidityFlowSettled,remainingLiquidityFlowBase} from './liquidity-forecast';
-export type DashboardDue={id:string;date:string;label:string;source:string;amount:number;currency:string;direction:'IN'|'OUT';href:string};
+export type DashboardDue={id:string;date:string;label:string;reference?:string;source:string;amount:number;currency:string;direction:'IN'|'OUT';href:string};
 /** Read-only projection. Obligations replace their linked expected flows, never add to them. */
 export function dashboardFinancialSources({overview,investments,scope,organizationIds,today,ar,locale}:{overview:any;investments:any;scope:string;organizationIds:string[];today:string;ar:boolean;locale:string}){
  const debts=(overview?.debts??[]).filter((d:any)=>['RECEIVABLE','PAYABLE'].includes(d.side));
@@ -7,7 +8,12 @@ export function dashboardFinancialSources({overview,investments,scope,organizati
  const debtIds=new Set(debts.map((d:any)=>d.id)),eventIds=new Set(debts.map((d:any)=>d.eventId).filter(Boolean));
  const due:DashboardDue[]=[],add=(r:DashboardDue)=>{if(/^\d{4}-\d{2}-\d{2}$/.test(r.date??'')&&Number.isFinite(r.amount)&&r.amount>0)due.push(r)};
  const link=(path:string)=>'/'+locale+'/'+path;
- for(const d of debts)add({id:'obligation:'+d.id,date:d.dueDate,label:d.reference||d.description||d.partyName,source:ar?(d.side==='PAYABLE'?'ذمة / التزام':'ذمة مدينة'):(d.side==='PAYABLE'?'Payable / obligation':'Receivable'),amount:Number(d.amount),currency:d.currency,direction:d.side==='PAYABLE'?'OUT':'IN',href:link(d.side==='PAYABLE'?'payables':'receivables')});
+ for(const d of debts){
+  const rawReference=String(d.reference??'').trim();
+  const internalReference=!rawReference||rawReference===d.id||rawReference===d.eventId||/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(rawReference);
+  const reference=internalReference?(d.side==='PAYABLE'?payableReference('',d.id):'AR-'+String(d.id).slice(0,8).toUpperCase()):rawReference;
+  add({id:'obligation:'+d.id,date:d.dueDate,label:d.partyName||d.description||(ar?'جهة غير محددة':'Unspecified party'),reference,source:ar?(d.side==='PAYABLE'?'ذمة / التزام':'ذمة مدينة'):(d.side==='PAYABLE'?'Payable / obligation':'Receivable'),amount:Number(d.amount),currency:d.currency,direction:d.side==='PAYABLE'?'OUT':'IN',href:link(d.side==='PAYABLE'?'payables':'receivables')});
+ }
  for(const f of flows){
   if(debtIds.has(f.source_record_id)||(f.links??[]).some((l:any)=>l.obligation_id?debtIds.has(l.obligation_id):eventIds.has(l.event_id)))continue;
   add({id:'flow:'+f.id,date:f.due_date,label:f.title,source:ar?'تدفق السيولة':'Liquidity flow',amount:remainingLiquidityFlowBase(f),currency:f.base_currency??overview?.baseCurrency,direction:f.direction==='INFLOW'?'IN':'OUT',href:link('liquidity?tab=flows')});

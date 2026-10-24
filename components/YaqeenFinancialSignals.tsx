@@ -1,10 +1,10 @@
 'use client';
-import {dashboardFinancialSources} from '../lib/dashboard-financial-sources';
+import {dashboardFinancialSources,type DashboardDue} from '../lib/dashboard-financial-sources';
 import {useEffect,useState,type ReactNode} from 'react';
 import Link from 'next/link';
 import {Money} from './DisplayCurrency';
 import {financialSignals,type FinancialSignal} from '../lib/yaqeen-financial-signals';
-export type DashboardMaturity={id:string;date:string;label:string;source:string;amount:number;currency:string;direction:'IN'|'OUT';href:string};
+export type DashboardMaturity=DashboardDue;
 export type FinancialWatchState={rows:FinancialSignal[];loading:boolean;errors:string[];updated:string;upcoming:DashboardMaturity[];refresh:()=>void;sources:ReturnType<typeof dashboardFinancialSources>|null};
 export default function YaqeenFinancialSignals({scope,organizationId,organizationIds,group,ar,locale,children}:{children?:(state:FinancialWatchState)=>ReactNode;scope:string;organizationId?:string;organizationIds:string[];group?:boolean;ar:boolean;locale:string}){
  const [enabled,setEnabled]=useState(false),[rows,setRows]=useState<FinancialSignal[]>([]),[loading,setLoading]=useState(false),[errors,setErrors]=useState<string[]>([]),[updated,setUpdated]=useState(''),[refresh,setRefresh]=useState(0);

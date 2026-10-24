@@ -77,7 +77,7 @@
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content tbody tr:nth-child(even){background:#F8F9FB}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content tbody tr:hover{background:#F3F6F9}
 .theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.transaction-table-wrap,.asset-exit-table-scroll){max-width:100%;overflow-x:auto;border:1px solid #E4EAF0;border-radius:10px}
-.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.asset-report-tabs,.asset-lifecycle-tabs,.investment-tabs) button[aria-pressed=true]{background:#BD8B3C!important;border-color:#BD8B3C!important;color:#fff!important}
+.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.asset-report-tabs,.investment-tabs) button[aria-pressed=true]{background:#BD8B3C!important;border-color:#BD8B3C!important;color:#fff!important}
 .theme-yaqeen-business[data-asset-workspace=true] .assessment-source-tabs [aria-selected=true]{background:#0F2D4A;color:white}
 .theme-yaqeen-business[data-asset-workspace=true] .org-assets-allocation meter::-webkit-meter-optimum-value{background:#24496A}
 .theme-yaqeen-business[data-asset-workspace=true] .org-assets-allocation meter::-moz-meter-bar{background:#24496A}
@@ -148,9 +148,18 @@
 .corp-shell.theme-yaqeen-business .corp-content .zakat-workspace-tabs a[aria-current=page]{background:linear-gradient(100deg,#d7ba7c,#c5a15a);color:#fff!important;font-weight:700;box-shadow:none}
 .corp-shell.theme-yaqeen-business .corp-content .zakat-workspace-tabs a svg{color:inherit}
 
-/* Readable report counters; approved menus and tabs stay unchanged. */
-.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button .pill{background:#C6CFEC;color:#0F2D4A!important;border:0}
-.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button[aria-pressed=true] .pill{background:#EAD7B4;color:#0F2D4A!important}
+/* Quiet report controls: navy selection, light gold text, neutral counters. */
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button[aria-pressed=false]{background:#fff!important;border-color:#E2E8F0!important;color:#475569!important;box-shadow:none}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button[aria-pressed=false]:hover{background:#F1F5F9!important;border-color:#CBD5E1!important}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button[aria-pressed=true]{background:#17384D!important;border-color:#17384D!important;color:#EAD7B4!important;box-shadow:none}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button .pill{background:#F1F5F9;color:#475569!important;border:0}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-lifecycle-tabs button[aria-pressed=true] .pill{background:#294B61;color:#EAD7B4!important}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-group-toggle{background:#F1F5F9;border-color:#E2E8F0;color:#475569;cursor:pointer}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-group-toggle .asset-group-knob{background:#17384D}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-group-toggle .asset-group-knob:after{content:none}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-group-toggle>span:not(.asset-group-knob){z-index:1}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-group-toggle[aria-checked=true] .asset-group-type,.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-group-toggle[aria-checked=false] .asset-group-class{visibility:visible;color:#EAD7B4}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.asset-group-toggle,.asset-lifecycle-tabs button):focus-visible{outline:2px solid #17384D;outline-offset:3px}
 
 /* Report group headings, summary chips and sorting share the same visual language. */
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-group>.asset-group-head{background:#fff!important;border-bottom:1px solid #E4EAF0!important;border-inline-start:3px solid #C6CFEC;padding:15px 18px;align-items:center;gap:14px}
@@ -170,7 +179,48 @@
 @media(max-width:650px){.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-summary{display:grid;grid-template-columns:1fr}.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content .asset-summary>.sum-chip{min-width:0;width:100%}}
 
 /* Plain asset symbols: inherit the adjacent text color, with no colored tile. */
+.assets-page .asset-report-table td{font-size:13px;line-height:1.65;vertical-align:middle}
+.assets-page .asset-report-table :is(td,th):is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]){font-variant-numeric:tabular-nums;white-space:nowrap}
+.assets-page .asset-report-table td:is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]){text-align:center;direction:ltr}
+.assets-page .asset-report-table .asset-name-cell{line-height:1.8;gap:8px;flex-wrap:wrap}
+.assets-page .asset-state{display:inline-flex;align-items:center;padding:3px 9px;border-radius:7px;background:var(--brand-surface-soft);color:var(--brand-text);font-size:12px;font-weight:500;white-space:nowrap}
+.assets-page .asset-state.is-draft{background:#fbf4e7;color:#785617}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table tbody tr:nth-child(even){background:#f7f9fc}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table tbody tr:hover{background:#eef3f8}
+.assets-page .asset-report-table[data-scope=ORGANIZATION] :is(th,td)[data-column=center]{min-width:130px}
+.assets-page .asset-report-table[data-scope=ORGANIZATION] :is(th,td)[data-column=classification]{min-width:160px}
+.assets-page .asset-report-table .asset-name-layout{display:flex;align-items:flex-start;flex-wrap:nowrap;gap:9px;text-align:start;min-width:220px;max-width:390px;white-space:normal}
+.assets-page .asset-name-layout>.asset-row-icon{flex:none;line-height:1.65;opacity:.65}
+.assets-page .asset-name-content{min-width:0;flex:1}
+.assets-page .asset-name-title{display:block;font-size:13px;line-height:1.65;font-weight:650;overflow-wrap:anywhere}
+.assets-page .asset-name-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 10px;margin-top:3px;color:var(--brand-muted,var(--muted));font-size:11px;font-weight:400;line-height:1.6}
+.assets-page .asset-name-meta .asset-detail-type{margin:0;padding:0;border:0;border-radius:0;background:none;color:inherit;font-size:inherit;font-weight:inherit}
+.assets-page .asset-name-meta small{font:inherit}
+.assets-page .asset-report-table th,.assets-page .asset-report-table td{text-align:start}
+.assets-page .asset-report-table th .asset-sort{justify-content:flex-start;gap:7px}
+.assets-page .asset-report-table th:is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight]) .asset-sort{justify-content:center}
+.assets-page .asset-report-table :is(th,td):is([data-column=date],[data-column=status],[data-column=action]){text-align:center}
+.assets-page .asset-report-table th:is([data-column=date],[data-column=status]) .asset-sort{justify-content:center}
+.assets-page .asset-report-table td[data-column=date]{direction:ltr;white-space:nowrap;font-variant-numeric:tabular-nums}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.kpi-icon,.payment-kpi-icon,.workflow-kpi-icon,.transaction-kpi-icon,.page-title-icon,.asset-type-icon,.asset-row-icon,.ed-icon,.ed-list-icon,.metric-icon,.sum-icon){background:none!important;color:inherit!important;border:0!important;box-shadow:none!important;border-radius:0!important;padding:0!important;font-variant-emoji:text}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.kpi-icon,.payment-kpi-icon,.workflow-kpi-icon,.transaction-kpi-icon,.page-title-icon,.asset-type-icon,.asset-row-icon,.ed-icon,.ed-list-icon,.metric-icon,.sum-icon) svg{color:inherit!important;background:none!important;box-shadow:none!important;border:0!important}
 .corp-shell.theme-yaqeen-business[data-asset-workspace=true] .corp-content :is(.yqa-summary-metric>div>svg,.yqa-summary-group h2 svg){color:inherit!important;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important;width:22px;height:22px;flex:none}
 .corp-shell.theme-yaqeen-business[data-asset-overview=true] .corp-content .yqa-assets-heading h1::before{background:currentColor!important}
+
+/* Personal eligibility stays distinct from the monetary Zakat columns. */
+.assets-page .asset-eligibility-status{display:inline-flex;align-items:center;gap:7px;color:#64748B;font-size:12px;font-weight:500;white-space:nowrap;background:none;border:0;padding:0}
+.assets-page .asset-eligibility-status.is-eligible{color:#21624E;font-weight:600}
+.assets-page .asset-eligibility-dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:currentColor}
+.assets-page .asset-report-table[data-scope=PERSONAL] .hawl-badges{display:inline-flex;flex-direction:column;gap:0;line-height:1.6;color:var(--brand-muted,var(--muted))}
+.assets-page .asset-report-table[data-scope=PERSONAL] :is(.hawl-cycle,.hawl-days){padding:0;border-radius:0;background:none;color:inherit;font-size:11px}
+.assets-page .asset-report-table[data-scope=PERSONAL] td[data-column=calculation] .zakat-result-compact{font-weight:400;gap:7px}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL]{border-spacing:0;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] tbody tr{background:#fff!important;box-shadow:none;border-radius:0}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] :is(th,td){border-radius:0;border-color:#E2E8F0}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] th{background:#F1F5F9;color:#17384D}
+.corp-shell.theme-yaqeen-business[data-asset-workspace=true] .assets-page .asset-report-table[data-scope=PERSONAL] tbody tr:hover{background:#F8FAFC!important}
+
+/* Center numeric values and their headings on the same column axis. */
+.assets-page .asset-report-table :is(th,td):is([data-column=cost],[data-column=current],[data-column=due],[data-column=paid],[data-column=remaining],[data-column=weight],[data-column=hawl]){text-align:center}
+.assets-page .asset-report-table th[data-column=hawl] .asset-sort{justify-content:center}
+.assets-page .asset-report-table[data-scope=PERSONAL] .hawl-badges{align-items:center}

@@ -4,7 +4,7 @@ import {use, useEffect, useState} from 'react';
 import {supabaseBrowser} from '@/lib/supabase/browser';
 import {canonicalizeAuthUrl, getAuthCallbackUrl, getRecoveryRedirectUrl} from '@/lib/auth/recovery-redirect';
 
-type Provider='google'|'facebook'|'apple';
+type Provider='google';
 export default function Login({params}:{params:Promise<{locale:string}>}){
  const {locale}=use(params);const ar=locale==='ar';
  const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [msg,setMsg]=useState('');const [busy,setBusy]=useState('');

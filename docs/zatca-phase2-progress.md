@@ -1,6 +1,6 @@
 # ZATCA Phase 2 preparation — 2026-10-22
 
-Base production: `906495d1`. This branch is preparation work, not a complete Phase 2 integration or production release.
+Original preparation base: `906495d1`; synchronized with main `998f0837` on 2026-10-24 while retaining its newer Next.js/Zod/Vitest/Vite versions. This branch is preparation work, not a complete Phase 2 integration or production release.
 
 ## Implemented in this branch
 
@@ -17,11 +17,15 @@ Base production: `906495d1`. This branch is preparation work, not a complete Pha
 
 - Isolated PostgreSQL ledger storage contract in `tests/fixtures/zatca-phase2-ledger.sql`: per-organization/environment/unit row locking, one durable pending reservation, immutable document/UUID/snapshot identity, idempotent exact-artifact finalization and atomic artifact/head updates. This is a disposable QA fixture, **not a Supabase migration or enabled application ledger**. No role is granted access, no caller exists, and `PREPARED` never means issued or accepted. See `docs/zatca-phase2-ledger-contract.md` for the remaining authorization/cryptographic binding/recovery gates.
 
+- Reservation binding preparation: `createZatcaPreparationSnapshot` validates a versioned saved-document DTO, ordered saved line amounts and all six saved totals using existing Decimal calculations, including source currency/FX. `prepareReservedZatcaArtifact` rechecks scope/snapshot and derives UUID/counter/PIH only from a freshly loaded trusted reservation, preserves bigint counter text, builds/signs from that snapshot and compares independently recomputed invoice hashes before returning private finalization arguments. It creates no endpoint, database adapter, migration or production writer. PostgreSQL snapshot digest remains a trusted storage value, not a JS-computed proof of snapshot authenticity.
+
 ## Validation completed
 
 - Owner supplied a Java SDK package subsequently identified as 3.0.8. Ran it locally against nine unsigned fixtures: 9/9 XSD passed, 8/9 EN passed, **0/9 global SDK passes**. All nine SDK invoice hashes matched the application's hash. Address checks, missing simplified stamp/QR and a document-global mixed-tax rule are detailed in `docs/zatca-sdk-3.0.8-review.md`. SDK exit status was zero on failures; an isolated fail-closed report parser and regression tests were added. Current official SDK/profile confirmation remains required; the prior download block no longer means no SDK was ever run.
 - After the SDK review, TypeScript and 110 focused tests passed with native XMLSec enabled, including 14 SDK report-parser cases and a new guard against exemption reasons directly attached to standard-rate lines. This test-suite pass is separate from the zero global legacy SDK fixture passes above.
 - QR/identity follow-up: TypeScript and 126 focused tests passed, including 12 QR codec/certificate-signature cases, 3 simplified document types with opt-in QR and USD amounts, native XMLSec verification after QR insertion, and current identification/address guards. Certificate signature bytes are checked independently against OpenSSL text output. Standard QR is refused before contacting the signer. This is not QR acceptance by the SDK or authority.
+
+- Reservation binding follow-up: TypeScript and 46 focused binding/XAdES tests passed (32 new boundary cases and 4 new signer integration cases plus 10 existing XAdES tests); a separate real PostgreSQL reservation → signed artifact → atomic finalization → next PIH test passed with native XMLSec verification. The complete dedicated suite passed 162 tests with native XMLSec; its one additional PostgreSQL round-trip test is skipped without the explicit SQL opt-in and passed separately against real PostgreSQL. No actual Supabase application authorization, live AWS, current SDK or authority acceptance is implied.
 
 - Ledger storage follow-up: 17 tests passed against a fresh real PostgreSQL 15.18 database, including 16 simultaneous retries, 16 competing documents, 12 simultaneous finalizations, transaction rollback, immutable snapshot/artifact guards, scope separation and denied unprivileged access. Tests use synthetic storage payloads, not signed UBL. This is **not** Supabase QA integration, signing-service verification or authority acceptance.
 
@@ -52,7 +56,7 @@ Owner approved AWS for signing/key protection on 2026-10-22; account creation is
 
 1. Convert the isolated tested ledger storage contract into an authorized, reviewed integration: bind onboarding units and immutable saved invoice DTOs, verify artifacts against reservations before finalization, establish crash recovery and separate authority submission state, then test the migration and complete path on Supabase QA. The experimental storage fixture is not an active issuance chain. Keep its counter distinct from sales/purchase document numbering.
 2. Invoice reference C14N 1.1/hash, certificate preflight, XAdES and opt-in simplified QR preparation are implemented. Complete authority-profile/policy and QR interoperability verification, full certificate path/profile/identity/revocation validation, and the standard clearance-returned QR flow; exercise the real AWS signer and verify packaged runtime behavior before live wiring.
-3. Wire saved invoice snapshots to the preparation component, including supplier registration identity, actual supply date and original note invoice number. Preserve financial/foreign-currency identity checks.
+3. The isolated versioned snapshot/reservation binding component is implemented and tested, including saved totals/lines and foreign-currency identity. Wire a consistent authorized saved-document read and private DB adapter to it, freeze source-document lifecycle correctly, bind supplier registration/VAT identity to authorized onboarding and enforce actual supply/original-note references. No live route uses the preparation component yet.
 4. Run the current ZATCA SDK and compliance scenarios for each supported standard/simplified invoice/note category. Reject unsupported inputs rather than silently changing financial meaning.
 5. Simulation certificate onboarding and authenticated compliance submissions; persist sanitized authority responses and retry state.
 6. Production CSID onboarding, standard clearance and simplified reporting, only after simulation gates pass. Distinguish local issuance from authority acceptance in UI and records.

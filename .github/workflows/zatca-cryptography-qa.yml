@@ -33,7 +33,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xmlsec1
       - run: npm run typecheck
       - name: Verify prepared signatures and tamper rejection
-        run: npx vitest run lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
+        run: npx vitest run lib/zatca-reserved-preparation.test.ts lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
         env:
           ZATCA_NATIVE_XMLSEC: '1'
 
@@ -56,11 +56,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install PostgreSQL client and independent signature verifier
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client xmlsec1
       - name: Verify isolated ledger transactions and simultaneous requests
         run: python3 tests/zatca-ledger-postgres.py
         env:
+          ZATCA_LEDGER_DISPOSABLE_QA: '1'
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: zatca_ledger_qa
+          PGPASSWORD: disposable-qa-only
+      - name: Verify saved reservation to signed artifact and next chain entry
+        run: npx vitest run lib/zatca-reserved-preparation.test.ts lib/zatca-xades-preparation.test.ts
+        env:
+          ZATCA_LEDGER_SQL_QA: '1'
+          ZATCA_NATIVE_XMLSEC: '1'
           ZATCA_LEDGER_DISPOSABLE_QA: '1'
           PGHOST: 127.0.0.1
           PGPORT: '5432'

@@ -1,0 +1,10 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const mocks=vi.hoisted(()=>({detail:vi.fn(),action:vi.fn()}));
+vi.mock('../../../../../services/corporate-zakat-assessment',()=>({corporateZakatDetail:mocks.detail,corporateZakatAction:mocks.action}));
+import {GET,POST} from './route';
+const params=Promise.resolve({id:'11111111-1111-4111-8111-111111111111'});
+beforeEach(()=>vi.resetAllMocks());
+it('rejects cross-origin mutation before any approval command',async()=>{const r=await POST(new Request('https://app.test/api',{method:'POST',headers:{origin:'https://evil.test'},body:'{}'}),{params});expect(r.status).toBe(403);expect(mocks.action).not.toHaveBeenCalled();});
+it('returns only approved detail service output with no caching',async()=>{mocks.detail.mockResolvedValue({workflow:{remaining:60}});const r=await GET(new Request('https://app.test/api'),{params});expect(r.status).toBe(200);expect(r.headers.get('Cache-Control')).toBe('no-store');expect(await r.json()).toEqual({workflow:{remaining:60}});});
+it('masks SQL internal failures and returns authorization failures distinctly',async()=>{mocks.detail.mockRejectedValueOnce(Error('relation private.balance does not exist')).mockRejectedValueOnce(Error('UNAUTHORIZED'));expect(await (await GET(new Request('https://app.test/api'),{params})).json()).toEqual({error:'CORPORATE_ZAKAT_FAILED'});expect((await GET(new Request('https://app.test/api'),{params})).status).toBe(401);});
+it('passes the selected immutable assessment and explicit command to the bounded service',async()=>{mocks.action.mockResolvedValue({amount:25});const r=await POST(new Request('https://app.test/api',{method:'POST',headers:{origin:'https://app.test'},body:JSON.stringify({action:'POST'})}),{params});expect(mocks.action).toHaveBeenCalledWith((await params).id,{action:'POST'});expect(r.status).toBe(200);});

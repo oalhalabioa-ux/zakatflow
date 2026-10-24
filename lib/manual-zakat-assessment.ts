@@ -31,7 +31,7 @@ export const manualZakatFields:Record<ManualZakatModel,Field[]>={
 const models=['PERSONAL','SIMPLE','SAUDI'] as const;
 const money=z.number().finite().min(-1e12).max(1e12);
 export const manualZakatInputSchema=z.object({
- model:z.enum(models),organization_id:z.string().uuid().nullable(),title:z.string().trim().min(1).max(150),assessment_date:z.string().date(),currency:z.string().regex(/^[A-Z]{3}$/),values:z.record(z.string(),money),
+ source_snapshot_id:z.string().uuid().optional(),model:z.enum(models),organization_id:z.string().uuid().nullable(),title:z.string().trim().min(1).max(150),assessment_date:z.string().date(),currency:z.string().regex(/^[A-Z]{3}$/),values:z.record(z.string(),money),
  debt_policy:z.enum(['NONE','DUE']),method_reference:z.string().trim().max(1000),nisab_value:z.number().finite().min(0).max(1e12).nullable(),nisab_reference:z.string().trim().max(300),hawl_completed:z.boolean(),
  period_basis:z.enum(['HIJRI','FINANCIAL']),period_start:z.string().date().nullable(),period_end:z.string().date().nullable(),hijri_days:z.union([z.literal(354),z.literal(355)]),notes:z.string().trim().max(3000),independent_source_confirmed:z.boolean()
 }).strict().superRefine((v,c)=>{
