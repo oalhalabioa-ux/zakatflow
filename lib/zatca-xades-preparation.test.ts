@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, randomUUID, sign, X509Certificate } from 'node:crypto';
+import { createHash, createPrivateKey, generateKeyPairSync, randomUUID, sign, X509Certificate } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -7,6 +7,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { prepareSignedZatcaXml, type XadesPreparationOptions, type XadesPreparationSigner } from './zatca-xades-preparation';
 import { prepareZatcaInvoiceHash } from './zatca-xml-hash';
 import { buildUnsignedZatcaXml } from './zatca-phase2-xml';
+import { GetSecretValueCommand, type SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
+import { GetPublicKeyCommand, SignCommand, type KMSClient } from '@aws-sdk/client-kms';
+import { createStoredZatcaPreparation } from './zatca-stored-signer';
 import { calculateVatEInvoiceDraft, vatEInvoiceDraftSchema } from './vat-einvoice-draft';
 import { createZatcaPreparationSnapshot, prepareReservedZatcaArtifact } from './zatca-reserved-preparation';
 
@@ -246,4 +249,139 @@ it.runIf(process.env.ZATCA_SOURCE_FREEZE_QA === '1')('signs the exact atomically
   expect(query('select count(*) from zatca_preparation.finalization_audit where reservation_id=' + q(reservation.reservation_id))).toBe('1');
   expect(() => query("update public.vat_einvoices set status='ISSUED' where id=" + q(scope.documentId))).toThrow('EINVOICE_SOURCE_FROZEN');
   expect(() => query('update public.vat_einvoice_lines set unit_price=999 where invoice_id=' + q(scope.documentId))).toThrow('EINVOICE_SOURCE_FROZEN');
+});
+
+
+function storedFixture() {
+  const { scope, reservation } = boundFixture();
+  scope.unitId = scope.connectionId; reservation.unit_id = scope.unitId; reservation.snapshot.scope.unitId = scope.unitId;
+  const binding = { version: 'ZATCA_SAVED_SIGNER_V1', organizationId: scope.organizationId, environment: scope.environment,
+    unitId: scope.unitId, connectionId: scope.connectionId,
+    kmsKeyArn: 'arn:aws:kms:eu-central-1:123456789012:key/12345678-1234-1234-1234-123456789012',
+    secretArn: `arn:aws:secretsmanager:eu-central-1:123456789012:secret:zakatflow/fatoora/${scope.organizationId}/simulation/${scope.connectionId}-AbCdEf`,
+    secretVersionId: '12345678-1234-1234-1234-123456789012', certificateFingerprintSha256: options.expectedFingerprintSha256,
+    issuerChainDerBase64: [...options.issuerChainDerBase64], policy: { ...options.policy }, includeSimplifiedQr: true };
+  const leaf = new X509Certificate(options.certificate);
+  const password = 'SYNTHETIC_AUTH_PASSWORD_ONLY';
+  const reply: { ARN?: string; VersionId?: string; VersionStages?: string[]; SecretString?: string; SecretBinary?: Uint8Array } = {
+    ARN: binding.secretArn, VersionId: binding.secretVersionId, VersionStages: ['AWSCURRENT'],
+    SecretString: JSON.stringify({ binarySecurityToken: leaf.raw.toString('base64'), secret: password }) };
+  const secretSend = vi.fn(async (_command: GetSecretValueCommand) => ({ ...reply }));
+  let onSign = () => {};
+  const kmsSend = vi.fn(async (command: GetPublicKeyCommand | SignCommand) => {
+    if (command instanceof GetPublicKeyCommand) return { KeyId: binding.kmsKeyArn, KeySpec: 'ECC_SECG_P256K1',
+      KeyUsage: 'SIGN_VERIFY', SigningAlgorithms: ['ECDSA_SHA_256'], PublicKey: leaf.publicKey.export({ format: 'der', type: 'spki' }) };
+    expect(command.input.MessageType).toBe('DIGEST'); expect(command.input.Message!.length).toBe(32);
+    // Independent OpenSSL signs the raw SHA256 digest exactly once, like KMS DIGEST.
+    const Signature = execFileSync('openssl', ['pkeyutl', '-sign', '-inkey', join(directory, 'leaf.key'), '-pkeyopt', 'digest:sha256'], { input: Buffer.from(command.input.Message!), stdio: ['pipe', 'pipe', 'pipe'] });
+    onSign(); return { KeyId: binding.kmsKeyArn, SigningAlgorithm: 'ECDSA_SHA_256', Signature };
+  });
+  const clients = { secrets: { send: secretSend } as unknown as Pick<SecretsManagerClient, 'send'>,
+    kms: { send: kmsSend } as unknown as Pick<KMSClient, 'send'> };
+  let at = new Date(options.signingTime);
+  return { binding, scope, reservation, reply, clients, secretSend, kmsSend, password,
+    clock: () => new Date(at), advance: (v: Date) => { at = v; }, onSign: (f: () => void) => { onSign = f; } };
+}
+
+describe('stored credential version and certificate-bound preparation', () => {
+  it('loads the exact current saved version, checks KMS/certificate matching and returns verified XML without the password', async () => {
+    const f = storedFixture(); const worker = await createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock);
+    const artifact = await worker.prepare(f.reservation);
+    expect(worker.stage).toBe('STORED_SIGNER_PREPARATION_ONLY');
+    expect(artifact.stage).toBe('RESERVATION_BOUND_PREPARATION_ONLY');
+    expect(f.secretSend).toHaveBeenCalledTimes(3);
+    for (const [command] of f.secretSend.mock.calls) expect(command.input).toEqual({ SecretId: f.binding.secretArn, VersionId: f.binding.secretVersionId, VersionStage: 'AWSCURRENT' });
+    expect(f.kmsSend.mock.calls.map(([c]) => c.constructor.name)).toEqual(['GetPublicKeyCommand', 'SignCommand']);
+    expect(artifact.credentialReference.secretVersionId).toBe(f.binding.secretVersionId);
+    expect(JSON.stringify(artifact)).not.toContain(f.password); expect(JSON.stringify(worker)).not.toContain(f.password);
+    if (process.env.ZATCA_NATIVE_XMLSEC === '1') { const verified = nativeVerify(artifact.xml); expect(verified.status, verified.stderr).toBe(0); }
+  });
+  it.each(['organizationId', 'environment', 'unitId', 'connectionId'] as const)('rejects saved %s mismatch before contacting AWS', async key => {
+    const f = storedFixture(); f.binding[key] = key === 'environment' ? 'PRODUCTION' : randomUUID();
+    await expect(createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock)).rejects.toThrow('STORED_SIGNER_SCOPE_MISMATCH');
+    expect(f.secretSend).not.toHaveBeenCalled(); expect(f.kmsSend).not.toHaveBeenCalled();
+  });
+  it.each(['secretVersionId', 'certificateFingerprintSha256', 'version'] as const)('requires saved %s rather than a default', async key => {
+    const f = storedFixture();
+    await expect(createStoredZatcaPreparation({ ...f.binding, [key]: undefined }, f.scope, f.clients, f.clock)).rejects.toThrow('STORED_SIGNER_BINDING_INVALID');
+    expect(f.secretSend).not.toHaveBeenCalled();
+  });
+  it.each(['keyAlias', 'secretName', 'otherCompany', 'otherAccount', 'otherRegion'])('refuses %s references before AWS', async mode => {
+    const f = storedFixture();
+    if (mode === 'keyAlias') f.binding.kmsKeyArn = 'alias/test';
+    if (mode === 'secretName') f.binding.secretArn = 'zakatflow/fatoora/test';
+    if (mode === 'otherCompany') f.binding.secretArn = f.binding.secretArn.replace(f.scope.organizationId, randomUUID());
+    if (mode === 'otherAccount') f.binding.secretArn = f.binding.secretArn.replace('123456789012', '999999999999');
+    if (mode === 'otherRegion') f.binding.secretArn = f.binding.secretArn.replace('eu-central-1', 'eu-west-1');
+    await expect(createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock)).rejects.toThrow('STORED_SIGNER_REFERENCE_INVALID');
+    expect(f.secretSend).not.toHaveBeenCalled();
+  });
+  it.each(['ARN', 'VersionId', 'VersionStages'] as const)('refuses mismatched response %s', async key => {
+    const f = storedFixture(); Object.assign(f.reply, { [key]: key === 'VersionStages' ? ['AWSPREVIOUS'] : 'wrong' });
+    await expect(createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock)).rejects.toThrow('STORED_SIGNER_SECRET_VERSION_MISMATCH');
+    expect(f.kmsSend).not.toHaveBeenCalled();
+  });
+  it.each(['badJson', 'extraKey', 'binary', 'missingPassword', 'oversize', 'nestedCertificate'])('refuses %s credential content without leaking it', async mode => {
+    const f = storedFixture();
+    if (mode === 'badJson') f.reply.SecretString = f.password;
+    if (mode === 'extraKey') f.reply.SecretString = JSON.stringify({ ...JSON.parse(f.reply.SecretString!), privateKey: f.password });
+    if (mode === 'binary') f.reply.SecretBinary = Buffer.from(f.password);
+    if (mode === 'missingPassword') f.reply.SecretString = JSON.stringify({ binarySecurityToken: new X509Certificate(options.certificate).raw.toString('base64') });
+    if (mode === 'oversize') f.reply.SecretString = 'x'.repeat(65537);
+    if (mode === 'nestedCertificate') f.reply.SecretString = JSON.stringify({ binarySecurityToken: Buffer.from(options.certificate).toString('base64'), secret: f.password });
+    const error = await createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock).catch(e => e);
+    expect(error).toBeInstanceOf(Error); expect(String(error)).not.toContain(f.password);
+    expect(f.kmsSend).not.toHaveBeenCalled();
+  });
+  it('rejects a wrong saved certificate pin before KMS', async () => {
+    const f = storedFixture(); f.binding.certificateFingerprintSha256 = '0'.repeat(64);
+    await expect(createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock)).rejects.toThrow('SIGNING_CERTIFICATE_PIN_MISMATCH');
+    expect(f.kmsSend).not.toHaveBeenCalled();
+  });
+  it('rejects a different KMS key and sanitizes transport errors', async () => {
+    const f = storedFixture(); const worker = await createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock);
+    f.kmsSend.mockResolvedValue({ KeyId: f.binding.kmsKeyArn, KeySpec: 'ECC_SECG_P256K1', KeyUsage: 'SIGN_VERIFY', SigningAlgorithms: ['ECDSA_SHA_256'], PublicKey: generateKeyPairSync('ec', { namedCurve: 'secp256k1' }).publicKey.export({ type: 'spki', format: 'der' }) });
+    await expect(worker.prepare(f.reservation)).rejects.toThrow('STORED_SIGNER_KEY_OR_SIGNATURE_INVALID');
+    f.kmsSend.mockRejectedValue(new Error(f.password));
+    const error = await worker.prepare(f.reservation).catch(e => e);
+    expect(error.message).toBe('STORED_SIGNER_KMS_UNAVAILABLE'); expect(error.cause).toBeUndefined();
+  });
+  it('sanitizes Secrets Manager failure without propagating its message/cause', async () => {
+    const f = storedFixture(); f.secretSend.mockRejectedValue(new Error(f.password));
+    const error = await createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock).catch(e => e);
+    expect(error.message).toBe('STORED_SIGNER_SECRET_UNAVAILABLE'); expect(error.cause).toBeUndefined();
+  });
+  it('detects rotation between load and signing before any KMS operation', async () => {
+    const f = storedFixture(); const worker = await createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock);
+    f.reply.VersionStages = ['AWSPREVIOUS'];
+    await expect(worker.prepare(f.reservation)).rejects.toThrow('STORED_SIGNER_SECRET_VERSION_MISMATCH');
+    expect(f.kmsSend).not.toHaveBeenCalled();
+  });
+  it('discards a signature if rotation occurs during KMS signing', async () => {
+    const f = storedFixture(); const worker = await createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock);
+    f.onSign(() => { f.reply.VersionStages = ['AWSPREVIOUS']; });
+    await expect(worker.prepare(f.reservation)).rejects.toThrow('STORED_SIGNER_SECRET_VERSION_MISMATCH');
+    expect(f.kmsSend).toHaveBeenCalledTimes(2);
+  });
+  it.each(['before', 'during'])('rejects changed content at the same immutable version %s signing', async when => {
+    const f = storedFixture(); const worker = await createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock);
+    const change = () => { f.reply.SecretString = JSON.stringify({ binarySecurityToken: new X509Certificate(options.certificate).raw.toString('base64'), secret: 'changed synthetic password' }); };
+    if (when === 'before') change(); else f.onSign(change);
+    await expect(worker.prepare(f.reservation)).rejects.toThrow('STORED_SIGNER_SECRET_CONTENT_CHANGED');
+    expect(f.kmsSend).toHaveBeenCalledTimes(when === 'before' ? 0 : 2);
+  });
+  it.each(['before', 'during'])('rejects a certificate that expires %s signing', async when => {
+    const f = storedFixture(); const worker = await createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock);
+    const expire = () => f.advance(new Date(Date.parse(new X509Certificate(options.certificate).validTo) + 1000));
+    if (when === 'before') expire(); else f.onSign(expire);
+    await expect(worker.prepare(f.reservation)).rejects.toThrow('SIGNING_CERTIFICATE_EXPIRED');
+    expect(f.kmsSend).toHaveBeenCalledTimes(when === 'before' ? 0 : 2);
+  });
+  it('captures saved configuration before awaits and rejects credential overrides in a reservation', async () => {
+    const f = storedFixture(); const expected = structuredClone(f.binding); const pending = createStoredZatcaPreparation(f.binding, f.scope, f.clients, f.clock);
+    f.binding.policy.identifier = 'https://example.invalid/changed'; f.binding.secretArn = 'changed'; f.binding.issuerChainDerBase64.length = 0;
+    const worker = await pending; const result = await worker.prepare(f.reservation);
+    expect(result.xml).toContain(expected.policy.identifier); expect(result.xml).not.toContain('https://example.invalid/changed');
+    await expect(worker.prepare({ ...f.reservation, secretArn: 'caller override' })).rejects.toThrow();
+  });
 });
