@@ -208,3 +208,40 @@ it.runIf(process.env.ZATCA_LEDGER_SQL_QA === '1')('round-trips a real PostgreSQL
   expect(next.counter).toBe('9007199254740994');
   expect(next.previous_hash).toBe(artifact.invoiceHashBase64);
 });
+
+it.runIf(process.env.ZATCA_SOURCE_FREEZE_QA === '1')('signs the exact atomically frozen relational source and preserves its freeze after finalization', async () => {
+  if (process.env.ZATCA_LEDGER_DISPOSABLE_QA !== '1' || process.env.PGDATABASE !== 'zatca_ledger_qa') throw new Error('DISPOSABLE_LEDGER_QA_REQUIRED');
+  const query = (statement: string) => execFileSync('psql', ['-X', '-qAt', '-v', 'ON_ERROR_STOP=1'], { input: statement, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+  expect(query('select current_database()')).toBe('zatca_ledger_qa');
+  const q = (v: string) => "'" + v.replace(/'/g, "''") + "'";
+  const scope = { organizationId: randomUUID(), environment: 'SIMULATION', connectionId: randomUUID(),
+    unitId: '', documentId: randomUUID(), invoiceUuid: randomUUID() }; scope.unitId = scope.connectionId;
+  const actor = randomUUID();
+  const nullable = Object.fromEntries(['buyer_contact_id', 'due_date', 'buyer_additional_number', 'billing_reference', 'preceding_invoice_id', 'note_reason'].map(k => [k, null]));
+  const invoice = vatEInvoiceDraftSchema.parse({ ...boundFixture().reservation.snapshot.draft, ...nullable,
+    organization_id: scope.organizationId, connection_id: scope.connectionId, issue_time: '12:00:00', payment_means_code: '30',
+    lines: draft.lines.map(l => ({ ...l, description: null, discount_amount: 0, unit_code: 'PCE', tax_exemption_reason_code: null, tax_exemption_reason: null })) });
+  const calculated = calculateVatEInvoiceDraft(invoice);
+  const snapshot = createZatcaPreparationSnapshot({ documentId: scope.documentId, invoiceUuid: scope.invoiceUuid,
+    status: 'DRAFT', draft: invoice,
+    context: { supplyDate: context.supplyDate, sellerId: context.sellerId, paymentMeansCode: context.paymentMeansCode },
+    savedTotals: calculated.totals, savedLineAmounts: calculated.lines.map(l => ({ line_number: l.line_number,
+      line_extension_amount: l.line_extension_amount, tax_amount: l.tax_amount, gross_amount: l.gross_amount })) }, scope);
+  const { lines: _, ...header } = snapshot.draft;
+  query('insert into public.organization_members values(' + [scope.organizationId, actor, 'ADMIN', 'ACTIVE'].map(q).join(',') + ');'
+    + 'insert into public.vat_einvoice_connections values(' + [scope.connectionId, scope.organizationId, scope.environment, 'COMPLIANCE_PASSED', invoice.seller_vat_number, 'SYNTHETIC-EGS', '1100'].map(q).join(',') + ');'
+    + 'insert into public.vat_einvoices select * from jsonb_populate_record(null::public.vat_einvoices,' + q(JSON.stringify({ ...header, ...calculated.totals, id: scope.documentId, invoice_uuid: scope.invoiceUuid, status: 'DRAFT', updated_at: '2026-10-24T00:00:00Z' })) + ');'
+    + calculated.lines.map(l => 'insert into public.vat_einvoice_lines select * from jsonb_populate_record(null::public.vat_einvoice_lines,' + q(JSON.stringify({ ...l, id: randomUUID(), invoice_id: scope.documentId })) + ');').join('')
+    + 'insert into zatca_preparation.document_context values(' + [scope.documentId, scope.organizationId, JSON.stringify(snapshot.context)].map(q).join(',') + ');'
+    + 'insert into zatca_preparation.units(organization_id,environment,unit_id) values(' + [scope.organizationId, scope.environment, scope.unitId].map(q).join(',') + ')');
+  const reserved = query("select set_config('request.jwt.claim.sub'," + q(actor) + ",false);select to_jsonb(r)||jsonb_build_object('counter',r.counter::text) from zatca_preparation.reserve_saved(" + [scope.organizationId, scope.documentId, scope.environment, JSON.stringify(snapshot)].map(q).join(',') + ') r');
+  const reservation = JSON.parse(reserved.split('\n').at(-1)!);
+  expect(reservation.snapshot).toEqual(snapshot);
+  const artifact = await prepareReservedZatcaArtifact(reservation, scope, { ...options, includeSimplifiedQr: true }, signer);
+  const verified = nativeVerify(artifact.xml); expect(verified.status, verified.stderr).toBe(0);
+  const a = artifact.finalizeArguments;
+  const saved = JSON.parse(query('select row_to_json(r) from zatca_preparation.finalize(' + [a.p_org, a.p_environment, a.p_unit, a.p_reservation, a.p_snapshot_digest, a.p_invoice_hash, a.p_prepared_xml].map(q).join(',') + ') r'));
+  expect(saved.state).toBe('PREPARED'); expect(saved.prepared_xml).toBe(artifact.xml);
+  expect(() => query("update public.vat_einvoices set status='ISSUED' where id=" + q(scope.documentId))).toThrow('EINVOICE_SOURCE_FROZEN');
+  expect(() => query('update public.vat_einvoice_lines set unit_price=999 where invoice_id=' + q(scope.documentId))).toThrow('EINVOICE_SOURCE_FROZEN');
+});

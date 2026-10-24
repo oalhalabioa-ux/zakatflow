@@ -5,6 +5,8 @@ on:
     paths:
       - 'tests/fixtures/zatca-phase2-ledger.sql'
       - 'tests/zatca-ledger-postgres.py'
+      - 'tests/fixtures/zatca-source-freeze*.sql'
+      - 'tests/zatca-source-freeze-postgres.py'
       - 'lib/zatca*'
       - 'services/zatca-phase2-access*'
       - 'services/auth.ts'
@@ -76,10 +78,20 @@ jobs:
           PGUSER: postgres
           PGDATABASE: zatca_ledger_qa
           PGPASSWORD: disposable-qa-only
+      - name: Verify atomic source freeze and authorization races
+        run: python3 tests/zatca-source-freeze-postgres.py
+        env:
+          ZATCA_LEDGER_DISPOSABLE_QA: '1'
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: zatca_ledger_qa
+          PGPASSWORD: disposable-qa-only
       - name: Verify saved reservation to signed artifact and next chain entry
         run: npx vitest run lib/zatca-reserved-preparation.test.ts lib/zatca-xades-preparation.test.ts
         env:
           ZATCA_LEDGER_SQL_QA: '1'
+          ZATCA_SOURCE_FREEZE_QA: '1'
           ZATCA_NATIVE_XMLSEC: '1'
           ZATCA_LEDGER_DISPOSABLE_QA: '1'
           PGHOST: 127.0.0.1
