@@ -1,5 +1,8 @@
 import { CreateSecretCommand, DescribeSecretCommand, GetSecretValueCommand, type SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { createHash } from 'node:crypto';
+import type { KMSClient } from '@aws-sdk/client-kms';
+import { createZatcaKmsSigner } from './zatca-kms-signer';
+import { inspectZatcaOriginalCsr, inspectZatcaOnboardingIdentity, verifyZatcaOnboardingCandidate, zatcaSavedUnitIdentitySchema } from './zatca-onboarding-identity';
 import { z } from 'zod';
 
 const uuid = z.string().uuid(), pin = z.string().regex(/^[a-f0-9]{64}$/);
@@ -15,6 +18,10 @@ const responseSchema = z.object({ requestId: z.string().regex(/^[0-9]{1,40}$/),
 export const zatcaEnrollmentQuarantineReferenceSchema = z.object({ version: z.literal('ZATCA_ENROLLMENT_QUARANTINE_V1'),
   secretArn: z.string().min(20).max(2048), secretVersionId: uuid, encryptionKeyArn: keyArn,
   responseSha256: pin, binarySecurityTokenSha256: pin,
+}).strict();
+const verificationMaterialSchema = z.object({ csrPem: z.string().min(1).max(32768), savedUnit: zatcaSavedUnitIdentitySchema,
+  pathEvidence: z.object({ issuerChainDerBase64: z.array(z.string().min(4).max(32768)).min(1).max(5),
+    crlsDerBase64: z.array(z.string().min(4).max(1024 * 1024)).min(1).max(6) }).strict(),
 }).strict();
 const envelopeSchema = z.object({ version: z.literal('ZATCA_ENROLLMENT_RESPONSE_V1'), context: contextSchema, response: responseSchema }).strict();
 const sha = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
@@ -56,7 +63,7 @@ export function createZatcaEnrollmentResponseStager(secrets: Pick<SecretsManager
     const prefix = `arn:aws:secretsmanager:${config.region}:${config.accountId}:secret:${secretName}-`;
     return typeof arn === 'string' && arn.startsWith(prefix) && /^[A-Za-z0-9]{6}$/.test(arn.slice(prefix.length));
   }
-  async function read(context: z.infer<typeof contextSchema>, expected?: string, createdArn?: string) {
+  async function readDetails(context: z.infer<typeof contextSchema>, expected?: string, createdArn?: string) {
     const secretName = name(context);
     let metadata, saved;
     try { metadata = await send(new DescribeSecretCommand({ SecretId: createdArn ?? secretName })); }
@@ -80,10 +87,10 @@ export function createZatcaEnrollmentResponseStager(secrets: Pick<SecretsManager
       if (saved.SecretString !== canonical) throw new Error();
     } catch { return fail('ENROLLMENT_RESPONSE_CONTENT_INVALID'); }
     if (expected !== undefined && canonical !== expected) return fail('ENROLLMENT_RESPONSE_CONTENT_CHANGED');
-    return { stage: 'ENROLLMENT_RESPONSE_QUARANTINED_ONLY' as const, reference: {
+    return { certificateDerBase64: decoded.response.binarySecurityToken, receipt: { stage: 'ENROLLMENT_RESPONSE_QUARANTINED_ONLY' as const, reference: {
       version: 'ZATCA_ENROLLMENT_QUARANTINE_V1' as const, secretArn: metadata.ARN, secretVersionId: saved.VersionId,
       encryptionKeyArn: config.encryptionKeyArn, responseSha256: sha(canonical),
-      binarySecurityTokenSha256: sha(Buffer.from(decoded.response.binarySecurityToken, 'base64')) } };
+      binarySecurityTokenSha256: sha(Buffer.from(decoded.response.binarySecurityToken, 'base64')) } } };
   }
   return {
     async stageResponse(contextValue: unknown, normalizedResponseValue: unknown) {
@@ -102,12 +109,56 @@ export function createZatcaEnrollmentResponseStager(secrets: Pick<SecretsManager
       } catch {
         // Includes ResourceExists and lost acknowledgements: only read the exact
         // deterministic name/version. Never PutSecretValue, overwrite or resend.
-        return read(context, content);
+        return (await readDetails(context, content)).receipt;
       }
       if (!created || !validArn(created.ARN, secretName) || created.Name !== secretName || created.VersionId !== context.dispatchId)
         return fail('ENROLLMENT_RESPONSE_CREATE_RECEIPT_INVALID');
-      return read(context, content, created.ARN);
+      return (await readDetails(context, content, created.ARN)).receipt;
     },
-    async recoverResponse(contextValue: unknown) { return read(parseContext(contextValue)); },
+    /** Internal saved-reference verification only. Original identity/reference and
+     * trust/CRLs must come from protected storage/config, never request JSON.
+     * Reads exact immutable version; returns evidence, never credentials/cert/CSR.
+     * No Sign, write, authority submission or activation occurs.
+     */
+    async verifyStoredResponse(contextValue: unknown, referenceValue: unknown, originalValue: unknown,
+      protectedTrustValue: unknown, kms: Pick<KMSClient, 'send'>) {
+      const context = parseContext(contextValue);
+      let reference: z.infer<typeof zatcaEnrollmentQuarantineReferenceSchema>, original: z.infer<typeof verificationMaterialSchema>, trust: unknown;
+      try {
+        reference = zatcaEnrollmentQuarantineReferenceSchema.parse(referenceValue);
+        original = verificationMaterialSchema.parse(originalValue); trust = structuredClone(protectedTrustValue);
+      } catch { return fail('ENROLLMENT_RESPONSE_VERIFICATION_INPUT_INVALID'); }
+      if (reference.secretVersionId !== context.dispatchId || reference.encryptionKeyArn !== config.encryptionKeyArn
+        || !validArn(reference.secretArn, name(context))) fail('ENROLLMENT_RESPONSE_VERIFICATION_REFERENCE_INVALID');
+      const saved = original.savedUnit;
+      if (saved.organizationId !== context.organizationId || saved.connectionId !== context.connectionId || saved.unitId !== context.connectionId
+        || saved.environment !== context.environment) fail('ENROLLMENT_RESPONSE_VERIFICATION_SCOPE_INVALID');
+      try { inspectZatcaOriginalCsr(original.csrPem, saved); }
+      catch { return fail('ENROLLMENT_RESPONSE_ORIGINAL_INVALID'); }
+      const kmsSend = kms.send.bind(kms);
+      const keyClient = { send: kmsSend } as Pick<KMSClient, 'send'>;
+      const checkKey = async () => {
+        try { await createZatcaKmsSigner(keyClient, context.kmsKeyArn, Buffer.from(saved.kmsPublicKeySpkiBase64, 'base64')); }
+        catch { return fail('ENROLLMENT_RESPONSE_KMS_CHECK_FAILED'); }
+      };
+      const load = async () => {
+        const loaded = await readDetails(context, undefined, reference.secretArn);
+        if (Object.entries(reference).some(([key,value]) => loaded.receipt.reference[key as keyof typeof reference] !== value))
+          fail('ENROLLMENT_RESPONSE_STORED_REFERENCE_CHANGED');
+        return loaded;
+      };
+      const loaded = await load();
+      const material = { csrPem: original.csrPem, certificateDerBase64: loaded.certificateDerBase64 };
+      try { inspectZatcaOnboardingIdentity(material, saved); }
+      catch { return fail('ENROLLMENT_RESPONSE_IDENTITY_CHECK_FAILED'); }
+      await checkKey();
+      let evidence;
+      try { evidence = await verifyZatcaOnboardingCandidate(material, saved, original.pathEvidence, trust); }
+      catch { return fail('ENROLLMENT_RESPONSE_TRUST_CHECK_FAILED'); }
+      await checkKey();
+      await load();
+      return { stage: 'STAGED_ENROLLMENT_VERIFICATION_ONLY' as const, context, reference, evidence };
+    },
+    async recoverResponse(contextValue: unknown) { return (await readDetails(parseContext(contextValue))).receipt; },
   };
 }

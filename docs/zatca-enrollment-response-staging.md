@@ -42,3 +42,6 @@ The pg adapter independently verifies Auth, uses the shared isolated session hel
 Still required: fresh authorized orchestration before cloud operations, KMS key ownership/configuration/IAM and actual AWS tests, fixed authority transport/normalization, an exact private response loader for verification, fresh native CSR/path/CRL checks on recovered material and reviewed active-credential promotion, audited recovery/status UI, HTTP/CSRF/rate/tenant boundary, native/private backend packaging and reviewed migrations, current SDK/simulation/browser acceptance. Production onboarding remains unchanged; no paid resource or permanent QA/production DDL occurred.
 
 References: [AWS CreateSecret](https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_CreateSecret.html), [AWS GetSecretValue](https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html), [node-postgres transactions](https://node-postgres.com/features/transactions).
+
+
+The follow-up private verifier now loads the authoritative original/receipt, reads the exact quarantine version internally, verifies saved identity/native chain/CRLs and fresh KMS public metadata, then reauthorizes/reloads the same snapshot. It returns evidence only and adds no Sign/write/activation. Native relational coverage is now 173/173; see `docs/zatca-enrollment-response-verification.md`.

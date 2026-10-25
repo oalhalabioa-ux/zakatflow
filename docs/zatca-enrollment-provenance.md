@@ -38,3 +38,6 @@ Dispatch preparation now adds a separately immutable original-request intent and
 
 
 Unverified response quarantine/read-only recovery and immutable original-dispatch receipt now extend the preparation flow. Only opaque versioned references are stored in PostgreSQL; no credentials are activated. Native relational coverage is now 153/153. See `docs/zatca-enrollment-response-staging.md`.
+
+
+Recovered material can now pass through an authoritative saved-reference/private verifier with native identity/path/CRL checks, fresh KMS public metadata and final permission/snapshot reload. It is read-only, not signer activation. Native relational coverage is now 173/173; see `docs/zatca-enrollment-response-verification.md`.

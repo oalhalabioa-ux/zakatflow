@@ -29,6 +29,23 @@ describe.skipIf(!enabled)('private opaque response receipt real PostgreSQL integ
     const f = await fixture(), r = await f.record(); expect(await f.record()).toEqual(r);
     expect((await pool.query('select status,credentials_secret_arn from public.vat_einvoice_connections where id=$1', [f.f.connection])).rows[0]).toEqual({ status: 'KEY_READY', credentials_secret_arn: null }); await clean();
   });
+  it('loads the exact private recorded response with the saved signing-key reference and clean pooled identity', async () => {
+    const f=await fixture(),receipt=await f.record();
+    const {enrollmentDigest:_digest,...input}=f.context;
+    const saved=await f.store.loadResponseForVerification('SYNTHETIC.TOKEN',input);
+    expect(saved.receiptDigest).toBe(receipt.receiptDigest); expect(saved.reference).toEqual(f.f.reference);
+    expect(saved.kmsKeyArn).toMatch(/^arn:aws:kms:/); expect(saved.enrollmentDigest).toBe(f.context.enrollmentDigest);
+    await clean();
+  });
+  it('denies cross-company or revoked response loads and refuses reads after connection activation', async () => {
+    const f=await fixture(),other=await fixture(); await f.record(); await other.record();
+    const {enrollmentDigest:_digest,...input}=f.context,{enrollmentDigest:_otherDigest,...foreign}=other.context;
+    await expect(f.store.loadResponseForVerification('SYNTHETIC.TOKEN',foreign)).rejects.toThrow('ORGANIZATION_ADMIN_REQUIRED');
+    await pool.query("update public.vat_einvoice_connections set credentials_secret_arn='SYNTHETIC' where id=$1",[f.f.connection]);
+    await expect(f.store.loadResponseForVerification('SYNTHETIC.TOKEN',input)).rejects.toThrow('INITIAL_ENROLLMENT_STATE_REQUIRED');
+    await pool.query("update public.organization_members set status='INACTIVE' where organization_id=$1",[f.f.org]);
+    await expect(f.store.loadResponseForVerification('SYNTHETIC.TOKEN',input)).rejects.toThrow('ORGANIZATION_ADMIN_REQUIRED'); await clean();
+  });
   it('deduplicates eight simultaneous records', async () => {
     const f = await fixture(), rows = await Promise.all(Array.from({ length: 8 }, f.record)); rows.forEach(r => expect(r).toEqual(rows[0])); expect(await f.saved()).toHaveLength(1); await clean();
   });

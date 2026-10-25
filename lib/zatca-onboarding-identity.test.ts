@@ -3,12 +3,14 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createZatcaCsr } from './vat-zatca-csr';
 import { Pool } from 'pg';
 import { CreateSecretCommand, DescribeSecretCommand, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { createZatcaEnrollmentResponseStager } from './zatca-enrollment-response-staging';
 import { createVerifiedZatcaEnrollmentResponseStore } from '../services/zatca-private-enrollment-response';
+import { createVerifiedZatcaEnrollmentVerifier } from '../services/zatca-private-enrollment-verifier';
+import { GetPublicKeyCommand } from '@aws-sdk/client-kms';
 import { createVerifiedZatcaEnrollmentReader } from '../services/zatca-private-enrollment-reader';
 import { createVerifiedZatcaEnrollmentWriter } from '../services/zatca-private-enrollment-writer';
 import { createZatcaEnrollmentCoordinator } from '../services/zatca-private-enrollment-coordinator';
@@ -293,6 +295,17 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
     const recorded = await store.recordResponseReference('SYNTHETIC.AUTH.TOKEN', receiptContext, recovered.reference);
     expect(await store.recordResponseReference('SYNTHETIC.AUTH.TOKEN', receiptContext, recovered.reference)).toEqual(recorded);
     expect(recorded.stage).toBe('ENROLLMENT_RESPONSE_REFERENCE_RECORDED_ONLY');
+    const kmsSend = async (command: unknown) => {
+      if (!(command instanceof GetPublicKeyCommand)) throw new Error('Unexpected synthetic KMS write');
+      return { KeyId: kms, KeySpec: 'ECC_SECG_P256K1', KeyUsage: 'SIGN_VERIFY', SigningAlgorithms: ['ECDSA_SHA_256'], PublicKey: Buffer.from(base.expected.kmsPublicKeySpkiBase64,'base64') };
+    };
+    const verifier = createVerifiedZatcaEnrollmentVerifier(auth as never,dispatchPool,{ secrets: { send }, kms: { send: kmsSend } } as never,
+      { quarantine: { region: 'eu-central-1', accountId: '123456789012', encryptionKeyArn }, trust: evidence.trust, pathEvidence: evidence.evidence });
+    const verifiedStored = await verifier.verifySavedResponse('SYNTHETIC.AUTH.TOKEN',{ ...target,...operation });
+    expect(verifiedStored.receiptDigest).toBe(recorded.receiptDigest);
+    expect(verifiedStored.evidence.identity.certificateFingerprintSha256).toBe(verified.identity.certificateFingerprintSha256);
+    expect(verifiedStored.stage).toBe('AUTHORIZED_STAGED_ENROLLMENT_VERIFICATION_ONLY');
+
 
   } finally { await dispatchPool.end(); }
   query("update public.vat_einvoice_connections set status='COMPLIANCE_PASSED',credentials_secret_arn=" + q(secret) + ' where id=' + q(f.connection));
@@ -320,4 +333,97 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
   expect(prepared.state).toBe('PREPARED');
   expect(query('select enrollment_digest from zatca_preparation.enrollment_finalization_audit where reservation_id=' + q(reservation.reservation_id))).toBe(original.enrollment_digest);
   expect(query('select status from public.vat_einvoices where id=' + q(f.document))).toBe('DRAFT');
+});
+
+
+async function stagedVerificationFixture(certificateDerBase64 = base.material.certificateDerBase64) {
+  const kmsKeyArn = 'arn:aws:kms:eu-central-1:123456789012:key/' + randomUUID();
+  const config = { region: 'eu-central-1', accountId: '123456789012', encryptionKeyArn: 'arn:aws:kms:eu-central-1:123456789012:key/' + randomUUID() };
+  const context = { organizationId: base.expected.organizationId, connectionId: base.expected.connectionId, environment: base.expected.environment,
+    enrollmentId: randomUUID(), enrollmentDigest: 'a'.repeat(64), dispatchId: randomUUID(), kmsKeyArn };
+  const state = { content: '', name: '', arn: '', reads: 0, changeAfterVerification: false, key: {} as Record<string,unknown> };
+  const secretsSend = vi.fn(async (command: unknown) => {
+    if (command instanceof CreateSecretCommand) {
+      state.content=command.input.SecretString!; state.name=command.input.Name!; state.arn='arn:aws:secretsmanager:eu-central-1:123456789012:secret:'+state.name+'-ABC123';
+      return { ARN: state.arn, Name: state.name, VersionId: context.dispatchId };
+    }
+    if (command instanceof DescribeSecretCommand) return { ARN: state.arn, Name: state.name, KmsKeyId: config.encryptionKeyArn };
+    if (command instanceof GetSecretValueCommand) {
+      state.reads++;
+      if (state.changeAfterVerification && state.reads===2) { const value=JSON.parse(state.content); value.response.secret='CHANGED_PRIVATE_RESPONSE'; state.content=JSON.stringify(value); }
+      return { ARN: state.arn, Name: state.name, VersionId: context.dispatchId, SecretString: state.content };
+    }
+    throw new Error('Unexpected AWS write');
+  });
+  const kmsSend = vi.fn(async (command: unknown) => {
+    if (!(command instanceof GetPublicKeyCommand)) throw new Error('Unexpected KMS Sign');
+    return { KeyId: kmsKeyArn, KeySpec: 'ECC_SECG_P256K1', KeyUsage: 'SIGN_VERIFY', SigningAlgorithms: ['ECDSA_SHA_256'], PublicKey: Buffer.from(base.expected.kmsPublicKeySpkiBase64,'base64'), ...state.key };
+  });
+  const kms={ send:kmsSend }, stager=createZatcaEnrollmentResponseStager({ send:secretsSend } as never,config), path=pathFixture();
+  const reference=(await stager.stageResponse(context,{ requestId:'1234567890',binarySecurityToken:certificateDerBase64,secret:'SYNTHETIC_PRIVATE_RESPONSE' })).reference;
+  state.reads=0; secretsSend.mockClear();
+  const original={ csrPem:base.material.csrPem,savedUnit:structuredClone(base.expected),pathEvidence:structuredClone(path.evidence) };
+  const verify=()=>stager.verifyStoredResponse(context,reference,original,path.trust,kms as never);
+  return { state,config,context,reference,original,trust:path.trust,secretsSend,kmsSend,kms,stager,verify };
+}
+describe('recovered response reference with real native identity/path/CRL verification',()=>{
+  it('reads the exact version, verifies saved identity/native trust and fresh KMS twice, returning evidence only',async()=>{
+    const f=await stagedVerificationFixture(),r=await f.verify();
+    expect(r.stage).toBe('STAGED_ENROLLMENT_VERIFICATION_ONLY'); expect(r.evidence.identity.certificateFingerprintSha256).toBe(f.reference.binarySecurityTokenSha256);
+    expect(f.kmsSend).toHaveBeenCalledTimes(2); expect(f.secretsSend.mock.calls.every(([c])=>c instanceof DescribeSecretCommand || c instanceof GetSecretValueCommand)).toBe(true);
+    expect(f.secretsSend.mock.calls.filter(([c])=>c instanceof GetSecretValueCommand).map(([c])=>(c as GetSecretValueCommand).input)).toEqual([
+      {SecretId:f.reference.secretArn,VersionId:f.context.dispatchId},{SecretId:f.reference.secretArn,VersionId:f.context.dispatchId}]);
+    expect(JSON.stringify(r)).not.toContain('SYNTHETIC_PRIVATE_RESPONSE'); expect(JSON.stringify(r)).not.toContain(base.material.certificateDerBase64); expect(JSON.stringify(r)).not.toContain('CERTIFICATE REQUEST');
+  });
+  it.each(['secretArn','secretVersionId','encryptionKeyArn'])('rejects wrong saved %s before cloud access',async field=>{
+    const f=await stagedVerificationFixture(); Object.assign(f.reference,{[field]:field==='secretVersionId'?randomUUID():'invalid'});
+    await expect(f.verify()).rejects.toThrow(/ENROLLMENT_RESPONSE_VERIFICATION_(REFERENCE|INPUT)_INVALID/); expect(f.secretsSend).not.toHaveBeenCalled(); expect(f.kmsSend).not.toHaveBeenCalled();
+  });
+  it('rejects a changed stored envelope hash before KMS or native verification',async()=>{
+    const f=await stagedVerificationFixture(); f.reference.responseSha256='0'.repeat(64);
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_STORED_REFERENCE_CHANGED'); expect(f.kmsSend).not.toHaveBeenCalled();
+  });
+  it('rejects another original company scope without cloud reads',async()=>{
+    const f=await stagedVerificationFixture(); f.original.savedUnit.organizationId=randomUUID();
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_VERIFICATION_SCOPE_INVALID'); expect(f.secretsSend).not.toHaveBeenCalled();
+  });
+  it('rejects a corrupt saved original CSR before cloud reads',async()=>{
+    const f=await stagedVerificationFixture(); f.original.csrPem='invalid';
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_ORIGINAL_INVALID'); expect(f.secretsSend).not.toHaveBeenCalled();
+  });
+  it('rejects a CA-issued same-key certificate for different saved legal identity',async()=>{
+    const other=await request({organizationName:'Different Company'}),f=await stagedVerificationFixture(issue(other.csr));
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_IDENTITY_CHECK_FAILED'); expect(f.kmsSend).not.toHaveBeenCalled();
+  });
+  it.each(['KeyId','KeyUsage','KeySpec','SigningAlgorithms','PublicKey'])('rejects fresh KMS %s mismatch',async field=>{
+    const f=await stagedVerificationFixture(); f.state.key[field]=field==='SigningAlgorithms'?['ECDSA_SHA_512']:field==='PublicKey'?generateKeyPairSync('ec',{namedCurve:'secp256k1'}).publicKey.export({format:'der',type:'spki'}):'invalid';
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_KMS_CHECK_FAILED');
+  });
+  it('rejects a revoked otherwise matching certificate through the real native CRL check',async()=>{
+    const f=await stagedVerificationFixture(); f.original.pathEvidence.crlsDerBase64=[revokedCrl];
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_TRUST_CHECK_FAILED');
+  });
+  it('rejects an unconfigured trust anchor instead of accepting system trust',async()=>{
+    const f=await stagedVerificationFixture(); f.trust.anchors[0].fingerprintSha256='0'.repeat(64);
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_TRUST_CHECK_FAILED');
+  });
+  it('rejects a changed secret envelope on the post-verification readback',async()=>{
+    const f=await stagedVerificationFixture(); f.state.changeAfterVerification=true;
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_STORED_REFERENCE_CHANGED'); expect(f.kmsSend).toHaveBeenCalledTimes(2);
+  });
+  it('does not return evidence when KMS becomes unavailable after native verification',async()=>{
+    const f=await stagedVerificationFixture(),impl=f.kmsSend.getMockImplementation()!;
+    f.kmsSend.mockImplementationOnce(impl).mockRejectedValueOnce(new Error('PRIVATE_PASSWORD'));
+    await expect(f.verify()).rejects.toThrow('ENROLLMENT_RESPONSE_KMS_CHECK_FAILED');
+  });
+  it('captures saved identity, CRLs, trust and transport before asynchronous KMS reads',async()=>{
+    const f=await stagedVerificationFixture(),impl=f.kmsSend.getMockImplementation()!; let resume!:()=>void;
+    f.kmsSend.mockImplementationOnce(async command=>{ await new Promise<void>(r=>{resume=r;}); return impl(command); });
+    const pending=f.verify();
+    for(let i=0;i<100 && !resume;i++) await new Promise(r=>setTimeout(r,5));
+    expect(resume).toBeTypeOf('function');
+    f.original.savedUnit.legalName='Changed'; f.original.pathEvidence.crlsDerBase64=[revokedCrl]; f.trust.anchors[0].fingerprintSha256='0'.repeat(64);
+    f.kms.send=vi.fn(async()=>{throw new Error('Changed transport');}); resume();
+    expect((await pending).evidence.identity.certificateFingerprintSha256).toBe(f.reference.binarySecurityTokenSha256);
+  });
 });
