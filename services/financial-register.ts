@@ -60,7 +60,7 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
 
 
  }else{
-  const [accounts,settlements,flows,events,obligations,allocations,parties,balances,entities,links,documents]=await Promise.all([
+  const [accounts,settlements,flows,events,obligations,allocations,parties,balances,entities,links,documents,contracts]=await Promise.all([
    debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_accounts').select('*').in('organization_id',ids).in('account_type',['BANK','CASH','WALLET']).eq('active',true)),
    debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_settlements').select('*').in('organization_id',ids).in('status',['POSTED','REVERSED'])),
    debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_flows').select('id,organization_id,account_id,direction,due_date,amount,currency,title,reference,source_module,transfer_id,created_at').in('organization_id',ids).eq('status','ACTUAL')),
@@ -72,6 +72,7 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
    all(()=>supabase.from('organization_entities').select('id,name,organization_id').in('organization_id',ids)),
    all(()=>supabase.from('financial_event_links').select('id,organization_id,event_id,target_module,target_record_id,metadata').in('organization_id',ids)),
    all(()=>supabase.from('vat_documents').select('id,document_type,document_number').in('organization_id',ids)),
+   all(()=>supabase.from('debt_contracts').select('id,organization_id,financial_event_id,reference,schedule,kind,side').in('organization_id',ids).is('deleted_at',null)),
   ]);
   result.entities=entities;result.accounts=accounts.map(a=>({id:a.id,name:a.name,type:a.account_type,currency:a.currency,nativeCurrency:a.currency,balance:Number(a.current_balance),restricted:Number(a.restricted_balance),uncleared:Number(a.uncleared_balance),baseCurrency:organizations.find(o=>o.id===a.organization_id)?.base_currency??a.currency,baseBalance:Number(a.current_balance_base),organizationId:a.organization_id,entityId:a.entity_id,source:'LIQUIDITY',openingDate:a.metadata?.opening_date??null}));
   const eventMap=new Map(events.map(e=>[e.id,e])),partyMap=new Map(parties.map(p=>[p.organization_id+':'+p.id,p.name]));
@@ -82,7 +83,7 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const postedSourceKeys=events.filter(e=>knownCashEvents.has(e.id)).map(e=>e.source_event_key??'');
   result.cashMovements.push(...flows.filter(f=>!coveredFlows.has(f.id)&&!postedSourceKeys.some(k=>k.includes(f.id))).map(f=>({id:'flow:'+f.id,accountId:f.account_id,date:f.due_date,createdAt:f.created_at,currency:f.currency,amount:Number(f.amount)*(f.direction==='INFLOW'?1:-1),description:f.title,reference:f.reference||f.id,source:f.transfer_id?'TRANSFER':'LEGACY_FLOW'})));
   result.debts=balances.flatMap((b:any):DebtItem[]=>{const e=eventMap.get(b.event_id);if(!e||e.status!=='ACTUAL')return [];const side=['RECEIVABLE','PAYABLE','CUSTOMER_ADVANCE','SUPPLIER_ADVANCE'].includes(b.obligation_type)?b.obligation_type:'UNAPPLIED';return [{id:b.obligation_id,partyKey:e.organization_id+':'+(e.counterparty_id||'unmapped:'+e.id),partyName:partyMap.get(e.organization_id+':'+e.counterparty_id)||'غير محدد',organizationId:e.organization_id,entityId:e.entity_id,side,currency:b.base_currency,amount:Number(b.outstanding_base_amount),dueDate:e.due_date,date:e.event_date,description:e.description,source:e.source_module,eventId:e.id,originalCurrency:b.currency,originalAmount:Number(b.settleable_amount),exchangeRate:Number(b.exchange_rate),totalBase:Number(b.adjusted_settleable_base_amount),appliedBase:Number(side.endsWith('_ADVANCE')?b.consumed_advance_base_amount:b.applied_base_amount)}];});
-  const references=new Map<string,string>(documents.map(d=>[d.id,d.document_number])),sides=new Map<string,'SALES'|'PURCHASE'>(documents.map(d=>[d.id,d.document_type]));
+  const references=new Map<string,string>([...documents.map(d=>[d.id,d.document_number] as [string,string]),...contracts.map(c=>[c.id,c.reference] as [string,string])]),sides=new Map<string,'SALES'|'PURCHASE'>(documents.map(d=>[d.id,d.document_type]));
   const referenceTransactions=debtOnly?await inBatches([...new Set<string>(events.filter(e=>['ASSETS_INTEGRATION','ASSET_LIFECYCLE'].includes(e.source_module)).map(e=>e.source_record_id).filter(Boolean))],batch=>supabase.from('transactions').select('id,reference,metadata').in('organization_id',ids).in('id',batch)):assetTransactions;
   for(const tx of referenceTransactions){const ref=tx.reference||tx.metadata?.invoice_reference;if(ref&&!references.has(tx.id))references.set(tx.id,ref);}
   for(const l of links.filter(l=>l.target_module==='vat_documents')){const e=eventMap.get(l.event_id),d=documents.find(d=>d.id===l.target_record_id);if(e?.source_record_id&&d){references.set(e.source_record_id,d.document_number);sides.set(e.source_record_id,d.document_type);}}
@@ -91,15 +92,20 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   for(const d of result.debts){const sourceId=eventMap.get(d.eventId!)?.source_record_id;const side=sourceId?sides.get(sourceId):undefined;if(side)sourceDebtSides.set(d.id,side);}
   result.debtMovements=buildReportMovements(events,obligations,allocations,parties,references,sides);
   const installmentDue=new Map(links.filter(l=>l.metadata?.obligation_id&&l.metadata?.due_date).map(l=>[l.metadata.obligation_id,l.metadata.due_date]));
-  result.debts=result.debts.map(d=>({...d,dueDate:installmentDue.get(d.id)??d.dueDate}));
-  result.debtMovements=result.debtMovements.map(m=>({...m,due:installmentDue.get(m.debtId)??m.due}));
+  // The current saved schedule includes approved rescheduling. Links are a fallback
+  // for older records; dates never change the canonical outstanding balances.
+  const contractsByEvent=new Map(contracts.map(c=>[c.financial_event_id,c])),contractsById=new Map(contracts.map(c=>[c.id,c]));
+  const contractDue=new Map<string,string>();
+  for(const b of balances){const c=contractsByEvent.get(b.event_id);if(!c||c.organization_id!==b.organization_id)continue;const key=b.obligation_key??obMap.get(b.obligation_id)?.obligation_key;const match=/^installment:([1-9]\d*)$/.exec(key??'');const due=match?c.schedule?.[Number(match[1])-1]?.due_date:null;if(due)contractDue.set(b.obligation_id,due);}
+  result.debts=result.debts.map(d=>{const e=eventMap.get(d.eventId),cost=e?.source_module==='FINANCE_CONTRACTS',c=contractsByEvent.get(d.eventId)??(cost?contractsById.get(e.source_record_id):undefined);return {...d,loanContractId:c?.kind==='LOAN'?c.id:undefined,contractCategory:cost&&c?(c.side==='RECEIVABLE'?'O_AR_ACCRUED':'O_AP_ACCRUAL'):c?.kind==='LOAN'?(c.side==='RECEIVABLE'?'O_AR_LOAN':'O_AP_LOAN'):c?.kind==='EMPLOYEE_ADVANCE'?'O_AR_EMPLOYEE':undefined,dueDate:contractDue.get(d.id)??installmentDue.get(d.id)??d.dueDate};});
+  result.debtMovements=result.debtMovements.map(m=>({...m,due:contractDue.get(m.debtId??'')??installmentDue.get(m.debtId)??m.due}));
   if(ids.length>1)result.warnings.push('GROUP_BEFORE_INTERCOMPANY_ELIMINATION');
  }
  const categories=await all(()=>{const q=supabase.from('financial_debt_categories').select('*');return scope==='PERSONAL'?q.eq('owner_id',user.id):q.in('organization_id',ids);},['origin','record_id']);
  const categoryMap=new Map(categories.map(c=>[c.origin+':'+c.record_id,c.category]));
  result.debts=result.debts.map(d=>{
   const origin=d.organizationId?'CORE':d.source==='PERSONAL_PAYABLE'?'PERSONAL_PAYABLE':'PERSONAL_RECEIVABLE';
-  const saved=categoryMap.get(origin+':'+d.id),inferred=inferDebtCategory(scope,d.side,d.source,sourceDebtSides.get(d.id));
+  const saved=categoryMap.get(origin+':'+d.id),inferred=d.contractCategory??inferDebtCategory(scope,d.side,d.source,sourceDebtSides.get(d.id));
   return {...d,category:['SUPPLIER_ADVANCE','CUSTOMER_ADVANCE'].includes(d.side)?d.side:saved??inferred,categoryInferred:!saved&&inferred!=='UNCLASSIFIED',categoryOrigin:['RECEIVABLE','PAYABLE'].includes(d.side)?origin:undefined};
  });
  const classifiedDebts=new Map(result.debts.map(d=>[d.id,d]));
