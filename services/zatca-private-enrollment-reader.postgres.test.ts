@@ -79,6 +79,8 @@ describe.skipIf(!enabled)('private pg reader disposable session and revocation i
       const pending = reader().loadOriginalEnrollment('SYNTHETIC.A', target(actorA)).then(value => ({ value }), error => ({ error }));
       let waiting = false;
       for (let attempt = 0; attempt < 20; attempt++) {
+        // Activity snapshots can otherwise stay cached in this open transaction.
+        await admin.query('select pg_stat_clear_snapshot()');
         const row = await admin.query("select exists(select 1 from pg_stat_activity where application_name='zatca-private-reader-qa' and wait_event_type='Lock') as waiting");
         if (row.rows[0].waiting) { waiting = true; break; }
         await new Promise(resolve => setTimeout(resolve, 25));
