@@ -104,10 +104,10 @@ function identityDigest(value: z.infer<typeof zatcaSavedUnitIdentitySchema>) {
   }
   return digest(Buffer.concat(chunks));
 }
-function inspect(materialValue: unknown, savedUnitValue: unknown, at: Date) {
-  const material = materialSchema.parse(materialValue), expected = zatcaSavedUnitIdentitySchema.parse(savedUnitValue);
+function inspectOriginalCsr(csrPemValue: unknown, savedUnitValue: unknown) {
+  const csrPem = z.string().min(1).max(32768).parse(csrPemValue), expected = zatcaSavedUnitIdentitySchema.parse(savedUnitValue);
   if (expected.unitId !== expected.connectionId) return fail('ONBOARDING_IDENTITY_SCOPE_MISMATCH');
-  const pem = /^-----BEGIN CERTIFICATE REQUEST-----\r?\n([A-Za-z0-9+/=\r\n]+)\r?\n-----END CERTIFICATE REQUEST-----\r?\n?$/.exec(material.csrPem);
+  const pem = /^-----BEGIN CERTIFICATE REQUEST-----\r?\n([A-Za-z0-9+/=\r\n]+)\r?\n-----END CERTIFICATE REQUEST-----\r?\n?$/.exec(csrPem);
   if (!pem) return fail('ONBOARDING_IDENTITY_CSR_INVALID');
   const csr = decode(pem[1].replace(/[\r\n]/g, ''));
   if (digest(csr) !== expected.csrSha256) return fail('ONBOARDING_IDENTITY_CSR_DIGEST_MISMATCH');
@@ -142,6 +142,21 @@ function inspect(materialValue: unknown, savedUnitValue: unknown, at: Date) {
   const san = () => new Map([['550405', expected.egsSerialNumber], ['0992268993f22c640101', expected.taxpayerVatNumber],
     ['55040c', expected.invoiceType], ['55041a', expected.branchLocation], ['55040f', expected.industry]]);
   equalMap(r.name(fields[1]), subject()); equalMap(directoryName(csrExtensions), san());
+  return { expected, spki, subject, san, template, csr };
+}
+
+/** Original signed CSR consistency only: not proof of live KMS ownership or CA acceptance. */
+export function inspectZatcaOriginalCsr(csrPem: unknown, savedUnit: unknown) {
+  try {
+    const { expected, spki, csr } = inspectOriginalCsr(csrPem, savedUnit);
+    return { stage: 'ORIGINAL_CSR_PREFLIGHT_ONLY' as const, csrDerBase64: csr.toString('base64'),
+      csrSha256: expected.csrSha256, publicKeySpkiSha256: digest(spki), expectedIdentitySha256: identityDigest(expected) };
+  } catch { return fail('ORIGINAL_CSR_INVALID'); }
+}
+
+function inspect(materialValue: unknown, savedUnitValue: unknown, at: Date) {
+  const material = materialSchema.parse(materialValue);
+  const { expected, spki, subject, san, template } = inspectOriginalCsr(material.csrPem, savedUnitValue);
   const der = decode(material.certificateDerBase64), certificate = new X509Certificate(der);
   if (!certificate.raw.equals(der)) return fail('ONBOARDING_IDENTITY_CERTIFICATE_INVALID');
   const certificatePin = digest(der);

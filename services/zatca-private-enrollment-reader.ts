@@ -1,14 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Pool, PoolClient } from 'pg';
+import type { Pool } from 'pg';
+import { createVerifiedEnrollmentSession, enrollmentTokenSchema, enrollmentFailure as fail } from './zatca-private-session';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { zatcaSavedUnitIdentitySchema } from '../lib/zatca-onboarding-identity';
 
 const targetSchema = z.object({ organizationId: z.string().uuid(), connectionId: z.string().uuid(),
   environment: z.enum(['SIMULATION', 'PRODUCTION']) }).strict();
-const tokenSchema = z.string().min(1).max(16384).regex(/^[\x21-\x7e]+$/);
-const verifiedUser = z.object({ id: z.string().uuid(), aud: z.literal('authenticated'),
-  is_anonymous: z.literal(false).optional() });
 const membershipSchema = z.object({ role: z.enum(['OWNER', 'ADMIN']), status: z.literal('ACTIVE') }).strict();
 const connectionSchema = z.object({ id: z.string().uuid(), organization_id: z.string().uuid(),
   environment: z.enum(['SIMULATION', 'PRODUCTION']), unit_stamp: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
@@ -18,11 +16,6 @@ const enrollmentSchema = z.object({ enrollment_id: z.string().uuid(), organizati
   csr_der_base64: z.string().min(4).max(32768).regex(/^[A-Za-z0-9+/]+={0,2}$/),
   expected_identity: zatcaSavedUnitIdentitySchema, integrity_valid: z.literal(true),
 }).strict();
-
-class ReadFailure extends Error {}
-function fail(code: string): never { throw new ReadFailure(code); }
-const clearIdentity = "select pg_catalog.set_config('request.jwt.claim.sub','',false),pg_catalog.set_config('request.jwt.claims','',false),"
-  + "pg_catalog.set_config('request.jwt.claim','',false),pg_catalog.set_config('request.jwt.claim.role','',false),pg_catalog.set_config('request.jwt.claim.email','',false)";
 
 /** Private backend read boundary, not an HTTP route or an issuance authority.
  * The auth client must target the protected deployment's Supabase project; the
@@ -34,41 +27,13 @@ const clearIdentity = "select pg_catalog.set_config('request.jwt.claim.sub','',f
 export function createVerifiedZatcaEnrollmentReader(
   auth: Pick<SupabaseClient['auth'], 'getUser'>, pool: Pick<Pool, 'connect'>,
 ) {
-  const getUser = auth.getUser.bind(auth), connect = pool.connect.bind(pool);
+  const run = createVerifiedEnrollmentSession(auth, pool);
   return {
     async loadOriginalEnrollment(accessToken: unknown, targetValue: unknown) {
       let target: z.infer<typeof targetSchema>, token: string;
-      try { target = targetSchema.parse(targetValue); token = tokenSchema.parse(accessToken); }
+      try { target = targetSchema.parse(targetValue); token = enrollmentTokenSchema.parse(accessToken); }
       catch { return fail('ENROLLMENT_READ_INPUT_INVALID'); }
-      let actor: string;
-      try {
-        const response = await getUser(token);
-        if (response.error || !response.data?.user) throw new Error();
-        actor = verifiedUser.parse(response.data.user).id;
-      } catch { return fail('UNAUTHORIZED'); }
-      // No identity/role is decoded from the token or accepted from request JSON.
-      let client: PoolClient;
-      try { client = await connect(); }
-      catch { return fail('ENROLLMENT_DATABASE_UNAVAILABLE'); }
-      let transaction = false, destroy = false, result: {
-        stage: 'AUTHORIZED_ENROLLMENT_READ_ONLY'; actorId: string;
-        enrollmentId: string; enrollmentDigest: string; csrPem: string;
-        savedUnit: z.infer<typeof zatcaSavedUnitIdentitySchema>;
-      } | undefined;
-      let failure: Error | undefined, connectionFault = false;
-      const onError = () => { connectionFault = true; };
-      client.on('error', onError);
-      try {
-        // A dedicated pool should already be clean. Defensively roll back a
-        // released unfinished transaction and clear any stale session identity.
-        await client.query('ROLLBACK');
-        await client.query(clearIdentity);
-        await client.query('BEGIN'); transaction = true;
-        await client.query("select pg_catalog.set_config('lock_timeout','2s',true),pg_catalog.set_config('statement_timeout','5s',true),"
-          + "pg_catalog.set_config('idle_in_transaction_session_timeout','10s',true),pg_catalog.set_config('search_path','pg_catalog',true)");
-        await client.query("select pg_catalog.set_config('request.jwt.claim.sub',$1,true),pg_catalog.set_config('request.jwt.claims',$2,true),"
-          + "pg_catalog.set_config('request.jwt.claim','',true),pg_catalog.set_config('request.jwt.claim.role','authenticated',true),pg_catalog.set_config('request.jwt.claim.email','',true)",
-          [actor, JSON.stringify({ sub: actor, role: 'authenticated' })]);
+      return run(token, 'ENROLLMENT_DATABASE_READ_FAILED', async (client, actor) => {
         const membership = await client.query('select role,status from public.organization_members where organization_id=$1 and user_id=$2 for share',
           [target.organizationId, actor]);
         if (membership.rowCount !== 1 || !membershipSchema.safeParse(membership.rows[0]).success) fail('ORGANIZATION_ADMIN_REQUIRED');
@@ -97,33 +62,11 @@ export function createVerifiedZatcaEnrollmentReader(
         const csr = Buffer.from(e.csr_der_base64, 'base64');
         if (csr.toString('base64') !== e.csr_der_base64 || createHash('sha256').update(csr).digest('hex') !== saved.csrSha256)
           fail('ENROLLMENT_READ_INTEGRITY_INVALID');
-        result = { stage: 'AUTHORIZED_ENROLLMENT_READ_ONLY', actorId: actor,
+        return { stage: 'AUTHORIZED_ENROLLMENT_READ_ONLY' as const, actorId: actor,
           enrollmentId: e.enrollment_id, enrollmentDigest: e.enrollment_digest,
           csrPem: '-----BEGIN CERTIFICATE REQUEST-----\n' + e.csr_der_base64.match(/.{1,64}/g)!.join('\n') + '\n-----END CERTIFICATE REQUEST-----\n',
           savedUnit: saved };
-        await client.query('COMMIT'); transaction = false;
-      } catch (error) {
-        failure = error instanceof ReadFailure ? error : new Error('ENROLLMENT_DATABASE_READ_FAILED');
-        if (!(error instanceof ReadFailure)) destroy = true;
-        if (transaction) {
-          try { await client.query('ROLLBACK'); transaction = false; }
-          catch { destroy = true; }
-        }
-      } finally {
-        if (connectionFault) destroy = true;
-        if (!destroy) {
-          try { await client.query(clearIdentity); }
-          catch { destroy = true; failure = new Error('ENROLLMENT_DATABASE_CLEANUP_FAILED'); }
-        }
-        try { client.release(destroy); }
-        catch {
-          try { await client.end(); } catch { /* already unusable; do not expose native diagnostics */ }
-          failure = new Error('ENROLLMENT_DATABASE_CLEANUP_FAILED');
-        } finally { client.removeListener('error', onError); }
-      }
-      if (failure) throw failure;
-      if (connectionFault || destroy || !result) return fail('ENROLLMENT_DATABASE_READ_FAILED');
-      return result;
+      });
     },
   };
 }

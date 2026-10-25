@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createZatcaCsr } from './vat-zatca-csr';
 import { Pool } from 'pg';
 import { createVerifiedZatcaEnrollmentReader } from '../services/zatca-private-enrollment-reader';
+import { createVerifiedZatcaEnrollmentWriter } from '../services/zatca-private-enrollment-writer';
 import { inspectZatcaOnboardingIdentity, verifyZatcaOnboardingCandidate } from './zatca-onboarding-identity';
 
 let directory: string, at: Date, key: KeyObject;
@@ -239,17 +240,20 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
     + ',common_name=' + q(fields.commonName) + ',legal_name=' + q(fields.organizationName) + ',branch_name=' + q(fields.branchName)
     + ',branch_location=' + q(fields.registeredAddress) + ',industry=' + q(fields.businessCategory) + ',egs_serial_number=' + q(fields.serialNumber)
     + ' where id=' + q(f.connection));
-  const original = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.begin_initial_enrollment('
-    + [f.org, 'SIMULATION', f.connection, randomUUID(), csrDer(base.material.csrPem).toString('base64'), base.expected.kmsPublicKeySpkiBase64, fields.email].map(q).join(',') + ') r').split('\n').at(-1)!);
   const privatePool = new Pool({ max: 1, connectionTimeoutMillis: 2000, query_timeout: 7000 });
-  let savedRead;
+  let savedRead, preserved;
   try {
     // Auth transport is a test stand-in; actual pg transaction/session isolation
     // and subsequent native CSR/certificate/CRL verification are exercised here.
     const auth = { getUser: async () => ({ data: { user: { id: f.actor, aud: 'authenticated', is_anonymous: false } }, error: null }) };
+    preserved = await createVerifiedZatcaEnrollmentWriter(auth as never, privatePool).preserveOriginalEnrollment('SYNTHETIC.AUTH.TOKEN',
+      { organizationId: f.org, connectionId: f.connection, environment: 'SIMULATION' },
+      { enrollmentId: randomUUID(), csrPem: base.material.csrPem, kmsKeyArn: kms, kmsPublicKeySpkiBase64: base.expected.kmsPublicKeySpkiBase64, email: fields.email });
     savedRead = await createVerifiedZatcaEnrollmentReader(auth as never, privatePool).loadOriginalEnrollment('SYNTHETIC.AUTH.TOKEN',
       { organizationId: f.org, connectionId: f.connection, environment: 'SIMULATION' });
   } finally { await privatePool.end(); }
+  const original = JSON.parse(query('select row_to_json(r) from zatca_preparation.enrollment_requests r where enrollment_id=' + q(preserved.enrollmentId)));
+  expect(preserved.enrollmentDigest).toBe(original.enrollment_digest);
   expect(savedRead.enrollmentId).toBe(original.enrollment_id); expect(savedRead.enrollmentDigest).toBe(original.enrollment_digest);
   const savedMaterial = { certificateDerBase64: base.material.certificateDerBase64, csrPem: savedRead.csrPem };
   const evidence = pathFixture();
