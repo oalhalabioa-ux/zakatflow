@@ -9,3 +9,21 @@
 
 /* Party classification stays beside search, without widening the voucher. */
 .debt-party-controls{grid-template-columns:minmax(110px,.8fr) minmax(130px,1fr) minmax(150px,1.3fr) auto}.debt-party-controls>label{min-width:0}.debt-party-controls :is(input,select){width:100%;min-width:0}.debt-party-create{background:var(--brand-surface-soft);border-inline-start:3px solid var(--brand-primary)}.debt-party-create .finance-form{grid-template-columns:repeat(2,minmax(0,1fr))}.debt-party-create .finance-actions{display:flex;flex-wrap:wrap;gap:8px}.debt-party-summary strong{overflow-wrap:anywhere}.debt-voucher-body{padding-bottom:24px}@media(max-width:760px){.debt-party-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.debt-party-controls>label:first-child{grid-column:auto}.debt-party-controls>.action-button-wrap{align-self:end}}@media(max-width:420px){.debt-party-controls,.debt-party-create .finance-form{grid-template-columns:minmax(0,1fr)}}
+
+/* Shared debt indicators: restrained semantic accents, theme surfaces and readable figures. */
+.debt-finance-workspace{--debt-kpi-in:#247060;--debt-kpi-warning:#936723;--debt-kpi-overdue:#a4483b}
+.corp-shell .debt-finance-workspace :is(.debt-kpi,.finance-metric){--debt-kpi-accent:var(--brand-primary);position:relative;box-sizing:border-box;min-height:152px;padding:20px!important;border:1px solid var(--brand-border)!important;border-inline-start:3px solid var(--debt-kpi-accent)!important;border-radius:12px!important;background:var(--brand-surface)!important;box-shadow:0 4px 14px color-mix(in srgb,var(--brand-primary) 4%,transparent);gap:12px!important}
+.corp-shell .debt-finance-workspace [data-tone="collect"]{--debt-kpi-accent:var(--debt-kpi-in)}
+.corp-shell .debt-finance-workspace [data-tone="history"]{--debt-kpi-accent:var(--debt-kpi-overdue)}
+.corp-shell .debt-finance-workspace :is([data-tone="trend"],[data-tone="receipt"],[data-tone="bank"]){--debt-kpi-accent:var(--debt-kpi-warning)}
+.corp-shell .debt-finance-workspace :is(.debt-kpi,.finance-metric) small{font-size:12px;line-height:1.7;font-weight:650;color:var(--brand-muted)}
+.corp-shell .debt-finance-workspace :is(.debt-kpi,.finance-metric) strong{font-size:clamp(20px,1.8vw,27px);font-weight:700;line-height:1.5;letter-spacing:-.3px;font-variant-numeric:tabular-nums;color:var(--brand-text);direction:ltr;text-align:right;white-space:nowrap;overflow-wrap:normal;min-width:0}
+.corp-shell .debt-finance-workspace:dir(ltr) :is(.debt-kpi,.finance-metric) strong{text-align:left}
+.corp-shell .debt-finance-workspace :is(.debt-kpi,.finance-metric) :is(.payable-money,.money){justify-content:flex-end;white-space:nowrap}
+.corp-shell .debt-finance-workspace:dir(ltr) :is(.debt-kpi,.finance-metric) :is(.payable-money,.money){justify-content:flex-start}
+.corp-shell .debt-finance-workspace .debt-kpi>div{min-height:36px;align-items:flex-start}.corp-shell .debt-finance-workspace .debt-kpi>strong{margin-top:auto}
+.corp-shell .debt-finance-workspace .debt-kpi svg,.corp-shell .debt-finance-workspace .finance-icon{color:var(--debt-kpi-accent);background:color-mix(in srgb,var(--debt-kpi-accent) 8%,var(--brand-surface));border:1px solid color-mix(in srgb,var(--debt-kpi-accent) 18%,var(--brand-border));border-radius:10px;width:20px;height:20px;padding:8px;box-sizing:content-box}
+.corp-shell .debt-finance-workspace .finance-icon svg{width:20px;height:20px}.corp-shell .debt-finance-workspace .finance-metric>div{gap:8px;align-self:stretch}.corp-shell .debt-finance-workspace .finance-metric p{font-size:11px;line-height:1.7;margin-top:auto}
+.debt-finance-workspace :is(.debt-kpis,.finance-metrics){gap:14px;align-items:stretch}.debt-finance-workspace .debt-collection-alerts{border-radius:10px;line-height:1.9;gap:12px;padding:14px 18px}
+@media(max-width:700px){.corp-shell .debt-finance-workspace :is(.debt-kpi,.finance-metric){min-height:140px;padding:16px!important}.corp-shell .debt-finance-workspace :is(.debt-kpi,.finance-metric) strong{font-size:21px}}
+@media print{.corp-shell .debt-finance-workspace :is(.debt-kpi,.finance-metric){box-shadow:none;break-inside:avoid}}
