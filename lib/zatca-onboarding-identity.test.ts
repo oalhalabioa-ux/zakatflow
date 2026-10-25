@@ -8,6 +8,7 @@ import { createZatcaCsr } from './vat-zatca-csr';
 import { Pool } from 'pg';
 import { createVerifiedZatcaEnrollmentReader } from '../services/zatca-private-enrollment-reader';
 import { createVerifiedZatcaEnrollmentWriter } from '../services/zatca-private-enrollment-writer';
+import { createZatcaEnrollmentCoordinator } from '../services/zatca-private-enrollment-coordinator';
 import { inspectZatcaOnboardingIdentity, verifyZatcaOnboardingCandidate } from './zatca-onboarding-identity';
 
 let directory: string, at: Date, key: KeyObject;
@@ -258,6 +259,16 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
   const savedMaterial = { certificateDerBase64: base.material.certificateDerBase64, csrPem: savedRead.csrPem };
   const evidence = pathFixture();
   const verified = await verifyZatcaOnboardingCandidate(savedMaterial, savedRead.savedUnit, evidence.evidence, evidence.trust, new Date());
+  // The durable fence is a local preparation record, never an authority call.
+  const dispatchPool = new Pool({ max: 1, connectionTimeoutMillis: 2000, query_timeout: 7000 });
+  try {
+    const auth = { getUser: async () => ({ data: { user: { id: f.actor, aud: 'authenticated', is_anonymous: false } }, error: null }) };
+    const coordinator = createZatcaEnrollmentCoordinator(auth as never, dispatchPool);
+    const target = { organizationId: f.org, connectionId: f.connection, environment: 'SIMULATION' };
+    const operation = { enrollmentId: savedRead.enrollmentId, dispatchId: randomUUID() };
+    expect((await coordinator.prepareDispatch('SYNTHETIC.AUTH.TOKEN', target, operation)).decision).toBe('FIRST_INTENT_RECORDED');
+    expect((await coordinator.prepareDispatch('SYNTHETIC.AUTH.TOKEN', target, operation)).decision).toBe('RECONCILIATION_REQUIRED');
+  } finally { await dispatchPool.end(); }
   query("update public.vat_einvoice_connections set status='COMPLIANCE_PASSED',credentials_secret_arn=" + q(secret) + ' where id=' + q(f.connection));
   const binding = { version: 'ZATCA_SAVED_SIGNER_V1', organizationId: f.org, environment: 'SIMULATION', unitId: f.connection, connectionId: f.connection,
     kmsKeyArn: kms, secretArn: secret, secretVersionId: randomUUID(), certificateFingerprintSha256: verified.identity.certificateFingerprintSha256,
