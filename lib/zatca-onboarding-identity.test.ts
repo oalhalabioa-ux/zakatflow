@@ -10,6 +10,8 @@ import { CreateSecretCommand, DescribeSecretCommand, GetSecretValueCommand } fro
 import { createZatcaEnrollmentResponseStager } from './zatca-enrollment-response-staging';
 import { createVerifiedZatcaEnrollmentResponseStore } from '../services/zatca-private-enrollment-response';
 import { createVerifiedZatcaEnrollmentVerifier } from '../services/zatca-private-enrollment-verifier';
+import { createVerifiedZatcaEnrollmentAuditStore } from '../services/zatca-private-enrollment-audit';
+import { createVerifiedZatcaEnrollmentAuditor } from '../services/zatca-private-enrollment-auditor';
 import { GetPublicKeyCommand } from '@aws-sdk/client-kms';
 import { createVerifiedZatcaEnrollmentReader } from '../services/zatca-private-enrollment-reader';
 import { createVerifiedZatcaEnrollmentWriter } from '../services/zatca-private-enrollment-writer';
@@ -305,12 +307,30 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
     expect(verifiedStored.receiptDigest).toBe(recorded.receiptDigest);
     expect(verifiedStored.evidence.identity.certificateFingerprintSha256).toBe(verified.identity.certificateFingerprintSha256);
     expect(verifiedStored.stage).toBe('AUTHORIZED_STAGED_ENROLLMENT_VERIFICATION_ONLY');
+    const auditInput={...target,...operation,checkId:randomUUID()};
+    const auditor=createVerifiedZatcaEnrollmentAuditor(auth as never,dispatchPool,{secrets:{send},kms:{send:kmsSend}} as never,
+      {quarantine:{region:'eu-central-1',accountId:'123456789012',encryptionKeyArn},trust:evidence.trust,pathEvidence:evidence.evidence});
+    const audit=await auditor.verifyAndRecord('SYNTHETIC.AUTH.TOKEN',auditInput);
+    expect(audit.stage).toBe('VERIFIED_RESPONSE_AUDIT_RECORDED_ONLY');
+    expect(await auditor.verifyAndRecord('SYNTHETIC.AUTH.TOKEN',auditInput)).toEqual({...audit,stage:'VERIFICATION_AUDIT_REPLAY_ONLY'});
+    // Opaque active reference is deliberately synthetic: no AWS promotion or
+    // actual compliance approval is exercised by this SQL handoff candidate.
+    const activeReference={version:'ZATCA_INITIAL_CREDENTIAL_V1',secretArn:secret,secretVersionId:operation.dispatchId,
+      certificateFingerprintSha256:verifiedStored.reference.binarySecurityTokenSha256,encryptionKeyArn};
+    const auditStore=createVerifiedZatcaEnrollmentAuditStore(auth as never,dispatchPool);
+    const handoff=await auditStore.recordCompliancePending('SYNTHETIC.AUTH.TOKEN',{...auditInput,receiptDigest:recorded.receiptDigest},activeReference);
+    expect(handoff.state).toBe('COMPLIANCE_PENDING');
+    expect(await auditStore.recordCompliancePending('SYNTHETIC.AUTH.TOKEN',{...auditInput,receiptDigest:recorded.receiptDigest},activeReference)).toEqual(handoff);
+    expect((await dispatchPool.query('select status from public.vat_einvoice_connections where id=$1',[f.connection])).rows[0].status).toBe('COMPLIANCE_PENDING');
+
 
 
   } finally { await dispatchPool.end(); }
   query("update public.vat_einvoice_connections set status='COMPLIANCE_PASSED',credentials_secret_arn=" + q(secret) + ' where id=' + q(f.connection));
+  // Subsequent compliance approval remains a separate synthetic fixture step.
+  const credentialVersionId=query("select h.active_reference->>'secretVersionId' from zatca_preparation.initial_credential_handoffs h join zatca_preparation.enrollment_dispatch_intents d on d.dispatch_id=h.dispatch_id where d.enrollment_id="+q(original.enrollment_id));
   const binding = { version: 'ZATCA_SAVED_SIGNER_V1', organizationId: f.org, environment: 'SIMULATION', unitId: f.connection, connectionId: f.connection,
-    kmsKeyArn: kms, secretArn: secret, secretVersionId: randomUUID(), certificateFingerprintSha256: verified.identity.certificateFingerprintSha256,
+    kmsKeyArn: kms, secretArn: secret, secretVersionId: credentialVersionId, certificateFingerprintSha256: verified.identity.certificateFingerprintSha256,
     issuerChainDerBase64: evidence.evidence.issuerChainDerBase64, policy: { identifier: 'https://example.invalid/synthetic-policy', digestSha256Base64: 'A'.repeat(43) + '=' }, includeSimplifiedQr: false };
   // Simulation's CN is fixed by the current CSR writer. A verifier called with
   // a changed saved commonName can still match this CSR, so the complete saved

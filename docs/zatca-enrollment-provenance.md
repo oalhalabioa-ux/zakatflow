@@ -41,3 +41,6 @@ Unverified response quarantine/read-only recovery and immutable original-dispatc
 
 
 Recovered material can now pass through an authoritative saved-reference/private verifier with native identity/path/CRL checks, fresh KMS public metadata and final permission/snapshot reload. It is read-only, not signer activation. Native relational coverage is now 173/173; see `docs/zatca-enrollment-response-verification.md`.
+
+
+Immutable saved-response verification audits and a private COMPLIANCE_PENDING handoff candidate now extend the preparation chain, with historical recovery and no registry/invoice activation. AWS active-material promotion and actual compliance approval remain separate gates. Native relational coverage is now 181/181; see `docs/zatca-verification-audit-handoff.md`.

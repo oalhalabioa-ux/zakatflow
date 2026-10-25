@@ -15,6 +15,8 @@ on:
       - 'tests/zatca-enrollment-dispatch-postgres.py'
       - 'tests/fixtures/zatca-enrollment-response.sql'
       - 'tests/zatca-enrollment-response-postgres.py'
+      - 'tests/fixtures/zatca-enrollment-verification-audit.sql'
+      - 'tests/zatca-enrollment-verification-audit-postgres.py'
       - 'tests/zatca-source-freeze-permissions-postgres.py'
       - 'tests/sql/zatca-phase2-qa-compatibility.sql'
       - 'lib/zatca*'
@@ -51,7 +53,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xmlsec1
       - run: npm run typecheck
       - name: Verify prepared signatures and tamper rejection
-        run: npx vitest run services/zatca-private-enrollment-verification-reader.test.ts services/zatca-private-enrollment-verifier.test.ts lib/zatca-enrollment-response-staging.test.ts services/zatca-private-enrollment-response.test.ts services/zatca-private-enrollment-coordinator.test.ts services/zatca-private-enrollment-dispatch.test.ts services/zatca-private-enrollment-writer.test.ts services/zatca-private-enrollment-reader.test.ts services/zatca-phase2-access.test.ts lib/zatca-reserved-preparation.test.ts lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-certificate-path.test.ts lib/zatca-onboarding-identity.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
+        run: npx vitest run services/zatca-private-enrollment-audit.test.ts services/zatca-private-enrollment-auditor.test.ts services/zatca-private-enrollment-verification-reader.test.ts services/zatca-private-enrollment-verifier.test.ts lib/zatca-enrollment-response-staging.test.ts services/zatca-private-enrollment-response.test.ts services/zatca-private-enrollment-coordinator.test.ts services/zatca-private-enrollment-dispatch.test.ts services/zatca-private-enrollment-writer.test.ts services/zatca-private-enrollment-reader.test.ts services/zatca-phase2-access.test.ts lib/zatca-reserved-preparation.test.ts lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-certificate-path.test.ts lib/zatca-onboarding-identity.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
         env:
           ZATCA_NATIVE_XMLSEC: '1'
 
@@ -135,8 +137,17 @@ jobs:
           PGUSER: postgres
           PGDATABASE: zatca_ledger_qa
           PGPASSWORD: disposable-qa-only
+      - name: Verify immutable verification audit and atomic pending-compliance handoff
+        run: python3 tests/zatca-enrollment-verification-audit-postgres.py
+        env:
+          ZATCA_LEDGER_DISPOSABLE_QA: '1'
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: zatca_ledger_qa
+          PGPASSWORD: disposable-qa-only
       - name: Verify saved reservation to signed artifact and next chain entry
-        run: npx vitest run lib/zatca-reserved-preparation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-onboarding-identity.test.ts services/zatca-private-enrollment-reader.postgres.test.ts services/zatca-private-enrollment-writer.postgres.test.ts services/zatca-private-enrollment-dispatch.postgres.test.ts services/zatca-private-enrollment-response.postgres.test.ts
+        run: npx vitest run lib/zatca-reserved-preparation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-onboarding-identity.test.ts services/zatca-private-enrollment-reader.postgres.test.ts services/zatca-private-enrollment-writer.postgres.test.ts services/zatca-private-enrollment-dispatch.postgres.test.ts services/zatca-private-enrollment-response.postgres.test.ts services/zatca-private-enrollment-audit.postgres.test.ts
         env:
           ZATCA_LEDGER_SQL_QA: '1'
           ZATCA_SOURCE_FREEZE_QA: '1'
@@ -145,6 +156,7 @@ jobs:
           ZATCA_PRIVATE_WRITER_SQL_QA: '1'
           ZATCA_PRIVATE_DISPATCH_SQL_QA: '1'
           ZATCA_PRIVATE_RESPONSE_SQL_QA: '1'
+          ZATCA_PRIVATE_AUDIT_SQL_QA: '1'
           ZATCA_NATIVE_XMLSEC: '1'
           ZATCA_LEDGER_DISPOSABLE_QA: '1'
           PGHOST: 127.0.0.1
