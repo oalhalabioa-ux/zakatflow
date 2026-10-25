@@ -94,10 +94,10 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const installmentDue=new Map(links.filter(l=>l.metadata?.obligation_id&&l.metadata?.due_date).map(l=>[l.metadata.obligation_id,l.metadata.due_date]));
   // The current saved schedule includes approved rescheduling. Links are a fallback
   // for older records; dates never change the canonical outstanding balances.
-  const contractsByEvent=new Map(contracts.map(c=>[c.financial_event_id,c]));
+  const contractsByEvent=new Map(contracts.map(c=>[c.financial_event_id,c])),contractsById=new Map(contracts.map(c=>[c.id,c]));
   const contractDue=new Map<string,string>();
   for(const b of balances){const c=contractsByEvent.get(b.event_id);if(!c||c.organization_id!==b.organization_id)continue;const key=b.obligation_key??obMap.get(b.obligation_id)?.obligation_key;const match=/^installment:([1-9]\d*)$/.exec(key??'');const due=match?c.schedule?.[Number(match[1])-1]?.due_date:null;if(due)contractDue.set(b.obligation_id,due);}
-  result.debts=result.debts.map(d=>{const c=contractsByEvent.get(d.eventId);return {...d,loanContractId:c?.kind==='LOAN'?c.id:undefined,contractCategory:c?.kind==='LOAN'?(c.side==='RECEIVABLE'?'O_AR_LOAN':'O_AP_LOAN'):c?.kind==='EMPLOYEE_ADVANCE'?'O_AR_EMPLOYEE':undefined,dueDate:contractDue.get(d.id)??installmentDue.get(d.id)??d.dueDate};});
+  result.debts=result.debts.map(d=>{const e=eventMap.get(d.eventId),cost=e?.source_module==='FINANCE_CONTRACTS',c=contractsByEvent.get(d.eventId)??(cost?contractsById.get(e.source_record_id):undefined);return {...d,loanContractId:c?.kind==='LOAN'?c.id:undefined,contractCategory:cost&&c?(c.side==='RECEIVABLE'?'O_AR_ACCRUED':'O_AP_ACCRUAL'):c?.kind==='LOAN'?(c.side==='RECEIVABLE'?'O_AR_LOAN':'O_AP_LOAN'):c?.kind==='EMPLOYEE_ADVANCE'?'O_AR_EMPLOYEE':undefined,dueDate:contractDue.get(d.id)??installmentDue.get(d.id)??d.dueDate};});
   result.debtMovements=result.debtMovements.map(m=>({...m,due:contractDue.get(m.debtId??'')??installmentDue.get(m.debtId)??m.due}));
   if(ids.length>1)result.warnings.push('GROUP_BEFORE_INTERCOMPANY_ELIMINATION');
  }
