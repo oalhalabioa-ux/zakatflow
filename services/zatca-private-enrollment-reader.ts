@@ -21,7 +21,8 @@ const enrollmentSchema = z.object({ enrollment_id: z.string().uuid(), organizati
 
 class ReadFailure extends Error {}
 function fail(code: string): never { throw new ReadFailure(code); }
-const clearIdentity = "select set_config('request.jwt.claim.sub','',false),set_config('request.jwt.claims','',false)";
+const clearIdentity = "select pg_catalog.set_config('request.jwt.claim.sub','',false),pg_catalog.set_config('request.jwt.claims','',false),"
+  + "pg_catalog.set_config('request.jwt.claim','',false),pg_catalog.set_config('request.jwt.claim.role','',false),pg_catalog.set_config('request.jwt.claim.email','',false)";
 
 /** Private backend read boundary, not an HTTP route or an issuance authority.
  * The auth client must target the protected deployment's Supabase project; the
@@ -63,9 +64,10 @@ export function createVerifiedZatcaEnrollmentReader(
         await client.query('ROLLBACK');
         await client.query(clearIdentity);
         await client.query('BEGIN'); transaction = true;
-        await client.query("select set_config('lock_timeout','2s',true),set_config('statement_timeout','5s',true),"
-          + "set_config('idle_in_transaction_session_timeout','10s',true),set_config('search_path','pg_catalog',true)");
-        await client.query("select set_config('request.jwt.claim.sub',$1,true),set_config('request.jwt.claims',$2,true)",
+        await client.query("select pg_catalog.set_config('lock_timeout','2s',true),pg_catalog.set_config('statement_timeout','5s',true),"
+          + "pg_catalog.set_config('idle_in_transaction_session_timeout','10s',true),pg_catalog.set_config('search_path','pg_catalog',true)");
+        await client.query("select pg_catalog.set_config('request.jwt.claim.sub',$1,true),pg_catalog.set_config('request.jwt.claims',$2,true),"
+          + "pg_catalog.set_config('request.jwt.claim','',true),pg_catalog.set_config('request.jwt.claim.role','authenticated',true),pg_catalog.set_config('request.jwt.claim.email','',true)",
           [actor, JSON.stringify({ sub: actor, role: 'authenticated' })]);
         const membership = await client.query('select role,status from public.organization_members where organization_id=$1 and user_id=$2 for share',
           [target.organizationId, actor]);

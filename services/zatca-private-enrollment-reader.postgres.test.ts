@@ -17,8 +17,11 @@ function auth() {
 function reader() { return createVerifiedZatcaEnrollmentReader(auth() as never, pool); }
 async function cleanContext() {
   const row = (await pool.query("select nullif(current_setting('request.jwt.claim.sub',true),'') as subject,"
-    + "nullif(current_setting('request.jwt.claims',true),'') as claims,auth.uid() as actor,pg_backend_pid() as pid")).rows[0];
-  expect(row.subject).toBeNull(); expect(row.claims).toBeNull(); expect(row.actor).toBeNull(); return row.pid;
+    + "nullif(current_setting('request.jwt.claims',true),'') as claims,nullif(current_setting('request.jwt.claim',true),'') as legacy_jwt,"
+    + "nullif(current_setting('request.jwt.claim.role',true),'') as legacy_role,nullif(current_setting('request.jwt.claim.email',true),'') as legacy_email,"
+    + "auth.uid() as actor,pg_backend_pid() as pid")).rows[0];
+  expect(row.subject).toBeNull(); expect(row.claims).toBeNull(); expect(row.actor).toBeNull();
+  expect(row.legacy_jwt).toBeNull(); expect(row.legacy_role).toBeNull(); expect(row.legacy_email).toBeNull(); return row.pid;
 }
 beforeAll(async () => {
   if (!enabled) return;
@@ -41,8 +44,9 @@ afterAll(async () => { if (pool) await pool.end(); });
 describe.skipIf(!enabled)('private pg reader disposable session and revocation integration', () => {
   it('uses the verified actor even on a pre-poisoned pooled session, then leaves no JWT identity behind', async () => {
     const pid = (await pool.query('select pg_backend_pid() as pid')).rows[0].pid;
-    await pool.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claims',$2,false)",
-      [actorB.actor, JSON.stringify({ sub: actorB.actor, role: 'service_role' })]);
+    await pool.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claims',$2,false),"
+      + "set_config('request.jwt.claim',$2,false),set_config('request.jwt.claim.role','service_role',false),set_config('request.jwt.claim.email','old@example.invalid',false)",
+      [actorB.actor, JSON.stringify({ sub: actorB.actor, role: 'service_role', email: 'old@example.invalid' })]);
     const result = await reader().loadOriginalEnrollment('SYNTHETIC.A', target(actorA));
     expect(result.actorId).toBe(actorA.actor); expect(result.enrollmentId).toBe(actorA.enrollment);
     expect(result.csrPem).toBe('-----BEGIN CERTIFICATE REQUEST-----\nMAA=\n-----END CERTIFICATE REQUEST-----\n');

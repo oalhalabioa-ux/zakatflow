@@ -46,6 +46,12 @@ describe('verified auth and dedicated private PostgreSQL enrollment read', () =>
     expect(calls[0][0]).toBe('ROLLBACK'); expect(calls[2][0]).toBe('BEGIN');
     const identity = calls.find(([sql]) => sql.includes("set_config('request.jwt.claim.sub',$1,true)"))!;
     expect(identity[1]).toEqual([actor, JSON.stringify({ sub: actor, role: 'authenticated' })]);
+    expect(identity[0]).toContain("set_config('request.jwt.claim','',true)");
+    expect(identity[0]).toContain("set_config('request.jwt.claim.role','authenticated',true)");
+    expect(identity[0]).toContain("set_config('request.jwt.claim.email','',true)");
+    expect(calls.at(-1)![0]).toContain("set_config('request.jwt.claim','',false)");
+    expect(calls.at(-1)![0]).toContain("set_config('request.jwt.claim.role','',false)");
+    expect(calls.at(-1)![0]).toContain("set_config('request.jwt.claim.email','',false)");
     expect(calls.find(([sql]) => sql.includes('from public.organization_members'))?.[1]).toEqual([org, actor]);
     expect(calls.filter(([sql]) => sql.includes('for share'))).toHaveLength(2);
     expect(calls.at(-2)![0]).toBe('COMMIT'); expect(calls.at(-1)![0]).toContain("claim.sub','',false");
