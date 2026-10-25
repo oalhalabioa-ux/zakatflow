@@ -1,3 +1,4 @@
+import {isSameOriginRequest} from '../../../../lib/request-origin';
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {requireUser} from '../../../../services/auth';
@@ -18,7 +19,7 @@ export async function GET(req:Request){try{
  return NextResponse.json(data,{headers});
 }catch(e){return failure(e);}}
 export async function POST(req:Request){try{
- if(req.headers.get('origin')!==new URL(req.url).origin)throw Error('ORIGIN_REQUIRED');
+ if(!isSameOriginRequest(req))throw Error('ORIGIN_REQUIRED');
  const p=command.parse(await req.json());const{supabase,user}=await requireUser();
  let changes:Record<string,unknown>={};
  if(p.action==='UPDATE'){
