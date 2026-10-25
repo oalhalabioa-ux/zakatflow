@@ -32,7 +32,7 @@ The existing current-application SAN profile remains explicitly selected and sti
 
 ## Evidence — 2026-10-25
 
-**65 new cases**: 26 response-loader unit tests, 19 private coordinator unit tests, 18 native recovered-response cases in the onboarding suite and two actual pg response-load cases. Unit adapters use mocks; the 18 cases use actual signed Arabic CSRs, synthetic CA-issued certificates and real OpenSSL chain/CRL verification, with mocked Secrets Manager/KMS transports. The two pg cases use synthetic opaque persistence fixtures. No real AWS encryption/IAM/Sign or authority request occurred.
+**65 new cases**: 26 response-loader unit tests, 19 private coordinator unit tests, 18 native recovered-response cases in the onboarding suite and two actual pg response-load cases. Unit adapters use mocks; the 18 cases use actual signed CSRs (including Arabic identity), synthetic CA-issued certificates and real OpenSSL chain/CRL verification, with mocked Secrets Manager/KMS transports. The two pg cases use synthetic opaque persistence fixtures. No real AWS encryption/IAM/Sign or authority request occurred.
 
 Coverage includes exact-version double readback, secret-envelope hash changes, wrong scope/reference/version/key, corrupt original CSR, same-key CA certificate for another legal identity, mismatched KMS metadata/SPKI, revoked otherwise matching certificates, invalid trust anchors, post-verification KMS failure, immutable async captures and current final permission/snapshot rechecks. The AWS-read test asserts only DescribeSecret/GetSecretValue and two GetPublicKey calls; no write or Sign is used.
 

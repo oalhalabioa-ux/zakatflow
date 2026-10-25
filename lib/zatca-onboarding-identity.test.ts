@@ -336,10 +336,10 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
 });
 
 
-async function stagedVerificationFixture(certificateDerBase64 = base.material.certificateDerBase64) {
+async function stagedVerificationFixture(certificateDerBase64 = base.material.certificateDerBase64, savedFixture = base) {
   const kmsKeyArn = 'arn:aws:kms:eu-central-1:123456789012:key/' + randomUUID();
   const config = { region: 'eu-central-1', accountId: '123456789012', encryptionKeyArn: 'arn:aws:kms:eu-central-1:123456789012:key/' + randomUUID() };
-  const context = { organizationId: base.expected.organizationId, connectionId: base.expected.connectionId, environment: base.expected.environment,
+  const context = { organizationId: savedFixture.expected.organizationId, connectionId: savedFixture.expected.connectionId, environment: savedFixture.expected.environment,
     enrollmentId: randomUUID(), enrollmentDigest: 'a'.repeat(64), dispatchId: randomUUID(), kmsKeyArn };
   const state = { content: '', name: '', arn: '', reads: 0, changeAfterVerification: false, key: {} as Record<string,unknown> };
   const secretsSend = vi.fn(async (command: unknown) => {
@@ -357,18 +357,19 @@ async function stagedVerificationFixture(certificateDerBase64 = base.material.ce
   });
   const kmsSend = vi.fn(async (command: unknown) => {
     if (!(command instanceof GetPublicKeyCommand)) throw new Error('Unexpected KMS Sign');
-    return { KeyId: kmsKeyArn, KeySpec: 'ECC_SECG_P256K1', KeyUsage: 'SIGN_VERIFY', SigningAlgorithms: ['ECDSA_SHA_256'], PublicKey: Buffer.from(base.expected.kmsPublicKeySpkiBase64,'base64'), ...state.key };
+    return { KeyId: kmsKeyArn, KeySpec: 'ECC_SECG_P256K1', KeyUsage: 'SIGN_VERIFY', SigningAlgorithms: ['ECDSA_SHA_256'], PublicKey: Buffer.from(savedFixture.expected.kmsPublicKeySpkiBase64,'base64'), ...state.key };
   });
   const kms={ send:kmsSend }, stager=createZatcaEnrollmentResponseStager({ send:secretsSend } as never,config), path=pathFixture();
   const reference=(await stager.stageResponse(context,{ requestId:'1234567890',binarySecurityToken:certificateDerBase64,secret:'SYNTHETIC_PRIVATE_RESPONSE' })).reference;
   state.reads=0; secretsSend.mockClear();
-  const original={ csrPem:base.material.csrPem,savedUnit:structuredClone(base.expected),pathEvidence:structuredClone(path.evidence) };
+  const original={ csrPem:savedFixture.material.csrPem,savedUnit:structuredClone(savedFixture.expected),pathEvidence:structuredClone(path.evidence) };
   const verify=()=>stager.verifyStoredResponse(context,reference,original,path.trust,kms as never);
   return { state,config,context,reference,original,trust:path.trust,secretsSend,kmsSend,kms,stager,verify };
 }
 describe('recovered response reference with real native identity/path/CRL verification',()=>{
   it('reads the exact version, verifies saved identity/native trust and fresh KMS twice, returning evidence only',async()=>{
-    const f=await stagedVerificationFixture(),r=await f.verify();
+    const arabic=await fixture({branchName:'فرع الرياض',organizationName:'شركة الاختبار',registeredAddress:'الرياض',businessCategory:'البرمجيات'});
+    const f=await stagedVerificationFixture(arabic.material.certificateDerBase64,arabic),r=await f.verify();
     expect(r.stage).toBe('STAGED_ENROLLMENT_VERIFICATION_ONLY'); expect(r.evidence.identity.certificateFingerprintSha256).toBe(f.reference.binarySecurityTokenSha256);
     expect(f.kmsSend).toHaveBeenCalledTimes(2); expect(f.secretsSend.mock.calls.every(([c])=>c instanceof DescribeSecretCommand || c instanceof GetSecretValueCommand)).toBe(true);
     expect(f.secretsSend.mock.calls.filter(([c])=>c instanceof GetSecretValueCommand).map(([c])=>(c as GetSecretValueCommand).input)).toEqual([
