@@ -186,9 +186,20 @@ describe('offline configured certificate path and complete-chain CRL validation'
     expect((await pending).checkedAt).toBe(at.toISOString());
   });
   it('cleans temporary certificate/CRL files after success and failure', async () => {
-    const before = readdirSync(tmpdir()).filter(name => name.startsWith('zatca-path-') && !name.startsWith('zatca-path-fixture-')).sort();
-    const f = fixture(); await verifyZatcaCertificatePath(f.input, f.trust, at);
-    await verifyZatcaCertificatePath({ ...f.input, crlsDerBase64: [badSignatureCrl, goodRootCrl] }, f.trust, at).catch(() => {});
-    expect(readdirSync(tmpdir()).filter(name => name.startsWith('zatca-path-') && !name.startsWith('zatca-path-fixture-')).sort()).toEqual(before);
+    // Other test workers legitimately create/remove the same production prefix.
+    // Give this worker/call a private OS temp root and assert it is empty, rather
+    // than comparing a global /tmp listing that races with unrelated verifiers.
+    const cleanupRoot = mkdtempSync(join(directory, 'cleanup-'));
+    const previousTempRoot = process.env.TMPDIR;
+    process.env.TMPDIR = cleanupRoot;
+    try {
+      const f = fixture(); await verifyZatcaCertificatePath(f.input, f.trust, at);
+      expect(readdirSync(cleanupRoot)).toEqual([]);
+      await verifyZatcaCertificatePath({ ...f.input, crlsDerBase64: [badSignatureCrl, goodRootCrl] }, f.trust, at).catch(() => {});
+      expect(readdirSync(cleanupRoot)).toEqual([]);
+    } finally {
+      if (previousTempRoot === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = previousTempRoot;
+      rmSync(cleanupRoot, { recursive: true, force: true });
+    }
   });
 });
