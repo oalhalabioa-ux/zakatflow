@@ -45,3 +45,14 @@ it('retains saved classification through the register and both corporate dashboa
  expect(view.categories.find(c=>c.key==='other')).toMatchObject({cost:100,market:100});
  expect(JSON.stringify(fixtures.asset_accounts)).toBe(before);
 });
+
+it('uses current saved installment dates and the contract reference across debts and movements, including rescheduling',async()=>{
+ fixtures.debt_contracts=[{id:'loan',organization_id:org,financial_event_id:'event',reference:'QARD-2026-7',kind:'LOAN',side:'RECEIVABLE',schedule:[{amount:100,due_date:'2026-12-19'},{amount:200,due_date:'2027-03-19'}]}];
+ fixtures.financial_events=[{id:'event',organization_id:org,status:'ACTUAL',source_module:'DEBT_CONTRACTS',source_record_id:'loan',event_date:'2026-10-01',due_date:null}];
+ fixtures.financial_event_obligations=[{id:'ob1',organization_id:org,event_id:'event',obligation_key:'installment:1',obligation_type:'RECEIVABLE',base_currency:'SAR',settleable_base_amount:100},{id:'ob2',organization_id:org,event_id:'event',obligation_key:'installment:2',obligation_type:'RECEIVABLE',base_currency:'SAR',settleable_base_amount:200}];
+ fixtures.financial_event_obligation_balances=fixtures.financial_event_obligations.map(b=>({...b,obligation_id:b.id,outstanding_base_amount:b.settleable_base_amount}));
+ fixtures.financial_event_links=[{id:'link',organization_id:org,event_id:'event',target_module:'liquidity_flows',metadata:{obligation_id:'ob1',due_date:'2026-11-01'}}];
+ const r=await financialRegister('ORGANIZATION',org,false,true);expect(r.debts.map(d=>[d.reference,d.dueDate,d.category,d.amount,d.loanContractId])).toEqual([['QARD-2026-7','2026-12-19','O_AR_LOAN',100,'loan'],['QARD-2026-7','2027-03-19','O_AR_LOAN',200,'loan']]);expect(r.debtMovements.map(m=>[m.reference,m.due])).toEqual([['QARD-2026-7','2026-12-19'],['QARD-2026-7','2027-03-19']]);
+ fixtures.financial_debt_categories=[{origin:'CORE',record_id:'ob1',organization_id:org,category:'O_AR_RELATED'}];expect((await financialRegister('ORGANIZATION',org,false,true)).debts[0].category).toBe('O_AR_RELATED');
+});
+it('retains legacy linked due dates when a contract schedule is unavailable',async()=>{fixtures.financial_events=[{id:'e',organization_id:org,status:'ACTUAL',event_date:'2026-10-01',source_module:'DEBT_CONTRACTS',due_date:null}];fixtures.financial_event_obligation_balances=[{obligation_id:'ob',organization_id:org,event_id:'e',obligation_type:'PAYABLE',base_currency:'SAR',outstanding_base_amount:80}];fixtures.financial_event_links=[{id:'link',organization_id:org,event_id:'e',metadata:{obligation_id:'ob',due_date:'2026-11-19'}}];const r=await financialRegister('ORGANIZATION',org,false,true);expect(r.debts[0]).toMatchObject({amount:80,dueDate:'2026-11-19'});});
