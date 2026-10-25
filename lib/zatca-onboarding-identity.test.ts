@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createZatcaCsr } from './vat-zatca-csr';
+import { Pool } from 'pg';
+import { createVerifiedZatcaEnrollmentReader } from '../services/zatca-private-enrollment-reader';
 import { inspectZatcaOnboardingIdentity, verifyZatcaOnboardingCandidate } from './zatca-onboarding-identity';
 
 let directory: string, at: Date, key: KeyObject;
@@ -239,10 +241,19 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
     + ' where id=' + q(f.connection));
   const original = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.begin_initial_enrollment('
     + [f.org, 'SIMULATION', f.connection, randomUUID(), csrDer(base.material.csrPem).toString('base64'), base.expected.kmsPublicKeySpkiBase64, fields.email].map(q).join(',') + ') r').split('\n').at(-1)!);
-  const savedMaterial = { certificateDerBase64: base.material.certificateDerBase64,
-    csrPem: '-----BEGIN CERTIFICATE REQUEST-----\n' + original.csr_der_base64 + '\n-----END CERTIFICATE REQUEST-----\n' };
+  const privatePool = new Pool({ max: 1, connectionTimeoutMillis: 2000, query_timeout: 7000 });
+  let savedRead;
+  try {
+    // Auth transport is a test stand-in; actual pg transaction/session isolation
+    // and subsequent native CSR/certificate/CRL verification are exercised here.
+    const auth = { getUser: async () => ({ data: { user: { id: f.actor, aud: 'authenticated', is_anonymous: false } }, error: null }) };
+    savedRead = await createVerifiedZatcaEnrollmentReader(auth as never, privatePool).loadOriginalEnrollment('SYNTHETIC.AUTH.TOKEN',
+      { organizationId: f.org, connectionId: f.connection, environment: 'SIMULATION' });
+  } finally { await privatePool.end(); }
+  expect(savedRead.enrollmentId).toBe(original.enrollment_id); expect(savedRead.enrollmentDigest).toBe(original.enrollment_digest);
+  const savedMaterial = { certificateDerBase64: base.material.certificateDerBase64, csrPem: savedRead.csrPem };
   const evidence = pathFixture();
-  const verified = await verifyZatcaOnboardingCandidate(savedMaterial, original.expected_identity, evidence.evidence, evidence.trust, new Date());
+  const verified = await verifyZatcaOnboardingCandidate(savedMaterial, savedRead.savedUnit, evidence.evidence, evidence.trust, new Date());
   query("update public.vat_einvoice_connections set status='COMPLIANCE_PASSED',credentials_secret_arn=" + q(secret) + ' where id=' + q(f.connection));
   const binding = { version: 'ZATCA_SAVED_SIGNER_V1', organizationId: f.org, environment: 'SIMULATION', unitId: f.connection, connectionId: f.connection,
     kmsKeyArn: kms, secretArn: secret, secretVersionId: randomUUID(), certificateFingerprintSha256: verified.identity.certificateFingerprintSha256,

@@ -7,7 +7,7 @@ import { verifyZatcaCertificatePath } from './zatca-certificate-path';
 const text = z.string().min(1).max(500).refine(v => v === v.trim() && !/[\x00-\x1f\x7f]/.test(v));
 const base64 = z.string().min(4).max(32768).regex(/^[A-Za-z0-9+/]+={0,2}$/);
 const pin = z.string().regex(/^[a-f0-9]{64}$/);
-const expectedSchema = z.object({
+export const zatcaSavedUnitIdentitySchema = z.object({
   organizationId: z.string().uuid(), connectionId: z.string().uuid(), unitId: z.string().uuid(),
   environment: z.enum(['SIMULATION', 'PRODUCTION']), profile: z.literal('ZAKATFLOW_SAN_DIRECTORY_V1'),
   csrSha256: pin, kmsPublicKeySpkiBase64: base64,
@@ -96,7 +96,7 @@ function equalMap(actual: Map<string, string>, expected: Map<string, string>, ce
 // Versioned flat-string identity receipt: ASCII-sorted keys, each UTF-8 key/value
 // prefixed by an unsigned 32-bit big-endian byte length. PostgreSQL reproduces
 // this without depending on JSON whitespace/locale or JavaScript string lengths.
-function identityDigest(value: z.infer<typeof expectedSchema>) {
+function identityDigest(value: z.infer<typeof zatcaSavedUnitIdentitySchema>) {
   const chunks: Buffer[] = [];
   for (const key of Object.keys(value).sort()) for (const field of [key, value[key as keyof typeof value]]) {
     const bytes = Buffer.from(field, 'utf8'), size = Buffer.alloc(4); size.writeUInt32BE(bytes.length);
@@ -105,7 +105,7 @@ function identityDigest(value: z.infer<typeof expectedSchema>) {
   return digest(Buffer.concat(chunks));
 }
 function inspect(materialValue: unknown, savedUnitValue: unknown, at: Date) {
-  const material = materialSchema.parse(materialValue), expected = expectedSchema.parse(savedUnitValue);
+  const material = materialSchema.parse(materialValue), expected = zatcaSavedUnitIdentitySchema.parse(savedUnitValue);
   if (expected.unitId !== expected.connectionId) return fail('ONBOARDING_IDENTITY_SCOPE_MISMATCH');
   const pem = /^-----BEGIN CERTIFICATE REQUEST-----\r?\n([A-Za-z0-9+/=\r\n]+)\r?\n-----END CERTIFICATE REQUEST-----\r?\n?$/.exec(material.csrPem);
   if (!pem) return fail('ONBOARDING_IDENTITY_CSR_INVALID');
@@ -188,11 +188,11 @@ export async function verifyZatcaOnboardingCandidate(
   materialValue: unknown, savedUnitValue: unknown, pathEvidenceValue: unknown,
   configuredTrust: unknown, at: Date = new Date(),
 ) {
-  let material: z.infer<typeof materialSchema>, saved: z.infer<typeof expectedSchema>;
+  let material: z.infer<typeof materialSchema>, saved: z.infer<typeof zatcaSavedUnitIdentitySchema>;
   let evidence: { issuerChainDerBase64: string[]; crlsDerBase64: string[] };
   let checkedAt: Date;
   try {
-    material = materialSchema.parse(materialValue); saved = expectedSchema.parse(savedUnitValue);
+    material = materialSchema.parse(materialValue); saved = zatcaSavedUnitIdentitySchema.parse(savedUnitValue);
     evidence = z.object({ issuerChainDerBase64: z.array(base64).min(1).max(5),
       crlsDerBase64: z.array(z.string().min(4).max(1024 * 1024).regex(/^[A-Za-z0-9+/]+={0,2}$/)).min(1).max(6),
     }).strict().parse(pathEvidenceValue);
