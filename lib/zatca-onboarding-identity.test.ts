@@ -101,6 +101,14 @@ describe('saved CSR/key and exact EGS certificate identity preflight', () => {
   it('compares Arabic identity strings exactly', async () => {
     const f = await fixture({ branchName: 'فرع الرياض', organizationName: 'شركة الاختبار', registeredAddress: 'الرياض', businessCategory: 'البرمجيات' });
     expect(inspectZatcaOnboardingIdentity(f.material, f.expected, at).profile).toBe('ZAKATFLOW_SAN_DIRECTORY_V1');
+    if (process.env.ZATCA_ENROLLMENT_SQL_QA === '1') {
+      if (process.env.ZATCA_LEDGER_DISPOSABLE_QA !== '1' || process.env.PGDATABASE !== 'zatca_ledger_qa') throw new Error('DISPOSABLE_LEDGER_QA_REQUIRED');
+      const value = JSON.stringify(f.expected).replace(/'/g, "''");
+      const sqlHash = execFileSync('psql', ['-X', '-qAt', '-v', 'ON_ERROR_STOP=1'], {
+        input: "select zatca_preparation.enrollment_identity_digest('" + value + "'::jsonb)", encoding: 'utf8', stdio: ['pipe','pipe','pipe'],
+      }).trim();
+      expect(inspectZatcaOnboardingIdentity(f.material, f.expected, at).expectedIdentitySha256).toBe(sqlHash);
+    }
   });
   it('requires an explicitly selected saved profile with no alternate-field guessing', () => {
     for (const profile of [undefined, 'AUTO', 'SUBJECT_VAT_V1']) expect(() => inspectZatcaOnboardingIdentity(base.material,
@@ -214,4 +222,50 @@ describe('combined identity and independently configured path candidate', () => 
     const result = await pending; expect(result.identity.scope.organizationId).toBe(base.expected.organizationId);
     expect(result.path.checkedAt).toBe(at.toISOString());
   });
+});
+
+it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original signed CSR before credentials, verifies saved identity/path and binds enrollment through relational finalization', async () => {
+  if (process.env.ZATCA_LEDGER_DISPOSABLE_QA !== '1' || process.env.PGDATABASE !== 'zatca_ledger_qa') throw new Error('DISPOSABLE_LEDGER_QA_REQUIRED');
+  const query = (statement: string) => execFileSync('psql', ['-X', '-qAt', '-v', 'ON_ERROR_STOP=1'], { input: statement, encoding: 'utf8', stdio: ['pipe','pipe','pipe'] }).trim();
+  const q = (value: string) => "'" + value.replace(/'/g, "''") + "'";
+  expect(query('select current_database()')).toBe('zatca_ledger_qa');
+  const f = JSON.parse(execFileSync('python3', ['-c', "import runpy,json; s=runpy.run_path('tests/zatca-source-freeze-postgres.py'); f=s['SourceFreeze'](); f.setUp(); print(json.dumps(dict(org=f.org,actor=f.actor,connection=f.connection,document=f.doc,snapshot=f.snapshot)))"], { encoding: 'utf8', stdio: ['pipe','pipe','pipe'] }));
+  const auth = "select set_config('request.jwt.claim.sub'," + q(f.actor) + ",false);";
+  const kms = 'arn:aws:kms:eu-central-1:123456789012:key/12345678-1234-1234-1234-123456789012';
+  const secret = `arn:aws:secretsmanager:eu-central-1:123456789012:secret:zakatflow/fatoora/${f.org}/simulation/${f.connection}-ABC123`;
+  query('update public.vat_einvoice_connections set status=\'KEY_READY\',credentials_secret_arn=null,kms_key_arn=' + q(kms)
+    + ',common_name=' + q(fields.commonName) + ',legal_name=' + q(fields.organizationName) + ',branch_name=' + q(fields.branchName)
+    + ',branch_location=' + q(fields.registeredAddress) + ',industry=' + q(fields.businessCategory) + ',egs_serial_number=' + q(fields.serialNumber)
+    + ' where id=' + q(f.connection));
+  const original = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.begin_initial_enrollment('
+    + [f.org, 'SIMULATION', f.connection, randomUUID(), csrDer(base.material.csrPem).toString('base64'), base.expected.kmsPublicKeySpkiBase64, fields.email].map(q).join(',') + ') r').split('\n').at(-1)!);
+  const savedMaterial = { certificateDerBase64: base.material.certificateDerBase64,
+    csrPem: '-----BEGIN CERTIFICATE REQUEST-----\n' + original.csr_der_base64 + '\n-----END CERTIFICATE REQUEST-----\n' };
+  const evidence = pathFixture();
+  const verified = await verifyZatcaOnboardingCandidate(savedMaterial, original.expected_identity, evidence.evidence, evidence.trust, new Date());
+  query("update public.vat_einvoice_connections set status='COMPLIANCE_PASSED',credentials_secret_arn=" + q(secret) + ' where id=' + q(f.connection));
+  const binding = { version: 'ZATCA_SAVED_SIGNER_V1', organizationId: f.org, environment: 'SIMULATION', unitId: f.connection, connectionId: f.connection,
+    kmsKeyArn: kms, secretArn: secret, secretVersionId: randomUUID(), certificateFingerprintSha256: verified.identity.certificateFingerprintSha256,
+    issuerChainDerBase64: evidence.evidence.issuerChainDerBase64, policy: { identifier: 'https://example.invalid/synthetic-policy', digestSha256Base64: 'A'.repeat(43) + '=' }, includeSimplifiedQr: false };
+  // Simulation's CN is fixed by the current CSR writer. A verifier called with
+  // a changed saved commonName can still match this CSR, so the complete saved
+  // identity receipt must prevent replaying that result into the original row.
+  const otherSnapshot = await verifyZatcaOnboardingCandidate(savedMaterial, { ...original.expected_identity, commonName: 'Different saved snapshot' },
+    evidence.evidence, evidence.trust, new Date());
+  expect(() => query(auth + 'select zatca_preparation.record_enrolled_signer_candidate('
+    + [f.org, 'SIMULATION', f.connection, original.enrollment_id, JSON.stringify(binding), JSON.stringify(otherSnapshot)].map(q).join(',') + ',null)')).toThrow('ENROLLMENT_EVIDENCE_INVALID');
+  const registry = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.record_enrolled_signer_candidate('
+    + [f.org, 'SIMULATION', f.connection, original.enrollment_id, JSON.stringify(binding), JSON.stringify(verified)].map(q).join(',') + ',null) r').split('\n').at(-1)!);
+  const reservation = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.reserve_with_enrollment('
+    + [f.org, f.document, 'SIMULATION', registry.registry_id, registry.binding_digest, original.enrollment_digest, JSON.stringify(f.snapshot)].map(q).join(',') + ') r').split('\n').at(-1)!);
+  // This round trip proves native onboarding evidence + relational provenance;
+  // signed UBL verification remains the independent XAdES relational suite.
+  const artifact = '<synthetic-enrollment-storage-payload/>';
+  const prepared = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.finalize_with_enrollment('
+    + [f.org, 'SIMULATION', f.connection, reservation.reservation_id, registry.registry_id, registry.binding_digest, original.enrollment_digest,
+      JSON.stringify({ version: binding.version, secretVersionId: binding.secretVersionId, certificateFingerprintSha256: binding.certificateFingerprintSha256 }),
+      reservation.snapshot_digest, createHash('sha256').update(artifact).digest('base64'), artifact].map(q).join(',') + ') r').split('\n').at(-1)!);
+  expect(prepared.state).toBe('PREPARED');
+  expect(query('select enrollment_digest from zatca_preparation.enrollment_finalization_audit where reservation_id=' + q(reservation.reservation_id))).toBe(original.enrollment_digest);
+  expect(query('select status from public.vat_einvoices where id=' + q(f.document))).toBe('DRAFT');
 });

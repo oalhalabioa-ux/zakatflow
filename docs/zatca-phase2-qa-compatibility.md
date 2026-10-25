@@ -15,7 +15,7 @@ The narrow boolean definer is not a replacement for authorization: it requires a
 
 Loaded the ledger/source-freeze candidates and optional permission adapter within one transaction with 2-second lock timeout and 45-second statement timeout. **Never loaded the disposable `auth.uid()`/source-shaped harness into Supabase.** Used an existing QA owner UUID only as a SQL-session subject and created a new synthetic organization, registered VAT profile, non-operational connection placeholder, two invoices and their lines. No real key, account or cloud/authority request was used.
 
-25 checks passed (the original 13 compatibility checks plus 8 finalization checks):
+29 checks pass: the original 13 source/RLS cases, 8 finalization cases, 4 registry cases and 4 enrollment cases (extensions below).
 
 1. Authenticated owner can edit an unreserved header.
 2. Authenticated owner can edit an unreserved line.
@@ -75,3 +75,9 @@ Baseline security/performance advisors were read before the transaction. They co
 Load `zatca-signer-registry.sql` after source-freeze and before the permission adapter. The same actual-QA rollback script now records synthetic scoped AWS/version/pin references, reserves/finalizes through the registry wrappers and passes **25 checks**. New assertions reject a forged credential reference, reject certificate-pin rotation before finalization, deny registry mutation and verify the immutable signer audit; existing private-grant checks include all registry tables/wrappers. The certificate/issuer reference is explicitly synthetic and the XML storage payload remains non-UBL. This is SQL authorization/persistence compatibility, not AWS or authority acceptance.
 
 The entire transaction was rolled back; a separate check confirmed no private candidate schema, temporary source triggers or fixture organizations remain.
+
+## Enrollment extension — 2026-10-25
+
+Load `zatca-enrollment-provenance.sql` after signer-registry and before the permission adapter. The actual-QA rollback script now preserves a synthetic original request before credentials, records matching scoped evidence and reserves/finalizes through the enrollment-aware wrappers. **29 checks pass**, adding changed original CSR rejection, original-request immutability, stale evidence rejection and matching enrollment finalization audit. Existing app-role grant assertions cover all five new tables and the four enrollment entry points.
+
+CSR/SPKI/certificate evidence and XML storage payload in this actual-QA script are deliberately non-cryptographic placeholders. The separate disposable native integration performs actual CSR/certificate/CRL verification before recording equivalent evidence. No complete authority-accepted enrolled-UBL flow is claimed. After the latest rollback, a separate query confirms no temporary schema, source triggers or fixture organizations remain.

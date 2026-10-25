@@ -48,10 +48,14 @@ class Permissions(unittest.TestCase):
     def test_default_explicit_role_grants_are_revoked_not_just_public(self):
         for role in ['anon','authenticated','service_role']:
             self.assertEqual(query('select has_function_privilege('+sql(role)+",'zatca_preparation.finalize_saved(uuid,text,uuid,uuid,text,text,text)','EXECUTE')"),'f')
-            for table in ['reservation_config','finalization_audit','signer_versions','signer_heads','reservation_signers','signer_finalization_audit']:
+            for table in ['reservation_config','finalization_audit','signer_versions','signer_heads','reservation_signers','signer_finalization_audit','enrollment_requests','enrollment_checks','registry_enrollments','enrollment_reservations','enrollment_finalization_audit']:
                 self.assertEqual(query('select has_table_privilege('+sql(role)+",'zatca_preparation."+table+"','SELECT')"),'f')
                 self.assertEqual(query('select has_table_privilege('+sql(role)+",'zatca_preparation."+table+"','TRUNCATE')"),'f')
-            for function in ['record_signer_candidate(uuid,text,uuid,jsonb,uuid)',
+            for function in ['begin_initial_enrollment(uuid,text,uuid,uuid,text,text,text)',
+              'record_enrolled_signer_candidate(uuid,text,uuid,uuid,jsonb,jsonb,uuid)',
+              'reserve_with_enrollment(uuid,uuid,text,uuid,text,text,jsonb)',
+              'finalize_with_enrollment(uuid,text,uuid,uuid,uuid,text,text,jsonb,text,text,text)',
+              'record_signer_candidate(uuid,text,uuid,jsonb,uuid)',
               'reserve_with_signer(uuid,uuid,text,uuid,text,jsonb)',
               'finalize_with_signer(uuid,text,uuid,uuid,uuid,text,jsonb,text,text,text)']:
                 self.assertEqual(query('select has_function_privilege('+sql(role)+",'zatca_preparation."+function+"','EXECUTE')"),'f')

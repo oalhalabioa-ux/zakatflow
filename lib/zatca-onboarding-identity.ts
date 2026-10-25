@@ -93,6 +93,17 @@ function equalMap(actual: Map<string, string>, expected: Map<string, string>, ce
   if (certificate && !actual.has('2a864886f70d010901')) expected.delete('2a864886f70d010901');
   if (actual.size !== expected.size || [...expected].some(([key, value]) => actual.get(key) !== value)) fail('ONBOARDING_IDENTITY_SAVED_UNIT_MISMATCH');
 }
+// Versioned flat-string identity receipt: ASCII-sorted keys, each UTF-8 key/value
+// prefixed by an unsigned 32-bit big-endian byte length. PostgreSQL reproduces
+// this without depending on JSON whitespace/locale or JavaScript string lengths.
+function identityDigest(value: z.infer<typeof expectedSchema>) {
+  const chunks: Buffer[] = [];
+  for (const key of Object.keys(value).sort()) for (const field of [key, value[key as keyof typeof value]]) {
+    const bytes = Buffer.from(field, 'utf8'), size = Buffer.alloc(4); size.writeUInt32BE(bytes.length);
+    chunks.push(size, bytes);
+  }
+  return digest(Buffer.concat(chunks));
+}
 function inspect(materialValue: unknown, savedUnitValue: unknown, at: Date) {
   const material = materialSchema.parse(materialValue), expected = expectedSchema.parse(savedUnitValue);
   if (expected.unitId !== expected.connectionId) return fail('ONBOARDING_IDENTITY_SCOPE_MISMATCH');
@@ -150,7 +161,7 @@ function inspect(materialValue: unknown, savedUnitValue: unknown, at: Date) {
   if (certificateTemplate) { const tr = reader(certificateTemplate); if (tr.string(tr.exact(0x13)) !== template) return fail('ONBOARDING_IDENTITY_ENVIRONMENT_MISMATCH'); }
   return { stage: 'ONBOARDING_IDENTITY_PREFLIGHT_ONLY' as const, scope: { organizationId: expected.organizationId,
     environment: expected.environment, unitId: expected.unitId, connectionId: expected.connectionId }, profile: expected.profile,
-    certificateFingerprintSha256: certificatePin, csrSha256: expected.csrSha256, publicKeySpkiSha256: digest(spki) };
+    certificateFingerprintSha256: certificatePin, csrSha256: expected.csrSha256, publicKeySpkiSha256: digest(spki), expectedIdentitySha256: identityDigest(expected) };
 }
 
 /** Trusted backend inputs only. Binds a certificate to the original saved CSR,

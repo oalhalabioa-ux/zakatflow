@@ -5,7 +5,7 @@ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
 $$;
 -- Tests set this subject as a server-session stand-in; no JWT verification is claimed.
 create table public.organization_members(organization_id uuid,user_id uuid,role text,status text,primary key(organization_id,user_id));
-create table public.vat_einvoice_connections(id uuid primary key,organization_id uuid,environment text,status text,taxpayer_vat_number text,egs_serial_number text,invoice_type text,kms_key_arn text default 'QA_KEY_A',credentials_secret_arn text default 'QA_SECRET_A');
+create table public.vat_einvoice_connections(id uuid primary key,organization_id uuid,environment text,status text,taxpayer_vat_number text,egs_serial_number text,invoice_type text,kms_key_arn text default 'QA_KEY_A',credentials_secret_arn text default 'QA_SECRET_A',common_name text default 'Saved unit',legal_name text default 'Synthetic seller',branch_name text default 'Riyadh Main',branch_location text default 'Riyadh 12345',industry text default 'Software');
 create table public.vat_einvoices(
 id uuid primary key,
 organization_id uuid,
