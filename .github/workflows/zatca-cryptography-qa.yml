@@ -7,6 +7,8 @@ on:
       - 'tests/zatca-ledger-postgres.py'
       - 'tests/fixtures/zatca-source-freeze*.sql'
       - 'tests/zatca-source-freeze-postgres.py'
+      - 'tests/fixtures/zatca-signer-registry.sql'
+      - 'tests/zatca-signer-registry-postgres.py'
       - 'tests/zatca-source-freeze-permissions-postgres.py'
       - 'tests/sql/zatca-phase2-qa-compatibility.sql'
       - 'lib/zatca*'
@@ -82,6 +84,15 @@ jobs:
           PGPASSWORD: disposable-qa-only
       - name: Verify atomic source freeze and authorization races
         run: python3 tests/zatca-source-freeze-postgres.py
+        env:
+          ZATCA_LEDGER_DISPOSABLE_QA: '1'
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: zatca_ledger_qa
+          PGPASSWORD: disposable-qa-only
+      - name: Verify pinned signer registry, rotation and finalization races
+        run: python3 tests/zatca-signer-registry-postgres.py
         env:
           ZATCA_LEDGER_DISPOSABLE_QA: '1'
           PGHOST: 127.0.0.1

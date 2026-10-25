@@ -15,7 +15,7 @@ The narrow boolean definer is not a replacement for authorization: it requires a
 
 Loaded the ledger/source-freeze candidates and optional permission adapter within one transaction with 2-second lock timeout and 45-second statement timeout. **Never loaded the disposable `auth.uid()`/source-shaped harness into Supabase.** Used an existing QA owner UUID only as a SQL-session subject and created a new synthetic organization, registered VAT profile, non-operational connection placeholder, two invoices and their lines. No real key, account or cloud/authority request was used.
 
-21 checks passed (the original 13 compatibility checks plus 8 finalization checks):
+25 checks passed (the original 13 compatibility checks plus 8 finalization checks):
 
 1. Authenticated owner can edit an unreserved header.
 2. Authenticated owner can edit an unreserved line.
@@ -69,3 +69,9 @@ The script selects an existing active owner without storing any personal identif
 No persistent migration, public reservation endpoint or production route was enabled. Authenticated backend transport for the private reservation/finalization primitives, fresh certificate/secret-version/key binding, custom-role delegation, browser/JWT E2E, linked accounting/settlement behavior, recovery and batch performance still need implementation/verification before permanent QA rollout and later production activation.
 
 Baseline security/performance advisors were read before the transaction. They contain existing grouped findings; this work does not claim they are cleared or change unrelated public permissions. Relevant reference: [Supabase definer-function advisor](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
+
+## Registry extension — 2026-10-25
+
+Load `zatca-signer-registry.sql` after source-freeze and before the permission adapter. The same actual-QA rollback script now records synthetic scoped AWS/version/pin references, reserves/finalizes through the registry wrappers and passes **25 checks**. New assertions reject a forged credential reference, reject certificate-pin rotation before finalization, deny registry mutation and verify the immutable signer audit; existing private-grant checks include all registry tables/wrappers. The certificate/issuer reference is explicitly synthetic and the XML storage payload remains non-UBL. This is SQL authorization/persistence compatibility, not AWS or authority acceptance.
+
+The entire transaction was rolled back; a separate check confirmed no private candidate schema, temporary source triggers or fixture organizations remain.

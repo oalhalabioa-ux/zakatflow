@@ -1,12 +1,13 @@
 -- Financial Core QA only. Run in ONE transaction:
 -- BEGIN; SET LOCAL lock_timeout='2s'; SET LOCAL statement_timeout='45s';
--- load zatca-phase2-ledger.sql, zatca-source-freeze.sql,
+-- load zatca-phase2-ledger.sql, zatca-source-freeze.sql, zatca-signer-registry.sql,
 -- zatca-source-freeze-permissions.sql (NEVER the source-shaped/auth harness).
 -- load this script; ROLLBACK. Do not COMMIT. No real key or authority request.
 do $test$
 declare
   actor uuid; org uuid:=gen_random_uuid(); connection uuid:=gen_random_uuid();
   frozen uuid:=gen_random_uuid(); editable uuid:=gen_random_uuid(); invoice_uuid uuid:=gen_random_uuid();
+  binding jsonb; signer zatca_preparation.signer_versions; credential_ref jsonb;
   header jsonb; draft jsonb; lines jsonb; amounts jsonb; totals jsonb; context jsonb; expected jsonb;
   reserved zatca_preparation.entries; prepared zatca_preparation.entries; repeated zatca_preparation.entries;
   artifact text:='<synthetic-QA-storage-payload/>'; artifact_hash text; reason text; changed bigint; tests integer:=0; row_id uuid;
@@ -25,6 +26,17 @@ begin
     branch_name,branch_location,industry,egs_serial_number,invoice_type,kms_key_arn)
     values(connection,org,'SIMULATION','COMPLIANCE_PASSED','312345678901233','QA_ONLY','Synthetic seller','QA','Riyadh',
       'QA_ONLY','SYNTHETIC-EGS','1100','QA_ONLY_NON_OPERATIONAL_KEY_PLACEHOLDER');
+  update public.vat_einvoice_connections set
+    kms_key_arn='arn:aws:kms:eu-central-1:123456789012:key/12345678-1234-1234-1234-123456789012',
+    credentials_secret_arn='arn:aws:secretsmanager:eu-central-1:123456789012:secret:zakatflow/fatoora/'||org||'/simulation/'||connection||'-ABC123' where id=connection;
+  binding:=jsonb_build_object('version','ZATCA_SAVED_SIGNER_V1','organizationId',org,'environment','SIMULATION','unitId',connection,'connectionId',connection,
+    'kmsKeyArn','arn:aws:kms:eu-central-1:123456789012:key/12345678-1234-1234-1234-123456789012',
+    'secretArn','arn:aws:secretsmanager:eu-central-1:123456789012:secret:zakatflow/fatoora/'||org||'/simulation/'||connection||'-ABC123',
+    'secretVersionId','12345678-1234-1234-1234-123456789012','certificateFingerprintSha256',repeat('a',64),
+    'issuerChainDerBase64',jsonb_build_array('U1lOVEhFVElDX05PVF9BX0NFUlRJRklDQVRF'),
+    'policy',jsonb_build_object('identifier','https://example.invalid/synthetic-policy','digestSha256Base64',repeat('A',43)||'='),'includeSimplifiedQr',false);
+  signer:=zatca_preparation.record_signer_candidate(org,'SIMULATION',connection,binding,null);
+  credential_ref:=zatca_preparation.pick_fields(binding,array['version','secretVersionId','certificateFingerprintSha256']);
   draft:=jsonb_build_object('organization_id',org,'buyer_contact_id',null,'connection_id',connection,'invoice_number','QA-FROZEN',
     'document_type','INVOICE','invoice_category','SIMPLIFIED','issue_date','2026-10-24','due_date',null,'issue_time','12:00:00',
     'currency','SAR','exchange_rate',1,'seller_name','Synthetic seller','seller_vat_number','312345678901233',
@@ -61,6 +73,14 @@ begin
   if has_table_privilege('authenticated','zatca_preparation.entries','SELECT')
     or has_table_privilege('authenticated','zatca_preparation.entries','INSERT')
     or has_table_privilege('authenticated','zatca_preparation.entries','UPDATE')
+    or has_table_privilege('authenticated','zatca_preparation.signer_versions','SELECT')
+    or has_table_privilege('service_role','zatca_preparation.signer_versions','TRUNCATE')
+    or has_table_privilege('authenticated','zatca_preparation.signer_heads','UPDATE')
+    or has_table_privilege('authenticated','zatca_preparation.reservation_signers','INSERT')
+    or has_table_privilege('authenticated','zatca_preparation.signer_finalization_audit','SELECT')
+    or has_function_privilege('authenticated','zatca_preparation.record_signer_candidate(uuid,text,uuid,jsonb,uuid)','EXECUTE')
+    or has_function_privilege('authenticated','zatca_preparation.reserve_with_signer(uuid,uuid,text,uuid,text,jsonb)','EXECUTE')
+    or has_function_privilege('authenticated','zatca_preparation.finalize_with_signer(uuid,text,uuid,uuid,uuid,text,jsonb,text,text,text)','EXECUTE')
     or has_table_privilege('authenticated','zatca_preparation.entries','TRUNCATE')
     or has_function_privilege('authenticated','zatca_preparation.reserve_saved(uuid,uuid,text,jsonb)','EXECUTE')
     or has_function_privilege('anon','zatca_preparation.source_is_frozen(uuid,uuid)','EXECUTE')
@@ -69,7 +89,7 @@ begin
     or has_table_privilege('authenticated','zatca_preparation.finalization_audit','SELECT')
     or has_table_privilege('authenticated','zatca_preparation.finalization_audit','TRUNCATE') then raise exception 'QA_PRIVATE_GRANTS_UNSAFE'; end if; tests:=tests+1;
   reset role;
-  reserved:=zatca_preparation.reserve_saved(org,frozen,'SIMULATION',expected); tests:=tests+1;
+  reserved:=zatca_preparation.reserve_with_signer(org,frozen,'SIMULATION',signer.registry_id,signer.binding_digest,expected); tests:=tests+1;
   set local role authenticated;
   begin update public.vat_einvoices set invoice_number='FORGED' where id=frozen; reason:='NOT_BLOCKED';
     exception when others then reason:=sqlerrm; end;
@@ -107,11 +127,27 @@ begin
   exception when others then reason:=sqlerrm; end;
   if reason<>'SNAPSHOT_DIGEST_MISMATCH' then raise exception 'QA_FINALIZATION_DIGEST_GUARD:%',reason; end if;
   if exists(select 1 from zatca_preparation.finalization_audit where reservation_id=reserved.reservation_id) then raise exception 'QA_DENIED_FINALIZATION_CREATED_AUDIT'; end if; tests:=tests+1;
-  prepared:=zatca_preparation.finalize_saved(org,'SIMULATION',connection,reserved.reservation_id,reserved.snapshot_digest,artifact_hash,artifact);
+  begin
+    perform zatca_preparation.finalize_with_signer(org,'SIMULATION',connection,reserved.reservation_id,signer.registry_id,signer.binding_digest,
+      credential_ref||jsonb_build_object('secretVersionId',gen_random_uuid()),reserved.snapshot_digest,artifact_hash,artifact); reason:='NOT_BLOCKED';
+  exception when others then reason:=sqlerrm; end;
+  if reason<>'SIGNER_CREDENTIAL_REFERENCE_MISMATCH' then raise exception 'QA_SIGNER_REFERENCE_GUARD:%',reason; end if; tests:=tests+1;
+  begin
+    perform zatca_preparation.record_signer_candidate(org,'SIMULATION',connection,binding||jsonb_build_object('certificateFingerprintSha256',repeat('b',64)),signer.registry_id);
+    perform zatca_preparation.finalize_with_signer(org,'SIMULATION',connection,reserved.reservation_id,signer.registry_id,signer.binding_digest,credential_ref,reserved.snapshot_digest,artifact_hash,artifact); reason:='NOT_BLOCKED';
+  exception when others then reason:=sqlerrm; end;
+  if reason<>'SIGNER_HEAD_CHANGED' then raise exception 'QA_SIGNER_ROTATION_GUARD:%',reason; end if; tests:=tests+1;
+  begin
+    update zatca_preparation.signer_versions set binding_digest=repeat('0',64) where registry_id=signer.registry_id; reason:='NOT_BLOCKED';
+  exception when others then reason:=sqlerrm; end;
+  if reason<>'PREPARATION_PROVENANCE_IMMUTABLE' then raise exception 'QA_SIGNER_IMMUTABILITY:%',reason; end if; tests:=tests+1;
+  prepared:=zatca_preparation.finalize_with_signer(org,'SIMULATION',connection,reserved.reservation_id,signer.registry_id,signer.binding_digest,credential_ref,reserved.snapshot_digest,artifact_hash,artifact);
+  if not exists(select 1 from zatca_preparation.signer_finalization_audit where reservation_id=reserved.reservation_id and registry_id=signer.registry_id and binding_digest=signer.binding_digest)
+    then raise exception 'QA_SIGNER_AUDIT_MISSING'; end if; tests:=tests+1;
   if prepared.state<>'PREPARED' or not exists(select 1 from public.vat_einvoices where id=frozen and status='DRAFT')
     or not exists(select 1 from zatca_preparation.finalization_audit where reservation_id=reserved.reservation_id and actor_id=actor)
     then raise exception 'QA_PREPARATION_STATE_OR_AUDIT_WRONG'; end if; tests:=tests+1;
-  repeated:=zatca_preparation.finalize_saved(org,'SIMULATION',connection,reserved.reservation_id,reserved.snapshot_digest,artifact_hash,artifact);
+  repeated:=zatca_preparation.finalize_with_signer(org,'SIMULATION',connection,reserved.reservation_id,signer.registry_id,signer.binding_digest,credential_ref,reserved.snapshot_digest,artifact_hash,artifact);
   if to_jsonb(repeated) is distinct from to_jsonb(prepared)
     or (select count(*) from zatca_preparation.finalization_audit where reservation_id=reserved.reservation_id)<>1
     or (select last_counter from zatca_preparation.units where unit_id=connection)<>1 then raise exception 'QA_FINALIZATION_RETRY_DUPLICATED'; end if; tests:=tests+1;
@@ -143,6 +179,6 @@ begin
     or exists(select 1 from public.vat_documents where organization_id=org) then raise exception 'QA_UNEXPECTED_FINANCIAL_WRITE'; end if; tests:=tests+1;
   perform set_config('qa.phase2.compatibility',jsonb_build_object('passed',tests,'actual_rls',true,
     'frozen_edit_denied',true,'unreserved_amend_and_issue',true,'definer_issue_blocked',true,
-    'private_ledger_inaccessible',true,'fresh_finalization_authorization',true,'prepared_state_only',true,'single_finalization_audit',true,'outsider_isolated',true,'no_financial_projection',true,'rollback',true)::text,true);
+    'private_ledger_inaccessible',true,'fresh_finalization_authorization',true,'prepared_state_only',true,'single_finalization_audit',true,'signer_registry_binding',true,'rotation_denied',true,'outsider_isolated',true,'no_financial_projection',true,'rollback',true)::text,true);
 end $test$;
 select current_setting('qa.phase2.compatibility')::jsonb as test_result;

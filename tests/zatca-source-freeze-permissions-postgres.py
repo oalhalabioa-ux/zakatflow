@@ -48,9 +48,13 @@ class Permissions(unittest.TestCase):
     def test_default_explicit_role_grants_are_revoked_not_just_public(self):
         for role in ['anon','authenticated','service_role']:
             self.assertEqual(query('select has_function_privilege('+sql(role)+",'zatca_preparation.finalize_saved(uuid,text,uuid,uuid,text,text,text)','EXECUTE')"),'f')
-            for table in ['reservation_config','finalization_audit']:
+            for table in ['reservation_config','finalization_audit','signer_versions','signer_heads','reservation_signers','signer_finalization_audit']:
                 self.assertEqual(query('select has_table_privilege('+sql(role)+",'zatca_preparation."+table+"','SELECT')"),'f')
                 self.assertEqual(query('select has_table_privilege('+sql(role)+",'zatca_preparation."+table+"','TRUNCATE')"),'f')
+            for function in ['record_signer_candidate(uuid,text,uuid,jsonb,uuid)',
+              'reserve_with_signer(uuid,uuid,text,uuid,text,jsonb)',
+              'finalize_with_signer(uuid,text,uuid,uuid,uuid,text,jsonb,text,text,text)']:
+                self.assertEqual(query('select has_function_privilege('+sql(role)+",'zatca_preparation."+function+"','EXECUTE')"),'f')
             for privilege in ['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']:
                 self.assertEqual(query('select has_table_privilege('+sql(role)+",'zatca_preparation.entries',"+sql(privilege)+')'),'f')
             self.assertEqual(query('select has_function_privilege('+sql(role)+",'zatca_preparation.reserve_saved(uuid,uuid,text,jsonb)','EXECUTE')"),'f')

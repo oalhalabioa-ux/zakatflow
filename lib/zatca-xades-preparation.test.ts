@@ -237,13 +237,24 @@ it.runIf(process.env.ZATCA_SOURCE_FREEZE_QA === '1')('signs the exact atomically
     + calculated.lines.map(l => 'insert into public.vat_einvoice_lines select * from jsonb_populate_record(null::public.vat_einvoice_lines,' + q(JSON.stringify({ ...l, id: randomUUID(), invoice_id: scope.documentId })) + ');').join('')
     + 'insert into zatca_preparation.document_context values(' + [scope.documentId, scope.organizationId, JSON.stringify(snapshot.context)].map(q).join(',') + ');'
     + 'insert into zatca_preparation.units(organization_id,environment,unit_id) values(' + [scope.organizationId, scope.environment, scope.unitId].map(q).join(',') + ')');
-  const reserved = query("select set_config('request.jwt.claim.sub'," + q(actor) + ",false);select to_jsonb(r)||jsonb_build_object('counter',r.counter::text) from zatca_preparation.reserve_saved(" + [scope.organizationId, scope.documentId, scope.environment, JSON.stringify(snapshot)].map(q).join(',') + ') r');
+  const f = storedFixture();
+  Object.assign(f.binding, { organizationId: scope.organizationId, unitId: scope.unitId, connectionId: scope.connectionId,
+    secretArn: `arn:aws:secretsmanager:eu-central-1:123456789012:secret:zakatflow/fatoora/${scope.organizationId}/simulation/${scope.connectionId}-AbCdEf` });
+  f.reply.ARN = f.binding.secretArn;
+  query('update public.vat_einvoice_connections set kms_key_arn=' + q(f.binding.kmsKeyArn) + ',credentials_secret_arn=' + q(f.binding.secretArn) + ' where id=' + q(scope.connectionId));
+  const auth = "select set_config('request.jwt.claim.sub'," + q(actor) + ",false);";
+  const registry = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.record_signer_candidate('
+    + [scope.organizationId, scope.environment, scope.connectionId, JSON.stringify(f.binding)].map(q).join(',') + ',null) r').split('\n').at(-1)!);
+  const reserved = query(auth + "select to_jsonb(r)||jsonb_build_object('counter',r.counter::text) from zatca_preparation.reserve_with_signer(" + [scope.organizationId, scope.documentId, scope.environment, registry.registry_id, registry.binding_digest, JSON.stringify(snapshot)].map(q).join(',') + ') r');
   const reservation = JSON.parse(reserved.split('\n').at(-1)!);
   expect(reservation.snapshot).toEqual(snapshot);
-  const artifact = await prepareReservedZatcaArtifact(reservation, scope, { ...options, includeSimplifiedQr: true }, signer);
+  const worker = await createStoredZatcaPreparation(registry.binding, scope, f.clients, f.clock);
+  const artifact = await worker.prepare(reservation);
   const verified = nativeVerify(artifact.xml); expect(verified.status, verified.stderr).toBe(0);
   const a = artifact.finalizeArguments;
-  const saved = JSON.parse(query("select set_config('request.jwt.claim.sub'," + q(actor) + ",false);select row_to_json(r) from zatca_preparation.finalize_saved(" + [a.p_org, a.p_environment, a.p_unit, a.p_reservation, a.p_snapshot_digest, a.p_invoice_hash, a.p_prepared_xml].map(q).join(',') + ') r').split('\n').at(-1)!);
+  const saved = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.finalize_with_signer(' + [a.p_org, a.p_environment, a.p_unit, a.p_reservation,
+    registry.registry_id, registry.binding_digest, JSON.stringify(artifact.credentialReference), a.p_snapshot_digest, a.p_invoice_hash, a.p_prepared_xml].map(q).join(',') + ') r').split('\n').at(-1)!);
+  expect(query('select registry_id from zatca_preparation.signer_finalization_audit where reservation_id=' + q(reservation.reservation_id))).toBe(registry.registry_id);
   expect(saved.state).toBe('PREPARED'); expect(saved.prepared_xml).toBe(artifact.xml);
   expect(query('select actor_id from zatca_preparation.finalization_audit where reservation_id=' + q(reservation.reservation_id))).toBe(actor);
   expect(query('select count(*) from zatca_preparation.finalization_audit where reservation_id=' + q(reservation.reservation_id))).toBe('1');

@@ -104,3 +104,11 @@ Owner approved AWS for signing/key protection on 2026-10-22; account creation is
 - Updated official XAdES schema: https://uri.etsi.org/01903/v1.3.2/XAdES01903v132-201601.xsd
 
 Validation fixtures/schemas and browser/cloud credentials are not committed. No production invoice or schema was changed.
+
+## 2026-10-25 — private signer-version persistence and reservation binding
+
+Added a disposable owner-only signer registry candidate with immutable full bindings, current-head compare-and-swap, original reservation provenance and exactly-once signer finalization audit. Version, pin, chain or policy rotation blocks stale finalization; old unbound reservations/prepared artifacts cannot receive provenance retroactively. Application roles cannot read/write/truncate registry tables or execute writer/reserve/finalize wrappers. Live onboarding is unchanged and this is not a persistent migration or certificate trust approval.
+
+Validation: 22 disposable registry regressions, existing 17 ledger/30 source/8 permission regressions; relational signing suite 80/80 with native XMLSec now loads the registry binding through mocked AWS transports and finalizes the matching version. Actual Financial Core QA: 25 rollback-only checks, using actual RLS and existing amendment/issuer RPCs; no temporary schema/triggers/fixture organizations remain. SQL payload/certificate references in actual QA are synthetic; no real AWS or authority request is claimed.
+
+Next: validated onboarding version/pin/policy activation and authorized backend transport, followed by configured trust/profile/identity checks, actual AWS/IAM/current SDK and simulation acceptance. Draft PR remains unmerged and undeployed.
