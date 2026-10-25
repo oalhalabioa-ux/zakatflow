@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createZatcaCsr } from './vat-zatca-csr';
 import { Pool } from 'pg';
+import { CreateSecretCommand, DescribeSecretCommand, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { createZatcaEnrollmentResponseStager } from './zatca-enrollment-response-staging';
+import { createVerifiedZatcaEnrollmentResponseStore } from '../services/zatca-private-enrollment-response';
 import { createVerifiedZatcaEnrollmentReader } from '../services/zatca-private-enrollment-reader';
 import { createVerifiedZatcaEnrollmentWriter } from '../services/zatca-private-enrollment-writer';
 import { createZatcaEnrollmentCoordinator } from '../services/zatca-private-enrollment-coordinator';
@@ -268,6 +271,29 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
     const operation = { enrollmentId: savedRead.enrollmentId, dispatchId: randomUUID() };
     expect((await coordinator.prepareDispatch('SYNTHETIC.AUTH.TOKEN', target, operation)).decision).toBe('FIRST_INTENT_RECORDED');
     expect((await coordinator.prepareDispatch('SYNTHETIC.AUTH.TOKEN', target, operation)).decision).toBe('RECONCILIATION_REQUIRED');
+    const encryptionKeyArn = 'arn:aws:kms:eu-central-1:123456789012:key/' + randomUUID();
+    let content = '', name = '', arn = '';
+    const send = async (command: unknown) => {
+      if (command instanceof CreateSecretCommand) {
+        content = command.input.SecretString!; name = command.input.Name!;
+        arn = 'arn:aws:secretsmanager:eu-central-1:123456789012:secret:' + name + '-ABC123';
+        return { ARN: arn, Name: name, VersionId: operation.dispatchId };
+      }
+      if (command instanceof DescribeSecretCommand) return { ARN: arn, Name: name, KmsKeyId: encryptionKeyArn };
+      if (command instanceof GetSecretValueCommand) return { ARN: arn, Name: name, VersionId: operation.dispatchId, SecretString: content };
+      throw new Error('Unexpected synthetic AWS command');
+    };
+    const stager = createZatcaEnrollmentResponseStager({ send } as never, { region: 'eu-central-1', accountId: '123456789012', encryptionKeyArn });
+    const responseContext = { ...target, ...operation, enrollmentDigest: savedRead.enrollmentDigest, kmsKeyArn: kms };
+    const quarantined = await stager.stageResponse(responseContext, { requestId: '1234567890', binarySecurityToken: base.material.certificateDerBase64, secret: 'SYNTHETIC_PRIVATE_RESPONSE' });
+    const recovered = await stager.recoverResponse(responseContext); expect(recovered).toEqual(quarantined);
+    expect(recovered.reference.binarySecurityTokenSha256).toBe(verified.identity.certificateFingerprintSha256);
+    const store = createVerifiedZatcaEnrollmentResponseStore(auth as never, dispatchPool);
+    const receiptContext = { ...target, ...operation, enrollmentDigest: savedRead.enrollmentDigest };
+    const recorded = await store.recordResponseReference('SYNTHETIC.AUTH.TOKEN', receiptContext, recovered.reference);
+    expect(await store.recordResponseReference('SYNTHETIC.AUTH.TOKEN', receiptContext, recovered.reference)).toEqual(recorded);
+    expect(recorded.stage).toBe('ENROLLMENT_RESPONSE_REFERENCE_RECORDED_ONLY');
+
   } finally { await dispatchPool.end(); }
   query("update public.vat_einvoice_connections set status='COMPLIANCE_PASSED',credentials_secret_arn=" + q(secret) + ' where id=' + q(f.connection));
   const binding = { version: 'ZATCA_SAVED_SIGNER_V1', organizationId: f.org, environment: 'SIMULATION', unitId: f.connection, connectionId: f.connection,

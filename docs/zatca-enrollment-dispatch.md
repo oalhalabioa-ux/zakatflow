@@ -32,3 +32,6 @@ The native relational enrollment case now performs private original preservation
 Next: protected KMS-backed original-generation orchestration, stable operation lookup and audited recovery, fixed authority transport with response/secret staging and fresh verification, immutable AWS VersionId/credential activation, HTTP/CSRF/rate/tenant boundary, private role/TLS/pool and native worker packaging, actual AWS/current SDK/simulation/browser acceptance. No permanent QA/production schema, paid resource or authority request occurred.
 
 References: [PostgreSQL row locking](https://www.postgresql.org/docs/17/explicit-locking.html), [node-postgres transactions](https://node-postgres.com/features/transactions), [Supabase getUser](https://supabase.com/docs/reference/javascript/auth-getuser). Supabase breaking-change index was reviewed on 2026-10-25; no new Data API table exposure is introduced.
+
+
+The response follow-up now adds a separate quarantine namespace, exact immutable version/read-only recovery and a private unverified response reference bound to this original dispatch. This does not add an authority call, activation or automatic resend. Native relational coverage is now 153/153; see `docs/zatca-enrollment-response-staging.md`.

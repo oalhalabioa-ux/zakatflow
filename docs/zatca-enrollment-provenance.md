@@ -35,3 +35,6 @@ The private read transport is now represented by `services/zatca-private-enrollm
 
 
 Dispatch preparation now adds a separately immutable original-request intent and verified local coordinator. It has no authority transport or automatic retry/reclaim; the native relational suite now includes first-intent/reconciliation decisions and passes 147/147. See `docs/zatca-enrollment-dispatch.md` for its uncertainty and recovery limits.
+
+
+Unverified response quarantine/read-only recovery and immutable original-dispatch receipt now extend the preparation flow. Only opaque versioned references are stored in PostgreSQL; no credentials are activated. Native relational coverage is now 153/153. See `docs/zatca-enrollment-response-staging.md`.
