@@ -1,9 +1,10 @@
+import type {VoucherIdentity} from './voucher-identity';
 import Decimal from 'decimal.js';
 import type { InvoiceSource } from './asset-invoice-source';
 export type ReportEvent = {id:string;source_module?:string;organization_id:string;counterparty_id:string|null;event_date:string;due_date:string|null;status:string;description:string;source_record_id?:string|null;entity_id?:string|null};
 export type ReportObligation = {id:string;event_id:string;organization_id:string;obligation_type:string;settleable_base_amount:number|string;base_currency:string;adjusts_obligation_id?:string|null;adjustment_effect?:string|null};
 export type ReportAllocation = {id:string;organization_id:string;application_event_id:string;obligation_id:string;source_advance_obligation_id?:string|null;base_amount:number|string;allocation_type:string};
-export type ReportMovement = {id:string;createdAt?:string;installmentAllocations?:Array<{debtId:string;due:string;amount:number}>;debtId?:string;category?:string;source?:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;due:string|null;reference:string;description:string;currency:string;amount:number;advance:boolean;kind:string;entityId?:string|null};
+export type ReportMovement = VoucherIdentity & {id:string;createdAt?:string;installmentAllocations?:Array<{debtId:string;due:string;amount:number}>;debtId?:string;category?:string;source?:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;due:string|null;reference:string;description:string;currency:string;amount:number;advance:boolean;kind:string;entityId?:string|null};
 export type ReportInvoice = {source?:InvoiceSource;id:string;organizationId:string;partyKey:string;partyName:string;side:'SALES'|'PURCHASE';date:string;reference:string;currency:string;net:number;tax:number;total:number;classification:string};
 export type ReportData = {movements:ReportMovement[];invoices:ReportInvoice[];organizations:Array<{id:string;name:string}>;unposted:number};
 const n=(v:number|string)=>new Decimal(v||0);
@@ -41,8 +42,9 @@ export function summarizeReportParties(rows:ReportMovement[],side:'SALES'|'PURCH
 }
 export function reportStatement(rows:ReportMovement[],partyKey:string,side:'SALES'|'PURCHASE',currency:string,from:string,to:string){
  const all=rows.filter(r=>r.partyKey===partyKey&&r.side===side&&r.currency===currency&&r.date<=to);
- let balance=all.filter(r=>r.date<from).reduce((s,r)=>s.plus(r.amount),n(0));const opening=balance.toNumber();
- const movements=all.filter(r=>r.date>=from).map(r=>{balance=balance.plus(r.amount);return {...r,balance:balance.toNumber(),debit:side==='SALES'?Math.max(0,r.amount):Math.max(0,-r.amount),credit:side==='SALES'?Math.max(0,-r.amount):Math.max(0,r.amount)};});
- return {opening,closing:balance.toNumber(),movements};
+ const openingMovements=all.filter(r=>r.isOpening&&r.date===from);
+ let balance=all.filter(r=>r.date<from||r.isOpening&&r.date===from).reduce((s,r)=>s.plus(r.amount),n(0));const opening=balance.toNumber();
+ const movements=all.filter(r=>r.date>=from&&!(r.isOpening&&r.date===from)).map(r=>{balance=balance.plus(r.amount);return {...r,balance:balance.toNumber(),debit:side==='SALES'?Math.max(0,r.amount):Math.max(0,-r.amount),credit:side==='SALES'?Math.max(0,-r.amount):Math.max(0,r.amount)};});
+ return {opening,openingMovements,closing:balance.toNumber(),movements};
 }
 export function reportCsv(rows:Array<Array<string|number>>){return '\ufeff'+rows.map(row=>row.map(v=>{const value=String(v);const safe=typeof v==='string'&&/^\s*[=+\-@]|^[\t\r]/.test(value)?"'"+value:value;return '"'+safe.replaceAll('"','""')+'"';}).join(',')).join('\r\n');}
