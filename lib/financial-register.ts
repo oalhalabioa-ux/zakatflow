@@ -1,3 +1,4 @@
+import type {VoucherIdentity} from './voucher-identity';
 import {personalPartySourceSchema} from './debt-party-directory';
 import {debtCategorySchema} from './debt-categories';
 import Decimal from 'decimal.js';
@@ -5,9 +6,9 @@ import {z} from 'zod';
 import type {ReportMovement} from './vat-financial-reports';
 
 export type CashAccount={id:string;name:string;type:string;currency:string;nativeCurrency:string;balance:number;restricted:number;uncleared:number;baseCurrency:string;baseBalance:number;organizationId:string|null;entityId:string|null;source:'PERSONAL_ASSETS'|'LIQUIDITY';openingDate:string|null};
-export type CashMovement={id:string;accountId:string;date:string;createdAt?:string;currency:string;amount:number;description:string;reference:string;source:string};
+export type CashMovement=VoucherIdentity&{id:string;accountId:string;date:string;createdAt?:string;currency:string;amount:number;description:string;reference:string;source:string};
 export type RegisterAsset={id:string;name:string;type:string;assetClassCode?:string|null;assetTypeCode?:string|null;currency:string;cost:number;market:number;organizationId:string|null;entityId:string|null;category:'ASSET'|'INVESTMENT'|'LEGACY_CASH'|'LEGACY_RECEIVABLE';source:string};
-export type DebtItem={id:string;partyKey:string;partyName:string;organizationId:string|null;entityId:string|null;side:'RECEIVABLE'|'PAYABLE'|'CUSTOMER_ADVANCE'|'SUPPLIER_ADVANCE'|'UNAPPLIED';currency:string;amount:number;dueDate:string|null;date:string;description:string;source:string;eventId:string|null;personalContractId?:string;sourceDebtId?:string;categoryRootId?:string;installmentNumber?:number;loanContractId?:string;contractCategory?:string;category?:string;categoryInferred?:boolean;categoryOrigin?:'PERSONAL_RECEIVABLE'|'PERSONAL_PAYABLE'|'CORE';reference?:string;rawReference?:string;financialLocked?:boolean;originalCurrency?:string;originalAmount?:number;exchangeRate?:number;totalBase?:number;appliedBase?:number};
+export type DebtItem=VoucherIdentity&{id:string;partyKey:string;partyName:string;organizationId:string|null;entityId:string|null;side:'RECEIVABLE'|'PAYABLE'|'CUSTOMER_ADVANCE'|'SUPPLIER_ADVANCE'|'UNAPPLIED';currency:string;amount:number;dueDate:string|null;date:string;description:string;source:string;eventId:string|null;personalContractId?:string;sourceDebtId?:string;categoryRootId?:string;installmentNumber?:number;loanContractId?:string;contractCategory?:string;category?:string;categoryInferred?:boolean;categoryOrigin?:'PERSONAL_RECEIVABLE'|'PERSONAL_PAYABLE'|'CORE';reference?:string;rawReference?:string;financialLocked?:boolean;originalCurrency?:string;originalAmount?:number;exchangeRate?:number;totalBase?:number;appliedBase?:number};
 export type RegisterData={asOf:string;baseCurrency:string;organizations:Array<{id:string;name:string;base_currency:string;parent_organization_id:string|null;organization_kind:string}>;organizationIds:string[];entities:Array<{id:string;name:string;organization_id:string}>;accounts:CashAccount[];cashMovements:CashMovement[];debts:DebtItem[];debtMovements:ReportMovement[];assets:RegisterAsset[];warnings:string[];personalPayments?:Array<{id:string;payable_id:string;account_id:string;transaction_id:string;amount:number;payment_date:string;notes:string;reversed:boolean;reversalDate?:string}>};
 export const openingFinancialAccountSchema=z.object({request_id:z.string().uuid(),scope:z.enum(['PERSONAL','ORGANIZATION']),organization_id:z.string().uuid().nullable().default(null),entity_id:z.string().uuid().nullable().default(null),type:z.enum(['BANK','CASH','RECEIVABLE']),source_debt_id:personalPartySourceSchema.optional(),debt_category:debtCategorySchema.optional(),name:z.string().trim().min(1).max(120),currency:z.string().regex(/^[A-Z]{3}$/),opening_balance:z.number().finite().min(0).max(1e12),opening_date:z.string().date(),hawl_start_date:z.string().date().nullable().default(null),fx_rate:z.number().finite().positive().max(1e6),due_date:z.string().date().nullable().default(null),notes:z.string().trim().max(500).default('')}).strict().superRefine((p,c)=>{
  if(p.scope==='PERSONAL'&&(p.organization_id||p.entity_id)||p.scope==='ORGANIZATION'&&!p.organization_id)c.addIssue({code:'custom',message:'FINANCIAL_ACCOUNT_SCOPE_INVALID'});
@@ -24,9 +25,10 @@ export function cashTotals(accounts:CashAccount[]){return [...new Set(accounts.m
 // movements only. Forecast flows never form part of an account statement.
 export function cashStatement(account:CashAccount,movements:CashMovement[],from:string,to:string){
  const rows=movements.filter(m=>m.accountId===account.id&&m.currency===account.currency).sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt??'').localeCompare(b.createdAt??'')||a.id.localeCompare(b.id));
- const opening=new Decimal(account.balance).minus(add(rows.filter(m=>m.date>=from).map(m=>m.amount)));
- let balance=opening;const lines=rows.filter(m=>m.date>=from&&m.date<=to).map(m=>{balance=balance.plus(m.amount);return {...m,balance:balance.toNumber(),inflow:Math.max(0,m.amount),outflow:Math.max(0,-m.amount)};});
- return {opening:opening.toNumber(),closing:balance.toNumber(),inflows:add(lines.map(l=>l.inflow)),outflows:add(lines.map(l=>l.outflow)),lines};
+ const openingMovements=rows.filter(m=>m.isOpening&&m.date===from);
+ const opening=new Decimal(account.balance).minus(add(rows.filter(m=>m.date>=from&&!(m.isOpening&&m.date===from)).map(m=>m.amount)));
+ let balance=opening;const lines=rows.filter(m=>m.date>=from&&m.date<=to&&!(m.isOpening&&m.date===from)).map(m=>{balance=balance.plus(m.amount);return {...m,balance:balance.toNumber(),inflow:Math.max(0,m.amount),outflow:Math.max(0,-m.amount)};});
+ return {opening:opening.toNumber(),openingMovements,closing:balance.toNumber(),inflows:add(lines.filter(l=>!l.isOpening).map(l=>l.inflow)),outflows:add(lines.filter(l=>!l.isOpening).map(l=>l.outflow)),lines};
 }
 export function debtAging(items:DebtItem[],asOf:string){
  const groups=new Map<string,{currency:string;side:string;current:number;days1to30:number;days31to60:number;days61to90:number;over90:number;undated:number;total:number}>();

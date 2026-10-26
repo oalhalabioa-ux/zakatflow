@@ -14,3 +14,9 @@ describe('VAT financial reports',()=>{
  it('keeps a customer refund payable on the customer statement with inverse sign',()=>{const e={...events[0],id:'refund',source_record_id:'credit',event_date:'2026-10-15'};const rows=buildReportMovements([e],[{...obs[0],id:'refundob',event_id:'refund',obligation_type:'PAYABLE',settleable_base_amount:25}],[],parties,new Map(),new Map([['credit','SALES']]));expect(rows[0].side).toBe('SALES');expect(rows[0].amount).toBe(-25)});
  it('escapes CSV quotes, Arabic text and formula-like names',()=>{expect(reportCsv([['=HYPERLINK("x")','عميل',-40]])).toBe('\ufeff"\'=HYPERLINK(""x"")","عميل","-40"')});
 });
+it('keeps opening liabilities distinct from a new loan on the same date',()=>{
+ const row={id:'opening',debtId:'ap',organizationId:'PERSONAL',partyKey:'p',partyName:'Party',side:'PURCHASE' as const,date:'2025-07-30',due:null,reference:'',description:'Existing debt',currency:'SAR',amount:500,advance:false,kind:'INVOICE',isOpening:true};
+ const rows=[row,{...row,id:'loan',amount:14500,isOpening:false}];
+ const s=reportStatement(rows,'p','PURCHASE','SAR','2025-07-30','2026-10-26');expect(s.opening).toBe(500);expect(s.closing).toBe(15000);expect(s.openingMovements).toHaveLength(1);expect(s.movements.map(r=>r.credit)).toEqual([14500]);
+ expect(reportStatement(rows,'p','PURCHASE','SAR','2025-07-01','2026-10-26').opening).toBe(0);
+});
