@@ -7,6 +7,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import InvestmentPortfolioDashboard from './InvestmentPortfolioDashboard';
 import type {PortfolioParticipation} from '../lib/investment-portfolio';
+const PersonalContracts=dynamic(()=>import('./PersonalContractsWorkspace'));
 const OutgoingContracts=dynamic(()=>import('./ParticipationWorkspace'),{loading:()=><p role="status">جارٍ تحميل عقود الاستثمار…</p>});
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import ActionButton,{ActionIconGlyph,type ActionIcon} from './ActionButton';
@@ -37,8 +38,8 @@ export default function InvestmentWorkspace({locale}:{locale:string}){
  const [scope]=useWorkspaceScope();const [org,setOrg]=useState(''),[group,setGroup]=useState(false),[entity,setEntity]=useState(''),[kind,setKind]=useState<InvestmentTerms['instrument']>('DEPOSIT'),[query,setQuery]=useState(''),[status,setStatus]=useState('');
  const [view,setView]=useState<'DASHBOARD'|'DEPOSIT'|'SECURITIES'|'CONTRACT'>('DASHBOARD'),[securityType,setSecurityType]=useState<'ALL'|'BOND'|'SUKUK'>('ALL'),[revision,setRevision]=useState(0);
  const [outgoing,setOutgoing]=useState<{key:string;contracts:PortfolioParticipation[]}|null>(null),[contractError,setContractError]=useState(''),[contractBusy,setContractBusy]=useState(false);
- const outgoingKey=scope==='ORGANIZATION'&&org?org+'|'+group:'';
- const outgoingAvailable=scope==='PERSONAL'||Boolean(outgoingKey&&outgoing?.key===outgoingKey);
+ const outgoingKey=scope==='PERSONAL'?'PERSONAL':org?org+'|'+group:'';
+ const outgoingAvailable=Boolean(outgoingKey&&outgoing?.key===outgoingKey);
  const readCatalog=useCallback(()=>Promise.resolve({organizations:catalog.organizations}),[catalog.organizations]);
  const [selectedId,setSelectedId]=useState<string|null>(null),[tab,setTab]=useState('details');
  const [form,setForm]=useState<Record<string,string>|null>(null),[replaceId,setReplaceId]=useState<string|null>(null);
@@ -54,18 +55,18 @@ export default function InvestmentWorkspace({locale}:{locale:string}){
  },[]);
  useEffect(()=>{const c=new AbortController();load(c.signal).catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setLoading(false);});const id=new URLSearchParams(window.location.search).get('investment_id');if(id)setSelectedId(id);return()=>c.abort();},[load]);
  useEffect(()=>{const read=()=>{const q=new URLSearchParams(location.search),v=q.get('investment_view');setView(q.has('contract_id')||v==='contracts'?'CONTRACT':v==='deposits'||v==='instruments'?'DEPOSIT':v==='securities'?'SECURITIES':'DASHBOARD');if(v==='securities')setKind('SUKUK')};read();addEventListener('popstate',read);return()=>removeEventListener('popstate',read)},[]);
- useEffect(()=>{if(scope==='PERSONAL'&&view==='CONTRACT')setView('DASHBOARD')},[scope,view]);
+
  const handledInvestment=useRef('');
  useEffect(()=>{const id=new URLSearchParams(location.search).get('investment_id');const contract=w.contracts.find(c=>c.id===id);if(contract&&contract.terms.ownership_scope===scope&&(scope==='PERSONAL'||organizationScopeIds(catalog.organizations,org,group).has(contract.terms.organization_id??''))&&handledInvestment.current!==id){handledInvestment.current=id!;setSelectedId(id);setKind(contract.terms.instrument);setView(contract.terms.instrument==='DEPOSIT'?'DEPOSIT':'SECURITIES')}},[w.contracts,scope,org,group]);
  useEffect(()=>{
   if(view!=='DASHBOARD'||!outgoingKey)return;
   const c=new AbortController();setContractError('');setOutgoing(null);
-  fetch('/api/participation-contracts?'+new URLSearchParams({organization_id:org,direction:'OUTGOING',...(group?{group:'1'}:{})}),{signal:c.signal,cache:'no-store'}).then(async r=>{const data=await r.json();if(!r.ok)throw Error();if(!c.signal.aborted)setOutgoing({key:outgoingKey,contracts:data.contracts})}).catch(()=>{if(!c.signal.aborted)setContractError('تعذر تحميل عقود الاستثمار الخارجي. أعد تحديث المصادر؛ مؤشرات المحفظة غير مكتملة.')});
+  fetch(scope==='PERSONAL'?'/api/personal-contracts':'/api/participation-contracts?'+new URLSearchParams({organization_id:org,direction:'OUTGOING',...(group?{group:'1'}:{})}),{signal:c.signal,cache:'no-store'}).then(async r=>{const data=await r.json();if(!r.ok)throw Error();if(!c.signal.aborted)setOutgoing({key:outgoingKey,contracts:scope==='PERSONAL'?data.contracts.filter((c:any)=>c.product==='PARTICIPATION').map((c:any)=>({id:c.id,direction:c.side==='RECEIVABLE'?'OUTGOING':'INCOMING',state:c.status==='DRAFT'?'DRAFT':c.status==='CANCELLED'?'CANCELLED':c.outstanding>0?'ACTIVE':'CLOSED',currency:c.currency,reference:c.terms.reference,maturity_date:c.terms.schedule.at(-1)?.due_date??null,summary:{managed:c.outstanding,profitDeclared:c.movements.filter((m:any)=>m.kind==='PROFIT'&&!m.reversed_at).reduce((n:number,m:any)=>n+Number(m.amount),0),profitDue:c.movements.filter((m:any)=>m.kind==='PROFIT'&&!m.reversed_at).reduce((n:number,m:any)=>n+Number(m.outstanding),0),returnDue:0}})):data.contracts})}).catch(()=>{if(!c.signal.aborted)setContractError('تعذر تحميل عقود الاستثمار الخارجي. أعد تحديث المصادر؛ مؤشرات المحفظة غير مكتملة.')});
   return()=>c.abort();
- },[view,outgoingKey,org,group,revision]);
+ },[view,outgoingKey,org,group,revision,scope]);
  function chooseView(next:typeof view,id?:string){
-  const q=new URL(location.href);q.searchParams.set('investment_view',({DASHBOARD:'dashboard',DEPOSIT:'deposits',SECURITIES:'securities',CONTRACT:'contracts'} as const)[next]);q.searchParams.delete('investment_id');q.searchParams.delete('contract_id');
-  if(id)q.searchParams.set(next==='CONTRACT'?'contract_id':'investment_id',id);
+  const q=new URL(location.href);q.searchParams.set('investment_view',({DASHBOARD:'dashboard',DEPOSIT:'deposits',SECURITIES:'securities',CONTRACT:'contracts'} as const)[next]);q.searchParams.delete('investment_id');q.searchParams.delete('contract_id');q.searchParams.delete('personal_contract_id');
+  if(id)q.searchParams.set(next==='CONTRACT'?(scope==='PERSONAL'?'personal_contract_id':'contract_id'):'investment_id',id);
   history.replaceState(null,'',q);setView(next);setSelectedId(next==='CONTRACT'?null:id??null);
   const contract=w.contracts.find(c=>c.id===id);setKind(next==='DEPOSIT'?'DEPOSIT':contract?.terms.instrument??'SUKUK');setSecurityType('ALL');setQuery('');setStatus('');
  }
@@ -117,9 +118,9 @@ export default function InvestmentWorkspace({locale}:{locale:string}){
    {scope==='ORGANIZATION'&&<TopbarOrganizationControls>   {scope==='ORGANIZATION'&&<><WorkspaceOrganizationPicker disabled={busy||contractBusy} ar={ar} organizations={catalog.organizations} value={org} onChange={id=>{setOrg(id);setEntity('');setSelectedId(null);setForm(null);setOperation(null);setConfirmation(null);}} group={group} onGroupChange={value=>{setGroup(value);setEntity('');setSelectedId(null);setForm(null);setOperation(null);setConfirmation(null);}}/>{(view==='DEPOSIT'||view==='SECURITIES')&&<label>الكيان<select value={entity} onChange={e=>setEntity(e.target.value)}><option value="">جميع الكيانات</option>{catalog.entities.filter(e=>!org||e.organization_id===org).map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label>}</>}
 </TopbarOrganizationControls>}
 
-  <nav className="investment-tabs" aria-label="أقسام الاستثمارات">{([['DASHBOARD','لوحة الاستثمارات','investment'],['DEPOSIT','الودائع','bank'],['SECURITIES','الصكوك والسندات','certificate'],['CONTRACT','عقود الاستثمار','investment']] as const).map(([value,label,icon])=><ActionButton key={value} icon={icon} label={label} showLabel aria-pressed={view===value} disabled={busy||contractBusy||value==='CONTRACT'&&scope!=='ORGANIZATION'} onClick={()=>chooseView(value)}/>)}</nav>
-  {scope==='PERSONAL'&&<p className="investment-model-note">عقود الاستثمار الخارجي متاحة حاليًا في النطاق المؤسسي.</p>}
-  {view==='DASHBOARD'&&<>{scope==='ORGANIZATION'&&contractError&&<p role="alert" className="error">{contractError}</p>}{scope==='ORGANIZATION'&&!org?<p className="finance-note">اختر شركة من الشريط العلوي لعرض محفظتها الاستثمارية.</p>:<InvestmentPortfolioDashboard instruments={w.contracts.filter(c=>c.terms.ownership_scope===scope&&(scope==='PERSONAL'||organizationIds.has(c.terms.organization_id??'')))} operations={w.operations} participations={outgoingAvailable&&scope==='ORGANIZATION'?outgoing?.contracts??[]:[]} asOf={today()} baseCurrency={base(scope,org)} loading={loading} unavailable={Boolean(error)} contractsAvailable={outgoingAvailable&&(scope==='PERSONAL'||!contractError)} organizationId={scope==='ORGANIZATION'?org||null:null} onOpen={(target,id)=>chooseView(target,id)}/>}</>}
+  <nav className="investment-tabs" aria-label="أقسام الاستثمارات">{([['DASHBOARD','لوحة الاستثمارات','investment'],['DEPOSIT','الودائع','bank'],['SECURITIES','الصكوك والسندات','certificate'],['CONTRACT','عقود الاستثمار','investment']] as const).map(([value,label,icon])=><ActionButton key={value} icon={icon} label={label} showLabel aria-pressed={view===value} disabled={busy||contractBusy} onClick={()=>chooseView(value)}/>)}</nav>
+  {view==='CONTRACT'&&scope==='PERSONAL'&&<PersonalContracts locale={locale} investmentOnly embedded/>}
+  {view==='DASHBOARD'&&<>{contractError&&<p role="alert" className="error">{contractError}</p>}{scope==='ORGANIZATION'&&!org?<p className="finance-note">اختر شركة من الشريط العلوي لعرض محفظتها الاستثمارية.</p>:<InvestmentPortfolioDashboard instruments={w.contracts.filter(c=>c.terms.ownership_scope===scope&&(scope==='PERSONAL'||organizationIds.has(c.terms.organization_id??'')))} operations={w.operations} participations={outgoingAvailable?outgoing?.contracts??[]:[]} asOf={today()} baseCurrency={base(scope,org)} loading={loading} unavailable={Boolean(error)} contractsAvailable={outgoingAvailable&&!contractError} organizationId={scope==='ORGANIZATION'?org||null:null} onOpen={(target,id)=>chooseView(target,id)}/>}</>}
   {view==='CONTRACT'&&scope==='ORGANIZATION'&&(org?<OutgoingContracts locale={locale} direction="OUTGOING" embedded organizationId={org} organizationGroup={group} loadCatalog={readCatalog} onBusyChange={setContractBusy}/>:<p className="finance-note">اختر شركة من الشريط العلوي لعرض عقود استثمارها.</p>)}
   {(view==='DEPOSIT'||view==='SECURITIES')&&<>
   <div className="investment-instrument-guide"><span className="investment-heading-icon"><ActionIconGlyph name={view==='SECURITIES'?'certificate':instrumentIcons[kind]}/></span><div><h2>{view==='SECURITIES'?'الصكوك والسندات':ui.title}</h2><p>{view==='SECURITIES'?'سجل موحد مع تمييز نوع الأداة ومعالجة العائد والزكاة حسب كل صك أو سند.':ui.description}</p><small>{view==='SECURITIES'?'اختر نوع الأداة عند الإضافة؛ الكوبون أو التوزيع وفرق الاسترداد يبقيان منفصلين.':ui.termsNote}</small></div></div>
