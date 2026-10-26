@@ -1,4 +1,6 @@
 'use client';
+import VoucherStamp from './VoucherStamp';
+import {sourceVoucher} from '../lib/source-voucher';
 import {Money} from './DisplayCurrency';
 
 import { FormEvent, useEffect, useState } from 'react';
@@ -85,12 +87,12 @@ export function VatInvoiceReceipts({ organizationId, documentId, invoiceNumber, 
     {message && <p role="status" className="vat-inline-warning">{message}</p>}
     {loading ? <p>{ar ? 'جارٍ تحميل السندات…' : 'Loading receipts…'}</p> : <>
       {!receipts.length && <p>{ar ? 'لا توجد سندات قبض محفوظة لهذه الفاتورة.' : 'No saved receipts for this invoice.'}</p>}
-      <div className="vat-table-wrap"><table><thead><tr><th>{ar ? 'مرجع السند' : 'Receipt reference'}</th><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'الحساب' : 'Account'}</th><th>{ar ? 'المبلغ' : 'Amount'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th>{ar ? 'الإجراء' : 'Action'}</th></tr></thead><tbody>
-        {receipts.map((receipt) => <tr key={receipt.event_id}><td title={receipt.settlement_id ?? receipt.event_id}>{(receipt.settlement_id ?? receipt.event_id).slice(0,8)}</td><td>{receipt.date}</td><td>{receipt.account_name}</td><td><Money value={receipt.amount} currency={receipt.currency}/></td><td>{statusLabel(receipt)}</td><td>{canEdit && receipt.editable && <button type="button" className="vat-button secondary" disabled={saving} onClick={() => setEditing(receipt)}>{ar ? 'تعديل' : 'Edit'}</button>}{canEdit && !receipt.settlement_id && ['DRAFT','PLANNED','COMMITTED'].includes(receipt.status) && <button type="button" className="vat-button primary" disabled={saving} onClick={() => void post(receipt)}>{ar ? 'اعتماد وترحيل' : 'Approve & post'}</button>}</td></tr>)}
+      <div className="vat-table-wrap"><table><thead><tr><th>{ar ? 'نوع السند' : 'Voucher type'}</th><th>{ar ? 'رقم السند' : 'Voucher number'}</th><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'الحساب' : 'Account'}</th><th>{ar ? 'المبلغ' : 'Amount'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th>{ar ? 'الإجراء' : 'Action'}</th></tr></thead><tbody>
+        {receipts.map((receipt) => <tr key={receipt.event_id}><td>{ar?'سند قبض':'Receipt voucher'}</td><td><bdi>{sourceVoucher('EVENT',{id:receipt.event_id},ar).voucherNumber}</bdi></td><td>{receipt.date}</td><td>{receipt.account_name}</td><td><Money value={receipt.amount} currency={receipt.currency}/></td><td>{statusLabel(receipt)}</td><td>{canEdit && receipt.editable && <button type="button" className="vat-button secondary" disabled={saving} onClick={() => setEditing(receipt)}>{ar ? 'تعديل' : 'Edit'}</button>}{canEdit && !receipt.settlement_id && ['DRAFT','PLANNED','COMMITTED'].includes(receipt.status) && <button type="button" className="vat-button primary" disabled={saving} onClick={() => void post(receipt)}>{ar ? 'اعتماد وترحيل' : 'Approve & post'}</button>}</td></tr>)}
       </tbody></table></div>
       <button type="button" className="vat-button secondary" disabled={saving} onClick={() => setRevision((value) => value+1)}>{ar ? 'تحديث السندات' : 'Refresh receipts'}</button>
     </>}
-    {editing && <form key={editing.event_id} onSubmit={save}><div className="vat-form-grid">
+    {editing && <form key={editing.event_id} onSubmit={save}><VoucherStamp domain="CASH_SETTLEMENT" record={{id:editing.event_id,financial_event_id:editing.event_id,direction:'INFLOW'}} ar={ar}/><div className="vat-form-grid">
       <label><span>{ar ? 'مبلغ القبض' : 'Receipt amount'}</span><input name="amount" type="number" min="0.01" step="0.01" required defaultValue={editing.amount} /></label>
       <label><span>{ar ? 'تاريخ القبض' : 'Receipt date'}</span><input name="date" type="date" required defaultValue={editing.date} /></label>
       <label><span>{ar ? 'حساب القبض' : 'Receipt account'}</span><select name="account_id" required defaultValue={editing.account_id}>

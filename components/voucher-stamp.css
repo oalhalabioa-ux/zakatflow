@@ -1,0 +1,3 @@
+.voucher-stamp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-block:12px;max-width:100%;color:inherit}
+.voucher-stamp>div{min-width:0;padding:10px 12px;border:1px solid var(--border-color,var(--border,#d5dbe2));border-radius:8px}
+.voucher-stamp dt{font-size:.8rem;opacity:.75;margin-block-end:5px}.voucher-stamp dd{margin:0;font-weight:600;overflow-wrap:anywhere}.voucher-stamp bdi{font-variant-numeric:tabular-nums}

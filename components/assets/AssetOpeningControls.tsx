@@ -1,4 +1,5 @@
 'use client';
+import VoucherStamp from '../VoucherStamp';
 import {useEffect,useState} from 'react';
 import ActionButton from '../ActionButton';
 import {assetOpeningError} from '@/lib/asset-opening-workspace';
@@ -14,7 +15,7 @@ export default function AssetOpeningControls({asset,ar,onChanged}:{asset:any;ar:
   catch(e:any){setError(e.message);}finally{setBusy(false);}
  }
  return <section className="asset-opening-controls" aria-label={t('سند الرصيد الافتتاحي','Opening balance voucher')}>
- <h4>{t('سند الرصيد الافتتاحي','Opening balance voucher')}</h4>
+ <VoucherStamp domain="ASSET" record={{id:context?.opening_transaction_id??undefined,transaction_type:context?.opening_transaction_type??'OPENING_BALANCE'}} ar={ar}/><h4>{t('سند الرصيد الافتتاحي','Opening balance voucher')}</h4>
  {!context&&!error&&<p className="muted">{t('جار التحقق من صلاحية التعديل والحذف…','Checking edit and delete eligibility…')}</p>}
  {context&&!context.can_edit&&<p className="muted">{assetOpeningError(context.block_reason,ar)}</p>}
  {context?.can_edit&&!edit&&!confirm&&<div className="asset-detail-actions"><ActionButton icon="edit" label={t('تعديل سند الرصيد الافتتاحي','Edit opening balance voucher')} showLabel onClick={begin}/><ActionButton icon="delete" label={t('حذف سند الرصيد الافتتاحي','Delete opening balance voucher')} showLabel onClick={()=>setConfirm(true)}/></div>}

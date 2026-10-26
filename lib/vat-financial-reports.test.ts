@@ -20,3 +20,9 @@ it('keeps opening liabilities distinct from a new loan on the same date',()=>{
  const s=reportStatement(rows,'p','PURCHASE','SAR','2025-07-30','2026-10-26');expect(s.opening).toBe(500);expect(s.closing).toBe(15000);expect(s.openingMovements).toHaveLength(1);expect(s.movements.map(r=>r.credit)).toEqual([14500]);
  expect(reportStatement(rows,'p','PURCHASE','SAR','2025-07-01','2026-10-26').opening).toBe(0);
 });
+it('keeps one voucher identity across installments and a distinct identity for their actual settlement',()=>{
+ const e=[{id:'opening-event',organization_id:'o',counterparty_id:'p',event_date:'2026-10-01',due_date:null,status:'ACTUAL',description:'opening',source_module:'DEBT_CONTRACTS',voucher_number:'DC-11',voucher_type:'رصيد افتتاحي',is_opening:true},{id:'payment-event',organization_id:'o',counterparty_id:'p',event_date:'2026-10-02',due_date:null,status:'ACTUAL',description:'payment',source_module:'DEBT_SETTLEMENTS'}];
+ const obs=[{id:'one',event_id:'opening-event',organization_id:'o',obligation_type:'PAYABLE',settleable_base_amount:50,base_currency:'SAR'},{id:'two',event_id:'opening-event',organization_id:'o',obligation_type:'PAYABLE',settleable_base_amount:50,base_currency:'SAR'}];
+ const rows=buildReportMovements(e,obs,[{id:'alloc',organization_id:'o',application_event_id:'payment-event',obligation_id:'one',base_amount:20,allocation_type:'CASH'}],[{id:'p',organization_id:'o',name:'Party'}],new Map());
+ const s=reportStatement(rows,'o:p','PURCHASE','SAR','2026-10-01','2026-10-31');expect(s.opening).toBe(100);expect(s.closing).toBe(80);expect(s.openingMovements.map(r=>r.voucherNumber)).toEqual(['DC-11','DC-11']);expect(s.movements[0]).toMatchObject({amount:-20,isOpening:false,voucherType:'تسوية ذمة'});expect(s.movements[0].voucherNumber).not.toBe('DC-11');
+});
