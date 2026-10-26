@@ -12,12 +12,13 @@ export function dashboardFinancialSources({overview,investments,scope,organizati
   const rawReference=String(d.reference??'').trim();
   const internalReference=!rawReference||rawReference===d.id||rawReference===d.eventId||/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(rawReference);
   const reference=internalReference?(d.side==='PAYABLE'?payableReference('',d.id):'AR-'+String(d.id).slice(0,8).toUpperCase()):rawReference;
-  add({id:'obligation:'+d.id,date:d.dueDate,label:d.partyName||d.description||(ar?'جهة غير محددة':'Unspecified party'),reference,source:ar?(d.side==='PAYABLE'?'ذمة / التزام':'ذمة مدينة'):(d.side==='PAYABLE'?'Payable / obligation':'Receivable'),amount:Number(d.amount),currency:d.currency,direction:d.side==='PAYABLE'?'OUT':'IN',href:link(d.side==='PAYABLE'?'payables':'receivables')});
+  add({id:'obligation:'+d.id,date:d.dueDate,label:d.partyName||d.description||(ar?'جهة غير محددة':'Unspecified party'),reference,source:ar?(d.side==='PAYABLE'?'ذمة / التزام':'ذمة مدينة'):(d.side==='PAYABLE'?'Payable / obligation':'Receivable'),amount:Number(d.amount),currency:d.currency,direction:d.side==='PAYABLE'?'OUT':'IN',href:d.personalContractId?link('loans?scope=PERSONAL&personal_contract_id='+d.personalContractId):link(d.side==='PAYABLE'?'payables':'receivables')});
  }
  for(const f of flows){
   if(debtIds.has(f.source_record_id)||(f.links??[]).some((l:any)=>l.obligation_id?debtIds.has(l.obligation_id):eventIds.has(l.event_id)))continue;
   add({id:'flow:'+f.id,date:f.due_date,label:f.title,source:ar?'تدفق السيولة':'Liquidity flow',amount:remainingLiquidityFlowBase(f),currency:f.base_currency??overview?.baseCurrency,direction:f.direction==='INFLOW'?'IN':'OUT',href:link('liquidity?tab=flows')});
  }
+ if(scope==='PERSONAL')for(const c of investments?.personalParticipations??[]){if(c.status!=='POSTED')continue;for(const s of c.schedule??[])add({id:'personal-investment:'+c.id+':'+s.number,date:s.due_date,label:c.terms.party,reference:c.terms.reference,source:ar?'استرداد رأس مال استثماري · تقديري':'Investment capital return · estimated',amount:Number(s.remaining),currency:c.currency,direction:'IN',href:link('investments?scope=PERSONAL&investment_view=contracts&personal_contract_id='+c.id)});}
  for(const c of investments?.contracts??[]){const t=c.terms;if(c.status!=='ACTIVE'||t.ownership_scope!==scope||scope==='ORGANIZATION'&&!organizationIds.includes(t.organization_id))continue;
   // A live investment forecast is authoritative over a second contract-principal estimate.
   if(flows.some((f:any)=>f.source_module==='INVESTMENTS'&&f.direction==='INFLOW'&&f.due_date===t.maturity_date&&String(f.source_event_key??'')==='investment:'+c.id+':forecast:REDEEM'))continue;

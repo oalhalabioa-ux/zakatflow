@@ -1,6 +1,9 @@
 import {z} from 'zod';
+import Decimal from 'decimal.js';
+import {personalInstallmentBalances} from '../lib/personal-contracts';
 import {requireUser} from './auth';
 import {investmentTermsSchema,investmentOperationSchema,investmentProjection} from '@/lib/investments';
+async function personalRows(q:()=>any){const rows:any[]=[];for(let i=0;i<20000;i+=500){const r=await q().order('id').range(i,i+499);if(r.error)throw r.error;rows.push(...r.data);if(r.data.length<500)return rows;}throw Error('REPORT_TOO_LARGE');}
 export async function investmentWorkspace(){
  const {supabase,user}=await requireUser();
  const results=await Promise.all([
@@ -11,10 +14,15 @@ export async function investmentWorkspace(){
   supabase.from('profiles').select('base_currency').eq('id',user.id).single()
  ]);
  for(const r of results)if(r.error)throw r.error;
+ const personalContracts=await personalRows(()=>supabase.from('personal_contracts').select('id,status,terms,principal,currency,asset_id').eq('user_id',user.id).eq('product','PARTICIPATION').eq('side','RECEIVABLE'));
+ const carrying=new Map<string,number>();
+ const personalAssetIds=personalContracts.map(c=>c.asset_id).filter(Boolean);
+ for(let i=0;i<personalAssetIds.length;i+=100){const lots=await personalRows(()=>supabase.from('lots').select('id,asset_account_id,remaining_value_base').eq('user_id',user.id).in('asset_account_id',personalAssetIds.slice(i,i+100)));for(const l of lots)carrying.set(l.asset_account_id,new Decimal(carrying.get(l.asset_account_id)??0).plus(l.remaining_value_base).toNumber());}
+ const personalParticipations=personalContracts.map(c=>({...c,outstanding:c.status==='POSTED'?carrying.get(c.asset_id)??0:0,schedule:personalInstallmentBalances(c.terms.schedule,Number(c.principal),c.status==='POSTED'?carrying.get(c.asset_id)??0:0)}));
  const operations=results[1].data??[],ids=[...new Set(operations.flatMap(o=>[o.recognition_event_id,o.settlement_event_id]).filter(Boolean))];
  const events=ids.length?await supabase.from('financial_events').select('id,status').in('id',ids):{data:[],error:null};
  if(events.error)throw events.error;const statuses=new Map((events.data??[]).map(e=>[e.id,e.status]));
- return {contracts:(results[0].data??[]).map(c=>({...c,projection:investmentProjection(investmentTermsSchema.parse(c.terms))})),
+ return {personalParticipations,contracts:(results[0].data??[]).map(c=>({...c,projection:investmentProjection(investmentTermsSchema.parse(c.terms))})),
  operations:operations.map(o=>({...o,recognition_status:statuses.get(o.recognition_event_id),settlement_status:statuses.get(o.settlement_event_id)})),
  organizationAccounts:results[2].data??[],personalAccounts:results[3].data??[],baseCurrency:results[4].data?.base_currency??'SAR'};
 }
