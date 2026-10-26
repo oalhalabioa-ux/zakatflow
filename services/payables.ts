@@ -1,3 +1,4 @@
+import {sourceVoucher} from '../lib/source-voucher';
 import {requireUser} from './auth';
 import {requireOrganizationMember} from './organization-access';
 import {executeFinancialEventAction} from './financial-events';
@@ -47,17 +48,19 @@ export async function payableDetail(organizationId:string,obligationId:string):P
  const applicationIds=[...new Set(allocations.map(a=>a.application_event_id))];
  const applicationEvents=applicationIds.length?await rows(()=>supabase.from('financial_events').select('id,status,event_date,description').eq('organization_id',organizationId).in('id',applicationIds)):[];
  const settlements=applicationIds.length?await rows(()=>supabase.from('liquidity_settlements').select('id,financial_event_id,account_id,currency,amount,settlement_date,status').eq('organization_id',organizationId).in('financial_event_id',applicationIds)):[];
- const history=allocations.map(a=>{const e=applicationEvents.find(e=>e.id===a.application_event_id),s=settlements.find(s=>s.financial_event_id===a.application_event_id);return {...a,eventStatus:e?.status,date:s?.settlement_date??e?.event_date,description:e?.description??a.allocation_type,settlement:s??null,accountName:accounts.find(a=>a.id===s?.account_id)?.name??'—'};}).sort((a,b)=>(b.date??'').localeCompare(a.date??'')||a.id.localeCompare(b.id));
+ const history=allocations.map(a=>{const e=applicationEvents.find(e=>e.id===a.application_event_id),s=settlements.find(s=>s.financial_event_id===a.application_event_id);return {...a,...sourceVoucher('EVENT',e??{id:a.application_event_id}),eventStatus:e?.status,date:s?.settlement_date??e?.event_date,description:e?.description??a.allocation_type,settlement:s??null,accountName:accounts.find(a=>a.id===s?.account_id)?.name??'—'};}).sort((a,b)=>(b.date??'').localeCompare(a.date??'')||a.id.localeCompare(b.id));
  const requestIds=[...new Set(instructions.map(i=>i.event_id))];
  // Only ordinary payable cash requests are offered here, never investment source commands.
  const requests=event.source_module==='INVESTMENTS'?[]:await Promise.all(requestIds.map(id=>requestReview(c,id)));
  const documentLink=links.find(l=>l.target_module==='vat_documents');
  const documentId=documentLink?.target_record_id??(event.source_module==='VAT_INTEGRATION'?event.source_record_id:null);
- const doc=documentId?unwrap(await supabase.from('vat_documents').select('document_number').eq('organization_id',organizationId).eq('id',documentId).maybeSingle()):null;
- const assetSource=event.source_module==='ASSETS_INTEGRATION'&&event.source_record_id?unwrap(await supabase.from('transactions').select('reference,metadata').eq('organization_id',organizationId).eq('id',event.source_record_id).maybeSingle()):null;
+ const doc=documentId?unwrap(await supabase.from('vat_documents').select('id,purchase_number,document_number,document_kind,document_type').eq('organization_id',organizationId).eq('id',documentId).maybeSingle()):null;
+ const assetSource=event.source_module==='ASSETS_INTEGRATION'&&event.source_record_id?unwrap(await supabase.from('transactions').select('id,purchase_number,reference,metadata,transaction_type').eq('organization_id',organizationId).eq('id',event.source_record_id).maybeSingle()):null;
+ const contract=event.source_module==='DEBT_CONTRACTS'&&event.source_record_id?unwrap(await supabase.from('debt_contracts').select('id,kind,mode,side').eq('organization_id',organizationId).eq('id',event.source_record_id).maybeSingle()):null;
+ const identity=doc?sourceVoucher('INVOICE',doc):assetSource?sourceVoucher('ASSET',assetSource):contract?sourceVoucher('DEBT',contract):sourceVoucher('EVENT',event);
  const sourceManaged=event.source_module==='INVESTMENTS';
  const due=links.find(l=>l.metadata?.obligation_id===obligationId&&l.metadata?.due_date)?.metadata.due_date;if(due)event.due_date=due;
- return {organization,obligation,event,partyName:party?.name??'غير محدد',reference:doc?.document_number??assetSource?.reference??assetSource?.metadata?.invoice_reference??flows.find(f=>f.reference)?.reference??event.source_event_key??event.id,flows,accounts,history,requests,sourceManaged,canPrepare:!sourceManaged&&Number(obligation.outstanding_base_amount)>0&&permissions['financial_core.create']&&permissions['liquidity.edit']&&permissions['liquidity.settle']};
+ return {...identity,organization,obligation,event,partyName:party?.name??'غير محدد',reference:doc?.document_number??assetSource?.reference??assetSource?.metadata?.invoice_reference??flows.find(f=>f.reference)?.reference??event.source_event_key??event.id,flows,accounts,history,requests,sourceManaged,canPrepare:!sourceManaged&&Number(obligation.outstanding_base_amount)>0&&permissions['financial_core.create']&&permissions['liquidity.edit']&&permissions['liquidity.settle']};
 }
 export async function actOnPayable(organizationId:string,obligationId:string,input:unknown){
  const command=payableCommandSchema.parse(input),c=await context(organizationId,obligationId),{supabase,event,obligation,permissions}=c;
