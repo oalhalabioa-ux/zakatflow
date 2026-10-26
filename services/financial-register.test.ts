@@ -70,3 +70,10 @@ it('identifies opening and loan payables from their source requests, preserving 
  expect(r.debtMovements.find(m=>m.debtId==='opening-ap')).toMatchObject({isOpening:true,amount:500});
  expect(r.debtMovements.find(m=>m.debtId==='loan-ap')).toMatchObject({isOpening:false,amount:14500});
 });
+it('uses contract NEW mode over its receivable lot-opening transaction, including reversal provenance',async()=>{
+ fixtures.asset_accounts=[{id:'ar',user_id:'actor',asset_type:'RECEIVABLE',name:'Borrower',currency:'SAR',metadata:{}}];
+ fixtures.transactions=[{id:'fund',user_id:'actor',asset_account_id:'ar',transaction_type:'OPENING_BALANCE',transaction_date:'2026-10-01',base_value:100,base_currency:'SAR'},{id:'reverse',user_id:'actor',asset_account_id:'ar',transaction_type:'REVERSAL',reversal_of_transaction_id:'fund',transaction_date:'2026-10-02',base_value:100,base_currency:'SAR'}];
+ fixtures.personal_contracts=[{id:'pc',user_id:'actor',status:'POSTED',product:'QARD',side:'RECEIVABLE',asset_id:'ar',principal:100,currency:'SAR',terms:{mode:'NEW',party:'Borrower',reference:'NEW-1',description:'New funded loan',schedule:[{amount:100,due_date:'2026-11-01'}]}}];
+ fixtures.personal_contract_installments=[{id:'inst',user_id:'actor',contract_id:'pc',number:1,amount:100,due_date:'2026-11-01'}];
+ const r=await financialRegister('PERSONAL',null,false,true);expect(r.debtMovements.map(m=>[m.amount,m.isOpening,m.voucherType])).toEqual([[100,false,'إضافة قرض ممنوح'],[-100,false,'عكس سند']]);
+});

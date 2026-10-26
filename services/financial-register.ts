@@ -96,7 +96,9 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   result.debts=result.debts.map(d=>({...d,...sourceIdentity.get(d.sourceDebtId??d.id)}));
   result.debtMovements=result.debtMovements.map(m=>{
    if((m.kind==='INVOICE'||initialReceivableMovements.has(m.id))&&sourceIdentity.has(m.debtId??''))return {...m,...sourceIdentity.get(m.debtId!)};
-   const t=byId.get(m.id);return {...m,...(t?transactionVoucher(t,byId.get(t.reversal_of_transaction_id)):{voucherNumber:voucherNumber(m.id,'PV'),voucherType:m.kind==='REVERSAL'?'عكس سداد':m.kind==='PAYMENT'?'سند سداد':'تسوية ذمة',isOpening:false})};
+   const t=byId.get(m.id),identity=t?transactionVoucher(t,byId.get(t.reversal_of_transaction_id)):{voucherNumber:voucherNumber(m.id,'PV'),voucherType:m.kind==='REVERSAL'?'عكس سداد':m.kind==='PAYMENT'?'سند سداد':'تسوية ذمة',isOpening:false};
+   if(t?.transaction_type==='REVERSAL'&&initialReceivableMovements.has(t.reversal_of_transaction_id)){identity.isOpening=Boolean(sourceIdentity.get(m.debtId??'')?.isOpening);identity.voucherType=identity.isOpening?'عكس رصيد افتتاحي':'عكس سند';}
+   return {...m,...identity};
   });
   if(contracts.some(c=>c.status==='POSTED'&&(c.product!=='PARTICIPATION'||c.side==='PAYABLE')&&installments.filter(i=>i.contract_id===c.id).length!==c.terms.schedule.length))result.warnings.push('PERSONAL_CONTRACT_SCHEDULE_UNAVAILABLE');
 
