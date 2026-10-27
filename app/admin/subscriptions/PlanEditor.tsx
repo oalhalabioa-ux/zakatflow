@@ -19,7 +19,7 @@ export default function PlanEditor({plans}:{plans:Plan[]}){
  async function save(e:React.FormEvent<HTMLFormElement>){e.preventDefault();if(saving)return;if(selected&&!confirmed){setMessage('يرجى تأكيد تعديل الباقة الحالية قبل الحفظ.');return;}const amount=Number(price);if(!Number.isFinite(amount)||amount<0||amount>100000000||!/^\d+(\.\d{1,2})?$/.test(price)){setMessage('أدخل سعراً صالحاً بمنزلتين عشريتين كحد أقصى.');return;}setSaving(true);setMessage('');try{
   const db=supabaseBrowser();
   const {error}=await db.rpc('owner_upsert_plan',{p_id:selected||null,p_code:code.trim(),p_name_ar:name.trim(),p_price:amount,p_currency:currency,p_interval:interval,p_active:active});
-  if(error)throw error;setMessage('تم حفظ الباقة وتسجيل العملية في سجل التدقيق.');router.refresh();
+  if(error)throw error;setMessage('تم حفظ الباقة وتسجيل العملية في سجل التدقيق.');setConfirmed(false);router.refresh();
  }catch{setMessage('تعذر الحفظ. تحقق من البيانات والصلاحيات ثم أعد المحاولة.');}finally{setSaving(false);}}
  return <form onSubmit={save} className="owner-plan-form" dir="rtl"><h3>إضافة أو تعديل باقة</h3><label>الباقة الحالية <select value={selected} onChange={e=>select(e.target.value)}><option value="">باقة جديدة</option>{plans.map(p=><option value={p.id} key={p.id}>{p.name_ar} ({p.code})</option>)}</select></label>
  <label>رمز الباقة <input required minLength={2} maxLength={40} pattern="[a-z0-9_-]+" value={code} onChange={e=>setCode(e.target.value)}/></label>
