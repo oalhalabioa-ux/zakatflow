@@ -16,3 +16,11 @@ html[data-owner-theme="modern"] .owner-kpis article,html[data-owner-theme="moder
 .owner-users-table td[dir="ltr"]{text-align:right;direction:ltr;unicode-bidi:plaintext}
 .owner-pagination{display:flex;gap:16px;margin-top:22px}
 .owner-pagination a{color:var(--owner-accent);padding:9px 16px;border:1px solid currentColor;border-radius:9px}
+
+/* Owner management navigation and accessible focus states */
+.owner-section-nav{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:24px;padding-bottom:15px;border-bottom:1px solid #8393a533}
+.owner-section-nav a{display:inline-flex;align-items:center;min-height:38px;padding:8px 13px;border:1px solid #8393a566;border-radius:10px;color:var(--owner-ink);text-decoration:none;font-size:13px}
+.owner-section-nav a:hover{border-color:var(--owner-accent);color:var(--owner-accent)}
+.owner-shell a:focus-visible,.owner-shell button:focus-visible,.owner-shell select:focus-visible{outline:3px solid var(--owner-accent);outline-offset:3px}
+.owner-sidebar nav a{text-decoration:none}
+@media(max-width:600px){.owner-section-nav{flex-wrap:nowrap;overflow-x:auto;padding-bottom:12px}.owner-section-nav a{white-space:nowrap}.owner-content{padding:16px}.owner-top h1{font-size:21px}}
