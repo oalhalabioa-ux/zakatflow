@@ -3,6 +3,7 @@ import {redirect} from 'next/navigation';
 import {supabaseServer} from '../../../lib/supabase/server';
 import '../owner.css';
 import PlanEditor from './PlanEditor';
+import SubscriptionStatusEditor from './SubscriptionStatusEditor';
 export const dynamic='force-dynamic';
 export const metadata={title:'الاشتراكات والباقات | يقين الأعمال'};
 export default async function SubscriptionsPage(){
@@ -25,7 +26,8 @@ export default async function SubscriptionsPage(){
  {!plansResult.error&&<PlanEditor plans={plans}/>}
  <div className="owner-intro"><h2>سجل الاشتراكات</h2><p>الاشتراكات المسجلة في QA فقط.</p></div>
  {subscriptionsResult.error?<p role="alert">تعذر تحميل سجل الاشتراكات.</p>:<div className="owner-table-wrap"><table className="owner-users-table"><thead><tr><th>الشركة</th><th>الباقة</th><th>الحالة</th><th>تاريخ البدء</th><th>نهاية الفترة</th></tr></thead><tbody>{subscriptions.map(s=><tr key={s.id}><td>{s.organization_name}</td><td>{s.plan_name}</td><td>{s.status}</td><td>{new Date(s.started_at).toLocaleDateString('ar-SA')}</td><td>{s.current_period_end?new Date(s.current_period_end).toLocaleDateString('ar-SA'):'—'}</td></tr>)}</tbody></table>{subscriptions.length===0&&<p>لا توجد اشتراكات مسجلة في QA.</p>}</div>}
- <div className="owner-intro"><h2>إدارة دورة الاشتراك</h2><p>تم إنشاء الهيكل الآمن للباقات والاشتراكات. يمكن الآن إنشاء الباقات وتعديلها في QA بصلاحية المالك مع تسجيل تدقيق. التحصيل المالي وإدارة تجديد الاشتراكات لم يُفعّلا بعد.</p></div>
+ {!subscriptionsResult.error&&<SubscriptionStatusEditor subscriptions={subscriptions}/>}
+ <div className="owner-intro"><h2>إدارة دورة الاشتراك</h2><p>تم إنشاء الهيكل الآمن للباقات والاشتراكات. يمكن الآن إنشاء الباقات وتعديلها في QA بصلاحية المالك مع تسجيل تدقيق. تغيير الحالة الإدارية متاح مع سجل تدقيق. تجديد الفترات المدفوعة والتحصيل المالي لم يُفعّلا بعد.</p></div>
  </>}
  </section></main>;
 }
