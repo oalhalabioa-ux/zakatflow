@@ -26,3 +26,10 @@
 
 ## Current constraints
 Do not treat missing QA revenue as zero actual revenue. No real payment processing, Production data import, or Production sync is enabled. Never copy a production service-role key to QA. Preserve existing FATOORA QA migrations until a separate dependency audit and explicit approval.
+
+## Security advisor review — 2026-10-27
+- Supabase security advisor: 10 `authenticated_security_definer_function_executable` warnings for owner RPC functions. Their internal owner checks must be tested as ordinary authenticated and anonymous sessions; the authenticated EXECUTE grant alone is NOT sufficient authorization.
+- Four `rls_enabled_no_policy` informational findings on `platform_audit_events`, `platform_organizations`, `platform_plans`, and `platform_subscriptions`. These tables are intentionally blocked for direct client access; retain RLS and avoid broad SELECT/WRITE policies.
+- Auth leaked-password protection warning; review separately in QA auth settings.
+- Relevant advisor guidance: https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable and https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy
+- Do not enable subscription mutations or payment capture before authorization tests, audit and idempotency checks pass.
