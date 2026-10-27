@@ -10,12 +10,20 @@ baseline=(database/schema.sql database/migration-production.sql database/migrati
 for file in "${baseline[@]}" supabase/migrations/*.sql; do
   if [[ ! -f "$file" ]]; then printf 'MISSING %s\n' "$file" >> "$report/migrations.txt"; exit 1; fi
   printf 'RUN %s\n' "$file" >> "$report/migrations.txt"
-  if ! psql "$url" -X -v ON_ERROR_STOP=1 -f "$file" > "$report/last-migration.log" 2>&1; then
+  input="$file"
+  if [[ "$file" == database/migration-v4.sql ]]; then
+    # Historical bootstrap has invalid FOREACH syntax; adapt only the disposable copy.
+    input="$(mktemp)"
+    sed 's/foreach d in array\[30,15,7\] loop/foreach d in array ARRAY[30,15,7] loop/' "$file" > "$input"
+  fi
+  if ! psql "$url" -X -v ON_ERROR_STOP=1 -f "$input" > "$report/last-migration.log" 2>&1; then
+    [[ "$input" == "$file" ]] || rm -f "$input"
     printf 'FAIL %s\n' "$file" >> "$report/migrations.txt"
     cat "$report/migrations.txt"
     tail -n 20 "$report/last-migration.log"
     exit 1
   fi
+  [[ "$input" == "$file" ]] || rm -f "$input"
   printf 'PASS %s\n' "$file" >> "$report/migrations.txt"
 done
 printf 'PASS all candidate migrations\n' >> "$report/migrations.txt"
