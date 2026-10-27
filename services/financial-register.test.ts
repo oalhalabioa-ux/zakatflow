@@ -5,7 +5,7 @@ vi.mock('./organization-access',()=>({requireOrganizationMember:mocks.member}));
 import {financialRegister} from './financial-register';
 const org='11111111-1111-4111-8111-111111111111';
 let fixtures:Record<string,any[]>;let reads:string[];
-beforeEach(()=>{vi.resetAllMocks();reads=[];fixtures={profiles:[{id:'actor',base_currency:'SAR'}],organizations:[{id:org,name:'Company',base_currency:'SAR',organization_kind:'COMPANY'}]};mocks.requireUser.mockResolvedValue({supabase:{from:mocks.from},user:{id:'actor'}});mocks.from.mockImplementation((table:string)=>{reads.push(table);let rows=[...(fixtures[table]??[])];const q:any={select:()=>q,order:()=>q,or:()=>q,eq:(k:string,v:any)=>{rows=rows.filter(r=>r[k]===v);return q;},is:(k:string,v:any)=>{rows=rows.filter(r=>(r[k]??null)===v);return q;},in:(k:string,v:any[])=>{rows=rows.filter(r=>v.includes(r[k]));return q;},single:async()=>({data:rows[0],error:null}),then:(resolve:any,reject:any)=>Promise.resolve({data:rows,error:null}).then(resolve,reject),range:async(a:number,b:number)=>({data:rows.slice(a,b+1),error:null})};return q;});});
+beforeEach(()=>{vi.resetAllMocks();reads=[];fixtures={profiles:[{id:'actor',base_currency:'SAR'}],organizations:[{id:org,name:'Company',base_currency:'SAR',organization_kind:'COMPANY'}]};mocks.requireUser.mockResolvedValue({supabase:{from:mocks.from},user:{id:'actor'}});mocks.from.mockImplementation((table:string)=>{reads.push(table);let rows=[...(fixtures[table]??[])];let selected='*';const project=(data:any[])=>table==='liquidity_flows'&&selected!=='*'?data.map(row=>Object.fromEntries(selected.split(',').map(key=>[key,row[key]]))):data;const q:any={select:(columns:string)=>{selected=columns;return q;},order:()=>q,or:()=>q,eq:(k:string,v:any)=>{rows=rows.filter(r=>r[k]===v);return q;},is:(k:string,v:any)=>{rows=rows.filter(r=>(r[k]??null)===v);return q;},in:(k:string,v:any[])=>{rows=rows.filter(r=>v.includes(r[k]));return q;},single:async()=>({data:rows[0],error:null}),then:(resolve:any,reject:any)=>Promise.resolve({data:rows,error:null}).then(resolve,reject),range:async(a:number,b:number)=>({data:project(rows.slice(a,b+1)),error:null})};return q;});});
 it('rejects unauthenticated access before any data read',async()=>{mocks.requireUser.mockRejectedValue(new Error('UNAUTHORIZED'));await expect(financialRegister('PERSONAL',null,false)).rejects.toThrow('UNAUTHORIZED');expect(reads).toEqual([]);});
 it('checks membership before any company balance read',async()=>{mocks.member.mockRejectedValue(new Error('ORGANIZATION_ACCESS_REQUIRED'));await expect(financialRegister('ORGANIZATION',org,false)).rejects.toThrow('ORGANIZATION_ACCESS_REQUIRED');expect(reads).not.toContain('liquidity_accounts');});
 it('fails closed if a holding child cannot be read',async()=>{fixtures.organizations=[{id:org,base_currency:'SAR',organization_kind:'HOLDING'},{id:'child',parent_organization_id:org,base_currency:'USD'}];mocks.member.mockImplementation(async(_s,_u,id)=>{if(id==='child')throw new Error('denied');});await expect(financialRegister('ORGANIZATION',org,true)).rejects.toThrow('GROUP_MEMBER_ACCESS_REQUIRED');expect(reads).not.toContain('liquidity_accounts');});
@@ -86,4 +86,16 @@ it('uses persisted source numbers for personal bank and payable opening entries'
  fixtures.personal_payables=[{id:ap,user_id:'actor',party:'Party',description:'Opening',amount:500,currency:'SAR',event_date:'2025-07-30',created_at:'2026-01-01',reference:'x'}];
  fixtures.voucher_numbers=[{source_table:'transactions',source_id:cash,document_number:'OB-0036-26'},{source_table:'personal_payables',source_id:ap,document_number:'OB-0035-26'}];
  const result=await financialRegister('PERSONAL',null,false);expect(result.cashMovements[0].voucherNumber).toBe('OB-0036-26');expect(result.debts.find(d=>d.id===ap)?.voucherNumber).toBe('OB-0035-26');expect(result.debtMovements.find(m=>m.debtId===ap)?.voucherNumber).toBe('OB-0035-26');
+});
+
+it('labels actual legacy cash receipts and payments as executed while excluding forecast flows',async()=>{
+ fixtures.liquidity_flows=[
+  {id:'receipt',organization_id:org,account_id:'bank',status:'ACTUAL',currency:'SAR',amount:40,direction:'INFLOW',due_date:'2026-10-03'},
+  {id:'payment',organization_id:org,account_id:'bank',status:'ACTUAL',currency:'SAR',amount:10,direction:'OUTFLOW',due_date:'2026-10-04'},
+  {id:'forecast',organization_id:org,account_id:'bank',status:'EXPECTED',currency:'SAR',amount:900,direction:'INFLOW',due_date:'2026-10-05'}
+ ];
+ const result=await financialRegister('ORGANIZATION',org,false);
+ expect(result.cashMovements.map(m=>[m.id,m.voucherType,m.amount])).toEqual([
+  ['flow:receipt','تدفق قبض منفذ',40],['flow:payment','تدفق صرف منفذ',-10]
+ ]);
 });

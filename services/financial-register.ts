@@ -111,7 +111,7 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const [accounts,settlements,flows,events,obligations,allocations,parties,balances,entities,links,documents,contracts]=await Promise.all([
    debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_accounts').select('*').in('organization_id',ids).in('account_type',['BANK','CASH','WALLET']).eq('active',true)),
    debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_settlements').select('*').in('organization_id',ids).in('status',['POSTED','REVERSED'])),
-   debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_flows').select('id,organization_id,account_id,direction,due_date,amount,currency,title,reference,source_module,transfer_id,created_at').in('organization_id',ids).eq('status','ACTUAL')),
+   debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_flows').select('id,organization_id,account_id,direction,due_date,amount,currency,title,reference,source_module,transfer_id,created_at,status').in('organization_id',ids).eq('status','ACTUAL')),
    all(()=>supabase.from('financial_events').select('id,event_type,organization_id,entity_id,counterparty_id,event_date,due_date,status,description,source_record_id,source_module,source_event_key').in('organization_id',ids)),
    all(()=>supabase.from('financial_event_obligations').select('*').in('organization_id',ids)),
    all(()=>supabase.from('financial_event_obligation_allocations').select('*').in('organization_id',ids)),
