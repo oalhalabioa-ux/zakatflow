@@ -24,3 +24,11 @@ html[data-owner-theme="modern"] .owner-kpis article,html[data-owner-theme="moder
 .owner-shell a:focus-visible,.owner-shell button:focus-visible,.owner-shell select:focus-visible{outline:3px solid var(--owner-accent);outline-offset:3px}
 .owner-sidebar nav a{text-decoration:none}
 @media(max-width:600px){.owner-section-nav{flex-wrap:nowrap;overflow-x:auto;padding-bottom:12px}.owner-section-nav a{white-space:nowrap}.owner-content{padding:16px}.owner-top h1{font-size:21px}}
+
+.owner-plan-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:24px 0;padding:22px;background:var(--owner-panel);border:1px solid #8393a544;border-radius:16px}
+.owner-plan-form h3,.owner-plan-form p{grid-column:1/-1;margin:0}
+.owner-plan-form label{display:grid;gap:7px;font-size:13px;color:var(--owner-ink)}
+.owner-plan-form input:not([type=checkbox]),.owner-plan-form select{min-width:0;width:100%;padding:11px;border:1px solid #8393a566;border-radius:9px;background:var(--owner-bg);color:var(--owner-ink)}
+.owner-plan-form button{align-self:end;min-height:42px;background:var(--owner-accent);color:var(--owner-bg);border:0;border-radius:9px;font-weight:700;cursor:pointer}
+.owner-plan-form button:disabled{opacity:.6;cursor:wait}
+@media(max-width:800px){.owner-plan-form{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:500px){.owner-plan-form{grid-template-columns:1fr}}
