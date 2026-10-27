@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {supabaseBrowser} from '../../../lib/supabase/client';
+import {supabaseBrowser} from '@/lib/supabase/browser';
 type Plan={id:string;code:string;name_ar:string;price_amount:number;currency:string;billing_interval:string;is_active:boolean};
 export default function PlanEditor({plans}:{plans:Plan[]}){
  const router=useRouter();
