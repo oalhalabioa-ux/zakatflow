@@ -29,6 +29,13 @@ SQL
 alter table public.consolidated_assessments add column if not exists owner_id uuid references auth.users(id) on delete cascade;
 SQL
   fi
+  if [[ "$file" == supabase/migrations/20260919203000_atomic_internal_transfer.sql ]]; then
+    # The historical baseline returns uuid; this migration returns jsonb.
+    # DROP without CASCADE fails safely if a dependency exists in the fixture.
+    psql "$url" -X -v ON_ERROR_STOP=1 > "$report/last-migration.log" 2>&1 <<'SQL'
+drop function if exists public.create_internal_transfer(uuid,uuid,uuid,date,numeric,numeric,text,text);
+SQL
+  fi
   input="$file"
   if [[ "$file" == database/migration-v4.sql || "$file" == database/migration-v11.sql ]]; then
     # Historical bootstrap has invalid FOREACH syntax; adapt only the disposable copy.
