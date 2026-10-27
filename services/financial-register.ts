@@ -127,7 +127,11 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const knownCashEvents=new Set(settlements.map(s=>s.financial_event_id)),settledRoots=new Set<string>(knownCashEvents),obMap=new Map(obligations.map(o=>[o.id,o]));
   for(const a of allocations)if(knownCashEvents.has(a.application_event_id)){const ob=obMap.get(a.obligation_id);if(ob)settledRoots.add(ob.event_id);}
   const coveredFlows=new Set(links.filter(l=>l.target_module==='liquidity_flows'&&settledRoots.has(l.event_id)).map(l=>l.target_record_id));
-  const cashFlowById=new Map(flows.map(f=>[f.id,f]));
+  // Settled forecasts may retain CONFIRMED status; read their references separately
+  // without adding forecasts to the actual cash movements.
+  const settledFlowIds=[...new Set<string>(links.filter(l=>knownCashEvents.has(l.event_id)&&l.target_module==='liquidity_flows').map(l=>l.target_record_id).filter(Boolean))];
+  const settledFlowReferences=await inBatches(settledFlowIds,batch=>supabase.from('liquidity_flows').select('id,reference').in('organization_id',ids).in('id',batch));
+  const cashFlowById=new Map([...flows,...settledFlowReferences].map(f=>[f.id,f]));
   const cashFlowByEvent=new Map(links.filter(l=>l.target_module==='liquidity_flows').map(l=>[l.event_id,cashFlowById.get(l.target_record_id)]));
   result.cashMovements=settlements.map(s=>({...sourceVoucher('CASH_SETTLEMENT',s),id:s.id,accountId:s.account_id,date:s.settlement_date,createdAt:s.posted_at??s.created_at,currency:s.currency,amount:Number(s.amount)*(s.direction==='INFLOW'?1:-1),description:eventMap.get(s.financial_event_id)?.description||'تسوية نقدية',reference:cashFlowByEvent.get(s.financial_event_id)?.reference||'',source:s.source_module}));
   const postedSourceKeys=events.filter(e=>knownCashEvents.has(e.id)).map(e=>e.source_event_key??'');
