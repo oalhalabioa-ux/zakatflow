@@ -36,6 +36,13 @@ SQL
 drop function if exists public.create_internal_transfer(uuid,uuid,uuid,date,numeric,numeric,text,text);
 SQL
   fi
+  if [[ "$file" == supabase/migrations/20260923171000_reconcile_cost_center_display_codes.sql ]]; then
+    # This data-only migration refers to a column introduced later in the
+    # repository order. Match its later definition in the empty fixture.
+    psql "$url" -X -v ON_ERROR_STOP=1 > "$report/last-migration.log" 2>&1 <<'SQL'
+alter table public.organizations add column if not exists organization_kind text not null default 'SUBSIDIARY';
+SQL
+  fi
   input="$file"
   if [[ "$file" == database/migration-v4.sql || "$file" == database/migration-v11.sql ]]; then
     # Historical bootstrap has invalid FOREACH syntax; adapt only the disposable copy.
