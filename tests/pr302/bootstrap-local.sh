@@ -10,6 +10,18 @@ baseline=(database/schema.sql database/migration-production.sql database/migrati
 for file in "${baseline[@]}" supabase/migrations/*.sql; do
   if [[ ! -f "$file" ]]; then printf 'MISSING %s\n' "$file" >> "$report/migrations.txt"; exit 1; fi
   printf 'RUN %s\n' "$file" >> "$report/migrations.txt"
+  if [[ "$file" == database/migrations/005_enterprise.sql ]]; then
+    # V4 created the same tables with an older shape. This fixture-only shim
+    # supplies columns that 005 assumes; never apply it to a hosted database.
+    psql "$url" -X -v ON_ERROR_STOP=1 > "$report/last-migration.log" 2>&1 <<'SQL'
+alter table public.organizations add column if not exists owner_user_id uuid references public.profiles(id);
+alter table public.organizations add column if not exists legal_name text;
+alter table public.organizations add column if not exists entity_type text not null default 'FAMILY';
+alter table public.organizations add column if not exists status text not null default 'ACTIVE';
+alter table public.organizations add column if not exists updated_at timestamptz not null default now();
+alter table public.organization_members add column if not exists status text not null default 'ACTIVE';
+SQL
+  fi
   input="$file"
   if [[ "$file" == database/migration-v4.sql ]]; then
     # Historical bootstrap has invalid FOREACH syntax; adapt only the disposable copy.
