@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from '../../../../services/voucher-numbers';
 import {sourceVoucher} from '../../../../lib/source-voucher';
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
@@ -46,5 +47,5 @@ export async function GET(request:Request){try{
   return [{...sourceVoucher('INVOICE',d),source:d.asset_transaction_id?'ASSETS':'INVOICING',id:d.id,organizationId:d.organization_id,partyKey:`${d.organization_id}:${e.counterparty_id||'unmapped:'+e.id}`,partyName:d.counterparty_name,side:d.document_type,date:e.event_date,reference:d.document_number,currency:d.currency,net:Number(d.net_amount)*sign,tax:Number(d.tax_amount)*sign,total:Number(d.gross_amount)*sign,classification:kinds.join(' / ')||'UNCLASSIFIED'}];});
  const postedDocumentCount=invoices.length;
  for(const a of assetInvoices.filter(a=>a.accountingStatus==='ACTUAL')){const kinds=[...new Set((linesByEvent.get(a.eventId)||[]).filter(l=>l.cash_direction==='NON_CASH'&&cls.get(l.classification_id)!=='TAX').map(l=>cls.get(l.classification_id)||'UNCLASSIFIED'))];invoices.push({...sourceVoucher('ASSET',transactions.find(t=>t.id===a.id)??{id:a.id,transaction_type:'PURCHASE'}),id:'asset:'+a.id,source:'ASSETS',organizationId:a.organizationId,partyKey:`${a.organizationId}:${a.partyId}`,partyName:a.partyName,side:'PURCHASE',date:a.date,reference:a.reference,currency:a.baseCurrency,net:a.baseNet,tax:a.baseTax,total:a.baseTotal,classification:kinds.join(' / ')||'UNCLASSIFIED'});}
- return NextResponse.json({movements,invoices,organizations,unposted:documents.length-postedDocumentCount+assetInvoices.filter(a=>a.accountingStatus!=='ACTUAL').length},{headers});
+ return NextResponse.json(await withVoucherNumbers(supabase,{movements,invoices,organizations,unposted:documents.length-postedDocumentCount+assetInvoices.filter(a=>a.accountingStatus!=='ACTUAL').length}),{headers});
  }catch(e){const code=e instanceof Error?e.message:'';return NextResponse.json({error:code==='REPORT_TOO_LARGE'?code:'REPORT_LOAD_FAILED'},{status:code==='UNAUTHORIZED'?401:code==='ORGANIZATION_ACCESS_REQUIRED'?403:500,headers});}}

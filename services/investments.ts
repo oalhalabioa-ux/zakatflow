@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from './voucher-numbers';
 import {z} from 'zod';
 import Decimal from 'decimal.js';
 import {personalInstallmentBalances} from '../lib/personal-contracts';
@@ -22,9 +23,9 @@ export async function investmentWorkspace(){
  const operations=results[1].data??[],ids=[...new Set(operations.flatMap(o=>[o.recognition_event_id,o.settlement_event_id]).filter(Boolean))];
  const events=ids.length?await supabase.from('financial_events').select('id,status').in('id',ids):{data:[],error:null};
  if(events.error)throw events.error;const statuses=new Map((events.data??[]).map(e=>[e.id,e.status]));
- return {personalParticipations,contracts:(results[0].data??[]).map(c=>({...c,projection:investmentProjection(investmentTermsSchema.parse(c.terms))})),
+ return withVoucherNumbers(supabase,{personalParticipations,contracts:(results[0].data??[]).map(c=>({...c,projection:investmentProjection(investmentTermsSchema.parse(c.terms))})),
  operations:operations.map(o=>({...o,recognition_status:statuses.get(o.recognition_event_id),settlement_status:statuses.get(o.settlement_event_id)})),
- organizationAccounts:results[2].data??[],personalAccounts:results[3].data??[],baseCurrency:results[4].data?.base_currency??'SAR'};
+ organizationAccounts:results[2].data??[],personalAccounts:results[3].data??[],baseCurrency:results[4].data?.base_currency??'SAR'});
 }
 export async function investmentAction(input:unknown){
  const a=z.object({action:z.enum(['SAVE','REPLACE','CANCEL','PREPARE','APPROVE','POST','RECOGNIZE','CANCEL_OPERATION']),id:z.string().uuid().optional(),request_id:z.string().uuid().optional(),payload:z.unknown().optional()}).strict().parse(input);

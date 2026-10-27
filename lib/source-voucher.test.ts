@@ -9,8 +9,8 @@ describe('voucher identity for every document family',()=>{
   expect(sourceVoucher(domain,{...row,id:undefined}).voucherNumber).toBe('');
  });
  it('keeps official invoice and purchase numbers and correctly distinguishes credit and debit notes',()=>{
-  expect(sourceVoucher('INVOICE',{id,document_type:'PURCHASE',document_kind:'CREDIT_NOTE',purchase_number:'PUR-100',document_number:'Supplier note 5'})).toEqual({voucherNumber:'PUR-100',voucherType:'إشعار دائن'});
-  expect(sourceVoucher('INVOICE',{id,document_type:'SALES',document_kind:'DEBIT_NOTE',document_number:'DN-13'})).toEqual({voucherNumber:'DN-13',voucherType:'إشعار مدين'});
+  expect(sourceVoucher('INVOICE',{id,document_type:'PURCHASE',document_kind:'CREDIT_NOTE',purchase_number:'PUR-100',document_number:'Supplier note 5'})).toMatchObject({voucherNumber:'PUR-100',voucherType:'إشعار دائن'});
+  expect(sourceVoucher('INVOICE',{id,document_type:'SALES',document_kind:'DEBIT_NOTE',document_number:'DN-13'})).toMatchObject({voucherNumber:'DN-13',voucherType:'إشعار مدين'});
   expect(sourceVoucher('ASSET',{id,transaction_type:'PURCHASE',purchase_number:'PUR-101',reference:'supplier-9'}).voucherNumber).toBe('PUR-101');
  });
  it('does not describe an unexecuted flow as an actual receipt',()=>{

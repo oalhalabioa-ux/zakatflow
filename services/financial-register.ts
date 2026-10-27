@@ -98,6 +98,7 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   result.debts=result.debts.map(d=>({...d,...sourceIdentity.get(d.sourceDebtId??d.id)}));
   result.debtMovements=result.debtMovements.map(m=>{
    if((m.kind==='INVOICE'||initialReceivableMovements.has(m.id))&&sourceIdentity.has(m.debtId??''))return {...m,...sourceIdentity.get(m.debtId!)};
+   if(m.id.startsWith('reverse:')){const op=contractOperations.find(o=>o.id===m.id.slice(8));if(op?.reversal_request_id)return {...m,voucherSourceTable:'personal_contract_reversals',voucherSourceId:op.reversal_request_id,voucherType:'عكس سند',isOpening:false};}
    const t=byId.get(m.id),identity=t?transactionVoucher(t,byId.get(t.reversal_of_transaction_id)):{voucherSourceTable:'transactions',voucherSourceId:personalPayments.find(p=>p.id===m.id)?.transaction_id??m.id,voucherNumber:voucherNumber(m.id,'PV'),voucherType:m.kind==='REVERSAL'?'عكس سداد':m.kind==='PAYMENT'?'سند سداد':'تسوية ذمة',isOpening:false};
    if(t?.transaction_type==='REVERSAL'&&initialReceivableMovements.has(t.reversal_of_transaction_id)){identity.isOpening=Boolean(sourceIdentity.get(m.debtId??'')?.isOpening);identity.voucherType=identity.isOpening?'عكس رصيد افتتاحي':'عكس سند';}
    return {...m,...identity};

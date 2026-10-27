@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from './voucher-numbers';
 import {sourceVoucher} from '../lib/source-voucher';
 import {requireUser} from './auth';
 import {requireOrganizationMember} from './organization-access';
@@ -60,7 +61,7 @@ export async function payableDetail(organizationId:string,obligationId:string):P
  const identity=doc?sourceVoucher('INVOICE',doc):assetSource?sourceVoucher('ASSET',assetSource):contract?sourceVoucher('DEBT',contract):sourceVoucher('EVENT',event);
  const sourceManaged=event.source_module==='INVESTMENTS';
  const due=links.find(l=>l.metadata?.obligation_id===obligationId&&l.metadata?.due_date)?.metadata.due_date;if(due)event.due_date=due;
- return {...identity,organization,obligation,event,partyName:party?.name??'غير محدد',reference:doc?.document_number??assetSource?.reference??assetSource?.metadata?.invoice_reference??flows.find(f=>f.reference)?.reference??event.source_event_key??event.id,flows,accounts,history,requests,sourceManaged,canPrepare:!sourceManaged&&Number(obligation.outstanding_base_amount)>0&&permissions['financial_core.create']&&permissions['liquidity.edit']&&permissions['liquidity.settle']};
+ return withVoucherNumbers(supabase,{...identity,organization,obligation,event,partyName:party?.name??'غير محدد',reference:doc?.document_number??assetSource?.reference??assetSource?.metadata?.invoice_reference??flows.find(f=>f.reference)?.reference??event.source_event_key??event.id,flows,accounts,history,requests,sourceManaged,canPrepare:!sourceManaged&&Number(obligation.outstanding_base_amount)>0&&permissions['financial_core.create']&&permissions['liquidity.edit']&&permissions['liquidity.settle']});
 }
 export async function actOnPayable(organizationId:string,obligationId:string,input:unknown){
  const command=payableCommandSchema.parse(input),c=await context(organizationId,obligationId),{supabase,event,obligation,permissions}=c;

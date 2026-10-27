@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from '../../../../services/voucher-numbers';
 import {isSameOriginRequest} from '../../../../lib/request-origin';
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
@@ -21,7 +22,7 @@ async function context(id:string){
  const flowId=links?.[0]?.target_record_id;
  const{data:flow,error:fe}=flowId?await supabase.from('liquidity_flows').select('id,amount,base_amount,currency,settled_amount,settlement_status,due_date').eq('id',flowId).eq('organization_id',asset.organization_id).single():{data:null,error:null};if(fe)throw fe;
  const pending=['DRAFT','PLANNED','COMMITTED'].includes(review.event.status)&&!review.approved;
- return{asset,purchase_number:tx.purchase_number,reverseBlock:review.reverseBlock,event:review.event,allowedActions:review.allowedActions,approved:review.approved,can_edit:!!canEdit&&review.permissions['financial_core.create']&&pending,can_archive:!!canEdit&&review.permissions['financial_core.create']&&pending,banks:banks??[],suppliers:parties??[],flow,balances:balances??[]};
+ return withVoucherNumbers(supabase,{asset,purchase_number:tx.purchase_number,reverseBlock:review.reverseBlock,event:review.event,allowedActions:review.allowedActions,approved:review.approved,can_edit:!!canEdit&&review.permissions['financial_core.create']&&pending,can_archive:!!canEdit&&review.permissions['financial_core.create']&&pending,banks:banks??[],suppliers:parties??[],flow,balances:balances??[]});
 }
 const failure=(e:any)=>NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:/DENIED/.test(e.message)?403:409,headers});
 export async function GET(req:Request){try{return NextResponse.json(await context(new URL(req.url).searchParams.get('asset_id')||''),{headers});}catch(e){return failure(e);}}
