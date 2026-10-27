@@ -99,3 +99,11 @@ it('labels actual legacy cash receipts and payments as executed while excluding 
   ['flow:receipt','تدفق قبض منفذ',40],['flow:payment','تدفق صرف منفذ',-10]
  ]);
 });
+it('shows the linked cash flow external reference instead of an internal settlement key',async()=>{
+ fixtures.financial_events=[{id:'cash',organization_id:org,status:'ACTUAL',event_type:'SETTLEMENT'},{id:'unlinked',organization_id:org,status:'ACTUAL',event_type:'SETTLEMENT'}];
+ fixtures.liquidity_settlements=[{id:'s1',organization_id:org,financial_event_id:'cash',account_id:'bank',status:'POSTED',settlement_date:'2026-10-27',currency:'SAR',amount:100,direction:'INFLOW',source_event_key:'liquidity:flow:settlement:0'},{id:'s2',organization_id:org,financial_event_id:'unlinked',account_id:'bank',status:'POSTED',settlement_date:'2026-10-27',currency:'SAR',amount:40,direction:'OUTFLOW',source_event_key:'private-internal-key'}];
+ fixtures.financial_event_links=[{id:'link',organization_id:org,event_id:'cash',target_module:'liquidity_flows',target_record_id:'flow'}];
+ fixtures.liquidity_flows=[{id:'flow',organization_id:org,status:'ACTUAL',account_id:'bank',direction:'INFLOW',amount:100,currency:'SAR',reference:'CUSTOMER-REF-17'}];
+ const r=await financialRegister('ORGANIZATION',org,false);
+ expect(r.cashMovements.map(m=>[m.amount,m.reference])).toEqual([[100,'CUSTOMER-REF-17'],[-40,'']]);
+});
