@@ -8,7 +8,7 @@ export const metadata = { title: 'لوحة مالك المنصة' };
 
 const modules = [
   ['المستخدمون','/admin/users','👥'],['الشركات','/admin/companies','🏢'],
-  ['الاشتراكات','/admin/subscriptions','◈']
+  ['الاشتراكات','/admin/subscriptions','◈'],['الإيرادات والمدفوعات','/admin/payments','▣']
 ];
 
 export default async function OwnerDashboard() {
@@ -31,6 +31,6 @@ export default async function OwnerDashboard() {
     <section className="owner-content"><header className="owner-top"><div><h1>لوحة تحكم مالك المنصة</h1><p>إدارة يقين الأعمال ومتابعة أدائها</p></div><div className="owner-top-actions"><OwnerThemeSelector/><div className="owner-tag">يقين الأعمال</div></div></header>
     <div className="owner-intro"><h2>مرحباً بك في يقين الأعمال</h2><p>لوحة إدارة مستقلة بصلاحيات محمية، متوافقة مع الثيمات المعتمدة.</p></div>
     <div className="owner-kpis">{[['المستخدمون',totalUsers === null ? '—' : String(totalUsers)],['الشركات',totalOrganizations === null ? '—' : String(totalOrganizations)],['الإيرادات الشهرية','—'],['الاشتراكات النشطة','—']].map(([label,value])=><article key={label}><span>{label}</span><strong>{value}</strong><small>{label === 'المستخدمون' || label === 'الشركات' ? 'بيانات فعلية من QA' : 'لم يتم ربط مصدر البيانات بعد'}</small></article>)}</div>
-    <div className="owner-intro"><h2>الأقسام قيد التطوير</h2><p>الإيرادات والمدفوعات، التحليلات، والباقات والإعدادات غير متاحة بعد في بيئة لوحة المالك المستقلة. ستظهر بعد استكمال الربط الآمن بمصادر البيانات والتحقق من الصلاحيات.</p></div><div className="owner-panels"><article><h3>نمو المستخدمين والإيرادات</h3><p>سيتم عرض المؤشرات الفعلية بعد إتاحة واجهة التقارير الإدارية المحمية.</p><div className="owner-placeholder">لا توجد بيانات معروضة حالياً</div></article><article><h3>التحليلات المتقدمة</h3><p>الاحتفاظ، توزيع الباقات، النشاط الشهري، وتحليل النمو.</p><div className="owner-placeholder">قيد الربط</div></article></div>
+    <div className="owner-intro"><h2>الأقسام قيد التطوير</h2><p>التحليلات والباقات والإعدادات غير متاحة بعد في بيئة لوحة المالك المستقلة. ستظهر بعد استكمال الربط الآمن بمصادر البيانات والتحقق من الصلاحيات.</p></div><div className="owner-panels"><article><h3>نمو المستخدمين والإيرادات</h3><p>سيتم عرض المؤشرات الفعلية بعد إتاحة واجهة التقارير الإدارية المحمية.</p><div className="owner-placeholder">لا توجد بيانات معروضة حالياً</div></article><article><h3>التحليلات المتقدمة</h3><p>الاحتفاظ، توزيع الباقات، النشاط الشهري، وتحليل النمو.</p><div className="owner-placeholder">قيد الربط</div></article></div>
     </section></main>;
 }
