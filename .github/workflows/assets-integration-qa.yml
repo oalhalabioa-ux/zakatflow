@@ -1,36 +1,62 @@
-name: Assets Integration QA
+name: PR 302 isolated database preparation
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'components/**'
-      - 'services/**'
-      - 'lib/**'
-      - 'tests/**'
-      - 'supabase/migrations/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tsconfig.json'
-      - '.github/workflows/assets-integration-qa.yml'
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: financial-workspace-qa-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 jobs:
-  assets-check:
+  local-database:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - name: Start an unlinked empty local stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_dir="$(mktemp -d)"
+          printf 'PR302_STACK_DIR=%s\n' "$test_dir" >> "$GITHUB_ENV"
+          cd "$test_dir"
+          supabase init
+          supabase start > "$RUNNER_TEMP/pr302-stack-start.log" 2>&1
+      - name: Apply baseline and migrations
+        shell: bash
+        env:
+          PR302_REPORT_DIR: ${{ runner.temp }}/pr302-report
+        run: bash tests/pr302/bootstrap-local.sh
+      - name: Test first issuance and posting with independent local Auth users
+        shell: bash
+        env:
+          PR302_REPORT_DIR: ${{ runner.temp }}/pr302-report
+        run: |
+          set -euo pipefail
+          cd "$PR302_STACK_DIR"
+          supabase status -o env > "$RUNNER_TEMP/pr302-local-env"
+          set -a
+          source "$RUNNER_TEMP/pr302-local-env"
+          set +a
+          cd "$GITHUB_WORKSPACE"
+          node tests/pr302/concurrency.mjs
+      - name: Save migration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr302-local-migration-evidence
+          path: ${{ runner.temp }}/pr302-report
+          if-no-files-found: warn
+      - name: Stop disposable local stack
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${PR302_STACK_DIR:-}" && -d "$PR302_STACK_DIR" ]]; then
+            cd "$PR302_STACK_DIR"
+            supabase stop --no-backup
+          fi
