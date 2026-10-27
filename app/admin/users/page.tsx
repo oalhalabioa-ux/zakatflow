@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { supabaseAdmin, supabaseServer } from '../../../lib/supabase/server';
+import { supabaseServer } from '../../../lib/supabase/server';
 import '../owner.css';
 import Link from 'next/link';
 export const dynamic = 'force-dynamic';
@@ -15,10 +15,9 @@ export default async function AdminUsers({searchParams}:{searchParams:Promise<{p
  let users: {id:string;email?:string;created_at:string;last_sign_in_at?:string|null;email_confirmed_at?:string|null}[]=[];
  let next=false;let failure=false;
  try{
-  const admin=await supabaseAdmin();
-  const {data,error:fetchError}=await admin.auth.admin.listUsers({page,perPage:50});
+  const {data,error:fetchError}=await db.rpc('owner_list_users',{p_page:page,p_per_page:50});
   if(fetchError)throw fetchError;
-  users=data.users;
+  users=(data||[]) as typeof users;
   next=users.length===50;
  }catch{failure=true;}
  const date=(value?:string|null)=>value?new Date(value).toLocaleDateString('ar-SA',{year:'numeric',month:'short',day:'numeric'}):'—';
