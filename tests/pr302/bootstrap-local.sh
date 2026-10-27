@@ -22,6 +22,13 @@ alter table public.organizations add column if not exists updated_at timestamptz
 alter table public.organization_members add column if not exists status text not null default 'ACTIVE';
 SQL
   fi
+  if [[ "$file" == database/migrations/008_v8_workflow.sql ]]; then
+    # 005 created this table without the owner field used by 008's index and
+    # policies. The database is empty; this changes only the disposable fixture.
+    psql "$url" -X -v ON_ERROR_STOP=1 > "$report/last-migration.log" 2>&1 <<'SQL'
+alter table public.consolidated_assessments add column if not exists owner_id uuid references auth.users(id) on delete cascade;
+SQL
+  fi
   input="$file"
   if [[ "$file" == database/migration-v4.sql ]]; then
     # Historical bootstrap has invalid FOREACH syntax; adapt only the disposable copy.
