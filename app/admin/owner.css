@@ -8,3 +8,11 @@ html[data-owner-theme="classic"] .owner-shell{--owner-bg:#f5f2ea;--owner-panel:#
 html[data-owner-theme="modern"] .owner-sidebar,html[data-owner-theme="classic"] .owner-sidebar{background:#102a46}
 html[data-owner-theme="modern"] .owner-sidebar nav a,html[data-owner-theme="classic"] .owner-sidebar nav a{color:#d9e7f7}
 html[data-owner-theme="modern"] .owner-kpis article,html[data-owner-theme="modern"] .owner-panels article,html[data-owner-theme="classic"] .owner-kpis article,html[data-owner-theme="classic"] .owner-panels article{border-color:#213e5a20}
+
+.owner-table-wrap{overflow-x:auto;margin-top:26px;border:1px solid #8393a533;border-radius:14px;background:var(--owner-panel)}
+.owner-users-table{width:100%;border-collapse:collapse;min-width:650px;text-align:right}
+.owner-users-table th,.owner-users-table td{padding:15px;border-bottom:1px solid #8393a533;color:var(--owner-ink);font-size:13px}
+.owner-users-table th{color:var(--owner-accent);font-weight:700}
+.owner-users-table td[dir="ltr"]{text-align:right;direction:ltr;unicode-bidi:plaintext}
+.owner-pagination{display:flex;gap:16px;margin-top:22px}
+.owner-pagination a{color:var(--owner-accent);padding:9px 16px;border:1px solid currentColor;border-radius:9px}
