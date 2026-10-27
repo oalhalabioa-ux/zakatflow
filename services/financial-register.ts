@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from './voucher-numbers';
 import {sourceVoucher} from '../lib/source-voucher';
 import {transactionVoucher,voucherNumber,movementType} from '../lib/voucher-identity';
 import Decimal from 'decimal.js';
@@ -84,20 +85,20 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const sourceIdentity=new Map<string,any>();
   for(const p of personalPayables){
    const f=personalFinancings.find(f=>f.payable_id===p.id&&f.request_id===p.request_id);
-   sourceIdentity.set(p.id,{voucherNumber:voucherNumber(p.id,'AP'),voucherType:f?(f.kind==='ADVANCE'?'دفعة مقدمة مستلمة':'إضافة قرض مستلم'):'رصيد افتتاحي دائن',isOpening:!f});
+   sourceIdentity.set(p.id,{voucherSourceTable:'personal_payables',voucherSourceId:p.id,voucherNumber:voucherNumber(p.id,'AP'),voucherType:f?(f.kind==='ADVANCE'?'دفعة مقدمة مستلمة':'إضافة قرض مستلم'):'رصيد افتتاحي دائن',isOpening:!f});
   }
   const initialReceivableMovements=new Set<string>();
-  for(const t of transactions.filter(t=>personalDebts.has(t.asset_account_id)&&['OPENING_BALANCE','TRANSFER_IN','ADD'].includes(t.transaction_type)).sort((a,b)=>a.transaction_date.localeCompare(b.transaction_date)||(a.created_at??'').localeCompare(b.created_at??'')||a.id.localeCompare(b.id))){if(!sourceIdentity.has(t.asset_account_id)){initialReceivableMovements.add(t.id);sourceIdentity.set(t.asset_account_id,{...transactionVoucher(t),voucherNumber:voucherNumber(t.asset_account_id,'AR')});}}
+  for(const t of transactions.filter(t=>personalDebts.has(t.asset_account_id)&&['OPENING_BALANCE','TRANSFER_IN','ADD'].includes(t.transaction_type)).sort((a,b)=>a.transaction_date.localeCompare(b.transaction_date)||(a.created_at??'').localeCompare(b.created_at??'')||a.id.localeCompare(b.id))){if(!sourceIdentity.has(t.asset_account_id)){initialReceivableMovements.add(t.id);sourceIdentity.set(t.asset_account_id,{...transactionVoucher(t)});}}
 
   for(const c of contracts.filter(c=>c.status==='POSTED'&&c.terms.mode!=='LINKED')){
    const id=c.asset_id??c.payable_id;if(!id)continue;
-   sourceIdentity.set(id,{voucherNumber:voucherNumber(id,c.payable_id?'AP':'AR'),voucherType:c.terms.mode==='OPENING'?'رصيد افتتاحي':c.product==='PARTICIPATION'?'إثبات رأس مال مشاركة':c.product==='FINANCING'?'إضافة تمويل':c.side==='PAYABLE'?'إضافة قرض مستلم':'إضافة قرض ممنوح',isOpening:c.terms.mode==='OPENING'});
+   sourceIdentity.set(id,{voucherSourceTable:c.payable_id?'personal_payables':'personal_contracts',voucherSourceId:c.payable_id??c.id,voucherNumber:voucherNumber(id,c.payable_id?'AP':'AR'),voucherType:c.terms.mode==='OPENING'?'رصيد افتتاحي':c.product==='PARTICIPATION'?'إثبات رأس مال مشاركة':c.product==='FINANCING'?'إضافة تمويل':c.side==='PAYABLE'?'إضافة قرض مستلم':'إضافة قرض ممنوح',isOpening:c.terms.mode==='OPENING'});
   }
-  for(const op of contractOperations.filter(m=>['CHARGE','PROFIT'].includes(m.kind))){const id=op.payable_id??op.asset_id;if(id)sourceIdentity.set(id,{voucherNumber:voucherNumber(id,op.payable_id?'AP':'AR'),voucherType:op.kind==='CHARGE'?'إثبات تكلفة تمويل':'إثبات حصة ربح',isOpening:false});}
+  for(const op of contractOperations.filter(m=>['CHARGE','PROFIT'].includes(m.kind))){const id=op.payable_id??op.asset_id;if(id)sourceIdentity.set(id,{voucherSourceTable:'personal_contract_movements',voucherSourceId:op.id,voucherNumber:voucherNumber(id,op.payable_id?'AP':'AR'),voucherType:op.kind==='CHARGE'?'إثبات تكلفة تمويل':'إثبات حصة ربح',isOpening:false});}
   result.debts=result.debts.map(d=>({...d,...sourceIdentity.get(d.sourceDebtId??d.id)}));
   result.debtMovements=result.debtMovements.map(m=>{
    if((m.kind==='INVOICE'||initialReceivableMovements.has(m.id))&&sourceIdentity.has(m.debtId??''))return {...m,...sourceIdentity.get(m.debtId!)};
-   const t=byId.get(m.id),identity=t?transactionVoucher(t,byId.get(t.reversal_of_transaction_id)):{voucherNumber:voucherNumber(m.id,'PV'),voucherType:m.kind==='REVERSAL'?'عكس سداد':m.kind==='PAYMENT'?'سند سداد':'تسوية ذمة',isOpening:false};
+   const t=byId.get(m.id),identity=t?transactionVoucher(t,byId.get(t.reversal_of_transaction_id)):{voucherSourceTable:'transactions',voucherSourceId:personalPayments.find(p=>p.id===m.id)?.transaction_id??m.id,voucherNumber:voucherNumber(m.id,'PV'),voucherType:m.kind==='REVERSAL'?'عكس سداد':m.kind==='PAYMENT'?'سند سداد':'تسوية ذمة',isOpening:false};
    if(t?.transaction_type==='REVERSAL'&&initialReceivableMovements.has(t.reversal_of_transaction_id)){identity.isOpening=Boolean(sourceIdentity.get(m.debtId??'')?.isOpening);identity.voucherType=identity.isOpening?'عكس رصيد افتتاحي':'عكس سند';}
    return {...m,...identity};
   });
@@ -166,5 +167,5 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   for(const c of contracts){const rows=movements.filter(m=>m.contract_id===c.id),funded=rows.filter(m=>m.kind==='CAPITAL_RECEIPT').reduce((n,m)=>n.plus(m.amount),new Decimal(0)).toNumber(),reductions=rows.filter(m=>['CAPITAL_RETURN','LOSS'].includes(m.kind)).reduce((n,m)=>n.plus(m.amount),new Decimal(0)).toNumber(),carrying=Decimal.max(0,new Decimal(funded).minus(reductions)).toNumber();if(carrying>0)result.assets.push({id:c.id,name:c.project,type:'INVESTMENT',currency:c.currency,cost:carrying,market:carrying,organizationId:c.organization_id,entityId:c.entity_id,category:'INVESTMENT',source:'EXTERNAL_INVESTMENT'});}
  }
  if(result.assets.some(a=>a.category.startsWith('LEGACY_')&&(a.cost||a.market)))result.warnings.push('LEGACY_FINANCIAL_ASSETS_NOT_DOUBLED');
- return result;
+ return withVoucherNumbers(supabase,result);
 }

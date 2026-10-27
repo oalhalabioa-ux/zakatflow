@@ -43,9 +43,9 @@ export function summarizeReportParties(rows:ReportMovement[],side:'SALES'|'PURCH
 }
 export function reportStatement(rows:ReportMovement[],partyKey:string,side:'SALES'|'PURCHASE',currency:string,from:string,to:string){
  const all=rows.filter(r=>r.partyKey===partyKey&&r.side===side&&r.currency===currency&&r.date<=to);
- const openingMovements=all.filter(r=>r.isOpening&&r.date===from);
- let balance=all.filter(r=>r.date<from||r.isOpening&&r.date===from).reduce((s,r)=>s.plus(r.amount),n(0));const opening=balance.toNumber();
- const movements=all.filter(r=>r.date>=from&&!(r.isOpening&&r.date===from)).map(r=>{balance=balance.plus(r.amount);return {...r,balance:balance.toNumber(),debit:side==='SALES'?Math.max(0,r.amount):Math.max(0,-r.amount),credit:side==='SALES'?Math.max(0,-r.amount):Math.max(0,r.amount)};});
+ const openingMovements=all.filter(r=>r.isOpening);
+ let balance=all.filter(r=>r.date<from||r.isOpening).reduce((s,r)=>s.plus(r.amount),n(0));const opening=balance.toNumber();
+ const movements=all.filter(r=>r.date>=from&&!r.isOpening).map(r=>{balance=balance.plus(r.amount);return {...r,balance:balance.toNumber(),debit:side==='SALES'?Math.max(0,r.amount):Math.max(0,-r.amount),credit:side==='SALES'?Math.max(0,-r.amount):Math.max(0,r.amount)};});
  return {opening,openingMovements,closing:balance.toNumber(),movements};
 }
 export function reportCsv(rows:Array<Array<string|number>>){return '\ufeff'+rows.map(row=>row.map(v=>{const value=String(v);const safe=typeof v==='string'&&/^\s*[=+\-@]|^[\t\r]/.test(value)?"'"+value:value;return '"'+safe.replaceAll('"','""')+'"';}).join(',')).join('\r\n');}

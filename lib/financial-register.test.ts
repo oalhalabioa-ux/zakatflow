@@ -14,6 +14,7 @@ it('carries a real opening on the first date without counting it as a receipt or
  const m=(id:string,date:string,amount:number,isOpening=false):CashMovement=>({id,date,amount,isOpening,accountId:'bank',currency:'SAR',description:id,reference:id,source:'ASSETS'});
  const rows=[m('opening','2025-07-30',500,true),m('loan','2025-07-30',14500)];
  const s=cashStatement(bank({balance:15000}),rows,'2025-07-30','2026-10-26');expect(s).toMatchObject({opening:500,closing:15000,inflows:14500,outflows:0});expect(s.openingMovements.map(m=>m.id)).toEqual(['opening']);expect(s.lines.map(m=>m.balance)).toEqual([15000]);
- const earlier=cashStatement(bank({balance:15000}),rows,'2025-07-01','2026-10-26');expect(earlier).toMatchObject({opening:0,closing:15000,inflows:14500});expect(earlier.lines).toHaveLength(2);
+ const earlier=cashStatement(bank({balance:15000}),rows,'2025-07-01','2026-10-26');expect(earlier).toMatchObject({opening:500,closing:15000,inflows:14500});expect(earlier.lines).toHaveLength(1);
+ const beforeOpening=cashStatement(bank({balance:15000}),rows,'2025-07-01','2025-07-29');expect(beforeOpening).toMatchObject({opening:0,closing:0,inflows:0});expect(beforeOpening.openingMovements).toHaveLength(0);
  const later=cashStatement(bank({balance:15000}),rows,'2025-08-01','2026-10-26');expect(later).toMatchObject({opening:15000,closing:15000,inflows:0});
 });

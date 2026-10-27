@@ -1,9 +1,10 @@
 import {transactionVoucher,voucherNumber,type VoucherIdentity} from './voucher-identity';
-export const voucherDomains=['ASSET','INVOICE','EVENT','DEBT','PERSONAL_CONTRACT','PERSONAL_MOVEMENT','PARTICIPATION','PARTICIPATION_MOVEMENT','INVESTMENT','INVESTMENT_MOVEMENT','CASH_FLOW','CASH_SETTLEMENT','TRANSFER','ZAKAT','PAYROLL','ADVANCE'] as const;
+export const voucherDomains=['ASSET','INVOICE','EVENT','DEBT','PERSONAL_CONTRACT','PERSONAL_MOVEMENT','PARTICIPATION','PARTICIPATION_MOVEMENT','INVESTMENT','INVESTMENT_MOVEMENT','CASH_FLOW','CASH_SETTLEMENT','TRANSFER','ZAKAT','PAYROLL','ADVANCE','PERSONAL_FINANCING'] as const;
 export type VoucherDomain=typeof voucherDomains[number];
-const prefixes:Record<VoucherDomain,string>={ASSET:'TX',INVOICE:'INV',EVENT:'EV',DEBT:'DC',PERSONAL_CONTRACT:'PC',PERSONAL_MOVEMENT:'PM',PARTICIPATION:'IC',PARTICIPATION_MOVEMENT:'IM',INVESTMENT:'IV',INVESTMENT_MOVEMENT:'IO',CASH_FLOW:'CF',CASH_SETTLEMENT:'CS',TRANSFER:'TR',ZAKAT:'ZP',PAYROLL:'PR',ADVANCE:'AD'};
+const prefixes:Record<VoucherDomain,string>={ASSET:'TX',INVOICE:'INV',EVENT:'EV',DEBT:'DC',PERSONAL_CONTRACT:'PC',PERSONAL_MOVEMENT:'PM',PARTICIPATION:'IC',PARTICIPATION_MOVEMENT:'IM',INVESTMENT:'IV',INVESTMENT_MOVEMENT:'IO',CASH_FLOW:'CF',CASH_SETTLEMENT:'CS',TRANSFER:'TR',ZAKAT:'ZP',PAYROLL:'PR',ADVANCE:'AD',PERSONAL_FINANCING:'LN'};
 const kinds:Record<string,[string,string]>={OPENING_BALANCE:['رصيد افتتاحي','Opening balance'],PURCHASE:['شراء أصل','Asset purchase'],SALE:['بيع أصل','Asset sale'],DEPRECIATION:['إهلاك','Depreciation'],DISPOSAL:['استبعاد أصل','Asset disposal'],ADJUSTMENT:['تسوية أصل','Asset adjustment'],ADD:['إضافة أصل / رصيد','Asset / balance addition'],WITHDRAWAL:['سند صرف','Payment voucher'],TRANSFER_IN:['تحويل وارد','Transfer in'],TRANSFER_OUT:['تحويل صادر','Transfer out'],REVERSAL:['عكس سند','Reversal'],ZAKAT_PAYMENT:['سداد زكاة','Zakat payment'],FUND:['تمويل أصل العقد','Contract funding'],SETTLE:['تسوية أصل العقد','Principal settlement'],SETTLE_CHARGE:['تسوية تكلفة / ربح','Charge / profit settlement'],CHARGE:['إثبات تكلفة تمويل','Finance charge'],PROFIT:['إثبات ربح','Profit recognition'],LOSS:['إثبات خسارة','Loss recognition'],CAPITAL_RECEIPT:['إثبات رأس مال','Capital funding'],CAPITAL_RETURN:['رد / استرداد رأس مال','Capital return'],DISTRIBUTION:['توزيع أرباح','Profit distribution'],INCOME:['قبض عائد استثمار','Investment income'],REDEEM:['استرداد استثمار','Investment redemption']};
-export function sourceVoucher(domain:VoucherDomain,row:any={},ar=true):Required<Pick<VoucherIdentity,'voucherNumber'|'voucherType'>>{
+const tables:Record<VoucherDomain,string>={ASSET:'transactions',INVOICE:'vat_documents',EVENT:'financial_events',DEBT:'debt_contracts',PERSONAL_CONTRACT:'personal_contracts',PERSONAL_MOVEMENT:'personal_contract_movements',PARTICIPATION:'participation_contracts',PARTICIPATION_MOVEMENT:'participation_movements',INVESTMENT:'investment_contracts',INVESTMENT_MOVEMENT:'investment_operations',CASH_FLOW:'liquidity_flows',CASH_SETTLEMENT:'liquidity_settlements',TRANSFER:'transfers',ZAKAT:'zakat_payments',PAYROLL:'debt_payroll_requests',ADVANCE:'debt_operation_requests',PERSONAL_FINANCING:'personal_financings'};
+export function sourceVoucher(domain:VoucherDomain,row:any={},ar=true):Required<Pick<VoucherIdentity,'voucherNumber'|'voucherType'>>&VoucherIdentity{
  const t=(a:string,e:string)=>ar?a:e,id=String(row.id??''),terms=row.terms??row;
  let type=t('سند مالي','Financial voucher'),number=id?voucherNumber(id,prefixes[domain]):'';
  if(domain==='ASSET'){
@@ -30,5 +31,8 @@ export function sourceVoucher(domain:VoucherDomain,row:any={},ar=true):Required<
  }
  if((domain==='ADVANCE'||domain==='PAYROLL')&&id)number=voucherNumber(row.financial_event_id??id,'EV');
  if(domain==='CASH_SETTLEMENT'&&row.financial_event_id)number=voucherNumber(row.financial_event_id,'EV');
- return {voucherNumber:number,voucherType:type};
+ const table=domain==='ASSET'&&row.is_lifecycle_draft?'asset_lifecycle_commands':tables[domain];
+ const official=domain==='INVOICE'&&Boolean(row.purchase_number||row.number||row.invoice_number||row.document_number)||domain==='ASSET'&&Boolean(row.purchase_number);
+ if(!official)number=row.document_sequences?.[table]??row.document_sequence??number;
+ return {voucherNumber:number,voucherType:type,voucherSourceTable:table,voucherSourceId:id,voucherOfficial:official};
 }

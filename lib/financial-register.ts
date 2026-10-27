@@ -25,9 +25,9 @@ export function cashTotals(accounts:CashAccount[]){return [...new Set(accounts.m
 // movements only. Forecast flows never form part of an account statement.
 export function cashStatement(account:CashAccount,movements:CashMovement[],from:string,to:string){
  const rows=movements.filter(m=>m.accountId===account.id&&m.currency===account.currency).sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt??'').localeCompare(b.createdAt??'')||a.id.localeCompare(b.id));
- const openingMovements=rows.filter(m=>m.isOpening&&m.date===from);
- const opening=new Decimal(account.balance).minus(add(rows.filter(m=>m.date>=from&&!(m.isOpening&&m.date===from)).map(m=>m.amount)));
- let balance=opening;const lines=rows.filter(m=>m.date>=from&&m.date<=to&&!(m.isOpening&&m.date===from)).map(m=>{balance=balance.plus(m.amount);return {...m,balance:balance.toNumber(),inflow:Math.max(0,m.amount),outflow:Math.max(0,-m.amount)};});
+ const openingMovements=rows.filter(m=>m.isOpening&&m.date<=to);
+ const opening=new Decimal(account.balance).minus(add(rows.filter(m=>m.isOpening?m.date>to:m.date>=from).map(m=>m.amount)));
+ let balance=opening;const lines=rows.filter(m=>!m.isOpening&&m.date>=from&&m.date<=to).map(m=>{balance=balance.plus(m.amount);return {...m,balance:balance.toNumber(),inflow:Math.max(0,m.amount),outflow:Math.max(0,-m.amount)};});
  return {opening:opening.toNumber(),openingMovements,closing:balance.toNumber(),inflows:add(lines.filter(l=>!l.isOpening).map(l=>l.inflow)),outflows:add(lines.filter(l=>!l.isOpening).map(l=>l.outflow)),lines};
 }
 export function debtAging(items:DebtItem[],asOf:string){
