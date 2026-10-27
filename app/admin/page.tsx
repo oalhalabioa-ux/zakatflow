@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { supabaseServer, supabaseAdmin } from '../../lib/supabase/server';
+import { supabaseServer } from '../../lib/supabase/server';
 import './owner.css';
 import OwnerThemeSelector from './OwnerThemeSelector';
 
@@ -23,14 +23,8 @@ export default async function OwnerDashboard() {
     .eq('user_id', user.id).eq('role', 'platform_owner').maybeSingle();
   if (roleError || !owner) return <main className="owner-denied" dir="rtl"><h1>الوصول غير مسموح</h1><p>هذه الصفحة مخصصة لمالك منصة يقين الأعمال.</p><a href="/">العودة إلى الرئيسية</a></main>;
 
-  let totalUsers: number | null = null;
-  try {
-    const admin = await supabaseAdmin();
-    const result = await admin.auth.admin.listUsers({ page: 1, perPage: 1 });
-    if (!result.error) totalUsers = result.data.total ?? null;
-  } catch {
-    // Keep the metric unavailable if the privileged service is not configured.
-  }
+  const { data: userCount, error: countError } = await supabase.rpc('owner_user_count');
+  const totalUsers = countError ? null : Number(userCount);
   return <main className="owner-shell" dir="rtl">
     <aside className="owner-sidebar"><div className="owner-brand">يقين <span>الأعمال</span><small>YAQEEN BUSINESS</small></div><div className="owner-menu-title">إدارة المنصة</div><nav><a className="selected" href="/admin">⌂ &nbsp; نظرة عامة</a>{modules.map(([name,url,icon])=><a key={url} href={url}>{icon} &nbsp; {name}</a>)}</nav><div className="owner-foot">لوحة مالك المنصة</div></aside>
     <section className="owner-content"><header className="owner-top"><div><h1>لوحة تحكم مالك المنصة</h1><p>إدارة يقين الأعمال ومتابعة أدائها</p></div><div className="owner-top-actions"><OwnerThemeSelector/><div className="owner-tag">يقين الأعمال</div></div></header>
