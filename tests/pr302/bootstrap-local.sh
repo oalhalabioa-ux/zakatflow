@@ -12,6 +12,8 @@ for file in "${baseline[@]}" supabase/migrations/*.sql; do
   printf 'RUN %s\n' "$file" >> "$report/migrations.txt"
   if ! psql "$url" -X -v ON_ERROR_STOP=1 -f "$file" > "$report/last-migration.log" 2>&1; then
     printf 'FAIL %s\n' "$file" >> "$report/migrations.txt"
+    cat "$report/migrations.txt"
+    tail -n 20 "$report/last-migration.log"
     exit 1
   fi
   printf 'PASS %s\n' "$file" >> "$report/migrations.txt"
