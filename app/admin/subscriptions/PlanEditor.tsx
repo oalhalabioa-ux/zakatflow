@@ -15,9 +15,9 @@ export default function PlanEditor({plans}:{plans:Plan[]}){
  const [saving,setSaving]=useState(false);
  const [message,setMessage]=useState('');
  function select(id:string){setSelected(id);const p=plans.find(x=>x.id===id);setCode(p?.code||'');setName(p?.name_ar||'');setPrice(String(p?.price_amount??0));setCurrency(p?.currency||'SAR');setInterval(p?.billing_interval||'monthly');setActive(p?.is_active??true);setMessage('');}
- async function save(e:React.FormEvent<HTMLFormElement>){e.preventDefault();if(saving)return;setSaving(true);setMessage('');try{
+ async function save(e:React.FormEvent<HTMLFormElement>){e.preventDefault();if(saving)return;const amount=Number(price);if(!Number.isFinite(amount)||amount<0||amount>100000000||!/^\d+(\.\d{1,2})?$/.test(price)){setMessage('أدخل سعراً صالحاً بمنزلتين عشريتين كحد أقصى.');return;}setSaving(true);setMessage('');try{
   const db=supabaseBrowser();
-  const {error}=await db.rpc('owner_upsert_plan',{p_id:selected||null,p_code:code.trim(),p_name_ar:name.trim(),p_price:Number(price),p_currency:currency,p_interval:interval,p_active:active});
+  const {error}=await db.rpc('owner_upsert_plan',{p_id:selected||null,p_code:code.trim(),p_name_ar:name.trim(),p_price:amount,p_currency:currency,p_interval:interval,p_active:active});
   if(error)throw error;setMessage('تم حفظ الباقة وتسجيل العملية في سجل التدقيق.');router.refresh();
  }catch{setMessage('تعذر الحفظ. تحقق من البيانات والصلاحيات ثم أعد المحاولة.');}finally{setSaving(false);}}
  return <form onSubmit={save} className="owner-plan-form" dir="rtl"><h3>إضافة أو تعديل باقة</h3><label>الباقة الحالية <select value={selected} onChange={e=>select(e.target.value)}><option value="">باقة جديدة</option>{plans.map(p=><option value={p.id} key={p.id}>{p.name_ar} ({p.code})</option>)}</select></label>
