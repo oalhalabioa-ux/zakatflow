@@ -128,7 +128,8 @@ export async function POST(request: Request) {
       const input = categorySchema.parse(body);
       await requireOrganizationMember(supabase, user.id, input.organization_id);
       if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
-      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, created_by: user.id, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
+      // created_by defaults to auth.uid(); column grants deliberately prevent assigning it.
+      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
       if (error) throw error;
       return NextResponse.json(data, { status: 201 });
     }
