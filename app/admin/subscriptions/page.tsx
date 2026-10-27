@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {redirect} from 'next/navigation';
 import {supabaseServer} from '../../../lib/supabase/server';
 import '../owner.css';
+import PlanEditor from './PlanEditor';
 export const dynamic='force-dynamic';
 export const metadata={title:'الاشتراكات والباقات | يقين الأعمال'};
 export default async function SubscriptionsPage(){
@@ -21,9 +22,10 @@ export default async function SubscriptionsPage(){
  <div className="owner-kpis">{metrics.map(([label,value])=><article key={String(label)}><span>{label}</span><strong>{value===null||value===undefined?'—':String(value)}</strong><small>بيانات فعلية من QA</small></article>)}</div>
  <div className="owner-intro"><h2>سجل الباقات</h2><p>الباقات المعرفة في قاعدة الإدارة المستقلة — عرض فقط.</p></div>
  {plansResult.error?<p role="alert">تعذر تحميل الباقات.</p>:<div className="owner-table-wrap"><table className="owner-users-table"><thead><tr><th>الباقة</th><th>الرمز</th><th>السعر</th><th>دورة الفوترة</th><th>الحالة</th></tr></thead><tbody>{plans.map(p=><tr key={p.id}><td>{p.name_ar}</td><td>{p.code}</td><td>{Number(p.price_amount).toLocaleString('ar-SA')} {p.currency}</td><td>{p.billing_interval}</td><td>{p.is_active?'مفعلة':'غير مفعلة'}</td></tr>)}</tbody></table>{plans.length===0&&<p>لا توجد باقات مسجلة في QA.</p>}</div>}
+ {!plansResult.error&&<PlanEditor plans={plans}/>}
  <div className="owner-intro"><h2>سجل الاشتراكات</h2><p>الاشتراكات المسجلة في QA فقط.</p></div>
  {subscriptionsResult.error?<p role="alert">تعذر تحميل سجل الاشتراكات.</p>:<div className="owner-table-wrap"><table className="owner-users-table"><thead><tr><th>الشركة</th><th>الباقة</th><th>الحالة</th><th>تاريخ البدء</th><th>نهاية الفترة</th></tr></thead><tbody>{subscriptions.map(s=><tr key={s.id}><td>{s.organization_name}</td><td>{s.plan_name}</td><td>{s.status}</td><td>{new Date(s.started_at).toLocaleDateString('ar-SA')}</td><td>{s.current_period_end?new Date(s.current_period_end).toLocaleDateString('ar-SA'):'—'}</td></tr>)}</tbody></table>{subscriptions.length===0&&<p>لا توجد اشتراكات مسجلة في QA.</p>}</div>}
- <div className="owner-intro"><h2>إدارة دورة الاشتراك</h2><p>تم إنشاء الهيكل الآمن للباقات والاشتراكات. لم يتم تفعيل إنشاء الباقات أو التحصيل المالي بعد؛ ستُضاف العمليات بعد اختبار الصلاحيات وربط بوابة الدفع.</p></div>
+ <div className="owner-intro"><h2>إدارة دورة الاشتراك</h2><p>تم إنشاء الهيكل الآمن للباقات والاشتراكات. يمكن الآن إنشاء الباقات وتعديلها في QA بصلاحية المالك مع تسجيل تدقيق. التحصيل المالي وإدارة تجديد الاشتراكات لم يُفعّلا بعد.</p></div>
  </>}
  </section></main>;
 }
