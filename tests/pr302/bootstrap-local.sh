@@ -30,7 +30,7 @@ alter table public.consolidated_assessments add column if not exists owner_id uu
 SQL
   fi
   input="$file"
-  if [[ "$file" == database/migration-v4.sql ]]; then
+  if [[ "$file" == database/migration-v4.sql || "$file" == database/migration-v11.sql ]]; then
     # Historical bootstrap has invalid FOREACH syntax; adapt only the disposable copy.
     input="$(mktemp)"
     sed 's/foreach d in array\[30,15,7\] loop/foreach d in array ARRAY[30,15,7] loop/' "$file" > "$input"
