@@ -1,3 +1,4 @@
+import OwnerNavigation from '../OwnerNavigation';
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
 import {supabaseServer} from '../../../lib/supabase/server';
@@ -17,7 +18,7 @@ export default async function OwnerAnalytics(){
  ['إجمالي الاشتراكات',subscriptions.error||!summary?null:Number(summary.subscriptions)],['الاشتراكات النشطة',subscriptions.error||!summary?null:Number(summary.active_subscriptions)]
  ];
  return <main className="owner-shell" dir="rtl"><section className="owner-content">
- <nav className="owner-section-nav"><Link href="/admin">نظرة عامة</Link><Link href="/admin/users">المستخدمون</Link><Link href="/admin/companies">الشركات</Link><Link href="/admin/subscriptions">الاشتراكات</Link><Link href="/admin/payments">الإيرادات والمدفوعات</Link></nav>
+ <OwnerNavigation/>
  <header className="owner-top"><div><h1>تحليلات المنصة</h1><p>مؤشرات تشغيلية للبيئة الإدارية المعزولة فقط</p></div></header>
  <div className="owner-kpis">{metrics.map(([label,value])=><article key={label}><span>{label}</span><strong>{value===null?'—':value.toLocaleString('ar-SA')}</strong><small>{value===null?'تعذر قراءة المؤشر':'بيانات Platform Admin QA فقط'}</small></article>)}</div>
  <div className="owner-panels"><article><h3>معدل تفعيل الاشتراكات</h3><p>نسبة الاشتراكات النشطة إلى إجمالي الاشتراكات المسجلة في QA.</p><strong>{summary&&Number(summary.subscriptions)>0?(100*Number(summary.active_subscriptions)/Number(summary.subscriptions)).toFixed(1)+'%':'—'}</strong><p>{summary&&Number(summary.subscriptions)===0?'لا توجد اشتراكات مسجلة لحساب النسبة.':''}</p></article><article><h3>الباقات المتاحة</h3><p>عدد الباقات المفعّلة مقارنة بإجمالي الباقات.</p><strong>{summary?String(summary.active_plans)+' / '+String(summary.plans):'—'}</strong></article></div>
