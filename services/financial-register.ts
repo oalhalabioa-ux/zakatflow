@@ -85,14 +85,14 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const sourceIdentity=new Map<string,any>();
   for(const p of personalPayables){
    const f=personalFinancings.find(f=>f.payable_id===p.id&&f.request_id===p.request_id);
-   sourceIdentity.set(p.id,{voucherSourceTable:'personal_payables',voucherSourceId:p.id,voucherNumber:voucherNumber(p.id,'AP'),voucherType:f?(f.kind==='ADVANCE'?'دفعة مقدمة مستلمة':'إضافة قرض مستلم'):'رصيد افتتاحي دائن',isOpening:!f});
+   sourceIdentity.set(p.id,{voucherSourceTable:'personal_payables',voucherSourceId:p.id,voucherNumber:voucherNumber(p.id,'AP'),voucherType:f?(f.kind==='ADVANCE'?'دفعة مقدمة مستلمة':'قرض دائن'):'رصيد افتتاحي',isOpening:!f});
   }
   const initialReceivableMovements=new Set<string>();
   for(const t of transactions.filter(t=>personalDebts.has(t.asset_account_id)&&['OPENING_BALANCE','TRANSFER_IN','ADD'].includes(t.transaction_type)).sort((a,b)=>a.transaction_date.localeCompare(b.transaction_date)||(a.created_at??'').localeCompare(b.created_at??'')||a.id.localeCompare(b.id))){if(!sourceIdentity.has(t.asset_account_id)){initialReceivableMovements.add(t.id);sourceIdentity.set(t.asset_account_id,{...transactionVoucher(t)});}}
 
   for(const c of contracts.filter(c=>c.status==='POSTED'&&c.terms.mode!=='LINKED')){
    const id=c.asset_id??c.payable_id;if(!id)continue;
-   sourceIdentity.set(id,{voucherSourceTable:c.payable_id?'personal_payables':'personal_contracts',voucherSourceId:c.payable_id??c.id,voucherNumber:voucherNumber(id,c.payable_id?'AP':'AR'),voucherType:c.terms.mode==='OPENING'?'رصيد افتتاحي':c.product==='PARTICIPATION'?'إثبات رأس مال مشاركة':c.product==='FINANCING'?'إضافة تمويل':c.side==='PAYABLE'?'إضافة قرض مستلم':'إضافة قرض ممنوح',isOpening:c.terms.mode==='OPENING'});
+   sourceIdentity.set(id,{voucherSourceTable:c.payable_id?'personal_payables':'personal_contracts',voucherSourceId:c.payable_id??c.id,voucherNumber:voucherNumber(id,c.payable_id?'AP':'AR'),voucherType:c.terms.mode==='OPENING'?'رصيد افتتاحي':c.product==='PARTICIPATION'?'عقد مشاركة':c.product==='FINANCING'?'عقد تمويل بعائد':c.side==='PAYABLE'?'قرض دائن':'قرض مدين',isOpening:c.terms.mode==='OPENING'});
   }
   for(const op of contractOperations.filter(m=>['CHARGE','PROFIT'].includes(m.kind))){const id=op.payable_id??op.asset_id;if(id)sourceIdentity.set(id,{voucherSourceTable:'personal_contract_movements',voucherSourceId:op.id,voucherNumber:voucherNumber(id,op.payable_id?'AP':'AR'),voucherType:op.kind==='CHARGE'?'إثبات تكلفة تمويل':'إثبات حصة ربح',isOpening:false});}
   result.debts=result.debts.map(d=>({...d,...sourceIdentity.get(d.sourceDebtId??d.id)}));

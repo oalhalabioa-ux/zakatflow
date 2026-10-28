@@ -7,7 +7,7 @@ export function transactionVoucher(t:{id:string;transaction_type:string;metadata
  if(kind==='OPENING_BALANCE')return {...identity,voucherNumber:seq??voucherNumber(t.id,'OB'),voucherType:'رصيد افتتاحي',isOpening:true};
  const funding=m.source==='PERSONAL_FINANCING'&&m.purpose==='FUNDING';
  const incoming=['ADD','TRANSFER_IN'].includes(kind);
- const type=kind==='ZAKAT_PAYMENT'?'سداد زكاة':kind==='SALE'?'بيع أصل':kind==='PURCHASE'?'شراء أصل':kind==='DEPRECIATION'?'إهلاك':kind==='DISPOSAL'?'استبعاد أصل':kind==='ADJUSTMENT'?'تسوية أصل':kind==='REVERSAL'?'عكس سند':funding?(m.kind==='ADVANCE'?'دفعة مقدمة':incoming?'إضافة قرض مستلم':'إضافة قرض ممنوح'):kind==='TRANSFER_IN'?'تحويل وارد':kind==='TRANSFER_OUT'?'تحويل صادر':incoming?'سند قبض':['WITHDRAWAL','ZAKAT_PAYMENT'].includes(kind)?'سند صرف':'حركة أصل';
+ const type=kind==='ZAKAT_PAYMENT'?'سداد زكاة':kind==='SALE'?'بيع أصل':kind==='PURCHASE'?'شراء أصل':kind==='DEPRECIATION'?'إهلاك':kind==='DISPOSAL'?'استبعاد أصل':kind==='ADJUSTMENT'?'تسوية أصل':kind==='REVERSAL'?'عكس سند':funding?(m.kind==='ADVANCE'?'دفعة مقدمة':incoming?'قرض دائن':'قرض مدين'):kind==='TRANSFER_IN'?'تحويل وارد':kind==='TRANSFER_OUT'?'تحويل صادر':incoming?'سند قبض':['WITHDRAWAL','ZAKAT_PAYMENT'].includes(kind)?'سند صرف':'حركة أصل';
  return {...identity,voucherNumber:seq??voucherNumber(t.id,funding?'LN':kind==='REVERSAL'?'RV':incoming?'RC':'PV'),voucherType:type,isOpening:false};
 }
 

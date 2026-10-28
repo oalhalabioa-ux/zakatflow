@@ -65,8 +65,8 @@ it('identifies opening and loan payables from their source requests, preserving 
  fixtures.personal_payables=[{id:'opening-ap',request_id:'initial',user_id:'actor',party:'Party',description:'Existing balance',amount:500,currency:'SAR',event_date:'2025-07-30',reference:''},{id:'loan-ap',request_id:'fund-request',user_id:'actor',party:'Party',description:'Loan receipt',amount:14500,currency:'SAR',event_date:'2025-07-30',reference:'July 2026'}];
  fixtures.personal_financings=[{id:'fund',request_id:'fund-request',user_id:'actor',payable_id:'loan-ap',kind:'LOAN',side:'PAYABLE'}];
  const r=await financialRegister('PERSONAL',null,false,true);
- expect(r.debts.find(d=>d.id==='opening-ap')).toMatchObject({isOpening:true,voucherType:'رصيد افتتاحي دائن',amount:500});
- expect(r.debts.find(d=>d.id==='loan-ap')).toMatchObject({isOpening:false,voucherType:'إضافة قرض مستلم',amount:14500,rawReference:'July 2026'});
+ expect(r.debts.find(d=>d.id==='opening-ap')).toMatchObject({isOpening:true,voucherType:'رصيد افتتاحي',amount:500});
+ expect(r.debts.find(d=>d.id==='loan-ap')).toMatchObject({isOpening:false,voucherType:'قرض دائن',amount:14500,rawReference:'July 2026'});
  expect(r.debtMovements.find(m=>m.debtId==='opening-ap')).toMatchObject({isOpening:true,amount:500});
  expect(r.debtMovements.find(m=>m.debtId==='loan-ap')).toMatchObject({isOpening:false,amount:14500});
 });
@@ -75,7 +75,7 @@ it('uses contract NEW mode over its receivable lot-opening transaction, includin
  fixtures.transactions=[{id:'fund',user_id:'actor',asset_account_id:'ar',transaction_type:'OPENING_BALANCE',transaction_date:'2026-10-01',base_value:100,base_currency:'SAR'},{id:'reverse',user_id:'actor',asset_account_id:'ar',transaction_type:'REVERSAL',reversal_of_transaction_id:'fund',transaction_date:'2026-10-02',base_value:100,base_currency:'SAR'}];
  fixtures.personal_contracts=[{id:'pc',user_id:'actor',status:'POSTED',product:'QARD',side:'RECEIVABLE',asset_id:'ar',principal:100,currency:'SAR',terms:{mode:'NEW',party:'Borrower',reference:'NEW-1',description:'New funded loan',schedule:[{amount:100,due_date:'2026-11-01'}]}}];
  fixtures.personal_contract_installments=[{id:'inst',user_id:'actor',contract_id:'pc',number:1,amount:100,due_date:'2026-11-01'}];
- const r=await financialRegister('PERSONAL',null,false,true);expect(r.debtMovements.map(m=>[m.amount,m.isOpening,m.voucherType])).toEqual([[100,false,'إضافة قرض ممنوح'],[-100,false,'عكس سند']]);
+ const r=await financialRegister('PERSONAL',null,false,true);expect(r.debtMovements.map(m=>[m.amount,m.isOpening,m.voucherType])).toEqual([[100,false,'قرض مدين'],[-100,false,'عكس سند']]);
 });
 
 it('uses persisted source numbers for personal bank and payable opening entries',async()=>{
