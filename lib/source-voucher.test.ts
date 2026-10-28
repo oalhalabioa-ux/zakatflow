@@ -2,6 +2,12 @@ import {describe,expect,it} from 'vitest';
 import {sourceVoucher,voucherDomains} from './source-voucher';
 const id='4f1ea3df-93b9-4fbe-818c-e4db9241ff1b';
 describe('voucher identity for every document family',()=>{
+ it('labels loan direction and participation from source fields while retaining persisted numbers',()=>{
+  expect(sourceVoucher('DEBT',{id,kind:'LOAN',mode:'NEW',side:'PAYABLE',document_sequence:'LR-0001-26'})).toMatchObject({voucherType:'قرض دائن',voucherNumber:'LR-0001-26'});
+  expect(sourceVoucher('DEBT',{id,kind:'LOAN',mode:'NEW',side:'RECEIVABLE'}).voucherType).toBe('قرض مدين');
+  expect(sourceVoucher('PERSONAL_CONTRACT',{id,product:'PARTICIPATION',terms:{mode:'NEW'}}).voucherType).toBe('عقد مشاركة');
+  expect(sourceVoucher('DEBT',{id,kind:'LOAN',mode:'OPENING',side:'PAYABLE'}).voucherType).toBe('رصيد افتتاحي');
+ });
  it.each(voucherDomains)('%s keeps its identity independent of editable reference and ownership scope',domain=>{
   const row={id,kind:'FUND',transaction_type:'OPENING_BALANCE',instrument:'DEPOSIT',direction:'INFLOW',status:'ACTUAL',reference:'External 1',organization_id:null};
   const personal=sourceVoucher(domain,row),corporate=sourceVoucher(domain,{...row,reference:'External 2',organization_id:'company'});
