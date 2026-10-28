@@ -1,0 +1,57 @@
+name: Owner Production schema Supabase HTTP review
+on:
+  push:
+    branches: [feature/platform-owner-dashboard-qa]
+    paths:
+      - .github/workflows/owner-production-supabase-review.yml
+      - tests/owner-production-review/supabase-http.mjs
+      - docs/production-owner-review/20261028185536_platform_owner_production_review.sql
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: owner-production-local-supabase-review
+  cancel-in-progress: false
+jobs:
+  supabase-http-review:
+    if: github.ref == 'refs/heads/feature/platform-owner-dashboard-qa'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OWNER_SB_WORKDIR: ${{ runner.temp }}/owner-production-local-supabase
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install application dependencies
+        run: npm ci
+      - name: Initialize isolated local Supabase only
+        shell: bash
+        run: |
+          mkdir -p "$OWNER_SB_WORKDIR"
+          npx --yes supabase@2.122.0 init --workdir "$OWNER_SB_WORKDIR" > "$RUNNER_TEMP/owner-local-init.log" 2>&1
+          python - <<'PY'
+          import os, pathlib, re
+          p=pathlib.Path(os.environ['OWNER_SB_WORKDIR'])/'supabase/config.toml'
+          s=p.read_text()
+          s=re.sub(r'^project_id = .*$', 'project_id = "owner-production-review"', s, flags=re.M)
+          s=re.sub(r'^major_version = .*$', 'major_version = 17', s, flags=re.M)
+          s=s.replace('enable_confirmations = true', 'enable_confirmations = false')
+          p.write_text(s)
+          PY
+      - name: Start real local Auth, PostgREST, gateway and PostgreSQL
+        run: |
+          npx --yes supabase@2.122.0 start --workdir "$OWNER_SB_WORKDIR" --exclude studio,imgproxy,mailpit,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/owner-local-start.log" 2>&1 || { echo "Local Supabase startup failed; no remote fallback permitted."; exit 1; }
+      - name: Test Production-candidate schema with real local Auth and PostgREST
+        run: node tests/owner-production-review/supabase-http.mjs
+      - name: Publish sanitized acceptance summary
+        run: cat owner-supabase-http-result.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Destroy temporary stack and its data
+        if: always()
+        run: |
+          npx --yes supabase@2.122.0 stop --workdir "$OWNER_SB_WORKDIR" --no-backup > "$RUNNER_TEMP/owner-local-cleanup.log" 2>&1
+          rm -f owner-supabase-http-result.json
+

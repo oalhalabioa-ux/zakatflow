@@ -25,7 +25,7 @@ begin
  ('public.organizations','status','text'),('public.organizations','created_at','timestamp with time zone'),
  ('public.organization_members','organization_id','uuid'),('public.organization_members','status','text')) expected(relation,column_name,column_type)
  loop
- if not exists(select 1 from pg_attribute where attrelid=to_regclass(item.relation) and attname=item.column_name and not attisdropped and format_type(atttypid,atttypmod)=item.column_type)
+ if not exists(select 1 from pg_attribute where attrelid=to_regclass(item.relation) and attname=item.column_name and not attisdropped and atttypid=to_regtype(item.column_type))
  then raise exception 'source column drift: %.%',item.relation,item.column_name; end if;
  end loop;
  if to_regprocedure('auth.uid()') is null or to_regprocedure('auth.jwt()') is null then raise exception 'Supabase auth helpers missing'; end if;
