@@ -1,6 +1,9 @@
 name: PR 302 isolated database preparation
 on:
   workflow_dispatch:
+  push:
+    branches: [review/pr302-isolated-concurrency-run]
+    paths: ['tests/pr302/**', '.github/workflows/assets-integration-qa.yml']
 permissions:
   contents: read
 jobs:
