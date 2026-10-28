@@ -17,8 +17,6 @@ jobs:
     if: github.ref == 'refs/heads/feature/platform-owner-dashboard-qa'
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    env:
-      OWNER_SB_WORKDIR: ${{ runner.temp }}/owner-production-local-supabase
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,6 +29,8 @@ jobs:
       - name: Initialize isolated local Supabase only
         shell: bash
         run: |
+          export OWNER_SB_WORKDIR="$RUNNER_TEMP/owner-production-local-supabase"
+          echo "OWNER_SB_WORKDIR=$OWNER_SB_WORKDIR" >> "$GITHUB_ENV"
           mkdir -p "$OWNER_SB_WORKDIR"
           npx --yes supabase@2.122.0 init --workdir "$OWNER_SB_WORKDIR" > "$RUNNER_TEMP/owner-local-init.log" 2>&1
           python - <<'PY'
