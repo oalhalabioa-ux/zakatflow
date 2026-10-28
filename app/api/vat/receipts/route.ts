@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from '../../../../services/voucher-numbers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireUser } from '@/services/auth';
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
         account_name: accountsById.get(accountId) ?? '',
         editable: !settlement && !approvedIds.has(event.id) && ['DRAFT', 'PLANNED', 'COMMITTED'].includes(event.status) };
     });
-    return NextResponse.json({ receipts }, { headers });
+    return NextResponse.json(await withVoucherNumbers(supabase, { receipts }), { headers });
   } catch (error) {
     const code = requestErrorMessage(error);
     return NextResponse.json({ error: code }, { status: code === 'UNAUTHORIZED' ? 401 : 400, headers });

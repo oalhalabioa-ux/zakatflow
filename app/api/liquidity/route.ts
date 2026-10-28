@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from '../../../services/voucher-numbers';
 import {organizationScopeIds} from '@/lib/workspace-organization';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing });
+    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, accounts, flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
@@ -127,7 +128,8 @@ export async function POST(request: Request) {
       const input = categorySchema.parse(body);
       await requireOrganizationMember(supabase, user.id, input.organization_id);
       if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
-      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, created_by: user.id, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
+      // created_by defaults to auth.uid(); column grants deliberately prevent assigning it.
+      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
       if (error) throw error;
       return NextResponse.json(data, { status: 201 });
     }

@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from './voucher-numbers';
 import {organizationScopeIds} from '../lib/workspace-organization';
 import {requireUser} from './auth';
 import {requireOrganizationMember} from './organization-access';
@@ -17,7 +18,7 @@ export async function debtContracts(org:string,kind?:'OPENING'|'LOAN'|'EMPLOYEE_
  const charges=contracts.length?await all(()=>supabase.from('financing_charge_events').select('id,contract_id,financial_event_id,installment_number').eq('organization_id',org).in('contract_id',contracts.map(c=>c.id))):[];
  const ids=[...contracts.map(c=>c.financial_event_id),...charges.map(c=>c.financial_event_id)],[events,balances]=ids.length?await Promise.all([all(()=>supabase.from('financial_events').select('id,status').eq('organization_id',org).in('id',ids)),all(()=>supabase.from('financial_event_obligation_balances').select('*').eq('organization_id',org).in('event_id',ids),'obligation_id')]):[[],[]];
  const statuses=new Map(events.map(e=>[e.id,e.status])),installments=new Map<string,any[]>();for(const b of balances){const rows=installments.get(b.event_id)??[];rows.push(b);installments.set(b.event_id,rows)}
- return {...catalog,contracts:contracts.map(c=>({...c,financing:terms.find((t:any)=>t.id===c.id)??null,charges:charges.filter(ch=>ch.contract_id===c.id).map(ch=>({...ch,status:statuses.get(ch.financial_event_id),balances:installments.get(ch.financial_event_id)??[]})),status:statuses.get(c.financial_event_id),installments:(installments.get(c.financial_event_id)??[]).sort((a,b)=>Number(a.obligation_key?.split(':')[1])-Number(b.obligation_key?.split(':')[1]))}))};}
+ return withVoucherNumbers(supabase,{...catalog,contracts:contracts.map(c=>({...c,financing:terms.find((t:any)=>t.id===c.id)??null,charges:charges.filter(ch=>ch.contract_id===c.id).map(ch=>({...ch,status:statuses.get(ch.financial_event_id),balances:installments.get(ch.financial_event_id)??[]})),status:statuses.get(c.financial_event_id),installments:(installments.get(c.financial_event_id)??[]).sort((a,b)=>Number(a.obligation_key?.split(':')[1])-Number(b.obligation_key?.split(':')[1]))}))});}
 
 export async function debtContractsGroup(org:string,kind?:'OPENING'|'LOAN'|'EMPLOYEE_ADVANCE'){
  const {supabase}=await ctx(org);const root=unwrap(await supabase.from('organizations').select('id,organization_kind').eq('id',org).single());

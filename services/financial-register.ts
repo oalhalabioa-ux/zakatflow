@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from './voucher-numbers';
 import {sourceVoucher} from '../lib/source-voucher';
 import {transactionVoucher,voucherNumber,movementType} from '../lib/voucher-identity';
 import Decimal from 'decimal.js';
@@ -84,20 +85,21 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const sourceIdentity=new Map<string,any>();
   for(const p of personalPayables){
    const f=personalFinancings.find(f=>f.payable_id===p.id&&f.request_id===p.request_id);
-   sourceIdentity.set(p.id,{voucherNumber:voucherNumber(p.id,'AP'),voucherType:f?(f.kind==='ADVANCE'?'دفعة مقدمة مستلمة':'إضافة قرض مستلم'):'رصيد افتتاحي دائن',isOpening:!f});
+   sourceIdentity.set(p.id,{voucherSourceTable:'personal_payables',voucherSourceId:p.id,voucherNumber:voucherNumber(p.id,'AP'),voucherType:f?(f.kind==='ADVANCE'?'دفعة مقدمة مستلمة':'إضافة قرض مستلم'):'رصيد افتتاحي دائن',isOpening:!f});
   }
   const initialReceivableMovements=new Set<string>();
-  for(const t of transactions.filter(t=>personalDebts.has(t.asset_account_id)&&['OPENING_BALANCE','TRANSFER_IN','ADD'].includes(t.transaction_type)).sort((a,b)=>a.transaction_date.localeCompare(b.transaction_date)||(a.created_at??'').localeCompare(b.created_at??'')||a.id.localeCompare(b.id))){if(!sourceIdentity.has(t.asset_account_id)){initialReceivableMovements.add(t.id);sourceIdentity.set(t.asset_account_id,{...transactionVoucher(t),voucherNumber:voucherNumber(t.asset_account_id,'AR')});}}
+  for(const t of transactions.filter(t=>personalDebts.has(t.asset_account_id)&&['OPENING_BALANCE','TRANSFER_IN','ADD'].includes(t.transaction_type)).sort((a,b)=>a.transaction_date.localeCompare(b.transaction_date)||(a.created_at??'').localeCompare(b.created_at??'')||a.id.localeCompare(b.id))){if(!sourceIdentity.has(t.asset_account_id)){initialReceivableMovements.add(t.id);sourceIdentity.set(t.asset_account_id,{...transactionVoucher(t)});}}
 
   for(const c of contracts.filter(c=>c.status==='POSTED'&&c.terms.mode!=='LINKED')){
    const id=c.asset_id??c.payable_id;if(!id)continue;
-   sourceIdentity.set(id,{voucherNumber:voucherNumber(id,c.payable_id?'AP':'AR'),voucherType:c.terms.mode==='OPENING'?'رصيد افتتاحي':c.product==='PARTICIPATION'?'إثبات رأس مال مشاركة':c.product==='FINANCING'?'إضافة تمويل':c.side==='PAYABLE'?'إضافة قرض مستلم':'إضافة قرض ممنوح',isOpening:c.terms.mode==='OPENING'});
+   sourceIdentity.set(id,{voucherSourceTable:c.payable_id?'personal_payables':'personal_contracts',voucherSourceId:c.payable_id??c.id,voucherNumber:voucherNumber(id,c.payable_id?'AP':'AR'),voucherType:c.terms.mode==='OPENING'?'رصيد افتتاحي':c.product==='PARTICIPATION'?'إثبات رأس مال مشاركة':c.product==='FINANCING'?'إضافة تمويل':c.side==='PAYABLE'?'إضافة قرض مستلم':'إضافة قرض ممنوح',isOpening:c.terms.mode==='OPENING'});
   }
-  for(const op of contractOperations.filter(m=>['CHARGE','PROFIT'].includes(m.kind))){const id=op.payable_id??op.asset_id;if(id)sourceIdentity.set(id,{voucherNumber:voucherNumber(id,op.payable_id?'AP':'AR'),voucherType:op.kind==='CHARGE'?'إثبات تكلفة تمويل':'إثبات حصة ربح',isOpening:false});}
+  for(const op of contractOperations.filter(m=>['CHARGE','PROFIT'].includes(m.kind))){const id=op.payable_id??op.asset_id;if(id)sourceIdentity.set(id,{voucherSourceTable:'personal_contract_movements',voucherSourceId:op.id,voucherNumber:voucherNumber(id,op.payable_id?'AP':'AR'),voucherType:op.kind==='CHARGE'?'إثبات تكلفة تمويل':'إثبات حصة ربح',isOpening:false});}
   result.debts=result.debts.map(d=>({...d,...sourceIdentity.get(d.sourceDebtId??d.id)}));
   result.debtMovements=result.debtMovements.map(m=>{
    if((m.kind==='INVOICE'||initialReceivableMovements.has(m.id))&&sourceIdentity.has(m.debtId??''))return {...m,...sourceIdentity.get(m.debtId!)};
-   const t=byId.get(m.id),identity=t?transactionVoucher(t,byId.get(t.reversal_of_transaction_id)):{voucherNumber:voucherNumber(m.id,'PV'),voucherType:m.kind==='REVERSAL'?'عكس سداد':m.kind==='PAYMENT'?'سند سداد':'تسوية ذمة',isOpening:false};
+   if(m.id.startsWith('reverse:')){const op=contractOperations.find(o=>o.id===m.id.slice(8));if(op?.reversal_request_id)return {...m,voucherSourceTable:'personal_contract_reversals',voucherSourceId:op.reversal_request_id,voucherType:'عكس سند',isOpening:false};}
+   const t=byId.get(m.id),identity=t?transactionVoucher(t,byId.get(t.reversal_of_transaction_id)):{voucherSourceTable:'transactions',voucherSourceId:personalPayments.find(p=>p.id===m.id)?.transaction_id??m.id,voucherNumber:voucherNumber(m.id,'PV'),voucherType:m.kind==='REVERSAL'?'عكس سداد':m.kind==='PAYMENT'?'سند سداد':'تسوية ذمة',isOpening:false};
    if(t?.transaction_type==='REVERSAL'&&initialReceivableMovements.has(t.reversal_of_transaction_id)){identity.isOpening=Boolean(sourceIdentity.get(m.debtId??'')?.isOpening);identity.voucherType=identity.isOpening?'عكس رصيد افتتاحي':'عكس سند';}
    return {...m,...identity};
   });
@@ -109,7 +111,7 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const [accounts,settlements,flows,events,obligations,allocations,parties,balances,entities,links,documents,contracts]=await Promise.all([
    debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_accounts').select('*').in('organization_id',ids).in('account_type',['BANK','CASH','WALLET']).eq('active',true)),
    debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_settlements').select('*').in('organization_id',ids).in('status',['POSTED','REVERSED'])),
-   debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_flows').select('id,organization_id,account_id,direction,due_date,amount,currency,title,reference,source_module,transfer_id,created_at').in('organization_id',ids).eq('status','ACTUAL')),
+   debtOnly?Promise.resolve([]):all(()=>supabase.from('liquidity_flows').select('id,organization_id,account_id,direction,due_date,amount,currency,title,reference,source_module,transfer_id,created_at,status').in('organization_id',ids).eq('status','ACTUAL')),
    all(()=>supabase.from('financial_events').select('id,event_type,organization_id,entity_id,counterparty_id,event_date,due_date,status,description,source_record_id,source_module,source_event_key').in('organization_id',ids)),
    all(()=>supabase.from('financial_event_obligations').select('*').in('organization_id',ids)),
    all(()=>supabase.from('financial_event_obligation_allocations').select('*').in('organization_id',ids)),
@@ -125,7 +127,13 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const knownCashEvents=new Set(settlements.map(s=>s.financial_event_id)),settledRoots=new Set<string>(knownCashEvents),obMap=new Map(obligations.map(o=>[o.id,o]));
   for(const a of allocations)if(knownCashEvents.has(a.application_event_id)){const ob=obMap.get(a.obligation_id);if(ob)settledRoots.add(ob.event_id);}
   const coveredFlows=new Set(links.filter(l=>l.target_module==='liquidity_flows'&&settledRoots.has(l.event_id)).map(l=>l.target_record_id));
-  result.cashMovements=settlements.map(s=>({...sourceVoucher('CASH_SETTLEMENT',s),id:s.id,accountId:s.account_id,date:s.settlement_date,createdAt:s.posted_at??s.created_at,currency:s.currency,amount:Number(s.amount)*(s.direction==='INFLOW'?1:-1),description:eventMap.get(s.financial_event_id)?.description||'تسوية نقدية',reference:s.source_event_key||s.id,source:s.source_module}));
+  // Settled forecasts may retain CONFIRMED status; read their references separately
+  // without adding forecasts to the actual cash movements.
+  const settledFlowIds=[...new Set<string>(links.filter(l=>knownCashEvents.has(l.event_id)&&l.target_module==='liquidity_flows').map(l=>l.target_record_id).filter(Boolean))];
+  const settledFlowReferences=await inBatches(settledFlowIds,batch=>supabase.from('liquidity_flows').select('id,reference').in('organization_id',ids).in('id',batch));
+  const cashFlowById=new Map([...flows,...settledFlowReferences].map(f=>[f.id,f]));
+  const cashFlowByEvent=new Map(links.filter(l=>l.target_module==='liquidity_flows').map(l=>[l.event_id,cashFlowById.get(l.target_record_id)]));
+  result.cashMovements=settlements.map(s=>({...sourceVoucher('CASH_SETTLEMENT',s),id:s.id,accountId:s.account_id,date:s.settlement_date,createdAt:s.posted_at??s.created_at,currency:s.currency,amount:Number(s.amount)*(s.direction==='INFLOW'?1:-1),description:eventMap.get(s.financial_event_id)?.description||'تسوية نقدية',reference:cashFlowByEvent.get(s.financial_event_id)?.reference||'',source:s.source_module}));
   const postedSourceKeys=events.filter(e=>knownCashEvents.has(e.id)).map(e=>e.source_event_key??'');
   result.cashMovements.push(...flows.filter(f=>!coveredFlows.has(f.id)&&!postedSourceKeys.some(k=>k.includes(f.id))).map(f=>({...sourceVoucher('CASH_FLOW',f),id:'flow:'+f.id,accountId:f.account_id,date:f.due_date,createdAt:f.created_at,currency:f.currency,amount:Number(f.amount)*(f.direction==='INFLOW'?1:-1),description:f.title,reference:f.reference||f.id,source:f.transfer_id?'TRANSFER':'LEGACY_FLOW'})));
   result.debts=balances.flatMap((b:any):DebtItem[]=>{const e=eventMap.get(b.event_id);if(!e||e.status!=='ACTUAL')return [];const side=['RECEIVABLE','PAYABLE','CUSTOMER_ADVANCE','SUPPLIER_ADVANCE'].includes(b.obligation_type)?b.obligation_type:'UNAPPLIED';return [{id:b.obligation_id,partyKey:e.organization_id+':'+(e.counterparty_id||'unmapped:'+e.id),partyName:partyMap.get(e.organization_id+':'+e.counterparty_id)||'غير محدد',organizationId:e.organization_id,entityId:e.entity_id,side,currency:b.base_currency,amount:Number(b.outstanding_base_amount),dueDate:e.due_date,date:e.event_date,description:e.description,source:e.source_module,eventId:e.id,originalCurrency:b.currency,originalAmount:Number(b.settleable_amount),exchangeRate:Number(b.exchange_rate),totalBase:Number(b.adjusted_settleable_base_amount),appliedBase:Number(side.endsWith('_ADVANCE')?b.consumed_advance_base_amount:b.applied_base_amount)}];});
@@ -166,5 +174,5 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   for(const c of contracts){const rows=movements.filter(m=>m.contract_id===c.id),funded=rows.filter(m=>m.kind==='CAPITAL_RECEIPT').reduce((n,m)=>n.plus(m.amount),new Decimal(0)).toNumber(),reductions=rows.filter(m=>['CAPITAL_RETURN','LOSS'].includes(m.kind)).reduce((n,m)=>n.plus(m.amount),new Decimal(0)).toNumber(),carrying=Decimal.max(0,new Decimal(funded).minus(reductions)).toNumber();if(carrying>0)result.assets.push({id:c.id,name:c.project,type:'INVESTMENT',currency:c.currency,cost:carrying,market:carrying,organizationId:c.organization_id,entityId:c.entity_id,category:'INVESTMENT',source:'EXTERNAL_INVESTMENT'});}
  }
  if(result.assets.some(a=>a.category.startsWith('LEGACY_')&&(a.cost||a.market)))result.warnings.push('LEGACY_FINANCIAL_ASSETS_NOT_DOUBLED');
- return result;
+ return withVoucherNumbers(supabase,result);
 }

@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from './voucher-numbers';
 import {requireUser} from './auth';
 import {requireOrganizationMember} from './organization-access';
 import {executeFinancialEventAction} from './financial-events';
@@ -22,7 +23,7 @@ export async function advanceWorkspace(org:string):Promise<AdvanceWorkspace>{con
  ]);
  const roots=balances.filter(b=>events.some(e=>e.id===b.event_id&&e.status==='ACTUAL')).map(b=>({...b,...{id:b.obligation_id},event:events.find(e=>e.id===b.event_id)}));
  const links=await all(()=>supabase.from('financial_event_links').select('id,event_id,target_record_id,metadata').eq('organization_id',org).eq('link_type','CASH_FLOW').eq('target_module','liquidity_flows'));
- return {reversibleEvents:events.filter(e=>e.status==='ACTUAL'&&['ADVANCE_WORKSPACE','DEBT_OPERATIONS'].includes(e.source_module)),baseCurrency:organization.base_currency,partyTypes,parties,accounts,entities,advances:roots.filter(b=>['SUPPLIER_ADVANCE','CUSTOMER_ADVANCE'].includes(b.obligation_type)),obligations:roots.filter(b=>['PAYABLE','RECEIVABLE'].includes(b.obligation_type)&&Number(b.outstanding_base_amount)>0&&b.event.source_module!=='INVESTMENTS'),flows:flows.map(f=>({...f,eventIds:links.filter(l=>l.target_record_id===f.id).map(l=>l.event_id)})),requests:await Promise.all(events.filter(e=>e.source_module==='ADVANCE_WORKSPACE').sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,100).map(e=>review(c,org,e))),canCreate:permissions['financial_core.create']&&permissions['liquidity.edit']&&permissions['liquidity.settle']};
+ return withVoucherNumbers(supabase,{reversibleEvents:events.filter(e=>e.status==='ACTUAL'&&['ADVANCE_WORKSPACE','DEBT_OPERATIONS'].includes(e.source_module)),baseCurrency:organization.base_currency,partyTypes,parties,accounts,entities,advances:roots.filter(b=>['SUPPLIER_ADVANCE','CUSTOMER_ADVANCE'].includes(b.obligation_type)),obligations:roots.filter(b=>['PAYABLE','RECEIVABLE'].includes(b.obligation_type)&&Number(b.outstanding_base_amount)>0&&b.event.source_module!=='INVESTMENTS'),flows:flows.map(f=>({...f,eventIds:links.filter(l=>l.target_record_id===f.id).map(l=>l.event_id)})),requests:await Promise.all(events.filter(e=>e.source_module==='ADVANCE_WORKSPACE').sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,100).map(e=>review(c,org,e))),canCreate:permissions['financial_core.create']&&permissions['liquidity.edit']&&permissions['liquidity.settle']});
 }
 export async function advanceAction(org:string,input:unknown){const cmd=advanceCommandSchema.parse(input),c=await context(org),{supabase,permissions}=c;
  if(!['RECORD','APPLY'].includes(cmd.action)){

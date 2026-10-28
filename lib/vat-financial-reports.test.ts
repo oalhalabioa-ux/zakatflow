@@ -18,7 +18,8 @@ it('keeps opening liabilities distinct from a new loan on the same date',()=>{
  const row={id:'opening',debtId:'ap',organizationId:'PERSONAL',partyKey:'p',partyName:'Party',side:'PURCHASE' as const,date:'2025-07-30',due:null,reference:'',description:'Existing debt',currency:'SAR',amount:500,advance:false,kind:'INVOICE',isOpening:true};
  const rows=[row,{...row,id:'loan',amount:14500,isOpening:false}];
  const s=reportStatement(rows,'p','PURCHASE','SAR','2025-07-30','2026-10-26');expect(s.opening).toBe(500);expect(s.closing).toBe(15000);expect(s.openingMovements).toHaveLength(1);expect(s.movements.map(r=>r.credit)).toEqual([14500]);
- expect(reportStatement(rows,'p','PURCHASE','SAR','2025-07-01','2026-10-26').opening).toBe(0);
+ expect(reportStatement(rows,'p','PURCHASE','SAR','2025-07-01','2026-10-26').opening).toBe(500);
+ const beforeOpening=reportStatement(rows,'p','PURCHASE','SAR','2025-07-01','2025-07-29');expect(beforeOpening.opening).toBe(0);expect(beforeOpening.openingMovements).toHaveLength(0);expect(beforeOpening.closing).toBe(0);
 });
 it('keeps one voucher identity across installments and a distinct identity for their actual settlement',()=>{
  const e=[{id:'opening-event',organization_id:'o',counterparty_id:'p',event_date:'2026-10-01',due_date:null,status:'ACTUAL',description:'opening',source_module:'DEBT_CONTRACTS',voucher_number:'DC-11',voucher_type:'رصيد افتتاحي',is_opening:true},{id:'payment-event',organization_id:'o',counterparty_id:'p',event_date:'2026-10-02',due_date:null,status:'ACTUAL',description:'payment',source_module:'DEBT_SETTLEMENTS'}];
