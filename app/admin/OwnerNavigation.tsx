@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import OwnerThemeSelector from './OwnerThemeSelector';
 import {usePathname} from 'next/navigation';
 const sections=[
  {href:'/admin',label:'الرئيسية',symbol:'⌂'},
@@ -16,5 +17,6 @@ export default function OwnerNavigation({variant='tabs'}:{variant?:'tabs'|'sideb
   {sections.map(s=>{const active=pathname===s.href||pathname.endsWith(s.href)||s.href!=='/admin'&&pathname.includes(s.href+'/');
    return <Link key={s.href} href={s.href} aria-current={active?'page':undefined} className={active?'selected':undefined}><span className="owner-nav-symbol" aria-hidden="true">{s.symbol}</span><span>{s.label}</span></Link>;
   })}
+  {variant==='tabs'&&<div className="owner-tabs-theme"><OwnerThemeSelector/></div>}
  </nav>;
 }
