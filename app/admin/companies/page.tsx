@@ -1,3 +1,4 @@
+import OwnerNavigation from '../OwnerNavigation';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { supabaseServer } from '../../../lib/supabase/server';
