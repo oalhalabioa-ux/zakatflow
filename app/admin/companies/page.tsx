@@ -1,3 +1,4 @@
+import OwnerSidebar from '../OwnerSidebar';
 import OwnerNavigation from '../OwnerNavigation';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -17,7 +18,7 @@ export default async function CompaniesPage({searchParams}:{searchParams:Promise
  const {data,error:loadError}=await db.rpc('owner_list_organizations',{p_page:page,p_per_page:30});
  const organizations=(data||[]) as Organization[];
  const date=(value:string)=>new Date(value).toLocaleDateString('ar-SA',{year:'numeric',month:'short',day:'numeric'});
- return <main className="owner-shell" dir="rtl"><section className="owner-content"><OwnerNavigation/>
+ return <main className="owner-shell" dir="rtl"><OwnerSidebar/><section className="owner-content"><OwnerNavigation/>
  <header className="owner-top"><div><Link href="/admin">← لوحة المالك</Link><h1>إدارة الشركات</h1><p>سجل الشركات الحقيقي في بيئة QA — عرض فقط</p></div></header>
  <div className="owner-intro"><h2>الشركات المسجلة</h2><p>تظهر هنا الشركات المسجلة فعلياً في قاعدة QA. لا تُعرض بيانات من Production.</p></div>
  {loadError?<p role="alert">تعذر تحميل سجل الشركات. يرجى التحقق من الصلاحيات والاتصال.</p>:

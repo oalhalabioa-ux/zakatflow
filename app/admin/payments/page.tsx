@@ -1,3 +1,4 @@
+import OwnerSidebar from '../OwnerSidebar';
 import OwnerNavigation from '../OwnerNavigation';
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
@@ -13,7 +14,7 @@ export default async function PaymentsPage(){
  if(roleError||!owner)return <main className="owner-denied" dir="rtl"><h1>الوصول غير مسموح</h1><Link href="/admin">لوحة المالك</Link></main>;
  const {data:payments,error:paymentsError}=await db.rpc('owner_list_payment_transactions',{p_limit:100});
  const transactions=Array.isArray(payments)?payments:[];
- return <main className="owner-shell" dir="rtl"><section className="owner-content">
+ return <main className="owner-shell" dir="rtl"><OwnerSidebar/><section className="owner-content">
  <OwnerNavigation/>
  <header className="owner-top"><div><h1>الإيرادات والمدفوعات</h1><p>إدارة مالية مستقلة خاصة بمالك المنصة</p></div></header>
  <div className="owner-intro"><h2>سجل معاملات مزود الدفع — QA</h2><p>سجل للقراءة فقط. لا تُعرض أية إيرادات ما لم تُسجّل معاملات موثوقة عبر تكامل دفع معتمد.</p>

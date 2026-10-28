@@ -1,3 +1,4 @@
+import OwnerSidebar from './OwnerSidebar';
 import OwnerNavigation from './OwnerNavigation';
 import { redirect } from 'next/navigation';
 import { supabaseServer } from '../../lib/supabase/server';
@@ -30,7 +31,7 @@ export default async function OwnerDashboard() {
   const subscriptionSummary = Array.isArray(subscriptionRows) ? subscriptionRows[0] : null;
   const activeSubscriptions = subscriptionError || !subscriptionSummary ? null : Number(subscriptionSummary.active_subscriptions);
   return <main className="owner-shell" dir="rtl">
-    <aside className="owner-sidebar"><div className="owner-brand">يقين <span>الأعمال</span><small>YAQEEN BUSINESS</small></div><div className="owner-menu-title">إدارة المنصة</div><OwnerNavigation variant="sidebar"/><div className="owner-foot">لوحة مالك المنصة</div></aside>
+    <OwnerSidebar/>
     <section className="owner-content"><header className="owner-top"><div><h1>لوحة تحكم مالك المنصة</h1><p>إدارة يقين الأعمال ومتابعة أدائها</p></div><div className="owner-top-actions"><div className="owner-tag">يقين الأعمال</div></div></header>
     <OwnerNavigation/><div className="owner-intro"><h2>مرحباً بك في يقين الأعمال</h2><p>لوحة إدارة مستقلة بصلاحيات محمية، متوافقة مع الثيمات المعتمدة.</p></div>
     <div className="owner-kpis">{[['المستخدمون',totalUsers === null ? '—' : String(totalUsers)],['الشركات',totalOrganizations === null ? '—' : String(totalOrganizations)],['الإيرادات الشهرية','—'],['الاشتراكات النشطة',activeSubscriptions === null ? '—' : String(activeSubscriptions)]].map(([label,value])=><article key={label}><span>{label}</span><strong>{value}</strong><small>{label === 'المستخدمون' || label === 'الشركات' || label === 'الاشتراكات النشطة' ? 'بيانات فعلية من QA' : 'لم يتم ربط مصدر البيانات بعد'}</small></article>)}</div>

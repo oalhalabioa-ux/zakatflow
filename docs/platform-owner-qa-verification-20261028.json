@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-28",
+  "repository": "oalhalabioa-ux/zakatflow",
+  "branch": "feature/platform-owner-dashboard-qa",
+  "preserved_local_commit": "d896390feaf1e211a6302131e43273b2563ecc3e",
+  "remote_base_verified": "2bb68d88b9a6f0619c239410ff4bbb111ca83bc6",
+  "allowed_supabase_project": "weucywfwbdnomtlkjurl",
+  "vercel_project_id": "prj_aJ51J4bxpYteAofXxppyzinKt4eD",
+  "isolation": {
+    "status": "PASS_CONFIGURATION_AUDIT",
+    "browser_and_server_url_matches": true,
+    "anon_jwt_project_reference_matches": true,
+    "anon_jwt_role_matches": true,
+    "service_role_is_disabled_placeholder_not_a_credential": true,
+    "branch_overrides_inherited_service_role": true,
+    "branch_app_origin_verified_as_qa": true,
+    "app_origin_branch_override_added": true,
+    "custom_environment_overrides": 0,
+    "other_database_connection_environment_variables_found": false,
+    "runtime_database_clients_use_only_shared_supabase_environment": true,
+    "production_configuration_modified": false,
+    "other_qa_projects_accessed": false,
+    "live_authenticated_network_trace_tested": false,
+    "anon_key_exactly_matches_supabase_project_publishable_key": true
+  },
+  "authorization": {
+    "owner_read_rpcs_under_simulated_authenticated_claims": "PASS_9",
+    "nonowner_simulated_authenticated_claims_protected_rpc_denials": "PASS_11",
+    "anonymous_protected_rpc_denials": "PASS_11",
+    "nonowner_direct_platform_table_reads": "PASS_ZERO_VISIBLE_OR_PERMISSION_DENIED",
+    "qa_existing_owner_users": 1,
+    "qa_existing_ordinary_users": 0,
+    "real_owner_login": "BLOCKED_NO_QA_LOGIN_CREDENTIAL_OR_SESSION",
+    "real_ordinary_user_login": "BLOCKED_NO_ORDINARY_QA_ACCOUNT_OR_SESSION",
+    "real_logout_and_redirect": "NOT_EXECUTED",
+    "sql_test_mode": "read-only transactions, rolled back; not real Auth login"
+  },
+  "checks": {
+    "typescript": "PASS",
+    "vitest_files_passed": 151,
+    "vitest_tests_passed": 789,
+    "build": "PASS",
+    "logo_original_bytes": "PASS_4_OF_4",
+    "logo_http_loading": "PASS_4_OF_4",
+    "anonymous_built_server_page_redirects": "PASS_7_OF_7",
+    "authenticated_browser_navigation": "NOT_EXECUTED",
+    "browser_ui_tests": "BLOCKED",
+    "browser_reason": "Local Chromium absent; prior official download returned truncated/invalid ZIP. Available cloud Chrome could not reach local fixture; error-tab observation was blocked by browser URL policy. No protection disabled and no bypass attempted.",
+    "themes_sidebar_persistence_and_responsive_runtime": "NOT_EXECUTED"
+  },
+  "release": {
+    "new_deployments_created": 0,
+    "decision": "STOP_NO_NEW_PREVIEW",
+    "git_autodeploy": "disabled only for this QA branch in vercel.json",
+    "source_transport": "Git CLI push lacked credentials; GitHub connector uploads the identical final file tree as a new commit based on the verified remote base. Original local commit and history are retained locally. Atomic expected_sha update prevents overwriting a newer remote head.",
+    "production_or_main_changed": false,
+    "paid_resources_created": false
+  }
+}

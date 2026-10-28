@@ -29,7 +29,7 @@ export default function OwnerNavigation({variant='tabs'}:{variant?:'tabs'|'sideb
  const pathname=usePathname();
  return <nav className={variant==='tabs'?'owner-section-nav owner-tabs':'owner-side-links'} aria-label={variant==='tabs'?'تبويبات إدارة المنصة':'القائمة الجانبية لإدارة المنصة'}>
   {sections.map(s=>{const active=pathname===s.href||(s.href!=='/admin'&&pathname.startsWith(s.href+'/'));
-   return <Link key={s.href} href={s.href} aria-current={active?'page':undefined} className={active?'selected':undefined}><Icon name={s.icon}/><span>{s.label}</span></Link>;
+   return <Link key={s.href} href={s.href} aria-label={s.label} title={s.label} aria-current={active?'page':undefined} className={active?'selected':undefined}><Icon name={s.icon}/><span>{s.label}</span></Link>;
   })}
   {variant==='tabs'&&<div className="owner-tabs-theme"><OwnerThemeSelector/></div>}
  </nav>;

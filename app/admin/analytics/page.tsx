@@ -1,3 +1,4 @@
+import OwnerSidebar from '../OwnerSidebar';
 import OwnerNavigation from '../OwnerNavigation';
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
@@ -17,7 +18,7 @@ export default async function OwnerAnalytics(){
  ['المستخدمون',users.error?null:Number(users.data)],['الشركات',companies.error?null:Number(companies.data)],
  ['إجمالي الاشتراكات',subscriptions.error||!summary?null:Number(summary.subscriptions)],['الاشتراكات النشطة',subscriptions.error||!summary?null:Number(summary.active_subscriptions)]
  ];
- return <main className="owner-shell" dir="rtl"><section className="owner-content">
+ return <main className="owner-shell" dir="rtl"><OwnerSidebar/><section className="owner-content">
  <OwnerNavigation/>
  <header className="owner-top"><div><h1>تحليلات المنصة</h1><p>مؤشرات تشغيلية للبيئة الإدارية المعزولة فقط</p></div></header>
  <div className="owner-kpis">{metrics.map(([label,value])=><article key={label}><span>{label}</span><strong>{value===null?'—':value.toLocaleString('ar-SA')}</strong><small>{value===null?'تعذر قراءة المؤشر':'بيانات Platform Admin QA فقط'}</small></article>)}</div>

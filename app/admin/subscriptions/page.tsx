@@ -1,3 +1,4 @@
+import OwnerSidebar from '../OwnerSidebar';
 import OwnerNavigation from '../OwnerNavigation';
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
@@ -18,7 +19,7 @@ export default async function SubscriptionsPage(){
  const subscriptions=(subscriptionsResult.data||[]) as {id:string;organization_name:string;plan_name:string;status:string;started_at:string;current_period_end:string|null}[];
  const summary=Array.isArray(data)?data[0]:(data && typeof data==='object'?data:null);
  const metrics=[['إجمالي الباقات',summary?.plans],['الباقات المفعّلة',summary?.active_plans],['إجمالي الاشتراكات',summary?.subscriptions],['الاشتراكات النشطة',summary?.active_subscriptions]];
- return <main className="owner-shell" dir="rtl"><section className="owner-content">
+ return <main className="owner-shell" dir="rtl"><OwnerSidebar/><section className="owner-content">
  <OwnerNavigation/><header className="owner-top"><div><Link href="/admin">← لوحة المالك</Link><h1>الباقات والاشتراكات</h1><p>بيانات اشتراكات المنصة من QA فقط</p></div></header>
  {loadError?<p role="alert">تعذر قراءة بيانات الاشتراكات. يرجى التحقق من الصلاحيات.</p>:<>
  <div className="owner-kpis">{metrics.map(([label,value])=><article key={String(label)}><span>{label}</span><strong>{value===null||value===undefined?'—':String(value)}</strong><small>بيانات فعلية من QA</small></article>)}</div>
