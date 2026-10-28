@@ -11,13 +11,14 @@ begin
  if has_table_privilege('authenticated','public.platform_payment_transactions','INSERT') or has_table_privilege('authenticated','public.platform_payment_transactions','UPDATE') or has_table_privilege('authenticated','public.platform_payment_transactions','DELETE') then raise exception 'payment ledger has direct authenticated writes'; end if;
  if not (select relrowsecurity from pg_class where oid='public.platform_payment_transactions'::regclass) then raise exception 'payment ledger RLS disabled'; end if;
 end $$;
--- These calls must reject an unauthenticated context without touching data.
-do $$
+-- Simulate the actual anon database role rather than relying on the SQL editor role.
+set local role anon;
+do $
 begin
  begin
   perform public.owner_change_subscription_status(gen_random_uuid(),'trialing','active');
   raise exception 'FAIL: anonymous subscription transition accepted';
- exception when insufficient_privilege then null; end;
+ exception when sqlstate '42501' then null; end;
  begin
   perform public.owner_upsert_plan('qa-test','QA',1,'SAR','monthly',true,null);
   raise exception 'FAIL: anonymous plan upsert accepted';
