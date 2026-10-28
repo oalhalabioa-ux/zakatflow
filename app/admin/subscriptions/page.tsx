@@ -1,3 +1,4 @@
+import OwnerNavigation from '../OwnerNavigation';
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
 import {supabaseServer} from '../../../lib/supabase/server';
@@ -18,7 +19,7 @@ export default async function SubscriptionsPage(){
  const summary=Array.isArray(data)?data[0]:(data && typeof data==='object'?data:null);
  const metrics=[['إجمالي الباقات',summary?.plans],['الباقات المفعّلة',summary?.active_plans],['إجمالي الاشتراكات',summary?.subscriptions],['الاشتراكات النشطة',summary?.active_subscriptions]];
  return <main className="owner-shell" dir="rtl"><section className="owner-content">
- <nav className="owner-section-nav" aria-label="أقسام إدارة المنصة"><Link href="/admin">نظرة عامة</Link><Link href="/admin/users">المستخدمون</Link><Link href="/admin/companies">الشركات</Link><Link href="/admin/payments">الإيرادات والمدفوعات</Link><Link href="/admin/analytics">التحليلات</Link><Link href="/admin/settings">الإعدادات</Link></nav><header className="owner-top"><div><Link href="/admin">← لوحة المالك</Link><h1>الباقات والاشتراكات</h1><p>بيانات اشتراكات المنصة من QA فقط</p></div></header>
+ <OwnerNavigation/><header className="owner-top"><div><Link href="/admin">← لوحة المالك</Link><h1>الباقات والاشتراكات</h1><p>بيانات اشتراكات المنصة من QA فقط</p></div></header>
  {loadError?<p role="alert">تعذر قراءة بيانات الاشتراكات. يرجى التحقق من الصلاحيات.</p>:<>
  <div className="owner-kpis">{metrics.map(([label,value])=><article key={String(label)}><span>{label}</span><strong>{value===null||value===undefined?'—':String(value)}</strong><small>بيانات فعلية من QA</small></article>)}</div>
  <div className="owner-intro"><h2>سجل الباقات</h2><p>الباقات المعرفة في قاعدة الإدارة المستقلة — عرض فقط.</p></div>
