@@ -79,7 +79,8 @@ async function hiddenPassword(){
 async function main(){
   let key=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if(!key){const prompt=createInterface({input:stdin,output:stdout});try{key=await prompt.question('Public QA anon key (never service_role): ');}finally{prompt.close();}}
-  let password=await hiddenPassword();
+  let password=process.env.OWNER_QA_RPC_PASSWORD || await hiddenPassword();
+  delete process.env.OWNER_QA_RPC_PASSWORD;
   try{
     const result=await verify({key,password});
     await writeFile('owner-rpc-acceptance-result.json',JSON.stringify(result,null,2)+'\n',{mode:0o600});
