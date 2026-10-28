@@ -1,0 +1,169 @@
+{
+  "status": "PASS",
+  "authenticatedCases": [
+    {
+      "company": 0,
+      "side": "PAYABLE",
+      "prefix": "LR",
+      "status": "PASS",
+      "serverOverlap": {
+        "active": 2,
+        "backends": [
+          356,
+          358
+        ],
+        "waiting": 1
+      },
+      "replayUnchanged": true,
+      "balance": 1200,
+      "vouchers": 2,
+      "distinct_numbers": 2,
+      "min_sequence": 1,
+      "max_sequence": 2,
+      "prefix_count": 2,
+      "settlements": 2,
+      "settlement_sum": 200,
+      "event_count": 2,
+      "line_count": 2,
+      "line_sum": 200,
+      "obligation_sum": 200,
+      "commands": 2
+    },
+    {
+      "company": 0,
+      "side": "RECEIVABLE",
+      "prefix": "LG",
+      "status": "PASS",
+      "serverOverlap": {
+        "active": 2,
+        "backends": [
+          408,
+          409
+        ],
+        "waiting": 0
+      },
+      "replayUnchanged": true,
+      "balance": 1000,
+      "vouchers": 2,
+      "distinct_numbers": 2,
+      "min_sequence": 1,
+      "max_sequence": 2,
+      "prefix_count": 2,
+      "settlements": 2,
+      "settlement_sum": 200,
+      "event_count": 2,
+      "line_count": 2,
+      "line_sum": 200,
+      "obligation_sum": 200,
+      "commands": 2
+    },
+    {
+      "company": 1,
+      "side": "PAYABLE",
+      "prefix": "LR",
+      "status": "PASS",
+      "serverOverlap": {
+        "active": 2,
+        "backends": [
+          408,
+          409
+        ],
+        "waiting": 1
+      },
+      "replayUnchanged": true,
+      "balance": 1200,
+      "vouchers": 2,
+      "distinct_numbers": 2,
+      "min_sequence": 1,
+      "max_sequence": 2,
+      "prefix_count": 2,
+      "settlements": 2,
+      "settlement_sum": 200,
+      "event_count": 2,
+      "line_count": 2,
+      "line_sum": 200,
+      "obligation_sum": 200,
+      "commands": 2
+    },
+    {
+      "company": 1,
+      "side": "RECEIVABLE",
+      "prefix": "LG",
+      "status": "PASS",
+      "serverOverlap": {
+        "active": 2,
+        "backends": [
+          408,
+          409
+        ],
+        "waiting": 0
+      },
+      "replayUnchanged": true,
+      "balance": 1000,
+      "vouchers": 2,
+      "distinct_numbers": 2,
+      "min_sequence": 1,
+      "max_sequence": 2,
+      "prefix_count": 2,
+      "settlements": 2,
+      "settlement_sum": 200,
+      "event_count": 2,
+      "line_count": 2,
+      "line_sum": 200,
+      "obligation_sum": 200,
+      "commands": 2
+    }
+  ],
+  "scopeMatrix": [
+    {
+      "company": 0,
+      "year": 2025,
+      "prefix": "CF",
+      "status": "PASS",
+      "sequences": [
+        1,
+        2
+      ],
+      "cashUnchanged": true
+    },
+    {
+      "company": 0,
+      "year": 2026,
+      "prefix": "CF",
+      "status": "PASS",
+      "sequences": [
+        9,
+        10
+      ],
+      "cashUnchanged": true
+    },
+    {
+      "company": 1,
+      "year": 2025,
+      "prefix": "CF",
+      "status": "PASS",
+      "sequences": [
+        1,
+        2
+      ],
+      "cashUnchanged": true
+    },
+    {
+      "company": 1,
+      "year": 2026,
+      "prefix": "CF",
+      "status": "PASS",
+      "sequences": [
+        9,
+        10
+      ],
+      "cashUnchanged": true
+    }
+  ],
+  "limitations": [
+    "This tests the financial event model, not a general double-entry journal.",
+    "Year-boundary source timestamps are seeded locally with SQL; authenticated API concurrency is tested separately."
+  ],
+  "noDuplicateCanonicalNumbers": true,
+  "otherTypeCountersUnchanged": true
+}
