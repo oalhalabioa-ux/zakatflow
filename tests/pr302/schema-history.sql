@@ -1,8 +1,9 @@
--- PR302 disposable schema reproduction from isolated branch migration definitions.
--- No application rows were exported. Do not apply to any existing database.
+-- PR302 disposable schema: original isolated migration definitions, no application rows.
+-- Each definition is replayed in its own transaction as on the original runner.
 \set ON_ERROR_STOP on
 
 \echo MIGRATION 20260915195428 001_schema
+BEGIN;
 create extension if not exists pgcrypto
 ;
 do $$ begin create type asset_type as enum ('CASH','BANK','GOLD','SILVER','STOCK','INVENTORY','RECEIVABLE','REAL_ESTATE','OTHER'); exception when duplicate_object then null; end $$
@@ -125,8 +126,10 @@ create policy fx_read on fx_rates for select using (true)
 ;
 create policy rules_read on zakat_rules for select using (review_status='APPROVED')
 ;
+COMMIT;
 
 \echo MIGRATION 20260915195509 002_production_hardening
+BEGIN;
 alter table profiles add column if not exists is_active boolean not null default true
 ;
 alter table profiles add column if not exists organization_id uuid
@@ -181,8 +184,10 @@ create or replace function public.has_role(p_user uuid,p_roles text[]) returns b
 ;
 insert into zakat_methods(code,name_ar,name_en,description_ar,description_en,calendar_type,zakat_rate,version) values ('INDEPENDENT_LOTS','حول مستقل لكل دفعة','Independent Lots','كل دفعة مؤهلة لها حول مستقل.','Each qualifying inflow has an independent hawl.','HIJRI',0.025,'1.0'),('UNIFIED_HAWL','حول موحد','Unified Hawl','حول موحد وفق الإعداد المعتمد.','Unified hawl according to configured methodology.','HIJRI',0.025,'1.0') on conflict(code) do nothing
 ;
+COMMIT;
 
 \echo MIGRATION 20260915195525 003_commercial_workflow
+BEGIN;
 create table if not exists subscriptions(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id) on delete cascade,plan_code text not null default 'FREE' check(plan_code in ('FREE','FAMILY','PROFESSIONAL','BUSINESS','ENTERPRISE')),status text not null default 'ACTIVE' check(status in ('TRIALING','ACTIVE','PAST_DUE','CANCELLED')),provider text,provider_customer_id text,provider_subscription_id text,current_period_start timestamptz,current_period_end timestamptz,created_at timestamptz default now(),updated_at timestamptz default now(),unique(user_id))
 ;
 create table if not exists billing_events(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users(id) on delete cascade,event_type text not null,provider text,payload jsonb not null default '{}',created_at timestamptz default now())
@@ -241,8 +246,10 @@ create policy workflow_events_owner on workflow_events for select using(exists(s
 ;
 create policy report_self on report_jobs for all using(user_id=auth.uid()) with check(user_id=auth.uid())
 ;
+COMMIT;
 
 \echo MIGRATION 20260915195548 004_v11_hardening
+BEGIN;
 create index if not exists idx_audit_user_created on audit_logs(user_id,created_at desc)
 ;
 create index if not exists idx_alloc_lot on transaction_allocations(lot_id,created_at desc)
@@ -267,8 +274,10 @@ create policy notification_jobs_self on notification_jobs for select using(user_
 ;
 create policy provider_configs_admin on price_provider_configs for select using(exists(select 1 from profiles where id=auth.uid() and role in ('ADMIN','SHARIA_REVIEWER')))
 ;
+COMMIT;
 
 \echo MIGRATION 20260915195607 005_rls_security_remediation
+BEGIN;
 alter table zakat_methods enable row level security
 ;
 alter table currencies enable row level security
@@ -293,8 +302,10 @@ revoke execute on function public.handle_new_user() from anon,authenticated
 ;
 revoke execute on function public.has_role(uuid,text[]) from anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260915195621 006_function_execute_lockdown
+BEGIN;
 revoke execute on function public.handle_new_user() from public
 ;
 revoke execute on function public.handle_new_user() from anon
@@ -307,8 +318,10 @@ revoke execute on function public.has_role(uuid,text[]) from anon
 ;
 revoke execute on function public.has_role(uuid,text[]) from authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260916151251 nisab_aware_hawl_and_cycle_tracking
+BEGIN;
 alter table public.lots alter column hawl_start_date drop not null
 ;
 alter table public.lots alter column hawl_due_date drop not null
@@ -366,8 +379,10 @@ create policy "hawl_cycles_delete_own" on public.zakat_hawl_cycles for delete us
 ;
 create index if not exists zakat_hawl_cycles_user_due_idx on public.zakat_hawl_cycles(user_id,hawl_due_date desc)
 ;
+COMMIT;
 
 \echo MIGRATION 20260917085730 zakat_payment_allocations_fifo
+BEGIN;
 create table if not exists public.zakat_payment_allocations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -408,8 +423,10 @@ drop policy if exists zpa_delete_own on public.zakat_payment_allocations
 ;
 create policy zpa_delete_own on public.zakat_payment_allocations for delete using (auth.uid() = user_id)
 ;
+COMMIT;
 
 \echo MIGRATION 20260917085758 zakat_payment_allocation_rpc
+BEGIN;
 create or replace function public.allocate_zakat_payment_fifo(p_payment_id uuid)
 returns table(assessment_line_id uuid, asset_account_id uuid, allocated_amount numeric, due_date date)
 language plpgsql
@@ -460,8 +477,10 @@ revoke all on function public.allocate_zakat_payment_fifo(uuid) from public
 ;
 grant execute on function public.allocate_zakat_payment_fifo(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260917085822 zakat_payment_fifo_scope_assessment
+BEGIN;
 create or replace function public.allocate_zakat_payment_fifo(p_payment_id uuid)
 returns table(assessment_line_id uuid, asset_account_id uuid, allocated_amount numeric, due_date date)
 language plpgsql
@@ -507,8 +526,10 @@ revoke all on function public.allocate_zakat_payment_fifo(uuid) from public
 ;
 grant execute on function public.allocate_zakat_payment_fifo(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260917095427 assessment_cycle_and_payment_editing
+BEGIN;
 alter table public.zakat_assessments add column if not exists cycle_number integer not null default 1 check (cycle_number >= 1)
 ;
 create or replace function public.update_zakat_payment_and_reallocate(p_payment_id uuid,p_payment_date date,p_amount numeric,p_base_amount numeric,p_beneficiary text default null,p_reference text default null,p_notes text default null)
@@ -527,8 +548,10 @@ revoke all on function public.update_zakat_payment_and_reallocate(uuid,date,nume
 ;
 grant execute on function public.update_zakat_payment_and_reallocate(uuid,date,numeric,numeric,text,text,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260917105102 lot_hawl_valuation_snapshots
+BEGIN;
 create table if not exists public.zakat_lot_hawl_snapshots (
  id uuid primary key default gen_random_uuid(),
  user_id uuid not null references public.profiles(id),
@@ -573,8 +596,10 @@ alter table public.user_settings add column if not exists zakatable_conversion_c
 ;
 alter table public.user_settings add column if not exists non_zakatable_conversion_exits_pool boolean not null default true
 ;
+COMMIT;
 
 \echo MIGRATION 20260917151846 dashboard_and_zakat_query_indexes
+BEGIN;
 create index if not exists idx_asset_accounts_user_status on public.asset_accounts(user_id,status)
 ;
 create index if not exists idx_lots_user_asset_status on public.lots(user_id,asset_account_id,status)
@@ -593,8 +618,10 @@ create index if not exists idx_zakat_payment_allocations_user_assessment on publ
 ;
 create index if not exists idx_zakat_payment_allocations_asset on public.zakat_payment_allocations(asset_account_id)
 ;
+COMMIT;
 
 \echo MIGRATION 20260917162058 zakat_cycle_accounting
+BEGIN;
 alter table public.zakat_hawl_cycles add column if not exists closed_at timestamptz, add column if not exists final_assessment_id uuid references public.zakat_assessments(id) on delete set null, add column if not exists final_zakat_due numeric(20,8), add column if not exists notes text
 ;
 alter table public.zakat_assessments add column if not exists hawl_cycle_id uuid references public.zakat_hawl_cycles(id) on delete set null, add column if not exists assessment_kind text not null default 'RECALCULATION', add column if not exists superseded_by uuid references public.zakat_assessments(id) on delete set null
@@ -611,8 +638,10 @@ create index if not exists idx_allocations_hawl_cycle on public.zakat_payment_al
 ;
 create unique index if not exists uq_one_open_zakat_cycle_per_user on public.zakat_hawl_cycles(user_id) where status in ('OPEN','ACTIVE')
 ;
+COMMIT;
 
 \echo MIGRATION 20260917163149 dashboard_preferences_and_cycle_controls
+BEGIN;
 create table if not exists public.dashboard_preferences (user_id uuid primary key references auth.users(id) on delete cascade, template text not null default 'EXECUTIVE', widgets jsonb not null default '[]'::jsonb, updated_at timestamptz not null default now())
 ;
 alter table public.dashboard_preferences enable row level security
@@ -627,8 +656,10 @@ create or replace function public.close_zakat_cycle(p_cycle_id uuid, p_final_ass
 ;
 grant execute on function public.close_zakat_cycle(uuid,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260917182809 cycle_scoped_payment_allocation
+BEGIN;
 create or replace function public.allocate_zakat_payment_fifo(p_payment_id uuid)
 returns table(assessment_line_id uuid, asset_account_id uuid, allocated_amount numeric, due_date date)
 language plpgsql
@@ -677,8 +708,10 @@ end $$
 ;
 grant execute on function public.allocate_zakat_payment_fifo(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260917204455 allow_individual_manual_market_prices
+BEGIN;
 drop policy if exists prices_insert_restricted on public.market_prices
 ;
 create policy prices_insert_restricted
@@ -694,14 +727,18 @@ with check (
   )
 )
 ;
+COMMIT;
 
 \echo MIGRATION 20260917215211 align_zakat_hawl_cycle_statuses
+BEGIN;
 alter table public.zakat_hawl_cycles drop constraint if exists zakat_hawl_cycles_status_check
 ;
 alter table public.zakat_hawl_cycles add constraint zakat_hawl_cycles_status_check check (status = any (array['OPEN'::text,'ACTIVE'::text,'CLOSED'::text,'PAID'::text,'RUNNING'::text,'DUE'::text,'ASSESSED'::text,'RESET'::text]))
 ;
+COMMIT;
 
 \echo MIGRATION 20260919175849 transaction_fifo_and_reversal_engine
+BEGIN;
 create or replace function public.post_withdrawal(
   p_user_id uuid,
   p_asset_account_id uuid,
@@ -864,8 +901,10 @@ revoke execute on function public.reverse_transaction(uuid,uuid) from public, an
 ;
 grant execute on function public.reverse_transaction(uuid,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260919182005 atomic_internal_transfer
+BEGIN;
 create or replace function public.create_internal_transfer(
  p_user_id uuid,p_source_account uuid,p_destination_account uuid,p_date date,p_quantity numeric,p_value numeric,p_currency text,p_notes text default null
 ) returns jsonb language plpgsql security invoker set search_path=''
@@ -895,8 +934,10 @@ revoke execute on function public.create_internal_transfer(uuid,uuid,uuid,date,n
 ;
 grant execute on function public.create_internal_transfer(uuid,uuid,uuid,date,numeric,numeric,text,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260919182307 adjustment_out_engine
+BEGIN;
 create or replace function public.post_adjustment_out(
  p_user_id uuid,p_asset_account_id uuid,p_date date,p_quantity numeric,p_value numeric,p_currency text,p_base_currency text,p_base_value numeric,p_notes text default null
 ) returns uuid language plpgsql security invoker set search_path=''
@@ -922,8 +963,10 @@ revoke execute on function public.post_adjustment_out(uuid,uuid,date,numeric,num
 ;
 grant execute on function public.post_adjustment_out(uuid,uuid,date,numeric,numeric,text,text,numeric,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260919184420 sale_proceeds_and_disposal
+BEGIN;
 create or replace function public.post_sale_with_proceeds(
  p_user_id uuid,p_asset_account_id uuid,p_destination_account_id uuid,p_date date,p_quantity numeric,p_sale_value numeric,p_currency text,p_base_currency text,p_base_value numeric,p_notes text default null
 ) returns jsonb language plpgsql security invoker set search_path=''
@@ -980,8 +1023,10 @@ revoke execute on function public.post_asset_disposal(uuid,uuid,date,numeric,tex
 ;
 grant execute on function public.post_asset_disposal(uuid,uuid,date,numeric,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260920080121 disposal_reporting_effect
+BEGIN;
 create or replace function public.post_asset_disposal(
  p_user_id uuid,p_asset_account_id uuid,p_date date,p_quantity numeric,p_notes text default null
 ) returns uuid language plpgsql security invoker set search_path=''
@@ -1012,8 +1057,10 @@ update public.transactions t set base_value=x.cost,metadata=coalesce(t.metadata,
 from (select transaction_id,sum(value_base) cost from public.transaction_allocations group by transaction_id) x
 where t.id=x.transaction_id and t.metadata->>'reason'='DISPOSAL_ZERO_VALUE' and t.base_value=0
 ;
+COMMIT;
 
 \echo MIGRATION 20260920100143 financial_planning_budgeting
+BEGIN;
 create table if not exists public.budget_plans (
  id uuid primary key default gen_random_uuid(), user_id uuid not null references public.profiles(id) on delete cascade,
  name text not null, fiscal_year integer not null check (fiscal_year between 2000 and 2200),
@@ -1074,8 +1121,10 @@ create index if not exists idx_budget_events_plan_date on public.budget_approval
 ;
 grant select,insert,update,delete on public.budget_plans,public.budget_lines,public.budget_approval_events to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260922191248 budget_reporting_hierarchy
+BEGIN;
 create table if not exists public.budget_dimensions (
  id uuid primary key default gen_random_uuid(),
  user_id uuid not null references public.profiles(id) on delete cascade,
@@ -1147,8 +1196,10 @@ where p.cost_center_ref_id is null
  and d.code=p.cost_center
  and d.parent_id=p.organization_ref_id
 ;
+COMMIT;
 
 \echo MIGRATION 20260922203831 organization_cost_centers
+BEGIN;
 create table if not exists public.organization_cost_centers (
  id uuid primary key default gen_random_uuid(),
  organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -1194,8 +1245,10 @@ create index if not exists idx_org_cost_centers_org_active
 ;
 grant select, insert, update on public.organization_cost_centers to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260922204907 fix_organization_members_bootstrap_rls
+BEGIN;
 -- Avoid recursive organization_members policies and allow the owner to
 -- bootstrap the first membership row when creating a new organization.
 create or replace function public.is_organization_admin(p_organization_id uuid)
@@ -1258,8 +1311,10 @@ create policy org_member_manage on public.organization_members
     )
   )
 ;
+COMMIT;
 
 \echo MIGRATION 20260922205139 backfill_legacy_budget_organizations
+BEGIN;
 -- Create organization references for legacy budget plans that previously
 -- stored the organization only as free text. Existing budget data is kept.
 with legacy as (
@@ -1301,8 +1356,10 @@ join (
  and lower(trim(o.name)) = lower(trim(l.organization_name))
 on conflict (organization_id, user_id) do nothing
 ;
+COMMIT;
 
 \echo MIGRATION 20260922213001 fix_organization_rls_recursion
+BEGIN;
 create or replace function public.is_organization_member(p_organization_id uuid)
 returns boolean
 language sql
@@ -1400,8 +1457,10 @@ create policy org_member_manage on public.organization_members
     )
   )
 ;
+COMMIT;
 
 \echo MIGRATION 20260922215134 link_default_organization_centers
+BEGIN;
 alter table public.organization_cost_centers add column if not exists display_code text
 ;
 create unique index if not exists idx_org_cost_centers_org_display_code
@@ -1425,8 +1484,10 @@ on conflict (organization_id, code) do update
 ;
 grant select, insert, update on public.organization_cost_centers to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260923032558 20260923190000_organization_hierarchy
+BEGIN;
 -- Establish a safe holding-company hierarchy for budget organizations.
 alter table public.organizations
   add column if not exists parent_organization_id uuid,
@@ -1497,8 +1558,10 @@ where o.id <> h.id
     lower('شركة دعم الأعمال')
   )
 ;
+COMMIT;
 
 \echo MIGRATION 20260923035344 20260923200000_cost_center_types
+BEGIN;
 -- Add a required classification for organization cost centers.
 alter table public.organization_cost_centers
   add column if not exists center_type text
@@ -1539,8 +1602,10 @@ create index if not exists idx_org_cost_centers_org_type
 ;
 grant select, insert, update on public.organization_cost_centers to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260924085410 currency_catalog_and_organization_fx_scope
+BEGIN;
 alter table public.currencies
   add column if not exists created_by uuid references auth.users(id)
 ;
@@ -1608,8 +1673,10 @@ create policy fx_org_manage
     and public.is_organization_admin(organization_id)
   )
 ;
+COMMIT;
 
 \echo MIGRATION 20260924085443 split_fx_rate_scope_policies
+BEGIN;
 drop policy if exists fx_org_manage on public.fx_rates
 ;
 drop policy if exists fx_org_insert on public.fx_rates
@@ -1646,8 +1713,10 @@ create policy fx_org_delete
     and public.is_organization_admin(organization_id)
   )
 ;
+COMMIT;
 
 \echo MIGRATION 20260924103410 vat_management_foundation
+BEGIN;
 create table if not exists public.vat_profiles (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null unique references public.organizations(id) on delete cascade,
@@ -1748,8 +1817,10 @@ create policy vat_documents_admin_delete on public.vat_documents
   for delete to authenticated
   using (public.is_organization_admin(organization_id))
 ;
+COMMIT;
 
 \echo MIGRATION 20260924103444 vat_supporting_indexes
+BEGIN;
 create index if not exists idx_vat_documents_user_id
   on public.vat_documents (user_id)
 ;
@@ -1762,8 +1833,10 @@ create index if not exists idx_vat_documents_currency
 create index if not exists idx_vat_profiles_created_by
   on public.vat_profiles (created_by)
 ;
+COMMIT;
 
 \echo MIGRATION 20260924103933 lock_saudi_vat_standard_rate
+BEGIN;
 alter table public.vat_profiles
   drop constraint if exists vat_profiles_standard_rate_check
 ;
@@ -1771,8 +1844,10 @@ alter table public.vat_profiles
   add constraint vat_profiles_standard_rate_check
   check (standard_rate = 15.00)
 ;
+COMMIT;
 
 \echo MIGRATION 20260925103131 vat_einvoice_connections
+BEGIN;
 create table if not exists public.vat_einvoice_connections (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -1814,8 +1889,10 @@ create policy vat_einvoice_connections_admin_read on public.vat_einvoice_connect
   for select to authenticated
   using (public.is_organization_admin(organization_id))
 ;
+COMMIT;
 
 \echo MIGRATION 20260925103139 vat_einvoice_documents
+BEGIN;
 create table if not exists public.vat_einvoices (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -1996,8 +2073,10 @@ create policy vat_einvoice_lines_admin_delete on public.vat_einvoice_lines
     where i.id = invoice_id and i.status = 'DRAFT' and public.is_organization_admin(i.organization_id)
   ))
 ;
+COMMIT;
 
 \echo MIGRATION 20260925103149 issue_vat_einvoice_with_zatca_phase_one_qr
+BEGIN;
 -- Phase 1 invoice issuance: atomically lock the draft, construct ZATCA's five
 -- mandatory QR fields as UTF-8 TLV, and persist the final issued state.
 create or replace function public.issue_vat_einvoice(p_invoice_id uuid)
@@ -2084,12 +2163,16 @@ revoke all on function public.issue_vat_einvoice(uuid) from public, anon
 ;
 grant execute on function public.issue_vat_einvoice(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260925103241 harden_issue_vat_einvoice_search_path
+BEGIN;
 alter function public.issue_vat_einvoice(uuid) set search_path = pg_catalog
 ;
+COMMIT;
 
 \echo MIGRATION 20260925103544 guard_vat_invoice_issue_registration
+BEGIN;
 create or replace function public.guard_vat_invoice_issue_registration()
 returns trigger
 language plpgsql
@@ -2122,8 +2205,10 @@ create trigger guard_vat_invoice_issue_registration
 before update of status on public.vat_einvoices
 for each row execute function public.guard_vat_invoice_issue_registration()
 ;
+COMMIT;
 
 \echo MIGRATION 20260925113649 vat_period_summaries_and_payment_tracking
+BEGIN;
 create table if not exists public.vat_period_summaries (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -2185,8 +2270,10 @@ create policy vat_period_summaries_admin_update on public.vat_period_summaries
   using (public.is_organization_admin(organization_id))
   with check (public.is_organization_admin(organization_id))
 ;
+COMMIT;
 
 \echo MIGRATION 20260926153742 vat_contacts_and_seller_profile_20260926
+BEGIN;
 alter table public.vat_profiles
   add column if not exists registered_name text,
   add column if not exists seller_street text,
@@ -2284,20 +2371,26 @@ alter table public.vat_einvoices
     references public.vat_contacts (id, organization_id)
     on delete set null (buyer_contact_id)
 ;
+COMMIT;
 
 \echo MIGRATION 20260927113055 20260927123000_vat_einvoice_due_date
+BEGIN;
 alter table public.vat_einvoices add column if not exists due_date date
 ;
 alter table public.vat_einvoices add constraint vat_einvoices_due_date_not_before_issue check (due_date is null or due_date >= issue_date) not valid
 ;
 alter table public.vat_einvoices validate constraint vat_einvoices_due_date_not_before_issue
 ;
+COMMIT;
 
 \echo MIGRATION 20260927115639 vat_document_line_items
+BEGIN;
 alter table public.vat_documents add column if not exists line_items jsonb
 ;
+COMMIT;
 
 \echo MIGRATION 20260927161447 vat_accounting_invoice_currency
+BEGIN;
 alter table public.vat_documents
   add column if not exists source_currency text not null default 'SAR' references public.currencies(code),
   add column if not exists exchange_rate numeric(24,10) not null default 1 check (exchange_rate > 0),
@@ -2318,8 +2411,10 @@ comment on column public.vat_documents.source_currency is 'Currency shown on the
 ;
 comment on column public.vat_documents.exchange_rate is 'Organization base currency units per one source currency unit.'
 ;
+COMMIT;
 
 \echo MIGRATION 20260927180607 enable_multicurrency_einvoice_drafts
+BEGIN;
 -- Allow e-invoice drafts in any active ISO currency and retain the exchange rate and VAT total in the Saudi accounting currency for reporting.
 alter table public.vat_einvoices drop constraint if exists vat_einvoices_currency_check
 ;
@@ -2331,8 +2426,10 @@ update public.vat_einvoices set exchange_rate = 1, tax_total_amount_sar = tax_to
 ;
 alter table public.vat_einvoices add constraint vat_einvoice_sar_rate_is_one check (currency <> 'SAR' or exchange_rate = 1)
 ;
+COMMIT;
 
 \echo MIGRATION 20260928131757 liquidity_management
+BEGIN;
 create table if not exists public.liquidity_accounts (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -2422,8 +2519,10 @@ create policy liquidity_flows_member_write on public.liquidity_flows for all to 
 ;
 grant select, insert, update, delete on public.liquidity_accounts, public.liquidity_flows to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260928132026 harden_liquidity_policies
+BEGIN;
 revoke all on function public.can_write_liquidity(uuid) from public, anon
 ;
 grant execute on function public.can_write_liquidity(uuid) to authenticated
@@ -2450,8 +2549,10 @@ create policy liquidity_flows_update on public.liquidity_flows for update to aut
 create policy liquidity_flows_delete on public.liquidity_flows for delete to authenticated
   using (public.can_write_liquidity(organization_id))
 ;
+COMMIT;
 
 \echo MIGRATION 20260928133312 tighten_liquidity_data_boundaries
+BEGIN;
 create schema if not exists private
 ;
 revoke all on schema private from public, anon
@@ -2540,8 +2641,10 @@ grant update (entity_id,account_id,direction,flow_type,title,counterparty,due_da
 ;
 drop function if exists public.can_write_liquidity(uuid)
 ;
+COMMIT;
 
 \echo MIGRATION 20260928143556 liquidity_account_transfers_20260928
+BEGIN;
 create table if not exists public.liquidity_transfers (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -2762,8 +2865,10 @@ grant execute on function public.create_liquidity_transfer(uuid,uuid,uuid,numeri
 ;
 grant execute on function public.delete_liquidity_transfer(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260929154100 liquidity_counterparties_and_editing
+BEGIN;
 create table if not exists public.liquidity_counterparties (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -2843,8 +2948,10 @@ grant insert (organization_id, entity_id, account_id, direction, flow_type, titl
 grant update (entity_id, account_id, direction, flow_type, title, counterparty, counterparty_id, due_date, amount, currency, base_amount, status, source, reference, notes, updated_at)
   on public.liquidity_flows to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260929185402 liquidity_flexible_taxonomy_and_sources
+BEGIN;
 create table if not exists public.liquidity_flow_categories (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -3038,8 +3145,10 @@ comment on column public.liquidity_flows.source_module is 'Source module for an 
 ;
 comment on column public.liquidity_flows.source_record_id is 'Source record UUID. Unique event keys prevent duplicate schedule or settlement events.'
 ;
+COMMIT;
 
 \echo MIGRATION 20260930125448 intercompany_liquidity_transfers
+BEGIN;
 create table if not exists public.liquidity_intercompany_transfers (
   id uuid primary key default gen_random_uuid(),
   holding_organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -3266,8 +3375,10 @@ grant execute on function public.create_liquidity_intercompany_transfer(uuid,uui
 ;
 grant execute on function public.delete_liquidity_intercompany_transfer(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260930132910 account_user_management
+BEGIN;
 -- Keep account roles and organization invitations controlled by authenticated RPCs.
 
 drop policy if exists profiles_self on public.profiles
@@ -3477,8 +3588,10 @@ grant execute on function public.manage_organization_member(uuid,uuid,text,text)
 ;
 grant execute on function public.revoke_organization_invitation(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260930133108 restrict_anonymous_account_rpcs
+BEGIN;
 -- Supabase projects may grant execute to anon directly through default privileges.
 revoke all on function public.list_organization_users(uuid) from anon
 ;
@@ -3498,8 +3611,10 @@ revoke all on function public.is_organization_owner(uuid) from anon
 ;
 revoke all on function public.is_organization_admin(uuid) from anon
 ;
+COMMIT;
 
 \echo MIGRATION 20260930140453 fix_organization_invitation_email_ambiguity
+BEGIN;
 -- Qualify the invitation table's email field to avoid colliding with the
 -- RETURNS TABLE output parameter named `email` in PL/pgSQL.
 create or replace function public.create_organization_invitation(
@@ -3554,8 +3669,10 @@ revoke all on function public.create_organization_invitation(uuid,text,text) fro
 ;
 grant execute on function public.create_organization_invitation(uuid,text,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260930143236 organization_custom_roles
+BEGIN;
 -- Organization-scoped custom roles with permission checks enforced by RLS.
 create table public.organization_roles (
   id uuid primary key default gen_random_uuid(),
@@ -4092,8 +4209,10 @@ revoke all on function public.issue_vat_einvoice(uuid) from public,anon
 ;
 grant execute on function public.issue_vat_einvoice(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260930143527 harden_custom_role_membership_checks
+BEGIN;
 -- A missing membership produces NULL for a NOT IN comparison in PL/pgSQL.
 -- Treat that case as an explicit denial in both security-definer RPCs.
 create or replace function public.create_organization_invitation(
@@ -4175,8 +4294,10 @@ grant execute on function public.create_organization_invitation(uuid,text,text,u
 ;
 grant execute on function public.manage_organization_member(uuid,uuid,text,text,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20260930151445 fix_invitation_acceptance_conflict
+BEGIN;
 -- Avoid ambiguity between RETURNS TABLE output variables and the unique
 -- conflict target used when accepting an organization invitation.
 create or replace function public.accept_organization_invitation(p_token text)
@@ -4210,8 +4331,10 @@ revoke all on function public.accept_organization_invitation(text) from public,a
 ;
 grant execute on function public.accept_organization_invitation(text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261005214613 assets_v2_ownership_classification
+BEGIN;
 -- Assets V2 ownership and classification foundation (QA first)
 -- Preserves legacy personal/zakat behavior. Existing rows remain PERSONAL.
 create table if not exists public.asset_classes (
@@ -4293,8 +4416,10 @@ comment on column public.asset_accounts.user_id is 'Legacy creator/personal owne
 ;
 comment on column public.asset_accounts.ownership_scope is 'PERSONAL preserves legacy ZakatFlow behavior; ORGANIZATION enables enterprise asset ownership.'
 ;
+COMMIT;
 
 \echo MIGRATION 20261005214621 assets_v2_scope_integrity
+BEGIN;
 -- Assets V2 database integrity hardening (QA first).
 -- Mirrors application validation so invalid ownership/classification scope
 -- cannot be inserted by another write path.
@@ -4359,8 +4484,10 @@ before insert or update of
 on public.asset_accounts
 for each row execute function public.validate_asset_v2_scope()
 ;
+COMMIT;
 
 \echo MIGRATION 20261005214628 assets_v2_supporting_indexes
+BEGIN;
 -- Assets V2 supporting indexes identified by QA database advisor.
 create index if not exists idx_asset_accounts_asset_type_code on public.asset_accounts(asset_type_code)
 ;
@@ -4370,8 +4497,10 @@ create index if not exists idx_asset_accounts_entity_id on public.asset_accounts
 ;
 create index if not exists idx_asset_types_v2_class_code on public.asset_types_v2(class_code)
 ;
+COMMIT;
 
 \echo MIGRATION 20261005214634 assets_v2_organization_rls
+BEGIN;
 -- Assets V2 organization-aware RLS.
 -- PERSONAL keeps legacy self ownership. ORGANIZATION reads are membership based;
 -- writes require the dedicated assets.edit permission.
@@ -4420,8 +4549,10 @@ using (
   and public.has_organization_permission(organization_id,'assets.edit')
 )
 ;
+COMMIT;
 
 \echo MIGRATION 20261005214641 assets_v2_permissions
+BEGIN;
 -- Extend the existing organization permission vocabulary for Assets V2.
 -- OWNER/ADMIN retain implicit full access. ACCOUNTANT may manage assets;
 -- ADVISOR/VIEWER may read them; SHARIA_REVIEWER remains zakat-focused.
@@ -4475,8 +4606,10 @@ begin
 end
 $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261005214647 assets_v2_read_permission
+BEGIN;
 -- Assets V2 organization reads must respect the explicit assets.view permission.
 -- QA-first hardening: keeps personal self-access separate and leaves write policies unchanged.
 drop policy if exists assets_org_read on public.asset_accounts
@@ -4491,8 +4624,10 @@ using (
   and public.has_organization_permission(organization_id, 'assets.view')
 )
 ;
+COMMIT;
 
 \echo MIGRATION 20261005214706 assets_v2_catalog_rls
+BEGIN;
 alter table public.asset_classes enable row level security
 ;
 alter table public.asset_types_v2 enable row level security
@@ -4501,8 +4636,10 @@ create policy asset_classes_authenticated_read on public.asset_classes for selec
 ;
 create policy asset_types_v2_authenticated_read on public.asset_types_v2 for select to authenticated using (true)
 ;
+COMMIT;
 
 \echo MIGRATION 20261006092512 liquidity_financial_classification
+BEGIN;
 alter table public.liquidity_flow_categories add column if not exists financial_classification_type text
 ;
 alter table public.liquidity_flow_categories drop constraint if exists liquidity_flow_categories_financial_classification_type_check
@@ -4511,8 +4648,10 @@ alter table public.liquidity_flow_categories add constraint liquidity_flow_categ
 ;
 update public.liquidity_flow_categories set financial_classification_type=case when flow_group='PAYROLL' then 'OPEX' when flow_group='TAX' then 'TAX' when flow_group='FINANCING' then 'FINANCING' when flow_group='INVESTMENT' then 'INVESTMENT' when flow_group='OPERATING' and allowed_direction='INFLOW' then 'REVENUE' when flow_group='OPERATING' and allowed_direction='OUTFLOW' then 'OPEX' else financial_classification_type end where financial_classification_type is null
 ;
+COMMIT;
 
 \echo MIGRATION 20261006140600 users_role_governance_ui_v1
+BEGIN;
 -- Production-safe Users role governance V1. Additive and data-preserving.
 alter table public.organizations add column if not exists approval_policy text not null default 'OWNER_CONTROLLED'
 ;
@@ -4590,8 +4729,10 @@ create or replace function public.owner_set_organization_approval_policy(p_org u
 ;
 grant execute on function public.seed_default_organization_roles(uuid),public.owner_update_organization_role(uuid,uuid,text[],jsonb),public.owner_set_member_permission_override(uuid,uuid,text,text,numeric,text),public.owner_set_organization_approval_policy(uuid,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006140616 backfill_default_editable_roles_v1
+BEGIN;
 -- Backfill editable default roles for existing organizations without changing existing custom roles.
 with owners as (
  select distinct on (organization_id) organization_id,user_id from public.organization_members where status='ACTIVE' and role='OWNER' order by organization_id,created_at
@@ -4609,14 +4750,18 @@ insert into public.organization_roles(organization_id,name,description,permissio
 select o.organization_id,t.name,t.description,t.permissions,o.user_id,t.role_key,true,true,'{}'::jsonb from owners o cross join templates t
 on conflict(organization_id,role_key) where role_key is not null do update set is_system_template=true,is_editable=true
 ;
+COMMIT;
 
 \echo MIGRATION 20261006141503 vat_documents_asset_transaction_column_prod_compat
+BEGIN;
 alter table public.vat_documents add column if not exists asset_transaction_id uuid null references public.transactions(id) on delete restrict
 ;
 create unique index if not exists vat_documents_asset_transaction_unique on public.vat_documents(asset_transaction_id) where asset_transaction_id is not null
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142424 financial_core_classifications_foundation
+BEGIN;
 create table if not exists public.financial_classifications(
  id uuid primary key default gen_random_uuid(), organization_id uuid not null references public.organizations(id) on delete cascade,
  code text not null,name text not null,classification_type text not null,active boolean not null default true,is_system boolean not null default false,
@@ -4640,8 +4785,10 @@ cross join (values('REVENUE'),('OPEX'),('CAPEX'),('ASSET'),('INVESTMENT'),('TAX'
 where coalesce(o.owner_user_id,m.user_id) is not null
 on conflict(organization_id,code) do nothing
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142804 financial_core_foundation_reconciliation_v1
+BEGIN;
 alter table public.financial_classifications add constraint financial_classifications_id_organization_id_key unique(id,organization_id)
 ;
 create table if not exists public.financial_events(
@@ -4714,8 +4861,10 @@ create table if not exists public.liquidity_settlement_status_history(
  foreign key(settlement_id,organization_id) references public.liquidity_settlements(id,organization_id) on delete restrict
 )
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142930 prod_reconcile_20261006123000_permissions_approval_policy_v1
+BEGIN;
 -- Permissions & Approval Policy V1
 alter table public.organizations add column if not exists approval_policy text not null default 'OWNER_CONTROLLED'
 ;
@@ -4753,8 +4902,10 @@ begin
  return v_id;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142934 prod_reconcile_20261006133000_flexible_roles_member_permissions_v1
+BEGIN;
 -- Flexible roles and member permission overrides V1
 create table if not exists public.organization_member_permission_overrides (
  organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -4808,8 +4959,10 @@ begin
  return public.has_organization_permission(p_org,p_permission);
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142938 prod_reconcile_20261006134500_default_editable_roles_v1
+BEGIN;
 -- Default editable organization roles V1
 create or replace function public.seed_default_organization_roles(p_org uuid)
 returns void language plpgsql security definer set search_path='pg_catalog','public' as $$
@@ -4838,8 +4991,10 @@ begin
  name=excluded.name,description=excluded.description,is_system_template=true,is_editable=true,updated_at=now();
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142943 prod_reconcile_20261006140000_owner_permission_management_rpc_v1
+BEGIN;
 -- Owner-managed role and member permission mutation RPCs
 create or replace function public.owner_update_organization_role(p_org uuid,p_role_id uuid,p_permissions text[],p_amount_limits jsonb default '{}'::jsonb)
 returns void language plpgsql security definer set search_path='pg_catalog','public' as $$
@@ -4863,8 +5018,10 @@ begin
  on conflict(organization_id,user_id,permission) do update set effect=excluded.effect,amount_limit=excluded.amount_limit,currency=excluded.currency,updated_at=now();
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142947 prod_reconcile_20261006141500_financial_core_effective_permissions_v1
+BEGIN;
 -- Route Financial Core authorization through effective permissions
 create or replace function public.financial_core_can(p_org uuid,p_scope text)
 returns boolean language sql stable security definer set search_path='pg_catalog','public' as $$
@@ -4885,8 +5042,10 @@ begin
  return false;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142950 prod_reconcile_20261006143000_expand_role_permission_catalog_v1
+BEGIN;
 -- Expand role permission catalog while preserving allow-list validation
 alter table public.organization_roles drop constraint if exists organization_roles_permissions_check
 ;
@@ -4900,8 +5059,10 @@ alter table public.organization_roles add constraint organization_roles_permissi
 'zakat.view','zakat.edit','audit.view'
 ]::text[])
 ;
+COMMIT;
 
 \echo MIGRATION 20261006142955 prod_reconcile_20261006144500_permission_management_read_rls_v1
+BEGIN;
 -- Read access for the permission-management UI; mutations remain RPC/Owner-controlled.
 grant select on public.organization_roles to authenticated
 ;
@@ -4919,8 +5080,10 @@ create policy permission_overrides_member_read on public.organization_member_per
  exists(select 1 from public.organization_members m where m.organization_id=organization_member_permission_overrides.organization_id and m.user_id=auth.uid() and m.status='ACTIVE')
 )
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143015 financial_core_operational_functions_v1
+BEGIN;
 create schema if not exists private
 ;
 create or replace function public.financial_core_can(p_org uuid,p_scope text) returns boolean language sql stable security definer set search_path='pg_catalog','public' as $$select public.effective_organization_permission(p_org,p_scope,null,null);$$
@@ -4935,8 +5098,10 @@ create or replace function public.approve_financial_event(p_event_id uuid,p_note
 ;
 grant execute on function public.financial_core_can(uuid,text),public.can_self_approve_financial_event(uuid),public.financial_event_has_valid_approval(uuid),public.transition_financial_event(uuid,text,text),public.approve_financial_event(uuid,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143041 prod_reconcile_asset_purchase_vat_single_event_v1
+BEGIN;
 alter table public.vat_documents add column if not exists asset_transaction_id uuid null references public.transactions(id) on delete restrict
 ;
 create unique index if not exists vat_documents_asset_transaction_unique on public.vat_documents(asset_transaction_id) where asset_transaction_id is not null
@@ -4972,8 +5137,10 @@ revoke all on function public.bind_asset_purchase_vat_document(uuid,uuid) from p
 ;
 grant execute on function public.bind_asset_purchase_vat_document(uuid,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143102 financial_core_command_path_v1
+BEGIN;
 create or replace function private.canonical_financial_json(p_value jsonb) returns jsonb language plpgsql immutable strict set search_path='pg_catalog','public','private' as $$declare k text;v jsonb;res jsonb;begin
 if jsonb_typeof(p_value)='object' then select coalesce(jsonb_object_agg(key,private.canonical_financial_json(value) order by key),'{}'::jsonb) into res from jsonb_each(p_value);return res;
 elsif jsonb_typeof(p_value)='array' then select coalesce(jsonb_agg(private.canonical_financial_json(value) order by ord),'[]'::jsonb) into res from jsonb_array_elements(p_value) with ordinality x(value,ord);return res;
@@ -5007,8 +5174,10 @@ create or replace function public.create_financial_event_command(p_payload jsonb
 ;
 grant execute on function public.create_financial_event_command(jsonb) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143147 financial_core_rls_and_reporting_views_v1
+BEGIN;
 do $$declare t text;begin foreach t in array array['financial_classifications','financial_events','financial_event_lines','financial_event_links','financial_event_approvals','financial_event_status_history','financial_event_command_registry','financial_event_obligations','financial_event_obligation_allocations','financial_vat_counterparty_map','financial_vat_source_bindings','liquidity_settlements','liquidity_flow_settlement_allocations','liquidity_settlement_status_history'] loop execute format('alter table public.%I enable row level security',t);execute format('drop policy if exists fc_member_read on public.%I',t);execute format('create policy fc_member_read on public.%I for select to authenticated using (exists(select 1 from public.organization_members m where m.organization_id=%I.organization_id and m.user_id=auth.uid() and m.status=''ACTIVE''))',t,t);end loop;end$$
 ;
 grant select on public.financial_classifications,public.financial_events,public.financial_event_lines,public.financial_event_links,public.financial_event_approvals,public.financial_event_status_history,public.financial_event_obligations,public.financial_event_obligation_allocations,public.financial_vat_source_bindings,public.financial_vat_counterparty_map,public.liquidity_settlements,public.liquidity_flow_settlement_allocations,public.liquidity_settlement_status_history to authenticated
@@ -5034,8 +5203,10 @@ create or replace view public.financial_event_settlement_status with(security_in
 ;
 grant select on public.financial_event_obligation_balances,public.financial_event_settlement_status_explicit,public.financial_event_settlement_status to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143202 sensitive_permission_and_valid_approval_prod_v2
+BEGIN;
 create or replace function public.explicit_organization_permission(p_org uuid,p_permission text,p_amount numeric default null,p_currency text default null) returns boolean language plpgsql stable security definer set search_path='pg_catalog','public' as $$declare m public.organization_members%rowtype;ov public.organization_member_permission_overrides%rowtype;allowed boolean:=false;lim numeric;begin if auth.uid() is null then return false;end if;select * into m from public.organization_members where organization_id=p_org and user_id=auth.uid() and status='ACTIVE';if m.user_id is null then return false;end if;select * into ov from public.organization_member_permission_overrides where organization_id=p_org and user_id=auth.uid() and permission=p_permission;if ov.effect='DENY' then return false;end if;if ov.effect='ALLOW' then if p_amount is not null and ov.amount_limit is not null and p_amount>ov.amount_limit then return false;end if;if p_currency is not null and ov.currency is not null and upper(p_currency)<>upper(ov.currency) then return false;end if;return true;end if;if m.custom_role_id is null then return false;end if;select p_permission=any(r.permissions),nullif(r.amount_limits->>p_permission,'')::numeric into allowed,lim from public.organization_roles r where r.id=m.custom_role_id and r.organization_id=p_org;if not coalesce(allowed,false) then return false;end if;if p_amount is not null and lim is not null and p_amount>lim then return false;end if;return true;end$$
 ;
 create or replace function public.effective_organization_permission(p_org uuid,p_permission text,p_amount numeric default null,p_currency text default null) returns boolean language plpgsql stable security definer set search_path='pg_catalog','public' as $$declare m public.organization_members%rowtype;sensitive boolean;begin if auth.uid() is null then return false;end if;select * into m from public.organization_members where organization_id=p_org and user_id=auth.uid() and status='ACTIVE';if m.user_id is null then return false;end if;sensitive:=p_permission=any(array['financial_core.approve','financial_core.post','financial_core.reverse','financial_core.self_approve','liquidity.settle','budget.approve']);if m.role='OWNER' and p_permission<>'financial_core.self_approve' then return true;end if;if public.explicit_organization_permission(p_org,p_permission,p_amount,p_currency) then return true;end if;if sensitive then return false;end if;return public.has_organization_permission(p_org,p_permission);end$$
@@ -5046,8 +5217,10 @@ revoke all on function public.explicit_organization_permission(uuid,text,numeric
 ;
 grant execute on function public.explicit_organization_permission(uuid,text,numeric,text),public.financial_event_has_valid_approval(uuid),public.effective_organization_permission(uuid,text,numeric,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143214 financial_budget_core_tables_v1
+BEGIN;
 create table if not exists public.financial_budget_plan_ownership(plan_id uuid primary key references public.budget_plans(id),organization_id uuid not null references public.organizations(id),entity_id uuid,cost_center_id uuid,fiscal_start date not null,adopted_by uuid not null references auth.users(id),created_at timestamptz not null default now(),legacy_snapshot jsonb not null default '{}',unique(plan_id,organization_id))
 ;
 create table if not exists public.financial_budget_mappings(id uuid primary key default gen_random_uuid(),organization_id uuid not null,plan_id uuid not null,budget_line_id uuid not null references public.budget_lines(id),classification_id uuid not null,entity_id uuid,cost_center_id uuid,metric_policy text not null,effective_from date not null,effective_to date not null,created_by uuid not null references auth.users(id),created_at timestamptz not null default now(),foreign key(plan_id,organization_id) references public.financial_budget_plan_ownership(plan_id,organization_id),foreign key(classification_id,organization_id) references public.financial_classifications(id,organization_id),check(effective_to>=effective_from))
@@ -5066,8 +5239,10 @@ do $$declare t text;begin foreach t in array array['financial_budget_plan_owners
 ;
 grant select on public.financial_budget_plan_ownership,public.financial_budget_mappings,public.financial_budget_event_routes,public.financial_budget_scope_grants,public.financial_budget_commands,public.financial_budget_commitment_consumptions,public.financial_budget_retirements to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143258 financial_budget_reporting_rpc_v1
+BEGIN;
 create or replace function public.financial_budget_can(p_org uuid,p_entity uuid default null,p_center uuid default null,p_write boolean default false) returns boolean language sql stable security definer set search_path='pg_catalog','public' as $$select auth.uid() is not null and public.has_organization_permission(p_org,case when p_write then 'budget.edit' else 'budget.view' end) and public.financial_core_can(p_org,'financial_core.view') and exists(select 1 from public.organization_members m where m.organization_id=p_org and m.user_id=auth.uid() and m.status='ACTIVE');$$
 ;
 create or replace view public.financial_budget_operational_facts with(security_invoker=true) as
@@ -5091,16 +5266,20 @@ create or replace function public.financial_budget_drilldown(p_plan uuid) return
 ;
 grant execute on function public.financial_budget_report(uuid),public.financial_budget_drilldown(uuid),public.financial_budget_can(uuid,uuid,uuid,boolean) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143305 financial_budget_bind_existing_plans_v1
+BEGIN;
 insert into public.financial_budget_plan_ownership(plan_id,organization_id,entity_id,cost_center_id,fiscal_start,adopted_by,legacy_snapshot)
 select bp.id,o.id,null,c.id,make_date(bp.fiscal_year,1,1),bp.user_id,jsonb_build_object('user_id',bp.user_id,'fiscal_year',bp.fiscal_year,'currency',bp.currency,'scenario',bp.scenario)
 from public.budget_plans bp join public.organizations o on o.name=bp.organization_name left join public.organization_cost_centers c on c.organization_id=o.id and c.code=bp.cost_center
 where not exists(select 1 from public.financial_budget_plan_ownership x where x.plan_id=bp.id)
 on conflict(plan_id) do nothing
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143330 vat_financial_core_adapter_prod_v1
+BEGIN;
 create or replace function public.prepare_vat_financial_event(p_source_table text,p_source_id uuid,p_entity_id uuid,p_due_date date default null,p_original_event_id uuid default null,p_alias_event_id uuid default null) returns uuid language plpgsql security definer set search_path='pg_catalog','public','private','extensions' as $$
 declare d public.vat_documents%rowtype;eid uuid;cls uuid;taxcls uuid;cp uuid;gross numeric;payload jsonb;existing public.financial_vat_source_bindings%rowtype;contact public.vat_contacts%rowtype;
 begin
@@ -5134,8 +5313,10 @@ create or replace function public.post_vat_financial_event(p_event_id uuid) retu
 ;
 grant execute on function public.prepare_vat_financial_event(text,uuid,uuid,date,uuid,uuid),public.post_vat_financial_event(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143410 controlled_cash_settlement_prod_v1
+BEGIN;
 create or replace function private.cash_post_financial_settlement_atomic(p_financial_event_id uuid,p_account_id uuid,p_direction text,p_settlement_date date,p_amount numeric,p_currency text,p_exchange_rate numeric,p_base_amount numeric,p_allocations jsonb default '[]') returns jsonb language plpgsql security definer set search_path='pg_catalog','public','private','extensions' as $$
 declare e public.financial_events%rowtype;a public.liquidity_accounts%rowtype;sid uuid;x record;o public.financial_event_obligations%rowtype;f public.liquidity_flows%rowtype;allocated numeric:=0;finger text;
 begin
@@ -5169,8 +5350,10 @@ create or replace function public.post_financial_settlement(p_financial_event_id
 ;
 grant execute on function public.post_financial_settlement(uuid,uuid,text,date,numeric,text,numeric,numeric,jsonb) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006143440 financial_budget_configuration_and_consolidation_v1
+BEGIN;
 create or replace function public.configure_financial_budget(p_key text,p_payload jsonb) returns uuid language plpgsql security definer set search_path='pg_catalog','public','private','extensions' as $$
 declare org uuid;act text;rid uuid;plan uuid;entity uuid;center uuid;begin if auth.uid() is null then raise exception 'UNAUTHORIZED';end if;org:=(p_payload->>'organization_id')::uuid;act:=upper(p_payload->>'action');entity:=nullif(p_payload->>'entity_id','')::uuid;center:=nullif(p_payload->>'cost_center_id','')::uuid;if not public.financial_budget_can(org,entity,center,true) then raise exception 'BUDGET_CONFIG_DENIED';end if;
 if act='MAP' then insert into public.financial_budget_mappings(organization_id,plan_id,budget_line_id,classification_id,entity_id,cost_center_id,metric_policy,effective_from,effective_to,created_by) values(org,(p_payload->>'plan_id')::uuid,(p_payload->>'budget_line_id')::uuid,(p_payload->>'classification_id')::uuid,entity,center,p_payload->>'metric_policy',(p_payload->>'effective_from')::date,(p_payload->>'effective_to')::date,auth.uid()) returning id into rid;
@@ -5185,8 +5368,10 @@ return jsonb_build_object('holding_id',p_holding,'fiscal_year',p_year,'scenario'
 ;
 grant execute on function public.configure_financial_budget(text,jsonb),public.financial_budget_consolidated(uuid,integer,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261006173905 phase2b_reconciliation_views
+BEGIN;
 -- Phase 2B recovery: read-only settlement reconciliation views.
 -- Additive only: no table, policy, role, permission, or write-path changes.
 
@@ -5211,8 +5396,10 @@ from public.liquidity_accounts a
 left join public.liquidity_settlements s on s.account_id=a.id and s.organization_id=a.organization_id
 group by a.id,a.organization_id,a.entity_id,a.currency,a.current_balance,a.current_balance_base
 ;
+COMMIT;
 
 \echo MIGRATION 20261006174613 phase2b_cash_reconciliation_views
+BEGIN;
 -- Phase 2B recovery: read-only Financial Core ↔ Cash reconciliation views.
 -- Additive only. No write-path, RLS, governance, role, or balance changes.
 
@@ -5282,8 +5469,10 @@ left join lateral (
  from public.financial_core_cash_reconciliation r where r.organization_id=e.organization_id and (r.financial_event_id=e.id or r.original_event_id=e.id)
 ) x on true
 ;
+COMMIT;
 
 \echo MIGRATION 20261006184034 actual_settlement_bank_account
+BEGIN;
 -- Cash execution: selected account at settlement is authoritative.
 create or replace function private.cash_post_financial_settlement_atomic(
  p_financial_event_id uuid,p_account_id uuid,p_direction text,p_settlement_date date,p_amount numeric,p_currency text,p_exchange_rate numeric,p_base_amount numeric,p_allocations jsonb default '[]'::jsonb
@@ -5314,8 +5503,10 @@ insert into public.liquidity_settlement_status_history(organization_id,settlemen
 perform public.transition_financial_event(e.id,'ACTUAL','Atomic cash settlement post');
 return jsonb_build_object('financial_event_id',e.id,'liquidity_settlement_id',sid,'status','POSTED','idempotent_replay',false);end$function$
 ;
+COMMIT;
 
 \echo MIGRATION 20261006203414 vat_document_due_date_cash_forecast_v1
+BEGIN;
 alter table public.vat_documents
   add column if not exists due_date date
 ;
@@ -5333,8 +5524,10 @@ create index if not exists vat_documents_org_due_idx
   on public.vat_documents (organization_id, due_date)
   where due_date is not null
 ;
+COMMIT;
 
 \echo MIGRATION 20261007025714 financial_counterparty_subledger_views
+BEGIN;
 create or replace view public.financial_counterparty_open_items
 with (security_invoker = true) as
 select e.organization_id,e.counterparty_id,cp.name as counterparty_name,cp.party_type,b.obligation_id,b.event_id,b.obligation_key,b.obligation_type,e.source_module,e.source_record_id,e.source_event_key,e.description,e.event_date,e.due_date,b.currency,b.base_currency,b.settleable_amount,b.adjusted_settleable_base_amount as due_base_amount,b.applied_base_amount,b.consumed_advance_base_amount,b.outstanding_base_amount,greatest(0::numeric,b.adjusted_settleable_base_amount-b.outstanding_base_amount) as settled_base_amount,(e.due_date is not null and e.due_date < current_date and b.outstanding_base_amount > 0) as is_overdue
@@ -5354,8 +5547,10 @@ count(*) filter (where outstanding_base_amount>0) as open_item_count
 from public.financial_counterparty_open_items where outstanding_base_amount>0
 group by organization_id,counterparty_id,counterparty_name,party_type,base_currency
 ;
+COMMIT;
 
 \echo MIGRATION 20261007115137 liquidity_accounting_taxonomy_v2_production
+BEGIN;
 -- Full cash-flow accounting taxonomy: group -> detailed treatment -> Financial Core classification.
 alter table public.liquidity_flow_categories add column if not exists accounting_group text, add column if not exists treatment_code text
 ;
@@ -5392,14 +5587,18 @@ where code in ('OPERATING','OTHER','PAYROLL','TAX','FINANCING','INVESTMENT')
       and n.code='OPERATING_EXPENSE'
   )
 ;
+COMMIT;
 
 \echo MIGRATION 20261007124908 link_zatca_to_accounting_invoice_v1
+BEGIN;
 alter table public.vat_einvoices add column if not exists accounting_document_id uuid null references public.vat_documents(id)
 ;
 create unique index if not exists vat_einvoices_accounting_document_uidx on public.vat_einvoices(accounting_document_id) where accounting_document_id is not null
 ;
+COMMIT;
 
 \echo MIGRATION 20261007124911 accounting_invoice_zatca_lifecycle_v1
+BEGIN;
 alter table public.vat_documents
   add column if not exists preceding_document_id uuid null references public.vat_documents(id),
   add column if not exists zatca_status text not null default 'NOT_ISSUED' check (zatca_status in ('NOT_ISSUED','DRAFT','ISSUED','SUBMITTED','CLEARED','REPORTED'))
@@ -5412,8 +5611,10 @@ alter table public.vat_documents add constraint vat_documents_document_kind_chec
 ;
 alter table public.vat_documents validate constraint vat_documents_document_kind_check
 ;
+COMMIT;
 
 \echo MIGRATION 20261007124918 link_zatca_accounting_document_rpc_v1
+BEGIN;
 create or replace function public.link_zatca_accounting_document(p_einvoice_id uuid, p_document_id uuid)
 returns void language plpgsql security definer set search_path='pg_catalog','public' as $$
 declare e public.vat_einvoices%rowtype; d public.vat_documents%rowtype;
@@ -5433,8 +5634,10 @@ end $$
 ;
 grant execute on function public.link_zatca_accounting_document(uuid,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261007130141 liquidity_counterparty_party_type_permissions_v1
+BEGIN;
 -- Keep counterparty writes column-scoped while allowing the accounting party taxonomy field.
 revoke insert, update on public.liquidity_counterparties from authenticated
 ;
@@ -5444,8 +5647,10 @@ grant insert (organization_id, name, party_type, party_type_id, contact_name, ph
 grant update (name, party_type, party_type_id, contact_name, phone, email, notes, active, updated_at)
   on public.liquidity_counterparties to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261007130827 financial_vat_counterparty_map_rls_v1
+BEGIN;
 alter table public.financial_vat_counterparty_map enable row level security
 ;
 drop policy if exists financial_vat_counterparty_map_member_read on public.financial_vat_counterparty_map
@@ -5467,8 +5672,10 @@ with check (
 ;
 grant select, insert on public.financial_vat_counterparty_map to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261007131739 unified_liquidity_owner_permissions_v1
+BEGIN;
 create or replace function private.can_write_liquidity(p_organization_id uuid)
 returns boolean language sql stable security definer set search_path='pg_catalog','public' as $$
   select public.is_organization_admin(p_organization_id) or public.has_organization_permission(p_organization_id,'liquidity.edit');
@@ -5486,8 +5693,10 @@ grant insert (organization_id,name,party_type,party_type_id,contact_name,phone,e
 ;
 grant update (name,party_type,party_type_id,contact_name,phone,email,notes,active,updated_at) on public.liquidity_counterparties to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261007131743 owner_full_control_sql_grants_v1
+BEGIN;
 -- OWNER/ADMIN are already full-control in has_organization_permission.
 -- Normalize SQL grants so PostgreSQL reaches RLS instead of failing before it.
 grant select on public.liquidity_accounts, public.liquidity_flows, public.liquidity_counterparties,
@@ -5515,12 +5724,16 @@ grant update (name_ar,name_en,active) on public.liquidity_party_types to authent
 ;
 -- Financially mutable balance/settlement columns intentionally remain outside direct grants.
 ;
+COMMIT;
 
 \echo MIGRATION 20261007132948 financial_core_owner_links_rls_v2
+BEGIN;
 create policy financial_event_links_owner_write on public.financial_event_links for insert to authenticated with check (public.is_organization_admin(organization_id))
 ;
+COMMIT;
 
 \echo MIGRATION 20261007143424 prevent_unlinked_zatca_sales_number_collision_v1
+BEGIN;
 create or replace function public.prevent_unlinked_zatca_sales_number_collision()
 returns trigger language plpgsql set search_path='pg_catalog','public' as $$
 begin
@@ -5543,8 +5756,10 @@ create trigger trg_prevent_unlinked_zatca_sales_number_collision
 before insert or update of organization_id,invoice_number,document_type,accounting_document_id
 on public.vat_einvoices for each row execute function public.prevent_unlinked_zatca_sales_number_collision()
 ;
+COMMIT;
 
 \echo MIGRATION 20261007143617 amend_unissued_sales_invoice_v1
+BEGIN;
 create or replace function public.amend_unissued_sales_invoice(
  p_document_id uuid,p_document_number text,p_transaction_date date,p_due_date date,p_contact_id uuid,
  p_counterparty_name text,p_counterparty_tax_number text,p_supply_type text,p_net numeric,p_tax_rate numeric,p_tax numeric,p_gross numeric,
@@ -5599,8 +5814,10 @@ revoke all on function public.amend_unissued_sales_invoice(uuid,text,date,date,u
 ;
 grant execute on function public.amend_unissued_sales_invoice(uuid,text,date,date,uuid,text,text,text,numeric,numeric,numeric,numeric,jsonb,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261007144736 amend_unsettled_purchase_invoice_v1
+BEGIN;
 create or replace function public.amend_unsettled_purchase_invoice(p_document_id uuid,p_document_number text,p_transaction_date date,p_due_date date,p_contact_id uuid,p_counterparty_name text,p_counterparty_tax_number text,p_supply_type text,p_net numeric,p_tax_rate numeric,p_tax numeric,p_gross numeric,p_recoverable_percent numeric,p_line_items jsonb,p_notes text)
 returns uuid language plpgsql security definer set search_path='pg_catalog','public' as $$
 declare v_org uuid; v_event uuid; v_counterparty uuid; v_opex uuid; v_tax_class uuid; v_flow uuid; v_settled numeric:=0;
@@ -5632,8 +5849,10 @@ revoke all on function public.amend_unsettled_purchase_invoice(uuid,text,date,da
 ;
 grant execute on function public.amend_unsettled_purchase_invoice(uuid,text,date,date,uuid,text,text,text,numeric,numeric,numeric,numeric,numeric,jsonb,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261007150032 amend_purchase_invoice_restore_cash_forecast_v2
+BEGIN;
 create or replace function public.amend_unsettled_purchase_invoice(p_document_id uuid,p_document_number text,p_transaction_date date,p_due_date date,p_contact_id uuid,p_counterparty_name text,p_counterparty_tax_number text,p_supply_type text,p_net numeric,p_tax_rate numeric,p_tax numeric,p_gross numeric,p_recoverable_percent numeric,p_line_items jsonb,p_notes text)
 returns uuid language plpgsql security definer set search_path='pg_catalog','public' as $$
 declare v_org uuid; v_event uuid; v_counterparty uuid; v_opex uuid; v_tax_class uuid; v_flow uuid; v_settled numeric:=0; v_currency text;
@@ -5669,8 +5888,10 @@ begin
  return p_document_id;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261007211501 delete_unissued_zatca_draft_bundle_v1
+BEGIN;
 create or replace function public.delete_unissued_zatca_draft_bundle(p_einvoice_id uuid)
 returns jsonb
 language plpgsql
@@ -5737,8 +5958,10 @@ revoke all on function public.delete_unissued_zatca_draft_bundle(uuid) from publ
 ;
 grant execute on function public.delete_unissued_zatca_draft_bundle(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261008031940 atomic_zatca_draft_amendment
+BEGIN;
 -- One transaction replaces the draft header and lines and synchronizes its unposted sales source.
 -- Invoker security preserves the organization RLS and existing write permissions.
 create or replace function public.amend_zatca_draft_atomic(p_invoice_id uuid, p_header jsonb, p_lines jsonb)
@@ -5929,8 +6152,10 @@ revoke all on function public.amend_zatca_draft_atomic(uuid,jsonb,jsonb) from pu
 ;
 grant execute on function public.amend_zatca_draft_atomic(uuid,jsonb,jsonb) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261008031944 amend_pending_invoice_receipt
+BEGIN;
 -- A receipt may be corrected before approval/posting. Posted cash is immutable and requires reversal.
 create or replace function public.amend_pending_invoice_receipt(p_event_id uuid,p_account_id uuid,p_date date,p_amount numeric)
 returns jsonb language plpgsql security invoker set search_path='' as $fn$
@@ -5971,8 +6196,10 @@ revoke all on function public.amend_pending_invoice_receipt(uuid,uuid,date,numer
 ;
 grant execute on function public.amend_pending_invoice_receipt(uuid,uuid,date,numeric) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261008081740 fix_unissued_invoice_delete_authorization
+BEGIN;
 -- Only the unpublished electronic draft is disposable. Approved recognition,
 -- receipt instructions and posted cash must never be erased with its source.
 create or replace function public.delete_unissued_zatca_draft_bundle(p_einvoice_id uuid)
@@ -6047,8 +6274,10 @@ revoke all on function public.delete_unissued_zatca_draft_bundle(uuid) from publ
 ;
 grant execute on function public.delete_unissued_zatca_draft_bundle(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261008083753 amend_vat_contact_master
+BEGIN;
 -- Master data only: historical invoice snapshots and amounts are untouched.
 create or replace function public.amend_vat_contact_master(p_contact_id uuid,p_values jsonb,p_expected_updated_at timestamptz)
 returns jsonb language plpgsql security invoker set search_path='' as $fn$
@@ -6081,8 +6310,10 @@ revoke all on function public.amend_vat_contact_master(uuid,jsonb,timestamptz) f
 ;
 grant execute on function public.amend_vat_contact_master(uuid,jsonb,timestamptz) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111020 vat_note_financial_workflow
+BEGIN;
 -- Notes are separate recognition adjustments; cash refunds remain separate settlements.
 create or replace function public.prepare_vat_note_financial_event(p_document_id uuid)
 returns uuid language plpgsql security definer set search_path='' as $$
@@ -6259,8 +6490,10 @@ do $signed$ declare definition text; begin
  end if;
 end $signed$
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111022 vat_note_workflow_guards
+BEGIN;
 -- Keep bound source financial evidence immutable while allowing an issued note's
 -- lifecycle status to mirror its linked electronic invoice.
 do $guards$ declare definition text; begin
@@ -6309,8 +6542,10 @@ revoke all on function private.validate_vat_note_document() from public,anon,aut
 ;
 create trigger validate_vat_note_document before insert on public.vat_documents for each row execute function private.validate_vat_note_document()
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111024 vat_note_source_fingerprint
+BEGIN;
 -- Notes are separate recognition adjustments; cash refunds remain separate settlements.
 create or replace function public.prepare_vat_note_financial_event(p_document_id uuid)
 returns uuid language plpgsql security definer set search_path='' as $$
@@ -6417,8 +6652,10 @@ do $guard$ declare definition text; begin
  end if;
 end $guard$
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111027 vat_note_forecast_integrity
+BEGIN;
 -- Validate adjusted invoice forecasts against live obligations, not original gross.
 create or replace function private.vat_note_forecast_valid(p_flow public.liquidity_flows)
 returns boolean language plpgsql security definer set search_path='' as $$
@@ -6452,8 +6689,10 @@ $branch$);
  end if;
 end $guard$
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111029 vat_note_legacy_projection_dispatch
+BEGIN;
 -- Dispatch the new note adapter to its own projection and avoid PL/pgSQL record aliases.
 do $dispatch$ declare definition text; begin
  if to_regprocedure('private.phase2c_expected_integrity()') is not null then
@@ -6469,8 +6708,10 @@ do $dispatch$ declare definition text; begin
  end if;
 end $dispatch$
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111031 vat_note_refund_adjustment_guard
+BEGIN;
 -- Linked credit notes may reduce a paid invoice and create a separate refund
 -- obligation. Other adjustment commands keep the existing unsettled-only rule.
 do $guard$ declare definition text; begin
@@ -6481,8 +6722,10 @@ do $guard$ declare definition text; begin
  end if;
 end $guard$
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111035 vat_note_cash_flow_link_guard
+BEGIN;
 do $guard$ declare definition text; begin
  if to_regprocedure('private.phase2c_links_integrity()') is not null then
   definition:=pg_get_functiondef('private.phase2c_links_integrity()'::regprocedure);
@@ -6496,8 +6739,10 @@ do $guard$ declare definition text; begin
  end if;
 end $guard$
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111037 vat_note_lifecycle_integrity
+BEGIN;
 create or replace function private.guard_linked_vat_note_source()
 returns trigger language plpgsql security definer set search_path='' as $$
 begin
@@ -6531,8 +6776,10 @@ do $lifecycle$ declare definition text; begin
  execute definition;
 end $lifecycle$
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111039 vat_note_settlement_forecast_parity
+BEGIN;
 -- Cash posting updates flow evidence before the settlement reaches ACTUAL.
 -- Validate the projection total against adjusted obligations throughout that transaction.
 -- Validate adjusted invoice forecasts against live obligations, not original gross.
@@ -6553,8 +6800,10 @@ end $$
 ;
 revoke all on function private.vat_note_forecast_valid(public.liquidity_flows) from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111801 vat_note_pending_command_cleanup
+BEGIN;
 -- The disposable pending bundle must also remove its unapproved command registry entry.
 do $cleanup$ declare definition text; begin
  definition:=pg_get_functiondef('public.delete_unissued_zatca_draft_bundle(uuid)'::regprocedure);
@@ -6562,8 +6811,10 @@ do $cleanup$ declare definition text; begin
  execute definition;
 end $cleanup$
 ;
+COMMIT;
 
 \echo MIGRATION 20261008111804 vat_note_settlement_serialization
+BEGIN;
 -- Serialize invoice settlement and note adjustments on the same root obligation.
 -- The bank operation and this validation share the transaction, so a conflict
 -- rolls back all bank and settlement evidence.
@@ -6588,8 +6839,10 @@ revoke all on function private.guard_vat_note_settlement() from public,anon,auth
 ;
 create trigger guard_vat_note_settlement before update of status on public.financial_events for each row execute function private.guard_vat_note_settlement()
 ;
+COMMIT;
 
 \echo MIGRATION 20261008141251 vat_invoice_number_sequence
+BEGIN;
 create table public.vat_invoice_number_sequences (
   organization_id uuid primary key references public.organizations(id) on delete cascade,
   prefix text not null,
@@ -6665,14 +6918,18 @@ revoke all on function public.peek_vat_invoice_number(uuid) from public,anon
 ;
 grant execute on function public.peek_vat_invoice_number(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261008141545 invoice_sequence_minimum_permissions
+BEGIN;
 revoke all on public.vat_invoice_number_sequences from authenticated
 ;
 grant select,insert,update on public.vat_invoice_number_sequences to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010093125 asset_zakat_snapshot_integrity
+BEGIN;
 -- Additive: preserve existing assessments, prices, payments and original lots.
 alter table public.zakat_assessment_lines add column if not exists valuation_snapshot jsonb not null default '{}'::jsonb
 ;
@@ -6896,8 +7153,10 @@ revoke all on function public.allocate_zakat_payment_fifo(uuid) from public,anon
 ;
 grant execute on function public.allocate_zakat_payment_fifo(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010124856 asset_acquisition_and_register
+BEGIN;
 create or replace function private.ensure_asset_cash_forecast(p_event_id uuid)
 returns uuid language plpgsql security definer set search_path=pg_catalog,public as $$
 declare e public.financial_events%rowtype;o public.financial_event_obligations%rowtype;fid uuid;party text;
@@ -7044,8 +7303,10 @@ revoke update,delete on public.asset_lifecycle_commands from authenticated,anon
 ;
 create index asset_lifecycle_asset_index on public.asset_lifecycle_commands(asset_account_id,created_at)
 ;
+COMMIT;
 
 \echo MIGRATION 20261010124907 asset_lifecycle_approval_commands
+BEGIN;
 create or replace function public.prepare_asset_lifecycle(p_asset_id uuid,p_payload jsonb,p_request_id uuid)
 returns jsonb language plpgsql security invoker set search_path=public as $$
 declare uid uuid:=auth.uid();a public.asset_accounts%rowtype;c public.asset_lifecycle_commands%rowtype;kind text:=p_payload->>'operation';dt date:=(p_payload->>'date')::date;qty numeric:=coalesce((p_payload->>'quantity')::numeric,0);amt numeric:=coalesce((p_payload->>'amount')::numeric,0);q numeric;b numeric;cost numeric;vat numeric:=coalesce((p_payload->>'vat_amount')::numeric,0);cid uuid;aid uuid;taxid uuid;eid uuid;lines jsonb;obs jsonb:='[]';base text;gain numeric;fingerprint text:=md5(p_asset_id::text||p_payload::text);
@@ -7157,8 +7418,10 @@ begin
  return new;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261010130054 existing_asset_purchase
+BEGIN;
 create or replace function public.purchase_existing_asset(p_asset_id uuid,p_asset jsonb,p_request_id uuid)
 returns jsonb language plpgsql security invoker set search_path=public as $$
 declare uid uuid:=auth.uid();a public.asset_accounts%rowtype;fund public.asset_accounts%rowtype;m jsonb:=coalesce(p_asset->'metadata','{}'::jsonb);org uuid:=nullif(p_asset->>'organization_id','')::uuid;scope text:=coalesce(p_asset->>'ownership_scope','PERSONAL');base text;fx numeric;qty numeric;net numeric;vat numeric;recover numeric;cost numeric;dt date;mode text;tid uuid;wid uuid;eid uuid;cid uuid;taxid uuid;ft text;payload jsonb;lines jsonb;remaining numeric;take numeric;tq numeric;totalq numeric:=0;l record;fingerprint text:=md5(p_asset::text);
@@ -7234,8 +7497,10 @@ revoke all on function public.purchase_existing_asset(uuid,jsonb,uuid) from publ
 ;
 grant execute on function public.purchase_existing_asset(uuid,jsonb,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010130248 asset_purchase_recognition
+BEGIN;
 create or replace function public.sync_asset_purchase_recognition()
 returns trigger language plpgsql security invoker set search_path=public as $$
 declare t public.transactions%rowtype;l record;f record;
@@ -7267,8 +7532,10 @@ create trigger trg_asset_purchase_recognition after update of status on public.f
 ;
 revoke all on function public.sync_asset_purchase_recognition() from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010130311 asset_vat_alias_and_personal_exits
+BEGIN;
 create or replace function private.bind_asset_vat_document(p_document_id uuid,p_transaction_id uuid)
 returns uuid language plpgsql security definer set search_path=pg_catalog,public as $$
 declare d public.vat_documents%rowtype;t public.transactions%rowtype;e public.financial_events%rowtype;uid uuid:=auth.uid();mapped uuid;vat numeric;fx numeric;binding_entity uuid;
@@ -7395,8 +7662,10 @@ revoke execute on function public.post_asset_disposal(uuid,uuid,date,numeric,tex
 ;
 grant execute on function public.post_asset_disposal(uuid,uuid,date,numeric,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010130943 asset_invoice_binding_integrity
+BEGIN;
 create or replace function private.bind_asset_vat_document(p_document_id uuid,p_transaction_id uuid)
 returns uuid language plpgsql security definer set search_path=pg_catalog,public as $$
 declare d public.vat_documents%rowtype;t public.transactions%rowtype;e public.financial_events%rowtype;uid uuid:=auth.uid();mapped uuid;vat numeric;fx numeric;binding_entity uuid;
@@ -7432,8 +7701,10 @@ end $$
 ;
 revoke all on function private.bind_asset_vat_document(uuid,uuid) from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010131056 asset_vat_binding_retries
+BEGIN;
 create or replace function private.bind_asset_vat_document(p_document_id uuid,p_transaction_id uuid)
 returns uuid language plpgsql security definer set search_path=pg_catalog,public as $$
 declare d public.vat_documents%rowtype;t public.transactions%rowtype;e public.financial_events%rowtype;uid uuid:=auth.uid();mapped uuid;vat numeric;fx numeric;binding_entity uuid;
@@ -7469,8 +7740,10 @@ end $$
 ;
 revoke all on function private.bind_asset_vat_document(uuid,uuid) from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010140923 asset_catalog_display_and_usage
+BEGIN;
 -- Additive only: no updates to asset accounts, lots, transactions or assessments.
 insert into public.asset_classes(code,name_en,name_ar,financial_classification_type)
 values ('METALS','Precious metals','المعادن الثمينة','ASSET') on conflict(code) do nothing
@@ -7489,8 +7762,10 @@ on conflict(code) do nothing
 alter table public.user_settings add column if not exists asset_usage_mode text not null default 'BOTH'
  check(asset_usage_mode in ('PERSONAL','ORGANIZATION','BOTH'))
 ;
+COMMIT;
 
 \echo MIGRATION 20261010153734 asset_transaction_delete_eligibility
+BEGIN;
 -- Delete only disconnected asset ledger entries; preserve the removed record in audit history.
 create or replace function public.asset_transaction_delete_eligibility(p_ids uuid[])
 returns table(transaction_id uuid,can_delete boolean,delete_block_reason text)
@@ -7529,8 +7804,10 @@ revoke all on function public.asset_transaction_delete_eligibility(uuid[]) from 
 ;
 grant execute on function public.asset_transaction_delete_eligibility(uuid[]) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010153840 asset_transaction_recoverable_delete
+BEGIN;
 -- Delete only disconnected asset ledger entries; preserve the removed record in audit history.
 create or replace function public.asset_transaction_delete_eligibility(p_ids uuid[])
 returns table(transaction_id uuid,can_delete boolean,delete_block_reason text)
@@ -7603,8 +7880,10 @@ revoke all on function public.restore_unlinked_asset_transaction(uuid) from publ
 ;
 grant execute on function public.restore_unlinked_asset_transaction(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010164921 final_zakat_payment_atomic_paths
+BEGIN;
 create or replace function public.reconcile_final_zakat_payments()
 returns void language plpgsql security invoker set search_path='' as $$
 declare uid uuid:=auth.uid();p record;c record;l record;d jsonb;desired jsonb:='[]';
@@ -7728,8 +8007,10 @@ revoke all on function public.close_zakat_cycle(uuid,uuid) from public,anon
 ;
 grant execute on function public.close_zakat_cycle(uuid,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261010192246 cumulative_hawl_periods_and_allocation_repair
+BEGIN;
 -- Annual lot periods advance only after a positive, frozen final assessment.
 -- Legacy final amounts, prices and payment amounts are never rewritten.
 create or replace function public.zakat_next_hawl_date(p_start date,p_calendar text)
@@ -8016,8 +8297,10 @@ begin
  end loop;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261011083844 cancel_open_assessment
+BEGIN;
 -- Cancel an unused open assessment atomically. Valuation snapshots and lines remain
 -- intact for audit; an older superseded estimate is never silently reactivated.
 create or replace function public.cancel_open_zakat_assessment(p_assessment_id uuid)
@@ -8050,8 +8333,10 @@ revoke all on function public.cancel_open_zakat_assessment(uuid) from public,ano
 ;
 grant execute on function public.cancel_open_zakat_assessment(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261011091428 cancel_unused_assessment_history
+BEGIN;
 -- Also allow unused historical previews in a closed cycle to be archived.
 -- The final assessment, current closed-cycle pointer, payments and prices stay protected.
 create or replace function public.cancel_open_zakat_assessment(p_assessment_id uuid)
@@ -8110,8 +8395,10 @@ begin
  return new;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261012121033 manual_zakat_assessment_drafts
+BEGIN;
 -- Separate, immutable manual review drafts. Never consumed by lot/cycle liabilities.
 create table public.manual_zakat_assessments (
  id uuid primary key default gen_random_uuid(),
@@ -8156,16 +8443,20 @@ create policy manual_zakat_create on public.manual_zakat_assessments for insert 
 ;
 comment on table public.manual_zakat_assessments is 'Immutable manual review drafts; separate from asset-lot assessments, payments and financial liabilities.'
 ;
+COMMIT;
 
 \echo MIGRATION 20261012200504 financial_cash_view_rls_fix
+BEGIN;
 ALTER VIEW public.liquidity_flow_settlement_reconciliation SET (security_invoker=true)
 ;
 REVOKE ALL ON public.liquidity_flow_settlement_reconciliation FROM PUBLIC, anon
 ;
 GRANT SELECT ON public.liquidity_flow_settlement_reconciliation TO authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261012201633 financial_cash_atomic_posting_integrity
+BEGIN;
 BEGIN
 ;
 CREATE OR REPLACE FUNCTION private.cash_post_financial_settlement_atomic(p_financial_event_id uuid, p_account_id uuid, p_direction text, p_settlement_date date, p_amount numeric, p_currency text, p_exchange_rate numeric, p_base_amount numeric, p_allocations jsonb DEFAULT '[]'::jsonb)
@@ -8216,8 +8507,10 @@ return jsonb_build_object('financial_event_id',e.id,'liquidity_settlement_id',si
 ;
 COMMIT
 ;
+COMMIT;
 
 \echo MIGRATION 20261012201658 financial_cash_views_and_scoped_classification_insert
+BEGIN;
 -- Financial corrections tested in the Production parity QA environment.
 BEGIN
 ;
@@ -8255,8 +8548,10 @@ CREATE POLICY financial_classifications_org_insert ON public.financial_classific
 ;
 COMMIT
 ;
+COMMIT;
 
 \echo MIGRATION 20261012201659 financial_cash_atomic_status_guard
+BEGIN;
 BEGIN
 ;
 CREATE OR REPLACE FUNCTION public.transition_financial_event(p_event_id uuid, p_new_status text, p_note text DEFAULT NULL::text)
@@ -8270,8 +8565,10 @@ update public.financial_events set status=p_new_status,updated_at=now(),posted_b
 ;
 COMMIT
 ;
+COMMIT;
 
 \echo MIGRATION 20261012201700 financial_cash_atomic_reversal
+BEGIN;
 BEGIN
 ;
 CREATE OR REPLACE FUNCTION private.cash_reverse_financial_settlement_atomic(p_original_settlement_id uuid, p_reversal_event_id uuid, p_reason text)
@@ -8358,8 +8655,10 @@ GRANT EXECUTE ON FUNCTION public.reverse_financial_settlement(uuid,uuid,text) TO
 ;
 COMMIT
 ;
+COMMIT;
 
 \echo MIGRATION 20261012201706 financial_bound_invoice_source_guard
+BEGIN;
 BEGIN
 ;
 CREATE OR REPLACE FUNCTION private.accounting_invoice_binding_state(p_org uuid,p_document uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='pg_catalog','public' AS $$
@@ -8389,8 +8688,10 @@ REVOKE ALL ON FUNCTION private.guard_accounting_invoice_source() FROM PUBLIC,ano
 ;
 COMMIT
 ;
+COMMIT;
 
 \echo MIGRATION 20261012201707 financial_budget_cash_metrics_and_authenticated_api_access
+BEGIN;
 BEGIN
 ;
 CREATE OR REPLACE FUNCTION public.financial_budget_report(p_plan uuid)
@@ -8410,8 +8711,10 @@ END $access$
 ;
 COMMIT
 ;
+COMMIT;
 
 \echo MIGRATION 20261012201708 asset_purchase_draft_workspace
+BEGIN;
 BEGIN
 ;
 CREATE OR REPLACE FUNCTION public.guard_asset_acquisition_edit()
@@ -8530,8 +8833,10 @@ GRANT EXECUTE ON FUNCTION public.archive_asset_purchase_draft(uuid) TO authentic
 ;
 COMMIT
 ;
+COMMIT;
 
 \echo MIGRATION 20261013050416 asset_operation_edit_and_reverse_workspace
+BEGIN;
 BEGIN
 ;
 -- Financial edit commands reuse the existing lifecycle engine and preserve the old draft.
@@ -8707,8 +9012,10 @@ end $function$
 ;
 COMMIT
 ;
+COMMIT;
 
 \echo MIGRATION 20261013214218 investment_contracts_and_controlled_operations
+BEGIN;
 -- Fixed-rate deposit/bond/sukuk contracts. Forecasts and estimates never post cash or zakat.
 create table if not exists public.investment_contracts(
  id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),organization_id uuid references public.organizations(id),
@@ -8748,8 +9055,10 @@ revoke all on public.investment_contracts,public.investment_operations from publ
 ;
 grant select on public.investment_contracts,public.investment_operations to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261013214222 investment_posted_asset_ledger
+BEGIN;
 create or replace function private.investment_apply_posted(p_operation_id uuid) returns void language plpgsql security definer set search_path=pg_catalog,public,private as $$
 declare o public.investment_operations%rowtype;c public.investment_contracts%rowtype;m jsonb;base text;fx numeric;cost numeric;assetcost numeric;tid uuid;banktid uuid;transfer uuid:=gen_random_uuid();remaining numeric;take numeric;tq numeric;l record;gain numeric;
 begin
@@ -8828,8 +9137,10 @@ end $$
 ;
 revoke all on function private.investment_apply_posted(uuid) from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261013214225 investment_contract_draft_commands
+BEGIN;
 create or replace function private.investment_save(p_action text,p_id uuid,p_payload jsonb,p_request_id uuid)returns jsonb language plpgsql security definer set search_path=pg_catalog,public,private as $$
 declare uid uuid:=auth.uid();c public.investment_contracts%rowtype;o public.investment_operations%rowtype;t jsonb;org uuid;base text;aid uuid;rid uuid;sid uuid;fid uuid;obid uuid;classid uuid;extraid uuid;v_amount numeric;fx numeric;dt date;kind text;lines jsonb;val numeric;cost numeric;book numeric;delta numeric;v record;terms_hash text;classcode text;classtype text;withheld numeric;replacement jsonb;
 begin
@@ -8873,8 +9184,10 @@ end $$
 ;
 revoke all on function private.investment_save(text,uuid,jsonb,uuid)from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261013214229 investment_operation_preparation
+BEGIN;
 create or replace function private.investment_prepare(p_action text,p_id uuid,p_payload jsonb,p_request_id uuid)returns jsonb language plpgsql security definer set search_path=pg_catalog,public,private as $$
 declare uid uuid:=auth.uid();c public.investment_contracts%rowtype;o public.investment_operations%rowtype;t jsonb;org uuid;base text;aid uuid;rid uuid;sid uuid;fid uuid;obid uuid;classid uuid;extraid uuid;v_amount numeric;fx numeric;dt date;kind text;lines jsonb;val numeric;cost numeric;book numeric;delta numeric;v record;terms_hash text;classcode text;classtype text;withheld numeric;replacement jsonb;
 begin
@@ -8942,8 +9255,10 @@ end $$
 ;
 revoke all on function private.investment_prepare(text,uuid,jsonb,uuid)from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261013215803 investment_approval_and_cash_commands
+BEGIN;
 create or replace function private.investment_draft_action(p_action text,p_id uuid,p_payload jsonb,p_request_id uuid)returns jsonb language plpgsql security definer set search_path=pg_catalog,public,private as $$
 declare uid uuid:=auth.uid();c public.investment_contracts%rowtype;o public.investment_operations%rowtype;t jsonb;org uuid;base text;aid uuid;rid uuid;sid uuid;fid uuid;obid uuid;classid uuid;extraid uuid;v_amount numeric;fx numeric;dt date;kind text;lines jsonb;val numeric;cost numeric;book numeric;delta numeric;v record;terms_hash text;classcode text;classtype text;withheld numeric;replacement jsonb;
 begin
@@ -9089,8 +9404,10 @@ revoke all on function public.investment_command(text,uuid,jsonb,uuid)from publi
 ;
 grant execute on function public.investment_command(text,uuid,jsonb,uuid)to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261013215824 investment_source_integrity_and_forecasts
+BEGIN;
 create or replace function private.investment_cash_event_hook()returns trigger language plpgsql security definer set search_path=pg_catalog,public,private as $$
 declare op uuid;
 begin
@@ -9207,8 +9524,10 @@ revoke all on function private.investment_settlement_source_guard()from public,a
 ;
 do $$begin if not exists(select 1 from pg_trigger where tgname='investment_settlement_source_guard'and tgrelid='public.financial_event_obligation_allocations'::regclass)then create trigger investment_settlement_source_guard before insert or update on public.financial_event_obligation_allocations for each row execute function private.investment_settlement_source_guard();end if;end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261013215829 investment_institution_zakat_coverage
+BEGIN;
 -- Coverage follows the protected contract and capital-lot ancestry, not editable
 -- lot metadata or a fabricated zakat payment. Date intervals are [from,to).
 create or replace function public.investment_zakat_lot_coverage(p_calendar text)
@@ -9413,8 +9732,10 @@ revoke all on function public.save_zakat_assessment_snapshot(jsonb,jsonb,uuid) f
 ;
 grant execute on function public.save_zakat_assessment_snapshot(jsonb,jsonb,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261013215833 investment_final_coverage_redemption_guard
+BEGIN;
 create or replace function private.investment_assert_coverage_redemption(p_contract_id uuid,p_date date)
 returns void language plpgsql security invoker set search_path='' as $$
 begin
@@ -9577,8 +9898,10 @@ end $$
 ;
 revoke all on function private.investment_apply_posted(uuid) from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261014082903 financial_register_cash_opening_and_purchase_guards
+BEGIN;
 alter table public.liquidity_accounts add column if not exists metadata jsonb not null default '{}'::jsonb
 ;
 create unique index if not exists liquidity_opening_request_unique on public.liquidity_accounts(created_by,(metadata->>'opening_request_id')) where metadata ? 'opening_request_id'
@@ -9693,8 +10016,10 @@ revoke all on function public.transfer_personal_financial_account(jsonb) from pu
 ;
 grant execute on function public.transfer_personal_financial_account(jsonb) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261014082906 financial_register_opening_column_privileges
+BEGIN;
 -- Existing grants intentionally allow only specific insert columns.
 -- created_by retains its auth.uid() default; RLS and role checks remain active.
 grant insert(metadata) on public.liquidity_accounts to authenticated
@@ -9748,8 +10073,10 @@ revoke all on function public.open_financial_account(jsonb) from public,anon
 ;
 grant execute on function public.open_financial_account(jsonb) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261014114701 advance_payment_atomic_post
+BEGIN;
 -- The public entry point preserves caller identity. The private atomic writer is
 -- privileged only because balance/settlement columns are intentionally not client writable.
 create or replace function private.post_advance_request_atomic(p_event_id uuid)
@@ -9834,8 +10161,10 @@ revoke all on function public.post_advance_request(uuid) from public,anon
 ;
 grant execute on function public.post_advance_request(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261014115836 advance_payment_status_protection
+BEGIN;
 create or replace function private.guard_advance_workflow()returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
 begin
  if old.source_module='ADVANCE_WORKSPACE' and old.status='COMMITTED' and (to_jsonb(new)-array['status','updated_at','posted_by','posted_at','settlement_date']) is distinct from (to_jsonb(old)-array['status','updated_at','posted_by','posted_at','settlement_date']) then raise exception 'ADVANCE_COMMITTED_REQUEST_IMMUTABLE';end if;
@@ -9850,8 +10179,10 @@ revoke all on function private.guard_advance_workflow() from public,anon,authent
 ;
 create trigger guard_advance_workflow before update on public.financial_events for each row execute function private.guard_advance_workflow()
 ;
+COMMIT;
 
 \echo MIGRATION 20261014115847 advance_payment_classifications
+BEGIN;
 create or replace function private.ensure_advance_classifications(p_org uuid)returns void language plpgsql security definer set search_path=pg_catalog,public as $$
 begin
  if auth.uid() is null or not public.financial_core_can(p_org,'financial_core.create') or not public.effective_organization_permission(p_org,'liquidity.edit',null,null) then raise exception 'ADVANCE_ACTION_DENIED';end if;
@@ -9870,8 +10201,10 @@ revoke all on function public.ensure_advance_classifications(uuid) from public,a
 ;
 grant execute on function public.ensure_advance_classifications(uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261014115851 advance_request_input_protection
+BEGIN;
 create or replace function private.guard_advance_request_inputs()returns trigger language plpgsql security invoker set search_path=pg_catalog,public as $$
 declare eid uuid;e public.financial_events%rowtype;
 begin
@@ -9895,8 +10228,10 @@ create trigger guard_advance_obligations before insert or update or delete on pu
 ;
 create trigger guard_advance_links before insert or update or delete on public.financial_event_links for each row execute function private.guard_advance_request_inputs()
 ;
+COMMIT;
 
 \echo MIGRATION 20261014115855 advance_ledger_write_protection
+BEGIN;
 create or replace function private.guard_advance_ledger()returns trigger language plpgsql security invoker set search_path=pg_catalog,public as $$
 declare r jsonb;eid uuid;protected boolean;
 begin
@@ -9923,8 +10258,10 @@ create trigger guard_advance_cash before insert or update or delete on public.li
 ;
 create trigger guard_advance_flows before update or delete on public.liquidity_flows for each row execute function private.guard_advance_ledger()
 ;
+COMMIT;
 
 \echo MIGRATION 20261014140508 personal_payables
+BEGIN;
 create table public.personal_payables(
  id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),request_id uuid not null,
  party text not null check(length(trim(party)) between 1 and 120),description text not null check(length(trim(description)) between 3 and 500),
@@ -10047,8 +10384,10 @@ revoke all on function private.guard_personal_payable_cash() from public,anon,au
 ;
 create trigger guard_personal_payable_cash before update or delete on public.transactions for each row execute function private.guard_personal_payable_cash()
 ;
+COMMIT;
 
 \echo MIGRATION 20261014143929 debt_categories
+BEGIN;
 -- Classification metadata only. Monetary obligations, source events and cash remain unchanged.
 create table public.financial_debt_categories(
  origin text not null check(origin in('PERSONAL_RECEIVABLE','PERSONAL_PAYABLE','CORE')),
@@ -10131,8 +10470,10 @@ revoke all on function public.personal_payable_categorized_command(jsonb) from p
 ;
 grant execute on function public.personal_payable_categorized_command(jsonb) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261014205705 debt_contracts_and_flow_linking
+BEGIN;
 -- Shared debt contracts: opening balances are noncash; new loans retain principal after funding.
 create table public.debt_contracts(
  id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id),
@@ -10333,8 +10674,10 @@ revoke all on function private.guard_debt_installment_allocation()from public,an
 ;
 revoke all on function private.guard_debt_source_flow()from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261015140222 debt_operations_phase2
+BEGIN;
 -- Source-managed requests reuse the existing approval and cash reversal engines.
 create table public.debt_operation_requests(
  id uuid primary key default gen_random_uuid(), organization_id uuid not null references public.organizations(id),
@@ -10586,8 +10929,10 @@ create or replace function private.guard_debt_contract_event()returns trigger la
   if new.status='REVERSED'and old.status<>'REVERSED'and not(current_user='postgres'and exists(select 1 from public.debt_operation_requests r where r.target_id=old.id and r.kind='REVERSE'and r.execution_state='EXECUTING'and r.organization_id=old.organization_id))then raise exception 'DEBT_CONTRACT_REVERSAL_REQUIRES_SOURCE';end if;
  end if;return new;end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261015140226 personal_financing_phase2
+BEGIN;
 create table public.personal_financings(
  id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),request_id uuid not null,
  kind text not null check(kind in('LOAN','ADVANCE')),side text not null check(side in('RECEIVABLE','PAYABLE')),
@@ -10705,8 +11050,10 @@ revoke all on function private.guard_personal_financing_asset()from public,anon,
 ;
 create trigger personal_financing_asset_guard before update or delete on public.asset_accounts for each row execute function private.guard_personal_financing_asset()
 ;
+COMMIT;
 
 \echo MIGRATION 20261015220048 debt_collection_and_payroll_phase3
+BEGIN;
 -- Append-only collection notes; no change to debt balances or due dates.
 create table if not exists public.debt_collection_followups(
  id uuid primary key default gen_random_uuid(),request_id uuid not null,user_id uuid not null references auth.users(id),organization_id uuid references public.organizations(id),
@@ -10946,8 +11293,10 @@ revoke all on function private.guard_payroll_linked_flow()from public,anon,authe
 ;
 do $trigger$begin if not exists(select 1 from pg_trigger where tgrelid='public.liquidity_flows'::regclass and tgname='payroll_linked_flow_guard')then create trigger payroll_linked_flow_guard before update or delete on public.liquidity_flows for each row execute function private.guard_payroll_linked_flow();end if;end $trigger$
 ;
+COMMIT;
 
 \echo MIGRATION 20261015220053 debt_payroll_posting_audit_guard
+BEGIN;
 -- Allow only source-controlled posting to populate posted_by/posted_at.
 create or replace function private.guard_debt_payroll()returns trigger language plpgsql security invoker set search_path=pg_catalog,public as $$declare r jsonb;eid uuid;begin
  r:=case when tg_op='DELETE'then to_jsonb(old)else to_jsonb(new)end;
@@ -10969,8 +11318,10 @@ end $$
 ;
 revoke all on function private.guard_debt_payroll()from public,anon,authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261019144052 roles_module_catalog_alignment
+BEGIN;
 -- Align role writes with the permission catalog already enforced by the table.
 -- Does not change any role, assignment, override or financial data.
 create or replace function public.normalize_role_permission_catalog(p_permissions text[])
@@ -11055,8 +11406,10 @@ revoke all on function public.delete_organization_role(uuid,uuid) from public,an
 ;
 grant execute on function public.delete_organization_role(uuid,uuid) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261019153443 zakat_payment_cash_account_link
+BEGIN;
 -- Connect personal zakat payments to the existing cash FIFO ledger atomically.
 -- Existing payments stay historical and are never backfilled with cash movements.
 alter table public.zakat_payments add column if not exists cash_account_id uuid references public.asset_accounts(id)
@@ -11180,8 +11533,10 @@ begin
 end;
 $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261019200646 zakat_payment_usd_settlement
+BEGIN;
 -- Saved payment-currency quote and native cash debit; no historical backfill.
 alter table public.zakat_payments add column if not exists exchange_rate numeric
 ;
@@ -11289,8 +11644,10 @@ revoke all on function public.write_zakat_payment(jsonb,uuid,boolean) from publi
 ;
 grant execute on function public.write_zakat_payment(jsonb,uuid,boolean) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261020064847 personal_debt_party_links
+BEGIN;
 -- Explicit links preserve personal debtor identity without merging equal names,
 -- rewriting opening balances, or replacing the existing cash/settlement engines.
 create table public.personal_debt_links(
@@ -11379,8 +11736,10 @@ revoke all on function public.linked_personal_debt_command(jsonb) from public,an
 ;
 grant execute on function public.linked_personal_debt_command(jsonb) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261020065136 personal_debt_funding_classification
+BEGIN;
 -- Party identity and transaction classification are independent.
 -- A new cash loan keeps LOAN classification even when the same party owes rent.
 create or replace function private.linked_personal_debt_command(p jsonb) returns jsonb
@@ -11435,8 +11794,10 @@ begin
  return r;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261020122106 structured_financing_contracts
+BEGIN;
 -- Additive structured terms: existing principal contracts and posted history are unchanged.
 create table public.financing_contract_terms(
  id uuid primary key references public.debt_contracts(id),organization_id uuid not null references public.organizations(id),
@@ -11600,8 +11961,10 @@ revoke all on function private.guard_finance_contract_operation()from public,ano
 ;
 create trigger structured_finance_operation_guard before insert or update on public.debt_operation_requests for each row execute function private.guard_finance_contract_operation()
 ;
+COMMIT;
 
 \echo MIGRATION 20261020122109 qard_contract_routing
+BEGIN;
 alter table public.financing_contract_terms add column product text not null default 'FINANCING'check(product in('FINANCING','QARD'))
 ;
 create function private.create_qard_contract(p jsonb)returns jsonb language plpgsql security definer set search_path=pg_catalog,public,private as $$
@@ -11631,8 +11994,10 @@ begin
  if new.kind in('RESCHEDULE','REVERSE')and exists(select 1 from public.financing_contract_terms t join public.debt_contracts c on c.id=t.id where t.product='FINANCING'and c.organization_id=new.organization_id and(new.target_id=c.id or new.target_id=c.financial_event_id))then raise exception 'STRUCTURED_FINANCING_REQUIRES_CONTRACT_AMENDMENT';end if;return new;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261020122114 participation_contracts
+BEGIN;
 -- Incoming investor capital is separate from fixed-return loans and from outward investments.
 create table public.participation_contracts(
  id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id),request_id uuid not null,
@@ -11696,8 +12061,10 @@ revoke all on function public.create_participation_contract(jsonb)from public,an
 ;
 grant execute on function public.create_participation_contract(jsonb)to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261020122123 participation_movement_preparation
+BEGIN;
 create function private.prepare_participation_movement(p jsonb)returns jsonb language plpgsql security definer set search_path=pg_catalog,public,private as $$
 declare c public.participation_contracts%rowtype;uid uuid:=auth.uid();req uuid:=(p->>'request_id')::uuid;kind text:=p->>'kind';dt date:=(p->>'date')::date;pf date:=nullif(p->>'period_from','')::date;pt date:=nullif(p->>'period_to','')::date;
  amt numeric:=(p->>'amount')::numeric;profit_base numeric:=nullif(p->>'period_result','')::numeric;received numeric;reserved numeric;capital_committed numeric;prior public.participation_movements%rowtype;fp text:=md5(p::text);base text;cls uuid;eid uuid;cash uuid;flow uuid;mid uuid:=gen_random_uuid();obligations jsonb:='[]';account public.liquidity_accounts%rowtype;class_code text;class_type text;event_type text;
@@ -11756,8 +12123,10 @@ revoke all on function public.prepare_participation_movement(jsonb)from public,a
 ;
 grant execute on function public.prepare_participation_movement(jsonb)to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124240 participation_posting_function
+BEGIN;
 set lock_timeout='5s'
 ;
 create function private.post_participation_movement(p_id uuid)returns jsonb language plpgsql security definer set search_path=pg_catalog,public,private as $$
@@ -11796,8 +12165,10 @@ revoke all on function public.post_participation_movement(uuid)from public,anon
 ;
 grant execute on function public.post_participation_movement(uuid)to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124249 participation_source_guards
+BEGIN;
 set lock_timeout='5s'
 ;
 create function private.guard_participation_event()returns trigger language plpgsql security invoker set search_path=pg_catalog,public as $$
@@ -11824,8 +12195,10 @@ revoke all on function private.guard_participation_flow()from public,anon,authen
 ;
 create trigger participation_flow_guard before update or delete on public.liquidity_flows for each row execute function private.guard_participation_flow()
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124830 participation_cancel_function
+BEGIN;
 set lock_timeout='5s'
 ;
 create function private.cancel_participation_movement(p_id uuid,p_reason text)returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
@@ -11845,8 +12218,10 @@ begin
  return jsonb_build_object('id',m.id,'status','CANCELLED');
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124838 participation_cancel_api
+BEGIN;
 revoke all on function private.cancel_participation_movement(uuid,text)from public,anon
 ;
 grant execute on function private.cancel_participation_movement(uuid,text)to authenticated
@@ -11857,8 +12232,10 @@ revoke all on function public.cancel_participation_movement(uuid,text)from publi
 ;
 grant execute on function public.cancel_participation_movement(uuid,text)to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124841 participation_cancel_flow_cleanup
+BEGIN;
 create or replace function private.guard_participation_flow()returns trigger language plpgsql security invoker set search_path=pg_catalog,public as $$
 begin
  if old.source_module='PARTICIPATION'then
@@ -11868,8 +12245,10 @@ begin
  end if;if tg_op='DELETE'then return old;end if;return new;
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124844 participation_finish_contract
+BEGIN;
 create function private.finish_participation_contract(p_id uuid,p_action text,p_reason text)returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare c public.participation_contracts%rowtype;net numeric;
 begin
@@ -11899,8 +12278,10 @@ revoke all on function public.finish_participation_contract(uuid,text,text)from 
 ;
 grant execute on function public.finish_participation_contract(uuid,text,text)to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124855 structured_finance_source_controls
+BEGIN;
 create or replace function private.create_participation_contract(p jsonb)returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare uid uuid:=auth.uid();org uuid:=(p->>'organization_id')::uuid;req uuid:=(p->>'request_id')::uuid;prior public.participation_contracts%rowtype;capital numeric:=(p->>'capital')::numeric;fx numeric:=(p->>'exchange_rate')::numeric;profit numeric:=(p->>'investor_profit_pct')::numeric;loss numeric:=(p->>'investor_loss_pct')::numeric;start_dt date:=(p->>'start_date')::date;maturity date:=nullif(p->>'maturity_date','')::date;base text;new_id uuid;fp text:=md5(p::text);
 begin
@@ -11927,8 +12308,10 @@ revoke all on function private.guard_structured_finance_early_allocation()from p
 ;
 create trigger structured_finance_early_settlement_guard before insert on public.financial_event_obligation_allocations for each row execute function private.guard_structured_finance_early_allocation()
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124920 participation_audit_compatibility
+BEGIN;
 create or replace function private.create_participation_contract(p jsonb)returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
 declare uid uuid:=auth.uid();org uuid:=(p->>'organization_id')::uuid;req uuid:=(p->>'request_id')::uuid;prior public.participation_contracts%rowtype;capital numeric:=(p->>'capital')::numeric;fx numeric:=(p->>'exchange_rate')::numeric;profit numeric:=(p->>'investor_profit_pct')::numeric;loss numeric:=(p->>'investor_loss_pct')::numeric;start_dt date:=(p->>'start_date')::date;maturity date:=nullif(p->>'maturity_date','')::date;base text;new_id uuid;fp text:=md5(p::text);
 begin
@@ -11988,8 +12371,10 @@ begin
  return jsonb_build_object('id',m.id,'status','CANCELLED');
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124928 participation_cash_dependency
+BEGIN;
 -- Financial Core: cash realization for financing proceeds and equity movements without settling AR/AP.
 -- Financing inflow keeps the principal PAYABLE open for future debt-service settlement.
 -- Equity cash movements create no receivable/payable or customer/supplier advance.
@@ -12052,8 +12437,10 @@ revoke all on function public.post_financial_nonallocating_cash(uuid,uuid,uuid,u
 ;
 grant execute on function public.post_financial_nonallocating_cash(uuid,uuid,uuid,uuid,text,date,numeric,text,numeric,numeric,text) to authenticated
 ;
+COMMIT;
 
 \echo MIGRATION 20261020124934 participation_cash_consistency
+BEGIN;
 -- Validate the approved cash instruction and align unposted cancellation with create permission.
 -- Financial Core: cash realization for financing proceeds and equity movements without settling AR/AP.
 -- Financing inflow keeps the principal PAYABLE open for future debt-service settlement.
@@ -12133,8 +12520,10 @@ begin
  insert into public.audit_logs(user_id,entity_type,entity_id,action,new_data)values(auth.uid(),'participation_contract',c.id,p_action,jsonb_build_object('organization_id',c.organization_id,'reason',p_reason));return jsonb_build_object('id',c.id,'state',case when p_action='CLOSE'then 'CLOSED'else 'CANCELLED'end);
 end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261020142034 corporate_contract_lifecycle
+BEGIN;
 -- Direction is explicit; existing incoming contracts keep their original treatment.
 alter table public.participation_contracts add column direction text not null default 'INCOMING' check(direction in('INCOMING','OUTGOING'))
 ;
@@ -12358,8 +12747,10 @@ create or replace function private.participation_clearing_classification()return
  if auth.uid()is null then raise exception 'UNAUTHORIZED';end if;
  insert into public.financial_classifications(organization_id,code,name,classification_type,is_system,created_by)values(new.organization_id,'PARTICIPATION_PAYABLE_CLEARING','تسوية مستحقات المستثمرين','PAYABLE',true,auth.uid()),(new.organization_id,'PARTICIPATION_RECEIVABLE_CLEARING','تحصيل مستحقات الاستثمار','RECEIVABLE',true,auth.uid())on conflict(organization_id,code)do nothing;return new;end $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261020142044 external_investment_event_compatibility
+BEGIN;
 CREATE OR REPLACE FUNCTION private.prepare_participation_movement(p jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -12469,8 +12860,10 @@ begin
  return jsonb_build_object('financial_event_id',v_event.id,'liquidity_settlement_id',v_settlement,'status','POSTED','idempotent_replay',false);
 end $function$
 ;
+COMMIT;
 
 \echo MIGRATION 20261020203153 20261020160000_asset_purchase_classification_guard
+BEGIN;
 create or replace function public.guard_non_asset_purchase_classification()
 returns trigger
 language plpgsql
@@ -12535,8 +12928,10 @@ before insert or update of transaction_type, asset_account_id
 on public.transactions
 for each row execute function public.guard_non_asset_purchase_transaction()
 ;
+COMMIT;
 
 \echo MIGRATION 20261020203156 20261020202755_asset_transaction_purchase_type_guard
+BEGIN;
 create or replace function public.guard_non_asset_purchase_transaction()
 returns trigger
 language plpgsql
@@ -12565,8 +12960,10 @@ begin
 end;
 $$
 ;
+COMMIT;
 
 \echo MIGRATION 20261021111658 debt_party_directory_management
+BEGIN;
 -- Party metadata is independent of monetary records. Existing personal identity
 -- keys remain unchanged; aliases do not rewrite invoices or opening balances.
 create table public.personal_debt_parties (
@@ -12737,8 +13134,10 @@ create trigger guard_archived_party before insert or update of counterparty_id,o
 ;
 create trigger guard_archived_party before insert or update of counterparty_id,organization_id on public.liquidity_flows for each row execute function private.guard_archived_debt_party()
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090728 replay_unified_purchase_numbering
+BEGIN;
 -- One immutable internal purchase number per company/source, shared by VAT aliases.
 -- Supplier references and all recognition/settlement amounts remain unchanged.
 lock table public.transactions, public.vat_documents in share row exclusive mode;
@@ -12867,8 +13266,10 @@ comment on column public.transactions.purchase_number is 'Immutable company/year
 comment on column public.vat_documents.purchase_number is 'Shared internal purchase number; asset aliases reuse the transaction number. document_number remains the supplier reference.';
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090748 replay_asset_opening_edit_archive
+BEGIN;
 -- Opening edits are one atomic command: asset, source voucher and lot move together.
 DO $guard$
 DECLARE definition text;
@@ -12956,8 +13357,10 @@ REVOKE ALL ON FUNCTION public.manage_asset_opening(uuid,text,timestamptz,jsonb) 
 GRANT EXECUTE ON FUNCTION public.manage_asset_opening(uuid,text,timestamptz,jsonb) TO authenticated;
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090804 replay_corporate_zakat_assessment_workflow
+BEGIN;
 -- Immutable source evidence and a single financial obligation per reviewed period.
 create table public.corporate_zakat_sources (
  id uuid primary key default gen_random_uuid(), organization_id uuid not null references public.organizations(id),
@@ -13177,8 +13580,10 @@ begin
 end $guard$;
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090807 replay_personal_payable_opening_edit
+BEGIN;
 -- Narrow owner-scoped edit path. It never creates a cash movement or rewrites
 -- payments, financing sources, party identity or the original create fingerprint.
 create or replace function private.edit_personal_payable(p_payload jsonb)
@@ -13224,8 +13629,10 @@ revoke all on function public.edit_personal_payable(jsonb) from public,anon;
 grant execute on function public.edit_personal_payable(jsonb) to authenticated;
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090811 replay_personal_funding_category
+BEGIN;
 -- Save the selected personal debt category within the existing atomic funding command.
 -- Keep legacy clients' defaults and request fingerprints; do not rewrite existing rows.
 do $patch$
@@ -13239,8 +13646,10 @@ begin
 end $patch$;
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090814 replay_personal_contracts_and_participations
+BEGIN;
 -- Personal contract terms are presentation/control over the existing personal ledger.
 -- No balance is stored here or added a second time to the financial position.
 create table public.personal_contracts(
@@ -13505,8 +13914,10 @@ create trigger personal_contract_payable_guard before update or delete on public
 create trigger personal_contract_payment_guard before insert or update or delete on public.personal_payable_payments for each row execute function private.guard_personal_contract_ledger();
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090818 replay_personal_contract_charge_due
+BEGIN;
 create or replace function private.personal_contract_asset(p_contract uuid,p_type public.asset_type,p_amount numeric,p_date date,p_label text,p_role text,p_due date)returns jsonb language plpgsql security invoker set search_path='' as $$
 declare c public.personal_contracts%rowtype;a uuid;t uuid;begin
  select * into strict c from public.personal_contracts where id=p_contract and user_id=auth.uid()and status='EXECUTING';
@@ -13665,8 +14076,10 @@ revoke all on function private.personal_contract_command(jsonb)from public,anon;
 grant execute on function private.personal_contract_command(jsonb)to authenticated;
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090821 replay_personal_contract_installment_snapshot
+BEGIN;
 alter table public.personal_contract_movements add column reversal_date date;
 create table public.personal_contract_installments(
  id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id),contract_id uuid not null references public.personal_contracts(id),
@@ -13830,8 +14243,10 @@ revoke all on function private.personal_contract_command(jsonb)from public,anon;
 grant execute on function private.personal_contract_command(jsonb)to authenticated;
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090824 replay_personal_contract_installment_followup
+BEGIN;
 CREATE OR REPLACE FUNCTION private.record_debt_followup(p jsonb)
  RETURNS uuid
  LANGUAGE plpgsql
@@ -13868,8 +14283,10 @@ begin
 end $function$
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090827 replay_personal_contract_edit_value
+BEGIN;
 do $patch$
 declare definition text;old_fragment text:='terms=t,principal=personal_contract_command.principal,currency=base';new_fragment text:='terms=t,principal=(t->>''principal'')::numeric,currency=base';
 begin
@@ -13878,8 +14295,10 @@ begin
  elsif position(new_fragment in definition)=0 then raise exception 'PERSONAL_CONTRACT_EDIT_PATCH_MISMATCH';end if;
 end $patch$;
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090830 replay_personal_contract_link_category
+BEGIN;
 do $patch$
 declare definition text;old_fragment text:='if c.product<>''PARTICIPATION''then perform private.assign_debt_category';new_fragment text:='if c.product<>''PARTICIPATION''and t->>''mode''<>''LINKED''then perform private.assign_debt_category';
 begin
@@ -13888,8 +14307,10 @@ begin
  elsif position(new_fragment in definition)=0 then raise exception 'PERSONAL_CONTRACT_CATEGORY_PATCH_MISMATCH';end if;
 end $patch$;
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090833 replay_personal_participation_installments
+BEGIN;
 create or replace function private.personal_contract_installment_snapshot()returns trigger language plpgsql security invoker set search_path='' as $$begin
  if new.status='POSTED'and old.status='EXECUTING'and not exists(select 1 from public.personal_contract_installments where contract_id=new.id)then
   insert into public.personal_contract_installments(user_id,contract_id,number,amount,due_date)select new.user_id,new.id,v.ordinality,(v.value->>'amount')::numeric,(v.value->>'due_date')::date from jsonb_array_elements(new.terms->'schedule')with ordinality as v(value,ordinality);
@@ -13904,8 +14325,10 @@ begin
  elsif position(new_fragment in definition)=0 then raise exception 'PERSONAL_PARTICIPATION_FOLLOWUP_PATCH_MISMATCH';end if;
 end $patch$;
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090837 replay_annual_voucher_sequences
+BEGIN;
 -- Stable annual source vouchers. No balances, dates or source records are rewritten.
 create table private.voucher_sequence_counters(
  scope_key text not null, prefix text not null, issue_year int not null,
@@ -14080,8 +14503,10 @@ select 'vat_documents'::text table_name,to_jsonb(t) payload from public.vat_docu
 end$$;
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027090840 replay_voucher_reversal_and_asset_draft_numbers
+BEGIN;
 create or replace function private.ensure_voucher_number(p_table text,p jsonb,p_stack text[] default '{}') returns text
 language plpgsql security definer set search_path='' as $$
 declare sid uuid:=(p->>'id')::uuid;uid uuid:=coalesce(nullif(p->>'user_id','')::uuid,nullif(p->>'created_by','')::uuid);
@@ -14205,8 +14630,10 @@ do $$declare r record;begin
 end$$;
 
 ;
+COMMIT;
 
 \echo MIGRATION 20261027091152 test_only_restore_authenticated_rls_table_grants
+BEGIN;
 grant DELETE,INSERT,SELECT,UPDATE on table public."asset_accounts" to authenticated;
 grant DELETE,INSERT,SELECT,UPDATE on table public."asset_classes" to authenticated;
 grant INSERT,SELECT on table public."asset_lifecycle_commands" to authenticated;
@@ -14311,9 +14738,12 @@ grant DELETE,INSERT,SELECT,UPDATE on table public."zakat_payment_allocations" to
 grant DELETE,INSERT,SELECT,UPDATE on table public."zakat_payments" to authenticated;
 grant DELETE,INSERT,SELECT,UPDATE on table public."zakat_rules" to authenticated;
 ;
+COMMIT;
 
 \echo MIGRATION 20261027141135 restore_isolated_counterparty_view_read_grants
+BEGIN;
 -- Match the parent environment's read grants for existing security-invoker views.
 -- Underlying tables retain RLS; no anonymous, write, or policy changes.
 grant select on public.financial_counterparty_balances, public.financial_counterparty_open_items to authenticated;
 ;
+COMMIT;
