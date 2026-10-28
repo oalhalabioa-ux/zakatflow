@@ -1,6 +1,6 @@
 # Full local Supabase acceptance
 
-This supplements the 28 embedded PostgreSQL scenarios with real local Supabase Auth, signed user sessions, PostgREST and PostgreSQL 17. The stack runs only inside a disposable GitHub Actions runner, never against the hosted QA or Production projects. No repository secrets or service-role keys are used. Two synthetic users are created through public Auth signup with confirmation disabled only in that disposable local stack.
+This supplements the 29 embedded PostgreSQL scenarios with real local Supabase Auth, signed user sessions, PostgREST and PostgreSQL 17. The stack runs only inside a disposable GitHub Actions runner, never against the hosted QA or Production projects. No repository secrets or service-role keys are used. Two synthetic users are created through public Auth signup with confirmation disabled only in that disposable local stack.
 
 Workflow: `.github/workflows/owner-production-supabase-review.yml`.
 Test: `tests/owner-production-review/supabase-http.mjs`.
@@ -14,4 +14,4 @@ Foundation scope: Production `subscriptions` was checked read-only and contained
 
 The workflow result must be reviewed before any independent application approval. This document does not authorize Production DDL, owner enrollment, merge, deployment or billing enablement.
 
-Result: **PASS**, including successful temporary stack cleanup. See supabase-http-result.json and foundation-final-review.md. Run: https://github.com/oalhalabioa-ux/zakatflow/actions/runs/40753452810
+Result: **PASS**, including successful temporary stack cleanup. See supabase-http-result.json and foundation-final-review.md. Run: https://github.com/oalhalabioa-ux/zakatflow/actions/runs/40755325439

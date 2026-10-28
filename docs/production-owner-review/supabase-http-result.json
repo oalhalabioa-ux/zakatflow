@@ -59,12 +59,16 @@
     {
       "name": "emergency access rollback verified through PostgREST",
       "passed": true
+    },
+    {
+      "name": "three unrelated organization-owner function definitions and grants untouched",
+      "passed": true
     }
   ],
-  "checkedAt": "2026-10-28T19:23:21.499Z",
-  "tested_commit": "82523125aa5f673d77a7e0c5b3cb9a23f2afeb08",
-  "workflow_run": "https://github.com/oalhalabioa-ux/zakatflow/actions/runs/40753452810",
-  "job_id": 123045964856,
+  "checkedAt": "2026-10-28T19:36:35.899Z",
+  "tested_commit": "72bc9920a4eb215aa89250c7eeaa0c893e8cb4e5",
+  "workflow_run": "https://github.com/oalhalabioa-ux/zakatflow/actions/runs/40755325439",
+  "job_id": 123052585568,
   "job_conclusion": "success",
   "temporary_stack_cleanup": "success",
   "owner_http_routes": 7,
