@@ -1,0 +1,97 @@
+import {PGlite} from '@electric-sql/pglite';
+import {readFile,writeFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const base=new URL('../../',import.meta.url);
+const load=p=>readFile(new URL(p,base),'utf8');
+const bundle='docs/production-owner-review/20261028185536_platform_owner_production_review.sql';
+const checks=[];const check=(name)=>checks.push({name,passed:true});
+const db=new PGlite();
+const owner='11111111-1111-4111-8111-111111111111',user='22222222-2222-4222-8222-222222222222',session='33333333-3333-4333-8333-333333333333';
+const ordinarySession='44444444-4444-4444-8444-444444444444';
+async function identity(id,sid,role='authenticated'){
+ await db.exec('reset role');
+ await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:id,session_id:sid,role,user_metadata:{platform_owner:true}})]);
+ await db.exec('set role '+role);
+}
+async function denied(sql,code='42501'){try{await db.query(sql);assert.fail('unexpected success: '+sql);}catch(e){assert.equal(e.code,code,e.message);}}
+try{
+ await db.exec(await load('tests/owner-production-review/fixture.sql'));
+ const version=(await db.query('select version() as version')).rows[0].version;
+ assert.match(version,/PostgreSQL 17\./);check('PostgreSQL major version matches Production');
+ await db.exec(await load('docs/production-owner-review/preflight.sql'));check('read-only preflight');
+ await assert.rejects(db.exec(await load(bundle)),/independent schema approval/);await db.exec('rollback');check('DDL refuses missing approval');
+ await db.exec("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA'");
+ await db.exec(await load(bundle));check('complete fresh migration');
+ await db.exec(await load('docs/production-owner-review/postflight.sql'));check('RLS grants and 12 hardened functions');
+ const empty=await db.query("select (select count(*) from public.platform_admins)+(select count(*) from public.platform_plans)+(select count(*) from public.platform_organizations)+(select count(*) from public.platform_subscriptions)+(select count(*) from public.platform_payment_transactions)+(select count(*) from public.platform_audit_events) as count");
+ assert.equal(Number(empty.rows[0].count),0);check('no seeded owner or QA business data');
+ await db.exec(`insert into auth.users(id,email,email_confirmed_at) values('${owner}','owner@synthetic.test',now()),('${user}','ordinary@synthetic.test',now());
+ insert into public.profiles(id) values('${owner}'),('${user}'); insert into public.currencies(code) values('SAR');
+ insert into auth.sessions(id,user_id) values('${session}','${owner}'),('${ordinarySession}','${user}');
+ insert into public.organizations(id,owner_user_id,name) values('55555555-5555-4555-8555-555555555555','${owner}','Synthetic legacy organization');
+ insert into public.organization_members(organization_id,user_id,role,status) values('55555555-5555-4555-8555-555555555555','${user}','VIEWER','ACTIVE');
+ insert into public.subscriptions(user_id) values('${user}');`);
+ const provision=(await load('docs/production-owner-review/provision-owner.psql')).replaceAll(":'owner_user_id'", "'"+owner+"'").replaceAll(":'owner_email'", "'owner@synthetic.test'");
+ await assert.rejects(db.exec(provision),/separate enrollment approval/);await db.exec('rollback');check('owner enrollment requires separate approval');
+ await db.exec("set yaqeen.platform_owner_enrollment_approval='APPROVED_EXISTING_PRODUCTION_OWNER'");
+ await assert.rejects(db.exec(provision.replaceAll('owner@synthetic.test','wrong@synthetic.test')),/identity mismatch/);await db.exec('rollback');check('owner enrollment rejects mismatched email and UUID');
+ await assert.rejects(db.exec(provision.replaceAll('owner@synthetic.test','qa@example.invalid')),/test identities/);await db.exec('rollback');check('owner enrollment rejects QA placeholder identity');
+ await db.exec(provision);check('approved existing verified owner enrollment and audit');
+ const calls=["owner_user_count()","owner_organization_count()","owner_subscription_summary()","owner_list_users(1,1)","owner_list_organizations(1,1)","owner_list_plans()","owner_list_subscriptions()","owner_list_payment_transactions(1)","owner_list_audit_events(1)","owner_upsert_plan(null,null,null,null,null,null,null)","owner_change_subscription_status(null,null,null)"];
+ for(const [name,id,sid,role] of [['ordinary',user,ordinarySession,'authenticated'],['anonymous',null,null,'anon']]){
+ await identity(id,sid,role);
+ for(const c of calls)await denied('select * from public.'+c);
+ for(const t of ['platform_organizations','platform_plans','platform_subscriptions','platform_payment_transactions','platform_audit_events'])await denied('select * from public.'+t);
+ check(name+': 11 RPC denials and 5 direct table denials');
+ }
+ await identity(user,ordinarySession);
+ assert.equal((await db.query('select public.owner_authorized() as allowed')).rows[0].allowed,false);
+ assert.equal((await db.query('select count(*) as count from public.platform_admins')).rows[0].count,0);
+ await denied("insert into public.platform_admins(user_id,role) values('"+user+"','platform_owner')");
+ check('forged user metadata and direct owner enrollment denied');
+ await identity(owner,session);
+ for(const c of calls.slice(0,9))await db.query('select * from public.'+c);
+ assert.equal(Number((await db.query('select public.owner_organization_count() as count')).rows[0].count),1);
+ const org=(await db.query('select * from public.owner_list_organizations(1,1)')).rows[0];assert.equal(Number(org.member_count),1);
+ check('owner 9 reads; organizations sourced live without duplication');
+ for(const c of calls.slice(9))await denied('select * from public.'+c,'0A000');
+ check('owner financial and plan writes disabled');
+ await identity(owner,null);await denied('select public.owner_user_count()');check('missing session claim denied');
+ await db.exec('reset role');await db.exec("update auth.users set banned_until=now()+interval '1 hour' where id='"+owner+"'");
+ await identity(owner,session);await denied('select public.owner_user_count()');await db.exec('reset role');await db.exec("update auth.users set banned_until=null where id='"+owner+"'");check('banned owner denied');
+ await identity(owner,ordinarySession);assert.equal((await db.query('select public.owner_authorized() as allowed')).rows[0].allowed,false);check('session must belong to caller');
+ await db.exec('reset role');await db.exec("update auth.sessions set not_after=now()-interval '1 second' where id='"+session+"'");
+ await identity(owner,session);await denied('select public.owner_user_count()');check('expired session denied');
+ await db.exec('reset role');await db.exec("delete from auth.sessions where id='"+session+"'");
+ await identity(owner,session);await denied('select public.owner_user_count()');check('revoked session denied even with old claims');
+ await db.exec('reset role');
+ const platformOrg='55555555-5555-4555-8555-555555555555';
+ await db.query('insert into public.platform_organizations(id) values($1)',[platformOrg]);
+ await assert.rejects(db.query('insert into public.platform_organizations(id) values($1)',[platformOrg]),e=>e.code==='23505');
+ await assert.rejects(db.query("insert into public.platform_organizations(id) values('99999999-9999-4999-8999-999999999999')"),e=>e.code==='23503');
+ await assert.rejects(db.query("insert into public.platform_plans(code,name_ar,price_amount) values('invalid','Name',-1)"),e=>e.code==='23514');
+ await assert.rejects(db.query("insert into public.platform_plans(code,name_ar,price_amount) values('invalid','Name','NaN')"),e=>e.code==='23514');
+ await db.exec("insert into public.platform_plans(id,code,name_ar) values('66666666-6666-4666-8666-666666666666','test-plan','Synthetic Plan'); insert into public.platform_subscriptions(id,organization_id,plan_id) values('77777777-7777-4777-8777-777777777777','55555555-5555-4555-8555-555555555555','66666666-6666-4666-8666-666666666666');");
+ await assert.rejects(db.query("insert into public.platform_subscriptions(organization_id,plan_id) values('55555555-5555-4555-8555-555555555555','66666666-6666-4666-8666-666666666666')"),e=>e.code==='23505');
+ await assert.rejects(db.query("delete from public.organizations where id='55555555-5555-4555-8555-555555555555'"),e=>e.code==='23503');
+ check('extension uniqueness and FK, price validation, one open subscription and source delete protection');
+ const legacy=(await db.query('select (select count(*) from public.organizations) as organizations,(select count(*) from public.subscriptions) as subscriptions')).rows[0];
+ assert.equal(Number(legacy.organizations),1);assert.equal(Number(legacy.subscriptions),1);check('legacy organizations and user subscriptions unchanged');
+ await assert.rejects(db.exec(await load(bundle)),/collision/);await db.exec('rollback');check('reapply refuses overwrite atomically');
+ await db.exec("set yaqeen.platform_owner_rollback_approval='APPROVED_DISABLE_PLATFORM_OWNER_ACCESS'");
+ await db.exec(await load('docs/production-owner-review/disable-access.sql'));
+ await identity(user,ordinarySession);await denied('select public.owner_authorized()');check('emergency rollback removes execution access');
+ await db.exec('reset role');
+ assert.equal(Number((await db.query('select count(*) as count from public.subscriptions')).rows[0].count),1);check('rollback preserves business data');
+ // Separate database: ensure an abort after DDL leaves no partial target objects.
+ const drift=new PGlite();await drift.exec(await load('tests/owner-production-review/fixture.sql'));await drift.exec("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA'; alter table public.organizations rename column name to renamed_name");await assert.rejects(drift.exec(await load(bundle)),/source column drift/);await drift.exec('rollback');await drift.close();check('source schema drift fails before target DDL');
+ const atomic=new PGlite();await atomic.exec(await load('tests/owner-production-review/fixture.sql'));await atomic.exec("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA'");
+ const ddl=await load(bundle);await assert.rejects(atomic.exec(ddl.replace('notify pgrst,', "select 1/0; notify pgrst,")));await atomic.exec('rollback');
+ assert.equal((await atomic.query("select to_regclass('public.platform_plans') as relation")).rows[0].relation,null);await atomic.close();check('late DDL error rolls back all new objects');
+ const compatible=new PGlite();await compatible.exec(await load('tests/owner-production-review/fixture.sql'));await compatible.exec(await load('supabase/migrations/20261027050000_platform_admins.sql'));
+ await compatible.exec("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA'");await compatible.exec(await load(bundle));await compatible.close();check('compatible with earlier repository platform_admins migration');
+ const result={passed:true,engine:version,fixture:'observed relevant Production column metadata with synthetic rows; not a full Production clone or hosted Supabase',remoteWrites:false,checks};
+ await writeFile(new URL('docs/production-owner-review/test-result.json',base),JSON.stringify(result,null,2)+'\n');
+ console.log(JSON.stringify(result,null,2));
+}finally{await db.close();}
+

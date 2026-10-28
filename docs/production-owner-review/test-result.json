@@ -1,0 +1,120 @@
+{
+  "passed": true,
+  "engine": "PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+  "fixture": "observed relevant Production column metadata with synthetic rows; not a full Production clone or hosted Supabase",
+  "remoteWrites": false,
+  "checks": [
+    {
+      "name": "PostgreSQL major version matches Production",
+      "passed": true
+    },
+    {
+      "name": "read-only preflight",
+      "passed": true
+    },
+    {
+      "name": "DDL refuses missing approval",
+      "passed": true
+    },
+    {
+      "name": "complete fresh migration",
+      "passed": true
+    },
+    {
+      "name": "RLS grants and 12 hardened functions",
+      "passed": true
+    },
+    {
+      "name": "no seeded owner or QA business data",
+      "passed": true
+    },
+    {
+      "name": "owner enrollment requires separate approval",
+      "passed": true
+    },
+    {
+      "name": "owner enrollment rejects mismatched email and UUID",
+      "passed": true
+    },
+    {
+      "name": "owner enrollment rejects QA placeholder identity",
+      "passed": true
+    },
+    {
+      "name": "approved existing verified owner enrollment and audit",
+      "passed": true
+    },
+    {
+      "name": "ordinary: 11 RPC denials and 5 direct table denials",
+      "passed": true
+    },
+    {
+      "name": "anonymous: 11 RPC denials and 5 direct table denials",
+      "passed": true
+    },
+    {
+      "name": "forged user metadata and direct owner enrollment denied",
+      "passed": true
+    },
+    {
+      "name": "owner 9 reads; organizations sourced live without duplication",
+      "passed": true
+    },
+    {
+      "name": "owner financial and plan writes disabled",
+      "passed": true
+    },
+    {
+      "name": "missing session claim denied",
+      "passed": true
+    },
+    {
+      "name": "banned owner denied",
+      "passed": true
+    },
+    {
+      "name": "session must belong to caller",
+      "passed": true
+    },
+    {
+      "name": "expired session denied",
+      "passed": true
+    },
+    {
+      "name": "revoked session denied even with old claims",
+      "passed": true
+    },
+    {
+      "name": "extension uniqueness and FK, price validation, one open subscription and source delete protection",
+      "passed": true
+    },
+    {
+      "name": "legacy organizations and user subscriptions unchanged",
+      "passed": true
+    },
+    {
+      "name": "reapply refuses overwrite atomically",
+      "passed": true
+    },
+    {
+      "name": "emergency rollback removes execution access",
+      "passed": true
+    },
+    {
+      "name": "rollback preserves business data",
+      "passed": true
+    },
+    {
+      "name": "source schema drift fails before target DDL",
+      "passed": true
+    },
+    {
+      "name": "late DDL error rolls back all new objects",
+      "passed": true
+    },
+    {
+      "name": "compatible with earlier repository platform_admins migration",
+      "passed": true
+    }
+  ]
+}
