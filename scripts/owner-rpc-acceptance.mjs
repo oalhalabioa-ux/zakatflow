@@ -31,7 +31,10 @@ export async function verify({url=QA_URL, key, email=TEST_EMAIL, password, reque
   };
   try {
     const login=await call('/auth/v1/token?grant_type=password',{email,password});
-    if(!login.ok || !login.data?.access_token) throw Error('QA_LOGIN_FAILED');
+    if(!login.ok || !login.data?.access_token) {
+      const code=String(login.data?.error_code??login.data?.code??'unknown');
+      throw Error('QA_LOGIN_FAILED:'+login.status+':'+(/^[a-z0-9_]+$/.test(code)?code:'unknown'));
+    }
     session=login.data;
     if(session.user?.email!==TEST_EMAIL) throw Error('QA_USER_MISMATCH');
     const identity=await call('/auth/v1/user',undefined,session.access_token);
