@@ -1,0 +1,77 @@
+{
+  "passed": true,
+  "stack": "Disposable Supabase Auth + PostgREST + PostgreSQL 17",
+  "remoteConnections": false,
+  "serviceKeysUsed": false,
+  "checks": [
+    {
+      "name": "migration and catalog postflight on real Supabase PostgreSQL",
+      "passed": true
+    },
+    {
+      "name": "real Auth signup and confirmed local sessions without email or service key",
+      "passed": true
+    },
+    {
+      "name": "approved owner provisioning without changing ordinary identity",
+      "passed": true
+    },
+    {
+      "name": "ordinary real JWT and forged metadata cannot become owner",
+      "passed": true
+    },
+    {
+      "name": "all eleven actual-session PostgREST ordinary RPC denials",
+      "passed": true
+    },
+    {
+      "name": "all eleven anonymous PostgREST RPC denials",
+      "passed": true
+    },
+    {
+      "name": "direct table access blocked; ordinary membership select empty",
+      "passed": true
+    },
+    {
+      "name": "nine owner reads; actual counts two users and one institution; subscriptions and plans zero",
+      "passed": true
+    },
+    {
+      "name": "owner plan and subscription writes disabled over HTTP",
+      "passed": true
+    },
+    {
+      "name": "all seven Next routes: real owner allowed, ordinary denied, anonymous redirected",
+      "passed": true
+    },
+    {
+      "name": "subscription page has zero write forms and correct empty foundation-state message",
+      "passed": true
+    },
+    {
+      "name": "logout revokes refresh tokens and old owner JWT no longer authorizes RPC",
+      "passed": true
+    },
+    {
+      "name": "source subscription table empty and both auth accounts retained",
+      "passed": true
+    },
+    {
+      "name": "emergency access rollback verified through PostgREST",
+      "passed": true
+    },
+    {
+      "name": "three unrelated organization-owner function definitions and grants untouched",
+      "passed": true
+    }
+  ],
+  "checkedAt": "2026-10-28T19:36:35.899Z",
+  "tested_commit": "72bc9920a4eb215aa89250c7eeaa0c893e8cb4e5",
+  "workflow_run": "https://github.com/oalhalabioa-ux/zakatflow/actions/runs/40755325439",
+  "job_id": 123052585568,
+  "job_conclusion": "success",
+  "temporary_stack_cleanup": "success",
+  "owner_http_routes": 7,
+  "ordinary_denied_routes": 7,
+  "anonymous_redirected_routes": 7
+}

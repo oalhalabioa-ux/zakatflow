@@ -1,0 +1,21 @@
+-- REVIEW ONLY. Privileged operator, separate approval from DDL; psql variables required.
+-- psql -v owner_user_id=<existing Production UUID> -v owner_email=<verified email> -f ...
+begin;
+set local lock_timeout='3s';
+select set_config('yaqeen.provision_user', :'owner_user_id', true);
+select set_config('yaqeen.provision_email', :'owner_email', true);
+do $enroll$
+declare candidate auth.users%rowtype; v_id uuid:=current_setting('yaqeen.provision_user')::uuid; v_email text:=current_setting('yaqeen.provision_email');
+begin
+ if current_setting('yaqeen.platform_owner_enrollment_approval',true) is distinct from 'APPROVED_EXISTING_PRODUCTION_OWNER' then raise exception 'separate enrollment approval required'; end if;
+ if v_email like '%@example.invalid' or v_email='' then raise exception 'test identities are prohibited'; end if;
+ select * into strict candidate from auth.users where id=v_id for update;
+ if lower(candidate.email) is distinct from lower(v_email) or candidate.email_confirmed_at is null or candidate.deleted_at is not null or candidate.banned_until>now()
+ then raise exception 'verified existing identity mismatch'; end if;
+ if exists(select 1 from public.platform_admins where user_id<>v_id) then raise exception 'another owner already provisioned: independent review required'; end if;
+ insert into public.platform_admins(user_id,role) values(v_id,'platform_owner') on conflict(user_id) do nothing;
+ insert into public.platform_audit_events(actor_user_id,event_type,entity_type,entity_id,details)
+ values(v_id,'platform.owner_enrolled','platform_admin',v_id,'{"method":"privileged verified uuid and email"}');
+end $enroll$;
+commit;
+

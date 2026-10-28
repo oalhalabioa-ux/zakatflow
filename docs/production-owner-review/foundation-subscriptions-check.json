@@ -1,0 +1,13 @@
+{
+  "checked_date": "2026-10-28",
+  "project": "ejpzcsfwqziqxwhvqnay",
+  "mode": "read-only aggregate queries",
+  "table": "public.subscriptions",
+  "total_rows": 0,
+  "linked_users": 0,
+  "rows_with_provider_reference": 0,
+  "rows_with_periods": 0,
+  "conclusion": "No existing commercial, technical or test subscription rows; no migration of subscription data is needed.",
+  "preservation": "Existing users, permissions, source tables and business data were not changed.",
+  "recheck_required_before_approved_production_application": true
+}
