@@ -13,7 +13,7 @@ begin
 end $$;
 -- Simulate the actual anon database role rather than relying on the SQL editor role.
 set local role anon;
-do $
+do $security$
 begin
  begin
   perform public.owner_change_subscription_status(gen_random_uuid(),'trialing','active');
@@ -27,5 +27,5 @@ begin
   perform public.owner_list_payment_transactions(1);
   raise exception 'FAIL: anonymous payment read accepted';
  exception when sqlstate '42501' then null; end;
-end $$;
+end $security$;
 rollback;
