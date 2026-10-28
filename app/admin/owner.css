@@ -51,7 +51,7 @@ html[data-owner-theme="classic"] .owner-shell{--owner-tab-bg:#e9e3d5;--owner-tab
 .owner-kpis article,.owner-panels article,.owner-table-wrap,.owner-plan-form{box-shadow:0 5px 22px #00000009}
 .owner-shell :is(a,button,input,select):focus-visible{outline:3px solid var(--owner-accent);outline-offset:3px}
 @media(max-width:850px){.owner-sidebar{position:static;min-height:0}.owner-side-links{display:flex;overflow-x:auto;gap:5px}.owner-side-links a{white-space:nowrap}.owner-section-nav.owner-tabs{margin-top:14px}}
-@media(max-width:650px){.owner-section-nav.owner-tabs a{padding:8px 10px;font-size:12px}.owner-tabs-theme{position:sticky;left:0;background:var(--owner-tab-bg)}}
+@media(max-width:650px){.owner-section-nav.owner-tabs a{padding:8px 10px;font-size:12px}}
 
 /* Keep the same icon alignment in both navigation variants. */
 .owner-sidebar nav.owner-side-links a{display:flex;align-items:center;gap:11px}
@@ -100,3 +100,13 @@ html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-sidebar
 .owner-theme-picker button{display:grid;place-items:center;flex-shrink:0;width:40px;height:40px;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--owner-tab-text);cursor:pointer}
 .owner-theme-picker button:hover{border-color:var(--owner-border);background:var(--owner-border)}
 .owner-theme-picker button.active{background:var(--owner-tab-active-bg);color:var(--owner-tab-active-text);border-color:var(--owner-tab-active-bg)}
+
+/* Theme controls are siblings of the scroller, so they cannot cover links. */
+.owner-navigation-row{display:flex;align-items:center;gap:8px;min-width:0;margin:18px 0 24px}
+.owner-navigation-row>.owner-tabs{flex:1;min-width:0;margin:0}
+.owner-navigation-row>.owner-tabs-theme{position:static;margin:0;padding:8px;border:1px solid var(--owner-border);border-radius:14px;background:var(--owner-tab-bg)}
+@media(max-width:650px){
+ .owner-navigation-row{flex-wrap:wrap;margin-top:14px}
+ .owner-navigation-row>.owner-tabs{flex-basis:100%;order:2}
+ .owner-navigation-row>.owner-tabs-theme{order:1;margin-inline-start:auto;padding:0;border:0;background:transparent}
+}
