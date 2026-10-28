@@ -105,6 +105,10 @@
       "passed": true
     },
     {
+      "name": "unrelated organization-owner functions preserved",
+      "passed": true
+    },
+    {
       "name": "source schema drift fails before target DDL",
       "passed": true
     },

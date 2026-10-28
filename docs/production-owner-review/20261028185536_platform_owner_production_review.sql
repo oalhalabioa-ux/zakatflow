@@ -10,7 +10,7 @@ begin
  if to_regclass('auth.users') is null or to_regclass('auth.sessions') is null
  or to_regclass('public.organizations') is null or to_regclass('public.organization_members') is null
  or to_regclass('public.subscriptions') is null then raise exception 'required Production source relations missing'; end if;
- if exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname like 'owner_%')
+ if exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('owner_authorized','owner_user_count','owner_organization_count','owner_subscription_summary','owner_list_users','owner_list_organizations','owner_list_plans','owner_list_subscriptions','owner_list_payment_transactions','owner_list_audit_events','owner_upsert_plan','owner_change_subscription_status'))
  then raise exception 'owner function name collision: manual review required'; end if;
  if exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in
  ('platform_organizations','platform_plans','platform_subscriptions','platform_payment_transactions','platform_audit_events'))

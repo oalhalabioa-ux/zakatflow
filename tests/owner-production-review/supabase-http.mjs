@@ -38,7 +38,8 @@ try{
  }
  // Match restrictive source access; all new metadata comes only from local generated sources.
  source+='alter table public.organizations enable row level security;alter table public.organization_members enable row level security;alter table public.subscriptions enable row level security;revoke all on public.organizations,public.organization_members,public.subscriptions from anon,authenticated;';
- sql(source);
+ sql(source);sql(await load('tests/owner-production-review/unrelated-owner-functions.sql'));
+ const unrelatedBefore=query("select md5(string_agg(pg_get_functiondef(oid)||coalesce(proacl::text,''),',' order by proname)) from pg_proc where pronamespace='public'::regnamespace and proname in ('owner_set_member_permission_override','owner_set_organization_approval_policy','owner_update_organization_role')");
  sql(await load(required+'preflight.sql'));
  sql("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA';\n"+await load(required+'20261028185536_platform_owner_production_review.sql'));
  sql(await load(required+'postflight.sql'));check('migration and catalog postflight on real Supabase PostgreSQL');
@@ -103,6 +104,7 @@ try{
  check('source subscription table empty and both auth accounts retained');
  sql("set yaqeen.platform_owner_rollback_approval='APPROVED_DISABLE_PLATFORM_OWNER_ACCESS';\n"+await load(required+'disable-access.sql'));
  const after=await api('/rest/v1/rpc/owner_user_count',{},owner.access_token);assert.ok(!after.ok);check('emergency access rollback verified through PostgREST');
+ assert.equal(query("select md5(string_agg(pg_get_functiondef(oid)||coalesce(proacl::text,''),',' order by proname)) from pg_proc where pronamespace='public'::regnamespace and proname in ('owner_set_member_permission_override','owner_set_organization_approval_policy','owner_update_organization_role')"),unrelatedBefore);check('three unrelated organization-owner function definitions and grants untouched');
  report.passed=true;report.checkedAt=new Date().toISOString();
  await writeFile('owner-supabase-http-result.json',JSON.stringify(report,null,2)+'\n');
  console.log(JSON.stringify(report,null,2));

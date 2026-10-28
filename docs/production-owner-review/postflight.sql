@@ -9,9 +9,9 @@ begin
  then raise exception 'unsafe direct privilege: %',t; end if;
  if t<>'platform_admins' and has_table_privilege('authenticated','public.'||t,'SELECT') then raise exception 'direct admin read granted'; end if;
  end loop;
- select count(*) into n from pg_proc p join pg_namespace ns on ns.oid=p.pronamespace where ns.nspname='public' and p.proname like 'owner_%';
+ select count(*) into n from pg_proc p join pg_namespace ns on ns.oid=p.pronamespace where ns.nspname='public' and p.proname in ('owner_authorized','owner_user_count','owner_organization_count','owner_subscription_summary','owner_list_users','owner_list_organizations','owner_list_plans','owner_list_subscriptions','owner_list_payment_transactions','owner_list_audit_events','owner_upsert_plan','owner_change_subscription_status');
  if n<>12 then raise exception 'expected 12 owner functions, got %',n; end if;
- for f in select p.oid,p.proname,p.prosecdef,p.proconfig from pg_proc p join pg_namespace ns on ns.oid=p.pronamespace where ns.nspname='public' and p.proname like 'owner_%' loop
+ for f in select p.oid,p.proname,p.prosecdef,p.proconfig from pg_proc p join pg_namespace ns on ns.oid=p.pronamespace where ns.nspname='public' and p.proname in ('owner_authorized','owner_user_count','owner_organization_count','owner_subscription_summary','owner_list_users','owner_list_organizations','owner_list_plans','owner_list_subscriptions','owner_list_payment_transactions','owner_list_audit_events','owner_upsert_plan','owner_change_subscription_status') loop
  if not f.prosecdef or not ('search_path=""'=any(f.proconfig)) or has_function_privilege('anon',f.oid,'EXECUTE') or not has_function_privilege('authenticated',f.oid,'EXECUTE')
  then raise exception 'unsafe function privileges/settings: %',f.proname; end if;
  end loop;

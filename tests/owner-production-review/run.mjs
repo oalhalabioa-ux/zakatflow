@@ -16,6 +16,8 @@ async function identity(id,sid,role='authenticated'){
 async function denied(sql,code='42501'){try{await db.query(sql);assert.fail('unexpected success: '+sql);}catch(e){assert.equal(e.code,code,e.message);}}
 try{
  await db.exec(await load('tests/owner-production-review/fixture.sql'));
+ await db.exec(await load('tests/owner-production-review/unrelated-owner-functions.sql'));
+ const originalUnrelated=(await db.query("select pg_get_functiondef('public.owner_set_organization_approval_policy(uuid,text)'::regprocedure) as definition")).rows[0].definition;
  const version=(await db.query('select version() as version')).rows[0].version;
  assert.match(version,/PostgreSQL 17\./);check('PostgreSQL major version matches Production');
  await db.exec(await load('docs/production-owner-review/preflight.sql'));check('read-only preflight');
@@ -83,6 +85,7 @@ try{
  await identity(user,ordinarySession);await denied('select public.owner_authorized()');check('emergency rollback removes execution access');
  await db.exec('reset role');
  assert.equal(Number((await db.query('select count(*) as count from public.subscriptions')).rows[0].count),1);check('rollback preserves business data');
+ assert.equal((await db.query("select pg_get_functiondef('public.owner_set_organization_approval_policy(uuid,text)'::regprocedure) as definition")).rows[0].definition,originalUnrelated);check('unrelated organization-owner functions preserved');
  // Separate database: ensure an abort after DDL leaves no partial target objects.
  const drift=new PGlite();await drift.exec(await load('tests/owner-production-review/fixture.sql'));await drift.exec("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA'; alter table public.organizations rename column name to renamed_name");await assert.rejects(drift.exec(await load(bundle)),/source column drift/);await drift.exec('rollback');await drift.close();check('source schema drift fails before target DDL');
  const atomic=new PGlite();await atomic.exec(await load('tests/owner-production-review/fixture.sql'));await atomic.exec("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA'");
