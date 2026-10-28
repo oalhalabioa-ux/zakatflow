@@ -1,10 +1,11 @@
 'use client';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import OwnerThemeSelector from './OwnerThemeSelector';
 import {usePathname} from 'next/navigation';
 type NavIcon='home'|'users'|'building'|'card'|'wallet'|'chart'|'settings';
 function Icon({name}:{name:NavIcon}){
- const paths:Record<NavIcon,React.ReactNode>={
+ const paths:Record<NavIcon,ReactNode>={
  home:<><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9M9 21v-8h6v8"/></>,
  users:<><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M17 14a5 5 0 0 1 4 5v1"/></>,
  building:<><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2M10 21v-3h4v3"/></>,
