@@ -52,13 +52,15 @@ async function main() {
   const created = await Promise.all([rpc(first.client,'create_debt_contract',{p_payload:payload(1)}),rpc(second.client,'create_debt_contract',{p_payload:payload(2)})]);
   assert.notEqual(created[0].id,created[1].id);
   assert.notEqual(created[0].eventId,created[1].eventId);
+  const overlap = Number(sql(`select count(*) from private.pr302_overlap a join private.pr302_overlap b on a.source_id < b.source_id where a.backend <> b.backend and a.started < b.finished and b.started < a.finished`));
+  assert.equal(overlap,1,'First issuance must overlap on distinct database backends');
   // Cross-approval satisfies independent-approval policies when configured.
   await Promise.all([rpc(second.client,'approve_financial_event',{p_event_id:created[0].eventId,p_note:'PR302 synthetic approval'}),rpc(first.client,'approve_financial_event',{p_event_id:created[1].eventId,p_note:'PR302 synthetic approval'})]);
   const posted = await Promise.all([rpc(first.client,'post_debt_contract',{p_id:created[0].id}),rpc(second.client,'post_debt_contract',{p_id:created[1].id})]);
   assert.ok(posted.every(x => x.status === 'ACTUAL'));
   const ids = created.map(x => x.id);
   const events = created.map(x => x.eventId);
-  const stats = JSON.parse(sql(`select json_build_object(
+  const readStats = () => JSON.parse(sql(`select json_build_object(
     'balance',(select current_balance from public.liquidity_accounts where id='${bank}'),
     'vouchers',(select count(*) from public.voucher_numbers where source_table='debt_contracts' and source_id in ('${ids[0]}','${ids[1]}')),
     'distinct_numbers',(select count(distinct document_number) from public.voucher_numbers where source_table='debt_contracts' and source_id in ('${ids[0]}','${ids[1]}')),
@@ -71,6 +73,7 @@ async function main() {
     'line_sum',(select coalesce(sum(base_amount),0) from public.financial_event_lines where event_id in ('${events[0]}','${events[1]}')),
     'obligation_sum',(select coalesce(sum(settleable_base_amount),0) from public.financial_event_obligations where event_id in ('${events[0]}','${events[1]}')),
     'commands',(select count(*) from public.financial_event_command_registry where financial_event_id in ('${events[0]}','${events[1]}') and command_type='DEBT_CONTRACT_POST'))::text`));
+  const stats = readStats();
   assert.equal(Number(stats.balance),1200);
   assert.equal(Number(stats.vouchers),2);
   assert.equal(Number(stats.distinct_numbers),2);
@@ -83,7 +86,9 @@ async function main() {
   assert.equal(Number(stats.line_sum),200);
   assert.equal(Number(stats.obligation_sum),200);
   assert.equal(Number(stats.commands),2);
-  writeFileSync(`${report}/concurrency.json`,JSON.stringify({test:'two-users-first-debt-funding',status:'PASS',...stats},null,2));
+  await Promise.all([rpc(first.client,'post_debt_contract',{p_id:created[0].id}),rpc(second.client,'post_debt_contract',{p_id:created[0].id}),rpc(first.client,'post_debt_contract',{p_id:created[1].id}),rpc(second.client,'post_debt_contract',{p_id:created[1].id})]);
+  assert.deepEqual(readStats(),stats,'Concurrent replay must not duplicate financial effects');
+  writeFileSync(`${report}/concurrency.json`,JSON.stringify({test:'two-users-first-debt-funding',status:'PASS',serverOverlap:true,replayUnchanged:true,...stats},null,2));
 }
 main().catch(error => {
   if (report) { mkdirSync(report,{recursive:true}); writeFileSync(`${report}/concurrency.json`,JSON.stringify({test:'two-users-first-debt-funding',status:'FAIL',error:String(error.message)},null,2)); }

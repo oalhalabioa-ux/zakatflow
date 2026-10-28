@@ -1,0 +1,1312 @@
+{
+  "source": "onugvifmhiglmxwtfbsx",
+  "content": "migration definitions only, not application data",
+  "excluded": [
+    "20261007030637",
+    "20261010165242"
+  ],
+  "migrations": [
+    {
+      "version": "20260915195428",
+      "name": "001_schema",
+      "bytes": 12987,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260915195509",
+      "name": "002_production_hardening",
+      "bytes": 6368,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260915195525",
+      "name": "003_commercial_workflow",
+      "bytes": 5452,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260915195548",
+      "name": "004_v11_hardening",
+      "bytes": 2084,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260915195607",
+      "name": "005_rls_security_remediation",
+      "bytes": 1263,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260915195621",
+      "name": "006_function_execute_lockdown",
+      "bytes": 405,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260916151251",
+      "name": "nisab_aware_hawl_and_cycle_tracking",
+      "bytes": 2675,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917085730",
+      "name": "zakat_payment_allocations_fifo",
+      "bytes": 1962,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917085758",
+      "name": "zakat_payment_allocation_rpc",
+      "bytes": 2403,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917085822",
+      "name": "zakat_payment_fifo_scope_assessment",
+      "bytes": 2408,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917095427",
+      "name": "assessment_cycle_and_payment_editing",
+      "bytes": 1294,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917105102",
+      "name": "lot_hawl_valuation_snapshots",
+      "bytes": 2104,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917151846",
+      "name": "dashboard_and_zakat_query_indexes",
+      "bytes": 1033,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917162058",
+      "name": "zakat_cycle_accounting",
+      "bytes": 1389,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917163149",
+      "name": "dashboard_preferences_and_cycle_controls",
+      "bytes": 1723,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917182809",
+      "name": "cycle_scoped_payment_allocation",
+      "bytes": 2975,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917204455",
+      "name": "allow_individual_manual_market_prices",
+      "bytes": 370,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260917215211",
+      "name": "align_zakat_hawl_cycle_statuses",
+      "bytes": 321,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260919175849",
+      "name": "transaction_fifo_and_reversal_engine",
+      "bytes": 6280,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260919182005",
+      "name": "atomic_internal_transfer",
+      "bytes": 4081,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260919182307",
+      "name": "adjustment_out_engine",
+      "bytes": 2491,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260919184420",
+      "name": "sale_proceeds_and_disposal",
+      "bytes": 6427,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260920080121",
+      "name": "disposal_reporting_effect",
+      "bytes": 3039,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260920100143",
+      "name": "financial_planning_budgeting",
+      "bytes": 4105,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260922191248",
+      "name": "budget_reporting_hierarchy",
+      "bytes": 3250,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260922203831",
+      "name": "organization_cost_centers",
+      "bytes": 1704,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260922204907",
+      "name": "fix_organization_members_bootstrap_rls",
+      "bytes": 1681,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260922205139",
+      "name": "backfill_legacy_budget_organizations",
+      "bytes": 1426,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260922213001",
+      "name": "fix_organization_rls_recursion",
+      "bytes": 2718,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260922215134",
+      "name": "link_default_organization_centers",
+      "bytes": 895,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260923032558",
+      "name": "20260923190000_organization_hierarchy",
+      "bytes": 1928,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260923035344",
+      "name": "20260923200000_cost_center_types",
+      "bytes": 1243,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260924085410",
+      "name": "currency_catalog_and_organization_fx_scope",
+      "bytes": 1919,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260924085443",
+      "name": "split_fx_rate_scope_policies",
+      "bytes": 866,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260924103410",
+      "name": "vat_management_foundation",
+      "bytes": 4592,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260924103444",
+      "name": "vat_supporting_indexes",
+      "bytes": 367,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260924103933",
+      "name": "lock_saudi_vat_standard_rate",
+      "bytes": 206,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260925103131",
+      "name": "vat_einvoice_connections",
+      "bytes": 1858,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260925103139",
+      "name": "vat_einvoice_documents",
+      "bytes": 8133,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260925103149",
+      "name": "issue_vat_einvoice_with_zatca_phase_one_qr",
+      "bytes": 2563,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260925103241",
+      "name": "harden_issue_vat_einvoice_search_path",
+      "bytes": 75,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260925103544",
+      "name": "guard_vat_invoice_issue_registration",
+      "bytes": 1048,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260925113649",
+      "name": "vat_period_summaries_and_payment_tracking",
+      "bytes": 3407,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260926153742",
+      "name": "vat_contacts_and_seller_profile_20260926",
+      "bytes": 4275,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260927113055",
+      "name": "20260927123000_vat_einvoice_due_date",
+      "bytes": 313,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260927115639",
+      "name": "vat_document_line_items",
+      "bytes": 74,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260927161447",
+      "name": "vat_accounting_invoice_currency",
+      "bytes": 1202,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260927180607",
+      "name": "enable_multicurrency_einvoice_drafts",
+      "bytes": 803,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260928131757",
+      "name": "liquidity_management",
+      "bytes": 4731,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260928132026",
+      "name": "harden_liquidity_policies",
+      "bytes": 1321,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260928133312",
+      "name": "tighten_liquidity_data_boundaries",
+      "bytes": 4667,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260928143556",
+      "name": "liquidity_account_transfers_20260928",
+      "bytes": 11501,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260929154100",
+      "name": "liquidity_counterparties_and_editing",
+      "bytes": 3642,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260929185402",
+      "name": "liquidity_flexible_taxonomy_and_sources",
+      "bytes": 9977,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260930125448",
+      "name": "intercompany_liquidity_transfers",
+      "bytes": 14924,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260930132910",
+      "name": "account_user_management",
+      "bytes": 9293,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260930133108",
+      "name": "restrict_anonymous_account_rpcs",
+      "bytes": 763,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260930140453",
+      "name": "fix_organization_invitation_email_ambiguity",
+      "bytes": 2207,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260930143236",
+      "name": "organization_custom_roles",
+      "bytes": 30911,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260930143527",
+      "name": "harden_custom_role_membership_checks",
+      "bytes": 4865,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20260930151445",
+      "name": "fix_invitation_acceptance_conflict",
+      "bytes": 1966,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261005214613",
+      "name": "assets_v2_ownership_classification",
+      "bytes": 4836,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261005214621",
+      "name": "assets_v2_scope_integrity",
+      "bytes": 1771,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261005214628",
+      "name": "assets_v2_supporting_indexes",
+      "bytes": 458,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261005214634",
+      "name": "assets_v2_organization_rls",
+      "bytes": 1538,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261005214641",
+      "name": "assets_v2_permissions",
+      "bytes": 1805,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261005214647",
+      "name": "assets_v2_read_permission",
+      "bytes": 475,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261005214706",
+      "name": "assets_v2_catalog_rls",
+      "bytes": 344,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006092512",
+      "name": "liquidity_financial_classification",
+      "bytes": 1049,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006140600",
+      "name": "users_role_governance_ui_v1",
+      "bytes": 9049,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006140616",
+      "name": "backfill_default_editable_roles_v1",
+      "bytes": 2768,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006141503",
+      "name": "vat_documents_asset_transaction_column_prod_compat",
+      "bytes": 300,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142424",
+      "name": "financial_core_classifications_foundation",
+      "bytes": 1752,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142804",
+      "name": "financial_core_foundation_reconciliation_v1",
+      "bytes": 9809,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142930",
+      "name": "prod_reconcile_20261006123000_permissions_approval_policy_v1",
+      "bytes": 2477,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142934",
+      "name": "prod_reconcile_20261006133000_flexible_roles_member_permissions_v1",
+      "bytes": 2914,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142938",
+      "name": "prod_reconcile_20261006134500_default_editable_roles_v1",
+      "bytes": 2973,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142943",
+      "name": "prod_reconcile_20261006140000_owner_permission_management_rpc_v1",
+      "bytes": 2375,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142947",
+      "name": "prod_reconcile_20261006141500_financial_core_effective_permissions_v1",
+      "bytes": 1128,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142950",
+      "name": "prod_reconcile_20261006143000_expand_role_permission_catalog_v1",
+      "bytes": 736,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006142955",
+      "name": "prod_reconcile_20261006144500_permission_management_read_rls_v1",
+      "bytes": 1003,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143015",
+      "name": "financial_core_operational_functions_v1",
+      "bytes": 5346,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143041",
+      "name": "prod_reconcile_asset_purchase_vat_single_event_v1",
+      "bytes": 3666,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143102",
+      "name": "financial_core_command_path_v1",
+      "bytes": 5900,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143147",
+      "name": "financial_core_rls_and_reporting_views_v1",
+      "bytes": 4137,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143202",
+      "name": "sensitive_permission_and_valid_approval_prod_v2",
+      "bytes": 4591,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143214",
+      "name": "financial_budget_core_tables_v1",
+      "bytes": 3987,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143258",
+      "name": "financial_budget_reporting_rpc_v1",
+      "bytes": 8270,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143305",
+      "name": "financial_budget_bind_existing_plans_v1",
+      "bytes": 636,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143330",
+      "name": "vat_financial_core_adapter_prod_v1",
+      "bytes": 6439,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143410",
+      "name": "controlled_cash_settlement_prod_v1",
+      "bytes": 6644,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006143440",
+      "name": "financial_budget_configuration_and_consolidation_v1",
+      "bytes": 3035,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006173905",
+      "name": "phase2b_reconciliation_views",
+      "bytes": 2089,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006174613",
+      "name": "phase2b_cash_reconciliation_views",
+      "bytes": 7986,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006184034",
+      "name": "actual_settlement_bank_account",
+      "bytes": 6115,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261006203414",
+      "name": "vat_document_due_date_cash_forecast_v1",
+      "bytes": 582,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007025714",
+      "name": "financial_counterparty_subledger_views",
+      "bytes": 1911,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007030637",
+      "name": "remove_confirmed_test_bank_loan_flow",
+      "bytes": 1050,
+      "status": "EXCLUDED_DATA_REPAIR"
+    },
+    {
+      "version": "20261007115137",
+      "name": "liquidity_accounting_taxonomy_v2_production",
+      "bytes": 7031,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007124908",
+      "name": "link_zatca_to_accounting_invoice_v1",
+      "bytes": 288,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007124911",
+      "name": "accounting_invoice_zatca_lifecycle_v1",
+      "bytes": 730,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007124918",
+      "name": "link_zatca_accounting_document_rpc_v1",
+      "bytes": 1400,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007130141",
+      "name": "liquidity_counterparty_party_type_permissions_v1",
+      "bytes": 486,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007130827",
+      "name": "financial_vat_counterparty_map_rls_v1",
+      "bytes": 1013,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007131739",
+      "name": "unified_liquidity_owner_permissions_v1",
+      "bytes": 1329,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007131743",
+      "name": "owner_full_control_sql_grants_v1",
+      "bytes": 1442,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007132948",
+      "name": "financial_core_owner_links_rls_v2",
+      "bytes": 166,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007143424",
+      "name": "prevent_unlinked_zatca_sales_number_collision_v1",
+      "bytes": 972,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007143617",
+      "name": "amend_unissued_sales_invoice_v1",
+      "bytes": 5070,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007144736",
+      "name": "amend_unsettled_purchase_invoice_v1",
+      "bytes": 4313,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007150032",
+      "name": "amend_purchase_invoice_restore_cash_forecast_v2",
+      "bytes": 4958,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261007211501",
+      "name": "delete_unissued_zatca_draft_bundle_v1",
+      "bytes": 3419,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008031940",
+      "name": "atomic_zatca_draft_amendment",
+      "bytes": 15266,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008031944",
+      "name": "amend_pending_invoice_receipt",
+      "bytes": 3694,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008081740",
+      "name": "fix_unissued_invoice_delete_authorization",
+      "bytes": 4880,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008083753",
+      "name": "amend_vat_contact_master",
+      "bytes": 2428,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111020",
+      "name": "vat_note_financial_workflow",
+      "bytes": 23360,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111022",
+      "name": "vat_note_workflow_guards",
+      "bytes": 3641,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111024",
+      "name": "vat_note_source_fingerprint",
+      "bytes": 14594,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111027",
+      "name": "vat_note_forecast_integrity",
+      "bytes": 2989,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111029",
+      "name": "vat_note_legacy_projection_dispatch",
+      "bytes": 1802,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111031",
+      "name": "vat_note_refund_adjustment_guard",
+      "bytes": 939,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111035",
+      "name": "vat_note_cash_flow_link_guard",
+      "bytes": 952,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111037",
+      "name": "vat_note_lifecycle_integrity",
+      "bytes": 2807,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111039",
+      "name": "vat_note_settlement_forecast_parity",
+      "bytes": 2058,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111801",
+      "name": "vat_note_pending_command_cleanup",
+      "bytes": 576,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008111804",
+      "name": "vat_note_settlement_serialization",
+      "bytes": 2623,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008141251",
+      "name": "vat_invoice_number_sequence",
+      "bytes": 4065,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261008141545",
+      "name": "invoice_sequence_minimum_permissions",
+      "bytes": 151,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010093125",
+      "name": "asset_zakat_snapshot_integrity",
+      "bytes": 17606,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010124856",
+      "name": "asset_acquisition_and_register",
+      "bytes": 18227,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010124907",
+      "name": "asset_lifecycle_approval_commands",
+      "bytes": 13233,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010130054",
+      "name": "existing_asset_purchase",
+      "bytes": 10373,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010130248",
+      "name": "asset_purchase_recognition",
+      "bytes": 2283,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010130311",
+      "name": "asset_vat_alias_and_personal_exits",
+      "bytes": 15056,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010130943",
+      "name": "asset_invoice_binding_integrity",
+      "bytes": 5128,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010131056",
+      "name": "asset_vat_binding_retries",
+      "bytes": 5175,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010140923",
+      "name": "asset_catalog_display_and_usage",
+      "bytes": 1205,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010153734",
+      "name": "asset_transaction_delete_eligibility",
+      "bytes": 3038,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010153840",
+      "name": "asset_transaction_recoverable_delete",
+      "bytes": 5312,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010164921",
+      "name": "final_zakat_payment_atomic_paths",
+      "bytes": 12729,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261010165242",
+      "name": "restore_recorded_final_zakat_basis",
+      "bytes": 2671,
+      "status": "EXCLUDED_DATA_REPAIR"
+    },
+    {
+      "version": "20261010192246",
+      "name": "cumulative_hawl_periods_and_allocation_repair",
+      "bytes": 27966,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261011083844",
+      "name": "cancel_open_assessment",
+      "bytes": 2463,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261011091428",
+      "name": "cancel_unused_assessment_history",
+      "bytes": 4497,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012121033",
+      "name": "manual_zakat_assessment_drafts",
+      "bytes": 2543,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012200504",
+      "name": "financial_cash_view_rls_fix",
+      "bytes": 247,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012201633",
+      "name": "financial_cash_atomic_posting_integrity",
+      "bytes": 8942,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012201658",
+      "name": "financial_cash_views_and_scoped_classification_insert",
+      "bytes": 1590,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012201659",
+      "name": "financial_cash_atomic_status_guard",
+      "bytes": 2527,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012201700",
+      "name": "financial_cash_atomic_reversal",
+      "bytes": 10954,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012201706",
+      "name": "financial_bound_invoice_source_guard",
+      "bytes": 2349,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012201707",
+      "name": "financial_budget_cash_metrics_and_authenticated_api_access",
+      "bytes": 4768,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261012201708",
+      "name": "asset_purchase_draft_workspace",
+      "bytes": 13940,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013050416",
+      "name": "asset_operation_edit_and_reverse_workspace",
+      "bytes": 18940,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013214218",
+      "name": "investment_contracts_and_controlled_operations",
+      "bytes": 3634,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013214222",
+      "name": "investment_posted_asset_ledger",
+      "bytes": 10919,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013214225",
+      "name": "investment_contract_draft_commands",
+      "bytes": 7275,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013214229",
+      "name": "investment_operation_preparation",
+      "bytes": 12015,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013215803",
+      "name": "investment_approval_and_cash_commands",
+      "bytes": 15723,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013215824",
+      "name": "investment_source_integrity_and_forecasts",
+      "bytes": 10649,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013215829",
+      "name": "investment_institution_zakat_coverage",
+      "bytes": 23291,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261013215833",
+      "name": "investment_final_coverage_redemption_guard",
+      "bytes": 24235,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014082903",
+      "name": "financial_register_cash_opening_and_purchase_guards",
+      "bytes": 12250,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014082906",
+      "name": "financial_register_opening_column_privileges",
+      "bytes": 5810,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014114701",
+      "name": "advance_payment_atomic_post",
+      "bytes": 13144,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014115836",
+      "name": "advance_payment_status_protection",
+      "bytes": 1743,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014115847",
+      "name": "advance_payment_classifications",
+      "bytes": 1458,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014115851",
+      "name": "advance_request_input_protection",
+      "bytes": 1633,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014115855",
+      "name": "advance_ledger_write_protection",
+      "bytes": 2257,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014140508",
+      "name": "personal_payables",
+      "bytes": 11205,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014143929",
+      "name": "debt_categories",
+      "bytes": 6510,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261014205705",
+      "name": "debt_contracts_and_flow_linking",
+      "bytes": 25903,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261015140222",
+      "name": "debt_operations_phase2",
+      "bytes": 31485,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261015140226",
+      "name": "personal_financing_phase2",
+      "bytes": 12354,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261015220048",
+      "name": "debt_collection_and_payroll_phase3",
+      "bytes": 29210,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261015220053",
+      "name": "debt_payroll_posting_audit_guard",
+      "bytes": 3362,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261019144052",
+      "name": "roles_module_catalog_alignment",
+      "bytes": 6147,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261019153443",
+      "name": "zakat_payment_cash_account_link",
+      "bytes": 11386,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261019200646",
+      "name": "zakat_payment_usd_settlement",
+      "bytes": 11277,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020064847",
+      "name": "personal_debt_party_links",
+      "bytes": 6072,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020065136",
+      "name": "personal_debt_funding_classification",
+      "bytes": 4533,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020122106",
+      "name": "structured_financing_contracts",
+      "bytes": 16440,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020122109",
+      "name": "qard_contract_routing",
+      "bytes": 2612,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020122114",
+      "name": "participation_contracts",
+      "bytes": 7606,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020122123",
+      "name": "participation_movement_preparation",
+      "bytes": 10535,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124240",
+      "name": "participation_posting_function",
+      "bytes": 3486,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124249",
+      "name": "participation_source_guards",
+      "bytes": 2057,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124830",
+      "name": "participation_cancel_function",
+      "bytes": 2125,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124838",
+      "name": "participation_cancel_api",
+      "bytes": 586,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124841",
+      "name": "participation_cancel_flow_cleanup",
+      "bytes": 1276,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124844",
+      "name": "participation_finish_contract",
+      "bytes": 3339,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124855",
+      "name": "structured_finance_source_controls",
+      "bytes": 4862,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124920",
+      "name": "participation_audit_compatibility",
+      "bytes": 9410,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124928",
+      "name": "participation_cash_dependency",
+      "bytes": 8997,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020124934",
+      "name": "participation_cash_consistency",
+      "bytes": 11782,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020142034",
+      "name": "corporate_contract_lifecycle",
+      "bytes": 32889,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020142044",
+      "name": "external_investment_event_compatibility",
+      "bytes": 19706,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020203153",
+      "name": "20261020160000_asset_purchase_classification_guard",
+      "bytes": 2028,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261020203156",
+      "name": "20261020202755_asset_transaction_purchase_type_guard",
+      "bytes": 821,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261021111658",
+      "name": "debt_party_directory_management",
+      "bytes": 11243,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090728",
+      "name": "replay_unified_purchase_numbering",
+      "bytes": 7514,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090748",
+      "name": "replay_asset_opening_edit_archive",
+      "bytes": 10396,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090804",
+      "name": "replay_corporate_zakat_assessment_workflow",
+      "bytes": 25910,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090807",
+      "name": "replay_personal_payable_opening_edit",
+      "bytes": 3650,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090811",
+      "name": "replay_personal_funding_category",
+      "bytes": 1205,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090814",
+      "name": "replay_personal_contracts_and_participations",
+      "bytes": 34071,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090818",
+      "name": "replay_personal_contract_charge_due",
+      "bytes": 21496,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090821",
+      "name": "replay_personal_contract_installment_snapshot",
+      "bytes": 21595,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090824",
+      "name": "replay_personal_contract_installment_followup",
+      "bytes": 3943,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090827",
+      "name": "replay_personal_contract_edit_value",
+      "bytes": 544,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090830",
+      "name": "replay_personal_contract_link_category",
+      "bytes": 593,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090833",
+      "name": "replay_personal_participation_installments",
+      "bytes": 1267,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090837",
+      "name": "replay_annual_voucher_sequences",
+      "bytes": 15151,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027090840",
+      "name": "replay_voucher_reversal_and_asset_draft_numbers",
+      "bytes": 12615,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027091152",
+      "name": "test_only_restore_authenticated_rls_table_grants",
+      "bytes": 8785,
+      "status": "INCLUDED"
+    },
+    {
+      "version": "20261027141135",
+      "name": "restore_isolated_counterparty_view_read_grants",
+      "bytes": 270,
+      "status": "INCLUDED"
+    }
+  ]
+}
