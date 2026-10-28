@@ -22,10 +22,10 @@ begin
  begin
   perform public.owner_upsert_plan('qa-test','QA',1,'SAR','monthly',true,null);
   raise exception 'FAIL: anonymous plan upsert accepted';
- exception when insufficient_privilege then null; end;
+ exception when sqlstate '42501' then null; end;
  begin
   perform public.owner_list_payment_transactions(1);
   raise exception 'FAIL: anonymous payment read accepted';
- exception when insufficient_privilege then null; end;
+ exception when sqlstate '42501' then null; end;
 end $$;
 rollback;
