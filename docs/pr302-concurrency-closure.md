@@ -67,3 +67,29 @@ obligation and cash model; it does not certify a general double-entry journal.
 Existing opening-balance and UI acceptance results remain those already
 approved for 6a37c127. The eight repair commits must remain in original order;
 the test-only branch must not be merged into main.
+
+## Final release
+PR #302 merged with a merge commit (no squash/rebase) on 28 October 2026:
+da3d14b3c21641d4b9f96ce88a57ac12b8e1fac0.
+Parents are original main 622acf084ae6dbea8a89592a956207d97462ed42 and approved
+head 6a37c12770b6ed44f6920a98dba71750c273f38b; all eight repairs remain intact.
+
+Fresh PR-head checks PASS:
+- https://github.com/oalhalabioa-ux/zakatflow/actions/runs/40621162525
+- https://github.com/oalhalabioa-ux/zakatflow/actions/runs/40621162411
+TypeScript, 153 test files / 802 tests, production build and npm audit
+(0 vulnerabilities) completed successfully before merge.
+
+Vercel production deployment dpl_DBsoYiRJ5sNCMcLt2mTinnnkwDSe is READY
+for main/da3d14b3 and assigned to app.yaqeenbiz.com.
+Hostinger shows Completed / Current for main/da3d14b3.
+Both https://yaqeenbiz.com/ar/login and https://app.yaqeenbiz.com/ar/login
+rendered the expected Yaqeen login form after deployment.
+No production write/E2E fixtures were created and no hosted migrations replayed.
+Hostinger PR previews remain OFF; re-enable only after Preview data isolation.
+Approved immutable preview remains:
+https://zakatflow-gaiz0fh8p-oalhalabioa-9334.vercel.app
+
+No remaining blocker for this PR's accepted scope. The limits above remain:
+year-boundary checks are SQL fixtures, this is not a general double-entry/load
+certification, and company-custom fiscal years are a future separate requirement.
