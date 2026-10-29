@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { homeMetadata, siteStructuredData } from '@/lib/site-seo';
+import { homeMetadata, siteStructuredData } from '../lib/site-seo';
 import YaqeenHeroB from '../components/YaqeenHeroB';
 import YaqeenBrand from '../components/YaqeenBrand';
 import YaqeenTagline from '../components/YaqeenTagline';
