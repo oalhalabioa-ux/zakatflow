@@ -14,10 +14,10 @@ const titles = {
 };
 const copy = {
   en: [
-    ['Track available cash and upcoming payments, then open the related transaction at its source.', 'Cash & liquidity'],
+    ['Track available cash and upcoming payments, then open the source transaction.', 'Cash & liquidity'],
     ['Compare budgets, actual results and forecasts before reallocating resources.', 'Financial planning'],
-    ['Follow asset costs, valuations, holding periods, zakat calculations and payments in one clear workflow.', 'Assets & zakat'],
-    ['Review installments, payments and outstanding balances, then open the original voucher.', 'Balances & financing'],
+    ['Track asset costs, values, holding periods, zakat calculations and payments.', 'Assets & zakat'],
+    ['Review installments, payments and balances, then open the source voucher.', 'Balances & financing'],
   ],
   ar: [
     ['تابع النقد المتاح والاستحقاقات القادمة، ثم افتح العملية المرتبطة من مصدرها.', 'السيولة والتدفقات'],

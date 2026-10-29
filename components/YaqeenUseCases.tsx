@@ -3,7 +3,7 @@ import {useRef, useState, type TouchEvent} from 'react';
 const entries = [
   {
     ar: {title: 'رؤية أوضح للسيولة', description: 'تابع النقد المتاح والاستحقاقات القادمة، ثم افتح العملية المرتبطة من مصدرها.', category: 'السيولة والتدفقات'},
-    en: {title: 'A clearer cash position', description: 'Track available cash and upcoming payments, then open the related transaction at its source.', category: 'Cash & liquidity'},
+    en: {title: 'A clearer cash position', description: 'Track available cash and upcoming payments, then open the source transaction.', category: 'Cash & liquidity'},
   },
   {
     ar: {title: 'موازنة تدعم القرار', description: 'راجع الموازنة والفعلي والتوقعات قبل إعادة توزيع الموارد.', category: 'التخطيط المالي'},
@@ -11,11 +11,11 @@ const entries = [
   },
   {
     ar: {title: 'أصول وزكاة مترابطة', description: 'تابع تكلفة الأصل وقيمته والحول والاحتساب والدفعات في مسار واضح.', category: 'الأصول والزكاة'},
-    en: {title: 'Connected assets & zakat', description: 'Follow asset costs, valuations, holding periods, zakat calculations and payments in one clear workflow.', category: 'Assets & zakat'},
+    en: {title: 'Connected assets & zakat', description: 'Track asset costs, values, holding periods, zakat calculations and payments.', category: 'Assets & zakat'},
   },
   {
     ar: {title: 'ذمم قابلة للمتابعة', description: 'راجع الأقساط والسداد والمتبقي، وانتقل إلى السند الأصلي.', category: 'الذمم والتمويل'},
-    en: {title: 'Trackable balances', description: 'Review installments, payments and outstanding balances, then open the original voucher.', category: 'Balances & financing'},
+    en: {title: 'Trackable balances', description: 'Review installments, payments and balances, then open the source voucher.', category: 'Balances & financing'},
   },
 ];
 
