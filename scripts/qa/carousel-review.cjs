@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const {spawn} = require('node:child_process');
-const {chromium} = require('playwright');
+const {chromium} = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
 
 const out = path.resolve('artifacts/carousel-review');
 fs.mkdirSync(out, {recursive: true});

@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: npm install --no-save --package-lock=false playwright@1.51.1
+      - run: npm install --prefix /tmp/yaqeen-carousel-test --no-save --package-lock=false playwright@1.51.1
       - name: Build with isolated placeholders
         run: npm run build
         env:
@@ -22,6 +22,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: isolated-carousel-placeholder
       - name: Compare original and candidate on desktop and touch mobile
         run: node scripts/qa/carousel-review.cjs
+        env:
+          PLAYWRIGHT_PACKAGE: /tmp/yaqeen-carousel-test/node_modules/playwright
       - uses: actions/upload-artifact@v4
         if: always()
         with:
