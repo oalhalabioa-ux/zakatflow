@@ -1,0 +1,30 @@
+name: Homepage Carousel Review QA
+on:
+  push:
+    branches: [qa/homepage-carousel-comparison]
+permissions:
+  contents: read
+jobs:
+  compare-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false playwright@1.51.1
+      - name: Build with isolated placeholders
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: isolated-carousel-placeholder
+      - name: Compare original and candidate on desktop and touch mobile
+        run: node scripts/qa/carousel-review.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yaqeen-carousel-before-after
+          path: artifacts/carousel-review
+          retention-days: 7
