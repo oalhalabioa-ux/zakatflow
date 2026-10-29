@@ -44,3 +44,15 @@ No database migration or role change is proposed.
 Use only designated QA/test identities. Test Google existing/new accounts in both languages, password success/failure, reset mail receipt and password change, refresh/reload/logout, and owner/ordinary user denial through UI and PostgREST. Do not reuse a real customer's credentials. Password changes through the browser require secure user entry. The QA database is not a full financial-module acceptance environment.
 
 Recheck desktop/mobile design, swipe and vertical scroll at 390×844 and 360×800 in both languages. PR309's separate historical browser run is supporting evidence, not a rerun of this candidate.
+
+## Browser and live QA checks
+
+Vercel protected-preview access was completed through the existing account's sign-in and 2FA flow. Deployment Protection was retained; no share token was created.
+
+Desktop (1363×936): Arabic landing page loaded with no broken img elements or horizontal overflow. Both-language arrow navigation updated all card content together. English login, forgot-password controls and anonymous owner-console redirection were exercised. The owner redirect retained `/admin?lang=en` in `next`, and switching login language retained its corresponding owner return language.
+
+Browser verification caught two candidate defects before release: the persistent root layout did not update HTML lang/dir after a client-side language switch, and the alias resolver intercepted the canonical recovery route. Added DocumentLanguage and canonical-recovery regression tests. Final preview rerun is required for these changes.
+
+Live isolated QA API checks returned `400 / invalid_credentials` for a nonexistent test account's password attempt, and `401 / 42501` for an anonymous call to the owner user-list RPC. No accounts or financial records were written. These do not establish successful password login, Google login, recovery email delivery or authenticated cross-organization authorization.
+
+Latest local suite: 847 passing tests across 156 files, TypeScript passed. Full mobile and designated-account acceptance remain pending.

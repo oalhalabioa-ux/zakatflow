@@ -58,6 +58,8 @@ export function routingRedirect(url: URL, locale: Locale): URL | null {
     if (path.includes('reset-password')) target.searchParams.set('mode', 'reset');
     return target;
   }
+  // This is the canonical recovery destination, not a legacy login alias.
+  if (/^\/auth\/reset-password\/?$/.test(path)) return null;
   const alias = /^\/(?:auth\/)?(login|sign-in|signin|forgot-password|reset-password)\/?$/.exec(path);
   if (alias) {
     const target = new URL(`/${locale}/login`, appOrigin(url.origin));

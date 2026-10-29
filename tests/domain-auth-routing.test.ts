@@ -59,6 +59,9 @@ describe('domain boundaries',()=>{
 });
 
 describe('localized recovery and errors',()=>{
+ for(const lang of ['ar','en'] as const)it(`${lang}: renders the canonical recovery page instead of redirecting back to login`,()=>{
+  for(const origin of ['https://app.yaqeenbiz.com','https://preview.vercel.app'])expect(routingRedirect(new URL(`${origin}/auth/reset-password?lang=${lang}`),lang)).toBeNull();
+ });
  for(const lang of ['ar','en'])it(`${lang}: shares one PKCE callback and preserves recovery language`,()=>{
   const url=new URL(getRecoveryRedirectUrl('https://preview.vercel.app',lang));
   expect(url.pathname).toBe('/auth/callback');expect(url.searchParams.get('next')).toBe(`/auth/reset-password?lang=${lang}`);expect(url.searchParams.get('lang')).toBe(lang);
