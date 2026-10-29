@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Yaqeen carousel comparison — preview only</title>
+<style>body{margin:0;background:#eef1f5;font:14px system-ui;color:#102d46}header{padding:12px 16px;background:white}h1{font-size:18px;margin:0 0 8px}label{display:inline-block;margin:0 12px 8px 0}button,select{font:inherit;padding:5px 8px;margin:3px}#stage{overflow:auto;padding:12px 0}iframe{display:block;border:0;margin:0 auto;background:white}details{padding:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere}#status{display:block;padding:4px 0;font-weight:bold}</style></head>
+<body><header><h1>Original 326536a ↔ proposed fix · QA preview only</h1>
+<label>Version <select id="version"><option value="before">Before — original design</option><option value="after" selected>After — proposed fix</option></select></label>
+<label>Viewport <select id="viewport"><option value="390" selected>Phone 390 × 844</option><option value="360">Phone 360 × 800</option><option value="1363">Desktop 1363 × 936</option></select></label>
+<label>Language <select id="language"><option value="en">English</option><option value="ar">العربية</option></select></label>
+<button id="focus">Show use-case section</button><button id="read">Read current state</button><br>
+<button id="left">Simulate left swipe</button><button id="right">Simulate right swipe</button><button id="vertical">Simulate vertical gesture</button><button id="short">Simulate short gesture</button><button id="cancel">Simulate cancelled swipe</button><button id="multi">Simulate multi-touch</button>
+<output id="status" aria-live="polite">Loading…</output></header>
+<div id="stage"><iframe id="site" title="Website comparison viewport" width="390" height="844"></iframe></div>
+<details><summary>Rendered layout and interaction evidence</summary><pre id="evidence"></pre></details>
+<script>
+const frame=document.getElementById('site'), version=document.getElementById('version'), viewport=document.getElementById('viewport'), language=document.getElementById('language');
+const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+function read(){
+ const doc=frame.contentDocument,win=frame.contentWindow,section=doc.querySelector('#usecases');if(!section)return;
+ const articles=[...section.querySelectorAll('article')],visible=articles.filter(el=>win.getComputedStyle(el).display!=='none'),card=articles[0],style=win.getComputedStyle(card),heading=card.querySelector('h3'),p=card.querySelector('p');
+ const box=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y+win.scrollY,width:r.width,height:r.height};};
+ const evidence={version:version.value,language:language.value,viewport:{width:win.innerWidth,height:win.innerHeight},documentWidth:doc.documentElement.scrollWidth,visibleCards:visible.length,card:box(card),cardStyle:{padding:style.padding,borderRadius:style.borderRadius,minHeight:style.minHeight,titleFont:win.getComputedStyle(heading).fontSize,bodyFont:win.getComputedStyle(p).fontSize},content:articles.map(el=>({title:el.querySelector('h3').textContent,description:el.querySelector('p').textContent,category:el.querySelector('b').textContent})),sections:Object.fromEntries(['.yb-hero','#modules','#solutions','#sectors','#features','#usecases','#footer'].map(selector=>[selector,doc.querySelector(selector)?box(doc.querySelector(selector)):null]))};
+ document.getElementById('status').textContent=`${version.value} · ${win.innerWidth}×${win.innerHeight} · ${visible.length} visible card(s) · ${heading.textContent}`;
+ document.getElementById('evidence').textContent=JSON.stringify(evidence,null,2);return evidence;
+}
+function focusSection(){const section=frame.contentDocument.querySelector('#usecases');if(section)section.scrollIntoView({block:'start'});read();}
+function load(){const width=Number(viewport.value);frame.width=width;frame.height=width===1363?936:width===360?800:844;document.getElementById('status').textContent='Loading…';frame.src=(version.value==='before'?'/design-review/carousel-before':'/')+'?lang='+language.value+'#usecases';}
+frame.onload=async()=>{await frame.contentDocument.fonts.ready;await nextFrame();focusSection();};
+for(const control of [version,viewport,language])control.onchange=load;
+document.getElementById('focus').onclick=focusSection;document.getElementById('read').onclick=read;
+async function swipe(dx,dy,kind='normal'){
+ const target=frame.contentDocument.querySelector('.yq-stories>div'),r=target.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;
+ const point=(cx,cy,id=1)=>new Touch({identifier:id,target,clientX:cx,clientY:cy,screenX:cx,screenY:cy,pageX:cx,pageY:cy+frame.contentWindow.scrollY});
+ const start=point(x,y),end=point(x+dx,y+dy);const events=[];
+ const emit=(type,touches,changed)=>{const event=new TouchEvent(type,{bubbles:true,cancelable:true,touches,targetTouches:touches,changedTouches:changed});target.dispatchEvent(event);events.push({type,defaultPrevented:event.defaultPrevented});};
+ emit('touchstart',[start],[start]);
+ if(kind==='multi')emit('touchmove',[end,point(x+20,y,2)],[end]);else emit('touchmove',[end],[end]);
+ if(kind==='cancel')emit('touchcancel',[],[end]);
+ emit('touchend',[],[end]);await nextFrame();read();document.getElementById('evidence').textContent+='\n'+JSON.stringify({syntheticTouchEvents:events},null,2);
+}
+document.getElementById('left').onclick=()=>swipe(-120,0);document.getElementById('right').onclick=()=>swipe(120,0);document.getElementById('vertical').onclick=()=>swipe(0,140);document.getElementById('short').onclick=()=>swipe(15,0);document.getElementById('cancel').onclick=()=>swipe(-120,0,'cancel');document.getElementById('multi').onclick=()=>swipe(-120,0,'multi');
+load();
+</script></body></html>
