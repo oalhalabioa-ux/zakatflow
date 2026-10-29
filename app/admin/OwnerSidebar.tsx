@@ -1,9 +1,12 @@
 'use client';
+import {ownerTranslator,ownerHref} from '@/lib/i18n/owner';
+import type {Locale} from '@/lib/routing';
+
 import Link from 'next/link';
 import {useEffect, useState} from 'react';
 import OwnerNavigation from './OwnerNavigation';
 
-export default function OwnerSidebar(){
+export default function OwnerSidebar({locale='ar'}:{locale?:Locale}){const translate=ownerTranslator(locale);
  const [collapsed,setCollapsed]=useState(false);
  useEffect(()=>{try{setCollapsed(localStorage.getItem('yaqeen-owner-sidebar')==='collapsed')}catch{}},[]);
  function toggle(){
@@ -11,18 +14,18 @@ export default function OwnerSidebar(){
   setCollapsed(next);
   try{localStorage.setItem('yaqeen-owner-sidebar',next?'collapsed':'expanded')}catch{}
  }
- return <aside className={`owner-sidebar${collapsed?' owner-sidebar-collapsed':''}`} aria-label="إدارة المنصة">
+ return <aside className={`owner-sidebar${collapsed?' owner-sidebar-collapsed':''}`} aria-label={translate("إدارة المنصة")}>
   <div className="owner-brand-row">
-   <Link href="/admin" className="owner-original-brand" aria-label="يقين الأعمال — لوحة المالك">
-    <img className="owner-full-brand owner-dark-brand" src="/brand/owner/logo-white-gold.png" alt="يقين الأعمال" width="1448" height="1086"/>
-    <img className="owner-full-brand owner-light-brand" src="/brand/owner/logo-navy-gold.png" alt="يقين الأعمال" width="1448" height="1086"/>
+   <Link href={ownerHref('/admin',locale)} className="owner-original-brand" aria-label={translate("يقين الأعمال — لوحة المالك")}>
+    <img className="owner-full-brand owner-dark-brand" src="/brand/owner/logo-white-gold.png" alt={translate("يقين الأعمال")} width="1448" height="1086"/>
+    <img className="owner-full-brand owner-light-brand" src="/brand/owner/logo-navy-gold.png" alt={translate("يقين الأعمال")} width="1448" height="1086"/>
     <svg className="owner-compact-brand owner-dark-brand" viewBox="273 253 478 517" width="40" height="44" aria-hidden="true"><image href="/brand/sidebar/03_white_gold.png" width="1024" height="1024"/></svg>
     <svg className="owner-compact-brand owner-light-brand" viewBox="273 253 478 517" width="40" height="44" aria-hidden="true"><image href="/brand/owner/icon-navy-gold.png" width="1024" height="1024"/></svg>
    </Link>
-   <button type="button" className="owner-sidebar-toggle" onClick={toggle} aria-expanded={!collapsed} aria-controls="owner-sidebar-menu" aria-label={collapsed?'توسيع القائمة الجانبية':'تصغير القائمة الجانبية'}>{collapsed?'⇤':'⇥'}</button>
+   <button type="button" className="owner-sidebar-toggle" onClick={toggle} aria-expanded={!collapsed} aria-controls="owner-sidebar-menu" aria-label={collapsed?translate("توسيع القائمة الجانبية"):translate("تصغير القائمة الجانبية")}>{collapsed?'⇤':'⇥'}</button>
   </div>
-  <div className="owner-menu-title">إدارة المنصة</div>
-  <div id="owner-sidebar-menu"><OwnerNavigation variant="sidebar"/></div>
-  <div className="owner-foot">لوحة مالك المنصة</div>
+  <div className="owner-menu-title">{translate("إدارة المنصة")}</div>
+  <div id="owner-sidebar-menu"><OwnerNavigation variant="sidebar" locale={locale}/></div>
+  <div className="owner-foot">{translate("لوحة مالك المنصة")}</div>
  </aside>;
 }

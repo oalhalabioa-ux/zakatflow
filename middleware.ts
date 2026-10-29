@@ -1,0 +1,48 @@
+import {createServerClient} from '@supabase/ssr';
+import {NextResponse, type NextRequest} from 'next/server';
+import {requestLocale, routingRedirect, MARKETING_HOSTS, externalRequestUrl} from './lib/routing';
+import {supabaseUrl} from './lib/supabase/config';
+
+export async function middleware(request: NextRequest) {
+  const publicUrl=externalRequestUrl(request.nextUrl,request.headers.get('host'));
+  const locale = requestLocale(publicUrl, request.cookies.get('yaqeen-locale')?.value);
+  const target = routingRedirect(publicUrl, locale);
+  if (target) return NextResponse.redirect(target, 307);
+  const headers = new Headers(request.headers);
+  headers.set('x-yaqeen-locale', locale);
+  let response = NextResponse.next({request: {headers}});
+  const privateRoute = !MARKETING_HOSTS.has(publicUrl.hostname) &&
+    (/^\/(ar|en)\/(?!login(?:\/|$))/.test(request.nextUrl.pathname) || /^\/admin(?:\/|$)/.test(request.nextUrl.pathname));
+  // Callback and recovery must own their exchange; middleware must never consume their code.
+  if (privateRoute && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    const supabase = createServerClient(supabaseUrl(), process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+      cookieOptions: {sameSite:'lax',secure:publicUrl.protocol==='https:'},
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll(cookies) {
+          cookies.forEach(({name, value}) => request.cookies.set(name, value));
+          headers.set('cookie', request.cookies.toString());
+          response = NextResponse.next({request: {headers}});
+          cookies.forEach(({name, value, options}) => response.cookies.set(name, value, options));
+        },
+      },
+    });
+    const {data: {user}} = await supabase.auth.getUser();
+    if (!user) {
+      const login = new URL(`/${locale}/login`, publicUrl);
+      login.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search);
+      const redirect = NextResponse.redirect(login);
+      response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie));
+      redirect.headers.set('Cache-Control','private, no-store');
+      return redirect;
+    }
+    response.headers.set('Cache-Control', 'private, no-store');
+  }
+  if (/^\/auth\//.test(publicUrl.pathname) || /^\/(ar|en)\/login\/?$/.test(publicUrl.pathname)) {
+    response.headers.set('Cache-Control','private, no-store');
+    response.headers.set('Referrer-Policy','no-referrer');
+  }
+  if (request.cookies.get('yaqeen-locale')?.value !== locale) response.cookies.set('yaqeen-locale', locale, {path: '/', sameSite: 'lax', secure: request.nextUrl.protocol === 'https:', maxAge: 31536000});
+  return response;
+}
+export const config = {matcher: ['/((?!_next/|brand/|icons/|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|webp|svg|css|js|woff2?)$).*)']};

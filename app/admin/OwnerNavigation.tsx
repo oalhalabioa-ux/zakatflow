@@ -1,8 +1,11 @@
 'use client';
+import {ownerTranslator,ownerHref} from '@/lib/i18n/owner';
+import type {Locale} from '@/lib/routing';
+
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import OwnerThemeSelector from './OwnerThemeSelector';
-import {usePathname} from 'next/navigation';
+import {usePathname,useSearchParams} from 'next/navigation';
 type NavIcon='home'|'users'|'building'|'card'|'wallet'|'chart'|'settings';
 function Icon({name}:{name:NavIcon}){
  const paths:Record<NavIcon,ReactNode>={
@@ -25,12 +28,13 @@ const sections=[
  {href:'/admin/analytics',label:'التحليلات',icon:'chart'},
  {href:'/admin/settings',label:'الإعدادات',icon:'settings'}
 ] as const;
-export default function OwnerNavigation({variant='tabs'}:{variant?:'tabs'|'sidebar'}){
- const pathname=usePathname();
- const navigation=<nav className={variant==='tabs'?'owner-section-nav owner-tabs':'owner-side-links'} aria-label={variant==='tabs'?'تبويبات إدارة المنصة':'القائمة الجانبية لإدارة المنصة'}>
+export default function OwnerNavigation({variant='tabs',locale='ar'}:{variant?:'tabs'|'sidebar';locale?:Locale}){
+ const translate=ownerTranslator(locale);const pathname=usePathname();const query=useSearchParams();
+ const languageHref=ownerHref(`${pathname}?${query.toString()}`,locale==='ar'?'en':'ar');
+ const navigation=<nav className={variant==='tabs'?'owner-section-nav owner-tabs':'owner-side-links'} aria-label={variant==='tabs'?translate("تبويبات إدارة المنصة"):translate("القائمة الجانبية لإدارة المنصة")}>
   {sections.map(s=>{const active=pathname===s.href||(s.href!=='/admin'&&pathname.startsWith(s.href+'/'));
-   return <Link key={s.href} href={s.href} aria-label={s.label} title={s.label} aria-current={active?'page':undefined} className={active?'selected':undefined}><Icon name={s.icon}/><span>{s.label}</span></Link>;
+   return <Link key={s.href} href={ownerHref(s.href,locale)} aria-label={translate(s.label)} title={translate(s.label)} aria-current={active?'page':undefined} className={active?'selected':undefined}><Icon name={s.icon}/><span>{translate(s.label)}</span></Link>;
   })}
  </nav>;
- return variant==='sidebar'?navigation:<div className="owner-navigation-row">{navigation}<div className="owner-tabs-theme"><OwnerThemeSelector/></div></div>;
+ return variant==='sidebar'?navigation:<div className="owner-navigation-row">{navigation}<Link href={languageHref} lang={locale==='ar'?'en':'ar'}>{locale==='ar'?'English':'العربية'}</Link><div className="owner-tabs-theme"><OwnerThemeSelector locale={locale}/></div></div>;
 }

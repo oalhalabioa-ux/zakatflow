@@ -1,11 +1,35 @@
 'use client';
 import {useEffect,useState} from 'react';
+import Link from 'next/link';
+import {useSearchParams} from 'next/navigation';
 import {supabaseBrowser} from '@/lib/supabase/browser';
 import {establishRecoverySession} from '@/lib/auth/recovery-session';
+import {authCopy} from '@/lib/auth/copy';
+import YaqeenBrand from '@/components/YaqeenBrand';
 
 export default function ResetPassword(){
- const [password,setPassword]=useState('');const [confirm,setConfirm]=useState('');const [busy,setBusy]=useState(false);const [ready,setReady]=useState(false);const [checking,setChecking]=useState(true);const [message,setMessage]=useState('');const [error,setError]=useState('');
- useEffect(()=>{const fragment=location.hash;const supabase=supabaseBrowser();let active=true;const {data}=supabase.auth.onAuthStateChange((event)=>{if(active&&(event==='PASSWORD_RECOVERY'||event==='SIGNED_IN'))setReady(true)});(async()=>{const code=new URLSearchParams(location.search).get('code');const result=await establishRecoverySession(supabase,code,fragment);if(fragment){const clean=new URL(location.href);clean.hash='';history.replaceState(history.state,'',clean.toString())}if(active){if(result.session)setReady(true);else if(result.error)setError('رابط الاستعادة غير صالح أو انتهت صلاحيته. / The recovery link is invalid or expired.');setChecking(false)}})().catch(()=>{if(active){setChecking(false);setError('تعذر التحقق من رابط الاستعادة. / Unable to verify the recovery link.')}});return()=>{active=false;data.subscription.unsubscribe()}},[]);
- async function submit(){setError('');setMessage('');if(password.length<8){setError('Password must be at least 8 characters.');return}if(password!==confirm){setError('Passwords do not match.');return}setBusy(true);const {error}=await supabaseBrowser().auth.updateUser({password});setBusy(false);if(error){setError('Unable to update password. Please request a new reset link.');return}setMessage('Password updated. You can now sign in.');setTimeout(()=>{location.href='/ar/login'},700)}
- return <main className="container" style={{maxWidth:560,paddingTop:40,paddingBottom:60}}><div className="card hero"><div style={{textAlign:'center',marginBottom:22}}><span className="pill">ZakatFlow</span><h1>إعادة تعيين كلمة المرور / Reset password</h1><p className="muted">اختر كلمة مرور جديدة لحسابك. / Choose a new password for your account.</p></div>{checking&&<p className="muted" role="status">جارٍ التحقق من جلسة الاستعادة… / Checking recovery session…</p>}{!checking&&!ready&&!message&&<p className="muted" role="status">افتح هذه الصفحة من رابط الاستعادة في البريد. / Open this page from the password reset email.</p>}{ready&&<div style={{display:'grid',gap:12}}><label>كلمة المرور الجديدة / New password<input type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} style={{width:'100%',padding:12,marginTop:8}}/></label><label>تأكيد كلمة المرور / Confirm password<input type="password" autoComplete="new-password" value={confirm} onChange={e=>setConfirm(e.target.value)} style={{width:'100%',padding:12,marginTop:8}}/></label><button className="btn" onClick={submit} disabled={busy}>{busy?'جارٍ التحديث… / Updating…':'تحديث كلمة المرور / Update password'}</button></div>}{error&&<p role="alert" style={{color:'#b42318'}}>{error}</p>}{message&&<p role="status" style={{color:'#16794c'}}>{message}</p>}</div></main>
+ const query=useSearchParams();const locale=query.get('lang')==='en'?'en':'ar';
+ const [password,setPassword]=useState(''),[confirm,setConfirm]=useState(''),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[checking,setChecking]=useState(true),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const t=authCopy[locale];
+ useEffect(()=>{
+  const language=locale;
+  const copy=authCopy[language],fragment=location.hash,supabase=supabaseBrowser();let active=true;
+  const {data}=supabase.auth.onAuthStateChange(event=>{if(active&&event==='PASSWORD_RECOVERY')setReady(true)});
+  void (async()=>{
+   try {
+    const code=new URLSearchParams(location.search).get('code');
+    const result=await establishRecoverySession(supabase,code,fragment);
+    if(fragment||code){const clean=new URL(location.href);clean.hash='';clean.searchParams.delete('code');history.replaceState(history.state,'',clean.toString())}
+    if(active){setReady(!!result.session);if(result.error)setError(copy.invalidLink)}
+   }catch{if(active)setError(copy.verifyFailed)}finally{if(active)setChecking(false)}
+  })();
+  return()=>{active=false;data.subscription.unsubscribe()};
+ },[locale]);
+ async function submit(){
+  if(busy||!ready)return;setError('');setMessage('');
+  if(password.length<8){setError(t.shortPassword);return}if(password!==confirm){setError(t.mismatch);return}
+  setBusy(true);
+  try{const {error}=await supabaseBrowser().auth.updateUser({password});if(error){setError(t.updateFailed);return}setPassword('');setConfirm('');setReady(false);setMessage(t.updated)}catch{setError(t.updateFailed)}finally{setBusy(false)}
+ }
+ return <main className="container" dir={locale==='ar'?'rtl':'ltr'} lang={locale} style={{maxWidth:560,paddingTop:40,paddingBottom:60}}><div className="card hero"><div style={{textAlign:'center',marginBottom:22}}><YaqeenBrand/><h1>{t.title}</h1><p className="muted">{t.intro}</p></div>{checking&&<p role="status">{t.checking}</p>}{!checking&&!ready&&!message&&<p role="status">{t.openLink}</p>}{ready&&<form onSubmit={event=>{event.preventDefault();void submit()}} style={{display:'grid',gap:12}}><label>{t.password}<input required minLength={8} type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} style={{width:'100%',padding:12,marginTop:8}}/></label><label>{t.confirm}<input required type="password" autoComplete="new-password" value={confirm} onChange={e=>setConfirm(e.target.value)} style={{width:'100%',padding:12,marginTop:8}}/></label><button className="btn" type="submit" disabled={busy}>{busy?t.updating:t.update}</button></form>}{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}<Link href={`/${locale}/login?mode=password`}>{t.back}</Link></div></main>;
 }
