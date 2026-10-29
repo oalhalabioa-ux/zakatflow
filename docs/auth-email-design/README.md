@@ -9,7 +9,7 @@ Configured 2026-10-29. Supabase Production: `ejpzcsfwqziqxwhvqnay`; isolated tem
 - `production-template-before.json`: prior public subject/body for rollback. Contains no credentials or user tokens.
 
 ## SMTP
-Resend SMTP, `smtp.resend.com:465`, username `resend`. Sender `Yaqeen Business | يقين الأعمال <no-reply@auth.yaqeenbiz.com>`. Stored SMTP credential encrypted by Supabase; never copied into this repository. Current key label: `Yaqeen Supabase Auth SMTP - active`, sending-only, restricted to `auth.yaqeenbiz.com`. An earlier unused key remains pending explicit deletion confirmation. No paid plan was purchased.
+Resend SMTP, `smtp.resend.com:465`, username `resend`. Sender `Yaqeen Business | يقين الأعمال <no-reply@auth.yaqeenbiz.com>`. Stored SMTP credential encrypted by Supabase; never copied into this repository. Current key label: `Yaqeen Supabase Auth SMTP - active`, sending-only, restricted to `auth.yaqeenbiz.com`. The earlier unused setup key was deleted after explicit owner approval; Resend confirmed only the active key remains. No paid plan was purchased.
 
 Domain ID: `c9063272-eb0a-440d-bb52-44c556ec410b`, Ireland. Resend showed Verified after the owner added the three DNS records in Hostinger. No website or apex email record was modified by this task. Receiving is disabled; tracking metrics were not configured. Optional root DMARC was not added without reviewing the existing zone.
 
