@@ -34,7 +34,7 @@ export default function YaqeenUseCases({ar}: {ar: boolean}) {
   }
   return <div className="yq-stories">
     <button aria-label={ar ? 'السابق' : 'Previous'} onClick={() => setStart(current => (current + entries.length - 1) % entries.length)}>‹</button>
-    <div style={{touchAction: 'pan-y'}} onTouchStart={event => {
+    <div style={{touchAction: 'pan-y pinch-zoom'}} onTouchStart={event => {
       const point = event.touches[0];
       touchStart.current = event.touches.length === 1 && point ? {x: point.clientX, y: point.clientY} : null;
     }} onTouchMove={event => { if (event.touches.length !== 1) touchStart.current = null; }} onTouchEnd={finishSwipe} onTouchCancel={() => { touchStart.current = null; }}>{[0, 1, 2].map(i => {
