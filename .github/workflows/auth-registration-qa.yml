@@ -6,6 +6,9 @@ on:
       - 'app/auth/**'
       - 'components/YaqeenAuthView.tsx'
       - 'lib/auth/**'
+      - 'lib/email/**'
+      - 'services/email/**'
+      - 'app/api/organizations/invitations/**'
       - 'supabase/templates/**'
       - 'scripts/qa/auth-local-acceptance.mjs'
       - 'scripts/qa/auth-browser-acceptance.mjs'
@@ -55,6 +58,15 @@ jobs:
             subject=(pathlib.Path.cwd()/'supabase/templates'/(file+'.subject.txt')).read_text().strip()
             assert len(subject)<=255
             s+='\n[auth.email.template.'+name+']\nsubject = '+json.dumps(subject,ensure_ascii=False)+'\ncontent_path = "'+'./supabase/templates/'+file+'.html'+'"\n'
+          for item in json.loads((pathlib.Path.cwd()/'supabase/templates/email-suite-manifest.json').read_text()):
+            file=item['name']
+            shutil.copyfile(pathlib.Path.cwd()/'supabase/templates'/(file+'.html'),template_dir/(file+'.html'))
+            subject=(pathlib.Path.cwd()/'supabase/templates'/(file+'.subject.txt')).read_text().strip()
+            assert len(subject)<=255
+            kind='notification' if item['kind']=='security' else 'template'
+            s+='\n[auth.email.'+kind+'.'+item['config']+']\n'
+            if kind=='notification': s+='enabled = true\n'
+            s+='subject = '+json.dumps(subject,ensure_ascii=False)+'\ncontent_path = "./supabase/templates/'+file+'.html"\n'
           p.write_text(s)
           PY
       - name: Start real Supabase Auth, PostgREST, PostgreSQL and Mailpit

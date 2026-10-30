@@ -1,0 +1,1 @@
+{{ $en := eq (or .Data.preferred_language .Data.locale) "en" }}{{ if $en }}A sign-in method was removed — Yaqeen Business{{ else }}تم إلغاء ربط وسيلة دخول بحسابك — يقين الأعمال{{ end }}

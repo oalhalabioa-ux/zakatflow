@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
   }
   if (/^\/auth\//.test(publicUrl.pathname) || /^\/(ar|en)\/login\/?$/.test(publicUrl.pathname)) {
     response.headers.set('Cache-Control','private, no-store');
-    response.headers.set('Referrer-Policy',publicUrl.pathname==='/auth/confirm'&&request.method==='GET'?'strict-origin':'no-referrer');
+    response.headers.set('Referrer-Policy',['/auth/confirm','/auth/email-action'].includes(publicUrl.pathname)&&request.method==='GET'?'strict-origin':'no-referrer');
   }
   if (request.cookies.get('yaqeen-locale')?.value !== locale) response.cookies.set('yaqeen-locale', locale, {path: '/', sameSite: 'lax', secure: request.nextUrl.protocol === 'https:', maxAge: 31536000});
   return response;

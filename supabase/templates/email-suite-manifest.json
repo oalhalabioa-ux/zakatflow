@@ -1,0 +1,52 @@
+[
+  {
+    "name": "invite",
+    "kind": "authentication",
+    "config": "invite"
+  },
+  {
+    "name": "email-change",
+    "kind": "authentication",
+    "config": "email_change"
+  },
+  {
+    "name": "reauthentication",
+    "kind": "authentication",
+    "config": "reauthentication"
+  },
+  {
+    "name": "password-changed",
+    "kind": "security",
+    "config": "password_changed"
+  },
+  {
+    "name": "email-changed",
+    "kind": "security",
+    "config": "email_changed"
+  },
+  {
+    "name": "phone-changed",
+    "kind": "security",
+    "config": "phone_changed"
+  },
+  {
+    "name": "identity-linked",
+    "kind": "security",
+    "config": "identity_linked"
+  },
+  {
+    "name": "identity-unlinked",
+    "kind": "security",
+    "config": "identity_unlinked"
+  },
+  {
+    "name": "mfa-enrolled",
+    "kind": "security",
+    "config": "mfa_factor_enrolled"
+  },
+  {
+    "name": "mfa-unenrolled",
+    "kind": "security",
+    "config": "mfa_factor_unenrolled"
+  }
+]

@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './users.module.css';
+import emailCopy from '@/lib/email/copy.json';
 
 type Organization = { id: string; name: string };
 type Member = { user_id: string; email: string; name: string; role: string; status: string; created_at: string; custom_role_id?: string | null; custom_role_name?: string | null };
@@ -18,7 +19,7 @@ const labels: Record<string, [string, string]> = {
 };
 
 export default function UserManagement({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = use(params); const ar = locale === 'ar';
+  const { locale } = use(params); const ar = locale === 'ar';const mailCopy=emailCopy.organization[ar?'ar':'en'];
   const [activeTab,setActiveTab]=useState('roles');
   const [permissionSearch,setPermissionSearch]=useState('');
   const [overrideUser,setOverrideUser]=useState('');
@@ -34,6 +35,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [approvalPolicy,setApprovalPolicy]=useState('OWNER_CONTROLLED'); const [permissionOverrides,setPermissionOverrides]=useState<PermissionOverride[]>([]); const [governanceReady,setGovernanceReady]=useState(false);
   const [email, setEmail] = useState(''); const [role, setRole] = useState('ACCOUNTANT');
+  const [inviteId,setInviteId]=useState(''),[emailAvailable,setEmailAvailable]=useState(false),[emailRequested,setEmailRequested]=useState(false);
   const [inviteUrl, setInviteUrl] = useState(''); const [inviteEmail, setInviteEmail] = useState(''); const [inviteRole, setInviteRole] = useState('ACCOUNTANT');
   const [roleName, setRoleName] = useState(''); const [roleDescription, setRoleDescription] = useState(''); const [rolePermissions, setRolePermissions] = useState<string[]>([]); const [editingRoleId, setEditingRoleId] = useState('');
   const [canShare, setCanShare] = useState(false); const [notice, setNotice] = useState('');
@@ -71,7 +73,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
       setNotice(response.status === 403 ? (ar ? 'تتطلب إدارة المستخدمين صلاحية مالك أو مسؤول في الجهة المحددة.' : 'User management requires owner or admin access to the selected organization.') : (ar ? 'تعذر تحميل المستخدمين.' : 'Could not load users.'));
       return;
     }
-    setActorRole(body.actor_role??'');setActorId(body.actor_user_id??'');setMembers(body.users ?? []); setInvitations(body.invitations ?? []);
+    setEmailAvailable(body.email_delivery_available===true);setActorRole(body.actor_role??'');setActorId(body.actor_user_id??'');setMembers(body.users ?? []); setInvitations(body.invitations ?? []);
     const governedRoles=governanceResponse.ok ? governanceBody.roles ?? [] : [];
     setCustomRoles(governedRoles.length ? governedRoles.map((r:CustomRole)=>({...r,member_count:(roleBody.roles??[]).find((x:CustomRole)=>x.id===r.id)?.member_count??0})) : (rolesResponse.ok ? roleBody.roles ?? [] : []));
     setApprovalPolicy(governanceBody.approval_policy ?? 'OWNER_CONTROLLED'); setPermissionOverrides(governanceBody.overrides ?? []); setGovernanceReady(governanceResponse.ok); setNotice(!rolesResponse.ok || !governanceResponse.ok ? (ar?'تعذر تحميل بعض بيانات الصلاحيات. أعد التحميل قبل التعديل.':'Some permission data could not load. Reload before editing.'):'');
@@ -94,8 +96,8 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   const tabs=[{key:'roles',ar:'الأدوار المنشأة',en:'Created roles',icon:'roles'},{key:'create',ar:editingRoleId?'تعديل الدور':'إنشاء دور',en:editingRoleId?'Edit role':'Create role',icon:'add'},{key:'members',ar:'المستخدمون',en:'Members',icon:'users'},{key:'invites',ar:'الدعوات',en:'Invitations',icon:'mail'},{key:'governance',ar:'الحوكمة والصلاحيات',en:'Governance & access',icon:'shield'}];
 
   const inviteMessage = ar
-    ? `دعوة للانضمام إلى ${organization?.name ?? 'الجهة'} في زكاة فلو\nالبريد المدعو: ${inviteEmail}\nالدور: ${roleLabel(inviteRole)}\nسجّل الدخول بالبريد نفسه لقبول الدعوة (صالحة لمدة 7 أيام): ${inviteUrl}`
-    : `You are invited to join ${organization?.name ?? 'the organization'} on ZakatFlow.\nInvited email: ${inviteEmail}\nRole: ${roleLabel(inviteRole)}\nSign in using the same email to accept (valid for 7 days): ${inviteUrl}`;
+    ? `دعوة للانضمام إلى ${organization?.name ?? 'الجهة'} في يقين الأعمال\nالبريد المدعو: ${inviteEmail}\nالدور: ${roleLabel(inviteRole)}\nسجّل الدخول بالبريد نفسه لقبول الدعوة (صالحة لمدة 7 أيام): ${inviteUrl}`
+    : `You are invited to join ${organization?.name ?? 'the organization'} on Yaqeen Business.\nInvited email: ${inviteEmail}\nRole: ${roleLabel(inviteRole)}\nSign in using the same email to accept (valid for 7 days): ${inviteUrl}`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(inviteMessage)}`;
 
   async function seedDefaultRoles(){setBusy(true);setNotice('');try{const r=await fetch('/api/organizations/permissions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId})});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');await loadUsers(organizationId);setNotice(ar?'تم تجهيز الأدوار الافتراضية القابلة للتعديل.':'Editable default roles are ready.');}catch(e){setNotice(message(e instanceof Error?e.message:'',ar));}finally{setBusy(false);}}
@@ -107,10 +109,17 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
       const response = await fetch('/api/organizations/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, email, ...rolePayload(role), locale }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
-      setInviteUrl(body.invite_url); setInviteEmail(email.trim()); setInviteRole(role); setEmail(''); setNotice(ar ? 'أنشئت الدعوة. اختر طريقة المشاركة المناسبة.' : 'Invitation created. Choose how to share it.');
+      setInviteId(body.id);setEmailRequested(false);setInviteUrl(body.invite_url); setInviteEmail(email.trim()); setInviteRole(role); setEmail(''); setNotice(ar ? 'أنشئت الدعوة. اختر طريقة المشاركة المناسبة.' : 'Invitation created. Choose how to share it.');
       await loadUsers(organizationId);
     } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
     finally { setBusy(false); }
+  }
+
+  async function emailInvite(){
+    if(busy||emailRequested||!inviteId)return;setBusy(true);setNotice('');
+    try{const response=await fetch('/api/organizations/invitations/email',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,invitation_id:inviteId,locale})});
+      if(!response.ok)throw Error('EMAIL_DELIVERY_FAILED');setEmailRequested(true);setNotice(mailCopy.accepted);
+    }catch{setNotice(mailCopy.failed)}finally{setBusy(false)}
   }
 
   async function copyInviteLink() {
@@ -125,7 +134,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   async function shareInvite() {
     if (!navigator.share) return;
     try {
-      await navigator.share({ title: ar ? 'دعوة زكاة فلو' : 'ZakatFlow invitation', text: inviteMessage, url: inviteUrl });
+      await navigator.share({ title: mailCopy.shareTitle, text: inviteMessage, url: inviteUrl });
     } catch (error) {
       if (error instanceof Error && error.name !== 'AbortError') setNotice(ar ? 'تعذرت المشاركة من الجهاز.' : 'Device sharing failed.');
     }
@@ -262,6 +271,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
           <button className="btn" type="submit" disabled={busy}>{ar ? 'إنشاء الدعوة' : 'Create invite'}</button>
         </form>
         {inviteUrl && <><div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          <button className="btn secondary" type="button" disabled={busy||!emailAvailable||emailRequested} title={!emailAvailable?mailCopy.unavailable:undefined} onClick={()=>void emailInvite()}>{emailRequested?mailCopy.sent:busy?mailCopy.sending:mailCopy.send}</button>
           <a className="btn" href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ background: '#25D366', color: '#102116' }}>{ar ? 'مشاركة عبر واتساب' : 'Share via WhatsApp'}</a>
           {canShare && <button className="btn secondary" type="button" onClick={() => void shareInvite()}>{ar ? 'مشاركة…' : 'Share…'}</button>}
           <button className="btn secondary" type="button" onClick={() => void copyInviteLink()}>{ar ? 'نسخ الرابط' : 'Copy link'}</button>
