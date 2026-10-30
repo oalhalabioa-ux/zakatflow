@@ -16,7 +16,7 @@ permissions:
   contents: read
 jobs:
   real-auth:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/auth-browser"
           echo '{"private":true}' > "$RUNNER_TEMP/auth-browser/package.json"
-          npm install --prefix "$RUNNER_TEMP/auth-browser" --no-package-lock --no-save playwright@1.56.1 > "$RUNNER_TEMP/auth-browser-install.log" 2>&1 || { tail -25 "$RUNNER_TEMP/auth-browser-install.log"; exit 1; }
+          npm install --prefix "$RUNNER_TEMP/auth-browser" --no-package-lock --no-save playwright@1.64.1 > "$RUNNER_TEMP/auth-browser-install.log" 2>&1 || { tail -25 "$RUNNER_TEMP/auth-browser-install.log"; exit 1; }
           node "$RUNNER_TEMP/auth-browser/node_modules/playwright/cli.js" install --with-deps chromium > "$RUNNER_TEMP/auth-browser-binary.log" 2>&1 || { tail -35 "$RUNNER_TEMP/auth-browser-binary.log"; exit 1; }
           echo "AUTH_QA_BROWSER_MODULE=$RUNNER_TEMP/auth-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - name: Initialize disposable Auth and email test stack
