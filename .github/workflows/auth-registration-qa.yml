@@ -8,6 +8,8 @@ on:
       - 'lib/auth/**'
       - 'supabase/templates/**'
       - 'scripts/qa/auth-local-acceptance.mjs'
+      - 'scripts/qa/auth-browser-acceptance.mjs'
+      - 'middleware.ts'
       - '.github/workflows/auth-registration-qa.yml'
   workflow_dispatch:
 permissions:
@@ -24,6 +26,11 @@ jobs:
         with:
           node-version: 24
       - run: npm ci
+      - name: Install isolated browser test runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/auth-browser" --no-package-lock --no-save playwright@1.56.1 > "$RUNNER_TEMP/auth-browser-install.log" 2>&1
+          node "$RUNNER_TEMP/auth-browser/node_modules/playwright/cli.js" install --with-deps chromium > "$RUNNER_TEMP/auth-browser-binary.log" 2>&1
+          echo "AUTH_QA_BROWSER_MODULE=$RUNNER_TEMP/auth-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - name: Initialize disposable Auth and email test stack
         run: |
           export AUTH_QA_WORKDIR="$RUNNER_TEMP/auth-registration-qa"
@@ -31,7 +38,7 @@ jobs:
           mkdir -p "$AUTH_QA_WORKDIR"
           npx --yes supabase@2.122.0 init --workdir "$AUTH_QA_WORKDIR" > "$RUNNER_TEMP/auth-init.log" 2>&1
           python - <<'PY'
-          import os, pathlib, re, shutil
+          import os, pathlib, re, shutil, json
           p=pathlib.Path(os.environ['AUTH_QA_WORKDIR'])/'supabase/config.toml'
           s=p.read_text()
           s=re.sub(r'^project_id = .*$', 'project_id = "auth-registration-qa"', s, flags=re.M)
@@ -43,7 +50,9 @@ jobs:
           template_dir.mkdir(parents=True,exist_ok=True)
           for name,file in [('confirmation','confirm-signup'),('magic_link','magic-link')]:
             shutil.copyfile(pathlib.Path.cwd()/'supabase/templates'/(file+'.html'),template_dir/(file+'.html'))
-            s+='\n[auth.email.template.'+name+']\nsubject = "Yaqeen QA"\ncontent_path = "'+'./supabase/templates/'+file+'.html'+'"\n'
+            subject=(pathlib.Path.cwd()/'supabase/templates'/(file+'.subject.txt')).read_text().strip()
+            assert len(subject)<=255
+            s+='\n[auth.email.template.'+name+']\nsubject = '+json.dumps(subject,ensure_ascii=False)+'\ncontent_path = "'+'./supabase/templates/'+file+'.html'+'"\n'
           p.write_text(s)
           PY
       - name: Start real Supabase Auth, PostgREST, PostgreSQL and Mailpit
