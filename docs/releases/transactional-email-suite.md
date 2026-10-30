@@ -27,7 +27,7 @@ The Next.js server needs an authorized `RESEND_API_KEY` to call the existing Res
 1. Review Preview and isolated CI results. The Preview has blank privileged/email credentials and cannot send invitations.
 2. Deploy application routes before installing the new invitation/email-change templates.
 3. Check whether an existing server Resend key is already configured without revealing it; add a server-only key securely only if specifically approved. Do not use `NEXT_PUBLIC_` for secrets.
-4. Apply the three authentication templates and seven optional security templates listed in `supabase/templates/email-suite-manifest.json`. Keep confirmation, secure email change, token expiry, Google and SMTP settings unchanged.
+4. Apply the three authentication templates and seven optional security templates listed in `supabase/templates/email-suite-manifest.json`. Generate the exact template-only Management API payload with `node scripts/generate-auth-email-config.mjs`; it makes no network request and deliberately omits enablement toggles. Keep confirmation, secure email change, token expiry, Google and SMTP settings unchanged.
 5. Enable approved security notifications (password/email/identity changes are recommended). Phone/MFA templates can remain dormant while those features are unused.
 6. Send only to an authorized test mailbox, verify inbox, links, invited address restrictions and role acceptance in both languages. Do not invite real users as a test.
 7. Confirm real Resend delivery/events separately; local Mailpit is not evidence of external delivery.
