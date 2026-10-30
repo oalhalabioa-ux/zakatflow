@@ -1,0 +1,1 @@
+{{ $enPrefix := printf "%s/auth/callback?lang=en&" .SiteURL }}{{ $en := false }}{{ if ge (len .RedirectTo) (len $enPrefix) }}{{ $en = eq (slice .RedirectTo 0 (len $enPrefix)) $enPrefix }}{{ end }}{{ if $en }}Verify your email address — Yaqeen Business{{ else }}تأكيد بريدك الإلكتروني — يقين الأعمال{{ end }}

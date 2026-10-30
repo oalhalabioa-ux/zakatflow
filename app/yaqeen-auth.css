@@ -197,3 +197,48 @@
 .yqa-card .yqa-footnote{color:#536174;font-size:11px}
 @media(max-width:1150px){.yqa-pitch h1{font-size:28px}}
 @media(max-width:760px){.yqa-input input{font-size:16px}.yqa-provider-row .yqa-provider{font-size:11px}}
+
+/* Authentication additions: reuse the approved card, palette, assets and fonts. */
+.yqa-fields{border:0;padding:0;margin:0;min-width:0}
+.yqa-field-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.yqa-field-pair>*{min-width:0}
+.yqa-account-tabs{margin:14px 0}
+.yqa-method-tabs{margin:10px 0 14px}
+.yqa-method-tabs button{padding-inline:6px;font-size:11px;min-width:0;overflow-wrap:anywhere}
+.yqa-card .yqa-hint{font-size:11px;line-height:1.7;color:#536174;margin:4px 0 12px;text-align:start}
+.yqa .yqa-consent{display:flex;align-items:flex-start;gap:8px;font-weight:400;font-size:12px;line-height:1.8;margin:12px 0}
+.yqa-consent input{flex-shrink:0;width:18px;height:18px;margin:2px 0;accent-color:#a57324}
+.yqa-consent a,.yqa-status-panel a{color:#805619;text-decoration:underline}
+.yqa-status-panel{text-align:start}
+.yqa-status-panel .yqa-email{background:#f0eee8;border:1px solid #e7e1d7;border-radius:6px;padding:12px;overflow-wrap:anywhere;text-align:center}
+.yqa-status-panel .yqa-notice{background:#f8f3e9;border:1px solid #d9c49e;border-radius:6px;color:#805619;padding:12px;font-size:13px;line-height:1.8}
+.yqa button:disabled{cursor:not-allowed;opacity:.65}
+.yqa .yqa-tabs button:focus-visible,.yqa a:focus-visible{outline:2px solid #a57324;outline-offset:3px}
+/* Let the existing card grow with registration instead of overlapping the page end. */
+@media(min-width:1151px) and (min-height:740px){.yqa{min-height:max(100svh,var(--yqa-content-height,760px))}}
+@media(max-width:760px){.yqa-field-pair{grid-template-columns:minmax(0,1fr);gap:0}.yqa-account-tabs button,.yqa-method-tabs button{min-height:44px}.yqa .yqa-consent{font-size:12px}.yqa-status-panel .yqa-email{font-size:14px}}
+.yqa.yqa-legal{display:block;min-height:100svh;padding:48px 18px}
+.yqa-legal .yqa-card{position:static;transform:none;min-height:0;width:100%;max-width:840px;margin:auto;text-align:start;display:block}
+.yqa-legal .yqa-card>.yaqeen-brand-art{display:block;margin:auto}
+.yqa-legal .yqa-card p{font-size:14px;line-height:1.9}
+.yqa-legal .yqa-card h1{font-size:25px}
+.yqa-legal .yqa-card h2{font-size:18px;margin-top:24px}
+.yqa-legal .yqa-notice{color:#805619;background:#f8f3e9;border:1px solid #d9c49e;padding:12px;border-radius:6px}
+.yqa-legal a{color:#805619}
+
+/* Compact sign-in method switch: existing actions, icon-only navy/gold controls. */
+.yqa .yqa-method-tabs{display:flex;width:max-content;max-width:100%;gap:4px;padding:4px;margin:10px 0 14px;background:#102c46;border:1px solid #102c46;border-radius:8px}
+.yqa .yqa-method-tabs button{flex:0 0 44px;width:44px;height:44px;min-height:44px;min-width:44px;padding:10px;background:#102c46;color:#d9b365;border:1px solid transparent;border-radius:5px;opacity:.8}
+.yqa .yqa-method-tabs button[aria-selected=true]{background:#1d3b56;border:1px solid #d9b365;color:#edc77c;box-shadow:inset 0 -2px 0 #d9b365;opacity:1}
+.yqa .yqa-method-tabs button:hover{background:#1d3b56;opacity:1}
+.yqa .yqa-method-tabs button:focus-visible{outline:2px solid #edc77c;outline-offset:2px}
+.yqa .yqa-method-tabs .yqa-icon{width:20px;height:20px}
+
+/* Keep the icon switch level with the active field/action in both directions. */
+.yqa-method-row{display:grid;grid-template-columns:94px minmax(0,1fr);align-items:end;gap:8px;margin-bottom:8px}
+.yqa .yqa-method-row>label{min-width:0;margin:0}
+.yqa .yqa-method-row .yqa-input{height:48px;min-height:48px}
+.yqa .yqa-method-row .yqa-method-tabs{width:94px;height:48px;margin:0;padding:1px;gap:0;border-radius:6px}
+.yqa .yqa-method-row .yqa-method-tabs button{flex:0 0 45px;width:45px;min-width:45px;height:44px;min-height:44px;padding:10px}
+.yqa .yqa-method-row>.yqa-submit{min-height:48px;height:48px;font-size:13px;gap:6px;padding:0 6px;line-height:1.35}
+.yqa .yqa-method-row>.yqa-submit .yqa-icon{flex-shrink:0;width:16px;height:16px}
