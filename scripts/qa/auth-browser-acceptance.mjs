@@ -21,7 +21,8 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql}){
    const submit=()=>page.locator('form button[type="submit"]').click();
    const signout=async()=>{await page.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).click();await page.waitForURL(u=>u.pathname===`/${locale}/login`)};
    const heading=text=>page.getByRole('heading',{name:text,exact:true}).waitFor();
-   const run=(name,fn)=>check(`${locale}: browser ${name}`,async()=>{try{await fn()}catch(error){throw Error(`${locale}: browser ${name} failed at ${new URL(page.url()).pathname} (${error.name}; details suppressed to protect test credentials)`)}});
+   let phase='';
+   const run=(name,fn)=>check(`${locale}: browser ${name}`,async()=>{try{await fn()}catch(error){throw Error(`${locale}: browser ${name} failed at ${new URL(page.url()).pathname} (${phase||error.name}; ${String(error.message).split('\n')[0].replaceAll(password,'[redacted]').replace(/https?:\/\/[^\s]+/g,'[test URL]').slice(0,180)})`)}});
    try{
     await run('desktop/mobile methods, alignment, autofill and language',async()=>{
      await visit();assert.equal(await page.locator('#method-password').getAttribute('aria-selected'),'true');
@@ -85,11 +86,11 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql}){
      // Respect the local Auth mail interval after the immediately preceding magic link.
      await new Promise(resolve=>setTimeout(resolve,1200));
      await visit();await page.locator('#login-email').fill(email);await page.getByRole('button',{name:ar?'نسيت كلمة المرور؟':'Forgot password?',exact:true}).click();await submit();await page.getByRole('status').waitFor();
-     const mail=await emailFor(email,'recovery');const href=(mail.HTML??'').match(/href="([^"]+)"/)[1].replaceAll('&amp;','&');await page.goto(href);
+     phase='open recovery email';const mail=await emailFor(email,'recovery');const href=(mail.HTML??'').match(/href="([^"]+)"/)[1].replaceAll('&amp;','&');await page.goto(href);
      await page.waitForURL(u=>u.pathname==='/auth/reset-password');assert.equal(new URL(page.url()).searchParams.get('lang'),locale);
-     const fields=page.locator('form input[type="password"]');await fields.nth(0).fill(password+'2');await fields.nth(1).fill(password+'3');await submit();await page.getByRole('alert').waitFor();
-     await fields.nth(1).fill(password+'2');await submit();await page.getByRole('status').waitFor();
-     await page.goto(account);await heading(ar?'حسابي':'My Account');await signout();await visit();await page.locator('#login-email').fill(email);await page.locator('#login-password').fill(password+'2');await submit();await page.waitForURL(account);await heading(ar?'حسابي':'My Account');await signout();
+     phase='recovery password form';const fields=page.locator('form input[type="password"]');await fields.nth(0).fill(password+'2');await fields.nth(1).fill(password+'3');await submit();phase='mismatch message';await page.locator('main p[role="alert"]').waitFor();
+     await fields.nth(1).fill(password+'2');await submit();phase='password update status';await page.locator('main p[role="status"]').waitFor();
+     phase='recovery logout and re-login';await page.goto(account);await heading(ar?'حسابي':'My Account');await signout();await visit();await page.locator('#login-email').fill(email);await page.locator('#login-password').fill(password+'2');await submit();await page.waitForURL(account);await heading(ar?'حسابي':'My Account');await signout();
     });
    }finally{await context.close()}
   }
