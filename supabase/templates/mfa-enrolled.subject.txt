@@ -1,0 +1,1 @@
+{{ $en := eq (or .Data.preferred_language .Data.locale) "en" }}{{ if $en }}A verification method was added — Yaqeen Business{{ else }}تمت إضافة وسيلة تحقق إضافية — يقين الأعمال{{ end }}

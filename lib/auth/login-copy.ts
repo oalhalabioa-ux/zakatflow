@@ -1,6 +1,7 @@
 // Shared copy for the bilingual login, registration and verification flow.
 export const loginCopy = {
  ar:{
+  platformInvite:'دعوة لإنشاء حسابك في يقين الأعمال',invitePasswordTitle:'تعيين كلمة مرور حسابك',invitePasswordIntro:'تم تأكيد الدعوة. يمكنك الآن تعيين كلمة مرور لحسابك في يقين الأعمال.',
   confirmSignIn:'تأكيد تسجيل الدخول',confirmEmail:'تأكيد البريد الإلكتروني',continueSecure:'اضغط للمتابعة بأمان إلى حسابك.',welcome:'مرحبًا بك', intro:'سجّل الدخول إلى منصة يقين الأعمال لإدارة أعمالك وتنمية قراراتك المالية', createIntro:'أنشئ حسابك في منصة يقين الأعمال لإدارة أعمالك وتنمية قراراتك المالية',
   signIn:'تسجيل الدخول',create:'إنشاء حساب جديد',createButton:'إنشاء حساب',email:'البريد الإلكتروني',emailPlaceholder:'أدخل بريدك الإلكتروني', password:'كلمة المرور',quick:'رابط الدخول السريع',methods:'طريقة تسجيل الدخول',accountTabs:'الدخول وإنشاء الحساب',
   quickHint:'سنرسل رابطاً آمناً للدخول دون كلمة مرور.',sendQuick:'إرسال رابط الدخول السريع',forgot:'نسيت كلمة المرور؟',reset:'إرسال رابط الاستعادة',back:'العودة لتسجيل الدخول',remember:'تذكر البريد على هذا الجهاز',or:'أو',google:'المتابعة بـ Google',googleCreate:'إنشاء حساب بواسطة Google',working:'جارٍ التنفيذ…',
@@ -11,6 +12,7 @@ export const loginCopy = {
   errors:{email:'أدخل بريداً إلكترونياً صحيحاً.',password:'أدخل كلمة المرور.',name:'أدخل الاسم الكامل من حرفين إلى 120 حرفاً.',phone:'أدخل رقم جوال دولياً صحيحاً يبدأ بعلامة + ومفتاح الدولة.',strength:'استخدم كلمة مرور من 12 إلى 128 حرفاً تشمل حروفاً وأرقاماً.',mismatch:'كلمتا المرور غير متطابقتين.',terms:'وافق على الشروط والأحكام وسياسة الخصوصية للمتابعة.',confirmationRequired:'تأكيد البريد مطلوب. تحقق من بريدك أو اطلب رابط تأكيد جديداً.'},
  },
  en:{
+  platformInvite:'You are invited to Yaqeen Business',invitePasswordTitle:'Set your account password',invitePasswordIntro:'Your invitation is verified. You can now set a password for your Yaqeen Business account.',
   confirmSignIn:'Confirm sign in',confirmEmail:'Verify email address',continueSecure:'Continue securely to your account.',welcome:'Welcome',intro:'Sign in to Yaqeen Business to manage your business and inform your financial decisions',createIntro:'Create an account to manage your business and inform your financial decisions',
   signIn:'Sign In',create:'Create Account',createButton:'Create account',email:'Email address',emailPlaceholder:'Enter your email',password:'Password',quick:'Quick sign-in link',methods:'Sign-in method',accountTabs:'Sign in and create account',
   quickHint:'Receive a secure link to sign in without a password.',sendQuick:'Send quick sign-in link',forgot:'Forgot password?',reset:'Send reset link',back:'Back to sign in',remember:'Remember email on this device',or:'or',google:'Continue with Google',googleCreate:'Create account with Google',working:'Working…',

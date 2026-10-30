@@ -15,7 +15,8 @@ const fresh=()=>createClient(api,status.ANON_KEY,{auth:{autoRefreshToken:false,p
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_auth-registration-qa','psql','-X','-q','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',stdio:['pipe','pipe','pipe']});
 const checks=[];let app;
 const check=async(name,fn)=>{await fn();checks.push({name,status:'passed'});console.log('PASS '+name)};
-async function emailFor(email,contains,excludeLink){for(let i=0;i<40;i++){const inbox=await (await fetch(mailUrl+'/api/v1/messages')).json();const msg=inbox.messages?.find(m=>m.To?.some(t=>t.Address===email));if(msg){const full=await (await fetch(mailUrl+'/api/v1/message/'+msg.ID)).json();if((!contains||(contains==='recovery'?(full.HTML??'').includes('type=recovery'):(full.HTML??'').includes(contains)))&&(!excludeLink||linkFrom(full)!==excludeLink))return full;}await new Promise(r=>setTimeout(r,500))}throw Error('Local verification email missing')}
+async function emailFor(email,contains,excludeLink){for(let i=0;i<40;i++){const inbox=await (await fetch(mailUrl+'/api/v1/messages')).json();for(const msg of inbox.messages??[]){if(!msg.To?.some(t=>t.Address===email))continue;const full=await (await fetch(mailUrl+'/api/v1/message/'+msg.ID)).json();const html=full.HTML??'';if((contains?(contains==='recovery'?html.includes('type=recovery'):html.includes(contains)):Boolean(linkFrom(full)))&&(!excludeLink||linkFrom(full)!==excludeLink))return full;}await new Promise(r=>setTimeout(r,500))}throw Error('Local verification email missing')}
+
 function linkFrom(mail){const html=mail.HTML??mail.html??'';const hrefs=[...html.matchAll(/href="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&'));return hrefs.find(h=>h.includes('token_hash='))??hrefs.find(h=>h.includes('/auth/v1/verify'))}
 try{
  // Minimal, explicit test-only ownership fixture; never presented as a full Production schema audit.
@@ -39,6 +40,37 @@ try{
   await check(`${locale}: actual recovery email and password update for synthetic user`,async()=>{await new Promise(r=>setTimeout(r,1200));const c=fresh();assert.ifError((await c.auth.resetPasswordForEmail(email,{redirectTo:appUrl+`/auth/callback?lang=${locale}&next=%2Fauth%2Freset-password%3Flang%3D${locale}`})).error);const mail=await emailFor(email,'recovery');const raw=(mail.HTML??'').match(/href="([^"]+)"/)[1].replaceAll('&amp;','&');const token=new URL(raw).searchParams.get('token');assert.ok(token);const verified=await c.auth.verifyOtp({token_hash:token,type:'recovery'});assert.ifError(verified.error);assert.ifError((await c.auth.updateUser({password:password+'2'})).error);assert.ifError((await fresh().auth.signInWithPassword({email,password:password+'2'})).error);assert.ifError((await c.auth.updateUser({password})).error)});
   await check(`${locale}: actual expired confirmation and resend retain the account`,async()=>{const expiredEmail=`expired-${locale}@qa.local.test`;const c=fresh();const signup=await c.auth.signUp({email:expiredEmail,password,options:{emailRedirectTo:redirectTo,data:{locale}}});assert.ifError(signup.error);const id=signup.data.user.id;const first=linkFrom(await emailFor(expiredEmail));sql(`update auth.users set confirmation_sent_at=now()-interval '2 hours' where id='${id}'`);const failed=await fetch(appUrl+'/auth/confirm',{method:'POST',headers:{Origin:appUrl},body:new URL(first).searchParams,redirect:'manual'});assert.ok(failed.headers.get('location').includes('error=verification'));const blocked=await c.auth.signInWithPassword({email:expiredEmail,password});assert.equal(blocked.error?.code,'email_not_confirmed');const resend=await c.auth.resend({type:'signup',email:expiredEmail,options:{emailRedirectTo:redirectTo}});assert.ifError(resend.error);const replacement=linkFrom(await emailFor(expiredEmail,undefined,first));assert.notEqual(replacement,first);const completed=await fetch(appUrl+'/auth/confirm',{method:'POST',headers:{Origin:appUrl},body:new URL(replacement).searchParams,redirect:'manual'});assert.equal(completed.headers.get('location'),appUrl+`/${locale}/dashboard`);assert.ifError((await c.auth.signInWithPassword({email:expiredEmail,password})).error)});
   await check(`${locale}: expired token keeps the account and returns translated retry`,async()=>{const data=new URL(confirmedLink).searchParams;data.set('token_hash',randomBytes(32).toString('hex'));const expired=await fetch(appUrl+'/auth/confirm',{method:'POST',headers:{Origin:appUrl},body:data,redirect:'manual'});assert.equal(expired.headers.get('location'),appUrl+`/${locale}/login?error=verification`);assert.ifError((await fresh().auth.signInWithPassword({email,password})).error)});
+ }
+ const admin=createClient(api,status.SERVICE_ROLE_KEY,{auth:{autoRefreshToken:false,persistSession:false}});
+ for(const locale of ['ar','en']){
+  await check(`${locale}: real Auth invitation template, scanner protection and initial password`,async()=>{
+   const email=`invite-${locale}@qa.local.test`,password=randomBytes(24).toString('base64url')+'7a';
+   const invited=await admin.auth.admin.inviteUserByEmail(email,{data:{preferred_language:locale},redirectTo:appUrl+`/auth/callback?lang=${locale}`});assert.ifError(invited.error);
+   const mail=await emailFor(email,'type=invite'),link=linkFrom(mail);assert.ok((mail.HTML??'').includes(`dir="${locale==='ar'?'rtl':'ltr'}"`));
+   assert.equal((await fetch(link)).status,200);const before=await admin.auth.admin.getUserById(invited.data.user.id);assert.ok(!before.data.user.email_confirmed_at);
+   const response=await fetch(appUrl+'/auth/confirm',{method:'POST',headers:{Origin:appUrl},body:new URL(link).searchParams,redirect:'manual'});assert.equal(response.headers.get('location'),appUrl+`/auth/reset-password?lang=${locale}&purpose=invite`);
+   const user=await admin.auth.admin.getUserById(invited.data.user.id);assert.ok(user.data.user.email_confirmed_at);assert.ok(!user.data.user.app_metadata.role);
+   const token=new URL(link).searchParams.get('token_hash');const reused=await fresh().auth.verifyOtp({token_hash:token,type:'invite'});assert.ok(reused.error);
+   // Only the isolated synthetic account is assigned a password here.
+   assert.ifError((await admin.auth.admin.updateUserById(invited.data.user.id,{password})).error);assert.ifError((await fresh().auth.signInWithPassword({email,password})).error);
+  });
+  await check(`${locale}: password-change security email uses its separate translated template`,async()=>{const mail=await emailFor(`auth-${locale}@qa.local.test`,locale==='en'?'Your password was changed':'تم تغيير كلمة مرور حسابك');assert.ok((mail.HTML??'').includes(`dir="${locale==='ar'?'rtl':'ltr'}"`));assert.ok(!linkFrom(mail));});
+  await check(`${locale}: real email-change template preserves scanner protection and Supabase verification`,async()=>{
+   const email=`auth-${locale}@qa.local.test`,nextEmail=`changed-${locale}@qa.local.test`;
+   // Recover the isolated user's session using a server-generated local link; no real account is touched.
+   const generated=await admin.auth.admin.generateLink({type:'magiclink',email});assert.ifError(generated.error);
+   const client=fresh();assert.ifError((await client.auth.verifyOtp({token_hash:generated.data.properties.hashed_token,type:'magiclink'})).error);
+   const updated=await client.auth.updateUser({email:nextEmail},{emailRedirectTo:appUrl+`/auth/callback?lang=${locale}`});assert.ifError(updated.error);
+   for(const recipient of [email,nextEmail]){
+    const mail=await emailFor(recipient,'/auth/email-action?');const html=mail.HTML??'';assert.ok(html.includes(`dir="${locale==='ar'?'rtl':'ltr'}"`));
+    const wrapper=[...html.matchAll(/href="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&')).find(x=>x.includes('/auth/email-action?'));assert.ok(wrapper);
+    const get=await fetch(wrapper);assert.equal(get.status,200);assert.equal(get.headers.get('referrer-policy'),'strict-origin');
+    const before=await admin.auth.admin.getUserById(updated.data.user.id);assert.equal(before.data.user.email,email);
+    const params=new URL(wrapper).searchParams;const post=await fetch(appUrl+'/auth/email-action',{method:'POST',headers:{Origin:appUrl},body:params,redirect:'manual'});assert.equal(post.status,303);
+    const destination=post.headers.get('location');assert.ok(destination.startsWith(api+'/auth/v1/verify?'));await fetch(destination,{redirect:'manual'});
+   }
+   const changed=await admin.auth.admin.getUserById(updated.data.user.id);assert.equal(changed.data.user.email,nextEmail);
+  });
  }
  await browserAcceptance({appUrl,emailFor,linkFrom,check,sql});
 }catch(error){checks.push({name:error.message,status:'failed'});process.exitCode=1}

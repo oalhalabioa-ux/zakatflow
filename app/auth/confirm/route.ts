@@ -16,8 +16,8 @@ function redirect(url:URL){return NextResponse.redirect(url,{status:303,headers}
 export async function GET(req:Request){
  const url=new URL(req.url),locale=requestLocale(url),ar=locale==='ar',copy=loginCopy[locale];
  const type=url.searchParams.get('type'),token=url.searchParams.get('token_hash');
- if(!token||token.length>512||!['signup','email'].includes(type??''))return redirect(new URL(`/${locale}/login?error=verification`,origin(req)));
- const title=type==='signup'?copy.confirmEmail:copy.confirmSignIn;
+ if(!token||token.length>512||!['signup','email','invite'].includes(type??''))return redirect(new URL(`/${locale}/login?error=${type==='invite'?'invite_invalid':'verification'}`,origin(req)));
+ const title=type==='invite'?copy.platformInvite:type==='signup'?copy.confirmEmail:copy.confirmSignIn;
  const hidden=['token_hash','type','lang','next','invite'].map(key=>`<input type="hidden" name="${key}" value="${escapeHtml(key==='lang'?locale:url.searchParams.get(key)??'')}">`).join('');
  return new Response(`<!doctype html><html lang="${locale}" dir="${ar?'rtl':'ltr'}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Yaqeen Business</title><link rel="stylesheet" href="/auth/confirm/styles"><main><img src="/brand/owner/logo-navy-gold.png" alt="Yaqeen Business"><h1>${title}</h1><p>${copy.continueSecure}</p><form method="post" action="/auth/confirm">${hidden}<button type="submit">${title}</button></form></main></html>`,{headers:{...headers,'Content-Type':'text/html; charset=utf-8','Referrer-Policy':'strict-origin','Content-Security-Policy':"default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"}});
 }
@@ -26,11 +26,12 @@ export async function POST(req:Request){
  if(req.headers.get('origin')!==publicOrigin)return new Response('Forbidden',{status:403,headers});
  const form=await req.formData(),locale=form.get('lang')==='en'?'en':'ar',type=form.get('type'),token=form.get('token_hash');
  const login=new URL(`/${locale}/login`,publicOrigin);
- login.searchParams.set('error',type==='signup'?'verification':'auth');
- if(typeof token!=='string'||token.length>512||(type!=='signup'&&type!=='email'))return redirect(login);
+ login.searchParams.set('error',type==='invite'?'invite_invalid':type==='signup'?'verification':'auth');
+ if(typeof token!=='string'||token.length>512||(type!=='signup'&&type!=='email'&&type!=='invite'))return redirect(login);
  const supabase=await supabaseServer();
  const {data,error}=await supabase.auth.verifyOtp({token_hash:token,type});
  if(error||!verifiedEmail(data.user)){if(data.session)await supabase.auth.signOut();return redirect(login)}
+ if(type==='invite')return redirect(new URL(`/auth/reset-password?lang=${locale}&purpose=invite`,publicOrigin));
  const invite=form.get('invite');
  if(typeof invite==='string'&&invite){const {error:invitationError}=await supabase.rpc('accept_organization_invitation',{p_token:invite});if(invitationError){await supabase.auth.signOut();login.searchParams.set('error','invite_invalid');return redirect(login)}}
  return redirect(new URL(safeNext(typeof form.get('next')==='string'?String(form.get('next')):null,locale),publicOrigin));

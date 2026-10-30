@@ -1,0 +1,17 @@
+import {afterEach,describe,it,expect,vi} from 'vitest';
+import {organizationInvitationEmail} from '../lib/email/organization-invitation';
+import {sendInvitationEmail} from '../services/email/resend';
+const input={locale:'en' as const,organization:'Example Organization',email:'test@example.test',role:'VIEWER',expiresAt:'2099-01-01T12:00:00Z',inviteUrl:'https://app.yaqeenbiz.com/en/login?invite=test'};
+afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals()});
+describe('organization invitation email',()=>{
+ for(const locale of ['ar','en'] as const)it(`${locale}: uses the approved brand, correct direction, actual expiry and separate invitation meaning`,()=>{const mail=organizationInvitationEmail({...input,locale});expect(mail.html).toContain(`lang="${locale}"`);expect(mail.html).toContain(locale==='ar'?'dir="rtl"':'dir="ltr"');expect(mail.html).toContain('logo-white-gold.png');expect(mail.text).toContain(input.email);expect(mail.text).toContain(locale==='ar'?'٢٠٩٩':'2099');expect(mail.html).not.toContain('password reset');expect(mail.html).not.toContain('ZakatFlow')});
+ it('escapes organization and custom-role text',()=>{const mail=organizationInvitationEmail({...input,organization:'<script>alert(1)</script>',role:'CUSTOM',customRoleName:'<img onerror="x">'});expect(mail.html).not.toContain('<script>');expect(mail.html).not.toContain('<img onerror');expect(mail.html).toContain('&lt;script&gt;')});
+ it.each(['OWNER','ADMIN','PLATFORM_OWNER'])('never represents elevated role %s as an invitation',role=>expect(()=>organizationInvitationEmail({...input,role})).toThrow('INVITATION_ROLE_INVALID'));
+ it('rejects external, marketing, malformed and expired links',()=>{for(const inviteUrl of ['https://evil.test/en/login?invite=test','https://www.yaqeenbiz.com/en/login?invite=test','https://app.yaqeenbiz.com/en/login','javascript:alert(1)'])expect(()=>organizationInvitationEmail({...input,inviteUrl})).toThrow();expect(()=>organizationInvitationEmail({...input,expiresAt:'2020-01-01'})).toThrow('INVITATION_INVALID_OR_EXPIRED')});
+});
+describe('Resend server transport',()=>{
+ const mail={to:input.email,...organizationInvitationEmail(input),invitationId:'test-invitation'};
+ it('fails closed when no key is configured',async()=>{vi.stubEnv('RESEND_API_KEY','');const fetch=vi.fn();vi.stubGlobal('fetch',fetch);await expect(sendInvitationEmail(mail)).rejects.toThrow('EMAIL_DELIVERY_UNAVAILABLE');expect(fetch).not.toHaveBeenCalled()});
+ it('uses the approved sender and a stable idempotency key, without trusting a production endpoint override',async()=>{vi.stubEnv('RESEND_API_KEY','test-only-not-a-secret');vi.stubEnv('NEXT_PUBLIC_APP_ENV','production');vi.stubEnv('TRANSACTIONAL_EMAIL_TEST_ENDPOINT','https://evil.test');const fetch=vi.fn().mockResolvedValue({ok:true,json:async()=>({id:'test-message'})});vi.stubGlobal('fetch',fetch);expect(await sendInvitationEmail(mail)).toEqual({status:'accepted'});const [url,options]=fetch.mock.calls[0];expect(url).toBe('https://api.resend.com/emails');expect(options.headers['Idempotency-Key']).toBe('organization-invitation/test-invitation');expect(JSON.parse(options.body).from).toContain('no-reply@auth.yaqeenbiz.com');expect(JSON.parse(options.body).to).toEqual([input.email])});
+ it('never returns provider error text or credentials',async()=>{vi.stubEnv('RESEND_API_KEY','test-only-not-a-secret');vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:false,text:async()=>('private provider details')}));await expect(sendInvitationEmail(mail)).rejects.toThrow('EMAIL_DELIVERY_FAILED')});
+});
