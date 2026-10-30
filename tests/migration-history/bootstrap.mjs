@@ -48,7 +48,7 @@ try{
   assert.equal(new Date(e.data.trial_ends_at)-new Date(e.data.trial_started_at),30*86400000);
  });
  await check('actual financial schema allows entitled cash account writes',async()=>{
-  const r=await client.from('liquidity_accounts').insert({organization_id:org,name:'Synthetic bank',account_type:'BANK',currency:'SAR',created_by:user.id}).select('id').single();assert.ifError(r.error);account=r.data.id;
+  const r=await client.from('liquidity_accounts').insert({organization_id:org,name:'Synthetic bank',account_type:'BANK',currency:'SAR'}).select('id,created_by').single();assert.ifError(r.error);assert.equal(r.data.created_by,user.id);account=r.data.id;
  });
  await check('expiry rejects actual-schema API mutation and preserves CSV export',async()=>{
   sql(`update public.platform_subscriptions set trial_started_at=now()-interval '31 days',trial_ends_at=now()-interval '1 day' where organization_id='${org}';`);
