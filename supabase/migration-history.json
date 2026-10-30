@@ -1,0 +1,1527 @@
+{
+  "observed_on": "2026-10-30",
+  "project_ref": "ejpzcsfwqziqxwhvqnay",
+  "description": "Canonical applied history restored from read-only metadata; does not apply or repair hosted migrations.",
+  "entries": [
+    {
+      "path": "supabase/migrations/20260915195428_001_schema.sql",
+      "version": "20260915195428",
+      "name": "001_schema",
+      "installed_md5": "3537a0a4fe7bf091ba37ccf866c01208",
+      "file_sha256": "c6cb083d2135658ee0c6b33051b0806b22dabf3576d5c9469ce5f403b79a084b"
+    },
+    {
+      "path": "supabase/migrations/20260915195509_002_production_hardening.sql",
+      "version": "20260915195509",
+      "name": "002_production_hardening",
+      "installed_md5": "e834a3588723e6747cbc8f7dbe7b3f9d",
+      "file_sha256": "2154a5cc8359a976e4fbe4a719dbd26e10a60f84ed3446f177c3f3415ef451bd"
+    },
+    {
+      "path": "supabase/migrations/20260915195525_003_commercial_workflow.sql",
+      "version": "20260915195525",
+      "name": "003_commercial_workflow",
+      "installed_md5": "fff7e9f32170b60f123a138aaae4e1dc",
+      "file_sha256": "526be8c5b94812371e104eebb02c7bcb63cbd9fca8c454b443d0bd0f68f3ceb3"
+    },
+    {
+      "path": "supabase/migrations/20260915195548_004_v11_hardening.sql",
+      "version": "20260915195548",
+      "name": "004_v11_hardening",
+      "installed_md5": "39eb6edb4589f9b5c6a1b5c63ca2b4be",
+      "file_sha256": "ee5e88b7ccc0a7e1fa691af7d4f4e3b7a9d0c0c4916e19a09762537b05ec0572"
+    },
+    {
+      "path": "supabase/migrations/20260915195607_005_rls_security_remediation.sql",
+      "version": "20260915195607",
+      "name": "005_rls_security_remediation",
+      "installed_md5": "3ce561d85f92a174c266ffad7203c00c",
+      "file_sha256": "0c7f3381470d16fa50e389b16012c6c0142597498b5771f66d0ac58f08d3158b"
+    },
+    {
+      "path": "supabase/migrations/20260915195621_006_function_execute_lockdown.sql",
+      "version": "20260915195621",
+      "name": "006_function_execute_lockdown",
+      "installed_md5": "227ba755da321c929edd7326492d6ded",
+      "file_sha256": "02279520bfb5b5b721790b97a316f1fb55fd6b955afa905de45d11dc4108f0b8"
+    },
+    {
+      "path": "supabase/migrations/20260916151251_nisab_aware_hawl_and_cycle_tracking.sql",
+      "version": "20260916151251",
+      "name": "nisab_aware_hawl_and_cycle_tracking",
+      "installed_md5": "279bb140615cf8385cd898f8c16abb00",
+      "file_sha256": "a00754c04c950a2a51128dbeaccc7165148559869131a3f437b95f61d4c5cf14"
+    },
+    {
+      "path": "supabase/migrations/20260917085730_zakat_payment_allocations_fifo.sql",
+      "version": "20260917085730",
+      "name": "zakat_payment_allocations_fifo",
+      "installed_md5": "e87abd4b07ece8afb5c25ac15b3151f3",
+      "file_sha256": "9e40631820b09d142e09893016566c7eb9409cf13ff00486541bee8e0ea3ab41"
+    },
+    {
+      "path": "supabase/migrations/20260917085758_zakat_payment_allocation_rpc.sql",
+      "version": "20260917085758",
+      "name": "zakat_payment_allocation_rpc",
+      "installed_md5": "e746dd7ba28d1be0373082d4dd563e98",
+      "file_sha256": "54a3cd918dc4f4dae2d2760b7261d1518f967b3cb28b9ea7ebcdc111e239f580"
+    },
+    {
+      "path": "supabase/migrations/20260917085822_zakat_payment_fifo_scope_assessment.sql",
+      "version": "20260917085822",
+      "name": "zakat_payment_fifo_scope_assessment",
+      "installed_md5": "a0d09454c835f2dae9e633ed7c33190c",
+      "file_sha256": "e266dd43b85a52e85d36a63c769b39fc9a32185f619fbcf9a2b65c0f89a889aa"
+    },
+    {
+      "path": "supabase/migrations/20260917095427_assessment_cycle_and_payment_editing.sql",
+      "version": "20260917095427",
+      "name": "assessment_cycle_and_payment_editing",
+      "installed_md5": "02068ea34b210ef2f34f261c14505271",
+      "file_sha256": "8e118b180b15702bf6c85f80b6e3fe803872c0b334e21d942e0cc126cc243ff9"
+    },
+    {
+      "path": "supabase/migrations/20260917105102_lot_hawl_valuation_snapshots.sql",
+      "version": "20260917105102",
+      "name": "lot_hawl_valuation_snapshots",
+      "installed_md5": "47f78d3502d541dd03f5d15b1ad571bd",
+      "file_sha256": "35fbff565d2d873a598412e5bcfdeefc97cf593403c69772a53bc3f3d9466184"
+    },
+    {
+      "path": "supabase/migrations/20260917151846_dashboard_and_zakat_query_indexes.sql",
+      "version": "20260917151846",
+      "name": "dashboard_and_zakat_query_indexes",
+      "installed_md5": "2fe7bf18e30275414b66df00fd832fce",
+      "file_sha256": "68b5be99f834b1d8ab5e26ad5603585e5cbdc95c0d00c3e8726668c9be8327f0"
+    },
+    {
+      "path": "supabase/migrations/20260917162058_zakat_cycle_accounting.sql",
+      "version": "20260917162058",
+      "name": "zakat_cycle_accounting",
+      "installed_md5": "273e6103c6bb5b54b838a233e7b63464",
+      "file_sha256": "a391266c4696783cf2846d6175b838424eade3221db01022a98314cb9bc6df6c"
+    },
+    {
+      "path": "supabase/migrations/20260917163149_dashboard_preferences_and_cycle_controls.sql",
+      "version": "20260917163149",
+      "name": "dashboard_preferences_and_cycle_controls",
+      "installed_md5": "24a52f1304365a733de4a5fc86599969",
+      "file_sha256": "96dbe4cf45a64f136e3fe47c667fb4d61cae5ef116ef1169aae4372367fc5161"
+    },
+    {
+      "path": "supabase/migrations/20260917182809_cycle_scoped_payment_allocation.sql",
+      "version": "20260917182809",
+      "name": "cycle_scoped_payment_allocation",
+      "installed_md5": "c03d4c1e44baafc4755816ab6b4ec878",
+      "file_sha256": "507094ce2c6c16c9de700917e2753bc542f70723c9510d2807c78646952cbb87"
+    },
+    {
+      "path": "supabase/migrations/20260917204455_allow_individual_manual_market_prices.sql",
+      "version": "20260917204455",
+      "name": "allow_individual_manual_market_prices",
+      "installed_md5": "0e2b10c706c1cd0e53dec94fc3290db4",
+      "file_sha256": "31a955fe819e9507edc09146e9c33ef1a3251c576e5b1e46b28a202a588b790f"
+    },
+    {
+      "path": "supabase/migrations/20260917215211_align_zakat_hawl_cycle_statuses.sql",
+      "version": "20260917215211",
+      "name": "align_zakat_hawl_cycle_statuses",
+      "installed_md5": "1f9c5ce3edfec36daafeaa2716246355",
+      "file_sha256": "3bbd42c16aa9a34ae49047a5f6807146052081eea872a662436beeafebcc3226"
+    },
+    {
+      "path": "supabase/migrations/20260919175849_transaction_fifo_and_reversal_engine.sql",
+      "version": "20260919175849",
+      "name": "transaction_fifo_and_reversal_engine",
+      "installed_md5": "e23622aa8e3b8f824020f27afcde2259",
+      "file_sha256": "356e2b4b1b37e3056f054f3889992bb8b569bc4ee4f4534f5a9be5b0e71670d2"
+    },
+    {
+      "path": "supabase/migrations/20260919182005_atomic_internal_transfer.sql",
+      "version": "20260919182005",
+      "name": "atomic_internal_transfer",
+      "installed_md5": "fde23ef9ffd2028c3583d9bb37c06b09",
+      "file_sha256": "8b0133ae524ff090dbaf14b7146490c99be86fe6594531f1912f234283051258"
+    },
+    {
+      "path": "supabase/migrations/20260919182307_adjustment_out_engine.sql",
+      "version": "20260919182307",
+      "name": "adjustment_out_engine",
+      "installed_md5": "6b146a65727198c0d33793ebc6a99b01",
+      "file_sha256": "fd2fc0f9f48dc68c864b5e2f93471ca849659cb0075a405ddd8a44a336ffbfbe"
+    },
+    {
+      "path": "supabase/migrations/20260919184420_sale_proceeds_and_disposal.sql",
+      "version": "20260919184420",
+      "name": "sale_proceeds_and_disposal",
+      "installed_md5": "4d46085fcc5eeeff930bccc52df2a6cb",
+      "file_sha256": "15f6ca1efb887818609649b0b2e53cd7583dd03a6c6ac240e8ba4e518e124e39"
+    },
+    {
+      "path": "supabase/migrations/20260920080121_disposal_reporting_effect.sql",
+      "version": "20260920080121",
+      "name": "disposal_reporting_effect",
+      "installed_md5": "4921632ea89ed1165994c49f29d9ed10",
+      "file_sha256": "3b7b91c409f9dc3925462f9b29f9834e95d5ba2261979c7300445f806fe300d1"
+    },
+    {
+      "path": "supabase/migrations/20260920100143_financial_planning_budgeting.sql",
+      "version": "20260920100143",
+      "name": "financial_planning_budgeting",
+      "installed_md5": "d93d8b35320225bf4c119f9eb8345415",
+      "file_sha256": "24ba7674262b62028e7615c163abefa6b83072a8561f67cef6c703e59a3b47d3"
+    },
+    {
+      "path": "supabase/migrations/20260922191248_budget_reporting_hierarchy.sql",
+      "version": "20260922191248",
+      "name": "budget_reporting_hierarchy",
+      "installed_md5": "7b0f683748c8605a9d6d082116bf61b5",
+      "file_sha256": "02329270c408055d303bc17a4f41e1e2a5e1d5b201e3cec3c31cb03895d1b6ba"
+    },
+    {
+      "path": "supabase/migrations/20260922203831_organization_cost_centers.sql",
+      "version": "20260922203831",
+      "name": "organization_cost_centers",
+      "installed_md5": "25975ec6d43ecc934363a8cc2c1fa7ed",
+      "file_sha256": "7658d30d697141faa5305688091346926ccd8f9b2f5a93163035edcbb531959d"
+    },
+    {
+      "path": "supabase/migrations/20260922204907_fix_organization_members_bootstrap_rls.sql",
+      "version": "20260922204907",
+      "name": "fix_organization_members_bootstrap_rls",
+      "installed_md5": "4efe55792b182781ff5a49daae8a8b9e",
+      "file_sha256": "f7430aa7dcd34b7461919ec6843b280fc04b600e4a34e10db2c08859ec76ffd2"
+    },
+    {
+      "path": "supabase/migrations/20260922205139_backfill_legacy_budget_organizations.sql",
+      "version": "20260922205139",
+      "name": "backfill_legacy_budget_organizations",
+      "installed_md5": "ce35dd5d5af80a5db9daad5e45ecf9e8",
+      "file_sha256": "68f9de3f2da6f176ba65fe76ce8fd6b4eb880b6f301b818b8e5b452cbdba8e97"
+    },
+    {
+      "path": "supabase/migrations/20260922213001_fix_organization_rls_recursion.sql",
+      "version": "20260922213001",
+      "name": "fix_organization_rls_recursion",
+      "installed_md5": "80fc54c67458af719784dcc5a1a8d9f4",
+      "file_sha256": "0e24d69e8be7758f0a01f9a9e9dcab966b5f2b4f81f89f86f4dc256cd6fe4ef7"
+    },
+    {
+      "path": "supabase/migrations/20260922215134_link_default_organization_centers.sql",
+      "version": "20260922215134",
+      "name": "link_default_organization_centers",
+      "installed_md5": "09d0fb009b797a2f5b3eec4991be9be8",
+      "file_sha256": "5bf580cdcdcd2cf31826f9208b34856dbc52d66bdec92b12f6dd90e31e02ef95"
+    },
+    {
+      "path": "supabase/migrations/20260923032558_20260923190000_organization_hierarchy.sql",
+      "version": "20260923032558",
+      "name": "20260923190000_organization_hierarchy",
+      "installed_md5": "f6eaa81b5385867d60c75521a1bf3bb0",
+      "file_sha256": "e31cef16040934710d124bd5c8ac6015d8a2a5561820f0b660c90ed51f2bf02e"
+    },
+    {
+      "path": "supabase/migrations/20260923035344_20260923200000_cost_center_types.sql",
+      "version": "20260923035344",
+      "name": "20260923200000_cost_center_types",
+      "installed_md5": "27a12aae1fcd74e42f08ecc524b262f1",
+      "file_sha256": "6abf9f668362731e2b9639d5f9090c1d1168ec9f67d45d8946d01e9f9cb4c01f"
+    },
+    {
+      "path": "supabase/migrations/20260924085410_currency_catalog_and_organization_fx_scope.sql",
+      "version": "20260924085410",
+      "name": "currency_catalog_and_organization_fx_scope",
+      "installed_md5": "f0b43f4de27d138b863772b3886257dd",
+      "file_sha256": "cd0de78bc3a8d2397c8af3c7e015655c70b3d70322e62eac4be7278d748b597b"
+    },
+    {
+      "path": "supabase/migrations/20260924085443_split_fx_rate_scope_policies.sql",
+      "version": "20260924085443",
+      "name": "split_fx_rate_scope_policies",
+      "installed_md5": "3be29fe702c87b73e9eacfbcc24f100f",
+      "file_sha256": "dd8dbace8fa62d290c1384ae41ba10336b811d64e6f225d8683b5c41de71a2cc"
+    },
+    {
+      "path": "supabase/migrations/20260924103410_vat_management_foundation.sql",
+      "version": "20260924103410",
+      "name": "vat_management_foundation",
+      "installed_md5": "3f34ee7af22d2ab4cfd28521ef71aeec",
+      "file_sha256": "e4f3ac042580e788ea0adecaac4dc20159feddb9e0b20cff19bc8a8872a812be"
+    },
+    {
+      "path": "supabase/migrations/20260924103444_vat_supporting_indexes.sql",
+      "version": "20260924103444",
+      "name": "vat_supporting_indexes",
+      "installed_md5": "c286f91f5032fc877c504c511e5eaa7e",
+      "file_sha256": "e46e7519514494ba13b1fb009d7552c77fca0860a8fabaec0e60eba9fa11d09c"
+    },
+    {
+      "path": "supabase/migrations/20260924103933_lock_saudi_vat_standard_rate.sql",
+      "version": "20260924103933",
+      "name": "lock_saudi_vat_standard_rate",
+      "installed_md5": "23e065fbb0cba51e267e62a408f6dc35",
+      "file_sha256": "185b0d455f937243a49d671e605d15cc3d7d7bfca51c328c0ef5af9d4d5ded72"
+    },
+    {
+      "path": "supabase/migrations/20260925103131_vat_einvoice_connections.sql",
+      "version": "20260925103131",
+      "name": "vat_einvoice_connections",
+      "installed_md5": "9d8de1ac393b895b1609cd4b4c340d04",
+      "file_sha256": "816e1f51582831f754b9b01e6c6e21fce242f563125f8da8302d88a7c8148b42"
+    },
+    {
+      "path": "supabase/migrations/20260925103139_vat_einvoice_documents.sql",
+      "version": "20260925103139",
+      "name": "vat_einvoice_documents",
+      "installed_md5": "8094b894068839639d768ab0c4b1d26f",
+      "file_sha256": "a983cee9499d05edeb0a09e90b9e687325a4bc736bef6e44e760ca00d62290fd"
+    },
+    {
+      "path": "supabase/migrations/20260925103149_issue_vat_einvoice_with_zatca_phase_one_qr.sql",
+      "version": "20260925103149",
+      "name": "issue_vat_einvoice_with_zatca_phase_one_qr",
+      "installed_md5": "cd34ce09af31069427ddd2383e841670",
+      "file_sha256": "42840112ef52b4b79548a27f63728aafb9e0ef29272a6992711f9163a1361368"
+    },
+    {
+      "path": "supabase/migrations/20260925103241_harden_issue_vat_einvoice_search_path.sql",
+      "version": "20260925103241",
+      "name": "harden_issue_vat_einvoice_search_path",
+      "installed_md5": "89c9be1adb0803beccc558f332c5cea7",
+      "file_sha256": "4f260918d9634ec4b60bc026c3fff1efbc11706e9cec88dd2e58ef83f82dda65"
+    },
+    {
+      "path": "supabase/migrations/20260925103544_guard_vat_invoice_issue_registration.sql",
+      "version": "20260925103544",
+      "name": "guard_vat_invoice_issue_registration",
+      "installed_md5": "aa3aebd4ff531d66deeed7d158f5cb57",
+      "file_sha256": "7ad33a595c8fabd8cbf5f7d55abb6fe46ee21a59bdc449b0ff941b1b7a7b5778"
+    },
+    {
+      "path": "supabase/migrations/20260925113649_vat_period_summaries_and_payment_tracking.sql",
+      "version": "20260925113649",
+      "name": "vat_period_summaries_and_payment_tracking",
+      "installed_md5": "1c4310768ce621817badfd1ab1dc97c8",
+      "file_sha256": "df8a908f96104b5a90f57147e6ba211d0bd85688c08b0dc2ac3f2ba0597d60d9"
+    },
+    {
+      "path": "supabase/migrations/20260926153742_vat_contacts_and_seller_profile_20260926.sql",
+      "version": "20260926153742",
+      "name": "vat_contacts_and_seller_profile_20260926",
+      "installed_md5": "3b8f837c09433a5ec5ee2599bcfb0c35",
+      "file_sha256": "19d3cf94fd41903fd8dc00354cd33c0cd26344d8b0a3121401fdc4b61fa07062"
+    },
+    {
+      "path": "supabase/migrations/20260927113055_20260927123000_vat_einvoice_due_date.sql",
+      "version": "20260927113055",
+      "name": "20260927123000_vat_einvoice_due_date",
+      "installed_md5": "f1279db6b333e016a558042c4003c3e8",
+      "file_sha256": "bcb53ec0ba8aaca62b3b00ed7f0c9ef513bd3f3f2f0ae1fd98fd65271e39b2cf"
+    },
+    {
+      "path": "supabase/migrations/20260927115639_vat_document_line_items.sql",
+      "version": "20260927115639",
+      "name": "vat_document_line_items",
+      "installed_md5": "94431b1c04472fa6c1d43a95b2193c92",
+      "file_sha256": "f5ec178b1d6aec323d452152e25f67652663c95c9b3cc45608f76ada9cbe7e91"
+    },
+    {
+      "path": "supabase/migrations/20260927161447_vat_accounting_invoice_currency.sql",
+      "version": "20260927161447",
+      "name": "vat_accounting_invoice_currency",
+      "installed_md5": "320a33a6e98802163644dcb60eb45f1c",
+      "file_sha256": "f323ffd7a0f853ca014b7280edc3563dfa0f48a95a82af92a1f77d74cfd545ad"
+    },
+    {
+      "path": "supabase/migrations/20260927180607_enable_multicurrency_einvoice_drafts.sql",
+      "version": "20260927180607",
+      "name": "enable_multicurrency_einvoice_drafts",
+      "installed_md5": "293a08b459790c77ecb648a6cee33b77",
+      "file_sha256": "e7a643d6b8a469f2cf8536726a2c83d2ed80d0e9e4af45a1f2f5569241b52910"
+    },
+    {
+      "path": "supabase/migrations/20260928131757_liquidity_management.sql",
+      "version": "20260928131757",
+      "name": "liquidity_management",
+      "installed_md5": "22fb89a426c19d0c60dd738614bbea68",
+      "file_sha256": "d9a0585703ddd85ce871da1e961af6d18c0b4a3517eb35dfcfc06f806a3fd565"
+    },
+    {
+      "path": "supabase/migrations/20260928132026_harden_liquidity_policies.sql",
+      "version": "20260928132026",
+      "name": "harden_liquidity_policies",
+      "installed_md5": "81380ffc8e71271cb0f3f647e8c8a3d9",
+      "file_sha256": "1df76057832c0c4af4798b114bbe7531f19af0031841fa0ee52dbd2e350d2e18"
+    },
+    {
+      "path": "supabase/migrations/20260928133312_tighten_liquidity_data_boundaries.sql",
+      "version": "20260928133312",
+      "name": "tighten_liquidity_data_boundaries",
+      "installed_md5": "9780db7ff89fda8c82fb3d16f2245c24",
+      "file_sha256": "f04c946dcdf36f6fc83d26844392ac124701e52a65735d6ddd572465d93df2ec"
+    },
+    {
+      "path": "supabase/migrations/20260928143556_liquidity_account_transfers_20260928.sql",
+      "version": "20260928143556",
+      "name": "liquidity_account_transfers_20260928",
+      "installed_md5": "d6845ea123c60e1e09f7552a23b0976b",
+      "file_sha256": "507c3b0aa26bd29277c9cb92e12c311b7f2916e041b14dcf005e12dc5ba5f2ba"
+    },
+    {
+      "path": "supabase/migrations/20260929154100_liquidity_counterparties_and_editing.sql",
+      "version": "20260929154100",
+      "name": "liquidity_counterparties_and_editing",
+      "installed_md5": "18cfa84dd5d7ca9146948b38a59dd554",
+      "file_sha256": "65ff9a0073ec7e8915ef9a3cbf92fa68cb28add4e15487d28598f7f53ef22c6f"
+    },
+    {
+      "path": "supabase/migrations/20260929185402_liquidity_flexible_taxonomy_and_sources.sql",
+      "version": "20260929185402",
+      "name": "liquidity_flexible_taxonomy_and_sources",
+      "installed_md5": "d595122ea968c7a16f248674a56ad9a4",
+      "file_sha256": "5cdd521063cb1ac5a961b671ba2b81ce870a7a1aa8ac3b1c846600ad54c154b9"
+    },
+    {
+      "path": "supabase/migrations/20260930125448_intercompany_liquidity_transfers.sql",
+      "version": "20260930125448",
+      "name": "intercompany_liquidity_transfers",
+      "installed_md5": "23c1f9d65f00e6842a67cc3f498cad9a",
+      "file_sha256": "caa2ecf1bd4d07a2329e61c33395704f8b877b095f5108149d2dedb8df0c6d5a"
+    },
+    {
+      "path": "supabase/migrations/20260930132910_account_user_management.sql",
+      "version": "20260930132910",
+      "name": "account_user_management",
+      "installed_md5": "24900a8d415c27a7eb08fa9e1b7611d3",
+      "file_sha256": "fa7938338b09534363392e9394e80b7952845e5367469d294792f4afe903d7ac"
+    },
+    {
+      "path": "supabase/migrations/20260930133108_restrict_anonymous_account_rpcs.sql",
+      "version": "20260930133108",
+      "name": "restrict_anonymous_account_rpcs",
+      "installed_md5": "6be1b5e9ccf1f2b73271c7641bf28e30",
+      "file_sha256": "5e49efa4a50db8ca7c2d321ef844efc2c023a584aeb5910e9461934dad07943a"
+    },
+    {
+      "path": "supabase/migrations/20260930140453_fix_organization_invitation_email_ambiguity.sql",
+      "version": "20260930140453",
+      "name": "fix_organization_invitation_email_ambiguity",
+      "installed_md5": "8004b932b3450a5af7b2d7a852bf2ad3",
+      "file_sha256": "9da2a1469855a6e027dcb07cbce9afde28cfd820be4fa8c605582f67c4310f9e"
+    },
+    {
+      "path": "supabase/migrations/20260930143236_organization_custom_roles.sql",
+      "version": "20260930143236",
+      "name": "organization_custom_roles",
+      "installed_md5": "659a14ab271eb73919277b2ba14ae99f",
+      "file_sha256": "d29ffd9727f0392438f18d03ee1d9cc3519bb9684eed64c9bf1f2bb0e257aa75"
+    },
+    {
+      "path": "supabase/migrations/20260930143527_harden_custom_role_membership_checks.sql",
+      "version": "20260930143527",
+      "name": "harden_custom_role_membership_checks",
+      "installed_md5": "a5fe29eba72b21320c8ca385ece32324",
+      "file_sha256": "b26a055cf854ac351b7dfbe72b53981b1525c5936584b7c1878aba546f39eb6a"
+    },
+    {
+      "path": "supabase/migrations/20260930151445_fix_invitation_acceptance_conflict.sql",
+      "version": "20260930151445",
+      "name": "fix_invitation_acceptance_conflict",
+      "installed_md5": "da40cfce2c798e78c91d7fa9c5c14154",
+      "file_sha256": "261ce3fd7c6b4c00831f6bd610cd453e246ed0021fa5ee81dfd5d481b3f911c8"
+    },
+    {
+      "path": "supabase/migrations/20261005214613_assets_v2_ownership_classification.sql",
+      "version": "20261005214613",
+      "name": "assets_v2_ownership_classification",
+      "installed_md5": "ce212511827656b9546fed9822f47407",
+      "file_sha256": "5420a2f2bf3d08137aecf26f3e847cdc904909bfac9c58ee89e92b3b27180b1c"
+    },
+    {
+      "path": "supabase/migrations/20261005214621_assets_v2_scope_integrity.sql",
+      "version": "20261005214621",
+      "name": "assets_v2_scope_integrity",
+      "installed_md5": "ed41689676ad8e72815b76eb442be1c9",
+      "file_sha256": "85abe388b543a5b45a2781c803d70850774ae0962bcaf9ca3068bd05aaf89f9f"
+    },
+    {
+      "path": "supabase/migrations/20261005214628_assets_v2_supporting_indexes.sql",
+      "version": "20261005214628",
+      "name": "assets_v2_supporting_indexes",
+      "installed_md5": "c327695add3afaf239d99850be2986c9",
+      "file_sha256": "4d9a699ea69071ca7eb936c110a32fdaff3dc745905bbc71797a6c48798be497"
+    },
+    {
+      "path": "supabase/migrations/20261005214634_assets_v2_organization_rls.sql",
+      "version": "20261005214634",
+      "name": "assets_v2_organization_rls",
+      "installed_md5": "76d6cd2232679a99685dd18f1b16d390",
+      "file_sha256": "042eeff8ba9ad3bfc2b72149658b127230abff639a482b0e9941f52325f5c421"
+    },
+    {
+      "path": "supabase/migrations/20261005214641_assets_v2_permissions.sql",
+      "version": "20261005214641",
+      "name": "assets_v2_permissions",
+      "installed_md5": "ad1b191fe86ed7a94ba5a777eb050f83",
+      "file_sha256": "212c21ea8d57f4284fe20c2b6795d5e110f045a6229f22120aa7b09dfc4723f5"
+    },
+    {
+      "path": "supabase/migrations/20261005214647_assets_v2_read_permission.sql",
+      "version": "20261005214647",
+      "name": "assets_v2_read_permission",
+      "installed_md5": "9481dcdec9dee8aadd38006f528fb19c",
+      "file_sha256": "cf92ac257264579f4174e27270cb811e7a3c99327c4aab6d7653d22a1be2c414"
+    },
+    {
+      "path": "supabase/migrations/20261005214706_assets_v2_catalog_rls.sql",
+      "version": "20261005214706",
+      "name": "assets_v2_catalog_rls",
+      "installed_md5": "a9e3d180494d3d49a4461aacf6f7e2cc",
+      "file_sha256": "5bcad978f1f50f1322555b615dc8b938d6cfe06ae5b1993ace47572d771089c3"
+    },
+    {
+      "path": "supabase/migrations/20261006092512_liquidity_financial_classification.sql",
+      "version": "20261006092512",
+      "name": "liquidity_financial_classification",
+      "installed_md5": "1ac5c70d6f305e69e98746aeff152225",
+      "file_sha256": "839418c6be60ed694ace07b0ce267248c0b9a5be52ca1e0173be8973f2608708"
+    },
+    {
+      "path": "supabase/migrations/20261006140600_users_role_governance_ui_v1.sql",
+      "version": "20261006140600",
+      "name": "users_role_governance_ui_v1",
+      "installed_md5": "eb5b986f33ccbb91bc60f4ea26bd5350",
+      "file_sha256": "4b944f487ddf5bf9510e03a06fff18e7edb81a8894ee12d4965639b13a6177f6"
+    },
+    {
+      "path": "supabase/migrations/20261006140616_backfill_default_editable_roles_v1.sql",
+      "version": "20261006140616",
+      "name": "backfill_default_editable_roles_v1",
+      "installed_md5": "686c6d58fbd6d228b59266e6f585ba63",
+      "file_sha256": "92f91632f00b0b93cac75ad0c52a0a559fac560ab6ed4398a9d97452fc163e80"
+    },
+    {
+      "path": "supabase/migrations/20261006141503_vat_documents_asset_transaction_column_prod_compat.sql",
+      "version": "20261006141503",
+      "name": "vat_documents_asset_transaction_column_prod_compat",
+      "installed_md5": "7f7be8334a5dfd992f5038fb4f02fd07",
+      "file_sha256": "3eb2ab0cabcf8b78aa17f1957baf06083e34575b0a59b7db2ec0aa2e9747d4a6"
+    },
+    {
+      "path": "supabase/migrations/20261006142424_financial_core_classifications_foundation.sql",
+      "version": "20261006142424",
+      "name": "financial_core_classifications_foundation",
+      "installed_md5": "bf471852e84fa70e4c8c71ce2265e39b",
+      "file_sha256": "dc166285d8d7eba721bcb26ac9ce7b4cc0d636b5c7e53df2921eed0f4ea0cefa"
+    },
+    {
+      "path": "supabase/migrations/20261006142804_financial_core_foundation_reconciliation_v1.sql",
+      "version": "20261006142804",
+      "name": "financial_core_foundation_reconciliation_v1",
+      "installed_md5": "6c948b674a49f175b23a6a65e757ad55",
+      "file_sha256": "465cfb074d29e09ebf3ab7d7e6e634c266a84c3e4a044ef1074199e64eb3fb72"
+    },
+    {
+      "path": "supabase/migrations/20261006142930_prod_reconcile_20261006123000_permissions_approval_policy_v1.sql",
+      "version": "20261006142930",
+      "name": "prod_reconcile_20261006123000_permissions_approval_policy_v1",
+      "installed_md5": "afa05b6432658ba44f8d6def9dc5ab16",
+      "file_sha256": "27bcbbf81e45f4435a1f98aee9205de9c5ae7c2b4bd00de21d51d51d4e5b99c6"
+    },
+    {
+      "path": "supabase/migrations/20261006142934_prod_reconcile_20261006133000_flexible_roles_member_permissions_v1.sql",
+      "version": "20261006142934",
+      "name": "prod_reconcile_20261006133000_flexible_roles_member_permissions_v1",
+      "installed_md5": "ab80ca1093d048a4f0fe3145e3dbae6b",
+      "file_sha256": "de40031ad126a75b105f78db9c237a4f744c48fc5fecbf3e9cb77a23daeaa5d8"
+    },
+    {
+      "path": "supabase/migrations/20261006142938_prod_reconcile_20261006134500_default_editable_roles_v1.sql",
+      "version": "20261006142938",
+      "name": "prod_reconcile_20261006134500_default_editable_roles_v1",
+      "installed_md5": "89c1eae690e8fc32f0dcb2ad60769b5f",
+      "file_sha256": "dab377121a879a4ae8356b44fbacc7469acdf25add71aca251c6a025e42baee2"
+    },
+    {
+      "path": "supabase/migrations/20261006142943_prod_reconcile_20261006140000_owner_permission_management_rpc_v1.sql",
+      "version": "20261006142943",
+      "name": "prod_reconcile_20261006140000_owner_permission_management_rpc_v1",
+      "installed_md5": "f7ebaf170d2a33659362e07976a78202",
+      "file_sha256": "0f984fdb7ab332323160b36a20102914aca62aed8c69469ce8a13756b8775305"
+    },
+    {
+      "path": "supabase/migrations/20261006142947_prod_reconcile_20261006141500_financial_core_effective_permissions_v1.sql",
+      "version": "20261006142947",
+      "name": "prod_reconcile_20261006141500_financial_core_effective_permissions_v1",
+      "installed_md5": "48e7a765de5b68a0e39e8cfaa0a61862",
+      "file_sha256": "fd64732ad2dc23a6f182c0da0086de1f7ab94d9e97f8465c7bea33715ba6b4a3"
+    },
+    {
+      "path": "supabase/migrations/20261006142950_prod_reconcile_20261006143000_expand_role_permission_catalog_v1.sql",
+      "version": "20261006142950",
+      "name": "prod_reconcile_20261006143000_expand_role_permission_catalog_v1",
+      "installed_md5": "eecadd9769de63d2df9970a5530e95f3",
+      "file_sha256": "99e2e216a9fea9323e6b5776ceec5062f77949e58abc811078135d3abfd9eb7e"
+    },
+    {
+      "path": "supabase/migrations/20261006142955_prod_reconcile_20261006144500_permission_management_read_rls_v1.sql",
+      "version": "20261006142955",
+      "name": "prod_reconcile_20261006144500_permission_management_read_rls_v1",
+      "installed_md5": "50d4ce7882e9a74eb2ab47250bc78b62",
+      "file_sha256": "ad66b054141a0f751c433b60fdcde1a45b747283691e37e6c0f5c27a503c8018"
+    },
+    {
+      "path": "supabase/migrations/20261006143015_financial_core_operational_functions_v1.sql",
+      "version": "20261006143015",
+      "name": "financial_core_operational_functions_v1",
+      "installed_md5": "c6a316b771f815f70eb4950bf15ed27d",
+      "file_sha256": "00cab387d435ff77573650b5af56bd7ee5dfa10dfca09277186df79d2976056c"
+    },
+    {
+      "path": "supabase/migrations/20261006143041_prod_reconcile_asset_purchase_vat_single_event_v1.sql",
+      "version": "20261006143041",
+      "name": "prod_reconcile_asset_purchase_vat_single_event_v1",
+      "installed_md5": "8724c1efbdd1b06ed274a461293d9a23",
+      "file_sha256": "afe66ee6e4dfa18abdcac0fcf68f26c391052a6c1bee9e4eb0740e60d1a5e9c9"
+    },
+    {
+      "path": "supabase/migrations/20261006143102_financial_core_command_path_v1.sql",
+      "version": "20261006143102",
+      "name": "financial_core_command_path_v1",
+      "installed_md5": "0019581ce180dc5884345335afb85bfe",
+      "file_sha256": "1bb6ed48a1a98608bb09b7f7b5d881c808016b94f3d85befa59a501d154a0dcb"
+    },
+    {
+      "path": "supabase/migrations/20261006143147_financial_core_rls_and_reporting_views_v1.sql",
+      "version": "20261006143147",
+      "name": "financial_core_rls_and_reporting_views_v1",
+      "installed_md5": "67581ae904c04fa6cbe43abd061c37a7",
+      "file_sha256": "52e5405540f0b744d51eff2b359549b258b62b3512465e8c8c178052acb16ced"
+    },
+    {
+      "path": "supabase/migrations/20261006143202_sensitive_permission_and_valid_approval_prod_v2.sql",
+      "version": "20261006143202",
+      "name": "sensitive_permission_and_valid_approval_prod_v2",
+      "installed_md5": "caf0ef9f94d8b46c5eca419af9635fb4",
+      "file_sha256": "c72033c855de465ae8b60fcf408dae3159aa4347d4487384888a47bca8b75e93"
+    },
+    {
+      "path": "supabase/migrations/20261006143214_financial_budget_core_tables_v1.sql",
+      "version": "20261006143214",
+      "name": "financial_budget_core_tables_v1",
+      "installed_md5": "985a82fe3d01ff3c49f81f1fc9be34fa",
+      "file_sha256": "bb6cfa21087ce3617c92c67ecff4fb4403d22852061d8dafb20407da025e1f8c"
+    },
+    {
+      "path": "supabase/migrations/20261006143258_financial_budget_reporting_rpc_v1.sql",
+      "version": "20261006143258",
+      "name": "financial_budget_reporting_rpc_v1",
+      "installed_md5": "fe1bcd8e4aaaf013b556fe2dc2ba9573",
+      "file_sha256": "4472d47c586ccbcf71e7b58b7e16b7f90c4b0ce9256303f3093f96b2f6679010"
+    },
+    {
+      "path": "supabase/migrations/20261006143305_financial_budget_bind_existing_plans_v1.sql",
+      "version": "20261006143305",
+      "name": "financial_budget_bind_existing_plans_v1",
+      "installed_md5": "7d37190e8600e3ce8de7670917b80c67",
+      "file_sha256": "9b0030954805a3f99710cc95d83cb4b33a86f732ddd81b6f18f8d7bfffea14b7"
+    },
+    {
+      "path": "supabase/migrations/20261006143330_vat_financial_core_adapter_prod_v1.sql",
+      "version": "20261006143330",
+      "name": "vat_financial_core_adapter_prod_v1",
+      "installed_md5": "a4b31f4e4ba8d7b245b940b054e065a3",
+      "file_sha256": "342a5afc7dc66060b8dbd4ac74bca57ec01c285244d3a0eadea91453e65679a1"
+    },
+    {
+      "path": "supabase/migrations/20261006143410_controlled_cash_settlement_prod_v1.sql",
+      "version": "20261006143410",
+      "name": "controlled_cash_settlement_prod_v1",
+      "installed_md5": "18f3f88ef94b3188592a1195556586a8",
+      "file_sha256": "6c8204dbf9cecc92ed6944ee767e4c57bd097585141dbccffa37031c3fcdd066"
+    },
+    {
+      "path": "supabase/migrations/20261006143440_financial_budget_configuration_and_consolidation_v1.sql",
+      "version": "20261006143440",
+      "name": "financial_budget_configuration_and_consolidation_v1",
+      "installed_md5": "8947a372a2d5df3e0e641f058b6b608b",
+      "file_sha256": "036cbfaf1324acceef055b4d5561379e48a9153ed490107a6e588c5ce35728d8"
+    },
+    {
+      "path": "supabase/migrations/20261006173905_phase2b_reconciliation_views.sql",
+      "version": "20261006173905",
+      "name": "phase2b_reconciliation_views",
+      "installed_md5": "3129b443a89a19c0631f98ca62199c14",
+      "file_sha256": "6a39675b9b84e68345df1af0606044197d2361b7b98c4c7aef96eb882b4f1802"
+    },
+    {
+      "path": "supabase/migrations/20261006174613_phase2b_cash_reconciliation_views.sql",
+      "version": "20261006174613",
+      "name": "phase2b_cash_reconciliation_views",
+      "installed_md5": "159915f6124fa8cc91546fb8a552c91e",
+      "file_sha256": "617127409f7e75ac102dcd0ab21116179dd5bb420b5245ab512a1d6a6284f75d"
+    },
+    {
+      "path": "supabase/migrations/20261006184034_actual_settlement_bank_account.sql",
+      "version": "20261006184034",
+      "name": "actual_settlement_bank_account",
+      "installed_md5": "6d6304e8a2eacc0f5de14a01695f6602",
+      "file_sha256": "e82373756013401751a707ffd1f88335f1e62e6d08d9177d458328afdcd03b75"
+    },
+    {
+      "path": "supabase/migrations/20261006203414_vat_document_due_date_cash_forecast_v1.sql",
+      "version": "20261006203414",
+      "name": "vat_document_due_date_cash_forecast_v1",
+      "installed_md5": "30348242e2f16f90e5d5ef65a12e8c14",
+      "file_sha256": "939c9c8e3b3e623b5aabb002972e062a4fb87360a4b2c0cc12ec0d1eb896a40e"
+    },
+    {
+      "path": "supabase/migrations/20261007025714_financial_counterparty_subledger_views.sql",
+      "version": "20261007025714",
+      "name": "financial_counterparty_subledger_views",
+      "installed_md5": "b1d5a1a965ca2e209e14bfabc40a6279",
+      "file_sha256": "8e6a2d3faaee455ac88679fb26d5058ad81848f45284ff5103a156535b76bd91"
+    },
+    {
+      "path": "supabase/migrations/20261007030637_remove_confirmed_test_bank_loan_flow.sql",
+      "version": "20261007030637",
+      "name": "remove_confirmed_test_bank_loan_flow",
+      "installed_md5": "c4a1a476a88117e507f704e7bdd1ff1d",
+      "bootstrap_omission": "historical one-off test-record cleanup; no schema effects; identifiers omitted",
+      "file_sha256": "32370b4ef814df6a9b03795f13266614ec09828e15213909d2c5fd67c818ac21"
+    },
+    {
+      "path": "supabase/migrations/20261007115137_liquidity_accounting_taxonomy_v2_production.sql",
+      "version": "20261007115137",
+      "name": "liquidity_accounting_taxonomy_v2_production",
+      "installed_md5": "a5d1615a6c8c2beeeba9e5ab110d6d33",
+      "file_sha256": "ce9f8493587ac7400b53055de2df46811e0b9520411bf14806fec1997efe2d5c"
+    },
+    {
+      "path": "supabase/migrations/20261007124908_link_zatca_to_accounting_invoice_v1.sql",
+      "version": "20261007124908",
+      "name": "link_zatca_to_accounting_invoice_v1",
+      "installed_md5": "899ef482c3453c06f6d4b4bf62cd911b",
+      "file_sha256": "c06a3005c3c517bd1ef2f07be6548c29e4cfcf7e25f482e5b4fff93c85134ab9"
+    },
+    {
+      "path": "supabase/migrations/20261007124911_accounting_invoice_zatca_lifecycle_v1.sql",
+      "version": "20261007124911",
+      "name": "accounting_invoice_zatca_lifecycle_v1",
+      "installed_md5": "5462c7b785998ef1b87e368c563a7a08",
+      "file_sha256": "a914b9d4fdc587dc088c4337fa25e49ffb144788c7ce48ba1310ce0ad1cc9871"
+    },
+    {
+      "path": "supabase/migrations/20261007124918_link_zatca_accounting_document_rpc_v1.sql",
+      "version": "20261007124918",
+      "name": "link_zatca_accounting_document_rpc_v1",
+      "installed_md5": "ebbbe760a935d9f213be865dc6dff9ac",
+      "file_sha256": "44dbe150342e85bf6371be0334427b49e97f80cfe52652c59e7b649f6a13b9b2"
+    },
+    {
+      "path": "supabase/migrations/20261007130141_liquidity_counterparty_party_type_permissions_v1.sql",
+      "version": "20261007130141",
+      "name": "liquidity_counterparty_party_type_permissions_v1",
+      "installed_md5": "c3e3c6dfc18b20b20a3e2f67c6f0f723",
+      "file_sha256": "bbe1f55420d4566918ac073d081b1693af031b085d07c3526e914aaee1dc4596"
+    },
+    {
+      "path": "supabase/migrations/20261007130827_financial_vat_counterparty_map_rls_v1.sql",
+      "version": "20261007130827",
+      "name": "financial_vat_counterparty_map_rls_v1",
+      "installed_md5": "9ff210249d3366d83ce8c402da8cdebc",
+      "file_sha256": "caa3bf097a858e1b6958c6b1b8e1c0be02628fb92a6b649e19aba4182bf357ea"
+    },
+    {
+      "path": "supabase/migrations/20261007131739_unified_liquidity_owner_permissions_v1.sql",
+      "version": "20261007131739",
+      "name": "unified_liquidity_owner_permissions_v1",
+      "installed_md5": "3cb5847d6712a198ca60a4f9012898ee",
+      "file_sha256": "90877063c4adce1210c2a66bd2ed5836ae57250270728028714a6819b74362d6"
+    },
+    {
+      "path": "supabase/migrations/20261007131743_owner_full_control_sql_grants_v1.sql",
+      "version": "20261007131743",
+      "name": "owner_full_control_sql_grants_v1",
+      "installed_md5": "bf49213416fb2edbbe583fd45790fec6",
+      "file_sha256": "536e65c8b0e45518488d49821b1c026ec0f6317ce177b42522e73fd65dcdb8af"
+    },
+    {
+      "path": "supabase/migrations/20261007132948_financial_core_owner_links_rls_v2.sql",
+      "version": "20261007132948",
+      "name": "financial_core_owner_links_rls_v2",
+      "installed_md5": "ee4c9447116c963a232af3ed91da805a",
+      "file_sha256": "7df75552047724b57a6f71211ad1863953799130bfbe3046fe66bdd6c4a06ec6"
+    },
+    {
+      "path": "supabase/migrations/20261007143424_prevent_unlinked_zatca_sales_number_collision_v1.sql",
+      "version": "20261007143424",
+      "name": "prevent_unlinked_zatca_sales_number_collision_v1",
+      "installed_md5": "b28cb14727c1db3c5ce8bd5291a947af",
+      "file_sha256": "0c6a986d90133c636363fd2d4070a292d13d25de2337b1c52adc0ec532d7dbe1"
+    },
+    {
+      "path": "supabase/migrations/20261007143617_amend_unissued_sales_invoice_v1.sql",
+      "version": "20261007143617",
+      "name": "amend_unissued_sales_invoice_v1",
+      "installed_md5": "1a9de214ae800473d38d5ec856132ef4",
+      "file_sha256": "9e7d7d098926806dffd9b288a0fcac01c1bd62499526a5741673b03b004337a1"
+    },
+    {
+      "path": "supabase/migrations/20261007144736_amend_unsettled_purchase_invoice_v1.sql",
+      "version": "20261007144736",
+      "name": "amend_unsettled_purchase_invoice_v1",
+      "installed_md5": "458d89f00470412bac254a51b6eb2b34",
+      "file_sha256": "bbe04f004714e7102ba5be20e8b6aef38ddfaedcb3afa964ef388b03780682c2"
+    },
+    {
+      "path": "supabase/migrations/20261007150032_amend_purchase_invoice_restore_cash_forecast_v2.sql",
+      "version": "20261007150032",
+      "name": "amend_purchase_invoice_restore_cash_forecast_v2",
+      "installed_md5": "e02913a459369d3afc561fbca19d653d",
+      "file_sha256": "5b1219ef6f84e16a641b9717280056109a01154f57ee056ceb4c7d1f07d75973"
+    },
+    {
+      "path": "supabase/migrations/20261007211501_delete_unissued_zatca_draft_bundle_v1.sql",
+      "version": "20261007211501",
+      "name": "delete_unissued_zatca_draft_bundle_v1",
+      "installed_md5": "f83cff80fa4e60d1ed46934e1801e885",
+      "file_sha256": "5a206454e1c14b49b71e573feae8b15f02e9f7227e3e77ad7f2ad7fede848795"
+    },
+    {
+      "path": "supabase/migrations/20261008031940_atomic_zatca_draft_amendment.sql",
+      "version": "20261008031940",
+      "name": "atomic_zatca_draft_amendment",
+      "installed_md5": "706b51cb8484f18c2ea065636b17e50c",
+      "file_sha256": "fe4a8fa1a99abf41f81b7bf537c07ca3e48ee15b3c5828fd0642f51331768d49"
+    },
+    {
+      "path": "supabase/migrations/20261008031944_amend_pending_invoice_receipt.sql",
+      "version": "20261008031944",
+      "name": "amend_pending_invoice_receipt",
+      "installed_md5": "26fe1910667f658ae45ce4ebe26f177c",
+      "file_sha256": "2baec086db5dc2acfbbd5a17a36b985ca06e00784de91007de944f42230b7ca3"
+    },
+    {
+      "path": "supabase/migrations/20261008081740_fix_unissued_invoice_delete_authorization.sql",
+      "version": "20261008081740",
+      "name": "fix_unissued_invoice_delete_authorization",
+      "installed_md5": "2818c283cc6a5d6266292d596aecfe7b",
+      "file_sha256": "a627eb6485bd8df207eb4e4ad49feced0622ce4d011264a1558a6eea74c4990f"
+    },
+    {
+      "path": "supabase/migrations/20261008083753_amend_vat_contact_master.sql",
+      "version": "20261008083753",
+      "name": "amend_vat_contact_master",
+      "installed_md5": "ee3ea36ec38501017518c7d5f2e50dd8",
+      "file_sha256": "428dcc54519d79f29a388a99bb31f879f0b2101ceca569ad1c6a660ef76fe4ed"
+    },
+    {
+      "path": "supabase/migrations/20261008111020_vat_note_financial_workflow.sql",
+      "version": "20261008111020",
+      "name": "vat_note_financial_workflow",
+      "installed_md5": "06275f787b5b3b54640bbab14b04cf37",
+      "file_sha256": "79f58f9e97a5eb8fc84ef3b404a33e2fbec006ebc67af8ba795846fc5996fed0"
+    },
+    {
+      "path": "supabase/migrations/20261008111022_vat_note_workflow_guards.sql",
+      "version": "20261008111022",
+      "name": "vat_note_workflow_guards",
+      "installed_md5": "9ce9ba01d153e5d016669c8de3eb6ccc",
+      "file_sha256": "c996e04339ea221cf8da5baee7b982d83bdcee822b443984ea9c0e6c6def859c"
+    },
+    {
+      "path": "supabase/migrations/20261008111024_vat_note_source_fingerprint.sql",
+      "version": "20261008111024",
+      "name": "vat_note_source_fingerprint",
+      "installed_md5": "1841c7974460946605a3b74774259d18",
+      "file_sha256": "5a29019249a6e64b9917ece36e1aa606e7dd7ef9de4996a761ad9c2f5b1415f1"
+    },
+    {
+      "path": "supabase/migrations/20261008111027_vat_note_forecast_integrity.sql",
+      "version": "20261008111027",
+      "name": "vat_note_forecast_integrity",
+      "installed_md5": "1b0b5be14838cc53f5f30002fb65e24c",
+      "file_sha256": "0fa9adc254234a3179a5cf510b849ecb66bbdb7d9fdf80582dc9ae7fabbbdec8"
+    },
+    {
+      "path": "supabase/migrations/20261008111029_vat_note_legacy_projection_dispatch.sql",
+      "version": "20261008111029",
+      "name": "vat_note_legacy_projection_dispatch",
+      "installed_md5": "d0cac86ca75bdec85ed5507048d25e95",
+      "file_sha256": "ad21ce848a36520aa05830a47e1ce54ebe92d38a5c336eea0a39a0c1eff802a2"
+    },
+    {
+      "path": "supabase/migrations/20261008111031_vat_note_refund_adjustment_guard.sql",
+      "version": "20261008111031",
+      "name": "vat_note_refund_adjustment_guard",
+      "installed_md5": "1a2791d9c91f28c71532258d83ceea72",
+      "file_sha256": "c00a86561b291419b39eb2621c777e99a4cd0a88c35d268dd260caa4c288d30a"
+    },
+    {
+      "path": "supabase/migrations/20261008111035_vat_note_cash_flow_link_guard.sql",
+      "version": "20261008111035",
+      "name": "vat_note_cash_flow_link_guard",
+      "installed_md5": "12434454bf0065c611909df79d1c9bff",
+      "file_sha256": "6ffb056ef0872d26a5c63d46a481ab0fa3e21c5bc8d2816383a309e0da0bce68"
+    },
+    {
+      "path": "supabase/migrations/20261008111037_vat_note_lifecycle_integrity.sql",
+      "version": "20261008111037",
+      "name": "vat_note_lifecycle_integrity",
+      "installed_md5": "ab7162b06087daecd42a69ab5cc0feb5",
+      "file_sha256": "d9d554d01c23e36850d6cd79ef875cec6693a81e87f4916b871ef0ece6c005a9"
+    },
+    {
+      "path": "supabase/migrations/20261008111039_vat_note_settlement_forecast_parity.sql",
+      "version": "20261008111039",
+      "name": "vat_note_settlement_forecast_parity",
+      "installed_md5": "d02afc8526b7d35dea376e7539b1433a",
+      "file_sha256": "6493214319e8b8697db1442f1443cce2ae834758d81cf9044a57161583397800"
+    },
+    {
+      "path": "supabase/migrations/20261008111801_vat_note_pending_command_cleanup.sql",
+      "version": "20261008111801",
+      "name": "vat_note_pending_command_cleanup",
+      "installed_md5": "1b258d05b40d1557747b3c0a70a4deaa",
+      "file_sha256": "01c8508292a8d3c4e21db7e3a98f24d5e44cf33e73eb89e84eceb2d8db08ceb6"
+    },
+    {
+      "path": "supabase/migrations/20261008111804_vat_note_settlement_serialization.sql",
+      "version": "20261008111804",
+      "name": "vat_note_settlement_serialization",
+      "installed_md5": "6654726c11639b8306668820b7e1ad5a",
+      "file_sha256": "6e5deb3d0abf446234a175aeb51f0d1bc5d6feeb9b73a1c6c180b6c16b161bd7"
+    },
+    {
+      "path": "supabase/migrations/20261008141251_vat_invoice_number_sequence.sql",
+      "version": "20261008141251",
+      "name": "vat_invoice_number_sequence",
+      "installed_md5": "6ac31d363ccedb0e1fdf97971b5cce07",
+      "file_sha256": "879d86b3a88e0f60d0af35e98e75ad3defed102a23718f28cd0d87c75a127dc5"
+    },
+    {
+      "path": "supabase/migrations/20261008141545_invoice_sequence_minimum_permissions.sql",
+      "version": "20261008141545",
+      "name": "invoice_sequence_minimum_permissions",
+      "installed_md5": "54e8da6d2ccd6158eeac3fb05b67f6a1",
+      "file_sha256": "d72a7640ce1d4093b51f38f558a969fe93ecd0401087eb674f76a2f4a0eeaf8f"
+    },
+    {
+      "path": "supabase/migrations/20261010093125_asset_zakat_snapshot_integrity.sql",
+      "version": "20261010093125",
+      "name": "asset_zakat_snapshot_integrity",
+      "installed_md5": "47740730bdab255aef2ddc5fa00d59f6",
+      "file_sha256": "eeb1fd53006697ee87db488a8b4d01219d492ac969c0722a9535b58c5a76adb7"
+    },
+    {
+      "path": "supabase/migrations/20261010124856_asset_acquisition_and_register.sql",
+      "version": "20261010124856",
+      "name": "asset_acquisition_and_register",
+      "installed_md5": "b630275863bcbfa38a59871f28bcbf45",
+      "file_sha256": "a82284b158ff68c8f05a52f934585304a39ac6d59f9793e22bd72ffa2b394eaa"
+    },
+    {
+      "path": "supabase/migrations/20261010124907_asset_lifecycle_approval_commands.sql",
+      "version": "20261010124907",
+      "name": "asset_lifecycle_approval_commands",
+      "installed_md5": "a3769ea4e8f709d4fcd4e9e122001e85",
+      "file_sha256": "d86eb8f3b4af463b42ba03ba9a3c4429ea5b2cf7e4ea67e0e28f711e343431d8"
+    },
+    {
+      "path": "supabase/migrations/20261010130054_existing_asset_purchase.sql",
+      "version": "20261010130054",
+      "name": "existing_asset_purchase",
+      "installed_md5": "16765f9e23391c51b413373580e1ffe3",
+      "file_sha256": "b055a0aac45ba76614525d2808335a2d738dedae869cdc22d8d62cc988a8d5a6"
+    },
+    {
+      "path": "supabase/migrations/20261010130248_asset_purchase_recognition.sql",
+      "version": "20261010130248",
+      "name": "asset_purchase_recognition",
+      "installed_md5": "2a77b369b5e397f7e6d812266e72d37c",
+      "file_sha256": "7d50199ea7937a38f17bbd727ff432c7a10837ebafde017db4501e833c39acf1"
+    },
+    {
+      "path": "supabase/migrations/20261010130311_asset_vat_alias_and_personal_exits.sql",
+      "version": "20261010130311",
+      "name": "asset_vat_alias_and_personal_exits",
+      "installed_md5": "f839eb20d78de8b2cdcb09d632e239a0",
+      "file_sha256": "ad1572911d5cd441ece826633a1722bccbe0337b7a5412b2f63bf43a492b5922"
+    },
+    {
+      "path": "supabase/migrations/20261010130943_asset_invoice_binding_integrity.sql",
+      "version": "20261010130943",
+      "name": "asset_invoice_binding_integrity",
+      "installed_md5": "1e5504a4494cd3188f5ea960250370d7",
+      "file_sha256": "f079cff71d18afd92adc7891e8f0330cf2c327f637b42956e686dc30c2521649"
+    },
+    {
+      "path": "supabase/migrations/20261010131056_asset_vat_binding_retries.sql",
+      "version": "20261010131056",
+      "name": "asset_vat_binding_retries",
+      "installed_md5": "695eea4dc8dad2698e4b1124a7bdf698",
+      "file_sha256": "a3afa5bcd1ac58594b67744558645120b6779be28b02d59998f02fe9f8aa94d4"
+    },
+    {
+      "path": "supabase/migrations/20261010140923_asset_catalog_display_and_usage.sql",
+      "version": "20261010140923",
+      "name": "asset_catalog_display_and_usage",
+      "installed_md5": "249012b079155ba905f01af79733a2c2",
+      "file_sha256": "ccfc4be09c0e4f6a6348670fcf256347358650976b74df5fb31ac43434b8ab64"
+    },
+    {
+      "path": "supabase/migrations/20261010153734_asset_transaction_delete_eligibility.sql",
+      "version": "20261010153734",
+      "name": "asset_transaction_delete_eligibility",
+      "installed_md5": "78730c3f9c61a4504a432268914bd304",
+      "file_sha256": "949949cd8436e118249a38a098ff3f18dd57f614ce0c48506b988f2e251e2393"
+    },
+    {
+      "path": "supabase/migrations/20261010153840_asset_transaction_recoverable_delete.sql",
+      "version": "20261010153840",
+      "name": "asset_transaction_recoverable_delete",
+      "installed_md5": "851755e856892833c8ae791b27109d02",
+      "file_sha256": "32f75a862a13d32a01c69d708c3abc551c82b40bf7528fe9601569f66deffa06"
+    },
+    {
+      "path": "supabase/migrations/20261010164921_final_zakat_payment_atomic_paths.sql",
+      "version": "20261010164921",
+      "name": "final_zakat_payment_atomic_paths",
+      "installed_md5": "9f09e441bdaf89559415f0f2e8c7dee7",
+      "file_sha256": "b14ef3868bf773b53c4ab964690a37ed275e5e65ae6cc2cd7342be6da2f21d6f"
+    },
+    {
+      "path": "supabase/migrations/20261010165242_restore_recorded_final_zakat_basis.sql",
+      "version": "20261010165242",
+      "name": "restore_recorded_final_zakat_basis",
+      "installed_md5": "d53a946090b2d058ae58fbe5bb981951",
+      "file_sha256": "6fbade39e25727002f9343522f6de2188c2cfa39d009ad4403bb6ee217cd39bf"
+    },
+    {
+      "path": "supabase/migrations/20261010192246_cumulative_hawl_periods_and_allocation_repair.sql",
+      "version": "20261010192246",
+      "name": "cumulative_hawl_periods_and_allocation_repair",
+      "installed_md5": "ce384e6e884f9126e3222399c266b7a1",
+      "file_sha256": "e4465f92c4895747fcf867237e4a180030d2ea6048adf6a36ee0827038e1ce22"
+    },
+    {
+      "path": "supabase/migrations/20261011083844_cancel_open_assessment.sql",
+      "version": "20261011083844",
+      "name": "cancel_open_assessment",
+      "installed_md5": "92e853dcdfdce017230a1c20ccf4ad8d",
+      "file_sha256": "70247f794303a985601c58cd69c0f3a2e44ac408085392097706430e0d716c87"
+    },
+    {
+      "path": "supabase/migrations/20261011091428_cancel_unused_assessment_history.sql",
+      "version": "20261011091428",
+      "name": "cancel_unused_assessment_history",
+      "installed_md5": "8aa30bc3c84f06ce5730f9bf1bb295b1",
+      "file_sha256": "acd03627c7a5e0b87c9d84332a6f65322f5679a82209a7d54ea775752e63b86a"
+    },
+    {
+      "path": "supabase/migrations/20261012121033_manual_zakat_assessment_drafts.sql",
+      "version": "20261012121033",
+      "name": "manual_zakat_assessment_drafts",
+      "installed_md5": "6ccdf5d71fd65b821c47701327174177",
+      "file_sha256": "ba66a8a363748e8c08931dac74e918a586e64718b18bf9f7367afb6b1a3199c5"
+    },
+    {
+      "path": "supabase/migrations/20261012200504_financial_cash_view_rls_fix.sql",
+      "version": "20261012200504",
+      "name": "financial_cash_view_rls_fix",
+      "installed_md5": "ee3f7a8fc19c12ef81ece1d2c6dc5de7",
+      "file_sha256": "dbb817879e55fa2c8eacdcaccd20212e21541cebc379776c2a6c9654d9f8b198"
+    },
+    {
+      "path": "supabase/migrations/20261012201633_financial_cash_atomic_posting_integrity.sql",
+      "version": "20261012201633",
+      "name": "financial_cash_atomic_posting_integrity",
+      "installed_md5": "7597d7d28493e7685ef4aae10b33e757",
+      "file_sha256": "9b6857f95a60ba0a615c6d727a9e80120354b2f4e4081a99ae874e5b8766de94"
+    },
+    {
+      "path": "supabase/migrations/20261012201658_financial_cash_views_and_scoped_classification_insert.sql",
+      "version": "20261012201658",
+      "name": "financial_cash_views_and_scoped_classification_insert",
+      "installed_md5": "dc3e574e47add79ca4fb6d15db6bbb9a",
+      "file_sha256": "aeaba50bf23eaf8e739e8c338ea7ad4312785e948f889fb21496a0012a0070d9"
+    },
+    {
+      "path": "supabase/migrations/20261012201659_financial_cash_atomic_status_guard.sql",
+      "version": "20261012201659",
+      "name": "financial_cash_atomic_status_guard",
+      "installed_md5": "b29e0b2650811ddba172f1945611bdf3",
+      "file_sha256": "bb98727f97ba52ee0e5c117d19ceb33afe7f9d927ed891b6a613751031bb1dd5"
+    },
+    {
+      "path": "supabase/migrations/20261012201700_financial_cash_atomic_reversal.sql",
+      "version": "20261012201700",
+      "name": "financial_cash_atomic_reversal",
+      "installed_md5": "5fd6e53a6ff947e92ca658ceed9a8d80",
+      "file_sha256": "ef97e28d5910d3874e360c2c9351f7b12eced1ee21f46542ef34cef716a7853c"
+    },
+    {
+      "path": "supabase/migrations/20261012201706_financial_bound_invoice_source_guard.sql",
+      "version": "20261012201706",
+      "name": "financial_bound_invoice_source_guard",
+      "installed_md5": "30f4021064ed169ad1e79af2a6fe6a0e",
+      "file_sha256": "ae8ae12d3511d5fadb9c09da0679f58498150a25a8bd3e2a4c4afe3411d13b0f"
+    },
+    {
+      "path": "supabase/migrations/20261012201707_financial_budget_cash_metrics_and_authenticated_api_access.sql",
+      "version": "20261012201707",
+      "name": "financial_budget_cash_metrics_and_authenticated_api_access",
+      "installed_md5": "7dad26825454ec779422b1db8645c69a",
+      "file_sha256": "245fc114480e20bb343dc642b72dd49fc8e74a64723d75ba07d3f10ccaf41104"
+    },
+    {
+      "path": "supabase/migrations/20261012201708_asset_purchase_draft_workspace.sql",
+      "version": "20261012201708",
+      "name": "asset_purchase_draft_workspace",
+      "installed_md5": "1f5aa78efb82d2fdd2455b53e4462f4b",
+      "file_sha256": "d19385dc1b2ca402149fffa777860db3e52e28297fc872bb45151938b85e8f6a"
+    },
+    {
+      "path": "supabase/migrations/20261013050416_asset_operation_edit_and_reverse_workspace.sql",
+      "version": "20261013050416",
+      "name": "asset_operation_edit_and_reverse_workspace",
+      "installed_md5": "04a13b7821e1c2317d0213acfa1bec85",
+      "file_sha256": "5bf88f7432d885a9a62343736aa51792cd3400238eb11bf535112a5712c4bd39"
+    },
+    {
+      "path": "supabase/migrations/20261013214218_investment_contracts_and_controlled_operations.sql",
+      "version": "20261013214218",
+      "name": "investment_contracts_and_controlled_operations",
+      "installed_md5": "fcf551a8c3d548c71208b6d8ba38febe",
+      "file_sha256": "f56535e0bfdb9f1122ee2e5c0ba62502190b5bd45a0c4766e6345bfde59f3f23"
+    },
+    {
+      "path": "supabase/migrations/20261013214222_investment_posted_asset_ledger.sql",
+      "version": "20261013214222",
+      "name": "investment_posted_asset_ledger",
+      "installed_md5": "2b024b0f9887fff7ea091f4d06541d28",
+      "file_sha256": "7009985006fbbc31232fd22f30fbf7cff48a69170b3bb26131e1e79a851369cf"
+    },
+    {
+      "path": "supabase/migrations/20261013214225_investment_contract_draft_commands.sql",
+      "version": "20261013214225",
+      "name": "investment_contract_draft_commands",
+      "installed_md5": "050c05c8a6f1875a621e7e781786eb10",
+      "file_sha256": "44b974c845fbacfd898e35c7d3212a479a9420f7c78ab2ba57ae8d63c5977557"
+    },
+    {
+      "path": "supabase/migrations/20261013214229_investment_operation_preparation.sql",
+      "version": "20261013214229",
+      "name": "investment_operation_preparation",
+      "installed_md5": "e0a18c8f78911ad196ba41fc89064766",
+      "file_sha256": "ead38b2bcac324802f4233101d064b5b06cf84abadb36226b08fca5177529de4"
+    },
+    {
+      "path": "supabase/migrations/20261013215803_investment_approval_and_cash_commands.sql",
+      "version": "20261013215803",
+      "name": "investment_approval_and_cash_commands",
+      "installed_md5": "cbdd1aed3416b6b152ab8499b085673a",
+      "file_sha256": "c29f79e710ab29f355202d8a27dc0b019a8b1e0555bcbc2b8704651fae8159b3"
+    },
+    {
+      "path": "supabase/migrations/20261013215824_investment_source_integrity_and_forecasts.sql",
+      "version": "20261013215824",
+      "name": "investment_source_integrity_and_forecasts",
+      "installed_md5": "f53fe3c7e38822da4a2aadf832c9bf78",
+      "file_sha256": "79576b985fd2247ce319e740b7b5c2a6575774e791bacae9612decec47973a96"
+    },
+    {
+      "path": "supabase/migrations/20261013215829_investment_institution_zakat_coverage.sql",
+      "version": "20261013215829",
+      "name": "investment_institution_zakat_coverage",
+      "installed_md5": "a23464dcff81cb7b96d9e0a738bfa6e4",
+      "file_sha256": "a6db9c5d889db54d021dc623eda80340454fd15ea84ff00aeafc0047b0208318"
+    },
+    {
+      "path": "supabase/migrations/20261013215833_investment_final_coverage_redemption_guard.sql",
+      "version": "20261013215833",
+      "name": "investment_final_coverage_redemption_guard",
+      "installed_md5": "18e61f6222bd26aa4e493a491cf24589",
+      "file_sha256": "8777c3044594f540a8fee52607201dd482d1b655b3871e72c10d5e4a62817606"
+    },
+    {
+      "path": "supabase/migrations/20261014082903_financial_register_cash_opening_and_purchase_guards.sql",
+      "version": "20261014082903",
+      "name": "financial_register_cash_opening_and_purchase_guards",
+      "installed_md5": "801dcdc7c27227d0e36d2fe9a4c52a4c",
+      "file_sha256": "e35dc12fcd8078cf1483fed9c9e7a8f9bc7df244c6d2d2ef0228e9e30b67d00d"
+    },
+    {
+      "path": "supabase/migrations/20261014082906_financial_register_opening_column_privileges.sql",
+      "version": "20261014082906",
+      "name": "financial_register_opening_column_privileges",
+      "installed_md5": "aa14a087a1516d37524faf41a5782403",
+      "file_sha256": "2ac792c8d22e1cc6e493e8cde8a1174cf2fd64232b66f27728bf318acf96cb20"
+    },
+    {
+      "path": "supabase/migrations/20261014114701_advance_payment_atomic_post.sql",
+      "version": "20261014114701",
+      "name": "advance_payment_atomic_post",
+      "installed_md5": "b94d8d5123ebc5ddaf766a32370ebacd",
+      "file_sha256": "9fa3cbf5e5e6bd844883679bf7643d69a1052dd242df36e55ea47c9c8280953c"
+    },
+    {
+      "path": "supabase/migrations/20261014115836_advance_payment_status_protection.sql",
+      "version": "20261014115836",
+      "name": "advance_payment_status_protection",
+      "installed_md5": "79fd20a9debec9f0637d91aebcd2efcc",
+      "file_sha256": "1b3f5e82bd2bfa652a6bc4b08f569747769d30e2a6462cf97166025fc78f505f"
+    },
+    {
+      "path": "supabase/migrations/20261014115847_advance_payment_classifications.sql",
+      "version": "20261014115847",
+      "name": "advance_payment_classifications",
+      "installed_md5": "a9eeea64c7009c681ce9baf95a54b5dd",
+      "file_sha256": "966a9390211e80a3c1a73e3e7512403a7788d2dd85bd1045b77ae24e7d9f6c36"
+    },
+    {
+      "path": "supabase/migrations/20261014115851_advance_request_input_protection.sql",
+      "version": "20261014115851",
+      "name": "advance_request_input_protection",
+      "installed_md5": "6c7d58e1fa2ffe9c4104bf2c59c48d76",
+      "file_sha256": "a403fc86b8aae4b659754c5e69255f4b9ef58c8b03aa84aba4539d9ec73d7717"
+    },
+    {
+      "path": "supabase/migrations/20261014115855_advance_ledger_write_protection.sql",
+      "version": "20261014115855",
+      "name": "advance_ledger_write_protection",
+      "installed_md5": "e077e9d39dc8cd355a64bd291067d63d",
+      "file_sha256": "24895dfe3766c94776e21f9f25387c0ea53300886aa6d3203803d0b7255e1ada"
+    },
+    {
+      "path": "supabase/migrations/20261014140508_personal_payables.sql",
+      "version": "20261014140508",
+      "name": "personal_payables",
+      "installed_md5": "4cfa2e30bc41f4efcc51b5db1043dfee",
+      "file_sha256": "b3e7632e9cfa6ac74a5d2ca321dc058ebd8e7edfbd3dcf9d13674f83bdf8345f"
+    },
+    {
+      "path": "supabase/migrations/20261014143929_debt_categories.sql",
+      "version": "20261014143929",
+      "name": "debt_categories",
+      "installed_md5": "cf1b97a0b50838afb403b8caac73ae15",
+      "file_sha256": "e44dba662ccf7038ccb6804ba52fef113ffeb8375caf9771db96d20fb7fc3bd1"
+    },
+    {
+      "path": "supabase/migrations/20261014205705_debt_contracts_and_flow_linking.sql",
+      "version": "20261014205705",
+      "name": "debt_contracts_and_flow_linking",
+      "installed_md5": "f4837374d0266817e6caec1cd5061781",
+      "file_sha256": "98a26602646d3c0d90baac707ddf88be10c9b8582fe2b011cbde015744c84405"
+    },
+    {
+      "path": "supabase/migrations/20261015140222_debt_operations_phase2.sql",
+      "version": "20261015140222",
+      "name": "debt_operations_phase2",
+      "installed_md5": "c6c6b495eef152e994a03ca2729d852c",
+      "file_sha256": "b04536c2bbc7eaf666f7fb02ac7c50da3e4f42a1d8cfe6b304ac973beb4a8450"
+    },
+    {
+      "path": "supabase/migrations/20261015140226_personal_financing_phase2.sql",
+      "version": "20261015140226",
+      "name": "personal_financing_phase2",
+      "installed_md5": "0942489c09c11b99a05d651a89f75979",
+      "file_sha256": "92064f44199bfef2ddaafe47c613cb950d3ef74d26c99c5ce7ea3a34eb69c1f8"
+    },
+    {
+      "path": "supabase/migrations/20261015220048_debt_collection_and_payroll_phase3.sql",
+      "version": "20261015220048",
+      "name": "debt_collection_and_payroll_phase3",
+      "installed_md5": "d49fac2b9ccd3ba2afc4a2d700bd80ac",
+      "file_sha256": "6ca1f6f2a74cd3efa4422182f53fa0e1396586cecd018dfe8d8df9514bd66aa9"
+    },
+    {
+      "path": "supabase/migrations/20261015220053_debt_payroll_posting_audit_guard.sql",
+      "version": "20261015220053",
+      "name": "debt_payroll_posting_audit_guard",
+      "installed_md5": "fc89fe3883a80cb42331f6b97c993955",
+      "file_sha256": "5dbf9816f5b92098faa0365dae0d6428b908424ac89b2da9109053a9fb332f05"
+    },
+    {
+      "path": "supabase/migrations/20261019144052_roles_module_catalog_alignment.sql",
+      "version": "20261019144052",
+      "name": "roles_module_catalog_alignment",
+      "installed_md5": "506cd0ea676c909eca4e67ce963affbe",
+      "file_sha256": "13d11cd11f475fa4fedce626356bdfda043f8c8dcc116f4258a7f1c84190e13b"
+    },
+    {
+      "path": "supabase/migrations/20261019153443_zakat_payment_cash_account_link.sql",
+      "version": "20261019153443",
+      "name": "zakat_payment_cash_account_link",
+      "installed_md5": "f778fef4fda0e1cf6920fae012a8b764",
+      "file_sha256": "667fdece7ed40a8bf45a736cf4b859f3bfe87f4aa9337e448af2d057e37d7055"
+    },
+    {
+      "path": "supabase/migrations/20261019200646_zakat_payment_usd_settlement.sql",
+      "version": "20261019200646",
+      "name": "zakat_payment_usd_settlement",
+      "installed_md5": "158daad5ff0e6c5672ad175d23359f25",
+      "file_sha256": "7239401f508d7cf4af5117f724b4628bf8695f2eb717da9de0af1ec19284cc82"
+    },
+    {
+      "path": "supabase/migrations/20261020064847_personal_debt_party_links.sql",
+      "version": "20261020064847",
+      "name": "personal_debt_party_links",
+      "installed_md5": "cbaacfb1669d04da189c4c6cb01f8f1c",
+      "file_sha256": "41f04e6a08724609f7bd6aa405e2c0c4647233276b87fb7395491ef9cbc534e4"
+    },
+    {
+      "path": "supabase/migrations/20261020065136_personal_debt_funding_classification.sql",
+      "version": "20261020065136",
+      "name": "personal_debt_funding_classification",
+      "installed_md5": "320c56fb3cc61d3742b08b5103424cf9",
+      "file_sha256": "df5540ff923fb4ec61d72c5b03e975cc1cf0f20fb359a934f87699070a700531"
+    },
+    {
+      "path": "supabase/migrations/20261020122106_structured_financing_contracts.sql",
+      "version": "20261020122106",
+      "name": "structured_financing_contracts",
+      "installed_md5": "52591eaa60a3587165f7487ec4435997",
+      "file_sha256": "3fa605f752b2725936d2f581210e52be622fb3b3a05f71b2e1183177e247a7a5"
+    },
+    {
+      "path": "supabase/migrations/20261020122109_qard_contract_routing.sql",
+      "version": "20261020122109",
+      "name": "qard_contract_routing",
+      "installed_md5": "a66c31c9e90ba4008f633797ca7da8df",
+      "file_sha256": "85ddb1c981caf24349bd0c3c23e499f00fcdb4512f80292cd4dd8503c4eda5d4"
+    },
+    {
+      "path": "supabase/migrations/20261020122114_participation_contracts.sql",
+      "version": "20261020122114",
+      "name": "participation_contracts",
+      "installed_md5": "5ee0c5b0b54914c2c94a7b3746c1be5e",
+      "file_sha256": "8d2eca73dfd2ef0cc281e025e755f8e71e4d85c07d926d30308d41f0d8c6cc84"
+    },
+    {
+      "path": "supabase/migrations/20261020122123_participation_movement_preparation.sql",
+      "version": "20261020122123",
+      "name": "participation_movement_preparation",
+      "installed_md5": "1d9915f46867dc716f23a716b62e931e",
+      "file_sha256": "15fb7ee5a67a5c553c83c9eab3712740d41c163140ac6976dbcafbfc48f37243"
+    },
+    {
+      "path": "supabase/migrations/20261020124240_participation_posting_function.sql",
+      "version": "20261020124240",
+      "name": "participation_posting_function",
+      "installed_md5": "e3561331e385abc8e93ce4108ccbbdb9",
+      "file_sha256": "6458990f8275e8bc85e3e2a92a4da863c1e880d09ee6984dea2ce01a7d9e9a50"
+    },
+    {
+      "path": "supabase/migrations/20261020124249_participation_source_guards.sql",
+      "version": "20261020124249",
+      "name": "participation_source_guards",
+      "installed_md5": "2f5f8a09f53b7e4b83cae744afdec66f",
+      "file_sha256": "11cf18b1b6c5a61a810b03304a448f6895062c7c8c7567c75a1bdd3dd41dcb01"
+    },
+    {
+      "path": "supabase/migrations/20261020124830_participation_cancel_function.sql",
+      "version": "20261020124830",
+      "name": "participation_cancel_function",
+      "installed_md5": "02bd74c8fb379bf7e9fa4feccb5fbec2",
+      "file_sha256": "0fc2586fa187945872e35f445d0489b508e53d126b0f29940d52b7a76ba6abd8"
+    },
+    {
+      "path": "supabase/migrations/20261020124838_participation_cancel_api.sql",
+      "version": "20261020124838",
+      "name": "participation_cancel_api",
+      "installed_md5": "5e4463a25de76aba2fc15ed5301547f4",
+      "file_sha256": "b12aad442c3c4125743c31c9c562fac4b11386580732f285de2f27b38103dfac"
+    },
+    {
+      "path": "supabase/migrations/20261020124841_participation_cancel_flow_cleanup.sql",
+      "version": "20261020124841",
+      "name": "participation_cancel_flow_cleanup",
+      "installed_md5": "fabe2d38415b4a205f289488c98fbef0",
+      "file_sha256": "56f2bdd688efe4e4096bbf7fe1a26cfee7ab232699e508feec04ce53c72446e4"
+    },
+    {
+      "path": "supabase/migrations/20261020124844_participation_finish_contract.sql",
+      "version": "20261020124844",
+      "name": "participation_finish_contract",
+      "installed_md5": "733af728e0ba0bc333a68bea15661b0f",
+      "file_sha256": "514e1a7f4f5568bdfdd2b4bdd58eced15811c543c33c3a1d3a2e83fe85e855ee"
+    },
+    {
+      "path": "supabase/migrations/20261020124855_structured_finance_source_controls.sql",
+      "version": "20261020124855",
+      "name": "structured_finance_source_controls",
+      "installed_md5": "adfef2a8b6cd623f85c3152124881c0b",
+      "file_sha256": "5c270c19d47dcbea9146bb7cc85f0ca966351a60be4b1b5b8e063fd504f91aca"
+    },
+    {
+      "path": "supabase/migrations/20261020124920_participation_audit_compatibility.sql",
+      "version": "20261020124920",
+      "name": "participation_audit_compatibility",
+      "installed_md5": "95a821b11448bf96821219f490576f78",
+      "file_sha256": "2888fc1d53bfa8523e0930c5149ea634531e4a12debf037487994d740f94175c"
+    },
+    {
+      "path": "supabase/migrations/20261020124928_participation_cash_dependency.sql",
+      "version": "20261020124928",
+      "name": "participation_cash_dependency",
+      "installed_md5": "ce035b03cfd7de441b6eab515d2be9cd",
+      "file_sha256": "c173f8013232e1d9686bf0cf7f84eb0b48ddfaee6453c95a75d3b2cc0a2340e1"
+    },
+    {
+      "path": "supabase/migrations/20261020124934_participation_cash_consistency.sql",
+      "version": "20261020124934",
+      "name": "participation_cash_consistency",
+      "installed_md5": "3d1a7605c869602e06551f81dfd55b14",
+      "file_sha256": "cffd2fe7b16a7ca3a5b2e4abc836b49eec86c23a18974103bfc6d10473cbf69b"
+    },
+    {
+      "path": "supabase/migrations/20261020142034_corporate_contract_lifecycle.sql",
+      "version": "20261020142034",
+      "name": "corporate_contract_lifecycle",
+      "installed_md5": "71d2038b91ecc8793ca6bc7ac12b2a55",
+      "file_sha256": "dd0537f53fb5873e2ffc5298420b3f541fa385c53de432024c506f3410099f9a"
+    },
+    {
+      "path": "supabase/migrations/20261020142044_external_investment_event_compatibility.sql",
+      "version": "20261020142044",
+      "name": "external_investment_event_compatibility",
+      "installed_md5": "1b672c542984a6828f53e315a7e5f474",
+      "file_sha256": "69266d4a95d922dbc8ad17befd491a66af5ccab52842212c0c1d72865a36dd24"
+    },
+    {
+      "path": "supabase/migrations/20261020203153_20261020160000_asset_purchase_classification_guard.sql",
+      "version": "20261020203153",
+      "name": "20261020160000_asset_purchase_classification_guard",
+      "installed_md5": "154edc5f1a2a52a4bc268c0dd3b92a34",
+      "file_sha256": "b8c8df8711d1fa7d50c877de281b8cd2516db753c0aa3035e62527bded912886"
+    },
+    {
+      "path": "supabase/migrations/20261020203156_20261020202755_asset_transaction_purchase_type_guard.sql",
+      "version": "20261020203156",
+      "name": "20261020202755_asset_transaction_purchase_type_guard",
+      "installed_md5": "c01fafcb2504d4f84df35e528c540140",
+      "file_sha256": "d6a8f848025eee1b89ad394b0d952dc8872ba2498df1e36d59af5343df3032ff"
+    },
+    {
+      "path": "supabase/migrations/20261021111658_debt_party_directory_management.sql",
+      "version": "20261021111658",
+      "name": "debt_party_directory_management",
+      "installed_md5": "2d9b25f606a7b30c5a78de579740e4c1",
+      "file_sha256": "e4a8d9e7d86172d78e9905642954359d9b59fc5416d0f8d7ae8301bcaed1937e"
+    },
+    {
+      "path": "supabase/migrations/20261021203802_unified_purchase_numbering.sql",
+      "version": "20261021203802",
+      "name": "unified_purchase_numbering",
+      "installed_md5": "92e963ddc8291f4ac57e4d8d487bb16b",
+      "file_sha256": "107892e74320076ddbd3fbe2b6a392a4f82f8b6c38e0795f897fdd861e603eaa"
+    },
+    {
+      "path": "supabase/migrations/20261022211255_asset_opening_edit_archive.sql",
+      "version": "20261022211255",
+      "name": "asset_opening_edit_archive",
+      "installed_md5": "cba82f0291df1edfe67d5fabf74261e2",
+      "file_sha256": "cc195aa50d4a07781025db4505a5458340d22ea240fe98148fb6f6976b64f806"
+    },
+    {
+      "path": "supabase/migrations/20261023110655_corporate_zakat_assessment_workflow.sql",
+      "version": "20261023110655",
+      "name": "corporate_zakat_assessment_workflow",
+      "installed_md5": "cf58818a71f4b715752f354017b58fc1",
+      "file_sha256": "4cb07b7d794ee8b086fa1a7a7c6be6bd5d385d6f7f0bca897b8dcafd61b16252"
+    },
+    {
+      "path": "supabase/migrations/20261023154959_personal_payable_opening_edit.sql",
+      "version": "20261023154959",
+      "name": "personal_payable_opening_edit",
+      "installed_md5": "09764a6325a3e3a83c85afc5a20c9bd5",
+      "file_sha256": "dd01a0d19c894c3043ca856109205a319d5b1b980953cd8ba56059751d3ea0a0"
+    },
+    {
+      "path": "supabase/migrations/20261025171534_personal_funding_category.sql",
+      "version": "20261025171534",
+      "name": "personal_funding_category",
+      "installed_md5": "3e1e5f6cda76a9990bf424d43655a908",
+      "file_sha256": "44a2b7486dd9e50c08ab6097ca3f11ca0f712c10ded65dc80d059a42994c230e"
+    },
+    {
+      "path": "supabase/migrations/20261026084557_personal_contracts_and_participations.sql",
+      "version": "20261026084557",
+      "name": "personal_contracts_and_participations",
+      "installed_md5": "a6465714b86ac927e9e37fc3b9089048",
+      "file_sha256": "d3660aeb280478bb2f7ba5ff3bc7e4cea7fd4ece77efcfd3a41595e9684369b2"
+    },
+    {
+      "path": "supabase/migrations/20261026091639_personal_contract_charge_due.sql",
+      "version": "20261026091639",
+      "name": "personal_contract_charge_due",
+      "installed_md5": "26e033d69ff88857272e5ab8065f3201",
+      "file_sha256": "e556a861ba4246542e021919d07850f59e69286edf50ef996ba18ff4e51b366b"
+    },
+    {
+      "path": "supabase/migrations/20261026092319_personal_contract_installment_snapshot.sql",
+      "version": "20261026092319",
+      "name": "personal_contract_installment_snapshot",
+      "installed_md5": "74f0f0e7e213e207df6cc9ccff010c76",
+      "file_sha256": "afaf072bedd9feab4e55b1c8bdb2c793075e924b2ca1a21e8bff71eb770c1201"
+    },
+    {
+      "path": "supabase/migrations/20261026092403_personal_contract_installment_followup.sql",
+      "version": "20261026092403",
+      "name": "personal_contract_installment_followup",
+      "installed_md5": "c2c39b2ddf57bc3d4efea7a8e8330d3c",
+      "file_sha256": "fad4854a00bb93b0559bd5c064383b93c156b750e7867fea00efcdacd1b544e5"
+    },
+    {
+      "path": "supabase/migrations/20261026093115_personal_contract_edit_value.sql",
+      "version": "20261026093115",
+      "name": "personal_contract_edit_value",
+      "installed_md5": "79ef065eca3d9c6a6f76cb964e41e809",
+      "file_sha256": "a53faf8da55a1839078b08a09ff912a3398eac3bef5c9813a851a3a81dfa4f14"
+    },
+    {
+      "path": "supabase/migrations/20261026093539_personal_contract_link_category.sql",
+      "version": "20261026093539",
+      "name": "personal_contract_link_category",
+      "installed_md5": "5af440385c646b34f8e199ca567a6aa4",
+      "file_sha256": "c02a2cb6e445f7ae282616b7519f38863f063a0ec7669b32d811f0d869351fdc"
+    },
+    {
+      "path": "supabase/migrations/20261026094112_personal_participation_installments.sql",
+      "version": "20261026094112",
+      "name": "personal_participation_installments",
+      "installed_md5": "999519d07759a61ef764a462b87ef847",
+      "file_sha256": "4515454bba66f127b9caf6affca8c9de7f22824d728ece8472e85ab8fb7907be"
+    },
+    {
+      "path": "supabase/migrations/20261026202004_annual_voucher_sequences.sql",
+      "version": "20261026202004",
+      "name": "annual_voucher_sequences",
+      "installed_md5": "474e8f8b1d596c3aba839cb3deebfef9",
+      "file_sha256": "141be326e35692eca60d0dd425dda8444805483778147f73edefc1f2815d356d"
+    },
+    {
+      "path": "supabase/migrations/20261026202912_voucher_reversal_and_asset_draft_numbers.sql",
+      "version": "20261026202912",
+      "name": "voucher_reversal_and_asset_draft_numbers",
+      "installed_md5": "31232d65e94ad90988768a5c890c3d9b",
+      "file_sha256": "182ca12c169bf451f535792acfa3b68396c1f870c5d89827d93bc240ae071a37"
+    },
+    {
+      "path": "supabase/migrations/20261028194521_platform_owner_production_review.sql",
+      "version": "20261028194521",
+      "name": "platform_owner_production_review",
+      "installed_md5": "78602092b8e61c782469386033f2d1ac",
+      "file_sha256": "59280618bcc4374f24a38812e30ddecc66cf10f92e5953708e28625b110f2ca6"
+    },
+    {
+      "path": "supabase/migrations/20261030150759_organization_trial_entitlements.sql",
+      "version": "20261030150759",
+      "name": "organization_trial_entitlements",
+      "installed_md5": "05cfa20733c00686abcb519317ef3126",
+      "file_sha256": "faa8a91f2225b5ae2042484d9b361bc09028c2b417a2edbdacdc4de14dee3b86"
+    }
+  ]
+}

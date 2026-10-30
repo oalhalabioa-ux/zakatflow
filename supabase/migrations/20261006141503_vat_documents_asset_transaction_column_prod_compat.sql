@@ -1,0 +1,2 @@
+alter table public.vat_documents add column if not exists asset_transaction_id uuid null references public.transactions(id) on delete restrict;
+create unique index if not exists vat_documents_asset_transaction_unique on public.vat_documents(asset_transaction_id) where asset_transaction_id is not null;

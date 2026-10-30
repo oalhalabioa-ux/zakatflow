@@ -91,7 +91,7 @@ try{
  const atomic=new PGlite();await atomic.exec(await load('tests/owner-production-review/fixture.sql'));await atomic.exec("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA'");
  const ddl=await load(bundle);await assert.rejects(atomic.exec(ddl.replace('notify pgrst,', "select 1/0; notify pgrst,")));await atomic.exec('rollback');
  assert.equal((await atomic.query("select to_regclass('public.platform_plans') as relation")).rows[0].relation,null);await atomic.close();check('late DDL error rolls back all new objects');
- const compatible=new PGlite();await compatible.exec(await load('tests/owner-production-review/fixture.sql'));await compatible.exec(await load('supabase/migrations/20261027050000_platform_admins.sql'));
+ const compatible=new PGlite();await compatible.exec(await load('tests/owner-production-review/fixture.sql'));await compatible.exec(await load('supabase/archive/pre-reconciliation-20261030/20261027050000_platform_admins.sql'));
  await compatible.exec("set yaqeen.platform_owner_ddl_approval='APPROVED_PLATFORM_OWNER_SCHEMA'");await compatible.exec(await load(bundle));await compatible.close();check('compatible with earlier repository platform_admins migration');
  const result={passed:true,engine:version,fixture:'observed relevant Production column metadata with synthetic rows; not a full Production clone or hosted Supabase',remoteWrites:false,checks};
  await writeFile(new URL('docs/production-owner-review/test-result.json',base),JSON.stringify(result,null,2)+'\n');

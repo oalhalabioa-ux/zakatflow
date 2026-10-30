@@ -4,3 +4,7 @@ node_modules
 !.env.example
 
 owner-rpc-acceptance-result.json
+
+tests/migration-history/bootstrap-result.json
+tests/migration-history/schema-differences.json
+tsconfig.tsbuildinfo

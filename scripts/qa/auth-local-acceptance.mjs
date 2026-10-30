@@ -72,6 +72,13 @@ try{
    const changed=await admin.auth.admin.getUserById(updated.data.user.id);assert.equal(changed.data.user.email,nextEmail);
   });
  }
- await browserAcceptance({appUrl,emailFor,linkFrom,check,sql});
+ const staleCookiesFor=async(email,password)=>{
+  const client=fresh(),signed=await client.auth.signInWithPassword({email,password});assert.ifError(signed.error);
+  const session=signed.data.session;assert.ok(session);assert.ifError((await client.auth.signOut()).error);
+  const value='base64-'+Buffer.from(JSON.stringify({...session,expires_at:1,expires_in:0})).toString('base64url');
+  const chunks=[];for(let i=0;i<value.length;i+=3180)chunks.push(value.slice(i,i+3180));
+  return chunks.map((value,i)=>({name:'sb-127-auth-token'+(chunks.length>1?'.'+i:''),value,url:appUrl,sameSite:'Lax'}));
+ };
+ await browserAcceptance({appUrl,emailFor,linkFrom,check,sql,staleCookiesFor});
 }catch(error){checks.push({name:error.message,status:'failed'});process.exitCode=1}
 finally{app?.kill('SIGTERM');await writeFile('auth-local-acceptance.json',JSON.stringify({checks,cloudDatabasesAccessed:false,financialSchema:'minimal disposable ownership fixture, not a Production RLS audit',google:'not tested: cloud QA Google disabled',emailDelivery:'local Mailpit only; external SMTP untested',verificationPolicy:'24-hour requirement removed by user; hourly Auth link expiry retained; no access before confirmation'},null,2));console.log(JSON.stringify(checks))}

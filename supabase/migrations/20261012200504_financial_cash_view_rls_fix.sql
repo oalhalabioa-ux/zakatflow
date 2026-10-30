@@ -1,0 +1,1 @@
+ALTER VIEW public.liquidity_flow_settlement_reconciliation SET (security_invoker=true); REVOKE ALL ON public.liquidity_flow_settlement_reconciliation FROM PUBLIC, anon; GRANT SELECT ON public.liquidity_flow_settlement_reconciliation TO authenticated;
