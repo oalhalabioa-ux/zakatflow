@@ -8,7 +8,7 @@ const input = z
     action: z.enum(["extend", "activate", "suspend", "resume", "defaults"]),
     reason: z.string().trim().min(5).max(1000),
     organization_id: z.uuid().optional(),
-    revision: z.number().int().positive(),
+    revision: z.number().int().min(0),
     days: z.number().int().min(1).max(365).optional(),
     until: z.iso.datetime({ offset: true }).optional(),
     plan_id: z.uuid().optional(),

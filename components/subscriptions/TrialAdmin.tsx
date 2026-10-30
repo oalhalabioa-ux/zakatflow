@@ -76,7 +76,7 @@ export default function TrialAdmin({
       reason: fields.get("reason"),
       revision: defaults
         ? register?.settings.revision
-        : selected?.entitlement.revision,
+        : (selected?.entitlement.revision ?? 0),
     };
     if (!defaults) body.organization_id = selected?.id;
     if (action === "defaults" || action === "extend")
@@ -295,7 +295,7 @@ export default function TrialAdmin({
                       <td>
                         <button
                           type="button"
-                          disabled={!s.id || busy}
+                          disabled={busy}
                           onClick={() => {
                             setSelected(row);
                             setAudit(null);
@@ -438,7 +438,11 @@ export default function TrialAdmin({
           <form onSubmit={submit}>
             <label>
               {ar ? "الإجراء" : "Action"}
-              <select name="action" required>
+              <select
+                name="action"
+                defaultValue={selected.entitlement.id ? "extend" : "activate"}
+                required
+              >
                 <option value="extend">
                   {ar ? "تمديد التجربة" : "Extend trial"}
                 </option>

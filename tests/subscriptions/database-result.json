@@ -1,7 +1,7 @@
 {
   "engine": "PGlite PostgreSQL",
   "scope": "synthetic compatibility fixture; not a full production schema audit",
-  "passed": 15,
+  "passed": 16,
   "checks": [
     {
       "name": "existing organizations retain access and have no automatically created subscription",
@@ -57,6 +57,10 @@
     },
     {
       "name": "manual activation, suspension and paid expiration enforce access without charging",
+      "status": "passed"
+    },
+    {
+      "name": "existing legacy organization changes only after explicit owner manual activation",
       "status": "passed"
     },
     {

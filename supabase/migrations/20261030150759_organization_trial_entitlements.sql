@@ -241,9 +241,17 @@ begin
  else
   perform 1 from public.organizations where id=p_organization_id for update;
   select * into s from public.platform_subscriptions where organization_id=p_organization_id order by created_at desc,id desc limit 1 for update;
-  if not found then raise exception 'SUBSCRIPTION_NOT_FOUND';end if;
+  if not found then
+   -- Explicit owner activation is the only path that changes an existing legacy organization.
+   if p_action<>'activate' then raise exception 'SUBSCRIPTION_NOT_FOUND';end if;
+   if p_revision is distinct from 0 then raise exception 'SUBSCRIPTION_CONFLICT' using errcode='40001';end if;
+   if p_plan_id is null or not exists(select 1 from public.platform_plans where id=p_plan_id and is_active and code<>'trial_30d') then raise exception 'ACTIVE_PLAN_REQUIRED';end if;
+   insert into public.platform_organizations(id) values(p_organization_id) on conflict do nothing;
+   insert into public.platform_subscriptions(organization_id,plan_id,status,revision)
+    values(p_organization_id,p_plan_id,'expired',0) returning * into s;
+   before_value:=jsonb_build_object('status','legacy','organization_id',p_organization_id);
+  else before_value:=to_jsonb(s);end if;
   if p_revision is distinct from s.revision then raise exception 'SUBSCRIPTION_CONFLICT' using errcode='40001';end if;
-  before_value:=to_jsonb(s);
   if p_action='extend' then
    if s.status not in ('trialing','expired') or s.trial_started_at is null or p_days is null or p_days not between 1 and 365 then raise exception 'TRIAL_EXTENSION_INVALID';end if;
    update public.platform_subscriptions set trial_ends_at=greatest(trial_ends_at,statement_timestamp())+make_interval(secs=>p_days*86400.0),status='trialing',revision=revision+1,updated_at=now() where id=s.id;

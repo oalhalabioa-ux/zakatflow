@@ -26,6 +26,7 @@ Effective expiry is computed using database time for each write and each status 
 - Bilingual trial/read-only banner with server-computed days, user-timezone dates, active seats and a plans link.
 - In-app notices at 7/3/1/0 days, uniquely recorded per subscription revision/milestone. An internal sweep can materialize notices/status without an open browser. No external email delivery or paid scheduler is enabled.
 - Platform-owner register with search/status filtering, pagination, trial metrics, settings, trial extension, suspension/resumption, manual activation and history.
+- Existing legacy organizations can receive a manual subscription only through an explicit audited owner action; no trial is fabricated for them.
 - Plan setup supports reference prices, currency and monthly/yearly cadence, without any payment gateway, settlement record, automatic renewal or charge. Manual activation requires an active plan, future expiry and sufficient seats.
 - Owner mutations require live server-side owner authorization, a reason and expected revision. Audit records retain actor, before/after values and reason. Stale writes fail rather than overwriting another administrator.
 

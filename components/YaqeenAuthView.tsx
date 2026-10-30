@@ -74,7 +74,7 @@ export default function YaqeenAuthView(p:YaqeenAuthProps){
     </div>}
    </div>
    {p.msg&&<p role="status" className="yqa-message">{p.msg}</p>}
-   {p.error&&<p role="alert" className="yqa-message yqa-error">{p.error==='recovery_origin'?copy.recoveryOrigin:p.error.startsWith('invite')?copy.inviteError:copy.authError}</p>}
+   {p.error&&<p role="alert" className="yqa-message yqa-error">{p.error==='invite_seats'?copy.inviteSeats:p.error==='invite_readonly'?copy.inviteReadonly:p.error==='recovery_origin'?copy.recoveryOrigin:p.error.startsWith('invite')?copy.inviteError:copy.authError}</p>}
    <p className="yqa-footnote">{c.footnote}</p>
   </section>
  </main>
