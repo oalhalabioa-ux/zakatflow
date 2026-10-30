@@ -1,4 +1,6 @@
 'use client';
+import {invitationErrorCode} from '../../../lib/auth/invitation-error';
+
 import YaqeenAuthView, {type AuthStage} from '@/components/YaqeenAuthView';
 import {use, useEffect, useRef, useState} from 'react';
 import {supabaseBrowser} from '@/lib/supabase/browser';
@@ -34,7 +36,7 @@ export default function Login({params}:{params:Promise<{locale:string}>}){
   const supabase=supabaseBrowser(),{data,error}=await supabase.auth.signInWithPassword({email:normalizeEmail(email),password});
   if(error){if(error.code==='email_not_confirmed'){showStage('verify');setMsg(c.errors.confirmationRequired)}else setMsg(friendlyAuthError(error.message,locale));return}
   if(!verifiedEmail(data.user)){await supabase.auth.signOut();showStage('verify');return}
-  if(invite){const {error:inviteError}=await supabase.rpc('accept_organization_invitation',{p_token:invite});if(inviteError){await supabase.auth.signOut();setError(inviteError.message.includes('EMAIL_MISMATCH')?'invite_email':'invite_invalid');return}}
+  if(invite){const {error:inviteError}=await supabase.rpc('accept_organization_invitation',{p_token:invite});if(inviteError){await supabase.auth.signOut();setError(invitationErrorCode(inviteError.message));return}}
   location.assign(requestedNext());
  }
  async function sendMagicLink(){

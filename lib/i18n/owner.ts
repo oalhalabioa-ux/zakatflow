@@ -1,5 +1,9 @@
 import type {Locale} from "../routing";
 export const ownerEnglish: Record<string,string> = {
+  "الاشتراكات والفترات التجريبية": "Subscriptions and free trials",
+  "الاشتراكات والفترات التجريبية | يقين الأعمال": "Subscriptions and free trials | Yaqeen Business",
+  "الباقات والاشتراكات والفترات التجريبية": "Plans, subscriptions and trials",
+  "إدارة التجربة والاشتراك اليدوي متاحة لمالك المنصة. التحصيل المالي والدفع الإلكتروني غير مفعّلين.": "Trial and manual subscription management is available to the platform owner. Payment collection is disabled.",
   "الرئيسية": "Home",
   "المستخدمون": "Users",
   "الشركات": "Companies",

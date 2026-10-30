@@ -1,3 +1,4 @@
+import {invitationErrorCode} from '../../../lib/auth/invitation-error';
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { establishRecoverySession } from '@/lib/auth/recovery-session';
@@ -38,7 +39,7 @@ export async function GET(req:Request){
     if(inviteError){
      await supabase.auth.signOut();
      const login=new URL(`/${locale}/login`,origin);
-     login.searchParams.set('error',inviteError.message.includes('EMAIL_MISMATCH')?'invite_email':'invite_invalid');
+     login.searchParams.set('error',invitationErrorCode(inviteError.message));
      return redirectPrivate(login);
     }
    }

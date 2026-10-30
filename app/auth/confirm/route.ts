@@ -1,3 +1,4 @@
+import {invitationErrorCode} from '../../../lib/auth/invitation-error';
 import {NextResponse} from 'next/server';
 import {supabaseServer} from '../../../lib/supabase/server';
 import {getAuthServerOrigin} from '../../../lib/auth/recovery-redirect';
@@ -33,6 +34,6 @@ export async function POST(req:Request){
  if(error||!verifiedEmail(data.user)){if(data.session)await supabase.auth.signOut();return redirect(login)}
  if(type==='invite')return redirect(new URL(`/auth/reset-password?lang=${locale}&purpose=invite`,publicOrigin));
  const invite=form.get('invite');
- if(typeof invite==='string'&&invite){const {error:invitationError}=await supabase.rpc('accept_organization_invitation',{p_token:invite});if(invitationError){await supabase.auth.signOut();login.searchParams.set('error','invite_invalid');return redirect(login)}}
+ if(typeof invite==='string'&&invite){const {error:invitationError}=await supabase.rpc('accept_organization_invitation',{p_token:invite});if(invitationError){await supabase.auth.signOut();login.searchParams.set('error',invitationErrorCode(invitationError.message));return redirect(login)}}
  return redirect(new URL(safeNext(typeof form.get('next')==='string'?String(form.get('next')):null,locale),publicOrigin));
 }
