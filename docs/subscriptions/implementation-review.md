@@ -8,7 +8,7 @@ Extend the existing `platform_plans`, `platform_subscriptions`, `platform_organi
 
 A new organization is created atomically with its owner membership and one 30-day, five-seat trial. UTC elapsed seconds define durations, including across daylight-saving transitions. The database disregards client-supplied enrollment mode and creation time. A unique lifetime trial constraint prevents another account restarting the same organization. Verified email is required by the enrollment trigger; Google and password identities share this same path. Existing organizations without a subscription retain explicit `legacy` access and are not enrolled, charged, expired, or assigned paid status.
 
-Invitations remain pending without consuming seats; a row lock shared by membership activation paths enforces the cap including owner, direct inserts, invitation acceptance and reactivation. Existing role permissions are preserved. Independent organizations use independent subscriptions and counters.
+Invitations remain pending without consuming seats; a row lock shared by membership activation paths enforces the cap including owner, direct inserts, invitation acceptance and reactivation. Existing role permissions are preserved. Independent organizations use independent subscriptions and counters. An identical self-owner insert from the previous application is a no-op during rolling deployment; changed membership values are never swallowed or overwritten.
 
 ## Access enforcement
 

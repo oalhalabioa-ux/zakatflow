@@ -183,6 +183,12 @@ begin
  if tg_op='UPDATE' and (new.organization_id<>old.organization_id or new.user_id<>old.user_id) then raise exception 'MEMBERSHIP_IDENTITY_IMMUTABLE' using errcode='42501';end if;
  perform 1 from public.organizations where id=new.organization_id for update;
  perform subscription_private.assert_writable(new.organization_id);
+ -- Rolling compatibility: the previous client repeats the owner insert after organization creation.
+ -- Ignore only an identical self-owner replay; never update roles or consume an additional seat.
+ if tg_op='INSERT' and new.user_id=auth.uid() and new.role='OWNER' and new.status='ACTIVE'
+  and exists(select 1 from public.organizations o where o.id=new.organization_id and o.owner_user_id=auth.uid())
+  and exists(select 1 from public.organization_members m where m.organization_id=new.organization_id and m.user_id=new.user_id
+   and (to_jsonb(m)-'created_at')=(to_jsonb(new)-'created_at')) then return null;end if;
  if new.status='ACTIVE' and (tg_op='INSERT' or old.status is distinct from 'ACTIVE') then
   lim:=(subscription_private.entitlement(new.organization_id)->>'max_users')::integer;
   if lim is not null and (select count(*) from public.organization_members where organization_id=new.organization_id and status='ACTIVE')>=lim then

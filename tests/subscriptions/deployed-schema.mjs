@@ -42,6 +42,11 @@ try{
  });
  const org=(await db.query("insert into organizations(owner_user_id,name,entity_type) values($1,'Synthetic full-schema institution','COMPANY') returning id",[owner])).rows[0].id;
  await check('full deployed organization and profile schema activates one owner and 30 UTC days',async()=>{const e=(await db.query('select organization_subscription($1) value',[org])).rows[0].value;assert.equal(e.status,'trialing');assert.equal(e.active_users,1);assert.equal(e.max_users,5);assert.equal(new Date(e.trial_ends_at)-new Date(e.trial_started_at),30*86400000);});
+ await check('previous client owner replay is idempotent during rolling deployment without changing membership',async()=>{
+  await db.query("insert into organization_members(organization_id,user_id,role) values($1,$2,'OWNER')",[org,owner]);
+  assert.equal((await db.query('select count(*) n from organization_members where organization_id=$1',[org])).rows[0].n,1);
+  await assert.rejects(db.query("insert into organization_members(organization_id,user_id,role) values($1,$2,'ADMIN')",[org,owner]),/duplicate key/);
+ });
  const samples={
   liquidity_accounts:{organization_id:org,name:'Test bank',account_type:'BANK',currency:'SAR',created_by:owner},
   vat_contacts:{organization_id:org,name:'Test contact',contact_type:'CUSTOMER',created_by:owner},
