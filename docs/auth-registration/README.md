@@ -26,7 +26,7 @@ Preview branch environment is restricted to this QA URL, key, project ref and `N
 
 Local TypeScript, tests and build must pass. GitHub Actions `Isolated bilingual authentication acceptance` starts a disposable real Supabase Auth + PostgreSQL + PostgREST + Mailpit stack, submits real signup requests and delivered local emails, verifies tokens through the application endpoint, checks passwords, recovery, sessions, reuse/invalid tokens and isolation with synthetic data. No cloud database or user is written. The minimal ownership fixture is not a full Production RLS re-audit.
 
-Browser checks must cover the Preview AR and EN forms and all six states. Actual mobile browser screenshots remain a separate requirement when viewport/device controls are available; illustrative mockups do not count as mobile acceptance. Native password-manager save prompts depend on the browser and cannot be certified by field attributes alone.
+Browser checks must cover the Preview AR and EN forms and all six states. A QA-only `/design-review/auth-mobile` route renders the real AR/EN login pages in 375×812 CSS browser viewports. This verifies responsive CSS and scrolling, not touch hardware or a native mobile browser. It returns 404 outside QA. Illustrative mockups do not count as responsive acceptance. Native password-manager save prompts depend on the browser and cannot be certified by field attributes alone.
 
 Outstanding before release:
 

@@ -31,7 +31,7 @@ export default function YaqeenAuthView(p:YaqeenAuthProps){
  const card=useRef<HTMLElement>(null),shell=useRef<HTMLElement>(null);
  useEffect(()=>{const element=card.current,main=shell.current;if(!element||!main)return;const update=()=>main.style.setProperty('--yqa-content-height',`${element.offsetTop+element.offsetHeight+24}px`);const observer=new ResizeObserver(update);observer.observe(element);window.addEventListener('resize',update);update();return()=>{observer.disconnect();window.removeEventListener('resize',update)}},[]);
  const query=useSearchParams(),{ar,locale}=p,c=loginCopy[ar?'ar':'en'],copy=authCopy[ar?'ar':'en'];
- const [account,setAccount]=useState<'signin'|'signup'>(query.get('tab')==='signup'?'signup':'signin');
+ const [account,setAccount]=useState<'signin'|'signup'>(query.get('tab')==='signup'||query.get('error')==='verification'||query.get('state')==='verify'?'signup':'signin');
  const [method,setMethod]=useState<'magic'|'password'>(query.get('mode')==='magic'?'magic':'password');
  const [forgot,setForgot]=useState(query.get('mode')==='reset'),[show,setShow]=useState(false),[showConfirm,setShowConfirm]=useState(false),[remember,setRemember]=useState(false);
  useEffect(()=>{try{const saved=localStorage.getItem('yaqeen-login-email');if(saved){p.setEmail(saved);setRemember(true)}}catch{}},[p.setEmail]);
