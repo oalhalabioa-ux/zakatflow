@@ -15,7 +15,7 @@ export async function verifyFiles(){
    const prefix='-- Preserve the transaction context used by the installed Management API migration.\nbegin;\n',suffix='\ncommit;\n',text=data.toString('utf8');
    assert.ok(text.startsWith(prefix)&&text.endsWith(suffix));installed=Buffer.from(text.slice(prefix.length,-suffix.length));
   }
-  if(!e.bootstrap_omission)assert.equal(createHash('md5').update(installed).digest('hex'),e.installed_md5,e.path+' differs from installed SQL');
+  if(!e.bootstrap_omission)assert.equal(createHash('md5').update(installed).digest('hex'),e.installed_md5??e.expected_md5,e.path+' differs from installed/expected SQL');
  }
  assert.equal(manifest.entries.filter(x=>x.bootstrap_omission).length,1);
  return manifest;

@@ -63,5 +63,14 @@ try{
   assert.ifError((await client.from('liquidity_accounts').update({name:'Extended bank'}).eq('id',account)).error);
   assert.equal(sql("select count(*) from public.platform_audit_events where event_type='subscription.extend'"),'1');
  });
+ await check('schema adoption replay preserves populated financial records and rejects unexpected schema',async()=>{
+  const plan=sql(`insert into public.budget_plans(user_id,created_by,name,fiscal_year,organization_id) values('${user.id}','${user.id}','Preserved synthetic budget',2026,'${org}') returning id;`);
+  sql(`insert into public.budget_lines(plan_id,user_id,category,name,line_type,monthly_budget) values('${plan}','${user.id}','REVENUE','Preserved amount','REVENUE',array_fill(123.45::numeric,ARRAY[12]));`);
+  const fingerprint=()=>sql(`select md5(coalesce(string_agg(to_jsonb(b)::text,'' order by id),'')) from public.budget_lines b where plan_id='${plan}';`);
+  const before=fingerprint(),adoption=await load('supabase/migrations/20261030212327_adopt_existing_budget_schema.sql');
+  sql(adoption);assert.equal(fingerprint(),before);
+  assert.throws(()=>sql('begin;alter table public.budget_lines alter column active drop not null;'+adoption),error=>error.stderr?.toString().includes('UNEXPECTED_BUDGET_ACTIVE_COLUMN'));
+  assert.equal(fingerprint(),before);
+ });
 }catch(error){checks.push({name:String(error.message).slice(0,2000),status:'failed'});process.exitCode=1;console.error('FAIL '+String(error.message).slice(0,2000));}
 finally{await writeFile(new URL('tests/migration-history/bootstrap-result.json',root),JSON.stringify({checks,hostedDatabasesAccessed:false,syntheticAccountsOnly:true},null,2)+'\n');}

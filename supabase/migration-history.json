@@ -1523,6 +1523,14 @@
       "name": "organization_trial_entitlements",
       "installed_md5": "05cfa20733c00686abcb519317ef3126",
       "file_sha256": "faa8a91f2225b5ae2042484d9b361bc09028c2b417a2edbdacdc4de14dee3b86"
+    },
+    {
+      "path": "supabase/migrations/20261030212327_adopt_existing_budget_schema.sql",
+      "version": "20261030212327",
+      "name": "adopt_existing_budget_schema",
+      "expected_md5": "c68c823c814a18ba689766792046241f",
+      "file_sha256": "1e7846b82fd10a6d72f84b5bce3ebd913dcb910d9e47cbbf31d02965c84ae38f",
+      "kind": "checked_schema_adoption"
     }
   ]
 }
