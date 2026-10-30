@@ -54,7 +54,23 @@ try{
    // Only the isolated synthetic account is assigned a password here.
    assert.ifError((await admin.auth.admin.updateUserById(invited.data.user.id,{password})).error);assert.ifError((await fresh().auth.signInWithPassword({email,password})).error);
   });
-  await check(`${locale}: password-change security email uses its separate translated template`,async()=>{const mail=await emailFor(`auth-${locale}@qa.local.test`,locale==='en'?'Your password was changed':'تم تغيير كلمة المرور');assert.ok((mail.HTML??'').includes(`dir="${locale==='ar'?'rtl':'ltr'}"`));assert.ok(!linkFrom(mail));});
+  await check(`${locale}: password-change security email uses its separate translated template`,async()=>{const mail=await emailFor(`auth-${locale}@qa.local.test`,locale==='en'?'Your password was changed':'تم تغيير كلمة مرور حسابك');assert.ok((mail.HTML??'').includes(`dir="${locale==='ar'?'rtl':'ltr'}"`));assert.ok(!linkFrom(mail));});
+  await check(`${locale}: real email-change template preserves scanner protection and Supabase verification`,async()=>{
+   const email=`auth-${locale}@qa.local.test`,nextEmail=`changed-${locale}@qa.local.test`;
+   // Recover the isolated user's session using a server-generated local link; no real account is touched.
+   const generated=await admin.auth.admin.generateLink({type:'magiclink',email});assert.ifError(generated.error);
+   const client=fresh();assert.ifError((await client.auth.verifyOtp({token_hash:generated.data.properties.hashed_token,type:'magiclink'})).error);
+   const updated=await client.auth.updateUser({email:nextEmail},{emailRedirectTo:appUrl+`/auth/callback?lang=${locale}`});assert.ifError(updated.error);
+   for(const recipient of [email,nextEmail]){
+    const mail=await emailFor(recipient,'/auth/email-action?');const html=mail.HTML??'';assert.ok(html.includes(`dir="${locale==='ar'?'rtl':'ltr'}"`));
+    const wrapper=[...html.matchAll(/href="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&')).find(x=>x.includes('/auth/email-action?'));assert.ok(wrapper);
+    const get=await fetch(wrapper);assert.equal(get.status,200);assert.equal(get.headers.get('referrer-policy'),'strict-origin');
+    const before=await admin.auth.admin.getUserById(updated.data.user.id);assert.equal(before.data.user.email,email);
+    const params=new URL(wrapper).searchParams;const post=await fetch(appUrl+'/auth/email-action',{method:'POST',headers:{Origin:appUrl},body:params,redirect:'manual'});assert.equal(post.status,303);
+    const destination=post.headers.get('location');assert.ok(destination.startsWith(api+'/auth/v1/verify?'));await fetch(destination,{redirect:'manual'});
+   }
+   const changed=await admin.auth.admin.getUserById(updated.data.user.id);assert.equal(changed.data.user.email,nextEmail);
+  });
  }
  await browserAcceptance({appUrl,emailFor,linkFrom,check,sql});
 }catch(error){checks.push({name:error.message,status:'failed'});process.exitCode=1}
