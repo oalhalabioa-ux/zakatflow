@@ -53,8 +53,8 @@ export async function createOrganization(input:{
   sort_order:Number(input.sort_order??100)
  }).select().single();
  if(error)throw error;
- const m=await supabase.from('organization_members').insert({organization_id:data.id,user_id:user.id,role:'OWNER'});
- if(m.error)throw m.error;
+ // The database creates the owner membership and trial atomically with the organization.
+ // Do not perform a second membership insert here.
  return data as Organization;
 }
 

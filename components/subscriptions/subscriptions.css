@@ -1,0 +1,117 @@
+.subscription-banner,
+.subscription-panel {
+  --sub-navy: #102b46;
+  --sub-gold: #c6a45d;
+  background: var(--card-bg, var(--surface, #fff));
+  color: var(--text-color, var(--text, #102b46));
+  border: 1px solid var(--sub-gold);
+  border-radius: 14px;
+  padding: 18px;
+  margin: 16px;
+  line-height: 1.7;
+}
+.subscription-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.subscription-banner strong {
+  color: inherit;
+}
+.subscription-banner p {
+  margin: 4px 0;
+}
+.subscription-banner a,
+.subscription-panel button {
+  background: var(--sub-navy);
+  color: #e0c485;
+  border: 1px solid var(--sub-gold);
+  border-radius: 8px;
+  padding: 9px 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.subscription-panel input,
+.subscription-panel select,
+.subscription-panel textarea {
+  padding: 10px;
+  border: 1px solid #9aa7b7;
+  border-radius: 7px;
+  background: inherit;
+  color: inherit;
+  max-width: 100%;
+}
+.subscription-panel label {
+  display: grid;
+  gap: 6px;
+}
+.subscription-panel form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+.subscription-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.subscription-metrics article {
+  padding: 14px;
+  border: 1px solid #9aa7b7;
+  border-radius: 10px;
+  min-width: 140px;
+}
+.subscription-metrics strong {
+  display: block;
+  font-size: 1.5rem;
+}
+.subscription-table-wrap {
+  overflow: auto;
+}
+.subscription-panel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.subscription-panel th,
+.subscription-panel td {
+  padding: 10px;
+  text-align: start;
+  border-bottom: 1px solid #9aa7b7;
+  white-space: nowrap;
+}
+.subscription-panel button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.subscription-panel pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 350px;
+  overflow: auto;
+}
+.theme-yaqeen-business .subscription-banner,
+.theme-classic .subscription-banner,
+.theme-elegant .subscription-banner {
+  background: #10243a;
+  color: #eef2f7;
+}
+.theme-modern .subscription-banner {
+  background: #fff;
+  color: #102b46;
+}
+@media (max-width: 650px) {
+  .subscription-banner {
+    flex-direction: column;
+    align-items: stretch;
+    margin: 10px;
+  }
+  .subscription-panel form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .subscription-panel {
+    margin: 8px;
+  }
+}

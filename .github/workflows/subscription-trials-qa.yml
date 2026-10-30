@@ -1,0 +1,76 @@
+name: Isolated subscription trials acceptance
+on:
+  pull_request:
+    paths:
+      - 'lib/subscriptions/**'
+      - 'components/subscriptions/**'
+      - 'services/organizations.ts'
+      - 'app/api/subscriptions/**'
+      - 'app/api/admin/trials/**'
+      - 'supabase/migrations/*organization_trial_entitlements.sql'
+      - 'tests/subscriptions/**'
+      - '.github/workflows/subscription-trials-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-trials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Install isolated QA dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/trial-tools"
+          npm install --prefix "$RUNNER_TEMP/trial-tools" --no-save --package-lock=false @electric-sql/pglite@0.3.14 playwright@1.64.1
+          node "$RUNNER_TEMP/trial-tools/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "TRIAL_PGLITE_MODULE=$RUNNER_TEMP/trial-tools/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
+          echo "TRIAL_BROWSER_MODULE=$RUNNER_TEMP/trial-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: PostgreSQL compatibility and authorization regression
+        run: node tests/subscriptions/database.mjs
+      - name: Initialize isolated Supabase
+        run: |
+          export TRIAL_QA_WORKDIR="$RUNNER_TEMP/trial-subscriptions-qa"
+          echo "TRIAL_QA_WORKDIR=$TRIAL_QA_WORKDIR" >> "$GITHUB_ENV"
+          mkdir -p "$TRIAL_QA_WORKDIR"
+          npx --yes supabase@2.122.0 init --workdir "$TRIAL_QA_WORKDIR"
+          python - <<'PY'
+          import os,pathlib,re
+          p=pathlib.Path(os.environ['TRIAL_QA_WORKDIR'])/'supabase/config.toml'
+          s=p.read_text()
+          s=re.sub(r'^project_id = .*$', 'project_id = "trial-subscriptions-qa"',s,flags=re.M)
+          s=re.sub(r'^site_url = .*$', 'site_url = "http://127.0.0.1:3000"',s,flags=re.M)
+          s=re.sub(r'^email_sent = .*$', 'email_sent = 1000',s,flags=re.M)
+          p.write_text(s)
+          PY
+          npx --yes supabase@2.122.0 start --workdir "$TRIAL_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/trial-start.log" 2>&1 || { tail -40 "$RUNNER_TEMP/trial-start.log"; exit 1; }
+      - name: Build with disposable local public configuration only
+        run: |
+          npx --yes supabase@2.122.0 status --workdir "$TRIAL_QA_WORKDIR" --output json > "$RUNNER_TEMP/trial-status.json"
+          node - <<'JS'
+          const fs=require('fs'),s=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/trial-status.json','utf8'));
+          if(s.API_URL!=='http://127.0.0.1:54321')throw Error('LOCAL_ONLY');
+          fs.writeFileSync('.env.production.local','NEXT_PUBLIC_SUPABASE_URL='+s.API_URL+'\nNEXT_PUBLIC_SUPABASE_ANON_KEY='+s.ANON_KEY+'\nNEXT_PUBLIC_APP_URL=http://127.0.0.1:3000\nSUPABASE_SERVICE_ROLE_KEY=\nRESEND_API_KEY=\n');
+          JS
+          npm run build
+      - name: Real Auth, API, concurrent invitations, exports and browser acceptance
+        run: node tests/subscriptions/supabase.mjs
+      - name: Upload review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subscription-trial-review
+          path: |
+            tests/subscriptions/*-result.json
+            tests/subscriptions/screenshots/*.png
+      - name: Destroy isolated services
+        if: always()
+        run: |
+          test -z "$TRIAL_QA_WORKDIR" || npx --yes supabase@2.122.0 stop --workdir "$TRIAL_QA_WORKDIR" --no-backup
+          rm -f .env.production.local

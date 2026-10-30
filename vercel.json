@@ -2,7 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
-      "feature/platform-owner-dashboard-qa": false
+      "feature/platform-owner-dashboard-qa": false,
+      "feat/organization-trials-20261030": false
     }
   }
 }
