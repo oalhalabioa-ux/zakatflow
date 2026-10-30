@@ -233,3 +233,12 @@
 .yqa .yqa-method-tabs button:hover{background:#1d3b56;opacity:1}
 .yqa .yqa-method-tabs button:focus-visible{outline:2px solid #edc77c;outline-offset:2px}
 .yqa .yqa-method-tabs .yqa-icon{width:20px;height:20px}
+
+/* Keep the icon switch level with the active field/action in both directions. */
+.yqa-method-row{display:grid;grid-template-columns:94px minmax(0,1fr);align-items:end;gap:8px;margin-bottom:8px}
+.yqa .yqa-method-row>label{min-width:0;margin:0}
+.yqa .yqa-method-row .yqa-input{height:48px;min-height:48px}
+.yqa .yqa-method-row .yqa-method-tabs{width:94px;height:48px;margin:0;padding:1px;gap:0;border-radius:6px}
+.yqa .yqa-method-row .yqa-method-tabs button{flex:0 0 45px;width:45px;min-width:45px;height:44px;min-height:44px;padding:10px}
+.yqa .yqa-method-row>.yqa-submit{min-height:48px;height:48px;font-size:13px;gap:6px;padding:0 6px;line-height:1.35}
+.yqa .yqa-method-row>.yqa-submit .yqa-icon{flex-shrink:0;width:16px;height:16px}
