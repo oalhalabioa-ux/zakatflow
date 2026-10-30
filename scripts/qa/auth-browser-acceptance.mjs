@@ -82,6 +82,8 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql}){
      assert.equal(sql(`select count(*) from auth.users where email='browser-unknown-${locale}@qa.local.test'`).trim().split('\n').map(x=>x.trim()).includes('0'),true);
     });
     await run('recovery email, password mismatch, update and new-password sign-in',async()=>{
+     // Respect the local Auth mail interval after the immediately preceding magic link.
+     await new Promise(resolve=>setTimeout(resolve,1200));
      await visit();await page.locator('#login-email').fill(email);await page.getByRole('button',{name:ar?'نسيت كلمة المرور؟':'Forgot password?',exact:true}).click();await submit();await page.getByRole('status').waitFor();
      const mail=await emailFor(email,'recovery');const href=(mail.HTML??'').match(/href="([^"]+)"/)[1].replaceAll('&amp;','&');await page.goto(href);
      await page.waitForURL(u=>u.pathname==='/auth/reset-password');assert.equal(new URL(page.url()).searchParams.get('lang'),locale);
