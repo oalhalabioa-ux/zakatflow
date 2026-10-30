@@ -9,7 +9,7 @@ User approved the six-state layout on 30 October 2026, with the existing live Ya
 - Supabase signup and dedicated magic-link requests (`shouldCreateUser: false`); password recovery remains separate. Verification waiting and expired/reused-link screens; a 60-second resend UI. Generic account-existence messages.
 - No grace-period financial session. Existing Supabase Confirm Email stays enabled. Signup sessions returned by unexpected configuration drift are signed out. Callback and confirmation endpoints check authoritative email verification.
 - Email scanner protection: GET displays a confirmation form; POST alone consumes the email token. POST validates same origin, uses Supabase verifyOtp, preserves locale and validated next/invite, and does not permit recovery tokens to impersonate magic links. OAuth PKCE and existing recovery callbacks remain supported.
-- Separate AR/EN magic-link and signup templates in `supabase/templates/`. Supabase remains the authentication service; **Resend SMTP remains the approved Production delivery provider**. Do not switch Production to the Supabase built-in mail service.
+- Separate AR/EN magic-link and signup templates in `supabase/templates/`. Supabase remains the authentication service; **Resend SMTP remains the approved Production delivery provider**. Do not switch Production to the Supabase built-in mail service. The new templates reuse the previously approved recovery-email header, logo, typography, colors and table layout. Production SMTP is smtp.resend.com:465, username resend, with sender no-reply@auth.yaqeenbiz.com; the stored sending-only domain-scoped secret is unchanged and never copied.
 - Bilingual **draft** Terms and Privacy pages at `/auth/legal?kind=terms&lang=ar` and `kind=privacy`. User requested drafts; they require review, completed operator/contact/retention details and approval before public acceptance.
 
 ## Email template prerequisites
@@ -30,10 +30,10 @@ Browser checks must cover the Preview AR and EN forms and all six states. A QA-o
 
 Outstanding before release:
 
-1. Configure/approve isolated QA Resend SMTP access and a controlled QA mailbox, then verify external delivery and click-through for both new templates. Production Resend already exists and must be preserved.
-2. Explicitly approve a QA Google OAuth configuration/callback before claiming new-candidate Google end-to-end acceptance. Do not create or change a Google client or reuse Production secrets silently.
-3. Decide the 24-hour email confirmation policy. The observed Supabase link lifetime is one hour. The proposed app does **not** claim 24 hours, disable confirmation, grant an unverified session, or delete an unconfirmed account. Changing the shared Supabase email OTP expiry to 86400 also lengthens quick-link/OTP lifetime; this requires explicit approval and a test, or a separately reviewed provider-supported approach. Expired links can be reissued without deleting the account.
+1. User explicitly instructed preserving existing Production Resend SMTP settings. Do not replace the sender, key, port or provider. Review the two new template contents and validate external delivery/click-through using a controlled mailbox before claiming the new templates are Delivered. No fresh key or QA SMTP reconfiguration is required without a separate request.
+2. User confirmed Google works in Production and explicitly instructed keeping all Google settings unchanged. Preserve the existing provider, OAuth client and callback contract. QA Google is disabled, so this candidate must not claim a fresh full Google login from QA; validate the unchanged request/callback contract and record the existing Production confirmation.
+3. The user explicitly removed the 24-hour requirement because no workspace access is granted before verification. Retain the existing one-hour Auth link expiry, confirmation and resend policy. Do not change Production email expiry, disable confirmation, grant an unverified session or delete an unconfirmed account.
 4. Approve/finalize the legal drafts. Remove the draft notice and record the approved document version only after that review.
-5. Full AR/EN browser sign-in, Google and external Resend acceptance on isolated QA; mobile device/viewport and autofill/password-manager checks; final merge and Production configuration approval.
+5. Complete isolated AR/EN Auth acceptance and browser responsiveness; record Google as user-confirmed in existing Production and unchanged in this branch. Finish native device/autofill and new-template external delivery acceptance where available. Obtain final merge/release and template-installation approval.
 
 Never present an untested release gate as passed. Existing accounts, roles and financial data must remain untouched.
