@@ -1,3 +1,5 @@
+-- Preserve the transaction context used by the installed Management API migration.
+begin;
 -- One immutable internal purchase number per company/source, shared by VAT aliases.
 -- Supplier references and all recognition/settlement amounts remain unchanged.
 lock table public.transactions, public.vat_documents in share row exclusive mode;
@@ -124,3 +126,5 @@ create trigger assign_vat_purchase_number before insert or update on public.vat_
   for each row execute function private.assign_vat_purchase_number();
 comment on column public.transactions.purchase_number is 'Immutable company/year internal purchase number. reference remains the supplier invoice reference.';
 comment on column public.vat_documents.purchase_number is 'Shared internal purchase number; asset aliases reuse the transaction number. document_number remains the supplier reference.';
+
+commit;

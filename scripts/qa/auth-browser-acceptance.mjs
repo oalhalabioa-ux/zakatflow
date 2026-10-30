@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 
-export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql}){
+export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,staleCookiesFor}){
  assert.equal(appUrl,'http://127.0.0.1:3000');
  const module=process.env.AUTH_QA_BROWSER_MODULE;
  assert.ok(module?.startsWith(process.env.RUNNER_TEMP+'/'));
@@ -77,6 +77,24 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql}){
      const link=linkFrom(await emailFor(email,ar?'رابط الدخول السريع':'Your quick sign-in link'));await page.goto(link);
      await page.getByRole('button',{name:ar?'تأكيد تسجيل الدخول':'Confirm sign in',exact:true}).click();await page.waitForURL(account);await heading(ar?'حسابي':'My Account');await signout();
      await page.goto(link);await page.getByRole('button',{name:ar?'تأكيد تسجيل الدخول':'Confirm sign in',exact:true}).click();await page.waitForURL(u=>u.searchParams.get('error')==='auth');
+    });
+    for(const stale of [false,true])await run('mobile separate email window persists magic-link session'+(stale?' after revoked refresh cookie':''),async()=>{
+     const cookies=stale?await staleCookiesFor(email,password):[];
+     const prior=linkFrom(await emailFor(email,ar?'رابط الدخول السريع':'Your quick sign-in link'));
+     await new Promise(resolve=>setTimeout(resolve,1200));
+     await visit();await page.locator('#login-email').fill(email);await page.locator('#method-magic').click();await submit();await heading(ar?'تم طلب رابط الدخول':'Sign-in link requested');
+     const link=linkFrom(await emailFor(email,ar?'رابط الدخول السريع':'Your quick sign-in link',prior));
+     const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+     try{
+      if(cookies.length)await mobile.addCookies(cookies);
+      const tab=await mobile.newPage();await tab.goto(link);
+      await tab.getByRole('button',{name:ar?'تأكيد تسجيل الدخول':'Confirm sign in',exact:true}).click();
+      await tab.waitForURL(account);await tab.getByRole('heading',{name:ar?'حسابي':'My Account',exact:true}).waitFor();
+      await tab.reload();await tab.getByRole('heading',{name:ar?'حسابي':'My Account',exact:true}).waitFor();
+      assert.ok((await mobile.cookies()).some(c=>/-auth-token(?:\.\d+)?$/.test(c.name)&&c.value));
+      const second=await mobile.newPage();await second.goto(account);await second.getByRole('heading',{name:ar?'حسابي':'My Account',exact:true}).waitFor();
+      await second.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).click();
+     }finally{await mobile.close()}
     });
     await run('unknown quick-link email never creates an account',async()=>{
      await visit();await page.locator('#login-email').fill(`browser-unknown-${locale}@qa.local.test`);await page.locator('#method-magic').click();await submit();await heading(ar?'تم طلب رابط الدخول':'Sign-in link requested');

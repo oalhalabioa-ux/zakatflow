@@ -107,7 +107,7 @@ try {
  `);
   // Use the real invitation RPC definitions, not a test implementation.
   const account = await load(
-    "supabase/migrations/20260930150000_account_user_management.sql",
+    "supabase/archive/pre-reconciliation-20261030/20260930150000_account_user_management.sql",
   );
   const start = account.indexOf(
       "create or replace function public.accept_organization_invitation(",
@@ -119,7 +119,7 @@ try {
   sql(
     `create table public.organization_invitations(id uuid primary key default gen_random_uuid(),organization_id uuid references public.organizations(id),email text,role text,custom_role_id uuid,token text unique,expires_at timestamptz default now()+interval '7 days',accepted_at timestamptz,created_at timestamptz default now());\n` +
       (await load(
-        "supabase/migrations/20260930174500_fix_invitation_acceptance_conflict.sql",
+        "supabase/migrations/20260930151445_fix_invitation_acceptance_conflict.sql",
       )),
   );
   sql(

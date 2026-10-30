@@ -1,0 +1,60 @@
+name: Canonical migration history acceptance
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/migration-history.json'
+      - 'tests/migration-history/**'
+      - '.github/workflows/migration-history-qa.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/migration-history.json'
+      - 'tests/migration-history/**'
+      - '.github/workflows/migration-history-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  clean-bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: node tests/migration-history/verify-files.mjs
+      - name: Initialize disposable local migration target
+        run: |
+          export HISTORY_QA_WORKDIR="$RUNNER_TEMP/migration-history-qa"
+          echo "HISTORY_QA_WORKDIR=$HISTORY_QA_WORKDIR" >> "$GITHUB_ENV"
+          mkdir -p "$HISTORY_QA_WORKDIR"
+          npx --yes supabase@2.122.0 init --workdir "$HISTORY_QA_WORKDIR"
+          python - <<'PY'
+          import os,pathlib,re,shutil
+          root=pathlib.Path(os.environ['HISTORY_QA_WORKDIR'])/'supabase'
+          p=root/'config.toml';s=p.read_text()
+          s=re.sub(r'^project_id = .*$', 'project_id = "migration-history-qa"',s,flags=re.M)
+          p.write_text(s)
+          shutil.copytree('supabase/migrations',root/'migrations',dirs_exist_ok=True)
+          PY
+      - name: Apply complete canonical history to empty local Supabase
+        run: npx --yes supabase@2.122.0 start --workdir "$HISTORY_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/history-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/history-start.log"; exit 1; }
+      - name: Compare full schema and exercise actual financial authorization
+        run: node tests/migration-history/bootstrap.mjs
+      - name: Publish sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-history-acceptance
+          path: |
+            tests/migration-history/bootstrap-result.json
+            tests/migration-history/schema-differences.json
+      - name: Destroy disposable database
+        if: always()
+        run: test -z "$HISTORY_QA_WORKDIR" || npx --yes supabase@2.122.0 stop --workdir "$HISTORY_QA_WORKDIR" --no-backup
