@@ -57,6 +57,8 @@ try{
  for(const [table,payload] of Object.entries(samples)){const keys=Object.keys(payload);const r=await db.query(`insert into public.${quote(table)}(${keys.map(quote).join(',')}) values(${keys.map((_,i)=>'$'+(i+1)).join(',')}) returning id`,Object.values(payload));ids[table]=r.rows[0].id;}
  const adopted=(await db.query("insert into budget_plans(user_id,created_by,name,fiscal_year,organization_name) values($1,$1,'Adopted budget',2026,'Old renamed label') returning id",[owner])).rows[0].id;
  await db.query("insert into financial_budget_plan_ownership(plan_id,organization_id,fiscal_start,adopted_by) values($1,$2,'2026-01-01',$3)",[adopted,org,owner]);
+ const dimension=(await db.query("insert into budget_dimensions(user_id,dimension_type,code,name) values($1,'ORGANIZATION','TEST','Original institution label') returning id",[owner])).rows[0].id;
+ await db.query('update budget_plans set organization_ref_id=$1 where id=$2',[dimension,adopted]);
  await check('adopted budgets use existing Financial Core identity despite stale names',async()=>{
   const scopes=(await db.query('select subscription_private.row_scopes($1::regclass,to_jsonb(b)) ids from budget_plans b where id=$2',['public.budget_plans',adopted])).rows[0].ids;assert.ok(scopes.includes(org));
   await db.query('update budget_plans set name=name where id=$1',[adopted]);assert.equal((await db.query('select organization_id from budget_plans where id=$1',[adopted])).rows[0].organization_id,org);
@@ -64,6 +66,7 @@ try{
  await db.query("update platform_subscriptions set trial_started_at=now()-interval '31 days',trial_ends_at=now()-interval '1 day' where organization_id=$1",[org]);
  await check('actual cash, VAT, budgets and cost-center records reject writes on expiry without altering reads',async()=>{
   await assert.rejects(db.query('delete from budget_plans where id=$1',[adopted]),/SUBSCRIPTION_READ_ONLY/);
+  await assert.rejects(db.query("update budget_dimensions set name='Changed label' where id=$1",[dimension]),/SUBSCRIPTION_READ_ONLY/);
   for(const [table,id] of Object.entries(ids)){await assert.rejects(db.query(`update public.${quote(table)} set name=name where id=$1`,[id]),/SUBSCRIPTION_READ_ONLY/);assert.equal((await db.query(`select id from public.${quote(table)} where id=$1`,[id])).rows.length,1);}
  });
  await check('all actual direct organization tables reject privileged writes, with private counter coverage included',async()=>{

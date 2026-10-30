@@ -128,6 +128,12 @@ begin
  end loop;
  if p_table=any(p_seen) then return result;end if;
  if cardinality(p_seen)>12 then raise exception 'SUBSCRIPTION_SCOPE_DEPTH_EXCEEDED' using errcode='42501';end if;
+ -- Shared budget labels also affect adopted plans. Resolve their reverse references without granting access.
+ if p_table=to_regclass('public.budget_dimensions') then
+  for parent in execute 'select to_jsonb(b) from public.budget_plans b where $1 in (to_jsonb(b)->>''organization_ref_id'',to_jsonb(b)->>''branch_ref_id'',to_jsonb(b)->>''cost_center_ref_id'',to_jsonb(b)->>''project_ref_id'')' using p_row->>'id' loop
+   result:=result||subscription_private.row_scopes('public.budget_plans'::regclass,parent,p_seen||p_table);
+  end loop;
+ end if;
  for f in select c.confrelid,c.conkey,c.confkey from pg_catalog.pg_constraint c join pg_catalog.pg_class t on t.oid=c.confrelid join pg_catalog.pg_namespace n on n.oid=t.relnamespace
   where c.conrelid=p_table and c.contype='f' and n.nspname='public' and t.relname not in ('profiles','currencies','platform_plans','subscriptions') loop
   select string_agg(format('t.%I = ($1->>%L)::%s',pa.attname,ca.attname,pg_catalog.format_type(pa.atttypid,pa.atttypmod)),' and ') into condition
