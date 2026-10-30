@@ -54,3 +54,13 @@ export function getAuthCallbackUrl(
   if (invite) params.set('invite', invite);
   return `${getAuthOrigin(currentOrigin, configuredOrigin)}/auth/callback?${params.toString()}`;
 }
+
+/** Put the locale first so Supabase's standard Go templates can select copy
+ * without relying on a user's previously saved profile language. */
+export function getEmailAuthCallbackUrl(currentOrigin:string,locale:string,invite?:string|null,next?:string,signup=false){
+ const url=new URL(getAuthCallbackUrl(currentOrigin,locale,undefined,invite,next));
+ const params=new URLSearchParams({lang:locale==='en'?'en':'ar'});
+ for(const [key,value] of url.searchParams)if(key!=='lang')params.set(key,value);
+ if(signup)params.set('flow','signup');
+ url.search=params.toString();return url.toString();
+}

@@ -1,0 +1,55 @@
+name: Isolated bilingual authentication acceptance
+on:
+  pull_request:
+    paths:
+      - 'app/**/login/**'
+      - 'app/auth/**'
+      - 'components/YaqeenAuthView.tsx'
+      - 'lib/auth/**'
+      - 'supabase/templates/**'
+      - 'scripts/qa/auth-local-acceptance.mjs'
+      - '.github/workflows/auth-registration-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Initialize disposable Auth and email test stack
+        run: |
+          export AUTH_QA_WORKDIR="$RUNNER_TEMP/auth-registration-qa"
+          echo "AUTH_QA_WORKDIR=$AUTH_QA_WORKDIR" >> "$GITHUB_ENV"
+          mkdir -p "$AUTH_QA_WORKDIR"
+          npx --yes supabase@2.122.0 init --workdir "$AUTH_QA_WORKDIR" > "$RUNNER_TEMP/auth-init.log" 2>&1
+          python - <<'PY'
+          import os, pathlib, re
+          p=pathlib.Path(os.environ['AUTH_QA_WORKDIR'])/'supabase/config.toml'
+          s=p.read_text()
+          s=re.sub(r'^project_id = .*$', 'project_id = "auth-registration-qa"', s, flags=re.M)
+          s=re.sub(r'^site_url = .*$', 'site_url = "http://127.0.0.1:3000"', s, flags=re.M)
+          s=re.sub(r'^additional_redirect_urls = .*$', 'additional_redirect_urls = ["http://127.0.0.1:3000/**"]', s, flags=re.M)
+          s=s.replace('enable_confirmations = false','enable_confirmations = true')
+          s=re.sub(r'^email_sent = .*$', 'email_sent = 1000', s, flags=re.M)
+          for name,file in [('confirmation','confirm-signup'),('magic_link','magic-link')]:
+            s+='\n[auth.email.template.'+name+']\nsubject = "Yaqeen QA"\ncontent_path = "'+str(pathlib.Path.cwd()/'supabase/templates'/ (file+'.html'))+'"\n'
+          p.write_text(s)
+          PY
+      - name: Start real Supabase Auth, PostgREST, PostgreSQL and Mailpit
+        run: npx --yes supabase@2.122.0 start --workdir "$AUTH_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/auth-start.log" 2>&1 || { tail -40 "$RUNNER_TEMP/auth-start.log"; exit 1; }
+      - name: Exercise genuine signup, emails, sessions, recovery and authorization
+        run: node scripts/qa/auth-local-acceptance.mjs
+      - name: Publish sanitized report
+        if: always()
+        run: test ! -f auth-local-acceptance.json || cat auth-local-acceptance.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Destroy the temporary stack
+        if: always()
+        run: npx --yes supabase@2.122.0 stop --workdir "$AUTH_QA_WORKDIR" --no-backup > "$RUNNER_TEMP/auth-stop.log" 2>&1
