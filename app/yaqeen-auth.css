@@ -225,3 +225,11 @@
 .yqa-legal .yqa-card h2{font-size:18px;margin-top:24px}
 .yqa-legal .yqa-notice{color:#805619;background:#f8f3e9;border:1px solid #d9c49e;padding:12px;border-radius:6px}
 .yqa-legal a{color:#805619}
+
+/* Compact sign-in method switch: existing actions, icon-only navy/gold controls. */
+.yqa .yqa-method-tabs{display:flex;width:max-content;max-width:100%;gap:4px;padding:4px;margin:10px 0 14px;background:#102c46;border:1px solid #102c46;border-radius:8px}
+.yqa .yqa-method-tabs button{flex:0 0 44px;width:44px;height:44px;min-height:44px;min-width:44px;padding:10px;background:#102c46;color:#d9b365;border:1px solid transparent;border-radius:5px;opacity:.8}
+.yqa .yqa-method-tabs button[aria-selected=true]{background:#1d3b56;border:1px solid #d9b365;color:#edc77c;box-shadow:inset 0 -2px 0 #d9b365;opacity:1}
+.yqa .yqa-method-tabs button:hover{background:#1d3b56;opacity:1}
+.yqa .yqa-method-tabs button:focus-visible{outline:2px solid #edc77c;outline-offset:2px}
+.yqa .yqa-method-tabs .yqa-icon{width:20px;height:20px}
