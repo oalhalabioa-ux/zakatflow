@@ -24,7 +24,7 @@ Effective expiry is computed using database time for each write and each status 
 
 - Account onboarding routes fresh verified accounts without memberships to organization creation. Existing members, invited users with accepted memberships and older accounts retain their existing paths.
 - Bilingual trial/read-only banner with server-computed days, user-timezone dates, active seats and a plans link.
-- In-app notices at 7/3/1/0 days, uniquely recorded per subscription revision/milestone. An internal sweep can materialize notices/status without an open browser. No external email delivery or paid scheduler is enabled.
+- In-app notices at 7/3/1/0 days, uniquely recorded per subscription/deadline/milestone (suspending and resuming does not resend the same notice). An internal sweep can materialize notices/status without an open browser. No external email delivery or paid scheduler is enabled.
 - Platform-owner register with search/status filtering, pagination, trial metrics, settings, trial extension, suspension/resumption, manual activation and history.
 - Existing legacy organizations can receive a manual subscription only through an explicit audited owner action; no trial is fabricated for them.
 - Plan setup supports reference prices, currency and monthly/yearly cadence, without any payment gateway, settlement record, automatic renewal or charge. Manual activation requires an active plan, future expiry and sufficient seats.
@@ -35,6 +35,8 @@ Effective expiry is computed using database time for each write and each status 
 Local TypeScript, unit, build and PostgreSQL compatibility results are recorded alongside the tests. Disposable Supabase/browser acceptance is configured in `subscription-trials-qa.yml`: it creates only local synthetic accounts and services, has no hosted secrets, tests real simultaneous invitation acceptance, API enforcement, CSV export and bilingual responsive UI, and destroys the stack afterward. Its result must be inspected; a prepared workflow is not itself a passed test.
 
 No Production or shared QA database, Google settings, main branch, Production hosting, external email recipients or paid service was changed. Automatic Vercel deployment is disabled for this branch so it cannot inherit a Production database by accident. The isolated acceptance server is a temporary preview; no persistent hosted preview is asserted.
+
+Latest validation results, tested commit, isolated preview screenshots and remaining acceptance limits are maintained in [Draft PR #316](https://github.com/oalhalabioa-ux/zakatflow/pull/316).
 
 ## Approval required before release
 

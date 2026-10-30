@@ -3,7 +3,7 @@ import { createServerSupabase } from '@/lib/supabase/server';
 // Reuse the canonical atomic organization + owner + trial path.
 export async function createOrganization(input:{name:string;slug:string;plan?:string;base_currency:string}){
  const {createOrganization:createWorkspace}=await import('./organizations');
- return createWorkspace({name:input.name,base_currency:input.base_currency,entity_type:'BUSINESS',organization_kind:'HOLDING'});
+ return createWorkspace({name:input.name,base_currency:input.base_currency,entity_type:'COMPANY',organization_kind:'HOLDING'});
 }
 export async function createEntity(input:{organization_id:string;name:string;type:string;base_currency:string;registration_no?:string}){
  const db=await createServerSupabase();

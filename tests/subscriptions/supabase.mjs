@@ -490,6 +490,75 @@ try {
       assert.equal(audit.data[0].details.after.revision, 2);
     },
   );
+  await check(
+    "fresh account completes real organization onboarding with a five-seat trial",
+    async () => {
+      const newcomer = clients[7],
+        jar = [];
+      const ssr = createServerClient(url, status.ANON_KEY, {
+        cookies: {
+          getAll: () => jar,
+          setAll: (values) => {
+            for (const item of values) {
+              const index = jar.findIndex((x) => x.name === item.name);
+              if (index >= 0) jar.splice(index, 1);
+              jar.push(item);
+            }
+          },
+        },
+      });
+      assert.ifError(
+        (
+          await ssr.auth.signInWithPassword({
+            email: newcomer.email,
+            password: newcomer.password,
+          })
+        ).error,
+      );
+      const context = await browser.newContext();
+      await context.addCookies(
+        jar.map((c) => ({ name: c.name, value: c.value, url: appUrl })),
+      );
+      const page = await context.newPage();
+      await page.goto(appUrl + "/en/dashboard");
+      await page
+        .getByRole("heading", {
+          name: "Create your organization and start your trial",
+          exact: true,
+        })
+        .waitFor();
+      await page
+        .getByLabel("Organization name", { exact: true })
+        .fill("Browser Onboarding Institution");
+      await page
+        .getByRole("button", {
+          name: "Create organization and start trial",
+          exact: true,
+        })
+        .click();
+      await page.waitForURL(
+        (u) =>
+          u.pathname === "/en/dashboard" && u.searchParams.has("organization"),
+      );
+      const created = new URL(page.url()).searchParams.get("organization");
+      const e = await rpc(newcomer, "organization_subscription", {
+        p_organization_id: created,
+      });
+      assert.equal(e.status, 200);
+      assert.equal(e.data.active_users, 1);
+      assert.equal(e.data.max_users, 5);
+      assert.equal(e.data.status, "trialing");
+      await page.getByLabel("Subscription status").waitFor();
+      await page.screenshot({
+        path: new URL(
+          "tests/subscriptions/screenshots/onboarding-created.png",
+          root,
+        ).pathname,
+        fullPage: true,
+      });
+      await context.close();
+    },
+  );
   report.passed = report.checks.length;
 } finally {
   if (browser) await browser.close();

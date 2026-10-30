@@ -1,3 +1,4 @@
+import {currentWorkspaceScope} from '../topbar-navigation';
 import { describe, it, expect } from "vitest";
 import {
   displaySubscriptionDate,
@@ -31,3 +32,5 @@ describe("subscription presentation and errors", () => {
     ).toBe(409);
   });
 });
+
+it('keeps organization onboarding and billing in the business scope',()=>{expect(currentWorkspaceScope('billing','')).toBe('ORGANIZATION');expect(currentWorkspaceScope('onboarding','')).toBe('ORGANIZATION');});

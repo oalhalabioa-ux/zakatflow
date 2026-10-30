@@ -400,7 +400,7 @@ try {
       assert.equal(
         (
           await db.query(
-            "select count(*) n from subscription_private.notifications n join platform_subscriptions s on s.id=n.subscription_id where s.organization_id=$1 and n.revision=2",
+            "select count(*) n from subscription_private.notifications n join platform_subscriptions s on s.id=n.subscription_id where s.organization_id=$1 and n.trial_ends_at=s.trial_ends_at",
             [org],
           )
         ).rows[0].n,
@@ -481,6 +481,44 @@ try {
       assert.equal(e.status, "active");
       assert.equal(e.trial_started_at, null);
       assert.equal(e.revision, 1);
+    },
+  );
+  await check(
+    "suspending and resuming the same trial does not duplicate notices",
+    async () => {
+      const id = (
+        await db.query(
+          "insert into organizations(owner_user_id,name) values($1,'Notification institution') returning id",
+          [owner],
+        )
+      ).rows[0].id;
+      await admin();
+      await db.query(
+        "update platform_subscriptions set trial_ends_at=now()+interval '20 hours' where organization_id=$1",
+        [id],
+      );
+      await identity();
+      await db.query("select organization_subscription($1)", [id]);
+      await db.query(
+        "select owner_manage_trial('suspend','Temporary account review',$1,1)",
+        [id],
+      );
+      await db.query(
+        "select owner_manage_trial('resume','Account review completed',$1,2)",
+        [id],
+      );
+      await db.query("select organization_subscription($1)", [id]);
+      await admin();
+      assert.equal(
+        (
+          await db.query(
+            "select count(*) n from subscription_private.notifications n join platform_subscriptions s on s.id=n.subscription_id where s.organization_id=$1",
+            [id],
+          )
+        ).rows[0].n,
+        3,
+      );
+      await identity();
     },
   );
   await check(

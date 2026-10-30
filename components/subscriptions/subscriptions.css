@@ -117,3 +117,10 @@
 }
 
 @media print { .subscription-banner { display: none; } }
+
+.subscription-panel label { color: inherit; }
+.subscription-panel table { font-size: 13px; }
+.subscription-panel td:first-child { white-space: normal; min-width: 120px; }
+.subscription-panel td:nth-child(2) { white-space: normal; min-width: 130px; overflow-wrap: anywhere; }
+.subscription-panel td:nth-child(4), .subscription-panel td:nth-child(5) { white-space: normal; min-width: 100px; }
+.subscription-panel td:last-child { white-space: normal; min-width: 90px; }

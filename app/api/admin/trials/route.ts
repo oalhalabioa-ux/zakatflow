@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/services/auth";
-import {isSubscriptionSameOrigin} from '../../../../lib/subscriptions/security';
+import { isSubscriptionSameOrigin } from "../../../../lib/subscriptions/security";
 import { subscriptionError } from "../../../../lib/subscriptions/model";
 const input = z
   .object({

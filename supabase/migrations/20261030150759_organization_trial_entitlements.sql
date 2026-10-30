@@ -28,15 +28,16 @@ alter table public.platform_subscriptions add constraint trial_dates_valid check
 drop index public.platform_subscriptions_one_open_per_org;
 create unique index platform_subscriptions_one_open_per_org on public.platform_subscriptions(organization_id) where status in ('trialing','active','past_due','suspended');
 create unique index platform_subscriptions_one_trial_ever on public.platform_subscriptions(organization_id) where trial_started_at is not null;
+create index platform_subscriptions_org_latest_idx on public.platform_subscriptions(organization_id,created_at desc,id desc);
 create index platform_subscriptions_trial_end_idx on public.platform_subscriptions(trial_ends_at) where trial_started_at is not null;
 create table subscription_private.settings(id boolean primary key default true check(id),trial_days integer not null check(trial_days between 1 and 365),revision integer not null default 1,launched_at timestamptz not null default now());
 insert into subscription_private.settings(id,trial_days) values(true,30);
 alter table subscription_private.settings enable row level security;
 create table subscription_private.notifications(
  subscription_id uuid not null references public.platform_subscriptions(id) on delete restrict,
- revision integer not null, milestone integer not null check(milestone in (7,3,1,0)),
+ revision integer not null, trial_ends_at timestamptz not null, milestone integer not null check(milestone in (7,3,1,0)),
  due_at timestamptz not null,created_at timestamptz not null default now(),
- primary key(subscription_id,revision,milestone));
+ primary key(subscription_id,trial_ends_at,milestone));
 alter table subscription_private.notifications enable row level security;
 insert into public.platform_plans(code,name_ar,name_en,price_amount,currency,billing_interval,is_active,features)
  values('trial_30d','التجربة المجانية','Free trial',0,'SAR','monthly',false,'["core"]') on conflict(code) do nothing;
@@ -112,7 +113,7 @@ begin
  if cardinality(p_seen)>12 then raise exception 'SUBSCRIPTION_SCOPE_DEPTH_EXCEEDED' using errcode='42501';end if;
  for f in select c.confrelid,c.conkey,c.confkey from pg_catalog.pg_constraint c join pg_catalog.pg_class t on t.oid=c.confrelid join pg_catalog.pg_namespace n on n.oid=t.relnamespace
   where c.conrelid=p_table and c.contype='f' and n.nspname='public' and t.relname not in ('profiles','currencies','platform_plans','subscriptions') loop
-  select string_agg(format('to_jsonb(t)->>%L = $1->>%L',pa.attname,ca.attname),' and ') into condition
+  select string_agg(format('t.%I = ($1->>%L)::%s',pa.attname,ca.attname,pg_catalog.format_type(pa.atttypid,pa.atttypmod)),' and ') into condition
    from unnest(f.conkey,f.confkey) k(child,parent)
    join pg_catalog.pg_attribute ca on ca.attrelid=p_table and ca.attnum=k.child
    join pg_catalog.pg_attribute pa on pa.attrelid=f.confrelid and pa.attnum=k.parent;
@@ -195,15 +196,15 @@ declare e jsonb;messages jsonb;
 begin
  if auth.uid() is null or not exists(select 1 from public.organization_members where organization_id=p_organization_id and user_id=auth.uid() and status='ACTIVE') then raise exception 'ORGANIZATION_ACCESS_REQUIRED' using errcode='42501';end if;
  e:=subscription_private.entitlement(p_organization_id);
- -- Durable in-app delivery once per milestone/revision. Polls and concurrent requests cannot duplicate it.
+ -- Durable in-app delivery once per milestone/deadline. Polls and concurrent requests cannot duplicate it.
  if e->>'status' in ('trialing','expired') and e->>'trial_ends_at' is not null then
-  insert into subscription_private.notifications(subscription_id,revision,milestone,due_at)
-  select (e->>'id')::uuid,(e->>'revision')::integer,m,(e->>'trial_ends_at')::timestamptz-make_interval(secs=>m*86400.0)
+  insert into subscription_private.notifications(subscription_id,revision,trial_ends_at,milestone,due_at)
+  select (e->>'id')::uuid,(e->>'revision')::integer,(e->>'trial_ends_at')::timestamptz,m,(e->>'trial_ends_at')::timestamptz-make_interval(secs=>m*86400.0)
   from unnest(array[7,3,1,0]) m where (e->>'trial_ends_at')::timestamptz-make_interval(secs=>m*86400.0)<=statement_timestamp()
   on conflict do nothing;
  end if;
  select coalesce(jsonb_agg(jsonb_build_object('milestone',milestone,'due_at',due_at) order by milestone),'[]') into messages from subscription_private.notifications
- where subscription_id=(e->>'id')::uuid and revision=(e->>'revision')::integer;
+ where subscription_id=(e->>'id')::uuid and trial_ends_at=(e->>'trial_ends_at')::timestamptz;
  return e||jsonb_build_object('active_users',(select count(*) from public.organization_members where organization_id=p_organization_id and status='ACTIVE'),
  'organization_name',(select name from public.organizations where id=p_organization_id),'plan',(select jsonb_build_object('name_ar',name_ar,'name_en',name_en,'features',features) from public.platform_plans where id=(e->>'plan_id')::uuid),
  'notifications',messages,'timezone',(select coalesce(p.timezone,'UTC') from public.profiles p where p.id=auth.uid()));
@@ -298,8 +299,8 @@ create function subscription_private.sweep_trials() returns integer
 language plpgsql security definer set search_path='' as $$
 declare s record;n integer:=0;begin
  for s in select * from public.platform_subscriptions where trial_started_at is not null and status in ('trialing','expired') loop
-  insert into subscription_private.notifications(subscription_id,revision,milestone,due_at)
-  select s.id,s.revision,m,s.trial_ends_at-make_interval(secs=>m*86400.0) from unnest(array[7,3,1,0]) m
+  insert into subscription_private.notifications(subscription_id,revision,trial_ends_at,milestone,due_at)
+  select s.id,s.revision,s.trial_ends_at,m,s.trial_ends_at-make_interval(secs=>m*86400.0) from unnest(array[7,3,1,0]) m
   where s.trial_ends_at-make_interval(secs=>m*86400.0)<=statement_timestamp() on conflict do nothing;
   update public.platform_subscriptions set status='expired',updated_at=now() where id=s.id and status='trialing' and trial_ends_at<=statement_timestamp();
   n:=n+1;

@@ -19,7 +19,7 @@ export default function OrganizationOnboarding({ locale }: { locale: string }) {
         body: JSON.stringify({
           name: fields.get("name"),
           base_currency: fields.get("currency"),
-          entity_type: "BUSINESS",
+          entity_type: "COMPANY",
           organization_kind: "HOLDING",
         }),
       });
