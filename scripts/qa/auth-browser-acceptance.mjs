@@ -21,7 +21,7 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql}){
    const submit=()=>page.locator('form button[type="submit"]').click();
    const signout=async()=>{await page.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).click();await page.waitForURL(u=>u.pathname===`/${locale}/login`)};
    const heading=text=>page.getByRole('heading',{name:text,exact:true}).waitFor();
-   const run=(name,fn)=>check(`${locale}: browser ${name}`,async()=>{try{await fn()}catch{throw Error(`${locale}: browser ${name} failed (details suppressed to protect test credentials)`)}});
+   const run=(name,fn)=>check(`${locale}: browser ${name}`,async()=>{try{await fn()}catch(error){throw Error(`${locale}: browser ${name} failed at ${new URL(page.url()).pathname} (${error.name}; details suppressed to protect test credentials)`)}});
    try{
     await run('desktop/mobile methods, alignment, autofill and language',async()=>{
      await visit();assert.equal(await page.locator('#method-password').getAttribute('aria-selected'),'true');
@@ -47,14 +47,14 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql}){
      await page.locator('#signup-confirm').fill(password+'x');await page.locator('#signup-terms').check();await submit();
      await page.getByRole('status').filter({hasText:ar?'كلمتا المرور غير متطابقتين.':'Passwords do not match.'}).waitFor();
      await page.locator('#signup-confirm').fill(password);await submit();await heading(ar?'تحقق من بريدك الإلكتروني':'Verify your email');
-     assert.equal((await context.cookies()).filter(c=>c.name.includes('auth-token')).length,0);
+     assert.equal((await context.cookies()).filter(c=>/-auth-token(?:\.\d+)?$/.test(c.name)).length,0);
      assert.equal(await page.locator('.yqa-status-panel .yqa-submit').isDisabled(),true);
      await visit();await page.locator('#login-email').fill(email);await page.locator('#login-password').fill(password);await submit();await heading(ar?'تحقق من بريدك الإلكتروني':'Verify your email');
     });
     await run('native signup confirmation POST, session persistence and logout',async()=>{
      const link=linkFrom(await emailFor(email));await page.goto(link);
      await heading(ar?'تأكيد البريد الإلكتروني':'Verify email address');
-     assert.equal((await context.cookies()).filter(c=>c.name.includes('auth-token')).length,0);
+     assert.equal((await context.cookies()).filter(c=>/-auth-token(?:\.\d+)?$/.test(c.name)).length,0);
      const posted=page.waitForRequest(r=>new URL(r.url()).pathname==='/auth/confirm'&&r.method()==='POST');
      await page.getByRole('button',{name:ar?'تأكيد البريد الإلكتروني':'Verify email address',exact:true}).click();
      assert.equal((await posted).headers().origin,appUrl);
@@ -67,6 +67,7 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql}){
      await page.getByRole('status').waitFor();assert.equal(new URL(page.url()).pathname,`/${locale}/login`);
      await page.locator('#login-password').fill(password);await page.locator('input[name="remember-email"]').check();await submit();
      await page.waitForURL(account);await heading(ar?'حسابي':'My Account');await signout();
+     await page.waitForFunction(()=>Boolean(document.querySelector('#login-email')?.value));
      assert.equal(await page.locator('#login-email').inputValue(),email);assert.equal(await page.locator('#login-password').inputValue(),'');
     });
     await run('actual quick-link email, native confirmation and reused-token rejection',async()=>{
