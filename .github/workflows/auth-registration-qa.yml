@@ -31,7 +31,7 @@ jobs:
           mkdir -p "$AUTH_QA_WORKDIR"
           npx --yes supabase@2.122.0 init --workdir "$AUTH_QA_WORKDIR" > "$RUNNER_TEMP/auth-init.log" 2>&1
           python - <<'PY'
-          import os, pathlib, re
+          import os, pathlib, re, shutil
           p=pathlib.Path(os.environ['AUTH_QA_WORKDIR'])/'supabase/config.toml'
           s=p.read_text()
           s=re.sub(r'^project_id = .*$', 'project_id = "auth-registration-qa"', s, flags=re.M)
@@ -39,8 +39,11 @@ jobs:
           s=re.sub(r'^additional_redirect_urls = .*$', 'additional_redirect_urls = ["http://127.0.0.1:3000/**"]', s, flags=re.M)
           s=s.replace('enable_confirmations = false','enable_confirmations = true')
           s=re.sub(r'^email_sent = .*$', 'email_sent = 1000', s, flags=re.M)
+          template_dir=pathlib.Path(os.environ['AUTH_QA_WORKDIR'])/'supabase/templates'
+          template_dir.mkdir(parents=True,exist_ok=True)
           for name,file in [('confirmation','confirm-signup'),('magic_link','magic-link')]:
-            s+='\n[auth.email.template.'+name+']\nsubject = "Yaqeen QA"\ncontent_path = "'+str(pathlib.Path.cwd()/'supabase/templates'/ (file+'.html'))+'"\n'
+            shutil.copyfile(pathlib.Path.cwd()/'supabase/templates'/(file+'.html'),template_dir/(file+'.html'))
+            s+='\n[auth.email.template.'+name+']\nsubject = "Yaqeen QA"\ncontent_path = "'+'./supabase/templates/'+file+'.html'+'"\n'
           p.write_text(s)
           PY
       - name: Start real Supabase Auth, PostgREST, PostgreSQL and Mailpit
