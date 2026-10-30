@@ -10,14 +10,16 @@ const headers={'Cache-Control':'private, no-store','Referrer-Policy':'no-referre
 const escapeHtml=(value:string)=>value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 function origin(req:Request){const fallback=process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:process.env.NEXT_PUBLIC_APP_URL;return getAuthServerOrigin(req.url,process.env.NODE_ENV==='production'?fallback:undefined)}
 function redirect(url:URL){return NextResponse.redirect(url,{status:303,headers})}
-/** Email scanners may follow GET links. Only an explicit form submission consumes the token. */
+/** strict-origin hides the token URL while preserving Origin on native form POSTs.
+ * no-referrer makes browsers send Origin: null, which our same-origin guard rejects.
+ * Email scanners may follow GET links. Only an explicit form submission consumes the token. */
 export async function GET(req:Request){
  const url=new URL(req.url),locale=requestLocale(url),ar=locale==='ar',copy=loginCopy[locale];
  const type=url.searchParams.get('type'),token=url.searchParams.get('token_hash');
  if(!token||token.length>512||!['signup','email'].includes(type??''))return redirect(new URL(`/${locale}/login?error=verification`,origin(req)));
  const title=type==='signup'?copy.confirmEmail:copy.confirmSignIn;
  const hidden=['token_hash','type','lang','next','invite'].map(key=>`<input type="hidden" name="${key}" value="${escapeHtml(key==='lang'?locale:url.searchParams.get(key)??'')}">`).join('');
- return new Response(`<!doctype html><html lang="${locale}" dir="${ar?'rtl':'ltr'}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Yaqeen Business</title><link rel="stylesheet" href="/auth/confirm/styles"><main><img src="/brand/owner/logo-navy-gold.png" alt="Yaqeen Business"><h1>${title}</h1><p>${copy.continueSecure}</p><form method="post" action="/auth/confirm">${hidden}<button type="submit">${title}</button></form></main></html>`,{headers:{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"}});
+ return new Response(`<!doctype html><html lang="${locale}" dir="${ar?'rtl':'ltr'}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Yaqeen Business</title><link rel="stylesheet" href="/auth/confirm/styles"><main><img src="/brand/owner/logo-navy-gold.png" alt="Yaqeen Business"><h1>${title}</h1><p>${copy.continueSecure}</p><form method="post" action="/auth/confirm">${hidden}<button type="submit">${title}</button></form></main></html>`,{headers:{...headers,'Content-Type':'text/html; charset=utf-8','Referrer-Policy':'strict-origin','Content-Security-Policy':"default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"}});
 }
 export async function POST(req:Request){
  const publicOrigin=origin(req);
