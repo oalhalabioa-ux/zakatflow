@@ -1416,7 +1416,8 @@
       "version": "20261021203802",
       "name": "unified_purchase_numbering",
       "installed_md5": "92e963ddc8291f4ac57e4d8d487bb16b",
-      "file_sha256": "107892e74320076ddbd3fbe2b6a392a4f82f8b6c38e0795f897fdd861e603eaa"
+      "file_sha256": "46efe5c5af7f48b60bfe6f8448d4d75e4798de18f8514485c474f12d275bfcaf",
+      "transaction_wrapper": true
     },
     {
       "path": "supabase/migrations/20261022211255_asset_opening_edit_archive.sql",

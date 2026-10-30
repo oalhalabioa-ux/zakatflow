@@ -9,7 +9,13 @@ export async function verifyFiles(){
  for(const e of manifest.entries){const data=await readFile(new URL(e.path,root));
   assert.match(e.version,/^\d{14}$/);assert.match(e.name,/^[a-z0-9_]+$/);
   assert.equal(createHash('sha256').update(data).digest('hex'),e.file_sha256,e.path+' changed after reconciliation');
-  if(!e.bootstrap_omission)assert.equal(createHash('md5').update(data).digest('hex'),e.installed_md5,e.path+' differs from installed SQL');
+  let installed=data;
+  if(e.transaction_wrapper){
+   assert.equal(e.version,'20261021203802');
+   const prefix='-- Preserve the transaction context used by the installed Management API migration.\nbegin;\n',suffix='\ncommit;\n',text=data.toString('utf8');
+   assert.ok(text.startsWith(prefix)&&text.endsWith(suffix));installed=Buffer.from(text.slice(prefix.length,-suffix.length));
+  }
+  if(!e.bootstrap_omission)assert.equal(createHash('md5').update(installed).digest('hex'),e.installed_md5,e.path+' differs from installed SQL');
  }
  assert.equal(manifest.entries.filter(x=>x.bootstrap_omission).length,1);
  return manifest;
