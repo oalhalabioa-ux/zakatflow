@@ -23,7 +23,7 @@ alter table public.platform_subscriptions drop constraint platform_subscriptions
 alter table public.platform_subscriptions add constraint platform_subscriptions_status_check check(status in ('trialing','active','past_due','cancelled','expired','suspended'));
 alter table public.platform_subscriptions add constraint trial_dates_valid check(
  (trial_started_at is null and trial_ends_at is null and trial_duration_days is null) or
- (trial_started_at is not null and trial_ends_at>trial_started_at and trial_duration_days is not null and max_users is not null));
+ (trial_started_at is not null and trial_ends_at is not null and trial_ends_at>trial_started_at and trial_duration_days is not null and max_users is not null));
 -- Include suspended rows to prevent a second subscription bypassing a suspension.
 drop index public.platform_subscriptions_one_open_per_org;
 create unique index platform_subscriptions_one_open_per_org on public.platform_subscriptions(organization_id) where status in ('trialing','active','past_due','suspended');
@@ -76,10 +76,18 @@ do $$begin if to_regclass('public.budget_plans') is not null then
 end if;end$$;
 create function subscription_private.bind_budget_organization() returns trigger
 language plpgsql security definer set search_path='' as $$
-declare ids uuid[];begin
+declare ids uuid[];adopted_org uuid;begin
  if tg_op='UPDATE' and old.organization_id is not null then
   if new.organization_id is distinct from old.organization_id then raise exception 'BUDGET_ORGANIZATION_IMMUTABLE' using errcode='42501';end if;
   return new;
+ end if;
+ -- Reuse Financial Core's existing adoption relationship; never infer it from a renamed label.
+ if to_regclass('public.financial_budget_plan_ownership') is not null then
+  execute 'select organization_id from public.financial_budget_plan_ownership where plan_id=$1' into adopted_org using new.id;
+  if adopted_org is not null then
+   if new.organization_id is not null and new.organization_id<>adopted_org then raise exception 'BUDGET_ORGANIZATION_SCOPE_CONFLICT' using errcode='42501';end if;
+   new.organization_id:=adopted_org;return new;
+  end if;
  end if;
  if new.organization_id is null and trim(new.organization_name)<>'' then
   select array_agg(distinct o.id) into ids from public.organizations o join public.organization_members m on m.organization_id=o.id
@@ -100,9 +108,18 @@ declare result uuid[]:='{}';f record;parent jsonb;condition text;v text;org uuid
 begin
  if p_row is null then return result;end if;
  if p_table='public.organizations'::regclass then return array[(p_row->>'id')::uuid];end if;
+ -- Private annual numbering counters are also organization writes.
+ if p_table=to_regclass('private.voucher_sequence_counters') and p_row->>'scope_key' like 'O:%' then
+  result:=array_append(result,substring(p_row->>'scope_key' from 3)::uuid);
+ end if;
+ -- Canonical Financial Core ownership is authoritative for adopted budgets.
+ if p_table=to_regclass('public.budget_plans') and to_regclass('public.financial_budget_plan_ownership') is not null then
+  execute 'select organization_id from public.financial_budget_plan_ownership where plan_id=$1' into org using (p_row->>'id')::uuid;
+  if org is not null then result:=array_append(result,org);end if;
+ end if;
  -- Old name-linked budget rows remain protected before their first user-authorized save.
  if p_table=to_regclass('public.budget_plans') and nullif(p_row->>'organization_name','') is not null then
-  select coalesce(array_agg(distinct o.id),'{}') into result from public.organizations o join public.organization_members m on m.organization_id=o.id
+  select result||coalesce(array_agg(distinct o.id),'{}') into result from public.organizations o join public.organization_members m on m.organization_id=o.id
    where o.name=p_row->>'organization_name' and m.user_id=(p_row->>'user_id')::uuid;
  end if;
  -- Every direct organization identifier, including both sides of a transfer.
@@ -178,14 +195,14 @@ create trigger subscription_seat_guard before insert or update on public.organiz
 -- Preserve existing permissions and RLS. A separate trigger remains effective inside SECURITY DEFINER RPCs.
 -- Exempt identity/preferences, billing control plane and system reference catalogs only.
 -- The coverage manifest is reviewed/tested before deployment; new business tables require this installer.
-create table subscription_private.guard_coverage(table_name text primary key,has_direct_scope boolean not null,foreign_keys integer not null);
+create table subscription_private.guard_coverage(schema_name text not null,table_name text not null,has_direct_scope boolean not null,foreign_keys integer not null,primary key(schema_name,table_name));
 alter table subscription_private.guard_coverage enable row level security;
 do $$declare t record;begin
- for t in select c.oid,c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
- where n.nspname='public' and c.relkind='r' and c.relname not like 'platform\_%' escape '\'
+ for t in select c.oid,c.relname,n.nspname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+ where n.nspname in ('public','private') and c.relkind='r' and c.relname not like 'platform\_%' escape '\'
  and c.relname not in ('organizations','profiles','user_settings','currencies','zakat_methods','reference_prices','subscriptions','billing_events','notifications','nisab_prices','price_sources') loop
-  execute format('create trigger subscription_write_guard before insert or update or delete on public.%I for each row execute function subscription_private.guard_write()',t.relname);
-  insert into subscription_private.guard_coverage select t.relname,exists(select 1 from pg_catalog.pg_attribute where attrelid=t.oid and not attisdropped and attname='organization_id'),(select count(*) from pg_catalog.pg_constraint where conrelid=t.oid and contype='f');
+  execute format('create trigger subscription_write_guard before insert or update or delete on %I.%I for each row execute function subscription_private.guard_write()',t.nspname,t.relname);
+  insert into subscription_private.guard_coverage select t.nspname,t.relname,exists(select 1 from pg_catalog.pg_attribute where attrelid=t.oid and not attisdropped and attname='organization_id'),(select count(*) from pg_catalog.pg_constraint where conrelid=t.oid and contype='f');
  end loop;
 end$$;
 create trigger subscription_organization_delete_guard before delete on public.organizations for each row execute function subscription_private.guard_write();

@@ -1,5 +1,7 @@
 name: Isolated subscription trials acceptance
 on:
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'lib/subscriptions/**'
@@ -33,7 +35,9 @@ jobs:
           echo "TRIAL_PGLITE_MODULE=$RUNNER_TEMP/trial-tools/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
           echo "TRIAL_BROWSER_MODULE=$RUNNER_TEMP/trial-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - name: PostgreSQL compatibility and authorization regression
-        run: node tests/subscriptions/database.mjs
+        run: |
+          node tests/subscriptions/database.mjs
+          node tests/subscriptions/deployed-schema.mjs
       - name: Initialize isolated Supabase
         run: |
           export TRIAL_QA_WORKDIR="$RUNNER_TEMP/trial-subscriptions-qa"
