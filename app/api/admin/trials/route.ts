@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/services/auth";
-import { isSameOriginRequest } from "../../../../lib/request-origin";
+import {isSubscriptionSameOrigin} from '../../../../lib/subscriptions/security';
 import { subscriptionError } from "../../../../lib/subscriptions/model";
 const input = z
   .object({
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   }
 }
 export async function POST(request: Request) {
-  if (!isSameOriginRequest(request))
+  if (!isSubscriptionSameOrigin(request))
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   try {
     const b = input.parse(await request.json());

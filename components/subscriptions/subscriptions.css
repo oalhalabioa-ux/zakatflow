@@ -2,8 +2,8 @@
 .subscription-panel {
   --sub-navy: #102b46;
   --sub-gold: #c6a45d;
-  background: var(--card-bg, var(--surface, #fff));
-  color: var(--text-color, var(--text, #102b46));
+  background: var(--owner-panel, var(--card, #fff));
+  color: var(--owner-ink, var(--text, var(--corp-text, #102b46)));
   border: 1px solid var(--sub-gold);
   border-radius: 14px;
   padding: 18px;
@@ -115,3 +115,5 @@
     margin: 8px;
   }
 }
+
+@media print { .subscription-banner { display: none; } }

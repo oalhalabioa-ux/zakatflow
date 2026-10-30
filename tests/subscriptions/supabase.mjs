@@ -433,6 +433,7 @@ try {
         .getByRole("heading", {
           name: "Subscriptions and free trials",
           exact: true,
+          level: 1,
         })
         .waitFor();
       const row = page

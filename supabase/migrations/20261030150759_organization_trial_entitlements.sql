@@ -320,4 +320,14 @@ end$$;
 revoke all on function public.owner_create_subscription_plan(text,text,text,numeric,text,text,text) from public,anon,authenticated,service_role;
 grant execute on function public.owner_create_subscription_plan(text,text,text,numeric,text,text,text) to authenticated;
 
+-- The owner overview must count effective paid access, including expiration before a sweep.
+create or replace function public.owner_subscription_summary()
+returns table(plans bigint,active_plans bigint,subscriptions bigint,active_subscriptions bigint)
+language plpgsql security definer set search_path='' as $$begin
+ if not public.owner_authorized() then raise exception 'PLATFORM_OWNER_REQUIRED' using errcode='42501';end if;
+ return query select (select count(*) from public.platform_plans),(select count(*) from public.platform_plans where is_active),
+ (select count(*) from public.platform_subscriptions),
+ (select count(*) from public.organizations o where subscription_private.entitlement(o.id)->>'status'='active');
+end$$;
+
 commit;
