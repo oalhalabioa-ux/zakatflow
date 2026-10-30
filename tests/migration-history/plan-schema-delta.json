@@ -1,0 +1,115 @@
+{
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.description_ar",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.description_en",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.family",
+      "fingerprint": "8c9b12c74d982b1fdfade685fb8d6dc3"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.is_proposed",
+      "fingerprint": "14ea4bf43cf24757f6097b74012b9d32"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.is_published",
+      "fingerprint": "1b2d399aaa0209161b2a562d0ec668df"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.max_users",
+      "fingerprint": "a50c4283b5f725ee6e744c968fae597a"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.revision",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.sort_order",
+      "fingerprint": "7edc16e80b37b939286a0b2dfae05bb2"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_subscriptions.entitlements",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_subscriptions.plan_snapshot",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.platform_plans.platform_plans_max_users_check",
+      "fingerprint": "a252c40763810606c43f20a0bbd5d70e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.organization_subscription(p_organization_id uuid)",
+      "fingerprint": "fbb60152314b79cd046c17b808424472"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_manage_trial(p_action text, p_reason text, p_organization_id uuid, p_revision integer, p_days integer, p_until timestamp with time zone, p_plan_id uuid, p_max_users integer)",
+      "fingerprint": "8a9520043de4fd8b7cb05ec4bde7563e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_save_subscription_plan(p_details jsonb, p_reason text)",
+      "fingerprint": "875a915f29b3e1a53c792d2b5167270e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.subscription_plan_catalog()",
+      "fingerprint": "2c31534803d5549b225982269c2096b3"
+    },
+    {
+      "category": "function",
+      "object_key": "subscription_private.entitlement(p_org uuid)",
+      "fingerprint": "e462ecf08c86bc935532e3749c476a85"
+    },
+    {
+      "category": "function",
+      "object_key": "subscription_private.entitlement_state(p_org uuid)",
+      "fingerprint": "6fb2bd9e551e48e62902c6883d2209a8"
+    },
+    {
+      "category": "function",
+      "object_key": "subscription_private.guard_write()",
+      "fingerprint": "bd38eba212dadec1ca017dd3d6f2eac4"
+    },
+    {
+      "category": "function",
+      "object_key": "subscription_private.plan_snapshot(p_plan uuid)",
+      "fingerprint": "e51ba5184344ae702675499e5555d752"
+    },
+    {
+      "category": "function",
+      "object_key": "subscription_private.table_capability(p_table oid)",
+      "fingerprint": "19cfc7516752c12ad5de840ca65d5316"
+    },
+    {
+      "category": "function",
+      "object_key": "subscription_private.valid_capabilities(p_caps jsonb)",
+      "fingerprint": "421abe1b7141499fc89b06abdec91515"
+    },
+    {
+      "category": "index",
+      "object_key": "public.platform_plans.platform_plan_public_variant",
+      "fingerprint": "372769671d8708f26ef0d927a6bcd380"
+    }
+  ],
+  "removals": []
+}

@@ -110,3 +110,7 @@ html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-sidebar
  .owner-navigation-row>.owner-tabs{flex-basis:100%;order:2}
  .owner-navigation-row>.owner-tabs-theme{order:1;margin-inline-start:auto;padding:0;border:0;background:transparent}
 }
+/* Explicit native select/option surfaces in every owner theme. */
+.owner-shell :is(select,select option,select optgroup){background-color:var(--owner-panel);color:var(--owner-ink)}
+html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-shell select{color-scheme:light}
+html:is([data-owner-theme="elegant"],[data-owner-theme="yaqeen-business"]) .owner-shell select{color-scheme:dark}

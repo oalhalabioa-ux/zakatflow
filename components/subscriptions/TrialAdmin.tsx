@@ -1,4 +1,6 @@
 "use client";
+import PlanManager from "./PlanManager";
+import type { Plan } from "@/lib/subscriptions/catalog";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   displaySubscriptionDate,
@@ -17,24 +19,14 @@ type Register = {
   rows: Row[];
   metrics: Record<string, number>;
   settings: { trial_days: number; revision: number };
-  plans?: {
-    id: string;
-    name_ar: string;
-    name_en?: string;
-    is_active: boolean;
-  }[];
+  plans?: Plan[];
 };
 export default function TrialAdmin({
   locale,
   plans,
 }: {
   locale: string;
-  plans: {
-    id: string;
-    name_ar: string;
-    name_en?: string;
-    is_active: boolean;
-  }[];
+  plans: Plan[];
 }) {
   const ar = locale === "ar";
   const [register, setRegister] = useState<Register | null>(null),
@@ -128,29 +120,6 @@ export default function TrialAdmin({
     }
   }
   const currentPlans = register?.plans ?? plans;
-  async function createPlan(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget,
-      fields = new FormData(form);
-    setBusy(true);
-    try {
-      const body = Object.fromEntries(fields);
-      const r = await fetch("/api/admin/trials/plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, price: Number(fields.get("price")) }),
-      });
-      const b = await r.json();
-      if (!r.ok) throw new Error(b.error);
-      form.reset();
-      await load();
-      setMessage(ar ? "تم إنشاء الخطة وتسجيلها." : "Plan created and audited.");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "REQUEST_FAILED");
-    } finally {
-      setBusy(false);
-    }
-  }
   const labels: Record<string, string> = {
     trial_total: ar ? "إجمالي المؤسسات التجريبية" : "Trial organizations",
     trialing: ar ? "التجارب النشطة" : "Active trials",
@@ -369,64 +338,7 @@ export default function TrialAdmin({
           </details>
         </>
       )}
-      <details>
-        <summary>
-          {ar
-            ? "إعداد خطة للاشتراك اليدوي"
-            : "Set up a plan for manual subscriptions"}
-        </summary>
-        <p>
-          {ar
-            ? "تعريف خطة لا يفعّل اشتراكات العملاء ولا ينفذ تحصيلاً مالياً."
-            : "Creating a plan does not activate customer subscriptions or collect payments."}
-        </p>
-        <form onSubmit={createPlan}>
-          <label>
-            {ar ? "رمز الخطة" : "Plan code"}
-            <input name="code" pattern="[a-z0-9_-]{2,40}" required />
-          </label>
-          <label>
-            {ar ? "الاسم العربي" : "Arabic name"}
-            <input name="name_ar" minLength={2} maxLength={120} required />
-          </label>
-          <label>
-            {ar ? "الاسم الإنجليزي" : "English name"}
-            <input name="name_en" minLength={2} maxLength={120} required />
-          </label>
-          <label>
-            {ar ? "السعر المرجعي" : "Reference price"}
-            <input
-              name="price"
-              type="number"
-              min="0"
-              max="100000000"
-              step="0.01"
-              required
-            />
-          </label>
-          <label>
-            {ar ? "العملة" : "Currency"}
-            <input
-              name="currency"
-              pattern="[A-Z]{3}"
-              defaultValue="SAR"
-              required
-            />
-          </label>
-          <label>
-            {ar ? "الدورة" : "Interval"}
-            <select name="interval">
-              <option value="monthly">{ar ? "شهرية" : "Monthly"}</option>
-              <option value="yearly">{ar ? "سنوية" : "Yearly"}</option>
-            </select>
-          </label>
-          <label>
-            {ar ? "السبب" : "Reason"}
-            <input name="reason" minLength={5} maxLength={1000} required />
-          </label>
-          <button disabled={busy}>{ar ? "إنشاء الخطة" : "Create plan"}</button>
-        </form>
-      </details>
+      <PlanManager locale={locale} plans={currentPlans} onSaved={load} />
       {selected && (
         <section>
           <h3>{selected.name}</h3>
@@ -469,7 +381,23 @@ export default function TrialAdmin({
             </label>
             <label>
               {ar ? "الخطة للتفعيل المدفوع" : "Plan for paid activation"}
-              <select name="plan_id">
+              <select
+                name="plan_id"
+                onChange={(e) => {
+                  const plan = currentPlans.find(
+                    (p) => p.id === e.target.value,
+                  );
+                  const field = e.currentTarget.form?.elements.namedItem(
+                    "max_users",
+                  ) as HTMLInputElement | null;
+                  if (field) {
+                    field.value = String(
+                      plan?.max_users ?? Math.max(selected.active_users, 5),
+                    );
+                    field.max = String(plan?.max_users ?? 100000);
+                  }
+                }}
+              >
                 <option value="">
                   {ar ? "اختر خطة مفعلة" : "Choose active plan"}
                 </option>

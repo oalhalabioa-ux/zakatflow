@@ -25,7 +25,15 @@ export type OrganizationSubscription = {
   days_remaining?: number;
   server_now: string;
   timezone?: string;
-  plan?: { name_ar: string; name_en: string; features: string[] };
+  capabilities?: string[];
+  plan?: {
+    name_ar: string;
+    name_en: string;
+    features: string[];
+    price_amount?: number | string;
+    currency?: string;
+    billing_interval?: string;
+  };
   notifications?: { milestone: number; due_at: string }[];
 };
 export function subscriptionLabel(status: SubscriptionStatus, ar: boolean) {

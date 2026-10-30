@@ -23,6 +23,9 @@ try{
   const query=await load('tests/migration-history/catalog.sql');
   const actual=JSON.parse(sql('select coalesce(jsonb_agg(t),\'[]\') from ('+query.replace(/;\s*$/,'')+') t'));
   const expected=(await load('tests/migration-history/observed-schema.jsonl')).trim().split('\n').map(x=>JSON.parse(x));
+  const delta=JSON.parse(await load('tests/migration-history/plan-schema-delta.json'));
+  for(const item of delta.removals){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected.splice(i,1);}
+  for(const item of delta.upserts){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected[i]=item;else expected.push(item);}
   const lookup=new Map(actual.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
   const differences=expected.filter(x=>lookup.get(x.category+':'+x.object_key)!==x.fingerprint).map(x=>({category:x.category,object:x.object_key,kind:lookup.has(x.category+':'+x.object_key)?'different':'missing'}));
   const keys=new Set(expected.map(x=>x.category+':'+x.object_key));
@@ -71,6 +74,21 @@ try{
   sql(adoption);assert.equal(fingerprint(),before);
   assert.throws(()=>sql('begin;alter table public.budget_lines alter column active drop not null;'+adoption),error=>error.stderr?.toString().includes('UNEXPECTED_BUDGET_ACTIVE_COLUMN'));
   assert.equal(fingerprint(),before);
+ });
+
+ await check('paid plan modules and immutable quotes work against the complete financial schema',async()=>{
+  const register=await client.rpc('owner_trial_register');assert.ifError(register.error);
+  const pro=register.data.plans.find(p=>p.code==='professional_monthly'),advanced=register.data.plans.find(p=>p.code==='advanced_monthly');
+  const current=await client.rpc('organization_subscription',{p_organization_id:org});assert.ifError(current.error);
+  const args={p_action:'activate',p_reason:'Professional plan activation',p_organization_id:org,p_revision:current.data.revision,p_days:null,p_until:new Date(Date.now()+365*86400000).toISOString(),p_plan_id:pro.id,p_max_users:5};
+  assert.ifError((await client.rpc('owner_manage_trial',args)).error);
+  const plan=sql(`select id from public.budget_plans where organization_id='${org}' limit 1;`);
+  const blocked=await client.from('budget_plans').update({name:'Blocked plan change'}).eq('id',plan);assert.match(blocked.error?.message??'',/SUBSCRIPTION_CAPABILITY_REQUIRED/);
+  assert.ifError((await client.from('budget_plans').select('name').eq('id',plan).csv()).error);
+  const edited=await client.rpc('owner_save_subscription_plan',{p_details:{...pro,interval:pro.billing_interval,price:249,features:[...pro.features,'module:budgets']},p_reason:'Updated catalog without changing agreements'});assert.ifError(edited.error);
+  const snapshot=await client.rpc('organization_subscription',{p_organization_id:org});assert.ifError(snapshot.error);assert.equal(snapshot.data.plan.price_amount,199);assert.ok(!snapshot.data.capabilities.includes('module:budgets'));
+  assert.ifError((await client.rpc('owner_manage_trial',{...args,p_revision:snapshot.data.revision,p_plan_id:advanced.id,p_max_users:15,p_reason:'Explicit upgrade to Advanced'})).error);
+  assert.ifError((await client.from('budget_plans').update({name:'Advanced write allowed'}).eq('id',plan)).error);
  });
 }catch(error){checks.push({name:String(error.message).slice(0,2000),status:'failed'});process.exitCode=1;console.error('FAIL '+String(error.message).slice(0,2000));}
 finally{await writeFile(new URL('tests/migration-history/bootstrap-result.json',root),JSON.stringify({checks,hostedDatabasesAccessed:false,syntheticAccountsOnly:true},null,2)+'\n');}
