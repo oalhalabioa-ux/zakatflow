@@ -1,4 +1,5 @@
 "use client";
+import { useOwnerRegisterQuery } from "./useOwnerRegisterQuery";
 import {
   useCallback,
   useEffect,
@@ -64,10 +65,9 @@ export default function TrialAdmin({
   onChanged?: () => Promise<void>;
 }) {
   const ar = locale === "ar";
+  const { search, status, offset, setSearch, setStatus, setOffset } =
+    useOwnerRegisterQuery("org");
   const [register, setRegister] = useState<Register | null>(null),
-    [search, setSearch] = useState(""),
-    [status, setStatus] = useState(""),
-    [offset, setOffset] = useState(0),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
@@ -77,7 +77,8 @@ export default function TrialAdmin({
     [message, setMessage] = useState(""),
     [action, setAction] = useState("activate"),
     [editing, setEditing] = useState(false),
-    [defaultsOpen, setDefaultsOpen] = useState(false);
+    [defaultsOpen, setDefaultsOpen] = useState(false),
+    [inlineActivation, setInlineActivation] = useState(false);
   const generation = useRef(0),
     auditGeneration = useRef(0),
     selection = useRef<Row | null>(null);
@@ -86,6 +87,7 @@ export default function TrialAdmin({
     auditGeneration.current++;
     setSelected(row);
     setEditing(false);
+    setInlineActivation(false);
     setAudit(null);
     setDetailTab("subscription");
     if (row) setAction(defaultAction(row));
@@ -211,6 +213,7 @@ export default function TrialAdmin({
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
       setEditing(false);
+      setInlineActivation(false);
       setDefaultsOpen(false);
       setMessage(
         ar
@@ -269,6 +272,155 @@ export default function TrialAdmin({
     ) : (
       <p>{ar ? "لا توجد تغييرات مسجلة." : "No recorded changes."}</p>
     );
+  const subscriptionEditor = selected ? (
+    <>
+      {error && (
+        <p className="owner-feedback" role="alert">
+          {error}
+        </p>
+      )}{" "}
+      <form
+        className="request-form owner-subscription-editor"
+        onSubmit={submit}
+      >
+        <fieldset disabled={busy}>
+          <label className="form-wide">
+            {ar ? "المؤسسة" : "Organization"}
+            <input value={selected.name} readOnly />
+          </label>
+          {inlineActivation ? (
+            <input type="hidden" name="action" value="activate" />
+          ) : (
+            <label>
+              {ar ? "الإجراء" : "Action"}
+              <select
+                name="action"
+                aria-label={ar ? "الإجراء" : "Action"}
+                value={action}
+                onChange={(e) => setAction(e.target.value)}
+                required
+              >
+                {selected.entitlement.trial_started_at &&
+                  ["trialing", "expired"].includes(
+                    selected.entitlement.status,
+                  ) && (
+                    <option value="extend">
+                      {ar ? "تمديد التجربة" : "Extend trial"}
+                    </option>
+                  )}
+                <option value="activate">
+                  {ar ? "تفعيل اشتراك يدوي" : "Activate manually"}
+                </option>
+                {selected.entitlement.id &&
+                  selected.entitlement.status !== "suspended" && (
+                    <option value="suspend">
+                      {ar ? "تعليق الاشتراك" : "Suspend"}
+                    </option>
+                  )}
+                {selected.entitlement.status === "suspended" && (
+                  <option value="resume">
+                    {ar ? "رفع التعليق" : "Resume subscription"}
+                  </option>
+                )}
+              </select>
+            </label>
+          )}
+          {action === "extend" && (
+            <label>
+              {ar ? "أيام التمديد" : "Extension days"}
+              <input
+                name="days"
+                type="number"
+                min="1"
+                max="365"
+                defaultValue={7}
+              />
+            </label>
+          )}
+          {action === "activate" && (
+            <>
+              <label>
+                {ar ? "الخطة للتفعيل المدفوع" : "Plan for paid activation"}
+                <select
+                  name="plan_id"
+                  defaultValue=""
+                  required
+                  onChange={(e) => {
+                    const plan = currentPlans.find(
+                      (p) => p.id === e.target.value,
+                    );
+                    const field = e.currentTarget.form?.elements.namedItem(
+                      "max_users",
+                    ) as HTMLInputElement | null;
+                    if (field) {
+                      field.value = String(
+                        plan?.max_users ?? Math.max(selected.active_users, 5),
+                      );
+                      field.max = String(plan?.max_users ?? 100000);
+                    }
+                  }}
+                >
+                  <option value="">
+                    {ar ? "اختر خطة مفعلة" : "Choose active plan"}
+                  </option>
+                  {currentPlans
+                    .filter((p) => p.is_active && p.code !== "trial_30d")
+                    .map((p) => (
+                      <option value={p.id} key={p.id}>
+                        {ar ? p.name_ar : (p.name_en ?? p.name_ar)} ·{" "}
+                        {p.billing_interval === "yearly"
+                          ? ar
+                            ? "سنوي"
+                            : "Yearly"
+                          : ar
+                            ? "شهري"
+                            : "Monthly"}{" "}
+                        · {money(p.price_amount, p.currency, locale)}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                {ar ? "انتهاء الاشتراك المدفوع" : "Paid subscription end"}
+                <input name="until" type="datetime-local" required />
+              </label>
+              <label>
+                {ar ? "عدد المستخدمين للتفعيل المدفوع" : "Paid user limit"}
+                <input
+                  name="max_users"
+                  type="number"
+                  min={Math.max(1, selected.active_users)}
+                  max={100000}
+                  defaultValue={Math.max(selected.active_users, 5)}
+                />
+              </label>
+            </>
+          )}
+          <label>
+            {ar ? "السبب الإداري" : "Administrative reason"}
+            <textarea name="reason" minLength={5} maxLength={1000} required />
+          </label>
+          <button className="primary" disabled={busy}>
+            {ar ? "تنفيذ وحفظ في السجل" : "Apply and audit"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(false);
+              setInlineActivation(false);
+            }}
+          >
+            {ar ? "إلغاء" : "Cancel"}
+          </button>
+        </fieldset>
+      </form>
+      <p className="owner-detail-note">
+        {ar
+          ? "تُحفظ تواريخ الانتهاء بتوقيت UTC؛ يعرض الحقل توقيت جهازك. بيانات المؤسسة وأدوار أعضائها محفوظة."
+          : "End dates are stored in UTC; the field uses your device timezone. Organization data and member roles are preserved."}
+      </p>
+    </>
+  ) : null;
   return (
     <section className="institution-workspace">
       {error && (
@@ -476,6 +628,38 @@ export default function TrialAdmin({
               {register?.settings.trial_days ?? "—"} {ar ? "يوماً" : "days"}
             </span>
           </div>
+          <section
+            className="owner-add-subscription"
+            aria-labelledby="owner-add-subscription-title"
+          >
+            <header>
+              <h3 id="owner-add-subscription-title">
+                {ar ? "إضافة / تفعيل اشتراك" : "Add / activate subscription"}
+              </h3>
+              <button
+                className="primary"
+                disabled={busy || !selected}
+                aria-expanded={inlineActivation}
+                aria-controls="owner-inline-subscription"
+                onClick={() => {
+                  setAction("activate");
+                  setEditing(false);
+                  setError("");
+                  setInlineActivation((value) => !value);
+                }}
+              >
+                {ar ? "إضافة اشتراك" : "Add subscription"}
+              </button>
+            </header>
+            <p>
+              {ar
+                ? "اختر المؤسسة من السجل ثم حدد الباقة والمدة والمقاعد. لا يُنفذ أي تغيير حتى الحفظ، والتفعيل اليدوي لا يسجل دفعة مالية."
+                : "Select an organization from the register, then choose its plan, end date and seats. Nothing changes until save; manual activation does not record payment."}
+            </p>
+            {inlineActivation && (
+              <div id="owner-inline-subscription">{subscriptionEditor}</div>
+            )}
+          </section>
         </section>
         {selected ? (
           <aside
@@ -513,7 +697,16 @@ export default function TrialAdmin({
                     if (id === "history") void history(selected.id);
                   }}
                 >
-                  {label}
+                  <ConsoleIcon
+                    name={
+                      id === "subscription"
+                        ? "card"
+                        : id === "members"
+                          ? "users"
+                          : "clock"
+                    }
+                  />
+                  <span>{label}</span>
                 </button>
               ))}
             </nav>
@@ -607,6 +800,7 @@ export default function TrialAdmin({
                     onClick={() => {
                       setAction(defaultAction(selected));
                       setError("");
+                      setInlineActivation(false);
                       setEditing(true);
                     }}
                   >
@@ -631,6 +825,7 @@ export default function TrialAdmin({
                             : "suspend",
                         );
                         setError("");
+                        setInlineActivation(false);
                         setEditing(true);
                       }}
                     >
@@ -673,143 +868,7 @@ export default function TrialAdmin({
           busy={busy}
           onClose={() => setEditing(false)}
         >
-          {error && (
-            <p className="owner-feedback" role="alert">
-              {error}
-            </p>
-          )}{" "}
-          <form
-            className="request-form owner-subscription-editor"
-            onSubmit={submit}
-          >
-            <fieldset disabled={busy}>
-              <label>
-                {ar ? "الإجراء" : "Action"}
-                <select
-                  name="action"
-                  aria-label={ar ? "الإجراء" : "Action"}
-                  value={action}
-                  onChange={(e) => setAction(e.target.value)}
-                  required
-                >
-                  {selected.entitlement.trial_started_at &&
-                    ["trialing", "expired"].includes(
-                      selected.entitlement.status,
-                    ) && (
-                      <option value="extend">
-                        {ar ? "تمديد التجربة" : "Extend trial"}
-                      </option>
-                    )}
-                  <option value="activate">
-                    {ar ? "تفعيل اشتراك يدوي" : "Activate manually"}
-                  </option>
-                  {selected.entitlement.id &&
-                    selected.entitlement.status !== "suspended" && (
-                      <option value="suspend">
-                        {ar ? "تعليق الاشتراك" : "Suspend"}
-                      </option>
-                    )}
-                  {selected.entitlement.status === "suspended" && (
-                    <option value="resume">
-                      {ar ? "رفع التعليق" : "Resume subscription"}
-                    </option>
-                  )}
-                </select>
-              </label>
-              {action === "extend" && (
-                <label>
-                  {ar ? "أيام التمديد" : "Extension days"}
-                  <input
-                    name="days"
-                    type="number"
-                    min="1"
-                    max="365"
-                    defaultValue={7}
-                  />
-                </label>
-              )}
-              {action === "activate" && (
-                <>
-                  <label>
-                    {ar ? "الخطة للتفعيل المدفوع" : "Plan for paid activation"}
-                    <select
-                      name="plan_id"
-                      defaultValue=""
-                      required
-                      onChange={(e) => {
-                        const plan = currentPlans.find(
-                          (p) => p.id === e.target.value,
-                        );
-                        const field = e.currentTarget.form?.elements.namedItem(
-                          "max_users",
-                        ) as HTMLInputElement | null;
-                        if (field) {
-                          field.value = String(
-                            plan?.max_users ??
-                              Math.max(selected.active_users, 5),
-                          );
-                          field.max = String(plan?.max_users ?? 100000);
-                        }
-                      }}
-                    >
-                      <option value="">
-                        {ar ? "اختر خطة مفعلة" : "Choose active plan"}
-                      </option>
-                      {currentPlans
-                        .filter((p) => p.is_active && p.code !== "trial_30d")
-                        .map((p) => (
-                          <option value={p.id} key={p.id}>
-                            {ar ? p.name_ar : (p.name_en ?? p.name_ar)} ·{" "}
-                            {p.billing_interval === "yearly"
-                              ? ar
-                                ? "سنوي"
-                                : "Yearly"
-                              : ar
-                                ? "شهري"
-                                : "Monthly"}{" "}
-                            · {money(p.price_amount, p.currency, locale)}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                  <label>
-                    {ar ? "انتهاء الاشتراك المدفوع" : "Paid subscription end"}
-                    <input name="until" type="datetime-local" required />
-                  </label>
-                  <label>
-                    {ar ? "عدد المستخدمين للتفعيل المدفوع" : "Paid user limit"}
-                    <input
-                      name="max_users"
-                      type="number"
-                      min={Math.max(1, selected.active_users)}
-                      max={100000}
-                      defaultValue={Math.max(selected.active_users, 5)}
-                    />
-                  </label>
-                </>
-              )}
-              <label>
-                {ar ? "السبب الإداري" : "Administrative reason"}
-                <textarea
-                  name="reason"
-                  minLength={5}
-                  maxLength={1000}
-                  required
-                />
-              </label>
-              <button className="primary" disabled={busy}>
-                {ar ? "تنفيذ وحفظ في السجل" : "Apply and audit"}
-              </button>
-              <button type="button" onClick={() => setEditing(false)}>
-                {ar ? "إلغاء" : "Cancel"}
-              </button>
-            </fieldset>
-          </form>
-          <p className="owner-detail-note">
-            {ar
-              ? "تُحفظ تواريخ الانتهاء بتوقيت UTC؛ يعرض الحقل توقيت جهازك. بيانات المؤسسة وأدوار أعضائها محفوظة."
-              : "End dates are stored in UTC; the field uses your device timezone. Organization data and member roles are preserved."}
-          </p>
+          {subscriptionEditor}
         </SubscriptionModal>
       )}
       {defaultsOpen && register && (
