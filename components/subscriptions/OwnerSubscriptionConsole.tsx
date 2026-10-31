@@ -53,7 +53,7 @@ export default function OwnerSubscriptionConsole({
           </button>
         ))}
       </nav>
-      {metrics && (
+      {metrics && tab === "institutions" && (
         <div className="subscription-metrics">
           {[
             ["total", ar ? "إجمالي المؤسسات" : "Total organizations"],

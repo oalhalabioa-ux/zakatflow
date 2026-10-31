@@ -658,28 +658,7 @@
   background: var(--card, #fff);
   color: var(--ink, #102b46);
 }
-@media (min-width: 1200px) {
-  .owner-subscription-console > .subscription-panel:has(.institution-detail) {
-    display: grid;
-    grid-template-columns: minmax(0, 1.75fr) minmax(300px, 1fr);
-    gap: 18px;
-    align-items: start;
-  }
-  .owner-subscription-console > .subscription-panel > h2 {
-    grid-column: 1/-1;
-  }
-  .institution-detail {
-    grid-column: 2;
-    grid-row: 2 / span 4;
-    margin: 0;
-  }
-  .owner-subscription-console > .subscription-panel > .subscription-table-wrap {
-    grid-column: 1;
-  }
-  .owner-subscription-console > .subscription-panel > section:last-child {
-    grid-column: 2;
-  }
-}
+
 @media (max-width: 950px) {
   .console-split {
     grid-template-columns: 1fr;
@@ -766,12 +745,121 @@
     grid-template-columns: 1fr;
   }
 }
-.subscription-panel .danger{color:#c22d36;border-color:#c22d36;background:transparent}.decision-actions{justify-content:flex-start}.subscription-panel .decision-actions button{flex:1;white-space:normal;min-width:100px}.console-tabs button>span[aria-hidden]{font-size:1.3em}
-.pricing-card>p{margin:8px 0}.pricing-card h2{margin:0 0 10px}.pricing-card ul{margin:12px 0 20px;line-height:1.9}.pricing-card>.plan-badge{align-self:flex-start}.pricing-card:has(.current-plan){border-width:2px;box-shadow:0 6px 24px #98752918}.subscription-panel button:disabled{cursor:not-allowed}
+.subscription-panel .danger {
+  color: #c22d36;
+  border-color: #c22d36;
+  background: transparent;
+}
+.decision-actions {
+  justify-content: flex-start;
+}
+.subscription-panel .decision-actions button {
+  flex: 1;
+  white-space: normal;
+  min-width: 100px;
+}
+.console-tabs button > span[aria-hidden] {
+  font-size: 1.3em;
+}
+.pricing-card > p {
+  margin: 8px 0;
+}
+.pricing-card h2 {
+  margin: 0 0 10px;
+}
+.pricing-card ul {
+  margin: 12px 0 20px;
+  line-height: 1.9;
+}
+.pricing-card > .plan-badge {
+  align-self: flex-start;
+}
+.pricing-card:has(.current-plan) {
+  border-width: 2px;
+  box-shadow: 0 6px 24px #98752918;
+}
+.subscription-panel button:disabled {
+  cursor: not-allowed;
+}
 /* Native dialogs enter the top layer but retain inherited workspace margin rules. */
-.settings-workspace dialog.subscription-modal,.owner-shell dialog.subscription-modal{margin:auto}
-.activation-console .subscription-table-wrap table{table-layout:fixed;width:100%}
-.activation-console :is(th,td){white-space:normal;min-width:0!important;overflow-wrap:anywhere;padding:10px 7px}
-.activation-console th:first-child{width:20%}.activation-console th:nth-child(2){width:33%}.activation-console th:nth-child(3){width:25%}.activation-console th:last-child{width:22%}
-.subscription-panel button.request-reference{border:0;background:transparent;padding:0;color:inherit;font-weight:700;text-decoration:underline;overflow-wrap:normal;white-space:nowrap;font-size:.8rem}
-@media(max-width:550px){.activation-console .subscription-table-wrap table{min-width:500px}}
+.settings-workspace dialog.subscription-modal,
+.owner-shell dialog.subscription-modal {
+  margin: auto;
+}
+.activation-console .subscription-table-wrap table {
+  table-layout: fixed;
+  width: 100%;
+}
+.activation-console :is(th, td) {
+  white-space: normal;
+  min-width: 0 !important;
+  overflow-wrap: anywhere;
+  padding: 10px 7px;
+}
+.activation-console th:first-child {
+  width: 20%;
+}
+.activation-console th:nth-child(2) {
+  width: 33%;
+}
+.activation-console th:nth-child(3) {
+  width: 25%;
+}
+.activation-console th:last-child {
+  width: 22%;
+}
+.subscription-panel button.request-reference {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  overflow-wrap: normal;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+@media (max-width: 550px) {
+  .activation-console .subscription-table-wrap table {
+    min-width: 500px;
+  }
+}
+
+.institution-register > form {
+  margin-bottom: 18px;
+}
+.institution-register > details {
+  margin-top: 18px;
+}
+.institution-register > .subscription-table-wrap {
+  margin-block: 12px;
+}
+.institution-detail {
+  margin-top: 0;
+}
+.institution-detail > p {
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+.institution-detail > form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+.institution-detail > form > label:has(textarea) {
+  grid-column: 1/-1;
+}
+.institution-detail > form :is(input, select, textarea) {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.institution-register,
+.institution-detail,
+.institution-empty {
+  align-self: start;
+}
+.institution-register > form > label:first-child {
+  flex: 1;
+  min-width: 180px;
+}
