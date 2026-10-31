@@ -36,6 +36,8 @@ const input = z
     is_active: z.boolean(),
     is_published: z.boolean(),
     is_proposed: z.boolean(),
+    customer_notice_ar: z.string().trim().max(160).optional(),
+    customer_notice_en: z.string().trim().max(160).optional(),
     reason: z.string().trim().min(5).max(1000),
   })
   .strict()

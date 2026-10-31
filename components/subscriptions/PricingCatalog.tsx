@@ -11,7 +11,7 @@ import {
   type ActivationRequest,
 } from "@/lib/subscriptions/requests";
 import type { OrganizationSubscription } from "@/lib/subscriptions/model";
-import { capabilityLabel, money, type Plan } from "@/lib/subscriptions/catalog";
+import { capabilityLabel, money, planCustomerNotice, type Plan } from "@/lib/subscriptions/catalog";
 export default function PricingCatalog({ locale }: { locale: string }) {
   const ar = locale === "ar";
   const [catalog, setCatalog] = useState<{
@@ -169,7 +169,7 @@ export default function PricingCatalog({ locale }: { locale: string }) {
               <h2>{ar ? p.name_ar : p.name_en}</h2>
               {p.is_proposed && (
                 <span className="plan-badge">
-                  {ar ? "سعر إطلاق مقترح" : "Proposed launch price"}
+                  {planCustomerNotice(p, ar)}
                 </span>
               )}
               <p>{ar ? p.description_ar : p.description_en}</p>

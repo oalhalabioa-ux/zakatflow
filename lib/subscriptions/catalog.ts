@@ -92,6 +92,8 @@ export type Plan = {
   is_active: boolean;
   is_published: boolean;
   is_proposed: boolean;
+  customer_notice_ar?: string;
+  customer_notice_en?: string;
   revision: number;
   sort_order: number;
 };
@@ -126,4 +128,8 @@ export function money(
     currency,
     maximumFractionDigits: 2,
   }).format(Number(amount));
+}
+
+export function planCustomerNotice(plan: {customer_notice_ar?:string;customer_notice_en?:string}, ar:boolean) {
+  return (ar?plan.customer_notice_ar:plan.customer_notice_en)?.trim() || (ar?'سعر إطلاق مقترح':'Proposed launch price');
 }

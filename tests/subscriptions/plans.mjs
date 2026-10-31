@@ -45,6 +45,7 @@ try{
  const baseObjects=(await db.query(query)).rows;
  await check('new pricing migration installs without changing legacy organization access',async()=>{
   await db.exec(await load('supabase/migrations/20261030223910_configurable_subscription_plans.sql'));
+  await db.exec(await load('tests/subscriptions/plan-customer-notice.sql'));
   assert.equal((await db.query('select organization_subscription($1) value',[legacy.id])).rows[0].value.can_write,true);
  });
  const after=(await db.query(query)).rows,previous=new Map(baseObjects.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
@@ -97,6 +98,19 @@ try{
   await db.query("update platform_subscriptions set started_at=now()-interval '2 days',current_period_end=now()-interval '1 second' where organization_id=$1",[org]);
   await assert.rejects(db.query('update budget_plans set name=name where id=$1',[budget]),/SUBSCRIPTION_READ_ONLY/);
   await assert.rejects(db.query('insert into plan_qa_maintenance values(2)'),/SUBSCRIPTION_READ_ONLY/);
+ });
+ await check('customer notice is bilingual, audited and preserves prices, entitlements and old-client edits',async()=>{
+  const p=(await db.query("select to_jsonb(p) value from platform_plans p where code='professional_monthly'")).rows[0].value;
+  const details={...p,price:Number(p.price_amount),interval:p.billing_interval,customer_notice_ar:'عرض خاص للمؤسسات',customer_notice_en:'Special offer for organizations'};
+  const saved=(await db.query('select owner_save_subscription_plan($1::jsonb,$2) value',[JSON.stringify(details),'Customer-facing message test'])).rows[0].value;
+  assert.equal(saved.customer_notice_ar,details.customer_notice_ar);assert.equal(saved.customer_notice_en,details.customer_notice_en);assert.equal(Number(saved.price_amount),Number(p.price_amount));assert.deepEqual(saved.features,p.features);
+  const catalog=(await db.query('select subscription_plan_catalog() value')).rows[0].value;
+  assert.equal(catalog.plans.find(x=>x.id===p.id).customer_notice_ar,details.customer_notice_ar);
+  const oldClient={...details,revision:saved.revision};delete oldClient.customer_notice_ar;delete oldClient.customer_notice_en;
+  const legacy=(await db.query('select owner_save_subscription_plan($1::jsonb,$2) value',[JSON.stringify(oldClient),'Legacy client preservation'])).rows[0].value;
+  assert.equal(legacy.customer_notice_ar,details.customer_notice_ar);
+  await assert.rejects(db.query('select owner_save_subscription_plan($1::jsonb,$2)',[JSON.stringify({...details,revision:legacy.revision,customer_notice_ar:'x'.repeat(161)}),'Reject oversized message']),/PLAN_DETAILS_INVALID/);
+  await assert.rejects(db.query('select owner_save_subscription_plan($1::jsonb,$2)',[JSON.stringify({...details,revision:legacy.revision,customer_notice_ar:{html:'unsafe'}}),'Reject non-text message']),/PLAN_DETAILS_INVALID/);
  });
  await writeFile(new URL('tests/subscriptions/plans-result.json',root),JSON.stringify({checks,passed:checks.length},null,2)+'\n');
 }finally{await db.close();}

@@ -84,3 +84,13 @@ describe("plan administration boundary", () => {
     });
   });
 });
+
+it('accepts bounded bilingual customer copy and rejects oversized or non-text messages',async()=>{
+ rpc.mockResolvedValue({data:{id:'plan'}});
+ expect((await POST(request({...plan,customer_notice_ar:'رسالة للعميل',customer_notice_en:'Customer notice'}))).status).toBe(200);
+ expect(rpc).toHaveBeenCalledWith('owner_save_subscription_plan',expect.objectContaining({p_details:expect.objectContaining({customer_notice_ar:'رسالة للعميل'})}));
+ rpc.mockClear();
+ expect((await POST(request({...plan,customer_notice_ar:'x'.repeat(161)}))).status).toBe(400);
+ expect((await POST(request({...plan,customer_notice_en:{html:'unsafe'}}))).status).toBe(400);
+ expect(rpc).not.toHaveBeenCalled();
+});

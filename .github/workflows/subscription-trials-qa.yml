@@ -56,6 +56,14 @@ jobs:
           s=re.sub(r'^email_sent = .*$', 'email_sent = 1000',s,flags=re.M)
           p.write_text(s)
           PY
+          npx --yes supabase@2.122.0 migration --help > /dev/null
+          npx --yes supabase@2.122.0 migration new --help > /dev/null
+          npx --yes supabase@2.122.0 migration new plan_customer_notice --workdir "$TRIAL_QA_WORKDIR"
+          python - <<'PYNAME'
+          import os,pathlib
+          p=next((pathlib.Path(os.environ['TRIAL_QA_WORKDIR'])/'supabase/migrations').glob('*_plan_customer_notice.sql'))
+          print('GENERATED_NOTICE_MIGRATION='+p.name)
+          PYNAME
           npx --yes supabase@2.122.0 start --workdir "$TRIAL_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/trial-start.log" 2>&1 || { tail -40 "$RUNNER_TEMP/trial-start.log"; exit 1; }
       - name: Build with disposable local public configuration only
         run: |
