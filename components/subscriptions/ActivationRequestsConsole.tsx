@@ -409,6 +409,7 @@ export default function ActivationRequestsConsole({
                               setError("");
                             }}
                           >
+                            <OwnerActionIcon name="view"/>
                             <bdi dir="ltr">
                               REQ-{String(r.request_number).padStart(4, "0")}
                             </bdi>
