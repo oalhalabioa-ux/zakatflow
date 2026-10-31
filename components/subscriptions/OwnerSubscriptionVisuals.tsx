@@ -119,3 +119,21 @@ export function OwnerStatusBadge({
     </span>
   );
 }
+/** Selecting a card on a narrow screen brings the corresponding details into view. */
+export function showOwnerDetail(id: string) {
+  if (
+    typeof window === "undefined" ||
+    !window.matchMedia("(max-width:1100px)").matches
+  )
+    return;
+  requestAnimationFrame(() => {
+    const target = document.getElementById(id);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  });
+}

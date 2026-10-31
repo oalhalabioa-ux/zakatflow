@@ -95,8 +95,10 @@ export default function PlanManager({
               .filter((p) => p.code !== "trial_30d")
               .map((p) => (
                 <tr key={p.id}>
-                  <td>{ar ? p.name_ar : p.name_en}</td>
-                  <td>
+                  <td data-label={ar ? "الباقة" : "Plan"}>
+                    {ar ? p.name_ar : p.name_en}
+                  </td>
+                  <td data-label={ar ? "السعر" : "Price"}>
                     {money(p.price_amount, p.currency, locale)} /{" "}
                     {p.billing_interval === "monthly"
                       ? ar
@@ -106,8 +108,10 @@ export default function PlanManager({
                         ? "سنة"
                         : "year"}
                   </td>
-                  <td>{p.max_users ?? "—"}</td>
-                  <td>
+                  <td data-label={ar ? "المستخدمون" : "Users"}>
+                    {p.max_users ?? "—"}
+                  </td>
+                  <td data-label={ar ? "النشر" : "Visibility"}>
                     {p.is_published && p.is_active
                       ? ar
                         ? "منشورة"
@@ -117,10 +121,10 @@ export default function PlanManager({
                         : "Private / inactive"}
                     {p.is_proposed && (ar ? " · مقترحة" : " · Proposed")}
                   </td>
-                  <td>
+                  <td data-label={ar ? "المميزات" : "Features"}>
                     {p.features.map((k) => capabilityLabel(k, ar)).join("، ")}
                   </td>
-                  <td>
+                  <td data-label={ar ? "الإدارة" : "Manage"}>
                     <button
                       onClick={() => {
                         setEdit(p);

@@ -18,6 +18,7 @@ import {
   ConsoleIcon,
   OwnerStatusBadge,
   shortSubscriptionLabel,
+  showOwnerDetail,
 } from "./OwnerSubscriptionVisuals";
 type Row = {
   id: string;
@@ -114,13 +115,8 @@ export default function TrialAdmin({
     };
   }, [load]);
   useEffect(() => {
-    setEditing(false);
-    setDetailTab("subscription");
-    setAudit(null);
-    auditGeneration.current++;
     setMembers([]);
     if (!selected) return;
-    setAction(defaultAction(selected));
     const c = new AbortController();
     fetch("/api/admin/subscriptions/panel?organization_id=" + selected.id, {
       cache: "no-store",
@@ -364,13 +360,14 @@ export default function TrialAdmin({
                       if (!busy) {
                         setSelected(row);
                         setDetailTab("subscription");
+                        showOwnerDetail("owner-institution-details");
                       }
                     }}
                   >
-                    <td>
+                    <td data-label={ar ? "المؤسسة" : "Organization"}>
                       <strong>{row.name}</strong>
                     </td>
-                    <td>
+                    <td data-label={ar ? "المسؤول الرئيسي" : "Primary contact"}>
                       <bdi
                         className="owner-contact"
                         dir="ltr"
@@ -379,7 +376,7 @@ export default function TrialAdmin({
                         {row.owner_email || "—"}
                       </bdi>
                     </td>
-                    <td>
+                    <td data-label={ar ? "الباقة" : "Plan"}>
                       {row.entitlement.plan_snapshot?.[
                         ar ? "name_ar" : "name_en"
                       ] ??
@@ -388,7 +385,7 @@ export default function TrialAdmin({
                         )?.[ar ? "name_ar" : "name_en"] ??
                         (ar ? "غير مفعلة" : "Not activated")}
                     </td>
-                    <td>
+                    <td data-label={ar ? "الحالة" : "Status"}>
                       <OwnerStatusBadge
                         status={row.entitlement.status}
                         title={subscriptionLabel(row.entitlement.status, ar)}
@@ -396,12 +393,12 @@ export default function TrialAdmin({
                         {shortSubscriptionLabel(row.entitlement.status, ar)}
                       </OwnerStatusBadge>
                     </td>
-                    <td>
+                    <td data-label={ar ? "الأعضاء" : "Members"}>
                       <bdi dir="ltr">
                         {row.active_users} / {row.entitlement.max_users ?? "—"}
                       </bdi>
                     </td>
-                    <td>
+                    <td data-label={ar ? "الإدارة" : "Manage"}>
                       <button
                         className="owner-row-action"
                         disabled={busy}
@@ -410,6 +407,7 @@ export default function TrialAdmin({
                           setSelected(row);
                           setDetailTab("subscription");
                           setAction(defaultAction(row));
+                          showOwnerDetail("owner-institution-details");
                         }}
                       >
                         {ar ? "إدارة" : "Manage"}
@@ -468,7 +466,12 @@ export default function TrialAdmin({
           </div>
         </section>
         {selected ? (
-          <aside className="console-card institution-detail">
+          <aside
+            className="console-card institution-detail"
+            id="owner-institution-details"
+            tabIndex={-1}
+            aria-label={ar ? "تفاصيل المؤسسة" : "Organization details"}
+          >
             <header className="owner-detail-header">
               <div>
                 <h2>{selected.name}</h2>

@@ -1,6 +1,10 @@
 "use client";
 import { useCallback, useEffect, useState, useId, type FormEvent } from "react";
-import { ConsoleIcon, OwnerStatusBadge } from "./OwnerSubscriptionVisuals";
+import {
+  ConsoleIcon,
+  OwnerStatusBadge,
+  showOwnerDetail,
+} from "./OwnerSubscriptionVisuals";
 import { adminSubscriptionError } from "@/lib/subscriptions/admin-errors";
 import { money } from "@/lib/subscriptions/catalog";
 import { displaySubscriptionDate } from "@/lib/subscriptions/model";
@@ -349,10 +353,13 @@ export default function ActivationRequestsConsole({
                         key={r.id}
                         aria-selected={selected?.id === r.id}
                         onClick={() => {
-                          if (!busy) setSelected(r);
+                          if (!busy) {
+                            setSelected(r);
+                            showOwnerDetail("owner-activation-details");
+                          }
                         }}
                       >
-                        <td>
+                        <td data-label={ar ? "رقم الطلب" : "Request"}>
                           <button
                             className="request-reference"
                             aria-label={ar ? "عرض الطلب" : "View request"}
@@ -367,7 +374,11 @@ export default function ActivationRequestsConsole({
                             </bdi>
                           </button>
                         </td>
-                        <td>
+                        <td
+                          data-label={
+                            ar ? "المؤسسة والمسؤول" : "Organization & applicant"
+                          }
+                        >
                           <strong>{r.organization_name}</strong>
                           <bdi
                             className="owner-contact"
@@ -377,7 +388,7 @@ export default function ActivationRequestsConsole({
                             {r.requester_email}
                           </bdi>
                         </td>
-                        <td>
+                        <td data-label={ar ? "الباقة" : "Plan"}>
                           {ar ? r.quote.name_ar : r.quote.name_en}
                           <small>
                             {money(
@@ -395,7 +406,7 @@ export default function ActivationRequestsConsole({
                                 : "month"}
                           </small>
                         </td>
-                        <td>
+                        <td data-label={ar ? "الحالة" : "Status"}>
                           <OwnerStatusBadge status={r.status}>
                             {requestLabel(r.status, ar)}
                           </OwnerStatusBadge>
@@ -432,7 +443,14 @@ export default function ActivationRequestsConsole({
             </section>
             {paymentCard}
           </div>
-          <aside className="console-card owner-request-detail">
+          <aside
+            className="console-card owner-request-detail"
+            id="owner-activation-details"
+            tabIndex={-1}
+            aria-label={
+              ar ? "تفاصيل طلب التفعيل" : "Activation request details"
+            }
+          >
             {selected ? (
               <>
                 <header className="owner-request-heading">
