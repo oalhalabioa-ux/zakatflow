@@ -1,5 +1,7 @@
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, useId, type FormEvent } from "react";
+import { ConsoleIcon, OwnerStatusBadge } from "./OwnerSubscriptionVisuals";
+import { adminSubscriptionError } from "@/lib/subscriptions/admin-errors";
 import { money } from "@/lib/subscriptions/catalog";
 import { displaySubscriptionDate } from "@/lib/subscriptions/model";
 import {
@@ -17,11 +19,14 @@ export default function ActivationRequestsConsole({
   locale,
   paymentOnly = false,
   onChanged,
+  onOpenPayment,
 }: {
   locale: string;
   paymentOnly?: boolean;
   onChanged: () => void;
+  onOpenPayment?: () => void;
 }) {
+  const formId = useId();
   const ar = locale === "ar",
     [rows, setRows] = useState<ActivationRequest[]>([]),
     [selected, setSelected] = useState<ActivationRequest | null>(null),
@@ -49,8 +54,9 @@ export default function ActivationRequestsConsole({
         setSelected((current) =>
           current
             ? (b.rows.find((v: ActivationRequest) => v.id === current.id) ??
+              b.rows[0] ??
               null)
-            : null,
+            : (b.rows[0] ?? null),
         );
         setError("");
       } catch (e) {
@@ -115,7 +121,12 @@ export default function ActivationRequestsConsole({
       await load();
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "REQUEST_FAILED");
+      setError(
+        adminSubscriptionError(
+          e instanceof Error ? e.message : "REQUEST_FAILED",
+          ar,
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -146,48 +157,71 @@ export default function ActivationRequestsConsole({
           : "Readiness saved. Card payments remain disabled.",
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "REQUEST_FAILED");
+      setError(
+        adminSubscriptionError(
+          e instanceof Error ? e.message : "REQUEST_FAILED",
+          ar,
+        ),
+      );
     } finally {
       setBusy(false);
     }
   }
+
   const paymentCard = (
-    <section className="console-card">
+    <section className="console-card owner-payment-card">
       <header className="console-heading">
-        <h3>{ar ? "إعدادات الدفع بالبطاقة" : "Card payment readiness"}</h3>
-        <span className="plan-badge">{ar ? "متوقف" : "Disabled"}</span>
+        <h3>
+          <ConsoleIcon name="card" />
+          {ar ? "إعدادات الدفع بالبطاقة" : "Card payment readiness"}
+        </h3>
+        <OwnerStatusBadge status="suspended">
+          {ar ? "متوقف مؤقتاً" : "Temporarily disabled"}
+        </OwnerStatusBadge>
       </header>
-      <p>
-        {ar
-          ? "التفعيل اليدوي متاح. لا توجد معالجة بطاقات أو مفاتيح دفع مخزنة."
-          : "Manual activation is available. No card processing or stored payment credentials."}
+      <p className="owner-payment-switch">
+        <input
+          type="checkbox"
+          role="switch"
+          aria-label={ar ? "تفعيل الدفع بالبطاقة" : "Enable card payments"}
+          checked={false}
+          disabled
+        />
+        {ar ? "الدفع الحقيقي غير مفعّل" : "Live card processing is disabled"}
       </p>
-      <dl className="console-facts">
+      <dl className="owner-payment-metadata">
         <div>
-          <dt>{ar ? "مزود الدفع" : "Provider"}</dt>
-          <dd>{payment?.provider || (ar ? "غير محدد" : "Not configured")}</dd>
+          <dt>{ar ? "بوابة الدفع" : "Payment provider"}</dt>
+          <dd>{payment?.provider || (ar ? "لم تُحدد" : "Not configured")}</dd>
         </div>
         <div>
-          <dt>{ar ? "البيئة" : "Environment"}</dt>
+          <dt>{ar ? "بيئة التشغيل" : "Environment"}</dt>
           <dd>
             {payment?.environment === "production"
               ? ar
                 ? "إنتاج — غير متصل"
                 : "Production — disconnected"
               : ar
-                ? "اختبار"
+                ? "تجريبية"
                 : "Test"}
           </dd>
         </div>
         <div>
-          <dt>{ar ? "حالة الربط" : "Integration"}</dt>
-          <dd>
-            {ar
-              ? "يتطلب ربطاً واعتماداً لاحقاً"
-              : "Integration and approval required"}
-          </dd>
+          <dt>{ar ? "بيانات الربط" : "Credentials"}</dt>
+          <dd>{ar ? "غير مضافة" : "Not configured"}</dd>
         </div>
       </dl>
+      <p className="owner-detail-note">
+        <ConsoleIcon name="info" />
+        {ar
+          ? "لن تُرسل معاملات إلى أي بوابة قبل الربط واعتماد التفعيل."
+          : "No transactions are sent to a provider before integration and approval."}
+      </p>
+      {!paymentOnly && (
+        <button className="owner-row-action" onClick={onOpenPayment}>
+          {ar ? "تجهيز الإعدادات" : "Configure readiness"}
+        </button>
+      )}
       {paymentOnly && payment && (
         <form onSubmit={savePayment} className="request-form">
           <label>
@@ -213,7 +247,7 @@ export default function ActivationRequestsConsole({
             {ar ? "سبب التعديل" : "Reason"}
             <textarea name="reason" required minLength={5} maxLength={1000} />
           </label>
-          <button disabled={busy}>
+          <button className="primary" disabled={busy}>
             {ar ? "حفظ إعدادات التجهيز" : "Save readiness"}
           </button>
         </form>
@@ -223,138 +257,164 @@ export default function ActivationRequestsConsole({
   return (
     <section className="activation-console">
       {error && (
-        <p role="alert">
+        <p className="owner-feedback" role="alert">
           {error}{" "}
           <button onClick={() => void load()}>
             {ar ? "إعادة المحاولة" : "Retry"}
           </button>
         </p>
       )}
-      {message && <p role="status">{message}</p>}
+      {message && (
+        <p className="owner-feedback success" role="status">
+          {message}
+        </p>
+      )}
       {paymentOnly ? (
         paymentCard
       ) : (
-        <>
-          <header className="console-heading">
-            <h2>
-              {ar ? "طلبات تفعيل الاشتراك" : "Subscription activation requests"}
-            </h2>
-            <span className="plan-badge">
-              {count} {ar ? "طلبات مفتوحة" : "open requests"}
-            </span>
-          </header>
-          <div className="console-filters">
-            <label>
-              {ar ? "البحث" : "Search"}
-              <input
-                value={search}
-                placeholder={
-                  ar
-                    ? "المؤسسة أو البريد أو رقم الطلب"
-                    : "Organization, email or request number"
-                }
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setOffset(0);
-                }}
-              />
-            </label>
-            <label>
-              {ar ? "الحالة" : "Status"}
-              <select
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  setOffset(0);
-                }}
+        <div className="console-split owner-requests-split">
+          <div className="console-detail owner-requests-register">
+            <section className="console-card">
+              <form
+                className="owner-console-filters"
+                onSubmit={(e) => e.preventDefault()}
               >
-                <option value="">{ar ? "جميع الحالات" : "All statuses"}</option>
-                {(
-                  [
-                    "pending",
-                    "reviewing",
-                    "needs_info",
-                    "approved",
-                    "rejected",
-                    "cancelled",
-                  ] as const
-                ).map((s) => (
-                  <option key={s} value={s}>
-                    {requestLabel(s, ar)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="console-split">
-            <div className="console-detail">
-              <section className="console-card">
-                <div className="subscription-table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        {(ar
-                          ? ["الطلب", "المؤسسة والمسؤول", "الباقة", "الحالة"]
-                          : [
-                              "Request",
-                              "Organization & applicant",
-                              "Plan",
-                              "Status",
-                            ]
-                        ).map((h) => (
-                          <th key={h}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((r) => (
-                        <tr key={r.id} aria-selected={selected?.id === r.id}>
-                          <td>
-                            <button
-                              className="request-reference"
-                              aria-label={ar ? "عرض الطلب" : "View request"}
-                              disabled={busy}
-                              onClick={() => {
-                                setSelected(r);
-                                setError("");
-                              }}
-                            >
-                              REQ-{String(r.request_number).padStart(4, "0")}
-                            </button>
-                            <small>
-                              {displaySubscriptionDate(r.created_at, locale)}
-                            </small>
-                          </td>
-                          <td>
-                            <strong>{r.organization_name}</strong>
-                            <small dir="ltr">{r.requester_email}</small>
-                          </td>
-                          <td>
-                            {ar ? r.quote.name_ar : r.quote.name_en}
-                            <small>
-                              {money(
-                                r.quote.price_amount,
-                                r.quote.currency,
-                                locale,
-                              )}
-                            </small>
-                          </td>
-                          <td>
-                            <span className="plan-badge">
-                              {requestLabel(r.status, ar)}
-                            </span>
-                          </td>
-                        </tr>
+                <label className="owner-search">
+                  <span className="sr-only">{ar ? "البحث" : "Search"}</span>
+                  <ConsoleIcon name="search" />
+                  <input
+                    placeholder={
+                      ar
+                        ? "ابحث بالمؤسسة أو رقم الطلب"
+                        : "Search organization or request number"
+                    }
+                    value={search}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setOffset(0);
+                    }}
+                  />
+                </label>
+                <label>
+                  <span className="sr-only">{ar ? "الحالة" : "Status"}</span>
+                  <select
+                    value={status}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setStatus(e.target.value);
+                      setOffset(0);
+                    }}
+                  >
+                    <option value="">
+                      {ar ? "كل الحالات" : "All statuses"}
+                    </option>
+                    {(
+                      [
+                        "pending",
+                        "reviewing",
+                        "needs_info",
+                        "approved",
+                        "rejected",
+                        "cancelled",
+                      ] as const
+                    ).map((s) => (
+                      <option key={s} value={s}>
+                        {requestLabel(s, ar)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </form>
+              <div className="subscription-table-wrap">
+                <table className="owner-requests-table">
+                  <thead>
+                    <tr>
+                      {(ar
+                        ? ["رقم الطلب", "المؤسسة والمسؤول", "الباقة", "الحالة"]
+                        : [
+                            "Request",
+                            "Organization & applicant",
+                            "Plan",
+                            "Status",
+                          ]
+                      ).map((h) => (
+                        <th key={h}>{h}</th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!rows.length && (
-                  <p>
-                    {ar ? "لا توجد طلبات مطابقة." : "No matching requests."}
-                  </p>
-                )}
-                <div className="console-actions">
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr
+                        key={r.id}
+                        aria-selected={selected?.id === r.id}
+                        onClick={() => {
+                          if (!busy) setSelected(r);
+                        }}
+                      >
+                        <td>
+                          <button
+                            className="request-reference"
+                            aria-label={ar ? "عرض الطلب" : "View request"}
+                            disabled={busy}
+                            onClick={() => {
+                              setSelected(r);
+                              setError("");
+                            }}
+                          >
+                            <bdi dir="ltr">
+                              REQ-{String(r.request_number).padStart(4, "0")}
+                            </bdi>
+                          </button>
+                        </td>
+                        <td>
+                          <strong>{r.organization_name}</strong>
+                          <bdi
+                            className="owner-contact"
+                            dir="ltr"
+                            title={r.requester_email}
+                          >
+                            {r.requester_email}
+                          </bdi>
+                        </td>
+                        <td>
+                          {ar ? r.quote.name_ar : r.quote.name_en}
+                          <small>
+                            {money(
+                              r.quote.price_amount,
+                              r.quote.currency,
+                              locale,
+                            )}{" "}
+                            /{" "}
+                            {r.quote.billing_interval === "yearly"
+                              ? ar
+                                ? "سنة"
+                                : "year"
+                              : ar
+                                ? "شهر"
+                                : "month"}
+                          </small>
+                        </td>
+                        <td>
+                          <OwnerStatusBadge status={r.status}>
+                            {requestLabel(r.status, ar)}
+                          </OwnerStatusBadge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {!rows.length && (
+                <p className="owner-empty">
+                  {ar ? "لا توجد طلبات مطابقة." : "No matching requests."}
+                </p>
+              )}
+              <footer className="owner-table-footer">
+                <small>
+                  {count} {ar ? "طلبات مفتوحة" : "open requests"}
+                </small>
+                <div className="owner-pagination-controls">
                   <button
                     disabled={offset === 0 || busy}
                     onClick={() => setOffset((x) => Math.max(0, x - 50))}
@@ -368,42 +428,39 @@ export default function ActivationRequestsConsole({
                     {ar ? "التالي" : "Next"}
                   </button>
                 </div>
-              </section>
-              {paymentCard}
-            </div>
-            <aside className="console-detail">
-              {selected ? (
-                <section
-                  className="console-card"
-                  key={selected.id + selected.revision}
-                >
-                  <header className="console-heading">
-                    <h3>
-                      {ar ? "تفاصيل الطلب" : "Request details"} #
-                      {selected.request_number}
-                    </h3>
-                    <span className="plan-badge">
-                      {requestLabel(selected.status, ar)}
-                    </span>
-                  </header>
-                  <h3>{selected.organization_name}</h3>
-                  <p>{selected.requester_name}</p>
-                  <p dir="ltr">
-                    {selected.requester_email}
-                    <br />
-                    {selected.phone}
-                  </p>
-                  <div className="quote-strip">
-                    <strong>
+              </footer>
+            </section>
+            {paymentCard}
+          </div>
+          <aside className="console-card owner-request-detail">
+            {selected ? (
+              <>
+                <header className="owner-request-heading">
+                  <h2>{ar ? "تفاصيل الطلب" : "Request details"}</h2>
+                  <strong dir="ltr">
+                    REQ-{String(selected.request_number).padStart(4, "0")}
+                  </strong>
+                </header>
+                <dl className="owner-detail-facts">
+                  <div>
+                    <dt>{ar ? "المؤسسة" : "Organization"}</dt>
+                    <dd>{selected.organization_name}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? "مقدم الطلب" : "Applicant"}</dt>
+                    <dd>
+                      {selected.requester_name || selected.requester_email}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? "الباقة" : "Plan"}</dt>
+                    <dd>
                       {ar ? selected.quote.name_ar : selected.quote.name_en}
-                    </strong>
-                    <span>
-                      {money(
-                        selected.quote.price_amount,
-                        selected.quote.currency,
-                        locale,
-                      )}{" "}
-                      ·{" "}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? "الدورة" : "Interval"}</dt>
+                    <dd>
                       {selected.quote.billing_interval === "monthly"
                         ? ar
                           ? "شهري"
@@ -411,87 +468,158 @@ export default function ActivationRequestsConsole({
                         : ar
                           ? "سنوي"
                           : "Yearly"}
-                    </span>
-                    <span>
-                      {selected.quote.max_users} {ar ? "مستخدمين" : "users"}
-                    </span>
+                    </dd>
                   </div>
-                  <p className="request-notes">
+                  <div>
+                    <dt>{ar ? "المستخدمون" : "Users"}</dt>
+                    <dd>{selected.quote.max_users}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? "السعر المقترح" : "Quoted price"}</dt>
+                    <dd>
+                      {money(
+                        selected.quote.price_amount,
+                        selected.quote.currency,
+                        locale,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? "تاريخ الطلب" : "Requested on"}</dt>
+                    <dd>
+                      {displaySubscriptionDate(selected.created_at, locale)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? "الحالة" : "Status"}</dt>
+                    <dd>
+                      <OwnerStatusBadge status={selected.status}>
+                        {requestLabel(selected.status, ar)}
+                      </OwnerStatusBadge>
+                    </dd>
+                  </div>
+                </dl>
+                <details className="owner-request-contact">
+                  <summary>
+                    {ar
+                      ? "التواصل وملاحظات العميل"
+                      : "Contact and customer notes"}
+                  </summary>
+                  <p>
+                    <bdi dir="ltr">{selected.requester_email}</bdi>
+                  </p>
+                  <p dir="ltr">{selected.phone}</p>
+                  <p>
                     {selected.notes || (ar ? "لا توجد ملاحظات." : "No notes.")}
                   </p>
-                  {selected.reason && <p>{selected.reason}</p>}
-                  {openRequest(selected) && (
-                    <form className="request-form" onSubmit={review}>
-                      <label className="form-wide">
+                </details>
+                {selected.reason && (
+                  <p className="owner-feedback">{selected.reason}</p>
+                )}
+                {openRequest(selected) && (
+                  <form
+                    id={formId}
+                    key={selected.id + selected.revision}
+                    className="request-form owner-decision-form"
+                    onSubmit={review}
+                  >
+                    <label className="form-wide">
+                      {ar ? "تاريخ نهاية الاشتراك" : "Subscription end date"}
+                      <span className="sr-only">
                         {ar
                           ? "تاريخ الانتهاء عند الموافقة — بتوقيت جهازك"
                           : "End date for approval — device timezone"}
-                        <input name="until" type="datetime-local" />
-                      </label>
-                      <label className="form-wide">
+                      </span>
+                      <input
+                        aria-label={
+                          ar
+                            ? "تاريخ الانتهاء عند الموافقة — بتوقيت جهازك"
+                            : "End date for approval — device timezone"
+                        }
+                        name="until"
+                        type="datetime-local"
+                      />
+                    </label>
+                    <label className="form-wide">
+                      {ar
+                        ? "سبب القرار الإداري"
+                        : "Administrative decision reason"}
+                      <span className="owner-required" aria-hidden>
+                        *
+                      </span>
+                      <textarea
+                        aria-label={
+                          ar
+                            ? "سبب القرار — يظهر للعميل"
+                            : "Decision reason — visible to customer"
+                        }
+                        name="reason"
+                        required
+                        minLength={5}
+                        maxLength={1000}
+                        rows={3}
+                        placeholder={
+                          ar
+                            ? "أدخل سبب القرار — يظهر للعميل"
+                            : "Enter the decision reason — visible to customer"
+                        }
+                      />
+                    </label>
+                    <footer className="form-wide owner-decision-actions">
+                      <button
+                        className="primary"
+                        name="action"
+                        value="approve"
+                        disabled={busy}
+                      >
                         {ar
-                          ? "سبب القرار — يظهر للعميل"
-                          : "Decision reason — visible to customer"}
-                        <textarea
-                          name="reason"
-                          required
-                          minLength={5}
-                          maxLength={1000}
-                          rows={3}
-                        />
-                      </label>
-                      <p className="console-notice form-wide">
-                        {ar
-                          ? "الموافقة تفعّل السعر والمميزات المحفوظة في الطلب، ولا تسجل تحصيلاً مالياً. تغيير الباقة أو الاشتراك بعد إرسال الطلب يستلزم طلباً جديداً."
-                          : "Approval activates the saved quote without recording payment. A changed plan or subscription requires a new request."}
-                      </p>
-                      <footer className="form-wide console-actions decision-actions">
-                        <button
-                          className="primary"
-                          name="action"
-                          value="approve"
-                          disabled={busy}
-                        >
-                          {ar
-                            ? "اعتماد وتفعيل يدوياً"
-                            : "Approve and activate manually"}
+                          ? "اعتماد وتفعيل يدوياً"
+                          : "Approve and activate manually"}
+                      </button>
+                      <button name="action" value="needs_info" disabled={busy}>
+                        {ar ? "طلب معلومات" : "Request information"}
+                      </button>
+                      <button
+                        className="danger"
+                        name="action"
+                        value="reject"
+                        disabled={busy}
+                      >
+                        {ar ? "رفض الطلب" : "Reject request"}
+                      </button>
+                    </footer>
+                    <p className="owner-detail-note form-wide">
+                      <ConsoleIcon name="info" />
+                      {ar
+                        ? "التفعيل اليدوي لا ينشئ إيصال دفع أو خصماً مالياً."
+                        : "Manual activation does not create a payment receipt or charge."}
+                    </p>
+                    {selected.status === "pending" && (
+                      <details className="form-wide owner-review-action">
+                        <summary>
+                          {ar ? "إجراء المراجعة" : "Review action"}
+                        </summary>
+                        <button name="action" value="review" disabled={busy}>
+                          {ar ? "بدء المراجعة" : "Start review"}
                         </button>
-                        <button
-                          name="action"
-                          value="needs_info"
-                          disabled={busy}
-                        >
-                          {ar ? "طلب معلومات" : "Request information"}
-                        </button>
-                        <button
-                          className="danger"
-                          name="action"
-                          value="reject"
-                          disabled={busy}
-                        >
-                          {ar ? "رفض الطلب" : "Reject request"}
-                        </button>
-                        {selected.status === "pending" && (
-                          <button name="action" value="review" disabled={busy}>
-                            {ar ? "بدء المراجعة" : "Start review"}
-                          </button>
-                        )}
-                      </footer>
-                    </form>
-                  )}
-                </section>
-              ) : (
-                <section className="console-card">
-                  <h3>
-                    {ar
-                      ? "اختر طلباً لعرض التفاصيل"
-                      : "Select a request to see details"}
-                  </h3>
-                </section>
-              )}
-            </aside>
-          </div>
-        </>
+                      </details>
+                    )}
+                  </form>
+                )}
+              </>
+            ) : (
+              <div className="owner-empty">
+                <ConsoleIcon name="requests" />
+                <h2>{ar ? "لا توجد تفاصيل للعرض" : "No request selected"}</h2>
+                <p>
+                  {ar
+                    ? "اختر طلباً من القائمة."
+                    : "Choose a request from the list."}
+                </p>
+              </div>
+            )}
+          </aside>
+        </div>
       )}
     </section>
   );

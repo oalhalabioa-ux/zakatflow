@@ -1,5 +1,6 @@
 import type {Locale} from "../routing";
 export const ownerEnglish: Record<string,string> = {
+  "إدارة الباقات والمميزات وطلبات التفعيل متاحة من قسم الاشتراكات بصلاحية مالك المنصة.": "Plans, features and activation requests are managed in Subscriptions by the platform owner.",
   "الاشتراكات والفترات التجريبية": "Subscriptions and free trials",
   "الاشتراكات والفترات التجريبية | يقين الأعمال": "Subscriptions and free trials | Yaqeen Business",
   "الباقات والاشتراكات والفترات التجريبية": "Plans, subscriptions and trials",

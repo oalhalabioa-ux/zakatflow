@@ -49,12 +49,8 @@ export default async function SubscriptionsPage() {
         <OwnerNavigation locale={locale} />
         <header className="owner-top">
           <div>
-            <h1>{translate("الاشتراكات والفترات التجريبية")}</h1>
-            <p>
-              {translate(
-                "إدارة التجربة والاشتراك اليدوي متاحة لمالك المنصة. التحصيل المالي والدفع الإلكتروني غير مفعّلين.",
-              )}
-            </p>
+            <h1>{locale==='ar'?'إدارة الاشتراكات والباقات':'Subscriptions and plans'}</h1>
+            <p>{locale==='ar'?'إدارة اشتراكات المؤسسات وطلبات التفعيل والباقات.':'Manage organization subscriptions, activation requests and plans.'}</p>
           </div>
         </header>
         <OwnerSubscriptionConsole locale={locale} plans={[]} />

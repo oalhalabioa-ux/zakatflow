@@ -488,7 +488,7 @@ try {
 
       await page
         .getByRole("heading", {
-          name: "Subscriptions and free trials",
+          name: "Subscriptions and plans",
           exact: true,
           level: 1,
         })
@@ -499,9 +499,10 @@ try {
         .filter({ hasText: "Trial Institution" });
       await row.getByRole("button", { name: "Manage", exact: true }).click();
       await page.screenshot({path:new URL('tests/subscriptions/screenshots/owner-institution-detail.png',root).pathname,fullPage:true});
-      await page.locator('.institution-detail').getByRole('button',{name:'Members',exact:true}).click();await page.locator('.member-mini').first().waitFor();assert.equal(await page.locator('.member-mini').count(),5);
+      await page.locator('.institution-detail').getByRole('button',{name:'Members',exact:true}).click();await page.locator('.owner-member').first().waitFor();assert.equal(await page.locator('.owner-member').count(),5);
       await page.screenshot({path:new URL('tests/subscriptions/screenshots/owner-institution-members.png',root).pathname,fullPage:true});
       await page.locator('.institution-detail').getByRole('button',{name:'Subscription',exact:true}).click();
+      await page.getByRole('button',{name:'Modify / renew subscription',exact:true}).click();
 
       await page
         .getByLabel("Administrative reason", { exact: true })
@@ -573,6 +574,18 @@ try {
     const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.max_users,15);assert.equal(state.plan.price_amount,399);
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-current-plan.png',root).pathname,fullPage:true});
     await context.close();
+  });
+  await check('owner approved design parity in AR/EN, four platform palettes, collapsed rail at 150% density and mobile',async()=>{
+    const response=await fetch(url+'/rest/v1/organizations',{method:'POST',headers:{...headers(owner),Prefer:'return=representation'},body:JSON.stringify({name:'شركة الأفق — طلب مراجعة',owner_user_id:owner.id})});assert.equal(response.status,201);const pendingOrg=(await response.json())[0].id;
+    const catalog=(await rpc(owner,'subscription_plan_catalog',{})).data,advanced=catalog.plans.find(p=>p.code==='advanced_monthly');
+    const pending=await rpc(owner,'subscription_activation_requests',{p_organization_id:pendingOrg,p_action:'submit',p_plan_id:advanced.id,p_phone:'+966500000000',p_notes:'Synthetic owner visual review'});assert.equal(pending.data.status,'pending');
+    await (await import('./owner-visuals.mjs')).ownerVisuals({browser,cookies,appUrl,root});
+  });
+  await check('manual activation requires a selected plan and saves a valid UUID without exposing validator details',async()=>{
+    const response=await fetch(url+'/rest/v1/organizations',{method:'POST',headers:{...headers(owner),Prefer:'return=representation'},body:JSON.stringify({name:'Manual activation regression',owner_user_id:owner.id})});assert.equal(response.status,201);const target=(await response.json())[0].id;
+    const context=await browser.newContext();await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));const page=await context.newPage();await page.goto(appUrl+'/admin/subscriptions?lang=en');await page.getByRole('row').filter({hasText:'Manual activation regression'}).getByRole('button',{name:'Manage',exact:true}).click();await page.getByRole('button',{name:'Modify / renew subscription',exact:true}).click();
+    const modal=page.getByRole('dialog');await modal.getByLabel('Action',{exact:true}).selectOption('activate');await modal.getByLabel('Administrative reason',{exact:true}).fill('Manual activation regression acceptance');await modal.getByLabel('Paid subscription end',{exact:true}).fill('2027-12-31T18:00');let submissions=0;page.on('request',r=>{if(r.url()===appUrl+'/api/admin/trials'&&r.method()==='POST')submissions++;});await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal(submissions,0);assert.equal(await modal.locator('[name="plan_id"]').evaluate(e=>e.validity.valueMissing),true);
+    const catalog=(await rpc(owner,'subscription_plan_catalog',{})).data,plan=catalog.plans.find(p=>p.code==='advanced_monthly');await modal.locator('[name="plan_id"]').selectOption(plan.id);assert.equal(await modal.locator('[name="max_users"]').inputValue(),'15');const saved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/trials'&&r.request().method()==='POST');await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal((await saved).status(),200);const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.plan_id,plan.id);assert.equal(state.max_users,15);await context.close();
   });
   await check('settings separates account and users; organization switching preserves subscription scope and account preferences persist',async()=>{
     const jar=[];
