@@ -59,15 +59,15 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,stal
      const posted=page.waitForRequest(r=>new URL(r.url()).pathname==='/auth/confirm'&&r.method()==='POST');
      await page.getByRole('button',{name:ar?'تأكيد البريد الإلكتروني':'Verify email address',exact:true}).click({timeout:30000});
      assert.equal((await posted).headers().origin,appUrl);
-     await page.waitForURL(account);await heading(ar?'حسابي':'My Account');
-     phase='account reload';await page.reload();await heading(ar?'حسابي':'My Account');phase='account signout button';try{await page.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).waitFor({state:'visible',timeout:30000})}catch(e){const state=await page.evaluate(()=>({loading:!!document.querySelector('[role="status"]'),retry:!!document.querySelector('.account-workspace button'),alert:!!document.querySelector('[role="alert"]'),message:document.querySelector('.account-workspace [role="alert"]')?.textContent?.trim()?.slice(0,100)}));throw Error('account UI did not reach loaded state '+JSON.stringify(state)+'; '+e.name)}await signout();phase='signed-out account redirect';
+     await page.waitForURL(account);await heading(ar?'حسابي':'My account');
+     phase='account reload';await page.reload();await heading(ar?'حسابي':'My account');phase='account signout button';try{await page.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).waitFor({state:'visible',timeout:30000})}catch(e){const state=await page.evaluate(()=>({loading:!!document.querySelector('[role="status"]'),retry:!!document.querySelector('.account-workspace button'),alert:!!document.querySelector('[role="alert"]'),message:document.querySelector('.account-workspace [role="alert"]')?.textContent?.trim()?.slice(0,100)}));throw Error('account UI did not reach loaded state '+JSON.stringify(state)+'; '+e.name)}await signout();phase='signed-out account redirect';
      await page.goto(account);await page.waitForURL(u=>u.pathname===`/${locale}/login`);
     });
     await run('wrong password, correct password and remembered email only',async()=>{
      await visit();await page.locator('#login-email').fill(email);await page.locator('#login-password').fill(password+'x');await submit();
      await page.getByRole('status').waitFor();assert.equal(new URL(page.url()).pathname,`/${locale}/login`);
      await page.locator('#login-password').fill(password);await page.locator('input[name="remember-email"]').check();await submit();
-     await page.waitForURL(account);await heading(ar?'حسابي':'My Account');await signout();
+     await page.waitForURL(account);await heading(ar?'حسابي':'My account');await signout();
      await page.waitForFunction(()=>Boolean(document.querySelector('#login-email')?.value));
      assert.equal(await page.locator('#login-email').inputValue(),email);assert.equal(await page.locator('#login-password').inputValue(),'');
     });
@@ -75,7 +75,7 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,stal
      await visit();await page.locator('#login-email').fill(email);await page.locator('#method-magic').click();await submit();await heading(ar?'تم طلب رابط الدخول':'Sign-in link requested');
      assert.equal(await page.locator('.yqa-status-panel .yqa-submit').isDisabled(),true);
      const link=linkFrom(await emailFor(email,ar?'رابط الدخول السريع':'Your quick sign-in link'));await page.goto(link);
-     await page.getByRole('button',{name:ar?'تأكيد تسجيل الدخول':'Confirm sign in',exact:true}).click();await page.waitForURL(account);await heading(ar?'حسابي':'My Account');await signout();
+     await page.getByRole('button',{name:ar?'تأكيد تسجيل الدخول':'Confirm sign in',exact:true}).click();await page.waitForURL(account);await heading(ar?'حسابي':'My account');await signout();
      await page.goto(link);await page.getByRole('button',{name:ar?'تأكيد تسجيل الدخول':'Confirm sign in',exact:true}).click();await page.waitForURL(u=>u.searchParams.get('error')==='auth');
     });
     for(const stale of [false,true])await run('mobile separate email window persists magic-link session'+(stale?' after revoked refresh cookie':''),async()=>{
@@ -89,10 +89,10 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,stal
       if(cookies.length)await mobile.addCookies(cookies);
       const tab=await mobile.newPage();await tab.goto(link);
       await tab.getByRole('button',{name:ar?'تأكيد تسجيل الدخول':'Confirm sign in',exact:true}).click();
-      await tab.waitForURL(account);await tab.getByRole('heading',{name:ar?'حسابي':'My Account',exact:true}).waitFor();
-      await tab.reload();await tab.getByRole('heading',{name:ar?'حسابي':'My Account',exact:true}).waitFor();
+      await tab.waitForURL(account);await tab.getByRole('heading',{name:ar?'حسابي':'My account',exact:true}).waitFor();
+      await tab.reload();await tab.getByRole('heading',{name:ar?'حسابي':'My account',exact:true}).waitFor();
       assert.ok((await mobile.cookies()).some(c=>/-auth-token(?:\.\d+)?$/.test(c.name)&&c.value));
-      const second=await mobile.newPage();await second.goto(account);await second.getByRole('heading',{name:ar?'حسابي':'My Account',exact:true}).waitFor();
+      const second=await mobile.newPage();await second.goto(account);await second.getByRole('heading',{name:ar?'حسابي':'My account',exact:true}).waitFor();
       await second.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).click();
      }finally{await mobile.close()}
     });
@@ -108,7 +108,7 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,stal
      await page.waitForURL(u=>u.pathname==='/auth/reset-password');assert.equal(new URL(page.url()).searchParams.get('lang'),locale);
      phase='recovery password form';const fields=page.locator('form input[type="password"]');await fields.nth(0).fill(password+'2');await fields.nth(1).fill(password+'3');await submit();phase='mismatch message';await page.locator('main p[role="alert"]').waitFor();
      await fields.nth(1).fill(password+'2');await submit();phase='password update status';await page.locator('main p[role="status"]').waitFor();
-     phase='recovery logout and re-login';await page.goto(account);await heading(ar?'حسابي':'My Account');await signout();await visit();await page.locator('#login-email').fill(email);await page.locator('#login-password').fill(password+'2');await submit();await page.waitForURL(account);await heading(ar?'حسابي':'My Account');await signout();
+     phase='recovery logout and re-login';await page.goto(account);await heading(ar?'حسابي':'My account');await signout();await visit();await page.locator('#login-email').fill(email);await page.locator('#login-password').fill(password+'2');await submit();await page.waitForURL(account);await heading(ar?'حسابي':'My account');await signout();
     });
    }finally{await context.close()}
   }
