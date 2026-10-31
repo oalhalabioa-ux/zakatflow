@@ -1384,3 +1384,30 @@ html[data-owner-theme="elegant"] .owner-sidebar .owner-side-links a {
     justify-content:flex-start;
   }
 }
+
+
+/* Elegant-only leading glyphs for standalone admin action links and form submits. */
+html[data-owner-theme="elegant"] .owner-action,
+html[data-owner-theme="elegant"] .owner-plan-form button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+html[data-owner-theme="elegant"] .owner-action::before {
+  content:"";
+  display:inline-block;
+  width:16px;
+  height:16px;
+  flex:none;
+  background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+html[data-owner-theme="elegant"] .owner-plan-form button::before {
+  content:"✓";
+  display:inline-block;
+  font-size:17px;
+  line-height:1;
+  font-weight:750;
+}
