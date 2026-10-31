@@ -23,7 +23,7 @@ try{
   const query=await load('tests/migration-history/catalog.sql');
   const actual=JSON.parse(sql('select coalesce(jsonb_agg(t),\'[]\') from ('+query.replace(/;\s*$/,'')+') t'));
   const expected=(await load('tests/migration-history/observed-schema.jsonl')).trim().split('\n').map(x=>JSON.parse(x));
-  const deltas=await Promise.all(['plan-schema-delta','owner-console-schema-delta'].map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
+  const deltas=await Promise.all(['plan-schema-delta','owner-console-schema-delta','plan-notice-schema-delta'].map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
   for(const item of delta.removals){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected.splice(i,1);}
   for(const item of delta.upserts){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected[i]=item;else expected.push(item);}

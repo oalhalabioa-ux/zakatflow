@@ -140,7 +140,7 @@ try {
     ),
   );
   sql(await load('supabase/migrations/20261030223910_configurable_subscription_plans.sql'));
-  sql(await load('tests/subscriptions/plan-customer-notice.sql'));
+  sql(await load('supabase/migrations/20261031212511_plan_customer_notice.sql'));
   sql(`create table public.vat_profiles(id uuid primary key default gen_random_uuid(),organization_id uuid unique references organizations(id),registration_status text not null, tax_registration_number text,registered_name text,registration_date date,filing_frequency text not null,standard_rate numeric not null default 15,period_start_month integer default 1,seller_street text,seller_building_number text,seller_district text,seller_additional_number text,seller_city text,seller_postal_code text,created_by uuid references profiles(id),updated_at timestamptz default now());
   alter table public.vat_profiles enable row level security;
   create policy vat_settings_read on public.vat_profiles for select to authenticated using(exists(select 1 from public.organization_members m where m.organization_id=vat_profiles.organization_id and m.user_id=auth.uid() and m.status='ACTIVE'));
