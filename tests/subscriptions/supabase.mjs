@@ -457,24 +457,26 @@ try {
         }
       }
       await page.goto(appUrl + "/admin/subscriptions?lang=en");
-      await page.getByRole('button',{name:'◈ Plan definitions',exact:true}).click();
+      await page.getByRole('button',{name:'Plan definitions',exact:true}).click();
       await page.getByRole('heading',{name:'Plans and pricing',exact:true}).waitFor();
       await page.getByRole('cell',{name:'Professional',exact:true}).first().waitFor();
       await page.emulateMedia({reducedMotion:'reduce'});
-      await page.getByRole('button',{name:'＋ Add plan',exact:true}).click();
       await page.emulateMedia({reducedMotion:'reduce'});
     const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
       const readable=(fg,bg)=>{const l=[luminance(fg),luminance(bg)].sort((a,b)=>b-a);return (l[0]+.05)/(l[1]+.05)>=4.5};
       for(const [theme,label] of [['yaqeen','Yaqeen'],['elegant','Elegant'],['modern','Modern'],['classic','Classic']]){
        await page.getByRole('button',{name:label,exact:true}).click();
        await page.waitForFunction(t=>document.documentElement.dataset.ownerTheme===t,theme);
+       await page.getByRole('button',{name:'＋ Add plan',exact:true}).click();
        const colors=await page.locator('.owner-shell select').evaluateAll(items=>items.map(el=>({bg:getComputedStyle(el).backgroundColor,fg:getComputedStyle(el).color,option:getComputedStyle(el.options[0]).backgroundColor,optionFg:getComputedStyle(el.options[0]).color})));
        for(const c of colors){assert.notEqual(c.bg,'rgba(0, 0, 0, 0)');assert.notEqual(c.option,'rgba(0, 0, 0, 0)');assert.ok(readable(c.fg,c.bg)&&readable(c.optionFg,c.option),theme+' dropdown contrast '+JSON.stringify(c));}
        const tabs=await page.locator('.owner-tabs a').evaluateAll(items=>items.map(a=>({fg:getComputedStyle(a).color,bg:getComputedStyle(a).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(a.parentElement).backgroundColor:getComputedStyle(a).backgroundColor})));
        for(const c of tabs)assert.ok(readable(c.fg,c.bg),theme+' navigation contrast '+JSON.stringify(c));
        await page.screenshot({path:new URL(`tests/subscriptions/screenshots/admin-${theme}.png`,root).pathname,fullPage:true});
+       await page.keyboard.press('Escape');
       }
       await page.getByRole('button',{name:'Yaqeen',exact:true}).click();
+      await page.getByRole('button',{name:'＋ Add plan',exact:true}).click();
       const form=page.locator('.plan-manager form');
       for(const [name,value] of Object.entries({code:'qa_custom',family:'qa_custom',name_ar:'باقة مخصصة للاختبار',name_en:'Custom acceptance plan',price:'79',max_users:'3',reason:'Browser custom plan acceptance'}))await form.locator(`[name="${name}"]`).fill(value);
       await form.locator('[name="features"][value="module:budgets"]').uncheck();
@@ -491,7 +493,7 @@ try {
           level: 1,
         })
         .waitFor();
-      await page.getByRole('button',{name:'▦ Organization subscriptions',exact:true}).click();
+      await page.getByRole('button',{name:'Organization subscriptions',exact:true}).click();
       const row = page
         .getByRole("row")
         .filter({ hasText: "Trial Institution" });
@@ -557,7 +559,7 @@ try {
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-request-modal.png',root).pathname,fullPage:true});
     const sent=page.waitForResponse(r=>r.url()===appUrl+'/api/subscriptions/requests'&&r.request().method()==='POST');await dialog.getByRole('button',{name:'إرسال طلب التفعيل',exact:true}).click();const response=await sent;assert.equal(response.status(),200);const request=await response.json();
     assert.equal(request.quote.price_amount,399);assert.equal((await rpc(owner,'organization_subscription',{p_organization_id:target})).data.status,'trialing');
-    await page.goto(appUrl+'/admin/subscriptions?lang=en');await page.getByRole('button',{name:'✉ Activation requests',exact:true}).click();
+    await page.goto(appUrl+'/admin/subscriptions?lang=en');await page.getByRole('button',{name:'Activation requests',exact:true}).click();
     const row=page.getByRole('row').filter({hasText:'Activation review institution'});await row.getByRole('button',{name:'View request',exact:true}).click();
     await page.getByLabel('Decision reason — visible to customer',{exact:true}).fill('Approved browser end to end test');await page.getByLabel('End date for approval — device timezone',{exact:true}).fill('2027-12-31T18:00');
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-owner-inbox.png',root).pathname,fullPage:true});
