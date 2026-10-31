@@ -13,6 +13,11 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next({request: {headers}});
   const privateRoute = !MARKETING_HOSTS.has(publicUrl.hostname) &&
     (/^\/(ar|en)\/(?!login(?:\/|$))/.test(request.nextUrl.pathname) || /^\/admin(?:\/|$)/.test(request.nextUrl.pathname));
+  // These seven pages each verify getUser and the current database owner role
+  // before reading any administrative data. Do not repeat Auth in middleware:
+  // getClaims still calls Auth for symmetric signing keys.
+  const ownerPage = /^\/admin(?:\/(?:users|companies|subscriptions|payments|analytics|settings))?\/?$/.test(request.nextUrl.pathname);
+  if (privateRoute) response.headers.set('Cache-Control', 'private, no-store');
   // Callback and recovery must own their exchange; middleware must never consume their code.
   if (privateRoute && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     const supabase = createServerClient(supabaseUrl(), process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
@@ -27,14 +32,23 @@ export async function middleware(request: NextRequest) {
         },
       },
     });
-    const {data: {user}} = await supabase.auth.getUser();
-    if (!user) {
-      const login = new URL(`/${locale}/login`, publicUrl);
-      login.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search);
-      const redirect = NextResponse.redirect(login);
-      response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie));
-      redirect.headers.set('Cache-Control','private, no-store');
-      return redirect;
+    if (ownerPage) {
+      // Session maintenance only: refresh cookies here, never authorize from session data.
+      // Every owner page independently verifies getUser and the database role.
+      await supabase.auth.getSession();
+    } else {
+      // Claims verification avoids a redundant Auth user-record request on
+      // asymmetric JWT projects. Protected pages still check the current user
+      // and platform_owner role against the database before returning data.
+      const {data: claimsData, error: claimsError} = await supabase.auth.getClaims();
+      if (claimsError || !claimsData?.claims?.sub) {
+        const login = new URL(`/${locale}/login`, publicUrl);
+        login.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search);
+        const redirect = NextResponse.redirect(login);
+        response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie));
+        redirect.headers.set('Cache-Control','private, no-store');
+        return redirect;
+      }
     }
     response.headers.set('Cache-Control', 'private, no-store');
   }

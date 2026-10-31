@@ -406,6 +406,7 @@ try {
   );
   const { chromium } = await import(process.env.TRIAL_BROWSER_MODULE);
   browser = await chromium.launch({ headless: true });
+  await (await import('./owner-navigation.mjs')).ownerNavigation({browser,cookies,appUrl,status,ordinary:invitees[0],owner,sql,check});
   await mkdir(new URL("tests/subscriptions/screenshots/", root), {
     recursive: true,
   });

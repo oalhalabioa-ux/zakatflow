@@ -1,6 +1,6 @@
 // Runs only against a temporary GitHub Actions Supabase stack; no cloud credentials or user data.
 import {execFileSync,spawn} from 'node:child_process';
-import {writeFile} from 'node:fs/promises';
+import {writeFile,readFile} from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {createClient} from '@supabase/supabase-js';
@@ -21,6 +21,18 @@ function linkFrom(mail){const html=mail.HTML??mail.html??'';const hrefs=[...html
 try{
  // Minimal, explicit test-only ownership fixture; never presented as a full Production schema audit.
  sql(`create table public.auth_qa_financial_data(id uuid primary key default gen_random_uuid(),owner_id uuid not null references auth.users(id));alter table public.auth_qa_financial_data enable row level security;grant select on public.auth_qa_financial_data to anon,authenticated;create policy own_rows on public.auth_qa_financial_data for select to authenticated using((select auth.uid())=owner_id);notify pgrst,'reload schema';`);
+ // Match the account schema and signup trigger; preferences intentionally start absent.
+ sql(`create table public.profiles(id uuid primary key references auth.users(id),name text not null default '',phone text,base_currency text not null default 'SAR',locale text not null default 'ar',calendar_type text not null default 'HIJRI',nisab_standard text not null default 'SILVER',timezone text not null default 'Asia/Riyadh',zakat_method_id uuid);
+ create table public.user_settings(user_id uuid primary key references public.profiles(id),allocation_method text not null default 'FIFO',notifications_enabled boolean not null default true,assessment_reminders boolean not null default true,theme text not null default 'system');
+ alter table public.profiles enable row level security;alter table public.user_settings enable row level security;
+ create policy profile_self on public.profiles for select to authenticated using(id=auth.uid());
+ create policy profile_update on public.profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid());
+ create policy settings_self on public.user_settings to authenticated using(user_id=auth.uid()) with check(user_id=auth.uid());
+ grant select,update on public.profiles to authenticated;grant select,insert,update on public.user_settings to authenticated;
+ create table public.currencies(code text primary key,name_ar text,name_en text,symbol text,decimals integer default 2,active boolean default true);insert into public.currencies(code) values('SAR'),('USD');grant select on public.currencies to authenticated;`);
+ const hardening=await readFile('supabase/migrations/20260915195509_002_production_hardening.sql','utf8');
+ const provision=hardening.match(/create or replace function public\.handle_new_user\(\)[\s\S]*?create trigger on_auth_user_created[^;]+;/);
+ assert.ok(provision,'Real signup provisioning definition required');sql(provision[0]);sql("notify pgrst,'reload schema';");
  const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:api,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:appUrl,NEXT_PUBLIC_APP_ENV:'test',SUPABASE_SERVICE_ROLE_KEY:''};
  try{execFileSync('npm',['run','build'],{env,encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:300000})}catch{throw Error('Isolated application build failed')}
  app=spawn('node',['node_modules/next/dist/bin/next','start','-p','3000'],{env,stdio:'ignore'});

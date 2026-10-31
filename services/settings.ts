@@ -8,11 +8,22 @@ export async function getSettings() {
         .from("user_settings")
         .select("*")
         .eq("user_id", user.id)
-        .single(),
+        .maybeSingle(),
     ]);
   if (pe) throw pe;
   if (se) throw se;
-  return { profile, settings };
+  // Signup provisions a profile, but does not create user_settings. Reading a
+  // new account must not require a preferences row or perform a hidden write.
+  return {
+    profile,
+    settings: settings ?? {
+      user_id: user.id,
+      allocation_method: "FIFO",
+      notifications_enabled: true,
+      assessment_reminders: true,
+      theme: "system",
+    },
+  };
 }
 export async function updateSettings(input: any) {
   const { supabase, user } = await requireUser();
