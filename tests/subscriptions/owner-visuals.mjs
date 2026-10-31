@@ -149,6 +149,19 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           }));
         assert.equal(mainStyle.ink, identities[theme].ink);
         assert.equal(mainStyle.line, identities[theme].line);
+        if (theme === "elegant") {
+          const trim = await page.locator(".owner-tabs a.selected").evaluate((e) => ({
+            height: getComputedStyle(e, "::after").height,
+            width: parseFloat(getComputedStyle(e, "::after").width),
+            tabWidth: e.getBoundingClientRect().width,
+          }));
+          assert.equal(trim.height, "2px", "Elegant gold line stays fine");
+          assert.ok(
+            trim.width / trim.tabWidth > 0.59 && trim.width / trim.tabWidth < 0.65,
+            "Elegant gold line is centered and shorter than its tab",
+          );
+        }
+
         assert.ok(
           await nav
             .locator("[aria-pressed=true]")
