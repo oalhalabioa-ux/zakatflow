@@ -474,3 +474,27 @@ html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-split
  html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article {padding:13px;min-height:108px}
  html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-card {padding:12px}
 }
+
+
+html[data-owner-theme="elegant"] .owner-shell .console-error-state {
+  display:grid;
+  justify-items:start;
+  gap:10px;
+  margin:16px 0;
+  padding:20px;
+  background:#F8FAFC;
+  border:1px solid #DCE3EA;
+  border-inline-start:4px solid #C6A35D;
+  border-radius:12px;
+  color:#243447;
+}
+html[data-owner-theme="elegant"] .owner-shell .console-error-state strong {color:#10243A}
+html[data-owner-theme="elegant"] .owner-shell .console-error-state p {margin:0;color:#657484;line-height:1.7}
+html[data-owner-theme="elegant"] .owner-shell .console-error-state button {
+  background:#F5EBD6;
+  color:#70541F;
+  border:1px solid #E7D4AC;
+  border-radius:8px;
+  padding:8px 14px;
+  cursor:pointer;
+}
