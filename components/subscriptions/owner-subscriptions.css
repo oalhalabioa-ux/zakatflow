@@ -64,9 +64,9 @@
   background: var(--owner-bg);
 }
 .owner-shell .owner-console-tabs > button[aria-pressed="true"] {
-  background: var(--owner-nav-ink);
-  color: var(--owner-nav-gold);
-  border-bottom-color: var(--owner-nav-gold);
+  background: var(--owner-nav-gold);
+  color: var(--owner-nav-ink);
+  border-bottom-color: var(--owner-nav-ink);
   font-weight: 750;
 }
 .owner-request-count {
@@ -463,9 +463,9 @@
   font-size: 12px;
 }
 .owner-subscription-console .owner-detail-tabs [aria-pressed="true"] {
-  background: var(--owner-nav-gold);
-  color: var(--owner-nav-ink);
-  border-bottom-color: var(--owner-nav-ink);
+  background: var(--owner-nav-ink);
+  color: var(--owner-nav-gold);
+  border-bottom-color: var(--owner-nav-gold);
 }
 .owner-detail-facts {
   display: grid;
@@ -1152,9 +1152,9 @@
   color: var(--owner-ink);
 }
 .owner-subscription-console .owner-detail-tabs [aria-pressed="true"] {
-  background: var(--owner-panel);
-  color: var(--owner-primary);
-  border-bottom-color: var(--owner-accent);
+  background: var(--owner-nav-ink);
+  color: var(--owner-nav-gold);
+  border-bottom-color: var(--owner-nav-gold);
 }
 .owner-console-tabs .owner-request-count,
 .owner-console-tabs [aria-pressed="true"] .owner-request-count {
@@ -1430,4 +1430,58 @@
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+
+.owner-add-subscription {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--owner-border);
+  border-radius: 8px;
+  background: var(--owner-panel);
+}
+.owner-add-subscription > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.owner-add-subscription > p {
+  font-size: 12px;
+  color: var(--owner-muted);
+  margin-top: 8px;
+}
+.owner-add-subscription .owner-subscription-editor {
+  display: block;
+}
+.owner-add-subscription .owner-subscription-editor > fieldset {
+  min-width: 0;
+}
+.owner-add-subscription .owner-subscription-editor .form-wide {
+  grid-column: 1/-1;
+}
+.owner-add-subscription .owner-subscription-editor input[readonly] {
+  background: var(--owner-soft);
+}
+@media (max-width: 600px) {
+  .owner-add-subscription {
+    padding: 12px;
+  }
+  .owner-add-subscription > header {
+    align-items: start;
+    flex-direction: column;
+  }
+  .owner-add-subscription > header > button {
+    width: 100%;
+  }
+}
+
+.owner-subscription-console .owner-detail-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.owner-detail-tabs .owner-console-icon {
+  width: 17px;
+  height: 17px;
 }

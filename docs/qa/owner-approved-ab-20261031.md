@@ -17,3 +17,9 @@ Validation: 938 unit tests and TypeScript. The existing real Supabase/Auth/API r
 The latest user feedback supersedes the original all-white active A treatment: the active main navigation and subscription tabs now have navy fill, pale-gold text and a pale-gold 3px bottom line. Detail tabs use pale-gold fill, navy text and a navy bottom line. The remaining tab layout and B plan form are unchanged. Table headings use cool mist gray; selected records use warm ivory #FFF8E8 and a navy leading edge. Hover no longer replaces the selected state with the same gray as the heading. Metric icons have no colored background tile. Checkbox selections use navy. The browser matrix asserts these states in all four themes, including hover.
 
 Scope remains owner administration only. Publication to the live platform and merging remain on hold pending user preview approval.
+
+## Pinned annotations and release authorization
+
+The final annotated hierarchy is: top administration navigation and institution-detail tabs navy/pale-gold; the intermediate subscriptions/requests/plans/payment strip pale-gold/navy. Header surfaces are ivory #FFFCF5; selected rows pale gold #F5EBD6 with a navy leading edge, retained on hover. All colored metric icon backgrounds are removed. An Add/activate subscription section below the register reuses the exact guarded editor and audited API already used in the modal; the selected organization is visible read only. Switching organizations or opening the modal closes the inline editor, so only one editor can exist. No new subscription API, grant or migration is introduced. Browser acceptance covers missing-plan submission rejection and phone bounds for this new entry point.
+
+The user subsequently authorized merge/publication after verification. The release remains limited to owner administration; Google configuration, financial customer pages, data and payment capability are unchanged.

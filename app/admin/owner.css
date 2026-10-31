@@ -4,14 +4,14 @@
   --owner-panel: #fff;
   --owner-nav-ink: #10243a;
   --owner-nav-gold: #f5ebd6;
-  --owner-table-head: #e9edf1;
+  --owner-table-head: #fffcf5;
   --owner-ink: #10243a;
   --owner-muted: #566579;
   --owner-primary: #10243a;
   --owner-accent: #c6a35d;
   --owner-accent-soft: #f5ebd6;
   --owner-soft: #e9edf1;
-  --owner-selected: #fff8e8;
+  --owner-selected: #f5ebd6;
   --owner-border: #dce3eb;
   --owner-success-bg: #e3f3e9;
   --owner-success-ink: #267451;
@@ -42,7 +42,7 @@ html[data-owner-theme="elegant"] .owner-shell {
   --owner-accent: #c6a35d;
   --owner-accent-soft: #f5ebd6;
   --owner-soft: #e9edf1;
-  --owner-selected: #fff8e8;
+  --owner-selected: #f5ebd6;
   --owner-border: #dce3ea;
 }
 html[data-owner-theme="modern"] .owner-shell {
@@ -53,7 +53,7 @@ html[data-owner-theme="modern"] .owner-shell {
   --owner-accent: #6878d8;
   --owner-accent-soft: #eef0ff;
   --owner-soft: #edf0fa;
-  --owner-selected: #fff8e8;
+  --owner-selected: #f5ebd6;
   --owner-border: #e0e4f0;
 }
 html[data-owner-theme="classic"] .owner-shell {
@@ -64,7 +64,7 @@ html[data-owner-theme="classic"] .owner-shell {
   --owner-accent: #488694;
   --owner-accent-soft: #e6f1f3;
   --owner-soft: #e9eff2;
-  --owner-selected: #fff8e8;
+  --owner-selected: #f5ebd6;
   --owner-border: #d7e1e6;
 }
 .owner-shell,

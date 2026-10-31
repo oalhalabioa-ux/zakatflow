@@ -88,25 +88,32 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           }));
         assert.equal(
           activeStyle.bg,
-          "rgb(16, 36, 58)",
-          "Main selected tabs use navy in every view and theme",
+          "rgb(245, 235, 214)",
+          "Section tabs use pale gold beneath the navy main navigation",
         );
         assert.equal(activeStyle.border, "3px");
-        assert.equal(activeStyle.color, "rgb(245, 235, 214)");
-        assert.equal(activeStyle.line, "rgb(245, 235, 214)");
+        assert.equal(activeStyle.color, "rgb(16, 36, 58)");
+        assert.equal(activeStyle.line, "rgb(16, 36, 58)");
         const selected = page
           .locator(".owner-subscription-console tr[aria-selected=true]")
           .first();
         assert.equal(
           await selected.evaluate((e) => getComputedStyle(e).backgroundColor),
-          "rgb(255, 248, 232)",
+          "rgb(245, 235, 214)",
         );
-        assert.notEqual(
+        assert.equal(
           await page
             .locator(".owner-subscription-console th")
             .first()
             .evaluate((e) => getComputedStyle(e).backgroundColor),
-          "rgb(255, 248, 232)",
+          "rgb(255, 252, 245)",
+          "Ivory header is distinct from the selected pale-gold record",
+        );
+        assert.equal(
+          await page
+            .locator(".owner-tabs a.selected")
+            .evaluate((e) => getComputedStyle(e).backgroundColor),
+          "rgb(16, 36, 58)",
         );
         for (const bg of await page
           .locator(".owner-metric-icon")
@@ -125,13 +132,13 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
               bg: getComputedStyle(e).backgroundColor,
               line: getComputedStyle(e).borderBottomColor,
             }));
-          assert.equal(detail.bg, "rgb(245, 235, 214)");
-          assert.equal(detail.line, "rgb(16, 36, 58)");
+          assert.equal(detail.bg, "rgb(16, 36, 58)");
+          assert.equal(detail.line, "rgb(245, 235, 214)");
         }
         await selected.hover();
         assert.equal(
           await selected.evaluate((e) => getComputedStyle(e).backgroundColor),
-          "rgb(255, 248, 232)",
+          "rgb(245, 235, 214)",
           "Hover must retain selected row styling",
         );
         const navBox = await nav.boundingBox();
@@ -460,6 +467,46 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
     ).pathname,
     fullPage: true,
   });
+  await page.goto(appUrl + "/admin/subscriptions?lang=ar&tab=institutions");
+  await page.getByRole("button", { name: "إضافة اشتراك", exact: true }).click();
+  const inline = page.locator("#owner-inline-subscription");
+  await inline.waitFor();
+  assert.equal(await inline.locator("[name=action]").inputValue(), "activate");
+  assert.equal(
+    await inline.locator("input[readonly]").count(),
+    1,
+    "The target organization is visible and immutable in the form",
+  );
+  let posted = 0;
+  const onPost = (request) => {
+    if (
+      request.url() === appUrl + "/api/admin/trials" &&
+      request.method() === "POST"
+    )
+      posted++;
+  };
+  page.on("request", onPost);
+  await inline
+    .getByRole("button", { name: "تنفيذ وحفظ في السجل", exact: true })
+    .click();
+  assert.equal(
+    posted,
+    0,
+    "Incomplete inline activation cannot submit a mutation",
+  );
+  page.off("request", onPost);
+  for (const width of [1366, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    assert.ok(await inline.evaluate((e) => e.scrollWidth <= e.clientWidth + 1));
+    await page.screenshot({
+      path: new URL(
+        `tests/subscriptions/screenshots/owner-add-subscription-ar-${width}.png`,
+        root,
+      ).pathname,
+      fullPage: true,
+    });
+  }
+  await inline.getByRole("button", { name: "إلغاء", exact: true }).click();
   // The shared shell and record-card rules are verified on every protected owner page.
   for (const locale of ["ar", "en"]) {
     for (const route of [
