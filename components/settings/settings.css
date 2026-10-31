@@ -4,3 +4,6 @@
 .account-summary>div{min-width:0;overflow-wrap:anywhere}
 
 .settings-picker-row{display:flex;justify-content:flex-start;margin-block:16px}.settings-picker-row .settings-org-picker{width:260px;max-width:100%}
+
+/* Keep module tabs readable above legacy theme link rules. */
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){color:#f0f4fa}.corp-shell .settings-workspace .settings-tabs a[aria-current=page]:not(.btn){color:#112c45}

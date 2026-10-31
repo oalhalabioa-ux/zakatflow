@@ -453,7 +453,8 @@ try {
       await page.getByRole('cell',{name:'Professional',exact:true}).first().waitFor();
       await page.emulateMedia({reducedMotion:'reduce'});
       await page.locator('.plan-manager summary').click();
-      const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
+      await page.emulateMedia({reducedMotion:'reduce'});
+    const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
       const readable=(fg,bg)=>{const l=[luminance(fg),luminance(bg)].sort((a,b)=>b-a);return (l[0]+.05)/(l[1]+.05)>=4.5};
       for(const [theme,label] of [['yaqeen','Yaqeen'],['elegant','Elegant'],['modern','Modern'],['classic','Classic']]){
        await page.getByRole('button',{name:label,exact:true}).click();
@@ -582,11 +583,15 @@ try {
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
+    await page.emulateMedia({reducedMotion:'reduce'});
     const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
     for(const [theme,label] of [['yaqeen-business','Yaqeen Business'],['elegant','Elegant'],['modern','Modern'],['classic','Classic']]){
       await page.getByRole('group',{name:'Choose design',exact:true}).getByRole('button',{name:label,exact:true}).click();
+      await page.locator('.corp-shell.theme-'+theme).waitFor();
       const colors=await page.locator('.settings-card').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
       for(const c of colors){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings card contrast '+JSON.stringify(c));}
+      const tabs=await page.locator('.settings-tabs a').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(el.parentElement).backgroundColor:getComputedStyle(el).backgroundColor})));
+      for(const c of tabs){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
     }
     await context.close();
