@@ -313,14 +313,7 @@ export default function AccountPage() {
                       ? "حفظ التغييرات"
                       : "Save changes"}
                 </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={busy}
-                  onClick={logout}
-                >
-                  {ar ? "تسجيل الخروج" : "Sign out"}
-                </button>
+
               </div>
             </form>
           </section>
@@ -338,6 +331,9 @@ export default function AccountPage() {
           {ar ? "إعادة المحاولة" : "Retry"}
         </button>
       )}
+      <button className="btn" type="button" disabled={busy} onClick={logout}>
+        {ar ? "تسجيل الخروج" : "Sign out"}
+      </button>
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
     </main>
