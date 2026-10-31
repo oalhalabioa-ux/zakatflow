@@ -1411,3 +1411,19 @@ html[data-owner-theme="elegant"] .owner-plan-form button::before {
   line-height:1;
   font-weight:750;
 }
+
+
+/* Approved Elegant top navigation: deep emerald selection with pale royal-gold icon/text. */
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected {
+  background:#075e50;
+  color:#f1d28d;
+  border-bottom-color:#075e50;
+  box-shadow:0 4px 0 #d6ad58;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected :is(svg,span) {
+  color:inherit;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected:hover {
+  background:#064e42;
+  color:#f1d28d;
+}
