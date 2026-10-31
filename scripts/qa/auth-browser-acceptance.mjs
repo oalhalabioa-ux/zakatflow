@@ -60,7 +60,7 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,stal
      await page.getByRole('button',{name:ar?'تأكيد البريد الإلكتروني':'Verify email address',exact:true}).click({timeout:30000});
      assert.equal((await posted).headers().origin,appUrl);
      await page.waitForURL(account);await heading(ar?'حسابي':'My Account');
-     await page.reload();await heading(ar?'حسابي':'My Account');await signout();
+     phase='account reload';await page.reload();await heading(ar?'حسابي':'My Account');phase='account signout button';await signout();phase='signed-out account redirect';
      await page.goto(account);await page.waitForURL(u=>u.pathname===`/${locale}/login`);
     });
     await run('wrong password, correct password and remembered email only',async()=>{
