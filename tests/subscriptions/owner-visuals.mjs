@@ -631,6 +631,22 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
               " " +
               width,
           );
+          assert.equal(
+            await page
+              .locator(
+                ".owner-original-brand :is(.owner-full-brand,.owner-compact-brand)",
+              )
+              .evaluateAll(
+                (items) =>
+                  items.filter(
+                    (e) =>
+                      e.getBoundingClientRect().width > 0 &&
+                      getComputedStyle(e).display !== "none",
+                  ).length,
+              ),
+            1,
+            "One original logo is visible per theme and viewport",
+          );
           const language = page.locator(".owner-language-control");
           assert.ok((await language.boundingBox()).height >= 40);
           if (width === 390) {
