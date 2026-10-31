@@ -1,3 +1,4 @@
+import OwnerMetrics from "../OwnerMetrics";
 import { ownerLocale } from "@/lib/i18n/owner-server";
 import { ownerTranslator, ownerHref } from "@/lib/i18n/owner";
 import OwnerSidebar from "../OwnerSidebar";
@@ -78,6 +79,50 @@ export default async function CompaniesPage({
             <p>{translate("سجل المؤسسات الفعلي — عرض فقط")}</p>
           </div>
         </header>
+        <OwnerMetrics
+          locale={locale}
+          items={[
+            {
+              label:
+                locale === "ar"
+                  ? "المؤسسات المعروضة"
+                  : "Displayed organizations",
+              value: loadError ? null : organizations.length,
+              icon: "building",
+              note:
+                locale === "ar"
+                  ? "ضمن الصفحة الحالية، حتى 30 مؤسسة"
+                  : "Current page, up to 30 organizations",
+            },
+            {
+              label:
+                locale === "ar" ? "الأعضاء المسجلون" : "Registered memberships",
+              value: loadError
+                ? null
+                : organizations.reduce(
+                    (sum, org) => sum + Number(org.member_count || 0),
+                    0,
+                  ),
+              icon: "users",
+              note:
+                locale === "ar"
+                  ? "مجموع عضويات المؤسسات المعروضة"
+                  : "Memberships of displayed organizations",
+            },
+            {
+              label:
+                locale === "ar" ? "عملات المؤسسات" : "Organization currencies",
+              value: loadError
+                ? null
+                : new Set(organizations.map((org) => org.base_currency)).size,
+              icon: "layers",
+              note:
+                locale === "ar"
+                  ? "ضمن الصفحة الحالية"
+                  : "Within the current page",
+            },
+          ]}
+        />
         <div className="owner-intro">
           <h2>{translate("الشركات المسجلة")}</h2>
           <p>{translate("تظهر هنا المؤسسات المسجلة فعلياً في المنصة.")}</p>

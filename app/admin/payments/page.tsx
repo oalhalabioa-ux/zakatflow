@@ -1,3 +1,4 @@
+import OwnerMetrics from "../OwnerMetrics";
 import { ownerLocale } from "@/lib/i18n/owner-server";
 import { ownerTranslator, ownerHref } from "@/lib/i18n/owner";
 import OwnerSidebar from "../OwnerSidebar";
@@ -55,6 +56,37 @@ export default async function PaymentsPage() {
             <p>{translate("إدارة مالية مستقلة خاصة بمالك المنصة")}</p>
           </div>
         </header>
+        <OwnerMetrics
+          locale={locale}
+          items={[
+            {
+              label:
+                locale === "ar" ? "سجلات المعاملات" : "Transaction records",
+              value: paymentsError ? null : transactions.length,
+              icon: "card",
+              note:
+                locale === "ar"
+                  ? "آخر 100 سجل كحد أقصى"
+                  : "Up to the latest 100 records",
+            },
+            {
+              label:
+                locale === "ar" ? "العملات المسجلة" : "Recorded currencies",
+              value: paymentsError
+                ? null
+                : new Set(
+                    transactions.map(
+                      (row: { currency: string }) => row.currency,
+                    ),
+                  ).size,
+              icon: "layers",
+              note:
+                locale === "ar"
+                  ? "دون جمع مبالغ بعملات مختلفة"
+                  : "Amounts in different currencies are not combined",
+            },
+          ]}
+        />
         <div className="owner-intro">
           <h2>{translate("سجل معاملات مزود الدفع")}</h2>
           <p>

@@ -1,4 +1,5 @@
 "use client";
+import OwnerMetrics from "@/app/admin/OwnerMetrics";
 import { useOwnerRegisterQuery } from "./useOwnerRegisterQuery";
 import { useCallback, useEffect, useState, useId, type FormEvent } from "react";
 import {
@@ -38,7 +39,7 @@ export default function ActivationRequestsConsole({
     [rows, setRows] = useState<ActivationRequest[]>([]),
     [selected, setSelected] = useState<ActivationRequest | null>(null),
     [payment, setPayment] = useState<Payment | null>(null),
-    [count, setCount] = useState(0),
+    [count, setCount] = useState<number | null>(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
@@ -67,6 +68,7 @@ export default function ActivationRequestsConsole({
         setError("");
       } catch (e) {
         if (e instanceof Error && e.name === "AbortError") return;
+        setCount(null);
         setError(
           ar
             ? "تعذر تحميل الطلبات. أعد المحاولة."
@@ -264,6 +266,31 @@ export default function ActivationRequestsConsole({
   );
   return (
     <section className="activation-console">
+      {!paymentOnly && (
+        <OwnerMetrics
+          locale={locale}
+          items={[
+            {
+              label: ar ? "طلبات مفتوحة" : "Open requests",
+              value: count,
+              icon: "requests",
+              tone: "warning",
+              note: ar
+                ? "جميع الطلبات المفتوحة في المنصة"
+                : "All open requests across the platform",
+            },
+            {
+              label: ar ? "طلبات معروضة" : "Displayed requests",
+              value: loading || count === null ? null : rows.length,
+              icon: "layers",
+              note: ar
+                ? "حسب الفلاتر والصفحة الحالية"
+                : "Current filters and page",
+            },
+          ]}
+        />
+      )}
+
       {loading && (
         <p className="owner-loading-note" role="status">
           {ar ? "جارٍ تحميل الطلبات…" : "Loading requests…"}

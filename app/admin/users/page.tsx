@@ -1,3 +1,4 @@
+import OwnerMetrics from "../OwnerMetrics";
 import { ownerLocale } from "@/lib/i18n/owner-server";
 import { ownerTranslator, ownerHref } from "@/lib/i18n/owner";
 import OwnerSidebar from "../OwnerSidebar";
@@ -84,6 +85,48 @@ export default async function AdminUsers({
             </p>
           </div>
         </header>
+        <OwnerMetrics
+          locale={locale}
+          items={[
+            {
+              label:
+                locale === "ar" ? "المستخدمون المعروضون" : "Displayed users",
+              value: failure ? null : users.length,
+              icon: "users",
+              note:
+                locale === "ar"
+                  ? "ضمن الصفحة الحالية، حتى 50 حساباً"
+                  : "Current page, up to 50 accounts",
+            },
+            {
+              label: locale === "ar" ? "بريد مؤكد" : "Email confirmed",
+              value: failure
+                ? null
+                : users.filter((u) => u.email_confirmed_at).length,
+              icon: "requests",
+              tone: "success",
+              note:
+                locale === "ar"
+                  ? "من الحسابات المعروضة"
+                  : "Among displayed accounts",
+            },
+            {
+              label:
+                locale === "ar"
+                  ? "بانتظار تأكيد البريد"
+                  : "Awaiting email confirmation",
+              value: failure
+                ? null
+                : users.filter((u) => !u.email_confirmed_at).length,
+              icon: "clock",
+              tone: "warning",
+              note:
+                locale === "ar"
+                  ? "من الحسابات المعروضة"
+                  : "Among displayed accounts",
+            },
+          ]}
+        />
         {failure ? (
           <p role="alert">
             {translate(

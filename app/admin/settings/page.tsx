@@ -1,3 +1,4 @@
+import OwnerMetrics from "../OwnerMetrics";
 import { ownerLocale } from "@/lib/i18n/owner-server";
 import { ownerTranslator, ownerHref } from "@/lib/i18n/owner";
 import OwnerSidebar from "../OwnerSidebar";
@@ -54,6 +55,44 @@ export default async function OwnerSettings() {
             <p>{translate("إعدادات المنصة وسجل التدقيق — عرض فقط")}</p>
           </div>
         </header>
+        <OwnerMetrics
+          locale={locale}
+          items={[
+            {
+              label:
+                locale === "ar"
+                  ? "عمليات التدقيق المعروضة"
+                  : "Displayed audit events",
+              value: auditError ? null : (events || []).length,
+              icon: "clock",
+              note:
+                locale === "ar"
+                  ? "آخر 50 عملية كحد أقصى"
+                  : "Up to the latest 50 events",
+            },
+            {
+              label:
+                locale === "ar"
+                  ? "المسؤولون المنفذون"
+                  : "Administrative actors",
+              value: auditError
+                ? null
+                : new Set(
+                    (events || [])
+                      .map(
+                        (row: { actor_user_id: string | null }) =>
+                          row.actor_user_id,
+                      )
+                      .filter(Boolean),
+                  ).size,
+              icon: "users",
+              note:
+                locale === "ar"
+                  ? "ضمن سجل التدقيق المعروض"
+                  : "Within the displayed audit log",
+            },
+          ]}
+        />
         <div className="owner-panels">
           <article>
             <h3>{translate("الباقات والأسعار")}</h3>
