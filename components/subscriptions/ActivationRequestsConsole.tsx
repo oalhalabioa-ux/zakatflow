@@ -1,7 +1,7 @@
 "use client";
 import OwnerMetrics from "@/app/admin/OwnerMetrics";
 import { useOwnerRegisterQuery } from "./useOwnerRegisterQuery";
-import { useCallback, useEffect, useState, useId, type FormEvent } from "react";
+import { useCallback, useEffect, useState, useRef, useId, type FormEvent } from "react";
 import {
   ConsoleIcon,
   OwnerStatusBadge,
