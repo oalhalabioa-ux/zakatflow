@@ -79,7 +79,17 @@ export default function TrialAdmin({
     [editing, setEditing] = useState(false),
     [defaultsOpen, setDefaultsOpen] = useState(false);
   const generation = useRef(0),
-    auditGeneration = useRef(0);
+    auditGeneration = useRef(0),
+    selection = useRef<Row | null>(null);
+  const selectOrganization = useCallback((row: Row | null) => {
+    selection.current = row;
+    auditGeneration.current++;
+    setSelected(row);
+    setEditing(false);
+    setAudit(null);
+    setDetailTab("subscription");
+    if (row) setAction(defaultAction(row));
+  }, []);
   const load = useCallback(async () => {
     const version = ++generation.current;
     try {
@@ -92,10 +102,15 @@ export default function TrialAdmin({
       if (!r.ok) throw Error(b.error);
       if (version !== generation.current) return;
       setRegister(b);
-      setSelected(
-        (current) =>
-          b.rows.find((row) => row.id === current?.id) ?? b.rows[0] ?? null,
-      );
+      const next =
+        b.rows.find((row) => row.id === selection.current?.id) ??
+        b.rows[0] ??
+        null;
+      if (next?.id !== selection.current?.id) selectOrganization(next);
+      else {
+        selection.current = next;
+        setSelected(next);
+      }
       setError("");
     } catch (e) {
       if (version === generation.current)
@@ -106,7 +121,7 @@ export default function TrialAdmin({
           ),
         );
     }
-  }, [search, status, offset, ar]);
+  }, [search, status, offset, ar, selectOrganization]);
   useEffect(() => {
     const t = setTimeout(() => void load(), 200);
     return () => {
@@ -358,8 +373,7 @@ export default function TrialAdmin({
                     aria-selected={selected?.id === row.id}
                     onClick={() => {
                       if (!busy) {
-                        setSelected(row);
-                        setDetailTab("subscription");
+                        selectOrganization(row);
                         showOwnerDetail("owner-institution-details");
                       }
                     }}
@@ -404,9 +418,7 @@ export default function TrialAdmin({
                         disabled={busy}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelected(row);
-                          setDetailTab("subscription");
-                          setAction(defaultAction(row));
+                          selectOrganization(row);
                           showOwnerDetail("owner-institution-details");
                         }}
                       >
