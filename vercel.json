@@ -6,7 +6,8 @@
       "feat/organization-trials-20261030": false,
       "fix/magic-link-and-release-followup-20261030": false,
       "feat/configurable-subscription-plans": false,
-      "feat/settings-subscription-experience": false
+      "feat/settings-subscription-experience": false,
+      "fix/settings-tabs-layout": false
     }
   }
 }
