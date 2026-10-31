@@ -1450,8 +1450,11 @@
   color: var(--owner-muted);
   margin-top: 8px;
 }
-.owner-add-subscription .owner-subscription-editor {
+.owner-subscription-console
+  .owner-add-subscription
+  form.owner-subscription-editor {
   display: block;
+  width: 100%;
 }
 .owner-add-subscription .owner-subscription-editor > fieldset {
   min-width: 0;

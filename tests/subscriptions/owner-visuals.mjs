@@ -498,6 +498,18 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   for (const width of [1366, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     assert.ok(await inline.evaluate((e) => e.scrollWidth <= e.clientWidth + 1));
+    const editorGeometry = await inline
+      .locator("form")
+      .evaluate((e) => ({
+        display: getComputedStyle(e).display,
+        formWidth: e.clientWidth,
+        fieldsWidth: e.querySelector("fieldset").getBoundingClientRect().width,
+      }));
+    assert.equal(editorGeometry.display, "block");
+    assert.ok(
+      editorGeometry.fieldsWidth >= editorGeometry.formWidth * 0.95,
+      "Subscription fields fill the available register width",
+    );
     await page.screenshot({
       path: new URL(
         `tests/subscriptions/screenshots/owner-add-subscription-ar-${width}.png`,
