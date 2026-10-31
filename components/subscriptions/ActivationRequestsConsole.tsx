@@ -1,9 +1,10 @@
 "use client";
 import OwnerMetrics from "@/app/admin/OwnerMetrics";
 import { useOwnerRegisterQuery } from "./useOwnerRegisterQuery";
-import { useCallback, useEffect, useState, useId, type FormEvent } from "react";
+import { useCallback, useEffect, useState, useRef, useId, type FormEvent } from "react";
 import {
   ConsoleIcon,
+  OwnerActionIcon,
   OwnerStatusBadge,
   showOwnerDetail,
 } from "./OwnerSubscriptionVisuals";
@@ -80,9 +81,12 @@ export default function ActivationRequestsConsole({
     },
     [search, status, offset, ar],
   );
+  const firstRequestLoad = useRef(true);
   useEffect(() => {
     const c = new AbortController();
-    const t = setTimeout(() => void load(c.signal), 200);
+    const delay = firstRequestLoad.current ? 0 : 200;
+    firstRequestLoad.current = false;
+    const t = setTimeout(() => void load(c.signal), delay);
     return () => {
       c.abort();
       clearTimeout(t);
@@ -229,7 +233,7 @@ export default function ActivationRequestsConsole({
       </p>
       {!paymentOnly && (
         <button className="owner-row-action" onClick={onOpenPayment}>
-          {ar ? "تجهيز الإعدادات" : "Configure readiness"}
+          <OwnerActionIcon name="settings"/> {ar ? "تجهيز الإعدادات" : "Configure readiness"}
         </button>
       )}
       {paymentOnly && payment && (
@@ -258,7 +262,7 @@ export default function ActivationRequestsConsole({
             <textarea name="reason" required minLength={5} maxLength={1000} />
           </label>
           <button className="primary" disabled={busy}>
-            {ar ? "حفظ إعدادات التجهيز" : "Save readiness"}
+            <OwnerActionIcon name="save"/> {ar ? "حفظ إعدادات التجهيز" : "Save readiness"}
           </button>
         </form>
       )}
@@ -300,7 +304,7 @@ export default function ActivationRequestsConsole({
         <p className="owner-feedback" role="alert">
           {error}{" "}
           <button onClick={() => void load()}>
-            {ar ? "إعادة المحاولة" : "Retry"}
+            <OwnerActionIcon name="refresh"/> {ar ? "إعادة المحاولة" : "Retry"}
           </button>
         </p>
       )}
@@ -405,6 +409,7 @@ export default function ActivationRequestsConsole({
                               setError("");
                             }}
                           >
+                            <OwnerActionIcon name="view"/>
                             <bdi dir="ltr">
                               REQ-{String(r.request_number).padStart(4, "0")}
                             </bdi>
@@ -466,13 +471,13 @@ export default function ActivationRequestsConsole({
                     disabled={offset === 0 || busy}
                     onClick={() => setOffset((x) => Math.max(0, x - 50))}
                   >
-                    {ar ? "السابق" : "Previous"}
+                    <OwnerActionIcon name="previous"/> {ar ? "السابق" : "Previous"}
                   </button>
                   <button
                     disabled={rows.length < 50 || busy}
                     onClick={() => setOffset((x) => x + 50)}
                   >
-                    {ar ? "التالي" : "Next"}
+                    <OwnerActionIcon name="next"/> {ar ? "التالي" : "Next"}
                   </button>
                 </div>
               </footer>
@@ -637,12 +642,12 @@ export default function ActivationRequestsConsole({
                         value="approve"
                         disabled={busy}
                       >
-                        {ar
+                        <OwnerActionIcon name="approve"/> {ar
                           ? "اعتماد وتفعيل يدوياً"
                           : "Approve and activate manually"}
                       </button>
                       <button name="action" value="needs_info" disabled={busy}>
-                        {ar ? "طلب معلومات" : "Request information"}
+                        <OwnerActionIcon name="info"/> {ar ? "طلب معلومات" : "Request information"}
                       </button>
                       <button
                         className="danger"
@@ -650,7 +655,7 @@ export default function ActivationRequestsConsole({
                         value="reject"
                         disabled={busy}
                       >
-                        {ar ? "رفض الطلب" : "Reject request"}
+                        <OwnerActionIcon name="reject"/> {ar ? "رفض الطلب" : "Reject request"}
                       </button>
                     </footer>
                     <p className="owner-detail-note form-wide">
@@ -665,7 +670,7 @@ export default function ActivationRequestsConsole({
                           {ar ? "إجراء المراجعة" : "Review action"}
                         </summary>
                         <button name="action" value="review" disabled={busy}>
-                          {ar ? "بدء المراجعة" : "Start review"}
+                          <OwnerActionIcon name="view"/> {ar ? "بدء المراجعة" : "Start review"}
                         </button>
                       </details>
                     )}

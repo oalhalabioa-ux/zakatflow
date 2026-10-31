@@ -17,6 +17,7 @@ import { adminSubscriptionError } from "@/lib/subscriptions/admin-errors";
 import SubscriptionModal from "./SubscriptionModal";
 import {
   ConsoleIcon,
+  OwnerActionIcon,
   OwnerStatusBadge,
   shortSubscriptionLabel,
   showOwnerDetail,
@@ -124,8 +125,11 @@ export default function TrialAdmin({
         );
     }
   }, [search, status, offset, ar, selectOrganization]);
+  const firstRegisterLoad = useRef(true);
   useEffect(() => {
-    const t = setTimeout(() => void load(), 200);
+    const delay = firstRegisterLoad.current ? 0 : 200;
+    firstRegisterLoad.current = false;
+    const t = setTimeout(() => void load(), delay);
     return () => {
       clearTimeout(t);
       generation.current++;
@@ -401,7 +405,7 @@ export default function TrialAdmin({
             <textarea name="reason" minLength={5} maxLength={1000} required />
           </label>
           <button className="primary" disabled={busy}>
-            {ar ? "تنفيذ وحفظ في السجل" : "Apply and audit"}
+            <OwnerActionIcon name="save"/> {ar ? "تنفيذ وحفظ في السجل" : "Apply and audit"}
           </button>
           <button
             type="button"
@@ -410,7 +414,7 @@ export default function TrialAdmin({
               setInlineActivation(false);
             }}
           >
-            {ar ? "إلغاء" : "Cancel"}
+            <OwnerActionIcon name="cancel"/> {ar ? "إلغاء" : "Cancel"}
           </button>
         </fieldset>
       </form>
@@ -427,7 +431,7 @@ export default function TrialAdmin({
         <p className="owner-feedback" role="alert">
           {error}
           <button onClick={() => void load()}>
-            {ar ? "تحديث البيانات" : "Refresh"}
+            <OwnerActionIcon name="refresh"/> {ar ? "تحديث البيانات" : "Refresh"}
           </button>
         </p>
       )}
@@ -574,7 +578,7 @@ export default function TrialAdmin({
                           showOwnerDetail("owner-institution-details");
                         }}
                       >
-                        {ar ? "إدارة" : "Manage"}
+                        <OwnerActionIcon name="settings"/> {ar ? "إدارة" : "Manage"}
                       </button>
                     </td>
                   </tr>
@@ -603,13 +607,13 @@ export default function TrialAdmin({
                 disabled={!offset || busy}
                 onClick={() => setOffset((x) => Math.max(0, x - 50))}
               >
-                {ar ? "السابق" : "Previous"}
+                <OwnerActionIcon name="previous"/> {ar ? "السابق" : "Previous"}
               </button>
               <button
                 disabled={!register || register.rows.length < 50 || busy}
                 onClick={() => setOffset((x) => x + 50)}
               >
-                {ar ? "التالي" : "Next"}
+                <OwnerActionIcon name="next"/> {ar ? "التالي" : "Next"}
               </button>
             </div>
           </footer>
@@ -620,7 +624,7 @@ export default function TrialAdmin({
                 setDefaultsOpen(true);
               }}
             >
-              {ar
+              <OwnerActionIcon name="settings"/> {ar
                 ? "إعداد التجربة للعملاء الجدد"
                 : "Trial default for new organizations"}
             </button>
@@ -648,7 +652,7 @@ export default function TrialAdmin({
                   setInlineActivation((value) => !value);
                 }}
               >
-                {ar ? "إضافة اشتراك" : "Add subscription"}
+                <OwnerActionIcon name="add"/> {ar ? "إضافة اشتراك" : "Add subscription"}
               </button>
             </header>
             <p>
@@ -789,7 +793,7 @@ export default function TrialAdmin({
                       className="owner-text-button"
                       onClick={() => setDetailTab("members")}
                     >
-                      {ar ? "عرض جميع الأعضاء" : "View all members"}
+                      <OwnerActionIcon name="view"/> {ar ? "عرض جميع الأعضاء" : "View all members"}
                     </button>
                   )}
                 </section>
@@ -804,7 +808,7 @@ export default function TrialAdmin({
                       setEditing(true);
                     }}
                   >
-                    {ar
+                    <OwnerActionIcon name="edit"/> {ar
                       ? "تعديل / تجديد الاشتراك"
                       : "Modify / renew subscription"}
                   </button>
@@ -812,7 +816,7 @@ export default function TrialAdmin({
                     disabled={busy}
                     onClick={() => void history(selected.id)}
                   >
-                    {ar ? "سجل التغييرات" : "Change history"}
+                    <OwnerActionIcon name="history"/> {ar ? "سجل التغييرات" : "Change history"}
                   </button>
                   {selected.entitlement.id && (
                     <button
@@ -829,7 +833,7 @@ export default function TrialAdmin({
                         setEditing(true);
                       }}
                     >
-                      {selected.entitlement.status === "suspended"
+                      <OwnerActionIcon name="pause"/> {selected.entitlement.status === "suspended"
                         ? ar
                           ? "رفع التعليق"
                           : "Resume"
@@ -904,7 +908,7 @@ export default function TrialAdmin({
               <textarea name="reason" minLength={5} maxLength={1000} required />
             </label>
             <button className="primary" disabled={busy}>
-              {ar ? "حفظ المدة الافتراضية" : "Save default"}
+              <OwnerActionIcon name="save"/> {ar ? "حفظ المدة الافتراضية" : "Save default"}
             </button>
           </form>
         </SubscriptionModal>

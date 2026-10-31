@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import {
   ownerSubscriptionSections,
@@ -7,8 +8,8 @@ import {
 } from "@/lib/subscriptions/owner-query";
 import type { Plan } from "@/lib/subscriptions/catalog";
 import TrialAdmin from "./TrialAdmin";
-import PlanManager from "./PlanManager";
-import ActivationRequestsConsole from "./ActivationRequestsConsole";
+const PlanManager = dynamic(() => import("./PlanManager"));
+const ActivationRequestsConsole = dynamic(() => import("./ActivationRequestsConsole"));
 import "./subscriptions.css";
 import "./owner-subscriptions.css";
 import { ConsoleIcon, type ConsoleIconName } from "./OwnerSubscriptionVisuals";

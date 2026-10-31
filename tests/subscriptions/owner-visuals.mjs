@@ -19,9 +19,9 @@ const identities = {
   },
   elegant: {
     main: "rgb(11, 121, 101)",
-    ink: "rgb(7, 94, 80)",
-    line: "rgb(184, 146, 69)",
-    navBg: "rgb(233, 244, 239)",
+    ink: "rgb(241, 210, 141)",
+    line: "rgb(7, 94, 80)",
+    navBg: "rgb(7, 94, 80)",
     section: "rgb(233, 244, 239)",
     sectionInk: "rgb(7, 94, 80)",
     sectionLine: "rgb(184, 146, 69)",
@@ -29,6 +29,7 @@ const identities = {
     head: "rgb(240, 247, 243)",
     sidebar: "rgb(255, 255, 255)",
     detailBg: "rgb(233, 244, 239)",
+    detailLine: "rgb(184, 146, 69)",
   },
   modern: {
     main: "rgb(52, 70, 171)",
@@ -132,6 +133,13 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           identities[theme].sidebar,
           "Each theme has its own sidebar identity",
         );
+        if (theme === "elegant") {
+          assert.equal(
+            await page.locator(".owner-sidebar .owner-light-brand:visible").count(),
+            1,
+            "Elegant sidebar shows one logo variant, never two stacked marks",
+          );
+        }
         const mainStyle = await page
           .locator(".owner-tabs a.selected")
           .evaluate((e) => ({
@@ -204,7 +212,7 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
               line: getComputedStyle(e).borderBottomColor,
             }));
           assert.equal(detail.bg, identities[theme].detailBg || identities[theme].main);
-          assert.equal(detail.line, identities[theme].line);
+          assert.equal(detail.line, identities[theme].detailLine || identities[theme].line);
         }
         await selected.hover();
         assert.equal(

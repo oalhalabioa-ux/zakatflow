@@ -88,6 +88,28 @@ export function ConsoleIcon({ name }: { name: ConsoleIconName }) {
     </svg>
   );
 }
+export type OwnerActionIconName =
+  | "add" | "save" | "edit" | "refresh" | "cancel" | "previous" | "next"
+  | "approve" | "reject" | "history" | "settings" | "view" | "pause" | "info";
+export function OwnerActionIcon({name}:{name:OwnerActionIconName}) {
+  const paths:Record<OwnerActionIconName,ReactNode> = {
+    add:<path d="M12 5v14M5 12h14"/>,
+    save:<><path d="M4 4h13l3 3v13H4Z"/><path d="M7 4v6h10V4M8 20v-7h8v7"/></>,
+    edit:<><path d="m4 20 4-.8L20 7l-3-3L5 16Z"/><path d="m14 7 3 3"/></>,
+    refresh:<><path d="M20 6v5h-5M4 18v-5h5"/><path d="M5.5 10a7 7 0 0 1 12-3l2.5 4M4 13l2.5 4a7 7 0 0 0 12-3"/></>,
+    cancel:<path d="M5 5l14 14M19 5 5 19"/>,
+    previous:<path d="m15 5-7 7 7 7"/>,
+    next:<path d="m9 5 7 7-7 7"/>,
+    approve:<path d="m4 12 5 5L20 6"/>,
+    reject:<><circle cx="12" cy="12" r="9"/><path d="m8 8 8 8m0-8-8 8"/></>,
+    history:<><path d="M3 12a9 9 0 1 0 3-7M3 4v5h5"/><path d="M12 7v5l4 2"/></>,
+    settings:<><circle cx="12" cy="12" r="3"/><path d="M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1Z"/></>,
+    view:<><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>,
+    pause:<><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 8v8m6-8v8"/></>,
+    info:<><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></>,
+  };
+  return <svg className="owner-elegant-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
 export function shortSubscriptionLabel(
   status: SubscriptionStatus,
   ar: boolean,

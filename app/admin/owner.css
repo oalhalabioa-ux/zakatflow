@@ -1223,7 +1223,7 @@ html[data-owner-theme="elegant"] .owner-plan-form button:not(:disabled) {
   background:var(--owner-deep-action);
   border-color:var(--owner-deep-action);
   color:var(--owner-royal-gold);
-  box-shadow:inset 0 -3px 0 #d6ad58;
+  box-shadow:0 4px 0 #d6ad58;
 }
 html[data-owner-theme="elegant"] .owner-action.primary :is(svg,span),
 html[data-owner-theme="elegant"] .owner-plan-form button :is(svg,span) {
@@ -1320,4 +1320,110 @@ html[data-owner-theme="elegant"] .owner-plan-form button:focus-visible {
 }
 html[data-owner-theme="elegant"] .owner-sidebar .owner-light-brand {
   filter:url(#owner-elegant-logo-colors);
+}
+
+
+/* Elegant sidebar: exactly one logo variant at a time, with consistent rail rhythm. */
+html[data-owner-theme="elegant"] .owner-sidebar:not(.owner-sidebar-collapsed) .owner-full-brand.owner-light-brand {
+  display:block;
+  width:min(100%, 152px);
+  max-height:106px;
+  margin-inline:auto;
+  object-fit:contain;
+}
+html[data-owner-theme="elegant"] .owner-sidebar:not(.owner-sidebar-collapsed) .owner-compact-brand.owner-light-brand {
+  display:none;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-brand-row {
+  min-height:106px;
+  gap:10px;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-original-brand {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-menu-title {
+  margin-top:8px;
+  margin-bottom:12px;
+  padding-inline:4px;
+  color:#637c72;
+}
+html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-brand-row {
+  min-height:66px;
+}
+html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-full-brand.owner-light-brand {
+  display:none;
+}
+html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-compact-brand.owner-light-brand {
+  display:block;
+  width:40px;
+  height:44px;
+  max-width:100%;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-side-links a {
+  min-height:44px;
+  border-radius:10px;
+}
+@media (max-width:850px) {
+  html[data-owner-theme="elegant"] .owner-sidebar .owner-brand-row,
+  html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-brand-row {
+    min-height:58px;
+  }
+  html[data-owner-theme="elegant"] .owner-sidebar .owner-full-brand.owner-light-brand,
+  html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-full-brand.owner-light-brand {
+    display:block;
+    width:100px;
+    max-height:70px;
+  }
+  html[data-owner-theme="elegant"] .owner-sidebar .owner-compact-brand.owner-light-brand,
+  html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-compact-brand.owner-light-brand {
+    display:none;
+  }
+  html[data-owner-theme="elegant"] .owner-sidebar .owner-original-brand {
+    justify-content:flex-start;
+  }
+}
+
+
+/* Elegant-only leading glyphs for standalone admin action links and form submits. */
+html[data-owner-theme="elegant"] .owner-action,
+html[data-owner-theme="elegant"] .owner-plan-form button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+html[data-owner-theme="elegant"] .owner-action::before {
+  content:"";
+  display:inline-block;
+  width:16px;
+  height:16px;
+  flex:none;
+  background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+html[data-owner-theme="elegant"] .owner-plan-form button::before {
+  content:"✓";
+  display:inline-block;
+  font-size:17px;
+  line-height:1;
+  font-weight:750;
+}
+
+
+/* Approved Elegant top navigation: deep emerald selection with pale royal-gold icon/text. */
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected {
+  background:#075e50;
+  color:#f1d28d;
+  border-bottom-color:#075e50;
+  box-shadow:0 4px 0 #d6ad58;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected :is(svg,span) {
+  color:inherit;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected:hover {
+  background:#064e42;
+  color:#f1d28d;
 }

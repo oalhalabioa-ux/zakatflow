@@ -1,6 +1,7 @@
 "use client";
 import OwnerMetrics from "@/app/admin/OwnerMetrics";
 import SubscriptionModal from "./SubscriptionModal";
+import {OwnerActionIcon} from "./OwnerSubscriptionVisuals";
 import { adminSubscriptionError } from "@/lib/subscriptions/admin-errors";
 import { useState, type FormEvent } from "react";
 import {
@@ -83,7 +84,7 @@ export default function PlanManager({
             setOpen(true);
           }}
         >
-          {ar ? "＋ إضافة باقة جديدة" : "＋ Add plan"}
+          <OwnerActionIcon name="add"/> {ar ? "＋ إضافة باقة جديدة" : "＋ Add plan"}
         </button>
       </div>
       <OwnerMetrics
@@ -195,7 +196,7 @@ export default function PlanManager({
                         setError("");
                       }}
                     >
-                      {ar ? "تعديل" : "Edit"}
+                      <OwnerActionIcon name="edit"/> {ar ? "تعديل" : "Edit"}
                     </button>
                   </td>
                 </tr>
@@ -441,7 +442,7 @@ export default function PlanManager({
               </label>
               <div className="owner-plan-actions">
                 <button className="primary" disabled={busy}>
-                  {busy
+                  <OwnerActionIcon name="save"/> {busy
                     ? ar
                       ? "جارٍ الحفظ…"
                       : "Saving…"
@@ -457,7 +458,7 @@ export default function PlanManager({
                     setVersion((v) => v + 1);
                   }}
                 >
-                  {ar ? "إلغاء" : "Cancel"}
+                  <OwnerActionIcon name="cancel"/> {ar ? "إلغاء" : "Cancel"}
                 </button>
               </div>
               {error && (
