@@ -105,6 +105,18 @@ try {
  create function public.is_organization_admin(p_org uuid) returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.organization_members where organization_id=p_org and user_id=auth.uid() and role in ('OWNER','ADMIN') and status='ACTIVE')$$;
  create function public.is_organization_owner(p_org uuid) returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.organizations where id=p_org and owner_user_id=auth.uid())$$;
  `);
+  // Settings/account fixture mirrors the existing self-owned profile/preferences APIs.
+  sql(`alter table public.profiles add column name text default 'QA User',add column phone text,add column base_currency text default 'SAR',add column locale text default 'en',add column calendar_type text default 'GREGORIAN',add column nisab_standard text default 'SILVER',add column zakat_method_id uuid;
+  alter table public.profiles enable row level security;
+  create policy profile_self on public.profiles to authenticated using(id=auth.uid()) with check(id=auth.uid());
+  grant update on public.profiles to authenticated;
+  create table public.user_settings(user_id uuid primary key references public.profiles(id),allocation_method text default 'FIFO',notifications_enabled boolean default true,assessment_reminders boolean default true,theme text default 'system',updated_at timestamptz default now());
+  alter table public.user_settings enable row level security;
+  create policy preferences_self on public.user_settings to authenticated using(user_id=auth.uid()) with check(user_id=auth.uid());
+  grant select,insert,update on public.user_settings to authenticated;
+  alter table public.currencies add column name_ar text,add column name_en text,add column symbol text,add column decimals integer default 2,add column active boolean default true;
+  insert into public.currencies(code) values('USD');grant select on public.currencies to authenticated;
+  create policy org_update on public.organizations for update to authenticated using(owner_user_id=auth.uid()) with check(owner_user_id=auth.uid());`);
   // Use the real invitation RPC definitions, not a test implementation.
   const account = await load(
     "supabase/archive/pre-reconciliation-20261030/20260930150000_account_user_management.sql",
@@ -138,7 +150,7 @@ try {
     assert.ifError(signup.error);
     assert.ok(signup.data.session, "Local fixture requires auto-confirmation");
     const user = signup.data.user;
-    sql(`insert into profiles(id) values('${user.id}');`);
+    sql(`insert into profiles(id) values('${user.id}');insert into user_settings(user_id) values('${user.id}');`);
     clients.push({
       client,
       email,
@@ -523,6 +535,53 @@ try {
       assert.equal(audit.data[0].details.after.revision, 2);
     },
   );
+  await check('settings separates account and users; organization switching preserves subscription scope and account preferences persist',async()=>{
+    const jar=[];
+    const ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>jar,setAll:values=>{for(const item of values){const i=jar.findIndex(x=>x.name===item.name);if(i>=0)jar.splice(i,1);jar.push(item)}}}});
+    assert.ifError((await ssr.auth.signInWithPassword({email:owner.email,password:owner.password})).error);
+    const context=await browser.newContext();await context.addCookies(jar.map(c=>({name:c.name,value:c.value,url:appUrl})));const page=await context.newPage();
+    const second=await fetch(url+'/rest/v1/organizations',{method:'POST',headers:{...headers(owner),Prefer:'return=representation'},body:JSON.stringify({name:'Second institution',owner_user_id:owner.id})});assert.equal(second.status,201);const secondOrg=(await second.json())[0].id;
+    await page.goto(appUrl+'/en/settings?organization='+secondOrg);
+    await page.getByRole('heading',{name:'Organization details',exact:true}).waitFor();
+    await page.getByLabel('Organization name',{exact:true}).waitFor();
+    assert.equal(await page.locator('.subscription-banner').count(),0);
+    assert.equal(await page.locator('.subscription-notice').count(),0);
+    assert.equal(await page.locator('#corp-settings-nav a').count(),3);
+    assert.equal(await page.locator('#corp-settings-nav a[href*="users"]').count(),0);
+    assert.equal(await page.locator('.corp-sidebar-foot a').getAttribute('href'),'/en/account');
+    assert.ok(await page.locator('#corp-primary-nav>a[href*="/users"]').count());
+    await page.getByLabel('Selected organization',{exact:true}).selectOption(org);
+    await page.waitForFunction(()=>document.querySelector('input[required]')?.value==='Trial Institution');
+    await page.getByLabel('Legal name',{exact:true}).fill('Preserved legal organization');
+    await page.getByRole('button',{name:'Save changes',exact:true}).click();
+    await page.getByText('Organization details saved.',{exact:true}).waitFor();
+    await page.reload();await page.getByLabel('Legal name',{exact:true}).waitFor();assert.equal(await page.getByLabel('Legal name',{exact:true}).inputValue(),'Preserved legal organization');
+    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Subscription & plans',exact:true}).click();
+    await page.getByLabel('Subscription status',{exact:true}).waitFor();
+    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'System settings',exact:true}).click();
+    await page.getByRole('heading',{name:'Organization system settings',exact:true}).waitFor();
+    assert.equal(new URL(page.url()).searchParams.get('organization'),org);
+    sql(`update platform_subscriptions set trial_ends_at=now()-interval '1 day' where organization_id='${org}'`);
+    await page.goto(appUrl+'/en/account');
+    await page.getByLabel('Name',{exact:true}).fill('Saved account name');
+    await page.getByLabel('Personal base currency',{exact:true}).selectOption('USD');
+    await page.getByLabel('Time zone',{exact:true}).selectOption('Asia/Riyadh');
+    await page.getByRole('button',{name:'Save changes',exact:true}).click();
+    await page.getByText('Your account preferences were saved.',{exact:true}).waitFor();
+    await page.reload();await page.getByLabel('Name',{exact:true}).waitFor();
+    assert.equal(await page.getByLabel('Name',{exact:true}).inputValue(),'Saved account name');
+    assert.equal(await page.getByLabel('Personal base currency',{exact:true}).inputValue(),'USD');
+    assert.equal(await page.getByLabel('Time zone',{exact:true}).inputValue(),'Asia/Riyadh');
+    const state=(await rpc(owner,'organization_subscription',{p_organization_id:org})).data;assert.equal(state.revision,2);assert.equal(state.can_write,false);
+    sql(`update platform_subscriptions set trial_ends_at=now()+interval '7 days' where organization_id='${org}'`);
+    for(const locale of ['ar','en'])for(const width of [390,1440]){
+      await page.setViewportSize({width,height:1000});await page.goto(appUrl+`/${locale}/settings?organization=${org}`);
+      await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
+    }
+    await context.close();
+  });
   await check(
     "fresh account completes real organization onboarding with a five-seat trial",
     async () => {

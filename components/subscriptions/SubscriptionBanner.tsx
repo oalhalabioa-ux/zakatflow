@@ -29,7 +29,8 @@ export default function SubscriptionBanner({
     pathname = usePathname(),
     [scope] = useWorkspaceScope();
   const [data, setData] = useState<OrganizationSubscription | null>(null),
-    [error, setError] = useState(false);
+    [error, setError] = useState(false),
+    [dismissed, setDismissed] = useState("");
   useEffect(() => {
     if (
       !always &&
@@ -95,6 +96,7 @@ export default function SubscriptionBanner({
       document.removeEventListener("visibilitychange", visible);
     };
   }, [scope, pathname, always]);
+  if (error && !always) return null;
   if (error)
     return (
       <aside className="subscription-banner" role="status">
@@ -109,7 +111,53 @@ export default function SubscriptionBanner({
   const module = routeCapability(pathname),
     moduleLocked =
       !!module && !includesCapability(data.capabilities, "module:" + module);
-  const milestone = data.notifications?.[0]?.milestone;
+  const milestone = data.notifications?.length
+    ? Math.min(...data.notifications.map((n) => n.milestone))
+    : undefined;
+  if (!always) {
+    const days = data.status === "trialing" ? data.days_remaining : undefined;
+    const nearing = days != null && days <= 7;
+    if (data.can_write && !moduleLocked && !nearing) return null;
+    const threshold = days != null ? (days <= 1 ? 1 : days <= 3 ? 3 : 7) : 0;
+    const noticeKey = [data.organization_id, end, threshold].join(":");
+    if (data.can_write && !moduleLocked && dismissed === noticeKey) return null;
+    return (
+      <aside
+        className="subscription-notice"
+        data-read-only={!data.can_write}
+        aria-label={ar ? "حالة الاشتراك" : "Subscription status"}
+        role="status"
+      >
+        <span>
+          {!data.can_write
+            ? ar
+              ? "وضع القراءة والتصدير فقط. بيانات المؤسسة محفوظة."
+              : "Read and export only. Organization data is preserved."
+            : moduleLocked
+              ? ar
+                ? "هذا الموديول متاح للقراءة والتصدير؛ الكتابة تتطلب ترقية الباقة."
+                : "This module is available to read and export; writing requires a plan upgrade."
+              : ar
+                ? `تنتهي التجربة خلال ${days} أيام.`
+                : `Your trial ends in ${days} days.`}
+        </span>
+        <Link
+          href={`/${locale}/billing?organization=${data.organization_id ?? ""}`}
+        >
+          {ar ? "تفاصيل الاشتراك" : "Subscription details"}
+        </Link>
+        {data.can_write && !moduleLocked && (
+          <button
+            type="button"
+            aria-label={ar ? "إخفاء التنبيه" : "Dismiss reminder"}
+            onClick={() => setDismissed(noticeKey)}
+          >
+            ×
+          </button>
+        )}
+      </aside>
+    );
+  }
   return (
     <aside
       className="subscription-banner"

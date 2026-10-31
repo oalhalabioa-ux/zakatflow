@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import {isSettingsPage} from './settings/navigation';
 import type {ComponentProps} from 'react';
 import {useEffect,useState} from 'react';
 import {useWorkspaceScope} from '../hooks/useWorkspaceScope';
@@ -11,7 +12,8 @@ export default function WorkspaceLink({href,...props}:ComponentProps<typeof Link
  let target=href;
  if(typeof href==='string'&&/^\/(ar|en)\//.test(href)){
   const [base,query='']=href.split('?'),page=base.split('/').slice(2).join('/'),q=new URLSearchParams(query);
-  if(isWorkspaceScopePage(page)){if(!q.has('scope'))q.set('scope',company.scope??scope);if(company.id&&!q.has('organization'))q.set('organization',company.id);if(!q.has('level'))q.set('level',company.group?'GROUP':'COMPANY');target=base+'?'+q;}
+  if(isSettingsPage(page)){if(company.id&&!q.has('organization'))q.set('organization',company.id);target=base+(q.size?'?'+q:'');}
+  else if(isWorkspaceScopePage(page)){if(!q.has('scope'))q.set('scope',company.scope??scope);if(company.id&&!q.has('organization'))q.set('organization',company.id);if(!q.has('level'))q.set('level',company.group?'GROUP':'COMPANY');target=base+'?'+q;}
  }
  return <Link {...props} href={target}/>;
 }
