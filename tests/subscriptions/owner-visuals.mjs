@@ -44,7 +44,7 @@ export async function ownerVisuals({browser,cookies,appUrl,root}){
     const table=page.locator(id==='institutions'?'.owner-institution-table':'.owner-requests-table');assert.equal(await table.evaluate(e=>getComputedStyle(e.querySelector('tbody tr')).display),'grid');
     assert.ok(await table.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'Mobile records fit as cards');
     const contacts=await table.locator('td[data-label]').count();assert.ok(contacts>0,'Cards retain their field labels');
-    const button=table.getByRole('button',{name:id==='institutions'?'إدارة':'عرض الطلب',exact:true}).first();await button.click();
+    const button=table.getByRole('button',{name:id==='institutions'?'إدارة':'عرض الطلب',exact:true}).first();assert.ok((await button.boundingBox()).height>=44,'Mobile action touch target is at least 44px');await button.click();
     const detail=page.locator(id==='institutions'?'#owner-institution-details':'#owner-activation-details');await detail.waitFor();assert.ok((await detail.boundingBox()).width<=width-20);
    }
    if([320,768,1920].includes(width))await page.screenshot({path:new URL(`tests/subscriptions/screenshots/owner-${id}-ar-${width}.png`,root).pathname,fullPage:true});
