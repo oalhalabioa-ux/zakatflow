@@ -30,8 +30,8 @@ export async function middleware(request: NextRequest) {
     // Claims verification avoids a redundant Auth user-record request on
     // asymmetric JWT projects. Protected pages still check the current user
     // and platform_owner role against the database before returning data.
-    const {data: {claims}, error: claimsError} = await supabase.auth.getClaims();
-    if (claimsError || !claims?.sub) {
+    const {data: claimsData, error: claimsError} = await supabase.auth.getClaims();
+    if (claimsError || !claimsData?.claims?.sub) {
       const login = new URL(`/${locale}/login`, publicUrl);
       login.searchParams.set('next', request.nextUrl.pathname + request.nextUrl.search);
       const redirect = NextResponse.redirect(login);
