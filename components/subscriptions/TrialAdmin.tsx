@@ -624,7 +624,7 @@ export default function TrialAdmin({
                 setDefaultsOpen(true);
               }}
             >
-              {ar
+              <OwnerActionIcon name="settings"/> {ar
                 ? "إعداد التجربة للعملاء الجدد"
                 : "Trial default for new organizations"}
             </button>
@@ -652,7 +652,7 @@ export default function TrialAdmin({
                   setInlineActivation((value) => !value);
                 }}
               >
-                {ar ? "إضافة اشتراك" : "Add subscription"}
+                <OwnerActionIcon name="add"/> {ar ? "إضافة اشتراك" : "Add subscription"}
               </button>
             </header>
             <p>
@@ -808,7 +808,7 @@ export default function TrialAdmin({
                       setEditing(true);
                     }}
                   >
-                    {ar
+                    <OwnerActionIcon name="edit"/> {ar
                       ? "تعديل / تجديد الاشتراك"
                       : "Modify / renew subscription"}
                   </button>
@@ -833,7 +833,7 @@ export default function TrialAdmin({
                         setEditing(true);
                       }}
                     >
-                      {selected.entitlement.status === "suspended"
+                      <OwnerActionIcon name="pause"/> {selected.entitlement.status === "suspended"
                         ? ar
                           ? "رفع التعليق"
                           : "Resume"
