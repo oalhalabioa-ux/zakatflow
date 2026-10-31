@@ -114,3 +114,239 @@ html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-sidebar
 .owner-shell :is(select,select option,select optgroup){background-color:var(--owner-panel);color:var(--owner-ink)}
 html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-shell select{color-scheme:light}
 html:is([data-owner-theme="elegant"],[data-owner-theme="yaqeen"]) .owner-shell select{color-scheme:dark}
+
+
+/* Yaqeen Elegant v2: scoped owner-only pearl/champagne design system.
+   Other owner themes and customer workspaces remain unchanged. */
+html[data-owner-theme="elegant"] .owner-shell {
+  --owner-bg:#F3F5F7;
+  --owner-panel:#FFFFFF;
+  --owner-ink:#243447;
+  --owner-muted:#657484;
+  --owner-accent:#C6A35D;
+  --owner-border:#DCE3EA;
+  --owner-tab-bg:#FFFFFF;
+  --owner-tab-text:#526478;
+  --owner-tab-active-bg:#F5EBD6;
+  --owner-tab-active-text:#10243A;
+  --owner-primary:#10243A;
+  --owner-soft-gold:#F5EBD6;
+  --owner-soft-gray:#E9EDF1;
+  --owner-soft-green:#E3F3E9;
+  --owner-success:#267451;
+  --owner-soft-danger:#FBECEC;
+  --owner-danger:#A34D4D;
+  color-scheme:light;
+}
+html[data-owner-theme="elegant"] .owner-sidebar {
+  background:#10243A;
+  border-color:#ffffff20;
+  color:#F8FAFC;
+}
+html[data-owner-theme="elegant"] .owner-sidebar :is(.owner-brand,.owner-foot,.owner-menu-title) {color:#E5CF9B}
+html[data-owner-theme="elegant"] .owner-sidebar nav a {color:#DFE7F0}
+html[data-owner-theme="elegant"] .owner-sidebar nav a:hover {background:#233B53;color:#FFFFFF}
+html[data-owner-theme="elegant"] .owner-sidebar nav a.selected {
+  background:#30465C;
+  color:#FFFFFF;
+  box-shadow:inset -3px 0 0 #C6A35D;
+}
+html[data-owner-theme="elegant"] .owner-sidebar-toggle {color:#F8FAFC;border-color:#ffffff50}
+html[data-owner-theme="elegant"] .owner-content {background:#F3F5F7}
+html[data-owner-theme="elegant"] .owner-top h1,
+html[data-owner-theme="elegant"] .owner-intro h2 {color:#10243A}
+html[data-owner-theme="elegant"] .owner-kpis article,
+html[data-owner-theme="elegant"] .owner-panels article,
+html[data-owner-theme="elegant"] .owner-table-wrap,
+html[data-owner-theme="elegant"] .owner-plan-form {
+  background:#FFFFFF;
+  border:1px solid #DCE3EA;
+  border-radius:12px;
+  box-shadow:0 4px 18px #10243A08;
+}
+html[data-owner-theme="elegant"] .owner-kpis strong {color:#10243A}
+html[data-owner-theme="elegant"] .owner-placeholder {border-color:#DCE3EA}
+html[data-owner-theme="elegant"] .owner-tag {
+  background:#F5EBD6;
+  border-color:#E7D4AC;
+  color:#70541F;
+}
+html[data-owner-theme="elegant"] .owner-navigation-row>.owner-tabs {
+  border:1px solid #DCE3EA;
+  background:#FFFFFF;
+  box-shadow:0 2px 10px #10243A05;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a {
+  position:relative;
+  background:transparent;
+  color:#526478;
+  border-radius:8px;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a:hover {
+  background:#F3F5F7;
+  color:#10243A;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected,
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a[aria-current="page"] {
+  background:#F5EBD6;
+  color:#10243A;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected::after,
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a[aria-current="page"]::after {
+  content:"";
+  position:absolute;
+  inset-inline:12px;
+  bottom:0;
+  height:3px;
+  border-radius:3px;
+  background:#C6A35D;
+}
+html[data-owner-theme="elegant"] .owner-navigation-row>.owner-tabs-theme {
+  border-color:#DCE3EA;
+  background:#FFFFFF;
+}
+html[data-owner-theme="elegant"] .owner-theme-picker button.active {
+  background:#F5EBD6;
+  color:#10243A;
+  border-color:#E7D4AC;
+}
+html[data-owner-theme="elegant"] .owner-theme-picker button:hover {
+  background:#E9EDF1;
+  color:#10243A;
+}
+html[data-owner-theme="elegant"] .owner-users-table th {
+  background:#F3F5F7;
+  color:#193B60;
+}
+html[data-owner-theme="elegant"] .owner-users-table tbody tr:hover {background:#F8FAFC}
+html[data-owner-theme="elegant"] .owner-pagination a {
+  color:#193B60;
+  border-color:#DCE3EA;
+  background:#FFFFFF;
+}
+html[data-owner-theme="elegant"] .owner-plan-form :is(input:not([type=checkbox]),select),
+html[data-owner-theme="elegant"] .owner-shell :is(input:not([type=checkbox]),select,textarea) {
+  background:#FFFFFF;
+  color:#243447;
+  border-color:#C9D3DE;
+  color-scheme:light;
+}
+html[data-owner-theme="elegant"] .owner-shell select :is(option,optgroup) {
+  background:#FFFFFF;
+  color:#243447;
+}
+html[data-owner-theme="elegant"] .owner-plan-form button {
+  background:#10243A;
+  color:#FFFFFF;
+}
+html[data-owner-theme="elegant"] .owner-shell :is(input[type=checkbox],input[type=radio]) {
+  accent-color:#10243A;
+}
+html[data-owner-theme="elegant"] .owner-shell :is(a,button,input,select,textarea):focus-visible {
+  outline:2px solid #C6A35D;
+  outline-offset:2px;
+}
+/* Subscription management uses the same owner palette, without changing customer settings. */
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel {
+  --sub-surface:#FFFFFF;
+  --sub-ink:#243447;
+  --sub-muted:#657484;
+  --sub-line:#DCE3EA;
+  --sub-gold:#C6A35D;
+  --sub-navy:#10243A;
+  background:#FFFFFF;
+  color:#243447;
+  border-color:#DCE3EA;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel :is(.console-card,.subscription-metrics article,.pricing-card) {
+  background:#FFFFFF;
+  color:#243447;
+  border-color:#DCE3EA;
+  box-shadow:0 3px 14px #10243A07;
+}
+html[data-owner-theme="elegant"] .owner-shell .console-tabs {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  background:#F3F5F7;
+  border:1px solid #DCE3EA;
+  padding:6px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-tabs button {
+  flex:1 1 160px;
+  min-height:40px;
+  background:transparent;
+  color:#526478;
+  border:0;
+  border-bottom:3px solid transparent;
+  border-radius:8px 8px 4px 4px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-tabs button:hover {
+  background:#E9EDF1;
+  color:#10243A;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-tabs [aria-pressed="true"] {
+  background:#F5EBD6;
+  color:#10243A;
+  border-bottom-color:#C6A35D;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel :is(button,.primary) {
+  background:#10243A;
+  color:#FFFFFF;
+  border:1px solid #10243A;
+  border-radius:8px;
+  min-height:38px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel :is(button,.primary):hover:not(:disabled) {
+  filter:brightness(1.1);
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel button.danger {
+  background:#FBECEC;
+  color:#A34D4D;
+  border-color:#EBC9C9;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel button.danger:hover:not(:disabled) {
+  background:#F6DEDE;
+  filter:none;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .current-plan {
+  background:#E3F3E9;
+  color:#267451;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel :is(.console-notice,.pricing-note,.plan-activation) {
+  background:#F5EBD6;
+  color:#70541F;
+  border-color:#E7D4AC;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .quote-strip {
+  background:#F5EBD6;
+  color:#10243A;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel th {
+  background:#F3F5F7;
+  color:#193B60;
+  border-color:#DCE3EA;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel tr[aria-selected="true"] {background:#EAF2FA}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel tbody tr:hover {background:#F8FAFC}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel :is(input,select,textarea) {
+  background:#FFFFFF;
+  color:#243447;
+  border-color:#C9D3DE;
+  color-scheme:light;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel select :is(option,optgroup) {
+  background:#FFFFFF;
+  color:#243447;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel :is(input[type=checkbox],input[type=radio]) {accent-color:#10243A}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel button.request-reference {
+  background:transparent;
+  color:#193B60;
+  border:0;
+  min-height:0;
+}
+@media(max-width:650px) {
+  html[data-owner-theme="elegant"] .owner-shell .console-tabs {flex-wrap:nowrap;overflow-x:auto}
+  html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-tabs button {flex:0 0 auto;min-width:130px}
+}
