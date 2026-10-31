@@ -57,7 +57,7 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,stal
      await heading(ar?'تأكيد البريد الإلكتروني':'Verify email address');
      assert.equal((await context.cookies()).filter(c=>/-auth-token(?:\.\d+)?$/.test(c.name)).length,0);
      const posted=page.waitForRequest(r=>new URL(r.url()).pathname==='/auth/confirm'&&r.method()==='POST');
-     await page.getByRole('button',{name:ar?'تأكيد البريد الإلكتروني':'Verify email address',exact:true}).click();
+     await page.getByRole('button',{name:ar?'تأكيد البريد الإلكتروني':'Verify email address',exact:true}).click({timeout:30000});
      assert.equal((await posted).headers().origin,appUrl);
      await page.waitForURL(account);await heading(ar?'حسابي':'My Account');
      await page.reload();await heading(ar?'حسابي':'My Account');await signout();
