@@ -574,11 +574,19 @@ try {
     assert.equal(await page.getByLabel('Time zone',{exact:true}).inputValue(),'Asia/Riyadh');
     const state=(await rpc(owner,'organization_subscription',{p_organization_id:org})).data;assert.equal(state.revision,2);assert.equal(state.can_write,false);
     sql(`update platform_subscriptions set trial_ends_at=now()+interval '7 days' where organization_id='${org}'`);
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/account-en-1440.png',root).pathname,fullPage:true});
     for(const locale of ['ar','en'])for(const width of [390,1440]){
       await page.setViewportSize({width,height:1000});await page.goto(appUrl+`/${locale}/settings?organization=${org}`);
       await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
+    }
+    const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
+    for(const [theme,label] of [['yaqeen-business','Yaqeen Business'],['elegant','Elegant'],['modern','Modern'],['classic','Classic']]){
+      await page.getByRole('group',{name:'Choose design',exact:true}).getByRole('button',{name:label,exact:true}).click();
+      const colors=await page.locator('.settings-card').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
+      for(const c of colors){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings card contrast '+JSON.stringify(c));}
+      await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
     }
     await context.close();
   });

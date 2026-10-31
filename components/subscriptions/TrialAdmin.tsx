@@ -1,7 +1,7 @@
 "use client";
 import PlanManager from "./PlanManager";
-import type { Plan } from "@/lib/subscriptions/catalog";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {money,type Plan } from "@/lib/subscriptions/catalog";
+import { useCallback, useEffect, useState, useRef, type FormEvent } from "react";
 import {
   displaySubscriptionDate,
   subscriptionLabel,
@@ -39,7 +39,9 @@ export default function TrialAdmin({
     [audit, setAudit] = useState<unknown>(null),
     [message, setMessage] = useState(""),
     [action, setAction] = useState("extend");
+  const requestVersion=useRef(0);
   const load = useCallback(async () => {
+    const version=++requestVersion.current;
     try {
       const r = await fetch(
         "/api/admin/trials?" +
@@ -48,16 +50,18 @@ export default function TrialAdmin({
       );
       const b = await r.json();
       if (!r.ok) throw new Error(b.error);
+      if(version!==requestVersion.current)return;
       setRegister(b);
       setError("");
     } catch (e) {
+      if(version!==requestVersion.current)return;
       setRegister(null);
       setError(e instanceof Error ? e.message : "REQUEST_FAILED");
     }
   }, [search, status, offset]);
   useEffect(() => {
     const t = setTimeout(load, 250);
-    return () => clearTimeout(t);
+    return () => {clearTimeout(t);requestVersion.current++};
   }, [load]);
   async function submit(event: FormEvent<HTMLFormElement>, defaults = false) {
     event.preventDefault();
@@ -267,7 +271,16 @@ export default function TrialAdmin({
                           type="button"
                           disabled={busy}
                           onClick={() => {
-                            setAction(row.entitlement.status==='suspended'?'resume':row.entitlement.trial_started_at&&['trialing','expired'].includes(row.entitlement.status)?'extend':'activate');
+                            setAction(
+                              row.entitlement.status === "suspended"
+                                ? "resume"
+                                : row.entitlement.trial_started_at &&
+                                    ["trialing", "expired"].includes(
+                                      row.entitlement.status,
+                                    )
+                                  ? "extend"
+                                  : "activate",
+                            );
                             setSelected(row);
                             setAudit(null);
                           }}
@@ -436,7 +449,7 @@ export default function TrialAdmin({
                       .filter((p) => p.is_active && p.code !== "trial_30d")
                       .map((p) => (
                         <option value={p.id} key={p.id}>
-                          {ar ? p.name_ar : (p.name_en ?? p.name_ar)}
+                          {ar ? p.name_ar : (p.name_en ?? p.name_ar)} · {p.billing_interval==="yearly"?(ar?"سنوي":"Yearly"):(ar?"شهري":"Monthly")} · {money(p.price_amount,p.currency,locale)}
                         </option>
                       ))}
                   </select>
