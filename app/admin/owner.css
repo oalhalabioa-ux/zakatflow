@@ -1309,3 +1309,15 @@ html[data-owner-theme="elegant"] .owner-plan-form button:focus-visible {
   outline:2px solid #b89245;
   outline-offset:3px;
 }
+
+
+/* Recolor only Elegant's logo rendering; original assets remain untouched. */
+.owner-elegant-logo-defs {
+  position:absolute;
+  width:0;
+  height:0;
+  pointer-events:none;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-light-brand {
+  filter:url(#owner-elegant-logo-colors);
+}
