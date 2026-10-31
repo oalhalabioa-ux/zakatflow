@@ -142,6 +142,7 @@ export default function TrialAdmin({
     }
   }
   async function history(id: string) {
+    setDetailTab("history");
     setAudit(null);
     try {
       const r = await fetch("/api/admin/trials?audit=" + id, {

@@ -767,3 +767,4 @@
   }
 }
 .subscription-panel .danger{color:#c22d36;border-color:#c22d36;background:transparent}.decision-actions{justify-content:flex-start}.subscription-panel .decision-actions button{flex:1;white-space:normal;min-width:100px}.console-tabs button>span[aria-hidden]{font-size:1.3em}
+.pricing-card>p{margin:8px 0}.pricing-card h2{margin:0 0 10px}.pricing-card ul{margin:12px 0 20px;line-height:1.9}.pricing-card>.plan-badge{align-self:flex-start}.pricing-card:has(.current-plan){border-width:2px;box-shadow:0 6px 24px #98752918}.subscription-panel button:disabled{cursor:not-allowed}

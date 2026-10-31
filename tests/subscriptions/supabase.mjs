@@ -498,6 +498,11 @@ try {
         .getByRole("row")
         .filter({ hasText: "Trial Institution" });
       await row.getByRole("button", { name: "Manage", exact: true }).click();
+      await page.screenshot({path:new URL('tests/subscriptions/screenshots/owner-institution-detail.png',root).pathname,fullPage:true});
+      await page.locator('.institution-detail').getByRole('button',{name:'Members',exact:true}).click();await page.locator('.member-mini').first().waitFor();assert.equal(await page.locator('.member-mini').count(),5);
+      await page.screenshot({path:new URL('tests/subscriptions/screenshots/owner-institution-members.png',root).pathname,fullPage:true});
+      await page.locator('.institution-detail').getByRole('button',{name:'Subscription',exact:true}).click();
+
       await page
         .getByLabel("Administrative reason", { exact: true })
         .fill("Browser acceptance extension");
