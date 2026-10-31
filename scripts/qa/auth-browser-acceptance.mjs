@@ -60,7 +60,21 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,stal
      await page.getByRole('button',{name:ar?'تأكيد البريد الإلكتروني':'Verify email address',exact:true}).click({timeout:30000});
      assert.equal((await posted).headers().origin,appUrl);
      await page.waitForURL(account);await heading(ar?'حسابي':'My account');
-     phase='account reload';await page.reload();await heading(ar?'حسابي':'My account');phase='account signout button';try{await page.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).waitFor({state:'visible',timeout:30000})}catch(e){const state=await page.evaluate(()=>({loading:!!document.querySelector('[role="status"]'),retry:!!document.querySelector('.account-workspace button'),alert:!!document.querySelector('[role="alert"]'),message:document.querySelector('.account-workspace [role="alert"]')?.textContent?.trim()?.slice(0,100)}));throw Error('account UI did not reach loaded state '+JSON.stringify(state)+'; '+e.name)}await signout();phase='signed-out account redirect';
+     phase='account reload';await page.reload();await heading(ar?'حسابي':'My account');
+     phase='account settings data';
+     await page.getByLabel(ar?'الاسم':'Name',{exact:true}).waitFor();
+     assert.equal(await page.locator('.account-workspace input[type=email]').inputValue(),email);
+     assert.equal(await page.locator('form select').last().inputValue(),'FIFO');
+     assert.equal(await page.locator('.account-workspace [role="alert"]').count(),0);
+     // Existing signup trigger creates only profiles; saving must provision only this user's settings.
+     await page.getByLabel(ar?'الاسم':'Name',{exact:true}).fill('Account acceptance');
+     const saved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/settings'&&r.request().method()==='PUT');
+     await page.getByRole('button',{name:ar?'حفظ التغييرات':'Save changes',exact:true}).click();
+     assert.equal((await saved).status(),200);
+     await page.locator('.account-workspace [role="status"]').waitFor();
+     await page.reload();await page.getByLabel(ar?'الاسم':'Name',{exact:true}).waitFor();
+     assert.equal(await page.getByLabel(ar?'الاسم':'Name',{exact:true}).inputValue(),'Account acceptance');
+     await signout();phase='signed-out account redirect';
      await page.goto(account);await page.waitForURL(u=>u.pathname===`/${locale}/login`);
     });
     await run('wrong password, correct password and remembered email only',async()=>{
