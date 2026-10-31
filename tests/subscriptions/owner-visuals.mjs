@@ -416,5 +416,73 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
     ).pathname,
     fullPage: true,
   });
+  // The shared shell and record-card rules are verified on every protected owner page.
+  for (const locale of ["ar", "en"]) {
+    for (const route of [
+      "",
+      "/users",
+      "/companies",
+      "/subscriptions",
+      "/payments",
+      "/analytics",
+      "/settings",
+    ]) {
+      await page.setViewportSize({ width: 1366, height: 1000 });
+      await page.goto(appUrl + "/admin" + route + "?lang=" + locale);
+      await page.locator(".owner-top h1").waitFor();
+      for (const [theme, arLabel, enLabel] of [
+        ["yaqeen", "يقين الأساسي", "Yaqeen"],
+        ["elegant", "الأنيق", "Elegant"],
+        ["modern", "العصري", "Modern"],
+        ["classic", "الكلاسيكي", "Classic"],
+      ]) {
+        await page
+          .getByRole("button", {
+            name: locale === "ar" ? arLabel : enLabel,
+            exact: true,
+          })
+          .click();
+        await page.waitForFunction(
+          (theme) => document.documentElement.dataset.ownerTheme === theme,
+          theme,
+        );
+        for (const width of [1366, 390]) {
+          await page.setViewportSize({ width, height: 1000 });
+          assert.ok(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth,
+            ),
+            "Admin shell overflow " +
+              route +
+              " " +
+              locale +
+              " " +
+              theme +
+              " " +
+              width,
+          );
+          const language = page.locator(".owner-language-control");
+          assert.ok((await language.boundingBox()).height >= 40);
+          if (width === 390) {
+            for (const label of await page
+              .locator(".owner-users-table td")
+              .evaluateAll((items) => items.map((e) => e.dataset.label)))
+              assert.ok(
+                label,
+                "Mobile administrative records have field labels",
+              );
+          }
+          if (locale === "ar" && theme === "yaqeen" && width === 1366)
+            await page.screenshot({
+              path: new URL(
+                `tests/subscriptions/screenshots/owner-page-${route.slice(1) || "home"}-A.png`,
+                root,
+              ).pathname,
+              fullPage: true,
+            });
+        }
+      }
+    }
+  }
   await context.close();
 }

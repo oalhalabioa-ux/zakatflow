@@ -385,6 +385,7 @@ html[data-owner-theme="classic"] .owner-shell {
   padding: 7px 9px;
   border-radius: 5px;
   color: var(--owner-ink);
+  background: var(--owner-panel);
   font-size: 12px;
   white-space: nowrap;
   text-decoration: none;
@@ -394,7 +395,7 @@ html[data-owner-theme="classic"] .owner-shell {
   background: var(--owner-bg);
 }
 .owner-tabs a.selected {
-  background: transparent;
+  background: var(--owner-panel);
   color: var(--owner-primary);
   border-bottom-color: var(--owner-accent);
   font-weight: 750;
