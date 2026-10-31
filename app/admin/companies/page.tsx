@@ -20,7 +20,7 @@ export default async function CompaniesPage({searchParams}:{searchParams:Promise
  const page=Number.isSafeInteger(requested)?Math.max(1,Math.min(requested,10000)):1;
  const {data,error:loadError}=await db.rpc('owner_list_organizations',{p_page:page,p_per_page:30});
  const organizations=(data||[]) as Organization[];
- const date=(value:string)=>new Date(value).toLocaleDateString(locale==='ar'?'ar-SA':'en-GB',{year:'numeric',month:'short',day:'numeric'});
+ const date=(value:string)=>new Date(value).toLocaleDateString(locale==='ar'?'ar-SA-u-ca-gregory-nu-latn':'en-GB',{year:'numeric',month:'short',day:'numeric'});
  return <main className="owner-shell" dir={locale==='ar'?'rtl':'ltr'}><OwnerSidebar locale={locale}/><section className="owner-content"><OwnerNavigation locale={locale}/>
  <header className="owner-top"><div><Link href={ownerHref('/admin',locale)}>{translate("← لوحة المالك")}</Link><h1>{translate("إدارة الشركات")}</h1><p>{translate("سجل المؤسسات الفعلي — عرض فقط")}</p></div></header>
  <div className="owner-intro"><h2>{translate("الشركات المسجلة")}</h2><p>{translate("تظهر هنا المؤسسات المسجلة فعلياً في المنصة.")}</p></div>

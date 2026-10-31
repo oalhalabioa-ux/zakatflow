@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireUser } from "@/services/auth";
 import { isSubscriptionSameOrigin } from "../../../../lib/subscriptions/security";
 import { subscriptionError } from "../../../../lib/subscriptions/model";
-const input = z
+const trialAdminInput = z
   .object({
     action: z.enum(["extend", "activate", "suspend", "resume", "defaults"]),
     reason: z.string().trim().min(5).max(1000),
@@ -14,7 +14,36 @@ const input = z
     plan_id: z.uuid().optional(),
     max_users: z.number().int().min(1).max(100000).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((b, ctx) => {
+    if (b.action === "defaults") {
+      if (b.days == null)
+        ctx.addIssue({
+          code: "custom",
+          path: ["days"],
+          message: "TRIAL_DAYS_REQUIRED",
+        });
+    } else if (!b.organization_id)
+      ctx.addIssue({
+        code: "custom",
+        path: ["organization_id"],
+        message: "ORGANIZATION_REQUIRED",
+      });
+    if (b.action === "extend" && b.days == null)
+      ctx.addIssue({
+        code: "custom",
+        path: ["days"],
+        message: "TRIAL_DAYS_REQUIRED",
+      });
+    if (b.action === "activate")
+      for (const key of ["plan_id", "until", "max_users"] as const)
+        if (b[key] == null)
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: "PAID_SUBSCRIPTION_DETAILS_REQUIRED",
+          });
+  });
 export async function GET(request: Request) {
   try {
     const q = new URL(request.url).searchParams;
@@ -42,7 +71,7 @@ export async function POST(request: Request) {
   if (!isSubscriptionSameOrigin(request))
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   try {
-    const b = input.parse(await request.json());
+    const b = trialAdminInput.parse(await request.json());
     const { supabase } = await requireUser();
     const { data, error } = await supabase.rpc("owner_manage_trial", {
       p_action: b.action,

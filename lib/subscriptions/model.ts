@@ -67,6 +67,8 @@ export function subscriptionLabel(status: SubscriptionStatus, ar: boolean) {
   return names[status]?.[ar ? 0 : 1] ?? status;
 }
 export function subscriptionError(error: unknown) {
+  if (error && typeof error === "object" && "issues" in error)
+    return { error: "INVALID_INPUT", status: 400 };
   const message =
     error && typeof error === "object" && "message" in error
       ? String(error.message)
