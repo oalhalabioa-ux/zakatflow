@@ -675,6 +675,7 @@ export default function TrialAdmin({
                 {ar ? "الإجراء" : "Action"}
                 <select
                   name="action"
+                  aria-label={ar ? "الإجراء" : "Action"}
                   value={action}
                   onChange={(e) => setAction(e.target.value)}
                   required
