@@ -190,6 +190,7 @@ export default function AccountPage() {
               <label>
                 {ar ? "لغة الواجهة" : "Interface language"}
                 <select
+                  aria-label={ar?'لغة الواجهة':'Interface language'}
                   value={profile.locale}
                   disabled={busy}
                   onChange={(e) =>
@@ -205,6 +206,7 @@ export default function AccountPage() {
                   ? "العملة الأساسية لحسابك الشخصي"
                   : "Personal base currency"}
                 <select
+                  aria-label={ar?'العملة الأساسية لحسابك الشخصي':'Personal base currency'}
                   value={profile.base_currency}
                   disabled={busy}
                   onChange={(e) =>
@@ -223,6 +225,7 @@ export default function AccountPage() {
               <label>
                 {ar ? "التقويم" : "Calendar"}
                 <select
+                  aria-label={ar?'التقويم':'Calendar'}
                   value={profile.calendar_type}
                   disabled={busy}
                   onChange={(e) =>
@@ -238,6 +241,7 @@ export default function AccountPage() {
               <label>
                 {ar ? "المنطقة الزمنية" : "Time zone"}
                 <select
+                  aria-label={ar?'المنطقة الزمنية':'Time zone'}
                   value={profile.timezone || "UTC"}
                   disabled={busy}
                   onChange={(e) =>
@@ -263,6 +267,7 @@ export default function AccountPage() {
               <label>
                 {ar ? "معيار نصاب الزكاة" : "Zakat nisab standard"}
                 <select
+                  aria-label={ar?'معيار نصاب الزكاة':'Zakat nisab standard'}
                   value={profile.nisab_standard}
                   disabled={busy}
                   onChange={(e) =>
@@ -276,6 +281,7 @@ export default function AccountPage() {
               <label>
                 {ar ? "طريقة تخصيص العمليات" : "Allocation method"}
                 <select
+                  aria-label={ar?'طريقة تخصيص العمليات':'Allocation method'}
                   value={preferences.allocation_method}
                   disabled={busy}
                   onChange={(e) =>

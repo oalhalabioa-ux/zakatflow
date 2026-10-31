@@ -547,6 +547,7 @@ try {
     assert.equal(await page.locator('.subscription-banner').count(),0);
     assert.equal(await page.locator('.subscription-notice').count(),0);
     assert.equal(await page.locator('#corp-settings-nav a').count(),3);
+    assert.ok((await page.locator('#corp-settings-nav a[href*="/billing"]').getAttribute('href')).includes('organization='+secondOrg));
     assert.equal(await page.locator('#corp-settings-nav a[href*="users"]').count(),0);
     assert.equal(await page.locator('.corp-sidebar-foot a').getAttribute('href'),'/en/account');
     assert.ok(await page.locator('#corp-primary-nav>a[href*="/users"]').count());
