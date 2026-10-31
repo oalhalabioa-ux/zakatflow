@@ -561,7 +561,7 @@ try {
     await page.locator('[data-plan="advanced_monthly"]').getByRole('button',{name:'طلب تفعيل الباقة',exact:true}).click();
     const dialog=page.getByRole('dialog',{name:'طلب تفعيل باقة',exact:true});await dialog.waitFor();await dialog.getByLabel('رقم التواصل',{exact:true}).fill('+966500000000');await dialog.getByLabel('ملاحظات الطلب',{exact:true}).fill('Browser reviewed activation');
     assert.equal(await dialog.locator('input[type="radio"]').nth(1).isDisabled(),true);
-    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-request-modal.png',root).pathname,fullPage:true});
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-request-modal.png',root).pathname,fullPage:false});
     const sent=page.waitForResponse(r=>r.url()===appUrl+'/api/subscriptions/requests'&&r.request().method()==='POST');await dialog.getByRole('button',{name:'إرسال طلب التفعيل',exact:true}).click();const response=await sent;assert.equal(response.status(),200);const request=await response.json();
     assert.equal(request.quote.price_amount,399);assert.equal((await rpc(owner,'organization_subscription',{p_organization_id:target})).data.status,'trialing');
     await page.goto(appUrl+'/admin/subscriptions?lang=en');await page.getByRole('button',{name:'Activation requests',exact:true}).click();
@@ -606,7 +606,7 @@ try {
     await vatDialog.getByLabel('Registered name',{exact:true}).fill('QA registered organization');
     await vatDialog.getByRole('button',{name:'Save settings',exact:true}).click();await page.getByText('Invoicing settings saved.',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();await vatDialog.waitFor();assert.equal(await vatDialog.getByLabel('Registered name',{exact:true}).inputValue(),'QA registered organization');
-    await page.screenshot({path:new URL('tests/subscriptions/screenshots/system-zatca-modal.png',root).pathname,fullPage:true});await page.keyboard.press('Escape');
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/system-zatca-modal.png',root).pathname,fullPage:false});await page.keyboard.press('Escape');
 
     sql(`update platform_subscriptions set trial_ends_at=now()-interval '1 day' where organization_id='${org}'`);
     await page.goto(appUrl+'/en/account');
@@ -640,6 +640,14 @@ try {
       const tabs=await page.locator('.settings-tabs a').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(el.parentElement).backgroundColor:getComputedStyle(el).backgroundColor})));
       for(const c of tabs){assert.equal(c.fg,'rgb(255, 255, 255)');const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
+      await page.goto(appUrl+'/en/settings/system?organization='+org);await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
+      const modal=page.getByRole('dialog',{name:'E-invoicing & ZATCA settings',exact:true});await modal.waitFor();
+      const box=await modal.boundingBox();const viewport=page.viewportSize();assert.ok(Math.abs(box.x+box.width/2-viewport.width/2)<2,'System modal must be centered');assert.ok(box.x>=10&&box.x+box.width<=viewport.width-10);
+      const surfaces=await page.locator('.system-settings .console-card,dialog[open].subscription-modal').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
+      for(const c of surfaces){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' system surface contrast '+JSON.stringify(c));}
+      await page.screenshot({path:new URL(`tests/subscriptions/screenshots/system-modal-${theme}.png`,root).pathname,fullPage:false});await page.keyboard.press('Escape');
+      await page.goto(appUrl+'/en/settings?organization='+org);await page.getByLabel('Organization name',{exact:true}).waitFor();
+
     }
     await context.close();
   });

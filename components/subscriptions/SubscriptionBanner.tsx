@@ -212,7 +212,7 @@ export default function SubscriptionBanner({
         )}
         <div>
           <dt>{ar ? "المستخدمون النشطون" : "Active users"}</dt>
-          <dd>
+          <dd dir="ltr">
             {data.active_users}
             {data.max_users != null ? ` / ${data.max_users}` : ""}
           </dd>

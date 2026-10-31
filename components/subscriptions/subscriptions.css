@@ -768,3 +768,10 @@
 }
 .subscription-panel .danger{color:#c22d36;border-color:#c22d36;background:transparent}.decision-actions{justify-content:flex-start}.subscription-panel .decision-actions button{flex:1;white-space:normal;min-width:100px}.console-tabs button>span[aria-hidden]{font-size:1.3em}
 .pricing-card>p{margin:8px 0}.pricing-card h2{margin:0 0 10px}.pricing-card ul{margin:12px 0 20px;line-height:1.9}.pricing-card>.plan-badge{align-self:flex-start}.pricing-card:has(.current-plan){border-width:2px;box-shadow:0 6px 24px #98752918}.subscription-panel button:disabled{cursor:not-allowed}
+/* Native dialogs enter the top layer but retain inherited workspace margin rules. */
+.settings-workspace dialog.subscription-modal,.owner-shell dialog.subscription-modal{margin:auto}
+.activation-console .subscription-table-wrap table{table-layout:fixed;width:100%}
+.activation-console :is(th,td){white-space:normal;min-width:0!important;overflow-wrap:anywhere;padding:10px 7px}
+.activation-console th:first-child{width:20%}.activation-console th:nth-child(2){width:33%}.activation-console th:nth-child(3){width:25%}.activation-console th:last-child{width:22%}
+.subscription-panel button.request-reference{border:0;background:transparent;padding:0;color:inherit;font-weight:700;text-decoration:underline;overflow-wrap:normal;white-space:nowrap;font-size:.8rem}
+@media(max-width:550px){.activation-console .subscription-table-wrap table{min-width:500px}}

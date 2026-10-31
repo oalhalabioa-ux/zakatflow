@@ -294,19 +294,12 @@ export default function ActivationRequestsConsole({
                     <thead>
                       <tr>
                         {(ar
-                          ? [
-                              "الطلب",
-                              "المؤسسة والمسؤول",
-                              "الباقة",
-                              "الحالة",
-                              "الإجراء",
-                            ]
+                          ? ["الطلب", "المؤسسة والمسؤول", "الباقة", "الحالة"]
                           : [
                               "Request",
                               "Organization & applicant",
                               "Plan",
                               "Status",
-                              "Action",
                             ]
                         ).map((h) => (
                           <th key={h}>{h}</th>
@@ -317,7 +310,17 @@ export default function ActivationRequestsConsole({
                       {rows.map((r) => (
                         <tr key={r.id} aria-selected={selected?.id === r.id}>
                           <td>
-                            #{r.request_number}
+                            <button
+                              className="request-reference"
+                              aria-label={ar ? "عرض الطلب" : "View request"}
+                              disabled={busy}
+                              onClick={() => {
+                                setSelected(r);
+                                setError("");
+                              }}
+                            >
+                              REQ-{String(r.request_number).padStart(4, "0")}
+                            </button>
                             <small>
                               {displaySubscriptionDate(r.created_at, locale)}
                             </small>
@@ -340,17 +343,6 @@ export default function ActivationRequestsConsole({
                             <span className="plan-badge">
                               {requestLabel(r.status, ar)}
                             </span>
-                          </td>
-                          <td>
-                            <button
-                              disabled={busy}
-                              onClick={() => {
-                                setSelected(r);
-                                setError("");
-                              }}
-                            >
-                              {ar ? "عرض الطلب" : "View request"}
-                            </button>
                           </td>
                         </tr>
                       ))}
