@@ -1427,3 +1427,56 @@ html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected:hover 
   background:#064e42;
   color:#f1d28d;
 }
+
+
+/* Elegant approved neutral balance: pearl/gray surfaces, emerald active elements, fine gold accents. */
+html[data-owner-theme="elegant"] .owner-shell {
+  --owner-bg:#f5f7f6;
+  --owner-soft:#edf0ee;
+  --owner-selected:#f1f3f2;
+  --owner-table-head:#edf0ee;
+  --owner-border:#dfe5e2;
+  --owner-accent-soft:#eef1ef;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected {
+  position:relative;
+  background:#075e50;
+  color:#f1d28d;
+  border-bottom-color:#075e50;
+  box-shadow:none;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected::after {
+  content:"";
+  position:absolute;
+  inset-inline-start:19%;
+  width:62%;
+  height:2px;
+  bottom:-2px;
+  border-radius:2px;
+  background:#c79f4f;
+  pointer-events:none;
+}
+html[data-owner-theme="elegant"] .owner-action.primary,
+html[data-owner-theme="elegant"] .owner-plan-form button:not(:disabled) {
+  box-shadow:0 2px 0 #c79f4f;
+}
+html[data-owner-theme="elegant"] .owner-users-table th {
+  background:#edf0ee;
+  color:#38564b;
+}
+html[data-owner-theme="elegant"] .owner-users-table tbody tr:hover:not([aria-selected="true"]) {
+  background:#f5f7f6;
+}
+html[data-owner-theme="elegant"] .owner-users-table tr[aria-selected="true"] {
+  background:#f1f3f2;
+  box-shadow:inset 2px 0 0 #c79f4f;
+}
+html[data-owner-theme="elegant"] .owner-theme-picker button.active {
+  background:#edf0ee;
+  border-color:#d1dbd5;
+  color:#075e50;
+}
+html[data-owner-theme="elegant"] .owner-tabs a:hover:not(.selected),
+html[data-owner-theme="elegant"] .owner-sidebar nav a:hover {
+  background:#f1f3f2;
+}
