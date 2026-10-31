@@ -1223,7 +1223,7 @@ html[data-owner-theme="elegant"] .owner-plan-form button:not(:disabled) {
   background:var(--owner-deep-action);
   border-color:var(--owner-deep-action);
   color:var(--owner-royal-gold);
-  box-shadow:inset 0 -3px 0 #d6ad58;
+  box-shadow:0 4px 0 #d6ad58;
 }
 html[data-owner-theme="elegant"] .owner-action.primary :is(svg,span),
 html[data-owner-theme="elegant"] .owner-plan-form button :is(svg,span) {
