@@ -124,8 +124,11 @@ export default function TrialAdmin({
         );
     }
   }, [search, status, offset, ar, selectOrganization]);
+  const firstRegisterLoad = useRef(true);
   useEffect(() => {
-    const t = setTimeout(() => void load(), 200);
+    const delay = firstRegisterLoad.current ? 0 : 200;
+    firstRegisterLoad.current = false;
+    const t = setTimeout(() => void load(), delay);
     return () => {
       clearTimeout(t);
       generation.current++;
