@@ -1,7 +1,7 @@
 "use client";
 import PlanManager from "./PlanManager";
-import type { Plan } from "@/lib/subscriptions/catalog";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {money,type Plan } from "@/lib/subscriptions/catalog";
+import { useCallback, useEffect, useState, useRef, type FormEvent } from "react";
 import {
   displaySubscriptionDate,
   subscriptionLabel,
@@ -37,8 +37,11 @@ export default function TrialAdmin({
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
     [audit, setAudit] = useState<unknown>(null),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState(""),
+    [action, setAction] = useState("extend");
+  const requestVersion=useRef(0);
   const load = useCallback(async () => {
+    const version=++requestVersion.current;
     try {
       const r = await fetch(
         "/api/admin/trials?" +
@@ -47,16 +50,18 @@ export default function TrialAdmin({
       );
       const b = await r.json();
       if (!r.ok) throw new Error(b.error);
+      if(version!==requestVersion.current)return;
       setRegister(b);
       setError("");
     } catch (e) {
+      if(version!==requestVersion.current)return;
       setRegister(null);
       setError(e instanceof Error ? e.message : "REQUEST_FAILED");
     }
   }, [search, status, offset]);
   useEffect(() => {
     const t = setTimeout(load, 250);
-    return () => clearTimeout(t);
+    return () => {clearTimeout(t);requestVersion.current++};
   }, [load]);
   async function submit(event: FormEvent<HTMLFormElement>, defaults = false) {
     event.preventDefault();
@@ -266,6 +271,16 @@ export default function TrialAdmin({
                           type="button"
                           disabled={busy}
                           onClick={() => {
+                            setAction(
+                              row.entitlement.status === "suspended"
+                                ? "resume"
+                                : row.entitlement.trial_started_at &&
+                                    ["trialing", "expired"].includes(
+                                      row.entitlement.status,
+                                    )
+                                  ? "extend"
+                                  : "activate",
+                            );
                             setSelected(row);
                             setAudit(null);
                           }}
@@ -342,6 +357,19 @@ export default function TrialAdmin({
       {selected && (
         <section>
           <h3>{selected.name}</h3>
+          <p dir="ltr">{selected.owner_email}</p>
+          <p>
+            {ar ? "المستخدمون النشطون: " : "Active users: "}
+            {selected.active_users}
+            {selected.entitlement.max_users != null
+              ? ` / ${selected.entitlement.max_users}`
+              : ""}
+          </p>
+          <p>
+            {ar
+              ? "هذا الإجراء يخص اشتراك هذه المؤسسة فقط ولا يغير أدوار أعضائها."
+              : "This action applies only to this organization subscription and does not change member roles."}
+          </p>
           <p>
             {ar
               ? "التفعيل اليدوي يغير صلاحية الاشتراك فقط، ولا يسجل دفعة أو ينفذ خصماً. تاريخ الانتهاء أدناه بتوقيت جهازك، ويحفظ بتوقيت UTC."
@@ -352,78 +380,96 @@ export default function TrialAdmin({
               {ar ? "الإجراء" : "Action"}
               <select
                 name="action"
-                defaultValue={selected.entitlement.id ? "extend" : "activate"}
+                value={action}
+                onChange={(e) => setAction(e.target.value)}
                 required
               >
-                <option value="extend">
-                  {ar ? "تمديد التجربة" : "Extend trial"}
-                </option>
+                {selected.entitlement.trial_started_at &&
+                  ["trialing", "expired"].includes(
+                    selected.entitlement.status,
+                  ) && (
+                    <option value="extend">
+                      {ar ? "تمديد التجربة" : "Extend trial"}
+                    </option>
+                  )}
                 <option value="activate">
                   {ar ? "تفعيل اشتراك يدوي" : "Activate manually"}
                 </option>
-                <option value="suspend">
-                  {ar ? "تعليق الاشتراك" : "Suspend"}
-                </option>
-                <option value="resume">
-                  {ar ? "رفع التعليق" : "Resume subscription"}
-                </option>
-              </select>
-            </label>
-            <label>
-              {ar ? "أيام التمديد" : "Extension days"}
-              <input
-                name="days"
-                type="number"
-                min="1"
-                max="365"
-                defaultValue={7}
-              />
-            </label>
-            <label>
-              {ar ? "الخطة للتفعيل المدفوع" : "Plan for paid activation"}
-              <select
-                name="plan_id"
-                onChange={(e) => {
-                  const plan = currentPlans.find(
-                    (p) => p.id === e.target.value,
-                  );
-                  const field = e.currentTarget.form?.elements.namedItem(
-                    "max_users",
-                  ) as HTMLInputElement | null;
-                  if (field) {
-                    field.value = String(
-                      plan?.max_users ?? Math.max(selected.active_users, 5),
-                    );
-                    field.max = String(plan?.max_users ?? 100000);
-                  }
-                }}
-              >
-                <option value="">
-                  {ar ? "اختر خطة مفعلة" : "Choose active plan"}
-                </option>
-                {currentPlans
-                  .filter((p) => p.is_active)
-                  .map((p) => (
-                    <option value={p.id} key={p.id}>
-                      {ar ? p.name_ar : (p.name_en ?? p.name_ar)}
+                {selected.entitlement.id &&
+                  selected.entitlement.status !== "suspended" && (
+                    <option value="suspend">
+                      {ar ? "تعليق الاشتراك" : "Suspend"}
                     </option>
-                  ))}
+                  )}
+                {selected.entitlement.status === "suspended" && (
+                  <option value="resume">
+                    {ar ? "رفع التعليق" : "Resume subscription"}
+                  </option>
+                )}
               </select>
             </label>
-            <label>
-              {ar ? "انتهاء الاشتراك المدفوع" : "Paid subscription end"}
-              <input name="until" type="datetime-local" />
-            </label>
-            <label>
-              {ar ? "عدد المستخدمين للتفعيل المدفوع" : "Paid user limit"}
-              <input
-                name="max_users"
-                type="number"
-                min={selected.active_users}
-                max={100000}
-                defaultValue={Math.max(selected.active_users, 5)}
-              />
-            </label>
+            {action === "extend" && (
+              <label>
+                {ar ? "أيام التمديد" : "Extension days"}
+                <input
+                  name="days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  defaultValue={7}
+                />
+              </label>
+            )}
+            {action === "activate" && (
+              <>
+                <label>
+                  {ar ? "الخطة للتفعيل المدفوع" : "Plan for paid activation"}
+                  <select
+                    name="plan_id"
+                    required
+                    onChange={(e) => {
+                      const plan = currentPlans.find(
+                        (p) => p.id === e.target.value,
+                      );
+                      const field = e.currentTarget.form?.elements.namedItem(
+                        "max_users",
+                      ) as HTMLInputElement | null;
+                      if (field) {
+                        field.value = String(
+                          plan?.max_users ?? Math.max(selected.active_users, 5),
+                        );
+                        field.max = String(plan?.max_users ?? 100000);
+                      }
+                    }}
+                  >
+                    <option value="">
+                      {ar ? "اختر خطة مفعلة" : "Choose active plan"}
+                    </option>
+                    {currentPlans
+                      .filter((p) => p.is_active && p.code !== "trial_30d")
+                      .map((p) => (
+                        <option value={p.id} key={p.id}>
+                          {ar ? p.name_ar : (p.name_en ?? p.name_ar)} · {p.billing_interval==="yearly"?(ar?"سنوي":"Yearly"):(ar?"شهري":"Monthly")} · {money(p.price_amount,p.currency,locale)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  {ar ? "انتهاء الاشتراك المدفوع" : "Paid subscription end"}
+                  <input name="until" type="datetime-local" required />
+                </label>
+                <label>
+                  {ar ? "عدد المستخدمين للتفعيل المدفوع" : "Paid user limit"}
+                  <input
+                    name="max_users"
+                    type="number"
+                    min={selected.active_users}
+                    max={100000}
+                    defaultValue={Math.max(selected.active_users, 5)}
+                  />
+                </label>
+              </>
+            )}
             <label>
               {ar ? "السبب الإداري" : "Administrative reason"}
               <textarea name="reason" minLength={5} maxLength={1000} required />

@@ -48,7 +48,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
       if (!response.ok) throw new Error();
       const rows = await response.json() as Organization[];
       setOrganizations(rows);
-      setOrganizationId(current => rows.some(item => item.id === current) ? current : rows[0]?.id ?? '');
+      setOrganizationId(current => rows.some(item => item.id === current) ? current : rows.find(item => item.id === new URLSearchParams(window.location.search).get('organization'))?.id ?? rows[0]?.id ?? '');
     } catch { setNotice(ar ? 'تعذر تحميل الجهات.' : 'Could not load organizations.'); }
     finally { setLoading(false); }
   }, [ar]);
