@@ -1,5 +1,10 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  ownerSubscriptionSections,
+  updateOwnerQuery,
+} from "@/lib/subscriptions/owner-query";
 import type { Plan } from "@/lib/subscriptions/catalog";
 import TrialAdmin from "./TrialAdmin";
 import PlanManager from "./PlanManager";
@@ -14,8 +19,13 @@ export default function OwnerSubscriptionConsole({
   locale: string;
   plans: Plan[];
 }) {
+  const params = useSearchParams();
+  const tab =
+    ownerSubscriptionSections.find(
+      (section) => section.id === params.get("tab"),
+    )?.id ?? "institutions";
+  const setTab = (id: string) => updateOwnerQuery({ tab: id }, true);
   const ar = locale === "ar",
-    [tab, setTab] = useState("institutions"),
     [revision, setRevision] = useState(0),
     [metrics, setMetrics] = useState<Record<string, number> | null>(null),
     [currentPlans, setPlans] = useState(plans),
@@ -43,35 +53,25 @@ export default function OwnerSubscriptionConsole({
         className="console-tabs owner-console-tabs"
         aria-label={ar ? "إدارة الاشتراكات" : "Subscription management"}
       >
-        {[
-          [
-            "institutions",
-            "building",
-            ar ? "اشتراكات المؤسسات" : "Organization subscriptions",
-          ],
-          [
-            "requests",
-            "requests",
-            ar ? "طلبات التفعيل" : "Activation requests",
-          ],
-          ["plans", "layers", ar ? "الباقات والمميزات" : "Plan definitions"],
-          ["payment", "settings", ar ? "إعدادات الدفع" : "Payment settings"],
-        ].map(([id, icon, label]) => (
-          <button
-            key={id}
-            aria-label={label}
-            aria-pressed={tab === id}
-            onClick={() => setTab(id)}
-          >
-            <ConsoleIcon name={icon as ConsoleIconName} />
-            <span>{label}</span>
-            {id === "requests" && pendingCount > 0 && (
-              <span className="owner-request-count" aria-hidden="true">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        ))}
+        {ownerSubscriptionSections.map(({ id, icon, ar: arabic, en }) => {
+          const label = ar ? arabic : en;
+          return (
+            <button
+              key={id}
+              aria-label={label}
+              aria-pressed={tab === id}
+              onClick={() => setTab(id)}
+            >
+              <ConsoleIcon name={icon as ConsoleIconName} />
+              <span>{label}</span>
+              {id === "requests" && pendingCount > 0 && (
+                <span className="owner-request-count" aria-hidden="true">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
       {metrics && tab === "institutions" && (
         <div className="subscription-metrics">

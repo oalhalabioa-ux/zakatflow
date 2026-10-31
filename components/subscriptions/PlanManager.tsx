@@ -1,5 +1,6 @@
 "use client";
 import SubscriptionModal from "./SubscriptionModal";
+import { adminSubscriptionError } from "@/lib/subscriptions/admin-errors";
 import { useState, type FormEvent } from "react";
 import {
   MODULES,
@@ -22,10 +23,13 @@ export default function PlanManager({
     [version, setVersion] = useState(0),
     [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [message, setMessage] = useState("");
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
+    setMessage("");
     setError("");
     const f = new FormData(event.currentTarget);
     const body = {
@@ -50,15 +54,42 @@ export default function PlanManager({
       setOpen(false);
       setVersion((v) => v + 1);
       await onSaved();
+      setMessage(
+        ar
+          ? "تم حفظ الباقة وتسجيل التغيير بنجاح."
+          : "Plan saved and change audited.",
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "REQUEST_FAILED");
+      setError(
+        adminSubscriptionError(
+          e instanceof Error ? e.message : "REQUEST_FAILED",
+          ar,
+        ),
+      );
     } finally {
       setBusy(false);
     }
   }
   return (
     <section className="plan-manager">
-      <h3>{ar ? "الباقات والتسعير" : "Plans and pricing"}</h3>
+      <div className="owner-plan-heading">
+        <h3>{ar ? "الباقات والتسعير" : "Plans and pricing"}</h3>
+        <button
+          className="primary"
+          onClick={() => {
+            setEdit(null);
+            setError("");
+            setOpen(true);
+          }}
+        >
+          {ar ? "＋ إضافة باقة جديدة" : "＋ Add plan"}
+        </button>
+      </div>
+      {message && (
+        <p className="owner-feedback" data-tone="success" role="status">
+          {message}
+        </p>
+      )}
       <p>
         {ar
           ? "تغييرات الباقة تسري على التفعيلات القادمة. الاشتراكات القائمة تحتفظ بمميزاتها وسعرها المسجل، ويمكن تغيير باقتها بتفعيل إداري صريح. القراءة والتصدير والصلاحيات الأساسية محفوظة في جميع الباقات."
@@ -140,18 +171,9 @@ export default function PlanManager({
           </tbody>
         </table>
       </div>
-      <button
-        className="primary"
-        onClick={() => {
-          setEdit(null);
-          setError("");
-          setOpen(true);
-        }}
-      >
-        {ar ? "＋ إضافة باقة جديدة" : "＋ Add plan"}
-      </button>
       {open && (
         <SubscriptionModal
+          className="owner-plan-modal"
           title={
             edit
               ? ar
@@ -167,157 +189,190 @@ export default function PlanManager({
           <form key={`${edit?.id ?? "new"}-${version}`} onSubmit={save}>
             <fieldset disabled={busy} className="plan-editor">
               <legend>{ar ? "تعريف الباقة" : "Plan definition"}</legend>
-              <label>
-                {ar ? "رمز الباقة الثابت" : "Immutable code"}
-                <input
-                  name="code"
-                  pattern="[a-z0-9_-]{2,40}"
-                  defaultValue={edit?.code}
-                  readOnly={!!edit}
-                  required
-                />
-              </label>
-              <label>
-                {ar
-                  ? "مجموعة الباقة (للشهري والسنوي)"
-                  : "Plan family (monthly/yearly)"}
-                <input
-                  name="family"
-                  pattern="[a-z0-9_-]{2,40}"
-                  defaultValue={edit?.family ?? "custom"}
-                  required
-                />
-              </label>
-              <label>
-                {ar ? "الاسم العربي" : "Arabic name"}
-                <input
-                  name="name_ar"
-                  minLength={2}
-                  maxLength={120}
-                  defaultValue={edit?.name_ar}
-                  required
-                />
-              </label>
-              <label>
-                {ar ? "الاسم الإنجليزي" : "English name"}
-                <input
-                  name="name_en"
-                  minLength={2}
-                  maxLength={120}
-                  defaultValue={edit?.name_en}
-                  required
-                />
-              </label>
-              <label>
-                {ar ? "الوصف العربي" : "Arabic description"}
-                <textarea
-                  name="description_ar"
-                  maxLength={500}
-                  defaultValue={edit?.description_ar}
-                />
-              </label>
-              <label>
-                {ar ? "الوصف الإنجليزي" : "English description"}
-                <textarea
-                  name="description_en"
-                  maxLength={500}
-                  defaultValue={edit?.description_en}
-                />
-              </label>
-              <label>
-                {ar ? "السعر للدورة كاملة" : "Full interval price"}
-                <input
-                  name="price"
-                  type="number"
-                  min="0"
-                  max="100000000"
-                  step="0.01"
-                  defaultValue={edit?.price_amount}
-                  required
-                />
-              </label>
-              <label>
-                {ar ? "العملة" : "Currency"}
-                <input
-                  name="currency"
-                  pattern="[A-Z]{3}"
-                  defaultValue={edit?.currency ?? "SAR"}
-                  required
-                />
-              </label>
-              <label>
-                {ar ? "الدورة" : "Interval"}
-                <select
-                  name="interval"
-                  defaultValue={edit?.billing_interval ?? "monthly"}
+              <div className="owner-plan-grid">
+                <section
+                  className="owner-plan-information"
+                  aria-labelledby="plan-information-title"
                 >
-                  <option value="monthly">{ar ? "شهرية" : "Monthly"}</option>
-                  <option value="yearly">{ar ? "سنوية" : "Yearly"}</option>
-                </select>
-              </label>
-              <label>
-                {ar ? "حد المستخدمين النشطين" : "Active user limit"}
-                <input
-                  name="max_users"
-                  type="number"
-                  min="1"
-                  max="100000"
-                  defaultValue={edit?.max_users ?? 5}
-                  required
-                />
-              </label>
-              <fieldset className="plan-capabilities">
-                <legend>
-                  {ar
-                    ? "الموديولات والمميزات المتاحة للكتابة"
-                    : "Modules and features available for writing"}
-                </legend>
-                {MODULES.map((m) => (
-                  <label key={m.key} className="plan-check">
-                    <input
-                      type="checkbox"
-                      name="features"
-                      value={"module:" + m.key}
-                      defaultChecked={
-                        edit
-                          ? edit.features.includes("core") ||
-                            edit.features.includes("module:" + m.key)
-                          : true
-                      }
-                      disabled={m.core}
-                    />
-                    {m.core && (
+                  <h3 id="plan-information-title">
+                    {ar
+                      ? "معلومات الباقة والتسعير"
+                      : "Plan information and pricing"}
+                  </h3>
+                  <div className="owner-plan-fields">
+                    <label>
+                      {ar ? "الاسم العربي" : "Arabic name"}
                       <input
-                        type="hidden"
-                        name="features"
-                        value={"module:" + m.key}
+                        name="name_ar"
+                        minLength={2}
+                        maxLength={120}
+                        defaultValue={edit?.name_ar}
+                        required
                       />
-                    )}
-                    <span>
-                      {ar ? m.ar : m.en}
-                      {m.core &&
-                        (ar ? " · أساس مشترك" : " · Shared foundation")}
-                    </span>
-                  </label>
-                ))}
-                {FEATURES.map((m) => (
-                  <label className="plan-check" key={m.key}>
-                    <input
-                      type="checkbox"
-                      name="features"
-                      value={"feature:" + m.key}
-                      defaultChecked={
-                        edit
-                          ? edit.features.includes("core") ||
-                            edit.features.includes("feature:" + m.key)
-                          : false
-                      }
-                    />
-                    {ar ? m.ar : m.en}
-                  </label>
-                ))}
-              </fieldset>
-              <div>
+                    </label>
+                    <label>
+                      {ar ? "الاسم الإنجليزي" : "English name"}
+                      <input
+                        name="name_en"
+                        minLength={2}
+                        maxLength={120}
+                        defaultValue={edit?.name_en}
+                        required
+                      />
+                    </label>
+                    <label>
+                      {ar ? "السعر للدورة كاملة" : "Full interval price"}
+                      <input
+                        name="price"
+                        type="number"
+                        min="0"
+                        max="100000000"
+                        step="0.01"
+                        defaultValue={edit?.price_amount}
+                        required
+                      />
+                    </label>
+                    <label>
+                      {ar ? "العملة" : "Currency"}
+                      <input
+                        name="currency"
+                        pattern="[A-Z]{3}"
+                        defaultValue={edit?.currency ?? "SAR"}
+                        required
+                      />
+                    </label>
+                    <label>
+                      {ar ? "الدورة" : "Interval"}
+                      <select
+                        name="interval"
+                        defaultValue={edit?.billing_interval ?? "monthly"}
+                      >
+                        <option value="monthly">
+                          {ar ? "شهرية" : "Monthly"}
+                        </option>
+                        <option value="yearly">
+                          {ar ? "سنوية" : "Yearly"}
+                        </option>
+                      </select>
+                    </label>
+                    <label>
+                      {ar ? "حد المستخدمين النشطين" : "Active user limit"}
+                      <input
+                        name="max_users"
+                        type="number"
+                        min="1"
+                        max="100000"
+                        defaultValue={edit?.max_users ?? 5}
+                        required
+                      />
+                    </label>
+                    <label>
+                      {ar ? "رمز الباقة الثابت" : "Immutable code"}
+                      <input
+                        name="code"
+                        pattern="[a-z0-9_-]{2,40}"
+                        defaultValue={edit?.code}
+                        readOnly={!!edit}
+                        required
+                      />
+                    </label>
+                    <label>
+                      {ar
+                        ? "مجموعة الباقة (للشهري والسنوي)"
+                        : "Plan family (monthly/yearly)"}
+                      <input
+                        name="family"
+                        pattern="[a-z0-9_-]{2,40}"
+                        defaultValue={edit?.family ?? "custom"}
+                        required
+                      />
+                    </label>
+                    <label>
+                      {ar ? "الوصف العربي" : "Arabic description"}
+                      <textarea
+                        name="description_ar"
+                        maxLength={500}
+                        defaultValue={edit?.description_ar}
+                      />
+                    </label>
+                    <label>
+                      {ar ? "الوصف الإنجليزي" : "English description"}
+                      <textarea
+                        name="description_en"
+                        maxLength={500}
+                        defaultValue={edit?.description_en}
+                      />
+                    </label>
+                  </div>
+                </section>
+                <section
+                  className="owner-plan-options"
+                  aria-labelledby="plan-options-title"
+                >
+                  <h3 id="plan-options-title">
+                    {ar
+                      ? "الموديولات والمميزات المتاحة"
+                      : "Available modules and features"}
+                  </h3>
+                  <p>
+                    {ar
+                      ? "القراءة والتصدير محفوظان. حدد إمكانات الكتابة التي تشملها الباقة."
+                      : "Reading and export remain available. Select the writing capabilities included in this plan."}
+                  </p>
+                  <fieldset className="plan-capabilities">
+                    <legend>
+                      {ar
+                        ? "الموديولات والمميزات المتاحة للكتابة"
+                        : "Modules and features available for writing"}
+                    </legend>
+                    {MODULES.map((m) => (
+                      <label key={m.key} className="plan-check">
+                        <input
+                          type="checkbox"
+                          name="features"
+                          value={"module:" + m.key}
+                          defaultChecked={
+                            edit
+                              ? edit.features.includes("core") ||
+                                edit.features.includes("module:" + m.key)
+                              : true
+                          }
+                          disabled={m.core}
+                        />
+                        {m.core && (
+                          <input
+                            type="hidden"
+                            name="features"
+                            value={"module:" + m.key}
+                          />
+                        )}
+                        <span>
+                          {ar ? m.ar : m.en}
+                          {m.core &&
+                            (ar ? " · أساس مشترك" : " · Shared foundation")}
+                        </span>
+                      </label>
+                    ))}
+                    {FEATURES.map((m) => (
+                      <label className="plan-check" key={m.key}>
+                        <input
+                          type="checkbox"
+                          name="features"
+                          value={"feature:" + m.key}
+                          defaultChecked={
+                            edit
+                              ? edit.features.includes("core") ||
+                                edit.features.includes("feature:" + m.key)
+                              : false
+                          }
+                        />
+                        {ar ? m.ar : m.en}
+                      </label>
+                    ))}
+                  </fieldset>
+                </section>
+              </div>
+              <div className="owner-plan-publication">
                 {(["is_active", "is_published", "is_proposed"] as const).map(
                   (k, i) => (
                     <label className="plan-check" key={k}>
@@ -352,9 +407,15 @@ export default function PlanManager({
                   required
                 />
               </label>
-              <div>
-                <button disabled={busy}>
-                  {ar ? "حفظ وتسجيل التغيير" : "Save and audit"}
+              <div className="owner-plan-actions">
+                <button className="primary" disabled={busy}>
+                  {busy
+                    ? ar
+                      ? "جارٍ الحفظ…"
+                      : "Saving…"
+                    : ar
+                      ? "حفظ وتسجيل التغيير"
+                      : "Save and audit"}
                 </button>
                 <button
                   type="button"
@@ -368,12 +429,8 @@ export default function PlanManager({
                 </button>
               </div>
               {error && (
-                <p role="alert">
-                  {error === "PLAN_CONFLICT"
-                    ? ar
-                      ? "تغيرت الباقة. حدّث الصفحة قبل إعادة المحاولة."
-                      : "The plan changed. Refresh before retrying."
-                    : error}
+                <p className="owner-feedback" data-tone="error" role="alert">
+                  {error}
                 </p>
               )}
             </fieldset>

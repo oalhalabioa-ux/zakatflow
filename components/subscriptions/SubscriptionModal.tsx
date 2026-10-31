@@ -5,11 +5,13 @@ export default function SubscriptionModal({
   onClose,
   children,
   busy = false,
+  className = "",
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   busy?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null),
     id = useId(),
@@ -30,7 +32,7 @@ export default function SubscriptionModal({
   return (
     <dialog
       ref={ref}
-      className="subscription-modal subscription-panel"
+      className={`subscription-modal subscription-panel ${className}`}
       aria-labelledby={id}
       onCancel={(e) => {
         e.preventDefault();

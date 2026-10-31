@@ -1,4 +1,5 @@
 "use client";
+import { useOwnerRegisterQuery } from "./useOwnerRegisterQuery";
 import {
   useCallback,
   useEffect,
@@ -64,10 +65,9 @@ export default function TrialAdmin({
   onChanged?: () => Promise<void>;
 }) {
   const ar = locale === "ar";
+  const { search, status, offset, setSearch, setStatus, setOffset } =
+    useOwnerRegisterQuery("org");
   const [register, setRegister] = useState<Register | null>(null),
-    [search, setSearch] = useState(""),
-    [status, setStatus] = useState(""),
-    [offset, setOffset] = useState(0),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
