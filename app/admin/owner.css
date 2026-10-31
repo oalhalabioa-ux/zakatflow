@@ -113,4 +113,4 @@ html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-sidebar
 /* Explicit native select/option surfaces in every owner theme. */
 .owner-shell :is(select,select option,select optgroup){background-color:var(--owner-panel);color:var(--owner-ink)}
 html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-shell select{color-scheme:light}
-html:is([data-owner-theme="elegant"],[data-owner-theme="yaqeen-business"]) .owner-shell select{color-scheme:dark}
+html:is([data-owner-theme="elegant"],[data-owner-theme="yaqeen"]) .owner-shell select{color-scheme:dark}

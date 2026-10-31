@@ -33,6 +33,25 @@ beforeEach(() => {
   requireUser.mockReset().mockResolvedValue({ supabase: { rpc } });
 });
 describe("plan administration boundary", () => {
+  it("keeps old owner clients on audited unpublished legacy plan creation", async () => {
+    rpc.mockResolvedValue({ data: "legacy-plan" });
+    const {
+      family,
+      features,
+      max_users,
+      is_active,
+      is_published,
+      is_proposed,
+      description_ar,
+      description_en,
+      ...legacy
+    } = plan;
+    expect((await POST(request(legacy))).status).toBe(201);
+    expect(rpc).toHaveBeenCalledWith(
+      "owner_create_subscription_plan",
+      expect.objectContaining({ p_code: plan.code, p_reason: plan.reason }),
+    );
+  });
   it("requires approved capabilities and does not accept forged actor fields", async () => {
     expect((await POST(request({ ...plan, actor: "owner" }))).status).toBe(400);
     expect((await POST(request({ ...plan, features: ["core"] }))).status).toBe(
