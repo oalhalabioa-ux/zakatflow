@@ -11,3 +11,9 @@ No migrations, provider setup, Google OAuth changes or live database writes are 
 Separate draft PR #323 is unchanged. Its Elegant-only CSS was reviewed; it is based on main before #322 and must be adapted to this shared token system before its own release. This change does not merge or publish that draft.
 
 Validation: 938 unit tests and TypeScript. The existing real Supabase/Auth/API regression is extended with uniform tab geometry, real plan creation via the new form, checkbox bounds, mobile modal sizes, URL filter restoration, sidebar/tab parity, language context and approved-decision green state. Review exact-head workflow results and screenshot artifacts in the PR before release.
+
+## Review refinement — selection hierarchy
+
+The latest user feedback supersedes the original all-white active A treatment: the active main navigation and subscription tabs now have navy fill, pale-gold text and a pale-gold 3px bottom line. Detail tabs use pale-gold fill, navy text and a navy bottom line. The remaining tab layout and B plan form are unchanged. Table headings use cool mist gray; selected records use warm ivory #FFF8E8 and a navy leading edge. Hover no longer replaces the selected state with the same gray as the heading. Metric icons have no colored background tile. Checkbox selections use navy. The browser matrix asserts these states in all four themes, including hover.
+
+Scope remains owner administration only. Publication to the live platform and merging remain on hold pending user preview approval.

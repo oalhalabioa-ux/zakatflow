@@ -64,9 +64,9 @@
   background: var(--owner-bg);
 }
 .owner-shell .owner-console-tabs > button[aria-pressed="true"] {
-  border-bottom-color: var(--owner-accent);
-  background: var(--owner-panel);
-  color: var(--owner-primary);
+  background: var(--owner-nav-ink);
+  color: var(--owner-nav-gold);
+  border-bottom-color: var(--owner-nav-gold);
   font-weight: 750;
 }
 .owner-request-count {
@@ -118,9 +118,8 @@
   place-items: center;
   width: 42px;
   height: 42px;
-  border-radius: 50%;
-  color: #345cb9;
-  background: #edf2ff;
+  color: var(--owner-primary);
+  background: transparent;
 }
 .owner-metric-icon svg {
   width: 24px;
@@ -128,11 +127,11 @@
 }
 .subscription-metrics [data-metric="active"] .owner-metric-icon {
   color: #18744c;
-  background: #e1f5ea;
+  background: transparent;
 }
 .subscription-metrics [data-metric="expired"] .owner-metric-icon {
   color: #b4233b;
-  background: #fff0f1;
+  background: transparent;
 }
 .owner-subscription-console .console-split {
   display: grid;
@@ -276,7 +275,7 @@
 .owner-subscription-console th {
   font-size: 11px;
   font-weight: 700;
-  background: var(--owner-soft);
+  background: var(--owner-table-head);
   color: var(--owner-ink);
   padding-block: 11px;
 }
@@ -303,7 +302,14 @@
   background: var(--owner-selected);
 }
 .owner-subscription-console tbody tr:hover {
-  background: var(--owner-soft);
+  background: var(--owner-bg);
+}
+.owner-subscription-console tr[aria-selected="true"],
+.owner-subscription-console tr[aria-selected="true"]:hover {
+  background: var(--owner-selected);
+}
+.owner-subscription-console tr[aria-selected="true"] td:first-child {
+  border-inline-start: 3px solid var(--owner-nav-ink);
 }
 .owner-subscription-console .owner-institution-table th:nth-child(1) {
   width: 22%;
@@ -457,8 +463,9 @@
   font-size: 12px;
 }
 .owner-subscription-console .owner-detail-tabs [aria-pressed="true"] {
-  background: var(--owner-accent);
-  color: #fff;
+  background: var(--owner-nav-gold);
+  color: var(--owner-nav-ink);
+  border-bottom-color: var(--owner-nav-ink);
 }
 .owner-detail-facts {
   display: grid;
@@ -1129,7 +1136,7 @@
   }
 }
 
-/* Approved A: the same underline treatment for every console tab and detail tab. */
+/* Review refinement: main tabs navy/pale-gold; detail tabs pale-gold/navy. */
 .owner-subscription-console .owner-detail-tabs {
   background: var(--owner-panel);
   padding: 0;
@@ -1330,7 +1337,7 @@
   min-height: 18px;
   padding: 0;
   margin: 0;
-  accent-color: var(--owner-primary);
+  accent-color: var(--owner-nav-ink);
 }
 .owner-shell .owner-plan-modal input[type="hidden"] {
   display: none;
@@ -1409,4 +1416,18 @@
   .owner-shell .owner-plan-modal :is(input:not([type="checkbox"]), select) {
     min-height: 44px;
   }
+}
+
+/* Preserve selection during hover, focus and phone-card layouts in every theme. */
+.owner-shell .owner-subscription-console table tr[aria-selected="true"],
+.owner-shell .owner-subscription-console table tr[aria-selected="true"]:hover {
+  background: var(--owner-selected);
+}
+.owner-shell .owner-subscription-console table tr[aria-selected="true"] {
+  border-color: var(--owner-nav-ink);
+}
+.owner-shell .owner-subscription-console .owner-metric-icon {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }

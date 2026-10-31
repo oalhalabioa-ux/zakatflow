@@ -83,13 +83,57 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           .evaluate((e) => ({
             bg: getComputedStyle(e).backgroundColor,
             border: getComputedStyle(e).borderBottomWidth,
+            color: getComputedStyle(e).color,
+            line: getComputedStyle(e).borderBottomColor,
           }));
         assert.equal(
           activeStyle.bg,
-          "rgb(255, 255, 255)",
-          "A uses the same white tab surface on every tab",
+          "rgb(16, 36, 58)",
+          "Main selected tabs use navy in every view and theme",
         );
         assert.equal(activeStyle.border, "3px");
+        assert.equal(activeStyle.color, "rgb(245, 235, 214)");
+        assert.equal(activeStyle.line, "rgb(245, 235, 214)");
+        const selected = page
+          .locator(".owner-subscription-console tr[aria-selected=true]")
+          .first();
+        assert.equal(
+          await selected.evaluate((e) => getComputedStyle(e).backgroundColor),
+          "rgb(255, 248, 232)",
+        );
+        assert.notEqual(
+          await page
+            .locator(".owner-subscription-console th")
+            .first()
+            .evaluate((e) => getComputedStyle(e).backgroundColor),
+          "rgb(255, 248, 232)",
+        );
+        for (const bg of await page
+          .locator(".owner-metric-icon")
+          .evaluateAll((items) =>
+            items.map((e) => getComputedStyle(e).backgroundColor),
+          ))
+          assert.equal(
+            bg,
+            "rgba(0, 0, 0, 0)",
+            "Metric icons have no colored tile",
+          );
+        if (tab === (ar ? "اشتراكات المؤسسات" : "Organization subscriptions")) {
+          const detail = await page
+            .locator(".owner-detail-tabs [aria-pressed=true]")
+            .evaluate((e) => ({
+              bg: getComputedStyle(e).backgroundColor,
+              line: getComputedStyle(e).borderBottomColor,
+            }));
+          assert.equal(detail.bg, "rgb(245, 235, 214)");
+          assert.equal(detail.line, "rgb(16, 36, 58)");
+        }
+        await selected.hover();
+        assert.equal(
+          await selected.evaluate((e) => getComputedStyle(e).backgroundColor),
+          "rgb(255, 248, 232)",
+          "Hover must retain selected row styling",
+        );
         const navBox = await nav.boundingBox();
         assert.ok(
           navBox.height <= 58,
