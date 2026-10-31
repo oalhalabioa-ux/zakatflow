@@ -261,6 +261,7 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   // Plan B: create a real plan, preserve every field/capability, and inspect all theme/modal sizes.
   await page.setViewportSize({ width: 1366, height: 1000 });
   await page.goto(appUrl + "/admin/subscriptions?lang=ar&tab=plans");
+  await page.getByRole("button", { name: "يقين الأساسي", exact: true }).click();
   await page
     .getByRole("button", { name: "＋ إضافة باقة جديدة", exact: true })
     .click();
@@ -356,6 +357,23 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
       .evaluate((e) => getComputedStyle(e).backgroundColor),
     "rgb(227, 243, 233)",
   );
+  await page.goto(appUrl + "/admin/subscriptions?lang=en&tab=plans");
+  await page.getByRole("button", { name: "＋ Add plan", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("English name", { exact: true })
+    .waitFor();
+  assert.ok(
+    await page
+      .getByRole("dialog")
+      .evaluate((e) => e.scrollWidth <= e.clientWidth + 1),
+  );
+  await page.screenshot({
+    path: new URL("tests/subscriptions/screenshots/owner-plan-B-en.png", root)
+      .pathname,
+    fullPage: false,
+  });
+  await page.keyboard.press("Escape");
   // Native history keeps tab/filter state without a full server navigation.
   await page.goto(appUrl + "/admin/subscriptions?lang=ar&tab=institutions");
   const orgSearch = page.locator(".institution-register input[type=search]");
