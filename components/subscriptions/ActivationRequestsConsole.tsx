@@ -1,4 +1,5 @@
 "use client";
+import { useOwnerRegisterQuery } from "./useOwnerRegisterQuery";
 import { useCallback, useEffect, useState, useId, type FormEvent } from "react";
 import {
   ConsoleIcon,
@@ -31,19 +32,20 @@ export default function ActivationRequestsConsole({
   onOpenPayment?: () => void;
 }) {
   const formId = useId();
+  const { search, status, offset, setSearch, setStatus, setOffset } =
+    useOwnerRegisterQuery("req");
   const ar = locale === "ar",
     [rows, setRows] = useState<ActivationRequest[]>([]),
     [selected, setSelected] = useState<ActivationRequest | null>(null),
     [payment, setPayment] = useState<Payment | null>(null),
-    [search, setSearch] = useState(""),
-    [status, setStatus] = useState(""),
-    [offset, setOffset] = useState(0),
     [count, setCount] = useState(0),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [loading, setLoading] = useState(true);
   const load = useCallback(
     async (signal?: AbortSignal) => {
+      setLoading(true);
       try {
         const r = await fetch(
           "/api/admin/subscriptions/requests?" +
@@ -70,6 +72,8 @@ export default function ActivationRequestsConsole({
             ? "تعذر تحميل الطلبات. أعد المحاولة."
             : "Unable to load requests. Please retry.",
         );
+      } finally {
+        if (!signal?.aborted) setLoading(false);
       }
     },
     [search, status, offset, ar],
@@ -260,6 +264,11 @@ export default function ActivationRequestsConsole({
   );
   return (
     <section className="activation-console">
+      {loading && (
+        <p className="owner-loading-note" role="status">
+          {ar ? "جارٍ تحميل الطلبات…" : "Loading requests…"}
+        </p>
+      )}
       {error && (
         <p className="owner-feedback" role="alert">
           {error}{" "}
@@ -532,7 +541,18 @@ export default function ActivationRequestsConsole({
                   </p>
                 </details>
                 {selected.reason && (
-                  <p className="owner-feedback">{selected.reason}</p>
+                  <p
+                    className="owner-feedback owner-decision-note"
+                    data-tone={
+                      selected.status === "approved"
+                        ? "success"
+                        : selected.status === "rejected"
+                          ? "error"
+                          : "info"
+                    }
+                  >
+                    {selected.reason}
+                  </p>
                 )}
                 {openRequest(selected) && (
                   <form
