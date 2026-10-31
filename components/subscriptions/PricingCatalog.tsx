@@ -30,6 +30,7 @@ export default function PricingCatalog({ locale }: { locale: string }) {
     rows: ActivationRequest[];
     entitlement: OrganizationSubscription;
   } | null>(null);
+  const [amendment, setAmendment] = useState<ActivationRequest | null>(null);
   const [notice, setNotice] = useState("");
   const contextVersion = useRef(0);
   const readContext = useCallback(async () => {
@@ -75,6 +76,7 @@ export default function PricingCatalog({ locale }: { locale: string }) {
     void readContext();
     const read = () => {
       setSelected(null);
+      setAmendment(null);
       setNotice("");
       void readContext();
     };
@@ -263,6 +265,13 @@ export default function PricingCatalog({ locale }: { locale: string }) {
                 </p>
                 {r.reason && <p>{r.reason}</p>}
               </div>
+              {r.status === "needs_info" && (
+                <button onClick={() => setAmendment(r)}>
+                  {ar
+                    ? "استكمال معلومات الطلب"
+                    : "Complete request information"}
+                </button>
+              )}
               {openRequest(r) && (
                 <button onClick={() => void cancel(r)}>
                   {ar ? "إلغاء الطلب" : "Cancel request"}
@@ -271,6 +280,28 @@ export default function PricingCatalog({ locale }: { locale: string }) {
             </article>
           ))}
         </section>
+      )}
+      {amendment && context && (
+        <ActivationRequestForm
+          key={amendment.id}
+          request={amendment}
+          plan={amendment.quote}
+          organizationId={context.id}
+          organizationName={context.name}
+          locale={locale}
+          name={context.applicant}
+          email={context.email}
+          onClose={() => setAmendment(null)}
+          onSaved={() => {
+            setAmendment(null);
+            setNotice(
+              ar
+                ? "تم تحديث الطلب وإعادته للمراجعة."
+                : "Request updated and resubmitted for review.",
+            );
+            void readContext();
+          }}
+        />
       )}
       {selected && context && (
         <ActivationRequestForm

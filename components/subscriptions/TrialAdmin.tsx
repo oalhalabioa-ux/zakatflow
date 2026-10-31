@@ -30,9 +30,11 @@ type Register = {
 export default function TrialAdmin({
   locale,
   plans,
+  onChanged,
 }: {
   locale: string;
   plans: Plan[];
+  onChanged?: () => Promise<void>;
 }) {
   const ar = locale === "ar";
   const [register, setRegister] = useState<Register | null>(null),
@@ -132,6 +134,7 @@ export default function TrialAdmin({
       );
       form.reset();
       await load();
+      await onChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "REQUEST_FAILED");
     } finally {
@@ -256,13 +259,15 @@ export default function TrialAdmin({
                 {register.rows.map((row) => {
                   const s = row.entitlement;
                   return (
-                    <tr key={row.id}>
+                    <tr key={row.id} aria-selected={selected?.id === row.id}>
                       <td>{row.name}</td>
                       <td>{row.owner_email}</td>
                       <td>
-                        {currentPlans.find((p) => p.id === s.plan_id)?.[
-                          ar ? "name_ar" : "name_en"
-                        ] ?? (ar ? "لم تُفعّل باقة" : "No active plan")}
+                        {s.plan_snapshot?.[ar ? "name_ar" : "name_en"] ??
+                          currentPlans.find((p) => p.id === s.plan_id)?.[
+                            ar ? "name_ar" : "name_en"
+                          ] ??
+                          (ar ? "لم تُفعّل باقة" : "No active plan")}
                       </td>
                       <td>
                         <span className="plan-badge">
@@ -390,6 +395,22 @@ export default function TrialAdmin({
           </nav>
           <h3>{selected.name}</h3>
           <p dir="ltr">{selected.owner_email}</p>
+          {selected.entitlement.plan_snapshot && (
+            <div className="quote-strip">
+              <strong>
+                {ar
+                  ? selected.entitlement.plan_snapshot.name_ar
+                  : selected.entitlement.plan_snapshot.name_en}
+              </strong>
+              <span>
+                {money(
+                  selected.entitlement.plan_snapshot.price_amount,
+                  selected.entitlement.plan_snapshot.currency,
+                  locale,
+                )}
+              </span>
+            </div>
+          )}
           <p>
             {ar ? "المستخدمون النشطون: " : "Active users: "}
             {selected.active_users}

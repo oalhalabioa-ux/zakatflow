@@ -76,7 +76,17 @@ export default function ActivationRequestsConsole({
     e.preventDefault();
     if (!selected || busy) return;
     const f = new FormData(e.currentTarget),
-      action = String(f.get("action"));
+      action =
+        ((e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)
+          ?.value || "approve";
+    if (action === "approve" && !f.get("until")) {
+      setError(
+        ar
+          ? "حدد تاريخ انتهاء الاشتراك قبل الموافقة."
+          : "Choose a subscription end date before approval.",
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -277,93 +287,98 @@ export default function ActivationRequestsConsole({
             </label>
           </div>
           <div className="console-split">
-            <section className="console-card">
-              <div className="subscription-table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      {(ar
-                        ? [
-                            "الطلب",
-                            "المؤسسة والمسؤول",
-                            "الباقة",
-                            "الحالة",
-                            "الإجراء",
-                          ]
-                        : [
-                            "Request",
-                            "Organization & applicant",
-                            "Plan",
-                            "Status",
-                            "Action",
-                          ]
-                      ).map((h) => (
-                        <th key={h}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.id} aria-selected={selected?.id === r.id}>
-                        <td>
-                          #{r.request_number}
-                          <small>
-                            {displaySubscriptionDate(r.created_at, locale)}
-                          </small>
-                        </td>
-                        <td>
-                          <strong>{r.organization_name}</strong>
-                          <small dir="ltr">{r.requester_email}</small>
-                        </td>
-                        <td>
-                          {ar ? r.quote.name_ar : r.quote.name_en}
-                          <small>
-                            {money(
-                              r.quote.price_amount,
-                              r.quote.currency,
-                              locale,
-                            )}
-                          </small>
-                        </td>
-                        <td>
-                          <span className="plan-badge">
-                            {requestLabel(r.status, ar)}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            disabled={busy}
-                            onClick={() => {
-                              setSelected(r);
-                              setError("");
-                            }}
-                          >
-                            {ar ? "عرض الطلب" : "View request"}
-                          </button>
-                        </td>
+            <div className="console-detail">
+              <section className="console-card">
+                <div className="subscription-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        {(ar
+                          ? [
+                              "الطلب",
+                              "المؤسسة والمسؤول",
+                              "الباقة",
+                              "الحالة",
+                              "الإجراء",
+                            ]
+                          : [
+                              "Request",
+                              "Organization & applicant",
+                              "Plan",
+                              "Status",
+                              "Action",
+                            ]
+                        ).map((h) => (
+                          <th key={h}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {!rows.length && (
-                <p>{ar ? "لا توجد طلبات مطابقة." : "No matching requests."}</p>
-              )}
-              <div className="console-actions">
-                <button
-                  disabled={offset === 0 || busy}
-                  onClick={() => setOffset((x) => Math.max(0, x - 50))}
-                >
-                  {ar ? "السابق" : "Previous"}
-                </button>
-                <button
-                  disabled={rows.length < 50 || busy}
-                  onClick={() => setOffset((x) => x + 50)}
-                >
-                  {ar ? "التالي" : "Next"}
-                </button>
-              </div>
-            </section>
+                    </thead>
+                    <tbody>
+                      {rows.map((r) => (
+                        <tr key={r.id} aria-selected={selected?.id === r.id}>
+                          <td>
+                            #{r.request_number}
+                            <small>
+                              {displaySubscriptionDate(r.created_at, locale)}
+                            </small>
+                          </td>
+                          <td>
+                            <strong>{r.organization_name}</strong>
+                            <small dir="ltr">{r.requester_email}</small>
+                          </td>
+                          <td>
+                            {ar ? r.quote.name_ar : r.quote.name_en}
+                            <small>
+                              {money(
+                                r.quote.price_amount,
+                                r.quote.currency,
+                                locale,
+                              )}
+                            </small>
+                          </td>
+                          <td>
+                            <span className="plan-badge">
+                              {requestLabel(r.status, ar)}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              disabled={busy}
+                              onClick={() => {
+                                setSelected(r);
+                                setError("");
+                              }}
+                            >
+                              {ar ? "عرض الطلب" : "View request"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {!rows.length && (
+                  <p>
+                    {ar ? "لا توجد طلبات مطابقة." : "No matching requests."}
+                  </p>
+                )}
+                <div className="console-actions">
+                  <button
+                    disabled={offset === 0 || busy}
+                    onClick={() => setOffset((x) => Math.max(0, x - 50))}
+                  >
+                    {ar ? "السابق" : "Previous"}
+                  </button>
+                  <button
+                    disabled={rows.length < 50 || busy}
+                    onClick={() => setOffset((x) => x + 50)}
+                  >
+                    {ar ? "التالي" : "Next"}
+                  </button>
+                </div>
+              </section>
+              {paymentCard}
+            </div>
             <aside className="console-detail">
               {selected ? (
                 <section
@@ -416,38 +431,6 @@ export default function ActivationRequestsConsole({
                   {openRequest(selected) && (
                     <form className="request-form" onSubmit={review}>
                       <label className="form-wide">
-                        {ar ? "القرار" : "Decision"}
-                        <select
-                          name="action"
-                          defaultValue="review"
-                          onChange={(e) => {
-                            const field =
-                              e.currentTarget.form?.elements.namedItem(
-                                "until",
-                              ) as HTMLInputElement | null;
-                            if (field)
-                              field.required = e.target.value === "approve";
-                          }}
-                        >
-                          <option value="review">
-                            {ar ? "بدء المراجعة" : "Start review"}
-                          </option>
-                          <option value="approve">
-                            {ar
-                              ? "موافقة وتفعيل الباقة"
-                              : "Approve and activate"}
-                          </option>
-                          <option value="needs_info">
-                            {ar
-                              ? "طلب معلومات إضافية"
-                              : "Request more information"}
-                          </option>
-                          <option value="reject">
-                            {ar ? "رفض الطلب" : "Reject"}
-                          </option>
-                        </select>
-                      </label>
-                      <label className="form-wide">
                         {ar
                           ? "تاريخ الانتهاء عند الموافقة — بتوقيت جهازك"
                           : "End date for approval — device timezone"}
@@ -470,15 +453,38 @@ export default function ActivationRequestsConsole({
                           ? "الموافقة تفعّل السعر والمميزات المحفوظة في الطلب، ولا تسجل تحصيلاً مالياً. تغيير الباقة أو الاشتراك بعد إرسال الطلب يستلزم طلباً جديداً."
                           : "Approval activates the saved quote without recording payment. A changed plan or subscription requires a new request."}
                       </p>
-                      <button className="primary" disabled={busy}>
-                        {busy
-                          ? ar
-                            ? "جارٍ الحفظ…"
-                            : "Saving…"
-                          : ar
-                            ? "تنفيذ القرار وحفظه"
-                            : "Apply and audit"}
-                      </button>
+                      <footer className="form-wide console-actions decision-actions">
+                        <button
+                          className="primary"
+                          name="action"
+                          value="approve"
+                          disabled={busy}
+                        >
+                          {ar
+                            ? "اعتماد وتفعيل يدوياً"
+                            : "Approve and activate manually"}
+                        </button>
+                        <button
+                          name="action"
+                          value="needs_info"
+                          disabled={busy}
+                        >
+                          {ar ? "طلب معلومات" : "Request information"}
+                        </button>
+                        <button
+                          className="danger"
+                          name="action"
+                          value="reject"
+                          disabled={busy}
+                        >
+                          {ar ? "رفض الطلب" : "Reject request"}
+                        </button>
+                        {selected.status === "pending" && (
+                          <button name="action" value="review" disabled={busy}>
+                            {ar ? "بدء المراجعة" : "Start review"}
+                          </button>
+                        )}
+                      </footer>
                     </form>
                   )}
                 </section>
@@ -491,7 +497,6 @@ export default function ActivationRequestsConsole({
                   </h3>
                 </section>
               )}
-              {paymentCard}
             </aside>
           </div>
         </>

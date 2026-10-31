@@ -140,6 +140,13 @@ try {
     ),
   );
   sql(await load('supabase/migrations/20261030223910_configurable_subscription_plans.sql'));
+  sql(`create table public.vat_profiles(id uuid primary key default gen_random_uuid(),organization_id uuid unique references organizations(id),registration_status text not null, tax_registration_number text,registered_name text,registration_date date,filing_frequency text not null,standard_rate numeric not null default 15,period_start_month integer default 1,seller_street text,seller_building_number text,seller_district text,seller_additional_number text,seller_city text,seller_postal_code text,created_by uuid references profiles(id),updated_at timestamptz default now());
+  alter table public.vat_profiles enable row level security;
+  create policy vat_settings_read on public.vat_profiles for select to authenticated using(exists(select 1 from public.organization_members m where m.organization_id=vat_profiles.organization_id and m.user_id=auth.uid() and m.status='ACTIVE'));
+  create policy vat_settings_insert on public.vat_profiles for insert to authenticated with check(public.is_organization_admin(organization_id));
+  create policy vat_settings_update on public.vat_profiles for update to authenticated using(public.is_organization_admin(organization_id)) with check(public.is_organization_admin(organization_id));
+  grant select,insert,update on public.vat_profiles to authenticated;
+  create trigger vat_settings_subscription_guard before insert or update or delete on public.vat_profiles for each row execute function subscription_private.guard_write();`);
   sql(await load('supabase/migrations/20261031054539_subscription_requests_and_owner_console.sql'));
   for (let i = 0; i < 8; i++) {
     const client = createClient(url, status.ANON_KEY, {
@@ -552,9 +559,9 @@ try {
     assert.equal(request.quote.price_amount,399);assert.equal((await rpc(owner,'organization_subscription',{p_organization_id:target})).data.status,'trialing');
     await page.goto(appUrl+'/admin/subscriptions?lang=en');await page.getByRole('button',{name:'✉ Activation requests',exact:true}).click();
     const row=page.getByRole('row').filter({hasText:'Activation review institution'});await row.getByRole('button',{name:'View request',exact:true}).click();
-    await page.getByLabel('Decision',{exact:true}).selectOption('approve');await page.getByLabel('Decision reason — visible to customer',{exact:true}).fill('Approved browser end to end test');await page.getByLabel('End date for approval — device timezone',{exact:true}).fill('2027-12-31T18:00');
+    await page.getByLabel('Decision reason — visible to customer',{exact:true}).fill('Approved browser end to end test');await page.getByLabel('End date for approval — device timezone',{exact:true}).fill('2027-12-31T18:00');
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-owner-inbox.png',root).pathname,fullPage:true});
-    const approved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/subscriptions/requests'&&r.request().method()==='POST');await page.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal((await approved).status(),200);
+    const approved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/subscriptions/requests'&&r.request().method()==='POST');await page.getByRole('button',{name:'Approve and activate manually',exact:true}).click();assert.equal((await approved).status(),200);
     await page.goto(appUrl+'/en/billing?organization='+target);await page.getByText('Current active plan',{exact:true}).waitFor();await page.getByText('Activated',{exact:false}).first().waitFor();
     const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.max_users,15);assert.equal(state.plan.price_amount,399);
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-current-plan.png',root).pathname,fullPage:true});
@@ -587,6 +594,13 @@ try {
     await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'System settings',exact:true}).click();
     await page.getByRole('heading',{name:'Organization system settings',exact:true}).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);
+    await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
+    const vatDialog=page.getByRole('dialog',{name:'E-invoicing & ZATCA settings',exact:true});await vatDialog.waitFor();
+    await vatDialog.getByLabel('Registered name',{exact:true}).fill('QA registered organization');
+    await vatDialog.getByRole('button',{name:'Save settings',exact:true}).click();await page.getByText('Invoicing settings saved.',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();await vatDialog.waitFor();assert.equal(await vatDialog.getByLabel('Registered name',{exact:true}).inputValue(),'QA registered organization');
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/system-zatca-modal.png',root).pathname,fullPage:true});await page.keyboard.press('Escape');
+
     sql(`update platform_subscriptions set trial_ends_at=now()-interval '1 day' where organization_id='${org}'`);
     await page.goto(appUrl+'/en/account');
     await page.getByLabel('Name',{exact:true}).fill('Saved account name');

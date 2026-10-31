@@ -28,7 +28,8 @@ export async function activationRequests({db,check,owner,session,legacy}){
  await check('review and request information audit decisions, stale/cancelled decisions reject',async()=>{
   const reviewed=await value("select owner_review_activation_request($1,1,'needs_info','Please provide contact details') value",[request.id]);assert.equal(reviewed.status,'needs_info');assert.equal(reviewed.revision,2);
   await assert.rejects(db.query("select owner_review_activation_request($1,1,'reject','Stale decision')",[request.id]),/REQUEST_CONFLICT/);
-  const cancelled=await value("select subscription_activation_requests($1,'cancel',null,'','',$2,2) value",[legacy.id,request.id]);assert.equal(cancelled.status,'cancelled');
+  const resubmitted=await value("select subscription_activation_requests($1,'resubmit',null,'+966500000001','Requested extra information',$2,2) value",[legacy.id,request.id]);assert.equal(resubmitted.status,'pending');assert.equal(resubmitted.quote.price_amount,399);assert.equal(resubmitted.revision,3);
+  const cancelled=await value("select subscription_activation_requests($1,'cancel',null,'','',$2,3) value",[legacy.id,request.id]);assert.equal(cancelled.status,'cancelled');
   await assert.rejects(db.query("select owner_review_activation_request($1,3,'approve','Cannot approve cancelled',now()+interval '1 month')",[request.id]),/REQUEST_CONFLICT/);
  });
  await check('approval atomically uses existing subscription guards and activates exact immutable quote',async()=>{

@@ -69,7 +69,12 @@ export default function OwnerSubscriptionConsole({
         </div>
       )}
       {tab === "institutions" && (
-        <TrialAdmin key={revision} locale={locale} plans={currentPlans} />
+        <TrialAdmin
+          key={revision}
+          locale={locale}
+          plans={currentPlans}
+          onChanged={reload}
+        />
       )}
       {tab === "requests" && (
         <ActivationRequestsConsole

@@ -193,7 +193,7 @@
     {
       "category": "function",
       "object_key": "public.subscription_activation_requests(p_organization_id uuid, p_action text, p_plan_id uuid, p_phone text, p_notes text, p_request_id uuid, p_revision integer)",
-      "fingerprint": "5272b8f996159d0de84cf2d4856c2ff0"
+      "fingerprint": "131b0f6db74a1c7c9ede7cc70c22d78c"
     },
     {
       "category": "index",

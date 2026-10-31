@@ -1,5 +1,6 @@
 "use client";
 import { useState, type FormEvent } from "react";
+import type { ActivationRequest } from "@/lib/subscriptions/requests";
 import type { Plan } from "@/lib/subscriptions/catalog";
 import { money } from "@/lib/subscriptions/catalog";
 import SubscriptionModal from "./SubscriptionModal";
@@ -12,8 +13,10 @@ export default function ActivationRequestForm({
   email,
   onClose,
   onSaved,
+  request,
 }: {
-  plan: Plan;
+  plan: Plan | ActivationRequest["quote"];
+  request?: ActivationRequest;
   organizationId: string;
   organizationName: string;
   locale: string;
@@ -36,9 +39,11 @@ export default function ActivationRequestForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "submit",
+          action: request ? "resubmit" : "submit",
           organization_id: organizationId,
-          plan_id: plan.id,
+          ...(request
+            ? { request_id: request.id, revision: request.revision }
+            : { plan_id: plan.id }),
           phone: f.get("phone"),
           notes: f.get("notes"),
         }),
@@ -125,6 +130,7 @@ export default function ActivationRequestForm({
           {ar ? "رقم التواصل" : "Contact phone"}
           <input
             name="phone"
+            defaultValue={request?.phone}
             type="tel"
             dir="ltr"
             maxLength={50}
@@ -133,7 +139,12 @@ export default function ActivationRequestForm({
         </label>
         <label className="form-wide">
           {ar ? "ملاحظات الطلب" : "Request notes"}
-          <textarea name="notes" maxLength={2000} rows={3} />
+          <textarea
+            name="notes"
+            defaultValue={request?.notes}
+            maxLength={2000}
+            rows={3}
+          />
         </label>
         <fieldset className="form-wide payment-choices">
           <legend>{ar ? "طريقة التفعيل" : "Activation method"}</legend>

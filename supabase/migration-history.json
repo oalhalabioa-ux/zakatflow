@@ -1544,8 +1544,8 @@
       "path": "supabase/migrations/20261031054539_subscription_requests_and_owner_console.sql",
       "version": "20261031054539",
       "name": "subscription_requests_and_owner_console",
-      "expected_md5": "cc9067776fb1fee467d1f673195c1be9",
-      "file_sha256": "31cd714eae918c154e58229c4fc44425ef38f85ab244b58616e070e1ed58c6d3"
+      "expected_md5": "a04fc567000f1f2935f50919d116cb8f",
+      "file_sha256": "8b575901d30a1f965d462a01d526a795fe03d8a6062f29208f9703a9b340435d"
     }
   ]
 }

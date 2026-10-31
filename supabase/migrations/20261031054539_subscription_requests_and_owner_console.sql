@@ -58,6 +58,11 @@ begin
   select coalesce(p.name,''),u.email into actor_name,actor_email from auth.users u left join public.profiles p on p.id=u.id where u.id=auth.uid();
   insert into subscription_private.activation_requests(organization_id,plan_id,requester_id,requester_name,requester_email,phone,notes,quote,subscription_revision)
    values(p_organization_id,p_plan_id,auth.uid(),coalesce(actor_name,''),coalesce(actor_email,''),trim(coalesce(p_phone,'')),trim(coalesce(p_notes,'')),q,coalesce((subscription_private.entitlement(p_organization_id)->>'revision')::integer,0)) returning * into r;
+ elsif p_action='resubmit' then
+  if length(coalesce(p_phone,''))>50 or length(coalesce(p_notes,''))>2000 then raise exception 'REQUEST_DETAILS_INVALID';end if;
+  select * into r from subscription_private.activation_requests where id=p_request_id and organization_id=p_organization_id for update;
+  if not found or r.revision is distinct from p_revision or r.status<>'needs_info' then raise exception 'REQUEST_CONFLICT';end if;
+  update subscription_private.activation_requests set phone=trim(coalesce(p_phone,'')),notes=trim(coalesce(p_notes,'')),status='pending',revision=revision+1,updated_at=now() where id=r.id returning * into r;
  elsif p_action='cancel' then
   select * into r from subscription_private.activation_requests where id=p_request_id and organization_id=p_organization_id for update;
   if not found or r.revision is distinct from p_revision or r.status not in ('pending','reviewing','needs_info') then raise exception 'REQUEST_CONFLICT';end if;

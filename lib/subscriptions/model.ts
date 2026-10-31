@@ -26,6 +26,14 @@ export type OrganizationSubscription = {
   server_now: string;
   timezone?: string;
   capabilities?: string[];
+  plan_snapshot?: {
+    id: string;
+    name_ar: string;
+    name_en: string;
+    price_amount: number | string;
+    currency: string;
+    billing_interval: string;
+  };
   plan?: {
     name_ar: string;
     name_en: string;

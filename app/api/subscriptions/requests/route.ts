@@ -6,6 +6,16 @@ import { isSubscriptionSameOrigin } from "@/lib/subscriptions/security";
 const input = z.discriminatedUnion("action", [
   z
     .object({
+      action: z.literal("resubmit"),
+      organization_id: z.uuid(),
+      request_id: z.uuid(),
+      revision: z.number().int().positive(),
+      phone: z.string().trim().max(50),
+      notes: z.string().trim().max(2000),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal("submit"),
       organization_id: z.uuid(),
       plan_id: z.uuid(),
@@ -54,7 +64,13 @@ export async function POST(request: Request) {
         p_action: b.action,
         ...(b.action === "submit"
           ? { p_plan_id: b.plan_id, p_phone: b.phone, p_notes: b.notes }
-          : { p_request_id: b.request_id, p_revision: b.revision }),
+          : {
+              p_request_id: b.request_id,
+              p_revision: b.revision,
+              ...(b.action === "resubmit"
+                ? { p_phone: b.phone, p_notes: b.notes }
+                : {}),
+            }),
       },
     );
     if (error) throw error;
