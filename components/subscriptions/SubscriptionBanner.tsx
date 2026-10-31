@@ -111,9 +111,6 @@ export default function SubscriptionBanner({
   const module = routeCapability(pathname),
     moduleLocked =
       !!module && !includesCapability(data.capabilities, "module:" + module);
-  const milestone = data.notifications?.length
-    ? Math.min(...data.notifications.map((n) => n.milestone))
-    : undefined;
   if (!always) {
     const days = data.status === "trialing" ? data.days_remaining : undefined;
     const nearing = days != null && days <= 7;
@@ -158,87 +155,12 @@ export default function SubscriptionBanner({
       </aside>
     );
   }
-  return (
-    <aside
-      className="subscription-banner"
-      data-read-only={!data.can_write}
-      aria-label={ar ? "حالة الاشتراك" : "Subscription status"}
-    >
-      <div>
-        {moduleLocked && (
-          <p role="status">
-            {ar
-              ? "هذا الموديول غير مشمول للكتابة في باقتك. يمكنك قراءة البيانات السابقة وتصديرها، أو طلب ترقية الباقة."
-              : "This module is not included for writing. Existing data remains readable and exportable; request a plan upgrade to write."}
-          </p>
-        )}
-        <strong>
-          {data.organization_name} · {subscriptionLabel(data.status, ar)}
-        </strong>
-        {data.plan && (
-          <p>
-            {ar ? "الباقة: " : "Plan: "}
-            {ar ? data.plan.name_ar : data.plan.name_en}
-            {data.plan.price_amount != null && data.plan.currency && (
-              <>
-                {" "}
-                · {money(
-                  data.plan.price_amount,
-                  data.plan.currency,
-                  locale,
-                )} /{" "}
-                {data.plan.billing_interval === "yearly"
-                  ? ar
-                    ? "سنة"
-                    : "year"
-                  : ar
-                    ? "شهر"
-                    : "month"}
-              </>
-            )}
-          </p>
-        )}
-        <p>
-          {data.days_remaining != null && (
-            <span>
-              {ar ? "الأيام المتبقية: " : "Days remaining: "}
-              {data.days_remaining} ·{" "}
-            </span>
-          )}
-          {end && (
-            <span>
-              {ar ? "تنتهي في: " : "Ends: "}
-              {displaySubscriptionDate(end, locale, data.timezone)} ·{" "}
-            </span>
-          )}
-          {ar ? "المستخدمون النشطون: " : "Active users: "}
-          {data.active_users}
-          {data.max_users != null ? ` / ${data.max_users}` : ""}
-        </p>
-        {milestone != null && (
-          <p role="status">
-            {milestone === 0
-              ? ar
-                ? "انتهت التجربة. بياناتك محفوظة ويمكنك استعراضها وتصديرها."
-                : "Your trial ended. Your data remains available to view and export."
-              : ar
-                ? `تنبيه: تنتهي تجربتك خلال ${milestone} أيام.`
-                : `Reminder: your trial ends within ${milestone} days.`}
-          </p>
-        )}
-        {!data.can_write && (
-          <p>
-            {ar
-              ? "إنشاء العمليات وتعديلها وحذفها والاستيراد متوقف. القراءة والتصدير متاحان وفق صلاحياتك."
-              : "Creating, editing, deleting and importing are paused. Reading and exporting remain available within your permissions."}
-          </p>
-        )}
-      </div>
-      <Link
-        href={`/${locale}/billing?organization=${data.organization_id ?? ""}`}
-      >
-        {ar ? "عرض خطط الاشتراك" : "View subscription plans"}
-      </Link>
-    </aside>
-  );
+  return <section className="subscription-summary" aria-label={ar?'حالة الاشتراك':'Subscription status'} data-read-only={!data.can_write}>
+    <header><h2>{data.organization_name}</h2><span className="subscription-state">{subscriptionLabel(data.status,ar)}</span></header>
+    {data.plan&&<p>{ar?'الباقة الحالية: ':'Current plan: '}{ar?data.plan.name_ar:data.plan.name_en}{data.plan.price_amount!=null&&data.plan.currency&&<> · {money(data.plan.price_amount,data.plan.currency,locale)} / {data.plan.billing_interval==='yearly'?(ar?'سنة':'year'):(ar?'شهر':'month')}</>}</p>}
+    <dl className="subscription-summary-metrics">{data.days_remaining!=null&&<div><dt>{ar?'الأيام المتبقية':'Days remaining'}</dt><dd>{data.days_remaining}</dd></div>}{end&&<div><dt>{ar?'تاريخ الانتهاء':'End date'}</dt><dd>{displaySubscriptionDate(end,locale,data.timezone)}</dd></div>}<div><dt>{ar?'المستخدمون النشطون':'Active users'}</dt><dd>{data.active_users}{data.max_users!=null?` / ${data.max_users}`:''}</dd></div></dl>
+    {!data.can_write&&<p className="settings-hint">{ar?'بيانات المؤسسة محفوظة. يمكنك الاستعراض والتصدير وفق صلاحياتك؛ إنشاء العمليات وتعديلها والاستيراد متوقف.':'Organization data is preserved. Read and export within your permissions; creating, editing and importing are paused.'}</p>}
+    {data.status==='trialing'&&<p className="settings-hint">{ar?'التجربة دون بطاقة بنكية أو خصم أو تجديد تلقائي.':'No card, automatic charge or renewal during your trial.'}</p>}
+    <div className="subscription-summary-actions"><Link href="#subscription-plans">{ar?'عرض الباقات':'View plans'}</Link><Link href={`/${locale}/users?organization=${data.organization_id??''}`}>{ar?'إدارة الأعضاء':'Manage members'}</Link></div>
+  </section>;
 }

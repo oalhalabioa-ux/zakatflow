@@ -6,7 +6,6 @@ import {
   rememberedOrganization,
   preferredOrganization,
 } from "@/lib/workspace-organization";
-import TopbarOrganizationControls from "@/components/TopbarOrganizationControls";
 import type { Organization } from "@/services/organizations";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 export default function OrganizationSettings({
@@ -124,7 +123,7 @@ export default function OrganizationSettings({
   }
   return (
     <>
-      <TopbarOrganizationControls>
+      <div className="settings-picker-row">
         <label className="settings-org-picker">
           {ar ? "المؤسسة" : "Organization"}
           <select
@@ -143,7 +142,7 @@ export default function OrganizationSettings({
             ))}
           </select>
         </label>
-      </TopbarOrganizationControls>
+      </div>
       {loading ? (
         <p role="status">
           {ar ? "جارٍ تحميل المؤسسة…" : "Loading organization…"}

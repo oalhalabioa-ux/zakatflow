@@ -14,7 +14,7 @@ export default async function Billing({
       <BillingOrganizationPicker locale={locale} />
       <SubscriptionBanner locale={locale} always />
       <section className="subscription-panel">
-        <h2>{ar ? "خطط الاشتراك" : "Subscription plans"}</h2>
+        <h2 id="subscription-plans">{ar ? "خطط الاشتراك" : "Subscription plans"}</h2>
         <PricingCatalog locale={locale} />
       </section>
     </SettingsFrame>

@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import TopbarOrganizationControls from "@/components/TopbarOrganizationControls";
 import {
   rememberOrganization,
   rememberedOrganization,
@@ -58,7 +57,7 @@ export default function BillingOrganizationPicker({
           {ar ? "تعذر تحميل قائمة المؤسسات." : "Unable to load organizations."}
         </p>
       )}
-      <TopbarOrganizationControls>
+      <div className="settings-picker-row">
         <label className="settings-org-picker">
           {ar ? "المؤسسة" : "Organization"}
           <select
@@ -76,7 +75,7 @@ export default function BillingOrganizationPicker({
             ))}
           </select>
         </label>
-      </TopbarOrganizationControls>
+      </div>
     </>
   );
 }
