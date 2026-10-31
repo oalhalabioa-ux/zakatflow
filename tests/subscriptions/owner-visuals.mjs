@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 const palettes = {
   yaqeen: "rgb(243, 245, 247)",
-  elegant: "rgb(243, 246, 243)",
+  elegant: "rgb(245, 248, 246)",
   modern: "rgb(245, 247, 255)",
   classic: "rgb(242, 244, 243)",
 };
@@ -18,15 +18,17 @@ const identities = {
     sidebar: "rgb(16, 36, 58)",
   },
   elegant: {
-    main: "rgb(24, 63, 53)",
-    ink: "rgb(215, 234, 221)",
-    line: "rgb(131, 169, 142)",
-    section: "rgb(237, 245, 238)",
-    sectionInk: "rgb(24, 63, 53)",
-    sectionLine: "rgb(98, 139, 118)",
-    selected: "rgb(237, 247, 240)",
-    head: "rgb(254, 252, 247)",
-    sidebar: "rgb(24, 63, 53)",
+    main: "rgb(11, 121, 101)",
+    ink: "rgb(7, 94, 80)",
+    line: "rgb(184, 146, 69)",
+    navBg: "rgb(233, 244, 239)",
+    section: "rgb(233, 244, 239)",
+    sectionInk: "rgb(7, 94, 80)",
+    sectionLine: "rgb(184, 146, 69)",
+    selected: "rgb(233, 244, 239)",
+    head: "rgb(240, 247, 243)",
+    sidebar: "rgb(255, 255, 255)",
+    detailBg: "rgb(233, 244, 239)",
   },
   modern: {
     main: "rgb(52, 70, 171)",
@@ -182,7 +184,7 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           await page
             .locator(".owner-tabs a.selected")
             .evaluate((e) => getComputedStyle(e).backgroundColor),
-          identities[theme].main,
+          identities[theme].navBg || identities[theme].main,
         );
         for (const bg of await page
           .locator(".owner-metric-icon")
@@ -201,7 +203,7 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
               bg: getComputedStyle(e).backgroundColor,
               line: getComputedStyle(e).borderBottomColor,
             }));
-          assert.equal(detail.bg, identities[theme].main);
+          assert.equal(detail.bg, identities[theme].detailBg || identities[theme].main);
           assert.equal(detail.line, identities[theme].line);
         }
         await selected.hover();

@@ -46,29 +46,43 @@
 }
 /* Independent identities: no other theme inherits Yaqeen's navy/gold selections. */
 html[data-owner-theme="elegant"] .owner-shell {
-  --owner-bg: #f3f6f3;
+  /* Financial-platform Elegant identity: emerald, pearl and warm white. */
+  --owner-bg: #f5f8f6;
   --owner-panel: #ffffff;
-  --owner-ink: #233e34;
-  --owner-muted: #536b5e;
-  --owner-primary: #183f35;
-  --owner-accent: #628b76;
-  --owner-accent-soft: #edf5ee;
-  --owner-soft: #ebf0eb;
-  --owner-selected: #edf7f0;
-  --owner-table-head: #fefcf7;
-  --owner-border: #dce6dc;
-  --owner-main-bg: #183f35;
-  --owner-main-ink: #d7eadd;
-  --owner-main-line: #83a98e;
-  --owner-section-bg: #edf5ee;
-  --owner-section-ink: #183f35;
-  --owner-section-line: #628b76;
-  --owner-sidebar-bg: #183f35;
-  --owner-sidebar-ink: #e4f0e7;
-  --owner-sidebar-muted: #b6cdbd;
-  --owner-sidebar-active: #295244;
-  --owner-sidebar-selected: #d7eadd;
-  --owner-sidebar-border: #ffffff24;
+  --owner-ink: #263e36;
+  --owner-muted: #637c72;
+  --owner-primary: #0b7965;
+  --owner-accent: #0b7965;
+  --owner-accent-soft: #e9f4ef;
+  --owner-soft: #eef4f1;
+  --owner-selected: #e9f4ef;
+  --owner-table-head: #f4f8f6;
+  --owner-border: #d9e8e1;
+  --owner-main-bg: #0b7965;
+  --owner-main-ink: #ffffff;
+  --owner-main-line: #0b7965;
+  --owner-section-bg: #e9f4ef;
+  --owner-section-ink: #0b7965;
+  --owner-section-line: #0b7965;
+  --owner-sidebar-bg: #ffffff;
+  --owner-sidebar-ink: #263e36;
+  --owner-sidebar-muted: #71867d;
+  --owner-sidebar-active: #e9f4ef;
+  --owner-sidebar-selected: #0b7965;
+  --owner-sidebar-border: #d9e8e1;
+  --owner-nav-ink: #0b7965;
+  --owner-nav-gold: #e9f4ef;
+  --owner-success-bg: #e3f3e9;
+  --owner-success-ink: #267451;
+  --owner-danger-bg: #fbecec;
+  --owner-danger-ink: #a34d4d;
+  --owner-warning-bg: #fff5de;
+  --owner-warning-ink: #775817;
+  --owner-tab-bg: #ffffff;
+  --owner-tab-text: #637c72;
+  --owner-tab-active-bg: #e9f4ef;
+  --owner-tab-active-text: #0b7965;
+  --owner-shadow: 0 6px 22px #183f3510;
 }
 html[data-owner-theme="modern"] .owner-shell {
   --owner-bg: #f5f7ff;
@@ -1123,4 +1137,187 @@ html[data-owner-theme="modern"]
     flex-direction: column;
     align-items: start;
   }
+}
+
+
+/* Elegant parity refinements: scoped to owner admin, all seven routes. */
+html[data-owner-theme="elegant"] .owner-sidebar {
+  box-shadow: -3px 0 16px #263e3608;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-dark-brand,
+html[data-owner-theme="elegant"] .owner-sidebar .owner-compact-brand.owner-dark-brand {
+  display:none;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-light-brand {
+  display:block;
+}
+html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-full-brand.owner-light-brand {
+  display:none;
+}
+html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-compact-brand.owner-light-brand {
+  display:block;
+}
+html[data-owner-theme="elegant"] .owner-sidebar nav a.selected {
+  border-inline-start:3px solid #0b7965;
+  font-weight:700;
+}
+html[data-owner-theme="elegant"] .owner-sidebar nav a:hover {
+  background:#f0f7f3;
+}
+html[data-owner-theme="elegant"] .owner-sidebar-toggle {
+  background:#e9f4ef;
+  color:#0b7965;
+  border-color:#b9dacf;
+}
+html[data-owner-theme="elegant"] .owner-kpis article,
+html[data-owner-theme="elegant"] .owner-panels article,
+html[data-owner-theme="elegant"] .owner-table-wrap,
+html[data-owner-theme="elegant"] .owner-plan-form {
+  border-radius:14px;
+  box-shadow:0 5px 18px #183f3509;
+}
+html[data-owner-theme="elegant"] .owner-kpis article {
+  border-top:3px solid #b9dacf;
+}
+html[data-owner-theme="elegant"] .owner-kpis strong {
+  color:#0b7965;
+}
+html[data-owner-theme="elegant"] .owner-shell :is(input,select,textarea):focus {
+  border-color:#0b7965;
+  box-shadow:0 0 0 3px #e9f4ef;
+}
+html[data-owner-theme="elegant"] .owner-shell :is(button,a,input,select,textarea):focus-visible {
+  outline-color:#0b7965;
+}
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a.selected,
+html[data-owner-theme="elegant"] .owner-section-nav.owner-tabs a[aria-current="page"] {
+  border-radius:10px;
+}
+html[data-owner-theme="elegant"] .owner-users-table tbody tr:hover {
+  background:#f5faf7;
+}
+html[data-owner-theme="elegant"] .owner-users-table tr[aria-selected="true"] {
+  background:#e9f4ef;
+}
+@media(max-width:850px) {
+  html[data-owner-theme="elegant"] .owner-sidebar {
+    box-shadow:0 3px 12px #183f3509;
+  }
+  html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-full-brand.owner-light-brand {
+    display:block;
+  }
+  html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-compact-brand.owner-light-brand {
+    display:none;
+  }
+}
+
+
+/* Elegant royal-gold accent on deep emerald actions (WCAG AA contrast). */
+html[data-owner-theme="elegant"] .owner-shell {
+  --owner-deep-action:#075e50;
+  --owner-royal-gold:#f1d28d;
+  --owner-gold-soft:#fff4d9;
+}
+html[data-owner-theme="elegant"] .owner-action.primary,
+html[data-owner-theme="elegant"] .owner-plan-form button:not(:disabled) {
+  background:var(--owner-deep-action);
+  border-color:var(--owner-deep-action);
+  color:var(--owner-royal-gold);
+  box-shadow:inset 0 -3px 0 #d6ad58;
+}
+html[data-owner-theme="elegant"] .owner-action.primary :is(svg,span),
+html[data-owner-theme="elegant"] .owner-plan-form button :is(svg,span) {
+  color:inherit;
+}
+html[data-owner-theme="elegant"] .owner-sidebar nav a.selected {
+  border-inline-start-color:#d6ad58;
+}
+html[data-owner-theme="elegant"] .owner-sidebar nav a.selected .owner-nav-symbol {
+  color:#0b7965;
+}
+html[data-owner-theme="elegant"] .owner-kpis article:nth-child(2n) {
+  border-top-color:#d6ad58;
+}
+
+
+/* Elegant page components: the same pearl / emerald / royal-gold rhythm on all owner routes. */
+html[data-owner-theme="elegant"] .owner-content {
+  color:#263e36;
+}
+html[data-owner-theme="elegant"] .owner-top h1,
+html[data-owner-theme="elegant"] .owner-intro h2,
+html[data-owner-theme="elegant"] .owner-analysis-card h2 {
+  color:#263e36;
+}
+html[data-owner-theme="elegant"] .owner-tabs a.selected {
+  background:#e9f4ef;
+  color:#075e50;
+  border-bottom-color:#b89245;
+}
+html[data-owner-theme="elegant"] .owner-tabs a:hover:not(.selected) {
+  background:#f0f7f3;
+}
+html[data-owner-theme="elegant"] .owner-theme-picker button.active {
+  border-color:#b89245;
+  background:#fff4d9;
+  color:#075e50;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-sub-links {
+  border-inline-start-color:#d9e8e1;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-side-links a.selected {
+  box-shadow:inset -3px 0 0 #b89245;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-side-links a.selected:hover {
+  background:#e9f4ef;
+  color:#075e50;
+}
+html[data-owner-theme="elegant"] .owner-metrics .owner-metric-card,
+html[data-owner-theme="elegant"] .owner-analysis-card {
+  border-radius:14px;
+  box-shadow:0 5px 18px #183f3509;
+}
+html[data-owner-theme="elegant"] .owner-metrics .owner-metric-card {
+  border-block-start-color:#b9dacf;
+}
+html[data-owner-theme="elegant"] .owner-metrics .owner-metric-card:nth-child(2n) {
+  border-block-start-color:#d6ad58;
+}
+html[data-owner-theme="elegant"] .owner-analysis-card h2:after {
+  background:#b89245;
+}
+html[data-owner-theme="elegant"] .owner-users-table th {
+  color:#38564b;
+  background:#f0f7f3;
+}
+html[data-owner-theme="elegant"] .owner-users-table tbody tr[aria-selected="true"] {
+  box-shadow:inset 3px 0 0 #b89245;
+}
+html[data-owner-theme="elegant"] .owner-pagination a:hover,
+html[data-owner-theme="elegant"] .owner-action:not(.primary):hover {
+  background:#e9f4ef;
+  border-color:#9ec7b7;
+  color:#075e50;
+}
+html[data-owner-theme="elegant"] .owner-action.primary:hover,
+html[data-owner-theme="elegant"] .owner-plan-form button:not(:disabled):hover {
+  background:#064e42;
+  border-color:#064e42;
+}
+html[data-owner-theme="elegant"] .owner-action.primary:focus-visible,
+html[data-owner-theme="elegant"] .owner-plan-form button:focus-visible {
+  outline:2px solid #b89245;
+  outline-offset:3px;
+}
+
+
+/* Recolor only Elegant's logo rendering; original assets remain untouched. */
+.owner-elegant-logo-defs {
+  position:absolute;
+  width:0;
+  height:0;
+  pointer-events:none;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-light-brand {
+  filter:url(#owner-elegant-logo-colors);
 }
