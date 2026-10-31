@@ -1526,7 +1526,7 @@ html[data-owner-theme="elegant"] .owner-shell .owner-plan-modal button.primary {
   background:#075e50;
   color:#f1d28d;
   border:1px solid #075e50;
-  box-shadow:inset 0 -3px 0 #d6ad58;
+  box-shadow:0 4px 0 #d6ad58;
 }
 html[data-owner-theme="elegant"] .owner-subscription-console button.primary :is(svg,span),
 html[data-owner-theme="elegant"] .owner-shell .subscription-modal button.primary :is(svg,span) {
