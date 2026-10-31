@@ -26,6 +26,14 @@ export type OrganizationSubscription = {
   server_now: string;
   timezone?: string;
   capabilities?: string[];
+  plan_snapshot?: {
+    id: string;
+    name_ar: string;
+    name_en: string;
+    price_amount: number | string;
+    currency: string;
+    billing_interval: string;
+  };
   plan?: {
     name_ar: string;
     name_en: string;
@@ -83,7 +91,7 @@ export function displaySubscriptionDate(
   if (!value) return "—";
   try {
     return new Intl.DateTimeFormat(
-      locale === "ar" ? "ar-SA-u-ca-gregory" : "en-GB",
+      locale === "ar" ? "ar-SA-u-ca-gregory-nu-latn" : "en-GB",
       { dateStyle: "medium", timeStyle: "short", timeZone },
     ).format(new Date(value));
   } catch {

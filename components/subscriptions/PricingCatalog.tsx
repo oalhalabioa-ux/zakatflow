@@ -1,6 +1,16 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useState, useRef } from "react";
+import ActivationRequestForm from "./ActivationRequestForm";
+import {
+  rememberedOrganization,
+  preferredOrganization,
+} from "@/lib/workspace-organization";
+import {
+  openRequest,
+  requestLabel,
+  type ActivationRequest,
+} from "@/lib/subscriptions/requests";
+import type { OrganizationSubscription } from "@/lib/subscriptions/model";
 import { capabilityLabel, money, type Plan } from "@/lib/subscriptions/catalog";
 export default function PricingCatalog({ locale }: { locale: string }) {
   const ar = locale === "ar";
@@ -11,6 +21,96 @@ export default function PricingCatalog({ locale }: { locale: string }) {
     [error, setError] = useState(false),
     [interval, setInterval] = useState<"monthly" | "yearly">("monthly"),
     [selected, setSelected] = useState<Plan | null>(null);
+  const [context, setContext] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    applicant: string;
+    can_request: boolean;
+    rows: ActivationRequest[];
+    entitlement: OrganizationSubscription;
+  } | null>(null);
+  const [amendment, setAmendment] = useState<ActivationRequest | null>(null);
+  const [notice, setNotice] = useState("");
+  const contextVersion = useRef(0);
+  const readContext = useCallback(async () => {
+    const version = ++contextVersion.current;
+    try {
+      let id =
+        new URLSearchParams(location.search).get("organization") ??
+        rememberedOrganization();
+      if (!id) {
+        const r = await fetch("/api/organizations", { cache: "no-store" });
+        if (!r.ok) throw Error();
+        id = preferredOrganization(await r.json())?.id ?? null;
+      }
+      if (!id) {
+        if (version === contextVersion.current) setContext(null);
+        return;
+      }
+      const [rr, er] = await Promise.all([
+        fetch("/api/subscriptions/requests?organization_id=" + id, {
+          cache: "no-store",
+        }),
+        fetch("/api/subscriptions?organization_id=" + id, {
+          cache: "no-store",
+        }),
+      ]);
+      if (!rr.ok || !er.ok) throw Error();
+      const [r, e] = await Promise.all([rr.json(), er.json()]);
+      if (version !== contextVersion.current) return;
+      setContext({
+        id,
+        name: e.organization_name,
+        email: r.email,
+        applicant: r.name,
+        can_request: r.can_request,
+        rows: r.rows,
+        entitlement: e,
+      });
+    } catch {
+      if (version === contextVersion.current) setContext(null);
+    }
+  }, []);
+  useEffect(() => {
+    void readContext();
+    const read = () => {
+      setSelected(null);
+      setAmendment(null);
+      setNotice("");
+      void readContext();
+    };
+    window.addEventListener("zf-organization-selection", read);
+    window.addEventListener("popstate", read);
+    return () => {
+      contextVersion.current++;
+      window.removeEventListener("zf-organization-selection", read);
+      window.removeEventListener("popstate", read);
+    };
+  }, [readContext]);
+  async function cancel(r: ActivationRequest) {
+    if (!context) return;
+    try {
+      const response = await fetch("/api/subscriptions/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cancel",
+          organization_id: context.id,
+          request_id: r.id,
+          revision: r.revision,
+        }),
+      });
+      if (!response.ok) throw Error();
+      await readContext();
+    } catch {
+      setNotice(
+        ar
+          ? "تعذر إلغاء الطلب. حدّث الصفحة."
+          : "Unable to cancel request. Refresh and retry.",
+      );
+    }
+  }
   const load = useCallback(async () => {
     try {
       setError(false);
@@ -62,18 +162,6 @@ export default function PricingCatalog({ locale }: { locale: string }) {
         ))}
       </div>
       <div className="pricing-grid">
-        <article className="pricing-card">
-          <h2>{ar ? "التجربة المجانية" : "Free trial"}</h2>
-          <p className="pricing-amount">{ar ? "مجاناً" : "Free"}</p>
-          <p>
-            {catalog.trial_days} {ar ? "يوماً · 5 مستخدمين" : "days · 5 users"}
-          </p>
-          <p>
-            {ar
-              ? "جميع الموديولات الأساسية، دون بطاقة أو تجديد تلقائي. تبدأ مرة واحدة عند إنشاء المؤسسة."
-              : "All core modules. No card or automatic renewal. Starts once when the institution is created."}
-          </p>
-        </article>
         {catalog.plans
           .filter((p) => p.billing_interval === interval)
           .map((p) => (
@@ -121,9 +209,22 @@ export default function PricingCatalog({ locale }: { locale: string }) {
                   <li key={f}>{capabilityLabel(f, ar)}</li>
                 ))}
               </ul>
-              <button onClick={() => setSelected(p)}>
-                {ar ? "تفاصيل التفعيل" : "Activation details"}
-              </button>
+              {context?.entitlement.status === "active" &&
+              context.entitlement.plan_id === p.id ? (
+                <span className="plan-badge current-plan">
+                  {ar ? "الباقة الحالية المفعلة" : "Current active plan"}
+                </span>
+              ) : (
+                <button
+                  className="primary"
+                  disabled={
+                    !context?.can_request || context.rows.some(openRequest)
+                  }
+                  onClick={() => setSelected(p)}
+                >
+                  {ar ? "طلب تفعيل الباقة" : "Request activation"}
+                </button>
+              )}
             </article>
           ))}
       </div>
@@ -139,32 +240,89 @@ export default function PricingCatalog({ locale }: { locale: string }) {
           ? "الأسعار لكل مؤسسة، وغير شاملة أي ضرائب واجبة التطبيق. التفعيل يدوي بعد المراجعة؛ لا دفع إلكتروني ولا خصم أو تجديد تلقائي. الباقات المخصصة يحددها مالك المنصة."
           : "Prices are per institution, excluding applicable taxes. Activation is manual after review. No online payment, automatic charge or renewal. Custom plans are configured by the platform owner."}
       </p>
-      {selected && (
-        <section className="plan-activation" role="status">
-          <h3>{ar ? "تفعيل الباقة المختارة" : "Activate selected plan"}</h3>
-          <p>
-            {ar ? selected.name_ar : selected.name_en} ·{" "}
-            {money(selected.price_amount, selected.currency, locale)} ·{" "}
-            {selected.billing_interval === "monthly"
-              ? ar
-                ? "شهري"
-                : "Monthly"
-              : ar
-                ? "سنوي"
-                : "Yearly"}
-          </p>
-          <p>
-            {ar
-              ? "تواصل مع مسؤول المنصة لتأكيد السعر والضرائب وتاريخ التفعيل. اختيار الباقة هنا لا ينشئ اشتراكاً أو عملية دفع."
-              : "Contact the platform administrator to confirm the price, taxes and activation date. Selecting this plan does not create a subscription or payment."}
-          </p>
-          <Link href={`/${locale}/guide`}>
-            {ar ? "المساعدة والتواصل" : "Help and contact"}
-          </Link>
-          <button onClick={() => setSelected(null)}>
-            {ar ? "إغلاق" : "Close"}
-          </button>
+      {notice && <p role="status">{notice}</p>}
+      {context && !context.can_request && (
+        <p>
+          {ar
+            ? "طلب التفعيل متاح لمالك المؤسسة أو مسؤولها."
+            : "Only organization owners and administrators can request activation."}
+        </p>
+      )}
+      {!!context?.rows.length && (
+        <section className="request-history">
+          <h3>
+            {ar ? "طلبات تفعيل المؤسسة" : "Organization activation requests"}
+          </h3>
+          {context.rows.map((r) => (
+            <article key={r.id} className="request-history-row">
+              <div>
+                <strong>
+                  #{r.request_number} · {ar ? r.quote.name_ar : r.quote.name_en}
+                </strong>
+                <p>
+                  {requestLabel(r.status, ar)} ·{" "}
+                  {money(r.quote.price_amount, r.quote.currency, locale)}
+                </p>
+                {r.reason && <p>{r.reason}</p>}
+              </div>
+              {r.status === "needs_info" && (
+                <button onClick={() => setAmendment(r)}>
+                  {ar
+                    ? "استكمال معلومات الطلب"
+                    : "Complete request information"}
+                </button>
+              )}
+              {openRequest(r) && (
+                <button onClick={() => void cancel(r)}>
+                  {ar ? "إلغاء الطلب" : "Cancel request"}
+                </button>
+              )}
+            </article>
+          ))}
         </section>
+      )}
+      {amendment && context && (
+        <ActivationRequestForm
+          key={amendment.id}
+          request={amendment}
+          plan={amendment.quote}
+          organizationId={context.id}
+          organizationName={context.name}
+          locale={locale}
+          name={context.applicant}
+          email={context.email}
+          onClose={() => setAmendment(null)}
+          onSaved={() => {
+            setAmendment(null);
+            setNotice(
+              ar
+                ? "تم تحديث الطلب وإعادته للمراجعة."
+                : "Request updated and resubmitted for review.",
+            );
+            void readContext();
+          }}
+        />
+      )}
+      {selected && context && (
+        <ActivationRequestForm
+          key={context.id + selected.id}
+          plan={selected}
+          organizationId={context.id}
+          organizationName={context.name}
+          locale={locale}
+          name={context.applicant}
+          email={context.email}
+          onClose={() => setSelected(null)}
+          onSaved={() => {
+            setSelected(null);
+            setNotice(
+              ar
+                ? "تم إرسال طلب التفعيل بنجاح. يمكنك متابعة حالته هنا."
+                : "Activation request sent. Track its status here.",
+            );
+            void readContext();
+          }}
+        />
       )}
     </>
   );

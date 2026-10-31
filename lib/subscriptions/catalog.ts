@@ -122,6 +122,7 @@ export function money(
 ) {
   return new Intl.NumberFormat(locale === "ar" ? "ar-SA" : "en-GB", {
     style: "currency",
+    numberingSystem: "latn",
     currency,
     maximumFractionDigits: 2,
   }).format(Number(amount));

@@ -50,6 +50,12 @@ try{
  const after=(await db.query(query)).rows,previous=new Map(baseObjects.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
  const delta={upserts:after.filter(x=>previous.get(x.category+':'+x.object_key)!==x.fingerprint),removals:baseObjects.filter(x=>!after.some(y=>y.category===x.category&&y.object_key===x.object_key)).map(x=>({category:x.category,object_key:x.object_key}))};
  if(process.env.WRITE_PLAN_SCHEMA_DELTA==='1')await writeFile(new URL('tests/migration-history/plan-schema-delta.json',root),JSON.stringify(delta,null,2)+'\n');
+ const beforeRequests=(await db.query(query)).rows;
+ await db.exec(await load('supabase/migrations/20261031054539_subscription_requests_and_owner_console.sql'));
+ const afterRequests=(await db.query(query)).rows, requestLookup=new Map(beforeRequests.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
+ const requestDelta={upserts:afterRequests.filter(x=>requestLookup.get(x.category+':'+x.object_key)!==x.fingerprint),removals:beforeRequests.filter(x=>!afterRequests.some(y=>y.category===x.category&&y.object_key===x.object_key)).map(x=>({category:x.category,object_key:x.object_key}))};
+ if(process.env.WRITE_OWNER_SCHEMA_DELTA==='1')await writeFile(new URL('tests/migration-history/owner-console-schema-delta.json',root),JSON.stringify(requestDelta,null,2)+'\n');
+ await (await import('./activation-requests.mjs')).activationRequests({db,check,owner,session,legacy});
  let org,plan,budget,revision;
  await check('published catalog has professional/advanced monthly/yearly prices and caps',async()=>{
   const c=(await db.query('select subscription_plan_catalog() value')).rows[0].value;assert.equal(c.plans.length,4);assert.equal(c.trial_days,30);

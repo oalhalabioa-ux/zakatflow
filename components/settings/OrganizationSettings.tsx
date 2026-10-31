@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import SystemSettings from "./SystemSettings";
 import {
   rememberOrganization,
   rememberedOrganization,
@@ -38,8 +39,17 @@ export default function OrganizationSettings({
         if (!live) return;
         setItems(rows);
         setOwner(a.data.user?.id ?? "");
-        const explicit = new URLSearchParams(location.search).get("organization");
-        if(explicit&&!rows.some(o=>o.id===explicit)){setError(ar?'المؤسسة المطلوبة غير متاحة لحسابك.':'The requested organization is not available to your account.');return;}
+        const explicit = new URLSearchParams(location.search).get(
+          "organization",
+        );
+        if (explicit && !rows.some((o) => o.id === explicit)) {
+          setError(
+            ar
+              ? "المؤسسة المطلوبة غير متاحة لحسابك."
+              : "The requested organization is not available to your account.",
+          );
+          return;
+        }
         const requested = explicit ?? rememberedOrganization();
         setId(preferredOrganization(rows, requested)?.id ?? "");
       } catch {
@@ -171,49 +181,13 @@ export default function OrganizationSettings({
             <p>{selected.name}</p>
           </header>
           {system ? (
-            <>
-              <dl className="settings-facts">
-                <div>
-                  <dt>{ar ? "العملة الأساسية" : "Base currency"}</dt>
-                  <dd>{selected.base_currency}</dd>
-                </div>
-                <div>
-                  <dt>{ar ? "نطاق الإعدادات" : "Settings scope"}</dt>
-                  <dd>
-                    {ar ? "المؤسسة المختارة فقط" : "Selected organization only"}
-                  </dd>
-                </div>
-              </dl>
-              <p>
-                {ar
-                  ? "تُدار إعدادات كل موديول من صفحته المخصصة، مع الحفاظ على بيانات المؤسسة وصلاحياتها."
-                  : "Module settings remain in their dedicated pages, preserving organization data and permissions."}
-              </p>
-              <div className="settings-link-grid">
-                <Link href={`/${locale}/organizations`}>
-                  {ar
-                    ? "الهيكل المؤسسي والكيانات"
-                    : "Organization structure & entities"}
-                </Link>
-                <Link
-                  href={`/${locale}/vat?section=einvoicing&organization=${id}`}
-                >
-                  {ar
-                    ? "إعدادات الفوترة وزاتكا"
-                    : "E-invoicing & ZATCA settings"}
-                </Link>
-                <Link href={`/${locale}/billing?organization=${id}`}>
-                  {ar
-                    ? "الاشتراك والمميزات المتاحة"
-                    : "Subscription & included features"}
-                </Link>
-              </div>
-              <p className="settings-hint">
-                {ar
-                  ? "اللغة والتقويم والنصاب وتفضيلات المستخدم تجدها في «حسابي». إعدادات الترقيم المتقدمة تُضاف عند اعتمادها."
-                  : "Language, calendar, nisab and personal preferences are in My account. Advanced numbering settings will be added when approved."}
-              </p>
-            </>
+            <SystemSettings
+              key={id}
+              id={id}
+              name={selected.name}
+              currency={selected.base_currency}
+              locale={locale}
+            />
           ) : (
             <form onSubmit={save} className="settings-form">
               <label>

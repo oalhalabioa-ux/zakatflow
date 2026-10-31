@@ -1539,6 +1539,13 @@
       "expected_md5": "1e2f130088d8227953415e67c60d7ab0",
       "file_sha256": "9d001a775e0144068b1ee64927a292aea11b138fe578ee209992bfd8e02b8ac7",
       "kind": "configurable_plan_catalog"
+    },
+    {
+      "path": "supabase/migrations/20261031054539_subscription_requests_and_owner_console.sql",
+      "version": "20261031054539",
+      "name": "subscription_requests_and_owner_console",
+      "expected_md5": "a04fc567000f1f2935f50919d116cb8f",
+      "file_sha256": "8b575901d30a1f965d462a01d526a795fe03d8a6062f29208f9703a9b340435d"
     }
   ]
 }

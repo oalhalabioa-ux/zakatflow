@@ -9,6 +9,8 @@ on:
       - 'services/organizations.ts'
       - 'app/api/subscriptions/**'
       - 'app/api/admin/trials/**'
+      - 'app/api/admin/subscriptions/**'
+      - 'supabase/migrations/*subscription_requests_and_owner_console.sql'
       - 'supabase/migrations/*organization_trial_entitlements.sql'
       - 'tests/subscriptions/**'
       - '.github/workflows/subscription-trials-qa.yml'

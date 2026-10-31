@@ -1,7 +1,13 @@
 "use client";
-import PlanManager from "./PlanManager";
-import {money,type Plan } from "@/lib/subscriptions/catalog";
-import { useCallback, useEffect, useState, useRef, type FormEvent } from "react";
+
+import { money, type Plan } from "@/lib/subscriptions/catalog";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
+  type FormEvent,
+} from "react";
 import {
   displaySubscriptionDate,
   subscriptionLabel,
@@ -24,9 +30,11 @@ type Register = {
 export default function TrialAdmin({
   locale,
   plans,
+  onChanged,
 }: {
   locale: string;
   plans: Plan[];
+  onChanged?: () => Promise<void>;
 }) {
   const ar = locale === "ar";
   const [register, setRegister] = useState<Register | null>(null),
@@ -36,12 +44,30 @@ export default function TrialAdmin({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<Row | null>(null),
-    [audit, setAudit] = useState<unknown>(null),
+    [audit, setAudit] = useState<
+      | {
+          event_type: string;
+          created_at: string;
+          actor_user_id: string;
+          details: { reason?: string };
+        }[]
+      | null
+    >(null),
+    [detailTab, setDetailTab] = useState("subscription"),
+    [members, setMembers] = useState<
+      {
+        user_id: string;
+        name: string;
+        email: string;
+        role: string;
+        status: string;
+      }[]
+    >([]),
     [message, setMessage] = useState(""),
     [action, setAction] = useState("extend");
-  const requestVersion=useRef(0);
+  const requestVersion = useRef(0);
   const load = useCallback(async () => {
-    const version=++requestVersion.current;
+    const version = ++requestVersion.current;
     try {
       const r = await fetch(
         "/api/admin/trials?" +
@@ -50,18 +76,21 @@ export default function TrialAdmin({
       );
       const b = await r.json();
       if (!r.ok) throw new Error(b.error);
-      if(version!==requestVersion.current)return;
+      if (version !== requestVersion.current) return;
       setRegister(b);
       setError("");
     } catch (e) {
-      if(version!==requestVersion.current)return;
+      if (version !== requestVersion.current) return;
       setRegister(null);
       setError(e instanceof Error ? e.message : "REQUEST_FAILED");
     }
   }, [search, status, offset]);
   useEffect(() => {
     const t = setTimeout(load, 250);
-    return () => {clearTimeout(t);requestVersion.current++};
+    return () => {
+      clearTimeout(t);
+      requestVersion.current++;
+    };
   }, [load]);
   async function submit(event: FormEvent<HTMLFormElement>, defaults = false) {
     event.preventDefault();
@@ -105,6 +134,7 @@ export default function TrialAdmin({
       );
       form.reset();
       await load();
+      await onChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "REQUEST_FAILED");
     } finally {
@@ -112,6 +142,7 @@ export default function TrialAdmin({
     }
   }
   async function history(id: string) {
+    setDetailTab("history");
     setAudit(null);
     try {
       const r = await fetch("/api/admin/trials?audit=" + id, {
@@ -125,13 +156,25 @@ export default function TrialAdmin({
     }
   }
   const currentPlans = register?.plans ?? plans;
-  const labels: Record<string, string> = {
-    trial_total: ar ? "إجمالي المؤسسات التجريبية" : "Trial organizations",
-    trialing: ar ? "التجارب النشطة" : "Active trials",
-    expired: ar ? "التجارب المنتهية" : "Expired trials",
-    converted: ar ? "تحولت إلى مدفوع" : "Converted to paid",
-    ending_7: ar ? "تنتهي خلال 7 أيام" : "Ending within 7 days",
-  };
+  useEffect(() => {
+    if (!selected) return;
+    const c = new AbortController();
+    setMembers([]);
+    fetch("/api/admin/subscriptions/panel?organization_id=" + selected.id, {
+      cache: "no-store",
+      signal: c.signal,
+    })
+      .then(async (r) => {
+        if (!r.ok) throw Error();
+        return r.json();
+      })
+      .then((b) => setMembers(b.members))
+      .catch((e) => {
+        if (e.name !== "AbortError")
+          setError(ar ? "تعذر تحميل الأعضاء." : "Unable to load members.");
+      });
+    return () => c.abort();
+  }, [selected?.id, ar]);
   return (
     <section className="subscription-panel" dir={ar ? "rtl" : "ltr"}>
       <h2>
@@ -144,351 +187,482 @@ export default function TrialAdmin({
         </p>
       )}
       {message && <p role="status">{message}</p>}
-      {register && (
-        <>
-          <div className="subscription-metrics">
-            {Object.entries(labels).map(([key, label]) => (
-              <article key={key}>
-                {label}
-                <strong>{register.metrics[key] ?? "—"}</strong>
-              </article>
-            ))}
-          </div>
-          <form onSubmit={(e) => e.preventDefault()}>
-            <label>
-              {ar
-                ? "البحث عن المؤسسة أو المسؤول"
-                : "Search organization or owner"}
-              <input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setOffset(0);
-                }}
-              />
-            </label>
-            <label>
-              {ar ? "الحالة" : "Status"}
-              <select
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  setOffset(0);
-                }}
-              >
-                <option value="">{ar ? "الجميع" : "All"}</option>
-                {(
-                  [
-                    "trialing",
-                    "active",
-                    "expired",
-                    "suspended",
-                    "cancelled",
-                    "legacy",
-                    "unconfigured",
-                  ] as const
-                ).map((s) => (
-                  <option value={s} key={s}>
-                    {subscriptionLabel(s, ar)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </form>
-          <div className="subscription-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  {(ar
-                    ? [
-                        "المؤسسة",
-                        "المسؤول",
-                        "الحالة",
-                        "البداية",
-                        "النهاية",
-                        "الأيام المتبقية",
-                        "المستخدمون",
-                        "الخطة",
-                        "الإجراءات",
-                      ]
-                    : [
-                        "Organization",
-                        "Owner",
-                        "Status",
-                        "Start",
-                        "End",
-                        "Days left",
-                        "Users",
-                        "Plan",
-                        "Actions",
-                      ]
+      <div className="console-split institution-split">
+        {register && (
+          <div className="console-card institution-register">
+            <form onSubmit={(e) => e.preventDefault()}>
+              <label>
+                {ar
+                  ? "البحث عن المؤسسة أو المسؤول"
+                  : "Search organization or owner"}
+                <input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setOffset(0);
+                  }}
+                />
+              </label>
+              <label>
+                {ar ? "الحالة" : "Status"}
+                <select
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value);
+                    setOffset(0);
+                  }}
+                >
+                  <option value="">{ar ? "الجميع" : "All"}</option>
+                  {(
+                    [
+                      "trialing",
+                      "active",
+                      "expired",
+                      "suspended",
+                      "cancelled",
+                      "legacy",
+                      "unconfigured",
+                    ] as const
                   ).map((s) => (
-                    <th key={s}>{s}</th>
+                    <option value={s} key={s}>
+                      {subscriptionLabel(s, ar)}
+                    </option>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {register.rows.map((row) => {
-                  const s = row.entitlement;
-                  return (
-                    <tr key={row.id}>
-                      <td>{row.name}</td>
-                      <td>{row.owner_email}</td>
-                      <td>{subscriptionLabel(s.status, ar)}</td>
-                      <td>
-                        {displaySubscriptionDate(
-                          s.status === "active"
-                            ? s.started_at
-                            : s.trial_started_at,
-                          locale,
-                        )}
-                      </td>
-                      <td>
-                        {displaySubscriptionDate(
-                          s.status === "active"
-                            ? s.current_period_end
-                            : s.trial_ends_at,
-                          locale,
-                        )}
-                      </td>
-                      <td>{s.days_remaining ?? "—"}</td>
-                      <td>
-                        {row.active_users} / {s.max_users ?? "—"}
-                      </td>
-                      <td>
-                        {currentPlans.find(
-                          (p) =>
-                            p.id ===
-                            (
-                              s as OrganizationSubscription & {
-                                plan_id?: string;
-                              }
-                            ).plan_id,
-                        )?.[ar ? "name_ar" : "name_en"] ?? "—"}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setAction(
-                              row.entitlement.status === "suspended"
-                                ? "resume"
-                                : row.entitlement.trial_started_at &&
-                                    ["trialing", "expired"].includes(
-                                      row.entitlement.status,
-                                    )
-                                  ? "extend"
-                                  : "activate",
-                            );
-                            setSelected(row);
-                            setAudit(null);
-                          }}
-                        >
-                          {ar ? "إدارة" : "Manage"}
-                        </button>{" "}
-                        <button type="button" onClick={() => history(row.id)}>
-                          {ar ? "السجل" : "History"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {!register.rows.length && (
-              <p>{ar ? "لا توجد نتائج." : "No results."}</p>
-            )}
-          </div>
-          <p>
-            <button
-              type="button"
-              disabled={offset === 0}
-              onClick={() => setOffset((x) => Math.max(0, x - 50))}
-            >
-              {ar ? "السابق" : "Previous"}
-            </button>{" "}
-            <button
-              type="button"
-              disabled={register.rows.length < 50}
-              onClick={() => setOffset((x) => x + 50)}
-            >
-              {ar ? "التالي" : "Next"}
-            </button>
-          </p>
-          <details>
-            <summary>
-              {ar
-                ? "إعداد التجربة للعملاء الجدد"
-                : "Trial default for new organizations"}
-            </summary>
-            <p>
-              {ar
-                ? "تغيير المدة لا يغير التجارب الحالية."
-                : "Changing this duration does not change existing trials."}
-            </p>
-            <form onSubmit={(e) => submit(e, true)}>
-              <label>
-                {ar ? "المدة بالأيام" : "Duration in days"}
-                <input
-                  name="days"
-                  type="number"
-                  min="1"
-                  max="365"
-                  defaultValue={register.settings.trial_days}
-                  required
-                />
+                </select>
               </label>
-              <label>
-                {ar ? "سبب التعديل" : "Reason"}
-                <input name="reason" minLength={5} maxLength={1000} required />
-              </label>
-              <button disabled={busy}>
-                {ar ? "حفظ المدة الافتراضية" : "Save default"}
-              </button>
-              <button type="button" onClick={() => history("settings")}>
-                {ar ? "سجل الإعدادات" : "Settings history"}
-              </button>
             </form>
-          </details>
-        </>
-      )}
-      <PlanManager locale={locale} plans={currentPlans} onSaved={load} />
-      {selected && (
-        <section>
-          <h3>{selected.name}</h3>
-          <p dir="ltr">{selected.owner_email}</p>
-          <p>
-            {ar ? "المستخدمون النشطون: " : "Active users: "}
-            {selected.active_users}
-            {selected.entitlement.max_users != null
-              ? ` / ${selected.entitlement.max_users}`
-              : ""}
-          </p>
-          <p>
-            {ar
-              ? "هذا الإجراء يخص اشتراك هذه المؤسسة فقط ولا يغير أدوار أعضائها."
-              : "This action applies only to this organization subscription and does not change member roles."}
-          </p>
-          <p>
-            {ar
-              ? "التفعيل اليدوي يغير صلاحية الاشتراك فقط، ولا يسجل دفعة أو ينفذ خصماً. تاريخ الانتهاء أدناه بتوقيت جهازك، ويحفظ بتوقيت UTC."
-              : "Manual activation changes access only; it does not record a payment or charge a card. The end date uses your device timezone and is stored in UTC."}
-          </p>
-          <form onSubmit={submit}>
-            <label>
-              {ar ? "الإجراء" : "Action"}
-              <select
-                name="action"
-                value={action}
-                onChange={(e) => setAction(e.target.value)}
-                required
+            <div className="subscription-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    {(ar
+                      ? [
+                          "المؤسسة",
+                          "المسؤول",
+                          "الباقة",
+                          "الحالة",
+                          "المستخدمون",
+                          "الإدارة",
+                        ]
+                      : [
+                          "Organization",
+                          "Owner",
+                          "Plan",
+                          "Status",
+                          "Users",
+                          "Manage",
+                        ]
+                    ).map((s) => (
+                      <th key={s}>{s}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {register.rows.map((row) => {
+                    const s = row.entitlement;
+                    return (
+                      <tr key={row.id} aria-selected={selected?.id === row.id}>
+                        <td>{row.name}</td>
+                        <td>{row.owner_email}</td>
+                        <td>
+                          {s.plan_snapshot?.[ar ? "name_ar" : "name_en"] ??
+                            currentPlans.find((p) => p.id === s.plan_id)?.[
+                              ar ? "name_ar" : "name_en"
+                            ] ??
+                            (ar ? "لم تُفعّل باقة" : "No active plan")}
+                        </td>
+                        <td>
+                          <span className="plan-badge">
+                            {subscriptionLabel(s.status, ar)}
+                          </span>
+                        </td>
+                        <td>
+                          {row.active_users} / {s.max_users ?? "—"}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setAction(
+                                row.entitlement.status === "suspended"
+                                  ? "resume"
+                                  : row.entitlement.trial_started_at &&
+                                      ["trialing", "expired"].includes(
+                                        row.entitlement.status,
+                                      )
+                                    ? "extend"
+                                    : "activate",
+                              );
+                              setSelected(row);
+                              setDetailTab("subscription");
+                              setAudit(null);
+                            }}
+                          >
+                            {ar ? "إدارة" : "Manage"}
+                          </button>{" "}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelected(row);
+                              setDetailTab("history");
+                              void history(row.id);
+                            }}
+                          >
+                            {ar ? "السجل" : "History"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {!register.rows.length && (
+                <p>{ar ? "لا توجد نتائج." : "No results."}</p>
+              )}
+            </div>
+            <p>
+              <button
+                type="button"
+                disabled={offset === 0}
+                onClick={() => setOffset((x) => Math.max(0, x - 50))}
               >
-                {selected.entitlement.trial_started_at &&
-                  ["trialing", "expired"].includes(
-                    selected.entitlement.status,
-                  ) && (
-                    <option value="extend">
-                      {ar ? "تمديد التجربة" : "Extend trial"}
-                    </option>
-                  )}
-                <option value="activate">
-                  {ar ? "تفعيل اشتراك يدوي" : "Activate manually"}
-                </option>
-                {selected.entitlement.id &&
-                  selected.entitlement.status !== "suspended" && (
-                    <option value="suspend">
-                      {ar ? "تعليق الاشتراك" : "Suspend"}
-                    </option>
-                  )}
-                {selected.entitlement.status === "suspended" && (
-                  <option value="resume">
-                    {ar ? "رفع التعليق" : "Resume subscription"}
-                  </option>
-                )}
-              </select>
-            </label>
-            {action === "extend" && (
-              <label>
-                {ar ? "أيام التمديد" : "Extension days"}
-                <input
-                  name="days"
-                  type="number"
-                  min="1"
-                  max="365"
-                  defaultValue={7}
-                />
-              </label>
-            )}
-            {action === "activate" && (
-              <>
+                {ar ? "السابق" : "Previous"}
+              </button>{" "}
+              <button
+                type="button"
+                disabled={register.rows.length < 50}
+                onClick={() => setOffset((x) => x + 50)}
+              >
+                {ar ? "التالي" : "Next"}
+              </button>
+            </p>
+            <details>
+              <summary>
+                {ar
+                  ? "إعداد التجربة للعملاء الجدد"
+                  : "Trial default for new organizations"}
+              </summary>
+              <p>
+                {ar
+                  ? "تغيير المدة لا يغير التجارب الحالية."
+                  : "Changing this duration does not change existing trials."}
+              </p>
+              <form onSubmit={(e) => submit(e, true)}>
                 <label>
-                  {ar ? "الخطة للتفعيل المدفوع" : "Plan for paid activation"}
-                  <select
-                    name="plan_id"
-                    required
-                    onChange={(e) => {
-                      const plan = currentPlans.find(
-                        (p) => p.id === e.target.value,
-                      );
-                      const field = e.currentTarget.form?.elements.namedItem(
-                        "max_users",
-                      ) as HTMLInputElement | null;
-                      if (field) {
-                        field.value = String(
-                          plan?.max_users ?? Math.max(selected.active_users, 5),
-                        );
-                        field.max = String(plan?.max_users ?? 100000);
-                      }
-                    }}
-                  >
-                    <option value="">
-                      {ar ? "اختر خطة مفعلة" : "Choose active plan"}
-                    </option>
-                    {currentPlans
-                      .filter((p) => p.is_active && p.code !== "trial_30d")
-                      .map((p) => (
-                        <option value={p.id} key={p.id}>
-                          {ar ? p.name_ar : (p.name_en ?? p.name_ar)} · {p.billing_interval==="yearly"?(ar?"سنوي":"Yearly"):(ar?"شهري":"Monthly")} · {money(p.price_amount,p.currency,locale)}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label>
-                  {ar ? "انتهاء الاشتراك المدفوع" : "Paid subscription end"}
-                  <input name="until" type="datetime-local" required />
-                </label>
-                <label>
-                  {ar ? "عدد المستخدمين للتفعيل المدفوع" : "Paid user limit"}
+                  {ar ? "المدة بالأيام" : "Duration in days"}
                   <input
-                    name="max_users"
+                    name="days"
                     type="number"
-                    min={selected.active_users}
-                    max={100000}
-                    defaultValue={Math.max(selected.active_users, 5)}
+                    min="1"
+                    max="365"
+                    defaultValue={register.settings.trial_days}
+                    required
                   />
                 </label>
-              </>
+                <label>
+                  {ar ? "سبب التعديل" : "Reason"}
+                  <input
+                    name="reason"
+                    minLength={5}
+                    maxLength={1000}
+                    required
+                  />
+                </label>
+                <button disabled={busy}>
+                  {ar ? "حفظ المدة الافتراضية" : "Save default"}
+                </button>
+                <button type="button" onClick={() => history("settings")}>
+                  {ar ? "سجل الإعدادات" : "Settings history"}
+                </button>
+              </form>
+            </details>
+          </div>
+        )}
+
+        {selected && (
+          <aside className="console-card institution-detail">
+            <nav className="console-tabs">
+              {[
+                ["subscription", ar ? "الاشتراك" : "Subscription"],
+                ["members", ar ? "الأعضاء" : "Members"],
+                ["history", ar ? "السجل" : "History"],
+              ].map(([id, label]) => (
+                <button
+                  aria-pressed={detailTab === id}
+                  key={id}
+                  onClick={() => {
+                    setDetailTab(id);
+                    if (id === "history") void history(selected.id);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+            <h3>{selected.name}</h3>
+            <p dir="ltr">{selected.owner_email}</p>
+            {selected.entitlement.plan_snapshot && (
+              <div className="quote-strip">
+                <strong>
+                  {ar
+                    ? selected.entitlement.plan_snapshot.name_ar
+                    : selected.entitlement.plan_snapshot.name_en}
+                </strong>
+                <span>
+                  {money(
+                    selected.entitlement.plan_snapshot.price_amount,
+                    selected.entitlement.plan_snapshot.currency,
+                    locale,
+                  )}
+                </span>
+              </div>
             )}
-            <label>
-              {ar ? "السبب الإداري" : "Administrative reason"}
-              <textarea name="reason" minLength={5} maxLength={1000} required />
-            </label>
-            <button disabled={busy}>
-              {ar ? "تنفيذ وحفظ في السجل" : "Apply and audit"}
-            </button>
-            <button type="button" onClick={() => setSelected(null)}>
-              {ar ? "إلغاء" : "Cancel"}
-            </button>
-          </form>
-        </section>
-      )}
-      {audit !== null && (
-        <section>
-          <h3>{ar ? "سجل التغييرات" : "Change history"}</h3>
-          <pre>{JSON.stringify(audit, null, 2)}</pre>
-        </section>
-      )}
+            <p>
+              {ar ? "المستخدمون النشطون: " : "Active users: "}
+              {selected.active_users}
+              {selected.entitlement.max_users != null
+                ? ` / ${selected.entitlement.max_users}`
+                : ""}
+            </p>
+            <p>
+              {ar
+                ? "هذا الإجراء يخص اشتراك هذه المؤسسة فقط ولا يغير أدوار أعضائها."
+                : "This action applies only to this organization subscription and does not change member roles."}
+            </p>
+            <p>
+              {ar
+                ? "التفعيل اليدوي يغير صلاحية الاشتراك فقط، ولا يسجل دفعة أو ينفذ خصماً. تاريخ الانتهاء أدناه بتوقيت جهازك، ويحفظ بتوقيت UTC."
+                : "Manual activation changes access only; it does not record a payment or charge a card. The end date uses your device timezone and is stored in UTC."}
+            </p>
+            <dl className="console-facts">
+              <div>
+                <dt>{ar ? "تاريخ البداية" : "Start date"}</dt>
+                <dd>
+                  {displaySubscriptionDate(
+                    selected.entitlement.started_at ??
+                      selected.entitlement.trial_started_at,
+                    locale,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>{ar ? "تاريخ الانتهاء" : "End date"}</dt>
+                <dd>
+                  {displaySubscriptionDate(
+                    selected.entitlement.status === "active"
+                      ? selected.entitlement.current_period_end
+                      : selected.entitlement.trial_ends_at,
+                    locale,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>{ar ? "الأيام المتبقية" : "Days remaining"}</dt>
+                <dd>{selected.entitlement.days_remaining ?? "—"}</dd>
+              </div>
+            </dl>
+            {detailTab === "members" && (
+              <div>
+                {members.map((m) => (
+                  <article className="member-mini" key={m.user_id}>
+                    <strong>{m.name || m.email}</strong>
+                    <small dir="ltr">{m.email}</small>
+                    <span>
+                      {m.role} · {m.status}
+                    </span>
+                  </article>
+                ))}
+                <p>
+                  {ar
+                    ? "تُعرض أول 100 عضوية؛ الأدوار الحالية محفوظة."
+                    : "First 100 memberships shown; existing roles are preserved."}
+                </p>
+              </div>
+            )}
+            {detailTab === "subscription" && (
+              <form onSubmit={submit}>
+                <label>
+                  {ar ? "الإجراء" : "Action"}
+                  <select
+                    name="action"
+                    value={action}
+                    onChange={(e) => setAction(e.target.value)}
+                    required
+                  >
+                    {selected.entitlement.trial_started_at &&
+                      ["trialing", "expired"].includes(
+                        selected.entitlement.status,
+                      ) && (
+                        <option value="extend">
+                          {ar ? "تمديد التجربة" : "Extend trial"}
+                        </option>
+                      )}
+                    <option value="activate">
+                      {ar ? "تفعيل اشتراك يدوي" : "Activate manually"}
+                    </option>
+                    {selected.entitlement.id &&
+                      selected.entitlement.status !== "suspended" && (
+                        <option value="suspend">
+                          {ar ? "تعليق الاشتراك" : "Suspend"}
+                        </option>
+                      )}
+                    {selected.entitlement.status === "suspended" && (
+                      <option value="resume">
+                        {ar ? "رفع التعليق" : "Resume subscription"}
+                      </option>
+                    )}
+                  </select>
+                </label>
+                {action === "extend" && (
+                  <label>
+                    {ar ? "أيام التمديد" : "Extension days"}
+                    <input
+                      name="days"
+                      type="number"
+                      min="1"
+                      max="365"
+                      defaultValue={7}
+                    />
+                  </label>
+                )}
+                {action === "activate" && (
+                  <>
+                    <label>
+                      {ar
+                        ? "الخطة للتفعيل المدفوع"
+                        : "Plan for paid activation"}
+                      <select
+                        name="plan_id"
+                        required
+                        onChange={(e) => {
+                          const plan = currentPlans.find(
+                            (p) => p.id === e.target.value,
+                          );
+                          const field =
+                            e.currentTarget.form?.elements.namedItem(
+                              "max_users",
+                            ) as HTMLInputElement | null;
+                          if (field) {
+                            field.value = String(
+                              plan?.max_users ??
+                                Math.max(selected.active_users, 5),
+                            );
+                            field.max = String(plan?.max_users ?? 100000);
+                          }
+                        }}
+                      >
+                        <option value="">
+                          {ar ? "اختر خطة مفعلة" : "Choose active plan"}
+                        </option>
+                        {currentPlans
+                          .filter((p) => p.is_active && p.code !== "trial_30d")
+                          .map((p) => (
+                            <option value={p.id} key={p.id}>
+                              {ar ? p.name_ar : (p.name_en ?? p.name_ar)} ·{" "}
+                              {p.billing_interval === "yearly"
+                                ? ar
+                                  ? "سنوي"
+                                  : "Yearly"
+                                : ar
+                                  ? "شهري"
+                                  : "Monthly"}{" "}
+                              · {money(p.price_amount, p.currency, locale)}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label>
+                      {ar ? "انتهاء الاشتراك المدفوع" : "Paid subscription end"}
+                      <input name="until" type="datetime-local" required />
+                    </label>
+                    <label>
+                      {ar
+                        ? "عدد المستخدمين للتفعيل المدفوع"
+                        : "Paid user limit"}
+                      <input
+                        name="max_users"
+                        type="number"
+                        min={selected.active_users}
+                        max={100000}
+                        defaultValue={Math.max(selected.active_users, 5)}
+                      />
+                    </label>
+                  </>
+                )}
+                <label>
+                  {ar ? "السبب الإداري" : "Administrative reason"}
+                  <textarea
+                    name="reason"
+                    minLength={5}
+                    maxLength={1000}
+                    required
+                  />
+                </label>
+                <button className="primary" disabled={busy}>
+                  {ar ? "تنفيذ وحفظ في السجل" : "Apply and audit"}
+                </button>
+                <button type="button" onClick={() => setSelected(null)}>
+                  {ar ? "إلغاء" : "Cancel"}
+                </button>
+              </form>
+            )}
+            {audit !== null && detailTab === "history" && (
+              <section>
+                <h3>{ar ? "سجل التغييرات" : "Change history"}</h3>
+                {audit.length ? (
+                  audit.map((a, i) => (
+                    <article className="audit-item" key={a.created_at + i}>
+                      <strong>{a.event_type}</strong>
+                      <p>{a.details.reason}</p>
+                      <small>
+                        {displaySubscriptionDate(a.created_at, locale)} ·{" "}
+                        {a.actor_user_id}
+                      </small>
+                    </article>
+                  ))
+                ) : (
+                  <p>
+                    {ar ? "لا توجد تغييرات مسجلة." : "No recorded changes."}
+                  </p>
+                )}
+              </section>
+            )}
+          </aside>
+        )}
+        {!selected && (
+          <aside className="console-card institution-empty">
+            <h3>
+              {ar ? "إدارة اشتراك المؤسسة" : "Manage organization subscription"}
+            </h3>
+            <p>
+              {ar
+                ? "اختر مؤسسة من القائمة لعرض اشتراكها وأعضائها وسجل التغييرات."
+                : "Select an organization to view its subscription, members and change history."}
+            </p>
+            {audit !== null && detailTab === "history" && (
+              <section>
+                <h3>{ar ? "سجل إعدادات التجربة" : "Trial settings history"}</h3>
+                {audit.length ? (
+                  audit.map((a, i) => (
+                    <article className="audit-item" key={a.created_at + i}>
+                      <strong>{a.event_type}</strong>
+                      <p>{a.details.reason}</p>
+                      <small>
+                        {displaySubscriptionDate(a.created_at, locale)}
+                      </small>
+                    </article>
+                  ))
+                ) : (
+                  <p>
+                    {ar ? "لا توجد تغييرات مسجلة." : "No recorded changes."}
+                  </p>
+                )}
+              </section>
+            )}
+          </aside>
+        )}
+      </div>
     </section>
   );
 }
