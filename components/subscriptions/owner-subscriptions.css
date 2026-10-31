@@ -1631,3 +1631,49 @@ html[data-owner-theme="elegant"] .owner-shell .owner-plan-modal button:has(.owne
 html[data-owner-theme="elegant"] .owner-elegant-action-icon {
   display:inline-block;
 }
+
+
+/* Elegant register and filters: cool light gray replaces repeated mint backgrounds. */
+html[data-owner-theme="elegant"] .owner-subscription-console .owner-console-tabs,
+html[data-owner-theme="elegant"] .owner-subscription-console .owner-detail-tabs {
+  background:#fff;
+  border-color:#dfe5e2;
+}
+html[data-owner-theme="elegant"] .owner-shell .owner-console-tabs > button[aria-pressed="true"] {
+  background:#edf0ee;
+  color:#075e50;
+  border-bottom:2px solid #c79f4f;
+  box-shadow:none;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console .owner-detail-tabs button[aria-pressed="true"] {
+  background:#edf0ee;
+  color:#075e50;
+  border-bottom:2px solid #c79f4f;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console .owner-console-filters :is(input,select) {
+  background:#fff;
+  border-color:#dfe5e2;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console th {
+  background:#edf0ee;
+  color:#38564b;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console tbody tr:hover:not([aria-selected="true"]) {
+  background:#f5f7f6;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console table tr[aria-selected="true"],
+html[data-owner-theme="elegant"] .owner-subscription-console table tr[aria-selected="true"]:hover {
+  background:#f1f3f2;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console table tr[aria-selected="true"] td:first-child {
+  border-inline-start:2px solid #c79f4f;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console button.primary,
+html[data-owner-theme="elegant"] .owner-shell .subscription-modal button.primary,
+html[data-owner-theme="elegant"] .owner-shell .owner-plan-modal button.primary {
+  box-shadow:0 2px 0 #c79f4f;
+}
+html[data-owner-theme="elegant"] .owner-shell .owner-plan-modal .plan-check:has(input:checked) {
+  background:#f1f3f2;
+  border-color:#cbd9d0;
+}

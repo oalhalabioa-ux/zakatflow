@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 const palettes = {
   yaqeen: "rgb(243, 245, 247)",
-  elegant: "rgb(245, 248, 246)",
+  elegant: "rgb(245, 247, 246)",
   modern: "rgb(245, 247, 255)",
   classic: "rgb(242, 244, 243)",
 };
@@ -22,14 +22,15 @@ const identities = {
     ink: "rgb(241, 210, 141)",
     line: "rgb(7, 94, 80)",
     navBg: "rgb(7, 94, 80)",
-    section: "rgb(233, 244, 239)",
+    section: "rgb(237, 240, 238)",
     sectionInk: "rgb(7, 94, 80)",
-    sectionLine: "rgb(184, 146, 69)",
-    selected: "rgb(233, 244, 239)",
-    head: "rgb(240, 247, 243)",
+    sectionLine: "rgb(199, 159, 79)",
+    selected: "rgb(241, 243, 242)",
+    head: "rgb(237, 240, 238)",
     sidebar: "rgb(255, 255, 255)",
-    detailBg: "rgb(233, 244, 239)",
-    detailLine: "rgb(184, 146, 69)",
+    detailBg: "rgb(237, 240, 238)",
+    sectionBorderWidth: "2px",
+    detailLine: "rgb(199, 159, 79)",
   },
   modern: {
     main: "rgb(52, 70, 171)",
@@ -148,6 +149,19 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           }));
         assert.equal(mainStyle.ink, identities[theme].ink);
         assert.equal(mainStyle.line, identities[theme].line);
+        if (theme === "elegant") {
+          const trim = await page.locator(".owner-tabs a.selected").evaluate((e) => ({
+            height: getComputedStyle(e, "::after").height,
+            width: parseFloat(getComputedStyle(e, "::after").width),
+            tabWidth: e.getBoundingClientRect().width,
+          }));
+          assert.equal(trim.height, "2px", "Elegant gold line stays fine");
+          assert.ok(
+            trim.width / trim.tabWidth > 0.59 && trim.width / trim.tabWidth < 0.65,
+            "Elegant gold line is centered and shorter than its tab",
+          );
+        }
+
         assert.ok(
           await nav
             .locator("[aria-pressed=true]")
@@ -167,7 +181,7 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           identities[theme].section,
           "Section tabs use their own theme's light selection",
         );
-        assert.equal(activeStyle.border, "3px");
+        assert.equal(activeStyle.border, identities[theme].sectionBorderWidth || "3px");
         assert.equal(activeStyle.color, identities[theme].sectionInk);
         assert.equal(
           activeStyle.line,
