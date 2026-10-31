@@ -1321,3 +1321,66 @@ html[data-owner-theme="elegant"] .owner-plan-form button:focus-visible {
 html[data-owner-theme="elegant"] .owner-sidebar .owner-light-brand {
   filter:url(#owner-elegant-logo-colors);
 }
+
+
+/* Elegant sidebar: exactly one logo variant at a time, with consistent rail rhythm. */
+html[data-owner-theme="elegant"] .owner-sidebar:not(.owner-sidebar-collapsed) .owner-full-brand.owner-light-brand {
+  display:block;
+  width:min(100%, 152px);
+  max-height:106px;
+  margin-inline:auto;
+  object-fit:contain;
+}
+html[data-owner-theme="elegant"] .owner-sidebar:not(.owner-sidebar-collapsed) .owner-compact-brand.owner-light-brand {
+  display:none;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-brand-row {
+  min-height:106px;
+  gap:10px;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-original-brand {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-menu-title {
+  margin-top:8px;
+  margin-bottom:12px;
+  padding-inline:4px;
+  color:#637c72;
+}
+html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-brand-row {
+  min-height:66px;
+}
+html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-full-brand.owner-light-brand {
+  display:none;
+}
+html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-compact-brand.owner-light-brand {
+  display:block;
+  width:40px;
+  height:44px;
+  max-width:100%;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-side-links a {
+  min-height:44px;
+  border-radius:10px;
+}
+@media (max-width:850px) {
+  html[data-owner-theme="elegant"] .owner-sidebar .owner-brand-row,
+  html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-brand-row {
+    min-height:58px;
+  }
+  html[data-owner-theme="elegant"] .owner-sidebar .owner-full-brand.owner-light-brand,
+  html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-full-brand.owner-light-brand {
+    display:block;
+    width:100px;
+    max-height:70px;
+  }
+  html[data-owner-theme="elegant"] .owner-sidebar .owner-compact-brand.owner-light-brand,
+  html[data-owner-theme="elegant"] .owner-sidebar.owner-sidebar-collapsed .owner-compact-brand.owner-light-brand {
+    display:none;
+  }
+  html[data-owner-theme="elegant"] .owner-sidebar .owner-original-brand {
+    justify-content:flex-start;
+  }
+}
