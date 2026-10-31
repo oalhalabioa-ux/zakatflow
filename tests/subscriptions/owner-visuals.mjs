@@ -132,6 +132,13 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           identities[theme].sidebar,
           "Each theme has its own sidebar identity",
         );
+        if (theme === "elegant") {
+          assert.equal(
+            await page.locator(".owner-sidebar .owner-light-brand:visible").count(),
+            1,
+            "Elegant sidebar shows one logo variant, never two stacked marks",
+          );
+        }
         const mainStyle = await page
           .locator(".owner-tabs a.selected")
           .evaluate((e) => ({
