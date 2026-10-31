@@ -181,10 +181,11 @@ export default function TrialAdmin({
         {ar ? "الاشتراكات والفترات التجريبية" : "Subscriptions and free trials"}
       </h2>
       {error && (
-        <p role="alert">
-          {ar ? "تعذر إتمام الطلب: " : "Request failed: "}
-          {error}
-        </p>
+        <div className="console-error-state" role="alert">
+          <strong>{ar ? "تعذر تحميل سجل الاشتراكات" : "Subscription register unavailable"}</strong>
+          <p>{ar ? "بيئة الاختبار لا تحتوي حالياً على جميع دوال الاشتراكات المطلوبة. لم تتغير بيانات المؤسسات." : "This test environment is missing required subscription functions. Organization data has not changed."}</p>
+          <button type="button" onClick={() => void load()}>{ar ? "إعادة المحاولة" : "Retry"}</button>
+        </div>
       )}
       {message && <p role="status">{message}</p>}
       <div className="console-split institution-split">

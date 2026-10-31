@@ -53,8 +53,8 @@ export default function OwnerSubscriptionConsole({
           </button>
         ))}
       </nav>
-      {metrics && tab === "institutions" && (
-        <div className="subscription-metrics">
+      {tab === "institutions" && (
+        <div className="subscription-metrics" aria-label={ar ? "مؤشرات الاشتراكات" : "Subscription metrics"}>
           {[
             ["total", ar ? "إجمالي المؤسسات" : "Total organizations"],
             ["active", ar ? "الاشتراكات النشطة" : "Active subscriptions"],
@@ -63,7 +63,8 @@ export default function OwnerSubscriptionConsole({
           ].map(([key, label]) => (
             <article key={key}>
               <span>{label}</span>
-              <strong>{metrics[key] ?? 0}</strong>
+              <strong aria-busy={!metrics}>{metrics ? (metrics[key] ?? 0).toLocaleString(ar ? "ar-SA" : "en-US") : "—"}</strong>
+              <small>{metrics ? (ar ? "بيانات النظام الحالية" : "Current data") : (ar ? "بانتظار البيانات" : "Awaiting data")}</small>
             </article>
           ))}
         </div>
