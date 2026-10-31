@@ -1210,3 +1210,31 @@ html[data-owner-theme="elegant"] .owner-users-table tr[aria-selected="true"] {
     display:none;
   }
 }
+
+
+/* Elegant royal-gold accent on deep emerald actions (WCAG AA contrast). */
+html[data-owner-theme="elegant"] .owner-shell {
+  --owner-deep-action:#075e50;
+  --owner-royal-gold:#f1d28d;
+  --owner-gold-soft:#fff4d9;
+}
+html[data-owner-theme="elegant"] .owner-action.primary,
+html[data-owner-theme="elegant"] .owner-plan-form button:not(:disabled) {
+  background:var(--owner-deep-action);
+  border-color:var(--owner-deep-action);
+  color:var(--owner-royal-gold);
+  box-shadow:inset 0 -3px 0 #d6ad58;
+}
+html[data-owner-theme="elegant"] .owner-action.primary :is(svg,span),
+html[data-owner-theme="elegant"] .owner-plan-form button :is(svg,span) {
+  color:inherit;
+}
+html[data-owner-theme="elegant"] .owner-sidebar nav a.selected {
+  border-inline-start-color:#d6ad58;
+}
+html[data-owner-theme="elegant"] .owner-sidebar nav a.selected .owner-nav-symbol {
+  color:#0b7965;
+}
+html[data-owner-theme="elegant"] .owner-kpis article:nth-child(2n) {
+  border-top-color:#d6ad58;
+}
