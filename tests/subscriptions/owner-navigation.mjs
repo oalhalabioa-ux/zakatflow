@@ -1,5 +1,5 @@
-// Compare the middleware change on identical disposable data and production builds.
-// The baseline differs only in using the previous network getUser middleware gate.
+// Compare the scoped navigation changes on identical disposable data and production builds.
+// Baseline restores duplicate middleware Auth and the original whole-page loading boundary.
 import assert from 'node:assert/strict';
 import {cp,readFile,writeFile,mkdtemp,symlink,rm} from 'node:fs/promises';
 import {execFileSync,spawn} from 'node:child_process';
@@ -13,7 +13,7 @@ export async function ownerNavigation({browser,cookies,appUrl,status,ordinary,ow
  assert.equal(appUrl,'http://127.0.0.1:3000');
  assert.ok(process.env.RUNNER_TEMP);
  const root=process.cwd(),baseline=await mkdtemp(join(process.env.RUNNER_TEMP,'owner-navigation-'));
- const result={scope:'Identical local data and builds; only middleware getUser vs getClaims differs',samplesPerRoute:5,rows:[],productionTiming:false};
+ const result={scope:'Identical local data; original duplicate middleware Auth and whole-page Suspense vs per-page verified Auth and uninterrupted navigation',samplesPerRoute:5,rows:[],productionTiming:false};
  let server;
  try {
   await cp(root,baseline,{recursive:true,filter:path=>!['node_modules','.git','.next'].includes(path.slice(root.length+1).split('/')[0])});
@@ -21,7 +21,9 @@ export async function ownerNavigation({browser,cookies,appUrl,status,ordinary,ow
   const path=join(baseline,'middleware.ts'),source=await readFile(path,'utf8');
   const gate='const {data: claimsData, error: claimsError} = await supabase.auth.getClaims();';
   assert.ok(source.includes(gate));
-  await writeFile(path,source.replace(gate,'const {data: {user}, error: claimsError} = await supabase.auth.getUser(); const claimsData = user ? {claims: {sub: user.id}} : null;'));
+  await writeFile(path,source.replace(gate,'const {data: {user}, error: claimsError} = await supabase.auth.getUser(); const claimsData = user ? {claims: {sub: user.id}} : null;').replace('await supabase.auth.getSession();','await supabase.auth.getUser();'));
+  // Restore the original whole-page Suspense boundary for the before build.
+  await writeFile(join(baseline,'app/admin/loading.tsx'),`import './owner.css';export default function OwnerLoading(){return <section className="owner-loading" aria-busy="true" aria-live="polite" role="status"><p>جارٍ تحميل لوحة الإدارة… / Loading administration…</p><div className="owner-loading-grid" aria-hidden="true">{[0,1,2,3].map(i=><span key={i}/>)}</div></section>}`);
   const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:status.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:appUrl,SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''};
   execFileSync('npm',['run','build'],{cwd:baseline,env,stdio:'pipe',timeout:300000});
   server=spawn('node',[join(root,'node_modules/next/dist/bin/next'),'start','-H','127.0.0.1','-p','3001'],{cwd:baseline,env,stdio:'ignore'});
@@ -57,6 +59,25 @@ export async function ownerNavigation({browser,cookies,appUrl,status,ordinary,ow
   result.beforeMedianMs=median(result.rows.filter(r=>r.label==='before').map(r=>r.ms));
   result.afterMedianMs=median(result.rows.filter(r=>r.label==='after').map(r=>r.ms));
   console.log('OWNER_NAVIGATION_TIMING '+JSON.stringify(result.summary));
+  await check('owner middleware refreshes expired cookie state and keeps the session after reload',async()=>{
+   const jar=[];
+   const ssr=createServerClient(status.API_URL,status.ANON_KEY,{cookies:{getAll:()=>jar,setAll:cs=>{for(const c of cs){const i=jar.findIndex(x=>x.name===c.name);if(i>=0)jar.splice(i,1);jar.push(c)}}}});
+   assert.ifError((await ssr.auth.signInWithPassword({email:owner.email,password:owner.password})).error);
+   const auth=jar.filter(c=>/-auth-token(?:\.\d+)?$/.test(c.name)).sort((a,b)=>a.name.localeCompare(b.name));
+   const encoded=auth.map(c=>c.value).join('');assert.ok(encoded.startsWith('base64-'));
+   const session=JSON.parse(Buffer.from(encoded.slice(7),'base64url').toString());session.expires_at=1;
+   const expired='base64-'+Buffer.from(JSON.stringify(session)).toString('base64url');
+   const chunks=[];for(let n=0;n<expired.length;n+=3180)chunks.push(expired.slice(n,n+3180));
+   const base=auth[0].name.replace(/\.\d+$/,'');
+   const context=await browser.newContext();
+   try{
+    await context.addCookies(chunks.map((value,i)=>({name:base+(chunks.length>1?'.'+i:''),value,url:appUrl})));
+    const page=await context.newPage();await page.goto(appUrl+'/admin?lang=en');await page.locator('.owner-top h1').waitFor();
+    const refreshed=(await context.cookies()).filter(c=>c.name.startsWith(base)).sort((a,b)=>a.name.localeCompare(b.name)).map(c=>c.value).join('');
+    assert.notEqual(refreshed,expired,'Refreshed cookie must be persisted by middleware');
+    await page.reload();await page.locator('.owner-top h1').waitFor();
+   }finally{await context.close()}
+  });
   await check('all seven owner pages deny ordinary users, forged metadata and revoked owner roles in AR/EN',async()=>{
    assert.ifError((await ordinary.client.auth.updateUser({data:{role:'platform_owner'}})).error);
    const jar=[];
@@ -64,6 +85,8 @@ export async function ownerNavigation({browser,cookies,appUrl,status,ordinary,ow
    assert.ifError((await ssr.auth.signInWithPassword({email:ordinary.email,password:ordinary.password})).error);
    const ordinaryHeader=jar.map(c=>c.name+'='+c.value).join(';'),ownerHeader=cookies.map(c=>c.name+'='+c.value).join(';');
    for(const locale of ['ar','en'])for(const route of routes){
+    const anonymous=await fetch(appUrl+route+'?lang='+locale,{redirect:'manual'});assert.ok([303,307,308].includes(anonymous.status));
+    assert.ok(anonymous.headers.get('location').startsWith('/'+locale+'/login')||anonymous.headers.get('location').startsWith(appUrl+'/'+locale+'/login'));
     const r=await fetch(appUrl+route+'?lang='+locale,{headers:{Cookie:ordinaryHeader}});assert.equal(r.status,200);
     const html=await r.text();assert.ok(html.includes('owner-denied'));assert.ok(!html.includes('class="owner-shell"'));
    }
