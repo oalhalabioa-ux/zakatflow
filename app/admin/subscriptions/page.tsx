@@ -2,7 +2,7 @@ import { ownerLocale } from "@/lib/i18n/owner-server";
 import { ownerTranslator } from "@/lib/i18n/owner";
 import OwnerSidebar from "../OwnerSidebar";
 import OwnerNavigation from "../OwnerNavigation";
-import TrialAdmin from "@/components/subscriptions/TrialAdmin";
+import OwnerSubscriptionConsole from "@/components/subscriptions/OwnerSubscriptionConsole";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -57,7 +57,7 @@ export default async function SubscriptionsPage() {
             </p>
           </div>
         </header>
-        <TrialAdmin locale={locale} plans={[]} />
+        <OwnerSubscriptionConsole locale={locale} plans={[]} />
       </section>
     </main>
   );

@@ -1,0 +1,230 @@
+{
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.approved_until",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.notes",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.phone",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.plan_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.quote",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.reason",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.request_number",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.requester_email",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.requester_id",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.requester_name",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.reviewed_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.revision",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.status",
+      "fingerprint": "37eb78664e15df5cf4e417de6e5baf31"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.subscription_revision",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.activation_requests.updated_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.payment_readiness.enabled",
+      "fingerprint": "1b2d399aaa0209161b2a562d0ec668df"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.payment_readiness.environment",
+      "fingerprint": "fc0128601b6da048081bfdfcf106ab85"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.payment_readiness.id",
+      "fingerprint": "14ea4bf43cf24757f6097b74012b9d32"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.payment_readiness.provider",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.payment_readiness.revision",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.activation_requests.activation_requests_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.activation_requests.activation_requests_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.activation_requests.activation_requests_plan_id_fkey",
+      "fingerprint": "2e0a380fb174b1aa55f7a5d76817af60"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.activation_requests.activation_requests_request_number_key",
+      "fingerprint": "683fd9c21c6cb94f56faa86925c19912"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.activation_requests.activation_requests_requester_id_fkey",
+      "fingerprint": "1219a91862f899ebd8a0a99c93d494a3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.activation_requests.activation_requests_reviewed_by_fkey",
+      "fingerprint": "f64ec06d4f9bb4a4421251b98777440c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.activation_requests.activation_requests_status_check",
+      "fingerprint": "70c91a4c368fdee34ff953c4652da0ae"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.payment_readiness.payment_readiness_enabled_check",
+      "fingerprint": "34ac25851728a322a7fdb2556c9d0317"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.payment_readiness.payment_readiness_environment_check",
+      "fingerprint": "987597c07455f92538119f4c6f0bc042"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.payment_readiness.payment_readiness_id_check",
+      "fingerprint": "cddd5f1abfdea207f35d375bbadc5064"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.payment_readiness.payment_readiness_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_activation_requests(p_search text, p_status text, p_offset integer)",
+      "fingerprint": "4c7cda6a28b75164bf8a89e83494571a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_payment_readiness(p_provider text, p_environment text, p_revision integer, p_reason text)",
+      "fingerprint": "8c732e0d63f294be626cc271d7b51b0b"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_review_activation_request(p_request_id uuid, p_revision integer, p_action text, p_reason text, p_until timestamp with time zone)",
+      "fingerprint": "c529f1b3d5d83642bea77677e1754db0"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_subscription_panel(p_organization_id uuid)",
+      "fingerprint": "dc7149b020531f6d0c52b292070c831e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.subscription_activation_requests(p_organization_id uuid, p_action text, p_plan_id uuid, p_phone text, p_notes text, p_request_id uuid, p_revision integer)",
+      "fingerprint": "5272b8f996159d0de84cf2d4856c2ff0"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.activation_requests.activation_requests_one_open",
+      "fingerprint": "e5e08475e39bc2640d3f6d2dcb4f2c3f"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.activation_requests.activation_requests_pkey",
+      "fingerprint": "0bbc6f76017a84617abd3cc0898ce8eb"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.activation_requests.activation_requests_request_number_key",
+      "fingerprint": "8a2bae73160496efb03ce5d812378d7d"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.payment_readiness.payment_readiness_pkey",
+      "fingerprint": "546f6d3c2f6acb68c3b51a019985d295"
+    },
+    {
+      "category": "rls",
+      "object_key": "subscription_private.activation_requests",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "subscription_private.payment_readiness",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ],
+  "removals": []
+}

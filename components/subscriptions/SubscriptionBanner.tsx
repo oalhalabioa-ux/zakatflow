@@ -155,12 +155,93 @@ export default function SubscriptionBanner({
       </aside>
     );
   }
-  return <section className="subscription-summary" aria-label={ar?'حالة الاشتراك':'Subscription status'} data-read-only={!data.can_write}>
-    <header><h2>{data.organization_name}</h2><span className="subscription-state">{subscriptionLabel(data.status,ar)}</span></header>
-    {data.plan&&<p>{ar?'الباقة الحالية: ':'Current plan: '}{ar?data.plan.name_ar:data.plan.name_en}{data.plan.price_amount!=null&&data.plan.currency&&<> · {money(data.plan.price_amount,data.plan.currency,locale)} / {data.plan.billing_interval==='yearly'?(ar?'سنة':'year'):(ar?'شهر':'month')}</>}</p>}
-    <dl className="subscription-summary-metrics">{data.days_remaining!=null&&<div><dt>{ar?'الأيام المتبقية':'Days remaining'}</dt><dd>{data.days_remaining}</dd></div>}{end&&<div><dt>{ar?'تاريخ الانتهاء':'End date'}</dt><dd>{displaySubscriptionDate(end,locale,data.timezone)}</dd></div>}<div><dt>{ar?'المستخدمون النشطون':'Active users'}</dt><dd>{data.active_users}{data.max_users!=null?` / ${data.max_users}`:''}</dd></div></dl>
-    {!data.can_write&&<p className="settings-hint">{ar?'بيانات المؤسسة محفوظة. يمكنك الاستعراض والتصدير وفق صلاحياتك؛ إنشاء العمليات وتعديلها والاستيراد متوقف.':'Organization data is preserved. Read and export within your permissions; creating, editing and importing are paused.'}</p>}
-    {data.status==='trialing'&&<p className="settings-hint">{ar?'التجربة دون بطاقة بنكية أو خصم أو تجديد تلقائي.':'No card, automatic charge or renewal during your trial.'}</p>}
-    <div className="subscription-summary-actions"><Link href="#subscription-plans">{ar?'عرض الباقات':'View plans'}</Link><Link href={`/${locale}/users?organization=${data.organization_id??''}`}>{ar?'إدارة الأعضاء':'Manage members'}</Link></div>
-  </section>;
+  return (
+    <section
+      className="subscription-summary"
+      aria-label={ar ? "حالة الاشتراك" : "Subscription status"}
+      data-read-only={!data.can_write}
+    >
+      <header>
+        <h2>{data.organization_name}</h2>
+        <span className="subscription-state">
+          {subscriptionLabel(data.status, ar)}
+        </span>
+      </header>
+      {data.status === "legacy" && (
+        <p>
+          {ar
+            ? "لم تُفعّل باقة تجارية لهذه المؤسسة بعد. بياناتك وصلاحياتك الحالية محفوظة."
+            : "No commercial plan is active for this organization yet. Existing data and permissions are preserved."}
+        </p>
+      )}
+      {data.plan && (
+        <p>
+          {ar ? "الباقة الحالية: " : "Current plan: "}
+          {ar ? data.plan.name_ar : data.plan.name_en}
+          {data.plan.price_amount != null && data.plan.currency && (
+            <>
+              {" "}
+              · {money(
+                data.plan.price_amount,
+                data.plan.currency,
+                locale,
+              )} /{" "}
+              {data.plan.billing_interval === "yearly"
+                ? ar
+                  ? "سنة"
+                  : "year"
+                : ar
+                  ? "شهر"
+                  : "month"}
+            </>
+          )}
+        </p>
+      )}
+      <dl className="subscription-summary-metrics">
+        {data.days_remaining != null && (
+          <div>
+            <dt>{ar ? "الأيام المتبقية" : "Days remaining"}</dt>
+            <dd>{data.days_remaining}</dd>
+          </div>
+        )}
+        {end && (
+          <div>
+            <dt>{ar ? "تاريخ الانتهاء" : "End date"}</dt>
+            <dd>{displaySubscriptionDate(end, locale, data.timezone)}</dd>
+          </div>
+        )}
+        <div>
+          <dt>{ar ? "المستخدمون النشطون" : "Active users"}</dt>
+          <dd>
+            {data.active_users}
+            {data.max_users != null ? ` / ${data.max_users}` : ""}
+          </dd>
+        </div>
+      </dl>
+      {!data.can_write && (
+        <p className="settings-hint">
+          {ar
+            ? "بيانات المؤسسة محفوظة. يمكنك الاستعراض والتصدير وفق صلاحياتك؛ إنشاء العمليات وتعديلها والاستيراد متوقف."
+            : "Organization data is preserved. Read and export within your permissions; creating, editing and importing are paused."}
+        </p>
+      )}
+      {data.status === "trialing" && (
+        <p className="settings-hint">
+          {ar
+            ? "التجربة دون بطاقة بنكية أو خصم أو تجديد تلقائي."
+            : "No card, automatic charge or renewal during your trial."}
+        </p>
+      )}
+      <div className="subscription-summary-actions">
+        <Link href="#subscription-plans">
+          {ar ? "عرض الباقات" : "View plans"}
+        </Link>
+        <Link
+          href={`/${locale}/users?organization=${data.organization_id ?? ""}`}
+        >
+          {ar ? "إدارة الأعضاء" : "Manage members"}
+        </Link>
+      </div>
+    </section>
+  );
 }

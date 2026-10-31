@@ -140,6 +140,7 @@ try {
     ),
   );
   sql(await load('supabase/migrations/20261030223910_configurable_subscription_plans.sql'));
+  sql(await load('supabase/migrations/20261031054539_subscription_requests_and_owner_console.sql'));
   for (let i = 0; i < 8; i++) {
     const client = createClient(url, status.ANON_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -419,7 +420,7 @@ try {
             )
             .waitFor();
           await page.locator('[data-plan="professional_monthly"]').waitFor();
-          assert.equal(await page.locator('.pricing-card').count(),3);
+          assert.equal(await page.locator('.pricing-card').count(),2);
           await page.getByRole('button',{name:locale==='ar'?'سنوي':'Yearly',exact:true}).click();
           await page.locator('[data-plan="advanced_yearly"]').waitFor();
           assert.ok((await page.locator('[data-plan="advanced_yearly"]').innerText()).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[٬,]/g,'').includes('3990'));
@@ -449,10 +450,11 @@ try {
         }
       }
       await page.goto(appUrl + "/admin/subscriptions?lang=en");
+      await page.getByRole('button',{name:'◈ Plan definitions',exact:true}).click();
       await page.getByRole('heading',{name:'Plans and pricing',exact:true}).waitFor();
       await page.getByRole('cell',{name:'Professional',exact:true}).first().waitFor();
       await page.emulateMedia({reducedMotion:'reduce'});
-      await page.locator('.plan-manager summary').click();
+      await page.getByRole('button',{name:'＋ Add plan',exact:true}).click();
       await page.emulateMedia({reducedMotion:'reduce'});
     const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
       const readable=(fg,bg)=>{const l=[luminance(fg),luminance(bg)].sort((a,b)=>b-a);return (l[0]+.05)/(l[1]+.05)>=4.5};
@@ -482,6 +484,7 @@ try {
           level: 1,
         })
         .waitFor();
+      await page.getByRole('button',{name:'▦ Organization subscriptions',exact:true}).click();
       const row = page
         .getByRole("row")
         .filter({ hasText: "Trial Institution" });
@@ -536,6 +539,27 @@ try {
       assert.equal(audit.data[0].details.after.revision, 2);
     },
   );
+  await check('customer submits an immutable quote; owner activates it; customer sees the actual active plan',async()=>{
+    const context=await browser.newContext();await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));const page=await context.newPage();
+    const created=await fetch(url+'/rest/v1/organizations',{method:'POST',headers:{...headers(owner),Prefer:'return=representation'},body:JSON.stringify({name:'Activation review institution',owner_user_id:owner.id})});assert.equal(created.status,201);const target=(await created.json())[0].id;
+    await page.goto(appUrl+'/ar/billing?organization='+target);await page.locator('[data-plan="advanced_monthly"]').waitFor();
+    assert.ok(!/[٠-٩]/.test(await page.locator('.pricing-grid').innerText()));
+    await page.locator('[data-plan="advanced_monthly"]').getByRole('button',{name:'طلب تفعيل الباقة',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'طلب تفعيل باقة',exact:true});await dialog.waitFor();await dialog.getByLabel('رقم التواصل',{exact:true}).fill('+966500000000');await dialog.getByLabel('ملاحظات الطلب',{exact:true}).fill('Browser reviewed activation');
+    assert.equal(await dialog.locator('input[type="radio"]').nth(1).isDisabled(),true);
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-request-modal.png',root).pathname,fullPage:true});
+    const sent=page.waitForResponse(r=>r.url()===appUrl+'/api/subscriptions/requests'&&r.request().method()==='POST');await dialog.getByRole('button',{name:'إرسال طلب التفعيل',exact:true}).click();const response=await sent;assert.equal(response.status(),200);const request=await response.json();
+    assert.equal(request.quote.price_amount,399);assert.equal((await rpc(owner,'organization_subscription',{p_organization_id:target})).data.status,'trialing');
+    await page.goto(appUrl+'/admin/subscriptions?lang=en');await page.getByRole('button',{name:'✉ Activation requests',exact:true}).click();
+    const row=page.getByRole('row').filter({hasText:'Activation review institution'});await row.getByRole('button',{name:'View request',exact:true}).click();
+    await page.getByLabel('Decision',{exact:true}).selectOption('approve');await page.getByLabel('Decision reason — visible to customer',{exact:true}).fill('Approved browser end to end test');await page.getByLabel('End date for approval — device timezone',{exact:true}).fill('2027-12-31T18:00');
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-owner-inbox.png',root).pathname,fullPage:true});
+    const approved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/subscriptions/requests'&&r.request().method()==='POST');await page.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal((await approved).status(),200);
+    await page.goto(appUrl+'/en/billing?organization='+target);await page.getByText('Current active plan',{exact:true}).waitFor();await page.getByText('Activated',{exact:false}).first().waitFor();
+    const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.max_users,15);assert.equal(state.plan.price_amount,399);
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-current-plan.png',root).pathname,fullPage:true});
+    await context.close();
+  });
   await check('settings separates account and users; organization switching preserves subscription scope and account preferences persist',async()=>{
     const jar=[];
     const ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>jar,setAll:values=>{for(const item of values){const i=jar.findIndex(x=>x.name===item.name);if(i>=0)jar.splice(i,1);jar.push(item)}}}});
