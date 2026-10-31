@@ -581,6 +581,8 @@ try {
       await page.setViewportSize({width,height:1000});await page.goto(appUrl+`/${locale}/settings?organization=${org}`);
       await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      const layout=await page.locator('.settings-tabs').evaluate(nav=>{const links=[...nav.querySelectorAll('a')],widths=links.map(a=>a.getBoundingClientRect().width);const clone=links[0].cloneNode(true);nav.appendChild(clone);const four=[...nav.querySelectorAll('a')].map(a=>a.getBoundingClientRect().width);clone.remove();return {widths,four,icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,overflow:nav.scrollWidth>nav.clientWidth}});
+      assert.equal(layout.icons,3);assert.ok(!layout.overflow);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);assert.equal(layout.four.length,4);assert.ok(Math.max(...layout.four)-Math.min(...layout.four)<1);
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
@@ -591,7 +593,7 @@ try {
       const colors=await page.locator('.settings-card').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
       for(const c of colors){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings card contrast '+JSON.stringify(c));}
       const tabs=await page.locator('.settings-tabs a').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(el.parentElement).backgroundColor:getComputedStyle(el).backgroundColor})));
-      for(const c of tabs){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
+      for(const c of tabs){assert.equal(c.fg,'rgb(255, 255, 255)');const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
     }
     await context.close();
