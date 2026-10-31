@@ -60,7 +60,7 @@ export async function browserAcceptance({appUrl,emailFor,linkFrom,check,sql,stal
      await page.getByRole('button',{name:ar?'تأكيد البريد الإلكتروني':'Verify email address',exact:true}).click({timeout:30000});
      assert.equal((await posted).headers().origin,appUrl);
      await page.waitForURL(account);await heading(ar?'حسابي':'My Account');
-     phase='account reload';await page.reload();await heading(ar?'حسابي':'My Account');phase='account signout button';await page.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).waitFor({state:'visible',timeout:30000});await signout();phase='signed-out account redirect';
+     phase='account reload';await page.reload();await heading(ar?'حسابي':'My Account');phase='account signout button';try{await page.getByRole('button',{name:ar?'تسجيل الخروج':'Sign out',exact:true}).waitFor({state:'visible',timeout:30000})}catch(e){const state=await page.evaluate(()=>({loading:!!document.querySelector('[role="status"]'),retry:!!document.querySelector('.account-workspace button'),alert:!!document.querySelector('[role="alert"]')}));throw Error('account UI did not reach loaded state '+JSON.stringify(state)+'; '+e.name)}await signout();phase='signed-out account redirect';
      await page.goto(account);await page.waitForURL(u=>u.pathname===`/${locale}/login`);
     });
     await run('wrong password, correct password and remembered email only',async()=>{
