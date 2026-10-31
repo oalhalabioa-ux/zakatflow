@@ -376,7 +376,7 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   await page.keyboard.press("Escape");
   // Native history keeps tab/filter state without a full server navigation.
   await page.goto(appUrl + "/admin/subscriptions?lang=ar&tab=institutions");
-  const orgSearch = page.locator(".institution-register input[type=search]");
+  const orgSearch = page.locator(".institution-register .owner-search input");
   await orgSearch.fill("شركة الأفق");
   await page.waitForTimeout(350);
   await page
