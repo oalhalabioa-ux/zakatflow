@@ -1611,3 +1611,23 @@ html[data-owner-theme="elegant"] .owner-shell .owner-plan-modal .plan-check:has(
   background:#e9f4ef;
   border-color:#9ec7b7;
 }
+
+
+/* Semantic button icons are exclusive to Elegant; other themes remain unchanged. */
+.owner-elegant-action-icon {
+  display:none;
+  width:17px;
+  height:17px;
+  flex:none;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console button:has(.owner-elegant-action-icon),
+html[data-owner-theme="elegant"] .owner-shell .subscription-modal button:has(.owner-elegant-action-icon),
+html[data-owner-theme="elegant"] .owner-shell .owner-plan-modal button:has(.owner-elegant-action-icon) {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+}
+html[data-owner-theme="elegant"] .owner-elegant-action-icon {
+  display:inline-block;
+}
