@@ -80,9 +80,12 @@ export default function ActivationRequestsConsole({
     },
     [search, status, offset, ar],
   );
+  const firstRequestLoad = useRef(true);
   useEffect(() => {
     const c = new AbortController();
-    const t = setTimeout(() => void load(c.signal), 200);
+    const delay = firstRequestLoad.current ? 0 : 200;
+    firstRequestLoad.current = false;
+    const t = setTimeout(() => void load(c.signal), delay);
     return () => {
       c.abort();
       clearTimeout(t);
