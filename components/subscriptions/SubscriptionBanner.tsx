@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
+  routeCapability,
+  includesCapability,
+  money,
+} from "@/lib/subscriptions/catalog";
+import {
   rememberedOrganization,
   preferredOrganization,
 } from "@/lib/workspace-organization";
@@ -101,6 +106,9 @@ export default function SubscriptionBanner({
   if (!data) return null;
   const end =
     data.status === "active" ? data.current_period_end : data.trial_ends_at;
+  const module = routeCapability(pathname),
+    moduleLocked =
+      !!module && !includesCapability(data.capabilities, "module:" + module);
   const milestone = data.notifications?.[0]?.milestone;
   return (
     <aside
@@ -109,9 +117,39 @@ export default function SubscriptionBanner({
       aria-label={ar ? "حالة الاشتراك" : "Subscription status"}
     >
       <div>
+        {moduleLocked && (
+          <p role="status">
+            {ar
+              ? "هذا الموديول غير مشمول للكتابة في باقتك. يمكنك قراءة البيانات السابقة وتصديرها، أو طلب ترقية الباقة."
+              : "This module is not included for writing. Existing data remains readable and exportable; request a plan upgrade to write."}
+          </p>
+        )}
         <strong>
           {data.organization_name} · {subscriptionLabel(data.status, ar)}
         </strong>
+        {data.plan && (
+          <p>
+            {ar ? "الباقة: " : "Plan: "}
+            {ar ? data.plan.name_ar : data.plan.name_en}
+            {data.plan.price_amount != null && data.plan.currency && (
+              <>
+                {" "}
+                · {money(
+                  data.plan.price_amount,
+                  data.plan.currency,
+                  locale,
+                )} /{" "}
+                {data.plan.billing_interval === "yearly"
+                  ? ar
+                    ? "سنة"
+                    : "year"
+                  : ar
+                    ? "شهر"
+                    : "month"}
+              </>
+            )}
+          </p>
+        )}
         <p>
           {data.days_remaining != null && (
             <span>

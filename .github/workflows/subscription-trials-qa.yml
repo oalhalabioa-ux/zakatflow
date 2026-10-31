@@ -38,6 +38,7 @@ jobs:
         run: |
           node tests/subscriptions/database.mjs
           node tests/subscriptions/deployed-schema.mjs
+          node tests/subscriptions/plans.mjs
       - name: Initialize isolated Supabase
         run: |
           export TRIAL_QA_WORKDIR="$RUNNER_TEMP/trial-subscriptions-qa"

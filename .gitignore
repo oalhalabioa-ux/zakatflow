@@ -8,3 +8,5 @@ owner-rpc-acceptance-result.json
 tests/migration-history/bootstrap-result.json
 tests/migration-history/schema-differences.json
 tsconfig.tsbuildinfo
+
+tests/subscriptions/plans-result.json

@@ -60,7 +60,7 @@ html[data-owner-theme="classic"] .owner-shell{--owner-tab-bg:#e9e3d5;--owner-tab
 .owner-content{width:100%}
 .owner-table-wrap{max-width:100%;overscroll-behavior-x:contain}
 .owner-section-nav.owner-tabs{overscroll-behavior-x:contain;scroll-padding-inline:8px}
-@media(prefers-reduced-motion:reduce){.owner-shell a{transition:none}}
+@media(prefers-reduced-motion:reduce){.owner-shell a,.owner-shell .owner-section-nav.owner-tabs a{transition:none}}
 
 /* Original supplied artwork is displayed without filters or pixel changes. */
 .owner-brand-row{display:flex;align-items:center;gap:8px;min-height:80px}
@@ -110,3 +110,7 @@ html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-sidebar
  .owner-navigation-row>.owner-tabs{flex-basis:100%;order:2}
  .owner-navigation-row>.owner-tabs-theme{order:1;margin-inline-start:auto;padding:0;border:0;background:transparent}
 }
+/* Explicit native select/option surfaces in every owner theme. */
+.owner-shell :is(select,select option,select optgroup){background-color:var(--owner-panel);color:var(--owner-ink)}
+html:is([data-owner-theme="modern"],[data-owner-theme="classic"]) .owner-shell select{color-scheme:light}
+html:is([data-owner-theme="elegant"],[data-owner-theme="yaqeen"]) .owner-shell select{color-scheme:dark}

@@ -127,6 +127,7 @@ try {
       "supabase/migrations/20261030150759_organization_trial_entitlements.sql",
     ),
   );
+  sql(await load('supabase/migrations/20261030223910_configurable_subscription_plans.sql'));
   for (let i = 0; i < 8; i++) {
     const client = createClient(url, status.ANON_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -405,6 +406,13 @@ try {
               locale === "ar" ? "حالة الاشتراك" : "Subscription status",
             )
             .waitFor();
+          await page.locator('[data-plan="professional_monthly"]').waitFor();
+          assert.equal(await page.locator('.pricing-card').count(),3);
+          await page.getByRole('button',{name:locale==='ar'?'سنوي':'Yearly',exact:true}).click();
+          await page.locator('[data-plan="advanced_yearly"]').waitFor();
+          assert.ok((await page.locator('[data-plan="advanced_yearly"]').innerText()).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[٬,]/g,'').includes('3990'));
+          await page.getByRole('button',{name:locale==='ar'?'شهري':'Monthly',exact:true}).click();
+
           await page
             .getByText(
               locale === "ar"
@@ -429,6 +437,31 @@ try {
         }
       }
       await page.goto(appUrl + "/admin/subscriptions?lang=en");
+      await page.getByRole('heading',{name:'Plans and pricing',exact:true}).waitFor();
+      await page.getByRole('cell',{name:'Professional',exact:true}).first().waitFor();
+      await page.emulateMedia({reducedMotion:'reduce'});
+      await page.locator('.plan-manager summary').click();
+      const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
+      const readable=(fg,bg)=>{const l=[luminance(fg),luminance(bg)].sort((a,b)=>b-a);return (l[0]+.05)/(l[1]+.05)>=4.5};
+      for(const [theme,label] of [['yaqeen','Yaqeen'],['elegant','Elegant'],['modern','Modern'],['classic','Classic']]){
+       await page.getByRole('button',{name:label,exact:true}).click();
+       await page.waitForFunction(t=>document.documentElement.dataset.ownerTheme===t,theme);
+       const colors=await page.locator('.owner-shell select').evaluateAll(items=>items.map(el=>({bg:getComputedStyle(el).backgroundColor,fg:getComputedStyle(el).color,option:getComputedStyle(el.options[0]).backgroundColor,optionFg:getComputedStyle(el.options[0]).color})));
+       for(const c of colors){assert.notEqual(c.bg,'rgba(0, 0, 0, 0)');assert.notEqual(c.option,'rgba(0, 0, 0, 0)');assert.ok(readable(c.fg,c.bg)&&readable(c.optionFg,c.option),theme+' dropdown contrast '+JSON.stringify(c));}
+       const tabs=await page.locator('.owner-tabs a').evaluateAll(items=>items.map(a=>({fg:getComputedStyle(a).color,bg:getComputedStyle(a).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(a.parentElement).backgroundColor:getComputedStyle(a).backgroundColor})));
+       for(const c of tabs)assert.ok(readable(c.fg,c.bg),theme+' navigation contrast '+JSON.stringify(c));
+       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/admin-${theme}.png`,root).pathname,fullPage:true});
+      }
+      await page.getByRole('button',{name:'Yaqeen',exact:true}).click();
+      const form=page.locator('.plan-manager form');
+      for(const [name,value] of Object.entries({code:'qa_custom',family:'qa_custom',name_ar:'باقة مخصصة للاختبار',name_en:'Custom acceptance plan',price:'79',max_users:'3',reason:'Browser custom plan acceptance'}))await form.locator(`[name="${name}"]`).fill(value);
+      await form.locator('[name="features"][value="module:budgets"]').uncheck();
+      await form.locator('[name="features"][value="module:investments"]').uncheck();
+      await form.locator('[name="is_published"]').check();
+      const saved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/trials/plans'&&r.request().method()==='POST');
+      await form.getByRole('button',{name:'Save and audit',exact:true}).click();assert.equal((await saved).status(),200);
+      await page.getByRole('cell',{name:'Custom acceptance plan',exact:true}).waitFor();
+
       await page
         .getByRole("heading", {
           name: "Subscriptions and free trials",

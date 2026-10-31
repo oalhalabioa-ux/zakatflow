@@ -4,7 +4,8 @@
     "deploymentEnabled": {
       "feature/platform-owner-dashboard-qa": false,
       "feat/organization-trials-20261030": false,
-      "fix/magic-link-and-release-followup-20261030": false
+      "fix/magic-link-and-release-followup-20261030": false,
+      "feat/configurable-subscription-plans": false
     }
   }
 }
