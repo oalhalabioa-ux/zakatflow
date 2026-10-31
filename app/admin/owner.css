@@ -350,3 +350,127 @@ html[data-owner-theme="elegant"] .owner-shell .subscription-panel button.request
   html[data-owner-theme="elegant"] .owner-shell .console-tabs {flex-wrap:nowrap;overflow-x:auto}
   html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-tabs button {flex:0 0 auto;min-width:130px}
 }
+
+
+/* Elegant v2 layout corrections after visual acceptance review. */
+html[data-owner-theme="elegant"] .owner-navigation-row {
+  justify-content:flex-end;
+  margin:0 0 16px;
+  min-height:44px;
+}
+/* The full seven-section navigation already exists in the sidebar.
+   Suppress the duplicate horizontal scroller only for Elegant. */
+html[data-owner-theme="elegant"] .owner-navigation-row>.owner-tabs {display:none}
+html[data-owner-theme="elegant"] .owner-navigation-row>a {
+  margin-inline-start:auto;
+  color:#193B60;
+  font-weight:600;
+  text-decoration:none;
+}
+html[data-owner-theme="elegant"] .owner-content {
+  max-width:none;
+  padding:28px clamp(16px,2.2vw,34px);
+}
+html[data-owner-theme="elegant"] .owner-top {
+  margin-bottom:16px;
+}
+html[data-owner-theme="elegant"] .owner-top h1 {
+  font-size:clamp(22px,2vw,29px);
+  line-height:1.4;
+}
+html[data-owner-theme="elegant"] .owner-top p {
+  max-width:900px;
+  line-height:1.7;
+}
+html[data-owner-theme="elegant"] .owner-subscription-console {
+  background:transparent;
+  border:0;
+  padding:0;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-tabs {
+  margin:0 0 22px;
+  padding:6px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+  margin:0 0 22px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  min-height:132px;
+  padding:18px 20px;
+  overflow:hidden;
+  border-radius:12px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article::before {
+  content:"";
+  position:absolute;
+  inset-block-start:0;
+  inset-inline:0;
+  height:3px;
+  background:#C6A35D;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article:nth-child(2)::before {
+  background:#9CCDB2;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article:nth-child(3)::before {
+  background:#D6C08C;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article:nth-child(4)::before {
+  background:#BDC7D1;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article span {
+  color:#657484;
+  font-size:13px;
+  font-weight:600;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article strong {
+  color:#10243A;
+  font-size:clamp(23px,2.3vw,34px);
+  margin:8px 0 2px;
+  line-height:1.25;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article small {
+  color:#7B8997;
+  font-size:11px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-card {
+  border-radius:12px;
+  padding:18px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-heading h2 {
+  color:#10243A;
+  font-size:clamp(18px,1.4vw,23px);
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-filters {
+  background:#F8FAFC;
+  border:1px solid #DCE3EA;
+  padding:12px;
+  border-radius:10px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-filters :is(input,select) {
+  min-height:40px;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel table {
+  border-collapse:separate;
+  border-spacing:0;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel :is(th,td) {
+  padding:12px 10px;
+  border-bottom:1px solid #E5EAF0;
+}
+html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-split {gap:16px}
+@media(max-width:1100px) {
+ html[data-owner-theme="elegant"] .owner-shell .subscription-metrics {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px) {
+ html[data-owner-theme="elegant"] .owner-content {padding:16px 12px}
+ html[data-owner-theme="elegant"] .owner-shell .subscription-metrics {gap:8px}
+ html[data-owner-theme="elegant"] .owner-shell .subscription-metrics article {padding:13px;min-height:108px}
+ html[data-owner-theme="elegant"] .owner-shell .subscription-panel .console-card {padding:12px}
+}
