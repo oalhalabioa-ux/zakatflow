@@ -19,7 +19,7 @@ export default function OwnerSidebar({locale='ar'}:{locale?:Locale}){const trans
   <svg className="owner-elegant-logo-defs" width="0" height="0" aria-hidden="true" focusable="false">
    <defs>
     <filter id="owner-elegant-logo-colors" colorInterpolationFilters="sRGB">
-     <feColorMatrix type="matrix" values="0.950 0 0 -0.016 0  0 0.197 0 0.447 0  0 0 -0.677 0.550 0  0 0 0 1 0"/>
+     <feColorMatrix type="matrix" values="0.900 0 0 -0.013 0  0 0.220 0 0.445 0  -0.250 0 -0.677 0.565 0  0 0 0 1 0"/>
     </filter>
    </defs>
   </svg>
