@@ -494,6 +494,8 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   await modal.locator("[name=family]").fill("qa_design_ab");
   await modal.locator("[name=customer_notice_ar]").fill("عرض إطلاق خاص للمؤسسات");
   await modal.locator("[name=customer_notice_en]").fill("Special launch offer for organizations");
+  await modal.locator('[name=is_proposed]').uncheck();assert.equal(await modal.locator('.plan-notice-preview').count(),0);
+  await modal.locator('[name=is_proposed]').check();await modal.locator('.plan-notice-preview').getByText('عرض إطلاق خاص للمؤسسات',{exact:true}).waitFor();
   await modal.locator("[name=is_published]").check();
   await modal.locator("[name=price]").fill("199");
   await modal.locator("[name=max_users]").fill("7");

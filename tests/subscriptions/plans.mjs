@@ -45,7 +45,6 @@ try{
  const baseObjects=(await db.query(query)).rows;
  await check('new pricing migration installs without changing legacy organization access',async()=>{
   await db.exec(await load('supabase/migrations/20261030223910_configurable_subscription_plans.sql'));
-  await db.exec(await load('tests/subscriptions/plan-customer-notice.sql'));
   assert.equal((await db.query('select organization_subscription($1) value',[legacy.id])).rows[0].value.can_write,true);
  });
  const after=(await db.query(query)).rows,previous=new Map(baseObjects.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
@@ -56,6 +55,12 @@ try{
  const afterRequests=(await db.query(query)).rows, requestLookup=new Map(beforeRequests.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
  const requestDelta={upserts:afterRequests.filter(x=>requestLookup.get(x.category+':'+x.object_key)!==x.fingerprint),removals:beforeRequests.filter(x=>!afterRequests.some(y=>y.category===x.category&&y.object_key===x.object_key)).map(x=>({category:x.category,object_key:x.object_key}))};
  if(process.env.WRITE_OWNER_SCHEMA_DELTA==='1')await writeFile(new URL('tests/migration-history/owner-console-schema-delta.json',root),JSON.stringify(requestDelta,null,2)+'\n');
+ const beforeNotice=(await db.query(query)).rows;
+ await db.exec(await load('tests/subscriptions/plan-customer-notice.sql'));
+ const afterNotice=(await db.query(query)).rows,noticeLookup=new Map(beforeNotice.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
+ const noticeDelta={upserts:afterNotice.filter(x=>noticeLookup.get(x.category+':'+x.object_key)!==x.fingerprint),removals:beforeNotice.filter(x=>!afterNotice.some(y=>y.category===x.category&&y.object_key===x.object_key)).map(x=>({category:x.category,object_key:x.object_key}))};
+ await writeFile(new URL('tests/migration-history/plan-notice-schema-delta.json',root),JSON.stringify(noticeDelta,null,2)+'\n');
+ console.log('NOTICE_SCHEMA_DELTA='+JSON.stringify(noticeDelta));
  await (await import('./activation-requests.mjs')).activationRequests({db,check,owner,session,legacy});
  let org,plan,budget,revision;
  await check('published catalog has professional/advanced monthly/yearly prices and caps',async()=>{

@@ -22,16 +22,16 @@ export default function PlanEditor({plan,locale,busy,error,onSave,onCancel}:{pla
       <div className="owner-plan-fields">
        {field('name_ar',t('الاسم العربي','Arabic name'),{minLength:2,maxLength:120,dir:'rtl'})}
        {field('name_en',t('الاسم الإنجليزي','English name'),{minLength:2,maxLength:120,dir:'ltr'})}
-       {field('price',draft.interval==='monthly'?t('السعر للشهر كاملًا','Full monthly price'):t('السعر للسنة كاملة','Full yearly price'),{type:'number',min:0,max:100000000,step:'0.01',inputMode:'decimal',dir:'ltr'})}
-       {field('currency',t('العملة','Currency'),{pattern:'[A-Z]{3}',maxLength:3,dir:'ltr'})}
+       <div className="plan-price-row">{field('price',draft.interval==='monthly'?t('السعر للشهر كاملًا','Full monthly price'):t('السعر للسنة كاملة','Full yearly price'),{type:'number',min:0,max:100000000,step:'0.01',inputMode:'decimal',dir:'ltr'})}
+       {field('currency',t('العملة','Currency'),{pattern:'[A-Z]{3}',maxLength:3,dir:'ltr'})}</div>
        <label>{t('فترة الاشتراك','Billing interval')}<select name="interval" value={draft.interval} onChange={e=>set('interval',e.target.value)}><option value="monthly">{t('شهري','Monthly')}</option><option value="yearly">{t('سنوي','Yearly')}</option></select></label>
        {field('max_users',t('حد المستخدمين النشطين','Active user limit'),{type:'number',min:1,max:100000,inputMode:'numeric',dir:'ltr'})}
-       <label className="plan-field-wide">{t('الوصف العربي','Arabic description')}<textarea name="description_ar" maxLength={500} defaultValue={plan?.description_ar} dir="rtl"/></label>
-       <label className="plan-field-wide">{t('الوصف الإنجليزي','English description')}<textarea name="description_en" maxLength={500} defaultValue={plan?.description_en} dir="ltr"/></label>
+       <label className="plan-field-wide">{t('الوصف المختصر','Short description')}<textarea name={ar?'description_ar':'description_en'} maxLength={500} defaultValue={ar?plan?.description_ar:plan?.description_en} dir={ar?'rtl':'ltr'}/></label>
       </div>
       <details className="owner-plan-advanced"><summary>{t('إعدادات إضافية','Additional settings')}</summary><div className="owner-plan-fields">
        <label>{t('رمز الباقة الثابت','Immutable code')}<input name="code" pattern="[a-z0-9_-]{2,40}" defaultValue={plan?.code} readOnly={!!plan} required dir="ltr"/></label>
        <label>{t('مجموعة الباقة (للشهري والسنوي)','Plan family (monthly/yearly)')}<input name="family" pattern="[a-z0-9_-]{2,40}" defaultValue={plan?.family??'custom'} required dir="ltr"/></label>
+       <label className="plan-field-wide">{t('الوصف الإنجليزي','Arabic description')}<textarea name={ar?'description_en':'description_ar'} maxLength={500} defaultValue={ar?plan?.description_en:plan?.description_ar} dir={ar?'ltr':'rtl'}/></label>
       </div></details>
      </section>
      <section className="owner-plan-options" aria-labelledby={id+'-options'}>

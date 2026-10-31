@@ -863,3 +863,6 @@
   flex: 1;
   min-width: 180px;
 }
+
+/* Customer-authored plan copy may wrap; never widen a pricing card. */
+.pricing-card > .plan-badge {max-width:100%;overflow-wrap:anywhere;white-space:normal;}

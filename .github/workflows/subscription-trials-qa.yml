@@ -18,6 +18,32 @@ on:
 permissions:
   contents: read
 jobs:
+  notice-metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Generate reviewed notice migration metadata without hosted access
+        run: |
+          mkdir -p "$RUNNER_TEMP/notice-tools"
+          npm install --prefix "$RUNNER_TEMP/notice-tools" --no-save --package-lock=false @electric-sql/pglite@0.3.14
+          export TRIAL_PGLITE_MODULE="$RUNNER_TEMP/notice-tools/node_modules/@electric-sql/pglite/dist/index.js"
+          node tests/subscriptions/plans.mjs
+          npx --yes supabase@2.122.0 migration --help > /dev/null
+          npx --yes supabase@2.122.0 migration new --help > /dev/null
+          npx --yes supabase@2.122.0 init --workdir "$RUNNER_TEMP/notice-name"
+          npx --yes supabase@2.122.0 migration new plan_customer_notice --workdir "$RUNNER_TEMP/notice-name"
+          python - <<'PYNAME'
+          import os,pathlib
+          p=next((pathlib.Path(os.environ['RUNNER_TEMP'])/'notice-name/supabase/migrations').glob('*_plan_customer_notice.sql'))
+          print('GENERATED_NOTICE_MIGRATION='+p.name)
+          PYNAME
   isolated-trials:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
