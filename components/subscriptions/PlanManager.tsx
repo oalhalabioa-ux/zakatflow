@@ -1,4 +1,5 @@
 "use client";
+import OwnerMetrics from "@/app/admin/OwnerMetrics";
 import SubscriptionModal from "./SubscriptionModal";
 import { adminSubscriptionError } from "@/lib/subscriptions/admin-errors";
 import { useState, type FormEvent } from "react";
@@ -85,6 +86,37 @@ export default function PlanManager({
           {ar ? "＋ إضافة باقة جديدة" : "＋ Add plan"}
         </button>
       </div>
+      <OwnerMetrics
+        locale={locale}
+        items={[
+          {
+            label: ar ? "إجمالي الباقات" : "Catalog plans",
+            value: plans.length,
+            icon: "layers",
+            note: ar
+              ? "يشمل التجربة والباقات الخاصة"
+              : "Includes trial and private plans",
+          },
+          {
+            label: ar ? "باقات مفعّلة" : "Enabled plans",
+            value: plans.filter((plan) => plan.is_active).length,
+            icon: "card",
+            tone: "success",
+            note: ar
+              ? "متاحة للإدارة بحسب إعدادات الباقة"
+              : "Available according to plan settings",
+          },
+          {
+            label: ar ? "باقات منشورة ومفعّلة" : "Published and enabled",
+            value: plans.filter((plan) => plan.is_active && plan.is_published)
+              .length,
+            icon: "building",
+            note: ar
+              ? "تظهر ضمن دليل الباقات المتاحة"
+              : "Visible in the available plan catalog",
+          },
+        ]}
+      />
       {message && (
         <p className="owner-feedback" data-tone="success" role="status">
           {message}

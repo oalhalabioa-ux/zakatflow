@@ -64,9 +64,9 @@
   background: var(--owner-bg);
 }
 .owner-shell .owner-console-tabs > button[aria-pressed="true"] {
-  background: var(--owner-nav-gold);
-  color: var(--owner-nav-ink);
-  border-bottom-color: var(--owner-nav-ink);
+  background: var(--owner-section-bg);
+  color: var(--owner-section-ink);
+  border-bottom-color: var(--owner-section-line);
   font-weight: 750;
 }
 .owner-request-count {
@@ -309,7 +309,7 @@
   background: var(--owner-selected);
 }
 .owner-subscription-console tr[aria-selected="true"] td:first-child {
-  border-inline-start: 3px solid var(--owner-nav-ink);
+  border-inline-start: 3px solid var(--owner-accent);
 }
 .owner-subscription-console .owner-institution-table th:nth-child(1) {
   width: 22%;
@@ -463,9 +463,9 @@
   font-size: 12px;
 }
 .owner-subscription-console .owner-detail-tabs [aria-pressed="true"] {
-  background: var(--owner-nav-ink);
-  color: var(--owner-nav-gold);
-  border-bottom-color: var(--owner-nav-gold);
+  background: var(--owner-main-bg);
+  color: var(--owner-main-ink);
+  border-bottom-color: var(--owner-main-line);
 }
 .owner-detail-facts {
   display: grid;
@@ -1152,9 +1152,9 @@
   color: var(--owner-ink);
 }
 .owner-subscription-console .owner-detail-tabs [aria-pressed="true"] {
-  background: var(--owner-nav-ink);
-  color: var(--owner-nav-gold);
-  border-bottom-color: var(--owner-nav-gold);
+  background: var(--owner-main-bg);
+  color: var(--owner-main-ink);
+  border-bottom-color: var(--owner-main-line);
 }
 .owner-console-tabs .owner-request-count,
 .owner-console-tabs [aria-pressed="true"] .owner-request-count {
@@ -1487,4 +1487,31 @@
 .owner-detail-tabs .owner-console-icon {
   width: 17px;
   height: 17px;
+}
+
+/* Rounded selections and theme-specific accents across all subscription views. */
+.owner-subscription-console .owner-console-tabs {
+  gap: 4px;
+  padding: 5px;
+  border-radius: 12px;
+}
+.owner-shell .owner-console-tabs > button {
+  border-radius: 8px;
+  min-width: 0;
+}
+.owner-subscription-console .owner-detail-tabs {
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+}
+.owner-subscription-console .owner-detail-tabs button {
+  border-radius: 7px;
+}
+.owner-shell .owner-subscription-console table tr[aria-selected="true"] {
+  border-color: var(--owner-accent);
+}
+@media (max-width: 600px) {
+  .owner-subscription-console .owner-console-tabs {
+    gap: 4px;
+  }
 }

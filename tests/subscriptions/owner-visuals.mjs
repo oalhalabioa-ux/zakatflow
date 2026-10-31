@@ -2,9 +2,54 @@
 import assert from "node:assert/strict";
 const palettes = {
   yaqeen: "rgb(243, 245, 247)",
-  elegant: "rgb(243, 245, 247)",
+  elegant: "rgb(243, 246, 243)",
   modern: "rgb(245, 247, 255)",
-  classic: "rgb(241, 245, 247)",
+  classic: "rgb(242, 244, 243)",
+};
+const identities = {
+  yaqeen: {
+    main: "rgb(16, 36, 58)",
+    ink: "rgb(198, 163, 93)",
+    line: "rgb(198, 163, 93)",
+    section: "rgb(255, 249, 239)",
+    sectionInk: "rgb(16, 36, 58)",
+    selected: "rgb(255, 249, 239)",
+    head: "rgb(255, 254, 250)",
+    sidebar: "rgb(16, 36, 58)",
+  },
+  elegant: {
+    main: "rgb(24, 63, 53)",
+    ink: "rgb(215, 234, 221)",
+    line: "rgb(131, 169, 142)",
+    section: "rgb(237, 245, 238)",
+    sectionInk: "rgb(24, 63, 53)",
+    sectionLine: "rgb(98, 139, 118)",
+    selected: "rgb(237, 247, 240)",
+    head: "rgb(254, 252, 247)",
+    sidebar: "rgb(24, 63, 53)",
+  },
+  modern: {
+    main: "rgb(52, 70, 171)",
+    ink: "rgb(255, 255, 255)",
+    line: "rgb(168, 182, 255)",
+    section: "rgb(238, 240, 255)",
+    sectionInk: "rgb(41, 60, 143)",
+    sectionLine: "rgb(104, 120, 216)",
+    selected: "rgb(238, 241, 255)",
+    head: "rgb(250, 250, 253)",
+    sidebar: "rgb(255, 255, 255)",
+  },
+  classic: {
+    main: "rgb(23, 62, 72)",
+    ink: "rgb(220, 240, 241)",
+    line: "rgb(118, 174, 178)",
+    section: "rgb(236, 246, 245)",
+    sectionInk: "rgb(23, 62, 72)",
+    sectionLine: "rgb(76, 139, 148)",
+    selected: "rgb(234, 246, 244)",
+    head: "rgb(254, 252, 247)",
+    sidebar: "rgb(23, 62, 72)",
+  },
 };
 const luminance = (color) => {
   const c = color
@@ -78,6 +123,27 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
             .locator(".owner-request-detail .owner-decision-form")
             .waitFor();
         }
+        assert.equal(
+          await page
+            .locator(".owner-sidebar")
+            .evaluate((e) => getComputedStyle(e).backgroundColor),
+          identities[theme].sidebar,
+          "Each theme has its own sidebar identity",
+        );
+        const mainStyle = await page
+          .locator(".owner-tabs a.selected")
+          .evaluate((e) => ({
+            ink: getComputedStyle(e).color,
+            line: getComputedStyle(e).borderBottomColor,
+          }));
+        assert.equal(mainStyle.ink, identities[theme].ink);
+        assert.equal(mainStyle.line, identities[theme].line);
+        assert.ok(
+          await nav
+            .locator("[aria-pressed=true]")
+            .evaluate((e) => parseFloat(getComputedStyle(e).borderRadius) >= 7),
+          "Section selections have rounded corners",
+        );
         const activeStyle = await nav
           .locator("[aria-pressed=true]")
           .evaluate((e) => ({
@@ -88,32 +154,35 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
           }));
         assert.equal(
           activeStyle.bg,
-          "rgb(245, 235, 214)",
-          "Section tabs use pale gold beneath the navy main navigation",
+          identities[theme].section,
+          "Section tabs use their own theme's light selection",
         );
         assert.equal(activeStyle.border, "3px");
-        assert.equal(activeStyle.color, "rgb(16, 36, 58)");
-        assert.equal(activeStyle.line, "rgb(16, 36, 58)");
+        assert.equal(activeStyle.color, identities[theme].sectionInk);
+        assert.equal(
+          activeStyle.line,
+          identities[theme].sectionLine || identities[theme].line,
+        );
         const selected = page
           .locator(".owner-subscription-console tr[aria-selected=true]")
           .first();
         assert.equal(
           await selected.evaluate((e) => getComputedStyle(e).backgroundColor),
-          "rgb(245, 235, 214)",
+          identities[theme].selected,
         );
         assert.equal(
           await page
             .locator(".owner-subscription-console th")
             .first()
             .evaluate((e) => getComputedStyle(e).backgroundColor),
-          "rgb(255, 252, 245)",
+          identities[theme].head,
           "Ivory header is distinct from the selected pale-gold record",
         );
         assert.equal(
           await page
             .locator(".owner-tabs a.selected")
             .evaluate((e) => getComputedStyle(e).backgroundColor),
-          "rgb(16, 36, 58)",
+          identities[theme].main,
         );
         for (const bg of await page
           .locator(".owner-metric-icon")
@@ -132,13 +201,13 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
               bg: getComputedStyle(e).backgroundColor,
               line: getComputedStyle(e).borderBottomColor,
             }));
-          assert.equal(detail.bg, "rgb(16, 36, 58)");
-          assert.equal(detail.line, "rgb(245, 235, 214)");
+          assert.equal(detail.bg, identities[theme].main);
+          assert.equal(detail.line, identities[theme].line);
         }
         await selected.hover();
         assert.equal(
           await selected.evaluate((e) => getComputedStyle(e).backgroundColor),
-          "rgb(245, 235, 214)",
+          identities[theme].selected,
           "Hover must retain selected row styling",
         );
         const navBox = await nav.boundingBox();
@@ -498,13 +567,11 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   for (const width of [1366, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     assert.ok(await inline.evaluate((e) => e.scrollWidth <= e.clientWidth + 1));
-    const editorGeometry = await inline
-      .locator("form")
-      .evaluate((e) => ({
-        display: getComputedStyle(e).display,
-        formWidth: e.clientWidth,
-        fieldsWidth: e.querySelector("fieldset").getBoundingClientRect().width,
-      }));
+    const editorGeometry = await inline.locator("form").evaluate((e) => ({
+      display: getComputedStyle(e).display,
+      formWidth: e.clientWidth,
+      fieldsWidth: e.querySelector("fieldset").getBoundingClientRect().width,
+    }));
     assert.equal(editorGeometry.display, "block");
     assert.ok(
       editorGeometry.fieldsWidth >= editorGeometry.formWidth * 0.95,
@@ -574,6 +641,44 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
                 label,
                 "Mobile administrative records have field labels",
               );
+          }
+          if (route === "/analytics") {
+            assert.equal(await page.locator(".owner-metric-card").count(), 4);
+            assert.ok((await page.locator(".owner-task-list a").count()) === 3);
+            assert.ok(
+              !/[٠-٩۰-۹]/.test(
+                await page.locator(".owner-content").innerText(),
+              ),
+            );
+            const activeCount = await page
+              .locator(".owner-metric-card")
+              .nth(2)
+              .locator("strong")
+              .innerText();
+            const denominator = await page
+              .locator(".owner-metric-card")
+              .nth(0)
+              .locator("strong")
+              .innerText();
+            const rate = await page
+              .locator(".owner-progress")
+              .getAttribute("aria-valuenow");
+            assert.equal(
+              Number(rate),
+              Math.round(
+                (Number(activeCount.replace(/[,٬]/g, "")) /
+                  Number(denominator.replace(/[,٬]/g, ""))) *
+                  1000,
+              ) / 10,
+              "Analytics share uses current organization denominator",
+            );
+            await page.screenshot({
+              path: new URL(
+                `tests/subscriptions/screenshots/owner-analytics-${locale}-${theme}-${width}.png`,
+                root,
+              ).pathname,
+              fullPage: true,
+            });
           }
           if (locale === "ar" && theme === "yaqeen" && width === 1366)
             await page.screenshot({
