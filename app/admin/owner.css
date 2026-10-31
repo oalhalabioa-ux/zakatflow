@@ -1238,3 +1238,74 @@ html[data-owner-theme="elegant"] .owner-sidebar nav a.selected .owner-nav-symbol
 html[data-owner-theme="elegant"] .owner-kpis article:nth-child(2n) {
   border-top-color:#d6ad58;
 }
+
+
+/* Elegant page components: the same pearl / emerald / royal-gold rhythm on all owner routes. */
+html[data-owner-theme="elegant"] .owner-content {
+  color:#263e36;
+}
+html[data-owner-theme="elegant"] .owner-top h1,
+html[data-owner-theme="elegant"] .owner-intro h2,
+html[data-owner-theme="elegant"] .owner-analysis-card h2 {
+  color:#263e36;
+}
+html[data-owner-theme="elegant"] .owner-tabs a.selected {
+  background:#e9f4ef;
+  color:#075e50;
+  border-bottom-color:#b89245;
+}
+html[data-owner-theme="elegant"] .owner-tabs a:hover:not(.selected) {
+  background:#f0f7f3;
+}
+html[data-owner-theme="elegant"] .owner-theme-picker button.active {
+  border-color:#b89245;
+  background:#fff4d9;
+  color:#075e50;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-sub-links {
+  border-inline-start-color:#d9e8e1;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-side-links a.selected {
+  box-shadow:inset -3px 0 0 #b89245;
+}
+html[data-owner-theme="elegant"] .owner-sidebar .owner-side-links a.selected:hover {
+  background:#e9f4ef;
+  color:#075e50;
+}
+html[data-owner-theme="elegant"] .owner-metrics .owner-metric-card,
+html[data-owner-theme="elegant"] .owner-analysis-card {
+  border-radius:14px;
+  box-shadow:0 5px 18px #183f3509;
+}
+html[data-owner-theme="elegant"] .owner-metrics .owner-metric-card {
+  border-block-start-color:#b9dacf;
+}
+html[data-owner-theme="elegant"] .owner-metrics .owner-metric-card:nth-child(2n) {
+  border-block-start-color:#d6ad58;
+}
+html[data-owner-theme="elegant"] .owner-analysis-card h2:after {
+  background:#b89245;
+}
+html[data-owner-theme="elegant"] .owner-users-table th {
+  color:#38564b;
+  background:#f0f7f3;
+}
+html[data-owner-theme="elegant"] .owner-users-table tbody tr[aria-selected="true"] {
+  box-shadow:inset 3px 0 0 #b89245;
+}
+html[data-owner-theme="elegant"] .owner-pagination a:hover,
+html[data-owner-theme="elegant"] .owner-action:not(.primary):hover {
+  background:#e9f4ef;
+  border-color:#9ec7b7;
+  color:#075e50;
+}
+html[data-owner-theme="elegant"] .owner-action.primary:hover,
+html[data-owner-theme="elegant"] .owner-plan-form button:not(:disabled):hover {
+  background:#064e42;
+  border-color:#064e42;
+}
+html[data-owner-theme="elegant"] .owner-action.primary:focus-visible,
+html[data-owner-theme="elegant"] .owner-plan-form button:focus-visible {
+  outline:2px solid #b89245;
+  outline-offset:3px;
+}
