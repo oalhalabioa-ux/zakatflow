@@ -649,7 +649,12 @@ try {
       assert.equal(e.data.active_users, 1);
       assert.equal(e.data.max_users, 5);
       assert.equal(e.data.status, "trialing");
+      assert.equal(await page.locator('.subscription-banner').count(),0);
+      assert.equal(await page.locator('.subscription-notice').count(),0);
+      await page.locator('.settings-module-toggle').click();
+      await page.locator('#corp-settings-nav a[href*="/billing"]').click();
       await page.getByLabel("Subscription status").waitFor();
+      assert.equal(new URL(page.url()).searchParams.get('organization'),created);
       await page.screenshot({
         path: new URL(
           "tests/subscriptions/screenshots/onboarding-created.png",
