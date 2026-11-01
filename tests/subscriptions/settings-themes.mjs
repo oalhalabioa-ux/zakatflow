@@ -34,7 +34,8 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       await page.locator('.corp-shell.theme-'+theme).waitFor();
       await page.locator('.settings-tabs a[aria-current=page]').waitFor();
       if(section==='billing')await page.locator('.pricing-card').first().waitFor();
-      else await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
+      else if(section==='settings')await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
+      else await page.locator('.system-settings .console-card').first().waitFor();
       const active=await page.locator('.settings-tabs a[aria-current=page]').evaluateAll(readColors);
       assert.deepEqual(active,[{fg:expected.ink,bg:expected.selected}],`${theme} ${section} active tab`);
       assert.equal(await page.locator('.settings-tabs').evaluate(el=>getComputedStyle(el).backgroundColor),expected.nav);
