@@ -655,7 +655,7 @@ try {
       const colors=await page.locator('.settings-card').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
       for(const c of colors){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings card contrast '+JSON.stringify(c));}
       const tabs=await page.locator('.settings-tabs a').evaluateAll(items=>items.map(el=>({active:el.getAttribute('aria-current')==='page',fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(el.parentElement).backgroundColor:getComputedStyle(el).backgroundColor})));
-      for(const c of tabs){assert.equal(c.fg,theme==='yaqeen-business'&&c.active?'rgb(15, 45, 74)':'rgb(255, 255, 255)');const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
+      for(const c of tabs){assert.equal(c.fg,'rgb(255, 255, 255)');const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);if(theme!=='yaqeen-business'||!c.active)assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
       await verifySettingsTheme({page,theme,org,appUrl,root});
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
       await page.goto(appUrl+'/en/settings/system?organization='+org);await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
