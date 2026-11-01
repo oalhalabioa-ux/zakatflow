@@ -6,6 +6,7 @@ on:
     paths:
       - 'lib/subscriptions/**'
       - 'components/subscriptions/**'
+      - 'components/settings/**'
       - 'services/organizations.ts'
       - 'app/api/subscriptions/**'
       - 'app/api/admin/trials/**'
