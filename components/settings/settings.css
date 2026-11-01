@@ -11,7 +11,7 @@
 /* Financial settings only: keep Yaqeen's navy and use royal gold for selection. */
 .corp-shell.theme-yaqeen-business .settings-workspace .settings-tabs a[aria-current=page]:not(.btn) {
   background: #c6a35d;
-  color: #0f2d4a;
+  color: #fff;
 }
 
 /* Each alternative theme supplies its own settings palette, including dialogs. */
