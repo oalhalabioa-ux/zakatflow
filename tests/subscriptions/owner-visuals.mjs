@@ -445,6 +445,17 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
         18,
         "Checkbox width must not inherit full input width",
       );
+    for(const width of [320,390,768,1024,1440,1920]) {
+      await page.setViewportSize({width,height:900});
+      const scroll=modal.locator('.owner-plan-scroll');
+      await scroll.evaluate(e=>e.scrollTop=e.scrollHeight);
+      const [head,foot,reason]=await Promise.all([modal.locator('.console-heading').boundingBox(),modal.locator('.owner-plan-actions').boundingBox(),modal.locator('[name=reason]').boundingBox()]);
+      assert.ok(head.y>=0&&foot.y+foot.height<=900,'Header and footer stay in the viewport '+theme+' '+width);
+      assert.ok(reason.y+reason.height<=foot.y+1,'Reason never hides behind the footer '+theme+' '+width);
+      assert.ok(await modal.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'No horizontal modal overflow '+width);
+      await scroll.evaluate(e=>e.scrollTop=0);
+    }
+    await page.setViewportSize({width:1366,height:1000});
     await page.screenshot({
       path: new URL(
         `tests/subscriptions/screenshots/owner-plan-B-ar-${theme}.png`,
@@ -478,7 +489,14 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   await page.setViewportSize({ width: 1366, height: 1000 });
   await modal.locator("[name=name_ar]").fill("باقة اختبار التصميم");
   await modal.locator("[name=name_en]").fill("Design acceptance plan");
+  await modal.locator(".owner-plan-advanced summary").click();
   await modal.locator("[name=code]").fill("qa_design_ab");
+  await modal.locator("[name=family]").fill("qa_design_ab");
+  await modal.locator("[name=customer_notice_ar]").fill("عرض إطلاق خاص للمؤسسات");
+  await modal.locator("[name=customer_notice_en]").fill("Special launch offer for organizations");
+  await modal.locator('[name=is_proposed]').uncheck();assert.equal(await modal.locator('.plan-notice-preview').count(),0);
+  await modal.locator('[name=is_proposed]').check();await modal.locator('.plan-notice-preview').getByText('عرض إطلاق خاص للمؤسسات',{exact:true}).waitFor();
+  await modal.locator("[name=is_published]").check();
   await modal.locator("[name=price]").fill("199");
   await modal.locator("[name=max_users]").fill("7");
   await modal
@@ -490,7 +508,7 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
       r.request().method() === "POST",
   );
   await modal
-    .getByRole("button", { name: "حفظ وتسجيل التغيير", exact: true })
+    .getByRole("button", { name: "حفظ الباقة", exact: true })
     .click();
   assert.equal((await saved).status(), 200);
   await modal.waitFor({ state: "hidden" });
@@ -501,6 +519,17 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
       .evaluate((e) => getComputedStyle(e).backgroundColor),
     "rgb(227, 243, 233)",
   );
+  const catalogResponse=await page.request.get(appUrl+'/api/subscriptions/plans');assert.equal(catalogResponse.status(),200);
+  const catalog=await catalogResponse.json();
+  const published=catalog.plans.find(p=>p.code==='qa_design_ab');
+  assert.equal(published.customer_notice_ar,'عرض إطلاق خاص للمؤسسات');
+  assert.equal(published.customer_notice_en,'Special launch offer for organizations');
+  await page.goto(appUrl+'/ar/billing');
+  await page.locator('[data-plan="qa_design_ab"] .plan-badge').getByText('عرض إطلاق خاص للمؤسسات',{exact:true}).waitFor();
+  await page.goto(appUrl+'/en/billing');
+  await page.locator('[data-plan="qa_design_ab"] .plan-badge').getByText('Special launch offer for organizations',{exact:true}).waitFor();
+  await page.goto(appUrl+'/admin/subscriptions?lang=ar&tab=plans');
+
   await page.goto(appUrl + "/admin/subscriptions?lang=en&tab=plans");
   await page.getByRole("button", { name: "＋ Add plan", exact: true }).click();
   await page

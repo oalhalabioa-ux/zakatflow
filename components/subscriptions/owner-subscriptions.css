@@ -1677,3 +1677,71 @@ html[data-owner-theme="elegant"] .owner-shell .owner-plan-modal .plan-check:has(
   background:#f1f3f2;
   border-color:#cbd9d0;
 }
+
+/* Approved responsive plan editor: shared layout, each theme's existing tokens. */
+.owner-shell .owner-plan-modal[open] {
+  display:flex; flex-direction:column; overflow:hidden;
+  width:min(1160px,calc(100vw - 32px)); height:min(940px,calc(100dvh - 40px));
+  max-height:calc(100dvh - 40px); color:var(--owner-ink); background:var(--owner-panel);
+}
+.owner-plan-modal > .console-heading {position:static;flex:none;padding:18px 22px;}
+.owner-shell .owner-plan-modal form {display:flex;flex:1;min-height:0;padding:0;overflow:hidden;}
+.owner-shell .owner-plan-modal .plan-editor {display:flex;flex-direction:column;flex:1;min-height:0;height:100%;gap:0;}
+.owner-plan-scroll {min-height:0;overflow:auto;overscroll-behavior:contain;scroll-padding-block:16px;padding:16px 22px;flex:1;}
+.owner-plan-subtitle {margin:0 0 16px;color:var(--owner-muted);font-size:12px;}
+.owner-plan-grid {grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;}
+.owner-plan-grid > section {padding:16px;}
+.owner-plan-fields {gap:12px;}
+.plan-field-wide {grid-column:1/-1;}
+.owner-plan-modal textarea {min-height:64px;}
+.owner-shell .owner-plan-modal .plan-capabilities {grid-template-columns:1fr;gap:7px;}
+.owner-plan-modal .plan-capabilities > legend {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+.owner-shell .owner-plan-modal label.plan-check {min-height:44px;padding:8px 10px;gap:9px;}
+.owner-plan-modal .plan-check > span:not(.plan-switch) {flex:1;}
+.owner-plan-modal .plan-foundation {flex:none;white-space:nowrap;border:1px solid var(--owner-accent);border-radius:5px;background:var(--owner-accent-soft);color:var(--owner-ink);padding:1px 7px;font-size:10px;}
+.owner-plan-advanced {margin-top:14px;border:1px solid var(--owner-border);border-radius:6px;background:var(--owner-bg);}
+.owner-plan-advanced summary {cursor:pointer;padding:10px;font-size:12px;font-weight:650;min-height:44px;}
+.owner-plan-advanced > div {padding:0 10px 10px;}
+.owner-plan-visibility {margin-top:18px;}
+.owner-plan-modal :is(.owner-plan-visibility,.owner-plan-preview) h3 {font-size:13px;margin:0 0 9px;}
+.owner-plan-publication {display:grid;grid-template-columns:1fr;gap:6px;}
+.owner-shell .owner-plan-modal label.plan-toggle {background:var(--owner-panel);}
+.plan-toggle-copy {display:grid;gap:2px;}
+.plan-toggle-copy strong {font-size:12px;font-weight:650;}
+.plan-toggle-copy small,.plan-notice-fields small {font-size:11px;line-height:1.6;color:var(--owner-muted);font-weight:400;}
+.plan-switch {position:relative;width:38px;height:24px;flex:0 0 38px;}
+.owner-shell .owner-plan-modal .plan-switch input {position:absolute;inset:3px auto auto 10px;opacity:0;}
+.plan-switch > span {display:block;position:absolute;inset:1px 0;border-radius:20px;background:var(--owner-border);pointer-events:none;}
+.plan-switch > span::after {content:'';position:absolute;top:3px;inset-inline-start:3px;width:16px;height:16px;border-radius:50%;background:var(--owner-panel);box-shadow:0 1px 3px #0002;}
+.plan-switch input:checked + span {background:var(--owner-primary);}
+.plan-switch input:checked + span::after {inset-inline-start:19px;}
+.plan-switch input:focus-visible + span {outline:2px solid var(--owner-primary);outline-offset:3px;}
+.plan-switch input:disabled + span {opacity:.6;}
+.plan-notice-fields {margin-top:12px;}
+.owner-plan-modal [hidden] {display:none!important;}
+.owner-plan-preview {margin-top:18px;}
+.owner-plan-preview > div {display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--owner-border);border-radius:6px;background:var(--owner-accent-soft);font-size:12px;}
+.owner-plan-preview strong,.owner-plan-preview span {overflow-wrap:anywhere;min-width:0;}
+.plan-notice-preview {margin-inline-start:auto;padding:3px 9px;border:1px solid var(--owner-accent);border-radius:6px;color:var(--owner-ink);max-width:100%;white-space:normal;}
+.owner-plan-reason {display:grid;gap:6px;margin-top:18px;}
+.owner-plan-reason textarea {min-height:68px;}
+.owner-plan-modal .owner-feedback {margin-top:12px;margin-bottom:0;}
+.owner-plan-modal .owner-plan-actions {position:static;flex:none;padding:12px 22px;gap:10px;margin:0;background:var(--owner-panel);border-top:1px solid var(--owner-border);}
+.owner-plan-actions button {display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;}
+@media (min-width:901px) and (max-width:1150px) {.owner-plan-information .owner-plan-fields {grid-template-columns:1fr;}}
+@media (max-width:900px) {.owner-plan-grid {grid-template-columns:1fr;} .owner-plan-fields {grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:600px) {
+ .owner-shell .owner-plan-modal[open] {width:calc(100vw - 16px);height:calc(100dvh - 16px);max-height:calc(100dvh - 16px);margin:8px;}
+ .owner-plan-modal > .console-heading {padding:12px;}
+ .owner-plan-modal > .console-heading h2 {font-size:18px;}
+ .owner-plan-scroll {padding:12px;}
+ .owner-plan-grid > section {padding:12px;}
+ .owner-plan-fields {grid-template-columns:1fr;}
+ .owner-plan-modal .owner-plan-actions {padding:10px 12px;}
+ .owner-plan-actions button {flex:1;}
+ .owner-plan-preview > div {align-items:flex-start;flex-direction:column;}
+ .plan-notice-preview {margin-inline-start:0;}
+ .owner-shell .owner-plan-modal :is(input:not([type=checkbox]),select,textarea) {font-size:16px;}
+}
+
+.owner-plan-fields > .plan-price-row {grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}

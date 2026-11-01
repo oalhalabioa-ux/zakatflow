@@ -1546,6 +1546,14 @@
       "name": "subscription_requests_and_owner_console",
       "expected_md5": "a04fc567000f1f2935f50919d116cb8f",
       "file_sha256": "8b575901d30a1f965d462a01d526a795fe03d8a6062f29208f9703a9b340435d"
+    },
+    {
+      "path": "supabase/migrations/20261101023746_plan_customer_notice.sql",
+      "version": "20261101023746",
+      "name": "plan_customer_notice",
+      "file_sha256": "e24d5e70e5ff637dbc399676f3ec4ab8920b25580fd37236a1a16977f106e45d",
+      "kind": "plan_customer_notice",
+      "installed_md5": "5d65ed8c013aafdb98e4fbb400e54a41"
     }
   ]
 }
