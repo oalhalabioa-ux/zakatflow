@@ -7,3 +7,97 @@
 
 /* Keep module tabs readable above legacy theme link rules. */
 .corp-shell .settings-workspace .settings-tabs a:not(.btn),.corp-shell .settings-workspace .settings-tabs a[aria-current=page]:not(.btn){color:#fff}
+
+/* Financial settings only: keep Yaqeen's navy and use royal gold for selection. */
+.corp-shell.theme-yaqeen-business .settings-workspace .settings-tabs a[aria-current=page]:not(.btn) {
+  background: #c6a35d;
+  color: #0f2d4a;
+}
+
+/* Each alternative theme supplies its own settings palette, including dialogs. */
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace {
+  --settings-primary: var(--brand-primary);
+  --settings-nav: var(--brand-secondary);
+  --settings-surface: var(--brand-surface);
+  --settings-soft: var(--brand-surface-soft);
+  --settings-line: var(--brand-border);
+  --settings-ink: var(--brand-text);
+  --settings-muted: color-mix(in srgb, var(--brand-text) 78%, var(--brand-surface));
+  --card: var(--settings-surface);
+  --ink: var(--settings-ink);
+  --muted: var(--settings-muted);
+  --border: var(--settings-line);
+  --line: var(--settings-line);
+  --accent: var(--settings-primary);
+  color: var(--settings-ink);
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .subscription-panel {
+  --sub-navy: var(--settings-nav);
+  --sub-gold: var(--settings-primary);
+  --sub-surface: var(--settings-surface);
+  --sub-ink: var(--settings-ink);
+  --sub-muted: var(--settings-muted);
+  --sub-line: var(--settings-line);
+  background: var(--settings-surface);
+  color: var(--settings-ink);
+  border-color: var(--settings-line);
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace :is(.settings-tabs,.console-tabs,.quote-strip) {
+  background: var(--settings-nav);
+  color: #fff;
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .settings-tabs a[aria-current=page]:not(.btn),
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .subscription-panel button {
+  background: var(--settings-primary);
+  border-color: var(--settings-primary);
+  color: #fff;
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace :is(.console-tabs,.pricing-interval) button[aria-pressed=false] {
+  background: transparent;
+  border-color: transparent;
+  color: inherit;
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .pricing-interval {
+  background: var(--settings-soft);
+  border-color: var(--settings-line);
+  color: var(--settings-ink);
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace :is(.settings-facts>div,.settings-link-grid a,.console-notice) {
+  background: var(--settings-soft);
+  border-color: var(--settings-line);
+  color: var(--settings-ink);
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .console-notice {
+  border-inline-start-color: var(--settings-primary);
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace :is(input,select,textarea) {
+  background: var(--settings-surface);
+  border-color: color-mix(in srgb, var(--settings-primary) 55%, var(--settings-surface));
+  color: var(--settings-ink);
+  accent-color: var(--settings-primary);
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace :is(a,button,input,select,textarea):focus-visible {
+  outline: 3px solid var(--settings-primary);
+  outline-offset: 3px;
+}
+@media (hover:hover) {
+  .corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .settings-tabs a:not([aria-current]):hover,
+  .corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .console-tabs button[aria-pressed=false]:hover {
+    background: color-mix(in srgb, var(--settings-nav) 80%, #fff);
+  }
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .settings-form .btn,
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .subscription-summary-actions a:not(.btn) {
+  background: var(--settings-primary);
+  border-color: var(--settings-primary);
+  color: #fff;
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .subscription-summary-actions a+a:not(.btn) {
+  background: var(--settings-soft);
+  color: var(--settings-primary);
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .plan-badge {
+  background: var(--settings-soft);
+  border-color: var(--settings-line);
+  color: var(--settings-primary);
+}
