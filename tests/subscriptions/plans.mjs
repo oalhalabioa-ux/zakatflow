@@ -56,7 +56,7 @@ try{
  const requestDelta={upserts:afterRequests.filter(x=>requestLookup.get(x.category+':'+x.object_key)!==x.fingerprint),removals:beforeRequests.filter(x=>!afterRequests.some(y=>y.category===x.category&&y.object_key===x.object_key)).map(x=>({category:x.category,object_key:x.object_key}))};
  if(process.env.WRITE_OWNER_SCHEMA_DELTA==='1')await writeFile(new URL('tests/migration-history/owner-console-schema-delta.json',root),JSON.stringify(requestDelta,null,2)+'\n');
  const beforeNotice=(await db.query(query)).rows;
- await db.exec(await load('supabase/migrations/20261031212511_plan_customer_notice.sql'));
+ await db.exec(await load('supabase/migrations/20261101023746_plan_customer_notice.sql'));
  const afterNotice=(await db.query(query)).rows,noticeLookup=new Map(beforeNotice.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
  const noticeDelta={upserts:afterNotice.filter(x=>noticeLookup.get(x.category+':'+x.object_key)!==x.fingerprint),removals:beforeNotice.filter(x=>!afterNotice.some(y=>y.category===x.category&&y.object_key===x.object_key)).map(x=>({category:x.category,object_key:x.object_key}))};
  await writeFile(new URL('tests/migration-history/plan-notice-schema-delta.json',root),JSON.stringify(noticeDelta,null,2)+'\n');
