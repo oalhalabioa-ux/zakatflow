@@ -7,6 +7,7 @@ import {organizationInvitationEmail} from '../../../../../lib/email/organization
 import {invitationEmailConfigured,sendInvitationEmail} from '../../../../../services/email/resend';
 export async function POST(request:Request){
  let stage='input';
+ let lookupFailure:{httpStatus:number|null;databaseCode:string}|undefined;
  try{
   const {organization_id:organizationId,invitation_id:invitationId,locale:requested}=await request.json();
   const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -20,8 +21,12 @@ export async function POST(request:Request){
   stage='admin-client';
   const admin=await supabaseAdmin();
   stage='invitation-lookup';
-  const {data:invite,error}=await admin.from('organization_invitations').select('id,organization_id,email,role,custom_role_id,token,expires_at,accepted_at').eq('id',invitationId).eq('organization_id',organizationId).maybeSingle();
-  if(error)throw Error('INVITATION_LOOKUP_FAILED');
+  const {data:invite,error,status:lookupStatus}=await admin.from('organization_invitations').select('id,organization_id,email,role,custom_role_id,token,expires_at,accepted_at').eq('id',invitationId).eq('organization_id',organizationId).maybeSingle();
+  if(error){
+   const allowedCodes=['42501','42703','42P01','PGRST106','PGRST116','PGRST204','PGRST205','PGRST301','PGRST302','PGRST303'];
+   lookupFailure={httpStatus:Number.isInteger(lookupStatus)&&lookupStatus>=0&&lookupStatus<=599?lookupStatus:null,databaseCode:allowedCodes.includes(error.code)?error.code:'UNCLASSIFIED'};
+   throw Error('INVITATION_LOOKUP_FAILED');
+  }
   if(!invite||invite.accepted_at||new Date(invite.expires_at).getTime()<=Date.now())return NextResponse.json({error:'INVITATION_INVALID_OR_EXPIRED'},{status:409});
   stage='organization-lookup';
   const {data:organization,error:orgError}=await supabase.from('organizations').select('name').eq('id',organizationId).maybeSingle();
@@ -44,7 +49,7 @@ export async function POST(request:Request){
   if(status>=500){
    // Never log raw exceptions, recipient addresses, invitation tokens or provider bodies.
    const known=['SUPABASE_SERVICE_ROLE_KEY_NOT_CONFIGURED','SUPABASE_URL_NOT_CONFIGURED','INVITATION_LOOKUP_FAILED','EMAIL_DELIVERY_UNAVAILABLE','EMAIL_DELIVERY_FAILED','INVITATION_ROLE_INVALID'];
-   console.error('organization_invitation_email_failed',{stage,code:known.includes(message)?message:'UNEXPECTED_FAILURE'});
+   console.error('organization_invitation_email_failed',{stage,code:known.includes(message)?message:'UNEXPECTED_FAILURE',...lookupFailure});
   }
   return NextResponse.json({error:safe},{status,headers:{'Cache-Control':'private, no-store'}});
  }

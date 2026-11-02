@@ -32,8 +32,15 @@ describe('authorized invitation delivery',()=>{
   const response=await POST(request());
   expect(response.status).toBe(500);expect(await response.json()).toEqual({error:'INVITATION_EMAIL_FAILED'});
   expect(mocks.send).not.toHaveBeenCalled();
-  expect(log).toHaveBeenCalledWith('organization_invitation_email_failed',{stage:'invitation-lookup',code:'INVITATION_LOOKUP_FAILED'});
+  expect(log).toHaveBeenCalledWith('organization_invitation_email_failed',{stage:'invitation-lookup',code:'INVITATION_LOOKUP_FAILED',httpStatus:null,databaseCode:'UNCLASSIFIED'});
   expect(JSON.stringify(log.mock.calls)).not.toMatch(/actual-token|actual@example|private database detail/);
+ });
+ it.each([401,403,404,0])('records safe lookup HTTP status %s without error bodies or arbitrary codes',async status=>{
+  const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+  mocks.query.mockReturnValue(chain({data:null,status,error:{code:'secret-token',message:'private provider message'}}));
+  expect((await POST(request())).status).toBe(500);
+  expect(log).toHaveBeenCalledWith('organization_invitation_email_failed',{stage:'invitation-lookup',code:'INVITATION_LOOKUP_FAILED',httpStatus:status,databaseCode:'UNCLASSIFIED'});
+  expect(JSON.stringify(log.mock.calls)).not.toMatch(/secret-token|private provider message/);
  });
  it('does not publish an arbitrary server exception',async()=>{
   const log=vi.spyOn(console,'error').mockImplementation(()=>{});
