@@ -12,10 +12,10 @@ describe('visitor analytics root integration', () => {
     expect(layout.match(/<VisitorAnalytics\s*\/>/g)).toHaveLength(1);
   });
 
-  it('loads the Vercel first-party script only behind the tested production hostname gate', () => {
+  it('loads official Vercel Analytics only behind the tested production hostname gate', () => {
     expect(component).toContain('shouldTrackVisitor(window.location.hostname, process.env.NODE_ENV === \'production\')');
-    expect(component).toContain("script.src = '/_vercel/insights/script.js'");
-    expect(component).toContain("document.querySelector('script[data-yaqeen-analytics]')");
+    expect(component).toContain("import { Analytics } from '@vercel/analytics/next'");
+    expect(component).toContain('return enabled ? <Analytics /> : null');
     expect(component).not.toMatch(/google-analytics|gtag\(|GTM-/);
   });
 });
