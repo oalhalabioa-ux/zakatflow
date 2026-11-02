@@ -38,7 +38,7 @@ grant usage on schema public to authenticated;
 grant select on public.organization_members,public.organizations,public.financial_budget_plan_ownership,public.budget_plans,public.budget_lines to authenticated;
 notify pgrst,'reload schema';`;
 }
-export function seedSource(a,b,viewer){for(const id of[a,b,viewer])if(!/^[a-f0-9-]{36}$/.test(id))throw Error('TEST_ACTOR_ID_INVALID');return `
+export function seedSource(a,b,viewer,comparison=false){for(const id of[a,b,viewer])if(!/^[a-f0-9-]{36}$/.test(id))throw Error('TEST_ACTOR_ID_INVALID');return `
 insert into organizations values('${ORG_A}','Source institution A','SAR'),('${ORG_B}','Source institution B','SAR');
 insert into organization_members values('${ORG_A}','${a}','ACTIVE',true,true),('${ORG_B}','${b}','ACTIVE',true,true),('${ORG_A}','${viewer}','ACTIVE',false,false);
 insert into budget_plans values('${PLAN_A}','${a}','Operations A',2026,'SAR','BASE'),('${PLAN_B}','${b}','Operations B',2026,'SAR','BASE');
@@ -59,4 +59,15 @@ insert into financial_event_lines values
 ('90000000-0000-4000-8000-000000000004','80000000-0000-4000-8000-000000000004','60000000-0000-4000-8000-000000000002',null,'SAR',1,7000,'{}','NON_CASH'),
 ('90000000-0000-4000-8000-000000000005','80000000-0000-4000-8000-000000000005','60000000-0000-4000-8000-000000000001',null,'SAR',1,50,'{}','NON_CASH');
 insert into financial_event_obligation_balances values('80000000-0000-4000-8000-000000000001','${ORG_A}','PAYABLE',115,0,0);
+${comparison?seedPriorSource(a):''}
+`}
+
+export const PLAN_PRIOR='20000000-0000-4000-8000-000000000003';
+function seedPriorSource(a){return `
+insert into public.budget_plans values('${PLAN_PRIOR}','${a}','Operations A 2025',2025,'SAR','BASE');
+insert into public.financial_budget_plan_ownership values('${PLAN_PRIOR}','${ORG_A}',null,null,'2025-01-01');
+insert into public.budget_lines values('40000000-0000-4000-8000-000000000003','${PLAN_PRIOR}','${a}','Operating cost A prior','OPEX','EXPENSE',array_fill(200::numeric,array[12]),array[555::numeric]||array_fill(0::numeric,array[11]),array_fill(300::numeric,array[12]),true);
+insert into public.financial_budget_mappings values('70000000-0000-4000-8000-000000000003','${PLAN_PRIOR}','40000000-0000-4000-8000-000000000003','60000000-0000-4000-8000-000000000001',null,null,'2025-01-01','2025-12-31');
+insert into public.financial_events values('80000000-0000-4000-8000-000000000006','${ORG_A}','50000000-0000-4000-8000-000000000001','2025-01-15','ACTUAL','EXPENSE','QA',null,'recognition-prior','SAR');
+insert into public.financial_event_lines values('90000000-0000-4000-8000-000000000006','80000000-0000-4000-8000-000000000006','60000000-0000-4000-8000-000000000001',null,'SAR',1,50,'{}','NON_CASH');
 `}

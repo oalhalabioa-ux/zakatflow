@@ -1,3 +1,4 @@
+import {budgetComparison,isPriorBudgetPlan} from '../lib/financial-budget-comparison';
 import {requireUser} from './auth';
 import {z} from 'zod';
 import {budgetSourceQuery,normalizeBudgetSource,type SourceContext,type SourcePlan,type BudgetSourceQuery} from '../lib/financial-budget-source';
@@ -26,11 +27,12 @@ export async function financialReportingContext():Promise<SourceContext>{assertF
  return{organizations:organizations.filter(o=>current.some(p=>p.organizationId===o.id)).map(o=>({id:String(o.id),name:String(o.name),currency:String(o.base_currency)})),plans:current,statements:{available:false,reason:'BALANCED_LEDGER_ADAPTER_REQUIRED'}};
 }
 export async function financialReportingBudget(input:unknown){assertFinancialReportingSourceQA();const{user,supabase}=await requireUser(),q=budgetSourceQuery.parse(input);await member(supabase,user.id,q.organization);
- const rawOwnership=data(await supabase.from('financial_budget_plan_ownership').select('plan_id,organization_id,entity_id,cost_center_id,fiscal_start').eq('plan_id',q.plan).eq('organization_id',q.organization).maybeSingle(),'FINANCIAL_SOURCE_ACCESS_DENIED');if(!rawOwnership)throw Error('FINANCIAL_SOURCE_ACCESS_DENIED');const o=ownership.parse(rawOwnership);
- await can(supabase,o);
- const plan=planRecord(data(await supabase.from('budget_plans').select('id,name,fiscal_year,currency,scenario').eq('id',q.plan).single()),o);
+ async function load(id:string){const rawOwnership=data(await supabase.from('financial_budget_plan_ownership').select('plan_id,organization_id,entity_id,cost_center_id,fiscal_start').eq('plan_id',id).eq('organization_id',q.organization).maybeSingle(),'FINANCIAL_SOURCE_ACCESS_DENIED');if(!rawOwnership)throw Error('FINANCIAL_SOURCE_ACCESS_DENIED');const o=ownership.parse(rawOwnership);await can(supabase,o);const plan=planRecord(data(await supabase.from('budget_plans').select('id,name,fiscal_year,currency,scenario').eq('id',id).single()),o);return{o,plan}}
+ const current=await load(q.plan),prior=q.comparisonPlan?await load(q.comparisonPlan):null;
+ if(prior&&!isPriorBudgetPlan(current.plan,prior.plan))throw Error('BUDGET_COMPARISON_SCOPE_MISMATCH');
  const raw=data(await supabase.rpc('financial_budget_report',{p_plan:q.plan}));
- const report=normalizeBudgetSource(raw,q,plan);
- await member(supabase,user.id,q.organization);await can(supabase,o);
+ const report=normalizeBudgetSource(raw,q,current.plan);
+ if(prior){const old=data(await supabase.rpc('financial_budget_report',{p_plan:prior.plan.id}));const previous=normalizeBudgetSource(old,{...q,plan:prior.plan.id,comparisonPlan:undefined},prior.plan);report.comparison=budgetComparison(report,previous)}
+ await member(supabase,user.id,q.organization);await can(supabase,current.o);if(prior)await can(supabase,prior.o);
  return report;
 }

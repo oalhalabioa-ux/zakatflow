@@ -6,6 +6,8 @@ on:
       - 'app/design-preview/financial-reports/source/**'
       - 'components/financial-reports/**'
       - 'lib/financial-budget-source.ts'
+      - 'lib/financial-budget-comparison.ts'
+      - 'tests/financial-budget-comparison.test.ts'
       - 'services/financial-reporting-source.ts'
       - 'scripts/financial-reports/*source*'
       - 'tests/financial-reporting-source.test.ts'
