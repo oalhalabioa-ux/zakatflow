@@ -17,6 +17,7 @@
     "@aws-sdk/client-secrets-manager": "^3.1139.0",
     "@supabase/ssr": "0.7.0",
     "@supabase/supabase-js": "2.57.0",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/oidc-aws-credentials-provider": "^3.3.9",
     "decimal.js": "10.6.0",
     "exceljs": "^4.4.0",
