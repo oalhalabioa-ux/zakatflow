@@ -60,3 +60,9 @@ SUITE_INTERACTIONS_ONLY=1 SUITE_PRODUCTION_BUILD=1 PILOT_CHROMIUM_PATH=/path/to/
 Playwright is supplied by the task runtime or installed separately. No application dependency/lockfile was changed. The standalone HTML bundles the same React components, fonts, brand assets and CSS; only Next navigation is replaced by local hash navigation. It works without a database or hosted URL. It passed all nine local page checks without browser exceptions.
 
 First-pilot results in `validation.md` are historical; use `suite-validation.md` and `visual-diff-v2.md` for the current stage. Review the nine reference/implementation comparisons before final visual acceptance. No 100% pixel-identity claim is made.
+
+## V3 — authenticated budget source slice
+
+See [source-integration-v3.md](source-integration-v3.md). A separate read-only route `/design-preview/financial-reports/source?lang=ar|en` now reads the existing budget RPC through the genuine caller’s session. This is distinct from the nine synthetic visual-preview routes. It requires `FINANCIAL_REPORTS_SOURCE_QA=true`, rejects Production, and allows only the fixed Financial Core QA endpoint or a disposable HTTP loopback stack. Existing budget module guards remain unchanged.
+
+The disposable Auth/PostgREST/Next/browser workflow passed eight acceptance groups, including RLS isolation, XLSX content in both languages and membership revocation. Its fixture is a minimal synthetic schema with reused repository report SQL, not the full deployed Core/VAT schema. No hosted project data, memberships or schema were changed. Formal statement integration and full real-organization QA acceptance remain pending. Do not merge or deploy.
