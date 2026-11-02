@@ -371,6 +371,21 @@ export default async function OwnerAnalytics() {
             </Link>
           </article>
         </div>
+        <section className="owner-analytics-grid" aria-label={t("تحليلات الزوار", "Visitor analytics")}>
+          <article className="owner-analysis-card">
+            <h2>{t("زوار الموقع التعريفي", "Website visitors")}</h2>
+            <p>{t("yaqeenbiz.com — مصدر القياس يحتاج إلى التحقق من الاستضافة وتفعيل التتبع.", "yaqeenbiz.com — hosting and tracking source require verification.")}</p>
+            <strong className="owner-analysis-value">—</strong>
+            <p>{t("لا تتوفر بيانات موثوقة حالياً؛ لا تعني الشرطة عدم وجود زوار.", "Verified data unavailable; the dash does not mean zero traffic.")}</p>
+          </article>
+          <article className="owner-analysis-card">
+            <h2>{t("زوار المنصة المالية", "Application visitors")}</h2>
+            <p>app.yaqeenbiz.com</p>
+            <strong className="owner-analysis-value">—</strong>
+            <p>{t("بانتظار التحقق من تفعيل Vercel Web Analytics وجمع زيارات حقيقية.", "Pending Vercel Web Analytics activation and live event verification.")}</p>
+            <a className="owner-action" href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">{t("فتح إحصاءات Vercel", "Open Vercel analytics")}</a>
+          </article>
+        </section>
         <div className="owner-analytics-footnote">
           <span>
             {t(
