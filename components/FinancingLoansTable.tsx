@@ -56,7 +56,16 @@ export default function FinancingLoansTable({records,parties,facts,base,group,lo
     menu.current?.querySelector('input')?.focus({preventScroll:true});
     function escape(e:KeyboardEvent){if(e.key==='Escape'){setPosition(null);trigger.current?.focus();}}
     function outside(e:globalThis.PointerEvent){if(!menu.current?.contains(e.target as Node)&&!trigger.current?.contains(e.target as Node))setPosition(null);}
-    function reposition(e:Event){if(!menu.current?.contains(e.target as Node))setPosition(null);}
+    function reposition(e:Event){
+      if(menu.current?.contains(e.target as Node))return;
+      const button=trigger.current,table=button?.closest('.loan-configurable-table');
+      // Hiding columns can clamp the table's scroll position without moving the trigger.
+      if(e.type==='scroll'&&e.target===table&&button&&table){
+        const anchor=button.getBoundingClientRect(),bounds=table.getBoundingClientRect();
+        if(anchor.left>=bounds.left&&anchor.right<=bounds.right)return;
+      }
+      setPosition(null);
+    }
     document.addEventListener('keydown',escape);document.addEventListener('pointerdown',outside);
     window.addEventListener('resize',reposition);window.addEventListener('scroll',reposition,true);
     return()=>{document.removeEventListener('keydown',escape);document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',reposition);window.removeEventListener('scroll',reposition,true);};
