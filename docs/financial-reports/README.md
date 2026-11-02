@@ -66,3 +66,7 @@ First-pilot results in `validation.md` are historical; use `suite-validation.md`
 See [source-integration-v3.md](source-integration-v3.md). A separate read-only route `/design-preview/financial-reports/source?lang=ar|en` now reads the existing budget RPC through the genuine caller’s session. This is distinct from the nine synthetic visual-preview routes. It requires `FINANCIAL_REPORTS_SOURCE_QA=true`, rejects Production, and allows only the fixed Financial Core QA endpoint or a disposable HTTP loopback stack. Existing budget module guards remain unchanged.
 
 The disposable Auth/PostgREST/Next/browser workflow passed eight acceptance groups, including RLS isolation, XLSX content in both languages and membership revocation. Its fixture is a minimal synthetic schema with reused repository report SQL, not the full deployed Core/VAT schema. No hosted project data, memberships or schema were changed. Formal statement integration and full real-organization QA acceptance remain pending. Do not merge or deploy.
+
+## V5 — prior-year source comparison
+
+See [source-comparison-v5.md](source-comparison-v5.md). Same-scope prior-year comparison is now wired for the budget source view, with real directional indicators, zero/missing/incomplete states, comparison export and explicit annual month scope. V4's historical note that comparison was not yet wired is superseded by this stage. Default monitoring remains months 1–12. Formal ledger integration remains pending; no release approval is implied.
