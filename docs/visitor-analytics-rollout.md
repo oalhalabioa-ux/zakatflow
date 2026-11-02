@@ -23,11 +23,14 @@
 - Validate analytics accuracy, authorization, mobile layout, and performance on isolated QA before requesting production approval.
 
 ## Current status
-GitHub checks on PR #333 succeeded. Live traffic capture, Hostinger historical statistics, and owner dashboard implementation remain unverified or incomplete.
+Earlier GitHub checks succeeded; checks on the latest dependency commit must be rerun. Live traffic capture, Hostinger historical statistics, and owner dashboard implementation remain unverified or incomplete.
 
 ## Verified setup evidence (2026-11-02)
 - Owner-provided Vercel Project Analytics screenshot shows **Get Started** instructions for Next.js, including `npm i @vercel/analytics` and `<Analytics />`. Therefore dashboard activation and actual data collection must **not** be claimed complete.
-- The PR currently injects the first-party `/_vercel/insights/script.js` on `app.yaqeenbiz.com` only. This is **not** the package-based integration displayed in Vercel onboarding; do not describe the package as installed.
+- The PR now uses the official `@vercel/analytics/next` component and the generated dependency lockfile, gated to `app.yaqeenbiz.com`.
 - If switching to the documented `@vercel/analytics/next` integration, update **both** `package.json` and `package-lock.json` with a reproducible install, preserve the verified production-only gate, and rerun all QA checks. Avoid ad-hoc lockfile edits.
-- Do not merge while Work is paused mid-task on table UI changes. Inspect current main and potential shared layout/admin file conflicts before release.
+- Do not merge while Work is actively editing table UI. Inspect current main and potential shared layout/admin file conflicts before release.
 - Before production approval, confirm the project Analytics feature is enabled and whether any billing change is proposed; no paid plan should be enabled without owner consent.
+
+## Workflow permission diagnostic
+- The bot-generated lockfile commit showed `action_required` for pull-request checks. A fresh ordinary commit on the isolated PR branch should request normal pull-request checks without requiring the owner to find an approval button. Verify actual run results; do not equate `action_required` with a failed code test.
