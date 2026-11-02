@@ -40,5 +40,7 @@ jobs:
           git add -- package.json package-lock.json
           if ! git diff --cached --quiet; then
             git commit -m 'build: add verified Vercel Analytics dependency and lockfile'
+            git fetch origin feat/visitor-analytics-qa-20261102
+            git rebase origin/feat/visitor-analytics-qa-20261102
             git push origin HEAD:refs/heads/feat/visitor-analytics-qa-20261102
           fi
