@@ -35,7 +35,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [approvalPolicy,setApprovalPolicy]=useState('OWNER_CONTROLLED'); const [permissionOverrides,setPermissionOverrides]=useState<PermissionOverride[]>([]); const [governanceReady,setGovernanceReady]=useState(false);
   const [email, setEmail] = useState(''); const [role, setRole] = useState('ACCOUNTANT');
-  const [inviteId,setInviteId]=useState(''),[emailAvailable,setEmailAvailable]=useState(false),[emailRequested,setEmailRequested]=useState(false);
+  const [inviteId,setInviteId]=useState(''),[emailAvailable,setEmailAvailable]=useState(false),[requestedEmailIds,setRequestedEmailIds]=useState<string[]>([]);
   const [inviteUrl, setInviteUrl] = useState(''); const [inviteEmail, setInviteEmail] = useState(''); const [inviteRole, setInviteRole] = useState('ACCOUNTANT');
   const [roleName, setRoleName] = useState(''); const [roleDescription, setRoleDescription] = useState(''); const [rolePermissions, setRolePermissions] = useState<string[]>([]); const [editingRoleId, setEditingRoleId] = useState('');
   const [canShare, setCanShare] = useState(false); const [notice, setNotice] = useState('');
@@ -109,16 +109,23 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
       const response = await fetch('/api/organizations/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, email, ...rolePayload(role), locale }) });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
-      setInviteId(body.id);setEmailRequested(false);setInviteUrl(body.invite_url); setInviteEmail(email.trim()); setInviteRole(role); setEmail(''); setNotice(ar ? 'أنشئت الدعوة. اختر طريقة المشاركة المناسبة.' : 'Invitation created. Choose how to share it.');
+      setInviteId(body.id);setInviteUrl(body.invite_url); setInviteEmail(email.trim()); setInviteRole(role); setEmail(''); setNotice(ar ? 'أنشئت الدعوة. اختر طريقة المشاركة المناسبة.' : 'Invitation created. Choose how to share it.');
       await loadUsers(organizationId);
     } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
     finally { setBusy(false); }
   }
 
-  async function emailInvite(){
-    if(busy||emailRequested||!inviteId)return;setBusy(true);setNotice('');
-    try{const response=await fetch('/api/organizations/invitations/email',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,invitation_id:inviteId,locale})});
-      if(!response.ok)throw Error('EMAIL_DELIVERY_FAILED');setEmailRequested(true);setNotice(mailCopy.accepted);
+  async function emailInvite(id=inviteId){
+    if(busy||requestedEmailIds.includes(id)||!id)return;setBusy(true);setNotice('');
+    try{
+      const response=await fetch('/api/organizations/invitations/email',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,invitation_id:id,locale})});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok){
+        setNotice(response.status===401?mailCopy.sessionExpired:response.status===409?mailCopy.invalid:body.error==='EMAIL_DELIVERY_UNAVAILABLE'?mailCopy.unavailable:mailCopy.failed);
+        return;
+      }
+      if(body.status!=='accepted'){setNotice(mailCopy.failed);return;}
+      setRequestedEmailIds(current=>[...current,id]);setNotice(mailCopy.accepted);
     }catch{setNotice(mailCopy.failed)}finally{setBusy(false)}
   }
 
@@ -189,7 +196,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
     <header style={{ marginBottom: 24 }}><span className="pill">{ar ? 'إدارة الوصول' : 'ACCESS MANAGEMENT'}</span><h1>{ar ? 'المستخدمون والصلاحيات' : 'Users & permissions'}</h1><p className="muted">{ar ? 'اربط حسابات الدخول بالجهات، وأدر أدوار الأعضاء والدعوات.' : 'Link sign-in accounts to organizations, and manage member roles and invitations.'}</p></header>
     {notice && <div className="card" role="status" style={{ marginBottom: 16 }}>{notice}</div>}
     <section className="card" style={{ marginBottom: 20 }}>
-      <label style={{ display: 'grid', gap: 8, maxWidth: 540 }}><strong>{ar ? 'الجهة' : 'Organization'}</strong><select value={organizationId} onChange={event => { requestVersion.current++;setMembers([]);setInvitations([]);setCustomRoles([]);resetEditor();setOverrideUser('');setOrganizationId(event.target.value); setInviteUrl(''); setInviteEmail(''); }} disabled={loading || busy || !organizations.length} style={{ padding: 12 }}>
+      <label style={{ display: 'grid', gap: 8, maxWidth: 540 }}><strong>{ar ? 'الجهة' : 'Organization'}</strong><select value={organizationId} onChange={event => { requestVersion.current++;setMembers([]);setInvitations([]);setCustomRoles([]);resetEditor();setOverrideUser('');setOrganizationId(event.target.value); setInviteUrl(''); setInviteId('');setRequestedEmailIds([]);setEmailAvailable(false);setInviteEmail(''); }} disabled={loading || busy || !organizations.length} style={{ padding: 12 }}>
         {organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
       {!loading && !organizations.length && <p className="muted">{ar ? 'لا توجد جهات متاحة في حسابك.' : 'No organizations are available in your account.'}</p>}
@@ -270,8 +277,9 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
           <label style={{ display: 'grid', gap: 6 }}><span>{ar ? 'الدور' : 'Role'}</span><select value={role} onChange={event => setRole(event.target.value)} style={{ padding: 11 }}>{roleOptions(invitationRoles)}</select></label>
           <button className="btn" type="submit" disabled={busy}>{ar ? 'إنشاء الدعوة' : 'Create invite'}</button>
         </form>
+        {!emailAvailable && !dataLoading && <p role="status" className="muted">{mailCopy.unavailable}</p>}
         {inviteUrl && <><div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn secondary" type="button" disabled={busy||!emailAvailable||emailRequested} title={!emailAvailable?mailCopy.unavailable:undefined} onClick={()=>void emailInvite()}>{emailRequested?mailCopy.sent:busy?mailCopy.sending:mailCopy.send}</button>
+          <button className="btn secondary" type="button" disabled={busy||!emailAvailable||requestedEmailIds.includes(inviteId)} title={!emailAvailable?mailCopy.unavailable:undefined} onClick={()=>void emailInvite()}>{requestedEmailIds.includes(inviteId)?mailCopy.sent:busy?mailCopy.sending:mailCopy.send}</button>
           <a className="btn" href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ background: '#25D366', color: '#102116' }}>{ar ? 'مشاركة عبر واتساب' : 'Share via WhatsApp'}</a>
           {canShare && <button className="btn secondary" type="button" onClick={() => void shareInvite()}>{ar ? 'مشاركة…' : 'Share…'}</button>}
           <button className="btn secondary" type="button" onClick={() => void copyInviteLink()}>{ar ? 'نسخ الرابط' : 'Copy link'}</button>
@@ -284,7 +292,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
         </tbody></table>
       </section>
       <section hidden={activeTab!=='invites'} className="card" style={{ overflowX: 'auto' }}><h2>{ar ? 'الدعوات' : 'Invitations'}</h2><table className="table"><thead><tr><th>{ar ? 'البريد' : 'Email'}</th><th>{ar ? 'الدور' : 'Role'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th>{ar ? 'الإجراء' : 'Action'}</th></tr></thead><tbody>
-        {invitations.map(invitation => { const accepted = !!invitation.accepted_at; const expired = new Date(invitation.expires_at) <= new Date(); return <tr key={invitation.id}><td>{invitation.email}</td><td>{roleLabel(invitation.role, invitation.custom_role_name)}</td><td>{accepted ? (ar ? 'مقبولة' : 'Accepted') : expired ? (ar ? 'منتهية' : 'Expired') : (ar ? 'بانتظار القبول' : 'Pending')}</td><td>{!accepted && <button className="btn secondary" type="button" disabled={busy} onClick={() => void revokeInvite(invitation.id)}>{ar ? 'إلغاء' : 'Revoke'}</button>}</td></tr>; })}
+        {invitations.map(invitation => { const accepted = !!invitation.accepted_at; const expired = new Date(invitation.expires_at) <= new Date(); return <tr key={invitation.id}><td>{invitation.email}</td><td>{roleLabel(invitation.role, invitation.custom_role_name)}</td><td>{accepted ? (ar ? 'مقبولة' : 'Accepted') : expired ? (ar ? 'منتهية' : 'Expired') : (ar ? 'بانتظار القبول' : 'Pending')}</td><td>{!accepted && !expired && <button className="btn secondary" type="button" disabled={busy||!emailAvailable||requestedEmailIds.includes(invitation.id)} title={!emailAvailable?mailCopy.unavailable:undefined} onClick={()=>void emailInvite(invitation.id)}>{requestedEmailIds.includes(invitation.id)?mailCopy.sent:mailCopy.send}</button>} {!accepted && <button className="btn secondary" type="button" disabled={busy} onClick={() => void revokeInvite(invitation.id)}>{ar ? 'إلغاء' : 'Revoke'}</button>}</td></tr>; })}
         {!invitations.length && <tr><td colSpan={4} className="muted">{ar ? 'لا توجد دعوات.' : 'No invitations.'}</td></tr>}
       </tbody></table></section>
     </div></>}
