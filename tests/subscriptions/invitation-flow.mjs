@@ -39,7 +39,10 @@ export async function verifyInvitationFlow({browser,appUrl,url,status,owner,exis
    await page.screenshot({path:'tests/subscriptions/screenshots/invitation-'+(isNew?'new-ar':'existing-en')+'.png'});
    await page.locator('[name=password]').fill(password);
    if(isNew)await page.locator('[name=confirm]').fill(password);
+   const activation = page.waitForResponse(r=>r.url().endsWith('/api/organizations/invitations/activate')&&r.request().method()==='POST');
    await page.locator('form button').first().click();
+   const activated = await activation;
+   assert.equal(activated.status(),200,await activated.text());
    await page.getByRole('status').filter({hasText:isNew?'تم تفعيل حسابك وقبول الدعوة':'Your account is active'}).waitFor();
    await page.waitForURL(u=>u.pathname.endsWith('/dashboard')&&u.searchParams.get('organization')===org);
    const client=createClient(url,status.ANON_KEY,{auth:{persistSession:false}});const login=await client.auth.signInWithPassword({email,password});assert.ifError(login.error);

@@ -746,6 +746,11 @@ try {
       await context.close();
     },
   );
+  // Reproduce the deployed signup trigger rather than manually provisioning the invited profile.
+  const signupDDL = await load('supabase/migrations/20260915195509_002_production_hardening.sql');
+  const signupTrigger = signupDDL.match(/create or replace function public\.handle_new_user\(\)[\s\S]*?execute function public\.handle_new_user\(\);/);
+  assert.ok(signupTrigger, 'Production signup trigger definition must be present');
+  sql(signupTrigger[0]);
   await check('mailbox invitation activation, existing password, replay and login',()=>verifyInvitationFlow({browser,appUrl,url,status,owner,existing:clients[1],cookieHeader,headers,sql}));
   report.passed = report.checks.length;
 } finally {
