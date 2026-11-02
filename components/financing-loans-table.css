@@ -1,0 +1,28 @@
+/* Pilot: only the interest-bearing loan register uses these controls. */
+.loan-configurable-table{--loan-table-accent:var(--brand-primary,var(--ink,#102b46))}
+.corp-shell.theme-yaqeen-business .loan-configurable-table{--loan-table-accent:#c6a35d}
+.finance-table.loan-configurable-table{padding:0;max-width:100%;overflow:auto}
+.finance-table.loan-configurable-table table{table-layout:fixed;border-spacing:0;border-collapse:separate;margin:0}
+.finance-table.loan-configurable-table th{position:relative;padding:0;height:58px;white-space:nowrap}
+.finance-table.loan-configurable-table :is(th,td){min-width:0;box-sizing:border-box}
+.finance-table.loan-configurable-table td{padding:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;height:64px}
+.finance-table.loan-configurable-table td small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.finance-table.loan-configurable-table td :is(.payable-money,bdi){white-space:nowrap}
+.finance-table.loan-configurable-table th :is(.loan-table-sort,.loan-table-menu-trigger,.loan-table-resize){font:inherit;color:inherit;box-shadow:none;background:transparent;border:0;border-radius:0;margin:0}
+.finance-table.loan-configurable-table .loan-table-sort,.finance-table.loan-configurable-table .loan-table-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(100% - 20px);height:58px;padding:10px 16px;text-align:start;font-weight:700;white-space:nowrap}
+.finance-table.loan-configurable-table th:first-child :is(.loan-table-sort,.loan-table-heading){padding-inline-start:52px}
+.finance-table.loan-configurable-table .loan-table-sort>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.finance-table.loan-configurable-table .loan-table-sort>span:last-child{opacity:.65;flex:none}
+.finance-table.loan-configurable-table th[aria-sort]:not([aria-sort=none]) .loan-table-sort>span:last-child{opacity:1}
+.finance-table.loan-configurable-table .loan-table-menu-trigger{position:absolute;inset-inline-start:4px;top:7px;width:40px;height:44px;display:grid;place-items:center;border-radius:6px;cursor:pointer;z-index:2;font-size:25px;line-height:1}
+.finance-table.loan-configurable-table .loan-table-resize{position:absolute;inset-inline-end:0;top:0;width:20px;height:58px;padding:0;display:grid;place-items:center;touch-action:none;cursor:col-resize;z-index:2}
+.finance-table.loan-configurable-table .loan-table-resize:before{content:'';height:26px;width:2px;border-radius:2px;background:var(--loan-table-accent);opacity:.6}
+.finance-table.loan-configurable-table .loan-table-resize:hover:before{opacity:1}
+.finance-table.loan-configurable-table :is(.loan-table-sort,.loan-table-menu-trigger):hover{background:var(--brand-surface-soft,var(--card,#fff))}
+.finance-table.loan-configurable-table button:focus-visible{outline:2px solid var(--brand-primary,var(--ink,#102b46));outline-offset:-3px}
+.loan-table-column-menu{position:fixed;z-index:1200;overflow:auto;box-sizing:border-box;padding:12px;background:var(--brand-surface,var(--card,#fff));color:var(--brand-text,var(--ink,#102b46));border:1px solid var(--brand-border,var(--line,#dce3ed));border-radius:10px;box-shadow:0 12px 30px #102b4626;direction:inherit}
+.loan-table-column-menu>strong{display:block;padding:6px 7px 12px;border-bottom:1px solid var(--brand-border,var(--line,#dce3ed))}
+.loan-table-column-menu label{display:flex;align-items:center;gap:10px;padding:7px;min-height:36px;border-radius:6px;cursor:pointer;font-size:14px}
+.loan-table-column-menu label:hover{background:var(--brand-surface-soft,var(--card,#fff))}
+.loan-table-column-menu input{width:18px;height:18px;min-height:0;flex:none;margin:0;accent-color:var(--brand-primary,var(--ink,#102b46))}
+@media(pointer:coarse){.finance-table.loan-configurable-table .loan-table-resize{width:44px}.finance-table.loan-configurable-table :is(.loan-table-sort,.loan-table-heading){width:calc(100% - 44px)}.loan-table-column-menu label{min-height:44px}}
