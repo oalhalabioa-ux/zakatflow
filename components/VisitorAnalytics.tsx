@@ -1,19 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Analytics } from '@vercel/analytics/next';
 import { shouldTrackVisitor } from '../lib/analytics/visitor-tracking';
 
-/** Load Vercel Web Analytics only on the verified Vercel-hosted production domain. */
+/** Mount official Vercel Analytics only for the approved production app hostname. */
 export default function VisitorAnalytics() {
+  const [enabled, setEnabled] = useState(false);
+
   useEffect(() => {
-    if (!shouldTrackVisitor(window.location.hostname, process.env.NODE_ENV === 'production')) return;
-    if (document.querySelector('script[data-yaqeen-analytics]')) return;
-    const script = document.createElement('script');
-    script.defer = true;
-    script.dataset.yaqeenAnalytics = 'true';
-    script.src = '/_vercel/insights/script.js';
-    document.head.appendChild(script);
-    return () => { script.remove(); };
+    setEnabled(shouldTrackVisitor(window.location.hostname, process.env.NODE_ENV === 'production'));
   }, []);
-  return null;
+
+  return enabled ? <Analytics /> : null;
 }
