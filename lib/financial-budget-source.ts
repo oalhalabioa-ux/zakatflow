@@ -38,7 +38,9 @@ export function budgetSourceExport(snapshot:BudgetSourceSnapshot,en:boolean){
  return[...meta,[en?'Budget line':'بند الموازنة',en?'Fiscal month':'الشهر المالي','Budget','Core actual','Legacy actual (excluded)','Committed','Paid gross (not actual)','Outstanding gross','Remaining','Forecast','Favorable variance'],...snapshot.rows.map(r=>[r.name,r.fiscal_month,r.budget_amount,r.actual_amount,r.legacy_actual,r.committed_amount,r.paid_settled_gross,r.outstanding_gross,r.remaining_budget,r.forecast_amount,r.favorable_variance]),...budgetComparisonExport(snapshot,en)];
 }
 
-export function budgetSourceCsv(snapshot:BudgetSourceSnapshot,en:boolean){
+export function financialSourceRowsCsv(rows:(string|number)[][]){
  const quote=(v:string|number)=>{const raw=String(v),numeric=/^-?\d+(\.\d+)?$/.test(raw);const safe=typeof v==='string'&&!numeric&&/^[=+@\-\t\r]/.test(raw)?"'"+raw:raw;return '"'+safe.replaceAll('"','""')+'"'};
- return '\uFEFF'+budgetSourceExport(snapshot,en).map(row=>row.map(quote).join(',')).join('\r\n');
+ return '\uFEFF'+rows.map(row=>row.map(quote).join(',')).join('\r\n');
 }
+
+export function budgetSourceCsv(snapshot:BudgetSourceSnapshot,en:boolean){return financialSourceRowsCsv(budgetSourceExport(snapshot,en))}

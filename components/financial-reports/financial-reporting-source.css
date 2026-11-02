@@ -2,3 +2,4 @@
 .fs-connected .fs-insights li[data-risk=true]::before{content:"!";color:#9a752f;background:#fbf3e1}.fs-connected .fs-metric-number{flex-wrap:wrap}.fs-connected .fs-metric-number strong{overflow-wrap:anywhere;max-width:100%}
 .fs-connected .fs-page-actions{max-width:100%;min-width:0}
 .fs-connected .fs-source-period{order:1;padding-inline:10px;font-size:11px;color:#66778a}.fs-connected .fs-change.neutral{color:#80652f}.fs-connected .fs-metric p{margin-top:5px}.fs-connected .fs-source-period:empty{display:none}
+.fs-connected .fs-source-sector-empty{min-height:137px}

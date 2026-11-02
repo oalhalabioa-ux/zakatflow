@@ -7,6 +7,8 @@ on:
       - 'components/financial-reports/**'
       - 'lib/financial-budget-source.ts'
       - 'lib/financial-budget-comparison.ts'
+      - 'lib/financial-source-analysis.ts'
+      - 'tests/financial-source-analysis.test.ts'
       - 'tests/financial-budget-comparison.test.ts'
       - 'services/financial-reporting-source.ts'
       - 'scripts/financial-reports/*source*'
