@@ -70,3 +70,7 @@ The disposable Auth/PostgREST/Next/browser workflow passed eight acceptance grou
 ## V5 — prior-year source comparison
 
 See [source-comparison-v5.md](source-comparison-v5.md). Same-scope prior-year comparison is now wired for the budget source view, with real directional indicators, zero/missing/incomplete states, comparison export and explicit annual month scope. V4's historical note that comparison was not yet wired is superseded by this stage. Default monitoring remains months 1–12. Formal ledger integration remains pending; no release approval is implied.
+
+## V6 — connected management analysis
+
+See [source-analysis-v6.md](source-analysis-v6.md). The source route now supports `?screen=analysis`, using the same authorized snapshot for expense/revenue/budget/trend analysis and selected-measure exports. Missing revenue mapping is not presented as zero. Formal profit, sector and center figures remain unavailable without their canonical source. The reference-based layout/current sidebar are preserved; no release approval is implied.
