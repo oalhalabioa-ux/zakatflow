@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 /** Load Web Analytics only in production, never in local or preview builds. */
 export default function VisitorAnalytics() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production') return;
+    if (process.env.NODE_ENV !== 'production' || !['app.yaqeenbiz.com', 'yaqeenbiz.com', 'www.yaqeenbiz.com'].includes(window.location.hostname)) return;
     if (document.querySelector('script[data-yaqeen-analytics]')) return;
     const script = document.createElement('script');
     script.defer = true;
