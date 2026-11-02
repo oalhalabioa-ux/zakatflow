@@ -33,6 +33,7 @@ alter table public.budget_plans enable row level security;
 create policy plan_reader on public.budget_plans for select to authenticated using(exists(select 1 from public.financial_budget_plan_ownership o where o.plan_id=budget_plans.id and public.financial_budget_can(o.organization_id,o.entity_id,o.cost_center_id,false)));
 alter table public.budget_lines enable row level security;
 create policy lines_reader on public.budget_lines for select to authenticated using(exists(select 1 from public.budget_plans p where p.id=budget_lines.plan_id));
+revoke all on all tables in schema public from anon,authenticated;
 grant usage on schema public to authenticated;
 grant select on public.organization_members,public.organizations,public.financial_budget_plan_ownership,public.budget_plans,public.budget_lines to authenticated;
 notify pgrst,'reload schema';`;

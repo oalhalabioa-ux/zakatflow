@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import {z} from 'zod';
 const Money=Decimal.clone({precision:50});
-const money=z.union([z.string(),z.number()]).transform((v,ctx)=>{const s=String(v);if(!/^-?\d{1,20}(\.\d{1,4})?$/.test(s)){ctx.addIssue({code:'custom',message:'INVALID_SOURCE_AMOUNT'});return z.NEVER}return new Money(s).toFixed(4)});
+const money=z.union([z.string(),z.number()]).transform((v,ctx)=>{const s=String(v);if(!/^-?\d{1,20}(\.\d{1,4})?$/.test(s)||(typeof v==='number'&&new Money(s).abs().times(10000).gt(Number.MAX_SAFE_INTEGER))){ctx.addIssue({code:'custom',message:'INVALID_SOURCE_AMOUNT'});return z.NEVER}return new Money(s).toFixed(4)});
 const uuid=z.string().uuid();
 export const budgetSourceQuery=z.object({organization:uuid,plan:uuid,fromMonth:z.coerce.number().int().min(1).max(12).default(1),toMonth:z.coerce.number().int().min(1).max(12).default(12)}).refine(q=>q.fromMonth<=q.toMonth,{message:'INVALID_MONTH_RANGE'});
 export type BudgetSourceQuery=z.infer<typeof budgetSourceQuery>;

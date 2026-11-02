@@ -6,6 +6,6 @@ Recognized Core actual, legacy manual actual and gross cash settlement remain di
 
 Formal financial statements deliberately remain unavailable until a canonical balanced debit/credit ledger adapter exists. The positive-only event model cannot safely supply a balance sheet or statement of cash flows.
 
-Validation: 1040 tests in 186 files passed locally. Isolated PostgreSQL SQL/RLS checks passed in the preceding session. The new disposable Supabase acceptance workflow exercises genuine Auth, PostgREST, SSR cookies, RLS, browser layouts in Arabic/English, XLSX contents and membership revocation. Its actual CI result must be checked before claiming end-to-end acceptance.
+Validation: 1041 tests in 186 files passed locally. Isolated PostgreSQL SQL/RLS checks passed in the preceding session. The new disposable Supabase acceptance workflow exercises genuine Auth, PostgREST, SSR cookies, RLS, browser layouts in Arabic/English, XLSX contents and membership revocation. Its actual CI result must be checked before claiming end-to-end acceptance.
 
 The disposable database uses a synthetic minimal schema and permission helpers, with report/fact SQL extracted from repository migrations. It does not certify the full deployed VAT/Core schema. Production requires a separate read-only acceptance pass on an authorized QA organization.
