@@ -22,7 +22,7 @@
 .finance-table.loan-configurable-table button:focus-visible{outline:2px solid var(--brand-primary,var(--ink,#102b46));outline-offset:-3px}
 .loan-table-column-menu{position:fixed;z-index:1200;overflow:auto;box-sizing:border-box;padding:12px;background:var(--brand-surface,var(--card,#fff));color:var(--brand-text,var(--ink,#102b46));border:1px solid var(--brand-border,var(--line,#dce3ed));border-radius:10px;box-shadow:0 12px 30px #102b4626;direction:inherit}
 .loan-table-column-menu>strong{display:block;padding:6px 7px 12px;border-bottom:1px solid var(--brand-border,var(--line,#dce3ed))}
-.loan-table-column-menu label{display:flex;align-items:center;gap:10px;padding:7px;min-height:36px;border-radius:6px;cursor:pointer;font-size:14px}
+.loan-table-column-menu label{display:flex;align-items:center;gap:10px;margin:0;padding:7px;line-height:1.5;min-height:36px;border-radius:6px;cursor:pointer;font-size:14px}
 .loan-table-column-menu label:hover{background:var(--brand-surface-soft,var(--card,#fff))}
 .loan-table-column-menu input{width:18px;height:18px;min-height:0;flex:none;margin:0;accent-color:var(--brand-primary,var(--ink,#102b46))}
 @media(pointer:coarse){.finance-table.loan-configurable-table .loan-table-resize{width:44px}.finance-table.loan-configurable-table :is(.loan-table-sort,.loan-table-heading){width:calc(100% - 44px)}.loan-table-column-menu label{min-height:44px}}

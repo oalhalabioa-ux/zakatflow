@@ -34,16 +34,16 @@ export default function FinancingLoansTable({records,parties,facts,base,group,lo
   const settled=(c:Contract)=>ar?fact(c).label:(settlementNames[fact(c).label]??fact(c).label);
   return [
     {id:'party',ar:'الجهة',en:'Counterparty',width:290,min:180,value:c=>parties.get(c.counterparty_id),cell:c=><><strong>{parties.get(c.counterparty_id)??'—'}</strong>{group&&<small>{c.organization_name}</small>}</>},
-    {id:'type',ar:'نوع السند',en:'Voucher type',width:205,min:160,value:c=>sourceVoucher('DEBT',c,ar).voucherType,cell:c=>sourceVoucher('DEBT',c,ar).voucherType},
-    {id:'number',ar:'رقم السند',en:'Voucher number',width:185,min:150,value:c=>sourceVoucher('DEBT',c,ar).voucherNumber,cell:c=><bdi>{sourceVoucher('DEBT',c,ar).voucherNumber}</bdi>},
+    {id:'type',ar:'نوع السند',en:'Voucher type',width:220,min:170,value:c=>sourceVoucher('DEBT',c,ar).voucherType,cell:c=>sourceVoucher('DEBT',c,ar).voucherType},
+    {id:'number',ar:'رقم السند',en:'Voucher number',width:210,min:170,value:c=>sourceVoucher('DEBT',c,ar).voucherNumber,cell:c=><bdi>{sourceVoucher('DEBT',c,ar).voucherNumber}</bdi>},
     {id:'reference',ar:'المرجع الخارجي',en:'External reference',width:250,min:180,value:c=>c.reference,cell:c=><bdi>{reportReference(c.reference,c.id)}</bdi>},
     {id:'description',ar:'البيان',en:'Description',width:360,min:200,value:c=>c.description,cell:c=>c.description||'—'},
-    {id:'side',ar:'الاتجاه',en:'Direction',width:140,min:120,value:c=>c.side==='RECEIVABLE'?(ar?'لنا':'Receivable'):(ar?'علينا':'Payable'),cell:c=>c.side==='RECEIVABLE'?(ar?'لنا':'Receivable'):(ar?'علينا':'Payable')},
+    {id:'side',ar:'الاتجاه',en:'Direction',width:170,min:130,value:c=>c.side==='RECEIVABLE'?(ar?'لنا':'Receivable'):(ar?'علينا':'Payable'),cell:c=>c.side==='RECEIVABLE'?(ar?'لنا':'Receivable'):(ar?'علينا':'Payable')},
     {id:'principal',ar:'أصل المبلغ',en:'Principal',width:220,min:180,value:c=>sortMoney(c.principal,c.currency),cell:c=>money(c.principal,c.currency)},
-    {id:'state',ar:'حالة المستند',en:'Document status',width:195,min:170,value:state,cell:c=><span className="debt-status">{state(c)}</span>},
-    {id:'settlement',ar:'حالة تسوية الأصل',en:'Principal settlement',width:225,min:195,value:settled,cell:c=><span className={'debt-status '+(fact(c).overdue>0?'is-overdue':'')}>{settled(c)}</span>},
+    {id:'state',ar:'حالة المستند',en:'Document status',width:220,min:185,value:state,cell:c=><span className="debt-status">{state(c)}</span>},
+    {id:'settlement',ar:'حالة تسوية الأصل',en:'Principal settlement',width:245,min:210,value:settled,cell:c=><span className={'debt-status '+(fact(c).overdue>0?'is-overdue':'')}>{settled(c)}</span>},
     {id:'due',ar:'الاستحقاق القادم',en:'Next due date',width:205,min:180,value:c=>fact(c).nextDue,cell:c=>fact(c).nextDue??'—'},
-    {id:'balance',ar:'المتبقي بعملة الأساس',en:'Remaining in base currency',width:270,min:230,value:c=>c.status==='ACTUAL'?sortMoney(fact(c).outstanding,c.base_currency??base):null,cell:c=>c.status==='ACTUAL'?money(fact(c).outstanding,c.base_currency??base):'—'},
+    {id:'balance',ar:'المتبقي بعملة الأساس',en:'Remaining in base currency',width:300,min:250,value:c=>c.status==='ACTUAL'?sortMoney(fact(c).outstanding,c.base_currency??base):null,cell:c=>c.status==='ACTUAL'?money(fact(c).outstanding,c.base_currency??base):'—'},
     {id:'actions',ar:'التفاصيل',en:'Details',width:140,min:120,cell:c=><ActionButton icon="details" label={ar?'التفاصيل والإجراءات':'Details and actions'} onClick={()=>onOpen(c.id)}/>},
   ];
   },[parties,facts,ar,base,group,money,sortMoney,onOpen]);
@@ -62,7 +62,7 @@ export default function FinancingLoansTable({records,parties,facts,base,group,lo
   },[position]);
   function toggleMenu(){
     if(position){setPosition(null);return;}
-    const button=trigger.current;if(!button)return;const rect=button.getBoundingClientRect(),width=Math.min(290,window.innerWidth-24),maxHeight=Math.min(520,window.innerHeight-24);
+    const button=trigger.current;if(!button)return;const rect=button.getBoundingClientRect(),width=Math.min(290,window.innerWidth-24),maxHeight=Math.min(640,window.innerHeight-24);
     setPosition({left:Math.max(12,Math.min(ar?rect.right-width:rect.left,window.innerWidth-width-12)),top:Math.max(12,Math.min(rect.bottom+6,window.innerHeight-maxHeight-12)),width,maxHeight,host:button.closest<HTMLElement>('.corp-shell')??document.body});
   }
   function resize(e:PointerEvent<HTMLButtonElement>,col:Column){

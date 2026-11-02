@@ -9,7 +9,7 @@ const {build}=await import(pathToFileURL(process.env.LOAN_TABLE_ESBUILD_MODULE).
 const {chromium}=await import(pathToFileURL(process.env.LOAN_TABLE_BROWSER_MODULE).href);
 const out=resolve(tmpdir(),'yaqeen-loan-table-browser');await mkdir(out,{recursive:true});
 await build({entryPoints:['tests/loan-table/fixture.tsx'],bundle:true,outdir:out,entryNames:'fixture',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'public-assets',setup(build){build.onResolve({filter:/.*/},args=>args.kind==='url-token'?{path:args.path,external:true}:undefined);}}]});
-const html='<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0"><div id="root"></div><script src="/fixture.js"></script></body></html>';
+const html='<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0;font-family:Arial,Tahoma,sans-serif"><div id="root"></div><script src="/fixture.js"></script></body></html>';
 const server=createServer(async(req,res)=>{const name=new URL(req.url,'http://localhost').pathname;if(name==='/'){res.setHeader('content-type','text/html');res.end(html);return;}if(!['/fixture.css','/fixture.js'].includes(name)){res.statusCode=404;res.end();return;}res.setHeader('content-type',name.endsWith('.css')?'text/css':'text/javascript');res.end(await readFile(join(out,name.slice(1))));});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true});const errors=[];
