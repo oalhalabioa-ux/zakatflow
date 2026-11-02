@@ -1,0 +1,19 @@
+import{sourceSchema,seedSource,ORG_A,ORG_B,PLAN_A,PLAN_B}from'./source-fixture.mjs';
+import{writeFile,mkdir}from'node:fs/promises';
+import assert from'node:assert/strict';
+const modulePath=process.env.FINANCIAL_REPORT_PGLITE_MODULE;if(!modulePath)throw Error('TEMPORARY_PGLITE_MODULE_REQUIRED');
+const{PGlite}=await import(modulePath);const db=new PGlite();const checks=[];const a='30000000-0000-4000-8000-000000000001',b='30000000-0000-4000-8000-000000000002',viewer='30000000-0000-4000-8000-000000000003';
+try{
+await db.exec(`create role authenticated;create role anon;create schema auth;create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated,anon;grant execute on function auth.uid() to authenticated,anon;`);
+await db.exec(await sourceSchema());await db.exec(seedSource(a,b,viewer));
+async function as(actor,query){await db.exec('begin;set local role authenticated;');try{await db.query("select set_config('request.jwt.claim.sub',$1,true)",[actor]);const r=await db.query(query);await db.exec('rollback');return r.rows}catch(e){await db.exec('rollback');throw e}}
+const first=(await as(a,`select public.financial_budget_report('${PLAN_A}') report`))[0].report;
+assert.equal(first.rows.reduce((n,r)=>n+Number(r.actual_amount),0),100);assert.equal(first.rows.reduce((n,r)=>n+Number(r.paid_settled_gross),0),115);assert.equal(first.rows.reduce((n,r)=>n+Number(r.legacy_actual),0),900);assert.equal(first.rows.reduce((n,r)=>n+Number(r.committed_amount),0),50);checks.push('Repository SQL RPC separates actual 100, cash 115, legacy 900 and commitment 50; draft 999 and settlement recognition excluded');
+assert.deepEqual((await as(a,'select id from public.budget_plans')).map(r=>r.id),[PLAN_A]);assert.deepEqual((await as(a,'select id from public.organizations')).map(r=>r.id),[ORG_A]);checks.push('PostgreSQL RLS hides another institution and its plan');
+await assert.rejects(()=>as(a,`select public.financial_budget_report('${PLAN_B}')`),/BUDGET_PLAN_READ_DENIED/);await assert.rejects(()=>as(viewer,`select public.financial_budget_report('${PLAN_A}')`),/BUDGET_PLAN_READ_DENIED/);checks.push('SQL RPC rejects cross-organization and denied-role callers');
+const second=(await as(b,`select public.financial_budget_report('${PLAN_B}') report`))[0].report;assert.equal(second.rows.reduce((n,r)=>n+Number(r.actual_amount),0),7000);checks.push('Independent second institution reads its own actual 7000');
+await db.exec(`update public.organization_members set status='INACTIVE' where user_id='${a}'`);await assert.rejects(()=>as(a,`select public.financial_budget_report('${PLAN_A}')`),/BUDGET_PLAN_READ_DENIED/);assert.deepEqual(await as(a,'select id from public.budget_plans'),[]);checks.push('Membership revocation immediately denies subsequent SQL reads');
+await db.exec('set role anon');await assert.rejects(()=>db.query(`select public.financial_budget_report('${PLAN_A}')`),/permission denied/);await db.exec('reset role');checks.push('Anonymous SQL role cannot execute the report RPC');
+await assert.rejects(()=>as(b,"update public.budget_plans set name='forbidden'"),/permission denied/);checks.push('Read role cannot mutate saved plans');
+await mkdir('docs/financial-reports/evidence-v3',{recursive:true});await writeFile('docs/financial-reports/evidence-v3/postgres-results.json',JSON.stringify({engine:'Real PostgreSQL WASM (PGlite), disposable memory database',auth:'SQL subject simulation; NOT genuine Supabase Auth/PostgREST',fixture:'Synthetic minimal dependencies and permission helpers; report SQL copied from repository migrations. Not a full deployed Financial Core/VAT schema.',checks},null,2));checks.forEach(c=>console.log('PASS '+c));
+}finally{await db.close()}

@@ -1,0 +1,61 @@
+name: Financial reporting source isolated acceptance
+on:
+  pull_request:
+    paths:
+      - 'app/api/financial-reporting/**'
+      - 'app/design-preview/financial-reports/source/**'
+      - 'components/financial-reports/FinancialReportingSource.tsx'
+      - 'lib/financial-budget-source.ts'
+      - 'services/financial-reporting-source.ts'
+      - 'scripts/financial-reports/*source*'
+      - 'tests/financial-reporting-source.test.ts'
+      - '.github/workflows/financial-reporting-source-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-auth-rls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install isolated browser runner
+        run: |
+          mkdir -p "$RUNNER_TEMP/report-source-browser"
+          npm install --prefix "$RUNNER_TEMP/report-source-browser" --no-package-lock --no-save playwright@1.64.1
+          node "$RUNNER_TEMP/report-source-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "FINANCIAL_SOURCE_BROWSER_MODULE=$RUNNER_TEMP/report-source-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Initialize isolated Supabase project
+        run: |
+          export FINANCIAL_SOURCE_WORKDIR="$RUNNER_TEMP/financial-reporting-source-qa"
+          echo "FINANCIAL_SOURCE_WORKDIR=$FINANCIAL_SOURCE_WORKDIR" >> "$GITHUB_ENV"
+          mkdir -p "$FINANCIAL_SOURCE_WORKDIR"
+          npx --yes supabase@2.122.0 init --workdir "$FINANCIAL_SOURCE_WORKDIR"
+          python - <<'PY'
+          import os,pathlib,re
+          p=pathlib.Path(os.environ['FINANCIAL_SOURCE_WORKDIR'])/'supabase/config.toml'
+          s=p.read_text()
+          s=re.sub(r'^project_id = .*$', 'project_id = "financial-reporting-source-qa"', s, flags=re.M)
+          s=s.replace('enable_confirmations = true','enable_confirmations = false')
+          p.write_text(s)
+          PY
+      - name: Start loopback-only Auth, PostgREST and PostgreSQL
+        run: npx --yes supabase@2.122.0 start --workdir "$FINANCIAL_SOURCE_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/financial-source-start.log" 2>&1 || { tail -40 "$RUNNER_TEMP/financial-source-start.log"; exit 1; }
+      - name: Verify real authenticated source reads, isolation, exports and revocation
+        run: node scripts/financial-reports/verify-source-supabase.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: financial-reporting-source-acceptance
+          path: docs/financial-reports/evidence-v3/
+          if-no-files-found: warn
+      - name: Destroy disposable stack
+        if: always()
+        run: npx --yes supabase@2.122.0 stop --workdir "$FINANCIAL_SOURCE_WORKDIR" --no-backup > "$RUNNER_TEMP/financial-source-stop.log" 2>&1
