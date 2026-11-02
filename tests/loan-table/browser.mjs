@@ -53,6 +53,29 @@ for(const locale of ['ar','en'])for(const theme of ['yaqeen-business','classic',
   await table.locator('tbody tr').first().getByRole('button',{name:locale==='ar'?'التفاصيل والإجراءات':'Details and actions',exact:true}).click();assert.equal(await page.locator('[data-opened]').textContent(),'contract-34');
   await scroll.evaluate(el=>{el.scrollLeft=0;});
   await page.screenshot({path:`tests/loan-table/screenshots/${theme}-${locale}-${width}.png`});
+  for(const key of ['side','description','number','party']){
+    const handle=header(key).getByRole('separator');await handle.scrollIntoViewIfNeeded();await handle.focus();
+    const minimum=Number(await handle.getAttribute('aria-valuemin'));assert.ok(minimum<=110,'Columns must allow genuinely compact widths');
+    while(Number(await handle.getAttribute('aria-valuenow'))>minimum)await page.keyboard.press(locale==='ar'?'ArrowRight':'ArrowLeft');
+    await page.keyboard.press(locale==='ar'?'ArrowRight':'ArrowLeft');assert.equal(Number(await handle.getAttribute('aria-valuenow')),minimum,'Resizing stops at the compact safety bound');
+    const actual=await table.locator('col[data-loan-column='+key+']').evaluate(el=>el.getBoundingClientRect().width);
+    assert.ok(actual<=minimum+1,'The rendered column must actually shrink, not only its stored width');
+  }
+  await header('principal').locator('.loan-table-sort').click();await header('principal').locator('.loan-table-sort').click();
+  await trigger.click();await menu.waitFor();
+  for(const checkbox of await menu.getByRole('checkbox').all()){
+    if(await checkbox.getAttribute('disabled')!==null)continue;
+    const text=await checkbox.evaluate(el=>el.parentElement.textContent);
+    if(text!==(locale==='ar'?'الجهة':'Counterparty'))await checkbox.uncheck();
+  }
+  await page.keyboard.press('Escape');
+  assert.equal(await table.locator('th').count(),1);
+  const columnWidth=await table.locator('col').evaluate(el=>el.getBoundingClientRect().width);
+  assert.ok(columnWidth<=111,'Hiding other columns must not stretch the remaining column to fill the viewport');
+  const narrowCell=table.locator('[data-loan-cell=party]').first();
+  assert.equal(await narrowCell.evaluate(el=>getComputedStyle(el).textOverflow),'ellipsis');
+  assert.ok((await narrowCell.getAttribute('title')).includes('بنك البلاد'),'The full counterparty remains available on hover');
+  await page.screenshot({path:`tests/loan-table/screenshots/${theme}-${locale}-${width}-compact.png`});
   await context.close();console.log('PASS loan table',theme,locale,width);
 }
 assert.deepEqual(errors,[]);await writeFile('tests/loan-table/result.json',JSON.stringify({passed:16,browserErrors:errors,scenarios:['sort before pagination','null-last dates','pointer and touch resize','keyboard resize','column visibility','inline menu','row details','four themes','AR/EN','390/1440 viewport']},null,2));
