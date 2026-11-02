@@ -11,9 +11,10 @@ export async function sendInvitationEmail(mail:{to:string;subject:string;html:st
   endpoint=u.href;
  }
  try{
-  const response=await fetch(endpoint,{method:'POST',cache:'no-store',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json','Idempotency-Key':`organization-invitation/${mail.invitationId}`},body:JSON.stringify({from:'Yaqeen Business | يقين الأعمال <no-reply@auth.yaqeenbiz.com>',to:[mail.to],subject:mail.subject,html:mail.html,text:mail.text})});
+  const response=await fetch(endpoint,{method:'POST',cache:'no-store',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json','Idempotency-Key':`organization-invitation/activation-v1/${mail.invitationId}`},body:JSON.stringify({from:'Yaqeen Business | يقين الأعمال <no-reply@auth.yaqeenbiz.com>',to:[mail.to],subject:mail.subject,html:mail.html,text:mail.text})});
   if(!response.ok)throw Error('EMAIL_DELIVERY_FAILED');
   const data=await response.json();if(typeof data.id!=='string'||!/^[-_a-zA-Z0-9]{1,128}$/.test(data.id))throw Error('EMAIL_DELIVERY_FAILED');
   return {status:'accepted' as const,messageId:data.id};
  }catch{throw Error('EMAIL_DELIVERY_FAILED')}
 }
+
