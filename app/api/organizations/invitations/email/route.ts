@@ -6,6 +6,7 @@ import {ADMIN_HEADER_ERROR,adminTransportFromResult,type AdminTransportFailure} 
 import {APP_ORIGIN} from '../../../../../lib/routing';
 import {organizationInvitationEmail} from '../../../../../lib/email/organization-invitation';
 import {invitationEmailConfigured,sendInvitationEmail} from '../../../../../services/email/resend';
+import {invitationProof} from '../../../../../lib/auth/invitation-proof';
 export async function POST(request:Request){
  let stage='input';
  let lookupFailure:{httpStatus:number|null;databaseCode:string;transportFailure?:AdminTransportFailure}|undefined;
@@ -36,7 +37,8 @@ export async function POST(request:Request){
   if(invite.custom_role_id){const {data:role}=await supabase.from('organization_roles').select('name').eq('id',invite.custom_role_id).eq('organization_id',organizationId).maybeSingle();if(!role)throw Error('INVITATION_ROLE_INVALID');customRoleName=role.name;}
   const locale=requested==='en'?'en':'ar';
   const origin=process.env.NEXT_PUBLIC_APP_ENV==='test'?'http://127.0.0.1:3000':process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:APP_ORIGIN;
-  const url=new URL(`/${locale}/login`,origin);url.searchParams.set('invite',invite.token);
+  const url=new URL(`/${locale}/login/invitation`,origin);
+  url.hash=new URLSearchParams({id:invite.id,proof:invitationProof(invite)}).toString();
   stage='render';
   const mail=organizationInvitationEmail({locale,organization:organization.name,email:invite.email,role:invite.role,customRoleName,expiresAt:invite.expires_at,inviteUrl:url.href});
   stage='transport';
@@ -56,3 +58,4 @@ export async function POST(request:Request){
   return NextResponse.json({error:safe},{status,headers:{'Cache-Control':'private, no-store'}});
  }
 }
+
