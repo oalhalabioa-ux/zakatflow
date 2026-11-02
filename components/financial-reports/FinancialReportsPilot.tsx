@@ -5,8 +5,9 @@ import {PREVIEW_MONTHS_AR,PREVIEW_MONTHS_EN,previewSeries,previewSummary,preview
 import './financial-reports-pilot.css';
 
 // Small vector UI icons; no raster reference is used in the implementation.
-function Icon({name='chart',size=24}:{name?:string;size?:number}){
+export function Icon({name='chart',size=24}:{name?:string;size?:number}){
  const paths:Record<string,React.ReactNode>={
+ cashFlow:<><path d="M3 7h17m-5-4 5 4-5 4M21 17H4m5-4-5 4 5 4"/></>,
  chart:<><path d="M4 20V14h3v6m4 0V8h3v12m4 0V3h3v17"/></>,
  layers:<><path d="m12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></>,
  coins:<><ellipse cx="9" cy="6" rx="7" ry="3"/><path d="M2 6v4c0 4 14 4 14 0V6M2 10v4c0 4 14 4 14 0M2 14v4c0 4 14 4 14 0M19 7c4 0 4 5 0 5m0 0c4 0 4 5 0 5"/></>,
@@ -34,8 +35,9 @@ const sectionsAR=['لوحة المؤشرات المالية','الموازنات
 const sectionsEN=['Financial KPI dashboard','Budgets','Financial statements','Accounting reports','Management reports','Group reports'];
 const sectionIcons=['chart','calendar','file','file','users','layers'];
 
-export default function FinancialReportsPilot({initialEnglish=false}:{initialEnglish?:boolean}){
- const [en,setEn]=useState(initialEnglish),[menu,setMenu]=useState(false),[count,setCount]=useState(12),[org,setOrg]=useState<PreviewOrganization>('demo-holding'),[selected,setSelected]=useState(10),[dialog,setDialog]=useState(''),[exportOpen,setExportOpen]=useState(false),[schedule,setSchedule]=useState(''),[saved,setSaved]=useState(false),[search,setSearch]=useState('');
+export default function FinancialReportsPilot({initialEnglish=false,embedded=false,onNavigate,previewOrganization}:{initialEnglish?:boolean;embedded?:boolean;onNavigate?:(index:number)=>void;previewOrganization?:PreviewOrganization}){
+ const [en,setEn]=useState(initialEnglish),[menu,setMenu]=useState(false),[count,setCount]=useState(12),[org,setOrg]=useState<PreviewOrganization>('demo-holding'),[selected,setSelected]=useState(10),[dialog,setDialogState]=useState(''),[exportOpen,setExportOpen]=useState(false),[schedule,setSchedule]=useState(''),[saved,setSaved]=useState(false),[search,setSearch]=useState('');
+ useEffect(()=>{if(previewOrganization)setOrg(previewOrganization)},[previewOrganization]);
  useEffect(()=>{
  if(!dialog)return;
  const previous=document.activeElement as HTMLElement|null;
@@ -50,13 +52,14 @@ export default function FinancialReportsPilot({initialEnglish=false}:{initialEng
  document.addEventListener('keydown',onKey);return()=>{document.removeEventListener('keydown',onKey);previous?.focus()};
  },[dialog]);
  const t=(ar:string,eng:string)=>en?eng:ar, months=en?PREVIEW_MONTHS_EN:PREVIEW_MONTHS_AR;
+ function setDialog(value:string){const index=[...sectionsAR,...sectionsEN].indexOf(value);if(onNavigate&&index>=0){onNavigate(index%6);return}setDialogState(value)}
  const rows=previewSeries(org,count),summary=previewSummary(org,count),point=rows.find(r=>r.month===selected)??rows.at(-1)!;
  const fmt=(n:number)=>n.toLocaleString('en-US',{maximumFractionDigits:1,minimumFractionDigits:1});
  const money=t('مليون ر.س','M SAR');
  function download(){const a=document.createElement('a');const url=URL.createObjectURL(new Blob([previewCsv(org,count,en)],{type:'text/csv;charset=utf-8'}));a.href=url;a.download=`yaqeen-SYNTHETIC-${org}-${count}m.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setExportOpen(false)}
  async function excel(){const {Workbook}=await import('exceljs');const book=new Workbook();const sheet=book.addWorksheet('Synthetic preview');sheet.addRow(['SYNTHETIC PREVIEW ONLY',org]);sheet.addRow(['Month','Revenue (M SAR)','Expense (M SAR)','Net profit (M SAR)']);rows.forEach(r=>sheet.addRow([`2024-${String(r.month+1).padStart(2,'0')}`,r.revenue,r.expense,r.profit]));sheet.columns.forEach(c=>c.width=24);sheet.views=[{rightToLeft:!en}];const data=await book.xlsx.writeBuffer();const url=URL.createObjectURL(new Blob([data],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=url;a.download=`yaqeen-SYNTHETIC-${org}-${count}m.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setExportOpen(false)}
  const metrics=[{label:t('الإيرادات','Revenue'),value:fmt(summary.revenue),icon:'coins',delta:'+12.4%'},{label:t('المصروفات','Expenses'),value:fmt(summary.expense),icon:'layers',delta:'+8.7%',red:true},{label:t('صافي الربح','Net profit'),value:fmt(summary.profit),icon:'chart',delta:'+24.6%'},{label:t('هامش الربح','Profit margin'),value:fmt(summary.margin)+'%',icon:'percent',delta:t('+4.4 نقطة مئوية','+4.4 percentage points'),ratio:true},{label:t('التدفقات النقدية التشغيلية','Operating cash flow'),value:fmt(summary.cash),icon:'layers',delta:'+18.1%'}];
- return <div className="fr-pilot" dir={en?'ltr':'rtl'} lang={en?'en':'ar'}>
+ return <div className={`fr-pilot ${embedded?'fr-embedded':''}`} dir={en?'ltr':'rtl'} lang={en?'en':'ar'}>
  <aside className={`fr-sidebar ${menu?'fr-open':''}`} aria-label={t('القائمة الرئيسية','Main navigation')}><div className="fr-brand"><svg viewBox="0 0 56 58" aria-hidden="true"><path d="M2 2h18l15 24-18 30H2l17-29Z" fill="#C6A35D"/><path d="M31 2h23L32 38l-10-16Z" fill="#efd394"/></svg><span><b>Yaqeen</b><br/>Business</span><button className="fr-mobile-close" onClick={()=>setMenu(false)} aria-label={t('إغلاق القائمة','Close navigation')}><Icon name="close"/></button></div><svg className="fr-brand-wave" viewBox="0 0 252 30" preserveAspectRatio="none" aria-hidden="true"><path d="M0 25C85-12 161 48 252 5" fill="none" stroke="#C6A35D" strokeWidth="3"/></svg>
  <nav><button onClick={()=>setDialog(t('الرئيسية','Home'))}><Icon name="home"/>{t('الرئيسية','Home')}</button><button onClick={()=>setDialog(t('التخطيط والموازنات','Planning & budgeting'))}><Icon name="target"/>{t('التخطيط والموازنات','Planning & budgeting')}<Icon name="chevron" size={17}/></button><div className="fr-active-nav"><Icon name="chart"/>{t('التقارير والقوائم المالية','Financial reports')}<Icon name="chevron" size={17}/></div><div className="fr-subnav"><button aria-current="page">{t('لوحة التقارير المالية','Reports overview')}<i/></button>{(en?sectionsEN:sectionsAR).slice(1).map(s=><button key={s} onClick={()=>setDialog(s)}>{s}<i/></button>)}</div>{[['gauge',t('مؤشرات الأداء (KPI)','Performance (KPI)')],['trend',t('التحليل المالي','Financial analysis')],['database',t('إدارة البيانات المالية','Financial data')],['settings',t('الإعدادات','Settings')]].map(([icon,label])=><button key={icon} onClick={()=>setDialog(label)}><Icon name={icon}/>{label}<Icon name="chevron" size={17}/></button>)}</nav></aside>
  {menu&&<button className="fr-scrim" onClick={()=>setMenu(false)} aria-label={t('إغلاق القائمة','Close navigation')}/>}

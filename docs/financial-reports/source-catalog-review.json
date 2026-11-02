@@ -1,0 +1,282 @@
+{
+  "checkedAt": "2026-11-02",
+  "method": "Read-only information_schema catalog queries; no customer rows, schema changes, role changes or writes.",
+  "projects": [
+    "Financial Core QA",
+    "Production"
+  ],
+  "schema": [
+    [
+      {
+        "table_name": "budget_approval_events",
+        "columns": "id, plan_id, user_id, action, actor_id, notes, created_at"
+      },
+      {
+        "table_name": "budget_dimensions",
+        "columns": "id, user_id, dimension_type, code, name, parent_id, active, metadata, created_at, updated_at"
+      },
+      {
+        "table_name": "budget_lines",
+        "columns": "id, plan_id, user_id, category, name, line_type, sort_order, monthly_budget, monthly_actual, monthly_forecast, created_at, updated_at, active"
+      },
+      {
+        "table_name": "budget_plans",
+        "columns": "id, user_id, name, fiscal_year, currency, scenario, status, organization_name, cost_center, opening_cash, minimum_cash_target, assumptions, notes, created_by, created_at, updated_at, organization_ref_id, branch_ref_id, cost_center_ref_id, project_ref_id"
+      },
+      {
+        "table_name": "financial_budget_commands",
+        "columns": "organization_id, source_key, canonical_payload, payload_hash, result_id, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_commitment_consumptions",
+        "columns": "id, organization_id, commitment_line_id, actual_line_id, base_amount, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_event_routes",
+        "columns": "event_id, organization_id, entity_id, cost_center_id, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_mappings",
+        "columns": "id, organization_id, plan_id, budget_line_id, classification_id, entity_id, cost_center_id, metric_policy, effective_from, effective_to, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_operational_facts",
+        "columns": "financial_line_id, event_id, organization_id, entity_id, cost_center_id, classification_id, classification_type, event_date, status, event_type, source_module, source_record_id, source_event_key, base_currency, source_currency, exchange_rate, raw_base_amount, metadata, document_kind, side, recoverable_percent, sign, budget_base_amount, source_issue, actual_base_amount, committed_base_amount"
+      },
+      {
+        "table_name": "financial_budget_plan_ownership",
+        "columns": "plan_id, organization_id, entity_id, cost_center_id, fiscal_start, adopted_by, created_at, legacy_snapshot"
+      },
+      {
+        "table_name": "financial_budget_retirements",
+        "columns": "id, organization_id, grant_id, mapping_id, reason, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_scope_grants",
+        "columns": "id, organization_id, user_id, entity_id, cost_center_id, can_edit, created_by, created_at"
+      },
+      {
+        "table_name": "financial_classifications",
+        "columns": "id, organization_id, code, name, classification_type, active, is_system, metadata, created_by, created_at, updated_at"
+      },
+      {
+        "table_name": "financial_core_cash_event_flow_links",
+        "columns": "organization_id, liquidity_flow_id, financial_event_id, mapping_method"
+      },
+      {
+        "table_name": "financial_core_cash_reconciliation",
+        "columns": "organization_id, entity_id, liquidity_flow_id, account_id, liquidity_account_name, liquidity_account_type, liquidity_account_currency, direction, flow_type, flow_amount, flow_currency, flow_base_amount, liquidity_flow_status, cash_settled_amount, cash_settlement_status, cash_source_module, cash_source_record_id, cash_source_event_key, transfer_id, intercompany_transfer_id, budget_line_id, cash_movement_kind, transfer_source_account_id, transfer_destination_account_id, transfer_source_amount, transfer_source_currency, transfer_destination_amount, transfer_destination_currency, holding_organization_id, transfer_source_organization_id, transfer_destination_organization_id, intercompany_transaction_type, intercompany_source_account_id, intercompany_destination_account_id, intercompany_source_base_amount, intercompany_destination_base_amount, financial_event_id, event_id, original_event_id, mapping_method, event_type, financial_event_status, financial_source_module, financial_source_record_id, financial_source_event_key, financial_entity_id, reconciliation_relation, expected_direction, reconciliation_status"
+      },
+      {
+        "table_name": "financial_core_event_cash_position",
+        "columns": "event_id, organization_id, entity_id, source_module, source_record_id, source_event_key, event_type, status, expected_cash_direction, settlement_status, settled_base_amount, due_base_amount, outstanding_base_amount, linked_flow_count, mismatched_flow_count, cash_position"
+      },
+      {
+        "table_name": "financial_counterparty_balances",
+        "columns": "organization_id, counterparty_id, counterparty_name, party_type, base_currency, receivable_balance, payable_balance, overdue_receivable, overdue_payable, open_item_count"
+      },
+      {
+        "table_name": "financial_counterparty_open_items",
+        "columns": "organization_id, counterparty_id, counterparty_name, party_type, obligation_id, event_id, obligation_key, obligation_type, source_module, source_record_id, source_event_key, description, event_date, due_date, currency, base_currency, settleable_amount, due_base_amount, applied_base_amount, consumed_advance_base_amount, outstanding_base_amount, settled_base_amount, is_overdue"
+      },
+      {
+        "table_name": "financial_debt_categories",
+        "columns": "origin, record_id, owner_id, organization_id, category, updated_by, updated_at"
+      },
+      {
+        "table_name": "financial_event_approvals",
+        "columns": "id, event_id, organization_id, approver_id, decision, note, decided_at"
+      },
+      {
+        "table_name": "financial_event_command_registry",
+        "columns": "id, organization_id, command_type, source_module, source_event_key, payload_fingerprint, financial_event_id, canonical_payload, created_by, created_at"
+      },
+      {
+        "table_name": "financial_event_lines",
+        "columns": "id, event_id, organization_id, line_number, description, classification_id, cost_center_id, budget_line_id, amount, currency, exchange_rate, base_amount, cash_direction, vat_treatment, vat_rate, vat_amount, recoverable_percent, metadata, created_at"
+      },
+      {
+        "table_name": "financial_event_links",
+        "columns": "id, event_id, organization_id, link_type, target_module, target_record_id, related_event_id, metadata, created_by, created_at"
+      },
+      {
+        "table_name": "financial_event_obligation_allocations",
+        "columns": "id, organization_id, application_event_id, obligation_id, allocation_type, source_advance_obligation_id, amount, currency, exchange_rate, base_currency, base_amount, created_at"
+      },
+      {
+        "table_name": "financial_event_obligation_balances",
+        "columns": "obligation_id, organization_id, event_id, obligation_key, obligation_type, settleable_amount, currency, exchange_rate, base_currency, adjusted_settleable_base_amount, applied_base_amount, consumed_advance_base_amount, outstanding_base_amount"
+      },
+      {
+        "table_name": "financial_event_obligations",
+        "columns": "id, organization_id, event_id, obligation_key, obligation_type, adjusts_obligation_id, adjustment_effect, settleable_amount, currency, exchange_rate, base_currency, settleable_base_amount, created_by, created_at"
+      },
+      {
+        "table_name": "financial_event_settlement_status",
+        "columns": "event_id, organization_id, settlement_status, settled_base_amount, due_base_amount"
+      },
+      {
+        "table_name": "financial_event_settlement_status_explicit",
+        "columns": "event_id, organization_id, base_currency, due_base_amount, settled_base_amount, settlement_status"
+      },
+      {
+        "table_name": "financial_event_status_history",
+        "columns": "id, event_id, organization_id, from_status, to_status, actor_id, note, changed_at"
+      },
+      {
+        "table_name": "financial_events",
+        "columns": "id, organization_id, entity_id, counterparty_id, vat_profile_id, event_type, source_module, source_record_id, source_event_key, description, event_date, due_date, settlement_date, status, planning_view, scenario_key, base_currency, created_by, created_at, updated_at, posted_by, posted_at"
+      },
+      {
+        "table_name": "financial_vat_counterparty_map",
+        "columns": "organization_id, vat_contact_id, counterparty_id, created_by, created_at"
+      },
+      {
+        "table_name": "financial_vat_source_bindings",
+        "columns": "organization_id, source_table, source_record_id, event_id, canonical_payload, payload_fingerprint, document_kind, side, contact_id, entity_id, due_date, original_event_id, is_alias, created_by, created_at"
+      },
+      {
+        "table_name": "liquidity_account_settlement_ledger_summary",
+        "columns": "account_id, organization_id, entity_id, currency, current_balance, current_balance_base, settlement_inflows, settlement_outflows, net_settlement_base_amount"
+      }
+    ],
+    [
+      {
+        "table_name": "budget_approval_events",
+        "columns": "id, plan_id, user_id, action, actor_id, notes, created_at"
+      },
+      {
+        "table_name": "budget_dimensions",
+        "columns": "id, user_id, dimension_type, code, name, parent_id, active, metadata, created_at, updated_at"
+      },
+      {
+        "table_name": "budget_lines",
+        "columns": "id, plan_id, user_id, category, name, line_type, sort_order, monthly_budget, monthly_actual, monthly_forecast, created_at, updated_at, active"
+      },
+      {
+        "table_name": "budget_plans",
+        "columns": "id, user_id, name, fiscal_year, currency, scenario, status, organization_name, cost_center, opening_cash, minimum_cash_target, assumptions, notes, created_by, created_at, updated_at, organization_ref_id, branch_ref_id, cost_center_ref_id, project_ref_id, organization_id"
+      },
+      {
+        "table_name": "financial_budget_commands",
+        "columns": "organization_id, source_key, canonical_payload, payload_hash, result_id, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_commitment_consumptions",
+        "columns": "id, organization_id, commitment_line_id, actual_line_id, base_amount, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_event_routes",
+        "columns": "event_id, organization_id, entity_id, cost_center_id, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_mappings",
+        "columns": "id, organization_id, plan_id, budget_line_id, classification_id, entity_id, cost_center_id, metric_policy, effective_from, effective_to, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_operational_facts",
+        "columns": "financial_line_id, event_id, organization_id, entity_id, cost_center_id, classification_id, classification_type, event_date, status, event_type, source_module, source_record_id, source_event_key, base_currency, source_currency, exchange_rate, raw_base_amount, metadata, document_kind, side, recoverable_percent, sign, budget_base_amount, source_issue, actual_base_amount, committed_base_amount"
+      },
+      {
+        "table_name": "financial_budget_plan_ownership",
+        "columns": "plan_id, organization_id, entity_id, cost_center_id, fiscal_start, adopted_by, created_at, legacy_snapshot"
+      },
+      {
+        "table_name": "financial_budget_retirements",
+        "columns": "id, organization_id, grant_id, mapping_id, reason, created_by, created_at"
+      },
+      {
+        "table_name": "financial_budget_scope_grants",
+        "columns": "id, organization_id, user_id, entity_id, cost_center_id, can_edit, created_by, created_at"
+      },
+      {
+        "table_name": "financial_classifications",
+        "columns": "id, organization_id, code, name, classification_type, active, is_system, metadata, created_by, created_at, updated_at"
+      },
+      {
+        "table_name": "financial_core_cash_event_flow_links",
+        "columns": "organization_id, liquidity_flow_id, financial_event_id, mapping_method"
+      },
+      {
+        "table_name": "financial_core_cash_reconciliation",
+        "columns": "organization_id, entity_id, liquidity_flow_id, account_id, liquidity_account_name, liquidity_account_type, liquidity_account_currency, direction, flow_type, flow_amount, flow_currency, flow_base_amount, liquidity_flow_status, cash_settled_amount, cash_settlement_status, cash_source_module, cash_source_record_id, cash_source_event_key, transfer_id, intercompany_transfer_id, budget_line_id, cash_movement_kind, transfer_source_account_id, transfer_destination_account_id, transfer_source_amount, transfer_source_currency, transfer_destination_amount, transfer_destination_currency, holding_organization_id, transfer_source_organization_id, transfer_destination_organization_id, intercompany_transaction_type, intercompany_source_account_id, intercompany_destination_account_id, intercompany_source_base_amount, intercompany_destination_base_amount, financial_event_id, event_id, original_event_id, mapping_method, event_type, financial_event_status, financial_source_module, financial_source_record_id, financial_source_event_key, financial_entity_id, reconciliation_relation, expected_direction, reconciliation_status"
+      },
+      {
+        "table_name": "financial_core_event_cash_position",
+        "columns": "event_id, organization_id, entity_id, source_module, source_record_id, source_event_key, event_type, status, expected_cash_direction, settlement_status, settled_base_amount, due_base_amount, outstanding_base_amount, linked_flow_count, mismatched_flow_count, cash_position"
+      },
+      {
+        "table_name": "financial_counterparty_balances",
+        "columns": "organization_id, counterparty_id, counterparty_name, party_type, base_currency, receivable_balance, payable_balance, overdue_receivable, overdue_payable, open_item_count"
+      },
+      {
+        "table_name": "financial_counterparty_open_items",
+        "columns": "organization_id, counterparty_id, counterparty_name, party_type, obligation_id, event_id, obligation_key, obligation_type, source_module, source_record_id, source_event_key, description, event_date, due_date, currency, base_currency, settleable_amount, due_base_amount, applied_base_amount, consumed_advance_base_amount, outstanding_base_amount, settled_base_amount, is_overdue"
+      },
+      {
+        "table_name": "financial_debt_categories",
+        "columns": "origin, record_id, owner_id, organization_id, category, updated_by, updated_at"
+      },
+      {
+        "table_name": "financial_event_approvals",
+        "columns": "id, event_id, organization_id, approver_id, decision, note, decided_at"
+      },
+      {
+        "table_name": "financial_event_command_registry",
+        "columns": "id, organization_id, command_type, source_module, source_event_key, payload_fingerprint, financial_event_id, canonical_payload, created_by, created_at"
+      },
+      {
+        "table_name": "financial_event_lines",
+        "columns": "id, event_id, organization_id, line_number, description, classification_id, cost_center_id, budget_line_id, amount, currency, exchange_rate, base_amount, cash_direction, vat_treatment, vat_rate, vat_amount, recoverable_percent, metadata, created_at"
+      },
+      {
+        "table_name": "financial_event_links",
+        "columns": "id, event_id, organization_id, link_type, target_module, target_record_id, related_event_id, metadata, created_by, created_at"
+      },
+      {
+        "table_name": "financial_event_obligation_allocations",
+        "columns": "id, organization_id, application_event_id, obligation_id, allocation_type, source_advance_obligation_id, amount, currency, exchange_rate, base_currency, base_amount, created_at"
+      },
+      {
+        "table_name": "financial_event_obligation_balances",
+        "columns": "obligation_id, organization_id, event_id, obligation_key, obligation_type, settleable_amount, currency, exchange_rate, base_currency, adjusted_settleable_base_amount, applied_base_amount, consumed_advance_base_amount, outstanding_base_amount"
+      },
+      {
+        "table_name": "financial_event_obligations",
+        "columns": "id, organization_id, event_id, obligation_key, obligation_type, adjusts_obligation_id, adjustment_effect, settleable_amount, currency, exchange_rate, base_currency, settleable_base_amount, created_by, created_at"
+      },
+      {
+        "table_name": "financial_event_settlement_status",
+        "columns": "event_id, organization_id, settlement_status, settled_base_amount, due_base_amount"
+      },
+      {
+        "table_name": "financial_event_settlement_status_explicit",
+        "columns": "event_id, organization_id, base_currency, due_base_amount, settled_base_amount, settlement_status"
+      },
+      {
+        "table_name": "financial_event_status_history",
+        "columns": "id, event_id, organization_id, from_status, to_status, actor_id, note, changed_at"
+      },
+      {
+        "table_name": "financial_events",
+        "columns": "id, organization_id, entity_id, counterparty_id, vat_profile_id, event_type, source_module, source_record_id, source_event_key, description, event_date, due_date, settlement_date, status, planning_view, scenario_key, base_currency, created_by, created_at, updated_at, posted_by, posted_at"
+      },
+      {
+        "table_name": "financial_vat_counterparty_map",
+        "columns": "organization_id, vat_contact_id, counterparty_id, created_by, created_at"
+      },
+      {
+        "table_name": "financial_vat_source_bindings",
+        "columns": "organization_id, source_table, source_record_id, event_id, canonical_payload, payload_fingerprint, document_kind, side, contact_id, entity_id, due_date, original_event_id, is_alias, created_by, created_at"
+      },
+      {
+        "table_name": "liquidity_account_settlement_ledger_summary",
+        "columns": "account_id, organization_id, entity_id, currency, current_balance, current_balance_base, settlement_inflows, settlement_outflows, net_settlement_base_amount"
+      }
+    ]
+  ],
+  "debitCreditJournalCandidates": [
+    [],
+    []
+  ]
+}

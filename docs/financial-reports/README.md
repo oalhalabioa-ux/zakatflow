@@ -1,46 +1,62 @@
-# Financial reporting — first-page approval pilot
+# Financial reports, statements and budgets — nine-screen preview
 
-Status: Gate 1 visual review; **not approved, not connected to accounting data, not for merge or release**.
+Product approval: overview content approved on 2026-11-02; the owner requested the **existing finance-platform sidebar**, not the illustrated reference sidebar. All nine screens are now implemented as real React interfaces. This is a design/integration preparation branch, **not approved for merge or deployment**.
 
-Base: main `9f5e2807c5e51e52e3eec97ca9bc77bed2821a8e` (PR #333). PR #329 was already merged (`ca1aa7e4`). Branch: `feat/financial-reports-pilot-20261102`. Only the first of nine approved screens is implemented. Existing asset `/[locale]/reports`, owner UI, table work, themes and auth are untouched.
+Branch: `feat/financial-reports-pilot-20261102`, draft PR #341. No Production writes, schema migrations, user/account changes, or deployment occurred.
 
-## Gate 0: source review
+## Preview routes
 
-| Existing source/component | Reuse decision | Remaining verification |
+`/design-preview/financial-reports/{screen}?lang=ar` (or `en`). Nine screen IDs:
+
+| Screen | Approved reference | Function |
 | --- | --- | --- |
-| `services/budget-planning.ts`, `lib/budget-planning.ts` | Keep saved plans, scenarios, monthly grids, approval states and expense-aware variance rules | Legacy `monthly_actual` is not an independent authoritative actual |
-| `services/financial-budget.ts` | Reuse existing report/drilldown RPC contract after environment/readiness review | `assertFinancialBudgetQA` pins these UI reads to a specific QA project; do not lift that guard merely to populate the new UI |
-| `lib/financial-budget-ui.ts`, `components/FinancialBudgetCorePanel.tsx` | Reuse typed report rows, grouping and drilldown semantics later | Preserve unmapped/legacy reconciliation warnings and nonadditive ratios |
-| `services/financial-events.ts`, `lib/financial-event-command.ts` | Existing source identities, lifecycle, effective permissions and actual event linkage | `financial_event_lines` uses positive `base_amount`, classification and cash direction. This reviewed contract is not proof of a complete debit/credit GL or closing/trial-balance engine |
-| `financial_budget_report`, operational facts and ownership/mapping migrations | Candidate authoritative budget actuals; include `ACTUAL` recognition and avoid duplicate settlement recognition | Review subsequent migration overrides and verify on an isolated DB before enabling reads |
-| `services/platform-financial-overview.ts` | Reference for authorized organization/context handling; do not sum its mixed-source cards into formal statements | Current group/VAT/cash/budget summaries are not elimination-based consolidated statements |
-| `app/[locale]/reports/page.tsx`, asset reports and VAT reports | Preserve existing functions and routes | Asset valuation and VAT reports are not the full financial statements |
-| Existing Cairo fonts and ExcelJS | Reused without additional application dependencies | Reference typography/icons are approximate; see visual-diff log |
+| overview | 01 | Financial reporting dashboard |
+| statements | 07 | Financial statement index |
+| income | 08 | Income statement |
+| position | 09 | Financial position |
+| cash-flow | 02 | Cash flow statement |
+| kpis | 03 | Financial KPIs |
+| budget-monitoring | 04 | Budget versus actual |
+| budget-entry | 05 | Detailed monthly budget |
+| analysis | 06 | Management analysis |
 
-This was a repository source review, not an inspection of live Production or QA schema/data. Before Gate 3, establish a canonical account/report mapping, opening balances, posted entries, reversals, accruals, cost of sales, depreciation, tax/zakat, closing/retained earnings and trial balance. Prove assets = liabilities + equity and cash movement reconciliation. If a complete authoritative GL already exists in another contract, bind to it instead of rebuilding or duplicating balances. No DB changes are included in this pilot.
+Every route requires local `FINANCIAL_REPORTS_DESIGN_PREVIEW=true` and remains 404 when `VERCEL_ENV=production`. Invalid screen IDs return 404. Automatic Vercel deployment stays disabled for this branch. Do not set the flag on a public/unprotected deployment.
 
-## Preview and evidence
+`FinancialReportsSuite` uses the actual `CorporateShell`, its brand assets, sidebar styles, icon system, desktop collapse preference, mobile rail/drawer and focus behavior. Optional preview-only shell props suppress the real data-fetching topbar/subscription banner and inject the new module's links. Normal callers retain their default shell. Existing asset reports, owner administration and other theme styles were not replaced. No copy of the sidebar design or global table-density change was made.
 
-`/design-preview/financial-reports` with `FINANCIAL_REPORTS_DESIGN_PREVIEW=true`. The route is dynamic, noindex, off by default, and returns 404 on `VERCEL_ENV=production` even with the flag. Keep the flag local; do not enable a public unprotected deployment. Synthetic fixtures have no imports from data/auth services, no API requests, no database, no organization/member writes. Preview entity switching is not an RLS test.
+## Working preview behavior
+
+- Arabic/English; nine independent routes and navigation links; four tested viewport sizes.
+- Synthetic organization, reporting period, comparison and currency controls. USD conversion uses a clearly marked **synthetic** 3.75 SAR/USD rate.
+- Collapsible statement groups, source/detail explanatory dialogs and keyboard/mouse chart selection.
+- Editable monthly budget, calculated gross/operating profit, copy January across a row, scenario multiplier, notes and a variance-column toggle.
+- Actual CSV and Excel downloads reflect selected filters, edited monthly values and scenario; CSV formula-like text is escaped. Real browser print/PDF for all eight new pages.
+- Approval and publishing remain disabled. Draft/save/schedule messages explicitly explain local-only behavior. No archived report or unspecified page is fabricated. The equity-change/notes cards shown by reference 07 explain that those extra pages remain outside the approved nine-screen scope.
+
+## Source review and integration boundary
+
+Existing sources to reuse remain `services/budget-planning.ts`, `lib/budget-planning.ts`, `services/financial-budget.ts`, `lib/financial-budget-ui.ts`, existing financial events/facts, cash reconciliation and authorization. Preserve `ACTUAL` versus draft lifecycle, canonical source identities, mapping/reconciliation warnings, expense-aware variance, RLS and effective permissions. Do not treat legacy manual actuals or mixed dashboard totals as independently authoritative financial statements.
+
+Read-only `information_schema` queries were run against **Financial Core QA and Production**, without customer-row reads or any writes. `source-catalog-review.json` records the observed tables/columns. Both contain the financial-event and budget contracts; neither catalog search in public/private found debit/credit, account-code or journal columns. This evidence supports an integration gap; it is not a claim that any conceivable external ledger cannot exist.
+
+`financial_event_lines` has positive `amount/base_amount`, classification and cash direction. Those fields alone cannot safely establish both sides of a formal journal, opening trial balance, closing/retained-earnings or cost-of-sales mapping. **Live statement integration remains incomplete.** No positive-only event was guessed into a debit/credit entry, no new balance store was created, and no QA/Production guard was removed.
+
+`lib/financial-statement-engine.ts` now provides a pure, read-only projection contract for an authoritative posted GL. It calculates all three statements from the same inputs using exact decimal arithmetic. It checks scoped organization/currency, mapped accounts, balanced openings/journals, date boundaries, distinct sources, original/reversal pairs, explicit cash activities and cash transfers. Fiscal-year profit is distinguished from selected-period profit. It is not a database, API, authorization layer, or deployed accounting adapter. Its known-answer tests are not real RLS or real-account browser acceptance.
+
+The next integration prerequisite is an explicit canonical account/report mapping and an authorized server adapter capable of delivering balanced, posted journals and a fiscal opening trial balance from existing recognition sources. Validate that adapter in isolation before any live reading or schema rollout. At that stage, run real multi-user/multi-institution RLS/revocation tests, accounting reconciliations and bilingual exports. Do not infer completion from the fixture demo or projection unit tests.
+
+## Reproduce
 
 ```sh
 FINANCIAL_REPORTS_DESIGN_PREVIEW=true npm run dev
-node scripts/financial-reports/build-preview.cjs ../deliverables/Yaqeen_Financial_Reports_Pilot.html
-PILOT_CHROMIUM_PATH=/path/to/chromium node scripts/financial-reports/verify-preview.cjs
-# For Next route rather than the standalone bundle:
-PILOT_URL=http://127.0.0.1:3100/design-preview/financial-reports PILOT_CHROMIUM_PATH=/path/to/chromium node scripts/financial-reports/verify-preview.cjs
+node scripts/financial-reports/build-suite-preview.cjs ../deliverables/Yaqeen_Financial_Module_V2.html
+PILOT_CHROMIUM_PATH=/path/to/chromium node scripts/financial-reports/verify-suite.cjs
+# Use the final production build in isolation:
+SUITE_PRODUCTION_BUILD=1 PILOT_CHROMIUM_PATH=/path/to/chromium node scripts/financial-reports/verify-suite.cjs
+# Recheck interactions without repeating unchanged layout captures:
+SUITE_INTERACTIONS_ONLY=1 SUITE_PRODUCTION_BUILD=1 PILOT_CHROMIUM_PATH=/path/to/chromium node scripts/financial-reports/verify-suite.cjs
 ```
 
-Playwright is a verification prerequisite, available through the task runtime or installed separately; the app's dependencies/lockfile were not changed. Standalone HTML contains exactly the same React component, bundled fonts/CSS/ExcelJS; it does not create a separately implemented UI. No external requests are needed to open it. HTML is a local review artifact, not a hosted/private-auth URL.
+Playwright is supplied by the task runtime or installed separately. No application dependency/lockfile was changed. The standalone HTML bundles the same React components, fonts, brand assets and CSS; only Next navigation is replaced by local hash navigation. It works without a database or hosted URL. It passed all nine local page checks without browser exceptions.
 
-Working: demo entity switch; last 12/6/3 months; keyboard/mouse month tooltip; recent-report search and empty state; English/Arabic; mobile drawer; CSV and actual XLSX matching selected entity/period; print/save PDF. Schedule form is explicitly local-only. Other modules/report rows open explanatory previews because they await approval; there are no pretend report-file downloads.
-
-## Acceptance gates after this pilot
-
-1. Product owner approves first-page desktop and responsive layout against reference 01.
-2. Implement the other eight approved pages with independent visual evidence.
-3. Bind read-only authoritative source contracts; unavailable inputs remain unavailable. Preserve identity, organization, entity, cost center, currency and accounting period throughout.
-4. Run real disposable DB/API/RLS tests (two institutions/users, denied roles/revoked membership), known-answer financial statements and cash reconciliation, AR/EN exports and E2E. No claim that those future integration tests have passed.
-5. Recheck latest main/table changes; obtain final approval before merge/deployment.
-
-Suggested controls: document each KPI formula and source; use deterministic comparison fixtures; track visual differences by page; reconcile each report to one source snapshot and shared filter scope; version accounting mappings to avoid silent historical restatement. These controls add no unapproved screens.
+First-pilot results in `validation.md` are historical; use `suite-validation.md` and `visual-diff-v2.md` for the current stage. Review the nine reference/implementation comparisons before final visual acceptance. No 100% pixel-identity claim is made.
