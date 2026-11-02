@@ -41,14 +41,17 @@ export async function createServerClient() {
   return supabaseServer();
 }
 
+export const supabaseAdminConfigured = () => Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
+
 export async function supabaseAdmin() {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!key) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY_NOT_CONFIGURED');
   }
 
   return createSupabaseClient(
     supabaseUrl(),
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    key,
     {
       auth: {
         autoRefreshToken: false,
