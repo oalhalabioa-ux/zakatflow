@@ -1,13 +1,18 @@
 import {NextResponse} from 'next/server';
-import {supabaseAdmin,supabaseServer} from '@/lib/supabase/server';
-import {validInvitationProof} from '@/lib/auth/invitation-proof';
+import {supabaseAdmin,supabaseServer} from '../../../../../lib/supabase/server';
+import {validInvitationProof} from '../../../../../lib/auth/invitation-proof';
 
 function reply(body:object,status=200){return NextResponse.json(body,{status,headers:{'Cache-Control':'private, no-store'}});}
 export async function POST(request:Request){
  try{
   if(!request.headers.get('content-type')?.startsWith('application/json'))return reply({error:'INVALID'},415);
   const origin=request.headers.get('origin');
-  if(origin&&origin!==new URL(request.url).origin)return reply({error:'INVALID'},403);
+  // Next may construct request.url with its internal hostname behind a proxy.
+  // Compare the browser origin against the incoming public Host, not that internal URL.
+  if(origin){
+   const source=new URL(origin);
+   if(!['http:','https:'].includes(source.protocol)||source.origin!==origin||source.host!==request.headers.get('host'))return reply({error:'INVALID'},403);
+  }
   const {id,proof,action,password}=await request.json();
   if(typeof id!=='string'||!/^[0-9a-f-]{36}$/i.test(id)||typeof proof!=='string'||!/^[0-9a-f]{64}$/.test(proof))return reply({error:'INVALID'},400);
   const admin=await supabaseAdmin();
