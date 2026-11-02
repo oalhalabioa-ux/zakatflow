@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import assert from "node:assert/strict";
+import {verifyInvitationFlow} from './invitation-flow.mjs';
 import { verifySettingsTheme } from "./settings-themes.mjs";
 const root = new URL("../../", import.meta.url),
   load = (p) => readFile(new URL(p, root), "utf8");
@@ -375,8 +376,10 @@ try {
         NEXT_PUBLIC_SUPABASE_URL: url,
         NEXT_PUBLIC_SUPABASE_ANON_KEY: status.ANON_KEY,
         NEXT_PUBLIC_APP_URL: appUrl,
-        SUPABASE_SERVICE_ROLE_KEY: "",
-        RESEND_API_KEY: "",
+        SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY,
+        NEXT_PUBLIC_APP_ENV: "test",
+        RESEND_API_KEY: "isolated-adapter",
+        TRANSACTIONAL_EMAIL_TEST_ENDPOINT: "http://127.0.0.1:3001/emails",
       },
     },
   );
@@ -743,6 +746,12 @@ try {
       await context.close();
     },
   );
+  // Reproduce the deployed signup trigger rather than manually provisioning the invited profile.
+  const signupDDL = await load('supabase/migrations/20260915195509_002_production_hardening.sql');
+  const signupTrigger = signupDDL.match(/create or replace function public\.handle_new_user\(\)[\s\S]*?execute function public\.handle_new_user\(\);/);
+  assert.ok(signupTrigger, 'Production signup trigger definition must be present');
+  sql(signupTrigger[0]);
+  await check('mailbox invitation activation, existing password, replay and login',()=>verifyInvitationFlow({browser,appUrl,url,status,owner,existing:clients[1],cookieHeader,headers,sql}));
   report.passed = report.checks.length;
 } finally {
   if (browser) await browser.close();
@@ -752,3 +761,4 @@ try {
     JSON.stringify(report, null, 2) + "\n",
   );
 }
+

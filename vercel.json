@@ -7,7 +7,8 @@
       "fix/magic-link-and-release-followup-20261030": false,
       "feat/configurable-subscription-plans": false,
       "feat/settings-subscription-experience": false,
-      "fix/settings-tabs-layout": false
+      "fix/settings-tabs-layout": false,
+      "fix/invitation-transport-20261102": false
     }
   }
 }

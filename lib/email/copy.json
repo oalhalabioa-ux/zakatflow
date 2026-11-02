@@ -151,11 +151,13 @@
       "safety": "هذه الدعوة لا تمنح صلاحيات مالك المنصة. تُطبّق صلاحيات المؤسسة المحددة بعد تأكيد البريد وقبول دعوة صالحة. إذا لم تتوقع هذه الدعوة، تجاهلها ولا تشارك الرابط.",
       "send": "إرسال الدعوة بالبريد",
       "sending": "جارٍ إرسال الدعوة…",
-      "accepted": "قُبل طلب إرسال الدعوة بالبريد. يمكنك أيضاً مشاركة الرابط.",
+      "accepted": "قُبل طلب إرسال البريد. هذا لا يؤكد وصول الرسالة إلى صندوق الوارد.",
       "unavailable": "الإرسال بالبريد غير متاح حالياً. يمكنك مشاركة رابط الدعوة.",
       "failed": "تعذر إرسال البريد. يمكنك المحاولة لاحقاً أو مشاركة الرابط.",
       "sent": "طُلب الإرسال",
-      "shareTitle": "دعوة يقين الأعمال"
+      "shareTitle": "دعوة يقين الأعمال",
+      "sessionExpired": "انتهت جلسة الدخول. سجّل الدخول مجدداً ثم أرسل الدعوة المحفوظة.",
+      "invalid": "الدعوة غير متاحة أو انتهت صلاحيتها. حدّث قائمة الدعوات."
     },
     "en": {
       "title": "Invitation to join an organization on Yaqeen Business",
@@ -168,11 +170,13 @@
       "safety": "This invitation does not grant platform-owner access. The assigned organization permissions apply only after email verification and acceptance of a valid invitation. If you did not expect this invitation, ignore it and do not share its link.",
       "send": "Email invitation",
       "sending": "Sending invitation…",
-      "accepted": "The invitation email request was accepted. You can also share the link.",
+      "accepted": "The email request was accepted. This does not confirm inbox delivery.",
       "unavailable": "Email delivery is currently unavailable. You can share the invitation link.",
       "failed": "Unable to send the email. Try later or share the link.",
       "sent": "Email requested",
-      "shareTitle": "Yaqeen Business invitation"
+      "shareTitle": "Yaqeen Business invitation",
+      "sessionExpired": "Your session expired. Sign in again, then send the saved invitation.",
+      "invalid": "The invitation is unavailable or expired. Refresh the invitations list."
     }
   },
   "roles": {

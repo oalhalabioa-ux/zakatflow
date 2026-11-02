@@ -3,6 +3,7 @@ import { requireUser } from '@/services/auth';
 import { requireOrganizationAdmin } from '@/services/organization-access';
 
 import {invitationEmailConfigured} from '@/services/email/resend';
+import {supabaseAdminConfigured} from '@/lib/supabase/server';
 const roles = new Set(['ACCOUNTANT', 'ADVISOR', 'VIEWER', 'SHARIA_REVIEWER']);
 const errorStatus = (message: string) =>
   message === 'UNAUTHORIZED' ? 401 :
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     ]);
     if (usersError) throw usersError;
     if (invitationsError) throw invitationsError;
-    return NextResponse.json({ users: users ?? [], invitations: invitations ?? [], actor_role:actor.role, actor_user_id:user.id, email_delivery_available:invitationEmailConfigured() });
+    return NextResponse.json({ users: users ?? [], invitations: invitations ?? [], actor_role:actor.role, actor_user_id:user.id, email_delivery_available:invitationEmailConfigured() && supabaseAdminConfigured() });
   } catch (error) {
     const message = error && typeof error==='object' && 'message' in error ? String(error.message) : 'REQUEST_FAILED';
     return NextResponse.json({ error: message }, { status: errorStatus(message) });
