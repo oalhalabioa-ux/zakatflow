@@ -4,7 +4,7 @@ on:
     paths:
       - 'app/api/financial-reporting/**'
       - 'app/design-preview/financial-reports/source/**'
-      - 'components/financial-reports/FinancialReportingSource.tsx'
+      - 'components/financial-reports/**'
       - 'lib/financial-budget-source.ts'
       - 'services/financial-reporting-source.ts'
       - 'scripts/financial-reports/*source*'
