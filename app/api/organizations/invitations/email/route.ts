@@ -2,12 +2,13 @@ import {NextResponse} from 'next/server';
 import {requireUser} from '../../../../../services/auth';
 import {requireOrganizationAdmin} from '../../../../../services/organization-access';
 import {supabaseAdmin} from '../../../../../lib/supabase/server';
+import {ADMIN_HEADER_ERROR,adminTransportFromResult,type AdminTransportFailure} from '../../../../../lib/supabase/admin-transport';
 import {APP_ORIGIN} from '../../../../../lib/routing';
 import {organizationInvitationEmail} from '../../../../../lib/email/organization-invitation';
 import {invitationEmailConfigured,sendInvitationEmail} from '../../../../../services/email/resend';
 export async function POST(request:Request){
  let stage='input';
- let lookupFailure:{httpStatus:number|null;databaseCode:string}|undefined;
+ let lookupFailure:{httpStatus:number|null;databaseCode:string;transportFailure?:AdminTransportFailure}|undefined;
  try{
   const {organization_id:organizationId,invitation_id:invitationId,locale:requested}=await request.json();
   const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -19,12 +20,12 @@ export async function POST(request:Request){
   // The token is intentionally not readable by authenticated clients. Read one
   // scoped record only after verifying the actor's active organization-admin role.
   stage='admin-client';
-  const admin=await supabaseAdmin();
+  const admin=await supabaseAdmin({diagnoseTransport:true});
   stage='invitation-lookup';
   const {data:invite,error,status:lookupStatus}=await admin.from('organization_invitations').select('id,organization_id,email,role,custom_role_id,token,expires_at,accepted_at').eq('id',invitationId).eq('organization_id',organizationId).maybeSingle();
   if(error){
    const allowedCodes=['42501','42703','42P01','PGRST106','PGRST116','PGRST204','PGRST205','PGRST301','PGRST302','PGRST303'];
-   lookupFailure={httpStatus:Number.isInteger(lookupStatus)&&lookupStatus>=0&&lookupStatus<=599?lookupStatus:null,databaseCode:allowedCodes.includes(error.code)?error.code:'UNCLASSIFIED'};
+   lookupFailure={httpStatus:Number.isInteger(lookupStatus)&&lookupStatus>=0&&lookupStatus<=599?lookupStatus:null,databaseCode:allowedCodes.includes(error.code)?error.code:'UNCLASSIFIED',...(lookupStatus===0?{transportFailure:adminTransportFromResult(error)}:{})};
    throw Error('INVITATION_LOOKUP_FAILED');
   }
   if(!invite||invite.accepted_at||new Date(invite.expires_at).getTime()<=Date.now())return NextResponse.json({error:'INVITATION_INVALID_OR_EXPIRED'},{status:409});
@@ -39,16 +40,17 @@ export async function POST(request:Request){
   stage='render';
   const mail=organizationInvitationEmail({locale,organization:organization.name,email:invite.email,role:invite.role,customRoleName,expiresAt:invite.expires_at,inviteUrl:url.href});
   stage='transport';
-  await sendInvitationEmail({to:invite.email,...mail,invitationId});
+  const receipt=await sendInvitationEmail({to:invite.email,...mail,invitationId});
+  console.info('organization_invitation_email_accepted',{messageId:receipt.messageId});
   return NextResponse.json({status:'accepted'},{status:202,headers:{'Cache-Control':'private, no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'';
-  const unavailable=['EMAIL_DELIVERY_UNAVAILABLE','SUPABASE_SERVICE_ROLE_KEY_NOT_CONFIGURED','SUPABASE_URL_NOT_CONFIGURED'].includes(message);
+  const unavailable=[ADMIN_HEADER_ERROR,'EMAIL_DELIVERY_UNAVAILABLE','SUPABASE_SERVICE_ROLE_KEY_NOT_CONFIGURED','SUPABASE_URL_NOT_CONFIGURED'].includes(message);
   const status=message==='UNAUTHORIZED'?401:/ADMIN_REQUIRED|ACCESS_REQUIRED/.test(message)?403:unavailable?503:message==='EMAIL_DELIVERY_FAILED'?502:stage==='input'?400:500;
   const safe=unavailable?'EMAIL_DELIVERY_UNAVAILABLE':['UNAUTHORIZED','ORGANIZATION_ADMIN_REQUIRED','ORGANIZATION_ACCESS_REQUIRED','INVITATION_ROLE_INVALID','EMAIL_DELIVERY_FAILED'].includes(message)?message:'INVITATION_EMAIL_FAILED';
   if(status>=500){
    // Never log raw exceptions, recipient addresses, invitation tokens or provider bodies.
-   const known=['SUPABASE_SERVICE_ROLE_KEY_NOT_CONFIGURED','SUPABASE_URL_NOT_CONFIGURED','INVITATION_LOOKUP_FAILED','EMAIL_DELIVERY_UNAVAILABLE','EMAIL_DELIVERY_FAILED','INVITATION_ROLE_INVALID'];
+   const known=[ADMIN_HEADER_ERROR,'SUPABASE_SERVICE_ROLE_KEY_NOT_CONFIGURED','SUPABASE_URL_NOT_CONFIGURED','INVITATION_LOOKUP_FAILED','EMAIL_DELIVERY_UNAVAILABLE','EMAIL_DELIVERY_FAILED','INVITATION_ROLE_INVALID'];
    console.error('organization_invitation_email_failed',{stage,code:known.includes(message)?message:'UNEXPECTED_FAILURE',...lookupFailure});
   }
   return NextResponse.json({error:safe},{status,headers:{'Cache-Control':'private, no-store'}});
