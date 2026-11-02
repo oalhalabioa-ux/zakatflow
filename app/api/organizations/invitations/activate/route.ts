@@ -5,6 +5,9 @@ import {validInvitationProof} from '@/lib/auth/invitation-proof';
 function reply(body:object,status=200){return NextResponse.json(body,{status,headers:{'Cache-Control':'private, no-store'}});}
 export async function POST(request:Request){
  try{
+  if(!request.headers.get('content-type')?.startsWith('application/json'))return reply({error:'INVALID'},415);
+  const origin=request.headers.get('origin');
+  if(origin&&origin!==new URL(request.url).origin)return reply({error:'INVALID'},403);
   const {id,proof,action,password}=await request.json();
   if(typeof id!=='string'||!/^[0-9a-f-]{36}$/i.test(id)||typeof proof!=='string'||!/^[0-9a-f]{64}$/.test(proof))return reply({error:'INVALID'},400);
   const admin=await supabaseAdmin();
@@ -23,7 +26,7 @@ export async function POST(request:Request){
   const {data,error:login}=await client.auth.signInWithPassword({email:invite.email,password});
   if(login||data.user?.email?.toLowerCase()!==invite.email.toLowerCase())return reply({error:'LOGIN'},401);
   const {error:accept}=await client.rpc('accept_organization_invitation',{p_token:invite.token});
-  if(accept){await client.auth.signOut({scope:'local'});return reply({error:'ACCEPT'},409);}
+  if(accept){await client.auth.signOut({scope:'local'});return reply({error:action==='activate'?'CREATED_JOIN_FAILED':'ACCEPT'},409);}
   return reply({organization:invite.organization_id});
  }catch{return reply({error:'UNAVAILABLE'},503);}
 }

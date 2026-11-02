@@ -34,8 +34,9 @@ export async function verifyInvitationFlow({browser,appUrl,url,status,owner,exis
    const field=page.locator('input[type=email]');await field.waitFor();assert.equal(await field.inputValue(),email);assert.equal(await field.isEditable(),false);
    if(!isNew){
     assert.equal((await post({...binding,action:'activate',password:'CannotOverwrite123!'})).status,409);
-    await page.getByRole('button',{name:'I already have an account'}).click();
+    await page.getByRole('button',{name:'I already have an account — sign in and accept invitation'}).click();
    }
+   await page.screenshot({path:'tests/subscriptions/screenshots/invitation-'+(isNew?'new-ar':'existing-en')+'.png'});
    await page.locator('[name=password]').fill(password);
    if(isNew)await page.locator('[name=confirm]').fill(password);
    await page.locator('form button').first().click();
