@@ -76,7 +76,25 @@ for(const locale of ['ar','en'])for(const theme of ['yaqeen-business','classic',
   assert.equal(await narrowCell.evaluate(el=>getComputedStyle(el).textOverflow),'ellipsis');
   assert.ok((await narrowCell.getAttribute('title')).includes('بنك البلاد'),'The full counterparty remains available on hover');
   await page.screenshot({path:`tests/loan-table/screenshots/${theme}-${locale}-${width}-compact.png`});
+  await page.reload();await table.waitFor();
+  await page.waitForFunction(()=>document.querySelector('[data-loan-header=party] [role=separator]')?.getAttribute('aria-valuenow')==='110');
+  for(const key of ['side','description','number'])assert.equal(await header(key).getByRole('separator').getAttribute('aria-valuenow'),'80','User widths survive reload');
+  assert.equal(await table.locator('th').count(),12,'Only widths are persisted, not column visibility');
+  assert.ok(await table.locator('col[data-loan-column=party]').evaluate(el=>el.getBoundingClientRect().width)<=111);
+  const other=locale==='ar'?'en':'ar';
+  await page.goto(`${url}/?locale=${other}&theme=${theme}`);
+  await page.waitForFunction(()=>document.querySelector('[data-loan-header=party] [role=separator]')?.getAttribute('aria-valuenow')==='110');
+  assert.equal(await header('description').getByRole('separator').getAttribute('aria-valuenow'),'80','Switching language keeps the same table widths');
+  await page.evaluate(()=>localStorage.setItem('yaqeen:financing-loan-table:widths:v1','{invalid'));
+  await page.reload();await table.waitFor();
+  await page.waitForFunction(()=>{try{return JSON.parse(localStorage.getItem('yaqeen:financing-loan-table:widths:v1'))?.version===1;}catch{return false;}});
+  assert.equal(await header('party').getByRole('separator').getAttribute('aria-valuenow'),'290','Corrupted preferences fall back safely');
+  await page.addInitScript(()=>{Storage.prototype.getItem=()=>{throw new DOMException('Blocked','SecurityError');};Storage.prototype.setItem=()=>{throw new DOMException('Blocked','SecurityError');};});
+  await page.reload();await table.waitFor();
+  const unstored=header('party').getByRole('separator');await unstored.focus();
+  await page.keyboard.press(other==='ar'?'ArrowLeft':'ArrowRight');
+  assert.equal(await unstored.getAttribute('aria-valuenow'),'310','Blocked storage must not break resizing');
   await context.close();console.log('PASS loan table',theme,locale,width);
 }
-assert.deepEqual(errors,[]);await writeFile('tests/loan-table/result.json',JSON.stringify({passed:16,browserErrors:errors,scenarios:['sort before pagination','null-last dates','pointer and touch resize','keyboard resize','column visibility','inline menu','row details','four themes','AR/EN','390/1440 viewport']},null,2));
+assert.deepEqual(errors,[]);await writeFile('tests/loan-table/result.json',JSON.stringify({passed:16,browserErrors:errors,scenarios:['sort before pagination','null-last dates','pointer and touch resize','keyboard resize','column visibility','inline menu','row details','four themes','AR/EN','390/1440 viewport','widths survive reload and locale changes','corrupt or unavailable storage remains usable']},null,2));
 }finally{await browser.close();server.close();}

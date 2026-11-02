@@ -20,6 +20,7 @@ type Props = {
   records:Contract[];parties:Map<string,string>;facts:Map<string,Fact>;base:string;group:boolean;locale:string;
   page:number;onPageChange:(page:number)=>void;money:(value:number|string,currency:string)=>ReactNode;sortMoney:(value:number|string,currency:string)=>number|null;onOpen:(id:string)=>void;
 };
+const widthsStorageKey='yaqeen:financing-loan-table:widths:v1';
 const amountTitle=new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const stateNames:Record<string,[string,string]>={COMMITTED:['غير منفذ','Not posted'],ACTUAL:['منفذ','Posted'],CANCELLED:['ملغى','Cancelled'],REVERSED:['معكوس','Reversed']};
 const settlementNames:Record<string,string>={'غير منفذ':'Not posted','معكوس':'Reversed','ملغى':'Cancelled','مسدد بالكامل':'Fully settled','متأخر':'Overdue','مسدد جزئيًا':'Partially settled','غير مسدد':'Unsettled'};
@@ -27,6 +28,7 @@ const settlementNames:Record<string,string>={'غير منفذ':'Not posted','م�
 export default function FinancingLoansTable({records,parties,facts,base,group,locale,page,onPageChange,money,sortMoney,onOpen}:Props){
   const ar=locale==='ar',menuId=useId(),trigger=useRef<HTMLButtonElement>(null),menu=useRef<HTMLDivElement>(null);
   const [hidden,setHidden]=useState<string[]>([]),[widths,setWidths]=useState<Record<string,number>>({}),[sort,setSort]=useState<{id:string;direction:'ascending'|'descending'}|null>(null);
+  const [widthsLoaded,setWidthsLoaded]=useState(false);
   const [position,setPosition]=useState<{left:number;top:number;width:number;maxHeight:number;host:HTMLElement}|null>(null);
   const label=(c:Column)=>ar?c.ar:c.en;
   const columns=useMemo<Column[]>(()=>{
@@ -48,6 +50,25 @@ export default function FinancingLoansTable({records,parties,facts,base,group,lo
     {id:'actions',ar:'التفاصيل',en:'Details',width:140,min:80,cell:c=><ActionButton icon="details" label={ar?'التفاصيل والإجراءات':'Details and actions'} onClick={()=>onOpen(c.id)}/>},
   ];
   },[parties,facts,ar,base,group,money,sortMoney,onOpen]);
+  const widthBounds=useRef(columns.map(({id,min})=>({id,min})));
+  useEffect(()=>{
+    try{
+      const saved=JSON.parse(localStorage.getItem(widthsStorageKey)??'null');
+      if(saved?.version===1&&saved.widths&&typeof saved.widths==='object'&&!Array.isArray(saved.widths)){
+        const restored:Record<string,number>={};
+        for(const {id,min} of widthBounds.current){
+          const value=saved.widths[id];
+          if(typeof value==='number'&&Number.isFinite(value))restored[id]=Math.round(Math.max(min,Math.min(900,value)));
+        }
+        setWidths(restored);
+      }
+    }catch{/* An unavailable or damaged browser store must not block the table. */}
+    setWidthsLoaded(true);
+  },[]);
+  useEffect(()=>{
+    if(!widthsLoaded)return; // Never overwrite saved widths with the initial defaults.
+    try{localStorage.setItem(widthsStorageKey,JSON.stringify({version:1,widths}));}catch{/* Resizing still works when browser storage is unavailable. */}
+  },[widths,widthsLoaded]);
   const shown=columns.filter(c=>!hidden.includes(c.id));
   const ordered=useMemo(()=>{const active=columns.find(c=>c.id===sort?.id);return sort&&active?.value?sortTableRows(records,active.value,sort.direction,locale):records;},[records,sort,locale,columns]);
   const totalWidth=shown.reduce((sum,c)=>sum+(widths[c.id]??c.width),0);
