@@ -24,3 +24,10 @@
 
 ## Current status
 GitHub checks on PR #333 succeeded. Live traffic capture, Hostinger historical statistics, and owner dashboard implementation remain unverified or incomplete.
+
+## Verified setup evidence (2026-11-02)
+- Owner-provided Vercel Project Analytics screenshot shows **Get Started** instructions for Next.js, including `npm i @vercel/analytics` and `<Analytics />`. Therefore dashboard activation and actual data collection must **not** be claimed complete.
+- The PR currently injects the first-party `/_vercel/insights/script.js` on `app.yaqeenbiz.com` only. This is **not** the package-based integration displayed in Vercel onboarding; do not describe the package as installed.
+- If switching to the documented `@vercel/analytics/next` integration, update **both** `package.json` and `package-lock.json` with a reproducible install, preserve the verified production-only gate, and rerun all QA checks. Avoid ad-hoc lockfile edits.
+- Do not merge while Work is paused mid-task on table UI changes. Inspect current main and potential shared layout/admin file conflicts before release.
+- Before production approval, confirm the project Analytics feature is enabled and whether any billing change is proposed; no paid plan should be enabled without owner consent.
