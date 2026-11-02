@@ -74,3 +74,7 @@ See [source-comparison-v5.md](source-comparison-v5.md). Same-scope prior-year co
 ## V6 — connected management analysis
 
 See [source-analysis-v6.md](source-analysis-v6.md). The source route now supports `?screen=analysis`, using the same authorized snapshot for expense/revenue/budget/trend analysis and selected-measure exports. Missing revenue mapping is not presented as zero. Formal profit, sector and center figures remain unavailable without their canonical source. The reference-based layout/current sidebar are preserved; no release approval is implied.
+
+## V7 — explicit event-to-ledger contract
+
+See [event-ledger-v7.md](event-ledger-v7.md). A pure compiler now tests canonical event lineage, explicit approved posting rules, opening provenance, VAT versus gross settlement and dated reversals against the statement engine. It is not connected to the source API and does not establish live GL availability or authorize a caller. Production and UI behavior are unchanged.
