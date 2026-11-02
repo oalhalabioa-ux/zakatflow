@@ -10,7 +10,7 @@ function values(s:BudgetSourceSnapshot):Record<ComparisonKey,string|null>{const 
 export function budgetComparison(current:BudgetSourceSnapshot,previous:BudgetSourceSnapshot):BudgetComparison{
  if(!isPriorBudgetPlan(current.plan,previous.plan)||current.organizationId!==previous.organizationId||current.fromMonth!==previous.fromMonth||current.toMonth!==previous.toMonth)throw Error('BUDGET_COMPARISON_SCOPE_MISMATCH');
  const a=values(current),b=values(previous),metrics={} as Record<ComparisonKey,BudgetTrend>;
- for(const key of comparisonKeys){const c=a[key],p=b[key],unit=key==='utilization'?'points':'percent',incomplete=key==='actual'&&(new D(current.warnings.unmappedSelected).isZero()===false||new D(previous.warnings.unmappedSelected).isZero()===false);
+ for(const key of comparisonKeys){const c=a[key],p=b[key],unit=key==='utilization'?'points':'percent',incomplete=(key==='actual'||key==='variance'||key==='utilization')&&(new D(current.warnings.unmappedSelected).isZero()===false||new D(previous.warnings.unmappedSelected).isZero()===false);
   let trend:BudgetTrend={current:c,previous:p,change:null,unit,direction:null,tone:'neutral',status:'unavailable'};
   if(c!=null&&p!=null&&!incomplete){if(new D(p).isZero())trend.status='previous_zero';else{const delta=new D(c).minus(p),change=key==='utilization'?delta:delta.div(new D(p).abs()).times(100),direction=delta.isZero()?'flat':delta.isPositive()?'up':'down';trend={...trend,change:change.toFixed(4),direction,tone:key==='actual'&&direction!=='flat'?(direction==='up'?'negative':'positive'):'neutral',status:'available'}}}
   metrics[key]=trend;
