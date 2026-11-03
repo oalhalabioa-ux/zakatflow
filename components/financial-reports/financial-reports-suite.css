@@ -69,9 +69,9 @@
 @media print{.fs-root .fs-position-table .fs-screen-group-value{display:none}.fs-root .fs-position-table .fs-print-group-value{display:inline}}
 
 /* Position cells use the income statement's readable spacing and type scale. */
-.fs-root .fs-surface .fs-position-table .fs-table{font-size:14px;line-height:1.65}
-.fs-root .fs-surface .fs-position-table .fs-table :is(th,td){padding:6px 10px;height:auto;line-height:1.65}
-.fs-root .fs-surface .fs-position-table .fs-table th button{height:auto;min-height:28px;line-height:1.65;font-size:inherit}
+.fs-root .fs-surface .fs-position-table .fs-table{font-size:14px;line-height:1.4}
+.fs-root .fs-surface .fs-position-table .fs-table :is(th,td){padding:6px 10px;height:auto;line-height:1.4}
+.fs-root .fs-surface .fs-position-table .fs-table th button{height:auto;min-height:28px;line-height:1.4;font-size:inherit}
 .fs-root .fs-surface .fs-position-table .fs-table :is(.fs-row-section,.fs-row-subtotal,.fs-row-total) :is(td,th>button){font-size:17px}
 @media(max-width:700px){
  .fs-root .fs-surface .fs-position-table .fs-table{font-size:12px}
