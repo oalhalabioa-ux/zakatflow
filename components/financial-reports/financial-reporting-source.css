@@ -30,3 +30,11 @@
 @media(max-width:700px){.fs-source-hub .fs-metric-heading h2{white-space:normal}.fs-source-hub .fs-index-layout .fs-statement-link{min-height:200px}.fs-source-hub .fs-source-chart-empty{min-height:100px}}
 
 .fs-source-hub .fs-metrics.seven .fs-metric-heading h2{white-space:normal;overflow-wrap:anywhere}
+
+@media(max-width:700px){
+ .fs-root .fs-source-hub .fs-three-panels .fs-table{table-layout:fixed;width:100%;min-width:0}
+ .fs-root .fs-source-hub .fs-three-panels .fs-table :is(th,td){min-width:0;white-space:normal;overflow-wrap:anywhere}
+ .fs-root .fs-source-hub .fs-three-panels .fs-table tr>:first-child{width:65%;min-width:0}
+ .fs-root .fs-source-hub .fs-three-panels .fs-table tr>:nth-child(3){display:none}
+ .fs-source-hub .fs-chart-hit button:nth-child(even)>span{visibility:hidden}
+}
