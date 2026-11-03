@@ -1,0 +1,10 @@
+create index financial_opening_audit_workspace_fk on public.financial_opening_audit(workspace_id);
+create index financial_opening_audit_actor_fk on public.financial_opening_audit(actor_id);
+create index financial_opening_created_by_fk on public.financial_opening_workspaces(created_by);
+create index financial_opening_updated_by_fk on public.financial_opening_workspaces(updated_by);
+create index financial_opening_approved_by_fk on public.financial_opening_workspaces(approved_by);
+create index financial_reporting_policy_created_fk on public.financial_reporting_policies(created_by);
+create index financial_reporting_policy_updated_fk on public.financial_reporting_policies(updated_by);
+create index financial_reporting_policy_approved_fk on public.financial_reporting_policies(approved_by);
+create index financial_reporting_policy_audit_actor_fk on public.financial_reporting_policy_audit(actor_id);
+create index financial_reporting_policy_audit_policy_fk on public.financial_reporting_policy_audit(policy_id);

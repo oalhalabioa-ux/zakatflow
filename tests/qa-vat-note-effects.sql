@@ -5,7 +5,7 @@ insert into public.organization_member_permission_overrides(organization_id,user
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"ce535387-cff4-494e-ad96-d942854f4b9e","role":"authenticated"}',true);
 do $test$
-declare original public.vat_documents%rowtype; inv public.vat_einvoices%rowtype; note public.vat_einvoices%rowtype; n jsonb; eid uuid; due numeric; bank numeric; refund numeric; idx int; settlement uuid; flow uuid; bank_id uuid; cls uuid; obligation uuid; cmd jsonb;
+declare rows_json jsonb; events_json jsonb; original public.vat_documents%rowtype; inv public.vat_einvoices%rowtype; note public.vat_einvoices%rowtype; n jsonb; eid uuid; due numeric; bank numeric; refund numeric; idx int; settlement uuid; flow uuid; bank_id uuid; cls uuid; obligation uuid; cmd jsonb;
 begin
 for idx in 1..5 loop
  select * into original from public.vat_documents where organization_id='5d018fd3-3a1a-4f19-922b-4f58bda5cc7b' and document_number=case idx when 1 then 'QA-INV-002' when 2 then 'QA-INV-003' when 3 then 'QA-INV-003' else 'QA-INV-004' end;
@@ -39,6 +39,30 @@ for idx in 1..5 loop
  else
   if (select outstanding_base_amount from public.financial_event_obligation_balances where event_id=eid and obligation_type='RECEIVABLE')<>115 then raise exception 'DEBIT_OBLIGATION_FAILED'; end if;
   if not exists(select 1 from public.liquidity_flows where source_record_id=note.accounting_document_id and direction='INFLOW' and amount=115) then raise exception 'DEBIT_FORECAST_FAILED'; end if;
+ end if;
+ -- Refunds after full settlement move into their own obligation exactly once.
+ if idx in (2,3) then
+  execute 'set local role postgres';
+  rows_json:=private.financial_opening_sources(original.organization_id,current_date)->'rows';
+  if not exists(
+   select 1 from jsonb_array_elements(rows_json) r
+   join public.financial_event_obligations refund on r->>'id'='debt:'||refund.id
+   where refund.event_id=eid and refund.obligation_key='note-refund'
+    and r->'vouchers'->0->>'credit'='115.0000'
+  ) then raise exception 'REFUND_OPENING_MISSING';end if;
+  if not exists(
+   select 1 from jsonb_array_elements(rows_json) r
+   join public.financial_event_obligations adj on r->>'id'='debt:'||adj.adjusts_obligation_id
+   where adj.event_id=eid and r->>'sourceIssue' is null
+    and r->'vouchers'->0->>'debit'='0.0000' and r->'vouchers'->0->>'credit'='0.0000'
+  ) then raise exception 'SETTLED_INVOICE_OPENING_NOT_ZERO';end if;
+  events_json:=private.financial_reporting_events(original.organization_id,original.transaction_date,current_date);
+  if not exists(
+   select 1 from jsonb_array_elements(events_json) ev cross join lateral jsonb_array_elements(ev->'lines') line
+   where ev->>'id'=eid::text and line->>'classificationId'='VAT_NOTE_REFUND_PAYABLE'
+    and line->>'baseAmount'='115.0000' and line->>'cashDirection'='NON_CASH'
+  ) then raise exception 'REFUND_REPORTING_LINE_MISSING';end if;
+  execute 'set local role authenticated';
  end if;
  if idx=3 then
   select id into flow from public.liquidity_flows where source_record_id=note.accounting_document_id;

@@ -1554,6 +1554,102 @@
       "file_sha256": "e24d5e70e5ff637dbc399676f3ec4ab8920b25580fd37236a1a16977f106e45d",
       "kind": "plan_customer_notice",
       "installed_md5": "5d65ed8c013aafdb98e4fbb400e54a41"
+    },
+    {
+      "path": "supabase/migrations/20261103142013_financial_opening_workspace.sql",
+      "version": "20261103142013",
+      "name": "financial_opening_workspace",
+      "expected_md5": "6b7221cc1799690d8da9776022f270e5",
+      "file_sha256": "140f0c33bd2ed7ee150aca84675d38c9826da326c72a424f84991dd131370a23",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103142435_financial_opening_approval_policy.sql",
+      "version": "20261103142435",
+      "name": "financial_opening_approval_policy",
+      "expected_md5": "f91da341e702ef615928f4bd7266450e",
+      "file_sha256": "f028a02f18d63f028c3ae2f4cccdc24393006b3387ddc609ca8db5e5f3c7e605",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103142726_financial_reporting_ledger.sql",
+      "version": "20261103142726",
+      "name": "financial_reporting_ledger",
+      "expected_md5": "ed7143b46256014f5e347865ba7a8f2b",
+      "file_sha256": "e4faf3073e75bb5f1d90628adc3c1c899e4228eab4a4a88f3e7ce8316ca14ad3",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103143424_financial_reporting_source_adapters.sql",
+      "version": "20261103143424",
+      "name": "financial_reporting_source_adapters",
+      "expected_md5": "9c1e4480d994e8012042fe1436060c21",
+      "file_sha256": "50d080171a352f5bfdabb2f1783943376888efa9c4b924f994ef0ea7ee73a737",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103143557_financial_reporting_normalized_amount.sql",
+      "version": "20261103143557",
+      "name": "financial_reporting_normalized_amount",
+      "expected_md5": "a0447344c7c9f8f112d6cb237b3bc4d7",
+      "file_sha256": "889cd65a6ae851434114708e199acda0898e55a348e268e30d45fc792fe755f4",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103145218_financial_opening_reference_indexes.sql",
+      "version": "20261103145218",
+      "name": "financial_opening_reference_indexes",
+      "expected_md5": "2ba1db22c20bd4b291c8fcd92bf93959",
+      "file_sha256": "73b9abbd2c3175c5802b6dd6272bd0e04ff7367eb2e921a6eeeb6b7a4e53b28d",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103145436_financial_reporting_cash_controls.sql",
+      "version": "20261103145436",
+      "name": "financial_reporting_cash_controls",
+      "expected_md5": "e95bf2ecd92114de63d0dda11386010a",
+      "file_sha256": "7883a3df72ba7133f173cf7154218b1e2c4b796c261b58af5608b2c9f49cca8e",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103145559_financial_opening_entitlement_guards.sql",
+      "version": "20261103145559",
+      "name": "financial_opening_entitlement_guards",
+      "expected_md5": "e315bc67a917857b1d762f088fa22152",
+      "file_sha256": "667674d1f53dfdae0a0aa65b17573f4e4aa92e014bda9acb160ab8ba592512ea",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103145716_financial_opening_entitlement_permissions.sql",
+      "version": "20261103145716",
+      "name": "financial_opening_entitlement_permissions",
+      "expected_md5": "4962f584a15454f4210f23f72438c2f2",
+      "file_sha256": "78af082f6ea34a421a1c4ff83df88494a3d4a113aebcf4c73bacc1c029dcbf17",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103150849_financial_reporting_normalization_hardening.sql",
+      "version": "20261103150849",
+      "name": "financial_reporting_normalization_hardening",
+      "expected_md5": "a9c79ee8790de15b375d370eca672a2f",
+      "file_sha256": "84aace199ae50c53cbbaa73547b612dd5ce6d94bb6a499c26121f18ecba8fed1",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103152354_financial_reporting_snapshot_consistency.sql",
+      "version": "20261103152354",
+      "name": "financial_reporting_snapshot_consistency",
+      "expected_md5": "f75f22774e6ac4dcc9e47f195800ca7f",
+      "file_sha256": "251ac0c474f24aa7c47321cbd9efc470c2162c25f09ba28575d45c70d5d77262",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103195100_financial_opening_refund_transfer.sql",
+      "version": "20261103195100",
+      "name": "financial_opening_refund_transfer",
+      "expected_md5": "a940919860f66aff0c86507bc5a4577a",
+      "file_sha256": "328e34dc08b4306b46c025d0e15b69ec4712a5a504c60822eaed53a280d596d5",
+      "validation_project": "Disposable full-schema QA"
     }
   ]
 }

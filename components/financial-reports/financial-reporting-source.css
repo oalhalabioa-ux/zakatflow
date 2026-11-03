@@ -1,0 +1,40 @@
+.fs-connected .fs-export-hidden{display:none}.fs-connected .fs-source-reconciliation{order:9;padding:10px 14px;border:1px solid #dce3ec;border-radius:9px;background:white;color:#627181;font-size:11px}.fs-source-reconciliation summary{cursor:pointer;color:#10243a}.fs-source-reconciliation p{padding-block:6px}.fs-source-chart-empty{display:grid;place-items:center;min-height:170px;color:#727d89}.fs-source-negative{padding:6px;background:#fff2f3;color:#a43843}.fs-connected .fs-source-error,.fs-connected .fs-source-loading{order:3}.fs-source-error{background:#fff3f3;border:1px solid #efd5d7;border-radius:9px;padding:14px;color:#a43843}.fs-source-unavailable{display:flex;flex-wrap:wrap;gap:14px;padding:20px 0;color:#7d8792}.fs-source-unavailable span{padding:15px;background:#f7f8fa;border:1px solid #e3e7ed;border-radius:8px}.fs-connected .fs-metric p{min-height:16px;margin-top:10px}.fs-connected .fs-budget-grid input[readonly]{background:transparent!important;border-color:transparent!important;cursor:default}.fs-connected .fs-bottom-links button:disabled{opacity:.65}.fs-connected .fs-surface>.fs-card{order:4}.fs-connected .fs-filter-strip{z-index:10}@media print{.fs-connected .fs-page-actions{display:none!important}.fs-source-reconciliation{break-before:auto}}
+.fs-connected .fs-insights li[data-risk=true]::before{content:"!";color:#9a752f;background:#fbf3e1}.fs-connected .fs-metric-number{flex-wrap:wrap}.fs-connected .fs-metric-number strong{overflow-wrap:anywhere;max-width:100%}
+.fs-connected .fs-page-actions{max-width:100%;min-width:0}
+.fs-connected .fs-source-period{order:1;padding-inline:10px;font-size:11px;color:#66778a}.fs-connected .fs-change.neutral{color:#80652f}.fs-connected .fs-metric p{margin-top:5px}.fs-connected .fs-source-period:empty{display:none}
+.fs-connected .fs-source-sector-empty{min-height:137px}
+
+.fs-connected-statements .fs-source-statements{order:4;display:grid;gap:18px;min-width:0}.fs-connected-statements .fs-filters input{font:inherit;border:1px solid #dce3ec;border-radius:7px;background:#fff;color:#10243a;min-height:34px;padding:5px 9px;max-width:100%}.fs-connected-statements .fs-source-reconciliation{overflow:hidden;min-width:0}.fs-connected-statements .fs-source-reconciliation td{font-size:10px}.fs-connected-statements .fs-filters{max-width:100%}@media(max-width:700px){.fs-connected-statements .fs-source-statements{gap:12px}.fs-connected-statements .fs-filter-strip .fs-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.fs-connected-statements .fs-filters label{min-width:0;max-width:100%}}
+
+.fs-connected-statements .fs-surface>.fs-demo-note{position:static;font-size:11px;line-height:1.6;padding:8px 10px;border-radius:7px;background:#fbf6eb;pointer-events:auto}.fs-connected-statements .fs-source-period{line-height:1.6}
+
+@media(max-width:700px){
+ .fs-connected-statements .fs-source-statement-table .fs-table{min-width:0!important;width:100%;table-layout:fixed}
+ .fs-connected-statements .fs-source-statement-table .fs-table th,.fs-connected-statements .fs-source-statement-table .fs-table td{min-width:0;white-space:normal;overflow-wrap:anywhere}
+ .fs-connected-statements .fs-source-statement-table .fs-table th:first-child{width:65%;min-width:0}
+ .fs-connected-statements .fs-source-statement-table .fs-table th:nth-child(n+3),.fs-connected-statements .fs-source-statement-table .fs-table td:nth-child(n+3){display:none}
+ .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(2),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(2){display:none}
+ .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(3),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(3){display:table-cell}
+}
+
+.fs-source-hub>.fr-middle{order:4;margin-top:0}
+.fs-source-hub>.fr-shortcuts{order:5;margin-top:0}
+.fs-source-hub>section.fs-card{order:6}
+.fs-source-hub>section.fs-indicator-definition{order:3}
+.fs-source-hub .fs-summary-list dd{overflow-wrap:anywhere;max-width:65%}
+.fs-source-hub .fs-source-chart-empty{min-height:120px;padding:12px;text-align:center}
+.fs-source-hub .fs-metrics.seven>div{min-width:0}
+.fs-source-hub .fs-metrics.seven .fs-metric{height:100%}
+.fs-source-hub .fs-metric-number strong{max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.fs-source-hub .fs-statement-link h2{padding-inline-end:6px}
+@media(max-width:700px){.fs-source-hub .fs-metric-heading h2{white-space:normal}.fs-source-hub .fs-index-layout .fs-statement-link{min-height:200px}.fs-source-hub .fs-source-chart-empty{min-height:100px}}
+
+.fs-source-hub .fs-metrics.seven .fs-metric-heading h2{white-space:normal;overflow-wrap:anywhere}
+
+@media(max-width:700px){
+ .fs-root .fs-source-hub .fs-three-panels .fs-table{table-layout:fixed;width:100%;min-width:0}
+ .fs-root .fs-source-hub .fs-three-panels .fs-table :is(th,td){min-width:0;white-space:normal;overflow-wrap:anywhere}
+ .fs-root .fs-source-hub .fs-three-panels .fs-table tr>:first-child{width:65%;min-width:0}
+ .fs-root .fs-source-hub .fs-three-panels .fs-table tr>:nth-child(3){display:none}
+ .fs-source-hub .fs-chart-hit button:nth-child(even)>span{visibility:hidden}
+}
