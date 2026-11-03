@@ -9,7 +9,7 @@ export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,conte
  async function disclosure(view,lang,size){
   const table=page.locator('.fs-source-statement-table'),buttons=table.locator('.fs-statement-group-toggle'),first=buttons.first();assert.ok(await buttons.count()>0,'A populated statement must expose parent arrows');
   const ids=(await first.getAttribute('aria-controls')).split(' '),totals=await table.locator('.fs-row-total').allTextContents();
-  assert.equal(await first.getAttribute('aria-expanded'),'true');
+  assert.equal(await first.getAttribute('aria-expanded'),'true');const glyph=await first.locator('.fs-group-chevron svg').boundingBox();assert.ok(glyph&&glyph.width>=18&&glyph.height>=18,'Disclosure arrow must stay visibly sized on '+size);
   if(size==='desktop'){await first.focus();await first.press('Enter')}else await first.click();
   assert.equal(await first.getAttribute('aria-expanded'),'false');
   await page.waitForFunction(ids=>ids.every(id=>{const e=document.getElementById(id);return e&&getComputedStyle(e).display==='none'}),ids);

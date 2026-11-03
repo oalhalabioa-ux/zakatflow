@@ -53,3 +53,8 @@
 @media(max-width:700px){.fs-root .fs-table .fs-statement-group-toggle{min-height:32px}.fs-root .fs-table .fs-row-child th .fs-statement-row-label{padding-inline-start:26px}}
 @media(prefers-reduced-motion:reduce){.fs-root .fs-table .fs-group-chevron{transition:none}}
 @media print{.fs-root .fs-statement-tree tr[hidden]{display:table-row!important}.fs-root .fs-group-chevron{visibility:hidden}}
+
+/* Keep disclosures legible despite the legacy compact position-table SVG rules. */
+.fs-root .fs-surface .fs-table .fs-statement-group-toggle .fs-group-chevron>svg{width:20px!important;height:20px!important;stroke-width:2.2}
+.fs-root .fs-surface .fs-table .fs-statement-group-toggle .fs-statement-row-label>svg{width:19px!important;height:19px!important}
+@media(max-width:700px){.fs-root .fs-surface .fs-table .fs-statement-group-toggle .fs-statement-row-label>svg{width:16px!important;height:16px!important}}
