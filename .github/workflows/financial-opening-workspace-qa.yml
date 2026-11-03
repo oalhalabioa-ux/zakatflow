@@ -53,6 +53,10 @@ jobs:
         run: npx --yes supabase@2.122.0 start --workdir "$OPENING_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/opening-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/opening-start.log"; exit 1; }
       - name: Exercise actual authorization, persistence, approval, reports and browser
         run: node scripts/financial-reports/verify-live-opening.mjs
+      - name: Reconcile statements and exports against this run's approved ledger
+        run: |
+          cp docs/financial-reports/evidence-opening-live/qa-financial-opening-ledger.json tests/financial-reporting/qa-live-opening-snapshot.json
+          npx --no-install vitest run tests/financial-opening-ledger.test.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
