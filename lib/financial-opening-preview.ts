@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 export const OPENING_TABS=[['summary','ميزان المراجعة','Trial balance','balance'],['customers','العملاء','Customers','users'],['suppliers','الموردون','Suppliers','truck'],['cash','النقد والبنوك','Cash & banks','bank'],['assets','الأصول والإهلاك','Assets & depreciation','building'],['loans','القروض','Loans','file'],['advances','السلف والعهد','Advances','wallet'],['other','استثمارات وأخرى','Investments & other','layers'],['equity','حقوق الملكية','Equity','crown']] as const;
 export type OpeningTab=typeof OPENING_TABS[number][0];
 export type OpeningItem={id:string;tab:Exclude<OpeningTab,'summary'>;accountCode:string;accountAr:string;accountEn:string;ar:string;en:string;normal:'DEBIT'|'CREDIT';inactive?:boolean;vouchers:{canonicalId:string;number:string;debit:string;credit:string}[]};
-export type OpeningDraft={amount:string;side:'DEBIT'|'CREDIT'};
+export type OpeningDraft={amount:string;side:'DEBIT'|'CREDIT';reason?:string;accountCode?:string};
 export type OpeningDrafts=Record<string,OpeningDraft>;
 const Money=Decimal.clone({precision:50});
 const zero=()=>new Money(0),split=(v:Decimal)=>({debit:(v.gt(0)?v:zero()).toFixed(4),credit:(v.lt(0)?v.negated():zero()).toFixed(4)});
@@ -40,3 +40,4 @@ export function openingPreviewExport(state:ReturnType<typeof openingPreviewState
  const t=(ar:string,english:string)=>en?english:ar;
  return[[t('المصدر','Source'),'SYNTHETIC OPENING PREVIEW — NO DATABASE WRITE'],[t('تاريخ الافتتاحي','Opening date'),'2026-01-01'],[t('العملة','Currency'),'SAR'],[t('غير مدخل / غير صالح','Missing / invalid'),String(state.pending)],[t('فرق الميزان لجميع الأرصدة المدخلة','Trial balance difference for all entered balances'),state.totals.difference],[],[t('الاسم','Name'),t('رقم الحساب','Account code'),t('الرصيد من السندات','Voucher balance'),t('الإضافة / التسوية','Supplement / adjustment'),t('الافتتاحي النهائي','Final opening'),t('الحالة','Status'),t('السندات','Vouchers')],...visible.map(r=>[en?r.en:r.ar,r.accountCode,r.existing??'',r.supplement??'',r.final??'',r.status,r.vouchers.map(v=>v.number).join(', ')])];
 }
+

@@ -11,3 +11,5 @@
 .ob-completion progress::-webkit-progress-bar{background:#e8edf3}
 .ob-completion progress::-webkit-progress-value{background:#c6a35d}
 .ob-completion progress::-moz-progress-bar{background:#c6a35d}
+
+.ob-live-review{margin-block:18px;padding:20px;background:var(--card-bg,#fff);border:1px solid #e5e9ef;border-radius:12px}.ob-live-review label{display:grid;gap:8px}.ob-live-review textarea{min-height:80px;padding:10px;border:1px solid #ccd4de;border-radius:8px;resize:vertical}.ob-live-scope{margin-block:16px}.ob-live-review p{margin-block:10px}

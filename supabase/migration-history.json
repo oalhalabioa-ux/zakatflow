@@ -1554,6 +1554,46 @@
       "file_sha256": "e24d5e70e5ff637dbc399676f3ec4ab8920b25580fd37236a1a16977f106e45d",
       "kind": "plan_customer_notice",
       "installed_md5": "5d65ed8c013aafdb98e4fbb400e54a41"
+    },
+    {
+      "path": "supabase/migrations/20261103142013_financial_opening_workspace.sql",
+      "version": "20261103142013",
+      "name": "financial_opening_workspace",
+      "expected_md5": "6b7221cc1799690d8da9776022f270e5",
+      "file_sha256": "140f0c33bd2ed7ee150aca84675d38c9826da326c72a424f84991dd131370a23",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103142435_financial_opening_approval_policy.sql",
+      "version": "20261103142435",
+      "name": "financial_opening_approval_policy",
+      "expected_md5": "f91da341e702ef615928f4bd7266450e",
+      "file_sha256": "f028a02f18d63f028c3ae2f4cccdc24393006b3387ddc609ca8db5e5f3c7e605",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103142726_financial_reporting_ledger.sql",
+      "version": "20261103142726",
+      "name": "financial_reporting_ledger",
+      "expected_md5": "ed7143b46256014f5e347865ba7a8f2b",
+      "file_sha256": "e4faf3073e75bb5f1d90628adc3c1c899e4228eab4a4a88f3e7ce8316ca14ad3",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103143424_financial_reporting_source_adapters.sql",
+      "version": "20261103143424",
+      "name": "financial_reporting_source_adapters",
+      "expected_md5": "9c1e4480d994e8012042fe1436060c21",
+      "file_sha256": "50d080171a352f5bfdabb2f1783943376888efa9c4b924f994ef0ea7ee73a737",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103143557_financial_reporting_normalized_amount.sql",
+      "version": "20261103143557",
+      "name": "financial_reporting_normalized_amount",
+      "expected_md5": "a0447344c7c9f8f112d6cb237b3bc4d7",
+      "file_sha256": "889cd65a6ae851434114708e199acda0898e55a348e268e30d45fc792fe755f4",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
     }
   ]
 }
