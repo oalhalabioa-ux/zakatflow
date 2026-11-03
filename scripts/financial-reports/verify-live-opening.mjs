@@ -48,6 +48,55 @@ try{
  await check('Posting policy UI saves and approves a real initial policy',async()=>{await page.goto(app+'/ar/financial-reporting-policy');await page.getByRole('heading',{name:'قواعد ترحيل القوائم المالية'}).waitFor();await page.getByLabel('سبب الإعداد أو التغيير').fill('إعداد قواعد المرحلة الافتتاحية');await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
  await check('Expired subscription keeps authorized reads and blocks opening writes',async()=>{sql(`update public.platform_subscriptions set trial_started_at=now()-interval '31 days',trial_ends_at=now()-interval '1 day' where organization_id='${org}'`);const r=await a.client.rpc('financial_opening_workspace',scope);assert.ifError(r.error);assert.equal(r.data.canSave,false);assert.equal(r.data.canApprove,false);assert.ok((await a.client.rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:r.data.source.revision,p_entries:{},p_reason:''})).error);sql(`update public.platform_subscriptions set trial_started_at=now(),trial_ends_at=now()+interval '30 days' where organization_id='${org}'`)});
+ await check('Paid supplier invoice credit from register to financial position',async()=>{
+  const contact='a0900000-0000-4000-8000-000000000001';
+  sql(`insert into public.vat_profiles(organization_id,registration_status,tax_registration_number) values('${org}','REGISTERED','310000000000003') on conflict(organization_id) do update set registration_status='REGISTERED',tax_registration_number=excluded.tax_registration_number;
+  insert into public.organization_entities(organization_id,name) select '${org}','Refund QA' where not exists(select 1 from public.organization_entities where organization_id='${org}' and active);
+  insert into public.vat_contacts(id,organization_id,contact_type,name,created_by) values('${contact}','${org}','SUPPLIER','QA refund supplier','${a.id}');
+  insert into public.financial_classifications(organization_id,code,name,classification_type,created_by) select '${org}',type,type,type,'${a.id}' from unnest(array['OPEX','TAX','PAYABLE']) type on conflict(organization_id,code) do nothing;`);
+  async function expectResponse(response,status){const body=await response.json();assert.equal(response.status(),status,JSON.stringify(body));return body}
+  const req=page.request,scope={organization_id:org};
+  const invoice=await expectResponse(await req.post(app+'/api/vat',{data:{...scope,action:'add_document',document_number:'QA-PUR-01',document_type:'PURCHASE',document_kind:'INVOICE',transaction_date:'2026-02-01',due_date:'2026-02-01',counterparty_name:'QA refund supplier',counterparty_contact_id:contact,supply_type:'STANDARD',net_amount:100,recoverable_percent:50,currency:'SAR',exchange_rate:1}}),201);
+  await expectResponse(await req.post(app+'/api/vat/recognition',{data:{...scope,document_id:invoice.id}}),200);
+  await expectResponse(await req.patch(app+'/api/liquidity/'+invoice.financial_core.cash_flow_id,{data:{status:'ACTUAL',amount:115,account_id:cash,settlement_date:'2026-02-02'}}),200);
+  async function actions(number){
+   await page.goto(app+'/en/vat?section=unified&organization_id='+org);
+   const row=page.locator('.vat-unified-table tbody tr').filter({hasText:number});
+   await row.locator('.invoice-actions-trigger').click();
+   await row.getByRole('button',{name:'Actions',exact:true}).click();
+  }
+  await actions('QA-PUR-01');
+  await page.getByRole('button',{name:'Linked credit note',exact:true}).click();
+  await page.getByLabel('Document number',{exact:true}).fill('QA-CREDIT-46');
+  await page.getByLabel('Document date',{exact:true}).fill('2026-03-01');
+  await page.getByLabel('Due date',{exact:true}).fill('2026-03-01');
+  await page.getByLabel('Net before VAT',{exact:true}).fill('40');
+  await page.getByLabel('Notes / note reason',{exact:true}).fill('Partial return after full payment');
+  const saved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/vat'&&r.request().method()==='POST');
+  await page.getByRole('button',{name:'Save',exact:true}).click();
+  await expectResponse(await saved,201);
+  await actions('QA-CREDIT-46');
+  const posted=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/vat/notes'&&r.request().method()==='POST');
+  await page.getByRole('button',{name:'Post accounting',exact:true}).click();
+  await expectResponse(await posted,200);
+  const input={p_org:org,p_fiscal_start:'2026-01-01'};
+  const policy=await a.client.rpc('financial_reporting_policy_workspace',input);assert.ifError(policy.error);
+  const rules=new Map();
+  for(const e of policy.data.events)for(const l of e.lines){
+   const supplierRefund=l.classificationId==='VAT_NOTE_REFUND_RECEIVABLE',payment=l.cashDirection==='OUTFLOW';
+   const rule={eventType:e.eventType,sourceModule:e.sourceModule,classificationId:l.classificationId,cashDirection:l.cashDirection,debitAccountId:payment?'2100':supplierRefund?'1800':l.classificationId.endsWith(':INPUT_VAT_RECOVERABLE')?'1400':'6100',creditAccountId:payment?'1000':'2100',...(payment?{cashActivity:'OPERATING'}:{})};
+   rules.set(JSON.stringify(rule),rule);
+  }
+  const draft=await a.client.rpc('save_financial_reporting_policy',{...input,p_expected_version:0,p_rules:[...rules.values()],p_reason:'Map supplier refund separately from original payable'});assert.ifError(draft.error);
+  const ap=await a.client.rpc('approve_financial_reporting_policy',{p_id:draft.data.id,p_expected_version:draft.data.version});assert.ifError(ap.error);
+  const query='/api/financial-reporting/live-statements?action=statements&organization='+org+'&from=2026-01-01&to=';
+  const before=await expectResponse(await req.get(app+query+'2026-02-28'),200);
+  const after=await expectResponse(await req.get(app+query+'2026-03-31'),200);
+  assert.equal(before.statements.cash.closing,'385.0000');assert.equal(after.statements.cash.closing,before.statements.cash.closing);
+  assert.equal(after.accounts.find(x=>x.id==='1800').balance,'46.0000');assert.equal(after.accounts.find(x=>x.id==='2100').balance,'0.0000');
+  assert.equal(after.statements.income.operatingExpenses,'64.5000');assert.equal(after.statements.position.assets,'435.5000');
+  await page.goto(app+'/en/financial-position');await page.locator('[data-statement-ready="position"]').waitFor();
+ });
  await check('Revocation clears both refreshed and exporting workspaces',async()=>{
   const exportPage=await context.newPage();
   const downloads=[];
