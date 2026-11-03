@@ -13,6 +13,10 @@ on:
       - 'tests/financial-reporting/statement-snapshot.json'
       - 'scripts/financial-reports/*statement*'
       - 'scripts/financial-reports/verify-suite.cjs'
+      - 'scripts/financial-reports/*opening*'
+      - 'lib/financial-opening-preview.ts'
+      - 'tests/financial-opening-preview.test.ts'
+      - 'app/design-preview/financial-reports/opening-balances/**'
       - 'scripts/financial-reports/build-suite-preview.cjs'
       - 'app/design-preview/financial-reports/source/**'
       - 'components/financial-reports/**'
@@ -72,6 +76,8 @@ jobs:
           export CODEX_PRIMARY_RUNTIME_NODE_MODULES="$RUNNER_TEMP/report-source-browser/node_modules"
           node scripts/financial-reports/verify-suite.cjs
           node scripts/financial-reports/build-suite-preview.cjs docs/financial-reports/evidence-v2/nine-screen-interactive.html
+          node scripts/financial-reports/build-suite-preview.cjs docs/financial-reports/evidence-v2/opening-balances-interactive.html --opening
+          node scripts/financial-reports/verify-opening-offline.cjs docs/financial-reports/evidence-v2/opening-balances-interactive.html
       - uses: actions/upload-artifact@v4
         if: always()
         with:
