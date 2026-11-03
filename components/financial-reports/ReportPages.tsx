@@ -3,6 +3,7 @@ import {Fragment,useId,useState} from 'react';
 import {Icon} from './FinancialReportsPilot';
 import {STATEMENT_LINE_ICONS} from '../../lib/financial-statement-icons';
 import {StatementGroupToggle} from './SourceStatementTable';
+import PreviewPositionTable from './PreviewPositionTable';
 import {ReportCard,Donut,Gauge,ComboChart,Waterfall} from './ReportCharts';
 import {MONTHLY_NET_CASH,MONTHLY_CASH_BALANCES,MONTHLY_BUDGET,MONTHLY_BUDGET_ACTUAL,REPORT_CASH,INCOME_LINES,POSITION_LINES,CASH_LINES,BUDGET_MONITORING,budgetComputed,reportVariance,type ReportLine,type EditableBudgetRow,type FinancialScreen} from '../../lib/financial-reporting-demo';
 import {PREVIEW_MONTHS_AR,PREVIEW_MONTHS_EN} from '../../lib/financial-reports-preview';
@@ -10,7 +11,8 @@ export type ReportPageProps={en:boolean;scale:number;unit:string;periodLabel:str
 const sum=(values:number[])=>values.reduce((a,b)=>a+b,0);
 const number=(v:number,d=1)=>v.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
 export function Metric({label,value,unit='',trend,change='+12.4%',red=false,icon='chart',foot,click}:{label:string;value:string;unit?:string;change?:string|null;trend?:{direction:'up'|'down'|'flat';tone:'positive'|'negative'|'neutral';text:string};red?:boolean;icon?:string;foot?:string;click?:()=>void}){return <article className="fs-card fs-metric"><div className="fs-metric-heading"><Icon name={icon}/><h2>{label}</h2>{click&&<button className="fs-info" aria-label={label+' — formula'} onClick={click}><Icon name="target" size={13}/></button>}</div><div className="fs-metric-number"><strong>{value}</strong><span>{unit}</span></div>{change!==null&&<><svg className="fs-spark" viewBox="0 0 75 40" aria-hidden="true"><path d="m2 32 13-9 11 4 13-12 12 6 21-14" fill="none" stroke={red?'#e96d73':'#22ad4c'} strokeWidth="1.7"/></svg><b className={red?'fs-change negative':'fs-change positive'} dir="ltr">▲ {change}</b></>}{trend&&<b className={'fs-change '+trend.tone} data-trend={trend.direction} dir="ltr">{trend.direction==='up'?'▲':trend.direction==='down'?'▼':'—'} {trend.text}</b>}{foot&&<p>{foot}</p>}</article>}
-export function StatementTable({lines,en,scale,unit,position=false,onDetail}:{lines:ReportLine[];en:boolean;scale:number;unit:string;position?:boolean;onDetail:(s:string)=>void}){
+export function StatementTable(props:{lines:ReportLine[];en:boolean;scale:number;unit:string;position?:boolean;onDetail:(s:string)=>void}){return props.position?<PreviewPositionTable {...props}/>:<FlatStatementTable {...props}/>}
+function FlatStatementTable({lines,en,scale,unit,position=false,onDetail}:{lines:ReportLine[];en:boolean;scale:number;unit:string;position?:boolean;onDetail:(s:string)=>void}){
  const[collapsed,setCollapsed]=useState<Set<string>>(()=>new Set()),prefix=useId().replaceAll(':',''),parents=new Map<number,string>(),children=new Map<string,number[]>();
  let group:string|undefined;
  lines.forEach((row,index)=>{if(row.kind==='section')group=row.id;else if(row.kind==='subtotal'||row.kind==='total')group=undefined;else if(group){parents.set(index,group);const list=children.get(group)??[];list.push(index);children.set(group,list)}});

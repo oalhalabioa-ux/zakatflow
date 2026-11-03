@@ -58,3 +58,12 @@
 .fs-root .fs-surface .fs-table .fs-statement-group-toggle .fs-group-chevron>svg{width:20px!important;height:20px!important;stroke-width:2.2}
 .fs-root .fs-surface .fs-table .fs-statement-group-toggle .fs-statement-row-label>svg{width:19px!important;height:19px!important}
 @media(max-width:700px){.fs-root .fs-surface .fs-table .fs-statement-group-toggle .fs-statement-row-label>svg{width:16px!important;height:16px!important}}
+
+/* Position-only compact rollups: preserve income and cash layouts. */
+.fs-root .fs-position-table .fs-print-group-value{display:none}
+.fs-root .fs-position-table .fs-row-child .fs-statement-group-toggle .fs-statement-row-label{padding-inline-start:0}
+.fs-root .fs-position-table tr[data-depth="1"]>th>.fs-statement-group-toggle{padding-inline-start:16px}
+.fs-root .fs-position-table tr[data-depth="1"]>th>.fs-statement-row-label{padding-inline-start:54px}
+.fs-root .fs-position-table tr[data-depth="2"]>th>.fs-statement-row-label{padding-inline-start:70px}
+.fs-root .fs-position-table tr.fs-row-subtotal>th>.fs-statement-row-label{padding-inline-start:16px}
+@media print{.fs-root .fs-position-table .fs-screen-group-value{display:none}.fs-root .fs-position-table .fs-print-group-value{display:inline}}

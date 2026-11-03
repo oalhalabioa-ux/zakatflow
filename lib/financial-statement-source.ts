@@ -51,28 +51,35 @@ export function statementRows(s:StatementSourceSnapshot,view:StatementView,en:bo
   for(const[,presentation,ar,eng]of groups.filter(g=>g[0]===kind)){
    const accounts=s.accounts.filter(a=>a.kind===kind&&(kind==='EQUITY'||a.presentation===presentation));if(!accounts.length)continue;
    const icon=kind==='EQUITY'?'crown':kind==='ASSET'?(presentation==='CURRENT'?'coins':presentation==='NON_CURRENT'?'building':'layers'):(presentation==='CURRENT'?'file':'layers');
-   rows.push([t(ar,eng),'','section',icon]);let total=new Money(0);
-   for(const a of accounts){const n=new Money(a.balance).times(kind==='ASSET'?1:-1);total=total.plus(n);rows.push([en?a.en:a.ar,n.toFixed(4),'detail'])}
-   if(kind!=='EQUITY')rows.push([t('إجمالي '+ar,'Total '+eng.toLowerCase()),total.toFixed(4),'subtotal']);
+   rows.push([t(ar,eng),'','section',icon,kind+':'+presentation]);let total=new Money(0);
+   for(const a of accounts){const n=new Money(a.balance).times(kind==='ASSET'?1:-1);total=total.plus(n);rows.push([en?a.en:a.ar,n.toFixed(4),'detail','',kind+':ACCOUNT:'+a.id])}
+   if(kind!=='EQUITY')rows.push([t('إجمالي '+ar,'Total '+eng.toLowerCase()),total.toFixed(4),'subtotal','',kind+':'+presentation+':subtotal']);
   }
-  if(kind==='ASSET')rows.push([t('إجمالي الأصول','Total assets'),p.assets,'total','layers']);
-  if(kind==='LIABILITY')rows.push([t('إجمالي الخصوم','Total liabilities'),p.liabilities,'total','layers']);
-  if(kind==='EQUITY')rows.push([t('ربح السنة المالية حتى التاريخ','Fiscal-year profit to date'),p.fiscalProfit,'detail'],[t('إجمالي حقوق الملكية','Total equity'),p.equity,'subtotal','crown']);
+  if(kind==='ASSET')rows.push([t('إجمالي الأصول','Total assets'),p.assets,'total','layers','ASSET']);
+  if(kind==='LIABILITY')rows.push([t('إجمالي الخصوم','Total liabilities'),p.liabilities,'total','layers','LIABILITY']);
+  if(kind==='EQUITY')rows.push([t('ربح السنة المالية حتى التاريخ','Fiscal-year profit to date'),p.fiscalProfit,'detail','','EQUITY:FISCAL_PROFIT'],[t('إجمالي حقوق الملكية','Total equity'),p.equity,'subtotal','crown','EQUITY']);
  }
- rows.push([t('إجمالي الخصوم وحقوق الملكية','Total liabilities and equity'),new Money(p.liabilities).plus(p.equity).toFixed(4),'total','balance']);return rows;
+ rows.push([t('إجمالي الخصوم وحقوق الملكية','Total liabilities and equity'),new Money(p.liabilities).plus(p.equity).toFixed(4),'total','balance','FUNDING']);return rows;
 }
-export type StatementTreeRow={id:string;label:string;value:string;kind:string;icon?:string;parentId?:string};
+export type StatementTreeRow={id:string;label:string;value:string;kind:string;icon?:string;parentId?:string;collapsedValue?:string;summaryFor?:string};
 /** Display hierarchy uses only reconciled account/journal details; collapsing is UI state. */
 export function statementTreeRows(s:StatementSourceSnapshot,view:StatementView,en:boolean):StatementTreeRow[]{
  const base=statementRows(s,view,en),rows:StatementTreeRow[]=[];
  if(view==='position'){
-  let parentId:string|undefined;
-  base.forEach(([label,value,kind,icon],index)=>{
-   const id='position-'+index;
-   if(kind==='section'){parentId=id;rows.push({id,label,value,kind,icon})}
-   else if(kind==='detail')rows.push({id,label,value,kind,icon,parentId});
-   else{rows.push({id,label,value,kind:kind??'detail',icon});parentId=undefined}
-  });return rows;
+  for(const category of ['ASSET','LIABILITY','EQUITY']){
+   const total=base.find(r=>r[4]===category)!;const rootId='position-'+category;
+   rows.push({id:rootId,label:total[0],value:total[1],kind:'total',icon:total[3]});
+   let parentId=rootId;
+   for(const[label,value,kind,icon,key]of base.filter(r=>r[4]?.startsWith(category+':'))){
+    if(kind==='section'){
+     if(category==='EQUITY')continue;
+     parentId='position-'+key;const summary=base.find(r=>r[4]===key+':subtotal');
+     rows.push({id:parentId,label,value,kind,icon,parentId:rootId,collapsedValue:summary?.[1]});
+    }else if(kind==='subtotal')rows.push({id:'position-'+key,label,value,kind,icon,parentId,summaryFor:parentId});
+    else rows.push({id:'position-'+key,label,value,kind:kind??'detail',icon,parentId});
+   }
+  }
+  const total=base.find(r=>r[4]==='FUNDING')!;rows.push({id:'position-FUNDING',label:total[0],value:total[1],kind:'total',icon:total[3]});return rows;
  }
  if(view==='income'){
   const kinds=['REVENUE','COGS',null,'OPEX',null,'FINANCE','TAX',null],icons=SOURCE_INCOME_ICONS;

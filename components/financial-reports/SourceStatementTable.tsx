@@ -2,6 +2,7 @@
 import {useId,useMemo,useState} from 'react';
 import Decimal from 'decimal.js';
 import {Icon} from './FinancialReportsPilot';
+import {statementHierarchy} from '../../lib/financial-statement-hierarchy';
 import {statementTreeRows,type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
 
 const Money=Decimal.clone({precision:50});
@@ -12,11 +13,11 @@ export function StatementGroupToggle({label,icon,en,expanded,controls,onToggle}:
 export default function SourceStatementTable({snapshot,view,en}:{snapshot:StatementSourceSnapshot;view:StatementView;en:boolean}){
  const[collapsed,setCollapsed]=useState<Set<string>>(()=>new Set()),prefix=useId().replaceAll(':','');
  const rows=useMemo(()=>statementTreeRows(snapshot,view,en),[snapshot,view,en]);
- const children=useMemo(()=>{const groups=new Map<string,number[]>();rows.forEach((row,index)=>{if(row.parentId){const list=groups.get(row.parentId)??[];list.push(index);groups.set(row.parentId,list)}});return groups},[rows]);
+ const hierarchy=useMemo(()=>statementHierarchy(rows),[rows]),children=hierarchy.descendants;
  const t=(ar:string,english:string)=>en?english:ar;
  function toggle(id:string){setCollapsed(previous=>{const next=new Set(previous);if(next.has(id))next.delete(id);else next.add(id);return next})}
  return <div className={'fs-table-scroll fs-source-statement-table fs-statement-tree '+(view==='position'?'fs-position-table':'')}><table className="fs-table"><caption className="fs-sr-only">{t('قائمة من أحداث اختبار محلية — المبالغ','Local test event statement — amounts in')} {snapshot.statements.currency}</caption><thead><tr><th>{t('البند','Item')}</th>{view==='position'&&<th>{t('إيضاح','Note')}</th>}<th>{t('الفترة الحالية','Current period')}</th><th>{t('الفترة السابقة','Previous period')}</th>{view==='position'&&<th>{t('التغير','Change')}</th>}<th>{t('نسبة التغير','Change %')}</th></tr></thead><tbody>{rows.map((row,index)=>{
-  const childIndexes=children.get(row.id)??[],rowId=prefix+'-row-'+index,label=<span className="fs-statement-row-label">{row.icon&&<Icon name={row.icon} size={19}/>}<span>{row.label}</span></span>;
-  return <tr key={row.id} id={rowId} data-statement-row={row.id} data-parent-row={row.parentId} hidden={Boolean(row.parentId&&collapsed.has(row.parentId))} className={'fs-row-'+row.kind+(row.parentId?' fs-row-child':'')}><th scope="row">{childIndexes.length?<StatementGroupToggle label={row.label} icon={row.icon} en={en} expanded={!collapsed.has(row.id)} controls={childIndexes.map(i=>prefix+'-row-'+i).join(' ')} onToggle={()=>toggle(row.id)}/>:label}</th>{view==='position'&&<td>—</td>}<td data-amount={row.value} dir="ltr">{row.value?statementAmount(row.value):''}</td><td>—</td>{view==='position'&&<td>—</td>}<td>—</td></tr>;
+  const childIndexes=children.get(row.id)??[],rowId=prefix+'-row-'+index,value=collapsed.has(row.id)&&row.collapsedValue!==undefined?row.collapsedValue:row.value,label=<span className="fs-statement-row-label">{row.icon&&<Icon name={row.icon} size={19}/>}<span>{row.label}</span></span>;
+  return <tr key={row.id} id={rowId} data-statement-row={row.id} data-parent-row={row.parentId} data-depth={hierarchy.ancestors.get(row.id)?.length??0} data-summary-for={row.summaryFor} hidden={hierarchy.hidden(row.id,collapsed)} className={'fs-row-'+row.kind+(row.parentId?' fs-row-child':'')}><th scope="row">{childIndexes.length?<StatementGroupToggle label={row.label} icon={row.icon} en={en} expanded={!collapsed.has(row.id)} controls={childIndexes.map(i=>prefix+'-row-'+i).join(' ')} onToggle={()=>toggle(row.id)}/>:label}</th>{view==='position'&&<td>—</td>}<td data-amount={value} data-canonical-amount={row.value} dir="ltr">{row.collapsedValue!==undefined?<><span className="fs-screen-group-value">{value?statementAmount(value):''}</span><span className="fs-print-group-value">{row.value?statementAmount(row.value):''}</span></>:value?statementAmount(value):''}</td><td>—</td>{view==='position'&&<td>—</td>}<td>—</td></tr>;
  })}</tbody></table></div>;
 }

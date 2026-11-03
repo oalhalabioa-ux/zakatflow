@@ -5,6 +5,7 @@ on:
       - 'app/api/financial-reporting/**'
       - 'app/design-preview/financial-reports/source-statements/**'
       - 'lib/financial-statement-*.ts'
+      - 'lib/financial-position-preview.ts'
       - 'lib/financial-event-ledger.ts'
       - 'services/financial-statement-source.ts'
       - 'tests/financial-statement-*.test.ts'
