@@ -24,7 +24,7 @@ The existing V3–V6 budget/analysis source API and its unavailable-formal-state
 
 The three pages reuse the current `CorporateShell`, Yaqeen styles, metric cards and chart components. Reference 08/09/02 determines the table/metric/side-panel structure. The source note and scope remain explicit. Current/non-current sections, position reconciliation, asset composition and funding bar use actual fixture projection values. Comparison columns remain unavailable until a compatible approved source exists. No fabricated sparkline or arrow is displayed.
 
-CSV and Excel include organization, period, currency, policy/opening identity, local-fixture notice and event/line/rule lineage. Excel monetary values are retained as exact strings to avoid spreadsheet numeric precision loss. Print/save-PDF uses the actual page. Changing organization/period, failure or revocation clears prior figures and disables export. Excel is dynamically loaded only on request.
+CSV and Excel include organization, period, currency, policy/opening identity, local-fixture notice and event/line/rule lineage. Excel monetary values are retained as exact strings to avoid spreadsheet numeric precision loss. Print/save-PDF uses the actual page. Changing organization/period, failure or revocation clears prior figures and disables export. Every CSV/Excel/print action reauthorizes and reloads its complete snapshot before proceeding; a cached view alone cannot authorize an export. A scope/view change during an export cancels its output. Excel is dynamically loaded only on request.
 
 Visual identity is **not declared pixel-perfect**. Differences from references include test account coverage/row count, source/scope notice, unavailable comparison and ratio, direct cash presentation, approved current sidebar, and still-pending fine typography/spacing review. Genuine screenshots and reference comparisons must be reviewed before final visual acceptance.
 
@@ -49,7 +49,7 @@ These are explicit synthetic fixtures, not existing organization balances. A sec
 
 Local full unit suite: 1082 tests in 191 files passed before the final table/notice adjustments; TypeScript and focused tests are rerun on final code. Disposable PostgreSQL WASM checks passed six groups for source completeness, RLS, denied roles, write denial, permission revocation and anonymous denial. This WASM check simulates the SQL subject and is not genuine Auth/PostgREST.
 
-The existing GitHub Actions disposable Supabase workflow now also runs genuine statement Auth/PostgREST/Next/browser checks: accounting totals; isolation; desktop/mobile Arabic/English; six XLSX contents; CSV/print; period selection; missing mapping; effective permission and membership revocation. Its source/event/configuration schema is deliberately minimal and synthetic, not the complete deployed VAT/Core schema. Review actual workflow results and artifacts before claiming these checks passed.
+The existing GitHub Actions disposable Supabase workflow now also runs genuine statement Auth/PostgREST/Next/browser checks: accounting totals; isolation; desktop/mobile Arabic/English; six XLSX contents; CSV/print; period selection; missing mapping; effective permission and membership revocation, including revocation while a valid cached view is still open at export time. Its source/event/configuration schema is deliberately minimal and synthetic, not the complete deployed VAT/Core schema. Review actual workflow results and artifacts before claiming these checks passed.
 
 ## Remaining release blockers
 
