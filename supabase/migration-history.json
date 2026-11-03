@@ -1642,6 +1642,14 @@
       "expected_md5": "f75f22774e6ac4dcc9e47f195800ca7f",
       "file_sha256": "251ac0c474f24aa7c47321cbd9efc470c2162c25f09ba28575d45c70d5d77262",
       "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103195100_financial_opening_refund_transfer.sql",
+      "version": "20261103195100",
+      "name": "financial_opening_refund_transfer",
+      "expected_md5": "a940919860f66aff0c86507bc5a4577a",
+      "file_sha256": "328e34dc08b4306b46c025d0e15b69ec4712a5a504c60822eaed53a280d596d5",
+      "validation_project": "Disposable full-schema QA"
     }
   ]
 }

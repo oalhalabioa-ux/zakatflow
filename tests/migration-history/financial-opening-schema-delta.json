@@ -388,12 +388,12 @@
     {
       "category": "function",
       "object_key": "private.financial_opening_sources(p_org uuid, p_cutoff date)",
-      "fingerprint": "4ae0268cc0be1f4b52612c3b4939bf5a"
+      "fingerprint": "2875f65bd4ec5fe4b8de4bd9fe8598ae"
     },
     {
       "category": "function",
       "object_key": "private.financial_reporting_events(p_org uuid, p_from date, p_to date)",
-      "fingerprint": "305e9e91ce1416129fce26c23be5d3c8"
+      "fingerprint": "88b7767815f0ebc39d1ddfaced5bc69f"
     },
     {
       "category": "function",
