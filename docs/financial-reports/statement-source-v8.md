@@ -47,9 +47,13 @@ These are explicit synthetic fixtures, not existing organization balances. A sec
 
 ## Verification boundary
 
-Local full unit suite: 1082 tests in 191 files passed before the final table/notice adjustments; TypeScript and focused tests are rerun on final code. Disposable PostgreSQL WASM checks passed six groups for source completeness, RLS, denied roles, write denial, permission revocation and anonymous denial. This WASM check simulates the SQL subject and is not genuine Auth/PostgREST.
+Final tested code: `6732203c1c36c3d688aa6b9cd4a5f0d0c401d71c`. Full unit suite **1082 tests in 191 files**, TypeScript, dependency audit/build and Quality passed. The separate Assets Integration QA workflow passed too.
 
-The existing GitHub Actions disposable Supabase workflow now also runs genuine statement Auth/PostgREST/Next/browser checks: accounting totals; isolation; desktop/mobile Arabic/English; six XLSX contents; CSV/print; period selection; missing mapping; effective permission and membership revocation, including revocation while a valid cached view is still open at export time. Its source/event/configuration schema is deliberately minimal and synthetic, not the complete deployed VAT/Core schema. Review actual workflow results and artifacts before claiming these checks passed.
+Genuine disposable Supabase [run 41565153300](https://github.com/oalhalabioa-ux/zakatflow/actions/runs/41565153300) passed **25 acceptance groups** with zero browser exceptions. This includes the existing budget/comparison/analysis checks and the new statement accounting, isolation, six bilingual page/export combinations, selected-period treatment, cached-view export reauthorization, incomplete mappings and permission/membership revocation. Visual checks specifically assert that mobile current amounts fit their table and that the cumulative cash polyline remains inside the plot.
+
+Artifact `13198831323`, SHA-256 `f7620f62da6c4143baa6e4ed06379c5abc5aecdcf8345d49d2e6718fcf36df81`, contains **47 files**, including 12 new statement screenshots (three pages × two languages × desktop/mobile), six exact-value XLSX files, three printed PDFs and a selected-period CSV. The full evidence also retains the earlier budget/analysis images and exports. The stack was destroyed after success. No hosted data, memberships or schema were changed.
+
+Disposable PostgreSQL WASM checks passed six groups for source completeness, RLS, denied roles, write denial, permission revocation and anonymous denial. This WASM check simulates the SQL subject; genuine Auth/PostgREST coverage comes from the workflow above. The fixture source/event/configuration schema is deliberately minimal and synthetic, not the complete deployed VAT/Core schema.
 
 ## Remaining release blockers
 
