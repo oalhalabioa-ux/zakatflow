@@ -4,16 +4,15 @@ import Decimal from 'decimal.js';
 import CorporateShell from '../CorporateShell';
 import {Icon} from './FinancialReportsPilot';
 import {Metric} from './ReportPages';
-import {SOURCE_INCOME_ICONS,SOURCE_CASH_ICONS} from '../../lib/financial-statement-icons';
+import SourceStatementTable,{statementAmount as amount} from './SourceStatementTable';
 import {ReportCard,Donut,ComboChart} from './ReportCharts';
-import {statementRows,statementSourceExport,type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
+import {statementSourceExport,type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
 import {financialSourceRowsCsv} from '../../lib/financial-budget-source';
 import './financial-reports-suite.css';
 import './financial-reporting-source.css';
 
 type Context={organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string}[];
 const Money=Decimal.clone({precision:50});
-function amount(value:string){const n=new Money(value),[whole,fraction]=n.abs().toFixed(2).split('.');const text=whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+fraction;return n.isNegative()?'('+text+')':text}
 const ratio=(a:string,b:string,percent=false)=>new Money(b).isZero()?'—':new Money(a).div(b).times(percent?100:1).toFixed(2)+(percent?'%':'');
 const titles={income:['قائمة الدخل','Income statement'],position:['قائمة المركز المالي','Statement of financial position'],'cash-flow':['قائمة التدفقات النقدية','Cash flow statement']};
 export default function FinancialStatementSource({initialView='income',initialEnglish=false}:{initialView?:StatementView;initialEnglish?:boolean}){
@@ -64,7 +63,7 @@ function ConnectedStatements({snapshot:s,en,view}:{snapshot:StatementSourceSnaps
  const sum=(kind:string,presentation:string)=>s.accounts.filter(a=>a.kind===kind&&a.presentation===presentation).reduce((n,a)=>n.plus(a.balance),new Money(0)).times(kind==='LIABILITY'?-1:1).toFixed(4);
  const currentAssets=sum('ASSET','CURRENT'),currentLiabilities=sum('LIABILITY','CURRENT'),nonCurrentAssets=sum('ASSET','NON_CURRENT');
  const metric=(label:string,value:string,icon='chart',money=true)=><Metric key={label} label={label} value={money?amount(value):value} unit={money?unit:''} icon={icon} change={null}/>;
- const rows=statementRows(s,view,en),table=<div className={'fs-table-scroll fs-source-statement-table '+(view==='position'?'fs-position-table':'')}><table className="fs-table"><caption className="fs-sr-only">{t('قائمة من أحداث اختبار محلية — المبالغ','Local test event statement — amounts in')} {unit}</caption><thead><tr><th>{t('البند','Item')}</th>{view==='position'&&<th>{t('إيضاح','Note')}</th>}<th>{t('الفترة الحالية','Current period')}</th><th>{t('الفترة السابقة','Previous period')}</th>{view==='position'&&<th>{t('التغير','Change')}</th>}<th>{t('نسبة التغير','Change %')}</th></tr></thead><tbody>{rows.map(([label,value,kind,icon],index)=><tr key={index} className={kind?'fs-row-'+kind:index===rows.length-1?'fs-row-total':view==='income'&&[2,4].includes(index)?'fs-row-subtotal':''}><th scope="row"><span className="fs-statement-row-label">{(icon||(view==='income'?SOURCE_INCOME_ICONS[index]:view==='cash-flow'?SOURCE_CASH_ICONS[index]:undefined))&&<Icon name={icon||(view==='income'?SOURCE_INCOME_ICONS[index]:SOURCE_CASH_ICONS[index])} size={19}/>}<span>{label}</span></span></th>{view==='position'&&<td>—</td>}<td data-amount={value} dir="ltr">{value?amount(value):''}</td><td>—</td>{view==='position'&&<td>—</td>}<td>—</td></tr>)}</tbody></table></div>;
+ const table=<SourceStatementTable key={[s.statements.organizationId,s.statements.from,s.statements.to,view].join('|')} snapshot={s} en={en} view={view}/>;
  const reconciled=<div className="fs-success"><Icon name="check"/>{t('تحقق التوازن','Balance verified')} · <bdi dir="ltr">{amount(p.assets)} = {amount(p.liabilities)} + {amount(p.equity)}</bdi></div>;
  const safeChart=s.cashMonths.every(m=>new Money(m.movement).abs().lte(Number.MAX_SAFE_INTEGER)&&new Money(m.closing).abs().lte(Number.MAX_SAFE_INTEGER));
  const cashChart=safeChart?<ComboChart includeLineInScale en={en} labels={s.cashMonths.map(m=>m.month)} first={s.cashMonths.map(m=>Number(m.movement))} line={s.cashMonths.map(m=>Number(m.closing))} names={[t('صافي التدفق النقدي','Net cash flow'),undefined,t('الرصيد التراكمي','Cumulative balance')]} unit={unit}/>:<p>{t('القيم الدقيقة متاحة في الجدول والتصدير.','Exact values are available in the table and export.')}</p>;

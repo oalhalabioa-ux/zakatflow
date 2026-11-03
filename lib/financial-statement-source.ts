@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import Decimal from 'decimal.js';
+import {SOURCE_INCOME_ICONS,SOURCE_CASH_ICONS} from './financial-statement-icons';
 import {compileEventLedger} from './financial-event-ledger';
 export const statementQuery=z.object({organization:z.string().uuid(),from:z.string().date(),to:z.string().date()}).strict().refine(q=>q.from<=q.to&&Number(q.to.slice(0,4))-Number(q.from.slice(0,4))<=1,'INVALID_STATEMENT_PERIOD');
 const id=z.string().min(1),currency=z.string().regex(/^[A-Z]{3}$/),date=z.string().date(),money=z.string().regex(/^\d{1,20}(\.\d{1,4})?$/),activity=z.enum(['OPERATING','INVESTING','FINANCING']);
@@ -23,15 +24,20 @@ export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  const start=new Date(p.from.slice(0,7)+'-01T00:00:00Z'),end=p.to.slice(0,7);
  for(let d=start;d.toISOString().slice(0,7)<=end;d=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)))monthly.set(d.toISOString().slice(0,7),{movement:new Money(0),closing:new Money(0)});
  const accounts=new Map(p.accounts.map(a=>[a.id,a]));
+ const periodMovement=new Map(p.accounts.map(a=>[a.id,new Money(0)]));
+ const eventReferences=new Map(p.events.map(e=>[e.id,{reference:e.sourceKey,eventType:e.eventType}]));
+ const cashMovements:{id:string;reference:string;eventType:string;date:string;activity:'OPERATING'|'INVESTING'|'FINANCING';amount:string}[]=[];
  let runningCash=new Money(result.statements.cash.opening);
  const journals=result.source.journals;
  for(const j of journals){
   const selected=j.date>=p.from&&j.date<=p.to,allCash=j.lines.every(l=>accounts.get(l.accountId)!.cash);
-  for(const l of j.lines){const value=new Money(l.debit).minus(l.credit);balance.set(l.accountId,balance.get(l.accountId)!.plus(value));if(selected&&accounts.get(l.accountId)!.cash&&!allCash){const month=monthly.get(j.date.slice(0,7))!;month.movement=month.movement.plus(value)}}
+  const activityAmounts=new Map<'OPERATING'|'INVESTING'|'FINANCING',Decimal>();
+  for(const l of j.lines){const value=new Money(l.debit).minus(l.credit);balance.set(l.accountId,balance.get(l.accountId)!.plus(value));if(selected)periodMovement.set(l.accountId,periodMovement.get(l.accountId)!.plus(value));if(selected&&accounts.get(l.accountId)!.cash&&!allCash){const month=monthly.get(j.date.slice(0,7))!;month.movement=month.movement.plus(value);if(l.cashActivity)activityAmounts.set(l.cashActivity,(activityAmounts.get(l.cashActivity)??new Money(0)).plus(value))}}
+  for(const[activity,value]of activityAmounts)if(!value.isZero())cashMovements.push({id:j.id,reference:eventReferences.get(j.id)!.reference,eventType:eventReferences.get(j.id)!.eventType,date:j.date,activity,amount:value.toFixed(4)});
  }
  const cashMonths=[...monthly].map(([month,v])=>{runningCash=runningCash.plus(v.movement);return{month,movement:v.movement.toFixed(4),closing:runningCash.toFixed(4)}});
  if(!runningCash.eq(result.statements.cash.closing))throw Error('CASH_FLOW_UNRECONCILED');
- return{origin:p.origin,scope:p.coverage.scope,readAt:p.coverage.readAt,policyId:p.policy.id,openingSourceId:p.openingSourceId,statements:result.statements,lineage:result.lineage,accounts:p.accounts.map(a=>({...a,balance:balance.get(a.id)!.toFixed(4)})),cashMonths};
+ return{origin:p.origin,scope:p.coverage.scope,readAt:p.coverage.readAt,policyId:p.policy.id,openingSourceId:p.openingSourceId,statements:result.statements,lineage:result.lineage,accounts:p.accounts.map(a=>({...a,balance:balance.get(a.id)!.toFixed(4),periodMovement:periodMovement.get(a.id)!.toFixed(4)})),cashMonths,cashMovements};
 }
 export type StatementSourceSnapshot=ReturnType<typeof normalizeStatementSource>;
 export type StatementView='income'|'position'|'cash-flow';
@@ -55,4 +61,37 @@ export function statementRows(s:StatementSourceSnapshot,view:StatementView,en:bo
  }
  rows.push([t('إجمالي الخصوم وحقوق الملكية','Total liabilities and equity'),new Money(p.liabilities).plus(p.equity).toFixed(4),'total','balance']);return rows;
 }
-export function statementSourceExport(s:StatementSourceSnapshot,view:StatementView,en:boolean):string[][]{const t=(ar:string,eng:string)=>en?eng:ar;return[[t('المصدر','Source'),s.origin],[t('المؤسسة','Organization'),s.statements.organizationId],[t('النطاق','Scope'),s.scope],[t('من','From'),s.statements.from],[t('إلى','To'),s.statements.to],[t('العملة','Currency'),s.statements.currency],[t('السياسة المعتمدة للاختبار','Test-approved policy'),s.policyId],[t('مصدر الافتتاحي','Opening source'),s.openingSourceId],[t('تنبيه','Notice'),t('بيانات اختبار محلية؛ ليست قوائم المؤسسة','Local test data; not organization financial statements')],[],[t('البند','Item'),t('الفترة الحالية','Current period')],...statementRows(s,view,en).map(r=>r.slice(0,2)),[],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId])]}
+export type StatementTreeRow={id:string;label:string;value:string;kind:string;icon?:string;parentId?:string};
+/** Display hierarchy uses only reconciled account/journal details; collapsing is UI state. */
+export function statementTreeRows(s:StatementSourceSnapshot,view:StatementView,en:boolean):StatementTreeRow[]{
+ const base=statementRows(s,view,en),rows:StatementTreeRow[]=[];
+ if(view==='position'){
+  let parentId:string|undefined;
+  base.forEach(([label,value,kind,icon],index)=>{
+   const id='position-'+index;
+   if(kind==='section'){parentId=id;rows.push({id,label,value,kind,icon})}
+   else if(kind==='detail')rows.push({id,label,value,kind,icon,parentId});
+   else{rows.push({id,label,value,kind:kind??'detail',icon});parentId=undefined}
+  });return rows;
+ }
+ if(view==='income'){
+  const kinds=['REVENUE','COGS',null,'OPEX',null,'FINANCE','TAX',null],icons=SOURCE_INCOME_ICONS;
+  base.forEach(([label,value],index)=>{
+   const id='income-'+index,kind=kinds[index];
+   rows.push({id,label,value,kind:index===7?'total':[2,4].includes(index)?'subtotal':'parent',icon:icons[index]});
+   if(kind)for(const a of s.accounts.filter(a=>a.kind===kind))rows.push({id:id+'-'+a.id,label:en?a.en:a.ar,value:new Money(a.periodMovement).negated().toFixed(4),kind:'detail',parentId:id});
+  });return rows;
+ }
+ const activities=[null,'OPERATING','INVESTING','FINANCING',null,null],icons=SOURCE_CASH_ICONS;
+ base.forEach(([label,value],index)=>{
+  const id='cash-'+index,activity=activities[index];
+  rows.push({id,label,value,kind:index===5?'total':activity?'parent':'detail',icon:icons[index]});
+  if(activity){
+   const grouped=new Map<string,{eventType:string;inflow:boolean;value:Decimal}>();
+   for(const m of s.cashMovements){if(m.activity!==activity)continue;const inflow=new Money(m.amount).gt(0),key=m.eventType+':'+(inflow?'IN':'OUT'),old=grouped.get(key);grouped.set(key,{eventType:m.eventType,inflow,value:(old?.value??new Money(0)).plus(m.amount)})}
+   const types:Record<string,[string,string]>={SETTLEMENT:['التسويات','Settlements'],ASSET_PURCHASE:['شراء الأصول','Asset purchases'],LIABILITY:['الالتزامات','Liabilities'],REVENUE:['الإيرادات','Revenue'],EXPENSE:['المصروفات','Expenses'],RECEIVABLE:['الذمم المدينة','Receivables'],PAYABLE:['الذمم الدائنة','Payables'],TRANSFER:['التحويلات','Transfers'],ADJUSTMENT:['التعديلات','Adjustments'],REVERSAL:['العكس','Reversals']};
+   for(const[key,g]of [...grouped].sort(([,a],[,b])=>Number(b.inflow)-Number(a.inflow)||a.eventType.localeCompare(b.eventType))){const type=types[g.eventType]?.[en?1:0]??(en?'Other canonical movements':'حركات مصدرية أخرى'),label=(en?(g.inflow?'Receipts — ':'Payments — '):(g.inflow?'متحصلات — ':'مدفوعات — '))+type;rows.push({id:id+'-'+key,label,value:g.value.toFixed(4),kind:'detail',parentId:id})}
+  }
+ });return rows;
+}
+export function statementSourceExport(s:StatementSourceSnapshot,view:StatementView,en:boolean):string[][]{const t=(ar:string,eng:string)=>en?eng:ar;return[[t('المصدر','Source'),s.origin],[t('المؤسسة','Organization'),s.statements.organizationId],[t('النطاق','Scope'),s.scope],[t('من','From'),s.statements.from],[t('إلى','To'),s.statements.to],[t('العملة','Currency'),s.statements.currency],[t('السياسة المعتمدة للاختبار','Test-approved policy'),s.policyId],[t('مصدر الافتتاحي','Opening source'),s.openingSourceId],[t('تنبيه','Notice'),t('بيانات اختبار محلية؛ ليست قوائم المؤسسة','Local test data; not organization financial statements')],[],[t('البند','Item'),t('الفترة الحالية','Current period')],...statementTreeRows(s,view,en).map(r=>[r.label,r.value]),[],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId])]}

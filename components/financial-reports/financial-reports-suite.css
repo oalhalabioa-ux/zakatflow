@@ -38,3 +38,18 @@
 .fs-root .fs-statement-row-label>svg{flex-shrink:0;color:#b58a35;margin:0}
 .fs-root .fs-table .fs-row-total .fs-statement-row-label>svg{color:inherit}
 @media(max-width:700px){.fs-root .fs-statement-row-label{gap:5px}.fs-root .fs-statement-row-label>svg{width:16px;height:16px}}
+
+
+/* Visible, keyboard-operable disclosure controls for statement details. */
+.fs-root .fs-table .fs-statement-group-toggle{display:flex;align-items:center;gap:6px;width:100%;min-height:28px;padding:2px 0;border:0;background:none;color:inherit;font:inherit;font-weight:700;text-align:start;cursor:pointer}
+.fs-root .fs-table .fs-statement-group-toggle:focus-visible{outline:2px solid #c6a35d;outline-offset:2px;border-radius:4px}
+.fs-root .fs-table .fs-group-chevron{display:inline-grid;place-items:center;flex-shrink:0;width:20px;height:20px;transition:transform .15s ease}
+.fs-root .fs-table .fs-statement-group-toggle .fs-group-chevron>svg{color:inherit;margin:0}
+.fs-root[dir=ltr] .fs-statement-group-toggle[aria-expanded=false] .fs-group-chevron{transform:rotate(-90deg)}
+.fs-root[dir=rtl] .fs-statement-group-toggle[aria-expanded=false] .fs-group-chevron{transform:rotate(90deg)}
+.fs-root .fs-table .fs-row-parent th{font-weight:700}
+.fs-root .fs-table .fs-row-child th .fs-statement-row-label{padding-inline-start:32px;font-weight:400}
+.fs-root .fs-statement-tree tr[hidden]{display:none!important}
+@media(max-width:700px){.fs-root .fs-table .fs-statement-group-toggle{min-height:32px}.fs-root .fs-table .fs-row-child th .fs-statement-row-label{padding-inline-start:26px}}
+@media(prefers-reduced-motion:reduce){.fs-root .fs-table .fs-group-chevron{transition:none}}
+@media print{.fs-root .fs-statement-tree tr[hidden]{display:table-row!important}.fs-root .fs-group-chevron{visibility:hidden}}
