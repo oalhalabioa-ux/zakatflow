@@ -44,14 +44,15 @@ export function statementRows(s:StatementSourceSnapshot,view:StatementView,en:bo
  for(const kind of ['ASSET','LIABILITY','EQUITY']){
   for(const[,presentation,ar,eng]of groups.filter(g=>g[0]===kind)){
    const accounts=s.accounts.filter(a=>a.kind===kind&&(kind==='EQUITY'||a.presentation===presentation));if(!accounts.length)continue;
-   rows.push([t(ar,eng),'','section']);let total=new Money(0);
+   const icon=kind==='EQUITY'?'crown':kind==='ASSET'?(presentation==='CURRENT'?'coins':presentation==='NON_CURRENT'?'building':'layers'):(presentation==='CURRENT'?'file':'layers');
+   rows.push([t(ar,eng),'','section',icon]);let total=new Money(0);
    for(const a of accounts){const n=new Money(a.balance).times(kind==='ASSET'?1:-1);total=total.plus(n);rows.push([en?a.en:a.ar,n.toFixed(4),'detail'])}
    if(kind!=='EQUITY')rows.push([t('إجمالي '+ar,'Total '+eng.toLowerCase()),total.toFixed(4),'subtotal']);
   }
-  if(kind==='ASSET')rows.push([t('إجمالي الأصول','Total assets'),p.assets,'total']);
-  if(kind==='LIABILITY')rows.push([t('إجمالي الخصوم','Total liabilities'),p.liabilities,'total']);
-  if(kind==='EQUITY')rows.push([t('ربح السنة المالية حتى التاريخ','Fiscal-year profit to date'),p.fiscalProfit,'detail'],[t('إجمالي حقوق الملكية','Total equity'),p.equity,'subtotal']);
+  if(kind==='ASSET')rows.push([t('إجمالي الأصول','Total assets'),p.assets,'total','layers']);
+  if(kind==='LIABILITY')rows.push([t('إجمالي الخصوم','Total liabilities'),p.liabilities,'total','layers']);
+  if(kind==='EQUITY')rows.push([t('ربح السنة المالية حتى التاريخ','Fiscal-year profit to date'),p.fiscalProfit,'detail'],[t('إجمالي حقوق الملكية','Total equity'),p.equity,'subtotal','crown']);
  }
- rows.push([t('إجمالي الخصوم وحقوق الملكية','Total liabilities and equity'),new Money(p.liabilities).plus(p.equity).toFixed(4),'total']);return rows;
+ rows.push([t('إجمالي الخصوم وحقوق الملكية','Total liabilities and equity'),new Money(p.liabilities).plus(p.equity).toFixed(4),'total','balance']);return rows;
 }
 export function statementSourceExport(s:StatementSourceSnapshot,view:StatementView,en:boolean):string[][]{const t=(ar:string,eng:string)=>en?eng:ar;return[[t('المصدر','Source'),s.origin],[t('المؤسسة','Organization'),s.statements.organizationId],[t('النطاق','Scope'),s.scope],[t('من','From'),s.statements.from],[t('إلى','To'),s.statements.to],[t('العملة','Currency'),s.statements.currency],[t('السياسة المعتمدة للاختبار','Test-approved policy'),s.policyId],[t('مصدر الافتتاحي','Opening source'),s.openingSourceId],[t('تنبيه','Notice'),t('بيانات اختبار محلية؛ ليست قوائم المؤسسة','Local test data; not organization financial statements')],[],[t('البند','Item'),t('الفترة الحالية','Current period')],...statementRows(s,view,en).map(r=>r.slice(0,2)),[],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId])]}

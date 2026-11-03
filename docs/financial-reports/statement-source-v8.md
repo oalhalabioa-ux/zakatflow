@@ -1,60 +1,36 @@
-# V8 — connected statement acceptance on disposable local Supabase
-
-This stage connects the income, position and cash-flow interfaces to saved canonical Financial Core events in a **synthetic, disposable local database**. It does not connect hosted/customer formal statements, approve an account policy, create a production GL or change the current sidebar. No merge/deployment approval is implied.
-
-## Read path and reconciliation
-
-`financial_statement_qa_snapshot` is a fixture-only, security-invoker RPC. A single SQL statement reads configuration, canonical events, lines, reversal links and coverage counts in the same MVCC snapshot. There is no paginated/limited ledger, stored journal table or second balance store. A 10,000-event/20,000-line limit fails closed instead of truncating data.
-
-The server uses `requireUser` and the caller's existing RLS client; active membership and `financial_core.view` are checked before and after the read. The normalized envelope validates exact decimal strings, scope, period, complete event/line counts, explicit accounts/posting rules and opening provenance before compiling journals. The shared statement engine reconciles all three statements. No service-role client is used for application reads. Context rows are reauthorized too.
-
-`lib/financial-event-ledger.ts` indexes posting rules and event identities instead of rescanning the entire mapping/event list per source line. The statement engine indexes original journals and now rejects applying a full reversal more than once under distinct journal IDs.
-
-Selected-period profit is separate from fiscal-year profit included in equity. Selected cash opening includes earlier fiscal movements. Monthly cash movement/closing is derived from the exact compiled journals, including genuine zero-movement months. Detailed position rows are derived from those same journals and opening, with explicit current/non-current presentation metadata. No missing comparison is presented as growth, no zero denominator becomes a ratio, and no indirect cash adjustments are inferred. Cash is explicitly labelled **direct** presentation.
-
-## Routes and gates
-
-`/design-preview/financial-reports/source-statements?screen=income|position|cash-flow&lang=ar|en`
-
-Requires both `FINANCIAL_REPORTS_SOURCE_QA=true` and `FINANCIAL_STATEMENTS_LOCAL_QA=true`, a strict HTTP loopback Supabase URL, and a non-Production environment. The feature is rejected on hosted Financial Core QA as well as Production. The source RPC/configuration exists only in the disposable fixture. **Do not widen these gates to imply an approved customer ledger exists.**
-
-The existing V3–V6 budget/analysis source API and its unavailable-formal-statements notice retain their behavior. The new statement route is separate so local fixture numbers cannot be combined with another institution's budget snapshot.
-
-## UI and exports
-
-The three pages reuse the current `CorporateShell`, Yaqeen styles, metric cards and chart components. Reference 08/09/02 determines the table/metric/side-panel structure. The source note and scope remain explicit. Current/non-current sections, position reconciliation, asset composition and funding bar use actual fixture projection values. Current amounts fit mobile tables; unavailable note/comparison columns are hidden there. Cash charts opt into a shared scale that includes the cumulative balance, preventing a large opening balance from pushing its line outside the plot. Other preview charts retain their default scaling behavior. Comparison columns remain unavailable until a compatible approved source exists. No fabricated sparkline or arrow is displayed.
-
-CSV and Excel include organization, period, currency, policy/opening identity, local-fixture notice and event/line/rule lineage. Excel monetary values are retained as exact strings to avoid spreadsheet numeric precision loss. Print/save-PDF uses the actual page. Changing organization/period, failure or revocation clears prior figures and disables export. Every CSV/Excel/print action reauthorizes and reloads its complete snapshot before proceeding; a cached view alone cannot authorize an export. A scope/view change during an export cancels its output. Excel is dynamically loaded only on request.
-
-Visual identity is **not declared pixel-perfect**. Differences from references include test account coverage/row count, source/scope notice, unavailable comparison and ratio, direct cash presentation, approved current sidebar, and still-pending fine typography/spacing review. Genuine screenshots and reference comparisons must be reviewed before final visual acceptance.
-
-## Local known answers
-
-Opening bank/equity 500; expense 100 plus recoverable VAT 15; gross supplier payment 115; sale/receipt 200; equipment purchase 40; financing receipt 30.
-
-| Result | Exact amount |
-| --- | --- |
-| Period and fiscal profit | 100.0000 |
-| Assets | 630.0000 |
-| Liabilities | 30.0000 |
-| Equity | 600.0000 |
-| Operating / investing / financing cash | 85.0000 / -40.0000 / 30.0000 |
-| Closing cash | 575.0000 |
-| From February: selected profit / fiscal profit | 0.0000 / 100.0000 |
-| From February: opening / net movement / closing cash | 585.0000 / -10.0000 / 575.0000 |
-
-These are explicit synthetic fixtures, not existing organization balances. A second institution has independently scoped revenue 7000 to detect leakage.
-
-## Verification boundary
-
-Final tested code: `6732203c1c36c3d688aa6b9cd4a5f0d0c401d71c`. Full unit suite **1082 tests in 191 files**, TypeScript, dependency audit/build and Quality passed. The separate Assets Integration QA workflow passed too.
-
-Genuine disposable Supabase [run 41565153300](https://github.com/oalhalabioa-ux/zakatflow/actions/runs/41565153300) passed **25 acceptance groups** with zero browser exceptions. This includes the existing budget/comparison/analysis checks and the new statement accounting, isolation, six bilingual page/export combinations, selected-period treatment, cached-view export reauthorization, incomplete mappings and permission/membership revocation. Visual checks specifically assert that mobile current amounts fit their table and that the cumulative cash polyline remains inside the plot.
-
-Artifact `13198831323`, SHA-256 `f7620f62da6c4143baa6e4ed06379c5abc5aecdcf8345d49d2e6718fcf36df81`, contains **47 files**, including 12 new statement screenshots (three pages × two languages × desktop/mobile), six exact-value XLSX files, three printed PDFs and a selected-period CSV. The full evidence also retains the earlier budget/analysis images and exports. The stack was destroyed after success. No hosted data, memberships or schema were changed.
-
-Disposable PostgreSQL WASM checks passed six groups for source completeness, RLS, denied roles, write denial, permission revocation and anonymous denial. This WASM check simulates the SQL subject; genuine Auth/PostgREST coverage comes from the workflow above. The fixture source/event/configuration schema is deliberately minimal and synthetic, not the complete deployed VAT/Core schema.
-
-## Remaining release blockers
-
-An authoritative complete opening trial balance, approved versioned organization/entity account policy and a reviewed hosted adapter are still required. Existing cash/debt register openings alone cannot establish full equity, assets, liabilities and closed income. Normalization for mixed tax recoverability, partial/cross-fiscal reversals and additional source-module classifications must be approved and tested against their actual canonical contracts. No live formal figures, formal profit cards or real-organization acceptance are claimed by this fixture implementation.
+import assert from'node:assert/strict';
+import{STATEMENT_ORG,STATEMENT_OTHER}from'./statement-source-fixture.mjs';
+/** Called only by the genuine, disposable Supabase/Next acceptance runner. */
+export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,context,check,errors}){
+ const base=app+'/api/financial-reporting/statements',query='?'+new URLSearchParams({action:'statements',organization:STATEMENT_ORG,from:'2026-01-01',to:'2026-12-31'});
+ const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+ try{
+ await check('Genuine statement RPC/API authorizes full source, isolates two institutions and reconciles all three statements',async()=>{
+  assert.equal((await fetch(base+query)).status,401);const response=await fetch(base+query,{headers:{cookie}});assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'private, no-store');const s=await response.json();assert.equal(s.statements.income.netProfit,'100.0000');assert.deepEqual(s.statements.position,{assets:'630.0000',liabilities:'30.0000',equity:'600.0000',fiscalProfit:'100.0000'});assert.equal(s.statements.cash.closing,'575.0000');assert.equal(s.cashMonths.length,12);assert.equal(s.lineage.length,7);assert.equal((await fetch(base+query.replace(STATEMENT_ORG,STATEMENT_OTHER),{headers:{cookie}})).status,403);
+  assert.ok((await viewer.client.rpc('financial_statement_qa_snapshot',{p_org:STATEMENT_ORG,p_from:'2026-01-01',p_to:'2026-12-31'})).error);const other=await b.client.rpc('financial_statement_qa_snapshot',{p_org:STATEMENT_OTHER,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(other.error);assert.ok(other.data.events.flatMap(e=>e.lines).some(l=>l.baseAmount==='7000'));assert.equal((await fetch(base,{method:'POST',headers:{cookie}})).status,405);assert.ok((await a.client.from('financial_statement_qa_configuration').update({payload:{}}).eq('organization_id',STATEMENT_ORG)).error);
+ });
+ for(const lang of['ar','en'])for(const view of['income','position','cash-flow'])await check(`Genuine statement browser, ${view}, bilingual exact XLSX, desktop/mobile ${lang}`,async()=>{
+  await page.setViewportSize({width:1672,height:941});await page.goto(app+`/design-preview/financial-reports/source-statements?screen=${view}&lang=${lang}`);await page.locator(`[data-statement-ready="${view}"]`).waitFor();assert.equal(await page.locator('.fs-source-statement-table').count(),1);assert.equal(await page.locator('.fs-change,.fs-spark').count(),0);assert.match(await page.locator('.fs-demo-note').innerText(),lang==='ar'?/ليست قوائم المؤسسة/:/not organization financial statements/);assert.equal(await page.locator('.corp-sidebar').count(),1);for(const icon of(view==='income'?['chart','layers','coins','settings','percent']:view==='position'?['coins','building','file','layers','crown','balance']:['coins','settings','chart','cashFlow','wallet']))assert.ok(await page.locator(`.fs-source-statement-table [data-report-icon="${icon}"]`).count(),`Missing statement item icon: ${view}/${icon}`);if(view==='cash-flow'){const points=await page.locator('.fs-chart-plot polyline').getAttribute('points');assert.ok(points.split(' ').every(p=>{const y=Number(p.split(',')[1]);return y>=0&&y<=230}),'Cumulative cash line must remain in chart bounds')}
+  await page.screenshot({path:`docs/financial-reports/evidence-v3/statement-${view}-${lang}-desktop.png`,fullPage:true});
+  const d=page.waitForEvent('download');await page.getByRole('button',{name:lang==='ar'?'تصدير التقرير':'Export report',exact:true}).click();await page.getByRole('button',{name:'Excel',exact:true}).click();const file=await d;await file.saveAs(`docs/financial-reports/evidence-v3/statement-${view}-${lang}.xlsx`);const ExcelJS=await import('exceljs'),book=new ExcelJS.default.Workbook();await book.xlsx.readFile(await file.path());const rows=book.worksheets[0].getSheetValues().filter(Boolean).map(r=>r.slice(1));assert.ok(rows.some(r=>r[0]===(lang==='ar'?'المؤسسة':'Organization')&&r[1]===STATEMENT_ORG));const expected=view==='income'?'100.0000':view==='position'?'630.0000':'575.0000';assert.ok(rows.some(r=>r[1]===expected));assert.ok(rows.some(r=>r.includes('LOCAL_QA_CANONICAL_EVENTS')));assert.ok(rows.flat().some(v=>String(v).startsWith('a0000000-')));assert.equal(book.worksheets[0].views[0].rightToLeft,lang==='ar');
+  if(lang==='en')await page.pdf({path:`docs/financial-reports/evidence-v3/statement-${view}-en.pdf`,format:'A4',printBackground:true});
+  await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>getComputedStyle(document.querySelector('.corp-workspace')).marginInlineStart==='0px');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.locator('.fs-source-statement-table').evaluate(el=>el.scrollWidth>el.clientWidth),false,'Current values must fit the mobile table');assert.ok(await page.locator('.fs-source-statement-table td[data-amount]').first().isVisible(),'Mobile current amount must be visible');await page.screenshot({path:`docs/financial-reports/evidence-v3/statement-${view}-${lang}-mobile.png`,fullPage:true});
+ });
+ await check('Selected-period statement API and UI preserve fiscal-year equity and genuine opening cash',async()=>{
+  const r=await fetch(base+query.replace('from=2026-01-01','from=2026-02-01'),{headers:{cookie}});assert.equal(r.status,200);const s=await r.json();assert.equal(s.statements.income.netProfit,'0.0000');assert.equal(s.statements.position.equity,'600.0000');assert.equal(s.statements.cash.opening,'585.0000');assert.equal(s.statements.cash.movement,'-10.0000');await page.setViewportSize({width:1672,height:941});await page.getByLabel('From date',{exact:true}).fill('2026-02-01');await page.locator('[data-statement-ready="cash-flow"]').waitFor();assert.match(await page.locator('.fs-metrics .fs-metric').first().innerText(),/585.00/);assert.match(await page.locator('.fs-metrics .fs-metric').nth(2).innerText(),/10.00/);
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export report',exact:true}).click();await page.getByRole('button',{name:'CSV',exact:true}).click();const f=await download;await f.saveAs('docs/financial-reports/evidence-v3/statement-cash-flow-selected-en.csv');
+ });
+ await check('Export reauthorizes a cached view and clears figures after permission revocation',async()=>{
+  let downloads=0;const count=()=>downloads++;page.on('download',count);
+  sql(`update organization_members set can_finance=false where organization_id='${STATEMENT_ORG}' and user_id='${a.id}'`);
+  await page.getByRole('button',{name:'Export report',exact:true}).click();await page.getByRole('button',{name:'Excel',exact:true}).click();await page.locator('.fs-source-error[role=alert]').waitFor();assert.equal(await page.locator('[data-statement-ready]').count(),0);assert.equal(await page.getByRole('button',{name:'Export report',exact:true}).isDisabled(),true);assert.equal(downloads,0);page.off('download',count);
+  sql(`update organization_members set can_finance=true where organization_id='${STATEMENT_ORG}' and user_id='${a.id}'`);await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.locator('[data-statement-ready="cash-flow"]').waitFor();
+ });
+ await check('Incomplete accounting mapping fails closed without substitute financial statements',async()=>{
+  const predicate=`where organization_id='${STATEMENT_ORG}'`;sql(`update financial_statement_qa_configuration set payload=jsonb_set(payload,'{policy,rules}',(select jsonb_agg(r) from jsonb_array_elements(payload->'policy'->'rules') r where r->>'id'<>'vat')) ${predicate}`);assert.equal((await fetch(base+query,{headers:{cookie}})).status,503);await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.locator('.fs-source-error[role=alert]').waitFor();assert.equal(await page.locator('[data-statement-ready]').count(),0);assert.equal(await page.getByRole('button',{name:'Export report',exact:true}).isDisabled(),true);
+ });
+ await check('Effective financial permission and membership revocation deny genuine RPC/API and clear statement UI',async()=>{
+  sql(`update organization_members set can_finance=false where organization_id='${STATEMENT_ORG}' and user_id='${a.id}'`);assert.equal((await fetch(base+query,{headers:{cookie}})).status,403);assert.ok((await a.client.rpc('financial_statement_qa_snapshot',{p_org:STATEMENT_ORG,p_from:'2026-01-01',p_to:'2026-12-31'})).error);await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByRole('heading',{name:'No authorized statement sources',exact:true}).waitFor();assert.equal(await page.locator('[data-statement-ready]').count(),0);assert.equal(await page.getByRole('button',{name:'Export report',exact:true}).isDisabled(),true);sql(`update organization_members set can_finance=true,status='INACTIVE' where organization_id='${STATEMENT_ORG}' and user_id='${a.id}'`);assert.equal((await fetch(base+query,{headers:{cookie}})).status,403);
+ });
+ }finally{await page.close()}
+}

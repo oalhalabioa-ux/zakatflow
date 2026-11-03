@@ -7,6 +7,13 @@ import './financial-reports-pilot.css';
 // Small vector UI icons; no raster reference is used in the implementation.
 export function Icon({name='chart',size=24}:{name?:string;size?:number}){
  const paths:Record<string,React.ReactNode>={
+ wallet:<><path d="M20 8V5a2 2 0 0 0-2-2H5a3 3 0 0 0-3 3v13a2 2 0 0 0 2 2h16V8H5a2 2 0 0 1 0-4"/><path d="M20 12h-5v5h5"/><circle cx="16.5" cy="14.5" r=".5"/></>,
+ bank:<><path d="m2 8 10-6 10 6H2Zm1 13h18M5 10v8m7-8v8m7-8v8M3 18h18"/></>,
+ crown:<><path d="m2 6 5 5 5-8 5 8 5-5-3 13H5ZM5 22h14"/></>,
+ balance:<><path d="M12 3v18M7 21h10M3 7h18M6 7l-4 8h8ZM18 7l-4 8h8Z"/></>,
+ truck:<><path d="M2 5h12v12H2ZM14 9h4l4 5v3h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></>,
+ tag:<><path d="M3 3h8l10 10-8 8L3 11Z"/><circle cx="7" cy="7" r="1"/></>,
+ gift:<><path d="M3 11h18v10H3ZM2 7h20v4H2Zm10 0v14"/><path d="M12 7C2 7 5-1 10 4Zm0 0c10 0 7-8 2-3Z"/></>,
  cashFlow:<><path d="M3 7h17m-5-4 5 4-5 4M21 17H4m5-4-5 4 5 4"/></>,
  chart:<><path d="M4 20V14h3v6m4 0V8h3v12m4 0V3h3v17"/></>,
  layers:<><path d="m12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></>,
@@ -26,7 +33,7 @@ export function Icon({name='chart',size=24}:{name?:string;size?:number}){
  bell:<><path d="M5 17h14l-2-4V8a5 5 0 0 0-10 0v5Zm5 4h4"/></>,
  chevron:<path d="m6 9 6 6 6-6"/>,left:<path d="m15 5-7 7 7 7"/>,menu:<path d="M3 6h18M3 12h18M3 18h18"/>,percent:<><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="m3 21 18-18"/></>,close:<path d="m5 5 14 14M19 5 5 19"/>,check:<path d="m3 12 6 6L21 5"/>,building:<><path d="M4 22V4h12v18m0-13h5v13M8 8h4m-4 5h4m-4 5h4"/></>
  };
- return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]??paths.file}</svg>;
+ return <svg data-report-icon={name} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]??paths.file}</svg>;
 }
 function Spark({red=false}:{red?:boolean}){const id=useId().replaceAll(':','');return <svg className="fr-spark" viewBox="0 0 72 38" aria-hidden="true"><defs><linearGradient id={id} x2="0" y2="1"><stop stopColor={red?'#ec5f66':'#38ba63'} stopOpacity=".2"/><stop offset="1" stopColor="white" stopOpacity="0"/></linearGradient></defs><path d="M2 30 15 24 25 15 35 22 49 16 68 7V38H2Z" fill={`url(#${id})`}/><path d="m2 30 13-6 10-9 10 7 14-6 19-9" fill="none" stroke={red?'#ed6c73':'#1dab44'} strokeWidth="1.8"/></svg>}
 const reportAR=['القوائم المالية الموحدة - الربع الثالث 2024','تقرير الأداء المالي الشهري - أكتوبر 2024','مراجعة الموازنة - 2024 (محدّث)','تقرير مؤشرات الأداء الرئيسية (KPI)'];
