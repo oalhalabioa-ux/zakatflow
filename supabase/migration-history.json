@@ -1626,6 +1626,22 @@
       "expected_md5": "4962f584a15454f4210f23f72438c2f2",
       "file_sha256": "78af082f6ea34a421a1c4ff83df88494a3d4a113aebcf4c73bacc1c029dcbf17",
       "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103150849_financial_reporting_normalization_hardening.sql",
+      "version": "20261103150849",
+      "name": "financial_reporting_normalization_hardening",
+      "expected_md5": "a9c79ee8790de15b375d370eca672a2f",
+      "file_sha256": "84aace199ae50c53cbbaa73547b612dd5ce6d94bb6a499c26121f18ecba8fed1",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103152354_financial_reporting_snapshot_consistency.sql",
+      "version": "20261103152354",
+      "name": "financial_reporting_snapshot_consistency",
+      "expected_md5": "f75f22774e6ac4dcc9e47f195800ca7f",
+      "file_sha256": "251ac0c474f24aa7c47321cbd9efc470c2162c25f09ba28575d45c70d5d77262",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
     }
   ]
 }

@@ -388,17 +388,17 @@
     {
       "category": "function",
       "object_key": "private.financial_opening_sources(p_org uuid, p_cutoff date)",
-      "fingerprint": "5ddc109277a370b7c82e9af9078bbe31"
+      "fingerprint": "4ae0268cc0be1f4b52612c3b4939bf5a"
     },
     {
       "category": "function",
       "object_key": "private.financial_reporting_events(p_org uuid, p_from date, p_to date)",
-      "fingerprint": "d87e52439a9b9dbe01af49827f6c4ccc"
+      "fingerprint": "305e9e91ce1416129fce26c23be5d3c8"
     },
     {
       "category": "function",
       "object_key": "private.financial_reporting_legacy_events(p_org uuid, p_from date, p_to date)",
-      "fingerprint": "7b9f9cbdb6bbc41d11c62e79fb14964c"
+      "fingerprint": "88f50a6a7a354881230bab2ab8c272ac"
     },
     {
       "category": "function",
@@ -413,7 +413,7 @@
     {
       "category": "function",
       "object_key": "public.financial_opening_workspace(p_org uuid, p_fiscal_start date)",
-      "fingerprint": "82a38a9ac111ab3241f8af56de000f87"
+      "fingerprint": "462f0b344fbfff703f0b5e3a29df2e9b"
     },
     {
       "category": "function",
@@ -423,17 +423,17 @@
     {
       "category": "function",
       "object_key": "public.financial_reporting_policy_workspace(p_org uuid, p_fiscal_start date)",
-      "fingerprint": "c1781b0faf3a5db3db6eb70eb01b41fc"
+      "fingerprint": "fb87f6ec7daf1310f54b45efe8022ba0"
     },
     {
       "category": "function",
       "object_key": "public.financial_statement_live_context()",
-      "fingerprint": "ec7cda1f8394c1f9eca1e93c6612c477"
+      "fingerprint": "203f8cb1085e7042ec9fb74df64be190"
     },
     {
       "category": "function",
       "object_key": "public.financial_statement_live_snapshot(p_org uuid, p_from date, p_to date)",
-      "fingerprint": "436defb7884a0b27a2bc9a56ec8e7943"
+      "fingerprint": "472186c8aff95ed19011eab0bc85d5ea"
     },
     {
       "category": "function",
