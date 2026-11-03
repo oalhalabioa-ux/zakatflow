@@ -6,6 +6,8 @@ import{mkdir,writeFile,open}from'node:fs/promises';
 import{createClient}from'@supabase/supabase-js';
 import{createServerClient}from'@supabase/ssr';
 import assert from'node:assert/strict';
+import{statementSchema,seedStatementSource}from'./statement-source-fixture.mjs';
+import{verifyStatementAcceptance}from'./verify-statement-source.mjs';
 const dir=process.env.FINANCIAL_SOURCE_WORKDIR;
 assert.ok(dir&&process.env.RUNNER_TEMP&&dir.startsWith(process.env.RUNNER_TEMP+'/'),'DISPOSABLE_RUNNER_REQUIRED');
 const status=JSON.parse(execFileSync('npx',['--yes','supabase@2.122.0','status','--workdir',dir,'--output','json'],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
@@ -16,12 +18,12 @@ async function check(name,fn){await fn();checks.push({name,status:'passed'});con
 try{
  sql(await sourceSchema());const actors=[];
  for(let i=0;i<3;i++){const client=createClient(url,status.ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}}),email=`report-source-${i}@local.test`,password=randomBytes(24).toString('base64url')+'Aa7!';const r=await client.auth.signUp({email,password});assert.ifError(r.error);assert.ok(r.data.session,'Local test requires auto-confirmation');actors.push({client,email,password,id:r.data.user.id,token:r.data.session.access_token})}
- const[a,b,viewer]=actors;sql(seedSource(a.id,b.id,viewer.id,true));
+ const[a,b,viewer]=actors;sql(seedSource(a.id,b.id,viewer.id,true));sql(statementSchema());sql(seedStatementSource(a.id,b.id,viewer.id));
  await check('Real authenticated RPC: recognized actual 100; paid gross 115; legacy 900; committed 50',async()=>{const r=await a.client.rpc('financial_budget_report',{p_plan:PLAN_A});assert.ifError(r.error);const total=k=>r.data.rows.reduce((n,row)=>n+Number(row[k]),0);assert.equal(total('actual_amount'),100);assert.equal(total('paid_settled_gross'),115);assert.equal(total('legacy_actual'),900);assert.equal(total('committed_amount'),50)});
  await check('Real PostgREST RLS and report RPC isolate two institutions',async()=>{const rows=await a.client.from('budget_plans').select('id');assert.ifError(rows.error);assert.deepEqual(rows.data.map(p=>p.id).sort(),[PLAN_A,PLAN_PRIOR].sort());assert.ok((await a.client.rpc('financial_budget_report',{p_plan:PLAN_B})).error);const own=await b.client.rpc('financial_budget_report',{p_plan:PLAN_B});assert.ifError(own.error);assert.equal(own.data.rows.reduce((n,r)=>n+Number(r.actual_amount),0),7000)});
  await check('Genuine viewer session cannot acquire access through user metadata',async()=>{assert.ifError((await viewer.client.auth.updateUser({data:{role:'platform_owner',budget_view:true}})).error);assert.ok((await viewer.client.rpc('financial_budget_report',{p_plan:PLAN_A})).error)});
  const cookies=[];const ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>cookies,setAll:cs=>{for(const c of cs){const i=cookies.findIndex(x=>x.name===c.name);if(i>=0)cookies.splice(i,1);cookies.push(c)}}}});assert.ifError((await ssr.auth.signInWithPassword({email:a.email,password:a.password})).error);
- const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_REPORTS_SOURCE_QA:'true',VERCEL_ENV:'preview'};
+ const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_REPORTS_SOURCE_QA:'true',FINANCIAL_STATEMENTS_LOCAL_QA:'true',VERCEL_ENV:'preview'};
  const build=spawn('npm',['run','build'],{env,stdio:'inherit'});assert.equal(await new Promise(resolve=>build.on('exit',resolve)),0,'Next build failed');
  const logfile=await open('/tmp/financial-source-next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',logfile.fd,logfile.fd]});
  let ready=false;for(let i=0;i<100;i++){try{const r=await fetch(app+'/design-preview/financial-reports/source');if(r.ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,300))}assert.ok(ready,'NEXT_NOT_READY');
@@ -45,6 +47,7 @@ try{
   await page.getByRole('button',{name:lang==='ar'?'تحليل الإيرادات':'Revenue analysis',exact:true}).click();await page.getByRole('status').filter({hasText:lang==='ar'?'لا توجد بنود مرتبطة':'No linked lines'}).waitFor();await page.getByRole('button',{name:lang==='ar'?'تحليل المصروفات':'Expense analysis',exact:true}).click();assert.equal(await page.getByRole('button',{name:lang==='ar'?'الربحية حسب القطاع / الفرع':'Profitability by sector / branch',exact:true}).isDisabled(),true);await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>getComputedStyle(document.querySelector('.corp-workspace')).marginInlineStart==='0px');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`docs/financial-reports/evidence-v3/source-analysis-${lang}-mobile.png`,fullPage:true});
  });
  await page.setViewportSize({width:1672,height:941});
+ await verifyStatementAcceptance({a,b,viewer,sql,app,cookie,context,check,errors});
  await check('No financial statement figures are fabricated while ledger adapter is unavailable',async()=>{await page.getByRole('button',{name:'Financial statements',exact:true}).click();assert.equal(await page.locator('.fs-source-unavailable').isVisible(),true);assert.equal(await page.locator('.fs-source-totals').count(),0)});
  await check('Current membership revocation clears UI data and rejects further API/RPC reads',async()=>{await page.getByRole('button',{name:'Budget monitoring',exact:true}).click();await page.locator('.fs-source-totals').waitFor();sql(`update public.organization_members set status='INACTIVE' where user_id='${a.id}'`);assert.ok((await a.client.rpc('financial_budget_report',{p_plan:PLAN_A})).error);assert.equal((await fetch(app+'/api/financial-reporting/source'+query,{headers:{cookie}})).status,403);await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByRole('heading',{name:'No authorized linked plans',exact:true}).waitFor();assert.equal(await page.locator('.fs-source-totals').count(),0);assert.equal(await page.getByRole('button',{name:'Export report',exact:true}).isDisabled(),true)});
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();

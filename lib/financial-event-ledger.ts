@@ -19,13 +19,15 @@ export function compileEventLedger(input:EventLedgerInput){
  const sameScope=(org:string,currency:string)=>{if(org!==input.organizationId||currency!==input.currency)throw Error('LEDGER_SCOPE_MISMATCH')};
  sameScope(policy.organizationId,policy.currency);
  const accounts=new Map(input.accounts.map(a=>[a.id,a]));
- const ruleIds=new Set<string>();
+ const ruleIds=new Set<string>(),ruleIndex=new Map<string,PostingRule[]>();
+ const ruleKey=(r:{eventType:string;sourceModule:string;classificationId:string;cashDirection:string})=>JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]);
  for(const r of policy.rules){
   sameScope(r.organizationId,r.currency);
   if(!r.id||ruleIds.has(r.id))throw Error('DUPLICATE_POSTING_RULE');ruleIds.add(r.id);
   if(!validDate(r.from)||!validDate(r.to)||r.from>r.to)throw Error('INVALID_POSTING_RULE_PERIOD');
   if(!accounts.has(r.debitAccountId)||!accounts.has(r.creditAccountId)||r.debitAccountId===r.creditAccountId)throw Error('INVALID_POSTING_ACCOUNTS');
   if(r.cashActivity&&!['OPERATING','INVESTING','FINANCING'].includes(r.cashActivity))throw Error('INVALID_CASH_ACTIVITY');
+  const key=ruleKey(r);ruleIndex.set(key,[...(ruleIndex.get(key)??[]),r]);
  }
  const ids=new Set<string>(),keys=new Set<string>(),lineIds=new Set<string>();
  for(const e of events){
@@ -46,7 +48,7 @@ export function compileEventLedger(input:EventLedgerInput){
   for(const l of e.lines){
    if(!/^\d{1,20}(\.\d{1,4})?$/.test(l.baseAmount)||!new Money(l.baseAmount).gt(0)||![1,-1].includes(l.recognitionSign))throw Error('INVALID_RECOGNITION_AMOUNT');
    if(!['NON_CASH','INFLOW','OUTFLOW'].includes(l.cashDirection))throw Error('INVALID_CASH_DIRECTION');
-   const matches=policy.rules.filter(r=>r.eventType===e.eventType&&r.sourceModule===e.sourceModule&&r.classificationId===l.classificationId&&r.cashDirection===l.cashDirection&&r.from<=e.date&&r.to>=e.date);
+   const matches=(ruleIndex.get(ruleKey({...e,...l}))??[]).filter(r=>r.from<=e.date&&r.to>=e.date);
    if(matches.length!==1)throw Error(matches.length?'AMBIGUOUS_POSTING_RULE':'POSTING_RULE_REQUIRED');
    const r=matches[0],n=new Money(l.baseAmount).toFixed(4);
    const debit=l.recognitionSign===1?r.debitAccountId:r.creditAccountId,credit=l.recognitionSign===1?r.creditAccountId:r.debitAccountId;
@@ -60,10 +62,11 @@ export function compileEventLedger(input:EventLedgerInput){
   }
   journals.push({id:e.id,organizationId:e.organizationId,currency:e.currency,date:e.date,status:'POSTED',lines,...(e.reversesEventId?{reversesJournalId:e.reversesEventId}:{})});
  }
- const reversed=new Set<string>();
+ const reversed=new Set<string>(),eligibleById=new Map(eligible.map(e=>[e.id,e])),reversalDates=new Map<string,string>();
+ for(const e of events)if(e.reversesEventId&&['ACTUAL','REVERSED'].includes(e.status))reversalDates.set(e.reversesEventId,e.date);
  for(const e of eligible){
-  if(e.reversesEventId){const original=eligible.find(o=>o.id===e.reversesEventId);if(!original||original.status!=='REVERSED'||reversed.has(original.id))throw Error('INVALID_REVERSAL_SOURCE');reversed.add(original.id)}
-  if(e.status==='REVERSED'&&!events.some(r=>r.reversesEventId===e.id&&['ACTUAL','REVERSED'].includes(r.status)&&r.date>=e.date))throw Error('REVERSAL_EVENT_REQUIRED');
+  if(e.reversesEventId){const original=eligibleById.get(e.reversesEventId);if(!original||original.status!=='REVERSED'||reversed.has(original.id))throw Error('INVALID_REVERSAL_SOURCE');reversed.add(original.id)}
+  if(e.status==='REVERSED'&&(!reversalDates.has(e.id)||reversalDates.get(e.id)!<e.date))throw Error('REVERSAL_EVENT_REQUIRED');
  }
  const source:StatementSource={...scope,journals};
  // Engine verifies opening, accounts, exact reversal and all statement reconciliations.

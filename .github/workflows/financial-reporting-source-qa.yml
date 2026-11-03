@@ -3,6 +3,14 @@ on:
   pull_request:
     paths:
       - 'app/api/financial-reporting/**'
+      - 'app/design-preview/financial-reports/source-statements/**'
+      - 'lib/financial-statement-*.ts'
+      - 'lib/financial-event-ledger.ts'
+      - 'services/financial-statement-source.ts'
+      - 'tests/financial-statement-*.test.ts'
+      - 'tests/financial-event-ledger.test.ts'
+      - 'tests/financial-reporting/statement-snapshot.json'
+      - 'scripts/financial-reports/*statement*'
       - 'app/design-preview/financial-reports/source/**'
       - 'components/financial-reports/**'
       - 'lib/financial-budget-source.ts'

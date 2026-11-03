@@ -78,3 +78,7 @@ See [source-analysis-v6.md](source-analysis-v6.md). The source route now support
 ## V7 — explicit event-to-ledger contract
 
 See [event-ledger-v7.md](event-ledger-v7.md). A pure compiler now tests canonical event lineage, explicit approved posting rules, opening provenance, VAT versus gross settlement and dated reversals against the statement engine. It is not connected to the source API and does not establish live GL availability or authorize a caller. Production and UI behavior are unchanged.
+
+## V8 — connected statements in disposable local acceptance
+
+See [statement-source-v8.md](statement-source-v8.md). A separate strictly loopback-only statement route now projects saved canonical fixture events into income, position and cash-flow views, with exact exports and source lineage. It is not hosted/customer statement integration. The current sidebar is reused, and all Production/deployment gates remain closed.
