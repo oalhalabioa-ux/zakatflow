@@ -1,5 +1,5 @@
 'use client';
-import {useId,useState} from 'react';
+import {useId,useMemo,useState} from 'react';
 import Decimal from 'decimal.js';
 import {Icon} from './FinancialReportsPilot';
 import {statementTreeRows,type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
@@ -11,8 +11,8 @@ export function StatementGroupToggle({label,icon,en,expanded,controls,onToggle}:
 }
 export default function SourceStatementTable({snapshot,view,en}:{snapshot:StatementSourceSnapshot;view:StatementView;en:boolean}){
  const[collapsed,setCollapsed]=useState<Set<string>>(()=>new Set()),prefix=useId().replaceAll(':','');
- const rows=statementTreeRows(snapshot,view,en),children=new Map<string,number[]>();
- rows.forEach((row,index)=>{if(row.parentId){const list=children.get(row.parentId)??[];list.push(index);children.set(row.parentId,list)}});
+ const rows=useMemo(()=>statementTreeRows(snapshot,view,en),[snapshot,view,en]);
+ const children=useMemo(()=>{const groups=new Map<string,number[]>();rows.forEach((row,index)=>{if(row.parentId){const list=groups.get(row.parentId)??[];list.push(index);groups.set(row.parentId,list)}});return groups},[rows]);
  const t=(ar:string,english:string)=>en?english:ar;
  function toggle(id:string){setCollapsed(previous=>{const next=new Set(previous);if(next.has(id))next.delete(id);else next.add(id);return next})}
  return <div className={'fs-table-scroll fs-source-statement-table fs-statement-tree '+(view==='position'?'fs-position-table':'')}><table className="fs-table"><caption className="fs-sr-only">{t('قائمة من أحداث اختبار محلية — المبالغ','Local test event statement — amounts in')} {snapshot.statements.currency}</caption><thead><tr><th>{t('البند','Item')}</th>{view==='position'&&<th>{t('إيضاح','Note')}</th>}<th>{t('الفترة الحالية','Current period')}</th><th>{t('الفترة السابقة','Previous period')}</th>{view==='position'&&<th>{t('التغير','Change')}</th>}<th>{t('نسبة التغير','Change %')}</th></tr></thead><tbody>{rows.map((row,index)=>{
