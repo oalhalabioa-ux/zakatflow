@@ -4,9 +4,11 @@ import Decimal from 'decimal.js';
 import CorporateShell from '../CorporateShell';
 import {Icon} from './FinancialReportsPilot';
 import {Metric} from './ReportPages';
+import SourceReportHub from './SourceReportHub';
+import {statementHubExport,STATEMENT_HUB_TITLES,type StatementHubView} from '../../lib/financial-statement-summary';
 import SourceStatementTable,{statementAmount as amount} from './SourceStatementTable';
 import {ReportCard,Donut,ComboChart} from './ReportCharts';
-import {statementSourceExport,type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
+import {type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
 import {financialSourceRowsCsv} from '../../lib/financial-budget-source';
 import './financial-reports-suite.css';
 import './financial-reporting-source.css';
@@ -14,16 +16,16 @@ import './financial-reporting-source.css';
 type Context={organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string}[];
 const Money=Decimal.clone({precision:50});
 const ratio=(a:string,b:string,percent=false)=>new Money(b).isZero()?'—':new Money(a).div(b).times(percent?100:1).toFixed(2)+(percent?'%':'');
-const titles={income:['قائمة الدخل','Income statement'],position:['قائمة المركز المالي','Statement of financial position'],'cash-flow':['قائمة التدفقات النقدية','Cash flow statement']};
-export default function FinancialStatementSource({initialView='income',initialEnglish=false}:{initialView?:StatementView;initialEnglish?:boolean}){
- const[en,setEn]=useState(initialEnglish),[view,setView]=useState<StatementView>(initialView),[context,setContext]=useState<Context>([]),[organization,setOrganization]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[snapshot,setSnapshot]=useState<StatementSourceSnapshot|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[exportOpen,setExportOpen]=useState(false),[exporting,setExporting]=useState(false);
+const titles=STATEMENT_HUB_TITLES;
+export default function FinancialStatementSource({initialView='income',initialEnglish=false}:{initialView?:StatementHubView;initialEnglish?:boolean}){
+ const[en,setEn]=useState(initialEnglish),[view,setView]=useState<StatementHubView>(initialView),[context,setContext]=useState<Context>([]),[organization,setOrganization]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[snapshot,setSnapshot]=useState<StatementSourceSnapshot|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[exportOpen,setExportOpen]=useState(false),[exporting,setExporting]=useState(false);
  const t=(ar:string,english:string)=>en?english:ar;
  useEffect(()=>{const abort=new AbortController();setSnapshot(null);setContext([]);setError('');setLoading(true);fetch('/api/financial-reporting/statements?action=context',{signal:abort.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');return r.json()}).then((rows:Context)=>{if(abort.signal.aborted)return;setContext(rows);setOrganization(rows[0]?.organizationId??'');setFrom(rows[0]?.fiscalStart??'');setTo(rows[0]?.fiscalEnd??'');setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[refresh]);
  useEffect(()=>{setSnapshot(null);if(!organization||!from||!to||!context.some(o=>o.organizationId===organization))return;const abort=new AbortController();setLoading(true);setError('');const q=new URLSearchParams({action:'statements',organization,from,to});fetch('/api/financial-reporting/statements?'+q,{signal:abort.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');return r.json()}).then((s:StatementSourceSnapshot)=>{if(abort.signal.aborted)return;if(s.origin!=='LOCAL_QA_CANONICAL_EVENTS'||s.statements.organizationId!==organization||s.statements.from!==from||s.statements.to!==to)throw Error('UNAVAILABLE');setSnapshot(s);setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[organization,from,to,context]);
  // Scope is checked during render too, so an organization/period change cannot
  // expose stale numbers or enable export before its effect clears the old result.
  const ready=snapshot&&snapshot.statements.organizationId===organization&&snapshot.statements.from===from&&snapshot.statements.to===to?snapshot:null;
- const activeKey=useRef('');activeKey.current=[organization,from,to,view,refresh].join('|');
+ const activeKey=useRef('');activeKey.current=[organization,from,to,view,en,refresh].join('|');
  const selected=context.find(o=>o.organizationId===organization);
  function changeOrganization(id:string){setSnapshot(null);const o=context.find(o=>o.organizationId===id);setOrganization(id);setFrom(o?.fiscalStart??'');setTo(o?.fiscalEnd??'')}
  function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -39,13 +41,13 @@ export default function FinancialStatementSource({initialView='income',initialEn
    if(fresh.origin!=='LOCAL_QA_CANONICAL_EVENTS'||fresh.statements.organizationId!==organization||fresh.statements.from!==from||fresh.statements.to!==to)throw Error('UNAVAILABLE');
    setSnapshot(fresh);
    if(kind==='pdf'){await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));if(activeKey.current===key)window.print();return}
-   const rows=statementSourceExport(fresh,view,en),name=`yaqeen-local-statements-${organization}-${from}-${to}-${view}`;
+   const rows=statementHubExport(fresh,view,en),name=`yaqeen-local-statements-${organization}-${from}-${to}-${view}`;
    if(kind==='csv')save(new Blob([financialSourceRowsCsv(rows)],{type:'text/csv;charset=utf-8'}),name+'.csv');
    else{const{Workbook}=await import('exceljs');if(activeKey.current!==key)return;const book=new Workbook(),sheet=book.addWorksheet(view);rows.forEach(row=>sheet.addRow(row));sheet.views=[{rightToLeft:!en}];sheet.columns.forEach((c,i)=>c.width=i===0?48:32);const bytes=await book.xlsx.writeBuffer();if(activeKey.current===key)save(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),name+'.xlsx')}
   }catch(e){if(activeKey.current===key){setSnapshot(null);setError(e instanceof Error&&['UNAUTHORIZED','DENIED','UNAVAILABLE'].includes(e.message)?e.message:'EXPORT_FAILED')}}finally{setExporting(false)}
  }
 
- const nav=<><button className="module-toggle" data-module-current="true" aria-expanded="true"><Icon/><span className="corp-label">{t('التقارير والقوائم المالية','Financial reports & statements')}</span></button><div className="corp-subnav">{(Object.keys(titles)as StatementView[]).map(id=><button key={id} aria-current={view===id?'page':undefined} onClick={()=>{setView(id);setExportOpen(false)}}><Icon name="file" size={18}/><span className="corp-label">{titles[id][en?1:0]}</span></button>)}</div></>;
+ const nav=<><button className="module-toggle" data-module-current="true" aria-expanded="true"><Icon/><span className="corp-label">{t('التقارير والقوائم المالية','Financial reports & statements')}</span></button><div className="corp-subnav">{(Object.keys(titles)as StatementHubView[]).map(id=><button key={id} aria-current={view===id?'page':undefined} onClick={()=>{setView(id);setExportOpen(false)}}><Icon name="file" size={18}/><span className="corp-label">{titles[id][en?1:0]}</span></button>)}</div></>;
  const topbar=<div className="fs-preview-topbar"><label><Icon name="building" size={19}/><select aria-label={t('المؤسسة','Organization')} value={organization} disabled={!context.length} onChange={e=>changeOrganization(e.target.value)}>{context.length?context.map(o=><option key={o.organizationId} value={o.organizationId}>{o.name}</option>):<option value="">{t('المؤسسة','Organization')}</option>}</select></label><span className="fs-topbar-note">{t('اختبار محاسبي محلي معزول','Isolated local accounting test')}</span><button onClick={()=>setEn(v=>!v)} aria-label={t('Switch to English','التبديل إلى العربية')}><Icon name="globe" size={20}/>{en?'English':'العربية'}</button></div>;
  return <div className="fs-root fs-connected fs-connected-statements" dir={en?'ltr':'rtl'} lang={en?'en':'ar'}><CorporateShell locale={en?'en':'ar'} designPreview previewTopbar={topbar} navigationExtension={nav}><div className="fs-surface" data-screen={view}>
   <header className="fs-page-header"><div><span className="fs-page-icon"><Icon name={view==='position'?'layers':'coins'} size={34}/></span><h1>{titles[view][en?1:0]}</h1><p>{t('عرض نتائج الفترة من الأحداث المحاسبية والقيود المتوازنة المرتبطة بها.','Period results from canonical accounting events and their balanced journals.')}</p></div><div className="fs-page-actions"><button disabled><Icon name="calendar" size={19}/>{t('جدولة التقارير','Schedule reports')}</button><button onClick={()=>{setSnapshot(null);setRefresh(v=>v+1)}} aria-label={t('تحديث','Refresh')}><Icon name="chart" size={18}/></button><div className="fs-export-control"><button className="fs-gold" disabled={!ready||exporting} aria-expanded={exportOpen} onClick={()=>setExportOpen(v=>!v)}><Icon name="download" size={20}/>{t('تصدير التقرير','Export report')}</button>{exportOpen&&<div className="fs-export-menu"><button disabled={!ready||exporting} onClick={()=>download('csv')}>CSV</button><button disabled={!ready||exporting} onClick={()=>download('xlsx')}>Excel</button><button disabled={!ready||exporting} onClick={()=>download('pdf')}>{t('طباعة / حفظ PDF','Print / Save PDF')}</button></div>}</div></div></header>
@@ -55,7 +57,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
   {loading&&<p role="status" className="fs-source-loading">{t('جارٍ التحقق من المصدر وتسوية القوائم…','Validating the source and reconciling statements…')}</p>}
   {error&&<div role="alert" className="fs-source-error">{error==='UNAUTHORIZED'?t('سجّل الدخول للاطلاع على المصادر المصرح بها.','Sign in to view authorized sources.'):error==='DENIED'?t('لم تعد صلاحية الاطلاع متاحة. أُخفيت الأرقام السابقة.','Access is no longer available. Previous figures have been cleared.'):error==='EXPORT_FAILED'?t('تعذر تجهيز التصدير.','Could not prepare the export.'):t('تعذر التحقق من المصدر الكامل والسياسة والأرصدة. لا تُعرض أرقام بديلة.','The complete source, policy and openings could not be verified. No substitute figures are displayed.')}</div>}
   {!loading&&!error&&!context.length&&<ReportCard title={t('لا توجد مصادر قوائم مصرح بها','No authorized statement sources')}><p>{t('لا يوجد مصدر متاح لصلاحياتك الحالية.','No source is available under your current permissions.')}</p></ReportCard>}
-  {ready&&<ConnectedStatements snapshot={ready} en={en} view={view}/>}
+  {ready&&(view==='overview'||view==='statements'||view==='kpis'?<SourceReportHub key={[organization,from,to,view].join('|')} snapshot={ready} en={en} view={view} navigate={id=>{setView(id);setExportOpen(false)}}/>:<ConnectedStatements snapshot={ready} en={en} view={view}/>)}
  </div></CorporateShell></div>;
 }
 function ConnectedStatements({snapshot:s,en,view}:{snapshot:StatementSourceSnapshot;en:boolean;view:StatementView}){

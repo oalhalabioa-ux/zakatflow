@@ -16,3 +16,15 @@
  .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(2),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(2){display:none}
  .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(3),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(3){display:table-cell}
 }
+
+.fs-source-hub>.fr-middle{order:4;margin-top:0}
+.fs-source-hub>.fr-shortcuts{order:5;margin-top:0}
+.fs-source-hub>section.fs-card{order:6}
+.fs-source-hub>section.fs-indicator-definition{order:3}
+.fs-source-hub .fs-summary-list dd{overflow-wrap:anywhere;max-width:65%}
+.fs-source-hub .fs-source-chart-empty{min-height:120px;padding:12px;text-align:center}
+.fs-source-hub .fs-metrics.seven>div{min-width:0}
+.fs-source-hub .fs-metrics.seven .fs-metric{height:100%}
+.fs-source-hub .fs-metric-number strong{max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.fs-source-hub .fs-statement-link h2{padding-inline-end:6px}
+@media(max-width:700px){.fs-source-hub .fs-metric-heading h2{white-space:normal}.fs-source-hub .fs-index-layout .fs-statement-link{min-height:200px}.fs-source-hub .fs-source-chart-empty{min-height:100px}}

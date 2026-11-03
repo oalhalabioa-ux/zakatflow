@@ -20,9 +20,9 @@ export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  // Detail rows are a view of these exact compiled journals and canonical opening,
  // never an independent balance input. Engine has already validated all rows.
  for(const r of p.opening)balance.set(r.accountId,new Money(r.debit).minus(r.credit));
- const monthly=new Map<string,{movement:Decimal;closing:Decimal}>();
+ const monthly=new Map<string,{movement:Decimal;closing:Decimal;revenue:Decimal;expenses:Decimal}>();
  const start=new Date(p.from.slice(0,7)+'-01T00:00:00Z'),end=p.to.slice(0,7);
- for(let d=start;d.toISOString().slice(0,7)<=end;d=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)))monthly.set(d.toISOString().slice(0,7),{movement:new Money(0),closing:new Money(0)});
+ for(let d=start;d.toISOString().slice(0,7)<=end;d=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)))monthly.set(d.toISOString().slice(0,7),{movement:new Money(0),closing:new Money(0),revenue:new Money(0),expenses:new Money(0)});
  const accounts=new Map(p.accounts.map(a=>[a.id,a]));
  const periodMovement=new Map(p.accounts.map(a=>[a.id,new Money(0)]));
  const eventReferences=new Map(p.events.map(e=>[e.id,{reference:e.sourceKey,eventType:e.eventType}]));
@@ -32,12 +32,14 @@ export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  for(const j of journals){
   const selected=j.date>=p.from&&j.date<=p.to,allCash=j.lines.every(l=>accounts.get(l.accountId)!.cash);
   const activityAmounts=new Map<'OPERATING'|'INVESTING'|'FINANCING',Decimal>();
-  for(const l of j.lines){const value=new Money(l.debit).minus(l.credit);balance.set(l.accountId,balance.get(l.accountId)!.plus(value));if(selected)periodMovement.set(l.accountId,periodMovement.get(l.accountId)!.plus(value));if(selected&&accounts.get(l.accountId)!.cash&&!allCash){const month=monthly.get(j.date.slice(0,7))!;month.movement=month.movement.plus(value);if(l.cashActivity)activityAmounts.set(l.cashActivity,(activityAmounts.get(l.cashActivity)??new Money(0)).plus(value))}}
+  for(const l of j.lines){const value=new Money(l.debit).minus(l.credit);balance.set(l.accountId,balance.get(l.accountId)!.plus(value));if(selected){periodMovement.set(l.accountId,periodMovement.get(l.accountId)!.plus(value));const month=monthly.get(j.date.slice(0,7))!,kind=accounts.get(l.accountId)!.kind;if(kind==='REVENUE')month.revenue=month.revenue.minus(value);else if(['COGS','OPEX','FINANCE','TAX'].includes(kind))month.expenses=month.expenses.plus(value);}if(selected&&accounts.get(l.accountId)!.cash&&!allCash){const month=monthly.get(j.date.slice(0,7))!;month.movement=month.movement.plus(value);if(l.cashActivity)activityAmounts.set(l.cashActivity,(activityAmounts.get(l.cashActivity)??new Money(0)).plus(value))}}
   for(const[activity,value]of activityAmounts)if(!value.isZero())cashMovements.push({id:j.id,reference:eventReferences.get(j.id)!.reference,eventType:eventReferences.get(j.id)!.eventType,date:j.date,activity,amount:value.toFixed(4)});
  }
  const cashMonths=[...monthly].map(([month,v])=>{runningCash=runningCash.plus(v.movement);return{month,movement:v.movement.toFixed(4),closing:runningCash.toFixed(4)}});
  if(!runningCash.eq(result.statements.cash.closing))throw Error('CASH_FLOW_UNRECONCILED');
- return{origin:p.origin,scope:p.coverage.scope,readAt:p.coverage.readAt,policyId:p.policy.id,openingSourceId:p.openingSourceId,statements:result.statements,lineage:result.lineage,accounts:p.accounts.map(a=>({...a,balance:balance.get(a.id)!.toFixed(4),periodMovement:periodMovement.get(a.id)!.toFixed(4)})),cashMonths,cashMovements};
+ const incomeMonths=[...monthly].map(([month,v])=>({month,revenue:v.revenue.toFixed(4),expenses:v.expenses.toFixed(4),netProfit:v.revenue.minus(v.expenses).toFixed(4)}));
+ if(!incomeMonths.reduce((n,m)=>n.plus(m.revenue),new Money(0)).eq(result.statements.income.revenue)||!incomeMonths.reduce((n,m)=>n.plus(m.netProfit),new Money(0)).eq(result.statements.income.netProfit))throw Error('MONTHLY_INCOME_UNRECONCILED');
+ return{origin:p.origin,scope:p.coverage.scope,readAt:p.coverage.readAt,policyId:p.policy.id,openingSourceId:p.openingSourceId,statements:result.statements,lineage:result.lineage,accounts:p.accounts.map(a=>({...a,balance:balance.get(a.id)!.toFixed(4),periodMovement:periodMovement.get(a.id)!.toFixed(4)})),cashMonths,cashMovements,incomeMonths};
 }
 export type StatementSourceSnapshot=ReturnType<typeof normalizeStatementSource>;
 export type StatementView='income'|'position'|'cash-flow';

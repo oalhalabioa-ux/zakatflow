@@ -12,6 +12,8 @@ on:
       - 'tests/financial-event-ledger.test.ts'
       - 'tests/financial-reporting/statement-snapshot.json'
       - 'scripts/financial-reports/*statement*'
+      - 'scripts/financial-reports/verify-suite.cjs'
+      - 'scripts/financial-reports/build-suite-preview.cjs'
       - 'app/design-preview/financial-reports/source/**'
       - 'components/financial-reports/**'
       - 'lib/financial-budget-source.ts'
@@ -63,11 +65,24 @@ jobs:
         run: npx --yes supabase@2.122.0 start --workdir "$FINANCIAL_SOURCE_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/financial-source-start.log" 2>&1 || { tail -40 "$RUNNER_TEMP/financial-source-start.log"; exit 1; }
       - name: Verify real authenticated source reads, isolation, exports and revocation
         run: node scripts/financial-reports/verify-source-supabase.mjs
+      - name: Verify all nine reference screens and interactions
+        env:
+          SUITE_PRODUCTION_BUILD: '1'
+        run: |
+          export CODEX_PRIMARY_RUNTIME_NODE_MODULES="$RUNNER_TEMP/report-source-browser/node_modules"
+          node scripts/financial-reports/verify-suite.cjs
+          node scripts/financial-reports/build-suite-preview.cjs docs/financial-reports/evidence-v2/nine-screen-interactive.html
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: financial-reporting-source-acceptance
           path: docs/financial-reports/evidence-v3/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: financial-reporting-nine-screen-review
+          path: docs/financial-reports/evidence-v2/
           if-no-files-found: warn
       - name: Destroy disposable stack
         if: always()

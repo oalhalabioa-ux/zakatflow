@@ -82,3 +82,14 @@ See [event-ledger-v7.md](event-ledger-v7.md). A pure compiler now tests canonica
 ## V8 — connected statements in disposable local acceptance
 
 See [statement-source-v8.md](statement-source-v8.md). A separate strictly loopback-only statement route now projects saved canonical fixture events into income, position and cash-flow views, with exact exports and source lineage. It is not hosted/customer statement integration. The current sidebar is reused, and all Production/deployment gates remain closed.
+
+
+## V9 — same-snapshot dashboard, index and indicators
+
+The strictly loopback-only statement route now accepts `screen=overview`, `statements` and `kpis`, alongside the three existing statements. Dashboard summaries, financial statement cards and KPI numerators come from the same authorized snapshot. Navigating between these views reuses that snapshot; every export still reauthorizes. The existing source gates and all hosted/Production restrictions remain unchanged.
+
+Monthly recognized revenue, total expenses and net profit are accumulated during the existing canonical-journal pass, with exact decimal reconciliation to the selected-period income statement. The chart does not substitute receipts/payments for recognized income. CSV/Excel include these monthly figures and full source lineage. Partial months cover only the selected dates.
+
+The eight KPI cards preserve the reference structure. Revenue, selected-period net margin, total-expense ratio and current ratio are calculated only from available inputs. Nonpositive ratio denominators are unavailable. EBITDA/D&A, credit sales, average receivables, burn-rate policy, targets, benchmarks and compatible prior-period source are absent from this contract; those sections remain explicitly unavailable. No synthetic growth arrows, targets, archives or budget comparisons are inserted. The dashboard's budget comparison requires an approved same-scope plan adapter; the pre-existing plan-scoped budget source stays separate rather than mixing unlike scopes.
+
+All nine design-preview screens also run through the existing browser layout/interaction suite in the disposable acceptance workflow, using four viewport sizes and both languages. This does not authorize deployment or establish real-customer GL readiness.
