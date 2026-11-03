@@ -6,6 +6,8 @@ Route: `/design-preview/financial-reports/opening-balances?lang=ar|en`. It uses 
 
 ## Preview behavior
 
+The page retains an actively edited row when its status changes under the missing filter. Export cancels if scope/view/language/input changes before completion. Fully unentered accounts show blank totals rather than a confirmed zero.
+
 All names, account codes and vouchers are synthetic examples. Nine tabs; local delta/side entry; explicit confirm-zero; search/status filters; source-detail dialog; current source, supplement and final columns; one decimal-precision account aggregation; visible incomplete count and trial-balance difference. Existing master records with balances can remain visible even when inactive. Reverse-side entries and changes to voucher-backed rows are flagged for review. The draft clears on organization change or reload; there is no localStorage or backend balance persistence.
 
 Excel contains the selected filtered detail and a separate full-scope trial-balance sheet with incomplete count. Missing balances export blank, not zero. CSV uses existing formula-injection escaping. Source and financial amounts remain exact decimal strings. Save and approval remain disabled, even if the sample trial balance is made arithmetically balanced. Tabs support arrow keys/Home/End; the phone view preserves table information in labeled row cards. Native sidebar, drawer and focus behavior are reused.
