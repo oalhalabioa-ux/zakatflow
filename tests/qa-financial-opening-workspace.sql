@@ -60,5 +60,5 @@ begin
  insert into opening_qa_results values('Revocation removes saved data access immediately',true);
  execute 'set local role postgres';
 end $$;
-select * from opening_qa_results order by name;
+select jsonb_agg(to_jsonb(t) order by name) results from opening_qa_results t;
 rollback;

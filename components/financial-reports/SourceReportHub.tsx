@@ -1,6 +1,7 @@
 'use client';
 import {useMemo,useState} from 'react';
 import Decimal from 'decimal.js';
+import {validStatementComparison,statementChange} from '../../lib/financial-statement-comparison';
 import {Icon} from './FinancialReportsPilot';
 import {Metric} from './ReportPages';
 import {ReportCard,ComboChart} from './ReportCharts';
@@ -10,21 +11,21 @@ import {statementSummary,STATEMENT_HUB_TITLES,type StatementHubView,type Stateme
 
 const Money=Decimal.clone({precision:50});
 type HubView=Exclude<StatementHubView,'income'|'position'|'cash-flow'>;
-export default function SourceReportHub({snapshot:s,en,view,navigate}:{snapshot:StatementSourceSnapshot;en:boolean;view:HubView;navigate:(view:StatementHubView)=>void}){
+export default function SourceReportHub({snapshot:s,en,view,navigate,comparison}:{snapshot:StatementSourceSnapshot;comparison?:StatementSourceSnapshot|null;en:boolean;view:HubView;navigate:(view:StatementHubView)=>void}){
  const t=(ar:string,english:string)=>en?english:ar,unit=s.statements.currency;
- const summary=useMemo(()=>statementSummary(s),[s]);
+ const summary=useMemo(()=>statementSummary(s),[s]),prior=validStatementComparison(s,comparison),previous=prior?statementSummary(prior):null;
  const monthLabels=useMemo(()=>{const format=new Intl.DateTimeFormat(en?'en':'ar',{month:'short',timeZone:'UTC'});return s.incomeMonths.map(m=>format.format(new Date(m.month+'-01T00:00:00Z')))},[s.incomeMonths,en]);
  const[definition,setDefinition]=useState<string|null>(null);
  const selected=summary.indicators.find(r=>r.id===definition);
  const empty=(ar:string,english:string)=><p className="fs-source-chart-empty">{t(ar,english)}</p>;
- const metric=(label:string,value:string,icon='coins')=><Metric key={label} label={label} value={amount(value)} unit={unit} icon={icon} change={null}/>;
+ const metric=(label:string,value:string,icon='coins',before?:string,lower=false)=><Metric key={label} label={label} value={amount(value)} unit={unit} icon={icon} change={null} trend={statementChange(value,before,lower)}/>;
  const indicators=(r:StatementIndicator)=>{
   const value=r.value===null?'—':r.format==='amount'?amount(r.value):new Money(r.value).toFixed(2)+(r.format==='percent'?'%':'x');
-  return <div key={r.id} data-indicator={r.id} data-value={r.value??''} data-available={r.value!==null}><Metric label={en?r.en:r.ar} value={value} unit={r.value!==null&&r.format==='amount'?unit:''} icon={r.icon} change={null} foot={r.value===null?r.reason?.[en?1:0]:t('من القوائم للفترة المختارة','From the selected-period statements')} click={()=>setDefinition(r.id)}/></div>;
+  return <div key={r.id} data-indicator={r.id} data-value={r.value??''} data-available={r.value!==null}><Metric label={en?r.en:r.ar} value={value} unit={r.value!==null&&r.format==='amount'?unit:''} icon={r.icon} change={null} trend={r.value!==null?statementChange(r.value,previous?.indicators.find(p=>p.id===r.id)?.value,['expense-ratio','collection-days'].includes(r.id)):undefined} foot={r.value===null?r.reason?.[en?1:0]:t('من القوائم للفترة المختارة','From the selected-period statements')} click={()=>setDefinition(r.id)}/></div>;
  };
  const margin=summary.indicators.find(r=>r.id==='net-margin')!.value;
- const overviewMetrics=<div className="fs-metrics five">{metric(t('الإيرادات','Revenue'),summary.revenue)}{metric(t('المصروفات','Expenses'),summary.expenses,'layers')}{metric(t('صافي الربح','Net profit'),summary.netProfit,'chart')}<Metric label={t('هامش الربح','Profit margin')} value={margin===null?'—':new Money(margin).toFixed(2)+'%'} icon="percent" change={null}/>{metric(t('التدفقات النقدية التشغيلية','Operating cash flow'),summary.operatingCash,'cashFlow')}</div>;
- const summaryMetrics=<div className="fs-metrics four">{metric(t('الإيرادات','Revenue'),summary.revenue)}{metric(t('صافي الربح','Net profit'),summary.netProfit,'chart')}{metric(t('إجمالي الأصول','Total assets'),summary.assets,'layers')}{metric(t('النقد وما في حكمه','Cash & equivalents'),summary.closingCash)}</div>;
+ const overviewMetrics=<div className="fs-metrics five">{metric(t('الإيرادات','Revenue'),summary.revenue,'coins',previous?.revenue)}{metric(t('المصروفات','Expenses'),summary.expenses,'layers',previous?.expenses,true)}{metric(t('صافي الربح','Net profit'),summary.netProfit,'chart',previous?.netProfit)}<Metric label={t('هامش الربح','Profit margin')} value={margin===null?'—':new Money(margin).toFixed(2)+'%'} icon="percent" change={null} trend={margin!==null?statementChange(margin,previous?.indicators.find(r=>r.id==='net-margin')?.value):undefined}/>{metric(t('التدفقات النقدية التشغيلية','Operating cash flow'),summary.operatingCash,'cashFlow',previous?.operatingCash)}</div>;
+ const summaryMetrics=<div className="fs-metrics four">{metric(t('الإيرادات','Revenue'),summary.revenue,'coins',previous?.revenue)}{metric(t('صافي الربح','Net profit'),summary.netProfit,'chart',previous?.netProfit)}{metric(t('إجمالي الأصول','Total assets'),summary.assets,'layers',previous?.assets)}{metric(t('النقد وما في حكمه','Cash & equivalents'),summary.closingCash,'coins',previous?.closingCash)}</div>;
  const safe=(values:string[])=>values.every(v=>new Money(v).abs().lte(Number.MAX_SAFE_INTEGER));
  const performance=safe(s.incomeMonths.flatMap(m=>[m.revenue,m.expenses,m.netProfit]))?<ComboChart en={en} includeLineInScale labels={monthLabels} first={s.incomeMonths.map(m=>Number(m.revenue))} second={s.incomeMonths.map(m=>Number(m.expenses))} line={s.incomeMonths.map(m=>Number(m.netProfit))} names={[t('الإيرادات','Revenue'),t('المصروفات','Expenses'),t('صافي الربح','Net profit')]} unit={unit}/>:empty('القيم الدقيقة متاحة في الجدول والتصدير.','Exact amounts are available in the table and export.');
  const reports=<><p className="fs-muted">{t('لا توجد تقارير مؤرشفة في هذا المصدر. افتح القوائم الحالية أو صدّر الفترة المختارة.','This source has no archived reports. Open the current statements or export the selected period.')}</p><div className="fs-recent">{(['income','position','cash-flow']as const).map(id=><button key={id} onClick={()=>navigate(id)}><Icon name="file" size={20}/><b>{STATEMENT_HUB_TITLES[id][en?1:0]}</b><Icon name="left" size={16}/></button>)}</div></>;

@@ -40,5 +40,5 @@ begin
  begin perform public.approve_financial_opening((w->>'id')::uuid,2);raise exception 'unbalanced accepted';exception when others then if sqlerrm<>'OPENING_UNBALANCED' then raise;end if;end;
  insert into opening_source_checks values('An unbalanced opening is rejected without a suspense or equity plug',true);
 end $$;
-select * from opening_source_checks order by name;
+select jsonb_agg(to_jsonb(t) order by name) results from opening_source_checks t;
 rollback;

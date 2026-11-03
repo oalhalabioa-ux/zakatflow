@@ -1,3 +1,4 @@
+import {validStatementComparison,statementChange} from './financial-statement-comparison';
 import Decimal from 'decimal.js';
 import {statementSourceExport,type StatementSourceSnapshot,type StatementView} from './financial-statement-source';
 
@@ -27,13 +28,14 @@ export function statementSummary(s:StatementSourceSnapshot){
  return{revenue:i.revenue,netProfit:i.netProfit,expenses,assets:p.assets,liabilities:p.liabilities,equity:p.equity,closingCash:c.closing,operatingCash:c.operating,currentAssets:currentAssets.toFixed(4),currentLiabilities:currentLiabilities.toFixed(4),indicators};
 }
 
-export function statementHubExport(s:StatementSourceSnapshot,view:StatementHubView,en:boolean):string[][]{
- if(view==='income'||view==='position'||view==='cash-flow')return statementSourceExport(s,view,en);
- const t=(ar:string,english:string)=>en?english:ar,summary=statementSummary(s),base=statementSourceExport(s,'income',en);
+export function statementHubExport(s:StatementSourceSnapshot,view:StatementHubView,en:boolean,comparison?:StatementSourceSnapshot|null):string[][]{
+ if(view==='income'||view==='position'||view==='cash-flow')return statementSourceExport(s,view,en,comparison);
+ const t=(ar:string,english:string)=>en?english:ar,summary=statementSummary(s),base=statementSourceExport(s,'income',en,comparison);
  const rows=base.slice(0,base.findIndex(r=>r.length===0));
  rows.push([t('التقرير','Report'),STATEMENT_HUB_TITLES[view][en?1:0]],[],[t('المؤشر','Indicator'),t('القيمة','Value'),t('الحالة','Status'),t('الصيغة والتفسير','Formula and explanation')]);
  if(view==='kpis')for(const r of summary.indicators)rows.push([en?r.en:r.ar,r.value??'',r.value===null?t('غير متاح','Unavailable'):t('متاح','Available'),r.formula[en?1:0]+(r.value===null?' '+r.reason?.[en?1:0]:'')]);
  else for(const [label,value]of(view==='overview'?[[t('الإيرادات','Revenue'),summary.revenue],[t('المصروفات','Expenses'),summary.expenses],[t('صافي الربح','Net profit'),summary.netProfit],[t('هامش الربح %','Profit margin %'),summary.indicators.find(r=>r.id==='net-margin')!.value??''],[t('التدفقات النقدية التشغيلية','Operating cash flow'),summary.operatingCash]]:[[t('الإيرادات','Revenue'),summary.revenue],[t('صافي الربح','Net profit'),summary.netProfit],[t('إجمالي الأصول','Total assets'),summary.assets],[t('إجمالي الخصوم','Total liabilities'),summary.liabilities],[t('حقوق الملكية','Equity'),summary.equity],[t('النقد الختامي','Closing cash'),summary.closingCash]]))rows.push([label,value,value===''?t('غير متاح','Unavailable'):t('متاح','Available'),value===''?t('المقام صفر أو سالب.','The denominator is zero or negative.'):'']);
+ const prior=validStatementComparison(s,comparison);if(prior){const before=statementSummary(prior);rows.push([],[t('مقارنة الفترة','Period comparison'),prior.statements.from,prior.statements.to],[t('البند','Item'),t('الحالي','Current'),t('السابق','Previous'),t('التغير %','Change %')]);for(const [ar,english,key] of [['الإيرادات','Revenue','revenue'],['المصروفات','Expenses','expenses'],['صافي الربح','Net profit','netProfit'],['الأصول','Assets','assets'],['النقد','Cash','closingCash']] as const)rows.push([t(ar,english),summary[key],before[key],statementChange(summary[key],before[key])?.percentage??''])}
  const cashByMonth=new Map(s.cashMonths.map(m=>[m.month,m.closing]));
  rows.push([],[t('الشهر','Month'),t('الإيرادات','Revenue'),t('المصروفات','Expenses'),t('صافي الربح','Net profit'),t('النقد الختامي','Closing cash')],...s.incomeMonths.map(m=>[m.month,m.revenue,m.expenses,m.netProfit,cashByMonth.get(m.month)??'']));
  rows.push([],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId]));
