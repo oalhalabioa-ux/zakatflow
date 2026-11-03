@@ -9,7 +9,7 @@ export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,conte
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  async function verifyCellSpacing(view,lang,size){
   if(view!=='income'&&view!=='position')return;
-  const metrics=await page.locator('.fs-source-statement-table .fs-row-section td[data-amount]').first().evaluate(el=>{const c=getComputedStyle(el);return{paddingTop:c.paddingTop,paddingBottom:c.paddingBottom,paddingLeft:c.paddingLeft,paddingRight:c.paddingRight,fontSize:c.fontSize,lineHeight:c.lineHeight}});
+  const metrics=await page.locator('.fs-source-statement-table .fs-row-detail td[data-amount]').first().evaluate(el=>{const c=getComputedStyle(el);return{paddingTop:c.paddingTop,paddingBottom:c.paddingBottom,paddingLeft:c.paddingLeft,paddingRight:c.paddingRight,fontSize:c.fontSize,lineHeight:c.lineHeight}});
   const key=lang+':'+size;
   if(view==='income')incomeCellMetrics.set(key,metrics);
   else{assert.deepEqual(metrics,incomeCellMetrics.get(key),'Position cells must match income spacing and type scale on '+key);assert.ok(Number.parseFloat(metrics.paddingTop)>=6,'Position rows must not use the old compressed spacing')}
