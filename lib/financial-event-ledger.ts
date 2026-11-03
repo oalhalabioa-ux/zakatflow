@@ -25,7 +25,7 @@ export function compileEventLedger(input:EventLedgerInput){
   sameScope(r.organizationId,r.currency);
   if(!r.id||ruleIds.has(r.id))throw Error('DUPLICATE_POSTING_RULE');ruleIds.add(r.id);
   if(!validDate(r.from)||!validDate(r.to)||r.from>r.to)throw Error('INVALID_POSTING_RULE_PERIOD');
-  if(!accounts.has(r.debitAccountId)||!accounts.has(r.creditAccountId)||r.debitAccountId===r.creditAccountId)throw Error('INVALID_POSTING_ACCOUNTS');
+  if(!accounts.has(r.debitAccountId)||!accounts.has(r.creditAccountId)||r.debitAccountId===r.creditAccountId&&(!accounts.get(r.debitAccountId)?.cash||r.cashDirection==='NON_CASH'))throw Error('INVALID_POSTING_ACCOUNTS');
   if(r.cashActivity&&!['OPERATING','INVESTING','FINANCING'].includes(r.cashActivity))throw Error('INVALID_CASH_ACTIVITY');
   const key=ruleKey(r);ruleIndex.set(key,[...(ruleIndex.get(key)??[]),r]);
  }

@@ -20,7 +20,11 @@ try{
  const actors=[];
  for(let i=0;i<3;i++){const client=createClient(url,status.ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}}),email=`opening-${i}@local.test`,password=randomBytes(24).toString('base64url')+'Aa7!';const r=await client.auth.signUp({email,password});assert.ifError(r.error);assert.ok(r.data.session);actors.push({client,email,password,id:r.data.user.id})}
  const[a,b,viewer]=actors,org='b1000000-0000-4000-8000-000000000001',other='b1000000-0000-4000-8000-000000000002',cash='b2000000-0000-4000-8000-000000000001',customer='b3000000-0000-4000-8000-000000000001';
- sql(`insert into public.organizations(id,owner_user_id,name) values('${org}','${a.id}','Opening test A'),('${other}','${b.id}','Opening test B');
+ sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
+ insert into public.organizations(id,owner_user_id,name) values('${org}','${a.id}','Opening test A');
+ select set_config('request.jwt.claim.sub','${b.id}',false);
+ insert into public.organizations(id,owner_user_id,name) values('${other}','${b.id}','Opening test B');
+ select set_config('request.jwt.claim.sub','${a.id}',false);
  insert into public.organization_members(organization_id,user_id,role,status) values('${org}','${a.id}','OWNER','ACTIVE'),('${other}','${b.id}','OWNER','ACTIVE'),('${org}','${viewer.id}','VIEWER','ACTIVE') on conflict(organization_id,user_id) do update set role=excluded.role,status='ACTIVE';
  insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata) values('${cash}','${org}','الحساب البنكي الرئيسي','BANK','SAR',500,500,'${a.id}','{"opening_date":"2025-12-31","opening_balance":500,"opening_fx_rate":1}');
  insert into public.liquidity_counterparties(id,organization_id,name,party_type,created_by) values('${customer}','${org}','عميل بلا رصيد افتتاحي','CUSTOMER','${a.id}');`);

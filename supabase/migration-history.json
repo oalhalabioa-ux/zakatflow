@@ -1594,6 +1594,38 @@
       "expected_md5": "a0447344c7c9f8f112d6cb237b3bc4d7",
       "file_sha256": "889cd65a6ae851434114708e199acda0898e55a348e268e30d45fc792fe755f4",
       "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103145218_financial_opening_reference_indexes.sql",
+      "version": "20261103145218",
+      "name": "financial_opening_reference_indexes",
+      "expected_md5": "2ba1db22c20bd4b291c8fcd92bf93959",
+      "file_sha256": "73b9abbd2c3175c5802b6dd6272bd0e04ff7367eb2e921a6eeeb6b7a4e53b28d",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103145436_financial_reporting_cash_controls.sql",
+      "version": "20261103145436",
+      "name": "financial_reporting_cash_controls",
+      "expected_md5": "e95bf2ecd92114de63d0dda11386010a",
+      "file_sha256": "7883a3df72ba7133f173cf7154218b1e2c4b796c261b58af5608b2c9f49cca8e",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103145559_financial_opening_entitlement_guards.sql",
+      "version": "20261103145559",
+      "name": "financial_opening_entitlement_guards",
+      "expected_md5": "e315bc67a917857b1d762f088fa22152",
+      "file_sha256": "667674d1f53dfdae0a0aa65b17573f4e4aa92e014bda9acb160ab8ba592512ea",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261103145716_financial_opening_entitlement_permissions.sql",
+      "version": "20261103145716",
+      "name": "financial_opening_entitlement_permissions",
+      "expected_md5": "4962f584a15454f4210f23f72438c2f2",
+      "file_sha256": "78af082f6ea34a421a1c4ff83df88494a3d4a113aebcf4c73bacc1c029dcbf17",
+      "validation_project": "Financial Core QA; additive feature, not yet applied to Production"
     }
   ]
 }

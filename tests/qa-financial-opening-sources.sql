@@ -3,7 +3,8 @@ create temporary table opening_source_checks(name text,passed boolean);
 do $$
 declare u uuid:=gen_random_uuid();o uuid:=gen_random_uuid();asset uuid:=gen_random_uuid();bank uuid:=gen_random_uuid();cp uuid:=gen_random_uuid();root uuid:=gen_random_uuid();application uuid:=gen_random_uuid();ob uuid:=gen_random_uuid();book jsonb;s jsonb;w jsonb;e jsonb;
 begin
- insert into auth.users(id,email) values(u,'opening-sources-'||u||'@example.invalid');
+ insert into auth.users(id,email,email_confirmed_at) values(u,'opening-sources-'||u||'@example.invalid',now());
+ perform set_config('request.jwt.claim.sub',u::text,true);
  insert into public.organizations(id,owner_user_id,name) values(o,u,'Opening source rollback QA');
  insert into public.organization_members(organization_id,user_id,role,status) values(o,u,'OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';
  perform set_config('request.jwt.claim.sub',u::text,true);

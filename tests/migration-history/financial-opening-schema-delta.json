@@ -378,7 +378,7 @@
     {
       "category": "function",
       "object_key": "private.financial_opening_can(p_org uuid, p_permission text)",
-      "fingerprint": "4523c624bb3ed03110936418a94d44ee"
+      "fingerprint": "068de6e68a77f7b5635baf3cd09a00f3"
     },
     {
       "category": "function",
@@ -433,7 +433,7 @@
     {
       "category": "function",
       "object_key": "public.financial_statement_live_snapshot(p_org uuid, p_from date, p_to date)",
-      "fingerprint": "e7404c280466b3e204fe4f7d581a5ceb"
+      "fingerprint": "436defb7884a0b27a2bc9a56ec8e7943"
     },
     {
       "category": "function",
@@ -443,7 +443,12 @@
     {
       "category": "function",
       "object_key": "public.save_financial_reporting_policy(p_org uuid, p_fiscal_start date, p_expected_version integer, p_rules jsonb, p_reason text)",
-      "fingerprint": "91b64f25ce0d16c65e6b9cf341a69162"
+      "fingerprint": "2cd4570115bf876060079beba5f83f8c"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_opening_audit.financial_opening_audit_actor_fk",
+      "fingerprint": "dfaa9b22f38c10954fd1edaaabcb8388"
     },
     {
       "category": "index",
@@ -454,6 +459,21 @@
       "category": "index",
       "object_key": "public.financial_opening_audit.financial_opening_audit_pkey",
       "fingerprint": "e71c280afd55eef3a5adaaab05509e87"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_opening_audit.financial_opening_audit_workspace_fk",
+      "fingerprint": "227ec7a7dfb42094e181efc451db329f"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_opening_workspaces.financial_opening_approved_by_fk",
+      "fingerprint": "b2695f486658eedcec027e089920aab5"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_opening_workspaces.financial_opening_created_by_fk",
+      "fingerprint": "59c709cc8deaa7fd4664f0e1f5949a5c"
     },
     {
       "category": "index",
@@ -472,6 +492,11 @@
     },
     {
       "category": "index",
+      "object_key": "public.financial_opening_workspaces.financial_opening_updated_by_fk",
+      "fingerprint": "9e2bfaf7617e2b7eec57f49a240049ca"
+    },
+    {
+      "category": "index",
       "object_key": "public.financial_opening_workspaces.financial_opening_workspaces_pkey",
       "fingerprint": "3a5ca20280286e2d2128a2f4ba845384"
     },
@@ -479,6 +504,21 @@
       "category": "index",
       "object_key": "public.financial_reporting_policies.financial_reporting_policies_pkey",
       "fingerprint": "8c0275ad466334fd07c5b7193eff4b6e"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_reporting_policies.financial_reporting_policy_approved_fk",
+      "fingerprint": "83ba1e266554912928d29f79acd8ce39"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_reporting_policies.financial_reporting_policy_created_fk",
+      "fingerprint": "277b8c3083c1ca5813f511d842059a27"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_reporting_policies.financial_reporting_policy_updated_fk",
+      "fingerprint": "058f49d8e148ebb0db7f8faa2e2e45d6"
     },
     {
       "category": "index",
@@ -492,8 +532,18 @@
     },
     {
       "category": "index",
+      "object_key": "public.financial_reporting_policy_audit.financial_reporting_policy_audit_actor_fk",
+      "fingerprint": "2268ecb5e371b538ab3f799bd08325f8"
+    },
+    {
+      "category": "index",
       "object_key": "public.financial_reporting_policy_audit.financial_reporting_policy_audit_pkey",
       "fingerprint": "bccebad2c149d9657cd0cee9d2dc490b"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_reporting_policy_audit.financial_reporting_policy_audit_policy_fk",
+      "fingerprint": "efe9ffe180c280041e69b28c1e728393"
     },
     {
       "category": "index",
@@ -539,6 +589,26 @@
       "category": "rls",
       "object_key": "public.financial_reporting_policy_audit",
       "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_opening_workspaces.subscription_write_guard",
+      "fingerprint": "25e8ad572702d2af4f3b01e947e5119d"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_opening_audit.subscription_write_guard",
+      "fingerprint": "7357c0c1834eafec74f0538643aa8b45"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_reporting_policies.subscription_write_guard",
+      "fingerprint": "135d7b40cde26ca0705b3c7260580e75"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_reporting_policy_audit.subscription_write_guard",
+      "fingerprint": "9eacdb43c1e0001799d43e0d6de91815"
     }
   ],
   "removals": []

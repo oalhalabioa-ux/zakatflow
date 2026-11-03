@@ -7,8 +7,12 @@ do $$
 declare u uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid();o uuid:=gen_random_uuid();other_org uuid:=gen_random_uuid();cash uuid:=gen_random_uuid();party uuid:=gen_random_uuid();
  s jsonb;w jsonb;e jsonb;approved jsonb;denied boolean;cls uuid:=gen_random_uuid();taxcls uuid:=gen_random_uuid();revcls uuid:=gen_random_uuid();invoice uuid:=gen_random_uuid();sale uuid:=gen_random_uuid();payment uuid:=gen_random_uuid();policy jsonb;rules jsonb;snap jsonb;
 begin
- insert into auth.users(id,email) values(u,'opening-rollback-'||u||'@example.invalid'),(outsider,'opening-rollback-'||outsider||'@example.invalid');
- insert into public.organizations(id,owner_user_id,name) values(o,u,'Opening rollback QA'),(other_org,outsider,'Other rollback QA');
+ insert into auth.users(id,email,email_confirmed_at) values(u,'opening-rollback-'||u||'@example.invalid',now()),(outsider,'opening-rollback-'||outsider||'@example.invalid',now());
+ perform set_config('request.jwt.claim.sub',u::text,true);
+ insert into public.organizations(id,owner_user_id,name) values(o,u,'Opening rollback QA');
+ perform set_config('request.jwt.claim.sub',outsider::text,true);
+ insert into public.organizations(id,owner_user_id,name) values(other_org,outsider,'Other rollback QA');
+ perform set_config('request.jwt.claim.sub',u::text,true);
  insert into public.organization_members(organization_id,user_id,role,status) values(o,u,'OWNER','ACTIVE'),(other_org,outsider,'OWNER','ACTIVE')
  on conflict(organization_id,user_id) do update set role=excluded.role,status='ACTIVE';
  insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)

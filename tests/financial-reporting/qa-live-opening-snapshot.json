@@ -66,12 +66,12 @@
         "events": [],
         "origin": "LIVE_CANONICAL_EVENTS",
         "policy": {
-          "id": "aa6d910d-c20e-4e55-8a88-12095a7659a5",
+          "id": "5a9ef0d3-fee9-4fc8-8ee4-8c7ced0c8f82",
           "rules": [],
           "currency": "SAR",
-          "approvedAt": "2026-11-03T14:35:58.376665+00:00",
-          "approvedBy": "4010a452-7419-48a5-bcf8-5f97d2384ebc",
-          "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+          "approvedAt": "2026-11-03T14:54:38.179653+00:00",
+          "approvedBy": "c07c277a-c3db-4b77-9fe7-53a1eedf4c6e",
+          "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
         },
         "opening": [
           {
@@ -110,7 +110,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الذمم المدينة",
@@ -121,7 +121,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "قروض مدينة",
@@ -132,7 +132,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "السلف والدفعات المقدمة",
@@ -143,7 +143,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "ضريبة مدخلات قابلة للاسترداد",
@@ -154,7 +154,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الأصول الثابتة",
@@ -165,7 +165,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "مجمع الإهلاك",
@@ -176,7 +176,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الاستثمارات",
@@ -187,7 +187,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "المخزون",
@@ -198,7 +198,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "أصول متداولة أخرى",
@@ -209,7 +209,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الذمم الدائنة",
@@ -220,7 +220,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "القروض الدائنة",
@@ -231,7 +231,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "مصروفات والتزامات مستحقة",
@@ -242,7 +242,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "دفعات مقدمة من العملاء",
@@ -253,7 +253,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "ضريبة المخرجات",
@@ -264,7 +264,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "رأس المال",
@@ -275,7 +275,7 @@
             "kind": "EQUITY",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الاحتياطيات",
@@ -286,7 +286,7 @@
             "kind": "EQUITY",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الأرباح المحتجزة",
@@ -297,7 +297,7 @@
             "kind": "EQUITY",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الإيرادات",
@@ -308,7 +308,7 @@
             "kind": "REVENUE",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "تكلفة المبيعات",
@@ -319,7 +319,7 @@
             "kind": "COGS",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "المصروفات التشغيلية",
@@ -330,7 +330,7 @@
             "kind": "OPEX",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "مصروف الإهلاك",
@@ -341,7 +341,7 @@
             "kind": "OPEX",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "تكاليف التمويل",
@@ -352,7 +352,7 @@
             "kind": "FINANCE",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الزكاة والضريبة",
@@ -363,12 +363,15 @@
             "kind": "TAX",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           }
         ],
+        "controls": {
+          "cashClosing": "500.0000"
+        },
         "coverage": {
           "scope": "ORGANIZATION_ALL_ENTITIES",
-          "readAt": "2026-11-03T14:35:58.376665+00:00",
+          "readAt": "2026-11-03T14:54:38.179653+00:00",
           "complete": true,
           "lineCount": 0,
           "eventCount": 0
@@ -376,8 +379,8 @@
         "currency": "SAR",
         "fiscalStart": "2026-01-01",
         "openingDate": "2025-12-31",
-        "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9",
-        "openingSourceId": "4d255f58-2f7a-45bd-8071-09d54729dd19"
+        "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc",
+        "openingSourceId": "5dad94dd-b284-48ad-8a56-bc612ebd3642"
       }
     },
     {
@@ -387,29 +390,29 @@
         "from": "2026-01-01",
         "events": [
           {
-            "id": "fb2b6647-1cf4-48c9-be7b-47a89b7d6868",
+            "id": "01d18b6e-23d2-4c05-b97e-8a373bb3de58",
             "date": "2026-02-01",
             "lines": [
               {
-                "id": "323a98be-60a1-4bf0-a822-932da4b8c860:NET_RECOGNITION",
+                "id": "2eff9f99-8f4b-48a5-b490-7ebcfc9f134f:NET_RECOGNITION",
                 "baseAmount": "100.0000",
                 "cashDirection": "NON_CASH",
                 "recognitionSign": 1,
-                "classificationId": "0d616d43-001c-41c1-9113-bd44e8cb435e:NET_RECOGNITION"
+                "classificationId": "c9f3adcb-1004-4c84-b040-b78d1ae678a2:NET_RECOGNITION"
               },
               {
-                "id": "9f9cf52a-52bc-43c5-886a-efa9509f7882:INPUT_VAT_NONRECOVERABLE",
+                "id": "ad22658e-baee-4415-8fca-c4227de53b00:INPUT_VAT_NONRECOVERABLE",
                 "baseAmount": "7.5000",
                 "cashDirection": "NON_CASH",
                 "recognitionSign": 1,
-                "classificationId": "ac43994a-3c4b-4594-90b6-0eabcd332b38:INPUT_VAT_NONRECOVERABLE"
+                "classificationId": "8a52ade4-6ed0-464c-a276-f6dbe0cc2e15:INPUT_VAT_NONRECOVERABLE"
               },
               {
-                "id": "9f9cf52a-52bc-43c5-886a-efa9509f7882:INPUT_VAT_RECOVERABLE",
+                "id": "ad22658e-baee-4415-8fca-c4227de53b00:INPUT_VAT_RECOVERABLE",
                 "baseAmount": "7.5000",
                 "cashDirection": "NON_CASH",
                 "recognitionSign": 1,
-                "classificationId": "ac43994a-3c4b-4594-90b6-0eabcd332b38:INPUT_VAT_RECOVERABLE"
+                "classificationId": "8a52ade4-6ed0-464c-a276-f6dbe0cc2e15:INPUT_VAT_RECOVERABLE"
               }
             ],
             "status": "ACTUAL",
@@ -417,18 +420,18 @@
             "eventType": "EXPENSE",
             "sourceKey": "qa-invoice",
             "sourceModule": "REPORTING_QA",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
-            "id": "832a2a22-f483-4770-8d75-8e0d7ef108f8",
+            "id": "15f3f681-dbd6-4663-82c5-8a807f693f43",
             "date": "2026-03-01",
             "lines": [
               {
-                "id": "f3d5f0c0-4556-4d1a-b689-83659bf844ea:BASE",
+                "id": "b4fd4a9b-c71b-46a8-9e19-54c23765daa0:BASE",
                 "baseAmount": "50.0000",
                 "cashDirection": "NON_CASH",
                 "recognitionSign": 1,
-                "classificationId": "d067174c-0161-4136-aaad-6e70beae609e:BASE"
+                "classificationId": "0afb88b4-a6f2-4b5b-b689-b0d6aea0c588:BASE"
               }
             ],
             "status": "ACTUAL",
@@ -436,18 +439,18 @@
             "eventType": "REVENUE",
             "sourceKey": "qa-sale",
             "sourceModule": "REPORTING_QA",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
-            "id": "6bbe58a2-ec0b-46bd-96a1-4ad143c571c5",
+            "id": "6c6395a2-43a0-4cdb-94f9-f87c5c181a64",
             "date": "2026-04-01",
             "lines": [
               {
-                "id": "31bb6fd8-a06a-4f67-af0c-e8649564c42e:BASE",
+                "id": "890ef775-bae9-4d9d-a83a-f84f049c7541:BASE",
                 "baseAmount": "115.0000",
                 "cashDirection": "OUTFLOW",
                 "recognitionSign": 1,
-                "classificationId": "0d616d43-001c-41c1-9113-bd44e8cb435e:BASE"
+                "classificationId": "c9f3adcb-1004-4c84-b040-b78d1ae678a2:BASE"
               }
             ],
             "status": "ACTUAL",
@@ -455,15 +458,15 @@
             "eventType": "SETTLEMENT",
             "sourceKey": "qa-payment",
             "sourceModule": "REPORTING_QA",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           }
         ],
         "origin": "LIVE_CANONICAL_EVENTS",
         "policy": {
-          "id": "69b9d1f6-9e60-4f2d-8284-777e50492726",
+          "id": "b525e714-1ec6-48a8-864b-4a87daf62c14",
           "rules": [
             {
-              "id": "69b9d1f6-9e60-4f2d-8284-777e50492726:1",
+              "id": "b525e714-1ec6-48a8-864b-4a87daf62c14:1",
               "to": "2026-12-31",
               "from": "2026-01-01",
               "currency": "SAR",
@@ -471,12 +474,12 @@
               "sourceModule": "REPORTING_QA",
               "cashDirection": "NON_CASH",
               "debitAccountId": "6100",
-              "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9",
+              "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc",
               "creditAccountId": "2100",
-              "classificationId": "0d616d43-001c-41c1-9113-bd44e8cb435e:NET_RECOGNITION"
+              "classificationId": "c9f3adcb-1004-4c84-b040-b78d1ae678a2:NET_RECOGNITION"
             },
             {
-              "id": "69b9d1f6-9e60-4f2d-8284-777e50492726:2",
+              "id": "b525e714-1ec6-48a8-864b-4a87daf62c14:2",
               "to": "2026-12-31",
               "from": "2026-01-01",
               "currency": "SAR",
@@ -484,12 +487,12 @@
               "sourceModule": "REPORTING_QA",
               "cashDirection": "NON_CASH",
               "debitAccountId": "1400",
-              "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9",
+              "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc",
               "creditAccountId": "2100",
-              "classificationId": "ac43994a-3c4b-4594-90b6-0eabcd332b38:INPUT_VAT_RECOVERABLE"
+              "classificationId": "8a52ade4-6ed0-464c-a276-f6dbe0cc2e15:INPUT_VAT_RECOVERABLE"
             },
             {
-              "id": "69b9d1f6-9e60-4f2d-8284-777e50492726:3",
+              "id": "b525e714-1ec6-48a8-864b-4a87daf62c14:3",
               "to": "2026-12-31",
               "from": "2026-01-01",
               "currency": "SAR",
@@ -497,12 +500,12 @@
               "sourceModule": "REPORTING_QA",
               "cashDirection": "NON_CASH",
               "debitAccountId": "6100",
-              "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9",
+              "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc",
               "creditAccountId": "2100",
-              "classificationId": "ac43994a-3c4b-4594-90b6-0eabcd332b38:INPUT_VAT_NONRECOVERABLE"
+              "classificationId": "8a52ade4-6ed0-464c-a276-f6dbe0cc2e15:INPUT_VAT_NONRECOVERABLE"
             },
             {
-              "id": "69b9d1f6-9e60-4f2d-8284-777e50492726:4",
+              "id": "b525e714-1ec6-48a8-864b-4a87daf62c14:4",
               "to": "2026-12-31",
               "from": "2026-01-01",
               "currency": "SAR",
@@ -510,12 +513,12 @@
               "sourceModule": "REPORTING_QA",
               "cashDirection": "NON_CASH",
               "debitAccountId": "1100",
-              "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9",
+              "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc",
               "creditAccountId": "4100",
-              "classificationId": "d067174c-0161-4136-aaad-6e70beae609e:BASE"
+              "classificationId": "0afb88b4-a6f2-4b5b-b689-b0d6aea0c588:BASE"
             },
             {
-              "id": "69b9d1f6-9e60-4f2d-8284-777e50492726:5",
+              "id": "b525e714-1ec6-48a8-864b-4a87daf62c14:5",
               "to": "2026-12-31",
               "from": "2026-01-01",
               "currency": "SAR",
@@ -524,15 +527,15 @@
               "sourceModule": "REPORTING_QA",
               "cashDirection": "OUTFLOW",
               "debitAccountId": "2100",
-              "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9",
+              "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc",
               "creditAccountId": "1000",
-              "classificationId": "0d616d43-001c-41c1-9113-bd44e8cb435e:BASE"
+              "classificationId": "c9f3adcb-1004-4c84-b040-b78d1ae678a2:BASE"
             }
           ],
           "currency": "SAR",
-          "approvedAt": "2026-11-03T14:35:58.376665+00:00",
-          "approvedBy": "4010a452-7419-48a5-bcf8-5f97d2384ebc",
-          "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+          "approvedAt": "2026-11-03T14:54:38.179653+00:00",
+          "approvedBy": "c07c277a-c3db-4b77-9fe7-53a1eedf4c6e",
+          "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
         },
         "opening": [
           {
@@ -571,7 +574,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الذمم المدينة",
@@ -582,7 +585,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "قروض مدينة",
@@ -593,7 +596,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "السلف والدفعات المقدمة",
@@ -604,7 +607,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "ضريبة مدخلات قابلة للاسترداد",
@@ -615,7 +618,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الأصول الثابتة",
@@ -626,7 +629,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "مجمع الإهلاك",
@@ -637,7 +640,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الاستثمارات",
@@ -648,7 +651,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "المخزون",
@@ -659,7 +662,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "أصول متداولة أخرى",
@@ -670,7 +673,7 @@
             "kind": "ASSET",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الذمم الدائنة",
@@ -681,7 +684,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "القروض الدائنة",
@@ -692,7 +695,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "NON_CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "مصروفات والتزامات مستحقة",
@@ -703,7 +706,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "دفعات مقدمة من العملاء",
@@ -714,7 +717,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "ضريبة المخرجات",
@@ -725,7 +728,7 @@
             "kind": "LIABILITY",
             "currency": "SAR",
             "presentation": "CURRENT",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "رأس المال",
@@ -736,7 +739,7 @@
             "kind": "EQUITY",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الاحتياطيات",
@@ -747,7 +750,7 @@
             "kind": "EQUITY",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الأرباح المحتجزة",
@@ -758,7 +761,7 @@
             "kind": "EQUITY",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الإيرادات",
@@ -769,7 +772,7 @@
             "kind": "REVENUE",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "تكلفة المبيعات",
@@ -780,7 +783,7 @@
             "kind": "COGS",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "المصروفات التشغيلية",
@@ -791,7 +794,7 @@
             "kind": "OPEX",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "مصروف الإهلاك",
@@ -802,7 +805,7 @@
             "kind": "OPEX",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "تكاليف التمويل",
@@ -813,7 +816,7 @@
             "kind": "FINANCE",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           },
           {
             "ar": "الزكاة والضريبة",
@@ -824,12 +827,15 @@
             "kind": "TAX",
             "currency": "SAR",
             "presentation": "OTHER",
-            "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9"
+            "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc"
           }
         ],
+        "controls": {
+          "cashClosing": "385.0000"
+        },
         "coverage": {
           "scope": "ORGANIZATION_ALL_ENTITIES",
-          "readAt": "2026-11-03T14:35:58.376665+00:00",
+          "readAt": "2026-11-03T14:54:38.179653+00:00",
           "complete": true,
           "lineCount": 5,
           "eventCount": 3
@@ -837,8 +843,8 @@
         "currency": "SAR",
         "fiscalStart": "2026-01-01",
         "openingDate": "2025-12-31",
-        "organizationId": "7fb7c2b4-8a16-4b63-aee1-4f5b317592f9",
-        "openingSourceId": "4d255f58-2f7a-45bd-8071-09d54729dd19"
+        "organizationId": "7d4abcc6-b58f-43e7-8ab2-b120434ce1fc",
+        "openingSourceId": "5dad94dd-b284-48ad-8a56-bc612ebd3642"
       }
     }
   ]
