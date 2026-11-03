@@ -95,7 +95,10 @@ try{
   assert.equal(before.statements.cash.closing,'385.0000');assert.equal(after.statements.cash.closing,before.statements.cash.closing);
   assert.equal(after.accounts.find(x=>x.id==='1800').balance,'46.0000');assert.equal(after.accounts.find(x=>x.id==='2100').balance,'0.0000');
   assert.equal(after.statements.income.operatingExpenses,'64.5000');assert.equal(after.statements.position.assets,'435.5000');
-  await page.goto(app+'/en/financial-position');await page.locator('[data-statement-ready="position"]').waitFor();
+  await page.goto(app+'/en/financial-reports?screen=position');
+  const position=page.locator('[data-statement-ready="position"]');await position.waitFor();
+  assert.match(await position.innerText(),/435\.50/);
+  await page.screenshot({path:out+'/supplier-credit-financial-position.png',fullPage:true});
  });
  await check('Revocation clears both refreshed and exporting workspaces',async()=>{
   const exportPage=await context.newPage();
