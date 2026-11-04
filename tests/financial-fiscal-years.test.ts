@@ -1,7 +1,17 @@
 import {describe,it,expect} from 'vitest';
-import {suggestedFiscalStart,calendarFromContext,fiscalCalendarLocked,fiscalReferencesMatch,fiscalYearRows,type FiscalManagementContext} from '../lib/financial-fiscal-years';
+import {suggestedFiscalStart,calendarFromContext,fiscalCalendarLocked,fiscalReferencesMatch,fiscalYearRows,retainedAccountCandidates,type FiscalManagementContext} from '../lib/financial-fiscal-years';
 const base: FiscalManagementContext={organizationId:'a',calendar:{start_month:1,start_day:1,retained_earnings_account:'3300',version:1},period:{start:'2026-01-01',end:'2026-12-31'},closures:[],canConfigure:true,canClose:true,references:[],asOf:'2026-11-04'};
 describe('Fiscal year display projection',()=>{
+ it('offers only eligible detailed retained-profit accounts, never roots or foreign structures',()=>{
+  const chart=[
+   {code:'3300',isSystem:true,isActive:true,isPostable:true,reportingCode:'3300'},
+   {code:'330001',ar:'أرباح محتجزة',en:'Retained earnings',isSystem:false,isActive:true,isPostable:true,reportingCode:'3300'},
+   {code:'330002',isSystem:false,isActive:false,isPostable:true,reportingCode:'3300'},
+   {code:'330003',isSystem:false,isActive:true,isPostable:false,reportingCode:'3300'},
+   {code:'320001',isSystem:false,isActive:true,isPostable:true,reportingCode:'3200'},
+  ];
+  expect(retainedAccountCandidates(chart)).toEqual([{code:'330001',ar:'أرباح محتجزة',en:'Retained earnings'}]);
+ });
  it.each([[1,'2026-01-01','2026-12-31'],[7,'2026-07-01','2027-06-30']])('projects independent calendar starting month %s without changing context', (month,start,end)=>{
   const context={...structuredClone(base),calendar:{...base.calendar!,start_month:Number(month)}};const saved=JSON.stringify(context);const rows=fiscalYearRows(context);
   expect(rows).toHaveLength(5);expect(rows.find(r=>r.phase==='CURRENT')).toMatchObject({start,end,recorded:false,status:'OPEN',canClose:false});

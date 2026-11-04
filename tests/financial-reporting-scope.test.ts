@@ -6,6 +6,8 @@ describe('institutional financial chart navigation',()=>{
   expect(isFinancialReportingPage('chart-of-accounts')).toBe(true);
   expect(currentWorkspaceScope('chart-of-accounts','','PERSONAL')).toBe('ORGANIZATION');
   expect(currentWorkspaceScope('chart-of-accounts','?scope=PERSONAL','PERSONAL')).toBe('ORGANIZATION');
+  expect(currentWorkspaceScope('preview/fiscal-years','','PERSONAL')).toBe('ORGANIZATION');
+  expect(currentWorkspaceScope('preview/fiscal-years','?scope=PERSONAL','PERSONAL')).toBe('ORGANIZATION');
  });
  it('returns to the personal dashboard when leaving an organization-only financial page',()=>{
   expect(workspaceScopeHref('ar','chart-of-accounts','','PERSONAL')).toBe('/ar/dashboard?scope=PERSONAL');

@@ -12,16 +12,32 @@ begin
  insert into public.organizations(id,owner_user_id,name) values(other_org,outsider,'Posting chart organization B');
  insert into public.organization_members(organization_id,user_id,role,status) values(other_org,outsider,'OWNER','ACTIVE');
  perform public.save_financial_chart_account(other_org,'610099','6100','مصروف سري','Private expense','DEBIT',true,true,0,'Fixture other org');
+ perform public.save_financial_chart_account(other_org,'330099','3300','أرباح مؤسسة أخرى','Other organization profits','CREDIT',true,true,0,'Fixture private retained leaf');
  perform set_config('request.jwt.claim.sub',owner::text,true);
  perform public.save_financial_chart_account(org,'100001','1000','بنك مخصص','Bank leaf','DEBIT',true,true,0,'Fixture cash leaf');
  perform public.save_financial_chart_account(org,'610001','6100','مصروف مخصص','Expense leaf','DEBIT',true,true,0,'Fixture expense leaf');
  perform public.save_financial_chart_account(org,'610002','6100','مصروف غير نشط','Inactive expense','DEBIT',true,false,0,'Fixture inactive leaf');
  perform public.save_financial_chart_account(org,'610003','6100','مجموعة مصروفات','Expense summary','DEBIT',false,true,0,'Fixture summary leaf');
+ perform public.save_financial_chart_account(org,'330001','3300','الأرباح المحتجزة التفصيلية','Detailed retained earnings','CREDIT',true,true,0,'Fiscal retained posting leaf');
+ perform public.save_financial_chart_account(org,'330002','3300','حساب أرباح غير نشط','Inactive retained earnings','CREDIT',true,false,0,'Fiscal inactive leaf');
+ perform public.save_financial_chart_account(org,'330003','3300','مجموعة أرباح محتجزة','Retained summary','CREDIT',false,true,0,'Fiscal summary leaf');
+ perform public.save_financial_chart_account(org,'330004','3300','أرباح بطرف مدين','Invalid retained debit side','DEBIT',true,true,0,'Fiscal debit side leaf');
+ perform public.save_financial_fiscal_calendar(org,1,1,'330001',0,'Use eligible retained posting account');
+ if (select retained_earnings_account from public.financial_fiscal_calendars where organization_id=org)<>'330001' then raise exception 'Selected retained leaf not saved';end if;
+ begin perform public.save_financial_chart_account(org,'330001','3300','الأرباح المحتجزة التفصيلية','Detailed retained earnings','CREDIT',true,false,1,'Archive fiscal retained account');raise exception 'Fiscal retained account archived';exception when others then if sqlerrm<>'FISCAL_RETAINED_ACCOUNT_IN_USE' then raise;end if;end;
+ begin perform public.save_financial_chart_account(org,'330001','3300','الأرباح المحتجزة التفصيلية','Detailed retained earnings','DEBIT',true,true,1,'Change retained normal side');raise exception 'Fiscal retained side changed';exception when others then if sqlerrm<>'FISCAL_RETAINED_ACCOUNT_IN_USE' then raise;end if;end;
+ perform public.save_financial_chart_account(org,'330001','3300','الأرباح المحتجزة المعتمدة','Approved retained earnings','CREDIT',true,true,1,'Safe label update');
+ begin perform public.save_financial_fiscal_calendar(org,1,1,'330002',1,'Inactive retained account rejected');raise exception 'Inactive retained account accepted';exception when others then if sqlerrm<>'FISCAL_CALENDAR_INVALID' then raise;end if;end;
+ begin perform public.save_financial_fiscal_calendar(org,1,1,'330003',1,'Summary retained account rejected');raise exception 'Summary retained account accepted';exception when others then if sqlerrm<>'FISCAL_CALENDAR_INVALID' then raise;end if;end;
+ begin perform public.save_financial_fiscal_calendar(org,1,1,'330004',1,'Debit retained account rejected');raise exception 'Wrong-side retained account accepted';exception when others then if sqlerrm<>'FISCAL_CALENDAR_INVALID' then raise;end if;end;
+ begin perform public.save_financial_fiscal_calendar(org,1,1,'330099',1,'Other institution retained rejected');raise exception 'Foreign retained account accepted';exception when others then if sqlerrm<>'FISCAL_CALENDAR_INVALID' then raise;end if;end;
+ if jsonb_array_length(private.financial_retained_include_account(org,
+    jsonb_build_object('organizationId',org,'currency','SAR','accounts',jsonb_build_array(jsonb_build_object('id','3300','kind','EQUITY'))),'330001')->'accounts')<>2 then raise exception 'Retained posting leaf not included once';end if;
  chart:=public.financial_chart_posting_accounts(org);
  if not exists(select 1 from jsonb_array_elements(chart) x where x->>'id'='610001' and x->>'kind'='OPEX' and x->>'reportingCode'='6100') then raise exception 'Leaf expense classification missing';end if;
  if not exists(select 1 from jsonb_array_elements(chart) x where x->>'id'='100001' and x->>'cash'='true' and x->>'kind'='ASSET') then raise exception 'Leaf cash classification missing';end if;
  if exists(select 1 from jsonb_array_elements(chart) x where x->>'id' in('610002','610003','610099')) then raise exception 'Inactive, summary or foreign leaf eligible for posting';end if;
- if jsonb_array_length(chart)<>jsonb_array_length(public.financial_reporting_chart())+2 then raise exception 'Catalog changed baseline controls or doubled a leaf';end if;
+ if jsonb_array_length(chart)<>jsonb_array_length(public.financial_reporting_chart())+4 then raise exception 'Catalog changed baseline controls or doubled a leaf';end if;
  rules:=jsonb_build_array(jsonb_build_object('eventType','EXPENSE','sourceModule','core','classificationId','office',
   'cashDirection','OUTFLOW','debitAccountId','610001','creditAccountId','100001','cashActivity','OPERATING'));
  saved:=public.save_financial_reporting_policy(org,'2026-01-01',0,rules,'Authorized leaf rule for isolated fixture');
@@ -50,6 +66,7 @@ begin
   {"id":"100001","kind":"ASSET","cash":true,"reportingCode":"1000"},
   {"id":"3100","kind":"EQUITY","cash":false},
   {"id":"3300","kind":"EQUITY","cash":false},
+  {"id":"330001","kind":"EQUITY","cash":false,"reportingCode":"3300"},
   {"id":"610001","kind":"OPEX","cash":false,"reportingCode":"6100"}
  ],
  "opening":[{"accountId":"1000","debit":"100","credit":"0"},{"accountId":"3100","debit":"0","credit":"100"}],
@@ -63,12 +80,13 @@ begin
   }]}],
  "controls":{"cashClosing":"90.0000"}
  }'::jsonb;
- result:=private.financial_fiscal_trial(snapshot,'3300');
+ result:=private.financial_fiscal_trial(snapshot,'330001');
  if result->>'profit'<>'-10.0000' then raise exception 'Leaf expense profit not recognized';end if;
  if (select r->>'closing' from jsonb_array_elements(result->'trialBalance') r where r->>'accountId'='100001')<>'-10.0000' then raise exception 'Leaf cash trial detail lost';end if;
  if jsonb_array_length(result->'nextOpening')<>3 then raise exception 'Leaf added duplicate next-year opening lines';end if;
  if (select r->>'debit' from jsonb_array_elements(result->'nextOpening') r where r->>'accountId'='1000')<>'90.0000' then raise exception 'Cash leaf not consolidated';end if;
  if (select r->>'debit' from jsonb_array_elements(result->'nextOpening') r where r->>'accountId'='3300')<>'10.0000' then raise exception 'Profit not carried into retained earnings';end if;
+ if (select r->>'closing' from jsonb_array_elements(result->'trialBalance') r where r->>'accountId'='330001')<>'0.0000' then raise exception 'Retained detail did not remain distinct in trial';end if;
  if exists(select 1 from jsonb_array_elements(result->'nextOpening') r where length(r->>'accountId')>4) then raise exception 'Leaf leaked into successor opening';end if;
 end $$;
 select 'PASS scoped posting chart, leaf mappings, policy lock and unchanged controls';

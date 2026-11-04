@@ -2,6 +2,7 @@ import {fiscalPeriod, type FiscalCalendar} from './financial-fiscal';
 
 export type FiscalClosure={id:string;start:string;end:string;version:number;status:'CLOSED'|'SUPERSEDED'};
 export type FiscalReference={start:string;source:'opening'|'policy'|'budget'|'assignment';status?:string};
+export type RetainedAccountCandidate={code:string;ar:string;en:string};
 export type FiscalManagementContext={
  organizationId:string;
  calendar:{start_month:number;start_day:number;retained_earnings_account:string;version:number}|null;
@@ -9,8 +10,16 @@ export type FiscalManagementContext={
  closures:FiscalClosure[];
  canConfigure:boolean;canClose:boolean;
  references:FiscalReference[];
+ retainedCandidates?:RetainedAccountCandidate[];
  asOf:string;
 };
+/** Only active, postable, organization-owned leaves below the retained-earnings control. */
+export function retainedAccountCandidates(raw:unknown):RetainedAccountCandidate[]{
+ if(!Array.isArray(raw))return[];
+ return raw.filter((a):a is Record<string,unknown>=>!!a&&typeof a==='object'&&!Array.isArray(a))
+  .filter(a=>a.isSystem===false&&a.isActive===true&&a.isPostable===true&&a.reportingCode==='3300'&&typeof a.code==='string'&&/^3300[0-9]{2}([0-9]{2}){0,2}$/.test(a.code))
+  .map(a=>({code:a.code as string,ar:typeof a.ar==='string'?a.ar:'',en:typeof a.en==='string'?a.en:''}));
+}
 /** Default proposed dates are UI-only until the organization explicitly saves its calendar. */
 export function suggestedFiscalStart(calendar:FiscalManagementContext['calendar']){
  return {month:String(calendar?.start_month??1),day:String(calendar?.start_day??1)};

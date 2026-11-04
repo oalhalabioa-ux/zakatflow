@@ -35,6 +35,8 @@ export default function FiscalYearManagement({organization,locale,previewContext
   finally{if(activeOrganization.current===target)setBusy(false)}
  }
  const ready=data?.organizationId===organization?data:null,calendar=ready?calendarFromContext(ready):null,locked=ready?fiscalCalendarLocked(ready):false;
+ const retainedCandidates=ready?.retainedCandidates??[];
+ const retainedName=retainedCandidates.find(a=>a.code===calendar?.retainedEarningsAccount);
  const rows=ready?fiscalYearRows(ready,span):[],current=rows.find(r=>r.phase==='CURRENT');
  let preview:{start:string;end:string}|null=null;
  try{if(month&&day&&ready)preview=fiscalPeriod({startMonth:Number(month),startDay:Number(day),retainedEarningsAccount:retained},ready.asOf)}catch{}
@@ -51,7 +53,7 @@ export default function FiscalYearManagement({organization,locale,previewContext
     <div><dt>{t('نهاية السنة المالية','Fiscal year end')}</dt><dd><bdi>{ready.period?.end??'—'}</bdi></dd></div>
     <div><dt>{t('السنة المالية الحالية','Current fiscal year')}</dt><dd><bdi>{ready.period?`${ready.period.start.slice(0,4)}${ready.period.start.slice(0,4)!==ready.period.end.slice(0,4)?' / '+ready.period.end.slice(0,4):''}`:'—'}</bdi></dd></div>
     <div><dt>{t('حالة السنة','Year status')}</dt><dd>{calendar?<span className={'fiscal-status '+(current?.status==='CLOSED'?'closed':'open')}>{current?.status==='CLOSED'?t('مقفلة','Closed'):t('مفتوحة','Open')}</span>:'—'}</dd></div>
-    <div><dt>{t('حساب الأرباح المحتجزة','Retained earnings account')}</dt><dd><bdi>{calendar?.retainedEarningsAccount??'—'}</bdi></dd></div>
+    <div><dt>{t('حساب الأرباح المحتجزة','Retained earnings account')}</dt><dd><bdi>{calendar?.retainedEarningsAccount??'—'}</bdi>{retainedName&&<small> — {ar?retainedName.ar:retainedName.en}</small>}</dd></div>
    </dl>
    <section className="settings-card fiscal-calendar-settings" aria-labelledby="fiscal-calendar-title"><h3 id="fiscal-calendar-title">{t('إعداد التقويم المالي','Fiscal calendar configuration')}</h3>
     {!calendar&&<p className="settings-hint">{t('القيمة المقترحة هي 01/01 إلى 31/12؛ يمكن تعديلها. لن تُحفظ أو تُعتمد حتى تضغط حفظ إعداد السنة. عرض السنوات لا ينشئ سجلات أو قيودًا محاسبية.','Suggested default is January 1 through December 31. You can change it; no calendar is saved until you explicitly select Save fiscal calendar. Displaying years creates no accounting records or entries.')}</p>}
@@ -59,7 +61,13 @@ export default function FiscalYearManagement({organization,locale,previewContext
     <form className="settings-form" onSubmit={e=>{e.preventDefault();if(!ready.canConfigure||locked||!changed||busy)return;void command({action:'calendar',organization,month:Number(month),day:Number(day),retainedAccount:retained,expectedVersion:ready.calendar?.version??0,reason},t('تم حفظ إعداد السنة المالية.','Fiscal calendar saved.'))}}>
      <label>{t('شهر بداية السنة','Fiscal start month')}<select required aria-label={t('شهر بداية السنة','Fiscal start month')} lang="en" value={month} disabled={!ready.canConfigure||locked||busy} onChange={e=>setMonth(e.target.value)}><option value="">{t('اختر الشهر','Select month')}</option>{(ar?arabicMonths:englishMonths).map((label,i)=><option key={i} value={String(i+1)}>{String(i+1).padStart(2,'0')} — {label}</option>)}</select></label>
      <label>{t('يوم بداية السنة','Fiscal start day')}<input required aria-label={t('يوم بداية السنة','Fiscal start day')} type="number" lang="en" dir="ltr" min="1" max="31" value={day} disabled={!ready.canConfigure||locked||busy} onChange={e=>setDay(e.target.value)}/></label>
-     <label>{t('حساب الأرباح المحتجزة','Retained earnings account')}<input required aria-label={t('حساب الأرباح المحتجزة','Retained earnings account')} lang="en" dir="ltr" inputMode="numeric" pattern="[0-9]{4}" placeholder="3300" value={retained} disabled={!ready.canConfigure||locked||busy} onChange={e=>setRetained(e.target.value)}/></label>
+    <label>{t('حساب الأرباح المحتجزة التفصيلي','Retained earnings posting account')}<select required aria-label={t('حساب الأرباح المحتجزة التفصيلي','Retained earnings posting account')} value={retained} disabled={!ready.canConfigure||locked||busy||(!retainedCandidates.length&&!ready.calendar)} onChange={e=>setRetained(e.target.value)}>
+     <option value="">{t('اختر حساباً تفصيلياً من دليل المؤسسة','Select an organization posting account')}</option>
+     {calendar?.retainedEarningsAccount==='3300'&&<option value="3300">{t('3300 — حساب نظامي سابق (للتوافق فقط)','3300 — legacy system account (compatibility only)')}</option>}
+     {retainedCandidates.map(a=><option key={a.code} value={a.code}>{a.code} — {ar?a.ar:a.en}</option>)}
+    </select></label>
+    {(!ready.calendar&&!retainedCandidates.length)&&<p className="settings-hint">{t('أنشئ أولاً حساباً تفصيلياً نشطاً وقابلاً للترحيل تحت الحساب 3300 في دليل حسابات المؤسسة.','First create an active, postable account beneath control 3300 in the organization chart of accounts.')} <Link href={`/${locale}/chart-of-accounts?organization=${encodeURIComponent(organization)}`}>{t('فتح دليل الحسابات','Open chart of accounts')}</Link></p>}
+    {calendar?.retainedEarningsAccount==='3300'&&<p className="settings-hint">{t('هذا ربط قديم بالحساب النظامي الرئيسي. لن يتغير تلقائياً، والتصحيح يخضع لحماية الفترات المعتمدة.','This is a legacy link to the system control account. It will not be changed automatically; approved periods remain protected.')}</p>}
      {ready.canConfigure&&!locked&&<label>{t('سبب الإعداد أو الإجراء','Setup or action reason')}<input required aria-label={t('سبب الإعداد أو الإجراء','Setup or action reason')} minLength={3} maxLength={1000} value={reason} disabled={busy} onChange={e=>setReason(e.target.value)}/></label>}
      {preview&&<p role="status" className="settings-hint fiscal-period-preview" data-fiscal-period>{t('الفترة المالية المحسوبة: ','Calculated fiscal period: ')}<bdi>{preview.start} — {preview.end}</bdi></p>}
      {ready.canConfigure&&!locked&&<button className="btn" disabled={busy||!changed||!preview||reason.trim().length<3}>{t('حفظ إعداد السنة','Save fiscal calendar')}</button>}

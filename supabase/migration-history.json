@@ -1730,6 +1730,14 @@
       "expected_md5": "a5f1f1df5c132c185fcd8cbdcb8dfeb7",
       "file_sha256": "65d42c7d5a953983eba07ace750a18d11ce6f7b4bf20960726ab9f79a7155cf2",
       "validation_project": "Disposable funded debt and institutional statement acceptance only"
+    },
+    {
+      "path": "supabase/migrations/20261105010000_fiscal_retained_leaf_account.sql",
+      "version": "20261105010000",
+      "name": "fiscal_retained_leaf_account",
+      "expected_md5": "8ac5b55afeaeef9dddcbc5d9e91af39c",
+      "file_sha256": "ab03c5b58d0e90b3c1f42905a9a81a4ec2751fc35a5c0ed84ab0944189f9434b",
+      "validation_project": "Disposable fiscal retained-earnings posting-leaf acceptance only; not applied to Production"
     }
   ]
 }
