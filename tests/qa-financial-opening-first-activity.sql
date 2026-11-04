@@ -14,8 +14,8 @@ perform public.approve_financial_reporting_policy((p->>'id')::uuid,1);
 s:=public.financial_statement_live_snapshot(o,'2026-01-01','2026-12-31');
 if s->>'openingSourceId' is distinct from 'FIRST_ACTIVITY:2026-01-01' or s->'controls'->>'cashClosing' is distinct from '10000.0000' then raise exception 'first-activity mismatch';end if;
 insert into result values(s);
-insert into public.asset_accounts(id,user_id,organization_id,ownership_scope,asset_type,asset_class_code,name,currency,metadata)
- values(metal,u,o,'ORGANIZATION','GOLD','METALS','QA investment gold','SAR','{"holding_purpose":"INVESTMENT","acquisition_mode":"OPENING_BALANCE","market_value":1500}');
+insert into public.asset_accounts(id,user_id,organization_id,ownership_scope,asset_type,asset_class_code,asset_type_code,name,currency,metadata)
+ values(metal,u,o,'ORGANIZATION','GOLD','METALS','GOLD','QA investment gold','SAR','{"holding_purpose":"INVESTMENT","acquisition_mode":"OPENING_BALANCE","market_value":1500}');
 insert into public.transactions(user_id,organization_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value,gross_value,metadata)
  values(u,o,metal,'OPENING_BALANCE','2026-10-21',10,'SAR','SAR',1000,1000,'{}');
 if not exists(select 1 from jsonb_array_elements(private.financial_opening_sources(o,'2026-12-31')->'rows') r
