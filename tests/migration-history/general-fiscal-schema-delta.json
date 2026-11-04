@@ -1,0 +1,626 @@
+{
+  "description": "General fiscal engine v1, reviewed additive tables, RLS, immutable audit, year guards and versioned fiscal functions. Observed from a fresh full canonical bootstrap.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_audit.action",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_audit.actor_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_audit.detail",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_audit.id",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_audit.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_audit.recorded_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_audit.rule_version",
+      "fingerprint": "c83042aff02b6c0521a3b3b9fb6cd8b6"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_calendars.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_calendars.retained_earnings_account",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_calendars.rule_version",
+      "fingerprint": "c83042aff02b6c0521a3b3b9fb6cd8b6"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_calendars.start_day",
+      "fingerprint": "661a93fe6d63fe6a4750262404bb6687"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_calendars.start_month",
+      "fingerprint": "661a93fe6d63fe6a4750262404bb6687"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_calendars.updated_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_calendars.updated_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fiscal_calendars.version",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.account_code",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.declared_amount",
+      "fingerprint": "edb8d53d10a15efc9b6544eefb9b2028"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.effective_date",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.fiscal_start",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.recorded_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.rule_version",
+      "fingerprint": "c83042aff02b6c0521a3b3b9fb6cd8b6"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.source_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.source_table",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_opening_source_assignments.transaction_date",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.fiscal_end",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.fiscal_start",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.next_opening",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.next_start",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.rule_version",
+      "fingerprint": "c83042aff02b6c0521a3b3b9fb6cd8b6"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.source_revision",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.source_snapshot",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.status",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.trial_balance",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_year_closures.version",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_audit.financial_fiscal_audit_actor_id_fkey",
+      "fingerprint": "508a4cf20410e80e6cb722233bc03330"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_audit.financial_fiscal_audit_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_audit.financial_fiscal_audit_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_calendars.financial_fiscal_calendars_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_calendars.financial_fiscal_calendars_pkey",
+      "fingerprint": "f0b623612927b828a67c8f66fba8bc2c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_calendars.financial_fiscal_calendars_rule_version_check",
+      "fingerprint": "4c9f00020ae9ad6c8ce57405f9a8b78c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_calendars.financial_fiscal_calendars_start_day_check",
+      "fingerprint": "f08c7521563380b72f0d499e4743e09a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_calendars.financial_fiscal_calendars_start_month_check",
+      "fingerprint": "d2187c4467c08f96bbebfa6d6e5d34ab"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fiscal_calendars.financial_fiscal_calendars_updated_by_fkey",
+      "fingerprint": "813e89165d4f52cd798f126fbc683169"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assi_organization_id_source_table__key",
+      "fingerprint": "59ccd2ed371d7227d08e5b4e1b7073b5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_check",
+      "fingerprint": "453feed7a62f83d496708f8d9be72132"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_declared_amount_check",
+      "fingerprint": "e7f8c99c746e86090bd82b9aa1e03434"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_reason_check",
+      "fingerprint": "a0ea244621f69a9aea64c58bd4460b50"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_source_table_check",
+      "fingerprint": "9b8144f7d47d10ddb34cd388a98bd842"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_year_closures.financial_year_closures_check",
+      "fingerprint": "7a0a1e72413ef0d87ce3c74d23e4b40f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_year_closures.financial_year_closures_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_year_closures.financial_year_closures_organization_id_fiscal_start_versio_key",
+      "fingerprint": "d0471ba14155fd75c556343e6a262630"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_year_closures.financial_year_closures_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_year_closures.financial_year_closures_organization_id_request_id_key",
+      "fingerprint": "7681a1abcbf14ae61b7b0f9362df30b5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_year_closures.financial_year_closures_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_year_closures.financial_year_closures_status_check",
+      "fingerprint": "ca2d80d631cc1dd6d497dd5659935718"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_assert_open_period(p_org uuid, p_start date)",
+      "fingerprint": "f45f536a663fa983e0a9a1d46d32f935"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_closed_source_guard()",
+      "fingerprint": "4756535874fb7fa26a98cd63c879fa42"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_fiscal_period(p_org uuid, p_date date)",
+      "fingerprint": "4234a3c35aa819d5d51f883fc9949274"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_fiscal_trial(p_snapshot jsonb, p_retained text)",
+      "fingerprint": "4c98f1635af5aec8e929232a5b000786"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_period_end(p_org uuid, p_start date)",
+      "fingerprint": "6ec950220a83e360b6563aedfc06fd9a"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_period_opening_sources(p_org uuid, p_start date)",
+      "fingerprint": "bb61ac0c7c71869340e0bbe9d8ac3dc7"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_resolve_opening(p_org uuid, p_table text, p_id uuid, p_amount numeric, p_account text)",
+      "fingerprint": "b768af84aea2f14bf96151c21f211cca"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_statement_live_snapshot_v1(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "1028a2181c4ce624dda5860f296d4154"
+    },
+    {
+      "category": "function",
+      "object_key": "public.approve_financial_opening(p_id uuid, p_expected_version integer)",
+      "fingerprint": "d979525e0f9267f074b535a6c2af63e3"
+    },
+    {
+      "category": "function",
+      "object_key": "public.assign_financial_opening_source(p_org uuid, p_table text, p_id uuid, p_fiscal_start date, p_effective_date date, p_account text, p_declared_amount numeric, p_reason text)",
+      "fingerprint": "e4d348b1a78569134ec54ee04e92adc3"
+    },
+    {
+      "category": "function",
+      "object_key": "public.close_financial_year(p_org uuid, p_start date, p_request uuid, p_reason text)",
+      "fingerprint": "ba40a5c3345a9e12eb027205d6afcb7a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_fiscal_context(p_org uuid, p_as_of date)",
+      "fingerprint": "5dddddaf6a3d7038b9e4d27a054d2713"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_opening_workspace(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "c9f73349497790626e933cda7b559e05"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_reporting_policy_workspace(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "7f5e677102da82a7417056369be997ed"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_statement_live_context()",
+      "fingerprint": "745fd872fc1347d1f339314c94ddd281"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_statement_live_snapshot(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "6042294ce4fd7ae91a2b5f2132e10108"
+    },
+    {
+      "category": "function",
+      "object_key": "public.reopen_financial_year(p_org uuid, p_close uuid, p_expected_version integer, p_reason text)",
+      "fingerprint": "afdcd2ffd07e0b0a8a82d19e662e8d91"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_fiscal_calendar(p_org uuid, p_month integer, p_day integer, p_retained text, p_expected_version integer, p_reason text)",
+      "fingerprint": "f280172fd1d4e7baac68b6dabae9ce3c"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_opening(p_org uuid, p_fiscal_start date, p_expected_version integer, p_source_revision text, p_entries jsonb, p_reason text)",
+      "fingerprint": "846722639f7bd21cd38e9f44895265c2"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_reporting_policy(p_org uuid, p_fiscal_start date, p_expected_version integer, p_rules jsonb, p_reason text)",
+      "fingerprint": "d3eae70d11345c9114022bdd465b5454"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_fiscal_audit.financial_fiscal_audit_pkey",
+      "fingerprint": "bd61773393d74a7a813230d6eb9260cd"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_fiscal_audit.fiscal_audit_actor_fk",
+      "fingerprint": "4e17f5c62d5d0eaaeb3dafea67ff2b86"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_fiscal_audit.fiscal_audit_org",
+      "fingerprint": "dd6b1838c8d91bd4840aa843e6df0361"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_fiscal_calendars.financial_fiscal_calendars_pkey",
+      "fingerprint": "dd67832de86713e88a9109a175fa58f3"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_fiscal_calendars.fiscal_calendar_actor_fk",
+      "fingerprint": "b206b8f118cba64824ee8192ed350b22"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assi_organization_id_source_table__key",
+      "fingerprint": "c74d8124dedb0d8aebd495bbfba831e1"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_pkey",
+      "fingerprint": "9e0298db68d0600b869e97bc88d9639d"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_opening_source_assignments.fiscal_assignment_actor_fk",
+      "fingerprint": "307bb603bced92f87c503400baa85a40"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_opening_source_assignments.fiscal_assignment_source",
+      "fingerprint": "77975123c678f194275011393ae23836"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_year_closures.financial_year_closures_organization_id_fiscal_start_versio_key",
+      "fingerprint": "b1e66b4d51ac3ccf6a08244052a2acd6"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_year_closures.financial_year_closures_organization_id_request_id_key",
+      "fingerprint": "c4e2f6747b9ebe106a7ad3caff0f6a80"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_year_closures.financial_year_closures_pkey",
+      "fingerprint": "2478ba6e464d3576d201ece36eb5905e"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_year_closures.financial_year_one_close",
+      "fingerprint": "11925a9fb4a246f1618111bc61443828"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_year_closures.fiscal_close_next",
+      "fingerprint": "62e0472cde212b005bb85ef307c4771d"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_year_closures.fiscal_closure_actor_fk",
+      "fingerprint": "4cad57b0b9b11d58e3c2aa08a9359964"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_fiscal_audit.fiscal_audit_read",
+      "fingerprint": "66ef43fea537df3155f9cef84724ba9b"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_fiscal_calendars.fiscal_calendar_read",
+      "fingerprint": "32ca64267c460b99e9cf772fb16a9e49"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_opening_source_assignments.fiscal_assignment_read",
+      "fingerprint": "f1b76cf8453a6ef1ea7bcec8eb39cb1b"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_year_closures.fiscal_close_read",
+      "fingerprint": "57aea2b21fa8147e0a6e94a07db254b2"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_fiscal_audit",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_fiscal_calendars",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_opening_source_assignments",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_year_closures",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.asset_accounts.financial_closed_source_guard",
+      "fingerprint": "42f76e63133318c4055fb3e1f38cb2e0"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.debt_contracts.financial_closed_source_guard",
+      "fingerprint": "8cfae3314373d7cc4f7310ea5845fe51"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_event_lines.financial_closed_source_guard",
+      "fingerprint": "670cc727d35dd22aeb1dadcdbc0c6691"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_event_links.financial_closed_source_guard",
+      "fingerprint": "cc092f073f99a5c93fbfb4384175ed71"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_event_obligation_allocations.financial_closed_source_guard",
+      "fingerprint": "e4c2a8f8275533cccd3c9a698ad1de2c"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_event_obligations.financial_closed_source_guard",
+      "fingerprint": "e8cf4b3075f06450206b2113cc7f6634"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_events.financial_closed_source_guard",
+      "fingerprint": "22137f4e635debf8102ada1e49a32bd5"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.liquidity_accounts.financial_closed_source_guard",
+      "fingerprint": "687e9a229f9aff5765caa15ea1691024"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.liquidity_flows.financial_closed_source_guard",
+      "fingerprint": "3152cbc4463266025c1db24ba97dd616"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.liquidity_settlements.financial_closed_source_guard",
+      "fingerprint": "b7ab1147b0272baac778d5f8e3c82a81"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.transaction_allocations.financial_closed_source_guard",
+      "fingerprint": "4979de71b6fe91a938e4bb49d9dc7039"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.transactions.financial_closed_source_guard",
+      "fingerprint": "04480ab30cc19720c929199cef063467"
+    }
+  ]
+}

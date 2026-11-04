@@ -23,7 +23,7 @@ try{
   const query=await load('tests/migration-history/catalog.sql');
   const actual=JSON.parse(sql('select coalesce(jsonb_agg(t),\'[]\') from ('+query.replace(/;\s*$/,'')+') t'));
   const expected=(await load('tests/migration-history/observed-schema.jsonl')).trim().split('\n').map(x=>JSON.parse(x));
-  const deltas=await Promise.all(['plan-schema-delta','owner-console-schema-delta','plan-notice-schema-delta','financial-opening-schema-delta'].map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
+  const deltas=await Promise.all(['plan-schema-delta','owner-console-schema-delta','plan-notice-schema-delta','financial-opening-schema-delta','general-fiscal-schema-delta'].map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
   for(const item of delta.removals){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected.splice(i,1);}
   for(const item of delta.upserts){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected[i]=item;else expected.push(item);}
@@ -37,7 +37,7 @@ try{
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
-  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'177');
+  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'181');
   assert.equal(sql('select count(*) from subscription_private.guard_coverage'),'103');
  });
  const admin=createClient(status.API_URL,status.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});

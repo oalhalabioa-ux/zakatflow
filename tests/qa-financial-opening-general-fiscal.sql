@@ -62,6 +62,9 @@ begin
   if trial->>'profit'<>'70.0000' then raise exception 'profit mismatch %',trial;end if;
   if (select x->>'closing' from jsonb_array_elements(trial->'trialBalance') x where x->>'accountId'='1000')<>'510.0000' then raise exception 'cash closing';end if;
 
+  update public.financial_events set status='DRAFT' where id=expense;
+  begin perform public.close_financial_year(org,starts,gen_random_uuid(),'Reject pending operations');raise exception 'pending close accepted';exception when others then if sqlerrm<>'FISCAL_PENDING_OPERATIONS' then raise;end if;end;
+  update public.financial_events set status='ACTUAL' where id=expense;
   req:=gen_random_uuid();close:=public.close_financial_year(org,starts,req,'Close full fiscal year after source reconciliation');
   insert into fiscal_snapshots values('year-'||month,jsonb_build_object('source',snap,'trial',trial,'closure',close));
   if public.close_financial_year(org,starts,req,'Retry closure')->>'id'<>close->>'id' then raise exception 'duplicate close';end if;
@@ -84,6 +87,12 @@ begin
   close:=public.close_financial_year(org,starts,gen_random_uuid(),'Reclose revised expense');
   if (close->>'version')::int<>2 then raise exception 'closing correction not versioned';end if;
   if (select r->>'credit' from jsonb_array_elements(close->'next_opening') r where r->>'accountId'='3300')<>'69.0000' then raise exception 'corrected retained';end if;
+  s:=public.financial_opening_workspace(org,nextdate);
+  w:=public.save_financial_opening(org,nextdate,0,s->'source'->>'revision','{}','Adopt the exact closing trial as next opening');
+  w:=public.approve_financial_opening((w->>'id')::uuid,1);
+  if exists(select 1 from jsonb_array_elements(close->'next_opening') expected where not exists(select 1 from jsonb_array_elements(w->'approved_opening') actual where actual->>'accountCode'=expected->>'accountId' and actual->>'debit'=expected->>'debit' and actual->>'credit'=expected->>'credit')) then raise exception 'successor changed account balances';end if;
+  begin perform public.reopen_financial_year(org,(close->>'id')::uuid,2,'Reject silent prior-year revision after successor approval');raise exception 'successor protection bypassed';exception when others then if sqlerrm<>'FISCAL_SUCCESSOR_REQUIRES_CORRECTION' then raise;end if;end;
+  if (select count(*) from public.financial_fiscal_audit where organization_id=org and action='YEAR_CLOSE')<>2 or (select count(*) from public.financial_fiscal_audit where organization_id=org and action='YEAR_REOPEN')<>1 then raise exception 'audit versions missing';end if;
   insert into fiscal_checks values('January/April independent period '||month||' with first-day, late opening, bank, operations, close, retry, correction, access isolation',true);
  end loop;
 end $$;
