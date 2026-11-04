@@ -13,7 +13,7 @@ begin
  insert into public.organization_members(organization_id,user_id,role,status) values(foreign_org,outsider,'OWNER','ACTIVE');
  perform set_config('request.jwt.claim.sub',owner::text,true);
  w:=public.financial_chart_workspace(org);
- if jsonb_array_length(w->'accounts')<>jsonb_array_length(original_chart) or w->>'postingIntegration'<>'NOT_YET_ACTIVE' then raise exception 'Base chart or safety gate changed';end if;
+ if jsonb_array_length(w->'accounts')<>jsonb_array_length(original_chart) or w->>'postingIntegration'<>'POLICY_RULES_ONLY' then raise exception 'Base chart or safety gate changed';end if;
  a:=public.save_financial_chart_account(org,'100001','1000','بنك الاختبار','Fixture bank','DEBIT',true,true,0,'Create a bank child');
  if a->>'reporting_code'<>'1000' or (a->>'version')::int<>1 then raise exception 'Initial custom account incorrect';end if;
  if not exists(select 1 from jsonb_array_elements(public.financial_chart_workspace(org)->'accounts') x where x->>'code'='100001' and x->>'reportingCode'='1000') then raise exception 'Custom account not returned';end if;

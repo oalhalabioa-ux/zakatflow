@@ -8,7 +8,8 @@ assert.ok(dir&&process.env.RUNNER_TEMP&&dir.startsWith(process.env.RUNNER_TEMP+'
 const migrations=[
  '20261104093720_general_fiscal_opening_engine.sql',
  '20261104113559_fiscal_future_draft_window.sql',
- '20261104121038_organization_chart_accounts.sql'
+ '20261104121038_organization_chart_accounts.sql',
+ '20261104124455_financial_chart_posting_rules.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});
@@ -43,6 +44,8 @@ for(const migration of migrations) await writeFile(join(dir,'supabase/migrations
 execFileSync('npx',['--yes','supabase@2.122.0','migration','up','--local','--workdir',dir],{stdio:'inherit'});
 assert.deepEqual(preserved(),before,'Upgrade changed existing organization records or approvals');
 assert.deepEqual(snapshot(),statementBefore,'Upgrade changed an existing approved statement');
+sql(`select set_config('request.jwt.claim.sub','${owner}',false);select public.save_financial_chart_account('${org}','100001','1000','فرع نقدي تجريبي','Unmapped cash leaf','DEBIT',true,true,0,'Unmapped account must not rewrite an approved report')`);
+assert.deepEqual(snapshot(),statementBefore,'An unreferenced chart leaf changed an earlier approved statement');
 sql(`select set_config('request.jwt.claim.sub','${owner}',false);select public.save_financial_fiscal_calendar('${org}',1,1,'3300',0,'Adopt matching fiscal settings without rewriting legacy balances')`);
 assert.deepEqual(snapshot(),statementBefore,'Explicit matching calendar changed the legacy statement');
 await writeFile(out+'/upgrade-compatibility.json',JSON.stringify({engine:'Pre-migration approved records, native CLI upgrade, exact record and statement comparison',productionConnections:false,checks:[{name:'Existing organization, members, bank, opening, approval audit and policy remain byte-equivalent',passed:true},{name:'Approved legacy statement remains identical after upgrade and matching calendar setup',passed:true}]},null,2)+'\n');
