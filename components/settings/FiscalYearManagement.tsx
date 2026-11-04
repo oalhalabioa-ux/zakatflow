@@ -3,7 +3,7 @@ import Link from 'next/link';
 import {useEffect,useRef,useState} from 'react';
 import {fiscalPeriod} from '../../lib/financial-fiscal';
 import {fiscalError} from '../../lib/financial-opening-workspace';
-import {calendarFromContext,fiscalCalendarLocked,fiscalReferencesMatch,fiscalYearRows,type FiscalManagementContext} from '../../lib/financial-fiscal-years';
+import {suggestedFiscalStart,calendarFromContext,fiscalCalendarLocked,fiscalReferencesMatch,fiscalYearRows,type FiscalManagementContext} from '../../lib/financial-fiscal-years';
 
 const endpoint='/api/financial-reporting/fiscal';
 const arabicMonths=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -12,16 +12,16 @@ async function json(response:Response){const value=await response.json();if(!res
 export default function FiscalYearManagement({organization,locale,previewContext}:{organization:string;locale:string;previewContext?:FiscalManagementContext}){
  const ar=locale==='ar',t=(a:string,e:string)=>ar?a:e;
  const [data,setData]=useState<FiscalManagementContext|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[revision,setRevision]=useState(0),[span,setSpan]=useState(2);
- const [month,setMonth]=useState(''),[day,setDay]=useState(''),[retained,setRetained]=useState(''),[reason,setReason]=useState('');
+ const [month,setMonth]=useState('1'),[day,setDay]=useState('1'),[retained,setRetained]=useState(''),[reason,setReason]=useState('');
  const [action,setAction]=useState<{kind:'close'|'reopen';start:string;id?:string;version?:number}|null>(null),[actionReason,setActionReason]=useState('');
  const generation=useRef(0),activeOrganization=useRef(organization);activeOrganization.current=organization;
  useEffect(()=>{
-  const controller=new AbortController();const current=++generation.current;setData(null);setError('');setLoading(true);setAction(null);setActionReason('');setReason('');setMonth('');setDay('');setRetained('');setSpan(2);
-  if(previewContext){setData(previewContext);setMonth(String(previewContext.calendar?.start_month??''));setDay(String(previewContext.calendar?.start_day??''));setRetained(previewContext.calendar?.retained_earnings_account??'');setLoading(false);return()=>controller.abort()}
+  const controller=new AbortController();const current=++generation.current;setData(null);setError('');setLoading(true);setAction(null);setActionReason('');setReason('');setMonth('1');setDay('1');setRetained('');setSpan(2);
+  if(previewContext){setData(previewContext);setMonth(suggestedFiscalStart(previewContext.calendar).month);setDay(suggestedFiscalStart(previewContext.calendar).day);setRetained(previewContext.calendar?.retained_earnings_account??'');setLoading(false);return()=>controller.abort()}
   fetch(endpoint+'?'+new URLSearchParams({action:'management',organization}),{cache:'no-store',signal:controller.signal}).then(json).then((value:FiscalManagementContext)=>{
    if(controller.signal.aborted||current!==generation.current)return;
    if(value.organizationId!==organization)throw Error('FISCAL_ACCESS_DENIED');
-   setData(value);setMonth(value.calendar?String(value.calendar.start_month):'');setDay(value.calendar?String(value.calendar.start_day):'');setRetained(value.calendar?.retained_earnings_account??'');
+   setData(value);setMonth(suggestedFiscalStart(value.calendar).month);setDay(suggestedFiscalStart(value.calendar).day);setRetained(value.calendar?.retained_earnings_account??'');
   }).catch(e=>{if(!controller.signal.aborted&&current===generation.current)setError(e.message)}).finally(()=>{if(!controller.signal.aborted&&current===generation.current)setLoading(false)});
   return()=>controller.abort();
  },[organization,revision,previewContext]);
@@ -54,7 +54,7 @@ export default function FiscalYearManagement({organization,locale,previewContext
     <div><dt>{t('حساب الأرباح المحتجزة','Retained earnings account')}</dt><dd><bdi>{calendar?.retainedEarningsAccount??'—'}</bdi></dd></div>
    </dl>
    <section className="settings-card fiscal-calendar-settings" aria-labelledby="fiscal-calendar-title"><h3 id="fiscal-calendar-title">{t('إعداد التقويم المالي','Fiscal calendar configuration')}</h3>
-    {!calendar&&<p className="settings-hint">{t('حدد التقويم الفعلي للمؤسسة. عرض السنوات لا ينشئ سجلات أو قيودًا محاسبية.','Choose the organization’s actual calendar. Displaying years does not create accounting records or entries.')}</p>}
+    {!calendar&&<p className="settings-hint">{t('القيمة المقترحة هي 01/01 إلى 31/12؛ يمكن تعديلها. لن تُحفظ أو تُعتمد حتى تضغط حفظ إعداد السنة. عرض السنوات لا ينشئ سجلات أو قيودًا محاسبية.','Suggested default is January 1 through December 31. You can change it; no calendar is saved until you explicitly select Save fiscal calendar. Displaying years creates no accounting records or entries.')}</p>}
     {locked&&<p className="fiscal-notice">{t('التقويم مستخدم في فترات أو موازنات قائمة. تعديل الإعداد مقفل لحماية البيانات؛ التصحيح يتطلب إجراءً محاسبيًا مصرحًا ومسجلًا.','This calendar is used by existing periods or budgets. Configuration changes are locked to protect records; corrections require an authorized, audited accounting procedure.')}</p>}
     <form className="settings-form" onSubmit={e=>{e.preventDefault();if(!ready.canConfigure||locked||!changed||busy)return;void command({action:'calendar',organization,month:Number(month),day:Number(day),retainedAccount:retained,expectedVersion:ready.calendar?.version??0,reason},t('تم حفظ إعداد السنة المالية.','Fiscal calendar saved.'))}}>
      <label>{t('شهر بداية السنة','Fiscal start month')}<select required lang="en" value={month} disabled={!ready.canConfigure||locked||busy} onChange={e=>setMonth(e.target.value)}><option value="">{t('اختر الشهر','Select month')}</option>{(ar?arabicMonths:englishMonths).map((label,i)=><option key={i} value={String(i+1)}>{String(i+1).padStart(2,'0')} — {label}</option>)}</select></label>
