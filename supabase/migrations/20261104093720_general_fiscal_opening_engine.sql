@@ -270,6 +270,11 @@ begin
      select coalesce(jsonb_agg(ev),'[]'::jsonb) into events from jsonb_array_elements(events) ev where not exists(
       select 1 from jsonb_array_elements(w.source_snapshot->'rows') rr cross join lateral jsonb_array_elements(rr->'vouchers') vv
       where vv->>'canonicalId'='transactions:'||replace(ev->>'id','transaction:','')
+       or exists(select 1 from public.transactions t where t.organization_id=p_org and vv->>'canonicalId'='transactions:'||t.id and (
+        t.metadata->>'financial_event_id'=ev->>'id'
+        or exists(select 1 from public.financial_events integrated where integrated.organization_id=p_org and integrated.id::text=ev->>'id' and integrated.source_record_id=t.id)
+        or exists(select 1 from public.financial_event_links integrated where integrated.organization_id=p_org and integrated.event_id::text=ev->>'id' and integrated.target_module='transactions' and integrated.target_record_id=t.id)
+       ))
        or vv->>'canonicalId' in(select 'financial_event_obligations:'||ob.id from public.financial_event_obligations ob where ob.organization_id=p_org and ob.event_id::text=ev->>'id')
      );
     end if;

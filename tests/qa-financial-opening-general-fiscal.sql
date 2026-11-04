@@ -2,7 +2,7 @@ begin;
 create temporary table fiscal_checks(name text primary key,passed boolean not null);
 create temporary table fiscal_snapshots(name text,payload jsonb);
 do $$
-declare owner uuid:=gen_random_uuid();outsider uuid:=gen_random_uuid();org uuid;other uuid;bank uuid;asset uuid;late_asset uuid;purchase uuid;revenue uuid;expense uuid;classification uuid;tax uuid;capex uuid;purchase_event uuid;purchase_tx uuid;current_asset uuid;
+declare owner uuid:=gen_random_uuid();outsider uuid:=gen_random_uuid();org uuid;other uuid;bank uuid;asset uuid;late_asset uuid;purchase uuid;revenue uuid;expense uuid;classification uuid;tax uuid;capex uuid;purchase_event uuid;purchase_tx uuid;current_asset uuid;opening_event uuid;late_event uuid;opening_class uuid;first_tx uuid;
  starts date;lastdate date;nextdate date;month integer;context jsonb;s jsonb;w jsonb;entries jsonb;rr jsonb;policy jsonb;rules jsonb;close jsonb;snap jsonb;trial jsonb;req uuid;source_revision text;res jsonb;
 begin
  insert into auth.users(id,email,email_confirmed_at) values(owner,'fiscal-'||owner||'@example.invalid',now()),(outsider,'fiscal-'||outsider||'@example.invalid',now());
@@ -23,6 +23,18 @@ begin
   insert into public.transactions(user_id,organization_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value,gross_value,metadata)
    values(owner,org,asset,'OPENING_BALANCE',starts,1,'SAR','SAR',100,100,'{}'),(owner,org,late_asset,'OPENING_BALANCE',starts+60,1,'SAR','SAR',40,40,'{}');
   select id into purchase from public.transactions where asset_account_id=late_asset;
+  select id into first_tx from public.transactions where asset_account_id=asset;
+  opening_event:=gen_random_uuid();late_event:=gen_random_uuid();opening_class:=gen_random_uuid();
+  insert into public.financial_classifications(id,organization_id,code,name,classification_type,created_by) values(opening_class,org,'FY-OPENING','Imported opening identity','CAPEX',owner);
+  insert into public.financial_events(id,organization_id,event_type,source_module,source_event_key,event_date,status,base_currency,created_by)
+   values(opening_event,org,'ADJUSTMENT','FISCAL_IMPORT','opening',starts,'DRAFT','SAR',owner),(late_event,org,'ADJUSTMENT','FISCAL_IMPORT','late-opening',starts+60,'DRAFT','SAR',owner);
+  insert into public.financial_event_lines(event_id,organization_id,line_number,classification_id,amount,currency,exchange_rate,base_amount,cash_direction)
+   values(opening_event,org,1,opening_class,100,'SAR',1,100,'NON_CASH'),(late_event,org,1,opening_class,40,'SAR',1,40,'NON_CASH');
+  update public.financial_events set status='ACTUAL',posted_by=owner,posted_at=now() where id in(opening_event,late_event);
+  if month=1 then update public.transactions set metadata=jsonb_build_object('financial_event_id',opening_event) where id=first_tx;
+  else update public.financial_events set source_record_id=first_tx where id=opening_event;end if;
+  insert into public.financial_event_links(event_id,organization_id,link_type,target_module,target_record_id) values(late_event,org,'OTHER','transactions',purchase);
+
   perform public.assign_financial_opening_source(org,'transactions',purchase,starts,starts,'1500',null,'Imported later with explicit fiscal effective date');
   perform public.assign_financial_opening_source(org,'transactions',purchase,starts,starts,'1500',null,'Idempotent import retry');
   if (select count(*) from public.financial_opening_source_assignments where organization_id=org and source_id=purchase)<>1 then raise exception 'assignment duplicated';end if;
