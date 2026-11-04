@@ -26,7 +26,7 @@ begin
   perform public.assign_financial_opening_source(org,'transactions',purchase,starts,starts,'1500',null,'Imported later with explicit fiscal effective date');
   perform public.assign_financial_opening_source(org,'transactions',purchase,starts,starts,'1500',null,'Idempotent import retry');
   if (select count(*) from public.financial_opening_source_assignments where organization_id=org and source_id=purchase)<>1 then raise exception 'assignment duplicated';end if;
-  perform public.assign_financial_opening_source(org,'liquidity_accounts',bank,starts,starts,'1000',500,'Declared bank opening at start, distinct from current bank');
+  if month=1 then perform public.assign_financial_opening_source(org,'liquidity_accounts',bank,starts,starts,'1000',500,'Declared bank opening at start, distinct from current bank');end if;
   s:=public.financial_opening_workspace(org,starts);
   if (select count(*) from jsonb_array_elements(s->'source'->'rows') r cross join lateral jsonb_array_elements(r->'vouchers') v where v->>'canonicalId' like 'transactions:%')<>2 then raise exception 'opening source count %',s;end if;
   entries:='{}';
@@ -70,6 +70,7 @@ begin
   if public.close_financial_year(org,starts,req,'Retry closure')->>'id'<>close->>'id' then raise exception 'duplicate close';end if;
   if (select count(*) from public.financial_year_closures where organization_id=org and status='CLOSED')<>1 then raise exception 'closing duplicated';end if;
   s:=public.financial_opening_workspace(org,nextdate);
+  if exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'tab' is distinct from private.financial_opening_tab(r->>'accountCode')) then raise exception 'rollover tab mismatch';end if;
   if (select sum((v->>'debit')::numeric-(v->>'credit')::numeric) from jsonb_array_elements(s->'source'->'rows') r cross join lateral jsonb_array_elements(r->'vouchers') v)<>0 then raise exception 'next trial mismatch';end if;
   if (select r->'vouchers'->0->>'credit' from jsonb_array_elements(s->'source'->'rows') r where r->>'accountCode'='3300')<>'70.0000' then raise exception 'retained earnings mismatch';end if;
   begin update public.transactions set base_value=101 where asset_account_id=asset;raise exception 'closed mutation accepted';exception when others then if sqlerrm<>'FISCAL_PERIOD_CLOSED' then raise;end if;end;

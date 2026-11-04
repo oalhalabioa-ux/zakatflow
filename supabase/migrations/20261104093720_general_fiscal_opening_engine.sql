@@ -102,6 +102,17 @@ grant execute on function public.save_financial_fiscal_calendar(uuid,integer,int
 
 alter table public.financial_opening_source_assignments add column account_code text not null;
 
+-- Tab routing belongs to the shared approved reporting chart, never to an organization.
+create function private.financial_opening_tab(p_account text)
+returns text language sql immutable security invoker set search_path='' as $$
+ select case when a->>'kind'='EQUITY' then 'equity' when a->>'cash'='true' then 'cash'
+  when p_account='1100' then 'customers' when p_account='2100' then 'suppliers'
+  when p_account in('1200','2200') then 'loans' when p_account='1300' then 'advances'
+  when p_account in('1500','1590') then 'assets' else 'other' end
+ from jsonb_array_elements(public.financial_reporting_chart()) a where a->>'code'=p_account
+$$;
+revoke all on function private.financial_opening_tab(text) from public,anon,authenticated;
+
 create function private.financial_resolve_opening(p_org uuid,p_table text,p_id uuid,p_amount numeric,p_account text)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
 #variable_conflict use_column
@@ -111,7 +122,7 @@ begin
   select * into t from public.transactions where organization_id=p_org and id=p_id and transaction_type='OPENING_BALANCE';
   select * into a from public.asset_accounts where organization_id=p_org and id=t.asset_account_id and ownership_scope='ORGANIZATION' and not coalesce((metadata->>'archived')::boolean,false);
   if t.id is null or a.id is null or coalesce((t.metadata->>'recognition_pending')::boolean,false) or exists(select 1 from public.transactions r where r.organization_id=p_org and r.reversal_of_transaction_id=t.id) then raise exception 'FISCAL_SOURCE_REVIEW_REQUIRED';end if;
-  amount:=t.base_value;dt:=t.transaction_date;tab:=case when a.asset_type::text in('CASH','BANK') then 'cash' else 'assets' end;item:=case when tab='cash' then 'legacy-account:' else 'asset:' end||a.id;name:=a.name;ccy:=t.base_currency;recorded:=t.created_at;
+  amount:=t.base_value;dt:=t.transaction_date;tab:=private.financial_opening_tab(p_account);item:=case when a.asset_type::text in('CASH','BANK') then 'legacy-account:' else 'asset:' end||a.id;name:=a.name;ccy:=t.base_currency;recorded:=t.created_at;
  elsif p_table='liquidity_accounts' then
   select * into b from public.liquidity_accounts where organization_id=p_org and id=p_id;
   if b.id is null or p_amount is null then raise exception 'FISCAL_DECLARED_OPENING_REQUIRED';end if;
@@ -121,7 +132,7 @@ begin
   if o.id is null or not exists(select 1 from public.debt_contracts d where d.organization_id=p_org and d.financial_event_id=o.event_id and d.mode='OPENING' and d.deleted_at is null) then raise exception 'FISCAL_OPENING_SOURCE_REQUIRED';end if;
   amount:=o.settleable_base_amount;side:=case when o.obligation_type in('PAYABLE','CUSTOMER_ADVANCE') then 'CREDIT' else 'DEBIT' end;
   select event_date,description,created_at into dt,name,recorded from public.financial_events where organization_id=p_org and id=o.event_id;
-  ccy:=o.base_currency;tab:='loans';item:='debt:'||o.id;
+  ccy:=o.base_currency;tab:=private.financial_opening_tab(p_account);item:='debt:'||o.id;
  else raise exception 'FISCAL_SOURCE_TYPE_INVALID';end if;
  if ccy is distinct from (select base_currency from public.organizations where id=p_org) or amount is null or amount<0 or amount<>round(amount,4) then raise exception 'FISCAL_SOURCE_AMOUNT_INVALID';end if;
  if not exists(select 1 from jsonb_array_elements(public.financial_reporting_chart()) c where c->>'code'=p_account and c->>'kind' in('ASSET','LIABILITY','EQUITY')) then raise exception 'FISCAL_ACCOUNT_INVALID';end if;
@@ -166,7 +177,7 @@ begin
   rows:='[]'::jsonb;
   for r in select * from jsonb_array_elements(close.next_opening) loop
    select a into account from jsonb_array_elements(public.financial_reporting_chart()) a where a->>'code'=r->>'accountId';
-   rows:=rows||jsonb_build_array(jsonb_build_object('id','rollover:'||(r->>'accountId'),'tab',case when account->>'kind'='EQUITY' then 'equity' when account->>'cash'='true' then 'cash' when account->>'kind'='LIABILITY' then 'suppliers' else 'other' end,
+   rows:=rows||jsonb_build_array(jsonb_build_object('id','rollover:'||(r->>'accountId'),'tab',private.financial_opening_tab(r->>'accountId'),
     'accountCode',r->>'accountId','ar',account->>'ar','en',account->>'en','accountAr',account->>'ar','accountEn',account->>'en','normal',case when account->>'kind' in('LIABILITY','EQUITY') then 'CREDIT' else 'DEBIT' end,'sourceIssue',null,
     'vouchers',jsonb_build_array(jsonb_build_object('canonicalId','close:'||close.id||':'||(r->>'accountId'),'number','close:'||close.id,'debit',r->>'debit','credit',r->>'credit'))));
   end loop;
@@ -219,10 +230,12 @@ begin
  if exists(select 1 from public.financial_fiscal_calendars where organization_id=p_org) then
   for account in select * from jsonb_array_elements(public.financial_reporting_chart()) a where a->>'kind' in('ASSET','LIABILITY','EQUITY') loop
    if not exists(select 1 from jsonb_array_elements(rows) r where r->>'accountCode'=account->>'code') then
-    rows:=rows||jsonb_build_array(jsonb_build_object('id','manual:'||(account->>'code'),'tab',case when account->>'kind'='EQUITY' then 'equity' else 'other' end,'accountCode',account->>'code','ar',account->>'ar','en',account->>'en','accountAr',account->>'ar','accountEn',account->>'en','normal',case when account->>'kind' in('LIABILITY','EQUITY') then 'CREDIT' else 'DEBIT' end,'sourceIssue',null,'vouchers','[]'::jsonb));changed:=true;
+    rows:=rows||jsonb_build_array(jsonb_build_object('id','manual:'||(account->>'code'),'tab',private.financial_opening_tab(account->>'code'),'accountCode',account->>'code','ar',account->>'ar','en',account->>'en','accountAr',account->>'ar','accountEn',account->>'en','normal',case when account->>'kind' in('LIABILITY','EQUITY') then 'CREDIT' else 'DEBIT' end,'sourceIssue',null,'vouchers','[]'::jsonb));changed:=true;
    end if;
   end loop;
  end if;
+ select jsonb_agg(jsonb_set(r,'{tab}',to_jsonb(private.financial_opening_tab(r->>'accountCode'))) order by r->>'id') into list from jsonb_array_elements(rows) r;
+ changed:=changed or list is distinct from src->'rows';rows:=list;
  if not changed then return src;end if;
  select jsonb_agg(r order by r->>'id') into rows from jsonb_array_elements(rows) r;
  return jsonb_build_object('rows',rows,'revision',md5(rows::text),'financialRevision',md5((select coalesce(jsonb_agg(jsonb_build_object('id',r->>'id','vouchers',r->'vouchers','issue',r->'sourceIssue') order by r->>'id'),'[]') from jsonb_array_elements(rows) r where jsonb_array_length(r->'vouchers')>0 or r->>'sourceIssue' is not null)::text),'ruleVersion','FISCAL_V1');
