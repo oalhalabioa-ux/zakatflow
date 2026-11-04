@@ -24,6 +24,35 @@ on:
 permissions:
   contents: read
 jobs:
+
+  institutional-fiscal-and-chart-compatibility:
+    # Read-only merge rehearsal for draft PR #352 + draft PR #353.
+    # Nothing is pushed, deployed, or applied to any hosted database.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Rehearse both institutional drafts without committing or pushing
+        run: |
+          git rev-parse --verify refs/remotes/origin/feat/institutional-accounting-navigation-20261104
+          git -c user.name='Yaqeen QA' -c user.email='qa@users.noreply.github.com' merge --no-commit --no-ff refs/remotes/origin/feat/institutional-accounting-navigation-20261104
+          git diff --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify merged types, institutional navigation and accounting tests
+        run: npm run check
+      - name: Build combined institutional UI with isolated placeholders
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: isolated-build-placeholder
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
   opening-auth-browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
