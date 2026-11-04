@@ -48,9 +48,12 @@ jobs:
           s=s.replace('enable_confirmations = true','enable_confirmations = false')
           p.write_text(s)
           shutil.copytree('supabase/migrations',root/'migrations',dirs_exist_ok=True)
+          (root/'migrations'/'20261104093720_general_fiscal_opening_engine.sql').unlink()
           PY
       - name: Apply entire schema to empty local Supabase
         run: npx --yes supabase@2.122.0 start --workdir "$OPENING_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/opening-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/opening-start.log"; exit 1; }
+      - name: Upgrade existing approved legacy fixtures without changing their records or statements
+        run: node scripts/financial-reports/verify-fiscal-upgrade.mjs
       - name: Exercise actual authorization, persistence, approval, reports and browser
         run: node scripts/financial-reports/verify-live-opening.mjs
       - name: Reconcile statements and exports against this run's approved ledger
