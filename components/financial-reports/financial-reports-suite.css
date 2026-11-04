@@ -79,3 +79,5 @@
  .fs-root .fs-surface .fs-position-table .fs-table th button{min-height:32px}
  .fs-root .fs-surface .fs-position-table .fs-table :is(.fs-row-section,.fs-row-subtotal,.fs-row-total) :is(td,th>button){font-size:14px}
 }
+
+.fiscal-source-assignment{min-width:0}.fiscal-source-assignment .fs-filter-strip{flex-wrap:wrap}.fiscal-source-assignment .fs-filter-strip label{display:grid;gap:4px;min-width:0;flex:1 1 200px}.fiscal-source-assignment :is(select,input){width:100%;max-width:100%;min-width:0}.fiscal-source-assignment details{min-width:0}

@@ -14,8 +14,7 @@ create table public.financial_opening_source_assignments (
  transaction_date date not null, recorded_at timestamptz not null default now(),
  declared_amount numeric(24,4), reason text not null check(length(trim(reason)) between 3 and 1000),
  created_by uuid not null references auth.users(id), rule_version text not null default 'FISCAL_V1',
- unique(organization_id,source_table,source_id),check(effective_date=fiscal_start),
- check(declared_amount is null or declared_amount>=0)
+ unique(organization_id,source_table,source_id),check(effective_date=fiscal_start)
 );
 create table public.financial_year_closures (
  id uuid primary key default gen_random_uuid(),organization_id uuid not null references public.organizations(id),
@@ -129,7 +128,7 @@ begin
  elsif p_table='liquidity_accounts' then
   select * into b from public.liquidity_accounts where organization_id=p_org and id=p_id;
   if b.id is null or p_amount is null then raise exception 'FISCAL_DECLARED_OPENING_REQUIRED';end if;
-  amount:=p_amount;dt:=coalesce(nullif(b.metadata->>'opening_date','')::date,b.created_at::date);tab:='cash';item:='cash:'||b.id;name:=b.name;ccy:=(select base_currency from public.organizations where id=p_org);recorded:=b.created_at;
+  amount:=abs(p_amount);side:=case when p_amount<0 then 'CREDIT' else 'DEBIT' end;dt:=coalesce(nullif(b.metadata->>'opening_date','')::date,b.created_at::date);tab:='cash';item:='cash:'||b.id;name:=b.name;ccy:=(select base_currency from public.organizations where id=p_org);recorded:=b.created_at;
  elsif p_table='financial_event_obligations' then
   select * into o from public.financial_event_obligations where organization_id=p_org and id=p_id and adjusts_obligation_id is null;
   if o.id is null or not exists(select 1 from public.debt_contracts d where d.organization_id=p_org and d.financial_event_id=o.event_id and d.mode='OPENING' and d.deleted_at is null) then raise exception 'FISCAL_OPENING_SOURCE_REQUIRED';end if;
@@ -178,7 +177,15 @@ begin
  select * into close from public.financial_year_closures where organization_id=p_org and next_start=p_start and status='CLOSED';
  if close.id is not null then
   rows:=close.next_source;
-  return jsonb_build_object('rows',rows,'revision',md5(rows::text),'financialRevision',md5(rows::text),'closeId',close.id,'ruleVersion','FISCAL_V1');
+  -- New register names may be added after a year closes. Their certified
+  -- opening is zero; introducing past balances requires a documented correction.
+  for r in select * from jsonb_array_elements(src->'rows') item where not exists(select 1 from jsonb_array_elements(rows) existing where existing->>'id'=item->>'id') loop
+   if exists(select 1 from jsonb_array_elements(r->'vouchers') v where (v->>'debit')::numeric<>0 or (v->>'credit')::numeric<>0) then raise exception 'FISCAL_CLOSED_SOURCE_CORRECTION_REQUIRED';end if;
+   rows:=rows||jsonb_build_array(r||jsonb_build_object('tab',private.financial_opening_tab(r->>'accountCode'),'carrySupplement','0.0000',
+    'vouchers',jsonb_build_array(jsonb_build_object('canonicalId','close:'||close.id||':new:'||(r->>'id'),'number','FY '||close.fiscal_end,'effectiveDate',p_start,'transactionDate',close.fiscal_end,'debit','0.0000','credit','0.0000'))));
+  end loop;
+  select jsonb_agg(item order by item->>'id') into rows from jsonb_array_elements(rows) item;
+  return jsonb_build_object('rows',rows,'revision',md5(rows::text),'financialRevision',md5(close.next_source::text),'closeId',close.id,'ruleVersion','FISCAL_V1');
  end if;
  -- Explicit assignment wins. Unassigned first-day OPENING_BALANCE vouchers are
  -- opening sources by their type and fiscal effective date, never by company ID.
@@ -238,6 +245,39 @@ begin
  return jsonb_build_object('rows',rows,'revision',md5(rows::text),'financialRevision',md5((select coalesce(jsonb_agg(jsonb_build_object('id',r->>'id','vouchers',r->'vouchers','issue',r->'sourceIssue') order by r->>'id'),'[]') from jsonb_array_elements(rows) r where jsonb_array_length(r->'vouchers')>0 or r->>'sourceIssue' is not null)::text),'ruleVersion','FISCAL_V1');
 end $$;
 revoke all on function private.financial_period_opening_sources(uuid,date) from public,anon,authenticated;
+
+-- Human-readable, permission-scoped opening candidates for the ordinary UI.
+create function public.financial_opening_candidates(p_org uuid,p_start date)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+#variable_conflict use_column
+declare source jsonb;result jsonb;
+begin
+ if not private.financial_opening_can(p_org,'financial_core.view') then raise exception 'FISCAL_ACCESS_DENIED';end if;
+ if (private.financial_fiscal_period(p_org,p_start)->>'start')::date is distinct from p_start then raise exception 'FISCAL_START_MISMATCH';end if;
+ source:=private.financial_period_opening_sources(p_org,p_start);
+ select coalesce(jsonb_agg(item order by item->>'name',item->>'sourceId'),'[]') into result from (
+  select jsonb_build_object('sourceTable','transactions','sourceId',t.id,'kind','ASSET','name',aa.name,'date',t.transaction_date,'recordedAt',t.created_at,'amount',t.base_value::numeric(24,4)::text,
+   'accountCode',case when aa.asset_class_code='METALS' and aa.metadata->>'holding_purpose'='INVESTMENT' then '1600' else '1500' end,'declaredRequired',false) item
+  from public.transactions t join public.asset_accounts aa on aa.id=t.asset_account_id and aa.organization_id=p_org
+  where t.organization_id=p_org and aa.ownership_scope='ORGANIZATION' and t.transaction_type='OPENING_BALANCE' and t.transaction_date>p_start
+   and aa.asset_type::text not in('CASH','BANK','RECEIVABLE') and not coalesce((aa.metadata->>'archived')::boolean,false)
+   and not exists(select 1 from public.financial_opening_source_assignments a where a.organization_id=p_org and a.source_table='transactions' and a.source_id=t.id)
+  union all
+  select jsonb_build_object('sourceTable','financial_event_obligations','sourceId',ob.id,'kind','LOAN','name',coalesce(d.description,e.description),'date',d.event_date,'recordedAt',d.created_at,'amount',ob.settleable_base_amount::numeric(24,4)::text,
+   'accountCode',case when ob.obligation_type='PAYABLE' then '2200' else '1200' end,'declaredRequired',false)
+  from public.debt_contracts d join public.financial_events e on e.id=d.financial_event_id and e.organization_id=p_org join public.financial_event_obligations ob on ob.event_id=e.id and ob.organization_id=p_org and ob.adjusts_obligation_id is null
+  where d.organization_id=p_org and d.mode='OPENING' and d.event_date>p_start and d.deleted_at is null
+   and not exists(select 1 from public.financial_opening_source_assignments a where a.organization_id=p_org and a.source_table='financial_event_obligations' and a.source_id=ob.id)
+  union all
+  select jsonb_build_object('sourceTable','liquidity_accounts','sourceId',b.id,'kind','BANK','name',b.name,'date',coalesce(nullif(b.metadata->>'opening_date','')::date,b.created_at::date),'recordedAt',b.created_at,'amount',null,'accountCode','1000','declaredRequired',true)
+  from public.liquidity_accounts b where b.organization_id=p_org and (b.active or b.current_balance_base<>0)
+   and exists(select 1 from jsonb_array_elements(source->'rows') r where r->>'id'='cash:'||b.id and jsonb_array_length(r->'vouchers')=0)
+   and not exists(select 1 from public.financial_opening_source_assignments a where a.organization_id=p_org and a.source_table='liquidity_accounts' and a.source_id=b.id)
+ ) candidates;
+ return result;
+end $$;
+revoke all on function public.financial_opening_candidates(uuid,date) from public,anon;
+grant execute on function public.financial_opening_candidates(uuid,date) to authenticated;
 
 -- A bank declaration's effective date can precede creation of its register.
 -- Reconstruct its actual balances at that effective date; never move created_at.
@@ -530,7 +570,7 @@ begin
     where closed.organization_id=org and closed.status='CLOSED' and detail->>'id'=(case when tg_table_name='asset_accounts' then 'asset:' else 'cash:' end)||(payload->>'id'))
    and not exists(select 1 from public.financial_year_closures closed where closed.organization_id=org and closed.status='CLOSED' and closed.fiscal_end>=coalesce(nullif(payload->>'created_at','')::timestamptz::date,current_date))
    then dt:=current_date;end if;
-  if dt is null and tg_op='INSERT' then dt:=coalesce(nullif(payload->>'created_at','')::timestamptz::date,current_date);end if;
+  if dt is null and tg_op='INSERT' then dt:=case when tg_table_name='liquidity_accounts' then coalesce(nullif(payload->'metadata'->>'opening_date','')::date,nullif(payload->>'created_at','')::timestamptz::date,current_date) else coalesce(nullif(payload->>'created_at','')::timestamptz::date,current_date) end;end if;
   if tg_table_name='liquidity_accounts' and tg_op='UPDATE'
    and (to_jsonb(old)-array['current_balance','current_balance_base','updated_at'])=(to_jsonb(new)-array['current_balance','current_balance_base','updated_at']) then continue;end if;
   if exists(select 1 from public.financial_opening_source_assignments assignment

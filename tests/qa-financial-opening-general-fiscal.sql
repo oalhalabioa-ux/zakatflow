@@ -67,6 +67,7 @@ begin
    values(purchase_tx,owner,org,current_asset,'PURCHASE',starts+120,1,'SAR','SAR',60,60,jsonb_build_object('financial_event_id',purchase_event));
   update public.financial_events set source_record_id=purchase_tx where id=purchase_event;
   rules:=jsonb_build_array(jsonb_build_object('eventType','REVENUE','sourceModule','FISCAL_QA','classificationId',classification||':BASE','cashDirection','INFLOW','debitAccountId','1000','creditAccountId','4100','cashActivity','OPERATING'),jsonb_build_object('eventType','EXPENSE','sourceModule','FISCAL_QA','classificationId',tax||':BASE','cashDirection','OUTFLOW','debitAccountId','6100','creditAccountId','1000','cashActivity','OPERATING'),jsonb_build_object('eventType','ASSET_PURCHASE','sourceModule','FISCAL_QA','classificationId',capex||':BASE','cashDirection','OUTFLOW','debitAccountId','1500','creditAccountId','1000','cashActivity','INVESTING'));
+  if exists(select 1 from jsonb_array_elements(public.financial_opening_candidates(org,starts)) candidate where candidate->>'sourceId'=purchase_tx::text) then raise exception 'current purchase offered as an opening source';end if;
   policy:=public.save_financial_reporting_policy(org,starts,0,rules,'Annual current operations posting rules');policy:=public.approve_financial_reporting_policy((policy->>'id')::uuid,1);
   snap:=public.financial_statement_live_snapshot(org,starts,lastdate);
   if jsonb_array_length(snap->'events')<>3 then raise exception 'opening entered current journals %',snap->'events';end if;
@@ -136,6 +137,10 @@ begin
  if context->'period'->>'start'<>'2024-02-29' or context->'period'->>'end'<>'2025-02-27' then raise exception 'leap fiscal period mismatch';end if;
  context:=public.financial_fiscal_context(org,'2025-03-01');
  if context->'period'->>'start'<>'2025-02-28' or context->'period'->>'end'<>'2026-02-27' then raise exception 'nonleap fiscal anchor mismatch';end if;
+ bank:=gen_random_uuid();insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata) values(bank,org,'Independent opening overdraft','BANK','SAR',-10,-10,owner,'{"opening_date":"2024-02-29","opening_balance":-10,"opening_fx_rate":1}');
+ perform public.assign_financial_opening_source(org,'liquidity_accounts',bank,'2024-02-29','2024-02-29','1000',-10,'Explicit signed opening overdraft');
+ s:=public.financial_opening_workspace(org,'2024-02-29');
+ if not exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'id'='cash:'||bank and r->'vouchers'->0->>'credit'='10.0000') then raise exception 'signed bank opening not preserved';end if;
  insert into fiscal_checks values('Explicit new-organization calendar without a January default, leap and nonleap fiscal anchors',true);
 end $$;
 select jsonb_build_object('checks',(select jsonb_agg(to_jsonb(t) order by name) from fiscal_checks t),'snapshots',(select jsonb_agg(to_jsonb(s)) from fiscal_snapshots s));

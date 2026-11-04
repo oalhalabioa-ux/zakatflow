@@ -80,6 +80,18 @@ try{
   assert.equal(Number(next.source.rows.find(row=>row.id===bank.id).vouchers[0].debit),250000);
   sql(`update public.organization_members set status='INACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
  });
+ await check('An ordinary browser user declares a late bank opening without technical IDs or copying its current balance',async()=>{
+  await page.goto(app+'/en/opening-balances?organization='+other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
+  await page.getByText('Assign late opening sources',{exact:true}).click();
+  const picker=page.getByRole('combobox',{name:'Opening source',exact:true});
+  const option=picker.locator('option').filter({hasText:'September QA bank'});await option.waitFor({state:'attached'});await picker.selectOption(await option.getAttribute('value'));
+  await page.getByLabel('Bank opening in base currency',{exact:true}).fill('0');await page.getByLabel('Opening assignment reason',{exact:true}).fill('New bank existed only after the beginning of this year');
+  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.setViewportSize({width:1672,height:941});
+  const assigned=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await page.getByRole('button',{name:'Confirm source assignment',exact:true}).click();assert.equal((await assigned).status(),200);
+  const fresh=await a.client.rpc('financial_opening_workspace',{p_org:other,p_fiscal_start:'2026-01-01'});assert.ifError(fresh.error);
+  const bank=fresh.data.source.rows.find(row=>row.en==='September QA bank');assert.equal(bank.vouchers[0].debit,'0.0000');assert.equal(Number(fresh.data.bankRegister[bank.id].balance),250000);
+  assert.equal(bank.vouchers[0].effectiveDate,'2026-01-01');assert.equal(bank.vouchers[0].transactionDate,'2026-09-28');
+ });
  await check('Connected opening page loads actual master names and missing states',async()=>{await page.goto(app+'/ar/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();await page.getByText('عميل بلا رصيد افتتاحي',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'اعتماد الأرصدة',exact:true}).isDisabled(),true);await page.screenshot({path:out+'/opening-ar-desktop-before.png',fullPage:true})});
  await check('Cash row shows current register value independently of fiscal opening',async()=>{
   await page.locator('#ob-tab-cash').click();
