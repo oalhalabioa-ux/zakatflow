@@ -260,9 +260,9 @@ try{
   assert.ifError((await a.client.rpc('approve_financial_reporting_policy',{p_id:draft.data.id,p_expected_version:draft.data.version})).error);
   const reportResponse=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({
     action:'statements',organization:loanOrg,from:'2026-01-01',to:'2026-12-31'}));
-  assert.equal(reportResponse.status(),200,await reportResponse.text());
   const report=await reportResponse.json();
-  assert.deepEqual(new Set(report.sourceJournalIds??[]),new Set(recorded));
+  assert.equal(reportResponse.status(),200,JSON.stringify(report));
+  assert.deepEqual(new Set(report.statements.sourceJournalIds),new Set(recorded));
   assert.equal(report.statements.cash.investing,'-200.0000');
   assert.equal(report.statements.cash.financing,'300.0000');
   assert.equal(report.statements.cash.closing,'100.0000');
