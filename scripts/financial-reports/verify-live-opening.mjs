@@ -205,6 +205,7 @@ try{
     assert.equal((await denied).status(),403);
     await tab.locator('.ob-invalid[role="alert"]').waitFor();
     assert.equal(await tab.locator('[data-opening-ready]').count(),0);
+    assert.equal(await tab.getByText('Fiscal calendar and annual close',{exact:true}).count(),0);
     assert.equal(await tab.getByRole('button',{name:'CSV',exact:true}).count(),0);
    }
    assert.deepEqual(downloads,[]);

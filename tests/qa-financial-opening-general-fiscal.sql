@@ -18,7 +18,7 @@ begin
   context:=public.financial_fiscal_context(org,starts+100);
   if context->'period'->>'start'<>starts::text or context->'period'->>'end'<>lastdate::text then raise exception 'period resolver %',context;end if;
   insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
-   values(bank,org,'Opening bank','BANK','SAR',510,510,owner,jsonb_build_object('opening_date',starts,'opening_balance',500,'opening_fx_rate',1));
+   values(bank,org,'Opening bank','BANK','SAR',510,510,owner,jsonb_build_object('opening_date',case when month=1 then starts+400 else starts end,'opening_balance',500,'opening_fx_rate',1));
   insert into public.asset_accounts(id,user_id,organization_id,ownership_scope,asset_type,name,currency,metadata) values(asset,owner,org,'ORGANIZATION','OTHER','First-day opening','SAR','{"acquisition_mode":"OPENING_BALANCE"}'),(late_asset,owner,org,'ORGANIZATION','OTHER','Late recorded opening','SAR','{"acquisition_mode":"OPENING_BALANCE"}');
   insert into public.transactions(user_id,organization_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value,gross_value,metadata)
    values(owner,org,asset,'OPENING_BALANCE',starts,1,'SAR','SAR',100,100,'{}'),(owner,org,late_asset,'OPENING_BALANCE',starts+60,1,'SAR','SAR',40,40,'{}');
@@ -86,7 +86,14 @@ begin
   if (select sum((v->>'debit')::numeric-(v->>'credit')::numeric) from jsonb_array_elements(s->'source'->'rows') r cross join lateral jsonb_array_elements(r->'vouchers') v)<>0 then raise exception 'next trial mismatch';end if;
   if (select r->'vouchers'->0->>'credit' from jsonb_array_elements(s->'source'->'rows') r where r->>'accountCode'='3300')<>'70.0000' then raise exception 'retained earnings mismatch';end if;
   begin update public.transactions set base_value=101 where asset_account_id=asset;raise exception 'closed mutation accepted';exception when others then if sqlerrm<>'FISCAL_PERIOD_CLOSED' then raise;end if;end;
+  insert into public.organization_members(organization_id,user_id,role,status) values(org,outsider,'VIEWER','ACTIVE');
   perform set_config('request.jwt.claim.sub',outsider::text,true);
+  execute 'set local role authenticated';
+  if public.financial_fiscal_context(org,starts)->>'canClose'<>'false' then raise exception 'viewer close control';end if;
+  begin perform public.close_financial_year(org,starts,gen_random_uuid(),'Viewer close attempt');raise exception 'viewer closed';exception when others then if sqlerrm<>'FISCAL_CLOSE_DENIED' then raise;end if;end;
+  begin perform public.save_financial_fiscal_calendar(org,month,1,'3300',1,'Viewer cannot change calendar');raise exception 'viewer calendar saved';exception when others then if sqlerrm<>'FISCAL_WRITE_DENIED' then raise;end if;end;
+  execute 'set local role postgres';
+  delete from public.organization_members where organization_id=org and user_id=outsider;
   execute 'set local role authenticated';
   if exists(select 1 from public.financial_year_closures where organization_id=org) then raise exception 'foreign RLS close leak';end if;
   begin perform public.financial_fiscal_context(org,starts);raise exception 'foreign context';exception when others then if sqlerrm<>'FISCAL_ACCESS_DENIED' then raise;end if;end;

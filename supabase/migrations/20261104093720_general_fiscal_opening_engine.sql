@@ -72,7 +72,7 @@ begin
  if c is not null then period:=private.financial_fiscal_period(p_org,p_as_of);end if;
  return jsonb_build_object('organizationId',p_org,'calendar',c,'period',period,
  'closures',(select coalesce(jsonb_agg(jsonb_build_object('id',id,'start',fiscal_start,'end',fiscal_end,'version',version,'status',status) order by fiscal_start desc,version desc),'[]') from public.financial_year_closures where organization_id=p_org),
- 'canConfigure',private.financial_opening_can(p_org,'financial_core.create'));
+ 'canConfigure',private.financial_opening_can(p_org,'financial_core.create'),'canClose',private.financial_opening_can(p_org,'financial_core.approve') and private.financial_opening_can(p_org,'financial_core.post'));
 end $$;
 revoke all on function public.financial_fiscal_context(uuid,date) from public,anon;
 grant execute on function public.financial_fiscal_context(uuid,date) to authenticated;
@@ -90,8 +90,11 @@ begin
  if coalesce(c.version,0) is distinct from p_expected_version then raise exception 'FISCAL_VERSION_CONFLICT';end if;
  if c.organization_id is not null and (c.start_month<>p_month or c.start_day<>p_day or c.retained_earnings_account<>p_retained)
  and (exists(select 1 from public.financial_opening_workspaces where organization_id=p_org) or exists(select 1 from public.financial_reporting_policies where organization_id=p_org) or exists(select 1 from public.financial_opening_source_assignments where organization_id=p_org) or exists(select 1 from public.financial_year_closures where organization_id=p_org)) then raise exception 'FISCAL_CALENDAR_IN_USE';end if;
- if exists(select 1 from public.financial_opening_workspaces where organization_id=p_org and (extract(month from fiscal_start)<>p_month or extract(day from fiscal_start)<>p_day))
- or exists(select 1 from public.financial_reporting_policies where organization_id=p_org and (extract(month from fiscal_start)<>p_month or extract(day from fiscal_start)<>p_day)) then raise exception 'FISCAL_LEGACY_PERIOD_REVIEW_REQUIRED';end if;
+ if exists(select 1 from (
+  select fiscal_start from public.financial_opening_workspaces where organization_id=p_org
+  union select fiscal_start from public.financial_reporting_policies where organization_id=p_org
+ ) legacy where fiscal_start<>make_date(extract(year from fiscal_start)::int,p_month,1)+least(p_day,extract(day from (make_date(extract(year from fiscal_start)::int,p_month,1)+interval '1 month'-interval '1 day'))::int)-1)
+ then raise exception 'FISCAL_LEGACY_PERIOD_REVIEW_REQUIRED';end if;
  insert into public.financial_fiscal_calendars(organization_id,start_month,start_day,retained_earnings_account,updated_by)
  values(p_org,p_month,p_day,p_retained,auth.uid()) on conflict(organization_id) do update set start_month=excluded.start_month,start_day=excluded.start_day,retained_earnings_account=excluded.retained_earnings_account,version=financial_fiscal_calendars.version+1,updated_by=auth.uid(),updated_at=now() returning * into c;
  insert into public.financial_fiscal_audit(organization_id,action,actor_id,detail) values(p_org,'CALENDAR_SAVE',auth.uid(),jsonb_build_object('calendar',to_jsonb(c),'reason',p_reason));
@@ -149,8 +152,8 @@ begin
  period:=private.financial_fiscal_period(p_org,p_fiscal_start);
  if (period->>'start')::date is distinct from p_fiscal_start or p_effective_date is distinct from p_fiscal_start or length(trim(coalesce(p_reason,''))) not between 3 and 1000 then raise exception 'FISCAL_EFFECTIVE_DATE_INVALID';end if;
  perform pg_advisory_xact_lock(hashtextextended('reporting-opening:'||p_org::text||p_fiscal_start::text,0));
- if exists(select 1 from public.financial_year_closures where organization_id=p_org and fiscal_start=p_fiscal_start and status='CLOSED')
- or exists(select 1 from public.financial_opening_workspaces where organization_id=p_org and fiscal_start=p_fiscal_start and status='APPROVED') then raise exception 'FISCAL_APPROVED_SOURCE_CORRECTION_REQUIRED';end if;
+ if exists(select 1 from public.financial_year_closures where organization_id=p_org and fiscal_start>=p_fiscal_start and status='CLOSED')
+ or exists(select 1 from public.financial_opening_workspaces where organization_id=p_org and fiscal_start>=p_fiscal_start and status='APPROVED') then raise exception 'FISCAL_APPROVED_SOURCE_CORRECTION_REQUIRED';end if;
  resolved:=private.financial_resolve_opening(p_org,p_table,p_id,p_declared_amount,p_account);
  select * into assigned from public.financial_opening_source_assignments where organization_id=p_org and source_table=p_table and source_id=p_id;
  if assigned.id is not null then
@@ -242,6 +245,17 @@ begin
 end $$;
 revoke all on function private.financial_period_opening_sources(uuid,date) from public,anon,authenticated;
 
+-- A bank declaration's effective date can precede creation of its register.
+-- Reconstruct its actual balances at that effective date; never move created_at.
+do $$
+declare definition text;
+begin
+ definition:=pg_get_functiondef('private.financial_opening_sources(uuid,date)'::regprocedure);
+ definition:=replace(definition,$old$coalesce(nullif(a.metadata->>'opening_date','')::date,a.created_at::date)>p_cutoff$old$,
+  $new$coalesce((select min(assignment.effective_date) from public.financial_opening_source_assignments assignment where assignment.organization_id=p_org and assignment.source_table='liquidity_accounts' and assignment.source_id=a.id),nullif(a.metadata->>'opening_date','')::date,a.created_at::date)>p_cutoff$new$);
+ execute definition;
+end $$;
+
 -- Replace only calls that build an opening snapshot. Current-register reads retain
 -- their own date cutoff. Existing write permissions, audit and validation remain.
 do $$
@@ -268,7 +282,13 @@ begin
     -- purchases and operational events keep their normal posting rules.
     if w.id is not null then
      select coalesce(jsonb_agg(ev),'[]'::jsonb) into events from jsonb_array_elements(events) ev where not exists(
-      select 1 from jsonb_array_elements(w.source_snapshot->'rows') rr cross join lateral jsonb_array_elements(rr->'vouchers') vv
+      select 1 from (
+       select vv from jsonb_array_elements(w.source_snapshot->'rows') rr cross join lateral jsonb_array_elements(rr->'vouchers') vv
+       union all
+       select jsonb_build_object('canonicalId',assignment.source_table||':'||assignment.source_id)
+       from public.financial_opening_source_assignments assignment where assignment.organization_id=p_org and assignment.fiscal_start<=w.fiscal_start
+        and exists(select 1 from public.financial_opening_workspaces adopted where adopted.organization_id=p_org and adopted.fiscal_start=assignment.fiscal_start and adopted.status='APPROVED')
+      ) consumed(vv)
       where vv->>'canonicalId'='transactions:'||replace(ev->>'id','transaction:','')
        or exists(select 1 from public.transactions t where t.organization_id=p_org and vv->>'canonicalId'='transactions:'||t.id and (
         t.metadata->>'financial_event_id'=ev->>'id'
