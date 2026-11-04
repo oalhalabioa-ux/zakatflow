@@ -223,6 +223,15 @@ begin
   definition:=replace(definition,'private.financial_opening_sources(p_org,p_fiscal_start-1)','private.financial_period_opening_sources(p_org,p_fiscal_start)');
   definition:=replace(definition,'private.financial_opening_sources(w.organization_id,w.fiscal_start-1)','private.financial_period_opening_sources(w.organization_id,w.fiscal_start)');
   definition:=replace(definition,'private.financial_opening_sources(p_org,w.fiscal_start-1)','private.financial_period_opening_sources(p_org,w.fiscal_start)');
+  if n='public.financial_opening_workspace(uuid,date)' then
+   definition:=replace(definition,'and t.transaction_date>=p_fiscal_start',$exclude$and t.transaction_date>p_fiscal_start and not exists(select 1 from public.financial_opening_source_assignments a where a.organization_id=p_org and a.source_table='transactions' and a.source_id=t.id)$exclude$);
+  end if;
+  if n='public.approve_financial_opening(uuid,integer)' then
+   definition:=replace(definition,$old$for r in select * from jsonb_array_elements(s->'rows') loop$old$,$new$
+    if s->>'closeId' is not null and exists(select 1 from jsonb_each(w.entries) x where coalesce(nullif(x.value->>'amount','')::numeric,0)<>0 or x.value->>'accountCode' is not null) then raise exception 'FISCAL_ROLLOVER_CORRECTION_REQUIRED';end if;
+    for r in select * from jsonb_array_elements(s->'rows') loop
+   $new$);
+  end if;
   if n='public.financial_statement_live_snapshot(uuid,date,date)' then
    definition:=replace(definition,'events:=private.financial_reporting_events(p_org,w.fiscal_start,pol.fiscal_end);',$filter$
     events:=private.financial_reporting_events(p_org,w.fiscal_start,pol.fiscal_end);
@@ -394,6 +403,9 @@ declare payload jsonb;org uuid;dt date;start date;parent uuid;
 begin
  for payload in select v from (values(case when tg_op<>'INSERT' then to_jsonb(old) end),(case when tg_op<>'DELETE' then to_jsonb(new) end)) x(v) where v is not null loop
   org:=nullif(payload->>'organization_id','')::uuid;
+  if org is null and payload->>'transaction_id' is not null then
+   select organization_id,transaction_date into org,dt from public.transactions where id=(payload->>'transaction_id')::uuid;
+  end if;
   if org is null then continue;end if;
   dt:=coalesce(nullif(payload->>'event_date','')::date,nullif(payload->>'transaction_date','')::date,nullif(payload->>'settlement_date','')::date,nullif(payload->>'due_date','')::date);
   if dt is null and payload->>'event_id' is not null then select event_date into dt from public.financial_events where organization_id=org and id=(payload->>'event_id')::uuid;end if;
@@ -402,6 +414,9 @@ begin
   if dt is null and tg_op='INSERT' then dt:=coalesce(nullif(payload->>'created_at','')::timestamptz::date,current_date);end if;
   if dt is null and tg_table_name='liquidity_accounts' and tg_op='UPDATE'
    and (to_jsonb(old)-array['current_balance','current_balance_base','updated_at'])=(to_jsonb(new)-array['current_balance','current_balance_base','updated_at']) then continue;end if;
+  if exists(select 1 from public.financial_opening_source_assignments assignment
+    join public.financial_opening_workspaces w on w.organization_id=assignment.organization_id and w.fiscal_start=assignment.fiscal_start and w.status='APPROVED'
+    where assignment.organization_id=org and assignment.source_table=tg_table_name and assignment.source_id::text=payload->>'id') then raise exception 'FISCAL_APPROVED_SOURCE_CORRECTION_REQUIRED';end if;
   if dt is null then
    -- Account/master changes can alter historical source reconstruction.
    if exists(select 1 from public.financial_year_closures where organization_id=org and status='CLOSED') then raise exception 'FISCAL_CLOSED_SOURCE_CORRECTION_REQUIRED';end if;
