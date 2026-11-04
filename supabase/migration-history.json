@@ -1706,6 +1706,14 @@
       "expected_md5": "a8be006aa0755b0af806f6a5c9ecec74",
       "file_sha256": "bb2f9105754e5500012f5db011cebed8f1a616e9a450bd219b994251aa62637d",
       "validation_project": "Disposable custom opening leaf acceptance only"
+    },
+    {
+      "path": "supabase/migrations/20261104134551_financial_chart_posting_coverage.sql",
+      "version": "20261104134551",
+      "name": "financial_chart_posting_coverage",
+      "expected_md5": "937fb0c928413d744cffcea586d52931",
+      "file_sha256": "d3a529c7ac2d5ab0685f3e0e2441785e8a2490d3bc769ddf9d1e474ce4be2482",
+      "validation_project": "Disposable source-to-chart coverage acceptance only"
     }
   ]
 }
