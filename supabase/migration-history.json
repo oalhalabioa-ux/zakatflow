@@ -1714,6 +1714,14 @@
       "expected_md5": "937fb0c928413d744cffcea586d52931",
       "file_sha256": "d3a529c7ac2d5ab0685f3e0e2441785e8a2490d3bc769ddf9d1e474ce4be2482",
       "validation_project": "Disposable source-to-chart coverage acceptance only"
+    },
+    {
+      "path": "supabase/migrations/20261104165205_fiscal_calendar_budget_guards.sql",
+      "version": "20261104165205",
+      "name": "fiscal_calendar_budget_guards",
+      "file_sha256": "8bb3ba208c5587accd5255c696da28d1ebe7e804b4955c3936ce66968ff95e94",
+      "expected_md5": "184fab3bd6287a724fbfc612d1e54270",
+      "validation_project": "Disposable fiscal settings acceptance only; not applied to Production"
     }
   ]
 }

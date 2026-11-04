@@ -1,0 +1,21 @@
+{
+  "description": "Budget calendar alignment guards only; no row transformations or new engine.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_guard_budget_calendar()",
+      "fingerprint": "3aac57ef136561fe24cddafcf3e517cf"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_budget_plan_ownership.budget_fiscal_calendar_guard",
+      "fingerprint": "840a78cafa2cddf98a8a6118ae764184"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_fiscal_calendars.fiscal_calendar_budget_guard",
+      "fingerprint": "f9841d3ba00826d3a91fdcc67fe92023"
+    }
+  ]
+}

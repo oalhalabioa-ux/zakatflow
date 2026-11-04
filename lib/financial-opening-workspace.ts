@@ -28,6 +28,7 @@ export function openingError(code:string,en:boolean){
 
 export function fiscalError(code:string,en:boolean){
  const messages:Record<string,[string,string]>={
+ FISCAL_BUDGET_PERIOD_REVIEW_REQUIRED:['توجد موازنات مرتبطة بتقويم مختلف؛ يلزم إجراء تصحيح معتمد دون تغيير بياناتها تلقائيًا.','Linked budgets use a different calendar; use an approved correction without automatically changing their records.'],
  FISCAL_CALENDAR_REQUIRED:['حدد بداية السنة المالية للمؤسسة أولاً.','Configure this organization’s fiscal year first.'],
  FISCAL_OPENING_NOT_STARTED:['يمكن تجهيز المسودة؛ يبدأ اعتماد الافتتاح عند حلول تاريخ بداية السنة.','The draft may be prepared now; approve the opening when its fiscal year begins.'],
  FISCAL_PREVIOUS_YEAR_NOT_CLOSED:['أقفل السنة السابقة المعتمدة أولاً ليأتي الافتتاح التالي من ختاميها الصحيح.','Close the preceding approved year before adopting its closing balances as the next opening.'],

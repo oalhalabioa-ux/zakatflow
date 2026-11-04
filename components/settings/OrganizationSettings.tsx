@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SystemSettings from "./SystemSettings";
-import FiscalPeriodControl from "../financial-reports/FiscalPeriodControl";
+import FiscalYearManagement from "./FiscalYearManagement";
 import {
   rememberOrganization,
   rememberedOrganization,
@@ -13,9 +13,11 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 export default function OrganizationSettings({
   locale,
   system = false,
+  financial,
 }: {
   locale: string;
   system?: boolean;
+  financial?: "overview" | "years";
 }) {
   const ar = locale === "ar",
     [items, setItems] = useState<Organization[]>([]),
@@ -154,6 +156,7 @@ export default function OrganizationSettings({
           </select>
         </label>
       </div>
+      {!system && <nav className="settings-breadcrumbs" aria-label={ar?"مسار الإعدادات":"Settings breadcrumb"}><Link href={`/${locale}/settings`}>{ar?"إعدادات المؤسسة":"Organization settings"}</Link>{financial&&<><span aria-hidden="true">/</span><Link href={`/${locale}/settings/financial?organization=${id}`}>{ar?"الإعدادات المالية والمحاسبية":"Financial & accounting settings"}</Link></>}{financial==="years"&&<><span aria-hidden="true">/</span><span aria-current="page">{ar?"إدارة السنوات المالية":"Fiscal year management"}</span></>}</nav>}
       {loading ? (
         <p role="status">
           {ar ? "جارٍ تحميل المؤسسة…" : "Loading organization…"}
@@ -167,6 +170,8 @@ export default function OrganizationSettings({
             {ar ? "فتح الهيكل المؤسسي" : "Open organization structure"}
           </Link>
         </section>
+      ) : financial ? (
+        <section className="settings-card"><header><h2>{ar?"الإعدادات المالية والمحاسبية":"Financial & accounting settings"}</h2><p>{selected.name}</p></header>{financial==="years"?<FiscalYearManagement key={id} organization={id} locale={locale}/>:<div className="settings-link-grid"><Link href={`/${locale}/settings/financial/fiscal-years?organization=${id}`}><strong>{ar?"إدارة السنوات المالية":"Fiscal year management"}</strong><p>{ar?"التقويم المالي والسنوات والإقفال وحساب الأرباح المحتجزة.":"Fiscal calendar, years, closing and retained earnings account."}</p></Link></div>}</section>
       ) : (
         <section className="settings-card">
           <header>
@@ -256,7 +261,7 @@ export default function OrganizationSettings({
           {message && <p role="status">{message}</p>}
         </section>
       )}
-      {!system && selected && <FiscalPeriodControl key={id} organization={id} en={!ar} settingsOnly />}
+      {!system && !financial && selected && <section className="settings-card"><h2>{ar?"الإعدادات المالية والمحاسبية":"Financial & accounting settings"}</h2><div className="settings-link-grid"><Link href={`/${locale}/settings/financial?organization=${id}`}>{ar?"فتح الإعدادات المالية والمحاسبية":"Open financial & accounting settings"}</Link></div></section>}
     </>
   );
 }
