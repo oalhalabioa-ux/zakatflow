@@ -531,7 +531,7 @@ begin
    and not exists(select 1 from public.financial_year_closures closed where closed.organization_id=org and closed.status='CLOSED' and closed.fiscal_end>=coalesce(nullif(payload->>'created_at','')::timestamptz::date,current_date))
    then dt:=current_date;end if;
   if dt is null and tg_op='INSERT' then dt:=coalesce(nullif(payload->>'created_at','')::timestamptz::date,current_date);end if;
-  if dt is null and tg_table_name='liquidity_accounts' and tg_op='UPDATE'
+  if tg_table_name='liquidity_accounts' and tg_op='UPDATE'
    and (to_jsonb(old)-array['current_balance','current_balance_base','updated_at'])=(to_jsonb(new)-array['current_balance','current_balance_base','updated_at']) then continue;end if;
   if exists(select 1 from public.financial_opening_source_assignments assignment
     join public.financial_opening_workspaces w on w.organization_id=assignment.organization_id and w.fiscal_start=assignment.fiscal_start and w.status='APPROVED'
