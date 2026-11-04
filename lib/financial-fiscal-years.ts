@@ -11,6 +11,10 @@ export type FiscalManagementContext={
  references:FiscalReference[];
  asOf:string;
 };
+/** Default proposed dates are UI-only until the organization explicitly saves its calendar. */
+export function suggestedFiscalStart(calendar:FiscalManagementContext['calendar']){
+ return {month:String(calendar?.start_month??1),day:String(calendar?.start_day??1)};
+}
 export function calendarFromContext(context:FiscalManagementContext):FiscalCalendar|null{
  const c=context.calendar;
  return c?{startMonth:c.start_month,startDay:c.start_day,retainedEarningsAccount:c.retained_earnings_account}:null;
