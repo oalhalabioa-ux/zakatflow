@@ -1714,6 +1714,14 @@
       "expected_md5": "937fb0c928413d744cffcea586d52931",
       "file_sha256": "d3a529c7ac2d5ab0685f3e0e2441785e8a2490d3bc769ddf9d1e474ce4be2482",
       "validation_project": "Disposable source-to-chart coverage acceptance only"
+    },
+    {
+      "path": "supabase/migrations/20261104214000_funded_debt_source_cash_direction.sql",
+      "version": "20261104214000",
+      "name": "funded_debt_source_cash_direction",
+      "expected_md5": "ffb5688d7b7e75f9053d77d8c374fd34",
+      "file_sha256": "2d55452dd23b029accd6be7deeec652a1d407bfe1b7bc6bf631b55caed21f6f9",
+      "validation_project": "Disposable funded debt and institutional statement acceptance only"
     }
   ]
 }
