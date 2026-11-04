@@ -3,13 +3,17 @@ import {openingScope,openingCommand,type OpeningWorkspaceData} from '../lib/fina
 export function assertOpeningWorkspace(){
  if(process.env.FINANCIAL_OPENING_WORKSPACE!=='true')throw Error('OPENING_DISABLED');
 }
-function unwrap<T>(r:{data:T;error:{message:string}|null}){if(r.error){const code=r.error.message.match(/OPENING_[A-Z_]+/)?.[0];throw Error(code??'OPENING_UNAVAILABLE')}return r.data}
+function unwrap<T>(r:{data:T;error:{message:string}|null}){if(r.error){const code=r.error.message.match(/(?:OPENING|FISCAL)_[A-Z_]+/)?.[0];throw Error(code??'OPENING_UNAVAILABLE')}return r.data}
 export async function openingContext(){
  assertOpeningWorkspace();const{supabase,user}=await requireUser();
  const memberships=unwrap(await supabase.from('organization_members').select('organization_id').eq('user_id',user.id).eq('status','ACTIVE'))??[];
  const permitted:string[]=[];for(const m of memberships){if(unwrap(await supabase.rpc('financial_core_can',{p_org:m.organization_id,p_scope:'financial_core.view'}))===true)permitted.push(m.organization_id)}
  if(!permitted.length)return [];
- return unwrap(await supabase.from('organizations').select('id,name,base_currency').in('id',permitted).order('name'))??[];
+ const organizations=unwrap(await supabase.from('organizations').select('id,name,base_currency').in('id',permitted).order('name'))??[];
+ return Promise.all(organizations.map(async org=>{
+  const context=unwrap(await supabase.rpc('financial_fiscal_context',{p_org:org.id}));
+  return {...org,currentFiscalStart:context?.period?.start??null};
+ }));
 }
 export async function readOpening(input:unknown):Promise<OpeningWorkspaceData>{
  assertOpeningWorkspace();const q=openingScope.parse(input),{supabase}=await requireUser();

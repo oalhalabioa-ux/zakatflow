@@ -7,11 +7,18 @@ on:
       - 'app/[locale]/opening-balances/**'
       - 'app/[locale]/financial-reports/**'
       - 'app/[locale]/financial-reporting-policy/**'
+      - 'app/[locale]/chart-of-accounts/**'
       - 'components/financial-reports/**'
+      - 'components/settings/**'
+      - 'app/[locale]/settings/**'
       - 'services/financial-*.ts'
       - 'lib/financial-*.ts'
       - 'scripts/financial-reports/*opening*'
       - 'tests/qa-financial-opening*.sql'
+      - 'tests/qa-financial-chart-accounts.sql'
+      - 'tests/qa-financial-chart-posting-rules.sql'
+      - 'tests/qa-financial-chart-opening-leaf.sql'
+      - 'tests/qa-financial-policy-coverage.sql'
       - '.github/workflows/financial-opening-workspace-qa.yml'
   workflow_dispatch:
 permissions:
@@ -48,15 +55,34 @@ jobs:
           s=s.replace('enable_confirmations = true','enable_confirmations = false')
           p.write_text(s)
           shutil.copytree('supabase/migrations',root/'migrations',dirs_exist_ok=True)
+          for migration in ('20261104093720_general_fiscal_opening_engine.sql',
+                            '20261104113559_fiscal_future_draft_window.sql',
+                            '20261104121038_organization_chart_accounts.sql',
+                            '20261104124455_financial_chart_posting_rules.sql',
+                            '20261104132349_financial_chart_opening_leaf_link.sql',
+                            '20261104134551_financial_chart_posting_coverage.sql'):
+            (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
         run: npx --yes supabase@2.122.0 start --workdir "$OPENING_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/opening-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/opening-start.log"; exit 1; }
+      - name: Upgrade existing approved legacy fixtures without changing their records or statements
+        run: node scripts/financial-reports/verify-fiscal-upgrade.mjs
+      - name: Verify isolated editable chart of accounts and audit
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-accounts.sql
+      - name: Verify posting rules accept only active organization subaccounts
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-posting-rules.sql
+      - name: Verify opening leaf mapping, audit locks and one-time year-close rollup
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-opening-leaf.sql
+      - name: Verify complete one-to-one account mapping of every canonical source line
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-policy-coverage.sql
       - name: Exercise actual authorization, persistence, approval, reports and browser
         run: node scripts/financial-reports/verify-live-opening.mjs
       - name: Reconcile statements and exports against this run's approved ledger
         run: |
           cp docs/financial-reports/evidence-opening-live/qa-financial-opening-ledger.json tests/financial-reporting/qa-live-opening-snapshot.json
           npx --no-install vitest run tests/financial-opening-ledger.test.ts
+      - name: Independently reconcile general fiscal closes with the statement compiler
+        run: FISCAL_QA_EVIDENCE=docs/financial-reports/evidence-opening-live/qa-financial-opening-general-fiscal.json npx --no-install vitest run tests/financial-fiscal-engine.test.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:

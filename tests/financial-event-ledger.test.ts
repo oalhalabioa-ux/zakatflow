@@ -7,6 +7,19 @@ function fixture():EventLedgerInput{
  return{organizationId:'a',currency:'SAR',openingDate:'2025-12-31',fiscalStart:'2026-01-01',from:'2026-01-01',to:'2026-12-31',openingSourceId:'canonical-opening-2026',accounts:[['bank','ASSET'],['vat','ASSET'],['receivable','ASSET'],['payable','LIABILITY'],['capital','EQUITY'],['opex','OPEX'],['revenue','REVENUE']].map(([id,kind])=>({id,kind:kind as EventLedgerInput['accounts'][number]['kind'],organizationId:'a',currency:'SAR',cash:id==='bank'})),opening:[{accountId:'bank',debit:'500',credit:'0'},{accountId:'capital',debit:'0',credit:'500'}],policy:{id:'approved-policy-v1',organizationId:'a',currency:'SAR',approvedBy:'policy-owner',approvedAt:'2026-01-01T00:00:00Z',rules},events:[expense,event('payment','SETTLEMENT','115','settlement','OUTFLOW'),event('sale','REVENUE','200','sale'),event('receipt','SETTLEMENT','200','collection','INFLOW')]};
 }
 describe('explicit canonical-event ledger compiler',()=>{
+ it('projects a new organization subaccount posting without changing cash, profit or position totals',()=>{
+  const baseline=compileEventLedger(fixture());
+  const source=fixture();
+  source.accounts.push({id:'610001',kind:'OPEX',organizationId:'a',currency:'SAR'},{id:'100001',kind:'ASSET',cash:true,organizationId:'a',currency:'SAR'});
+  source.policy.rules.find(r=>r.id==='expense')!.debitAccountId='610001';
+  source.policy.rules.find(r=>r.id==='settlement')!.creditAccountId='100001';
+  const projected=compileEventLedger(source);
+  expect(projected.statements).toEqual(baseline.statements);
+  expect(projected.source.journals.find(j=>j.id==='invoice')?.lines[0].accountId).toBe('610001');
+  expect(projected.source.journals.find(j=>j.id==='payment')?.lines[1].accountId).toBe('100001');
+  expect(projected.source.opening).toEqual(source.opening);
+  expect(projected.lineage).toEqual(baseline.lineage);
+ });
  it('keeps expense 100, recoverable VAT 15 and gross payment 115 distinct with one journal source',()=>{const r=compileEventLedger(fixture());expect(r.statements.income).toMatchObject({revenue:'200.0000',operatingExpenses:'100.0000',netProfit:'100.0000'});expect(r.statements.cash).toMatchObject({opening:'500.0000',operating:'85.0000',closing:'585.0000'});expect(r.statements.position).toMatchObject({assets:'600.0000',liabilities:'0.0000',equity:'600.0000'});expect(r.lineage).toHaveLength(5);expect(r.source.journals).toHaveLength(4)});
  it('does not mutate sources or regenerate amounts independently of journals',()=>{const s=fixture(),before=JSON.stringify(s),r=compileEventLedger(s);expect(JSON.stringify(s)).toBe(before);expect(r.lineage[0]).toEqual({journalId:'invoice',eventId:'invoice',lineId:'invoice-line',ruleId:'expense'});expect(r.policyId).toBe(s.policy.id);expect(r.openingSourceId).toBe(s.openingSourceId)});
  it('requires approved mapping and opening provenance and a balanced opening',()=>{let s=fixture();s.policy.approvedBy='';expect(()=>compileEventLedger(s)).toThrow('APPROVED_POSTING_POLICY_REQUIRED');s=fixture();s.openingSourceId='';expect(()=>compileEventLedger(s)).toThrow('OPENING_SOURCE_REQUIRED');s=fixture();s.opening[0].debit='499';expect(()=>compileEventLedger(s)).toThrow('OPENING_TRIAL_BALANCE_UNBALANCED')});

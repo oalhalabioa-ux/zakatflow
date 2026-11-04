@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SystemSettings from "./SystemSettings";
+import FiscalPeriodControl from "../financial-reports/FiscalPeriodControl";
 import {
   rememberOrganization,
   rememberedOrganization,
@@ -255,6 +256,7 @@ export default function OrganizationSettings({
           {message && <p role="status">{message}</p>}
         </section>
       )}
+      {!system && selected && <FiscalPeriodControl key={id} organization={id} en={!ar} settingsOnly />}
     </>
   );
 }

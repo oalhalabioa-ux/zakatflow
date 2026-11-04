@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 export const OPENING_TABS=[['summary','ميزان المراجعة','Trial balance','balance'],['customers','العملاء','Customers','users'],['suppliers','الموردون','Suppliers','truck'],['cash','النقد والبنوك','Cash & banks','bank'],['assets','الأصول والإهلاك','Assets & depreciation','building'],['loans','القروض','Loans','file'],['advances','السلف والعهد','Advances','wallet'],['other','استثمارات وأخرى','Investments & other','layers'],['equity','حقوق الملكية','Equity','crown']] as const;
 export type OpeningTab=typeof OPENING_TABS[number][0];
-export type OpeningItem={id:string;tab:Exclude<OpeningTab,'summary'>;accountCode:string;accountAr:string;accountEn:string;ar:string;en:string;normal:'DEBIT'|'CREDIT';inactive?:boolean;vouchers:{canonicalId:string;number:string;debit:string;credit:string}[]};
+export type OpeningItem={id:string;tab:Exclude<OpeningTab,'summary'>;accountCode:string;accountAr:string;accountEn:string;ar:string;en:string;normal:'DEBIT'|'CREDIT';inactive?:boolean;vouchers:{effectiveDate?:string;transactionDate?:string;recordedAt?:string;canonicalId:string;number:string;debit:string;credit:string}[]};
 export type OpeningDraft={amount:string;side:'DEBIT'|'CREDIT';reason?:string;accountCode?:string};
 export type OpeningDrafts=Record<string,OpeningDraft>;
 const Money=Decimal.clone({precision:50});
