@@ -33,6 +33,19 @@ describe('explicit canonical-event ledger compiler',()=>{
  it('keeps internal cash transfers out of cash-flow movement',()=>{const s=fixture();s.accounts.push({id:'bank2',kind:'ASSET',cash:true,organizationId:'a',currency:'SAR'});s.policy.rules.push({...s.policy.rules[2],id:'transfer',eventType:'TRANSFER',classificationId:'transfer',debitAccountId:'bank2',creditAccountId:'bank',cashActivity:undefined});s.events.push(event('transfer','TRANSFER','50','transfer','OUTFLOW'));expect(compileEventLedger(s).statements.cash.movement).toBe('85.0000')});
  it('uses effective dated rules and refuses unknown or same-side accounts',()=>{let s=fixture();s.policy.rules[0].from='2026-02-01';expect(()=>compileEventLedger(s)).toThrow('POSTING_RULE_REQUIRED');s=fixture();s.policy.rules[0].creditAccountId='unknown';expect(()=>compileEventLedger(s)).toThrow('INVALID_POSTING_ACCOUNTS');s=fixture();s.policy.rules[0].creditAccountId=s.policy.rules[0].debitAccountId;expect(()=>compileEventLedger(s)).toThrow('INVALID_POSTING_ACCOUNTS')});
  it('retains four decimals and rejects unsafe amounts/signs',()=>{const s=fixture();s.events[2].lines[0].baseAmount='200.0001';expect(compileEventLedger(s).statements.income.netProfit).toBe('100.0001');for(const n of ['NaN','-1','1e3','0','0.00001']){const x=fixture();x.events[0].lines[0].baseAmount=n;expect(()=>compileEventLedger(x)).toThrow('INVALID_RECOGNITION_AMOUNT')}});
+ it('fails closed when an actual cash-funded debt contract is still sourced as non-cash',()=>{
+  // Canonical create_debt_contract() currently creates ADJUSTMENT / DEBT_CONTRACTS
+  // with cash_direction=NON_CASH, even for mode=NEW funded by a bank settlement.
+  // Never silently treat that source as a complete investing/financing cash journal.
+  const s=fixture();
+  s.events=[event('loan','ADJUSTMENT','100','loan-principal','NON_CASH')];
+  s.events[0].sourceModule='DEBT_CONTRACTS';
+  s.accounts.push({id:'loan-receivable',kind:'ASSET',organizationId:'a',currency:'SAR'});
+  s.policy.rules=[{id:'debt-funding',organizationId:'a',currency:'SAR',from:'2026-01-01',to:'2026-12-31',
+   eventType:'ADJUSTMENT',sourceModule:'DEBT_CONTRACTS',classificationId:'loan-principal',
+   cashDirection:'NON_CASH',debitAccountId:'loan-receivable',creditAccountId:'bank',cashActivity:'INVESTING'}];
+  expect(()=>compileEventLedger(s)).toThrow('POSTING_CASH_DIRECTION_MISMATCH');
+ });
  it('reconciles investment, loan receivable and borrowing in institutional detail accounts without duplicate cash',()=>{
   const s=fixture();s.events=[];s.policy.rules=[];
   s.accounts.push(
