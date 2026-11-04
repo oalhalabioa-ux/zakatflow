@@ -38,5 +38,38 @@ begin
  perform set_config('request.jwt.claim.sub',outsider::text,true);
  begin perform public.financial_chart_posting_accounts(org);raise exception 'Foreign posting chart readable';exception when others then if sqlerrm<>'CHART_ACCESS_DENIED' then raise;end if;end;
 end $$;
+-- A leaf cash account and a leaf expense must retain full trial detail while
+-- producing one next-year opening row per original control account.
+do $$
+declare snapshot jsonb;result jsonb;
+begin
+ snapshot:='{
+ "organizationId":"rollup-fixture","currency":"SAR","fiscalStart":"2026-01-01","to":"2026-12-31",
+ "accounts":[
+  {"id":"1000","kind":"ASSET","cash":true},
+  {"id":"100001","kind":"ASSET","cash":true,"reportingCode":"1000"},
+  {"id":"3100","kind":"EQUITY","cash":false},
+  {"id":"3300","kind":"EQUITY","cash":false},
+  {"id":"610001","kind":"OPEX","cash":false,"reportingCode":"6100"}
+ ],
+ "opening":[{"accountId":"1000","debit":"100","credit":"0"},{"accountId":"3100","debit":"0","credit":"100"}],
+ "policy":{"approvedBy":"test-owner","rules":[{
+  "eventType":"EXPENSE","sourceModule":"core","classificationId":"office","cashDirection":"OUTFLOW",
+  "from":"2026-01-01","to":"2026-12-31","debitAccountId":"610001","creditAccountId":"100001","cashActivity":"OPERATING"
+ }]},
+ "events":[{"id":"event-1","organizationId":"rollup-fixture","currency":"SAR","date":"2026-02-01",
+  "status":"ACTUAL","eventType":"EXPENSE","sourceModule":"core","lines":[{
+   "id":"line-1","classificationId":"office","baseAmount":"10","cashDirection":"OUTFLOW","recognitionSign":1
+  }]}],
+ "controls":{"cashClosing":"90.0000"}
+ }'::jsonb;
+ result:=private.financial_fiscal_trial(snapshot,'3300');
+ if result->>'profit'<>'-10.0000' then raise exception 'Leaf expense profit not recognized';end if;
+ if (select r->>'closing' from jsonb_array_elements(result->'trialBalance') r where r->>'accountId'='100001')<>'-10.0000' then raise exception 'Leaf cash trial detail lost';end if;
+ if jsonb_array_length(result->'nextOpening')<>3 then raise exception 'Leaf added duplicate next-year opening lines';end if;
+ if (select r->>'debit' from jsonb_array_elements(result->'nextOpening') r where r->>'accountId'='1000')<>'90.0000' then raise exception 'Cash leaf not consolidated';end if;
+ if (select r->>'debit' from jsonb_array_elements(result->'nextOpening') r where r->>'accountId'='3300')<>'10.0000' then raise exception 'Profit not carried into retained earnings';end if;
+ if exists(select 1 from jsonb_array_elements(result->'nextOpening') r where length(r->>'accountId')>4) then raise exception 'Leaf leaked into successor opening';end if;
+end $$;
 select 'PASS scoped posting chart, leaf mappings, policy lock and unchanged controls';
 rollback;

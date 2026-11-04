@@ -1695,8 +1695,8 @@
       "path": "supabase/migrations/20261104124455_financial_chart_posting_rules.sql",
       "version": "20261104124455",
       "name": "financial_chart_posting_rules",
-      "expected_md5": "640411f9d5a70a457d58e55a221056ae",
-      "file_sha256": "501e998e647357ed93b871e9f61a3f9e0bedcb04f9c05ff3439f1749894c6175",
+      "expected_md5": "6f9d623274c9df4957b521300e51f6fb",
+      "file_sha256": "39080f94af1797163d6813938ee67a53f905dbfcb0806c87cb7cb29e2ffbc4b7",
       "validation_project": "Disposable posting-policy chart integration only"
     }
   ]
