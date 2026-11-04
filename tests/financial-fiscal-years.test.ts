@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {calendarFromContext,fiscalCalendarLocked,fiscalReferencesMatch,fiscalYearRows,type FiscalManagementContext} from '../lib/financial-fiscal-years';
+import {suggestedFiscalStart,calendarFromContext,fiscalCalendarLocked,fiscalReferencesMatch,fiscalYearRows,type FiscalManagementContext} from '../lib/financial-fiscal-years';
 const base: FiscalManagementContext={organizationId:'a',calendar:{start_month:1,start_day:1,retained_earnings_account:'3300',version:1},period:{start:'2026-01-01',end:'2026-12-31'},closures:[],canConfigure:true,canClose:true,references:[],asOf:'2026-11-04'};
 describe('Fiscal year display projection',()=>{
  it.each([[1,'2026-01-01','2026-12-31'],[7,'2026-07-01','2027-06-30']])('projects independent calendar starting month %s without changing context', (month,start,end)=>{
@@ -12,7 +12,13 @@ describe('Fiscal year display projection',()=>{
   expect(rows.find(r=>r.start==='2020-01-01')).toMatchObject({status:'CLOSED',recorded:true,canClose:false,canReopen:true});
   expect(rows.find(r=>r.start==='2018-07-01')).toMatchObject({mismatch:true,end:null,canClose:false});expect(fiscalCalendarLocked(context)).toBe(true);
  });
- it('does not invent January when an organization is unconfigured',()=>{expect(fiscalYearRows({...base,calendar:null,period:null})).toEqual([])});
+ it('suggests January 1 without creating a fiscal calendar or accounts',()=>{
+  const unknown={...base,calendar:null,period:null};const snapshot=JSON.stringify(unknown);
+  expect(suggestedFiscalStart(unknown.calendar)).toEqual({month:'1',day:'1'});
+  expect(fiscalYearRows(unknown)).toEqual([]);
+  expect(JSON.stringify(unknown)).toBe(snapshot);
+  expect(suggestedFiscalStart({...base.calendar!,start_month:7,start_day:1})).toEqual({month:'7',day:'1'});
+ });
  it('keeps read-only users from close/reopen and detects budget date mismatches',()=>{
   const context={...base,canClose:false,closures:[{id:'close',start:'2024-01-01',end:'2024-12-31',version:1,status:'CLOSED' as const}]};expect(fiscalYearRows(context).every(r=>!r.canClose&&!r.canReopen)).toBe(true);
   expect(fiscalReferencesMatch(calendarFromContext(base)!,[{source:'budget',start:'2026-07-01'}])).toBe(false);expect(fiscalReferencesMatch(calendarFromContext(base)!,[{source:'budget',start:'2026-01-01'}])).toBe(true);
