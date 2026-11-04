@@ -4,6 +4,11 @@
       "category": "function",
       "object_key": "private.create_debt_contract(p jsonb)",
       "fingerprint": "6667bbcc916fc979ce4f129b4474fed3"
+    },
+    {
+      "category": "function",
+      "object_key": "private.post_debt_contract(p_id uuid)",
+      "fingerprint": "aae1a2968226b41eb11187bb83791d31"
     }
   ],
   "removals": []
