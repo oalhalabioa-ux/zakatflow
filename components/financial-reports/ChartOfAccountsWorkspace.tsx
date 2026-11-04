@@ -1,10 +1,10 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import './chart-of-accounts.css';
-import {accountingPresentationTree} from '../../lib/financial-chart-hierarchy';
+import {accountingPresentationTree,chartIntegrationMessage,type ChartPostingIntegration} from '../../lib/financial-chart-hierarchy';
 
 type Account={id:string;code:string;parentCode:string|null;reportingCode:string;ar:string;en:string;kind:string;presentation?:string;normalSide:'DEBIT'|'CREDIT';isSystem:boolean;isActive:boolean;isPostable:boolean;version:number};
-type Workspace={organizationId:string;accounts:Account[];canManage:boolean;postingIntegration:'NOT_YET_ACTIVE'|'POLICY_RULES_ONLY'};
+type Workspace={organizationId:string;accounts:Account[];canManage:boolean;postingIntegration:ChartPostingIntegration};
 type Institution={id:string;name:string;base_currency:string};
 type Draft={code:string;parentCode:string;nameAr:string;nameEn:string;normalSide:'DEBIT'|'CREDIT';isPostable:boolean;isActive:boolean;expectedVersion:number;reason:string};
 const blank=(parentCode=''):Draft=>({code:'',parentCode,nameAr:'',nameEn:'',normalSide:'DEBIT',isPostable:true,isActive:true,expectedVersion:0,reason:''});
@@ -51,7 +51,7 @@ export default function ChartOfAccountsWorkspace({locale,preferredOrg=''}:{local
   <button onClick={exportCsv} disabled={!matching.length}>{t('تصدير CSV','Export CSV')}</button>
   <button className="coa-primary" disabled={!data?.canManage} onClick={()=>create(roots[0]?.code??'')}>+ {t('إضافة حساب فرعي','Add subaccount')}</button>
  </div></div>
- <div className="coa-notice" role="note">{data?.postingIntegration==='POLICY_RULES_ONLY'?t('الحسابات الفرعية التفصيلية النشطة متاحة في قواعد الترحيل الجديدة وتُصنّف ضمن حساباتها الرقابية في القوائم. يبقى افتتاح الحسابات الفرعية قيد التطوير؛ الأرصدة والقيود المعتمدة سابقاً لم تتغير.','Active postable subaccounts are available in new posting policies and classified under their control accounts in statements. Subaccount openings are not yet integrated; prior approved entries and balances remain unchanged.'):t('الحسابات الفرعية محفوظة في الدليل، وربطها المحاسبي لم يفعل بعد.','Subaccounts are saved in the catalog; financial posting integration is not yet enabled.')}</div>
+ <div className="coa-notice" role="note">{chartIntegrationMessage(data?.postingIntegration,locale)}</div>
  <div className="coa-org"><label>{t('المؤسسة','Organization')}<select value={organization} onChange={e=>{setSelected('');setSuccess('');setOrganization(e.target.value)}}>{orgs.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label><button onClick={()=>setRevision(v=>v+1)} disabled={loading}>{t('تحديث','Refresh')}</button></div>
  {error&&<div className="coa-alert" role="alert">{statusCodes[error]??t('تعذرت العملية. راجع الصلاحيات أو البيانات ثم حاول مجدداً.','Operation failed. Check your permissions and input.')}</div>}
  {success&&<div className="coa-success" role="status">{success}</div>}
