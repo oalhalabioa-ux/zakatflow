@@ -81,6 +81,7 @@ try{
   sql(`update public.organization_members set status='INACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
  });
  await check('An ordinary browser user declares a late bank opening without technical IDs or copying its current balance',async()=>{
+  sql(`update public.organization_members set status='ACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
   await page.goto(app+'/en/opening-balances?organization='+other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
   await page.getByText('Assign late opening sources',{exact:true}).click();
   const picker=page.getByRole('combobox',{name:'Opening source',exact:true});
@@ -91,6 +92,7 @@ try{
   const fresh=await a.client.rpc('financial_opening_workspace',{p_org:other,p_fiscal_start:'2026-01-01'});assert.ifError(fresh.error);
   const bank=fresh.data.source.rows.find(row=>row.en==='September QA bank');assert.equal(bank.vouchers[0].debit,'0.0000');assert.equal(Number(fresh.data.bankRegister[bank.id].balance),250000);
   assert.equal(bank.vouchers[0].effectiveDate,'2026-01-01');assert.equal(bank.vouchers[0].transactionDate,'2026-09-28');
+  sql(`update public.organization_members set status='INACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
  });
  await check('Connected opening page loads actual master names and missing states',async()=>{await page.goto(app+'/ar/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();await page.getByText('عميل بلا رصيد افتتاحي',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'اعتماد الأرصدة',exact:true}).isDisabled(),true);await page.screenshot({path:out+'/opening-ar-desktop-before.png',fullPage:true})});
  await check('Cash row shows current register value independently of fiscal opening',async()=>{
