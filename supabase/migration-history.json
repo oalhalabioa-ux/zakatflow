@@ -1690,6 +1690,14 @@
       "expected_md5": "43c7d9ece95cffa21a6a190a80ebae3f",
       "file_sha256": "8dc08d43d028706ad4950825ed177bdfe8072ab8d9ca8321c368e4e66a38e43c",
       "validation_project": "Disposable chart-of-accounts acceptance only"
+    },
+    {
+      "path": "supabase/migrations/20261104124455_financial_chart_posting_rules.sql",
+      "version": "20261104124455",
+      "name": "financial_chart_posting_rules",
+      "expected_md5": "6f9d623274c9df4957b521300e51f6fb",
+      "file_sha256": "39080f94af1797163d6813938ee67a53f905dbfcb0806c87cb7cb29e2ffbc4b7",
+      "validation_project": "Disposable posting-policy chart integration only"
     }
   ]
 }
