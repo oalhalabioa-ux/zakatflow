@@ -92,7 +92,7 @@ do $$
 declare definition text;needle text;
 begin
  definition:=pg_get_functiondef('public.financial_reporting_policy_workspace(uuid,date)'::regprocedure);
- needle:='result:=private.financial_reporting_events(p_org,p_fiscal_start,(p_fiscal_start+interval ''1 year''-interval ''1 day'')::date);';
+ needle:='result:=private.financial_reporting_events(p_org,p_fiscal_start,';
  if strpos(definition,needle)=0 then raise exception 'REPORTING_POLICY_WORKSPACE_SIGNATURE_CHANGED';end if;
  execute replace(definition,needle,replace(needle,'private.financial_reporting_events','private.financial_policy_postable_events'));
 end $$;
