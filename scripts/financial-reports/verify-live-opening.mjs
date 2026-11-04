@@ -16,7 +16,7 @@ let server,browser;
 const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 await mkdir(out,{recursive:true});
 try{
- for(const file of ['qa-financial-opening-workspace.sql','qa-financial-opening-ledger.sql','qa-financial-opening-sources.sql'])await check('Actual PostgreSQL '+file,async()=>{const result=sql(await readFile('tests/'+file,'utf8'));await writeFile(out+'/'+file.replace('.sql','.json'),result+'\n');const parsed=JSON.parse(result),rows=Array.isArray(parsed)?parsed:parsed.checks;assert.ok(rows.length>0);assert.ok(rows.every(r=>r.passed===true))});
+ for(const file of ['qa-financial-opening-workspace.sql','qa-financial-opening-ledger.sql','qa-financial-opening-sources.sql','qa-financial-opening-first-activity.sql'])await check('Actual PostgreSQL '+file,async()=>{const result=sql(await readFile('tests/'+file,'utf8'));await writeFile(out+'/'+file.replace('.sql','.json'),result+'\n');const parsed=JSON.parse(result),rows=Array.isArray(parsed)?parsed:parsed.checks;assert.ok(rows.length>0);assert.ok(rows.every(r=>r.passed===true))});
  const actors=[];
  for(let i=0;i<3;i++){const client=createClient(url,status.ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}}),email=`opening-${i}@local.test`,password=randomBytes(24).toString('base64url')+'Aa7!';const r=await client.auth.signUp({email,password});assert.ifError(r.error);assert.ok(r.data.session);actors.push({client,email,password,id:r.data.user.id})}
  const[a,b,viewer]=actors,org='b1000000-0000-4000-8000-000000000001',other='b1000000-0000-4000-8000-000000000002',cash='b2000000-0000-4000-8000-000000000001',customer='b3000000-0000-4000-8000-000000000001';
@@ -36,6 +36,28 @@ try{
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
  for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context')).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
  const{chromium}=await import(process.env.FINANCIAL_SOURCE_BROWSER_MODULE);browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1672,height:941},acceptDownloads:true});await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+ await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{
+  sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
+   do $$ declare asset uuid; d date; begin
+    perform set_config('request.jwt.claim.sub','${b.id}',true);
+    foreach d in array array[date '2026-01-01',date '2026-10-21',date '2026-10-23'] loop
+     insert into public.asset_accounts(user_id,organization_id,ownership_scope,asset_type,name,currency,metadata)
+      values('${b.id}','${other}','ORGANIZATION','OTHER','Opening QA '||d,'SAR','{"acquisition_mode":"OPENING_BALANCE"}') returning id into asset;
+     insert into public.transactions(user_id,organization_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value,gross_value,metadata)
+      values('${b.id}','${other}',asset,'OPENING_BALANCE',d,1,'SAR','SAR',100,100,'{}');
+    end loop;
+   end $$;`);
+  await page.goto(app+'/en/financial-reports?screen=kpis&organization='+org);
+  const picker=page.getByRole('combobox',{name:'Organization',exact:true});
+  await picker.locator('option[value="'+other+'|"]').waitFor({state:'attached'});
+  assert.equal(await picker.isEnabled(),true);await picker.selectOption(other+'|');
+  await page.getByRole('heading',{name:'Organization registers',exact:true}).waitFor();
+  await page.getByRole('link',{name:'Opening balances and vouchers'}).click();
+  const vouchers=page.locator('section').filter({has:page.getByRole('heading',{name:'Asset opening vouchers recorded during the year'})}).locator('tbody tr');
+  await vouchers.first().waitFor();assert.equal(await vouchers.count(),3);
+  for(const date of ['2026-01-01','2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
+  sql(`update public.organization_members set status='INACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
+ });
  await check('Connected opening page loads actual master names and missing states',async()=>{await page.goto(app+'/ar/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();await page.getByText('عميل بلا رصيد افتتاحي',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'اعتماد الأرصدة',exact:true}).isDisabled(),true);await page.screenshot({path:out+'/opening-ar-desktop-before.png',fullPage:true})});
  await check('Persisted draft distinguishes confirmed zero, reopens after refresh, and approves',async()=>{
   await page.getByRole('button',{name:'تأكيد رصيد صفري',exact:true}).click();await page.getByRole('tab',{name:/^حقوق الملكية/}).click();

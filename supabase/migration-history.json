@@ -1650,6 +1650,14 @@
       "expected_md5": "a940919860f66aff0c86507bc5a4577a",
       "file_sha256": "328e34dc08b4306b46c025d0e15b69ec4712a5a504c60822eaed53a280d596d5",
       "validation_project": "Disposable full-schema QA"
+    },
+    {
+      "path": "supabase/migrations/20261104060000_reporting_first_activity.sql",
+      "version": "20261104060000",
+      "name": "reporting_first_activity",
+      "expected_md5": "a0dea26e121eef8c9a3d6bb48161cdb3",
+      "file_sha256": "2e6e3868db5171cd95d3c4cbeee04d64d9957b6b1793f5640863678978e626f4",
+      "validation_project": "Financial Core QA first activity"
     }
   ]
 }

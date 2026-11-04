@@ -1,9 +1,18 @@
 import {requireUser} from './auth';
-import {assertOpeningWorkspace} from './financial-opening-workspace';
+import {assertOpeningWorkspace,openingContext} from './financial-opening-workspace';
 import {normalizeStatementSource,statementQuery} from '../lib/financial-statement-source';
 export function assertLiveStatements(){assertOpeningWorkspace();if(process.env.FINANCIAL_STATEMENTS_LIVE!=='true')throw Error('REPORTING_DISABLED')}
 function read<T>(r:{data:T;error:{message:string}|null}){if(r.error)throw Error(r.error.message.match(/REPORTING_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');return r.data}
-export async function liveStatementContext(){assertLiveStatements();const{supabase}=await requireUser();return read(await supabase.rpc('financial_statement_live_context'))}
+export async function liveStatementContext(){
+ assertLiveStatements();
+ const {supabase}=await requireUser();
+ const periods=read(await supabase.rpc('financial_statement_live_context')) as {organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string}[];
+ const organizations=await openingContext();
+ return organizations.flatMap(org=>{
+  const rows=periods.filter(period=>period.organizationId===org.id);
+  return rows.length?rows:[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:'',fiscalEnd:''}];
+ });
+}
 export async function liveStatementSource(input:unknown){
  assertLiveStatements();const q=statementQuery.parse(input),{supabase,user}=await requireUser();
  const raw=read(await supabase.rpc('financial_statement_live_snapshot',{p_org:q.organization,p_from:q.from,p_to:q.to}));
