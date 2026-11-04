@@ -430,7 +430,7 @@
     {
       "category": "function",
       "object_key": "public.financial_opening_workspace(p_org uuid, p_fiscal_start date)",
-      "fingerprint": "c9f73349497790626e933cda7b559e05"
+      "fingerprint": "abee190e377ca2ea86f80bcaadb4df3a"
     },
     {
       "category": "function",
@@ -460,7 +460,7 @@
     {
       "category": "function",
       "object_key": "public.save_financial_opening(p_org uuid, p_fiscal_start date, p_expected_version integer, p_source_revision text, p_entries jsonb, p_reason text)",
-      "fingerprint": "846722639f7bd21cd38e9f44895265c2"
+      "fingerprint": "26a65ebe7a18e4ae88408506bd8888bd"
     },
     {
       "category": "function",
