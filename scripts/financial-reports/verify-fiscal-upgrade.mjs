@@ -10,7 +10,8 @@ const migrations=[
  '20261104113559_fiscal_future_draft_window.sql',
  '20261104121038_organization_chart_accounts.sql',
  '20261104124455_financial_chart_posting_rules.sql',
- '20261104132349_financial_chart_opening_leaf_link.sql'
+ '20261104132349_financial_chart_opening_leaf_link.sql',
+ '20261104134551_financial_chart_posting_coverage.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});
