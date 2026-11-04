@@ -88,6 +88,10 @@ begin
   if exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'tab' is distinct from private.financial_opening_tab(r->>'accountCode')) then raise exception 'rollover tab mismatch';end if;
   if (select sum((v->>'debit')::numeric-(v->>'credit')::numeric) from jsonb_array_elements(s->'source'->'rows') r cross join lateral jsonb_array_elements(r->'vouchers') v)<>0 then raise exception 'next trial mismatch';end if;
   if (select sum((v->>'credit')::numeric-(v->>'debit')::numeric) from jsonb_array_elements(s->'source'->'rows') r cross join lateral jsonb_array_elements(r->'vouchers') v where r->>'accountCode'='3300')<>70 then raise exception 'retained earnings mismatch';end if;
+  update public.asset_accounts set metadata=metadata||'{"investment_status":"ACTIVE"}' where id=asset;
+  insert into public.asset_accounts(user_id,organization_id,ownership_scope,asset_type,name,currency) values(owner,org,'ORGANIZATION','OTHER','New master after a closed year','SAR') returning id into first_tx;
+  update public.asset_accounts set name='Edited new master after close' where id=first_tx;
+  delete from public.asset_accounts where id=first_tx;
   begin update public.transactions set base_value=101 where asset_account_id=asset;raise exception 'closed mutation accepted';exception when others then if sqlerrm<>'FISCAL_PERIOD_CLOSED' then raise;end if;end;
   insert into public.organization_members(organization_id,user_id,role,status) values(org,outsider,'VIEWER','ACTIVE');
   insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,created_by) values(org,outsider,'financial_core.view','ALLOW',owner),(org,outsider,'financial_core.create','DENY',owner),(org,outsider,'financial_core.approve','DENY',owner),(org,outsider,'financial_core.post','DENY',owner);

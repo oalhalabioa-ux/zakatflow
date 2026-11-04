@@ -522,6 +522,14 @@ begin
   if dt is null and payload->>'event_id' is not null then select event_date into dt from public.financial_events where organization_id=org and id=(payload->>'event_id')::uuid;end if;
   if dt is null and payload->>'application_event_id' is not null then select event_date into dt from public.financial_events where organization_id=org and id=(payload->>'application_event_id')::uuid;end if;
   if dt is null and payload->>'transaction_id' is not null then select transaction_date into dt from public.transactions where organization_id=org and id=(payload->>'transaction_id')::uuid;end if;
+  if dt is null and tg_op='UPDATE' and tg_table_name='asset_accounts'
+   and (to_jsonb(old)-array['metadata','updated_at'])=(to_jsonb(new)-array['metadata','updated_at'])
+   and (coalesce(to_jsonb(old)->'metadata','{}')-'investment_status')=(coalesce(to_jsonb(new)->'metadata','{}')-'investment_status') then continue;end if;
+  if dt is null and tg_table_name in('asset_accounts','liquidity_accounts') and tg_op in('UPDATE','DELETE')
+   and not exists(select 1 from public.financial_year_closures closed cross join lateral jsonb_array_elements(closed.next_source) detail
+    where closed.organization_id=org and closed.status='CLOSED' and detail->>'id'=(case when tg_table_name='asset_accounts' then 'asset:' else 'cash:' end)||(payload->>'id'))
+   and not exists(select 1 from public.financial_year_closures closed where closed.organization_id=org and closed.status='CLOSED' and closed.fiscal_end>=coalesce(nullif(payload->>'created_at','')::timestamptz::date,current_date))
+   then dt:=current_date;end if;
   if dt is null and tg_op='INSERT' then dt:=coalesce(nullif(payload->>'created_at','')::timestamptz::date,current_date);end if;
   if dt is null and tg_table_name='liquidity_accounts' and tg_op='UPDATE'
    and (to_jsonb(old)-array['current_balance','current_balance_base','updated_at'])=(to_jsonb(new)-array['current_balance','current_balance_base','updated_at']) then continue;end if;
