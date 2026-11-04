@@ -40,6 +40,8 @@ try{
   sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
    do $$ declare asset uuid; d date; begin
     perform set_config('request.jwt.claim.sub','${b.id}',true);
+    insert into public.liquidity_accounts(organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
+     values('${other}','September QA bank','BANK','SAR',250000,250000,'${b.id}','{"opening_date":"2026-09-28","opening_balance":250000}');
     foreach d in array array[date '2026-01-01',date '2026-10-21',date '2026-10-23'] loop
      insert into public.asset_accounts(user_id,organization_id,ownership_scope,asset_type,name,currency,metadata)
       values('${b.id}','${other}','ORGANIZATION','OTHER','Opening QA '||d,'SAR','{"acquisition_mode":"OPENING_BALANCE"}') returning id into asset;
@@ -52,13 +54,38 @@ try{
   await picker.locator('option[value="'+other+'|"]').waitFor({state:'attached'});
   assert.equal(await picker.isEnabled(),true);await picker.selectOption(other+'|');
   await page.getByRole('heading',{name:'Organization registers',exact:true}).waitFor();
+  const registerRow=page.getByRole('row').filter({has:page.getByRole('rowheader',{name:'September QA bank'})});
+  await registerRow.waitFor();assert.match(await registerRow.innerText(),/250,000.00/);
   await page.getByRole('link',{name:'Opening balances and vouchers'}).click();
-  const vouchers=page.locator('section').filter({has:page.getByRole('heading',{name:'Asset opening vouchers recorded during the year'})}).locator('tbody tr');
+  await page.getByRole('tab',{name:/Assets & depreciation/}).click();
+  const vouchers=page.locator('[data-period-voucher]');
   await vouchers.first().waitFor();assert.equal(await vouchers.count(),3);
   for(const date of ['2026-01-01','2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
+  const dataFor=async fiscalStart=>{
+   const response=await page.request.get(app+'/api/financial-reporting/openings?'+new URLSearchParams({organization:other,fiscalStart}));
+   assert.equal(response.status(),200);return response.json();
+  };
+  const current=await dataFor('2026-01-01'),next=await dataFor('2027-01-01');
+  for(const voucher of current.periodAssetOpenings){
+   const id='asset:'+voucher.assetId;
+   assert.equal(current.source.rows.find(row=>row.id===id).vouchers.length,0);
+   const carried=next.source.rows.find(row=>row.id===id).vouchers;
+   assert.equal(carried.length,1);assert.equal(Number(carried[0].debit),Number(voucher.amount));
+  }
+  assert.equal(next.periodAssetOpenings.length,0);
+  const bank=current.source.rows.find(row=>row.ar==='September QA bank');
+  assert.equal(bank.vouchers.length,0);assert.equal(Number(current.bankRegister[bank.id].balance),250000);
+  assert.equal(Number(next.source.rows.find(row=>row.id===bank.id).vouchers[0].debit),250000);
   sql(`update public.organization_members set status='INACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
  });
  await check('Connected opening page loads actual master names and missing states',async()=>{await page.goto(app+'/ar/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();await page.getByText('عميل بلا رصيد افتتاحي',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'اعتماد الأرصدة',exact:true}).isDisabled(),true);await page.screenshot({path:out+'/opening-ar-desktop-before.png',fullPage:true})});
+ await check('Cash row shows current register value independently of fiscal opening',async()=>{
+  await page.locator('#ob-tab-cash').click();
+  const row=page.locator('[data-opening-row="cash:'+cash+'"]');
+  assert.equal(await row.getAttribute('data-final'),'500.0000');
+  assert.match(await row.locator('td[data-label="رصيد السجل الحالي"]').innerText(),/500.00 SAR/);
+  await page.locator('#ob-tab-customers').click();
+ });
  await check('Persisted draft distinguishes confirmed zero, reopens after refresh, and approves',async()=>{
   await page.getByRole('button',{name:'تأكيد رصيد صفري',exact:true}).click();await page.getByRole('tab',{name:/^حقوق الملكية/}).click();
   await page.getByLabel('الإضافة: رأس المال',{exact:true}).fill('500');for(const name of ['الاحتياطيات','الأرباح المحتجزة'])await page.locator('tr').filter({has:page.getByLabel('الإضافة: '+name,{exact:true})}).getByRole('button',{name:'تأكيد رصيد صفري',exact:true}).click();

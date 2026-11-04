@@ -1658,6 +1658,14 @@
       "expected_md5": "d2743c4c6c872f52234cad0df20081dc",
       "file_sha256": "ca1515c7aa63a56bcf268b4a153b4795aa13b08672fdee82e08a58e8376d1136",
       "validation_project": "Financial Core QA first activity"
+    },
+    {
+      "path": "supabase/migrations/20261104072000_opening_register_rows.sql",
+      "version": "20261104072000",
+      "name": "opening_register_rows",
+      "expected_md5": "d73380c1fb97abd8ea08910ec8e712bf",
+      "file_sha256": "55a79303de08dbbbbbe242be7105b01a0d8b3a47d2bdcaa57604fe511b30ce94",
+      "validation_project": "Opening register row QA"
     }
   ]
 }
