@@ -2,6 +2,7 @@ import {createServerClient} from '@supabase/ssr';
 import {NextResponse, type NextRequest} from 'next/server';
 import {requestLocale, routingRedirect, MARKETING_HOSTS, externalRequestUrl} from './lib/routing';
 import {supabaseUrl} from './lib/supabase/config';
+import {isFiscalReviewRequest} from './lib/fiscal-review';
 
 export async function middleware(request: NextRequest) {
   const publicUrl=externalRequestUrl(request.nextUrl,request.headers.get('host'));
@@ -11,7 +12,7 @@ export async function middleware(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set('x-yaqeen-locale', locale);
   let response = NextResponse.next({request: {headers}});
-  const privateRoute = !MARKETING_HOSTS.has(publicUrl.hostname) &&
+  const privateRoute = !isFiscalReviewRequest(request.nextUrl.pathname,process.env) && !MARKETING_HOSTS.has(publicUrl.hostname) &&
     (/^\/(ar|en)\/(?!login(?:\/|$))/.test(request.nextUrl.pathname) || /^\/admin(?:\/|$)/.test(request.nextUrl.pathname));
   // These seven pages each verify getUser and the current database owner role
   // before reading any administrative data. Do not repeat Auth in middleware:

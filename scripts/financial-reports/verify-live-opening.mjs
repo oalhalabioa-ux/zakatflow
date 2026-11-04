@@ -84,10 +84,7 @@ try{
   sql(`update public.organization_members set status='ACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
   await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();
   const organizationPicker=page.getByRole('combobox',{name:'Organization',exact:true});await organizationPicker.selectOption(other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
-  await page.getByText('Fiscal calendar and annual close',{exact:true}).click();await page.getByLabel('Setup or action reason',{exact:true}).fill('Confirm the selected organization fiscal settings');
-  const contextReload=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/openings?action=context'));
-  const configured=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await page.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();assert.equal((await configured).status(),200);await (await contextReload).finished();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-  await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await organizationPicker.inputValue(),other);
+  const fiscalLink=page.getByRole('link',{name:'Manage fiscal years in organization settings',exact:true});assert.match(await fiscalLink.getAttribute('href'),new RegExp(other));await fiscalLink.click();await page.locator('[data-fiscal-management]').waitFor();await page.goto(app+'/en/opening-balances?organization='+other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await page.getByRole('combobox',{name:'Organization',exact:true}).inputValue(),other);
 
   await page.getByText('Assign late opening sources',{exact:true}).click();
   const picker=page.getByRole('combobox',{name:'Opening source',exact:true});
@@ -211,6 +208,66 @@ try{
   assert.match(await position.innerText(),/435\.50/);
   await page.screenshot({path:out+'/supplier-credit-financial-position.png',fullPage:true});
  });
+ await check('Real funded borrowing and lending reconcile to institutional statements once',async()=>{
+  const loanOrg='b1000000-0000-4000-8000-000000000003';
+  const loanBank='b2000000-0000-4000-8000-000000000003';
+  const loanParty='b3000000-0000-4000-8000-000000000003';
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
+    insert into public.organizations(id,owner_user_id,name) values('${loanOrg}','${a.id}','ZZ QA funded debt');
+    insert into public.organization_members(organization_id,user_id,role,status) values('${loanOrg}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';
+    insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
+      values('${loanBank}','${loanOrg}','QA funding bank','BANK','SAR',0,0,'${a.id}','{"opening_date":"2026-01-01","opening_balance":0,"opening_fx_rate":1}');
+    insert into public.liquidity_counterparties(id,organization_id,name,party_type,created_by)
+      values('${loanParty}','${loanOrg}','QA debt counterparty','CUSTOMER','${a.id}');`);
+  const loanScope={p_org:loanOrg,p_fiscal_start:'2026-01-01'};
+  const recorded=[];
+  for(const [side,amount,expectedDirection] of [['PAYABLE',300,'INFLOW'],['RECEIVABLE',200,'OUTFLOW']]){
+    const payload={organization_id:loanOrg,request_id:randomUUID(),kind:'LOAN',mode:'NEW',side,
+      counterparty_id:loanParty,entity_id:null,account_id:loanBank,
+      category:side==='PAYABLE'?'O_AP_LOAN':'O_AR_LOAN',
+      description:'QA actual cash funded '+side,reference:'QA-FUND-'+side,
+      date:'2026-02-10',currency:'SAR',exchange_rate:1,principal:amount,
+      schedule:[{amount,due_date:'2026-12-01'}]};
+    const created=await a.client.rpc('create_debt_contract',{p_payload:payload});assert.ifError(created.error);
+    assert.equal(created.data.status,'COMMITTED');
+    const before=await a.client.rpc('financial_reporting_policy_workspace',loanScope);assert.ifError(before.error);
+    assert.equal(before.data.events.filter(e=>e.sourceModule==='DEBT_CONTRACTS').length,recorded.length);
+    assert.ifError((await a.client.rpc('approve_financial_event',{p_event_id:created.data.eventId,p_note:'Isolated real debt QA'})).error);
+    const posted=await a.client.rpc('post_debt_contract',{p_id:created.data.id});assert.ifError(posted.error);
+    assert.equal(posted.data.status,'ACTUAL');
+    assert.ifError((await a.client.rpc('post_debt_contract',{p_id:created.data.id})).error);
+    const actual=sql(`select cash_direction from public.financial_event_lines where event_id='${created.data.eventId}'`);
+    assert.equal(actual,expectedDirection);
+    recorded.push(created.data.eventId);
+  }
+  assert.equal(Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${loanOrg}' and source_module='DEBT_FUNDING'`)),2);
+  assert.equal(Number(sql(`select current_balance from public.liquidity_accounts where id='${loanBank}'`)),100);
+  const workspace=await a.client.rpc('financial_reporting_policy_workspace',loanScope);assert.ifError(workspace.error);
+  const debtEvents=workspace.data.events.filter(e=>e.sourceModule==='DEBT_CONTRACTS');
+  assert.equal(debtEvents.length,2);
+  const rules=[];
+  for(const e of debtEvents)for(const l of e.lines){
+    const incoming=l.cashDirection==='INFLOW';assert.ok(incoming||l.cashDirection==='OUTFLOW');
+    rules.push({eventType:e.eventType,sourceModule:e.sourceModule,classificationId:l.classificationId,
+      cashDirection:l.cashDirection,debitAccountId:incoming?'1000':'1200',
+      creditAccountId:incoming?'2200':'1000',cashActivity:incoming?'FINANCING':'INVESTING'});
+  }
+  const draft=await a.client.rpc('save_financial_reporting_policy',{...loanScope,
+    p_expected_version:0,p_rules:rules,p_reason:'Real funding and non-duplicated principal recognition'});assert.ifError(draft.error);
+  assert.ifError((await a.client.rpc('approve_financial_reporting_policy',{p_id:draft.data.id,p_expected_version:draft.data.version})).error);
+  const reportResponse=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({
+    action:'statements',organization:loanOrg,from:'2026-01-01',to:'2026-12-31'}));
+  const report=await reportResponse.json();
+  assert.equal(reportResponse.status(),200,JSON.stringify(report));
+  assert.deepEqual(new Set(report.statements.sourceJournalIds),new Set(recorded));
+  assert.equal(report.statements.cash.investing,'-200.0000');
+  assert.equal(report.statements.cash.financing,'300.0000');
+  assert.equal(report.statements.cash.closing,'100.0000');
+  assert.equal(report.statements.position.assets,'300.0000');
+  assert.equal(report.statements.position.liabilities,'300.0000');
+  assert.equal(report.statements.income.netProfit,'0.0000');
+  assert.ok((await b.client.rpc('financial_statement_live_snapshot',{p_org:loanOrg,p_from:'2026-01-01',p_to:'2026-12-31'})).error);
+ });
  await check('Revocation clears both refreshed and exporting workspaces',async()=>{
   const exportPage=await context.newPage();
   const downloads=[];
@@ -265,37 +322,50 @@ try{
   sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
    insert into public.organizations(id,owner_user_id,name) values('${january}','${a.id}','ZZ fiscal settings January'),('${july}','${a.id}','ZZ fiscal settings July');
    insert into public.organization_members(organization_id,user_id,role,status) values('${january}','${a.id}','OWNER','ACTIVE'),('${july}','${a.id}','OWNER','ACTIVE'),('${july}','${b.id}','VIEWER','ACTIVE') on conflict(organization_id,user_id) do update set role=excluded.role,status='ACTIVE';
-   insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,created_by) values('${july}','${b.id}','financial_core.view','ALLOW','${a.id}'),('${july}','${b.id}','financial_core.create','DENY','${a.id}');`);
+   insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,created_by) values('${july}','${b.id}','financial_core.view','ALLOW','${a.id}'),('${july}','${b.id}','financial_core.create','DENY','${a.id}');
+   select public.save_financial_chart_account('${january}','330001','3300','أرباح مبقاة تفصيلية','Detailed retained earnings','CREDIT',true,true,0,'Select posting leaf for January');
+   select public.save_financial_chart_account('${july}','330001','3300','أرباح مبقاة تفصيلية','Detailed retained earnings','CREDIT',true,true,0,'Select posting leaf for July');`);
   for(const [organization,month,end] of [[january,1,'12-31'],[july,7,'06-30']]){
-   await page.goto(app+'/en/settings?organization='+organization);
-   const section=page.locator('.fiscal-calendar-settings');await section.getByLabel('Fiscal start month',{exact:true}).waitFor();
-   assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),'');
-   await section.getByLabel('Fiscal start month',{exact:true}).fill(String(month));await section.getByLabel('Fiscal start day',{exact:true}).fill('1');await section.getByLabel('Retained earnings account',{exact:true}).fill('3300');await section.getByLabel('Setup or action reason',{exact:true}).fill('Configure fiscal calendar from organization settings');
+   await page.goto(app+'/en/settings/financial/fiscal-years?organization='+organization);
+   const section=page.locator('.fiscal-calendar-settings');
+   try{await section.getByLabel('Fiscal start month',{exact:true}).waitFor({timeout:12000})}catch{
+    const diagnostic={url:page.url(),page:(await page.locator('body').innerText()).slice(0,900),api:await page.evaluate(async organization=>{
+     const orgResponse=await fetch('/api/organizations',{cache:'no-store'}),orgs=await orgResponse.json().catch(()=>null);
+     const fiscalResponse=await fetch('/api/financial-reporting/fiscal?'+new URLSearchParams({action:'management',organization}),{cache:'no-store'}),fiscal=await fiscalResponse.json().catch(()=>null);
+     return{organizationsStatus:orgResponse.status,organizationVisible:Array.isArray(orgs)&&orgs.some(o=>o.id===organization),organizationsError:orgs?.error??null,fiscalStatus:fiscalResponse.status,fiscalError:fiscal?.error??null};
+    },organization)};
+    await page.screenshot({path:out+'/fiscal-settings-load-diagnostic.png',fullPage:true});throw Error('FISCAL_SETTINGS_NOT_VISIBLE '+JSON.stringify(diagnostic));
+   }
+   assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),'1');
+   await section.getByLabel('Fiscal start month',{exact:true}).selectOption(String(month));await section.getByLabel('Fiscal start day',{exact:true}).fill('1');await section.getByLabel('Retained earnings posting account',{exact:true}).selectOption('330001');await section.getByLabel('Setup or action reason',{exact:true}).fill('Configure fiscal calendar from organization settings');
    assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
    const saved=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();const response=await saved;assert.equal(response.status(),200,JSON.stringify(await response.json()));
-   const stored=await a.client.rpc('financial_fiscal_context',{p_org:organization});assert.ifError(stored.error);assert.equal(stored.data.calendar.start_month,month);assert.ok(stored.data.period.end.endsWith(end));
+   const stored=await a.client.rpc('financial_fiscal_context',{p_org:organization});assert.ifError(stored.error);assert.equal(stored.data.calendar.start_month,month);assert.equal(stored.data.calendar.retained_earnings_account,'330001');assert.ok(stored.data.period.end.endsWith(end));
    const historical=await a.client.rpc('financial_fiscal_context',{p_org:organization,p_as_of:'2026-11-04'});assert.ifError(historical.error);assert.equal(historical.data.period.start,month===1?'2026-01-01':'2026-07-01');assert.equal(historical.data.period.end,month===1?'2026-12-31':'2027-06-30');
    const opening=await a.client.rpc('financial_opening_workspace',{p_org:organization,p_fiscal_start:stored.data.period.start});assert.ifError(opening.error);assert.equal(opening.data.organizationId,organization);assert.equal(opening.data.fiscalStart,stored.data.period.start);
    const policy=await a.client.rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:stored.data.period.start});assert.ifError(policy.error);assert.equal(policy.data.fiscalStart,stored.data.period.start);
+   const initialRecordCounts=sql("select jsonb_build_array((select count(*) from public.financial_year_closures),(select count(*) from public.financial_opening_workspaces),(select count(*) from public.financial_fiscal_audit))");
+   const years=page.locator('[data-fiscal-year]');assert.equal(await years.count(),5);assert.match(await page.locator('[data-fiscal-year="'+(month===1?'2026-01-01':'2026-07-01')+'"]').innerText(),new RegExp(end));
+   await page.getByRole('button',{name:'Show more years',exact:true}).click();assert.equal(await years.count(),9);assert.equal(sql("select jsonb_build_array((select count(*) from public.financial_year_closures),(select count(*) from public.financial_opening_workspaces),(select count(*) from public.financial_fiscal_audit))"),initialRecordCounts);
    await page.reload();await section.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),String(month));assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
    await page.screenshot({path:out+'/fiscal-settings-'+month+'.png',fullPage:true});
   }
-  const picker=page.getByRole('combobox',{name:'Selected organization',exact:true});await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings input[type="number"]')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
+  const picker=page.getByRole('combobox',{name:'Selected organization',exact:true});await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings select')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
   const period=await a.client.rpc('financial_fiscal_context',{p_org:july});assert.ifError(period.error);
   const workspace=await a.client.rpc('financial_opening_workspace',{p_org:july,p_fiscal_start:period.data.period.start});assert.ifError(workspace.error);
   const draft=await a.client.rpc('save_financial_opening',{p_org:july,p_fiscal_start:period.data.period.start,p_expected_version:0,p_source_revision:workspace.data.source.revision,p_entries:{},p_reason:'Preserved accounting period must not move with calendar editing'});assert.ifError(draft.error);
-  await page.goto(app+'/en/settings?organization='+july);const section=page.locator('.fiscal-calendar-settings');await section.getByLabel('Fiscal start month',{exact:true}).waitFor();await section.getByLabel('Fiscal start month',{exact:true}).fill('1');await section.getByLabel('Setup or action reason',{exact:true}).fill('Changing a used calendar must require accounting correction');
-  const blocked=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();const denied=await blocked;assert.equal(denied.status(),409);assert.equal((await denied.json()).error,'FISCAL_CALENDAR_IN_USE');
+  await page.goto(app+'/en/settings/financial/fiscal-years?organization='+july);const section=page.locator('.fiscal-calendar-settings');await section.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).isDisabled(),true);assert.equal(await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).count(),0);
+  const lockedChange=await page.request.post(app+'/api/financial-reporting/fiscal',{headers:{Origin:app},data:{action:'calendar',organization:july,month:1,day:1,retainedAccount:'3300',expectedVersion:1,reason:'Changing a used calendar must require accounting correction'}});assert.equal(lockedChange.status(),409);assert.equal((await lockedChange.json()).error,'FISCAL_CALENDAR_IN_USE');
   const preserved=await a.client.from('financial_opening_workspaces').select('*').eq('id',draft.data.id).single();assert.ifError(preserved.error);assert.deepEqual(preserved.data,draft.data);
   const after=await a.client.rpc('financial_fiscal_context',{p_org:july});assert.ifError(after.error);assert.deepEqual(after.data.calendar,period.data.calendar);
   const foreign=await b.client.rpc('financial_fiscal_context',{p_org:january});assert.match(foreign.error?.message??'',/FISCAL_ACCESS_DENIED/);
   const readonlyCookies=[];const readonlySsr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>readonlyCookies,setAll:cs=>{for(const c of cs){const index=readonlyCookies.findIndex(v=>v.name===c.name);if(index>=0)readonlyCookies.splice(index,1);readonlyCookies.push(c)}}}});assert.ifError((await readonlySsr.auth.signInWithPassword({email:b.email,password:b.password})).error);
   const readonlyContext=await browser.newContext();try{
-   await readonlyContext.addCookies(readonlyCookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));const readonlyPage=await readonlyContext.newPage();await readonlyPage.goto(app+'/en/settings?organization='+july);const readonlySection=readonlyPage.locator('.fiscal-calendar-settings');await readonlySection.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await readonlySection.getByLabel('Fiscal start month',{exact:true}).isDisabled(),true);assert.equal(await readonlySection.getByRole('button',{name:'Save fiscal calendar',exact:true}).count(),0);
+   await readonlyContext.addCookies(readonlyCookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));const readonlyPage=await readonlyContext.newPage();await readonlyPage.goto(app+'/en/settings/financial/fiscal-years?organization='+july);const readonlySection=readonlyPage.locator('.fiscal-calendar-settings');await readonlySection.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await readonlySection.getByLabel('Fiscal start month',{exact:true}).isDisabled(),true);assert.equal(await readonlySection.getByRole('button',{name:'Save fiscal calendar',exact:true}).count(),0);
    const forbidden=await readonlyPage.request.post(app+'/api/financial-reporting/fiscal',{headers:{Origin:app},data:{action:'calendar',organization:july,month:1,day:1,retainedAccount:'3300',expectedVersion:1,reason:'A view-only user cannot change fiscal settings'}});assert.equal(forbidden.status(),403);assert.equal((await forbidden.json()).error,'FISCAL_WRITE_DENIED');
-   await readonlyPage.goto(app+'/en/settings?organization='+january);await readonlyPage.getByRole('alert').waitFor();assert.equal(await readonlyPage.locator('.fiscal-calendar-settings').count(),0);
+   await readonlyPage.goto(app+'/en/settings/financial/fiscal-years?organization='+january);await readonlyPage.getByRole('alert').waitFor();assert.equal(await readonlyPage.locator('.fiscal-calendar-settings').count(),0);
   }finally{await readonlyContext.close()}
-  await page.setViewportSize({width:390,height:844});await page.goto(app+'/ar/settings?organization='+july);await page.locator('.fiscal-calendar-settings').getByLabel('شهر بداية السنة',{exact:true}).waitFor();assert.equal(await page.locator('.fiscal-calendar-settings').getByLabel('شهر بداية السنة',{exact:true}).inputValue(),'7');await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:5000});await page.screenshot({path:out+'/fiscal-settings-july-ar-mobile.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.goto(app+'/ar/settings/financial/fiscal-years?organization='+july);await page.locator('.fiscal-calendar-settings').getByLabel('شهر بداية السنة',{exact:true}).waitFor();assert.equal(await page.locator('.fiscal-calendar-settings').getByLabel('شهر بداية السنة',{exact:true}).inputValue(),'7');await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:5000});await page.screenshot({path:out+'/fiscal-settings-july-ar-mobile.png',fullPage:true});
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }finally{await browser?.close();server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}

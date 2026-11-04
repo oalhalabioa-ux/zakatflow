@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { isSettingsPage, settingSections } from "./navigation";
+import { isSettingsPage, isSettingsSectionActive, settingSections } from "./navigation";
 import {
   currentWorkspaceScope,
   searchNavigation,
@@ -20,3 +20,5 @@ it("makes subscription settings discoverable independently of My account", () =>
   expect(searchNavigation("اشتراك").some((s) => s[0] === "billing")).toBe(true);
   expect(searchNavigation("حسابي")[0][0]).toBe("account");
 });
+
+it("keeps nested financial settings inside organization settings and searchable",()=>{expect(isSettingsPage("settings/financial/fiscal-years")).toBe(true);expect(isSettingsSectionActive("settings/financial/fiscal-years","settings")).toBe(true);expect(isSettingsSectionActive("settings/financial/fiscal-years","settings/system")).toBe(false);expect(currentWorkspaceScope("settings/financial/fiscal-years","","PERSONAL")).toBe("ORGANIZATION");expect(searchNavigation("السنوات المالية").some(s=>s[0]==="settings/financial/fiscal-years")).toBe(true)});

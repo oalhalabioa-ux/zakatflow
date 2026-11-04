@@ -3,7 +3,7 @@ import {requireUser} from './auth';
 import {assertOpeningWorkspace} from './financial-opening-workspace';
 const uuid=z.string().uuid(),date=z.string().date(),reason=z.string().trim().min(3).max(1000);
 const command=z.discriminatedUnion('action',[
- z.object({action:z.literal('calendar'),organization:uuid,month:z.number().int().min(1).max(12),day:z.number().int().min(1).max(31),retainedAccount:z.string().regex(/^\d{4}$/),expectedVersion:z.number().int().min(0),reason}).strict(),
+ z.object({action:z.literal('calendar'),organization:uuid,month:z.number().int().min(1).max(12),day:z.number().int().min(1).max(31),retainedAccount:z.string().regex(/^(3300|3300\d{2}(\d{2}){0,2})$/),expectedVersion:z.number().int().min(0),reason}).strict(),
  z.object({action:z.literal('assign'),organization:uuid,sourceTable:z.enum(['transactions','liquidity_accounts','financial_event_obligations']),sourceId:uuid,fiscalStart:date,effectiveDate:date,accountCode:z.string().regex(/^\d{4}$/),declaredAmount:z.string().regex(/^-?\d{1,20}(\.\d{1,4})?$/).nullable(),reason}).strict(),
  z.object({action:z.literal('close'),organization:uuid,fiscalStart:date,requestId:uuid,reason}).strict(),
  z.object({action:z.literal('reopen'),organization:uuid,closeId:uuid,expectedVersion:z.number().int().positive(),reason}).strict(),

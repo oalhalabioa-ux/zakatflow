@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { rememberedOrganization } from "@/lib/workspace-organization";
-import { settingSections } from "./navigation";
+import { settingSections, isSettingsSectionActive } from "./navigation";
 import "./settings.css";
 export default function SettingsFrame({
   locale,
@@ -48,7 +48,7 @@ export default function SettingsFrame({
           <Link
             key={s.path}
             href={`/${locale}/${s.path}${organization ? "?organization=" + encodeURIComponent(organization) : ""}`}
-            aria-current={path === `/${locale}/${s.path}` ? "page" : undefined}
+            aria-current={isSettingsSectionActive(path.split("/").slice(2).join("/"),s.path) ? "page" : undefined}
           >
             <svg className="settings-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               {s.icon==='organization'?<><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7h2m4 0h2M8 11h2m4 0h2M10 21v-6h4v6"/></>:s.icon==='payments'?<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></>:<><circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 4 2 2v3l3 2 1 3h6l1-3 3-2v-3l2-2-2-4-3-1-1-3Z"/></>}

@@ -1,8 +1,8 @@
 export const settingSections = [
   {
     path: "settings",
-    ar: "بيانات المؤسسة",
-    en: "Organization details",
+    ar: "إعدادات المؤسسة",
+    en: "Organization settings",
     icon: "organization",
   },
   {
@@ -19,5 +19,8 @@ export const settingSections = [
   },
 ] as const;
 export function isSettingsPage(path: string) {
-  return settingSections.some((s) => s.path === path);
+  return path==='settings'||path.startsWith('settings/')||path==='billing';
+}
+export function isSettingsSectionActive(path:string,section:string){
+ return section==='settings'?(path==='settings'||path.startsWith('settings/financial')):path===section;
 }
