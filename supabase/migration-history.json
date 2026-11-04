@@ -1666,6 +1666,14 @@
       "expected_md5": "d73380c1fb97abd8ea08910ec8e712bf",
       "file_sha256": "55a79303de08dbbbbbe242be7105b01a0d8b3a47d2bdcaa57604fe511b30ce94",
       "validation_project": "Opening register row QA"
+    },
+    {
+      "path": "supabase/migrations/20261104093720_general_fiscal_opening_engine.sql",
+      "version": "20261104093720",
+      "name": "general_fiscal_opening_engine",
+      "expected_md5": "e0637401e38fc2f637c758e1f97beeae",
+      "file_sha256": "e71270483bf74edfb58e2c49be459a778303728bbfd5d37d46d13df840e41844",
+      "validation_project": "Disposable multi-organization fiscal acceptance only"
     }
   ]
 }

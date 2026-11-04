@@ -8,10 +8,16 @@ export default function AvailableRegisterBalances({organization,en}:{organizatio
  const [failed,setFailed]=useState(false);
  useEffect(()=>{
   const controller=new AbortController();
-  const params=new URLSearchParams({organization,fiscalStart:new Date().getFullYear()+'-01-01'});
-  fetch('/api/financial-reporting/openings?'+params,{cache:'no-store',signal:controller.signal})
-   .then(async response=>{if(!response.ok)throw Error();return response.json() as Promise<OpeningWorkspaceData>})
-   .then(result=>{if(!controller.signal.aborted&&result.organizationId===organization)setData(result)})
+  const load=async()=>{
+   const contextResponse=await fetch('/api/financial-reporting/fiscal?organization='+encodeURIComponent(organization),{cache:'no-store',signal:controller.signal});
+   const context=await contextResponse.json();if(!contextResponse.ok)throw Error();
+   if(!context.period?.start)return null;
+   const params=new URLSearchParams({organization,fiscalStart:context.period.start});
+   const response=await fetch('/api/financial-reporting/openings?'+params,{cache:'no-store',signal:controller.signal});
+   if(!response.ok)throw Error();return response.json() as Promise<OpeningWorkspaceData>;
+  };
+  load()
+   .then(result=>{if(!controller.signal.aborted&&result?.organizationId===organization)setData(result)})
    .catch(()=>{if(!controller.signal.aborted)setFailed(true)});
   return ()=>controller.abort();
  },[organization]);

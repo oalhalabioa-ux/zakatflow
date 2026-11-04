@@ -16,7 +16,8 @@ let server,browser;
 const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 await mkdir(out,{recursive:true});
 try{
- for(const file of ['qa-financial-opening-workspace.sql','qa-financial-opening-ledger.sql','qa-financial-opening-sources.sql','qa-financial-opening-first-activity.sql'])await check('Actual PostgreSQL '+file,async()=>{const result=sql(await readFile('tests/'+file,'utf8'));await writeFile(out+'/'+file.replace('.sql','.json'),result+'\n');const parsed=JSON.parse(result),rows=Array.isArray(parsed)?parsed:parsed.checks;assert.ok(rows.length>0);assert.ok(rows.every(r=>r.passed===true))});
+ await writeFile(out+'/catalog.json',sql('select coalesce(jsonb_agg(t),\'[]\') from ('+(await readFile('tests/migration-history/catalog.sql','utf8')).replace(/;\s*$/,'')+') t')+'\n');
+ for(const file of ['qa-financial-opening-workspace.sql','qa-financial-opening-ledger.sql','qa-financial-opening-sources.sql','qa-financial-opening-first-activity.sql','qa-financial-opening-general-fiscal.sql'])await check('Actual PostgreSQL '+file,async()=>{const result=sql(await readFile('tests/'+file,'utf8'));await writeFile(out+'/'+file.replace('.sql','.json'),result+'\n');const parsed=JSON.parse(result),rows=Array.isArray(parsed)?parsed:parsed.checks;assert.ok(rows.length>0);assert.ok(rows.every(r=>r.passed===true))});
  const actors=[];
  for(let i=0;i<3;i++){const client=createClient(url,status.ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}}),email=`opening-${i}@local.test`,password=randomBytes(24).toString('base64url')+'Aa7!';const r=await client.auth.signUp({email,password});assert.ifError(r.error);assert.ok(r.data.session);actors.push({client,email,password,id:r.data.user.id})}
  const[a,b,viewer]=actors,org='b1000000-0000-4000-8000-000000000001',other='b1000000-0000-4000-8000-000000000002',cash='b2000000-0000-4000-8000-000000000001',customer='b3000000-0000-4000-8000-000000000001';
@@ -28,6 +29,7 @@ try{
  insert into public.organization_members(organization_id,user_id,role,status) values('${org}','${a.id}','OWNER','ACTIVE'),('${other}','${b.id}','OWNER','ACTIVE'),('${org}','${viewer.id}','VIEWER','ACTIVE') on conflict(organization_id,user_id) do update set role=excluded.role,status='ACTIVE';
  insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata) values('${cash}','${org}','الحساب البنكي الرئيسي','BANK','SAR',500,500,'${a.id}','{"opening_date":"2025-12-31","opening_balance":500,"opening_fx_rate":1}');
  insert into public.liquidity_counterparties(id,organization_id,name,party_type,created_by) values('${customer}','${org}','عميل بلا رصيد افتتاحي','CUSTOMER','${a.id}');`);
+ sql(`insert into public.financial_fiscal_calendars(organization_id,start_month,start_day,retained_earnings_account,updated_by) values('${org}',1,1,'3300','${a.id}'),('${other}',1,1,'3300','${b.id}');`);
  const scope={p_org:org,p_fiscal_start:'2026-01-01'};
  await check('Real user sessions isolate opening source reads and reject forged metadata',async()=>{assert.ifError((await a.client.rpc('financial_opening_workspace',scope)).error);assert.ok((await b.client.rpc('financial_opening_workspace',scope)).error);assert.ifError((await viewer.client.auth.updateUser({data:{role:'OWNER',financial_core:{approve:true}}})).error);assert.ok((await viewer.client.rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:'x',p_entries:{},p_reason:''})).error)});
  const cookies=[],ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>cookies,setAll:cs=>{for(const c of cs){const i=cookies.findIndex(x=>x.name===c.name);if(i>=0)cookies.splice(i,1);cookies.push(c)}}}});assert.ifError((await ssr.auth.signInWithPassword({email:a.email,password:a.password})).error);
@@ -59,8 +61,8 @@ try{
   await page.getByRole('link',{name:'Opening balances and vouchers'}).click();
   await page.getByRole('tab',{name:/Assets & depreciation/}).click();
   const vouchers=page.locator('[data-period-voucher]');
-  await vouchers.first().waitFor();assert.equal(await vouchers.count(),3);
-  for(const date of ['2026-01-01','2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
+  await vouchers.first().waitFor();assert.equal(await vouchers.count(),2);
+  for(const date of ['2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
   const dataFor=async fiscalStart=>{
    const response=await page.request.get(app+'/api/financial-reporting/openings?'+new URLSearchParams({organization:other,fiscalStart}));
    assert.equal(response.status(),200);return response.json();
@@ -68,7 +70,7 @@ try{
   const current=await dataFor('2026-01-01'),next=await dataFor('2027-01-01');
   for(const voucher of current.periodAssetOpenings){
    const id='asset:'+voucher.assetId;
-   assert.equal(current.source.rows.find(row=>row.id===id).vouchers.length,0);
+   assert.equal(current.source.rows.find(row=>row.id===id).vouchers.length,voucher.date==='2026-01-01'?1:0);
    const carried=next.source.rows.find(row=>row.id===id).vouchers;
    assert.equal(carried.length,1);assert.equal(Number(carried[0].debit),Number(voucher.amount));
   }
@@ -89,6 +91,11 @@ try{
  await check('Persisted draft distinguishes confirmed zero, reopens after refresh, and approves',async()=>{
   await page.getByRole('button',{name:'تأكيد رصيد صفري',exact:true}).click();await page.getByRole('tab',{name:/^حقوق الملكية/}).click();
   await page.getByLabel('الإضافة: رأس المال',{exact:true}).fill('500');for(const name of ['الاحتياطيات','الأرباح المحتجزة'])await page.locator('tr').filter({has:page.getByLabel('الإضافة: '+name,{exact:true})}).getByRole('button',{name:'تأكيد رصيد صفري',exact:true}).click();
+  for(const tab of ['customers','suppliers','cash','assets','loans','advances','other','equity']){
+   await page.locator('#ob-tab-'+tab).click();
+   const zero=page.getByRole('button',{name:'تأكيد رصيد صفري',exact:true});
+   while(await zero.count())await zero.first().click();
+  }
   const saved=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/openings')&&r.request().method()==='POST');await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();const savedResponse=await saved;assert.equal(savedResponse.status(),200,JSON.stringify(await savedResponse.json()));await page.locator('[data-opening-ready="'+org+'"]').waitFor();await page.reload();await page.locator('[data-opening-ready="'+org+'"]').waitFor();await page.getByRole('tab',{name:/^حقوق الملكية/}).click();assert.equal(await page.getByLabel('الإضافة: رأس المال',{exact:true}).inputValue(),'500');
   const approved=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/openings')&&r.request().method()==='POST');await page.getByRole('button',{name:'اعتماد الأرصدة',exact:true}).click();const approvedResponse=await approved;assert.equal(approvedResponse.status(),200,JSON.stringify(await approvedResponse.json()));await page.getByText(/معتمد ·/).waitFor();await page.getByRole('tab',{name:/^حقوق الملكية/}).click();assert.equal(await page.getByLabel('الإضافة: رأس المال',{exact:true}).isDisabled(),true);
   const read=await a.client.rpc('financial_opening_workspace',scope);assert.ifError(read.error);assert.equal(read.data.workspace.status,'APPROVED');assert.equal(read.data.workspace.entries['equity:3100'].amount,'500');
