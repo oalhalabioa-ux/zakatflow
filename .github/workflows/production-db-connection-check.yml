@@ -1,0 +1,70 @@
+name: Production database connection check
+on:
+  push:
+    branches: [release/yaqeen-financial-foundation-20261104]
+    paths: [.github/workflows/production-db-connection-check.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-db-connection-check
+  cancel-in-progress: false
+jobs:
+  read-only-connection:
+    if: github.ref == 'refs/heads/release/yaqeen-financial-foundation-20261104'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Verify Production credentials using a read-only transaction
+        env:
+          PGPASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+          PGHOST: aws-0-eu-central-1.pooler.supabase.com
+          PGPORT: '5432'
+          PGDATABASE: postgres
+          PGUSER: postgres.ejpzcsfwqziqxwhvqnay
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: '15'
+          PGOPTIONS: '-c default_transaction_read_only=on -c statement_timeout=15000'
+        shell: python
+        run: |
+          import json, os, shutil, subprocess, sys
+          if not os.environ.get("PGPASSWORD"):
+              sys.exit("CONNECTION_CHECK: SECRET_MISSING")
+          if not shutil.which("psql"):
+              sys.exit("CONNECTION_CHECK: CLIENT_UNAVAILABLE")
+          query = """begin read only;
+          select json_build_object(
+            'connected', true,
+            'read_only', current_setting('transaction_read_only'),
+            'database', current_database(),
+            'migration_count', count(*),
+            'latest_version', max(version)
+          ) from supabase_migrations.schema_migrations;
+          rollback;"""
+          try:
+              result = subprocess.run(
+                  ["psql", "-X", "-w", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-c", query],
+                  capture_output=True, text=True, timeout=45)
+          except subprocess.TimeoutExpired:
+              sys.exit("CONNECTION_CHECK: CONNECTION_TIMEOUT")
+          if result.returncode:
+              error = result.stderr.lower()
+              if "password authentication failed" in error or "authentication query failed" in error:
+                  reason = "AUTHENTICATION_FAILED"
+              elif "could not translate host" in error or "network is unreachable" in error or "timeout" in error:
+                  reason = "NETWORK_CONNECTION_FAILED"
+              elif "certificate" in error or "ssl" in error:
+                  reason = "TLS_CONNECTION_FAILED"
+              else:
+                  reason = "DATABASE_CONNECTION_FAILED"
+              sys.exit("CONNECTION_CHECK: " + reason)
+          try:
+              data = json.loads(result.stdout.strip())
+              assert data["connected"] is True and data["read_only"] == "on" and data["database"] == "postgres"
+          except (ValueError, KeyError, AssertionError):
+              sys.exit("CONNECTION_CHECK: UNEXPECTED_RESPONSE")
+          print("CONNECTION_CHECK: SUCCESS")
+          print(json.dumps(data))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("Production connection succeeded in a read-only transaction. No migrations were applied.\n\n")
+              summary.write("Migration count: " + str(data["migration_count"]) + "\n\nLatest version: " + data["latest_version"] + "\n")
