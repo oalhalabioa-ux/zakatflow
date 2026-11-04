@@ -7,7 +7,8 @@ const dir=process.env.OPENING_QA_WORKDIR;
 assert.ok(dir&&process.env.RUNNER_TEMP&&dir.startsWith(process.env.RUNNER_TEMP+'/'),'DISPOSABLE_RUNNER_REQUIRED');
 const migrations=[
  '20261104093720_general_fiscal_opening_engine.sql',
- '20261104113559_fiscal_future_draft_window.sql'
+ '20261104113559_fiscal_future_draft_window.sql',
+ '20261104121038_organization_chart_accounts.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});

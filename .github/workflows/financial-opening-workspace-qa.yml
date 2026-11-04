@@ -51,7 +51,8 @@ jobs:
           p.write_text(s)
           shutil.copytree('supabase/migrations',root/'migrations',dirs_exist_ok=True)
           for migration in ('20261104093720_general_fiscal_opening_engine.sql',
-                            '20261104113559_fiscal_future_draft_window.sql'):
+                            '20261104113559_fiscal_future_draft_window.sql',
+                            '20261104121038_organization_chart_accounts.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
