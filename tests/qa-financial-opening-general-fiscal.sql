@@ -67,6 +67,9 @@ begin
    values(purchase_tx,owner,org,current_asset,'PURCHASE',starts+120,1,'SAR','SAR',60,60,jsonb_build_object('financial_event_id',purchase_event));
   update public.financial_events set source_record_id=purchase_tx where id=purchase_event;
   rules:=jsonb_build_array(jsonb_build_object('eventType','REVENUE','sourceModule','FISCAL_QA','classificationId',classification||':BASE','cashDirection','INFLOW','debitAccountId','1000','creditAccountId','4100','cashActivity','OPERATING'),jsonb_build_object('eventType','EXPENSE','sourceModule','FISCAL_QA','classificationId',tax||':BASE','cashDirection','OUTFLOW','debitAccountId','6100','creditAccountId','1000','cashActivity','OPERATING'),jsonb_build_object('eventType','ASSET_PURCHASE','sourceModule','FISCAL_QA','classificationId',capex||':BASE','cashDirection','OUTFLOW','debitAccountId','1500','creditAccountId','1000','cashActivity','INVESTING'));
+  if jsonb_array_length(private.financial_policy_postable_events(org,starts,lastdate))<>3
+   or jsonb_array_length(public.financial_reporting_policy_workspace(org,starts)->'events')<>3
+  then raise exception 'Policy coverage counted opening imports as current-year postings';end if;
   if exists(select 1 from jsonb_array_elements(public.financial_opening_candidates(org,starts)) candidate where candidate->>'sourceId'=purchase_tx::text) then raise exception 'current purchase offered as an opening source';end if;
   policy:=public.save_financial_reporting_policy(org,starts,0,rules,'Annual current operations posting rules');policy:=public.approve_financial_reporting_policy((policy->>'id')::uuid,1);
   snap:=public.financial_statement_live_snapshot(org,starts,lastdate);

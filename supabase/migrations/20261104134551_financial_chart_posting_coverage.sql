@@ -37,16 +37,65 @@ returns jsonb language sql immutable security invoker set search_path='' as $$
 $$;
 revoke all on function private.financial_policy_source_coverage(jsonb,jsonb) from public,anon,authenticated;
 
+-- Reuse the exact opening-consumption identity tested by the statement
+-- compiler. A voucher already adopted into an approved opening is not a
+-- second current-year posting merely because its original date is in-year.
+create function private.financial_policy_postable_events(p_org uuid,p_start date,p_end date)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare opening public.financial_opening_workspaces%rowtype;events jsonb;
+begin
+ events:=private.financial_reporting_events(p_org,p_start,p_end);
+ select * into opening from public.financial_opening_workspaces
+ where organization_id=p_org and fiscal_start=p_start and status='APPROVED';
+ if opening.id is null then return events;end if;
+ select coalesce(jsonb_agg(ev),'[]'::jsonb) into events from jsonb_array_elements(events) ev where not exists(
+  select 1 from (
+   select vv from jsonb_array_elements(opening.source_snapshot->'rows') rr
+    cross join lateral jsonb_array_elements(rr->'vouchers') vv
+   union all
+   select jsonb_build_object('canonicalId',assignment.source_table||':'||assignment.source_id)
+   from public.financial_opening_source_assignments assignment
+   where assignment.organization_id=p_org and assignment.fiscal_start<=opening.fiscal_start
+    and exists(select 1 from public.financial_opening_workspaces adopted
+     where adopted.organization_id=p_org and adopted.fiscal_start=assignment.fiscal_start and adopted.status='APPROVED')
+  ) consumed(vv)
+  where vv->>'canonicalId'='transactions:'||replace(ev->>'id','transaction:','')
+   or exists(select 1 from public.transactions t where t.organization_id=p_org
+    and vv->>'canonicalId'='transactions:'||t.id and (
+     t.metadata->>'financial_event_id'=ev->>'id'
+     or exists(select 1 from public.financial_events integrated where integrated.organization_id=p_org
+      and integrated.id::text=ev->>'id' and integrated.source_record_id=t.id)
+     or exists(select 1 from public.financial_event_links integrated where integrated.organization_id=p_org
+      and integrated.event_id::text=ev->>'id' and integrated.target_module='transactions'
+      and integrated.target_record_id=t.id)))
+   or vv->>'canonicalId' in(select 'financial_event_obligations:'||ob.id
+    from public.financial_event_obligations ob where ob.organization_id=p_org and ob.event_id::text=ev->>'id')
+ );
+ return events;
+end $$;
+revoke all on function private.financial_policy_postable_events(uuid,date,date) from public,anon,authenticated;
+
 create function private.financial_assert_policy_source_coverage(p_org uuid,p_start date,p_end date,p_rules jsonb)
 returns void language plpgsql stable security definer set search_path='' as $$
 declare coverage jsonb;
 begin
- coverage:=private.financial_policy_source_coverage(private.financial_reporting_events(p_org,p_start,p_end),p_rules);
+ coverage:=private.financial_policy_source_coverage(private.financial_policy_postable_events(p_org,p_start,p_end),p_rules);
  if (coverage->>'emptyEvents')::bigint>0 then raise exception 'REPORTING_POLICY_SOURCE_EMPTY';end if;
  if (coverage->>'missingLines')::bigint>0 then raise exception 'REPORTING_POLICY_SOURCE_UNMAPPED';end if;
  if (coverage->>'ambiguousLines')::bigint>0 then raise exception 'REPORTING_POLICY_SOURCE_AMBIGUOUS';end if;
 end $$;
 revoke all on function private.financial_assert_policy_source_coverage(uuid,date,date,jsonb) from public,anon,authenticated;
+
+-- The editable policy page and the approval endpoint must inspect the same
+-- post-opening sources. Otherwise the page would demand unnecessary mappings.
+do $$
+declare definition text;needle text;
+begin
+ definition:=pg_get_functiondef('public.financial_reporting_policy_workspace(uuid,date)'::regprocedure);
+ needle:='result:=private.financial_reporting_events(p_org,p_fiscal_start,(p_fiscal_start+interval ''1 year''-interval ''1 day'')::date);';
+ if strpos(definition,needle)=0 then raise exception 'REPORTING_POLICY_WORKSPACE_SIGNATURE_CHANGED';end if;
+ execute replace(definition,needle,replace(needle,'private.financial_reporting_events','private.financial_policy_postable_events'));
+end $$;
 
 -- Preserve all existing period, approval policy, permission and supersession
 -- checks. Add the coverage guard only to the current approval definition.

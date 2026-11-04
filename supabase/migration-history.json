@@ -1711,8 +1711,8 @@
       "path": "supabase/migrations/20261104134551_financial_chart_posting_coverage.sql",
       "version": "20261104134551",
       "name": "financial_chart_posting_coverage",
-      "expected_md5": "2b0f59b706979eb9e847a5a38a95806f",
-      "file_sha256": "ef48158c37867ac5fe7307a760ae2a4be9557e8b05b61529c31db854f11e07d8",
+      "expected_md5": "21933cb8ad45934df338ff7fe97d103b",
+      "file_sha256": "45a03cce17fd603eecbc9adb8011f1f11ee08a39e161c79507ed402f9c79082b",
       "validation_project": "Disposable source-to-chart coverage acceptance only"
     }
   ]
