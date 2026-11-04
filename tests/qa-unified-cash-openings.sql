@@ -37,5 +37,9 @@ begin
  perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
  begin perform public.link_financial_cash_accounts(o);raise exception 'Unprivileged link accepted';exception when raise_exception then if sqlerrm not like '%FISCAL_WRITE_DENIED%' then raise;end if;end;
 end $$;
+select set_config('request.jwt.claim.sub',(select owner_user_id::text from public.organizations where name='QA January cash' limit 1),true);
+set local role authenticated;
+select public.open_financial_account(jsonb_build_object('request_id',gen_random_uuid(),'scope','ORGANIZATION','organization_id',(select id from public.organizations where name='QA January cash' limit 1),'type','BANK','name','QA authenticated command','currency','SAR','balance_mode','NEW','opening_balance',0,'opening_date','2026-01-01','fx_rate',1,'notes','Real authenticated role, not superuser'));
+reset role;
 select 'PASS unified cash openings: typed creation, retry/conflict, January/July, forecast exclusion, isolation, automatic links, no in-year opening promotion' result;
 rollback;
