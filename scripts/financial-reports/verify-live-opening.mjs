@@ -208,6 +208,66 @@ try{
   assert.match(await position.innerText(),/435\.50/);
   await page.screenshot({path:out+'/supplier-credit-financial-position.png',fullPage:true});
  });
+ await check('Real funded borrowing and lending reconcile to institutional statements once',async()=>{
+  const loanOrg='b1000000-0000-4000-8000-000000000003';
+  const loanBank='b2000000-0000-4000-8000-000000000003';
+  const loanParty='b3000000-0000-4000-8000-000000000003';
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
+    insert into public.organizations(id,owner_user_id,name) values('${loanOrg}','${a.id}','ZZ QA funded debt');
+    insert into public.organization_members(organization_id,user_id,role,status) values('${loanOrg}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';
+    insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
+      values('${loanBank}','${loanOrg}','QA funding bank','BANK','SAR',0,0,'${a.id}','{"opening_date":"2026-01-01","opening_balance":0,"opening_fx_rate":1}');
+    insert into public.liquidity_counterparties(id,organization_id,name,party_type,created_by)
+      values('${loanParty}','${loanOrg}','QA debt counterparty','CUSTOMER','${a.id}');`);
+  const loanScope={p_org:loanOrg,p_fiscal_start:'2026-01-01'};
+  const recorded=[];
+  for(const [side,amount,expectedDirection] of [['PAYABLE',300,'INFLOW'],['RECEIVABLE',200,'OUTFLOW']]){
+    const payload={organization_id:loanOrg,request_id:randomUUID(),kind:'LOAN',mode:'NEW',side,
+      counterparty_id:loanParty,entity_id:null,account_id:loanBank,
+      category:side==='PAYABLE'?'O_AP_LOAN':'O_AR_LOAN',
+      description:'QA actual cash funded '+side,reference:'QA-FUND-'+side,
+      date:'2026-02-10',currency:'SAR',exchange_rate:1,principal:amount,
+      schedule:[{amount,due_date:'2026-12-01'}]};
+    const created=await a.client.rpc('create_debt_contract',{p_payload:payload});assert.ifError(created.error);
+    assert.equal(created.data.status,'COMMITTED');
+    const before=await a.client.rpc('financial_reporting_policy_workspace',loanScope);assert.ifError(before.error);
+    assert.equal(before.data.events.filter(e=>e.sourceModule==='DEBT_CONTRACTS').length,recorded.length);
+    assert.ifError((await a.client.rpc('approve_financial_event',{p_event_id:created.data.eventId,p_note:'Isolated real debt QA'})).error);
+    const posted=await a.client.rpc('post_debt_contract',{p_id:created.data.id});assert.ifError(posted.error);
+    assert.equal(posted.data.status,'ACTUAL');
+    assert.ifError((await a.client.rpc('post_debt_contract',{p_id:created.data.id})).error);
+    const actual=sql(`select cash_direction from public.financial_event_lines where event_id='${created.data.eventId}'`);
+    assert.equal(actual,expectedDirection);
+    recorded.push(created.data.eventId);
+  }
+  assert.equal(Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${loanOrg}' and source_module='DEBT_FUNDING'`)),2);
+  assert.equal(Number(sql(`select current_balance from public.liquidity_accounts where id='${loanBank}'`)),100);
+  const workspace=await a.client.rpc('financial_reporting_policy_workspace',loanScope);assert.ifError(workspace.error);
+  const debtEvents=workspace.data.events.filter(e=>e.sourceModule==='DEBT_CONTRACTS');
+  assert.equal(debtEvents.length,2);
+  const rules=[];
+  for(const e of debtEvents)for(const l of e.lines){
+    const incoming=l.cashDirection==='INFLOW';assert.ok(incoming||l.cashDirection==='OUTFLOW');
+    rules.push({eventType:e.eventType,sourceModule:e.sourceModule,classificationId:l.classificationId,
+      cashDirection:l.cashDirection,debitAccountId:incoming?'1000':'1200',
+      creditAccountId:incoming?'2200':'1000',cashActivity:incoming?'FINANCING':'INVESTING'});
+  }
+  const draft=await a.client.rpc('save_financial_reporting_policy',{...loanScope,
+    p_expected_version:0,p_rules:rules,p_reason:'Real funding and non-duplicated principal recognition'});assert.ifError(draft.error);
+  assert.ifError((await a.client.rpc('approve_financial_reporting_policy',{p_id:draft.data.id,p_expected_version:draft.data.version})).error);
+  const reportResponse=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({
+    action:'statements',organization:loanOrg,from:'2026-01-01',to:'2026-12-31'}));
+  const report=await reportResponse.json();
+  assert.equal(reportResponse.status(),200,JSON.stringify(report));
+  assert.deepEqual(new Set(report.statements.sourceJournalIds),new Set(recorded));
+  assert.equal(report.statements.cash.investing,'-200.0000');
+  assert.equal(report.statements.cash.financing,'300.0000');
+  assert.equal(report.statements.cash.closing,'100.0000');
+  assert.equal(report.statements.position.assets,'300.0000');
+  assert.equal(report.statements.position.liabilities,'300.0000');
+  assert.equal(report.statements.income.netProfit,'0.0000');
+  assert.ok((await b.client.rpc('financial_statement_live_snapshot',{p_org:loanOrg,p_from:'2026-01-01',p_to:'2026-12-31'})).error);
+ });
  await check('Revocation clears both refreshed and exporting workspaces',async()=>{
   const exportPage=await context.newPage();
   const downloads=[];

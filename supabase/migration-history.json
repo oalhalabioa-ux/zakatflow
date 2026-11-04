@@ -1722,6 +1722,14 @@
       "file_sha256": "8bb3ba208c5587accd5255c696da28d1ebe7e804b4955c3936ce66968ff95e94",
       "expected_md5": "184fab3bd6287a724fbfc612d1e54270",
       "validation_project": "Disposable fiscal settings acceptance only; not applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261104214000_funded_debt_source_cash_direction.sql",
+      "version": "20261104214000",
+      "name": "funded_debt_source_cash_direction",
+      "expected_md5": "a5f1f1df5c132c185fcd8cbdcb8dfeb7",
+      "file_sha256": "65d42c7d5a953983eba07ace750a18d11ce6f7b4bf20960726ab9f79a7155cf2",
+      "validation_project": "Disposable funded debt and institutional statement acceptance only"
     }
   ]
 }
