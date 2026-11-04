@@ -15,6 +15,7 @@ on:
       - 'tests/qa-financial-opening*.sql'
       - 'tests/qa-financial-chart-accounts.sql'
       - 'tests/qa-financial-chart-posting-rules.sql'
+      - 'tests/qa-financial-chart-opening-leaf.sql'
       - '.github/workflows/financial-opening-workspace-qa.yml'
   workflow_dispatch:
 permissions:
@@ -54,7 +55,8 @@ jobs:
           for migration in ('20261104093720_general_fiscal_opening_engine.sql',
                             '20261104113559_fiscal_future_draft_window.sql',
                             '20261104121038_organization_chart_accounts.sql',
-                            '20261104124455_financial_chart_posting_rules.sql'):
+                            '20261104124455_financial_chart_posting_rules.sql',
+                            '20261104132349_financial_chart_opening_leaf_link.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
@@ -65,6 +67,8 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-accounts.sql
       - name: Verify posting rules accept only active organization subaccounts
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-posting-rules.sql
+      - name: Verify opening leaf mapping, audit locks and one-time year-close rollup
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-opening-leaf.sql
       - name: Exercise actual authorization, persistence, approval, reports and browser
         run: node scripts/financial-reports/verify-live-opening.mjs
       - name: Reconcile statements and exports against this run's approved ledger
