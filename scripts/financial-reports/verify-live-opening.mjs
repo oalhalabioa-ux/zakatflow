@@ -16,7 +16,7 @@ let server,browser;
 const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 await mkdir(out,{recursive:true});
 try{
- for(const file of ['qa-financial-opening-workspace.sql','qa-financial-opening-ledger.sql','qa-financial-opening-sources.sql'])await check('Actual PostgreSQL '+file,async()=>{const result=sql(await readFile('tests/'+file,'utf8'));await writeFile(out+'/'+file.replace('.sql','.json'),result+'\n');const parsed=JSON.parse(result),rows=Array.isArray(parsed)?parsed:parsed.checks;assert.ok(rows.length>0);assert.ok(rows.every(r=>r.passed===true))});
+ for(const file of ['qa-financial-opening-workspace.sql','qa-financial-opening-ledger.sql','qa-financial-opening-sources.sql','qa-financial-opening-first-activity.sql'])await check('Actual PostgreSQL '+file,async()=>{const result=sql(await readFile('tests/'+file,'utf8'));await writeFile(out+'/'+file.replace('.sql','.json'),result+'\n');const parsed=JSON.parse(result),rows=Array.isArray(parsed)?parsed:parsed.checks;assert.ok(rows.length>0);assert.ok(rows.every(r=>r.passed===true))});
  const actors=[];
  for(let i=0;i<3;i++){const client=createClient(url,status.ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}}),email=`opening-${i}@local.test`,password=randomBytes(24).toString('base64url')+'Aa7!';const r=await client.auth.signUp({email,password});assert.ifError(r.error);assert.ok(r.data.session);actors.push({client,email,password,id:r.data.user.id})}
  const[a,b,viewer]=actors,org='b1000000-0000-4000-8000-000000000001',other='b1000000-0000-4000-8000-000000000002',cash='b2000000-0000-4000-8000-000000000001',customer='b3000000-0000-4000-8000-000000000001';
@@ -36,6 +36,28 @@ try{
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
  for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context')).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
  const{chromium}=await import(process.env.FINANCIAL_SOURCE_BROWSER_MODULE);browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1672,height:941},acceptDownloads:true});await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+ await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{
+  sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
+   do $$ declare asset uuid; d date; begin
+    perform set_config('request.jwt.claim.sub','${b.id}',true);
+    foreach d in array array[date '2026-01-01',date '2026-10-21',date '2026-10-23'] loop
+     insert into public.asset_accounts(user_id,organization_id,ownership_scope,asset_type,name,currency,metadata)
+      values('${b.id}','${other}','ORGANIZATION','OTHER','Opening QA '||d,'SAR','{"acquisition_mode":"OPENING_BALANCE"}') returning id into asset;
+     insert into public.transactions(user_id,organization_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value,gross_value,metadata)
+      values('${b.id}','${other}',asset,'OPENING_BALANCE',d,1,'SAR','SAR',100,100,'{}');
+    end loop;
+   end $$;`);
+  await page.goto(app+'/en/financial-reports?screen=kpis&organization='+org);
+  const picker=page.getByRole('combobox',{name:'Organization',exact:true});
+  await picker.locator('option[value="'+other+'|"]').waitFor({state:'attached'});
+  assert.equal(await picker.isEnabled(),true);await picker.selectOption(other+'|');
+  await page.getByRole('heading',{name:'Organization registers',exact:true}).waitFor();
+  await page.getByRole('link',{name:'Opening balances and vouchers'}).click();
+  const vouchers=page.locator('section').filter({has:page.getByRole('heading',{name:'Asset opening vouchers recorded during the year'})}).locator('tbody tr');
+  await vouchers.first().waitFor();assert.equal(await vouchers.count(),3);
+  for(const date of ['2026-01-01','2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
+  sql(`update public.organization_members set status='INACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
+ });
  await check('Connected opening page loads actual master names and missing states',async()=>{await page.goto(app+'/ar/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();await page.getByText('عميل بلا رصيد افتتاحي',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'اعتماد الأرصدة',exact:true}).isDisabled(),true);await page.screenshot({path:out+'/opening-ar-desktop-before.png',fullPage:true})});
  await check('Persisted draft distinguishes confirmed zero, reopens after refresh, and approves',async()=>{
   await page.getByRole('button',{name:'تأكيد رصيد صفري',exact:true}).click();await page.getByRole('tab',{name:/^حقوق الملكية/}).click();
@@ -47,6 +69,20 @@ try{
  await check('Browser Excel export preserves actual source marker, source amount and final opening',async()=>{const d=page.waitForEvent('download');await page.getByRole('button',{name:'تصدير Excel',exact:true}).click();const file=await d;await file.saveAs(out+'/opening-approved.xlsx');const{default:ExcelJS}=await import('exceljs'),book=new ExcelJS.Workbook();await book.xlsx.readFile(await file.path());assert.equal(book.worksheets.length,2);assert.match(String(book.worksheets[1].getCell('A1').value),/LIVE REGISTERS/);assert.ok(book.worksheets[1].rowCount>=7)});
  await check('Posting policy UI saves and approves a real initial policy',async()=>{await page.goto(app+'/ar/financial-reporting-policy');await page.getByRole('heading',{name:'قواعد ترحيل القوائم المالية'}).waitFor();await page.getByLabel('سبب الإعداد أو التغيير').fill('إعداد قواعد المرحلة الافتتاحية');await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
+ await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
+  await page.setViewportSize({width:1672,height:941});
+  sql(`insert into public.asset_accounts(user_id,ownership_scope,asset_type,name,currency) values
+    ('${a.id}','PERSONAL','CASH','Owner QA personal cash','SAR'),('${b.id}','PERSONAL','CASH','Other QA personal cash','SAR');`);
+  await page.goto(app+'/en/dashboard?scope=PERSONAL');
+  const menu=page.getByRole('button',{name:/Financial reports & statements/i});
+  if(await menu.getAttribute('aria-expanded')!=='true')await menu.click();
+  const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-register'&&new URL(r.url()).searchParams.get('scope')==='PERSONAL');
+  await page.getByRole('link',{name:'Personal financial position summary',exact:true}).click();
+  const read=await response;assert.equal(read.status(),200);const data=await read.json();
+  assert.equal(new URL(page.url()).searchParams.get('scope'),'PERSONAL');
+  assert.ok(data.accounts.some(x=>x.name==='Owner QA personal cash'));
+  assert.ok(data.accounts.every(x=>x.organizationId===null&&x.name!=='Other QA personal cash'));
+ });
  await check('Financial reports open in Business from either dashboard scope',async()=>{
   await page.setViewportSize({width:1672,height:941});
   for(const scope of ['PERSONAL','ORGANIZATION']){
