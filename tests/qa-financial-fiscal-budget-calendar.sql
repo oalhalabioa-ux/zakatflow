@@ -7,7 +7,7 @@ begin
  insert into public.organizations(id,owner_user_id,name) values(org,actor,'January budget fiscal fixture'),(other,actor,'July budget fiscal fixture');
  perform public.save_financial_fiscal_calendar(org,1,1,'3300',0,'January budget calendar fixture');
  perform public.save_financial_fiscal_calendar(other,7,1,'3300',0,'July budget calendar fixture');
- insert into public.budget_plans(id,user_id,name,fiscal_year,currency,scenario,status,organization_name,cost_center) values(plan,actor,'January plan',2026,'SAR','BASE','DRAFT','January budget fiscal fixture','HQ'),(other_plan,actor,'July plan',2026,'SAR','BASE','DRAFT','July budget fiscal fixture','HQ');
+ insert into public.budget_plans(id,user_id,created_by,name,fiscal_year,currency,scenario,status,organization_name,cost_center) values(plan,actor,actor,'January plan',2026,'SAR','BASE','DRAFT','January budget fiscal fixture','HQ'),(other_plan,actor,actor,'July plan',2026,'SAR','BASE','DRAFT','July budget fiscal fixture','HQ');
  insert into public.financial_budget_plan_ownership(plan_id,organization_id,fiscal_start,adopted_by) values(plan,org,'2026-01-01',actor),(other_plan,other,'2026-07-01',actor);
  prior:=(select to_jsonb(t) from public.financial_budget_plan_ownership t where plan_id=other_plan);
  begin update public.financial_budget_plan_ownership set fiscal_start='2026-01-01' where plan_id=other_plan;raise exception 'Budget accepted a foreign calendar';
@@ -23,7 +23,7 @@ begin
  -- Initial calendar configuration also preserves existing legacy budget dates.
  org:=gen_random_uuid();plan:=gen_random_uuid();
  insert into public.organizations(id,owner_user_id,name) values(org,actor,'Legacy budget fiscal fixture');
- insert into public.budget_plans(id,user_id,name,fiscal_year,currency,scenario,status,organization_name,cost_center) values(plan,actor,'Legacy plan',2026,'SAR','BASE','DRAFT','Legacy budget fiscal fixture','HQ');
+ insert into public.budget_plans(id,user_id,created_by,name,fiscal_year,currency,scenario,status,organization_name,cost_center) values(plan,actor,actor,'Legacy plan',2026,'SAR','BASE','DRAFT','Legacy budget fiscal fixture','HQ');
  insert into public.financial_budget_plan_ownership(plan_id,organization_id,fiscal_start,adopted_by) values(plan,org,'2026-07-01',actor);
  begin perform public.save_financial_fiscal_calendar(org,1,1,'3300',0,'Wrong initial calendar for an existing budget');raise exception 'Legacy budget silently moved';
  exception when others then if sqlerrm<>'FISCAL_BUDGET_PERIOD_REVIEW_REQUIRED' then raise;end if;end;
