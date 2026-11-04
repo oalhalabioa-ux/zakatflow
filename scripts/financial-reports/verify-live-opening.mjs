@@ -265,8 +265,16 @@ try{
    insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,created_by) values('${july}','${b.id}','financial_core.view','ALLOW','${a.id}'),('${july}','${b.id}','financial_core.create','DENY','${a.id}');`);
   for(const [organization,month,end] of [[january,1,'12-31'],[july,7,'06-30']]){
    await page.goto(app+'/en/settings/financial/fiscal-years?organization='+organization);
-   const section=page.locator('.fiscal-calendar-settings');await section.getByLabel('Fiscal start month',{exact:true}).waitFor();
-   assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),'');
+   const section=page.locator('.fiscal-calendar-settings');
+   try{await section.getByLabel('Fiscal start month',{exact:true}).waitFor({timeout:12000})}catch{
+    const diagnostic={url:page.url(),page:(await page.locator('body').innerText()).slice(0,900),api:await page.evaluate(async organization=>{
+     const orgResponse=await fetch('/api/organizations',{cache:'no-store'}),orgs=await orgResponse.json().catch(()=>null);
+     const fiscalResponse=await fetch('/api/financial-reporting/fiscal?'+new URLSearchParams({action:'management',organization}),{cache:'no-store'}),fiscal=await fiscalResponse.json().catch(()=>null);
+     return{organizationsStatus:orgResponse.status,organizationVisible:Array.isArray(orgs)&&orgs.some(o=>o.id===organization),organizationsError:orgs?.error??null,fiscalStatus:fiscalResponse.status,fiscalError:fiscal?.error??null};
+    },organization)};
+    await page.screenshot({path:out+'/fiscal-settings-load-diagnostic.png',fullPage:true});throw Error('FISCAL_SETTINGS_NOT_VISIBLE '+JSON.stringify(diagnostic));
+   }
+   assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),'1');
    await section.getByLabel('Fiscal start month',{exact:true}).selectOption(String(month));await section.getByLabel('Fiscal start day',{exact:true}).fill('1');await section.getByLabel('Retained earnings account',{exact:true}).fill('3300');await section.getByLabel('Setup or action reason',{exact:true}).fill('Configure fiscal calendar from organization settings');
    assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
    const saved=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();const response=await saved;assert.equal(response.status(),200,JSON.stringify(await response.json()));
