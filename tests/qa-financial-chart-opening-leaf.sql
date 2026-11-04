@@ -78,7 +78,7 @@ begin
 
  -- A new unreferenced account does not rewrite previously approved statements.
  perform public.save_financial_chart_account(org,'100004','1000','بنك بلا حركة','Unused bank leaf','DEBIT',true,true,0,'Unreferenced catalog addition');
- if public.financial_statement_live_snapshot(org,'2024-01-01','2024-12-31')-'coverage'<>snapshot-'coverage' then raise exception 'Unrelated account changed approved statement';end if;
+ if public.financial_statement_live_snapshot(org,'2024-01-01','2024-12-31')-'coverage'-'readAt'<>snapshot-'coverage'-'readAt' then raise exception 'Unrelated account changed approved statement';end if;
  perform set_config('request.jwt.claim.sub',other_owner::text,true);
  begin perform public.financial_opening_workspace(org,'2024-01-01');raise exception 'Foreign organization opening visible';
  exception when others then if sqlerrm<>'OPENING_ACCESS_DENIED' then raise;end if;end;
