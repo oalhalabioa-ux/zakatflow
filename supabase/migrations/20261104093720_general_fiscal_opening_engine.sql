@@ -22,7 +22,7 @@ create table public.financial_year_closures (
  fiscal_start date not null,fiscal_end date not null,next_start date not null,
  currency text not null,version integer not null,rule_version text not null default 'FISCAL_V1',
  status text not null check(status in('CLOSED','SUPERSEDED')),request_id uuid not null,
- source_revision text not null,source_snapshot jsonb not null,trial_balance jsonb not null,next_opening jsonb not null,
+ source_revision text not null,source_snapshot jsonb not null,trial_balance jsonb not null,next_opening jsonb not null,next_source jsonb not null,
  reason text not null,created_by uuid not null references auth.users(id),created_at timestamptz not null default now(),
  unique(organization_id,request_id),unique(organization_id,fiscal_start,version),check(next_start=fiscal_end+1)
 );
@@ -177,13 +177,7 @@ begin
  src:=private.financial_opening_sources(p_org,p_start-1);rows:=src->'rows';
  select * into close from public.financial_year_closures where organization_id=p_org and next_start=p_start and status='CLOSED';
  if close.id is not null then
-  rows:='[]'::jsonb;
-  for r in select * from jsonb_array_elements(close.next_opening) loop
-   select a into account from jsonb_array_elements(public.financial_reporting_chart()) a where a->>'code'=r->>'accountId';
-   rows:=rows||jsonb_build_array(jsonb_build_object('id','rollover:'||(r->>'accountId'),'tab',private.financial_opening_tab(r->>'accountId'),
-    'accountCode',r->>'accountId','ar',account->>'ar','en',account->>'en','accountAr',account->>'ar','accountEn',account->>'en','normal',case when account->>'kind' in('LIABILITY','EQUITY') then 'CREDIT' else 'DEBIT' end,'sourceIssue',null,
-    'vouchers',jsonb_build_array(jsonb_build_object('canonicalId','close:'||close.id||':'||(r->>'accountId'),'number','close:'||close.id,'debit',r->>'debit','credit',r->>'credit'))));
-  end loop;
+  rows:=close.next_source;
   return jsonb_build_object('rows',rows,'revision',md5(rows::text),'financialRevision',md5(rows::text),'closeId',close.id,'ruleVersion','FISCAL_V1');
  end if;
  -- Explicit assignment wins. Unassigned first-day OPENING_BALANCE vouchers are
@@ -389,6 +383,53 @@ begin
 end $$;
 revoke all on function private.financial_fiscal_trial(jsonb,text) from public,anon,authenticated;
 
+-- Preserve register names and source identities alongside account control totals.
+-- A non-equity discrepancy blocks the close: no balancing plug is manufactured.
+create function private.financial_fiscal_next_source(p_org uuid,p_start date,p_end date,p_request uuid,p_computed jsonb,p_snapshot jsonb)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+#variable_conflict use_column
+declare raw jsonb;rows jsonb:='[]';r jsonb;prior jsonb;entry jsonb;w public.financial_opening_workspaces%rowtype;amount numeric;carry numeric;target jsonb;difference numeric;account jsonb;code text;identifier text;
+begin
+ select * into w from public.financial_opening_workspaces where organization_id=p_org and id::text=p_snapshot->>'openingSourceId' and status='APPROVED';
+ raw:=private.financial_opening_sources(p_org,p_end);
+ for r in select * from jsonb_array_elements(raw->'rows') loop
+  if r->>'sourceIssue' is not null then raise exception 'FISCAL_SUBLEDGER_SOURCE_REVIEW_REQUIRED';end if;
+  select item into prior from jsonb_array_elements(coalesce(w.source_snapshot->'rows','[]')) item where item->>'id'=r->>'id';
+  entry:=w.entries->(r->>'id');
+  if jsonb_array_length(r->'vouchers')=0 and prior is null and r->>'tab'<>'equity' then raise exception 'FISCAL_SUBLEDGER_INCOMPLETE';end if;
+  carry:=coalesce((prior->>'carrySupplement')::numeric,0)+coalesce(nullif(entry->>'amount','')::numeric,0)*case when entry->>'side'='CREDIT' then -1 else 1 end;
+  select coalesce(sum((v->>'debit')::numeric-(v->>'credit')::numeric),0)+carry into amount from jsonb_array_elements(r->'vouchers') v;
+  code:=coalesce(entry->>'accountCode',r->>'accountCode');
+  r:=r||jsonb_build_object('accountCode',code,'tab',private.financial_opening_tab(code),'normal',case when amount>0 then 'DEBIT' when amount<0 then 'CREDIT' else r->>'normal' end,'carrySupplement',carry::numeric(24,4)::text,'closingSources',r->'vouchers',
+   'vouchers',jsonb_build_array(jsonb_build_object('canonicalId','close:'||p_request||':row:'||(r->>'id'),'number','FY '||p_end,'effectiveDate',p_end+1,'transactionDate',p_end,'debit',greatest(amount,0)::numeric(24,4)::text,'credit',greatest(-amount,0)::numeric(24,4)::text)));
+  rows:=rows||jsonb_build_array(r);
+ end loop;
+ -- Pure manual supplements remain distinct and auditable in subsequent years.
+ for r in select * from jsonb_array_elements(coalesce(w.source_snapshot->'rows','[]')) item where not exists(select 1 from jsonb_array_elements(rows) existing where existing->>'id'=item->>'id') loop
+  entry:=w.entries->(r->>'id');
+  carry:=coalesce((r->>'carrySupplement')::numeric,0)+coalesce(nullif(entry->>'amount','')::numeric,0)*case when entry->>'side'='CREDIT' then -1 else 1 end;
+  code:=coalesce(entry->>'accountCode',r->>'accountCode');amount:=carry;
+  r:=r||jsonb_build_object('accountCode',code,'tab',private.financial_opening_tab(code),'normal',case when carry>0 then 'DEBIT' when carry<0 then 'CREDIT' else r->>'normal' end,'carrySupplement',carry::numeric(24,4)::text,'closingSources',r->'vouchers',
+   'vouchers',jsonb_build_array(jsonb_build_object('canonicalId','close:'||p_request||':row:'||(r->>'id'),'number','FY '||p_end,'effectiveDate',p_end+1,'transactionDate',p_end,'debit',greatest(carry,0)::numeric(24,4)::text,'credit',greatest(-carry,0)::numeric(24,4)::text)));
+  rows:=rows||jsonb_build_array(r);
+ end loop;
+ for target in select * from jsonb_array_elements(p_computed->'nextOpening') loop
+  code:=target->>'accountId';
+  select a into account from jsonb_array_elements(public.financial_reporting_chart()) a where a->>'code'=code;
+  select (target->>'debit')::numeric-(target->>'credit')::numeric-coalesce(sum((v->>'debit')::numeric-(v->>'credit')::numeric),0) into difference from jsonb_array_elements(rows) rr cross join lateral jsonb_array_elements(rr->'vouchers') v where rr->>'accountCode'=code;
+  if difference<>0 and account->>'kind'<>'EQUITY' then raise exception 'FISCAL_SUBLEDGER_UNRECONCILED';end if;
+  if difference<>0 then
+   -- Equity is itself an account control, including recognized profit. The value
+   -- comes from the independently balanced trial, never from an unexplained gap.
+   identifier:='year-equity:'||p_request||':'||code;
+   rows:=rows||jsonb_build_array(jsonb_build_object('id',identifier,'tab','equity','accountCode',code,'ar',account->>'ar','en',account->>'en','accountAr',account->>'ar','accountEn',account->>'en','normal',case when difference<0 then 'CREDIT' else 'DEBIT' end,'sourceIssue',null,'carrySupplement',difference::numeric(24,4)::text,
+    'vouchers',jsonb_build_array(jsonb_build_object('canonicalId','close:'||p_request||':account:'||code,'number','FY '||p_end,'effectiveDate',p_end+1,'transactionDate',p_end,'debit',greatest(difference,0)::numeric(24,4)::text,'credit',greatest(-difference,0)::numeric(24,4)::text))));
+  end if;
+ end loop;
+ return (select jsonb_agg(row order by row->>'id') from jsonb_array_elements(rows) row);
+end $$;
+revoke all on function private.financial_fiscal_next_source(uuid,date,date,uuid,jsonb,jsonb) from public,anon,authenticated;
+
 alter function public.financial_statement_live_snapshot(uuid,date,date) rename to financial_statement_live_snapshot_v1;
 alter function public.financial_statement_live_snapshot_v1(uuid,date,date) set schema private;
 revoke all on function private.financial_statement_live_snapshot_v1(uuid,date,date) from public,anon,authenticated;
@@ -410,7 +451,7 @@ grant execute on function public.financial_statement_live_snapshot(uuid,date,dat
 create function public.close_financial_year(p_org uuid,p_start date,p_request uuid,p_reason text)
 returns jsonb language plpgsql security definer set search_path='' as $$
 #variable_conflict use_column
-declare period jsonb;source jsonb;computed jsonb;c public.financial_year_closures%rowtype;retained text;vol numeric;rev integer;
+declare period jsonb;source jsonb;computed jsonb;c public.financial_year_closures%rowtype;retained text;vol numeric;rev integer;details jsonb;
 begin
  if not private.financial_opening_can(p_org,'financial_core.approve') or not private.financial_opening_can(p_org,'financial_core.post') then raise exception 'FISCAL_CLOSE_DENIED';end if;
  period:=private.financial_fiscal_period(p_org,p_start);
@@ -432,11 +473,12 @@ begin
  source:=private.financial_statement_live_snapshot_v1(p_org,p_start,(period->>'end')::date);
  select retained_earnings_account into retained from public.financial_fiscal_calendars where organization_id=p_org;
  computed:=private.financial_fiscal_trial(source,retained);
+ details:=private.financial_fiscal_next_source(p_org,p_start,(period->>'end')::date,p_request,computed,source);
  select coalesce(sum(greatest((r->>'closing')::numeric,0)),0) into vol from jsonb_array_elements(computed->'trialBalance') r;
  if not public.effective_organization_permission(p_org,'financial_core.approve',vol,source->>'currency') or not public.effective_organization_permission(p_org,'financial_core.post',vol,source->>'currency') then raise exception 'FISCAL_CLOSE_DENIED';end if;
  select coalesce(max(version),0)+1 into rev from public.financial_year_closures where organization_id=p_org and fiscal_start=p_start;
- insert into public.financial_year_closures(organization_id,fiscal_start,fiscal_end,next_start,currency,version,status,request_id,source_revision,source_snapshot,trial_balance,next_opening,reason,created_by)
- values(p_org,p_start,(period->>'end')::date,(period->>'nextStart')::date,source->>'currency',rev,'CLOSED',p_request,md5((source-'coverage')::text),source,computed->'trialBalance',computed->'nextOpening',p_reason,auth.uid()) returning * into c;
+ insert into public.financial_year_closures(organization_id,fiscal_start,fiscal_end,next_start,currency,version,status,request_id,source_revision,source_snapshot,trial_balance,next_opening,next_source,reason,created_by)
+ values(p_org,p_start,(period->>'end')::date,(period->>'nextStart')::date,source->>'currency',rev,'CLOSED',p_request,md5((source-'coverage')::text),source,computed->'trialBalance',computed->'nextOpening',details,p_reason,auth.uid()) returning * into c;
  insert into public.financial_fiscal_audit(organization_id,action,actor_id,detail) values(p_org,'YEAR_CLOSE',auth.uid(),jsonb_build_object('closeId',c.id,'version',c.version,'sourceRevision',c.source_revision,'profit',computed->>'profit','retainedAccount',retained,'reason',p_reason));
  return to_jsonb(c)-'source_snapshot';
 end $$;

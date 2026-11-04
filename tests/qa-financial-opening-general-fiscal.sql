@@ -84,7 +84,7 @@ begin
   s:=public.financial_opening_workspace(org,nextdate);
   if exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'tab' is distinct from private.financial_opening_tab(r->>'accountCode')) then raise exception 'rollover tab mismatch';end if;
   if (select sum((v->>'debit')::numeric-(v->>'credit')::numeric) from jsonb_array_elements(s->'source'->'rows') r cross join lateral jsonb_array_elements(r->'vouchers') v)<>0 then raise exception 'next trial mismatch';end if;
-  if (select r->'vouchers'->0->>'credit' from jsonb_array_elements(s->'source'->'rows') r where r->>'accountCode'='3300')<>'70.0000' then raise exception 'retained earnings mismatch';end if;
+  if (select sum((v->>'credit')::numeric-(v->>'debit')::numeric) from jsonb_array_elements(s->'source'->'rows') r cross join lateral jsonb_array_elements(r->'vouchers') v where r->>'accountCode'='3300')<>70 then raise exception 'retained earnings mismatch';end if;
   begin update public.transactions set base_value=101 where asset_account_id=asset;raise exception 'closed mutation accepted';exception when others then if sqlerrm<>'FISCAL_PERIOD_CLOSED' then raise;end if;end;
   insert into public.organization_members(organization_id,user_id,role,status) values(org,outsider,'VIEWER','ACTIVE');
   perform set_config('request.jwt.claim.sub',outsider::text,true);
@@ -110,9 +110,13 @@ begin
   s:=public.financial_opening_workspace(org,nextdate);
   w:=public.save_financial_opening(org,nextdate,0,s->'source'->>'revision','{}','Adopt the exact closing trial as next opening');
   w:=public.approve_financial_opening((w->>'id')::uuid,1);
-  if exists(select 1 from jsonb_array_elements(close->'next_opening') expected where not exists(select 1 from jsonb_array_elements(w->'approved_opening') actual where actual->>'accountCode'=expected->>'accountId' and actual->>'debit'=expected->>'debit' and actual->>'credit'=expected->>'credit')) then raise exception 'successor changed account balances';end if;
+  if exists(select 1 from jsonb_array_elements(close->'next_opening') expected where (expected->>'debit')::numeric-(expected->>'credit')::numeric is distinct from (select sum((actual->>'debit')::numeric-(actual->>'credit')::numeric) from jsonb_array_elements(w->'approved_opening') actual where actual->>'accountCode'=expected->>'accountId')) then raise exception 'successor changed account balances';end if;
+  if not exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'id'='cash:'||bank and r->'vouchers'->0->>'debit'='509.0000') or not exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'id'='asset:'||current_asset) then raise exception 'bank or asset identity lost in rollover';end if;
   begin perform public.reopen_financial_year(org,(close->>'id')::uuid,2,'Reject silent prior-year revision after successor approval');raise exception 'successor protection bypassed';exception when others then if sqlerrm<>'FISCAL_SUCCESSOR_REQUIRES_CORRECTION' then raise;end if;end;
   if (select count(*) from public.financial_fiscal_audit where organization_id=org and action='YEAR_CLOSE')<>2 or (select count(*) from public.financial_fiscal_audit where organization_id=org and action='YEAR_REOPEN')<>1 then raise exception 'audit versions missing';end if;
+  policy:=public.save_financial_reporting_policy(org,nextdate,0,'[]','No new operations in the next financial year');policy:=public.approve_financial_reporting_policy((policy->>'id')::uuid,1);
+  res:=public.close_financial_year(org,nextdate,gen_random_uuid(),'Close successor without duplicating prior balances');
+  if res->'next_opening'<>close->'next_opening' then raise exception 'second year changed unchanged closing balances';end if;
   insert into fiscal_checks values('January/April independent period '||month||' with first-day, late opening, bank, operations, close, retry, correction, access isolation',true);
  end loop;
 end $$;

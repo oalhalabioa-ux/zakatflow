@@ -1671,8 +1671,8 @@
       "path": "supabase/migrations/20261104093720_general_fiscal_opening_engine.sql",
       "version": "20261104093720",
       "name": "general_fiscal_opening_engine",
-      "expected_md5": "d83cb02c94449c73657e9b6cda908662",
-      "file_sha256": "aaabb11a737e8e9179ddac1da03a668908fcbea5eb910cb0978f63fea939ef32",
+      "expected_md5": "d37e52929ef2502e40984ab129ff0a18",
+      "file_sha256": "c1420ae509bc358c0cb2428659fe2d24bcfddadeb1032cc3c41c65036660f4ba",
       "validation_project": "Disposable multi-organization fiscal acceptance only"
     }
   ]
