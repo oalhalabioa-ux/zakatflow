@@ -369,7 +369,7 @@ try{
  });
  await check('Liquidity alone offers NEW zero versus a dated existing balance in both languages and on mobile',async()=>{
   for(const [lang,width] of [['en',1672],['ar',390]]){
-   await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/liquidity');
+   await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/liquidity?tab=position');
    await page.getByRole('button',{name:lang==='ar'?'إضافة حساب':'Add account',exact:true}).first().click();
    const modal=page.locator('.liq-modal');const method=modal.getByLabel(lang==='ar'?'طريقة فتح الحساب':'Account opening method',{exact:true});
    assert.equal(await method.inputValue(),'NEW');const balance=modal.getByLabel(lang==='ar'?'الرصيد السابق':'Existing balance',{exact:true});assert.equal(await balance.isDisabled(),true);assert.equal(await balance.inputValue(),'0');
