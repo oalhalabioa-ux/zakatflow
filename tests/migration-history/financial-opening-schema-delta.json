@@ -388,7 +388,7 @@
     {
       "category": "function",
       "object_key": "private.financial_opening_sources(p_org uuid, p_cutoff date)",
-      "fingerprint": "2875f65bd4ec5fe4b8de4bd9fe8598ae"
+      "fingerprint": "2de1f872731c3f5a267acccee52b996b"
     },
     {
       "category": "function",

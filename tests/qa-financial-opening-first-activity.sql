@@ -1,7 +1,7 @@
 begin;
 create temporary table result(snapshot jsonb);
 do $$
-declare o uuid:=gen_random_uuid();u uuid:=gen_random_uuid();b uuid:=gen_random_uuid();p jsonb;s jsonb;
+declare o uuid:=gen_random_uuid();u uuid:=gen_random_uuid();b uuid:=gen_random_uuid();metal uuid:=gen_random_uuid();p jsonb;s jsonb;
 begin
 insert into auth.users(id,email,email_confirmed_at) values(u,u||'@example.invalid',now());
 perform set_config('request.jwt.claim.sub',u::text,true);
@@ -14,6 +14,13 @@ perform public.approve_financial_reporting_policy((p->>'id')::uuid,1);
 s:=public.financial_statement_live_snapshot(o,'2026-01-01','2026-12-31');
 if s->>'openingSourceId' is distinct from 'FIRST_ACTIVITY:2026-01-01' or s->'controls'->>'cashClosing' is distinct from '10000.0000' then raise exception 'first-activity mismatch';end if;
 insert into result values(s);
+insert into public.asset_accounts(id,user_id,organization_id,ownership_scope,asset_type,asset_class_code,name,currency,metadata)
+ values(metal,u,o,'ORGANIZATION','GOLD','METALS','QA investment gold','SAR','{"holding_purpose":"INVESTMENT","acquisition_mode":"OPENING_BALANCE","market_value":1500}');
+insert into public.transactions(user_id,organization_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value,gross_value,metadata)
+ values(u,o,metal,'OPENING_BALANCE','2026-10-21',10,'SAR','SAR',1000,1000,'{}');
+if not exists(select 1 from jsonb_array_elements(private.financial_opening_sources(o,'2026-12-31')->'rows') r
+ where r->>'id'='asset:'||metal and r->>'accountCode'='1600' and (r->'vouchers'->0->>'debit')::numeric=1000)
+then raise exception 'Investment gold must reconcile to its voucher cost in investments';end if;
 end $$;
 select jsonb_build_array(jsonb_build_object('name','Capital receipt is available without an opening workspace','passed',true)) from result;
 rollback;

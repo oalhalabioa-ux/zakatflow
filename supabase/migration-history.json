@@ -1655,8 +1655,8 @@
       "path": "supabase/migrations/20261104060000_reporting_first_activity.sql",
       "version": "20261104060000",
       "name": "reporting_first_activity",
-      "expected_md5": "a0dea26e121eef8c9a3d6bb48161cdb3",
-      "file_sha256": "2e6e3868db5171cd95d3c4cbeee04d64d9957b6b1793f5640863678978e626f4",
+      "expected_md5": "d2743c4c6c872f52234cad0df20081dc",
+      "file_sha256": "ca1515c7aa63a56bcf268b4a153b4795aa13b08672fdee82e08a58e8376d1136",
       "validation_project": "Financial Core QA first activity"
     }
   ]

@@ -76,3 +76,118 @@ end $$;
 revoke all on function public.financial_statement_live_snapshot(uuid,date,date) from public,anon;
 grant execute on function public.financial_statement_live_snapshot(uuid,date,date) to authenticated;
 notify pgrst,'reload schema';
+
+create or replace function private.financial_opening_sources(p_org uuid,p_cutoff date)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare result jsonb; base text;
+begin
+ select base_currency into base from public.organizations where id=p_org;
+ with
+ active_events as (select e.* from public.financial_events e where e.organization_id=p_org
+   and private.financial_opening_event_active(p_org,e.id,p_cutoff)),
+ -- The posted note transfers only the excess credit to a separate refund obligation.
+ refund_transfers as (
+  select adj.adjusts_obligation_id, sum(refund.settleable_base_amount) amount
+  from public.financial_event_obligations adj
+  join active_events e on e.id=adj.event_id
+  join public.financial_event_obligations refund on refund.organization_id=adj.organization_id
+   and refund.event_id=adj.event_id and refund.obligation_key='note-refund'
+  where adj.organization_id=p_org and adj.obligation_key='note-adjustment'
+   and adj.adjustment_effect='DECREASE' and adj.adjusts_obligation_id is not null
+  group by adj.adjusts_obligation_id
+ ),
+ obligations as (
+  select o.id,o.event_id,o.obligation_type,e.counterparty_id,
+   (o.settleable_base_amount+coalesce(rt.amount,0)+coalesce((select sum(a.settleable_base_amount*case when a.adjustment_effect='DECREASE' then -1 else 1 end)
+    from public.financial_event_obligations a join active_events ae on ae.id=a.event_id
+    where a.organization_id=p_org and a.adjusts_obligation_id=o.id),0)
+   -coalesce((select sum(a.base_amount) from public.financial_event_obligation_allocations a join active_events ae on ae.id=a.application_event_id
+    where a.organization_id=p_org and (case when o.obligation_type in('RECEIVABLE','PAYABLE') then a.obligation_id=o.id else a.source_advance_obligation_id=o.id end)),0)) amount,
+   case when o.base_currency<>base then 'SOURCE_CURRENCY_MISMATCH' end issue
+  from public.financial_event_obligations o join active_events e on e.id=o.event_id
+  left join refund_transfers rt on rt.adjusts_obligation_id=o.id
+  where o.organization_id=p_org and o.adjusts_obligation_id is null
+ ),
+ debt_rows as (
+  select 'debt:'||o.id id,
+   case when c.id is not null then 'loans' when o.obligation_type in('CUSTOMER_ADVANCE','SUPPLIER_ADVANCE') then 'advances'
+    when o.obligation_type='PAYABLE' then 'suppliers' else 'customers' end tab,
+   case when c.id is not null then case when o.obligation_type='PAYABLE' then '2200' else '1200' end
+    when o.obligation_type='CUSTOMER_ADVANCE' then '2400' when o.obligation_type='SUPPLIER_ADVANCE' then '1300'
+    when o.obligation_type='PAYABLE' then '2100' else '1100' end code,
+   coalesce(c.description,cp.name,e.description) name,
+   case when o.obligation_type in('PAYABLE','CUSTOMER_ADVANCE') then -o.amount else o.amount end amount,
+   case when o.obligation_type in('PAYABLE','CUSTOMER_ADVANCE') then 'CREDIT' else 'DEBIT' end normal,
+   'financial_event_obligations:'||o.id canonical, e.source_event_key reference,
+   case when o.obligation_type not in('RECEIVABLE','PAYABLE','CUSTOMER_ADVANCE','SUPPLIER_ADVANCE') then 'UNSUPPORTED_OBLIGATION_TYPE'
+    when o.amount<0 then 'NEGATIVE_OBLIGATION_REQUIRES_REVIEW' else o.issue end issue
+  from obligations o join active_events e on e.id=o.event_id
+  left join public.liquidity_counterparties cp on cp.id=o.counterparty_id and cp.organization_id=p_org
+  left join public.debt_contracts c on c.financial_event_id=e.id and c.organization_id=p_org and c.deleted_at is null
+ ),
+ missing_parties as (
+  select 'party:'||cp.id||':'||side id,case when side='DEBIT' then 'customers' else 'suppliers' end tab,
+   case when side='DEBIT' then '1100' else '2100' end code,cp.name,null::numeric amount,side normal,null::text canonical,null::text reference,null::text issue
+  from public.liquidity_counterparties cp cross join lateral
+   (select 'DEBIT'::text side where cp.party_type not in('SUPPLIER','VENDOR')
+    union all select 'CREDIT' where cp.party_type not in('CUSTOMER','CLIENT')) sides
+  where cp.organization_id=p_org
+   and not exists(select 1 from obligations o where o.counterparty_id=cp.id
+    and (case when side='DEBIT' then o.obligation_type='RECEIVABLE' else o.obligation_type='PAYABLE' end))
+ ),
+ cash_movements as (
+  select s.account_id,s.settlement_date date,s.base_amount*case when s.direction='INFLOW' then 1 else -1 end amount
+  from public.liquidity_settlements s where s.organization_id=p_org and s.status in('POSTED','REVERSED')
+  union all
+  select f.account_id,f.due_date,f.base_amount*case when f.direction='INFLOW' then 1 else -1 end
+  from public.liquidity_flows f where f.organization_id=p_org and f.status='ACTUAL'
+   and not exists(select 1 from public.financial_core_cash_event_flow_links l join public.liquidity_settlements s
+     on s.financial_event_id=l.financial_event_id and s.organization_id=p_org
+     where l.organization_id=p_org and l.liquidity_flow_id=f.id)
+   and not exists(select 1 from public.liquidity_flow_settlement_allocations a join public.liquidity_settlements s on s.id=a.settlement_id and s.organization_id=p_org where a.organization_id=p_org and a.flow_id=f.id and s.status in('POSTED','REVERSED'))
+ ),
+ cash_rows as (
+  select 'cash:'||a.id id,'cash' tab,'1000' code,a.name,
+   case when coalesce(nullif(a.metadata->>'opening_date','')::date,a.created_at::date)>p_cutoff then null else a.current_balance_base-coalesce((select sum(m.amount) from cash_movements m where m.account_id=a.id and m.date>p_cutoff),0) end amount,
+   'DEBIT' normal,'liquidity_accounts:'||a.id canonical,coalesce(a.metadata->>'opening_request_id',a.id::text) reference,
+   case when exists(select 1 from cash_movements m where m.account_id=a.id and m.amount is null) then 'CASH_BASE_AMOUNT_MISSING' end issue
+  from public.liquidity_accounts a where a.organization_id=p_org and (a.active or a.current_balance_base<>0)
+ ),
+ asset_books as (
+  select a.*,private.financial_opening_asset_book(p_org,a.id,p_cutoff) book from public.asset_accounts a
+  where a.organization_id=p_org and a.ownership_scope='ORGANIZATION'
+   and a.asset_type::text not in('CASH','BANK','RECEIVABLE') and not coalesce((a.metadata->>'archived')::boolean,false)
+ ), asset_rows as (
+  select 'asset:'||a.id id,'assets' tab,case
+    when a.asset_class_code='METALS' and a.metadata->>'holding_purpose'='INVESTMENT' then '1600'
+    else '1500' end code,a.name,
+   case when (book->>'known')::boolean then (book->>'gross')::numeric end amount,'DEBIT' normal,
+   case when (book->>'known')::boolean then 'asset_accounts:'||a.id||':COST' end canonical,a.id::text reference,book->>'issue' issue
+  from asset_books a
+  union all
+  select 'depreciation:'||a.id,'assets','1590',a.name||' · مجمع الإهلاك',
+   case when (book->>'known')::boolean then -(book->>'depreciation')::numeric end,'CREDIT',
+   case when (book->>'known')::boolean then 'asset_accounts:'||a.id||':DEPRECIATION' end,a.id::text,book->>'issue'
+  from asset_books a
+ ),
+ legacy_account_rows as (
+  select 'legacy-account:'||a.id id,case when a.asset_type::text='RECEIVABLE' then 'customers' else 'cash' end tab,
+   case when a.asset_type::text='RECEIVABLE' then '1100' else '1000' end code,a.name,
+   case when (b.book->>'known')::boolean then (b.book->>'gross')::numeric-(b.book->>'depreciation')::numeric end amount,
+   'DEBIT' normal,case when (b.book->>'known')::boolean then 'asset_accounts:'||a.id||':LEGACY' end canonical,a.id::text reference,
+   coalesce(b.book->>'issue',case when (b.book->>'known')::boolean and (b.book->>'gross')::numeric<>(b.book->>'depreciation')::numeric then 'CANONICAL_ACCOUNT_LINK_REQUIRED' end) issue
+  from public.asset_accounts a cross join lateral(select private.financial_opening_asset_book(p_org,a.id,p_cutoff) book) b
+  where a.organization_id=p_org and a.ownership_scope='ORGANIZATION' and a.asset_type::text in('CASH','BANK','RECEIVABLE')
+   and not coalesce((a.metadata->>'archived')::boolean,false)
+ ),
+ rows as (select * from debt_rows union all select * from missing_parties union all select * from cash_rows union all select * from asset_rows union all select * from legacy_account_rows
+  union all select 'equity:'||v.code,'equity',v.code,v.name,null::numeric,'CREDIT',null::text,null::text,null::text
+    from (values('3100','رأس المال'),('3200','الاحتياطيات'),('3300','الأرباح المحتجزة')) v(code,name))
+ select coalesce(jsonb_agg(jsonb_build_object('id',id,'tab',tab,'accountCode',code,'accountAr',name,'accountEn',name,'ar',name,'en',name,'normal',normal,
+   'sourceIssue',issue,'vouchers',case when amount is null then '[]'::jsonb else jsonb_build_array(jsonb_build_object('canonicalId',canonical,
+   'number',reference,'debit',greatest(amount,0)::numeric(24,4)::text,'credit',greatest(-amount,0)::numeric(24,4)::text)) end) order by id),'[]'::jsonb)
+ into result from rows;
+ if jsonb_array_length(result)>20000 then raise exception 'OPENING_SOURCE_TOO_LARGE';end if;
+ return jsonb_build_object('rows',result,'revision',md5(result::text),'financialRevision',md5((select coalesce(jsonb_agg(jsonb_build_object('id',r->>'id','vouchers',r->'vouchers','issue',r->'sourceIssue') order by r->>'id'),'[]') from jsonb_array_elements(result) r where jsonb_array_length(r->'vouchers')>0 or r->>'sourceIssue' is not null)::text));
+end $$;
+revoke all on function private.financial_opening_sources(uuid,date) from public,anon,authenticated;
