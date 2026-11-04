@@ -53,12 +53,32 @@ try{
   assert.equal(await picker.isEnabled(),true);await picker.selectOption(other+'|');
   await page.getByRole('heading',{name:'Organization registers',exact:true}).waitFor();
   await page.getByRole('link',{name:'Opening balances and vouchers'}).click();
-  const vouchers=page.locator('section').filter({has:page.getByRole('heading',{name:'Asset opening vouchers recorded during the year'})}).locator('tbody tr');
+  await page.getByRole('tab',{name:/Assets & depreciation/}).click();
+  const vouchers=page.locator('[data-period-voucher]');
   await vouchers.first().waitFor();assert.equal(await vouchers.count(),3);
   for(const date of ['2026-01-01','2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
+  const dataFor=async fiscalStart=>{
+   const response=await page.request.get(app+'/api/financial-reporting/openings?'+new URLSearchParams({organization:other,fiscalStart}));
+   assert.equal(response.status(),200);return response.json();
+  };
+  const current=await dataFor('2026-01-01'),next=await dataFor('2027-01-01');
+  for(const voucher of current.periodAssetOpenings){
+   const id='asset:'+voucher.assetId;
+   assert.equal(current.source.rows.find(row=>row.id===id).vouchers.length,0);
+   const carried=next.source.rows.find(row=>row.id===id).vouchers;
+   assert.equal(carried.length,1);assert.equal(Number(carried[0].debit),Number(voucher.amount));
+  }
+  assert.equal(next.periodAssetOpenings.length,0);
   sql(`update public.organization_members set status='INACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
  });
  await check('Connected opening page loads actual master names and missing states',async()=>{await page.goto(app+'/ar/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();await page.getByText('عميل بلا رصيد افتتاحي',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'اعتماد الأرصدة',exact:true}).isDisabled(),true);await page.screenshot({path:out+'/opening-ar-desktop-before.png',fullPage:true})});
+ await check('Cash row shows current register value independently of fiscal opening',async()=>{
+  await page.locator('#ob-tab-cash').click();
+  const row=page.locator('[data-opening-row="cash:'+cash+'"]');
+  assert.equal(await row.getAttribute('data-final'),'500.0000');
+  assert.match(await row.locator('td[data-label="رصيد السجل الحالي"]').innerText(),/500.00 SAR/);
+  await page.locator('#ob-tab-customers').click();
+ });
  await check('Persisted draft distinguishes confirmed zero, reopens after refresh, and approves',async()=>{
   await page.getByRole('button',{name:'تأكيد رصيد صفري',exact:true}).click();await page.getByRole('tab',{name:/^حقوق الملكية/}).click();
   await page.getByLabel('الإضافة: رأس المال',{exact:true}).fill('500');for(const name of ['الاحتياطيات','الأرباح المحتجزة'])await page.locator('tr').filter({has:page.getByLabel('الإضافة: '+name,{exact:true})}).getByRole('button',{name:'تأكيد رصيد صفري',exact:true}).click();

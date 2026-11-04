@@ -413,7 +413,7 @@
     {
       "category": "function",
       "object_key": "public.financial_opening_workspace(p_org uuid, p_fiscal_start date)",
-      "fingerprint": "5279919083d6e02ef0c19105854d4d13"
+      "fingerprint": "115996aeca4312ef233ed6bfb6f7ee98"
     },
     {
       "category": "function",
