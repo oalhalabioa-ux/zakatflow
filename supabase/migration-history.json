@@ -1698,6 +1698,14 @@
       "expected_md5": "6f9d623274c9df4957b521300e51f6fb",
       "file_sha256": "39080f94af1797163d6813938ee67a53f905dbfcb0806c87cb7cb29e2ffbc4b7",
       "validation_project": "Disposable posting-policy chart integration only"
+    },
+    {
+      "path": "supabase/migrations/20261104132349_financial_chart_opening_leaf_link.sql",
+      "version": "20261104132349",
+      "name": "financial_chart_opening_leaf_link",
+      "expected_md5": "a8be006aa0755b0af806f6a5c9ecec74",
+      "file_sha256": "bb2f9105754e5500012f5db011cebed8f1a616e9a450bd219b994251aa62637d",
+      "validation_project": "Disposable custom opening leaf acceptance only"
     }
   ]
 }

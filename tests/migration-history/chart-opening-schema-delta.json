@@ -1,0 +1,13 @@
+{
+  "upserts": [
+    {"category":"function","object_key":"private.financial_chart_guard_opening_reference()","fingerprint":"27a6dec820e538d1943501062209b95c"},
+    {"category":"function","object_key":"private.financial_opening_account_allowed(p_org uuid, p_control text, p_selected text)","fingerprint":"3e7a3cb254158c82c35e42415bc0e668"},
+    {"category":"function","object_key":"private.financial_statement_live_snapshot_v1(p_org uuid, p_from date, p_to date)","fingerprint":"1a4ee9b60696ff87d2629a33846245a7"},
+    {"category":"function","object_key":"public.approve_financial_opening(p_id uuid, p_expected_version integer)","fingerprint":"96de6927bb6fdb1afd6f0cb120fcd9ce"},
+    {"category":"function","object_key":"public.financial_chart_workspace(p_org uuid)","fingerprint":"d3ab967891c834c0e47cb7eb69d0ef3a"},
+    {"category":"function","object_key":"public.financial_opening_workspace(p_org uuid, p_fiscal_start date)","fingerprint":"a895ed0a99805537acd977c7adb6a249"},
+    {"category":"function","object_key":"public.save_financial_opening(p_org uuid, p_fiscal_start date, p_expected_version integer, p_source_revision text, p_entries jsonb, p_reason text)","fingerprint":"f2580c5ce0a0ffbcacb7c02dcc60dca2"},
+    {"category":"trigger","object_key":"public.financial_chart_custom_accounts.financial_chart_guard_opening_reference","fingerprint":"c003be97762d6bc33334c4781a43b425"}
+  ],
+  "removals": []
+}
