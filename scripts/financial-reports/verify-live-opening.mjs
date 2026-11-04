@@ -367,5 +367,17 @@ try{
   }finally{await readonlyContext.close()}
   await page.setViewportSize({width:390,height:844});await page.goto(app+'/ar/settings/financial/fiscal-years?organization='+july);await page.locator('.fiscal-calendar-settings').getByLabel('شهر بداية السنة',{exact:true}).waitFor();assert.equal(await page.locator('.fiscal-calendar-settings').getByLabel('شهر بداية السنة',{exact:true}).inputValue(),'7');await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:5000});await page.screenshot({path:out+'/fiscal-settings-july-ar-mobile.png',fullPage:true});
  });
+ await check('Liquidity alone offers NEW zero versus a dated existing balance in both languages and on mobile',async()=>{
+  for(const [lang,width] of [['en',1672],['ar',390]]){
+   await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/liquidity');
+   await page.getByRole('button',{name:lang==='ar'?'إضافة حساب':'Add account',exact:true}).first().click();
+   const modal=page.locator('.liq-modal');const method=modal.getByLabel(lang==='ar'?'طريقة فتح الحساب':'Account opening method',{exact:true});
+   assert.equal(await method.inputValue(),'NEW');const balance=modal.getByLabel(lang==='ar'?'الرصيد السابق':'Existing balance',{exact:true});assert.equal(await balance.isDisabled(),true);assert.equal(await balance.inputValue(),'0');
+   await method.selectOption('OPENING');assert.equal(await balance.isEnabled(),true);await balance.fill('500');
+   await page.screenshot({path:out+'/liquidity-opening-'+lang+'-'+width+'.png',fullPage:true});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+   await method.selectOption('NEW');assert.equal(await balance.inputValue(),'0');assert.equal(await balance.isDisabled(),true);
+  }
+ });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }finally{await browser?.close();server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}

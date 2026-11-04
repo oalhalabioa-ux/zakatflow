@@ -30,6 +30,9 @@ begin
  if not exists(select 1 from jsonb_array_elements(public.financial_opening_workspace(o,'2026-01-01')->'source'->'rows') r where r->>'id'='cash:'||(bank->>'id') and (r->'vouchers'->0->>'debit')::numeric=450000) then raise exception 'Explicit fiscal-start opening missing';end if;
  if exists(select 1 from jsonb_array_elements(public.financial_opening_workspace(o,'2026-01-01')->'source'->'rows') r where r->>'id'='cash:'||(fresh->>'id') and jsonb_array_length(r->'vouchers')>0) then raise exception 'In-year NEW became fiscal opening';end if;
  if not exists(select 1 from jsonb_array_elements(public.financial_opening_candidates(o,'2026-01-01')) c where c->>'sourceId'=legacy::text and c->>'suggestedAmount'='450000.0000') then raise exception 'Unapproved suggestion not exposed';end if;
+ -- A second institution has a July start and its own chart namespace.
+ fresh:=public.open_financial_account(cmd||jsonb_build_object('request_id',gen_random_uuid(),'organization_id',other_org,'name','QA July opening','opening_date','2026-07-01','opening_balance',750));
+ if not exists(select 1 from jsonb_array_elements(public.financial_opening_workspace(other_org,'2026-07-01')->'source'->'rows') r where r->>'id'='cash:'||(fresh->>'id') and (r->'vouchers'->0->>'debit')::numeric=750) then raise exception 'Independent July opening missing';end if;
  -- Removing membership must also remove write access, even for the org's owner record.
  perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
  begin perform public.link_financial_cash_accounts(o);raise exception 'Unprivileged link accepted';exception when raise_exception then if sqlerrm not like '%FISCAL_WRITE_DENIED%' then raise;end if;end;
