@@ -99,7 +99,7 @@ begin
   execute 'set local role postgres';
   delete from public.organization_members where organization_id=org and user_id=outsider;
   execute 'set local role authenticated';
-  if exists(select 1 from public.financial_year_closures where organization_id=org) then raise exception 'foreign RLS close leak';end if;
+  if exists(select 1 from public.financial_year_closures where organization_id=org) or exists(select 1 from public.financial_fiscal_calendars where organization_id=org) or exists(select 1 from public.financial_opening_source_assignments where organization_id=org) or exists(select 1 from public.financial_fiscal_audit where organization_id=org) then raise exception 'foreign fiscal RLS leak';end if;
   begin perform public.financial_fiscal_context(org,starts);raise exception 'foreign context';exception when others then if sqlerrm<>'FISCAL_ACCESS_DENIED' then raise;end if;end;
   begin perform public.close_financial_year(org,starts,gen_random_uuid(),'Foreign attempt');raise exception 'foreign close';exception when others then if sqlerrm<>'FISCAL_CLOSE_DENIED' then raise;end if;end;
   execute 'set local role postgres';
@@ -123,6 +123,16 @@ begin
   if res->'next_opening'<>close->'next_opening' then raise exception 'second year changed unchanged closing balances';end if;
   insert into fiscal_checks values('January/April independent period '||month||' with first-day, late opening, bank, operations, close, retry, correction, access isolation',true);
  end loop;
+ org:=gen_random_uuid();perform set_config('request.jwt.claim.sub',owner::text,true);
+ insert into public.organizations(id,owner_user_id,name) values(org,owner,'Independent leap calendar fixture');
+ insert into public.organization_members(organization_id,user_id,role,status) values(org,owner,'OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';
+ if public.financial_fiscal_context(org,'2025-03-01')->'period'<>'null'::jsonb then raise exception 'calendar guessed for new organization';end if;
+ perform public.save_financial_fiscal_calendar(org,2,29,'3300',0,'Explicit leap-day fiscal anchor');
+ context:=public.financial_fiscal_context(org,'2024-02-29');
+ if context->'period'->>'start'<>'2024-02-29' or context->'period'->>'end'<>'2025-02-27' then raise exception 'leap fiscal period mismatch';end if;
+ context:=public.financial_fiscal_context(org,'2025-03-01');
+ if context->'period'->>'start'<>'2025-02-28' or context->'period'->>'end'<>'2026-02-27' then raise exception 'nonleap fiscal anchor mismatch';end if;
+ insert into fiscal_checks values('Explicit new-organization calendar without a January default, leap and nonleap fiscal anchors',true);
 end $$;
 select jsonb_build_object('checks',(select jsonb_agg(to_jsonb(t) order by name) from fiscal_checks t),'snapshots',(select jsonb_agg(to_jsonb(s)) from fiscal_snapshots s));
 rollback;

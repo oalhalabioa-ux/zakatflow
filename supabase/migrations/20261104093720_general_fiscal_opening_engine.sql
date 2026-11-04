@@ -119,7 +119,7 @@ revoke all on function private.financial_opening_tab(text) from public,anon,auth
 create function private.financial_resolve_opening(p_org uuid,p_table text,p_id uuid,p_amount numeric,p_account text)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
 #variable_conflict use_column
-declare t public.transactions%rowtype;a public.asset_accounts%rowtype;b public.liquidity_accounts%rowtype;o public.financial_event_obligations%rowtype;amount numeric;side text:='DEBIT';dt date;tab text;item text;name text;ccy text;recorded timestamptz;
+declare t public.transactions%rowtype;a public.asset_accounts%rowtype;b public.liquidity_accounts%rowtype;o public.financial_event_obligations%rowtype;amount numeric;side text:='DEBIT';dt date;tab text;item text;name text;ccy text;recorded timestamptz;issue text;
 begin
  if p_table='transactions' then
   select * into t from public.transactions where organization_id=p_org and id=p_id and transaction_type='OPENING_BALANCE';
@@ -134,12 +134,12 @@ begin
   select * into o from public.financial_event_obligations where organization_id=p_org and id=p_id and adjusts_obligation_id is null;
   if o.id is null or not exists(select 1 from public.debt_contracts d where d.organization_id=p_org and d.financial_event_id=o.event_id and d.mode='OPENING' and d.deleted_at is null) then raise exception 'FISCAL_OPENING_SOURCE_REQUIRED';end if;
   amount:=o.settleable_base_amount;side:=case when o.obligation_type in('PAYABLE','CUSTOMER_ADVANCE') then 'CREDIT' else 'DEBIT' end;
-  select event_date,description,created_at into dt,name,recorded from public.financial_events where organization_id=p_org and id=o.event_id;
+  select event_date,description,created_at,case when status<>'ACTUAL' then 'OPENING_EVENT_NOT_POSTED' end into dt,name,recorded,issue from public.financial_events where organization_id=p_org and id=o.event_id;
   ccy:=o.base_currency;tab:=private.financial_opening_tab(p_account);item:='debt:'||o.id;
  else raise exception 'FISCAL_SOURCE_TYPE_INVALID';end if;
  if ccy is distinct from (select base_currency from public.organizations where id=p_org) or amount is null or amount<0 or amount<>round(amount,4) then raise exception 'FISCAL_SOURCE_AMOUNT_INVALID';end if;
  if not exists(select 1 from jsonb_array_elements(public.financial_reporting_chart()) c where c->>'code'=p_account and c->>'kind' in('ASSET','LIABILITY','EQUITY')) then raise exception 'FISCAL_ACCOUNT_INVALID';end if;
- return jsonb_build_object('itemId',item,'tab',tab,'name',name,'date',dt,'recordedAt',recorded,'amount',amount::numeric(24,4)::text,'side',side,'accountCode',p_account,'canonicalId',p_table||':'||p_id);
+ return jsonb_build_object('itemId',item,'tab',tab,'name',name,'date',dt,'recordedAt',recorded,'amount',amount::numeric(24,4)::text,'side',side,'accountCode',p_account,'canonicalId',p_table||':'||p_id,'sourceIssue',issue);
 end $$;
 revoke all on function private.financial_resolve_opening(uuid,text,uuid,numeric,text) from public,anon,authenticated;
 
@@ -211,7 +211,7 @@ begin
    if r->>'id'=resolved->>'itemId' then
     if x.source_table='liquidity_accounts' then r:=jsonb_set(r,'{vouchers}','[]');end if;
     v:=jsonb_build_object('canonicalId',resolved->>'canonicalId','number',resolved->>'canonicalId','debit',case when resolved->>'side'='DEBIT' then resolved->>'amount' else '0.0000' end,'credit',case when resolved->>'side'='CREDIT' then resolved->>'amount' else '0.0000' end,'effectiveDate',p_start,'transactionDate',resolved->>'date','recordedAt',resolved->>'recordedAt');
-    r:=jsonb_set(jsonb_set(r,'{vouchers}',r->'vouchers'||jsonb_build_array(v)),'{accountCode}',to_jsonb(x.account_code));
+    r:=jsonb_set(jsonb_set(r,'{vouchers}',r->'vouchers'||jsonb_build_array(v)),'{accountCode}',to_jsonb(x.account_code))||jsonb_build_object('sourceIssue',coalesce(r->>'sourceIssue',resolved->>'sourceIssue'));
     changed:=true;
    end if;
    list:=list||jsonb_build_array(r);
@@ -219,7 +219,7 @@ begin
   -- Unposted opening debt obligations are absent from the ordinary ledger source.
   if not exists(select 1 from jsonb_array_elements(list) r where r->>'id'=resolved->>'itemId') then
    select a into account from jsonb_array_elements(public.financial_reporting_chart()) a where a->>'code'=x.account_code;
-   list:=list||jsonb_build_array(jsonb_build_object('id',resolved->>'itemId','tab',resolved->>'tab','accountCode',x.account_code,'ar',resolved->>'name','en',resolved->>'name','accountAr',account->>'ar','accountEn',account->>'en','normal',resolved->>'side','sourceIssue',null,'vouchers',jsonb_build_array(jsonb_build_object('canonicalId',resolved->>'canonicalId','number',resolved->>'canonicalId','debit',case when resolved->>'side'='DEBIT' then resolved->>'amount' else '0.0000' end,'credit',case when resolved->>'side'='CREDIT' then resolved->>'amount' else '0.0000' end))));changed:=true;
+   list:=list||jsonb_build_array(jsonb_build_object('id',resolved->>'itemId','tab',resolved->>'tab','accountCode',x.account_code,'ar',resolved->>'name','en',resolved->>'name','accountAr',account->>'ar','accountEn',account->>'en','normal',resolved->>'side','sourceIssue',resolved->>'sourceIssue','vouchers',jsonb_build_array(jsonb_build_object('canonicalId',resolved->>'canonicalId','number',resolved->>'canonicalId','debit',case when resolved->>'side'='DEBIT' then resolved->>'amount' else '0.0000' end,'credit',case when resolved->>'side'='CREDIT' then resolved->>'amount' else '0.0000' end))));changed:=true;
   end if;
   rows:=list;
  end loop;

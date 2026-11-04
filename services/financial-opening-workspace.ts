@@ -3,7 +3,7 @@ import {openingScope,openingCommand,type OpeningWorkspaceData} from '../lib/fina
 export function assertOpeningWorkspace(){
  if(process.env.FINANCIAL_OPENING_WORKSPACE!=='true')throw Error('OPENING_DISABLED');
 }
-function unwrap<T>(r:{data:T;error:{message:string}|null}){if(r.error){const code=r.error.message.match(/OPENING_[A-Z_]+/)?.[0];throw Error(code??'OPENING_UNAVAILABLE')}return r.data}
+function unwrap<T>(r:{data:T;error:{message:string}|null}){if(r.error){const code=r.error.message.match(/(?:OPENING|FISCAL)_[A-Z_]+/)?.[0];throw Error(code??'OPENING_UNAVAILABLE')}return r.data}
 export async function openingContext(){
  assertOpeningWorkspace();const{supabase,user}=await requireUser();
  const memberships=unwrap(await supabase.from('organization_members').select('organization_id').eq('user_id',user.id).eq('status','ACTIVE'))??[];
