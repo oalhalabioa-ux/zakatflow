@@ -405,7 +405,7 @@
     {
       "category": "function",
       "object_key": "public.approve_financial_opening(p_id uuid, p_expected_version integer)",
-      "fingerprint": "d979525e0f9267f074b535a6c2af63e3"
+      "fingerprint": "2a5c6ffd4144fb0bb4054f4b10e27ee0"
     },
     {
       "category": "function",
