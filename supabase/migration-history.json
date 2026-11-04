@@ -1682,6 +1682,14 @@
       "expected_md5": "a14a35bb52f006aeb31663bb9015fbce",
       "file_sha256": "b47366b1aad1efe629184fe35608366707cd553a8482b80162b6385311ce357c",
       "validation_project": "Disposable multi-organization fiscal acceptance only"
+    },
+    {
+      "path": "supabase/migrations/20261104121038_organization_chart_accounts.sql",
+      "version": "20261104121038",
+      "name": "organization_chart_accounts",
+      "expected_md5": "43c7d9ece95cffa21a6a190a80ebae3f",
+      "file_sha256": "8dc08d43d028706ad4950825ed177bdfe8072ab8d9ca8321c368e4e66a38e43c",
+      "validation_project": "Disposable chart-of-accounts acceptance only"
     }
   ]
 }
