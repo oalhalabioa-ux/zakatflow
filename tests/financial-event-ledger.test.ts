@@ -33,4 +33,29 @@ describe('explicit canonical-event ledger compiler',()=>{
  it('keeps internal cash transfers out of cash-flow movement',()=>{const s=fixture();s.accounts.push({id:'bank2',kind:'ASSET',cash:true,organizationId:'a',currency:'SAR'});s.policy.rules.push({...s.policy.rules[2],id:'transfer',eventType:'TRANSFER',classificationId:'transfer',debitAccountId:'bank2',creditAccountId:'bank',cashActivity:undefined});s.events.push(event('transfer','TRANSFER','50','transfer','OUTFLOW'));expect(compileEventLedger(s).statements.cash.movement).toBe('85.0000')});
  it('uses effective dated rules and refuses unknown or same-side accounts',()=>{let s=fixture();s.policy.rules[0].from='2026-02-01';expect(()=>compileEventLedger(s)).toThrow('POSTING_RULE_REQUIRED');s=fixture();s.policy.rules[0].creditAccountId='unknown';expect(()=>compileEventLedger(s)).toThrow('INVALID_POSTING_ACCOUNTS');s=fixture();s.policy.rules[0].creditAccountId=s.policy.rules[0].debitAccountId;expect(()=>compileEventLedger(s)).toThrow('INVALID_POSTING_ACCOUNTS')});
  it('retains four decimals and rejects unsafe amounts/signs',()=>{const s=fixture();s.events[2].lines[0].baseAmount='200.0001';expect(compileEventLedger(s).statements.income.netProfit).toBe('100.0001');for(const n of ['NaN','-1','1e3','0','0.00001']){const x=fixture();x.events[0].lines[0].baseAmount=n;expect(()=>compileEventLedger(x)).toThrow('INVALID_RECOGNITION_AMOUNT')}});
+ it('reconciles investment, loan receivable and borrowing in institutional detail accounts without duplicate cash',()=>{
+  const s=fixture();s.events=[];s.policy.rules=[];
+  s.accounts.push(
+   {id:'160001',kind:'ASSET',organizationId:'a',currency:'SAR'},
+   {id:'120001',kind:'ASSET',organizationId:'a',currency:'SAR'},
+   {id:'220001',kind:'LIABILITY',organizationId:'a',currency:'SAR'},
+  );
+  const dated={organizationId:'a',currency:'SAR',sourceModule:'core',from:'2026-01-01',to:'2026-12-31'};
+  s.policy.rules.push(
+   {...dated,id:'buy-investment',eventType:'ASSET_PURCHASE',classificationId:'investment',cashDirection:'OUTFLOW',debitAccountId:'160001',creditAccountId:'bank',cashActivity:'INVESTING'},
+   {...dated,id:'lend',eventType:'ADJUSTMENT',classificationId:'loan-issued',cashDirection:'OUTFLOW',debitAccountId:'120001',creditAccountId:'bank',cashActivity:'INVESTING'},
+   {...dated,id:'borrow',eventType:'LIABILITY',classificationId:'borrowing',cashDirection:'INFLOW',debitAccountId:'bank',creditAccountId:'220001',cashActivity:'FINANCING'},
+  );
+  s.events.push(event('investment','ASSET_PURCHASE','250','investment','OUTFLOW'));
+  s.events.push(event('loan','ADJUSTMENT','200','loan-issued','OUTFLOW'));
+  s.events.push(event('funding','LIABILITY','300','borrowing','INFLOW'));
+  const r=compileEventLedger(s);
+  expect(r.source.journals).toHaveLength(3);
+  expect(r.lineage).toHaveLength(3);
+  expect(r.source.journals.map(j=>j.lines[0].accountId)).toEqual(['160001','120001','bank']);
+  expect(r.statements.cash).toMatchObject({opening:'500.0000',investing:'-450.0000',financing:'300.0000',closing:'350.0000'});
+  expect(r.statements.position).toMatchObject({assets:'800.0000',liabilities:'300.0000',equity:'500.0000'});
+  expect(r.statements.income.netProfit).toBe('0.0000');
+ });
+
 });
