@@ -27,16 +27,16 @@ begin
  insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
  values(bank,org,'Legacy bank','BANK','SAR',100,100,u,'{"opening_date":"2023-12-31","opening_balance":100,"opening_fx_rate":1}');
  insert into public.liquidity_counterparties(id,organization_id,name,party_type,created_by) values(party,org,'Legacy loan party','CUSTOMER',u);
- pending_debt:=public.create_debt_contract(jsonb_build_object('organization_id',org,'request_id',gen_random_uuid(),
-  'kind','LOAN','mode','NEW','side','RECEIVABLE','counterparty_id',party,'entity_id',null,'account_id',bank,
-  'category','O_AR_LOAN','description','Legacy unapproved funded loan','reference','QA-LEGACY-FUND',
-  'date','2024-01-05','currency','SAR','exchange_rate',1,'principal',50,
-  'schedule',jsonb_build_array(jsonb_build_object('amount',50,'due_date','2024-12-01'))));
  s:=public.financial_opening_workspace(org,'2024-01-01');
  w:=public.save_financial_opening(org,'2024-01-01',0,s->'source'->>'revision','{"equity:3100":{"amount":"100","side":"CREDIT"},"equity:3200":{"amount":"0","side":"CREDIT"},"equity:3300":{"amount":"0","side":"CREDIT"}}','Existing approved legacy opening');
  perform public.approve_financial_opening((w->>'id')::uuid,1);
  p:=public.save_financial_reporting_policy(org,'2024-01-01',0,'[]','Existing approved legacy rules');
  perform public.approve_financial_reporting_policy((p->>'id')::uuid,1);
+ pending_debt:=public.create_debt_contract(jsonb_build_object('organization_id',org,'request_id',gen_random_uuid(),
+  'kind','LOAN','mode','NEW','side','RECEIVABLE','counterparty_id',party,'entity_id',null,'account_id',bank,
+  'category','O_AR_LOAN','description','Legacy unapproved funded loan','reference','QA-LEGACY-FUND',
+  'date','2024-01-05','currency','SAR','exchange_rate',1,'principal',50,
+  'schedule',jsonb_build_array(jsonb_build_object('amount',50,'due_date','2024-12-01'))));
 end $$;
 select jsonb_build_object('org',o.id,'owner',o.owner_user_id,
  'pendingDebtId',(select id from public.debt_contracts where organization_id=o.id and reference='QA-LEGACY-FUND'),
