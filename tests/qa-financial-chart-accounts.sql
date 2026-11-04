@@ -5,8 +5,12 @@ declare owner uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid(); org uui
  w jsonb; a jsonb; b jsonb; original_chart jsonb:=public.financial_reporting_chart();
 begin
  insert into auth.users(id,email,email_confirmed_at) values(owner,owner||'@chart.invalid',now()),(outsider,outsider||'@chart.invalid',now());
- insert into public.organizations(id,owner_user_id,name) values(org,owner,'Chart fixture A'),(foreign_org,outsider,'Chart fixture B');
- insert into public.organization_members(organization_id,user_id,role,status) values(org,owner,'OWNER','ACTIVE'),(foreign_org,outsider,'OWNER','ACTIVE');
+ perform set_config('request.jwt.claim.sub',owner::text,true);
+ insert into public.organizations(id,owner_user_id,name) values(org,owner,'Chart fixture A');
+ insert into public.organization_members(organization_id,user_id,role,status) values(org,owner,'OWNER','ACTIVE');
+ perform set_config('request.jwt.claim.sub',outsider::text,true);
+ insert into public.organizations(id,owner_user_id,name) values(foreign_org,outsider,'Chart fixture B');
+ insert into public.organization_members(organization_id,user_id,role,status) values(foreign_org,outsider,'OWNER','ACTIVE');
  perform set_config('request.jwt.claim.sub',owner::text,true);
  w:=public.financial_chart_workspace(org);
  if jsonb_array_length(w->'accounts')<>jsonb_array_length(original_chart) or w->>'postingIntegration'<>'NOT_YET_ACTIVE' then raise exception 'Base chart or safety gate changed';end if;
