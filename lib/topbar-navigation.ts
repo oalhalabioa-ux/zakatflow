@@ -1,6 +1,6 @@
 import {isSettingsPage} from '../components/settings/navigation';
 export type WorkspaceScope='PERSONAL'|'ORGANIZATION';
-export const isFinancialReportingPage=(path:string)=>['financial-reports','opening-balances','financial-reporting-policy'].includes(path);
+export const isFinancialReportingPage=(path:string)=>['financial-reports','opening-balances','financial-reporting-policy','chart-of-accounts'].includes(path);
 const scoped=new Set(['payments','assessments','transactions','lots','debt-collection','loans','debt-advances','dashboard','debts','cash-and-banks','receivables','payables','debt-report','financial-position','assets/dashboard','assets','investments','reports']);
 export const isWorkspaceScopePage=(path:string)=>scoped.has(path);
 export const workspaceScopeStorageKey='zf-workspace-scope';
