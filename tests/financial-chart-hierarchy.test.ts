@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {accountingPresentationTree} from '../lib/financial-chart-hierarchy';
+import {accountingPresentationTree,chartIntegrationMessage} from '../lib/financial-chart-hierarchy';
 const roots=[
  {code:'1000',parentCode:null,kind:'ASSET',presentation:'CURRENT'},
  {code:'1100',parentCode:null,kind:'ASSET',presentation:'CURRENT'},
@@ -26,5 +26,16 @@ describe('organization chart presentation hierarchy',()=>{
  });
  it('keeps unrecognized controls visible for accounting review',()=>{
   expect(accountingPresentationTree([{code:'9000',parentCode:null,kind:'OTHER'}]).at(-1)).toMatchObject({key:'other'});
+ });
+ it('recognizes the deployed policy-and-opening integration phase without implying live statements are approved',()=>{
+  const ar=chartIntegrationMessage('POLICY_AND_OPENING','ar');
+  const en=chartIntegrationMessage('POLICY_AND_OPENING','en');
+  expect(ar).toContain('الأرصدة الافتتاحية');
+  expect(ar).toContain('اعتماد الافتتاحي');
+  expect(en).toContain('actually posted source vouchers');
+  expect(en).toContain('No balance is approved automatically');
+  expect(chartIntegrationMessage('POLICY_RULES_ONLY','en')).toContain('not yet available');
+  expect(chartIntegrationMessage('NOT_YET_ACTIVE','en')).toContain('not enabled');
+  expect(chartIntegrationMessage(undefined,'en')).toContain('not enabled');
  });
 });
