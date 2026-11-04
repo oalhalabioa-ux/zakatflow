@@ -82,7 +82,13 @@ try{
  });
  await check('An ordinary browser user declares a late bank opening without technical IDs or copying its current balance',async()=>{
   sql(`update public.organization_members set status='ACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
-  await page.goto(app+'/en/opening-balances?organization='+other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
+  await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();
+  const organizationPicker=page.getByRole('combobox',{name:'Organization',exact:true});await organizationPicker.selectOption(other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
+  await page.getByText('Fiscal calendar and annual close',{exact:true}).click();await page.getByLabel('Setup or action reason',{exact:true}).fill('Confirm the selected organization fiscal settings');
+  const contextReload=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/openings?action=context'));
+  const configured=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await page.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();assert.equal((await configured).status(),200);await (await contextReload).finished();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await organizationPicker.inputValue(),other);
+
   await page.getByText('Assign late opening sources',{exact:true}).click();
   const picker=page.getByRole('combobox',{name:'Opening source',exact:true});
   const option=picker.locator('option').filter({hasText:'September QA bank'});await option.waitFor({state:'attached'});await picker.selectOption(await option.getAttribute('value'));
