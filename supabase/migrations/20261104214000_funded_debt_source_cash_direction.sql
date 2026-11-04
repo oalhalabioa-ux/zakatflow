@@ -25,9 +25,9 @@ begin
   execute replace(definition,target,replacement);
 end $migration$;
 
-// Fail closed when a pre-migration cash-funded contract is approved for posting.
-// Do not alter its old immutable line or approval fingerprint. A new audited
-// contract/approval is required before real bank funding can be posted.
+-- Fail closed when a pre-migration cash-funded contract is approved for posting.
+-- Do not alter its old immutable line or approval fingerprint. A new audited
+-- contract/approval is required before real bank funding can be posted.
 do $migration$
 declare
   definition text;
