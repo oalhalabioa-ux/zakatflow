@@ -1,4 +1,10 @@
 {
-  "upserts": [],
+  "upserts": [
+    {"category":"function","object_key":"private.financial_assert_policy_source_coverage(p_org uuid, p_start date, p_end date, p_rules jsonb)","fingerprint":"29649b1381869ecff2d517332fb50310"},
+    {"category":"function","object_key":"private.financial_policy_postable_events(p_org uuid, p_start date, p_end date)","fingerprint":"fbb6b425607e1a607cf6cac69eba5a32"},
+    {"category":"function","object_key":"private.financial_policy_source_coverage(p_events jsonb, p_rules jsonb)","fingerprint":"d92a0dd22a90a21aabb3b936a3174bca"},
+    {"category":"function","object_key":"public.approve_financial_reporting_policy(p_id uuid, p_expected_version integer)","fingerprint":"eb54f7e167b379ef08e8b2f9861bbb23"},
+    {"category":"function","object_key":"public.financial_reporting_policy_workspace(p_org uuid, p_fiscal_start date)","fingerprint":"8c59682bd39f940b4ef3bba8577073ef"}
+  ],
   "removals": []
 }
