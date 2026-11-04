@@ -159,8 +159,12 @@ try{
   async function actions(number){
    await page.goto(app+'/en/vat?section=unified&organization_id='+org);
    const row=page.locator('.vat-unified-table tbody tr').filter({hasText:number});
-   await row.locator('.invoice-actions-trigger').click();
-   await row.getByRole('button',{name:'Actions',exact:true}).click();
+   const trigger=row.locator('.invoice-actions-trigger');await trigger.scrollIntoViewIfNeeded();
+   await page.evaluate(()=>document.fonts.ready);
+   for(let attempt=0;attempt<3;attempt++){
+    if(await trigger.getAttribute('aria-expanded')!=='true')await trigger.click();
+    try{await row.getByRole('button',{name:'Actions',exact:true}).click({timeout:4000});break}catch(error){if(attempt===2)throw error}
+   }
   }
   await actions('QA-PUR-01');
   await page.getByRole('button',{name:'Linked credit note',exact:true}).click();
