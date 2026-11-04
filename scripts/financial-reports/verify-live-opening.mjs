@@ -1,6 +1,6 @@
 // Full canonical schema, genuine Auth/PostgREST and actual Next/browser. Loopback only.
 import {execFileSync,spawn} from 'node:child_process';
-import {randomBytes} from 'node:crypto';
+import {randomBytes,randomUUID} from 'node:crypto';
 import {readFile,mkdir,writeFile,open} from 'node:fs/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
@@ -210,6 +210,29 @@ try{
    }
    assert.deepEqual(downloads,[]);
   }finally{await exportPage.close()}
+ });
+ await check('Concurrent annual close retries are atomic and real amount-limited users cannot close',async()=>{
+  const fiscalOrg=randomUUID(),fiscalBank=randomUUID(),request=randomUUID();
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
+   insert into public.organizations(id,owner_user_id,name) values('${fiscalOrg}','${a.id}','ZZ independent concurrent fiscal fixture');
+   insert into public.organization_members(organization_id,user_id,role,status) values('${fiscalOrg}','${a.id}','OWNER','ACTIVE'),('${fiscalOrg}','${b.id}','VIEWER','ACTIVE') on conflict(organization_id,user_id) do update set role=excluded.role,status='ACTIVE';
+   insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,amount_limit,currency,created_by)
+    values('${fiscalOrg}','${b.id}','financial_core.view','ALLOW',null,null,'${a.id}'),('${fiscalOrg}','${b.id}','financial_core.approve','ALLOW',50,'SAR','${a.id}'),('${fiscalOrg}','${b.id}','financial_core.post','ALLOW',50,'SAR','${a.id}');
+   insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
+    values('${fiscalBank}','${fiscalOrg}','Concurrent close bank','BANK','SAR',100,100,'${a.id}','{"opening_date":"2023-12-31","opening_balance":100,"opening_fx_rate":1}');`);
+  assert.ifError((await a.client.rpc('save_financial_fiscal_calendar',{p_org:fiscalOrg,p_month:1,p_day:1,p_retained:'3300',p_expected_version:0,p_reason:'Independent concurrent calendar'})).error);
+  const opening=await a.client.rpc('financial_opening_workspace',{p_org:fiscalOrg,p_fiscal_start:'2024-01-01'});assert.ifError(opening.error);
+  const entries=Object.fromEntries(opening.data.source.rows.filter(row=>row.vouchers.length===0).map(row=>[row.id,{amount:'0',side:row.normal}]));entries['equity:3100']={amount:'100',side:'CREDIT'};
+  const draft=await a.client.rpc('save_financial_opening',{p_org:fiscalOrg,p_fiscal_start:'2024-01-01',p_expected_version:0,p_source_revision:opening.data.source.revision,p_entries:entries,p_reason:'Balanced source trial for concurrent close'});assert.ifError(draft.error);
+  assert.ifError((await a.client.rpc('approve_financial_opening',{p_id:draft.data.id,p_expected_version:1})).error);
+  const policy=await a.client.rpc('save_financial_reporting_policy',{p_org:fiscalOrg,p_fiscal_start:'2024-01-01',p_expected_version:0,p_rules:[],p_reason:'No current-year operations'});assert.ifError(policy.error);
+  assert.ifError((await a.client.rpc('approve_financial_reporting_policy',{p_id:policy.data.id,p_expected_version:1})).error);
+  const limited=await b.client.rpc('close_financial_year',{p_org:fiscalOrg,p_start:'2024-01-01',p_request:randomUUID(),p_reason:'Amount limit must be enforced'});assert.match(limited.error?.message??'',/FISCAL_CLOSE_DENIED/);
+  const outcomes=await Promise.all([1,2].map(()=>a.client.rpc('close_financial_year',{p_org:fiscalOrg,p_start:'2024-01-01',p_request:request,p_reason:'Concurrent retry of one closing command'})));
+  for(const outcome of outcomes)assert.ifError(outcome.error);
+  assert.equal(outcomes[0].data.id,outcomes[1].data.id);
+  const closes=await a.client.from('financial_year_closures').select('id').eq('organization_id',fiscalOrg);assert.ifError(closes.error);assert.equal(closes.data.length,1);
+  const audit=await a.client.from('financial_fiscal_audit').select('id').eq('organization_id',fiscalOrg).eq('action','YEAR_CLOSE');assert.ifError(audit.error);assert.equal(audit.data.length,1);
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }finally{await browser?.close();server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
