@@ -322,7 +322,9 @@ try{
   sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
    insert into public.organizations(id,owner_user_id,name) values('${january}','${a.id}','ZZ fiscal settings January'),('${july}','${a.id}','ZZ fiscal settings July');
    insert into public.organization_members(organization_id,user_id,role,status) values('${january}','${a.id}','OWNER','ACTIVE'),('${july}','${a.id}','OWNER','ACTIVE'),('${july}','${b.id}','VIEWER','ACTIVE') on conflict(organization_id,user_id) do update set role=excluded.role,status='ACTIVE';
-   insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,created_by) values('${july}','${b.id}','financial_core.view','ALLOW','${a.id}'),('${july}','${b.id}','financial_core.create','DENY','${a.id}');`);
+   insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,created_by) values('${july}','${b.id}','financial_core.view','ALLOW','${a.id}'),('${july}','${b.id}','financial_core.create','DENY','${a.id}');
+   select public.save_financial_chart_account('${january}','330001','3300','أرباح مبقاة تفصيلية','Detailed retained earnings','CREDIT',true,true,0,'Select posting leaf for January');
+   select public.save_financial_chart_account('${july}','330001','3300','أرباح مبقاة تفصيلية','Detailed retained earnings','CREDIT',true,true,0,'Select posting leaf for July');`);
   for(const [organization,month,end] of [[january,1,'12-31'],[july,7,'06-30']]){
    await page.goto(app+'/en/settings/financial/fiscal-years?organization='+organization);
    const section=page.locator('.fiscal-calendar-settings');
@@ -335,10 +337,10 @@ try{
     await page.screenshot({path:out+'/fiscal-settings-load-diagnostic.png',fullPage:true});throw Error('FISCAL_SETTINGS_NOT_VISIBLE '+JSON.stringify(diagnostic));
    }
    assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),'1');
-   await section.getByLabel('Fiscal start month',{exact:true}).selectOption(String(month));await section.getByLabel('Fiscal start day',{exact:true}).fill('1');await section.getByLabel('Retained earnings account',{exact:true}).fill('3300');await section.getByLabel('Setup or action reason',{exact:true}).fill('Configure fiscal calendar from organization settings');
+   await section.getByLabel('Fiscal start month',{exact:true}).selectOption(String(month));await section.getByLabel('Fiscal start day',{exact:true}).fill('1');await section.getByLabel('Retained earnings posting account',{exact:true}).selectOption('330001');await section.getByLabel('Setup or action reason',{exact:true}).fill('Configure fiscal calendar from organization settings');
    assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
    const saved=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();const response=await saved;assert.equal(response.status(),200,JSON.stringify(await response.json()));
-   const stored=await a.client.rpc('financial_fiscal_context',{p_org:organization});assert.ifError(stored.error);assert.equal(stored.data.calendar.start_month,month);assert.ok(stored.data.period.end.endsWith(end));
+   const stored=await a.client.rpc('financial_fiscal_context',{p_org:organization});assert.ifError(stored.error);assert.equal(stored.data.calendar.start_month,month);assert.equal(stored.data.calendar.retained_earnings_account,'330001');assert.ok(stored.data.period.end.endsWith(end));
    const historical=await a.client.rpc('financial_fiscal_context',{p_org:organization,p_as_of:'2026-11-04'});assert.ifError(historical.error);assert.equal(historical.data.period.start,month===1?'2026-01-01':'2026-07-01');assert.equal(historical.data.period.end,month===1?'2026-12-31':'2027-06-30');
    const opening=await a.client.rpc('financial_opening_workspace',{p_org:organization,p_fiscal_start:stored.data.period.start});assert.ifError(opening.error);assert.equal(opening.data.organizationId,organization);assert.equal(opening.data.fiscalStart,stored.data.period.start);
    const policy=await a.client.rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:stored.data.period.start});assert.ifError(policy.error);assert.equal(policy.data.fiscalStart,stored.data.period.start);
