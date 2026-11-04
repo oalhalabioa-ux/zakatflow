@@ -147,6 +147,8 @@ begin
  starts:=(private.financial_fiscal_period(org,(current_date+interval '2 years')::date)->>'start')::date;
  s:=public.financial_opening_workspace(org,starts);w:=public.save_financial_opening(org,starts,0,s->'source'->>'revision','{}','Prepare a future-year draft without approving future balances');
  begin perform public.approve_financial_opening((w->>'id')::uuid,1);raise exception 'future opening approved early';exception when others then if sqlerrm<>'FISCAL_OPENING_NOT_STARTED' then raise;end if;end;
+  starts:=(private.financial_fiscal_period(org,(current_date+interval '6 years')::date)->>'start')::date;
+  begin perform public.financial_opening_workspace(org,starts);raise exception 'out-of-horizon opening unexpectedly readable';exception when others then if sqlerrm<>'OPENING_PERIOD_INVALID' then raise;end if;end;
  insert into fiscal_checks values('Explicit new-organization calendar without a January default, leap and nonleap fiscal anchors',true);
 end $$;
 select jsonb_build_object('checks',(select jsonb_agg(to_jsonb(t) order by name) from fiscal_checks t),'snapshots',(select jsonb_agg(to_jsonb(s)) from fiscal_snapshots s));

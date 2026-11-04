@@ -1674,6 +1674,14 @@
       "expected_md5": "44fd95595c95e7f7c2a3f93fcb8440da",
       "file_sha256": "85bf5b6e0191dfd9cce4026709a24eb7ab84c618a50c6daf65ff931abe76a017",
       "validation_project": "Disposable multi-organization fiscal acceptance only"
+    },
+    {
+      "path": "supabase/migrations/20261104113559_fiscal_future_draft_window.sql",
+      "version": "20261104113559",
+      "name": "fiscal_future_draft_window",
+      "expected_md5": "a14a35bb52f006aeb31663bb9015fbce",
+      "file_sha256": "b47366b1aad1efe629184fe35608366707cd553a8482b80162b6385311ce357c",
+      "validation_project": "Disposable multi-organization fiscal acceptance only"
     }
   ]
 }
