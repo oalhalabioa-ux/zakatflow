@@ -69,6 +69,20 @@ try{
  await check('Browser Excel export preserves actual source marker, source amount and final opening',async()=>{const d=page.waitForEvent('download');await page.getByRole('button',{name:'تصدير Excel',exact:true}).click();const file=await d;await file.saveAs(out+'/opening-approved.xlsx');const{default:ExcelJS}=await import('exceljs'),book=new ExcelJS.Workbook();await book.xlsx.readFile(await file.path());assert.equal(book.worksheets.length,2);assert.match(String(book.worksheets[1].getCell('A1').value),/LIVE REGISTERS/);assert.ok(book.worksheets[1].rowCount>=7)});
  await check('Posting policy UI saves and approves a real initial policy',async()=>{await page.goto(app+'/ar/financial-reporting-policy');await page.getByRole('heading',{name:'قواعد ترحيل القوائم المالية'}).waitFor();await page.getByLabel('سبب الإعداد أو التغيير').fill('إعداد قواعد المرحلة الافتتاحية');await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
+ await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
+  await page.setViewportSize({width:1672,height:941});
+  sql(`insert into public.asset_accounts(user_id,ownership_scope,asset_type,name,currency) values
+    ('${a.id}','PERSONAL','CASH','Owner QA personal cash','SAR'),('${b.id}','PERSONAL','CASH','Other QA personal cash','SAR');`);
+  await page.goto(app+'/en/dashboard?scope=PERSONAL');
+  const menu=page.getByRole('button',{name:/Financial reports & statements/i});
+  if(await menu.getAttribute('aria-expanded')!=='true')await menu.click();
+  const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-register'&&new URL(r.url()).searchParams.get('scope')==='PERSONAL');
+  await page.getByRole('link',{name:'Personal financial position summary',exact:true}).click();
+  const read=await response;assert.equal(read.status(),200);const data=await read.json();
+  assert.equal(new URL(page.url()).searchParams.get('scope'),'PERSONAL');
+  assert.ok(data.accounts.some(x=>x.name==='Owner QA personal cash'));
+  assert.ok(data.accounts.every(x=>x.organizationId===null&&x.name!=='Other QA personal cash'));
+ });
  await check('Financial reports open in Business from either dashboard scope',async()=>{
   await page.setViewportSize({width:1672,height:941});
   for(const scope of ['PERSONAL','ORGANIZATION']){
