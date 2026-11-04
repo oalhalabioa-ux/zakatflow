@@ -305,6 +305,13 @@ begin
   end if;
   if n='public.approve_financial_opening(uuid,integer)' then
    definition:=replace(definition,$old$for r in select * from jsonb_array_elements(s->'rows') loop$old$,$new$
+    if exists(select 1 from public.financial_fiscal_calendars where organization_id=w.organization_id) then
+     if w.fiscal_start>current_date then raise exception 'FISCAL_OPENING_NOT_STARTED';end if;
+     if (exists(select 1 from public.financial_opening_workspaces previous_period where previous_period.organization_id=w.organization_id and previous_period.status='APPROVED' and previous_period.fiscal_start=(private.financial_fiscal_period(w.organization_id,w.fiscal_start-1)->>'start')::date)
+      or exists(select 1 from public.financial_reporting_policies previous_period where previous_period.organization_id=w.organization_id and previous_period.status='APPROVED' and previous_period.fiscal_start=(private.financial_fiscal_period(w.organization_id,w.fiscal_start-1)->>'start')::date))
+      and not exists(select 1 from public.financial_year_closures previous_period where previous_period.organization_id=w.organization_id and previous_period.status='CLOSED' and previous_period.next_start=w.fiscal_start)
+     then raise exception 'FISCAL_PREVIOUS_YEAR_NOT_CLOSED';end if;
+    end if;
     if s->>'closeId' is not null and exists(select 1 from jsonb_each(w.entries) x where coalesce(nullif(x.value->>'amount','')::numeric,0)<>0 or x.value->>'accountCode' is not null) then raise exception 'FISCAL_ROLLOVER_CORRECTION_REQUIRED';end if;
     for r in select * from jsonb_array_elements(s->'rows') loop
    $new$);

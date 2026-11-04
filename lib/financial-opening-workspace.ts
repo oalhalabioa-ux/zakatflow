@@ -28,6 +28,8 @@ export function openingError(code:string,en:boolean){
 export function fiscalError(code:string,en:boolean){
  const messages:Record<string,[string,string]>={
  FISCAL_CALENDAR_REQUIRED:['حدد بداية السنة المالية للمؤسسة أولاً.','Configure this organization’s fiscal year first.'],
+ FISCAL_OPENING_NOT_STARTED:['يمكن تجهيز المسودة؛ يبدأ اعتماد الافتتاح عند حلول تاريخ بداية السنة.','The draft may be prepared now; approve the opening when its fiscal year begins.'],
+ FISCAL_PREVIOUS_YEAR_NOT_CLOSED:['أقفل السنة السابقة المعتمدة أولاً ليأتي الافتتاح التالي من ختاميها الصحيح.','Close the preceding approved year before adopting its closing balances as the next opening.'],
  FISCAL_START_MISMATCH:['اختر بداية سنة مطابقة لإعداد السنة المالية للمؤسسة.','Choose a year start matching the organization’s fiscal calendar.'],
  FISCAL_LEGACY_PERIOD_REVIEW_REQUIRED:['توجد فترات سابقة تختلف عن الإعداد المختار؛ يلزم مراجعتها قبل تغيير السنة المالية.','Existing periods differ from this calendar and require review before changing it.'],
  FISCAL_CALENDAR_IN_USE:['إعداد السنة مستخدم في فترات محاسبية. يلزم مسار تصحيح موثق لتغييره.','This calendar is used by accounting periods. Changing it requires a documented correction.'],

@@ -81,6 +81,9 @@ begin
   update public.transactions set base_value=61,gross_value=61 where id=purchase_tx;
   begin perform public.close_financial_year(org,starts,gen_random_uuid(),'Reject ledger and asset register mismatch');raise exception 'unreconciled register closed';exception when others then if sqlerrm<>'FISCAL_SUBLEDGER_UNRECONCILED' then raise;end if;end;
   update public.transactions set base_value=60,gross_value=60 where id=purchase_tx;
+  s:=public.financial_opening_workspace(org,nextdate);
+  w:=public.save_financial_opening(org,nextdate,0,s->'source'->>'revision','{}','Prepare a successor draft before closing the preceding year');
+  begin perform public.approve_financial_opening((w->>'id')::uuid,1);raise exception 'successor approved before close';exception when others then if sqlerrm<>'FISCAL_PREVIOUS_YEAR_NOT_CLOSED' then raise;end if;end;
   req:=gen_random_uuid();close:=public.close_financial_year(org,starts,req,'Close full fiscal year after source reconciliation');
   insert into fiscal_snapshots values('year-'||month,jsonb_build_object('source',snap,'trial',trial,'closure',close));
   if public.close_financial_year(org,starts,req,'Retry closure')->>'id'<>close->>'id' then raise exception 'duplicate close';end if;
@@ -117,8 +120,8 @@ begin
   if (close->>'version')::int<>2 then raise exception 'closing correction not versioned';end if;
   if (select r->>'credit' from jsonb_array_elements(close->'next_opening') r where r->>'accountId'='3300')<>'69.0000' then raise exception 'corrected retained';end if;
   s:=public.financial_opening_workspace(org,nextdate);
-  w:=public.save_financial_opening(org,nextdate,0,s->'source'->>'revision','{}','Adopt the exact closing trial as next opening');
-  w:=public.approve_financial_opening((w->>'id')::uuid,1);
+  w:=public.save_financial_opening(org,nextdate,coalesce((s->'workspace'->>'version')::int,0),s->'source'->>'revision','{}','Adopt the exact closing trial as next opening');
+  w:=public.approve_financial_opening((w->>'id')::uuid,(w->>'version')::int);
   if exists(select 1 from jsonb_array_elements(close->'next_opening') expected where (expected->>'debit')::numeric-(expected->>'credit')::numeric is distinct from (select sum((actual->>'debit')::numeric-(actual->>'credit')::numeric) from jsonb_array_elements(w->'approved_opening') actual where actual->>'accountCode'=expected->>'accountId')) then raise exception 'successor changed account balances';end if;
   if not exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'id'='cash:'||bank and r->'vouchers'->0->>'debit'='509.0000') or not exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'id'='asset:'||current_asset) then raise exception 'bank or asset identity lost in rollover';end if;
   begin perform public.reopen_financial_year(org,(close->>'id')::uuid,2,'Reject silent prior-year revision after successor approval');raise exception 'successor protection bypassed';exception when others then if sqlerrm<>'FISCAL_SUCCESSOR_REQUIRES_CORRECTION' then raise;end if;end;
@@ -141,6 +144,9 @@ begin
  perform public.assign_financial_opening_source(org,'liquidity_accounts',bank,'2024-02-29','2024-02-29','1000',-10,'Explicit signed opening overdraft');
  s:=public.financial_opening_workspace(org,'2024-02-29');
  if not exists(select 1 from jsonb_array_elements(s->'source'->'rows') r where r->>'id'='cash:'||bank and r->'vouchers'->0->>'credit'='10.0000') then raise exception 'signed bank opening not preserved';end if;
+ starts:=(private.financial_fiscal_period(org,(current_date+interval '2 years')::date)->>'start')::date;
+ s:=public.financial_opening_workspace(org,starts);w:=public.save_financial_opening(org,starts,0,s->'source'->>'revision','{}','Prepare a future-year draft without approving future balances');
+ begin perform public.approve_financial_opening((w->>'id')::uuid,1);raise exception 'future opening approved early';exception when others then if sqlerrm<>'FISCAL_OPENING_NOT_STARTED' then raise;end if;end;
  insert into fiscal_checks values('Explicit new-organization calendar without a January default, leap and nonleap fiscal anchors',true);
 end $$;
 select jsonb_build_object('checks',(select jsonb_agg(to_jsonb(t) order by name) from fiscal_checks t),'snapshots',(select jsonb_agg(to_jsonb(s)) from fiscal_snapshots s));
