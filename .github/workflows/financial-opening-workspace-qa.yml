@@ -9,6 +9,8 @@ on:
       - 'app/[locale]/financial-reporting-policy/**'
       - 'app/[locale]/chart-of-accounts/**'
       - 'components/financial-reports/**'
+      - 'components/settings/**'
+      - 'app/[locale]/settings/**'
       - 'services/financial-*.ts'
       - 'lib/financial-*.ts'
       - 'scripts/financial-reports/*opening*'

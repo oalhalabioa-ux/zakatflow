@@ -101,3 +101,5 @@
   border-color: var(--settings-line);
   color: var(--settings-primary);
 }
+
+.fiscal-calendar-settings summary{font-size:1.2rem;font-weight:700;cursor:pointer;margin-bottom:18px}.fiscal-calendar-settings [data-fiscal-period]{font-weight:700;margin-top:18px}.fiscal-calendar-settings{min-width:0;overflow-wrap:anywhere}

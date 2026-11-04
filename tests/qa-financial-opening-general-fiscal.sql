@@ -88,6 +88,7 @@ begin
   w:=public.save_financial_opening(org,nextdate,0,s->'source'->>'revision','{}','Prepare a successor draft before closing the preceding year');
   begin perform public.approve_financial_opening((w->>'id')::uuid,1);raise exception 'successor approved before close';exception when others then if sqlerrm<>'FISCAL_PREVIOUS_YEAR_NOT_CLOSED' then raise;end if;end;
   req:=gen_random_uuid();close:=public.close_financial_year(org,starts,req,'Close full fiscal year after source reconciliation');
+  begin perform public.save_financial_fiscal_calendar(org,case when month=1 then 7 else 1 end,1,'3300',1,'Attempted calendar change after closing');raise exception 'closed calendar changed';exception when others then if sqlerrm<>'FISCAL_CALENDAR_IN_USE' then raise;end if;end;
   insert into fiscal_snapshots values('year-'||month,jsonb_build_object('source',snap,'trial',trial,'closure',close));
   if public.close_financial_year(org,starts,req,'Retry closure')->>'id'<>close->>'id' then raise exception 'duplicate close';end if;
   if (select count(*) from public.financial_year_closures where organization_id=org and status='CLOSED')<>1 then raise exception 'closing duplicated';end if;

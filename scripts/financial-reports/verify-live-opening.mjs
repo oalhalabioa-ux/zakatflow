@@ -260,5 +260,42 @@ try{
   const closes=await a.client.from('financial_year_closures').select('id').eq('organization_id',fiscalOrg);assert.ifError(closes.error);assert.equal(closes.data.length,1);
   const audit=await a.client.from('financial_fiscal_audit').select('id').eq('organization_id',fiscalOrg).eq('action','YEAR_CLOSE');assert.ifError(audit.error);assert.equal(audit.data.length,1);
  });
+ await check('Organization settings persist January and July calendars, isolate tenants and preserve existing periods',async()=>{
+  const january=randomUUID(),july=randomUUID();
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
+   insert into public.organizations(id,owner_user_id,name) values('${january}','${a.id}','ZZ fiscal settings January'),('${july}','${a.id}','ZZ fiscal settings July');
+   insert into public.organization_members(organization_id,user_id,role,status) values('${january}','${a.id}','OWNER','ACTIVE'),('${july}','${a.id}','OWNER','ACTIVE'),('${july}','${b.id}','VIEWER','ACTIVE') on conflict(organization_id,user_id) do update set role=excluded.role,status='ACTIVE';
+   insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,created_by) values('${july}','${b.id}','financial_core.view','ALLOW','${a.id}'),('${july}','${b.id}','financial_core.create','DENY','${a.id}');`);
+  for(const [organization,month,end] of [[january,1,'12-31'],[july,7,'06-30']]){
+   await page.goto(app+'/en/settings?organization='+organization);
+   const section=page.locator('.fiscal-calendar-settings');await section.getByLabel('Fiscal start month',{exact:true}).waitFor();
+   assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),'');
+   await section.getByLabel('Fiscal start month',{exact:true}).fill(String(month));await section.getByLabel('Fiscal start day',{exact:true}).fill('1');await section.getByLabel('Retained earnings account',{exact:true}).fill('3300');await section.getByLabel('Setup or action reason',{exact:true}).fill('Configure fiscal calendar from organization settings');
+   assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
+   const saved=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();const response=await saved;assert.equal(response.status(),200,JSON.stringify(await response.json()));
+   const stored=await a.client.rpc('financial_fiscal_context',{p_org:organization});assert.ifError(stored.error);assert.equal(stored.data.calendar.start_month,month);assert.ok(stored.data.period.end.endsWith(end));
+   const historical=await a.client.rpc('financial_fiscal_context',{p_org:organization,p_as_of:'2026-11-04'});assert.ifError(historical.error);assert.equal(historical.data.period.start,month===1?'2026-01-01':'2026-07-01');assert.equal(historical.data.period.end,month===1?'2026-12-31':'2027-06-30');
+   const opening=await a.client.rpc('financial_opening_workspace',{p_org:organization,p_fiscal_start:stored.data.period.start});assert.ifError(opening.error);assert.equal(opening.data.organizationId,organization);assert.equal(opening.data.fiscalStart,stored.data.period.start);
+   const policy=await a.client.rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:stored.data.period.start});assert.ifError(policy.error);assert.equal(policy.data.fiscalStart,stored.data.period.start);
+   await page.reload();await section.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),String(month));assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
+   await page.screenshot({path:out+'/fiscal-settings-'+month+'.png',fullPage:true});
+  }
+  const picker=page.getByRole('combobox',{name:'Selected organization',exact:true});await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings input[type="number"]')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
+  const period=await a.client.rpc('financial_fiscal_context',{p_org:july});assert.ifError(period.error);
+  const workspace=await a.client.rpc('financial_opening_workspace',{p_org:july,p_fiscal_start:period.data.period.start});assert.ifError(workspace.error);
+  const draft=await a.client.rpc('save_financial_opening',{p_org:july,p_fiscal_start:period.data.period.start,p_expected_version:0,p_source_revision:workspace.data.source.revision,p_entries:{},p_reason:'Preserved accounting period must not move with calendar editing'});assert.ifError(draft.error);
+  await page.goto(app+'/en/settings?organization='+july);const section=page.locator('.fiscal-calendar-settings');await section.getByLabel('Fiscal start month',{exact:true}).waitFor();await section.getByLabel('Fiscal start month',{exact:true}).fill('1');await section.getByLabel('Setup or action reason',{exact:true}).fill('Changing a used calendar must require accounting correction');
+  const blocked=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/fiscal')&&r.request().method()==='POST');await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();const denied=await blocked;assert.equal(denied.status(),409);assert.equal((await denied.json()).error,'FISCAL_CALENDAR_IN_USE');
+  const preserved=await a.client.from('financial_opening_workspaces').select('*').eq('id',draft.data.id).single();assert.ifError(preserved.error);assert.deepEqual(preserved.data,draft.data);
+  const after=await a.client.rpc('financial_fiscal_context',{p_org:july});assert.ifError(after.error);assert.deepEqual(after.data.calendar,period.data.calendar);
+  const foreign=await b.client.rpc('financial_fiscal_context',{p_org:january});assert.match(foreign.error?.message??'',/FISCAL_ACCESS_DENIED/);
+  const readonlyCookies=[];const readonlySsr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>readonlyCookies,setAll:cs=>{for(const c of cs){const index=readonlyCookies.findIndex(v=>v.name===c.name);if(index>=0)readonlyCookies.splice(index,1);readonlyCookies.push(c)}}}});assert.ifError((await readonlySsr.auth.signInWithPassword({email:b.email,password:b.password})).error);
+  const readonlyContext=await browser.newContext();try{
+   await readonlyContext.addCookies(readonlyCookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));const readonlyPage=await readonlyContext.newPage();await readonlyPage.goto(app+'/en/settings?organization='+july);const readonlySection=readonlyPage.locator('.fiscal-calendar-settings');await readonlySection.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await readonlySection.getByLabel('Fiscal start month',{exact:true}).isDisabled(),true);assert.equal(await readonlySection.getByRole('button',{name:'Save fiscal calendar',exact:true}).count(),0);
+   const forbidden=await readonlyPage.request.post(app+'/api/financial-reporting/fiscal',{headers:{Origin:app},data:{action:'calendar',organization:july,month:1,day:1,retainedAccount:'3300',expectedVersion:1,reason:'A view-only user cannot change fiscal settings'}});assert.equal(forbidden.status(),403);assert.equal((await forbidden.json()).error,'FISCAL_WRITE_DENIED');
+   await readonlyPage.goto(app+'/en/settings?organization='+january);await readonlyPage.getByRole('alert').waitFor();assert.equal(await readonlyPage.locator('.fiscal-calendar-settings').count(),0);
+  }finally{await readonlyContext.close()}
+  await page.setViewportSize({width:390,height:844});await page.goto(app+'/ar/settings?organization='+july);await page.locator('.fiscal-calendar-settings').getByLabel('شهر بداية السنة',{exact:true}).waitFor();assert.equal(await page.locator('.fiscal-calendar-settings').getByLabel('شهر بداية السنة',{exact:true}).inputValue(),'7');await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:5000});await page.screenshot({path:out+'/fiscal-settings-july-ar-mobile.png',fullPage:true});
+ });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }finally{await browser?.close();server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
