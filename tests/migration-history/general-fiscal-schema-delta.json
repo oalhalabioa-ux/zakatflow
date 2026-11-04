@@ -1,5 +1,5 @@
 {
-  "description": "General fiscal engine v1, reviewed additive tables, RLS, immutable audit, year guards and versioned fiscal functions. Observed from a fresh full canonical bootstrap.",
+  "description": "General fiscal engine v1: reviewed calendars, source assignments, immutable audit, detailed annual close, scoped candidates and closed-period source protection. Observed from a full canonical bootstrap and actual legacy-data upgrade.",
   "removals": [],
   "upserts": [
     {
@@ -179,6 +179,11 @@
     },
     {
       "category": "column",
+      "object_key": "public.financial_year_closures.next_source",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
       "object_key": "public.financial_year_closures.next_start",
       "fingerprint": "61948d6ec9949117a7066a8070022c24"
     },
@@ -289,11 +294,6 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_declared_amount_check",
-      "fingerprint": "e7f8c99c746e86090bd82b9aa1e03434"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.financial_opening_source_assignments.financial_opening_source_assignments_organization_id_fkey",
       "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
     },
@@ -355,7 +355,12 @@
     {
       "category": "function",
       "object_key": "private.financial_closed_source_guard()",
-      "fingerprint": "4756535874fb7fa26a98cd63c879fa42"
+      "fingerprint": "aef084d8ec5f82ed1eba1a7ba8ac525a"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_fiscal_next_source(p_org uuid, p_start date, p_end date, p_request uuid, p_computed jsonb, p_snapshot jsonb)",
+      "fingerprint": "5bb6aef6cd2ac6470fd4d4f706b49f06"
     },
     {
       "category": "function",
@@ -369,23 +374,33 @@
     },
     {
       "category": "function",
+      "object_key": "private.financial_opening_sources(p_org uuid, p_cutoff date)",
+      "fingerprint": "9e9bc17a4dc90602eab8f8ae4726daa7"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_opening_tab(p_account text)",
+      "fingerprint": "3405a257a53d083adfd774db2134f620"
+    },
+    {
+      "category": "function",
       "object_key": "private.financial_period_end(p_org uuid, p_start date)",
       "fingerprint": "6ec950220a83e360b6563aedfc06fd9a"
     },
     {
       "category": "function",
       "object_key": "private.financial_period_opening_sources(p_org uuid, p_start date)",
-      "fingerprint": "bb61ac0c7c71869340e0bbe9d8ac3dc7"
+      "fingerprint": "c5dd4ae05e27a6375fc6adef6c3876d1"
     },
     {
       "category": "function",
       "object_key": "private.financial_resolve_opening(p_org uuid, p_table text, p_id uuid, p_amount numeric, p_account text)",
-      "fingerprint": "b768af84aea2f14bf96151c21f211cca"
+      "fingerprint": "aeb8d335293e5bc01f109d4444148047"
     },
     {
       "category": "function",
       "object_key": "private.financial_statement_live_snapshot_v1(p_org uuid, p_from date, p_to date)",
-      "fingerprint": "1028a2181c4ce624dda5860f296d4154"
+      "fingerprint": "698f014ec7420f6b8ce82c48acd2254d"
     },
     {
       "category": "function",
@@ -395,17 +410,22 @@
     {
       "category": "function",
       "object_key": "public.assign_financial_opening_source(p_org uuid, p_table text, p_id uuid, p_fiscal_start date, p_effective_date date, p_account text, p_declared_amount numeric, p_reason text)",
-      "fingerprint": "e4d348b1a78569134ec54ee04e92adc3"
+      "fingerprint": "2165fc09a341875e2504bc0e62f4c477"
     },
     {
       "category": "function",
       "object_key": "public.close_financial_year(p_org uuid, p_start date, p_request uuid, p_reason text)",
-      "fingerprint": "ba40a5c3345a9e12eb027205d6afcb7a"
+      "fingerprint": "c43397641a1a3eb163cadcea12cce0c3"
     },
     {
       "category": "function",
       "object_key": "public.financial_fiscal_context(p_org uuid, p_as_of date)",
-      "fingerprint": "5dddddaf6a3d7038b9e4d27a054d2713"
+      "fingerprint": "79b12abb07dbee0e9e18ecf3c5d11849"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_opening_candidates(p_org uuid, p_start date)",
+      "fingerprint": "f69178c182e17551e5de10237317fc59"
     },
     {
       "category": "function",
@@ -435,7 +455,7 @@
     {
       "category": "function",
       "object_key": "public.save_financial_fiscal_calendar(p_org uuid, p_month integer, p_day integer, p_retained text, p_expected_version integer, p_reason text)",
-      "fingerprint": "f280172fd1d4e7baac68b6dabae9ce3c"
+      "fingerprint": "d3e34e6b995ae757fa548ae29174279b"
     },
     {
       "category": "function",
