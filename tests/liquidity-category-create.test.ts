@@ -12,6 +12,7 @@ vi.mock('@/services/organization-access',()=>({requireOrganizationMember:async()
 vi.mock('@/lib/workspace-organization',()=>({organizationScopeIds:()=>new Set()}));
 vi.mock('@/lib/liquidity-transfer',()=>({calculateLiquidityTransfer:vi.fn()}));
 vi.mock('@/lib/intercompany-transfer',()=>({calculateIntercompanyTransfer:vi.fn()}));
+vi.mock('@/services/financial-account-opening',()=>({openFinancialAccount:vi.fn()}));
 vi.mock('@/services/financial-events',()=>({executeFinancialEventAction:vi.fn()}));
 import {POST} from '../app/api/liquidity/route';
 

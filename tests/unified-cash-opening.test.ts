@@ -1,0 +1,9 @@
+import {describe,it,expect} from 'vitest';
+import {openingFinancialAccountSchema} from '../lib/financial-register';
+import {financialOpeningFromAsset} from '../lib/asset-entry';
+const command={request_id:'10000000-0000-4000-8000-000000000001',scope:'ORGANIZATION',organization_id:'20000000-0000-4000-8000-000000000001',type:'BANK',name:'Operating bank',currency:'SAR',opening_date:'2026-07-01',fx_rate:1,opening_balance:0,balance_mode:'NEW'};
+describe('shared cash opening command',()=>{
+ it('permits an empty liquidity account but rejects money in NEW mode',()=>{expect(openingFinancialAccountSchema.safeParse(command).success).toBe(true);expect(openingFinancialAccountSchema.safeParse({...command,opening_balance:1}).success).toBe(false)});
+ it('permits an explicit opening and keeps liquidity-only types institutional',()=>{expect(openingFinancialAccountSchema.safeParse({...command,balance_mode:'OPENING',opening_balance:500}).success).toBe(true);expect(openingFinancialAccountSchema.safeParse({...command,type:'WALLET'}).success).toBe(true);expect(openingFinancialAccountSchema.safeParse({...command,type:'WALLET',scope:'PERSONAL',organization_id:null}).success).toBe(false)});
+ it('forces cash from assets into a positive dated opening rather than an empty account',()=>{for(const asset_type of ['CASH','BANK']){const asset={asset_type,name:'Opening',currency:'SAR',ownership_scope:'ORGANIZATION',organization_id:command.organization_id,metadata:{purchase_value:500,purchase_date:'2026-07-01',fx_rate:1}};expect(financialOpeningFromAsset(asset,command.request_id)).toMatchObject({balance_mode:'OPENING',opening_balance:500,opening_date:'2026-07-01'});expect(()=>financialOpeningFromAsset({...asset,metadata:{...asset.metadata,purchase_value:0}},command.request_id)).toThrow('ASSET_CASH_OPENING_REQUIRED')}});
+});

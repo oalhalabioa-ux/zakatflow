@@ -1,3 +1,4 @@
+import {openFinancialAccount} from '@/services/financial-account-opening';
 import {withVoucherNumbers} from '../../../services/voucher-numbers';
 import {organizationScopeIds} from '@/lib/workspace-organization';
 import { NextResponse } from 'next/server';
@@ -10,6 +11,7 @@ import { executeFinancialEventAction } from '@/services/financial-events';
 
 const accountSchema = z.object({
   organization_id: z.string().uuid(), entity_id: z.string().uuid().nullable().optional(),
+  request_id:z.string().uuid(), balance_mode:z.enum(['NEW','OPENING']),opening_date:z.string().date(),fx_rate:z.coerce.number().positive().max(1e6),
   name: z.string().trim().min(1).max(120), account_type: z.enum(['BANK','CASH','WALLET','INVESTMENT','OTHER']).default('BANK'),
   currency: z.string().length(3).default('SAR'), current_balance: z.coerce.number(), restricted_balance: z.coerce.number().min(0).default(0),
   uncleared_balance: z.coerce.number().min(0).default(0), current_balance_base: z.coerce.number(), restricted_balance_base: z.coerce.number().min(0).default(0),
@@ -307,9 +309,11 @@ export async function POST(request: Request) {
     }
     if (kind === 'flow' && payload.source === 'MANUAL' && !payload.category_id) throw new Error('LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED');
     if (kind === 'flow' && payload.status === 'ACTUAL') throw new Error('LIQUIDITY_ACTUAL_REQUIRES_SETTLEMENT_ACTION');
-    const { data, error } = kind === 'account'
-      ? await supabase.from('liquidity_accounts').insert(payload).select().single()
-      : await supabase.from('liquidity_flows').insert(payload).select().single();
+    if(kind==='account'){
+      const account=await openFinancialAccount({request_id:payload.request_id,scope:'ORGANIZATION',organization_id:payload.organization_id,entity_id:payload.entity_id??null,type:payload.account_type,name:payload.name,currency:payload.currency,balance_mode:payload.balance_mode,opening_balance:payload.current_balance,opening_date:payload.opening_date,fx_rate:payload.fx_rate,restricted_balance:payload.restricted_balance,uncleared_balance:payload.uncleared_balance,notes:payload.notes});
+      return NextResponse.json(account,{status:201});
+    }
+    const { data, error } = await supabase.from('liquidity_flows').insert(payload).select().single();
     if (error) throw error;
     // EXPECTED manual flows are forecast-only. Financial recognition is created idempotently when the user confirms the flow.
     return NextResponse.json(data, { status: 201 });
