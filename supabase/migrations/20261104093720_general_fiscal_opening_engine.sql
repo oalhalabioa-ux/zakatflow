@@ -300,6 +300,13 @@ begin
   definition:=replace(definition,'private.financial_opening_sources(p_org,p_fiscal_start-1)','private.financial_period_opening_sources(p_org,p_fiscal_start)');
   definition:=replace(definition,'private.financial_opening_sources(w.organization_id,w.fiscal_start-1)','private.financial_period_opening_sources(w.organization_id,w.fiscal_start)');
   definition:=replace(definition,'private.financial_opening_sources(p_org,w.fiscal_start-1)','private.financial_period_opening_sources(p_org,w.fiscal_start)');
+  if n in('public.financial_opening_workspace(uuid,date)','public.save_financial_opening(uuid,date,integer,text,jsonb,text)') then
+   -- The legacy one-year horizon prevents preparing a later fiscal-year draft,
+   -- especially for non-January calendars. Approval remains independently
+   -- prohibited until that fiscal year actually begins.
+   if position('p_fiscal_start>current_date+366' in definition)=0 then raise exception 'FISCAL_PERIOD_GUARD_NOT_FOUND';end if;
+   definition:=replace(definition,'p_fiscal_start>current_date+366',$new$p_fiscal_start>(current_date+interval '5 years')::date$new$);
+  end if;
   if n='public.financial_opening_workspace(uuid,date)' then
    definition:=replace(definition,'and t.transaction_date>=p_fiscal_start',$exclude$and t.transaction_date>p_fiscal_start and not exists(select 1 from public.financial_opening_source_assignments a where a.organization_id=p_org and a.source_table='transactions' and a.source_id=t.id)$exclude$);
   end if;
