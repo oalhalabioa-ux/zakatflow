@@ -3,4 +3,4 @@ import {assertLiveStatements} from '../../../services/financial-statement-live';
 import {requireUser} from '../../../services/auth';
 import ReportingPolicyWorkspace from '../../../components/financial-reports/ReportingPolicyWorkspace';
 export const dynamic='force-dynamic';
-export default async function PolicyPage({params}:{params:Promise<{locale:string}>}){try{assertLiveStatements()}catch{notFound()}await requireUser();const{locale}=await params;return <ReportingPolicyWorkspace locale={locale}/>}
+export default async function PolicyPage({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{organization?:string}>}){try{assertLiveStatements()}catch{notFound()}await requireUser();const[{locale},{organization}]=await Promise.all([params,searchParams]);return <ReportingPolicyWorkspace locale={locale} key={organization} preferredOrg={organization}/>}
