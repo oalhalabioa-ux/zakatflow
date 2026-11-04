@@ -29,7 +29,12 @@ try{
   for(const item of delta.upserts){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected[i]=item;else expected.push(item);}
   }
   const lookup=new Map(actual.map(x=>[x.category+':'+x.object_key,x.fingerprint]));
-  const differences=expected.filter(x=>lookup.get(x.category+':'+x.object_key)!==x.fingerprint).map(x=>({category:x.category,object:x.object_key,kind:lookup.has(x.category+':'+x.object_key)?'different':'missing'}));
+  const differences=expected.filter(x=>lookup.get(x.category+':'+x.object_key)!==x.fingerprint).map(x=>({
+   category:x.category,object:x.object_key,
+   kind:lookup.has(x.category+':'+x.object_key)?'different':'missing',
+   expectedFingerprint:x.fingerprint,
+   actualFingerprint:lookup.get(x.category+':'+x.object_key)??null
+  }));
   const keys=new Set(expected.map(x=>x.category+':'+x.object_key));
   for(const x of actual)if(!keys.has(x.category+':'+x.object_key))differences.push({category:x.category,object:x.object_key,kind:'extra'});
   await writeFile(new URL('tests/migration-history/schema-differences.json',root),JSON.stringify(differences,null,2)+'\n');
