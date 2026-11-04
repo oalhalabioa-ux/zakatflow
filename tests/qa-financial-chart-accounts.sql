@@ -32,7 +32,7 @@ begin
  begin perform public.financial_chart_workspace(org);raise exception 'Foreign chart readable';exception when others then if sqlerrm<>'CHART_ACCESS_DENIED' then raise;end if;end;
  begin perform public.save_financial_chart_account(org,'100003','1000','ممنوع','Forbidden','DEBIT',true,true,0,'Foreign writer');raise exception 'Foreign chart writable';exception when others then if sqlerrm<>'CHART_WRITE_DENIED' then raise;end if;end;
  perform public.save_financial_chart_account(foreign_org,'100001','1000','نقد المؤسسة الأخرى','Other organization cash','DEBIT',true,true,0,'Independent organization');
- if (select count(*) from public.financial_chart_custom_accounts where code='100001')<>2 then raise exception 'Same code not isolated by organization';end if;
+ if (select count(*) from public.financial_chart_custom_accounts where organization_id in(org,foreign_org) and code='100001')<>2 then raise exception 'Same code not isolated by organization';end if;
  execute 'set local role authenticated';
  if exists(select 1 from public.financial_chart_custom_accounts where organization_id=org) then raise exception 'Custom account RLS leaked';end if;
  begin insert into public.financial_chart_custom_accounts(organization_id,code,parent_code,reporting_code,name_ar,name_en,normal_side,created_by,updated_by)
