@@ -49,6 +49,7 @@ grant select on public.financial_fiscal_calendars,public.financial_opening_sourc
 
 create function private.financial_fiscal_period(p_org uuid,p_date date)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
+#variable_conflict use_column
 declare c public.financial_fiscal_calendars%rowtype;start date;nextdate date;
 begin
  select * into c from public.financial_fiscal_calendars where organization_id=p_org;
@@ -63,6 +64,7 @@ revoke all on function private.financial_fiscal_period(uuid,date) from public,an
 
 create function public.financial_fiscal_context(p_org uuid,p_as_of date default current_date)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
+#variable_conflict use_column
 declare c jsonb;period jsonb;
 begin
  if not private.financial_opening_can(p_org,'financial_core.view') then raise exception 'FISCAL_ACCESS_DENIED';end if;
@@ -77,6 +79,7 @@ grant execute on function public.financial_fiscal_context(uuid,date) to authenti
 
 create function public.save_financial_fiscal_calendar(p_org uuid,p_month integer,p_day integer,p_retained text,p_expected_version integer,p_reason text)
 returns jsonb language plpgsql security definer set search_path='' as $$
+#variable_conflict use_column
 declare c public.financial_fiscal_calendars%rowtype;
 begin
  if not private.financial_opening_can(p_org,'financial_core.create') then raise exception 'FISCAL_WRITE_DENIED';end if;
@@ -101,6 +104,7 @@ alter table public.financial_opening_source_assignments add column account_code 
 
 create function private.financial_resolve_opening(p_org uuid,p_table text,p_id uuid,p_amount numeric,p_account text)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
+#variable_conflict use_column
 declare t public.transactions%rowtype;a public.asset_accounts%rowtype;b public.liquidity_accounts%rowtype;o public.financial_event_obligations%rowtype;amount numeric;side text:='DEBIT';dt date;tab text;item text;name text;ccy text;recorded timestamptz;
 begin
  if p_table='transactions' then
@@ -114,7 +118,7 @@ begin
   amount:=p_amount;dt:=coalesce(nullif(b.metadata->>'opening_date','')::date,b.created_at::date);tab:='cash';item:='cash:'||b.id;name:=b.name;ccy:=(select base_currency from public.organizations where id=p_org);recorded:=b.created_at;
  elsif p_table='financial_event_obligations' then
   select * into o from public.financial_event_obligations where organization_id=p_org and id=p_id and adjusts_obligation_id is null;
-  if o.id is null or not exists(select 1 from public.debt_contracts d where d.organization_id=p_org and d.financial_event_id=o.event_id and d.terms->>'mode'='OPENING' and d.deleted_at is null) then raise exception 'FISCAL_OPENING_SOURCE_REQUIRED';end if;
+  if o.id is null or not exists(select 1 from public.debt_contracts d where d.organization_id=p_org and d.financial_event_id=o.event_id and d.mode='OPENING' and d.deleted_at is null) then raise exception 'FISCAL_OPENING_SOURCE_REQUIRED';end if;
   amount:=o.settleable_base_amount;side:=case when o.obligation_type in('PAYABLE','CUSTOMER_ADVANCE') then 'CREDIT' else 'DEBIT' end;
   select event_date,description,created_at into dt,name,recorded from public.financial_events where organization_id=p_org and id=o.event_id;
   ccy:=o.base_currency;tab:='loans';item:='debt:'||o.id;
@@ -127,6 +131,7 @@ revoke all on function private.financial_resolve_opening(uuid,text,uuid,numeric,
 
 create function public.assign_financial_opening_source(p_org uuid,p_table text,p_id uuid,p_fiscal_start date,p_effective_date date,p_account text,p_declared_amount numeric,p_reason text)
 returns jsonb language plpgsql security definer set search_path='' as $$
+#variable_conflict use_column
 declare resolved jsonb;period jsonb;assigned public.financial_opening_source_assignments%rowtype;
 begin
  if not private.financial_opening_can(p_org,'financial_core.create') then raise exception 'FISCAL_WRITE_DENIED';end if;
@@ -151,6 +156,7 @@ grant execute on function public.assign_financial_opening_source(uuid,text,uuid,
 
 create function private.financial_period_opening_sources(p_org uuid,p_start date)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
+#variable_conflict use_column
 declare src jsonb;rows jsonb;r jsonb;v jsonb;x record;resolved jsonb;list jsonb;account jsonb;close public.financial_year_closures%rowtype;changed boolean:=false;
 begin
  if exists(select 1 from public.financial_fiscal_calendars where organization_id=p_org) and (private.financial_fiscal_period(p_org,p_start)->>'start')::date<>p_start then raise exception 'FISCAL_START_MISMATCH';end if;
@@ -176,6 +182,16 @@ begin
   where t.organization_id=p_org and t.transaction_type='OPENING_BALANCE' and t.transaction_date=p_start
    and aa.ownership_scope='ORGANIZATION' and aa.asset_type::text not in('CASH','BANK','RECEIVABLE') and not coalesce((aa.metadata->>'archived')::boolean,false)
    and not exists(select 1 from public.financial_opening_source_assignments a where a.organization_id=p_org and a.source_table='transactions' and a.source_id=t.id)
+  union all
+  select 'liquidity_accounts',b.id,'1000',round((b.metadata->>'opening_balance')::numeric*(b.metadata->>'opening_fx_rate')::numeric,4)
+  from public.liquidity_accounts b where b.organization_id=p_org and nullif(b.metadata->>'opening_date','')::date=p_start
+   and b.metadata->>'opening_balance' is not null and b.metadata->>'opening_fx_rate' is not null
+   and not exists(select 1 from public.financial_opening_source_assignments a where a.organization_id=p_org and a.source_table='liquidity_accounts' and a.source_id=b.id)
+  union all
+  select 'financial_event_obligations',ob.id,case when ob.obligation_type='PAYABLE' then '2200' else '1200' end,null::numeric
+  from public.financial_event_obligations ob join public.debt_contracts d on d.organization_id=p_org and d.financial_event_id=ob.event_id
+  where ob.organization_id=p_org and ob.adjusts_obligation_id is null and d.mode='OPENING' and d.event_date=p_start and d.deleted_at is null
+   and not exists(select 1 from public.financial_opening_source_assignments a where a.organization_id=p_org and a.source_table='financial_event_obligations' and a.source_id=ob.id)
  loop
   resolved:=private.financial_resolve_opening(p_org,x.source_table,x.source_id,x.declared_amount,x.account_code);
   if x.source_table<>'liquidity_accounts' and (resolved->>'date')::date<p_start then
@@ -274,8 +290,11 @@ end $$;
 -- exactly one approved rule per line. Values supplied by the API are not trusted.
 create function private.financial_fiscal_trial(p_snapshot jsonb,p_retained text)
 returns jsonb language plpgsql immutable security invoker set search_path='' as $$
-declare ev jsonb;l jsonb;rule jsonb;row jsonb;acct jsonb;balances jsonb:='{}';initial jsonb:='{}';movement jsonb:='{}';value numeric;amount numeric;d text;c text;n integer;profit numeric:=0;trial jsonb:='[]';next_rows jsonb:='[]';kind text;total numeric:=0;cash numeric:=0;activity text;cash_d boolean;cash_c boolean;
+#variable_conflict use_column
+declare ev jsonb;l jsonb;rule jsonb;row jsonb;acct jsonb;balances jsonb:='{}';initial jsonb:='{}';movement jsonb:='{}';value numeric;amount numeric;d text;c text;n integer;profit numeric:=0;trial jsonb:='[]';next_rows jsonb:='[]';kind text;total numeric:=0;cash numeric:=0;activity text;cash_d boolean;cash_c boolean;journal jsonb;event_balances jsonb:='{}';original jsonb;reversal_count integer;
 begin
+ if (select count(*) from jsonb_array_elements(p_snapshot->'events'))<>(select count(distinct e->>'id') from jsonb_array_elements(p_snapshot->'events') e)
+ or (select count(*) from jsonb_array_elements(p_snapshot->'events') e cross join lateral jsonb_array_elements(e->'lines') l)<>(select count(distinct l->>'id') from jsonb_array_elements(p_snapshot->'events') e cross join lateral jsonb_array_elements(e->'lines') l) then raise exception 'FISCAL_DUPLICATE_SOURCE';end if;
  if p_snapshot->'policy'->>'approvedBy' is null or p_snapshot->'policy'->>'approvedBy'='' then raise exception 'FISCAL_POLICY_REQUIRED';end if;
  for row in select * from jsonb_array_elements(p_snapshot->'opening') loop
   d:=row->>'accountId';value:=(row->>'debit')::numeric-(row->>'credit')::numeric;
@@ -287,6 +306,7 @@ begin
  for ev in select * from jsonb_array_elements(p_snapshot->'events') elements(item) where (item->>'date')::date between (p_snapshot->>'fiscalStart')::date and (p_snapshot->>'to')::date loop
   if ev->>'organizationId' is distinct from p_snapshot->>'organizationId' or ev->>'currency' is distinct from p_snapshot->>'currency' then raise exception 'FISCAL_SOURCE_SCOPE_INVALID';end if;
   if ev->>'status' not in('ACTUAL','REVERSED') then continue;end if;
+  journal:='{}';
   for l in select * from jsonb_array_elements(ev->'lines') loop
    select count(*),(jsonb_agg(r))->0 into n,rule from jsonb_array_elements(p_snapshot->'policy'->'rules') r where r->>'eventType'=ev->>'eventType' and r->>'sourceModule'=ev->>'sourceModule' and r->>'classificationId'=l->>'classificationId' and r->>'cashDirection'=l->>'cashDirection' and (ev->>'date')::date between (r->>'from')::date and (r->>'to')::date;
    if n<>1 then raise exception 'FISCAL_POSTING_RULE_REQUIRED';end if;
@@ -301,8 +321,16 @@ begin
    if (l->>'cashDirection'='NON_CASH' and (cash_d or cash_c)) or (l->>'cashDirection'<>'NON_CASH' and not(cash_d or cash_c)) or (cash_d<>cash_c and coalesce(rule->>'cashActivity','') not in('OPERATING','INVESTING','FINANCING')) then raise exception 'FISCAL_CASH_MAPPING_INVALID';end if;
    if cash_d<>cash_c and ((l->>'cashDirection'='INFLOW')<>(case when l->>'recognitionSign'='1' then cash_d else cash_c end)) then raise exception 'FISCAL_CASH_DIRECTION_INVALID';end if;
    balances:=jsonb_set(balances,array[d],to_jsonb(coalesce((balances->>d)::numeric,0)+amount));balances:=jsonb_set(balances,array[c],to_jsonb(coalesce((balances->>c)::numeric,0)-amount));
+   journal:=jsonb_set(journal,array[d],to_jsonb(coalesce((journal->>d)::numeric,0)+amount));journal:=jsonb_set(journal,array[c],to_jsonb(coalesce((journal->>c)::numeric,0)-amount));
    movement:=jsonb_set(movement,array[d],to_jsonb(coalesce((movement->>d)::numeric,0)+amount));movement:=jsonb_set(movement,array[c],to_jsonb(coalesce((movement->>c)::numeric,0)-amount));
   end loop;
+  event_balances:=jsonb_set(event_balances,array[ev->>'id'],journal);
+ end loop;
+ for ev in select * from jsonb_array_elements(p_snapshot->'events') e where e->>'reversesEventId' is not null loop
+  select e into original from jsonb_array_elements(p_snapshot->'events') e where e->>'id'=ev->>'reversesEventId';
+  select count(*) into reversal_count from jsonb_array_elements(p_snapshot->'events') e where e->>'reversesEventId'=ev->>'reversesEventId';
+  if original is null or original->>'status'<>'REVERSED' or (original->>'date')::date>(ev->>'date')::date or reversal_count<>1 then raise exception 'FISCAL_REVERSAL_SOURCE_INVALID';end if;
+  if exists(select 1 from (select key,sum(value::numeric) amount from (select * from jsonb_each_text(event_balances->(ev->>'id')) union all select * from jsonb_each_text(event_balances->(original->>'id'))) values_by_account group by key) totals where totals.amount<>0) then raise exception 'FISCAL_REVERSAL_AMOUNT_INVALID';end if;
  end loop;
  total:=0;
  for acct in select * from jsonb_array_elements(p_snapshot->'accounts') loop
@@ -329,6 +357,7 @@ revoke all on function private.financial_statement_live_snapshot_v1(uuid,date,da
 
 create function public.financial_statement_live_snapshot(p_org uuid,p_from date,p_to date)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
+#variable_conflict use_column
 declare c public.financial_year_closures%rowtype;
 begin
  if not private.financial_opening_can(p_org,'financial_core.view') then raise exception 'REPORTING_ACCESS_DENIED';end if;
@@ -342,6 +371,7 @@ grant execute on function public.financial_statement_live_snapshot(uuid,date,dat
 
 create function public.close_financial_year(p_org uuid,p_start date,p_request uuid,p_reason text)
 returns jsonb language plpgsql security definer set search_path='' as $$
+#variable_conflict use_column
 declare period jsonb;source jsonb;computed jsonb;c public.financial_year_closures%rowtype;retained text;vol numeric;rev integer;
 begin
  if not private.financial_opening_can(p_org,'financial_core.approve') or not private.financial_opening_can(p_org,'financial_core.post') then raise exception 'FISCAL_CLOSE_DENIED';end if;
@@ -377,6 +407,7 @@ grant execute on function public.close_financial_year(uuid,date,uuid,text) to au
 
 create function public.reopen_financial_year(p_org uuid,p_close uuid,p_expected_version integer,p_reason text)
 returns jsonb language plpgsql security definer set search_path='' as $$
+#variable_conflict use_column
 declare c public.financial_year_closures%rowtype;
 begin
  if not private.financial_opening_can(p_org,'financial_core.approve') or not private.financial_opening_can(p_org,'financial_core.post') then raise exception 'FISCAL_CLOSE_DENIED';end if;
@@ -398,6 +429,7 @@ grant execute on function public.reopen_financial_year(uuid,uuid,integer,text) t
 
 create function private.financial_closed_source_guard()
 returns trigger language plpgsql security definer set search_path='' as $$
+#variable_conflict use_column
 declare payload jsonb;org uuid;dt date;start date;parent uuid;
 begin
  for payload in select v from (values(case when tg_op<>'INSERT' then to_jsonb(old) end),(case when tg_op<>'DELETE' then to_jsonb(new) end)) x(v) where v is not null loop
