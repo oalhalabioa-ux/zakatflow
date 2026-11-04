@@ -354,6 +354,11 @@
     },
     {
       "category": "function",
+      "object_key": "private.financial_chart_guard_retained_reference()",
+      "fingerprint": "1e9d27ceb4ec000aa298791fcf9b0bb3"
+    },
+    {
+      "category": "function",
       "object_key": "private.financial_closed_source_guard()",
       "fingerprint": "aef084d8ec5f82ed1eba1a7ba8ac525a"
     },
@@ -399,6 +404,16 @@
     },
     {
       "category": "function",
+      "object_key": "private.financial_retained_account_valid(p_org uuid, p_code text)",
+      "fingerprint": "b063d6559008b827e4517901c87693ee"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_retained_include_account(p_org uuid, p_snapshot jsonb, p_retained text)",
+      "fingerprint": "733b41b1bc26356ffe47f005f7d85344"
+    },
+    {
+      "category": "function",
       "object_key": "private.financial_statement_live_snapshot_v1(p_org uuid, p_from date, p_to date)",
       "fingerprint": "698f014ec7420f6b8ce82c48acd2254d"
     },
@@ -415,7 +430,7 @@
     {
       "category": "function",
       "object_key": "public.close_financial_year(p_org uuid, p_start date, p_request uuid, p_reason text)",
-      "fingerprint": "c43397641a1a3eb163cadcea12cce0c3"
+      "fingerprint": "b108d5af5694cc8d8fcc58601430ae90"
     },
     {
       "category": "function",
@@ -455,7 +470,7 @@
     {
       "category": "function",
       "object_key": "public.save_financial_fiscal_calendar(p_org uuid, p_month integer, p_day integer, p_retained text, p_expected_version integer, p_reason text)",
-      "fingerprint": "d3e34e6b995ae757fa548ae29174279b"
+      "fingerprint": "791a18f5151fffe6fe33ddcc937e98f5"
     },
     {
       "category": "function",
@@ -591,6 +606,11 @@
       "category": "trigger",
       "object_key": "public.debt_contracts.financial_closed_source_guard",
       "fingerprint": "8cfae3314373d7cc4f7310ea5845fe51"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_guard_retained_reference",
+      "fingerprint": "2c78fef859927a041f9e385728cb56c0"
     },
     {
       "category": "trigger",
