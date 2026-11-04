@@ -90,7 +90,7 @@
     {
       "category": "function",
       "object_key": "public.open_financial_account(p_payload jsonb)",
-      "fingerprint": "26a315a6eb5956cfc0cc483b7809589f"
+      "fingerprint": "c863ea19ac3009e525955aca53a25606"
     },
     {
       "category": "index",

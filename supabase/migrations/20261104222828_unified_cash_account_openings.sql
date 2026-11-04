@@ -74,7 +74,7 @@ begin
  needle:='if scope=''PERSONAL'' then';
  definition:=replace(definition,needle,$patch$
  if coalesce(p_payload->>'balance_mode',case when amt=0 then 'NEW' else 'OPENING' end) not in('NEW','OPENING')
- or (p_payload->>'balance_mode'='NEW' and amt<>0)
+ or (p_payload->>'balance_mode'='NEW' and (amt<>0 or coalesce((p_payload->>'restricted_balance')::numeric,0)<>0 or coalesce((p_payload->>'uncleared_balance')::numeric,0)<>0))
  or coalesce((p_payload->>'restricted_balance')::numeric,0)<0
  or coalesce((p_payload->>'uncleared_balance')::numeric,0)<0
  or (scope='PERSONAL' and kind not in('CASH','BANK','RECEIVABLE')) then raise exception 'FINANCIAL_ACCOUNT_INVALID';end if;
