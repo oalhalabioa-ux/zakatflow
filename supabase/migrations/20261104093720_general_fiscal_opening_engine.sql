@@ -399,7 +399,7 @@ begin
   if jsonb_array_length(r->'vouchers')=0 and prior is null and r->>'tab'<>'equity' then raise exception 'FISCAL_SUBLEDGER_INCOMPLETE';end if;
   carry:=coalesce((prior->>'carrySupplement')::numeric,0)+coalesce(nullif(entry->>'amount','')::numeric,0)*case when entry->>'side'='CREDIT' then -1 else 1 end;
   select coalesce(sum((v->>'debit')::numeric-(v->>'credit')::numeric),0)+carry into amount from jsonb_array_elements(r->'vouchers') v;
-  code:=coalesce(entry->>'accountCode',r->>'accountCode');
+  code:=coalesce(entry->>'accountCode',prior->>'accountCode',r->>'accountCode');
   r:=r||jsonb_build_object('accountCode',code,'tab',private.financial_opening_tab(code),'normal',case when amount>0 then 'DEBIT' when amount<0 then 'CREDIT' else r->>'normal' end,'carrySupplement',carry::numeric(24,4)::text,'closingSources',r->'vouchers',
    'vouchers',jsonb_build_array(jsonb_build_object('canonicalId','close:'||p_request||':row:'||(r->>'id'),'number','FY '||p_end,'effectiveDate',p_end+1,'transactionDate',p_end,'debit',greatest(amount,0)::numeric(24,4)::text,'credit',greatest(-amount,0)::numeric(24,4)::text)));
   rows:=rows||jsonb_build_array(r);

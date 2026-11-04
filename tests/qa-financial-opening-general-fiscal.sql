@@ -35,8 +35,8 @@ begin
   else update public.financial_events set source_record_id=first_tx where id=opening_event;end if;
   insert into public.financial_event_links(event_id,organization_id,link_type,target_module,target_record_id) values(late_event,org,'OTHER','transactions',purchase);
 
-  perform public.assign_financial_opening_source(org,'transactions',purchase,starts,starts,'1500',null,'Imported later with explicit fiscal effective date');
-  perform public.assign_financial_opening_source(org,'transactions',purchase,starts,starts,'1500',null,'Idempotent import retry');
+  perform public.assign_financial_opening_source(org,'transactions',purchase,starts,starts,case when month=4 then '1600' else '1500' end,null,'Imported later with explicit fiscal effective date');
+  perform public.assign_financial_opening_source(org,'transactions',purchase,starts,starts,case when month=4 then '1600' else '1500' end,null,'Idempotent import retry');
   if (select count(*) from public.financial_opening_source_assignments where organization_id=org and source_id=purchase)<>1 then raise exception 'assignment duplicated';end if;
   if month=1 then perform public.assign_financial_opening_source(org,'liquidity_accounts',bank,starts,starts,'1000',500,'Declared bank opening at start, distinct from current bank');end if;
   s:=public.financial_opening_workspace(org,starts);
@@ -77,6 +77,9 @@ begin
   update public.financial_events set status='DRAFT' where id=expense;
   begin perform public.close_financial_year(org,starts,gen_random_uuid(),'Reject pending operations');raise exception 'pending close accepted';exception when others then if sqlerrm<>'FISCAL_PENDING_OPERATIONS' then raise;end if;end;
   update public.financial_events set status='ACTUAL' where id=expense;
+  update public.transactions set base_value=61,gross_value=61 where id=purchase_tx;
+  begin perform public.close_financial_year(org,starts,gen_random_uuid(),'Reject ledger and asset register mismatch');raise exception 'unreconciled register closed';exception when others then if sqlerrm<>'FISCAL_SUBLEDGER_UNRECONCILED' then raise;end if;end;
+  update public.transactions set base_value=60,gross_value=60 where id=purchase_tx;
   req:=gen_random_uuid();close:=public.close_financial_year(org,starts,req,'Close full fiscal year after source reconciliation');
   insert into fiscal_snapshots values('year-'||month,jsonb_build_object('source',snap,'trial',trial,'closure',close));
   if public.close_financial_year(org,starts,req,'Retry closure')->>'id'<>close->>'id' then raise exception 'duplicate close';end if;
@@ -87,6 +90,7 @@ begin
   if (select sum((v->>'credit')::numeric-(v->>'debit')::numeric) from jsonb_array_elements(s->'source'->'rows') r cross join lateral jsonb_array_elements(r->'vouchers') v where r->>'accountCode'='3300')<>70 then raise exception 'retained earnings mismatch';end if;
   begin update public.transactions set base_value=101 where asset_account_id=asset;raise exception 'closed mutation accepted';exception when others then if sqlerrm<>'FISCAL_PERIOD_CLOSED' then raise;end if;end;
   insert into public.organization_members(organization_id,user_id,role,status) values(org,outsider,'VIEWER','ACTIVE');
+  insert into public.organization_member_permission_overrides(organization_id,user_id,permission,effect,created_by) values(org,outsider,'financial_core.view','ALLOW',owner),(org,outsider,'financial_core.create','DENY',owner),(org,outsider,'financial_core.approve','DENY',owner),(org,outsider,'financial_core.post','DENY',owner);
   perform set_config('request.jwt.claim.sub',outsider::text,true);
   execute 'set local role authenticated';
   if public.financial_fiscal_context(org,starts)->>'canClose'<>'false' then raise exception 'viewer close control';end if;
