@@ -52,3 +52,9 @@
 .coa-drawer footer button{flex:1}
 @media(max-width:1100px){.coa-workspace{grid-template-columns:1fr}.coa-tree{max-height:260px}.coa-page{padding:18px 12px}.coa-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.coa-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.coa-org{align-items:stretch;flex-direction:column}.coa-org label,.coa-org select{min-width:0;width:100%}.coa-top-actions{width:100%}.coa-top-actions button{flex:1}.coa-drawer{padding:15px}.coa-filter input:not([type=checkbox]){width:100%}}
+
+.coa-account-group{margin:10px 0 16px;border:1px solid #e3eaf1;border-radius:12px;overflow:hidden}
+.coa-account-group h3{margin:0;padding:10px 12px;font-size:14px;background:#edf2f7;color:#10243a;border-inline-start:4px solid #c6a35d}
+.coa-account-section{padding:4px 5px 7px}
+.coa-account-section h4{font-size:12px;color:#62748a;padding:7px 12px 4px;margin:0;border-bottom:1px solid #f1f4f7}
+.coa-account-group .coa-tree-item{margin-top:2px}
