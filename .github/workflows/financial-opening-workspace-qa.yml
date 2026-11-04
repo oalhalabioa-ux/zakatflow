@@ -48,7 +48,9 @@ jobs:
           s=s.replace('enable_confirmations = true','enable_confirmations = false')
           p.write_text(s)
           shutil.copytree('supabase/migrations',root/'migrations',dirs_exist_ok=True)
-          (root/'migrations'/'20261104093720_general_fiscal_opening_engine.sql').unlink()
+          for migration in ('20261104093720_general_fiscal_opening_engine.sql',
+                            '20261104113559_fiscal_future_draft_window.sql'):
+            (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
         run: npx --yes supabase@2.122.0 start --workdir "$OPENING_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/opening-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/opening-start.log"; exit 1; }

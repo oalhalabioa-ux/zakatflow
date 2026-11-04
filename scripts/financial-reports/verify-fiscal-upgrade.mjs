@@ -5,7 +5,10 @@ import {join} from 'node:path';
 import assert from 'node:assert/strict';
 const dir=process.env.OPENING_QA_WORKDIR;
 assert.ok(dir&&process.env.RUNNER_TEMP&&dir.startsWith(process.env.RUNNER_TEMP+'/'),'DISPOSABLE_RUNNER_REQUIRED');
-const migration='20261104093720_general_fiscal_opening_engine.sql';
+const migrations=[
+ '20261104093720_general_fiscal_opening_engine.sql',
+ '20261104113559_fiscal_future_draft_window.sql'
+];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});
 assert.equal(sql("select to_regclass('public.financial_fiscal_calendars') is null").trim(),'t');
@@ -35,7 +38,7 @@ const preserved=()=>JSON.parse(sql(`select jsonb_build_object(
  'policy',(select jsonb_agg(to_jsonb(p) order by id) from public.financial_reporting_policies p where organization_id='${org}'))`));
 const snapshot=()=>JSON.parse(sql(`select set_config('request.jwt.claim.sub','${owner}',false);select public.financial_statement_live_snapshot('${org}','2024-01-01','2024-12-31')-'coverage'`).trim().split('\n').at(-1));
 const before=preserved(),statementBefore=snapshot();
-await writeFile(join(dir,'supabase/migrations',migration),await readFile('supabase/migrations/'+migration));
+for(const migration of migrations) await writeFile(join(dir,'supabase/migrations',migration),await readFile('supabase/migrations/'+migration));
 execFileSync('npx',['--yes','supabase@2.122.0','migration','up','--local','--workdir',dir],{stdio:'inherit'});
 assert.deepEqual(preserved(),before,'Upgrade changed existing organization records or approvals');
 assert.deepEqual(snapshot(),statementBefore,'Upgrade changed an existing approved statement');
