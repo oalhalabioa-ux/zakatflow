@@ -61,8 +61,9 @@ begin
   trial:=private.financial_fiscal_trial(snap,'3300');
   if trial->>'profit'<>'70.0000' then raise exception 'profit mismatch %',trial;end if;
   if (select x->>'closing' from jsonb_array_elements(trial->'trialBalance') x where x->>'accountId'='1000')<>'510.0000' then raise exception 'cash closing';end if;
-  insert into fiscal_snapshots values('year-'||month,snap);
+
   req:=gen_random_uuid();close:=public.close_financial_year(org,starts,req,'Close full fiscal year after source reconciliation');
+  insert into fiscal_snapshots values('year-'||month,jsonb_build_object('source',snap,'trial',trial,'closure',close));
   if public.close_financial_year(org,starts,req,'Retry closure')->>'id'<>close->>'id' then raise exception 'duplicate close';end if;
   if (select count(*) from public.financial_year_closures where organization_id=org and status='CLOSED')<>1 then raise exception 'closing duplicated';end if;
   s:=public.financial_opening_workspace(org,nextdate);

@@ -245,7 +245,6 @@ begin
      );
     end if;
    $filter$);
-   definition:=replace(definition,"'FISCAL_V1'","'FISCAL_V1'");
   end if;
   execute definition;
  end loop;
@@ -436,3 +435,30 @@ begin
   execute format('create trigger financial_closed_source_guard before insert or update or delete on public.%I for each row execute function private.financial_closed_source_guard()',tbl);
  end loop;
 end $$;
+
+create function private.financial_period_end(p_org uuid,p_start date)
+returns date language plpgsql stable security definer set search_path='' as $$
+begin
+ if exists(select 1 from public.financial_fiscal_calendars where organization_id=p_org) then
+  if (private.financial_fiscal_period(p_org,p_start)->>'start')::date<>p_start then raise exception 'FISCAL_START_MISMATCH';end if;
+  return (private.financial_fiscal_period(p_org,p_start)->>'end')::date;
+ end if;
+ return (p_start+interval '1 year'-interval '1 day')::date;
+end $$;
+revoke all on function private.financial_period_end(uuid,date) from public,anon,authenticated;
+do $$
+declare signature text;definition text;
+begin
+ foreach signature in array array['public.save_financial_reporting_policy(uuid,date,integer,jsonb,text)','public.financial_reporting_policy_workspace(uuid,date)','public.financial_opening_workspace(uuid,date)','public.financial_statement_live_context()','private.financial_statement_live_snapshot_v1(uuid,date,date)'] loop
+  definition:=pg_get_functiondef(signature::regprocedure);
+  definition:=replace(definition,$literal$(p_fiscal_start+interval '1 year'-interval '1 day')::date$literal$,'private.financial_period_end(p_org,p_fiscal_start)');
+  definition:=replace(definition,$literal$(w.fiscal_start+interval '1 year'-interval '1 day')::date$literal$,'private.financial_period_end(o.id,w.fiscal_start)');
+  definition:=replace(definition,$literal$p_to<(fiscal_start+interval '1 year')$literal$,'p_to<=private.financial_period_end(p_org,fiscal_start)');
+  definition:=replace(definition,$literal$t.transaction_date<p_fiscal_start+interval '1 year'$literal$,'t.transaction_date<=private.financial_period_end(p_org,p_fiscal_start)');
+  execute definition;
+ end loop;
+end $$;
+create index fiscal_calendar_actor_fk on public.financial_fiscal_calendars(updated_by);
+create index fiscal_assignment_actor_fk on public.financial_opening_source_assignments(created_by);
+create index fiscal_closure_actor_fk on public.financial_year_closures(created_by);
+create index fiscal_audit_actor_fk on public.financial_fiscal_audit(actor_id);
