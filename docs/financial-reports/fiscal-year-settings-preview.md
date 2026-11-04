@@ -22,6 +22,6 @@ One **new, unapplied** migration (`20261104165205_fiscal_calendar_budget_guards.
 - 201 unit test files: 1,145 passed, 1 evidence-dependent test skipped.
 - PostgreSQL/WASM execution passed actual guard SQL for independent January/July calendars, wrong budget dates, approved binding protection, preserving records after rejection and review of legacy unconfigured budgets.
 - Full disposable Supabase Auth/PostgREST/browser acceptance is configured in `financial-opening-workspace-qa.yml`; the existing canonical history is bootstrapped only into a fresh temporary test database. Production is never targeted.
-- The read-only review route `/ar/preview/fiscal-years` uses the same management component with fictional January/July fixtures, closed years and budget alignment. It performs no data API commands. Both `VERCEL_ENV=preview` and the branch-scoped `FISCAL_YEAR_REVIEW_PREVIEW=true` flag are required. It is unavailable on Production.
+- The read-only review route `/ar/preview/fiscal-years` uses the same management component with fictional January/July fixtures, closed years and budget alignment. It performs no data API commands. Both `VERCEL_ENV=preview` and the branch-scoped `FISCAL_YEAR_REVIEW_PREVIEW=true` flag are required. It is unavailable on Production. Middleware exempts only this exact fictional-data route when both Preview gates are set; real settings and data APIs retain authentication.
 
 No Production merge, deployment, migration, customer configuration or customer data changes are authorized for this task.
