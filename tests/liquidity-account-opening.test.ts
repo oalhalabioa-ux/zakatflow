@@ -1,0 +1,15 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const state=vi.hoisted(()=>({open:vi.fn()}));
+vi.mock('@/services/financial-account-opening',()=>({openFinancialAccount:state.open}));
+vi.mock('@/services/auth',()=>({requireUser:async()=>({user:{id:'10000000-0000-4000-8000-000000000001'},supabase:{from:()=>{throw Error('Raw writes forbidden')}}})}));
+vi.mock('@/services/organization-access',()=>({requireOrganizationMember:async()=>{},requireOrganizationAdmin:async()=>{}}));
+vi.mock('@/lib/workspace-organization',()=>({organizationScopeIds:()=>new Set()}));
+vi.mock('@/lib/liquidity-transfer',()=>({calculateLiquidityTransfer:vi.fn()}));
+vi.mock('@/lib/intercompany-transfer',()=>({calculateIntercompanyTransfer:vi.fn()}));
+vi.mock('@/services/financial-events',()=>({executeFinancialEventAction:vi.fn()}));
+import {POST} from '../app/api/liquidity/route';
+const payload={kind:'account',organization_id:'20000000-0000-4000-8000-000000000001',request_id:'30000000-0000-4000-8000-000000000001',name:'Operating bank',account_type:'BANK',currency:'SAR',balance_mode:'OPENING',opening_date:'2026-07-01',fx_rate:1,current_balance:500,current_balance_base:99999};
+const post=(body:unknown)=>POST(new Request('https://preview.test/api/liquidity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
+beforeEach(()=>state.open.mockReset().mockResolvedValue({id:'bank'}));
+it('routes liquidity creation through the shared command and discards client-calculated base balances',async()=>{expect((await post(payload)).status).toBe(201);expect(state.open).toHaveBeenCalledWith(expect.objectContaining({scope:'ORGANIZATION',opening_balance:500,balance_mode:'OPENING',opening_date:'2026-07-01',fx_rate:1}));expect(state.open.mock.calls[0][0]).not.toHaveProperty('current_balance_base')});
+it('requires an explicit mode and effective date rather than silently inserting a current snapshot',async()=>{const {balance_mode,opening_date,...legacy}=payload;expect((await post(legacy)).status).toBeGreaterThanOrEqual(400);expect(state.open).not.toHaveBeenCalled()});

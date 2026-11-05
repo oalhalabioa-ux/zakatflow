@@ -1732,6 +1732,14 @@
       "validation_project": "Disposable funded debt and institutional statement acceptance only"
     },
     {
+      "path": "supabase/migrations/20261104222828_unified_cash_account_openings.sql",
+      "version": "20261104222828",
+      "name": "unified_cash_account_openings",
+      "expected_md5": "23b034d8c0b4a18c847480a90328689f",
+      "file_sha256": "1ed24aec5b74a279739188a7662d7566106ac911698a93b168bbdc4a67009254",
+      "validation_project": "Disposable unified cash opening QA only; not applied to Production"
+    },
+    {
       "path": "supabase/migrations/20261105010000_fiscal_retained_leaf_account.sql",
       "version": "20261105010000",
       "name": "fiscal_retained_leaf_account",

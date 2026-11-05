@@ -1,0 +1,216 @@
+{
+  "description": "Typed cash openings, immutable scope-aware bank chart links, audited metadata synchronization and unapproved legacy suggestions. No existing data transformations.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.financial_cash_account_links.account_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_cash_account_links.chart_account_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_cash_account_links.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_cash_account_links.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_cash_account_links.currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_cash_account_links.entity_id",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_cash_account_links.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_account_id_fkey",
+      "fingerprint": "91db4184c859888c229f2d22b2f1cdeb"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_chart_account_id_fkey",
+      "fingerprint": "467f79b88f4d3a2bf5cae356b275ab8f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_chart_account_id_key",
+      "fingerprint": "cda80aeb8a26535b3a7c746f7c06c5a6"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_currency_check",
+      "fingerprint": "f0d8a806244ef088accc061b49313af2"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_entity_id_fkey",
+      "fingerprint": "436a39954236ee22105f4f15579ff53d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_pkey",
+      "fingerprint": "76871f5d0c4d61097bef4101eb1c1434"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_cash_actual_movements(p_org uuid, p_id uuid)",
+      "fingerprint": "18c9887a68a36b1aba22d90deac77e66"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_cash_chart_guard()",
+      "fingerprint": "cf4a1c4ed869192b6f8e1563f6315a04"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_cash_identity_guard()",
+      "fingerprint": "f3bfae32259502d11f820d6742446c4c"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_cash_link_guard()",
+      "fingerprint": "7e1747a8adc8317ed2b92e2282501cfb"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_cash_metadata_sync()",
+      "fingerprint": "76644a6e96c7eeaba5934df436f21936"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_cash_opening_suggestions(p_org uuid, p_start date)",
+      "fingerprint": "65c5152e0aef2a58a85e7c6a8508c55c"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_closed_source_guard()",
+      "fingerprint": "4fd0f548368796063cf4788659f8a1f2"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_link_cash_account(p_id uuid)",
+      "fingerprint": "ad69dff14b1da79f49814d2ae159e9d3"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_sync_cash_account(p_id uuid)",
+      "fingerprint": "e466c02bc02d5d13e2448d29ca4a392a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.correct_financial_cash_opening(p_org uuid, p_id uuid, p_date date, p_amount numeric, p_fx numeric, p_token text, p_reason text)",
+      "fingerprint": "2238614eaf14b605169e1a664c5fc7fd"
+    },
+    {
+      "category": "function",
+      "object_key": "public.describe_financial_cash_flow(p_org uuid, p_id uuid, p_title text, p_reference text, p_notes text, p_token text, p_reason text)",
+      "fingerprint": "2ce6258f5d049083289387e139da065a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_cash_flow_source(p_org uuid, p_id uuid)",
+      "fingerprint": "9aac80f2c087833680297248b12d085e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_cash_opening_detail(p_org uuid, p_id uuid, p_date date)",
+      "fingerprint": "0c71263c0b4a2987eff6f813c48034a7"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_opening_candidates(p_org uuid, p_start date)",
+      "fingerprint": "0f1652932c40a1e6fb93ca473fba81f5"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_opening_workspace(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "7e653b0ac4e06b5be169b41a62187890"
+    },
+    {
+      "category": "function",
+      "object_key": "public.link_financial_cash_accounts(p_org uuid)",
+      "fingerprint": "f3151e66c29f1a651b0aead933a25fad"
+    },
+    {
+      "category": "function",
+      "object_key": "public.open_financial_account(p_payload jsonb)",
+      "fingerprint": "c863ea19ac3009e525955aca53a25606"
+    },
+    {
+      "category": "function",
+      "object_key": "public.update_financial_cash_account(p_org uuid, p_id uuid, p_name text, p_active boolean, p_expected_name text, p_expected_active boolean, p_reason text)",
+      "fingerprint": "852931b2675ebe278f128870d13e2951"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_chart_account_id_key",
+      "fingerprint": "97f236be35796c1cec2a8ba47d8c5dd7"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_cash_account_links.financial_cash_account_links_pkey",
+      "fingerprint": "ca3009cb471375d097ba335ed10c3b9b"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_cash_account_links.financial_cash_links_org",
+      "fingerprint": "66ecae33e6cec8a121c818ef1e5bd4b7"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_cash_account_links.cash_chart_links_read",
+      "fingerprint": "1e9854daa900bfe864e76c19326b9bb3"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_cash_account_links",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_cash_account_links.financial_cash_link_guard",
+      "fingerprint": "2bcde633dd384965cc57f298d969a03a"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_chart_custom_accounts.financial_cash_chart_guard",
+      "fingerprint": "e9a884d23375ad78e62ba6dcbb7131b6"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.liquidity_accounts.financial_cash_identity_guard",
+      "fingerprint": "42860d77fd9f70e6ed8cc969244f541b"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.liquidity_accounts.financial_cash_metadata_sync",
+      "fingerprint": "df31458006ba32115b6ecdf75ea9ea45"
+    }
+  ]
+}

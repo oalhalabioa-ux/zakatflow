@@ -1,0 +1,64 @@
+-- Isolated transaction: three pre-existing bank registers, no automatic posting.
+begin;
+do $$
+declare u uuid:=gen_random_uuid();o uuid:=gen_random_uuid();foreign_org uuid:=gen_random_uuid();branch uuid:=gen_random_uuid();foreign_branch uuid:=gen_random_uuid();a uuid:=gen_random_uuid();b uuid:=gen_random_uuid();c uuid:=gen_random_uuid();bank jsonb;zero_bank jsonb;foreign_currency jsonb;map jsonb;before_rows jsonb;after_rows jsonb;monetary_before jsonb;monetary_after jsonb;link_id uuid;code text;chart_count int;audit_count int;s jsonb;
+begin
+ insert into auth.users(id,email,email_confirmed_at) values(u,u||'@bank-sync.invalid',now());perform set_config('request.jwt.claim.sub',u::text,true);
+ insert into public.organizations(id,owner_user_id,name) values(o,u,'QA cash link synchronization'),(foreign_org,u,'QA cash foreign scope');
+ insert into public.organization_members(organization_id,user_id,role,status) values(o,u,'OWNER','ACTIVE'),(foreign_org,u,'OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';
+ insert into public.organization_entities(id,organization_id,name,entity_type) values(branch,o,'QA bank branch','BRANCH'),(foreign_branch,foreign_org,'QA foreign branch','BRANCH');
+ perform public.save_financial_fiscal_calendar(o,1,1,'3300',0,'Independent January bank fixture');
+ insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
+ values(a,o,'QA bank A','BANK','SAR',2500000,2500000,u,'{}'),(b,o,'QA bank B','BANK','SAR',400000,400000,u,'{}'),(c,o,'QA bank C','BANK','SAR',250000,250000,u,'{}');
+ select jsonb_agg(to_jsonb(r) order by id) into before_rows from public.liquidity_accounts r where organization_id=o;
+ select jsonb_build_object('events',(select count(*) from public.financial_events where organization_id=o),'lines',(select count(*) from public.financial_event_lines where organization_id=o),'settlements',(select count(*) from public.liquidity_settlements where organization_id=o),'flows',(select count(*) from public.liquidity_flows where organization_id=o)) into monetary_before;
+ map:=public.link_financial_cash_accounts(o);perform public.link_financial_cash_accounts(o);
+ select jsonb_agg(to_jsonb(r) order by id) into after_rows from public.liquidity_accounts r where organization_id=o;
+ if before_rows is distinct from after_rows then raise exception 'Linking rewrote an existing bank';end if;
+ if (select count(*) from public.financial_cash_account_links where organization_id=o)<>3 or (select count(distinct chart_account_id) from public.financial_cash_account_links where organization_id=o)<>3 then raise exception 'Expected exactly three stable links';end if;
+ if (select count(*) from public.financial_cash_account_links l join public.financial_chart_custom_accounts x on x.id=l.chart_account_id where l.organization_id=o and x.organization_id=o and x.reporting_code='1000' and x.is_active and x.is_postable)<>3 then raise exception 'Three banks not under control 1000';end if;
+ if (select sum(current_balance_base) from public.liquidity_accounts where organization_id=o)<>3150000 then raise exception 'Existing balances changed';end if;
+ select chart_account_id into link_id from public.financial_cash_account_links where account_id=a;
+ perform public.update_financial_cash_account(o,a,'QA bank A renamed',true,'QA bank A',true,'Rename without a financial operation');
+ if not exists(select 1 from public.financial_cash_account_links l join public.financial_chart_custom_accounts x on x.id=l.chart_account_id where l.account_id=a and l.chart_account_id=link_id and x.name_ar='QA bank A renamed' and x.name_en='QA bank A renamed') then raise exception 'Rename lost identity or did not synchronize';end if;
+ select count(*) into audit_count from public.audit_logs where entity_id=a and action='UPDATE_FINANCIAL_CASH_ACCOUNT';
+ perform public.update_financial_cash_account(o,a,'QA bank A renamed',true,'QA bank A',true,'Retry the same operation');
+ if (select count(*) from public.audit_logs where entity_id=a and action='UPDATE_FINANCIAL_CASH_ACCOUNT')<>audit_count then raise exception 'Retry duplicated metadata audit';end if;
+ begin perform public.update_financial_cash_account(o,a,'Stale rename',true,'QA bank A',true,'Stale concurrent request');raise exception 'Stale update accepted';exception when raise_exception then if sqlerrm not like '%VERSION_CONFLICT%' then raise;end if;end;
+ begin perform public.update_financial_cash_account(o,a,'QA bank A renamed',false,'QA bank A renamed',true,'Cannot close a funded bank');raise exception 'Nonzero bank deactivated';exception when raise_exception then if sqlerrm not like '%NONZERO_BALANCE%' then raise;end if;end;
+ begin update public.financial_chart_custom_accounts set name_ar='Independent wrong name' where id=link_id;raise exception 'Independent chart rename accepted';exception when raise_exception then if sqlerrm not like '%EDIT_FROM_REGISTER%' then raise;end if;end;
+ begin update public.liquidity_accounts set currency='USD' where id=a;raise exception 'Linked currency changed';exception when raise_exception then if sqlerrm not like '%IDENTITY_IMMUTABLE%' then raise;end if;end;
+ begin update public.liquidity_accounts set organization_id=foreign_org where id=a;raise exception 'Linked institution changed';exception when raise_exception then if sqlerrm not like '%IDENTITY_IMMUTABLE%' then raise;end if;end;
+ begin update public.liquidity_accounts set entity_id=foreign_branch where id=a;raise exception 'Linked branch changed';exception when raise_exception then if sqlerrm not like '%IDENTITY_IMMUTABLE%' then raise;end if;end;
+ begin update public.financial_cash_account_links set currency='USD' where account_id=a;raise exception 'Link scope changed';exception when raise_exception then if sqlerrm not like '%LINK_IMMUTABLE%' then raise;end if;end;
+ begin update public.financial_cash_account_links set chart_account_id=(select chart_account_id from public.financial_cash_account_links where account_id=b) where account_id=a;raise exception 'Bank relink accepted';exception when raise_exception then if sqlerrm not like '%LINK_IMMUTABLE%' then raise;end if;end;
+ begin insert into public.financial_cash_account_links select * from public.financial_cash_account_links where account_id=a;raise exception 'Duplicate bank mapping accepted';exception when unique_violation then null;end;
+ begin perform public.update_financial_cash_account(foreign_org,a,'Foreign bank name',true,'QA bank A renamed',true,'Cannot cross organization');raise exception 'Cross-org update accepted';exception when raise_exception then if sqlerrm not like '%ACCESS_DENIED%' then raise;end if;end;
+ zero_bank:=public.open_financial_account(jsonb_build_object('request_id',gen_random_uuid(),'scope','ORGANIZATION','organization_id',o,'entity_id',branch,'type','BANK','name','QA zero bank','currency','SAR','balance_mode','NEW','opening_balance',0,'opening_date',current_date,'fx_rate',1));
+ if not exists(select 1 from public.financial_cash_account_links where account_id=(zero_bank->>'id')::uuid and currency='SAR' and entity_id=branch) then raise exception 'Initial branch/currency lost';end if;
+ perform public.update_financial_cash_account(o,(zero_bank->>'id')::uuid,'QA zero bank',false,'QA zero bank',true,'Deactivate an unused zero bank');
+ if not exists(select 1 from public.financial_cash_account_links l join public.financial_chart_custom_accounts x on x.id=l.chart_account_id where l.account_id=(zero_bank->>'id')::uuid and not x.is_active) then raise exception 'Deactivation not synchronized';end if;
+ perform public.update_financial_cash_account(o,(zero_bank->>'id')::uuid,'QA zero bank',true,'QA zero bank',false,'Reactivate the same bank link');
+ select x.code into code from public.financial_cash_account_links l join public.financial_chart_custom_accounts x on x.id=l.chart_account_id where l.account_id=(zero_bank->>'id')::uuid and x.is_active;
+ if code is null then raise exception 'Reactivation not synchronized';end if;
+ foreign_currency:=public.open_financial_account(jsonb_build_object('request_id',gen_random_uuid(),'scope','ORGANIZATION','organization_id',o,'type','BANK','name','QA bank A renamed','currency','USD','balance_mode','NEW','opening_balance',0,'opening_date',current_date,'fx_rate',3.75));
+ if (foreign_currency->>'id')=a::text or not exists(select 1 from public.financial_cash_account_links where account_id=(foreign_currency->>'id')::uuid and currency='USD' and chart_account_id<>link_id) then raise exception 'Names or currencies were used as a matching key';end if;
+ s:=public.financial_opening_workspace(o,'2026-01-01');
+ perform public.save_financial_opening(o,'2026-01-01',0,s->'source'->>'revision',jsonb_build_object('cash:'||(zero_bank->>'id'),jsonb_build_object('amount','0','side','DEBIT','accountCode',code)),'Protect a saved opening mapping');
+ begin perform public.update_financial_cash_account(o,(zero_bank->>'id')::uuid,'QA zero bank',false,'QA zero bank',true,'Protected opening must remain usable');raise exception 'Protected chart was deactivated';exception when raise_exception then if sqlerrm not like '%REFERENCED_BY_OPENING%' then raise;end if;end;
+ if not (select active from public.liquidity_accounts where id=(zero_bank->>'id')::uuid) then raise exception 'Failed sync partially deactivated the bank';end if;
+ insert into public.financial_year_closures(organization_id,fiscal_start,fiscal_end,next_start,currency,version,status,request_id,source_revision,source_snapshot,trial_balance,next_opening,next_source,reason,created_by)
+ values(o,'2026-01-01','2026-12-31','2027-01-01','SAR',1,'CLOSED',gen_random_uuid(),md5('QA closed source'),'{}','[]','[]','[]','QA closed-year metadata guard',u);
+ perform public.update_financial_cash_account(o,a,'QA rename after close',true,'QA bank A renamed',true,'Descriptive rename preserves closed balances');
+ if (select name_ar from public.financial_chart_custom_accounts where id=link_id)<>'QA rename after close' or (select current_balance_base from public.liquidity_accounts where id=a)<>2500000 then raise exception 'Closed rename altered identity or amount';end if;
+ select jsonb_build_object('events',(select count(*) from public.financial_events where organization_id=o),'lines',(select count(*) from public.financial_event_lines where organization_id=o),'settlements',(select count(*) from public.liquidity_settlements where organization_id=o),'flows',(select count(*) from public.liquidity_flows where organization_id=o)) into monetary_after;
+ if monetary_before is distinct from monetary_after then raise exception 'Metadata created financial movements';end if;
+ if (select sum(current_balance_base) from public.liquidity_accounts where organization_id=o)<>3150000 then raise exception 'Metadata changed register balances';end if;
+ perform set_config('qa.cash_sync_owner',u::text,true);perform set_config('qa.cash_sync_org',o::text,true);perform set_config('qa.cash_sync_bank',b::text,true);
+end $$;
+select set_config('request.jwt.claim.sub',current_setting('qa.cash_sync_owner'),true);
+set local role authenticated;
+select public.update_financial_cash_account(current_setting('qa.cash_sync_org')::uuid,current_setting('qa.cash_sync_bank')::uuid,'QA real-role bank rename',true,'QA bank B',true,'Genuine authenticated role synchronization');
+reset role;
+select 'PASS three existing banks under 1000; balances unchanged; no financial movements; stable IDs; audited name and active synchronization; immutable organization/currency/branch; protected references and real-role access' result;
+rollback;

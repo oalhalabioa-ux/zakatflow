@@ -7,3 +7,5 @@ describe('asset entry commands',()=>{
  it('always uses Latin digits',()=>{const value=assetEntryAmount(100000,'SAR');expect(value).toBe('100,000.00 SAR');expect(value).not.toMatch(/[٠-٩]/);});
  it('adapts to the same register opening command without VAT or cash settlement fields',()=>{const p=financialOpeningFromAsset({name:'Cash',asset_type:'CASH',currency:'SAR',ownership_scope:'PERSONAL',metadata:{purchase_value:100,purchase_date:'2026-10-20',fx_rate:1,vat_rate:15,vat_amount:15}},'request');expect(p).toMatchObject({type:'CASH',opening_balance:100,scope:'PERSONAL',opening_date:'2026-10-20',hawl_start_date:'2026-10-20'});expect(p).not.toHaveProperty('vat_amount');expect(p).not.toHaveProperty('funding_account_id');});
 });
+
+it('requires a positive opening when cash or bank is created through assets',()=>{for(const asset_type of ['BANK','CASH'])for(const purchase_value of [0,-1])expect(()=>financialOpeningFromAsset({asset_type,metadata:{purchase_value}},'request')).toThrow('ASSET_CASH_OPENING_REQUIRED')});

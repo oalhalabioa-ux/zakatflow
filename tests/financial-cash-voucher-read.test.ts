@@ -1,0 +1,10 @@
+import {afterEach,beforeEach,it,expect,vi} from 'vitest';
+const state=vi.hoisted(()=>({auth:vi.fn(),rpc:vi.fn(),from:vi.fn()}));
+vi.mock('../services/auth',()=>({requireUser:state.auth}));
+import {financialEventDetail,financialEventSourceDetail} from '../services/financial-events';
+const org='10000000-0000-4000-8000-000000000001',id='20000000-0000-4000-8000-000000000001',user='30000000-0000-4000-8000-000000000001';
+beforeEach(()=>{vi.stubEnv('FINANCIAL_BUDGET_UI_QA','false');state.rpc.mockReset().mockResolvedValue({data:false,error:null});state.from.mockReset();state.auth.mockReset().mockResolvedValue({user:{id:user},supabase:{rpc:state.rpc,from:state.from}})});
+afterEach(()=>vi.unstubAllEnvs());
+it('keeps the complete operational console gated to QA',async()=>{await expect(financialEventDetail(org,id)).rejects.toThrow('FINANCIAL_BUDGET_QA_ONLY');expect(state.auth).not.toHaveBeenCalled()});
+it('requires financial view permission before reading any production source',async()=>{await expect(financialEventSourceDetail(org,id)).rejects.toThrow('FINANCIAL_CORE_VIEW_DENIED');expect(state.from).not.toHaveBeenCalled()});
+it('production source reads filter the exact company and event through the user session',async()=>{const filters:Array<[string,unknown]>=[];state.rpc.mockImplementation(async(_name:string,args:any)=>({data:args.p_permission==='financial_core.view',error:null}));state.from.mockImplementation((table:string)=>{const query:any={select:()=>query,eq:(field:string,value:unknown)=>{filters.push([field,value]);return query},in:()=>query,single:async()=>({data:{id,organization_id:org,status:'ACTUAL',event_type:'ADJUSTMENT',source_module:'DEBT_CONTRACTS',created_by:user},error:null}),then:(resolve:any,reject:any)=>Promise.resolve({data:[],error:null}).then(resolve,reject)};return query});const d=await financialEventSourceDetail(org,id);expect(d.event.id).toBe(id);expect(d.allowedActions).toEqual([]);expect(filters).toContainEqual(['organization_id',org]);expect(filters).toContainEqual(['id',id])});
