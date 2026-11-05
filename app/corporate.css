@@ -896,3 +896,21 @@
   .corp-shell.sidebar-mobile-rail[dir="rtl"] .corp-drawer-close svg{transform:rotate(180deg)}
   .corp-shell.sidebar-mobile-rail[dir="ltr"] .corp-drawer-close svg{transform:none}
 }
+
+/* Give finance and settings an accessible company picker on narrow screens. */
+@media (max-width:700px) {
+ .corp-shell .corp-topbar:has([data-labeled-organization-picker]) {
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  height:auto;min-height:62px;padding:8px;row-gap:6px;
+ }
+ .corp-shell .corp-topbar:has([data-labeled-organization-picker]) .corp-navigation-tools { display:contents; }
+ .corp-topbar:has([data-labeled-organization-picker]) .corp-mobile-menu { grid-row:1;grid-column:1; }
+ .corp-topbar:has([data-labeled-organization-picker]) .corp-workspace-scope { grid-row:1;grid-column:2;justify-self:start; }
+ .corp-topbar:has([data-labeled-organization-picker]) .corp-top-actions { grid-row:1;grid-column:3; }
+ .corp-shell .corp-topbar:has([data-labeled-organization-picker]) .corp-organization-controls {
+  grid-row:2;grid-column:1 / -1;width:calc(100% - 40px);overflow:visible;
+ }
+ .corp-topbar:has([data-labeled-organization-picker]) :is(.corp-organization-inner,[data-labeled-organization-picker]) { width:100%; }
+ .corp-shell .corp-topbar [data-labeled-organization-picker] select { width:100%;max-width:none; }
+ .corp-topbar:has([data-labeled-organization-picker]) .corp-search-control { grid-row:2;grid-column:3;justify-self:end; }
+}
