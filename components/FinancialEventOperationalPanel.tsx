@@ -25,7 +25,7 @@ export default function FinancialEventOperationalPanel({locale}:{locale:string})
  const[busy,setBusy]=useState(false);const[loading,setLoading]=useState(false);const[error,setError]=useState('');const[message,setMessage]=useState('');
  const[key,setKey]=useState('');const[lastCommand,setLastCommand]=useState<unknown>(null);
  const generation=useRef(0);const selection=useRef({organization,eventId,targetId});selection.current={organization,eventId,targetId};
- useEffect(()=>{setKey(crypto.randomUUID());api('?action=context').then(setContext).catch(e=>setError(e.message));},[]);
+ useEffect(()=>{setKey(crypto.randomUUID());api('?action=context').then(value=>{setContext(value);const q=new URLSearchParams(window.location.search),org=q.get('organization'),event=q.get('event');if(org&&value.organizations.some((o:Row)=>o.id===org)){setOrganization(org);if(event&&/^[0-9a-f-]{36}$/i.test(event))setEventId(event)}}).catch(e=>setError(e.message));},[]);
  const reload=useCallback(async()=>{
   if(!organization)return;const version=++generation.current;setLoading(true);setError('');
   try{const w=await api(`?action=workspace&organization=${organization}`);const[d,s]=await Promise.all([eventId?api(`?action=detail&organization=${organization}&event=${eventId}`):null,targetId?api(`?action=detail&organization=${organization}&event=${targetId}`):null]);if(version!==generation.current)return;setWorkspace(w);setDetail(d);setTarget(s);}catch(e){if(version===generation.current){setWorkspace(null);setDetail(null);setTarget(null);setError(e instanceof Error?e.message:'LOAD_FAILED');}}finally{if(version===generation.current)setLoading(false);}

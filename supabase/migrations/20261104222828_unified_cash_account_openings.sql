@@ -222,3 +222,72 @@ begin
  execute definition;
 end $$;
 notify pgrst,'reload schema';
+
+-- Bank statement opening corrections share actual movement deduplication with
+-- the reporting reader. They never create receipts, flows or journal events.
+create function private.financial_cash_actual_movements(p_org uuid,p_id uuid)
+returns table(id text,dt date,native numeric,base numeric) language sql stable security definer set search_path='' as $$
+ select 'settlement:'||s.id,s.settlement_date,s.amount*case when s.direction='INFLOW' then 1 else -1 end,s.base_amount*case when s.direction='INFLOW' then 1 else -1 end
+ from public.liquidity_settlements s where s.organization_id=p_org and s.account_id=p_id and s.status in('POSTED','REVERSED')
+ union all
+ select 'flow:'||f.id,f.due_date,f.amount*case when f.direction='INFLOW' then 1 else -1 end,f.base_amount*case when f.direction='INFLOW' then 1 else -1 end
+ from public.liquidity_flows f where f.organization_id=p_org and f.account_id=p_id and f.status='ACTUAL'
+ and not exists(select 1 from public.financial_core_cash_event_flow_links l join public.liquidity_settlements s on s.financial_event_id=l.financial_event_id and s.organization_id=p_org where l.organization_id=p_org and l.liquidity_flow_id=f.id)
+ and not exists(select 1 from public.liquidity_flow_settlement_allocations a join public.liquidity_settlements s on s.id=a.settlement_id and s.organization_id=p_org where a.organization_id=p_org and a.flow_id=f.id and s.status in('POSTED','REVERSED'))
+$$;
+revoke all on function private.financial_cash_actual_movements(uuid,uuid) from public,anon,authenticated;
+
+create function public.financial_cash_opening_detail(p_org uuid,p_id uuid,p_date date default null)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare b public.liquidity_accounts%rowtype;v_date date;m jsonb;amt numeric;bas numeric;issue text;first_date date;ccy text;
+begin
+ if auth.uid() is null or not private.financial_opening_can(p_org,'financial_core.view') then raise exception 'FISCAL_CASH_ACCESS_DENIED';end if;
+ select * into b from public.liquidity_accounts where id=p_id and organization_id=p_org;
+ if b.id is null then raise exception 'FISCAL_CASH_ACCESS_DENIED';end if;
+ v_date:=coalesce(p_date,nullif(b.metadata->>'opening_date','')::date,case when exists(select 1 from public.financial_fiscal_calendars where organization_id=p_org) then (private.financial_fiscal_period(p_org,current_date)->>'start')::date else b.created_at::date end);
+ if v_date is null or v_date>current_date then raise exception 'FISCAL_CASH_DATE_INVALID';end if;
+ select coalesce(jsonb_agg(to_jsonb(x) order by id),'[]'),min(x.dt) into m,first_date from private.financial_cash_actual_movements(p_org,p_id) x;
+ select b.current_balance-coalesce(sum(x.native) filter(where x.dt>=v_date),0),b.current_balance_base-coalesce(sum(x.base) filter(where x.dt>=v_date),0) into amt,bas from private.financial_cash_actual_movements(p_org,p_id) x;
+ select base_currency into ccy from public.organizations where id=p_org;
+ issue:=case when not exists(select 1 from public.financial_fiscal_calendars where organization_id=p_org) then 'FISCAL_CALENDAR_REQUIRED' when not private.financial_opening_can(p_org,'financial_core.create') then 'FISCAL_WRITE_DENIED'
+ when not b.active then 'FISCAL_CASH_INACTIVE'
+ when exists(select 1 from public.financial_year_closures where organization_id=p_org and status='CLOSED') then 'FISCAL_CLOSED_SOURCE_CORRECTION_REQUIRED'
+ when exists(select 1 from public.financial_opening_workspaces where organization_id=p_org and status='APPROVED') then 'FISCAL_APPROVED_SOURCE_CORRECTION_REQUIRED'
+ when exists(select 1 from public.financial_opening_source_assignments where organization_id=p_org and source_table='liquidity_accounts' and source_id=p_id) then 'FISCAL_ASSIGNED_SOURCE_CORRECTION_REQUIRED'
+ when exists(select 1 from public.financial_opening_workspaces w cross join lateral jsonb_each(w.entries) e where w.organization_id=p_org and w.status='DRAFT' and e.key='cash:'||p_id and coalesce(nullif(e.value->>'amount','')::numeric,0)<>0) then 'FISCAL_DRAFT_OPENING_REVIEW_REQUIRED'
+ when first_date<v_date then 'FISCAL_CASH_DATE_AFTER_MOVEMENT'
+ when exists(select 1 from private.financial_cash_actual_movements(p_org,p_id) x where x.native is null or x.base is null) then 'FISCAL_CASH_CURRENCY_REVIEW_REQUIRED' end;
+ return jsonb_build_object('id',b.id,'name',b.name,'currency',b.currency,'baseCurrency',ccy,'date',v_date,'amount',amt::text,'baseAmount',bas::text,
+ 'fx',case when b.currency=ccy then '1' when amt<>0 and bas/amt>0 then (bas/amt)::text else coalesce(b.metadata->>'opening_fx_rate','1') end,
+ 'balance',b.current_balance::text,'baseBalance',b.current_balance_base::text,'accountType',b.account_type,'restricted',b.restricted_balance,'uncleared',b.uncleared_balance,'entityId',b.entity_id,'firstMovement',first_date,'issue',issue,'canEdit',issue is null,
+ 'token',md5(to_jsonb(b)::text||m::text||v_date::text),'recorded',b.metadata->>'opening_date' is not null);
+end $$;
+revoke all on function public.financial_cash_opening_detail(uuid,uuid,date) from public,anon;
+grant execute on function public.financial_cash_opening_detail(uuid,uuid,date) to authenticated;
+
+create function public.correct_financial_cash_opening(p_org uuid,p_id uuid,p_date date,p_amount numeric,p_fx numeric,p_token text,p_reason text)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare b public.liquidity_accounts%rowtype;s jsonb;after_row public.liquidity_accounts%rowtype;delta numeric;delta_base numeric;start date;
+begin
+ if auth.uid() is null or not private.financial_opening_can(p_org,'financial_core.create') then raise exception 'FISCAL_WRITE_DENIED';end if;
+ if p_amount is null or p_amount::text in('NaN','Infinity','-Infinity') or abs(p_amount)>1e12 or p_fx is null or p_fx::text in('NaN','Infinity','-Infinity') or p_fx<=0 or p_fx>1e6 or p_date is null or p_date>current_date or length(trim(coalesce(p_reason,''))) not between 3 and 500 then raise exception 'FISCAL_CASH_INPUT_INVALID';end if;
+ -- Serialize with opening approval and fiscal close before taking the bank lock.
+ perform pg_advisory_xact_lock(hashtextextended('fiscal-calendar:'||p_org::text,0));
+ for start in select fiscal_start from public.financial_opening_workspaces where organization_id=p_org union select (private.financial_fiscal_period(p_org,p_date)->>'start')::date loop
+ perform pg_advisory_xact_lock(hashtextextended('reporting-opening:'||p_org::text||start::text,0));
+ perform pg_advisory_xact_lock(hashtextextended('fiscal-year:'||p_org::text||start::text,0));end loop;
+ select * into b from public.liquidity_accounts where id=p_id and organization_id=p_org for update;
+ if b.id is null then raise exception 'FISCAL_CASH_ACCESS_DENIED';end if;
+ s:=public.financial_cash_opening_detail(p_org,p_id,p_date);
+ if s->>'issue' is not null then raise exception '%',s->>'issue';end if;
+ if p_token is distinct from s->>'token' then raise exception 'FISCAL_CASH_VERSION_CONFLICT';end if;
+ if b.currency=s->>'baseCurrency' and p_fx<>1 then raise exception 'FISCAL_CASH_FX_INVALID';end if;
+ delta:=round(p_amount,4)-(s->>'amount')::numeric;delta_base:=round(p_amount*p_fx,4)-(s->>'baseAmount')::numeric;
+ update public.liquidity_accounts set current_balance=current_balance+delta,current_balance_base=current_balance_base+delta_base,
+ metadata=coalesce(metadata,'{}')||jsonb_build_object('opening_date',p_date,'opening_balance',round(p_amount,4),'opening_fx_rate',p_fx,'opening_currency',b.currency,'balance_mode','OPENING'),updated_at=now()
+ where id=p_id and organization_id=p_org returning * into after_row;
+ insert into public.financial_fiscal_audit(organization_id,action,actor_id,detail) values(p_org,'CASH_OPENING_CORRECT',auth.uid(),jsonb_build_object('bankId',p_id,'before',s,'after',to_jsonb(after_row),'delta',delta,'deltaBase',delta_base,'reason',trim(p_reason)));
+ return public.financial_cash_opening_detail(p_org,p_id,p_date);
+end $$;
+revoke all on function public.correct_financial_cash_opening(uuid,uuid,date,numeric,numeric,text,text) from public,anon;
+grant execute on function public.correct_financial_cash_opening(uuid,uuid,date,numeric,numeric,text,text) to authenticated;

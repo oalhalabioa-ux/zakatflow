@@ -7,6 +7,8 @@ on:
       - 'app/api/liquidity/**'
       - 'components/LiquidityWorkspace.tsx'
       - 'tests/qa-cash-account-link-sync.sql'
+      - 'tests/qa-bank-opening-correction.sql'
+      - 'components/BankAccountDetails.tsx'
       - 'app/[locale]/opening-balances/**'
       - 'app/[locale]/financial-reports/**'
       - 'app/[locale]/financial-reporting-policy/**'
@@ -117,6 +119,8 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-unified-cash-openings.sql
       - name: Verify three-bank metadata synchronization and fixed link identities
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-cash-account-link-sync.sql
+      - name: Verify audited bank opening corrections and fiscal protection
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-bank-opening-correction.sql
       - name: Exercise actual authorization, persistence, approval, reports and browser
         run: node scripts/financial-reports/verify-live-opening.mjs
       - name: Reconcile statements and exports against this run's approved ledger

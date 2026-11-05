@@ -79,6 +79,11 @@
     },
     {
       "category": "function",
+      "object_key": "private.financial_cash_actual_movements(p_org uuid, p_id uuid)",
+      "fingerprint": "cde41ed87364386b62e2ebd18f0dad1a"
+    },
+    {
+      "category": "function",
       "object_key": "private.financial_cash_chart_guard()",
       "fingerprint": "cf4a1c4ed869192b6f8e1563f6315a04"
     },
@@ -116,6 +121,16 @@
       "category": "function",
       "object_key": "private.financial_sync_cash_account(p_id uuid)",
       "fingerprint": "e466c02bc02d5d13e2448d29ca4a392a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.correct_financial_cash_opening(p_org uuid, p_id uuid, p_date date, p_amount numeric, p_fx numeric, p_token text, p_reason text)",
+      "fingerprint": "2238614eaf14b605169e1a664c5fc7fd"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_cash_opening_detail(p_org uuid, p_id uuid, p_date date)",
+      "fingerprint": "4c9cc1545e8f3ec1a550c43ffaa9561e"
     },
     {
       "category": "function",
