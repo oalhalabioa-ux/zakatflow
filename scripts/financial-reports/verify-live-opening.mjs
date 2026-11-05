@@ -63,6 +63,18 @@ try{
   const vouchers=page.locator('[data-period-voucher]');
   await vouchers.first().waitFor();assert.equal(await vouchers.count(),2);
   for(const date of ['2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
+  assert.equal(await page.getByText('Assign late opening sources',{exact:true}).count(),0);
+  assert.equal(await page.getByLabel('Reason for replacing the previous approval').count(),0);
+  const lateAsset=page.locator('[data-opening-row]').filter({hasText:'Opening QA 2026-10-21'});
+  const rowHeight=await lateAsset.evaluate(row=>row.getBoundingClientRect().height);
+  await lateAsset.getByRole('button',{name:'Review assignment',exact:true}).click();
+  const review=page.getByRole('dialog',{name:'Review assignment'});
+  await review.getByText('2026-10-21',{exact:true}).waitFor();
+  assert.equal(await lateAsset.evaluate(row=>row.getBoundingClientRect().height),rowHeight);
+  assert.equal(await review.getByRole('button',{name:'Confirm assignment'}).isEnabled(),false);
+  await review.getByLabel('Reason for assigning to fiscal start').fill('Confirmed ownership at the start of the year');
+  assert.equal(await review.getByRole('button',{name:'Confirm assignment'}).isEnabled(),true);
+  await review.getByRole('button',{name:'Cancel'}).click();
   const dataFor=async fiscalStart=>{
    const response=await page.request.get(app+'/api/financial-reporting/openings?'+new URLSearchParams({organization:other,fiscalStart}));
    assert.equal(response.status(),200);return response.json();
@@ -89,8 +101,8 @@ try{
 
   await page.getByRole('tab',{name:'Cash & banks'}).click();
   const bankRow=page.locator('[data-opening-row]').filter({hasText:'September QA bank'});
-  await bankRow.getByText('Review bank opening',{exact:true}).click();
-  await bankRow.getByLabel('Bank opening in base currency',{exact:true}).fill('0');
+  await bankRow.getByRole('button',{name:'Review bank opening',exact:true}).click();
+  await page.getByRole('dialog',{name:'Review bank opening'}).getByRole('textbox').fill('0');
   await page.setViewportSize({width:390,height:844});
   await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:5000}).catch(async error=>{await writeFile(out+'/late-source-mobile-overflow.json',JSON.stringify(await page.evaluate(()=>Array.from(document.querySelectorAll('*')).map(e=>({tag:e.tagName,classes:e.className,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,text:e.textContent?.slice(0,100)})).filter(e=>e.right>innerWidth+1&&e.left>=0).slice(-25)),null,2));await page.screenshot({path:out+'/late-source-mobile.png',fullPage:true});throw error});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.setViewportSize({width:1672,height:941});

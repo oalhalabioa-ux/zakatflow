@@ -17,8 +17,40 @@
 /* Keep source identifiers in the details dialog without widening the table. */
 .fs-root .ob-entry-table .ob-source{width:160px;max-width:180px;white-space:normal}.ob-source .ob-text-button{max-width:100%;min-width:0}.ob-source .ob-text-button svg{flex-shrink:0}.ob-source-label{display:block;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ob-source .ob-muted{display:inline-block;max-width:150px;white-space:normal}.ob-dialog-copy{overflow-wrap:anywhere}.ob-bank-opening-note{margin:0 0 14px!important;padding:10px 12px;background:var(--corp-card,#f8f6ef);border-inline-start:3px solid #c6a35d;color:var(--corp-text,#355574);font-size:12px;line-height:1.8}@media(max-width:700px){.fs-root .ob-entry-table .ob-source{width:auto;max-width:none}.ob-source-label{max-width:100%}}
 
-.ob-bank-opening-entry { margin-block-start: .5rem; white-space: normal; }
-.ob-bank-opening-entry summary { cursor: pointer; color: var(--brand-text); text-decoration: underline; }
-.ob-bank-opening-entry label, .ob-bank-opening-entry input { display: block; width: 100%; min-width: 0; }
-.ob-bank-opening-entry label { margin-block-start: .5rem; }
-.ob-bank-opening-entry button { margin-block-start: .5rem; }
+.ob-review-trigger {
+ display:inline-flex;align-items:center;justify-content:center;min-height:36px;
+ padding:6px 12px;border:1px solid var(--brand-border,#d3dce8);border-radius:8px;
+ background:var(--brand-surface,#fff);color:var(--brand-text,#163653);
+ font:inherit;font-size:.875rem;font-weight:600;white-space:normal;cursor:pointer;
+}
+.ob-review-trigger:disabled { opacity:.55;cursor:not-allowed; }
+.ob-review-trigger:focus-visible { outline:2px solid var(--brand-accent,#ad853e);outline-offset:2px; }
+.ob-entry-table .ob-review-trigger { margin-block-start:4px; }
+.ob-source-review-dialog {
+ width:min(460px,calc(100vw - 28px));max-width:none;max-height:calc(100dvh - 32px);
+ box-sizing:border-box;padding:24px;color:var(--brand-text,#163653);
+}
+.ob-source-review-dialog form,.ob-source-review-dialog label { display:grid;gap:10px; }
+.ob-source-review-dialog h2,.ob-source-review-dialog p,.ob-review-facts { margin:0; }
+.ob-source-review-dialog header p { margin-block-start:5px;color:var(--brand-muted,#52667d); }
+.ob-review-facts {
+ display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;
+ padding:12px;background:var(--brand-bg,#f5f7fb);border-radius:8px;
+}
+.ob-review-facts dt,.ob-source-review-dialog small { color:var(--brand-muted,#52667d);font-size:.875rem; }
+.ob-review-facts dd { margin:4px 0 0;font-weight:600; }
+.ob-source-review-dialog input,.ob-source-review-dialog select {
+ box-sizing:border-box;min-width:0;width:100%;min-height:42px;padding:8px 12px;
+ border:1px solid var(--brand-border,#d3dce8);border-radius:8px;
+ background:var(--brand-surface,#fff);color:inherit;font:inherit;
+}
+.ob-source-review-dialog footer { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-block-start:8px; }
+.ob-source-review-dialog footer .fs-gold { min-height:38px;padding:6px 14px;border-radius:8px; }
+.ob-unplaced-sources { list-style:none;padding:0;margin:12px 0 0; }
+.ob-unplaced-sources li {
+ display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+ padding:10px 12px;border-block-start:1px solid var(--brand-border,#d3dce8);
+}
+.ob-unplaced-sources small { display:block;color:var(--brand-muted,#52667d); }
+.ob-live-review:not(:has(label)) { margin-block:8px;padding:0;border:0;background:transparent; }
+@media print { .ob-review-trigger,.ob-source-review-dialog { display:none!important; } }
