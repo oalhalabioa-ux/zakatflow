@@ -74,6 +74,7 @@ try{
   assert.equal(await review.getByRole('button',{name:'Confirm assignment'}).isEnabled(),false);
   await review.getByLabel('Reason for assigning to fiscal start').fill('Confirmed ownership at the start of the year');
   assert.equal(await review.getByRole('button',{name:'Confirm assignment'}).isEnabled(),true);
+  await page.screenshot({path:out+'/opening-asset-review-desktop.png'});
   await review.getByRole('button',{name:'Cancel'}).click();
   const dataFor=async fiscalStart=>{
    const response=await page.request.get(app+'/api/financial-reporting/openings?'+new URLSearchParams({organization:other,fiscalStart}));
@@ -102,10 +103,14 @@ try{
   await page.getByRole('tab',{name:'Cash & banks'}).click();
   const bankRow=page.locator('[data-opening-row]').filter({hasText:'September QA bank'});
   await bankRow.getByRole('button',{name:'Review bank opening',exact:true}).click();
-  await page.getByRole('dialog',{name:'Review bank opening'}).getByRole('textbox').fill('0');
+  const bankDialog=page.getByRole('dialog',{name:'Review bank opening'});
+  const bankAmount=bankDialog.getByRole('textbox');
+  await bankAmount.fill('250,00');
+  assert.equal(await bankDialog.getByRole('button',{name:'Confirm bank opening'}).isEnabled(),false);
+  await bankAmount.fill('0');
   await page.setViewportSize({width:390,height:844});
   await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:5000}).catch(async error=>{await writeFile(out+'/late-source-mobile-overflow.json',JSON.stringify(await page.evaluate(()=>Array.from(document.querySelectorAll('*')).map(e=>({tag:e.tagName,classes:e.className,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,text:e.textContent?.slice(0,100)})).filter(e=>e.right>innerWidth+1&&e.left>=0).slice(-25)),null,2));await page.screenshot({path:out+'/late-source-mobile.png',fullPage:true});throw error});
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.setViewportSize({width:1672,height:941});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+'/opening-bank-review-mobile.png'});await page.setViewportSize({width:1672,height:941});
   const assigned=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-reporting/fiscal'&&r.request().method()==='POST');await page.getByRole('button',{name:'Confirm bank opening',exact:true}).click();assert.equal((await assigned).status(),200);
   await page.locator('[data-opening-row][data-final="0.0000"]').filter({hasText:'September QA bank'}).waitFor();
   const fresh=await a.client.rpc('financial_opening_workspace',{p_org:other,p_fiscal_start:'2026-01-01'});assert.ifError(fresh.error);

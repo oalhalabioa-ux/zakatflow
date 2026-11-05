@@ -65,7 +65,8 @@ export default function FiscalSourceAssignment({source,organization,fiscalStart,
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const declared=amount.trim().replace(/,/g,'');
- const validAmount=/^-?\d{1,20}(\.\d{1,4})?$/.test(declared);
+ const validAmount=/^-?\d{1,20}(\.\d{1,4})?$/.test(declared)&&
+  (!amount.includes(',')||/^-?\d{1,3}(,\d{3})+(\.\d{1,4})?$/.test(amount.trim()));
 
  function open(){
   setError('');
@@ -111,8 +112,9 @@ export default function FiscalSourceAssignment({source,organization,fiscalStart,
      {!bank&&source.amount!==null&&<div><dt>{t('رصيد السند','Voucher balance')}</dt><dd><bdi>{displayAmount(source.amount)} {currency}</bdi></dd></div>}
     </dl>
     {bank?<label>{t('رصيد البنك في بداية السنة بالعملة الأساسية','Bank opening in base currency')} <bdi>({currency})</bdi>
-     <input inputMode="decimal" dir="ltr" value={amount} disabled={busy} onChange={event=>setAmount(event.target.value)}/>
+     <input inputMode="decimal" dir="ltr" value={amount} aria-invalid={Boolean(amount)&&!validAmount} disabled={busy} onChange={event=>setAmount(event.target.value)}/>
      <small>{source.suggestionIssue||!source.suggestedAmount?t('أدخل رصيد بداية السنة من كشف البنك.','Enter the fiscal-start balance from the bank statement.'):t('طابق المبلغ المقترح مع كشف البنك قبل التأكيد.','Verify the suggested balance against the bank statement.')}</small>
+     {amount&&!validAmount&&<small role="alert">{t('أدخل مبلغًا صحيحًا، مثل 2,500.00.','Enter a valid amount, for example 2,500.00.')}</small>}
     </label>:<>
      <label>{t('حساب الافتتاحي','Opening account')}
       <select disabled={busy} value={account} onChange={event=>setAccount(event.target.value)}>
