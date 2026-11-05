@@ -52,9 +52,9 @@ try{
     end loop;
    end $$;`);
   await page.goto(app+'/en/financial-reports?screen=kpis&organization='+org);
-  const picker=page.getByRole('combobox',{name:'Organization',exact:true});
-  await picker.locator('option[value="'+other+'|"]').waitFor({state:'attached'});
-  assert.equal(await picker.isEnabled(),true);await picker.selectOption(other+'|');
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
+  await picker.locator('option[value="'+other+'"]').waitFor({state:'attached'});
+  assert.equal(await picker.isEnabled(),true);await picker.selectOption(other);
   await page.getByRole('heading',{name:'Organization registers',exact:true}).waitFor();
   const registerRow=page.getByRole('row').filter({has:page.getByRole('rowheader',{name:'September QA bank'})});
   await registerRow.waitFor();assert.match(await registerRow.innerText(),/250,000.00/);
@@ -63,6 +63,19 @@ try{
   const vouchers=page.locator('[data-period-voucher]');
   await vouchers.first().waitFor();assert.equal(await vouchers.count(),2);
   for(const date of ['2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
+  assert.equal(await page.getByText('Assign late opening sources',{exact:true}).count(),0);
+  assert.equal(await page.getByLabel('Reason for replacing the previous approval').count(),0);
+  const lateAsset=page.locator('[data-opening-row^="asset:"]').filter({hasText:'Opening QA 2026-10-21'});
+  const rowHeight=await lateAsset.evaluate(row=>row.getBoundingClientRect().height);
+  await lateAsset.getByRole('button',{name:'Review assignment',exact:true}).click();
+  const review=page.getByRole('dialog',{name:'Review assignment'});
+  await review.getByText('2026-10-21',{exact:true}).waitFor();
+  assert.equal(await lateAsset.evaluate(row=>row.getBoundingClientRect().height),rowHeight);
+  assert.equal(await review.getByRole('button',{name:'Confirm assignment'}).isEnabled(),false);
+  await review.getByLabel('Reason for assigning to fiscal start').fill('Confirmed ownership at the start of the year');
+  assert.equal(await review.getByRole('button',{name:'Confirm assignment'}).isEnabled(),true);
+  await page.screenshot({path:out+'/opening-asset-review-desktop.png'});
+  await review.getByRole('button',{name:'Cancel'}).click();
   const dataFor=async fiscalStart=>{
    const response=await page.request.get(app+'/api/financial-reporting/openings?'+new URLSearchParams({organization:other,fiscalStart}));
    assert.equal(response.status(),200);return response.json();
@@ -83,17 +96,21 @@ try{
  await check('An ordinary browser user declares a late bank opening without technical IDs or copying its current balance',async()=>{
   sql(`update public.organization_members set status='ACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
   assert.ifError((await a.client.rpc('link_financial_cash_accounts',{p_org:other})).error);
-  await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();
-  const organizationPicker=page.getByRole('combobox',{name:'Organization',exact:true});await organizationPicker.selectOption(other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
-  const fiscalLink=page.getByRole('link',{name:'Manage fiscal years in organization settings',exact:true});assert.match(await fiscalLink.getAttribute('href'),new RegExp(other));await fiscalLink.click();await page.locator('[data-fiscal-management]').waitFor();await page.goto(app+'/en/opening-balances?organization='+other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await page.getByRole('combobox',{name:'Organization',exact:true}).inputValue(),other);
+  await page.goto(app+'/en/opening-balances?organization='+org);await page.locator('[data-opening-ready="'+org+'"]').waitFor();
+  const organizationPicker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});await organizationPicker.selectOption(other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
+  const fiscalLink=page.getByRole('link',{name:'Manage fiscal years in organization settings',exact:true});assert.match(await fiscalLink.getAttribute('href'),new RegExp(other));await fiscalLink.click();await page.locator('[data-fiscal-management]').waitFor();assert.equal(await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Finance & accounting',exact:true}).getAttribute('aria-current'),'page');await page.getByRole('link',{name:'Back to organization settings',exact:true}).click();await page.getByRole('heading',{name:'Organization details',exact:true}).waitFor();assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization'}).inputValue(),other);await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await page.getByRole('combobox',{name:'Organization',exact:true}).inputValue(),other);
 
   await page.getByRole('tab',{name:'Cash & banks'}).click();
   const bankRow=page.locator('[data-opening-row]').filter({hasText:'September QA bank'});
-  await bankRow.getByText('Review bank opening',{exact:true}).click();
-  await bankRow.getByLabel('Bank opening in base currency',{exact:true}).fill('0');
+  await bankRow.getByRole('button',{name:'Review bank opening',exact:true}).click();
+  const bankDialog=page.getByRole('dialog',{name:'Review bank opening'});
+  const bankAmount=bankDialog.getByRole('textbox');
+  await bankAmount.fill('250,00');
+  assert.equal(await bankDialog.getByRole('button',{name:'Confirm bank opening'}).isEnabled(),false);
+  await bankAmount.fill('0');
   await page.setViewportSize({width:390,height:844});
   await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:5000}).catch(async error=>{await writeFile(out+'/late-source-mobile-overflow.json',JSON.stringify(await page.evaluate(()=>Array.from(document.querySelectorAll('*')).map(e=>({tag:e.tagName,classes:e.className,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,text:e.textContent?.slice(0,100)})).filter(e=>e.right>innerWidth+1&&e.left>=0).slice(-25)),null,2));await page.screenshot({path:out+'/late-source-mobile.png',fullPage:true});throw error});
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.setViewportSize({width:1672,height:941});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+'/opening-bank-review-mobile.png'});await page.setViewportSize({width:1672,height:941});
   const assigned=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-reporting/fiscal'&&r.request().method()==='POST');await page.getByRole('button',{name:'Confirm bank opening',exact:true}).click();assert.equal((await assigned).status(),200);
   await page.locator('[data-opening-row][data-final="0.0000"]').filter({hasText:'September QA bank'}).waitFor();
   const fresh=await a.client.rpc('financial_opening_workspace',{p_org:other,p_fiscal_start:'2026-01-01'});assert.ifError(fresh.error);
@@ -123,7 +140,7 @@ try{
  });
  await check('Browser Excel export preserves actual source marker, source amount and final opening',async()=>{const d=page.waitForEvent('download');await page.getByRole('button',{name:'تصدير Excel',exact:true}).click();const file=await d;await file.saveAs(out+'/opening-approved.xlsx');const{default:ExcelJS}=await import('exceljs'),book=new ExcelJS.Workbook();await book.xlsx.readFile(await file.path());assert.equal(book.worksheets.length,2);assert.match(String(book.worksheets[1].getCell('A1').value),/LIVE REGISTERS/);assert.ok(book.worksheets[1].rowCount>=7)});
  await check('Posting policy UI saves and approves a real initial policy',async()=>{await page.goto(app+'/ar/financial-reporting-policy');await page.getByRole('heading',{name:'قواعد ترحيل القوائم المالية'}).waitFor();await page.getByLabel('سبب الإعداد أو التغيير').fill('إعداد قواعد المرحلة الافتتاحية');await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
- for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
+ for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const selector=page.locator('#corp-organization-controls select');await selector.waitFor();assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
  await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
   await page.setViewportSize({width:1672,height:941});
   sql(`insert into public.asset_accounts(user_id,ownership_scope,asset_type,name,currency) values
@@ -352,7 +369,7 @@ try{
    await page.reload();await section.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),String(month));assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
    await page.screenshot({path:out+'/fiscal-settings-'+month+'.png',fullPage:true});
   }
-  const picker=page.getByRole('combobox',{name:'Selected organization',exact:true});await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings select')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization',exact:true});await page.getByLabel('Setup or action reason',{exact:true}).fill('Unsaved calendar note');const discard=page.waitForEvent('dialog');const rejectedSwitch=picker.selectOption(january);const prompt=await discard;assert.equal(prompt.message(),'Discard unsaved changes?');await prompt.dismiss();await rejectedSwitch;assert.equal(await picker.inputValue(),july);page.once('dialog',dialog=>dialog.accept());await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings select')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
   const period=await a.client.rpc('financial_fiscal_context',{p_org:july});assert.ifError(period.error);
   const workspace=await a.client.rpc('financial_opening_workspace',{p_org:july,p_fiscal_start:period.data.period.start});assert.ifError(workspace.error);
   const draft=await a.client.rpc('save_financial_opening',{p_org:july,p_fiscal_start:period.data.period.start,p_expected_version:0,p_source_revision:workspace.data.source.revision,p_entries:{},p_reason:'Preserved accounting period must not move with calendar editing'});assert.ifError(draft.error);

@@ -605,7 +605,8 @@ try {
     await page.getByLabel('Organization name',{exact:true}).waitFor();
     assert.equal(await page.locator('.subscription-banner').count(),0);
     assert.equal(await page.locator('.subscription-notice').count(),0);
-    assert.equal(await page.locator('#corp-settings-nav a').count(),3);
+    assert.equal(await page.locator('#corp-settings-nav a').count(),4);
+    assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial"]').count(),1);
     assert.ok((await page.locator('#corp-settings-nav a[href*="/billing"]').getAttribute('href')).includes('organization='+secondOrg));
     assert.equal(await page.locator('#corp-settings-nav a[href*="users"]').count(),0);
     assert.equal(await page.locator('.corp-sidebar-foot a').getAttribute('href'),'/en/account');
@@ -646,8 +647,12 @@ try {
       await page.setViewportSize({width,height:1000});await page.goto(appUrl+`/${locale}/settings?organization=${org}`);
       await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-      const layout=await page.locator('.settings-tabs').evaluate(nav=>{const links=[...nav.querySelectorAll('a')],widths=links.map(a=>a.getBoundingClientRect().width);const clone=links[0].cloneNode(true);nav.appendChild(clone);const four=[...nav.querySelectorAll('a')].map(a=>a.getBoundingClientRect().width);clone.remove();return {widths,four,icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,overflow:nav.scrollWidth>nav.clientWidth}});
-      assert.equal(layout.icons,3);assert.ok(!layout.overflow);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);assert.equal(layout.four.length,4);assert.ok(Math.max(...layout.four)-Math.min(...layout.four)<1);
+      const layout=await page.locator('.settings-tabs').evaluate(nav=>({
+        widths:[...nav.querySelectorAll('a')].map(a=>a.getBoundingClientRect().width),
+        icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,
+        overflow:nav.scrollWidth>nav.clientWidth
+      }));
+      assert.equal(layout.icons,4);assert.equal(layout.widths.length,4);assert.ok(!layout.overflow);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
