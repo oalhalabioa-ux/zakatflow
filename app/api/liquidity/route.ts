@@ -63,7 +63,7 @@ export async function GET(request: Request) {
       }
     }
     const [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, intercompanyTransfersResult] = await Promise.all([
-      supabase.from('liquidity_accounts').select('*').in('organization_id', organizationIds).eq('active', true).order('created_at'),
+      supabase.from('liquidity_accounts').select('*').in('organization_id', organizationIds).order('created_at'),
       supabase.from('liquidity_flows').select('*').in('organization_id', organizationIds).order('due_date', { ascending: true }).limit(1500),
       supabase.from('organization_entities').select('id,name,organization_id,entity_type').in('organization_id', organizationIds).eq('active', true).order('name'),
       supabase.from('organizations').select('id,name,entity_type,base_currency,organization_kind,parent_organization_id').in('id', organizationIds),
@@ -117,7 +117,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, accounts, flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
+    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 

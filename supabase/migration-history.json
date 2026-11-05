@@ -1735,8 +1735,8 @@
       "path": "supabase/migrations/20261104222828_unified_cash_account_openings.sql",
       "version": "20261104222828",
       "name": "unified_cash_account_openings",
-      "expected_md5": "da11170787c54d153ec40c93923a1341",
-      "file_sha256": "15817b833f267241f96291f12e90642188c7df5fd428a2bd56a1d4383c9e463e",
+      "expected_md5": "7fe53f5ccc8ed2ed4434ee2114683e61",
+      "file_sha256": "0d2ed79ca67af71d98c1b4b0a86446a0eb41a73b680bd1a42618d34f7088373f",
       "validation_project": "Disposable unified cash opening QA only; not applied to Production"
     },
     {

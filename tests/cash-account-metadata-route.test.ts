@@ -1,0 +1,12 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+const state=vi.hoisted(()=>({rpc:vi.fn(),auth:vi.fn()}));
+vi.mock('../services/auth',()=>({requireUser:state.auth}));
+import {PATCH} from '../app/api/liquidity/accounts/[id]/route';
+const id='10000000-0000-4000-8000-000000000001',org='20000000-0000-4000-8000-000000000001';
+const body={organization:org,name:'Renamed bank',active:true,expectedName:'Bank',expectedActive:true,reason:'Correct display name'};
+const patch=(data:unknown=body,origin='https://preview.test')=>PATCH(new Request('https://preview.test/api/liquidity/accounts/'+id,{method:'PATCH',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(data)}),{params:Promise.resolve({id})});
+beforeEach(()=>{state.rpc.mockReset().mockResolvedValue({data:{id,name:'Renamed bank'},error:null});state.auth.mockReset().mockResolvedValue({supabase:{rpc:state.rpc}})});
+it('uses the atomic scoped metadata command and sends no monetary or identity edits',async()=>{const r=await patch();expect(r.status).toBe(200);expect(r.headers.get('Cache-Control')).toContain('no-store');expect(state.rpc).toHaveBeenCalledWith('update_financial_cash_account',{p_org:org,p_id:id,p_name:body.name,p_active:true,p_expected_name:'Bank',p_expected_active:true,p_reason:body.reason})});
+it('rejects balance, currency and branch injection before the RPC',async()=>{for(const extra of [{current_balance:99},{currency:'USD'},{entity_id:id}])expect((await patch({...body,...extra})).status).toBe(422);expect(state.rpc).not.toHaveBeenCalled()});
+it('requires same-origin and protects account references and stale edits',async()=>{expect((await patch(body,'https://elsewhere.test')).status).toBe(403);for(const message of ['FISCAL_CASH_VERSION_CONFLICT','FISCAL_CASH_NONZERO_BALANCE','CHART_REFERENCED_BY_OPENING']){state.rpc.mockResolvedValueOnce({data:null,error:{message}});expect((await patch()).status).toBe(409)}});
+it('does not expose inaccessible banks',async()=>{state.rpc.mockResolvedValueOnce({data:null,error:{message:'FISCAL_CASH_ACCESS_DENIED'}});expect((await patch()).status).toBe(403);state.auth.mockRejectedValueOnce(Error('UNAUTHORIZED'));expect((await patch()).status).toBe(401)});
