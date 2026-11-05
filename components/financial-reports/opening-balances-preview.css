@@ -62,10 +62,61 @@
 .ob-equity-add select { flex:1 1 240px;min-width:0;min-height:39px;padding:7px 10px;border:1px solid var(--brand-border,#d3dce8);border-radius:8px;background:var(--brand-surface,#fff);color:var(--brand-text,#163653);font:inherit; }
 .ob-equity-add button { display:inline-flex;align-items:center;gap:7px;min-height:39px;white-space:nowrap;border-radius:8px; }
 .ob-equity-add button:disabled { opacity:.55;cursor:not-allowed; }
+.fs-root .ob-surface .ob-search > label,
+.fs-root .ob-surface .ob-status-actions > select {
+  box-sizing:border-box;
+  height:38px;
+  min-height:38px;
+  max-height:38px;
+}
+.fs-root .ob-surface .ob-search > label {
+  display:inline-flex;
+  align-items:center;
+  flex-flow:row nowrap;
+  gap:7px;
+  padding:0 10px;
+}
+.fs-root .ob-surface .ob-search > label > input {
+  box-sizing:border-box;
+  height:100%;
+  min-height:0;
+  max-height:100%;
+  padding:0 2px;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  font-size:12px;
+  line-height:1.3;
+}
+.fs-root .ob-surface .ob-search > label > svg {width:16px;height:16px;flex:none}
+.fs-root .ob-surface .ob-status-actions {display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.fs-root .ob-surface .ob-status-actions > select {padding:0 10px;font-size:12px;max-width:160px}
+.fs-root .ob-surface .ob-status-actions .ob-equity-add-btn {
+  display:inline-flex;
+  align-items:center;
+  flex:0 0 auto;
+  width:auto;
+  min-height:36px;
+  padding:7px 14px;
+  justify-content:center;
+  gap:5px;
+  background:#10243a;
+  border:1px solid #10243a;
+  border-radius:8px;
+  box-shadow:inset 0 -3px 0 #d8bd81;
+  color:#f5ebd6;
+  font-size:12px;
+  font-weight:700;
+  line-height:1.3;
+}
+.fs-root .ob-surface .ob-status-actions .ob-equity-add-btn svg{color:inherit;flex:none}
+.fs-root .ob-surface .ob-status-actions .ob-equity-add-btn:disabled{opacity:.55;cursor:not-allowed}
+.fs-root .ob-surface .ob-status-actions .ob-equity-add-btn:not(:disabled):hover{background:#193550;border-color:#193550}
+.fs-root .ob-surface .ob-status-actions .ob-equity-add-btn:focus-visible{outline:2px solid #c6a35d;outline-offset:2px}
 .ob-equity-link-note { margin:-7px 0 15px!important;padding:8px 12px;border-inline-start:3px solid #c6a35d;background:var(--brand-bg,#f7f8fb);color:var(--brand-text,#163653);line-height:1.7;font-size:.875rem; }
 .ob-remove-equity { display:block;margin-top:6px;font-size:.76rem; }
 .ob-save-success { margin:10px 0;padding:11px 14px;border:1px solid #b8d8c2;border-radius:9px;background:#eef8f0;color:#206239;font-weight:600; }
-@media(max-width:660px) { .ob-equity-add select,.ob-equity-add button { flex-basis:100%;width:100%;justify-content:center; } }
+@media(max-width:660px) { .ob-equity-add select,.ob-equity-add button:not(.ob-equity-add-btn) { flex-basis:100%;width:100%;justify-content:center; } }
 .ob-account-picker{display:flex;align-items:center;justify-content:space-between;gap:9px;width:100%;min-height:37px;margin-block-start:7px;padding:6px 10px;border:1px solid #d7ba80;border-radius:8px;background:#fffdf9;color:#10243a;text-align:start;font:inherit;cursor:pointer}
 .ob-account-picker>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 .ob-account-picker:focus-visible{outline:2px solid #c6a35d;outline-offset:2px}
