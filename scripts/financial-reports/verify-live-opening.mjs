@@ -10,10 +10,10 @@ assert.ok(dir&&process.env.RUNNER_TEMP&&dir.startsWith(process.env.RUNNER_TEMP+'
 const status=JSON.parse(execFileSync('npx',['--yes','supabase@2.122.0','status','--workdir',dir,'--output','json'],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
 assert.equal(status.API_URL,'http://127.0.0.1:54321');
 const url=status.API_URL,app='http://localhost:3200',out='docs/financial-reports/evidence-opening-live';
-const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024,stdio:['pipe','pipe','pipe']}).trim();
+const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',timeout:60000,maxBuffer:8*1024*1024,stdio:['pipe','pipe','pipe']}).trim();
 const checks=[],errors=[],report={engine:'Full canonical migrations + real Supabase Auth/PostgREST + Next + Chromium',remoteConnections:false,checks};
 let server,browser;
-const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
+const check=async(name,run)=>{console.log('CHECK '+name);await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 await mkdir(out,{recursive:true});
 try{
  await writeFile(out+'/catalog.json',sql('select coalesce(jsonb_agg(t),\'[]\') from ('+(await readFile('tests/migration-history/catalog.sql','utf8')).replace(/;\s*$/,'')+') t')+'\n');
@@ -34,9 +34,9 @@ try{
  await check('Real user sessions isolate opening source reads and reject forged metadata',async()=>{assert.ifError((await a.client.rpc('financial_opening_workspace',scope)).error);assert.ok((await b.client.rpc('financial_opening_workspace',scope)).error);assert.ifError((await viewer.client.auth.updateUser({data:{role:'OWNER',financial_core:{approve:true}}})).error);assert.ok((await viewer.client.rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:'x',p_entries:{},p_reason:''})).error)});
  const cookies=[],ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>cookies,setAll:cs=>{for(const c of cs){const i=cookies.findIndex(x=>x.name===c.name);if(i>=0)cookies.splice(i,1);cookies.push(c)}}}});assert.ifError((await ssr.auth.signInWithPassword({email:a.email,password:a.password})).error);
  const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',VERCEL_ENV:'preview'};
- const build=spawn('npm',['run','build'],{env,stdio:'inherit'});assert.equal(await new Promise(resolve=>build.on('exit',resolve)),0);
+ const build=spawn('npm',['run','build'],{env,stdio:'inherit'});const buildExit=await new Promise((resolve,reject)=>{const deadline=setTimeout(()=>{build.kill('SIGTERM');reject(Error('ISOLATED_NEXT_BUILD_TIMEOUT'))},300000);build.on('error',e=>{clearTimeout(deadline);reject(e)});build.on('exit',code=>{clearTimeout(deadline);resolve(code)})});assert.equal(buildExit,0);
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
- for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context')).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
+ for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context',{signal:AbortSignal.timeout(5000)})).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
  const{chromium}=await import(process.env.FINANCIAL_SOURCE_BROWSER_MODULE);browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1672,height:941},acceptDownloads:true});await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{
   sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
@@ -402,7 +402,9 @@ try{
  });
  await check('Posted statement action opens the exact authorized financial voucher',async()=>{
   const posted=JSON.parse(sql(`select to_jsonb(x) from(select s.organization_id org,s.financial_event_id event,a.name bank from public.liquidity_settlements s join public.liquidity_accounts a on a.id=s.account_id join public.organization_members m on m.organization_id=s.organization_id and m.user_id='${a.id}' and m.status='ACTIVE' and m.role='OWNER' where s.status='POSTED' and s.financial_event_id is not null order by s.id limit 1)x`));assert.ok(posted);
-  await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/liquidity?tab=position&organization='+posted.org);await page.getByRole('button',{name:'Account details and statement: '+posted.bank,exact:true}).click();const details=page.getByRole('dialog',{name:'Bank account details and statement',exact:true}),link=details.locator('a[href*="event='+posted.event+'"]');await link.waitFor({state:'attached'});await link.locator('..').locator('summary').click();const loaded=page.waitForResponse(r=>r.url().includes('/api/financial-events?action=detail&organization='+posted.org+'&event='+posted.event));await link.click();const response=await loaded;assert.equal(response.status(),200);const detail=await response.json();assert.equal(detail.event.id,posted.event);assert.equal(detail.event.organization_id,posted.org);assert.ok(Array.isArray(detail.allowedActions));
+  await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/liquidity?tab=position&organization='+posted.org);await page.getByRole('button',{name:'Account details and statement: '+posted.bank,exact:true}).click();const details=page.getByRole('dialog',{name:'Bank account details and statement',exact:true}),link=details.locator('a[href*="/cash-vouchers/'+posted.event+'"]');await link.waitFor({state:'attached'});await link.locator('..').locator('summary').click();await link.click();await page.locator('[data-cash-voucher="'+posted.event+'"]').waitFor();await page.getByRole('heading',{name:'Original cash movement voucher',exact:true}).waitFor();
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }finally{await browser?.close();server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
+// Exit only after assertions, evidence writes and cleanup; background SDK handles must not keep CI alive.
+process.exit(0);
