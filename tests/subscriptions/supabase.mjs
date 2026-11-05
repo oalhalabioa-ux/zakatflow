@@ -725,8 +725,9 @@ try {
         .click();
       await page.waitForURL(
         (u) =>
-          u.pathname === "/en/dashboard" && u.searchParams.has("organization"),
+          u.pathname === "/en/settings/financial/setup" && u.searchParams.has("organization"),
       );
+      await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
       const created = new URL(page.url()).searchParams.get("organization");
       const e = await rpc(newcomer, "organization_subscription", {
         p_organization_id: created,

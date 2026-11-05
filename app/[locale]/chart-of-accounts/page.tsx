@@ -4,8 +4,8 @@ import {assertOpeningWorkspace} from '../../../services/financial-opening-worksp
 import ChartOfAccountsWorkspace from '../../../components/financial-reports/ChartOfAccountsWorkspace';
 import SetupReturnLink from '../../../components/settings/SetupReturnLink';
 export const dynamic='force-dynamic';
-export default async function ChartOfAccountsPage({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{organization?:string;fromSetup?:string}>}){
+export default async function ChartOfAccountsPage({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{organization?:string;fromSetup?:string;template?:string}>}){
  try{assertOpeningWorkspace()}catch{notFound()}
- await requireUser();const [{locale},{organization,fromSetup}]=await Promise.all([params,searchParams]);
- return <><SetupReturnLink locale={locale} organization={organization} visible={fromSetup==='1'}/><ChartOfAccountsWorkspace locale={locale} preferredOrg={organization}/></>;
+ await requireUser();const [{locale},{organization,fromSetup,template}]=await Promise.all([params,searchParams]);
+ return <><SetupReturnLink locale={locale} organization={organization} visible={fromSetup==='1'}/><ChartOfAccountsWorkspace locale={locale} preferredOrg={organization} preferredTemplate={template}/></>;
 }
