@@ -1746,6 +1746,14 @@
       "expected_md5": "8ac5b55afeaeef9dddcbc5d9e91af39c",
       "file_sha256": "ab03c5b58d0e90b3c1f42905a9a81a4ec2751fc35a5c0ed84ab0944189f9434b",
       "validation_project": "Disposable fiscal retained-earnings posting-leaf acceptance only; not applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261105150000_equity_opening_additional_lines.sql",
+      "version": "20261105150000",
+      "name": "equity_opening_additional_lines",
+      "expected_md5": "718102966317c94e82506cd272562590",
+      "file_sha256": "f925ff22ce73c943b7efef8f6d4a8ed412515fb5af37b9417c7ee974c09889b2",
+      "validation_project": "Disposable equity opening and duplicate-account rejection only; not applied to Production"
     }
   ]
 }

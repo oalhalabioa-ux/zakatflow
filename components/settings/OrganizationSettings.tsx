@@ -171,10 +171,6 @@ export default function OrganizationSettings({
         </section>
       ) : financial ? (
         <section className="settings-card">
-          <Link className="settings-return" href={`/${locale}/settings?organization=${encodeURIComponent(id)}`}>
-            <span aria-hidden="true">{ar ? "→" : "←"}</span>
-            {ar ? "الرجوع إلى إعدادات المؤسسة" : "Back to organization settings"}
-          </Link>
           <header><h2>{ar ? "الإعدادات المالية والمحاسبية" : "Financial & accounting settings"}</h2><p>{selected.name}</p></header>
           <FiscalYearManagement key={id} organization={id} locale={locale} onEditState={reportFiscalEdit} />
         </section>

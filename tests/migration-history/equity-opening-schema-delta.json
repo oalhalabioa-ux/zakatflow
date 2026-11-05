@@ -1,0 +1,26 @@
+{
+  "description": "Disjoint opening capital and reserve leaf entries with guarded reconciliation, audit and no rewrites of approved openings. Fingerprints observed on a clean disposable Supabase 17 bootstrap.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_chart_guard_opening_reference()",
+      "fingerprint": "9c2d7de14358b79781f15c292f156e46"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_opening_extra_equity_allowed(p_org uuid, p_key text, p_entry jsonb, p_entries jsonb)",
+      "fingerprint": "8664662c0b8ebcc37f193b2d12c1dbf9"
+    },
+    {
+      "category": "function",
+      "object_key": "public.approve_financial_opening(p_id uuid, p_expected_version integer)",
+      "fingerprint": "398952d5ca2d72d0db6e3cd64175d2b0"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_opening(p_org uuid, p_fiscal_start date, p_expected_version integer, p_source_revision text, p_entries jsonb, p_reason text)",
+      "fingerprint": "755d84bf74c7b13b0350bc4bf9eba8cb"
+    }
+  ]
+}

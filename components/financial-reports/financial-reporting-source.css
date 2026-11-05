@@ -38,3 +38,24 @@
  .fs-root .fs-source-hub .fs-three-panels .fs-table tr>:nth-child(3){display:none}
  .fs-source-hub .fs-chart-hit button:nth-child(even)>span{visibility:hidden}
 }
+.ob-draft-mode{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px 16px;border:1px solid #dac38e;border-radius:9px;background:#fcf8ed;color:#654d27;font-weight:700;font-size:13px}
+.ob-draft-mode input{width:17px;height:17px;accent-color:#10243a}
+.ob-draft-mode small{font-weight:400;color:#856a3f}
+.ob-draft-loading{color:#647389;font-size:12px}
+.ob-statement-draft{display:grid;gap:17px}
+.ob-draft-banner{display:flex;align-items:flex-start;gap:10px;padding:15px;border:1px solid #c6a35d;border-radius:10px;background:#fff9e9;color:#10243a}
+.ob-draft-banner>svg{flex:none;color:#ac8032}
+.ob-draft-banner p{color:#657385;font-size:12px;margin:3px 0 0;line-height:1.8}
+.ob-draft-banner small{display:block;color:#857144;font-size:11px;margin-block-start:5px}
+.ob-draft-warning{padding:12px 15px;border:1px solid #eccb94;border-radius:8px;background:#fff3dd;color:#80571d;font-size:12px;line-height:1.8}
+.ob-draft-table-scroll{max-width:100%;overflow-x:auto}
+.ob-draft-table{width:100%;border-collapse:collapse;text-align:start;font-size:13px}
+.ob-draft-table th,.ob-draft-table td{padding:10px 13px;border-bottom:1px solid #e1e6ec;text-align:start}
+.ob-draft-table td{text-align:end;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ob-draft-table thead{background:#edf2f7;color:#10243a}
+.ob-draft-table th small{color:#9e7020;font-weight:500}
+.ob-draft-total{background:#f7eddb;font-weight:750}
+.ob-draft-balance{color:#366853;font-size:12px;margin-block-start:13px}
+.ob-draft-foot{font-size:12px}.ob-draft-foot a{color:#836323;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:700px){.ob-draft-metrics{grid-template-columns:1fr 1fr}.ob-draft-table{min-width:460px}.ob-draft-mode{font-size:12px}}
+@media print{.ob-draft-mode,.ob-draft-foot{display:none!important}.ob-draft-banner{border:2px solid #9b7432!important}}
