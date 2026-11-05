@@ -20,7 +20,7 @@ export default function OpeningBalancesPreview({initialEnglish=false}:{initialEn
  const nav=<><button className="module-toggle" data-module-current="true" aria-expanded="true"><Icon name="chart"/><span className="corp-label">{t('التقارير والقوائم المالية','Financial reports & statements')}</span></button><div className="corp-subnav"><button aria-current="page"><Icon name="balance" size={18}/><span className="corp-label">{t('الأرصدة الافتتاحية','Opening balances')}</span></button></div></>;
  return <div className="fs-root" lang={en?'en':'ar'} dir={en?'ltr':'rtl'}><CorporateShell designPreview locale={en?'en':'ar'} previewTopbar={topbar} navigationExtension={nav}><OpeningWorkspace key={org} org={org} en={en}/></CorporateShell></div>;
 }
-type LiveOpeningProps={data:OpeningWorkspaceData;busy:boolean;onSave:(entries:OpeningEntries,reason:string)=>Promise<void>;onApprove:()=>Promise<void>;beforeExport:()=>Promise<void>;onSourcesChanged?:()=>void};
+type LiveOpeningProps={data:OpeningWorkspaceData;busy:boolean;onSave:(entries:OpeningEntries,reason:string)=>Promise<void>;onApprove:()=>Promise<void>;beforeExport:()=>Promise<void>;onSourcesChanged?:()=>void;onDirtyChange?:(dirty:boolean)=>void};
 export function OpeningWorkspace({org,en,live,initialTab='customers',onTabChange}:{org:string;en:boolean;live?:LiveOpeningProps;initialTab?:OpeningTab;onTabChange?:(tab:OpeningTab)=>void}){
  const t=(ar:string,english:string)=>en?english:ar;
  const[tab,setTab]=useState<OpeningTab>(initialTab),[drafts,setDrafts]=useState<OpeningDrafts>({}),[search,setSearch]=useState(''),[status,setStatus]=useState('all'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[editingId,setEditingId]=useState<string|null>(null);
@@ -65,6 +65,8 @@ export function OpeningWorkspace({org,en,live,initialTab='customers',onTabChange
   return <FiscalSourceAssignment source={source} organization={org} fiscalStart={live.data.fiscalStart}
    currency={currency} chart={live.data.chart} en={en} disabled={dirty||busy} onAssigned={()=>live.onSourcesChanged?.()}/>;
  }
+ const reportDirty=live?.onDirtyChange;
+ useEffect(()=>{reportDirty?.(dirty);return()=>reportDirty?.(false)},[dirty,reportDirty]);
  const replacementReasonNeeded=Boolean(live?.data.replacesApproved&&!locked&&live.data.canSave);
  const sourceIssues=live?.data.source.rows.filter(r=>r.sourceIssue)??[];
  const visible=state.rows.filter(r=>r.tab===tab&&(status==='all'||r.status===status||editingId===r.id)&&((en?r.en:r.ar)+' '+r.accountCode).toLocaleLowerCase().includes(search.toLocaleLowerCase()));

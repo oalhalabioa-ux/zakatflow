@@ -2,9 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SystemSettings from "./SystemSettings";
+import TopbarOrganizationControls from "../TopbarOrganizationControls";
+import WorkspaceOrganizationPicker from "../WorkspaceOrganizationPicker";
 import FiscalYearManagement from "./FiscalYearManagement";
 import {
-  rememberOrganization,
   rememberedOrganization,
   preferredOrganization,
 } from "@/lib/workspace-organization";
@@ -29,6 +30,8 @@ export default function OrganizationSettings({
     [message, setMessage] = useState(""),
     [draft, setDraft] = useState({ name: "", legal_name: "" });
   const generation = useRef(0);
+  const fiscalEdit = useRef({ dirty: false, busy: false });
+  const reportFiscalEdit = useRef((dirty: boolean, busy: boolean) => { fiscalEdit.current = { dirty, busy }; }).current;
   useEffect(() => {
     let live = true;
     async function load() {
@@ -136,27 +139,23 @@ export default function OrganizationSettings({
   }
   return (
     <>
-      <div className="settings-picker-row">
-        <label className="settings-org-picker">
-          {ar ? "المؤسسة" : "Organization"}
-          <select
-            aria-label={ar ? "المؤسسة المختارة" : "Selected organization"}
-            value={id}
-            onChange={(e) => {
-              setId(e.target.value);
-              rememberOrganization(e.target.value, false);
-            }}
-            disabled={busy || loading}
-          >
-            {items.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {!system && <nav className="settings-breadcrumbs" aria-label={ar?"مسار الإعدادات":"Settings breadcrumb"}><Link href={`/${locale}/settings`}>{ar?"إعدادات المؤسسة":"Organization settings"}</Link>{financial&&<><span aria-hidden="true">/</span><Link href={`/${locale}/settings/financial?organization=${id}`}>{ar?"الإعدادات المالية والمحاسبية":"Financial & accounting settings"}</Link></>}{financial==="years"&&<><span aria-hidden="true">/</span><span aria-current="page">{ar?"إدارة السنوات المالية":"Fiscal year management"}</span></>}</nav>}
+      <TopbarOrganizationControls>
+        <WorkspaceOrganizationPicker
+          ar={ar}
+          label={ar ? "المؤسسة المختارة" : "Selected organization"}
+          organizations={items}
+          value={id}
+          onChange={setId}
+          disabled={busy || loading}
+          restore={false}
+          beforeChange={() => {
+            if (fiscalEdit.current.busy) return false;
+            const dirty = financial ? fiscalEdit.current.dirty : !system && selected &&
+              (draft.name !== selected.name || draft.legal_name !== (selected.legal_name ?? ""));
+            return !dirty || window.confirm(ar ? "تجاهل التغييرات غير المحفوظة؟" : "Discard unsaved changes?");
+          }}
+        />
+      </TopbarOrganizationControls>
       {loading ? (
         <p role="status">
           {ar ? "جارٍ تحميل المؤسسة…" : "Loading organization…"}
@@ -171,7 +170,14 @@ export default function OrganizationSettings({
           </Link>
         </section>
       ) : financial ? (
-        <section className="settings-card"><header><h2>{ar?"الإعدادات المالية والمحاسبية":"Financial & accounting settings"}</h2><p>{selected.name}</p></header>{financial==="years"?<FiscalYearManagement key={id} organization={id} locale={locale}/>:<div className="settings-link-grid"><Link href={`/${locale}/settings/financial/fiscal-years?organization=${id}`}><strong>{ar?"إدارة السنوات المالية":"Fiscal year management"}</strong><p>{ar?"التقويم المالي والسنوات والإقفال وحساب الأرباح المحتجزة.":"Fiscal calendar, years, closing and retained earnings account."}</p></Link></div>}</section>
+        <section className="settings-card">
+          <Link className="settings-return" href={`/${locale}/settings?organization=${encodeURIComponent(id)}`}>
+            <span aria-hidden="true">{ar ? "→" : "←"}</span>
+            {ar ? "الرجوع إلى إعدادات المؤسسة" : "Back to organization settings"}
+          </Link>
+          <header><h2>{ar ? "الإعدادات المالية والمحاسبية" : "Financial & accounting settings"}</h2><p>{selected.name}</p></header>
+          <FiscalYearManagement key={id} organization={id} locale={locale} onEditState={reportFiscalEdit} />
+        </section>
       ) : (
         <section className="settings-card">
           <header>
@@ -261,7 +267,7 @@ export default function OrganizationSettings({
           {message && <p role="status">{message}</p>}
         </section>
       )}
-      {!system && !financial && selected && <section className="settings-card"><h2>{ar?"الإعدادات المالية والمحاسبية":"Financial & accounting settings"}</h2><div className="settings-link-grid"><Link href={`/${locale}/settings/financial?organization=${id}`}>{ar?"فتح الإعدادات المالية والمحاسبية":"Open financial & accounting settings"}</Link></div></section>}
+
     </>
   );
 }

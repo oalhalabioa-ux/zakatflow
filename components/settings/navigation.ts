@@ -6,6 +6,12 @@ export const settingSections = [
     icon: "organization",
   },
   {
+    path: "settings/financial",
+    ar: "المالية والمحاسبة",
+    en: "Finance & accounting",
+    icon: "settings",
+  },
+  {
     path: "billing",
     ar: "الاشتراك والباقات",
     en: "Subscription & plans",
@@ -22,5 +28,5 @@ export function isSettingsPage(path: string) {
   return path==='settings'||path.startsWith('settings/')||path==='billing';
 }
 export function isSettingsSectionActive(path:string,section:string){
- return section==='settings'?(path==='settings'||path.startsWith('settings/financial')):path===section;
+ return path===section||(section==='settings/financial'&&path.startsWith(section+'/'));
 }

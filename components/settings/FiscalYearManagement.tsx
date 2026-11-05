@@ -9,7 +9,7 @@ const endpoint='/api/financial-reporting/fiscal';
 const arabicMonths=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const englishMonths=['January','February','March','April','May','June','July','August','September','October','November','December'];
 async function json(response:Response){const value=await response.json();if(!response.ok)throw Error(value.error??'FISCAL_UNAVAILABLE');return value}
-export default function FiscalYearManagement({organization,locale,previewContext}:{organization:string;locale:string;previewContext?:FiscalManagementContext}){
+export default function FiscalYearManagement({organization,locale,previewContext,onEditState}:{organization:string;locale:string;previewContext?:FiscalManagementContext;onEditState?:(dirty:boolean,busy:boolean)=>void}){
  const ar=locale==='ar',t=(a:string,e:string)=>ar?a:e;
  const [data,setData]=useState<FiscalManagementContext|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[revision,setRevision]=useState(0),[span,setSpan]=useState(2);
  const [month,setMonth]=useState('1'),[day,setDay]=useState('1'),[retained,setRetained]=useState(''),[reason,setReason]=useState('');
@@ -34,6 +34,9 @@ export default function FiscalYearManagement({organization,locale,previewContext
   }catch(e){if(activeOrganization.current===target&&generation.current===current){const code=e instanceof Error?e.message:'FISCAL_UNAVAILABLE';setError(code);if(/DENIED|UNAUTHORIZED/.test(code)){setData(null);setAction(null)}}}
   finally{if(activeOrganization.current===target)setBusy(false)}
  }
+ const suggested=suggestedFiscalStart(data?.calendar??null);
+ const dirty=!!data&&(month!==suggested.month||day!==suggested.day||retained!==(data.calendar?.retained_earnings_account??'')||!!reason.trim()||!!actionReason.trim());
+ useEffect(()=>{onEditState?.(dirty,busy);return()=>onEditState?.(false,false)},[dirty,busy,onEditState]);
  const ready=data?.organizationId===organization?data:null,calendar=ready?calendarFromContext(ready):null,locked=ready?fiscalCalendarLocked(ready):false;
  const retainedCandidates=ready?.retainedCandidates??[];
  const retainedName=retainedCandidates.find(a=>a.code===calendar?.retainedEarningsAccount);

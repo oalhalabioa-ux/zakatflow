@@ -1,4 +1,7 @@
 'use client';
+import TopbarOrganizationControls from '../TopbarOrganizationControls';
+import WorkspaceOrganizationPicker from '../WorkspaceOrganizationPicker';
+import {rememberedOrganization} from '../../lib/workspace-organization';
 import {useEffect,useMemo,useState} from 'react';
 import './chart-of-accounts.css';
 import {accountingPresentationTree,chartIntegrationMessage,type ChartPostingIntegration} from '../../lib/financial-chart-hierarchy';
@@ -22,7 +25,7 @@ export default function ChartOfAccountsWorkspace({locale,preferredOrg=''}:{local
  const[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState('');
  const[revision,setRevision]=useState(0),[query,setQuery]=useState(''),[kind,setKind]=useState('ALL'),[activeOnly,setActiveOnly]=useState(true);
  const[selected,setSelected]=useState(''),[expanded,setExpanded]=useState<string[]>([]),[draft,setDraft]=useState<Draft|null>(null);
- useEffect(()=>{const controller=new AbortController();fetch('/api/financial-reporting/openings?action=context',{cache:'no-store',signal:controller.signal}).then(json).then((organizations:Institution[])=>{if(controller.signal.aborted)return;setOrgs(organizations);setOrganization(v=>v||organizations.find(o=>o.id===preferredOrg)?.id||organizations[0]?.id||'');setLoading(false)}).catch(e=>{if(!controller.signal.aborted){setError(String(e.message));setLoading(false)}});return()=>controller.abort()},[preferredOrg]);
+ useEffect(()=>{const controller=new AbortController();fetch('/api/financial-reporting/openings?action=context',{cache:'no-store',signal:controller.signal}).then(json).then((organizations:Institution[])=>{if(controller.signal.aborted)return;setOrgs(organizations);setOrganization(v=>v||organizations.find(o=>o.id===(preferredOrg||rememberedOrganization()))?.id||organizations[0]?.id||'');setLoading(false)}).catch(e=>{if(!controller.signal.aborted){setError(String(e.message));setLoading(false)}});return()=>controller.abort()},[preferredOrg]);
  useEffect(()=>{if(!organization){setData(null);return}const controller=new AbortController();setLoading(true);setError('');setDraft(null);fetch('/api/financial-reporting/chart?'+new URLSearchParams({organization}),{cache:'no-store',signal:controller.signal}).then(json).then((value:Workspace)=>{if(controller.signal.aborted)return;if(value.organizationId!==organization)throw Error('CHART_UNAVAILABLE');setData(value);setLoading(false)}).catch(e=>{if(!controller.signal.aborted){setData(null);setError(e.message);setLoading(false)}});return()=>controller.abort()},[organization,revision]);
  const accounts=useMemo(()=>data?.accounts??[],[data]),byCode=useMemo(()=>new Map(accounts.map(a=>[a.code,a])),[accounts]);
  const roots=useMemo(()=>accounts.filter(a=>!a.parentCode),[accounts]);
@@ -52,7 +55,7 @@ export default function ChartOfAccountsWorkspace({locale,preferredOrg=''}:{local
   <button className="coa-primary" disabled={!data?.canManage} onClick={()=>create(roots[0]?.code??'')}>+ {t('إضافة حساب فرعي','Add subaccount')}</button>
  </div></div>
  <div className="coa-notice" role="note">{chartIntegrationMessage(data?.postingIntegration,locale)}</div>
- <div className="coa-org"><label>{t('المؤسسة','Organization')}<select value={organization} onChange={e=>{setSelected('');setSuccess('');setOrganization(e.target.value)}}>{orgs.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label><button onClick={()=>setRevision(v=>v+1)} disabled={loading}>{t('تحديث','Refresh')}</button></div>
+ <div className="coa-org"><TopbarOrganizationControls><WorkspaceOrganizationPicker ar={!en} label={t('المؤسسة','Organization')} organizations={orgs} value={organization} restore={false} disabled={busy} beforeChange={()=>!draft||window.confirm(t('تجاهل تعديل الحساب غير المحفوظ؟','Discard the unsaved account edit?'))} onChange={id=>{setData(null);setSelected('');setSuccess('');setOrganization(id)}}/></TopbarOrganizationControls><button onClick={()=>setRevision(v=>v+1)} disabled={loading}>{t('تحديث','Refresh')}</button></div>
  {error&&<div className="coa-alert" role="alert">{statusCodes[error]??t('تعذرت العملية. راجع الصلاحيات أو البيانات ثم حاول مجدداً.','Operation failed. Check your permissions and input.')}</div>}
  {success&&<div className="coa-success" role="status">{success}</div>}
  {loading&&<p role="status">{t('جار تحميل الدليل…','Loading chart…')}</p>}
