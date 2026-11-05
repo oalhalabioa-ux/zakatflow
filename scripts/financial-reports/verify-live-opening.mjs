@@ -96,7 +96,7 @@ try{
  await check('An ordinary browser user declares a late bank opening without technical IDs or copying its current balance',async()=>{
   sql(`update public.organization_members set status='ACTIVE' where organization_id='${other}' and user_id='${a.id}'`);
   assert.ifError((await a.client.rpc('link_financial_cash_accounts',{p_org:other})).error);
-  await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();
+  await page.goto(app+'/en/opening-balances?organization='+org);await page.locator('[data-opening-ready="'+org+'"]').waitFor();
   const organizationPicker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});await organizationPicker.selectOption(other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
   const fiscalLink=page.getByRole('link',{name:'Manage fiscal years in organization settings',exact:true});assert.match(await fiscalLink.getAttribute('href'),new RegExp(other));await fiscalLink.click();await page.locator('[data-fiscal-management]').waitFor();assert.equal(await page.getByRole('link',{name:'Finance & accounting',exact:true}).getAttribute('aria-current'),'page');await page.getByRole('link',{name:'Back to organization settings',exact:true}).click();await page.getByRole('heading',{name:'Organization details',exact:true}).waitFor();assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization'}).inputValue(),other);await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await page.getByRole('combobox',{name:'Organization',exact:true}).inputValue(),other);
 
