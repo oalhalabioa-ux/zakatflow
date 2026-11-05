@@ -1,0 +1,11 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+const state=vi.hoisted(()=>({rpc:vi.fn(),auth:vi.fn()}));
+vi.mock('../services/auth',()=>({requireUser:state.auth}));
+import {GET,PATCH} from '../app/api/liquidity/flows/[id]/route';
+const id='10000000-0000-4000-8000-000000000001',org='20000000-0000-4000-8000-000000000001',p={organization:org,title:'Correct original description',reference:'Statement-15',notes:'Reviewed source',reason:'Match original bank statement description',token:'a'.repeat(32)};
+const patch=(body:unknown=p,origin='https://preview.test')=>PATCH(new Request('https://preview.test/api/liquidity/flows/'+id,{method:'PATCH',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)}),{params:Promise.resolve({id})});
+beforeEach(()=>{state.rpc.mockReset().mockResolvedValue({data:{id},error:null});state.auth.mockReset().mockResolvedValue({supabase:{rpc:state.rpc}})});
+it('sends only audited descriptive corrections and a source snapshot token',async()=>{expect((await patch()).status).toBe(200);expect(state.rpc).toHaveBeenCalledWith('describe_financial_cash_flow',{p_org:org,p_id:id,p_title:p.title,p_reference:p.reference,p_notes:p.notes,p_reason:p.reason,p_token:p.token})});
+it('rejects financial changes and foreign origins before mutation',async()=>{for(const extra of [{amount:9},{status:'EXPECTED'},{account_id:id},{date:'2026-01-01'}])expect((await patch({...p,...extra})).status).toBe(422);expect((await patch(p,'https://foreign.test')).status).toBe(403);expect(state.rpc).not.toHaveBeenCalled()});
+it('returns fiscal protection, conflicts and source ownership errors',async()=>{for(const message of ['FISCAL_PERIOD_CLOSED','FISCAL_CASH_VERSION_CONFLICT','FISCAL_CASH_EDIT_FROM_SOURCE']){state.rpc.mockResolvedValueOnce({data:null,error:{message}});expect((await patch()).status).toBe(409)}});
+it('does not disclose inaccessible source rows',async()=>{state.rpc.mockResolvedValueOnce({data:null,error:{message:'FISCAL_CASH_ACCESS_DENIED'}});const r=await GET(new Request('https://preview.test/api/liquidity/flows/'+id+'?organization='+org),{params:Promise.resolve({id})});expect(r.status).toBe(403);expect(r.headers.get('Cache-Control')).toContain('no-store')});

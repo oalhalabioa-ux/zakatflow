@@ -226,11 +226,11 @@ notify pgrst,'reload schema';
 -- Bank statement opening corrections share actual movement deduplication with
 -- the reporting reader. They never create receipts, flows or journal events.
 create function private.financial_cash_actual_movements(p_org uuid,p_id uuid)
-returns table(id text,dt date,native numeric,base numeric) language sql stable security definer set search_path='' as $$
- select 'settlement:'||s.id,s.settlement_date,s.amount*case when s.direction='INFLOW' then 1 else -1 end,s.base_amount*case when s.direction='INFLOW' then 1 else -1 end
+returns table(id text,dt date,native numeric,base numeric,currency text) language sql stable security definer set search_path='' as $$
+ select 'settlement:'||s.id,s.settlement_date,s.amount*case when s.direction='INFLOW' then 1 else -1 end,s.base_amount*case when s.direction='INFLOW' then 1 else -1 end,s.currency
  from public.liquidity_settlements s where s.organization_id=p_org and s.account_id=p_id and s.status in('POSTED','REVERSED')
  union all
- select 'flow:'||f.id,f.due_date,f.amount*case when f.direction='INFLOW' then 1 else -1 end,f.base_amount*case when f.direction='INFLOW' then 1 else -1 end
+ select 'flow:'||f.id,f.due_date,f.amount*case when f.direction='INFLOW' then 1 else -1 end,f.base_amount*case when f.direction='INFLOW' then 1 else -1 end,f.currency
  from public.liquidity_flows f where f.organization_id=p_org and f.account_id=p_id and f.status='ACTUAL'
  and not exists(select 1 from public.financial_core_cash_event_flow_links l join public.liquidity_settlements s on s.financial_event_id=l.financial_event_id and s.organization_id=p_org where l.organization_id=p_org and l.liquidity_flow_id=f.id)
  and not exists(select 1 from public.liquidity_flow_settlement_allocations a join public.liquidity_settlements s on s.id=a.settlement_id and s.organization_id=p_org where a.organization_id=p_org and a.flow_id=f.id and s.status in('POSTED','REVERSED'))
@@ -256,7 +256,7 @@ begin
  when exists(select 1 from public.financial_opening_source_assignments where organization_id=p_org and source_table='liquidity_accounts' and source_id=p_id) then 'FISCAL_ASSIGNED_SOURCE_CORRECTION_REQUIRED'
  when exists(select 1 from public.financial_opening_workspaces w cross join lateral jsonb_each(w.entries) e where w.organization_id=p_org and w.status='DRAFT' and e.key='cash:'||p_id and coalesce(nullif(e.value->>'amount','')::numeric,0)<>0) then 'FISCAL_DRAFT_OPENING_REVIEW_REQUIRED'
  when first_date<v_date then 'FISCAL_CASH_DATE_AFTER_MOVEMENT'
- when exists(select 1 from private.financial_cash_actual_movements(p_org,p_id) x where x.native is null or x.base is null) then 'FISCAL_CASH_CURRENCY_REVIEW_REQUIRED' end;
+ when exists(select 1 from private.financial_cash_actual_movements(p_org,p_id) x where x.native is null or x.base is null or x.currency is distinct from b.currency) then 'FISCAL_CASH_CURRENCY_REVIEW_REQUIRED' end;
  return jsonb_build_object('id',b.id,'name',b.name,'currency',b.currency,'baseCurrency',ccy,'date',v_date,'amount',amt::text,'baseAmount',bas::text,
  'fx',case when b.currency=ccy then '1' when amt<>0 and bas/amt>0 then (bas/amt)::text else coalesce(b.metadata->>'opening_fx_rate','1') end,
  'balance',b.current_balance::text,'baseBalance',b.current_balance_base::text,'accountType',b.account_type,'restricted',b.restricted_balance,'uncleared',b.uncleared_balance,'entityId',b.entity_id,'firstMovement',first_date,'issue',issue,'canEdit',issue is null,
@@ -291,3 +291,41 @@ begin
 end $$;
 revoke all on function public.correct_financial_cash_opening(uuid,uuid,date,numeric,numeric,text,text) from public,anon;
 grant execute on function public.correct_financial_cash_opening(uuid,uuid,date,numeric,numeric,text,text) to authenticated;
+
+-- Legacy actual rows have no posted voucher to reopen. Descriptive corrections
+-- are audited separately; this path never changes amounts, dates or cash status.
+create function public.financial_cash_flow_source(p_org uuid,p_id uuid)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare f public.liquidity_flows%rowtype;issue text;
+begin
+ if auth.uid() is null or not private.financial_opening_can(p_org,'financial_core.view') then raise exception 'FISCAL_CASH_ACCESS_DENIED';end if;
+ select * into f from public.liquidity_flows where id=p_id and organization_id=p_org;
+ if f.id is null then raise exception 'FISCAL_CASH_ACCESS_DENIED';end if;
+ issue:=case when not private.financial_opening_can(p_org,'financial_core.create') then 'FISCAL_WRITE_DENIED'
+ when f.status<>'ACTUAL' or f.transfer_id is not null or f.intercompany_transfer_id is not null or coalesce(f.source_module,'MANUAL')<>'MANUAL' then 'FISCAL_CASH_EDIT_FROM_SOURCE'
+ when exists(select 1 from public.financial_year_closures where organization_id=p_org and status='CLOSED' and fiscal_start<=f.due_date and fiscal_end>=f.due_date) then 'FISCAL_PERIOD_CLOSED' end;
+ return jsonb_build_object('id',f.id,'title',f.title,'reference',f.reference,'notes',f.notes,'date',f.due_date,'amount',f.amount,'currency',f.currency,'direction',f.direction,'issue',issue,'canEdit',issue is null,'token',md5(to_jsonb(f)::text));
+end $$;
+revoke all on function public.financial_cash_flow_source(uuid,uuid) from public,anon;
+grant execute on function public.financial_cash_flow_source(uuid,uuid) to authenticated;
+create function public.describe_financial_cash_flow(p_org uuid,p_id uuid,p_title text,p_reference text,p_notes text,p_token text,p_reason text)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare f public.liquidity_flows%rowtype;s jsonb;start date;
+begin
+ if auth.uid() is null or not private.financial_opening_can(p_org,'financial_core.create') then raise exception 'FISCAL_WRITE_DENIED';end if;
+ if length(trim(coalesce(p_title,''))) not between 1 and 160 or length(coalesce(p_reference,''))>120 or length(coalesce(p_notes,''))>500 or length(trim(coalesce(p_reason,''))) not between 3 and 500 then raise exception 'FISCAL_CASH_INPUT_INVALID';end if;
+ select * into f from public.liquidity_flows where id=p_id and organization_id=p_org;
+ if f.id is null then raise exception 'FISCAL_CASH_ACCESS_DENIED';end if;
+ if exists(select 1 from public.financial_fiscal_calendars where organization_id=p_org) then
+ start:=(private.financial_fiscal_period(p_org,f.due_date)->>'start')::date;
+ perform pg_advisory_xact_lock(hashtextextended('fiscal-year:'||p_org::text||start::text,0));end if;
+ select * into f from public.liquidity_flows where id=p_id and organization_id=p_org for update;
+ s:=public.financial_cash_flow_source(p_org,p_id);
+ if s->>'issue' is not null then raise exception '%',s->>'issue';end if;
+ if p_token is distinct from s->>'token' then raise exception 'FISCAL_CASH_VERSION_CONFLICT';end if;
+ update public.liquidity_flows set title=trim(p_title),reference=coalesce(p_reference,''),notes=coalesce(p_notes,''),updated_at=now() where id=p_id and organization_id=p_org;
+ insert into public.financial_fiscal_audit(organization_id,action,actor_id,detail) values(p_org,'CASH_FLOW_DESCRIBE',auth.uid(),jsonb_build_object('sourceId',p_id,'before',s,'title',trim(p_title),'reference',p_reference,'notes',p_notes,'reason',trim(p_reason)));
+ return public.financial_cash_flow_source(p_org,p_id);
+end $$;
+revoke all on function public.describe_financial_cash_flow(uuid,uuid,text,text,text,text,text) from public,anon;
+grant execute on function public.describe_financial_cash_flow(uuid,uuid,text,text,text,text,text) to authenticated;

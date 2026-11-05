@@ -9,6 +9,8 @@ on:
       - 'tests/qa-cash-account-link-sync.sql'
       - 'tests/qa-bank-opening-correction.sql'
       - 'components/BankAccountDetails.tsx'
+      - 'components/CashFlowSourceDetails.tsx'
+      - 'components/FinancialEventOperationalPanel.tsx'
       - 'app/[locale]/opening-balances/**'
       - 'app/[locale]/financial-reports/**'
       - 'app/[locale]/financial-reporting-policy/**'

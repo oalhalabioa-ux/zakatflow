@@ -80,7 +80,7 @@
     {
       "category": "function",
       "object_key": "private.financial_cash_actual_movements(p_org uuid, p_id uuid)",
-      "fingerprint": "cde41ed87364386b62e2ebd18f0dad1a"
+      "fingerprint": "18c9887a68a36b1aba22d90deac77e66"
     },
     {
       "category": "function",
@@ -129,8 +129,18 @@
     },
     {
       "category": "function",
+      "object_key": "public.describe_financial_cash_flow(p_org uuid, p_id uuid, p_title text, p_reference text, p_notes text, p_token text, p_reason text)",
+      "fingerprint": "2ce6258f5d049083289387e139da065a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_cash_flow_source(p_org uuid, p_id uuid)",
+      "fingerprint": "9aac80f2c087833680297248b12d085e"
+    },
+    {
+      "category": "function",
       "object_key": "public.financial_cash_opening_detail(p_org uuid, p_id uuid, p_date date)",
-      "fingerprint": "4c9cc1545e8f3ec1a550c43ffaa9561e"
+      "fingerprint": "0c71263c0b4a2987eff6f813c48034a7"
     },
     {
       "category": "function",
