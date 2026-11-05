@@ -1,6 +1,7 @@
 import {requireUser} from './auth';
 import {assertOpeningWorkspace,openingContext} from './financial-opening-workspace';
 import {normalizeStatementSource,statementQuery} from '../lib/financial-statement-source';
+import {endingForFiscalStart} from '../lib/financial-fiscal-end';
 export function assertLiveStatements(){assertOpeningWorkspace();if(process.env.FINANCIAL_STATEMENTS_LIVE!=='true')throw Error('REPORTING_DISABLED')}
 function read<T>(r:{data:T;error:{message:string}|null}){if(r.error)throw Error(r.error.message.match(/REPORTING_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');return r.data}
 export async function liveStatementContext(){
@@ -10,7 +11,11 @@ export async function liveStatementContext(){
  const organizations=await openingContext();
  return organizations.flatMap(org=>{
   const rows=periods.filter(period=>period.organizationId===org.id);
-  return rows.length?rows:[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:'',fiscalEnd:''}];
+  const draftStart=org.currentFiscalStart??'';
+  const current=draftStart&&!rows.some(period=>period.fiscalStart===draftStart)
+   ?[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:draftStart,fiscalEnd:endingForFiscalStart(draftStart)}]:[];
+  const available=[...rows,...current].sort((a,b)=>b.fiscalStart.localeCompare(a.fiscalStart));
+  return available.length?available:[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:'',fiscalEnd:''}];
  });
 }
 export async function liveStatementSource(input:unknown){

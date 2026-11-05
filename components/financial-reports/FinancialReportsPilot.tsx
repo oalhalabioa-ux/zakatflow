@@ -7,6 +7,8 @@ import './financial-reports-pilot.css';
 // Small vector UI icons; no raster reference is used in the implementation.
 export function Icon({name='chart',size=24}:{name?:string;size?:number}){
  const paths:Record<string,React.ReactNode>={
+ plus:<path d="M12 5v14M5 12h14"/>,
+ link:<><path d="M10 13a5 5 0 0 0 7.1 0l2.2-2.2a5 5 0 0 0-7.1-7.1L11 4.9"/><path d="M14 11a5 5 0 0 0-7.1 0l-2.2 2.2a5 5 0 0 0 7.1 7.1L13 19.1"/></>,
  wallet:<><path d="M20 8V5a2 2 0 0 0-2-2H5a3 3 0 0 0-3 3v13a2 2 0 0 0 2 2h16V8H5a2 2 0 0 1 0-4"/><path d="M20 12h-5v5h5"/><circle cx="16.5" cy="14.5" r=".5"/></>,
  bank:<><path d="m2 8 10-6 10 6H2Zm1 13h18M5 10v8m7-8v8m7-8v8M3 18h18"/></>,
  crown:<><path d="m2 6 5 5 5-8 5 8 5-5-3 13H5ZM5 22h14"/></>,

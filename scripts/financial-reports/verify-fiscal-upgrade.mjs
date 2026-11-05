@@ -15,7 +15,8 @@ const migrations=[
  '20261104165205_fiscal_calendar_budget_guards.sql',
  '20261104214000_funded_debt_source_cash_direction.sql',
  '20261104222828_unified_cash_account_openings.sql',
- '20261105010000_fiscal_retained_leaf_account.sql'
+ '20261105010000_fiscal_retained_leaf_account.sql',
+ '20261105150000_equity_opening_additional_lines.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});
