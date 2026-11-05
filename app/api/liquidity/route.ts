@@ -83,6 +83,14 @@ export async function GET(request: Request) {
     if (counterpartiesError) throw counterpartiesError;
     if (balancesError) throw balancesError;
     if (openItemsError) throw openItemsError;
+    const [chartLinks, chartPermission] = await Promise.all([
+      supabase.from('financial_cash_account_links').select('account_id').eq('organization_id', organizationId),
+      supabase.rpc('effective_organization_permission', {p_org:organizationId,p_permission:'financial_core.create',p_amount:null,p_currency:null}),
+    ]);
+    const linkedCashIds = new Set((chartLinks.data ?? []).map(link => link.account_id));
+    const pendingCashChartLinks = chartLinks.error || chartPermission.data !== true ? 0 :
+      (accountsResult.data ?? []).filter(account => account.organization_id === organizationId &&
+        (account.active || Number(account.current_balance_base) !== 0) && !linkedCashIds.has(account.id)).length;
     const organizations = organizationsResult.data ?? [];
     let accounts: any[] = accountsResult.data ?? [];
     let flows: any[] = flowsResult.data ?? [];
@@ -117,7 +125,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
+    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, pendingCashChartLinks, accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
