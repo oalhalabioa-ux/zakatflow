@@ -899,7 +899,7 @@
 
 /* Give finance and settings an accessible company picker on narrow screens. */
 @media (max-width:700px) {
- .corp-shell .corp-topbar:has([data-labeled-organization-picker]) {
+ .corp-shell .corp-topbar:has(.corp-organization-controls [data-labeled-organization-picker]) {
   display:grid;grid-template-columns:auto minmax(0,1fr) auto;
   height:auto;min-height:62px;padding:8px;row-gap:6px;
  }
