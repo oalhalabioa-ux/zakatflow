@@ -22,9 +22,9 @@ export default function OpeningBalancesPreview({initialEnglish=false}:{initialEn
  return <div className="fs-root" lang={en?'en':'ar'} dir={en?'ltr':'rtl'}><CorporateShell designPreview locale={en?'en':'ar'} previewTopbar={topbar} navigationExtension={nav}><OpeningWorkspace key={org} org={org} en={en}/></CorporateShell></div>;
 }
 type LiveOpeningProps={data:OpeningWorkspaceData;busy:boolean;onSave:(entries:OpeningEntries,reason:string)=>Promise<void>;onApprove:()=>Promise<void>;beforeExport:()=>Promise<void>;onSourcesChanged?:()=>void};
-export function OpeningWorkspace({org,en,live}:{org:string;en:boolean;live?:LiveOpeningProps}){
+export function OpeningWorkspace({org,en,live,initialTab='customers',onTabChange}:{org:string;en:boolean;live?:LiveOpeningProps;initialTab?:OpeningTab;onTabChange?:(tab:OpeningTab)=>void}){
  const t=(ar:string,english:string)=>en?english:ar;
- const[tab,setTab]=useState<OpeningTab>('customers'),[drafts,setDrafts]=useState<OpeningDrafts>({}),[search,setSearch]=useState(''),[status,setStatus]=useState('all'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[editingId,setEditingId]=useState<string|null>(null);
+ const[tab,setTab]=useState<OpeningTab>(initialTab),[drafts,setDrafts]=useState<OpeningDrafts>({}),[search,setSearch]=useState(''),[status,setStatus]=useState('all'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[editingId,setEditingId]=useState<string|null>(null);
  const[reason,setReason]=useState(live?.data.workspace?.reason??''),[correctionReasons,setCorrectionReasons]=useState<Record<string,string>>(()=>Object.fromEntries(Object.entries(live?.data.workspace?.entries??{}).map(([id,v])=>[id,v.reason??''])));
  const initialEntries=useMemo(()=>{
   const entries={...live?.data.workspace?.entries};
@@ -59,7 +59,7 @@ export function OpeningWorkspace({org,en,live}:{org:string;en:boolean;live?:Live
  const statusLabel=(value:string)=>value==='missing'?t('غير مدخل','Not entered'):value==='review'?t('للمراجعة','Review'):value==='invalid'?t('قيمة غير صالحة','Invalid amount'):t('مدخل','Entered');
  function update(id:string,amount:string,side:'DEBIT'|'CREDIT'){setDrafts(prev=>({...prev,[id]:{...prev[id],amount,side}}))}
  function sourceMessage(r:typeof state.rows[number]){return[(en?r.en:r.ar),...r.vouchers.map(v=>v.number+' · '+amount(new Money(v.debit).minus(v.credit).toFixed(4))+(v.effectiveDate?' · '+t('سريان الافتتاحي ','Opening effective ')+v.effectiveDate:'')+(v.transactionDate?' · '+t('تاريخ السند ','Voucher date ')+v.transactionDate:'')+(v.recordedAt?' · '+t('تاريخ التسجيل ','Recorded ')+v.recordedAt:'')),live?t('سند فعلي. التعديل من السجل الأصلي، والإضافة هنا تمثل الفرق فقط.','Live source. Edit the original register; supplements here represent only the difference.'):t('سند تجريبي. تعديل السند الأصلي يتم من مصدره عند تفعيل الربط؛ لا يُعدّل هنا.','Synthetic voucher. Source editing belongs to its original module when integration is enabled.')].join('\n')}
- function switchTab(value:OpeningTab){setTab(value);setSearch('');setStatus('all')}
+ function switchTab(value:OpeningTab){setTab(value);onTabChange?.(value);setSearch('');setStatus('all')}
  async function exportFile(kind:'csv'|'xlsx'){
   if(live)try{await live.beforeExport()}catch{setMessage(t('تغيّرت البيانات أو الصلاحيات. حدّث الصفحة قبل التصدير.','Data or permissions changed. Refresh before exporting.'));return}
   const key=exportKey.current;setBusy(true);try{const selected=tab==='summary'?state.rows:visible,rows=openingPreviewExport(state,selected,en);if(live){rows[0]=[t('المصدر','Source'),'LIVE REGISTERS · '+(dirty?'UNSAVED DRAFT':live.data.workspace?.status??'UNSAVED')];rows[1]=[t('تاريخ الافتتاحي','Opening date'),live.data.fiscalStart];rows[2]=[t('العملة','Currency'),currency];}rows.splice(1,0,[t('المؤسسة','Organization'),org],[t('التاب','Tab'),tab]);let blob:Blob;

@@ -95,6 +95,7 @@ try{
   await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:5000}).catch(async error=>{await writeFile(out+'/late-source-mobile-overflow.json',JSON.stringify(await page.evaluate(()=>Array.from(document.querySelectorAll('*')).map(e=>({tag:e.tagName,classes:e.className,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,text:e.textContent?.slice(0,100)})).filter(e=>e.right>innerWidth+1&&e.left>=0).slice(-25)),null,2));await page.screenshot({path:out+'/late-source-mobile.png',fullPage:true});throw error});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.setViewportSize({width:1672,height:941});
   const assigned=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-reporting/fiscal'&&r.request().method()==='POST');await page.getByRole('button',{name:'Confirm bank opening',exact:true}).click();assert.equal((await assigned).status(),200);
+  await page.locator('[data-opening-row][data-final="0.0000"]').filter({hasText:'September QA bank'}).waitFor();
   const fresh=await a.client.rpc('financial_opening_workspace',{p_org:other,p_fiscal_start:'2026-01-01'});assert.ifError(fresh.error);
   const bank=fresh.data.source.rows.find(row=>row.en==='September QA bank');assert.equal(bank.vouchers[0].debit,'0.0000');assert.equal(Number(fresh.data.bankRegister[bank.id].balance),250000);
   assert.equal(bank.vouchers[0].effectiveDate,'2026-01-01');assert.equal(bank.vouchers[0].transactionDate,'2026-09-28');
