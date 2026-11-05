@@ -65,7 +65,7 @@ try{
   for(const date of ['2026-10-21','2026-10-23'])assert.match(await vouchers.allTextContents().then(v=>v.join(' ')),new RegExp(date));
   assert.equal(await page.getByText('Assign late opening sources',{exact:true}).count(),0);
   assert.equal(await page.getByLabel('Reason for replacing the previous approval').count(),0);
-  const lateAsset=page.locator('[data-opening-row]').filter({hasText:'Opening QA 2026-10-21'});
+  const lateAsset=page.locator('[data-opening-row^="asset:"]').filter({hasText:'Opening QA 2026-10-21'});
   const rowHeight=await lateAsset.evaluate(row=>row.getBoundingClientRect().height);
   await lateAsset.getByRole('button',{name:'Review assignment',exact:true}).click();
   const review=page.getByRole('dialog',{name:'Review assignment'});
