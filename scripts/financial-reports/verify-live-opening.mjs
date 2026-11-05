@@ -55,9 +55,11 @@ try{
   const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
   await picker.locator('option[value="'+other+'"]').waitFor({state:'attached'});
   assert.equal(await picker.isEnabled(),true);await picker.selectOption(other);
-  await page.getByRole('heading',{name:'Organization registers',exact:true}).waitFor();
-  const registerRow=page.getByRole('row').filter({has:page.getByRole('rowheader',{name:'September QA bank'})});
-  await registerRow.waitFor();assert.match(await registerRow.innerText(),/250,000.00/);
+  await page.getByRole('heading',{name:'Sources and registers',exact:true}).waitFor();
+  // The cash register remains available in its own source, but must never be
+  // presented as a substitute for a financial statement with no approved policy.
+  assert.equal(await page.getByRole('row').filter({hasText:'September QA bank'}).count(),0);
+  await page.getByText('Cash balances are not shown as a partial financial position when the complete statement is unavailable.',{exact:false}).waitFor();
   await page.getByRole('link',{name:'Opening balances and vouchers'}).click();
   await page.getByRole('tab',{name:/Assets & depreciation/}).click();
   const vouchers=page.locator('[data-period-voucher]');
