@@ -109,3 +109,9 @@
 
 .settings-return{display:inline-flex;align-items:center;gap:8px;min-height:40px;margin-block-end:12px;padding:6px 12px;border:1px solid var(--brand-border);border-radius:9px;color:var(--brand-text);background:var(--brand-surface);text-decoration:none;font-weight:600}
 .settings-return:hover{background:var(--brand-surface-soft)}
+
+/* Financial page subnavigation. The approved application sidebar and top bar remain untouched. */
+.financial-settings-shortcuts{display:flex;align-items:stretch;gap:4px;overflow-x:auto;scrollbar-width:thin;margin:18px 0 25px;border-bottom:1px solid var(--brand-border,#dbe1e7)}
+.financial-settings-shortcuts a{display:inline-flex;align-items:center;justify-content:center;flex:1 0 auto;min-height:43px;padding:8px 10px;text-align:center;border-bottom:3px solid transparent;color:var(--brand-text,#10243a);font-size:.88rem;font-weight:700;text-decoration:none;white-space:nowrap}
+.financial-settings-shortcuts a[aria-current=page]{border-bottom-color:#c6a35d;color:var(--brand-primary,#10243a);background:var(--brand-surface-soft,#f5ebd6)}
+.financial-settings-shortcuts a:focus-visible{outline:3px solid #c6a35d;outline-offset:-3px}

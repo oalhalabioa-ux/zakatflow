@@ -172,6 +172,13 @@ export default function OrganizationSettings({
       ) : financial ? (
         <section className="settings-card">
           <header><h2>{ar ? "الإعدادات المالية والمحاسبية" : "Financial & accounting settings"}</h2><p>{selected.name}</p></header>
+          <nav className="financial-settings-shortcuts" aria-label={ar ? 'التنقل بين الإعدادات المالية' : 'Financial settings navigation'}>
+            <Link href={`/${locale}/settings/financial/setup?organization=${encodeURIComponent(id)}`}>{ar?'رحلة إعداد المؤسسة':'Setup journey'}</Link>
+            <Link href={`/${locale}/settings/financial/fiscal-years?organization=${encodeURIComponent(id)}`} aria-current="page">{ar?'السنوات المالية':'Fiscal years'}</Link>
+            <Link href={`/${locale}/chart-of-accounts?organization=${encodeURIComponent(id)}`}>{ar?'دليل الحسابات':'Chart of accounts'}</Link>
+            <Link href={`/${locale}/financial-reporting-policy?organization=${encodeURIComponent(id)}`}>{ar?'قواعد الترحيل':'Posting rules'}</Link>
+            <Link href={`/${locale}/opening-balances?organization=${encodeURIComponent(id)}`}>{ar?'الأرصدة الافتتاحية':'Opening balances'}</Link>
+          </nav>
           <FiscalYearManagement key={id} organization={id} locale={locale} onEditState={reportFiscalEdit} />
         </section>
       ) : (
