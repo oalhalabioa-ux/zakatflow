@@ -13,6 +13,7 @@ export type ScopeReadinessIssue=
 export type ScopeReadiness={
  status:'BLOCKED';scope:'COMPANY_DIRECT'|'GROUP_WITH_SUBSIDIARIES';organizationId:string;from:string;to:string;
  issues:ScopeReadinessIssue[];
+ groupControlEvidence?:{kind:'APPROVED_CONTROL_EVIDENCE_ONLY';approvedDirectRelationships:number;registryComplete:false};
  observation:{kind:'RLS_VISIBLE_ONLY';entityRecords:number;canonicalEvents:number;organizationDirectEvents:number;branchEvents:number;
   cashAccounts:{companyDirect:number;branchLinked:number;entityLinkNotVisible:number};assetAccounts:{companyDirect:number;branchLinked:number;entityLinkNotVisible:number};
   organizationLevelOpeningWorkspaces:number}|null;
@@ -45,10 +46,21 @@ export async function liveScopeReadiness(input:unknown):Promise<ScopeReadiness>{
  }
  await authorize();
  if(q.scope==='GROUP_WITH_SUBSIDIARIES'){
-  // A visible organizations.parent_organization_id is NOT proof of legal control,
-  // complete membership, effective dates, or permission for every subsidiary.
+  // The private registry RPC authorizes BOTH the parent and each returned child.
+  // It only provides direct approved control at the end date: no completeness,
+  // full-period coverage, eliminations, currency or NCI attestation.
+  const evidence=await supabase.rpc('financial_group_control_context',{p_parent:q.organization,p_as_of:q.to});
+  if(evidence.error?.message?.includes('GROUP_CONTROL_READ_DENIED'))throw Error('REPORTING_ACCESS_DENIED');
+  const body=evidence.error?null:evidence.data;
+  const safe=body!==null&&typeof body==='object'&&!Array.isArray(body)&&
+    body.status==='EVIDENCE_ONLY'&&body.registryComplete===false&&
+    body.parentOrganizationId===q.organization&&body.asOf===q.to&&
+    Array.isArray(body.relationships)&&body.relationships.length<=1000;
+  const groupControlEvidence=safe?{kind:'APPROVED_CONTROL_EVIDENCE_ONLY' as const,
+   approvedDirectRelationships:body.relationships.length,registryComplete:false as const}:null;
   await authorize();
-  return{status:'BLOCKED',scope:q.scope,organizationId:q.organization,from:q.from,to:q.to,observation:null,issues:[
+  return{status:'BLOCKED',scope:q.scope,organizationId:q.organization,from:q.from,to:q.to,observation:null,
+   ...(groupControlEvidence?{groupControlEvidence}:{}),issues:[
    'GROUP_MEMBERSHIP_UNVERIFIED','GROUP_CONTROL_UNVERIFIED','GROUP_ELIMINATION_UNVERIFIED','GROUP_CURRENCY_AND_NCI_UNVERIFIED',
   ]};
  }

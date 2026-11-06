@@ -1,7 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 
 const org='10000000-0000-4000-8000-000000000001';
-const state=vi.hoisted(()=>({authenticated:true,member:true,allowed:true,revoked:false,dbError:false,
+const state=vi.hoisted(()=>({authenticated:true,member:true,allowed:true,revoked:false,dbError:false,groupError:null as string|null,groupEvidence:null as unknown,
  authReads:0,sourceReads:0,rpcs:[] as string[],events:[{id:'ev1',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null},{id:'ev2',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:'branch-1'}],
  entities:[{id:'branch-1',organization_id:'10000000-0000-4000-8000-000000000001',entity_type:'BRANCH',active:true}],
  cashAccounts:[{id:'cash-hq',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null},{id:'cash-branch',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:'branch-1'}],
@@ -15,7 +15,7 @@ const client={
    async limit(){state.sourceReads++;return state.dbError?{data:null,error:{message:'SQL secret'}}:{data:table==='financial_events'?state.events:table==='organization_entities'?state.entities:table==='liquidity_accounts'?state.cashAccounts:table==='asset_accounts'?state.assetAccounts:state.openingWorkspaces,error:null}},
   };return chain;
  },
- async rpc(name:string){state.rpcs.push(name);return{data:state.allowed,error:null}},
+ async rpc(name:string){state.rpcs.push(name);if(name==='financial_group_control_context')return{data:state.groupEvidence,error:state.groupError?{message:state.groupError}:null};return{data:state.allowed,error:null}},
 };
 vi.mock('../services/auth',()=>({requireUser:async()=>{if(!state.authenticated)throw Error('UNAUTHORIZED');return{user:{id:'actor',user_metadata:{role:'platform_owner'}},supabase:client}}}));
 vi.mock('../services/financial-statement-live',()=>({assertLiveStatements:()=>{},liveStatementContext:async()=>[],liveStatementSource:async()=>({})}));
@@ -26,7 +26,7 @@ const period={organization:org,from:'2026-01-01',to:'2026-12-31'};
 const url=(scope:string)=>'http://localhost/api/financial-reporting/live-statements?'+new URLSearchParams({action:'scope-readiness',...period,scope});
 beforeEach(()=>{
  vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('FINANCIAL_SCOPE_PREFLIGHT','true');
- Object.assign(state,{authenticated:true,member:true,allowed:true,revoked:false,dbError:false,authReads:0,sourceReads:0,rpcs:[],
+ Object.assign(state,{authenticated:true,member:true,allowed:true,revoked:false,dbError:false,groupError:null,groupEvidence:null,authReads:0,sourceReads:0,rpcs:[],
   events:[{id:'ev1',organization_id:org,entity_id:null},{id:'ev2',organization_id:org,entity_id:'branch-1'}],entities:[{id:'branch-1',organization_id:org,entity_type:'BRANCH',active:true}],
   cashAccounts:[{id:'cash-hq',organization_id:org,entity_id:null},{id:'cash-branch',organization_id:org,entity_id:'branch-1'}],
   assetAccounts:[{id:'asset-hq',organization_id:org,entity_id:null}],openingWorkspaces:[{id:'opening-1',organization_id:org}]});
@@ -63,6 +63,22 @@ describe('QA-only, RLS-visible source-readiness checks',()=>{
   expect(result.issues).toContain('GROUP_CONTROL_UNVERIFIED');
   expect(result.issues).toContain('GROUP_MEMBERSHIP_UNVERIFIED');
   expect(state.sourceReads).toBe(0);expect(state.authReads).toBe(2);
+  expect(state.rpcs).toEqual(['financial_core_can','financial_group_control_context','financial_core_can']);
+ });
+ it('summarizes only approved direct evidence without revealing controlled member identifiers or financial totals',async()=>{
+  state.groupEvidence={status:'EVIDENCE_ONLY',registryComplete:false,parentOrganizationId:org,asOf:'2026-12-31',
+   relationships:[{subsidiaryOrganizationId:'private-child-A'},{subsidiaryOrganizationId:'private-child-B'}]};
+  const result=await liveScopeReadiness({...period,scope:'GROUP_WITH_SUBSIDIARIES'});
+  expect(result).toMatchObject({status:'BLOCKED',observation:null,
+   groupControlEvidence:{kind:'APPROVED_CONTROL_EVIDENCE_ONLY',approvedDirectRelationships:2,registryComplete:false}});
+  expect(result.issues).toContain('GROUP_ELIMINATION_UNVERIFIED');
+  expect(JSON.stringify(result)).not.toMatch(/private-child|subsidiaryOrganizationId|totalDebit|READY/);
+ });
+ it('fails closed if the legal registry denies a hidden subsidiary or the initial authorization is revoked',async()=>{
+  state.groupError='GROUP_CONTROL_READ_DENIED';
+  await expect(liveScopeReadiness({...period,scope:'GROUP_WITH_SUBSIDIARIES'})).rejects.toThrow('REPORTING_ACCESS_DENIED');
+  state.groupError=null;state.revoked=true;state.authReads=0;
+  await expect(liveScopeReadiness({...period,scope:'GROUP_WITH_SUBSIDIARIES'})).rejects.toThrow('REPORTING_ACCESS_DENIED');
  });
  it('rejects anonymous, missing-member and insufficient-permission requests before any metadata reads',async()=>{
   state.authenticated=false;expect((await GET(new Request(url('COMPANY_DIRECT')))).status).toBe(401);
