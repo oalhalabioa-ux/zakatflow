@@ -1,0 +1,5 @@
+{
+  "description": "New legal-control evidence schema objects. Fingerprints will be populated exclusively from a clean disposable full-schema bootstrap, without changing historical baselines.",
+  "removals": [],
+  "upserts": []
+}

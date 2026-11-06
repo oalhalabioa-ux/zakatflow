@@ -1754,6 +1754,14 @@
       "expected_md5": "718102966317c94e82506cd272562590",
       "file_sha256": "f925ff22ce73c943b7efef8f6d4a8ed412515fb5af37b9417c7ee974c09889b2",
       "validation_project": "Disposable equity opening and duplicate-account rejection only; not applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261106154742_financial_group_control_evidence_v1.sql",
+      "version": "20261106154742",
+      "name": "financial_group_control_evidence_v1",
+      "expected_md5": "7792151c6a73f660919037fcbb22d79d",
+      "file_sha256": "094dca4bf40f81c43dd12bb33503dbd5173b9e345fa6c494f334ffe79bd4c978",
+      "validation_project": "Disposable group legal-control evidence, audit and tenant-isolation tests only; not applied to Production"
     }
   ]
 }
