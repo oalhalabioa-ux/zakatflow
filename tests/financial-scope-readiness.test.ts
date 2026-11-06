@@ -57,6 +57,19 @@ describe('QA-only, RLS-visible source-readiness checks',()=>{
   expect(result.status).toBe('BLOCKED');
   expect(JSON.stringify(result)).not.toMatch(/debit|credit|account_id|not-visible/);
  });
+ it('classifies active COMPANY-linked cash and assets as headquarters, consistently with company-linked events',async()=>{
+  state.entities.push({id:'company-hq',organization_id:org,entity_type:'COMPANY',active:true});
+  state.events.push({id:'ev-company',organization_id:org,entity_id:'company-hq'});
+  state.cashAccounts.push({id:'cash-company',organization_id:org,entity_id:'company-hq'});
+  state.assetAccounts.push({id:'asset-company',organization_id:org,entity_id:'company-hq'});
+  const result=await liveScopeReadiness({...period,scope:'COMPANY_DIRECT'});
+  expect(result.observation).toMatchObject({canonicalEvents:3,organizationDirectEvents:2,branchEvents:1,
+   cashAccounts:{companyDirect:2,branchLinked:1,entityLinkNotVisible:0},
+   assetAccounts:{companyDirect:2,branchLinked:0,entityLinkNotVisible:0}});
+  expect(result.issues).not.toContain('ENTITY_ACCOUNT_LINK_UNRESOLVED');
+  expect(result.status).toBe('BLOCKED');
+  expect(result.observation?.kind).toBe('RLS_VISIBLE_ONLY');
+ });
  it('does not infer controlled subsidiaries from the parent hierarchy or reveal member identifiers',async()=>{
   const result=await liveScopeReadiness({...period,scope:'GROUP_WITH_SUBSIDIARIES'});
   expect(result).toMatchObject({status:'BLOCKED',observation:null});

@@ -79,9 +79,10 @@ export async function liveScopeReadiness(input:unknown):Promise<ScopeReadiness>{
  const classified=classifyFinancialSourceScope(q.organization,entities.map(e=>({id:e.id,organizationId:e.organization_id,entityType:e.entity_type,active:e.active})),
   events.map(e=>({id:e.id,organizationId:e.organization_id,entityId:e.entity_id})));
  const visibleActiveBranches=new Set(entities.filter(e=>e.entity_type==='BRANCH'&&e.active).map(e=>e.id));
- const classifyAccountLinks=(rows:typeof cash)=>({companyDirect:rows.filter(a=>a.entity_id===null).length,
+ const visibleActiveCompanies=new Set(entities.filter(e=>e.entity_type==='COMPANY'&&e.active).map(e=>e.id));
+ const classifyAccountLinks=(rows:typeof cash)=>({companyDirect:rows.filter(a=>a.entity_id===null||visibleActiveCompanies.has(a.entity_id)).length,
   branchLinked:rows.filter(a=>a.entity_id!==null&&visibleActiveBranches.has(a.entity_id)).length,
-  entityLinkNotVisible:rows.filter(a=>a.entity_id!==null&&!visibleActiveBranches.has(a.entity_id)).length});
+  entityLinkNotVisible:rows.filter(a=>a.entity_id!==null&&!visibleActiveBranches.has(a.entity_id)&&!visibleActiveCompanies.has(a.entity_id)).length});
  const cashAccounts=classifyAccountLinks(cash),assetAccounts=classifyAccountLinks(assets);
  const observation={kind:'RLS_VISIBLE_ONLY' as const,entityRecords:entities.length,canonicalEvents:events.length,
   organizationDirectEvents:classified.filter(e=>e.scope==='ORGANIZATION_DIRECT').length,
