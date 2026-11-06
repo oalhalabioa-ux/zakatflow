@@ -1,5 +1,271 @@
 {
-  "description": "New legal-control evidence schema objects. Fingerprints will be populated exclusively from a clean disposable full-schema bootstrap, without changing historical baselines.",
+  "description": "Additive audited legal-control evidence schema fingerprints observed on a clean disposable Supabase full-schema bootstrap; no historical baseline changes.",
   "removals": [],
-  "upserts": []
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.approved_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.approved_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.control_basis",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.economic_interest_percent",
+      "fingerprint": "b066dd087e02bbf697f89bbc9651e391"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.effective_from",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.effective_to",
+      "fingerprint": "aed943be412fde2bc082da6a2222596b"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.evidence_reference",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.parent_organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.status",
+      "fingerprint": "e43c3c73b894819d7d129c8bca319d6e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.subsidiary_organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_assessments.voting_interest_percent",
+      "fingerprint": "b066dd087e02bbf697f89bbc9651e391"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_audit.action",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_audit.actor_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_audit.assessment_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_audit.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_audit.details",
+      "fingerprint": "76d26ceff0731fd880ac54724ba71355"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_audit.id",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_control_audit.note",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessm_economic_interest_percent_check",
+      "fingerprint": "9ef49a34b3cdc396c6efb570183950e6"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessm_subsidiary_organization_id_fkey",
+      "fingerprint": "fc8a56d48bb94cb3884b0abe57c05a11"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessmen_voting_interest_percent_check",
+      "fingerprint": "5100a3b44be36e834ae76d868613a6a9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_approved_by_fkey",
+      "fingerprint": "110651700f2cf1b3d653b3d4a50d81a9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_check",
+      "fingerprint": "4fa7ab29030f7dae592cba0efafa3f91"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_check1",
+      "fingerprint": "893c62d950fca39134352412cf86c1b4"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_check2",
+      "fingerprint": "670969494bd1cc84b75ca32d93d85169"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_control_basis_check",
+      "fingerprint": "62e7d2957beba3c12b3486395acb87cd"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_evidence_reference_check",
+      "fingerprint": "41c1280dd3384f44a6d2e695ce8bee7b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_parent_organization_id_fkey",
+      "fingerprint": "f2937940a6ac07662f5507612bca4fa5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_reason_check",
+      "fingerprint": "4a70fd247feab824873ccdbd61ce000d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_request_id_key",
+      "fingerprint": "00c1d80c1c37474ea86e15a2b3c68a45"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_status_check",
+      "fingerprint": "bda93e61a4147f9971cff55946406b6e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_audit.financial_group_control_audit_action_check",
+      "fingerprint": "53e15ba88a6b6afe0ba53af997fbdd30"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_audit.financial_group_control_audit_actor_id_fkey",
+      "fingerprint": "508a4cf20410e80e6cb722233bc03330"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_audit.financial_group_control_audit_assessment_id_fkey",
+      "fingerprint": "05fdb4f676918153852ebb901aaa66c3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_control_audit.financial_group_control_audit_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_control_approve(p_assessment uuid, p_reason text)",
+      "fingerprint": "b0b71f8726a74672c6cc233b1ef8af75"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_control_context(p_parent uuid, p_as_of date)",
+      "fingerprint": "f22deed8cdc5c1a39be6bc241e4f8628"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_control_propose(p_parent uuid, p_subsidiary uuid, p_from date, p_to date, p_economic numeric, p_voting numeric, p_basis text, p_evidence_reference text, p_reason text, p_request_id uuid)",
+      "fingerprint": "bffd6d4c792334e40b58fae1db8899db"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_control_assessments.financial_control_child_period",
+      "fingerprint": "28c23c185381a80828b80ab1e95c50ef"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_control_assessments.financial_control_parent_period",
+      "fingerprint": "c96099250f8ec2c1d288575dce492d7a"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_pkey",
+      "fingerprint": "52c2daba9f04c8a7c166ab3a480cdb9c"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_control_assessments.financial_group_control_assessments_request_id_key",
+      "fingerprint": "ddf6416adcf1e05bee12f72cf13ebf08"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_control_audit.financial_control_audit_lookup",
+      "fingerprint": "97c51c5e51b4319ce98cdf4995a436d0"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_control_audit.financial_group_control_audit_pkey",
+      "fingerprint": "376464179c49d797d3afdd95e1ae4c11"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_group_control_assessments",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_group_control_audit",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
 }
