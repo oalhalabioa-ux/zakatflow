@@ -2,19 +2,21 @@
 begin;
 do $$
 declare
-  owner_id uuid:=gen_random_uuid();outsider_id uuid:=gen_random_uuid();
+  owner_id uuid:=gen_random_uuid();outsider_id uuid:=gen_random_uuid();parent_only_id uuid:=gen_random_uuid();
   root_org uuid:=gen_random_uuid();subsidiary_org uuid:=gen_random_uuid();foreign_org uuid:=gen_random_uuid();
   approved_id uuid;new_id uuid;request_key uuid:=gen_random_uuid();ctx jsonb;
 begin
   insert into auth.users(id,email,email_confirmed_at)
     values(owner_id,owner_id||'@group-control.invalid',now()),
-          (outsider_id,outsider_id||'@group-control.invalid',now());
+          (outsider_id,outsider_id||'@group-control.invalid',now()),
+          (parent_only_id,parent_only_id||'@group-control.invalid',now());
   perform set_config('request.jwt.claim.sub',owner_id::text,true);
   insert into public.organizations(id,owner_user_id,name,approval_policy)
     values(root_org,owner_id,'Controlled parent fixture','OWNER_CONTROLLED'),
           (subsidiary_org,owner_id,'Controlled subsidiary fixture','OWNER_CONTROLLED');
   insert into public.organization_members(organization_id,user_id,role,status)
-    values(root_org,owner_id,'OWNER','ACTIVE'),(subsidiary_org,owner_id,'OWNER','ACTIVE');
+    values(root_org,owner_id,'OWNER','ACTIVE'),(subsidiary_org,owner_id,'OWNER','ACTIVE'),
+          (root_org,parent_only_id,'ADMIN','ACTIVE');
   perform set_config('request.jwt.claim.sub',outsider_id::text,true);
   insert into public.organizations(id,owner_user_id,name,approval_policy)
     values(foreign_org,outsider_id,'Unrelated fixture','OWNER_CONTROLLED');
@@ -47,6 +49,26 @@ begin
     then raise exception 'Approved control inventory is incomplete or overclaims consolidation';end if;
   if (select count(*) from private.financial_group_control_audit where assessment_id=approved_id)<>2
     then raise exception 'Approval audit missing';end if;
+
+  -- Seeing the parent alone is insufficient to enumerate its controlled child.
+  perform set_config('request.jwt.claim.sub',parent_only_id::text,true);
+  if not private.financial_opening_can(root_org,'financial_core.view')
+    or private.financial_opening_can(subsidiary_org,'financial_core.view') then
+    raise exception 'Parent-only fixture must have exactly one institution permission';end if;
+  begin
+    perform public.financial_group_control_context(root_org,'2026-12-31');
+    raise exception 'Partial member visibility leaked group evidence';
+  exception when others then
+    if sqlerrm<>'GROUP_CONTROL_READ_DENIED' then raise;end if;
+  end;
+  begin
+    perform public.financial_group_control_propose(root_org,subsidiary_org,'2027-01-01',null,
+      80,65,'VOTING','signed-control-reference-F','Parent only authorization',gen_random_uuid());
+    raise exception 'Parent-only member created a control relationship';
+  exception when others then
+    if sqlerrm<>'GROUP_CONTROL_WRITE_DENIED' then raise;end if;
+  end;
+  perform set_config('request.jwt.claim.sub',owner_id::text,true);
 
   new_id:=public.financial_group_control_propose(root_org,subsidiary_org,'2026-06-01',null,
     81,70,'VOTING','signed-control-reference-B','Replacement ownership claim',gen_random_uuid());
