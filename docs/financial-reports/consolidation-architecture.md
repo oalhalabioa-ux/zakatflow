@@ -4,6 +4,13 @@
 **Scope:** All current and future organizations in Yaqeen Business.  
 **Release safety:** Keep this document on Draft PR #360. No changes to Production, existing journal postings, opening balances, or the approved global sidebar.
 
+### Implementation checkpoint — 2026-11-06 (Draft PR #360)
+
+- Added `lib/financial-group-rollup.ts`: a read-only, precision-safe **pre-elimination trial-balance rollup** with explicit expected legal entities, validated shared 4-digit parents / child account mappings, balanced-source checks, duplicate-account rejection, same period and currency preflight, and member-level drilldown. It intentionally returns `PRE_ELIMINATION_ONLY`, **not** a group statement.
+- Added accounting acceptance tests in `tests/financial-group-rollup.test.ts` covering duplicates, incomplete membership, mapping failures, unbalanced sources, currency/period mismatch and zero-opening organizations.
+- Added in-page scope tabs to the existing financial-statements UI; only the existing standalone report is currently active. Combined branches and group consolidation explicitly show integration requirements and suppress figures/exports. The approved global sidebar remains untouched.
+- **Not yet implemented:** server-side group membership authorization for the rollup, per-branch opening allocation and journal attribution, adjustment/elimination entries, ownership/NCI, IAS 21 translations, group statements, group budgets and reporting exports. The helper is not wired into any public/production financial API.
+
 ## 1. User-facing reporting modes
 
 | Key | Arabic UI label | Financial boundary | Treatment |
