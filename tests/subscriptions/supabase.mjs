@@ -738,7 +738,11 @@ try {
       assert.equal(e.data.status, "trialing");
       assert.equal(await page.locator('.subscription-banner').count(),0);
       assert.equal(await page.locator('.subscription-notice').count(),0);
-      await page.locator('.settings-module-toggle').click();
+      // The onboarding destination is itself a settings page: its sidebar
+      // section may already be expanded. Never toggle an open section shut.
+      if (!(await page.locator('#corp-settings-nav').isVisible())) {
+        await page.locator('.settings-module-toggle').click();
+      }
       await page.locator('#corp-settings-nav a[href*="/billing"]').click();
       await page.getByLabel("Subscription status").waitFor();
       assert.equal(new URL(page.url()).searchParams.get('organization'),created);

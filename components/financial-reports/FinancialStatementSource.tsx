@@ -89,7 +89,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
   return()=>abort.abort();
  },[organization,draftFiscalStart,refresh,live,scopeReady]);
  function changeOrganization(key:string){setSnapshot(null);setPreferDraft(false);const[id,fiscal]=key.split('|');const o=context.find(o=>o.organizationId===id&&o.fiscalStart===fiscal);setOrganization(id);setFrom(o?.fiscalStart??'');setTo(o?(live&&o.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):o.fiscalEnd):'')}
- function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+ function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  async function download(kind:'csv'|'xlsx'|'pdf'){
   if(!ready||!scopeReady)return;const key=activeKey.current;setExporting(true);setExportOpen(false);
   try{

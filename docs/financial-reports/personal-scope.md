@@ -8,6 +8,7 @@
 - `scope=PERSONAL`: no organization picker, subsidiary switch, branch or cost center. The report reads the signed-in user's personal `asset_accounts`, cash transactions, personal receivables/payables and contracts through the existing `financialRegister('PERSONAL', null, false)` service. Its existing owner-ID filters and database RLS remain in force. The new endpoint refuses arbitrary organization/group/scope parameters.
 - `scope=ORGANIZATION`: unchanged institutional live source and existing organization/group filters; approval and permissions still apply. Neither scope may reuse the other's balances, journals or opening data.
 - A small personal category chart is derived **only in memory** from existing recognized balances. It is not a second persisted chart or a one-sided/uncertified posting scheme. Personal accounts do not need the nine-step company setup wizard. Reporting parent numbers are reused where definitions match; unclassified valuables remain `P-OTHER`, not incorrectly forced into corporate PPE.
+- The estimated position, per-account cash movement and personal classification can be exported to **CSV, XLSX or browser print/PDF**. Export re-reads the authenticated personal source, enforces the same scope/period and clearly identifies the result as **estimate, not audited**; pending personal income/expense statements cannot be exported as fictitious amounts. CSV uses spreadsheet-formula-safe escaping for source account names. The global sidebar and topbar remain untouched.
 
 ## Accounting boundaries
 
@@ -23,5 +24,6 @@
 - `lib/personal-financial-reports.ts`: deterministic, read-only mapping with strict `PERSONAL` scope checks and no mutation.
 - `app/api/financial-reporting/personal/route.ts`: authenticated, no-store, strict dates, personal-only source, sanitized errors.
 - `components/financial-reports/PersonalFinancialStatements.tsx`: responsive bilingual cards and cash account register using approved navy/gold styling, no global sidebar/topbar style changes.
+- `lib/personal-financial-export.ts`: single-source bilingual export rows, separate currency positions, unreconciled-value suppression, no inferred income or FX totals.
 - Next integration: an auditable categorized personal cash/income/expense event source, optional advanced account mapping without mandatory setup, effective-dated valuations, fully reconciled transfers and precision-safe base-currency translation if a user opts into consolidated currency reporting.
 - Live QA with isolated users, private tenant boundaries, multi-currency, reversals, personal contracts and saved personal opening balances is required before merge/Production. Do not claim official audited statements from the current read-only reporting estimates.

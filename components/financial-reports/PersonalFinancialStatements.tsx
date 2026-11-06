@@ -1,7 +1,9 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {riyadhToday} from '../../lib/financial-register';
 import type {PersonalReport} from '../../lib/personal-financial-reports';
+import {personalFinancialExportRows,type PersonalExportView} from '../../lib/personal-financial-export';
+import {financialSourceRowsCsv} from '../../lib/financial-budget-source';
 import './financial-reports-suite.css';
 import './financial-reporting-source.css';
 
@@ -18,8 +20,9 @@ const format=(value:string|null)=>value===null?'—':value.replace(/\B(?=(\d{3})
 export default function PersonalFinancialStatements({english=false}:{english?:boolean}){
  const[tab,setTab]=useState<Tab>('overview'),[from,setFrom]=useState(()=>riyadhToday().slice(0,4)+'-01-01'),
   [to,setTo]=useState(()=>riyadhToday()),[report,setReport]=useState<PersonalReport|null>(null),
-  [busy,setBusy]=useState(true),[error,setError]=useState('');
+  [busy,setBusy]=useState(true),[error,setError]=useState(''),[exporting,setExporting]=useState(false),[exportError,setExportError]=useState('');
  const t=(ar:string,en:string)=>english?en:ar;
+ const selection=useRef('');selection.current=[from,to,tab,english].join('|');
  useEffect(()=>{
   const abort=new AbortController();setReport(null);setBusy(true);setError('');
   fetch('/api/financial-reporting/personal?'+new URLSearchParams({from,to}),{cache:'no-store',signal:abort.signal})
@@ -29,10 +32,33 @@ export default function PersonalFinancialStatements({english=false}:{english?:bo
    .finally(()=>{if(!abort.signal.aborted)setBusy(false)});
   return()=>abort.abort();
  },[from,to]);
+ function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+ async function download(kind:'csv'|'xlsx'|'print'){
+  if(busy||!report||tab==='income'||exporting)return;
+  const key=selection.current;setExporting(true);setExportError('');
+  try{
+   // Re-read with the authenticated user at export time. Never trust a cached
+   // personal register after the user loses access or changes report scope.
+   const response=await fetch('/api/financial-reporting/personal?'+new URLSearchParams({from,to}),{cache:'no-store'});
+   if(!response.ok)throw Error('PERSONAL_EXPORT_UNAVAILABLE');
+   const fresh=await response.json() as PersonalReport;
+   if(fresh.scope!=='PERSONAL'||fresh.from!==from||fresh.to!==to||selection.current!==key)return;
+   const rows=personalFinancialExportRows(fresh,tab as PersonalExportView,english);
+   if(selection.current!==key)return;
+   setReport(fresh);
+   if(kind==='print'){await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));if(selection.current===key)window.print();return;}
+   const filename=`yaqeen-personal-estimate-${tab}-${from}-${to}`;
+   if(kind==='csv'){save(new Blob([financialSourceRowsCsv(rows)],{type:'text/csv;charset=utf-8'}),filename+'.csv');return;}
+   const {Workbook}=await import('exceljs');if(selection.current!==key)return;
+   const book=new Workbook(),sheet=book.addWorksheet('Personal');sheet.views=[{rightToLeft:!english}];
+   rows.forEach(row=>sheet.addRow(row));sheet.columns.forEach((col,index)=>col.width=index===0?48:26);
+   const bytes=await book.xlsx.writeBuffer();if(selection.current===key)save(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),filename+'.xlsx');
+  }catch{if(selection.current===key)setExportError('PERSONAL_EXPORT_FAILED')}finally{setExporting(false)}
+ }
  const currencyAmount=(value:string|null,currency:string)=><bdi dir="ltr">{format(value)} {currency}</bdi>;
  const incomplete=report?.positions.some(p=>!p.complete)??false;
  return <main className="fs-root fs-connected fs-personal-reports" dir={english?'ltr':'rtl'} lang={english?'en':'ar'}>
-  <header className="fs-personal-head"><div><span className="fs-personal-eyebrow">{t('يقين الأعمال · النطاق الشخصي','Yaqeen Business · Personal')}</span><h1>{t('قوائمي المالية الشخصية','My personal financial reports')}</h1><p>{t('تُستمد هذه المعاينة من حساباتك وأصولك وذممك الشخصية فقط، دون بيانات أي مؤسسة.','This read-only view uses your personal accounts, assets and debts only — never an organization’s books.')}</p></div><span className="fs-personal-scope">{t('شخصي','Personal')}</span></header>
+  <header className="fs-personal-head"><div><span className="fs-personal-eyebrow">{t('يقين الأعمال · النطاق الشخصي','Yaqeen Business · Personal')}</span><h1>{t('قوائمي المالية الشخصية','My personal financial reports')}</h1><p>{t('تُستمد هذه المعاينة من حساباتك وأصولك وذممك الشخصية فقط، دون بيانات أي مؤسسة.','This read-only view uses your personal accounts, assets and debts only — never an organization’s books.')}</p></div><div className="fs-personal-actions"><span className="fs-personal-scope">{t('شخصي','Personal')}</span><button type="button" disabled={busy||!report||tab==='income'||exporting} onClick={()=>download('xlsx')}>{exporting?t('جارٍ التجهيز…','Preparing…'):t('Excel','Excel')}</button><button type="button" disabled={busy||!report||tab==='income'||exporting} onClick={()=>download('csv')}>CSV</button><button type="button" disabled={busy||!report||tab==='income'||exporting} onClick={()=>download('print')}>{t('طباعة / PDF','Print / PDF')}</button></div></header>
   <div className="fs-personal-tabs" role="tablist" aria-label={t('أنواع التقارير الشخصية','Personal report views')}>
    {tabs.map(([id,ar,en])=><button key={id} type="button" role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{english?en:ar}{id==='income'&&<small> {t('قيد الربط','Pending')}</small>}</button>)}
   </div>
@@ -40,6 +66,7 @@ export default function PersonalFinancialStatements({english=false}:{english?:bo
   <p className="fs-personal-disclaimer">{t('عرض شخصي تقديري من الأرصدة الحالية، وليس قوائم مدققة أو دفتر قيود شركات. لا تُجمع العملات المختلفة تلقائيًا.','Personal current-balance estimate, not audited statements or corporate journals. Different currencies are not silently combined.')}</p>
   {busy&&<p role="status" className="fs-source-loading">{t('جارٍ قراءة سجلاتك الشخصية…','Loading your personal registers…')}</p>}
   {error&&<div className="fs-source-error" role="alert">{error==='UNAUTHORIZED'?t('يرجى تسجيل الدخول للاطلاع على سجلاتك الشخصية.','Sign in to view your personal records.'):error==='INVALID_PERIOD'?t('الفترة المحددة غير صحيحة.','Invalid reporting period.'):t('تعذر التحقق من السجلات الشخصية؛ لن تُعرض أرقام بديلة.','Personal source verification failed; no substitute figures are shown.')}</div>}
+  {exportError&&<div className="fs-source-error" role="alert">{t('تعذّر تجهيز التصدير من بيانات شخصية متحقق منها. حاول التحديث، دون حفظ ملف غير مكتمل.','Could not prepare a verified personal export. Refresh and retry; no incomplete file was saved.')}</div>}
   {!busy&&!error&&report&&<>
    {!report.positions.length&&!report.cashAccounts.length&&<div className="fs-personal-empty">{t('لا توجد أرصدة شخصية مسجلة بعد. يمكنك البدء من موديول الأصول أو النقد والبنوك.','No personal balances are recorded yet. Start in Assets or Cash & Banks.')}</div>}
    {(tab==='overview'||tab==='position')&&<div className="fs-personal-cards">{report.positions.map(p=><article key={p.currency} className="fs-personal-card"><div className="fs-personal-card-title"><h2>{t('المركز المالي','Financial position')} · {p.currency}</h2><span>{p.complete?t('قابل للحساب','Calculated'):t('يتطلب تسوية','Reconciliation needed')}</span></div><div className="fs-personal-summary"><span>{t('النقد والبنوك','Cash & banks')}</span><strong>{currencyAmount(p.cash,p.currency)}</strong><span>{t('الذمم المدينة','Receivables')}</span><strong>{currencyAmount(p.receivables,p.currency)}</strong><span>{t('الاستثمارات','Investments')}</span><strong>{currencyAmount(p.investments,p.currency)}</strong><span>{t('الأصول الأخرى','Other assets')}</span><strong>{currencyAmount(p.otherAssets,p.currency)}</strong><span>{t('الالتزامات','Liabilities')}</span><strong>{currencyAmount(p.liabilities,p.currency)}</strong></div><div className="fs-personal-net"><span>{t('صافي الثروة','Net worth')}</span><strong>{currencyAmount(p.netWorth,p.currency)}</strong></div>{!p.complete&&<p>{t('صافي الثروة محجوب حتى تسوية الأرصدة غير المصنّفة أو غير المربوطة.','Net worth is withheld until unclassified or unallocated balances are reconciled.')}</p>}</article>)}</div>}
