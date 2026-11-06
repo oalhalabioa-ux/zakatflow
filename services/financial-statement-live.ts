@@ -9,13 +9,21 @@ export async function liveStatementContext(){
  const {supabase}=await requireUser();
  const periods=read(await supabase.rpc('financial_statement_live_context')) as {organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string}[];
  const organizations=await openingContext();
+ // The topbar's existing company/group switch uses the hierarchy of *authorized*
+ // organizations. This relation controls only picker availability, never access
+ // or financial consolidation; group reporting has a separate fail-closed gate.
+ const permitted=new Set(organizations.map(org=>org.id));
+ const hierarchy=organizations.length?read(await supabase.from('organizations')
+  .select('id,parent_organization_id').in('id',[...permitted])) as {id:string;parent_organization_id:string|null}[]:[];
+ const parents=new Map(hierarchy.map(row=>[row.id,permitted.has(row.parent_organization_id??'')?row.parent_organization_id:null]));
  return organizations.flatMap(org=>{
   const rows=periods.filter(period=>period.organizationId===org.id);
   const draftStart=org.currentFiscalStart??'';
   const current=draftStart&&!rows.some(period=>period.fiscalStart===draftStart)
    ?[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:draftStart,fiscalEnd:endingForFiscalStart(draftStart)}]:[];
   const available=[...rows,...current].sort((a,b)=>b.fiscalStart.localeCompare(a.fiscalStart));
-  return available.length?available:[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:'',fiscalEnd:''}];
+  return (available.length?available:[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:'',fiscalEnd:''}])
+   .map(period=>({...period,parentOrganizationId:parents.get(org.id)??null}));
  });
 }
 export async function liveStatementSource(input:unknown){
