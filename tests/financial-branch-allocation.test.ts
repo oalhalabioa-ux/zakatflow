@@ -113,4 +113,35 @@ describe('branch allocation completeness preflight',()=>{
   const unsafe=data();unsafe.coverage.complete=false as true;
   expect(()=>validateBranchAllocations(unsafe)).toThrow('BRANCH_ALLOCATION_SOURCE_INCOMPLETE');
  });
+
+ it('blocks a deceptively balanced branch when an unbalanced opening is offset by journal movements',()=>{
+  const d=data();d.sourceLines=[
+   {sourceId:'opening-cash-A',sourceKind:'OPENING',accountCode:'100001',debit:'100',credit:'0',
+    allocations:[{branchId:a,debit:'100',credit:'0'}]},
+   {sourceId:'opening-equity-B',sourceKind:'OPENING',accountCode:'310001',debit:'0',credit:'100',
+    allocations:[{branchId:b,debit:'0',credit:'100'}]},
+   {sourceId:'journal-cash-B',sourceKind:'JOURNAL',accountCode:'100001',debit:'100',credit:'0',
+    allocations:[{branchId:b,debit:'100',credit:'0'}]},
+   {sourceId:'journal-revenue-A',sourceKind:'JOURNAL',accountCode:'400001',debit:'0',credit:'100',
+    allocations:[{branchId:a,debit:'0',credit:'100'}]},
+  ];d.coverage.sourceCount=d.sourceLines.length;
+  const result=validateBranchAllocations(d);
+  expect(result.status).toBe('BLOCKED');
+  expect(result.issues).toContainEqual({code:'BRANCH_OPENING_NOT_BALANCED',branchId:a});
+  expect(result.issues).toContainEqual({code:'BRANCH_MOVEMENT_NOT_BALANCED',branchId:a});
+  expect(result.issues).toContainEqual({code:'BRANCH_OPENING_NOT_BALANCED',branchId:b});
+  expect(result.issues).toContainEqual({code:'BRANCH_MOVEMENT_NOT_BALANCED',branchId:b});
+  expect(result.companyReconciliation).toBeNull();
+  expect(result.branchTrialBalances).toEqual([]);
+ });
+
+ it('rejects an unbalanced company opening masked by the next period journal',()=>{
+  const d=data();d.branchIds=[];d.sourceLines=[
+   {sourceId:'opening-cash',sourceKind:'OPENING',accountCode:'100001',debit:'100',credit:'0',
+    allocations:[{branchId:null,debit:'100',credit:'0'}]},
+   {sourceId:'journal-revenue',sourceKind:'JOURNAL',accountCode:'400001',debit:'0',credit:'100',
+    allocations:[{branchId:null,debit:'0',credit:'100'}]},
+  ];d.coverage.sourceCount=d.sourceLines.length;
+  expect(()=>validateBranchAllocations(d)).toThrow('BRANCH_ALLOCATION_SOURCE_UNBALANCED');
+ });
 });

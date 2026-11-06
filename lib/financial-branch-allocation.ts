@@ -20,7 +20,7 @@ export type BranchAllocationInput={
  coverage:{complete:true;scope:'ORGANIZATION_ALL_ENTITIES';sourceCount:number;revision:string};
  sourceLines:readonly BranchSourceLine[];
 };
-export type BranchAllocationDiagnostic={code:'MISSING_ALLOCATION'|'ALLOCATION_MISMATCH'|'BRANCH_NOT_BALANCED';sourceId?:string;branchId?:string|null};
+export type BranchAllocationDiagnostic={code:'MISSING_ALLOCATION'|'ALLOCATION_MISMATCH'|'BRANCH_NOT_BALANCED'|'BRANCH_OPENING_NOT_BALANCED'|'BRANCH_MOVEMENT_NOT_BALANCED';sourceId?:string;branchId?:string|null};
 export type BranchAllocationResult={
  status:'READY_FOR_BRANCH_REPORTS'|'BLOCKED';
  sourceCount:number;
@@ -45,6 +45,13 @@ export function validateBranchAllocations(input:BranchAllocationInput):BranchAll
  type MoneyPair={debit:Decimal;credit:Decimal};
  const totals=new Map<string|null,Map<string,MoneyPair>>(input.branchIds.map(id=>[id,new Map<string,MoneyPair>()]));
  const sourceAccounts=new Map<string,MoneyPair>();
+ // Opening balances and subsequent journals must each balance independently.
+ // A journal must never mask an unbalanced opening (or vice versa).
+ type PhaseTotals={openingDebit:Decimal;openingCredit:Decimal;journalDebit:Decimal;journalCredit:Decimal};
+ const emptyPhase=():PhaseTotals=>({openingDebit:new Money(0),openingCredit:new Money(0),
+  journalDebit:new Money(0),journalCredit:new Money(0)});
+ const companyPhase=emptyPhase();
+ const segmentPhase=new Map<string|null,PhaseTotals>(input.branchIds.map(id=>[id,emptyPhase()]));
  let sourceDebit=new Money(0),sourceCredit=new Money(0);
  for(const row of input.sourceLines){
   const key=row.sourceKind+':'+row.sourceId;
@@ -53,6 +60,13 @@ export function validateBranchAllocations(input:BranchAllocationInput):BranchAll
   const debit=amount(row.debit),credit=amount(row.credit);
   if((!debit.isZero()&&!credit.isZero()))throw Error('BRANCH_ALLOCATION_SOURCE_INVALID');
   sourceDebit=sourceDebit.plus(debit);sourceCredit=sourceCredit.plus(credit);
+  if(row.sourceKind==='OPENING'){
+   companyPhase.openingDebit=companyPhase.openingDebit.plus(debit);
+   companyPhase.openingCredit=companyPhase.openingCredit.plus(credit);
+  }else{
+   companyPhase.journalDebit=companyPhase.journalDebit.plus(debit);
+   companyPhase.journalCredit=companyPhase.journalCredit.plus(credit);
+  }
   const existing=sourceAccounts.get(row.accountCode)??{debit:new Money(0),credit:new Money(0)};
   sourceAccounts.set(row.accountCode,{debit:existing.debit.plus(debit),credit:existing.credit.plus(credit)});
   if(!row.allocations.length){
@@ -72,15 +86,27 @@ export function validateBranchAllocations(input:BranchAllocationInput):BranchAll
    if(a.branchId===null&&!totals.has(null))totals.set(null,new Map<string,MoneyPair>());
    const branch=totals.get(a.branchId)!,current=branch.get(row.accountCode)??{debit:new Money(0),credit:new Money(0)};
    branch.set(row.accountCode,{debit:current.debit.plus(d),credit:current.credit.plus(c)});
+   const phase=segmentPhase.get(a.branchId)??emptyPhase();
+   if(row.sourceKind==='OPENING'){
+    phase.openingDebit=phase.openingDebit.plus(d);phase.openingCredit=phase.openingCredit.plus(c);
+   }else{
+    phase.journalDebit=phase.journalDebit.plus(d);phase.journalCredit=phase.journalCredit.plus(c);
+   }
+   segmentPhase.set(a.branchId,phase);
   }
   if(!allocatedDebit.eq(debit)||!allocatedCredit.eq(credit))issues.push({code:'ALLOCATION_MISMATCH',sourceId:row.sourceId});
  }
  // A complete ledger is balanced. Otherwise a filtered or truncated source
  // can misleadingly yield branch balances that do not reconcile globally.
- if(!sourceDebit.eq(sourceCredit))throw Error('BRANCH_ALLOCATION_SOURCE_UNBALANCED');
+ if(!sourceDebit.eq(sourceCredit)||!companyPhase.openingDebit.eq(companyPhase.openingCredit)
+  ||!companyPhase.journalDebit.eq(companyPhase.journalCredit))
+  throw Error('BRANCH_ALLOCATION_SOURCE_UNBALANCED');
  const result=[...totals].map(([branchId,accounts])=>{
   let totalDebit=new Money(0),totalCredit=new Money(0);
   const lines=[...accounts].sort(([a],[b])=>a.localeCompare(b)).map(([accountCode,a])=>{totalDebit=totalDebit.plus(a.debit);totalCredit=totalCredit.plus(a.credit);return{accountCode,debit:a.debit.toFixed(4),credit:a.credit.toFixed(4),netDebit:a.debit.minus(a.credit).toFixed(4)}});
+  const phase=segmentPhase.get(branchId)??emptyPhase();
+  if(!phase.openingDebit.eq(phase.openingCredit))issues.push({code:'BRANCH_OPENING_NOT_BALANCED',branchId});
+  if(!phase.journalDebit.eq(phase.journalCredit))issues.push({code:'BRANCH_MOVEMENT_NOT_BALANCED',branchId});
   if(!totalDebit.eq(totalCredit))issues.push({code:'BRANCH_NOT_BALANCED',branchId});
   return{branchId,scope:branchId===null?'ORGANIZATION_DIRECT' as const:'BRANCH' as const,totalDebit:totalDebit.toFixed(4),totalCredit:totalCredit.toFixed(4),accounts:lines};
  });
