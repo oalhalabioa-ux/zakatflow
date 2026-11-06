@@ -71,5 +71,6 @@
 .fs-scope-pending>svg{flex-shrink:0;color:#ae8338}
 .fs-scope-pending strong{font-size:15px}
 .fs-scope-pending p{font-size:13px;line-height:1.9;color:#5d6d7d;margin:6px 0 0}
+.fs-scope-check-results{margin-top:15px;border-top:1px solid #e3d7be;padding-top:12px}.fs-scope-check-results strong{font-size:13px}.fs-scope-check-results ul{margin:10px 0;padding-inline-start:20px;line-height:1.9;font-size:12px;color:#53657b}.fs-scope-check-results small{display:block;color:#8a6b35;font-size:11px;line-height:1.9}
 @media(max-width:700px){.fs-report-scope-tabs{display:grid;grid-template-columns:1fr;gap:7px}.fs-report-scope-tabs button{justify-content:space-between}}
 @media print{.fs-report-scope-tabs,.fs-scope-pending{display:none!important}}

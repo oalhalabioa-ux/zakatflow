@@ -14,6 +14,7 @@ import SourceStatementTable,{statementAmount as amount} from './SourceStatementT
 import {ReportCard,Donut,ComboChart} from './ReportCharts';
 import {type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
 import type {OpeningWorkspaceData} from '../../lib/financial-opening-workspace';
+import type {ScopeReadiness,ScopeReadinessIssue} from '../../services/financial-scope-readiness';
 import {financialDraftOpeningReport,type DraftOpeningReport} from '../../lib/financial-draft-opening-report';
 import DraftOpeningStatementPreview from './DraftOpeningStatementPreview';
 import {financialSourceRowsCsv} from '../../lib/financial-budget-source';
@@ -22,6 +23,17 @@ import './financial-reporting-source.css';
 
 type Context={organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string}[];
 type ReportingScope='STANDALONE'|'BRANCH_COMBINED'|'GROUP_CONSOLIDATED';
+const scopeIssueLabels:Record<ScopeReadinessIssue,[string,string]>={
+ CANONICAL_SOURCE_UNVERIFIED:['تغطية جميع السجلات ونسختها المرجعية غير مثبتة بعد','Complete source coverage and revision are not attested'],
+ BRANCH_REGISTRY_UNVERIFIED:['يلزم تحديد سجلات الفروع التشغيلية بصورة موثوقة','The authoritative operating-branch registry must be established'],
+ UNASSIGNED_CANONICAL_EVENTS:['توجد حركات ظاهرة دون تحديد كيان/فرع','Some visible events have no entity/branch attribution'],
+ BRANCH_OPENING_ALLOCATION_UNVERIFIED:['لم يثبت توزيع جميع الأرصدة الافتتاحية على الفروع','Complete branch allocation of opening balances is not verified'],
+ INTERBRANCH_CLEARING_UNVERIFIED:['تسويات الحسابات والتحويلات بين الفروع لم تتحقق','Interbranch clearing has not been reconciled'],
+ GROUP_MEMBERSHIP_UNVERIFIED:['لم يثبت اكتمال شركات المجموعة وصلاحية الاطلاع عليها جميعًا','Complete group membership and every member’s access are unverified'],
+ GROUP_CONTROL_UNVERIFIED:['تحتاج علاقات السيطرة والملكية إلى تواريخ فعالية موثقة','Effective-dated control and ownership require evidence'],
+ GROUP_ELIMINATION_UNVERIFIED:['لم تتحقق استبعادات المعاملات والأرصدة المتبادلة','Intercompany eliminations have not been verified'],
+ GROUP_CURRENCY_AND_NCI_UNVERIFIED:['ترجمة العملات وحقوق الأقلية وتسوية الفترات غير مكتملة','FX translation, non-controlling interests and period alignment are incomplete'],
+};
 const Money=Decimal.clone({precision:50});
 const ratio=(a:string,b:string,percent=false)=>new Money(b).isZero()?'—':new Money(a).div(b).times(percent?100:1).toFixed(2)+(percent?'%':'');
 const titles=STATEMENT_HUB_TITLES;
@@ -33,6 +45,7 @@ async function readStatementResponse(response:Response){
 export default function FinancialStatementSource({initialView='income',initialEnglish=false,live=false,preferredOrg=''}:{preferredOrg?:string;initialView?:StatementHubView;initialEnglish?:boolean;live?:boolean}){
  const[en,setEn]=useState(initialEnglish),[view,setView]=useState<StatementHubView>(initialView),[context,setContext]=useState<Context>([]),[organization,setOrganization]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[snapshot,setSnapshot]=useState<StatementSourceSnapshot|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[exportOpen,setExportOpen]=useState(false),[exporting,setExporting]=useState(false);
  const[reportScope,setReportScope]=useState<ReportingScope>('STANDALONE');
+ const[scopeDiagnostics,setScopeDiagnostics]=useState<ScopeReadiness|null>(null),[scopeChecking,setScopeChecking]=useState(false);
  const scopeReady=reportScope==='STANDALONE';
  useEffect(()=>setView(initialView),[initialView]);
  const[comparison,setComparison]=useState<StatementSourceSnapshot|null>(null);
@@ -42,6 +55,18 @@ export default function FinancialStatementSource({initialView='income',initialEn
  const endpoint=live?'/api/financial-reporting/live-statements':'/api/financial-reporting/statements',expectedOrigin=live?'LIVE_CANONICAL_EVENTS':'LOCAL_QA_CANONICAL_EVENTS';
  useEffect(()=>{const abort=new AbortController();setSnapshot(null);setContext([]);setError('');setLoading(true);fetch(endpoint+'?action=context',{signal:abort.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');return r.json()}).then((rows:Context)=>{if(abort.signal.aborted)return;setContext(rows);const initial=preferredOrg?rows.find(row=>row.organizationId===preferredOrg):(live?rows.find(row=>row.organizationId===rememberedOrganization()):undefined)??rows[0];setOrganization(initial?.organizationId??'');setFrom(initial?.fiscalStart??'');setTo(initial?(live&&initial.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):initial.fiscalEnd):'');setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[refresh,endpoint,preferredOrg]);
  useEffect(()=>{setSnapshot(null);setComparison(null);if(!scopeReady){setLoading(false);return}if(!organization||!from||!to||!context.some(o=>o.organizationId===organization))return;const abort=new AbortController();setLoading(true);setError('');const q=new URLSearchParams({action:'statements',organization,from,to});fetch(endpoint+'?'+q,{signal:abort.signal,cache:'no-store'}).then(readStatementResponse).then(async(s:StatementSourceSnapshot)=>{if(abort.signal.aborted)return;if(s.origin!==expectedOrigin||s.statements.organizationId!==organization||s.statements.from!==from||s.statements.to!==to)throw Error('UNAVAILABLE');let previous:StatementSourceSnapshot|null=null;const period=priorStatementPeriod(from,to);if(live&&context.some(o=>o.organizationId===organization&&o.fiscalStart<=period.from&&o.fiscalEnd>=period.to)){const response=await fetch(endpoint+'?'+new URLSearchParams({action:'statements',organization,...period}),{signal:abort.signal,cache:'no-store'});if(response.status===401||response.status===403)throw Error('DENIED');if(response.ok)previous=validStatementComparison(s,await response.json())}if(abort.signal.aborted)return;setComparison(previous);setSnapshot(s);setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[organization,from,to,context,endpoint,expectedOrigin,scopeReady]);
+ useEffect(()=>{
+  setScopeDiagnostics(null);setScopeChecking(false);
+  if(!live||reportScope==='STANDALONE'||!organization||!from||!to||!context.some(o=>o.organizationId===organization))return;
+  const abort=new AbortController();setScopeChecking(true);
+  const q=new URLSearchParams({action:'scope-readiness',organization,from,to,scope:reportScope});
+  fetch(endpoint+'?'+q,{signal:abort.signal,cache:'no-store'}).then(async response=>{
+   if(!response.ok)throw Error('PREFLIGHT_UNAVAILABLE');return response.json() as Promise<ScopeReadiness>;
+  }).then(value=>{
+   if(!abort.signal.aborted&&value.status==='BLOCKED'&&value.organizationId===organization&&value.from===from&&value.to===to&&value.scope===reportScope)setScopeDiagnostics(value);
+  }).catch(()=>{if(!abort.signal.aborted)setScopeDiagnostics(null)}).finally(()=>{if(!abort.signal.aborted)setScopeChecking(false)});
+  return()=>abort.abort();
+ },[live,reportScope,organization,from,to,context,endpoint,refresh]);
  // Scope is checked during render too, so an organization/period change cannot
  // expose stale numbers or enable export before its effect clears the old result.
  const ready=scopeReady&&snapshot&&snapshot.statements.organizationId===organization&&snapshot.statements.from===from&&snapshot.statements.to===to?snapshot:null;
@@ -93,7 +118,10 @@ export default function FinancialStatementSource({initialView='income',initialEn
    ['BRANCH_COMBINED',t('الفروع المجمعة','Combined branches'),t('قيد الربط','Pending integration')],
    ['GROUP_CONSOLIDATED',t('قوائم المجموعة الموحدة','Group consolidated'),t('قيد البناء','In development')],
   ]as const).map(([id,label,state])=><button key={id} type="button" role="tab" aria-selected={reportScope===id} onClick={()=>{setReportScope(id);setExportOpen(false);setPreferDraft(false)}}><span>{label}</span><small>{state}</small></button>)}</div>
-  {!scopeReady&&<div className="fs-scope-pending" role="status"><Icon name="settings" size={22}/><div><strong>{reportScope==='BRANCH_COMBINED'?t('تجميع الفروع يحتاج توزيعًا محاسبيًا مكتملاً','Branch reporting needs complete accounting allocation'):t('التوحيد المالي للمجموعة قيد التطوير','Group consolidation is under development')}</strong><p>{reportScope==='BRANCH_COMBINED'?t('يلزم التحقق من نسبة كل قيد ورصيد افتتاحي إلى الفرع، ثم تسوية التحويلات الداخلية. لن نعرض ميزانيات فرعية افتراضية أو نكرر القيود.','Every journal line and opening balance must have verifiable branch attribution, followed by internal-clearing reconciliation. No artificial branch balances or duplicate entries will be displayed.'):t('القوائم الموحدة تتطلب صلاحيات المجموعة، وتوافق الفترات والعملات، واستبعاد المعاملات المتبادلة وحصص الأقلية. لا نعرض حاليًا جمعًا أوليًا على أنه قوائم موحدة.','Group reporting requires full member authorization, aligned periods/currencies, intercompany eliminations and NCI. Unadjusted sums are not presented as consolidated statements.')}</p></div></div>}
+  {!scopeReady&&<div className="fs-scope-pending" role="status"><Icon name="settings" size={22}/><div><strong>{reportScope==='BRANCH_COMBINED'?t('تجميع الفروع يحتاج توزيعًا محاسبيًا مكتملاً','Branch reporting needs complete accounting allocation'):t('التوحيد المالي للمجموعة قيد التطوير','Group consolidation is under development')}</strong><p>{reportScope==='BRANCH_COMBINED'?t('يلزم التحقق من نسبة كل قيد ورصيد افتتاحي إلى الفرع، ثم تسوية التحويلات الداخلية. لن نعرض ميزانيات فرعية افتراضية أو نكرر القيود.','Every journal line and opening balance must have verifiable branch attribution, followed by internal-clearing reconciliation. No artificial branch balances or duplicate entries will be displayed.'):t('القوائم الموحدة تتطلب صلاحيات المجموعة، وتوافق الفترات والعملات، واستبعاد المعاملات المتبادلة وحصص الأقلية. لا نعرض حاليًا جمعًا أوليًا على أنه قوائم موحدة.','Group reporting requires full member authorization, aligned periods/currencies, intercompany eliminations and NCI. Unadjusted sums are not presented as consolidated statements.')}</p>
+   {scopeChecking&&<p>{t('جارٍ فحص جاهزية البيانات…','Checking source readiness…')}</p>}
+   {scopeDiagnostics&&scopeDiagnostics.scope===reportScope&&scopeDiagnostics.organizationId===organization&&scopeDiagnostics.from===from&&scopeDiagnostics.to===to&&<div className="fs-scope-check-results"><strong>{t('نتيجة الفحص من السجلات الفعلية — غير جاهز للإصدار','Live-source preflight — not ready for issuance')}</strong><ul>{scopeDiagnostics.issues.map(issue=><li key={issue}>{scopeIssueLabels[issue]?.[en?1:0]??issue}</li>)}</ul>{scopeDiagnostics.observation&&<small>{t('للمراجعة فقط: الحركات الظاهرة للمستخدم','Diagnostics only: user-visible events')}: {scopeDiagnostics.observation.canonicalEvents} · {t('دون تحديد كيان','Without entity assignment')}: {scopeDiagnostics.observation.unassignedEvents} · {t('سجلات كيانات مرئية','Visible entity records')}: {scopeDiagnostics.observation.entityRecords}. {t('هذه الأعداد لا تثبت اكتمال السجل.','These counts do not certify full ledger coverage.')}</small>}</div>}
+  </div></div>}
   {scopeReady&&<>
   {currentDraft&&<label className="ob-draft-mode"><input type="checkbox" checked={displayDraft} disabled={!ready} onChange={e=>{setPreferDraft(e.target.checked);setExportOpen(false)}}/>{t('عرض معاينة المسودة الافتتاحية المحفوظة (غير معتمدة)','Show saved opening draft preview (unapproved)')}{!ready&&<small>{t('القوائم الرسمية غير متاحة بعد','Official statements are not yet available')}</small>}</label>}
   {draftLoading&&!currentDraft&&<p className="ob-draft-loading" role="status">{t('جارٍ فحص وجود مسودة افتتاحية محفوظة…','Checking for a saved opening draft…')}</p>}

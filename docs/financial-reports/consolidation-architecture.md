@@ -18,6 +18,15 @@
 - These are verifiable pure calculation primitives, **not yet connected to Supabase/API or user-facing group totals**. They need a trusted, all-lines canonical source, legal control/ownership dates, permissions per group member, and audit/approval/FX policies before enabling the scope tabs. A balanced subset of ledger data alone cannot prove that the underlying source extraction was complete.
 - Pending: authorize **every** legal entity server-side, verify source completeness through a scoped RPC or authoritative revision/count, record branch dimension and opening split without rewriting history, implement period alignment, currency translation, acquisitions/NCI and tax effects, and run full live QA in an isolated database.
 
+### Implementation checkpoint — Phase 3 live-source readiness (2026-11-06)
+
+- Queried the existing **Financial Core QA** Supabase schema and aggregates read-only; no SQL migration, QA data mutation, Production query or branch provisioning. The QA instance currently has **44 ACTUAL/REVERSED events**, including **6 without `entity_id`**, and **0 approved opening workspaces** (a point-in-time observation, not a statement that all organizations are similarly configured).
+- Added `services/financial-scope-readiness.ts` and the opt-in, preview/QA-only `scope-readiness` action to the existing live reporting API. It checks active membership and `financial_core.view` **before and after** metadata reads, with the user's authenticated RLS Supabase client, and returns non-financial diagnostic counts explicitly marked `RLS_VISIBLE_ONLY`.
+- The existing content-level branch/group tabs optionally show scoped diagnostic blockers in both languages. A stale organization/period/scope response cannot be displayed against a changed selection. **No global sidebar change; no financial amounts or exports become available for incomplete scopes.**
+- The server preflight is **off by default**, requiring `FINANCIAL_SCOPE_PREFLIGHT=true` alongside the existing live reporting flags and excluding Vercel Production. If unavailable, the existing explanatory blocked state stays visible.
+- Both modes correctly remain `BLOCKED`: an RLS-filtered event count cannot prove complete ledger/opening coverage; `organization_entities` does not yet certify a branch registry; `parent_organization_id` does not attest complete legal control, ownership, access or NCI/FX policies. The preview is a diagnostic integration, **not completed branch aggregation, statutory consolidation or a grant of permission**.
+- To activate real financial reporting: create a versioned, server-authoritative complete ledger/journal/opening source attestation with durable branch allocations (including zero-opening organizations), legally effective group membership/control and every-member permission checks; validate it in an isolated database before using the Phase 1–2 accounting primitives. Saved balanced opening drafts must remain accessible as visibly provisional reports without forcing final approval.
+
 ## 1. User-facing reporting modes
 
 | Key | Arabic UI label | Financial boundary | Treatment |
