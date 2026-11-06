@@ -59,3 +59,17 @@
 .ob-draft-foot{font-size:12px}.ob-draft-foot a{color:#836323;text-decoration:underline;text-underline-offset:3px}
 @media(max-width:700px){.ob-draft-metrics{grid-template-columns:1fr 1fr}.ob-draft-table{min-width:460px}.ob-draft-mode{font-size:12px}}
 @media print{.ob-draft-mode,.ob-draft-foot{display:none!important}.ob-draft-banner{border:2px solid #9b7432!important}}
+
+/* Reporting scope belongs to the content, never to the approved global sidebar. */
+.fs-report-scope-tabs{display:flex;flex-wrap:wrap;gap:9px;order:0;margin:4px 0 8px}
+.fs-report-scope-tabs button{display:flex;align-items:center;gap:9px;justify-content:center;border:1px solid #d8e0e9;border-radius:10px;background:#fff;color:#10243a;padding:9px 15px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;min-height:42px}
+.fs-report-scope-tabs button small{font-size:10px;font-weight:500;color:#768496}
+.fs-report-scope-tabs button[aria-selected=true]{background:#10243a;border-color:#10243a;color:#f5ebd6;box-shadow:inset 0 -3px #c6a35d}
+.fs-report-scope-tabs button[aria-selected=true] small{color:#e6cb96}
+.fs-report-scope-tabs button:focus-visible{outline:3px solid #c6a35d;outline-offset:3px}
+.fs-scope-pending{order:2;display:flex;gap:12px;align-items:flex-start;border:1px solid #e4d3ad;border-radius:12px;background:#fffbf1;padding:18px;color:#10243a}
+.fs-scope-pending>svg{flex-shrink:0;color:#ae8338}
+.fs-scope-pending strong{font-size:15px}
+.fs-scope-pending p{font-size:13px;line-height:1.9;color:#5d6d7d;margin:6px 0 0}
+@media(max-width:700px){.fs-report-scope-tabs{display:grid;grid-template-columns:1fr;gap:7px}.fs-report-scope-tabs button{justify-content:space-between}}
+@media print{.fs-report-scope-tabs,.fs-scope-pending{display:none!important}}
