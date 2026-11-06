@@ -2,7 +2,7 @@ import {describe,expect,it} from 'vitest';
 import {validateBranchAllocations,type BranchAllocationInput,type BranchSourceLine} from '../lib/financial-branch-allocation';
 
 const a='branch-a',b='branch-b';
-type MutableBranchLine=Omit<BranchSourceLine,'allocations'>&{allocations:{branchId:string;debit:string;credit:string}[]};
+type MutableBranchLine=Omit<BranchSourceLine,'allocations'>&{allocations:{branchId:string|null;debit:string;credit:string}[]};
 const data=():Omit<BranchAllocationInput,'sourceLines'>&{sourceLines:MutableBranchLine[]}=>({
  organizationId:'10000000-0000-4000-8000-000000000001',currency:'SAR',branchIds:[a,b],
  coverage:{complete:true,scope:'ORGANIZATION_ALL_ENTITIES',sourceCount:6,revision:'trusted-opening-and-event-revision-1'},
@@ -69,6 +69,35 @@ describe('branch allocation completeness preflight',()=>{
   const r=validateBranchAllocations(d);
   expect(r.status).toBe('READY_FOR_BRANCH_REPORTS');
   expect(r.branchTrialBalances.find(x=>x.branchId===b)?.totalDebit).toBe('0.0000');
+ });
+
+ it('supports company-headquarters journals without inventing a branch',()=>{
+  const d=data();d.branchIds=[];d.sourceLines=[
+   {sourceId:'hq-bank',sourceKind:'JOURNAL',accountCode:'100001',debit:'300',credit:'0',allocations:[{branchId:null,debit:'300',credit:'0'}]},
+   {sourceId:'hq-capital',sourceKind:'JOURNAL',accountCode:'310001',debit:'0',credit:'300',allocations:[{branchId:null,debit:'0',credit:'300'}]},
+  ];d.coverage.sourceCount=2;
+  const result=validateBranchAllocations(d);
+  expect(result).toMatchObject({status:'READY_FOR_BRANCH_REPORTS',issues:[],branchTrialBalances:[{branchId:null,scope:'ORGANIZATION_DIRECT',totalDebit:'300.0000',totalCredit:'300.0000'}]});
+ });
+
+ it('reconciles headquarters and branch segments together without allocating headquarters activity twice',()=>{
+  const d=data();d.sourceLines.push(
+   {sourceId:'hq-opening-bank',sourceKind:'OPENING',accountCode:'100001',debit:'200',credit:'0',allocations:[{branchId:null,debit:'200',credit:'0'}]},
+   {sourceId:'hq-opening-capital',sourceKind:'OPENING',accountCode:'310001',debit:'0',credit:'200',allocations:[{branchId:null,debit:'0',credit:'200'}]},
+  );d.coverage.sourceCount=d.sourceLines.length;
+  const result=validateBranchAllocations(d);
+  expect(result.status).toBe('READY_FOR_BRANCH_REPORTS');
+  expect(result.branchTrialBalances.find(x=>x.scope==='ORGANIZATION_DIRECT')).toMatchObject({branchId:null,totalDebit:'200.0000',totalCredit:'200.0000'});
+  expect(result.branchTrialBalances.filter(x=>x.scope==='BRANCH')).toHaveLength(2);
+  expect(result.branchTrialBalances.reduce((sum,x)=>sum+Number(x.totalDebit),0)).toBe(620);
+ });
+
+ it('never silently assigns missing or unbalanced headquarters entries',()=>{
+  const d=data();d.sourceLines[0].allocations=[];
+  expect(validateBranchAllocations(d).status).toBe('BLOCKED');
+  const x=data();x.sourceLines[0].allocations=[{branchId:null,debit:'120',credit:'0'}];
+  expect(validateBranchAllocations(x).status).toBe('BLOCKED');
+  expect(validateBranchAllocations(x).issues).toContainEqual({code:'BRANCH_NOT_BALANCED',branchId:null});
  });
 
  it('requires an explicit complete authoritative source attestation, not a merely balanced subset',()=>{
