@@ -43,3 +43,42 @@ export async function branchOpeningCommand(input:unknown){
   p_opening_version:q.openingVersion,p_entries:q.entries,p_reason:q.reason,
  }));
 }
+
+/**
+ * Editable source display only. All records are read using the current user
+ * and RLS; visible branches are NOT an attestation of complete journal scope.
+ * Approval remains fully enforced and version-locked inside the SQL RPC.
+ */
+export async function branchOpeningEditorContext(input:unknown){
+ assertOpeningWorkspace();const q=scope.parse(input),{supabase,user}=await requireUser();
+ async function authorize(){
+  const membership=await supabase.from('organization_members').select('organization_id')
+   .eq('organization_id',q.organization).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle();
+  if(membership.error||!membership.data)throw Error('BRANCH_OPENING_READ_DENIED');
+  const allowed=await supabase.rpc('financial_core_can',{p_org:q.organization,p_scope:'financial_core.view'});
+  if(allowed.error||allowed.data!==true)throw Error('BRANCH_OPENING_READ_DENIED');
+ }
+ await authorize();
+ const [context,opening,branches]=await Promise.all([
+  supabase.rpc('financial_branch_opening_context',{p_org:q.organization,p_fiscal_start:q.fiscalStart}),
+  supabase.from('financial_opening_workspaces')
+   .select('id,organization_id,fiscal_start,currency,version,status,approved_opening')
+   .eq('organization_id',q.organization).eq('fiscal_start',q.fiscalStart).eq('status','APPROVED').maybeSingle(),
+  supabase.from('organization_entities').select('id,organization_id,name,entity_type,active')
+   .eq('organization_id',q.organization).eq('entity_type','BRANCH').eq('active',true).limit(501),
+ ]);
+ if(opening.error||branches.error||!Array.isArray(branches.data)||branches.data.length>500)
+  throw Error('BRANCH_OPENING_UNAVAILABLE');
+ const distribution=unwrap(context);
+ const selected=opening.data;
+ if(selected&&(selected.organization_id!==q.organization||selected.fiscal_start!==q.fiscalStart||
+    selected.status!=='APPROVED'||!Array.isArray(selected.approved_opening)))
+  throw Error('BRANCH_OPENING_UNAVAILABLE');
+ if(branches.data.some(b=>b.organization_id!==q.organization||b.entity_type!=='BRANCH'||!b.active))
+  throw Error('BRANCH_OPENING_UNAVAILABLE');
+ await authorize();
+ return{distribution,opening:selected?{
+  id:selected.id,organizationId:selected.organization_id,fiscalStart:selected.fiscal_start,
+  currency:selected.currency,version:selected.version,approvedOpening:selected.approved_opening,
+ }:null,branches:branches.data.map(b=>({id:b.id,name:b.name})),branchRegistryComplete:false};
+}

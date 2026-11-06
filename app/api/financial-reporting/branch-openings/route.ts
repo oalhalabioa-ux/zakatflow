@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';
 import {ZodError} from 'zod';
 import {isSameOriginRequest} from '../../../../lib/request-origin';
-import {branchOpeningContext,branchOpeningCommand} from '../../../../services/financial-branch-opening-workspace';
+import {branchOpeningContext,branchOpeningCommand,branchOpeningEditorContext} from '../../../../services/financial-branch-opening-workspace';
 
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
@@ -16,9 +16,12 @@ function failed(error:unknown){
 export async function GET(request:Request){
  try{
   const q=new URL(request.url).searchParams;
-  if([...q.keys()].some(key=>!['organization','fiscalStart'].includes(key)||q.getAll(key).length!==1)
-    ||q.size!==2)throw Error('BRANCH_OPENING_INPUT_INVALID');
-  return NextResponse.json(await branchOpeningContext({organization:q.get('organization'),fiscalStart:q.get('fiscalStart')}),{headers});
+  if([...q.keys()].some(key=>!['organization','fiscalStart','action'].includes(key)||q.getAll(key).length!==1))
+    throw Error('BRANCH_OPENING_INPUT_INVALID');
+  const editor=q.get('action')==='editor';
+  if(q.size!==(editor?3:2)||(!editor&&q.has('action')))throw Error('BRANCH_OPENING_INPUT_INVALID');
+  const input={organization:q.get('organization'),fiscalStart:q.get('fiscalStart')};
+  return NextResponse.json(await (editor?branchOpeningEditorContext(input):branchOpeningContext(input)),{headers});
  }catch(e){return failed(e)}
 }
 export async function POST(request:Request){
