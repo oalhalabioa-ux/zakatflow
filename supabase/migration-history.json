@@ -1,5 +1,5 @@
 {
-  "observed_on": "2026-10-30",
+  "observed_on": "2026-11-07",
   "project_ref": "ejpzcsfwqziqxwhvqnay",
   "description": "Canonical applied history restored from read-only metadata; does not apply or repair hosted migrations.",
   "entries": [
@@ -1762,6 +1762,14 @@
       "expected_md5": "7792151c6a73f660919037fcbb22d79d",
       "file_sha256": "094dca4bf40f81c43dd12bb33503dbd5173b9e345fa6c494f334ffe79bd4c978",
       "validation_project": "Disposable group legal-control evidence, audit and tenant-isolation tests only; not applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261107010000_financial_branch_opening_distribution.sql",
+      "version": "20261107010000",
+      "name": "financial_branch_opening_distribution",
+      "expected_md5": "6bd291eb3adb75b20be2a13450986c33",
+      "file_sha256": "e73516b7dba17ba1d51342063b4aa9f57a6fc3224317953e4206330dd8a106a2",
+      "validation_project": "Disposable branch-opening distribution; no Production or hosted QA migration applied"
     }
   ]
 }
