@@ -113,4 +113,17 @@ describe('independent read-only personal financial reports',()=>{
   expect(r.cashTransferReconciliation).toHaveLength(2);
   expect(r.cashTransferReconciliation.every(p=>p.verifiedPairs===0&&p.unverifiedLegs===1)).toBe(true);
  });
+ it('reconciles many personal accounts without mutating source movements or mixing balances',()=>{
+  const d=personal();d.accounts=Array.from({length:80},(_,i)=>({...d.accounts[0],id:'bank-'+i,name:'Bank '+i,balance:1000,baseBalance:1000}));
+  d.cashMovements=d.accounts.flatMap((a,i)=>[
+   {id:'out-'+i,accountId:a.id,date:'2026-11-03',currency:'SAR',amount:-30,transactionType:'WITHDRAWAL',description:'Payment',reference:'p-'+i,source:'ASSETS'},
+   {id:'in-'+i,accountId:a.id,date:'2026-11-02',currency:'SAR',amount:50,transactionType:'ADD',description:'Unclassified receipt',reference:'r-'+i,source:'ASSETS'},
+  ]);
+  const originalOrder=d.cashMovements.map(m=>m.id);
+  const r=personalFinancialReports(d,'2026-11-01','2026-11-06');
+  expect(r.cashAccounts).toHaveLength(80);
+  expect(r.cashAccounts.every(a=>a.opening==='980.00'&&a.inflows==='50.00'&&a.outflows==='30.00'&&a.closing==='1000.00'&&a.netMovement==='20.00')).toBe(true);
+  expect(r.cashTransferReconciliation).toMatchObject([{currency:'SAR',grossInflows:'4000.00',grossOutflows:'2400.00',remainingUnclassifiedInflows:'4000.00',remainingUnclassifiedOutflows:'2400.00',verifiedPairs:0,unverifiedLegs:0}]);
+  expect(d.cashMovements.map(m=>m.id)).toEqual(originalOrder);
+ });
 });

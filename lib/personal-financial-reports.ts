@@ -59,8 +59,10 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
   return{currency:p.currency,cash:money(p.cash),receivables:money(p.receivables),otherAssets:money(otherAssets),investments:investment,
    liabilities:money(p.liabilities),netWorth:p.net===null||sourceUnverified?null:money(p.net),complete:p.net!==null&&!sourceUnverified,unreconciled:p.unreconciled,unallocated};
  });
+ const cashMovementsByAccount=new Map<string,RegisterData['cashMovements']>();
+ for(const movement of data.cashMovements){const rows=cashMovementsByAccount.get(movement.accountId);if(rows)rows.push(movement);else cashMovementsByAccount.set(movement.accountId,[movement]);}
  const cashAccounts=data.accounts.map(a=>{
-  const s=cashStatement(a,data.cashMovements,from,to);return{id:a.id,name:a.name,currency:a.currency,
+  const s=cashStatement(a,cashMovementsByAccount.get(a.id)??[],from,to);return{id:a.id,name:a.name,currency:a.currency,
    opening:money(s.opening),inflows:money(s.inflows),outflows:money(s.outflows),closing:money(s.closing),
    netMovement:money(new D(s.closing).minus(s.opening).toString()),movementCount:s.lines.length};
  });

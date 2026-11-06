@@ -18,8 +18,8 @@ Statuses: **Implemented** = present in the Draft source and locally tested; **Ga
 | I-08 | Parent + controlled subsidiaries consolidated reports with actual authorizations, complete membership and ownership/control dates | **Pending**; pre-elimination trial-balance and elimination **pure QA helpers** exist, not a live group report | P1 |
 | I-09 | Consolidation layer: intragroup balances/income, unrealized gains, investment/equity elimination, reporting currency, FX and NCI; separately approved and auditable | **Pending** official adjustment ledger, group ownership/FX and accounting review | P1 |
 | I-10 | Group/fiscal-year budgets vs actuals, comparative periods and reconciled consolidated export | **Pending** mapped budget scope/FX and full-source attribution | P2 |
-| I-11 | Scale/latency gates: EXPLAIN/ANALYZE on authorized canonical reads, pagination, indexes, source-revision cache invalidation, safe export size limits | **Pending** measured QA benchmarks, no Production query | P1 |
-| I-12 | Authenticated cross-tenant/branch/group negative tests, mobile/desktop screenshot acceptance, all GitHub required checks green | **In progress**: preceding PR head `f885947c` passed five CI workflows; new transfer/readiness changes need their own checks | P0 |
+| I-11 | Scale/latency gates: EXPLAIN/ANALYZE on authorized canonical reads, pagination, indexes, source-revision cache invalidation, safe export size limits | **Partially optimized:** first PURCHASE lookup and organization-currency lookup in the register are indexed in memory rather than repeatedly scanning source arrays. Measured QA benchmarks and SQL execution plans remain **Pending**; no Production query | P1 |
+| I-12 | Authenticated cross-tenant/branch/group negative tests, mobile/desktop screenshot acceptance, all GitHub required checks green | **In progress**: reporting/transfer/readiness PR head `cd958836` passed all five CI workflows, including opening browser acceptance. Performance-only follow-up changes need their own checks; full entity/group financial certification still pending | P0 |
 
 ## Personal / شخصي
 
@@ -36,7 +36,7 @@ Statuses: **Implemented** = present in the Draft source and locally tested; **Ga
 | P-09 | Optional advanced personal chart and edit permissions, without mandatory company onboarding; audit/version changes | **Pending**; existing read-only mapping is intentionally non-editable | P2 |
 | P-10 | Personal currency translation with explicit effective rates, separate valuation/FX effects, and reproducible base-currency report | **Pending**; current safe per-currency presentation does not add unlike currencies | P2 |
 | P-11 | Two real isolated accounts, personal contract reversals, multi-currency, export revocation and mobile/desktop design QA | **Pending** end-to-end Supabase Auth/RLS browser acceptance | P0 |
-| P-12 | Performance budget for high-volume personal transactions and exports, authorization-safe queries and pagination | **Pending** measured QA benchmark | P1 |
+| P-12 | Performance budget for high-volume personal transactions and exports, authorization-safe queries and pagination | **Partially optimized:** cash transaction source lookup and per-account activity aggregation use in-memory indexing; 80-account/160-movement exact reconciliation test added. Measured end-to-end QA benchmarks and pagination remain **Pending** | P1 |
 
 ## Highest-priority dependencies
 
