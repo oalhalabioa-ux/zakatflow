@@ -76,3 +76,36 @@
 .fs-scope-check-results{margin-top:15px;border-top:1px solid #e3d7be;padding-top:12px}.fs-scope-check-results strong{font-size:13px}.fs-scope-check-results ul{margin:10px 0;padding-inline-start:20px;line-height:1.9;font-size:12px;color:#53657b}.fs-scope-check-results small{display:block;color:#8a6b35;font-size:11px;line-height:1.9}
 @media(max-width:700px){.fs-report-scope-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.fs-report-scope-filters label:first-child,.fs-report-scope-filters>small{grid-column:1/-1;min-width:0}.fs-report-scope-filters select{width:100%}}
 @media print{.fs-report-scope-filters,.fs-scope-pending{display:none!important}}
+
+/* Personal statements: reuse Yaqeen colors, without a company/branch selector. */
+.fs-personal-reports{padding:20px 24px 36px;display:grid;gap:16px;color:#10243a}
+.fs-personal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:20px 22px;background:#fff;border:1px solid #e0e6ed;border-radius:14px;box-shadow:0 8px 22px #10243a08}
+.fs-personal-eyebrow{display:block;font-size:11px;color:#b08a45;font-weight:800;margin-bottom:8px}
+.fs-personal-head h1{font-size:clamp(20px,2.3vw,30px);margin:0;color:#10243a}
+.fs-personal-head p{margin:9px 0 0;color:#67778a;font-size:13px;line-height:1.8}
+.fs-personal-scope{background:#10243a;color:#f5ebd6;border-bottom:3px solid #c6a35d;border-radius:9px;padding:8px 15px;font-weight:700;font-size:13px;white-space:nowrap}
+.fs-personal-tabs{display:flex;gap:8px;flex-wrap:wrap;border-radius:11px;background:#10243a;padding:7px}
+.fs-personal-tabs button{border:0;border-radius:8px;background:transparent;color:#eef2f7;padding:10px 18px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.fs-personal-tabs button[aria-selected=true]{background:#c6a35d;color:#10243a}
+.fs-personal-tabs button small{font-size:10px;color:#e6c99c}
+.fs-personal-tabs button[aria-selected=true] small{color:#4a5362}
+.fs-personal-tabs button:focus-visible{outline:3px solid #c6a35d;outline-offset:2px}
+.fs-personal-period{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
+.fs-personal-period label{display:grid;gap:6px;font-size:12px;color:#5d6e80;font-weight:700}
+.fs-personal-period input{height:37px;border:1px solid #d9e2eb;border-radius:9px;background:white;color:#10243a;padding:7px 9px;font:inherit}
+.fs-personal-period small{font-size:11px;color:#6c7b8b;padding-bottom:8px}
+.fs-personal-disclaimer{margin:0;font-size:12px;color:#715b33;background:#fcf7ec;border:1px solid #ecdab4;border-radius:9px;padding:11px 13px;line-height:1.7}
+.fs-personal-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:15px}
+.fs-personal-card,.fs-personal-panel{background:white;border:1px solid #e0e6ed;border-radius:13px;padding:19px 20px;box-shadow:0 8px 20px #10243a07}
+.fs-personal-card-title{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid #e9edf2;padding-bottom:12px}
+.fs-personal-card-title h2,.fs-personal-panel h2{margin:0;color:#10243a;font-size:17px}
+.fs-personal-card-title>span{color:#6e8192;font-size:11px}
+.fs-personal-summary{display:grid;grid-template-columns:minmax(140px,1fr) auto;gap:12px;margin:17px 0;font-size:13px}
+.fs-personal-summary span{color:#66798b}.fs-personal-summary strong{font-size:13px;text-align:end;font-variant-numeric:tabular-nums}
+.fs-personal-net{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#f5ebd6;color:#10243a;border-radius:8px;padding:13px;font-weight:750}
+.fs-personal-card>p,.fs-personal-panel>p{font-size:12px;line-height:1.8;color:#69798b;margin:11px 0}
+.fs-personal-panel{min-width:0}.fs-personal-panel .fs-table-scroll{margin-top:12px}
+.fs-personal-pending{border-color:#e8d6b6;background:#fffaf0}
+.fs-personal-warning,.fs-personal-empty{border:1px solid #e8d6b6;border-radius:10px;padding:14px 16px;background:#fffaf0;color:#765b32;font-size:13px}
+@media(max-width:680px){.fs-personal-reports{padding:13px;gap:12px}.fs-personal-head{padding:15px;flex-direction:column}.fs-personal-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.fs-personal-tabs button{padding:9px;font-size:12px}.fs-personal-cards{grid-template-columns:1fr}.fs-personal-card{padding:15px}.fs-personal-period{gap:8px}}
+@media print{.fs-personal-tabs,.fs-personal-period,.fs-personal-disclaimer{display:none!important}.fs-personal-card,.fs-personal-panel{break-inside:avoid}}

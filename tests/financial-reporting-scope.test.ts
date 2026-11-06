@@ -16,4 +16,11 @@ describe('institutional financial chart navigation',()=>{
  it('does not force unrelated personal asset pages into the institution',()=>{
   expect(currentWorkspaceScope('assets','?scope=PERSONAL','ORGANIZATION')).toBe('PERSONAL');
  });
+ it('keeps personal financial statements on the same module without institutional filters',()=>{
+  expect(isFinancialReportingPage('financial-reports')).toBe(true);
+  expect(currentWorkspaceScope('financial-reports','?scope=PERSONAL','ORGANIZATION')).toBe('PERSONAL');
+  expect(currentWorkspaceScope('financial-reports','?scope=ORGANIZATION','PERSONAL')).toBe('ORGANIZATION');
+  expect(workspaceScopeHref('ar','financial-reports','?organization=company&level=GROUP&screen=income','PERSONAL'))
+   .toBe('/ar/financial-reports?scope=PERSONAL');
+ });
 });
