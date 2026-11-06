@@ -23,6 +23,9 @@ describe('branch allocation completeness preflight',()=>{
   expect(r.branchTrialBalances.find(x=>x.branchId===a)).toMatchObject({totalDebit:'150.0000',totalCredit:'150.0000'});
   expect(r.branchTrialBalances.find(x=>x.branchId===b)).toMatchObject({totalDebit:'270.0000',totalCredit:'270.0000'});
   expect(r.branchTrialBalances.reduce((total,x)=>total+Number(x.totalDebit),0)).toBe(420);
+  expect(r.companyReconciliation).toMatchObject({totalDebit:'420.0000',totalCredit:'420.0000'});
+  expect(r.companyReconciliation?.accounts.find(row=>row.accountCode==='100001'))
+   .toMatchObject({debit:'420.0000',credit:'0.0000'});
  });
 
  it('never invents an allocation for approved opening amounts',()=>{
@@ -31,6 +34,7 @@ describe('branch allocation completeness preflight',()=>{
   expect(r.status).toBe('BLOCKED');
   expect(r.issues).toContainEqual({code:'MISSING_ALLOCATION',sourceId:'opening-bank'});
   expect(r.branchTrialBalances).toEqual([]);
+  expect(r.companyReconciliation).toBeNull();
  });
 
  it('rejects short allocation totals without presenting partial branch financials',()=>{
@@ -39,6 +43,7 @@ describe('branch allocation completeness preflight',()=>{
   expect(r.status).toBe('BLOCKED');
   expect(r.issues.some(i=>i.code==='ALLOCATION_MISMATCH')).toBe(true);
   expect(r.branchTrialBalances).toEqual([]);
+  expect(r.companyReconciliation).toBeNull();
  });
 
  it('blocks internal branch movements until branch clearing accounts reconcile',()=>{
@@ -90,6 +95,8 @@ describe('branch allocation completeness preflight',()=>{
   expect(result.branchTrialBalances.find(x=>x.scope==='ORGANIZATION_DIRECT')).toMatchObject({branchId:null,totalDebit:'200.0000',totalCredit:'200.0000'});
   expect(result.branchTrialBalances.filter(x=>x.scope==='BRANCH')).toHaveLength(2);
   expect(result.branchTrialBalances.reduce((sum,x)=>sum+Number(x.totalDebit),0)).toBe(620);
+  expect(result.companyReconciliation?.totalDebit).toBe('620.0000');
+  expect(result.companyReconciliation?.accounts).toContainEqual({accountCode:'100001',debit:'620.0000',credit:'0.0000',netDebit:'620.0000'});
  });
 
  it('never silently assigns missing or unbalanced headquarters entries',()=>{

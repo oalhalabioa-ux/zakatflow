@@ -25,6 +25,8 @@ export type BranchAllocationResult={
  status:'READY_FOR_BRANCH_REPORTS'|'BLOCKED';
  sourceCount:number;
  issues:BranchAllocationDiagnostic[];
+ /** Exact whole-company control total. Null if ANY segment or source line fails. */
+ companyReconciliation:{totalDebit:string;totalCredit:string;accounts:{accountCode:string;debit:string;credit:string;netDebit:string}[]}|null;
  branchTrialBalances:{branchId:string|null;scope:'ORGANIZATION_DIRECT'|'BRANCH';totalDebit:string;totalCredit:string;accounts:{accountCode:string;debit:string;credit:string;netDebit:string}[]}[];
 };
 
@@ -42,6 +44,7 @@ export function validateBranchAllocations(input:BranchAllocationInput):BranchAll
  const allowed=new Set(input.branchIds),seen=new Set<string>(),issues:BranchAllocationDiagnostic[]=[];
  type MoneyPair={debit:Decimal;credit:Decimal};
  const totals=new Map<string|null,Map<string,MoneyPair>>(input.branchIds.map(id=>[id,new Map<string,MoneyPair>()]));
+ const sourceAccounts=new Map<string,MoneyPair>();
  let sourceDebit=new Money(0),sourceCredit=new Money(0);
  for(const row of input.sourceLines){
   const key=row.sourceKind+':'+row.sourceId;
@@ -50,6 +53,8 @@ export function validateBranchAllocations(input:BranchAllocationInput):BranchAll
   const debit=amount(row.debit),credit=amount(row.credit);
   if((!debit.isZero()&&!credit.isZero()))throw Error('BRANCH_ALLOCATION_SOURCE_INVALID');
   sourceDebit=sourceDebit.plus(debit);sourceCredit=sourceCredit.plus(credit);
+  const existing=sourceAccounts.get(row.accountCode)??{debit:new Money(0),credit:new Money(0)};
+  sourceAccounts.set(row.accountCode,{debit:existing.debit.plus(debit),credit:existing.credit.plus(credit)});
   if(!row.allocations.length){
    if(!debit.isZero()||!credit.isZero())issues.push({code:'MISSING_ALLOCATION',sourceId:row.sourceId});
    continue;
@@ -79,5 +84,12 @@ export function validateBranchAllocations(input:BranchAllocationInput):BranchAll
   if(!totalDebit.eq(totalCredit))issues.push({code:'BRANCH_NOT_BALANCED',branchId});
   return{branchId,scope:branchId===null?'ORGANIZATION_DIRECT' as const:'BRANCH' as const,totalDebit:totalDebit.toFixed(4),totalCredit:totalCredit.toFixed(4),accounts:lines};
  });
- return{status:issues.length?'BLOCKED':'READY_FOR_BRANCH_REPORTS',sourceCount:input.sourceLines.length,issues,branchTrialBalances:issues.length?[]:result};
+ const companyReconciliation=issues.length?null:{
+  totalDebit:sourceDebit.toFixed(4),totalCredit:sourceCredit.toFixed(4),
+  accounts:[...sourceAccounts].sort(([a],[b])=>a.localeCompare(b)).map(([accountCode,a])=>({
+   accountCode,debit:a.debit.toFixed(4),credit:a.credit.toFixed(4),netDebit:a.debit.minus(a.credit).toFixed(4),
+  })),
+ };
+ return{status:issues.length?'BLOCKED':'READY_FOR_BRANCH_REPORTS',sourceCount:input.sourceLines.length,issues,
+  companyReconciliation,branchTrialBalances:issues.length?[]:result};
 }
