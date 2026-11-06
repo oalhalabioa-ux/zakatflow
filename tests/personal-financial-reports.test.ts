@@ -63,7 +63,54 @@ describe('independent read-only personal financial reports',()=>{
    {id:'in',accountId:'cash',date:'2026-11-01',currency:'SAR',amount:150,description:'Internal transfer',reference:'x',source:'ASSETS'}];
   const r=personalFinancialReports(d,'2026-11-01','2026-11-06');
   expect(r.cashAccounts.map(c=>c.netMovement)).toEqual(['-150.00','150.00']);
+  expect(r.cashTransferReconciliation[0]).toMatchObject({verifiedPairs:0,unverifiedLegs:0,remainingUnclassifiedInflows:'150.00',remainingUnclassifiedOutflows:'150.00'});
   expect(r.issues).toContain('PERSONAL_CASH_GROSS_INCLUDES_INTERNAL_TRANSFERS');
   expect(JSON.stringify(r)).not.toMatch(/revenueTotal|netProfit/);
+ });
+ it('excludes only balanced same-currency pairs with a persisted transfer identity',()=>{
+  const d=personal();d.accounts.push({...d.accounts[0],id:'cash',name:'Cash',balance:300,baseBalance:300});
+  d.cashMovements=[
+   {id:'out',accountId:'bank',date:'2026-11-01',currency:'SAR',amount:-150,internalTransferId:'transfer-1',transactionType:'TRANSFER_OUT',description:'x',reference:'x',source:'ASSETS'},
+   {id:'in',accountId:'cash',date:'2026-11-01',currency:'SAR',amount:150,internalTransferId:'transfer-1',transactionType:'TRANSFER_IN',description:'x',reference:'x',source:'ASSETS'},
+   {id:'pay',accountId:'bank',date:'2026-11-02',currency:'SAR',amount:-30,transactionType:'WITHDRAWAL',description:'expense unknown',reference:'p',source:'ASSETS'},
+  ];
+  const r=personalFinancialReports(d,'2026-11-01','2026-11-06');
+  expect(r.cashTransferReconciliation).toEqual([{currency:'SAR',grossInflows:'150.00',grossOutflows:'180.00',verifiedInternalInflows:'150.00',verifiedInternalOutflows:'150.00',remainingUnclassifiedInflows:'0.00',remainingUnclassifiedOutflows:'30.00',verifiedPairs:1,unverifiedLegs:0,transferEvidenceComplete:true}]);
+  expect(r.issues).not.toContain('PERSONAL_TRANSFER_PROVENANCE_INCOMPLETE');
+  expect(JSON.stringify(r)).not.toMatch(/revenueTotal|netProfit/);
+ });
+ it('does not infer transfer evidence from equal dates, descriptions, references or amounts',()=>{
+  const d=personal();d.accounts.push({...d.accounts[0],id:'cash',name:'Cash',balance:300,baseBalance:300});
+  d.cashMovements=[
+   {id:'out',accountId:'bank',date:'2026-11-01',currency:'SAR',amount:-150,transactionType:'TRANSFER_OUT',description:'same',reference:'same',source:'ASSETS'},
+   {id:'in',accountId:'cash',date:'2026-11-01',currency:'SAR',amount:150,transactionType:'TRANSFER_IN',description:'same',reference:'same',source:'ASSETS'},
+  ];
+  const r=personalFinancialReports(d,'2026-11-01','2026-11-06');
+  expect(r.cashTransferReconciliation[0]).toMatchObject({verifiedPairs:0,unverifiedLegs:2,transferEvidenceComplete:false,remainingUnclassifiedInflows:'150.00',remainingUnclassifiedOutflows:'150.00'});
+  expect(r.issues).toContain('PERSONAL_TRANSFER_PROVENANCE_INCOMPLETE');
+ });
+ it('keeps mismatched, incomplete and reversed transfer pairs unclassified',()=>{
+  const d=personal();d.accounts.push({...d.accounts[0],id:'cash',name:'Cash',balance:300,baseBalance:300});
+  d.cashMovements=[
+   {id:'out',accountId:'bank',date:'2026-11-01',currency:'SAR',amount:-150,internalTransferId:'bad',transactionType:'TRANSFER_OUT',description:'out',reference:'x',source:'ASSETS'},
+   {id:'in',accountId:'cash',date:'2026-11-01',currency:'SAR',amount:149,internalTransferId:'bad',transactionType:'TRANSFER_IN',description:'in',reference:'x',source:'ASSETS'},
+   {id:'orphan',accountId:'bank',date:'2026-11-02',currency:'SAR',amount:-20,internalTransferId:'orphan',transactionType:'TRANSFER_OUT',description:'orphan',reference:'q',source:'ASSETS'},
+  ];
+  let r=personalFinancialReports(d,'2026-11-01','2026-11-06');
+  expect(r.cashTransferReconciliation[0]).toMatchObject({verifiedPairs:0,unverifiedLegs:3,transferEvidenceComplete:false});
+  d.cashMovements=d.cashMovements.slice(0,2).map(m=>m.id==='in'?{...m,amount:150}:m);
+  d.cashMovements.push({id:'undo',accountId:'bank',date:'2026-11-03',currency:'SAR',amount:150,transactionType:'REVERSAL',reversalOfTransactionId:'out',description:'Reversed',reference:'r',source:'ASSETS'});
+  r=personalFinancialReports(d,'2026-11-01','2026-11-06');
+  expect(r.cashTransferReconciliation[0]).toMatchObject({verifiedPairs:0,unverifiedLegs:2,transferEvidenceComplete:false});
+ });
+ it('cannot classify a transfer that crosses currencies or reporting periods',()=>{
+  const d=personal();d.accounts.push({...d.accounts[0],id:'cash',name:'Cash USD',currency:'USD',baseCurrency:'USD',balance:300,baseBalance:300});
+  d.cashMovements=[
+   {id:'out',accountId:'bank',date:'2026-11-01',currency:'SAR',amount:-150,internalTransferId:'x',transactionType:'TRANSFER_OUT',description:'out',reference:'x',source:'ASSETS'},
+   {id:'in',accountId:'cash',date:'2026-11-01',currency:'USD',amount:150,internalTransferId:'x',transactionType:'TRANSFER_IN',description:'in',reference:'x',source:'ASSETS'},
+  ];
+  const r=personalFinancialReports(d,'2026-11-01','2026-11-06');
+  expect(r.cashTransferReconciliation).toHaveLength(2);
+  expect(r.cashTransferReconciliation.every(p=>p.verifiedPairs===0&&p.unverifiedLegs===1)).toBe(true);
  });
 });

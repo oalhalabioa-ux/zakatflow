@@ -21,6 +21,8 @@ export type PersonalReport={
  categories:Array<{id:PersonalCategory;code:string;ar:string;en:string;currency:string;amount:string;kind:'ASSET'|'LIABILITY'}>;
  positions:Array<{currency:string;cash:string;receivables:string;otherAssets:string;investments:string;liabilities:string;netWorth:string|null;complete:boolean;unreconciled:number;unallocated:string}>;
  cashAccounts:Array<{id:string;name:string;currency:string;opening:string;inflows:string;outflows:string;closing:string;netMovement:string;movementCount:number}>;
+ /** A source-ID reconciliation only. Remaining cash activity is NOT classified as income, expense or statutory cash flow. */
+ cashTransferReconciliation:Array<{currency:string;grossInflows:string;grossOutflows:string;verifiedInternalInflows:string;verifiedInternalOutflows:string;remainingUnclassifiedInflows:string;remainingUnclassifiedOutflows:string;verifiedPairs:number;unverifiedLegs:number;transferEvidenceComplete:boolean}>;
  issues:string[];
 };
 
@@ -62,9 +64,43 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
    opening:money(s.opening),inflows:money(s.inflows),outflows:money(s.outflows),closing:money(s.closing),
    netMovement:money(new D(s.closing).minus(s.opening).toString()),movementCount:s.lines.length};
  });
+ // Only an actual persisted transfer_id linking exactly one OUT transaction to
+ // one IN transaction can remove a pair from gross account activity. Never
+ // pair arbitrary equal amounts, dates, notes or user-facing references.
+ const accountById=new Map(data.accounts.map(a=>[a.id,a]));
+ const activity=data.cashMovements.filter(m=>!m.isOpening&&m.date>=from&&m.date<=to&&accountById.get(m.accountId)?.currency===m.currency);
+ const groups=new Map<string,typeof activity>();
+ const reversalTargets=new Set(data.cashMovements.map(m=>m.reversalOfTransactionId).filter((id):id is string=>Boolean(id)));
+ for(const m of activity.filter(m=>m.internalTransferId)){
+  const key=m.internalTransferId!;groups.set(key,[...(groups.get(key)??[]),m]);
+ }
+ const verifiedIds=new Set<string>();let hasUnverifiedTransfers=false;
+ for(const legs of groups.values()){
+  const [out,incoming]=[legs.find(m=>m.transactionType==='TRANSFER_OUT'),legs.find(m=>m.transactionType==='TRANSFER_IN')];
+  const eligible=legs.length===2&&Boolean(out&&incoming)&&out!.source==='ASSETS'&&incoming!.source==='ASSETS'&&
+   out!.accountId!==incoming!.accountId&&out!.id!==incoming!.id&&out!.currency===incoming!.currency&&out!.date===incoming!.date&&
+   new D(out!.amount).lt(0)&&new D(incoming!.amount).gt(0)&&new D(out!.amount).plus(incoming!.amount).isZero()&&
+   !legs.some(m=>reversalTargets.has(m.id)||!Number.isFinite(m.amount)||m.isOpening);
+  if(eligible){verifiedIds.add(out!.id);verifiedIds.add(incoming!.id);}else{hasUnverifiedTransfers=true;}
+  // A shared ID by itself cannot validate a transfer if the original legs
+  // have been reversed, missing, cross-currency or otherwise inconsistent.
+ }
+ if(activity.some(m=>(m.transactionType==='TRANSFER_IN'||m.transactionType==='TRANSFER_OUT')&&!verifiedIds.has(m.id)))hasUnverifiedTransfers=true;
+ const cashTransferReconciliation=[...new Set(cashAccounts.map(a=>a.currency))].sort().map(currency=>{
+  const accounts=cashAccounts.filter(a=>a.currency===currency),rows=activity.filter(m=>m.currency===currency),verified=rows.filter(m=>verifiedIds.has(m.id));
+  const grossInflows=add(accounts.map(a=>a.inflows)),grossOutflows=add(accounts.map(a=>a.outflows));
+  const verifiedInternalInflows=add(verified.filter(m=>m.amount>0).map(m=>m.amount));
+  const verifiedInternalOutflows=add(verified.filter(m=>m.amount<0).map(m=>-m.amount));
+  const unverifiedLegs=rows.filter(m=>(m.transactionType==='TRANSFER_IN'||m.transactionType==='TRANSFER_OUT'||Boolean(m.internalTransferId))&&!verifiedIds.has(m.id)).length;
+  return{currency,grossInflows,grossOutflows,verifiedInternalInflows,verifiedInternalOutflows,
+   remainingUnclassifiedInflows:money(new D(grossInflows).minus(verifiedInternalInflows).toString()),
+   remainingUnclassifiedOutflows:money(new D(grossOutflows).minus(verifiedInternalOutflows).toString()),
+   verifiedPairs:verified.length/2,unverifiedLegs,transferEvidenceComplete:unverifiedLegs===0};
+ });
  const issues=[...data.warnings];
  if(positions.some(p=>!p.complete))issues.push('PERSONAL_POSITION_RECONCILIATION_REQUIRED');
  if(positions.length>1)issues.push('PERSONAL_MULTI_CURRENCY_NOT_AGGREGATED');
  issues.push('PERSONAL_INCOME_EXPENSE_CLASSIFICATION_PENDING','PERSONAL_CASH_GROSS_INCLUDES_INTERNAL_TRANSFERS');
- return{scope:'PERSONAL',basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE',asOf:data.asOf,from,to,baseCurrency:data.baseCurrency,categories,positions,cashAccounts,issues:[...new Set(issues)]};
+ if(hasUnverifiedTransfers)issues.push('PERSONAL_TRANSFER_PROVENANCE_INCOMPLETE');
+ return{scope:'PERSONAL',basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE',asOf:data.asOf,from,to,baseCurrency:data.baseCurrency,categories,positions,cashAccounts,cashTransferReconciliation,issues:[...new Set(issues)]};
 }

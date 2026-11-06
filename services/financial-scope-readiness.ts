@@ -7,12 +7,15 @@ import {classifyFinancialSourceScope} from '../lib/financial-reporting-scope';
 export const scopeReadinessQuery=statementQuery.extend({scope:z.enum(['COMPANY_DIRECT','GROUP_WITH_SUBSIDIARIES'])});
 export type ScopeReadinessIssue=
  |'CANONICAL_SOURCE_UNVERIFIED'|'BRANCH_REGISTRY_UNVERIFIED'|'DIRECT_OPENING_ALLOCATION_UNVERIFIED'
+ |'ENTITY_ACCOUNT_LINK_UNRESOLVED'
  |'GROUP_MEMBERSHIP_UNVERIFIED'|'GROUP_CONTROL_UNVERIFIED'
  |'GROUP_ELIMINATION_UNVERIFIED'|'GROUP_CURRENCY_AND_NCI_UNVERIFIED';
 export type ScopeReadiness={
  status:'BLOCKED';scope:'COMPANY_DIRECT'|'GROUP_WITH_SUBSIDIARIES';organizationId:string;from:string;to:string;
  issues:ScopeReadinessIssue[];
- observation:{kind:'RLS_VISIBLE_ONLY';entityRecords:number;canonicalEvents:number;organizationDirectEvents:number;branchEvents:number}|null;
+ observation:{kind:'RLS_VISIBLE_ONLY';entityRecords:number;canonicalEvents:number;organizationDirectEvents:number;branchEvents:number;
+  cashAccounts:{companyDirect:number;branchLinked:number;entityLinkNotVisible:number};assetAccounts:{companyDirect:number;branchLinked:number;entityLinkNotVisible:number};
+  organizationLevelOpeningWorkspaces:number}|null;
 };
 
 /** Off by default, restricted to preview/QA. This is evidence gathering only. */
@@ -49,20 +52,31 @@ export async function liveScopeReadiness(input:unknown):Promise<ScopeReadiness>{
    'GROUP_MEMBERSHIP_UNVERIFIED','GROUP_CONTROL_UNVERIFIED','GROUP_ELIMINATION_UNVERIFIED','GROUP_CURRENCY_AND_NCI_UNVERIFIED',
   ]};
  }
- const [entitiesResponse,eventsResponse]=await Promise.all([
+ const [entitiesResponse,eventsResponse,cashResponse,assetsResponse,openingsResponse]=await Promise.all([
   supabase.from('organization_entities').select('id,organization_id,entity_type,active').eq('organization_id',q.organization).limit(1001),
   supabase.from('financial_events').select('id,organization_id,entity_id').eq('organization_id',q.organization)
    .in('status',['ACTUAL','REVERSED']).gte('event_date',q.from).lte('event_date',q.to).limit(5001),
+  supabase.from('liquidity_accounts').select('id,organization_id,entity_id').eq('organization_id',q.organization).limit(5001),
+  supabase.from('asset_accounts').select('id,organization_id,entity_id').eq('organization_id',q.organization).limit(5001),
+  supabase.from('financial_opening_workspaces').select('id,organization_id').eq('organization_id',q.organization).limit(1001),
  ]);
- const entities=unpack(entitiesResponse),events=unpack(eventsResponse);
- if(!Array.isArray(entities)||!Array.isArray(events)||entities.length>1000||events.length>5000)throw Error('REPORTING_UNAVAILABLE');
+ const entities=unpack(entitiesResponse),events=unpack(eventsResponse),cash=unpack(cashResponse),assets=unpack(assetsResponse),openings=unpack(openingsResponse);
+ if(!Array.isArray(entities)||!Array.isArray(events)||!Array.isArray(cash)||!Array.isArray(assets)||!Array.isArray(openings)||
+  entities.length>1000||events.length>5000||cash.length>5000||assets.length>5000||openings.length>1000)throw Error('REPORTING_UNAVAILABLE');
  // This count is diagnostic, NOT authoritative: RLS may filter invisible rows.
  const classified=classifyFinancialSourceScope(q.organization,entities.map(e=>({id:e.id,organizationId:e.organization_id,entityType:e.entity_type,active:e.active})),
   events.map(e=>({id:e.id,organizationId:e.organization_id,entityId:e.entity_id})));
+ const visibleActiveBranches=new Set(entities.filter(e=>e.entity_type==='BRANCH'&&e.active).map(e=>e.id));
+ const classifyAccountLinks=(rows:typeof cash)=>({companyDirect:rows.filter(a=>a.entity_id===null).length,
+  branchLinked:rows.filter(a=>a.entity_id!==null&&visibleActiveBranches.has(a.entity_id)).length,
+  entityLinkNotVisible:rows.filter(a=>a.entity_id!==null&&!visibleActiveBranches.has(a.entity_id)).length});
+ const cashAccounts=classifyAccountLinks(cash),assetAccounts=classifyAccountLinks(assets);
  const observation={kind:'RLS_VISIBLE_ONLY' as const,entityRecords:entities.length,canonicalEvents:events.length,
   organizationDirectEvents:classified.filter(e=>e.scope==='ORGANIZATION_DIRECT').length,
-  branchEvents:classified.filter(e=>e.scope==='BRANCH').length};
+  branchEvents:classified.filter(e=>e.scope==='BRANCH').length,cashAccounts,assetAccounts,
+  organizationLevelOpeningWorkspaces:openings.length};
  const issues:ScopeReadinessIssue[]=['CANONICAL_SOURCE_UNVERIFIED','BRANCH_REGISTRY_UNVERIFIED','DIRECT_OPENING_ALLOCATION_UNVERIFIED'];
+ if(cashAccounts.entityLinkNotVisible||assetAccounts.entityLinkNotVisible)issues.push('ENTITY_ACCOUNT_LINK_UNRESOLVED');
  // Even complete-looking visible events cannot prove that earlier opening lines,
  // legacy sources and journal lines are fully assigned to operating branches.
  await authorize();

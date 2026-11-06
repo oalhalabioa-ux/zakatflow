@@ -26,6 +26,11 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
   rows.push([],[t('حركة الحسابات النقدية — ليست قائمة تدفقات نقدية معيارية','Cash-account activity — not a statutory cash-flow statement')]);
   rows.push([t('الحساب','Account'),t('العملة','Currency'),t('أول الفترة','Opening'),t('المقبوضات الإجمالية','Gross inflows'),t('المدفوعات الإجمالية','Gross outflows'),t('صافي الحركة','Net movement'),t('آخر الفترة','Closing')]);
   for(const a of report.cashAccounts)rows.push([a.name,a.currency,a.opening,a.inflows,a.outflows,a.netMovement,a.closing]);
+  if(report.cashTransferReconciliation?.length){
+   rows.push([],[t('تسوية التحويلات بمعرّف المصدر — الباقي غير مصنّف','Source-ID transfer reconciliation — remainder unclassified')]);
+   rows.push([t('العملة','Currency'),t('التحويلات الداخلة المثبتة','Verified internal inflows'),t('التحويلات الخارجة المثبتة','Verified internal outflows'),t('الداخل غير المصنّف','Unclassified inflows'),t('الخارج غير المصنّف','Unclassified outflows'),t('الأزواج المثبتة','Verified pairs'),t('الأطراف غير المثبتة','Unverified legs')]);
+   for(const a of report.cashTransferReconciliation)rows.push([a.currency,a.verifiedInternalInflows,a.verifiedInternalOutflows,a.remainingUnclassifiedInflows,a.remainingUnclassifiedOutflows,String(a.verifiedPairs),String(a.unverifiedLegs)]);
+  }
  }
  if(view==='accounts'){
   rows.push([t('تصنيفات عرض تلقائية — ليست حسابات ترحيل فعلية','Automatic display classifications — not posted ledger accounts')]);

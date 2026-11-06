@@ -3,13 +3,16 @@ import {beforeEach,describe,expect,it,vi} from 'vitest';
 const org='10000000-0000-4000-8000-000000000001';
 const state=vi.hoisted(()=>({authenticated:true,member:true,allowed:true,revoked:false,dbError:false,
  authReads:0,sourceReads:0,rpcs:[] as string[],events:[{id:'ev1',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null},{id:'ev2',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:'branch-1'}],
- entities:[{id:'branch-1',organization_id:'10000000-0000-4000-8000-000000000001',entity_type:'BRANCH',active:true}]}));
+ entities:[{id:'branch-1',organization_id:'10000000-0000-4000-8000-000000000001',entity_type:'BRANCH',active:true}],
+ cashAccounts:[{id:'cash-hq',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null},{id:'cash-branch',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:'branch-1'}],
+ assetAccounts:[{id:'asset-hq',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null}] as Array<{id:string;organization_id:string;entity_id:string|null}>,
+ openingWorkspaces:[{id:'opening-1',organization_id:'10000000-0000-4000-8000-000000000001'}]}));
 const client={
  from(table:string){
   const chain={
    select(){return chain},eq(){return chain},in(){return chain},gte(){return chain},lte(){return chain},
    async maybeSingle(){state.authReads++;return{data:state.member&&!(state.revoked&&state.authReads>1)?{organization_id:org}:null,error:null}},
-   async limit(){state.sourceReads++;return state.dbError?{data:null,error:{message:'SQL secret'}}:{data:table==='financial_events'?state.events:state.entities,error:null}},
+   async limit(){state.sourceReads++;return state.dbError?{data:null,error:{message:'SQL secret'}}:{data:table==='financial_events'?state.events:table==='organization_entities'?state.entities:table==='liquidity_accounts'?state.cashAccounts:table==='asset_accounts'?state.assetAccounts:state.openingWorkspaces,error:null}},
   };return chain;
  },
  async rpc(name:string){state.rpcs.push(name);return{data:state.allowed,error:null}},
@@ -24,24 +27,35 @@ const url=(scope:string)=>'http://localhost/api/financial-reporting/live-stateme
 beforeEach(()=>{
  vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('FINANCIAL_SCOPE_PREFLIGHT','true');
  Object.assign(state,{authenticated:true,member:true,allowed:true,revoked:false,dbError:false,authReads:0,sourceReads:0,rpcs:[],
-  events:[{id:'ev1',organization_id:org,entity_id:null},{id:'ev2',organization_id:org,entity_id:'branch-1'}],entities:[{id:'branch-1',organization_id:org,entity_type:'BRANCH',active:true}]});
+  events:[{id:'ev1',organization_id:org,entity_id:null},{id:'ev2',organization_id:org,entity_id:'branch-1'}],entities:[{id:'branch-1',organization_id:org,entity_type:'BRANCH',active:true}],
+  cashAccounts:[{id:'cash-hq',organization_id:org,entity_id:null},{id:'cash-branch',organization_id:org,entity_id:'branch-1'}],
+  assetAccounts:[{id:'asset-hq',organization_id:org,entity_id:null}],openingWorkspaces:[{id:'opening-1',organization_id:org}]});
 });
 
 describe('QA-only, RLS-visible source-readiness checks',()=>{
  it('treats company-direct activity as valid and reports preflight gaps without financial figures',async()=>{
   const result=await liveScopeReadiness({...period,scope:'COMPANY_DIRECT'});
   expect(result).toMatchObject({status:'BLOCKED',scope:'COMPANY_DIRECT',organizationId:org,
-   observation:{kind:'RLS_VISIBLE_ONLY',canonicalEvents:2,organizationDirectEvents:1,branchEvents:1,entityRecords:1}});
+   observation:{kind:'RLS_VISIBLE_ONLY',canonicalEvents:2,organizationDirectEvents:1,branchEvents:1,entityRecords:1,
+    cashAccounts:{companyDirect:1,branchLinked:1,entityLinkNotVisible:0},assetAccounts:{companyDirect:1,branchLinked:0,entityLinkNotVisible:0},organizationLevelOpeningWorkspaces:1}});
   expect(result.issues).toContain('DIRECT_OPENING_ALLOCATION_UNVERIFIED');
   expect(result.issues).not.toContain('UNASSIGNED_CANONICAL_EVENTS');
   expect(JSON.stringify(result)).not.toMatch(/debit|credit|totalDebit|trialBalance|READY_FOR_BRANCH_REPORTS/);
   expect(state.authReads).toBe(2);expect(state.rpcs).toEqual(['financial_core_can','financial_core_can']);
  });
  it('never presents filtered RLS-visible records as complete source coverage',async()=>{
-  state.events=[];state.entities=[];
+  state.events=[];state.entities=[];state.cashAccounts=[];state.assetAccounts=[];state.openingWorkspaces=[];
   const result=await liveScopeReadiness({...period,scope:'COMPANY_DIRECT'});
   expect(result.status).toBe('BLOCKED');expect(result.issues).toContain('CANONICAL_SOURCE_UNVERIFIED');
   expect(result.observation?.canonicalEvents).toBe(0);
+ });
+ it('reports unresolved account links as a QA observation, not an invented balance or a draft voucher',async()=>{
+  state.assetAccounts=[{id:'orphan-or-invisible-branch',organization_id:org,entity_id:'not-visible'}];
+  const result=await liveScopeReadiness({...period,scope:'COMPANY_DIRECT'});
+  expect(result.observation?.assetAccounts).toEqual({companyDirect:0,branchLinked:0,entityLinkNotVisible:1});
+  expect(result.issues).toContain('ENTITY_ACCOUNT_LINK_UNRESOLVED');
+  expect(result.status).toBe('BLOCKED');
+  expect(JSON.stringify(result)).not.toMatch(/debit|credit|account_id|not-visible/);
  });
  it('does not infer controlled subsidiaries from the parent hierarchy or reveal member identifiers',async()=>{
   const result=await liveScopeReadiness({...period,scope:'GROUP_WITH_SUBSIDIARIES'});
