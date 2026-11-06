@@ -21,13 +21,15 @@ describe('financial statements presentation guardrails',()=>{
   expect(opening).not.toContain('ob-draft-table');
  });
  it('offers the three cumulative reporting scopes without exposing group figures or changing global navigation',()=>{
-  expect(statements).toContain("['COMPANY_DIRECT',t('الشركة فقط'");
-  expect(statements).toContain("['COMPANY_WITH_BRANCHES',t('الشركة وفروعها'");
-  expect(statements).toContain("['GROUP_WITH_SUBSIDIARIES',t('الشركة وفروعها والشركات التابعة'");
+  expect(statements).toContain('<option value="COMPANY_DIRECT">');
+  expect(statements).toContain('<option value="COMPANY_WITH_BRANCHES">');
+  expect(statements).toContain('<option value="GROUP_WITH_SUBSIDIARIES">');
   expect(statements).toContain("const scopeReady=reportScope==='COMPANY_WITH_BRANCHES'");
   expect(statements).toContain("group={reportScope==='GROUP_WITH_SUBSIDIARIES'}");
   expect(statements).toContain("onGroupChange={withSubsidiaries=>");
   expect(statements).toContain('disabled={!ready||displayDraft||exporting}');
   expect(statements).toContain('لا نعيد تخصيص القيود تلقائيًا');
+  expect(statements).toContain('Branch — filter pending integration');
+  expect(statements).toContain('Cost center — filter pending integration');
  });
 });
