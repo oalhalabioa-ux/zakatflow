@@ -97,4 +97,33 @@ describe('reconciled branch statement preview',()=>{
   const result=compileBranchStatementPreview(input);
   expect(result).toMatchObject({status:'RECONCILED_SEGMENTS_PREVIEW_ONLY',segments:[{branchId:null,statement:{position:{assets:'100.0000',equity:'100.0000'}}}]});
  });
+ it('supports a newly opened branch with zero opening balance and genuine current-year movements',()=>{
+  const input=data();
+  // The legal company has historical opening capital, but the newly established
+  // branch has none. All opening lines belong to headquarters.
+  input.allocations=input.allocations.map(row=>row.sourceKind==='OPENING'
+   ? {...row,allocations:[{branchId:null,debit:row.debit,credit:row.credit}]}
+   : row);
+  const result=compileBranchStatementPreview(input);
+  expect(result.status).toBe('RECONCILED_SEGMENTS_PREVIEW_ONLY');
+  expect(result.segments.find(s=>s.branchId===branch)?.statement).toMatchObject({
+   cash:{opening:'0.0000',movement:'50.0000',closing:'50.0000'},
+   income:{netProfit:'50.0000'},
+   position:{assets:'50.0000',equity:'50.0000'},
+  });
+  expect(result.company?.cash.opening).toBe('300.0000');
+ });
+ it('keeps a newly created dormant branch at zero without requiring an opening workspace',()=>{
+  const input=data();
+  input.source.opening=[];
+  input.source.journals=[];
+  input.allocations=[];
+  input.coverage.sourceCount=0;
+  const result=compileBranchStatementPreview(input);
+  expect(result.status).toBe('RECONCILED_SEGMENTS_PREVIEW_ONLY');
+  expect(result.segments.find(s=>s.branchId===branch)?.statement.cash).toMatchObject({
+   opening:'0.0000',movement:'0.0000',closing:'0.0000',
+  });
+ });
+
 });
