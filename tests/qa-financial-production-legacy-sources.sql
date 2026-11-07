@@ -157,5 +157,5 @@ begin
   if sqlerrm<>'REPORTING_ACCESS_DENIED' then raise;end if;
  end;
  perform set_config('request.jwt.claim.sub',actor::text,true);
-end $;
+end $$;
 rollback;
