@@ -9,13 +9,18 @@ const idC='60000000-0000-4000-8000-000000000006';
 const lineA='70000000-0000-4000-8000-000000000007';
 const lineB='80000000-0000-4000-8000-000000000008';
 const lineC='90000000-0000-4000-8000-000000000009';
+const classId='a0000000-0000-4000-8000-000000000010';
+const part=(id:string,baseAmount:string,cashDirection:'INFLOW'|'OUTFLOW'|'NON_CASH')=>({
+ id:id+':BASE',classificationId:classId+':BASE',baseAmount,cashDirection,recognitionSign:1 as const,
+});
 
 const s=vi.hoisted(()=>({
  member:true,allowed:true,revoked:false,authCount:0,rpcs:[] as string[],reads:0,
  error:false,
  events:[] as {id:string;organization_id:string;entity_id:string|null;event_date:string;status:string}[],
  entities:[] as {id:string;organization_id:string;entity_type:string;active:boolean}[],
- lines:[] as {id:string;event_id:string;organization_id:string}[],
+ lines:[] as {id:string;event_id:string;organization_id:string;classification_id:string;
+  base_amount:string;cash_direction:string;metadata:Record<string,unknown>}[],
 }));
 const client={
  from(table:string){
@@ -56,9 +61,9 @@ beforeEach(()=>{
    {id:branch,organization_id:org,entity_type:'BRANCH',active:true},
   ],
   lines:[
-   {id:lineA,event_id:idA,organization_id:org},
-   {id:lineB,event_id:idB,organization_id:org},
-   {id:lineC,event_id:idC,organization_id:org},
+   {id:lineA,event_id:idA,organization_id:org,classification_id:classId,base_amount:'100.0000',cash_direction:'INFLOW',metadata:{}},
+   {id:lineB,event_id:idB,organization_id:org,classification_id:classId,base_amount:'200.0000',cash_direction:'NON_CASH',metadata:{}},
+   {id:lineC,event_id:idC,organization_id:org,classification_id:classId,base_amount:'300.0000',cash_direction:'NON_CASH',metadata:{}},
   ]});
 });
 describe('canonical financial journal branch evidence',()=>{
@@ -112,7 +117,9 @@ describe('canonical financial journal branch evidence',()=>{
  });
 });
 
-const postedLineage=()=>journals().map((j,i)=>({...j,sourceLineIds:[[lineA],[lineB],[lineC]][i]}));
+const postedLineage=()=>journals().map((j,i)=>({...j,
+ sourceLines:[[part(lineA,'100.0000','INFLOW')],[part(lineB,'200.0000','NON_CASH')],[part(lineC,'300.0000','NON_CASH')]][i],
+}));
 describe('canonical line-level source checks before branch statements',()=>{
  it('matches every original recognition line through RLS without confusing two generated GL legs with two source lines',async()=>{
   const r=await observeCanonicalJournalLineage(org,postedLineage());
@@ -121,20 +128,45 @@ describe('canonical line-level source checks before branch statements',()=>{
    links:[{journalId:idA,branchId:null},{journalId:idB,branchId:null},{journalId:idC,branchId:branch}]});
   expect(s.authCount).toBe(3);
   expect(s.rpcs).toEqual(['financial_core_can','financial_core_can','financial_core_can']);
+  expect(r.reversalRecognitionSignVerified).toBe(false);
  });
  it('rejects an RLS-hidden or extra original recognition line rather than treating a truncated ledger as complete',async()=>{
   s.lines=s.lines.slice(0,2);
   await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
-  s.lines.push({id:lineC,event_id:idC,organization_id:'foreign-org'});
+  s.lines.push({id:lineC,event_id:idC,organization_id:'foreign-org',classification_id:classId,base_amount:'300.0000',cash_direction:'NON_CASH',metadata:{}});
   await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
  });
  it('rejects forged line identity, wrong event assignment, duplicate line IDs and unsupported empty original events',async()=>{
-  const forged=postedLineage();forged[0].sourceLineIds=[lineB];
+  const forged=postedLineage();forged[0].sourceLines=[part(lineB,'200.0000','NON_CASH')];
   await expect(observeCanonicalJournalLineage(org,forged)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
-  const dupe=postedLineage();dupe[0].sourceLineIds=[lineA,lineA];
+  const dupe=postedLineage();dupe[0].sourceLines=[part(lineA,'100.0000','INFLOW'),part(lineA,'100.0000','INFLOW')];
   await expect(observeCanonicalJournalLineage(org,dupe)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INVALID');
-  const empty=postedLineage();empty[2].sourceLineIds=[];
+  const empty=postedLineage();empty[2].sourceLines=[];
   await expect(observeCanonicalJournalLineage(org,empty)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INVALID');
+ });
+ it('reconciles two VAT posting parts against a single original database event line',async()=>{
+  s.lines[0].metadata={source_role:'INPUT_VAT'};
+  const data=postedLineage();
+  data[0].sourceLines=[
+   {id:lineA+':INPUT_VAT_RECOVERABLE',classificationId:classId+':INPUT_VAT_RECOVERABLE',
+    baseAmount:'60.0000',cashDirection:'INFLOW',recognitionSign:1},
+   {id:lineA+':INPUT_VAT_NONRECOVERABLE',classificationId:classId+':INPUT_VAT_NONRECOVERABLE',
+    baseAmount:'40.0000',cashDirection:'INFLOW',recognitionSign:1},
+  ];
+  const result=await observeCanonicalJournalLineage(org,data);
+  expect(result).toMatchObject({sourceLineCount:4,reversalRecognitionSignVerified:false});
+  data[0].sourceLines[0].baseAmount='59.0000';
+  await expect(observeCanonicalJournalLineage(org,data)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+ });
+ it('rejects altered source amounts, classification or cash direction even if the line IDs are identical',async()=>{
+  s.lines[0].base_amount='101.0000';
+  await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+  s.lines[0].base_amount='100.0000';
+  s.lines[0].classification_id='b0000000-0000-4000-8000-000000000011';
+  await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+  s.lines[0].classification_id=classId;
+  s.lines[0].cash_direction='OUTFLOW';
+  await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
  });
  it('checks permission again after reading source lines and refuses revoked access',async()=>{
   s.revoked=true;
@@ -144,7 +176,7 @@ describe('canonical line-level source checks before branch statements',()=>{
   s.events=[];s.entities=[];s.lines=[];
   const r=await observeCanonicalJournalLineage(org,[]);
   expect(r).toEqual({status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',
-   organizationId:org,sourceLineCount:0,links:[]});
+   organizationId:org,sourceLineCount:0,links:[],reversalRecognitionSignVerified:false});
   expect(JSON.stringify(r)).not.toMatch(/openingBalance|approvedOpening|netProfit/);
  });
 });
