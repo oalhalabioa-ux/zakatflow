@@ -108,6 +108,15 @@ try{
     'The native chart must not insert a duplicate organization picker into the shared header');
   await page.screenshot({path:out+'/financial-setup-linked-chart-en-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
+  // CorporateShell transitions its reserved sidebar margin (250px -> 0)
+  // over 220ms. Do not mistake the intermediate desktop-width layout for
+  // a persistent mobile overflow immediately after changing the viewport.
+  await page.waitForFunction(()=>{
+    const workspace=document.querySelector('.corp-workspace');
+    if(!workspace)return false;
+    const box=workspace.getBoundingClientRect();
+    return Math.abs(box.left)<2&&Math.abs(box.width-innerWidth)<2;
+  },null,{timeout:5000});
   const mobileOverflow=await page.evaluate(()=>{
     const width=innerWidth;
     const offenders=Array.from(document.querySelectorAll('body *')).map(element=>{
