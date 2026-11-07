@@ -9,7 +9,7 @@
 .financial-setup-progress-bar span{display:block;height:100%;background:var(--setup-gold);border-radius:inherit;transition:width .22s ease}
 .financial-setup-steps{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px;margin-bottom:24px}
 .financial-setup-steps button{min-width:0;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--muted,#64748b);font:inherit;font-size:.75rem;line-height:1.45;cursor:pointer;text-align:center;padding:8px 3px}
-.financial-setup-steps button>span:last-child{min-width:0;overflow-wrap:anywhere}
+.financial-setup-steps button>span:nth-child(2){min-width:0;overflow-wrap:anywhere}
 .financial-setup-steps button:disabled{cursor:default;opacity:.62}
 .financial-setup-number{width:32px;height:32px;display:grid;place-items:center;flex:none;border:1px solid var(--setup-line);border-radius:50%;font-weight:800;background:var(--card,#fff);color:var(--setup-text)}
 .financial-setup-steps button.current{color:var(--setup-text);font-weight:800;background:#c6a35d12;border-color:#c6a35d66}
