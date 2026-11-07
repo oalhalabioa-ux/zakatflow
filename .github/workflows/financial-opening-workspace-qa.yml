@@ -72,6 +72,8 @@ jobs:
         run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-normalized-parts.sql
       - name: Reconcile legacy asset/cash/transfer adapter against original records
         run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-legacy-sources.sql
+      - name: Prevent double-counting approved opening-consumed historical assets
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-legacy-approved-opening.sql
       - name: Verify real RLS finance/asset allocation visibility mismatch without changing grants
         run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-legacy-rls-gap.sql
       - name: Destroy isolated parity database without retaining data
