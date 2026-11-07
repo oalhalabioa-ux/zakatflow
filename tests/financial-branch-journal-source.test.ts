@@ -130,6 +130,19 @@ describe('canonical line-level source checks before branch statements',()=>{
   expect(s.rpcs).toEqual(['financial_core_can','financial_core_can','financial_core_can']);
   expect(r.reversalRecognitionSignVerified).toBe(false);
  });
+ it('accepts PERSON and other authorized dimensions for legal-company totals without fabricating branch attribution',async()=>{
+  s.entities[1].entity_type='PERSON';
+  await expect(observeCanonicalJournalLineage(org,postedLineage(),'BRANCH')).rejects
+   .toThrow('BRANCH_JOURNAL_ENTITY_UNVERIFIED');
+  const result=await observeCanonicalJournalLineage(org,postedLineage(),'LEGAL_COMPANY');
+  expect(result).toMatchObject({
+   status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',
+   organizationId:org,sourceLineCount:3,links:[],
+   branchAttributionVerified:false,reversalRecognitionSignVerified:false,
+  });
+  expect(s.authCount).toBe(3);
+  expect(s.rpcs).toEqual(['financial_core_can','financial_core_can','financial_core_can']);
+ });
  it('rejects an RLS-hidden or extra original recognition line rather than treating a truncated ledger as complete',async()=>{
   s.lines=s.lines.slice(0,2);
   await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
@@ -187,7 +200,7 @@ describe('canonical line-level source checks before branch statements',()=>{
   s.events=[];s.entities=[];s.lines=[];
   const r=await observeCanonicalJournalLineage(org,[]);
   expect(r).toEqual({status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',
-   organizationId:org,sourceLineCount:0,links:[],reversalRecognitionSignVerified:false});
+   organizationId:org,sourceLineCount:0,links:[],branchAttributionVerified:true,reversalRecognitionSignVerified:false});
   expect(JSON.stringify(r)).not.toMatch(/openingBalance|approvedOpening|netProfit/);
  });
 });
