@@ -56,6 +56,43 @@ describe('production live snapshot source identity integrity',()=>{
   asset.lines[0].id=asset.id+':ILLEGAL';
   expect(()=>verify([flow,asset])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
  });
+ it('rejects missing SALE proceeds even when the BOOK cost is present',()=>{
+  const sale=canonical();sale.id='transaction:'+refundId;
+  sale.sourceModule='LEGACY_ASSET';sale.sourceKey=refundId;
+  sale.lines=[{...sale.lines[0],id:sale.id+':BOOK',
+   classificationId:'GOLD:SALE:BASE:BOOK',baseAmount:'400.0000'}];
+  expect(()=>verify([sale])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
+  sale.lines.push({...sale.lines[0],id:sale.id+':PROCEEDS',
+   classificationId:'GOLD:SALE:PROCEEDS',baseAmount:'750.0000'});
+  expect(()=>verify([sale])).not.toThrow();
+  sale.lines.shift(); // A zero-cost disposal may have proceeds only.
+  expect(()=>verify([sale])).not.toThrow();
+  sale.lines[0].cashDirection='INFLOW';
+  expect(()=>verify([sale])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
+ });
+ it('rejects invented sale components on purchases, wrong reversal signs and malformed cash transfers',()=>{
+  const asset=canonical();asset.id='transaction:'+refundId;
+  asset.sourceModule='LEGACY_ASSET';asset.sourceKey=refundId;
+  asset.lines=[{...asset.lines[0],id:asset.id+':BOOK',
+   classificationId:'GOLD:PURCHASE:BASE:BOOK'}];
+  expect(()=>verify([asset])).not.toThrow();
+  asset.lines.push({...asset.lines[0],id:asset.id+':PROCEEDS',
+   classificationId:'GOLD:SALE:PROCEEDS'});
+  expect(()=>verify([asset])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
+  asset.lines.pop();asset.lines[0].recognitionSign=-1;
+  expect(()=>verify([asset])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
+  const cash=canonical();cash.id='transfer:'+refundId;
+  cash.sourceModule='LEGACY_CASH';cash.sourceKey=refundId;
+  cash.lines=[{...cash.lines[0],id:cash.id,
+   classificationId:'TRANSFER_DIFFERENCE:CASH',cashDirection:'OUTFLOW'}];
+  expect(()=>verify([cash])).not.toThrow();
+  cash.lines[0].classificationId='BANK:CASH';
+  expect(()=>verify([cash])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
+  cash.id='flow:'+refundId;cash.lines[0].id=cash.id;
+  expect(()=>verify([cash])).not.toThrow();
+  cash.lines[0].classificationId='TRANSFER_DIFFERENCE:CASH';
+  expect(()=>verify([cash])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
+ });
  it('forbids the same original database recognition line from being reused by another event',()=>{
   const a=canonical(),b=clone(a);
   b.id='60000000-0000-4000-8000-000000000006';
