@@ -103,7 +103,8 @@ begin
      or (proceeds_parts->0->>'baseAmount')::numeric<>sale.base_value
      or proceeds_parts->0->>'cashDirection'<>'NON_CASH'
      or (proceeds_parts->0->>'recognitionSign')::integer<>1
-     or jsonb_array_length(book_parts)<>case when cost>0 then 1 else 0 end
+     or (cost>0 and jsonb_array_length(book_parts)<>1)
+     or (cost=0 and jsonb_array_length(book_parts)<>0)
   then raise exception 'REPORTING_LEGACY_SALE_RECONCILIATION_FAILED'; end if;
   if cost>0 and ((book_parts->0->>'baseAmount')::numeric<>cost
      or book_parts->0->>'cashDirection'<>'NON_CASH'
