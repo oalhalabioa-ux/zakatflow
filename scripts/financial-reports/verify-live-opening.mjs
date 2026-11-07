@@ -108,7 +108,21 @@ try{
     'The native chart must not insert a duplicate organization picker into the shared header');
   await page.screenshot({path:out+'/financial-setup-linked-chart-en-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
+  const mobileOverflow=await page.evaluate(()=>{
+    const width=innerWidth;
+    const offenders=Array.from(document.querySelectorAll('body *')).map(element=>{
+      const rect=element.getBoundingClientRect(),style=getComputedStyle(element);
+      return {tag:element.tagName.toLowerCase(),className:typeof element.className==='string'?element.className.slice(0,150):'',
+        id:element.id||'',right:Math.round(rect.right),left:Math.round(rect.left),width:Math.round(rect.width),
+        overflowX:style.overflowX,position:style.position};
+    }).filter(element=>
+      element.width>width+2||element.right>width+2||element.left< -2
+    ).sort((a,b)=>b.right-a.right).slice(0,18);
+    return {viewport:width,scrollWidth:document.documentElement.scrollWidth,offenders};
+  });
+  if(mobileOverflow.scrollWidth>mobileOverflow.viewport)
+    console.log('FINANCIAL_SETUP_MOBILE_OVERFLOW '+JSON.stringify(mobileOverflow));
+  assert.equal(mobileOverflow.scrollWidth>mobileOverflow.viewport,false,
     'Linked setup workspace must fit the mobile viewport');
   await page.screenshot({path:out+'/financial-setup-linked-chart-en-mobile.png',fullPage:true});
   await page.setViewportSize({width:1672,height:941});
