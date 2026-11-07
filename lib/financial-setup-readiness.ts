@@ -1,4 +1,5 @@
 import {FINANCIAL_SETUP_STEPS,type FinancialSetupMode,type FinancialSetupStep} from './financial-setup-steps';
+import type {PostingPolicyReadiness} from './financial-setup-posting-evidence';
 
 export type SetupStatus='NOT_STARTED'|'IN_PROGRESS'|'BLOCKED'|'READY';
 export type FinancialSetupReadiness={
@@ -8,6 +9,7 @@ export type FinancialSetupReadiness={
  statuses:Record<FinancialSetupStep,SetupStatus>;
  ready:boolean;
  sourceChecked:boolean;
+ posting?:PostingPolicyReadiness;
  // A source preflight is not a statutory audit or atomic revision certificate.
  certification:'READ_ONLY_SOURCE_PREFLIGHT'|'NOT_CERTIFIED';
 };
@@ -19,6 +21,7 @@ export type SetupEvidence={
  chartPostableRetained:boolean;
  fiscalCalendarValid:boolean;
  approvedPostingPolicy:boolean;
+ postingEvidence?:PostingPolicyReadiness;
  bankAccountPresent:boolean;
  approvedOpening:boolean;
  zeroOpeningVerified:boolean;
@@ -46,5 +49,5 @@ export function financialSetupReadiness(e:SetupEvidence):FinancialSetupReadiness
  statuses.review=ready?'READY':'BLOCKED';
  statuses.finished=ready?'READY':'BLOCKED';
  return {organizationId:e.organizationId,mode:e.mode,fiscalStart:e.fiscalStart,statuses,ready,sourceChecked:e.sourceChecked,
-  certification:ready?'READ_ONLY_SOURCE_PREFLIGHT':'NOT_CERTIFIED'};
+  posting:e.postingEvidence,certification:ready?'READ_ONLY_SOURCE_PREFLIGHT':'NOT_CERTIFIED'};
 }
