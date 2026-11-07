@@ -19,12 +19,14 @@ import {
 import type {FinancialSetupReadiness,SetupStatus} from '@/lib/financial-setup-readiness';
 import SetupEmbeddedWorkspace from './SetupEmbeddedWorkspace';
 import SetupNativeWorkspace,{type NativeSetupStep} from './SetupNativeWorkspace';
+import {canDeferSetupStep,setupJourneyStepState,financialSetupJourneyCounts,FINANCIAL_SETUP_STEP_HELP} from '@/lib/financial-setup-journey-policy';
 import './financial-setup.css';
 
-type Org = {id:string;name:string;legal_name?:string|null;base_currency:string;entity_type:string};
-type Saved = {mode:FinancialSetupMode|null;industry:string;completed:FinancialSetupStep[];step:FinancialSetupStep};
+type Org = {id:string;name:string;legal_name?:string|null;base_currency:string;entity_type:string;parent_organization_id?:string|null};
+type Saved = {mode:FinancialSetupMode|null;industry:string;completed:FinancialSetupStep[];deferred:FinancialSetupStep[];step:FinancialSetupStep};
 const labels:Record<FinancialSetupStep,[string,string]> = {
   organization:['بيانات المؤسسة','Organization'],
+  structure:['الفروع والهيكل','Branches & structure'],
   chart:['دليل الحسابات','Chart of accounts'],
   fiscal:['السنة المالية','Fiscal year'],
   posting:['قواعد الترحيل','Posting rules'],
@@ -36,7 +38,7 @@ const labels:Record<FinancialSetupStep,[string,string]> = {
 };
 
 function readSaved(id:string):Saved {
-  const empty:Saved={mode:null,industry:'GENERAL',completed:[],step:'organization'};
+  const empty:Saved={mode:null,industry:'GENERAL',completed:[],deferred:[],step:'organization'};
   try{
     const raw=window.localStorage.getItem(setupStorageKey(id));
     if(!raw)return empty;
@@ -45,6 +47,7 @@ function readSaved(id:string):Saved {
       mode:isFinancialSetupMode(value.mode)?value.mode:null,
       industry:isFinancialIndustry(value.industry)?value.industry:'GENERAL',
       completed:Array.isArray(value.completed)?value.completed.filter(isSetupStep):[],
+      deferred:Array.isArray(value.deferred)?value.deferred.filter(isSetupStep):[],
       step:isSetupStep(value.step)?value.step:'organization',
     };
   }catch{return empty}
@@ -54,7 +57,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
   const ar=locale==='ar', t=(arabic:string,english:string)=>ar?arabic:english;
   const [orgs,setOrgs]=useState<Org[]>([]),[orgId,setOrgId]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const [mode,setMode]=useState<FinancialSetupMode|null>(null),[industry,setIndustry]=useState('GENERAL');
-  const [step,setStep]=useState<FinancialSetupStep>('organization'),[completed,setCompleted]=useState<FinancialSetupStep[]>([]);
+  const [step,setStep]=useState<FinancialSetupStep>('organization'),[completed,setCompleted]=useState<FinancialSetupStep[]>([]),[deferred,setDeferred]=useState<FinancialSetupStep[]>([]);
   const [hydrated,setHydrated]=useState(false),[reviewed,setReviewed]=useState(false),[notice,setNotice]=useState('');
   const [readiness,setReadiness]=useState<FinancialSetupReadiness|null>(null);
   const [checkingReadiness,setCheckingReadiness]=useState(false),[readinessError,setReadinessError]=useState('');
@@ -86,6 +89,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     setMode(saved.mode);
     setIndustry(saved.industry);
     setCompleted(saved.completed);
+    setDeferred(saved.deferred);
     setStep(saved.step);
     setReviewed(false);
     setNotice('');
@@ -93,11 +97,11 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
   },[orgId]);
   useEffect(()=>{
     if(!hydrated||!orgId)return;
-    const value:Saved={mode,industry,completed,step};
+    const value:Saved={mode,industry,completed,deferred,step};
     try{window.localStorage.setItem(setupStorageKey(orgId),JSON.stringify(value))}catch{
       // The setup remains navigable when browser storage is unavailable.
     }
-  },[hydrated,orgId,mode,industry,completed,step]);
+  },[hydrated,orgId,mode,industry,completed,deferred,step]);
   useEffect(()=>setReviewed(false),[step,orgId]);
   // Human review can be stored locally, but accounting readiness NEVER is.
   useEffect(()=>{
