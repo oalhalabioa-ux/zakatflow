@@ -23,8 +23,8 @@ type Org = {id:string;name:string;legal_name?:string|null;base_currency:string;e
 type Saved = {mode:FinancialSetupMode|null;industry:string;completed:FinancialSetupStep[];step:FinancialSetupStep};
 const labels:Record<FinancialSetupStep,[string,string]> = {
   organization:['بيانات المؤسسة','Organization'],
-  fiscal:['السنة المالية','Fiscal year'],
   chart:['دليل الحسابات','Chart of accounts'],
+  fiscal:['السنة المالية','Fiscal year'],
   posting:['قواعد الترحيل','Posting rules'],
   banking:['النقد والبنوك','Cash & banking'],
   opening:['الأرصدة الافتتاحية','Opening balances'],
@@ -107,7 +107,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
       fiscal:`${base}/settings/financial/fiscal-years?${query()}`,
       chart:`${base}/chart-of-accounts?${query()}`,
       posting:`${base}/financial-reporting-policy?${query()}`,
-      banking:`${base}/liquidity?${query()}`,
+      banking:`${base}/cash-and-banks?${query({scope:'ORGANIZATION'})}`,
       opening:`${base}/opening-balances?${query()}`,
       users:`${base}/users?${query()}`,
     };
