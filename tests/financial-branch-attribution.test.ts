@@ -82,9 +82,33 @@ describe('read-only versioned source-to-segment attribution',()=>{
     {accountId:'3100',debit:'0.0000',credit:'100.0000'}]}];
   data.journalEvidence.links=[{journalId:'capital-receipt',branchId:null,scope:'ORGANIZATION_DIRECT'}];
   data.coverage.sourceCount=2;
+  expect(previewVerifiedBranchAttribution(data)).toMatchObject({status:'BLOCKED',
+   issues:['BRANCH_ZERO_OPENING_PROVENANCE_REQUIRED']});
+  Object.assign(data,{zeroOpeningEvidence:{status:'ZERO_OPENING_SOURCE_EVIDENCE_ONLY',
+   organizationId:org,currency:'SAR',fiscalStart:'2026-01-01',ledgerRevision:data.coverage.revision,
+   sourceReference:'canonical-first-activity-2026',openingLineCount:0,
+   pendingOpeningCount:0,priorOpeningSourceCount:0}});
   const result=previewVerifiedBranchAttribution(data);
   expect(result.status).toBe('RECONCILED_SEGMENTS_PREVIEW_ONLY');
   if(result.status==='RECONCILED_SEGMENTS_PREVIEW_ONLY')
    expect(result.segments[0].statement.position.assets).toBe('100.0000');
+ });
+ it('rejects stale, foreign or incomplete zero-opening provenance without guessing an opening entry',()=>{
+  const data=fixtures();data.source.opening=[];Object.assign(data,{openingEvidence:null});
+  data.coverage.sourceCount=4;
+  const evidence={status:'ZERO_OPENING_SOURCE_EVIDENCE_ONLY',organizationId:org,currency:'SAR',
+   fiscalStart:'2026-01-01',ledgerRevision:data.coverage.revision,
+   sourceReference:'first-activity',openingLineCount:0,pendingOpeningCount:0,priorOpeningSourceCount:0};
+  for(const invalid of [
+   {...evidence,organizationId:'other-company'},
+   {...evidence,ledgerRevision:'older-revision'},
+   {...evidence,pendingOpeningCount:1},
+   {...evidence,priorOpeningSourceCount:1},
+   {...evidence,sourceReference:''},
+  ]){
+   const result=previewVerifiedBranchAttribution({...data,zeroOpeningEvidence:invalid as typeof evidence});
+   expect(result).toMatchObject({status:'BLOCKED',
+    issues:['BRANCH_ZERO_OPENING_PROVENANCE_INVALID'],company:null,segments:[]});
+  }
  });
 });
