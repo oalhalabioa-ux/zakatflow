@@ -10,4 +10,11 @@ export async function GET(request:Request){try{const q=new URL(request.url).sear
  if(q.get('action')!=='statements')throw Error('REPORTING_INPUT_INVALID');
  if(q.has('scope'))throw Error('REPORTING_INPUT_INVALID');
  return NextResponse.json(await liveStatementSource({organization:q.get('organization'),from:q.get('from'),to:q.get('to')}),{headers});
- }catch(e){const code=e instanceof Error?e.message:'REPORTING_UNAVAILABLE',status=/DISABLED/.test(code)?404:code==='UNAUTHORIZED'?401:/DENIED/.test(code)?403:e instanceof ZodError||/INVALID/.test(code)?400:503;return NextResponse.json({error:/^REPORTING_[A-Z_]+$/.test(code)?code:status===401?'UNAUTHORIZED':'REPORTING_UNAVAILABLE'},{status,headers})}}
+ }catch(e){
+  const code=e instanceof Error?e.message:'REPORTING_UNAVAILABLE';
+  // Corrupt or unverified source data is a SERVER integrity failure, not a
+  // malformed user request. Do not send a 400 for *_SOURCE_*_INVALID.
+  const inputInvalid=e instanceof ZodError||code==='REPORTING_INPUT_INVALID'||code==='REPORTING_PERIOD_INVALID';
+  const status=/DISABLED/.test(code)?404:code==='UNAUTHORIZED'?401:/DENIED/.test(code)?403:inputInvalid?400:503;
+  return NextResponse.json({error:/^REPORTING_[A-Z_]+$/.test(code)?code:status===401?'UNAUTHORIZED':'REPORTING_UNAVAILABLE'},{status,headers});
+ }}
