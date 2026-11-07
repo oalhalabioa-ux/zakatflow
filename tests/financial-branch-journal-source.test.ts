@@ -137,8 +137,11 @@ describe('canonical line-level source checks before branch statements',()=>{
   await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
  });
  it('rejects forged line identity, wrong event assignment, duplicate line IDs and unsupported empty original events',async()=>{
-  const forged=postedLineage();forged[0].sourceLines=[part(lineB,'200.0000','NON_CASH')];
+  const forged=postedLineage();forged[0].sourceLines=[
+   part('b0000000-0000-4000-8000-000000000010','100.0000','INFLOW')];
   await expect(observeCanonicalJournalLineage(org,forged)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+  const reused=postedLineage();reused[0].sourceLines=[part(lineB,'200.0000','NON_CASH')];
+  await expect(observeCanonicalJournalLineage(org,reused)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INVALID');
   const dupe=postedLineage();dupe[0].sourceLines=[part(lineA,'100.0000','INFLOW'),part(lineA,'100.0000','INFLOW')];
   await expect(observeCanonicalJournalLineage(org,dupe)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INVALID');
   const empty=postedLineage();empty[2].sourceLines=[];
