@@ -79,6 +79,37 @@ try{
   await page.evaluate(({key})=>localStorage.removeItem(key),{key:savedKey});
   await page.setViewportSize({width:1672,height:941});
  });
+ await check('The organization setup journey embeds real scoped workspaces without nested shell',async()=>{
+  await page.goto(app+'/en/settings/financial/setup?organization='+org);
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  await page.getByRole('button',{name:/Existing organization/}).click();
+  const embedded=page.locator('iframe.financial-setup-embedded-frame');
+  await embedded.waitFor();
+  const src=await embedded.getAttribute('src');
+  assert.ok(src?.startsWith('/en/settings?'),'Organization stage must reuse the real settings workspace');
+  assert.ok(src.includes('organization='+org),'The active organization must stay fixed');
+  assert.ok(src.includes('setupEmbed=1'),'Child shell must be marked as an embedded setup workspace');
+  const embeddedPage=page.frameLocator('iframe.financial-setup-embedded-frame');
+  await embeddedPage.locator('[data-setup-embedded-document]').waitFor({state:'attached'});
+  assert.equal(await embeddedPage.locator('.corp-sidebar').evaluate(el=>getComputedStyle(el).display),'none',
+   'The original navigation sidebar must not be duplicated inside the setup window');
+  await page.locator('.financial-setup-steps button').nth(1).click();
+  await embedded.waitFor();
+  const chartSrc=await embedded.getAttribute('src');
+  assert.ok(chartSrc?.startsWith('/en/chart-of-accounts?'),
+    'Chart step must embed the original chart, not replace it with links or fake data');
+  assert.ok(chartSrc.includes('organization='+org));
+  await page.frameLocator('iframe.financial-setup-embedded-frame')
+    .locator('[data-setup-embedded-document]').waitFor({state:'attached'});
+  assert.equal(await page.getByRole('link',{name:'Open full page'}).count(),1,
+    'The real workspace must remain independently accessible as a fallback');
+  await page.screenshot({path:out+'/financial-setup-linked-chart-en-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
+    'Linked setup workspace must fit the mobile viewport');
+  await page.screenshot({path:out+'/financial-setup-linked-chart-en-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1672,height:941});
+ });
  await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{
   sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
    do $$ declare asset uuid; d date; begin
