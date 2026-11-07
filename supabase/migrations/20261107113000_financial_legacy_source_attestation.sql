@@ -8,6 +8,7 @@ create or replace function public.financial_reporting_legacy_attestation(
 ) returns boolean language plpgsql stable security definer
 set search_path = '' as $$
 declare
+ w public.financial_opening_workspaces%rowtype;
  actual jsonb; expected_sorted jsonb; actual_sorted jsonb;
  sale record; allocation_count bigint; allocation_lots bigint;
  allocation_quantity numeric; allocation_cost numeric;
@@ -33,6 +34,37 @@ begin
  actual:=private.financial_reporting_legacy_events(p_org,p_from,p_to);
  if jsonb_typeof(actual) is distinct from 'array' then
   raise exception 'REPORTING_LEGACY_SOURCE_UNVERIFIED'; end if;
+
+ -- The approved opening consumes selected original transaction records. The
+ -- existing financial_statement_live_snapshot_v1 explicitly removes those
+ -- records from period movements; comparing to UNFILTERED legacy history would
+ -- double-count them or refuse valid reports. Mirror its approved opening
+ -- source filters exactly, never suppress an unapproved/missing source.
+ select * into w from public.financial_opening_workspaces
+ where organization_id=p_org and status='APPROVED'
+   and fiscal_start<=p_from
+   and p_to<=private.financial_period_end(p_org,fiscal_start)
+ order by fiscal_start desc limit 1;
+ if w.id is not null then
+  select coalesce(jsonb_agg(ev order by ev->>'id'),'[]'::jsonb)
+   into actual
+  from jsonb_array_elements(actual) x(ev)
+  where not exists(
+   select 1 from (
+    select voucher->>'canonicalId' canonical_id
+    from jsonb_array_elements(coalesce(w.source_snapshot->'rows','[]'::jsonb)) rows(r)
+    cross join lateral jsonb_array_elements(coalesce(r->'vouchers','[]'::jsonb)) v(voucher)
+    union all
+    select a.source_table||':'||a.source_id::text
+    from public.financial_opening_source_assignments a
+    where a.organization_id=p_org and a.fiscal_start<=w.fiscal_start
+      and exists(select 1 from public.financial_opening_workspaces approved
+       where approved.organization_id=p_org
+        and approved.fiscal_start=a.fiscal_start and approved.status='APPROVED')
+   ) consumed
+   where consumed.canonical_id='transactions:'||replace(ev->>'id','transaction:','')
+  );
+ end if;
  if (select count(distinct e->>'id') from jsonb_array_elements(p_expected_events) x(e))
     <>jsonb_array_length(p_expected_events)
     or (select count(distinct e->>'id') from jsonb_array_elements(actual) x(e))
@@ -64,6 +96,11 @@ begin
     join public.financial_events e on e.id=l.event_id and e.organization_id=p_org
     where l.organization_id=p_org and l.target_module='transactions'
       and l.target_record_id=t.id)
+   -- Only movements present AFTER approved opening adoption are eligible for
+   -- period sale-cost attestation. Opening-consumed transactions are
+   -- independently represented by the approved opening ledger.
+   and exists(select 1 from jsonb_array_elements(actual) x(ev)
+     where ev->>'id'='transaction:'||t.id::text)
  loop
   select count(*),count(distinct a.lot_id),coalesce(sum(a.quantity),0),
    coalesce(sum(a.value_base),0),
