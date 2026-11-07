@@ -9,7 +9,13 @@ const currencyCode=/^[A-Z]{3}$/;
 export type ReportingAccountKind='ASSET'|'LIABILITY'|'EQUITY'|'REVENUE'|'COGS'|'OPEX'|'FINANCE'|'TAX';
 export type ReportingParent={code:string;kind:ReportingAccountKind};
 export type TrialBalanceDetail={accountId:string;code:string;reportingCode:string;kind:ReportingAccountKind;debit:string;credit:string};
-export type AuthorizedTrialBalance={organizationId:string;from:string;to:string;currency:string;details:TrialBalanceDetail[]};
+export type ZeroActivityEvidence={
+  status:'COMPLETE_ZERO_SOURCE';organizationId:string;from:string;to:string;currency:string;
+  openingLineCount:0;postedJournalLineCount:0;revision:string;
+};
+/** A no-activity member must have complete, source-specific evidence, not just an empty array.
+ * Pure QA inputs are NOT proof of server authorization or revision integrity. */
+export type AuthorizedTrialBalance={organizationId:string;from:string;to:string;currency:string;details:TrialBalanceDetail[];zeroActivityEvidence?:ZeroActivityEvidence};
 export type RollupInput={
  expectedOrganizationIds:readonly string[];
  from:string;
@@ -57,6 +63,18 @@ export function rollupAuthorizedTrialBalances(input:RollupInput):PreEliminationR
   if(!expected.has(member.organizationId)||received.has(member.organizationId))throw Error('REPORTING_ROLLUP_MEMBERSHIP_INVALID');
   if(member.from!==input.from||member.to!==input.to)throw Error('REPORTING_ROLLUP_PERIOD_MISMATCH');
   if(member.currency!==input.currency)throw Error('REPORTING_ROLLUP_CURRENCY_MISMATCH');
+  // Zero members can be valid (including first-year subsidiaries), but
+  // absence of rows is NOT a trusted assertion of absence of transactions.
+  if(member.details.length===0){
+   const evidence=member.zeroActivityEvidence;
+   if(!evidence||evidence.status!=='COMPLETE_ZERO_SOURCE'||evidence.organizationId!==member.organizationId||
+    evidence.from!==member.from||evidence.to!==member.to||evidence.currency!==member.currency||
+    evidence.openingLineCount!==0||evidence.postedJournalLineCount!==0||
+    typeof evidence.revision!=='string'||!evidence.revision.trim())
+    throw Error('REPORTING_ROLLUP_EMPTY_SOURCE_UNVERIFIED');
+  }else if(member.zeroActivityEvidence){
+   throw Error('REPORTING_ROLLUP_ZERO_EVIDENCE_CONFLICT');
+  }
   received.add(member.organizationId);
   const memberTotals=new Map<string,Totals>(),accounts=new Set<string>();
   let debitSum=new Money(0),creditSum=new Money(0);
