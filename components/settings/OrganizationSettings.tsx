@@ -172,14 +172,28 @@ export default function OrganizationSettings({
       ) : financial ? (
         <section className="settings-card">
           <header><h2>{ar ? "الإعدادات المالية والمحاسبية" : "Financial & accounting settings"}</h2><p>{selected.name}</p></header>
-          <nav className="financial-settings-shortcuts" aria-label={ar ? 'التنقل بين الإعدادات المالية' : 'Financial settings navigation'}>
-            <Link href={`/${locale}/settings/financial/setup?organization=${encodeURIComponent(id)}`}>{ar?'رحلة إعداد المؤسسة':'Setup journey'}</Link>
-            <Link href={`/${locale}/settings/financial/fiscal-years?organization=${encodeURIComponent(id)}`} aria-current={financial==='years'?'page':undefined}>{ar?'السنوات المالية':'Fiscal years'}</Link>
-            <Link href={`/${locale}/chart-of-accounts?organization=${encodeURIComponent(id)}`}>{ar?'دليل الحسابات':'Chart of accounts'}</Link>
-            <Link href={`/${locale}/financial-reporting-policy?organization=${encodeURIComponent(id)}`}>{ar?'قواعد الترحيل':'Posting rules'}</Link>
-            <Link href={`/${locale}/opening-balances?organization=${encodeURIComponent(id)}`}>{ar?'الأرصدة الافتتاحية':'Opening balances'}</Link>
-          </nav>
-          {financial==='years' ? <FiscalYearManagement key={id} organization={id} locale={locale} onEditState={reportFiscalEdit} /> : <div className="settings-hint"><p>{ar?'ابدأ بتهيئة المؤسسة، ثم إنشاء الحسابات الفرعية المطلوبة في دليل الحسابات قبل حفظ السنة المالية وربط حساب الأرباح المحتجزة. بعد ذلك راجع قواعد الترحيل والنقد والبنوك والأرصدة الافتتاحية والمستخدمين.':'Start with the setup journey and create the required posting accounts in the chart before configuring the fiscal calendar and retained earnings. Then review posting rules, cash and banks, opening balances and user permissions.'}</p><Link className="btn" href={`/${locale}/settings/financial/setup?organization=${encodeURIComponent(id)}`}>{ar?'بدء أو متابعة رحلة إعداد المؤسسة':'Start or resume organization setup'}</Link></div>}
+          <section className="financial-settings-journey-entry">
+            <div>
+              <strong>{ar?'رحلة إعداد المؤسسة':'Organization setup journey'}</strong>
+              <p>{ar?'جميع مراحل التهيئة والجاهزية المالية في تبويب واحد. يمكنك متابعة النواقص أو تأجيل المراحل المستقلة دون اعتبارها معتمدة.':
+                'All setup stages and verified readiness in one tab. You can revisit incomplete work or defer independent tasks without approving them.'}</p>
+            </div>
+            <Link className="btn" href={`/${locale}/settings/financial/setup?organization=${encodeURIComponent(id)}`}>
+              {ar?'فتح رحلة الإعداد':'Open setup journey'}
+            </Link>
+          </section>
+          <details className="financial-settings-tools">
+            <summary>{ar?'إدارة الإعدادات المالية التفصيلية':'Manage detailed financial settings'}</summary>
+            <p>{ar?'هذه صفحات الإدارة الأصلية بعد التهيئة، وليست خطوات إضافية أو أدلة حسابات مكررة.':
+              'These are the original management pages, not duplicate setup stages or charts.'}</p>
+            <nav className="financial-settings-shortcuts" aria-label={ar?'الأدوات المالية التفصيلية':'Detailed finance tools'}>
+              <Link href={`/${locale}/settings/financial/fiscal-years?organization=${encodeURIComponent(id)}`}>{ar?'السنوات المالية':'Fiscal years'}</Link>
+              <Link href={`/${locale}/chart-of-accounts?organization=${encodeURIComponent(id)}`}>{ar?'دليل الحسابات':'Chart of accounts'}</Link>
+              <Link href={`/${locale}/financial-reporting-policy?organization=${encodeURIComponent(id)}`}>{ar?'قواعد الترحيل':'Posting rules'}</Link>
+              <Link href={`/${locale}/opening-balances?organization=${encodeURIComponent(id)}`}>{ar?'الأرصدة الافتتاحية':'Opening balances'}</Link>
+            </nav>
+          </details>
+          {financial==='years' ? <FiscalYearManagement key={id} organization={id} locale={locale} onEditState={reportFiscalEdit} /> : <div className="settings-hint"><p>{ar?'لتنفيذ الإعداد المتسلسل استخدم تبويب «رحلة الإعداد». أما الصفحات التفصيلية أعلاه فهي لإدارة السجلات الأصلية بعد التهيئة.':'Use the separate Setup Journey tab for guided setup. The detailed pages above manage existing records after configuration.'}</p></div>}
         </section>
       ) : (
         <section className="settings-card">
