@@ -79,3 +79,90 @@ export async function observeCanonicalJournalBranches(
   return{journalId:j.id,branchId:value.branchId,scope:value.scope};
  })};
 }
+
+
+export type CanonicalLineageJournal=CanonicalJournal&{
+ /** IDs of ORIGINAL financial_event_lines (one recognition line may generate
+  * two accounting entries). Never pass generated GL line indices here. */
+ sourceLineIds:readonly string[];
+};
+export type JournalLineageObservation={
+ status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY';
+ organizationId:string;
+ sourceLineCount:number;
+ links:JournalBranchObservation['links'];
+};
+
+/** Checks complete canonical event-line identities under tenant RLS, not merely
+ * that each event header was visible. No journal, branch balance, or full ledger
+ * is authorized by this observation alone. Only server-side callers can bind it
+ * to the same full-source revision and approved posting rules.
+ */
+export async function observeCanonicalJournalLineage(
+ organizationId:string,journals:readonly CanonicalLineageJournal[],
+):Promise<JournalLineageObservation>{
+ if(!uuid.test(organizationId)||journals.length>10000)
+  throw Error('BRANCH_LINEAGE_SCOPE_INVALID');
+ const posted=journals.filter(j=>j.status==='POSTED');
+ const seen=new Set<string>();
+ for(const journal of journals){
+  if(journal.organizationId!==organizationId||!uuid.test(journal.id)||
+   !validDate(journal.date)||!['POSTED','DRAFT','VOID'].includes(journal.status)||
+   !Array.isArray(journal.sourceLineIds)||seen.has(journal.id))
+   throw Error('BRANCH_LINEAGE_SOURCE_INVALID');
+  seen.add(journal.id);
+  if(journal.status==='POSTED'){
+   if(!journal.sourceLineIds.length||journal.sourceLineIds.length>400||
+    journal.sourceLineIds.some(id=>!uuid.test(id))||
+    new Set(journal.sourceLineIds).size!==journal.sourceLineIds.length)
+    throw Error('BRANCH_LINEAGE_SOURCE_INVALID');
+  }else if(journal.sourceLineIds.length){
+   throw Error('BRANCH_LINEAGE_SOURCE_INVALID');
+  }
+ }
+ // Enforce RLS, header dates, event status, and entity assignment first.
+ const observed=await observeCanonicalJournalBranches(organizationId,journals);
+ const {supabase,user}=await requireUser();
+ const expected=new Map(posted.map(j=>[j.id,new Set(j.sourceLineIds)]));
+ const read=new Map<string,Set<string>>();
+ // Each query covers at most 400 expected recognition lines, safely beneath
+ // the normal 1000-row PostgREST cap, and asks for one extra to catch overread.
+ const batches:CanonicalLineageJournal[][]=[];
+ let batch:CanonicalLineageJournal[]=[],count=0;
+ for(const j of posted){
+  if(count+j.sourceLineIds.length>400){batches.push(batch);batch=[];count=0}
+  batch.push(j);count+=j.sourceLineIds.length;
+ }
+ if(batch.length)batches.push(batch);
+ for(const chunk of batches){
+  const ids=chunk.map(j=>j.id);
+  const required=chunk.reduce((n,j)=>n+j.sourceLineIds.length,0);
+  const response=await supabase.from('financial_event_lines')
+   .select('id,event_id,organization_id')
+   .eq('organization_id',organizationId)
+   .in('event_id',ids).limit(required+1);
+  if(response.error||!Array.isArray(response.data))
+   throw Error('BRANCH_LINEAGE_SOURCE_UNAVAILABLE');
+  if(response.data.length!==required)
+   throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+  for(const line of response.data as {id:string;event_id:string;organization_id:string}[]){
+   const wanted=expected.get(line.event_id);
+   if(!wanted||line.organization_id!==organizationId||!wanted.has(line.id))
+    throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+   const current=read.get(line.event_id)??new Set<string>();
+   if(current.has(line.id))throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+   current.add(line.id);read.set(line.event_id,current);
+  }
+ }
+ if(posted.some(j=>read.get(j.id)?.size!==j.sourceLineIds.length))
+  throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+ // The event-line read is a second query. Reauthorize afterward to prevent
+ // a revoked member from receiving the combined result.
+ const member=await supabase.from('organization_members').select('organization_id')
+  .eq('organization_id',organizationId).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle();
+ if(member.error||!member.data)throw Error('BRANCH_LINEAGE_ACCESS_DENIED');
+ const permission=await supabase.rpc('financial_core_can',{p_org:organizationId,p_scope:'financial_core.view'});
+ if(permission.error||permission.data!==true)throw Error('BRANCH_LINEAGE_ACCESS_DENIED');
+ return{status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',organizationId,
+  sourceLineCount:[...expected.values()].reduce((n,ids)=>n+ids.size,0),links:observed.links};
+}
