@@ -71,6 +71,31 @@ describe('group-only trial-balance adjustment staging',()=>{
   const evidence=elimination();evidence.sourceReferences=[];expect(()=>previewGroupEliminations(s,parents,[evidence])).toThrow('GROUP_ADJUSTMENT_EVIDENCE_REQUIRED');
  });
 
+ it('rejects intercompany balances larger than reciprocal source receivables and payables',()=>{
+  const entry=elimination(),source=rollupAuthorizedTrialBalances(request());
+  entry.lines[0].debit='150';entry.lines[1].credit='150';
+  expect(()=>previewGroupEliminations(source,parents,[entry])).toThrow('GROUP_ADJUSTMENT_EXCEEDS_SOURCE');
+  const invalid=elimination();
+  invalid.lines=[{accountCode:'210001',reportingCode:'2100',debit:'0',credit:'100'},
+                 {accountCode:'110001',reportingCode:'1100',debit:'100',credit:'0'}];
+  expect(()=>previewGroupEliminations(source,parents,[invalid])).toThrow('GROUP_ADJUSTMENT_PAIR_INVALID');
+ });
+ it('requires opposite companies to hold the reciprocal balances, not just a net group balance',()=>{
+  const req=request();
+  req.members[0].details.push({accountId:'parent-ic-ap',code:'210001',reportingCode:'2100',kind:'LIABILITY',debit:'0',credit:'100'});
+  req.members[0].details[2].credit='50';
+  req.members[1].details=req.members[1].details.filter(d=>d.accountId!=='child-ic-ap');
+  req.members[1].details.find(d=>d.accountId==='child-equity')!.credit='200';
+  const source=rollupAuthorizedTrialBalances(req);
+  expect(()=>previewGroupEliminations(source,parents,[elimination()])).toThrow('GROUP_ADJUSTMENT_RECIPROCAL_MEMBERS_MISSING');
+ });
+ it('rejects an income elimination for which the matching expense is missing',()=>{
+  const source=rollupAuthorizedTrialBalances(request());
+  const entry={...elimination(),kind:'INTERCOMPANY_INCOME' as const,
+   lines:[{accountCode:'400001',reportingCode:'4000',debit:'50',credit:'0'},
+          {accountCode:'600001',reportingCode:'6000',debit:'0',credit:'50'}]};
+  expect(()=>previewGroupEliminations(source,parents,[entry])).toThrow('GROUP_ADJUSTMENT_EXCEEDS_SOURCE');
+ });
  it('fails closed when a pre-elimination source total or entity breakdown has been corrupted',()=>{
   const s=rollupAuthorizedTrialBalances(request());s.byParent[0].members[0].debit='999';
   expect(()=>previewGroupEliminations(s,parents,[elimination()])).toThrow('GROUP_ADJUSTMENT_SOURCE_INVALID');
