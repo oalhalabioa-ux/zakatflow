@@ -5,6 +5,9 @@ import {financialChartWorkspace} from './financial-chart';
 import {readOpening} from './financial-opening-workspace';
 import {liveStatementSource} from './financial-statement-live';
 import {financialSetupReadiness,type SetupEvidence} from '../lib/financial-setup-readiness';
+import {evaluatePostingPolicy,type PostingPolicyRecord} from '../lib/financial-setup-posting-evidence';
+import {readReportingPolicy} from './financial-reporting-policy';
+import type {RecognitionEvent} from '../lib/financial-event-ledger';
 import {hasVerifiedZeroOpening} from '../lib/financial-setup-source-proof';
 
 const query=z.object({organization:z.string().uuid(),mode:z.enum(['NEW','EXISTING']).nullable()}).strict();
@@ -53,13 +56,26 @@ export async function readFinancialSetupReadiness(input:unknown){
   evidence.fiscalStart=f.period?.start??null;
  }
  if(evidence.fiscalStart){
-  const [policies,opening]=await Promise.allSettled([
-   supabase.from('financial_reporting_policies').select('status,fiscal_start,fiscal_end')
-    .eq('organization_id',q.organization).eq('fiscal_start',evidence.fiscalStart).eq('status','APPROVED').limit(1),
+  const [policies,policyWorkspace,opening]=await Promise.allSettled([
+   supabase.from('financial_reporting_policies').select('status,version,rules')
+    .eq('organization_id',q.organization).eq('fiscal_start',evidence.fiscalStart)
+    .eq('status','APPROVED').order('version',{ascending:false}).limit(1),
+   readReportingPolicy({organization:q.organization,fiscalStart:evidence.fiscalStart}),
    readOpening({organization:q.organization,fiscalStart:evidence.fiscalStart}),
   ]);
-  if(policies.status==='fulfilled'&&!policies.value.error)
-   evidence.approvedPostingPolicy=(policies.value.data?.length??0)>0;
+  if(policies.status==='fulfilled'&&!policies.value.error&&
+    policyWorkspace.status==='fulfilled'){
+   const workspace=policyWorkspace.value as {
+    policy:PostingPolicyRecord|null;events:RecognitionEvent[];
+   };
+   // A draft in progress may be the workspace's primary record; do not
+   // replace a still-active approved policy with a browser/local draft.
+   const approved=policies.value.data?.[0] as PostingPolicyRecord|undefined;
+   const verified=evaluatePostingPolicy(approved??workspace.policy??null,
+    Array.isArray(workspace.events)?workspace.events:null);
+   evidence.postingEvidence=verified;
+   evidence.approvedPostingPolicy=verified.configured;
+  }
   if(opening.status==='fulfilled'){
    const state=opening.value;
    evidence.approvedOpening=state.workspace?.status==='APPROVED'&&
