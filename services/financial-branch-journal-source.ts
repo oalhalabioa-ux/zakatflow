@@ -281,7 +281,7 @@ export async function observeCanonicalJournalLineage(
     const recoveryRaw=sourceMeta.recoverable_percent??originalMeta.recoverable_percent??
       row.recoverable_percent??100;
     const rate=String(recoveryRaw).trim()===''?String(row.recoverable_percent??100):String(recoveryRaw);
-    if(!/^\\d{1,3}(\\.\\d{1,4})?$/.test(rate))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
+    if(!/^\d{1,3}(\.\d{1,4})?$/.test(rate))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
     const percent=new Amount(rate);
     if(!percent.gte(0)||!percent.lte(100))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
     const recoverable=base.times(percent).div(100).toDecimalPlaces(4,Amount.ROUND_HALF_UP);
