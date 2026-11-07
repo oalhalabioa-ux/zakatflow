@@ -27,19 +27,42 @@ export function assertNormalizedLiveEventProvenance(events:readonly Event[]){
   if(e.sourceModule==='LEGACY_CASH'){
    const match=e.id.match(flow);
    if(!match||e.sourceKey.toLowerCase()!==match[2].toLowerCase()||
-    e.lines.length!==1||e.lines[0].id!==e.id)invalid();
+    e.lines.length!==1||e.lines[0].id!==e.id||
+    e.lines[0].recognitionSign!==1)invalid();
+   // Standalone flow classifications end in :CASH. Transfers have a single
+   // FX net-difference part, never a duplicated cash leg or regular category.
+   if(match[1].toLowerCase()==='transfer'){
+    if(e.lines[0].classificationId!=='TRANSFER_DIFFERENCE:CASH')invalid();
+   }else if(!e.lines[0].classificationId.endsWith(':CASH')||
+    e.lines[0].classificationId==='TRANSFER_DIFFERENCE:CASH')invalid();
   }else if(e.sourceModule==='LEGACY_ASSET'){
    const match=e.id.match(tx);
    if(!match||match[1].toLowerCase()!==e.sourceKey.toLowerCase()||
     !e.lines.length||e.lines.length>2)invalid();
    const roles=new Set<string>();
+   let sale=false;
    for(const l of e.lines){
     const prefix=e.id+':';
-    if(!l.id.startsWith(prefix))invalid();
+    if(!l.id.startsWith(prefix)||l.cashDirection!=='NON_CASH'||
+      l.recognitionSign!==1)invalid();
     const role=l.id.slice(prefix.length);
     if(!['BOOK','PROCEEDS'].includes(role)||roles.has(role))invalid();
     roles.add(role);
+    if(role==='PROCEEDS'){
+     if(!l.classificationId.endsWith(':SALE:PROCEEDS')||
+       l.classificationId.split(':').length<3)invalid();
+     sale=true;
+    }else{
+     const parts=l.classificationId.split(':');
+     if(parts.length<4||parts.at(-1)!=='BOOK'||!parts.at(-2)||!parts.at(-3))invalid();
+     if(parts.at(-3)==='SALE')sale=true;
+    }
    }
+   // SALE must ALWAYS contain PROCEEDS, even if book cost is zero. A
+   // non-sale must NEVER contain PROCEEDS. A zero-cost SALE may contain
+   // only PROCEEDS, but a non-sale always has its one BOOK component.
+   if((sale&&!roles.has('PROCEEDS'))||(!sale&&
+     (roles.size!==1||!roles.has('BOOK'))))invalid();
   }else{
    // All Financial Core normalized events have UUID event IDs. Synthetic
    // VAT note obligations are *not* financial_event_lines records.
