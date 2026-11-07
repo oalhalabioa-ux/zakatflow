@@ -117,8 +117,19 @@ try{
         overflowX:style.overflowX,position:style.position};
     }).filter(element=>
       element.width>width+2||element.right>width+2||element.left< -2
-    ).sort((a,b)=>b.right-a.right).slice(0,18);
-    return {viewport:width,scrollWidth:document.documentElement.scrollWidth,offenders};
+    ).sort((a,b)=>a.right-b.right).slice(0,26);
+    const keyNodes=['html','body','.corp-shell','.corp-workspace','.settings-workspace','.financial-setup',
+      '.financial-setup-card','.financial-setup-native','.financial-setup-native-content',
+      '.coa-page','.coa-template-panel','.coa-template-scroll','.coa-register','.coa-scroll'];
+    const sizes=keyNodes.map(selector=>{
+      const element=document.querySelector(selector);
+      if(!element)return {selector,missing:true};
+      const rect=element.getBoundingClientRect(),style=getComputedStyle(element);
+      return {selector,right:Math.round(rect.right),width:Math.round(rect.width),
+        clientWidth:element.clientWidth,scrollWidth:element.scrollWidth,
+        overflowX:style.overflowX,minWidth:style.minWidth,display:style.display};
+    });
+    return {viewport:width,scrollWidth:document.documentElement.scrollWidth,offenders,sizes};
   });
   if(mobileOverflow.scrollWidth>mobileOverflow.viewport)
     console.log('FINANCIAL_SETUP_MOBILE_OVERFLOW '+JSON.stringify(mobileOverflow));
