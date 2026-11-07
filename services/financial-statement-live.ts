@@ -2,7 +2,7 @@ import {requireUser} from './auth';
 import {assertOpeningWorkspace,openingContext} from './financial-opening-workspace';
 import {normalizeStatementSource,statementQuery,type StatementSourceSnapshot} from '../lib/financial-statement-source';
 import {endingForFiscalStart} from '../lib/financial-fiscal-end';
-import {observeCanonicalJournalLineage} from './financial-branch-journal-source';
+import {observeCanonicalJournalEventHeaders,observeCanonicalJournalLineage} from './financial-branch-journal-source';
 import {observeVatRefundSources} from './financial-vat-refund-source';
 // This check runs on LIVE financial statements in every environment, including
 // Production, not only on the separately gated branch QA preview. Unrecognized
@@ -11,10 +11,20 @@ import {observeVatRefundSources} from './financial-vat-refund-source';
 const coreUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const originalPart=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[A-Z][A-Z0-9_]{0,63}$/i;
 async function requireCanonicalRawSourceMatch(report:StatementSourceSnapshot){
- const originals=report.canonicalJournalLineage
-  .filter(j=>coreUuid.test(j.id))
-  .map(j=>({...j,sourceLines:j.sourceLines.filter(l=>originalPart.test(l.id))}))
+ const canonical=report.canonicalJournalLineage.filter(j=>coreUuid.test(j.id));
+ const originals=canonical.map(j=>({...j,
+  sourceLines:j.sourceLines.filter(l=>originalPart.test(l.id))}))
   .filter(j=>j.sourceLines.length>0);
+ // An event with ONLY a synthetic VAT-note refund does not have a
+ // financial_event_lines row. It still MUST have an authorized matching event
+ // header; otherwise a privileged source RPC could leak or invent a journal.
+ const refundOnly=canonical.filter(j=>j.sourceLines.every(l=>!originalPart.test(l.id)));
+ if(refundOnly.length){
+  const headers=await observeCanonicalJournalEventHeaders(report.statements.organizationId,refundOnly);
+  if(headers.eventCount!==refundOnly.length||
+   headers.organizationId!==report.statements.organizationId)
+   throw Error('REPORTING_SOURCE_LINEAGE_INCOMPLETE');
+ }
  if(!originals.length)return;
  const observation=await observeCanonicalJournalLineage(report.statements.organizationId,originals,'LEGAL_COMPANY');
  const expected=originals.reduce((n,j)=>n+j.sourceLines.length,0);
