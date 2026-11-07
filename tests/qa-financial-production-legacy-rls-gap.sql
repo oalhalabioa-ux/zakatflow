@@ -18,6 +18,13 @@ values
 on conflict (id) do nothing;
 -- Existing subscription guard accepts org creation only for the authenticated,
 -- email-verified owner. Do not bypass the guard in the temporary fixture.
+-- Expected events are obtained as postgres ONLY to seed the expected source
+-- snapshot; the actual verification RPC must work as the finance owner.
+select set_config('app.qa.expected_legacy_events',(
+ select private.financial_reporting_legacy_events(
+  'c1000000-0000-4000-8000-000000000103',
+  date '2026-01-01',date '2026-12-31')::text),true);
+
 select set_config('request.jwt.claim.sub',
  'c1000000-0000-4000-8000-000000000101',true);
 insert into public.organizations(id,owner_user_id,name,base_currency)
@@ -79,7 +86,70 @@ begin
  then raise exception 'PARITY_RLS_ALLOCATION_LEAK_OR_POLICY_DRIFT';end if;
  -- Visibility of the SALE row together with zero visible allocations is
  -- NOT evidence of zero cost. A trusted server verifier is mandatory.
+ -- Confirm the protected RPC attests all original source amounts without
+ -- widening RLS or returning any other user's raw allocation rows.
+ if public.financial_reporting_legacy_attestation(org,
+   date '2026-01-01',date '2026-12-31',
+   current_setting('app.qa.expected_legacy_events')::jsonb) is distinct from true
+ then raise exception 'PARITY_RLS_TRUSTED_COST_VERIFICATION_FAILED';end if;
 end $$;
 
+-- Tampering with an expected source amount must fail even though the
+-- sale itself is readable and the lot allocations remain private.
+do $
+declare
+ org uuid:='c1000000-0000-4000-8000-000000000103';
+ original jsonb:=current_setting('app.qa.expected_legacy_events')::jsonb;
+ forged jsonb; refused boolean:=false;
+begin
+ forged:=jsonb_set(original,'{0,lines,0,baseAmount}','"999.0000"'::jsonb);
+ begin
+  perform public.financial_reporting_legacy_attestation(org,
+   date '2026-01-01',date '2026-12-31',forged);
+ exception when others then
+  if SQLERRM<>'REPORTING_LEGACY_SOURCE_UNVERIFIED' then raise;end if;
+  refused:=true;
+ end;
+ if not refused then raise exception 'PARITY_RLS_TAMPERED_LEGACY_SOURCE_ACCEPTED';end if;
+
+ -- Asset operator is NOT a member; their ownership of allocation rows
+ -- must not grant an unrestricted accounting report read.
+ perform set_config('request.jwt.claim.sub',
+  'c1000000-0000-4000-8000-000000000102',true);
+ refused:=false;
+ begin
+  perform public.financial_reporting_legacy_attestation(org,
+   date '2026-01-01',date '2026-12-31',original);
+ exception when others then
+  if SQLERRM<>'REPORTING_ACCESS_DENIED' then raise;end if;
+  refused:=true;
+ end;
+ if not refused then raise exception 'PARITY_RLS_NONMEMBER_ATTESTATION_ACCEPTED';end if;
+end $;
+
+reset role;
+
+-- Source integrity test: an incomplete lot allocation can still add up
+-- to the same 400 SAR recognized book value. Independent QUANTITY
+-- reconciliation must reject it, without modifying any hosted database.
+update public.transaction_allocations set quantity=0.5
+where id='c1000000-0000-4000-8000-000000000108';
+select set_config('request.jwt.claim.sub',
+ 'c1000000-0000-4000-8000-000000000101',true);
+set local role authenticated;
+do $
+declare refused boolean:=false;
+begin
+ begin
+  perform public.financial_reporting_legacy_attestation(
+   'c1000000-0000-4000-8000-000000000103',
+   date '2026-01-01',date '2026-12-31',
+   current_setting('app.qa.expected_legacy_events')::jsonb);
+ exception when others then
+  if SQLERRM<>'REPORTING_LEGACY_COST_ALLOCATION_INVALID' then raise;end if;
+  refused:=true;
+ end;
+ if not refused then raise exception 'PARITY_RLS_PARTIAL_FIFO_ACCEPTED';end if;
+end $;
 reset role;
 rollback;
