@@ -51,7 +51,7 @@ describe('control-aware pre-elimination aggregation', () => {
     expect(()=>preflightControlledGroup({...source,members})).toThrow('REPORTING_ROLLUP_CURRENCY_MISMATCH');
   });
   it('includes a newly formed authorized subsidiary with no opening and no movements as a zero member', () => {
-    const members=[source.members[0],{...source.members[1],details:[]}];
+    const members: ControlledGroupSource['members']=[source.members[0],{...source.members[1],details:[]}];
     expect(()=>preflightControlledGroup({...source,members})).toThrow('REPORTING_ROLLUP_EMPTY_SOURCE_UNVERIFIED');
     members[1].zeroActivityEvidence={status:'COMPLETE_ZERO_SOURCE' as const,organizationId:'A',
       from:'2026-01-01',to:'2026-12-31',currency:'SAR',
