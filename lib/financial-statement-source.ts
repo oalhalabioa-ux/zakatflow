@@ -9,13 +9,17 @@ const account=z.object({id,organizationId:z.string().uuid(),currency,kind:z.enum
 const line=z.object({id,classificationId:id,baseAmount:money,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),recognitionSign:z.union([z.literal(1),z.literal(-1)])});
 const event=z.object({id,organizationId:z.string().uuid(),currency,date,eventType:id,sourceModule:id,sourceKey:id,status:z.enum(['ACTUAL','REVERSED']),lines:z.array(line).min(1),reversesEventId:id.optional()});
 const rule=z.object({id,organizationId:z.string().uuid(),currency,eventType:id,sourceModule:id,classificationId:id,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),from:date,to:date,debitAccountId:id,creditAccountId:id,cashActivity:activity.optional()});
-const envelope=z.object({controls:z.object({cashClosing:z.string().regex(/^-?\d{1,20}(\.\d{1,4})?$/)}).optional(),origin:z.enum(['LOCAL_QA_CANONICAL_EVENTS','LIVE_CANONICAL_EVENTS']),organizationId:z.string().uuid(),currency,openingDate:date,fiscalStart:date,from:date,to:date,openingSourceId:id,accounts:z.array(account).min(1).max(1000),opening:z.array(z.object({accountId:id,debit:money,credit:money})).min(1),policy:z.object({id,organizationId:z.string().uuid(),currency,approvedBy:id,approvedAt:z.string().datetime({offset:true}),rules:z.array(rule).max(5000)}),events:z.array(event).max(10000),coverage:z.object({complete:z.literal(true),scope:z.literal('ORGANIZATION_ALL_ENTITIES'),eventCount:z.number().int().min(0),lineCount:z.number().int().min(0).max(20000),readAt:z.string().datetime({offset:true})})});
+const envelope=z.object({controls:z.object({cashClosing:z.string().regex(/^-?\d{1,20}(\.\d{1,4})?$/)}).optional(),origin:z.enum(['LOCAL_QA_CANONICAL_EVENTS','LIVE_CANONICAL_EVENTS']),organizationId:z.string().uuid(),currency,openingDate:date,fiscalStart:date,from:date,to:date,openingSourceId:id,accounts:z.array(account).min(1).max(1000),opening:z.array(z.object({accountId:id,debit:money,credit:money})).max(1000),policy:z.object({id,organizationId:z.string().uuid(),currency,approvedBy:id,approvedAt:z.string().datetime({offset:true}),rules:z.array(rule).max(5000)}),events:z.array(event).max(10000),coverage:z.object({complete:z.literal(true),scope:z.literal('ORGANIZATION_ALL_ENTITIES'),eventCount:z.number().int().min(0),lineCount:z.number().int().min(0).max(20000),readAt:z.string().datetime({offset:true})})});
 const Money=Decimal.clone({precision:50});
 export type StatementQuery=z.infer<typeof statementQuery>;
 export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  const parsed=envelope.safeParse(raw);if(!parsed.success)throw Error('STATEMENT_SOURCE_INVALID');const p=parsed.data;
  if(p.organizationId!==query.organization||p.from!==query.from||p.to!==query.to)throw Error('STATEMENT_SOURCE_SCOPE_MISMATCH');
  if(p.coverage.eventCount!==p.events.length||p.coverage.lineCount!==p.events.reduce((n,e)=>n+e.lines.length,0))throw Error('STATEMENT_SOURCE_INCOMPLETE');
+ // A truly new company may have no opening rows. The canonical source must
+ // explicitly attest FIRST_ACTIVITY; never reinterpret an absent approved
+ // opening as zero merely because opening records were not returned.
+ if(p.opening.length===0&&!p.openingSourceId.startsWith('FIRST_ACTIVITY:'))throw Error('STATEMENT_OPENING_PROVENANCE_REQUIRED');
  const result=compileEventLedger(p);
  if(p.controls&&!new Money(p.controls.cashClosing).eq(result.statements.cash.closing))throw Error('CASH_REGISTER_UNRECONCILED');
  const balance=new Map(p.accounts.map(a=>[a.id,new Money(0)]));
