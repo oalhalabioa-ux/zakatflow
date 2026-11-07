@@ -99,8 +99,8 @@ try{
   await page.getByRole('heading',{name:'Chart of accounts',exact:true}).waitFor();
   assert.equal(await embedded.count(),0,
     'Chart management must now be a native form in the same journey, without a nested frame');
-  assert.equal(await page.locator('[data-setup-native-workspace="chart"] #corp-organization-controls').count(),1,
-    'Native chart still retains its authorized organization context while the nested picker is disabled');
+  assert.equal(await page.locator('#corp-organization-controls .corp-organization-inner').count(),1,
+    'The native chart must not insert a duplicate organization picker into the shared header');
   await page.screenshot({path:out+'/financial-setup-linked-chart-en-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
