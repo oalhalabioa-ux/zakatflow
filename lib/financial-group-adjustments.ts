@@ -93,6 +93,46 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
    affected.set(l.reportingCode,{debit:t.debit.plus(debit),credit:t.credit.plus(credit)});
   }
   if(!debitTotal.eq(creditTotal))throw Error('GROUP_ADJUSTMENT_UNBALANCED');
+  // Common intercompany pairs must have two opposite, same-value legs:
+  // receivable Cr / payable Dr, or revenue Dr / expense Cr. They cannot
+  // eliminate more than the still-outstanding member balances.
+  // This is a source-account preflight, NOT proof that invoices match.
+  if(entry.kind==='INTERCOMPANY_BALANCE'||entry.kind==='INTERCOMPANY_INCOME'){
+   const [debitKind,creditKind]=entry.kind==='INTERCOMPANY_BALANCE'
+    ? ['LIABILITY','ASSET'] as const : ['REVENUE','OPEX'] as const;
+   if(entry.lines.length!==2)throw Error('GROUP_ADJUSTMENT_PAIR_INVALID');
+   const debitLine=entry.lines.find(l=>!amount(l.debit).isZero());
+   const creditLine=entry.lines.find(l=>!amount(l.credit).isZero());
+   const debitType=debitLine&&chart.get(debitLine.reportingCode)?.kind;
+   const creditType=creditLine&&chart.get(creditLine.reportingCode)?.kind;
+   const creditAllowed=entry.kind==='INTERCOMPANY_INCOME'
+    ? creditType==='OPEX'||creditType==='COGS'
+    : creditType===creditKind;
+   if(!debitLine||!creditLine||debitType!==debitKind||!creditAllowed||
+     !amount(debitLine.debit).eq(amount(creditLine.credit)))
+    throw Error('GROUP_ADJUSTMENT_PAIR_INVALID');
+   const originalDr=originals.get(debitLine.reportingCode);
+   const originalCr=originals.get(creditLine.reportingCode);
+   const alreadyDr=adjustments.get(debitLine.reportingCode)??{debit:new Money(0),credit:new Money(0)};
+   const alreadyCr=adjustments.get(creditLine.reportingCode)??{debit:new Money(0),credit:new Money(0)};
+   const availableDr=entry.kind==='INTERCOMPANY_BALANCE'
+    ? (originalDr?.credit??new Money(0)).minus(originalDr?.debit??new Money(0)).plus(alreadyDr.credit).minus(alreadyDr.debit)
+    : (originalDr?.credit??new Money(0)).minus(originalDr?.debit??new Money(0)).plus(alreadyDr.credit).minus(alreadyDr.debit);
+   const availableCr=entry.kind==='INTERCOMPANY_BALANCE'
+    ? (originalCr?.debit??new Money(0)).minus(originalCr?.credit??new Money(0)).plus(alreadyCr.debit).minus(alreadyCr.credit)
+    : (originalCr?.debit??new Money(0)).minus(originalCr?.credit??new Money(0)).plus(alreadyCr.debit).minus(alreadyCr.credit);
+   const required=amount(debitLine.debit);
+   if(availableDr.lt(required)||availableCr.lt(required))
+    throw Error('GROUP_ADJUSTMENT_EXCEEDS_SOURCE');
+   const drSource=rollup.byParent.find(r=>r.code===debitLine.reportingCode)?.members??[];
+   const crSource=rollup.byParent.find(r=>r.code===creditLine.reportingCode)?.members??[];
+   const positiveDr=drSource.filter(r=>entry.organizationIds.includes(r.organizationId)&&
+    new Money(r.netDebit).lte(required.negated())).map(r=>r.organizationId);
+   const positiveCr=crSource.filter(r=>entry.organizationIds.includes(r.organizationId)&&
+    new Money(r.netDebit).gte(required)).map(r=>r.organizationId);
+   if(!positiveDr.some(a=>positiveCr.some(b=>a!==b)))
+    throw Error('GROUP_ADJUSTMENT_RECIPROCAL_MEMBERS_MISSING');
+  }
   adjustmentDebit=adjustmentDebit.plus(debitTotal);adjustmentCredit=adjustmentCredit.plus(creditTotal);
   for(const[code,t]of affected){const current=adjustments.get(code)??{debit:new Money(0),credit:new Money(0)};adjustments.set(code,{debit:current.debit.plus(t.debit),credit:current.credit.plus(t.credit)})}
  }
