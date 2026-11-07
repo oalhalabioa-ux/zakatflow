@@ -98,7 +98,7 @@ try{
   await embeddedPage.locator('[data-setup-embedded-document]').waitFor({state:'attached'});
   assert.equal(await embeddedPage.locator('.corp-sidebar').evaluate(el=>getComputedStyle(el).display),'none',
    'The original navigation sidebar must not be duplicated inside the setup window');
-  await page.locator('.financial-setup-steps button').nth(1).click();
+  await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Chart of accounts'}).click();
   await page.locator('[data-setup-native-workspace="chart"]').waitFor();
   await page.locator('.coa-page').waitFor();
   await page.locator('[data-setup-native-workspace="chart"] h1').filter({hasText:'Chart of accounts'}).waitFor();
