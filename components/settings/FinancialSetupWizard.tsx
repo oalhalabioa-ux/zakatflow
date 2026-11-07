@@ -19,7 +19,8 @@ import {
 import type {FinancialSetupReadiness,SetupStatus} from '@/lib/financial-setup-readiness';
 import SetupEmbeddedWorkspace from './SetupEmbeddedWorkspace';
 import SetupNativeWorkspace,{type NativeSetupStep} from './SetupNativeWorkspace';
-import {canDeferSetupStep,setupJourneyStepState,financialSetupJourneyCounts,FINANCIAL_SETUP_STEP_HELP} from '@/lib/financial-setup-journey-policy';
+import {SetupJourneySidebar,SetupJourneySummary} from './SetupJourneyPanels';
+import {canDeferSetupStep} from '@/lib/financial-setup-journey-policy';
 import './financial-setup.css';
 
 type Org = {id:string;name:string;legal_name?:string|null;base_currency:string;entity_type:string;parent_organization_id?:string|null};
@@ -137,8 +138,6 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
 
   const organization=orgs.find(item=>item.id===orgId);
   const position=FINANCIAL_SETUP_STEPS.indexOf(step)+1;
-  const journeyCounts=financialSetupJourneyCounts(readiness,deferred);
-  const progress=journeyCounts.percent;
   const setupReady=readiness?.ready===true;
   const statusLabel=(value:SetupStatus|undefined)=>value==='READY'?t('جاهز','Ready'):
     value==='IN_PROGRESS'?t('غير مكتمل','Incomplete'):
@@ -170,7 +169,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     if(!mode&&next!=='organization')return;
     // An unresolved zero-opening claim must be inspectable in the original
     // opening workspace; only skip it after the server verifies zero sources.
-    if(isSkippedSetupStep(next,mode)&&readiness?.statuses.opening==='READY')return;
+    // Optional opening can always be inspected; only sequential Next may skip it.
     // Once an organization mode is selected, allow direct navigation to
     // whichever evidence gate needs correction. Review/finish remain guarded.
     setStep(next);
@@ -251,17 +250,18 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     {loading&&<p role="status">{t('جار تحميل المؤسسات…','Loading organizations…')}</p>}
     {!loading&&!error&&!organization&&<p role="status">{t('لا توجد مؤسسة متاحة. أنشئ مؤسسة للبدء.','No organization available. Create one to get started.')} <Link href={`/${locale}/organizations`}>{t('المؤسسات','Organizations')}</Link></p>}
     {organization&&hydrated&&<>
-      <div className="financial-setup-readiness-head"><strong>{t('جاهزية النظام المالية','Financial system readiness')}</strong><button type="button" disabled={checkingReadiness} onClick={()=>setReadinessRevision(v=>v+1)}>{checkingReadiness?t('جار التحقق…','Checking…'):t('تحديث الحالة','Refresh status')}</button></div>
-      <div className="financial-setup-progress"><div className="financial-setup-progress-bar" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={t('الجاهزية الفعلية من البيانات المالية','Financial evidence-based readiness')}><span style={{width:`${progress}%`}}/></div><bdi>{progress}%</bdi></div>
       {readinessError&&<p role="alert" className="financial-setup-notice error">{readinessError}</p>}
-      {!readinessError&&!setupReady&&<p className="financial-setup-system-hint">{t('العلامات الإرشادية لا تعني الاعتماد المحاسبي؛ الحالة التالية مأخوذة من البيانات والصلاحيات الفعلية.','Review checkmarks are not accounting approvals. The statuses below come from actual data and permissions.')}</p>}
-      <nav className="financial-setup-steps" aria-label={t('خطوات إعداد المؤسسة','Organization setup steps')}>
-        {FINANCIAL_SETUP_STEPS.map((id,index)=>{
-          const done=readiness?.statuses[id]==='READY',skipped=isSkippedSetupStep(id,mode)&&readiness?.statuses.opening==='READY',active=step===id;
-          const available=!skipped&&(id==='organization'||(!!mode&&(id!=='finished'||(setupReady&&completed.includes('review')))));
-          return <button type="button" key={id} className={active?'current':done?'done':skipped?'skipped':''} aria-current={active?'step':undefined} disabled={!available} onClick={()=>selectStep(id)} title={skipped?t('لا تنطبق على المؤسسة الجديدة','Not required for new organizations'):undefined}><span className="financial-setup-number">{done?'✓':skipped?'–':index+1}</span><span>{ar?labels[id][0]:labels[id][1]}</span><small className="financial-setup-step-status">{statusLabel(readiness?.statuses[id])}</small></button>;
-        })}
-      </nav>
+      <div className="financial-setup-journey-grid">
+        <SetupJourneySidebar locale={locale} step={step} mode={mode} readiness={readiness}
+         completed={completed} deferred={deferred} onSelect={selectStep}/>
+        <div className="financial-setup-journey-center">
+          <section className="financial-setup-journey-hero">
+            <div><span className="financial-setup-hero-eyebrow">{t('رحلة إعداد موحدة','One connected setup journey')}</span>
+            <h3>{t('رحلة الإعداد','Setup journey')}</h3>
+            <p>{t('جميع إعدادات المؤسسة المالية والتنظيمية في مكان واحد. تستطيع الانتقال إلى أي مرحلة مستقلة، مع بقاء النواقص ظاهرة حتى حلها فعليًا.',
+             'One place for organizational and financial setup. Independent stages can be visited without concealing missing requirements.')}</p></div>
+            <span className="financial-setup-hero-symbol" aria-hidden="true">✧</span>
+          </section>
       {step==='finished'?<section className="financial-setup-card financial-setup-success"><div className="financial-setup-success-mark" aria-hidden="true">✓</div><h3>{t('تهانينا! أنهيت رحلة إعداد المؤسسة','Congratulations! You completed the setup journey')}</h3><p>{t('يمكنك الآن متابعة العمليات من اللوحة الرئيسية. هذه الرسالة تؤكد انتهاء المراجعة الإرشادية؛ وتبقى الاعتمادات المحاسبية خاضعة لصلاحيات وقواعد النظام.','You can now continue from the dashboard. This confirms the guided review, while accounting approvals remain governed by the system.')}</p><Link className="financial-setup-primary" href={`/${locale}/dashboard?organization=${encodeURIComponent(orgId)}&scope=ORGANIZATION`}>{t('الانتقال إلى اللوحة الرئيسية','Go to dashboard')}</Link></section>:<section className="financial-setup-card">
         <div className="financial-setup-card-head"><div><h3>{ar?labels[step][0]:labels[step][1]}</h3><p>{step==='organization'?t('تحديد وضع المؤسسة دون تغيير أرصدتها القائمة.','Select the organization mode without altering existing balances.'):step==='opening'?t('مصدر افتتاحي واحد مرتبط بالسندات والتقارير.','One opening source linked to vouchers and statements.'):t('تابع الإعداد في الصفحة الأصلية، ثم عُد لإكمال الرحلة.','Continue in the existing page, then return to this journey.')}</p></div><span className="financial-setup-card-badge">{t('المرحلة','Stage')} {position}</span></div>
         {step==='organization'&&<><div className="financial-setup-mode-grid"><button type="button" className={mode==='NEW'?'chosen':''} aria-pressed={mode==='NEW'} onClick={()=>{setMode('NEW');setCompleted(previous=>previous.filter(id=>id!=='opening'))}}><span aria-hidden="true">＋</span><strong>{t('مؤسسة جديدة','New organization')}</strong><small>{t('تبدأ دون أرصدة افتتاحية؛ تُسجَّل حركة رأس المال عند حدوثها.','Starts without opening balances; capital is recorded when received.')}</small></button><button type="button" className={mode==='EXISTING'?'chosen':''} aria-pressed={mode==='EXISTING'} onClick={()=>setMode('EXISTING')}><span aria-hidden="true">▤</span><strong>{t('مؤسسة قائمة','Existing organization')}</strong><small>{t('لديها أرصدة سابقة تُدخل في صفحة الافتتاحي الحالية.','Prior balances are entered in the existing opening workspace.')}</small></button></div><dl className="financial-setup-facts"><div><dt>{t('اسم المؤسسة','Organization name')}</dt><dd>{organization.name}</dd></div><div><dt>{t('العملة الأساسية','Base currency')}</dt><dd dir="ltr">{organization.base_currency}</dd></div><div><dt>{t('النوع','Type')}</dt><dd>{organization.entity_type}</dd></div></dl><label className="financial-setup-activity-field">
@@ -293,6 +293,11 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
         <footer className="financial-setup-footer"><button type="button" className="financial-setup-primary" disabled={finalizing||(step==='organization'&&!mode)||(step!=='organization'&&!isComplete&&!reviewed)||(step==='review'&&(!allReviewed||!setupReady))} onClick={advance}>{step==='review'?t('إنهاء الإعداد','Finish setup'):t('التالي','Next')} <span aria-hidden="true">{ar?'←':'→'}</span></button><button type="button" className="financial-setup-secondary" onClick={()=>{setNotice(t('تم حفظ تقدمك على هذا الجهاز.','Progress saved on this device.'));}}>{t('حفظ ومتابعة لاحقًا','Save for later')}</button><button type="button" className="financial-setup-back" disabled={step==='organization'} onClick={previous}>{t('السابق','Back')}</button></footer>
         {notice&&<p role="status" className="financial-setup-notice">{notice}</p>}
       </section>}
+        </div>
+        <SetupJourneySummary locale={locale} mode={mode} readiness={readiness}
+         completed={completed} deferred={deferred} checking={checkingReadiness}
+         onRefresh={()=>setReadinessRevision(v=>v+1)}/>
+      </div>
     </>}
   </div>;
 }
