@@ -1,8 +1,26 @@
 import {requireUser} from './auth';
 import {assertOpeningWorkspace,openingContext} from './financial-opening-workspace';
-import {normalizeStatementSource,statementQuery} from '../lib/financial-statement-source';
+import {normalizeStatementSource,statementQuery,type StatementSourceSnapshot} from '../lib/financial-statement-source';
 import {endingForFiscalStart} from '../lib/financial-fiscal-end';
 import {observeCanonicalJournalLineage} from './financial-branch-journal-source';
+// This check runs on LIVE financial statements in every environment, including
+// Production, not only on the separately gated branch QA preview. Unrecognized
+// legacy/refund sources are validated structurally by the source normalizer;
+// their independent register-level attestations remain a release blocker.
+const coreUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const originalPart=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[A-Z][A-Z0-9_]{0,63}$/i;
+async function requireCanonicalRawSourceMatch(report:StatementSourceSnapshot){
+ const originals=report.canonicalJournalLineage
+  .filter(j=>coreUuid.test(j.id))
+  .map(j=>({...j,sourceLines:j.sourceLines.filter(l=>originalPart.test(l.id))}))
+  .filter(j=>j.sourceLines.length>0);
+ if(!originals.length)return;
+ const observation=await observeCanonicalJournalLineage(report.statements.organizationId,originals);
+ const expected=originals.reduce((n,j)=>n+j.sourceLines.length,0);
+ if(observation.sourceLineCount!==expected||observation.links.length!==originals.length||
+   observation.organizationId!==report.statements.organizationId)
+  throw Error('REPORTING_SOURCE_LINEAGE_INCOMPLETE');
+}
 export function assertLiveStatements(){assertOpeningWorkspace();if(process.env.FINANCIAL_STATEMENTS_LIVE!=='true')throw Error('REPORTING_DISABLED')}
 function read<T>(r:{data:T;error:{message:string}|null}){if(r.error)throw Error(r.error.message.match(/REPORTING_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');return r.data}
 export async function liveStatementContext(){
@@ -42,6 +60,7 @@ export async function liveStatementSource(input:unknown){
   : primary);
  if(raw?.origin!=='LIVE_CANONICAL_EVENTS')throw Error('REPORTING_UNAVAILABLE');
  const result=normalizeStatementSource(raw,q);
+ await requireCanonicalRawSourceMatch(result);
  const membership=read(await supabase.from('organization_members').select('organization_id').eq('organization_id',q.organization).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle());
  if(!membership||read(await supabase.rpc('financial_core_can',{p_org:q.organization,p_scope:'financial_core.view'}))!==true)throw Error('REPORTING_ACCESS_DENIED');
  return result;
