@@ -19,7 +19,7 @@ export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  // A truly new company may have no opening rows. The canonical source must
  // explicitly attest FIRST_ACTIVITY; never reinterpret an absent approved
  // opening as zero merely because opening records were not returned.
- if(p.opening.length===0&&!p.openingSourceId.startsWith('FIRST_ACTIVITY:'))throw Error('STATEMENT_OPENING_PROVENANCE_REQUIRED');
+ if(p.opening.length===0&&p.openingSourceId!==`FIRST_ACTIVITY:${p.fiscalStart}`)throw Error('STATEMENT_OPENING_PROVENANCE_REQUIRED');
  const result=compileEventLedger(p);
  if(p.controls&&!new Money(p.controls.cashClosing).eq(result.statements.cash.closing))throw Error('CASH_REGISTER_UNRECONCILED');
  const balance=new Map(p.accounts.map(a=>[a.id,new Money(0)]));
