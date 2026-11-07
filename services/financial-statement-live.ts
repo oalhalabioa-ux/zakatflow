@@ -4,6 +4,7 @@ import {normalizeStatementSource,statementQuery,type StatementSourceSnapshot} fr
 import {endingForFiscalStart} from '../lib/financial-fiscal-end';
 import {observeCanonicalJournalEventHeaders,observeCanonicalJournalLineage} from './financial-branch-journal-source';
 import {observeVatRefundSources} from './financial-vat-refund-source';
+import {assertStableFinancialReplay} from '../lib/financial-source-replay';
 // This check runs on LIVE financial statements in every environment, including
 // Production, not only on the separately gated branch QA preview. Unrecognized
 // legacy/refund sources are validated structurally by the source normalizer;
@@ -66,9 +67,12 @@ export async function liveStatementSource(input:unknown){
  // error. Until the independently tested server RPC is installed, fail closed.
  const firstActivityAllowed=process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING==='true'&&
   process.env.VERCEL_ENV!=='production';
- const raw=read(firstActivityAllowed&&primary.error?.message?.includes('REPORTING_APPROVED_OPENING_REQUIRED')
-  ? await supabase.rpc('financial_statement_first_activity_snapshot',args)
-  : primary);
+ const fallbackUsed=firstActivityAllowed&&
+  primary.error?.message?.includes('REPORTING_APPROVED_OPENING_REQUIRED');
+ const sourceRpc=fallbackUsed?'financial_statement_first_activity_snapshot':'financial_statement_live_snapshot';
+ const raw=read(fallbackUsed
+  ?await supabase.rpc('financial_statement_first_activity_snapshot',args)
+  :primary);
  if(raw?.origin!=='LIVE_CANONICAL_EVENTS')throw Error('REPORTING_UNAVAILABLE');
  const result=normalizeStatementSource(raw,q);
  await requireCanonicalRawSourceMatch(result);
@@ -82,6 +86,18 @@ export async function liveStatementSource(input:unknown){
     refundEvidence.refundPartsMatched!==canonical.reduce((n,j)=>n+
       j.sourceLines.filter(l=>l.id.includes(':refund:')).length,0))
   throw Error('REPORTING_REFUND_SOURCE_INCOMPLETE');
+ // These source verifiers run as separate RLS requests. A second complete
+ // authorized read detects source changes occurring between the first snapshot
+ // and the end of those checks. This is a RACE DETECTOR, not atomic-revision
+ // certification (an A->B->A change remains possible). The current release
+ // gate must not mark sameTransactionRevisionVerified=true.
+ const replayEnabled=process.env.FINANCIAL_SOURCE_REPLAY_GUARD==='true'||
+   (process.env.VERCEL_ENV==='production'&&
+    process.env.FINANCIAL_SOURCE_REPLAY_GUARD!=='false');
+ if(replayEnabled){
+  const replay=read(await supabase.rpc(sourceRpc,args));
+  assertStableFinancialReplay(raw,replay);
+ }
  const membership=read(await supabase.from('organization_members').select('organization_id').eq('organization_id',q.organization).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle());
  if(!membership||read(await supabase.rpc('financial_core_can',{p_org:q.organization,p_scope:'financial_core.view'}))!==true)throw Error('REPORTING_ACCESS_DENIED');
  return result;
