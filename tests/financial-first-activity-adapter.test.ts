@@ -16,6 +16,19 @@ const state=vi.hoisted(()=>({
 }));
 const org='10000000-0000-4000-8000-000000000003';
 const query={organization:org,from:'2026-01-01',to:'2026-12-31'};
+function liveFixture(){
+ const raw=structuredClone(fixture);
+ raw.origin='LIVE_CANONICAL_EVENTS';
+ // Production SQL emits UUID:SOURCE_ROLE for recognized posting parts,
+ // while the local statement fixture uses unsuffixed identities.
+ raw.events=raw.events.map(event=>({...event,lines:event.lines.map(line=>({
+  ...line,id:line.id+':BASE',classificationId:line.classificationId+':BASE',
+ }))}));
+ raw.policy.rules=raw.policy.rules.map(rule=>({...rule,
+  classificationId:rule.classificationId+':BASE'}));
+ return raw;
+}
+
 vi.mock('../services/financial-opening-workspace',()=>({
  assertOpeningWorkspace:()=>{},openingContext:async()=>[],
 }));
@@ -26,7 +39,7 @@ vi.mock('../services/auth',()=>({requireUser:async()=>({
    state.called.push(name);
    if(name==='financial_core_can')return{data:state.permission,error:null};
    if(name==='financial_statement_live_snapshot'){
-    if(state.mode==='approved')return{data:{...structuredClone(fixture),origin:'LIVE_CANONICAL_EVENTS'},error:null};
+    if(state.mode==='approved')return{data:liveFixture(),error:null};
     return{data:null,error:{message:state.mode==='other-error'?'REPORTING_ACCESS_DENIED':'REPORTING_APPROVED_OPENING_REQUIRED'}};
    }
    if(name==='financial_statement_first_activity_snapshot'){
