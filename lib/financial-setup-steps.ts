@@ -12,7 +12,7 @@ export type FinancialSetupStep =
   | 'finished';
 
 export const FINANCIAL_SETUP_STEPS: readonly FinancialSetupStep[] = [
-  'organization', 'fiscal', 'chart', 'posting', 'banking',
+  'organization', 'chart', 'fiscal', 'posting', 'banking',
   'opening', 'users', 'review', 'finished',
 ] as const;
 
