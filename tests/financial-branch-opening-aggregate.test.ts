@@ -103,6 +103,10 @@ describe('per-voucher approved branch opening attribution',()=>{
    source:x.source,branchIds:x.branchIds,
    coverage:{complete:true,scope:'ORGANIZATION_ALL_ENTITIES',sourceCount,
     revision:x.sourceRevision},journalEvidence:journals,openingEvidence:null,
+   zeroOpeningEvidence:{status:'ZERO_OPENING_SOURCE_EVIDENCE_ONLY',organizationId:org,
+    currency:'SAR',fiscalStart:'2026-01-01',ledgerRevision:x.sourceRevision,
+    sourceReference:'no-prior-canonical-balances',openingLineCount:0,
+    pendingOpeningCount:0,priorOpeningSourceCount:0},
   });
   expect(preview.status).toBe('RECONCILED_SEGMENTS_PREVIEW_ONLY');
   if(preview.status==='RECONCILED_SEGMENTS_PREVIEW_ONLY'){
