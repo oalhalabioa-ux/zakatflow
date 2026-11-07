@@ -30,7 +30,7 @@ const state=vi.hoisted(()=>({
  mode:'first-activity' as 'first-activity'|'other-error'|'no-rpc'|'approved'|'tampered-live'|'refund-only',
  lineage:'valid' as 'valid'|'missing'|'foreign',
  headerEvidence:'valid' as 'valid'|'missing'|'foreign',headerReads:0,
- refundMissing:false,member:true,permission:true,called:[] as string[],
+ refundMissing:false,replayMutated:false,member:true,permission:true,called:[] as string[],
 }));
 const org='10000000-0000-4000-8000-000000000003';
 const query={organization:org,from:'2026-01-01',to:'2026-12-31'};
@@ -71,6 +71,8 @@ vi.mock('../services/auth',()=>({requireUser:async()=>({
     if(state.mode==='approved'||state.mode==='tampered-live'||state.mode==='refund-only'){
      const data=liveFixture();
      if(state.mode==='tampered-live')data.events[0].lines[0].id='untrusted-source-line';
+     if(state.replayMutated&&state.called.filter(c=>c==='financial_statement_live_snapshot').length>1)
+      data.events[0].lines[0].baseAmount='101.0000';
      return{data,error:null};
     }
     return{data:null,error:{message:state.mode==='other-error'?'REPORTING_ACCESS_DENIED':'REPORTING_APPROVED_OPENING_REQUIRED'}};
@@ -94,7 +96,7 @@ vi.mock('../services/auth',()=>({requireUser:async()=>({
 })}));
 import {liveStatementSource,liveBranchJournalLineageEvidence} from '../services/financial-statement-live';
 const before=process.env.FINANCIAL_STATEMENTS_LIVE,firstBefore=process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING,branchBefore=process.env.FINANCIAL_BRANCH_EVIDENCE_QA,vercelBefore=process.env.VERCEL_ENV;
-beforeEach(()=>{state.mode='first-activity';state.lineage='valid';state.headerEvidence='valid';state.headerReads=0;state.refundMissing=false;state.member=true;state.permission=true;state.called=[];process.env.FINANCIAL_STATEMENTS_LIVE='true';process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='true';process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';delete process.env.VERCEL_ENV});
+beforeEach(()=>{state.mode='first-activity';state.lineage='valid';state.headerEvidence='valid';state.headerReads=0;state.refundMissing=false;state.replayMutated=false;state.member=true;state.permission=true;state.called=[];process.env.FINANCIAL_STATEMENTS_LIVE='true';process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='true';process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';delete process.env.VERCEL_ENV});
 afterAll(()=>{if(before===undefined)delete process.env.FINANCIAL_STATEMENTS_LIVE;else process.env.FINANCIAL_STATEMENTS_LIVE=before;
  if(firstBefore===undefined)delete process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING;else process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING=firstBefore;
  if(branchBefore===undefined)delete process.env.FINANCIAL_BRANCH_EVIDENCE_QA;else process.env.FINANCIAL_BRANCH_EVIDENCE_QA=branchBefore;
@@ -152,6 +154,16 @@ describe('no-opening legal entity read adapter',()=>{
   await expect(liveBranchJournalLineageEvidence(query)).rejects.toThrow('BRANCH_EVIDENCE_DISABLED');
   process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';process.env.VERCEL_ENV='production';
   await expect(liveBranchJournalLineageEvidence(query)).rejects.toThrow('BRANCH_EVIDENCE_DISABLED');
+ });
+ it('replays live Production SQL and rejects source revisions occurring during independent RLS verification',async()=>{
+  state.mode='approved';process.env.VERCEL_ENV='production';
+  state.replayMutated=true;
+  await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_SOURCE_CHANGED_DURING_VERIFICATION');
+  expect(state.called.filter(c=>c==='financial_statement_live_snapshot')).toHaveLength(2);
+  state.replayMutated=false;state.called=[];
+  const report=await liveStatementSource(query);
+  expect(report.statements.income.netProfit).toBe('100.0000');
+  expect(state.called.filter(c=>c==='financial_statement_live_snapshot')).toHaveLength(2);
  });
  it('checks RLS event headers for VAT-refund-only events before releasing Production financial statements',async()=>{
   state.mode='refund-only';process.env.VERCEL_ENV='production';
