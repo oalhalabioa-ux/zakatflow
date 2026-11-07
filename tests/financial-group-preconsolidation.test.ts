@@ -50,4 +50,25 @@ describe('control-aware pre-elimination aggregation', () => {
     const members=[source.members[0],{...source.members[1],currency:'USD'}];
     expect(()=>preflightControlledGroup({...source,members})).toThrow('REPORTING_ROLLUP_CURRENCY_MISMATCH');
   });
+  it('includes a newly formed authorized subsidiary with no opening and no movements as a zero member', () => {
+    const members=[source.members[0],{...source.members[1],details:[]}];
+    const result=preflightControlledGroup({...source,members});
+    expect(result.status).toBe('CONTROLLED_PRE_ELIMINATION_ONLY');
+    expect(result.wholeEntityRollup.memberIds).toEqual(['A','P']);
+    expect(result.wholeEntityRollup.totalDebit).toBe('100.0000');
+    expect(result.wholeEntityRollup.byParent.find(r=>r.code==='1000')?.members)
+      .toContainEqual({organizationId:'A',debit:'0.0000',credit:'0.0000',netDebit:'0.0000'});
+  });
+
+  it('includes a zero-opening subsidiary with balanced first-year movements without synthetic opening entries', () => {
+    const members=[source.members[0],{...source.members[1],details:[
+      {accountId:'new-cash',code:'100001',reportingCode:'1000',kind:'ASSET' as const,debit:'50',credit:'0'},
+      {accountId:'new-equity',code:'300001',reportingCode:'3000',kind:'EQUITY' as const,debit:'0',credit:'50'},
+    ]}];
+    const result=preflightControlledGroup({...source,members});
+    expect(result.wholeEntityRollup.totalDebit).toBe('150.0000');
+    expect(result.wholeEntityRollup.byParent.find(r=>r.code==='1000')?.members)
+      .toContainEqual({organizationId:'A',debit:'50.0000',credit:'0.0000',netDebit:'50.0000'});
+  });
+
 });
