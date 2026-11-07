@@ -12,7 +12,7 @@ const derived=new RegExp('^('+UUID+'):([A-Z][A-Z0-9_]{0,63})$','i');
 const refund=new RegExp('^('+UUID+'):refund:('+UUID+')$','i');
 const flow=new RegExp('^(flow|transfer):('+UUID+')$','i');
 const tx=new RegExp('^transaction:('+UUID+')$','i');
-const sourceAmount=/^\\d{1,20}(\\.\\d{1,4})?$/;
+const sourceAmount=/^\d{1,20}(\.\d{1,4})?$/;
 
 type Event=Pick<RecognitionEvent,'id'|'sourceModule'|'sourceKey'|'lines'>;
 function invalid():never{throw Error('REPORTING_SOURCE_PROVENANCE_INVALID')}
