@@ -23,6 +23,37 @@ begin
     or to_regprocedure('private.financial_reporting_events(uuid,date,date)') is null
     or to_regprocedure('private.financial_reporting_legacy_events(uuid,date,date)') is null
  then raise exception 'PARITY_REQUIRED_PRODUCTION_STATEMENT_PATH_ABSENT';end if;
+ -- Critical least-privilege baseline for original historical sources.
+ -- A user permitted to view legal-company financial reports MUST NOT gain
+ -- all other users' transaction lot allocations merely through an RLS tweak.
+ -- An authoritative finance-scoped RPC is required to attest these amounts.
+ if exists(
+  select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+  where n.nspname='public' and c.relname in(
+   'transactions','transaction_allocations','asset_accounts','liquidity_flows')
+   and not c.relrowsecurity
+ ) or (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relname in(
+     'transactions','transaction_allocations','asset_accounts','liquidity_flows'))<>4
+ then raise exception 'PARITY_FINANCIAL_SOURCE_RLS_MISSING';end if;
+ if (select count(*) from pg_policy pol
+  where pol.polrelid='public.transaction_allocations'::regclass
+    and pol.polcmd in ('r','*')
+    and pg_get_expr(pol.polqual,pol.polrelid) like '%user_id = auth.uid()%')<>1
+ or exists(select 1 from pg_policy pol
+  where pol.polrelid='public.transaction_allocations'::regclass
+    and pol.polcmd in ('r','*')
+    and pg_get_expr(pol.polqual,pol.polrelid) not like '%user_id = auth.uid()%')
+ then raise exception 'PARITY_ASSET_COST_ALLOCATION_LEAST_PRIVILEGE_REGRESSED';end if;
+ if not exists(select 1 from pg_policy pol
+  where pol.polrelid='public.transactions'::regclass
+   and pol.polcmd in ('r','*')
+   and pg_get_expr(pol.polqual,pol.polrelid) like '%assets.view%')
+ or not exists(select 1 from pg_policy pol
+  where pol.polrelid='public.liquidity_flows'::regclass
+   and pol.polcmd in ('r','*')
+   and pg_get_expr(pol.polqual,pol.polrelid) like '%liquidity.view%')
+ then raise exception 'PARITY_LEGACY_SOURCE_ORG_RLS_REGRESSED';end if;
  -- Baseline observed with READ-ONLY SQL on hosted Production,
  -- 2026-11-07: 246 applied migrations. Branch must reproduce the actual
  -- financial-source SQL definitions, not merely possess matching filenames.
