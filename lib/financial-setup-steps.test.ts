@@ -13,6 +13,7 @@ describe('organization financial setup journey', () => {
   it('has nine deterministic, unique steps', () => {
     expect(FINANCIAL_SETUP_STEPS).toHaveLength(9);
     expect(new Set(FINANCIAL_SETUP_STEPS).size).toBe(9);
+    expect(FINANCIAL_SETUP_STEPS.indexOf('chart')).toBeLessThan(FINANCIAL_SETUP_STEPS.indexOf('fiscal')); // Fiscal UI requires a postable retained-earnings child account.
   });
 
   it('skips opening entry only for a genuinely new institution', () => {
