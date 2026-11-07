@@ -149,3 +149,12 @@
 .financial-settings-tools .financial-settings-shortcuts a{border:1px solid var(--brand-border,#dce2ea);background:var(--brand-surface,#fff);border-radius:7px;text-decoration:none;color:var(--brand-text,#10243a);padding:9px 12px;font-size:.83rem}
 .financial-settings-tools .financial-settings-shortcuts a:hover{border-color:#c6a35d}
 @media(max-width:650px){.financial-settings-journey-entry a.btn{width:100%}}
+
+
+/* New light primary settings tabs must retain readable text in all themes.
+ * Classic/Modern/Elegant previously forced a dark settings tab bar after
+ * the new design, leaving its non-active dark labels on a dark background. */
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .settings-tabs{
+ background:var(--settings-surface,var(--brand-surface,#fff));
+ color:var(--settings-ink,var(--brand-text,#10243a));
+}
