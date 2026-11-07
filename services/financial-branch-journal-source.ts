@@ -189,14 +189,18 @@ export async function observeCanonicalJournalLineage(
    if(!sum.eq(row.base_amount))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
    // The source-role origin can be inherited from an original reversal row.
    // Only assert the raw row's role when it is expressly present.
-   const role=row.metadata?.source_role;
-   if(typeof role==='string'&&role.trim()){
-    const allowed=role==='INPUT_VAT'
-     ? new Set(['INPUT_VAT_RECOVERABLE','INPUT_VAT_NONRECOVERABLE'])
-     : new Set([role]);
-    if(matching.some(part=>!allowed.has(part.id.slice(row.id.length+1))))
-     throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
-   }
+   // A missing role means BASE for ordinary events. Reversals can inherit
+   // their role from an original event: without that independently observed
+   // link we must reject a non-BASE part instead of silently certifying it.
+   const declared=row.metadata?.source_role;
+   if(declared!==undefined&&(typeof declared!=='string'||!declared.trim()))
+    throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
+   const role=typeof declared==='string'?declared:'BASE';
+   const allowed=role==='INPUT_VAT'
+    ? new Set(['INPUT_VAT_RECOVERABLE','INPUT_VAT_NONRECOVERABLE'])
+    : new Set([role]);
+   if(matching.some(part=>!allowed.has(part.id.slice(row.id.length+1))))
+    throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
    observedParts+=matching.length;
   }
  }
