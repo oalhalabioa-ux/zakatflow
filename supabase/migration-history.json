@@ -1775,8 +1775,8 @@
       "path": "supabase/migrations/20261107113000_financial_legacy_source_attestation.sql",
       "version": "20261107113000",
       "name": "financial_legacy_source_attestation",
-      "expected_md5": "b481601dea1fa218973a5bba2bf0186e",
-      "file_sha256": "f21062dc295ca12594e9697d0cbff4279be1569c0e1f06a5df5c4f98ccdf6fe3",
+      "expected_md5": "9f88fce1449aacbaf388d94fe40826c5",
+      "file_sha256": "5f2cac0c20b823aeb6d3f8da8a79c5b2e1416b31940e827e4281019aec44a581",
       "validation_project": "Disposable read-only RLS and cross-operator sale allocation attestations only; not applied to Production"
     }
   ]
