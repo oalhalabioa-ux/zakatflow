@@ -140,8 +140,10 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     value==='IN_PROGRESS'?t('غير مكتمل','Incomplete'):
     value==='BLOCKED'?t('يتطلب معالجة','Action required'):
     value==='NOT_STARTED'?t('لم يبدأ','Not started'):t('قيد التحقق','Checking');
-  const isComplete=completed.includes(step)||isSkippedSetupStep(step,mode);
-  const allReviewed=FINANCIAL_SETUP_STEPS.filter(id=>id!=='review'&&id!=='finished'&&!isSkippedSetupStep(id,mode)).every(id=>completed.includes(id));
+  const requiresOpeningReview=mode==='NEW'&&readiness?.statuses.opening!=='READY';
+  const isComplete=completed.includes(step)||(isSkippedSetupStep(step,mode)&&!requiresOpeningReview);
+  const allReviewed=FINANCIAL_SETUP_STEPS.filter(id=>id!=='review'&&id!=='finished'&&
+    (!isSkippedSetupStep(id,mode)||requiresOpeningReview)).every(id=>completed.includes(id));
   const details=useMemo(()=>{
     if(!orgId)return null;
     const base=`/${locale}`;
@@ -205,12 +207,12 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
       const next=previous.includes(step)?previous:[...previous,step];
       return step==='review'&&!next.includes('finished')?[...next,'finished']:next;
     });
-    setStep(nextSetupStep(step,mode));
+    setStep(nextSetupStep(step,mode,requiresOpeningReview));
     setNotice('');
   }
   function previous(){
     const index=FINANCIAL_SETUP_STEPS.indexOf(step);
-    const candidate=FINANCIAL_SETUP_STEPS.slice(0,index).reverse().find(id=>!isSkippedSetupStep(id,mode));
+    const candidate=FINANCIAL_SETUP_STEPS.slice(0,index).reverse().find(id=>!isSkippedSetupStep(id,mode)||requiresOpeningReview);
     if(candidate)setStep(candidate);
   }
   const moduleLink=(href:string|undefined,label:string,description:string)=><div className="financial-setup-module">
