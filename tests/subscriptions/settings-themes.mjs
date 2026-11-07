@@ -32,15 +32,22 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
     for(const section of ['settings','billing','settings/system']) {
       await page.goto(`${appUrl}/${locale}/${section}?organization=${org}`);
       await page.locator('.corp-shell.theme-'+theme).waitFor();
-      await page.locator('.settings-tabs a[aria-current=page]').waitFor();
+      const selectedTab=section==='settings'?'.settings-tabs a[aria-current=page]':
+        '.settings-secondary-links a[aria-current=page]';
+      await page.locator(selectedTab).waitFor();
       if(section==='billing')await page.locator('.pricing-card').first().waitFor();
       else if(section==='settings')await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
       else await page.locator('.system-settings .console-card').first().waitFor();
-      const active=await page.locator('.settings-tabs a[aria-current=page]').evaluateAll(readColors);
-      assert.deepEqual(active,[{fg:expected.ink,bg:expected.selected}],`${theme} ${section} active tab`);
-      assert.equal(await page.locator('.settings-tabs').evaluate(el=>getComputedStyle(el).backgroundColor),expected.nav);
-      // Yaqeen's approved white-on-royal-gold pairing is checked exactly above.
-      if(theme!=='yaqeen-business')assert.ok(contrast(active[0])>=4.5,`${theme} selected tab contrast`);
+      // Three independent primary tabs, plus billing/system links outside
+      // the main journey. Keep full readability checks rather than relying on
+      // the old navy-bar palette, which belonged to the superseded design.
+      assert.equal(await page.locator('.settings-tabs a').count(),3);
+      const active=await page.locator(selectedTab).evaluateAll(readColors);
+      assert.equal(active.length,1,`${theme} ${section} active section must be unambiguous`);
+      assert.ok(contrast(active[0])>=4.5,`${theme} ${section} selected tab contrast ${JSON.stringify(active[0])}`);
+      const primaryColors=await page.locator('.settings-tabs a').evaluateAll(readColors);
+      for(const item of primaryColors)assert.ok(contrast(item)>=4.5,
+        `${theme} ${section} primary navigation contrast ${JSON.stringify(item)}`);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${theme} ${locale} ${width} ${section} overflow`);
       if(theme!=='yaqeen-business') {
         const targets='.settings-card,.console-card,.subscription-summary,.settings-heading p,.settings-facts dt,.subscription-panel button:not(:disabled),.subscription-summary-actions a';
