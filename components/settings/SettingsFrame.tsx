@@ -47,17 +47,24 @@ export default function SettingsFrame({
         className="settings-tabs"
         aria-label={ar ? "أقسام الإعدادات" : "Settings sections"}
       >
-        {settingSections.map((s) => (
+        {settingSections.filter(s=>s.group==='primary').map((s) => (
           <Link
             key={s.path}
             href={`/${locale}/${s.path}${tabParams.size?'?'+tabParams:''}`}
             aria-current={isSettingsSectionActive(path.split("/").slice(2).join("/"),s.path) ? "page" : undefined}
           >
             <svg className="settings-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              {s.icon==='organization'?<><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7h2m4 0h2M8 11h2m4 0h2M10 21v-6h4v6"/></>:s.icon==='payments'?<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></>:<><circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 4 2 2v3l3 2 1 3h6l1-3 3-2v-3l2-2-2-4-3-1-1-3Z"/></>}
+              {s.icon==='organization'?<><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7h2m4 0h2M8 11h2m4 0h2M10 21v-6h4v6"/></>:s.icon==='finance'?<><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></>:s.icon==='journey'?<><path d="M5 19c0-5 4-6 7-6s7-3 7-8"/><path d="m14 5 5 0 0 5"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="13" r="2"/></>:<><circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 4 2 2v3l3 2 1 3h6l1-3 3-2v-3l2-2-2-4-3-1-1-3Z"/></>}
             </svg><span>{ar ? s.ar : s.en}</span>
           </Link>
         ))}
+      </nav>
+      <nav className="settings-secondary-links" aria-label={ar?'الإعدادات الأخرى':'Other settings'}>
+        {settingSections.filter(s=>s.group==='secondary').map(s=><Link key={s.path}
+          href={`/${locale}/${s.path}${tabParams.size?'?'+tabParams:''}`}
+          aria-current={isSettingsSectionActive(path.split('/').slice(2).join('/'),s.path)?'page':undefined}>
+          {ar?s.ar:s.en}
+        </Link>)}
       </nav>
       {children}
     </main>
