@@ -34,7 +34,9 @@ export async function liveStatementSource(input:unknown){
  // database RPC may attest first activity from the COMPLETE historical source.
  // Never manufacture an empty opening in the browser or infer it from an RPC
  // error. Until the independently tested server RPC is installed, fail closed.
- const raw=read(primary.error?.message?.includes('REPORTING_APPROVED_OPENING_REQUIRED')
+ const firstActivityAllowed=process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING==='true'&&
+  process.env.VERCEL_ENV!=='production';
+ const raw=read(firstActivityAllowed&&primary.error?.message?.includes('REPORTING_APPROVED_OPENING_REQUIRED')
   ? await supabase.rpc('financial_statement_first_activity_snapshot',args)
   : primary);
  if(raw?.origin!=='LIVE_CANONICAL_EVENTS')throw Error('REPORTING_UNAVAILABLE');
