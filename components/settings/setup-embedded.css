@@ -20,3 +20,7 @@ body:has([data-setup-embedded-document]) #corp-primary-nav{display:none!importan
  body:has([data-setup-embedded-document]) .settings-workspace{padding:8px}
  body:has([data-setup-embedded-document]) .settings-card{padding:12px}
 }
+
+/* Organization selection belongs to the parent setup journey. Within the
+   embedded screen it stays fixed to the validated organization URL. */
+body:has([data-setup-embedded-document]) #corp-organization-controls{display:none!important}
