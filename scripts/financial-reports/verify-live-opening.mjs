@@ -94,15 +94,13 @@ try{
   assert.equal(await embeddedPage.locator('.corp-sidebar').evaluate(el=>getComputedStyle(el).display),'none',
    'The original navigation sidebar must not be duplicated inside the setup window');
   await page.locator('.financial-setup-steps button').nth(1).click();
-  await embedded.waitFor();
-  const chartSrc=await embedded.getAttribute('src');
-  assert.ok(chartSrc?.startsWith('/en/chart-of-accounts?'),
-    'Chart step must embed the original chart, not replace it with links or fake data');
-  assert.ok(chartSrc.includes('organization='+org));
-  await page.frameLocator('iframe.financial-setup-embedded-frame')
-    .locator('[data-setup-embedded-document]').waitFor({state:'attached'});
-  assert.equal(await page.getByRole('link',{name:'Open full page'}).count(),1,
-    'The real workspace must remain independently accessible as a fallback');
+  await page.locator('[data-setup-native-workspace="chart"]').waitFor();
+  await page.locator('.coa-page').waitFor();
+  await page.getByRole('heading',{name:'Chart of accounts',exact:true}).waitFor();
+  assert.equal(await embedded.count(),0,
+    'Chart management must now be a native form in the same journey, without a nested frame');
+  assert.equal(await page.locator('[data-setup-native-workspace="chart"] #corp-organization-controls').count(),1,
+    'Native chart still retains its authorized organization context while the nested picker is disabled');
   await page.screenshot({path:out+'/financial-setup-linked-chart-en-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
