@@ -50,8 +50,10 @@ export async function observeVatRefundSources(
    .select('event_id,organization_id,link_type,related_event_id')
    .eq('organization_id',organizationId).eq('link_type','REVERSAL_OF')
    .in('event_id',ids).limit(ids.length+1);
-  if(sourceLinks.error||!Array.isArray(sourceLinks.data)||sourceLinks.data.length>ids.length)
+  if(sourceLinks.error||!Array.isArray(sourceLinks.data))
    throw Error('REPORTING_REFUND_SOURCE_UNAVAILABLE');
+  if(sourceLinks.data.length>ids.length)
+   throw Error('REPORTING_REFUND_SOURCE_INCOMPLETE');
   const reversal=new Map<string,string>(),scope=new Set(ids);
   for(const link of sourceLinks.data as Reversal[]){
    if(link.organization_id!==organizationId||link.link_type!=='REVERSAL_OF'||
