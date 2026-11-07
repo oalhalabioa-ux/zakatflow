@@ -109,3 +109,19 @@
 .financial-setup-activity-field{display:grid;gap:7px;max-width:530px;margin:12px 0 20px;color:var(--setup-text);font-size:.9rem;font-weight:700}
 .financial-setup-activity-field select{min-height:42px;width:100%;border:1px solid #a8b7c8;border-radius:8px;background:var(--card,#fff);color:var(--setup-text);padding:9px 12px;font:inherit}
 .financial-setup-activity-field small{font-size:.8rem;font-weight:400;color:var(--muted,#64748b);line-height:1.6}
+
+/* Native, code-split original financial forms. The journey remains one page. */
+.financial-setup-native{min-width:0;width:100%;overflow:hidden;border:1px solid var(--setup-line);border-radius:12px;background:var(--card,#fff)}
+.financial-setup-native-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(115deg,#10243a,#1c3651);color:#f5ebd6;padding:11px 16px;font-size:.84rem}
+.financial-setup-native-heading button{border:1px solid #ddc18a;color:#f5ebd6;background:transparent;border-radius:8px;padding:8px 12px;cursor:pointer;font:inherit;font-weight:700}
+.financial-setup-native-heading button:hover{background:#c6a35d2e}
+.financial-setup-native-content{min-width:0;padding:15px}
+.financial-setup-native-content :is(.fs-root,.coa-page,.fiscal-management){max-width:100%;min-width:0;margin:0}
+.financial-setup-native-content #corp-organization-controls{display:none!important}
+.financial-setup-native-content :is(table,.fs-table){max-width:none}
+.financial-setup-native-note{padding:10px 14px;margin:0;border-top:1px solid var(--setup-line);color:var(--muted,#64748b);line-height:1.65;font-size:.82rem;background:#f8f9fb}
+@media(max-width:700px){
+ .financial-setup-native-content{padding:8px}
+ .financial-setup-native-heading{padding:9px 11px}
+ .financial-setup-native-heading button{width:100%}
+}
