@@ -18,13 +18,6 @@ values
 on conflict (id) do nothing;
 -- Existing subscription guard accepts org creation only for the authenticated,
 -- email-verified owner. Do not bypass the guard in the temporary fixture.
--- Expected events are obtained as postgres ONLY to seed the expected source
--- snapshot; the actual verification RPC must work as the finance owner.
-select set_config('app.qa.expected_legacy_events',(
- select private.financial_reporting_legacy_events(
-  'c1000000-0000-4000-8000-000000000103',
-  date '2026-01-01',date '2026-12-31')::text),true);
-
 select set_config('request.jwt.claim.sub',
  'c1000000-0000-4000-8000-000000000101',true);
 insert into public.organizations(id,owner_user_id,name,base_currency)
@@ -67,6 +60,14 @@ do $$ begin
  then raise exception 'PARITY_RLS_ALLOCATION_FIXTURE_MISSING';end if;
 end $$;
 
+-- Store privileged fixture evidence only after all original records exist.
+-- The report attestation itself runs under a finance member's permissions.
+select set_config('app.qa.expected_legacy_events',(
+ select private.financial_reporting_legacy_events(
+  'c1000000-0000-4000-8000-000000000103',
+  date '2026-01-01',date '2026-12-31')::text),true);
+
+
 select set_config('request.jwt.claim.sub',
  'c1000000-0000-4000-8000-000000000101',true);
 set local role authenticated;
@@ -96,7 +97,7 @@ end $$;
 
 -- Tampering with an expected source amount must fail even though the
 -- sale itself is readable and the lot allocations remain private.
-do $
+do $$
 declare
  org uuid:='c1000000-0000-4000-8000-000000000103';
  original jsonb:=current_setting('app.qa.expected_legacy_events')::jsonb;
@@ -125,7 +126,7 @@ begin
   refused:=true;
  end;
  if not refused then raise exception 'PARITY_RLS_NONMEMBER_ATTESTATION_ACCEPTED';end if;
-end $;
+end $$;
 
 reset role;
 
@@ -137,7 +138,7 @@ where id='c1000000-0000-4000-8000-000000000108';
 select set_config('request.jwt.claim.sub',
  'c1000000-0000-4000-8000-000000000101',true);
 set local role authenticated;
-do $
+do $$
 declare refused boolean:=false;
 begin
  begin
@@ -150,6 +151,6 @@ begin
   refused:=true;
  end;
  if not refused then raise exception 'PARITY_RLS_PARTIAL_FIFO_ACCEPTED';end if;
-end $;
+end $$;
 reset role;
 rollback;
