@@ -1,3 +1,11 @@
+vi.mock('../services/financial-vat-refund-source',()=>({
+ observeVatRefundSources:async(organizationId:string,journals:{id:string;sourceLines:{id:string}[]}[])=>({
+  status:'RLS_MATCHED_SYNTHETIC_REFUND_SOURCES_ONLY',
+  organizationId,eventsObserved:state.refundMissing?Math.max(journals.length-1,0):journals.length,
+  refundPartsMatched:journals.reduce((n,j)=>n+j.sourceLines.filter(l=>l.id.includes(':refund:')).length,0),
+  refundReversalSignsMatched:true,
+ }),
+}));
 import {afterAll,beforeEach,describe,expect,it,vi} from 'vitest';
 vi.mock('../services/financial-branch-journal-source',()=>({
  observeCanonicalJournalLineage:async(organizationId:string,journals:{id:string;sourceLines:{id:string}[]}[],
@@ -15,7 +23,7 @@ import fixture from './financial-reporting/statement-snapshot.json';
 const state=vi.hoisted(()=>({
  mode:'first-activity' as 'first-activity'|'other-error'|'no-rpc'|'approved'|'tampered-live',
  lineage:'valid' as 'valid'|'missing'|'foreign',
- member:true,permission:true,called:[] as string[],
+ refundMissing:false,member:true,permission:true,called:[] as string[],
 }));
 const org='10000000-0000-4000-8000-000000000003';
 const query={organization:org,from:'2026-01-01',to:'2026-12-31'};
@@ -68,7 +76,7 @@ vi.mock('../services/auth',()=>({requireUser:async()=>({
 })}));
 import {liveStatementSource,liveBranchJournalLineageEvidence} from '../services/financial-statement-live';
 const before=process.env.FINANCIAL_STATEMENTS_LIVE,firstBefore=process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING,branchBefore=process.env.FINANCIAL_BRANCH_EVIDENCE_QA,vercelBefore=process.env.VERCEL_ENV;
-beforeEach(()=>{state.mode='first-activity';state.lineage='valid';state.member=true;state.permission=true;state.called=[];process.env.FINANCIAL_STATEMENTS_LIVE='true';process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='true';process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';delete process.env.VERCEL_ENV});
+beforeEach(()=>{state.mode='first-activity';state.lineage='valid';state.refundMissing=false;state.member=true;state.permission=true;state.called=[];process.env.FINANCIAL_STATEMENTS_LIVE='true';process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='true';process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';delete process.env.VERCEL_ENV});
 afterAll(()=>{if(before===undefined)delete process.env.FINANCIAL_STATEMENTS_LIVE;else process.env.FINANCIAL_STATEMENTS_LIVE=before;
  if(firstBefore===undefined)delete process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING;else process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING=firstBefore;
  if(branchBefore===undefined)delete process.env.FINANCIAL_BRANCH_EVIDENCE_QA;else process.env.FINANCIAL_BRANCH_EVIDENCE_QA=branchBefore;
@@ -126,6 +134,10 @@ describe('no-opening legal entity read adapter',()=>{
   await expect(liveBranchJournalLineageEvidence(query)).rejects.toThrow('BRANCH_EVIDENCE_DISABLED');
   process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';process.env.VERCEL_ENV='production';
   await expect(liveBranchJournalLineageEvidence(query)).rejects.toThrow('BRANCH_EVIDENCE_DISABLED');
+ });
+ it('fails closed when the independently verified VAT refund evidence omits a canonical event',async()=>{
+  state.mode='approved';state.refundMissing=true;process.env.VERCEL_ENV='production';
+  await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_REFUND_SOURCE_INCOMPLETE');
  });
  it('enforces normalized source provenance on the real Production reporting adapter (not merely QA previews)',async()=>{
   state.mode='tampered-live';process.env.VERCEL_ENV='production';
