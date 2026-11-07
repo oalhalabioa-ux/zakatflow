@@ -14,7 +14,7 @@ const request=()=>new Request('http://localhost:3000/api/financial-reporting/liv
 beforeEach(()=>{state.error='REPORTING_SOURCE_PROVENANCE_INVALID'});
 describe('Production statement route error classification',()=>{
  it('treats malformed source and incomplete original-line evidence as internal integrity failures',async()=>{
-  for(const code of ['REPORTING_SOURCE_PROVENANCE_INVALID','REPORTING_SOURCE_LINEAGE_INCOMPLETE']){
+  for(const code of ['REPORTING_SOURCE_PROVENANCE_INVALID','REPORTING_SOURCE_LINEAGE_INCOMPLETE','REPORTING_SOURCE_CHANGED_DURING_VERIFICATION']){
    state.error=code;
    const response=await GET(request());
    expect(response.status).toBe(503);
