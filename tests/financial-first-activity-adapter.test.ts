@@ -17,12 +17,13 @@ vi.mock('../services/auth',()=>({requireUser:async()=>({
    state.called.push(name);
    if(name==='financial_core_can')return{data:state.permission,error:null};
    if(name==='financial_statement_live_snapshot'){
-    if(state.mode==='approved')return{data:structuredClone(fixture),error:null};
+    if(state.mode==='approved')return{data:{...structuredClone(fixture),origin:'LIVE_CANONICAL_EVENTS'},error:null};
     return{data:null,error:{message:state.mode==='other-error'?'REPORTING_ACCESS_DENIED':'REPORTING_APPROVED_OPENING_REQUIRED'}};
    }
    if(name==='financial_statement_first_activity_snapshot'){
     if(state.mode==='no-rpc')return{data:null,error:{message:'Could not find public RPC'}};
     const raw=structuredClone(fixture);
+    raw.origin='LIVE_CANONICAL_EVENTS';
     raw.opening=[];raw.openingSourceId='FIRST_ACTIVITY:2026-01-01';
     raw.events=[];raw.policy.rules=[];
     raw.coverage.eventCount=0;raw.coverage.lineCount=0;
