@@ -1778,6 +1778,14 @@
       "expected_md5": "92beadb6fdf2e51f4cb1818f2ca74f9c",
       "file_sha256": "4c598cf516f57266e50f45eb1338371ff3c91ca7fc3dbef1527e8cff3ad4ef4a",
       "validation_project": "Disposable QA-only approved-opening legacy adoption and cross-user RLS acceptance; not applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261107213000_financial_retained_snapshot_account.sql",
+      "version": "20261107213000",
+      "name": "financial_retained_snapshot_account",
+      "expected_md5": "5a386a0c78f8f8804bc15187dd85fd68",
+      "file_sha256": "92bced623652f050fc1c9ba2184ea75dccf3815144ded9fe13a81cc1cbda64b6",
+      "validation_project": "Disposable full-schema and isolated financial QA only; NOT applied to Production"
     }
   ]
 }
