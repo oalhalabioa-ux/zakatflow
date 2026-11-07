@@ -11,7 +11,7 @@ describe('complete canonical statement snapshot',()=>{
  it('carries exact original recognition-line IDs into the server-only branch evidence path',()=>{
   const result=normalizeStatementSource(fixture(),query);
   expect(result.canonicalJournalLineage).toHaveLength(6);
-  expect(result.canonicalJournalLineage.flatMap(j=>j.sourceLineIds)).toEqual(
+  expect(result.canonicalJournalLineage.flatMap(j=>j.sourceLines.map(l=>l.id))).toEqual(
    (fixture().events as typeof snapshot.events).flatMap(e=>e.lines.map(l=>l.id)));
   expect(result.canonicalJournalLineage.every(j=>j.status==='POSTED')).toBe(true);
   expect(result.lineage).toHaveLength(7);
