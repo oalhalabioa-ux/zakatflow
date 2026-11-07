@@ -131,7 +131,7 @@ describe('canonical line-level source checks before branch statements',()=>{
    links:[{journalId:idA,branchId:null},{journalId:idB,branchId:null},{journalId:idC,branchId:branch}]});
   expect(s.authCount).toBe(3);
   expect(s.rpcs).toEqual(['financial_core_can','financial_core_can','financial_core_can']);
-  expect(r.reversalRecognitionSignVerified).toBe(false);
+  expect(r.reversalRecognitionSignVerified).toBe(true);
  });
  it('accepts PERSON and other authorized dimensions for legal-company totals without fabricating branch attribution',async()=>{
   s.entities[1].entity_type='PERSON';
