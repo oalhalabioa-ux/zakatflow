@@ -23,6 +23,7 @@ on:
       - 'lib/financial-*.ts'
       - 'scripts/financial-reports/*opening*'
       - 'tests/qa-financial-opening*.sql'
+      - 'tests/qa-financial-first-activity-snapshot.sql'
       - 'tests/qa-financial-chart-accounts.sql'
       - 'tests/qa-financial-chart-posting-rules.sql'
       - 'tests/qa-financial-chart-opening-leaf.sql'
@@ -117,6 +118,8 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-group-control-evidence.sql
       - name: Verify versioned branch opening distribution and tenant isolation
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-branch-opening-distribution.sql
+      - name: Verify zero-opening first-activity source contract with full historical and access guards
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-first-activity-snapshot.sql
       - name: Verify isolated editable chart of accounts and audit
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-accounts.sql
       - name: Verify posting rules accept only active organization subaccounts
