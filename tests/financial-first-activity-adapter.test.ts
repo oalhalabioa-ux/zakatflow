@@ -107,7 +107,7 @@ describe('no-opening legal entity read adapter',()=>{
   const result=await liveStatementSource(query);
   expect(result.openingSourceId).toBe('FIRST_ACTIVITY:2026-01-01');
   expect(result.statements.cash).toMatchObject({opening:'0.0000',closing:'0.0000'});
-  expect(state.called).toEqual(['financial_statement_live_snapshot','financial_statement_first_activity_snapshot','financial_core_can']);
+  expect(state.called).toEqual(['financial_statement_live_snapshot','financial_statement_first_activity_snapshot','financial_reporting_legacy_attestation','financial_core_can']);
  });
  it('does not invent zero opening when the trusted RPC is absent',async()=>{
   state.mode='no-rpc';
