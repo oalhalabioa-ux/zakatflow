@@ -5,6 +5,7 @@ import {financialChartWorkspace} from './financial-chart';
 import {readOpening} from './financial-opening-workspace';
 import {liveStatementSource} from './financial-statement-live';
 import {financialSetupReadiness,type SetupEvidence} from '../lib/financial-setup-readiness';
+import {hasVerifiedZeroOpening} from '../lib/financial-setup-source-proof';
 
 const query=z.object({organization:z.string().uuid(),mode:z.enum(['NEW','EXISTING']).nullable()}).strict();
 
@@ -31,7 +32,7 @@ export async function readFinancialSetupReadiness(input:unknown){
  };
  const [chart,fiscal,banks,owners]=await Promise.allSettled([
   financialChartWorkspace(q.organization),fiscalManagementContext(q.organization),
-  supabase.from('liquidity_accounts').select('id').eq('organization_id',q.organization).limit(1),
+  supabase.from('liquidity_accounts').select('id').eq('organization_id',q.organization).eq('active',true).limit(1),
   supabase.from('organization_members').select('role').eq('organization_id',q.organization).eq('status','ACTIVE'),
  ]);
  if(chart.status==='fulfilled'){
@@ -64,9 +65,7 @@ export async function readFinancialSetupReadiness(input:unknown){
    evidence.approvedOpening=state.workspace?.status==='APPROVED'&&
     state.workspace.source_revision===state.source.revision&&
     !state.source.rows.some(row=>Boolean(row.sourceIssue));
-   evidence.zeroOpeningVerified=!state.workspace&&state.source.rows.every(row=>
-     !row.sourceIssue&&row.vouchers.every(v=>
-      Number(v.debit??0)===0&&Number(v.credit??0)===0));
+   evidence.zeroOpeningVerified=hasVerifiedZeroOpening(state);
   }
  }
  // A new company cannot declare itself "no opening" merely through a browser
