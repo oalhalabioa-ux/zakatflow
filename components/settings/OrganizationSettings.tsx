@@ -174,12 +174,12 @@ export default function OrganizationSettings({
           <header><h2>{ar ? "الإعدادات المالية والمحاسبية" : "Financial & accounting settings"}</h2><p>{selected.name}</p></header>
           <nav className="financial-settings-shortcuts" aria-label={ar ? 'التنقل بين الإعدادات المالية' : 'Financial settings navigation'}>
             <Link href={`/${locale}/settings/financial/setup?organization=${encodeURIComponent(id)}`}>{ar?'رحلة إعداد المؤسسة':'Setup journey'}</Link>
-            <Link href={`/${locale}/settings/financial/fiscal-years?organization=${encodeURIComponent(id)}`} aria-current="page">{ar?'السنوات المالية':'Fiscal years'}</Link>
+            <Link href={`/${locale}/settings/financial/fiscal-years?organization=${encodeURIComponent(id)}`} aria-current={financial==='years'?'page':undefined}>{ar?'السنوات المالية':'Fiscal years'}</Link>
             <Link href={`/${locale}/chart-of-accounts?organization=${encodeURIComponent(id)}`}>{ar?'دليل الحسابات':'Chart of accounts'}</Link>
             <Link href={`/${locale}/financial-reporting-policy?organization=${encodeURIComponent(id)}`}>{ar?'قواعد الترحيل':'Posting rules'}</Link>
             <Link href={`/${locale}/opening-balances?organization=${encodeURIComponent(id)}`}>{ar?'الأرصدة الافتتاحية':'Opening balances'}</Link>
           </nav>
-          <FiscalYearManagement key={id} organization={id} locale={locale} onEditState={reportFiscalEdit} />
+          {financial==='years' ? <FiscalYearManagement key={id} organization={id} locale={locale} onEditState={reportFiscalEdit} /> : <div className="settings-hint"><p>{ar?'ابدأ بتهيئة المؤسسة، ثم إنشاء الحسابات الفرعية المطلوبة في دليل الحسابات قبل حفظ السنة المالية وربط حساب الأرباح المحتجزة. بعد ذلك راجع قواعد الترحيل والنقد والبنوك والأرصدة الافتتاحية والمستخدمين.':'Start with the setup journey and create the required posting accounts in the chart before configuring the fiscal calendar and retained earnings. Then review posting rules, cash and banks, opening balances and user permissions.'}</p><Link className="btn" href={`/${locale}/settings/financial/setup?organization=${encodeURIComponent(id)}`}>{ar?'بدء أو متابعة رحلة إعداد المؤسسة':'Start or resume organization setup'}</Link></div>}
         </section>
       ) : (
         <section className="settings-card">
