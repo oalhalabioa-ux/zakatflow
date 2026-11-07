@@ -72,6 +72,10 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
  if(!beforeDebit.eq(rollup.totalDebit)||!beforeCredit.eq(rollup.totalCredit)||!beforeDebit.eq(beforeCredit))throw Error('GROUP_ADJUSTMENT_SOURCE_INVALID');
 
  const adjustments=new Map<string,Amounts>(),ids=new Set<string>();
+ // One documentary source cannot be independently eliminated twice for the
+ // SAME accounting kind. A revenue and corresponding receivable elimination
+ // may legitimately cite the same invoice, so kinds remain separate.
+ const usedSourceReferences=new Set<string>();
  let adjustmentDebit=new Money(0),adjustmentCredit=new Money(0);
  for(const entry of entries){
   if(!entry.id||ids.has(entry.id))throw Error('GROUP_ADJUSTMENT_DUPLICATE');
@@ -80,6 +84,13 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
   if(entry.currency!==rollup.currency||!validDate(entry.date)||entry.date<rollup.from||entry.date>rollup.to)throw Error('GROUP_ADJUSTMENT_PERIOD_CURRENCY_MISMATCH');
   if(entry.organizationIds.length!==2||entry.organizationIds[0]===entry.organizationIds[1]||entry.organizationIds.some(id=>!groupMembers.has(id)))throw Error('GROUP_ADJUSTMENT_MEMBERSHIP_INVALID');
   if(entry.sourceReferences.length<2||new Set(entry.sourceReferences).size!==entry.sourceReferences.length||entry.sourceReferences.some(ref=>!ref.trim())||entry.reason.trim().length<8)throw Error('GROUP_ADJUSTMENT_EVIDENCE_REQUIRED');
+  if(entry.kind!=='UNREALIZED_PROFIT'){
+   for(const ref of entry.sourceReferences){
+    const key=entry.kind+'::'+ref;
+    if(usedSourceReferences.has(key))throw Error('GROUP_ADJUSTMENT_DUPLICATE_EVIDENCE');
+    usedSourceReferences.add(key);
+   }
+  }
   if(entry.lines.length<2||entry.lines.length>100)throw Error('GROUP_ADJUSTMENT_LINES_INVALID');
   let debitTotal=new Money(0),creditTotal=new Money(0);
   const affected=new Map<string,Amounts>();
