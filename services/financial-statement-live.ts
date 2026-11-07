@@ -91,9 +91,10 @@ export async function liveStatementSource(input:unknown){
  // and the end of those checks. This is a RACE DETECTOR, not atomic-revision
  // certification (an A->B->A change remains possible). The current release
  // gate must not mark sameTransactionRevisionVerified=true.
- const replayEnabled=process.env.FINANCIAL_SOURCE_REPLAY_GUARD==='true'||
-   (process.env.VERCEL_ENV==='production'&&
-    process.env.FINANCIAL_SOURCE_REPLAY_GUARD!=='false');
+ // Production must never bypass accounting source replay through an
+ // environment toggle. Only preview/isolated QA may opt in or out.
+ const replayEnabled=process.env.VERCEL_ENV==='production'||
+   process.env.FINANCIAL_SOURCE_REPLAY_GUARD==='true';
  if(replayEnabled){
   const replay=read(await supabase.rpc(sourceRpc,args));
   assertStableFinancialReplay(raw,replay);
