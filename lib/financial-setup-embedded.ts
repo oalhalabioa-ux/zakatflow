@@ -1,5 +1,5 @@
 /** Strict allowlist for same-origin linked financial-setup windows. */
-const route=/^\/(?:ar|en)\/(?:settings(?:\/financial\/fiscal-years)?|chart-of-accounts|financial-reporting-policy|cash-and-banks|opening-balances|users)$/;
+const route=/^\/(?:ar|en)\/(?:settings(?:\/financial\/fiscal-years)?|chart-of-accounts|financial-reporting-policy|cash-and-banks|liquidity|opening-balances|users)$/;
 export function setupEmbeddedUrl(href:string,organizationId:string):string|null{
  if(!href.startsWith('/')||href.startsWith('//')||!organizationId)return null;
  try{
