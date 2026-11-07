@@ -89,6 +89,11 @@ try{
   assert.ok(src?.startsWith('/en/settings?'),'Organization stage must reuse the real settings workspace');
   assert.ok(src.includes('organization='+org),'The active organization must stay fixed');
   assert.ok(src.includes('setupEmbed=1'),'Child shell must be marked as an embedded setup workspace');
+  const framed=await page.request.get(app+src);
+  assert.equal(framed.headers()['x-frame-options'],'SAMEORIGIN',
+    'Authenticated setup forms must not be framed by another website');
+  assert.match(framed.headers()['content-security-policy']??'',/frame-ancestors 'self'/,
+    'Setup forms must also have a same-origin frame-ancestors policy');
   const embeddedPage=page.frameLocator('iframe.financial-setup-embedded-frame');
   await embeddedPage.locator('[data-setup-embedded-document]').waitFor({state:'attached'});
   assert.equal(await embeddedPage.locator('.corp-sidebar').evaluate(el=>getComputedStyle(el).display),'none',
