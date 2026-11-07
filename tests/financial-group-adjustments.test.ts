@@ -63,6 +63,13 @@ describe('group-only trial-balance adjustment staging',()=>{
   expect(()=>previewGroupEliminations(source,parents,[wrong])).toThrow('GROUP_ADJUSTMENT_MEMBERSHIP_INVALID');
  });
 
+ it('does not double-eliminate the same source reference under two different journal IDs',()=>{
+  const rollup=rollupAuthorizedTrialBalances(request());
+  const first=elimination();
+  const second={...elimination(),id:'second-adjustment',sourceReferences:['parent-invoice-01','child-bill-02']};
+  expect(()=>previewGroupEliminations(rollup,parents,[first,second]))
+   .toThrow('GROUP_ADJUSTMENT_DUPLICATE_EVIDENCE');
+ });
  it('rejects FX assumptions, outside dates, unmapped children and missing source evidence',()=>{
   const s=rollupAuthorizedTrialBalances(request());
   const fx=elimination();fx.currency='USD';expect(()=>previewGroupEliminations(s,parents,[fx])).toThrow('GROUP_ADJUSTMENT_PERIOD_CURRENCY_MISMATCH');
