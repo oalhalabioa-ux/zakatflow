@@ -2,6 +2,7 @@ import {requireUser} from './auth';
 import {assertOpeningWorkspace,openingContext} from './financial-opening-workspace';
 import {normalizeStatementSource,statementQuery} from '../lib/financial-statement-source';
 import {endingForFiscalStart} from '../lib/financial-fiscal-end';
+import {observeCanonicalJournalLineage} from './financial-branch-journal-source';
 export function assertLiveStatements(){assertOpeningWorkspace();if(process.env.FINANCIAL_STATEMENTS_LIVE!=='true')throw Error('REPORTING_DISABLED')}
 function read<T>(r:{data:T;error:{message:string}|null}){if(r.error)throw Error(r.error.message.match(/REPORTING_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');return r.data}
 export async function liveStatementContext(){
@@ -44,4 +45,27 @@ export async function liveStatementSource(input:unknown){
  const membership=read(await supabase.from('organization_members').select('organization_id').eq('organization_id',q.organization).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle());
  if(!membership||read(await supabase.rpc('financial_core_can',{p_org:q.organization,p_scope:'financial_core.view'}))!==true)throw Error('REPORTING_ACCESS_DENIED');
  return result;
+}
+
+
+/** QA read-side bridge from an independently validated LIVE financial snapshot
+ * to RLS-verified original recognition-line identities. Not financial statements
+ * by branch: opening distribution and a same-transaction source revision are
+ * deliberately NOT attested here. No user-facing endpoint or export consumes it.
+ */
+export async function liveBranchJournalLineageEvidence(input:unknown){
+ if(process.env.FINANCIAL_BRANCH_EVIDENCE_QA!=='true'||process.env.VERCEL_ENV==='production')
+  throw Error('BRANCH_EVIDENCE_DISABLED');
+ const report=await liveStatementSource(input);
+ if(report.origin!=='LIVE_CANONICAL_EVENTS'||report.scope!=='ORGANIZATION_ALL_ENTITIES')
+  throw Error('BRANCH_EVIDENCE_SOURCE_UNVERIFIED');
+ const observed=await observeCanonicalJournalLineage(report.statements.organizationId,report.canonicalJournalLineage);
+ if(observed.sourceLineCount!==report.lineage.length||
+  observed.links.length!==report.canonicalJournalLineage.length)
+  throw Error('BRANCH_EVIDENCE_SOURCE_INCOMPLETE');
+ return {status:'BRANCH_JOURNAL_LINEAGE_OBSERVED_ONLY' as const,
+  organizationId:report.statements.organizationId,from:report.statements.from,to:report.statements.to,
+  observed,sourceSnapshotReadAt:report.readAt,
+  /** A read-time is not an atomic ledger revision. Reconcile before publishing. */
+  sameTransactionRevisionVerified:false as const,openingDistributionApproved:false as const};
 }
