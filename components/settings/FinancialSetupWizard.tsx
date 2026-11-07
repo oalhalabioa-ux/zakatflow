@@ -137,8 +137,8 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
 
   const organization=orgs.find(item=>item.id===orgId);
   const position=FINANCIAL_SETUP_STEPS.indexOf(step)+1;
-  const measured=FINANCIAL_SETUP_STEPS.filter(id=>id!=='finished');
-  const progress=readiness?Math.round(100*measured.filter(id=>readiness.statuses[id]==='READY').length/measured.length):0;
+  const journeyCounts=financialSetupJourneyCounts(readiness,deferred);
+  const progress=journeyCounts.percent;
   const setupReady=readiness?.ready===true;
   const statusLabel=(value:SetupStatus|undefined)=>value==='READY'?t('جاهز','Ready'):
     value==='IN_PROGRESS'?t('غير مكتمل','Incomplete'):
@@ -146,8 +146,9 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     value==='NOT_STARTED'?t('لم يبدأ','Not started'):t('قيد التحقق','Checking');
   const requiresOpeningReview=mode==='NEW'&&readiness?.statuses.opening!=='READY';
   const isComplete=completed.includes(step)||(isSkippedSetupStep(step,mode)&&!requiresOpeningReview);
-  const allReviewed=FINANCIAL_SETUP_STEPS.filter(id=>id!=='review'&&id!=='finished'&&
+  const allReviewed=FINANCIAL_SETUP_STEPS.filter(id=>id!=='review'&&id!=='finished'&&id!=='structure'&&
     (!isSkippedSetupStep(id,mode)||requiresOpeningReview)).every(id=>completed.includes(id));
+  const canDefer=canDeferSetupStep(step,mode,readiness?.statuses??null);
   const details=useMemo(()=>{
     if(!orgId)return null;
     const base=`/${locale}`;
@@ -207,12 +208,22 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
       }finally{setFinalizing(false)}
     }
     if(step!=='organization'&&!isComplete&&!reviewed)return;
+    // Missing chart/fiscal prerequisites cannot be waived by checking a local box.
+    if(step!=='organization'&&step!=='review'&&step!=='structure'&&readiness?.statuses[step]!=='READY'&&!canDefer)return;
+    setDeferred(previous=>previous.filter(id=>id!==step));
     setCompleted(previous=>{
       const next=previous.includes(step)?previous:[...previous,step];
       return step==='review'&&!next.includes('finished')?[...next,'finished']:next;
     });
     setStep(nextSetupStep(step,mode,requiresOpeningReview));
     setNotice('');
+  }
+  function deferStep(){
+    if(!canDefer)return;
+    setDeferred(previous=>previous.includes(step)?previous:[...previous,step]);
+    setCompleted(previous=>previous.filter(id=>id!==step));
+    setStep(nextSetupStep(step,mode,requiresOpeningReview));
+    setNotice(t('تم تأجيل الخطوة مؤقتًا؛ ستبقى غير مكتملة في القائمة ولن تسمح بالاعتماد دون متطلباتها.','Step deferred; it stays incomplete and cannot authorize approval before its requirements pass.'));
   }
   function previous(){
     const index=FINANCIAL_SETUP_STEPS.indexOf(step);
