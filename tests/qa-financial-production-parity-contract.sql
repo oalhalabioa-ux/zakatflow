@@ -58,11 +58,13 @@ begin
  -- 2026-11-07: 246 applied migrations. Branch must reproduce the actual
  -- financial-source SQL definitions, not merely possess matching filenames.
  -- Deliberate Production changes require an explicit reviewed re-baseline.
+ -- Snapshot function below expects the separately versioned retained-leaf
+ -- migration applied to disposable QA, NOT a deployed Production function.
  for expected in
   select * from (values
    ('private.financial_reporting_events(uuid,date,date)','4fd2ddad294ab23e3843353d37a4dbd8'),
    ('private.financial_reporting_legacy_events(uuid,date,date)','7cc105b3522efbedd9c0df2f66151d40'),
-   ('private.financial_statement_live_snapshot_v1(uuid,date,date)','5c4b106f5b19efe0adb9570757173bb1'),
+   ('private.financial_statement_live_snapshot_v1(uuid,date,date)','ac6d5bbbde12cea03102013554b331cb'),
    ('public.financial_statement_live_snapshot(uuid,date,date)','1179052b55d75f80ffe04e3e13e8dfbf')
   ) as baseline(identity,required_md5)
  loop
