@@ -208,7 +208,7 @@ describe('reconciled branch statement preview',()=>{
    ...row,allocations:[{branchId:branch,debit:row.debit,credit:row.credit}],
   }));
   input.coverage.sourceCount=input.allocations.length;
-  expect(()=>compileBranchStatementPreview(input)).toThrow('JOURNAL_UNBALANCED');
+  expect(()=>compileBranchStatementPreview(input)).toThrow('INCOMPLETE_JOURNAL');
  });
 
 });
