@@ -2,8 +2,8 @@
  * accounting pages never accidentally highlight it as Finance & Accounting. */
 export const settingSections = [
   {path:'settings',ar:'إعدادات المؤسسة',en:'Organization settings',icon:'organization',group:'primary'},
-  {path:'settings/financial',ar:'الإعدادات المالية والمحاسبية',en:'Financial & accounting settings',icon:'finance',group:'primary'},
-  {path:'settings/financial/setup',ar:'رحلة الإعداد',en:'Setup journey',icon:'journey',group:'primary'},
+  {path:'settings/financial',ar:'الإعدادات المالية والمحاسبية',en:'Financial & accounting settings',icon:'settings',group:'primary'},
+  {path:'settings/financial/setup',ar:'رحلة الإعداد',en:'Setup journey',icon:'organization',group:'primary'},
   {path:'billing',ar:'الاشتراك والباقات',en:'Subscription & plans',icon:'payments',group:'secondary'},
   {path:'settings/system',ar:'إعدادات النظام',en:'System settings',icon:'settings',group:'secondary'},
 ] as const;
