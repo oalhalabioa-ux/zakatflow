@@ -180,9 +180,16 @@ describe('canonical line-level source checks before branch statements',()=>{
   data[0].sourceLines[0].baseAmount='59.0000';
   await expect(observeCanonicalJournalLineage(org,data)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
  });
+ const reversalOriginal='b1000000-0000-4000-8000-000000000012';
+ const reversalOriginalLine='c1000000-0000-4000-8000-000000000013';
+ const attachOriginal=(metadata:Record<string,unknown>)=>{
+  s.links=[{event_id:idC,organization_id:org,link_type:'REVERSAL_OF',related_event_id:reversalOriginal}];
+  s.lines.push({id:reversalOriginalLine,event_id:reversalOriginal,organization_id:org,
+   classification_id:classId,base_amount:'300.0000',cash_direction:'NON_CASH',
+   line_number:1,recoverable_percent:100,metadata});
+ };
  it('attests normal signs and linked reversal signs using original line number and metadata',async()=>{
-  s.links=[{event_id:idC,organization_id:org,link_type:'REVERSAL_OF',related_event_id:idA}];
-  s.lines[0].metadata={recognition_sign:-1};
+  attachOriginal({recognition_sign:-1});
   const data=[...postedLineage().slice(0,2),{
    ...journals()[2],sourceLines:[{...part(lineC,'300.0000','NON_CASH'),recognitionSign:1 as const}],
   }];
@@ -191,15 +198,14 @@ describe('canonical line-level source checks before branch statements',()=>{
    ...journals()[2],sourceLines:[{...part(lineC,'300.0000','NON_CASH'),recognitionSign:-1 as const}],
   }];
   await expect(observeCanonicalJournalLineage(org,wrong)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
-  s.lines[0].metadata={recognition_sign:1};
+  s.lines[s.lines.length-1].metadata={recognition_sign:1};
   const signed=[...postedLineage().slice(0,2),{
    ...journals()[2],sourceLines:[{...part(lineC,'300.0000','NON_CASH'),recognitionSign:-1 as const}],
   }];
   expect((await observeCanonicalJournalLineage(org,signed)).reversalRecognitionSignVerified).toBe(true);
  });
  it('matches inherited VAT recovery splits on a reversal against the original source role',async()=>{
-  s.links=[{event_id:idC,organization_id:org,link_type:'REVERSAL_OF',related_event_id:idA}];
-  s.lines[0].metadata={source_role:'INPUT_VAT',recoverable_percent:60};
+  attachOriginal({source_role:'INPUT_VAT',recoverable_percent:60});
   const data=[...postedLineage().slice(0,2),{
    ...journals()[2],
    sourceLines:[
