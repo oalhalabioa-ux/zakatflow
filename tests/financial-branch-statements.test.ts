@@ -126,7 +126,7 @@ describe('reconciled branch statement preview',()=>{
   });
  });
 
- it('keeps zero-opening branch funding as a balanced internal transfer, not income',()=>{
+ it('records new legal capital as a current-year equity receipt rather than income',()=>{
   const input=data();
   input.source.opening=[];
   input.source.journals=[{
@@ -147,6 +147,68 @@ describe('reconciled branch statement preview',()=>{
    income:{netProfit:'0.0000'},
    position:{assets:'100.0000',equity:'100.0000'},
   });
+ });
+
+ it('records a genuine headquarters-to-new-branch cash transfer using two balanced clearing journals',()=>{
+  const input=data();
+  input.source.accounts.push(
+   {id:'1200',organizationId:org,currency:'SAR',kind:'ASSET'},
+   {id:'2200',organizationId:org,currency:'SAR',kind:'LIABILITY'},
+  );
+  // These are movements inside ONE legal company, not equity subscriptions.
+  // The transfer requires matching HQ receivable and branch payable clearing,
+  // with no revenue or capital contribution to the branch.
+  input.source.journals=[
+   {id:'hq-transfer-out',organizationId:org,currency:'SAR',date:'2026-02-01',status:'POSTED',lines:[
+    {accountId:'1200',debit:'100.0000',credit:'0.0000'},
+    {accountId:'1000',debit:'0.0000',credit:'100.0000',cashActivity:'FINANCING'},
+   ]},
+   {id:'branch-transfer-in',organizationId:org,currency:'SAR',date:'2026-02-01',status:'POSTED',lines:[
+    {accountId:'1000',debit:'100.0000',credit:'0.0000',cashActivity:'FINANCING'},
+    {accountId:'2200',debit:'0.0000',credit:'100.0000'},
+   ]},
+  ];
+  // The new branch has zero opening. Existing company capital is HQ opening.
+  input.allocations=branchStatementSourceLines(input.source).map(row=>({
+   ...row,allocations:[{
+    branchId:row.sourceKind==='OPENING'||row.sourceId.includes('hq-transfer-out')?null:branch,
+    debit:row.debit,credit:row.credit,
+   }],
+  }));
+  input.coverage.sourceCount=input.allocations.length;
+  const result=compileBranchStatementPreview(input);
+  expect(result.status).toBe('RECONCILED_SEGMENTS_PREVIEW_ONLY');
+  expect(result.company).toMatchObject({
+   income:{revenue:'0.0000',netProfit:'0.0000'},
+   cash:{opening:'300.0000',movement:'0.0000',closing:'300.0000'},
+   // These pre-elimination gross amounts are only a preview: due-from/due-to
+   // still need company-level elimination before any published statement.
+   position:{assets:'400.0000',liabilities:'100.0000',equity:'300.0000'},
+  });
+  expect(result.segments.find(s=>s.branchId===null)?.statement).toMatchObject({
+   cash:{opening:'300.0000',financing:'-100.0000',closing:'200.0000'},
+   income:{netProfit:'0.0000'},
+   position:{assets:'300.0000',liabilities:'0.0000',equity:'300.0000'},
+  });
+  expect(result.segments.find(s=>s.branchId===branch)?.statement).toMatchObject({
+   cash:{opening:'0.0000',financing:'100.0000',closing:'100.0000'},
+   income:{revenue:'0.0000',netProfit:'0.0000'},
+   position:{assets:'100.0000',liabilities:'100.0000',equity:'0.0000'},
+  });
+ });
+
+ it('blocks a one-sided branch transfer rather than inventing an opening balance or revenue',()=>{
+  const input=data();
+  input.source.opening=[];
+  input.source.journals=[{
+   id:'unmatched-transfer',organizationId:org,currency:'SAR',date:'2026-02-01',status:'POSTED',
+   lines:[{accountId:'1000',debit:'100.0000',credit:'0.0000',cashActivity:'FINANCING'}],
+  }];
+  input.allocations=branchStatementSourceLines(input.source).map(row=>({
+   ...row,allocations:[{branchId:branch,debit:row.debit,credit:row.credit}],
+  }));
+  input.coverage.sourceCount=input.allocations.length;
+  expect(()=>compileBranchStatementPreview(input)).toThrow('JOURNAL_UNBALANCED');
  });
 
 });
