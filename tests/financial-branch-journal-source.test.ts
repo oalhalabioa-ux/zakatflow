@@ -134,6 +134,9 @@ describe('canonical line-level source checks before branch statements',()=>{
   s.entities[1].entity_type='PERSON';
   await expect(observeCanonicalJournalLineage(org,postedLineage(),'BRANCH')).rejects
    .toThrow('BRANCH_JOURNAL_ENTITY_UNVERIFIED');
+  // The rejected branch request already performed an authorization check.
+  // Count only the independent legal-company read in the next assertions.
+  s.authCount=0;s.rpcs=[];
   const result=await observeCanonicalJournalLineage(org,postedLineage(),'LEGAL_COMPANY');
   expect(result).toMatchObject({
    status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',
