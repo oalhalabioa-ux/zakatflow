@@ -59,6 +59,7 @@ export async function readFinancialSetupReadiness(input:unknown){
   if(opening.status==='fulfilled'){
    const state=opening.value;
    evidence.approvedOpening=state.workspace?.status==='APPROVED'&&
+    state.workspace.source_revision===state.source.revision&&
     !state.source.rows.some(row=>Boolean(row.sourceIssue));
    evidence.zeroOpeningVerified=!state.workspace&&state.source.rows.every(row=>
      !row.sourceIssue&&row.vouchers.every(v=>
