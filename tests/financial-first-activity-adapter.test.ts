@@ -38,9 +38,11 @@ vi.mock('../services/auth',()=>({requireUser:async()=>({
  },
 })}));
 import {liveStatementSource} from '../services/financial-statement-live';
-const before=process.env.FINANCIAL_STATEMENTS_LIVE;
-beforeEach(()=>{state.mode='first-activity';state.member=true;state.permission=true;state.called=[];process.env.FINANCIAL_STATEMENTS_LIVE='true'});
-afterAll(()=>{if(before===undefined)delete process.env.FINANCIAL_STATEMENTS_LIVE;else process.env.FINANCIAL_STATEMENTS_LIVE=before});
+const before=process.env.FINANCIAL_STATEMENTS_LIVE,firstBefore=process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING,vercelBefore=process.env.VERCEL_ENV;
+beforeEach(()=>{state.mode='first-activity';state.member=true;state.permission=true;state.called=[];process.env.FINANCIAL_STATEMENTS_LIVE='true';process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='true';delete process.env.VERCEL_ENV});
+afterAll(()=>{if(before===undefined)delete process.env.FINANCIAL_STATEMENTS_LIVE;else process.env.FINANCIAL_STATEMENTS_LIVE=before;
+ if(firstBefore===undefined)delete process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING;else process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING=firstBefore;
+ if(vercelBefore===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=vercelBefore});
 describe('no-opening legal entity read adapter',()=>{
  it('requests database-attested first activity only for missing approved opening, then rechecks permissions',async()=>{
   const result=await liveStatementSource(query);
@@ -60,6 +62,14 @@ describe('no-opening legal entity read adapter',()=>{
   await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_ACCESS_DENIED');
   state.member=true;state.permission=false;
   await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_ACCESS_DENIED');
+ });
+ it('keeps the first-activity fallback disabled by default and in Production',async()=>{
+  process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='false';
+  await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_APPROVED_OPENING_REQUIRED');
+  expect(state.called).not.toContain('financial_statement_first_activity_snapshot');
+  process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='true';process.env.VERCEL_ENV='production';state.called=[];
+  await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_APPROVED_OPENING_REQUIRED');
+  expect(state.called).not.toContain('financial_statement_first_activity_snapshot');
  });
  it('preserves the existing approved opening snapshot without fallback',async()=>{
   state.mode='approved';const result=await liveStatementSource(query);
