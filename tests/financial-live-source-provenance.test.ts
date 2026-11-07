@@ -90,7 +90,11 @@ describe('production live snapshot source identity integrity',()=>{
   expect(()=>verify([cash])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
   cash.id='flow:'+refundId;cash.lines[0].id=cash.id;
   expect(()=>verify([cash])).not.toThrow();
+  // A standalone cash flow may use a user-defined flow_type with this label.
+  // The marker alone does not prove it is an actual transfer.
   cash.lines[0].classificationId='TRANSFER_DIFFERENCE:CASH';
+  expect(()=>verify([cash])).not.toThrow();
+  cash.lines[0].classificationId='BANK:NO_CASH_SUFFIX';
   expect(()=>verify([cash])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
  });
  it('forbids the same original database recognition line from being reused by another event',()=>{
