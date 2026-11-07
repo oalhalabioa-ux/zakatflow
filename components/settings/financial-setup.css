@@ -125,3 +125,87 @@
  .financial-setup-native-heading{padding:9px 11px}
  .financial-setup-native-heading button{width:100%}
 }
+
+
+/* Approved design: distinct Setup Journey tab, evidence timeline + main form + readiness. */
+.financial-setup{--setup-navy:#10243a;--setup-gold:#c6a35d;--setup-soft:#f7f8fa}
+.financial-setup-journey-grid{display:grid;grid-template-columns:minmax(205px,255px) minmax(0,1fr) minmax(195px,240px);align-items:start;gap:15px;margin:14px 0 28px;min-width:0}
+.financial-setup-journey-timeline,.financial-setup-summary-card,.financial-setup-journey-center,.financial-setup-summary-tip{min-width:0}
+.financial-setup-journey-timeline{position:sticky;top:86px;border:1px solid var(--setup-line);border-radius:14px;background:var(--card,#fff);padding:14px 10px;box-shadow:0 5px 20px #10243a0a}
+.financial-setup-journey-panel-title{display:grid;gap:5px;border-bottom:1px solid var(--setup-line);padding:5px 9px 14px;margin:0 0 7px}
+.financial-setup-journey-panel-title strong{font-size:1rem;color:var(--setup-navy)}
+.financial-setup-journey-panel-title span{font-size:.76rem;color:#657487}
+.financial-setup .financial-setup-stage-timeline.financial-setup-steps{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0;padding:4px 0}
+.financial-setup .financial-setup-stage-timeline .financial-setup-timeline-step{position:relative;min-width:0;display:grid;grid-template-columns:34px minmax(0,1fr);align-items:start;justify-content:initial;gap:10px;min-height:77px;padding:11px 8px;text-align:start;border:1px solid transparent;border-radius:9px;background:transparent;cursor:pointer}
+.financial-setup .financial-setup-timeline-step:not(:last-child)::before{content:"";position:absolute;inset-inline-start:25px;top:38px;bottom:-14px;width:2px;background:#d9e1e9;pointer-events:none}
+.financial-setup .financial-setup-timeline-step.done:not(:last-child)::before{background:#3c9567}
+.financial-setup .financial-setup-stage-timeline .financial-setup-timeline-step.current{background:#fcf8ef;border-color:#c6a35d;font-weight:700}
+.financial-setup .financial-setup-stage-timeline .financial-setup-timeline-step:hover:not(:disabled){background:#f5ebd655}
+.financial-setup .financial-setup-stage-timeline .financial-setup-timeline-step:disabled{opacity:.55;cursor:not-allowed}
+.financial-setup-timeline-index{z-index:1;display:grid;place-items:center;width:29px;height:29px;flex:none;border-radius:50%;border:1px solid #cbd5df;background:#f5f7fa;color:#52677c;font-size:.82rem;font-weight:800}
+.financial-setup-timeline-step.done .financial-setup-timeline-index{background:#27734e;border-color:#27734e;color:#fff}
+.financial-setup-timeline-step.current .financial-setup-timeline-index{background:#c6a35d;border-color:#c6a35d;color:#10243a}
+.financial-setup-timeline-copy{min-width:0;display:grid;gap:5px}
+.financial-setup-timeline-copy strong{font-size:.9rem;line-height:1.35;color:var(--setup-text);overflow-wrap:anywhere}
+.financial-setup-timeline-copy small{font-size:.73rem;line-height:1.5;color:#67758a}
+.financial-setup-timeline-state{justify-self:start;border-radius:999px;padding:3px 8px;font-size:.72rem!important;line-height:1.35!important;font-weight:700;background:#eef0f4;color:#536275}
+.financial-setup-timeline-state.state-complete{background:#e4f4e9;color:#236b42}
+.financial-setup-timeline-state.state-deferred{background:#e7eefb;color:#355a91}
+.financial-setup-timeline-state.state-incomplete,.financial-setup-timeline-state.state-blocked{background:#fff1e0;color:#8f581f}
+.financial-setup-timeline-state.state-optional,.financial-setup-timeline-state.state-reviewed{background:#edf1f5;color:#51657b}
+.financial-setup-journey-center{display:grid;gap:14px}
+.financial-setup-journey-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:23px 25px;border:1px solid #e6e9ed;border-radius:13px;background:linear-gradient(110deg,#fcfaf6,#f5f7fb);box-shadow:0 5px 20px #10243a08}
+.financial-setup-journey-hero h3{font-size:1.3rem;font-weight:850;margin:4px 0 8px;color:#10243a}
+.financial-setup-journey-hero p{font-size:.86rem;line-height:1.8;margin:0;color:#55677d;max-width:650px}
+.financial-setup-hero-eyebrow{font-size:.76rem;font-weight:800;color:#98702b}
+.financial-setup-hero-symbol{display:grid;place-items:center;flex:none;width:56px;height:56px;border-radius:14px;background:#f5ebd6;color:#956f2f;font-size:2rem}
+.financial-setup-journey-center>.financial-setup-card{margin:0;min-width:0}
+.financial-setup-journey-center .financial-setup-card-head{margin-bottom:16px}
+.financial-setup-journey-summary{display:grid;gap:13px}
+.financial-setup-summary-card{border-radius:14px;border:1px solid var(--setup-line);padding:18px 16px;background:var(--card,#fff);box-shadow:0 5px 20px #10243a08}
+.financial-setup-summary-card h3{font-size:.97rem;font-weight:800;color:var(--setup-text);margin:0 0 10px}
+.financial-setup-summary-card p{font-size:.78rem;line-height:1.7;color:#62748a;margin:10px 0}
+.financial-setup-summary-percent{font-size:2.2rem;font-weight:900;line-height:1.2;color:#b88e3c;margin:7px 0 11px}
+.financial-setup-summary-card .financial-setup-progress-bar{height:9px;width:100%;border-radius:999px;background:#e6e9ef;overflow:hidden}
+.financial-setup-summary-card .financial-setup-progress-bar span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#d3ac5b,#ad812f)}
+.financial-setup-journey-metrics{display:grid;gap:9px;margin:17px 0;border-top:1px solid var(--setup-line);padding-top:12px}
+.financial-setup-journey-metrics>div{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.8rem}
+.financial-setup-journey-metrics dt{color:#586a80}.financial-setup-journey-metrics dd{margin:0;font-weight:800;color:#10243a}
+.financial-setup-summary-refresh{width:100%;min-height:36px;background:#10243a;color:#f5ebd6;border:1px solid #10243a;border-radius:8px;cursor:pointer;font:inherit;font-size:.8rem;font-weight:750}
+.financial-setup-summary-refresh:disabled{opacity:.5;cursor:wait}
+.financial-setup-optional-list{list-style:none;padding:0;margin:13px 0 0;display:grid;gap:9px}
+.financial-setup-optional-list li{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid var(--setup-line);padding:10px 8px;border-radius:8px;font-size:.78rem}
+.financial-setup-optional-list li span{min-width:0;overflow-wrap:anywhere;font-weight:700}
+.financial-setup-optional-list li small{font-size:.68rem;white-space:nowrap;color:#74551f;background:#f5ebd6;border-radius:999px;padding:3px 7px}
+.financial-setup-summary-tip{background:#edf3ff;border-radius:12px;padding:15px 16px;color:#254169;font-size:.84rem}
+.financial-setup-summary-tip strong{font-size:.9rem}
+.financial-setup-summary-tip p{font-size:.78rem;line-height:1.8;margin:7px 0 0}
+.financial-setup-structure-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:15px 0}
+.financial-setup-structure-overview>div{display:grid;gap:6px;border:1px solid var(--setup-line);background:var(--setup-soft);border-radius:9px;padding:14px;min-width:0}
+.financial-setup-structure-overview span{font-size:.8rem;color:#62748a}
+.financial-setup-structure-overview strong{color:var(--setup-text);overflow-wrap:anywhere}
+.financial-setup-structure-link{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;background:#10243a;color:#f5ebd6;border-radius:9px;font-weight:700;text-decoration:none;max-width:100%;line-height:1.5}
+.financial-setup-defer{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:42px;border:1px solid #adbacb;border-radius:9px;background:var(--card,#fff);color:#354f70;padding:10px 14px;font:inherit;font-size:.84rem;font-weight:750;cursor:pointer}
+.financial-setup-defer:hover{border-color:#c6a35d;background:#f5ebd64d}
+@media(max-width:1180px){
+ .financial-setup-journey-grid{grid-template-columns:minmax(175px,220px) minmax(0,1fr)}
+ .financial-setup-journey-summary{grid-column:1/-1;grid-row:2;grid-template-columns:repeat(3,minmax(0,1fr))}
+ .financial-setup-journey-timeline{position:static}
+}
+@media(max-width:750px){
+ .financial-setup-journey-grid{display:flex;flex-direction:column;gap:12px}
+ .financial-setup-journey-timeline,.financial-setup-journey-center,.financial-setup-journey-summary{width:100%;box-sizing:border-box}
+ .financial-setup-journey-summary{grid-template-columns:1fr}
+ .financial-setup .financial-setup-stage-timeline.financial-setup-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+ .financial-setup .financial-setup-stage-timeline .financial-setup-timeline-step{min-height:76px;padding:8px 5px;grid-template-columns:25px minmax(0,1fr);gap:6px}
+ .financial-setup .financial-setup-timeline-step:not(:last-child)::before{display:none}
+ .financial-setup-timeline-index{width:24px;height:24px;font-size:.72rem}
+ .financial-setup-timeline-copy strong{font-size:.78rem}
+ .financial-setup-timeline-copy small{font-size:.68rem}
+ .financial-setup-journey-hero{padding:16px}
+ .financial-setup-hero-symbol{width:40px;height:40px;font-size:1.5rem}
+ .financial-setup-structure-overview{grid-template-columns:1fr}
+ .financial-setup-card{padding:14px}
+ .financial-setup-footer{display:flex;gap:8px}
+ .financial-setup-footer button{min-width:0}
+}
