@@ -115,3 +115,22 @@
 .financial-settings-shortcuts a{display:inline-flex;align-items:center;justify-content:center;flex:1 0 auto;min-height:43px;padding:8px 10px;text-align:center;border-bottom:3px solid transparent;color:var(--brand-text,#10243a);font-size:.88rem;font-weight:700;text-decoration:none;white-space:nowrap}
 .financial-settings-shortcuts a[aria-current=page]{border-bottom-color:#c6a35d;color:var(--brand-primary,#10243a);background:var(--brand-surface-soft,#f5ebd6)}
 .financial-settings-shortcuts a:focus-visible{outline:3px solid #c6a35d;outline-offset:-3px}
+
+
+/* Approved organization settings IA: three primary tabs, secondary utilities. */
+.settings-workspace{max-width:1550px}
+.settings-workspace .settings-tabs{grid-auto-columns:minmax(0,1fr);gap:0;background:var(--brand-surface,#fff);border:1px solid var(--brand-border,#dce2ea);padding:0;overflow:hidden;border-radius:13px;margin-bottom:8px;box-shadow:0 5px 20px #10243a08}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){min-height:60px;color:var(--brand-text,#10243a);border-inline-end:1px solid var(--brand-border,#dce2ea);border-radius:0;font-weight:750;padding:12px 15px;font-size:.94rem}
+.corp-shell .settings-workspace .settings-tabs a:last-child{border-inline-end:0}
+.corp-shell .settings-workspace .settings-tabs a[aria-current=page]:not(.btn),
+.corp-shell.theme-yaqeen-business .settings-workspace .settings-tabs a[aria-current=page]:not(.btn){background:#10243a;color:#f5ebd6;box-shadow:inset 0 -3px 0 #c6a35d}
+.corp-shell .settings-workspace .settings-tabs a:not([aria-current]):hover{background:#f5ebd660;color:#10243a}
+.settings-workspace .settings-secondary-links{display:flex;flex-wrap:wrap;gap:13px;justify-content:flex-end;align-items:center;margin:0 0 22px}
+.settings-secondary-links a{font-size:.8rem;text-decoration:none;border-radius:8px;padding:5px 9px;color:var(--muted,#64748b);border:1px solid transparent}
+.settings-secondary-links a[aria-current=page]{border-color:#c6a35d;color:var(--brand-primary,#10243a);font-weight:750}
+.settings-secondary-links a:hover{color:var(--brand-primary,#10243a);border-color:var(--brand-border,#dce2ea)}
+@media(max-width:700px){
+ .corp-shell .settings-workspace .settings-tabs a:not(.btn){min-height:55px;gap:4px;padding:9px 3px;font-size:.72rem}
+ .settings-workspace .settings-tabs{margin-bottom:7px}
+ .settings-workspace .settings-secondary-links{margin-bottom:14px;gap:6px}
+}
