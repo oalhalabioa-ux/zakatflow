@@ -10,6 +10,8 @@ declare
  purchase uuid:=gen_random_uuid();
  cash uuid:=gen_random_uuid();
  transfer uuid:=gen_random_uuid();
+ source_account uuid:=gen_random_uuid();
+ destination_account uuid:=gen_random_uuid();
  outgoing uuid:=gen_random_uuid();
  incoming uuid:=gen_random_uuid();
  events jsonb;
@@ -38,6 +40,18 @@ begin
  values(cash,org,'INFLOW','Temporary cash receipt','2026-03-03',
   250,'SAR',250,'ACTUAL',actor);
 
+ -- A transfer_id must refer to an actual transfer between two accounts,
+ -- not an arbitrary UUID. Seed all FK prerequisites in the disposable DB.
+ insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,created_by)
+ values(source_account,org,'Temporary transfer source','BANK','SAR',actor),
+       (destination_account,org,'Temporary transfer destination','BANK','SAR',actor);
+ insert into public.liquidity_transfers(
+  id,organization_id,source_account_id,destination_account_id,
+  source_amount,source_currency,source_base_amount,
+  destination_amount,destination_currency,destination_base_amount,
+  exchange_rate,fx_difference_base,transfer_date,created_by)
+ values(transfer,org,source_account,destination_account,
+  100,'SAR',100,105,'SAR',105,1.05,5,'2026-03-04',actor);
  -- Two real flow records represent a transfer with a 5 SAR difference;
  -- only the net difference belongs in the reporting adapter.
  insert into public.liquidity_flows(id,organization_id,direction,title,due_date,
