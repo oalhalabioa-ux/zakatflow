@@ -206,6 +206,9 @@ describe('canonical line-level source checks before branch statements',()=>{
  });
  it('matches inherited VAT recovery splits on a reversal against the original source role',async()=>{
   attachOriginal({source_role:'INPUT_VAT',recoverable_percent:60});
+  // An empty replacement metadata rate must inherit the ORIGINAL 60%,
+  // not the raw line's fallback column value (100%).
+  s.lines[2].metadata={recoverable_percent:''};
   const data=[...postedLineage().slice(0,2),{
    ...journals()[2],
    sourceLines:[
