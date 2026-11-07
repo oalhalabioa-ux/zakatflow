@@ -132,5 +132,30 @@ begin
 
  if (select count(distinct item->>'id') from jsonb_array_elements(events) item)<>4
  then raise exception 'PARITY_LEGACY_DUPLICATED_OUTPUT';end if;
-end $$;
+
+ -- Exercise the actual finance-scoped, Boolean-only SECURITY DEFINER RPC.
+ -- Do not turn these independent source reads into a claimed atomic revision.
+ if public.financial_reporting_legacy_attestation(org,date '2026-01-01',
+    date '2026-12-31',events) is distinct from true
+ then raise exception 'PARITY_LEGACY_ATTESTATION_REFUSED_VALID_SOURCE';end if;
+ -- A manipulated sale cost/flow amount must never receive the certificate.
+ begin
+  perform public.financial_reporting_legacy_attestation(org,date '2026-01-01',
+   date '2026-12-31',jsonb_set(events,'{0,lines,0,baseAmount}','"9999.0000"'::jsonb));
+  raise exception 'PARITY_TAMPERED_SOURCE_WAS_ATTESTED';
+ exception when others then
+  if sqlerrm<>'REPORTING_LEGACY_SOURCE_UNVERIFIED' then raise;end if;
+ end;
+ -- An unrelated authenticated identity cannot use another organization's
+ -- reported source manifest to obtain finance attestation.
+ perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
+ begin
+  perform public.financial_reporting_legacy_attestation(org,date '2026-01-01',
+   date '2026-12-31',events);
+  raise exception 'PARITY_FOREIGN_IDENTITY_WAS_ATTESTED';
+ exception when others then
+  if sqlerrm<>'REPORTING_ACCESS_DENIED' then raise;end if;
+ end;
+ perform set_config('request.jwt.claim.sub',actor::text,true);
+end $;
 rollback;
