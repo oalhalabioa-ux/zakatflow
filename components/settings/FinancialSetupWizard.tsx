@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import TopbarOrganizationControls from '../TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '../WorkspaceOrganizationPicker';
 import {rememberedOrganization} from '@/lib/workspace-organization';
@@ -57,6 +57,8 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
   const [readiness,setReadiness]=useState<FinancialSetupReadiness|null>(null);
   const [checkingReadiness,setCheckingReadiness]=useState(false),[readinessError,setReadinessError]=useState('');
   const [readinessRevision,setReadinessRevision]=useState(0),[finalizing,setFinalizing]=useState(false);
+  const activeScope=useRef<{orgId:string;mode:FinancialSetupMode|null}>({orgId:'',mode:null});
+  activeScope.current={orgId,mode};
 
   useEffect(()=>{
     const controller=new AbortController();
@@ -179,6 +181,9 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
         });
         if(!response.ok)throw Error('SETUP_UNAVAILABLE');
         const checked=await response.json() as FinancialSetupReadiness;
+        // A user may switch organizations or modes while the network is
+        // pending. Never complete that different scope with stale evidence.
+        if(activeScope.current.orgId!==orgId||activeScope.current.mode!==mode)return;
         if(checked.organizationId!==orgId||checked.mode!==mode||!checked.ready){
           setReadiness(checked.organizationId===orgId?checked:null);
           setReadinessError(t('تغيّرت جاهزية المؤسسة أو لم تكتمل. راجع الخطوات وأعد التحقق.','Readiness changed or is incomplete. Review the steps and check again.'));
