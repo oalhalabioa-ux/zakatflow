@@ -74,3 +74,33 @@
 .financial-setup-steps .financial-setup-step-status{font-size:.68rem;line-height:1.35;color:var(--muted,#637389);font-weight:500}
 .financial-setup-steps .done .financial-setup-step-status{color:var(--setup-navy);font-weight:750}
 @media(max-width:650px){.financial-setup-readiness-head{align-items:flex-start}.financial-setup-steps button{min-height:91px}}
+
+
+/* Connected real workspaces in the approved Yaqeen navy/gold setup journey. */
+.financial-setup-module{display:grid;gap:12px;min-width:0;width:100%}
+.financial-setup-module-intro{padding:14px 16px;background:var(--setup-soft);border-inline-start:3px solid var(--setup-gold);border-radius:9px}
+.financial-setup-module-intro strong{font-size:.97rem;color:var(--setup-navy)}
+.financial-setup-module-intro p{margin:5px 0 0;font-size:.86rem;line-height:1.7;color:var(--muted,#64748b)}
+.financial-setup-embedded{min-width:0;border:1px solid var(--setup-line);border-radius:13px;background:var(--brand-surface,#fff);box-shadow:0 7px 24px #10243a0a;overflow:hidden}
+.financial-setup-embedded-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:linear-gradient(110deg,#10243a,#203953);color:#f5ebd6;padding:12px 16px}
+.financial-setup-embedded-head>div:first-child{display:grid;gap:4px;min-width:185px}
+.financial-setup-embedded-head strong{font-size:.96rem;color:#f5ebd6}
+.financial-setup-embedded-head small{font-size:.78rem;color:#eef4f9;line-height:1.6}
+.financial-setup-embedded-actions{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.financial-setup-embedded-actions :is(a,button){display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;min-height:34px;border:1px solid #e9d3a788;border-radius:7px;color:#f5ebd6;background:transparent;text-decoration:none;font:inherit;font-size:.78rem;cursor:pointer}
+.financial-setup-embedded-actions :is(a,button):hover{background:#c6a35d22}
+.financial-setup-embedded-frame{display:block;width:100%;height:660px;min-height:380px;border:0;background:white}
+.financial-setup-embedded-footnote,.financial-setup-embedded-note{margin:0;padding:10px 14px;font-size:.82rem;line-height:1.65;background:#f8f9fb;color:#43566c;border-top:1px solid var(--setup-line)}
+.financial-setup-embedded .financial-setup-notice.error{margin:12px 14px}
+@media(max-width:840px){
+ .financial-setup-embedded-head{align-items:flex-start}
+ .financial-setup-embedded-frame{height:550px}
+ .financial-setup-embedded-actions{width:100%}
+ .financial-setup-embedded-actions :is(a,button){flex:1;white-space:normal}
+}
+@media(max-width:520px){
+ .financial-setup-embedded-frame{height:510px;min-height:440px}
+ .financial-setup-embedded-head{padding:10px 12px}
+ .financial-setup-embedded-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .financial-setup-module-intro{padding:12px}
+}
