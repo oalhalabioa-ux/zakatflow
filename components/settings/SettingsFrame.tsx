@@ -15,13 +15,13 @@ export default function SettingsFrame({
   const ar = locale === "ar",
     path = usePathname(),
     [organization, setOrganization] = useState("");
+  const [fromSetup,setFromSetup]=useState(false);
   useEffect(() => {
-    const read = () =>
-      setOrganization(
-        new URLSearchParams(location.search).get("organization") ??
-          rememberedOrganization() ??
-          "",
-      );
+    const read = () => {
+      const query=new URLSearchParams(location.search);
+      setOrganization(query.get("organization") ?? rememberedOrganization() ?? "");
+      setFromSetup(query.get("fromSetup")==='1');
+    };
     read();
     window.addEventListener("zf-organization-selection", read);
     window.addEventListener("popstate", read);
@@ -30,6 +30,9 @@ export default function SettingsFrame({
       window.removeEventListener("popstate", read);
     };
   }, [path]);
+  const tabParams=new URLSearchParams();
+  if(organization)tabParams.set('organization',organization);
+  if(fromSetup)tabParams.set('fromSetup','1');
   return (
     <main className="settings-workspace" dir={ar ? "rtl" : "ltr"}>
       <header className="settings-heading">
@@ -47,7 +50,7 @@ export default function SettingsFrame({
         {settingSections.map((s) => (
           <Link
             key={s.path}
-            href={`/${locale}/${s.path}${organization ? "?organization=" + encodeURIComponent(organization) : ""}`}
+            href={`/${locale}/${s.path}${tabParams.size?'?'+tabParams:''}`}
             aria-current={isSettingsSectionActive(path.split("/").slice(2).join("/"),s.path) ? "page" : undefined}
           >
             <svg className="settings-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
