@@ -30,6 +30,7 @@ on:
       - 'tests/qa-financial-chart-accounts.sql'
       - 'tests/qa-financial-chart-posting-rules.sql'
       - 'tests/qa-financial-chart-opening-leaf.sql'
+      - 'tests/qa-financial-retained-snapshot-leaf.sql'
       - 'tests/qa-financial-policy-coverage.sql'
       - '.github/workflows/financial-opening-workspace-qa.yml'
   workflow_dispatch:
@@ -169,7 +170,8 @@ jobs:
                             '20261104222828_unified_cash_account_openings.sql',
                             '20261106154742_financial_group_control_evidence_v1.sql',
                             '20261107010000_financial_branch_opening_distribution.sql',
-                            '20261107113000_financial_legacy_source_attestation.sql'):
+                            '20261107113000_financial_legacy_source_attestation.sql',
+                            '20261107213000_financial_retained_snapshot_account.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
@@ -190,6 +192,8 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-posting-rules.sql
       - name: Verify opening leaf mapping, audit locks and one-time year-close rollup
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-opening-leaf.sql
+      - name: Verify configured retained-earnings leaf in empty and populated live snapshots
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-retained-snapshot-leaf.sql
       - name: Verify complete one-to-one account mapping of every canonical source line
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-policy-coverage.sql
       - name: Verify unified cash opening methods and automatic bank links
