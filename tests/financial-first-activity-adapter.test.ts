@@ -1,8 +1,9 @@
 import {afterAll,beforeEach,describe,expect,it,vi} from 'vitest';
 vi.mock('../services/financial-branch-journal-source',()=>({
  observeCanonicalJournalLineage:async(organizationId:string,journals:{id:string;sourceLines:{id:string}[]}[])=>({
-  status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',organizationId,
-  sourceLineCount:journals.reduce((n,j)=>n+j.sourceLines.length,0),
+  status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',
+  organizationId:state.lineage==='foreign'?'other-tenant':organizationId,
+  sourceLineCount:journals.reduce((n,j)=>n+j.sourceLines.length,0)-(state.lineage==='missing'?1:0),
   reversalRecognitionSignVerified:false,
   links:journals.map(j=>({journalId:j.id,branchId:null,scope:'ORGANIZATION_DIRECT'})),
  }),
@@ -12,6 +13,7 @@ import fixture from './financial-reporting/statement-snapshot.json';
 
 const state=vi.hoisted(()=>({
  mode:'first-activity' as 'first-activity'|'other-error'|'no-rpc'|'approved'|'tampered-live',
+ lineage:'valid' as 'valid'|'missing'|'foreign',
  member:true,permission:true,called:[] as string[],
 }));
 const org='10000000-0000-4000-8000-000000000003';
@@ -65,7 +67,7 @@ vi.mock('../services/auth',()=>({requireUser:async()=>({
 })}));
 import {liveStatementSource,liveBranchJournalLineageEvidence} from '../services/financial-statement-live';
 const before=process.env.FINANCIAL_STATEMENTS_LIVE,firstBefore=process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING,branchBefore=process.env.FINANCIAL_BRANCH_EVIDENCE_QA,vercelBefore=process.env.VERCEL_ENV;
-beforeEach(()=>{state.mode='first-activity';state.member=true;state.permission=true;state.called=[];process.env.FINANCIAL_STATEMENTS_LIVE='true';process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='true';process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';delete process.env.VERCEL_ENV});
+beforeEach(()=>{state.mode='first-activity';state.lineage='valid';state.member=true;state.permission=true;state.called=[];process.env.FINANCIAL_STATEMENTS_LIVE='true';process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING='true';process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';delete process.env.VERCEL_ENV});
 afterAll(()=>{if(before===undefined)delete process.env.FINANCIAL_STATEMENTS_LIVE;else process.env.FINANCIAL_STATEMENTS_LIVE=before;
  if(firstBefore===undefined)delete process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING;else process.env.FINANCIAL_FIRST_ACTIVITY_REPORTING=firstBefore;
  if(branchBefore===undefined)delete process.env.FINANCIAL_BRANCH_EVIDENCE_QA;else process.env.FINANCIAL_BRANCH_EVIDENCE_QA=branchBefore;
@@ -108,6 +110,15 @@ describe('no-opening legal entity read adapter',()=>{
    observed:{status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',sourceLineCount:7},
   });
   expect(value.observed.links).toHaveLength(6);
+ });
+ it('blocks an otherwise balanced Production report when RLS original source lines are missing or cross-tenant',async()=>{
+  state.mode='approved';process.env.VERCEL_ENV='production';
+  state.lineage='missing';
+  await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_SOURCE_LINEAGE_INCOMPLETE');
+  state.lineage='foreign';
+  await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_SOURCE_LINEAGE_INCOMPLETE');
+  state.lineage='valid';
+  expect((await liveStatementSource(query)).statements.position.assets).toBe('630.0000');
  });
  it('keeps journal-lineage observation disabled outside explicitly enabled QA, including Production',async()=>{
   state.mode='approved';process.env.FINANCIAL_BRANCH_EVIDENCE_QA='false';
