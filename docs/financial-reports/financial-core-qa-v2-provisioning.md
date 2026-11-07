@@ -76,3 +76,30 @@ Deployment Protection remained on (`ssoProtection.enabled=true`), no long-lived 
 **PR #360 remains Draft and unmerged.** Green schema parity is not certified accounting output. Do not run migration repair or copy physical Production backup and its real Auth/customer data into V2.
 
 Reference: `docs/financial-reports/production-core-compatibility-audit-2026-11-07.md`, `scripts/financial-reports/schema-parity-manifest.sql`, Supabase clone warning https://supabase.com/docs/guides/platform/clone-project .
+
+## 6. User-reported UI parity gaps vs current Production — verified 2026-11-07
+
+**Important:** A successful **schema parity gate** does not mean that hosted Financial Core QA V2 is a functionally identical, ready-to-use **application** clone.
+
+Read-only review of the exact immutable Vercel deployments and GitHub refs:
+- Production `zakatflow` main deployed SHA `939cc6cfe2cdbb0d430a10d2228dc8bb0109512c`, status READY.
+- V2 QA Git Preview deployed SHA `ba4daf7c8f10731e60bf31713f649bad81eb5978`, status READY. QA branch currently has **200 commits ahead**, **zero behind**, compared with deployed Production main.
+- GitHub comparison: 113 visible changed files, of which 79 are added and 34 modified, **none deleted** (comparison limited to returned files). A newer QA build is needed after environment flags change.
+- Public `/` and `/ar/login` fetched from the immutable **Production** and **QA** Vercel deployments returned HTTP 200; the extracted visible login/marketing text agreed. This does **not** verify authenticated workspace UI pixel parity.
+- QA `financial-reports` page now routes `scope=PERSONAL` to `PersonalFinancialStatements`; `OrganizationSettings` adds a setup-journey shortcut and fiscal/accounting pages. Navigation scope and report-source components also changed; these are **new PR-only behavior**, not proven to be in current Production.
+- `components/financial-reports/FinancialStatementSource.tsx` contains a branch selection explicitly `disabled` with “Branch — filter pending integration” and a cost-center selector explicitly `disabled` with “Cost center — filter pending integration”. These are **code-level incomplete features**, not missing SQL migrations or account permissions; do **not** mark them complete or enable them by CSS.
+- V2 contains **zero production Auth users, tenants, financial events, or approved openings** by design. Menus, org selectors, company HQ/branches and financial data cannot match an existing signed-in Production account without a **synthetic QA owner/organization/HQ/branch fixture and QA-only Auth allowlisted redirect**. Copying real Production user data to make a visual match is expressly prohibited.
+- Production has financial opening and live statements flags enabled. The first QA preview was built before its QA-only seven financial flags were set. Actual QA API request `/api/financial-reporting/live-statements?action=context` returned 404 `REPORTING_UNAVAILABLE`, confirming **functional mismatch** in the deployed build. The QA Preview-only flags are now configured, **but Vercel returned 402 `api-deployments-free-per-day`** on attempted rebuild, so they cannot be considered active until a new READY deployment is inspected.
+- No app-level authenticated workflow, real browser screenshots from logged-in Production/QA in identical roles, or report amount reconciliation against a maintained synthetic fixture have yet been certified.
+
+### Mandatory acceptance contract before declaring V2 the official Core replacement
+1. New **QA-only** Preview build at the approved PR head after Vercel API quota resets. Inspect actual environment and confirm unauthenticated report/opening APIs return **401 rather than feature-disabled 404**; never remove auth to pass.
+2. Keep the **same approved Production site/logo/theme/nav/module interactions** by comparison of matching desktop/mobile pages and common role/scope; new financial pages must be additive and maintain existing routes rather than silently substituting old behavior.
+3. Configure isolated QA Auth site URL and redirect allowlists for the dedicated Vercel domain; use **QA-only synthetic credentials**, no Production Auth users, Resend secret or OAuth client shared with live tenants.
+4. Create/persist **synthetic** representative personal and corporate owner + subsidiary + HQ/two branches with matched account chart, 1-Jan and 1-Jul years, cash, assets, transactions, opening, VAT/refunds, and trial subscriptions. Use real supported Auth administration/registration APIs, not fake manually inserted long-lived `auth.users` records.
+5. Record a module-by-module parity matrix: navigation, organizations/roles, cash/banks, assets, purchases/sales/VAT, receivables/payables, budget, financial reports, account chart, opening balances, fiscal years, users/invites, owner/subscription admin, bilingual and mobile themes. Classify each variance as (**intentional PR enhancement**, **QA seed/auth difference**, **feature-flag mismatch**, **unimplemented feature**, **regression**) and assign acceptance evidence.
+6. Implement and certify **real branch/cost-center report filtering** (or explicitly retain it as a rejected/incomplete task), source revision atomicity, personal/institutional/group totals and elimination; do not suggest disabled control is working.
+7. For identical test fixtures and role permissions, run signed-in browser screenshots and accounting totals for Production baseline behavior **without copying private Production customer data**. Record errors and fix only in PR/QA.
+8. **No Production release, existing QA deletion, or PR merge** until all mandatory gates are signed off.
+
+**Status: schema/SQL contract PASS; hosted browser feature parity FAIL/BLOCKED.** The user-reported missing/inactive features are valid unresolved QA defects, not a claim of full release readiness.
