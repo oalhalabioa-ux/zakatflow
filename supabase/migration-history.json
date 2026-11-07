@@ -1,5 +1,5 @@
 {
-  "observed_on": "2026-10-30",
+  "observed_on": "2026-11-07",
   "project_ref": "ejpzcsfwqziqxwhvqnay",
   "description": "Canonical applied history restored from read-only metadata; does not apply or repair hosted migrations.",
   "entries": [
@@ -1754,6 +1754,38 @@
       "expected_md5": "718102966317c94e82506cd272562590",
       "file_sha256": "f925ff22ce73c943b7efef8f6d4a8ed412515fb5af37b9417c7ee974c09889b2",
       "validation_project": "Disposable equity opening and duplicate-account rejection only; not applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261106154742_financial_group_control_evidence_v1.sql",
+      "version": "20261106154742",
+      "name": "financial_group_control_evidence_v1",
+      "expected_md5": "7792151c6a73f660919037fcbb22d79d",
+      "file_sha256": "094dca4bf40f81c43dd12bb33503dbd5173b9e345fa6c494f334ffe79bd4c978",
+      "validation_project": "Disposable group legal-control evidence, audit and tenant-isolation tests only; not applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261107010000_financial_branch_opening_distribution.sql",
+      "version": "20261107010000",
+      "name": "financial_branch_opening_distribution",
+      "expected_md5": "6bd291eb3adb75b20be2a13450986c33",
+      "file_sha256": "e73516b7dba17ba1d51342063b4aa9f57a6fc3224317953e4206330dd8a106a2",
+      "validation_project": "Disposable branch-opening distribution; no Production or hosted QA migration applied"
+    },
+    {
+      "path": "supabase/migrations/20261107113000_financial_legacy_source_attestation.sql",
+      "version": "20261107113000",
+      "name": "financial_legacy_source_attestation",
+      "expected_md5": "92beadb6fdf2e51f4cb1818f2ca74f9c",
+      "file_sha256": "4c598cf516f57266e50f45eb1338371ff3c91ca7fc3dbef1527e8cff3ad4ef4a",
+      "validation_project": "Disposable QA-only approved-opening legacy adoption and cross-user RLS acceptance; not applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261107213000_financial_retained_snapshot_account.sql",
+      "version": "20261107213000",
+      "name": "financial_retained_snapshot_account",
+      "expected_md5": "5a386a0c78f8f8804bc15187dd85fd68",
+      "file_sha256": "92bced623652f050fc1c9ba2184ea75dccf3815144ded9fe13a81cc1cbda64b6",
+      "validation_project": "Disposable full-schema and isolated financial QA only; NOT applied to Production"
     }
   ]
 }

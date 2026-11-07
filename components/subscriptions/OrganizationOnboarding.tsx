@@ -28,7 +28,7 @@ export default function OrganizationOnboarding({ locale }: { locale: string }) {
       rememberOrganization(b.id);
       rememberWorkspaceScope("ORGANIZATION");
       location.assign(
-        `/${locale}/dashboard?scope=ORGANIZATION&organization=${b.id}`,
+        `/${locale}/settings/financial/setup?organization=${encodeURIComponent(b.id)}`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "REQUEST_FAILED");

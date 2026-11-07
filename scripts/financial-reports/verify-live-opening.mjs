@@ -33,11 +33,86 @@ try{
  const scope={p_org:org,p_fiscal_start:'2026-01-01'};
  await check('Real user sessions isolate opening source reads and reject forged metadata',async()=>{assert.ifError((await a.client.rpc('financial_opening_workspace',scope)).error);assert.ok((await b.client.rpc('financial_opening_workspace',scope)).error);assert.ifError((await viewer.client.auth.updateUser({data:{role:'OWNER',financial_core:{approve:true}}})).error);assert.ok((await viewer.client.rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:'x',p_entries:{},p_reason:''})).error)});
  const cookies=[],ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>cookies,setAll:cs=>{for(const c of cs){const i=cookies.findIndex(x=>x.name===c.name);if(i>=0)cookies.splice(i,1);cookies.push(c)}}}});assert.ifError((await ssr.auth.signInWithPassword({email:a.email,password:a.password})).error);
- const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',VERCEL_ENV:'preview'};
+ const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',FINANCIAL_SOURCE_INTEGRITY_DIAGNOSTICS:'true',VERCEL_ENV:'preview'};
  const build=spawn('npm',['run','build'],{env,stdio:'inherit'});const buildExit=await new Promise((resolve,reject)=>{const deadline=setTimeout(()=>{build.kill('SIGTERM');reject(Error('ISOLATED_NEXT_BUILD_TIMEOUT'))},300000);build.on('error',e=>{clearTimeout(deadline);reject(e)});build.on('exit',code=>{clearTimeout(deadline);resolve(code)})});assert.equal(buildExit,0);
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
  for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context',{signal:AbortSignal.timeout(5000)})).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
  const{chromium}=await import(process.env.FINANCIAL_SOURCE_BROWSER_MODULE);browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1672,height:941},acceptDownloads:true});await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));page=await context.newPage();page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
+ await check('Financial setup reads real organization readiness, blocks fabricated completion and cross-tenant access',async()=>{
+  const endpoint=app+'/api/financial-reporting/setup-readiness?';
+  const params=new URLSearchParams({organization:org,mode:'EXISTING'});
+  const own=await page.request.get(endpoint+params.toString());
+  assert.equal(own.status(),200,'Owned organization readiness must be available');
+  const ready=await own.json();
+  assert.equal(ready.organizationId,org);
+  assert.equal(ready.mode,'EXISTING');
+  assert.equal(ready.statuses.chart,'READY','Legacy canonical 3300 chart must not require a new posting leaf');
+  assert.equal(ready.statuses.fiscal,'READY','Existing valid fiscal year must stay valid');
+  assert.equal(ready.statuses.posting,'IN_PROGRESS','No approved posting policy may not be treated as ready');
+  assert.equal(ready.statuses.opening,'IN_PROGRESS','An unapproved opening may not be treated as ready');
+  assert.equal(ready.ready,false);
+  assert.equal(ready.certification,'NOT_CERTIFIED');
+  const foreign=await page.request.get(endpoint+new URLSearchParams({organization:other,mode:'EXISTING'}));
+  assert.equal(foreign.status(),403,'Cross-tenant setup evidence must be denied');
+  await page.goto(app+'/en/settings/financial/setup?organization='+org);
+  const savedKey='yaqeen:financial-setup:v1:'+org;
+  await page.evaluate(({key})=>localStorage.setItem(key,JSON.stringify({
+   mode:'EXISTING',industry:'GENERAL',
+   completed:['organization','chart','fiscal','posting','banking','opening','users','review','finished'],
+   step:'review'
+  })),{key:savedKey});
+  const reloaded=page.waitForResponse(response=>response.url().includes('/api/financial-reporting/setup-readiness?'));
+  await page.reload();await reloaded;
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  await page.getByRole('heading',{name:'Review',exact:true}).waitFor();
+  const finish=page.getByRole('button',{name:/Finish setup/});
+  assert.equal(await finish.isDisabled(),true,'Local browser progress must not allow finish');
+  assert.notEqual(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100',
+   'Local review flags must never report 100% financial readiness');
+  await page.screenshot({path:out+'/financial-setup-readiness-en-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(app+'/ar/settings/financial/setup?organization='+org);
+  await page.getByRole('heading',{name:'إعداد المؤسسة'}).waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
+   'The financial setup page must remain within the mobile viewport');
+  await page.screenshot({path:out+'/financial-setup-readiness-ar-mobile.png',fullPage:true});
+  await page.evaluate(({key})=>localStorage.removeItem(key),{key:savedKey});
+  await page.setViewportSize({width:1672,height:941});
+ });
+ await check('The organization setup journey embeds real scoped workspaces without nested shell',async()=>{
+  await page.goto(app+'/en/settings/financial/setup?organization='+org);
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  await page.getByRole('button',{name:/Existing organization/}).click();
+  const embedded=page.locator('iframe.financial-setup-embedded-frame');
+  await embedded.waitFor();
+  const src=await embedded.getAttribute('src');
+  assert.ok(src?.startsWith('/en/settings?'),'Organization stage must reuse the real settings workspace');
+  assert.ok(src.includes('organization='+org),'The active organization must stay fixed');
+  assert.ok(src.includes('setupEmbed=1'),'Child shell must be marked as an embedded setup workspace');
+  const framed=await page.request.get(app+src);
+  assert.equal(framed.headers()['x-frame-options'],'SAMEORIGIN',
+    'Authenticated setup forms must not be framed by another website');
+  assert.match(framed.headers()['content-security-policy']??'',/frame-ancestors 'self'/,
+    'Setup forms must also have a same-origin frame-ancestors policy');
+  const embeddedPage=page.frameLocator('iframe.financial-setup-embedded-frame');
+  await embeddedPage.locator('[data-setup-embedded-document]').waitFor({state:'attached'});
+  assert.equal(await embeddedPage.locator('.corp-sidebar').evaluate(el=>getComputedStyle(el).display),'none',
+   'The original navigation sidebar must not be duplicated inside the setup window');
+  await page.locator('.financial-setup-steps button').nth(1).click();
+  await page.locator('[data-setup-native-workspace="chart"]').waitFor();
+  await page.locator('.coa-page').waitFor();
+  await page.locator('[data-setup-native-workspace="chart"] h1').filter({hasText:'Chart of accounts'}).waitFor();
+  assert.equal(await embedded.count(),0,
+    'Chart management must now be a native form in the same journey, without a nested frame');
+  assert.equal(await page.locator('#corp-organization-controls .corp-organization-inner').count(),1,
+    'The native chart must not insert a duplicate organization picker into the shared header');
+  await page.screenshot({path:out+'/financial-setup-linked-chart-en-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
+    'Linked setup workspace must fit the mobile viewport');
+  await page.screenshot({path:out+'/financial-setup-linked-chart-en-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1672,height:941});
+ });
  await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{
   sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
    do $$ declare asset uuid; d date; begin
@@ -179,7 +254,18 @@ try{
   insert into public.organization_entities(organization_id,name) select '${org}','Refund QA' where not exists(select 1 from public.organization_entities where organization_id='${org}' and active);
   insert into public.vat_contacts(id,organization_id,contact_type,name,created_by) values('${contact}','${org}','SUPPLIER','QA refund supplier','${a.id}');
   insert into public.financial_classifications(organization_id,code,name,classification_type,created_by) select '${org}',type,type,type,'${a.id}' from unnest(array['OPEX','TAX','PAYABLE']) type on conflict(organization_id,code) do nothing;`);
-  async function expectResponse(response,status){const body=await response.json();assert.equal(response.status(),status,JSON.stringify(body));return body}
+  async function expectResponse(response,status){
+    const body=await response.json();
+    if(response.status()!==status){
+     // Logs belong to this disposable local QA stack only. Surface sanitized
+     // diagnostic codes, never a full SQL statement or user/tenant data.
+     const log=await readFile(out+'/next.log','utf8');
+     console.log('ISOLATED_REPORTING_SOURCE_CODES',log.split('\n')
+      .filter(line=>line.includes('REPORTING_QA_DIAGNOSTIC_CODE'))
+      .slice(-8).map(line=>line.match(/REPORTING_QA_DIAGNOSTIC_CODE\s+([A-Z_]+)/)?.[1]??'UNKNOWN'));
+    }
+    assert.equal(response.status(),status,JSON.stringify(body));return body;
+   }
   const req=page.request,scope={organization_id:org};
   const invoice=await expectResponse(await req.post(app+'/api/vat',{data:{...scope,action:'add_document',document_number:'QA-PUR-01',document_type:'PURCHASE',document_kind:'INVOICE',transaction_date:'2026-02-01',due_date:'2026-02-01',counterparty_name:'QA refund supplier',counterparty_contact_id:contact,supply_type:'STANDARD',net_amount:100,recoverable_percent:50,currency:'SAR',exchange_rate:1}}),201);
   await expectResponse(await req.post(app+'/api/vat/recognition',{data:{...scope,document_id:invoice.id}}),200);

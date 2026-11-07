@@ -14,13 +14,26 @@ import SourceStatementTable,{statementAmount as amount} from './SourceStatementT
 import {ReportCard,Donut,ComboChart} from './ReportCharts';
 import {type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
 import type {OpeningWorkspaceData} from '../../lib/financial-opening-workspace';
+import type {ScopeReadiness,ScopeReadinessIssue} from '../../services/financial-scope-readiness';
 import {financialDraftOpeningReport,type DraftOpeningReport} from '../../lib/financial-draft-opening-report';
 import DraftOpeningStatementPreview from './DraftOpeningStatementPreview';
 import {financialSourceRowsCsv} from '../../lib/financial-budget-source';
 import './financial-reports-suite.css';
 import './financial-reporting-source.css';
 
-type Context={organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string}[];
+type Context={organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string;parentOrganizationId:string|null}[];
+type ReportingScope='COMPANY_DIRECT'|'COMPANY_WITH_BRANCHES'|'GROUP_WITH_SUBSIDIARIES';
+const scopeIssueLabels:Record<ScopeReadinessIssue,[string,string]>={
+ CANONICAL_SOURCE_UNVERIFIED:['تغطية جميع السجلات ونسختها المرجعية غير مثبتة بعد','Complete source coverage and revision are not attested'],
+ BRANCH_REGISTRY_UNVERIFIED:['يلزم تحديد سجلات الفروع التشغيلية بصورة موثوقة','The authoritative operating-branch registry must be established'],
+ DIRECT_OPENING_ALLOCATION_UNVERIFIED:['يلزم فصل رصيد الشركة المباشر عن أرصدة فروعها دون تغيير القيود الأصلية','Opening balances must separate direct company balances from branches without changing source vouchers'],
+ ENTITY_ACCOUNT_LINK_UNRESOLVED:['بعض الحسابات مرتبطة بكيانات لا تظهر ضمن سجل الفروع المتاح؛ يلزم التحقق من المصدر والصلاحيات','Some account entity links are not visible in the accessible branch register; verify source and permissions'],
+ ENTITY_EVENT_LINK_UNRESOLVED:['توجد قيود مرتبطة بوحدات تشغيلية أو فروع غير مثبتة؛ لا يجوز نسبتها تلقائيًا إلى الشركة الرئيسية','Some journal entries refer to unverified operating units or branches; never silently attribute them to headquarters'],
+ GROUP_MEMBERSHIP_UNVERIFIED:['لم يثبت اكتمال شركات المجموعة وصلاحية الاطلاع عليها جميعًا','Complete group membership and every member’s access are unverified'],
+ GROUP_CONTROL_UNVERIFIED:['تحتاج علاقات السيطرة والملكية إلى تواريخ فعالية موثقة','Effective-dated control and ownership require evidence'],
+ GROUP_ELIMINATION_UNVERIFIED:['لم تتحقق استبعادات المعاملات والأرصدة المتبادلة','Intercompany eliminations have not been verified'],
+ GROUP_CURRENCY_AND_NCI_UNVERIFIED:['ترجمة العملات وحقوق الأقلية وتسوية الفترات غير مكتملة','FX translation, non-controlling interests and period alignment are incomplete'],
+};
 const Money=Decimal.clone({precision:50});
 const ratio=(a:string,b:string,percent=false)=>new Money(b).isZero()?'—':new Money(a).div(b).times(percent?100:1).toFixed(2)+(percent?'%':'');
 const titles=STATEMENT_HUB_TITLES;
@@ -31,6 +44,11 @@ async function readStatementResponse(response:Response){
 }
 export default function FinancialStatementSource({initialView='income',initialEnglish=false,live=false,preferredOrg=''}:{preferredOrg?:string;initialView?:StatementHubView;initialEnglish?:boolean;live?:boolean}){
  const[en,setEn]=useState(initialEnglish),[view,setView]=useState<StatementHubView>(initialView),[context,setContext]=useState<Context>([]),[organization,setOrganization]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[snapshot,setSnapshot]=useState<StatementSourceSnapshot|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[exportOpen,setExportOpen]=useState(false),[exporting,setExporting]=useState(false);
+ const[reportScope,setReportScope]=useState<ReportingScope>('COMPANY_WITH_BRANCHES');
+ const[scopeDiagnostics,setScopeDiagnostics]=useState<ScopeReadiness|null>(null),[scopeChecking,setScopeChecking]=useState(false);
+ // Current live RPC is the legal company's FULL ledger, including its branches.
+ // It cannot safely represent "head office only" or all subsidiary books.
+ const scopeReady=reportScope==='COMPANY_WITH_BRANCHES';
  useEffect(()=>setView(initialView),[initialView]);
  const[comparison,setComparison]=useState<StatementSourceSnapshot|null>(null);
  const[draftPreview,setDraftPreview]=useState<DraftOpeningReport|null>(null),[preferDraft,setPreferDraft]=useState(false),[draftLoading,setDraftLoading]=useState(false);
@@ -38,19 +56,31 @@ export default function FinancialStatementSource({initialView='income',initialEn
  function changeView(id:StatementHubView){setView(id);setExportOpen(false);if(live){const u=new URL(window.location.href);u.searchParams.set('screen',id);window.history.replaceState(null,'',u)}}
  const endpoint=live?'/api/financial-reporting/live-statements':'/api/financial-reporting/statements',expectedOrigin=live?'LIVE_CANONICAL_EVENTS':'LOCAL_QA_CANONICAL_EVENTS';
  useEffect(()=>{const abort=new AbortController();setSnapshot(null);setContext([]);setError('');setLoading(true);fetch(endpoint+'?action=context',{signal:abort.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');return r.json()}).then((rows:Context)=>{if(abort.signal.aborted)return;setContext(rows);const initial=preferredOrg?rows.find(row=>row.organizationId===preferredOrg):(live?rows.find(row=>row.organizationId===rememberedOrganization()):undefined)??rows[0];setOrganization(initial?.organizationId??'');setFrom(initial?.fiscalStart??'');setTo(initial?(live&&initial.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):initial.fiscalEnd):'');setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[refresh,endpoint,preferredOrg]);
- useEffect(()=>{setSnapshot(null);setComparison(null);if(!organization||!from||!to||!context.some(o=>o.organizationId===organization))return;const abort=new AbortController();setLoading(true);setError('');const q=new URLSearchParams({action:'statements',organization,from,to});fetch(endpoint+'?'+q,{signal:abort.signal,cache:'no-store'}).then(readStatementResponse).then(async(s:StatementSourceSnapshot)=>{if(abort.signal.aborted)return;if(s.origin!==expectedOrigin||s.statements.organizationId!==organization||s.statements.from!==from||s.statements.to!==to)throw Error('UNAVAILABLE');let previous:StatementSourceSnapshot|null=null;const period=priorStatementPeriod(from,to);if(live&&context.some(o=>o.organizationId===organization&&o.fiscalStart<=period.from&&o.fiscalEnd>=period.to)){const response=await fetch(endpoint+'?'+new URLSearchParams({action:'statements',organization,...period}),{signal:abort.signal,cache:'no-store'});if(response.status===401||response.status===403)throw Error('DENIED');if(response.ok)previous=validStatementComparison(s,await response.json())}if(abort.signal.aborted)return;setComparison(previous);setSnapshot(s);setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[organization,from,to,context,endpoint,expectedOrigin]);
+ useEffect(()=>{setSnapshot(null);setComparison(null);if(!scopeReady){setLoading(false);return}if(!organization||!from||!to||!context.some(o=>o.organizationId===organization))return;const abort=new AbortController();setLoading(true);setError('');const q=new URLSearchParams({action:'statements',organization,from,to});fetch(endpoint+'?'+q,{signal:abort.signal,cache:'no-store'}).then(readStatementResponse).then(async(s:StatementSourceSnapshot)=>{if(abort.signal.aborted)return;if(s.origin!==expectedOrigin||s.statements.organizationId!==organization||s.statements.from!==from||s.statements.to!==to)throw Error('UNAVAILABLE');let previous:StatementSourceSnapshot|null=null;const period=priorStatementPeriod(from,to);if(live&&context.some(o=>o.organizationId===organization&&o.fiscalStart<=period.from&&o.fiscalEnd>=period.to)){const response=await fetch(endpoint+'?'+new URLSearchParams({action:'statements',organization,...period}),{signal:abort.signal,cache:'no-store'});if(response.status===401||response.status===403)throw Error('DENIED');if(response.ok)previous=validStatementComparison(s,await response.json())}if(abort.signal.aborted)return;setComparison(previous);setSnapshot(s);setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[organization,from,to,context,endpoint,expectedOrigin,scopeReady]);
+ useEffect(()=>{
+  setScopeDiagnostics(null);setScopeChecking(false);
+  if(!live||reportScope==='COMPANY_WITH_BRANCHES'||!organization||!from||!to||!context.some(o=>o.organizationId===organization))return;
+  const abort=new AbortController();setScopeChecking(true);
+  const q=new URLSearchParams({action:'scope-readiness',organization,from,to,scope:reportScope});
+  fetch(endpoint+'?'+q,{signal:abort.signal,cache:'no-store'}).then(async response=>{
+   if(!response.ok)throw Error('PREFLIGHT_UNAVAILABLE');return response.json() as Promise<ScopeReadiness>;
+  }).then(value=>{
+   if(!abort.signal.aborted&&value.status==='BLOCKED'&&value.organizationId===organization&&value.from===from&&value.to===to&&value.scope===reportScope)setScopeDiagnostics(value);
+  }).catch(()=>{if(!abort.signal.aborted)setScopeDiagnostics(null)}).finally(()=>{if(!abort.signal.aborted)setScopeChecking(false)});
+  return()=>abort.abort();
+ },[live,reportScope,organization,from,to,context,endpoint,refresh]);
  // Scope is checked during render too, so an organization/period change cannot
  // expose stale numbers or enable export before its effect clears the old result.
- const ready=snapshot&&snapshot.statements.organizationId===organization&&snapshot.statements.from===from&&snapshot.statements.to===to?snapshot:null;
- const activeKey=useRef('');activeKey.current=[organization,from,to,view,en,refresh].join('|');
+ const ready=scopeReady&&snapshot&&snapshot.statements.organizationId===organization&&snapshot.statements.from===from&&snapshot.statements.to===to?snapshot:null;
+ const activeKey=useRef('');activeKey.current=[organization,from,to,view,en,refresh,reportScope].join('|');
  const previous=ready?validStatementComparison(ready,comparison):null;
  const selected=context.find(o=>o.organizationId===organization&&o.fiscalStart<=from&&o.fiscalEnd>=to)??context.find(o=>o.organizationId===organization);
- const currentDraft=draftPreview&&draftPreview.organizationId===organization&&draftPreview.fiscalStart===selected?.fiscalStart?draftPreview:null;
+ const currentDraft=scopeReady&&draftPreview&&draftPreview.organizationId===organization&&draftPreview.fiscalStart===selected?.fiscalStart?draftPreview:null;
  const displayDraft=Boolean(currentDraft&&(!ready||preferDraft));
  const draftFiscalStart=selected?.fiscalStart??'';
  useEffect(()=>{
   const abort=new AbortController();setDraftPreview(null);setDraftLoading(false);
-  if(!live||!organization||!draftFiscalStart)return()=>abort.abort();
+  if(!live||!scopeReady||!organization||!draftFiscalStart)return()=>abort.abort();
   setDraftLoading(true);
   const params=new URLSearchParams({organization,fiscalStart:draftFiscalStart});
   fetch('/api/financial-reporting/openings?'+params,{cache:'no-store',signal:abort.signal})
@@ -59,11 +89,11 @@ export default function FinancialStatementSource({initialView='income',initialEn
    .catch(()=>{if(!abort.signal.aborted)setDraftPreview(null)})
    .finally(()=>{if(!abort.signal.aborted)setDraftLoading(false)});
   return()=>abort.abort();
- },[organization,draftFiscalStart,refresh,live]);
+ },[organization,draftFiscalStart,refresh,live,scopeReady]);
  function changeOrganization(key:string){setSnapshot(null);setPreferDraft(false);const[id,fiscal]=key.split('|');const o=context.find(o=>o.organizationId===id&&o.fiscalStart===fiscal);setOrganization(id);setFrom(o?.fiscalStart??'');setTo(o?(live&&o.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):o.fiscalEnd):'')}
- function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+ function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  async function download(kind:'csv'|'xlsx'|'pdf'){
-  if(!ready)return;const key=activeKey.current;setExporting(true);setExportOpen(false);
+  if(!ready||!scopeReady)return;const key=activeKey.current;setExporting(true);setExportOpen(false);
   try{
    // Reauthorize at export time, including print. A cached view is not permission.
    const q=new URLSearchParams({action:'statements',organization,from,to});
@@ -81,10 +111,26 @@ export default function FinancialStatementSource({initialView='income',initialEn
  }
 
  const nav=<><button className="module-toggle" data-module-current="true" aria-expanded="true"><Icon/><span className="corp-label">{t('التقارير والقوائم المالية','Financial reports & statements')}</span></button><div className="corp-subnav">{(Object.keys(titles)as StatementHubView[]).map(id=><button key={id} aria-current={view===id?'page':undefined} onClick={()=>changeView(id)}><Icon name="file" size={18}/><span className="corp-label">{titles[id][en?1:0]}</span></button>)}</div></>;
- const organizations=[...new Map(context.map(o=>[o.organizationId,{id:o.organizationId,name:o.name}])).values()];
+ const organizations=[...new Map(context.map(o=>[o.organizationId,{id:o.organizationId,name:o.name,parent_organization_id:o.parentOrganizationId}])).values()];
  const periods=context.filter(o=>o.organizationId===organization);
  const topbar=<div className="fs-preview-topbar"><label><Icon name="building" size={19}/><select aria-label={t('المؤسسة','Organization')} value={organization&&selected?organization+'|'+selected.fiscalStart:''} disabled={!context.length} onChange={e=>changeOrganization(e.target.value)}>{!organization&&context.length>0&&<option value="">{t('اختر مؤسسة متاحة','Select an available organization')}</option>}{context.length?context.map(o=><option key={o.organizationId+'|'+o.fiscalStart} value={o.organizationId+'|'+o.fiscalStart}>{o.name}{live&&o.fiscalStart?' · '+o.fiscalStart.slice(0,4):''}</option>):<option value="">{t('المؤسسة','Organization')}</option>}</select></label><span className="fs-topbar-note">{live?t('السجلات والقوائم المعتمدة','Live registers & approved statements'):t('اختبار محاسبي محلي معزول','Isolated local accounting test')}</span><button onClick={()=>setEn(v=>!v)} aria-label={t('Switch to English','التبديل إلى العربية')}><Icon name="globe" size={20}/>{en?'English':'العربية'}</button></div>;
- const content=<div className="fs-surface" data-screen={view}>{live&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={!en} label={t('المؤسسة','Organization')} organizations={organizations} value={organization} restore={false} onChange={id=>{const period=context.find(o=>o.organizationId===id);if(period)changeOrganization(id+'|'+period.fiscalStart)}}/></TopbarOrganizationControls>}
+ const content=<div className="fs-surface" data-screen={view}>{live&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={!en} label={t('المؤسسة','Organization')} organizations={organizations} value={organization} group={reportScope==='GROUP_WITH_SUBSIDIARIES'} onGroupChange={withSubsidiaries=>{setReportScope(withSubsidiaries?'GROUP_WITH_SUBSIDIARIES':'COMPANY_WITH_BRANCHES');setExportOpen(false)}} restore={false} onChange={id=>{const period=context.find(o=>o.organizationId===id);if(period)changeOrganization(id+'|'+period.fiscalStart)}}/></TopbarOrganizationControls>}
+  <div className="fs-report-scope-filters" role="group" aria-label={t('نطاق وفلاتر التقرير المالي','Financial reporting scope and filters')}>
+   <label><span>{t('مستوى التقرير','Report level')}</span><select aria-label={t('مستوى التقرير','Report level')} value={reportScope} onChange={e=>{setReportScope(e.target.value as ReportingScope);setExportOpen(false);setPreferDraft(false)}}>
+    <option value="COMPANY_DIRECT">{t('الشركة فقط — الإدارة','Company direct — headquarters')}</option>
+    <option value="COMPANY_WITH_BRANCHES">{t('الشركة وفروعها','Company and branches')}</option>
+    <option value="GROUP_WITH_SUBSIDIARIES">{t('الشركة وفروعها والشركات التابعة','Company, branches and subsidiaries')}</option>
+   </select></label>
+   <label><span>{t('الفرع','Branch')}</span><select aria-label={t('الفرع — التصفية قيد الربط','Branch — filter pending integration')} disabled value="ALL"><option value="ALL">{reportScope==='COMPANY_DIRECT'?t('الإدارة الرئيسية','Headquarters'):t('جميع الفروع','All branches')}</option></select></label>
+   <label><span>{t('مركز التكلفة','Cost center')}</span><select aria-label={t('مركز التكلفة — التصفية قيد الربط','Cost center — filter pending integration')} disabled value="ALL"><option value="ALL">{t('جميع المراكز','All cost centers')}</option></select></label>
+   <small>{t('تصفية الفرع ومركز التكلفة قيد الربط بالمصدر المحاسبي؛ لا تُعرض أرقام جزئية أو غير مؤكدة.','Branch and cost-center filtering awaits verified accounting data; no incomplete or unverified figures are shown.')}</small>
+  </div>
+  {!scopeReady&&<div className="fs-scope-pending" role="status"><Icon name="settings" size={22}/><div><strong>{reportScope==='COMPANY_DIRECT'?t('قوائم عمليات الشركة المباشرة قيد الربط','Direct-company source separation is pending'):t('التوحيد المالي للمجموعة قيد التطوير','Group consolidation is under development')}</strong><p>{reportScope==='COMPANY_DIRECT'?t('حركات الشركة التي لا تحمل فرعًا صحيحة، لكنها تحتاج فصلًا موثوقًا عن حركات الفروع وأرصدة بدايتها لاستخراج تقرير مستقل للمركز الرئيسي. لا نعيد تخصيص القيود تلقائيًا.','Organization-direct transactions without a branch are valid. An authoritative separation from branch journals and openings is needed to report headquarters alone; source vouchers are never silently reallocated.'):t('يشمل هذا النطاق دفتر الشركة وفروعها ودفاتر الشركات التابعة الخاضعة للسيطرة. يجب التحقق من صلاحيات جميع الشركات وتوافق الفترات والعملات واستبعاد المعاملات المتبادلة وحصص الأقلية، قبل إصدار قوائم موحدة.','This scope includes the company and its branches plus controlled subsidiaries. Every company’s permissions, periods, currencies, intercompany eliminations and non-controlling interests must be verified before issuing consolidated statements.')}</p>
+   {scopeChecking&&<p>{t('جارٍ فحص جاهزية البيانات…','Checking source readiness…')}</p>}
+   {scopeDiagnostics&&scopeDiagnostics.scope===reportScope&&scopeDiagnostics.organizationId===organization&&scopeDiagnostics.from===from&&scopeDiagnostics.to===to&&<div className="fs-scope-check-results"><strong>{t('نتيجة الفحص من السجلات الفعلية — غير جاهز للإصدار','Live-source preflight — not ready for issuance')}</strong><ul>{scopeDiagnostics.issues.map(issue=><li key={issue}>{scopeIssueLabels[issue]?.[en?1:0]??issue}</li>)}</ul>{scopeDiagnostics.observation&&<><small>{t('للمراجعة فقط: الحركات الظاهرة للمستخدم','Diagnostics only: user-visible events')}: {scopeDiagnostics.observation.canonicalEvents} · {t('حركات الشركة المباشرة','Direct company events')}: {scopeDiagnostics.observation.organizationDirectEvents} · {t('حركات الفروع','Branch events')}: {scopeDiagnostics.observation.branchEvents}.</small><small>{t('الحسابات النقدية — الشركة/الفرع/ربط غير ظاهر','Cash accounts — direct/branch/unresolved')}: {scopeDiagnostics.observation.cashAccounts.companyDirect}/{scopeDiagnostics.observation.cashAccounts.branchLinked}/{scopeDiagnostics.observation.cashAccounts.entityLinkNotVisible} · {t('حسابات الأصول — الشركة/الفرع/ربط غير ظاهر','Asset accounts — direct/branch/unresolved')}: {scopeDiagnostics.observation.assetAccounts.companyDirect}/{scopeDiagnostics.observation.assetAccounts.branchLinked}/{scopeDiagnostics.observation.assetAccounts.entityLinkNotVisible} · {t('مساحات الافتتاحي على مستوى المؤسسة','Organization-level opening workspaces')}: {scopeDiagnostics.observation.organizationLevelOpeningWorkspaces}. {t('هذه الأعداد تعتمد فقط على السجلات الظاهرة بصلاحياتك، وليست مصادقة على اكتمال الدفاتر.','Counts reflect only records visible to your permissions; they do not certify full ledger coverage.')}</small></>}</div>}
+   {scopeDiagnostics?.scope==='GROUP_WITH_SUBSIDIARIES'&&scopeDiagnostics.organizationId===organization&&scopeDiagnostics.from===from&&scopeDiagnostics.to===to&&scopeDiagnostics.groupControlEvidence&&<p className="fs-source-note">{t('علاقات السيطرة المباشرة المعتمدة والمرئية لصلاحياتك','Approved direct control relationships visible to your permissions')}: {scopeDiagnostics.groupControlEvidence.approvedDirectRelationships}. {t('هذه أدلة أولية فقط؛ لا تُثبت اكتمال المجموعة ولا تسمح بإصدار قوائم موحدة.','Evidence only; this does not prove a complete group or permit consolidated statements.')}</p>}
+  </div></div>}
+  {scopeReady&&<>
   {currentDraft&&<label className="ob-draft-mode"><input type="checkbox" checked={displayDraft} disabled={!ready} onChange={e=>{setPreferDraft(e.target.checked);setExportOpen(false)}}/>{t('عرض معاينة المسودة الافتتاحية المحفوظة (غير معتمدة)','Show saved opening draft preview (unapproved)')}{!ready&&<small>{t('القوائم الرسمية غير متاحة بعد','Official statements are not yet available')}</small>}</label>}
   {draftLoading&&!currentDraft&&<p className="ob-draft-loading" role="status">{t('جارٍ فحص وجود مسودة افتتاحية محفوظة…','Checking for a saved opening draft…')}</p>}
   <header className="fs-page-header"><div><span className="fs-page-icon"><Icon name={view==='position'?'layers':view==='overview'||view==='kpis'?'chart':view==='statements'?'file':'coins'} size={34}/></span><h1>{titles[view][en?1:0]}</h1><p>{displayDraft?t('معاينة رصيد البداية من مسودة محفوظة؛ لا تتضمن الحركات غير المعتمدة.','Saved opening draft preview; unapproved period movements are not included.'):t('عرض نتائج الفترة من الأحداث المحاسبية والقيود المتوازنة المرتبطة بها.','Period results from canonical accounting events and their balanced journals.')}</p></div><div className="fs-page-actions"><button disabled><Icon name="calendar" size={19}/>{t('جدولة التقارير','Schedule reports')}</button><button onClick={()=>{setSnapshot(null);setRefresh(v=>v+1)}} aria-label={t('تحديث','Refresh')}><Icon name="chart" size={18}/></button><div className="fs-export-control"><button className="fs-gold" disabled={!ready||displayDraft||exporting} aria-expanded={exportOpen} onClick={()=>setExportOpen(v=>!v)}><Icon name="download" size={20}/>{t('تصدير التقرير','Export report')}</button>{exportOpen&&<div className="fs-export-menu"><button disabled={!ready||displayDraft||exporting} onClick={()=>download('csv')}>CSV</button><button disabled={!ready||displayDraft||exporting} onClick={()=>download('xlsx')}>Excel</button><button disabled={!ready||displayDraft||exporting} onClick={()=>download('pdf')}>{t('طباعة / حفظ PDF','Print / Save PDF')}</button></div>}</div></div></header>
@@ -97,6 +143,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
   {!loading&&!error&&!organization&&<ReportCard title={t('لا توجد مصادر قوائم مصرح بها','No authorized statement sources')}><p>{t('لا يوجد مصدر متاح لصلاحياتك الحالية.','No source is available under your current permissions.')}</p>{live&&<p><a href={`/${en?'en':'ar'}/opening-balances${preferredOrg?'?organization='+encodeURIComponent(preferredOrg):''}`}>{t('إعداد واعتماد الافتتاحي','Prepare and approve opening balances')}</a> · <a href={`/${en?'en':'ar'}/financial-reporting-policy${preferredOrg?'?organization='+encodeURIComponent(preferredOrg):''}`}>{t('مراجعة قواعد الترحيل','Review posting rules')}</a></p>}</ReportCard>}
   {displayDraft&&currentDraft&&<DraftOpeningStatementPreview report={currentDraft} view={view} en={en}/>}
   {ready&&!displayDraft&&(view==='overview'||view==='statements'||view==='kpis'?<SourceReportHub key={[organization,from,to,view].join('|')} snapshot={ready} comparison={previous} en={en} view={view} navigate={changeView}/>:<ConnectedStatements snapshot={ready} comparison={previous} en={en} view={view}/>)}
+  </>}
  </div>;
  return <div className="fs-root fs-connected fs-connected-statements" dir={en?'ltr':'rtl'} lang={en?'en':'ar'}>{live?content:<CorporateShell locale={en?'en':'ar'} designPreview previewTopbar={topbar} navigationExtension={nav}>{content}</CorporateShell>}</div>;
 }

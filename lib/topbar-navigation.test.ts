@@ -11,11 +11,14 @@ describe('workspace scope routing',()=>{
   }
  });
  it('keeps organization reports in Business and preserves the report on business navigation',()=>{
-  for(const page of ['financial-reports','opening-balances','financial-reporting-policy']){
+  for(const page of ['opening-balances','financial-reporting-policy']){
    expect(currentWorkspaceScope(page,'','PERSONAL')).toBe('ORGANIZATION');
    expect(workspaceScopeHref('ar',page,'screen=position&organization=selected','ORGANIZATION')).toBe('/ar/'+page+'?screen=position&organization=selected&scope=ORGANIZATION');
    expect(workspaceScopeHref('en',page,'screen=position&organization=selected','PERSONAL')).toBe('/en/dashboard?scope=PERSONAL');
   }
+  expect(currentWorkspaceScope('financial-reports','','PERSONAL')).toBe('PERSONAL');
+  expect(workspaceScopeHref('ar','financial-reports','screen=position&organization=selected','ORGANIZATION')).toBe('/ar/financial-reports?screen=position&organization=selected&scope=ORGANIZATION');
+  expect(workspaceScopeHref('en','financial-reports','screen=position&organization=selected','PERSONAL')).toBe('/en/financial-reports?scope=PERSONAL');
  });
  it('matches page defaults rather than showing a false corporate scope',()=>{
   for(const path of ['debt-report','financial-position','assets','investments','reports'])expect(currentWorkspaceScope(path,'')).toBe('PERSONAL');

@@ -23,15 +23,80 @@ on:
       - 'lib/financial-*.ts'
       - 'scripts/financial-reports/*opening*'
       - 'tests/qa-financial-opening*.sql'
+      - 'tests/qa-financial-first-activity-snapshot.sql'
+      - 'tests/qa-financial-production-*.sql'
+      - 'tests/qa-financial-hosted-readiness.sql'
+      - 'tests/financial-live-source-provenance.test.ts'
       - 'tests/qa-financial-chart-accounts.sql'
       - 'tests/qa-financial-chart-posting-rules.sql'
       - 'tests/qa-financial-chart-opening-leaf.sql'
+      - 'tests/qa-financial-retained-snapshot-leaf.sql'
       - 'tests/qa-financial-policy-coverage.sql'
       - '.github/workflows/financial-opening-workspace-qa.yml'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  production-full-schema-parity:
+    # Applies ALL canonical migrations to a disposable local database. Nothing
+    # is read from or written to any hosted Supabase project.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Prepare entire Production schema in an isolated runner directory
+        run: |
+          export PARITY_QA_WORKDIR="$RUNNER_TEMP/financial-parity-qa"
+          echo "PARITY_QA_WORKDIR=$PARITY_QA_WORKDIR" >> "$GITHUB_ENV"
+          mkdir -p "$PARITY_QA_WORKDIR"
+          npx --yes supabase@2.122.0 init --workdir "$PARITY_QA_WORKDIR"
+          python - <<'PY'
+          import os,pathlib,re,shutil
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'financial-parity-qa'/'supabase'
+          config=root/'config.toml'
+          config.write_text(re.sub(r'^project_id = .*$', 'project_id = "financial-parity-qa"', config.read_text(), flags=re.M))
+          shutil.copytree('supabase/migrations',root/'migrations',dirs_exist_ok=True)
+          original={p.name for p in pathlib.Path('supabase/migrations').glob('*.sql')}
+          copied={p.name for p in (root/'migrations').glob('*.sql')}
+          if not original or original!=copied: raise SystemExit('FULL_SCHEMA_MIGRATION_SET_MISMATCH')
+          PY
+      - name: Apply all migrations, including formerly excluded fiscal and branch migrations
+        run: npx --yes supabase@2.122.0 start --workdir "$PARITY_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/financial-parity-start.log" 2>&1 || { tail -80 "$RUNNER_TEMP/financial-parity-start.log"; exit 1; }
+      - name: Probe read-only hosted readiness SQL against complete disposable schema
+        run: |
+          EVIDENCE="$(docker exec -i supabase_db_financial-parity-qa psql -X -q -A -t -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-hosted-readiness.sql)"
+          EVIDENCE="$EVIDENCE" node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const x=JSON.parse(process.env.EVIDENCE||'{}');
+          assert.equal(x.gate,'BLOCKED');
+          assert.equal(x.productionReady,false);
+          assert.equal(x.purpose,'READ_ONLY_HOSTED_QA_PREREQUISITES_NOT_REPORT_CERTIFICATION');
+          for(const property of ['branch_opening_schema','group_control_schema','legacy_cost_attestation','company_live_snapshot'])
+            assert.equal(x.schema?.[property],true,'MISSING_FULL_SCHEMA_'+property);
+          assert.ok(x.issues.includes('ATOMIC_AUTHENTICATED_SOURCE_AND_GROUP_UAT_NOT_CERTIFIED'));
+          assert.equal(x.sourcePopulation.active_branches,0);
+          assert.equal(x.sourcePopulation.approved_openings,0);
+          console.log('PASS full-schema prerequisite inventory (still BLOCKED for hosted authenticated UAT)');
+          NODE
+      - name: Verify canonical, legacy, refund and closed-year reporting prerequisites
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-parity-contract.sql
+      - name: Verify exact live VAT partition amounts and source classifications
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-normalized-parts.sql
+      - name: Reconcile legacy asset/cash/transfer adapter against original records
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-legacy-sources.sql
+      - name: Prevent double-counting approved opening-consumed historical assets
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-legacy-approved-opening.sql
+      - name: Verify real RLS finance/asset allocation visibility mismatch without changing grants
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-legacy-rls-gap.sql
+      - name: Destroy isolated parity database without retaining data
+        if: always()
+        run: test -z "$PARITY_QA_WORKDIR" || npx --yes supabase@2.122.0 stop --workdir "$PARITY_QA_WORKDIR" --no-backup
 
   institutional-fiscal-and-chart-compatibility:
     # Read-only merge rehearsal for draft PR #352 + draft PR #353.
@@ -102,7 +167,11 @@ jobs:
                             '20261104214000_funded_debt_source_cash_direction.sql',
                             '20261105010000_fiscal_retained_leaf_account.sql',
                             '20261105150000_equity_opening_additional_lines.sql',
-                            '20261104222828_unified_cash_account_openings.sql'):
+                            '20261104222828_unified_cash_account_openings.sql',
+                            '20261106154742_financial_group_control_evidence_v1.sql',
+                            '20261107010000_financial_branch_opening_distribution.sql',
+                            '20261107113000_financial_legacy_source_attestation.sql',
+                            '20261107213000_financial_retained_snapshot_account.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
@@ -111,12 +180,20 @@ jobs:
         run: node scripts/financial-reports/verify-fiscal-upgrade.mjs
       - name: Verify independent fiscal budgets and immutable approved dates
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-fiscal-budget-calendar.sql
+      - name: Verify audited group legal control evidence and cross-tenant isolation
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-group-control-evidence.sql
+      - name: Verify versioned branch opening distribution and tenant isolation
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-branch-opening-distribution.sql
+      - name: Verify zero-opening first-activity source contract with full historical and access guards
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-first-activity-snapshot.sql
       - name: Verify isolated editable chart of accounts and audit
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-accounts.sql
       - name: Verify posting rules accept only active organization subaccounts
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-posting-rules.sql
       - name: Verify opening leaf mapping, audit locks and one-time year-close rollup
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-chart-opening-leaf.sql
+      - name: Verify configured retained-earnings leaf in empty and populated live snapshots
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-retained-snapshot-leaf.sql
       - name: Verify complete one-to-one account mapping of every canonical source line
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-policy-coverage.sql
       - name: Verify unified cash opening methods and automatic bank links

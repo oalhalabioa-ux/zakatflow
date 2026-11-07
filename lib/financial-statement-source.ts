@@ -3,19 +3,29 @@ import {validStatementComparison,statementChange} from './financial-statement-co
 import Decimal from 'decimal.js';
 import {SOURCE_INCOME_ICONS,SOURCE_CASH_ICONS} from './financial-statement-icons';
 import {compileEventLedger} from './financial-event-ledger';
+import {assertNormalizedLiveEventProvenance} from './financial-live-source-provenance';
 export const statementQuery=z.object({organization:z.string().uuid(),from:z.string().date(),to:z.string().date()}).strict().refine(q=>q.from<=q.to&&Number(q.to.slice(0,4))-Number(q.from.slice(0,4))<=1,'INVALID_STATEMENT_PERIOD');
 const id=z.string().min(1),currency=z.string().regex(/^[A-Z]{3}$/),date=z.string().date(),money=z.string().regex(/^\d{1,20}(\.\d{1,4})?$/),activity=z.enum(['OPERATING','INVESTING','FINANCING']);
 const account=z.object({id,organizationId:z.string().uuid(),currency,kind:z.enum(['ASSET','LIABILITY','EQUITY','REVENUE','COGS','OPEX','FINANCE','TAX']),cash:z.boolean().optional(),ar:id,en:id,presentation:z.enum(['CURRENT','NON_CURRENT','OTHER'])});
 const line=z.object({id,classificationId:id,baseAmount:money,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),recognitionSign:z.union([z.literal(1),z.literal(-1)])});
 const event=z.object({id,organizationId:z.string().uuid(),currency,date,eventType:id,sourceModule:id,sourceKey:id,status:z.enum(['ACTUAL','REVERSED']),lines:z.array(line).min(1),reversesEventId:id.optional()});
 const rule=z.object({id,organizationId:z.string().uuid(),currency,eventType:id,sourceModule:id,classificationId:id,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),from:date,to:date,debitAccountId:id,creditAccountId:id,cashActivity:activity.optional()});
-const envelope=z.object({controls:z.object({cashClosing:z.string().regex(/^-?\d{1,20}(\.\d{1,4})?$/)}).optional(),origin:z.enum(['LOCAL_QA_CANONICAL_EVENTS','LIVE_CANONICAL_EVENTS']),organizationId:z.string().uuid(),currency,openingDate:date,fiscalStart:date,from:date,to:date,openingSourceId:id,accounts:z.array(account).min(1).max(1000),opening:z.array(z.object({accountId:id,debit:money,credit:money})).min(1),policy:z.object({id,organizationId:z.string().uuid(),currency,approvedBy:id,approvedAt:z.string().datetime({offset:true}),rules:z.array(rule).max(5000)}),events:z.array(event).max(10000),coverage:z.object({complete:z.literal(true),scope:z.literal('ORGANIZATION_ALL_ENTITIES'),eventCount:z.number().int().min(0),lineCount:z.number().int().min(0).max(20000),readAt:z.string().datetime({offset:true})})});
+const envelope=z.object({controls:z.object({cashClosing:z.string().regex(/^-?\d{1,20}(\.\d{1,4})?$/)}).optional(),origin:z.enum(['LOCAL_QA_CANONICAL_EVENTS','LIVE_CANONICAL_EVENTS']),organizationId:z.string().uuid(),currency,openingDate:date,fiscalStart:date,from:date,to:date,openingSourceId:id,accounts:z.array(account).min(1).max(1000),opening:z.array(z.object({accountId:id,debit:money,credit:money})).max(1000),policy:z.object({id,organizationId:z.string().uuid(),currency,approvedBy:id,approvedAt:z.string().datetime({offset:true}),rules:z.array(rule).max(5000)}),events:z.array(event).max(10000),coverage:z.object({complete:z.literal(true),scope:z.literal('ORGANIZATION_ALL_ENTITIES'),eventCount:z.number().int().min(0),lineCount:z.number().int().min(0).max(20000),readAt:z.string().datetime({offset:true})})});
 const Money=Decimal.clone({precision:50});
 export type StatementQuery=z.infer<typeof statementQuery>;
 export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  const parsed=envelope.safeParse(raw);if(!parsed.success)throw Error('STATEMENT_SOURCE_INVALID');const p=parsed.data;
  if(p.organizationId!==query.organization||p.from!==query.from||p.to!==query.to)throw Error('STATEMENT_SOURCE_SCOPE_MISMATCH');
  if(p.coverage.eventCount!==p.events.length||p.coverage.lineCount!==p.events.reduce((n,e)=>n+e.lines.length,0))throw Error('STATEMENT_SOURCE_INCOMPLETE');
+ // A truly new company may have no opening rows. The canonical source must
+ // explicitly attest FIRST_ACTIVITY; never reinterpret an absent approved
+ // opening as zero merely because opening records were not returned.
+ if(p.opening.length===0&&p.openingSourceId!==`FIRST_ACTIVITY:${p.fiscalStart}`)throw Error('STATEMENT_OPENING_PROVENANCE_REQUIRED');
+ // Live reporting must never accept unrecognizable source identities, hidden
+ // duplicates, malformed VAT splits or legacy registers masquerading as
+ // canonical Financial Core lines. This is structural integrity; an
+ // independent database source-to-amount attestation is still required.
+ if(p.origin==='LIVE_CANONICAL_EVENTS')assertNormalizedLiveEventProvenance(p.events);
  const result=compileEventLedger(p);
  if(p.controls&&!new Money(p.controls.cashClosing).eq(result.statements.cash.closing))throw Error('CASH_REGISTER_UNRECONCILED');
  const balance=new Map(p.accounts.map(a=>[a.id,new Money(0)]));
@@ -31,6 +41,16 @@ export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  const cashMovements:{id:string;reference:string;eventType:string;date:string;activity:'OPERATING'|'INVESTING'|'FINANCING';amount:string}[]=[];
  let runningCash=new Money(result.statements.cash.opening);
  const journals=result.source.journals;
+ // Recognition-line IDs are immutable source identities (not two generated
+ // debit/credit legs). The QA-only server journal observer verifies each one
+ // independently via financial_event_lines and tenant RLS.
+ const canonicalJournalLineage=p.events
+  .filter(e=>['ACTUAL','REVERSED'].includes(e.status)&&e.date>=p.fiscalStart&&e.date<=p.to)
+  .map(e=>({id:e.id,organizationId:e.organizationId,date:e.date,status:'POSTED' as const,
+   sourceLines:e.lines.map(l=>({id:l.id,classificationId:l.classificationId,
+    baseAmount:l.baseAmount,cashDirection:l.cashDirection,recognitionSign:l.recognitionSign}))}));
+ if(canonicalJournalLineage.length!==journals.filter(j=>j.status==='POSTED'&&j.date<=p.to).length)
+  throw Error('STATEMENT_SOURCE_LINEAGE_INCOMPLETE');
  for(const j of journals){
   const selected=j.date>=p.from&&j.date<=p.to,allCash=j.lines.every(l=>accounts.get(l.accountId)!.cash);
   const activityAmounts=new Map<'OPERATING'|'INVESTING'|'FINANCING',Decimal>();
@@ -41,7 +61,7 @@ export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  if(!runningCash.eq(result.statements.cash.closing))throw Error('CASH_FLOW_UNRECONCILED');
  const incomeMonths=[...monthly].map(([month,v])=>({month,revenue:v.revenue.toFixed(4),expenses:v.expenses.toFixed(4),netProfit:v.revenue.minus(v.expenses).toFixed(4)}));
  if(!incomeMonths.reduce((n,m)=>n.plus(m.revenue),new Money(0)).eq(result.statements.income.revenue)||!incomeMonths.reduce((n,m)=>n.plus(m.netProfit),new Money(0)).eq(result.statements.income.netProfit))throw Error('MONTHLY_INCOME_UNRECONCILED');
- return{origin:p.origin,scope:p.coverage.scope,readAt:p.coverage.readAt,policyId:p.policy.id,openingSourceId:p.openingSourceId,statements:result.statements,lineage:result.lineage,accounts:p.accounts.map(a=>({...a,balance:balance.get(a.id)!.toFixed(4),periodMovement:periodMovement.get(a.id)!.toFixed(4)})),cashMonths,cashMovements,incomeMonths};
+ return{origin:p.origin,scope:p.coverage.scope,readAt:p.coverage.readAt,policyId:p.policy.id,openingSourceId:p.openingSourceId,statements:result.statements,lineage:result.lineage,canonicalJournalLineage,accounts:p.accounts.map(a=>({...a,balance:balance.get(a.id)!.toFixed(4),periodMovement:periodMovement.get(a.id)!.toFixed(4)})),cashMonths,cashMovements,incomeMonths};
 }
 export type StatementSourceSnapshot=ReturnType<typeof normalizeStatementSource>;
 export type StatementView='income'|'position'|'cash-flow';

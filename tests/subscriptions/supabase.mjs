@@ -725,8 +725,9 @@ try {
         .click();
       await page.waitForURL(
         (u) =>
-          u.pathname === "/en/dashboard" && u.searchParams.has("organization"),
+          u.pathname === "/en/settings/financial/setup" && u.searchParams.has("organization"),
       );
+      await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
       const created = new URL(page.url()).searchParams.get("organization");
       const e = await rpc(newcomer, "organization_subscription", {
         p_organization_id: created,
@@ -737,7 +738,11 @@ try {
       assert.equal(e.data.status, "trialing");
       assert.equal(await page.locator('.subscription-banner').count(),0);
       assert.equal(await page.locator('.subscription-notice').count(),0);
-      await page.locator('.settings-module-toggle').click();
+      // The onboarding destination is itself a settings page: its sidebar
+      // section may already be expanded. Never toggle an open section shut.
+      if (!(await page.locator('#corp-settings-nav').isVisible())) {
+        await page.locator('.settings-module-toggle').click();
+      }
       await page.locator('#corp-settings-nav a[href*="/billing"]').click();
       await page.getByLabel("Subscription status").waitFor();
       assert.equal(new URL(page.url()).searchParams.get('organization'),created);
