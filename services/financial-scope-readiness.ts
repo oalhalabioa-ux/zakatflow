@@ -7,14 +7,14 @@ import {classifyFinancialSourceScope} from '../lib/financial-reporting-scope';
 export const scopeReadinessQuery=statementQuery.extend({scope:z.enum(['COMPANY_DIRECT','GROUP_WITH_SUBSIDIARIES'])});
 export type ScopeReadinessIssue=
  |'CANONICAL_SOURCE_UNVERIFIED'|'BRANCH_REGISTRY_UNVERIFIED'|'DIRECT_OPENING_ALLOCATION_UNVERIFIED'
- |'ENTITY_ACCOUNT_LINK_UNRESOLVED'
+ |'ENTITY_ACCOUNT_LINK_UNRESOLVED'|'ENTITY_EVENT_LINK_UNRESOLVED'
  |'GROUP_MEMBERSHIP_UNVERIFIED'|'GROUP_CONTROL_UNVERIFIED'
  |'GROUP_ELIMINATION_UNVERIFIED'|'GROUP_CURRENCY_AND_NCI_UNVERIFIED';
 export type ScopeReadiness={
  status:'BLOCKED';scope:'COMPANY_DIRECT'|'GROUP_WITH_SUBSIDIARIES';organizationId:string;from:string;to:string;
  issues:ScopeReadinessIssue[];
  groupControlEvidence?:{kind:'APPROVED_CONTROL_EVIDENCE_ONLY';approvedDirectRelationships:number;registryComplete:false};
- observation:{kind:'RLS_VISIBLE_ONLY';entityRecords:number;canonicalEvents:number;organizationDirectEvents:number;branchEvents:number;
+ observation:{kind:'RLS_VISIBLE_ONLY';entityRecords:number;canonicalEvents:number;organizationDirectEvents:number;branchEvents:number;unresolvedEntityEvents:number;
   cashAccounts:{companyDirect:number;branchLinked:number;entityLinkNotVisible:number};assetAccounts:{companyDirect:number;branchLinked:number;entityLinkNotVisible:number};
   organizationLevelOpeningWorkspaces:number}|null;
 };
@@ -76,8 +76,20 @@ export async function liveScopeReadiness(input:unknown):Promise<ScopeReadiness>{
  if(!Array.isArray(entities)||!Array.isArray(events)||!Array.isArray(cash)||!Array.isArray(assets)||!Array.isArray(openings)||
   entities.length>1000||events.length>5000||cash.length>5000||assets.length>5000||openings.length>1000)throw Error('REPORTING_UNAVAILABLE');
  // This count is diagnostic, NOT authoritative: RLS may filter invisible rows.
+ const entityRegistry=new Map(entities.map(e=>[e.id,e]));
+ // An RLS-hidden, inactive or non-company/non-branch operating dimension is
+ // UNRESOLVED, not an HQ entry and not an authorization error. The whole
+ // legal-company statement may include such units, but HQ/branch reports
+ // cannot silently allocate them or publish partial sums.
+ const resolvedEvents=events.filter(e=>{
+  if(e.entity_id===null)return true;
+  const entity=entityRegistry.get(e.entity_id);
+  return !!entity&&entity.active&&
+   (entity.entity_type==='COMPANY'||entity.entity_type==='BRANCH');
+ });
+ const unresolvedEntityEvents=events.length-resolvedEvents.length;
  const classified=classifyFinancialSourceScope(q.organization,entities.map(e=>({id:e.id,organizationId:e.organization_id,entityType:e.entity_type,active:e.active})),
-  events.map(e=>({id:e.id,organizationId:e.organization_id,entityId:e.entity_id})));
+  resolvedEvents.map(e=>({id:e.id,organizationId:e.organization_id,entityId:e.entity_id})));
  const visibleActiveBranches=new Set(entities.filter(e=>e.entity_type==='BRANCH'&&e.active).map(e=>e.id));
  const visibleActiveCompanies=new Set(entities.filter(e=>e.entity_type==='COMPANY'&&e.active).map(e=>e.id));
  const classifyAccountLinks=(rows:typeof cash)=>({companyDirect:rows.filter(a=>a.entity_id===null||visibleActiveCompanies.has(a.entity_id)).length,
@@ -86,10 +98,12 @@ export async function liveScopeReadiness(input:unknown):Promise<ScopeReadiness>{
  const cashAccounts=classifyAccountLinks(cash),assetAccounts=classifyAccountLinks(assets);
  const observation={kind:'RLS_VISIBLE_ONLY' as const,entityRecords:entities.length,canonicalEvents:events.length,
   organizationDirectEvents:classified.filter(e=>e.scope==='ORGANIZATION_DIRECT').length,
-  branchEvents:classified.filter(e=>e.scope==='BRANCH').length,cashAccounts,assetAccounts,
+  branchEvents:classified.filter(e=>e.scope==='BRANCH').length,unresolvedEntityEvents,
+  cashAccounts,assetAccounts,
   organizationLevelOpeningWorkspaces:openings.length};
  const issues:ScopeReadinessIssue[]=['CANONICAL_SOURCE_UNVERIFIED','BRANCH_REGISTRY_UNVERIFIED','DIRECT_OPENING_ALLOCATION_UNVERIFIED'];
  if(cashAccounts.entityLinkNotVisible||assetAccounts.entityLinkNotVisible)issues.push('ENTITY_ACCOUNT_LINK_UNRESOLVED');
+ if(unresolvedEntityEvents>0)issues.push('ENTITY_EVENT_LINK_UNRESOLVED');
  // Even complete-looking visible events cannot prove that earlier opening lines,
  // legacy sources and journal lines are fully assigned to operating branches.
  await authorize();
