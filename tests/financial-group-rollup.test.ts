@@ -67,8 +67,26 @@ describe('group trial-balance staging (unadjusted, non-statutory)',()=>{
 
  it('supports a new company with zero opening transactions without an invented entry',()=>{
   const empty=request();empty.members[1].details=[];
+  expect(()=>rollupAuthorizedTrialBalances(empty)).toThrow('REPORTING_ROLLUP_EMPTY_SOURCE_UNVERIFIED');
+  empty.members[1].zeroActivityEvidence={status:'COMPLETE_ZERO_SOURCE',
+   organizationId:second,from:empty.from,to:empty.to,currency:empty.currency,
+   openingLineCount:0,postedJournalLineCount:0,revision:'complete-source-2026'};
   const r=rollupAuthorizedTrialBalances(empty);
   expect(r.totalDebit).toBe('100.0000');
   expect(r.byParent.find(p=>p.code==='1000')?.members[1].netDebit).toBe('0.0000');
+ });
+ it('rejects forged or inconsistent zero-activity evidence instead of treating missing journal rows as zero',()=>{
+  const empty=request();empty.members[1].details=[];
+  empty.members[1].zeroActivityEvidence={status:'COMPLETE_ZERO_SOURCE',organizationId:second,
+   from:empty.from,to:empty.to,currency:empty.currency,
+   openingLineCount:0,postedJournalLineCount:0,revision:'source-revision'};
+  const wrongDate=request();wrongDate.members[1].details=[];
+  wrongDate.members[1].zeroActivityEvidence={...empty.members[1].zeroActivityEvidence,to:'2025-12-31'};
+  expect(()=>rollupAuthorizedTrialBalances(wrongDate)).toThrow('REPORTING_ROLLUP_EMPTY_SOURCE_UNVERIFIED');
+  const stale=request();stale.members[1].details=[];
+  stale.members[1].zeroActivityEvidence={...empty.members[1].zeroActivityEvidence,revision:''};
+  expect(()=>rollupAuthorizedTrialBalances(stale)).toThrow('REPORTING_ROLLUP_EMPTY_SOURCE_UNVERIFIED');
+  const conflicting=request();conflicting.members[1].zeroActivityEvidence=empty.members[1].zeroActivityEvidence;
+  expect(()=>rollupAuthorizedTrialBalances(conflicting)).toThrow('REPORTING_ROLLUP_ZERO_EVIDENCE_CONFLICT');
  });
 });
