@@ -605,8 +605,9 @@ try {
     await page.getByLabel('Organization name',{exact:true}).waitFor();
     assert.equal(await page.locator('.subscription-banner').count(),0);
     assert.equal(await page.locator('.subscription-notice').count(),0);
-    assert.equal(await page.locator('#corp-settings-nav a').count(),4);
-    assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial"]').count(),1);
+    assert.equal(await page.locator('#corp-settings-nav a').count(),5);
+    assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial"]').count(),2);
+     assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial/setup"]').count(),1);
     assert.ok((await page.locator('#corp-settings-nav a[href*="/billing"]').getAttribute('href')).includes('organization='+secondOrg));
     assert.equal(await page.locator('#corp-settings-nav a[href*="users"]').count(),0);
     assert.equal(await page.locator('.corp-sidebar-foot a').getAttribute('href'),'/en/account');
@@ -617,9 +618,9 @@ try {
     await page.getByRole('button',{name:'Save changes',exact:true}).click();
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();await page.getByLabel('Legal name',{exact:true}).waitFor();assert.equal(await page.getByLabel('Legal name',{exact:true}).inputValue(),'Preserved legal organization');
-    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Subscription & plans',exact:true}).click();
+    await page.getByRole('navigation',{name:'Other settings'}).getByRole('link',{name:'Subscription & plans',exact:true}).click();
     await page.getByLabel('Subscription status',{exact:true}).waitFor();
-    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'System settings',exact:true}).click();
+    await page.getByRole('navigation',{name:'Other settings'}).getByRole('link',{name:'System settings',exact:true}).click();
     await page.getByRole('heading',{name:'Organization system settings',exact:true}).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);
     await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
@@ -652,7 +653,7 @@ try {
         icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,
         overflow:nav.scrollWidth>nav.clientWidth
       }));
-      assert.equal(layout.icons,4);assert.equal(layout.widths.length,4);assert.ok(!layout.overflow);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
+      assert.equal(layout.icons,3);assert.equal(layout.widths.length,3);assert.ok(!layout.overflow);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
@@ -663,7 +664,7 @@ try {
       const colors=await page.locator('.settings-card').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
       for(const c of colors){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings card contrast '+JSON.stringify(c));}
       const tabs=await page.locator('.settings-tabs a').evaluateAll(items=>items.map(el=>({active:el.getAttribute('aria-current')==='page',fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(el.parentElement).backgroundColor:getComputedStyle(el).backgroundColor})));
-      for(const c of tabs){assert.equal(c.fg,'rgb(255, 255, 255)');const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);if(theme!=='yaqeen-business'||!c.active)assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
+      for(const c of tabs){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
       await verifySettingsTheme({page,theme,org,appUrl,root});
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
       await page.goto(appUrl+'/en/settings/system?organization='+org);await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
