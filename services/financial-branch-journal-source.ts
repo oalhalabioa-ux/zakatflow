@@ -82,6 +82,49 @@ export async function observeCanonicalJournalBranches(
 }
 
 
+/** Legal-company totals include all authorized entity types, including PERSON.
+ * Verify every canonical event under RLS without pretending it has a branch.
+ * Branch-specific reports still require observeCanonicalJournalBranches.
+ */
+export async function observeCanonicalJournalEventHeaders(
+ organizationId:string,journals:readonly CanonicalJournal[],
+):Promise<{status:'RLS_MATCHED_JOURNAL_EVENT_HEADERS_ONLY';organizationId:string;eventCount:number}>{
+ if(!uuid.test(organizationId)||journals.length>10000)throw Error('BRANCH_JOURNAL_SCOPE_INVALID');
+ const posted=journals.filter(j=>j.status==='POSTED'),seen=new Set<string>();
+ for(const j of journals){
+  if(j.organizationId!==organizationId||!uuid.test(j.id)||!validDate(j.date)||
+   !['POSTED','DRAFT','VOID'].includes(j.status)||seen.has(j.id))
+   throw Error('BRANCH_JOURNAL_SOURCE_INVALID');
+  seen.add(j.id);
+ }
+ const {supabase,user}=await requireUser();
+ async function authorize(){
+  const member=await supabase.from('organization_members').select('organization_id')
+   .eq('organization_id',organizationId).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle();
+  if(member.error||!member.data)throw Error('BRANCH_JOURNAL_ACCESS_DENIED');
+  const permission=await supabase.rpc('financial_core_can',{p_org:organizationId,p_scope:'financial_core.view'});
+  if(permission.error||permission.data!==true)throw Error('BRANCH_JOURNAL_ACCESS_DENIED');
+ }
+ await authorize();
+ const found:{id:string;organization_id:string;event_date:string;status:string}[]=[];
+ for(let offset=0;offset<posted.length;offset+=150){
+  const part=posted.slice(offset,offset+150);
+  const response=await supabase.from('financial_events').select('id,organization_id,event_date,status')
+   .eq('organization_id',organizationId).in('id',part.map(j=>j.id)).limit(part.length+1);
+  if(response.error||!Array.isArray(response.data)||response.data.length>part.length)
+   throw Error('BRANCH_JOURNAL_SOURCE_UNAVAILABLE');
+  found.push(...response.data);
+ }
+ const byId=new Map(posted.map(j=>[j.id,j]));
+ if(found.length!==posted.length||new Set(found.map(e=>e.id)).size!==found.length||
+  found.some(e=>!byId.has(e.id)||e.organization_id!==organizationId||
+   e.event_date!==byId.get(e.id)!.date||!['ACTUAL','REVERSED'].includes(e.status)))
+  throw Error('BRANCH_JOURNAL_SOURCE_INCOMPLETE');
+ await authorize();
+ return{status:'RLS_MATCHED_JOURNAL_EVENT_HEADERS_ONLY',organizationId,eventCount:found.length};
+}
+
+
 const Amount=Decimal.clone({precision:50});
 const valuePattern=/^\d{1,20}(\.\d{1,4})?$/;
 const sourcePart=/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):([A-Z][A-Z0-9_]{0,63})$/i;
@@ -99,6 +142,8 @@ export type JournalLineageObservation={
  /** Normalized recognition parts, NOT raw DB rows or two GL debit/credit legs. */
  sourceLineCount:number;
  links:JournalBranchObservation['links'];
+ /** Legal-company source matching makes NO claim about branch allocation. */
+ branchAttributionVerified:boolean;
  /** Reversal signs can be derived from linked originals, not only the line row. */
  reversalRecognitionSignVerified:false;
 };
@@ -115,6 +160,7 @@ export type JournalLineageObservation={
  */
 export async function observeCanonicalJournalLineage(
  organizationId:string,journals:readonly CanonicalLineageJournal[],
+ scope:'BRANCH'|'LEGAL_COMPANY'='BRANCH',
 ):Promise<JournalLineageObservation>{
  if(!uuid.test(organizationId)||journals.length>10000)throw Error('BRANCH_LINEAGE_SCOPE_INVALID');
  const posted=journals.filter(j=>j.status==='POSTED');
@@ -147,7 +193,9 @@ export async function observeCanonicalJournalLineage(
   }
   expected.set(journal.id,parts);rawCounts.set(journal.id,rawIds.size);
  }
- const observed=await observeCanonicalJournalBranches(organizationId,journals);
+ const observed=scope==='BRANCH'
+  ?await observeCanonicalJournalBranches(organizationId,journals)
+  :await observeCanonicalJournalEventHeaders(organizationId,journals);
  const {supabase,user}=await requireUser();
  // Batch by ORIGINAL database rows, rather than generated GL legs or VAT parts.
  const batches:CanonicalLineageJournal[][]=[];let batch:CanonicalLineageJournal[]=[],count=0;
@@ -213,5 +261,7 @@ export async function observeCanonicalJournalLineage(
  const permission=await supabase.rpc('financial_core_can',{p_org:organizationId,p_scope:'financial_core.view'});
  if(permission.error||permission.data!==true)throw Error('BRANCH_LINEAGE_ACCESS_DENIED');
  return{status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',organizationId,
-  sourceLineCount:observedParts,links:observed.links,reversalRecognitionSignVerified:false};
+  sourceLineCount:observedParts,
+  links:scope==='BRANCH'?(observed as JournalBranchObservation).links:[],
+  branchAttributionVerified:scope==='BRANCH',reversalRecognitionSignVerified:false};
 }
