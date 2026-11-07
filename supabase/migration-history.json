@@ -1770,6 +1770,14 @@
       "expected_md5": "6bd291eb3adb75b20be2a13450986c33",
       "file_sha256": "e73516b7dba17ba1d51342063b4aa9f57a6fc3224317953e4206330dd8a106a2",
       "validation_project": "Disposable branch-opening distribution; no Production or hosted QA migration applied"
+    },
+    {
+      "path": "supabase/migrations/20261107113000_financial_legacy_source_attestation.sql",
+      "version": "20261107113000",
+      "name": "financial_legacy_source_attestation",
+      "expected_md5": "b481601dea1fa218973a5bba2bf0186e",
+      "file_sha256": "f21062dc295ca12594e9697d0cbff4279be1569c0e1f06a5df5c4f98ccdf6fe3",
+      "validation_project": "Disposable read-only RLS and cross-operator sale allocation attestations only; not applied to Production"
     }
   ]
 }
