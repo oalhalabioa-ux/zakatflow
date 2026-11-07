@@ -151,7 +151,8 @@ jobs:
                             '20261105150000_equity_opening_additional_lines.sql',
                             '20261104222828_unified_cash_account_openings.sql',
                             '20261106154742_financial_group_control_evidence_v1.sql',
-                            '20261107010000_financial_branch_opening_distribution.sql'):
+                            '20261107010000_financial_branch_opening_distribution.sql',
+                            '20261107113000_financial_legacy_source_attestation.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
