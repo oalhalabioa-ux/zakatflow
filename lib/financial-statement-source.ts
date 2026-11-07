@@ -41,7 +41,8 @@ export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  const canonicalJournalLineage=p.events
   .filter(e=>['ACTUAL','REVERSED'].includes(e.status)&&e.date>=p.fiscalStart&&e.date<=p.to)
   .map(e=>({id:e.id,organizationId:e.organizationId,date:e.date,status:'POSTED' as const,
-   sourceLineIds:e.lines.map(l=>l.id)}));
+   sourceLines:e.lines.map(l=>({id:l.id,classificationId:l.classificationId,
+    baseAmount:l.baseAmount,cashDirection:l.cashDirection,recognitionSign:l.recognitionSign}))}));
  if(canonicalJournalLineage.length!==journals.filter(j=>j.status==='POSTED'&&j.date<=p.to).length)
   throw Error('STATEMENT_SOURCE_LINEAGE_INCOMPLETE');
  for(const j of journals){
