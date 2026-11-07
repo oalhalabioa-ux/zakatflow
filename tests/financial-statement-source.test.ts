@@ -49,6 +49,10 @@ describe('complete canonical statement snapshot',()=>{
   const p=fixture();p.opening=[];p.events=[];p.policy.rules=[];
   p.coverage.eventCount=0;p.coverage.lineCount=0;
   expect(()=>normalizeStatementSource(p,query)).toThrow('STATEMENT_OPENING_PROVENANCE_REQUIRED');
+  p.openingSourceId='FIRST_ACTIVITY:2026-02-01';
+  expect(()=>normalizeStatementSource(p,query)).toThrow('STATEMENT_OPENING_PROVENANCE_REQUIRED');
+  p.openingSourceId='FIRST_ACTIVITY:2026-01-01:UNVERIFIED';
+  expect(()=>normalizeStatementSource(p,query)).toThrow('STATEMENT_OPENING_PROVENANCE_REQUIRED');
  });
 
 });
