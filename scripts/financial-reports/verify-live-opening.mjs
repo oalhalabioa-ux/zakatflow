@@ -147,6 +147,35 @@ try{
   await page.screenshot({path:out+'/financial-setup-linked-chart-en-mobile.png',fullPage:true});
   await page.setViewportSize({width:1672,height:941});
  });
+ await check('Setup tabs and deferred optional structure preserve organization and accounting gates',async()=>{
+  await page.goto(app+'/en/settings/financial/setup?organization='+org);
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  assert.equal(await page.locator('.settings-tabs a').count(),3,
+    'Exactly three primary settings tabs should appear');
+  const journey=page.locator('.settings-tabs a').filter({hasText:'Setup journey'});
+  assert.equal(await journey.getAttribute('aria-current'),'page',
+    'Setup journey must be its own active tab, not a finance shortcut');
+  await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'}).click();
+  const defer=page.getByRole('button',{name:/Defer for now/});
+  await defer.waitFor();
+  await defer.click();
+  const branchStep=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
+  assert.match(await branchStep.innerText(),/Deferred/,
+    'Deferred step must stay visible and must never be shown as complete');
+  assert.notEqual(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100',
+    'Deferral cannot forge financial readiness');
+  await page.locator('.settings-tabs a').filter({hasText:'Financial & accounting settings'}).click();
+  await page.getByRole('heading',{name:'Financial & accounting settings',exact:true}).waitFor();
+  assert.equal(await page.locator('.settings-tabs a').filter({hasText:'Financial & accounting settings'}).getAttribute('aria-current'),'page',
+    'Financial settings tab should be active, not the journey');
+  await page.locator('.settings-tabs a').filter({hasText:'Setup journey'}).click();
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  const restored=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
+  await restored.waitFor();
+  assert.match(await restored.innerText(),/Deferred/,
+    'Deferred step should survive navigation between settings tabs');
+  await page.screenshot({path:out+'/financial-setup-journey-navigation-en-desktop.png',fullPage:true});
+ });
  await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{
   sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
    do $$ declare asset uuid; d date; begin
