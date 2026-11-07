@@ -68,6 +68,14 @@ describe('QA-only reciprocal interbranch balance elimination',()=>{
    debit:r.debit,credit:r.credit,
   }]}));
   input.coverage.sourceCount=input.allocations.length;
-  expect(previewInterbranchClearings(input,[pair])).toMatchObject({status:'BLOCKED',code:'SEGMENTS_UNRECONCILED'});
+  expect(previewInterbranchClearings(input,[pair])).toMatchObject({status:'BLOCKED',code:'CLEARING_MISMATCH'});
+  const corrupt=fixture();
+  corrupt.source.journals[1].lines.pop();
+  corrupt.allocations=branchStatementSourceLines(corrupt.source).map(r=>({...r,allocations:[{
+   branchId:r.sourceKind==='OPENING'||r.sourceId.includes('hq-payment')?null:branch,
+   debit:r.debit,credit:r.credit,
+  }]}));
+  corrupt.coverage.sourceCount=corrupt.allocations.length;
+  expect(previewInterbranchClearings(corrupt,[pair])).toMatchObject({status:'BLOCKED',code:'SEGMENTS_UNRECONCILED'});
  });
 });
