@@ -19,17 +19,25 @@ export type BranchOpeningEvidence={
  approvedVersion:number;approvedBy:string;ledgerRevision:string;
  rows:readonly {sourceId:string;accountCode:string;debit:string;credit:string;allocations:readonly Split[]}[];
 };
+export type ZeroOpeningSourceEvidence={
+ status:'ZERO_OPENING_SOURCE_EVIDENCE_ONLY';
+ organizationId:string;currency:string;fiscalStart:string;ledgerRevision:string;
+ sourceReference:string;
+ openingLineCount:0;pendingOpeningCount:0;priorOpeningSourceCount:0;
+};
 export type BranchAttributionAssembly={
  source:StatementSource;
  branchIds:readonly string[];
  coverage:BranchAllocationInput['coverage'];
  journalEvidence:JournalBranchObservation;
  openingEvidence:BranchOpeningEvidence|null;
+ /** Independently queried, complete zero-opening evidence. Not a UI assertion. */
+ zeroOpeningEvidence?:ZeroOpeningSourceEvidence|null;
 };
 export type BranchAttributionDiagnostic=
  'BRANCH_JOURNAL_EVIDENCE_MISSING'|'BRANCH_JOURNAL_EVIDENCE_INVALID'|
  'BRANCH_OPENING_EVIDENCE_REQUIRED'|'BRANCH_OPENING_EVIDENCE_INVALID'|
- 'BRANCH_SOURCE_REVISION_UNVERIFIED';
+ 'BRANCH_SOURCE_REVISION_UNVERIFIED'|'BRANCH_ZERO_OPENING_PROVENANCE_REQUIRED'|'BRANCH_ZERO_OPENING_PROVENANCE_INVALID';
 export type BranchAttributionPreview=
  |{status:'BLOCKED';issues:BranchAttributionDiagnostic[];company:null;segments:[]}
  |BranchStatementPreview;
@@ -71,6 +79,20 @@ export function previewVerifiedBranchAttribution(input:BranchAttributionAssembly
   return block('BRANCH_JOURNAL_EVIDENCE_MISSING');
  const openings=expected.filter(r=>r.sourceKind==='OPENING');
  if(openings.length&&!openingEvidence)return block('BRANCH_OPENING_EVIDENCE_REQUIRED');
+ // Empty opening rows from a client or partial RLS read are NOT evidence that
+ // the legal entity has no historical balances. Accept an explicit, trusted
+ // source-attested zero opening, or an independently approved empty workspace.
+ if(!openings.length&&!openingEvidence){
+  const z=input.zeroOpeningEvidence;
+  if(!z)return block('BRANCH_ZERO_OPENING_PROVENANCE_REQUIRED');
+  if(z.status!=='ZERO_OPENING_SOURCE_EVIDENCE_ONLY'||z.organizationId!==source.organizationId||
+   z.currency!==source.currency||z.fiscalStart!==source.fiscalStart||
+   z.ledgerRevision!==coverage.revision||!z.sourceReference?.trim()||
+   z.openingLineCount!==0||z.pendingOpeningCount!==0||z.priorOpeningSourceCount!==0)
+   return block('BRANCH_ZERO_OPENING_PROVENANCE_INVALID');
+ }else if(input.zeroOpeningEvidence){
+  return block('BRANCH_ZERO_OPENING_PROVENANCE_INVALID');
+ }
  const openingMap=new Map<string,BranchOpeningEvidence['rows'][number]>();
  if(openingEvidence){
   if(openingEvidence.status!=='APPROVED'||openingEvidence.organizationId!==source.organizationId||
