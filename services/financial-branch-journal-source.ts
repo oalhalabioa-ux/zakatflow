@@ -149,13 +149,13 @@ export type JournalLineageObservation={
 };
 
 /**
- * Read-side QA evidence. A live statement snapshot's normalized recognition
+ * Read-side integrity evidence used by legal-company live statements and QA. Normalized recognition
  * parts have IDs <event_line_uuid>:<posting_part>; compare each part against
  * the underlying RLS-visible financial_event_lines row, exact source
  * classification, cash direction and total base_amount. VAT recoverability
  * can legitimately split ONE source row into TWO normalized parts.
  *
- * This does NOT attest posting rules, original reversal signs, an atomic ledger
+ * This checks original-line reversal signs but does NOT attest posting rules or an atomic ledger
  * revision, approved opening allocation, or permission to issue branch reports.
  */
 export async function observeCanonicalJournalLineage(
@@ -278,9 +278,11 @@ export async function observeCanonicalJournalLineage(
     throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
    const base=new Amount(row.base_amount),breakdown=new Map<string,Decimal>();
    if(roleValue==='INPUT_VAT'){
-    const recoveryRaw=sourceMeta.recoverable_percent??originalMeta.recoverable_percent??
-      row.recoverable_percent??100;
-    const rate=String(recoveryRaw).trim()===''?String(row.recoverable_percent??100):String(recoveryRaw);
+    // Mirror SQL nullif(metadata->>'recoverable_percent','') precedence:
+    // empty values fall through to the ORIGINAL line before the row default.
+    const recoveryRaw=[sourceMeta.recoverable_percent,originalMeta.recoverable_percent,
+      row.recoverable_percent,100].find(v=>v!==null&&v!==undefined&&String(v).trim()!=='');
+    const rate=String(recoveryRaw);
     if(!/^\d{1,3}(\.\d{1,18})?$/.test(rate))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
     const percent=new Amount(rate);
     if(!percent.gte(0)||!percent.lte(100))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
