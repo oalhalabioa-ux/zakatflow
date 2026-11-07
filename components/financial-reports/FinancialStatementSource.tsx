@@ -28,6 +28,7 @@ const scopeIssueLabels:Record<ScopeReadinessIssue,[string,string]>={
  BRANCH_REGISTRY_UNVERIFIED:['يلزم تحديد سجلات الفروع التشغيلية بصورة موثوقة','The authoritative operating-branch registry must be established'],
  DIRECT_OPENING_ALLOCATION_UNVERIFIED:['يلزم فصل رصيد الشركة المباشر عن أرصدة فروعها دون تغيير القيود الأصلية','Opening balances must separate direct company balances from branches without changing source vouchers'],
  ENTITY_ACCOUNT_LINK_UNRESOLVED:['بعض الحسابات مرتبطة بكيانات لا تظهر ضمن سجل الفروع المتاح؛ يلزم التحقق من المصدر والصلاحيات','Some account entity links are not visible in the accessible branch register; verify source and permissions'],
+ ENTITY_EVENT_LINK_UNRESOLVED:['توجد قيود مرتبطة بوحدات تشغيلية أو فروع غير مثبتة؛ لا يجوز نسبتها تلقائيًا إلى الشركة الرئيسية','Some journal entries refer to unverified operating units or branches; never silently attribute them to headquarters'],
  GROUP_MEMBERSHIP_UNVERIFIED:['لم يثبت اكتمال شركات المجموعة وصلاحية الاطلاع عليها جميعًا','Complete group membership and every member’s access are unverified'],
  GROUP_CONTROL_UNVERIFIED:['تحتاج علاقات السيطرة والملكية إلى تواريخ فعالية موثقة','Effective-dated control and ownership require evidence'],
  GROUP_ELIMINATION_UNVERIFIED:['لم تتحقق استبعادات المعاملات والأرصدة المتبادلة','Intercompany eliminations have not been verified'],
