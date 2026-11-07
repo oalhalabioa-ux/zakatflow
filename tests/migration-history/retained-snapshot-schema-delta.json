@@ -1,0 +1,11 @@
+{
+  "description": "Post-baseline retained-earnings leaf inclusion in live statement snapshot; one altered private function only, no customer data or additional objects.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_statement_live_snapshot_v1(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "9f319c1629d7edd029f2bcab85d9fc12"
+    }
+  ]
+}
