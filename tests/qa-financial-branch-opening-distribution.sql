@@ -25,6 +25,8 @@ begin
  values(branch,org,'Fixture branch','BRANCH',true);
  -- Separate newly established legal company and branch with genuinely no
  -- opening workspace. Their absence is not an approval failure by itself.
+ -- Subscription guard also verifies auth.uid() matches the registered owner.
+ perform set_config('request.jwt.claim.sub',owner_id::text,true);
  insert into public.organizations(id,owner_user_id,name,approval_policy)
  values(empty_org,owner_id,'Zero-opening company fixture','OWNER_CONTROLLED');
  insert into public.organization_members(organization_id,user_id,role,status)
