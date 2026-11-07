@@ -5,7 +5,7 @@ import type {CanonicalLineageJournal} from './financial-branch-journal-source';
 const Money=Decimal.clone({precision:50});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const synthetic=/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):refund:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
-const sourceAmount=/^\\d{1,20}(\\.\\d{1,4})?$/;
+const sourceAmount=/^\d{1,20}(\.\d{1,4})?$/;
 type Refund={id:string;event_id:string;organization_id:string;obligation_key:string;obligation_type:string;settleable_base_amount:string|number};
 type Reversal={event_id:string;organization_id:string;link_type:string;related_event_id:string|null};
 type Original={id:string;organization_id:string};
@@ -72,7 +72,7 @@ export async function observeVatRefundSources(
     throw Error('REPORTING_REFUND_SOURCE_INCOMPLETE');
   }
   const rootIds=[...new Set(ids.map(id=>reversal.get(id)??id))];
-  // The server RP C uses obligation_key = 'note-refund' AND strictly positive
+  // The server RPC uses obligation_key = 'note-refund' AND strictly positive
   // settleable_base_amount. A capped read MUST reject a full cap to avoid
   // silently accepting a truncated list.
   const response=await supabase.from('financial_event_obligations')
@@ -85,7 +85,7 @@ export async function observeVatRefundSources(
   for(const refund of response.data as Refund[]){
    if(refund.organization_id!==organizationId||!uuid.test(refund.id)||
     !rootIds.includes(refund.event_id)||refund.obligation_key!=='note-refund'||
-    !sourceAmount.test(String(refund.settleable_base_amount))||
+    !new Money(refund.settleable_base_amount).isFinite()||
     !new Money(refund.settleable_base_amount).gt(0)||recordIds.has(refund.id))
     throw Error('REPORTING_REFUND_SOURCE_INCOMPLETE');
    recordIds.add(refund.id);
@@ -102,7 +102,7 @@ export async function observeVatRefundSources(
     const amount=source&&new Money(source.settleable_base_amount);
     if(!match||match[1].toLowerCase()!==journal.id.toLowerCase()||
      !source||!amount||!sourceAmount.test(line.baseAmount)||
-     !amount.eq(line.baseAmount)||line.classificationId!=='VAT_NOTE_REFUND_'+source.obligation_type||
+     !amount.toDecimalPlaces(4,Money.ROUND_HALF_UP).eq(line.baseAmount)||line.classificationId!=='VAT_NOTE_REFUND_'+source.obligation_type||
      line.cashDirection!=='NON_CASH'||
      line.recognitionSign!==(reversal.has(journal.id)?-1:1))
      throw Error('REPORTING_REFUND_SOURCE_MISMATCH');
