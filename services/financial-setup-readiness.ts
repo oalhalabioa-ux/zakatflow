@@ -36,7 +36,7 @@ export async function readFinancialSetupReadiness(input:unknown){
  ]);
  if(chart.status==='fulfilled'){
   const accounts=(chart.value as {accounts?:Array<{code:string;reportingCode:string;isActive:boolean;isPostable:boolean;isSystem:boolean}>}).accounts??[];
-  evidence.chartPostableRetained=accounts.some(a=>a.reportingCode==='3300'&&a.isActive&&a.isPostable&&!a.isSystem&&/^3300\\d{2}(?:\\d{2}){0,2}$/.test(a.code));
+  evidence.chartPostableRetained=accounts.some(a=>a.reportingCode==='3300'&&a.isActive&&a.isPostable&&!a.isSystem&&/^3300\d{2}(?:\d{2}){0,2}$/.test(a.code));
  }
  if(banks.status==='fulfilled'&&!banks.value.error)evidence.bankAccountPresent=(banks.value.data?.length??0)>0;
  if(owners.status==='fulfilled'&&!owners.value.error)
