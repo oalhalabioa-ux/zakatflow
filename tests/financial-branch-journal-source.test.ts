@@ -20,7 +20,9 @@ const s=vi.hoisted(()=>({
  events:[] as {id:string;organization_id:string;entity_id:string|null;event_date:string;status:string}[],
  entities:[] as {id:string;organization_id:string;entity_type:string;active:boolean}[],
  lines:[] as {id:string;event_id:string;organization_id:string;classification_id:string;
-  base_amount:string;cash_direction:string;metadata:Record<string,unknown>}[],
+  base_amount:string;cash_direction:string;metadata:Record<string,unknown>;
+  line_number:number;recoverable_percent:number}[],
+ links:[] as {event_id:string;organization_id:string;link_type:string;related_event_id:string|null}[],
 }));
 const client={
  from(table:string){
@@ -35,6 +37,7 @@ const client={
     if(s.error)return{data:null,error:{message:'private database error'}};
     if(table==='organization_entities')return{data:s.entities,error:null};
     if(table==='financial_event_lines')return{data:s.lines.filter(l=>chain.values.includes(l.event_id)),error:null};
+    if(table==='financial_event_links')return{data:s.links.filter(l=>chain.values.includes(l.event_id)),error:null};
     return{data:s.events.filter(e=>chain.values.includes(e.id)),error:null};
    },
   };return chain;
@@ -50,7 +53,7 @@ const journals=()=>[
  {id:idC,organizationId:org,date:'2026-01-03',status:'POSTED' as const},
 ];
 beforeEach(()=>{
- Object.assign(s,{member:true,allowed:true,revoked:false,authCount:0,rpcs:[],reads:0,error:false,
+ Object.assign(s,{member:true,allowed:true,revoked:false,authCount:0,rpcs:[],reads:0,error:false,links:[],
   events:[
    {id:idA,organization_id:org,entity_id:null,event_date:'2026-01-01',status:'ACTUAL'},
    {id:idB,organization_id:org,entity_id:hq,event_date:'2026-01-02',status:'ACTUAL'},
@@ -61,9 +64,9 @@ beforeEach(()=>{
    {id:branch,organization_id:org,entity_type:'BRANCH',active:true},
   ],
   lines:[
-   {id:lineA,event_id:idA,organization_id:org,classification_id:classId,base_amount:'100.0000',cash_direction:'INFLOW',metadata:{}},
-   {id:lineB,event_id:idB,organization_id:org,classification_id:classId,base_amount:'200.0000',cash_direction:'NON_CASH',metadata:{}},
-   {id:lineC,event_id:idC,organization_id:org,classification_id:classId,base_amount:'300.0000',cash_direction:'NON_CASH',metadata:{}},
+   {id:lineA,event_id:idA,organization_id:org,classification_id:classId,base_amount:'100.0000',cash_direction:'INFLOW',metadata:{},line_number:1,recoverable_percent:100},
+   {id:lineB,event_id:idB,organization_id:org,classification_id:classId,base_amount:'200.0000',cash_direction:'NON_CASH',metadata:{},line_number:1,recoverable_percent:100},
+   {id:lineC,event_id:idC,organization_id:org,classification_id:classId,base_amount:'300.0000',cash_direction:'NON_CASH',metadata:{},line_number:1,recoverable_percent:100},
   ]});
 });
 describe('canonical financial journal branch evidence',()=>{
@@ -141,7 +144,7 @@ describe('canonical line-level source checks before branch statements',()=>{
   expect(result).toMatchObject({
    status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',
    organizationId:org,sourceLineCount:3,links:[],
-   branchAttributionVerified:false,reversalRecognitionSignVerified:false,
+   branchAttributionVerified:false,reversalRecognitionSignVerified:true,
   });
   expect(s.authCount).toBe(3);
   expect(s.rpcs).toEqual(['financial_core_can','financial_core_can','financial_core_can']);
@@ -149,7 +152,7 @@ describe('canonical line-level source checks before branch statements',()=>{
  it('rejects an RLS-hidden or extra original recognition line rather than treating a truncated ledger as complete',async()=>{
   s.lines=s.lines.slice(0,2);
   await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
-  s.lines.push({id:lineC,event_id:idC,organization_id:'foreign-org',classification_id:classId,base_amount:'300.0000',cash_direction:'NON_CASH',metadata:{}});
+  s.lines.push({id:lineC,event_id:idC,organization_id:'foreign-org',classification_id:classId,base_amount:'300.0000',cash_direction:'NON_CASH',metadata:{},line_number:1,recoverable_percent:100});
   await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
  });
  it('rejects forged line identity, wrong event assignment, duplicate line IDs and unsupported empty original events',async()=>{
@@ -164,7 +167,7 @@ describe('canonical line-level source checks before branch statements',()=>{
   await expect(observeCanonicalJournalLineage(org,empty)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_INVALID');
  });
  it('reconciles two VAT posting parts against a single original database event line',async()=>{
-  s.lines[0].metadata={source_role:'INPUT_VAT'};
+  s.lines[0].metadata={source_role:'INPUT_VAT',recoverable_percent:60};
   const data=postedLineage();
   data[0].sourceLines=[
    {id:lineA+':INPUT_VAT_RECOVERABLE',classificationId:classId+':INPUT_VAT_RECOVERABLE',
@@ -173,9 +176,46 @@ describe('canonical line-level source checks before branch statements',()=>{
     baseAmount:'40.0000',cashDirection:'INFLOW',recognitionSign:1},
   ];
   const result=await observeCanonicalJournalLineage(org,data);
-  expect(result).toMatchObject({sourceLineCount:4,reversalRecognitionSignVerified:false});
+  expect(result).toMatchObject({sourceLineCount:4,reversalRecognitionSignVerified:true});
   data[0].sourceLines[0].baseAmount='59.0000';
   await expect(observeCanonicalJournalLineage(org,data)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+ });
+ it('attests normal signs and linked reversal signs using original line number and metadata',async()=>{
+  s.links=[{event_id:idC,organization_id:org,link_type:'REVERSAL_OF',related_event_id:idA}];
+  s.lines[0].metadata={recognition_sign:-1};
+  const data=[...postedLineage().slice(0,2),{
+   ...journals()[2],sourceLines:[{...part(lineC,'300.0000','NON_CASH'),recognitionSign:1 as const}],
+  }];
+  expect((await observeCanonicalJournalLineage(org,data)).reversalRecognitionSignVerified).toBe(true);
+  const wrong=[...postedLineage().slice(0,2),{
+   ...journals()[2],sourceLines:[{...part(lineC,'300.0000','NON_CASH'),recognitionSign:-1 as const}],
+  }];
+  await expect(observeCanonicalJournalLineage(org,wrong)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+  s.lines[0].metadata={recognition_sign:1};
+  const signed=[...postedLineage().slice(0,2),{
+   ...journals()[2],sourceLines:[{...part(lineC,'300.0000','NON_CASH'),recognitionSign:-1 as const}],
+  }];
+  expect((await observeCanonicalJournalLineage(org,signed)).reversalRecognitionSignVerified).toBe(true);
+ });
+ it('matches inherited VAT recovery splits on a reversal against the original source role',async()=>{
+  s.links=[{event_id:idC,organization_id:org,link_type:'REVERSAL_OF',related_event_id:idA}];
+  s.lines[0].metadata={source_role:'INPUT_VAT',recoverable_percent:60};
+  const data=[...postedLineage().slice(0,2),{
+   ...journals()[2],
+   sourceLines:[
+    {id:lineC+':INPUT_VAT_RECOVERABLE',classificationId:classId+':INPUT_VAT_RECOVERABLE',
+     baseAmount:'180.0000',cashDirection:'NON_CASH' as const,recognitionSign:-1 as const},
+    {id:lineC+':INPUT_VAT_NONRECOVERABLE',classificationId:classId+':INPUT_VAT_NONRECOVERABLE',
+     baseAmount:'120.0000',cashDirection:'NON_CASH' as const,recognitionSign:-1 as const},
+   ],
+  }];
+  const verified=await observeCanonicalJournalLineage(org,data);
+  expect(verified).toMatchObject({sourceLineCount:4,reversalRecognitionSignVerified:true});
+  const altered=structuredClone(data);
+  altered[2].sourceLines[0].baseAmount='170.0000';
+  altered[2].sourceLines[1].baseAmount='130.0000';
+  await expect(observeCanonicalJournalLineage(org,altered))
+   .rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
  });
  it('refuses a fabricated posting role if the original line does not declare it',async()=>{
   const data=postedLineage();
@@ -203,7 +243,7 @@ describe('canonical line-level source checks before branch statements',()=>{
   s.events=[];s.entities=[];s.lines=[];
   const r=await observeCanonicalJournalLineage(org,[]);
   expect(r).toEqual({status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',
-   organizationId:org,sourceLineCount:0,links:[],branchAttributionVerified:true,reversalRecognitionSignVerified:false});
+   organizationId:org,sourceLineCount:0,links:[],branchAttributionVerified:true,reversalRecognitionSignVerified:true});
   expect(JSON.stringify(r)).not.toMatch(/openingBalance|approvedOpening|netProfit/);
  });
 });
