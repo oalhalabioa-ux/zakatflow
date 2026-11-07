@@ -21,7 +21,7 @@ function suggestion(parent:string,accounts:Account[]){
  return '';
 }
 async function json(response:Response){const result=await response.json();if(!response.ok)throw Error(result.error??'CHART_UNAVAILABLE');return result}
-export default function ChartOfAccountsWorkspace({locale,preferredOrg='',preferredTemplate=''}:{locale:string;preferredOrg?:string;preferredTemplate?:string}){
+export default function ChartOfAccountsWorkspace({locale,preferredOrg='',preferredTemplate='',setupEmbedded=false}:{locale:string;preferredOrg?:string;preferredTemplate?:string;setupEmbedded?:boolean}){
  const en=locale==='en',t=(ar:string,english:string)=>en?english:ar;
  const[orgs,setOrgs]=useState<Institution[]>([]),[organization,setOrganization]=useState(''),[data,setData]=useState<Workspace|null>(null);
  const[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState('');
@@ -73,7 +73,7 @@ export default function ChartOfAccountsWorkspace({locale,preferredOrg='',preferr
   <button className="coa-primary" disabled={!data?.canManage} onClick={()=>create(roots[0]?.code??'')}>+ {t('إضافة حساب فرعي','Add subaccount')}</button>
  </div></div>
  <div className="coa-notice" role="note">{chartIntegrationMessage(data?.postingIntegration,locale)}</div>
- <div className="coa-org"><TopbarOrganizationControls><WorkspaceOrganizationPicker ar={!en} label={t('المؤسسة','Organization')} organizations={orgs} value={organization} restore={false} disabled={busy} beforeChange={()=>!draft||window.confirm(t('تجاهل تعديل الحساب غير المحفوظ؟','Discard the unsaved account edit?'))} onChange={id=>{setData(null);setSelected('');setSuccess('');setOrganization(id)}}/></TopbarOrganizationControls><button onClick={()=>setRevision(v=>v+1)} disabled={loading}>{t('تحديث','Refresh')}</button></div>
+ <div className="coa-org"><TopbarOrganizationControls><WorkspaceOrganizationPicker ar={!en} label={t('المؤسسة','Organization')} organizations={orgs} value={organization} restore={false} disabled={busy||setupEmbedded} beforeChange={()=>!draft||window.confirm(t('تجاهل تعديل الحساب غير المحفوظ؟','Discard the unsaved account edit?'))} onChange={id=>{setData(null);setSelected('');setSuccess('');setOrganization(id)}}/></TopbarOrganizationControls><button onClick={()=>setRevision(v=>v+1)} disabled={loading}>{t('تحديث','Refresh')}</button></div>
  {error&&<div className="coa-alert" role="alert">{statusCodes[error]??t('تعذرت العملية. راجع الصلاحيات أو البيانات ثم حاول مجدداً.','Operation failed. Check your permissions and input.')}</div>}
  {success&&<div className="coa-success" role="status">{success}</div>}
  {loading&&<p role="status">{t('جار تحميل الدليل…','Loading chart…')}</p>}
