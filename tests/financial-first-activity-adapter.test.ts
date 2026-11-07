@@ -11,7 +11,7 @@ vi.mock('../services/financial-branch-journal-source',()=>({
 import fixture from './financial-reporting/statement-snapshot.json';
 
 const state=vi.hoisted(()=>({
- mode:'first-activity' as 'first-activity'|'other-error'|'no-rpc'|'approved',
+ mode:'first-activity' as 'first-activity'|'other-error'|'no-rpc'|'approved'|'tampered-live',
  member:true,permission:true,called:[] as string[],
 }));
 const org='10000000-0000-4000-8000-000000000003';
@@ -39,7 +39,11 @@ vi.mock('../services/auth',()=>({requireUser:async()=>({
    state.called.push(name);
    if(name==='financial_core_can')return{data:state.permission,error:null};
    if(name==='financial_statement_live_snapshot'){
-    if(state.mode==='approved')return{data:liveFixture(),error:null};
+    if(state.mode==='approved'||state.mode==='tampered-live'){
+     const data=liveFixture();
+     if(state.mode==='tampered-live')data.events[0].lines[0].id='untrusted-source-line';
+     return{data,error:null};
+    }
     return{data:null,error:{message:state.mode==='other-error'?'REPORTING_ACCESS_DENIED':'REPORTING_APPROVED_OPENING_REQUIRED'}};
    }
    if(name==='financial_statement_first_activity_snapshot'){
@@ -110,6 +114,13 @@ describe('no-opening legal entity read adapter',()=>{
   await expect(liveBranchJournalLineageEvidence(query)).rejects.toThrow('BRANCH_EVIDENCE_DISABLED');
   process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';process.env.VERCEL_ENV='production';
   await expect(liveBranchJournalLineageEvidence(query)).rejects.toThrow('BRANCH_EVIDENCE_DISABLED');
+ });
+ it('enforces normalized source provenance on the real Production reporting adapter (not merely QA previews)',async()=>{
+  state.mode='tampered-live';process.env.VERCEL_ENV='production';
+  await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
+  state.mode='approved';
+  const result=await liveStatementSource(query);
+  expect(result.statements.income.netProfit).toBe('100.0000');
  });
  it('preserves the existing approved opening snapshot without fallback',async()=>{
   state.mode='approved';const result=await liveStatementSource(query);
