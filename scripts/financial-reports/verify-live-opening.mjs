@@ -185,9 +185,9 @@ try{
      // Logs belong to this disposable local QA stack only. Surface sanitized
      // diagnostic codes, never a full SQL statement or user/tenant data.
      const log=await readFile(out+'/next.log','utf8');
-     console.log('ISOLATED_REPORTING_SOURCE_CODES',log.split('\\n')
+     console.log('ISOLATED_REPORTING_SOURCE_CODES',log.split('\n')
       .filter(line=>line.includes('REPORTING_QA_DIAGNOSTIC_CODE'))
-      .slice(-8).map(line=>line.match(/REPORTING_QA_DIAGNOSTIC_CODE\\s+([A-Z_]+)/)?.[1]??'UNKNOWN'));
+      .slice(-8).map(line=>line.match(/REPORTING_QA_DIAGNOSTIC_CODE\s+([A-Z_]+)/)?.[1]??'UNKNOWN'));
     }
     assert.equal(response.status(),status,JSON.stringify(body));return body;
    }
