@@ -104,3 +104,8 @@
  .financial-setup-embedded-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
  .financial-setup-module-intro{padding:12px}
 }
+
+
+.financial-setup-activity-field{display:grid;gap:7px;max-width:530px;margin:12px 0 20px;color:var(--setup-text);font-size:.9rem;font-weight:700}
+.financial-setup-activity-field select{min-height:42px;width:100%;border:1px solid #a8b7c8;border-radius:8px;background:var(--card,#fff);color:var(--setup-text);padding:9px 12px;font:inherit}
+.financial-setup-activity-field small{font-size:.8rem;font-weight:400;color:var(--muted,#64748b);line-height:1.6}
