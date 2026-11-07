@@ -3,6 +3,7 @@ import {assertOpeningWorkspace,openingContext} from './financial-opening-workspa
 import {normalizeStatementSource,statementQuery,type StatementSourceSnapshot} from '../lib/financial-statement-source';
 import {endingForFiscalStart} from '../lib/financial-fiscal-end';
 import {observeCanonicalJournalLineage} from './financial-branch-journal-source';
+import {observeVatRefundSources} from './financial-vat-refund-source';
 // This check runs on LIVE financial statements in every environment, including
 // Production, not only on the separately gated branch QA preview. Unrecognized
 // legacy/refund sources are validated structurally by the source normalizer;
@@ -61,6 +62,16 @@ export async function liveStatementSource(input:unknown){
  if(raw?.origin!=='LIVE_CANONICAL_EVENTS')throw Error('REPORTING_UNAVAILABLE');
  const result=normalizeStatementSource(raw,q);
  await requireCanonicalRawSourceMatch(result);
+ // The Production RPC can synthesize VAT refund lines from obligations, not
+ // financial_event_lines. Verify ALL positive note-refund obligations (including
+ // the absence of any omitted lines) and reversal signs from actual RLS reads.
+ // This check is active for legal-company reports in Production as well as QA.
+ const canonical=result.canonicalJournalLineage.filter(j=>coreUuid.test(j.id));
+ const refundEvidence=await observeVatRefundSources(result.statements.organizationId,canonical);
+ if(refundEvidence.eventsObserved!==canonical.length||
+    refundEvidence.refundPartsMatched!==canonical.reduce((n,j)=>n+
+      j.sourceLines.filter(l=>l.id.includes(':refund:')).length,0))
+  throw Error('REPORTING_REFUND_SOURCE_INCOMPLETE');
  const membership=read(await supabase.from('organization_members').select('organization_id').eq('organization_id',q.organization).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle());
  if(!membership||read(await supabase.rpc('financial_core_can',{p_org:q.organization,p_scope:'financial_core.view'}))!==true)throw Error('REPORTING_ACCESS_DENIED');
  return result;
