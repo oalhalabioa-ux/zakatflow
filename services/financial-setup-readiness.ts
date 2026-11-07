@@ -35,8 +35,11 @@ export async function readFinancialSetupReadiness(input:unknown){
   supabase.from('organization_members').select('role').eq('organization_id',q.organization).eq('status','ACTIVE'),
  ]);
  if(chart.status==='fulfilled'){
-  const accounts=(chart.value as {accounts?:Array<{code:string;reportingCode:string;isActive:boolean;isPostable:boolean;isSystem:boolean}>}).accounts??[];
-  evidence.chartPostableRetained=accounts.some(a=>a.reportingCode==='3300'&&a.isActive&&a.isPostable&&!a.isSystem&&/^3300\d{2}(?:\d{2}){0,2}$/.test(a.code));
+  const accounts=(chart.value as {accounts?:Array<{code:string;reportingCode:string;kind:string;isActive:boolean;isPostable:boolean;isSystem:boolean}>}).accounts??[];
+  // The canonical 3300 equity control remains valid for grandfathered
+  // organizations. A customized leaf is validated separately by the fiscal
+  // calendar's authorized retained-account candidates.
+  evidence.chartPostableRetained=accounts.some(a=>a.code==='3300'&&a.kind==='EQUITY'&&a.isActive);
  }
  if(banks.status==='fulfilled'&&!banks.value.error)evidence.bankAccountPresent=(banks.value.data?.length??0)>0;
  if(owners.status==='fulfilled'&&!owners.value.error)
@@ -45,7 +48,7 @@ export async function readFinancialSetupReadiness(input:unknown){
   const f=fiscal.value;
   const selected=f.calendar?.retained_earnings_account??'';
   evidence.fiscalCalendarValid=Boolean(f.calendar&&f.period&&
-   f.retainedCandidates?.some(c=>c.code===selected));
+   (selected==='3300'||f.retainedCandidates?.some(c=>c.code===selected)));
   evidence.fiscalStart=f.period?.start??null;
  }
  if(evidence.fiscalStart){
