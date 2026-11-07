@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import {useMemo,useRef,useState} from 'react';
+import {setupEmbeddedUrl} from '../../lib/financial-setup-embedded';
 
 type Props={
  locale:string;
@@ -10,8 +11,6 @@ type Props={
  href:string;
  onRefresh:()=>void;
 };
-import {setupEmbeddedUrl} from '../../lib/financial-setup-embedded';
-
 /** Embedded *real* service screens, not screenshots or duplicate form logic.
  * Original API approvals, permissions, fiscal scopes and audits are preserved.
  */
@@ -33,7 +32,7 @@ export default function SetupEmbeddedWorkspace({locale,organizationId,stage,href
    const body=frame?.contentDocument;
    // Auth failure, outside-module redirects, or switched organizations must
    // never appear as an in-journey successfully loaded setup workspace.
-   setBlocked(!location||!body||!route.test(location.pathname)||
+   setBlocked(!location||!body||!setupEmbeddedUrl(location.pathname+location.search,organizationId)||
     new URLSearchParams(location.search).get('organization')!==organizationId||
     !body.querySelector('[data-setup-embedded-document]'));
   }catch{setBlocked(true)}
