@@ -56,6 +56,14 @@ describe('production live snapshot source identity integrity',()=>{
   asset.lines[0].id=asset.id+':ILLEGAL';
   expect(()=>verify([flow,asset])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
  });
+ it('forbids the same original database recognition line from being reused by another event',()=>{
+  const a=canonical(),b=clone(a);
+  b.id='60000000-0000-4000-8000-000000000006';
+  b.sourceKey='invoice-2';
+  b.lines[0].id=rawId+':OTHER';
+  b.lines[0].classificationId=cls+':OTHER';
+  expect(()=>verify([a,b])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
+ });
  it('rejects a source disguised as a legacy record or a duplicate financial event',()=>{
   const x=canonical();x.sourceModule='LEGACY_CASH';
   expect(()=>verify([x])).toThrow('REPORTING_SOURCE_PROVENANCE_INVALID');
