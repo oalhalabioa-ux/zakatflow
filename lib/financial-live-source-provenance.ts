@@ -33,8 +33,7 @@ export function assertNormalizedLiveEventProvenance(events:readonly Event[]){
    // FX net-difference part, never a duplicated cash leg or regular category.
    if(match[1].toLowerCase()==='transfer'){
     if(e.lines[0].classificationId!=='TRANSFER_DIFFERENCE:CASH')invalid();
-   }else if(!e.lines[0].classificationId.endsWith(':CASH')||
-    e.lines[0].classificationId==='TRANSFER_DIFFERENCE:CASH')invalid();
+   }else if(!e.lines[0].classificationId.endsWith(':CASH'))invalid();
   }else if(e.sourceModule==='LEGACY_ASSET'){
    const match=e.id.match(tx);
    if(!match||match[1].toLowerCase()!==e.sourceKey.toLowerCase()||
