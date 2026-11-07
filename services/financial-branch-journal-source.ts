@@ -83,7 +83,7 @@ export async function observeCanonicalJournalBranches(
 
 
 const Amount=Decimal.clone({precision:50});
-const valuePattern=/^\\d{1,20}(\\.\\d{1,4})?$/;
+const valuePattern=/^\d{1,20}(\.\d{1,4})?$/;
 const sourcePart=/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):([A-Z][A-Z0-9_]{0,63})$/i;
 export type CanonicalRecognitionPart={
  /** Database normalization produces financial_event_lines.id + ':' + part. */
