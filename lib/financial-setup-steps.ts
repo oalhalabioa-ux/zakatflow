@@ -30,9 +30,10 @@ export function isSkippedSetupStep(step: FinancialSetupStep, mode: FinancialSetu
   return step === 'opening' && mode === 'NEW';
 }
 
-export function nextSetupStep(step: FinancialSetupStep, mode: FinancialSetupMode | null): FinancialSetupStep {
+export function nextSetupStep(step: FinancialSetupStep, mode: FinancialSetupMode | null, requireOpeningReview=false): FinancialSetupStep {
   const index = FINANCIAL_SETUP_STEPS.indexOf(step);
-  return FINANCIAL_SETUP_STEPS.slice(index + 1).find(candidate => !isSkippedSetupStep(candidate, mode)) ?? 'finished';
+  return FINANCIAL_SETUP_STEPS.slice(index + 1).find(candidate =>
+    !isSkippedSetupStep(candidate, mode) || candidate==='opening'&&requireOpeningReview) ?? 'finished';
 }
 
 export function financialSetupProgress(mode: FinancialSetupMode | null, completed: readonly FinancialSetupStep[]) {
