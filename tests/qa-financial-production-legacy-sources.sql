@@ -8,6 +8,7 @@ declare
  org uuid:=gen_random_uuid();
  asset uuid:=gen_random_uuid();
  purchase uuid:=gen_random_uuid();
+ sale uuid:=gen_random_uuid();
  cash uuid:=gen_random_uuid();
  transfer uuid:=gen_random_uuid();
  source_account uuid:=gen_random_uuid();
@@ -34,6 +35,15 @@ begin
   organization_id,metadata)
  values(purchase,actor,asset,'PURCHASE','2026-03-02',2,300,'SAR',600,
   'SAR',600,org,'{}'::jsonb);
+
+ -- A sale has TWO independently mapped recognition parts: the original
+ -- carrying cost and the sale proceeds. A balanced total alone cannot
+ -- validate either part, so verify both against original transaction fields.
+ insert into public.transactions(id,user_id,asset_account_id,transaction_type,
+  transaction_date,quantity,unit_price,currency,gross_value,base_currency,base_value,
+  organization_id,metadata)
+ values(sale,actor,asset,'SALE','2026-03-05',1,750,'SAR',750,
+  'SAR',750,org,'{"cost_basis_base":"400.0000"}'::jsonb);
 
  insert into public.liquidity_flows(id,organization_id,direction,title,due_date,
   amount,currency,base_amount,status,created_by)
@@ -63,7 +73,7 @@ begin
 
  select private.financial_reporting_legacy_events(org,date '2026-01-01',date '2026-12-31')
  into events;
- if jsonb_typeof(events)<>'array' or jsonb_array_length(events)<>3
+ if jsonb_typeof(events)<>'array' or jsonb_array_length(events)<>4
  then raise exception 'PARITY_LEGACY_EVENT_COVERAGE_MISMATCH';end if;
 
  select item into rowdata from jsonb_array_elements(events) item
@@ -78,6 +88,23 @@ begin
     (part->>'baseAmount')::numeric<>(select t.base_value from public.transactions t where t.id=purchase) or
     (part->>'recognitionSign')::int<>1
  then raise exception 'PARITY_LEGACY_ASSET_VALUE_MISMATCH';end if;
+
+ select item into rowdata from jsonb_array_elements(events) item
+ where item->>'id'='transaction:'||sale::text;
+ if rowdata is null or rowdata->>'sourceModule'<>'LEGACY_ASSET' or
+    rowdata->>'sourceKey'<>sale::text or jsonb_array_length(rowdata->'lines')<>2
+ then raise exception 'PARITY_LEGACY_SALE_SOURCE_INCOMPLETE';end if;
+ if not exists(select 1 from jsonb_array_elements(rowdata->'lines') l
+    where l->>'id'='transaction:'||sale::text||':BOOK' and
+      (l->>'baseAmount')::numeric=400 and
+      l->>'cashDirection'='NON_CASH' and
+      l->>'recognitionSign'='1') or
+    not exists(select 1 from jsonb_array_elements(rowdata->'lines') l
+    where l->>'id'='transaction:'||sale::text||':PROCEEDS' and
+      (l->>'baseAmount')::numeric=(select t.base_value from public.transactions t where t.id=sale) and
+      l->>'cashDirection'='NON_CASH' and
+      l->>'recognitionSign'='1')
+ then raise exception 'PARITY_LEGACY_SALE_COST_OR_PROCEEDS_MISMATCH';end if;
 
  select item into rowdata from jsonb_array_elements(events) item
  where item->>'id'='flow:'||cash::text;
@@ -103,7 +130,7 @@ begin
        from public.liquidity_flows where organization_id=org and transfer_id=transfer)
  then raise exception 'PARITY_LEGACY_TRANSFER_VALUE_MISMATCH';end if;
 
- if (select count(distinct item->>'id') from jsonb_array_elements(events) item)<>3
+ if (select count(distinct item->>'id') from jsonb_array_elements(events) item)<>4
  then raise exception 'PARITY_LEGACY_DUPLICATED_OUTPUT';end if;
 end $$;
 rollback;
