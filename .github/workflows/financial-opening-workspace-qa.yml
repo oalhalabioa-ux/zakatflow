@@ -70,6 +70,8 @@ jobs:
         run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-parity-contract.sql
       - name: Verify exact live VAT partition amounts and source classifications
         run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-normalized-parts.sql
+      - name: Reconcile legacy asset/cash/transfer adapter against original records
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-legacy-sources.sql
       - name: Destroy isolated parity database without retaining data
         if: always()
         run: test -z "$PARITY_QA_WORKDIR" || npx --yes supabase@2.122.0 stop --workdir "$PARITY_QA_WORKDIR" --no-backup
