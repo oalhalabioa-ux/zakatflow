@@ -8,7 +8,7 @@ Audit date: **2026-11-07**. **Schema gate: PASS**. **Authenticated browser / ful
 - User approved Supabase's quoted **USD 10/month** on 2026-11-07; a cost-confirmation ID was obtained and used once to create this **new** project.
 - Original Production Supabase: `ejpzcsfwqziqxwhvqnay`, **read-only inspection only**; original Financial Core QA: `wtzgzmcgcqouziqzsfnl`, retained intact; neither has been reset, altered or used as a migration target.
 - New separate Vercel project: **yaqeen-financial-core-v2-qa** (`prj_cIomHwWGkWqEvAvr2mxGxbSHDd7z`). Its four environment variables point **only to the new V2 database**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public/anon, not service_role), `NEXT_PUBLIC_SUPABASE_PROJECT_REF`, `NEXT_PUBLIC_APP_ENV=qa`. **No Production Vercel settings/domains changed**, nor any changes to the older unlinked `zakatflow-qa` Vercel project.
-- QA-only PR #360 Git build created: `dpl_HE1hGnNBQFsSdNwvGh55LHRNMr62`, source commit `ba4daf7c8f10731e60bf31713f649bad81eb5978`. At the time of the audit it was queued/building; **do not claim live UAT passed until READY and tested**.
+- QA-only PR #360 preview **READY**: `dpl_HE1hGnNBQFsSdNwvGh55LHRNMr62`, source commit `ba4daf7c8f10731e60bf31713f649bad81eb5978`, **Vercel target Preview** (not the actual Yaqeen Production website). Protected branch alias: `https://yaqeen-financial-core-v2-qa-git-feat-or-568599-oalhalabioa-9334.vercel.app`.
 - Initial new-project deployment `dpl_ConMU9F1LaibTGNcE7vcaiGVChi3`, internally targeted at the QA project's Vercel production environment **before QA variables were installed**, was explicitly **canceled**. This was a deploy in a **new, QA-only** Vercel project, **not** a change to the customer's Production Vercel project `zakatflow`.
 
 ## 2. Production canonical migration rebuild — COMPLETE
@@ -51,9 +51,20 @@ PostgreSQL `pg_cron` / `pg_net` are not installed in new V2; no `cron` jobs tabl
 
 All six disposable GitHub acceptance workflows were green at PR head `ba4daf7c`. These do **not** substitute for an app-level signed-in PostgREST/browser test.
 
+## 4A. Deployed QA preview HTTP/compiled-config verification
+
+Using the Vercel authenticated fetch on the isolated QA deployment (SSO remained enabled), the **Arabic and English login pages returned HTTP 200** with correct language HTML. The actual Next.js browser chunk `app/[locale]/login/page-66b0e34784e63e86.js` was checked: it embeds `https://ubotbpjngtfvolthpfec.supabase.co`, includes the built-in `QA_DATABASE_ISOLATION_REQUIRED` guard, and does **not** embed Production project ref `ejpzcsfwqziqxwhvqnay`. This verifies **the compiled browser bundle's V2 database configuration**, not a real authenticated user workflow. Anonymous protected screens display login content; no financial source records were returned.
+
+**Discovered QA-only application flag gap:** First deployed preview has `FINANCIAL_OPENING_WORKSPACE` and `FINANCIAL_STATEMENTS_LIVE` disabled, so its `/api/financial-reporting/live-statements?action=context` returned HTTP 404 `REPORTING_UNAVAILABLE`. The following seven **QA Preview-only** variables were subsequently saved on the new QA Vercel project (not on Production or legacy QA): `FINANCIAL_OPENING_WORKSPACE`, `FINANCIAL_STATEMENTS_LIVE`, `FINANCIAL_SOURCE_REPLAY_GUARD`, `FINANCIAL_FIRST_ACTIVITY_REPORTING`, `FINANCIAL_SCOPE_PREFLIGHT`, `FINANCIAL_BRANCH_EVIDENCE_QA`, and `FINANCIAL_SOURCE_INTEGRITY_DIAGNOSTICS` — all `true`.
+
+**Deployment blocker:** redeploy at PR commit `e383d7a0bcd7bbdba6b98f68cd5a629c19cac32c` was **rejected by Vercel 402**: team Hobby `api-deployments-free-per-day`, more than 100 deployments, `retryAfter=86400`. The CLI fallback was not run because linked local Vercel credentials were unavailable and the account was already at its quota. **Do not state the seven toggles are live** on the currently READY preview. Rebuilding this *isolated QA project* after the provider limit resets is required, then retest real unauthenticated `401` for financial APIs and signed-in flow.
+
+Deployment Protection remained on (`ssoProtection.enabled=true`), no long-lived bypass was created and no secrets exposed in the QA build evidence. Temporary Vercel-authenticated fetch access was used for the HTTP smoke test only.
+
 ## 5. Remaining cutover blockers — NO PRODUCTION RELEASE
 
-- [ ] Vercel QA build at exact source SHA is `READY`, returns expected bilingual pages and uses V2 (not legacy QA/Production).
+- [x] Vercel initial QA preview is `READY`; bilingual login pages HTTP 200, compiled code points to V2 (not legacy QA/Production).
+- [ ] **Quota-blocked redeploy** with new QA-only report/opening flags; complete authenticated report API and browser UAT on the newly rebuilt immutable deployment.
 - [ ] QA Supabase Auth URL/redirect settings, supported sign-up method, and QA-only login/test users correctly configured; do not use live Google OAuth or Resend without QA credentials and isolated outbound policies.
 - [ ] Authenticated application E2E across real roles, personal/organization/branch/head office, assets, VAT, budgets, opening approval, reports/export, users/invites and trial read-only; isolate real-user service credentials.
 - [ ] Approved opening, branch actual posted journal and group-control fixture data; reconciliation of detailed statements/financial core revision, corporate vs personal, double-count and under/over allocation, source snapshot atomicity, RLS mismatch, large-volume performance.
