@@ -17,4 +17,38 @@ describe('complete canonical statement snapshot',()=>{
  it('exports exact values, scope and source lineage in both languages',()=>{const r=normalizeStatementSource(fixture(),query);for(const en of[false,true])for(const view of['income','position','cash-flow']as const){const rows=statementSourceExport(r,view,en);expect(rows).toContainEqual([en?'Organization':'المؤسسة',query.organization]);expect(rows.flat()).toContain('LOCAL_QA_CANONICAL_EVENTS');expect(rows.flat()).toContain(r.lineage[0].lineId);expect(rows.flat()).not.toContain('NaN');expect(rows.flat()).not.toContain('undefined')}expect(statementSourceExport(r,'income',true)).toContainEqual(['Net profit','100.0000'])});
  it('rejects invalid query dates, unknown dimensions and reversed periods',()=>{for(const bad of[{...query,from:'2026-02-30'},{...query,from:'2027-01-01'},{...query,entity:'unauthorized-subset'},{...query,to:'2029-01-01'}])expect(statementQuery.safeParse(bad).success).toBe(false)});
  it('handles a large mapped recognition set without repeated scans of all rules',()=>{const p=fixture(),template=p.events[0];p.events=Array.from({length:2000},(_,n)=>({...template,id:'event-'+n,sourceKey:'key-'+n,lines:[{...template.lines[0],id:'line-'+n,baseAmount:'1.0000'}]}));p.coverage.eventCount=2000;p.coverage.lineCount=2000;expect(normalizeStatementSource(p,query).statements.income.netProfit).toBe('-2000.0000')});
+ it('accepts a verified first-activity company with no opening vouchers and no activity',()=>{
+  const p=fixture();
+  p.opening=[];p.events=[];p.policy.rules=[];
+  p.openingSourceId='FIRST_ACTIVITY:2026-01-01';
+  p.coverage.eventCount=0;p.coverage.lineCount=0;
+  const result=normalizeStatementSource(p,query);
+  expect(result.statements.cash).toMatchObject({opening:'0.0000',movement:'0.0000',closing:'0.0000'});
+  expect(result.statements.position).toMatchObject({assets:'0.0000',liabilities:'0.0000',equity:'0.0000'});
+  expect(result.statements.income.netProfit).toBe('0.0000');
+  expect(result.accounts.every(a=>a.balance==='0.0000')).toBe(true);
+ });
+ it('recognizes current-year legal-company capital receipts without creating an opening balance or income',()=>{
+  const p=fixture();
+  p.opening=[];p.openingSourceId='FIRST_ACTIVITY:2026-01-01';
+  p.policy.rules=[{...p.policy.rules[0],id:'capital-receipt-rule',eventType:'CAPITAL_RECEIPT',
+   classificationId:'capital-receipt',cashDirection:'INFLOW',debitAccountId:'bank',
+   creditAccountId:'capital',cashActivity:'FINANCING'}];
+  p.events=[{...p.events[0],id:'capital-receipt',sourceKey:'capital-receipt',
+   eventType:'CAPITAL_RECEIPT',date:'2026-01-10',lines:[{
+    ...p.events[0].lines[0],id:'capital-receipt-line',classificationId:'capital-receipt',
+    baseAmount:'100.0000',cashDirection:'INFLOW',recognitionSign:1,
+   }]}];
+  p.coverage.eventCount=1;p.coverage.lineCount=1;
+  const result=normalizeStatementSource(p,query);
+  expect(result.statements.cash).toMatchObject({opening:'0.0000',financing:'100.0000',closing:'100.0000'});
+  expect(result.statements.position).toMatchObject({assets:'100.0000',equity:'100.0000'});
+  expect(result.statements.income).toMatchObject({revenue:'0.0000',netProfit:'0.0000'});
+ });
+ it('rejects missing opening records unless the canonical source attests first activity',()=>{
+  const p=fixture();p.opening=[];p.events=[];p.policy.rules=[];
+  p.coverage.eventCount=0;p.coverage.lineCount=0;
+  expect(()=>normalizeStatementSource(p,query)).toThrow('STATEMENT_OPENING_PROVENANCE_REQUIRED');
+ });
+
 });
