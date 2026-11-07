@@ -22,8 +22,8 @@ const labels: Record<string, [string, string]> = {
 export default function UserManagement({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = use(params); const ar = locale === 'ar';const mailCopy=emailCopy.organization[ar?'ar':'en'];
   const [activeTab,setActiveTab]=useState('roles');
-  const [setupReturn,setSetupReturn]=useState({organization:'',visible:false});
-  useEffect(()=>{const q=new URLSearchParams(window.location.search);setSetupReturn({organization:q.get('organization')??'',visible:q.get('fromSetup')==='1'});},[]);
+  const [setupReturn,setSetupReturn]=useState({organization:'',visible:false,embedded:false});
+  useEffect(()=>{const q=new URLSearchParams(window.location.search);setSetupReturn({organization:q.get('organization')??'',visible:q.get('fromSetup')==='1',embedded:q.get('setupEmbed')==='1'});},[]);
   const [permissionSearch,setPermissionSearch]=useState('');
   const [overrideUser,setOverrideUser]=useState('');
   const [roleSearch,setRoleSearch]=useState('');
@@ -196,7 +196,7 @@ export default function UserManagement({ params }: { params: Promise<{ locale: s
   }
 
   return <main className={`container ${styles.accessPage}`} dir={ar ? 'rtl' : 'ltr'} style={{ maxWidth: 1180, paddingTop: 30, paddingBottom: 60 }}>
-    <SetupReturnLink locale={locale} organization={setupReturn.organization} visible={setupReturn.visible} />
+    <SetupReturnLink locale={locale} organization={setupReturn.organization} visible={setupReturn.visible} embedded={setupReturn.embedded} />
     <header style={{ marginBottom: 24 }}><span className="pill">{ar ? 'إدارة الوصول' : 'ACCESS MANAGEMENT'}</span><h1>{ar ? 'المستخدمون والصلاحيات' : 'Users & permissions'}</h1><p className="muted">{ar ? 'اربط حسابات الدخول بالجهات، وأدر أدوار الأعضاء والدعوات.' : 'Link sign-in accounts to organizations, and manage member roles and invitations.'}</p></header>
     {notice && <div className="card" role="status" style={{ marginBottom: 16 }}>{notice}</div>}
     <section className="card" style={{ marginBottom: 20 }}>
