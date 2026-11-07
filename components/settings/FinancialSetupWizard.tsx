@@ -17,6 +17,7 @@ import {
   type FinancialSetupStep,
 } from '@/lib/financial-setup-steps';
 import type {FinancialSetupReadiness,SetupStatus} from '@/lib/financial-setup-readiness';
+import SetupEmbeddedWorkspace from './SetupEmbeddedWorkspace';
 import './financial-setup.css';
 
 type Org = {id:string;name:string;legal_name?:string|null;base_currency:string;entity_type:string};
@@ -211,8 +212,13 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     const candidate=FINANCIAL_SETUP_STEPS.slice(0,index).reverse().find(id=>!isSkippedSetupStep(id,mode));
     if(candidate)setStep(candidate);
   }
-  const moduleLink=(href:string|undefined,label:string,description:string)=><div className="financial-setup-module-link"><div><strong>{label}</strong><p>{description}</p></div>{href&&<Link href={href}>{t('فتح الصفحة الحالية','Open existing page')} <span aria-hidden="true">↗</span></Link>}</div>;
-  const note=t('علامات الإنجاز هنا لتتبّع مراجعتك، ولا تُعد اعتمادًا محاسبيًا. الحفظ والترحيل والاعتماد تتم فقط في صفحاتها الأصلية.','Journey checkmarks track your review, not accounting approval. Saving, posting and approvals remain in their existing pages.');
+  const moduleLink=(href:string|undefined,label:string,description:string)=><div className="financial-setup-module">
+    <div className="financial-setup-module-intro"><strong>{label}</strong><p>{description}</p></div>
+    {href&&<SetupEmbeddedWorkspace key={orgId+':'+step+':'+href} locale={locale}
+      organizationId={orgId} stage={label} href={href}
+      onRefresh={()=>setReadinessRevision(value=>value+1)}/>}
+  </div>;
+  const note=t('احفظ أو اعتمد التغييرات داخل نافذة المرحلة المترابطة، ثم حدّث حالة الجاهزية. علامة المراجعة لا تُرحّل قيودًا ولا تمنح اعتمادًا محاسبيًا.','Save or approve inside the connected step window, then refresh readiness. Review checkmarks never post entries or authorize accounting approval.');
 
   return <div className="financial-setup" dir={ar?'rtl':'ltr'} data-financial-setup>
     <TopbarOrganizationControls>
