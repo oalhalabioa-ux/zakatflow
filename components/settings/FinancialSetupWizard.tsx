@@ -56,7 +56,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
   const [hydrated,setHydrated]=useState(false),[reviewed,setReviewed]=useState(false),[notice,setNotice]=useState('');
   const [readiness,setReadiness]=useState<FinancialSetupReadiness|null>(null);
   const [checkingReadiness,setCheckingReadiness]=useState(false),[readinessError,setReadinessError]=useState('');
-  const [readinessRevision,setReadinessRevision]=useState(0);
+  const [readinessRevision,setReadinessRevision]=useState(0),[finalizing,setFinalizing]=useState(false);
 
   useEffect(()=>{
     const controller=new AbortController();
@@ -163,10 +163,34 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     setStep(next);
     setNotice('');
   }
-  function advance(){
+  async function advance(){
     if(step==='finished')return;
     if(step==='organization'&&!mode)return;
-    if(step==='review'&&(!allReviewed||!setupReady))return;
+    if(step==='review'){
+      if(!allReviewed||!setupReady||finalizing||!orgId)return;
+      // A prior readiness response cannot authorize a later completion.
+      // Recheck against current server evidence immediately on Finish.
+      setFinalizing(true);setReadinessError('');
+      try{
+        const params=new URLSearchParams({organization:orgId});
+        if(mode)params.set('mode',mode);
+        const response=await fetch('/api/financial-reporting/setup-readiness?'+params,{
+          cache:'no-store',
+        });
+        if(!response.ok)throw Error('SETUP_UNAVAILABLE');
+        const checked=await response.json() as FinancialSetupReadiness;
+        if(checked.organizationId!==orgId||checked.mode!==mode||!checked.ready){
+          setReadiness(checked.organizationId===orgId?checked:null);
+          setReadinessError(t('تغيّرت جاهزية المؤسسة أو لم تكتمل. راجع الخطوات وأعد التحقق.','Readiness changed or is incomplete. Review the steps and check again.'));
+          return;
+        }
+        setReadiness(checked);
+      }catch{
+        setReadiness(null);
+        setReadinessError(t('تعذّر التحقق النهائي من الجاهزية. لم يُعتمد الإعداد.','Final readiness validation failed. Setup was not completed.'));
+        return;
+      }finally{setFinalizing(false)}
+    }
     if(step!=='organization'&&!isComplete&&!reviewed)return;
     setCompleted(previous=>{
       const next=previous.includes(step)?previous:[...previous,step];
@@ -217,7 +241,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
         {step!=='organization'&&step!=='review'&&!isComplete&&<label className="financial-setup-confirm"><input type="checkbox" checked={reviewed} onChange={event=>setReviewed(event.target.checked)}/><span>{t('راجعت هذه الخطوة وأريد المتابعة','I reviewed this step and want to continue')}</span></label>}
         {step==='review'&&!isComplete&&<label className="financial-setup-confirm"><input type="checkbox" checked={reviewed} onChange={event=>setReviewed(event.target.checked)}/><span>{t('أؤكد مراجعة بيانات الإعداد، مع بقاء الاعتمادات المحاسبية مستقلة','I confirm this setup review; accounting approvals remain separate')}</span></label>}
         <p className="financial-setup-hint">{note}</p>
-        <footer className="financial-setup-footer"><button type="button" className="financial-setup-primary" disabled={(step==='organization'&&!mode)||(step!=='organization'&&!isComplete&&!reviewed)||(step==='review'&&(!allReviewed||!setupReady))} onClick={advance}>{step==='review'?t('إنهاء الإعداد','Finish setup'):t('التالي','Next')} <span aria-hidden="true">{ar?'←':'→'}</span></button><button type="button" className="financial-setup-secondary" onClick={()=>{setNotice(t('تم حفظ تقدمك على هذا الجهاز.','Progress saved on this device.'));}}>{t('حفظ ومتابعة لاحقًا','Save for later')}</button><button type="button" className="financial-setup-back" disabled={step==='organization'} onClick={previous}>{t('السابق','Back')}</button></footer>
+        <footer className="financial-setup-footer"><button type="button" className="financial-setup-primary" disabled={finalizing||(step==='organization'&&!mode)||(step!=='organization'&&!isComplete&&!reviewed)||(step==='review'&&(!allReviewed||!setupReady))} onClick={advance}>{step==='review'?t('إنهاء الإعداد','Finish setup'):t('التالي','Next')} <span aria-hidden="true">{ar?'←':'→'}</span></button><button type="button" className="financial-setup-secondary" onClick={()=>{setNotice(t('تم حفظ تقدمك على هذا الجهاز.','Progress saved on this device.'));}}>{t('حفظ ومتابعة لاحقًا','Save for later')}</button><button type="button" className="financial-setup-back" disabled={step==='organization'} onClick={previous}>{t('السابق','Back')}</button></footer>
         {notice&&<p role="status" className="financial-setup-notice">{notice}</p>}
       </section>}
     </>}
