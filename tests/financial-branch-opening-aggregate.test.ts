@@ -118,4 +118,26 @@ describe('per-voucher approved branch opening attribution',()=>{
   expect(aggregateApprovedBranchOpenings(x).status).toBe('OPENING_ATTRIBUTION_BLOCKED');
  });
 
+ it('needs no distribution for a genuinely approved empty opening workspace',()=>{
+  const x=fixture();x.source.opening=[];x.distribution=null;
+  x.workspace!.approvedOpening=[];
+  expect(aggregateApprovedBranchOpenings(x)).toEqual({
+   status:'OPENING_ATTRIBUTION_RECONCILED_PREVIEW_ONLY',itemCount:0,openingEvidence:null,
+  });
+  x.workspace!.status='DRAFT';
+  expect(aggregateApprovedBranchOpenings(x)).toMatchObject({
+   status:'OPENING_ATTRIBUTION_BLOCKED',code:'OPENING_SOURCE_STALE',
+  });
+ });
+ it('does not reinterpret a nonempty or foreign approved opening as a zero-opening company',()=>{
+  const x=fixture();x.source.opening=[];x.distribution=null;
+  expect(aggregateApprovedBranchOpenings(x)).toMatchObject({
+   status:'OPENING_ATTRIBUTION_BLOCKED',code:'OPENING_SOURCE_STALE',
+  });
+  x.workspace!.approvedOpening=[];x.workspace!.organizationId='another-company';
+  expect(aggregateApprovedBranchOpenings(x)).toMatchObject({
+   status:'OPENING_ATTRIBUTION_BLOCKED',code:'OPENING_SOURCE_STALE',
+  });
+ });
+
 });
