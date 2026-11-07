@@ -88,7 +88,7 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
    {notice&&<p className="ob-branch-success" role="status">{notice}</p>}
    {busy&&!data&&<p role="status">{t('جار تحميل بيانات الافتتاحي المعتمدة…','Loading approved opening source…')}</p>}
    {!organization||!fiscalStart?<p role="alert">{t('اختر المؤسسة والسنة المالية من صفحة الأرصدة الافتتاحية.','Choose the organization and fiscal year from Opening Balances.')}</p>:
-   data&&!source?<p role="status">{t('لا يوجد افتتاحي مؤسسي معتمد لهذه السنة. يجب اعتماد الافتتاحي أولًا.','No approved legal-company opening exists for this fiscal year. Approve it before allocating branches.')}</p>:
+   data&&!source?<p role="status">{t('لا توجد أرصدة افتتاحية معتمدة للتوزيع. إذا بدأ النشاط دون أرصدة سابقة فلا حاجة إلى توزيع افتتاحي؛ أما إذا كانت هناك أرصدة سابقة، فيجب اعتمادها أولًا. لا يثبت غياب الاعتماد وحده أن الأرصدة صفرية.','There are no approved opening balances to allocate. A genuinely zero-opening startup needs no branch opening allocation; if prior balances exist, they must be approved first. Missing approval alone does not prove a zero opening.')}</p>:
    source&&<>
     <div className="ob-branch-meta">
      <span>{t('العملة','Currency')}: <b>{source.currency}</b></span>
