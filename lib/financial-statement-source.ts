@@ -3,6 +3,7 @@ import {validStatementComparison,statementChange} from './financial-statement-co
 import Decimal from 'decimal.js';
 import {SOURCE_INCOME_ICONS,SOURCE_CASH_ICONS} from './financial-statement-icons';
 import {compileEventLedger} from './financial-event-ledger';
+import {assertNormalizedLiveEventProvenance} from './financial-live-source-provenance';
 export const statementQuery=z.object({organization:z.string().uuid(),from:z.string().date(),to:z.string().date()}).strict().refine(q=>q.from<=q.to&&Number(q.to.slice(0,4))-Number(q.from.slice(0,4))<=1,'INVALID_STATEMENT_PERIOD');
 const id=z.string().min(1),currency=z.string().regex(/^[A-Z]{3}$/),date=z.string().date(),money=z.string().regex(/^\d{1,20}(\.\d{1,4})?$/),activity=z.enum(['OPERATING','INVESTING','FINANCING']);
 const account=z.object({id,organizationId:z.string().uuid(),currency,kind:z.enum(['ASSET','LIABILITY','EQUITY','REVENUE','COGS','OPEX','FINANCE','TAX']),cash:z.boolean().optional(),ar:id,en:id,presentation:z.enum(['CURRENT','NON_CURRENT','OTHER'])});
@@ -20,6 +21,11 @@ export function normalizeStatementSource(raw:unknown,query:StatementQuery){
  // explicitly attest FIRST_ACTIVITY; never reinterpret an absent approved
  // opening as zero merely because opening records were not returned.
  if(p.opening.length===0&&p.openingSourceId!==`FIRST_ACTIVITY:${p.fiscalStart}`)throw Error('STATEMENT_OPENING_PROVENANCE_REQUIRED');
+ // Live reporting must never accept unrecognizable source identities, hidden
+ // duplicates, malformed VAT splits or legacy registers masquerading as
+ // canonical Financial Core lines. This is structural integrity; an
+ // independent database source-to-amount attestation is still required.
+ if(p.origin==='LIVE_CANONICAL_EVENTS')assertNormalizedLiveEventProvenance(p.events);
  const result=compileEventLedger(p);
  if(p.controls&&!new Money(p.controls.cashClosing).eq(result.statements.cash.closing))throw Error('CASH_REGISTER_UNRECONCILED');
  const balance=new Map(p.accounts.map(a=>[a.id,new Money(0)]));
