@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {createStudy,evaluateStudy,internalRateOfReturn} from './engine';
+import {createStudy,evaluateStudy,internalRateOfReturn,waterFactoryLegalItems} from './engine';
 
 describe('independent feasibility planning engine',()=>{
  it('starts zeroed and never fabricates returns',()=>{
@@ -10,6 +10,11 @@ describe('independent feasibility planning engine',()=>{
   expect(calc.irr).toBeNull();
   expect(calc.investorShare).toBeNull();
   expect(study.legal.every(x=>x.status==='NOT_STARTED')).toBe(true);
+ });
+ it('keeps unrelated sectors free from factory-specific licence assumptions',()=>{
+  const study=createStudy('real-estate','Real estate','REAL_ESTATE');
+  expect(study.legal.some(x=>x.title.includes('مصدر المياه'))).toBe(false);
+  expect(waterFactoryLegalItems.some(x=>x.includes('مصدر المياه'))).toBe(true);
  });
  it('does not count privately held land as company equity',()=>{
   const study=createStudy('b','Water factory');
