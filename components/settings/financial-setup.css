@@ -65,3 +65,12 @@
 .financial-setup :is(a,button,input,select):focus-visible{outline:3px solid var(--setup-gold);outline-offset:3px}
 @media(max-width:980px){.financial-setup-steps{grid-template-columns:repeat(5,minmax(0,1fr))}.financial-setup-roles{grid-template-columns:1fr}}
 @media(max-width:650px){.financial-setup-header{flex-direction:column}.financial-setup-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}.financial-setup-steps button{min-height:78px}.financial-setup-card-head{align-items:flex-start}.financial-setup-mode-grid,.financial-setup-facts{grid-template-columns:1fr}.financial-setup-industries{grid-template-columns:repeat(2,minmax(0,1fr))}.financial-setup-module-link{flex-direction:column;align-items:stretch}.financial-setup-module-link a{width:100%;box-sizing:border-box}.financial-setup-footer{display:grid;grid-template-columns:1fr 1fr}.financial-setup-primary{grid-column:1/-1}.financial-setup-back{margin:0}.financial-setup-tag{align-self:flex-start}}
+
+/* Evidence-based setup status stays within the existing Yaqeen navy/gold theme. */
+.financial-setup-readiness-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:5px;font-size:.9rem}
+.financial-setup-readiness-head button{border:1px solid var(--setup-gold);border-radius:8px;background:var(--card,#fff);color:var(--setup-navy);font:inherit;font-size:.82rem;font-weight:700;padding:6px 12px;cursor:pointer}
+.financial-setup-readiness-head button:disabled{cursor:default;opacity:.55}
+.financial-setup-system-hint{margin:0 0 15px;color:var(--muted,#637389);font-size:.82rem;line-height:1.7}
+.financial-setup-steps .financial-setup-step-status{font-size:.68rem;line-height:1.35;color:var(--muted,#637389);font-weight:500}
+.financial-setup-steps .done .financial-setup-step-status{color:var(--setup-navy);font-weight:750}
+@media(max-width:650px){.financial-setup-readiness-head{align-items:flex-start}.financial-setup-steps button{min-height:91px}}
