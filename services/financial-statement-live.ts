@@ -75,6 +75,22 @@ export async function liveStatementSource(input:unknown){
   :primary);
  if(raw?.origin!=='LIVE_CANONICAL_EVENTS')throw Error('REPORTING_UNAVAILABLE');
  const result=normalizeStatementSource(raw,q);
+ // Independently attest *all* legacy cash/asset recognition parts against the
+ // original organization register in a privileged but finance-scoped DB RPC.
+ // Its only return value is true; raw cross-user FIFO lot allocations are
+ // never exposed to the requesting user or widened by an RLS policy.
+ // This is mandatory for any legacy source, including on Production, after
+ // the additive versioned migration has passed isolated QA and release review.
+ const legacyEvents=raw.events.filter((event:{sourceModule:string})=>
+  event.sourceModule==='LEGACY_ASSET'||event.sourceModule==='LEGACY_CASH');
+ if(legacyEvents.length){
+  const attestation=await supabase.rpc('financial_reporting_legacy_attestation',{
+   p_org:q.organization,p_from:raw.fiscalStart,
+   p_to:endingForFiscalStart(raw.fiscalStart),p_expected_events:legacyEvents,
+  });
+  if(attestation.error||attestation.data!==true)
+   throw Error('REPORTING_LEGACY_SOURCE_UNVERIFIED');
+ }
  await requireCanonicalRawSourceMatch(result);
  // The Production RPC can synthesize VAT refund lines from obligations, not
  // financial_event_lines. Verify ALL positive note-refund obligations (including
