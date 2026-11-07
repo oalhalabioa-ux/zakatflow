@@ -134,3 +134,18 @@
  .settings-workspace .settings-tabs{margin-bottom:7px}
  .settings-workspace .settings-secondary-links{margin-bottom:14px;gap:6px}
 }
+
+
+/* Direct accounting administration lives under one collapsible tools group. */
+.financial-settings-journey-entry{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;border:1px solid #c6a35d;border-radius:12px;background:linear-gradient(110deg,#fdfbf7,#f5ebd65c);padding:17px 19px;margin:14px 0}
+.financial-settings-journey-entry>div{flex:1 1 330px;min-width:0}
+.financial-settings-journey-entry strong{font-size:1.04rem;color:#10243a}
+.financial-settings-journey-entry p{line-height:1.75;color:#51647a;font-size:.87rem;margin:7px 0 0}
+.financial-settings-journey-entry a.btn{display:inline-flex;align-items:center;justify-content:center;background:#10243a;color:#f5ebd6;border-radius:8px;padding:11px 16px;text-decoration:none;min-width:160px}
+.financial-settings-tools{border:1px solid var(--brand-border,#dce2ea);border-radius:11px;padding:14px 16px;margin:14px 0}
+.financial-settings-tools summary{cursor:pointer;font-weight:750;color:var(--brand-text,#10243a);font-size:.9rem}
+.financial-settings-tools p{font-size:.85rem;color:#61748a;line-height:1.7}
+.financial-settings-tools .financial-settings-shortcuts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.financial-settings-tools .financial-settings-shortcuts a{border:1px solid var(--brand-border,#dce2ea);background:var(--brand-surface,#fff);border-radius:7px;text-decoration:none;color:var(--brand-text,#10243a);padding:9px 12px;font-size:.83rem}
+.financial-settings-tools .financial-settings-shortcuts a:hover{border-color:#c6a35d}
+@media(max-width:650px){.financial-settings-journey-entry a.btn{width:100%}}
