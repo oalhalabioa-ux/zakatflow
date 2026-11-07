@@ -25,6 +25,7 @@ on:
       - 'tests/qa-financial-opening*.sql'
       - 'tests/qa-financial-first-activity-snapshot.sql'
       - 'tests/qa-financial-production-*.sql'
+      - 'tests/qa-financial-hosted-readiness.sql'
       - 'tests/financial-live-source-provenance.test.ts'
       - 'tests/qa-financial-chart-accounts.sql'
       - 'tests/qa-financial-chart-posting-rules.sql'
@@ -66,6 +67,22 @@ jobs:
           PY
       - name: Apply all migrations, including formerly excluded fiscal and branch migrations
         run: npx --yes supabase@2.122.0 start --workdir "$PARITY_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/financial-parity-start.log" 2>&1 || { tail -80 "$RUNNER_TEMP/financial-parity-start.log"; exit 1; }
+      - name: Probe read-only hosted readiness SQL against complete disposable schema
+        run: |
+          EVIDENCE="$(docker exec -i supabase_db_financial-parity-qa psql -X -q -A -t -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-hosted-readiness.sql)"
+          EVIDENCE="$EVIDENCE" node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const x=JSON.parse(process.env.EVIDENCE||'{}');
+          assert.equal(x.gate,'BLOCKED');
+          assert.equal(x.productionReady,false);
+          assert.equal(x.purpose,'READ_ONLY_HOSTED_QA_PREREQUISITES_NOT_REPORT_CERTIFICATION');
+          for(const property of ['branch_opening_schema','group_control_schema','legacy_cost_attestation','company_live_snapshot'])
+            assert.equal(x.schema?.[property],true,'MISSING_FULL_SCHEMA_'+property);
+          assert.ok(x.issues.includes('ATOMIC_AUTHENTICATED_SOURCE_AND_GROUP_UAT_NOT_CERTIFIED'));
+          assert.equal(x.sourcePopulation.active_branches,0);
+          assert.equal(x.sourcePopulation.approved_openings,0);
+          console.log('PASS full-schema prerequisite inventory (still BLOCKED for hosted authenticated UAT)');
+          NODE
       - name: Verify canonical, legacy, refund and closed-year reporting prerequisites
         run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-parity-contract.sql
       - name: Verify exact live VAT partition amounts and source classifications
