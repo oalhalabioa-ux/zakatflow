@@ -1,4 +1,4 @@
-import test from 'node:test';
+import {test} from 'vitest';
 import assert from 'node:assert/strict';
 import {compareInventories,FORMAT} from '../scripts/financial-reports/compare-production-core-schema.mjs';
 const row=(category,key,fingerprint='0'.repeat(32))=>({category,key,fingerprint});
