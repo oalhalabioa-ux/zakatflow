@@ -101,7 +101,7 @@ try{
   await page.locator('.financial-setup-steps button').nth(1).click();
   await page.locator('[data-setup-native-workspace="chart"]').waitFor();
   await page.locator('.coa-page').waitFor();
-  await page.getByRole('heading',{name:'Chart of accounts',exact:true}).waitFor();
+  await page.locator('[data-setup-native-workspace="chart"] h1').filter({hasText:'Chart of accounts'}).waitFor();
   assert.equal(await embedded.count(),0,
     'Chart management must now be a native form in the same journey, without a nested frame');
   assert.equal(await page.locator('#corp-organization-controls .corp-organization-inner').count(),1,
