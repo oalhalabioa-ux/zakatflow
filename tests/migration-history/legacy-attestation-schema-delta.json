@@ -1,0 +1,11 @@
+{
+  "description": "Additive authenticated legacy financial source attestation RPC fingerprint from disposable full-schema PostgreSQL bootstrap. No raw table RLS grants or historical source changes.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.financial_reporting_legacy_attestation(p_org uuid, p_from date, p_to date, p_expected_events jsonb)",
+      "fingerprint": "f918238eef68410cbdac2be641729382"
+    }
+  ]
+}
