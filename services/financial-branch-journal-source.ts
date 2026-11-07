@@ -145,7 +145,7 @@ export type JournalLineageObservation={
  /** Legal-company source matching makes NO claim about branch allocation. */
  branchAttributionVerified:boolean;
  /** Reversal signs can be derived from linked originals, not only the line row. */
- reversalRecognitionSignVerified:false;
+ reversalRecognitionSignVerified:true;
 };
 
 /**
@@ -207,48 +207,99 @@ export async function observeCanonicalJournalLineage(
  if(batch.length)batches.push(batch);
  let observedParts=0;
  for(const chunk of batches){
-  const ids=chunk.map(j=>j.id);
+  const ids=chunk.map(j=>j.id),idSet=new Set(ids);
   const required=chunk.reduce((n,j)=>n+rawCounts.get(j.id)!,0);
+  // Production normalizer inherits recognition sign, source role and VAT
+  // recovery percentage from the ORIGINAL event when REVERSAL_OF exists.
+  const linked=await supabase.from('financial_event_links')
+   .select('event_id,organization_id,link_type,related_event_id')
+   .eq('organization_id',organizationId).eq('link_type','REVERSAL_OF')
+   .in('event_id',ids).limit(ids.length+1);
+  if(linked.error||!Array.isArray(linked.data))throw Error('BRANCH_LINEAGE_SOURCE_UNAVAILABLE');
+  if(linked.data.length>ids.length)throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+  const reversed=new Map<string,string>();
+  for(const link of linked.data as {event_id:string;organization_id:string;link_type:string;related_event_id:string|null}[]){
+   if(link.organization_id!==organizationId||link.link_type!=='REVERSAL_OF'||
+    !idSet.has(link.event_id)||!uuid.test(link.related_event_id??'')||
+    link.event_id===link.related_event_id||reversed.has(link.event_id))
+    throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+   reversed.set(link.event_id,link.related_event_id!);
+  }
+  type OriginalRow={id:string;event_id:string;organization_id:string;line_number:number;
+   metadata:Record<string,unknown>|null};
+  const originals=new Map<string,Map<number,OriginalRow>>();
+  if(reversed.size){
+   const roots=[...new Set(reversed.values())];
+   const originalResponse=await supabase.from('financial_event_lines')
+    .select('id,event_id,organization_id,line_number,metadata')
+    .eq('organization_id',organizationId).in('event_id',roots).limit(1001);
+   if(originalResponse.error||!Array.isArray(originalResponse.data)||
+    originalResponse.data.length>=1001)
+    throw Error('BRANCH_LINEAGE_SOURCE_UNAVAILABLE');
+   for(const row of originalResponse.data as OriginalRow[]){
+    if(row.organization_id!==organizationId||!roots.includes(row.event_id)||
+     !uuid.test(row.id)||!Number.isSafeInteger(row.line_number)||row.line_number<1)
+     throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+    const originalLines=originals.get(row.event_id)??new Map<number,OriginalRow>();
+    if(originalLines.has(row.line_number))throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+    originalLines.set(row.line_number,row);originals.set(row.event_id,originalLines);
+   }
+  }
   const response=await supabase.from('financial_event_lines')
-   .select('id,event_id,organization_id,classification_id,base_amount,cash_direction,metadata')
+   .select('id,event_id,organization_id,classification_id,base_amount,cash_direction,metadata,line_number,recoverable_percent')
    .eq('organization_id',organizationId).in('event_id',ids).limit(required+1);
   if(response.error||!Array.isArray(response.data))
    throw Error('BRANCH_LINEAGE_SOURCE_UNAVAILABLE');
   if(response.data.length!==required)throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
   const received=new Set<string>();
-  for(const row of response.data as {id:string;event_id:string;organization_id:string;
-   classification_id:string;base_amount:string|number;cash_direction:string;metadata:Record<string,unknown>|null}[]){
-   const parts=expected.get(row.event_id);
-   const key=row.event_id+':'+row.id;
-   if(!parts||row.organization_id!==organizationId||!uuid.test(row.id)||!uuid.test(row.classification_id)||
-    received.has(key))throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+  type Row={id:string;event_id:string;organization_id:string;classification_id:string;
+   base_amount:string|number;cash_direction:string;metadata:Record<string,unknown>|null;
+   line_number:number;recoverable_percent:string|number|null};
+  for(const row of response.data as Row[]){
+   const parts=expected.get(row.event_id),key=row.event_id+':'+row.id;
+   if(!parts||row.organization_id!==organizationId||!uuid.test(row.id)||
+    !uuid.test(row.classification_id)||received.has(key)||
+    !Number.isSafeInteger(row.line_number)||row.line_number<1)
+    throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
    received.add(key);
    const matching=[...parts.values()].filter(p=>p.id.startsWith(row.id+':'));
    if(!matching.length||!valuePattern.test(String(row.base_amount)))
     throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+   const root=reversed.get(row.event_id);
+   const original=root?originals.get(root)?.get(row.line_number):null;
+   if(root&&!original)throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
+   const sourceMeta=row.metadata??{},originalMeta=original?.metadata??{};
+   const roleValue=sourceMeta.source_role??originalMeta.source_role??'BASE';
+   if(typeof roleValue!=='string'||!/^([A-Z][A-Z0-9_]{0,63})$/.test(roleValue))
+    throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
+   const signRaw=root?(originalMeta.recognition_sign??1):(sourceMeta.recognition_sign??1);
+   const sign=Number(signRaw)*(root?-1:1);
+   if(![1,-1].includes(sign)||String(signRaw).trim()!==String(Number(signRaw)))
+    throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
+   const base=new Amount(row.base_amount),breakdown=new Map<string,Decimal>();
+   if(roleValue==='INPUT_VAT'){
+    const recoveryRaw=sourceMeta.recoverable_percent??originalMeta.recoverable_percent??
+      row.recoverable_percent??100;
+    const rate=String(recoveryRaw).trim()===''?String(row.recoverable_percent??100):String(recoveryRaw);
+    if(!/^\\d{1,3}(\\.\\d{1,4})?$/.test(rate))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
+    const percent=new Amount(rate);
+    if(!percent.gte(0)||!percent.lte(100))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
+    const recoverable=base.times(percent).div(100).toDecimalPlaces(4,Amount.ROUND_HALF_UP);
+    const nonrecoverable=base.minus(recoverable);
+    if(recoverable.gt(0))breakdown.set('INPUT_VAT_RECOVERABLE',recoverable);
+    if(nonrecoverable.gt(0))breakdown.set('INPUT_VAT_NONRECOVERABLE',nonrecoverable);
+   }else breakdown.set(roleValue,base);
+   if(matching.length!==breakdown.size)throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
    let sum=new Amount(0);
    for(const part of matching){
-    const suffix=part.id.slice(row.id.length+1);
-    if(part.classificationId!==row.classification_id+':'+suffix||
-     part.cashDirection!==row.cash_direction)
+    const suffix=part.id.slice(row.id.length+1),expectedAmount=breakdown.get(suffix);
+    if(!expectedAmount||part.classificationId!==row.classification_id+':'+suffix||
+     part.cashDirection!==row.cash_direction||part.recognitionSign!==sign||
+     !new Amount(part.baseAmount).eq(expectedAmount))
      throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
     sum=sum.plus(part.baseAmount);
    }
-   if(!sum.eq(row.base_amount))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
-   // The source-role origin can be inherited from an original reversal row.
-   // Only assert the raw row's role when it is expressly present.
-   // A missing role means BASE for ordinary events. Reversals can inherit
-   // their role from an original event: without that independently observed
-   // link we must reject a non-BASE part instead of silently certifying it.
-   const declared=row.metadata?.source_role;
-   if(declared!==undefined&&(typeof declared!=='string'||!declared.trim()))
-    throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
-   const role=typeof declared==='string'?declared:'BASE';
-   const allowed=role==='INPUT_VAT'
-    ? new Set(['INPUT_VAT_RECOVERABLE','INPUT_VAT_NONRECOVERABLE'])
-    : new Set([role]);
-   if(matching.some(part=>!allowed.has(part.id.slice(row.id.length+1))))
-    throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
+   if(!sum.eq(base))throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
    observedParts+=matching.length;
   }
  }
@@ -263,5 +314,5 @@ export async function observeCanonicalJournalLineage(
  return{status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',organizationId,
   sourceLineCount:observedParts,
   links:scope==='BRANCH'?(observed as JournalBranchObservation).links:[],
-  branchAttributionVerified:scope==='BRANCH',reversalRecognitionSignVerified:false};
+  branchAttributionVerified:scope==='BRANCH',reversalRecognitionSignVerified:true};
 }
