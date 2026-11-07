@@ -10,20 +10,7 @@ type Props={
  href:string;
  onRefresh:()=>void;
 };
-const route=/^\/(?:ar|en)\/(?:settings(?:\/financial\/fiscal-years)?|chart-of-accounts|financial-reporting-policy|cash-and-banks|opening-balances|users)$/;
-export function setupEmbeddedUrl(href:string,organizationId:string):string|null{
- // Only the known, same-origin Yaqeen financial/organization workspaces are
- // allowed to load inside this window. An absolute or external URL is denied.
- if(!href.startsWith('/')||href.startsWith('//')||!organizationId)return null;
- try{
-  const u=new URL(href,'https://yaqeen.invalid');
-  if(u.origin!=='https://yaqeen.invalid'||!route.test(u.pathname)||
-   u.searchParams.get('organization')!==organizationId)return null;
-  u.searchParams.set('fromSetup','1');
-  u.searchParams.set('setupEmbed','1');
-  return u.pathname+u.search;
- }catch{return null}
-}
+import {setupEmbeddedUrl} from '../../lib/financial-setup-embedded';
 
 /** Embedded *real* service screens, not screenshots or duplicate form logic.
  * Original API approvals, permissions, fiscal scopes and audits are preserved.
