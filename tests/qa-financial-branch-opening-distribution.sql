@@ -66,8 +66,8 @@ begin
  exception when others then
   if sqlerrm<>'BRANCH_OPENING_SOURCE_CHANGED' then raise;end if;
  end;
- if exists(select 1 from private.financial_branch_opening_distributions
-            where organization_id=empty_org) then
+ context:=public.financial_branch_opening_context(empty_org,'2026-01-01');
+ if context->>'status'<>'MISSING' then
   raise exception 'Synthetic opening allocation created for new company';end if;
  saved:=public.save_financial_branch_opening(
   org,'2026-01-01',0,opening_id,2,entries,'Verified independent branch cutoffs');
