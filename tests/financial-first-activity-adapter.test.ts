@@ -155,6 +155,14 @@ describe('no-opening legal entity read adapter',()=>{
   process.env.FINANCIAL_BRANCH_EVIDENCE_QA='true';process.env.VERCEL_ENV='production';
   await expect(liveBranchJournalLineageEvidence(query)).rejects.toThrow('BRANCH_EVIDENCE_DISABLED');
  });
+ it('never permits a Production environment flag to bypass source-revision attestation',async()=>{
+  state.mode='approved';state.replayMutated=true;
+  process.env.VERCEL_ENV='production';
+  process.env.FINANCIAL_SOURCE_REPLAY_GUARD='false';
+  await expect(liveStatementSource(query)).rejects.toThrow('REPORTING_SOURCE_CHANGED_DURING_VERIFICATION');
+  expect(state.called.filter(c=>c==='financial_statement_live_snapshot')).toHaveLength(2);
+  delete process.env.FINANCIAL_SOURCE_REPLAY_GUARD;
+ });
  it('replays live Production SQL and rejects source revisions occurring during independent RLS verification',async()=>{
   state.mode='approved';process.env.VERCEL_ENV='production';
   state.replayMutated=true;
