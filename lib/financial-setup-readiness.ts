@@ -32,6 +32,10 @@ export type SetupEvidence={
 export function financialSetupReadiness(e:SetupEvidence):FinancialSetupReadiness{
  const statuses:Record<FinancialSetupStep,SetupStatus>={
   organization:e.organizationValid?'READY':'BLOCKED',
+  // Branches/organization structure are reviewed separately by the user.
+  // Their existence is not proof of accounting readiness, and an org without
+  // subsidiaries must still be able to complete independent financial setup.
+  structure:'NOT_STARTED',
   chart:e.chartPostableRetained?'READY':'IN_PROGRESS',
   fiscal:e.fiscalCalendarValid?'READY':'IN_PROGRESS',
   posting:e.approvedPostingPolicy?'READY':'IN_PROGRESS',
@@ -43,7 +47,7 @@ export function financialSetupReadiness(e:SetupEvidence):FinancialSetupReadiness
   review:'BLOCKED',
   finished:'BLOCKED',
  };
- const base=FINANCIAL_SETUP_STEPS.filter(s=>s!=='review'&&s!=='finished');
+ const base=FINANCIAL_SETUP_STEPS.filter(s=>s!=='review'&&s!=='finished'&&s!=='structure');
  const prerequisites=base.every(s=>statuses[s]==='READY');
  const ready=prerequisites&&e.sourceChecked&&e.sourceVerified;
  statuses.review=ready?'READY':'BLOCKED';
