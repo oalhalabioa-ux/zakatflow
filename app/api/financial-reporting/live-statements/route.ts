@@ -12,6 +12,10 @@ export async function GET(request:Request){try{const q=new URL(request.url).sear
  return NextResponse.json(await liveStatementSource({organization:q.get('organization'),from:q.get('from'),to:q.get('to')}),{headers});
  }catch(e){
   const code=e instanceof Error?e.message:'REPORTING_UNAVAILABLE';
+  // Emit a code-only diagnostic in isolated QA, never in Production. No
+  // organization IDs, document contents, SQL arguments or credentials.
+  if(process.env.VERCEL_ENV!=='production'&&process.env.FINANCIAL_SOURCE_INTEGRITY_DIAGNOSTICS==='true')
+   console.warn('REPORTING_QA_DIAGNOSTIC_CODE',code);
   // Corrupt or unverified source data is a SERVER integrity failure, not a
   // malformed user request. Do not send a 400 for *_SOURCE_*_INVALID.
   const inputInvalid=e instanceof ZodError||code==='REPORTING_INPUT_INVALID'||code==='REPORTING_PERIOD_INVALID';
