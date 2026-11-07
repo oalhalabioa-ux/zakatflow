@@ -18,6 +18,7 @@ import {
 } from '@/lib/financial-setup-steps';
 import type {FinancialSetupReadiness,SetupStatus} from '@/lib/financial-setup-readiness';
 import SetupEmbeddedWorkspace from './SetupEmbeddedWorkspace';
+import SetupNativeWorkspace,{type NativeSetupStep} from './SetupNativeWorkspace';
 import './financial-setup.css';
 
 type Org = {id:string;name:string;legal_name?:string|null;base_currency:string;entity_type:string};
@@ -214,9 +215,13 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
   }
   const moduleLink=(href:string|undefined,label:string,description:string)=><div className="financial-setup-module">
     <div className="financial-setup-module-intro"><strong>{label}</strong><p>{description}</p></div>
-    {href&&<SetupEmbeddedWorkspace key={orgId+':'+step+':'+href} locale={locale}
-      organizationId={orgId} stage={label} href={href}
-      onRefresh={()=>setReadinessRevision(value=>value+1)}/>}
+    {href&&(['chart','fiscal','posting','opening'].includes(step)
+      ?<SetupNativeWorkspace key={orgId+':'+step} locale={locale} organizationId={orgId}
+         step={step as NativeSetupStep} industry={industry} fiscalStart={readiness?.fiscalStart}
+         onRefresh={()=>setReadinessRevision(value=>value+1)}/>
+      :<SetupEmbeddedWorkspace key={orgId+':'+step+':'+href} locale={locale}
+         organizationId={orgId} stage={label} href={href}
+         onRefresh={()=>setReadinessRevision(value=>value+1)}/> )}
   </div>;
   const note=t('احفظ أو اعتمد التغييرات داخل نافذة المرحلة المترابطة، ثم حدّث حالة الجاهزية. علامة المراجعة لا تُرحّل قيودًا ولا تمنح اعتمادًا محاسبيًا.','Save or approve inside the connected step window, then refresh readiness. Review checkmarks never post entries or authorize accounting approval.');
 
