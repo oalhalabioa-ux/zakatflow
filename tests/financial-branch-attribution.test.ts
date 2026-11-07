@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {previewVerifiedBranchAttribution,type BranchOpeningEvidence} from '../lib/financial-branch-attribution';
+import {previewVerifiedBranchAttribution,type BranchOpeningEvidence,type ZeroOpeningSourceEvidence} from '../lib/financial-branch-attribution';
 import type {StatementSource} from '../lib/financial-statement-engine';
 import type {JournalBranchObservation} from '../services/financial-branch-journal-source';
 
@@ -96,7 +96,7 @@ describe('read-only versioned source-to-segment attribution',()=>{
  it('rejects stale, foreign or incomplete zero-opening provenance without guessing an opening entry',()=>{
   const data=fixtures();data.source.opening=[];Object.assign(data,{openingEvidence:null});
   data.coverage.sourceCount=4;
-  const evidence={status:'ZERO_OPENING_SOURCE_EVIDENCE_ONLY',organizationId:org,currency:'SAR',
+  const evidence:ZeroOpeningSourceEvidence={status:'ZERO_OPENING_SOURCE_EVIDENCE_ONLY',organizationId:org,currency:'SAR',
    fiscalStart:'2026-01-01',ledgerRevision:data.coverage.revision,
    sourceReference:'first-activity',openingLineCount:0,pendingOpeningCount:0,priorOpeningSourceCount:0};
   for(const invalid of [
@@ -106,7 +106,7 @@ describe('read-only versioned source-to-segment attribution',()=>{
    {...evidence,priorOpeningSourceCount:1},
    {...evidence,sourceReference:''},
   ]){
-   const result=previewVerifiedBranchAttribution({...data,zeroOpeningEvidence:invalid as typeof evidence});
+   const result=previewVerifiedBranchAttribution({...data,zeroOpeningEvidence:invalid as unknown as ZeroOpeningSourceEvidence});
    expect(result).toMatchObject({status:'BLOCKED',
     issues:['BRANCH_ZERO_OPENING_PROVENANCE_INVALID'],company:null,segments:[]});
   }
