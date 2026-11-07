@@ -126,4 +126,27 @@ describe('reconciled branch statement preview',()=>{
   });
  });
 
+ it('keeps zero-opening branch funding as a balanced internal transfer, not income',()=>{
+  const input=data();
+  input.source.opening=[];
+  input.source.journals=[{
+   id:'fund-new-branch',organizationId:org,currency:'SAR',date:'2026-02-01',status:'POSTED',
+   lines:[
+    {accountId:'1000',debit:'100.0000',credit:'0.0000',cashActivity:'FINANCING'},
+    {accountId:'3100',debit:'0.0000',credit:'100.0000'},
+   ],
+  }];
+  input.allocations=branchStatementSourceLines(input.source).map(row=>({
+   ...row,allocations:[{branchId:branch,debit:row.debit,credit:row.credit}],
+  }));
+  input.coverage.sourceCount=input.allocations.length;
+  const result=compileBranchStatementPreview(input);
+  expect(result.status).toBe('RECONCILED_SEGMENTS_PREVIEW_ONLY');
+  expect(result.segments.find(s=>s.branchId===branch)?.statement).toMatchObject({
+   cash:{opening:'0.0000',closing:'100.0000'},
+   income:{netProfit:'0.0000'},
+   position:{assets:'100.0000',equity:'100.0000'},
+  });
+ });
+
 });
