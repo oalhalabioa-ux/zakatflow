@@ -45,7 +45,7 @@ const client={
  async rpc(name:string){s.rpcs.push(name);return{data:s.allowed,error:null}},
 };
 vi.mock('../services/auth',()=>({requireUser:async()=>({user:{id:'user'},supabase:client})}));
-import {observeCanonicalJournalBranches,observeCanonicalJournalLineage} from '../services/financial-branch-journal-source';
+import {observeCanonicalJournalBranches,observeCanonicalJournalEventHeaders,observeCanonicalJournalLineage} from '../services/financial-branch-journal-source';
 
 const journals=()=>[
  {id:idA,organizationId:org,date:'2026-01-01',status:'POSTED' as const},
@@ -123,6 +123,26 @@ describe('canonical financial journal branch evidence',()=>{
 const postedLineage=()=>journals().map((j,i)=>({...j,
  sourceLines:[[part(lineA,'100.0000','INFLOW')],[part(lineB,'200.0000','NON_CASH')],[part(lineC,'300.0000','NON_CASH')]][i],
 }));
+describe('legal-company refund-only source header evidence',()=>{
+ it('accepts any authorized operating-unit type but independently verifies the journal header under RLS',async()=>{
+  s.entities[1].entity_type='PERSON';
+  const value=await observeCanonicalJournalEventHeaders(org,[journals()[2]]);
+  expect(value).toEqual({status:'RLS_MATCHED_JOURNAL_EVENT_HEADERS_ONLY',organizationId:org,eventCount:1});
+  expect(s.authCount).toBe(2);
+  s.events=s.events.filter(e=>e.id!==idC);
+  await expect(observeCanonicalJournalEventHeaders(org,[journals()[2]])).rejects
+   .toThrow('BRANCH_JOURNAL_SOURCE_INCOMPLETE');
+ });
+ it('refuses foreign or revoked access before returning synthetic-only event evidence',async()=>{
+  s.member=false;
+  await expect(observeCanonicalJournalEventHeaders(org,[journals()[0]])).rejects
+   .toThrow('BRANCH_JOURNAL_ACCESS_DENIED');
+  expect(s.reads).toBe(0);
+  s.member=true;s.revoked=true;s.authCount=0;
+  await expect(observeCanonicalJournalEventHeaders(org,[journals()[0]])).rejects
+   .toThrow('BRANCH_JOURNAL_ACCESS_DENIED');
+ });
+});
 describe('canonical line-level source checks before branch statements',()=>{
  it('matches every original recognition line through RLS without confusing two generated GL legs with two source lines',async()=>{
   const r=await observeCanonicalJournalLineage(org,postedLineage());
