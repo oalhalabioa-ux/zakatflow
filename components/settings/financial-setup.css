@@ -209,3 +209,26 @@
  .financial-setup-footer{display:flex;gap:8px}
  .financial-setup-footer button{min-width:0}
 }
+
+
+/* Native chart remains the sole source; these subtabs only organize its UI. */
+.financial-setup-chart-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;padding:0 12px;border-bottom:1px solid var(--setup-line);background:#f8fafc}
+.financial-setup-chart-tabs button{display:flex;align-items:center;justify-content:center;min-height:47px;min-width:0;border:0;border-bottom:3px solid transparent;background:transparent;font:inherit;font-size:.82rem;font-weight:750;color:#576a82;cursor:pointer;padding:10px 6px;line-height:1.45}
+.financial-setup-chart-tabs button[aria-pressed=true]{background:#10243a;color:#f5ebd6;border-bottom-color:#c6a35d;border-radius:8px 8px 0 0}
+.financial-setup-chart-tabs button:hover:not([aria-pressed=true]){background:#f5ebd6;color:#10243a}
+.financial-setup-native-content[data-chart-section="structure"] .coa-template-panel,
+.financial-setup-native-content[data-chart-section="accounts"] .coa-template-panel,
+.financial-setup-native-content[data-chart-section="review"] .coa-template-panel{display:none!important}
+.financial-setup-native-content[data-chart-section="structure"] .coa-register{display:none!important}
+.financial-setup-native-content[data-chart-section="structure"] .coa-workspace{display:block}
+.financial-setup-native-content[data-chart-section="structure"] .coa-tree{max-height:none;overflow:visible}
+.financial-setup-native-content[data-chart-section="accounts"] .coa-tree{display:none!important}
+.financial-setup-native-content[data-chart-section="accounts"] .coa-workspace{display:block}
+.financial-setup-native-content[data-chart-section="templates"] .coa-workspace,
+.financial-setup-native-content[data-chart-section="templates"] .coa-stats{display:none!important}
+.financial-setup-native-content[data-chart-section="review"] .coa-workspace{display:none!important}
+.financial-setup-native-validation-note{margin:0 15px 15px;border:1px solid #c6a35d;background:#f5ebd67a;border-radius:10px;padding:12px 14px;font-size:.84rem;color:#64502b;line-height:1.8}
+@media(max-width:650px){
+ .financial-setup-chart-tabs{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 6px}
+ .financial-setup-chart-tabs button{min-height:42px;font-size:.76rem}
+}
