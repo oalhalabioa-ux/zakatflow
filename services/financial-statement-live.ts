@@ -83,14 +83,15 @@ export async function liveStatementSource(input:unknown){
  // the additive versioned migration has passed isolated QA and release review.
  const legacyEvents=raw.events.filter((event:{sourceModule:string})=>
   event.sourceModule==='LEGACY_ASSET'||event.sourceModule==='LEGACY_CASH');
- if(legacyEvents.length){
-  const attestation=await supabase.rpc('financial_reporting_legacy_attestation',{
-   p_org:q.organization,p_from:raw.fiscalStart,
-   p_to:endingForFiscalStart(raw.fiscalStart),p_expected_events:legacyEvents,
-  });
-  if(attestation.error||attestation.data!==true)
-   throw Error('REPORTING_LEGACY_SOURCE_UNVERIFIED');
- }
+ // Zero legacy events must ALSO be independently certified. Otherwise a
+ // missing source could be misread as an empty ledger and evade coverage checks.
+ // The trusted RPC accounts for approved opening-consumed sources explicitly.
+ const attestation=await supabase.rpc('financial_reporting_legacy_attestation',{
+  p_org:q.organization,p_from:raw.fiscalStart,
+  p_to:endingForFiscalStart(raw.fiscalStart),p_expected_events:legacyEvents,
+ });
+ if(attestation.error||attestation.data!==true)
+  throw Error('REPORTING_LEGACY_SOURCE_UNVERIFIED');
  await requireCanonicalRawSourceMatch(result);
  // The Production RPC can synthesize VAT refund lines from obligations, not
  // financial_event_lines. Verify ALL positive note-refund obligations (including
