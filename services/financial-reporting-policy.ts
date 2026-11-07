@@ -10,7 +10,18 @@ const command=z.discriminatedUnion('action',[
  z.object({action:z.literal('approve'),id:z.string().uuid(),expectedVersion:z.number().int().positive()}).strict(),
 ]);
 function unwrap<T>(r:{data:T;error:{message:string}|null}){if(r.error)throw Error(r.error.message.match(/REPORTING_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');return r.data}
-export async function readReportingPolicy(input:unknown){assertLiveStatements();const q=openingScope.parse(input),{supabase}=await requireUser();return unwrap(await supabase.rpc('financial_reporting_policy_workspace',{p_org:q.organization,p_fiscal_start:q.fiscalStart}))}
+export async function readReportingPolicy(input:unknown){
+ assertLiveStatements();const q=openingScope.parse(input),{supabase}=await requireUser();
+ const [workspace,approved]=await Promise.all([
+  supabase.rpc('financial_reporting_policy_workspace',{p_org:q.organization,p_fiscal_start:q.fiscalStart}),
+  supabase.from('financial_reporting_policies').select('status,version,rules,approved_at')
+   .eq('organization_id',q.organization).eq('fiscal_start',q.fiscalStart)
+   .eq('status','APPROVED').order('version',{ascending:false}).limit(1),
+ ]);
+ const result=unwrap(workspace);
+ if(approved.error)throw Error('REPORTING_UNAVAILABLE');
+ return {...result,approvedPolicy:approved.data?.[0]??null};
+}
 export async function writeReportingPolicy(input:unknown){
  assertLiveStatements();
  const q=command.parse(input),{supabase}=await requireUser();
