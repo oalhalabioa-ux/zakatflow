@@ -28,7 +28,15 @@ export async function liveStatementContext(){
 }
 export async function liveStatementSource(input:unknown){
  assertLiveStatements();const q=statementQuery.parse(input),{supabase,user}=await requireUser();
- const raw=read(await supabase.rpc('financial_statement_live_snapshot',{p_org:q.organization,p_from:q.from,p_to:q.to}));
+ const args={p_org:q.organization,p_from:q.from,p_to:q.to};
+ const primary=await supabase.rpc('financial_statement_live_snapshot',args);
+ // A fresh legal entity may have no opening rows. Only a separate, trusted
+ // database RPC may attest first activity from the COMPLETE historical source.
+ // Never manufacture an empty opening in the browser or infer it from an RPC
+ // error. Until the independently tested server RPC is installed, fail closed.
+ const raw=read(primary.error?.message?.includes('REPORTING_APPROVED_OPENING_REQUIRED')
+  ? await supabase.rpc('financial_statement_first_activity_snapshot',args)
+  : primary);
  if(raw?.origin!=='LIVE_CANONICAL_EVENTS')throw Error('REPORTING_UNAVAILABLE');
  const result=normalizeStatementSource(raw,q);
  const membership=read(await supabase.from('organization_members').select('organization_id').eq('organization_id',q.organization).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle());
