@@ -38,8 +38,17 @@ export type OpeningAttributionResult=
 export function aggregateApprovedBranchOpenings(input:OpeningAttributionInput):OpeningAttributionResult{
  const stop=(code:string):OpeningAttributionResult=>({status:'OPENING_ATTRIBUTION_BLOCKED',code,openingEvidence:null});
  const sourceRows=branchStatementSourceLines(input.source).filter(r=>r.sourceKind==='OPENING');
- if(!sourceRows.length&&!input.workspace&&!input.distribution)
-  return{status:'OPENING_ATTRIBUTION_RECONCILED_PREVIEW_ONLY',itemCount:0,openingEvidence:null};
+ if(!sourceRows.length&&!input.distribution){
+  // Zero source rows need no per-branch distribution. This also covers an
+  // explicitly approved EMPTY corporate workspace, without inventing entries.
+  // Never treat a nonempty, draft, stale or foreign workspace as zero opening.
+  const w=input.workspace;
+  if(!w||(w.status==='APPROVED'&&w.approvedOpening.length===0&&
+   w.organizationId===input.source.organizationId&&
+   w.fiscalStart===input.source.fiscalStart&&w.currency===input.source.currency))
+   return{status:'OPENING_ATTRIBUTION_RECONCILED_PREVIEW_ONLY',itemCount:0,openingEvidence:null};
+  return stop('OPENING_SOURCE_STALE');
+ }
  const {workspace:w,distribution:d}=input;
  if(!w||!d||w.status!=='APPROVED'||d.status!=='APPROVED'||!d.approvedBy||
   d.kind!=='OPENING_DISTRIBUTION_EVIDENCE_ONLY'||d.journalCoverageComplete!==false)
