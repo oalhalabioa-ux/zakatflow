@@ -18,6 +18,9 @@ type Event=Pick<RecognitionEvent,'id'|'sourceModule'|'sourceKey'|'lines'>;
 function invalid():never{throw Error('REPORTING_SOURCE_PROVENANCE_INVALID')}
 export function assertNormalizedLiveEventProvenance(events:readonly Event[]){
  const eventIds=new Set<string>(),lineIds=new Set<string>();
+ // One database financial_event_lines UUID may split into VAT components,
+ // but it cannot belong to a second event with a different accounting role.
+ const originalOwners=new Map<string,string>();
  for(const e of events){
   if(!e.id||eventIds.has(e.id)||!e.sourceKey)invalid();
   eventIds.add(e.id);
@@ -53,6 +56,9 @@ export function assertNormalizedLiveEventProvenance(events:readonly Event[]){
     const part=l.id.match(derived);
     const cls=l.classificationId.match(derived);
     if(!part||!cls||part[2]!==cls[2])invalid();
+    const owner=originalOwners.get(part[1].toLowerCase());
+    if(owner&&owner!==e.id.toLowerCase())invalid();
+    originalOwners.set(part[1].toLowerCase(),e.id.toLowerCase());
     const prior=originalParts.get(part[1])??new Set<string>();
     if(prior.has(part[2]))invalid();
     prior.add(part[2]);originalParts.set(part[1],prior);
