@@ -90,4 +90,32 @@ describe('per-voucher approved branch opening attribution',()=>{
   expect(result).toEqual({status:'OPENING_ATTRIBUTION_RECONCILED_PREVIEW_ONLY',
    itemCount:0,openingEvidence:null});
  });
+ it('reconciles a new branch with no opening workspace through observed posted journals',()=>{
+  const x=fixture();
+  x.source.opening=[];x.workspace=null;x.distribution=null;
+  const opening=aggregateApprovedBranchOpenings(x);
+  expect(opening).toEqual({status:'OPENING_ATTRIBUTION_RECONCILED_PREVIEW_ONLY',
+   itemCount:0,openingEvidence:null});
+  const journals:JournalBranchObservation={status:'RLS_MATCHED_JOURNAL_REFERENCES_ONLY',
+   organizationId:org,links:[{journalId:'branch-sale',branchId:branch,scope:'BRANCH'}]};
+  const sourceCount=x.source.journals[0].lines.length;
+  const preview=previewVerifiedBranchAttribution({
+   source:x.source,branchIds:x.branchIds,
+   coverage:{complete:true,scope:'ORGANIZATION_ALL_ENTITIES',sourceCount,
+    revision:x.sourceRevision},journalEvidence:journals,openingEvidence:null,
+  });
+  expect(preview.status).toBe('RECONCILED_SEGMENTS_PREVIEW_ONLY');
+  if(preview.status==='RECONCILED_SEGMENTS_PREVIEW_ONLY'){
+   expect(preview.segments.find(s=>s.branchId===branch)?.statement.cash)
+    .toMatchObject({opening:'0.0000',closing:'50.0000'});
+   expect(preview.segments.find(s=>s.branchId===branch)?.statement.income.netProfit).toBe('50.0000');
+  }
+ });
+ it('does not bypass existing unapproved opening evidence by claiming a zero-opening startup',()=>{
+  const x=fixture();
+  x.source.opening=[];x.workspace=null;
+  // A stored distribution exists and must not be silently ignored.
+  expect(aggregateApprovedBranchOpenings(x).status).toBe('OPENING_ATTRIBUTION_BLOCKED');
+ });
+
 });
