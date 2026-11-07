@@ -52,6 +52,10 @@ describe('control-aware pre-elimination aggregation', () => {
   });
   it('includes a newly formed authorized subsidiary with no opening and no movements as a zero member', () => {
     const members=[source.members[0],{...source.members[1],details:[]}];
+    expect(()=>preflightControlledGroup({...source,members})).toThrow('REPORTING_ROLLUP_EMPTY_SOURCE_UNVERIFIED');
+    members[1].zeroActivityEvidence={status:'COMPLETE_ZERO_SOURCE' as const,organizationId:'A',
+      from:'2026-01-01',to:'2026-12-31',currency:'SAR',
+      openingLineCount:0 as const,postedJournalLineCount:0 as const,revision:'verified-member-A'};
     const result=preflightControlledGroup({...source,members});
     expect(result.status).toBe('CONTROLLED_PRE_ELIMINATION_ONLY');
     expect(result.wholeEntityRollup.memberIds).toEqual(['A','P']);
