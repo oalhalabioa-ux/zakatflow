@@ -161,6 +161,14 @@ describe('canonical line-level source checks before branch statements',()=>{
   data[0].sourceLines[0].baseAmount='59.0000';
   await expect(observeCanonicalJournalLineage(org,data)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
  });
+ it('refuses a fabricated posting role if the original line does not declare it',async()=>{
+  const data=postedLineage();
+  data[0].sourceLines[0].id=lineA+':FABRICATED';
+  data[0].sourceLines[0].classificationId=classId+':FABRICATED';
+  await expect(observeCanonicalJournalLineage(org,data)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+  s.lines[0].metadata={source_role:'FABRICATED'};
+  expect((await observeCanonicalJournalLineage(org,data)).sourceLineCount).toBe(3);
+ });
  it('rejects altered source amounts, classification or cash direction even if the line IDs are identical',async()=>{
   s.lines[0].base_amount='101.0000';
   await expect(observeCanonicalJournalLineage(org,postedLineage())).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
