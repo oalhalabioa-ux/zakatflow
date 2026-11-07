@@ -29,6 +29,13 @@ begin
  if exists(select 1 from public.financial_opening_workspaces
      where organization_id=p_org and fiscal_start<=pol.fiscal_start)
  then raise exception 'REPORTING_APPROVED_OPENING_REQUIRED';end if;
+ -- A prior fiscal policy, even a draft with no postings, disqualifies
+ -- FIRST ACTIVITY. It may require historical period/close reconciliation.
+ if exists(select 1 from public.financial_reporting_policies
+     where organization_id=p_org and fiscal_start<pol.fiscal_start)
+ or exists(select 1 from public.financial_year_closures
+     where organization_id=p_org and fiscal_start<pol.fiscal_start)
+ then raise exception 'REPORTING_FIRST_ACTIVITY_EVIDENCE_REQUIRED';end if;
  if exists(select 1 from public.financial_events
      where organization_id=p_org and event_date<pol.fiscal_start
        and status not in('CANCELLED'))
@@ -116,6 +123,16 @@ begin
  -- snapshot in some schema versions. Do not assert its legacy failure mode:
  -- this QA test is exclusively for the new independently attested zero-opening
  -- source, denied prior balances and tenant isolation.
+ -- A previously established fiscal year cannot silently become a
+ -- first-activity year solely because it had no journals or opening vouchers.
+ begin
+  perform public.save_financial_reporting_policy(org,'2025-01-01',0,'[]'::jsonb,
+   'Historic fiscal year without postings');
+  perform public.financial_statement_first_activity_snapshot(org,'2026-01-01','2026-12-31');
+  raise exception 'Historic policy was misclassified as first activity';
+ exception when others then
+  if sqlerrm<>'REPORTING_FIRST_ACTIVITY_EVIDENCE_REQUIRED' then raise;end if;
+ end;
  perform set_config('request.jwt.claim.sub',outsider::text,true);
  begin
   perform public.financial_statement_first_activity_snapshot(org,'2026-01-01','2026-12-31');
