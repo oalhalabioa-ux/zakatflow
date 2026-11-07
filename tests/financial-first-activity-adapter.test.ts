@@ -1,11 +1,12 @@
 import {afterAll,beforeEach,describe,expect,it,vi} from 'vitest';
 vi.mock('../services/financial-branch-journal-source',()=>({
- observeCanonicalJournalLineage:async(organizationId:string,journals:{id:string;sourceLines:{id:string}[]}[])=>({
+ observeCanonicalJournalLineage:async(organizationId:string,journals:{id:string;sourceLines:{id:string}[]}[],
+ scope:'BRANCH'|'LEGAL_COMPANY'='BRANCH')=>({
   status:'RLS_MATCHED_JOURNAL_AND_RECOGNITION_LINES_ONLY',
   organizationId:state.lineage==='foreign'?'other-tenant':organizationId,
   sourceLineCount:journals.reduce((n,j)=>n+j.sourceLines.length,0)-(state.lineage==='missing'?1:0),
-  reversalRecognitionSignVerified:false,
-  links:journals.map(j=>({journalId:j.id,branchId:null,scope:'ORGANIZATION_DIRECT'})),
+  reversalRecognitionSignVerified:false,branchAttributionVerified:scope==='BRANCH',
+  links:scope==='BRANCH'?journals.map(j=>({journalId:j.id,branchId:null,scope:'ORGANIZATION_DIRECT'})):[],
  }),
 }));
 
