@@ -38,6 +38,47 @@ try{
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
  for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context',{signal:AbortSignal.timeout(5000)})).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
  const{chromium}=await import(process.env.FINANCIAL_SOURCE_BROWSER_MODULE);browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1672,height:941},acceptDownloads:true});await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));page=await context.newPage();page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
+ await check('Financial setup reads real organization readiness, blocks fabricated completion and cross-tenant access',async()=>{
+  const endpoint=app+'/api/financial-reporting/setup-readiness?';
+  const params=new URLSearchParams({organization:org,mode:'EXISTING'});
+  const own=await page.request.get(endpoint+params.toString());
+  assert.equal(own.status(),200,'Owned organization readiness must be available');
+  const ready=await own.json();
+  assert.equal(ready.organizationId,org);
+  assert.equal(ready.mode,'EXISTING');
+  assert.equal(ready.statuses.chart,'READY','Legacy canonical 3300 chart must not require a new posting leaf');
+  assert.equal(ready.statuses.fiscal,'READY','Existing valid fiscal year must stay valid');
+  assert.equal(ready.statuses.posting,'IN_PROGRESS','No approved posting policy may not be treated as ready');
+  assert.equal(ready.statuses.opening,'IN_PROGRESS','An unapproved opening may not be treated as ready');
+  assert.equal(ready.ready,false);
+  assert.equal(ready.certification,'NOT_CERTIFIED');
+  const foreign=await page.request.get(endpoint+new URLSearchParams({organization:other,mode:'EXISTING'}));
+  assert.equal(foreign.status(),403,'Cross-tenant setup evidence must be denied');
+  await page.goto(app+'/en/settings/financial/setup?organization='+org);
+  const savedKey='yaqeen:financial-setup:v1:'+org;
+  await page.evaluate(({key})=>localStorage.setItem(key,JSON.stringify({
+   mode:'EXISTING',industry:'GENERAL',
+   completed:['organization','chart','fiscal','posting','banking','opening','users','review','finished'],
+   step:'review'
+  })),{key:savedKey});
+  const reloaded=page.waitForResponse(response=>response.url().includes('/api/financial-reporting/setup-readiness?'));
+  await page.reload();await reloaded;
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  await page.getByRole('heading',{name:'Review',exact:true}).waitFor();
+  const finish=page.getByRole('button',{name:/Finish setup/});
+  assert.equal(await finish.isDisabled(),true,'Local browser progress must not allow finish');
+  assert.notEqual(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100',
+   'Local review flags must never report 100% financial readiness');
+  await page.screenshot({path:out+'/financial-setup-readiness-en-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(app+'/ar/settings/financial/setup?organization='+org);
+  await page.getByRole('heading',{name:'إعداد المؤسسة'}).waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
+   'The financial setup page must remain within the mobile viewport');
+  await page.screenshot({path:out+'/financial-setup-readiness-ar-mobile.png',fullPage:true});
+  await page.evaluate(({key})=>localStorage.removeItem(key),{key:savedKey});
+  await page.setViewportSize({width:1672,height:941});
+ });
  await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{
   sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
    do $$ declare asset uuid; d date; begin
