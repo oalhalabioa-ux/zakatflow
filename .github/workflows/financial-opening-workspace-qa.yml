@@ -183,6 +183,8 @@ jobs:
         run: npx --yes supabase@2.122.0 start --workdir "$PARITY_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/financial-parity-start.log" 2>&1 || { tail -80 "$RUNNER_TEMP/financial-parity-start.log"; exit 1; }
       - name: Verify Production canonical + legacy + refund + closed year reporting dependencies
         run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-parity-contract.sql
+      - name: Test Production-normalized source amounts, VAT parts, classification and direction
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-production-normalized-parts.sql
       - name: Destroy parity database with no backup
         if: always()
         run: test -z "$PARITY_QA_WORKDIR" || npx --yes supabase@2.122.0 stop --workdir "$PARITY_QA_WORKDIR" --no-backup
