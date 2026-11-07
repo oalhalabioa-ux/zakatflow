@@ -16,6 +16,10 @@ values
  ('c1000000-0000-4000-8000-000000000101','QA finance owner'),
  ('c1000000-0000-4000-8000-000000000102','QA asset operator')
 on conflict (id) do nothing;
+-- Existing subscription guard accepts org creation only for the authenticated,
+-- email-verified owner. Do not bypass the guard in the temporary fixture.
+select set_config('request.jwt.claim.sub',
+ 'c1000000-0000-4000-8000-000000000101',true);
 insert into public.organizations(id,owner_user_id,name,base_currency)
 values('c1000000-0000-4000-8000-000000000103',
  'c1000000-0000-4000-8000-000000000101','RLS asset allocation parity fixture','SAR');
