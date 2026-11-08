@@ -628,7 +628,8 @@ try {
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();await page.getByLabel('Legal name',{exact:true}).waitFor();assert.equal(await page.getByLabel('Legal name',{exact:true}).inputValue(),'Preserved legal organization');
     await page.getByRole('navigation',{name:'Other settings'}).getByRole('link',{name:'Subscription & billing',exact:true}).click();
-    await page.getByLabel('Subscription status',{exact:true}).waitFor();
+    await page.waitForURL('**/en/billing?organization='+org);
+    await page.locator('.yb-billing').getByLabel('Subscription status',{exact:true}).waitFor();
     assert.equal(await page.locator('.settings-tabs').count(),0,'Billing must have an independent section');
     await page.goto(appUrl+'/en/settings/regulatory?organization='+org);
     await page.getByRole('heading',{name:'Legal & tax settings',exact:true,level:1}).waitFor();
