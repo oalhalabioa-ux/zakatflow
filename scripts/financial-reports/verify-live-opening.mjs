@@ -666,11 +666,17 @@ try{
    if(route==='settings/team'){
     await page.getByText(a.email,{exact:true}).first().waitFor();
     if(locale==='en'){
+     const teamNav=page.getByRole('navigation',{name:'User and role management',exact:true});
+     assert.equal(await teamNav.getByRole('button').count(),3);
+     await teamNav.getByRole('button',{name:'Roles & permissions',exact:true}).click();
+     await page.getByRole('heading',{name:'Roles & permissions',exact:true,level:2}).waitFor();
+     await teamNav.getByRole('button',{name:'Members',exact:true}).click();
      const invite=page.locator('.team-invite-card');await invite.getByLabel('Email',{exact:true}).fill('native-settings-acceptance@settings.invalid');
      const created=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/organizations/users'&&r.request().method()==='POST');
      await invite.getByRole('button',{name:'Create invite',exact:true}).click();const response=await created;
      assert.equal(response.status(),201,await response.text());
      await invite.getByLabel('Invite link',{exact:true}).waitFor();
+     await page.locator('.settings-team-invitations').getByText('native-settings-acceptance@settings.invalid',{exact:true}).waitFor();
      const stored=await page.request.get(app+'/api/organizations/users?organization_id='+org);
      assert.equal(stored.status(),200);assert.ok((await stored.json()).invitations.some(i=>i.email==='native-settings-acceptance@settings.invalid'));
     }
