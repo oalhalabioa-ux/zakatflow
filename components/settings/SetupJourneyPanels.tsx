@@ -85,8 +85,9 @@ export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,st
  </aside>;
 }
 
-export function SetupJourneySummary({locale,mode,readiness,completed,deferred,checking,onRefresh,organizationId,revision,onSelect}:Context&{
+export function SetupJourneySummary({locale,mode,readiness,completed,deferred,checking,onRefresh,organizationId,organizationLegal,revision,onSelect}:Context&{
  checking:boolean;onRefresh:()=>void;organizationId:string;revision:number;
+ organizationLegal?:{country_code?:string|null;commercial_registration_number?:string|null;registered_address?:string|null}|null;
  onSelect:(step:FinancialSetupStep)=>void;
 }){
  const ar=locale==='ar';
@@ -147,6 +148,9 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
    <p>{ar?'حالة السجلات الفعلية المنفصلة عن مؤشر الجاهزية المالية.':
      'Actual source records, independent of the financial readiness percentage.'}</p>
    <dl className="financial-setup-journey-metrics">
+    <div><dt>{ar?'دولة تسجيل المؤسسة':'Country of registration'}</dt><dd>{organizationLegal?.country_code|| (ar?'غير مدخلة':'Missing')}</dd></div>
+    <div><dt>{ar?'السجل التجاري أو النظامي':'Commercial/statutory registration'}</dt><dd>{organizationLegal?.commercial_registration_number?(ar?'محفوظ':'Saved'):(ar?'غير مدخل':'Missing')}</dd></div>
+    <div><dt>{ar?'العنوان القانوني المسجل':'Registered legal address'}</dt><dd>{organizationLegal?.registered_address?(ar?'محفوظ':'Saved'):(ar?'غير مدخل':'Missing')}</dd></div>
     <div><dt>{ar?'ملف بائع الفاتورة':'Invoice seller profile'}</dt>
       <dd>{legalTax.kind==='SAVED'?ar?'محفوظ':'Saved':
         legalTax.kind==='MISSING'?ar?'غير مدخل':'Missing':
@@ -159,8 +163,8 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
       legalTax.registration==='PENDING'?ar?'قيد التسجيل':'Pending':
       legalTax.registration==='DEREGISTERED'?ar?'ملغى':'Deregistered':ar?'غير محددة':'Not specified'}</dd></div>
    </dl>
-   <p>{ar?'البلد والسجل التجاري ليسا محفوظين بعد ضمن عقد بيانات المؤسسة. إعدادات ZATCA لا تعني امتثالًا تلقائيًا في الدول الأخرى.':
-      'Country and commercial registration are not yet fields in the organization contract. ZATCA settings do not certify compliance elsewhere.'}</p>
+   <p>{ar?'تُحفظ بيانات الدولة والسجل والعنوان القانوني في سجل المؤسسة الأصلي، وتبقى بيانات بائع الفاتورة والضريبة منفصلة. لا يُعد الحفظ شهادة امتثال، كما أن ZATCA تخص السعودية.':
+      'Country, registration and legal address use the original organization record; invoice seller and VAT settings remain separate. Saving does not certify statutory compliance; ZATCA is Saudi-specific.'}</p>
    <button type="button" className="financial-setup-summary-refresh" disabled={!mode} onClick={()=>onSelect('regulatory')}>
     {ar?'فتح العنوان والضرائب والفوترة':'Open address, tax and invoicing'}
    </button>
