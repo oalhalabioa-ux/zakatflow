@@ -164,6 +164,23 @@ try{
     'Deferred step must stay visible and must never be shown as complete');
   assert.notEqual(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100',
     'Deferral cannot forge financial readiness');
+  // The original VAT profile, invoice seller address and ZATCA invoice unit
+  // must all be reachable in the unified setup journey without duplicating
+  // their persisted tables or changing the independent accounting preflight.
+  await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Legal & tax settings'}).click();
+  const legal=page.locator('[data-setup-native-workspace="regulatory"]');
+  await legal.locator('.financial-setup-regulatory-editor').waitFor();
+  await legal.getByRole('button',{name:'National address',exact:true}).click();
+  await legal.getByLabel('Street',{exact:true}).waitFor();
+  assert.equal(await legal.getByRole('button',{name:'National address',exact:true}).getAttribute('aria-pressed'),'true');
+  assert.ok((await legal.innerText()).includes('not an independent legal-address register')||
+    (await legal.innerText()).includes('not yet fields'),
+    'Invoice seller address must not masquerade as a verified legal company address');
+  await legal.getByRole('button',{name:'Registration',exact:true}).click();
+  await legal.getByLabel('Registration status',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow')!==null,true,
+    'Legal/tax review must not replace real financial readiness');
+  await page.screenshot({path:out+'/financial-setup-legal-tax-en-desktop.png',fullPage:true});
   await page.locator('.settings-tabs a').filter({hasText:'Financial & accounting settings'}).click();
   await page.getByRole('heading',{name:'Financial & accounting settings',exact:true}).waitFor();
   assert.equal(await page.locator('.settings-tabs a').filter({hasText:'Financial & accounting settings'}).getAttribute('aria-current'),'page',
