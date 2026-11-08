@@ -63,3 +63,16 @@ export function financialSetupJourneyCounts(readiness:FinancialSetupReadiness|nu
  const deferredCount=deferred.filter(step=>accounted.includes(step)&&readiness?.statuses[step]!=='READY').length;
  return {total:accounted.length,complete,remaining,deferred:deferredCount,percent:Math.round(100*complete/accounted.length)};
 }
+
+/** Resume at the first missing independently checked financial requirement.
+ * This is navigation only; it cannot certify legal, tax or posting readiness.
+ */
+export function firstMissingFinancialSetupStep(
+ readiness:FinancialSetupReadiness|null,mode:FinancialSetupMode|null,
+):FinancialSetupStep{
+ if(!readiness||!mode||readiness.statuses.organization!=='READY')return 'organization';
+ for(const step of ['chart','fiscal','posting','banking','opening','users'] as const){
+  if(readiness.statuses[step]!=='READY')return step;
+ }
+ return 'review';
+}
