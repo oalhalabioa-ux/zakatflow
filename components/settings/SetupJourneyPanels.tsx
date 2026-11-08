@@ -4,7 +4,8 @@ import {Fragment,useEffect,useState} from 'react';
 import type {FinancialSetupMode,FinancialSetupStep} from '@/lib/financial-setup-steps';
 import {FINANCIAL_SETUP_STEPS,isSkippedSetupStep} from '@/lib/financial-setup-steps';
 import type {FinancialSetupReadiness} from '@/lib/financial-setup-readiness';
-import {canDeferSetupStep,FINANCIAL_SETUP_STEP_HELP,financialSetupJourneyCounts,setupJourneyStepState} from '@/lib/financial-setup-journey-policy';
+import {canDeferSetupStep,FINANCIAL_SETUP_STEP_HELP,financialSetupJourneyCounts,setupJourneyStepState,firstMissingFinancialSetupStep} from '@/lib/financial-setup-journey-policy';
+import SubscriptionSetupSummary from './SubscriptionSetupSummary';
 
 export const SETUP_JOURNEY_LABELS:Record<FinancialSetupStep,[string,string]>={
  organization:['بيانات المؤسسة','Organization details'],
@@ -113,9 +114,16 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
    return ()=>controller.abort();
  },[organizationId,revision]);
  const counts=financialSetupJourneyCounts(readiness,deferred);
+ const nextRequired=firstMissingFinancialSetupStep(readiness,mode);
  const skipCandidates=FINANCIAL_SETUP_STEPS.filter(step=>
   !['review','finished'].includes(step)&&canDeferSetupStep(step,mode,readiness?.statuses??null));
  return <aside className="financial-setup-journey-summary" aria-label={ar?'ملخص جاهزية المؤسسة':'Organization readiness summary'}>
+  <button type="button" className="financial-setup-resume" disabled={checking}
+   onClick={()=>onSelect(nextRequired)}>
+   <span>{ar?'متابعة الإعداد':'Continue setup'}</span>
+   <small>{ar?'الانتقال إلى أول متطلب مالي غير مكتمل: ':'First missing financial requirement: '}
+    {SETUP_JOURNEY_LABELS[nextRequired][ar?0:1]}</small>
+  </button>
   <section className="financial-setup-summary-card">
    <h3>{ar?'الجاهزية المالية والمحاسبية':'Financial & accounting readiness'}</h3>
    <div className="financial-setup-summary-percent"><bdi>{counts.percent}%</bdi></div>
@@ -167,6 +175,7 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
     </li>)}
    </ul>:<p>{ar?'لا توجد خطوات مستقلة قابلة للتجاوز حاليًا.':'No independent step can be deferred yet.'}</p>}
   </section>
+  <SubscriptionSetupSummary locale={locale} organizationId={organizationId}/>
   <section className="financial-setup-summary-tip">
    <strong>{ar?'معلومة مهمة':'Important'}</strong>
    <p>{ar?'يمكن العودة لأي مرحلة، لكن التجاوز لا ينشئ قيودًا ولا يمنح اعتمادًا محاسبيًا. إكمال الرحلة النهائي يتطلب تحقق جميع المتطلبات الفعلية.':
