@@ -2,6 +2,7 @@ export type FinancialSetupMode = 'NEW' | 'EXISTING';
 
 export type FinancialSetupStep =
   | 'organization'
+  | 'regulatory'
   | 'structure'
   | 'fiscal'
   | 'chart'
@@ -13,7 +14,7 @@ export type FinancialSetupStep =
   | 'finished';
 
 export const FINANCIAL_SETUP_STEPS: readonly FinancialSetupStep[] = [
-  'organization', 'structure', 'chart', 'fiscal', 'posting', 'banking',
+  'organization', 'regulatory', 'structure', 'chart', 'fiscal', 'posting', 'banking',
   'opening', 'users', 'review', 'finished',
 ] as const;
 
@@ -40,7 +41,7 @@ export function nextSetupStep(step: FinancialSetupStep, mode: FinancialSetupMode
 export function financialSetupProgress(mode: FinancialSetupMode | null, completed: readonly FinancialSetupStep[]) {
   const completedSet = new Set(completed);
   // Organizational structure is an optional review, not part of the accounting source certificate.
-  const required=FINANCIAL_SETUP_STEPS.filter(step=>step!=='structure'&&step!=='finished'&&step!=='review');
+  const required=FINANCIAL_SETUP_STEPS.filter(step=>step!=='structure'&&step!=='regulatory'&&step!=='finished'&&step!=='review');
   const count=required.filter(step=>completedSet.has(step)||isSkippedSetupStep(step,mode)).length;
   return Math.round((count / required.length) * 100);
 }
