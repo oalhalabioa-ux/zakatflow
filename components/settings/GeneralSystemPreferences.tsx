@@ -22,7 +22,7 @@ export default function GeneralSystemPreferences({locale}:{locale:string}){
  async function save(e:FormEvent){
   e.preventDefault();if(!profile||!settings||busy)return;setBusy(true);setError('');setMessage('');
   try{
-   const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile,settings:{notifications_enabled:settings.notifications_enabled,assessment_reminders:settings.assessment_reminders,theme}})});
+   const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile:{locale:profile.locale,base_currency:profile.base_currency,timezone:profile.timezone},settings:{notifications_enabled:settings.notifications_enabled,assessment_reminders:settings.assessment_reminders,theme}})});
    if(!r.ok)throw Error();const data=await r.json();setProfile(data.profile);setSettings(data.settings);
    localStorage.setItem('zf-theme',theme);window.dispatchEvent(new CustomEvent('zf-theme-selection',{detail:theme}));
    setMessage(ar?'تم حفظ إعداداتك.':'Your preferences were saved.');

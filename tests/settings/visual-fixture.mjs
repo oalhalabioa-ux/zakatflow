@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 const {chromium}=await import(process.env.SETTINGS_BROWSER_MODULE);
 const app='http://127.0.0.1:3007',authUrl='http://127.0.0.1:55441';
 const user={id:'1dcb439d-89a5-4d64-8a6f-b324eeebbe20',aud:'authenticated',role:'authenticated',email:'owner@example.com',created_at:'2026-01-01T00:00:00Z',app_metadata:{provider:'email'},user_metadata:{}};
-const auth=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(user));});await new Promise(r=>auth.listen(55441,'127.0.0.1',r));
+const auth=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'application/json','Access-Control-Allow-Origin':app,'Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info,x-supabase-api-version','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});res.end(req.method==='OPTIONS'?'':JSON.stringify(user));});await new Promise(r=>auth.listen(55441,'127.0.0.1',r));
 const b64=v=>Buffer.from(JSON.stringify(v)).toString('base64url');const unsigned=b64({alg:'HS256',typ:'JWT'})+'.'+b64({sub:user.id,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+3600,iat:Math.floor(Date.now()/1000)});const token=unsigned+'.'+createHmac('sha256','local-fixture-only').update(unsigned).digest('base64url');
 const cookies=[];const client=createServerClient(authUrl,'ui-fixture-key',{cookies:{getAll:()=>cookies,setAll:items=>items.forEach(v=>cookies.push(v))}});await client.auth.setSession({access_token:token,refresh_token:'local-fixture-only'});
 const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1490,height:1050}});await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:app})));
@@ -54,4 +54,4 @@ try{
  }
  await page.goto(`${app}/en/settings/system?organization=${orgId}`);const toggle=page.getByRole('switch',{name:'System notifications'});await toggle.waitFor();await toggle.uncheck();await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Your preferences were saved.',{exact:true}).waitFor();await page.reload();await toggle.waitFor();assert.equal(await toggle.isChecked(),false);checks.push('System preferences persisted after reload');
  assert.deepEqual(errors,[]);console.log(JSON.stringify({kind:'LOCAL_UI_FIXTURE_ONLY',checks,screenshots:out,errors},null,2));await writeFile(out+'/result.json',JSON.stringify({kind:'LOCAL_UI_FIXTURE_ONLY',checks,errors},null,2));
-}finally{await browser.close();await new Promise(r=>auth.close(r));}
+}catch(error){await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});await writeFile(out+'/failure-state.txt',await page.locator('body').innerText().catch(()=>''));throw error;}finally{await browser.close();await new Promise(r=>auth.close(r));}

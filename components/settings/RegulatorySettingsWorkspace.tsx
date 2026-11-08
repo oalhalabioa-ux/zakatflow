@@ -8,7 +8,7 @@ import TopbarOrganizationControls from '../TopbarOrganizationControls';
 import {countryName} from '@/lib/countries';
 
 export default function RegulatorySettingsWorkspace({locale,preferredOrg='',inline=false,onSaved}:{locale:string;preferredOrg?:string;inline?:boolean;onSaved?:()=>void}){
- const ar=locale==='ar';const ctx=useSettingsOrganization(preferredOrg);
+ const ar=locale==='ar';const ctx=useSettingsOrganization(preferredOrg,inline);
  const [tab,setTab]=useState<'identity'|'tax'>('identity');
  if(ctx.loading&&!ctx.organization)return <p role="status">{ar?'جارٍ تحميل بيانات المؤسسة…':'Loading organization…'}</p>;
  if(ctx.error||!ctx.organization)return <p role="alert">{ar?'تعذر الوصول إلى المؤسسة المحددة.':'Unable to access this organization.'}</p>;

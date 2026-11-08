@@ -55,3 +55,10 @@ release gates remain. Country-specific tax engines outside Saudi Arabia and
 online subscription collection are not represented as working features.
 No Production migration, merge, domain change or deployment is authorized by this
 implementation checkpoint.
+
+## Hosted QA V2 checkpoint (2026-11-08)
+The new nullable profile columns were applied only to `Yaqeen Financial Core QA V2`.
+Read-only catalog inspection confirmed all eight columns and preserved organization
+RLS. A rollback-only synthetic owner/outsider test passed owner save/readback and
+cross-tenant SELECT/UPDATE denial. All fixture Auth/organization rows rolled back.
+Production was not queried or changed for this checkpoint.
