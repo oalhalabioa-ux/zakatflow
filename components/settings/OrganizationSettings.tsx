@@ -29,7 +29,7 @@ export default function OrganizationSettings({
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [draft, setDraft] = useState({ name: "", legal_name: "" });
+    [draft, setDraft] = useState({ name: "", legal_name: "", country_code: "", commercial_registration_number: "", registered_address: "" });
   const generation = useRef(0);
   const fiscalEdit = useRef({ dirty: false, busy: false });
   const reportFiscalEdit = useRef((dirty: boolean, busy: boolean) => { fiscalEdit.current = { dirty, busy }; }).current;
@@ -96,6 +96,9 @@ export default function OrganizationSettings({
     setDraft({
       name: selected?.name ?? "",
       legal_name: selected?.legal_name ?? "",
+      country_code: selected?.country_code ?? "",
+      commercial_registration_number: selected?.commercial_registration_number ?? "",
+      registered_address: selected?.registered_address ?? "",
     });
     setMessage("");
     setError("");
@@ -116,6 +119,9 @@ export default function OrganizationSettings({
           id: target,
           name: draft.name.trim(),
           legal_name: draft.legal_name.trim(),
+          country_code: draft.country_code.trim().toUpperCase(),
+          commercial_registration_number: draft.commercial_registration_number.trim(),
+          registered_address: draft.registered_address.trim(),
         }),
       });
       if (!r.ok) throw Error();
@@ -160,7 +166,10 @@ export default function OrganizationSettings({
           beforeChange={() => {
             if (fiscalEdit.current.busy) return false;
             const dirty = financial ? fiscalEdit.current.dirty : !system && selected &&
-              (draft.name !== selected.name || draft.legal_name !== (selected.legal_name ?? ""));
+              (draft.name !== selected.name || draft.legal_name !== (selected.legal_name ?? "") ||
+               draft.country_code !== (selected.country_code ?? "") ||
+               draft.commercial_registration_number !== (selected.commercial_registration_number ?? "") ||
+               draft.registered_address !== (selected.registered_address ?? ""));
             return !dirty || window.confirm(ar ? "تجاهل التغييرات غير المحفوظة؟" : "Discard unsaved changes?");
           }}
         />
@@ -250,6 +259,50 @@ export default function OrganizationSettings({
                   }
                 />
               </label>
+              <label>
+                {ar ? "دولة تسجيل المؤسسة (رمز ISO من حرفين)" : "Country of registration (two-letter ISO code)"}
+                <input
+                  list="yaqeen-regulatory-countries"
+                  placeholder="SA"
+                  maxLength={2}
+                  pattern="[A-Za-z]{2}"
+                  value={draft.country_code}
+                  disabled={!canEdit || busy}
+                  onChange={(e) => setDraft({ ...draft, country_code: e.target.value.toUpperCase() })}
+                />
+              </label>
+              <datalist id="yaqeen-regulatory-countries">
+                {[
+                  ["SA","Saudi Arabia / السعودية"],["SY","Syria / سوريا"],
+                  ["LB","Lebanon / لبنان"],["AE","United Arab Emirates / الإمارات"],
+                  ["BH","Bahrain / البحرين"],["QA","Qatar / قطر"],
+                  ["KW","Kuwait / الكويت"],["OM","Oman / عمان"],
+                  ["JO","Jordan / الأردن"],["EG","Egypt / مصر"],
+                  ["IQ","Iraq / العراق"],["TR","Türkiye / تركيا"],
+                ].map(([code,label])=><option key={code} value={code} label={label}/>)}
+              </datalist>
+              <label>
+                {ar ? "رقم السجل التجاري أو التسجيل النظامي" : "Commercial or statutory registration number"}
+                <input
+                  maxLength={80}
+                  value={draft.commercial_registration_number}
+                  disabled={!canEdit || busy}
+                  onChange={(e) => setDraft({ ...draft, commercial_registration_number: e.target.value })}
+                />
+              </label>
+              <label>
+                {ar ? "العنوان القانوني المسجل" : "Registered legal address"}
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={draft.registered_address}
+                  disabled={!canEdit || busy}
+                  onChange={(e) => setDraft({ ...draft, registered_address: e.target.value })}
+                />
+              </label>
+              <p className="settings-hint">{ar ?
+                "هذه بيانات هوية المؤسسة النظامية. عنوان البائع والرقم الضريبي الخاصان بالفواتير يُداران بصورة مستقلة في إعدادات الضرائب، ولا يعني الحفظ اعتمادًا نظاميًا تلقائيًا." :
+                "These are the organization's registered identity details. The invoice seller address and tax number are managed separately; saving does not certify statutory compliance."}</p>
               <dl className="settings-facts">
                 <div>
                   <dt>{ar ? "العملة الأساسية" : "Base currency"}</dt>
