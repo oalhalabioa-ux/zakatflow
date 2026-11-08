@@ -1,4 +1,4 @@
-import {FINANCIAL_SETUP_STEPS,type FinancialSetupMode,type FinancialSetupStep} from './financial-setup-steps';
+import {type FinancialSetupMode,type FinancialSetupStep} from './financial-setup-steps';
 import type {PostingPolicyReadiness} from './financial-setup-posting-evidence';
 
 export type SetupStatus='NOT_STARTED'|'IN_PROGRESS'|'BLOCKED'|'READY';
