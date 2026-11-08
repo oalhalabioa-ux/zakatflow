@@ -4,7 +4,7 @@ import type {FinancialSetupReadiness} from '../lib/financial-setup-readiness';
 const ready:FinancialSetupReadiness={
  organizationId:'org',mode:'EXISTING',fiscalStart:'2026-01-01',
  ready:false,sourceChecked:true,certification:'NOT_CERTIFIED',
- statuses:{organization:'READY',structure:'NOT_STARTED',chart:'IN_PROGRESS',fiscal:'IN_PROGRESS',
+ statuses:{organization:'READY',regulatory:'NOT_STARTED',structure:'NOT_STARTED',chart:'IN_PROGRESS',fiscal:'IN_PROGRESS',
  posting:'IN_PROGRESS',banking:'IN_PROGRESS',opening:'IN_PROGRESS',users:'READY',
  review:'BLOCKED',finished:'BLOCKED'},
 };
@@ -17,6 +17,7 @@ describe('setup journey deferred steps are never accounting approvals',()=>{
   expect(canDeferSetupStep('banking','EXISTING',ready.statuses)).toBe(true);
   expect(canDeferSetupStep('opening','EXISTING',ready.statuses)).toBe(true);
   expect(canDeferSetupStep('structure','EXISTING',ready.statuses)).toBe(true);
+  expect(canDeferSetupStep('regulatory','EXISTING',ready.statuses)).toBe(true);
   expect(canDeferSetupStep('review','EXISTING',ready.statuses)).toBe(false);
   expect(canDeferSetupStep('posting',null,ready.statuses)).toBe(false);
  });
@@ -25,6 +26,8 @@ describe('setup journey deferred steps are never accounting approvals',()=>{
   expect(setupJourneyStepState('posting',ready,[],[],ready.mode)).toBe('INCOMPLETE');
   expect(setupJourneyStepState('posting',{...ready,statuses:{...ready.statuses,posting:'READY'}},['posting'],[],ready.mode)).toBe('COMPLETE');
   expect(setupJourneyStepState('structure',ready,[],[],ready.mode)).toBe('OPTIONAL');
+  expect(setupJourneyStepState('regulatory',ready,[],['regulatory'],ready.mode)).toBe('REVIEWED');
+  expect(setupJourneyStepState('regulatory',ready,['regulatory'],[],ready.mode)).toBe('DEFERRED');
  });
  it('keeps unfinished or deferred work out of real readiness percentage',()=>{
   expect(financialSetupJourneyCounts(ready,['posting','banking'])).toEqual({total:7,complete:2,remaining:5,deferred:2,percent:29});
