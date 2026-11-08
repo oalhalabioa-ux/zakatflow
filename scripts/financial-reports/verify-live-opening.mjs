@@ -199,6 +199,12 @@ try{
   // their persisted tables or changing the independent accounting preflight.
   await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Legal & tax settings'}).click();
   const legal=page.locator('[data-setup-native-workspace="regulatory"]');
+  await legal.getByRole('button',{name:'Edit registered identity here without leaving setup'}).click();
+  const legalIdentityEditor=page.frameLocator('iframe.financial-setup-embedded-frame');
+  await legalIdentityEditor.getByLabel('Registered legal address').waitFor();
+  assert.equal(await legalIdentityEditor.getByLabel('Registered legal address').inputValue(),'Riyadh QA test address',
+   'The legal stage must load the same saved authoritative registered address, not a duplicate copy');
+  await legal.getByRole('button',{name:'Hide legal identity editor'}).click();
   await legal.locator('.financial-setup-regulatory-editor').waitFor();
   await legal.locator('.console-tabs').getByRole('button',{name:'National address',exact:true}).click();
   await legal.getByLabel('Street',{exact:true}).waitFor();
