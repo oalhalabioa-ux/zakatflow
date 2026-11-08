@@ -51,8 +51,9 @@ const states={
  VERIFYING:['قيد التحقق','Checking'],
 } as const;
 
-export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,step,onSelect}:Context&{
+export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,step,onSelect,organizationLegal}:Context&{
  step:FinancialSetupStep;onSelect:(step:FinancialSetupStep)=>void;
+ organizationLegal?:{country_code?:string|null}|null;
 }){
  const ar=locale==='ar';
  return <aside className="financial-setup-journey-timeline">
@@ -63,7 +64,8 @@ export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,st
   <nav className="financial-setup-stage-timeline financial-setup-steps"
    aria-label={ar?'خطوات إعداد المؤسسة':'Organization setup steps'}>
    {FINANCIAL_SETUP_STEPS.filter(id=>id!=='finished').map((id,index)=>{
-    const status=setupJourneyStepState(id,readiness,deferred,completed,mode);
+    const status=id==='organization'&&mode&&!organizationLegal?.country_code?'INCOMPLETE':
+      setupJourneyStepState(id,readiness,deferred,completed,mode);
     const active=step===id;
     const disabled=!mode&&id!=='organization';
     const hasSkippedOpening=id==='opening'&&isSkippedSetupStep(id,mode)&&readiness?.statuses.opening==='READY';
@@ -115,14 +117,14 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
    return ()=>controller.abort();
  },[organizationId,revision]);
  const counts=financialSetupJourneyCounts(readiness,deferred);
- const nextRequired=firstMissingFinancialSetupStep(readiness,mode);
+ const nextRequired=!organizationLegal?.country_code?'organization':firstMissingFinancialSetupStep(readiness,mode);
  const skipCandidates=FINANCIAL_SETUP_STEPS.filter(step=>
   !['review','finished'].includes(step)&&canDeferSetupStep(step,mode,readiness?.statuses??null));
  return <aside className="financial-setup-journey-summary" aria-label={ar?'ملخص جاهزية المؤسسة':'Organization readiness summary'}>
   <button type="button" className="financial-setup-resume" disabled={checking}
    onClick={()=>onSelect(nextRequired)}>
    <span>{ar?'متابعة الإعداد':'Continue setup'}</span>
-   <small>{ar?'الانتقال إلى أول متطلب مالي غير مكتمل: ':'First missing financial requirement: '}
+   <small>{ar?'الانتقال إلى أول متطلب أساسي غير مكتمل: ':'First incomplete setup requirement: '}
     {SETUP_JOURNEY_LABELS[nextRequired][ar?0:1]}</small>
   </button>
   <section className="financial-setup-summary-card">
