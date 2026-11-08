@@ -20,3 +20,12 @@
 .yb-billing-requests span{padding:6px 11px;border-radius:99px;background:#f5ebd6;color:#73541a;font-size:.79rem}
 .yb-billing-requests small{color:var(--muted,#64748b)}
 @media(max-width:680px){.yb-billing-tabs{grid-template-columns:1fr}.yb-billing-panel{padding:12px}.yb-billing-header{padding:15px}.yb-billing-requests article{grid-template-columns:1fr auto}.yb-billing-requests small{grid-column:1/-1}}
+
+/* The plan picker is now hosted inside the billing Plans tab, not the legacy
+   subscription-panel. Preserve visible selection in every approved palette. */
+.yb-billing .pricing-interval button[aria-pressed=true]{
+ background:#c6a35d;border-color:#c6a35d;color:#10243a;
+}
+.corp-shell:is(.theme-classic,.theme-modern,.theme-elegant) .settings-workspace .yb-billing .pricing-interval button[aria-pressed=true]{
+ background:var(--settings-primary);border-color:var(--settings-primary);color:#fff;
+}
