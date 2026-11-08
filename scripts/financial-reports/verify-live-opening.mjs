@@ -98,6 +98,16 @@ try{
   await embeddedPage.locator('[data-setup-embedded-document]').waitFor({state:'attached'});
   assert.equal(await embeddedPage.locator('.corp-sidebar').evaluate(el=>getComputedStyle(el).display),'none',
    'The original navigation sidebar must not be duplicated inside the setup window');
+  await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Cash & banking'}).click();
+  const cashFrame=page.locator('iframe.financial-setup-embedded-frame');
+  await cashFrame.waitFor();
+  const cashSrc=await cashFrame.getAttribute('src');
+  assert.ok(cashSrc?.startsWith('/en/cash-and-banks?'),
+   'Banking step must open the actual institutional cash and banks register');
+  assert.equal(new URL(cashSrc,'https://yaqeen.invalid').searchParams.get('scope'),'ORGANIZATION',
+   'Banking step must never open the personal cash register');
+  assert.equal(new URL(cashSrc,'https://yaqeen.invalid').searchParams.get('organization'),org,
+   'Banking step must preserve selected organization');
   await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Chart of accounts'}).click();
   await page.locator('[data-setup-native-workspace="chart"]').waitFor();
   await page.locator('.coa-page').waitFor();
