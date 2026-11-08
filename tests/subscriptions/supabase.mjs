@@ -432,12 +432,14 @@ try {
               locale === "ar" ? "حالة الاشتراك" : "Subscription status",
             )
             .waitFor();
+          await page.getByRole('button',{name:locale==='ar'?'الباقات والترقية':'Plans & upgrades',exact:true}).click();
           await page.locator('[data-plan="professional_monthly"]').waitFor();
           assert.equal(await page.locator('.pricing-card').count(),2);
           await page.getByRole('button',{name:locale==='ar'?'سنوي':'Yearly',exact:true}).click();
           await page.locator('[data-plan="advanced_yearly"]').waitFor();
           assert.ok((await page.locator('[data-plan="advanced_yearly"]').innerText()).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[٬,]/g,'').includes('3990'));
           await page.getByRole('button',{name:locale==='ar'?'شهري':'Monthly',exact:true}).click();
+          await page.getByRole('button',{name:locale==='ar'?'ملخص الاشتراك':'Subscription overview',exact:true}).click();
 
           await page
             .getByText(
@@ -668,7 +670,7 @@ try {
       for(const c of tabs){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
       await verifySettingsTheme({page,theme,org,appUrl,root});
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
-      await page.goto(appUrl+'/en/settings/system?organization='+org);await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
+      await page.goto(appUrl+'/en/settings/regulatory?organization='+org);await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
       const modal=page.getByRole('dialog',{name:'E-invoicing & ZATCA settings',exact:true});await modal.waitFor();
       const box=await modal.boundingBox();const viewport=page.viewportSize();assert.ok(Math.abs(box.x+box.width/2-viewport.width/2)<2,'System modal must be centered');assert.ok(box.x>=10&&box.x+box.width<=viewport.width-10);
       const surfaces=await page.locator('.system-settings .console-card,dialog[open].subscription-modal').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
