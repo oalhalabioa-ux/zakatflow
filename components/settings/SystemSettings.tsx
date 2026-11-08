@@ -203,7 +203,7 @@ export default function SystemSettings({
               : "The currency used for organization transactions and reporting."}
           </p>
         </article>
-      </div>
+      </div>}
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
       {setupEmbedded && <div className="financial-setup-regulatory-summary">
@@ -220,7 +220,7 @@ export default function SystemSettings({
           <strong>{profile?.seller_city&&profile?.seller_street?ar?"مدخل":"Entered":ar?"بحاجة مراجعة":"Review required"}</strong>
         </div>
       </div>}
-      {(open || setupEmbedded) && !loading && !error && (
+      {(open || setupEmbedded) && (!setupEmbedded || !loading) && (
         <RegulatoryPanelShell
           inline={setupEmbedded}
           title={ar?"إعدادات الفوترة الإلكترونية وزاتكا":"E-invoicing & ZATCA settings"}
