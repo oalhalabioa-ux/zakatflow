@@ -166,7 +166,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
       fiscal:`${base}/settings/financial/fiscal-years?${query()}`,
       chart:`${base}/chart-of-accounts?${query()}`,
       posting:`${base}/financial-reporting-policy?${query()}`,
-      banking:`${base}/liquidity?${query({tab:'position'})}`,
+      banking:`${base}/cash-and-banks?${query({scope:'ORGANIZATION'})}`,
       opening:`${base}/opening-balances?${query()}`,
       users:`${base}/users?${query()}`,
     };
