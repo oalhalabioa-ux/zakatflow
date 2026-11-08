@@ -647,14 +647,34 @@ try{
   await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/liquidity?tab=position&organization='+posted.org);await page.getByRole('button',{name:'Account details and statement: '+posted.bank,exact:true}).click();const details=page.getByRole('dialog',{name:'Bank account details and statement',exact:true}),link=details.locator('a[href*="/cash-vouchers/'+posted.event+'"]');await link.waitFor({state:'attached'});await link.locator('..').locator('summary').click();await link.click();await page.locator('[data-cash-voucher="'+posted.event+'"]').waitFor();await page.getByRole('heading',{name:'Original cash movement voucher',exact:true}).waitFor();
  });
  await check('All native settings sections retain real organization scope across desktop/mobile AR/EN',async()=>{
+  // Earlier revocation assertions intentionally disabled this synthetic member.
+  // Restore only that disposable fixture before testing authorized settings.
+  sql(`update public.organization_members set status='ACTIVE' where organization_id='${org}' and user_id='${a.id}'`);
+  for(const resource of ['users','roles','permissions']){
+   const response=await page.request.get(app+'/api/organizations/'+resource+'?organization_id='+org);
+   assert.equal(response.status(),200,'Authorized team '+resource+': '+await response.text());
+  }
+  const readinessResponse=await page.request.get(app+'/api/financial-reporting/setup-readiness?'+new URLSearchParams({organization:org,mode:'EXISTING'}));
+  assert.equal(readinessResponse.status(),200);assert.equal((await readinessResponse.json()).organizationId,org);
   const sections=[['settings','.organization-details-workspace'],['settings/regulatory','[data-regulatory-workspace]'],['settings/financial','[data-financial-settings]'],['settings/team','.settings-native-team'],['settings/system','[data-system-preferences]'],['billing','.yb-billing']];
   for(const locale of ['ar','en'])for(const [route,selector] of sections){
    await page.setViewportSize({width:1490,height:1050});
    await page.goto(app+'/'+locale+'/'+route+'?organization='+org);
    await page.locator(selector).waitFor();
    assert.equal(await page.locator('iframe').count(),0,'Native settings cannot contain framed app screens');
-   if(route==='settings/financial')await page.locator('[data-fiscal-management]').waitFor();
-   if(route==='settings/team')await page.getByRole('button',{name:locale==='ar'?'إنشاء الدعوة':'Create invite',exact:true}).waitFor();
+   if(route==='settings/financial')await page.locator('.fiscal-calendar-settings').waitFor();
+   if(route==='settings/team'){
+    await page.getByText(a.email,{exact:true}).first().waitFor();
+    if(locale==='en'){
+     const invite=page.locator('.team-invite-card');await invite.getByLabel('Email',{exact:true}).fill('native-settings-acceptance@settings.invalid');
+     const created=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/organizations/users'&&r.request().method()==='POST');
+     await invite.getByRole('button',{name:'Create invite',exact:true}).click();const response=await created;
+     assert.equal(response.status(),201,await response.text());
+     await invite.getByLabel('Invite link',{exact:true}).waitFor();
+     const stored=await page.request.get(app+'/api/organizations/users?organization_id='+org);
+     assert.equal(stored.status(),200);assert.ok((await stored.json()).invitations.some(i=>i.email==='native-settings-acceptance@settings.invalid'));
+    }
+   }
    assert.equal(new URL(page.url()).searchParams.get('organization'),org);
    for(const width of [1490,390]){
     await page.setViewportSize({width,height:1050});
