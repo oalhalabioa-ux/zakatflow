@@ -123,6 +123,14 @@ export default function OrganizationSettings({
       setItems((current) =>
         current.map((o) => (o.id === target ? updated : o)),
       );
+      if (version === generation.current &&
+          window.parent !== window &&
+          new URLSearchParams(window.location.search).get("setupEmbed") === "1") {
+        window.parent.postMessage(
+          { type: "yaqeen:setup-source-saved", organizationId: target },
+          window.location.origin,
+        );
+      }
       if (version === generation.current)
         setMessage(
           ar ? "تم حفظ بيانات المؤسسة." : "Organization details saved.",
