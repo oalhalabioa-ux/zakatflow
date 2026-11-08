@@ -98,6 +98,15 @@ try{
   await embeddedPage.locator('[data-setup-embedded-document]').waitFor({state:'attached'});
   assert.equal(await embeddedPage.locator('.corp-sidebar').evaluate(el=>getComputedStyle(el).display),'none',
    'The original navigation sidebar must not be duplicated inside the setup window');
+  // The real original organization editor must refresh authoritative readiness
+  // after a successful in-frame save, without taking the user out of this stage.
+  const refreshedAfterSave=page.waitForResponse(response=>
+   response.url().includes('/api/financial-reporting/setup-readiness?')&&response.status()===200);
+  await embeddedPage.getByLabel('Legal name').fill('QA legal name updated inside setup');
+  await embeddedPage.getByRole('button',{name:'Save changes'}).click();
+  await embeddedPage.getByRole('status').filter({hasText:'Organization details saved.'}).waitFor();
+  await refreshedAfterSave;
+  await page.getByRole('heading',{name:'Organization'}).first().waitFor();
   await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Cash & banking'}).click();
   const cashFrame=page.locator('iframe.financial-setup-embedded-frame');
   await cashFrame.waitFor();
