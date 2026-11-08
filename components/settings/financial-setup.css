@@ -290,3 +290,28 @@
  font-weight:800;font-size:.82rem;text-decoration:none;padding:9px 12px;text-align:center}
 .financial-setup-subscription-link:hover{background:#e8f5ec}
 .financial-setup-subscription-card .financial-setup-journey-metrics dd{max-width:55%;overflow-wrap:anywhere;text-align:end}
+
+
+/* Compact personal path, deliberately distinct from institutional accounting. */
+.personal-setup-panel{--setup-green:#155438;display:grid;gap:16px;min-width:0}
+.personal-setup-panel>header{border:1px solid var(--brand-border,#dce2ea);background:var(--brand-surface,#fff);border-radius:12px;padding:21px}
+.personal-setup-panel>header p{margin:0 0 7px;font-size:.82rem;color:var(--muted,#64748b)}
+.personal-setup-panel>header h2{margin:0 0 8px;color:var(--brand-text,#10243a);font-size:1.4rem}
+.personal-setup-panel>header span{color:var(--muted,#64748b);line-height:1.8;font-size:.88rem}
+.personal-setup-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.personal-setup-grid article{border:1px solid var(--brand-border,#dce2ea);border-radius:12px;
+ background:var(--brand-surface,#fff);padding:17px;display:grid;align-content:start;gap:11px;min-width:0}
+.personal-setup-num{display:grid;place-items:center;width:33px;height:33px;background:#f5ebd6;color:#10243a;
+ border:1px solid #c6a35d;border-radius:50%;font-weight:850}
+.personal-setup-grid h3{font-size:1.03rem;margin:0;color:var(--brand-text,#10243a)}
+.personal-setup-grid p,.personal-setup-note p{margin:0;font-size:.86rem;line-height:1.8;color:var(--muted,#64748b)}
+.personal-setup-grid a{margin-top:auto;display:inline-flex;justify-content:center;text-align:center;align-items:center;
+ border-radius:8px;background:#155438;color:#fff;padding:10px 14px;min-height:42px;text-decoration:none;font-weight:750;font-size:.85rem}
+.personal-setup-note{padding:16px 19px;border-inline-start:3px solid #c6a35d;border-radius:10px;
+ background:var(--brand-surface,#fff);border:1px solid var(--brand-border,#dce2ea)}
+.personal-setup-note strong{display:block;margin-bottom:8px;color:var(--brand-text,#10243a)}
+.personal-setup-back{display:inline-flex;justify-self:start;border:1px solid #10243a;border-radius:8px;
+ padding:10px 16px;text-decoration:none;font-weight:750;color:var(--brand-text,#10243a)}
+.financial-setup-personal-link{display:inline-flex;text-decoration:none;align-items:center;border:1px solid #c6a35d;
+ border-radius:8px;padding:9px 12px;color:var(--setup-text);background:#f5ebd644;font-size:.82rem;font-weight:800;white-space:nowrap}
+@media(max-width:900px){.personal-setup-grid{grid-template-columns:1fr}}
