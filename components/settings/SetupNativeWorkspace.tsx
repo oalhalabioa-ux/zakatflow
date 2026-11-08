@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import {useState} from 'react';
 
 const SystemSettings=dynamic(()=>import('./SystemSettings'),{loading:()=>null});
@@ -39,8 +40,11 @@ export default function SetupNativeWorkspace({
       'تحفظ بيانات عنوان البائع والرقم الضريبي في ملف الفوترة الأصلي. هذا العنوان ليس سجلًا مستقلاً للعنوان القانوني للمؤسسة. إعدادات ZATCA مخصصة للسعودية ولا تُطبّق تلقائيًا على الدول الأخرى.':
       'The seller address and tax number use the existing invoice profile. This is not an independent legal-address register. ZATCA configuration is Saudi-specific and does not automatically apply to other countries.'}</p>
      <p>{ar?
-      'حقلا الدولة والسجل التجاري غير موجودين بعد في سجل المؤسسة المعتمد؛ لا يمكن اعتبارهما مكتملين قبل إنشاء حفظ وصلاحيات وتحقق ملائمين.':
-      'Country and commercial registration are not yet fields in the authorized organization record; neither can be marked complete until persistence, permissions and validation are implemented.'}</p>
+      'تُحفظ دولة التسجيل والسجل التجاري والعنوان القانوني في بيانات المؤسسة الأصلية بصلاحيات المالك. افتح بيانات المؤسسة لمراجعتها، ثم عد إلى إعدادات الضرائب والفوترة هنا.':
+      'Country of registration, registration number and registered legal address are saved in the original organization settings under owner permissions. Review them in organization details, then return here for invoicing and VAT.'}</p>
+     <Link className="financial-setup-structure-link" href={`/${locale}/settings?organization=${encodeURIComponent(organizationId)}&fromSetup=1`}>
+      {ar?'فتح بيانات المؤسسة القانونية':'Open registered organization details'}
+     </Link>
     </div>
     <SystemSettings key={organizationId} id={organizationId}
       name={organizationName??''} currency={baseCurrency??'SAR'} locale={locale}
