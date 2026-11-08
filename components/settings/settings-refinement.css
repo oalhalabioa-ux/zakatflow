@@ -130,3 +130,6 @@
 .corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-actions button.primary{background:#155438;color:#fff;border-color:#155438}
 .corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .vat-profile-fields label{font-size:.85rem}
 .corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .vat-profile-fields :is(input,select,textarea){min-height:40px;border-color:#ccd6e2;font:inherit;font-size:.9rem}
+/* Fit the six labels within the content left by the desktop sidebar. */
+@media(min-width:701px) and (max-width:1350px){.settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.corp-shell .settings-workspace .settings-tabs a:not(.btn){white-space:normal;font-size:.82rem}}
+.corp-shell .settings-workspace[dir=ltr] .settings-tabs a:not(.btn){white-space:normal}

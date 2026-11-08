@@ -74,6 +74,8 @@ Legal settings have separate identity, tax registration and e-invoicing sections
 
 System preferences display appearance, supported notification controls and read-only verified sign-in information in the reference card layout. No unsupported sign-in, two-factor or notification switches are represented as working controls. Saved role permissions are shown in a matrix; user overrides and approval policies still govern actual access.
 
-The local UI fixture now checks seven routes in both languages at desktop/mobile widths, native entity persistence, and pairwise control overlaps. These are UI checks, separate from genuine Auth/RLS and financial acceptance in the full-schema workflow. A passed browser suite is not a claim of pixel-identical hosted acceptance.
+The local UI fixture now checks eight settings/billing routes plus the setup journey in both languages at four viewport widths, native entity persistence, and pairwise control overlaps. These are UI checks, separate from genuine Auth/RLS and financial acceptance in the full-schema workflow. A passed browser suite is not a claim of pixel-identical hosted acceptance.
 
 The unified fiscal workspace retains the unsaved-edit/busy guard for organization changes, section switches and returning to the overview. The disposable browser test dismisses and accepts the confirmation and checks that discarding a UI draft never writes a fiscal calendar.
+
+Organization profile and legal forms submit only changed fields from their own section. The existing PATCH handler preserves the current saved name when it is omitted. Native UI and disposable API checks simulate concurrent edits in the other section and verify those records are retained.

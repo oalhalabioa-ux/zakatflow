@@ -73,7 +73,7 @@ export async function createOrganization(input:OrganizationLegalInput&{
 }
 
 export async function updateOrganization(id:string,input:OrganizationLegalInput&{
- name:string;
+ name?:string;
  legal_name?:string|null;
  entity_type?:string;
  base_currency?:string;
@@ -82,8 +82,6 @@ export async function updateOrganization(id:string,input:OrganizationLegalInput&
  sort_order?:number;
 }){
  const {supabase,user}=await requireUser();
- const name=input.name.trim();
- if(!name)throw new Error('ORGANIZATION_NAME_REQUIRED');
  if(input.parent_organization_id===id)throw new Error('ORGANIZATION_PARENT_SELF_REFERENCE');
  if(input.parent_organization_id){
   const {data:parent,error:parentError}=await supabase.from('organizations').select('id').eq('id',input.parent_organization_id).single();
@@ -91,7 +89,11 @@ export async function updateOrganization(id:string,input:OrganizationLegalInput&
  }
  const {data:current,error:currentError}=await supabase.from('organizations').select('name').eq('id',id).single();
  if(currentError)throw currentError;
- const patch:Record<string,unknown>={name,updated_at:new Date().toISOString(),...normalizedOrganizationLegalFields(input)};
+ const name=input.name===undefined?current.name:typeof input.name==='string'?input.name.trim():'';
+ if(!name)throw new Error('ORGANIZATION_NAME_REQUIRED');
+ // Omitted PATCH fields must not be written back from an older read.
+ const patch:Record<string,unknown>={updated_at:new Date().toISOString(),...normalizedOrganizationLegalFields(input)};
+ if(input.name!==undefined)patch.name=name;
  if(input.legal_name!==undefined)patch.legal_name=input.legal_name?.trim()||null;
  if(input.entity_type!==undefined)patch.entity_type=input.entity_type;
  if(input.base_currency!==undefined)patch.base_currency=input.base_currency;

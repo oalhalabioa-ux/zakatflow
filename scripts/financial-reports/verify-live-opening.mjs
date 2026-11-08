@@ -662,6 +662,16 @@ try{
   }
   const readinessResponse=await page.request.get(app+'/api/financial-reporting/setup-readiness?'+new URLSearchParams({organization:org,mode:'EXISTING'}));
   assert.equal(readinessResponse.status(),200);assert.equal((await readinessResponse.json()).organizationId,org);
+  // Saving one settings area must not overwrite newer fields from another area.
+  await page.goto(app+'/en/settings?organization='+org);await page.getByLabel('Official email',{exact:true}).waitFor();
+  const existingName=(await (await page.request.get(app+'/api/organizations')).json()).find(o=>o.id===org).name;
+  const concurrentLegal=await page.request.patch(app+'/api/organizations',{data:{id:org,registered_address:'Concurrent legal source QA'}});assert.equal(concurrentLegal.status(),200);assert.equal((await concurrentLegal.json()).name,existingName,'Sparse PATCH preserves the saved organization name');
+  await page.getByLabel('Official email',{exact:true}).fill('native-profile-update@settings.invalid');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Organization details saved.',{exact:true}).waitFor();
+  let preserved=(await (await page.request.get(app+'/api/organizations')).json()).find(o=>o.id===org);assert.equal(preserved.registered_address,'Concurrent legal source QA');assert.equal(preserved.contact_email,'native-profile-update@settings.invalid');
+  await page.goto(app+'/en/settings/regulatory?organization='+org);await page.getByLabel('Registered legal address',{exact:true}).waitFor();
+  const concurrentContact=await page.request.patch(app+'/api/organizations',{data:{id:org,contact_phone:'+966500999999'}});assert.equal(concurrentContact.status(),200);
+  await page.getByLabel('Registered legal address',{exact:true}).fill('Native legal update QA');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Organization details saved.',{exact:true}).waitFor();
+  preserved=(await (await page.request.get(app+'/api/organizations')).json()).find(o=>o.id===org);assert.equal(preserved.contact_phone,'+966500999999');assert.equal(preserved.contact_email,'native-profile-update@settings.invalid');assert.equal(preserved.registered_address,'Native legal update QA');
   const teamScope=randomUUID();
   sql(`select set_config('request.jwt.claim.sub','${a.id}',false);insert into public.organizations(id,owner_user_id,name) values('${teamScope}','${a.id}','Native team second institution');insert into public.organization_members(organization_id,user_id,role,status) values('${teamScope}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';`);
   // Reusing the financial workspace must preserve the former fiscal dirty guard.

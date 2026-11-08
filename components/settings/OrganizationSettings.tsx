@@ -123,6 +123,11 @@ export default function OrganizationSettings({
     if (!selected || !canEdit || busy) return;
     const version = generation.current,
       target = selected.id;
+    // Save only this form's changed fields; other settings may have newer data.
+    const fields:Array<keyof typeof draft>=identityOnly
+      ? ['country_code','commercial_registration_number','registered_address','registered_city','registered_region','registered_postal_code','registration_authority','registration_expires_on']
+      : ['name','legal_name','country_code','activity','contact_email','contact_phone'];
+    const patch=Object.fromEntries(fields.filter(key=>draft[key].trim()!==(selected[key]??'').trim()).map(key=>[key,draft[key].trim()]));
     setBusy(true);
     setError("");
     setMessage("");
@@ -130,23 +135,7 @@ export default function OrganizationSettings({
       const r = await fetch("/api/organizations", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: target,
-          name: draft.name.trim(),
-          legal_name: draft.legal_name.trim(),
-          country_code: draft.country_code.trim().toUpperCase(),
-          commercial_registration_number: draft.commercial_registration_number.trim(),
-          registered_address: draft.registered_address.trim(),
-          activity: draft.activity.trim(),
-          contact_email: draft.contact_email.trim(),
-          contact_phone: draft.contact_phone.trim(),
-          registered_city: draft.registered_city.trim(),
-          registered_region: draft.registered_region.trim(),
-          registered_postal_code: draft.registered_postal_code.trim(),
-          registration_authority: draft.registration_authority.trim(),
-          registration_expires_on: draft.registration_expires_on.trim(),
-
-        }),
+        body: JSON.stringify({id:target,...patch}),
       });
       if (!r.ok) throw Error();
       const updated = await r.json();
@@ -162,6 +151,7 @@ export default function OrganizationSettings({
         );
       }
       if (version === generation.current) {
+        setDraft(current=>Object.fromEntries(Object.keys(current).map(key=>[key,updated[key]??''])) as typeof current);
         onSaved?.();
         setMessage(
           ar ? "تم حفظ بيانات المؤسسة." : "Organization details saved.",
@@ -318,6 +308,7 @@ export default function OrganizationSettings({
               <label>
                 {ar ? "العنوان القانوني المسجل" : "Registered legal address"}
                 <textarea
+                  aria-label={ar?"العنوان القانوني المسجل":"Registered legal address"}
                   rows={3}
                   maxLength={500}
                   value={draft.registered_address}

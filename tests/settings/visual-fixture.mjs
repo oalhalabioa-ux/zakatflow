@@ -5,6 +5,7 @@ import {createServerClient} from '@supabase/ssr';
 import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const {chromium}=await import(process.env.SETTINGS_BROWSER_MODULE);
+const locales=(process.env.SETTINGS_UI_LOCALES??'ar,en').split(',');
 const app='http://127.0.0.1:3007',authUrl='http://127.0.0.1:55441';
 const user={id:'1dcb439d-89a5-4d64-8a6f-b324eeebbe20',aud:'authenticated',role:'authenticated',email:'owner@example.com',created_at:'2026-01-01T00:00:00Z',app_metadata:{provider:'email'},user_metadata:{}};
 const auth=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'application/json','Access-Control-Allow-Origin':app,'Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info,x-supabase-api-version','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});res.end(req.method==='OPTIONS'?'':JSON.stringify(user));});await new Promise(r=>auth.listen(55441,'127.0.0.1',r));
@@ -26,7 +27,7 @@ await page.route('**/api/**',async route=>{
  else if(u.pathname==='/api/organizations/users')data={actor_role:'OWNER',actor_user_id:user.id,users:[{user_id:user.id,email:user.email,name:'مالك الاختبار',role:'OWNER',status:'ACTIVE'}],invitations:[]};
  else if(u.pathname==='/api/organizations/roles')data={roles:[]};
  else if(u.pathname==='/api/organizations/permissions')data={roles:[],overrides:[],approval_policy:'OWNER_CONTROLLED'};
- else if(u.pathname==='/api/financial-reporting/fiscal')data={organizationId:orgId,calendar:{retained_earnings_account:'3300'},period:{start:'2026-01-01',end:'2026-12-31'},closures:[]};
+ else if(u.pathname==='/api/financial-reporting/fiscal')data={organizationId:orgId,calendar:{start_month:1,start_day:1,version:1,retained_earnings_account:'3300'},period:{start:'2026-01-01',end:'2026-12-31'},closures:[],canConfigure:true,canClose:false,references:[],retainedCandidates:[],asOf:'2026-11-08'};
  else if(u.pathname==='/api/financial-reporting/chart')data={organizationId:orgId,accounts:[{kind:'ASSET',isActive:true,isPostable:true},{kind:'EQUITY',isActive:true,isPostable:true}]};
  else if(u.pathname==='/api/financial-register')data={organizationIds:[orgId],accounts:[{id:'bank-1',organizationId:orgId,name:'حساب المؤسسة',type:'BANK',currency:'SAR'}]};
  else if(u.pathname==='/api/subscriptions')data=subscription(u.searchParams.get('organization_id'));
@@ -43,17 +44,18 @@ await page.route('**/api/**',async route=>{
 const out=process.env.SETTINGS_UI_OUT??'/tmp/yaqeen-settings-ui';await mkdir(out,{recursive:true});const checks=[];
 try{
  if(!process.env.SETTINGS_JOURNEY_ONLY){
- for(const locale of ['ar','en']){
+ for(const locale of locales){
   const ar=locale==='ar';await page.goto(`${app}/${locale}/settings?organization=${orgId}`);
   await page.getByLabel(ar?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
   await page.getByLabel(ar?'البريد الرسمي':'Official email',{exact:true}).fill('updated@example.com');
   await page.getByRole('button',{name:ar?'حفظ التغييرات':'Save changes',exact:true}).click();
   await page.getByText(ar?'تم حفظ بيانات المؤسسة.':'Organization details saved.',{exact:true}).waitFor();
   await page.reload();await page.getByLabel(ar?'البريد الرسمي':'Official email',{exact:true}).waitFor();assert.equal(await page.getByLabel(ar?'البريد الرسمي':'Official email',{exact:true}).inputValue(),'updated@example.com');checks.push(locale+' native organization saved and reloaded');
-  for(const [path,key] of [['settings','organization'],['settings/structure','structure'],['settings/regulatory','regulatory'],['settings/financial','financial'],['settings/team','team'],['settings/system','system'],['billing','billing']]){
+  if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)for(const [path,key] of [['settings','organization'],['settings/structure','structure'],['settings/regulatory','regulatory'],['settings/financial','financial'],['settings/financial/fiscal-years','fiscal-editor'],['settings/team','team'],['settings/system','system'],['billing','billing']]){
    await page.goto(`${app}/${locale}/${path}?organization=${orgId}`);
-   const root=path==='billing'?page.locator('.yb-billing'):path==='settings/system'?page.locator('[data-system-preferences]'):path==='settings/regulatory'?page.locator('[data-regulatory-workspace]'):path==='settings/structure'?page.locator('[data-structure-workspace]'):path==='settings/financial'?page.locator('[data-financial-settings]'):path==='settings/team'?page.locator('.settings-native-team'):page.locator('.organization-details-workspace');await root.waitFor();
+   const root=path==='billing'?page.locator('.yb-billing'):path==='settings/system'?page.locator('[data-system-preferences]'):path==='settings/regulatory'?page.locator('[data-regulatory-workspace]'):path==='settings/structure'?page.locator('[data-structure-workspace]'):path.startsWith('settings/financial')?page.locator('[data-financial-settings]'):path==='settings/team'?page.locator('.settings-native-team'):page.locator('.organization-details-workspace');await root.waitFor();
    if(path==='settings/financial')await page.locator('[data-financial-overview-ready=true]').waitFor();
+   if(path==='settings/financial/fiscal-years')await page.getByLabel(ar?'شهر بداية السنة':'Fiscal start month',{exact:true}).waitFor();
    if(path==='settings/structure')await page.getByRole('button',{name:ar?'إضافة كيان':'Add entity',exact:true}).waitFor();
    if(path==='settings/team')await page.getByText(user.email,{exact:true}).first().waitFor();
    if(path!=='billing')assert.equal(await page.locator('.settings-secondary-links').count(),0,'No duplicate subscription links under the primary settings navigation');
@@ -69,16 +71,18 @@ try{
     });assert.ok(contrast>=4.5,'Plan heading must be readable on its actual surface');
    }
    assert.equal(await page.locator('iframe').count(),0);
-   for(const width of [1490,390]){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);await page.evaluate(()=>window.scrollTo(0,0));const overlaps=await page.locator('.settings-workspace').evaluate(root=>{const items=[...root.querySelectorAll('button,a,input,select,textarea')].filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map(el=>({label:el.getAttribute('aria-label')||el.textContent?.trim().slice(0,40)||el.tagName,box:el.getBoundingClientRect()}));const found=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(Math.min(a.box.right,b.box.right)-Math.max(a.box.left,b.box.left)>2&&Math.min(a.box.bottom,b.box.bottom)-Math.max(a.box.top,b.box.top)>2)found.push(a.label+' / '+b.label);}return found;});assert.deepEqual(overlaps,[],path+' '+locale+' '+width+' overlapping controls');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
+   for(const width of (process.env.SETTINGS_UI_SKIP_SNAPSHOTS?[]:[1490,1280,768,390])){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);await page.evaluate(()=>window.scrollTo(0,0));const overlaps=await page.locator('.settings-workspace').evaluate(root=>{const items=[...root.querySelectorAll('button,a,input,select,textarea')].filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map(el=>({label:el.getAttribute('aria-label')||el.textContent?.trim().slice(0,40)||el.tagName,box:el.getBoundingClientRect()}));const found=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(Math.min(a.box.right,b.box.right)-Math.max(a.box.left,b.box.left)>2&&Math.min(a.box.bottom,b.box.bottom)-Math.max(a.box.top,b.box.top)>2)found.push(a.label+' / '+b.label);}return found;});assert.deepEqual(overlaps,[],path+' '+locale+' '+width+' overlapping controls');const clippedTabs=await page.locator('.settings-tabs a>span,.settings-subsection-nav a>span').evaluateAll(items=>items.filter(el=>el.scrollWidth>el.clientWidth+1).map(el=>el.textContent));assert.deepEqual(clippedTabs,[],path+' '+locale+' '+width+' clipped tab labels');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
   }
  }
+ await page.goto(`${app}/en/settings?organization=${orgId}`);await page.getByLabel('Official email',{exact:true}).waitFor();org.registered_address='Concurrent legal fixture';await page.getByLabel('Official email',{exact:true}).fill('delta-profile@example.com');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Organization details saved.',{exact:true}).waitFor();assert.equal(org.registered_address,'Concurrent legal fixture');
+ await page.goto(`${app}/en/settings/regulatory?organization=${orgId}`);await page.getByLabel('Registered legal address',{exact:true}).waitFor();org.contact_phone='+966500999999';await page.getByLabel('Registered legal address',{exact:true}).fill('Updated legal fixture');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Organization details saved.',{exact:true}).waitFor();assert.equal(org.contact_phone,'+966500999999');assert.equal(org.contact_email,'delta-profile@example.com');checks.push('Profile and legal saves preserve newer fields from the other section');
  await page.goto(`${app}/en/settings/structure?organization=${orgId}`);await page.getByRole('button',{name:'Add entity',exact:true}).click();await page.getByLabel('Entity name',{exact:true}).fill('Native fixture entity');await page.getByRole('button',{name:'Save entity',exact:true}).click();await page.getByText('Entity saved.',{exact:true}).waitFor();await page.reload();await page.getByRole('cell',{name:'Native fixture entity',exact:true}).waitFor();checks.push('Native entity created and reloaded in the selected organization');
  await page.goto(`${app}/en/settings/system?organization=${orgId}`);const toggle=page.getByRole('switch',{name:'System notifications'});await toggle.waitFor();await toggle.uncheck();await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Your preferences were saved.',{exact:true}).waitFor();await page.reload();await toggle.waitFor();assert.equal(await toggle.isChecked(),false);checks.push('System preferences persisted after reload');
  }
  await page.goto(`${app}/en/settings/regulatory?organization=${orgId}`);await page.getByRole('button',{name:'E-invoicing',exact:true}).click();await page.locator('.vat-panel').waitFor();assert.equal(await page.locator('.financial-setup-regulatory-editor .console-tabs').count(),0);await page.getByRole('button',{name:'Edit number',exact:true}).click();await page.getByRole('combobox',{name:'Registration status',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Tax registration',exact:true}).getAttribute('aria-pressed'),'true');checks.push('Invoice unit tax-number action opens the native accessible registration form');
- for(const locale of ['ar','en']){
+ for(const locale of locales){
   const ar=locale==='ar';org.country_code='';
   await page.goto(`${app}/${locale}/settings?organization=${orgId}`);
   await page.evaluate(id=>localStorage.setItem('yaqeen:financial-setup:v1:'+id,JSON.stringify({mode:'EXISTING',industry:'GENERAL',completed:[],deferred:[],step:'review'})),orgId);
@@ -91,7 +95,7 @@ try{
   assert.equal(await page.locator('[data-setup-view=overview]').count(),1,'A saved editor step must not replace the overview');
   assert.equal(await page.locator('[data-setup-native-workspace]').count(),0,'Overview must not mount full editors');
   assert.equal(await page.locator('.financial-setup-stage-group').count(),5);
-  for(const width of [1490,390]){
+  for(const width of (process.env.SETTINGS_UI_SKIP_SNAPSHOTS?[]:[1490,1280,768,390])){
    await page.setViewportSize({width,height:1050});await page.waitForTimeout(200);
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Journey '+locale+' '+width+' overflow');
    const cramped=await page.locator('.financial-setup-group-title strong').evaluateAll(items=>items.some(el=>el.getBoundingClientRect().height>parseFloat(getComputedStyle(el).lineHeight)*3+1));
@@ -106,7 +110,7 @@ try{
   await editor.getByRole('button',{name:ar?'حفظ التغييرات':'Save changes',exact:true}).click();
   await editor.getByText(ar?'تم حفظ بيانات المؤسسة.':'Organization details saved.',{exact:true}).waitFor();
   assert.equal(org.country_code,'SA','Native journey saves the same organization source');
-  for(const width of [1490,390]){
+  for(const width of (process.env.SETTINGS_UI_SKIP_SNAPSHOTS?[]:[1490,1280,768,390])){
    await page.setViewportSize({width,height:1050});await page.waitForTimeout(200);
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Journey editor '+locale+' '+width+' overflow');
    await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/journey-editor-${locale}-${width}.png`,fullPage:true});
