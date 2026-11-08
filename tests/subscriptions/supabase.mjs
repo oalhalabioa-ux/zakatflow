@@ -119,6 +119,10 @@ try {
   alter table public.currencies add column name_ar text,add column name_en text,add column symbol text,add column decimals integer default 2,add column active boolean default true;
   insert into public.currencies(code) values('USD');grant select on public.currencies to authenticated;
   create policy org_update on public.organizations for update to authenticated using(owner_user_id=auth.uid()) with check(owner_user_id=auth.uid());`);
+  // The subscription suite builds a deliberately reduced SQL fixture rather than
+  // bootstrapping the entire canonical history. Mirror the additive legal columns
+  // queried by the REAL organization service, or navigation hides an API failure.
+  sql(await load("supabase/migrations/20261108104500_organization_legal_identity_fields.sql"));
   // Use the real invitation RPC definitions, not a test implementation.
   const account = await load(
     "supabase/archive/pre-reconciliation-20261030/20260930150000_account_user_management.sql",
