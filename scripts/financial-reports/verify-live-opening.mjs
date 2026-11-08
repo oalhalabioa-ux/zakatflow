@@ -64,15 +64,19 @@ try{
   const reloaded=page.waitForResponse(response=>response.url().includes('/api/financial-reporting/setup-readiness?'));
   await page.reload();await reloaded;
   await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  await page.locator('.financial-setup-stage-group').last().locator('summary').click();
   await page.getByRole('heading',{name:'Review',exact:true}).waitFor();
   const finish=page.getByRole('button',{name:/Finish setup/});
   assert.equal(await finish.isDisabled(),true,'Local browser progress must not allow finish');
   assert.notEqual(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100',
    'Local review flags must never report 100% financial readiness');
+  await page.getByRole('button',{name:'Back to setup overview',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')!==null);
   await page.screenshot({path:out+'/financial-setup-readiness-en-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   await page.goto(app+'/ar/settings/financial/setup?organization='+org);
   await page.getByRole('heading',{name:'رحلة إعداد المؤسسة'}).waitFor();
+  await page.waitForFunction(()=>document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')!==null);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
    'The financial setup page must remain within the mobile viewport');
   await page.screenshot({path:out+'/financial-setup-readiness-ar-mobile.png',fullPage:true});
@@ -88,6 +92,7 @@ try{
  await check('The organization setup journey embeds real scoped workspaces without nested shell',async()=>{
   await page.goto(app+'/en/settings/financial/setup?organization='+org);
   await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  await chooseSetupStep('Organization details');
   await page.getByRole('button',{name:/Existing organization/}).click();
   const embedded=page.locator('iframe.financial-setup-embedded-frame');
   assert.equal(await embedded.count(),0,'Setup forms must be native components, not framed pages');
@@ -239,12 +244,13 @@ try{
   const restored=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
   await restored.locator('..').locator('summary').click();
   await restored.waitFor();
+  assert.match(await restored.innerText(),/Deferred/,
+    'Deferred step should survive navigation between settings tabs');
+  await page.getByRole('button',{name:'Back to setup overview',exact:true}).click();
   const resume=page.getByRole('button',{name:/Continue setup/});
   await resume.waitFor();
   assert.ok((await resume.innerText()).includes('First incomplete setup requirement'),
    'Resume must identify the next saved organization or verified financial requirement, not fabricated local completion');
-  assert.match(await restored.innerText(),/Deferred/,
-    'Deferred step should survive navigation between settings tabs');
   await page.screenshot({path:out+'/financial-setup-journey-navigation-en-desktop.png',fullPage:true});
  });
  await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{

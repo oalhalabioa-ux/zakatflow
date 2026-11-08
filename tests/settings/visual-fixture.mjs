@@ -16,6 +16,7 @@ const org={id:orgId,name:'شركة يقين التجارية',legal_name:'شرك
 const other={...org,id:otherId,name:'المؤسسة الثانية',legal_name:'المؤسسة الثانية',sort_order:2};
 let prefs={profile:{name:'QA owner',phone:'',base_currency:'SAR',locale:'ar',timezone:'Asia/Riyadh',calendar_type:'GREGORIAN',nisab_standard:'SILVER'},settings:{allocation_method:'FIFO',notifications_enabled:true,assessment_reminders:true,theme:'yaqeen-business'}};
 const subscription=id=>({organization_id:id,organization_name:id===orgId?org.name:other.name,status:'trialing',can_write:true,trial_started_at:'2026-11-01T00:00:00Z',trial_ends_at:'2026-12-01T00:00:00Z',days_remaining:23,trial_duration_days:30,active_users:id===orgId?3:1,max_users:5,server_now:'2026-11-08T12:00:00Z'});
+let readinessGate=null,releaseReadiness;
 const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/api/**',async route=>{
  const req=route.request(),u=new URL(req.url());let data={};const body=req.postDataJSON?.();
@@ -28,12 +29,13 @@ await page.route('**/api/**',async route=>{
  else if(u.pathname==='/api/vat/settings')data={can_edit:true,profile:{registration_status:'NOT_REGISTERED',registered_name:org.name,filing_frequency:'QUARTERLY',period_start_month:1,seller_city:'الرياض',seller_street:'شارع الملك فهد'}};
  else if(u.pathname==='/api/vat')data={};
  else if(u.pathname.includes('/notifications'))data=[];
- else if(u.pathname.includes('/financial-reporting/setup-readiness'))data={organizationId:orgId,mode:'EXISTING',statuses:{organization:'READY',chart:'IN_PROGRESS',fiscal:'READY',posting:'IN_PROGRESS',banking:'READY',opening:'IN_PROGRESS',users:'READY',regulatory:'NOT_STARTED',structure:'NOT_STARTED',review:'BLOCKED',finished:'BLOCKED'},ready:false,sourceChecked:false,certification:'NOT_CERTIFIED'};
+ else if(u.pathname.includes('/financial-reporting/setup-readiness')){if(readinessGate)await readinessGate;data={organizationId:orgId,mode:u.searchParams.get('mode'),statuses:{organization:'READY',chart:'IN_PROGRESS',fiscal:'READY',posting:'IN_PROGRESS',banking:'READY',opening:'IN_PROGRESS',users:'READY',regulatory:'NOT_STARTED',structure:'NOT_STARTED',review:'BLOCKED',finished:'BLOCKED'},ready:false,sourceChecked:false,certification:'NOT_CERTIFIED'};}
  else data=[];
  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
 });
 const out=process.env.SETTINGS_UI_OUT??'/tmp/yaqeen-settings-ui';await mkdir(out,{recursive:true});const checks=[];
 try{
+ if(!process.env.SETTINGS_JOURNEY_ONLY){
  for(const locale of ['ar','en']){
   const ar=locale==='ar';await page.goto(`${app}/${locale}/settings?organization=${orgId}`);
   await page.getByLabel(ar?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
@@ -56,11 +58,50 @@ try{
     });assert.ok(contrast>=4.5,'Plan heading must be readable on its actual surface');
    }
    assert.equal(await page.locator('iframe').count(),0);
-   for(const width of [1490,390]){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
+   for(const width of [1490,390]){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
   }
  }
  await page.goto(`${app}/en/settings/system?organization=${orgId}`);const toggle=page.getByRole('switch',{name:'System notifications'});await toggle.waitFor();await toggle.uncheck();await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Your preferences were saved.',{exact:true}).waitFor();await page.reload();await toggle.waitFor();assert.equal(await toggle.isChecked(),false);checks.push('System preferences persisted after reload');
+ }
+ for(const locale of ['ar','en']){
+  const ar=locale==='ar';org.country_code='';
+  await page.goto(`${app}/${locale}/settings?organization=${orgId}`);
+  await page.evaluate(id=>localStorage.setItem('yaqeen:financial-setup:v1:'+id,JSON.stringify({mode:'EXISTING',industry:'GENERAL',completed:[],deferred:[],step:'review'})),orgId);
+  readinessGate=new Promise(resolve=>{releaseReadiness=resolve;});
+  await page.goto(`${app}/${locale}/settings/financial/setup?organization=${orgId}`);
+  const progress=page.getByRole('progressbar');await progress.waitFor();
+  assert.equal(await progress.getAttribute('aria-valuenow'),null,'Loading must not render a fabricated zero percent');
+  releaseReadiness();readinessGate=null;
+  await page.waitForFunction(()=>document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')!==null);
+  assert.equal(await page.locator('[data-setup-view=overview]').count(),1,'A saved editor step must not replace the overview');
+  assert.equal(await page.locator('[data-setup-native-workspace]').count(),0,'Overview must not mount full editors');
+  assert.equal(await page.locator('.financial-setup-stage-group').count(),5);
+  for(const width of [1490,390]){
+   await page.setViewportSize({width,height:1050});await page.waitForTimeout(200);
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Journey '+locale+' '+width+' overflow');
+   const cramped=await page.locator('.financial-setup-group-title strong').evaluateAll(items=>items.some(el=>el.getBoundingClientRect().height>parseFloat(getComputedStyle(el).lineHeight)*3+1));
+   assert.equal(cramped,false,'Group titles must not collapse into narrow vertical labels');
+   await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/journey-overview-${locale}-${width}.png`,fullPage:true});
+  }
+  await page.setViewportSize({width:1490,height:1050});
+  await page.getByRole('button',{name:ar?/متابعة الإعداد/:/Continue setup/}).click();
+  await page.locator('[data-setup-view=editor]').waitFor();
+  const editor=page.locator('[data-setup-native-workspace=organization]');await editor.getByLabel(ar?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
+  await editor.getByLabel(ar?'الدولة':'Country',{exact:true}).selectOption('SA');
+  await editor.getByRole('button',{name:ar?'حفظ التغييرات':'Save changes',exact:true}).click();
+  await editor.getByText(ar?'تم حفظ بيانات المؤسسة.':'Organization details saved.',{exact:true}).waitFor();
+  assert.equal(org.country_code,'SA','Native journey saves the same organization source');
+  for(const width of [1490,390]){
+   await page.setViewportSize({width,height:1050});await page.waitForTimeout(200);
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Journey editor '+locale+' '+width+' overflow');
+   await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/journey-editor-${locale}-${width}.png`,fullPage:true});
+  }
+  await page.getByRole('button',{name:ar?'العودة إلى لوحة الإعداد':'Back to setup overview',exact:true}).click();
+  await page.locator('[data-setup-view=overview]').waitFor();
+  assert.equal(await page.locator('[data-setup-native-workspace]').count(),0);
+  checks.push(locale+' journey overview, pending readiness, native save, editor return and responsive layout');
+ }
  assert.deepEqual(errors,[]);console.log(JSON.stringify({kind:'LOCAL_UI_FIXTURE_ONLY',checks,screenshots:out,errors},null,2));await writeFile(out+'/result.json',JSON.stringify({kind:'LOCAL_UI_FIXTURE_ONLY',checks,errors},null,2));
-}catch(error){await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});await writeFile(out+'/failure-state.txt',await page.locator('body').innerText().catch(()=>''));throw error;}finally{await browser.close();await new Promise(r=>auth.close(r));}
+}catch(error){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});await writeFile(out+'/failure-state.txt',await page.locator('body').innerText().catch(()=>''));throw error;}finally{releaseReadiness?.();await browser.close();await new Promise(r=>auth.close(r));}

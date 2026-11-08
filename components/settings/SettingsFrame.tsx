@@ -44,7 +44,7 @@ export default function SettingsFrame({
         <p className="settings-breadcrumb">{ar?"الإعدادات / ":"Settings / "}{heading}</p>
         <h1>{heading}</h1>
         <p>
-          {ar
+          {journey?(ar?"دليلك لإكمال إعداد المؤسسة والوصول إلى الجاهزية للعمل على يقين.":"Complete your organization setup and prepare to work in Yaqeen."):ar
             ? "إدارة هوية المؤسسة والتأسيس المالي والصلاحيات وتفضيلات النظام."
             : "Manage organization identity, financial setup, access and preferences."}
         </p>
@@ -65,13 +65,13 @@ export default function SettingsFrame({
           </Link>
         ))}
       </nav>
-      <nav className="settings-secondary-links" aria-label={ar?'الإعدادات الأخرى':'Other settings'}>
+      {!journey&&<nav className="settings-secondary-links" aria-label={ar?'الإعدادات الأخرى':'Other settings'}>
         {settingSections.filter(s=>s.group==='secondary').map(s=><Link key={s.path}
           href={`/${locale}/${s.path}${tabParams.size?'?'+tabParams:''}`}
           aria-current={isSettingsSectionActive(path.split('/').slice(2).join('/'),s.path)?'page':undefined}>
           {ar?s.ar:s.en}
         </Link>)}
-      </nav>
+      </nav>}
       {children}
     </main>
   );

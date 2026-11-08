@@ -27,7 +27,7 @@ export default function SubscriptionSetupSummary({locale,organizationId}:{locale
    !data?<p role="status">{ar?'جار التحقق من الباقة…':'Checking plan…'}</p>:<>
    <dl className="financial-setup-journey-metrics">
     <div><dt>{ar?'الباقة':'Plan'}</dt><dd>{data.plan?(ar?data.plan.name_ar:data.plan.name_en):(data.status==='trialing'?(ar?'التجربة المجانية':'Free trial'):(ar?'دون باقة فعالة':'No active plan'))}</dd></div>
-    <div><dt>{ar?'الحالة':'Status'}</dt><dd>{subscriptionLabel(data.status,ar)}</dd></div>
+    {data.status!=='trialing'&&<div><dt>{ar?'الحالة':'Status'}</dt><dd>{subscriptionLabel(data.status,ar)}</dd></div>}
     {data.status==='trialing'&&<div><dt>{ar?'المتبقي من التجربة':'Trial days remaining'}</dt>
      <dd><bdi>{data.days_remaining??'—'}</bdi></dd></div>}
     <div><dt>{ar?'المستخدمون النشطون':'Active users'}</dt>
