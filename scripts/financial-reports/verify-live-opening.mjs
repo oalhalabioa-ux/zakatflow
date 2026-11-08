@@ -597,7 +597,7 @@ try{
    await page.reload();await section.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),String(month));assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
    await page.screenshot({path:out+'/fiscal-settings-'+month+'.png',fullPage:true});
   }
-  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization',exact:true});await page.getByLabel('Setup or action reason',{exact:true}).fill('Unsaved calendar note');const discard=page.waitForEvent('dialog');const rejectedSwitch=picker.selectOption(january);const prompt=await discard;assert.equal(prompt.message(),'Discard unsaved changes?');await prompt.dismiss();await rejectedSwitch;assert.equal(await picker.inputValue(),july);page.once('dialog',dialog=>dialog.accept());await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings select')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});await page.getByLabel('Setup or action reason',{exact:true}).fill('Unsaved calendar note');const discard=page.waitForEvent('dialog');const rejectedSwitch=picker.selectOption(january);const prompt=await discard;assert.equal(prompt.message(),'Discard unsaved changes?');await prompt.dismiss();await rejectedSwitch;assert.equal(await picker.inputValue(),july);page.once('dialog',dialog=>dialog.accept());await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings select')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
   const period=await a.client.rpc('financial_fiscal_context',{p_org:july});assert.ifError(period.error);
   const workspace=await a.client.rpc('financial_opening_workspace',{p_org:july,p_fiscal_start:period.data.period.start});assert.ifError(workspace.error);
   const draft=await a.client.rpc('save_financial_opening',{p_org:july,p_fiscal_start:period.data.period.start,p_expected_version:0,p_source_revision:workspace.data.source.revision,p_entries:{},p_reason:'Preserved accounting period must not move with calendar editing'});assert.ifError(draft.error);
@@ -664,6 +664,15 @@ try{
   assert.equal(readinessResponse.status(),200);assert.equal((await readinessResponse.json()).organizationId,org);
   const teamScope=randomUUID();
   sql(`select set_config('request.jwt.claim.sub','${a.id}',false);insert into public.organizations(id,owner_user_id,name) values('${teamScope}','${a.id}','Native team second institution');insert into public.organization_members(organization_id,user_id,role,status) values('${teamScope}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';`);
+  // Reusing the financial workspace must preserve the former fiscal dirty guard.
+  await page.goto(app+'/en/settings/financial/fiscal-years?organization='+teamScope);
+  const fiscalMonth=page.getByLabel('Fiscal start month',{exact:true});await fiscalMonth.waitFor();await fiscalMonth.selectOption('7');
+  page.once('dialog',dialog=>dialog.dismiss());await page.getByRole('navigation',{name:'Financial settings sections',exact:true}).getByRole('button',{name:'Chart of accounts',exact:true}).click();
+  assert.equal(await fiscalMonth.inputValue(),'7','Cancel keeps the fiscal draft and current section');
+  const fiscalPicker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
+  page.once('dialog',dialog=>dialog.dismiss());await fiscalPicker.selectOption(org);assert.equal(await fiscalPicker.inputValue(),teamScope,'Cancel keeps the selected organization');
+  page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Financial setup overview',exact:true}).click();await page.locator('[data-financial-overview-ready=true]').waitFor();
+  const unchangedCalendar=await (await page.request.get(app+'/api/financial-reporting/fiscal?'+new URLSearchParams({action:'management',organization:teamScope}))).json();assert.equal(unchangedCalendar.calendar,null,'Discarding a UI draft must not create a fiscal calendar');
   const sections=[['settings/structure','[data-structure-workspace]'],['settings','.organization-details-workspace'],['settings/regulatory','[data-regulatory-workspace]'],['settings/financial','[data-financial-settings]'],['settings/team','.settings-native-team'],['settings/system','[data-system-preferences]'],['billing','.yb-billing']];
   for(const locale of ['ar','en'])for(const [route,selector] of sections){
    await page.setViewportSize({width:1490,height:1050});
