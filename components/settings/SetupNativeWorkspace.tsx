@@ -3,15 +3,16 @@
 import dynamic from 'next/dynamic';
 import {useState} from 'react';
 
+const SystemSettings=dynamic(()=>import('./SystemSettings'),{loading:()=>null});
 const FiscalYearManagement=dynamic(()=>import('./FiscalYearManagement'),{loading:()=>null});
 const ChartOfAccountsWorkspace=dynamic(()=>import('../financial-reports/ChartOfAccountsWorkspace'),{loading:()=>null});
 const ReportingPolicyWorkspace=dynamic(()=>import('../financial-reports/ReportingPolicyWorkspace'),{loading:()=>null});
 const LiveOpeningBalances=dynamic(()=>import('../financial-reports/LiveOpeningBalances'),{loading:()=>null});
 
-export type NativeSetupStep='fiscal'|'chart'|'posting'|'opening';
+export type NativeSetupStep='regulatory'|'fiscal'|'chart'|'posting'|'opening';
 export default function SetupNativeWorkspace({
- locale,organizationId,step,industry,fiscalStart,onRefresh,
-}:{locale:string;organizationId:string;step:NativeSetupStep;industry:string;fiscalStart?:string|null;onRefresh:()=>void}){
+ locale,organizationId,organizationName,baseCurrency,step,industry,fiscalStart,onRefresh,
+}:{locale:string;organizationId:string;organizationName?:string;baseCurrency?:string;step:NativeSetupStep;industry:string;fiscalStart?:string|null;onRefresh:()=>void}){
  const ar=locale==='ar';
  const [chartTab,setChartTab]=useState<'structure'|'accounts'|'templates'|'review'>('structure');
  const chartTabs=[
@@ -31,6 +32,20 @@ export default function SetupNativeWorkspace({
     onClick={()=>setChartTab(tab.id)}>{ar?tab.ar:tab.en}</button>)}
   </nav>}
   <div className="financial-setup-native-content" data-chart-section={step==='chart'?chartTab:undefined}>
+   {step==='regulatory'&&<>
+    <div className="financial-setup-regulatory-notice">
+     <strong>{ar?'ملف العنوان والضرائب والفوترة الحالي':'Existing address, tax and invoicing sources'}</strong>
+     <p>{ar?
+      'تحفظ بيانات عنوان البائع والرقم الضريبي في ملف الفوترة الأصلي. هذا العنوان ليس سجلًا مستقلاً للعنوان القانوني للمؤسسة. إعدادات ZATCA مخصصة للسعودية ولا تُطبّق تلقائيًا على الدول الأخرى.':
+      'The seller address and tax number use the existing invoice profile. This is not an independent legal-address register. ZATCA configuration is Saudi-specific and does not automatically apply to other countries.'}</p>
+     <p>{ar?
+      'حقلا الدولة والسجل التجاري غير موجودين بعد في سجل المؤسسة المعتمد؛ لا يمكن اعتبارهما مكتملين قبل إنشاء حفظ وصلاحيات وتحقق ملائمين.':
+      'Country and commercial registration are not yet fields in the authorized organization record; neither can be marked complete until persistence, permissions and validation are implemented.'}</p>
+    </div>
+    <SystemSettings key={organizationId} id={organizationId}
+      name={organizationName??''} currency={baseCurrency??'SAR'} locale={locale}
+      setupEmbedded onSaved={onRefresh}/>
+   </>}
    {step==='fiscal'&&<FiscalYearManagement key={organizationId} organization={organizationId} locale={locale}/>}
    {step==='chart'&&<ChartOfAccountsWorkspace key={organizationId+':'+industry}
       locale={locale} preferredOrg={organizationId} preferredTemplate={industry}
@@ -45,8 +60,11 @@ export default function SetupNativeWorkspace({
     'Review active accounts and rollups. Posting accounts are formally mapped and approved in Posting Rules. Viewing this page does not grant accounting approval.'}
   </div>}
   <p className="financial-setup-native-note">
-   {ar?'هذه نافذة المرحلة نفسها، وليست سجلاً محاسبياً مكرراً. الحفظ والاعتماد ضمن الصلاحيات الأصلية ثم تحديث الجاهزية.':
-    'This is the original live module inside the setup journey, not a duplicate accounting register. Save and approve using the original permissions, then refresh readiness.'}
+   {step==='regulatory'?
+    (ar?'التحقق هنا إداري فقط: لا تُعتبر البيانات اعتمادًا قانونيًا أو ضريبيًا، ولا تتحول تلقائيًا إلى شرط لترحيل القيود المالية.':
+       'This step is administrative review, not legal/tax certification or an automatic accounting posting prerequisite.'):
+    (ar?'هذه نافذة المرحلة نفسها، وليست سجلاً محاسبياً مكرراً. الحفظ والاعتماد ضمن الصلاحيات الأصلية ثم تحديث الجاهزية.':
+       'This is the original live module inside the setup journey, not a duplicate accounting register. Save and approve using the original permissions, then refresh readiness.')}
   </p>
  </section>
 }
