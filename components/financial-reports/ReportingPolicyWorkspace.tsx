@@ -92,6 +92,6 @@ export default function ReportingPolicyWorkspace({locale,preferredOrg='',setupEm
   </div>
   {!authorizedSignatures.length&&<p role="alert">{t('لا توجد تصنيفات أصلية محفوظة في هذه المؤسسة. سجّل تصنيف العملية في الموديول الأصلي أولًا، ولا تُنشئ قاعدة برمز وهمي.','No saved original classifications are available in this organization. Create a real source classification first; do not use an invented ID.')}</p>}
  </section>}
- <label>{t('سبب الإعداد أو التغيير','Setup or change reason')}<textarea disabled={locked} maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>{ready.policy?.status==='APPROVED'&&<button disabled={busy||!ready.canSave} onClick={()=>{setData({...ready,policy:{...ready.policy!,status:'DRAFT',version:0}})}}>{t('إعداد نسخة جديدة','Prepare a new version')}</button>}</>}
+ <label>{t('سبب الإعداد أو التغيير','Setup or change reason')}<textarea aria-label={t('سبب الإعداد أو التغيير','Setup or change reason')} disabled={locked} maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>{ready.policy?.status==='APPROVED'&&<button disabled={busy||!ready.canSave} onClick={()=>{setData({...ready,policy:{...ready.policy!,status:'DRAFT',version:0}})}}>{t('إعداد نسخة جديدة','Prepare a new version')}</button>}</>}
  </div>;
 }
