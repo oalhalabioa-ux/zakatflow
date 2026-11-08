@@ -10,9 +10,9 @@ import {
 } from './financial-setup-steps';
 
 describe('organization financial setup journey', () => {
-  it('has ten deterministic, unique steps including optional structure', () => {
-    expect(FINANCIAL_SETUP_STEPS).toHaveLength(10);
-    expect(new Set(FINANCIAL_SETUP_STEPS).size).toBe(10);
+  it('has eleven deterministic steps including legal and tax review', () => {
+    expect(FINANCIAL_SETUP_STEPS).toHaveLength(11);
+    expect(new Set(FINANCIAL_SETUP_STEPS).size).toBe(11);
     expect(FINANCIAL_SETUP_STEPS.indexOf('chart')).toBeLessThan(FINANCIAL_SETUP_STEPS.indexOf('fiscal')); // Fiscal UI requires a postable retained-earnings child account.
   });
 
