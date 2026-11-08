@@ -10,7 +10,8 @@ describe('financial setup navigation follows actual opening-source evidence',()=
   expect(nextSetupStep('banking','EXISTING')).toBe('opening');
  });
  it('preserves the approved chart-before-fiscal order',()=>{
-  expect(nextSetupStep('organization','NEW')).toBe('structure');
+  expect(nextSetupStep('organization','NEW')).toBe('regulatory');
+  expect(nextSetupStep('regulatory','NEW')).toBe('structure');
   expect(nextSetupStep('structure','NEW')).toBe('chart');
   expect(nextSetupStep('chart','EXISTING')).toBe('fiscal');
   expect(nextSetupStep('fiscal','EXISTING')).toBe('posting');
