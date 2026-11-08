@@ -43,4 +43,6 @@ it('keeps six settings areas distinct and treats billing and structure as organi
  expect(isSettingsSectionActive('settings/team','settings/team')).toBe(true);
  expect(isSettingsSectionActive('settings/personal-setup','settings/financial/setup')).toBe(true);
  expect(isSettingsPage('settings/team')).toBe(true);
+ expect(currentWorkspaceScope('settings/personal-setup','','ORGANIZATION')).toBe('PERSONAL');
+ expect(currentWorkspaceScope('settings/financial/setup','','PERSONAL')).toBe('ORGANIZATION');
 });
