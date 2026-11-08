@@ -1,5 +1,6 @@
 'use client';
 
+import {Fragment} from 'react';
 import type {FinancialSetupMode,FinancialSetupStep} from '@/lib/financial-setup-steps';
 import {FINANCIAL_SETUP_STEPS,isSkippedSetupStep} from '@/lib/financial-setup-steps';
 import type {FinancialSetupReadiness} from '@/lib/financial-setup-readiness';
@@ -24,6 +25,13 @@ type Context={
  readiness:FinancialSetupReadiness|null;
  completed:readonly FinancialSetupStep[];
  deferred:readonly FinancialSetupStep[];
+};
+const groupLabels:Partial<Record<FinancialSetupStep,[string,string]>>={
+ organization:['أولًا · إعداد المؤسسة','01 · Organization'],
+ regulatory:['ثانيًا · البيانات النظامية والضريبية','02 · Legal & tax'],
+ chart:['ثالثًا · المالية والمحاسبة','03 · Finance & accounting'],
+ users:['رابعًا · إدارة الوصول','04 · Access management'],
+ review:['خامسًا · المراجعة','05 · Review'],
 };
 const states={
  COMPLETE:['مكتمل','Complete'],
@@ -51,7 +59,9 @@ export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,st
     const active=step===id;
     const disabled=!mode&&id!=='organization';
     const hasSkippedOpening=id==='opening'&&isSkippedSetupStep(id,mode)&&readiness?.statuses.opening==='READY';
-    return <button type="button" key={id} aria-current={active?'step':undefined}
+    return <Fragment key={id}>{groupLabels[id]&&
+     <p className="financial-setup-group-label">{groupLabels[id]?.[ar?0:1]}</p>}
+     <button type="button" aria-current={active?'step':undefined}
      aria-disabled={disabled} disabled={disabled} onClick={()=>onSelect(id)}
      className={['financial-setup-timeline-step',active?'current':'',status==='COMPLETE'?'done':'',
       hasSkippedOpening?'skipped':'',status.toLowerCase()].filter(Boolean).join(' ')}>
@@ -61,7 +71,7 @@ export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,st
       <small>{FINANCIAL_SETUP_STEP_HELP[id]?.[ar?'ar':'en']}</small>
       <span className={'financial-setup-timeline-state state-'+status.toLowerCase()}>{states[status][ar?0:1]}</span>
      </span>
-    </button>;
+    </button></Fragment>;
    })}
   </nav>
  </aside>;
@@ -76,13 +86,14 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
   !['review','finished'].includes(step)&&canDeferSetupStep(step,mode,readiness?.statuses??null));
  return <aside className="financial-setup-journey-summary" aria-label={ar?'ملخص جاهزية المؤسسة':'Organization readiness summary'}>
   <section className="financial-setup-summary-card">
-   <h3>{ar?'جاهزية المؤسسة':'Organization readiness'}</h3>
+   <h3>{ar?'الجاهزية المالية والمحاسبية':'Financial & accounting readiness'}</h3>
    <div className="financial-setup-summary-percent"><bdi>{counts.percent}%</bdi></div>
    <div className="financial-setup-progress-bar" role="progressbar" aria-valuenow={counts.percent}
     aria-valuemin={0} aria-valuemax={100} aria-label={ar?'الجاهزية الفعلية من السجلات':'Verified source readiness'}>
     <span style={{width:counts.percent+'%'}}/>
    </div>
-   <p>{ar?'التقدم المحسوب من السجلات الفعلية، وليس من علامات المراجعة.':'Progress comes from real records, not review checkmarks.'}</p>
+   <p>{ar?'النسبة محسوبة من سبعة متطلبات مالية فعلية. بيانات الدولة والعنوان القانوني والضرائب تُراجع بصورة مستقلة ولا تدخل في هذا المؤشر.':
+'This percentage measures seven financial source requirements. Country, legal address and tax review are tracked separately, not counted in this figure.'}</p>
    <dl className="financial-setup-journey-metrics">
     <div><dt>{ar?'خطوات مكتملة':'Verified steps'}</dt><dd><bdi>{counts.complete} / {counts.total}</bdi></dd></div>
     <div><dt>{ar?'خطوات غير مكتملة':'Incomplete steps'}</dt><dd><bdi>{counts.remaining}</bdi></dd></div>
