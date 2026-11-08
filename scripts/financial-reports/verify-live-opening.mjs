@@ -150,8 +150,10 @@ try{
  await check('Setup tabs and deferred optional structure preserve organization and accounting gates',async()=>{
   await page.goto(app+'/en/settings/financial/setup?organization='+org);
   await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
-  assert.equal(await page.locator('.settings-tabs a').count(),3,
-    'Exactly three primary settings tabs should appear');
+  assert.equal(await page.locator('.settings-tabs a').count(),6,
+    'Exactly six approved settings sections should appear without changing the corporate sidebar');
+  assert.equal(await page.locator('.settings-tabs a').filter({hasText:'Legal & tax settings'}).count(),1);
+  assert.equal(await page.locator('.settings-tabs a').filter({hasText:'Users & permissions'}).count(),1);
   const journey=page.locator('.settings-tabs a').filter({hasText:'Setup journey'});
   assert.equal(await journey.getAttribute('aria-current'),'page',
     'Setup journey must be its own active tab, not a finance shortcut');
@@ -189,6 +191,10 @@ try{
   await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
   const restored=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
   await restored.waitFor();
+  const resume=page.getByRole('button',{name:/Continue setup/});
+  await resume.waitFor();
+  assert.ok((await resume.innerText()).includes('First missing financial requirement'),
+   'Resume must identify the next verified financial requirement, not fabricated local completion');
   assert.match(await restored.innerText(),/Deferred/,
     'Deferred step should survive navigation between settings tabs');
   await page.screenshot({path:out+'/financial-setup-journey-navigation-en-desktop.png',fullPage:true});
