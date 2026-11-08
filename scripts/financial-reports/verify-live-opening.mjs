@@ -178,8 +178,24 @@ try{
   assert.ok((await legal.innerText()).includes('not an independent legal-address register')||
     (await legal.innerText()).includes('not yet fields'),
     'Invoice seller address must not masquerade as a verified legal company address');
-  await legal.locator('.console-tabs').getByRole('button',{name:'Registration',exact:true}).click();
-  await legal.getByLabel('Registration status',{exact:true}).waitFor();
+  const registrationTab=legal.locator('.console-tabs').getByRole('button',{name:'Registration',exact:true});
+  await registrationTab.click();
+  await page.waitForFunction(()=>{
+    const root=document.querySelector('[data-setup-native-workspace="regulatory"]');
+    const tab=[...(root?.querySelectorAll('.console-tabs button')??[])].find(el=>el.textContent?.trim()==='Registration');
+    return tab?.getAttribute('aria-pressed')==='true';
+  },undefined,{timeout:15000});
+  const registrationControl=legal.locator('select[name="registration_status"]');
+  await registrationControl.waitFor({state:'attached'});
+  const registrationVisible=await registrationControl.evaluate(el=>{
+    const section=el.closest('div.request-form');
+    const style=getComputedStyle(el);
+    return {hidden:Boolean(section?.hasAttribute('hidden')),display:style.display,visibility:style.visibility,rects:el.getClientRects().length};
+  });
+  await page.screenshot({path:out+'/financial-setup-legal-registration-en-desktop.png',fullPage:true});
+  assert.ok(!registrationVisible.hidden&&registrationVisible.display!=='none'&&
+    registrationVisible.visibility!=='hidden'&&registrationVisible.rects>0,
+    'After selecting Registration the original VAT status field must be visible: '+JSON.stringify(registrationVisible));
   assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow')!==null,true,
     'Legal/tax review must not replace real financial readiness');
   await page.screenshot({path:out+'/financial-setup-legal-tax-en-desktop.png',fullPage:true});
