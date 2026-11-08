@@ -1,3 +1,4 @@
+import {liquidityPartyClassifications} from '../../../lib/liquidity-party-classifications';
 import {openFinancialAccount} from '@/services/financial-account-opening';
 import {withVoucherNumbers} from '../../../services/voucher-numbers';
 import {organizationScopeIds} from '@/lib/workspace-organization';
@@ -125,7 +126,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, pendingCashChartLinks, accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
+    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, pendingCashChartLinks, accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: (partyTypesResult.data ?? []).map((type:any)=>({...type,allowed_financial_classifications:liquidityPartyClassifications(type.code)})), intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 

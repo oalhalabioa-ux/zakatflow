@@ -95,6 +95,11 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  await settle(incomeFlow,2500,'2026-03-04');
  const final=await observe('revenue-collected',{cash:6500,expense:1000,revenue:2500,receivable:0,payable:0});
  assert.equal(Number(final.statements.cash.operating),1500);assert.equal(Number(final.statements.cash.opening),5000);
+ const incompatibleCategory=await request('post','/api/liquidity',{kind:'category',organization_id:organization,name_ar:'اختبار رفض عدم تطابق الطرف',name_en:'Party mismatch rejection',flow_group:'OPERATING',accounting_group:'REVENUE',treatment_code:'SERVICE_REVENUE',allowed_direction:'INFLOW',financial_classification_type:'REVENUE'},201);
+ const incompatibleFlow=await request('post','/api/liquidity',{kind:'flow',organization_id:organization,account_id:bankId,category_id:incompatibleCategory.id,direction:'INFLOW',title:'Must reject supplier revenue',counterparty_id:supplier.id,due_date:'2026-03-05',amount:10,base_amount:10,currency:'SAR',status:'EXPECTED',source:'MANUAL'},201);
+ const mismatch=await request('patch','/api/liquidity/'+incompatibleFlow.id,{status:'CONFIRMED'},409);assert.equal(mismatch.error,'COUNTERPARTY_ACCOUNTING_CLASSIFICATION_MISMATCH');evidence.counterpartyMismatchDenied=true;
+ assert.equal(Number(sql(`select count(*) from public.financial_events where organization_id='${organization}'`)),4,'Rejected party mismatch cannot create a financial event');
+
  assert.equal(Number(sql(`select count(*) from public.financial_events where organization_id='${organization}' and status='ACTUAL'`)),4);
  assert.equal(Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${organization}' and status='POSTED'`)),2);
  const balances=unwrap(await actor.client.from('financial_event_obligation_balances').select('outstanding_base_amount').eq('organization_id',organization));assert.equal(balances.length,2);assert.ok(balances.every(b=>Number(b.outstanding_base_amount)===0));

@@ -1,3 +1,4 @@
+import {liquidityPartyAllowsClassification} from '../../../../lib/liquidity-party-classifications';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requestErrorMessage, settlementInstructionMatches, validateCollectionAmount } from '@/lib/vat-invoice-workflow';
@@ -57,9 +58,10 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(counterpartyId){
      const{data:party,error:partyError}=await supabase.from('liquidity_counterparties').select('id,party_type,party_type_id').eq('id',counterpartyId).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();
      if(partyError)throw partyError;if(!party)return NextResponse.json({error:'COUNTERPARTY_ORGANIZATION_MISMATCH'},{status:400});
-     const typeQuery=party.party_type_id?supabase.from('liquidity_party_types').select('code,allowed_financial_classifications').eq('id',party.party_type_id).eq('organization_id',record.organization_id).maybeSingle():supabase.from('liquidity_party_types').select('code,allowed_financial_classifications').eq('organization_id',record.organization_id).eq('code',party.party_type).maybeSingle();
+     const typeQuery=party.party_type_id?supabase.from('liquidity_party_types').select('code').eq('id',party.party_type_id).eq('organization_id',record.organization_id).maybeSingle():supabase.from('liquidity_party_types').select('code').eq('organization_id',record.organization_id).eq('code',party.party_type).maybeSingle();
      const{data:partyType,error:partyTypeError}=await typeQuery;if(partyTypeError)throw partyTypeError;
-     if(partyType?.allowed_financial_classifications?.length&&!partyType.allowed_financial_classifications.includes(treatment)&&partyType.code!=='OTHER')return NextResponse.json({error:'COUNTERPARTY_ACCOUNTING_CLASSIFICATION_MISMATCH',party_type:partyType.code,treatment},{status:409});
+     const partyCode=partyType?.code??party.party_type;
+     if(!liquidityPartyAllowsClassification(partyCode,treatment))return NextResponse.json({error:'COUNTERPARTY_ACCOUNTING_CLASSIFICATION_MISMATCH',party_type:partyCode,treatment},{status:409});
    }
    const sourceKey=`liquidity:${record.id}:recognition`;
    const eventType=treatment==='CAPEX'||treatment==='ASSET'||treatment==='INVESTMENT'?'ASSET_PURCHASE':treatment==='REVENUE'?'REVENUE':treatment==='OPEX'||treatment==='TAX'||treatment==='ZAKAT'?'EXPENSE':treatment==='LIABILITY'||treatment==='FINANCING'?'LIABILITY':treatment==='EQUITY'?'ADJUSTMENT':'ADJUSTMENT';
