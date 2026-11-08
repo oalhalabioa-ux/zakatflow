@@ -86,7 +86,7 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
   const counts=Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${organization}'`));
   const replay=await request('patch','/api/liquidity/'+flow.id,payload);assert.equal(replay.settlement_event_id,posted.settlement_event_id);
   assert.equal(Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${organization}'`)),counts);
-  evidence.duplicateRetries.push({eventId:posted.settlement_event_id,prevented:true});const isReceipt=flow.direction==='INFLOW';const mapping=proposed('SETTLEMENT',isReceipt?'RECEIVABLE':'PAYABLE',isReceipt?'INFLOW':'OUTFLOW');evidence.journals.push({id:posted.settlement_event_id,type:'SETTLEMENT',flowId:flow.id,amount,debitAccount:mapping.debitAccountId,creditAccount:mapping.creditAccountId});return posted;
+  evidence.duplicateRetries.push({eventId:posted.settlement_event_id,prevented:true});const isReceipt=flow.direction==='INFLOW';const mapping=proposed('SETTLEMENT',isReceipt?'RECEIVABLE':'PAYABLE',isReceipt?'INFLOW':'OUTFLOW');evidence.journals.push({id:posted.settlement_event_id,type:'SETTLEMENT',flowId:flow.id,amount,debitAccount:mapping.debitAccountId,creditAccount:mapping.creditAccountId});return {...posted,replayPayload:payload};
  }
  await settle(expenseFlow,1000,'2026-03-02');
  await observe('expense-paid',{cash:4000,expense:1000,revenue:0,receivable:0,payable:0});
@@ -105,12 +105,39 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  const balances=unwrap(await actor.client.from('financial_event_obligation_balances').select('outstanding_base_amount').eq('organization_id',organization));assert.equal(balances.length,2);assert.ok(balances.every(b=>Number(b.outstanding_base_amount)===0));
  assert.ok((await outsider.client.rpc('financial_statement_live_snapshot',{p_org:organization,p_from:'2026-01-01',p_to:'2026-12-31'})).error);
  evidence.crossTenantDenied=true;evidence.rulesUnchanged=true;evidence.final={income:final.statements.income,cash:final.statements.cash,position:final.statements.position};
+ // Follow the completed baseline with genuinely partial settlements. Recognition
+ // must happen once, while cash and the outstanding obligation change per payment.
+ const partialExpense=await prepareFlow('OPEX','OUTFLOW',600,'2026-04-01',supplier);
+ await observe('partial-expense-recognized',{cash:6500,expense:1600,revenue:2500,receivable:0,payable:600});
+ const expenseFirst=await settle(partialExpense,200,'2026-04-02');
+ assert.equal(expenseFirst.settlement_status,'PARTIAL');
+ await observe('partial-expense-paid-200',{cash:6300,expense:1600,revenue:2500,receivable:0,payable:400});
+ const eventCount=()=>Number(sql(`select count(*) from public.financial_events where organization_id='${organization}'`));
+ const beforeRejected=eventCount();
+ await request('patch','/api/liquidity/'+partialExpense.id,{...expenseFirst.replayPayload,amount:201,base_amount:201},400);
+ await request('patch','/api/liquidity/'+partialExpense.id,{status:'ACTUAL',request_id:randomUUID(),account_id:bankId,amount:401,base_amount:401,settlement_date:'2026-04-03'},400);
+ await request('patch','/api/liquidity/'+partialExpense.id,{status:'ACTUAL',request_id:randomUUID(),account_id:bankId,amount:100,base_amount:99,settlement_date:'2026-04-03'},400);
+ assert.equal(eventCount(),beforeRejected,'Rejected settlement instructions cannot create financial events');
+ await observe('partial-expense-invalid-requests-rejected',{cash:6300,expense:1600,revenue:2500,receivable:0,payable:400});
+ const expenseLast=await settle(partialExpense,400,'2026-04-04');assert.equal(expenseLast.settlement_status,'SETTLED');
+ await observe('partial-expense-paid-600',{cash:5900,expense:1600,revenue:2500,receivable:0,payable:0});
+ const partialIncome=await prepareFlow('REVENUE','INFLOW',1200,'2026-04-05',customer);
+ await observe('partial-revenue-recognized',{cash:5900,expense:1600,revenue:3700,receivable:1200,payable:0});
+ const incomeFirst=await settle(partialIncome,400,'2026-04-06');assert.equal(incomeFirst.settlement_status,'PARTIAL');
+ await observe('partial-revenue-collected-400',{cash:6300,expense:1600,revenue:3700,receivable:800,payable:0});
+ const incomeLast=await settle(partialIncome,800,'2026-04-07');assert.equal(incomeLast.settlement_status,'SETTLED');
+ const partialFinal=await observe('partial-revenue-collected-1200',{cash:7100,expense:1600,revenue:3700,receivable:0,payable:0});
+ assert.equal(eventCount(),10);assert.equal(Number(sql(`select count(*) from public.financial_events where organization_id='${organization}' and status='ACTUAL'`)),10);
+ assert.equal(Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${organization}' and status='POSTED'`)),6);
+ const finalObligations=unwrap(await actor.client.from('financial_event_obligation_balances').select('outstanding_base_amount').eq('organization_id',organization));assert.equal(finalObligations.length,4);assert.ok(finalObligations.every(b=>Number(b.outstanding_base_amount)===0));
+ evidence.partialSettlementGuards={changedReplayDenied:true,overpaymentDenied:true,inconsistentBaseDenied:true};
+ evidence.finalWithPartialSettlements={income:partialFinal.statements.income,cash:partialFinal.statements.cash,position:partialFinal.statements.position};
  // Open the report against real APIs in both locales after the transactions.
  for(const locale of ['ar','en'])for(const width of [1490,390]){
   await page.setViewportSize({width,height:1050});await page.goto(app+'/'+locale+'/financial-reports?organization='+organization+'&screen=income');
   await page.locator('[data-statement-ready="income"]').waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  const income=await page.locator('[data-statement-ready="income"]').innerText();assert.match(income,/2,500\.00/);assert.match(income,/1,000\.00/);assert.match(income,/1,500\.00/);
+  const income=await page.locator('[data-statement-ready="income"]').innerText();assert.match(income,/3,700\.00/);assert.match(income,/1,600\.00/);assert.match(income,/2,100\.00/);
   await shot(locale+'-income-'+width);
  }
  await writeFile(out+'/default-posting-actual-cycle.json',JSON.stringify(evidence,null,2)+'\n');
