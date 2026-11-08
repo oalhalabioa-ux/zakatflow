@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {canDeferSetupStep,setupJourneyStepState,financialSetupJourneyCounts} from '../lib/financial-setup-journey-policy';
+import {canDeferSetupStep,setupJourneyStepState,financialSetupJourneyCounts,firstMissingFinancialSetupStep} from '../lib/financial-setup-journey-policy';
 import type {FinancialSetupReadiness} from '../lib/financial-setup-readiness';
 const ready:FinancialSetupReadiness={
  organizationId:'org',mode:'EXISTING',fiscalStart:'2026-01-01',
@@ -35,5 +35,13 @@ describe('setup journey deferred steps are never accounting approvals',()=>{
  it('does not permit finishing from a deferred or missing prerequisite',()=>{
   expect(canDeferSetupStep('finished','EXISTING',ready.statuses)).toBe(false);
   expect(canDeferSetupStep('posting','EXISTING',{...ready.statuses,organization:'BLOCKED'})).toBe(false);
+ });
+
+ it('continue setup finds the earliest missing validated accounting source',()=>{
+  expect(firstMissingFinancialSetupStep(null,'EXISTING')).toBe('organization');
+  expect(firstMissingFinancialSetupStep(ready,null)).toBe('organization');
+  expect(firstMissingFinancialSetupStep(ready,'EXISTING')).toBe('chart');
+  expect(firstMissingFinancialSetupStep({...ready,statuses:{...ready.statuses,chart:'READY'}},'EXISTING')).toBe('fiscal');
+  expect(firstMissingFinancialSetupStep({...ready,statuses:{...ready.statuses,chart:'READY',fiscal:'READY',posting:'READY',banking:'READY',opening:'READY',users:'READY'}},'EXISTING')).toBe('review');
  });
 });
