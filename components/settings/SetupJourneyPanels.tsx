@@ -1,6 +1,6 @@
 'use client';
 
-import {Fragment,useEffect,useState} from 'react';
+import {useEffect,useState} from 'react';
 import type {FinancialSetupMode,FinancialSetupStep} from '@/lib/financial-setup-steps';
 import {FINANCIAL_SETUP_STEPS,isSkippedSetupStep} from '@/lib/financial-setup-steps';
 import type {FinancialSetupReadiness} from '@/lib/financial-setup-readiness';
@@ -61,27 +61,28 @@ export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,st
    <strong>{ar?'مجموعات الإعداد':'Setup groups'}</strong>
    <span>{ar?'اختر أي مرحلة لمراجعتها':'Select any step to review'}</span>
   </div>
-  <nav className="financial-setup-stage-timeline financial-setup-steps"
-   aria-label={ar?'خطوات إعداد المؤسسة':'Organization setup steps'}>
-   {FINANCIAL_SETUP_STEPS.filter(id=>id!=='finished').map((id,index)=>{
-    const status=id==='organization'&&mode&&!organizationLegal?.country_code?'INCOMPLETE':
-      setupJourneyStepState(id,readiness,deferred,completed,mode);
-    const active=step===id;
-    const disabled=!mode&&id!=='organization';
-    const hasSkippedOpening=id==='opening'&&isSkippedSetupStep(id,mode)&&readiness?.statuses.opening==='READY';
-    return <Fragment key={id}>{groupLabels[id]&&
-     <p className="financial-setup-group-label">{groupLabels[id]?.[ar?0:1]}</p>}
-     <button type="button" aria-current={active?'step':undefined}
-     aria-disabled={disabled} disabled={disabled} onClick={()=>onSelect(id)}
-     className={['financial-setup-timeline-step',active?'current':'',status==='COMPLETE'?'done':'',
-      hasSkippedOpening?'skipped':'',status.toLowerCase()].filter(Boolean).join(' ')}>
-     <span className="financial-setup-timeline-index" aria-hidden="true">{status==='COMPLETE'?'✓':index+1}</span>
-     <span className="financial-setup-timeline-copy">
-      <strong>{SETUP_JOURNEY_LABELS[id][ar?0:1]}</strong>
-      <small>{FINANCIAL_SETUP_STEP_HELP[id]?.[ar?'ar':'en']}</small>
-      <span className={'financial-setup-timeline-state state-'+status.toLowerCase()}>{states[status][ar?0:1]}</span>
-     </span>
-    </button></Fragment>;
+  <nav className="financial-setup-stage-timeline financial-setup-steps" aria-label={ar?'خطوات إعداد المؤسسة':'Organization setup steps'}>
+   {([
+    {id:'organization',steps:['organization','structure'],ar:'المؤسسة أولًا',en:'Organization first'},
+    {id:'regulatory',steps:['regulatory'],ar:'البيانات النظامية والضريبية',en:'Legal & tax'},
+    {id:'chart',steps:['chart','fiscal','posting','banking','opening'],ar:'التأسيس المالي',en:'Financial setup'},
+    {id:'users',steps:['users'],ar:'الفريق والصلاحيات',en:'Team & access'},
+    {id:'review',steps:['review'],ar:'المراجعة والجاهزية',en:'Review & readiness'},
+   ] as const).map((group,index)=>{
+    const active=group.steps.some(id=>id===step);
+    const done=group.steps.filter(id=>id!=='structure').every(id=>
+      setupJourneyStepState(id,readiness,deferred,completed,mode)==='COMPLETE')&&
+      (group.id!=='organization'||Boolean(organizationLegal?.country_code));
+    return <details key={group.id} className="financial-setup-stage-group" open={active}>
+     <summary><span className="financial-setup-group-number">{done?'✓':index+1}</span><span>{ar?group.ar:group.en}<small>{done?(ar?'مكتمل':'Complete'):active?(ar?'قيد الإعداد':'In progress'):(ar?'مراجعة':'Review')}</small></span></summary>
+     {group.steps.map(id=>{
+      const status=id==='organization'&&mode&&!organizationLegal?.country_code?'INCOMPLETE':setupJourneyStepState(id,readiness,deferred,completed,mode);
+      return <button type="button" key={id} aria-current={step===id?'step':undefined} disabled={!mode&&id!=='organization'} onClick={()=>onSelect(id)}
+       className={['financial-setup-timeline-step',step===id?'current':'',status==='COMPLETE'?'done':'',status.toLowerCase()].filter(Boolean).join(' ')}>
+       <span className="financial-setup-timeline-copy"><strong>{SETUP_JOURNEY_LABELS[id][ar?0:1]}</strong><span className={'financial-setup-timeline-state state-'+status.toLowerCase()}>{states[status][ar?0:1]}</span></span>
+      </button>;
+     })}
+    </details>;
    })}
   </nav>
  </aside>;
@@ -145,8 +146,8 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
     {checking?(ar?'جار التحقق…':'Checking…'):(ar?'تحديث جاهزية المؤسسة':'Refresh readiness')}
    </button>
   </section>
-  <section className="financial-setup-summary-card">
-   <h3>{ar?'البيانات النظامية والضريبية':'Legal & tax source review'}</h3>
+  <details className="financial-setup-summary-card">
+   <summary>{ar?'البيانات النظامية والضريبية':'Legal & tax source review'}</summary>
    <p>{ar?'حالة السجلات الفعلية المنفصلة عن مؤشر الجاهزية المالية.':
      'Actual source records, independent of the financial readiness percentage.'}</p>
    <dl className="financial-setup-journey-metrics">
@@ -170,7 +171,7 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
    <button type="button" className="financial-setup-summary-refresh" disabled={!mode} onClick={()=>onSelect('regulatory')}>
     {ar?'فتح العنوان والضرائب والفوترة':'Open address, tax and invoicing'}
    </button>
-  </section>
+  </details>
   <section className="financial-setup-summary-card">
    <h3>{ar?'يمكن إكمالها لاحقًا':'Can be completed later'}</h3>
    <p>{ar?'يمكن تأجيل العمل المستقل دون أن نعتبره معتمدًا أو مكتملًا.':'Independent work can be deferred without being treated as approved or complete.'}</p>
@@ -188,4 +189,21 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
     'You can revisit any step. Deferral never posts entries or grants accounting approval. Final completion requires all actual source checks.'}</p>
   </section>
  </aside>;
+}
+
+export function SetupMissingRequirements({locale,readiness,organizationLegal,onSelect}:{
+ locale:string;readiness:FinancialSetupReadiness|null;
+ organizationLegal:{country_code?:string|null;registered_address?:string|null;commercial_registration_number?:string|null};
+ onSelect:(step:FinancialSetupStep)=>void;
+}){
+ const ar=locale==='ar';
+ const missing:FinancialSetupStep[]=[];
+ if(!organizationLegal.country_code)missing.push('organization');
+ if(!organizationLegal.registered_address||!organizationLegal.commercial_registration_number)missing.push('regulatory');
+ if(readiness)for(const step of ['chart','fiscal','posting','banking','opening','users'] as const){if(readiness.statuses[step]!=='READY')missing.push(step);}
+ return <section className="financial-setup-missing"><h3>{ar?'أحدث المتطلبات الناقصة':'Outstanding setup requirements'}</h3>
+  {!readiness&&<p>{ar?'جارٍ التحقق من المتطلبات المالية…':'Checking financial requirements…'}</p>}
+  {missing.slice(0,4).map(id=><div key={id}><span>{SETUP_JOURNEY_LABELS[id][ar?0:1]}</span><small>{id==='regulatory'?(ar?'مراجعة البيانات':'Review details'):(ar?'مطلوب':'Required')}</small><button type="button" onClick={()=>onSelect(id)}>{ar?'استكمال الآن':'Complete now'} <span aria-hidden="true">←</span></button></div>)}
+  {readiness&&missing.length===0&&<p>{ar?'لا توجد متطلبات ناقصة في الفحص الحالي. تابع المراجعة النهائية.':'No missing requirements in the current check. Continue to final review.'}</p>}
+ </section>;
 }

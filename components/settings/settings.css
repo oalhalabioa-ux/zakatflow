@@ -220,3 +220,4 @@
 @media(max-width:600px){.settings-organization-summary{grid-template-columns:1fr}}
 .organization-legal-fields{display:contents}
 .settings-breadcrumb{font-size:.82rem;margin-bottom:12px!important}.settings-heading h1{font-size:1.85rem}.settings-workspace>.organization-details-workspace>.settings-section-heading,.settings-workspace>.settings-regulatory-native>.settings-section-heading,.settings-workspace>.settings-finance-native>.settings-section-heading,.settings-workspace>.yp-preferences>.settings-section-heading,.settings-workspace>.settings-native-team>header,.settings-workspace>.financial-setup>.financial-setup-header{display:none}.settings-form>.organization-legal-fields[hidden]{display:none!important}
+.corp-shell.theme-yaqeen-business .settings-workspace .settings-form>button.btn{background:#155438;color:#fff;border-color:#155438}.organization-details-workspace .settings-card>header{display:none}

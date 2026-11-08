@@ -45,7 +45,7 @@ try{
    await page.goto(`${app}/${locale}/${path}?organization=${orgId}`);
    const root=path==='billing'?page.locator('.yb-billing'):path==='settings/system'?page.locator('[data-system-preferences]'):path==='settings/regulatory'?page.locator('[data-regulatory-workspace]'):page.locator('.organization-details-workspace');await root.waitFor();
    if(path==='settings/system')await page.getByRole('button',{name:ar?'حفظ التعديلات':'Save changes',exact:true}).waitFor();
-   if(path==='billing'){await page.getByText(ar?'شركة يقين التجارية':'شركة يقين التجارية',{exact:true}).first().waitFor();assert.equal(await page.locator('.settings-tabs').count(),0);}
+   if(path==='billing'){await page.locator('.yb-details').getByText('شركة يقين التجارية',{exact:true}).waitFor();assert.equal(await page.locator('.settings-tabs').count(),0);}
    assert.equal(await page.locator('iframe').count(),0);
    for(const width of [1490,390]){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});

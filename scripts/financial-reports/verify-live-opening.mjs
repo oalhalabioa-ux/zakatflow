@@ -79,6 +79,12 @@ try{
   await page.evaluate(({key})=>localStorage.removeItem(key),{key:savedKey});
   await page.setViewportSize({width:1672,height:941});
  });
+ async function chooseSetupStep(label){
+  const button=page.locator('.financial-setup-stage-timeline button').filter({hasText:label});
+  const group=page.locator('.financial-setup-stage-group').filter({has:button});
+  if(!(await button.isVisible()))await group.locator('summary').click();
+  await button.click();
+ }
  await check('The organization setup journey embeds real scoped workspaces without nested shell',async()=>{
   await page.goto(app+'/en/settings/financial/setup?organization='+org);
   await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
@@ -108,13 +114,13 @@ try{
   assert.equal(savedLegal?.activity,'Trading');
 
   await page.locator('[data-setup-native-workspace=organization]').waitFor();
-  await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Cash & banking'}).click();
+  await chooseSetupStep('Cash & banking');
   const banking=page.locator('[data-setup-native-workspace="banking"]');
   await banking.waitFor();
   assert.equal(await embedded.count(),0,'Banking uses the real institutional component without an iframe');
   const bankResponse=await page.request.get(app+'/api/financial-register?scope=ORGANIZATION&organization_id='+org);
   assert.equal(bankResponse.status(),200,'The banking source must be authorized for this legal organization');
-  await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Chart of accounts'}).click();
+  await chooseSetupStep('Chart of accounts');
   await page.locator('[data-setup-native-workspace="chart"]').waitFor();
   await page.locator('.coa-page').waitFor();
   await page.locator('[data-setup-native-workspace="chart"] h1').filter({hasText:'Chart of accounts'}).waitFor();
@@ -173,7 +179,7 @@ try{
   const journey=page.locator('.settings-tabs a').filter({hasText:'Setup journey'});
   assert.equal(await journey.getAttribute('aria-current'),'page',
     'Setup journey must be its own active tab, not a finance shortcut');
-  await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'}).click();
+  await chooseSetupStep('Branches & structure');
   const defer=page.getByRole('button',{name:/Defer for now/});
   await defer.waitFor();
   await defer.click();
@@ -185,7 +191,7 @@ try{
   // The original VAT profile, invoice seller address and ZATCA invoice unit
   // must all be reachable in the unified setup journey without duplicating
   // their persisted tables or changing the independent accounting preflight.
-  await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Legal & tax settings'}).click();
+  await chooseSetupStep('Legal & tax settings');
   const legal=page.locator('[data-setup-native-workspace="regulatory"]');
   await legal.getByLabel('Registered legal address',{exact:true}).waitFor();
   await legal.getByLabel('Registered legal address',{exact:true}).fill('Riyadh QA test address');
@@ -229,6 +235,7 @@ try{
   await page.locator('.settings-tabs a').filter({hasText:'Setup journey'}).click();
   await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
   const restored=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
+  await page.locator('.financial-setup-stage-group').filter({has:restored}).locator('summary').click();
   await restored.waitFor();
   const resume=page.getByRole('button',{name:/Continue setup/});
   await resume.waitFor();

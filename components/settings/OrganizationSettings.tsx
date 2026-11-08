@@ -300,7 +300,7 @@ export default function OrganizationSettings({
               </>}
               <label>
                 {ar ? "الدولة" : "Country"}
-                <select required value={draft.country_code} disabled={!canEdit||busy}
+                <select aria-label={ar?"الدولة":"Country"} required value={draft.country_code} disabled={!canEdit||busy}
                   onChange={e=>setDraft({...draft,country_code:e.target.value})}>
                   <option value="">{ar?'اختر دولة التسجيل':'Select country'}</option>
                   {COUNTRY_CODES.map(code=><option key={code} value={code}>{countryName(code,locale)}</option>)}

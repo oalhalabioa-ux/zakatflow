@@ -1,14 +1,12 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import {useState} from 'react';
 import OrganizationSettings from './OrganizationSettings';
 import RegulatorySettingsWorkspace from './RegulatorySettingsWorkspace';
 import TeamAccessWorkspace from './TeamAccessWorkspace';
 const Cash=dynamic(()=>import('../FinancialRegisterWorkspace'));
 
-const SystemSettings=dynamic(()=>import('./SystemSettings'),{loading:()=>null});
 const FiscalYearManagement=dynamic(()=>import('./FiscalYearManagement'),{loading:()=>null});
 const ChartOfAccountsWorkspace=dynamic(()=>import('../financial-reports/ChartOfAccountsWorkspace'),{loading:()=>null});
 const ReportingPolicyWorkspace=dynamic(()=>import('../financial-reports/ReportingPolicyWorkspace'),{loading:()=>null});
