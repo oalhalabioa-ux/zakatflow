@@ -153,7 +153,7 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
    </dl>
    <p>{ar?'البلد والسجل التجاري ليسا محفوظين بعد ضمن عقد بيانات المؤسسة. إعدادات ZATCA لا تعني امتثالًا تلقائيًا في الدول الأخرى.':
       'Country and commercial registration are not yet fields in the organization contract. ZATCA settings do not certify compliance elsewhere.'}</p>
-   <button type="button" className="financial-setup-summary-refresh" onClick={()=>onSelect('regulatory')}>
+   <button type="button" className="financial-setup-summary-refresh" disabled={!mode} onClick={()=>onSelect('regulatory')}>
     {ar?'فتح العنوان والضرائب والفوترة':'Open address, tax and invoicing'}
    </button>
   </section>
