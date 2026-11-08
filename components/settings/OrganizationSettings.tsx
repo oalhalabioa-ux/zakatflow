@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SystemSettings from "./SystemSettings";
+import OrganizationSubnav from "./OrganizationSubnav";
 import TopbarOrganizationControls from "../TopbarOrganizationControls";
 import WorkspaceOrganizationPicker from "../WorkspaceOrganizationPicker";
 import FiscalYearManagement from "./FiscalYearManagement";
@@ -156,6 +157,7 @@ export default function OrganizationSettings({
           }}
         />
       </TopbarOrganizationControls>
+      {!system&&!financial&&selected&&<OrganizationSubnav locale={locale} organization={id} active="details"/>}
       {loading ? (
         <p role="status">
           {ar ? "جارٍ تحميل المؤسسة…" : "Loading organization…"}
