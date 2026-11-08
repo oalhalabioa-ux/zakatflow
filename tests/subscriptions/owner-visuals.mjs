@@ -525,8 +525,10 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   assert.equal(published.customer_notice_ar,'عرض إطلاق خاص للمؤسسات');
   assert.equal(published.customer_notice_en,'Special launch offer for organizations');
   await page.goto(appUrl+'/ar/billing');
+  await page.getByRole('button',{name:'الباقات والترقية',exact:true}).click();
   await page.locator('[data-plan="qa_design_ab"] .plan-badge').getByText('عرض إطلاق خاص للمؤسسات',{exact:true}).waitFor();
   await page.goto(appUrl+'/en/billing');
+  await page.getByRole('button',{name:'Plans & upgrades',exact:true}).click();
   await page.locator('[data-plan="qa_design_ab"] .plan-badge').getByText('Special launch offer for organizations',{exact:true}).waitFor();
   await page.goto(appUrl+'/admin/subscriptions?lang=ar&tab=plans');
 
