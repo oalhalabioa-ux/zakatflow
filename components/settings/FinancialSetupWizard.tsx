@@ -162,7 +162,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     const query=(extra?:Record<string,string>)=>new URLSearchParams({organization:orgId,fromSetup:'1',...extra}).toString();
     return {
       organization:`${base}/settings?${query()}`,
-      regulatory:`${base}/settings/system?${query()}`,
+      regulatory:`${base}/settings/regulatory?${query()}`,
       fiscal:`${base}/settings/financial/fiscal-years?${query()}`,
       chart:`${base}/chart-of-accounts?${query()}`,
       posting:`${base}/financial-reporting-policy?${query()}`,
@@ -254,7 +254,9 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     <TopbarOrganizationControls>
       <WorkspaceOrganizationPicker ar={ar} label={t('المؤسسة','Organization')} organizations={orgs} value={orgId} restore={false} disabled={loading} onChange={selectOrganization}/>
     </TopbarOrganizationControls>
-    <header className="financial-setup-header"><div><p className="financial-setup-breadcrumb">{t('إعدادات المؤسسة / التهيئة المالية','Organization settings / Financial setup')}</p><h2>{t('إعداد المؤسسة','Set up your organization')}</h2><p>{t('رحلة واضحة من بيانات المؤسسة إلى المراجعة النهائية، باستخدام صفحات النظام المالية الحالية.','A guided journey from organization details to final review, using the existing financial pages.')}</p></div><span className="financial-setup-tag">{t('الخطوة','Step')} <bdi>{position} / {FINANCIAL_SETUP_STEPS.length}</bdi></span></header>
+    <header className="financial-setup-header"><div><p className="financial-setup-breadcrumb">{t('إعدادات المؤسسة / رحلة الإعداد','Organization settings / Setup journey')}</p><h2>{t('إعداد المؤسسة','Set up your organization')}</h2><p>{t('من بيانات المؤسسة إلى المتطلبات النظامية والضريبية ثم التأسيس المالي والصلاحيات والجاهزية، عبر نفس صفحات النظام الأصلية.','From organization details through legal and tax, finance, access and readiness — connected to the same original records.')}</p></div><Link className="financial-setup-personal-link" href={`/${locale}/settings/personal-setup`}>
+      {t('الإعداد الشخصي المبسط','Simplified personal setup')}</Link>
+      <span className="financial-setup-tag">{t('الخطوة','Step')} <bdi>{position} / {FINANCIAL_SETUP_STEPS.length}</bdi></span></header>
     {error&&<p role="alert" className="financial-setup-notice error">{error}</p>}
     {loading&&<p role="status">{t('جار تحميل المؤسسات…','Loading organizations…')}</p>}
     {!loading&&!error&&!organization&&<p role="status">{t('لا توجد مؤسسة متاحة. أنشئ مؤسسة للبدء.','No organization available. Create one to get started.')} <Link href={`/${locale}/organizations`}>{t('المؤسسات','Organizations')}</Link></p>}
