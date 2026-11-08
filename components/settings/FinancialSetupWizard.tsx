@@ -326,6 +326,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
         </div>
         <SetupJourneySummary locale={locale} mode={mode} readiness={readiness}
          completed={completed} deferred={deferred} checking={checkingReadiness}
+         organizationId={orgId} revision={readinessRevision} onSelect={selectStep}
          onRefresh={()=>setReadinessRevision(v=>v+1)}/>
       </div>
     </>}
