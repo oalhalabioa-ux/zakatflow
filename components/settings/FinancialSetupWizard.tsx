@@ -27,6 +27,7 @@ type Org = {id:string;name:string;legal_name?:string|null;base_currency:string;e
 type Saved = {mode:FinancialSetupMode|null;industry:string;completed:FinancialSetupStep[];deferred:FinancialSetupStep[];step:FinancialSetupStep};
 const labels:Record<FinancialSetupStep,[string,string]> = {
   organization:['بيانات المؤسسة','Organization'],
+  regulatory:['البيانات النظامية والضريبية','Legal & tax'],
   structure:['الفروع والهيكل','Branches & structure'],
   chart:['دليل الحسابات','Chart of accounts'],
   fiscal:['السنة المالية','Fiscal year'],
@@ -145,7 +146,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     value==='NOT_STARTED'?t('لم يبدأ','Not started'):t('قيد التحقق','Checking');
   const requiresOpeningReview=mode==='NEW'&&readiness?.statuses.opening!=='READY';
   const isComplete=completed.includes(step)||(isSkippedSetupStep(step,mode)&&!requiresOpeningReview);
-  const allReviewed=FINANCIAL_SETUP_STEPS.filter(id=>id!=='review'&&id!=='finished'&&id!=='structure'&&
+  const allReviewed=FINANCIAL_SETUP_STEPS.filter(id=>id!=='review'&&id!=='finished'&&id!=='structure'&&id!=='regulatory'&&
     (!isSkippedSetupStep(id,mode)||requiresOpeningReview)).every(id=>completed.includes(id));
   const canDefer=canDeferSetupStep(step,mode,readiness?.statuses??null);
   const details=useMemo(()=>{
@@ -208,7 +209,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     }
     if(step!=='organization'&&!isComplete&&!reviewed)return;
     // Missing chart/fiscal prerequisites cannot be waived by checking a local box.
-    if(step!=='organization'&&step!=='review'&&step!=='structure'&&readiness?.statuses[step]!=='READY'&&!canDefer)return;
+    if(step!=='organization'&&step!=='review'&&step!=='structure'&&step!=='regulatory'&&readiness?.statuses[step]!=='READY'&&!canDefer)return;
     setDeferred(previous=>previous.filter(id=>id!==step));
     setCompleted(previous=>{
       const next=previous.includes(step)?previous:[...previous,step];
@@ -305,7 +306,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
         {step==='review'&&!isComplete&&<label className="financial-setup-confirm"><input type="checkbox" checked={reviewed} onChange={event=>setReviewed(event.target.checked)}/><span>{t('أؤكد مراجعة بيانات الإعداد، مع بقاء الاعتمادات المحاسبية مستقلة','I confirm this setup review; accounting approvals remain separate')}</span></label>}
         <p className="financial-setup-hint">{note}</p>
         <footer className="financial-setup-footer"><button type="button" className="financial-setup-primary" disabled={finalizing||(step==='organization'&&!mode)||(step!=='organization'&&!isComplete&&!reviewed)||
-          (step!=='organization'&&step!=='structure'&&step!=='review'&&readiness?.statuses[step]!=='READY'&&!canDefer)||
+          (step!=='organization'&&step!=='structure'&&step!=='regulatory'&&step!=='review'&&readiness?.statuses[step]!=='READY'&&!canDefer)||
           (step==='review'&&(!allReviewed||!setupReady))} onClick={advance}>{step==='review'?t('إنهاء الإعداد','Finish setup'):t('التالي','Next')} <span aria-hidden="true">{ar?'←':'→'}</span></button>{canDefer&&<button type="button" className="financial-setup-defer" onClick={deferStep}>
           {t('تجاوز مؤقتًا','Defer for now')} <span aria-hidden="true">»</span>
         </button>}
