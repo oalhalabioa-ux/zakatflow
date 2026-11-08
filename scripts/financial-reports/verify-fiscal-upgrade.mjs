@@ -61,7 +61,10 @@ const preserved=()=>JSON.parse(sql(`select jsonb_build_object(
 const snapshot=()=>JSON.parse(sql(`select set_config('request.jwt.claim.sub','${owner}',false);select public.financial_statement_live_snapshot('${org}','2024-01-01','2024-12-31')-'coverage'`).trim().split('\n').at(-1));
 const before=preserved(),statementBefore=snapshot();
 for(const migration of migrations) await writeFile(join(dir,'supabase/migrations',migration),await readFile('supabase/migrations/'+migration));
-execFileSync('npx',['--yes','supabase@2.122.0','migration','up','--local','--workdir',dir],{stdio:'inherit'});
+// The disposable upgrade fixture intentionally installs historical migrations after
+// the newer legal-identity columns: --include-all is required by pinned CLI 2.122.0.
+// This must NEVER be used against a hosted or Production database.
+execFileSync('npx',['--yes','supabase@2.122.0','migration','up','--include-all','--local','--workdir',dir],{stdio:'inherit'});
 assert.deepEqual(preserved(),before,'Upgrade changed existing organization records or approvals');
 assert.deepEqual(snapshot(),statementBefore,'Upgrade changed an existing approved statement');
 sql(`select set_config('request.jwt.claim.sub','${owner}',false);select public.save_financial_chart_account('${org}','100001','1000','فرع نقدي تجريبي','Unmapped cash leaf','DEBIT',true,true,0,'Unmapped account must not rewrite an approved report')`);
