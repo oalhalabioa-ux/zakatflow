@@ -1,6 +1,6 @@
 'use client';
 
-import {Fragment} from 'react';
+import {Fragment,useEffect,useState} from 'react';
 import type {FinancialSetupMode,FinancialSetupStep} from '@/lib/financial-setup-steps';
 import {FINANCIAL_SETUP_STEPS,isSkippedSetupStep} from '@/lib/financial-setup-steps';
 import type {FinancialSetupReadiness} from '@/lib/financial-setup-readiness';
@@ -33,6 +33,13 @@ const groupLabels:Partial<Record<FinancialSetupStep,[string,string]>>={
  users:['رابعًا · إدارة الوصول','04 · Access management'],
  review:['خامسًا · المراجعة','05 · Review'],
 };
+type LegalTaxSource={
+ kind:'LOADING'|'MISSING'|'SAVED'|'ERROR';
+ registration:string|null;
+ hasInvoiceAddress:boolean;
+ hasVatNumber:boolean;
+};
+const initialLegalTax:LegalTaxSource={kind:'LOADING',registration:null,hasInvoiceAddress:false,hasVatNumber:false};
 const states={
  COMPLETE:['مكتمل','Complete'],
  REVIEWED:['تمت المراجعة','Reviewed'],
@@ -77,10 +84,34 @@ export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,st
  </aside>;
 }
 
-export function SetupJourneySummary({locale,mode,readiness,completed,deferred,checking,onRefresh}:Context&{
- checking:boolean;onRefresh:()=>void;
+export function SetupJourneySummary({locale,mode,readiness,completed,deferred,checking,onRefresh,organizationId,revision,onSelect}:Context&{
+ checking:boolean;onRefresh:()=>void;organizationId:string;revision:number;
+ onSelect:(step:FinancialSetupStep)=>void;
 }){
  const ar=locale==='ar';
+ const [legalTax,setLegalTax]=useState<LegalTaxSource>(initialLegalTax);
+ useEffect(()=>{
+   const controller=new AbortController();
+   setLegalTax(initialLegalTax);
+   if(!organizationId)return ()=>controller.abort();
+   fetch('/api/vat/settings?organization_id='+encodeURIComponent(organizationId),{
+    cache:'no-store',signal:controller.signal,
+   }).then(async response=>{
+    if(!response.ok)throw Error('INVOICE_PROFILE_NOT_AVAILABLE');
+    return response.json() as Promise<{profile?:Record<string,unknown>|null}>;
+   }).then(({profile})=>{
+    if(controller.signal.aborted)return;
+    setLegalTax(!profile?{kind:'MISSING',registration:null,hasInvoiceAddress:false,hasVatNumber:false}:{
+      kind:'SAVED',
+      registration:typeof profile.registration_status==='string'?profile.registration_status:null,
+      hasInvoiceAddress:['seller_street','seller_city','seller_building_number','seller_postal_code']
+       .every(key=>typeof profile[key]==='string'&&Boolean(String(profile[key]).trim())),
+      hasVatNumber:typeof profile.tax_registration_number==='string'&&
+       Boolean(profile.tax_registration_number.trim()),
+    });
+   }).catch(()=>{if(!controller.signal.aborted)setLegalTax({kind:'ERROR',registration:null,hasInvoiceAddress:false,hasVatNumber:false})});
+   return ()=>controller.abort();
+ },[organizationId,revision]);
  const counts=financialSetupJourneyCounts(readiness,deferred);
  const skipCandidates=FINANCIAL_SETUP_STEPS.filter(step=>
   !['review','finished'].includes(step)&&canDeferSetupStep(step,mode,readiness?.statuses??null));
@@ -101,6 +132,29 @@ export function SetupJourneySummary({locale,mode,readiness,completed,deferred,ch
    </dl>
    <button type="button" onClick={onRefresh} disabled={checking} className="financial-setup-summary-refresh">
     {checking?(ar?'جار التحقق…':'Checking…'):(ar?'تحديث جاهزية المؤسسة':'Refresh readiness')}
+   </button>
+  </section>
+  <section className="financial-setup-summary-card">
+   <h3>{ar?'البيانات النظامية والضريبية':'Legal & tax source review'}</h3>
+   <p>{ar?'حالة السجلات الفعلية المنفصلة عن مؤشر الجاهزية المالية.':
+     'Actual source records, independent of the financial readiness percentage.'}</p>
+   <dl className="financial-setup-journey-metrics">
+    <div><dt>{ar?'ملف بائع الفاتورة':'Invoice seller profile'}</dt>
+      <dd>{legalTax.kind==='SAVED'?ar?'محفوظ':'Saved':
+        legalTax.kind==='MISSING'?ar?'غير مدخل':'Missing':
+        legalTax.kind==='LOADING'?ar?'جار التحقق':'Checking':ar?'تعذر التحقق':'Unavailable'}</dd></div>
+    <div><dt>{ar?'عنوان بائع الفاتورة':'Seller invoice address'}</dt>
+      <dd>{legalTax.kind==='SAVED'&&legalTax.hasInvoiceAddress?ar?'مدخل':'Entered':ar?'بحاجة مراجعة':'Review'}</dd></div>
+    <div><dt>{ar?'حالة التسجيل':'Tax registration'}</dt><dd>{
+      legalTax.registration==='REGISTERED'?ar?'مسجل':'Registered':
+      legalTax.registration==='NOT_REGISTERED'?ar?'غير مسجل':'Not registered':
+      legalTax.registration==='PENDING'?ar?'قيد التسجيل':'Pending':
+      legalTax.registration==='DEREGISTERED'?ar?'ملغى':'Deregistered':ar?'غير محددة':'Not specified'}</dd></div>
+   </dl>
+   <p>{ar?'البلد والسجل التجاري ليسا محفوظين بعد ضمن عقد بيانات المؤسسة. إعدادات ZATCA لا تعني امتثالًا تلقائيًا في الدول الأخرى.':
+      'Country and commercial registration are not yet fields in the organization contract. ZATCA settings do not certify compliance elsewhere.'}</p>
+   <button type="button" className="financial-setup-summary-refresh" onClick={()=>onSelect('regulatory')}>
+    {ar?'فتح العنوان والضرائب والفوترة':'Open address, tax and invoicing'}
    </button>
   </section>
   <section className="financial-setup-summary-card">
