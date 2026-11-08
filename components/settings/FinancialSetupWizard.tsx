@@ -238,15 +238,28 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     const candidate=FINANCIAL_SETUP_STEPS.slice(0,index).reverse().find(id=>!isSkippedSetupStep(id,mode)||requiresOpeningReview);
     if(candidate)setStep(candidate);
   }
+  const refreshSetupEvidence=()=>{
+    setReadinessRevision(value=>value+1);
+    if(step!=='organization')return;
+    const expectedOrg=orgId;
+    fetch('/api/organizations',{cache:'no-store'})
+      .then(async response=>{
+        if(!response.ok)throw Error('ORGANIZATIONS_UNAVAILABLE');
+        return response.json() as Promise<Org[]>;
+      })
+      .then(items=>{
+        if(activeScope.current.orgId===expectedOrg&&Array.isArray(items))setOrgs(items);
+      }).catch(()=>{/* Readiness reports authoritative load failures independently. */});
+  };
   const moduleLink=(href:string|undefined,label:string,description:string)=><div className="financial-setup-module">
     <div className="financial-setup-module-intro"><strong>{label}</strong><p>{description}</p></div>
     {href&&(['regulatory','chart','fiscal','posting','opening'].includes(step)
       ?<SetupNativeWorkspace key={orgId+':'+step} locale={locale} organizationId={orgId}
          step={step as NativeSetupStep} organizationName={organization?.name} baseCurrency={organization?.base_currency} industry={industry} fiscalStart={readiness?.fiscalStart}
-         onRefresh={()=>setReadinessRevision(value=>value+1)}/>
+         onRefresh={refreshSetupEvidence}/>
       :<SetupEmbeddedWorkspace key={orgId+':'+step+':'+href} locale={locale}
          organizationId={orgId} stage={label} href={href}
-         onRefresh={()=>setReadinessRevision(value=>value+1)}/> )}
+         onRefresh={refreshSetupEvidence}/> )}
   </div>;
   const note=t('احفظ أو اعتمد التغييرات داخل نافذة المرحلة المترابطة، ثم حدّث حالة الجاهزية. علامة المراجعة لا تُرحّل قيودًا ولا تمنح اعتمادًا محاسبيًا.','Save or approve inside the connected step window, then refresh readiness. Review checkmarks never post entries or authorize accounting approval.');
 
