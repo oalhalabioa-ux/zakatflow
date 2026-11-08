@@ -196,14 +196,31 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
       try{
         const params=new URLSearchParams({organization:orgId});
         if(mode)params.set('mode',mode);
-        const response=await fetch('/api/financial-reporting/setup-readiness?'+params,{
-          cache:'no-store',
-        });
-        if(!response.ok)throw Error('SETUP_UNAVAILABLE');
-        const checked=await response.json() as FinancialSetupReadiness;
+        const [response,organizationsResponse]=await Promise.all([
+          fetch('/api/financial-reporting/setup-readiness?'+params,{cache:'no-store'}),
+          fetch('/api/organizations',{cache:'no-store'}),
+        ]);
+        if(!response.ok||!organizationsResponse.ok)throw Error('SETUP_UNAVAILABLE');
+        const [checked,liveOrganizations]=await Promise.all([
+          response.json() as Promise<FinancialSetupReadiness>,
+          organizationsResponse.json() as Promise<Org[]>,
+        ]);
+        // The legal country is a separate persisted organization field, not
+        // part of the seven accounting gates. Re-read it from the authorized
+        // source before finishing, rather than trusting a stale browser copy.
+        if(!Array.isArray(liveOrganizations))throw Error('ORGANIZATIONS_UNAVAILABLE');
         // A user may switch organizations or modes while the network is
         // pending. Never complete that different scope with stale evidence.
         if(activeScope.current.orgId!==orgId||activeScope.current.mode!==mode)return;
+        setOrgs(liveOrganizations);
+        const currentOrganization=liveOrganizations.find(item=>item.id===orgId);
+        if(!currentOrganization?.country_code){
+          setReadiness(checked.organizationId===orgId?checked:null);
+          setReadinessError(t('دولة تسجيل المؤسسة غير محفوظة أو تغيّرت. راجع بيانات المؤسسة وأعد التحقق.',
+            'The registered country is missing or changed. Review organization details and verify again.'));
+          setStep('organization');
+          return;
+        }
         if(checked.organizationId!==orgId||checked.mode!==mode||!checked.ready){
           setReadiness(checked.organizationId===orgId?checked:null);
           setReadinessError(t('تغيّرت جاهزية المؤسسة أو لم تكتمل. راجع الخطوات وأعد التحقق.','Readiness changed or is incomplete. Review the steps and check again.'));
