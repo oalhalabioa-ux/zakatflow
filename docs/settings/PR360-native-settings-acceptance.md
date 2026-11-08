@@ -79,3 +79,14 @@ The local UI fixture now checks eight settings/billing routes plus the setup jou
 The unified fiscal workspace retains the unsaved-edit/busy guard for organization changes, section switches and returning to the overview. The disposable browser test dismisses and accepts the confirmation and checks that discarding a UI draft never writes a fiscal calendar.
 
 Organization profile and legal forms submit only changed fields from their own section. The existing PATCH handler preserves the current saved name when it is omitted. Native UI and disposable API checks simulate concurrent edits in the other section and verify those records are retained.
+
+## Default posting rules before operations
+
+- The native posting workspace initializes an organization/year-specific **DRAFT** through a same-origin authenticated POST when no policy exists. GET remains read-only. No automatic approval, voucher, amount or opening balance is created.
+- Proposals use real active classifications and the authorized organization posting chart. Native operational recognition/settlement and normalized purchase-VAT signatures are distinct; receivable/payable settlements clear the control account rather than recognizing income/expense twice.
+- A single eligible child account is selected; multiple children use the eligible explicit control account. Missing/ambiguous accounts without a usable control are reported as unresolved. Existing user mappings always take precedence.
+- If classifications are empty, only an actor with effective `organization.edit` may create the standard base classifications under existing RLS. No elevated client, grant or schema change is introduced.
+- Repeated initialization returns the saved draft/approved policy unchanged. Initial draft races use the existing expected-version gate and reread the winner. Existing drafts and approved policies, including intentionally empty ones, are not replaced by the initializer.
+- Editors can add missing defaults to a draft, change accounts, save and reload. Unsaved changes are guarded during financial-tab/organization/date changes and refresh. Approval remains governed by the original permissions, version, closed-period and source-coverage rules.
+- Unsupported custom module signatures and complex source allocations remain explicit mapping requirements; no wildcard rule or guessed source identity is introduced. An organization with no operations is shown as **not yet tested against operations**, even after its rules are configured.
+- Local verification: generator/authorization regression tests cover no-operation generation, per-organization leaves, missing/ambiguous accounts, existing edits, VAT components, unsupported modules and concurrent initialization. The native UI fixture covers bilingual edit/save/reload and discard cancellation; the disposable full-schema browser verifies real persisted defaults before operations, repeated POST idempotence, edited-draft reload and cross-tenant denial.
