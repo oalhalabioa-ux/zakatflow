@@ -55,7 +55,7 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
   assert.equal(data.origin,'LIVE_CANONICAL_EVENTS');const s=data.statements;
   assert.equal(Number(s.cash.closing),cash);assert.equal(Number(s.income.operatingExpenses),expense);assert.equal(Number(s.income.revenue),revenue);assert.equal(Number(s.income.netProfit),revenue-expense);
   assert.equal(Number(data.accounts.find(a=>a.id==='1100')?.balance??0),receivable);
-  assert.equal(Number(data.accounts.find(a=>a.id==='2100')?.balance??0),-payable);
+  assert.equal(Number(data.accounts.find(a=>a.id==='2100')?.balance??0)+payable,0);
   assert.equal(Number(s.position.assets),cash+receivable);assert.equal(Number(s.position.liabilities),payable);assert.equal(Number(s.position.equity),5000+revenue-expense);
   assert.deepEqual(new Set(s.sourceJournalIds),new Set(expectedIds));assert.equal(s.sourceJournalIds.length,expectedIds.length);assert.equal(data.lineage.length,expectedIds.length);
   const actualBank=unwrap(await actor.client.from('liquidity_accounts').select('current_balance').eq('organization_id',organization).eq('id',bankId).single());assert.equal(Number(actualBank.current_balance),cash);
