@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {setupEmbeddedUrl} from '../../lib/financial-setup-embedded';
 
 type Props={
@@ -24,6 +24,19 @@ export default function SetupEmbeddedWorkspace({locale,organizationId,stage,href
  const [blocked,setBlocked]=useState(false);
  const [generation,setGeneration]=useState(0);
  const fullHref=url?url.replace(/([?&])setupEmbed=1(?:&|$)/,'$1').replace(/[?&]$/,''):href;
+ // A completed save in the same-origin original workspace refreshes the
+ // authoritative server readiness without navigating away from this stage.
+ useEffect(()=>{
+  const saved=(event:MessageEvent)=>{
+   if(event.origin!==window.location.origin||event.source!==iframe.current?.contentWindow)return;
+   const payload=event.data;
+   if(!payload||typeof payload!=='object'||payload.type!=='yaqeen:setup-source-saved'||
+    payload.organizationId!==organizationId)return;
+   onRefresh();
+  };
+  window.addEventListener('message',saved);
+  return()=>window.removeEventListener('message',saved);
+ },[organizationId,onRefresh]);
  function inspectLoadedWindow(){
   setLoading(false);
   try{
