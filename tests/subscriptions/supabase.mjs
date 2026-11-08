@@ -608,7 +608,7 @@ try {
     const context=await browser.newContext();await context.addCookies(jar.map(c=>({name:c.name,value:c.value,url:appUrl})));const page=await context.newPage();
     const second=await fetch(url+'/rest/v1/organizations',{method:'POST',headers:{...headers(owner),Prefer:'return=representation'},body:JSON.stringify({name:'Second institution',owner_user_id:owner.id})});assert.equal(second.status,201);const secondOrg=(await second.json())[0].id;
     await page.goto(appUrl+'/en/settings?organization='+secondOrg);
-    await page.getByRole('heading',{name:'Organization settings',exact:true}).first().waitFor();
+    await page.getByRole('heading',{name:'Organization settings',exact:true,level:1}).waitFor();
     await page.getByLabel('Organization name',{exact:true}).waitFor();
     assert.equal(await page.locator('.subscription-banner').count(),0);
     assert.equal(await page.locator('.subscription-notice').count(),0);
@@ -631,7 +631,7 @@ try {
     await page.getByLabel('Subscription status',{exact:true}).waitFor();
     assert.equal(await page.locator('.settings-tabs').count(),0,'Billing must have an independent section');
     await page.goto(appUrl+'/en/settings/regulatory?organization='+org);
-    await page.getByRole('heading',{name:'Legal & tax settings',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'Legal & tax settings',exact:true,level:1}).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);
     assert.equal(await page.locator('.settings-tabs a').count(),6);
     await page.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();

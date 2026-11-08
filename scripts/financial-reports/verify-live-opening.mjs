@@ -184,6 +184,8 @@ try{
   await defer.waitFor();
   await defer.click();
   const branchStep=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
+  if(!(await branchStep.isVisible()))await branchStep.locator('..').locator('summary').click();
+  await branchStep.waitFor();
   assert.match(await branchStep.innerText(),/Deferred/,
     'Deferred step must stay visible and must never be shown as complete');
   assert.notEqual(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100',
@@ -229,7 +231,7 @@ try{
     'Legal/tax review must not replace real financial readiness');
   await page.screenshot({path:out+'/financial-setup-legal-tax-en-desktop.png',fullPage:true});
   await page.locator('.settings-tabs a').filter({hasText:'Financial & accounting settings'}).click();
-  await page.getByRole('heading',{name:'Financial & accounting settings',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Financial & accounting settings',exact:true,level:1}).waitFor();
   assert.equal(await page.locator('.settings-tabs a').filter({hasText:'Financial & accounting settings'}).getAttribute('aria-current'),'page',
     'Financial settings tab should be active, not the journey');
   await page.locator('.settings-tabs a').filter({hasText:'Setup journey'}).click();
