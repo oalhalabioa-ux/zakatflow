@@ -155,6 +155,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     const query=(extra?:Record<string,string>)=>new URLSearchParams({organization:orgId,fromSetup:'1',...extra}).toString();
     return {
       organization:`${base}/settings?${query()}`,
+      regulatory:`${base}/settings/system?${query()}`,
       fiscal:`${base}/settings/financial/fiscal-years?${query()}`,
       chart:`${base}/chart-of-accounts?${query()}`,
       posting:`${base}/financial-reporting-policy?${query()}`,
@@ -232,9 +233,9 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
   }
   const moduleLink=(href:string|undefined,label:string,description:string)=><div className="financial-setup-module">
     <div className="financial-setup-module-intro"><strong>{label}</strong><p>{description}</p></div>
-    {href&&(['chart','fiscal','posting','opening'].includes(step)
+    {href&&(['regulatory','chart','fiscal','posting','opening'].includes(step)
       ?<SetupNativeWorkspace key={orgId+':'+step} locale={locale} organizationId={orgId}
-         step={step as NativeSetupStep} industry={industry} fiscalStart={readiness?.fiscalStart}
+         step={step as NativeSetupStep} organizationName={organization?.name} baseCurrency={organization?.base_currency} industry={industry} fiscalStart={readiness?.fiscalStart}
          onRefresh={()=>setReadinessRevision(value=>value+1)}/>
       :<SetupEmbeddedWorkspace key={orgId+':'+step+':'+href} locale={locale}
          organizationId={orgId} stage={label} href={href}
@@ -264,7 +265,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
             <span className="financial-setup-hero-symbol" aria-hidden="true">✧</span>
           </section>
       {step==='finished'?<section className="financial-setup-card financial-setup-success"><div className="financial-setup-success-mark" aria-hidden="true">✓</div><h3>{t('تهانينا! أنهيت رحلة إعداد المؤسسة','Congratulations! You completed the setup journey')}</h3><p>{t('يمكنك الآن متابعة العمليات من اللوحة الرئيسية. هذه الرسالة تؤكد انتهاء المراجعة الإرشادية؛ وتبقى الاعتمادات المحاسبية خاضعة لصلاحيات وقواعد النظام.','You can now continue from the dashboard. This confirms the guided review, while accounting approvals remain governed by the system.')}</p><Link className="financial-setup-primary" href={`/${locale}/dashboard?organization=${encodeURIComponent(orgId)}&scope=ORGANIZATION`}>{t('الانتقال إلى اللوحة الرئيسية','Go to dashboard')}</Link></section>:<section className="financial-setup-card">
-        <div className="financial-setup-card-head"><div><h3>{ar?labels[step][0]:labels[step][1]}</h3><p>{step==='organization'?t('تحديد وضع المؤسسة دون تغيير أرصدتها القائمة.','Select the organization mode without altering existing balances.'):step==='structure'?t('تعريف الجهات التابعة أو مراجعتها دون إنشاء سجلات مكررة.','Review subsidiaries without duplicating organization records.'):step==='opening'?t('مصدر افتتاحي واحد مرتبط بالسندات والتقارير.','One opening source linked to vouchers and statements.'):t('تابع الإعداد في الصفحة الأصلية، ثم عُد لإكمال الرحلة.','Continue in the existing page, then return to this journey.')}</p></div><span className="financial-setup-card-badge">{t('المرحلة','Stage')} {position}</span></div>
+        <div className="financial-setup-card-head"><div><h3>{ar?labels[step][0]:labels[step][1]}</h3><p>{step==='organization'?t('تحديد وضع المؤسسة دون تغيير أرصدتها القائمة.','Select the organization mode without altering existing balances.'):step==='structure'?t('تعريف الجهات التابعة أو مراجعتها دون إنشاء سجلات مكررة.','Review subsidiaries without duplicating organization records.'):step==='regulatory'?t('بيانات العنوان الضريبي والفوترة مع بيان ما لا يزال يحتاج سجلًا نظاميًا مستقلًا.','Invoice address and tax setup, with visibility into missing legal master fields.'):step==='opening'?t('مصدر افتتاحي واحد مرتبط بالسندات والتقارير.','One opening source linked to vouchers and statements.'):t('تابع الإعداد في الصفحة الأصلية، ثم عُد لإكمال الرحلة.','Continue in the existing page, then return to this journey.')}</p></div><span className="financial-setup-card-badge">{t('المرحلة','Stage')} {position}</span></div>
         {step==='organization'&&<><div className="financial-setup-mode-grid"><button type="button" className={mode==='NEW'?'chosen':''} aria-pressed={mode==='NEW'} onClick={()=>{setMode('NEW');setCompleted(previous=>previous.filter(id=>id!=='opening'))}}><span aria-hidden="true">＋</span><strong>{t('مؤسسة جديدة','New organization')}</strong><small>{t('تبدأ دون أرصدة افتتاحية؛ تُسجَّل حركة رأس المال عند حدوثها.','Starts without opening balances; capital is recorded when received.')}</small></button><button type="button" className={mode==='EXISTING'?'chosen':''} aria-pressed={mode==='EXISTING'} onClick={()=>setMode('EXISTING')}><span aria-hidden="true">▤</span><strong>{t('مؤسسة قائمة','Existing organization')}</strong><small>{t('لديها أرصدة سابقة تُدخل في صفحة الافتتاحي الحالية.','Prior balances are entered in the existing opening workspace.')}</small></button></div><dl className="financial-setup-facts"><div><dt>{t('اسم المؤسسة','Organization name')}</dt><dd>{organization.name}</dd></div><div><dt>{t('العملة الأساسية','Base currency')}</dt><dd dir="ltr">{organization.base_currency}</dd></div><div><dt>{t('النوع','Type')}</dt><dd>{organization.entity_type}</dd></div></dl><label className="financial-setup-activity-field">
           <span>{t('النشاط المقترح لدليل الحسابات','Suggested chart-of-accounts activity')}</span>
           <select value={industry} onChange={event=>setIndustry(event.target.value)}>
@@ -276,6 +277,15 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
         {details&&moduleLink(details.organization,t('بيانات المؤسسة الأساسية','Organization details'),
           t('عدّل الاسم والبيانات المسموح بها واحفظها مباشرة في السجل الأصلي، ثم حدّث جاهزية المرحلة.',
             'Edit and save permitted details in the original organization record, then refresh readiness.'))}</>}
+        {step==='regulatory'&&<>
+         <p className="financial-setup-intro">{t(
+          'هذه المرحلة تجمع بيانات عنوان البائع والتسجيل الضريبي والفوترة الإلكترونية في مكان واحد؛ الحفظ يتم في سجل الفوترة الأصلي، ولا يُنشئ اعتمادًا ضريبيًا تلقائيًا.',
+          'This stage combines the seller address, tax registration and e-invoicing. It saves in the existing invoicing record; it is not automatic tax-compliance certification.'
+         )}</p>
+         {moduleLink(details?.regulatory,t('العنوان والتسجيل الضريبي والفوترة الإلكترونية','Address, tax and e-invoicing'),
+          t('يمكنك مراجعة تسجيل الضريبة، والعنوان الوطني المستخدم في الفواتير، ووحدة الفوترة من نوافذ مترابطة بنفس الصلاحيات الأصلية.',
+            'Review tax registration, the invoice seller address and the e-invoice unit using existing authorized records.'))}
+        </>}
         {step==='structure'&&<>
           <p className="financial-setup-intro">{t('هذه المرحلة لمراجعة الفروع والكيانات التابعة والوحدات التنظيمية في سجل المؤسسة الأصلي. يمكن إكمالها لاحقًا، ولا تُعتبر وحدها اعتمادًا ماليًا.',
            'Review branches, subsidiaries and organizational units using the original register. This can be completed later and is not an accounting approval.')}</p>
