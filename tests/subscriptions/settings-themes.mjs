@@ -29,14 +29,15 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
   const expected=palettes[theme];
   for(const locale of ['ar','en'])for(const width of [390,1440]) {
     await page.setViewportSize({width,height:1000});
-    for(const section of ['settings','billing','settings/system']) {
+    for(const section of ['settings','billing','settings/system','settings/regulatory']) {
       await page.goto(`${appUrl}/${locale}/${section}?organization=${org}`);
       await page.locator('.corp-shell.theme-'+theme).waitFor();
       const selectedTab='.settings-tabs a[aria-current=page]';
       await page.locator(selectedTab).waitFor();
       if(section==='billing')await page.locator('.yb-billing-tabs').waitFor();
       else if(section==='settings')await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
-      else await page.locator('.yp-preferences-card').first().waitFor();
+      else if(section==='settings/system')await page.locator('.yp-preferences-card').first().waitFor();
+      else await page.locator('.system-settings .console-card').first().waitFor();
       // Three independent primary tabs, plus billing/system links outside
       // the main journey. Keep full readability checks rather than relying on
       // the old navy-bar palette, which belonged to the superseded design.
@@ -63,7 +64,8 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
           }
         }
       }
-      if(section==='settings/system') {
+      // ZATCA is part of the legal/tax tab, not global system preferences.
+      if(section==='settings/regulatory') {
         await page.getByRole('button',{name:locale==='ar'?'إعداد الفوترة':'Configure invoicing',exact:true}).click();
         const dialog=page.locator('dialog[open].subscription-modal');await dialog.waitFor();
         if(theme!=='yaqeen-business') {
@@ -72,8 +74,8 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
         }
         const box=await dialog.boundingBox();assert.ok(box.x>=10&&box.x+box.width<=width-10,`${theme} dialog width`);
       }
-      await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-colors-${theme}-${locale}-${width}-${section.replaceAll('/','-')}.png`,root).pathname,fullPage:section!=='settings/system'});
-      if(section==='settings/system')await page.keyboard.press('Escape');
+      await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-colors-${theme}-${locale}-${width}-${section.replaceAll('/','-')}.png`,root).pathname,fullPage:section!=='settings/regulatory'});
+      if(section==='settings/regulatory')await page.keyboard.press('Escape');
     }
   }
   await page.goto(`${appUrl}/en/settings?organization=${org}`);
