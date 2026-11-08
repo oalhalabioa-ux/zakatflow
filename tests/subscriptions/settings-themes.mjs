@@ -6,7 +6,7 @@ const palettes = {
   modern: { selected: 'rgb(67, 85, 199)', ink: 'rgb(255, 255, 255)', nav: 'rgb(41, 60, 143)' },
   elegant: { selected: 'rgb(13, 117, 95)', ink: 'rgb(255, 255, 255)', nav: 'rgb(25, 77, 66)' },
 };
-const contrast = ({fg,bg}) => {
+export const contrast = ({fg,bg}) => {
   const lum = color => {
     // Chromium may serialize color-mix as color(srgb …).
     const channels = color.startsWith('color(srgb')
@@ -18,7 +18,7 @@ const contrast = ({fg,bg}) => {
   const [a,b]=[lum(fg),lum(bg)].sort((a,b)=>b-a);
   return (a+.05)/(b+.05);
 };
-const readColors = elements => elements.map(el=>{
+export const readColors = elements => elements.map(el=>{
   const style=getComputedStyle(el);
   let surface=el;
   while(surface.parentElement&&getComputedStyle(surface).backgroundColor==='rgba(0, 0, 0, 0)')surface=surface.parentElement;
@@ -38,7 +38,7 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       else if(section==='settings')await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
       else if(section==='settings/system')await page.locator('.yp-preferences-card').first().waitFor();
       else await page.locator('[data-regulatory-workspace]').waitFor();
-      // Three independent primary tabs, plus billing/system links outside
+      // Six settings areas, with independent billing outside
       // the main journey. Keep full readability checks rather than relying on
       // the old navy-bar palette, which belonged to the superseded design.
       assert.equal(await page.locator('.settings-tabs a').count(),section==='billing'?0:6);

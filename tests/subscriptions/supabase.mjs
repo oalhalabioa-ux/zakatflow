@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import assert from "node:assert/strict";
 import {verifyInvitationFlow} from './invitation-flow.mjs';
-import { verifySettingsTheme } from "./settings-themes.mjs";
+import { verifySettingsTheme, contrast, readColors } from "./settings-themes.mjs";
 const root = new URL("../../", import.meta.url),
   load = (p) => readFile(new URL(p, root), "utf8");
 const dir = process.env.TRIAL_QA_WORKDIR;
@@ -669,21 +669,20 @@ try {
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
-    const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
     for(const [theme,label] of [['yaqeen-business','Yaqeen Business'],['elegant','Elegant'],['modern','Modern'],['classic','Classic']]){
       await page.getByRole('group',{name:'Choose design',exact:true}).getByRole('button',{name:label,exact:true}).click();
       await page.locator('.corp-shell.theme-'+theme).waitFor();
-      const colors=await page.locator('.settings-card').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
-      for(const c of colors){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings card contrast '+JSON.stringify(c));}
-      const tabs=await page.locator('.settings-tabs a').evaluateAll(items=>items.map(el=>({active:el.getAttribute('aria-current')==='page',fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(el.parentElement).backgroundColor:getComputedStyle(el).backgroundColor})));
-      for(const c of tabs){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
+      const colors=await page.locator('.settings-card').evaluateAll(readColors);
+      for(const c of colors)assert.ok(contrast(c)>=4.5,theme+' settings card contrast '+JSON.stringify(c));
+      const tabs=await page.locator('.settings-tabs a').evaluateAll(readColors);
+      for(const c of tabs)assert.ok(contrast(c)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));
       await verifySettingsTheme({page,theme,org,appUrl,root});
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
       await page.goto(appUrl+'/en/settings/regulatory?organization='+org);await page.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();
       const modal=page.locator('.financial-setup-regulatory-editor');await modal.waitFor();
       const box=await modal.boundingBox();const viewport=page.viewportSize();assert.ok(box.width>0,'Native tax form is visible');assert.ok(box.x>=10&&box.x+box.width<=viewport.width-10);
-      const surfaces=await page.locator('.financial-setup-regulatory-editor').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
-      for(const c of surfaces){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' system surface contrast '+JSON.stringify(c));}
+      const surfaces=await page.locator('.financial-setup-regulatory-editor').evaluateAll(readColors);
+      for(const c of surfaces)assert.ok(contrast(c)>=4.5,theme+' system surface contrast '+JSON.stringify(c));
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/system-modal-${theme}.png`,root).pathname,fullPage:false});await page.keyboard.press('Escape');
       await page.goto(appUrl+'/en/settings?organization='+org);await page.getByLabel('Organization name',{exact:true}).waitFor();
 
