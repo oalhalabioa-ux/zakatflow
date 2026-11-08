@@ -664,7 +664,14 @@ try{
    await page.goto(app+'/'+locale+'/'+route+'?organization='+org);
    await page.locator(selector).waitFor();
    assert.equal(await page.locator('iframe').count(),0,'Native settings cannot contain framed app screens');
-   if(route==='settings/financial')await page.locator('.fiscal-calendar-settings').waitFor();
+   if(route==='settings/financial'){
+    await page.locator('[data-financial-overview-ready=true]').waitFor();
+    assert.equal(await page.locator('.settings-financial-overview [role=alert]').count(),0,'Overview must read real fiscal and chart sources');
+    await page.getByRole('button',{name:locale==='ar'?'إدارة السنة المالية':'Manage fiscal year',exact:true}).click();
+    await page.locator('.fiscal-calendar-settings').waitFor();
+    await page.getByRole('button',{name:locale==='ar'?'ملخص التأسيس المالي':'Financial setup overview',exact:true}).click();
+    await page.locator('[data-financial-overview-ready=true]').waitFor();
+   }
    if(route==='settings/team'){
     await page.getByText(a.email,{exact:true}).first().waitFor();
     if(locale==='en'){
