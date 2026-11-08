@@ -10,6 +10,7 @@ import type {PostingChartAccount} from '../lib/financial-posting-rule-validation
 import {readReportingPolicy} from './financial-reporting-policy';
 import type {RecognitionEvent} from '../lib/financial-event-ledger';
 import {hasVerifiedZeroOpening} from '../lib/financial-setup-source-proof';
+import {FINANCIAL_SETUP_SOURCE_GATES} from '../lib/financial-setup-readiness';
 
 const query=z.object({organization:z.string().uuid(),mode:z.enum(['NEW','EXISTING']).nullable()}).strict();
 
@@ -89,8 +90,7 @@ export async function readFinancialSetupReadiness(input:unknown){
  // A new company cannot declare itself "no opening" merely through a browser
  // toggle: its recorded sources must independently show a clean zero opening.
  const prelim=financialSetupReadiness(evidence);
- const readyForSource=Object.entries(prelim.statuses).filter(([name])=>name!=='review'&&name!=='finished')
-  .every(([,status])=>status==='READY');
+ const readyForSource=FINANCIAL_SETUP_SOURCE_GATES.every(name=>prelim.statuses[name]==='READY');
  if(readyForSource&&fiscal.status==='fulfilled'&&fiscal.value.period){
   evidence.sourceChecked=true;
   try{
