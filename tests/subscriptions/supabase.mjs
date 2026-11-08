@@ -577,7 +577,7 @@ try {
     await page.getByLabel('Decision reason — visible to customer',{exact:true}).fill('Approved browser end to end test');await page.getByLabel('End date for approval — device timezone',{exact:true}).fill('2027-12-31T18:00');
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-owner-inbox.png',root).pathname,fullPage:true});
     const approved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/subscriptions/requests'&&r.request().method()==='POST');await page.getByRole('button',{name:'Approve and activate manually',exact:true}).click();assert.equal((await approved).status(),200);
-    await page.goto(appUrl+'/en/billing?organization='+target);await page.getByText('Current active plan',{exact:true}).waitFor();await page.getByText('Activated',{exact:false}).first().waitFor();
+    await page.goto(appUrl+'/en/billing?organization='+target);await page.getByRole('button',{name:'Plans & upgrades',exact:true}).click();await page.getByText('Current active plan',{exact:true}).waitFor();await page.getByText('Activated',{exact:false}).first().waitFor();
     const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.max_users,15);assert.equal(state.plan.price_amount,399);
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-current-plan.png',root).pathname,fullPage:true});
     await context.close();
@@ -618,11 +618,12 @@ try {
     await page.getByRole('button',{name:'Save changes',exact:true}).click();
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();await page.getByLabel('Legal name',{exact:true}).waitFor();assert.equal(await page.getByLabel('Legal name',{exact:true}).inputValue(),'Preserved legal organization');
-    await page.getByRole('navigation',{name:'Other settings'}).getByRole('link',{name:'Subscription & plans',exact:true}).click();
+    await page.getByRole('navigation',{name:'Other settings'}).getByRole('link',{name:'Subscription & billing',exact:true}).click();
     await page.getByLabel('Subscription status',{exact:true}).waitFor();
-    await page.getByRole('navigation',{name:'Other settings'}).getByRole('link',{name:'System settings',exact:true}).click();
+    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Legal & tax settings',exact:true}).click();
     await page.getByRole('heading',{name:'Organization system settings',exact:true}).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);
+    assert.equal(await page.locator('.settings-tabs a').count(),6);
     await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
     const vatDialog=page.getByRole('dialog',{name:'E-invoicing & ZATCA settings',exact:true});await vatDialog.waitFor();
     await vatDialog.getByLabel('Registered name',{exact:true}).fill('QA registered organization');
@@ -653,7 +654,7 @@ try {
         icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,
         overflow:nav.scrollWidth>nav.clientWidth
       }));
-      assert.equal(layout.icons,3);assert.equal(layout.widths.length,3);assert.ok(!layout.overflow);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
+      assert.equal(layout.icons,6);assert.equal(layout.widths.length,6);assert.equal(layout.overflow,width<1160);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
