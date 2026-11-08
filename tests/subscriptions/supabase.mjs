@@ -566,7 +566,7 @@ try {
   await check('customer submits an immutable quote; owner activates it; customer sees the actual active plan',async()=>{
     const context=await browser.newContext();await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));const page=await context.newPage();
     const created=await fetch(url+'/rest/v1/organizations',{method:'POST',headers:{...headers(owner),Prefer:'return=representation'},body:JSON.stringify({name:'Activation review institution',owner_user_id:owner.id})});assert.equal(created.status,201);const target=(await created.json())[0].id;
-    await page.goto(appUrl+'/ar/billing?organization='+target);await page.locator('[data-plan="advanced_monthly"]').waitFor();
+    await page.goto(appUrl+'/ar/billing?organization='+target);await page.getByRole('button',{name:'الباقات والترقية',exact:true}).click();await page.locator('[data-plan="advanced_monthly"]').waitFor();
     assert.ok(!/[٠-٩]/.test(await page.locator('.pricing-grid').innerText()));
     await page.locator('[data-plan="advanced_monthly"]').getByRole('button',{name:'طلب تفعيل الباقة',exact:true}).click();
     const dialog=page.getByRole('dialog',{name:'طلب تفعيل باقة',exact:true});await dialog.waitFor();await dialog.getByLabel('رقم التواصل',{exact:true}).fill('+966500000000');await dialog.getByLabel('ملاحظات الطلب',{exact:true}).fill('Browser reviewed activation');
