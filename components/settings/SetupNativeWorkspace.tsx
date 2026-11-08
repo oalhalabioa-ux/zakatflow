@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {useState} from 'react';
+import SetupEmbeddedWorkspace from './SetupEmbeddedWorkspace';
 
 const SystemSettings=dynamic(()=>import('./SystemSettings'),{loading:()=>null});
 const FiscalYearManagement=dynamic(()=>import('./FiscalYearManagement'),{loading:()=>null});
@@ -16,6 +17,7 @@ export default function SetupNativeWorkspace({
 }:{locale:string;organizationId:string;organizationName?:string;baseCurrency?:string;step:NativeSetupStep;industry:string;fiscalStart?:string|null;onRefresh:()=>void}){
  const ar=locale==='ar';
  const [chartTab,setChartTab]=useState<'structure'|'accounts'|'templates'|'review'>('structure');
+ const [legalEditorOpen,setLegalEditorOpen]=useState(false);
  const chartTabs=[
   {id:'structure',ar:'الهيكل الأساسي',en:'Basic structure'},
   {id:'accounts',ar:'الحسابات الفرعية',en:'Subaccounts'},
@@ -46,6 +48,15 @@ export default function SetupNativeWorkspace({
       {ar?'فتح بيانات المؤسسة القانونية':'Open registered organization details'}
      </Link>
     </div>
+    <button type="button" className="financial-setup-summary-refresh" aria-expanded={legalEditorOpen}
+      onClick={()=>setLegalEditorOpen(value=>!value)}>
+      {legalEditorOpen?(ar?'إخفاء نموذج الهوية القانونية':'Hide legal identity editor'):
+        (ar?'تعديل الهوية القانونية هنا دون مغادرة الرحلة':'Edit registered identity here without leaving setup')}
+    </button>
+    {legalEditorOpen&&<SetupEmbeddedWorkspace locale={locale} organizationId={organizationId}
+      stage={ar?'بيانات المؤسسة القانونية':'Registered organization identity'}
+      href={`/${locale}/settings?organization=${encodeURIComponent(organizationId)}`}
+      onRefresh={onRefresh}/>}
     <SystemSettings key={organizationId} id={organizationId}
       name={organizationName??''} currency={baseCurrency??'SAR'} locale={locale}
       setupEmbedded onSaved={onRefresh}/>
