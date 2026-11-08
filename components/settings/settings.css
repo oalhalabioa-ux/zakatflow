@@ -158,3 +158,30 @@
  background:var(--settings-surface,var(--brand-surface,#fff));
  color:var(--settings-ink,var(--brand-text,#10243a));
 }
+
+
+/* Six approved settings content sections. Never draw another CorporateShell.
+   On narrow viewports only the settings tabs scroll, not the entire page. */
+.corp-shell .settings-workspace{max-width:1500px}
+.settings-workspace .settings-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-flow:row;
+ grid-auto-columns:auto;gap:0;max-width:100%;overflow:hidden}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){min-width:0;min-height:58px;
+ font-size:clamp(.72rem,.83vw,.87rem);line-height:1.4;padding:9px 6px;text-align:center}
+.settings-workspace .settings-tabs a .settings-tab-icon{flex-shrink:0;width:19px;height:19px}
+.settings-workspace .settings-secondary-links{margin-bottom:14px}
+.settings-subsection-nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:18px;
+ border:1px solid var(--brand-border,#dce2ea);background:var(--brand-surface,#fff);
+ border-radius:10px;padding:6px}
+.settings-subsection-nav a{display:inline-flex;align-items:center;justify-content:center;min-height:37px;
+ font-size:.84rem;line-height:1.5;font-weight:750;padding:8px 15px;text-decoration:none;
+ color:var(--brand-text,#10243a);border-radius:7px;border:1px solid transparent}
+.settings-subsection-nav a[aria-current=page]{border-color:#c6a35d;background:#10243a;color:#f5ebd6;box-shadow:inset 0 -2px 0 #c6a35d}
+.settings-subsection-nav a:not([aria-current]):hover{background:#f5ebd655}
+@media(max-width:1160px){
+ .settings-workspace .settings-tabs{display:flex;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity}
+ .corp-shell .settings-workspace .settings-tabs a:not(.btn){flex:0 0 173px;font-size:.78rem;scroll-snap-align:start;min-height:52px}
+}
+@media(max-width:600px){
+ .corp-shell .settings-workspace .settings-tabs a:not(.btn){flex-basis:152px;min-height:49px;padding:8px 6px}
+ .settings-subsection-nav a{flex:1 1 130px;font-size:.79rem;padding:7px 9px}
+}
