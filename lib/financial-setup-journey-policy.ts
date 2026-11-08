@@ -6,6 +6,7 @@ import type {FinancialSetupReadiness,SetupStatus} from './financial-setup-readin
  */
 export const FINANCIAL_SETUP_STEP_HELP:Readonly<Partial<Record<FinancialSetupStep,{ar:string;en:string}>>>={
  organization:{ar:'تحديد بيانات المؤسسة ووضعها',en:'Verify organization identity and setup mode'},
+ regulatory:{ar:'ملف البائع والعنوان الوطني وحالة التسجيل الضريبي ووحدة الفوترة',en:'Seller address, tax registration and invoice unit'},
  structure:{ar:'مراجعة الفروع والوحدات التنظيمية (اختياري)',en:'Review subsidiaries and structure (optional)'},
  chart:{ar:'اختيار الحسابات والتصنيفات الفعلية',en:'Configure the actual chart and classifications'},
  fiscal:{ar:'بداية ونهاية السنة وحساب الأرباح المحتجزة',en:'Fiscal year and retained earnings account'},
@@ -28,6 +29,7 @@ export function canDeferSetupStep(
  if(!mode||!statuses||statuses.organization!=='READY'||statuses[step]==='READY')return false;
  switch(step){
   case 'structure':return true; // Optional organizational inspection
+  case 'regulatory':return true; // Independent of chart/fiscal posting; never statutory certification
   case 'chart':return statuses.fiscal==='READY'; // Fiscal retained-account dependency already met
   case 'fiscal':return statuses.posting==='READY'; // The next financial dependency already met
   case 'posting':return true; // Bank account review does not require posting-policy approval
@@ -45,6 +47,7 @@ export function setupJourneyStepState(
  mode:FinancialSetupMode|null,
 ):'COMPLETE'|'INCOMPLETE'|'DEFERRED'|'OPTIONAL'|'BLOCKED'|'VERIFYING'|'REVIEWED'{
  if(step==='structure')return reviewed.includes('structure')?'REVIEWED':deferred.includes('structure')?'DEFERRED':'OPTIONAL';
+ if(step==='regulatory')return reviewed.includes('regulatory')?'REVIEWED':deferred.includes('regulatory')?'DEFERRED':'INCOMPLETE';
  const status=readiness?.statuses[step];
  if(!status)return 'VERIFYING';
  if(step==='opening'&&mode==='NEW'&&status==='READY')return 'OPTIONAL';
