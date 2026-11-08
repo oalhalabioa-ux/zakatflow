@@ -103,9 +103,18 @@ try{
   const refreshedAfterSave=page.waitForResponse(response=>
    response.url().includes('/api/financial-reporting/setup-readiness?')&&response.status()===200);
   await embeddedPage.getByLabel('Legal name').fill('QA legal name updated inside setup');
+  await embeddedPage.getByLabel('Country of registration (two-letter ISO code)').fill('SA');
+  await embeddedPage.getByLabel('Commercial or statutory registration number').fill('123456789');
+  await embeddedPage.getByLabel('Registered legal address').fill('Riyadh QA test address');
   await embeddedPage.getByRole('button',{name:'Save changes'}).click();
   await embeddedPage.getByRole('status').filter({hasText:'Organization details saved.'}).waitFor();
   await refreshedAfterSave;
+  const legalResponse=await page.request.get(app+'/api/organizations',{headers:{'cache-control':'no-cache'}});
+  assert.equal(legalResponse.status(),200,'The legal identity must be readable under signed-in organization RLS');
+  const savedLegal=(await legalResponse.json()).find(item=>item.id===org);
+  assert.equal(savedLegal?.country_code,'SA');
+  assert.equal(savedLegal?.commercial_registration_number,'123456789');
+  assert.equal(savedLegal?.registered_address,'Riyadh QA test address');
   await page.getByRole('heading',{name:'Organization'}).first().waitFor();
   await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Cash & banking'}).click();
   const cashFrame=page.locator('iframe.financial-setup-embedded-frame');
