@@ -21,3 +21,21 @@ export function isSettingsSectionActive(path:string,section:string){
  if(section==='settings')return path==='settings'||path==='settings/structure'||path==='billing';
  return path===section;
 }
+
+/** Preserve the original Yaqeen corporate sidebar exactly as it was before
+ * the six-screen settings redesign. Only the CONTENT tabs show all six.
+ * Sidebar icons use CorporateShell's existing NavIconName contract.
+ */
+export const sidebarSettingSections = [
+  {path:'settings',ar:'إعدادات المؤسسة',en:'Organization settings',icon:'organization'},
+  {path:'settings/financial',ar:'الإعدادات المالية والمحاسبية',en:'Financial & accounting settings',icon:'settings'},
+  {path:'settings/financial/setup',ar:'رحلة الإعداد',en:'Setup journey',icon:'organization'},
+  {path:'billing',ar:'الاشتراك والباقات',en:'Subscription & plans',icon:'payments'},
+  {path:'settings/system',ar:'إعدادات النظام',en:'System settings',icon:'settings'},
+] as const;
+export function isSidebarSettingSectionActive(path:string,section:string){
+ if(path==='billing')return section==='billing';
+ if(path==='settings/structure'||path==='settings/regulatory'||path==='settings/team')
+   return section==='settings';
+ return isSettingsSectionActive(path,section);
+}
