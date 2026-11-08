@@ -271,6 +271,7 @@ export default function SystemSettings({
                     {ar ? "حالة التسجيل" : "Registration status"}
                     <select
                       name="registration_status"
+                      aria-label={ar?"حالة التسجيل":"Registration status"}
                       defaultValue={
                         profile?.registration_status || "NOT_REGISTERED"
                       }
@@ -319,6 +320,7 @@ export default function SystemSettings({
                     {ar ? "دورية الإقرار" : "Filing frequency"}
                     <select
                       name="filing_frequency"
+                      aria-label={ar?"دورية الإقرار":"Filing frequency"}
                       defaultValue={String(
                         profile?.filing_frequency || "QUARTERLY",
                       )}

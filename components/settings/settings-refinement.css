@@ -116,3 +116,17 @@
 .settings-workspace .settings-finance-status .settings-finance-state-incomplete{border-color:#e9b7bb;background:#fffafb}
 .settings-workspace .settings-state.incomplete{background:#fff0ef;color:#a11f27}
 .settings-workspace .settings-state.unverified{background:#eef1f5;color:#526070}
+/* Keep native form actions and tables consistent with the approved Royal theme. */
+.corp-shell.theme-yaqeen-business .settings-workspace .settings-action-footer .settings-save{background:#155438;color:#fff;border-color:#155438}
+.corp-shell.theme-yaqeen-business .settings-workspace :is(.settings-data-table,.settings-chart-preview,.settings-native-team .table) th{background:#e9edf2;color:#10243a;border-bottom-color:#dce3ec}
+.corp-shell.theme-yaqeen-business .settings-workspace .settings-form :is(input,select,textarea):not([readonly]):not(:disabled){border-color:#ccd6e2}
+.settings-workspace .settings-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.settings-workspace .settings-members-heading h2{display:flex;gap:8px;align-items:center;margin:0}
+.settings-workspace .settings-members-heading .settings-team-search{margin:0;min-width:190px;flex:0 1 240px}
+@media(max-width:700px){.settings-workspace .settings-members-heading .settings-team-search{flex:1 1 100%;max-width:none;min-width:0}}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-tabs{display:flex;gap:4px;border:1px solid #dce3ec;border-radius:8px;background:#fff;padding:4px;margin:0 0 18px}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-tabs button{flex:1;border:0;border-radius:5px;background:transparent;color:#10243a;min-height:38px;padding:8px 12px;font:inherit;font-size:.84rem}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-tabs button[aria-pressed=true]{background:#10243a;color:#f5ebd6;box-shadow:inset 0 -3px #c6a35d}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-actions button.primary{background:#155438;color:#fff;border-color:#155438}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .vat-profile-fields label{font-size:.85rem}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .vat-profile-fields :is(input,select,textarea){min-height:40px;border-color:#ccd6e2;font:inherit;font-size:.9rem}
