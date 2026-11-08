@@ -34,7 +34,7 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
   const [actorRole,setActorRole]=useState('');
   const [actorId,setActorId]=useState('');
   const [dataLoading,setDataLoading]=useState(false);
-  const requestVersion=useRef(0);
+  const requestVersion=useRef(0),organizationRequestVersion=useRef(0);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
   const [members, setMembers] = useState<Member[]>([]); const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -49,14 +49,16 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
   const organization = useMemo(() => organizations.find(item => item.id === organizationId), [organizations, organizationId]);
 
   const loadOrganizations = useCallback(async () => {
+    const version=++organizationRequestVersion.current;
     try {
       const response = await fetch('/api/organizations', { cache: 'no-store' });
       if (!response.ok) throw new Error();
       const rows = await response.json() as Organization[];
+      if(version!==organizationRequestVersion.current)return;
       setOrganizations(rows);
       setOrganizationId(current => !preferredOrg && rows.some(item => item.id === current) ? current : rows.find(item => item.id === (preferredOrg || new URLSearchParams(window.location.search).get('organization')))?.id ?? (preferredOrg ? '' : rows[0]?.id ?? ''));
-    } catch { setNotice(ar ? 'تعذر تحميل الجهات.' : 'Could not load organizations.'); }
-    finally { setLoading(false); }
+    } catch { if(version===organizationRequestVersion.current)setNotice(ar ? 'تعذر تحميل الجهات.' : 'Could not load organizations.'); }
+    finally { if(version===organizationRequestVersion.current)setLoading(false); }
   }, [ar,preferredOrg]);
 
   const loadUsers = useCallback(async (id: string) => {
@@ -86,8 +88,8 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
     }catch{if(version===requestVersion.current){setMembers([]);setInvitations([]);setCustomRoles([]);setNotice(ar?'تعذر تحميل بيانات الوصول. أعد المحاولة.':'Could not load access data. Please retry.');}}finally{if(version===requestVersion.current)setDataLoading(false);}
   }, [ar]);
 
-  useEffect(() => { void loadOrganizations(); }, [loadOrganizations]);
-  useEffect(() => { void loadUsers(organizationId); }, [loadUsers, organizationId]);
+  useEffect(() => { void loadOrganizations();return()=>{organizationRequestVersion.current++;}; }, [loadOrganizations]);
+  useEffect(() => { void loadUsers(organizationId);return()=>{requestVersion.current++;}; }, [loadUsers, organizationId]);
   useEffect(() => { setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function'); }, []);
 
   function chooseOrganization(id:string){
@@ -206,7 +208,8 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
     finally { setBusy(false); }
   }
 
-  return <main className={`${inline?'settings-native-team':'container'} ${styles.accessPage}`} dir={ar ? 'rtl' : 'ltr'} style={inline?{maxWidth:'100%',padding:0}:{maxWidth:1180,paddingTop:30,paddingBottom:60}}>
+  const Container=inline?'section':'main';
+  return <Container className={`${inline?'settings-native-team':'container'} ${styles.accessPage}`} dir={ar ? 'rtl' : 'ltr'} style={inline?{maxWidth:'100%',padding:0}:{maxWidth:1180,paddingTop:30,paddingBottom:60}}>
     {inline&&organizationPicker&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} label={ar?'المؤسسة':'Organization'} organizations={organizations} value={organizationId} onChange={chooseOrganization} restore={false} disabled={loading||busy}/></TopbarOrganizationControls>}
     <SetupReturnLink locale={locale} organization={setupReturn.organization} visible={setupReturn.visible} embedded={setupReturn.embedded} />
     <header style={{ marginBottom: 24 }}><span className="pill">{ar ? 'إدارة الوصول' : 'ACCESS MANAGEMENT'}</span><h1>{ar ? 'المستخدمون والصلاحيات' : 'Users & permissions'}</h1><p className="muted">{ar ? 'اربط حسابات الدخول بالجهات، وأدر أدوار الأعضاء والدعوات.' : 'Link sign-in accounts to organizations, and manage member roles and invitations.'}</p></header>
@@ -315,7 +318,7 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
       </tbody></table>}</section>
       {inline&&activeTab==='members'&&<section className="card settings-team-access-summary"><h3>{ar?'نظرة على الأدوار والصلاحيات':'Roles & access overview'}</h3><p>{ar?'عدد أعضاء الفريق النشطين: ':'Active team members: '}<bdi>{members.filter(m=>m.status==='ACTIVE').length}</bdi></p><p>{ar?'الأدوار المخصصة المحفوظة: ':'Saved custom roles: '}<bdi>{customRoles.length}</bdi></p>{customRoles.map(r=><div className="settings-entity-row" key={r.id}><strong>{r.name}</strong><span><bdi>{r.permissions.length}</bdi> {ar?'صلاحية':'permissions'}</span></div>)}<button type="button" className="btn secondary" onClick={()=>setActiveTab('roles')}>{ar?'إدارة الأدوار والصلاحيات':'Manage roles & permissions'}</button></section>}
     </div></>}
-  </main>;
+  </Container>;
 }
 
 function message(code: string, ar: boolean) {
