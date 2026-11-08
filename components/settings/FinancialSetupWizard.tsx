@@ -133,13 +133,14 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     return()=>window.removeEventListener('focus',refresh);
   },[]);
   useEffect(()=>{
-    if(step==='finished'&&(!readiness||!readiness.ready))setStep('review');
-  },[step,readiness]);
+    if(step==='finished'&&(!readiness||!readiness.ready||!orgs.find(item=>item.id===orgId)?.country_code))setStep('review');
+  },[step,readiness,orgs,orgId]);
 
 
   const organization=orgs.find(item=>item.id===orgId);
   const position=FINANCIAL_SETUP_STEPS.indexOf(step)+1;
   const setupReady=readiness?.ready===true;
+  const registeredCountryReady=Boolean(organization?.country_code);
   const statusLabel=(value:SetupStatus|undefined)=>value==='READY'?t('جاهز','Ready'):
     value==='IN_PROGRESS'?t('غير مكتمل','Incomplete'):
     value==='BLOCKED'?t('يتطلب معالجة','Action required'):
@@ -174,7 +175,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
 
   function selectOrganization(next:string){setHydrated(false);setOrgId(next)}
   function selectStep(next:FinancialSetupStep){
-    if(next==='finished'&&(!completed.includes('review')||!setupReady))return;
+    if(next==='finished'&&(!completed.includes('review')||!setupReady||!registeredCountryReady))return;
     if(!mode&&next!=='organization')return;
     // An unresolved zero-opening claim must be inspectable in the original
     // opening workspace; only skip it after the server verifies zero sources.
@@ -188,7 +189,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     if(step==='finished')return;
     if(step==='organization'&&!mode)return;
     if(step==='review'){
-      if(!allReviewed||!setupReady||finalizing||!orgId)return;
+      if(!allReviewed||!setupReady||!registeredCountryReady||finalizing||!orgId)return;
       // A prior readiness response cannot authorize a later completion.
       // Recheck against current server evidence immediately on Finish.
       setFinalizing(true);setReadinessError('');
@@ -275,7 +276,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
     {organization&&hydrated&&<>
       {readinessError&&<p role="alert" className="financial-setup-notice error">{readinessError}</p>}
       <div className="financial-setup-journey-grid">
-        <SetupJourneySidebar locale={locale} step={step} mode={mode} readiness={readiness}
+        <SetupJourneySidebar locale={locale} step={step} mode={mode} readiness={readiness} organizationLegal={organization}
          completed={completed} deferred={deferred} onSelect={selectStep}/>
         <div className="financial-setup-journey-center">
           <section className="financial-setup-journey-hero">
@@ -337,13 +338,14 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
           'تكتمل الجاهزية المالية وفق مصادرها السبعة فقط. بيانات الدولة والسجل والعنوان القانوني تُحفظ في سجل المؤسسة، ويُراجع تسجيل الضريبة وعنوان الفاتورة بصورة مستقلة. لا يعني إنهاء الرحلة اعتمادًا قانونيًا أو ضريبيًا.',
           'Financial readiness is limited to seven verified source gates. Country, registration and registered address are saved in the organization record; tax status and seller address are reviewed separately. Finishing does not certify statutory compliance.'
         )}</p>
+        {!registeredCountryReady&&<p role="alert" className="financial-setup-notice error">{t('يجب تحديد دولة تسجيل المؤسسة وحفظها في البيانات الأصلية قبل إنهاء رحلة الإعداد، دون اعتباره اعتمادًا ضريبيًا.','Save the registered country in the original organization details before finishing the setup journey; this is not tax certification.')}</p>}
         {!setupReady&&<p role="alert" className="financial-setup-notice error">{t('التهيئة لم تجتز فحص الجاهزية الفعلي. أكمل النواقص ثم حدّث الحالة.','Live setup readiness is not verified. Resolve missing requirements, then refresh.')}</p>}{!allReviewed&&<p role="alert" className="financial-setup-notice error">{t('هناك خطوات لم تُراجع بعد؛ عد إليها قبل الإنهاء.','Some steps still need review before finishing.')}</p>}</>}
         {step!=='organization'&&step!=='review'&&!isComplete&&<label className="financial-setup-confirm"><input type="checkbox" checked={reviewed} onChange={event=>setReviewed(event.target.checked)}/><span>{t('راجعت هذه الخطوة وأريد المتابعة','I reviewed this step and want to continue')}</span></label>}
         {step==='review'&&!isComplete&&<label className="financial-setup-confirm"><input type="checkbox" checked={reviewed} onChange={event=>setReviewed(event.target.checked)}/><span>{t('أؤكد مراجعة بيانات الإعداد، مع بقاء الاعتمادات المحاسبية مستقلة','I confirm this setup review; accounting approvals remain separate')}</span></label>}
         <p className="financial-setup-hint">{note}</p>
         <footer className="financial-setup-footer"><button type="button" className="financial-setup-primary" disabled={finalizing||(step==='organization'&&!mode)||(step!=='organization'&&!isComplete&&!reviewed)||
           (step!=='organization'&&step!=='structure'&&step!=='regulatory'&&step!=='review'&&readiness?.statuses[step]!=='READY'&&!canDefer)||
-          (step==='review'&&(!allReviewed||!setupReady))} onClick={advance}>{step==='review'?t('إنهاء الإعداد','Finish setup'):t('التالي','Next')} <span aria-hidden="true">{ar?'←':'→'}</span></button>{canDefer&&<button type="button" className="financial-setup-defer" onClick={deferStep}>
+          (step==='review'&&(!allReviewed||!setupReady||!registeredCountryReady))} onClick={advance}>{step==='review'?t('إنهاء الإعداد','Finish setup'):t('التالي','Next')} <span aria-hidden="true">{ar?'←':'→'}</span></button>{canDefer&&<button type="button" className="financial-setup-defer" onClick={deferStep}>
           {t('تجاوز مؤقتًا','Defer for now')} <span aria-hidden="true">»</span>
         </button>}
         <button type="button" className="financial-setup-secondary" onClick={()=>{setNotice(t('تم حفظ تقدمك على هذا الجهاز.','Progress saved on this device.'));}}>{t('حفظ ومتابعة لاحقًا','Save for later')}</button><button type="button" className="financial-setup-back" disabled={step==='organization'} onClick={previous}>{t('السابق','Back')}</button></footer>
