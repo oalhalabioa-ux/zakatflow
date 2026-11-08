@@ -32,16 +32,15 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
     for(const section of ['settings','billing','settings/system']) {
       await page.goto(`${appUrl}/${locale}/${section}?organization=${org}`);
       await page.locator('.corp-shell.theme-'+theme).waitFor();
-      const selectedTab=section==='settings'?'.settings-tabs a[aria-current=page]':
-        '.settings-secondary-links a[aria-current=page]';
+      const selectedTab='.settings-tabs a[aria-current=page]';
       await page.locator(selectedTab).waitFor();
-      if(section==='billing')await page.locator('.pricing-card').first().waitFor();
+      if(section==='billing')await page.locator('.yb-billing-tabs').waitFor();
       else if(section==='settings')await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
-      else await page.locator('.system-settings .console-card').first().waitFor();
+      else await page.locator('.yp-preferences-card').first().waitFor();
       // Three independent primary tabs, plus billing/system links outside
       // the main journey. Keep full readability checks rather than relying on
       // the old navy-bar palette, which belonged to the superseded design.
-      assert.equal(await page.locator('.settings-tabs a').count(),3);
+      assert.equal(await page.locator('.settings-tabs a').count(),6);
       const active=await page.locator(selectedTab).evaluateAll(readColors);
       assert.equal(active.length,1,`${theme} ${section} active section must be unambiguous`);
       assert.ok(contrast(active[0])>=4.5,`${theme} ${section} selected tab contrast ${JSON.stringify(active[0])}`);
