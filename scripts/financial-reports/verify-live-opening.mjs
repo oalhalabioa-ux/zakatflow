@@ -81,7 +81,7 @@ try{
  });
  async function chooseSetupStep(label){
   const button=page.locator('.financial-setup-stage-timeline button').filter({hasText:label});
-  const group=page.locator('.financial-setup-stage-group').filter({has:button});
+  const group=button.locator('..');
   if(!(await button.isVisible()))await group.locator('summary').click();
   await button.click();
  }
@@ -235,7 +235,7 @@ try{
   await page.locator('.settings-tabs a').filter({hasText:'Setup journey'}).click();
   await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
   const restored=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
-  await page.locator('.financial-setup-stage-group').filter({has:restored}).locator('summary').click();
+  await restored.locator('..').locator('summary').click();
   await restored.waitFor();
   const resume=page.getByRole('button',{name:/Continue setup/});
   await resume.waitFor();
@@ -643,6 +643,25 @@ try{
  await check('Posted statement action opens the exact authorized financial voucher',async()=>{
   const posted=JSON.parse(sql(`select to_jsonb(x) from(select s.organization_id org,s.financial_event_id event,a.name bank from public.liquidity_settlements s join public.liquidity_accounts a on a.id=s.account_id join public.organization_members m on m.organization_id=s.organization_id and m.user_id='${a.id}' and m.status='ACTIVE' and m.role='OWNER' where s.status='POSTED' and s.financial_event_id is not null order by s.id limit 1)x`));assert.ok(posted);
   await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/liquidity?tab=position&organization='+posted.org);await page.getByRole('button',{name:'Account details and statement: '+posted.bank,exact:true}).click();const details=page.getByRole('dialog',{name:'Bank account details and statement',exact:true}),link=details.locator('a[href*="/cash-vouchers/'+posted.event+'"]');await link.waitFor({state:'attached'});await link.locator('..').locator('summary').click();await link.click();await page.locator('[data-cash-voucher="'+posted.event+'"]').waitFor();await page.getByRole('heading',{name:'Original cash movement voucher',exact:true}).waitFor();
+ });
+ await check('All native settings sections retain real organization scope across desktop/mobile AR/EN',async()=>{
+  const sections=[['settings','.organization-details-workspace'],['settings/regulatory','[data-regulatory-workspace]'],['settings/financial','[data-financial-settings]'],['settings/team','.settings-native-team'],['settings/system','[data-system-preferences]'],['billing','.yb-billing']];
+  for(const locale of ['ar','en'])for(const [route,selector] of sections){
+   await page.setViewportSize({width:1490,height:1050});
+   await page.goto(app+'/'+locale+'/'+route+'?organization='+org);
+   await page.locator(selector).waitFor();
+   assert.equal(await page.locator('iframe').count(),0,'Native settings cannot contain framed app screens');
+   if(route==='settings/financial')await page.locator('[data-fiscal-management]').waitFor();
+   if(route==='settings/team')await page.getByRole('button',{name:locale==='ar'?'إنشاء الدعوة':'Create invite',exact:true}).waitFor();
+   assert.equal(new URL(page.url()).searchParams.get('organization'),org);
+   for(const width of [1490,390]){
+    await page.setViewportSize({width,height:1050});
+    await page.waitForFunction(()=>{const w=document.querySelector('.corp-workspace');return !w||Math.abs(w.getBoundingClientRect().width-innerWidth)<2||innerWidth>1000;});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),locale+' '+route+' native layout overflow');
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:out+'/native-'+route.replaceAll('/','-')+'-'+locale+'-'+width+'.png',fullPage:true});
+   }
+  }
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}

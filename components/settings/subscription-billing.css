@@ -36,3 +36,5 @@
 .yb-usage-label{display:flex;justify-content:space-between}.yb-usage{height:9px;border-radius:10px;background:#e8edf1;overflow:hidden}.yb-usage span{display:block;height:100%;background:#c6a35d}.yb-notice{padding:14px 18px;background:#f5ebd6;color:#604d26!important;border-radius:8px;font-size:.86rem;line-height:1.8}
 .yb-table-wrap{overflow:auto}.yb-table-wrap table{width:100%;border-collapse:collapse}.yb-table-wrap th{background:#10243a;color:#f5ebd6}.yb-table-wrap th,.yb-table-wrap td{padding:12px;text-align:start;border-bottom:1px solid var(--brand-border,#dce2ea)}
 @media(max-width:700px){.yb-billing-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.yb-overview-grid{grid-template-columns:1fr}.yb-billing-header{align-items:start;flex-direction:column}.yb-plan-card{padding:22px}.yb-details>div{flex-wrap:wrap}.yb-billing-tabs button{min-height:44px}}
+/* Global heading rules must not override text on the navy plan surface. */
+.corp-shell .settings-workspace .yb-billing .yb-plan-card :is(h2,small,.yb-remaining){color:#f5ebd6}

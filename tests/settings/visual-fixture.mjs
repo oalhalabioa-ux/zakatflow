@@ -45,7 +45,16 @@ try{
    await page.goto(`${app}/${locale}/${path}?organization=${orgId}`);
    const root=path==='billing'?page.locator('.yb-billing'):path==='settings/system'?page.locator('[data-system-preferences]'):path==='settings/regulatory'?page.locator('[data-regulatory-workspace]'):page.locator('.organization-details-workspace');await root.waitFor();
    if(path==='settings/system')await page.getByRole('button',{name:ar?'حفظ التعديلات':'Save changes',exact:true}).waitFor();
-   if(path==='billing'){await page.locator('.yb-details').getByText('شركة يقين التجارية',{exact:true}).waitFor();assert.equal(await page.locator('.settings-tabs').count(),0);}
+   if(path==='billing'){
+    await page.locator('.yb-details').getByText('شركة يقين التجارية',{exact:true}).waitFor();
+    assert.equal(await page.locator('.settings-tabs').count(),0);
+    const contrast=await page.locator('.yb-plan-card h2').evaluate(el=>{
+     const rgb=s=>s.match(/[\d.]+/g).slice(0,3).map(Number).map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;});
+     const lum=s=>{const c=rgb(s);return .2126*c[0]+.7152*c[1]+.0722*c[2];};
+     const a=lum(getComputedStyle(el).color),b=lum(getComputedStyle(el.closest('.yb-plan-card')).backgroundColor);
+     return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+    });assert.ok(contrast>=4.5,'Plan heading must be readable on its actual surface');
+   }
    assert.equal(await page.locator('iframe').count(),0);
    for(const width of [1490,390]){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});
