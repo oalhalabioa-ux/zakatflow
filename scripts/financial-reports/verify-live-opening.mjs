@@ -243,8 +243,8 @@ try{
   await restored.waitFor();
   const resume=page.getByRole('button',{name:/Continue setup/});
   await resume.waitFor();
-  assert.ok((await resume.innerText()).includes('First missing financial requirement'),
-   'Resume must identify the next verified financial requirement, not fabricated local completion');
+  assert.ok((await resume.innerText()).includes('First incomplete setup requirement'),
+   'Resume must identify the next saved organization or verified financial requirement, not fabricated local completion');
   assert.match(await restored.innerText(),/Deferred/,
     'Deferred step should survive navigation between settings tabs');
   await page.screenshot({path:out+'/financial-setup-journey-navigation-en-desktop.png',fullPage:true});
