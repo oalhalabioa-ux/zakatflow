@@ -765,6 +765,10 @@ try{
    }
   }
  });
+ await check('Actual default posting cycle through native Liquidity APIs reconciles recognition, settlement and reports once',async()=>{
+  const {verifyDefaultPostingActualCycle}=await import('./verify-default-opening-posting-cycle.mjs');
+  report.defaultPostingActualCycle=await verifyDefaultPostingActualCycle({actor:a,outsider:b,page,app,out,sql,databaseUrl:url});
+ });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
 // Exit only after assertions, evidence writes and cleanup; background SDK handles must not keep CI alive.
