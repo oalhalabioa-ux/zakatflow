@@ -2,6 +2,11 @@ import {FINANCIAL_SETUP_STEPS,type FinancialSetupMode,type FinancialSetupStep} f
 import type {PostingPolicyReadiness} from './financial-setup-posting-evidence';
 
 export type SetupStatus='NOT_STARTED'|'IN_PROGRESS'|'BLOCKED'|'READY';
+// Only these seven source-backed financial requirements determine financial
+// preflight. Administrative steps are tracked separately and NEVER silently
+// converted into an accounting, legal or regulatory certification.
+export const FINANCIAL_SETUP_SOURCE_GATES=['organization','chart','fiscal','posting','banking','opening','users'] as const;
+
 export type FinancialSetupReadiness={
  organizationId:string;
  mode:FinancialSetupMode|null;
@@ -50,7 +55,7 @@ export function financialSetupReadiness(e:SetupEvidence):FinancialSetupReadiness
   review:'BLOCKED',
   finished:'BLOCKED',
  };
- const base=FINANCIAL_SETUP_STEPS.filter(s=>s!=='review'&&s!=='finished'&&s!=='structure'&&s!=='regulatory');
+ const base=FINANCIAL_SETUP_SOURCE_GATES;
  const prerequisites=base.every(s=>statuses[s]==='READY');
  const ready=prerequisites&&e.sourceChecked&&e.sourceVerified;
  statuses.review=ready?'READY':'BLOCKED';
