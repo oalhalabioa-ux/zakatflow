@@ -7,6 +7,7 @@ import {canDeferSetupStep,FINANCIAL_SETUP_STEP_HELP,financialSetupJourneyCounts,
 
 export const SETUP_JOURNEY_LABELS:Record<FinancialSetupStep,[string,string]>={
  organization:['بيانات المؤسسة','Organization details'],
+ regulatory:['البيانات النظامية والضريبية','Legal & tax settings'],
  structure:['الفروع والهيكل','Branches & structure'],
  chart:['دليل الحسابات','Chart of accounts'],
  fiscal:['السنة المالية','Fiscal year'],
