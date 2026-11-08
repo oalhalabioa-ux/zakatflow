@@ -16,6 +16,7 @@ import {
   type FinancialSetupMode,
   type FinancialSetupStep,
 } from '@/lib/financial-setup-steps';
+import OrganizationStructureWorkspace from './OrganizationStructureWorkspace';
 import {SETUP_GROUPS} from '@/lib/financial-setup-presentation';
 import type {FinancialSetupReadiness,SetupStatus} from '@/lib/financial-setup-readiness';
 import SetupNativeWorkspace,{type NativeSetupStep} from './SetupNativeWorkspace';
@@ -319,20 +320,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
           t('يمكنك مراجعة تسجيل الضريبة، والعنوان الوطني المستخدم في الفواتير، ووحدة الفوترة من نوافذ مترابطة بنفس الصلاحيات الأصلية.',
             'Review tax registration, the invoice seller address and the e-invoice unit using existing authorized records.'))}
         </>}
-        {step==='structure'&&<>
-          <p className="financial-setup-intro">{t('هذه المرحلة لمراجعة الفروع والكيانات التابعة والوحدات التنظيمية في سجل المؤسسة الأصلي. يمكن إكمالها لاحقًا، ولا تُعتبر وحدها اعتمادًا ماليًا.',
-           'Review branches, subsidiaries and organizational units using the original register. This can be completed later and is not an accounting approval.')}</p>
-          <div className="financial-setup-structure-overview">
-           <div><span>{t('المؤسسة المختارة','Selected organization')}</span><strong>{organization.name}</strong></div>
-           <div><span>{t('الكيانات التابعة الظاهرة','Accessible subsidiaries')}</span><strong><bdi>{orgs.filter(item=>item.parent_organization_id===orgId).length}</bdi></strong></div>
-           <div><span>{t('تبعية المؤسسة','Organization relationship')}</span><strong>{organization.parent_organization_id?t('تابعة','Subsidiary'):t('رئيسية','Parent')}</strong></div>
-          </div>
-          <p className="financial-setup-notice">{t('عدم وجود فروع ليس خطأ بحد ذاته. لن تُحتسب هذه المرحلة مكتملة محاسبيًا اعتمادًا على عدد الفروع؛ راجع الهيكل بحسب نشاط مؤسستك.',
-           'Having no subsidiaries is not an error by itself. Branch counts do not certify financial setup; review the structure based on your organization needs.')}</p>
-          <Link className="financial-setup-structure-link" href={`/${locale}/organizations?organization=${encodeURIComponent(orgId)}`}>
-           {t('فتح إدارة الهيكل المؤسسي والفروع','Manage organization structure and branches')}
-          </Link>
-        </>}
+        {step==='structure'&&<OrganizationStructureWorkspace locale={locale} preferredOrg={orgId} inline/>}
         {step==='fiscal'&&moduleLink(details?.fiscal,t('إدارة السنوات المالية','Fiscal years'),t('حدد بداية السنة ونهايتها، وحساب الأرباح المحتجزة، مع حماية السنوات المقفلة.','Configure year boundaries and retained earnings while preserving closed periods.'))}
         {step==='chart'&&<><p className="financial-setup-intro">{t('الدليل الرئيسي موحد لكل المنشآت. اختر نشاطك لمعاينة حساباته الفرعية ذات الأرقام التابعة للحسابات الرئيسية، ثم أضف الحسابات المطلوبة داخل الدليل دون تغيير الحسابات القائمة.','The main chart is shared by all organizations. Select your activity to preview numbered child accounts, then add the required ones in the existing chart without modifying prior accounts.')}</p><div className="financial-setup-industries">{FINANCIAL_INDUSTRIES.map(item=><button type="button" key={item.id} aria-pressed={industry===item.id} className={industry===item.id?'chosen':''} onClick={()=>setIndustry(item.id)}>{t(item.ar,item.en)}</button>)}</div>{moduleLink(details?.chart?`${details.chart}&template=${industry}`:undefined,t('دليل الحسابات الحالي','Existing chart of accounts'),t('استعراض القالب وتفعيل الحسابات الفرعية مع كشف أي تعارض في الأرقام.','Preview the template and add child accounts with account-number conflict checks.'))}</>}
         {step==='posting'&&<>{readiness?.posting&&<div className="financial-setup-posting-status" aria-label={t('حالة قواعد الترحيل الفعلية','Actual posting rules status')}>

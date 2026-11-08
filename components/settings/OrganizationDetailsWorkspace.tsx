@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
-import Link from 'next/link';
+import SettingsIcon from './SettingsIcon';
 import OrganizationSettings from './OrganizationSettings';
 import OrganizationSubnav from './OrganizationSubnav';
 import SubscriptionSetupSummary from './SubscriptionSetupSummary';
@@ -28,8 +28,8 @@ export default function OrganizationDetailsWorkspace({locale,preferredOrg=''}:{l
    <OrganizationSubnav locale={locale} organization={org.id} active="details"/>
    <OrganizationSettings key={org.id} locale={locale} preferredOrg={org.id} inline onSaved={ctx.refresh}/>
   </div><aside className="settings-organization-summary">
-   <section className="settings-card"><h3>{ar?'جاهزية بيانات المؤسسة':'Organization profile completeness'}</h3><strong className="settings-profile-percent"><bdi>{Math.round(count/fields.length*100)}%</bdi></strong><progress value={count} max={fields.length} aria-label={ar?'اكتمال بيانات المؤسسة':'Profile completeness'}/><p>{ar?'بيانات محفوظة: ':'Saved fields: '}<bdi>{count} / {fields.length}</bdi></p></section>
-   <section className="settings-card"><h3>{ar?'الفروع والهيكل التنظيمي':'Branches & structure'}</h3>{entities?entities.filter(e=>e.active).map(e=><div className="settings-entity-row" key={e.id}><span>{e.name}</span><small>{e.entity_type==='BRANCH'?(ar?'فرع':'Branch'):e.entity_type==='COMPANY'?(ar?'المقر':'Head office'):e.entity_type}</small></div>):<p>{ar?'تعذر التحقق من الهيكل حاليًا.':'Structure is currently unavailable.'}</p>}{entities?.length===0&&<p>{ar?'لم تُضف وحدات تنظيمية بعد.':'No organizational units yet.'}</p>}<Link href={`/${locale}/settings/structure?organization=${encodeURIComponent(org.id)}`}>{ar?'إدارة الفروع':'Manage branches'}</Link></section>
+   <section className="settings-card"><h3><SettingsIcon name="info"/>{ar?'جاهزية بيانات المؤسسة':'Organization profile completeness'}</h3><div className="settings-profile-progress"><strong className="settings-profile-percent"><bdi>{Math.round(count/fields.length*100)}%</bdi></strong><progress value={count} max={fields.length} aria-label={ar?'اكتمال بيانات المؤسسة':'Profile completeness'}/></div><p className="settings-hint">{ar?'نسبة اكتمال بيانات المؤسسة المحفوظة، مستقلة عن الجاهزية المحاسبية.':'Saved organization profile completeness, separate from accounting readiness.'}</p><dl className="settings-profile-counts"><div><dd><bdi>{count}</bdi></dd><dt>{ar?'مكتمل':'Complete'}</dt></div><div><dd><bdi>{fields.length-count}</bdi></dd><dt>{ar?'قيد الإكمال':'Remaining'}</dt></div></dl></section>
+   <section className="settings-card"><h3><SettingsIcon name="structure"/>{ar?'الفروع والهيكل التنظيمي':'Branches & structure'}</h3>{entities?entities.filter(e=>e.active).map(e=><div className="settings-entity-row" key={e.id}><span>{e.name}</span><small>{e.entity_type==='BRANCH'?(ar?'فرع':'Branch'):e.entity_type==='COMPANY'?(ar?'شركة':'Company'):e.entity_type}</small></div>):<p>{ar?'تعذر التحقق من الهيكل حاليًا.':'Structure is currently unavailable.'}</p>}{entities?.length===0&&<p>{ar?'لم تُضف وحدات تنظيمية بعد.':'No organizational units yet.'}</p>}</section>
    <SubscriptionSetupSummary locale={locale} organizationId={org.id}/>
   </aside></div>
  </section>;

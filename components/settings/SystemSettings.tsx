@@ -32,6 +32,8 @@ export default function SystemSettings({
   locale,
   setupEmbedded = false,
   onSaved,
+  workspaceSection,
+  onEditRegistration,
 }: {
   id: string;
   name: string;
@@ -39,6 +41,8 @@ export default function SystemSettings({
   locale: string;
   setupEmbedded?: boolean;
   onSaved?: () => void;
+  workspaceSection?: "tax"|"invoicing";
+  onEditRegistration?:()=>void;
 }) {
   const ar = locale === "ar",
     [profile, setProfile] = useState<Profile | null>(null),
@@ -49,6 +53,7 @@ export default function SystemSettings({
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  useEffect(()=>{if(workspaceSection)setTab(workspaceSection==='invoicing'?'unit':'registration');},[workspaceSection]);
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);
@@ -206,7 +211,7 @@ export default function SystemSettings({
       </div>}
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
-      {setupEmbedded && <div className="financial-setup-regulatory-summary">
+      {setupEmbedded && !workspaceSection && <div className="financial-setup-regulatory-summary">
         <div><span>{ar?"ملف الفوترة":"Invoice seller profile"}</span>
           <strong>{loading?ar?"جار التحقق…":"Loading…":profile?ar?"بيانات محفوظة":"Saved source record":ar?"لم تُضف بيانات بعد":"Not configured"}</strong>
         </div>
@@ -230,12 +235,12 @@ export default function SystemSettings({
           }}
           busy={busy}
         >
-          <nav className="console-tabs">
+          {workspaceSection!=='invoicing'&&<nav className="console-tabs">
             {[
               ["registration", ar ? "التسجيل الضريبي" : "Registration"],
               ["address", ar ? "العنوان الوطني" : "National address"],
               ["unit", ar ? "وحدة الفوترة" : "Invoice unit"],
-            ].map(([key, label]) => (
+            ].filter(([key])=>!workspaceSection||key!=='unit').map(([key, label]) => (
               <button
                 key={key}
                 aria-pressed={tab === key}
@@ -244,7 +249,7 @@ export default function SystemSettings({
                 {label}
               </button>
             ))}
-          </nav>
+          </nav>}
           {error && <p role="alert">{error}</p>}
           {tab === "unit" ? (
             <VatEInvoiceSetup
@@ -253,7 +258,7 @@ export default function SystemSettings({
               vatNumber={profile?.tax_registration_number || ""}
               registered={profile?.registration_status === "REGISTERED"}
               ar={ar}
-              onEditRegistration={() => setTab("registration")}
+              onEditRegistration={() => {setTab("registration");onEditRegistration?.();}}
             />
           ) : (
             <form className="request-form" onSubmit={save}>
@@ -370,7 +375,7 @@ export default function SystemSettings({
                 <button className="primary" disabled={!editable || busy}>
                   {ar ? "حفظ الإعدادات" : "Save settings"}
                 </button>
-                <button
+                {!workspaceSection&&                <button
                   type="button"
                   onClick={() =>
                     setTab(tab === "registration" ? "address" : "registration")
@@ -383,7 +388,7 @@ export default function SystemSettings({
                     : ar
                       ? "التسجيل الضريبي"
                       : "Registration"}
-                </button>
+                </button>}
               </footer>
             </form>
           )}

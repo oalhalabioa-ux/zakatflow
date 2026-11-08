@@ -3,6 +3,7 @@
 import {useEffect,useState} from 'react';
 import {rememberedOrganization} from '@/lib/workspace-organization';
 import Link from 'next/link';
+import SettingsIcon from './SettingsIcon';
 
 export default function OrganizationSubnav({locale,organization,active}:{
  locale:string;organization?:string;active:'details'|'structure'|'billing';
@@ -28,6 +29,6 @@ export default function OrganizationSubnav({locale,organization,active}:{
  return <nav className="settings-subsection-nav"
    aria-label={ar?'أقسام إعدادات المؤسسة':'Organization settings sub-sections'}>
    {sections.map(s=><Link key={s.id} href={`/${locale}/${s.path}${prefix}`}
-     aria-current={s.id===active?'page':undefined}>{ar?s.ar:s.en}</Link>)}
+     aria-current={s.id===active?'page':undefined}><SettingsIcon name={s.id==='details'?'organization':'structure'}/><span>{ar?s.ar:s.en}</span></Link>)}
  </nav>;
 }

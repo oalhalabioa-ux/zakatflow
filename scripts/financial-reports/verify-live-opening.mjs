@@ -208,7 +208,7 @@ try{
   const legalSaved=(await (await page.request.get(app+'/api/organizations')).json()).find(x=>x.id===org);
   assert.equal(legalSaved.registered_address,'Riyadh QA test address');
   assert.equal(legalSaved.commercial_registration_number,'123456789');
-  await legal.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();
+  await legal.getByRole('button',{name:'Tax registration',exact:true}).click();
   await legal.locator('.financial-setup-regulatory-editor').waitFor();
   await legal.locator('.console-tabs').getByRole('button',{name:'National address',exact:true}).click();
   await legal.getByLabel('Street',{exact:true}).waitFor();
@@ -664,15 +664,36 @@ try{
   assert.equal(readinessResponse.status(),200);assert.equal((await readinessResponse.json()).organizationId,org);
   const teamScope=randomUUID();
   sql(`select set_config('request.jwt.claim.sub','${a.id}',false);insert into public.organizations(id,owner_user_id,name) values('${teamScope}','${a.id}','Native team second institution');insert into public.organization_members(organization_id,user_id,role,status) values('${teamScope}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';`);
-  const sections=[['settings','.organization-details-workspace'],['settings/regulatory','[data-regulatory-workspace]'],['settings/financial','[data-financial-settings]'],['settings/team','.settings-native-team'],['settings/system','[data-system-preferences]'],['billing','.yb-billing']];
+  const sections=[['settings/structure','[data-structure-workspace]'],['settings','.organization-details-workspace'],['settings/regulatory','[data-regulatory-workspace]'],['settings/financial','[data-financial-settings]'],['settings/team','.settings-native-team'],['settings/system','[data-system-preferences]'],['billing','.yb-billing']];
   for(const locale of ['ar','en'])for(const [route,selector] of sections){
    await page.setViewportSize({width:1490,height:1050});
    await page.goto(app+'/'+locale+'/'+route+'?organization='+org);
    await page.locator(selector).waitFor();
    assert.equal(await page.locator('iframe').count(),0,'Native settings cannot contain framed app screens');
+   if(route==='settings/structure'&&locale==='en'){
+    await page.getByRole('button',{name:'Add entity',exact:true}).click();await page.getByLabel('Entity name',{exact:true}).fill('Native structure persisted QA');
+    await page.getByRole('button',{name:'Save entity',exact:true}).click();await page.getByText('Entity saved.',{exact:true}).waitFor();
+    const entitiesResponse=await page.request.get(app+'/api/organizations/entities?organization_id='+org);assert.equal(entitiesResponse.status(),200);assert.ok((await entitiesResponse.json()).some(e=>e.name==='Native structure persisted QA'));
+    await page.reload();await page.getByRole('cell',{name:'Native structure persisted QA',exact:true}).waitFor();
+    assert.equal(await page.locator('.organizations-page').count(),0,'Structure settings must not embed the entire organization directory');
+   }
+   if(route==='settings/regulatory'&&locale==='en'){
+    await page.getByRole('button',{name:'E-invoicing',exact:true}).click();await page.locator('.vat-panel').waitFor();
+    assert.equal(await page.locator('.financial-setup-regulatory-editor .console-tabs').count(),0,'E-invoice unit has one outer navigation, not duplicate nested tabs');
+    await page.getByRole('button',{name:'Edit number',exact:true}).click();await page.getByLabel('Registration status',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Tax registration',exact:true}).getAttribute('aria-pressed'),'true');
+    await page.getByRole('button',{name:'Registered identity & address',exact:true}).click();
+   }
+   if(route==='settings/system'){
+    await page.locator('.settings-security-card').getByText(a.email,{exact:true}).waitFor();
+    assert.equal(await page.locator('.settings-security-card input,.settings-security-card select').count(),0,'Security summary must not imply unsupported policy changes');
+   }
    if(route==='settings/financial'){
     await page.locator('[data-financial-overview-ready=true]').waitFor();
     assert.equal(await page.locator('.settings-financial-overview [role=alert]').count(),0,'Overview must read real fiscal and chart sources');
+    const chartSource=await (await page.request.get(app+'/api/financial-reporting/chart?organization='+org)).json();
+    const displayedCount=await page.locator('.settings-chart-preview tbody td:nth-child(2)').evaluateAll(cells=>cells.reduce((sum,cell)=>sum+Number(cell.textContent),0));
+    assert.equal(displayedCount,chartSource.accounts.filter(a=>a.isActive&&a.isPostable).length,'Primary chart groups preserve every active posting account');
     await page.getByRole('button',{name:locale==='ar'?'إدارة السنة المالية':'Manage fiscal year',exact:true}).click();
     await page.locator('.fiscal-calendar-settings').waitFor();
     await page.getByRole('button',{name:locale==='ar'?'ملخص التأسيس المالي':'Financial setup overview',exact:true}).click();

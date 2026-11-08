@@ -294,9 +294,8 @@ export default function OrganizationSettings({
                 />
               </label>
               {!identityOnly&&<>
+              <label>{ar?'نوع الكيان':'Entity type'}<input readOnly value={selected.entity_type==='COMPANY'?(ar?'شركة':'Company'):selected.entity_type==='FAMILY'?(ar?'مكتب عائلي':'Family office'):selected.entity_type==='PERSON'?(ar?'فرد':'Individual'):selected.entity_type==='TRUST'?(ar?'وقف / ائتمان':'Trust'):(ar?'جهة أخرى':'Other')}/></label>
               <label>{ar?'النشاط الرئيسي':'Main activity'}<input maxLength={120} value={draft.activity} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,activity:e.target.value})}/></label>
-              <label>{ar?'البريد الرسمي':'Official email'}<input type="email" maxLength={254} dir="ltr" value={draft.contact_email} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,contact_email:e.target.value})}/></label>
-              <label>{ar?'رقم الهاتف':'Phone number'}<input type="tel" maxLength={40} dir="ltr" value={draft.contact_phone} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,contact_phone:e.target.value})}/></label>
               </>}
               <label>
                 {ar ? "الدولة" : "Country"}
@@ -332,29 +331,16 @@ export default function OrganizationSettings({
               <label>{ar?'جهة إصدار السجل':'Registration authority'}<input maxLength={160} value={draft.registration_authority} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registration_authority:e.target.value})}/></label>
               <label>{ar?'تاريخ انتهاء السجل':'Registration expiry'}<input type="date" value={draft.registration_expires_on} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registration_expires_on:e.target.value})}/></label>
               </div>
-              <p className="settings-hint">{ar ?
+              {identityOnly&&<p className="settings-hint">{ar ?
                 "هذه بيانات هوية المؤسسة النظامية. عنوان البائع والرقم الضريبي الخاصان بالفواتير يُداران بصورة مستقلة في إعدادات الضرائب، ولا يعني الحفظ اعتمادًا نظاميًا تلقائيًا." :
-                "These are the organization's registered identity details. The invoice seller address and tax number are managed separately; saving does not certify statutory compliance."}</p>
-              {!identityOnly&&<dl className="settings-facts">
-                <div>
-                  <dt>{ar ? "العملة الأساسية" : "Base currency"}</dt>
-                  <dd>{selected.base_currency}</dd>
-                </div>
-                <div>
-                  <dt>{ar ? "الهيكل المؤسسي" : "Organization structure"}</dt>
-                  <dd>
-                    {selected.parent_organization_id
-                      ? ar
-                        ? "مؤسسة تابعة"
-                        : "Subsidiary"
-                      : ar
-                        ? "مؤسسة رئيسية"
-                        : "Parent organization"}
-                  </dd>
-                </div>
-              </dl>}
+                "These are the organization's registered identity details. The invoice seller address and tax number are managed separately; saving does not certify statutory compliance."}</p>}
+              {!identityOnly&&<label>{ar?'العملة الأساسية':'Base currency'}<input readOnly value={selected.base_currency}/></label>}
+              {!identityOnly&&<>
+              <label>{ar?'رقم الهاتف':'Phone number'}<input type="tel" maxLength={40} dir="ltr" value={draft.contact_phone} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,contact_phone:e.target.value})}/></label>
+              <label>{ar?'البريد الرسمي':'Official email'}<input type="email" maxLength={254} dir="ltr" value={draft.contact_email} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,contact_email:e.target.value})}/></label>
+              </>}
               {canEdit ? (
-                <button className="btn" disabled={busy || !draft.name.trim()}>
+                <footer className="settings-action-footer"><button className="btn settings-save settings-profile-save" disabled={busy || !draft.name.trim()}>
                   {busy
                     ? ar
                       ? "جارٍ الحفظ…"
@@ -362,7 +348,7 @@ export default function OrganizationSettings({
                     : ar
                       ? "حفظ التغييرات"
                       : "Save changes"}
-                </button>
+                </button></footer>
               ) : (
                 <p className="settings-hint">
                   {ar
@@ -370,9 +356,7 @@ export default function OrganizationSettings({
                     : "Details are visible; editing is available to the organization owner."}
                 </p>
               )}
-              <Link href={`/${locale}/organizations?organization=${encodeURIComponent(id)}`}>
-                {ar ? "إدارة الهيكل المؤسسي" : "Manage organization structure"}
-              </Link>
+
             </form>
           )}
           {error && <p role="alert">{error}</p>}

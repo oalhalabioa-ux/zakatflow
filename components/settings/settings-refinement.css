@@ -1,0 +1,118 @@
+/* Content layout shared by the six settings sections. */
+.settings-workspace .settings-icon{width:21px;height:21px;flex:0 0 21px;vertical-align:middle}
+.settings-workspace .settings-heading{margin:0 0 22px}
+.settings-workspace .settings-heading h1{margin:0 0 8px;font-size:1.9rem;line-height:1.5}
+.settings-workspace .settings-heading p{margin:0;line-height:1.8}
+.settings-workspace .settings-heading .settings-breadcrumb{margin-bottom:14px}
+.settings-workspace :is(.settings-local-tabs,.settings-subsection-nav){margin:16px 0 20px;min-width:0}
+.settings-workspace .settings-subsection-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:min(100%,540px);box-sizing:border-box;margin-inline-start:0;margin-inline-end:auto;padding:4px;gap:4px}
+.settings-workspace .settings-subsection-nav a{display:flex;gap:10px;border:0;border-radius:6px;padding:9px 14px;min-height:42px;box-sizing:border-box;line-height:1.5}
+.settings-workspace .settings-local-tabs button{display:flex;gap:9px;align-items:center;justify-content:center;min-height:42px;line-height:1.5}
+.settings-workspace :is(h3,.settings-panel-heading h3){display:flex;gap:9px;align-items:center;font-size:1.05rem;line-height:1.6}
+.settings-workspace .settings-panel-heading{display:flex;gap:14px;justify-content:space-between;align-items:center;margin-bottom:16px}
+.settings-workspace .settings-panel-heading h3{margin:0}
+.settings-workspace .settings-panel-heading p{margin:5px 0 0;color:var(--settings-muted);font-size:.82rem;line-height:1.8}
+.settings-workspace .settings-action-footer{grid-column:1/-1;margin-top:12px;padding:14px 0 0;justify-content:flex-end;position:static;min-width:0}
+.settings-workspace .settings-profile-save{grid-column:1/-1;width:auto;justify-self:end;min-width:170px;margin-top:10px}
+.settings-workspace .settings-form{gap:18px 24px}
+.settings-workspace .settings-form label{font-size:.88rem;gap:8px}
+.settings-workspace .settings-form :is(input,select,textarea){box-sizing:border-box;min-height:40px;width:100%;max-width:100%;font:inherit}
+.settings-workspace .organization-details-card{margin-top:0;margin-bottom:0}
+.settings-workspace .organization-details-card.identity-only .settings-form{grid-template-columns:repeat(3,minmax(0,1fr))}
+.settings-workspace .organization-details-card.identity-only .settings-form>label:nth-of-type(-n+2){display:none}
+.settings-workspace .organization-details-card.identity-only textarea{min-height:40px;height:40px}
+.settings-workspace .settings-organization-grid{grid-template-columns:minmax(0,1fr) minmax(270px,.44fr);align-items:start}
+.settings-workspace .settings-organization-editor>.settings-subsection-nav{width:100%;margin-top:0}
+.settings-workspace .settings-organization-summary .settings-card h3{margin-bottom:12px}
+.settings-workspace .settings-finance-native>.settings-native-content{padding:0;border:0;background:transparent}
+.settings-workspace .settings-finance-status article{display:grid;justify-items:center;gap:9px;border:1px solid var(--settings-line);border-radius:9px;padding:14px 10px;background:var(--settings-surface);min-width:0}
+.settings-workspace .settings-finance-status h3{font-size:1rem;margin:0;text-align:center}
+.settings-workspace .settings-financial-overview-grid{align-items:stretch}
+.settings-workspace .settings-financial-overview .settings-card{gap:12px;align-self:stretch}
+.settings-workspace .settings-financial-overview .settings-card>button{margin-top:4px;min-height:38px}
+.settings-workspace .settings-financial-overview .settings-chart-preview :is(td,th){padding:8px}
+.settings-workspace .settings-financial-overview .settings-overview-facts>div{padding:10px 0;align-items:start}
+.settings-workspace .settings-country-strip :is(strong,span){display:flex;align-items:center;gap:10px}
+.settings-workspace .settings-regulatory-native>.settings-local-tabs{margin-top:16px}
+.settings-workspace .settings-regulatory-guidance{margin:0}
+.settings-workspace .settings-regulatory-editors>.settings-card{margin-top:0}
+.settings-workspace .financial-setup-regulatory-editor .console-tabs{margin:0 0 18px}
+.settings-workspace .financial-setup-regulatory-editor .request-form{max-width:100%;min-width:0}
+.settings-workspace .financial-setup-regulatory-editor .vat-profile-fields{padding:0;border:0;margin:0;min-width:0}
+.settings-workspace .settings-table-scroll{max-width:100%;overflow-x:auto;border:1px solid var(--settings-line);border-radius:7px}
+.settings-workspace .settings-data-table{border-collapse:collapse;width:100%;font-size:.82rem;background:var(--settings-surface)}
+.settings-workspace .settings-data-table :is(th,td){text-align:start;padding:10px 12px;border-bottom:1px solid var(--settings-line);vertical-align:middle;line-height:1.6}
+.settings-workspace .settings-data-table thead th{background:var(--settings-soft,#f1f4f8);font-weight:650;white-space:nowrap}
+.settings-workspace .settings-data-table tbody tr:last-child>*{border-bottom:0}
+.settings-workspace .settings-data-table dd{margin:0}
+.settings-workspace .settings-text-action{background:transparent;border:0;color:var(--settings-ink);font:inherit;font-size:.82rem;padding:5px 7px;cursor:pointer;line-height:1.6}
+.settings-workspace .settings-text-action:hover{text-decoration:underline}
+.settings-workspace .settings-compact-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #10243a;border-bottom:3px solid #c6a35d;border-radius:7px;background:#10243a;color:#f5ebd6;padding:8px 14px;min-height:38px;font:inherit;font-size:.85rem;white-space:nowrap;cursor:pointer}
+.settings-workspace .settings-compact-action:disabled{opacity:.5;cursor:wait}
+.settings-workspace .settings-structure-layout{display:grid;grid-template-columns:290px minmax(0,1fr);gap:18px;align-items:start}
+.settings-workspace .settings-structure-layout>.settings-card{margin:0;min-width:0}
+.settings-workspace .settings-tree-node{display:grid;gap:7px;border:1px solid var(--settings-line);border-radius:8px;padding:15px;margin:12px 0;background:var(--settings-surface);font-size:.9rem}
+.settings-workspace .settings-tree-node.current{border-color:#c6a35d;background:#fcf7ee}
+.settings-workspace .settings-tree-node small{color:var(--settings-muted)}
+.settings-workspace .settings-tree-node .settings-state{justify-self:start}
+.settings-workspace .settings-tree-children{padding-inline-start:18px;border-inline-start:1px solid var(--settings-line);margin-inline-start:14px}
+.settings-workspace .settings-entity-editor{margin-top:18px;padding-top:18px;border-top:1px solid var(--settings-line)}
+.settings-workspace .settings-entity-editor h3{grid-column:1/-1;margin:0}
+.settings-workspace .settings-system-tabs{width:min(100%,580px);margin-inline-start:0;margin-inline-end:auto}
+.settings-workspace .settings-preferences-grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(180px,.58fr);gap:16px;align-items:start}
+.settings-workspace .settings-preferences-grid>.settings-appearance-card{grid-column:1;grid-row:1/span 2}
+.settings-workspace .settings-preferences-grid>.settings-notifications-card{grid-column:2;grid-row:1}
+.settings-workspace .settings-preferences-grid>.settings-security-card{grid-column:2;grid-row:2}
+.settings-workspace .settings-preferences-grid>.settings-preferences-note{grid-column:3;grid-row:1/span 2}
+.settings-workspace .settings-preferences-grid>.yp-preferences-card{padding:18px;gap:15px;min-width:0;scroll-margin-top:90px}
+.settings-workspace .settings-preferences-grid .settings-form{grid-template-columns:1fr;gap:16px}
+.settings-workspace .settings-preferences-grid .settings-form label{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);align-items:center;gap:12px}
+.settings-workspace .yp-themes{gap:8px}
+.settings-workspace .yp-theme{padding:8px 6px;gap:8px}
+.settings-workspace .yp-theme strong{font-size:.76rem;line-height:1.5}
+.settings-workspace .yp-theme-preview{height:57px}
+.settings-workspace .yp-theme[aria-pressed=true]::after{content:'●';color:#a77825;font-size:1rem;line-height:1}
+.settings-workspace .yp-theme[aria-pressed=false]::after{content:'○';color:#748297;font-size:1rem;line-height:1}
+.settings-workspace .settings-preferences-note{padding:16px;border:1px solid #c6a35d;border-radius:9px;background:#fcf7ee;color:var(--settings-ink)}
+.settings-workspace .settings-preferences-note h3{margin:0 0 8px;font-size:.95rem}
+.settings-workspace .settings-preferences-note p{font-size:.82rem;line-height:1.9;margin:0}
+.settings-workspace .settings-security-card .settings-overview-facts>div{flex-wrap:wrap;padding:9px 0}
+.settings-workspace .settings-security-card dd{font-size:.78rem;overflow-wrap:anywhere;max-width:100%}
+.settings-workspace .settings-toggle{min-height:0;padding:12px 0}
+.settings-workspace .settings-toggle strong{font-size:.86rem;line-height:1.7}
+.settings-workspace .settings-team-grid .card{border-radius:9px;box-shadow:none}
+.settings-workspace .settings-team-grid .settings-team-access-summary{padding:18px}
+.settings-workspace .settings-team-refresh{margin:0 0 10px;font-size:.77rem;padding:5px 10px;min-height:32px}
+.settings-workspace .settings-team-search{max-width:240px}
+.settings-workspace .settings-team-owner{padding:12px;margin-bottom:14px}
+.settings-workspace .settings-permission-granted{color:#155438;font-weight:750;font-size:1rem}
+.settings-workspace .financial-setup-dashboard-actions{position:static;margin-top:20px;direction:ltr;justify-content:flex-start}
+.settings-workspace .financial-setup-dashboard-actions button{direction:inherit}
+.settings-workspace .financial-setup-progress-heading{flex-direction:row-reverse}
+.settings-workspace .financial-setup-native{border:0;background:transparent}
+.settings-workspace .financial-setup-native-content{padding:0}
+.settings-workspace .financial-setup-native-content>.settings-card{padding:0;border:0;background:transparent;margin:0}
+.settings-workspace .financial-setup-native-content .settings-structure-layout{grid-template-columns:1fr}
+@media(min-width:1251px){.corp-shell .settings-workspace .settings-tabs a:not(.btn){font-size:.77rem;padding-inline:5px;gap:7px;white-space:nowrap}.settings-workspace .settings-tabs .settings-icon{width:18px;height:18px;flex-basis:18px}}
+@media(max-width:1250px){.settings-workspace .settings-preferences-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}.settings-workspace .settings-preferences-grid>.settings-preferences-note{grid-column:1/-1;grid-row:3}.settings-workspace .settings-organization-grid{grid-template-columns:minmax(0,1fr) 265px}.settings-workspace .settings-structure-layout{grid-template-columns:240px minmax(0,1fr)}}
+@media(max-width:1050px){.settings-workspace .settings-organization-grid{grid-template-columns:1fr}.settings-workspace .settings-structure-layout{grid-template-columns:1fr}.settings-workspace .organization-details-card.identity-only .settings-form{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace .settings-financial-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace .settings-financial-overview-grid>.settings-card:last-child{grid-column:1/-1}.settings-workspace .settings-financial-overview-lower{grid-template-columns:1fr}}
+@media(max-width:700px){.settings-workspace .settings-heading h1{font-size:1.55rem}.settings-workspace .settings-heading p{font-size:.87rem}.settings-workspace .settings-local-tabs{gap:3px}.settings-workspace .settings-local-tabs button{font-size:.78rem;flex:1 1 100px;padding:8px 5px;gap:5px}.settings-workspace .settings-local-tabs .settings-icon{width:18px;height:18px;flex-basis:18px}.settings-workspace .settings-subsection-nav{width:100%}.settings-workspace .settings-subsection-nav a{font-size:.8rem;padding:8px;gap:6px}.settings-workspace .settings-organization-summary{grid-template-columns:1fr}.settings-workspace .settings-panel-heading{flex-wrap:wrap;gap:10px}.settings-workspace .organization-details-card.identity-only .settings-form{grid-template-columns:1fr}.settings-workspace .settings-preferences-grid{display:flex;flex-direction:column}.settings-workspace .settings-preferences-grid> *{width:100%;box-sizing:border-box}.settings-workspace .settings-preferences-grid .settings-form label{grid-template-columns:1fr}.settings-workspace .settings-preferences-grid>.settings-appearance-card{order:1}.settings-workspace .settings-preferences-grid>.settings-notifications-card{order:2}.settings-workspace .settings-preferences-grid>.settings-security-card{order:3}.settings-workspace .settings-preferences-grid>.settings-preferences-note{order:4}.settings-workspace .yp-themes{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace .settings-financial-overview-grid{grid-template-columns:1fr}.settings-workspace .settings-financial-overview-grid>.settings-card:last-child{grid-column:auto}.settings-workspace .settings-finance-status{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace .settings-finance-status h3{font-size:.85rem}.settings-workspace .settings-data-table :is(td,th){padding:9px 8px}.settings-workspace .settings-entity-editor{grid-template-columns:1fr}.settings-workspace .settings-action-footer button{flex:0 1 auto}.settings-workspace .settings-action-footer .settings-save{min-width:160px}.settings-workspace .financial-setup-dashboard-actions{padding:12px 0;margin-inline:0}.settings-workspace .financial-setup-dashboard-actions button{font-size:.82rem}}
+.settings-workspace .settings-profile-progress{display:flex;align-items:center;gap:14px;margin:8px 0 12px;direction:ltr}
+.settings-workspace .settings-profile-progress .settings-profile-percent{font-size:1.8rem;line-height:1.4;color:#155438}
+.settings-workspace .settings-profile-progress progress{appearance:none;-webkit-appearance:none;display:block;border:0;border-radius:99px;background:#e3e8ee;height:10px;flex:1;min-width:0;overflow:hidden}
+.settings-workspace .settings-profile-progress progress::-webkit-progress-bar{background:#e3e8ee;border-radius:99px}
+.settings-workspace .settings-profile-progress progress::-webkit-progress-value{background:#155438;border-radius:99px}
+.settings-workspace .settings-profile-progress progress::-moz-progress-bar{background:#155438;border-radius:99px}
+.settings-workspace .settings-profile-counts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 0}
+.settings-workspace .settings-profile-counts>div{border:1px solid var(--settings-line);border-radius:7px;padding:10px;text-align:center}
+.settings-workspace .settings-profile-counts dd{font-size:1.2rem;font-weight:650;margin:0 0 6px;color:#155438}
+.settings-workspace .settings-profile-counts dt{font-size:.8rem;color:var(--settings-muted)}
+.settings-workspace .financial-setup-subscription-link{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #155438;color:#155438;background:var(--settings-surface);border-radius:6px;min-height:36px;padding:6px 10px;box-sizing:border-box;width:100%;font-size:.82rem;font-weight:650;text-decoration:none;margin-top:12px;line-height:1.5;text-align:center}
+.settings-workspace[dir=rtl] .financial-setup-dashboard-actions button{direction:rtl}
+.settings-workspace .settings-financial-overview-grid{align-items:stretch}
+.settings-workspace .settings-financial-overview-grid>.settings-card{align-self:stretch}
+.settings-workspace .settings-financial-overview-grid>.settings-card>button{margin-top:auto}
+.settings-workspace .settings-finance-status .settings-finance-state-complete{border-color:#9bc8aa;background:#f7fbf8}
+.settings-workspace .settings-finance-status .settings-finance-state-incomplete{border-color:#e9b7bb;background:#fffafb}
+.settings-workspace .settings-state.incomplete{background:#fff0ef;color:#a11f27}
+.settings-workspace .settings-state.unverified{background:#eef1f5;color:#526070}

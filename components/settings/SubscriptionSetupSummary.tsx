@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import SettingsIcon from './SettingsIcon';
 import {useEffect,useState} from 'react';
 import {subscriptionLabel,type OrganizationSubscription} from '@/lib/subscriptions/model';
 
@@ -20,7 +21,7 @@ export default function SubscriptionSetupSummary({locale,organizationId}:{locale
   return ()=>controller.abort();
  },[organizationId]);
  return <section className="financial-setup-summary-card financial-setup-subscription-card" aria-label={ar?'ملخص الاشتراك':'Subscription summary'}>
-  <h3>{ar?'ملخص الاشتراك':'Subscription overview'}</h3>
+  <h3><SettingsIcon name="billing"/>{ar?'ملخص الاشتراك':'Subscription overview'}</h3>
   <p>{ar?'للمتابعة والإدارة فقط؛ لا يُحتسب ضمن اكتمال الإعداد.':
    'For administration only; it is never a mandatory setup requirement.'}</p>
   {error?<p role="status">{ar?'حالة الاشتراك غير متاحة حاليًا.':'Subscription status unavailable.'}</p>:

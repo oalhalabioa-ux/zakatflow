@@ -62,3 +62,16 @@ Read-only catalog inspection confirmed all eight columns and preserved organizat
 RLS. A rollback-only synthetic owner/outsider test passed owner save/readback and
 cross-tenant SELECT/UPDATE denial. All fixture Auth/organization rows rolled back.
 Production was not queried or changed for this checkpoint.
+
+
+## Reference-layout corrections after visual review
+
+The organization and legal forms no longer repeat links to sections already in the settings navigation. Subscription navigation lives in its separate workspace and contextual summary; the duplicate secondary navigation row is removed. The fiscal-year deep link now opens the same native financial workspace instead of the old shortcut panel.
+
+Structure settings and the setup journey share a scoped native entity editor backed by the existing entities API. The entire organization directory is no longer mounted inside settings. Entity saves retain the selected organization, and aborted or stale reads cannot replace another organization's records.
+
+Legal settings have separate identity, tax registration and e-invoicing sections. The invoice unit renders its original component; editing its tax number returns to the actual tax form. The financial overview preserves all active posting-account counts while grouping expense categories into the five main chart groups, and lists cash accounts from the scoped source register. Opening balances are never inferred from current bank balances.
+
+System preferences display appearance, supported notification controls and read-only verified sign-in information in the reference card layout. No unsupported sign-in, two-factor or notification switches are represented as working controls. Saved role permissions are shown in a matrix; user overrides and approval policies still govern actual access.
+
+The local UI fixture now checks seven routes in both languages at desktop/mobile widths, native entity persistence, and pairwise control overlaps. These are UI checks, separate from genuine Auth/RLS and financial acceptance in the full-schema workflow. A passed browser suite is not a claim of pixel-identical hosted acceptance.

@@ -627,7 +627,8 @@ try {
     await page.getByRole('button',{name:'Save changes',exact:true}).click();
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();await page.getByLabel('Legal name',{exact:true}).waitFor();assert.equal(await page.getByLabel('Legal name',{exact:true}).inputValue(),'Preserved legal organization');
-    await page.getByRole('navigation',{name:'Other settings'}).getByRole('link',{name:'Subscription & billing',exact:true}).click();
+    assert.equal(await page.locator('.settings-secondary-links').count(),0,'No duplicate billing navigation inside settings');
+    const billingNavigation=page.locator('#corp-settings-nav a[href*="/billing"]');assert.ok((await billingNavigation.getAttribute('href')).includes('organization='+org));await billingNavigation.click();
     await page.waitForURL('**/en/billing?organization='+org);
     await page.locator('.yb-billing').getByLabel('Subscription status',{exact:true}).waitFor();
     assert.equal(await page.locator('.settings-tabs').count(),0,'Billing must have an independent section');
@@ -635,11 +636,11 @@ try {
     await page.getByRole('heading',{name:'Legal & tax settings',exact:true,level:1}).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);
     assert.equal(await page.locator('.settings-tabs a').count(),6);
-    await page.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();
+    await page.getByRole('button',{name:'Tax registration',exact:true}).click();
     const vatDialog=page.locator('.financial-setup-regulatory-editor');await vatDialog.waitFor();
     await vatDialog.getByLabel('Registered name',{exact:true}).fill('QA registered organization');
     await vatDialog.getByRole('button',{name:'Save settings',exact:true}).click();await page.getByText('Invoicing settings saved.',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();await vatDialog.waitFor();assert.equal(await vatDialog.getByLabel('Registered name',{exact:true}).inputValue(),'QA registered organization');
+    await page.getByRole('button',{name:'Tax registration',exact:true}).click();await vatDialog.waitFor();assert.equal(await vatDialog.getByLabel('Registered name',{exact:true}).inputValue(),'QA registered organization');
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/system-zatca-modal.png',root).pathname,fullPage:false});await page.keyboard.press('Escape');
 
     sql(`update platform_subscriptions set trial_ends_at=now()-interval '1 day' where organization_id='${org}'`);
@@ -678,7 +679,7 @@ try {
       for(const c of tabs)assert.ok(contrast(c)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));
       await verifySettingsTheme({page,theme,org,appUrl,root});
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
-      await page.goto(appUrl+'/en/settings/regulatory?organization='+org);await page.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();
+      await page.goto(appUrl+'/en/settings/regulatory?organization='+org);await page.getByRole('button',{name:'Tax registration',exact:true}).click();
       const modal=page.locator('.financial-setup-regulatory-editor');await modal.waitFor();
       const box=await modal.boundingBox();const viewport=page.viewportSize();assert.ok(box.width>0,'Native tax form is visible');assert.ok(box.x>=10&&box.x+box.width<=viewport.width-10);
       const surfaces=await page.locator('.financial-setup-regulatory-editor').evaluateAll(readColors);

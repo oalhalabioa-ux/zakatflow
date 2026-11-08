@@ -72,7 +72,7 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       }
       // ZATCA is part of the legal/tax tab, not global system preferences.
       if(section==='settings/regulatory') {
-        await page.getByRole('button',{name:locale==='ar'?'التسجيل الضريبي والفوترة':'Tax & e-invoicing',exact:true}).click();
+        await page.getByRole('button',{name:locale==='ar'?'التسجيل الضريبي':'Tax registration',exact:true}).click();
         const dialog=page.locator('.financial-setup-regulatory-editor');await dialog.waitFor();
         if(theme!=='yaqeen-business') {
           const colors=await dialog.locator('.console-tabs button,input,select,textarea').evaluateAll(readColors);

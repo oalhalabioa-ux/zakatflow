@@ -5,6 +5,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { rememberedOrganization } from "@/lib/workspace-organization";
 import { settingSections, isSettingsSectionActive } from "./navigation";
 import "./settings.css";
+import "./settings-refinement.css";
+import SettingsIcon from "./SettingsIcon";
 export default function SettingsFrame({
   locale,
   children,
@@ -25,7 +27,7 @@ export default function SettingsFrame({
     read();
     window.addEventListener("zf-organization-selection", read);
     window.addEventListener("popstate", read);
-      return () => {
+  return () => {
       window.removeEventListener("zf-organization-selection", read);
       window.removeEventListener("popstate", read);
     };
@@ -38,16 +40,21 @@ export default function SettingsFrame({
   const journey=active?.path==='settings/financial/setup';
   const heading=journey?(ar?'رحلة إعداد المؤسسة':'Set up your organization'):(active?(ar?active.ar:active.en):(ar?'الإعدادات':'Settings'));
 
+      const descriptions:Record<string,[string,string]>={
+    'settings':['إدارة هوية المؤسسة وهيكلها التنظيمي وبياناتها الأساسية.','Manage your organization identity, structure and contact details.'],
+    'settings/regulatory':['تختلف المتطلبات النظامية والضريبية حسب الدولة وطبيعة نشاط المؤسسة.','Legal and tax requirements depend on your country and business activity.'],
+    'settings/financial':['بناء أساس محاسبي موثوق لتنظيم العمليات المالية وإعداد التقارير بدقة.','Build a reliable accounting foundation for operations and reporting.'],
+    'settings/team':['وصول آمن ومنظم للفريق عبر أدوار تشغيلية وصلاحيات واضحة.','Manage secure team access through clear roles and permissions.'],
+    'settings/system':['تفضيلات عامة للمنصة، مستقلة عن الملف القانوني للمؤسسة.','Platform preferences, separate from the organization legal profile.'],
+  };
+  const description=journey?(ar?'دليلك لإكمال إعداد المؤسسة والوصول إلى الجاهزية للعمل على يقين.':'Complete organization setup and prepare to work in Yaqeen.'):(descriptions[active?.path??'settings']??descriptions.settings)[ar?0:1];
+
   return (
     <main className="settings-workspace" dir={ar ? "rtl" : "ltr"}>
       <header className="settings-heading">
         <p className="settings-breadcrumb">{ar?"الإعدادات / ":"Settings / "}{heading}</p>
         <h1>{heading}</h1>
-        <p>
-          {journey?(ar?"دليلك لإكمال إعداد المؤسسة والوصول إلى الجاهزية للعمل على يقين.":"Complete your organization setup and prepare to work in Yaqeen."):ar
-            ? "إدارة هوية المؤسسة والتأسيس المالي والصلاحيات وتفضيلات النظام."
-            : "Manage organization identity, financial setup, access and preferences."}
-        </p>
+        <p>{description}</p>
       </header>
       <nav
         className="settings-tabs"
@@ -59,19 +66,10 @@ export default function SettingsFrame({
             href={`/${locale}/${s.path}${tabParams.size?'?'+tabParams:''}`}
             aria-current={isSettingsSectionActive(path.split("/").slice(2).join("/"),s.path) ? "page" : undefined}
           >
-            <svg className="settings-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              {s.icon==='journey'?<><path d="M5 19c0-5 4-6 7-6s7-3 7-8"/><path d="m14 5 5 0 0 5"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="13" r="2"/></>:s.icon==='finance'?<><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></>:s.icon==='regulatory'?<><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></>:s.icon==='users'?<><circle cx="10" cy="8" r="3"/><path d="M3 21v-3c0-4 3-6 7-6s7 2 7 6v3M20 9v8M16 13h8"/></>:s.icon==='organization'?<><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7h2m4 0h2M8 11h2m4 0h2M10 21v-6h4v6"/></>:<><circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 4 2 2v3l3 2 1 3h6l1-3 3-2v-3l2-2-2-4-3-1-1-3Z"/></>}
-            </svg><span>{ar ? s.ar : s.en}</span>
+            <SettingsIcon name={s.icon==='settings'?'system':s.icon}/><span>{ar ? s.ar : s.en}</span>
           </Link>
         ))}
       </nav>
-      {!journey&&<nav className="settings-secondary-links" aria-label={ar?'الإعدادات الأخرى':'Other settings'}>
-        {settingSections.filter(s=>s.group==='secondary').map(s=><Link key={s.path}
-          href={`/${locale}/${s.path}${tabParams.size?'?'+tabParams:''}`}
-          aria-current={isSettingsSectionActive(path.split('/').slice(2).join('/'),s.path)?'page':undefined}>
-          {ar?s.ar:s.en}
-        </Link>)}
-      </nav>}
       {children}
     </main>
   );

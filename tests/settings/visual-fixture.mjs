@@ -16,12 +16,19 @@ const org={id:orgId,name:'شركة يقين التجارية',legal_name:'شرك
 const other={...org,id:otherId,name:'المؤسسة الثانية',legal_name:'المؤسسة الثانية',sort_order:2};
 let prefs={profile:{name:'QA owner',phone:'',base_currency:'SAR',locale:'ar',timezone:'Asia/Riyadh',calendar_type:'GREGORIAN',nisab_standard:'SILVER'},settings:{allocation_method:'FIFO',notifications_enabled:true,assessment_reminders:true,theme:'yaqeen-business'}};
 const subscription=id=>({organization_id:id,organization_name:id===orgId?org.name:other.name,status:'trialing',can_write:true,trial_started_at:'2026-11-01T00:00:00Z',trial_ends_at:'2026-12-01T00:00:00Z',days_remaining:23,trial_duration_days:30,active_users:id===orgId?3:1,max_users:5,server_now:'2026-11-08T12:00:00Z'});
+const entities=[{id:'entity-1',organization_id:orgId,name:'كيان الرياض',entity_type:'COMPANY',base_currency:'SAR',registration_no:'1010000001',active:true}];
 let readinessGate=null,releaseReadiness;
 const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/api/**',async route=>{
  const req=route.request(),u=new URL(req.url());let data={};const body=req.postDataJSON?.();
  if(u.pathname==='/api/organizations'){if(req.method()==='PATCH'){Object.assign(body.id===orgId?org:other,body);data=body.id===orgId?org:other;}else data=[org,other];}
- else if(u.pathname==='/api/organizations/entities')data=[{id:'branch',name:'فرع الرياض',entity_type:'BRANCH',active:true}];
+ else if(u.pathname==='/api/organizations/entities'){if(req.method()==='POST')entities.push({...body,id:'entity-created',active:true});else if(req.method()==='PATCH')Object.assign(entities.find(e=>e.id===body.id),body);data=req.method()==='GET'?entities.filter(e=>e.organization_id===u.searchParams.get('organization_id')):entities.at(-1);}
+ else if(u.pathname==='/api/organizations/users')data={actor_role:'OWNER',actor_user_id:user.id,users:[{user_id:user.id,email:user.email,name:'مالك الاختبار',role:'OWNER',status:'ACTIVE'}],invitations:[]};
+ else if(u.pathname==='/api/organizations/roles')data={roles:[]};
+ else if(u.pathname==='/api/organizations/permissions')data={roles:[],overrides:[],approval_policy:'OWNER_CONTROLLED'};
+ else if(u.pathname==='/api/financial-reporting/fiscal')data={organizationId:orgId,calendar:{retained_earnings_account:'3300'},period:{start:'2026-01-01',end:'2026-12-31'},closures:[]};
+ else if(u.pathname==='/api/financial-reporting/chart')data={organizationId:orgId,accounts:[{kind:'ASSET',isActive:true,isPostable:true},{kind:'EQUITY',isActive:true,isPostable:true}]};
+ else if(u.pathname==='/api/financial-register')data={organizationIds:[orgId],accounts:[{id:'bank-1',organizationId:orgId,name:'حساب المؤسسة',type:'BANK',currency:'SAR'}]};
  else if(u.pathname==='/api/subscriptions')data=subscription(u.searchParams.get('organization_id'));
  else if(u.pathname==='/api/subscriptions/requests')data={rows:[],can_request:true};
  else if(u.pathname==='/api/settings'){if(req.method()==='PUT'){prefs={profile:{...prefs.profile,...body.profile},settings:{...prefs.settings,...body.settings}};}data=prefs;}
@@ -43,9 +50,13 @@ try{
   await page.getByRole('button',{name:ar?'حفظ التغييرات':'Save changes',exact:true}).click();
   await page.getByText(ar?'تم حفظ بيانات المؤسسة.':'Organization details saved.',{exact:true}).waitFor();
   await page.reload();await page.getByLabel(ar?'البريد الرسمي':'Official email',{exact:true}).waitFor();assert.equal(await page.getByLabel(ar?'البريد الرسمي':'Official email',{exact:true}).inputValue(),'updated@example.com');checks.push(locale+' native organization saved and reloaded');
-  for(const [path,key] of [['settings','organization'],['settings/regulatory','regulatory'],['settings/system','system'],['billing','billing']]){
+  for(const [path,key] of [['settings','organization'],['settings/structure','structure'],['settings/regulatory','regulatory'],['settings/financial','financial'],['settings/team','team'],['settings/system','system'],['billing','billing']]){
    await page.goto(`${app}/${locale}/${path}?organization=${orgId}`);
-   const root=path==='billing'?page.locator('.yb-billing'):path==='settings/system'?page.locator('[data-system-preferences]'):path==='settings/regulatory'?page.locator('[data-regulatory-workspace]'):page.locator('.organization-details-workspace');await root.waitFor();
+   const root=path==='billing'?page.locator('.yb-billing'):path==='settings/system'?page.locator('[data-system-preferences]'):path==='settings/regulatory'?page.locator('[data-regulatory-workspace]'):path==='settings/structure'?page.locator('[data-structure-workspace]'):path==='settings/financial'?page.locator('[data-financial-settings]'):path==='settings/team'?page.locator('.settings-native-team'):page.locator('.organization-details-workspace');await root.waitFor();
+   if(path==='settings/financial')await page.locator('[data-financial-overview-ready=true]').waitFor();
+   if(path==='settings/structure')await page.getByRole('button',{name:ar?'إضافة كيان':'Add entity',exact:true}).waitFor();
+   if(path==='settings/team')await page.getByText(user.email,{exact:true}).first().waitFor();
+   if(path!=='billing')assert.equal(await page.locator('.settings-secondary-links').count(),0,'No duplicate subscription links under the primary settings navigation');
    if(path==='settings/system')await page.getByRole('button',{name:ar?'حفظ التعديلات':'Save changes',exact:true}).waitFor();
    if(path==='billing'){
     await page.locator('.yb-details').getByText('شركة يقين التجارية',{exact:true}).waitFor();
@@ -58,11 +69,12 @@ try{
     });assert.ok(contrast>=4.5,'Plan heading must be readable on its actual surface');
    }
    assert.equal(await page.locator('iframe').count(),0);
-   for(const width of [1490,390]){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
+   for(const width of [1490,390]){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);await page.evaluate(()=>window.scrollTo(0,0));const overlaps=await page.locator('.settings-workspace').evaluate(root=>{const items=[...root.querySelectorAll('button,a,input,select,textarea')].filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map(el=>({label:el.getAttribute('aria-label')||el.textContent?.trim().slice(0,40)||el.tagName,box:el.getBoundingClientRect()}));const found=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(Math.min(a.box.right,b.box.right)-Math.max(a.box.left,b.box.left)>2&&Math.min(a.box.bottom,b.box.bottom)-Math.max(a.box.top,b.box.top)>2)found.push(a.label+' / '+b.label);}return found;});assert.deepEqual(overlaps,[],path+' '+locale+' '+width+' overlapping controls');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
   }
  }
+ await page.goto(`${app}/en/settings/structure?organization=${orgId}`);await page.getByRole('button',{name:'Add entity',exact:true}).click();await page.getByLabel('Entity name',{exact:true}).fill('Native fixture entity');await page.getByRole('button',{name:'Save entity',exact:true}).click();await page.getByText('Entity saved.',{exact:true}).waitFor();await page.reload();await page.getByRole('cell',{name:'Native fixture entity',exact:true}).waitFor();checks.push('Native entity created and reloaded in the selected organization');
  await page.goto(`${app}/en/settings/system?organization=${orgId}`);const toggle=page.getByRole('switch',{name:'System notifications'});await toggle.waitFor();await toggle.uncheck();await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Your preferences were saved.',{exact:true}).waitFor();await page.reload();await toggle.waitFor();assert.equal(await toggle.isChecked(),false);checks.push('System preferences persisted after reload');
  }
  for(const locale of ['ar','en']){

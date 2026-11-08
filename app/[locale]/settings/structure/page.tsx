@@ -1,6 +1,5 @@
 import SettingsFrame from '@/components/settings/SettingsFrame';
-import OrganizationSubnav from '@/components/settings/OrganizationSubnav';
-import Organizations from '../../organizations/page';
+import OrganizationStructureWorkspace from '@/components/settings/OrganizationStructureWorkspace';
 
 export default async function OrganizationStructureSettings({params,searchParams}:{
  params:Promise<{locale:string}>;
@@ -8,7 +7,6 @@ export default async function OrganizationStructureSettings({params,searchParams
 }){
  const [{locale},{organization}]=await Promise.all([params,searchParams]);
  return <SettingsFrame locale={locale}>
-  <OrganizationSubnav locale={locale} organization={organization} active="structure"/>
-  <Organizations params={params}/>
+  <OrganizationStructureWorkspace locale={locale} preferredOrg={organization}/>
  </SettingsFrame>;
 }

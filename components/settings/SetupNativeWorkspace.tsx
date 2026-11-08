@@ -25,12 +25,8 @@ export default function SetupNativeWorkspace({
   {id:'templates',ar:'القوالب القطاعية',en:'Industry templates'},
   {id:'review',ar:'التحقق والاعتماد',en:'Validation & approval'},
  ] as const;
- const label=({organization:['بيانات المؤسسة','Organization details'],regulatory:['البيانات النظامية والضريبية','Legal & tax'],fiscal:['السنة المالية','Fiscal year'],chart:['دليل الحسابات','Chart of accounts'],posting:['قواعد الترحيل','Posting rules'],opening:['الأرصدة الافتتاحية','Opening balances'],banking:['النقد والبنوك','Cash & banks'],users:['المستخدمون والصلاحيات','Users & permissions']} as const)[step][ar?0:1];
+
  return <section className="financial-setup-native" data-setup-native-workspace={step}>
-  <header className="financial-setup-native-heading">
-   <span>{label}</span>
-   <button type="button" onClick={onRefresh}>{ar?'تحديث جاهزية المرحلة':'Refresh step readiness'}</button>
-  </header>
   {step==='chart'&&<nav className="financial-setup-chart-tabs" aria-label={ar?'أقسام دليل الحسابات':'Chart of accounts sections'}>
    {chartTabs.map(tab=><button key={tab.id} type="button" aria-pressed={chartTab===tab.id}
     onClick={()=>setChartTab(tab.id)}>{ar?tab.ar:tab.en}</button>)}
