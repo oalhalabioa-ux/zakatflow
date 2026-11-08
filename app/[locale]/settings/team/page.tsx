@@ -1,7 +1,6 @@
 import SettingsFrame from '@/components/settings/SettingsFrame';
-import UserManagement from '../../users/page';
-
-export default async function TeamSettings({params}:{params:Promise<{locale:string}>}){
- const {locale}=await params;
- return <SettingsFrame locale={locale}><UserManagement params={params}/></SettingsFrame>;
+import TeamAccessWorkspace from '@/components/settings/TeamAccessWorkspace';
+export default async function TeamSettings({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{organization?:string}>}){
+ const [{locale},{organization}]=await Promise.all([params,searchParams]);
+ return <SettingsFrame locale={locale}><TeamAccessWorkspace locale={locale} preferredOrg={organization} inline/></SettingsFrame>;
 }

@@ -123,6 +123,7 @@ try {
   // bootstrapping the entire canonical history. Mirror the additive legal columns
   // queried by the REAL organization service, or navigation hides an API failure.
   sql(await load("supabase/migrations/20261108104500_organization_legal_identity_fields.sql"));
+  sql(await load("supabase/migrations/20261108145331_organization_settings_workspace.sql"));
   // Use the real invitation RPC definitions, not a test implementation.
   const account = await load(
     "supabase/archive/pre-reconciliation-20261030/20260930150000_account_user_management.sql",
@@ -621,20 +622,23 @@ try {
     await page.getByLabel('Selected organization',{exact:true}).selectOption(org);
     await page.waitForFunction(()=>document.querySelector('input[required]')?.value==='Trial Institution');
     await page.getByLabel('Legal name',{exact:true}).fill('Preserved legal organization');
+    await page.getByLabel('Country',{exact:true}).selectOption('SA');
+    await page.getByLabel('Official email',{exact:true}).fill('billing@example.com');
     await page.getByRole('button',{name:'Save changes',exact:true}).click();
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();await page.getByLabel('Legal name',{exact:true}).waitFor();assert.equal(await page.getByLabel('Legal name',{exact:true}).inputValue(),'Preserved legal organization');
     await page.getByRole('navigation',{name:'Other settings'}).getByRole('link',{name:'Subscription & billing',exact:true}).click();
     await page.getByLabel('Subscription status',{exact:true}).waitFor();
-    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Legal & tax settings',exact:true}).click();
-    await page.getByRole('heading',{name:'Organization system settings',exact:true}).waitFor();
+    assert.equal(await page.locator('.settings-tabs').count(),0,'Billing must have an independent section');
+    await page.goto(appUrl+'/en/settings/regulatory?organization='+org);
+    await page.getByRole('heading',{name:'Legal & tax settings',exact:true}).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);
     assert.equal(await page.locator('.settings-tabs a').count(),6);
-    await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
-    const vatDialog=page.getByRole('dialog',{name:'E-invoicing & ZATCA settings',exact:true});await vatDialog.waitFor();
+    await page.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();
+    const vatDialog=page.locator('.financial-setup-regulatory-editor');await vatDialog.waitFor();
     await vatDialog.getByLabel('Registered name',{exact:true}).fill('QA registered organization');
     await vatDialog.getByRole('button',{name:'Save settings',exact:true}).click();await page.getByText('Invoicing settings saved.',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();await vatDialog.waitFor();assert.equal(await vatDialog.getByLabel('Registered name',{exact:true}).inputValue(),'QA registered organization');
+    await page.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();await vatDialog.waitFor();assert.equal(await vatDialog.getByLabel('Registered name',{exact:true}).inputValue(),'QA registered organization');
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/system-zatca-modal.png',root).pathname,fullPage:false});await page.keyboard.press('Escape');
 
     sql(`update platform_subscriptions set trial_ends_at=now()-interval '1 day' where organization_id='${org}'`);
@@ -660,7 +664,7 @@ try {
         icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,
         overflow:nav.scrollWidth>nav.clientWidth
       }));
-      assert.equal(layout.icons,6);assert.equal(layout.widths.length,6);assert.equal(layout.overflow,width<1160);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
+      assert.equal(layout.icons,6);assert.equal(layout.widths.length,6);assert.equal(layout.overflow,false);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
@@ -674,10 +678,10 @@ try {
       for(const c of tabs){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
       await verifySettingsTheme({page,theme,org,appUrl,root});
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
-      await page.goto(appUrl+'/en/settings/regulatory?organization='+org);await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
-      const modal=page.getByRole('dialog',{name:'E-invoicing & ZATCA settings',exact:true});await modal.waitFor();
-      const box=await modal.boundingBox();const viewport=page.viewportSize();assert.ok(Math.abs(box.x+box.width/2-viewport.width/2)<2,'System modal must be centered');assert.ok(box.x>=10&&box.x+box.width<=viewport.width-10);
-      const surfaces=await page.locator('.system-settings .console-card,dialog[open].subscription-modal').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
+      await page.goto(appUrl+'/en/settings/regulatory?organization='+org);await page.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();
+      const modal=page.locator('.financial-setup-regulatory-editor');await modal.waitFor();
+      const box=await modal.boundingBox();const viewport=page.viewportSize();assert.ok(box.width>0,'Native tax form is visible');assert.ok(box.x>=10&&box.x+box.width<=viewport.width-10);
+      const surfaces=await page.locator('.financial-setup-regulatory-editor').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
       for(const c of surfaces){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' system surface contrast '+JSON.stringify(c));}
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/system-modal-${theme}.png`,root).pathname,fullPage:false});await page.keyboard.press('Escape');
       await page.goto(appUrl+'/en/settings?organization='+org);await page.getByLabel('Organization name',{exact:true}).waitFor();

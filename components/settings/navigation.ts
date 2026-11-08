@@ -18,7 +18,7 @@ export function isSettingsSectionActive(path:string,section:string){
  if(section==='settings/financial/setup')return path===section||path==='settings/personal-setup';
  if(section==='settings/financial')return path===section||
    (path.startsWith(section+'/')&&!path.startsWith('settings/financial/setup'));
- if(section==='settings')return path==='settings'||path==='settings/structure'||path==='billing';
+ if(section==='settings')return path==='settings'||path==='settings/structure';
  return path===section;
 }
 

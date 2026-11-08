@@ -25,7 +25,7 @@ export default function SettingsFrame({
     read();
     window.addEventListener("zf-organization-selection", read);
     window.addEventListener("popstate", read);
-    return () => {
+      return () => {
       window.removeEventListener("zf-organization-selection", read);
       window.removeEventListener("popstate", read);
     };
@@ -33,14 +33,20 @@ export default function SettingsFrame({
   const tabParams=new URLSearchParams();
   if(organization)tabParams.set('organization',organization);
   if(fromSetup)tabParams.set('fromSetup','1');
+  const relativePath=path.split('/').slice(2).join('/');
+  const active=settingSections.find(s=>s.group==='primary'&&isSettingsSectionActive(relativePath,s.path));
+  const journey=active?.path==='settings/financial/setup';
+  const heading=journey?(ar?'رحلة إعداد المؤسسة':'Set up your organization'):(active?(ar?active.ar:active.en):(ar?'الإعدادات':'Settings'));
+
   return (
     <main className="settings-workspace" dir={ar ? "rtl" : "ltr"}>
       <header className="settings-heading">
-        <h1>{ar ? "الإعدادات" : "Settings"}</h1>
+        <p className="settings-breadcrumb">{ar?"الإعدادات / ":"Settings / "}{heading}</p>
+        <h1>{heading}</h1>
         <p>
           {ar
-            ? "إدارة بيانات المؤسسة واشتراكها وإعداداتها."
-            : "Manage organization details, subscription and settings."}
+            ? "إدارة هوية المؤسسة والتأسيس المالي والصلاحيات وتفضيلات النظام."
+            : "Manage organization identity, financial setup, access and preferences."}
         </p>
       </header>
       <nav

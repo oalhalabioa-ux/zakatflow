@@ -32,16 +32,16 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
     for(const section of ['settings','billing','settings/system','settings/regulatory']) {
       await page.goto(`${appUrl}/${locale}/${section}?organization=${org}`);
       await page.locator('.corp-shell.theme-'+theme).waitFor();
-      const selectedTab='.settings-tabs a[aria-current=page]';
+      const selectedTab=section==='billing'?'.yb-billing-tabs button[aria-pressed=true]':'.settings-tabs a[aria-current=page]';
       await page.locator(selectedTab).waitFor();
       if(section==='billing')await page.locator('.yb-billing-tabs').waitFor();
       else if(section==='settings')await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
       else if(section==='settings/system')await page.locator('.yp-preferences-card').first().waitFor();
-      else await page.locator('.system-settings .console-card').first().waitFor();
+      else await page.locator('[data-regulatory-workspace]').waitFor();
       // Three independent primary tabs, plus billing/system links outside
       // the main journey. Keep full readability checks rather than relying on
       // the old navy-bar palette, which belonged to the superseded design.
-      assert.equal(await page.locator('.settings-tabs a').count(),6);
+      assert.equal(await page.locator('.settings-tabs a').count(),section==='billing'?0:6);
       const active=await page.locator(selectedTab).evaluateAll(readColors);
       assert.equal(active.length,1,`${theme} ${section} active section must be unambiguous`);
       assert.ok(contrast(active[0])>=4.5,`${theme} ${section} selected tab contrast ${JSON.stringify(active[0])}`);
@@ -72,8 +72,8 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       }
       // ZATCA is part of the legal/tax tab, not global system preferences.
       if(section==='settings/regulatory') {
-        await page.getByRole('button',{name:locale==='ar'?'إعداد الفوترة':'Configure invoicing',exact:true}).click();
-        const dialog=page.locator('dialog[open].subscription-modal');await dialog.waitFor();
+        await page.getByRole('button',{name:locale==='ar'?'التسجيل الضريبي والفوترة':'Tax & e-invoicing',exact:true}).click();
+        const dialog=page.locator('.financial-setup-regulatory-editor');await dialog.waitFor();
         if(theme!=='yaqeen-business') {
           const colors=await dialog.locator('.console-tabs button,input,select,textarea').evaluateAll(readColors);
           for(const c of colors)assert.ok(contrast(c)>=4.5,`${theme} dialog contrast ${JSON.stringify(c)}`);

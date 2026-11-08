@@ -10,16 +10,22 @@ import {
   rememberedOrganization,
   preferredOrganization,
 } from "@/lib/workspace-organization";
+import {COUNTRY_CODES,countryName} from '@/lib/countries';
 import type { Organization } from "@/services/organizations";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 export default function OrganizationSettings({
   locale,
   system = false,
   financial,
+  preferredOrg,
+  inline = false,
+  identityOnly = false,
+  onSaved,
 }: {
   locale: string;
   system?: boolean;
   financial?: "overview" | "years";
+  preferredOrg?: string; inline?: boolean; identityOnly?: boolean; onSaved?:()=>void;
 }) {
   const ar = locale === "ar",
     [items, setItems] = useState<Organization[]>([]),
@@ -29,7 +35,7 @@ export default function OrganizationSettings({
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [draft, setDraft] = useState({ name: "", legal_name: "", country_code: "", commercial_registration_number: "", registered_address: "" });
+    [draft, setDraft] = useState({ name: "", legal_name: "", country_code: "", commercial_registration_number: "", registered_address: "", activity: "", contact_email: "", contact_phone: "", registered_city: "", registered_region: "", registered_postal_code: "", registration_authority: "", registration_expires_on: "" });
   const generation = useRef(0);
   const fiscalEdit = useRef({ dirty: false, busy: false });
   const reportFiscalEdit = useRef((dirty: boolean, busy: boolean) => { fiscalEdit.current = { dirty, busy }; }).current;
@@ -46,7 +52,7 @@ export default function OrganizationSettings({
         if (!live) return;
         setItems(rows);
         setOwner(a.data.user?.id ?? "");
-        const explicit = new URLSearchParams(location.search).get(
+        const explicit = preferredOrg || new URLSearchParams(location.search).get(
           "organization",
         );
         if (explicit && !rows.some((o) => o.id === explicit)) {
@@ -74,11 +80,11 @@ export default function OrganizationSettings({
     return () => {
       live = false;
     };
-  }, [ar]);
+  }, [ar, preferredOrg]);
   useEffect(() => {
     const read = () => {
       const selected =
-        new URLSearchParams(location.search).get("organization") ??
+        preferredOrg ?? new URLSearchParams(location.search).get("organization") ??
         rememberedOrganization();
       if (items.some((o) => o.id === selected)) setId(selected!);
     };
@@ -88,7 +94,7 @@ export default function OrganizationSettings({
       window.removeEventListener("zf-organization-selection", read);
       window.removeEventListener("popstate", read);
     };
-  }, [items]);
+  }, [items,preferredOrg]);
   const selected = items.find((o) => o.id === id),
     canEdit = !!selected && selected.owner_user_id === owner;
   useEffect(() => {
@@ -99,6 +105,15 @@ export default function OrganizationSettings({
       country_code: selected?.country_code ?? "",
       commercial_registration_number: selected?.commercial_registration_number ?? "",
       registered_address: selected?.registered_address ?? "",
+      activity: selected?.activity ?? "",
+      contact_email: selected?.contact_email ?? "",
+      contact_phone: selected?.contact_phone ?? "",
+      registered_city: selected?.registered_city ?? "",
+      registered_region: selected?.registered_region ?? "",
+      registered_postal_code: selected?.registered_postal_code ?? "",
+      registration_authority: selected?.registration_authority ?? "",
+      registration_expires_on: selected?.registration_expires_on ?? "",
+
     });
     setMessage("");
     setError("");
@@ -122,6 +137,15 @@ export default function OrganizationSettings({
           country_code: draft.country_code.trim().toUpperCase(),
           commercial_registration_number: draft.commercial_registration_number.trim(),
           registered_address: draft.registered_address.trim(),
+          activity: draft.activity.trim(),
+          contact_email: draft.contact_email.trim(),
+          contact_phone: draft.contact_phone.trim(),
+          registered_city: draft.registered_city.trim(),
+          registered_region: draft.registered_region.trim(),
+          registered_postal_code: draft.registered_postal_code.trim(),
+          registration_authority: draft.registration_authority.trim(),
+          registration_expires_on: draft.registration_expires_on.trim(),
+
         }),
       });
       if (!r.ok) throw Error();
@@ -137,10 +161,12 @@ export default function OrganizationSettings({
           window.location.origin,
         );
       }
-      if (version === generation.current)
+      if (version === generation.current) {
+        onSaved?.();
         setMessage(
           ar ? "تم حفظ بيانات المؤسسة." : "Organization details saved.",
         );
+      }
     } catch {
       if (version === generation.current)
         setError(
@@ -154,7 +180,7 @@ export default function OrganizationSettings({
   }
   return (
     <>
-      <TopbarOrganizationControls>
+      {!inline&&<TopbarOrganizationControls>
         <WorkspaceOrganizationPicker
           ar={ar}
           label={ar ? "المؤسسة المختارة" : "Selected organization"}
@@ -169,12 +195,20 @@ export default function OrganizationSettings({
               (draft.name !== selected.name || draft.legal_name !== (selected.legal_name ?? "") ||
                draft.country_code !== (selected.country_code ?? "") ||
                draft.commercial_registration_number !== (selected.commercial_registration_number ?? "") ||
-               draft.registered_address !== (selected.registered_address ?? ""));
+               draft.registered_address !== (selected.registered_address ?? "") ||
+               draft.activity !== (selected.activity ?? "") ||
+               draft.contact_email !== (selected.contact_email ?? "") ||
+               draft.contact_phone !== (selected.contact_phone ?? "") ||
+               draft.registered_city !== (selected.registered_city ?? "") ||
+               draft.registered_region !== (selected.registered_region ?? "") ||
+               draft.registered_postal_code !== (selected.registered_postal_code ?? "") ||
+               draft.registration_authority !== (selected.registration_authority ?? "") ||
+               draft.registration_expires_on !== (selected.registration_expires_on ?? ""));
             return !dirty || window.confirm(ar ? "تجاهل التغييرات غير المحفوظة؟" : "Discard unsaved changes?");
           }}
         />
-      </TopbarOrganizationControls>
-      {!system&&!financial&&selected&&<OrganizationSubnav locale={locale} organization={id} active="details"/>}
+      </TopbarOrganizationControls>}
+      {!inline&&!system&&!financial&&selected&&<OrganizationSubnav locale={locale} organization={id} active="details"/>}
       {loading ? (
         <p role="status">
           {ar ? "جارٍ تحميل المؤسسة…" : "Loading organization…"}
@@ -184,7 +218,7 @@ export default function OrganizationSettings({
       ) : !selected ? (
         <section className="settings-card">
           <h2>{ar ? "لا توجد مؤسسة متاحة" : "No organization available"}</h2>
-          <Link href={`/${locale}/organizations`}>
+          <Link href={`/${locale}/organizations?organization=${encodeURIComponent(id)}`}>
             {ar ? "فتح الهيكل المؤسسي" : "Open organization structure"}
           </Link>
         </section>
@@ -215,7 +249,7 @@ export default function OrganizationSettings({
           {financial==='years' ? <FiscalYearManagement key={id} organization={id} locale={locale} onEditState={reportFiscalEdit} /> : <div className="settings-hint"><p>{ar?'لتنفيذ الإعداد المتسلسل استخدم تبويب «رحلة الإعداد». أما الصفحات التفصيلية أعلاه فهي لإدارة السجلات الأصلية بعد التهيئة.':'Use the separate Setup Journey tab for guided setup. The detailed pages above manage existing records after configuration.'}</p></div>}
         </section>
       ) : (
-        <section className="settings-card">
+        <section className={"settings-card organization-details-card"+(identityOnly?" identity-only":"")}>
           <header>
             <h2>
               {system
@@ -259,28 +293,20 @@ export default function OrganizationSettings({
                   }
                 />
               </label>
+              {!identityOnly&&<>
+              <label>{ar?'النشاط الرئيسي':'Main activity'}<input maxLength={120} value={draft.activity} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,activity:e.target.value})}/></label>
+              <label>{ar?'البريد الرسمي':'Official email'}<input type="email" maxLength={254} dir="ltr" value={draft.contact_email} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,contact_email:e.target.value})}/></label>
+              <label>{ar?'رقم الهاتف':'Phone number'}<input type="tel" maxLength={40} dir="ltr" value={draft.contact_phone} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,contact_phone:e.target.value})}/></label>
+              </>}
               <label>
-                {ar ? "دولة تسجيل المؤسسة (رمز ISO من حرفين)" : "Country of registration (two-letter ISO code)"}
-                <input
-                  list="yaqeen-regulatory-countries"
-                  placeholder="SA"
-                  maxLength={2}
-                  pattern="[A-Za-z]{2}"
-                  value={draft.country_code}
-                  disabled={!canEdit || busy}
-                  onChange={(e) => setDraft({ ...draft, country_code: e.target.value.toUpperCase() })}
-                />
+                {ar ? "الدولة" : "Country"}
+                <select required value={draft.country_code} disabled={!canEdit||busy}
+                  onChange={e=>setDraft({...draft,country_code:e.target.value})}>
+                  <option value="">{ar?'اختر دولة التسجيل':'Select country'}</option>
+                  {COUNTRY_CODES.map(code=><option key={code} value={code}>{countryName(code,locale)}</option>)}
+                </select>
               </label>
-              <datalist id="yaqeen-regulatory-countries">
-                {[
-                  ["SA","Saudi Arabia / السعودية"],["SY","Syria / سوريا"],
-                  ["LB","Lebanon / لبنان"],["AE","United Arab Emirates / الإمارات"],
-                  ["BH","Bahrain / البحرين"],["QA","Qatar / قطر"],
-                  ["KW","Kuwait / الكويت"],["OM","Oman / عمان"],
-                  ["JO","Jordan / الأردن"],["EG","Egypt / مصر"],
-                  ["IQ","Iraq / العراق"],["TR","Türkiye / تركيا"],
-                ].map(([code,label])=><option key={code} value={code} label={label}/>)}
-              </datalist>
+              <div className="organization-legal-fields" hidden={!identityOnly}>
               <label>
                 {ar ? "رقم السجل التجاري أو التسجيل النظامي" : "Commercial or statutory registration number"}
                 <input
@@ -300,10 +326,16 @@ export default function OrganizationSettings({
                   onChange={(e) => setDraft({ ...draft, registered_address: e.target.value })}
                 />
               </label>
+              <label>{ar?'المدينة':'City'}<input maxLength={120} value={draft.registered_city} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registered_city:e.target.value})}/></label>
+              <label>{ar?'المنطقة':'Region'}<input maxLength={120} value={draft.registered_region} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registered_region:e.target.value})}/></label>
+              <label>{ar?'الرمز البريدي':'Postal code'}<input maxLength={20} value={draft.registered_postal_code} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registered_postal_code:e.target.value})}/></label>
+              <label>{ar?'جهة إصدار السجل':'Registration authority'}<input maxLength={160} value={draft.registration_authority} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registration_authority:e.target.value})}/></label>
+              <label>{ar?'تاريخ انتهاء السجل':'Registration expiry'}<input type="date" value={draft.registration_expires_on} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registration_expires_on:e.target.value})}/></label>
+              </div>
               <p className="settings-hint">{ar ?
                 "هذه بيانات هوية المؤسسة النظامية. عنوان البائع والرقم الضريبي الخاصان بالفواتير يُداران بصورة مستقلة في إعدادات الضرائب، ولا يعني الحفظ اعتمادًا نظاميًا تلقائيًا." :
                 "These are the organization's registered identity details. The invoice seller address and tax number are managed separately; saving does not certify statutory compliance."}</p>
-              <dl className="settings-facts">
+              {!identityOnly&&<dl className="settings-facts">
                 <div>
                   <dt>{ar ? "العملة الأساسية" : "Base currency"}</dt>
                   <dd>{selected.base_currency}</dd>
@@ -320,7 +352,7 @@ export default function OrganizationSettings({
                         : "Parent organization"}
                   </dd>
                 </div>
-              </dl>
+              </dl>}
               {canEdit ? (
                 <button className="btn" disabled={busy || !draft.name.trim()}>
                   {busy
@@ -338,7 +370,7 @@ export default function OrganizationSettings({
                     : "Details are visible; editing is available to the organization owner."}
                 </p>
               )}
-              <Link href={`/${locale}/organizations`}>
+              <Link href={`/${locale}/organizations?organization=${encodeURIComponent(id)}`}>
                 {ar ? "إدارة الهيكل المؤسسي" : "Manage organization structure"}
               </Link>
             </form>

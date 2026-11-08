@@ -8,6 +8,15 @@ export type Organization={
  country_code?:string|null;
  commercial_registration_number?:string|null;
  registered_address?:string|null;
+ activity?:string|null;
+ contact_email?:string|null;
+ contact_phone?:string|null;
+ registered_city?:string|null;
+ registered_region?:string|null;
+ registered_postal_code?:string|null;
+ registration_authority?:string|null;
+ registration_expires_on?:string|null;
+
  owner_user_id?:string|null;
  entity_type:string;
  base_currency:string;
@@ -23,7 +32,7 @@ export async function listOrganizations(){
  const {supabase}=await requireUser();
  const {data,error}=await supabase
   .from('organizations')
-  .select('id,name,legal_name,country_code,commercial_registration_number,registered_address,owner_user_id,entity_type,base_currency,status,parent_organization_id,organization_kind,sort_order,created_at,updated_at')
+  .select('id,name,legal_name,country_code,commercial_registration_number,registered_address,activity,contact_email,contact_phone,registered_city,registered_region,registered_postal_code,registration_authority,registration_expires_on,owner_user_id,entity_type,base_currency,status,parent_organization_id,organization_kind,sort_order,created_at,updated_at')
   .order('sort_order',{ascending:true})
   .order('created_at',{ascending:true});
  if(error)throw error;

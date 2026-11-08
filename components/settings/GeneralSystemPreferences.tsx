@@ -1,76 +1,59 @@
 'use client';
-
 import Link from 'next/link';
-import {useEffect,useState} from 'react';
+import {useEffect,useState,type FormEvent} from 'react';
 import {appearanceThemes,defaultAppearance,resolveAppearance,type AppearanceTheme} from '@/lib/appearance';
 import './system-preferences.css';
-
-const THEME_NAMES:Record<AppearanceTheme,[string,string]>={
- 'yaqeen-business':['يقين الملكي','Yaqeen Royal'],
- elegant:['الأنيق','Elegant'],
- classic:['الكلاسيكي','Classic'],
- modern:['العصري','Modern'],
-};
-
+const names:Record<AppearanceTheme,[string,string]>={'yaqeen-business':['يقين الملكي','Yaqeen Royal'],elegant:['الأنيق','Elegant'],classic:['الكلاسيكي','Classic'],modern:['العصري','Modern']};
+type Preferences={notifications_enabled:boolean;assessment_reminders:boolean;theme:string};
+type Account={name:string|null;phone:string|null;base_currency:string;locale:string;timezone:string;calendar_type:string;nisab_standard:string;zakat_method_id?:string|null};
 export default function GeneralSystemPreferences({locale}:{locale:string}){
- const ar=locale==='ar';
- const [theme,setTheme]=useState<AppearanceTheme>(defaultAppearance);
- const [tab,setTab]=useState<'appearance'|'notifications'|'security'>('appearance');
- const [confirmation,setConfirmation]=useState('');
- useEffect(()=>{setTheme(resolveAppearance(localStorage.getItem('zf-theme')));},[]);
- function choose(value:AppearanceTheme){
-  setTheme(value);
-  window.dispatchEvent(new CustomEvent('zf-theme-selection',{detail:value}));
-  setConfirmation(ar?'تم تطبيق المظهر على واجهة يقين الحالية.':'Appearance applied to your Yaqeen workspace.');
+ const ar=locale==='ar';const [theme,setTheme]=useState<AppearanceTheme>(defaultAppearance);
+ const [profile,setProfile]=useState<Account|null>(null),[settings,setSettings]=useState<Preferences|null>(null);
+ const [tab,setTab]=useState('appearance'),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[organization,setOrganization]=useState('');
+ useEffect(()=>{
+  const c=new AbortController();setLoading(true);
+  setOrganization(new URLSearchParams(location.search).get('organization')??'');
+  fetch('/api/settings',{cache:'no-store',signal:c.signal}).then(async r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{
+   if(c.signal.aborted)return;setProfile(data.profile);setSettings(data.settings);
+   setTheme(resolveAppearance(data.settings.theme==='system'?localStorage.getItem('zf-theme'):data.settings.theme));
+  }).catch(()=>{if(!c.signal.aborted)setError(ar?'تعذر تحميل التفضيلات.':'Unable to load preferences.');}).finally(()=>{if(!c.signal.aborted)setLoading(false);});
+  return()=>c.abort();
+ },[ar]);
+ async function save(e:FormEvent){
+  e.preventDefault();if(!profile||!settings||busy)return;setBusy(true);setError('');setMessage('');
+  try{
+   const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile,settings:{notifications_enabled:settings.notifications_enabled,assessment_reminders:settings.assessment_reminders,theme}})});
+   if(!r.ok)throw Error();const data=await r.json();setProfile(data.profile);setSettings(data.settings);
+   localStorage.setItem('zf-theme',theme);window.dispatchEvent(new CustomEvent('zf-theme-selection',{detail:theme}));
+   setMessage(ar?'تم حفظ إعداداتك.':'Your preferences were saved.');
+  }catch{setError(ar?'تعذر حفظ الإعدادات. لم تُعتمد التغييرات.':'Unable to save preferences. Changes were not confirmed.');}finally{setBusy(false);}
  }
- const sections=[
-  {id:'appearance',ar:'المظهر واللغة',en:'Appearance & language'},
-  {id:'notifications',ar:'الإشعارات',en:'Notifications'},
-  {id:'security',ar:'الأمان',en:'Security'},
- ] as const;
- return <section className="yp-preferences" aria-label={ar?'إعدادات النظام':'System preferences'}>
-  <header className="yp-preferences-heading">
-   <h2>{ar?'إعدادات النظام':'System settings'}</h2>
-   <p>{ar?'هذه تفضيلات للمنصة، وليست جزءًا من الهوية النظامية أو التسجيل الضريبي للمؤسسة.':
-     'These platform preferences are distinct from the organization’s legal registration and tax identity.'}</p>
-  </header>
-  <nav className="yp-preferences-tabs" aria-label={ar?'أقسام النظام':'System preference sections'}>
-   {sections.map(item=><button key={item.id} type="button" aria-pressed={tab===item.id}
-    onClick={()=>{setTab(item.id);setConfirmation('')}}>{ar?item.ar:item.en}</button>)}
-  </nav>
-  {tab==='appearance'&&<section className="yp-preferences-card">
-   <h3>{ar?'ثيم المنصة':'Workspace appearance'}</h3>
-   <p>{ar?'اختر أحد الثيمات المتاحة حاليًا. يتغير مظهر الشريط العلوي والقائمة الأصلية معًا دون إنشاء تصميم جانبي جديد.':
-     'Choose one of the existing themes. The current topbar and sidebar update together; no duplicate navigation is introduced.'}</p>
-   <div className="yp-themes" role="group" aria-label={ar?'اختيار ثيم المنصة':'Choose a theme'}>
-    {appearanceThemes.map(value=><button key={value} type="button" className="yp-theme"
-     aria-pressed={theme===value} onClick={()=>choose(value)}>
-     <span className={'yp-theme-preview theme-'+value} aria-hidden="true"><i/><i/><i/></span>
-     <strong>{THEME_NAMES[value][ar?0:1]}</strong>
-     <small>{theme===value?(ar?'الثيم الحالي':'Current theme'):(ar?'اختيار المظهر':'Choose theme')}</small>
-    </button>)}
+ const query=organization?'?organization='+encodeURIComponent(organization):'';
+ return <section className="yp-preferences" data-system-preferences>
+  <header className="settings-section-heading"><h2>{ar?'إعدادات النظام':'System settings'}</h2><p>{ar?'تفضيلات حسابك ومظهر المنصة، مستقلة عن الهوية القانونية للمؤسسة.':'Your account preferences and workspace appearance, independent of legal identity.'}</p></header>
+  <nav className="settings-local-tabs" aria-label={ar?'أقسام النظام':'System preference sections'}>{[['appearance','المظهر واللغة','Appearance & language'],['notifications','الإشعارات','Notifications'],['security','الأمان','Security']].map(([id,a,e])=><button key={id} type="button" aria-pressed={tab===id} onClick={()=>setTab(id)}>{ar?a:e}</button>)}</nav>
+  {loading?<p role="status">{ar?'جارٍ تحميل الإعدادات…':'Loading settings…'}</p>:profile&&settings&&<form onSubmit={save}>
+   <div className="settings-preferences-grid">
+    <section className="yp-preferences-card" hidden={tab==='security'}>
+     <h3>{ar?'المظهر واللغة':'Appearance & language'}</h3>
+     <div className="yp-themes">{appearanceThemes.map(value=><button key={value} type="button" className="yp-theme" aria-pressed={theme===value} disabled={busy} onClick={()=>{setTheme(value);setMessage('');}}><span className={'yp-theme-preview theme-'+value} aria-hidden="true"><i/><i/><i/></span><strong>{names[value][ar?0:1]}</strong></button>)}</div>
+     <div className="settings-form">
+      <label>{ar?'لغة الحساب':'Account language'}<select value={profile.locale} disabled={busy} onChange={e=>setProfile({...profile,locale:e.target.value})}><option value="ar">العربية</option><option value="en">English</option></select></label>
+      <label>{ar?'عملة العرض الشخصية':'Personal display currency'}<select value={profile.base_currency} disabled={busy} onChange={e=>setProfile({...profile,base_currency:e.target.value})}>{Array.from(new Set([profile.base_currency,'SAR','USD','AED','EUR','GBP','LBP','SYP'])).map(v=><option key={v}>{v}</option>)}</select></label>
+      <label>{ar?'المنطقة الزمنية':'Time zone'}<select value={profile.timezone??'UTC'} disabled={busy} onChange={e=>setProfile({...profile,timezone:e.target.value})}>{Array.from(new Set([profile.timezone??'UTC','Asia/Riyadh','Asia/Dubai','Asia/Beirut','Asia/Damascus','Europe/Istanbul','UTC'])).map(v=><option key={v}>{v}</option>)}</select></label>
+      <label>{ar?'تنسيق الأرقام':'Number display'}<input readOnly value="1,234.56" dir="ltr"/></label>
+     </div>
+     <p>{ar?'الأرقام بالصيغة الإنجليزية في اللغتين. عملة المؤسسة الأساسية تُدار في إعداداتها المالية.':'Numbers use English digits in both languages. Organization base currency belongs to its financial settings.'}</p>
+     <Link href={`/${ar?'en':'ar'}/settings/system${query}`}>{ar?'فتح الصفحة بالإنجليزية':'Open this page in Arabic'}</Link>
+    </section>
+    <section className="yp-preferences-card" hidden={tab==='security'}><h3>{ar?'الإشعارات':'Notifications'}</h3>
+     <label className="settings-toggle"><span><strong>{ar?'تنبيهات النظام':'System notifications'}</strong><small>{ar?'تفعيل إشعارات حسابك.':'Enable account notifications.'}</small></span><input type="checkbox" role="switch" checked={settings.notifications_enabled} disabled={busy} onChange={e=>setSettings({...settings,notifications_enabled:e.target.checked})}/></label>
+     <label className="settings-toggle"><span><strong>{ar?'تذكيرات التقييم':'Assessment reminders'}</strong><small>{ar?'تفضيل التذكير بالتقييمات.':'Assessment reminder preference.'}</small></span><input type="checkbox" role="switch" checked={settings.assessment_reminders} disabled={busy} onChange={e=>setSettings({...settings,assessment_reminders:e.target.checked})}/></label>
+    </section>
+    {tab==='security'&&<section className="yp-preferences-card"><h3>{ar?'الأمان والوصول':'Security & access'}</h3><p>{ar?'إدارة تسجيل الدخول وبيانات الحساب من حسابي، وإدارة وصول الفريق من صلاحيات المؤسسة. لا تتغير سياسة تسجيل الدخول باختيار ثيم أو حفظ التفضيلات.':'Manage identity under My account and team access under organization permissions. Appearance preferences do not change sign-in policy.'}</p><div className="yp-preferences-quick"><Link href={`/${locale}/account`}>{ar?'حسابي':'My account'}</Link><Link href={`/${locale}/settings/team${query}`}>{ar?'المستخدمون والصلاحيات':'Users & permissions'}</Link></div></section>}
    </div>
-   <h3>{ar?'اللغة والحساب الشخصي':'Language and account'}</h3>
-   <div className="yp-preferences-quick">
-    <Link href={`/${ar?'en':'ar'}/settings/system`}>{ar?'English / التبديل إلى الإنجليزية':'العربية / Switch to Arabic'}</Link>
-    <Link href={`/${locale}/account`}>{ar?'إعدادات اللغة والعملة الشخصية':'Personal language and currency settings'}</Link>
-   </div>
-  </section>}
-  {tab==='notifications'&&<section className="yp-preferences-card">
-   <h3>{ar?'الإشعارات':'Notifications'}</h3>
-   <p>{ar?'يمكن مراجعة إشعارات المؤسسة وفتحها من مركز الإشعارات الحالي. إعداد تفضيلات الإرسال التفصيلية غير مفعل هنا حتى يتوفر مصدر حفظ معتمد.':
-     'Review existing notifications in the notification center. Delivery preference switches are not shown until a supported persistence service is available.'}</p>
-   <Link className="yp-preferences-cta" href={`/${locale}/notifications`}>{ar?'فتح مركز الإشعارات':'Open notification center'}</Link>
-  </section>}
-  {tab==='security'&&<section className="yp-preferences-card">
-   <h3>{ar?'الأمان والحساب':'Security & account'}</h3>
-   <p>{ar?'إعدادات الهوية وتسجيل الدخول تخص الحساب الشخصي؛ أما صلاحيات أعضاء المؤسسة فتُدار في قسم المستخدمين والصلاحيات.':
-     'Identity and sign-in belong to your personal account; organization access is managed separately under Users & permissions.'}</p>
-   <div className="yp-preferences-quick">
-    <Link href={`/${locale}/account`}>{ar?'إدارة حسابي':'Manage my account'}</Link>
-    <Link href={`/${locale}/settings/team`}>{ar?'إدارة الأدوار والصلاحيات':'Manage roles and permissions'}</Link>
-   </div>
-  </section>}
-  {confirmation&&<p role="status" className="yp-preferences-success">{confirmation}</p>}
+   {tab!=='security'&&<footer className="settings-action-footer"><button className="settings-save" type="submit" disabled={busy}>{busy?(ar?'جارٍ الحفظ…':'Saving…'):(ar?'حفظ التعديلات':'Save changes')}</button><Link href={`/${locale}/settings/financial/setup${query}`}>{ar?'إنهاء المراجعة':'Review setup'}</Link></footer>}
+  </form>}
+  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
  </section>;
 }

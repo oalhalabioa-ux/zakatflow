@@ -9,7 +9,7 @@ const endpoint='/api/financial-reporting/fiscal';
 const arabicMonths=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const englishMonths=['January','February','March','April','May','June','July','August','September','October','November','December'];
 async function json(response:Response){const value=await response.json();if(!response.ok)throw Error(value.error??'FISCAL_UNAVAILABLE');return value}
-export default function FiscalYearManagement({organization,locale,previewContext,onEditState}:{organization:string;locale:string;previewContext?:FiscalManagementContext;onEditState?:(dirty:boolean,busy:boolean)=>void}){
+export default function FiscalYearManagement({organization,locale,previewContext,onEditState,onSaved}:{organization:string;locale:string;previewContext?:FiscalManagementContext;onEditState?:(dirty:boolean,busy:boolean)=>void;onSaved?:()=>void}){
  const ar=locale==='ar',t=(a:string,e:string)=>ar?a:e;
  const [data,setData]=useState<FiscalManagementContext|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[revision,setRevision]=useState(0),[span,setSpan]=useState(2);
  const [month,setMonth]=useState('1'),[day,setDay]=useState('1'),[retained,setRetained]=useState(''),[reason,setReason]=useState('');
@@ -30,7 +30,7 @@ export default function FiscalYearManagement({organization,locale,previewContext
   const target=organization,current=generation.current;setBusy(true);setError('');setMessage('');
   try{await json(await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
    if(activeOrganization.current!==target||generation.current!==current)return;
-   setAction(null);setActionReason('');setReason('');setRevision(v=>v+1);setMessage(success);
+   setAction(null);setActionReason('');setReason('');setRevision(v=>v+1);setMessage(success);onSaved?.();
   }catch(e){if(activeOrganization.current===target&&generation.current===current){const code=e instanceof Error?e.message:'FISCAL_UNAVAILABLE';setError(code);if(/DENIED|UNAUTHORIZED/.test(code)){setData(null);setAction(null)}}}
   finally{if(activeOrganization.current===target)setBusy(false)}
  }

@@ -72,7 +72,7 @@ try{
   await page.screenshot({path:out+'/financial-setup-readiness-en-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   await page.goto(app+'/ar/settings/financial/setup?organization='+org);
-  await page.getByRole('heading',{name:'إعداد المؤسسة'}).waitFor();
+  await page.getByRole('heading',{name:'رحلة إعداد المؤسسة'}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
    'The financial setup page must remain within the mobile viewport');
   await page.screenshot({path:out+'/financial-setup-readiness-ar-mobile.png',fullPage:true});
@@ -84,28 +84,19 @@ try{
   await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
   await page.getByRole('button',{name:/Existing organization/}).click();
   const embedded=page.locator('iframe.financial-setup-embedded-frame');
-  await embedded.waitFor();
-  const src=await embedded.getAttribute('src');
-  assert.ok(src?.startsWith('/en/settings?'),'Organization stage must reuse the real settings workspace');
-  assert.ok(src.includes('organization='+org),'The active organization must stay fixed');
-  assert.ok(src.includes('setupEmbed=1'),'Child shell must be marked as an embedded setup workspace');
-  const framed=await page.request.get(app+src);
-  assert.equal(framed.headers()['x-frame-options'],'SAMEORIGIN',
-    'Authenticated setup forms must not be framed by another website');
-  assert.match(framed.headers()['content-security-policy']??'',/frame-ancestors 'self'/,
-    'Setup forms must also have a same-origin frame-ancestors policy');
-  const embeddedPage=page.frameLocator('iframe.financial-setup-embedded-frame');
-  await embeddedPage.locator('[data-setup-embedded-document]').waitFor({state:'attached'});
-  assert.equal(await embeddedPage.locator('.corp-sidebar').evaluate(el=>getComputedStyle(el).display),'none',
-   'The original navigation sidebar must not be duplicated inside the setup window');
+  assert.equal(await embedded.count(),0,'Setup forms must be native components, not framed pages');
+  const embeddedPage=page.locator('[data-setup-native-workspace="organization"]');
+  await embeddedPage.getByLabel('Organization name',{exact:true}).waitFor();
+  assert.equal(await embeddedPage.locator('.corp-sidebar').count(),0,'Native form must not duplicate the shell');
   // The real original organization editor must refresh authoritative readiness
   // after a successful in-frame save, without taking the user out of this stage.
   const refreshedAfterSave=page.waitForResponse(response=>
    response.url().includes('/api/financial-reporting/setup-readiness?')&&response.status()===200);
   await embeddedPage.getByLabel('Legal name').fill('QA legal name updated inside setup');
-  await embeddedPage.getByLabel('Country of registration (two-letter ISO code)').fill('SA');
-  await embeddedPage.getByLabel('Commercial or statutory registration number').fill('123456789');
-  await embeddedPage.getByLabel('Registered legal address').fill('Riyadh QA test address');
+  await embeddedPage.getByLabel('Country',{exact:true}).selectOption('SA');
+  await embeddedPage.getByLabel('Official email',{exact:true}).fill('qa@example.com');
+  await embeddedPage.getByLabel('Main activity',{exact:true}).fill('Trading');
+
   await embeddedPage.getByRole('button',{name:'Save changes'}).click();
   await embeddedPage.getByRole('status').filter({hasText:'Organization details saved.'}).waitFor();
   await refreshedAfterSave;
@@ -113,19 +104,16 @@ try{
   assert.equal(legalResponse.status(),200,'The legal identity must be readable under signed-in organization RLS');
   const savedLegal=(await legalResponse.json()).find(item=>item.id===org);
   assert.equal(savedLegal?.country_code,'SA');
-  assert.equal(savedLegal?.commercial_registration_number,'123456789');
-  assert.equal(savedLegal?.registered_address,'Riyadh QA test address');
-  await page.getByRole('heading',{name:'Organization'}).first().waitFor();
+  assert.equal(savedLegal?.contact_email,'qa@example.com');
+  assert.equal(savedLegal?.activity,'Trading');
+
+  await page.locator('[data-setup-native-workspace=organization]').waitFor();
   await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Cash & banking'}).click();
-  const cashFrame=page.locator('iframe.financial-setup-embedded-frame');
-  await cashFrame.waitFor();
-  const cashSrc=await cashFrame.getAttribute('src');
-  assert.ok(cashSrc?.startsWith('/en/cash-and-banks?'),
-   'Banking step must open the actual institutional cash and banks register');
-  assert.equal(new URL(cashSrc,'https://yaqeen.invalid').searchParams.get('scope'),'ORGANIZATION',
-   'Banking step must never open the personal cash register');
-  assert.equal(new URL(cashSrc,'https://yaqeen.invalid').searchParams.get('organization'),org,
-   'Banking step must preserve selected organization');
+  const banking=page.locator('[data-setup-native-workspace="banking"]');
+  await banking.waitFor();
+  assert.equal(await embedded.count(),0,'Banking uses the real institutional component without an iframe');
+  const bankResponse=await page.request.get(app+'/api/financial-register?scope=ORGANIZATION&organization_id='+org);
+  assert.equal(bankResponse.status(),200,'The banking source must be authorized for this legal organization');
   await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Chart of accounts'}).click();
   await page.locator('[data-setup-native-workspace="chart"]').waitFor();
   await page.locator('.coa-page').waitFor();
@@ -199,19 +187,20 @@ try{
   // their persisted tables or changing the independent accounting preflight.
   await page.locator('.financial-setup-stage-timeline button').filter({hasText:'Legal & tax settings'}).click();
   const legal=page.locator('[data-setup-native-workspace="regulatory"]');
-  await legal.getByRole('button',{name:'Edit registered identity here without leaving setup'}).click();
-  const legalIdentityEditor=page.frameLocator('iframe.financial-setup-embedded-frame');
-  await legalIdentityEditor.getByLabel('Registered legal address').waitFor();
-  assert.equal(await legalIdentityEditor.getByLabel('Registered legal address').inputValue(),'Riyadh QA test address',
-   'The legal stage must load the same saved authoritative registered address, not a duplicate copy');
-  await legal.getByRole('button',{name:'Hide legal identity editor'}).click();
+  await legal.getByLabel('Registered legal address',{exact:true}).waitFor();
+  await legal.getByLabel('Registered legal address',{exact:true}).fill('Riyadh QA test address');
+  await legal.getByLabel('Commercial or statutory registration number',{exact:true}).fill('123456789');
+  await legal.getByRole('button',{name:'Save changes',exact:true}).click();
+  await legal.getByText('Organization details saved.',{exact:true}).waitFor();
+  const legalSaved=(await (await page.request.get(app+'/api/organizations')).json()).find(x=>x.id===org);
+  assert.equal(legalSaved.registered_address,'Riyadh QA test address');
+  assert.equal(legalSaved.commercial_registration_number,'123456789');
+  await legal.getByRole('button',{name:'Tax & e-invoicing',exact:true}).click();
   await legal.locator('.financial-setup-regulatory-editor').waitFor();
   await legal.locator('.console-tabs').getByRole('button',{name:'National address',exact:true}).click();
   await legal.getByLabel('Street',{exact:true}).waitFor();
   assert.equal(await legal.locator('.console-tabs').getByRole('button',{name:'National address',exact:true}).getAttribute('aria-pressed'),'true');
-  assert.ok((await legal.innerText()).includes('not an independent legal-address register')||
-    (await legal.innerText()).includes('not yet fields'),
-    'Invoice seller address must not masquerade as a verified legal company address');
+  assert.equal(await page.locator('iframe').count(),0,'All legal identity and tax editing remains native');
   const registrationTab=legal.locator('.console-tabs').getByRole('button',{name:'Registration',exact:true});
   await registrationTab.click();
   await page.waitForFunction(()=>{

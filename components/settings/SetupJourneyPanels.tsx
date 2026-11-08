@@ -58,7 +58,7 @@ export function SetupJourneySidebar({locale,mode,readiness,completed,deferred,st
  const ar=locale==='ar';
  return <aside className="financial-setup-journey-timeline">
   <div className="financial-setup-journey-panel-title">
-   <strong>{ar?'مراحل إعداد المؤسسة':'Organization setup steps'}</strong>
+   <strong>{ar?'مجموعات الإعداد':'Setup groups'}</strong>
    <span>{ar?'اختر أي مرحلة لمراجعتها':'Select any step to review'}</span>
   </div>
   <nav className="financial-setup-stage-timeline financial-setup-steps"

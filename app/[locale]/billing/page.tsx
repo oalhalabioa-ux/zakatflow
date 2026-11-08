@@ -1,14 +1,7 @@
-import SettingsFrame from '@/components/settings/SettingsFrame';
 import BillingOrganizationPicker from '@/components/settings/BillingOrganizationPicker';
 import SubscriptionBillingWorkspace from '@/components/settings/SubscriptionBillingWorkspace';
-import OrganizationSubnav from '@/components/settings/OrganizationSubnav';
-export default async function Billing({params,searchParams}:{
- params:Promise<{locale:string}>;searchParams:Promise<{organization?:string}>;
-}){
- const [{locale},{organization}]=await Promise.all([params,searchParams]);
- return <SettingsFrame locale={locale}>
-  <OrganizationSubnav locale={locale} organization={organization} active="billing"/>
-  <BillingOrganizationPicker locale={locale}/>
-  <SubscriptionBillingWorkspace locale={locale}/>
- </SettingsFrame>;
+import '@/components/settings/settings.css';
+export default async function Billing({params}:{params:Promise<{locale:string}>}){
+ const {locale}=await params;
+ return <main className="settings-workspace billing-workspace" dir={locale==='ar'?'rtl':'ltr'}><BillingOrganizationPicker locale={locale}/><SubscriptionBillingWorkspace locale={locale}/></main>;
 }

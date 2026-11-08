@@ -1,5 +1,5 @@
 import SettingsFrame from "@/components/settings/SettingsFrame";
-import OrganizationSettings from "@/components/settings/OrganizationSettings";
+import OrganizationDetailsWorkspace from "@/components/settings/OrganizationDetailsWorkspace";
 import SetupReturnLink from "@/components/settings/SetupReturnLink";
 export default async function Settings({
   params,
@@ -12,7 +12,7 @@ export default async function Settings({
   return (
     <SettingsFrame locale={locale}>
       <SetupReturnLink locale={locale} organization={organization} visible={fromSetup === '1'} embedded={setupEmbed==='1'} />
-      <OrganizationSettings locale={locale} />
+      <OrganizationDetailsWorkspace locale={locale} preferredOrg={organization} />
     </SettingsFrame>
   );
 }

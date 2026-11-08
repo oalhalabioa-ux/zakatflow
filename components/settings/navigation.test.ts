@@ -39,7 +39,7 @@ it('keeps six settings areas distinct and treats billing and structure as organi
  expect(isSettingsSectionActive('settings/regulatory','settings/regulatory')).toBe(true);
  expect(isSettingsSectionActive('settings/regulatory','settings/system')).toBe(false);
  expect(isSettingsSectionActive('settings/structure','settings')).toBe(true);
- expect(isSettingsSectionActive('billing','settings')).toBe(true);
+ expect(isSettingsSectionActive('billing','settings')).toBe(false);
  expect(isSettingsSectionActive('settings/team','settings/team')).toBe(true);
  expect(isSettingsSectionActive('settings/personal-setup','settings/financial/setup')).toBe(true);
  expect(isSettingsPage('settings/team')).toBe(true);

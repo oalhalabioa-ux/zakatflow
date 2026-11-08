@@ -1794,6 +1794,14 @@
       "expected_md5": "72c1b306aa3c7ed31153cc2110a9f5d5",
       "file_sha256": "ec2f876a22b2dfb03f5a657578a1130866b54410b3fa8b0e4d2904b7e97f7d10",
       "validation_project": "Disposable full-schema tenant-owned legal identity QA only; NOT Production"
+    },
+    {
+      "path": "supabase/migrations/20261108145331_organization_settings_workspace.sql",
+      "version": "20261108145331",
+      "name": "organization_settings_workspace",
+      "expected_md5": "71d40ea03b1a3deacc628d8b8edc3f03",
+      "file_sha256": "cac55203e6991168408300f189dc298bef864d175fe99bc788939be4e86edf76",
+      "validation_project": "Additive settings fields; disposable CI schema/tenant acceptance required; NOT applied to Production"
     }
   ]
 }

@@ -17,7 +17,6 @@ import {
   type FinancialSetupStep,
 } from '@/lib/financial-setup-steps';
 import type {FinancialSetupReadiness,SetupStatus} from '@/lib/financial-setup-readiness';
-import SetupEmbeddedWorkspace from './SetupEmbeddedWorkspace';
 import SetupNativeWorkspace,{type NativeSetupStep} from './SetupNativeWorkspace';
 import {SetupJourneySidebar,SetupJourneySummary} from './SetupJourneyPanels';
 import {canDeferSetupStep,setupJourneyStepState} from '@/lib/financial-setup-journey-policy';
@@ -270,15 +269,11 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
   };
   const moduleLink=(href:string|undefined,label:string,description:string)=><div className="financial-setup-module">
     <div className="financial-setup-module-intro"><strong>{label}</strong><p>{description}</p></div>
-    {href&&(['regulatory','chart','fiscal','posting','opening'].includes(step)
-      ?<SetupNativeWorkspace key={orgId+':'+step} locale={locale} organizationId={orgId}
+    {href&&<SetupNativeWorkspace key={orgId+':'+step} locale={locale} organizationId={orgId}
          step={step as NativeSetupStep} organizationName={organization?.name} baseCurrency={organization?.base_currency} industry={industry} fiscalStart={readiness?.fiscalStart}
-         onRefresh={refreshSetupEvidence}/>
-      :<SetupEmbeddedWorkspace key={orgId+':'+step+':'+href} locale={locale}
-         organizationId={orgId} stage={label} href={href}
-         onRefresh={refreshSetupEvidence}/> )}
+         onRefresh={refreshSetupEvidence}/>}
   </div>;
-  const note=t('احفظ أو اعتمد التغييرات داخل نافذة المرحلة المترابطة، ثم حدّث حالة الجاهزية. علامة المراجعة لا تُرحّل قيودًا ولا تمنح اعتمادًا محاسبيًا.','Save or approve inside the connected step window, then refresh readiness. Review checkmarks never post entries or authorize accounting approval.');
+  const note=t('احفظ التغييرات في هذه الصفحة؛ تُحدّث الجاهزية بعد نجاح الحفظ والاعتماد. علامة المراجعة لا تُرحّل قيودًا ولا تمنح اعتمادًا محاسبيًا.','Save changes here; readiness refreshes after a successful save or approval. Review checkmarks never post entries or authorize accounting approval.');
 
   return <div className="financial-setup" dir={ar?'rtl':'ltr'} data-financial-setup>
     <TopbarOrganizationControls>
@@ -346,7 +341,7 @@ export default function FinancialSetupWizard({locale,preferredOrg=''}:{locale:st
           <p><strong>{t('قواعد مدين/دائن محفوظة: ','Saved debit/credit rules: ')}</strong><bdi>{readiness.posting.ruleCount}</bdi> · <strong>{t('سطور مصدر مغطاة: ','Covered source lines: ')}</strong><bdi>{readiness.posting.mappedLines} / {readiness.posting.sourceLines}</bdi></p>
           {!readiness.posting.configured&&<p role="alert" className="financial-setup-notice error">{readiness.posting.ruleCount===0?t('قد توجد سياسة معتمدة ولكنها فارغة. لا توجد قواعد ترحيل فعلية مدخلة بعد. افتح صفحة الترحيل لتعريف وربط القواعد، ثم اعتمدها.','A policy may be approved but empty. No real posting rules have been configured. Define, map, and approve actual rules in the posting page.'):t('قواعد الترحيل غير معتمدة أو لا تغطي جميع سطور المصدر بشكل فريد. راجعها قبل الإنهاء.','Posting rules are unapproved or do not uniquely cover every source line. Review them before finishing.')}</p>}
           {readiness.posting.configured&&readiness.posting.sourceLines===0&&<p className="financial-setup-notice">{t('القواعد محفوظة ومعتمدة، لكن لا توجد حركات فعلية لاختبار الترحيل عليها بعد.','Rules are saved and approved, but no actual transactions exist yet to test their posting behavior.')}</p>}
-        </div>}<div className="financial-setup-roles"><div><span>{t('اقتناء أصل','Asset purchase')}</span><strong>{t('الأصول الثابتة','Fixed assets')}</strong></div><div><span>{t('تحصيل عميل','Customer receipt')}</span><strong>{t('النقد والبنوك','Cash and banks')}</strong></div><div><span>{t('إيراد فاتورة','Invoice revenue')}</span><strong>{t('إيرادات المبيعات','Sales revenue')}</strong></div></div><p className="financial-setup-notice">{t('هذه أمثلة لأدوار الحساب الواحد وليست قواعد محفوظة. سياسة الترحيل الحالية ذات الطرفين تبقى كما هي حتى يُعتمد تحويلها تقنيًا دون المساس بالقيود السابقة.','These are one-account role examples, not saved rules. The existing two-sided posting policy remains unchanged until a safe engine migration is approved.')}</p>{moduleLink(details?.posting,t('قواعد الترحيل الحالية','Existing posting rules'),t('افحص التغطية واعتماد القواعد وفق صلاحيات المؤسسة.','Review coverage and policy approval under organization permissions.'))}</>}
+        </div>}{moduleLink(details?.posting,t('قواعد الترحيل الحالية','Existing posting rules'),t('افحص التغطية واعتماد القواعد وفق صلاحيات المؤسسة.','Review coverage and policy approval under organization permissions.'))}</>}
         {step==='banking'&&moduleLink(details?.banking,t('النقد والبنوك','Cash and banks'),t('راجع الحسابات البنكية وحركة السيولة، مع الحفاظ على كل حساب وربطه الأصلي.','Review bank accounts and liquidity without rewriting their source linkages.'))}
         {step==='opening'&&<>{mode==='NEW'?<><p className="financial-setup-notice">{t('لا تتطلب المؤسسة الجديدة أرصدة افتتاحية إذا أثبتت السجلات عدم وجود أرصدة سابقة أو مسودات معلقة.','A new organization needs no opening balances only when the records confirm no prior balances or pending drafts.')}</p>{readiness?.statuses.opening!=='READY'&&moduleLink(details?.opening,t('مراجعة مصادر الأرصدة الافتتاحية','Review opening-balance sources'),t('تم العثور على حالة تحتاج تحققًا. افحص السندات والمسودات والتواريخ ثم حدّث حالة التهيئة.','Some source evidence needs verification. Review vouchers, drafts and dates, then refresh setup readiness.'))}</>:<><p className="financial-setup-notice">{t('لا تُنشأ هنا صفحة أو أرصدة إضافية. افتح سجل الأرصدة الموجود وأدخل أو راجع أرصدة المؤسسة في السنة الصحيحة.','This step creates no duplicate page or balances. Review the existing opening workspace for the correct fiscal year.')}</p>{moduleLink(details?.opening,t('الأرصدة الافتتاحية الحالية','Existing opening balances'),t('يمكن حفظ المسودة ومراجعتها؛ الاعتماد النهائي إجراء مستقل داخل الصفحة الأصلية.','Save and preview drafts; formal approval remains an independent action in the existing page.'))}</>}</>}
         {step==='users'&&moduleLink(details?.users,t('المستخدمون والصلاحيات','Users & permissions'),t('تحقق من المالك والأدوار والدعوات وحدود الوصول لكل مؤسسة.','Review owner, roles, invitations and organization-scoped permissions.'))}

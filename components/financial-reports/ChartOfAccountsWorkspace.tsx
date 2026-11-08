@@ -21,9 +21,9 @@ function suggestion(parent:string,accounts:Account[]){
  return '';
 }
 async function json(response:Response){const result=await response.json();if(!response.ok)throw Error(result.error??'CHART_UNAVAILABLE');return result}
-export default function ChartOfAccountsWorkspace({locale,preferredOrg='',preferredTemplate='',setupEmbedded=false,setupSection='all'}:{
+export default function ChartOfAccountsWorkspace({locale,preferredOrg='',preferredTemplate='',setupEmbedded=false,setupSection='all',onSaved}:{
  locale:string;preferredOrg?:string;preferredTemplate?:string;setupEmbedded?:boolean;
- setupSection?:'all'|'structure'|'accounts'|'templates'|'review';
+ onSaved?:()=>void;setupSection?:'all'|'structure'|'accounts'|'templates'|'review';
 }){
  const en=locale==='en',t=(ar:string,english:string)=>en?english:ar;
  const[orgs,setOrgs]=useState<Institution[]>([]),[organization,setOrganization]=useState(''),[data,setData]=useState<Workspace|null>(null);
@@ -45,7 +45,7 @@ export default function ChartOfAccountsWorkspace({locale,preferredOrg='',preferr
  async function submit(){if(!draft||!organization)return;setBusy(true);setError('');setSuccess('');try{
   if(draft.parentCode!==parentCode(draft.code))throw Error('CHART_INPUT_INVALID');
   await json(await fetch('/api/financial-reporting/chart',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({organization,...draft})}));
-  setSelected(draft.parentCode);setExpanded(v=>[...new Set([...v,draft.parentCode])]);setDraft(null);setSuccess(t('تم حفظ الحساب في دليل المؤسسة.','Organization account saved.'));setRevision(v=>v+1);
+  setSelected(draft.parentCode);setExpanded(v=>[...new Set([...v,draft.parentCode])]);setDraft(null);onSaved?.();setSuccess(t('تم حفظ الحساب في دليل المؤسسة.','Organization account saved.'));setRevision(v=>v+1);
  }catch(e){setError(e instanceof Error?e.message:'CHART_UNAVAILABLE')}finally{setBusy(false)}}
  async function addTemplateAccount(item:FinancialAccountTemplate){
   if(!data?.canManage||!organization||busy||templatePreview.find(row=>row.code===item.code)?.status!=='available')return;
@@ -56,7 +56,7 @@ export default function ChartOfAccountsWorkspace({locale,preferredOrg='',preferr
     isPostable:true,isActive:true,expectedVersion:0,reason:`Account template ${item.source}: ${item.code}`,
    })}));
    setSelected('');setExpanded(previous=>[...new Set([...previous,item.parentCode])]);
-   setSuccess(t('أُضيف الحساب الفرعي إلى دليل المؤسسة دون تغيير أي حساب قائم.','The child account was added without changing an existing account.'));
+   onSaved?.();setSuccess(t('أُضيف الحساب الفرعي إلى دليل المؤسسة دون تغيير أي حساب قائم.','The child account was added without changing an existing account.'));
    setRevision(value=>value+1);
   }catch(error){setError(error instanceof Error?error.message:'CHART_UNAVAILABLE')}finally{setBusy(false)}
  }

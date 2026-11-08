@@ -24,7 +24,6 @@ export default function OrganizationSubnav({locale,organization,active}:{
  const sections=[
   {id:'details',path:'settings',ar:'البيانات الأساسية',en:'Organization details'},
   {id:'structure',path:'settings/structure',ar:'الهيكل والفروع',en:'Structure & branches'},
-  {id:'billing',path:'billing',ar:'الاشتراك والفوترة',en:'Subscription & billing'},
  ] as const;
  return <nav className="settings-subsection-nav"
    aria-label={ar?'أقسام إعدادات المؤسسة':'Organization settings sub-sections'}>
