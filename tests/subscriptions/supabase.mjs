@@ -665,7 +665,7 @@ try {
       const layout=await page.locator('.settings-tabs').evaluate(nav=>({
         widths:[...nav.querySelectorAll('a')].map(a=>a.getBoundingClientRect().width),
         icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,
-        clipped:[...nav.querySelectorAll('a span')].filter(s=>s.scrollWidth>s.clientWidth+1||s.scrollHeight>s.clientHeight+1).map(s=>s.textContent),
+        clipped:[...nav.querySelectorAll('a>span')].filter(s=>{const text=s.getBoundingClientRect(),tab=s.parentElement.getBoundingClientRect();return s.scrollWidth>s.clientWidth+1||text.left<tab.left-1||text.right>tab.right+1||text.top<tab.top-1||text.bottom>tab.bottom+1;}).map(s=>s.textContent),
         overlaps:[...nav.querySelectorAll('a')].some((a,i,all)=>all.slice(i+1).some(b=>{const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();return Math.min(x.right,y.right)-Math.max(x.left,y.left)>1&&Math.min(x.bottom,y.bottom)-Math.max(x.top,y.top)>1;})),
         overflow:nav.scrollWidth>nav.clientWidth
       }));
