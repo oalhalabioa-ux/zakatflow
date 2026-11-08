@@ -660,13 +660,17 @@ try {
     for(const locale of ['ar','en'])for(const width of [390,1440]){
       await page.setViewportSize({width,height:1000});await page.goto(appUrl+`/${locale}/settings?organization=${org}`);
       await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
+      await page.evaluate(()=>document.fonts.ready);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       const layout=await page.locator('.settings-tabs').evaluate(nav=>({
         widths:[...nav.querySelectorAll('a')].map(a=>a.getBoundingClientRect().width),
         icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,
+        clipped:[...nav.querySelectorAll('a span')].filter(s=>s.scrollWidth>s.clientWidth+1||s.scrollHeight>s.clientHeight+1).map(s=>s.textContent),
+        overlaps:[...nav.querySelectorAll('a')].some((a,i,all)=>all.slice(i+1).some(b=>{const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();return Math.min(x.right,y.right)-Math.max(x.left,y.left)>1&&Math.min(x.bottom,y.bottom)-Math.max(x.top,y.top)>1;})),
         overflow:nav.scrollWidth>nav.clientWidth
       }));
-      assert.equal(layout.icons,6);assert.equal(layout.widths.length,6);assert.equal(layout.overflow,false);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
+      // Desktop columns intentionally follow localized title lengths; test readability rather than equal widths.
+      assert.equal(layout.icons,6);assert.equal(layout.widths.length,6);assert.ok(layout.widths.every(w=>w>=100));assert.equal(layout.overflow,false);assert.deepEqual(layout.clipped,[]);assert.equal(layout.overlaps,false);
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
