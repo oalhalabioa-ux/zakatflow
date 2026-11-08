@@ -67,7 +67,7 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  const supplier=await request('post','/api/liquidity',{kind:'counterparty',organization_id:organization,name:'مورد تجربة القواعد',party_type:'SUPPLIER'},201);
  const customer=await request('post','/api/liquidity',{kind:'counterparty',organization_id:organization,name:'عميل تجربة القواعد',party_type:'CUSTOMER'},201);
  async function prepareFlow(type,direction,amount,date,party){
-  const category=await request('post','/api/liquidity',{kind:'category',organization_id:organization,name_ar:type==='OPEX'?'مصروف الاختبار':'إيراد الاختبار',name_en:'Actual cycle '+type,flow_group:'OPERATING',accounting_group:type==='OPEX'?'EXPENSE':'REVENUE',treatment_code:'DEFAULT_CYCLE_'+type,allowed_direction:direction,financial_classification_type:type},201);
+  const category=await request('post','/api/liquidity',{kind:'category',organization_id:organization,name_ar:type==='OPEX'?'مصروف الاختبار':'إيراد الاختبار',name_en:'Actual cycle '+type,flow_group:'OPERATING',accounting_group:type==='OPEX'?'EXPENSE':'REVENUE',treatment_code:type==='OPEX'?'OPERATING_EXPENSE':'SERVICE_REVENUE',allowed_direction:direction,financial_classification_type:type},201);
   const flow=await request('post','/api/liquidity',{kind:'flow',organization_id:organization,account_id:bankId,category_id:category.id,direction,title:'Actual default cycle '+type,counterparty_id:party.id,due_date:date,amount,base_amount:amount,currency:'SAR',status:'EXPECTED',source:'MANUAL'},201);
   const confirmed=await request('patch','/api/liquidity/'+flow.id,{status:'CONFIRMED'});assert.ok(confirmed.recognition_event_id);
   const id=confirmed.recognition_event_id;
