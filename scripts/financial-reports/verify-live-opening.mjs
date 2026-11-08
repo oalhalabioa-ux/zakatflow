@@ -656,6 +656,8 @@ try{
   }
   const readinessResponse=await page.request.get(app+'/api/financial-reporting/setup-readiness?'+new URLSearchParams({organization:org,mode:'EXISTING'}));
   assert.equal(readinessResponse.status(),200);assert.equal((await readinessResponse.json()).organizationId,org);
+  const teamScope=randomUUID();
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);insert into public.organizations(id,owner_user_id,name) values('${teamScope}','${a.id}','Native team second institution');insert into public.organization_members(organization_id,user_id,role,status) values('${teamScope}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';`);
   const sections=[['settings','.organization-details-workspace'],['settings/regulatory','[data-regulatory-workspace]'],['settings/financial','[data-financial-settings]'],['settings/team','.settings-native-team'],['settings/system','[data-system-preferences]'],['billing','.yb-billing']];
   for(const locale of ['ar','en'])for(const [route,selector] of sections){
    await page.setViewportSize({width:1490,height:1050});
@@ -679,6 +681,14 @@ try{
      await page.locator('.settings-team-invitations').getByText('native-settings-acceptance@settings.invalid',{exact:true}).waitFor();
      const stored=await page.request.get(app+'/api/organizations/users?organization_id='+org);
      assert.equal(stored.status(),200);assert.ok((await stored.json()).invitations.some(i=>i.email==='native-settings-acceptance@settings.invalid'));
+     const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
+     const switched=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/organizations/users'&&new URL(r.url()).searchParams.get('organization_id')===teamScope);
+     await picker.selectOption(teamScope);const otherTeam=await switched;assert.equal(otherTeam.status(),200);assert.equal((await otherTeam.json()).users.length,1);
+     await invite.getByLabel('Invite link',{exact:true}).waitFor({state:'hidden'});
+     assert.equal(await page.locator('.settings-team-invitations').getByText('native-settings-acceptance@settings.invalid',{exact:true}).count(),0,'Old institution invitation must clear on a team scope switch');
+     await picker.selectOption(org);
+     await page.locator('.settings-team-invitations').getByText('native-settings-acceptance@settings.invalid',{exact:true}).waitFor();
+
     }
    }
    assert.equal(new URL(page.url()).searchParams.get('organization'),org);

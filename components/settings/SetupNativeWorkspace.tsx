@@ -38,7 +38,7 @@ export default function SetupNativeWorkspace({
   <div className="financial-setup-native-content" data-chart-section={step==='chart'?chartTab:undefined}>
    {step==='organization'&&<OrganizationSettings locale={locale} preferredOrg={organizationId} inline onSaved={onRefresh}/>}
    {step==='regulatory'&&<RegulatorySettingsWorkspace locale={locale} preferredOrg={organizationId} inline onSaved={onRefresh}/>}
-   {step==='users'&&<TeamAccessWorkspace locale={locale} preferredOrg={organizationId} inline onSaved={onRefresh}/>}
+   {step==='users'&&<TeamAccessWorkspace locale={locale} preferredOrg={organizationId} inline organizationPicker={false} onSaved={onRefresh}/>}
    {step==='banking'&&<Cash locale={locale} view="cash" initialScope="ORGANIZATION" preferredOrg={organizationId} setupEmbedded onSaved={onRefresh}/>}
    {step==='fiscal'&&<FiscalYearManagement key={organizationId} organization={organizationId} locale={locale} onSaved={onRefresh}/>}
    {step==='chart'&&<ChartOfAccountsWorkspace key={organizationId+':'+industry}

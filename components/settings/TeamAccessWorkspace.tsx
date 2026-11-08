@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from '@/app/[locale]/users/users.module.css';
 import emailCopy from '@/lib/email/copy.json';
 import SetupReturnLink from '@/components/settings/SetupReturnLink';
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
+import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 
 type Organization = { id: string; name: string };
 type Member = { user_id: string; email: string; name: string; role: string; status: string; created_at: string; custom_role_id?: string | null; custom_role_name?: string | null };
@@ -19,7 +21,7 @@ const labels: Record<string, [string, string]> = {
   ADVISOR: ['مستشار', 'Advisor'], VIEWER: ['مشاهد', 'Viewer'], SHARIA_REVIEWER: ['مراجع شرعي', 'Sharia reviewer'],
 };
 
-export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false,onSaved}:{locale:string;preferredOrg?:string;inline?:boolean;onSaved?:()=>void}) {
+export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false,organizationPicker=true,onSaved}:{locale:string;preferredOrg?:string;inline?:boolean;organizationPicker?:boolean;onSaved?:()=>void}) {
   const ar = locale === 'ar';const mailCopy=emailCopy.organization[ar?'ar':'en'];
   const [activeTab,setActiveTab]=useState('members');
   const [setupReturn,setSetupReturn]=useState({organization:'',visible:false,embedded:false});
@@ -87,6 +89,11 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
   useEffect(() => { void loadOrganizations(); }, [loadOrganizations]);
   useEffect(() => { void loadUsers(organizationId); }, [loadUsers, organizationId]);
   useEffect(() => { setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function'); }, []);
+
+  function chooseOrganization(id:string){
+    if(!organizations.some(item=>item.id===id)||id===organizationId)return;
+    requestVersion.current++;setMembers([]);setInvitations([]);setCustomRoles([]);setActorRole('');setActorId('');setGovernanceReady(false);setDataLoading(true);resetEditor();setOverrideUser('');setMemberSearch('');setOrganizationId(id);setInviteUrl('');setInviteId('');setRequestedEmailIds([]);setEmailAvailable(false);setInviteEmail('');setNotice('');
+  }
 
   const roleValue = (value: string, customRoleId?: string | null) => customRoleId ? `CUSTOM:${customRoleId}` : value;
   const rolePayload = (value: string) => value.startsWith('CUSTOM:') ? { role: 'CUSTOM', custom_role_id: value.slice(7) } : { role: value, custom_role_id: null };
@@ -200,11 +207,12 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
   }
 
   return <main className={`${inline?'settings-native-team':'container'} ${styles.accessPage}`} dir={ar ? 'rtl' : 'ltr'} style={inline?{maxWidth:'100%',padding:0}:{maxWidth:1180,paddingTop:30,paddingBottom:60}}>
+    {inline&&organizationPicker&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} label={ar?'المؤسسة':'Organization'} organizations={organizations} value={organizationId} onChange={chooseOrganization} restore={false} disabled={loading||busy}/></TopbarOrganizationControls>}
     <SetupReturnLink locale={locale} organization={setupReturn.organization} visible={setupReturn.visible} embedded={setupReturn.embedded} />
     <header style={{ marginBottom: 24 }}><span className="pill">{ar ? 'إدارة الوصول' : 'ACCESS MANAGEMENT'}</span><h1>{ar ? 'المستخدمون والصلاحيات' : 'Users & permissions'}</h1><p className="muted">{ar ? 'اربط حسابات الدخول بالجهات، وأدر أدوار الأعضاء والدعوات.' : 'Link sign-in accounts to organizations, and manage member roles and invitations.'}</p></header>
     {notice && <div className="card" role="status" style={{ marginBottom: 16 }}>{notice}</div>}
     <section hidden={inline} className="card" style={{ marginBottom: 20 }}>
-      <label style={{ display: 'grid', gap: 8, maxWidth: 540 }}><strong>{ar ? 'الجهة' : 'Organization'}</strong><select value={organizationId} onChange={event => { requestVersion.current++;setMembers([]);setInvitations([]);setCustomRoles([]);resetEditor();setOverrideUser('');setOrganizationId(event.target.value); setInviteUrl(''); setInviteId('');setRequestedEmailIds([]);setEmailAvailable(false);setInviteEmail(''); }} disabled={loading || busy || !organizations.length || setupReturn.embedded || inline} style={{ padding: 12 }}>
+      <label style={{ display: 'grid', gap: 8, maxWidth: 540 }}><strong>{ar ? 'الجهة' : 'Organization'}</strong><select value={organizationId} onChange={event => chooseOrganization(event.target.value)} disabled={loading || busy || !organizations.length || setupReturn.embedded || inline} style={{ padding: 12 }}>
         {organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
       {!loading && !organizations.length && <p className="muted">{ar ? 'لا توجد جهات متاحة في حسابك.' : 'No organizations are available in your account.'}</p>}
