@@ -221,12 +221,23 @@
 .financial-setup-native-content[data-chart-section="review"] .coa-template-panel{display:none!important}
 .financial-setup-native-content[data-chart-section="structure"] .coa-register{display:none!important}
 .financial-setup-native-content[data-chart-section="structure"] .coa-workspace{display:block}
-.financial-setup-native-content[data-chart-section="structure"] .coa-tree{max-height:none;overflow:visible}
+.financial-setup-native-content[data-chart-section="structure"] .coa-tree{max-height:500px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .financial-setup-native-content[data-chart-section="accounts"] .coa-tree{display:none!important}
 .financial-setup-native-content[data-chart-section="accounts"] .coa-workspace{display:block}
 .financial-setup-native-content[data-chart-section="templates"] .coa-workspace,
 .financial-setup-native-content[data-chart-section="templates"] .coa-stats{display:none!important}
 .financial-setup-native-content[data-chart-section="review"] .coa-workspace{display:none!important}
+/* The native chart is already headed by the journey: avoid an oversized second hero.
+   Keep the account tree scrollable on phone instead of extending the entire journey. */
+.financial-setup-native-content .coa-page{min-height:0;padding:14px 12px 20px}
+.financial-setup-native-content .coa-title h1{font-size:1.2rem}
+.financial-setup-native-content .coa-title p{font-size:.78rem}
+.financial-setup-native-content .coa-notice{margin:10px 0;padding:10px 12px}
+@media(max-width:650px){
+ .financial-setup-native-content[data-chart-section="structure"] .coa-tree{max-height:320px}
+ .financial-setup-native-content .coa-page{padding:10px 8px 14px}
+ .financial-setup-native-content .coa-top-actions button{min-height:35px;padding:7px 8px}
+}
 .financial-setup-native-validation-note{margin:0 15px 15px;border:1px solid #c6a35d;background:#f5ebd67a;border-radius:10px;padding:12px 14px;font-size:.84rem;color:#64502b;line-height:1.8}
 @media(max-width:650px){
  .financial-setup-chart-tabs{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 6px}
