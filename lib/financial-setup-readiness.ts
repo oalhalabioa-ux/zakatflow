@@ -36,6 +36,9 @@ export function financialSetupReadiness(e:SetupEvidence):FinancialSetupReadiness
   // Their existence is not proof of accounting readiness, and an org without
   // subsidiaries must still be able to complete independent financial setup.
   structure:'NOT_STARTED',
+  // Legal/VAT setup uses its own authorized source; the finance-only
+  // preflight must never claim statutory compliance for an unknown country.
+  regulatory:'NOT_STARTED',
   chart:e.chartPostableRetained?'READY':'IN_PROGRESS',
   fiscal:e.fiscalCalendarValid?'READY':'IN_PROGRESS',
   posting:e.approvedPostingPolicy?'READY':'IN_PROGRESS',
@@ -47,7 +50,7 @@ export function financialSetupReadiness(e:SetupEvidence):FinancialSetupReadiness
   review:'BLOCKED',
   finished:'BLOCKED',
  };
- const base=FINANCIAL_SETUP_STEPS.filter(s=>s!=='review'&&s!=='finished'&&s!=='structure');
+ const base=FINANCIAL_SETUP_STEPS.filter(s=>s!=='review'&&s!=='finished'&&s!=='structure'&&s!=='regulatory');
  const prerequisites=base.every(s=>statuses[s]==='READY');
  const ready=prerequisites&&e.sourceChecked&&e.sourceVerified;
  statuses.review=ready?'READY':'BLOCKED';
