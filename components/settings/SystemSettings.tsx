@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { vatProfileSchema } from "@/lib/validation/schemas";
 import { VatEInvoiceSetup } from "@/components/vat-einvoice-setup";
@@ -19,16 +19,26 @@ const addressFields = [
   ["seller_city", "المدينة", "City"],
   ["seller_postal_code", "الرمز البريدي", "Postal code"],
 ];
+function RegulatoryPanelShell({inline,title,onClose,busy,children}:{
+ inline:boolean;title:string;onClose:()=>void;busy:boolean;children:ReactNode;
+}){
+ return inline?<section className="financial-setup-regulatory-editor" aria-label={title}>{children}</section>:
+  <SubscriptionModal title={title} onClose={onClose} busy={busy}>{children}</SubscriptionModal>;
+}
 export default function SystemSettings({
   id,
   name,
   currency,
   locale,
+  setupEmbedded = false,
+  onSaved,
 }: {
   id: string;
   name: string;
   currency: string;
   locale: string;
+  setupEmbedded?: boolean;
+  onSaved?: () => void;
 }) {
   const ar = locale === "ar",
     [profile, setProfile] = useState<Profile | null>(null),
@@ -106,6 +116,7 @@ export default function SystemSettings({
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
       setProfile(parsed.data);
+      onSaved?.();
       setMessage(ar ? "تم حفظ إعدادات الفوترة." : "Invoicing settings saved.");
       setOpen(false);
     } catch {
@@ -120,7 +131,7 @@ export default function SystemSettings({
   }
   return (
     <section className="system-settings subscription-panel">
-      <div className="system-card-grid">
+      {!setupEmbedded && <div className="system-card-grid">
         <article className="console-card">
           <span className="system-card-icon" aria-hidden>
             ▣
@@ -195,13 +206,24 @@ export default function SystemSettings({
       </div>
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
-      {open && (
-        <SubscriptionModal
-          title={
-            ar
-              ? "إعدادات الفوترة الإلكترونية وزاتكا"
-              : "E-invoicing & ZATCA settings"
-          }
+      {setupEmbedded && <div className="financial-setup-regulatory-summary">
+        <div><span>{ar?"ملف الفوترة":"Invoice seller profile"}</span>
+          <strong>{loading?ar?"جار التحقق…":"Loading…":profile?ar?"بيانات محفوظة":"Saved source record":ar?"لم تُضف بيانات بعد":"Not configured"}</strong>
+        </div>
+        <div><span>{ar?"حالة التسجيل الضريبي":"Tax registration status"}</span>
+          <strong>{loading?"—":profile?.registration_status==="REGISTERED"?ar?"مسجل":"Registered":
+            profile?.registration_status==="PENDING"?ar?"قيد التسجيل":"Pending":
+            profile?.registration_status==="DEREGISTERED"?ar?"ملغى":"Deregistered":
+            profile?.registration_status==="NOT_REGISTERED"?ar?"غير مسجل":"Not registered":ar?"لم تُحدد":"Not selected"}</strong>
+        </div>
+        <div><span>{ar?"العنوان المستخدم على الفواتير":"Invoice seller address"}</span>
+          <strong>{profile?.seller_city&&profile?.seller_street?ar?"مدخل":"Entered":ar?"بحاجة مراجعة":"Review required"}</strong>
+        </div>
+      </div>}
+      {(open || setupEmbedded) && !loading && !error && (
+        <RegulatoryPanelShell
+          inline={setupEmbedded}
+          title={ar?"إعدادات الفوترة الإلكترونية وزاتكا":"E-invoicing & ZATCA settings"}
           onClose={() => {
             setOpen(false);
             setError("");
@@ -365,7 +387,7 @@ export default function SystemSettings({
               </footer>
             </form>
           )}
-        </SubscriptionModal>
+        </RegulatoryPanelShell>
       )}
     </section>
   );
