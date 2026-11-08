@@ -54,7 +54,13 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
         const colors=await page.locator(targets).evaluateAll(readColors);
         for(const c of colors)assert.ok(contrast(c)>=4.5,`${theme} ${section} text contrast ${JSON.stringify(c)}`);
         if(section==='billing') {
+          // The default billing tab is a real subscription overview; pricing
+          // intervals live only inside the separate Plans & upgrades tab.
+          await page.locator('.yb-billing-tabs').getByRole('button',{
+            name:locale==='ar'?'الباقات والترقية':'Plans & upgrades',exact:true,
+          }).click();
           const interval=page.locator('.pricing-interval');
+          await interval.waitFor();
           const buttons=interval.locator('button');
           for(const index of [1,0]) {
             await buttons.nth(index).click();
