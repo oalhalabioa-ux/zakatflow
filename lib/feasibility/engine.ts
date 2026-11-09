@@ -7,7 +7,9 @@ export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTU
 export type StudyStatus='IDEA'|'FEASIBILITY'|'APPROVED'|'ESTABLISHMENT'|'OPERATING'|'CANCELLED';
 export type TaskStatus='TODO'|'IN_PROGRESS'|'DONE';
 export type ChecklistStatus='NOT_STARTED'|'UNDER_REVIEW'|'VERIFIED'|'BLOCKED';
-export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'legal'|'tasks'|'risks'|'suppliers'|'decisions';
+export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff';
+export type HandoffMode='LATER'|'NEW'|'EXISTING';
+export interface ProjectHandoff {mode:HandoffMode; organizationId?:string; reviewedSourceUpdatedAt?:string; reviewedAt?:string;}
 export interface CapexItem {id:string;label:string;amount:number;category:'BUILDINGS'|'EQUIPMENT'|'UTILITIES'|'LICENCES'|'OTHER';}
 export interface StudyTask {id:string;title:string;owner:string;due:string;status:TaskStatus;priority:'HIGH'|'NORMAL'|'LOW';}
 export interface LegalItem {id:string;title:string;status:ChecklistStatus;notes:string;}
@@ -20,7 +22,7 @@ export interface FeasibilityStudy {
  investorLoan:number; otherDebt:number; workingCapital:number; annualMaintenance:number;
  unitPrice:number; variableCost:number; monthlyUnits:number; monthlyFixedCost:number; volumeGrowthPct:number;
  priceGrowthPct:number; fixedCostGrowthPct:number; discountRatePct:number; indicativeTaxRatePct:number; years:number;
- capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];
+ capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];handoff?:ProjectHandoff;
  createdAt:string; updatedAt:string;
 }
 export type Scenario='CONSERVATIVE'|'BASE'|'OPTIMISTIC';

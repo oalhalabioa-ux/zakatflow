@@ -41,3 +41,15 @@ The sidebar link is guarded behind `NEXT_PUBLIC_FEASIBILITY_STUDIES=true`, defau
 - Isolated module route: `/:locale/feasibility`.
 - No changes to production data, existing organizations, user roles, core ledgers, branch accounting, fiscal year, existing CSS rules or existing financial statements.
 - PR should remain draft until UI, accessibility, data validation and backend authorization acceptance are complete.
+
+## Product independence, pricing and company handoff (9 November 2026)
+
+- The marketed unit is the **independent** module "Feasibility & Project Development", catalog key `module:feasibility`, not an inseparable child of accounting, assets or liquidity. It must be separately selectable for Professional/Advanced/custom subscriptions with admin-controlled pricing; it must never inherit the mandatory bookkeeping bundle merely because company setup is optional.
+- The module may be used without any accounting subscription. An **optional company handoff** is initiated by the user after reviewing the study and its legal/finance blockers. There are three paths: defer, create company, or connect an existing authorized company.
+- All current signoffs are explicitly **browser-local preliminary QA reviews**; status pickers, local storage and plan catalog labels do not constitute server approval, billing activation or a legal authorization. Saved revisions must become server-stamped, immutable approval events in the dedicated future QA tables.
+- The "new company" path opens the *existing* organization directory to create the entity through its normal authorized process; no duplicate shell organization and no unauthorized direct organization write. The "existing company" path lists ONLY organizations returned by the current user's authenticated `/api/organizations` request; it disallows freeform IDs, blocks currency mismatch, and links to the supported financial setup wizard only when `NEXT_PUBLIC_FINANCIAL_CORE_V2_HANDOFF=true` in the isolated V2 QA deployment. The destination wizard must revalidate membership and financial permissions.
+- Neither path automatically copies projected CAPEX, revenue, land valuation or partner percentages into opening balances or journals. Actual assets, capital receipts, leases and liabilities require **source-supported accounting entries approved in V2**. Study snapshots remain read-only references, not book balances.
+- Targeted QA V2: Vercel project `yaqeen-financial-core-v2-qa`; Supabase `ubotbpjngtfvolthpfec`. Never use legacy `wtzgzmcgcqouziqzsfnl`, Production, or Financial Core V1.
+- Before commercial activation: register the new module in the **server-backed bundle catalog**, allow it as a standalone non-bookkeeping package, enforce entitlement server-side (not by nav visibility), and test no-access/expired/read-only states, tenant isolation and pricing.
+- Before formally enabling the handoff: persist project and immutable approval snapshots in QA V2 with collaborator-scoped RLS, authorization checks, idempotency keys, source revision, and explicit user confirmation; validate any country and currency transformation and the V2 versioned budget adapter.
+
