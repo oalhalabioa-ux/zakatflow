@@ -55,6 +55,9 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
  const [newSector,setNewSector]=useState<Sector>('INDUSTRIAL');
  const [scenario,setScenario]=useState<Scenario>('BASE');
  const [notice,setNotice]=useState('');
+ const cloudEnabled=process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
+ const [cloudBusy,setCloudBusy]=useState(false);
+ const [cloudRevisions,setCloudRevisions]=useState<Record<string,number>>({});
  useEffect(()=>{
   try{
    const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as {studies?:FeasibilityStudy[];selectedId?:string}|null;
@@ -76,6 +79,43 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
  const download=()=>{
   const blob=new Blob([JSON.stringify({schema:'YAQEEN_FEASIBILITY_DRAFT_V1',exportedAt:new Date().toISOString(),studies},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download='yaqeen-feasibility-backup.json';anchor.click();URL.revokeObjectURL(url);
+ };
+ // Explicit cloud synchronization: local drafts are never silently overwritten.
+ const loadCloud=async()=>{
+  if(cloudBusy)return;
+  if(studies.length&&!window.confirm(txt(ar,'سيتم استبدال المسودات المحلية بمسودات QA المحفوظة؛ صدّر نسخة احتياطية أولًا. متابعة؟','This replaces local drafts with saved QA copies. Export a backup first. Continue?')))return;
+  setCloudBusy(true);
+  try{
+   const response=await fetch('/api/feasibility/projects',{cache:'no-store'});
+   if(!response.ok)throw new Error('READ_FAILED');
+   const rows=await response.json() as Array<{id:string;study:FeasibilityStudy;revision:number}>;
+   if(!Array.isArray(rows)||!rows.every(x=>x&&x.study&&x.study.id===x.id&&Array.isArray(x.study.capex)))throw new Error('INVALID_RESPONSE');
+   const documents=rows.map(x=>x.study);
+   setStudies(documents);setSelectedId(documents[0]?.id??'');setTab('overview');
+   setCloudRevisions(Object.fromEntries(rows.map(x=>[x.id,x.revision])));
+   setNotice(txt(ar,'تم استرجاع المسودات من QA V2.','Drafts restored from QA V2.'));
+  }catch{setNotice(txt(ar,'تعذر استرجاع المسودات من QA. لم تُغيّر البيانات المحلية.','Could not restore QA drafts; local data were not changed.'))}
+  finally{setCloudBusy(false)}
+ };
+ const saveCloud=async()=>{
+  if(cloudBusy||!study)return;
+  setCloudBusy(true);
+  try{
+   const revision=cloudRevisions[study.id];
+   const response=await fetch('/api/feasibility/projects',{
+    method:revision===undefined?'POST':'PATCH',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({study,...(revision===undefined?{}:{revision})})
+   });
+   if(response.status===409)throw new Error('CONFLICT');
+   if(!response.ok)throw new Error('SAVE_FAILED');
+   const result=await response.json() as {revision:number};
+   setCloudRevisions(p=>({...p,[study.id]:result.revision}));
+   setNotice(txt(ar,'حُفظت مسودة المشروع في QA V2، وهي ليست اعتمادًا نهائيًا.','Project draft saved in QA V2; this is not formal approval.'));
+  }catch(e){setNotice(e instanceof Error&&e.message==='CONFLICT'?
+   txt(ar,'توجد نسخة أحدث أو مسودة مطابقة على QA؛ احفظ نسخة JSON ثم استرجع المسودات قبل إعادة الحفظ.','A newer or duplicate QA draft exists. Export JSON, restore cloud copies and review before retrying.'):
+   txt(ar,'تعذر الحفظ في QA. احتفظ بنسخة JSON من بياناتك.','QA save failed. Keep a JSON backup.'))}
+  finally{setCloudBusy(false)}
  };
  const importBackup=async(e:ChangeEvent<HTMLInputElement>)=>{
   const file=e.currentTarget.files?.[0];if(!file)return;
@@ -109,9 +149,9 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
  const taskDone=study?.tasks.filter(x=>x.status==='DONE').length??0;
  return <main className="container fs-page" dir={ar?'rtl':'ltr'}>
   <header className="fs-head"><div><span className="fs-eyebrow">YAQEEN BUSINESS / FEASIBILITY</span><h1>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
-   <div className="fs-actions"><Button secondary onClick={download} disabled={!studies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup}/></label><Button secondary onClick={()=>window.print()} disabled={!study}>{txt(ar,'طباعة الدراسة','Print study')}</Button></div>
+   <div className="fs-actions"><Button secondary onClick={download} disabled={!studies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup}/></label><Button secondary onClick={()=>window.print()} disabled={!study}>{txt(ar,'طباعة الدراسة','Print study')}</Button>{cloudEnabled&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>
   </header>
-  <p className="fs-warning" role="status">{txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
+  <p className="fs-warning" role="status">{cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')}>×</button></p>}
   <section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>setNewSector(e.currentTarget.value as Sector)} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select><Button onClick={create} disabled={!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>
   <div className="fs-portfolio">{studies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===selectedId?' fs-project-pill--active':'')} aria-pressed={p.id===selectedId} onClick={()=>{setSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>

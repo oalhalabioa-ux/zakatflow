@@ -53,3 +53,13 @@ The sidebar link is guarded behind `NEXT_PUBLIC_FEASIBILITY_STUDIES=true`, defau
 - Before commercial activation: register the new module in the **server-backed bundle catalog**, allow it as a standalone non-bookkeeping package, enforce entitlement server-side (not by nav visibility), and test no-access/expired/read-only states, tenant isolation and pricing.
 - Before formally enabling the handoff: persist project and immutable approval snapshots in QA V2 with collaborator-scoped RLS, authorization checks, idempotency keys, source revision, and explicit user confirmation; validate any country and currency transformation and the V2 versioned budget adapter.
 
+
+## QA V2 owner-only persistence phase (9 November 2026)
+
+- Applied migration `20261109095653_feasibility_projects_owner_drafts_qa_v2` **only** on Supabase `ubotbpjngtfvolthpfec`. Table `public.feasibility_projects` starts empty, is RLS enabled, and has four owner-user policies. QA security advisor verified; unrelated pre-existing advisor notices were not modified.
+- A feature-gated route `/api/feasibility/projects` uses the authenticated Supabase client (never a service-role browser credential), strict origin checks on writes, document validation, owner conditions, and optimistic `revision` compare-and-swap for updates.
+- `NEXT_PUBLIC_FEASIBILITY_CLOUD_QA=true` plus `NEXT_PUBLIC_FEASIBILITY_STUDIES=true` is required to activate cloud sync in an isolated QA deployment. Both default **off**. No production or legacy Financial Core database changes.
+- The interface intentionally uses explicit **Save to QA V2** / **Restore from QA V2** actions, preventing a browser-local draft from silently overwriting newer cloud content. When a draft ID already exists, the first save returns a conflict until the user reviews the cloud version.
+- This stage is **owner-only storage**, not multi-user collaboration, legal approval, final entitlement enforcement, or an accounting posting API. Data is per-account, not attached to a finance organization until a separately authorized handoff.
+- Later acceptance gates: collaborator memberships with RLS, approved immutable study revisions, workflow audit, docs upload, cross-device browser QA, quota & billing policy for users who do not yet own an organization, and independent module-bundle eligibility.
+
