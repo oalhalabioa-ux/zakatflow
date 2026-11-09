@@ -20,7 +20,9 @@ const migrations=[
  '20261106154742_financial_group_control_evidence_v1.sql',
  '20261107010000_financial_branch_opening_distribution.sql',
  '20261107113000_financial_legacy_source_attestation.sql',
- '20261107213000_financial_retained_snapshot_account.sql'
+ '20261107213000_financial_retained_snapshot_account.sql',
+ '20261109090210_fiscal_setup_policy_unlock.sql',
+ '20261109101216_detailed_posting_routing.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});
