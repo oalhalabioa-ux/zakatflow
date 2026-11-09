@@ -127,6 +127,8 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
      Array.isArray(x.capex)&&Array.isArray(x.tasks)&&Array.isArray(x.legal)&&Array.isArray(x.risks)&&Array.isArray(x.suppliers)&&Array.isArray(x.decisions)))throw new Error('format');
    // Imports replace local drafts. No financial ledger, database or Financial Core mutation.
    if(!window.confirm(txt(ar,'سيتم استبدال المسودات المحلية الحالية بالملف المستورد. متابعة؟','This replaces current local drafts. Continue?')))return;
+   // Imported backups have no trusted server revision: do not reuse optimistic locks from a previous draft.
+   setCloudRevisions({});
    setStudies(data.studies);setSelectedId(data.studies[0]?.id||'');setTab('overview');
    setNotice(txt(ar,'تم استيراد المسودات محليًا.','Local drafts imported.'));
   }catch{setNotice(txt(ar,'ملف النسخة الاحتياطية غير صالح.','Invalid backup file.'));}

@@ -10,6 +10,7 @@ describe('feasibility QA cloud draft input',()=>{
  it('rejects non-uuid ID, non-finite cost and invalid reviewer fields',()=>{
   const study=createStudy(id,'Factory');
   expect(cloudDraftWrite.safeParse({study:{...study,id:'invalid'}}).success).toBe(false);
+  expect(cloudDraftWrite.safeParse({study:{...study,owner_user_id:'forged'}}).success).toBe(false);
   expect(cloudDraftWrite.safeParse({study:{...study,landValue:Infinity}}).success).toBe(false);
   expect(cloudDraftWrite.safeParse({study:{...study,handoff:{mode:'EXISTING',organizationId:'forged'}}}).success).toBe(false);
  });

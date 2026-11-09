@@ -74,3 +74,9 @@ The sidebar link is guarded behind `NEXT_PUBLIC_FEASIBILITY_STUDIES=true`, defau
 ### QA-only SQL vs canonical Production migrations
 
 The schema has already been applied and verified **once** on V2 QA. Its exact SQL is tracked in `docs/feasibility/qa-v2-owner-drafts-schema.sql` instead of `supabase/migrations/`, because the latter is the canonical historical Production/disposable-bootstrap manifest. No new Production migration may be introduced until reviewed and approved for release. Do **not** reapply the QA migration or insert it into Production's canonical history merely to pass CI.
+
+## QA V2 API and backup trust boundary
+
+- The cloud document Zod schema is strict: clients may not submit arbitrary extra accounting/owner fields inside a study. Server assigns `owner_user_id`; user ID is never accepted from a payload.
+- An imported JSON backup clears any previously remembered cloud revision token, so a stale backup cannot overwrite an already synchronized study without a cloud restore and explicit review. The cloud API rejects duplicate IDs with HTTP 409 and rejects stale revision updates.
+- Authenticated / same-origin / RLS / conflict boundary checks have automated API tests, but **live authenticated browser QA on the Financial Core V2 deployment is still required**.

@@ -22,5 +22,5 @@ export const feasibilityDraftSchema=z.object({
  decisions:z.array(z.object({id:z.string().max(100),title:z.string().max(500),date:z.string().max(30),notes:text})).max(500),
  handoff:z.object({mode:z.enum(['LATER','NEW','EXISTING']),organizationId:z.string().uuid().optional(),reviewedSourceUpdatedAt:date.optional(),reviewedAt:date.optional()}).optional(),
  createdAt:date,updatedAt:date
-}).passthrough();
+}).strict();
 export const cloudDraftWrite=z.object({study:feasibilityDraftSchema,revision:z.number().int().positive().optional()}).strict();
