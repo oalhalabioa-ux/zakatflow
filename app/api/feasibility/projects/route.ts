@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {supabaseServer} from '@/lib/supabase/server';
 import {isSameOriginRequest} from '@/lib/request-origin';
-import {cloudDraftWrite} from '@/lib/feasibility/draft-schema';
+import {cloudDraftWrite} from '../../../../lib/feasibility/draft-schema';
 
 export const dynamic='force-dynamic';
 const enabled=()=>process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES==='true'&&process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
