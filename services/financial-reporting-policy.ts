@@ -66,6 +66,9 @@ export async function writeReportingPolicy(input:unknown){
    if(!allowed)throw Error('REPORTING_CLASSIFICATIONS_REQUIRED');
    unwrap(await supabase.from('financial_classifications').upsert(POSTING_BASE_CLASSIFICATIONS.map(([code,name])=>({organization_id:q.organization,code,name,classification_type:code,is_system:false,created_by:user.id})),{onConflict:'organization_id,code',ignoreDuplicates:true}));
   }
+  // Existing banks must resolve the voucher-selected cash side before activation.
+  // The scoped idempotent command preserves balances and existing chart links.
+  unwrap(await supabase.rpc('link_financial_cash_accounts',{p_org:q.organization}));
   unwrap(await supabase.rpc('prepare_financial_account_rule_links',{p_org:q.organization}));
   workspace=await readReportingPolicy(scope);
   const prepared=readyPostingDefaults(workspace.classifications,workspace.chart,workspace.events,workspace.policy?.rules??[],roles);

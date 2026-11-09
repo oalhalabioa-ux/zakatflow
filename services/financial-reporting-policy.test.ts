@@ -92,18 +92,32 @@ describe('batch default activation',()=>{
   await expect(writeReportingPolicy({action:'activate-defaults',...scope,rules:[]})).rejects.toThrow();
   expect(f.rpc).not.toHaveBeenCalled();
  });
+ it('does not activate when an existing bank cannot be linked',async()=>{
+  const original=f.rpc.getMockImplementation()!;
+  f.rpc.mockImplementation(async(name,args)=>{
+   if(name==='prepare_financial_posting_defaults')return {data:{},error:null};
+   if(name==='link_financial_cash_accounts')return {data:null,error:{message:'FISCAL_CASH_LINK_INVALID'}};
+   return original(name,args);
+  });
+  await expect(writeReportingPolicy({action:'activate-defaults',...scope})).rejects.toThrow('REPORTING_UNAVAILABLE');
+  expect(f.rpc.mock.calls.some(([name])=>name==='activate_financial_posting_defaults')).toBe(false);
+ });
  it('provisions tenant roles and delegates batch save/approval to the atomic RPC',async()=>{
   const original=f.rpc.getMockImplementation()!;
   const roots=['1000','1100','1200','1300','1400','1500','1590','1600','2100','2200','2300','2400','4100','6100','6200','7100','8100'];
   const roles=Object.fromEntries(roots.filter(r=>r!=='1000').map(r=>[r,r+'01']));
   f.rpc.mockImplementation(async(name,args)=>{
    if(name==='prepare_financial_posting_defaults')return {data:roles,error:null};
+   if(name==='link_financial_cash_accounts')return {data:{},error:null};
    if(name==='activate_financial_posting_defaults')return {data:{status:'APPROVED'},error:null};
    const result=await original(name,args);
    if(name==='financial_reporting_policy_workspace')result.data.chart=roots.flatMap(code=>[{id:code,code,reportingCode:code,cash:code==='1000'},...(code==='1000'?[]:[{id:code+'01',code:code+'01',reportingCode:code,cash:false}])]);
    return result;
   });
   await writeReportingPolicy({action:'activate-defaults',...scope});
+  expect(f.rpc).toHaveBeenCalledWith('link_financial_cash_accounts',{p_org:org});
+  const calls=f.rpc.mock.calls.map(([name])=>name);
+  expect(calls.indexOf('link_financial_cash_accounts')).toBeLessThan(calls.indexOf('activate_financial_posting_defaults'));
   expect(f.rpc).toHaveBeenCalledWith('activate_financial_posting_defaults',expect.objectContaining({p_org:org,p_fiscal_start:scope.fiscalStart,p_policy_id:null,p_expected_version:0,p_rules:expect.arrayContaining([expect.objectContaining({detailed:true,debitAccountId:'110001',creditAccountId:'410001'})])}));
   expect(f.rpc.mock.calls.some(([n])=>n==='approve_financial_reporting_policy')).toBe(false);
  });
