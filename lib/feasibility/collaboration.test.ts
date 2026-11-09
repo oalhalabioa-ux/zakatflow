@@ -13,3 +13,4 @@ describe('project collaboration role separation',()=>{
  it('reserves editing to active editors and invites to the owner',()=>{
   expect(collaboratorPermissions('EDITOR','ACTIVE')).toEqual({canRead:true,canEdit:true,canReview:true,canManageInvites:false});
  });
+});
