@@ -17,6 +17,10 @@ const org={id:orgId,name:'شركة يقين التجارية',legal_name:'شرك
 const other={...org,id:otherId,name:'المؤسسة الثانية',legal_name:'المؤسسة الثانية',sort_order:2};
 let prefs={profile:{name:'QA owner',phone:'',base_currency:'SAR',locale:'ar',timezone:'Asia/Riyadh',calendar_type:'GREGORIAN',nisab_standard:'SILVER'},settings:{allocation_method:'FIFO',notifications_enabled:true,assessment_reminders:true,theme:'yaqeen-business'}};
 const subscription=id=>({organization_id:id,organization_name:id===orgId?org.name:other.name,status:'trialing',can_write:true,trial_started_at:'2026-11-01T00:00:00Z',trial_ends_at:'2026-12-01T00:00:00Z',days_remaining:23,trial_duration_days:30,active_users:id===orgId?3:1,max_users:5,server_now:'2026-11-08T12:00:00Z'});
+const fixturePlans=[
+ {id:'plan-pro',code:'professional_monthly',family:'professional',name_ar:'الاحترافية',name_en:'Professional',description_ar:'إدارة العمليات المالية اليومية',description_en:'Daily finance operations',price_amount:199,max_users:5},
+ {id:'plan-advanced',code:'advanced_monthly',family:'advanced',name_ar:'المتقدمة',name_en:'Advanced',description_ar:'التخطيط والاستثمارات وتخصيص الأدوار',description_en:'Planning, investments and custom roles',price_amount:399,max_users:15},
+].map(plan=>({...plan,features:['module:assets','module:liquidity'],currency:'SAR',billing_interval:'monthly',is_active:true,is_published:true,is_proposed:true}));
 const entities=[{id:'entity-1',organization_id:orgId,name:'كيان الرياض',entity_type:'COMPANY',base_currency:'SAR',registration_no:'1010000001',active:true}];
 let readinessGate=null,releaseReadiness;
 let postingPolicy=null,postingInitializations=0;
@@ -39,7 +43,8 @@ await page.route('**/api/**',async route=>{
  else if(u.pathname==='/api/financial-reporting/chart')data={organizationId:orgId,accounts:[{kind:'ASSET',isActive:true,isPostable:true},{kind:'EQUITY',isActive:true,isPostable:true}]};
  else if(u.pathname==='/api/financial-register')data={organizationIds:[orgId],accounts:[{id:'bank-1',organizationId:orgId,name:'حساب المؤسسة',type:'BANK',currency:'SAR'}]};
  else if(u.pathname==='/api/subscriptions')data=subscription(u.searchParams.get('organization_id'));
- else if(u.pathname==='/api/subscriptions/requests')data={rows:[],can_request:true};
+ else if(u.pathname==='/api/subscriptions/plans')data={plans:fixturePlans,trial_days:30};
+ else if(u.pathname==='/api/subscriptions/requests')data={rows:[],can_request:true,name:'QA owner',email:user.email};
  else if(u.pathname==='/api/settings'){if(req.method()==='PUT'){prefs={profile:{...prefs.profile,...body.profile},settings:{...prefs.settings,...body.settings}};}data=prefs;}
  else if(u.pathname==='/api/currencies')data=[{code:'SAR'},{code:'USD'},{code:'EUR'}];
  else if(u.pathname==='/api/vat/settings')data={can_edit:true,profile:{registration_status:'NOT_REGISTERED',registered_name:org.name,filing_frequency:'QUARTERLY',period_start_month:1,seller_city:'الرياض',seller_street:'شارع الملك فهد'}};
@@ -82,6 +87,30 @@ try{
    for(const width of (process.env.SETTINGS_UI_SKIP_SNAPSHOTS?[]:[1490,1280,768,390])){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);await page.evaluate(()=>window.scrollTo(0,0));const overlaps=await page.locator('.settings-workspace').evaluate(root=>{const items=[...root.querySelectorAll('button,a,input,select,textarea')].filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map(el=>({label:el.getAttribute('aria-label')||el.textContent?.trim().slice(0,40)||el.tagName,box:el.getBoundingClientRect()}));const found=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(Math.min(a.box.right,b.box.right)-Math.max(a.box.left,b.box.left)>2&&Math.min(a.box.bottom,b.box.bottom)-Math.max(a.box.top,b.box.top)>2)found.push(a.label+' / '+b.label);}return found;});assert.deepEqual(overlaps,[],path+' '+locale+' '+width+' overlapping controls');const clippedTabs=await page.locator('.settings-tabs a>span,.settings-subsection-nav a>span').evaluateAll(items=>items.filter(el=>el.scrollWidth>el.clientWidth+1).map(el=>el.textContent));assert.deepEqual(clippedTabs,[],path+' '+locale+' '+width+' clipped tab labels');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
+   if(path==='billing'){
+    const tabs=page.locator('.yb-billing-tabs');
+    await tabs.getByRole('button',{name:ar?'الباقات والترقية':'Plans & upgrades',exact:true}).click();
+    await page.locator('.pricing-custom-unpublished').waitFor();
+    await page.locator('[data-plan="professional_monthly"] button.primary').click();
+    assert.equal(await page.locator('.billing-activation select').inputValue(),'plan-pro');
+    assert.equal(await page.locator('.billing-activation input[type="checkbox"]').getAttribute('required'),'');
+    for(const width of [1490,390]){
+     await page.setViewportSize({width,height:1050});await page.evaluate(()=>window.scrollTo(0,0));
+     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Billing plans overflow');
+     await page.screenshot({path:`${out}/billing-plans-${locale}-${width}.png`,fullPage:true});
+    }
+    await tabs.getByRole('button',{name:ar?'الفواتير والمدفوعات':'Invoices & payments',exact:true}).click();
+    await page.locator('.billing-identity-form').waitFor();
+    assert.equal(await page.locator('.yb-table-wrap th').count(),6);
+    assert.equal(await page.locator('.yb-table-wrap tbody button').count(),0);
+    for(const width of [1490,390]){
+     await page.setViewportSize({width,height:1050});await page.evaluate(()=>window.scrollTo(0,0));
+     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Billing records overflow');
+     await page.screenshot({path:`${out}/billing-records-${locale}-${width}.png`,fullPage:true});
+    }
+    await page.setViewportSize({width:1490,height:1050});
+    checks.push(locale+' billing catalog, custom option, inline request and invoice empty state');
+   }
   }
  }
  await page.goto(`${app}/en/settings?organization=${orgId}`);await page.getByLabel('Official email',{exact:true}).waitFor();org.registered_address='Concurrent legal fixture';await page.getByLabel('Official email',{exact:true}).fill('delta-profile@example.com');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Organization details saved.',{exact:true}).waitFor();assert.equal(org.registered_address,'Concurrent legal fixture');

@@ -6,12 +6,16 @@ import {rememberedOrganization} from '@/lib/workspace-organization';
 import {requestLabel,type ActivationRequest} from '@/lib/subscriptions/requests';
 import {displaySubscriptionDate,subscriptionLabel,type OrganizationSubscription} from '@/lib/subscriptions/model';
 import OrganizationSettings from './OrganizationSettings';
+import SettingsIcon from './SettingsIcon';
 import './subscription-billing.css';
 type Area='summary'|'plans'|'records'|'identity';
 type RequestData={rows:ActivationRequest[];can_request:boolean};
+type Member={name?:string;email?:string;role:string;status:string;custom_role_name?:string};
+const roleNames:Record<string,[string,string]>={OWNER:['المالك','Owner'],ADMIN:['المدير','Admin'],ACCOUNTANT:['المحاسب','Accountant'],ADVISOR:['المستشار','Advisor'],VIEWER:['المشاهد','Viewer'],SHARIA_REVIEWER:['المراجع الشرعي','Sharia reviewer']};
 export default function SubscriptionBillingWorkspace({locale}:{locale:string}){
  const ar=locale==='ar';const [area,setArea]=useState<Area>('summary'),[organization,setOrganization]=useState('');
  const [subscription,setSubscription]=useState<OrganizationSubscription|null>(null),[requests,setRequests]=useState<RequestData|null>(null);
+ const [members,setMembers]=useState<Member[]>([]);
  const [loading,setLoading]=useState(true),[error,setError]=useState(false),[recordsError,setRecordsError]=useState(false),[revision,setRevision]=useState(0);
  const version=useRef(0);
  useEffect(()=>{
@@ -21,7 +25,7 @@ export default function SubscriptionBillingWorkspace({locale}:{locale:string}){
  },[]);
  useEffect(()=>{
   const c=new AbortController(),requestVersion=++version.current;
-  setRequests(null);setSubscription(null);setLoading(true);setError(false);setRecordsError(false);
+  setRequests(null);setSubscription(null);setMembers([]);setLoading(true);setError(false);setRecordsError(false);
   if(!organization){setLoading(false);return()=>c.abort();}
   const current=()=>!c.signal.aborted&&version.current===requestVersion;
   fetch('/api/subscriptions?organization_id='+encodeURIComponent(organization),{cache:'no-store',signal:c.signal})
@@ -31,30 +35,60 @@ export default function SubscriptionBillingWorkspace({locale}:{locale:string}){
   fetch('/api/subscriptions/requests?organization_id='+encodeURIComponent(organization),{cache:'no-store',signal:c.signal})
    .then(async r=>{if(!r.ok)throw Error();return r.json() as Promise<RequestData>;})
    .then(data=>{if(current())setRequests(data);}).catch(()=>{if(current())setRecordsError(true);});
+  fetch('/api/organizations/users?organization_id='+encodeURIComponent(organization),{cache:'no-store',signal:c.signal})
+   .then(response=>response.ok?response.json():null)
+   .then(data=>{if(current()&&Array.isArray(data?.users))setMembers(data.users);}).catch(()=>{});
   return()=>{c.abort();version.current++;};
  },[organization,revision]);
- const tabs=[{id:'summary',ar:'ملخص الاشتراك',en:'Subscription overview'},{id:'plans',ar:'الباقات والترقية',en:'Plans & upgrades'},{id:'records',ar:'الفواتير والمدفوعات',en:'Invoices & payments'},{id:'identity',ar:'بيانات الفوترة',en:'Billing details'}] as const;
+ const tabs=[{id:'summary',icon:'finance',ar:'ملخص الاشتراك',en:'Subscription overview'},{id:'plans',icon:'chart',ar:'الباقات والترقية',en:'Plans & upgrades'},{id:'records',icon:'regulatory',ar:'الفواتير والمدفوعات',en:'Invoices & payments'},{id:'identity',icon:'billing',ar:'بيانات الفوترة',en:'Billing details'}] as const;
  const plan=subscription?.plan_snapshot??subscription?.plan;
  const end=subscription?.status==='active'?subscription.current_period_end:subscription?.trial_ends_at;
  const usage=subscription?.max_users?Math.min(100,subscription.active_users/subscription.max_users*100):0;
+ const days=subscription?.status==='trialing'?subscription.trial_duration_days:undefined;
+ const trialProgress=days&&subscription?.days_remaining!=null?Math.max(0,Math.min(100,subscription.days_remaining/days*100)):null;
+ const owner=members.find(member=>member.role==='OWNER');
+ const roles=new Map<string,number>();
+ for(const member of members.filter(member=>member.status==='ACTIVE')){
+  const label=member.custom_role_name||roleNames[member.role]?.[ar?0:1]||member.role;
+  roles.set(label,(roles.get(label)??0)+1);
+ }
+ const latest=requests?.rows.find(row=>row.organization_id===organization);
  return <section className="yb-billing" aria-label={ar?'الاشتراك والفوترة':'Subscription and billing'}>
-  <header className="yb-billing-header"><div><p>{ar?'المؤسسة / الاشتراك والفوترة':'Organization / Subscription & billing'}</p><h1>{ar?'الاشتراك والفوترة':'Subscription & billing'}</h1><span>{ar?'إدارة باقتك وحدود الاستخدام وطلبات التفعيل.':'Manage your plan, usage and activation requests.'}</span></div><Link href={`/${locale}/settings?organization=${encodeURIComponent(organization)}`}>{ar?'إعدادات المؤسسة':'Organization settings'}</Link></header>
-  <nav className="yb-billing-tabs" aria-label={ar?'صفحات الاشتراك والفوترة':'Subscription and billing pages'}>{tabs.map(t=><button key={t.id} type="button" aria-pressed={area===t.id} onClick={()=>{setArea(t.id);if(t.id==='records')setRevision(v=>v+1);}}>{ar?t.ar:t.en}</button>)}</nav>
+  <header className="yb-billing-header"><p><Link href={`/${locale}/settings?organization=${encodeURIComponent(organization)}`}>{ar?'إعدادات المؤسسة':'Organization settings'}</Link> / {ar?'الاشتراك والفوترة':'Subscription & billing'}</p><h1><SettingsIcon name="billing"/>{ar?'الاشتراك والفوترة':'Subscription & billing'}</h1></header>
+  <nav className="yb-billing-tabs" aria-label={ar?'صفحات الاشتراك والفوترة':'Subscription and billing pages'}>{tabs.map(t=><button key={t.id} type="button" aria-pressed={area===t.id} onClick={()=>{setArea(t.id);if(t.id==='records'||t.id==='identity')setRevision(v=>v+1);}}><SettingsIcon name={t.icon}/>{ar?t.ar:t.en}</button>)}</nav>
   {area==='summary'&&<section aria-label={ar?'حالة الاشتراك':'Subscription status'} className="subscription-summary yb-overview">
    {loading?<p role="status">{ar?'جارٍ تحميل الاشتراك…':'Loading subscription…'}</p>:error?<p role="alert">{ar?'تعذر تحميل الاشتراك.':'Unable to load subscription.'}</p>:subscription?<>
-    <div className="yb-overview-grid"><article className="yb-plan-card"><small>{subscriptionLabel(subscription.status,ar)}</small><h2>{plan?(ar?plan.name_ar:plan.name_en):subscription.status==='trialing'?(ar?'الفترة التجريبية':'Trial period'):(ar?'لا توجد باقة مفعلة':'No active plan')}</h2>
+    <div className="yb-overview-grid"><article className="yb-plan-card"><h2><SettingsIcon name="calendar"/>{subscription.status==='trialing'?(ar?'الفترة التجريبية':'Trial period'):plan?(ar?plan.name_ar:plan.name_en):subscriptionLabel(subscription.status,ar)}</h2>
+     {subscription.status!=='trialing'&&plan&&<small>{subscriptionLabel(subscription.status,ar)}</small>}
+     {days&&<strong className="billing-trial-days"><bdi>{days}</bdi> {ar?'يوم':'days'}</strong>}
      {subscription.days_remaining!=null&&<p className="yb-remaining"><bdi>{subscription.days_remaining}</bdi> {ar?'يومًا متبقيًا':'days remaining'}</p>}
+     {trialProgress!=null&&<div className="yb-usage" role="progressbar" aria-label={ar?'المدة المتبقية من التجربة':'Trial time remaining'} aria-valuenow={trialProgress}><span style={{width:trialProgress+'%'}}/></div>}
      <div className="yb-billing-quick"><button type="button" onClick={()=>setArea('plans')}>{ar?'طلب التفعيل':'Request activation'}</button><button type="button" onClick={()=>setArea('plans')}>{ar?'عرض الباقات':'View plans'}</button></div>
-    </article><article className="yb-billing-panel"><h3>{ar?'معلومات المؤسسة والاشتراك':'Organization & subscription'}</h3><dl className="yb-details"><div><dt>{ar?'المؤسسة':'Organization'}</dt><dd>{subscription.organization_name}</dd></div><div><dt>{ar?'بداية التجربة':'Trial started'}</dt><dd>{displaySubscriptionDate(subscription.trial_started_at,locale)}</dd></div><div><dt>{ar?'تاريخ الانتهاء':'End date'}</dt><dd>{displaySubscriptionDate(end,locale)}</dd></div><div><dt>{ar?'حالة الوصول':'Access'}</dt><dd>{subscription.can_write?(ar?'قراءة وكتابة حسب الصلاحية':'Read/write within permissions'):(ar?'قراءة وتصدير فقط':'Read & export only')}</dd></div></dl></article></div>
-    <article className="yb-billing-panel"><h3>{ar?'استخدام الباقة':'Plan usage'}</h3><div className="yb-usage-label"><span>{ar?'المستخدمون النشطون':'Active users'}</span><strong dir="ltr">{subscription.active_users} / {subscription.max_users??'∞'}</strong></div><div className="yb-usage" role="progressbar" aria-label={ar?'استخدام المستخدمين':'User usage'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={usage}><span style={{width:usage+'%'}}/></div><p>{ar?'يشمل المالك. تخضع إضافة المستخدمين لحدود الباقة وصلاحيات المؤسسة.':'Includes the owner. User additions follow plan limits and organization permissions.'}</p><Link href={`/${locale}/settings/team?organization=${encodeURIComponent(organization)}`}>{ar?'إدارة المستخدمين والصلاحيات':'Manage users & permissions'}</Link></article>
-    <p className="yb-notice">{ar?'بعد انتهاء التجربة تصبح المؤسسة للقراءة والتصدير فقط. لا يُطلب إدخال بطاقة لطلب التفعيل.':'After trial expiry, the organization becomes read/export only. Activation requests do not require a card.'}</p>
+    </article><article className="yb-billing-panel"><h3><SettingsIcon name="organization"/>{ar?'معلومات المؤسسة':'Organization information'}</h3><dl className="yb-details"><div><dt>{ar?'اسم المؤسسة':'Organization name'}</dt><dd>{subscription.organization_name}</dd></div>{owner&&<div><dt>{ar?'مالك المؤسسة':'Organization owner'}</dt><dd>{owner.name||owner.email}</dd></div>}{subscription.trial_started_at&&<div><dt>{ar?'بداية التجربة':'Trial started'}</dt><dd>{displaySubscriptionDate(subscription.trial_started_at,locale,subscription.timezone)}</dd></div>}{end&&<div><dt>{ar?'تاريخ الانتهاء':'End date'}</dt><dd>{displaySubscriptionDate(end,locale,subscription.timezone)}</dd></div>}<div><dt>{ar?'حالة الوصول':'Access'}</dt><dd>{subscription.can_write?(ar?'قراءة وكتابة حسب الصلاحية':'Read/write within permissions'):(ar?'قراءة وتصدير فقط':'Read & export only')}</dd></div></dl></article></div>
+    <article className="yb-billing-panel"><h3><SettingsIcon name="users"/>{ar?'استخدام الباقة':'Plan usage'}</h3><div className="billing-usage-grid">
+     <div><div className="yb-usage-label"><span>{ar?'المستخدمون النشطون':'Active users'}</span><strong dir="ltr">{subscription.active_users} / {subscription.max_users??'∞'}</strong></div>{subscription.max_users!=null&&<div className="yb-usage" role="progressbar" aria-label={ar?'استخدام المستخدمين':'User usage'} aria-valuenow={usage}><span style={{width:usage+'%'}}/></div>}</div>
+     {roles.size>0&&<div><strong>{ar?'الأدوار':'Roles'}</strong><p>{Array.from(roles,([label,count])=>`${label} (${count})`).join(' · ')}</p><p>{ar?'يشمل المالك.':'Includes the owner.'}</p></div>}
+    </div></article>
+    {subscription.status==='trialing'&&<p className="yb-notice billing-muted"><SettingsIcon name="info"/>{ar?'بعد انتهاء التجربة تصبح المؤسسة للقراءة والتصدير فقط.':'After trial expiry, the organization becomes read/export only.'}</p>}
+    <aside className="billing-upgrade"><strong><SettingsIcon name="chart"/>{ar?'اختر باقتك لتفعيل الاشتراك':'Choose a plan to activate your subscription'}</strong><button className="billing-primary" type="button" onClick={()=>setArea('plans')}>{ar?'مقارنة الباقات':'Compare plans'}</button></aside>
    </>:<p role="status">{ar?'اختر مؤسسة لعرض اشتراكها.':'Select an organization.'}</p>}
   </section>}
-  {area==='plans'&&<section className="yb-billing-panel"><h2>{ar?'الباقات وطلبات التفعيل':'Plans & activation requests'}</h2><div id="subscription-plans"><PricingCatalog key={organization} locale={locale}/></div></section>}
-  {area==='records'&&<section className="yb-billing-panel"><h2>{ar?'الفواتير والمدفوعات':'Invoices & payments'}</h2><p className="yb-notice">{ar?'إصدار فواتير الاشتراك والتحصيل الإلكتروني لم يُفعّلا بعد. السجل أدناه لطلبات التفعيل الفعلية.':'Subscription invoicing and online collection are not enabled yet. Actual activation requests appear below.'}</p><h3>{ar?'طلبات التفعيل':'Activation requests'}</h3>
-   {recordsError?<p role="alert">{ar?'تعذر عرض الطلبات أو لا تملك الصلاحية.':'Requests unavailable or access restricted.'}</p>:!requests?<p role="status">{ar?'جارٍ تحميل الطلبات…':'Loading requests…'}</p>:requests.rows.length?<div className="yb-table-wrap"><table><thead><tr>{(ar?['رقم الطلب','الباقة','التاريخ','الحالة']:['Request','Plan','Date','Status']).map(t=><th key={t}>{t}</th>)}</tr></thead><tbody>{requests.rows.map(row=><tr key={row.id}><td><bdi>#{row.request_number}</bdi></td><td>{ar?row.quote.name_ar:row.quote.name_en}</td><td>{displaySubscriptionDate(row.created_at,locale)}</td><td><span className="settings-state pending">{requestLabel(row.status,ar)}</span></td></tr>)}</tbody></table></div>:<p role="status">{ar?'لا توجد طلبات محفوظة.':'No recorded requests.'}</p>}
-   <button type="button" onClick={()=>setRevision(v=>v+1)}>{ar?'تحديث السجل':'Refresh records'}</button>
+  {area==='plans'&&<section id="subscription-plans"><PricingCatalog key={organization} locale={locale} organization={organization}/></section>}
+  {area==='records'&&<section className="yb-billing-panel">
+   <h2><SettingsIcon name="regulatory"/>{ar?'سجل الفواتير والمدفوعات':'Invoices & payments history'}</h2>
+   <div className="yb-table-wrap"><table><thead><tr>{(ar?['رقم الفاتورة','التاريخ','الوصف','المبلغ','الحالة','تحميل']:['Invoice number','Date','Description','Amount','Status','Download']).map(label=><th key={label} scope="col">{label}</th>)}</tr></thead>
+   <tbody><tr><td colSpan={6}>{ar?'إصدار فواتير الاشتراك والدفع الإلكتروني غير متاح حاليًا.':'Subscription invoices and online payments are currently unavailable.'}</td></tr></tbody></table></div>
   </section>}
-  {area==='identity'&&<section className="yb-billing-panel"><h2>{ar?'بيانات الفوترة':'Billing details'}</h2><p>{ar?'تُستخدم هوية المؤسسة القانونية نفسها، لتجنب تكرار بيانات الاسم والعنوان. بيانات البائع الضريبية مستقلة في الإعدادات النظامية والضريبية.':'Uses the same registered organization identity, without duplicating names and addresses. Seller tax identity is managed separately in Legal & tax.'}</p>{organization&&<OrganizationSettings key={organization} locale={locale} preferredOrg={organization} inline identityOnly onSaved={()=>setRevision(v=>v+1)}/>}</section>}
+  {(area==='records'||area==='identity')&&organization&&<div className="billing-record-details">
+   <OrganizationSettings key={organization} locale={locale} preferredOrg={organization} inline billingDetails/>
+   <aside className="yb-billing-panel billing-request-status">
+    <h2><SettingsIcon name="security"/>{ar?'حالة طلب التفعيل':'Activation request status'}</h2>
+    <p role="status" className="yb-notice">{recordsError?(ar?'تعذر عرض الطلبات.':'Requests unavailable.'):latest?requestLabel(latest.status,ar):!requests?(ar?'جارٍ التحميل…':'Loading…'):requests.can_request?(ar?'لا يوجد طلب تفعيل.':'No activation request.'):(ar?'عرض الطلبات متاح للمالك أو المدير.':'Requests are visible to owners and administrators.')}</p>
+    {latest&&<><dl className="yb-details">
+     <div><dt>{ar?'رقم الطلب':'Request number'}</dt><dd><bdi>#{latest.request_number}</bdi></dd></div>
+     <div><dt>{ar?'الباقة':'Plan'}</dt><dd>{ar?latest.quote.name_ar:latest.quote.name_en}</dd></div>
+    </dl><button className="billing-primary" type="button" onClick={()=>setArea('plans')}>{ar?'عرض طلبات التفعيل':'View activation requests'}</button></>}
+   </aside>
+  </div>}
  </section>;
 }

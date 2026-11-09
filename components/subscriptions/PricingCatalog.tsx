@@ -12,7 +12,8 @@ import {
 } from "@/lib/subscriptions/requests";
 import type { OrganizationSubscription } from "@/lib/subscriptions/model";
 import { capabilityLabel, money, planCustomerNotice, type Plan } from "@/lib/subscriptions/catalog";
-export default function PricingCatalog({ locale }: { locale: string }) {
+import SettingsIcon from "@/components/settings/SettingsIcon";
+export default function PricingCatalog({ locale, organization }: { locale: string; organization?: string }) {
   const ar = locale === "ar";
   const [catalog, setCatalog] = useState<{
       trial_days: number;
@@ -37,9 +38,9 @@ export default function PricingCatalog({ locale }: { locale: string }) {
     const version = ++contextVersion.current;
     try {
       let id =
-        new URLSearchParams(location.search).get("organization") ??
+        organization ?? new URLSearchParams(location.search).get("organization") ??
         rememberedOrganization();
-      if (!id) {
+      if (!id && organization === undefined) {
         const r = await fetch("/api/organizations", { cache: "no-store" });
         if (!r.ok) throw Error();
         id = preferredOrganization(await r.json())?.id ?? null;
@@ -71,7 +72,7 @@ export default function PricingCatalog({ locale }: { locale: string }) {
     } catch {
       if (version === contextVersion.current) setContext(null);
     }
-  }, []);
+  }, [organization]);
   useEffect(() => {
     void readContext();
     const read = () => {
@@ -80,14 +81,16 @@ export default function PricingCatalog({ locale }: { locale: string }) {
       setNotice("");
       void readContext();
     };
-    window.addEventListener("zf-organization-selection", read);
-    window.addEventListener("popstate", read);
+    if (organization === undefined) {
+      window.addEventListener("zf-organization-selection", read);
+      window.addEventListener("popstate", read);
+    }
     return () => {
       contextVersion.current++;
       window.removeEventListener("zf-organization-selection", read);
       window.removeEventListener("popstate", read);
     };
-  }, [readContext]);
+  }, [organization, readContext]);
   async function cancel(r: ActivationRequest) {
     if (!context) return;
     try {
@@ -135,8 +138,23 @@ export default function PricingCatalog({ locale }: { locale: string }) {
     );
   if (!catalog)
     return <p role="status">{ar ? "جارٍ تحميل الباقات…" : "Loading plans…"}</p>;
+  const plans = catalog.plans.filter(plan => plan.billing_interval === interval);
+  const eligiblePlans = plans.filter(plan => context?.entitlement.status !== "active" || context.entitlement.plan_id !== plan.id);
+  const open = context?.rows.find(openRequest);
+  const stage = open ? (open.status === "pending" ? 1 : 2) : context?.rows[0]?.status === "approved" ? 3 : 0;
+  const steps = [
+    ["chart", "اختيار الباقة", "Choose plan"],
+    ["journey", "إرسال الطلب", "Submit request"],
+    ["calendar", "مراجعة الإدارة", "Administration review"],
+    ["security", "تفعيل الاشتراك", "Activate subscription"],
+  ] as const;
   return (
     <>
+      <ol className="billing-steps" aria-label={ar ? "مراحل التفعيل" : "Activation steps"}>
+        {steps.map(([icon, arabic, english], index) => <li key={icon} aria-current={index === stage ? "step" : undefined}>
+          <span><SettingsIcon name={icon} /></span>{ar ? arabic : english}
+        </li>)}
+      </ol>
       <div
         className="pricing-interval"
         role="group"
@@ -162,11 +180,10 @@ export default function PricingCatalog({ locale }: { locale: string }) {
         ))}
       </div>
       <div className="pricing-grid">
-        {catalog.plans
-          .filter((p) => p.billing_interval === interval)
+        {plans
           .map((p) => (
-            <article className="pricing-card" key={p.id} data-plan={p.code}>
-              <h2>{ar ? p.name_ar : p.name_en}</h2>
+            <article className={p.family === "custom" ? "pricing-card pricing-custom-plan" : "pricing-card"} key={p.id} data-plan={p.code}>
+              <h2><SettingsIcon name={p.family === "custom" ? "system" : p.family === "advanced" ? "finance" : "billing"} />{ar ? p.name_ar : p.name_en}</h2>
               {p.is_proposed && (
                 <span className="plan-badge">
                   {planCustomerNotice(p, ar)}
@@ -193,13 +210,10 @@ export default function PricingCatalog({ locale }: { locale: string }) {
                     : "monthly equivalent; activated for a full year."}
                 </p>
               )}
-              <p>
-                {p.max_users}{" "}
-                {ar
-                  ? "مستخدمين نشطين لكل مؤسسة"
-                  : "active users per institution"}
-              </p>
-              <ul>
+              <details className="billing-package-details">
+                <summary>{ar ? "تفاصيل الباقة" : "Plan details"}</summary>
+                <p>{p.max_users ?? "∞"} {ar ? "مستخدم نشط لكل مؤسسة" : "active users per institution"}</p>
+                <ul>
                 <li>
                   {ar
                     ? "قراءة البيانات والتقارير والتصدير وفق صلاحيات العضو"
@@ -208,7 +222,8 @@ export default function PricingCatalog({ locale }: { locale: string }) {
                 {p.features.map((f) => (
                   <li key={f}>{capabilityLabel(f, ar)}</li>
                 ))}
-              </ul>
+                </ul>
+              </details>
               {context?.entitlement.status === "active" &&
               context.entitlement.plan_id === p.id ? (
                 <span className="plan-badge current-plan">
@@ -220,13 +235,23 @@ export default function PricingCatalog({ locale }: { locale: string }) {
                   disabled={
                     !context?.can_request || context.rows.some(openRequest)
                   }
-                  onClick={() => setSelected(p)}
+                  onClick={() => {
+                    setSelected(p);
+                    document.querySelector<HTMLSelectElement>(".billing-activation select")?.focus();
+                  }}
                 >
                   {ar ? "طلب تفعيل الباقة" : "Request activation"}
                 </button>
               )}
             </article>
           ))}
+        {!plans.some(plan => plan.family === "custom") && (
+          <article className="pricing-custom-plan pricing-custom-unpublished">
+            <h2><SettingsIcon name="system" />{ar ? "باقة مخصصة" : "Custom plan"}</h2>
+            <p>{ar ? "تضبط الإدارة المميزات وعدد المستخدمين والسعر بحسب احتياج المؤسسة." : "Administration configures the features, user limit and price for your organization."}</p>
+            <span className="plan-badge">{ar ? "تتاح بعد إعدادها ونشرها" : "Available after configuration and publishing"}</span>
+          </article>
+        )}
       </div>
       {!catalog.plans.some((p) => p.billing_interval === interval) && (
         <p>
@@ -247,6 +272,25 @@ export default function PricingCatalog({ locale }: { locale: string }) {
             ? "طلب التفعيل متاح لمالك المؤسسة أو مسؤولها."
             : "Only organization owners and administrators can request activation."}
         </p>
+      )}
+      {context?.can_request && !open && !amendment && eligiblePlans.length > 0 && (
+        <ActivationRequestForm
+          key={context.id + interval}
+          plan={selected}
+          choices={eligiblePlans}
+          onPlanChange={id => setSelected(eligiblePlans.find(plan => plan.id === id) ?? null)}
+          organizationId={context.id}
+          organizationName={context.name}
+          locale={locale}
+          name={context.applicant}
+          email={context.email}
+          onClose={() => setSelected(null)}
+          onSaved={() => {
+            setSelected(null);
+            setNotice(ar ? "تم إرسال طلب التفعيل للمراجعة." : "Activation request sent for review.");
+            void readContext();
+          }}
+        />
       )}
       {!!context?.rows.length && (
         <section className="request-history">
@@ -298,27 +342,6 @@ export default function PricingCatalog({ locale }: { locale: string }) {
               ar
                 ? "تم تحديث الطلب وإعادته للمراجعة."
                 : "Request updated and resubmitted for review.",
-            );
-            void readContext();
-          }}
-        />
-      )}
-      {selected && context && (
-        <ActivationRequestForm
-          key={context.id + selected.id}
-          plan={selected}
-          organizationId={context.id}
-          organizationName={context.name}
-          locale={locale}
-          name={context.applicant}
-          email={context.email}
-          onClose={() => setSelected(null)}
-          onSaved={() => {
-            setSelected(null);
-            setNotice(
-              ar
-                ? "تم إرسال طلب التفعيل بنجاح. يمكنك متابعة حالته هنا."
-                : "Activation request sent. Track its status here.",
             );
             void readContext();
           }}

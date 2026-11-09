@@ -489,16 +489,23 @@ try {
        await page.keyboard.press('Escape');
       }
       await page.getByRole('button',{name:'Yaqeen',exact:true}).click();
-      await page.getByRole('button',{name:'＋ Add plan',exact:true}).click();
+      const existingPlans = (await rpc(owner, 'subscription_plan_catalog', {})).data.plans;
+      await page.getByRole('button',{name:'Configure a custom plan',exact:true}).click();
       const form=page.locator('.plan-manager form');
-      await form.locator('.owner-plan-advanced summary').click();
-      for(const [name,value] of Object.entries({code:'qa_custom',family:'qa_custom',name_ar:'باقة مخصصة للاختبار',name_en:'Custom acceptance plan',price:'79',max_users:'3',reason:'Browser custom plan acceptance'}))await form.locator(`[name="${name}"]`).fill(value);
-      await form.locator('[name="features"][value="module:budgets"]').uncheck();
-      await form.locator('[name="features"][value="module:investments"]').uncheck();
+      assert.equal(await form.locator('[name="price"]').inputValue(),'');
+      assert.equal(await form.locator('[name="max_users"]').inputValue(),'');
+      assert.equal(await form.locator('[name="is_active"]').isChecked(),false);
+      assert.equal(await form.locator('[name="is_published"]').isChecked(),false);
+      for(const [name,value] of Object.entries({code:'qa_custom',name_ar:'باقة مخصصة للاختبار',name_en:'Custom acceptance plan',price:'79',max_users:'3',reason:'Browser custom plan acceptance'}))await form.locator(`[name="${name}"]`).fill(value);
+      await form.locator('[name="features"][value="module:budgets"]').check();
+      await form.locator('[name="is_active"]').check();
       await form.locator('[name="is_published"]').check();
       const saved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/trials/plans'&&r.request().method()==='POST');
       await form.getByRole('button',{name:'Save plan',exact:true}).click();assert.equal((await saved).status(),200);
       await page.getByRole('cell',{name:'Custom acceptance plan',exact:true}).waitFor();
+      const publishedPlans = (await rpc(owner, 'subscription_plan_catalog', {})).data.plans;
+      assert.deepEqual(publishedPlans.filter(plan => plan.code !== 'qa_custom'), existingPlans);
+      assert.equal(publishedPlans.find(plan => plan.code === 'qa_custom')?.family, 'custom');
 
       await page
         .getByRole("heading", {
@@ -574,11 +581,17 @@ try {
     await page.goto(appUrl+'/ar/billing?organization='+target);await page.getByRole('button',{name:'الباقات والترقية',exact:true}).click();await page.locator('[data-plan="advanced_monthly"]').waitFor();
     assert.ok(!/[٠-٩]/.test(await page.locator('.pricing-grid').innerText()));
     await page.locator('[data-plan="advanced_monthly"]').getByRole('button',{name:'طلب تفعيل الباقة',exact:true}).click();
-    const dialog=page.getByRole('dialog',{name:'طلب تفعيل باقة',exact:true});await dialog.waitFor();await dialog.getByLabel('رقم التواصل',{exact:true}).fill('+966500000000');await dialog.getByLabel('ملاحظات الطلب',{exact:true}).fill('Browser reviewed activation');
-    assert.equal(await dialog.locator('input[type="radio"]').nth(1).isDisabled(),true);
-    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-request-modal.png',root).pathname,fullPage:false});
-    const sent=page.waitForResponse(r=>r.url()===appUrl+'/api/subscriptions/requests'&&r.request().method()==='POST');await dialog.getByRole('button',{name:'إرسال طلب التفعيل',exact:true}).click();const response=await sent;assert.equal(response.status(),200);const request=await response.json();
+    const form=page.getByRole('region',{name:'طلب تفعيل الاشتراك',exact:true});
+    await form.getByLabel('رقم التواصل',{exact:true}).fill('+966500000000');
+    await form.getByLabel('ملاحظات الطلب',{exact:true}).fill('Browser reviewed activation');
+    await form.getByRole('checkbox').check();
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-request-inline.png',root).pathname,fullPage:true});
+    const sent=page.waitForResponse(r=>r.url()===appUrl+'/api/subscriptions/requests'&&r.request().method()==='POST');await form.getByRole('button',{name:'إرسال طلب التفعيل',exact:true}).click();const response=await sent;assert.equal(response.status(),200);const request=await response.json();
     assert.equal(request.quote.price_amount,399);assert.equal((await rpc(owner,'organization_subscription',{p_organization_id:target})).data.status,'trialing');
+    await page.getByRole('button',{name:'الفواتير والمدفوعات',exact:true}).click();
+    await page.locator('.billing-request-status').getByText('بانتظار المراجعة',{exact:true}).waitFor();
+    assert.equal(await page.locator('.yb-table-wrap tbody tr').count(),1);
+    assert.equal(await page.locator('.yb-table-wrap tbody button').count(),0);
     await page.goto(appUrl+'/admin/subscriptions?lang=en');await page.getByRole('button',{name:'Activation requests',exact:true}).click();
     const row=page.getByRole('row').filter({hasText:'Activation review institution'});await row.getByRole('button',{name:'View request',exact:true}).click();
     await page.getByLabel('Decision reason — visible to customer',{exact:true}).fill('Approved browser end to end test');await page.getByLabel('End date for approval — device timezone',{exact:true}).fill('2027-12-31T18:00');
@@ -632,6 +645,15 @@ try {
     await page.waitForURL('**/en/billing?organization='+org);
     await page.locator('.yb-billing').getByLabel('Subscription status',{exact:true}).waitFor();
     assert.equal(await page.locator('.settings-tabs').count(),0,'Billing must have an independent section');
+    await page.getByRole('button',{name:'Invoices & payments',exact:true}).click();
+    await page.getByLabel('Registered address',{exact:true}).fill('Billing acceptance address');
+    await page.getByLabel('Billing email',{exact:true}).fill('billing-check@example.com');
+    await page.getByRole('button',{name:'Save details',exact:true}).click();
+    await page.getByText('Organization details saved.',{exact:true}).waitFor();
+    await page.reload();
+    await page.getByRole('button',{name:'Billing details',exact:true}).click();
+    assert.equal(await page.getByLabel('Billing email',{exact:true}).inputValue(),'billing-check@example.com');
+    assert.equal(await page.getByLabel('Registered address',{exact:true}).inputValue(),'Billing acceptance address');
     await page.goto(appUrl+'/en/settings/regulatory?organization='+org);
     await page.getByRole('heading',{name:'Legal & tax settings',exact:true,level:1}).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);

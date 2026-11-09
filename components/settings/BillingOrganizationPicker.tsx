@@ -26,7 +26,9 @@ export default function BillingOrganizationPicker({
           const explicit = new URLSearchParams(location.search).get("organization");
           if(explicit&&!rows.some(o=>o.id===explicit)){setError(true);return;}
           const requested = explicit ?? rememberedOrganization();
-          setId(preferredOrganization(rows, requested)?.id ?? "");
+          const selected = preferredOrganization(rows, requested)?.id ?? "";
+          setId(selected);
+          if (selected && selected !== requested) rememberOrganization(selected, false);
         }
       })
       .catch(() => {

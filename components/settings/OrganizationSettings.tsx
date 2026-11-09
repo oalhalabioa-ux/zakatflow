@@ -20,12 +20,13 @@ export default function OrganizationSettings({
   preferredOrg,
   inline = false,
   identityOnly = false,
+  billingDetails = false,
   onSaved,
 }: {
   locale: string;
   system?: boolean;
   financial?: "overview" | "years";
-  preferredOrg?: string; inline?: boolean; identityOnly?: boolean; onSaved?:()=>void;
+  preferredOrg?: string; inline?: boolean; identityOnly?: boolean; billingDetails?: boolean; onSaved?:()=>void;
 }) {
   const ar = locale === "ar",
     [items, setItems] = useState<Organization[]>([]),
@@ -97,6 +98,17 @@ export default function OrganizationSettings({
   }, [items,preferredOrg]);
   const selected = items.find((o) => o.id === id),
     canEdit = !!selected && selected.owner_user_id === owner;
+  const [taxNumber, setTaxNumber] = useState("");
+  useEffect(() => {
+    if (!billingDetails || !id) return;
+    const controller = new AbortController();
+    setTaxNumber("");
+    fetch("/api/vat/settings?organization_id=" + encodeURIComponent(id), {cache:"no-store", signal:controller.signal})
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted) setTaxNumber(data?.profile?.tax_registration_number ?? ""); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [billingDetails, id]);
   useEffect(() => {
     generation.current++;
     setDraft({
@@ -124,7 +136,9 @@ export default function OrganizationSettings({
     const version = generation.current,
       target = selected.id;
     // Save only this form's changed fields; other settings may have newer data.
-    const fields:Array<keyof typeof draft>=identityOnly
+    const fields:Array<keyof typeof draft>=billingDetails
+      ? ['legal_name','country_code','registered_address','contact_email']
+      : identityOnly
       ? ['country_code','commercial_registration_number','registered_address','registered_city','registered_region','registered_postal_code','registration_authority','registration_expires_on']
       : ['name','legal_name','country_code','activity','contact_email','contact_phone'];
     const patch=Object.fromEntries(fields.filter(key=>draft[key].trim()!==(selected[key]??'').trim()).map(key=>[key,draft[key].trim()]));
@@ -168,6 +182,32 @@ export default function OrganizationSettings({
       setBusy(false);
     }
   }
+  if (billingDetails && selected && !loading) return (
+    <section className="yb-billing-panel billing-identity">
+      <h2>{ar ? "بيانات الفوترة" : "Billing details"}</h2>
+      <form className="billing-identity-form" onSubmit={save}>
+        <fieldset disabled={!canEdit || busy}>
+          <label>{ar ? "الاسم القانوني للمؤسسة" : "Legal organization name"}<input required maxLength={200} value={draft.legal_name} onChange={e=>setDraft({...draft,legal_name:e.target.value})}/></label>
+          <label>{ar ? "الدولة" : "Country"}
+            <select required value={draft.country_code} onChange={e=>setDraft({...draft,country_code:e.target.value})}>
+              <option value="">{ar ? "اختر الدولة" : "Select country"}</option>
+              {COUNTRY_CODES.map(code=><option key={code} value={code}>{countryName(code,locale)}</option>)}
+            </select>
+          </label>
+          <label>{ar ? "العنوان المسجل" : "Registered address"}<input required maxLength={500} value={draft.registered_address} onChange={e=>setDraft({...draft,registered_address:e.target.value})}/></label>
+          <label>{ar ? "الرقم الضريبي (إن وجد)" : "Tax registration number (if applicable)"}<input dir="ltr" readOnly value={taxNumber} placeholder="—"/></label>
+          <label className="billing-wide">{ar ? "البريد الإلكتروني للفوترة" : "Billing email"}<input required type="email" dir="ltr" maxLength={254} value={draft.contact_email} onChange={e=>setDraft({...draft,contact_email:e.target.value})}/></label>
+        </fieldset>
+        <p>{ar ? "بريد الفوترة هو البريد الرسمي للمؤسسة. يُدار الرقم الضريبي من الإعدادات النظامية والضريبية." : "Billing uses the organization's official email. Manage the tax number in Legal & tax settings."}</p>
+        <footer className="billing-form-actions">
+          <p className="yb-notice">{ar ? "الدفع الإلكتروني غير متاح حاليًا." : "Online payments are currently unavailable."}</p>
+          {canEdit && <button className="billing-primary" disabled={busy}>{busy ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "حفظ البيانات" : "Save details")}</button>}
+        </footer>
+      </form>
+      {error && <p role="alert">{error}</p>}
+      {message && <p role="status">{message}</p>}
+    </section>
+  );
   return (
     <>
       {!inline&&<TopbarOrganizationControls>
