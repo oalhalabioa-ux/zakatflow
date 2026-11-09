@@ -7,7 +7,7 @@ export async function bundleBrowser({browser,cookies,appUrl,url,headers,owner,rp
  try{
   await page.goto(appUrl+'/admin/subscriptions?lang=en&tab=modules');await page.locator('.bundle-admin table').waitFor();
   await page.getByRole('row').filter({hasText:'Assets and transactions'}).getByRole('button',{name:'Edit',exact:true}).click();
-  await page.getByLabel('Pricing method',{exact:true}).selectOption('fixed');
+  await page.getByLabel(/^Pricing method/).selectOption('fixed');
   await page.getByLabel('Monthly price',{exact:true}).fill('10.25');await page.getByLabel('Annual price',{exact:true}).fill('100');await page.getByLabel('Change reason',{exact:true}).fill('Isolated module pricing acceptance');
   let saved=posted('/api/admin/subscriptions/modules');await page.getByRole('button',{name:'Save settings',exact:true}).click();assert.equal((await saved).status(),200);
   await page.getByText('Saved and audited.',{exact:true}).waitFor();await page.reload();
