@@ -3,15 +3,9 @@ import {useId,useState,type FormEvent} from "react";
 import {MODULES,FEATURES,money,planCustomerNotice,type Plan} from "@/lib/subscriptions/catalog";
 import {OwnerActionIcon} from "./OwnerSubscriptionVisuals";
 
-export default function PlanEditor({plan,customDraft=false,locale,busy,error,onSave,onCancel}:{plan:Plan|null;customDraft?:boolean;locale:string;busy:boolean;error:string;onSave:(event:FormEvent<HTMLFormElement>)=>void;onCancel:()=>void}) {
+export default function PlanEditor({plan,locale,busy,error,onSave,onCancel}:{plan:Plan|null;locale:string;busy:boolean;error:string;onSave:(event:FormEvent<HTMLFormElement>)=>void;onCancel:()=>void}) {
  const ar=locale==='ar',id=useId(),t=(a:string,e:string)=>ar?a:e;
- const [draft,setDraft]=useState({
-  name_ar:plan?.name_ar??(customDraft?'باقة مخصصة':''),name_en:plan?.name_en??(customDraft?'Custom plan':''),
-  price:String(plan?.price_amount??''),currency:plan?.currency??'SAR',interval:plan?.billing_interval??'monthly',
-  max_users:String(plan?.max_users??(customDraft?'':5)),is_active:plan?.is_active??!customDraft,
-  is_published:plan?.is_published??false,is_proposed:plan?.is_proposed??!customDraft,
-  customer_notice_ar:plan?.customer_notice_ar??'',customer_notice_en:plan?.customer_notice_en??'',
- });
+ const [draft,setDraft]=useState({name_ar:plan?.name_ar??'',name_en:plan?.name_en??'',price:String(plan?.price_amount??''),currency:plan?.currency??'SAR',interval:plan?.billing_interval??'monthly',max_users:String(plan?.max_users??5),is_active:plan?.is_active??true,is_published:plan?.is_published??false,is_proposed:plan?.is_proposed??true,customer_notice_ar:plan?.customer_notice_ar??'',customer_notice_en:plan?.customer_notice_en??''});
  const set=(key:keyof typeof draft,value:string|boolean)=>setDraft(d=>({...d,[key]:value}));
  function field(key:'name_ar'|'name_en'|'price'|'currency'|'max_users',label:string,props:React.InputHTMLAttributes<HTMLInputElement>={}) {
   return <label>{label}<input name={key} value={draft[key]} onChange={e=>set(key,e.target.value)} required {...props}/></label>;
@@ -21,9 +15,7 @@ export default function PlanEditor({plan,customDraft=false,locale,busy,error,onS
   <fieldset disabled={busy} className="plan-editor">
    <legend>{t('تعريف الباقة','Plan definition')}</legend>
    <div className="owner-plan-scroll">
-    <p className="owner-plan-subtitle">{customDraft
-     ? t('حدد السعر والحدود والمميزات. تبدأ الباقة خاصة وغير مفعلة، ويمكن إتاحتها من إعدادات النشر.','Set the price, limits and features. The plan starts private and inactive until you enable it.')
-     : t('حدد بيانات الباقة ومميزاتها وإعدادات ظهورها.','Define the plan, its capabilities and how it appears to customers.')}</p>
+    <p className="owner-plan-subtitle">{t('حدد بيانات الباقة ومميزاتها وإعدادات ظهورها.','Define the plan, its capabilities and how it appears to customers.')}</p>
     <div className="owner-plan-grid">
      <section className="owner-plan-information" aria-labelledby={id+'-information'}>
       <h3 id={id+'-information'}>{t('معلومات الباقة والتسعير','Plan information and pricing')}</h3>
@@ -35,11 +27,10 @@ export default function PlanEditor({plan,customDraft=false,locale,busy,error,onS
        <label>{t('فترة الاشتراك','Billing interval')}<select name="interval" value={draft.interval} onChange={e=>set('interval',e.target.value)}><option value="monthly">{t('شهري','Monthly')}</option><option value="yearly">{t('سنوي','Yearly')}</option></select></label>
        {field('max_users',t('حد المستخدمين النشطين','Active user limit'),{type:'number',min:1,max:100000,inputMode:'numeric',dir:'ltr'})}
        <label className="plan-field-wide">{t('الوصف المختصر','Short description')}<textarea name={ar?'description_ar':'description_en'} maxLength={500} defaultValue={ar?plan?.description_ar:plan?.description_en} dir={ar?'rtl':'ltr'}/></label>
-       {customDraft&&<label>{t('رمز الباقة الثابت','Immutable code')}<input name="code" pattern="[a-z0-9_-]{2,40}" required dir="ltr" /></label>}
       </div>
       <details className="owner-plan-advanced"><summary>{t('إعدادات إضافية','Additional settings')}</summary><div className="owner-plan-fields">
-       {!customDraft&&<><label>{t('رمز الباقة الثابت','Immutable code')}<input name="code" pattern="[a-z0-9_-]{2,40}" defaultValue={plan?.code} readOnly={!!plan} required dir="ltr"/></label>
-       <label>{t('مجموعة الباقة (للشهري والسنوي)','Plan family (monthly/yearly)')}<input name="family" pattern="[a-z0-9_-]{2,40}" defaultValue={plan?.family??'custom'} required dir="ltr"/></label></>}
+       <label>{t('رمز الباقة الثابت','Immutable code')}<input name="code" pattern="[a-z0-9_-]{2,40}" defaultValue={plan?.code} readOnly={!!plan} required dir="ltr"/></label>
+       <label>{t('مجموعة الباقة (للشهري والسنوي)','Plan family (monthly/yearly)')}<input name="family" pattern="[a-z0-9_-]{2,40}" defaultValue={plan?.family??'custom'} required dir="ltr"/></label>
        <label className="plan-field-wide">{t('الوصف الإنجليزي','Arabic description')}<textarea name={ar?'description_en':'description_ar'} maxLength={500} defaultValue={ar?plan?.description_en:plan?.description_ar} dir={ar?'ltr':'rtl'}/></label>
       </div></details>
      </section>
@@ -47,7 +38,7 @@ export default function PlanEditor({plan,customDraft=false,locale,busy,error,onS
       <h3 id={id+'-options'}>{t('الموديولات والمميزات','Modules and features')}</h3>
       <p>{t('القراءة والتصدير محفوظان. حدد إمكانات الكتابة التي تشملها الباقة.','Reading and export remain available. Select the writing capabilities included.')}</p>
       <fieldset className="plan-capabilities"><legend>{t('الموديولات والمميزات المتاحة للكتابة','Modules and features available for writing')}</legend>
-       {MODULES.map(m=><label className="plan-check" key={m.key}><input type="checkbox" name="features" value={'module:'+m.key} defaultChecked={m.core||(plan ? plan.features.includes('core')||plan.features.includes('module:'+m.key) : !customDraft)} disabled={m.core}/>{m.core&&<input type="hidden" name="features" value={'module:'+m.key}/>}<span>{ar?m.ar:m.en}</span>{m.core&&<small className="plan-foundation">{t('أساسي','Core')}</small>}</label>)}
+       {MODULES.map(m=><label className="plan-check" key={m.key}><input type="checkbox" name="features" value={'module:'+m.key} defaultChecked={m.core||!plan||plan.features.includes('core')||plan.features.includes('module:'+m.key)} disabled={m.core}/>{m.core&&<input type="hidden" name="features" value={'module:'+m.key}/>}<span>{ar?m.ar:m.en}</span>{m.core&&<small className="plan-foundation">{t('أساسي','Core')}</small>}</label>)}
        {FEATURES.map(m=><label className="plan-check" key={m.key}><input type="checkbox" name="features" value={'feature:'+m.key} defaultChecked={!!plan&&(plan.features.includes('core')||plan.features.includes('feature:'+m.key))}/><span>{ar?m.ar:m.en}</span></label>)}
       </fieldset>
      </section>
@@ -65,8 +56,7 @@ export default function PlanEditor({plan,customDraft=false,locale,busy,error,onS
       <label>{t('رسالة العميل بالإنجليزية','Customer message in English')}<input name="customer_notice_en" maxLength={160} value={draft.customer_notice_en} onChange={e=>set('customer_notice_en',e.target.value)} placeholder="Proposed launch price" dir="ltr"/><small>{t('تظهر للعميل عند استخدام الإنجليزية.','Shown to customers using English; blank uses the default.')}</small></label>
      </div>
     </section>
-    {customDraft&&<input type="hidden" name="family" value="custom" />}
-    <section className="owner-plan-preview" aria-labelledby={id+'-preview'}><h3 id={id+'-preview'}>{t('معاينة مختصرة للباقة','Plan preview')}</h3><div><strong>{(ar?draft.name_ar:draft.name_en)||t('اسم الباقة','Plan name')}</strong><span><bdi>{customDraft&&!draft.price?t('السعر قيد الإعداد','Price to be set'):money(Number(draft.price)||0,/^[A-Z]{3}$/.test(draft.currency)?draft.currency:'SAR',locale)}</bdi> / {draft.interval==='monthly'?t('شهر','month'):t('سنة','year')} · <bdi>{draft.max_users||'—'}</bdi> {t('مستخدمين','users')}</span>{draft.is_proposed&&<span className="plan-notice-preview">{notice}</span>}</div></section>
+    <section className="owner-plan-preview" aria-labelledby={id+'-preview'}><h3 id={id+'-preview'}>{t('معاينة مختصرة للباقة','Plan preview')}</h3><div><strong>{(ar?draft.name_ar:draft.name_en)||t('اسم الباقة','Plan name')}</strong><span><bdi>{money(Number(draft.price)||0,/^[A-Z]{3}$/.test(draft.currency)?draft.currency:'SAR',locale)}</bdi> / {draft.interval==='monthly'?t('شهر','month'):t('سنة','year')} · <bdi>{draft.max_users}</bdi> {t('مستخدمين','users')}</span>{draft.is_proposed&&<span className="plan-notice-preview">{notice}</span>}</div></section>
     <label className="owner-plan-reason">{t('سبب التغيير','Reason')}<textarea name="reason" minLength={5} maxLength={1000} required placeholder={t('أدخل سبب إضافة هذه الباقة أو تعديلها.','Explain why this plan is being added or changed.')}/></label>
     {error&&<p className="owner-feedback" data-tone="error" role="alert">{error}</p>}
    </div>

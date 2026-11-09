@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
+import BundleBuilder from '@/components/subscriptions/BundleBuilder';
 import PricingCatalog from '@/components/subscriptions/PricingCatalog';
 import {rememberedOrganization} from '@/lib/workspace-organization';
 import {requestLabel,type ActivationRequest} from '@/lib/subscriptions/requests';
@@ -8,7 +9,7 @@ import {displaySubscriptionDate,subscriptionLabel,type OrganizationSubscription}
 import OrganizationSettings from './OrganizationSettings';
 import SettingsIcon from './SettingsIcon';
 import './subscription-billing.css';
-type Area='summary'|'plans'|'records'|'identity';
+type Area='summary'|'plans'|'builder'|'records'|'identity';
 type RequestData={rows:ActivationRequest[];can_request:boolean};
 type Member={name?:string;email?:string;role:string;status:string;custom_role_name?:string};
 const roleNames:Record<string,[string,string]>={OWNER:['المالك','Owner'],ADMIN:['المدير','Admin'],ACCOUNTANT:['المحاسب','Accountant'],ADVISOR:['المستشار','Advisor'],VIEWER:['المشاهد','Viewer'],SHARIA_REVIEWER:['المراجع الشرعي','Sharia reviewer']};
@@ -19,7 +20,7 @@ export default function SubscriptionBillingWorkspace({locale}:{locale:string}){
  const [loading,setLoading]=useState(true),[error,setError]=useState(false),[recordsError,setRecordsError]=useState(false),[revision,setRevision]=useState(0);
  const version=useRef(0);
  useEffect(()=>{
-  const read=()=>{setOrganization(new URLSearchParams(location.search).get('organization')??rememberedOrganization()??'');setRevision(v=>v+1);};
+  const read=()=>{if(new URLSearchParams(location.search).get('section')==='builder')setArea('builder');setOrganization(new URLSearchParams(location.search).get('organization')??rememberedOrganization()??'');setRevision(v=>v+1);};
   read();window.addEventListener('zf-organization-selection',read);window.addEventListener('popstate',read);
   return()=>{window.removeEventListener('zf-organization-selection',read);window.removeEventListener('popstate',read);};
  },[]);
@@ -40,7 +41,7 @@ export default function SubscriptionBillingWorkspace({locale}:{locale:string}){
    .then(data=>{if(current()&&Array.isArray(data?.users))setMembers(data.users);}).catch(()=>{});
   return()=>{c.abort();version.current++;};
  },[organization,revision]);
- const tabs=[{id:'summary',icon:'finance',ar:'ملخص الاشتراك',en:'Subscription overview'},{id:'plans',icon:'chart',ar:'الباقات والترقية',en:'Plans & upgrades'},{id:'records',icon:'regulatory',ar:'الفواتير والمدفوعات',en:'Invoices & payments'},{id:'identity',icon:'billing',ar:'بيانات الفوترة',en:'Billing details'}] as const;
+ const tabs=[{id:'summary',icon:'finance',ar:'ملخص الاشتراك',en:'Subscription overview'},{id:'plans',icon:'chart',ar:'الباقات والترقية',en:'Plans & upgrades'},{id:'builder',icon:'chart',ar:'صمّم باقتك',en:'Build your bundle'},{id:'records',icon:'regulatory',ar:'الفواتير والمدفوعات',en:'Invoices & payments'},{id:'identity',icon:'billing',ar:'بيانات الفوترة',en:'Billing details'}] as const;
  const plan=subscription?.plan_snapshot??subscription?.plan;
  const end=subscription?.status==='active'?subscription.current_period_end:subscription?.trial_ends_at;
  const usage=subscription?.max_users?Math.min(100,subscription.active_users/subscription.max_users*100):0;
@@ -54,8 +55,9 @@ export default function SubscriptionBillingWorkspace({locale}:{locale:string}){
  }
  const latest=requests?.rows.find(row=>row.organization_id===organization);
  return <section className="yb-billing" aria-label={ar?'الاشتراك والفوترة':'Subscription and billing'}>
-  <header className="yb-billing-header"><p><Link href={`/${locale}/settings?organization=${encodeURIComponent(organization)}`}>{ar?'إعدادات المؤسسة':'Organization settings'}</Link> / {ar?'الاشتراك والفوترة':'Subscription & billing'}</p><h1><SettingsIcon name="billing"/>{ar?'الاشتراك والفوترة':'Subscription & billing'}</h1></header>
+  <header className="yb-billing-header"><p><Link href={`/${locale}/settings?organization=${encodeURIComponent(organization)}`}>{ar?'إعدادات المؤسسة':'Organization settings'}</Link> / {ar?'الاشتراك والفوترة':'Subscription & billing'}</p><h1><SettingsIcon name={area==='builder'?'chart':'billing'}/>{area==='builder'?(ar?'صمّم باقتك حسب احتياجك':'Build a bundle for your needs'):(ar?'الاشتراك والفوترة':'Subscription & billing')}</h1></header>
   <nav className="yb-billing-tabs" aria-label={ar?'صفحات الاشتراك والفوترة':'Subscription and billing pages'}>{tabs.map(t=><button key={t.id} type="button" aria-pressed={area===t.id} onClick={()=>{setArea(t.id);if(t.id==='records'||t.id==='identity')setRevision(v=>v+1);}}><SettingsIcon name={t.icon}/>{ar?t.ar:t.en}</button>)}</nav>
+  {area==='builder'&&<BundleBuilder key={organization} locale={locale} organization={organization}/>}
   {area==='summary'&&<section aria-label={ar?'حالة الاشتراك':'Subscription status'} className="subscription-summary yb-overview">
    {loading?<p role="status">{ar?'جارٍ تحميل الاشتراك…':'Loading subscription…'}</p>:error?<p role="alert">{ar?'تعذر تحميل الاشتراك.':'Unable to load subscription.'}</p>:subscription?<>
     <div className="yb-overview-grid"><article className="yb-plan-card"><h2><SettingsIcon name="calendar"/>{subscription.status==='trialing'?(ar?'الفترة التجريبية':'Trial period'):plan?(ar?plan.name_ar:plan.name_en):subscriptionLabel(subscription.status,ar)}</h2>

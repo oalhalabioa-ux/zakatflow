@@ -8,6 +8,7 @@ import {
 } from "@/lib/subscriptions/owner-query";
 import type { Plan } from "@/lib/subscriptions/catalog";
 import TrialAdmin from "./TrialAdmin";
+const BundleAdmin = dynamic(() => import("./BundleAdmin"));
 const PlanManager = dynamic(() => import("./PlanManager"));
 const ActivationRequestsConsole = dynamic(() => import("./ActivationRequestsConsole"));
 import "./subscriptions.css";
@@ -120,6 +121,7 @@ export default function OwnerSubscriptionConsole({
           onChanged={() => setRevision((x) => x + 1)}
         />
       )}
+      {(tab === "modules" || tab === "quotes") && <BundleAdmin key={tab} locale={locale} requestsOnly={tab === "quotes"}/>}
       {tab === "plans" && (
         <PlanManager
           locale={locale}

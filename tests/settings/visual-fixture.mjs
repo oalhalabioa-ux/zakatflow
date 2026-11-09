@@ -1,5 +1,6 @@
 // LOCAL UI fixture only. Not authentication, RLS or accounting certification.
 import {createServer} from 'node:http';
+import {verifyBundleBuilder} from './bundle-builder.mjs';
 import {createHmac} from 'node:crypto';
 import {createServerClient} from '@supabase/ssr';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -90,7 +91,7 @@ try{
    if(path==='billing'){
     const tabs=page.locator('.yb-billing-tabs');
     await tabs.getByRole('button',{name:ar?'الباقات والترقية':'Plans & upgrades',exact:true}).click();
-    await page.locator('.pricing-custom-unpublished').waitFor();
+    assert.equal(await page.locator('.pricing-custom-unpublished').count(),0);
     await page.locator('[data-plan="professional_monthly"] button.primary').click();
     assert.equal(await page.locator('.billing-activation select').inputValue(),'plan-pro');
     assert.equal(await page.locator('.billing-activation input[type="checkbox"]').getAttribute('required'),'');
@@ -99,6 +100,7 @@ try{
      await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth, null, {timeout:4000});
      await page.screenshot({path:`${out}/billing-plans-${locale}-${width}.png`,fullPage:true});
     }
+    await verifyBundleBuilder({page,locale,out,organizationId:orgId});
     await tabs.getByRole('button',{name:ar?'الفواتير والمدفوعات':'Invoices & payments',exact:true}).click();
     await page.locator('.billing-identity-form').waitFor();
     assert.equal(await page.locator('.yb-table-wrap th').count(),6);

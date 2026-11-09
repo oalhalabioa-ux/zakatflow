@@ -245,13 +245,7 @@ export default function PricingCatalog({ locale, organization }: { locale: strin
               )}
             </article>
           ))}
-        {!plans.some(plan => plan.family === "custom") && (
-          <article className="pricing-custom-plan pricing-custom-unpublished">
-            <h2><SettingsIcon name="system" />{ar ? "باقة مخصصة" : "Custom plan"}</h2>
-            <p>{ar ? "تضبط الإدارة المميزات وعدد المستخدمين والسعر بحسب احتياج المؤسسة." : "Administration configures the features, user limit and price for your organization."}</p>
-            <span className="plan-badge">{ar ? "تتاح بعد إعدادها ونشرها" : "Available after configuration and publishing"}</span>
-          </article>
-        )}
+
       </div>
       {!catalog.plans.some((p) => p.billing_interval === interval) && (
         <p>
@@ -260,6 +254,7 @@ export default function PricingCatalog({ locale, organization }: { locale: strin
             : "No published plans for this interval yet."}
         </p>
       )}
+      <p><a href={`/${locale}/billing?section=builder${context ? "&organization="+encodeURIComponent(context.id) : ""}`}>{ar ? "صمّم باقتك حسب احتياجك" : "Build your own module bundle"}</a></p>
       <p className="pricing-note">
         {ar
           ? "الأسعار لكل مؤسسة، وغير شاملة أي ضرائب واجبة التطبيق. التفعيل يدوي بعد المراجعة؛ لا دفع إلكتروني ولا خصم أو تجديد تلقائي. الباقات المخصصة يحددها مالك المنصة."

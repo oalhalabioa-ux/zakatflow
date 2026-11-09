@@ -21,7 +21,6 @@ export default function PlanManager({
 }) {
   const ar = locale === "ar",
     [edit, setEdit] = useState<Plan | null>(null),
-    [customDraft, setCustomDraft] = useState(false),
     [version, setVersion] = useState(0),
     [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
@@ -76,25 +75,16 @@ export default function PlanManager({
     <section className="plan-manager">
       <div className="owner-plan-heading">
         <h3>{ar ? "الباقات والتسعير" : "Plans and pricing"}</h3>
-        <div className="owner-plan-create-actions"><button
+        <button
           className="primary"
           onClick={() => {
             setEdit(null);
-            setCustomDraft(false);
             setError("");
             setOpen(true);
           }}
         >
           <OwnerActionIcon name="add"/> {ar ? "＋ إضافة باقة جديدة" : "＋ Add plan"}
         </button>
-        <button type="button" onClick={() => {
-          setEdit(null);
-          setCustomDraft(true);
-          setError("");
-          setOpen(true);
-        }}>
-          <OwnerActionIcon name="add"/> {ar ? "إعداد باقة مخصصة" : "Configure a custom plan"}
-        </button></div>
       </div>
       <OwnerMetrics
         locale={locale}
@@ -201,7 +191,6 @@ export default function PlanManager({
                     <button
                       onClick={() => {
                         setEdit(p);
-                        setCustomDraft(false);
                         setOpen(true);
                         setError("");
                       }}
@@ -222,16 +211,14 @@ export default function PlanManager({
               ? ar
                 ? "تعديل الباقة"
                 : "Edit plan"
-              : customDraft
-                ? ar ? "إعداد باقة مخصصة" : "Configure a custom plan"
-                : ar
+              : ar
                 ? "إضافة باقة جديدة"
                 : "Add plan"
           }
           onClose={() => setOpen(false)}
           busy={busy}
         >
-          <PlanEditor key={`${edit?.id ?? "new"}-${version}`} plan={edit} customDraft={customDraft} locale={locale} busy={busy} error={error} onSave={save} onCancel={() => {setOpen(false);setEdit(null);setVersion(v=>v+1);}} />
+          <PlanEditor key={`${edit?.id ?? "new"}-${version}`} plan={edit} locale={locale} busy={busy} error={error} onSave={save} onCancel={() => {setOpen(false);setEdit(null);setVersion(v=>v+1);}} />
         </SubscriptionModal>
       )}
     </section>

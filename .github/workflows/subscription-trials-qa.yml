@@ -15,6 +15,7 @@ on:
       - 'app/api/admin/trials/**'
       - 'app/api/admin/subscriptions/**'
       - 'supabase/migrations/*subscription_requests_and_owner_console.sql'
+      - 'supabase/migrations/*module_bundle_builder.sql'
       - 'supabase/migrations/*plan_customer_notice.sql'
       - 'supabase/migrations/*organization_trial_entitlements.sql'
       - 'tests/subscriptions/**'

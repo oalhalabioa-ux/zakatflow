@@ -156,6 +156,7 @@ try {
   grant select,insert,update on public.vat_profiles to authenticated;
   create trigger vat_settings_subscription_guard before insert or update or delete on public.vat_profiles for each row execute function subscription_private.guard_write();`);
   sql(await load('supabase/migrations/20261031054539_subscription_requests_and_owner_console.sql'));
+  sql(await load('supabase/migrations/20261109035940_module_bundle_builder.sql'));
   for (let i = 0; i < 8; i++) {
     const client = createClient(url, status.ANON_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -490,11 +491,11 @@ try {
       }
       await page.getByRole('button',{name:'Yaqeen',exact:true}).click();
       const existingPlans = (await rpc(owner, 'subscription_plan_catalog', {})).data.plans;
-      await page.getByRole('button',{name:'Configure a custom plan',exact:true}).click();
+      await page.getByRole('button',{name:'＋ Add plan',exact:true}).click();
       const form=page.locator('.plan-manager form');
       assert.equal(await form.locator('[name="price"]').inputValue(),'');
-      assert.equal(await form.locator('[name="max_users"]').inputValue(),'');
-      assert.equal(await form.locator('[name="is_active"]').isChecked(),false);
+      assert.equal(await form.locator('[name="max_users"]').inputValue(),'5');
+      assert.equal(await form.locator('[name="is_active"]').isChecked(),true);
       assert.equal(await form.locator('[name="is_published"]').isChecked(),false);
       for(const [name,value] of Object.entries({code:'qa_custom',name_ar:'باقة مخصصة للاختبار',name_en:'Custom acceptance plan',price:'79',max_users:'3',reason:'Browser custom plan acceptance'}))await form.locator(`[name="${name}"]`).fill(value);
       await form.locator('[name="features"][value="module:budgets"]').check();
@@ -796,6 +797,7 @@ try {
     },
   );
   // Reproduce the deployed signup trigger rather than manually provisioning the invited profile.
+  await check('real module pricing, bundle request, owner quote, customer acceptance and scoped activation',async()=>{await (await import('./bundle-browser.mjs')).bundleBrowser({browser,cookies,appUrl,url,headers,owner,rpc,root});});
   const signupDDL = await load('supabase/migrations/20260915195509_002_production_hardening.sql');
   const signupTrigger = signupDDL.match(/create or replace function public\.handle_new_user\(\)[\s\S]*?execute function public\.handle_new_user\(\);/);
   assert.ok(signupTrigger, 'Production signup trigger definition must be present');
