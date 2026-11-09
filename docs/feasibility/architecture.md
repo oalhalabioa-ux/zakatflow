@@ -115,3 +115,12 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - Combined RLS policies to avoid multiple permissive policy overhead. Authenticated users still cannot create or change memberships. Included a foreign-key covering index. No Production migration created.
 - Supabase security advisor shows no Feasibility warnings after hardening; foreign-user read/role checks passed in a rollback-only test, leaving zero projects and members.
 - Collaborator invitation acceptance/edit auditing is NOT enabled. These are structural permission controls only.
+
+## QA V2 email-bound invitation and shared portfolio — 9 November 2026
+
+- QA-only migration `feasibility_email_bound_invitation_qa_v2` created an owner-scoped, RLS-protected table `public.feasibility_project_invitations` and two authenticated RPCs: `feasibility_accept_project_invitation` and `feasibility_revoke_project_member`. **No Production or legacy Financial Core database writes.**
+- The new invite API issues a secure random 256-bit code, keeps only the SHA-256 digest in the database, binds it to a specific lowercased email and a `VIEWER` or `REVIEWER` role, with an expiry no longer than 7 days. The raw code is returned once; no email or external message is sent automatically.
+- A confirmed-email account accepts the code through an explicit POST. The SQL RPC verifies the authenticated user's email against the stored target, locks the invitation row, denies expired/revoked/redeemed tokens, then creates an ACTIVE membership transactionally. Invalid accept attempts return a generic message so recipient identity is not leaked.
+- Cloud project GET now returns **only** owner and accepted collaborator rows allowed by RLS; `owner_user_id` is returned so shared studies display as **read-only**, even when the recipient has an active personal feasibility licence. Project write/delete API remains owner-only and recorded snapshots remain owner-only.
+- The collaboration tab allows an owner to generate VIEWER/REVIEWER codes and list issued invitations; the standalone join form accepts manually shared codes. Both are gated behind `NEXT_PUBLIC_FEASIBILITY_SHARING_QA=true`, in addition to the study + cloud QA flags, all OFF by default.
+- Remaining before rollout: end-to-end tests with **two real confirmed users**, audit of invitation acceptance/revocation, rate limiting and seat limits, safe automated invitation email, encrypted file storage, contributor comments and independent subscription billing. No test data were retained during the SQL RLS rollback checks.
