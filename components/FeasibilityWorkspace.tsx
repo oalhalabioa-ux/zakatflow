@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState,type ChangeEvent,type ReactNode} from 'react';
 import {createStudy,evaluateStudy,scenarioLabels,waterFactoryLegalItems,type ChecklistStatus,type FeasibilityStudy,type Sector,type StudyStatus,type StudyTab,type TaskStatus,type Scenario} from '@/lib/feasibility/engine';
 import ProjectHandoffPanel from '@/components/feasibility/ProjectHandoffPanel';
+import CollaborationPanel from '@/components/feasibility/CollaborationPanel';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -10,7 +11,8 @@ const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'cashflow',ar:'التدفقات والعوائد',en:'Cash flow'}, {id:'legal',ar:'القانون والتراخيص',en:'Legal'},
  {id:'tasks',ar:'المهام',en:'Tasks'}, {id:'risks',ar:'المخاطر',en:'Risks'},
  {id:'suppliers',ar:'عروض الموردين',en:'Supplier quotes'}, {id:'decisions',ar:'القرارات',en:'Decisions'},
- {id:'handoff',ar:'الاعتماد وتأسيس الشركة',en:'Approval & company setup'}
+ {id:'handoff',ar:'الاعتماد وتأسيس الشركة',en:'Approval & company setup'},
+ {id:'sharing',ar:'المشاركون',en:'Collaboration'}
 ];
 const sectors:Record<Sector,{ar:string;en:string}>={
  INDUSTRIAL:{ar:'صناعي',en:'Industrial'},COMMERCIAL:{ar:'تجاري',en:'Commercial'},
@@ -56,9 +58,11 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const [scenario,setScenario]=useState<Scenario>('BASE');
  const [notice,setNotice]=useState('');
  const cloudEnabled=process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
+ const sharingEnabled=cloudEnabled&&process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA==='true';
  const [cloudBusy,setCloudBusy]=useState(false);
  const [cloudRevisions,setCloudRevisions]=useState<Record<string,number>>({});
  const [cloudSavedStudyVersions,setCloudSavedStudyVersions]=useState<Record<string,string>>({});
+ const [cloudOwnerIds,setCloudOwnerIds]=useState<Record<string,string>>({});
  useEffect(()=>{
   try{
    const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as {studies?:FeasibilityStudy[];selectedId?:string}|null;
@@ -71,11 +75,13 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  },[storageKey,ar]);
  useEffect(()=>{if(!loaded)return;try{localStorage.setItem(storageKey,JSON.stringify({version:1,studies,selectedId}));}catch{setNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}},[loaded,storageKey,studies,selectedId,ar]);
  const study=studies.find(s=>s.id===selectedId)??null;
+ const sharedStudy=Boolean(study&&cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId);
+ const effectiveReadOnly=readOnly||sharedStudy;
  const model=useMemo(()=>study?evaluateStudy(study,scenario):null,[study,scenario]);
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const money=(v:number|null|undefined,d=0)=>v==null||!Number.isFinite(v)?'—':fmt(v,d)+' '+(study?.currency??'');
  // Handoff review follows the source study revision; editing any study assumption invalidates it.
- const update=(patch:Partial<FeasibilityStudy>)=>{if(readOnly)return;setStudies(prev=>prev.map(p=>p.id===selectedId?{...p,...patch,updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()}:p));};
+ const update=(patch:Partial<FeasibilityStudy>)=>{if(effectiveReadOnly)return;setStudies(prev=>prev.map(p=>p.id===selectedId?{...p,...patch,updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()}:p));};
  const setNum=(key:keyof FeasibilityStudy)=>(v:number)=>update({[key]:v} as Partial<FeasibilityStudy>);
  const download=()=>{
   const blob=new Blob([JSON.stringify({schema:'YAQEEN_FEASIBILITY_DRAFT_V1',exportedAt:new Date().toISOString(),studies},null,2)],{type:'application/json'});
@@ -89,18 +95,19 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   try{
    const response=await fetch('/api/feasibility/projects',{cache:'no-store'});
    if(!response.ok)throw new Error('READ_FAILED');
-   const rows=await response.json() as Array<{id:string;study:FeasibilityStudy;revision:number}>;
+   const rows=await response.json() as Array<{id:string;study:FeasibilityStudy;revision:number;owner_user_id:string}>;
    if(!Array.isArray(rows)||!rows.every(x=>x&&x.study&&x.study.id===x.id&&Array.isArray(x.study.capex)))throw new Error('INVALID_RESPONSE');
    const documents=rows.map(x=>x.study);
    setStudies(documents);setSelectedId(documents[0]?.id??'');setTab('overview');
    setCloudRevisions(Object.fromEntries(rows.map(x=>[x.id,x.revision])));
    setCloudSavedStudyVersions(Object.fromEntries(rows.map(x=>[x.id,x.study.updatedAt])));
+   setCloudOwnerIds(Object.fromEntries(rows.map(x=>[x.id,x.owner_user_id])));
    setNotice(txt(ar,'تم استرجاع المسودات من QA V2.','Drafts restored from QA V2.'));
   }catch{setNotice(txt(ar,'تعذر استرجاع المسودات من QA. لم تُغيّر البيانات المحلية.','Could not restore QA drafts; local data were not changed.'))}
   finally{setCloudBusy(false)}
  };
  const saveCloud=async()=>{
-  if(readOnly||cloudBusy||!study)return;
+  if(effectiveReadOnly||cloudBusy||!study)return;
   setCloudBusy(true);
   try{
    const revision=cloudRevisions[study.id];
@@ -134,6 +141,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    // Imported backups have no trusted server revision: do not reuse optimistic locks from a previous draft.
    setCloudRevisions({});
    setCloudSavedStudyVersions({});
+   setCloudOwnerIds({});
    setStudies(data.studies);setSelectedId(data.studies[0]?.id||'');setTab('overview');
    setNotice(txt(ar,'تم استيراد المسودات محليًا.','Local drafts imported.'));
   }catch{setNotice(txt(ar,'ملف النسخة الاحتياطية غير صالح.','Invalid backup file.'));}
@@ -146,7 +154,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   setStudies(p=>[next,...p]);setSelectedId(next.id);setProjectName('');setTab('profile');
  };
  const remove=()=>{
-  if(readOnly||!study||!window.confirm(txt(ar,'حذف مسودة هذا المشروع من هذا المتصفح فقط؟','Delete this local draft from this browser only?')))return;
+  if(effectiveReadOnly||!study||!window.confirm(txt(ar,'حذف مسودة هذا المشروع من هذا المتصفح فقط؟','Delete this local draft from this browser only?')))return;
   setStudies(p=>p.filter(s=>s.id!==study.id));setSelectedId(studies.find(x=>x.id!==study.id)?.id||'');
  };
  const choices=<>
@@ -157,16 +165,16 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const taskDone=study?.tasks.filter(x=>x.status==='DONE').length??0;
  return <main className="container fs-page" dir={ar?'rtl':'ltr'}>
   <header className="fs-head"><div><span className="fs-eyebrow">YAQEEN BUSINESS / FEASIBILITY</span><h1>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
-   <div className="fs-actions"><Button secondary onClick={download} disabled={!studies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly}/></label><Button secondary onClick={()=>window.print()} disabled={!study}>{txt(ar,'طباعة الدراسة','Print study')}</Button>{cloudEnabled&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={readOnly||!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>
+   <div className="fs-actions"><Button secondary onClick={download} disabled={!studies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly}/></label><Button secondary onClick={()=>window.print()} disabled={!study}>{txt(ar,'طباعة الدراسة','Print study')}</Button>{cloudEnabled&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={effectiveReadOnly||!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>
   </header>
-  <p className="fs-warning" role="status">{readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
+  <p className="fs-warning" role="status">{sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')}>×</button></p>}
   <section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>setNewSector(e.currentTarget.value as Sector)} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select><Button onClick={create} disabled={readOnly||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>
   <div className="fs-portfolio">{studies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===selectedId?' fs-project-pill--active':'')} aria-pressed={p.id===selectedId} onClick={()=>{setSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
   {!loaded?<p>{txt(ar,'جاري تحميل المسودات…','Loading drafts…')}</p>:!study?<section className="card fs-empty"><h2>{txt(ar,'ابدأ بأول مشروع','Start your first project')}</h2><p>{txt(ar,'ادخل اسم المشروع ونوعه. تبدأ الأرقام بصفر لتجنب عرض نتائج افتراضية على أنها دراسة حقيقية.','Enter a project name and sector. All figures start at zero to avoid implying a real feasibility result.')}</p></section>:<>
-   <div className="fs-subhead"><div><h2>{study.title}</h2><small>{study.country}{study.region?' · '+study.region:''} · {study.currency} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div><Button secondary onClick={remove} disabled={readOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button></div>
+   <div className="fs-subhead"><div><h2>{study.title}</h2><small>{study.country}{study.region?' · '+study.region:''} · {study.currency} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div><Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button></div>
    <nav className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.map(t=><button type="button" key={t.id} onClick={()=>setTab(t.id)} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}>{ar?t.ar:t.en}</button>)}</nav>
-   <fieldset className="fs-study-scope" disabled={readOnly} aria-label={txt(ar,'محتوى دراسة المشروع','Study content')}>
+   <fieldset className="fs-study-scope" disabled={effectiveReadOnly} aria-label={txt(ar,'محتوى دراسة المشروع','Study content')}>
    {tab==='overview'&&model&&<section className="fs-block">
     <div className="fs-kpis"><Info label={txt(ar,'إجمالي الاستثمار الاقتصادي','Economic investment')} value={money(model.totalInvestment)}/><Info label={txt(ar,'نسبة الممول في حقوق الملكية','Investor equity share')} value={model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}/><Info label={txt(ar,'صافي القيمة الحالية','Net present value')} value={model.ready?money(model.npv):'—'}/><Info label={txt(ar,'العائد الداخلي المتوقع','Indicative IRR')} value={model.ready&&model.irr!==null?fmt(model.irr,2)+'%':'—'}/></div>
     <div className="fs-columns"><div className="card fs-panel"><h3>{txt(ar,'جاهزية الدراسة','Study readiness')}</h3><div className="fs-row"><span>{txt(ar,'التحقق القانوني','Legal checks')}</span><strong>{legalDone} / {study.legal.length}</strong></div><progress value={legalDone} max={study.legal.length||1}/><div className="fs-row"><span>{txt(ar,'المهام المنجزة','Tasks complete')}</span><strong>{taskDone} / {study.tasks.length}</strong></div><progress value={taskDone} max={study.tasks.length||1}/></div>
@@ -215,7 +223,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    {tab==='tasks'&&<section className="card fs-panel"><h3>{txt(ar,'الجدول التنفيذي والمهام','Tasks and milestones')}</h3>{study.tasks.map(x=><div className="fs-item" key={x.id}><input aria-label={txt(ar,'عنوان المهمة','Task title')} value={x.title} onChange={e=>update({tasks:study.tasks.map(z=>z.id===x.id?{...z,title:e.currentTarget.value}:z)})}/><input aria-label={txt(ar,'المسؤول','Owner')} placeholder={txt(ar,'المسؤول','Owner')} value={x.owner} onChange={e=>update({tasks:study.tasks.map(z=>z.id===x.id?{...z,owner:e.currentTarget.value}:z)})}/><input aria-label={txt(ar,'الموعد','Due date')} type="date" value={x.due} onChange={e=>update({tasks:study.tasks.map(z=>z.id===x.id?{...z,due:e.currentTarget.value}:z)})}/><SelectField label={txt(ar,'الحالة','Status')} value={x.status} items={Object.entries(taskStatus).map(([value,name])=>({value:value as TaskStatus,label:ar?name.ar:name.en}))} onChange={status=>update({tasks:study.tasks.map(z=>z.id===x.id?{...z,status}:z)})}/><button type="button" aria-label={txt(ar,'حذف المهمة','Delete task')} onClick={()=>update({tasks:study.tasks.filter(z=>z.id!==x.id)})}>×</button></div>)}<Button secondary onClick={()=>update({tasks:[...study.tasks,{id:uid(),title:txt(ar,'مهمة جديدة','New task'),owner:'',due:'',status:'TODO',priority:'NORMAL'}]})}>{txt(ar,'إضافة مهمة +','Add task +')}</Button></section>}
    {tab==='risks'&&<section className="card fs-panel"><h3>{txt(ar,'سجل المخاطر','Risk register')}</h3>{study.risks.map(x=><div className="fs-item" key={x.id}><input value={x.title} aria-label={txt(ar,'الخطر','Risk')} onChange={e=>update({risks:study.risks.map(z=>z.id===x.id?{...z,title:e.currentTarget.value}:z)})}/><label>{txt(ar,'الاحتمال 1-5','Likelihood 1-5')}<input type="number" min="1" max="5" value={x.likelihood} onChange={e=>update({risks:study.risks.map(z=>z.id===x.id?{...z,likelihood:Math.max(1,Math.min(5,Number(e.currentTarget.value)||1))}:z)})}/></label><label>{txt(ar,'الأثر 1-5','Impact 1-5')}<input type="number" min="1" max="5" value={x.impact} onChange={e=>update({risks:study.risks.map(z=>z.id===x.id?{...z,impact:Math.max(1,Math.min(5,Number(e.currentTarget.value)||1))}:z)})}/></label><strong>{x.impact*x.likelihood}/25</strong><input placeholder={txt(ar,'إجراء المعالجة','Mitigation')} value={x.response} onChange={e=>update({risks:study.risks.map(z=>z.id===x.id?{...z,response:e.currentTarget.value}:z)})}/></div>)}<Button secondary onClick={()=>update({risks:[...study.risks,{id:uid(),title:txt(ar,'خطر جديد','New risk'),likelihood:3,impact:3,response:''}]})}>{txt(ar,'إضافة خطر +','Add risk +')}</Button></section>}
    {tab==='suppliers'&&<section className="card fs-panel"><h3>{txt(ar,'عروض الموردين والمقاولين','Supplier and contractor offers')}</h3>{study.suppliers.map(x=><div className="fs-item" key={x.id}><input aria-label={txt(ar,'المورد','Vendor')} placeholder={txt(ar,'اسم المورد','Vendor')} value={x.vendor} onChange={e=>update({suppliers:study.suppliers.map(z=>z.id===x.id?{...z,vendor:e.currentTarget.value}:z)})}/><input aria-label={txt(ar,'البند','Item')} placeholder={txt(ar,'المعدة أو الخدمة','Equipment / service')} value={x.item} onChange={e=>update({suppliers:study.suppliers.map(z=>z.id===x.id?{...z,item:e.currentTarget.value}:z)})}/><input aria-label={txt(ar,'القيمة','Quote')} type="number" min="0" value={x.offer} onChange={e=>update({suppliers:study.suppliers.map(z=>z.id===x.id?{...z,offer:Number(e.currentTarget.value)||0}:z)})}/><input aria-label={txt(ar,'ملاحظات','Notes')} placeholder={txt(ar,'الشروط والمدة','Terms / timeline')} value={x.notes} onChange={e=>update({suppliers:study.suppliers.map(z=>z.id===x.id?{...z,notes:e.currentTarget.value}:z)})}/></div>)}<Button secondary onClick={()=>update({suppliers:[...study.suppliers,{id:uid(),vendor:'',item:'',offer:0,notes:''}]})}>{txt(ar,'إضافة عرض +','Add offer +')}</Button></section>}
-   {tab==='handoff'&&<ProjectHandoffPanel study={study} locale={locale} onChange={handoff=>update({handoff})} cloudRevision={cloudRevisions[study.id]} cloudCurrent={cloudSavedStudyVersions[study.id]===study.updatedAt} cloudEnabled={cloudEnabled} canWrite={!readOnly}/>}
+   {tab==='sharing'&&<CollaborationPanel locale={locale} projectId={study.id} enabled={sharingEnabled} canWrite={!effectiveReadOnly} isOwner={cloudOwnerIds[study.id]===userId}/>}
+   {tab==='handoff'&&<ProjectHandoffPanel study={study} locale={locale} onChange={handoff=>update({handoff})} cloudRevision={cloudRevisions[study.id]} cloudCurrent={cloudSavedStudyVersions[study.id]===study.updatedAt} cloudEnabled={cloudEnabled} canWrite={!effectiveReadOnly}/>}
    {tab==='decisions'&&<section className="card fs-panel"><h3>{txt(ar,'سجل القرارات ومحاضر الاجتماعات','Decision and meeting log')}</h3>{study.decisions.map(x=><div className="fs-item" key={x.id}><input aria-label={txt(ar,'القرار','Decision')} value={x.title} onChange={e=>update({decisions:study.decisions.map(z=>z.id===x.id?{...z,title:e.currentTarget.value}:z)})}/><input aria-label={txt(ar,'التاريخ','Date')} type="date" value={x.date} onChange={e=>update({decisions:study.decisions.map(z=>z.id===x.id?{...z,date:e.currentTarget.value}:z)})}/><textarea aria-label={txt(ar,'التفاصيل','Details')} value={x.notes} onChange={e=>update({decisions:study.decisions.map(z=>z.id===x.id?{...z,notes:e.currentTarget.value}:z)})}/></div>)}<Button secondary onClick={()=>update({decisions:[...study.decisions,{id:uid(),title:txt(ar,'قرار جديد','New decision'),date:new Date().toISOString().slice(0,10),notes:''}]})}>{txt(ar,'إضافة قرار +','Add decision +')}</Button></section>}
    </fieldset>
   </>}

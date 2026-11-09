@@ -7,7 +7,7 @@ export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTU
 export type StudyStatus='IDEA'|'FEASIBILITY'|'APPROVED'|'ESTABLISHMENT'|'OPERATING'|'CANCELLED';
 export type TaskStatus='TODO'|'IN_PROGRESS'|'DONE';
 export type ChecklistStatus='NOT_STARTED'|'UNDER_REVIEW'|'VERIFIED'|'BLOCKED';
-export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff';
+export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff'|'sharing';
 export type HandoffMode='LATER'|'NEW'|'EXISTING';
 export interface ProjectHandoff {mode:HandoffMode; organizationId?:string; reviewedSourceUpdatedAt?:string; reviewedAt?:string;}
 export interface CapexItem {id:string;label:string;amount:number;category:'BUILDINGS'|'EQUIPMENT'|'UTILITIES'|'LICENCES'|'OTHER';}

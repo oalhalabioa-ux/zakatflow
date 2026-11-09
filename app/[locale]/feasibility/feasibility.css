@@ -22,3 +22,12 @@
 
 .fs-study-scope{border:0;margin:0;padding:0;min-width:0;display:block;color:#1D3852}
 .fs-study-scope:disabled input,.fs-study-scope:disabled select,.fs-study-scope:disabled textarea{opacity:.88;cursor:not-allowed}
+
+.fs-collaboration{display:grid;gap:12px}
+.fs-collaboration code{font-size:12px;overflow-wrap:anywhere;display:block;padding:12px;border-radius:8px;border:1px dashed #C6A35D;background:#F5EBD6;color:#1D3852}
+.fs-collaboration-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
+.fs-collaboration-grid{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;align-items:end}
+.fs-collaboration-grid input,.fs-collaboration-grid select{min-height:38px}
+.fs-collaboration-list{display:grid;gap:6px;font-size:12px;color:#1D3852}
+.fs-collaboration-row{border:1px solid #E8EEF0;border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+@media(max-width:650px){.fs-collaboration-grid{grid-template-columns:1fr}}
