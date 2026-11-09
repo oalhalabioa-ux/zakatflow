@@ -226,12 +226,12 @@ export async function observeCanonicalJournalLineage(
    reversed.set(link.event_id,link.related_event_id!);
   }
   type OriginalRow={id:string;event_id:string;organization_id:string;line_number:number;
-   metadata:Record<string,unknown>|null};
+   metadata:Record<string,unknown>|null;classification_id:string;base_amount:string|number;cash_direction:string};
   const originals=new Map<string,Map<number,OriginalRow>>();
   if(reversed.size){
    const roots=[...new Set(reversed.values())];
    const originalResponse=await supabase.from('financial_event_lines')
-    .select('id,event_id,organization_id,line_number,metadata')
+    .select('id,event_id,organization_id,line_number,metadata,classification_id,base_amount,cash_direction')
     .eq('organization_id',organizationId).in('event_id',roots).limit(1001);
    if(originalResponse.error||!Array.isArray(originalResponse.data)||
     originalResponse.data.length>=1001)
@@ -269,6 +269,20 @@ export async function observeCanonicalJournalLineage(
    const original=root?originals.get(root)?.get(row.line_number):null;
    if(root&&!original)throw Error('BRANCH_LINEAGE_SOURCE_INCOMPLETE');
    const sourceMeta=row.metadata??{},originalMeta=original?.metadata??{};
+   const nativeReversal=sourceMeta.native_reversal_version!==undefined;
+   if(nativeReversal){
+    const expectedDirection=original?.cash_direction==='INFLOW'?'OUTFLOW':original?.cash_direction==='OUTFLOW'?'INFLOW':'NON_CASH';
+    const inherited={...originalMeta,native_reversal_version:1,reversal_of_line_id:original?.id};
+    if(!root||!original||sourceMeta.native_reversal_version!==1||
+     sourceMeta.reversal_of_line_id!==original.id||original.id===row.id||
+     !valuePattern.test(String(original.base_amount))||!new Amount(row.base_amount).eq(original.base_amount)||
+     row.cash_direction!==expectedDirection||!uuid.test(original.classification_id)||
+     rawCounts.get(row.event_id)!==originals.get(root)?.size||
+     JSON.stringify(Object.entries(sourceMeta).sort())!==JSON.stringify(Object.entries(inherited).sort()))
+     throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
+   }
+   const expectedClassification=nativeReversal?original!.classification_id:row.classification_id;
+   const expectedDirection=nativeReversal?original!.cash_direction:row.cash_direction;
    const roleValue=sourceMeta.source_role??originalMeta.source_role??'BASE';
    if(typeof roleValue!=='string'||!/^([A-Z][A-Z0-9_]{0,63})$/.test(roleValue))
     throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
@@ -295,8 +309,8 @@ export async function observeCanonicalJournalLineage(
    let sum=new Amount(0);
    for(const part of matching){
     const suffix=part.id.slice(row.id.length+1),expectedAmount=breakdown.get(suffix);
-    if(!expectedAmount||part.classificationId!==row.classification_id+':'+suffix||
-     part.cashDirection!==row.cash_direction||part.recognitionSign!==sign||
+    if(!expectedAmount||part.classificationId!==expectedClassification+':'+suffix||
+     part.cashDirection!==expectedDirection||part.recognitionSign!==sign||
      !new Amount(part.baseAmount).eq(expectedAmount))
      throw Error('BRANCH_LINEAGE_SOURCE_MISMATCH');
     sum=sum.plus(part.baseAmount);

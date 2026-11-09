@@ -1913,6 +1913,14 @@
       "expected_md5": "84474e71b19186afaf47da6f7c11193c",
       "file_sha256": "f39f0cd9a6318ff3aafd7926ebe8e1fa603ade80eb7afcf5c255df76d1cc9b54",
       "validation_project": "PostgreSQL/WASM category execution and installed function patch/catalog replay; complete opening-cycle acceptance pending"
+    },
+    {
+      "path": "supabase/migrations/20261109201129_native_debt_reversal_components.sql",
+      "version": "20261109201129",
+      "name": "native_debt_reversal_components",
+      "expected_md5": "086c8e23a44e1f38248e9ef14ec0924e",
+      "file_sha256": "d0cdb187ab0859869dd57d649bfe805547035b4682279fcef29355e5d31f6a74",
+      "validation_project": "QA V2 native borrowing/lending reversal with immediate constraints, original accounts, later-window reporting and replay; isolated multipart and amount-limit checks"
     }
   ]
 }

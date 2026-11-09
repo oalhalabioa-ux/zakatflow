@@ -1,5 +1,15 @@
 # QA release verification — 2026-11-09
 
+## Follow-up on commit 446ae9f31734085399ff29ba916e490cd34da3c4
+
+Full-schema acceptance run 42688866874 now PASSES all four jobs, including the native browser cycle, ledger/export reconciliation and general fiscal close reconciliation. The disabled approval button was caused by missing 1590 and 6200 subsidiary accounts in the test organization after lifecycle templates were added. The fixture now includes both; production validation was not weakened. A unit regression confirms that missing lifecycle leaves block complete-policy readiness and valid leaves satisfy it (16 default-rule tests passed).
+
+The corrected parity fingerprint also passes in the disposable full-schema CI. Application code and deployed QA release remain unchanged; only tests/evidence were pushed. The automatically triggered unrelated Vercel preview was canceled; the stable QA alias was not moved.
+
+Native reversal remains unresolved, independently of these passing suites. New rollback tests qa-native-debt-reversal-blocker.sql and qa-native-lending-reversal-blocker.sql execute actual create/approve/post/prepare-reverse/approve/post commands with SET CONSTRAINTS ALL IMMEDIATE. Both reproduce rejection and verify unchanged bank balance, original ACTUAL event, reversal COMMITTED event and PENDING request after the failed post. Immediate constraints are essential: rollback-only tests without them can miss deferred posting failures and falsely appear successful. These are negative blocker tests, not reversal certification; they are committed locally, not yet pushed.
+
+The earlier results below describe the previous run and are retained as history.
+
 Release: `be73783c8864e4fa6ae573766aff023117d06313`.
 Stable QA: https://yaqeen-financial-core-v2-qa-oalhalabioa-9334.vercel.app
 Production was not modified.
@@ -28,3 +38,16 @@ Additional rollback tests passed in this session:
 These SQL tests do not certify a signed-in hosted browser journey. Native debt reversal lineage remains an independent production merge blocker. Automatic depreciation calculation remains deferred.
 
 No additional Vercel release was created during this testing session.
+
+
+## Native reversal repair follow-up
+
+The earlier native borrowing/lending reversal blocker is now fixed in QA V2 by
+`20261109201129_native_debt_reversal_components.sql`. No Production change.
+
+- Native borrowing and lending commands passed against QA with all deferred constraints immediate. Both restored the bank, reused original detailed account resolutions, normalized a later reporting window and replayed without duplicate cash. All fixtures rolled back.
+- Each original raw line produces a distinct persisted reversal line. Original line identity, amount, currency, exchange rate, direction, recovery and metadata are checked. Aggregate posting permission uses all lines.
+- Isolated PostgreSQL/WASM tests passed multipart preparation, exact account resolution, tampered amount refusal and aggregate amount permission refusal. These use fixture persistence adapters and are not a full financing workflow certificate.
+- RLS lineage suite: 22 passed, including both reversal cash directions and wrong line/amount/role rejection. TypeScript passed.
+- Latest application preview still requires the matching lineage observer update. Do not describe the current preview as containing this repair until deployment is verified.
+- Full CI on the new commit and broader native advance/financing reversal acceptance remain pending. Earlier successful CI covered the preceding commit.

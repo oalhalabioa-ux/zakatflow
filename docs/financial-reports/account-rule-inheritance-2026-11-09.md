@@ -132,3 +132,10 @@ Confirmed constraints for the complete fix:
 - `post_debt_operation` currently reads one line for amount-based permissions. A component-based command must validate permissions against the full reversal total, not the first component.
 
 Required implementation/acceptance spans native prepare/post commands, approval fingerprints, cash reversal guards, report normalization, captured posting resolution and RLS lineage verification. It must cover cash-in, cash-out, noncash advance application, multi-part financing, request replay, later report windows and full rollback. Do not merge an isolated normalizer fix. This remains an explicit merge blocker; no experimental reversal migration or catalog delta was left in the canonical history.
+
+
+### Native reversal follow-up
+The borrowing/lending blocker described above was repaired in the new native
+reversal migration and verified with immediate constraints on isolated QA fixture
+transactions (rolled back). See `qa-release-test-results-2026-11-09.md` for exact
+coverage and remaining release gates. Historical rows are not rewritten.

@@ -208,6 +208,21 @@ describe('canonical line-level source checks before branch statements',()=>{
    classification_id:classId,base_amount:'300.0000',cash_direction:'NON_CASH',
    line_number:1,recoverable_percent:100,metadata});
  };
+ it.each(['INFLOW','OUTFLOW'] as const)('attests a native %s reversal from its original line, not clearing semantics',async(direction)=>{
+  attachOriginal({source_role:'BASE'});
+  const original=s.lines[s.lines.length-1];original.cash_direction=direction;
+  const row=s.lines[2];row.cash_direction=direction==='INFLOW'?'OUTFLOW':'INFLOW';
+  row.classification_id='d1000000-0000-4000-8000-000000000014';
+  row.metadata={source_role:'BASE',native_reversal_version:1,reversal_of_line_id:original.id};
+  const data=[{...journals()[2],sourceLines:[{...part(lineC,'300.0000',direction),recognitionSign:-1 as const}]}];
+  expect((await observeCanonicalJournalLineage(org,data)).sourceLineCount).toBe(1);
+  row.metadata.reversal_of_line_id=lineA;
+  await expect(observeCanonicalJournalLineage(org,data)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+  row.metadata.reversal_of_line_id=original.id;row.base_amount='299.0000';
+  await expect(observeCanonicalJournalLineage(org,data)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+  row.base_amount='300.0000';row.metadata.source_role='OTHER';
+  await expect(observeCanonicalJournalLineage(org,data)).rejects.toThrow('BRANCH_LINEAGE_SOURCE_MISMATCH');
+ });
  it('attests normal signs and linked reversal signs using original line number and metadata',async()=>{
   attachOriginal({recognition_sign:-1});
   const data=[...postedLineage().slice(0,2),{
