@@ -51,3 +51,18 @@ The earlier native borrowing/lending reversal blocker is now fixed in QA V2 by
 - RLS lineage suite: 22 passed, including both reversal cash directions and wrong line/amount/role rejection. TypeScript passed.
 - Latest application preview still requires the matching lineage observer update. Do not describe the current preview as containing this repair until deployment is verified.
 - Full CI on the new commit and broader native advance/financing reversal acceptance remain pending. Earlier successful CI covered the preceding commit.
+
+
+### Extended native acceptance on QA V2
+- `qa-native-finance-reversal.sql`: actual financed contract, recognized charge, two-line installment settlement, later native reversal and replay passed. Bank restored to 2,200; outstanding principal restored to 400 and finance charge to 12.4. Immediate capture verified two resolved reversal components. Entire transaction rolled back.
+- `qa-native-advance-reversal.sql`: both supplier/customer advances, partial refund and refund reversal, partial noncash applications, overapplication refusal, application reversal and replay passed under detailed policies. Bank unchanged by applications/reversal; advance/invoice balances restored to 40/90 after reversing the last 40. All generated records rolled back.
+- Source permission refusal passed in native borrowing/lending fixtures using an unrelated identity.
+- Application fix pushed to PR branch as `fe93f6acf4bc6b6273cdeadff01e60f03656015a`; source tree matches local `81e610f`. Extended SQL fixtures in this follow-up are additional evidence and do not change application code.
+
+
+The first repair CI passed canonical migration history, quality, settings UI,
+full-schema parity, native reversal SQL and institutional compatibility. Its final
+default-cycle browser check exposed a nondeterministic fixture selector: selecting
+the first OPEX by type could select an inherited child rather than canonical OPEX.
+The fixture now selects the exact canonical code and retains all accounting
+assertions. Extended financing/advance rollback checks are included in CI.

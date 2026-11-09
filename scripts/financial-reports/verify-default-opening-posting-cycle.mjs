@@ -60,8 +60,8 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  assert.deepEqual(unwrap(await actor.client.from('financial_reporting_policies').select('*').eq('id',legacy.id).single()),legacyBefore,'Recovery leaves the approved record unchanged');
  evidence.legacyRecovery={approvedPolicyId:legacy.id,draftPolicyId:policyBefore.policy.id,ruleCount:policyBefore.policy.rules.length,events:0,priorApprovedUnchanged:true};
 
- const classifications=unwrap(await actor.client.from('financial_classifications').select('id,classification_type').eq('organization_id',organization));
- const classification=type=>{const c=classifications.find(c=>c.classification_type===type);assert.ok(c,type+' classification');return c.id;};
+ const classifications=unwrap(await actor.client.from('financial_classifications').select('id,code,classification_type').eq('organization_id',organization));
+ const classification=type=>{const c=classifications.find(c=>c.classification_type===type&&c.code===type);assert.ok(c,type+' classification');return c.id;};
  const proposed=(eventType,type,direction)=>{const r=policyBefore.policy.rules.find(r=>r.eventType===eventType&&r.sourceModule==='OPERATIONAL_CONSOLE'&&r.classificationId===classification(type)+':BASE'&&r.cashDirection===direction);assert.ok(r,type+' default rule');return r;};
  const expenseRule=proposed('EXPENSE','OPEX','NON_CASH'),incomeRule=proposed('REVENUE','REVENUE','NON_CASH');
  assert.equal(expenseRule.debitAccountId,'610001');assert.equal(incomeRule.creditAccountId,'410001');

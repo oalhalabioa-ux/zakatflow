@@ -27,7 +27,7 @@ on:
       - 'scripts/financial-reports/verify-debt-principal-roles.mjs'
       - 'scripts/financial-reports/verify-debt-opening-category.mjs'
       - 'scripts/financial-reports/verify-native-debt-reversal.mjs'
-      - 'tests/qa-native-*-reversal-blocker.sql'
+      - 'tests/qa-native-*-reversal*.sql'
       - 'tests/qa-financial-opening*.sql'
       - 'tests/qa-financial-first-activity-snapshot.sql'
       - 'tests/qa-financial-production-*.sql'
@@ -233,6 +233,8 @@ jobs:
         run: |
           docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-native-debt-reversal-blocker.sql
           docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-native-lending-reversal-blocker.sql
+          docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-native-finance-reversal.sql
+          docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-native-advance-reversal.sql
       - name: Verify independent fiscal budgets and immutable approved dates
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-fiscal-budget-calendar.sql
       - name: Verify audited group legal control evidence and cross-tenant isolation
