@@ -28,7 +28,7 @@ export default function PlanEditor({plan,locale,busy,error,onSave,onCancel}:{pla
        {field('max_users',t('حد المستخدمين النشطين','Active user limit'),{type:'number',min:1,max:100000,inputMode:'numeric',dir:'ltr'})}
        <label className="plan-field-wide">{t('الوصف المختصر','Short description')}<textarea name={ar?'description_ar':'description_en'} maxLength={500} defaultValue={ar?plan?.description_ar:plan?.description_en} dir={ar?'rtl':'ltr'}/></label>
       </div>
-      <details className="owner-plan-advanced"><summary>{t('إعدادات إضافية','Additional settings')}</summary><div className="owner-plan-fields">
+      <details className="owner-plan-advanced" open={!plan}><summary>{t('إعدادات إضافية','Additional settings')}</summary><div className="owner-plan-fields">
        <label>{t('رمز الباقة الثابت','Immutable code')}<input name="code" pattern="[a-z0-9_-]{2,40}" defaultValue={plan?.code} readOnly={!!plan} required dir="ltr"/></label>
        <label>{t('مجموعة الباقة (للشهري والسنوي)','Plan family (monthly/yearly)')}<input name="family" pattern="[a-z0-9_-]{2,40}" defaultValue={plan?.family??'custom'} required dir="ltr"/></label>
        <label className="plan-field-wide">{t('الوصف الإنجليزي','Arabic description')}<textarea name={ar?'description_en':'description_ar'} maxLength={500} defaultValue={ar?plan?.description_en:plan?.description_ar} dir={ar?'ltr':'rtl'}/></label>

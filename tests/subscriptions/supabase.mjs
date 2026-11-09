@@ -493,6 +493,7 @@ try {
       const existingPlans = (await rpc(owner, 'subscription_plan_catalog', {})).data.plans;
       await page.getByRole('button',{name:'＋ Add plan',exact:true}).click();
       const form=page.locator('.plan-manager form');
+      assert.equal(await form.locator('[name="code"]').isVisible(),true,'Required new-plan code must be visible');
       assert.equal(await form.locator('[name="price"]').inputValue(),'');
       assert.equal(await form.locator('[name="max_users"]').inputValue(),'5');
       assert.equal(await form.locator('[name="is_active"]').isChecked(),true);
