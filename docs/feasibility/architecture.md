@@ -63,3 +63,10 @@ The sidebar link is guarded behind `NEXT_PUBLIC_FEASIBILITY_STUDIES=true`, defau
 - This stage is **owner-only storage**, not multi-user collaboration, legal approval, final entitlement enforcement, or an accounting posting API. Data is per-account, not attached to a finance organization until a separately authorized handoff.
 - Later acceptance gates: collaborator memberships with RLS, approved immutable study revisions, workflow audit, docs upload, cross-device browser QA, quota & billing policy for users who do not yet own an organization, and independent module-bundle eligibility.
 
+
+## Subscription regression guard
+
+- Module registration must **not** auto-select an unprovisioned feasibility entitlement for newly created organization plans. The existing subscription QA acceptance creates a default plan and expects the existing package backend to recognize every selected module.
+- The Plan Editor hides the feasibility paid checkbox until `NEXT_PUBLIC_FEASIBILITY_BILLING_QA=true`, and never defaults it on. The plan POST endpoint explicitly rejects a feasibility feature unless the server-only `FEASIBILITY_BILLING_QA=true` gate is approved and the server RPC/catalog and billing model are tested. Both default OFF.
+- There is still a major product gap: the existing bundle RPC requires an organization and forcibly includes assets/liquidity. **Do not** market standalone studies until a future user-account/project-workspace entitlement and billing flow is implemented. Avoid weakening the existing bookkeeping bundle rules before that separate design is approved.
+
