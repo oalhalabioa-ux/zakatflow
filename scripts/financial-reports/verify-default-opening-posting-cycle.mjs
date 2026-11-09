@@ -20,7 +20,7 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  insert into public.organization_members(organization_id,user_id,role,status) values('${organization}','${actor.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';`);
  await rpc('save_financial_fiscal_calendar',{p_org:organization,p_month:1,p_day:1,p_retained:'3300',p_expected_version:0,p_reason:'Actual default posting cycle calendar'});
  for(const [code,parent,ar,en,normal] of [['610001','6100','مصروفات تشغيل الاختبار','Cycle operating expenses','DEBIT'],['410001','4100','إيرادات خدمات الاختبار','Cycle service revenue','CREDIT'],
-  ...['1100','1400','1500','1600','2100','2300','8100'].map(root=>[root+'01',root,'حساب تفصيلي '+root,'Cycle detail '+root,['2100','2300'].includes(root)?'CREDIT':'DEBIT'])])
+  ...['1100','1400','1500','1590','1600','2100','2300','6200','8100'].map(root=>[root+'01',root,'حساب تفصيلي '+root,'Cycle detail '+root,['1590','2100','2300'].includes(root)?'CREDIT':'DEBIT'])])
   await rpc('save_financial_chart_account',{p_org:organization,p_code:code,p_parent:parent,p_name_ar:ar,p_name_en:en,p_normal_side:normal,p_is_active:true,p_is_postable:true,p_expected_version:0,p_reason:'Organization-specific default account'});
  const bankResult=await request('post','/api/liquidity',{kind:'account',organization_id:organization,request_id:randomUUID(),name:'بنك تجربة القواعد',account_type:'BANK',currency:'SAR',balance_mode:'OPENING',opening_date:'2025-12-31',fx_rate:1,current_balance:5000,current_balance_base:5000},201);
  // The account command returns a scoped native account descriptor.

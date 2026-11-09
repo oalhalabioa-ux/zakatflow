@@ -1,10 +1,21 @@
 import {describe,it,expect} from 'vitest';
 import {defaultPostingRules,postingRuleKey,type PostingClassification} from '../lib/financial-default-posting-rules';
 import {financialPostingCoverage} from '../lib/financial-posting-coverage';
-import {validatePostingRuleAccounts} from '../lib/financial-posting-rule-validation';
+import {validatePostingRuleAccounts,detailedPostingDraft,validateDetailedPostingRule} from '../lib/financial-posting-rule-validation';
 const chart=['1000','1100','1400','1500','1590','1600','2100','2300','4100','6100','6200','8100'].map(code=>({id:code,code,cash:code==='1000',isActive:true,isPostable:true}));
 const cls=(type:string,id=type):PostingClassification=>({id,code:type,name:type,classification_type:type,active:true});
 describe('organization default posting rules',()=>{
+ it('requires depreciation expense and accumulated depreciation leaves before approving the complete lifecycle policy',()=>{
+  const classifications=['OPEX','REVENUE','CAPEX','INVESTMENT','TAX','ZAKAT','PAYABLE','RECEIVABLE','ASSET'].map(v=>cls(v));
+  const roots=['1100','1400','1500','1600','2100','2300','4100','6100','8100'];
+  const leaf=(root:string)=>({id:root+'01',code:root+'01',reportingCode:root,cash:false,isActive:true,isPostable:true});
+  const incomplete=[...chart,...roots.map(leaf)];
+  const invalid=defaultPostingRules(classifications,incomplete).rules.map(r=>detailedPostingDraft(r,incomplete)).filter(r=>validateDetailedPostingRule(r,incomplete));
+  expect(invalid.map(r=>r.classificationId)).toEqual(expect.arrayContaining(['OPEX:DEPRECIATION','ASSET:ACCUMULATED_DEPRECIATION_RELEASE']));
+  const complete=[...incomplete,leaf('1590'),leaf('6200')];
+  const rules=defaultPostingRules(classifications,complete).rules.map(r=>detailedPostingDraft(r,complete));
+  expect(rules.filter(r=>validateDetailedPostingRule(r,complete))).toEqual([]);
+ });
  it('prepares valid editable recognition and settlement mappings with no operations',()=>{
   const d=defaultPostingRules(['OPEX','REVENUE','CAPEX','INVESTMENT','TAX','ZAKAT','PAYABLE','RECEIVABLE'].map(v=>cls(v)),chart);
   expect(d.rules.length).toBeGreaterThan(14);expect(d.testedRuleCount).toBe(0);expect(d.unresolved).toEqual([]);

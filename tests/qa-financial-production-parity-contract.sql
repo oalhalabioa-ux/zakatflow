@@ -60,10 +60,13 @@ begin
  -- Deliberate Production changes require an explicit reviewed re-baseline.
  -- Snapshot function below expects the separately versioned retained-leaf
  -- and detailed posting migrations applied to disposable QA. The other
- -- financial-source definitions retain their observed baseline fingerprints.
+ -- financial-source definitions retain their observed baseline fingerprints,
+ -- except reporting_events: migration 20261109183825 deliberately excludes
+ -- verified nonposting debt reschedules. Its complete function definition is
+ -- independently pinned in debt-operations-posting-schema-delta.json.
  for expected in
   select * from (values
-   ('private.financial_reporting_events(uuid,date,date)','4fd2ddad294ab23e3843353d37a4dbd8'),
+   ('private.financial_reporting_events(uuid,date,date)','3a8f7b6f6afdd8d7d40c42ce58690c18'),
    ('private.financial_reporting_legacy_events(uuid,date,date)','7cc105b3522efbedd9c0df2f66151d40'),
    ('private.financial_statement_live_snapshot_v1(uuid,date,date)','9f29968dd9b04ee2eec1af4c83559b36'),
    ('public.financial_statement_live_snapshot(uuid,date,date)','1179052b55d75f80ffe04e3e13e8dfbf')
