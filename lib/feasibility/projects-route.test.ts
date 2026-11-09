@@ -4,7 +4,7 @@ import {createStudy} from './engine';
 const mocks=vi.hoisted(()=>({supabaseServer:vi.fn(),isSameOriginRequest:vi.fn()}));
 vi.mock('@/lib/supabase/server',()=>({supabaseServer:mocks.supabaseServer}));
 vi.mock('@/lib/request-origin',()=>({isSameOriginRequest:mocks.isSameOriginRequest}));
-import {GET,POST,PATCH,DELETE} from '@/app/api/feasibility/projects/route';
+import {GET,POST,PATCH,DELETE} from '../../app/api/feasibility/projects/route';
 
 const owner='6357a708-bae2-4634-9296-490404b1d8a4';
 const studyId='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
