@@ -19,12 +19,18 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  insert into public.organizations(id,owner_user_id,name) values('${organization}','${actor.id}','ZZ Default rules actual cycle');
  insert into public.organization_members(organization_id,user_id,role,status) values('${organization}','${actor.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';`);
  await rpc('save_financial_fiscal_calendar',{p_org:organization,p_month:1,p_day:1,p_retained:'3300',p_expected_version:0,p_reason:'Actual default posting cycle calendar'});
- for(const [code,parent,ar,en,normal] of [['610001','6100','مصروفات تشغيل الاختبار','Cycle operating expenses','DEBIT'],['410001','4100','إيرادات خدمات الاختبار','Cycle service revenue','CREDIT']])
+ for(const [code,parent,ar,en,normal] of [['610001','6100','مصروفات تشغيل الاختبار','Cycle operating expenses','DEBIT'],['410001','4100','إيرادات خدمات الاختبار','Cycle service revenue','CREDIT'],
+  ...['1100','1400','1500','1600','2100','2300','8100'].map(root=>[root+'01',root,'حساب تفصيلي '+root,'Cycle detail '+root,['2100','2300'].includes(root)?'CREDIT':'DEBIT'])])
   await rpc('save_financial_chart_account',{p_org:organization,p_code:code,p_parent:parent,p_name_ar:ar,p_name_en:en,p_normal_side:normal,p_is_active:true,p_is_postable:true,p_expected_version:0,p_reason:'Organization-specific default account'});
  const bankResult=await request('post','/api/liquidity',{kind:'account',organization_id:organization,request_id:randomUUID(),name:'بنك تجربة القواعد',account_type:'BANK',currency:'SAR',balance_mode:'OPENING',opening_date:'2025-12-31',fx_rate:1,current_balance:5000,current_balance_base:5000},201);
  // The account command returns a scoped native account descriptor.
  const bankId=bankResult.account_id??bankResult.id;
  assert.ok(bankId,'BANK_ID_REQUIRED');
+ const secondBank=await request('post','/api/liquidity',{kind:'account',organization_id:organization,request_id:randomUUID(),name:'بنك التحصيل الثاني',account_type:'BANK',currency:'SAR',balance_mode:'NEW',opening_date:'2025-12-31',fx_rate:1,current_balance:0,current_balance_base:0},201);
+ const secondBankId=secondBank.account_id??secondBank.id;assert.ok(secondBankId);
+ const links=await rpc('link_financial_cash_accounts',{p_org:organization});
+ const bankCode=links['cash:'+bankId],secondBankCode=links['cash:'+secondBankId];
+ assert.ok(bankCode&&secondBankCode&&bankCode!==secondBankCode);
  const opening=await rpc('financial_opening_workspace',scope);
  const entries=Object.fromEntries(opening.source.rows.filter(row=>row.vouchers.length===0).map(row=>[row.id,{amount:'0',side:row.normal}]));
  entries['equity:3100']={amount:'5000',side:'CREDIT'};
@@ -40,6 +46,7 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  await page.goto(app+'/ar/settings/financial?organization='+organization);
  await page.getByRole('button',{name:'قواعد الترحيل',exact:true}).first().click();
  await page.getByRole('region',{name:'القواعد الافتراضية',exact:true}).waitFor();
+ await page.getByRole('button',{name:'فتح القاعدة 1',exact:true}).click();
  await page.getByLabel('الحساب المدين 1',{exact:true}).waitFor();
  const policyBefore=await rpc('financial_reporting_policy_workspace',scope);
  assert.equal(policyBefore.events.length,0);assert.equal(policyBefore.policy.status,'DRAFT');assert.ok(policyBefore.policy.rules.length>0);
@@ -54,6 +61,10 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  assert.equal(expenseRule.debitAccountId,'610001');assert.equal(incomeRule.creditAccountId,'410001');
  const saveBefore=await request('post','/api/financial-reporting/policy',{action:'initialize-defaults',organization,fiscalStart:'2026-01-01'});
  assert.equal(saveBefore.policy.version,policyBefore.policy.version);assert.deepEqual(saveBefore.policy.rules,policyBefore.policy.rules);
+ await page.getByLabel('سبب الإعداد أو التغيير',{exact:true}).fill('اعتماد الربط التفصيلي حسب تصنيف العملية والبنك المحدد');
+ const saveResponse=page.waitForResponse(r=>r.url().includes('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='save');
+ await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();
+ assert.equal((await saveResponse).status(),200);
  await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();
  await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();
  const approved=await rpc('financial_reporting_policy_workspace',scope);assert.equal(approved.policy.status,'APPROVED');
@@ -65,11 +76,16 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
   const data=await request('get','/api/financial-reporting/live-statements?'+new URLSearchParams({action:'statements',organization,from:'2026-01-01',to:'2026-12-31'}));
   assert.equal(data.origin,'LIVE_CANONICAL_EVENTS');const s=data.statements;
   assert.equal(Number(s.cash.closing),cash);assert.equal(Number(s.income.operatingExpenses),expense);assert.equal(Number(s.income.revenue),revenue);assert.equal(Number(s.income.netProfit),revenue-expense);
-  assert.equal(Number(data.accounts.find(a=>a.id==='1100')?.balance??0),receivable);
-  assert.equal(Number(data.accounts.find(a=>a.id==='2100')?.balance??0)+payable,0);
+  assert.equal(Number(data.accounts.find(a=>a.id==='110001')?.balance??0),receivable);
+  assert.equal(Number(data.accounts.find(a=>a.id==='210001')?.balance??0)+payable,0);
   assert.equal(Number(s.position.assets),cash+receivable);assert.equal(Number(s.position.liabilities),payable);assert.equal(Number(s.position.equity),5000+revenue-expense);
   assert.deepEqual(new Set(s.sourceJournalIds),new Set(expectedIds));assert.equal(s.sourceJournalIds.length,expectedIds.length);assert.equal(data.lineage.length,expectedIds.length);
-  const actualBank=unwrap(await actor.client.from('liquidity_accounts').select('current_balance').eq('organization_id',organization).eq('id',bankId).single());assert.equal(Number(actualBank.current_balance),cash);
+  const actualBanks=unwrap(await actor.client.from('liquidity_accounts').select('id,current_balance').eq('organization_id',organization));
+  assert.equal(actualBanks.reduce((sum,a)=>sum+Number(a.current_balance),0),cash);
+  for(const account of actualBanks){
+   const code=links['cash:'+account.id];
+   assert.equal(Number(data.accounts.find(a=>a.id===code)?.balance??0),Number(account.current_balance),'Each bank ledger reconciles with its own register');
+  }
   const policy=await rpc('financial_reporting_policy_workspace',scope);assert.equal(policy.policy.status,'APPROVED');assert.equal(JSON.stringify(policy.policy.rules),policyFingerprint,'Operations cannot rewrite approved default rules');
   const stageResult={stage,cash:Number(s.cash.closing),revenue:Number(s.income.revenue),expense:Number(s.income.operatingExpenses),netProfit:Number(s.income.netProfit),receivable,payable,journalCount:s.sourceJournalIds.length};evidence.stages.push(stageResult);
   await writeFile(out+'/default-posting-actual-cycle-'+stage+'.json',JSON.stringify(data,null,2)+'\n');return data;
@@ -77,9 +93,9 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  await observe('opening',{cash:5000,expense:0,revenue:0,receivable:0,payable:0});
  const supplier=await request('post','/api/liquidity',{kind:'counterparty',organization_id:organization,name:'مورد تجربة القواعد',party_type:'SUPPLIER'},201);
  const customer=await request('post','/api/liquidity',{kind:'counterparty',organization_id:organization,name:'عميل تجربة القواعد',party_type:'CUSTOMER'},201);
- async function prepareFlow(type,direction,amount,date,party){
+ async function prepareFlow(type,direction,amount,date,party,accountId=bankId){
   const category=await request('post','/api/liquidity',{kind:'category',organization_id:organization,name_ar:type==='OPEX'?'مصروف الاختبار':'إيراد الاختبار',name_en:'Actual cycle '+type,flow_group:'OPERATING',accounting_group:type==='OPEX'?'EXPENSE':'REVENUE',treatment_code:type==='OPEX'?'OPERATING_EXPENSE':'SERVICE_REVENUE',allowed_direction:direction,financial_classification_type:type},201);
-  const flow=await request('post','/api/liquidity',{kind:'flow',organization_id:organization,account_id:bankId,category_id:category.id,direction,title:'Actual default cycle '+type,counterparty_id:party.id,due_date:date,amount,base_amount:amount,currency:'SAR',status:'EXPECTED',source:'MANUAL'},201);
+  const flow=await request('post','/api/liquidity',{kind:'flow',organization_id:organization,account_id:accountId,category_id:category.id,direction,title:'Actual default cycle '+type,counterparty_id:party.id,due_date:date,amount,base_amount:amount,currency:'SAR',status:'EXPECTED',source:'MANUAL'},201);
   const confirmed=await request('patch','/api/liquidity/'+flow.id,{status:'CONFIRMED'});assert.ok(confirmed.recognition_event_id);
   const id=confirmed.recognition_event_id;
   const args={organization_id:organization,event_id:id};
@@ -91,20 +107,22 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  }
  const expenseFlow=await prepareFlow('OPEX','OUTFLOW',1000,'2026-03-01',supplier);
  await observe('expense-recognized',{cash:5000,expense:1000,revenue:0,receivable:0,payable:1000});
- async function settle(flow,amount,date){
-  const payload={status:'ACTUAL',request_id:randomUUID(),account_id:bankId,amount,base_amount:amount,settlement_date:date};
+ async function settle(flow,amount,date,accountId=bankId){
+  const payload={status:'ACTUAL',request_id:randomUUID(),account_id:accountId,amount,base_amount:amount,settlement_date:date};
   const posted=await request('patch','/api/liquidity/'+flow.id,payload);assert.ok(posted.settlement_event_id);expectedIds.push(posted.settlement_event_id);
   const counts=Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${organization}'`));
   const replay=await request('patch','/api/liquidity/'+flow.id,payload);assert.equal(replay.settlement_event_id,posted.settlement_event_id);
   assert.equal(Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${organization}'`)),counts);
-  evidence.duplicateRetries.push({eventId:posted.settlement_event_id,prevented:true});const isReceipt=flow.direction==='INFLOW';const mapping=proposed('SETTLEMENT',isReceipt?'RECEIVABLE':'PAYABLE',isReceipt?'INFLOW':'OUTFLOW');evidence.journals.push({id:posted.settlement_event_id,type:'SETTLEMENT',flowId:flow.id,amount,debitAccount:mapping.debitAccountId,creditAccount:mapping.creditAccountId});return {...posted,replayPayload:payload};
+  evidence.duplicateRetries.push({eventId:posted.settlement_event_id,prevented:true});const isReceipt=flow.direction==='INFLOW';const mapping=proposed('SETTLEMENT',isReceipt?'RECEIVABLE':'PAYABLE',isReceipt?'INFLOW':'OUTFLOW');evidence.journals.push({id:posted.settlement_event_id,type:'SETTLEMENT',flowId:flow.id,amount,debitAccount:isReceipt?links['cash:'+accountId]:mapping.debitAccountId,creditAccount:isReceipt?mapping.creditAccountId:links['cash:'+accountId]});return {...posted,replayPayload:payload};
  }
  await settle(expenseFlow,1000,'2026-03-02');
  await observe('expense-paid',{cash:4000,expense:1000,revenue:0,receivable:0,payable:0});
- const incomeFlow=await prepareFlow('REVENUE','INFLOW',2500,'2026-03-03',customer);
+ const incomeFlow=await prepareFlow('REVENUE','INFLOW',2500,'2026-03-03',customer,secondBankId);
  await observe('revenue-recognized',{cash:4000,expense:1000,revenue:2500,receivable:2500,payable:0});
- await settle(incomeFlow,2500,'2026-03-04');
+ await settle(incomeFlow,2500,'2026-03-04',secondBankId);
  const final=await observe('revenue-collected',{cash:6500,expense:1000,revenue:2500,receivable:0,payable:0});
+ assert.equal(Number(final.accounts.find(a=>a.id===secondBankCode)?.balance),2500);
+ assert.equal(Number(final.accounts.find(a=>a.id===bankCode)?.balance),4000);
  assert.equal(Number(final.statements.cash.operating),1500);assert.equal(Number(final.statements.cash.opening),5000);
  const incompatibleCategory=await request('post','/api/liquidity',{kind:'category',organization_id:organization,name_ar:'اختبار رفض عدم تطابق الطرف',name_en:'Party mismatch rejection',flow_group:'OPERATING',accounting_group:'REVENUE',treatment_code:'SERVICE_REVENUE',allowed_direction:'INFLOW',financial_classification_type:'REVENUE'},201);
  const incompatibleFlow=await request('post','/api/liquidity',{kind:'flow',organization_id:organization,account_id:bankId,category_id:incompatibleCategory.id,direction:'INFLOW',title:'Must reject supplier revenue',counterparty_id:supplier.id,due_date:'2026-03-05',amount:10,base_amount:10,currency:'SAR',status:'EXPECTED',source:'MANUAL'},201);

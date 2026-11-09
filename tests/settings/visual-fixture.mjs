@@ -1,6 +1,7 @@
 // LOCAL UI fixture only. Not authentication, RLS or accounting certification.
 import {createServer} from 'node:http';
 import {verifyBundleBuilder} from './bundle-builder.mjs';
+import {verifyFiscalSetupEditing} from './fiscal-setup.mjs';
 import {verifyPricingLayout} from './pricing-layout.mjs';
 import {createHmac} from 'node:crypto';
 import {createServerClient} from '@supabase/ssr';
@@ -25,9 +26,11 @@ const fixturePlans=[
 ].map(plan=>({...plan,features:['module:assets','module:liquidity'],currency:'SAR',billing_interval:'monthly',is_active:true,is_published:true,is_proposed:true}));
 const entities=[{id:'entity-1',organization_id:orgId,name:'كيان الرياض',entity_type:'COMPANY',base_currency:'SAR',registration_no:'1010000001',active:true}];
 let readinessGate=null,releaseReadiness;
+let fiscalLock=null;
+const fiscalCalendar={start_month:1,start_day:1,version:1,retained_earnings_account:'3300'};
 const legacyPostingPolicy={id:'legacy-policy',version:2,status:'APPROVED',reason:'Legacy empty approved policy',rules:[]};
 let postingPolicy=structuredClone(legacyPostingPolicy),postingInitializations=0;
-const postingDefaults=[{eventType:'EXPENSE',sourceModule:'OPERATIONAL_CONSOLE',classificationId:'opex:BASE',cashDirection:'NON_CASH',debitAccountId:'6100',creditAccountId:'2100'},{eventType:'SETTLEMENT',sourceModule:'OPERATIONAL_CONSOLE',classificationId:'opex:BASE',cashDirection:'OUTFLOW',debitAccountId:'2100',creditAccountId:'1000',cashActivity:'OPERATING'}];
+const postingDefaults=[{eventType:'EXPENSE',sourceModule:'OPERATIONAL_CONSOLE',classificationId:'opex:BASE',cashDirection:'NON_CASH',debitAccountId:'610001',creditAccountId:'210001'},{eventType:'SETTLEMENT',sourceModule:'OPERATIONAL_CONSOLE',classificationId:'opex:BASE',cashDirection:'OUTFLOW',debitAccountId:'210001',creditAccountId:'1000',cashActivity:'OPERATING'}];
 const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/api/**',async route=>{
  const req=route.request(),u=new URL(req.url());let data={};const body=req.postDataJSON?.();
@@ -36,15 +39,19 @@ await page.route('**/api/**',async route=>{
  else if(u.pathname==='/api/organizations/users')data={actor_role:'OWNER',actor_user_id:user.id,users:[{user_id:user.id,email:user.email,name:'مالك الاختبار',role:'OWNER',status:'ACTIVE'}],invitations:[]};
  else if(u.pathname==='/api/organizations/roles')data={roles:[]};
  else if(u.pathname==='/api/organizations/permissions')data={roles:[],overrides:[],approval_policy:'OWNER_CONTROLLED'};
- else if(u.pathname==='/api/financial-reporting/fiscal')data={organizationId:orgId,calendar:{start_month:1,start_day:1,version:1,retained_earnings_account:'3300'},period:{start:'2026-01-01',end:'2026-12-31'},closures:[],canConfigure:true,canClose:false,references:[],retainedCandidates:[],asOf:'2026-11-08'};
+ else if(u.pathname==='/api/financial-reporting/fiscal'){
+  if(req.method()==='POST'&&body.action==='calendar')Object.assign(fiscalCalendar,{start_month:body.month,start_day:body.day,retained_earnings_account:body.retainedAccount,version:fiscalCalendar.version+1});
+  data={organizationId:orgId,calendar:fiscalCalendar,period:{start:'2026-01-01',end:'2026-12-31'},closures:[],setupLockReason:fiscalLock,canConfigure:true,canClose:false,references:[{source:'policy',start:'2026-01-01',status:'APPROVED'}],retainedCandidates:[{code:'330001',ar:'أرباح مرحلة',en:'Retained earnings'}],asOf:'2026-11-08'};
+ }
  else if(u.pathname==='/api/financial-reporting/openings'&&u.searchParams.get('action')==='context')data=[{id:orgId,name:org.name,currentFiscalStart:'2026-01-01'},{id:otherId,name:other.name,currentFiscalStart:'2026-01-01'}];
  else if(u.pathname==='/api/financial-reporting/policy'){
   if(req.method()==='POST'&&body.action==='initialize-defaults'){postingInitializations++;if(!postingPolicy||(body.repairEmpty&&postingPolicy.rules.length===0))postingPolicy={id:'policy',version:1,status:'DRAFT',reason:'Default posting rules',rules:structuredClone(postingDefaults)};}
   if(req.method()==='POST'&&body.action==='save')postingPolicy={...postingPolicy,version:postingPolicy.version+1,rules:body.rules,reason:body.reason};
-  data={organizationId:orgId,fiscalStart:'2026-01-01',policy:postingPolicy,approvedPolicy:legacyPostingPolicy,canSave:true,canApprove:true,events:[],classifications:[{id:'opex',name:'مصروفات المؤسسة'}],chart:['1000','1500','2100','6100'].map(code=>({id:code,code,ar:code,en:code,cash:code==='1000'})),defaults:{version:1,rules:postingDefaults.filter(r=>!postingPolicy?.rules.some(x=>JSON.stringify([x.eventType,x.sourceModule,x.classificationId,x.cashDirection])===JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]))),unresolved:[],testedRuleCount:0}};
+  data={organizationId:orgId,fiscalStart:'2026-01-01',policy:postingPolicy,approvedPolicy:legacyPostingPolicy,canSave:true,canApprove:true,events:[],classifications:[{id:'opex',name:'مصروفات المؤسسة'}],chart:['1000','1500','2100','6100','610001','610002','210001'].map(code=>({id:code,code,ar:code,en:code,cash:code==='1000',...(code.length>4?{reportingCode:code.slice(0,4),isPostable:true}:{})})),defaults:{version:1,rules:postingDefaults.filter(r=>!postingPolicy?.rules.some(x=>JSON.stringify([x.eventType,x.sourceModule,x.classificationId,x.cashDirection])===JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]))),unresolved:[],testedRuleCount:0}};
  }
  else if(u.pathname==='/api/financial-reporting/chart')data={organizationId:orgId,accounts:[{kind:'ASSET',isActive:true,isPostable:true},{kind:'EQUITY',isActive:true,isPostable:true}]};
- else if(u.pathname==='/api/financial-register')data={organizationIds:[orgId],accounts:[{id:'bank-1',organizationId:orgId,name:'حساب المؤسسة',type:'BANK',currency:'SAR'}]};
+ else if(u.pathname==='/api/debt-catalog')data={organizations:[org,other],entities:[],base_currency:'SAR',parties:[]};
+ else if(u.pathname==='/api/financial-register')data={asOf:'2026-11-09',baseCurrency:'SAR',organizations:[org],entities:[],cashMovements:[],debts:[],debtMovements:[],assets:[],warnings:[],organizationIds:[orgId],accounts:[{id:'bank-1',organizationId:orgId,name:'حساب المؤسسة',type:'BANK',currency:'SAR',nativeCurrency:'SAR',balance:0,restricted:0,uncleared:0,baseCurrency:'SAR',baseBalance:0,entityId:null,source:'LIQUIDITY',openingDate:null}]};
  else if(u.pathname==='/api/subscriptions')data=subscription(u.searchParams.get('organization_id'));
  else if(u.pathname==='/api/subscriptions/plans')data={plans:fixturePlans,trial_days:30};
  else if(u.pathname==='/api/subscriptions/requests')data={rows:[],can_request:true,name:'QA owner',email:user.email};
@@ -60,6 +67,8 @@ await page.route('**/api/**',async route=>{
 const out=process.env.SETTINGS_UI_OUT??'/tmp/yaqeen-settings-ui';await mkdir(out,{recursive:true});const checks=[];
 try{
  if(!process.env.SETTINGS_JOURNEY_ONLY){
+ await verifyFiscalSetupEditing({page,app,orgId,setLock:value=>{fiscalLock=value;},out:process.env.SETTINGS_UI_SKIP_SNAPSHOTS?null:out});
+ checks.push('Fiscal setup editing, persistence and activity lock separate from year closure');
  for(const locale of locales){
   const ar=locale==='ar';await page.goto(`${app}/${locale}/settings?organization=${orgId}`);
   await page.getByLabel(ar?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
@@ -124,11 +133,15 @@ try{
  await page.goto(`${app}/en/settings/system?organization=${orgId}`);const toggle=page.getByRole('switch',{name:'System notifications'});await toggle.waitFor();await toggle.uncheck();await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Your preferences were saved.',{exact:true}).waitFor();await page.reload();await toggle.waitFor();assert.equal(await toggle.isChecked(),false);checks.push('System preferences persisted after reload');
  for(const locale of locales){
   const ar=locale==='ar';await page.goto(`${app}/${locale}/settings/financial?organization=${orgId}`);await page.getByRole('button',{name:ar?'قواعد الترحيل':'Posting rules',exact:true}).first().click();await page.getByRole('region',{name:ar?'القواعد الافتراضية':'Default posting rules',exact:true}).waitFor();
-  const debit=page.getByLabel((ar?'الحساب المدين':'Debit account')+' 1',{exact:true});await debit.waitFor();assert.equal(await debit.inputValue(),postingPolicy.rules[0].debitAccountId);const editedAccount=postingPolicy.rules[0].debitAccountId==='1500'?'6100':'1500';assert.equal(postingPolicy.status,'DRAFT');assert.equal(postingPolicy.rules.length,2);
+  const search=page.getByRole('searchbox',{name:ar?'بحث':'Search',exact:true});
+  await search.fill('no-matching-rule-123');await page.getByText(ar?'لا توجد قواعد تطابق البحث':'No matching rules',{exact:true}).waitFor();await search.clear();
+  const openRule=page.getByRole('button',{name:(ar?'فتح القاعدة':'Open rule')+' 1',exact:true});await openRule.click();
+  const debit=page.getByLabel((ar?'الحساب المدين':'Debit account')+' 1',{exact:true});await debit.waitFor();assert.equal(await debit.inputValue(),postingPolicy.rules[0].debitAccountId);const editedAccount=postingPolicy.rules[0].debitAccountId==='610002'?'610001':'610002';assert.equal(postingPolicy.status,'DRAFT');assert.equal(postingPolicy.rules.length,2);
+  await page.getByText(ar?'معاينة القيد':'Journal preview',{exact:true}).waitFor();
   await debit.selectOption(editedAccount);await page.getByLabel(ar?'سبب الإعداد أو التغيير':'Setup or change reason',{exact:true}).fill('Edited default fixture');
   page.once('dialog',dialog=>dialog.dismiss());await page.getByRole('button',{name:ar?'دليل الحسابات':'Chart of accounts',exact:true}).first().click();assert.equal(await debit.count(),1,'Cancel keeps an edited posting draft');
-  const saving=page.waitForResponse(r=>r.url().includes('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='save');await page.getByRole('button',{name:ar?'حفظ المسودة':'Save draft',exact:true}).click();assert.equal((await saving).status(),200);await debit.waitFor();
-  await page.reload();await page.getByRole('button',{name:ar?'قواعد الترحيل':'Posting rules',exact:true}).first().click();await debit.waitFor();assert.equal(await debit.inputValue(),editedAccount);assert.equal(postingPolicy.rules.length,2);assert.equal(postingInitializations,1,'Reloads never recreate existing rules');
+  const saving=page.waitForResponse(r=>r.url().includes('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='save');await page.getByRole('button',{name:ar?'حفظ المسودة':'Save draft',exact:true}).click();assert.equal((await saving).status(),200);await debit.waitFor({state:'hidden'});await openRule.click();await debit.waitFor();
+  await page.reload();await page.getByRole('button',{name:ar?'قواعد الترحيل':'Posting rules',exact:true}).first().click();await openRule.click();await debit.waitFor();assert.equal(await debit.inputValue(),editedAccount);assert.equal(postingPolicy.rules.length,2);assert.equal(postingInitializations,1,'Reloads never recreate existing rules');
   for(const width of (process.env.SETTINGS_UI_SKIP_SNAPSHOTS?[]:[1490,1280,768,390])){await page.setViewportSize({width,height:1050});await page.evaluate(()=>document.fonts.ready);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Default posting '+locale+' '+width+' overflow');await page.screenshot({path:`${out}/posting-defaults-${locale}-${width}.png`,fullPage:true});}
   checks.push(locale+' default posting draft initializes, edits, saves, reloads and guards unsaved changes without operations');
  }
@@ -172,6 +185,19 @@ try{
   await page.locator('[data-setup-view=overview]').waitFor();
   assert.equal(await page.locator('[data-setup-native-workspace]').count(),0);
   checks.push(locale+' journey overview, pending readiness, native save, editor return and responsive layout');
+  await page.locator('.financial-setup-stage-group').nth(2).locator('summary').click();
+  await page.getByRole('button',{name:ar?/النقد والبنوك/:/Cash & banking/}).first().click();
+  const banking=page.locator('[data-setup-native-workspace=banking]');await banking.locator('.finance-heading-icon svg').waitFor();
+  await banking.locator('.finance-workspace[aria-busy=false]').waitFor();
+  for(const width of [1490,390]){
+   await page.setViewportSize({width,height:1050});await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(200);
+   const icon=await banking.locator('.finance-heading-icon svg').boundingBox();assert.ok(icon&&icon.width<=32&&icon.height<=32,'Embedded bank icon must retain native size on a direct setup load');
+   assert.equal(await banking.locator('.finance-header').evaluate(el=>getComputedStyle(el).display),'flex','Native register stylesheet loaded inside setup');
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Embedded banking must not overflow the page');
+   if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/journey-banking-${locale}-${width}.png`,fullPage:true});
+  }
+  checks.push(locale+' embedded banking loads native styling and bounded icons on desktop/mobile');
+
  }
  assert.deepEqual(errors,[]);console.log(JSON.stringify({kind:'LOCAL_UI_FIXTURE_ONLY',checks,screenshots:out,errors},null,2));await writeFile(out+'/result.json',JSON.stringify({kind:'LOCAL_UI_FIXTURE_ONLY',checks,errors},null,2));
 }catch(error){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});await writeFile(out+'/failure-state.txt',await page.locator('body').innerText().catch(()=>''));throw error;}finally{releaseReadiness?.();await browser.close();await new Promise(r=>auth.close(r));}

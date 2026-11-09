@@ -6,7 +6,7 @@ import {validatePostingRuleAccounts,type PostingChartAccount} from '../lib/finan
 import {defaultPostingRules,POSTING_BASE_CLASSIFICATIONS,type PostingClassification,type DefaultPostingAccount,type DefaultPostingRule} from '../lib/financial-default-posting-rules';
 import type {RecognitionEvent} from '../lib/financial-event-ledger';
 const text=z.string().min(1).max(300);
-const rule=z.object({eventType:text,sourceModule:text,classificationId:text,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),debitAccountId:text,creditAccountId:text,cashActivity:z.enum(['OPERATING','INVESTING','FINANCING']).optional()}).strict();
+const rule=z.object({detailed:z.literal(true).optional(),eventType:text,sourceModule:text,classificationId:text,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),debitAccountId:text,creditAccountId:text,cashActivity:z.enum(['OPERATING','INVESTING','FINANCING']).optional()}).strict();
 const command=z.discriminatedUnion('action',[
  z.object({action:z.literal('initialize-defaults'),...openingScope.shape,repairEmpty:z.boolean().optional()}).strict(),
  z.object({action:z.literal('save'),...openingScope.shape,expectedVersion:z.number().int().min(0),rules:z.array(rule).max(5000),reason:z.string().trim().min(3).max(1000)}).strict(),

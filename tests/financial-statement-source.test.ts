@@ -6,6 +6,26 @@ describe('complete canonical statement snapshot',()=>{
  it('reconciles income account children to their period parents without using fiscal balances',()=>{const raw=fixture();raw.from='2026-02-01';const s=normalizeStatementSource(raw,{...query,from:raw.from}),rows=statementTreeRows(s,'income',true);expect(rows.find(r=>r.id==='income-3')?.value).toBe('0.0000');expect(rows.find(r=>r.parentId==='income-3')?.value).toBe('0.0000');expect(s.accounts.find(a=>a.id==='opex')?.balance).toBe('100.0000');expect(s.accounts.find(a=>a.id==='opex')?.periodMovement).toBe('0.0000')});
  it('supplies actual account children for income and position while keeping totals outside groups',()=>{const s=normalizeStatementSource(fixture(),query),income=statementTreeRows(s,'income',true),position=statementTreeRows(s,'position',true);expect(income.find(r=>r.parentId==='income-3')?.value).toBe('-100.0000');expect(income.find(r=>r.id==='income-7')).toMatchObject({value:'100.0000',kind:'total'});expect(income.find(r=>r.id==='income-7')?.parentId).toBeUndefined();expect(position.filter(r=>r.parentId&&r.kind==='detail').length).toBe(8);expect(position.filter(r=>r.kind==='total').every(r=>!r.parentId)).toBe(true)});
  it('promotes the position totals into parents and reuses authoritative subgroup totals when closed',()=>{const s=normalizeStatementSource(fixture(),query),rows=statementTreeRows(s,'position',true);expect(rows[0]).toMatchObject({id:'position-ASSET',value:'630.0000',kind:'total'});const current=rows.find(r=>r.id==='position-ASSET:CURRENT')!;expect(current).toMatchObject({parentId:'position-ASSET',value:'',collapsedValue:'590.0000'});expect(rows.find(r=>r.summaryFor===current.id)).toMatchObject({parentId:current.id,value:'590.0000'});expect(rows.filter(r=>r.id==='position-ASSET')).toHaveLength(1);expect(rows.find(r=>r.id==='position-EQUITY')?.value).toBe('600.0000')});
+ it('groups a voucher bank detail under 1000 while counting the cash once',()=>{
+  const raw=fixture();
+  const bank=raw.accounts.find(account=>account.cash)!;
+  const oldId=bank.id;bank.id='1000';
+  for(const row of raw.opening)if(row.accountId===oldId)row.accountId='1000';
+  for(const rule of raw.policy.rules){
+   if(rule.debitAccountId===oldId)rule.debitAccountId='1000';
+   if(rule.creditAccountId===oldId)rule.creditAccountId='1000';
+  }
+  const detail={...bank,id:'100001',reportingCode:'1000',ar:'بنك التحصيل',en:'Receipt bank'};
+  raw.accounts.push(detail);
+  const receipt=raw.events.find(event=>event.eventType==='SETTLEMENT'&&event.lines[0].cashDirection==='INFLOW')!;
+  const rule=raw.policy.rules.find(rule=>rule.cashDirection==='INFLOW'&&rule.classificationId===receipt.lines[0].classificationId)!;
+  Object.assign(receipt.lines[0],{resolvedPosting:{ruleId:rule.id,debitAccountId:detail.id,creditAccountId:rule.creditAccountId,cashActivity:'OPERATING'}});
+  const statement=normalizeStatementSource(raw,query);
+  const rows=statementTreeRows(statement,'position',true);
+  expect(rows.find(row=>row.id==='position-ASSET:ACCOUNT:1000')?.value).toBe(statement.statements.cash.closing);
+  expect(rows.find(row=>row.id==='position-ASSET:ACCOUNT:100001')).toMatchObject({parentId:'position-ASSET:ACCOUNT:1000',value:'200.0000'});
+  expect(statement.statements).toEqual(normalizeStatementSource(fixture(),query).statements);
+ });
  it('groups cash details by explicitly mapped activity with original recognition references',()=>{const s=normalizeStatementSource(fixture(),query),rows=statementTreeRows(s,'cash-flow',true);expect(s.cashMovements).toHaveLength(4);expect(rows.filter(r=>r.parentId==='cash-1').map(r=>r.value)).toEqual(['200.0000','-115.0000']);expect(rows.find(r=>r.parentId==='cash-2')?.value).toBe('-40.0000');expect(rows.find(r=>r.parentId==='cash-3')?.value).toBe('30.0000');expect(rows.find(r=>r.parentId==='cash-1')?.label).toContain('Receipts');expect(s.cashMovements[0].reference).toBe('payment')});
  it('exports the complete hierarchy independently of any display collapse state',()=>{const s=normalizeStatementSource(fixture(),query);for(const view of['income','position','cash-flow']as const){const tree=statementTreeRows(s,view,true),exported=statementSourceExport(s,view,true);for(const row of tree)expect(exported).toContainEqual([row.label,row.value])}});
  it('carries exact original recognition-line IDs into the server-only branch evidence path',()=>{

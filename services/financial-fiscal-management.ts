@@ -21,7 +21,7 @@ export async function fiscalManagementContext(organization:unknown):Promise<Fisc
  const references:FiscalReference[]=[
   ...(unwrap(assignments)??[]).map(r=>({start:r.fiscal_start,source:'assignment' as const})),
   ...(unwrap(openings)??[]).map(r=>({start:r.fiscal_start,source:'opening' as const,status:r.status})),
-  ...(unwrap(policies)??[]).map(r=>({start:r.fiscal_start,source:'policy' as const,status:r.status})),
+  ...(unwrap(policies)??[]).filter(r=>r.status!=='SUPERSEDED').map(r=>({start:r.fiscal_start,source:'policy' as const,status:r.status})),
   ...(unwrap(budgets)??[]).map(r=>({start:r.fiscal_start,source:'budget' as const})),
  ];
  // A membership revoked while the metadata was loading must not return stale data.

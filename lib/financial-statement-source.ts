@@ -6,10 +6,11 @@ import {compileEventLedger} from './financial-event-ledger';
 import {assertNormalizedLiveEventProvenance} from './financial-live-source-provenance';
 export const statementQuery=z.object({organization:z.string().uuid(),from:z.string().date(),to:z.string().date()}).strict().refine(q=>q.from<=q.to&&Number(q.to.slice(0,4))-Number(q.from.slice(0,4))<=1,'INVALID_STATEMENT_PERIOD');
 const id=z.string().min(1),currency=z.string().regex(/^[A-Z]{3}$/),date=z.string().date(),money=z.string().regex(/^\d{1,20}(\.\d{1,4})?$/),activity=z.enum(['OPERATING','INVESTING','FINANCING']);
-const account=z.object({id,organizationId:z.string().uuid(),currency,kind:z.enum(['ASSET','LIABILITY','EQUITY','REVENUE','COGS','OPEX','FINANCE','TAX']),cash:z.boolean().optional(),ar:id,en:id,presentation:z.enum(['CURRENT','NON_CURRENT','OTHER'])});
-const line=z.object({id,classificationId:id,baseAmount:money,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),recognitionSign:z.union([z.literal(1),z.literal(-1)])});
+const account=z.object({id,organizationId:z.string().uuid(),currency,kind:z.enum(['ASSET','LIABILITY','EQUITY','REVENUE','COGS','OPEX','FINANCE','TAX']),cash:z.boolean().optional(),reportingCode:id.optional(),ar:id,en:id,presentation:z.enum(['CURRENT','NON_CURRENT','OTHER'])});
+const resolvedPosting=z.object({ruleId:id,debitAccountId:id,creditAccountId:id,cashActivity:activity.optional()});
+const line=z.object({resolvedPosting:resolvedPosting.optional(),id,classificationId:id,baseAmount:money,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),recognitionSign:z.union([z.literal(1),z.literal(-1)])});
 const event=z.object({id,organizationId:z.string().uuid(),currency,date,eventType:id,sourceModule:id,sourceKey:id,status:z.enum(['ACTUAL','REVERSED']),lines:z.array(line).min(1),reversesEventId:id.optional()});
-const rule=z.object({id,organizationId:z.string().uuid(),currency,eventType:id,sourceModule:id,classificationId:id,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),from:date,to:date,debitAccountId:id,creditAccountId:id,cashActivity:activity.optional()});
+const rule=z.object({detailed:z.literal(true).optional(),id,organizationId:z.string().uuid(),currency,eventType:id,sourceModule:id,classificationId:id,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),from:date,to:date,debitAccountId:id,creditAccountId:id,cashActivity:activity.optional()});
 const envelope=z.object({controls:z.object({cashClosing:z.string().regex(/^-?\d{1,20}(\.\d{1,4})?$/)}).optional(),origin:z.enum(['LOCAL_QA_CANONICAL_EVENTS','LIVE_CANONICAL_EVENTS']),organizationId:z.string().uuid(),currency,openingDate:date,fiscalStart:date,from:date,to:date,openingSourceId:id,accounts:z.array(account).min(1).max(1000),opening:z.array(z.object({accountId:id,debit:money,credit:money})).max(1000),policy:z.object({id,organizationId:z.string().uuid(),currency,approvedBy:id,approvedAt:z.string().datetime({offset:true}),rules:z.array(rule).max(5000)}),events:z.array(event).max(10000),coverage:z.object({complete:z.literal(true),scope:z.literal('ORGANIZATION_ALL_ENTITIES'),eventCount:z.number().int().min(0),lineCount:z.number().int().min(0).max(20000),readAt:z.string().datetime({offset:true})})});
 const Money=Decimal.clone({precision:50});
 export type StatementQuery=z.infer<typeof statementQuery>;
@@ -90,6 +91,9 @@ export type StatementTreeRow={id:string;label:string;value:string;kind:string;ic
 export function statementTreeRows(s:StatementSourceSnapshot,view:StatementView,en:boolean):StatementTreeRow[]{
  const base=statementRows(s,view,en),rows:StatementTreeRow[]=[];
  if(view==='position'){
+  const cashChildren=s.accounts.some(account=>account.id==='1000')?
+   s.accounts.filter(account=>account.reportingCode==='1000'&&account.id!=='1000'&&account.cash):[];
+  const cashChildrenIds=new Set(cashChildren.map(account=>account.id));
   for(const category of ['ASSET','LIABILITY','EQUITY']){
    const total=base.find(r=>r[4]===category)!;const rootId='position-'+category;
    rows.push({id:rootId,label:total[0],value:total[1],kind:'total',icon:total[3]});
@@ -100,7 +104,14 @@ export function statementTreeRows(s:StatementSourceSnapshot,view:StatementView,e
      parentId='position-'+key;const summary=base.find(r=>r[4]===key+':subtotal');
      rows.push({id:parentId,label,value,kind,icon,parentId:rootId,collapsedValue:summary?.[1]});
     }else if(kind==='subtotal')rows.push({id:'position-'+key,label,value,kind,icon,parentId,summaryFor:parentId});
-    else rows.push({id:'position-'+key,label,value,kind:kind??'detail',icon,parentId});
+    else if(category==='ASSET'&&cashChildrenIds.has(key.split(':').at(-1)??''))continue;
+    else if(key==='ASSET:ACCOUNT:1000'&&cashChildren.length){
+     const groupId='position-'+key;
+     const total=cashChildren.reduce((sum,account)=>sum.plus(account.balance),new Money(value));
+     rows.push({id:groupId,label,value:total.toFixed(4),kind:'parent',icon,parentId});
+     if(!new Money(value).isZero())rows.push({id:groupId+':legacy',label:en?'Historical control balance':'رصيد تجميعي سابق',value,kind:'detail',parentId:groupId});
+     for(const account of cashChildren)rows.push({id:'position-ASSET:ACCOUNT:'+account.id,label:en?account.en:account.ar,value:account.balance,kind:'detail',parentId:groupId});
+    }else rows.push({id:'position-'+key,label,value,kind:kind??'detail',icon,parentId});
    }
   }
   const total=base.find(r=>r[4]==='FUNDING')!;rows.push({id:'position-FUNDING',label:total[0],value:total[1],kind:'total',icon:total[3]});return rows;

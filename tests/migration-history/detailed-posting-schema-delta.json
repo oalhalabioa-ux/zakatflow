@@ -1,0 +1,121 @@
+{
+  "description": "Detailed posting resolution, protected history and common statement/closing legs.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_event_posting_resolutions.event_id",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_event_posting_resolutions.lines",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_event_posting_resolutions.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_event_posting_resolutions.policy_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_event_posting_resolutions.financial_event_posting_resolutions_lines_check",
+      "fingerprint": "59d1f5e7ddbc944db9a6039ae3d5a966"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_event_posting_resolutions.financial_event_posting_resolutions_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_event_posting_resolutions.financial_event_posting_resolutions_pkey",
+      "fingerprint": "40104d4f1054df8014153015876bcc16"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_event_posting_resolutions.financial_event_posting_resolutions_policy_id_fkey",
+      "fingerprint": "313838647cf60b91c63ce8e94df37231"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_events.financial_detailed_actual_posting",
+      "fingerprint": "aac6dc9e89c94dfced18fa2e02f5e5bc"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_apply_resolved_postings(p_org uuid, p_snapshot jsonb)",
+      "fingerprint": "3f72c776ae3d019a928dca2e35fff6b6"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_assert_detailed_rules(p_org uuid, p_rules jsonb)",
+      "fingerprint": "659346368a2a4f595efc88340a4c1578"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_capture_actual_posting()",
+      "fingerprint": "33a818dafcb4a4edc8cfec83ccfc204b"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_capture_policy_history()",
+      "fingerprint": "f78d8fc54dace291d19b0ac8db3cb8f6"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_detailed_policy(p_rules jsonb)",
+      "fingerprint": "58592749219ce2429281317fc01fcdcc"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_fiscal_trial_detail_v1(p_snapshot jsonb, p_retained text)",
+      "fingerprint": "9bf0eed47e46af7f4029c8b92beefbb2"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_resolve_event_posting(p_org uuid, p_event jsonb, p_policy uuid, p_rules jsonb, p_strict boolean)",
+      "fingerprint": "d8399a9683f336cabda8078a07239775"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_statement_live_snapshot_v1(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "7dcebc06a6c69f75e0aa6bfe5ef3e47d"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_voucher_cash_leaf(p_org uuid, p_event text, p_direction text)",
+      "fingerprint": "c794655746e3b532f3a2db8ce334a58c"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_reporting_policy_workspace(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "c10198ea1a53283ac12acc39551848cb"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_event_posting_resolutions.financial_event_posting_resolutions_pkey",
+      "fingerprint": "595e91826e07a6cc3bdbbb2edd036e0c"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_event_posting_resolutions",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_events.financial_detailed_actual_posting",
+      "fingerprint": "69ddb1fdfe5119648685e6d3cc4899d1"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_reporting_policies.financial_detailed_policy_history",
+      "fingerprint": "4da182d7264667ccf23e18147c2cf429"
+    }
+  ]
+}

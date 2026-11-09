@@ -34,3 +34,42 @@ export function validatePostingRuleAccounts(
  }
  return null;
 }
+
+export type DetailedPostingChartAccount=PostingChartAccount&{
+ reportingCode?:string;
+ isActive?:boolean;
+ isPostable?:boolean;
+};
+
+export function isPostingLeaf(account:DetailedPostingChartAccount){
+ return Boolean(account.reportingCode&&account.id!==account.reportingCode&&account.isActive!==false&&account.isPostable!==false);
+}
+
+export function voucherCashSide(direction:PostingRuleForValidation['cashDirection']){
+ if(direction==='INFLOW')return 'debitAccountId' as const;
+ if(direction==='OUTFLOW')return 'creditAccountId' as const;
+ return null;
+}
+
+/** Replacing a single existing cash leg with the voucher selector is safe.
+ * Two-cash-leg legacy rules require a separate, source-specific mapping. */
+export function detailedPostingDraft<T extends PostingRuleForValidation>(rule:T,accounts:readonly DetailedPostingChartAccount[]){
+ const side=voucherCashSide(rule.cashDirection);
+ const other=side==='debitAccountId'?'creditAccountId':'debitAccountId';
+ const dynamic=side&&accounts.some(a=>a.id===rule[side]&&a.cash)&&!accounts.some(a=>a.id===rule[other]&&a.cash);
+ return {...rule,...(dynamic?{[side]:'1000'}:{}),detailed:true as const};
+}
+
+export function validateDetailedPostingRule(rule:PostingRuleForValidation,accounts:readonly DetailedPostingChartAccount[]){
+ const issue=validatePostingRuleAccounts([rule],accounts);
+ if(issue)return issue;
+ const side=voucherCashSide(rule.cashDirection);
+ for(const field of ['debitAccountId','creditAccountId'] as const){
+  if(field===side){
+   if(rule[field]!=='1000')return 'REPORTING_VOUCHER_CASH_SELECTOR_REQUIRED';
+  }else if(!accounts.some(a=>a.id===rule[field]&&!a.cash&&isPostingLeaf(a))){
+   return 'REPORTING_DETAIL_ACCOUNT_REQUIRED';
+  }
+ }
+ return null;
+}

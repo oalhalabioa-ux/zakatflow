@@ -356,8 +356,9 @@ try{
   const read=await a.client.rpc('financial_opening_workspace',scope);assert.ifError(read.error);assert.equal(read.data.workspace.status,'APPROVED');assert.equal(read.data.workspace.entries['equity:3100'].amount,'500');
  });
  await check('Browser Excel export preserves actual source marker, source amount and final opening',async()=>{const d=page.waitForEvent('download');await page.getByRole('button',{name:'تصدير Excel',exact:true}).click();const file=await d;await file.saveAs(out+'/opening-approved.xlsx');const{default:ExcelJS}=await import('exceljs'),book=new ExcelJS.Workbook();await book.xlsx.readFile(await file.path());assert.equal(book.worksheets.length,2);assert.match(String(book.worksheets[1].getCell('A1').value),/LIVE REGISTERS/);assert.ok(book.worksheets[1].rowCount>=7)});
- await check('Posting policy UI saves and approves a real initial policy',async()=>{await page.goto(app+'/ar/financial-reporting-policy');await page.getByRole('heading',{name:'قواعد ترحيل القوائم المالية'}).waitFor();
+ await check('Posting policy UI saves and approves a real initial policy',async()=>{await page.goto(app+'/ar/financial-reporting-policy');await page.getByRole('heading',{name:'قواعد الترحيل وربط الحسابات'}).waitFor();
  await page.getByRole('region',{name:'القواعد الافتراضية',exact:true}).waitFor();
+ await page.getByRole('button',{name:'فتح القاعدة 1',exact:true}).click();
  await page.getByLabel('الحساب المدين 1',{exact:true}).waitFor();
  const before=await a.client.rpc('financial_reporting_policy_workspace',scope);assert.ifError(before.error);assert.equal(before.data.policy.status,'DRAFT');assert.ok(before.data.policy.rules.length>0,'Defaults persisted before any actual operations');assert.equal(before.data.events.length,0);
  const initialRules=before.data.policy.rules,initialVersion=before.data.policy.version;
@@ -365,9 +366,9 @@ try{
  await page.getByLabel('سبب الإعداد أو التغيير').fill('إعداد قواعد المرحلة الافتتاحية');const savedDefaults=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='save');await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();assert.equal((await savedDefaults).status(),200);
  await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).waitFor({state:'visible'});
  await page.reload();await page.getByRole('region',{name:'القواعد الافتراضية',exact:true}).waitFor();assert.equal(await page.getByLabel('سبب الإعداد أو التغيير').inputValue(),'إعداد قواعد المرحلة الافتتاحية','Edited default draft survives reload');
- const reread=await a.client.rpc('financial_reporting_policy_workspace',scope);assert.ifError(reread.error);assert.deepEqual(reread.data.policy.rules,initialRules);assert.ok(reread.data.policy.version>initialVersion);
+ const reread=await a.client.rpc('financial_reporting_policy_workspace',scope);assert.ifError(reread.error);assert.deepEqual(reread.data.policy.rules.map(({detailed,...rule})=>rule),initialRules.map(rule=>({...rule,...(rule.cashDirection==='INFLOW'?{debitAccountId:'1000'}:rule.cashDirection==='OUTFLOW'?{creditAccountId:'1000'}:{})})));assert.ok(reread.data.policy.version>initialVersion);
  const denied=await page.request.post(app+'/api/financial-reporting/policy',{data:{action:'initialize-defaults',organization:other,fiscalStart:'2026-01-01'},headers:{origin:app}});assert.equal(denied.status(),403,'Default initialization cannot cross organizations');
- await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
+ const legacyDraft=await a.client.rpc('save_financial_reporting_policy',{...scope,p_expected_version:reread.data.policy.version,p_rules:initialRules,p_reason:'Legacy compatibility cycle'});assert.ifError(legacyDraft.error);const legacyApproved=await a.client.rpc('approve_financial_reporting_policy',{p_id:legacyDraft.data.id,p_expected_version:legacyDraft.data.version});assert.ifError(legacyApproved.error);await page.reload();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const selector=page.locator('#corp-organization-controls select');await selector.waitFor();assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
  await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
   await page.setViewportSize({width:1672,height:941});
@@ -574,6 +575,24 @@ try{
   assert.equal(outcomes[0].data.id,outcomes[1].data.id);
   const closes=await a.client.from('financial_year_closures').select('id').eq('organization_id',fiscalOrg);assert.ifError(closes.error);assert.equal(closes.data.length,1);
   const audit=await a.client.from('financial_fiscal_audit').select('id').eq('organization_id',fiscalOrg).eq('action','YEAR_CLOSE');assert.ifError(audit.error);assert.equal(audit.data.length,1);
+ });
+ await check('Setup-only approved policy does not lock fiscal editing and date changes preserve rule history',async()=>{
+  const setupOrg=randomUUID();
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
+   insert into public.organizations(id,owner_user_id,name) values('${setupOrg}','${a.id}','ZZ fiscal setup correction');
+   insert into public.organization_members(organization_id,user_id,role,status) values('${setupOrg}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';
+   select public.save_financial_chart_account('${setupOrg}','330001','3300','أرباح مرحلة','Retained earnings','CREDIT',true,true,0,'Setup account');`);
+  const initial=await a.client.rpc('save_financial_fiscal_calendar',{p_org:setupOrg,p_month:1,p_day:1,p_retained:'3300',p_expected_version:0,p_reason:'Original setup'});assert.ifError(initial.error);
+  const policy=await a.client.rpc('save_financial_reporting_policy',{p_org:setupOrg,p_fiscal_start:'2026-01-01',p_expected_version:0,p_rules:[],p_reason:'Legacy setup policy'});assert.ifError(policy.error);
+  const approval=await a.client.rpc('approve_financial_reporting_policy',{p_id:policy.data.id,p_expected_version:policy.data.version});assert.ifError(approval.error);
+  await page.goto(app+'/en/settings/financial/fiscal-years?organization='+setupOrg);
+  const section=page.locator('.fiscal-calendar-settings'),month=section.getByLabel('Fiscal start month',{exact:true});await month.waitFor();assert.equal(await month.isEnabled(),true);
+  await month.selectOption('7');await section.getByLabel('Retained earnings posting account',{exact:true}).selectOption('330001');await section.getByLabel('Setup or action reason',{exact:true}).fill('Correct setup before operations');
+  await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();await page.getByText('Fiscal calendar saved.',{exact:true}).waitFor();
+  await page.reload();await month.waitFor();assert.equal(await month.inputValue(),'7');
+  const result=await a.client.rpc('financial_reporting_policy_workspace',{p_org:setupOrg,p_fiscal_start:'2026-07-01'});assert.ifError(result.error);assert.equal(result.data.policy.status,'DRAFT');assert.equal(result.data.events.length,0);assert.equal(result.data.policy.fiscal_end,'2027-06-30');
+  const old=await a.client.from('financial_reporting_policies').select('*').eq('id',policy.data.id).single();assert.ifError(old.error);assert.equal(old.data.status,'SUPERSEDED');assert.deepEqual(old.data.rules,[]);assert.equal(old.data.fiscal_start,'2026-01-01');
+  const history=await a.client.from('financial_reporting_policy_audit').select('detail').eq('policy_id',policy.data.id).eq('action','CALENDAR_REBASE');assert.ifError(history.error);assert.equal(history.data.length,1);assert.equal(history.data[0].detail.before.status,'APPROVED');
  });
  await check('Organization settings persist January and July calendars, isolate tenants and preserve existing periods',async()=>{
   const january=randomUUID(),july=randomUUID();

@@ -9,6 +9,7 @@ export type FiscalManagementContext={
  period:{start:string;end:string}|null;
  closures:FiscalClosure[];
  canConfigure:boolean;canClose:boolean;
+ setupLockReason?:'ACTIVITY'|'CLOSURE'|'OPENING_REVIEW'|'BUDGET_REVIEW'|null;
  references:FiscalReference[];
  retainedCandidates?:RetainedAccountCandidate[];
  asOf:string;
@@ -60,5 +61,7 @@ export function fiscalYearRows(context:FiscalManagementContext,span=2){
  });
 }
 export function fiscalCalendarLocked(context:FiscalManagementContext){
+ // Older servers retain the conservative lock until the migration is installed.
+ if('setupLockReason' in context)return !!context.calendar&&context.setupLockReason!==null;
  return !!context.calendar&&(context.references.length>0||context.closures.length>0);
 }

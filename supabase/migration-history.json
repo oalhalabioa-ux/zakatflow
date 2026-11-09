@@ -1810,6 +1810,22 @@
       "expected_md5": "e69d47e36974444cec16723fc2296afc",
       "file_sha256": "c539778e8b3cab4b24b3ca3bc8a6b58503b2e49dda66b3f0aa3d37da2e70c230",
       "validation_project": "Isolated PostgreSQL and Financial Core QA V2 only; not Production"
+    },
+    {
+      "path": "supabase/migrations/20261109090210_fiscal_setup_policy_unlock.sql",
+      "version": "20261109090210",
+      "name": "fiscal_setup_policy_unlock",
+      "expected_md5": "69b687c50adec73e6fc4a3b5419229d3",
+      "file_sha256": "d71d923c73486edde362816c77179a72dd9d182485b959a82b726f9945bbedce",
+      "validation_project": "Local PostgreSQL/WASM procedure tests only; full-schema QA pending; not applied to any hosted database"
+    },
+    {
+      "path": "supabase/migrations/20261109101216_detailed_posting_routing.sql",
+      "version": "20261109101216",
+      "name": "detailed_posting_routing",
+      "expected_md5": "3b0230804b39890402c9bb6f4d579e13",
+      "file_sha256": "973776f6cd78b86c71af6c685e03199aaddac2dda15ed591a00f0e868220c6ff",
+      "validation_project": "Local PostgreSQL/WASM and UI regression only; no hosted migration applied"
     }
   ]
 }

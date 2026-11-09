@@ -1,4 +1,5 @@
 'use client';
+import '../app/[locale]/financial-register.css';
 import VoucherStamp from './VoucherStamp';
 import {debtVoucherType,debtVoucherNumber,matchesDebtVoucher} from '../lib/debt-voucher-presentation';
 import {voucherNumber,movementType} from '../lib/voucher-identity';

@@ -82,7 +82,8 @@ export async function liveStatementSource(input:unknown){
  // This is mandatory for any legacy source, including on Production, after
  // the additive versioned migration has passed isolated QA and release review.
  const legacyEvents=raw.events.filter((event:{sourceModule:string})=>
-  event.sourceModule==='LEGACY_ASSET'||event.sourceModule==='LEGACY_CASH');
+  event.sourceModule==='LEGACY_ASSET'||event.sourceModule==='LEGACY_CASH')
+  .map((event:{lines:Record<string,unknown>[]})=>({...event,lines:event.lines.map(({resolvedPosting,...sourceLine})=>sourceLine)}));
  // Zero legacy events must ALSO be independently certified. Otherwise a
  // missing source could be misread as an empty ledger and evade coverage checks.
  // The trusted RPC accounts for approved opening-consumed sources explicitly.
