@@ -1,9 +1,10 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {handoffReadiness,handoffSetupPath} from '@/lib/feasibility/handoff';
+import ReviewSnapshotPanel from './ReviewSnapshotPanel';
 import type {FeasibilityStudy,HandoffMode,ProjectHandoff} from '@/lib/feasibility/engine';
 type Company={id:string;name:string;entity_type:string;base_currency?:string};
-export default function ProjectHandoffPanel({study,locale,onChange}:{study:FeasibilityStudy;locale:string;onChange:(next:ProjectHandoff)=>void}){
+export default function ProjectHandoffPanel({study,locale,onChange,cloudRevision,cloudCurrent=false,cloudEnabled=false,canWrite=true}:{study:FeasibilityStudy;locale:string;onChange:(next:ProjectHandoff)=>void;cloudRevision?:number;cloudCurrent?:boolean;cloudEnabled?:boolean;canWrite?:boolean}){
  const ar=locale==='ar', h=study.handoff??{mode:'LATER' as HandoffMode};
  const review=handoffReadiness(study);
  const reviewed=review.ready&&h.reviewedSourceUpdatedAt===study.updatedAt;
@@ -57,6 +58,7 @@ export default function ProjectHandoffPanel({study,locale,onChange}:{study:Feasi
     {setupPath&&sameCurrency&&enabled?<a className="fs-handoff-link" href={setupPath}>{t('الانتقال إلى إعداد الشركة — Financial Core V2','Continue to company setup — Financial Core V2')}</a>:<p className="fs-handoff-note">{t('ربط V2 المحاسبي معطّل حتى اعتماد عقد التكامل واختبارات صلاحيات QA V2.','Accounting integration remains disabled until the versioned V2 contract and QA permission tests pass.')}</p>}
    </>}
   </>}
-  <p className="fs-handoff-note">{t('بيانات هذه المراجعة محفوظة حاليًا في المتصفح فقط؛ الاعتماد الرسمي يتطلب سجلًا مؤمّنًا على الخادم، وصلاحيات واعتمادات نهائية.','This review is browser-local only. Formal approval needs server-side immutable records and verified permissions.')}</p>
+  <ReviewSnapshotPanel study={study} locale={locale} cloudRevision={cloudRevision} cloudCurrent={cloudCurrent} enabled={cloudEnabled} canWrite={canWrite}/>
+  <p className="fs-handoff-note">{t('الاعتماد القانوني أو المحاسبي يتطلب توقيعات وصلاحيات رسمية مستقلة.','Legal and accounting approvals require separate formal permissions and signatures.')}</p>
  </section>;
 }

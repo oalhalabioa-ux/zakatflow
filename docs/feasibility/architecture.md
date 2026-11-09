@@ -87,3 +87,11 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - An authenticated user's Feasibility access is **independent of any organization**. It grants no accounting, banking, assets, journal or Financial Core V1 privileges. Users have owner-only RLS read; authenticated clients have NO insert/update/delete privilege on licence grants.
 - The feasibility page and QA cloud API fail closed if no valid grant exists. Within the time window, `TRIAL` and `ACTIVE` can edit; expired, suspended, cancelled and `READ_ONLY` grant read/export but prevent writes. QA feature gates still default OFF.
 - No customer entitlement was activated by this migration and no payment or subscription was charged. Further work: reviewed admin entitlement write workflow, standalone pricing and activation UI, audit/renewal, collaborators/seats and browser acceptance on the V2 deployment.
+
+## QA V2 immutable internal decision snapshots (9 November 2026)
+
+- Applied QA-only migration `feasibility_immutable_review_snapshots_qa_v2` in Supabase `ubotbpjngtfvolthpfec`. SQL evidence: `docs/feasibility/qa-v2-internal-review-schema.sql` **outside** canonical Production migrations. No Production or legacy Financial Core change.
+- The authenticated owner may record an **internal review snapshot** only after the persisted study revision passes financing, legal and readiness checks. The browser sends project ID, expected source revision and optional notes — NOT a snapshot or legal approval.
+- PostgreSQL BEFORE INSERT trigger locks the persisted study, validates its revision and captures the immutable JSON snapshot; server and database reject stale versions. The owner may read/review history but cannot UPDATE/DELETE saved snapshots; a second review for the same source revision is rejected.
+- UI requires an explicitly saved cloud version matching the local draft; local preview approval alone is not sufficient. Formal board/legal/project authorization is a distinct later workflow. Never treat these records as a legal licence, booking, budget approval, opening balance or financial posting.
+- Verified in QA transaction: owner creates review, changes live study, saved snapshot remains unchanged, stale revision is rejected, foreign user cannot read, rollback leaves 0 records. Authenticated browser QA with real identities remains a release gate.
