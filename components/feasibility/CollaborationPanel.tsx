@@ -29,6 +29,21 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
   void load().catch(()=>{if(mounted)setError(t('تعذر تحميل سجل المشاركين.','Could not load participants.'))});
   return()=>{mounted=false};
  },[load,enabled,isOwner,ar]);
+ async function revokeInvitation(invitationId:string){
+  if(!enabled||!isOwner||!canWrite||busy)return;
+  if(!window.confirm(t('إبطال رمز الدعوة المعلّقة نهائيًا؟','Invalidate this pending invitation code?')))return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   const response=await fetch('/api/feasibility/invitations',{
+    method:'PATCH',headers:{'content-type':'application/json'},
+    body:JSON.stringify({projectId,invitationId})
+   });
+   if(!response.ok)throw new Error('INVITE_REVOCATION_FAILED');
+   setNotice(t('تم إبطال الدعوة ولم يعد رمزها مقبولًا.','Invitation revoked; its code is no longer valid.'));
+   await load();
+  }catch{setError(t('لم نتمكن من تأكيد إبطال الدعوة.','Could not confirm invitation revocation.'))}
+  finally{setBusy(false)}
+ }
  async function revokeMember(userId:string){
   if(!enabled||!isOwner||!canWrite||busy)return;
   if(!window.confirm(t('إلغاء وصول هذا المشارك إلى الدراسة؟','Revoke this participant\'s access to the study?')))return;
@@ -84,6 +99,9 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
     <div className="fs-collaboration-list">{invites.length?invites.map(i=><div className="fs-collaboration-row" key={i.id}>
      <strong>{i.invitee_email}</strong><span>{i.role==='REVIEWER'?t('مراجع','Reviewer'):t('مشاهد','Viewer')}</span>
      <span>{i.accepted_at?t('مقبولة','Accepted'):i.revoked_at?t('ملغاة','Revoked'):new Date(i.expires_at)<=new Date()?t('منتهية','Expired'):t('بانتظار القبول','Pending')}</span>
+     {!i.accepted_at&&!i.revoked_at&&new Date(i.expires_at)>new Date()&&<button
+       className="fs-btn fs-btn--secondary" type="button" disabled={!canWrite||busy}
+       onClick={()=>void revokeInvitation(i.id)}>{t('إبطال الدعوة','Revoke invitation')}</button>}
     </div>):<p>{t('لا توجد دعوات بعد.','No invitations yet.')}</p>}</div>
     <h3>{t('إدارة صلاحيات المشاركين','Manage member access')}</h3>
     {members.filter(m=>m.status==='ACTIVE').map(member=><div className="fs-collaboration-row" key={member.user_id}>

@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 const mocks=vi.hoisted(()=>({supabaseServer:vi.fn(),isSameOriginRequest:vi.fn()}));
 vi.mock('@/lib/supabase/server',()=>({supabaseServer:mocks.supabaseServer}));
 vi.mock('@/lib/request-origin',()=>({isSameOriginRequest:mocks.isSameOriginRequest}));
-import {GET as list,POST as invite} from '../../app/api/feasibility/invitations/route';
+import {GET as list,POST as invite,PATCH as revokeInvitation} from '../../app/api/feasibility/invitations/route';
 import {POST as accept} from '../../app/api/feasibility/invitations/accept/route';
 import {POST as revoke} from '../../app/api/feasibility/members/revoke/route';
 const owner='6357a708-bae2-4634-9296-490404b1d8a4';
@@ -91,6 +91,34 @@ describe('QA V2 email-bound invitation boundary',()=>{
   });
   rpc.mockResolvedValueOnce({data:null,error:{message:'recipient mismatch'}});
   expect((await accept(request('/api/feasibility/invitations/accept',{code}))).status).toBe(403);
+ });
+ it('blocks cross-origin pending invite revocation before authentication',async()=>{
+  mocks.isSameOriginRequest.mockReturnValue(false);
+  const input={projectId,invitationId:'ef9a3fa6-9813-4f89-8c15-5fd521557000'};
+  expect((await revokeInvitation(new Request('https://qa.local/api/feasibility/invitations',{
+   method:'PATCH',headers:{Origin:'https://elsewhere.local','content-type':'application/json'},body:JSON.stringify(input)
+  }))).status).toBe(403);
+  expect(mocks.supabaseServer).not.toHaveBeenCalled();
+ });
+ it('checks project ownership before calling pending invitation revoke',async()=>{
+  const {project,rpc}=mockData();project.maybeSingle.mockResolvedValueOnce({data:null,error:null});
+  const response=await revokeInvitation(new Request('https://qa.local/api/feasibility/invitations',{
+   method:'PATCH',headers:{Origin:'https://qa.local','content-type':'application/json'},
+   body:JSON.stringify({projectId,invitationId:'ef9a3fa6-9813-4f89-8c15-5fd521557000'})
+  }));
+  expect(response.status).toBe(403);expect(rpc).not.toHaveBeenCalled();
+ });
+ it('revokes only pending invitation through owner-guarded RPC',async()=>{
+  const {rpc}=mockData();rpc.mockResolvedValueOnce({data:true,error:null});
+  const invitationId='ef9a3fa6-9813-4f89-8c15-5fd521557000';
+  const response=await revokeInvitation(new Request('https://qa.local/api/feasibility/invitations',{
+   method:'PATCH',headers:{Origin:'https://qa.local','content-type':'application/json'},
+   body:JSON.stringify({projectId,invitationId})
+  }));
+  expect(response.status).toBe(200);
+  expect(rpc).toHaveBeenCalledWith('feasibility_revoke_project_invitation',{
+   p_project_id:projectId,p_invitation_id:invitationId
+  });
  });
  it('rejects cross-origin revoke without contacting the backend',async()=>{
   mocks.isSameOriginRequest.mockReturnValue(false);

@@ -130,3 +130,10 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - Owner-only member revocation UI and endpoint `POST /api/feasibility/members/revoke` were added with same-origin protection, independent active entitlement, authenticated owner check, strict UUID input and server-side RPC `feasibility_revoke_project_member`.
 - A cancelled membership must lose RLS project access immediately. The backend RPC independently checks ownership before revoking; it may be invoked directly by authenticated clients only with the same ownership guard. Endpoint returns 409 instead of claiming success if the member was not active.
 - No automatic email is sent. A durable invitation/membership audit record, admin review, real two-user browser acceptance and server-side tests of revoked user read attempts are still release gates.
+
+## Pending invitation revocation (QA V2 only)
+
+- Applied QA-only migration `feasibility_pending_invite_revocation_qa_v2` to the V2 QA Supabase database only, creating `public.feasibility_revoke_project_invitation(project_id,invitation_id)`.
+- The function verifies current authenticated ownership; only an unaccepted, unrecalled invitation issued by that owner can be revoked. It records an audit event atomically in `platform_audit_events`; accepted memberships require the **separate** member-revocation flow.
+- `PATCH /api/feasibility/invitations` enforces same origin, active standalone entitlement, strict UUIDs and an owner preflight before invoking the database's independent owner check. The UI exposes an explicit revoke button only for pending, unexpired invitations.
+- Browser two-user acceptance and test evidence remain necessary before enabling sharing; no outbound email, Production or old Financial Core changes occurred.

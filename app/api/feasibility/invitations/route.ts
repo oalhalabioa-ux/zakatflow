@@ -57,3 +57,28 @@ export async function POST(request:Request){
  if(error)return json({error:'INVITATION_FAILED'},500);
  return json({id:data.id,role:data.role,expires_at:data.expires_at,code},201);
 }
+
+const revokeInput=z.object({projectId:z.string().uuid(),invitationId:z.string().uuid()}).strict();
+export async function PATCH(request:Request){
+ if(!enabled())return json({error:'SHARING_DISABLED'},404);
+ if(!isSameOriginRequest(request))return json({error:'INVALID_ORIGIN'},403);
+ const {supabase,user,access,accessError}=await context();
+ if(!user)return json({error:'UNAUTHORIZED'},401);
+ if(accessError)return json({error:'ENTITLEMENT_LOOKUP_FAILED'},503);
+ if(!access?.canWrite)return json({error:'FEASIBILITY_READ_ONLY'},403);
+ let raw:unknown;
+ try{const t=await request.text();if(t.length>600)return json({error:'INVALID_INPUT'},400);raw=JSON.parse(t)}
+ catch{return json({error:'INVALID_INPUT'},400);}
+ const parsed=revokeInput.safeParse(raw);if(!parsed.success)return json({error:'INVALID_INPUT'},400);
+ const {projectId,invitationId}=parsed.data;
+ const {data:owned,error:ownerError}=await supabase.from('feasibility_projects')
+  .select('id').eq('id',projectId).eq('owner_user_id',user.id).maybeSingle();
+ if(ownerError)return json({error:'PROJECT_LOOKUP_FAILED'},503);
+ if(!owned)return json({error:'PROJECT_OWNER_REQUIRED'},403);
+ const {data,error}=await supabase.rpc('feasibility_revoke_project_invitation',{
+  p_project_id:projectId,p_invitation_id:invitationId
+ });
+ if(error)return json({error:'INVITATION_REVOKE_FAILED'},403);
+ if(data!==true)return json({error:'INVITATION_ALREADY_USED_OR_REVOKED'},409);
+ return json({revoked:true});
+}
