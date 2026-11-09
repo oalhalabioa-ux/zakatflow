@@ -30,7 +30,7 @@ export async function GET(){
  if(accessError)return response({error:'ENTITLEMENT_LOOKUP_FAILED'},503);
  if(!access?.canRead)return response({error:'FEASIBILITY_ACCESS_READ_ONLY'},403);
  const {data,error}=await supabase.from('feasibility_projects')
-  .select('id,title,revision,updated_at,study').eq('owner_user_id',user.id)
+  .select('id,title,revision,updated_at,study,owner_user_id')
   .order('updated_at',{ascending:false}).limit(300);
  if(error)return response({error:'DRAFT_READ_FAILED'},500);
  return response(data??[]);
