@@ -30,12 +30,23 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  entries['equity:3100']={amount:'5000',side:'CREDIT'};
  const draft=await rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:opening.source.revision,p_entries:entries,p_reason:'Actual cycle: source bank 5000 equals capital 5000'});
  await rpc('approve_financial_opening',{p_id:draft.id,p_expected_version:draft.version});
+ // Reproduce the existing QA tenant: approved empty policy, no classifications,
+ // no actual operations. Recovery must create a distinct draft, never alter approval.
+ const legacy=await rpc('save_financial_reporting_policy',{...scope,p_expected_version:0,p_rules:[],p_reason:'Legacy zero-activity approved policy regression'});
+ await rpc('approve_financial_reporting_policy',{p_id:legacy.id,p_expected_version:legacy.version});
+ const legacyBefore=unwrap(await actor.client.from('financial_reporting_policies').select('*').eq('id',legacy.id).single());
+ assert.equal(legacyBefore.status,'APPROVED');assert.deepEqual(legacyBefore.rules,[]);
  await page.emulateMedia({reducedMotion:'reduce'});await page.setViewportSize({width:1490,height:1050});
  await page.goto(app+'/ar/settings/financial?organization='+organization);
  await page.getByRole('button',{name:'قواعد الترحيل',exact:true}).first().click();
  await page.getByRole('region',{name:'القواعد الافتراضية',exact:true}).waitFor();
+ await page.getByLabel('الحساب المدين 1',{exact:true}).waitFor();
  const policyBefore=await rpc('financial_reporting_policy_workspace',scope);
  assert.equal(policyBefore.events.length,0);assert.equal(policyBefore.policy.status,'DRAFT');assert.ok(policyBefore.policy.rules.length>0);
+ assert.notEqual(policyBefore.policy.id,legacy.id);
+ assert.deepEqual(unwrap(await actor.client.from('financial_reporting_policies').select('*').eq('id',legacy.id).single()),legacyBefore,'Recovery leaves the approved record unchanged');
+ evidence.legacyRecovery={approvedPolicyId:legacy.id,draftPolicyId:policyBefore.policy.id,ruleCount:policyBefore.policy.rules.length,events:0,priorApprovedUnchanged:true};
+
  const classifications=unwrap(await actor.client.from('financial_classifications').select('id,classification_type').eq('organization_id',organization));
  const classification=type=>{const c=classifications.find(c=>c.classification_type===type);assert.ok(c,type+' classification');return c.id;};
  const proposed=(eventType,type,direction)=>{const r=policyBefore.policy.rules.find(r=>r.eventType===eventType&&r.sourceModule==='OPERATIONAL_CONSOLE'&&r.classificationId===classification(type)+':BASE'&&r.cashDirection===direction);assert.ok(r,type+' default rule');return r;};

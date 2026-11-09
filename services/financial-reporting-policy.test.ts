@@ -38,6 +38,22 @@ describe('authorized default posting initialization',()=>{
   f.canSave=false;await expect(writeReportingPolicy({action:'initialize-defaults',...scope})).rejects.toThrow('REPORTING_ACCESS_DENIED');
   expect(f.rpc.mock.calls.some(([n])=>n==='save_financial_reporting_policy')).toBe(false);expect(f.classifications).toEqual([]);
  });
+ it('recovers an empty approved policy into an unapproved draft without updating or approving the original',async()=>{
+  const approved={status:'APPROVED',version:2,rules:[]};f.policy=approved;
+  const r=await writeReportingPolicy({action:'initialize-defaults',...scope,repairEmpty:true});
+  expect(r.policy?.status).toBe('DRAFT');expect(r.policy?.rules).toHaveLength(17);
+  expect(approved).toEqual({status:'APPROVED',version:2,rules:[]});
+  expect(f.rpc).toHaveBeenCalledWith('save_financial_reporting_policy',expect.objectContaining({p_expected_version:0}));
+  expect(f.rpc.mock.calls.some(([n])=>n==='approve_financial_reporting_policy')).toBe(false);
+ });
+ it('explicit empty-draft recovery uses its version and never replaces populated drafts or approved policies',async()=>{
+  f.policy={status:'DRAFT',version:7,rules:[]};
+  await writeReportingPolicy({action:'initialize-defaults',...scope,repairEmpty:true});
+  expect(f.rpc).toHaveBeenCalledWith('save_financial_reporting_policy',expect.objectContaining({p_expected_version:7}));
+  f.rpc.mockClear();
+  for(const status of ['DRAFT','APPROVED']){const original={status,version:8,rules:[{manual:'keep'}]};f.policy=original;const r=await writeReportingPolicy({action:'initialize-defaults',...scope,repairEmpty:true});expect(r.policy).toEqual(original);}
+  expect(f.rpc.mock.calls.some(([n])=>n==='save_financial_reporting_policy')).toBe(false);
+ });
  it('does not grant classification creation to a financial-only editor',async()=>{
   f.canSeed=false;await expect(writeReportingPolicy({action:'initialize-defaults',...scope})).rejects.toThrow('REPORTING_CLASSIFICATIONS_REQUIRED');expect(f.classifications).toEqual([]);
  });

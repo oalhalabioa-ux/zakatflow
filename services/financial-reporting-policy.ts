@@ -8,7 +8,7 @@ import type {RecognitionEvent} from '../lib/financial-event-ledger';
 const text=z.string().min(1).max(300);
 const rule=z.object({eventType:text,sourceModule:text,classificationId:text,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),debitAccountId:text,creditAccountId:text,cashActivity:z.enum(['OPERATING','INVESTING','FINANCING']).optional()}).strict();
 const command=z.discriminatedUnion('action',[
- z.object({action:z.literal('initialize-defaults'),...openingScope.shape}).strict(),
+ z.object({action:z.literal('initialize-defaults'),...openingScope.shape,repairEmpty:z.boolean().optional()}).strict(),
  z.object({action:z.literal('save'),...openingScope.shape,expectedVersion:z.number().int().min(0),rules:z.array(rule).max(5000),reason:z.string().trim().min(3).max(1000)}).strict(),
  z.object({action:z.literal('approve'),id:z.string().uuid(),expectedVersion:z.number().int().positive()}).strict(),
 ]);
@@ -33,20 +33,23 @@ export async function writeReportingPolicy(input:unknown){
  if(q.action==='initialize-defaults'){
   const scope={organization:q.organization,fiscalStart:q.fiscalStart};
   let workspace=await readReportingPolicy(scope);
-  // Never replace a user's draft or an approved policy, including an empty one.
+  // Nonempty policies are immutable to initialization. Empty legacy policies
+  // require explicit recovery intent; approved records remain untouched and
+  // the audited save RPC creates a separate unapproved draft.
   if(!workspace.canSave)throw Error('REPORTING_ACCESS_DENIED');
-  if(workspace.policy)return workspace;
+  const preserve=()=>workspace.policy&&(!q.repairEmpty||workspace.policy.rules.length>0);
+  if(preserve())return workspace;
   if(!workspace.classifications.length){
    const allowed=unwrap(await supabase.rpc('effective_organization_permission',{p_org:q.organization,p_permission:'organization.edit',p_amount:null,p_currency:null}));
    if(!allowed)throw Error('REPORTING_CLASSIFICATIONS_REQUIRED');
    unwrap(await supabase.from('financial_classifications').upsert(POSTING_BASE_CLASSIFICATIONS.map(([code,name])=>({organization_id:q.organization,code,name,classification_type:code,is_system:false,created_by:user.id})),{onConflict:'organization_id,code',ignoreDuplicates:true}));
    workspace=await readReportingPolicy(scope);
-   if(workspace.policy)return workspace;
+   if(preserve())return workspace;
   }
   if(!workspace.defaults.rules.length)throw Error('REPORTING_DEFAULT_ACCOUNTS_REQUIRED');
   const issue=validatePostingRuleAccounts(workspace.defaults.rules,workspace.chart);if(issue)throw Error(issue);
   const saved=await supabase.rpc('save_financial_reporting_policy',{
-   p_org:q.organization,p_fiscal_start:q.fiscalStart,p_expected_version:0,
+   p_org:q.organization,p_fiscal_start:q.fiscalStart,p_expected_version:workspace.policy?.status==='DRAFT'?workspace.policy.version:0,
    p_rules:workspace.defaults.rules,p_reason:'Default posting rules v1 — organization chart; review before approval',
   });
   // Two sessions initializing together must converge on the winner's policy.

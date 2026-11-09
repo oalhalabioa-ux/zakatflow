@@ -25,7 +25,8 @@ const fixturePlans=[
 ].map(plan=>({...plan,features:['module:assets','module:liquidity'],currency:'SAR',billing_interval:'monthly',is_active:true,is_published:true,is_proposed:true}));
 const entities=[{id:'entity-1',organization_id:orgId,name:'كيان الرياض',entity_type:'COMPANY',base_currency:'SAR',registration_no:'1010000001',active:true}];
 let readinessGate=null,releaseReadiness;
-let postingPolicy=null,postingInitializations=0;
+const legacyPostingPolicy={id:'legacy-policy',version:2,status:'APPROVED',reason:'Legacy empty approved policy',rules:[]};
+let postingPolicy=structuredClone(legacyPostingPolicy),postingInitializations=0;
 const postingDefaults=[{eventType:'EXPENSE',sourceModule:'OPERATIONAL_CONSOLE',classificationId:'opex:BASE',cashDirection:'NON_CASH',debitAccountId:'6100',creditAccountId:'2100'},{eventType:'SETTLEMENT',sourceModule:'OPERATIONAL_CONSOLE',classificationId:'opex:BASE',cashDirection:'OUTFLOW',debitAccountId:'2100',creditAccountId:'1000',cashActivity:'OPERATING'}];
 const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/api/**',async route=>{
@@ -38,9 +39,9 @@ await page.route('**/api/**',async route=>{
  else if(u.pathname==='/api/financial-reporting/fiscal')data={organizationId:orgId,calendar:{start_month:1,start_day:1,version:1,retained_earnings_account:'3300'},period:{start:'2026-01-01',end:'2026-12-31'},closures:[],canConfigure:true,canClose:false,references:[],retainedCandidates:[],asOf:'2026-11-08'};
  else if(u.pathname==='/api/financial-reporting/openings'&&u.searchParams.get('action')==='context')data=[{id:orgId,name:org.name,currentFiscalStart:'2026-01-01'},{id:otherId,name:other.name,currentFiscalStart:'2026-01-01'}];
  else if(u.pathname==='/api/financial-reporting/policy'){
-  if(req.method()==='POST'&&body.action==='initialize-defaults'){postingInitializations++;if(!postingPolicy)postingPolicy={id:'policy',version:1,status:'DRAFT',reason:'Default posting rules',rules:structuredClone(postingDefaults)};}
+  if(req.method()==='POST'&&body.action==='initialize-defaults'){postingInitializations++;if(!postingPolicy||(body.repairEmpty&&postingPolicy.rules.length===0))postingPolicy={id:'policy',version:1,status:'DRAFT',reason:'Default posting rules',rules:structuredClone(postingDefaults)};}
   if(req.method()==='POST'&&body.action==='save')postingPolicy={...postingPolicy,version:postingPolicy.version+1,rules:body.rules,reason:body.reason};
-  data={organizationId:orgId,fiscalStart:'2026-01-01',policy:postingPolicy,canSave:true,canApprove:true,events:[],classifications:[{id:'opex',name:'مصروفات المؤسسة'}],chart:['1000','1500','2100','6100'].map(code=>({id:code,code,ar:code,en:code,cash:code==='1000'})),defaults:{version:1,rules:postingDefaults.filter(r=>!postingPolicy?.rules.some(x=>JSON.stringify([x.eventType,x.sourceModule,x.classificationId,x.cashDirection])===JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]))),unresolved:[],testedRuleCount:0}};
+  data={organizationId:orgId,fiscalStart:'2026-01-01',policy:postingPolicy,approvedPolicy:legacyPostingPolicy,canSave:true,canApprove:true,events:[],classifications:[{id:'opex',name:'مصروفات المؤسسة'}],chart:['1000','1500','2100','6100'].map(code=>({id:code,code,ar:code,en:code,cash:code==='1000'})),defaults:{version:1,rules:postingDefaults.filter(r=>!postingPolicy?.rules.some(x=>JSON.stringify([x.eventType,x.sourceModule,x.classificationId,x.cashDirection])===JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]))),unresolved:[],testedRuleCount:0}};
  }
  else if(u.pathname==='/api/financial-reporting/chart')data={organizationId:orgId,accounts:[{kind:'ASSET',isActive:true,isPostable:true},{kind:'EQUITY',isActive:true,isPostable:true}]};
  else if(u.pathname==='/api/financial-register')data={organizationIds:[orgId],accounts:[{id:'bank-1',organizationId:orgId,name:'حساب المؤسسة',type:'BANK',currency:'SAR'}]};
