@@ -122,6 +122,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    const result=await response.json() as {revision:number};
    setCloudRevisions(p=>({...p,[study.id]:result.revision}));
    setCloudSavedStudyVersions(p=>({...p,[study.id]:study.updatedAt}));
+   setCloudOwnerIds(p=>({...p,[study.id]:userId}));
    setNotice(txt(ar,'حُفظت مسودة المشروع في QA V2، وهي ليست اعتمادًا نهائيًا.','Project draft saved in QA V2; this is not formal approval.'));
   }catch(e){setNotice(e instanceof Error&&e.message==='CONFLICT'?
    txt(ar,'توجد نسخة أحدث أو مسودة مطابقة على QA؛ احفظ نسخة JSON ثم استرجع المسودات قبل إعادة الحفظ.','A newer or duplicate QA draft exists. Export JSON, restore cloud copies and review before retrying.'):
