@@ -29,6 +29,21 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
   void load().catch(()=>{if(mounted)setError(t('تعذر تحميل سجل المشاركين.','Could not load participants.'))});
   return()=>{mounted=false};
  },[load,enabled,isOwner,ar]);
+ async function revokeMember(userId:string){
+  if(!enabled||!isOwner||!canWrite||busy)return;
+  if(!window.confirm(t('إلغاء وصول هذا المشارك إلى الدراسة؟','Revoke this participant\'s access to the study?')))return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   const response=await fetch('/api/feasibility/members/revoke',{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({projectId,userId})
+   });
+   if(!response.ok)throw new Error('REVOKE_FAILED');
+   setNotice(t('تم إلغاء صلاحية المشارك.','Participant access revoked.'));
+   await load();
+  }catch{setError(t('تعذر إلغاء العضوية؛ لم نعتبرها ملغاة.','Revocation could not be confirmed. Access has not been marked revoked.'))}
+  finally{setBusy(false)}
+ }
  async function invite(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(!enabled||!isOwner||!canWrite||busy)return;
   setBusy(true);setError('');setNotice('');setCode('');
@@ -70,6 +85,12 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
      <strong>{i.invitee_email}</strong><span>{i.role==='REVIEWER'?t('مراجع','Reviewer'):t('مشاهد','Viewer')}</span>
      <span>{i.accepted_at?t('مقبولة','Accepted'):i.revoked_at?t('ملغاة','Revoked'):new Date(i.expires_at)<=new Date()?t('منتهية','Expired'):t('بانتظار القبول','Pending')}</span>
     </div>):<p>{t('لا توجد دعوات بعد.','No invitations yet.')}</p>}</div>
+    <h3>{t('إدارة صلاحيات المشاركين','Manage member access')}</h3>
+    {members.filter(m=>m.status==='ACTIVE').map(member=><div className="fs-collaboration-row" key={member.user_id}>
+     <span dir="ltr">{member.user_id}</span><span>{member.role}</span>
+     <button className="fs-btn fs-btn--secondary" type="button" disabled={!canWrite||busy}
+      onClick={()=>void revokeMember(member.user_id)}>{t('إلغاء الوصول','Revoke access')}</button>
+    </div>)}
     <p className="fs-handoff-note">{t('العضويات المفعلة','Active memberships')}: {members.filter(m=>m.status==='ACTIVE').length}</p>
    </>}
   {notice&&<p role="status" className="fs-handoff-note">{notice}</p>}

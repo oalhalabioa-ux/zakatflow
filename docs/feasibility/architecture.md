@@ -124,3 +124,9 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - Cloud project GET now returns **only** owner and accepted collaborator rows allowed by RLS; `owner_user_id` is returned so shared studies display as **read-only**, even when the recipient has an active personal feasibility licence. Project write/delete API remains owner-only and recorded snapshots remain owner-only.
 - The collaboration tab allows an owner to generate VIEWER/REVIEWER codes and list issued invitations; the standalone join form accepts manually shared codes. Both are gated behind `NEXT_PUBLIC_FEASIBILITY_SHARING_QA=true`, in addition to the study + cloud QA flags, all OFF by default.
 - Remaining before rollout: end-to-end tests with **two real confirmed users**, audit of invitation acceptance/revocation, rate limiting and seat limits, safe automated invitation email, encrypted file storage, contributor comments and independent subscription billing. No test data were retained during the SQL RLS rollback checks.
+
+## QA V2 member revocation (draft)
+
+- Owner-only member revocation UI and endpoint `POST /api/feasibility/members/revoke` were added with same-origin protection, independent active entitlement, authenticated owner check, strict UUID input and server-side RPC `feasibility_revoke_project_member`.
+- A cancelled membership must lose RLS project access immediately. The backend RPC independently checks ownership before revoking; it may be invoked directly by authenticated clients only with the same ownership guard. Endpoint returns 409 instead of claiming success if the member was not active.
+- No automatic email is sent. A durable invitation/membership audit record, admin review, real two-user browser acceptance and server-side tests of revoked user read attempts are still release gates.

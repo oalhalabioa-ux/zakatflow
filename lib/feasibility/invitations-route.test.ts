@@ -5,6 +5,7 @@ vi.mock('@/lib/supabase/server',()=>({supabaseServer:mocks.supabaseServer}));
 vi.mock('@/lib/request-origin',()=>({isSameOriginRequest:mocks.isSameOriginRequest}));
 import {GET as list,POST as invite} from '../../app/api/feasibility/invitations/route';
 import {POST as accept} from '../../app/api/feasibility/invitations/accept/route';
+import {POST as revoke} from '../../app/api/feasibility/members/revoke/route';
 const owner='6357a708-bae2-4634-9296-490404b1d8a4';
 const projectId='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
 const original={studies:process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES,cloud:process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA,sharing:process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA};
@@ -90,6 +91,36 @@ describe('QA V2 email-bound invitation boundary',()=>{
   });
   rpc.mockResolvedValueOnce({data:null,error:{message:'recipient mismatch'}});
   expect((await accept(request('/api/feasibility/invitations/accept',{code}))).status).toBe(403);
+ });
+ it('rejects cross-origin revoke without contacting the backend',async()=>{
+  mocks.isSameOriginRequest.mockReturnValue(false);
+  expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId:'e9d24224-ce21-4160-85f7-a21f2b3d50b0'}))).status).toBe(403);
+  expect(mocks.supabaseServer).not.toHaveBeenCalled();
+ });
+ it('rejects forged self-revoke and malformed member IDs',async()=>{
+  const {rpc}=mockData();
+  expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId:owner}))).status).toBe(400);
+  expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId:'not-a-uuid'}))).status).toBe(400);
+  expect(rpc).not.toHaveBeenCalled();
+ });
+ it('requires owner access before calling the revocation RPC',async()=>{
+  const {project,rpc}=mockData();
+  project.maybeSingle.mockResolvedValueOnce({data:null,error:null});
+  expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId:'e9d24224-ce21-4160-85f7-a21f2b3d50b0'}))).status).toBe(403);
+  expect(rpc).not.toHaveBeenCalled();
+ });
+ it('calls the server-authorized revocation function only for an owner',async()=>{
+  const {rpc}=mockData();
+  rpc.mockResolvedValueOnce({data:true,error:null});
+  const userId='e9d24224-ce21-4160-85f7-a21f2b3d50b0';
+  expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId}))).status).toBe(200);
+  expect(rpc).toHaveBeenCalledWith('feasibility_revoke_project_member',{
+   p_project_id:projectId,p_user_id:userId
+  });
+ });
+ it('does not claim success if revocation returns false',async()=>{
+  const {rpc}=mockData();rpc.mockResolvedValueOnce({data:false,error:null});
+  expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId:'e9d24224-ce21-4160-85f7-a21f2b3d50b0'}))).status).toBe(409);
  });
  it('lists only the current owner invitations without exposing raw tokens',async()=>{
   const {invites}=mockData();
