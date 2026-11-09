@@ -100,3 +100,11 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 
 - If the independent study entitlement has expired or is paused, only study browsing, print and JSON export are available. The active panel uses a disabled fieldset to prevent editing controls from appearing functional; project creation/deletion and cloud writes remain blocked by the UI **and** by the authenticated server endpoint.
 - All newly authored feasibility text follows Yaqeen's navy `#1D3852` on light backgrounds, not black.
+
+## QA V2 collaboration security foundation (9 November 2026)
+
+- Applied QA-only migration `feasibility_collaborators_role_model_qa_v2` in Supabase `ubotbpjngtfvolthpfec`; canonical SQL is documented at `docs/feasibility/qa-v2-project-collaboration-schema.sql`, outside Production's historical migrations. No tests or users were persisted.
+- Created `feasibility_project_members` with explicit `INVITED | ACTIVE | REVOKED` status and `VIEWER | REVIEWER | EDITOR` roles. Direct authenticated INSERT/UPDATE/DELETE is **denied**; membership must later be created/revoked through an audited authorized invitation workflow.
+- RLS grants active collaborators study read, and active editors study UPDATE, but the current *API* deliberately remains owner-only while invite acceptance and edit auditing are not implemented. The DB role helper is `SECURITY DEFINER`, `search_path=''`, explicitly matches `auth.uid()`, and exposes only the caller's own role for a project.
+- QA rollback test verified pending membership denies role; ACTIVE member has only the assigned role; unrelated user cannot read a project or role. Transaction rollback left 0 memberships and 0 projects.
+- **Not a collaborative release:** no real invitations, accepted users, email delivery, collaborator audit, member editing endpoint, or shared project list have been enabled. The user-level subscription access grant remains a separate gate. All functionality remains behind QA feature flags and PR Draft.
