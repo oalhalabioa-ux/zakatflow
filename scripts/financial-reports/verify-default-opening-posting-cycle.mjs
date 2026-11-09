@@ -33,6 +33,12 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  assert.ok(bankCode&&secondBankCode&&bankCode!==secondBankCode);
  const opening=await rpc('financial_opening_workspace',scope);
  const entries=Object.fromEntries(opening.source.rows.filter(row=>row.vouchers.length===0).map(row=>[row.id,{amount:'0',side:row.normal}]));
+ // Mirror the native opening editor, which uses the existing bank link
+ // when saving a new draft without changing the source voucher's amount.
+ for(const [id,accountCode] of Object.entries(opening.cashAccountCodes??{})){
+  if(opening.source.rows.some(row=>row.id===id))entries[id]={amount:entries[id]?.amount??'',side:entries[id]?.side??'DEBIT',accountCode};
+ }
+ assert.equal(entries['cash:'+bankId]?.accountCode,bankCode,'Opening uses the linked account, as the native editor does');
  entries['equity:3100']={amount:'5000',side:'CREDIT'};
  const draft=await rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:opening.source.revision,p_entries:entries,p_reason:'Actual cycle: source bank 5000 equals capital 5000'});
  await rpc('approve_financial_opening',{p_id:draft.id,p_expected_version:draft.version});
@@ -64,7 +70,7 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  await page.getByLabel('سبب الإعداد أو التغيير',{exact:true}).fill('اعتماد الربط التفصيلي حسب تصنيف العملية والبنك المحدد');
  const saveResponse=page.waitForResponse(r=>r.url().includes('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='save');
  await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();
- assert.equal((await saveResponse).status(),200);
+ const savedPolicy=await saveResponse;assert.equal(savedPolicy.status(),200,await savedPolicy.text());
  await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();
  await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();
  const approved=await rpc('financial_reporting_policy_workspace',scope);assert.equal(approved.policy.status,'APPROVED');
