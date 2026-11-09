@@ -56,7 +56,7 @@ The sidebar link is guarded behind `NEXT_PUBLIC_FEASIBILITY_STUDIES=true`, defau
 
 ## QA V2 owner-only persistence phase (9 November 2026)
 
-- Applied migration `20261109095653_feasibility_projects_owner_drafts_qa_v2` **only** on Supabase `ubotbpjngtfvolthpfec`. Table `public.feasibility_projects` starts empty, is RLS enabled, and has four owner-user policies. QA security advisor verified; unrelated pre-existing advisor notices were not modified.
+- Applied QA-only migration `20261109095653_feasibility_projects_owner_drafts_qa_v2` **only** on Supabase `ubotbpjngtfvolthpfec`. Table `public.feasibility_projects` starts empty, is RLS enabled, and has four owner-user policies. QA security advisor verified; unrelated pre-existing advisor notices were not modified.
 - A feature-gated route `/api/feasibility/projects` uses the authenticated Supabase client (never a service-role browser credential), strict origin checks on writes, document validation, owner conditions, and optimistic `revision` compare-and-swap for updates.
 - `NEXT_PUBLIC_FEASIBILITY_CLOUD_QA=true` plus `NEXT_PUBLIC_FEASIBILITY_STUDIES=true` is required to activate cloud sync in an isolated QA deployment. Both default **off**. No production or legacy Financial Core database changes.
 - The interface intentionally uses explicit **Save to QA V2** / **Restore from QA V2** actions, preventing a browser-local draft from silently overwriting newer cloud content. When a draft ID already exists, the first save returns a conflict until the user reviews the cloud version.
@@ -70,3 +70,7 @@ The sidebar link is guarded behind `NEXT_PUBLIC_FEASIBILITY_STUDIES=true`, defau
 - The Plan Editor hides the feasibility paid checkbox until `NEXT_PUBLIC_FEASIBILITY_BILLING_QA=true`, and never defaults it on. The plan POST endpoint explicitly rejects a feasibility feature unless the server-only `FEASIBILITY_BILLING_QA=true` gate is approved and the server RPC/catalog and billing model are tested. Both default OFF.
 - There is still a major product gap: the existing bundle RPC requires an organization and forcibly includes assets/liquidity. **Do not** market standalone studies until a future user-account/project-workspace entitlement and billing flow is implemented. Avoid weakening the existing bookkeeping bundle rules before that separate design is approved.
 
+
+### QA-only SQL vs canonical Production migrations
+
+The schema has already been applied and verified **once** on V2 QA. Its exact SQL is tracked in `docs/feasibility/qa-v2-owner-drafts-schema.sql` instead of `supabase/migrations/`, because the latter is the canonical historical Production/disposable-bootstrap manifest. No new Production migration may be introduced until reviewed and approved for release. Do **not** reapply the QA migration or insert it into Production's canonical history merely to pass CI.
