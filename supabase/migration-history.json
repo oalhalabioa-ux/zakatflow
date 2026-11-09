@@ -1802,6 +1802,14 @@
       "expected_md5": "71d40ea03b1a3deacc628d8b8edc3f03",
       "file_sha256": "cac55203e6991168408300f189dc298bef864d175fe99bc788939be4e86edf76",
       "validation_project": "Additive settings fields; disposable CI schema/tenant acceptance required; NOT applied to Production"
+    },
+    {
+      "path": "supabase/migrations/20261109035940_module_bundle_builder.sql",
+      "version": "20261109035940",
+      "name": "module_bundle_builder",
+      "expected_md5": "e69d47e36974444cec16723fc2296afc",
+      "file_sha256": "c539778e8b3cab4b24b3ca3bc8a6b58503b2e49dda66b3f0aa3d37da2e70c230",
+      "validation_project": "Isolated PostgreSQL and Financial Core QA V2 only; not Production"
     }
   ]
 }

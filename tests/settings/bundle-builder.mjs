@@ -17,7 +17,7 @@ export async function verifyBundleBuilder({page,locale,out,organizationId}){
  assert.equal(await page.locator('.bundle-card[data-selected=true]').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
  await page.screenshot({path:`${out}/bundle-${locale}-${width}.png`,fullPage:true});}
  await page.locator('.bundle-consent input').check();await page.locator('.bundle-summary .bundle-primary').click();
- await page.locator('.bundle-history article').waitFor();assert.equal(submission.modules.length,3);assert.match(submission.token,/^[0-9a-f-]{36}$/);
+ await page.locator('.bundle-history article').waitFor();assert.equal(submission.modules.length,3);assert.equal(await page.locator('.bundle-card[data-selected=true]').count(),3);assert.match(submission.token,/^[0-9a-f-]{36}$/);
  assert.ok(await page.locator('.bundle-summary .bundle-primary').isDisabled());
  await page.unroute('**/api/subscriptions/bundles?*',route);await page.unroute('**/api/subscriptions/bundles',route);
  await page.setViewportSize({width:1490,height:1050});

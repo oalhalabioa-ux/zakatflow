@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {writeFile} from 'node:fs/promises';
 export async function bundles({db,check,owner,session,load}){
  const value=async(sql,args=[])=>(await db.query(sql,args)).rows[0].value;
  const claims=async(sub,extra={})=>db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub,role:'authenticated',...extra})]);
  await claims(owner,{session_id:session});
  const before=await value('select jsonb_agg(to_jsonb(p) order by id) value from platform_plans p');
+ const catalogSql=(await load('tests/migration-history/catalog.sql')).replace(/;\s*$/,'');
+ const beforeSchema=(await db.query(catalogSql)).rows;
  await db.exec(await load('supabase/migrations/20261109035940_module_bundle_builder.sql'));
+ if(process.env.WRITE_BUNDLE_SCHEMA_DELTA==='1'){const afterSchema=(await db.query(catalogSql)).rows;const previous=new Map(beforeSchema.map(x=>[x.category+':'+x.object_key,x.fingerprint]));await writeFile(new URL('../migration-history/bundle-schema-delta.json',import.meta.url),JSON.stringify({upserts:afterSchema.filter(x=>previous.get(x.category+':'+x.object_key)!==x.fingerprint),removals:[]},null,2)+'\n');}
  const org=(await db.query("insert into organizations(owner_user_id,name,entity_type) values($1,'Module bundle test','COMPANY') returning id",[owner])).rows[0].id;
  await db.query("insert into organization_members(organization_id,user_id,role,status) values($1,$2,'OWNER','ACTIVE') on conflict do nothing",[org,owner]);
  const call=(action,details={})=>value('select subscription_bundle_requests($1,$2,$3::jsonb) value',[org,action,JSON.stringify(details)]);
@@ -42,7 +46,7 @@ export async function bundles({db,check,owner,session,load}){
   await call('cancel',{id:request.id,revision:request.revision});
   await assert.rejects(call('submit',payload()),/MODULE_CONFLICT/);modules=await catalog();
  });
- await check('dependency cycles, invalid currency combinations and missing foundation are rejected',async()=>{
+ await check('dependency cycles and missing foundation are rejected',async()=>{
   const m=modules.find(m=>m.key==='assets');
   await assert.rejects(value('select owner_save_bundle_module($1::jsonb,$2) value',[JSON.stringify({...m,requires:['budgets']}),'Reject dependency cycle']),/MODULE_DEPENDENCY_INVALID/);
   await assert.rejects(call('submit',{...payload(),modules:[{key:'budgets',revision:1}]}),/MODULE_DEPENDENCY_INVALID/);
