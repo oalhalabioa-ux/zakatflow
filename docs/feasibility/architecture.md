@@ -80,3 +80,10 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - The cloud document Zod schema is strict: clients may not submit arbitrary extra accounting/owner fields inside a study. Server assigns `owner_user_id`; user ID is never accepted from a payload.
 - An imported JSON backup clears any previously remembered cloud revision token, so a stale backup cannot overwrite an already synchronized study without a cloud restore and explicit review. The cloud API rejects duplicate IDs with HTTP 409 and rejects stale revision updates.
 - Authenticated / same-origin / RLS / conflict boundary checks have automated API tests, but **live authenticated browser QA on the Financial Core V2 deployment is still required**.
+
+## Independent, user-scoped QA V2 entitlement — 9 November 2026
+
+- QA-only Supabase migration version `20261109105303` created `public.feasibility_access_grants`; the full applied schema is documented in `docs/feasibility/qa-v2-access-grants-schema.sql` OUTSIDE canonical Production migration history.
+- An authenticated user's Feasibility access is **independent of any organization**. It grants no accounting, banking, assets, journal or Financial Core V1 privileges. Users have owner-only RLS read; authenticated clients have NO insert/update/delete privilege on licence grants.
+- The feasibility page and QA cloud API fail closed if no valid grant exists. Within the time window, `TRIAL` and `ACTIVE` can edit; expired, suspended, cancelled and `READ_ONLY` grant read/export but prevent writes. QA feature gates still default OFF.
+- No customer entitlement was activated by this migration and no payment or subscription was charged. Further work: reviewed admin entitlement write workflow, standalone pricing and activation UI, audit/renewal, collaborators/seats and browser acceptance on the V2 deployment.

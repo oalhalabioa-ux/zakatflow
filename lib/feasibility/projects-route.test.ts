@@ -24,10 +24,14 @@ function mockData(){
   single:vi.fn().mockResolvedValue({data:{id:studyId,revision:1},error:null}),
   maybeSingle:vi.fn().mockResolvedValue({data:null,error:null})
  };
- const from=vi.fn().mockReturnValue(q);
+ const entitlement={
+  select:vi.fn().mockReturnThis(),eq:vi.fn().mockReturnThis(),
+  maybeSingle:vi.fn().mockResolvedValue({data:{status:'TRIAL',starts_at:'2026-11-01T00:00:00Z',ends_at:'2099-01-01T00:00:00Z'},error:null})
+ };
+ const from=vi.fn((table:string)=>table==='feasibility_access_grants'?entitlement:q);
  const getUser=vi.fn().mockResolvedValue({data:{user:{id:owner}},error:null});
  mocks.supabaseServer.mockResolvedValue({from,auth:{getUser}});
- return {q,from,getUser};
+ return {q,from,getUser,entitlement};
 }
 beforeEach(()=>{
  vi.resetAllMocks();
@@ -59,6 +63,17 @@ describe('QA V2 feasibility cloud route',()=>{
   expect(res.status).toBe(200);
   expect(from).toHaveBeenCalledWith('feasibility_projects');
   expect(q.eq).toHaveBeenCalledWith('owner_user_id',owner);
+ });
+ it('rejects absent licence even when a user is signed in',async()=>{
+  const {entitlement,q}=mockData();entitlement.maybeSingle.mockResolvedValueOnce({data:null,error:null});
+  expect((await GET()).status).toBe(403);expect(q.limit).not.toHaveBeenCalled();
+ });
+ it('allows expired licence to read/export but rejects saving',async()=>{
+  const {entitlement,q}=mockData();
+  entitlement.maybeSingle.mockResolvedValue({data:{status:'TRIAL',starts_at:'2026-10-01T00:00:00Z',ends_at:'2026-11-01T00:00:00Z'},error:null});
+  expect((await GET()).status).toBe(200);
+  expect((await POST(request('POST',{study:createStudy(studyId,'Draft')}))).status).toBe(403);
+  expect(q.insert).not.toHaveBeenCalled();
  });
  it('rejects cross-origin mutations before authentication',async()=>{
   mocks.isSameOriginRequest.mockReturnValue(false);

@@ -45,7 +45,7 @@ function Info({label,value,sub}:{label:string;value:string;sub?:string}){
 function SelectField<T extends string>({label,value,items,onChange}:{label:string;value:T;items:Array<{value:T;label:string}>;onChange:(value:T)=>void}){
  return <label className="fs-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.currentTarget.value as T)}>{items.map(x=><option value={x.value} key={x.value}>{x.label}</option>)}</select></label>;
 }
-export default function FeasibilityWorkspace({locale,userId}:{locale:string;userId:string}){
+export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{locale:string;userId:string;readOnly?:boolean}){
  const ar=locale==='ar', storageKey='yaqeen-feasibility-drafts-v1:'+userId;
  const [loaded,setLoaded]=useState(false);
  const [studies,setStudies]=useState<FeasibilityStudy[]>([]);
@@ -74,7 +74,7 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const money=(v:number|null|undefined,d=0)=>v==null||!Number.isFinite(v)?'—':fmt(v,d)+' '+(study?.currency??'');
  // Handoff review follows the source study revision; editing any study assumption invalidates it.
- const update=(patch:Partial<FeasibilityStudy>)=>setStudies(prev=>prev.map(p=>p.id===selectedId?{...p,...patch,updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()}:p));
+ const update=(patch:Partial<FeasibilityStudy>)=>{if(readOnly)return;setStudies(prev=>prev.map(p=>p.id===selectedId?{...p,...patch,updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()}:p));};
  const setNum=(key:keyof FeasibilityStudy)=>(v:number)=>update({[key]:v} as Partial<FeasibilityStudy>);
  const download=()=>{
   const blob=new Blob([JSON.stringify({schema:'YAQEEN_FEASIBILITY_DRAFT_V1',exportedAt:new Date().toISOString(),studies},null,2)],{type:'application/json'});
@@ -98,7 +98,7 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
   finally{setCloudBusy(false)}
  };
  const saveCloud=async()=>{
-  if(cloudBusy||!study)return;
+  if(readOnly||cloudBusy||!study)return;
   setCloudBusy(true);
   try{
    const revision=cloudRevisions[study.id];
@@ -118,6 +118,7 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
   finally{setCloudBusy(false)}
  };
  const importBackup=async(e:ChangeEvent<HTMLInputElement>)=>{
+  if(readOnly)return;
   const file=e.currentTarget.files?.[0];if(!file)return;
   try{
    if(file.size>2_000_000)throw new Error('large');
@@ -135,12 +136,13 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
   e.currentTarget.value='';
  };
  const create=()=>{
+  if(readOnly)return;
   const title=projectName.trim();if(!title)return;
   const next=createStudy(uid(),title,newSector);
   setStudies(p=>[next,...p]);setSelectedId(next.id);setProjectName('');setTab('profile');
  };
  const remove=()=>{
-  if(!study||!window.confirm(txt(ar,'حذف مسودة هذا المشروع من هذا المتصفح فقط؟','Delete this local draft from this browser only?')))return;
+  if(readOnly||!study||!window.confirm(txt(ar,'حذف مسودة هذا المشروع من هذا المتصفح فقط؟','Delete this local draft from this browser only?')))return;
   setStudies(p=>p.filter(s=>s.id!==study.id));setSelectedId(studies.find(x=>x.id!==study.id)?.id||'');
  };
  const choices=<>
@@ -151,11 +153,11 @@ export default function FeasibilityWorkspace({locale,userId}:{locale:string;user
  const taskDone=study?.tasks.filter(x=>x.status==='DONE').length??0;
  return <main className="container fs-page" dir={ar?'rtl':'ltr'}>
   <header className="fs-head"><div><span className="fs-eyebrow">YAQEEN BUSINESS / FEASIBILITY</span><h1>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
-   <div className="fs-actions"><Button secondary onClick={download} disabled={!studies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup}/></label><Button secondary onClick={()=>window.print()} disabled={!study}>{txt(ar,'طباعة الدراسة','Print study')}</Button>{cloudEnabled&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>
+   <div className="fs-actions"><Button secondary onClick={download} disabled={!studies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly}/></label><Button secondary onClick={()=>window.print()} disabled={!study}>{txt(ar,'طباعة الدراسة','Print study')}</Button>{cloudEnabled&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={readOnly||!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>
   </header>
-  <p className="fs-warning" role="status">{cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
+  <p className="fs-warning" role="status">{readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')}>×</button></p>}
-  <section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>setNewSector(e.currentTarget.value as Sector)} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select><Button onClick={create} disabled={!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>
+  <section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>setNewSector(e.currentTarget.value as Sector)} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select><Button onClick={create} disabled={readOnly||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>
   <div className="fs-portfolio">{studies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===selectedId?' fs-project-pill--active':'')} aria-pressed={p.id===selectedId} onClick={()=>{setSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
   {!loaded?<p>{txt(ar,'جاري تحميل المسودات…','Loading drafts…')}</p>:!study?<section className="card fs-empty"><h2>{txt(ar,'ابدأ بأول مشروع','Start your first project')}</h2><p>{txt(ar,'ادخل اسم المشروع ونوعه. تبدأ الأرقام بصفر لتجنب عرض نتائج افتراضية على أنها دراسة حقيقية.','Enter a project name and sector. All figures start at zero to avoid implying a real feasibility result.')}</p></section>:<>
    <div className="fs-subhead"><div><h2>{study.title}</h2><small>{study.country}{study.region?' · '+study.region:''} · {study.currency} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div><Button secondary onClick={remove}>{txt(ar,'حذف المسودة','Delete draft')}</Button></div>
