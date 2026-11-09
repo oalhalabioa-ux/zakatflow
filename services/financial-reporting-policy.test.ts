@@ -8,7 +8,7 @@ beforeEach(()=>{
  vi.clearAllMocks();f.policy=null;f.classifications=[];f.canSave=true;f.canSeed=true;f.saveError=null;
  f.requireUser.mockResolvedValue({user:{id:'owner'},supabase:{rpc:f.rpc,from:f.from}});
  f.rpc.mockImplementation(async(name,args)=>{
-  if(name==='financial_reporting_policy_workspace')return {data:{organizationId:args.p_org,fiscalStart:args.p_fiscal_start,policy:f.policy,events:[],chart:['1000','1100','1400','1500','1590','1600','2100','2300','4100','6100','6200','8100'].map(code=>({id:code,code,cash:code==='1000'})),canSave:f.canSave},error:null};
+  if(name==='financial_reporting_policy_workspace')return {data:{organizationId:args.p_org,fiscalStart:args.p_fiscal_start,policy:f.policy,events:[],chart:['1000','1100','1400','1500','1590','1600','2100','2300','4100','6100','6200','8100'].map(code=>({id:code,code,cash:code==='1000'})),canSave:f.canSave,canApprove:true},error:null};
   if(name==='prepare_financial_account_rule_links')return {data:{addedRules:0},error:null};
   if(name==='effective_organization_permission')return {data:f.canSeed,error:null};
   if(name==='save_financial_reporting_policy'){
@@ -78,5 +78,33 @@ describe('operating expense classification management',()=>{
   f.canSeed=false;
   await expect(writeReportingPolicy(command)).rejects.toThrow('REPORTING_ACCESS_DENIED');
   expect(f.insert).not.toHaveBeenCalled();
+ });
+});
+
+
+describe('batch default activation',()=>{
+ it('requires approval rights before provisioning or writing',async()=>{
+  f.canSave=false;
+  await expect(writeReportingPolicy({action:'activate-defaults',...scope})).rejects.toThrow('REPORTING_APPROVE_DENIED');
+  expect(f.rpc.mock.calls.some(([n])=>n==='prepare_financial_posting_defaults')).toBe(false);
+ });
+ it('rejects browser-supplied mappings on the automatic endpoint',async()=>{
+  await expect(writeReportingPolicy({action:'activate-defaults',...scope,rules:[]})).rejects.toThrow();
+  expect(f.rpc).not.toHaveBeenCalled();
+ });
+ it('provisions tenant roles and delegates batch save/approval to the atomic RPC',async()=>{
+  const original=f.rpc.getMockImplementation()!;
+  const roots=['1000','1100','1200','1300','1400','1500','1590','1600','2100','2200','2300','2400','4100','6100','6200','7100','8100'];
+  const roles=Object.fromEntries(roots.filter(r=>r!=='1000').map(r=>[r,r+'01']));
+  f.rpc.mockImplementation(async(name,args)=>{
+   if(name==='prepare_financial_posting_defaults')return {data:roles,error:null};
+   if(name==='activate_financial_posting_defaults')return {data:{status:'APPROVED'},error:null};
+   const result=await original(name,args);
+   if(name==='financial_reporting_policy_workspace')result.data.chart=roots.flatMap(code=>[{id:code,code,reportingCode:code,cash:code==='1000'},...(code==='1000'?[]:[{id:code+'01',code:code+'01',reportingCode:code,cash:false}])]);
+   return result;
+  });
+  await writeReportingPolicy({action:'activate-defaults',...scope});
+  expect(f.rpc).toHaveBeenCalledWith('activate_financial_posting_defaults',expect.objectContaining({p_org:org,p_fiscal_start:scope.fiscalStart,p_policy_id:null,p_expected_version:0,p_rules:expect.arrayContaining([expect.objectContaining({detailed:true,debitAccountId:'110001',creditAccountId:'410001'})])}));
+  expect(f.rpc.mock.calls.some(([n])=>n==='approve_financial_reporting_policy')).toBe(false);
  });
 });

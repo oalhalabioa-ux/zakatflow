@@ -28,6 +28,8 @@ on:
       - 'scripts/financial-reports/verify-debt-opening-category.mjs'
       - 'scripts/financial-reports/verify-native-debt-reversal.mjs'
       - 'tests/qa-native-*-reversal*.sql'
+      - 'tests/qa-ready-posting-defaults.sql'
+      - 'scripts/financial-reports/verify-ready-posting-defaults.mjs'
       - 'tests/qa-financial-opening*.sql'
       - 'tests/qa-financial-first-activity-snapshot.sql'
       - 'tests/qa-financial-production-*.sql'
@@ -60,6 +62,8 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/posting-tools" --no-save --package-lock=false @electric-sql/pglite@0.3.14
           echo "FISCAL_POSTGRES_TEST_MODULE=$RUNNER_TEMP/posting-tools/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
+      - name: Verify ready defaults and atomic activation
+        run: node scripts/financial-reports/verify-ready-posting-defaults.mjs
       - name: Verify native asset lifecycle and tenant access
         run: node scripts/financial-reports/verify-asset-lifecycle-roles.mjs
       - name: Verify native debt creation roles
@@ -222,13 +226,16 @@ jobs:
                             '20261109181035_debt_principal_source_roles.sql',
                             '20261109183825_debt_refund_and_schedule_posting.sql',
                             '20261109185816_debt_opening_category_routing.sql',
-                            '20261109201129_native_debt_reversal_components.sql'):
+                            '20261109201129_native_debt_reversal_components.sql',
+                            '20261109205527_ready_posting_defaults.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
         run: npx --yes supabase@2.122.0 start --workdir "$OPENING_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/opening-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/opening-start.log"; exit 1; }
       - name: Upgrade existing approved legacy fixtures without changing their records or statements
         run: node scripts/financial-reports/verify-fiscal-upgrade.mjs
+      - name: Verify real organization default activation and automatic child rules
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-ready-posting-defaults.sql
       - name: Verify native borrowing and lending reversals with immediate capture
         run: |
           docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-native-debt-reversal-blocker.sql

@@ -16,10 +16,11 @@ export const postingRuleKey=(r:Pick<DefaultPostingRule,'eventType'|'sourceModule
 /** Draft proposals only. Uses the tenant's authorized posting chart and real
  * classifications. Never changes vouchers, amounts, policy approval or balances.
  * Custom source modules/complex allocations require explicit user mappings. */
-export function defaultPostingRules(classifications:readonly PostingClassification[],chart:readonly DefaultPostingAccount[],events:readonly RecognitionEvent[]=[],existing:readonly DefaultPostingRule[]=[]){
+export function defaultPostingRules(classifications:readonly PostingClassification[],chart:readonly DefaultPostingAccount[],events:readonly RecognitionEvent[]=[],existing:readonly DefaultPostingRule[]=[],roles:Readonly<Record<string,string>>={}){
  const accounts=chart.filter(a=>a.isActive!==false&&a.isPostable!==false);
  function account(control:string){
   if(!control)return '';
+  if(roles[control])return accounts.find(a=>a.id===roles[control])?.id??'';
   const exact=accounts.find(a=>a.code===control);
   if(control.length>4)return exact?.id??'';
   const leaves=accounts.filter(a=>a.code!==control&&(a.reportingCode?a.reportingCode===control:a.code.startsWith(control)));
@@ -52,7 +53,7 @@ export function defaultPostingRules(classifications:readonly PostingClassificati
   }
   if(c.code==='DEBT_PRINCIPAL_ASSET'&&type==='ASSET'){
    add(c,'ADJUSTMENT','DEBT_CONTRACTS','DEBT_FUNDED_O_AR_LOAN','OUTFLOW','1200','1000','INVESTING');
-   add(c,'ADJUSTMENT','DEBT_CONTRACTS','DEBT_FUNDED_O_AR_EMPLOYEE','OUTFLOW','1100','1000','OPERATING');continue;
+   add(c,'ADJUSTMENT','DEBT_CONTRACTS','DEBT_FUNDED_O_AR_EMPLOYEE','OUTFLOW',roles.EMPLOYEE?'EMPLOYEE':'1100','1000','OPERATING');continue;
   }
   if(c.code==='DEBT_PRINCIPAL_LIABILITY'&&type==='LIABILITY'){
    add(c,'ADJUSTMENT','DEBT_CONTRACTS','DEBT_FUNDED_O_AP_LOAN','INFLOW','1000','2200','FINANCING');continue;

@@ -81,3 +81,5 @@
 }
 
 .fiscal-source-assignment{min-width:0}.fiscal-source-assignment .fs-filter-strip{flex-wrap:wrap}.fiscal-source-assignment .fs-filter-strip label{display:grid;gap:4px;min-width:0;flex:1 1 200px}.fiscal-source-assignment :is(select,input){width:100%;max-width:100%;min-width:0}.fiscal-source-assignment details{min-width:0}
+
+.fs-surface .fs-default-activate{margin-block-start:10px;padding:9px 16px;border:1px solid #205347;border-radius:8px;background:#205347;color:#fff;font-weight:700;max-width:100%;white-space:normal}

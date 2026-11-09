@@ -1921,6 +1921,14 @@
       "expected_md5": "086c8e23a44e1f38248e9ef14ec0924e",
       "file_sha256": "d0cdb187ab0859869dd57d649bfe805547035b4682279fcef29355e5d31f6a74",
       "validation_project": "QA V2 native borrowing/lending reversal with immediate constraints, original accounts, later-window reporting and replay; isolated multipart and amount-limit checks"
+    },
+    {
+      "path": "supabase/migrations/20261109205527_ready_posting_defaults.sql",
+      "version": "20261109205527",
+      "name": "ready_posting_defaults",
+      "expected_md5": "d3673998ad987ec9e98306ee9e8870dc",
+      "file_sha256": "31aaaeb73dc5f28ebb88c2d9fe05eaaaeac83c754ed67fe3e43e0e05ad0433d1",
+      "validation_project": "QA V2 real RPC rollback: role reuse, batch approval, automatic revenue/expense account rules, pending manual drafts and tenant denial; isolated atomic failure/revision checks"
     }
   ]
 }

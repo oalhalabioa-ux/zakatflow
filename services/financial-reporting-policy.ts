@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {readyPostingDefaults,type PostingAccountRoles} from '../lib/financial-ready-posting-defaults';
 import {accountLinkCoverage} from '../lib/financial-account-link-coverage';
 import {requireUser} from './auth';
 import {assertLiveStatements} from './financial-statement-live';
@@ -9,6 +10,7 @@ import type {RecognitionEvent} from '../lib/financial-event-ledger';
 const text=z.string().min(1).max(300);
 const rule=z.object({detailed:z.literal(true).optional(),eventType:text,sourceModule:text,classificationId:text,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),debitAccountId:text,creditAccountId:text,cashActivity:z.enum(['OPERATING','INVESTING','FINANCING']).optional()}).strict();
 const command=z.discriminatedUnion('action',[
+ z.object({action:z.literal('activate-defaults'),...openingScope.shape}).strict(),
  z.object({action:z.literal('create-expense-classification'),...openingScope.shape,
   code:z.string().trim().regex(/^OPEX_[A-Z0-9_]{1,45}$/),name:z.string().trim().min(1).max(160)}).strict(),
  z.object({action:z.literal('synchronize-accounts'),...openingScope.shape}).strict(),
@@ -25,11 +27,13 @@ export async function readReportingPolicy(input:unknown){
    .eq('organization_id',q.organization).eq('fiscal_start',q.fiscalStart)
    .eq('status','APPROVED').order('version',{ascending:false}).limit(1),
  ]);
- const result=unwrap(workspace) as {organizationId:string;fiscalStart:string;policy:{status:string;version:number;rules:DefaultPostingRule[]}|null;events:RecognitionEvent[];chart:DefaultPostingAccount[];canSave:boolean};
+ const result=unwrap(workspace) as {organizationId:string;fiscalStart:string;policy:{id:string;status:string;version:number;rules:DefaultPostingRule[]}|null;events:RecognitionEvent[];chart:DefaultPostingAccount[];canSave:boolean;canApprove:boolean};
  if(result.organizationId!==q.organization||result.fiscalStart!==q.fiscalStart)throw Error('REPORTING_SCOPE_INVALID');
  if(approved.error)throw Error('REPORTING_UNAVAILABLE');
  const classifications=unwrap(await supabase.from('financial_classifications').select('id,code,name,classification_type,active,is_system,metadata').eq('organization_id',q.organization).eq('active',true)) as PostingClassification[];
- const defaults=defaultPostingRules(classifications,result.chart,result.events,result.policy?.rules??[]);
+ const roleRows=unwrap(await supabase.from('financial_posting_account_roles').select('role,account_code').eq('organization_id',q.organization)) as {role:string;account_code:string}[];
+ const roles=Object.fromEntries(roleRows.map(r=>[r.role,r.account_code]));
+ const defaults=defaultPostingRules(classifications,result.chart,result.events,result.policy?.rules??[],roles);
  return {...result,classifications,approvedPolicy:approved.data?.[0]??null,defaults,accountLinkCoverage:accountLinkCoverage(result.chart,classifications,result.policy?.rules??[],defaults.rules)};
 }
 export async function writeReportingPolicy(input:unknown){
@@ -47,6 +51,32 @@ export async function writeReportingPolicy(input:unknown){
   }).select('id,code,name').single();
   if(result.error?.code==='23505')throw Error('REPORTING_CLASSIFICATION_DUPLICATE');
   return unwrap(result);
+ }
+
+ if(q.action==='activate-defaults'){
+  const scope={organization:q.organization,fiscalStart:q.fiscalStart};
+  let workspace=await readReportingPolicy(scope);
+  if(!workspace.canSave||!workspace.canApprove)throw Error('REPORTING_APPROVE_DENIED');
+  // Provision once, per organization. Source parties are never chart accounts.
+  const roles=unwrap(await supabase.rpc('prepare_financial_posting_defaults',{
+   p_org:q.organization,p_fiscal_start:q.fiscalStart,
+  })) as PostingAccountRoles;
+  if(POSTING_BASE_CLASSIFICATIONS.some(([code])=>!workspace.classifications.some(c=>c.code===code))){
+   const allowed=unwrap(await supabase.rpc('effective_organization_permission',{p_org:q.organization,p_permission:'organization.edit',p_amount:null,p_currency:null}));
+   if(!allowed)throw Error('REPORTING_CLASSIFICATIONS_REQUIRED');
+   unwrap(await supabase.from('financial_classifications').upsert(POSTING_BASE_CLASSIFICATIONS.map(([code,name])=>({organization_id:q.organization,code,name,classification_type:code,is_system:false,created_by:user.id})),{onConflict:'organization_id,code',ignoreDuplicates:true}));
+  }
+  unwrap(await supabase.rpc('prepare_financial_account_rule_links',{p_org:q.organization}));
+  workspace=await readReportingPolicy(scope);
+  const prepared=readyPostingDefaults(workspace.classifications,workspace.chart,workspace.events,workspace.policy?.rules??[],roles);
+  if(prepared.issue)throw Error(prepared.issue);
+  // No arbitrary event signatures are accepted from the browser. Approval's
+  // existing source-coverage and historical-resolution gates still apply.
+  unwrap(await supabase.rpc('activate_financial_posting_defaults',{
+   p_org:q.organization,p_fiscal_start:q.fiscalStart,p_policy_id:workspace.policy?.id??null,
+   p_expected_version:workspace.policy?.version??0,p_rules:prepared.rules,
+  }));
+  return readReportingPolicy(scope);
  }
 
  if(q.action==='synchronize-accounts'){

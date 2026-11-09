@@ -66,3 +66,14 @@ default-cycle browser check exposed a nondeterministic fixture selector: selecti
 the first OPEX by type could select an inherited child rather than canonical OPEX.
 The fixture now selects the exact canonical code and retains all accounting
 assertions. Extended financing/advance rollback checks are included in CI.
+
+
+## Final QA release verification — 2026-11-09
+
+- Remote commit: `161ff57a6143ee7fac13221e21a4b6a61d472e77` (local equivalent `e5d4e70`, tree `e3275925cb21eab68f284632e54b352af5ec42b8`).
+- All eight GitHub workflows passed: full-schema opening cycle, canonical migrations, quality, native settings UI, asset integration, authentication, financial reporting sources, subscription trials.
+- Full-schema run `42693159097`: all four jobs passed, including native borrowing/lending/finance/advance SQL, complete browser cycle, report/export reconciliation and fiscal close reconciliation.
+- QA deployment `dpl_8LGTiRGTjhZRe1zRRPdfbYvTbtQ4` READY; target preview, QA project only.
+- Existing stable alias assigned to this deployment: https://yaqeen-financial-core-v2-qa-oalhalabioa-9334.vercel.app . Arabic login returned HTTP 200 after assignment.
+- Native accounting acceptance ran with immediate constraints and rolled back all synthetic data. Browser acceptance ran against disposable CI databases; post-deploy smoke confirms reachability, not another authenticated accounting run on the hosted preview.
+- Production, main and Hostinger unchanged. No production merge was performed.
