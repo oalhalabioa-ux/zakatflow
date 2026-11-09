@@ -57,12 +57,13 @@ describe('QA V2 feasibility cloud route',()=>{
   expect(res.status).toBe(401);
   expect(res.headers.get('Cache-Control')).toBe('private, no-store');
  });
- it('reads only rows scoped to the authenticated user',async()=>{
+ it('lists only RLS-authorized studies, including accepted shared projects',async()=>{
   const {q,from}=mockData();
   const res=await GET();
   expect(res.status).toBe(200);
   expect(from).toHaveBeenCalledWith('feasibility_projects');
-  expect(q.eq).toHaveBeenCalledWith('owner_user_id',owner);
+  expect(q.select).toHaveBeenCalledWith('id,title,revision,updated_at,study,owner_user_id');
+  expect(q.eq).not.toHaveBeenCalledWith('owner_user_id',owner);
  });
  it('rejects absent licence even when a user is signed in',async()=>{
   const {entitlement,q}=mockData();entitlement.maybeSingle.mockResolvedValueOnce({data:null,error:null});
