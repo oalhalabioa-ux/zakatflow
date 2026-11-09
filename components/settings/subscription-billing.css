@@ -150,10 +150,15 @@
 }
 .yb-billing button:disabled { opacity: .65; cursor: not-allowed; }
 .billing-record-details { display: grid; grid-template-columns: minmax(0,3fr) minmax(0,1fr); gap: 13px; }
-.billing-request-status { align-content: start; border-color: #c6a35d; }
+.billing-request-status { align-content: start; border-color: #c6a35d; background: #faf6ed; }
 .billing-request-status .yb-notice { text-align: center; }
 .yb-table-wrap :is(th,td) { text-align: center; }
 .yb-table-wrap table { font-size: .9rem; }
+.corp-shell .corp-content .yb-billing .yb-table-wrap table > thead > tr > th {
+  background: #10243a !important;
+  color: #f5ebd6 !important;
+  border-color: #273c50 !important;
+}
 .yb-billing :is(.billing-activation-form,.billing-identity-form) { display: grid; gap: 12px; min-width: 0; }
 .yb-billing :is(.billing-activation-form,.billing-identity-form) fieldset { display: grid; gap: 11px; min-width: 0; padding: 0; border: 0; margin: 0; }
 .billing-activation-form fieldset { grid-template-columns: repeat(4,minmax(0,1fr)); }

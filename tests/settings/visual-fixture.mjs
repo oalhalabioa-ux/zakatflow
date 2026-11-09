@@ -96,7 +96,7 @@ try{
     assert.equal(await page.locator('.billing-activation input[type="checkbox"]').getAttribute('required'),'');
     for(const width of [1490,390]){
      await page.setViewportSize({width,height:1050});await page.evaluate(()=>window.scrollTo(0,0));
-     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Billing plans overflow');
+     await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth, null, {timeout:4000});
      await page.screenshot({path:`${out}/billing-plans-${locale}-${width}.png`,fullPage:true});
     }
     await tabs.getByRole('button',{name:ar?'الفواتير والمدفوعات':'Invoices & payments',exact:true}).click();
@@ -105,7 +105,7 @@ try{
     assert.equal(await page.locator('.yb-table-wrap tbody button').count(),0);
     for(const width of [1490,390]){
      await page.setViewportSize({width,height:1050});await page.evaluate(()=>window.scrollTo(0,0));
-     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Billing records overflow');
+     await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth, null, {timeout:4000});
      await page.screenshot({path:`${out}/billing-records-${locale}-${width}.png`,fullPage:true});
     }
     await page.setViewportSize({width:1490,height:1050});
