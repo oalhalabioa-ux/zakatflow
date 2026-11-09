@@ -1,5 +1,6 @@
 'use client';
 
+import {ASSET_LIFECYCLE_POSTING_TEMPLATES} from '../../lib/financial-asset-posting-templates';
 import {useEffect,useState} from 'react';
 import type {RecognitionEvent} from '../../lib/financial-event-ledger';
 import {
@@ -15,6 +16,12 @@ export type EditablePostingRule=PostingRuleForValidation&{
 type Account=DetailedPostingChartAccount&{code:string;ar:string;en:string};
 type Voucher=RecognitionEvent&{voucherCashAccount?:string|null};
 const labels:Record<string,[string,string]>={
+ ...Object.fromEntries(ASSET_LIFECYCLE_POSTING_TEMPLATES.map(t=>[t.role,[t.ar,t.en] as [string,string]])),
+ FINANCE_PRINCIPAL_PAYMENT:['سداد / تحصيل أصل التمويل','Financing principal settlement'],FINANCE_CHARGE_PAYMENT:['سداد / تحصيل تكلفة أو عائد التمويل','Financing charge or return settlement'],
+ DEBT_CONTRACTS:['القروض والذمم','Loans and obligations'],DEBT_FUNDED_O_AR_LOAN:['صرف قرض ممنوح','Fund a loan receivable'],DEBT_FUNDED_O_AP_LOAN:['قبض تمويل قرض','Receive loan funding'],DEBT_FUNDED_O_AR_EMPLOYEE:['صرف سلفة موظف','Fund an employee advance'],
+ ADVANCE_WORKSPACE:['الدفعات المقدمة','Advances'],FINANCE_CONTRACTS:['تكاليف وعوائد التمويل','Financing charges and returns'],
+ ASSETS_INTEGRATION:['اقتناء الأصول','Asset acquisition'],
+ ASSET_LIFECYCLE:['دورة الأصول','Asset lifecycle'],ADJUSTMENT:['تسوية محاسبية','Accounting adjustment'],ASSET_PURCHASE:['شراء أصل','Asset purchase'],
  OPERATIONAL_CONSOLE:['العمليات','Operations'],VAT_INTEGRATION:['الضريبة','Tax'],
  LEGACY_CASH:['السيولة','Liquidity'],LEGACY_ASSET:['الأصول','Assets'],
  REVENUE:['إثبات إيراد','Recognize revenue'],EXPENSE:['إثبات مصروف','Recognize expense'],

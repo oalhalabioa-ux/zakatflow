@@ -24,7 +24,16 @@ const migrations=[
  '20261109090210_fiscal_setup_policy_unlock.sql',
  '20261109101216_detailed_posting_routing.sql',
  '20261109123942_liquidity_expense_classification_link.sql',
- '20261109130118_preserve_manual_payment_posting.sql'
+ '20261109130118_preserve_manual_payment_posting.sql',
+ '20261109141140_automatic_expense_account_setup.sql',
+ '20261109151753_automatic_account_rule_inheritance.sql',
+ '20261109170336_asset_lifecycle_posting_roles.sql',
+ '20261109171915_preserve_native_asset_settlement.sql',
+ '20261109175809_preserve_advance_application_accounts.sql',
+ '20261109180032_finance_installment_posting_parts.sql',
+ '20261109181035_debt_principal_source_roles.sql',
+ '20261109183825_debt_refund_and_schedule_posting.sql',
+ '20261109185816_debt_opening_category_routing.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});

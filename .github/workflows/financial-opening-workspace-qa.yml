@@ -22,6 +22,10 @@ on:
       - 'services/financial-*.ts'
       - 'lib/financial-*.ts'
       - 'scripts/financial-reports/*opening*'
+      - 'scripts/financial-reports/verify-asset-lifecycle-roles.mjs'
+      - 'scripts/financial-reports/verify-detailed-posting-routing.mjs'
+      - 'scripts/financial-reports/verify-debt-principal-roles.mjs'
+      - 'scripts/financial-reports/verify-debt-opening-category.mjs'
       - 'tests/qa-financial-opening*.sql'
       - 'tests/qa-financial-first-activity-snapshot.sql'
       - 'tests/qa-financial-production-*.sql'
@@ -30,6 +34,8 @@ on:
       - 'tests/qa-organization-settings.sql'
       - 'tests/qa-financial-chart-accounts.sql'
       - 'tests/qa-financial-chart-posting-rules.sql'
+      - 'tests/qa-financial-account-rule-inheritance.sql'
+      - 'tests/qa-financial-asset-posting-roles.sql'
       - 'tests/qa-financial-chart-opening-leaf.sql'
       - 'tests/qa-financial-retained-snapshot-leaf.sql'
       - 'tests/qa-financial-policy-coverage.sql'
@@ -38,6 +44,28 @@ on:
 permissions:
   contents: read
 jobs:
+  isolated-asset-posting-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install isolated PostgreSQL replay runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/posting-tools" --no-save --package-lock=false @electric-sql/pglite@0.3.14
+          echo "FISCAL_POSTGRES_TEST_MODULE=$RUNNER_TEMP/posting-tools/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
+      - name: Verify native asset lifecycle and tenant access
+        run: node scripts/financial-reports/verify-asset-lifecycle-roles.mjs
+      - name: Verify native debt creation roles
+        run: node scripts/financial-reports/verify-debt-principal-roles.mjs
+      - name: Verify debt opening category routing
+        run: node scripts/financial-reports/verify-debt-opening-category.mjs
+      - name: Verify native and manual settlement history
+        run: node scripts/financial-reports/verify-detailed-posting-routing.mjs
   production-full-schema-parity:
     # Applies ALL canonical migrations to a disposable local database. Nothing
     # is read from or written to any hosted Supabase project.
@@ -69,6 +97,10 @@ jobs:
           PY
       - name: Apply all migrations, including formerly excluded fiscal and branch migrations
         run: npx --yes supabase@2.122.0 start --workdir "$PARITY_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/financial-parity-start.log" 2>&1 || { tail -80 "$RUNNER_TEMP/financial-parity-start.log"; exit 1; }
+      - name: Verify automatic child rules through real chart and policy commands
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-account-rule-inheritance.sql
+      - name: Verify lifecycle roles through native creation approval and posting
+        run: docker exec -i supabase_db_financial-parity-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-asset-posting-roles.sql
       - name: Probe read-only hosted readiness SQL against complete disposable schema
         run: |
           EVIDENCE="$(docker exec -i supabase_db_financial-parity-qa psql -X -q -A -t -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-hosted-readiness.sql)"
@@ -176,7 +208,16 @@ jobs:
                             '20261109090210_fiscal_setup_policy_unlock.sql',
                             '20261109101216_detailed_posting_routing.sql',
                             '20261109123942_liquidity_expense_classification_link.sql',
-                            '20261109130118_preserve_manual_payment_posting.sql'):
+                            '20261109130118_preserve_manual_payment_posting.sql',
+                            '20261109141140_automatic_expense_account_setup.sql',
+                            '20261109151753_automatic_account_rule_inheritance.sql',
+                            '20261109170336_asset_lifecycle_posting_roles.sql',
+                            '20261109171915_preserve_native_asset_settlement.sql',
+                            '20261109175809_preserve_advance_application_accounts.sql',
+                            '20261109180032_finance_installment_posting_parts.sql',
+                            '20261109181035_debt_principal_source_roles.sql',
+                            '20261109183825_debt_refund_and_schedule_posting.sql',
+                            '20261109185816_debt_opening_category_routing.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase

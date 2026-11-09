@@ -1842,6 +1842,77 @@
       "expected_md5": "64bd1b8272af75c0cd403fc5ed70c650",
       "file_sha256": "36f5322781f9b5231dadcecd500fa46e2748d5b0179cf4488fe4ebbbb339f3f5",
       "validation_project": "Disposable PostgreSQL/WASM fixture validation; hosted QA and Production pending"
+    },
+    {
+      "path": "supabase/migrations/20261109141140_automatic_expense_account_setup.sql",
+      "version": "20261109141140",
+      "name": "automatic_expense_account_setup",
+      "installed_md5": "30af4d3c4ed07f222f82c7413312ce94",
+      "file_sha256": "8556a632167518a21bda7e067f7279497646dfba84b6bf86e674b2f806a0be13"
+    },
+    {
+      "path": "supabase/migrations/20261109151753_automatic_account_rule_inheritance.sql",
+      "version": "20261109151753",
+      "name": "automatic_account_rule_inheritance",
+      "expected_md5": "bb80c3c7016cb1b8588381b069b74317",
+      "file_sha256": "6b3c3bef0249abd7bb6b429e4bb1a8403abfc14187c21441ed5b78d7647cbe34",
+      "validation_project": "Disposable PostgreSQL/WASM fixtures; hosted acceptance pending"
+    },
+    {
+      "path": "supabase/migrations/20261109170336_asset_lifecycle_posting_roles.sql",
+      "version": "20261109170336",
+      "name": "asset_lifecycle_posting_roles",
+      "expected_md5": "006e24e689757aafcb7148201402ab80",
+      "file_sha256": "a8945096986782ca296c2bb7f2285bf9345001ef1f2958631d6b30db0aee6f24",
+      "validation_project": "Isolated PostgreSQL/WASM; native full-schema acceptance registered, hosted execution pending"
+    },
+    {
+      "path": "supabase/migrations/20261109171915_preserve_native_asset_settlement.sql",
+      "version": "20261109171915",
+      "name": "preserve_native_asset_settlement",
+      "expected_md5": "d4077ad8fb982e5daaf968327c126d78",
+      "file_sha256": "62ae58f2429b1d77d7b5693a8c12d4a1b5bfad1eb1fe30a3d6727de01c3aae13",
+      "validation_project": "Isolated PostgreSQL/WASM settlement and rollback replay; full-schema hosted execution pending"
+    },
+    {
+      "path": "supabase/migrations/20261109175809_preserve_advance_application_accounts.sql",
+      "version": "20261109175809",
+      "name": "preserve_advance_application_accounts",
+      "expected_md5": "d6518e7eeb373650e29743bf6cacf4b3",
+      "file_sha256": "8f2685bd15b443bf2b7e4cd4ad49c75b5a1937a6d2c15c78bdb31c51d8677505",
+      "validation_project": "Disposable PostgreSQL/WASM capture replay; full-schema and hosted acceptance pending"
+    },
+    {
+      "path": "supabase/migrations/20261109180032_finance_installment_posting_parts.sql",
+      "version": "20261109180032",
+      "name": "finance_installment_posting_parts",
+      "expected_md5": "f61297c044dda0ab2dd3fcdd16fbbb35",
+      "file_sha256": "7f4b25bba1d26ba4ef5b054349ea5ffb1ffb072c534ada30a8d99fa148b57e18",
+      "validation_project": "Disposable PostgreSQL/WASM capture replay; full-schema and hosted acceptance pending"
+    },
+    {
+      "path": "supabase/migrations/20261109181035_debt_principal_source_roles.sql",
+      "version": "20261109181035",
+      "name": "debt_principal_source_roles",
+      "expected_md5": "30436bb2316108b32c53d0edb120a5fe",
+      "file_sha256": "e5929f21ec64a906d517991f9e656e29bf5d28517129fb15178091b59bf389ff",
+      "validation_project": "Actual debt creation in disposable PostgreSQL/WASM with permission/persistence adapters; hosted full-schema pending"
+    },
+    {
+      "path": "supabase/migrations/20261109183825_debt_refund_and_schedule_posting.sql",
+      "version": "20261109183825",
+      "name": "debt_refund_and_schedule_posting",
+      "expected_md5": "7a31cee33026f41d2eb8ed67fb44d96c",
+      "file_sha256": "f1fe47cc1c0fb0ef7a6790b59704eb0557f6608a12c5b19262c96ad235fa4c88",
+      "validation_project": "Actual prepare command plus PostgreSQL/WASM capture and normalizer replay with isolated adapters; full-schema/native posting and hosted acceptance pending"
+    },
+    {
+      "path": "supabase/migrations/20261109185816_debt_opening_category_routing.sql",
+      "version": "20261109185816",
+      "name": "debt_opening_category_routing",
+      "expected_md5": "84474e71b19186afaf47da6f7c11193c",
+      "file_sha256": "f39f0cd9a6318ff3aafd7926ebe8e1fa603ade80eb7afcf5c255df76d1cc9b54",
+      "validation_project": "PostgreSQL/WASM category execution and installed function patch/catalog replay; complete opening-cycle acceptance pending"
     }
   ]
 }

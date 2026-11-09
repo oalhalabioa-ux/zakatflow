@@ -29,7 +29,7 @@ let readinessGate=null,releaseReadiness;
 let fiscalLock=null;
 const fiscalCalendar={start_month:1,start_day:1,version:1,retained_earnings_account:'3300'};
 const legacyPostingPolicy={id:'legacy-policy',version:2,status:'APPROVED',reason:'Legacy empty approved policy',rules:[]};
-let postingPolicy=structuredClone(legacyPostingPolicy),postingInitializations=0;
+let postingPolicy=structuredClone(legacyPostingPolicy),postingInitializations=0,postingSynchronizations=0;
 const postingDefaults=[{eventType:'EXPENSE',sourceModule:'OPERATIONAL_CONSOLE',classificationId:'opex:BASE',cashDirection:'NON_CASH',debitAccountId:'610001',creditAccountId:'210001'},{eventType:'SETTLEMENT',sourceModule:'OPERATIONAL_CONSOLE',classificationId:'opex:BASE',cashDirection:'OUTFLOW',debitAccountId:'210001',creditAccountId:'1000',cashActivity:'OPERATING'}];
 const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/api/**',async route=>{
@@ -46,8 +46,9 @@ await page.route('**/api/**',async route=>{
  else if(u.pathname==='/api/financial-reporting/openings'&&u.searchParams.get('action')==='context')data=[{id:orgId,name:org.name,currentFiscalStart:'2026-01-01'},{id:otherId,name:other.name,currentFiscalStart:'2026-01-01'}];
  else if(u.pathname==='/api/financial-reporting/policy'){
   if(req.method()==='POST'&&body.action==='initialize-defaults'){postingInitializations++;if(!postingPolicy||(body.repairEmpty&&postingPolicy.rules.length===0))postingPolicy={id:'policy',version:1,status:'DRAFT',reason:'Default posting rules',rules:structuredClone(postingDefaults)};}
+  if(req.method()==='POST'&&body.action==='synchronize-accounts'){postingSynchronizations++;assert.equal(body.organization,orgId);assert.equal(body.fiscalStart,'2026-01-01');}
   if(req.method()==='POST'&&body.action==='save')postingPolicy={...postingPolicy,version:postingPolicy.version+1,rules:body.rules,reason:body.reason};
-  data={organizationId:orgId,fiscalStart:'2026-01-01',policy:postingPolicy,approvedPolicy:legacyPostingPolicy,canSave:true,canApprove:true,events:[],classifications:[{id:'opex',name:'مصروفات المؤسسة'}],chart:['1000','1500','2100','6100','610001','610002','210001'].map(code=>({id:code,code,ar:code,en:code,cash:code==='1000',...(code.length>4?{reportingCode:code.slice(0,4),isPostable:true}:{})})),defaults:{version:1,rules:postingDefaults.filter(r=>!postingPolicy?.rules.some(x=>JSON.stringify([x.eventType,x.sourceModule,x.classificationId,x.cashDirection])===JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]))),unresolved:[],testedRuleCount:0}};
+  data={organizationId:orgId,fiscalStart:'2026-01-01',policy:postingPolicy,accountLinkCoverage:[{accountCode:'159001',status:'NO_TEMPLATE'},{accountCode:'610001',status:'NEEDS_COMPLETION'}],approvedPolicy:legacyPostingPolicy,canSave:true,canApprove:true,events:[],classifications:[{id:'opex',name:'مصروفات المؤسسة'}],chart:['1000','1500','2100','6100','610001','610002','210001'].map(code=>({id:code,code,ar:code,en:code,cash:code==='1000',...(code.length>4?{reportingCode:code.slice(0,4),isPostable:true}:{})})),defaults:{version:1,rules:postingDefaults.filter(r=>!postingPolicy?.rules.some(x=>JSON.stringify([x.eventType,x.sourceModule,x.classificationId,x.cashDirection])===JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]))),unresolved:[],testedRuleCount:0}};
  }
  else if(u.pathname==='/api/financial-reporting/chart')data={organizationId:orgId,accounts:[{kind:'ASSET',isActive:true,isPostable:true},{kind:'EQUITY',isActive:true,isPostable:true}]};
  else if(u.pathname==='/api/debt-catalog')data={organizations:[org,other],entities:[],base_currency:'SAR',parties:[]};
@@ -133,6 +134,9 @@ try{
  await page.goto(`${app}/en/settings/system?organization=${orgId}`);const toggle=page.getByRole('switch',{name:'System notifications'});await toggle.waitFor();await toggle.uncheck();await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Your preferences were saved.',{exact:true}).waitFor();await page.reload();await toggle.waitFor();assert.equal(await toggle.isChecked(),false);checks.push('System preferences persisted after reload');
  for(const locale of locales){
   const ar=locale==='ar';await page.goto(`${app}/${locale}/settings/financial?organization=${orgId}`);await page.getByRole('button',{name:ar?'قواعد الترحيل':'Posting rules',exact:true}).first().click();await page.getByRole('region',{name:ar?'القواعد الافتراضية':'Default posting rules',exact:true}).waitFor();
+  await page.getByText(ar?'حسابات تحتاج قالب عملية مناسبًا':'Accounts requiring a source template',{exact:true}).waitFor();
+  await page.getByText(ar?'قواعد تحتاج استكمال الربط التفصيلي':'Rules requiring complete detail mapping',{exact:true}).waitFor();
+  const syncCount=postingSynchronizations;const syncing=page.waitForResponse(r=>r.url().includes('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='synchronize-accounts');await page.getByRole('button',{name:ar?'تحديث ربط الحسابات الفرعية':'Synchronize child account rules',exact:true}).click();assert.equal((await syncing).status(),200);assert.equal(postingSynchronizations,syncCount+1);
   const search=page.getByRole('searchbox',{name:ar?'بحث':'Search',exact:true});
   await search.fill('no-matching-rule-123');await page.getByText(ar?'لا توجد قواعد تطابق البحث':'No matching rules',{exact:true}).waitFor();await search.clear();
   const openRule=page.getByRole('button',{name:(ar?'فتح القاعدة':'Open rule')+' 1',exact:true});await openRule.click();
@@ -200,4 +204,4 @@ try{
 
  }
  assert.deepEqual(errors,[]);console.log(JSON.stringify({kind:'LOCAL_UI_FIXTURE_ONLY',checks,screenshots:out,errors},null,2));await writeFile(out+'/result.json',JSON.stringify({kind:'LOCAL_UI_FIXTURE_ONLY',checks,errors},null,2));
-}catch(error){await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});await writeFile(out+'/failure-state.txt',await page.locator('body').innerText().catch(()=>''));throw error;}finally{releaseReadiness?.();await browser.close();await new Promise(r=>auth.close(r));}
+}catch(error){await page.evaluate(()=>window.scrollTo(0,0)).catch(()=>{});await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});await writeFile(out+'/failure-state.txt',await page.locator('body').innerText().catch(()=>''));throw error;}finally{releaseReadiness?.();await browser.close();await new Promise(r=>auth.close(r));}

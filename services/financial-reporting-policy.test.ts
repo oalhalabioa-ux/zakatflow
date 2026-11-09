@@ -8,7 +8,8 @@ beforeEach(()=>{
  vi.clearAllMocks();f.policy=null;f.classifications=[];f.canSave=true;f.canSeed=true;f.saveError=null;
  f.requireUser.mockResolvedValue({user:{id:'owner'},supabase:{rpc:f.rpc,from:f.from}});
  f.rpc.mockImplementation(async(name,args)=>{
-  if(name==='financial_reporting_policy_workspace')return {data:{organizationId:args.p_org,fiscalStart:args.p_fiscal_start,policy:f.policy,events:[],chart:['1000','1100','1400','1500','1600','2100','2300','4100','6100','8100'].map(code=>({id:code,code,cash:code==='1000'})),canSave:f.canSave},error:null};
+  if(name==='financial_reporting_policy_workspace')return {data:{organizationId:args.p_org,fiscalStart:args.p_fiscal_start,policy:f.policy,events:[],chart:['1000','1100','1400','1500','1590','1600','2100','2300','4100','6100','6200','8100'].map(code=>({id:code,code,cash:code==='1000'})),canSave:f.canSave},error:null};
+  if(name==='prepare_financial_account_rule_links')return {data:{addedRules:0},error:null};
   if(name==='effective_organization_permission')return {data:f.canSeed,error:null};
   if(name==='save_financial_reporting_policy'){
    if(f.saveError){f.policy={status:'DRAFT',version:1,rules:[{manual:'winner'}]};return {data:null,error:f.saveError};}
@@ -41,7 +42,7 @@ describe('authorized default posting initialization',()=>{
  it('recovers an empty approved policy into an unapproved draft without updating or approving the original',async()=>{
   const approved={status:'APPROVED',version:2,rules:[]};f.policy=approved;
   const r=await writeReportingPolicy({action:'initialize-defaults',...scope,repairEmpty:true});
-  expect(r.policy?.status).toBe('DRAFT');expect(r.policy?.rules).toHaveLength(17);
+  expect(r.policy?.status).toBe('DRAFT');expect(r.policy?.rules).toHaveLength(32);
   expect(approved).toEqual({status:'APPROVED',version:2,rules:[]});
   expect(f.rpc).toHaveBeenCalledWith('save_financial_reporting_policy',expect.objectContaining({p_expected_version:0}));
   expect(f.rpc.mock.calls.some(([n])=>n==='approve_financial_reporting_policy')).toBe(false);

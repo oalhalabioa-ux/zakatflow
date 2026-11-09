@@ -1,0 +1,11 @@
+{
+  "description": "Exact debt principal classification and mode/category source roles for new commands.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.create_debt_contract(p jsonb)",
+      "fingerprint": "3e4f132b90625115fd2483bd13a14942"
+    }
+  ]
+}

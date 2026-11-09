@@ -6,8 +6,8 @@ import {advanceAction,advanceWorkspace} from './advances';
 const org='11111111-1111-4111-8111-111111111111',bank='22222222-2222-4222-8222-222222222222',party='33333333-3333-4333-8333-333333333333',event='44444444-4444-4444-8444-444444444444';
 const command={action:'RECORD',request_id:'55555555-5555-4555-8555-555555555555',side:'SUPPLIER_ADVANCE',counterparty_id:party,account_id:bank,entity_id:null,amount:10,exchange_rate:3.75,date:'2026-10-14',reference:'ADV-1',description:'Supplier deposit'};
 let tables:Record<string,any[]>,denied:string[],approved:boolean,self:boolean;
-beforeEach(()=>{vi.resetAllMocks();denied=[];approved=false;self=true;tables={organizations:[{id:org,base_currency:'SAR'}],liquidity_accounts:[{id:bank,organization_id:org,currency:'USD',entity_id:null,active:true}],liquidity_counterparties:[{id:party,organization_id:org,active:true}],financial_classifications:[{id:'66666666-6666-4666-8666-666666666666',organization_id:org,classification_type:'ASSET',active:true}],financial_events:[]};
- const from=(t:string)=>{let rows=[...(tables[t]??[])],single=false,optional=false;const q:any={select:()=>q,in:(k:string,v:any[])=>{rows=rows.filter(r=>v.includes(r[k]));return q;},eq:(k:string,v:any)=>{rows=rows.filter(r=>r[k]===v);return q;},order:(key:string)=>{if(t==='financial_event_obligation_balances'&&key!=='obligation_id')throw Error('INVALID_BALANCE_ORDER');return q;},range:(a:number,b:number)=>{rows=rows.slice(a,b+1);return q;},limit:(n:number)=>{rows=rows.slice(0,n);return q;},single:()=>{single=true;return q;},maybeSingle:()=>{single=true;optional=true;return q;},then:(resolve:any,reject:any)=>Promise.resolve({data:single?rows[0]??null:rows,error:single&&!rows.length&&!optional?{message:'NOT_FOUND'}:null}).then(resolve,reject)};return q;};
+beforeEach(()=>{vi.resetAllMocks();denied=[];approved=false;self=true;tables={organizations:[{id:org,base_currency:'SAR'}],liquidity_accounts:[{id:bank,organization_id:org,currency:'USD',entity_id:null,active:true}],liquidity_counterparties:[{id:party,organization_id:org,active:true}],financial_classifications:[{id:'66666666-6666-4666-8666-666666666666',organization_id:org,classification_type:'ASSET',code:'ADVANCE_SUPPLIER_ASSET',active:true}],financial_events:[]};
+ const from=(t:string)=>{let rows=[...(tables[t]??[])],single=false,optional=false;const q:any={select:()=>q,is:(k:string,v:any)=>{rows=rows.filter(r=>(k.split('->').reduce((value:any,part:string)=>value?.[part],r)??null)===v);return q;},in:(k:string,v:any[])=>{rows=rows.filter(r=>v.includes(r[k]));return q;},eq:(k:string,v:any)=>{rows=rows.filter(r=>r[k]===v);return q;},order:(key:string)=>{if(t==='financial_event_obligation_balances'&&key!=='obligation_id')throw Error('INVALID_BALANCE_ORDER');return q;},range:(a:number,b:number)=>{rows=rows.slice(a,b+1);return q;},limit:(n:number)=>{rows=rows.slice(0,n);return q;},single:()=>{single=true;return q;},maybeSingle:()=>{single=true;optional=true;return q;},then:(resolve:any,reject:any)=>Promise.resolve({data:single?rows[0]??null:rows,error:single&&!rows.length&&!optional?{message:'NOT_FOUND'}:null}).then(resolve,reject)};return q;};
  m.rpc.mockImplementation(async(name:string,p:any)=>({error:null,data:name==='effective_organization_permission'?!denied.includes(p.p_permission):name==='can_self_approve_financial_event'?self:name==='financial_event_has_valid_approval'?approved:{status:'ACTUAL'}}));m.auth.mockResolvedValue({supabase:{from,rpc:m.rpc},user:{id:'actor'}});
  m.action.mockImplementation(async(c:any)=>{if(c.action==='CREATE'){financialEventActionSchema.parse(c);tables.financial_events.push({id:event,...c.payload,status:'DRAFT',created_by:'actor'});return event;}if(c.action==='TRANSITION')tables.financial_events.find(e=>e.id===c.event_id).status=c.status;if(c.action==='APPROVE')approved=true;return {};});
 });
@@ -28,4 +28,42 @@ it('loads active organization party categories without changing or guessing part
  tables.liquidity_party_types=[{id:'assets',organization_id:org,active:true,code:'ASSET_SUPPLIER',name_ar:'مورد أصول',name_en:'Asset supplier'},{id:'hidden',organization_id:'other',active:true,code:'SUPPLIER'},{id:'inactive',organization_id:org,active:false,code:'CUSTOMER'}];
  tables.liquidity_counterparties[0].party_type='OTHER';tables.liquidity_counterparties[0].party_type_id='assets';
  const result=await advanceWorkspace(org);expect(result.partyTypes?.map(t=>t.id)).toEqual(['assets']);expect(result.parties[0]).toMatchObject({party_type:'OTHER',party_type_id:'assets'});expect(m.action).not.toHaveBeenCalled();
+});
+
+it('excludes account-specific classifications from the generic advance path',async()=>{
+ const original=tables.financial_classifications[0];
+ tables.financial_classifications.unshift({...original,id:'inherited-child',metadata:{accountInheritance:{accountCode:'130001'}}});
+ await advanceAction(org,command);
+ const created=m.action.mock.calls.find(c=>c[0].action==='CREATE')![0];
+ expect(created.payload.lines[0].classification_id).toBe(original.id);
+});
+
+it('selects the dedicated supplier classification even when an unrelated asset classification appears first',async()=>{
+ const original=tables.financial_classifications[0];
+ tables.financial_classifications.unshift({...original,id:'77777777-7777-4777-8777-777777777777',code:'ASSET'});
+ await advanceAction(org,command);
+ expect(m.action.mock.calls.find(c=>c[0].action==='CREATE')![0].payload.lines[0].classification_id).toBe(original.id);
+});
+it('selects the dedicated customer advance and does not recognize revenue',async()=>{
+ const original=tables.financial_classifications[0];original.code='ADVANCE_CUSTOMER_LIABILITY';original.classification_type='LIABILITY';
+ tables.financial_classifications.unshift({...original,id:'77777777-7777-4777-8777-777777777777',code:'LIABILITY'});
+ await advanceAction(org,{...command,side:'CUSTOMER_ADVANCE'});
+ expect(m.action.mock.calls.find(c=>c[0].action==='CREATE')![0].payload).toMatchObject({event_type:'SETTLEMENT',lines:[{classification_id:original.id,cash_direction:'INFLOW'}],obligations:[{obligation_type:'CUSTOMER_ADVANCE'}]});
+});
+it('refuses a missing or inactive dedicated classification instead of falling back to another account purpose',async()=>{
+ tables.financial_classifications[0].code='ASSET';
+ await expect(advanceAction(org,command)).rejects.toThrow('NOT_FOUND');expect(m.action).not.toHaveBeenCalled();
+ tables.financial_classifications[0].code='ADVANCE_SUPPLIER_ASSET';tables.financial_classifications[0].active=false;
+ await expect(advanceAction(org,command)).rejects.toThrow('NOT_FOUND');expect(m.action).not.toHaveBeenCalled();
+});
+
+it.each([['SUPPLIER_ADVANCE','PAYABLE','ADVANCE_PAYABLE_CLEARING'],['CUSTOMER_ADVANCE','RECEIVABLE','ADVANCE_RECEIVABLE_CLEARING']])('uses the dedicated clearing classification for %s applications',async(side,type,code)=>{
+ const advance='88888888-8888-4888-8888-888888888888',obligation='99999999-9999-4999-8999-999999999999',source='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',target='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+ const original=tables.financial_classifications[0];original.code=code;original.classification_type=type;
+ tables.financial_classifications.unshift({...original,id:'77777777-7777-4777-8777-777777777777',code:type});
+ const balance={organization_id:org,currency:'USD',base_currency:'SAR',exchange_rate:3.75,outstanding_base_amount:100};
+ tables.financial_event_obligation_balances=[{...balance,obligation_id:advance,event_id:source,obligation_type:side},{...balance,obligation_id:obligation,event_id:target,obligation_type:type}];
+ tables.financial_events=[source,target].map(id=>({id,organization_id:org,status:'ACTUAL',counterparty_id:party,entity_id:null,event_date:'2026-10-01',source_module:id===source?'ADVANCE_WORKSPACE':'OPERATIONAL_CONSOLE'}));
+ await advanceAction(org,{action:'APPLY',request_id:command.request_id,advance_id:advance,obligation_id:obligation,flow_id:bank,amount:10,date:command.date,description:'Apply advance to invoice'});
+ expect(m.action.mock.calls.find(c=>c[0].action==='CREATE')![0].payload).toMatchObject({event_type:'ADJUSTMENT',lines:[{classification_id:original.id,cash_direction:'NON_CASH'}],links:[{metadata:{kind:'APPLY',advance_id:advance,obligation_id:obligation}}]});
 });

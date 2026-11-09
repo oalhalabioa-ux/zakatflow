@@ -1,13 +1,15 @@
+import {ASSET_LIFECYCLE_POSTING_TEMPLATES} from './financial-asset-posting-templates';
+import {inheritAccountPostingRules,type AccountRuleBinding} from './financial-account-rule-inheritance';
 import type {PostingRule,RecognitionEvent} from './financial-event-ledger';
 import {validatePostingRuleAccounts} from './financial-posting-rule-validation';
 
 export type DefaultPostingRule=Pick<PostingRule,'eventType'|'sourceModule'|'classificationId'|'cashDirection'|'debitAccountId'|'creditAccountId'|'cashActivity'>;
-export type PostingClassification={id:string;code:string;name:string;classification_type:string;active:boolean};
+export type PostingClassification={id:string;code:string;name:string;classification_type:string;active:boolean;is_system?:boolean;metadata?:{accountInheritance?:AccountRuleBinding}};
 export type DefaultPostingAccount={id:string;code:string;cash:boolean;reportingCode?:string;isActive?:boolean;isPostable?:boolean};
 export const POSTING_BASE_CLASSIFICATIONS=[
  ['REVENUE','الإيرادات'],['OPEX','المصروفات التشغيلية'],['CAPEX','شراء الأصول الثابتة'],
  ['INVESTMENT','شراء الاستثمارات'],['TAX','الضرائب'],['ZAKAT','الزكاة'],
- ['RECEIVABLE','تحصيل الذمم المدينة'],['PAYABLE','سداد الذمم الدائنة'],
+ ['ASSET','الأصول'],['RECEIVABLE','تحصيل الذمم المدينة'],['PAYABLE','سداد الذمم الدائنة'],
 ] as const;
 export const postingRuleKey=(r:Pick<DefaultPostingRule,'eventType'|'sourceModule'|'classificationId'|'cashDirection'>)=>JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]);
 
@@ -17,6 +19,9 @@ export const postingRuleKey=(r:Pick<DefaultPostingRule,'eventType'|'sourceModule
 export function defaultPostingRules(classifications:readonly PostingClassification[],chart:readonly DefaultPostingAccount[],events:readonly RecognitionEvent[]=[],existing:readonly DefaultPostingRule[]=[]){
  const accounts=chart.filter(a=>a.isActive!==false&&a.isPostable!==false);
  function account(control:string){
+  if(!control)return '';
+  const exact=accounts.find(a=>a.code===control);
+  if(control.length>4)return exact?.id??'';
   const leaves=accounts.filter(a=>a.code!==control&&(a.reportingCode?a.reportingCode===control:a.code.startsWith(control)));
   if(leaves.length===1)return leaves[0].id;
   return accounts.find(a=>a.code===control)?.id??'';
@@ -30,12 +35,46 @@ export function defaultPostingRules(classifications:readonly PostingClassificati
   proposals.set(key,rule);
  }
  for(const c of classifications.filter(c=>c.active)){
+  if(c.metadata?.accountInheritance)continue;
   const type=c.classification_type;
   // Liquidity detail classifications split expense recognition. Settlement
   // still follows the payable, and VAT continues to use generic OPEX.
   if(type==='OPEX'&&c.code.startsWith('OPEX_')){
-   add(c,'EXPENSE','OPERATIONAL_CONSOLE','BASE','NON_CASH','6100','2100');
+   const generated=c.code.startsWith('OPEX_ACCOUNT_');
+   const accountCode=generated?c.code.slice('OPEX_ACCOUNT_'.length):'6100';
+   // A generated identifier is not authority to post to another chart group.
+   // Honor the stored parent before falling back to legacy numeric prefixes.
+   const leaf=accounts.find(a=>a.code===accountCode);
+   const valid=!generated||(accountCode.length>4&&leaf&&
+    (leaf.reportingCode?leaf.reportingCode==='6100':accountCode.startsWith('6100')));
+   add(c,'EXPENSE','OPERATIONAL_CONSOLE','BASE','NON_CASH',valid?accountCode:'','2100');
    continue;
+  }
+  if(c.code==='DEBT_PRINCIPAL_ASSET'&&type==='ASSET'){
+   add(c,'ADJUSTMENT','DEBT_CONTRACTS','DEBT_FUNDED_O_AR_LOAN','OUTFLOW','1200','1000','INVESTING');
+   add(c,'ADJUSTMENT','DEBT_CONTRACTS','DEBT_FUNDED_O_AR_EMPLOYEE','OUTFLOW','1100','1000','OPERATING');continue;
+  }
+  if(c.code==='DEBT_PRINCIPAL_LIABILITY'&&type==='LIABILITY'){
+   add(c,'ADJUSTMENT','DEBT_CONTRACTS','DEBT_FUNDED_O_AP_LOAN','INFLOW','1000','2200','FINANCING');continue;
+  }
+  // Opening debt is recognized by the opening workspace, not a fabricated
+  // second leg in the movement ledger. Legacy BASE signatures stay unchanged.
+  if(c.code==='DEBT_RECEIVABLE_CLEARING'||c.code==='DEBT_PAYABLE_CLEARING')continue;
+  // Dedicated native contracts must not fall through into generic console
+  // signatures. Advance application needs original captured counterpart legs,
+  // so clearing classifications are deliberately not guessed here.
+  if(c.code==='ADVANCE_SUPPLIER_ASSET'&&type==='ASSET'){
+   add(c,'SETTLEMENT','ADVANCE_WORKSPACE','BASE','OUTFLOW','1300','1000','OPERATING');continue;
+  }
+  if(c.code==='ADVANCE_CUSTOMER_LIABILITY'&&type==='LIABILITY'){
+   add(c,'SETTLEMENT','ADVANCE_WORKSPACE','BASE','INFLOW','1000','2400','OPERATING');continue;
+  }
+  if(c.code==='ADVANCE_PAYABLE_CLEARING'||c.code==='ADVANCE_RECEIVABLE_CLEARING')continue;
+  if(c.code==='CONTRACT_FINANCE_COST'&&type==='OPEX'){
+   add(c,'EXPENSE','FINANCE_CONTRACTS','BASE','NON_CASH','7100','2100');continue;
+  }
+  if(c.code==='CONTRACT_FINANCE_RETURN'&&type==='REVENUE'){
+   add(c,'REVENUE','FINANCE_CONTRACTS','BASE','NON_CASH','1100','4100');continue;
   }
   // These signatures match the native operational editor's actual contract.
   if(type==='REVENUE'){
@@ -55,6 +94,10 @@ export function defaultPostingRules(classifications:readonly PostingClassificati
    }
    add(c,'SETTLEMENT','OPERATIONAL_CONSOLE','BASE','OUTFLOW',expense[1],'1000',expense[2]);
   }
+  // Native asset acquisitions carry capitalized cost separately from the
+  // already-recoverable VAT amount; no second VAT split is performed here.
+  if(type==='CAPEX'||type==='INVESTMENT')add(c,'ASSET_PURCHASE','ASSETS_INTEGRATION','BASE','NON_CASH',type==='CAPEX'?'1500':'1600','2100');
+  if(type==='TAX')add(c,'ASSET_PURCHASE','ASSETS_INTEGRATION','BASE','NON_CASH','1400','2100');
   if(type==='RECEIVABLE')add(c,'SETTLEMENT','OPERATIONAL_CONSOLE','BASE','INFLOW','1000','1100','OPERATING');
   if(type==='PAYABLE')add(c,'SETTLEMENT','OPERATIONAL_CONSOLE','BASE','OUTFLOW','2100','1000','OPERATING');
   // Original VAT adapter uses real OPEX/TAX/REVENUE classifications and
@@ -64,10 +107,16 @@ export function defaultPostingRules(classifications:readonly PostingClassificati
    add(c,'EXPENSE','VAT_INTEGRATION','INPUT_VAT_RECOVERABLE','NON_CASH','1400','2100');
    add(c,'EXPENSE','VAT_INTEGRATION','INPUT_VAT_NONRECOVERABLE','NON_CASH','6100','2100');
   }
+  if(c.code===type)for(const template of ASSET_LIFECYCLE_POSTING_TEMPLATES.filter(t=>t.type===type)){
+   add(c,'ADJUSTMENT','ASSET_LIFECYCLE',template.role,'NON_CASH',template.debit,template.credit);
+  }
  }
+ const configuredTemplates=new Set(existing.map(postingRuleKey));
+ const inherited=inheritAccountPostingRules(classifications.filter(c=>c.active&&c.metadata?.accountInheritance).map(c=>({...c.metadata!.accountInheritance!,classificationId:c.id})),chart,[...existing,...[...proposals.values()].filter(r=>!configuredTemplates.has(postingRuleKey(r)))],existing);
+ for(const rule of inherited.rules)proposals.set(postingRuleKey(rule),rule);
  // Existing user rules always win, including deliberately incomplete drafts.
  const stored=new Set(existing.map(postingRuleKey));
  const rules=[...proposals.values()].filter(r=>!stored.has(postingRuleKey(r)));
  const observed=new Set(events.flatMap(e=>e.lines.map(l=>postingRuleKey({...e,...l}))));
- return {version:1 as const,rules,unresolved:unresolved.filter(r=>!stored.has(postingRuleKey(r))),testedRuleCount:rules.filter(r=>observed.has(postingRuleKey(r))).length};
+ return {version:1 as const,rules,inheritanceIssues:inherited.issues,unresolved:unresolved.filter(r=>!stored.has(postingRuleKey(r))),testedRuleCount:rules.filter(r=>observed.has(postingRuleKey(r))).length};
 }

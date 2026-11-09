@@ -58,10 +58,10 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
      ? availableClasses.eq('id',category.expense_classification_id).maybeSingle()
      : treatment==='OPEX'
        ? availableClasses.eq('code','OPEX').maybeSingle()
-       : availableClasses.limit(1).maybeSingle();
+       : availableClasses.is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).limit(1).maybeSingle();
    const[{data:recognitionClass,error:recognitionClassError},{data:obligationClass,error:obligationClassError},{data:organization,error:organizationError}]=await Promise.all([
      recognitionQuery,
-     supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',obligationType).eq('active',true).limit(1).maybeSingle(),
+     supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',obligationType).eq('active',true).is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).limit(1).maybeSingle(),
      supabase.from('organizations').select('base_currency').eq('id',record.organization_id).single()
    ]);
    if(recognitionClassError)throw recognitionClassError;if(obligationClassError)throw obligationClassError;if(organizationError)throw organizationError;
@@ -150,7 +150,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
      const remainingAmount=Math.min(flowOutstanding,Number(body.amount??flowOutstanding));
      const remainingBase=Math.min(Number(record.base_amount)*(remainingAmount/Number(record.amount)),Number(body.base_amount??Number(record.base_amount)*(remainingAmount/Number(record.amount))));
      if(!(remainingAmount>0&&remainingBase>0))return NextResponse.json({error:'NO_OUTSTANDING_CASH_MOVEMENT'},{status:409});
-     const{data:cashClass,error:cashClassError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',actualTreatment).eq('active',true).limit(1).maybeSingle();
+     const{data:cashClass,error:cashClassError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',actualTreatment).eq('active',true).is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).limit(1).maybeSingle();
      if(cashClassError)throw cashClassError;if(!cashClass)return NextResponse.json({error:'SETTLEMENT_CLASSIFICATION_REQUIRED'},{status:409});
      const settlementDate=body.settlement_date??new Date().toISOString().slice(0,10),exchangeRate=remainingBase/remainingAmount;
      const settlementSourceKey=`liquidity:${record.id}:cash-realization:${Number(record.settled_amount||0)}`;
@@ -186,7 +186,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(!(remainingAmount>0&&remainingBase>0))return NextResponse.json({error:'NO_OUTSTANDING_OBLIGATION'},{status:409});
    if(!['PAYABLE','RECEIVABLE'].includes(balances[0].obligation_type))return NextResponse.json({error:'UNSUPPORTED_SETTLEMENT_OBLIGATION_TYPE'},{status:409});
    const classificationType=balances[0].obligation_type as 'PAYABLE'|'RECEIVABLE';
-   const{data:classification,error:classError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',classificationType).eq('active',true).limit(1).maybeSingle();
+   const{data:classification,error:classError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',classificationType).eq('active',true).is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).limit(1).maybeSingle();
    if(classError)throw classError;if(!classification)return NextResponse.json({error:'SETTLEMENT_CLASSIFICATION_REQUIRED'},{status:409});
    const settlementDate=body.settlement_date??new Date().toISOString().slice(0,10);
    const exchangeRate=remainingBase/remainingAmount;

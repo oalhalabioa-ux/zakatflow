@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {accountLinkCoverage} from '../lib/financial-account-link-coverage';
 import {requireUser} from './auth';
 import {assertLiveStatements} from './financial-statement-live';
 import {openingScope} from '../lib/financial-opening-workspace';
@@ -10,6 +11,7 @@ const rule=z.object({detailed:z.literal(true).optional(),eventType:text,sourceMo
 const command=z.discriminatedUnion('action',[
  z.object({action:z.literal('create-expense-classification'),...openingScope.shape,
   code:z.string().trim().regex(/^OPEX_[A-Z0-9_]{1,45}$/),name:z.string().trim().min(1).max(160)}).strict(),
+ z.object({action:z.literal('synchronize-accounts'),...openingScope.shape}).strict(),
  z.object({action:z.literal('initialize-defaults'),...openingScope.shape,repairEmpty:z.boolean().optional()}).strict(),
  z.object({action:z.literal('save'),...openingScope.shape,expectedVersion:z.number().int().min(0),rules:z.array(rule).max(5000),reason:z.string().trim().min(3).max(1000)}).strict(),
  z.object({action:z.literal('approve'),id:z.string().uuid(),expectedVersion:z.number().int().positive()}).strict(),
@@ -26,8 +28,9 @@ export async function readReportingPolicy(input:unknown){
  const result=unwrap(workspace) as {organizationId:string;fiscalStart:string;policy:{status:string;version:number;rules:DefaultPostingRule[]}|null;events:RecognitionEvent[];chart:DefaultPostingAccount[];canSave:boolean};
  if(result.organizationId!==q.organization||result.fiscalStart!==q.fiscalStart)throw Error('REPORTING_SCOPE_INVALID');
  if(approved.error)throw Error('REPORTING_UNAVAILABLE');
- const classifications=unwrap(await supabase.from('financial_classifications').select('id,code,name,classification_type,active').eq('organization_id',q.organization).eq('active',true)) as PostingClassification[];
- return {...result,classifications,approvedPolicy:approved.data?.[0]??null,defaults:defaultPostingRules(classifications,result.chart,result.events,result.policy?.rules??[])};
+ const classifications=unwrap(await supabase.from('financial_classifications').select('id,code,name,classification_type,active,is_system,metadata').eq('organization_id',q.organization).eq('active',true)) as PostingClassification[];
+ const defaults=defaultPostingRules(classifications,result.chart,result.events,result.policy?.rules??[]);
+ return {...result,classifications,approvedPolicy:approved.data?.[0]??null,defaults,accountLinkCoverage:accountLinkCoverage(result.chart,classifications,result.policy?.rules??[],defaults.rules)};
 }
 export async function writeReportingPolicy(input:unknown){
  assertLiveStatements();
@@ -46,6 +49,10 @@ export async function writeReportingPolicy(input:unknown){
   return unwrap(result);
  }
 
+ if(q.action==='synchronize-accounts'){
+  unwrap(await supabase.rpc('prepare_financial_account_rule_links',{p_org:q.organization}));
+  return readReportingPolicy({organization:q.organization,fiscalStart:q.fiscalStart});
+ }
  if(q.action==='initialize-defaults'){
   const scope={organization:q.organization,fiscalStart:q.fiscalStart};
   let workspace=await readReportingPolicy(scope);
@@ -55,7 +62,7 @@ export async function writeReportingPolicy(input:unknown){
   if(!workspace.canSave)throw Error('REPORTING_ACCESS_DENIED');
   const preserve=()=>workspace.policy&&(!q.repairEmpty||workspace.policy.rules.length>0);
   if(preserve())return workspace;
-  if(!workspace.classifications.length){
+  if(POSTING_BASE_CLASSIFICATIONS.some(([code])=>!workspace.classifications.some(c=>c.code===code))){
    const allowed=unwrap(await supabase.rpc('effective_organization_permission',{p_org:q.organization,p_permission:'organization.edit',p_amount:null,p_currency:null}));
    if(!allowed)throw Error('REPORTING_CLASSIFICATIONS_REQUIRED');
    unwrap(await supabase.from('financial_classifications').upsert(POSTING_BASE_CLASSIFICATIONS.map(([code,name])=>({organization_id:q.organization,code,name,classification_type:code,is_system:false,created_by:user.id})),{onConflict:'organization_id,code',ignoreDuplicates:true}));
@@ -70,6 +77,7 @@ export async function writeReportingPolicy(input:unknown){
   });
   // Two sessions initializing together must converge on the winner's policy.
   if(saved.error&&!/REPORTING_VERSION_CONFLICT/.test(saved.error.message))unwrap(saved);
+  unwrap(await supabase.rpc('prepare_financial_account_rule_links',{p_org:q.organization}));
   return readReportingPolicy(scope);
  }
  if(q.action==='approve')

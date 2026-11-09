@@ -1,0 +1,21 @@
+{
+  "description": "Resolve new advance application from original recorded advance and invoice leaves.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_advance_application_rules(p_org uuid, p_event jsonb, p_rules jsonb)",
+      "fingerprint": "686f7650711cc93312c46b9574dad591"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_capture_actual_posting()",
+      "fingerprint": "61b078f36ad708a27a5b475dd3018f35"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_original_obligation_account(p_org uuid, p_obligation uuid)",
+      "fingerprint": "849141a578c4a975349ef4adb7a7c7d4"
+    }
+  ]
+}

@@ -36,7 +36,7 @@ async function recognizeOrganizationAssetPurchase(supabase:any,user:any,transact
  const financialClass=transaction?.metadata?.financial_classification_type??assetPurchaseFinancialClass(asset.asset_class_code);
  let classification:any=null;
  if(!storedIntent){
-  const {data,error:classificationError}=await supabase.from('financial_classifications').select('id').eq('organization_id',asset.organization_id).eq('classification_type',financialClass).eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
+  const {data,error:classificationError}=await supabase.from('financial_classifications').select('id').is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).eq('organization_id',asset.organization_id).eq('classification_type',financialClass).eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
   if(classificationError)throw classificationError;
   classification=data;
   if(!classification){const metadata={...(transaction.metadata??{}),financial_core_status:'CLASSIFICATION_REQUIRED',financial_classification_type:financialClass};await supabase.from('transactions').update({metadata}).eq('id',transaction.id).eq('user_id',user.id);throw new Error('ASSET_FINANCIAL_CLASSIFICATION_REQUIRED');}
@@ -65,7 +65,7 @@ if(!isOrganizationAsset&&(['OPENING_BALANCE','ADD','PURCHASE','TRANSFER_IN'].inc
 }
 if(isOrganizationAsset){
  if((p.vat_amount??0)>0){
-  const {data:tax,error:taxError}=await supabase.from('financial_classifications').select('id').eq('organization_id',asset.organization_id).eq('classification_type','TAX').eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
+  const {data:tax,error:taxError}=await supabase.from('financial_classifications').select('id').is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).eq('organization_id',asset.organization_id).eq('classification_type','TAX').eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
   if(taxError)throw taxError;if(!tax)throw new Error('ASSET_VAT_CLASSIFICATION_REQUIRED');
   const metadata={...(data.metadata??{}),tax_classification_id:tax.id};const u=await supabase.from('transactions').update({metadata}).eq('id',data.id).eq('user_id',user.id).select().single();if(u.error)throw u.error;data=u.data;
  }
