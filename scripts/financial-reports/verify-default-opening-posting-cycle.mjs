@@ -71,6 +71,27 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  const saveResponse=page.waitForResponse(r=>r.url().includes('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='save');
  await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();
  const savedPolicy=await saveResponse;assert.equal(savedPolicy.status(),200,await savedPolicy.text());
+ // Create two distinct expense classifications through the same QA V2 API used by settings.
+ const details=[];
+ for(const [code,name,account] of [['OPEX_RENT','إيجار المكتب','610002'],['OPEX_MAINTENANCE','الصيانة','610003']]){
+  await rpc('save_financial_chart_account',{p_org:organization,p_code:account,p_parent:'6100',
+    p_name_ar:name,p_name_en:code,p_normal_side:'DEBIT',p_is_active:true,p_is_postable:true,
+    p_expected_version:0,p_reason:'Dedicated expense account'});
+  const classification=await request('post','/api/financial-reporting/policy',{
+    action:'create-expense-classification',organization,fiscalStart:'2026-01-01',code,name,
+  });
+  details.push({...classification,account});
+ }
+ await rpc('save_financial_chart_account',{p_org:organization,p_code:'210002',p_parent:'2100',
+   p_name_ar:'ذمم الإيجار',p_name_en:'Rent payable',p_normal_side:'CREDIT',p_is_active:true,p_is_postable:true,
+   p_expected_version:0,p_reason:'Keep the expense payable separate from the generic settlement rule'});
+ const currentDraft=(await rpc('financial_reporting_policy_workspace',scope)).policy;
+ const detailRules=details.map(item=>({...expenseRule,classificationId:item.id+':BASE',
+   debitAccountId:item.account,creditAccountId:item.code==='OPEX_RENT'?'210002':expenseRule.creditAccountId,detailed:true}));
+ await request('post','/api/financial-reporting/policy',{action:'save',organization,fiscalStart:'2026-01-01',
+   expectedVersion:currentDraft.version,rules:[...currentDraft.rules,...detailRules],reason:'Dedicated rent and maintenance mapping'});
+ await page.reload();
+ await page.getByRole('button',{name:'قواعد الترحيل',exact:true}).first().click();
  await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();
  await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();
  const approved=await rpc('financial_reporting_policy_workspace',scope);assert.equal(approved.policy.status,'APPROVED');
@@ -78,13 +99,15 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  const shot=async label=>{await page.evaluate(()=>document.fonts.ready);const name='default-actual-cycle-'+label+'.png';await page.screenshot({path:out+'/'+name,fullPage:true});evidence.screenshots.push(name);};
  await shot('rules-before-operations');
  const expectedIds=[];
- async function observe(stage,{cash,expense,revenue,receivable,payable}){
+ async function observe(stage,{cash,expense,revenue,receivable,payable,assetBalance=0}){
   const data=await request('get','/api/financial-reporting/live-statements?'+new URLSearchParams({action:'statements',organization,from:'2026-01-01',to:'2026-12-31'}));
   assert.equal(data.origin,'LIVE_CANONICAL_EVENTS');const s=data.statements;
   assert.equal(Number(s.cash.closing),cash);assert.equal(Number(s.income.operatingExpenses),expense);assert.equal(Number(s.income.revenue),revenue);assert.equal(Number(s.income.netProfit),revenue-expense);
   assert.equal(Number(data.accounts.find(a=>a.id==='110001')?.balance??0),receivable);
-  assert.equal(Number(data.accounts.find(a=>a.id==='210001')?.balance??0)+payable,0);
-  assert.equal(Number(s.position.assets),cash+receivable);assert.equal(Number(s.position.liabilities),payable);assert.equal(Number(s.position.equity),5000+revenue-expense);
+  const payableBalance=data.accounts.filter(a=>['210001','210002'].includes(a.id))
+   .reduce((total,a)=>total+Number(a.balance),0);
+  assert.equal(payableBalance+payable,0);
+  assert.equal(Number(s.position.assets),cash+receivable+assetBalance);assert.equal(Number(s.position.liabilities),payable);assert.equal(Number(s.position.equity),5000+revenue-expense);
   assert.deepEqual(new Set(s.sourceJournalIds),new Set(expectedIds));assert.equal(s.sourceJournalIds.length,expectedIds.length);assert.equal(data.lineage.length,expectedIds.length);
   const actualBanks=unwrap(await actor.client.from('liquidity_accounts').select('id,current_balance').eq('organization_id',organization));
   assert.equal(actualBanks.reduce((sum,a)=>sum+Number(a.current_balance),0),cash);
@@ -99,17 +122,28 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  await observe('opening',{cash:5000,expense:0,revenue:0,receivable:0,payable:0});
  const supplier=await request('post','/api/liquidity',{kind:'counterparty',organization_id:organization,name:'مورد تجربة القواعد',party_type:'SUPPLIER'},201);
  const customer=await request('post','/api/liquidity',{kind:'counterparty',organization_id:organization,name:'عميل تجربة القواعد',party_type:'CUSTOMER'},201);
- async function prepareFlow(type,direction,amount,date,party,accountId=bankId){
-  const category=await request('post','/api/liquidity',{kind:'category',organization_id:organization,name_ar:type==='OPEX'?'مصروف الاختبار':'إيراد الاختبار',name_en:'Actual cycle '+type,flow_group:'OPERATING',accounting_group:type==='OPEX'?'EXPENSE':'REVENUE',treatment_code:type==='OPEX'?'OPERATING_EXPENSE':'SERVICE_REVENUE',allowed_direction:direction,financial_classification_type:type},201);
+ async function prepareFlow(type,direction,amount,date,party,accountId=bankId,detail){
+  const categoryType=type==='CAPEX'
+   ? {name_ar:'شراء أصل للاختبار',flow_group:'INVESTMENT',accounting_group:'ASSETS',treatment_code:'FIXED_ASSET_PURCHASE'}
+   : {name_ar:type==='OPEX'?'مصروف الاختبار':'إيراد الاختبار',flow_group:'OPERATING',
+     accounting_group:type==='OPEX'?'EXPENSE':'REVENUE',treatment_code:type==='OPEX'?'OPERATING_EXPENSE':'SERVICE_REVENUE'};
+  const category=await request('post','/api/liquidity',{kind:'category',organization_id:organization,
+   ...categoryType,name_en:'Actual cycle '+type,allowed_direction:direction,financial_classification_type:type,
+   expense_classification_id:detail?.id},201);
   const flow=await request('post','/api/liquidity',{kind:'flow',organization_id:organization,account_id:accountId,category_id:category.id,direction,title:'Actual default cycle '+type,counterparty_id:party.id,due_date:date,amount,base_amount:amount,currency:'SAR',status:'EXPECTED',source:'MANUAL'},201);
   const confirmed=await request('patch','/api/liquidity/'+flow.id,{status:'CONFIRMED'});assert.ok(confirmed.recognition_event_id);
   const id=confirmed.recognition_event_id;
+  if(detail){
+   const line=unwrap(await actor.client.from('financial_event_lines').select('classification_id')
+     .eq('organization_id',organization).eq('event_id',id).single());
+   assert.equal(line.classification_id,detail.id,'Recognition must keep the exact category classification');
+  }
   const args={organization_id:organization,event_id:id};
   // Before approval the native API must reject posting a real event.
   await request('post','/api/financial-events',{action:'TRANSITION',...args,status:'ACTUAL',note:'Must require approval'},400);
   await request('post','/api/financial-events',{action:'APPROVE',...args,note:'Actual cycle approval'});
   await request('post','/api/financial-events',{action:'TRANSITION',...args,status:'ACTUAL',note:'Actual cycle recognition'});
-  expectedIds.push(id);const mapping=type==='OPEX'?expenseRule:incomeRule;evidence.journals.push({id,type:type==='REVENUE'?'REVENUE':'EXPENSE',source:'OPERATIONAL_CONSOLE',flowId:flow.id,amount,debitAccount:mapping.debitAccountId,creditAccount:mapping.creditAccountId});return flow;
+  expectedIds.push(id);const mapping=detail?detailRules.find(rule=>rule.classificationId===detail.id+':BASE'):type==='OPEX'?expenseRule:type==='CAPEX'?proposed('ASSET_PURCHASE','CAPEX','NON_CASH'):incomeRule;evidence.journals.push({id,type:type==='CAPEX'?'ASSET_PURCHASE':type==='REVENUE'?'REVENUE':'EXPENSE',source:'OPERATIONAL_CONSOLE',flowId:flow.id,amount,debitAccount:mapping.debitAccountId,creditAccount:mapping.creditAccountId});return flow;
  }
  const expenseFlow=await prepareFlow('OPEX','OUTFLOW',1000,'2026-03-01',supplier);
  await observe('expense-recognized',{cash:5000,expense:1000,revenue:0,receivable:0,payable:1000});
@@ -119,7 +153,15 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
   const counts=Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${organization}'`));
   const replay=await request('patch','/api/liquidity/'+flow.id,payload);assert.equal(replay.settlement_event_id,posted.settlement_event_id);
   assert.equal(Number(sql(`select count(*) from public.liquidity_settlements where organization_id='${organization}'`)),counts);
-  evidence.duplicateRetries.push({eventId:posted.settlement_event_id,prevented:true});const isReceipt=flow.direction==='INFLOW';const mapping=proposed('SETTLEMENT',isReceipt?'RECEIVABLE':'PAYABLE',isReceipt?'INFLOW':'OUTFLOW');evidence.journals.push({id:posted.settlement_event_id,type:'SETTLEMENT',flowId:flow.id,amount,debitAccount:isReceipt?links['cash:'+accountId]:mapping.debitAccountId,creditAccount:isReceipt?mapping.creditAccountId:links['cash:'+accountId]});return {...posted,replayPayload:payload};
+  evidence.duplicateRetries.push({eventId:posted.settlement_event_id,prevented:true});
+  const isReceipt=flow.direction==='INFLOW';
+  const cashAccount=links['cash:'+accountId];
+  const recognition=evidence.journals.find(journal=>journal.flowId===flow.id&&journal.source==='OPERATIONAL_CONSOLE');
+  assert.ok(recognition);
+  evidence.journals.push({id:posted.settlement_event_id,type:'SETTLEMENT',flowId:flow.id,amount,
+   debitAccount:isReceipt?cashAccount:recognition.creditAccount,
+   creditAccount:isReceipt?proposed('SETTLEMENT','RECEIVABLE','INFLOW').creditAccountId:cashAccount});
+  return {...posted,replayPayload:payload};
  }
  await settle(expenseFlow,1000,'2026-03-02');
  await observe('expense-paid',{cash:4000,expense:1000,revenue:0,receivable:0,payable:0});
@@ -167,12 +209,39 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  const finalObligations=unwrap(await actor.client.from('financial_event_obligation_balances').select('outstanding_base_amount').eq('organization_id',organization));assert.equal(finalObligations.length,4);assert.ok(finalObligations.every(b=>Number(b.outstanding_base_amount)===0));
  evidence.partialSettlementGuards={changedReplayDenied:true,overpaymentDenied:true,inconsistentBaseDenied:true};
  evidence.finalWithPartialSettlements={income:partialFinal.statements.income,cash:partialFinal.statements.cash,position:partialFinal.statements.position};
+ const rent=await prepareFlow('OPEX','OUTFLOW',300,'2026-05-01',supplier,bankId,details[0]);
+ const rentRecognition=await observe('rent-separate-payable',
+  {cash:7100,expense:1900,revenue:3700,receivable:0,payable:300});
+ assert.equal(Number(rentRecognition.accounts.find(a=>a.id==='210002')?.balance),-300);
+ await settle(rent,300,'2026-05-02',bankId);
+ const maintenance=await prepareFlow('OPEX','OUTFLOW',450,'2026-05-03',supplier,secondBankId,details[1]);
+ await settle(maintenance,450,'2026-05-04',secondBankId);
+ const detailed=await observe('rent-and-maintenance-from-distinct-banks',
+  {cash:6350,expense:2350,revenue:3700,receivable:0,payable:0});
+ assert.equal(Number(detailed.accounts.find(a=>a.id==='610002')?.balance),300);
+ assert.equal(Number(detailed.accounts.find(a=>a.id==='610003')?.balance),450);
+ assert.equal(Number(detailed.accounts.find(a=>a.id===bankCode)?.balance),4300);
+ assert.equal(Number(detailed.accounts.find(a=>a.id===secondBankCode)?.balance),2050);
+ assert.equal(eventCount(),14);
+ assert.equal(Number(detailed.accounts.find(a=>a.id==='210001')?.balance??0),0);
+ assert.equal(Number(detailed.accounts.find(a=>a.id==='210002')?.balance??0),0);
+ const asset=await prepareFlow('CAPEX','OUTFLOW',500,'2026-05-05',supplier,bankId);
+ await observe('asset-recognized-before-cash',
+  {cash:6350,expense:2350,revenue:3700,receivable:0,payable:500,assetBalance:500});
+ await settle(asset,500,'2026-05-06',bankId);
+ const assetPaid=await observe('asset-payment-investing-cash',
+  {cash:5850,expense:2350,revenue:3700,receivable:0,payable:0,assetBalance:500});
+ assert.equal(Number(assetPaid.accounts.find(a=>a.id==='150001')?.balance),500);
+ assert.equal(Number(assetPaid.statements.cash.investing),-500);
+ assert.equal(Number(assetPaid.statements.cash.operating),1350);
+ assert.equal(eventCount(),16);
+ evidence.detailExpenseAccounts=details.map(item=>({code:item.code,account:item.account}));
  // Open the report against real APIs in both locales after the transactions.
  for(const locale of ['ar','en'])for(const width of [1490,390]){
   await page.setViewportSize({width,height:1050});await page.goto(app+'/'+locale+'/financial-reports?organization='+organization+'&screen=income');
   await page.locator('[data-statement-ready="income"]').waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  const income=await page.locator('[data-statement-ready="income"]').innerText();assert.match(income,/3,700\.00/);assert.match(income,/1,600\.00/);assert.match(income,/2,100\.00/);
+  const income=await page.locator('[data-statement-ready="income"]').innerText();assert.match(income,/3,700\.00/);assert.match(income,/2,350\.00/);assert.match(income,/1,350\.00/);
   await shot(locale+'-income-'+width);
  }
  await writeFile(out+'/default-posting-actual-cycle.json',JSON.stringify(evidence,null,2)+'\n');

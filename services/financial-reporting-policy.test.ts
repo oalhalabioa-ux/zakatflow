@@ -1,5 +1,5 @@
 import {beforeEach,describe,it,expect,vi} from 'vitest';
-const f=vi.hoisted(()=>({rpc:vi.fn(),from:vi.fn(),requireUser:vi.fn(),policy:null as null|{status:string;version:number;rules:unknown[]},classifications:[] as Record<string,unknown>[],canSave:true,canSeed:true,saveError:null as null|{message:string}}));
+const f=vi.hoisted(()=>({rpc:vi.fn(),from:vi.fn(),requireUser:vi.fn(),insert:vi.fn(),policy:null as null|{status:string;version:number;rules:unknown[]},classifications:[] as Record<string,unknown>[],canSave:true,canSeed:true,saveError:null as null|{message:string}}));
 vi.mock('./auth',()=>({requireUser:f.requireUser}));
 vi.mock('./financial-statement-live',()=>({assertLiveStatements:vi.fn()}));
 import {readReportingPolicy,writeReportingPolicy} from './financial-reporting-policy';
@@ -17,7 +17,7 @@ beforeEach(()=>{
   throw Error('Unexpected RPC '+name);
  });
  f.from.mockImplementation(table=>{
-  const chain={select:vi.fn().mockReturnThis(),eq:vi.fn().mockReturnThis(),order:vi.fn().mockReturnThis(),limit:vi.fn().mockReturnThis(),
+  const chain={insert:f.insert.mockReturnThis(),single:vi.fn().mockResolvedValue({data:{id:'rent'},error:null}),select:vi.fn().mockReturnThis(),eq:vi.fn().mockReturnThis(),order:vi.fn().mockReturnThis(),limit:vi.fn().mockReturnThis(),
    then:(resolve:(x:unknown)=>unknown)=>Promise.resolve({data:table==='financial_classifications'?f.classifications:[],error:null}).then(resolve),
    upsert:vi.fn(async(rows:Record<string,unknown>[])=>{f.classifications=rows.map((r,i)=>({...r,id:'c'+i,active:true}));return {data:null,error:null};})};return chain;
  });
@@ -62,5 +62,20 @@ describe('authorized default posting initialization',()=>{
  });
  it('rejects client-supplied default mappings and checks scope before any write',async()=>{
   await expect(writeReportingPolicy({action:'initialize-defaults',...scope,rules:[]})).rejects.toThrow();expect(f.rpc).not.toHaveBeenCalled();
+ });
+});
+
+describe('operating expense classification management',()=>{
+ const command={action:'create-expense-classification',...scope,code:'OPEX_RENT',name:'إيجار المكتب'};
+ it('inserts only a scoped operating expense classification without saving or approving rules',async()=>{
+  await expect(writeReportingPolicy(command)).resolves.toEqual({id:'rent'});
+  expect(f.insert).toHaveBeenCalledWith({organization_id:org,code:'OPEX_RENT',name:'إيجار المكتب',
+   classification_type:'OPEX',is_system:false,created_by:'owner'});
+  expect(f.rpc.mock.calls.some(([name])=>name==='save_financial_reporting_policy')).toBe(false);
+ });
+ it('denies classification writes without organization editing rights',async()=>{
+  f.canSeed=false;
+  await expect(writeReportingPolicy(command)).rejects.toThrow('REPORTING_ACCESS_DENIED');
+  expect(f.insert).not.toHaveBeenCalled();
  });
 });

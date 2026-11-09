@@ -17,7 +17,7 @@ export const postingRuleKey=(r:Pick<DefaultPostingRule,'eventType'|'sourceModule
 export function defaultPostingRules(classifications:readonly PostingClassification[],chart:readonly DefaultPostingAccount[],events:readonly RecognitionEvent[]=[],existing:readonly DefaultPostingRule[]=[]){
  const accounts=chart.filter(a=>a.isActive!==false&&a.isPostable!==false);
  function account(control:string){
-  const leaves=accounts.filter(a=>a.code!==control&&(a.reportingCode===control||a.code.startsWith(control)));
+  const leaves=accounts.filter(a=>a.code!==control&&(a.reportingCode?a.reportingCode===control:a.code.startsWith(control)));
   if(leaves.length===1)return leaves[0].id;
   return accounts.find(a=>a.code===control)?.id??'';
  }
@@ -31,6 +31,12 @@ export function defaultPostingRules(classifications:readonly PostingClassificati
  }
  for(const c of classifications.filter(c=>c.active)){
   const type=c.classification_type;
+  // Liquidity detail classifications split expense recognition. Settlement
+  // still follows the payable, and VAT continues to use generic OPEX.
+  if(type==='OPEX'&&c.code.startsWith('OPEX_')){
+   add(c,'EXPENSE','OPERATIONAL_CONSOLE','BASE','NON_CASH','6100','2100');
+   continue;
+  }
   // These signatures match the native operational editor's actual contract.
   if(type==='REVENUE'){
    add(c,'REVENUE','OPERATIONAL_CONSOLE','BASE','NON_CASH','1100','4100');
@@ -39,7 +45,14 @@ export function defaultPostingRules(classifications:readonly PostingClassificati
   const expenseTemplates:Record<string,readonly [string,string,NonNullable<DefaultPostingRule['cashActivity']>]>= {OPEX:['6100','2100','OPERATING'],CAPEX:['1500','2100','INVESTING'],INVESTMENT:['1600','2100','INVESTING'],TAX:['8100','2300','OPERATING'],ZAKAT:['8100','2300','OPERATING']};
   const expense=expenseTemplates[type];
   if(expense){
-   add(c,'EXPENSE','OPERATIONAL_CONSOLE','BASE','NON_CASH',expense[0],expense[1]);
+   const assetPurchase=type==='CAPEX'||type==='INVESTMENT';
+   add(c,assetPurchase?'ASSET_PURCHASE':'EXPENSE','OPERATIONAL_CONSOLE','BASE','NON_CASH',expense[0],expense[1]);
+   // Support historical console expenses only when that signature actually occurs.
+   // An already saved rule with either signature is preserved below.
+   if(assetPurchase&&events.some(event=>event.eventType==='EXPENSE'&&event.sourceModule==='OPERATIONAL_CONSOLE'&&
+     event.lines.some(line=>line.classificationId===c.id+':BASE'&&line.cashDirection==='NON_CASH'))){
+    add(c,'EXPENSE','OPERATIONAL_CONSOLE','BASE','NON_CASH',expense[0],expense[1]);
+   }
    add(c,'SETTLEMENT','OPERATIONAL_CONSOLE','BASE','OUTFLOW',expense[1],'1000',expense[2]);
   }
   if(type==='RECEIVABLE')add(c,'SETTLEMENT','OPERATIONAL_CONSOLE','BASE','INFLOW','1000','1100','OPERATING');

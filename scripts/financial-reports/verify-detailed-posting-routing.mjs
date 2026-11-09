@@ -136,5 +136,83 @@ try{
   const rows=(await query(catalog)).filter(row=>keys.test(row.object_key));
   await writeFile('tests/migration-history/detailed-posting-schema-delta.json',JSON.stringify({description:'Detailed posting resolution, protected history and common statement/closing legs.',removals:[],upserts:rows},null,2)+'\n');
  }
+ // Apply the payment follow-up after historical fixtures already have
+ // captured legs. The deferred trigger must not rewrite them.
+ await db.exec(`alter table public.financial_events add column event_type text,add column source_module text,
+  add column source_event_key text,add column source_record_id uuid;
+  create table financial_classifications(id uuid,organization_id uuid,classification_type text);
+  create table financial_event_lines(organization_id uuid,event_id uuid,classification_id uuid);
+  create table financial_event_obligations(id uuid,organization_id uuid,event_id uuid,obligation_type text);
+  create table financial_event_obligation_allocations(organization_id uuid,application_event_id uuid,
+   obligation_id uuid,allocation_type text,base_amount numeric);`);
+ await db.exec(await readFile('supabase/migrations/20261109130118_preserve_manual_payment_posting.sql','utf8'));
+ for(const [index,code,root] of [[31,'210001','2100'],[32,'210002','2100'],[33,'150001','1500'],[34,'610001','6100']])
+  await sql('insert into financial_chart_custom_accounts values($1,$2,$3,$4,$4,true,true,$3,$3)',[id(index),org,code,root]);
+ await sql("insert into financial_classifications values($1,$2,'OPEX'),($3,$2,'CAPEX')",[id(45),org,id(46)]);
+ await sql("insert into financial_classifications values($1,$2,'INVESTMENT')",[id(47),org]);
+ await sql('insert into financial_chart_custom_accounts values($1,$2,$3,$4,$4,true,true,$3,$3)',[id(48),org,'160001','1600']);
+ const genericPayable={...refundRule,classificationId:'payable:BASE',debitAccountId:'210001'};
+ const originalRule=(eventType,classificationId,debitAccountId)=>({
+  eventType,sourceModule:'OPERATIONAL_CONSOLE',classificationId,cashDirection:'NON_CASH',
+  debitAccountId,creditAccountId:'210002',detailed:true,
+ });
+ await approve(id(35),id(21),[rule('110002'),refundRule,genericPayable,
+  originalRule('ASSET_PURCHASE','investment:BASE','160001'),originalRule('ASSET_PURCHASE','asset:BASE','150001'),originalRule('EXPENSE','rent:BASE','610001')]);
+ async function recordManualExpense(eventId,flowId,obligationId,eventType,classificationId){
+  const raw={...event(eventId),eventType,lines:[{...event(eventId).lines[0],classificationId,
+   cashDirection:'NON_CASH',baseAmount:'300.0000'}]};
+  await db.transaction(async tx=>{
+   await tx.query('insert into source_events values($1,$2)',[eventId,JSON.stringify(raw)]);
+   await tx.query(`insert into financial_events(id,organization_id,event_date,status,event_type,source_module,source_event_key,source_record_id)
+    values($1,$2,'2026-08-01','ACTUAL',$3,'OPERATIONAL_CONSOLE',$4,$5)`,
+    [eventId,org,eventType,'liquidity:'+flowId+':recognition',flowId]);
+   await tx.query('insert into financial_event_lines values($1,$2,$3)',[org,eventId,({'rent:BASE':id(45),'asset:BASE':id(46),'investment:BASE':id(47)})[classificationId]]);
+   await tx.query("insert into financial_event_obligations values($1,$2,$3,'PAYABLE')",[obligationId,org,eventId]);
+  });
+ }
+ async function postManualPayment(eventId,accountId,allocations){
+  const raw={...event(eventId),date:'2026-08-02',lines:[{...event(eventId).lines[0],classificationId:'payable:BASE',cashDirection:'OUTFLOW'}]};
+  await db.transaction(async tx=>{
+   await tx.query('insert into source_events values($1,$2)',[eventId,JSON.stringify(raw)]);
+   await tx.query("insert into liquidity_settlements values($1,$2,$3,'POSTED','OUTFLOW',100)",[org,eventId,accountId]);
+   for(const [obligation,amount] of allocations)
+    await tx.query("insert into financial_event_obligation_allocations values($1,$2,$3,'PAYMENT',$4)",[org,eventId,obligation,amount]);
+   await tx.query("insert into financial_events(id,organization_id,event_date,status) values($1,$2,'2026-08-02','ACTUAL')",[eventId,org]);
+  });
+ }
+ await recordManualExpense(id(36),id(37),id(38),'ASSET_PURCHASE','asset:BASE');
+ await recordManualExpense(id(39),id(40),id(41),'EXPENSE','rent:BASE');
+ await recordManualExpense(id(49),id(50),id(51),'ASSET_PURCHASE','investment:BASE');
+ await postManualPayment(id(52),bankTwo,[[id(51),100]]);
+ await postManualPayment(id(42),bank,[[id(38),100]]);
+ await postManualPayment(id(43),bankTwo,[[id(41),100]]);
+ for(const [payment,bankCode,activity] of [[id(42),'100001','INVESTING'],[id(43),'100002','OPERATING'],[id(52),'100002','INVESTING']]){
+  const [leg]=await saved(payment);
+  assert.equal(leg.debitAccountId,'210002');
+  assert.equal(leg.creditAccountId,bankCode);
+  assert.equal(leg.cashActivity,activity);
+ }
+ // Reversing a payment must use its captured liability and bank even when
+ // the generic payable rule points elsewhere.
+ const reversedPayment={...event(id(53)),reversesEventId:id(52),
+  lines:[{...event(id(53)).lines[0],classificationId:'payable:BASE',
+   cashDirection:'OUTFLOW',recognitionSign:-1}]};
+ await post(id(53),bankTwo,reversedPayment,'INFLOW');
+ const [reversedLeg]=await saved(id(53));
+ assert.equal(reversedLeg.debitAccountId,'210002');
+ assert.equal(reversedLeg.creditAccountId,'100002');
+ assert.equal(reversedLeg.cashActivity,'INVESTING');
+ await assert.rejects(postManualPayment(id(44),bank,[[id(38),60],[id(41),40]]),/REPORTING_PAYMENT_ALLOCATION_REQUIRED/);
+ await assert.rejects(postManualPayment(id(44),bank,[[id(38),99]]),/REPORTING_PAYMENT_ALLOCATION_REQUIRED/);
+ assert.equal((await query('select id from financial_events where id=$1',[id(44)])).length,0);
+ assert.deepEqual((await saved(paymentId))[0],paymentLeg,'Historical settlement legs must be unchanged');
+ const catalog=(await readFile('tests/migration-history/catalog.sql','utf8')).trim().replace(/;$/,'');
+ const delta={description:'Capture original payable and cash activity for new manual liquidity payments.',removals:[],
+  upserts:(await query(catalog)).filter(row=>/^private\.financial_(resolve_manual_payment|capture_actual_posting)\(/.test(row.object_key))};
+ assert.equal(delta.upserts.length,2);
+ const paymentDelta='tests/migration-history/manual-payment-posting-schema-delta.json';
+ if(process.argv.includes('--write-payment-delta'))await writeFile(paymentDelta,JSON.stringify(delta,null,2)+'\n');
+ else assert.deepEqual(JSON.parse(await readFile(paymentDelta,'utf8')),delta);
+ console.log('PASS: new investment, asset and rent payments preserve the source payable, selected bank and investing/operating activity; rejects ambiguous allocations.');
  console.log('PASS: detail rules, receipt and payment bank UUID routing, atomic refusal, preserved policy versions, reversal and closing trial');
 }finally{await db.close();}

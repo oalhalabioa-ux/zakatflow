@@ -8,6 +8,8 @@ import type {RecognitionEvent} from '../lib/financial-event-ledger';
 const text=z.string().min(1).max(300);
 const rule=z.object({detailed:z.literal(true).optional(),eventType:text,sourceModule:text,classificationId:text,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),debitAccountId:text,creditAccountId:text,cashActivity:z.enum(['OPERATING','INVESTING','FINANCING']).optional()}).strict();
 const command=z.discriminatedUnion('action',[
+ z.object({action:z.literal('create-expense-classification'),...openingScope.shape,
+  code:z.string().trim().regex(/^OPEX_[A-Z0-9_]{1,45}$/),name:z.string().trim().min(1).max(160)}).strict(),
  z.object({action:z.literal('initialize-defaults'),...openingScope.shape,repairEmpty:z.boolean().optional()}).strict(),
  z.object({action:z.literal('save'),...openingScope.shape,expectedVersion:z.number().int().min(0),rules:z.array(rule).max(5000),reason:z.string().trim().min(3).max(1000)}).strict(),
  z.object({action:z.literal('approve'),id:z.string().uuid(),expectedVersion:z.number().int().positive()}).strict(),
@@ -30,6 +32,20 @@ export async function readReportingPolicy(input:unknown){
 export async function writeReportingPolicy(input:unknown){
  assertLiveStatements();
  const q=command.parse(input),{supabase,user}=await requireUser();
+ if(q.action==='create-expense-classification'){
+  const workspace=await readReportingPolicy({organization:q.organization,fiscalStart:q.fiscalStart});
+  if(!workspace.canSave)throw Error('REPORTING_ACCESS_DENIED');
+  const allowed=unwrap(await supabase.rpc('effective_organization_permission',{
+   p_org:q.organization,p_permission:'organization.edit',p_amount:null,p_currency:null,
+  }));
+  if(!allowed)throw Error('REPORTING_ACCESS_DENIED');
+  const result=await supabase.from('financial_classifications').insert({
+   organization_id:q.organization,code:q.code,name:q.name,classification_type:'OPEX',is_system:false,created_by:user.id,
+  }).select('id,code,name').single();
+  if(result.error?.code==='23505')throw Error('REPORTING_CLASSIFICATION_DUPLICATE');
+  return unwrap(result);
+ }
+
  if(q.action==='initialize-defaults'){
   const scope={organization:q.organization,fiscalStart:q.fiscalStart};
   let workspace=await readReportingPolicy(scope);

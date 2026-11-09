@@ -1826,6 +1826,22 @@
       "expected_md5": "2db28a215cd30a239e1f29ebd8125619",
       "file_sha256": "87a5ba64d6b6add1d0ff017d40c4aacf11434d7ddbdb7670eed82809ebc08c29",
       "validation_project": "Local PostgreSQL/WASM and UI regression only; no hosted migration applied"
+    },
+    {
+      "path": "supabase/migrations/20261109123942_liquidity_expense_classification_link.sql",
+      "version": "20261109123942",
+      "name": "liquidity_expense_classification_link",
+      "expected_md5": "5871eeebb1276e85b39f93fcd244ec3f",
+      "file_sha256": "133f75055d67e4b0c319314e7cbd1e8a76db3193adfd68f35d82a1ac4fe85917",
+      "validation_project": "Disposable PostgreSQL validation only; hosted QA and Production application pending"
+    },
+    {
+      "path": "supabase/migrations/20261109130118_preserve_manual_payment_posting.sql",
+      "version": "20261109130118",
+      "name": "preserve_manual_payment_posting",
+      "expected_md5": "64bd1b8272af75c0cd403fc5ed70c650",
+      "file_sha256": "36f5322781f9b5231dadcecd500fa46e2748d5b0179cf4488fe4ebbbb339f3f5",
+      "validation_project": "Disposable PostgreSQL/WASM fixture validation; hosted QA and Production pending"
     }
   ]
 }
