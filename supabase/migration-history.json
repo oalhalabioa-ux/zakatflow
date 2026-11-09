@@ -1823,8 +1823,8 @@
       "path": "supabase/migrations/20261109101216_detailed_posting_routing.sql",
       "version": "20261109101216",
       "name": "detailed_posting_routing",
-      "expected_md5": "3b0230804b39890402c9bb6f4d579e13",
-      "file_sha256": "973776f6cd78b86c71af6c685e03199aaddac2dda15ed591a00f0e868220c6ff",
+      "expected_md5": "2db28a215cd30a239e1f29ebd8125619",
+      "file_sha256": "87a5ba64d6b6add1d0ff017d40c4aacf11434d7ddbdb7670eed82809ebc08c29",
       "validation_project": "Local PostgreSQL/WASM and UI regression only; no hosted migration applied"
     }
   ]

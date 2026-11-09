@@ -233,6 +233,11 @@ end $$;
 do $$
 declare signature text;definition text;needle text;
 begin
+ definition:=pg_get_functiondef('public.save_financial_reporting_policy(uuid,date,integer,jsonb,text)'::regprocedure);
+ needle:=$old$'creditAccountId','cashActivity'))$old$;
+ if strpos(definition,needle)=0 then raise exception 'REPORTING_POLICY_SAVE_SIGNATURE_CHANGED';end if;
+ execute replace(definition,needle,$new$'creditAccountId','cashActivity','detailed'))
+   or (rule ? 'detailed' and rule->'detailed' is distinct from 'true'::jsonb)$new$);
  foreach signature in array array['private.financial_statement_live_snapshot_v1(uuid,date,date)','public.financial_statement_first_activity_snapshot(uuid,date,date)'] loop
   if to_regprocedure(signature) is null and signature like 'public.%' then continue;end if;
   definition:=pg_get_functiondef(signature::regprocedure);

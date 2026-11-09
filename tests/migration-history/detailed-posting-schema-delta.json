@@ -98,6 +98,11 @@
       "fingerprint": "c10198ea1a53283ac12acc39551848cb"
     },
     {
+      "category": "function",
+      "object_key": "public.save_financial_reporting_policy(p_org uuid, p_fiscal_start date, p_expected_version integer, p_rules jsonb, p_reason text)",
+      "fingerprint": "748487c88d1aea2cfe4f6460bf4f33b0"
+    },
+    {
       "category": "index",
       "object_key": "private.financial_event_posting_resolutions.financial_event_posting_resolutions_pkey",
       "fingerprint": "595e91826e07a6cc3bdbbb2edd036e0c"

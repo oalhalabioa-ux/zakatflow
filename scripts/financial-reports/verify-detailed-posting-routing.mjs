@@ -52,6 +52,11 @@ try{
    return jsonb_build_object('origin','LIVE_CANONICAL_EVENTS','coverage',jsonb_build_object('readAt',statement_timestamp()));end$$;
    create function public.financial_reporting_policy_workspace(p_org uuid,p_fiscal_start date) returns jsonb language plpgsql as $$declare result jsonb:='[]';begin return jsonb_build_object('events',result,'canSave',true);end$$;`);
  }
+ if(process.env.POSTING_SAVE_BASELINE_SQL)await db.exec(await readFile(process.env.POSTING_SAVE_BASELINE_SQL,'utf8'));
+ else {
+  const source=await readFile('supabase/migrations/20261103145436_financial_reporting_cash_controls.sql','utf8');
+  await db.exec(source.slice(0,source.indexOf('create or replace function public.financial_statement_live_snapshot')));
+ }
  await db.exec(await readFile('supabase/migrations/20261109101216_detailed_posting_routing.sql','utf8'));
  await sql('insert into organizations values($1),($2)',[org,other]);
  await sql("insert into liquidity_accounts values($1,$3,'SAR',null,true),($2,$3,'SAR',null,true)",[bank,bankTwo,org]);
@@ -107,10 +112,27 @@ try{
  assert.equal(paymentLeg.debitAccountId,'110002');
  assert.equal(paymentLeg.creditAccountId,'100002','Payment credits the bank recorded on the voucher');
  assert.equal((await query("select has_table_privilege('authenticated','private.financial_event_posting_resolutions','select') granted"))[0].granted,false);
+ // Exercise the same draft-save RPC the browser uses, not just approval triggers.
+ await db.exec(`create schema auth;
+  create function auth.uid() returns uuid language sql stable as $$select '${id(30)}'::uuid$$;
+  alter table public.organizations add column base_currency text default 'SAR';
+  alter table public.financial_reporting_policies alter column id set default gen_random_uuid(),
+   alter column status set default 'DRAFT',add column currency text,add column reason text,
+   add column version integer default 1,add column created_by uuid,add column updated_by uuid,add column updated_at timestamptz;
+  create table public.financial_reporting_policy_audit(organization_id uuid,policy_id uuid,actor_id uuid,action text,version integer,detail jsonb);
+  create function private.financial_assert_open_period(uuid,date) returns void language plpgsql as $$begin end$$;
+  create function private.financial_opening_can(uuid,text) returns boolean language sql as $$select true$$;
+  create function private.financial_period_end(uuid,date) returns date language sql as $$select ($2+interval '1 year - 1 day')::date$$;
+  create function public.financial_chart_posting_accounts(uuid) returns jsonb language sql as $$select public.financial_reporting_chart()$$;`);
+ const save=rules=>query("select public.save_financial_reporting_policy($1,'2028-01-01',0,$2,'Detailed draft save') policy",[org,JSON.stringify(rules)]);
+ await assert.rejects(save([{...rule('1100'),detailed:false}]),/REPORTING_POLICY_INVALID/);
+ await assert.rejects(save([{...rule('1100'),unexpected:true}]),/REPORTING_POLICY_INVALID/);
+ const savedDraft=(await save([rule('1100')]))[0].policy;
+ assert.equal(savedDraft.status,'DRAFT');assert.equal(savedDraft.rules[0].detailed,true);
  if(process.argv.includes('--write-delta')){
   assert.ok(process.env.POSTING_BASELINE_SQL,'Exact baseline required for patched function fingerprints');
   const catalog=(await readFile('tests/migration-history/catalog.sql','utf8')).trim().replace(/;$/,'');
-  const keys=/financial_event_posting_resolutions|financial_detailed_|financial_assert_detailed_rules|financial_voucher_cash_leaf|financial_resolve_event_posting|financial_capture_policy_history|financial_capture_actual_posting|financial_apply_resolved_postings|financial_statement_live_snapshot_v1|financial_reporting_policy_workspace|financial_fiscal_trial_detail_v1/;
+  const keys=/financial_event_posting_resolutions|financial_detailed_|financial_assert_detailed_rules|financial_voucher_cash_leaf|financial_resolve_event_posting|financial_capture_policy_history|financial_capture_actual_posting|financial_apply_resolved_postings|financial_statement_live_snapshot_v1|financial_reporting_policy_workspace|save_financial_reporting_policy|financial_fiscal_trial_detail_v1/;
   const rows=(await query(catalog)).filter(row=>keys.test(row.object_key));
   await writeFile('tests/migration-history/detailed-posting-schema-delta.json',JSON.stringify({description:'Detailed posting resolution, protected history and common statement/closing legs.',removals:[],upserts:rows},null,2)+'\n');
  }
