@@ -7,6 +7,17 @@ export async function verifyPricingLayout({page,locale,out}) {
   await page.setViewportSize({width,height:1050});
   await page.waitForTimeout(350);
   await page.evaluate(()=>document.fonts.ready);
+  const stages=await page.locator('.billing-steps li').evaluateAll(items=>items.map(e=>{
+   const node=e.querySelector('span'), box=node.getBoundingClientRect(), row=e.getBoundingClientRect();
+   return {current:e.getAttribute('aria-current')==='step',background:getComputedStyle(node).backgroundColor,
+    color:getComputedStyle(node).color,height:box.height,line:Number.parseFloat(getComputedStyle(e,'::after').top),center:box.top-row.top+box.height/2};
+  }));
+  for(const [i,stage] of stages.entries()) {
+   assert.equal(stage.height,48);
+   assert.equal(stage.color,'rgb(198, 163, 93)');
+   assert.equal(stage.background,stage.current?'rgb(32, 83, 71)':'rgb(255, 255, 255)');
+   if(i<stages.length-1)assert.ok(Math.abs(stage.line-stage.center)<1,'Connector meets icon center');
+  }
   const layout=await page.locator('.pricing-grid').evaluate(grid=>{
    const g=grid.getBoundingClientRect();const cards=[...grid.children].map(e=>e.getBoundingClientRect());
    return {width:g.width,left:g.left,right:g.right,cards:cards.map(c=>({width:c.width,left:c.left,right:c.right,top:c.top}))};
