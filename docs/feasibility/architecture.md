@@ -108,3 +108,10 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - RLS grants active collaborators study read, and active editors study UPDATE, but the current *API* deliberately remains owner-only while invite acceptance and edit auditing are not implemented. The DB role helper is `SECURITY DEFINER`, `search_path=''`, explicitly matches `auth.uid()`, and exposes only the caller's own role for a project.
 - QA rollback test verified pending membership denies role; ACTIVE member has only the assigned role; unrelated user cannot read a project or role. Transaction rollback left 0 memberships and 0 projects.
 - **Not a collaborative release:** no real invitations, accepted users, email delivery, collaborator audit, member editing endpoint, or shared project list have been enabled. The user-level subscription access grant remains a separate gate. All functionality remains behind QA feature flags and PR Draft.
+
+## QA V2 collaborator helper hardening (9 November 2026)
+
+- Follow-up QA-only migration `feasibility_collaboration_private_helper_hardening_qa_v2` moved the RLS membership helper from exposed `public` to non-exposed `private`, maintaining explicit user matching and owner-or-active-member checks.
+- Combined RLS policies to avoid multiple permissive policy overhead. Authenticated users still cannot create or change memberships. Included a foreign-key covering index. No Production migration created.
+- Supabase security advisor shows no Feasibility warnings after hardening; foreign-user read/role checks passed in a rollback-only test, leaving zero projects and members.
+- Collaborator invitation acceptance/edit auditing is NOT enabled. These are structural permission controls only.
