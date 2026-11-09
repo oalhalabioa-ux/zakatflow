@@ -95,3 +95,8 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - PostgreSQL BEFORE INSERT trigger locks the persisted study, validates its revision and captures the immutable JSON snapshot; server and database reject stale versions. The owner may read/review history but cannot UPDATE/DELETE saved snapshots; a second review for the same source revision is rejected.
 - UI requires an explicitly saved cloud version matching the local draft; local preview approval alone is not sufficient. Formal board/legal/project authorization is a distinct later workflow. Never treat these records as a legal licence, booking, budget approval, opening balance or financial posting.
 - Verified in QA transaction: owner creates review, changes live study, saved snapshot remains unchanged, stale revision is rejected, foreign user cannot read, rollback leaves 0 records. Authenticated browser QA with real identities remains a release gate.
+
+## Read-only navigation acceptance
+
+- If the independent study entitlement has expired or is paused, only study browsing, print and JSON export are available. The active panel uses a disabled fieldset to prevent editing controls from appearing functional; project creation/deletion and cloud writes remain blocked by the UI **and** by the authenticated server endpoint.
+- All newly authored feasibility text follows Yaqeen's navy `#1D3852` on light backgrounds, not black.

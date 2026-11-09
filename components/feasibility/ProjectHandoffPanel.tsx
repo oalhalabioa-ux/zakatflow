@@ -39,14 +39,14 @@ export default function ProjectHandoffPanel({study,locale,onChange,cloudRevision
   </div>
   <h3>{t('شروط الانتقال','Readiness checklist')}</h3>
   {review.checks.map(item=><div className="fs-row" key={item.key}><span>{ar?item.ar:item.en}</span><strong>{item.passed?'✓':t('ناقص','Missing')}</strong></div>)}
-  {!reviewed?<button type="button" className="fs-btn" disabled={!review.ready} onClick={()=>patch({reviewedSourceUpdatedAt:study.updatedAt,reviewedAt:new Date().toISOString()})}>{t('تأكيد المراجعة الداخلية لهذه النسخة','Confirm internal review of this revision')}</button>:<p className="fs-handoff-note">{t('تمت المراجعة المبدئية. أي تعديل لاحق في الدراسة يلغي صلاحية هذه المراجعة.','Preliminary review recorded. Editing study inputs invalidates this review.')}</p>}
+  {!reviewed?<button type="button" className="fs-btn" disabled={!review.ready||!canWrite} onClick={()=>patch({reviewedSourceUpdatedAt:study.updatedAt,reviewedAt:new Date().toISOString()})}>{t('تأكيد المراجعة الداخلية لهذه النسخة','Confirm internal review of this revision')}</button>:<p className="fs-handoff-note">{t('تمت المراجعة المبدئية. أي تعديل لاحق في الدراسة يلغي صلاحية هذه المراجعة.','Preliminary review recorded. Editing study inputs invalidates this review.')}</p>}
   {reviewed&&<>
    <h3>{t('ما الخطوة التالية؟','Choose the next step')}</h3>
    {([['LATER','الاحتفاظ بالدراسة دون تأسيس','Keep study without incorporation'],['NEW','تأسيس شركة جديدة','Create a new company'],['EXISTING','ربط شركة قائمة','Link an existing company']] as const).map(([mode,a,b])=>
     <label className="fs-handoff-choice" key={mode}><input type="radio" name={'handoff-'+study.id} checked={h.mode===mode} onChange={()=>patch({mode,organizationId:undefined})}/>{t(a,b)}</label>)}
    {h.mode==='NEW'&&<>
     <p className="fs-handoff-note">{t('استخدم شاشة إنشاء المؤسسات الرسمية، ثم ارجع واختر «ربط شركة قائمة» لتحديد الشركة الجديدة وتفعيل إعداد V2 عند اعتماده.','Use the authorized organization creation flow; return here and select Link existing company to bind the new company once V2 setup is approved.')}</p>
-    <a className="fs-handoff-link" href={'/'+locale+'/organizations'}>{t('فتح إدارة المؤسسات','Open organization directory')}</a>
+    {canWrite&&<a className="fs-handoff-link" href={'/'+locale+'/organizations'}>{t('فتح إدارة المؤسسات','Open organization directory')}</a>}
    </>}
    {h.mode==='EXISTING'&&<>
     <label className="fs-field"><span>{t('شركة مخوّل لك الوصول إليها','Authorized company')}</span><select disabled={loading||!!error} value={h.organizationId??''} onChange={e=>patch({organizationId:e.currentTarget.value||undefined})}>
@@ -55,7 +55,7 @@ export default function ProjectHandoffPanel({study,locale,onChange,cloudRevision
     </select></label>
     {error&&<p role="alert" className="fs-handoff-note">{error}</p>}
     {chosen&&!sameCurrency&&<p role="alert" className="fs-handoff-note">{t('عملة الدراسة لا توافق العملة الأساسية للشركة؛ تتطلب مراجعة تحويل العملات قبل الانتقال.','Study currency differs from company base currency; a documented FX review is required before transition.')}</p>}
-    {setupPath&&sameCurrency&&enabled?<a className="fs-handoff-link" href={setupPath}>{t('الانتقال إلى إعداد الشركة — Financial Core V2','Continue to company setup — Financial Core V2')}</a>:<p className="fs-handoff-note">{t('ربط V2 المحاسبي معطّل حتى اعتماد عقد التكامل واختبارات صلاحيات QA V2.','Accounting integration remains disabled until the versioned V2 contract and QA permission tests pass.')}</p>}
+    {setupPath&&sameCurrency&&enabled&&canWrite?<a className="fs-handoff-link" href={setupPath}>{t('الانتقال إلى إعداد الشركة — Financial Core V2','Continue to company setup — Financial Core V2')}</a>:<p className="fs-handoff-note">{t('ربط V2 المحاسبي معطّل حتى اعتماد عقد التكامل واختبارات صلاحيات QA V2.','Accounting integration remains disabled until the versioned V2 contract and QA permission tests pass.')}</p>}
    </>}
   </>}
   <ReviewSnapshotPanel study={study} locale={locale} cloudRevision={cloudRevision} cloudCurrent={cloudCurrent} enabled={cloudEnabled} canWrite={canWrite}/>
