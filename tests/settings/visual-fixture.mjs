@@ -1,6 +1,7 @@
 // LOCAL UI fixture only. Not authentication, RLS or accounting certification.
 import {createServer} from 'node:http';
 import {verifyBundleBuilder} from './bundle-builder.mjs';
+import {verifyPricingLayout} from './pricing-layout.mjs';
 import {createHmac} from 'node:crypto';
 import {createServerClient} from '@supabase/ssr';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -100,6 +101,7 @@ try{
      await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth, null, {timeout:4000});
      await page.screenshot({path:`${out}/billing-plans-${locale}-${width}.png`,fullPage:true});
     }
+    await verifyPricingLayout({page,locale,out});
     await verifyBundleBuilder({page,locale,out,organizationId:orgId});
     await tabs.getByRole('button',{name:ar?'الفواتير والمدفوعات':'Invoices & payments',exact:true}).click();
     await page.locator('.billing-identity-form').waitFor();

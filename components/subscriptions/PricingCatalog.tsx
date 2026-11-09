@@ -12,7 +12,14 @@ import {
 } from "@/lib/subscriptions/requests";
 import type { OrganizationSubscription } from "@/lib/subscriptions/model";
 import { capabilityLabel, money, planCustomerNotice, type Plan } from "@/lib/subscriptions/catalog";
-import SettingsIcon from "@/components/settings/SettingsIcon";
+import SettingsIcon, { type SettingsIconName } from "@/components/settings/SettingsIcon";
+const capabilityIcons: Record<string, SettingsIconName> = {
+  'module:assets': 'organization', 'module:liquidity': 'bank',
+  'module:budgets': 'calendar', 'module:vat': 'regulatory',
+  'module:zakat': 'finance', 'module:debts': 'opening',
+  'module:investments': 'chart', 'feature:custom_roles': 'users',
+  core: 'chart',
+};
 export default function PricingCatalog({ locale, organization }: { locale: string; organization?: string }) {
   const ar = locale === "ar";
   const [catalog, setCatalog] = useState<{
@@ -155,6 +162,8 @@ export default function PricingCatalog({ locale, organization }: { locale: strin
           <span><SettingsIcon name={icon} /></span>{ar ? arabic : english}
         </li>)}
       </ol>
+      <div className="pricing-period-row">
+      <span className="pricing-period-label">{ar ? "دورة الفوترة" : "Billing period"}</span>
       <div
         className="pricing-interval"
         role="group"
@@ -178,6 +187,7 @@ export default function PricingCatalog({ locale, organization }: { locale: strin
                 : "Yearly"}
           </button>
         ))}
+      </div>
       </div>
       <div className="pricing-grid">
         {plans
@@ -212,15 +222,16 @@ export default function PricingCatalog({ locale, organization }: { locale: strin
               )}
               <details className="billing-package-details">
                 <summary>{ar ? "تفاصيل الباقة" : "Plan details"}</summary>
-                <p>{p.max_users ?? "∞"} {ar ? "مستخدم نشط لكل مؤسسة" : "active users per institution"}</p>
                 <ul>
+                <li><SettingsIcon name="users" /><span>{p.max_users ?? "∞"} {ar ? "مستخدم نشط لكل مؤسسة" : "active users per institution"}</span></li>
                 <li>
+                  <SettingsIcon name="opening" /><span>
                   {ar
                     ? "قراءة البيانات والتقارير والتصدير وفق صلاحيات العضو"
-                    : "Read, reports and export within member permissions"}
+                    : "Read, reports and export within member permissions"}</span>
                 </li>
                 {p.features.map((f) => (
-                  <li key={f}>{capabilityLabel(f, ar)}</li>
+                  <li key={f}><SettingsIcon name={capabilityIcons[f] ?? 'info'} /><span>{capabilityLabel(f, ar)}</span></li>
                 ))}
                 </ul>
               </details>
