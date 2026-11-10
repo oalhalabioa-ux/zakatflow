@@ -203,7 +203,10 @@ try{
   await legal.getByLabel('Registered legal address',{exact:true}).waitFor();
   await legal.getByLabel('Registered legal address',{exact:true}).fill('Riyadh QA test address');
   await legal.getByLabel('Commercial or statutory registration number',{exact:true}).fill('123456789');
+  assert.equal(await legal.getByLabel('Registered legal address',{exact:true}).inputValue(),'Riyadh QA test address');
+  const legalWrite=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/organizations'&&r.request().method()==='PATCH');
   await legal.getByRole('button',{name:'Save changes',exact:true}).click();
+  const written=await legalWrite;assert.equal(written.status(),200,await written.text());assert.equal(written.request().postDataJSON().registered_address,'Riyadh QA test address');
   await legal.getByText('Organization details saved.',{exact:true}).waitFor();
   const legalSaved=(await (await page.request.get(app+'/api/organizations')).json()).find(x=>x.id===org);
   assert.equal(legalSaved.registered_address,'Riyadh QA test address');

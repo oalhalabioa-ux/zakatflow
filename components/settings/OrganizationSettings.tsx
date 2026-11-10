@@ -37,6 +37,8 @@ export default function OrganizationSettings({
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [draft, setDraft] = useState({ name: "", legal_name: "", country_code: "", commercial_registration_number: "", registered_address: "", activity: "", contact_email: "", contact_phone: "", registered_city: "", registered_region: "", registered_postal_code: "", registration_authority: "", registration_expires_on: "" });
+  const [draftOrganization,setDraftOrganization]=useState("");
+  function updateDraft(key:keyof typeof draft,value:string){setDraft(current=>({...current,[key]:value}));}
   const generation = useRef(0);
   const fiscalEdit = useRef({ dirty: false, busy: false });
   const reportFiscalEdit = useRef((dirty: boolean, busy: boolean) => { fiscalEdit.current = { dirty, busy }; }).current;
@@ -97,7 +99,7 @@ export default function OrganizationSettings({
     };
   }, [items,preferredOrg]);
   const selected = items.find((o) => o.id === id),
-    canEdit = !!selected && selected.owner_user_id === owner;
+    canEdit = !!selected && selected.owner_user_id === owner && draftOrganization === id;
   const [taxNumber, setTaxNumber] = useState("");
   useEffect(() => {
     if (!billingDetails || !id) return;
@@ -111,6 +113,7 @@ export default function OrganizationSettings({
   }, [billingDetails, id]);
   useEffect(() => {
     generation.current++;
+    setDraftOrganization(id);
     setDraft({
       name: selected?.name ?? "",
       legal_name: selected?.legal_name ?? "",
@@ -187,16 +190,16 @@ export default function OrganizationSettings({
       <h2>{ar ? "بيانات الفوترة" : "Billing details"}</h2>
       <form className="billing-identity-form" onSubmit={save}>
         <fieldset disabled={!canEdit || busy}>
-          <label>{ar ? "الاسم القانوني للمؤسسة" : "Legal organization name"}<input required maxLength={200} value={draft.legal_name} onChange={e=>setDraft({...draft,legal_name:e.target.value})}/></label>
+          <label>{ar ? "الاسم القانوني للمؤسسة" : "Legal organization name"}<input required maxLength={200} value={draft.legal_name} onChange={e=>updateDraft("legal_name",e.target.value)}/></label>
           <label>{ar ? "الدولة" : "Country"}
-            <select required value={draft.country_code} onChange={e=>setDraft({...draft,country_code:e.target.value})}>
+            <select required value={draft.country_code} onChange={e=>updateDraft("country_code",e.target.value)}>
               <option value="">{ar ? "اختر الدولة" : "Select country"}</option>
               {COUNTRY_CODES.map(code=><option key={code} value={code}>{countryName(code,locale)}</option>)}
             </select>
           </label>
-          <label>{ar ? "العنوان المسجل" : "Registered address"}<input required maxLength={500} value={draft.registered_address} onChange={e=>setDraft({...draft,registered_address:e.target.value})}/></label>
+          <label>{ar ? "العنوان المسجل" : "Registered address"}<input required maxLength={500} value={draft.registered_address} onChange={e=>updateDraft("registered_address",e.target.value)}/></label>
           <label>{ar ? "الرقم الضريبي (إن وجد)" : "Tax registration number (if applicable)"}<input dir="ltr" readOnly value={taxNumber} placeholder="—"/></label>
-          <label className="billing-wide">{ar ? "البريد الإلكتروني للفوترة" : "Billing email"}<input required type="email" dir="ltr" maxLength={254} value={draft.contact_email} onChange={e=>setDraft({...draft,contact_email:e.target.value})}/></label>
+          <label className="billing-wide">{ar ? "البريد الإلكتروني للفوترة" : "Billing email"}<input required type="email" dir="ltr" maxLength={254} value={draft.contact_email} onChange={e=>updateDraft("contact_email",e.target.value)}/></label>
         </fieldset>
         <p>{ar ? "بريد الفوترة هو البريد الرسمي للمؤسسة. يُدار الرقم الضريبي من الإعدادات النظامية والضريبية." : "Billing uses the organization's official email. Manage the tax number in Legal & tax settings."}</p>
         <footer className="billing-form-actions">
@@ -309,7 +312,7 @@ export default function OrganizationSettings({
                   maxLength={160}
                   value={draft.name}
                   disabled={!canEdit || busy}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  onChange={(e) => updateDraft("name",e.target.value)}
                 />
               </label>
               <label>
@@ -319,18 +322,18 @@ export default function OrganizationSettings({
                   value={draft.legal_name}
                   disabled={!canEdit || busy}
                   onChange={(e) =>
-                    setDraft({ ...draft, legal_name: e.target.value })
+                    updateDraft("legal_name",e.target.value)
                   }
                 />
               </label>
               {!identityOnly&&<>
               <label>{ar?'نوع الكيان':'Entity type'}<input readOnly value={selected.entity_type==='COMPANY'?(ar?'شركة':'Company'):selected.entity_type==='FAMILY'?(ar?'مكتب عائلي':'Family office'):selected.entity_type==='PERSON'?(ar?'فرد':'Individual'):selected.entity_type==='TRUST'?(ar?'وقف / ائتمان':'Trust'):(ar?'جهة أخرى':'Other')}/></label>
-              <label>{ar?'النشاط الرئيسي':'Main activity'}<input maxLength={120} value={draft.activity} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,activity:e.target.value})}/></label>
+              <label>{ar?'النشاط الرئيسي':'Main activity'}<input maxLength={120} value={draft.activity} disabled={!canEdit||busy} onChange={e=>updateDraft("activity",e.target.value)}/></label>
               </>}
               <label>
                 {ar ? "الدولة" : "Country"}
                 <select aria-label={ar?"الدولة":"Country"} required value={draft.country_code} disabled={!canEdit||busy}
-                  onChange={e=>setDraft({...draft,country_code:e.target.value})}>
+                  onChange={e=>updateDraft("country_code",e.target.value)}>
                   <option value="">{ar?'اختر دولة التسجيل':'Select country'}</option>
                   {COUNTRY_CODES.map(code=><option key={code} value={code}>{countryName(code,locale)}</option>)}
                 </select>
@@ -342,7 +345,7 @@ export default function OrganizationSettings({
                   maxLength={80}
                   value={draft.commercial_registration_number}
                   disabled={!canEdit || busy}
-                  onChange={(e) => setDraft({ ...draft, commercial_registration_number: e.target.value })}
+                  onChange={(e) => updateDraft("commercial_registration_number",e.target.value)}
                 />
               </label>
               <label>
@@ -353,22 +356,22 @@ export default function OrganizationSettings({
                   maxLength={500}
                   value={draft.registered_address}
                   disabled={!canEdit || busy}
-                  onChange={(e) => setDraft({ ...draft, registered_address: e.target.value })}
+                  onChange={(e) => updateDraft("registered_address",e.target.value)}
                 />
               </label>
-              <label>{ar?'المدينة':'City'}<input maxLength={120} value={draft.registered_city} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registered_city:e.target.value})}/></label>
-              <label>{ar?'المنطقة':'Region'}<input maxLength={120} value={draft.registered_region} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registered_region:e.target.value})}/></label>
-              <label>{ar?'الرمز البريدي':'Postal code'}<input maxLength={20} value={draft.registered_postal_code} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registered_postal_code:e.target.value})}/></label>
-              <label>{ar?'جهة إصدار السجل':'Registration authority'}<input maxLength={160} value={draft.registration_authority} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registration_authority:e.target.value})}/></label>
-              <label>{ar?'تاريخ انتهاء السجل':'Registration expiry'}<input type="date" value={draft.registration_expires_on} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,registration_expires_on:e.target.value})}/></label>
+              <label>{ar?'المدينة':'City'}<input maxLength={120} value={draft.registered_city} disabled={!canEdit||busy} onChange={e=>updateDraft("registered_city",e.target.value)}/></label>
+              <label>{ar?'المنطقة':'Region'}<input maxLength={120} value={draft.registered_region} disabled={!canEdit||busy} onChange={e=>updateDraft("registered_region",e.target.value)}/></label>
+              <label>{ar?'الرمز البريدي':'Postal code'}<input maxLength={20} value={draft.registered_postal_code} disabled={!canEdit||busy} onChange={e=>updateDraft("registered_postal_code",e.target.value)}/></label>
+              <label>{ar?'جهة إصدار السجل':'Registration authority'}<input maxLength={160} value={draft.registration_authority} disabled={!canEdit||busy} onChange={e=>updateDraft("registration_authority",e.target.value)}/></label>
+              <label>{ar?'تاريخ انتهاء السجل':'Registration expiry'}<input type="date" value={draft.registration_expires_on} disabled={!canEdit||busy} onChange={e=>updateDraft("registration_expires_on",e.target.value)}/></label>
               </div>
               {identityOnly&&<p className="settings-hint">{ar ?
                 "هذه بيانات هوية المؤسسة النظامية. عنوان البائع والرقم الضريبي الخاصان بالفواتير يُداران بصورة مستقلة في إعدادات الضرائب، ولا يعني الحفظ اعتمادًا نظاميًا تلقائيًا." :
                 "These are the organization's registered identity details. The invoice seller address and tax number are managed separately; saving does not certify statutory compliance."}</p>}
               {!identityOnly&&<label>{ar?'العملة الأساسية':'Base currency'}<input readOnly value={selected.base_currency}/></label>}
               {!identityOnly&&<>
-              <label>{ar?'رقم الهاتف':'Phone number'}<input type="tel" maxLength={40} dir="ltr" value={draft.contact_phone} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,contact_phone:e.target.value})}/></label>
-              <label>{ar?'البريد الرسمي':'Official email'}<input type="email" maxLength={254} dir="ltr" value={draft.contact_email} disabled={!canEdit||busy} onChange={e=>setDraft({...draft,contact_email:e.target.value})}/></label>
+              <label>{ar?'رقم الهاتف':'Phone number'}<input type="tel" maxLength={40} dir="ltr" value={draft.contact_phone} disabled={!canEdit||busy} onChange={e=>updateDraft("contact_phone",e.target.value)}/></label>
+              <label>{ar?'البريد الرسمي':'Official email'}<input type="email" maxLength={254} dir="ltr" value={draft.contact_email} disabled={!canEdit||busy} onChange={e=>updateDraft("contact_email",e.target.value)}/></label>
               </>}
               {canEdit ? (
                 <footer className="settings-action-footer"><button className="btn settings-save settings-profile-save" disabled={busy || !draft.name.trim()}>
