@@ -71,7 +71,21 @@ export async function writeReportingPolicy(input:unknown){
   unwrap(await supabase.rpc('link_financial_cash_accounts',{p_org:q.organization}));
   unwrap(await supabase.rpc('prepare_financial_account_rule_links',{p_org:q.organization}));
   workspace=await readReportingPolicy(scope);
-  const prepared=readyPostingDefaults(workspace.classifications,workspace.chart,workspace.events,workspace.policy?.rules??[],roles);
+  let prepared=readyPostingDefaults(workspace.classifications,workspace.chart,workspace.events,workspace.policy?.rules??[],roles);
+  if(prepared.issue)throw Error(prepared.issue);
+  // Inheritance reads persisted templates. Save the prepared draft before
+  // synchronizing children, then validate and activate that complete version.
+  // A failure leaves an unapproved draft; the prior approved policy stays live.
+  if(JSON.stringify(prepared.rules)!==JSON.stringify(workspace.policy?.rules??[])){
+   unwrap(await supabase.rpc('save_financial_reporting_policy',{
+    p_org:q.organization,p_fiscal_start:q.fiscalStart,
+    p_expected_version:workspace.policy?.status==='DRAFT'?workspace.policy.version:0,
+    p_rules:prepared.rules,p_reason:'Prepare default templates and detail-account mappings',
+   }));
+  }
+  unwrap(await supabase.rpc('prepare_financial_account_rule_links',{p_org:q.organization}));
+  workspace=await readReportingPolicy(scope);
+  prepared=readyPostingDefaults(workspace.classifications,workspace.chart,workspace.events,workspace.policy?.rules??[],roles);
   if(prepared.issue)throw Error(prepared.issue);
   // No arbitrary event signatures are accepted from the browser. Approval's
   // existing source-coverage and historical-resolution gates still apply.
