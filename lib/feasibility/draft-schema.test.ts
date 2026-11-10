@@ -20,3 +20,20 @@ describe('feasibility QA cloud draft input',()=>{
   expect(cloudDraftWrite.safeParse({study,revision:0}).success).toBe(false);
  });
 });
+
+describe('advanced study cash-cycle serialization',()=>{
+ it('continues to accept prior drafts with no optional capital policy',()=>{
+  const s=createStudy('6357a708-bae2-4634-9296-490404b1d8a4','Old study');
+  expect(cloudDraftWrite.safeParse({study:s}).success).toBe(true);
+ });
+ it('accepts an explicit valid operating cycle but rejects out-of-range days',()=>{
+  const s=createStudy('6357a708-bae2-4634-9296-490404b1d8a4','New study');
+  s.advanced={mode:'DIRECT',capacityMonthly:0,utilisationPct:0,saleablePct:100,
+   lives:{BUILDINGS:0,EQUIPMENT:0,UTILITIES:0,LICENCES:0,OTHER:0},
+   debtRatePct:0,debtYears:0,terminalCash:0,contingencyPct:10,
+   workingCapitalPolicy:{mode:'DAYS',receivableDays:30,inventoryDays:40,payableDays:20}};
+  expect(cloudDraftWrite.safeParse({study:s}).success).toBe(true);
+  s.advanced.workingCapitalPolicy!.receivableDays=500;
+  expect(cloudDraftWrite.safeParse({study:s}).success).toBe(false);
+ });
+});

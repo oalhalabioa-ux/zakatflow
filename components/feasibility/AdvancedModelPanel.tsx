@@ -19,7 +19,8 @@ const issueNames:Record<string,[string,string]>={
  FUNDING_GAP:['نقص تمويل نقدي؛ عائد المساهمين غير متاح.','Funding gap: equity returns are withheld.'],
  UNMODELED_SURPLUS:['هناك فائض تمويل غير نمذجته الدراسة.','Funding surplus is not modeled.'],
  LAND_VALUE_REQUIRED:['الأرض المنقولة يجب أن تكون ذات قيمة مقدرة موجبة.','Transferred land requires a positive appraised value.'],
- EQUITY_UNFUNDED:['لا توجد مساهمة اقتصادية موجبة لحقوق الملكية.','No positive equity contribution exists.']
+ EQUITY_UNFUNDED:['لا توجد مساهمة اقتصادية موجبة لحقوق الملكية.','No positive equity contribution exists.'],
+ NEGATIVE_WORKING_CAPITAL:['رأس المال العامل سالب بسبب ائتمان الموردين؛ يتطلب ذلك نموذج ائتمان منفصلًا.','Negative working capital requires a separate supplier-credit model.']
 };
 function Numeric({label,value,set,max=1000000000000,step='any'}:{
  label:string;value:number;set:(v:number)=>void;max?:number;step?:string
@@ -32,6 +33,7 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
 }){
  const ar=locale==='ar',t=(a:string,b:string)=>ar?a:b;
  const a=study.advanced??emptyAdvanced(),result=evaluateAdvanced(study,scenario),sector=sectorTemplates[study.sector];
+ const cashPolicy=a.workingCapitalPolicy??{mode:'MANUAL' as const,receivableDays:0,inventoryDays:0,payableDays:0};
  const update=(p:Partial<AdvancedAssumptions>)=>onChange({...a,...p});
  const money=(n:number|null)=>n===null?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(n)+' '+study.currency;
  const percent=(n:number|null)=>n===null?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(n)+'%';
@@ -63,6 +65,31 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
    if(window.confirm(t('هذه أعمار مفيدة استرشادية تحتاج مراجعة. تطبيقها؟','Illustrative useful lives require review. Apply?')))
     update({lives:{...illustratedLives}});
   }}>{t('تعبئة أعمار مقترحة','Fill illustrative useful lives')}</button>
+  <h3>{t('احتياطي التكلفة ورأس المال العامل','Contingency and working capital')}</h3>
+  <div className="fs-form-grid">
+   <Numeric label={t('احتياطي الطوارئ على تكلفة الأصول %','CAPEX contingency %')}
+    value={a.contingencyPct??0} max={100} set={v=>update({contingencyPct:v})}/>
+   <label className="fs-field"><span>{t('طريقة احتساب رأس المال العامل','Working capital calculation')}</span>
+    <select value={cashPolicy.mode} onChange={e=>update({
+     workingCapitalPolicy:{...cashPolicy,mode:e.currentTarget.value as 'MANUAL'|'DAYS'}
+    })}>
+     <option value="MANUAL">{t('الرصيد اليدوي من صفحة الاستثمار','Manual amount from Investment tab')}</option>
+     <option value="DAYS">{t('أيام العملاء والمخزون والموردين','Receivables, inventory and payable days')}</option>
+    </select>
+   </label>
+   {cashPolicy.mode==='DAYS'&&<>
+    <Numeric label={t('متوسط أيام تحصيل العملاء','Receivable days')} value={cashPolicy.receivableDays} max={365}
+     set={v=>update({workingCapitalPolicy:{...cashPolicy,receivableDays:v}})}/>
+    <Numeric label={t('متوسط أيام الاحتفاظ بالمخزون','Inventory days')} value={cashPolicy.inventoryDays} max={365}
+     set={v=>update({workingCapitalPolicy:{...cashPolicy,inventoryDays:v}})}/>
+    <Numeric label={t('متوسط أيام سداد الموردين','Payable days')} value={cashPolicy.payableDays} max={365}
+     set={v=>update({workingCapitalPolicy:{...cashPolicy,payableDays:v}})}/>
+   </>}
+  </div>
+  <p className="fs-hint">{cashPolicy.mode==='MANUAL'
+    ?t('يستخدم النموذج الرصيد المدخل سابقًا في صفحة الاستثمار ويحرره في آخر سنة دون تكرار.', 'The model retains the manual amount from Investment and releases it once in the final year.')
+    :t('الاحتياج = (الإيرادات × أيام العملاء + التكلفة المتغيرة × (أيام المخزون − أيام الموردين)) ÷ 365. يمول احتياج السنة الأولى مبدئيًا، وتنعكس تغيرات السنوات اللاحقة في التدفقات. لا نعتمد رأس مال عامل سالبًا دون نموذج مستقل.', 'Requirement = (revenue × receivable days + variable costs × (inventory days − payable days)) / 365. First-year cash is funded upfront, later changes affect annual cashflow. Negative working capital needs a separate model.')
+  }</p>
   <h3>{t('خدمة الدين','Debt service')}</h3>
   <div className="fs-form-grid">
    <Numeric label={t('فائدة سنوية على الرصيد %','Annual outstanding loan interest %')} value={a.debtRatePct} max={100} set={v=>update({debtRatePct:v})}/>
@@ -73,6 +100,11 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
   {[...result.blockers,...result.equityBlockers].map(code=><p key={code} className="fs-handoff-note">{ar?issueNames[code]?.[0]??code:issueNames[code]?.[1]??code}</p>)}
   {result.ready&&<>
    <div className="fs-kpis">
+    <div className="fs-metric"><small>{t('احتياطي الطوارئ النقدي','Capital contingency cash')}</small><strong dir="ltr">{money(result.contingency)}</strong></div>
+    <div className="fs-metric"><small>{t('رصيد رأس المال العامل الأولي','Initial working capital')}</small><strong dir="ltr">{money(result.openingWorkingCapital)}</strong></div>
+    <div className="fs-metric"><small>{t('إجمالي الاحتياج النقدي','Total initial cash requirement')}</small><strong dir="ltr">{money(result.cashNeed)}</strong></div>
+   </div>
+   <div className="fs-kpis">
     <div className="fs-metric"><small>{t('NPV المشروع','Project NPV')}</small><strong dir="ltr">{money(result.projectNpv)}</strong></div>
     <div className="fs-metric"><small>{t('IRR المشروع','Project IRR')}</small><strong dir="ltr">{percent(result.projectIrr)}</strong></div>
     <div className="fs-metric"><small>{t('NPV المساهمين','Equity NPV')}</small><strong dir="ltr">{money(result.equityNpv)}</strong></div>
@@ -81,16 +113,16 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
    <div className="fs-table-wrap"><table className="fs-table"><thead><tr>
     <th>{t('سنة','Year')}</th><th>{t('إيرادات','Revenue')}</th><th>EBITDA</th>
     <th>{t('إهلاك','Depreciation')}</th><th>EBIT</th><th>{t('ضريبة تقديرية','Indicative tax')}</th>
-    <th>{t('تدفق المشروع','Project FCF')}</th><th>{t('أصل القرض','Principal')}</th>
+    <th>{t('تغير رأس المال العامل','Working capital movement')}</th><th>{t('تدفق المشروع','Project FCF')}</th><th>{t('أصل القرض','Principal')}</th>
     <th>{t('الفائدة','Interest')}</th><th>{t('تدفق الملكية','Equity FCF')}</th><th>DSCR</th>
-   </tr></thead><tbody><tr><td>0</td><td colSpan={5}>{t('الاستثمار الاقتصادي الأولي','Initial economic investment')}</td>
+   </tr></thead><tbody><tr><td>0</td><td colSpan={6}>{t('الاستثمار الاقتصادي الأولي','Initial economic investment')}</td>
     <td>{money(-result.initialInvestment)}</td><td>—</td><td>—</td><td>{result.equityReady?money(result.equityFlows[0]):'—'}</td><td>—</td></tr>
     {result.annual.map(y=><tr key={y.year}><td>{y.year}</td><td>{money(y.revenue)}</td>
      <td>{money(y.ebitda)}</td><td>{money(y.depreciation)}</td><td>{money(y.ebit)}</td><td>{money(y.tax)}</td>
-     <td>{money(y.fcf)}</td><td>{money(y.principal)}</td><td>{money(y.interest)}</td>
+     <td>{money(y.workingCapitalMovement)}</td><td>{money(y.fcf)}</td><td>{money(y.principal)}</td><td>{money(y.interest)}</td>
      <td>{result.equityReady?money(y.equityFcf):'—'}</td><td>{y.dscr===null?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:2}).format(y.dscr)}</td></tr>)}
    </tbody></table></div>
-   <p className="fs-hint">{t('الضريبة تقديرية على EBIT وليست نظامية؛ لا تشمل ترحيل الخسائر أو خصم الفوائد. تحرير رأس المال العامل والاسترداد النهائي في السنة الأخيرة. لا يتم إنشاء أي قيد في Financial Core.', 'Tax on EBIT is indicative, excluding loss carryforwards and interest tax shield. Terminal year releases working capital and estimated recovery. No Financial Core postings.')}</p>
+   <p className="fs-hint">{t('الضريبة تقديرية على EBIT وليست نظامية؛ لا تشمل ترحيل الخسائر أو خصم الفوائد. يحتسب تغير رأس المال العامل سنويًا مع تحرير الرصيد النهائي، ولا يجري إهلاك احتياطي الطوارئ. لا يتم إنشاء أي قيد في Financial Core.', 'Tax on EBIT is indicative, excluding loss carryforwards and interest tax shield. Intermediate working-capital changes and final release affect cash, while contingency is not depreciated. No Financial Core postings.')}</p>
   </>}
  </section>;
 }

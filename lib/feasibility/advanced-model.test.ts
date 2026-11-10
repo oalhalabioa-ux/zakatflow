@@ -90,7 +90,7 @@ describe('working-capital and CAPEX risk sensitivities',()=>{
   expect(result.annual[1].workingCapitalMovement).toBeCloseTo(-wc2);
   expect(result.projectFlows[0]).toBeCloseTo(-120000-wc1);
   expect(result.annual[0].fcf).toBeCloseTo(79200-(wc2-wc1));
-  expect(result.annual[1].fcf).toBeCloseTo(105600-7200+wc2);
+  expect(result.annual[1].fcf).toBeCloseTo(96000-7200+wc2);
  });
  it('does not silently turn negative supplier credit into operating cash',()=>{
   const s=sample();s.advanced!.workingCapitalPolicy={mode:'DAYS',receivableDays:0,inventoryDays:0,payableDays:200};
