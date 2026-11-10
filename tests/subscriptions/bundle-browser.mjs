@@ -5,9 +5,26 @@ export async function bundleBrowser({browser,cookies,appUrl,url,headers,owner,rp
  const context=await browser.newContext();await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const posted=path=>page.waitForResponse(r=>r.url()===appUrl+path&&r.request().method()==='POST');
  try{
+  for(const locale of ['ar','en'])for(const width of [1440,390]){
+   await page.setViewportSize({width,height:1000});
+   await page.goto(appUrl+'/admin/subscriptions?lang='+locale+'&tab=modules');
+   await page.locator('.bundle-admin table tbody tr').first().getByRole('button',{name:locale==='ar'?'تعديل':'Edit',exact:true}).click();
+   const editor=page.locator('.bundle-module-editor');await editor.waitFor();
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Module editor viewport overflow');
+   const field=await editor.locator('input[name=name_ar]').boundingBox();assert.ok(field.width>200,'Module fields must not collapse into the old sidebar');
+   await page.getByRole('radio',{name:locale==='ar'?/سعر محدد/:/Fixed price/}).check();
+   assert.ok(await editor.locator('[name=monthly]').isVisible());
+   await page.getByRole('radio',{name:locale==='ar'?/طلب عرض سعر/:/Request a quote/}).check();
+   assert.equal(await editor.locator('[name=monthly]').count(),0);
+   await page.evaluate(()=>document.fonts.ready);
+   await page.screenshot({path:new URL('tests/subscriptions/screenshots/bundle-editor-'+locale+'-'+width+'.png',root).pathname,fullPage:true});
+   await editor.getByRole('button',{name:locale==='ar'?'إلغاء':'Cancel',exact:true}).click();
+   assert.equal(await page.locator('.bundle-module-editor').count(),0);
+  }
+  await page.setViewportSize({width:1440,height:1000});
   await page.goto(appUrl+'/admin/subscriptions?lang=en&tab=modules');await page.locator('.bundle-admin table').waitFor();
   await page.getByRole('row').filter({hasText:'Assets and transactions'}).getByRole('button',{name:'Edit',exact:true}).click();
-  await page.getByLabel(/^Pricing method/).selectOption('fixed');
+  await page.getByRole('radio',{name:/Fixed price/}).check();
   await page.getByLabel('Monthly price',{exact:true}).fill('10.25');await page.getByLabel('Annual price',{exact:true}).fill('100');await page.getByLabel('Change reason',{exact:true}).fill('Isolated module pricing acceptance');
   let saved=posted('/api/admin/subscriptions/modules');await page.getByRole('button',{name:'Save settings',exact:true}).click();assert.equal((await saved).status(),200);
   await page.getByText('Saved and audited.',{exact:true}).waitFor();await page.reload();
