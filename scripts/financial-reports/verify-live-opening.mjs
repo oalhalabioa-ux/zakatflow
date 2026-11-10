@@ -397,6 +397,19 @@ try{
   await page.locator('[data-statement-ready="position"]').waitFor();await page.screenshot({path:out+'/branch-report-banner-en.png',fullPage:true});
   await picker.selectOption('ALL');await page.locator('[data-statement-ready="position"]').waitFor();
  });
+ await check('Cost center banner and fresh CSV use the selected source, never company balances',async()=>{
+  const center=randomUUID();sql(`insert into public.organization_cost_centers(id,organization_id,code,name) values('${center}','${org}','REPORT_QA','QA income center')`);
+  const response=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='cost-center-income');
+  await page.goto(app+'/en/financial-reports?screen=income&organization='+org);
+  const r=await response;assert.equal(r.status(),200,await r.text());assert.equal((await r.json()).scope,'COST_CENTER_INCOME_ONLY');
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Cost center',exact:true});
+  await picker.locator('option[value="'+center+'"]').waitFor({state:'attached'});await picker.selectOption(center);
+  const section=page.locator('[data-cost-center="'+center+'"]');await section.locator('table').waitFor();assert.equal(await page.locator('[data-statement-ready="income"]').count(),0);
+  const downloaded=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const file=await downloaded;const csv=await readFile(await file.path(),'utf8');assert.ok(csv.includes(center));assert.ok(csv.includes('COST_CENTER_INCOME_ONLY'));assert.ok(!csv.includes('500.0000'),'Opening cash must not become cost-center income');
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();assert.equal(await picker.inputValue(),center);
+  await page.screenshot({path:out+'/cost-center-income-banner-en.png',fullPage:true});await picker.selectOption('ALL');await page.locator('[data-statement-ready="income"]').waitFor();
+  const group=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'group-review',organization:org,from:'2026-01-01',to:'2026-12-31'}));assert.equal(group.status(),200,await group.text());const review=await group.json();assert.equal(review.consolidated,false);assert.equal(review.registryComplete,false);assert.equal(review.members[0].organizationId,org);
+ });
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const selector=page.locator('#corp-organization-controls select');await selector.waitFor();assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
  await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
   await page.setViewportSize({width:1672,height:941});

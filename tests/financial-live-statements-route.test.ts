@@ -1,3 +1,5 @@
+vi.mock('../services/financial-group-source-review',()=>({liveGroupSourceReview:async()=>({status:'VISIBLE_COMPANIES_REVIEW_ONLY'})}));
+vi.mock('../services/financial-cost-center-income',()=>({liveCostCenterIncome:async()=>({scope:'COST_CENTER_INCOME_ONLY'})}));
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 const state=vi.hoisted(()=>({error:'REPORTING_SOURCE_PROVENANCE_INVALID',branchCalls:[] as unknown[][]}));
 vi.mock('../services/financial-branch-report',()=>({
@@ -59,3 +61,5 @@ describe('branch route isolation',()=>{
   expect(response.status).toBe(503);expect(await response.json()).toEqual({error:state.error});
  });
 });
+
+describe('dimension action isolation',()=>{it('rejects conflicting selectors instead of ignoring them',async()=>{for(const action of ['group-review','cost-center-income']){const url=request().url.replace('action=statements','action='+action);expect((await GET(new Request(url))).status).toBe(200);for(const extra of ['&branch=HQ','&scope=GROUP_WITH_SUBSIDIARIES','&organization=other'])expect((await GET(new Request(url+extra))).status).toBe(400);}})});

@@ -1,3 +1,5 @@
+import {liveGroupSourceReview} from '../../../../services/financial-group-source-review';
+import {liveCostCenterIncome} from '../../../../services/financial-cost-center-income';
 import {NextResponse} from 'next/server';
 import {liveBranchReport,liveReportBranches} from '../../../../services/financial-branch-report';
 import {ZodError} from 'zod';
@@ -10,6 +12,8 @@ export async function GET(request:Request){try{const q=new URL(request.url).sear
  if(q.get('action')==='branches'){if([...q.keys()].some(k=>!['action','organization'].includes(k)))throw Error('REPORTING_INPUT_INVALID');return NextResponse.json(await liveReportBranches(q.get('organization')),{headers});}
  if(q.get('action')==='scope-readiness'&&q.has('branch'))throw Error('REPORTING_INPUT_INVALID');
  if(q.get('action')==='scope-readiness')return NextResponse.json(await liveScopeReadiness({organization:q.get('organization'),from:q.get('from'),to:q.get('to'),scope:q.get('scope')}),{headers});
+ if(q.get('action')==='group-review'){if(q.has('branch')||q.has('scope'))throw Error('REPORTING_INPUT_INVALID');return NextResponse.json(await liveGroupSourceReview({organization:q.get('organization'),from:q.get('from'),to:q.get('to')}),{headers});}
+ if(q.get('action')==='cost-center-income'){if(q.has('branch')||q.has('scope'))throw Error('REPORTING_INPUT_INVALID');return NextResponse.json(await liveCostCenterIncome({organization:q.get('organization'),from:q.get('from'),to:q.get('to')}),{headers});}
  if(q.get('action')!=='statements')throw Error('REPORTING_INPUT_INVALID');
  if(q.has('scope'))throw Error('REPORTING_INPUT_INVALID');
  if(q.has('branch'))return NextResponse.json(await liveBranchReport({organization:q.get('organization'),from:q.get('from'),to:q.get('to')},q.get('branch')),{headers});
