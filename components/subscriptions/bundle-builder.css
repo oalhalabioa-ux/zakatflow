@@ -13,3 +13,29 @@
 @media(max-width:440px){.bundle-modules{grid-template-columns:1fr}.bundle-card{min-height:220px}.bundle-admin .bundle-inline-fields{grid-template-columns:1fr}}
 
 .bundle-builder .bundle-consent input[type=checkbox]{width:18px!important;height:18px!important;min-height:18px!important;flex:0 0 18px;margin:3px 0 0;padding:0}.bundle-check{width:21px;height:21px;padding:0;display:grid;place-items:center;line-height:1}.bundle-plus{width:16px;height:16px;vertical-align:middle;display:inline-block}.bundle-builder>header{margin:16px 0 22px}.bundle-builder>header p{margin:0}
+
+/* The module editor uses the available workspace, not a narrow table sidebar. */
+.bundle-admin-layout{grid-template-columns:minmax(0,1fr)}
+.bundle-admin form.bundle-module-editor{display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:20px;order:-1;scroll-margin-top:100px;color:#1d3852;padding:24px}
+.bundle-module-editor>h3{margin:0;order:0}
+.bundle-module-editor .bundle-module-fields{width:100%;box-sizing:border-box;border:0;padding:0;margin:0;min-width:0;display:grid;gap:18px}
+.bundle-module-editor .bundle-module-fields label{display:grid;align-items:start;gap:8px;margin:0;min-width:0;font-size:.95rem}
+.bundle-language-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.bundle-language-grid>div{display:grid;gap:16px;min-width:0}
+.bundle-module-editor textarea{min-height:96px;resize:vertical}
+.bundle-module-editor .bundle-pricing-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;border:0;padding:0;min-width:0}
+.bundle-module-editor legend{font-weight:700;padding:0;margin-bottom:12px}
+.bundle-module-editor .bundle-pricing-options label{display:flex;align-items:flex-start;padding:16px;border:1px solid #e8eef0;border-radius:10px;cursor:pointer}
+.bundle-module-editor .bundle-pricing-options label[data-selected=true]{border-color:#205347;background:#f5f8f7}
+.bundle-pricing-options small{display:block;margin-top:6px;line-height:1.7;color:#1d3852}
+.bundle-module-editor .bundle-module-fields .bundle-checkbox{display:flex;align-items:center;gap:10px;cursor:pointer}
+.bundle-module-editor input[type=checkbox],.bundle-module-editor input[type=radio]{width:18px!important;height:18px!important;min-height:18px!important;flex:0 0 18px;margin:3px 0;padding:0;accent-color:#205347}
+.bundle-module-editor .bundle-dependencies{border:1px solid #e8eef0;border-radius:10px;padding:16px;min-width:0}
+.bundle-dependencies p{margin:0 0 16px;line-height:1.7}
+.bundle-dependency-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.bundle-dependency-grid .bundle-checkbox{padding:12px;border:1px solid #e8eef0;border-radius:8px;line-height:1.6}
+.bundle-editor-actions{position:sticky;bottom:0;z-index:2;display:flex;gap:12px;padding:16px 0 4px;background:#fff;border-top:1px solid #e8eef0}
+.bundle-admin .bundle-admin-save{background:#205347!important}
+.bundle-module-editor input:focus-visible,.bundle-module-editor select:focus-visible,.bundle-module-editor textarea:focus-visible{outline:2px solid #c6a35d;outline-offset:2px}
+@media(max-width:1000px){.bundle-dependency-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.bundle-module-editor{padding:16px}.bundle-language-grid,.bundle-module-editor .bundle-pricing-options,.bundle-dependency-grid{grid-template-columns:minmax(0,1fr)}.bundle-editor-actions button{flex:1}}
