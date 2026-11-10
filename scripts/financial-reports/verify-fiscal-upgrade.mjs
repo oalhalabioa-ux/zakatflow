@@ -35,7 +35,8 @@ const migrations=[
  '20261109183825_debt_refund_and_schedule_posting.sql',
  '20261109185816_debt_opening_category_routing.sql',
  '20261109201129_native_debt_reversal_components.sql',
- '20261109205527_ready_posting_defaults.sql'
+ '20261109205527_ready_posting_defaults.sql',
+ '20261110083244_vat_note_default_roles.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});

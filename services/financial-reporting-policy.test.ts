@@ -42,7 +42,7 @@ describe('authorized default posting initialization',()=>{
  it('recovers an empty approved policy into an unapproved draft without updating or approving the original',async()=>{
   const approved={status:'APPROVED',version:2,rules:[]};f.policy=approved;
   const r=await writeReportingPolicy({action:'initialize-defaults',...scope,repairEmpty:true});
-  expect(r.policy?.status).toBe('DRAFT');expect(r.policy?.rules).toHaveLength(32);
+  expect(r.policy?.status).toBe('DRAFT');expect(r.policy?.rules).toHaveLength(39);
   expect(approved).toEqual({status:'APPROVED',version:2,rules:[]});
   expect(f.rpc).toHaveBeenCalledWith('save_financial_reporting_policy',expect.objectContaining({p_expected_version:0}));
   expect(f.rpc.mock.calls.some(([n])=>n==='approve_financial_reporting_policy')).toBe(false);

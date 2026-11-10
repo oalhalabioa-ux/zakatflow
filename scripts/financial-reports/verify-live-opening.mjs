@@ -450,14 +450,8 @@ try{
   await expectResponse(await posted,200);
   const input={p_org:org,p_fiscal_start:'2026-01-01'};
   const policy=await a.client.rpc('financial_reporting_policy_workspace',input);assert.ifError(policy.error);
-  const rules=new Map();
-  for(const e of policy.data.events)for(const l of e.lines){
-   const supplierRefund=l.classificationId==='VAT_NOTE_REFUND_RECEIVABLE',payment=l.cashDirection==='OUTFLOW';
-   const rule={eventType:e.eventType,sourceModule:e.sourceModule,classificationId:l.classificationId,cashDirection:l.cashDirection,debitAccountId:payment?'2100':supplierRefund?'1800':l.classificationId.endsWith(':INPUT_VAT_RECOVERABLE')?'1400':'6100',creditAccountId:payment?'1000':'2100',...(payment?{cashActivity:'OPERATING'}:{})};
-   rules.set(JSON.stringify(rule),rule);
-  }
-  const draft=await a.client.rpc('save_financial_reporting_policy',{...input,p_expected_version:0,p_rules:[...rules.values()],p_reason:'Map supplier refund separately from original payable'});assert.ifError(draft.error);
-  const ap=await a.client.rpc('approve_financial_reporting_policy',{p_id:draft.data.id,p_expected_version:draft.data.version});assert.ifError(ap.error);
+  assert.equal(policy.data.policy.status,'APPROVED');
+  assert.ok(policy.data.policy.rules.some(r=>r.classificationId==='VAT_NOTE_REFUND_RECEIVABLE'&&r.detailed),'Refund is covered before posting without manual policy repair');
   const query='/api/financial-reporting/live-statements?action=statements&organization='+org+'&from=2026-01-01&to=';
   const before=await expectResponse(await req.get(app+query+'2026-02-28'),200);
   const after=await expectResponse(await req.get(app+query+'2026-03-31'),200);

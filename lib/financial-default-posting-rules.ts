@@ -29,8 +29,8 @@ export function defaultPostingRules(classifications:readonly PostingClassificati
  }
  const proposals=new Map<string,DefaultPostingRule>();
  const unresolved:{classificationId:string;eventType:string;sourceModule:string;cashDirection:DefaultPostingRule['cashDirection'];reason:'ACCOUNTS_REQUIRED'}[]=[];
- function add(c:PostingClassification,eventType:string,sourceModule:string,part:string,direction:DefaultPostingRule['cashDirection'],debit:string,credit:string,activity?:DefaultPostingRule['cashActivity']){
-  const rule:DefaultPostingRule={eventType,sourceModule,classificationId:c.id+':'+part,cashDirection:direction,debitAccountId:account(debit),creditAccountId:account(credit),...(activity?{cashActivity:activity}:{})};
+ function add(c:PostingClassification,eventType:string,sourceModule:string,part:string,direction:DefaultPostingRule['cashDirection'],debit:string,credit:string,activity?:DefaultPostingRule['cashActivity'],classificationId=c.id+':'+part){
+  const rule:DefaultPostingRule={eventType,sourceModule,classificationId,cashDirection:direction,debitAccountId:account(debit),creditAccountId:account(credit),...(activity?{cashActivity:activity}:{})};
   const key=postingRuleKey(rule);if(proposals.has(key))return;
   if(validatePostingRuleAccounts([rule],accounts)){unresolved.push({classificationId:rule.classificationId,eventType,sourceModule,cashDirection:direction,reason:'ACCOUNTS_REQUIRED'});return;}
   proposals.set(key,rule);
@@ -103,10 +103,20 @@ export function defaultPostingRules(classifications:readonly PostingClassificati
   if(type==='PAYABLE')add(c,'SETTLEMENT','OPERATIONAL_CONSOLE','BASE','OUTFLOW','2100','1000','OPERATING');
   // Original VAT adapter uses real OPEX/TAX/REVENUE classifications and
   // normalized parts. Do not map generic BASE tax to recoverable VAT.
-  if(type==='OPEX')add(c,'EXPENSE','VAT_INTEGRATION','NET_RECOGNITION','NON_CASH','6100','2100');
+  if(type==='OPEX'){
+   for(const event of ['EXPENSE','ADJUSTMENT'])add(c,event,'VAT_INTEGRATION','NET_RECOGNITION','NON_CASH','6100','2100');
+   add(c,'ADJUSTMENT','VAT_INTEGRATION','','NON_CASH','1800','2100',undefined,'VAT_NOTE_REFUND_RECEIVABLE');
+  }
+  if(type==='REVENUE'){
+   for(const event of ['REVENUE','ADJUSTMENT'])add(c,event,'VAT_INTEGRATION','NET_RECOGNITION','NON_CASH','1100','4100');
+   add(c,'ADJUSTMENT','VAT_INTEGRATION','','NON_CASH','1100','2500',undefined,'VAT_NOTE_REFUND_PAYABLE');
+  }
   if(type==='TAX'){
-   add(c,'EXPENSE','VAT_INTEGRATION','INPUT_VAT_RECOVERABLE','NON_CASH','1400','2100');
-   add(c,'EXPENSE','VAT_INTEGRATION','INPUT_VAT_NONRECOVERABLE','NON_CASH','6100','2100');
+   for(const event of ['EXPENSE','ADJUSTMENT']){
+    add(c,event,'VAT_INTEGRATION','INPUT_VAT_RECOVERABLE','NON_CASH','1400','2100');
+    add(c,event,'VAT_INTEGRATION','INPUT_VAT_NONRECOVERABLE','NON_CASH','6100','2100');
+   }
+   for(const event of ['REVENUE','ADJUSTMENT'])add(c,event,'VAT_INTEGRATION','OUTPUT_VAT','NON_CASH','1100','2300');
   }
   if(c.code===type)for(const template of ASSET_LIFECYCLE_POSTING_TEMPLATES.filter(t=>t.type===type)){
    add(c,'ADJUSTMENT','ASSET_LIFECYCLE',template.role,'NON_CASH',template.debit,template.credit);

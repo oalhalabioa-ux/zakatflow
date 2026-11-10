@@ -27,6 +27,7 @@ try{
  const detail=await readFile('supabase/migrations/20261109101216_detailed_posting_routing.sql','utf8');
  await db.exec(detail.slice(detail.indexOf('create function private.financial_assert_detailed_rules'),detail.indexOf('-- Identity is the actual settlement')));
  await db.exec(await readFile('supabase/migrations/20261109205527_ready_posting_defaults.sql','utf8'));
+ await db.exec(await readFile('supabase/migrations/20261110083244_vat_note_default_roles.sql','utf8'));
  const q=async(sql,args=[]) => (await db.query(sql,args)).rows;
  await q("insert into financial_chart_custom_accounts values($1,'110001','1100','1100','حساب آخر','Other account','DEBIT',true,true),($1,'210008','2100','2100','ذمم الموردين','Trade payables','CREDIT',true,true)",[org]);
  const roles=(await q("select prepare_financial_posting_defaults($1,'2026-01-01') roles",[org]))[0].roles;

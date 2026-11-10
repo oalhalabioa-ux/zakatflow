@@ -2,12 +2,12 @@ import {describe,it,expect} from 'vitest';
 import {defaultPostingRules,postingRuleKey,type PostingClassification} from '../lib/financial-default-posting-rules';
 import {financialPostingCoverage} from '../lib/financial-posting-coverage';
 import {validatePostingRuleAccounts,detailedPostingDraft,validateDetailedPostingRule} from '../lib/financial-posting-rule-validation';
-const chart=['1000','1100','1400','1500','1590','1600','2100','2300','4100','6100','6200','8100'].map(code=>({id:code,code,cash:code==='1000',isActive:true,isPostable:true}));
+const chart=['1000','1100','1400','1500','1590','1600','1800','2500','2100','2300','4100','6100','6200','8100'].map(code=>({id:code,code,cash:code==='1000',isActive:true,isPostable:true}));
 const cls=(type:string,id=type):PostingClassification=>({id,code:type,name:type,classification_type:type,active:true});
 describe('organization default posting rules',()=>{
  it('requires depreciation expense and accumulated depreciation leaves before approving the complete lifecycle policy',()=>{
   const classifications=['OPEX','REVENUE','CAPEX','INVESTMENT','TAX','ZAKAT','PAYABLE','RECEIVABLE','ASSET'].map(v=>cls(v));
-  const roots=['1100','1400','1500','1600','2100','2300','4100','6100','8100'];
+  const roots=['1100','1400','1500','1600','1800','2500','2100','2300','4100','6100','8100'];
   const leaf=(root:string)=>({id:root+'01',code:root+'01',reportingCode:root,cash:false,isActive:true,isPostable:true});
   const incomplete=[...chart,...roots.map(leaf)];
   const invalid=defaultPostingRules(classifications,incomplete).rules.map(r=>detailedPostingDraft(r,incomplete)).filter(r=>validateDetailedPostingRule(r,incomplete));
@@ -152,4 +152,23 @@ it('separates funded loan and employee principal from opening debt without inven
  expect(rules.some(r=>r.cashDirection==='NON_CASH'||r.classificationId.endsWith(':BASE'))).toBe(false);
  const edited={...rules[0],debitAccountId:'120001'};
  expect(defaultPostingRules(classes,extended,[],[edited,...rules.slice(1)]).rules).toEqual([]);
+});
+
+describe('VAT invoice and linked-note defaults',()=>{
+ it('covers notes and refund reclassification before operations without duplicate signatures',()=>{
+  const result=defaultPostingRules([cls('OPEX'),cls('REVENUE'),cls('TAX')],chart);
+  const note=result.rules.filter(r=>r.eventType==='ADJUSTMENT'&&r.sourceModule==='VAT_INTEGRATION');
+  expect(note).toEqual(expect.arrayContaining([
+   expect.objectContaining({classificationId:'OPEX:NET_RECOGNITION',debitAccountId:'6100',creditAccountId:'2100'}),
+   expect.objectContaining({classificationId:'TAX:INPUT_VAT_RECOVERABLE',debitAccountId:'1400',creditAccountId:'2100'}),
+   expect.objectContaining({classificationId:'TAX:INPUT_VAT_NONRECOVERABLE',debitAccountId:'6100',creditAccountId:'2100'}),
+   expect.objectContaining({classificationId:'REVENUE:NET_RECOGNITION',debitAccountId:'1100',creditAccountId:'4100'}),
+   expect.objectContaining({classificationId:'TAX:OUTPUT_VAT',debitAccountId:'1100',creditAccountId:'2300'}),
+   expect.objectContaining({classificationId:'VAT_NOTE_REFUND_RECEIVABLE',debitAccountId:'1800',creditAccountId:'2100'}),
+   expect.objectContaining({classificationId:'VAT_NOTE_REFUND_PAYABLE',debitAccountId:'1100',creditAccountId:'2500'}),
+  ]));
+  expect(new Set(result.rules.map(postingRuleKey)).size).toBe(result.rules.length);
+  const missing=defaultPostingRules([cls('OPEX')],chart.filter(a=>a.code!=='1800'));
+  expect(missing.unresolved).toContainEqual(expect.objectContaining({classificationId:'VAT_NOTE_REFUND_RECEIVABLE'}));
+ });
 });

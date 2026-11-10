@@ -15,6 +15,7 @@ begin
  perform public.save_financial_chart_account(org,'110001','1100','ذمم أخرى','Other receivables','DEBIT',true,true,0,'Fixture occupied code');
  perform public.save_financial_chart_account(org,'210008','2100','ذمم الموردين','Trade payables','CREDIT',true,true,0,'Fixture existing supplier control');
  roles:=public.prepare_financial_posting_defaults(org,'2026-01-01');
+ if roles->>'1800' is null or roles->>'2500' is null or roles->>'1800'=roles->>'1100' or roles->>'2500'=roles->>'2100' then raise exception 'REFUND_ROLES_MISSING';end if;
  if roles->>'1100'='110001' or roles->>'2100'<>'210008' or roles->>'1100'=roles->>'EMPLOYEE' or roles->>'2100'=roles->>'2200' then raise exception 'ROLE_MAPPING_INVALID';end if;
  select count(*) into n from public.financial_chart_custom_accounts where organization_id=org;
  again:=public.prepare_financial_posting_defaults(org,'2026-01-01');
