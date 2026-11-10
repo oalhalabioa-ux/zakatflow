@@ -48,3 +48,19 @@ it('repeated activation preserves an explicit detail edit without duplicating ru
  expect(again.policy.rules.length).toBe(before);
  expect(again.policy.rules.find((r:any)=>r.classificationId===target.classificationId&&r.eventType===target.eventType&&r.sourceModule===target.sourceModule)?.creditAccountId).toBe('410002');
 });
+it('saves missing defaults alongside incomplete legacy opening mappings without approving them',async()=>{
+ const legacy={eventType:'ADJUSTMENT',sourceModule:'LEGACY_ASSET',classificationId:'PPE:BOOK:OPENING_BALANCE',cashDirection:'NON_CASH',debitAccountId:'1500',creditAccountId:'3100'};
+ state.policy={id:'policy',version:3,status:'DRAFT',rules:[legacy]};
+ const result=await writeReportingPolicy({action:'prepare-defaults',organization,fiscalStart});
+ expect(result.policy.status).toBe('DRAFT');
+ expect(result.policy.rules.length).toBeGreaterThan(2);
+ expect(result.policy.rules.find((r:any)=>r.classificationId===legacy.classificationId)).toMatchObject(legacy);
+ expect(state.calls).not.toContain('activate_financial_posting_defaults');
+});
+it('keeps added rules saved when legacy counterpart selection prevents approval',async()=>{
+ state.policy={id:'policy',version:3,status:'DRAFT',rules:[{eventType:'ADJUSTMENT',sourceModule:'LEGACY_ASSET',classificationId:'METALS:BOOK:OPENING_BALANCE',cashDirection:'NON_CASH',debitAccountId:'1600',creditAccountId:'3100'}]};
+ await expect(writeReportingPolicy({action:'activate-defaults',organization,fiscalStart})).rejects.toThrow('REPORTING_DETAIL_ACCOUNT_REQUIRED');
+ expect(state.policy.status).toBe('DRAFT');
+ expect(state.policy.rules.length).toBeGreaterThan(2);
+ expect(state.calls).not.toContain('activate_financial_posting_defaults');
+});
