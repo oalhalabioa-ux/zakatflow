@@ -36,6 +36,18 @@ export const feasibilityDraftSchema=z.object({
    payableDays:z.number().finite().min(0).max(365)
   }).strict().optional()
  }).strict().optional(),
+ sectorSchedule:z.discriminatedUnion('kind',[
+  z.object({kind:z.literal('INDUSTRIAL'),ratedCapacityMonthly:amount,
+   operatingMonths:z.number().int().min(0).max(12),
+   utilizationPct:z.number().finite().min(0).max(100),
+   saleableYieldPct:z.number().finite().min(0).max(100),
+   productionCashCostPerGrossUnit:amount}).strict(),
+  z.object({kind:z.literal('REAL_ESTATE'),stages:z.array(z.object({
+   year:z.number().int().min(1).max(20),contractedUnits:z.number().int().min(0).max(1000000000),
+   contractPricePerUnit:amount,cashCollections:amount,constructionCashCost:amount,
+   sellingCashCost:amount
+  }).strict()).max(20)}).strict()
+ ]).optional(),
  createdAt:date,updatedAt:date
 }).strict();
 export const cloudDraftWrite=z.object({study:feasibilityDraftSchema,revision:z.number().int().positive().optional()}).strict();

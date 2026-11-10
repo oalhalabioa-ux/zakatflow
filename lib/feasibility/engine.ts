@@ -7,7 +7,7 @@ export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTU
 export type StudyStatus='IDEA'|'FEASIBILITY'|'APPROVED'|'ESTABLISHMENT'|'OPERATING'|'CANCELLED';
 export type TaskStatus='TODO'|'IN_PROGRESS'|'DONE';
 export type ChecklistStatus='NOT_STARTED'|'UNDER_REVIEW'|'VERIFIED'|'BLOCKED';
-export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff'|'sharing';
+export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff'|'sharing';
 export type HandoffMode='LATER'|'NEW'|'EXISTING';
 export interface ProjectHandoff {mode:HandoffMode; organizationId?:string; reviewedSourceUpdatedAt?:string; reviewedAt?:string;}
 export interface CapexItem {id:string;label:string;amount:number;category:'BUILDINGS'|'EQUIPMENT'|'UTILITIES'|'LICENCES'|'OTHER';}
@@ -27,13 +27,23 @@ export interface AdvancedAssumptions {
  /** MANUAL preserves original workingCapital behavior; DAYS is scenario-sensitive. */
  workingCapitalPolicy?:{mode:'MANUAL'|'DAYS';receivableDays:number;inventoryDays:number;payableDays:number};
 }
+export interface IndustrialProductionSchedule {
+ kind:'INDUSTRIAL';ratedCapacityMonthly:number;operatingMonths:number;
+ utilizationPct:number;saleableYieldPct:number;productionCashCostPerGrossUnit:number;
+}
+export interface PropertyStage {
+ year:number;contractedUnits:number;contractPricePerUnit:number;
+ cashCollections:number;constructionCashCost:number;sellingCashCost:number;
+}
+export interface PropertyDevelopmentSchedule {kind:'REAL_ESTATE';stages:PropertyStage[];}
+export type SectorSchedule=IndustrialProductionSchedule|PropertyDevelopmentSchedule;
 export interface FeasibilityStudy {
  id:string; title:string; sector:Sector; country:string; region:string; currency:string; status:StudyStatus;
  landValue:number; landTransferred:boolean; investorEquity:number; partnerCashEquity:number;
  investorLoan:number; otherDebt:number; workingCapital:number; annualMaintenance:number;
  unitPrice:number; variableCost:number; monthlyUnits:number; monthlyFixedCost:number; volumeGrowthPct:number;
  priceGrowthPct:number; fixedCostGrowthPct:number; discountRatePct:number; indicativeTaxRatePct:number; years:number;
- capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];handoff?:ProjectHandoff;advanced?:AdvancedAssumptions;
+ capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];handoff?:ProjectHandoff;advanced?:AdvancedAssumptions;sectorSchedule?:SectorSchedule;
  createdAt:string; updatedAt:string;
 }
 export type Scenario='CONSERVATIVE'|'BASE'|'OPTIMISTIC';
