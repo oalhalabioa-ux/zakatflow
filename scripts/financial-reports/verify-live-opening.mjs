@@ -456,7 +456,11 @@ try{
   const before=await expectResponse(await req.get(app+query+'2026-02-28'),200);
   const after=await expectResponse(await req.get(app+query+'2026-03-31'),200);
   assert.equal(before.statements.cash.closing,'385.0000');assert.equal(after.statements.cash.closing,before.statements.cash.closing);
-  assert.equal(after.accounts.find(x=>x.id==='1800').balance,'46.0000');assert.equal(after.accounts.find(x=>x.id==='2100').balance,'0.0000');
+  const refundRule=policy.data.policy.rules.find(r=>r.classificationId==='VAT_NOTE_REFUND_RECEIVABLE');
+  assert.notEqual(refundRule.debitAccountId,'1800');assert.notEqual(refundRule.creditAccountId,'2100');
+  assert.equal(after.accounts.find(x=>x.id===refundRule.debitAccountId).balance,'46.0000');
+  assert.equal(after.accounts.find(x=>x.id===refundRule.creditAccountId).balance,'0.0000');
+  assert.equal(after.accounts.find(x=>x.id==='1800').balance,'0.0000','No direct posting to summary accounts');
   assert.equal(after.statements.income.operatingExpenses,'64.5000');assert.equal(after.statements.position.assets,'435.5000');
   await page.goto(app+'/en/financial-reports?screen=position');
   const position=page.locator('[data-statement-ready="position"]');await position.waitFor();
