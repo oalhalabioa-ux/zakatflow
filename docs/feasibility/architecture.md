@@ -155,3 +155,12 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - Negative projected working capital (unmodeled supplier credit), invalid day counts or non-finite inputs prevent displaying advanced returns rather than silently crediting the project. Days are bounded to 0–365 until a full trade-financing model is designed.
 - Equity funding parity, debt-ceiling and initial cash need incorporate contingency and the selected working-capital policy. The advanced CFADS / DSCR measure accounts for intermediate working-capital investment and excludes terminal salvage/liquidation cash.
 - Simple backward-compatible field validation, specific edge-case unit tests and finance cautions; no change to the basic model, accounting ledgers, subscription catalogue, PR #360 or Production.
+
+## Specialized operational planning by sector — 2026-11-10
+
+- A separate optional `sectorSchedule` object is strictly validated in each study JSON. It supports `INDUSTRIAL` with rated production, operating months, utilisation, saleable yield and cash cost per gross produced unit, or `REAL_ESTATE` with unique annual project stages. Other sectors remain on the previous general/advanced models.
+- Industrial: compare gross capacity, good yield and sales demand; account for rejected and unsold production cash costs. The result is a conservative first-year cash operating contribution, **not** accounting inventory, audited margin or an automatic statutory forecast.
+- Real estate: booked contracts (units × price) and cash collections are separate, staged construction and sales costs are explicitly entered, and cumulative receipts cannot exceed contracts. Uncollected contracts do not become terminal cash automatically.
+- Real estate shows project economic NPV/IRR inclusive of transferred in-kind land as opportunity cost, but computes initial and peak **cash funding need** without treating in-kind land as spendable cash. Predevelopment expenses already in CAPEX must not be double-entered as yearly construction spending.
+- Sector templates are non-posting and fully opt-in. Neither original basic `evaluateStudy` nor advanced `evaluateAdvanced` changes. No new SQL migrations, no V2 or legacy accounting APIs, no PR #360, no Production or main changes.
+- Unit tests cover rejected units, demand constraint, uncollected contracts, land and cash separation, peak shortfall, invalid year rows and old-study serialization. Authenticated V2 QA browser testing, legal/finance review and combined post-#360 compatibility checks remain release gates.

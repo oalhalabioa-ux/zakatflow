@@ -5,13 +5,14 @@ import ProjectHandoffPanel from '@/components/feasibility/ProjectHandoffPanel';
 import CollaborationPanel from '@/components/feasibility/CollaborationPanel';
 import JoinInvitationPanel from '@/components/feasibility/JoinInvitationPanel';
 import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
+import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
  {id:'investment',ar:'تكاليف الاستثمار',en:'Investment'}, {id:'partners',ar:'الشراكة والملكية',en:'Partnership'},
  {id:'operations',ar:'الإنتاج والمبيعات',en:'Operations'}, {id:'scenarios',ar:'السيناريوهات',en:'Scenarios'},
- {id:'cashflow',ar:'التدفقات والعوائد',en:'Cash flow'}, {id:'advanced',ar:'النموذج المالي المتقدم',en:'Advanced model'}, {id:'legal',ar:'القانون والتراخيص',en:'Legal'},
+ {id:'cashflow',ar:'التدفقات والعوائد',en:'Cash flow'}, {id:'advanced',ar:'النموذج المالي المتقدم',en:'Advanced model'}, {id:'sector',ar:'التحليل القطاعي',en:'Sector analysis'}, {id:'legal',ar:'القانون والتراخيص',en:'Legal'},
  {id:'tasks',ar:'المهام',en:'Tasks'}, {id:'risks',ar:'المخاطر',en:'Risks'},
  {id:'suppliers',ar:'عروض الموردين',en:'Supplier quotes'}, {id:'decisions',ar:'القرارات',en:'Decisions'},
  {id:'handoff',ar:'الاعتماد وتأسيس الشركة',en:'Approval & company setup'},
@@ -178,7 +179,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   <div className="fs-portfolio">{studies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===selectedId?' fs-project-pill--active':'')} aria-pressed={p.id===selectedId} onClick={()=>{setSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
   {!loaded?<p>{txt(ar,'جاري تحميل المسودات…','Loading drafts…')}</p>:!study?<section className="card fs-empty"><h2>{txt(ar,'ابدأ بأول مشروع','Start your first project')}</h2><p>{txt(ar,'ادخل اسم المشروع ونوعه. تبدأ الأرقام بصفر لتجنب عرض نتائج افتراضية على أنها دراسة حقيقية.','Enter a project name and sector. All figures start at zero to avoid implying a real feasibility result.')}</p></section>:<>
    <div className="fs-subhead"><div><h2>{study.title}</h2><small>{study.country}{study.region?' · '+study.region:''} · {study.currency} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div><Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button></div>
-   <nav className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.map(t=><button type="button" key={t.id} onClick={()=>setTab(t.id)} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}>{ar?t.ar:t.en}</button>)}</nav>
+   <nav className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.filter(t=>t.id!=='sector'||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE').map(t=><button type="button" key={t.id} onClick={()=>setTab(t.id)} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}>{ar?t.ar:t.en}</button>)}</nav>
    <fieldset className="fs-study-scope" disabled={effectiveReadOnly} aria-label={txt(ar,'محتوى دراسة المشروع','Study content')}>
    {tab==='overview'&&model&&<section className="fs-block">
     <div className="fs-kpis"><Info label={txt(ar,'إجمالي الاستثمار الاقتصادي','Economic investment')} value={money(model.totalInvestment)}/><Info label={txt(ar,'نسبة الممول في حقوق الملكية','Investor equity share')} value={model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}/><Info label={txt(ar,'صافي القيمة الحالية','Net present value')} value={model.ready?money(model.npv):'—'}/><Info label={txt(ar,'العائد الداخلي المتوقع','Indicative IRR')} value={model.ready&&model.irr!==null?fmt(model.irr,2)+'%':'—'}/></div>
@@ -222,6 +223,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
     <ul className="fs-notes">{model.notes.map(x=><li key={x}>{x}</li>)}</ul>
    </section>}
    {tab==='advanced'&&<AdvancedModelPanel study={study} locale={locale} scenario={scenario} onChange={advanced=>update({advanced})}/>}
+   {tab==='sector'&&(study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE')&&<SectorAnalysisPanel study={study} locale={locale} onChange={sectorSchedule=>update({sectorSchedule})}/>}
     {tab==='legal'&&<section className="card fs-panel"><h3>{txt(ar,'الفحص القانوني والتراخيص','Legal and licensing checklist')}</h3><p className="fs-hint">{txt(ar,'هذه قائمة فحص عامة وليست تصديقًا قانونيًا. يجب التحقق من القوانين والمتطلبات النافذة في سوريا لكل موقع ونشاط.','General checklist only, not legal certification. Local counsel must verify current Syrian requirements for each location and sector.')}</p>
     {study.legal.map(x=><div className="fs-item" key={x.id}><strong>{x.title}</strong><SelectField label={txt(ar,'الحالة','Status')} value={x.status} items={Object.entries(legalStatus).map(([value,name])=>({value:value as ChecklistStatus,label:ar?name.ar:name.en}))} onChange={status=>update({legal:study.legal.map(z=>z.id===x.id?{...z,status}:z)})}/><input value={x.notes} placeholder={txt(ar,'المستند / ملاحظات التحقق','Evidence / notes')} onChange={e=>update({legal:study.legal.map(z=>z.id===x.id?{...z,notes:e.currentTarget.value}:z)})}/></div>)}
     <Button secondary onClick={()=>update({legal:[...study.legal,{id:uid(),title:txt(ar,'متطلب جديد','New requirement'),status:'NOT_STARTED',notes:''}]})}>{txt(ar,'إضافة متطلب +','Add requirement +')}</Button>{study.sector==='INDUSTRIAL'&&<Button secondary onClick={()=>update({legal:[...study.legal,...waterFactoryLegalItems.filter(title=>!study.legal.some(l=>l.title===title)).map(title=>({id:uid(),title,status:'NOT_STARTED' as const,notes:''}))]})}>{txt(ar,'إضافة متطلبات مصنع مياه','Add water factory requirements')}</Button>}
