@@ -28,11 +28,14 @@ const labels:Record<string,[string,string]>={
  SETTLEMENT:['تسوية','Settlement'],TRANSFER:['تحويل','Transfer'],
  INFLOW:['تحصيل','Receipt'],OUTFLOW:['دفع','Payment'],NON_CASH:['غير نقدي','Noncash'],
  OPERATING:['تشغيلي','Operating'],INVESTING:['استثماري','Investing'],FINANCING:['تمويلي','Financing'],
+ PPE:['الأصول الثابتة','Property and equipment'],METALS:['المعادن الثمينة','Precious metals'],OPENING_BALANCE:['رصيد افتتاحي','Opening balance'],
  BASE:['الأساس','Base'],NET_RECOGNITION:['القيمة الصافية','Net recognition'],
  INPUT_VAT_RECOVERABLE:['مدخلات قابلة للاسترداد','Recoverable input VAT'],
  INPUT_VAT_NONRECOVERABLE:['مدخلات غير قابلة للاسترداد','Nonrecoverable input VAT'],
  OUTPUT_VAT:['ضريبة المخرجات','Output VAT'],BOOK:['القيمة الدفترية','Book value'],CASH:['نقد','Cash'],
 };
+
+export const postingLabel=(value:string,en:boolean)=>labels[value]?.[en?1:0]??value;
 
 export default function PostingRulesTable({en,rules,chart,classifications,events,version,editable,onChange,onRemove,selection,onSelect}:{
  en:boolean;rules:EditablePostingRule[];chart:Account[];classifications:{id:string;name:string}[];
@@ -43,7 +46,7 @@ export default function PostingRulesTable({en,rules,chart,classifications,events
  const label=(value:string)=>labels[value]?.[en?1:0]??value;
  const [search,setSearch]=useState(''),[module,setModule]=useState(''),[status,setStatus]=useState('');
  const [voucher,setVoucher]=useState('');
- useEffect(()=>setVoucher(''),[selection]);
+ useEffect(()=>{setVoucher('');if(selection!==null)document.querySelector('.posting-editor')?.scrollIntoView({block:'nearest',behavior:'smooth'});},[selection]);
  const byAccount=new Map(chart.map(a=>[a.id,a]));
  const byClassification=new Map(classifications.map(c=>[c.id,c.name]));
  const accountName=(id:string)=>{

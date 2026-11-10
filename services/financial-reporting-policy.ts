@@ -11,6 +11,7 @@ const text=z.string().min(1).max(300);
 const rule=z.object({detailed:z.literal(true).optional(),eventType:text,sourceModule:text,classificationId:text,cashDirection:z.enum(['NON_CASH','INFLOW','OUTFLOW']),debitAccountId:text,creditAccountId:text,cashActivity:z.enum(['OPERATING','INVESTING','FINANCING']).optional()}).strict();
 const command=z.discriminatedUnion('action',[
  z.object({action:z.literal('activate-defaults'),...openingScope.shape}).strict(),
+ z.object({action:z.literal('prepare-defaults'),...openingScope.shape}).strict(),
  z.object({action:z.literal('create-expense-classification'),...openingScope.shape,
   code:z.string().trim().regex(/^OPEX_[A-Z0-9_]{1,45}$/),name:z.string().trim().min(1).max(160)}).strict(),
  z.object({action:z.literal('synchronize-accounts'),...openingScope.shape}).strict(),
@@ -53,7 +54,7 @@ export async function writeReportingPolicy(input:unknown){
   return unwrap(result);
  }
 
- if(q.action==='activate-defaults'){
+ if(q.action==='activate-defaults'||q.action==='prepare-defaults'){
   const scope={organization:q.organization,fiscalStart:q.fiscalStart};
   let workspace=await readReportingPolicy(scope);
   if(!workspace.canSave||!workspace.canApprove)throw Error('REPORTING_APPROVE_DENIED');
@@ -72,7 +73,8 @@ export async function writeReportingPolicy(input:unknown){
   unwrap(await supabase.rpc('prepare_financial_account_rule_links',{p_org:q.organization}));
   workspace=await readReportingPolicy(scope);
   let prepared=readyPostingDefaults(workspace.classifications,workspace.chart,workspace.events,workspace.policy?.rules??[],roles);
-  if(prepared.issue)throw Error(prepared.issue);
+  const draftIssue=validatePostingRuleAccounts(prepared.rules,workspace.chart);
+  if(draftIssue)throw Error(draftIssue);
   // Inheritance reads persisted templates. Save the prepared draft before
   // synchronizing children, then validate and activate that complete version.
   // A failure leaves an unapproved draft; the prior approved policy stays live.
@@ -86,6 +88,7 @@ export async function writeReportingPolicy(input:unknown){
   unwrap(await supabase.rpc('prepare_financial_account_rule_links',{p_org:q.organization}));
   workspace=await readReportingPolicy(scope);
   prepared=readyPostingDefaults(workspace.classifications,workspace.chart,workspace.events,workspace.policy?.rules??[],roles);
+  if(q.action==='prepare-defaults')return workspace;
   if(prepared.issue)throw Error(prepared.issue);
   // No arbitrary event signatures are accepted from the browser. Approval's
   // existing source-coverage and historical-resolution gates still apply.
