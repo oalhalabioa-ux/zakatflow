@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {createStudy} from './engine';
+import {createStudy,evaluateStudy} from './engine';
 import {evaluateAdvanced,emptyAdvanced,illustratedLives} from './advanced-model';
 function sample(){
  const s=createStudy('factory','Example');
@@ -115,5 +115,35 @@ describe('working-capital and CAPEX risk sensitivities',()=>{
   s.advanced!.contingencyPct=0;
   s.advanced!.workingCapitalPolicy={mode:'DAYS',receivableDays:400,inventoryDays:0,payableDays:0};
   expect(evaluateAdvanced(s).blockers).toContain('INVALID_ASSUMPTIONS');
+ });
+});
+
+describe('advanced cash-cycle non-regression checks',()=>{
+ it('never modifies the previously approved basic study computations',()=>{
+  const s=sample();s.workingCapital=40000;
+  const before=evaluateStudy(s);
+  s.advanced!.contingencyPct=15;
+  s.advanced!.workingCapitalPolicy={mode:'DAYS',receivableDays:30,inventoryDays:25,payableDays:10};
+  expect(evaluateStudy(s)).toEqual(before);
+ });
+ it('scales initial receivables with the selected scenario rather than fixed forecast numbers',()=>{
+  const s=sample();
+  s.advanced!.workingCapitalPolicy={mode:'DAYS',receivableDays:30,inventoryDays:0,payableDays:0};
+  const base=evaluateAdvanced(s,'BASE');
+  const downside=evaluateAdvanced(s,'CONSERVATIVE');
+  expect(base.ready).toBe(true);
+  expect(downside.ready).toBe(true);
+  expect(base.openingWorkingCapital).toBeCloseTo(240000*30/365);
+  expect(downside.openingWorkingCapital).toBeCloseTo((240000*.7*.95)*30/365);
+  expect(downside.openingWorkingCapital).toBeLessThan(base.openingWorkingCapital);
+ });
+ it('does not double-count manual working capital when operating days mode is selected',()=>{
+  const s=sample();s.workingCapital=50000;
+  s.advanced!.workingCapitalPolicy={mode:'DAYS',receivableDays:0,inventoryDays:0,payableDays:0};
+  const r=evaluateAdvanced(s);
+  expect(r.ready).toBe(true);
+  expect(r.openingWorkingCapital).toBe(0);
+  expect(r.projectFlows[0]).toBe(-120000);
+  expect(r.annual.map(y=>y.workingCapitalMovement)).toEqual([0,0]);
  });
 });
