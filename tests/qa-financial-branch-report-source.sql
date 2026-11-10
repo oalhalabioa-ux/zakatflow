@@ -3,7 +3,7 @@ begin;
 do $$
 declare owner uuid:=gen_random_uuid(); other_owner uuid:=gen_random_uuid();
  org uuid:=gen_random_uuid(); other_org uuid:=gen_random_uuid(); bank uuid:=gen_random_uuid();
- branch uuid:=gen_random_uuid(); event_a uuid:=gen_random_uuid();event_b uuid:=gen_random_uuid();classification uuid:=gen_random_uuid(); dim jsonb; entries jsonb; dist jsonb; source jsonb; saved jsonb;opening jsonb;policy jsonb;snapshot jsonb;trial jsonb;chart jsonb;first_cash jsonb;
+ bank_b uuid:=gen_random_uuid(); transfer_ jsonb; branch uuid:=gen_random_uuid(); event_a uuid:=gen_random_uuid();event_b uuid:=gen_random_uuid();classification uuid:=gen_random_uuid(); dim jsonb; entries jsonb; dist jsonb; source jsonb; saved jsonb;opening jsonb;policy jsonb;snapshot jsonb;trial jsonb;chart jsonb;first_cash jsonb;
 begin
  insert into auth.users(id,email,email_confirmed_at) values
  (owner,owner||'@opening-leaf.invalid',now()),
@@ -113,6 +113,17 @@ begin
   (opening->>'version')::int,entries,'Draft must not override approved source');
  if public.financial_branch_report_source(org,'2024-01-01','2024-12-31')->'distribution'->>'status'<>'APPROVED'
  then raise exception 'Draft shadowed approved allocation';end if;
+ -- A net-zero company transfer cannot disappear from branch balances.
+ insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
+ values(bank_b,org,'Second transfer bank','BANK','SAR',0,0,owner,'{}');
+ transfer_:=public.create_liquidity_transfer(org,bank,bank_b,10,10,10,10,1,'2024-03-01','Transfer out','Transfer in');
+ update public.liquidity_flows set entity_id=branch where id=(transfer_->>'source_flow_id')::uuid;
+ begin perform public.financial_branch_report_source(org,'2024-01-01','2024-12-31');
+  raise exception 'Zero-net cross-branch transfer was silently omitted';
+ exception when others then if sqlerrm<>'REPORTING_BRANCH_SOURCE_UNRESOLVED' then raise;end if;end;
+ -- Both legs in the same branch have no net effect and remain reportable.
+ update public.liquidity_flows set entity_id=branch where id=(transfer_->>'destination_flow_id')::uuid;
+ perform public.financial_branch_report_source(org,'2024-01-01','2024-12-31');
  update public.organization_entities set active=false where id=branch;
  dim:=public.financial_branch_report_source(org,'2024-01-01','2024-12-31');
  if not exists(select 1 from jsonb_array_elements(dim->'entities') x where x->>'id'=branch::text and (x->>'active')::boolean=false)

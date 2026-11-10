@@ -1,11 +1,11 @@
 {
-  "description": "Read-only atomic branch report source, fingerprints verified from QA V2 pg_get_functiondef",
+  "description": "Atomic branch report source including zero-net transfer guard; final function fingerprints verified from QA V2",
   "removals": [],
   "upserts": [
     {
       "category": "function",
       "object_key": "private.financial_branch_report_source(p_org uuid, p_from date, p_to date)",
-      "fingerprint": "b521f3af9d9c785e057bb637b7b8b72a"
+      "fingerprint": "69ac67c1e29443831f47748f1f414648"
     },
     {
       "category": "function",

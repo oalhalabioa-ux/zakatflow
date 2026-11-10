@@ -1945,6 +1945,14 @@
       "expected_md5": "a99a34dae0057093c5719adf03eb87e9",
       "file_sha256": "b47ad47fdc5e12b6ecf91dbd3e568fa7ff725517ef52f1d19968beb56b363f73",
       "validation_project": "QA V2 rollback: atomic source, canonical branch/HQ attribution, approved-over-draft, inactive history and tenant denial; browser CI pending"
+    },
+    {
+      "path": "supabase/migrations/20261110193204_branch_zero_net_transfer_guard.sql",
+      "version": "20261110193204",
+      "name": "branch_zero_net_transfer_guard",
+      "expected_md5": "1d61b237f66fed2eb4c47c322f1803f5",
+      "file_sha256": "6200daedcce53fba8e5852792319ab9941832e0604519d6db212fad46edc015a",
+      "validation_project": "QA V2 actual transfer RPC rollback: rejects zero-net cross-branch transfers and accepts same-branch pairs"
     }
   ]
 }

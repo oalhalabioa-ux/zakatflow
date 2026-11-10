@@ -381,7 +381,7 @@ try{
    {branchId:null,debit:(Number(row.debit)*0.4).toFixed(4),credit:(Number(row.credit)*0.4).toFixed(4)},
   ]]));
   const dist=await a.client.rpc('save_financial_branch_opening',{...scope,p_expected_version:0,p_opening_workspace:w.id,p_opening_version:w.version,p_entries:entries,p_reason:'QA actual branch reporting allocation'});assert.ifError(dist.error);
-  assert.ifError((await a.client.rpc('approve_financial_branch_opening',{p_id:dist.data.id,p_expected_version:dist.data.version})).error);
+  assert.ifError((await a.client.rpc('approve_financial_branch_opening',{p_distribution:dist.data.id,p_expected_version:dist.data.version})).error);
   await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/financial-reports?screen=position&organization='+org);
   const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Branch',exact:true});
   await picker.locator('option[value="'+branch+'"]').waitFor({state:'attached'});
