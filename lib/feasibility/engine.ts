@@ -72,6 +72,43 @@ export const waterFactoryLegalItems=[
  'فحص مياه معتمد كيميائيًا وجرثوميًا واختبار معدل الضخ',
  'التحقق من ترخيص التعبئة والغذاء والمواصفات الفنية'
 ] as const;
+const sectorStarterTasks:Record<Sector,readonly string[]>={
+ INDUSTRIAL:[
+  'التحقق من الموقع وملكيته أو عقد الانتفاع',
+  'تحديد متطلبات التراخيص الصناعية والبيئية والسلامة',
+  'جمع عروض المعدات وتكاليف التركيب والتشغيل'
+ ],
+ COMMERCIAL:[
+  'التحقق من السوق والطلب المستهدف',
+  'مراجعة التوريد والمخزون وشروط الموردين',
+  'استكمال متطلبات التسجيل التجاري والتشغيل'
+ ],
+ REAL_ESTATE:[
+  'فحص الصك أو سند الملكية وحدود العقار',
+  'مراجعة استخدامات الأرض وتراخيص البناء',
+  'جمع عروض المقاولين وجدول مراحل الإنشاء والتحصيل'
+ ],
+ SERVICES:[
+  'تحديد الخدمات والعملاء المتوقعين',
+  'تقدير الفريق وساعات العمل القابلة للفوترة',
+  'التحقق من تراخيص الخدمة وشروط العقود'
+ ],
+ AGRICULTURE:[
+  'التحقق من الأرض وحقوق استخدامها ومصدر المياه',
+  'إعداد دورة زراعة وإنتاج وتقدير الفاقد',
+  'جمع عروض معدات الري والإنتاج والتعبئة'
+ ],
+ CUSTOM:[
+  'تحديد نموذج الأعمال ووحدة قياس المبيعات',
+  'جمع أدلة الطلب والتكاليف التشغيلية',
+  'مراجعة المتطلبات القانونية والمالية الأساسية'
+ ]
+};
+export function createSectorStarterTasks(sector:Sector):StudyTask[]{
+ return sectorStarterTasks[sector].map((title,i)=>({
+  id:'starter-'+i,title,owner:'',due:'',status:'TODO',priority:'HIGH'
+ }));
+}
 export function createStudy(id:string,title:string,sector:Sector='INDUSTRIAL'):FeasibilityStudy{
  const now=new Date().toISOString();
  return {id,title,sector,country:'سوريا',region:'',currency:'USD',status:'IDEA',landValue:0,landTransferred:false,
@@ -80,9 +117,7 @@ export function createStudy(id:string,title:string,sector:Sector='INDUSTRIAL'):F
  fixedCostGrowthPct:0,discountRatePct:12,indicativeTaxRatePct:0,years:5,
  capex:[{id:'buildings',label:'الإنشاءات والمباني',amount:0,category:'BUILDINGS'},{id:'equipment',label:'خطوط الإنتاج والمعدات',amount:0,category:'EQUIPMENT'},{id:'utilities',label:'التجهيزات والبنية التحتية',amount:0,category:'UTILITIES'}],
  legal:defaultLegalItems.map((title,i)=>({id:'legal-'+i,title,status:'NOT_STARTED',notes:''})),
- tasks:[{id:'task-land',title:'فحص ملكية الأرض وتقييمها',owner:'',due:'',status:'TODO',priority:'HIGH'},
- {id:'task-water',title:'التأكد من مصدر المياه والتراخيص',owner:'',due:'',status:'TODO',priority:'HIGH'},
- {id:'task-cost',title:'استلام عروض أسعار خطوط الإنتاج',owner:'',due:'',status:'TODO',priority:'HIGH'}],
+ tasks:createSectorStarterTasks(sector),
  risks:[],suppliers:[],decisions:[],createdAt:now,updatedAt:now};
 }
 export interface AnnualProjection {year:number;volume:number;revenue:number;variable:number;fixed:number;ebitda:number;taxEstimate:number;maintenance:number;freeCashFlow:number;}

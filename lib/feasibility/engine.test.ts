@@ -69,3 +69,26 @@ describe('independent feasibility planning engine',()=>{
   expect(internalRateOfReturn([-100,110])).toBeCloseTo(10,4);
  });
 });
+
+describe('sector-specific starter tasks for new studies only',()=>{
+ it('starts each supported sector with three relevant actions',()=>{
+  for(const sector of ['INDUSTRIAL','COMMERCIAL','REAL_ESTATE','SERVICES','AGRICULTURE','CUSTOM'] as const){
+   const s=createStudy('sector-'+sector,sector,sector);
+   expect(s.tasks).toHaveLength(3);
+   expect(s.tasks.every(t=>t.status==='TODO')).toBe(true);
+   expect(s.tasks.every(t=>t.title.length>10)).toBe(true);
+  }
+ });
+ it('does not seed a real-estate or service project with water bottling factory tasks',()=>{
+  for(const sector of ['REAL_ESTATE','SERVICES','COMMERCIAL'] as const){
+   const tasks=createStudy('task-'+sector,sector,sector).tasks.map(t=>t.title).join(' ');
+   expect(tasks).not.toContain('خطوط الإنتاج');
+   expect(tasks).not.toContain('مصدر المياه');
+  }
+ });
+ it('does not automatically put water factory legal permits into every industrial project',()=>{
+  const s=createStudy('generic','Industrial','INDUSTRIAL');
+  expect(s.legal.some(v=>v.title.includes('موافقة الموارد المائية'))).toBe(false);
+  expect(s.tasks.some(v=>v.title.includes('مصدر المياه'))).toBe(false);
+ });
+});
