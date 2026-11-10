@@ -228,7 +228,8 @@ jobs:
                             '20261109185816_debt_opening_category_routing.sql',
                             '20261109201129_native_debt_reversal_components.sql',
                             '20261109205527_ready_posting_defaults.sql',
-                            '20261110083244_vat_note_default_roles.sql'):
+                            '20261110083244_vat_note_default_roles.sql',
+                            '20261110191156_financial_branch_report_source.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
