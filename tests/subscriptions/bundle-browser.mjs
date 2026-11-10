@@ -17,6 +17,9 @@ export async function bundleBrowser({browser,cookies,appUrl,url,headers,owner,rp
    await page.getByRole('radio',{name:locale==='ar'?/طلب عرض سعر/:/Request a quote/}).check();
    assert.equal(await editor.locator('[name=monthly]').count(),0);
    await page.evaluate(()=>document.fonts.ready);
+   const heading=await editor.locator('h3').boundingBox();const fields=await editor.locator('.bundle-module-fields').boundingBox();
+   assert.ok(heading.y+heading.height<=fields.y,'Editor heading must stay above fields');
+   assert.ok(fields.width>=(await editor.boundingBox()).width-60,'Fields must fill editor width');
    await page.screenshot({path:new URL('tests/subscriptions/screenshots/bundle-editor-'+locale+'-'+width+'.png',root).pathname,fullPage:true});
    await editor.getByRole('button',{name:locale==='ar'?'إلغاء':'Cancel',exact:true}).click();
    assert.equal(await page.locator('.bundle-module-editor').count(),0);
