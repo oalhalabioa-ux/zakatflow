@@ -118,7 +118,9 @@ describe('batch default activation',()=>{
   expect(f.rpc).toHaveBeenCalledWith('link_financial_cash_accounts',{p_org:org});
   const calls=f.rpc.mock.calls.map(([name])=>name);
   expect(calls.indexOf('link_financial_cash_accounts')).toBeLessThan(calls.indexOf('activate_financial_posting_defaults'));
-  expect(f.rpc).toHaveBeenCalledWith('activate_financial_posting_defaults',expect.objectContaining({p_org:org,p_fiscal_start:scope.fiscalStart,p_policy_id:null,p_expected_version:0,p_rules:expect.arrayContaining([expect.objectContaining({detailed:true,debitAccountId:'110001',creditAccountId:'410001'})])}));
+  expect(calls.indexOf('save_financial_reporting_policy')).toBeLessThan(calls.lastIndexOf('prepare_financial_account_rule_links'));
+  expect(calls.lastIndexOf('prepare_financial_account_rule_links')).toBeLessThan(calls.indexOf('activate_financial_posting_defaults'));
+  expect(f.rpc).toHaveBeenCalledWith('activate_financial_posting_defaults',expect.objectContaining({p_org:org,p_fiscal_start:scope.fiscalStart,p_policy_id:null,p_expected_version:1,p_rules:expect.arrayContaining([expect.objectContaining({detailed:true,debitAccountId:'110001',creditAccountId:'410001'})])}));
   expect(f.rpc.mock.calls.some(([n])=>n==='approve_financial_reporting_policy')).toBe(false);
  });
 });
