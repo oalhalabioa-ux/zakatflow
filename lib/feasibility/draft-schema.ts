@@ -21,6 +21,15 @@ export const feasibilityDraftSchema=z.object({
  suppliers:z.array(z.object({id:z.string().max(100),vendor:z.string().max(300),item:z.string().max(500),offer:amount,notes:text})).max(500),
  decisions:z.array(z.object({id:z.string().max(100),title:z.string().max(500),date:z.string().max(30),notes:text})).max(500),
  handoff:z.object({mode:z.enum(['LATER','NEW','EXISTING']),organizationId:z.string().uuid().optional(),reviewedSourceUpdatedAt:date.optional(),reviewedAt:date.optional()}).optional(),
+ advanced:z.object({
+  mode:z.enum(['DIRECT','CAPACITY']),capacityMonthly:amount,
+  utilisationPct:z.number().finite().min(0).max(100),saleablePct:z.number().finite().min(0).max(100),
+  lives:z.object({BUILDINGS:z.number().int().min(0).max(60),EQUIPMENT:z.number().int().min(0).max(60),
+   UTILITIES:z.number().int().min(0).max(60),LICENCES:z.number().int().min(0).max(60),
+   OTHER:z.number().int().min(0).max(60)}).strict(),
+  debtRatePct:z.number().finite().min(0).max(100),debtYears:z.number().int().min(0).max(20),
+  terminalCash:amount
+ }).strict().optional(),
  createdAt:date,updatedAt:date
 }).strict();
 export const cloudDraftWrite=z.object({study:feasibilityDraftSchema,revision:z.number().int().positive().optional()}).strict();
