@@ -4,12 +4,14 @@ import {createStudy,evaluateStudy,scenarioLabels,waterFactoryLegalItems,type Che
 import ProjectHandoffPanel from '@/components/feasibility/ProjectHandoffPanel';
 import CollaborationPanel from '@/components/feasibility/CollaborationPanel';
 import JoinInvitationPanel from '@/components/feasibility/JoinInvitationPanel';
+import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
+import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
  {id:'investment',ar:'تكاليف الاستثمار',en:'Investment'}, {id:'partners',ar:'الشراكة والملكية',en:'Partnership'},
  {id:'operations',ar:'الإنتاج والمبيعات',en:'Operations'}, {id:'scenarios',ar:'السيناريوهات',en:'Scenarios'},
- {id:'cashflow',ar:'التدفقات والعوائد',en:'Cash flow'}, {id:'legal',ar:'القانون والتراخيص',en:'Legal'},
+ {id:'cashflow',ar:'التدفقات والعوائد',en:'Cash flow'}, {id:'advanced',ar:'النموذج المالي المتقدم',en:'Advanced model'}, {id:'legal',ar:'القانون والتراخيص',en:'Legal'},
  {id:'tasks',ar:'المهام',en:'Tasks'}, {id:'risks',ar:'المخاطر',en:'Risks'},
  {id:'suppliers',ar:'عروض الموردين',en:'Supplier quotes'}, {id:'decisions',ar:'القرارات',en:'Decisions'},
  {id:'handoff',ar:'الاعتماد وتأسيس الشركة',en:'Approval & company setup'},
@@ -200,7 +202,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
     <p className="fs-hint">{txt(ar,'النسب اقتصادية تقديرية لحقوق الملكية فقط؛ قروض المساهمين لا تمنح ملكية تلقائيًا، ولا تتغير الحصص القانونية دون إجراءات معتمدة.','Economic indicative equity only: loans do not automatically generate shares; legal ownership changes require formal approval.')}</p>
    </section>}
    {tab==='operations'&&<section className="card fs-panel"><h3>{txt(ar,'افتراضات التشغيل والمبيعات','Operating assumptions')}</h3><div className="fs-form-grid">
-    <Field label={txt(ar,'الوحدات المباعة شهريًا','Monthly units sold')} value={study.monthlyUnits} onChange={setNum('monthlyUnits')}/>
+    <Field label={ar?sectorTemplates[study.sector].volumeAr:sectorTemplates[study.sector].volumeEn} value={study.monthlyUnits} onChange={setNum('monthlyUnits')}/>
     <Field label={txt(ar,'سعر بيع الوحدة الصافي','Net selling price / unit')} value={study.unitPrice} onChange={setNum('unitPrice')}/>
     <Field label={txt(ar,'التكلفة المتغيرة للوحدة','Variable cost / unit')} value={study.variableCost} onChange={setNum('variableCost')}/>
     <Field label={txt(ar,'التكاليف الثابتة الشهرية','Monthly fixed costs')} value={study.monthlyFixedCost} onChange={setNum('monthlyFixedCost')}/>
@@ -219,7 +221,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
     <div className="fs-table-wrap"><table className="fs-table"><thead><tr><th>{txt(ar,'السنة','Year')}</th><th>{txt(ar,'الإيرادات','Revenue')}</th><th>{txt(ar,'المتغيرة','Variable costs')}</th><th>{txt(ar,'الثابتة','Fixed costs')}</th><th>EBITDA</th><th>{txt(ar,'ضريبة تقديرية','Indicative tax')}</th><th>{txt(ar,'التدفق الحر','Project FCF')}</th></tr></thead><tbody><tr><td>0</td><td colSpan={5}>{txt(ar,'الاستثمار الأولي بما فيه الأرض العينية ورأس المال العامل','Initial investment including in-kind land and working capital')}</td><td>{money(model.flows[0])}</td></tr>{model.annual.map(a=><tr key={a.year}><td>{a.year}</td><td>{money(a.revenue)}</td><td>{money(a.variable)}</td><td>{money(a.fixed)}</td><td>{money(a.ebitda)}</td><td>{money(a.taxEstimate)}</td><td>{money(a.freeCashFlow)}</td></tr>)}</tbody></table></div>
     <ul className="fs-notes">{model.notes.map(x=><li key={x}>{x}</li>)}</ul>
    </section>}
-   {tab==='legal'&&<section className="card fs-panel"><h3>{txt(ar,'الفحص القانوني والتراخيص','Legal and licensing checklist')}</h3><p className="fs-hint">{txt(ar,'هذه قائمة فحص عامة وليست تصديقًا قانونيًا. يجب التحقق من القوانين والمتطلبات النافذة في سوريا لكل موقع ونشاط.','General checklist only, not legal certification. Local counsel must verify current Syrian requirements for each location and sector.')}</p>
+   {tab==='advanced'&&<AdvancedModelPanel study={study} locale={locale} scenario={scenario} onChange={advanced=>update({advanced})}/>}
+    {tab==='legal'&&<section className="card fs-panel"><h3>{txt(ar,'الفحص القانوني والتراخيص','Legal and licensing checklist')}</h3><p className="fs-hint">{txt(ar,'هذه قائمة فحص عامة وليست تصديقًا قانونيًا. يجب التحقق من القوانين والمتطلبات النافذة في سوريا لكل موقع ونشاط.','General checklist only, not legal certification. Local counsel must verify current Syrian requirements for each location and sector.')}</p>
     {study.legal.map(x=><div className="fs-item" key={x.id}><strong>{x.title}</strong><SelectField label={txt(ar,'الحالة','Status')} value={x.status} items={Object.entries(legalStatus).map(([value,name])=>({value:value as ChecklistStatus,label:ar?name.ar:name.en}))} onChange={status=>update({legal:study.legal.map(z=>z.id===x.id?{...z,status}:z)})}/><input value={x.notes} placeholder={txt(ar,'المستند / ملاحظات التحقق','Evidence / notes')} onChange={e=>update({legal:study.legal.map(z=>z.id===x.id?{...z,notes:e.currentTarget.value}:z)})}/></div>)}
     <Button secondary onClick={()=>update({legal:[...study.legal,{id:uid(),title:txt(ar,'متطلب جديد','New requirement'),status:'NOT_STARTED',notes:''}]})}>{txt(ar,'إضافة متطلب +','Add requirement +')}</Button>{study.sector==='INDUSTRIAL'&&<Button secondary onClick={()=>update({legal:[...study.legal,...waterFactoryLegalItems.filter(title=>!study.legal.some(l=>l.title===title)).map(title=>({id:uid(),title,status:'NOT_STARTED' as const,notes:''}))]})}>{txt(ar,'إضافة متطلبات مصنع مياه','Add water factory requirements')}</Button>}
    </section>}
