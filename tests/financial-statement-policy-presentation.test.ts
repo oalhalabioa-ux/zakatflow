@@ -20,10 +20,13 @@ describe('financial statements presentation guardrails',()=>{
   expect(opening).toContain('className="fs-table"');
   expect(opening).not.toContain('ob-draft-table');
  });
- it('offers the three cumulative reporting scopes without exposing group figures or changing global navigation',()=>{
-  expect(statements).toContain('<option value="COMPANY_DIRECT">');
-  expect(statements).toContain('<option value="COMPANY_WITH_BRANCHES">');
-  expect(statements).toContain('<option value="GROUP_WITH_SUBSIDIARIES">');
+ it('keeps scope controls only in the shared banner and blocks unsupported reporting',()=>{
+  expect(statements).not.toContain("'مستوى التقرير','Report level'");
+  expect(statements).not.toContain('className="fs-report-scope-filters"');
+  const banner=statements.split('<TopbarOrganizationControls>')[1].split('</TopbarOrganizationControls>')[0];
+  expect(banner).toContain('WorkspaceOrganizationPicker');
+  expect(banner).toContain('Branch — filter pending integration');
+  expect(banner).toContain('Cost center — filter pending integration');
   expect(statements).toContain("const scopeReady=reportScope==='COMPANY_WITH_BRANCHES'");
   expect(statements).toContain("group={reportScope==='GROUP_WITH_SUBSIDIARIES'}");
   expect(statements).toContain("onGroupChange={withSubsidiaries=>");
