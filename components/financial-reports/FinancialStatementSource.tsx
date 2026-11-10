@@ -158,7 +158,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
   {!loading&&!error&&!organization&&<ReportCard title={t('لا توجد مصادر قوائم مصرح بها','No authorized statement sources')}><p>{t('لا يوجد مصدر متاح لصلاحياتك الحالية.','No source is available under your current permissions.')}</p>{live&&<p><a href={`/${en?'en':'ar'}/opening-balances${preferredOrg?'?organization='+encodeURIComponent(preferredOrg):''}`}>{t('إعداد واعتماد الافتتاحي','Prepare and approve opening balances')}</a> · <a href={`/${en?'en':'ar'}/financial-reporting-policy${preferredOrg?'?organization='+encodeURIComponent(preferredOrg):''}`}>{t('مراجعة قواعد الترحيل','Review posting rules')}</a></p>}</ReportCard>}
   {!centerSelected&&displayDraft&&currentDraft&&<DraftOpeningStatementPreview report={currentDraft} view={view} en={en}/>}
   {center.input.enabled&&center.failed&&!centerSelected&&<p role="status" className="fs-source-note">{t('قائمة الشركة متاحة؛ تعذر التحقق من توزيع جميع سطورها على مراكز التكلفة، لذلك لم تُفعّل تصفية المركز.','Company statements remain available; complete line-level cost-center attribution could not be verified, so center filtering is unavailable.')}</p>}
-  {centerSelected&&<CostCenterReport state={center} en={en}/>}
+  {centerSelected&&<CostCenterReport state={center} en={en} onUnavailable={()=>{setSnapshot(null);setComparison(null);setError('UNAVAILABLE')}}/>}
   {!centerSelected&&ready&&!displayDraft&&(view==='overview'||view==='statements'||view==='kpis'?<SourceReportHub key={[organization,branch,from,to,view].join('|')} snapshot={ready} comparison={previous} en={en} view={view} navigate={changeView}/>:<ConnectedStatements snapshot={ready} comparison={previous} en={en} view={view}/>)}
   </>}
  </div>;
