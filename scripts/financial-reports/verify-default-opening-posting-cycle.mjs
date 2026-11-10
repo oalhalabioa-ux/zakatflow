@@ -19,8 +19,8 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  insert into public.organizations(id,owner_user_id,name) values('${organization}','${actor.id}','ZZ Default rules actual cycle');
  insert into public.organization_members(organization_id,user_id,role,status) values('${organization}','${actor.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';`);
  await rpc('save_financial_fiscal_calendar',{p_org:organization,p_month:1,p_day:1,p_retained:'3300',p_expected_version:0,p_reason:'Actual default posting cycle calendar'});
- for(const [code,parent,ar,en,normal] of [['610001','6100','مصروفات تشغيل الاختبار','Cycle operating expenses','DEBIT'],['410001','4100','إيرادات خدمات الاختبار','Cycle service revenue','CREDIT'],
-  ...['1100','1400','1500','1590','1600','2100','2300','6200','8100'].map(root=>[root+'01',root,'حساب تفصيلي '+root,'Cycle detail '+root,['1590','2100','2300'].includes(root)?'CREDIT':'DEBIT'])])
+ for(const [code,parent,ar,en,normal] of [['610001','6100','مصروفات تشغيل الاختبار','General operating expenses','DEBIT'],['410001','4100','إيرادات خدمات الاختبار','General revenue','CREDIT'],
+  ...['1100','1400','1500','1590','1600','2100','2300','6200','8100'].map(root=>[root+'01',root,'حساب تفصيلي '+root,root==='1100'?'Trade receivables':root==='2100'?'Trade payables':'Cycle detail '+root,['1590','2100','2300'].includes(root)?'CREDIT':'DEBIT'])])
   await rpc('save_financial_chart_account',{p_org:organization,p_code:code,p_parent:parent,p_name_ar:ar,p_name_en:en,p_normal_side:normal,p_is_active:true,p_is_postable:true,p_expected_version:0,p_reason:'Organization-specific default account'});
  const bankResult=await request('post','/api/liquidity',{kind:'account',organization_id:organization,request_id:randomUUID(),name:'بنك تجربة القواعد',account_type:'BANK',currency:'SAR',balance_mode:'OPENING',opening_date:'2025-12-31',fx_rate:1,current_balance:5000,current_balance_base:5000},201);
  // The account command returns a scoped native account descriptor.
@@ -43,7 +43,7 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  const draft=await rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:opening.source.revision,p_entries:entries,p_reason:'Actual cycle: source bank 5000 equals capital 5000'});
  await rpc('approve_financial_opening',{p_id:draft.id,p_expected_version:draft.version});
  // Reproduce the existing QA tenant: approved empty policy, no classifications,
- // no actual operations. Recovery must create a distinct draft, never alter approval.
+ // no actual operations. Recovery activates a new version and preserves the prior rules.
  const legacy=await rpc('save_financial_reporting_policy',{...scope,p_expected_version:0,p_rules:[],p_reason:'Legacy zero-activity approved policy regression'});
  await rpc('approve_financial_reporting_policy',{p_id:legacy.id,p_expected_version:legacy.version});
  const legacyBefore=unwrap(await actor.client.from('financial_reporting_policies').select('*').eq('id',legacy.id).single());
@@ -52,13 +52,15 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  await page.goto(app+'/ar/settings/financial?organization='+organization);
  await page.getByRole('button',{name:'قواعد الترحيل',exact:true}).first().click();
  await page.getByRole('region',{name:'القواعد الافتراضية',exact:true}).waitFor();
+ await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();
  await page.getByRole('button',{name:'فتح القاعدة 1',exact:true}).click();
  await page.getByLabel('الحساب المدين 1',{exact:true}).waitFor();
  const policyBefore=await rpc('financial_reporting_policy_workspace',scope);
- assert.equal(policyBefore.events.length,0);assert.equal(policyBefore.policy.status,'DRAFT');assert.ok(policyBefore.policy.rules.length>0);
+ assert.equal(policyBefore.events.length,0);assert.equal(policyBefore.policy.status,'APPROVED');assert.ok(policyBefore.policy.rules.length>0);
  assert.notEqual(policyBefore.policy.id,legacy.id);
- assert.deepEqual(unwrap(await actor.client.from('financial_reporting_policies').select('*').eq('id',legacy.id).single()),legacyBefore,'Recovery leaves the approved record unchanged');
- evidence.legacyRecovery={approvedPolicyId:legacy.id,draftPolicyId:policyBefore.policy.id,ruleCount:policyBefore.policy.rules.length,events:0,priorApprovedUnchanged:true};
+ const legacyAfter=unwrap(await actor.client.from('financial_reporting_policies').select('*').eq('id',legacy.id).single());
+ assert.equal(legacyAfter.status,'SUPERSEDED');assert.deepEqual(legacyAfter.rules,legacyBefore.rules);assert.equal(legacyAfter.approved_at,legacyBefore.approved_at);assert.equal(legacyAfter.fiscal_start,legacyBefore.fiscal_start);
+ evidence.legacyRecovery={approvedPolicyId:legacy.id,activatedPolicyId:policyBefore.policy.id,ruleCount:policyBefore.policy.rules.length,events:0,priorApprovedRulesPreserved:true};
 
  const classifications=unwrap(await actor.client.from('financial_classifications').select('id,code,classification_type').eq('organization_id',organization));
  const classification=type=>{const c=classifications.find(c=>c.classification_type===type&&c.code===type);assert.ok(c,type+' classification');return c.id;};
@@ -67,6 +69,7 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  assert.equal(expenseRule.debitAccountId,'610001');assert.equal(incomeRule.creditAccountId,'410001');
  const saveBefore=await request('post','/api/financial-reporting/policy',{action:'initialize-defaults',organization,fiscalStart:'2026-01-01'});
  assert.equal(saveBefore.policy.version,policyBefore.policy.version);assert.deepEqual(saveBefore.policy.rules,policyBefore.policy.rules);
+ await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).click();
  await page.getByLabel('سبب الإعداد أو التغيير',{exact:true}).fill('اعتماد الربط التفصيلي حسب تصنيف العملية والبنك المحدد');
  const saveResponse=page.waitForResponse(r=>r.url().includes('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='save');
  await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();
