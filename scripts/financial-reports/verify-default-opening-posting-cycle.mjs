@@ -234,7 +234,10 @@ export async function verifyDefaultPostingActualCycle({actor,outsider,page,app,o
  await settle(asset,500,'2026-05-06',bankId);
  const assetPaid=await observe('asset-payment-investing-cash',
   {cash:5850,expense:2350,revenue:3700,receivable:0,payable:0,assetBalance:500});
- assert.equal(Number(assetPaid.accounts.find(a=>a.id==='150001')?.balance),500);
+ const assetAccount=proposed('ASSET_PURCHASE','CAPEX','NON_CASH').debitAccountId;
+ assert.notEqual(assetAccount,'150001','An unrelated existing leaf must not be reused based on its number');
+ assert.equal(Number(assetPaid.accounts.find(a=>a.id===assetAccount)?.balance),500);
+ assert.equal(Number(assetPaid.accounts.find(a=>a.id==='150001')?.balance??0),0);
  assert.equal(Number(assetPaid.statements.cash.investing),-500);
  assert.equal(Number(assetPaid.statements.cash.operating),1350);
  assert.equal(eventCount(),16);
