@@ -1,0 +1,16 @@
+{
+  "description": "Read-only atomic branch report source, fingerprints verified from QA V2 pg_get_functiondef",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_branch_report_source(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "b521f3af9d9c785e057bb637b7b8b72a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_branch_report_source(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "d1dfb0cd24a9ebad10a0b56dfbb93ed6"
+    }
+  ]
+}

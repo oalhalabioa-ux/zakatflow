@@ -1937,6 +1937,14 @@
       "expected_md5": "bf35897c53f3b7b6e2b307d75341f37a",
       "file_sha256": "f897a20cbcf1cd196ed466ef4ce39803690a08f883254cb1b94567a6e427855c",
       "validation_project": "QA V2 rollback role creation/reuse and full isolated linked credit-note acceptance"
+    },
+    {
+      "path": "supabase/migrations/20261110191156_financial_branch_report_source.sql",
+      "version": "20261110191156",
+      "name": "financial_branch_report_source",
+      "expected_md5": "a99a34dae0057093c5719adf03eb87e9",
+      "file_sha256": "b47ad47fdc5e12b6ecf91dbd3e568fa7ff725517ef52f1d19968beb56b363f73",
+      "validation_project": "QA V2 rollback: atomic source, canonical branch/HQ attribution, approved-over-draft, inactive history and tenant denial; browser CI pending"
     }
   ]
 }

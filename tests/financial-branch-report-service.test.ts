@@ -31,3 +31,18 @@ describe('branch service verified source boundary',()=>{
   await expect(liveBranchReport(q(),'ALL')).rejects.toThrow();expect(state.auth).not.toHaveBeenCalled();
  });
 });
+
+describe('branch picker authorization and historical scope',()=>{
+ it('includes historical inactive branches while checking membership before and after the read',async()=>{
+  const {liveReportBranches}=await import('../services/financial-branch-report');const org=q().organization;
+  const member=vi.fn().mockResolvedValue({data:{organization_id:org},error:null});
+  const entities=vi.fn().mockResolvedValue({data:[{id:'branch',organization_id:org,name:'Historical branch',active:false}],error:null});
+  const membershipChain:any={select:()=>membershipChain,eq:()=>membershipChain,maybeSingle:member};
+  const entityChain:any={select:()=>entityChain,eq:()=>entityChain,limit:entities};
+  state.auth.mockResolvedValue({user:{id:'viewer'},supabase:{from:(table:string)=>table==='organization_members'?membershipChain:entityChain,rpc:async()=>({data:true,error:null})}});
+  expect(await liveReportBranches(org)).toEqual({organizationId:org,branches:[{id:'branch',name:'Historical branch',active:false}]});
+  expect(member).toHaveBeenCalledTimes(2);
+  member.mockReset().mockResolvedValueOnce({data:{organization_id:org},error:null}).mockResolvedValueOnce({data:null,error:null});
+  await expect(liveReportBranches(org)).rejects.toThrow('REPORTING_ACCESS_DENIED');
+ });
+});
