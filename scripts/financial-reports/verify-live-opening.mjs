@@ -398,7 +398,7 @@ try{
   await picker.selectOption('ALL');await page.locator('[data-statement-ready="position"]').waitFor();
  });
  await check('Cost center banner and fresh CSV use the selected source, never company balances',async()=>{
-  const center=randomUUID();sql(`insert into public.organization_cost_centers(id,organization_id,code,name) values('${center}','${org}','REPORT_QA','QA income center')`);
+  const center=randomUUID();sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${center}','${org}','REPORT_QA','QA income center','OPERATING')`);
   const response=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='cost-center-income');
   await page.goto(app+'/en/financial-reports?screen=income&organization='+org);
   const r=await response;assert.equal(r.status(),200,await r.text());assert.equal((await r.json()).scope,'COST_CENTER_INCOME_ONLY');
@@ -829,6 +829,25 @@ try{
  await check('Actual default posting cycle through native Liquidity APIs reconciles recognition, settlement and reports once',async()=>{
   const {verifyDefaultPostingActualCycle}=await import('./verify-default-opening-posting-cycle.mjs');
   report.defaultPostingActualCycle=await verifyDefaultPostingActualCycle({actor:a,outsider:b,page,app,out,sql,databaseUrl:url});
+ });
+ await check('Actual multi-line center expense and two-company source review reconcile independently',async()=>{
+  const organization=report.defaultPostingActualCycle.organization,first=randomUUID(),second=randomUUID();
+  sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${first}','${organization}','CENTER_A','Center A','OPERATING'),('${second}','${organization}','CENTER_B','Center B','ADMIN')`);
+  const classification=await a.client.from('financial_classifications').select('id').eq('organization_id',organization).eq('code','OPEX').single();assert.ifError(classification.error);
+  async function command(data){const r=await page.request.post(app+'/api/financial-events',{data,headers:{origin:app}});assert.equal(r.status(),200,await r.text());return (await r.json()).result}
+  const event=await command({action:'CREATE',payload:{organization_id:organization,entity_id:null,counterparty_id:null,event_type:'EXPENSE',source_module:'OPERATIONAL_CONSOLE',source_record_id:null,source_event_key:'center-acceptance:'+randomUUID(),event_date:'2026-10-01',due_date:'2026-10-01',base_currency:'SAR',description:'Two centers within one real voucher',lines:[{line_number:1,cost_center_id:first,amount:60,base_amount:60},{line_number:2,cost_center_id:second,amount:40,base_amount:40}].map(line=>({...line,description:'Center expense',classification_id:classification.data.id,currency:'SAR',exchange_rate:1,cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0})),obligations:[{obligation_key:'center-payable',obligation_type:'PAYABLE',settleable_amount:100,currency:'SAR',exchange_rate:1,base_currency:'SAR',settleable_base_amount:100}],links:[]}});
+  for(const status of ['PLANNED','COMMITTED'])await command({action:'TRANSITION',organization_id:organization,event_id:event,status,note:'Center acceptance'});
+  await command({action:'APPROVE',organization_id:organization,event_id:event,note:'Approve real center voucher'});
+  await command({action:'TRANSITION',organization_id:organization,event_id:event,status:'ACTUAL',note:'Post real center voucher'});
+  const params={organization,from:'2026-01-01',to:'2026-12-31'};
+  const response=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-income',...params}));assert.equal(response.status(),200,await response.text());const data=await response.json();assert.equal(data.rows.find(r=>r.centerId===first).income.netProfit,'-60.0000');assert.equal(data.rows.find(r=>r.centerId===second).income.netProfit,'-40.0000');assert.equal(data.rows.find(r=>r.centerId===null).income.netProfit,'1350.0000');assert.equal(data.companyIncome.netProfit,'1250.0000');
+  sql(`update public.organizations set parent_organization_id='${org}' where id='${organization}'`);
+  const group=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'group-review',...params,organization:org}));assert.equal(group.status(),200,await group.text());const review=await group.json();assert.equal(review.consolidated,false);assert.equal(review.members.length,2);assert.equal(review.members.find(m=>m.organizationId===organization).income.netProfit,'1250.0000');assert.ok(!('total' in review));
+  await page.setViewportSize({width:1490,height:1050});await page.goto(app+'/en/financial-reports?organization='+org+'&screen=income');
+  const groupResponse=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='group-review');await page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true}).click();assert.equal((await groupResponse).status(),200);
+  const groupTable=page.locator('[data-group-source-review="true"] table');await groupTable.waitFor();assert.equal(await groupTable.locator('tbody tr').count(),2);assert.equal(await page.locator('[data-statement-ready]').count(),0);await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();await groupTable.waitFor();
+  await page.screenshot({path:out+'/group-source-review-banner-en.png',fullPage:true});
+  await writeFile(out+'/center-actual-line-income.json',JSON.stringify(data,null,2));await writeFile(out+'/group-company-source-review.json',JSON.stringify(review,null,2));
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
