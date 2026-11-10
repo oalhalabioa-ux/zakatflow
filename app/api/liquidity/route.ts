@@ -1,3 +1,4 @@
+import {liquidityPartyClassifications} from '../../../lib/liquidity-party-classifications';
 import {openFinancialAccount} from '@/services/financial-account-opening';
 import {withVoucherNumbers} from '../../../services/voucher-numbers';
 import {organizationScopeIds} from '@/lib/workspace-organization';
@@ -25,7 +26,7 @@ const flowSchema = z.object({
   source: z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).default('MANUAL'), reference: z.string().max(120).default(''), notes: z.string().max(500).default(''),
 });
 const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), party_type_id: z.string().uuid().nullable().optional(), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
-const categorySchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), accounting_group: z.enum(['REVENUE','EXPENSE','PAYROLL','ASSETS','INVESTMENTS','FINANCING','EQUITY','CUSTOMERS','SUPPLIERS','TAX','ZAKAT','ADVANCES','TRANSFERS','OTHER']), treatment_code: z.string().trim().min(1).max(80), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH'), financial_classification_type: z.enum(['REVENUE','OPEX','CAPEX','ASSET','LIABILITY','RECEIVABLE','PAYABLE','FINANCING','INVESTMENT','EQUITY','TAX','ZAKAT','TRANSFER','OTHER']) });
+const categorySchema = z.object({ expense_classification_id:z.string().uuid().optional(), organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), accounting_group: z.enum(['REVENUE','EXPENSE','PAYROLL','ASSETS','INVESTMENTS','FINANCING','EQUITY','CUSTOMERS','SUPPLIERS','TAX','ZAKAT','ADVANCES','TRANSFERS','OTHER']), treatment_code: z.string().trim().min(1).max(80), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH'), financial_classification_type: z.enum(['REVENUE','OPEX','CAPEX','ASSET','LIABILITY','RECEIVABLE','PAYABLE','FINANCING','INVESTMENT','EQUITY','TAX','ZAKAT','TRANSFER','OTHER']) });
 const partyTypeSchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80) });
 const transferSchema = z.object({
   organization_id: z.string().uuid(), source_account_id: z.string().uuid(), destination_account_id: z.string().uuid(),
@@ -83,6 +84,9 @@ export async function GET(request: Request) {
     if (counterpartiesError) throw counterpartiesError;
     if (balancesError) throw balancesError;
     if (openItemsError) throw openItemsError;
+    const expenseClasses=await supabase.from('financial_classifications').select('id,organization_id,code,name')
+      .in('organization_id',organizationIds).eq('classification_type','OPEX').eq('active',true).order('name');
+    if(expenseClasses.error)throw expenseClasses.error;
     const [chartLinks, chartPermission] = await Promise.all([
       supabase.from('financial_cash_account_links').select('account_id').eq('organization_id', organizationId),
       supabase.rpc('effective_organization_permission', {p_org:organizationId,p_permission:'financial_core.create',p_amount:null,p_currency:null}),
@@ -125,7 +129,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, pendingCashChartLinks, accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
+    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, pendingCashChartLinks, expense_classifications:expenseClasses.data??[], accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: (partyTypesResult.data ?? []).map((type:any)=>({...type,allowed_financial_classifications:liquidityPartyClassifications(type.code)})), intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
@@ -140,6 +144,8 @@ export async function POST(request: Request) {
       if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
       // created_by defaults to auth.uid(); column grants deliberately prevent assigning it.
       const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
+      if(error?.message.includes('LIQUIDITY_EXPENSE_CLASSIFICATION_INVALID'))
+        return NextResponse.json({error:'LIQUIDITY_EXPENSE_CLASSIFICATION_INVALID'},{status:422});
       if (error) throw error;
       return NextResponse.json(data, { status: 201 });
     }

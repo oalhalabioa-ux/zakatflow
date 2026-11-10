@@ -1,0 +1,16 @@
+{
+  "description": "Split new financing payments by original principal and accrued charge accounts.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_capture_actual_posting()",
+      "fingerprint": "26db32d38a898d27e2351fd3f51e5f4b"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_installment_posting_rules(p_org uuid, p_event jsonb, p_rules jsonb)",
+      "fingerprint": "f04ec77a5a97559010d0bb3dab8a76f0"
+    }
+  ]
+}

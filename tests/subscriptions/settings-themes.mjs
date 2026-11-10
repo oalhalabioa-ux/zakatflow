@@ -6,7 +6,7 @@ const palettes = {
   modern: { selected: 'rgb(67, 85, 199)', ink: 'rgb(255, 255, 255)', nav: 'rgb(41, 60, 143)' },
   elegant: { selected: 'rgb(13, 117, 95)', ink: 'rgb(255, 255, 255)', nav: 'rgb(25, 77, 66)' },
 };
-const contrast = ({fg,bg}) => {
+export const contrast = ({fg,bg}) => {
   const lum = color => {
     // Chromium may serialize color-mix as color(srgb …).
     const channels = color.startsWith('color(srgb')
@@ -18,7 +18,7 @@ const contrast = ({fg,bg}) => {
   const [a,b]=[lum(fg),lum(bg)].sort((a,b)=>b-a);
   return (a+.05)/(b+.05);
 };
-const readColors = elements => elements.map(el=>{
+export const readColors = elements => elements.map(el=>{
   const style=getComputedStyle(el);
   let surface=el;
   while(surface.parentElement&&getComputedStyle(surface).backgroundColor==='rgba(0, 0, 0, 0)')surface=surface.parentElement;
@@ -29,25 +29,38 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
   const expected=palettes[theme];
   for(const locale of ['ar','en'])for(const width of [390,1440]) {
     await page.setViewportSize({width,height:1000});
-    for(const section of ['settings','billing','settings/system']) {
+    for(const section of ['settings','billing','settings/system','settings/regulatory']) {
       await page.goto(`${appUrl}/${locale}/${section}?organization=${org}`);
       await page.locator('.corp-shell.theme-'+theme).waitFor();
-      await page.locator('.settings-tabs a[aria-current=page]').waitFor();
-      if(section==='billing')await page.locator('.pricing-card').first().waitFor();
+      const selectedTab=section==='billing'?'.yb-billing-tabs button[aria-pressed=true]':'.settings-tabs a[aria-current=page]';
+      await page.locator(selectedTab).waitFor();
+      if(section==='billing')await page.locator('.yb-billing-tabs').waitFor();
       else if(section==='settings')await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
-      else await page.locator('.system-settings .console-card').first().waitFor();
-      const active=await page.locator('.settings-tabs a[aria-current=page]').evaluateAll(readColors);
-      assert.deepEqual(active,[{fg:expected.ink,bg:expected.selected}],`${theme} ${section} active tab`);
-      assert.equal(await page.locator('.settings-tabs').evaluate(el=>getComputedStyle(el).backgroundColor),expected.nav);
-      // Yaqeen's approved white-on-royal-gold pairing is checked exactly above.
-      if(theme!=='yaqeen-business')assert.ok(contrast(active[0])>=4.5,`${theme} selected tab contrast`);
+      else if(section==='settings/system')await page.locator('.yp-preferences-card').first().waitFor();
+      else await page.locator('[data-regulatory-workspace]').waitFor();
+      // Six settings areas, with independent billing outside
+      // the main journey. Keep full readability checks rather than relying on
+      // the old navy-bar palette, which belonged to the superseded design.
+      assert.equal(await page.locator('.settings-tabs a').count(),section==='billing'?0:6);
+      const active=await page.locator(selectedTab).evaluateAll(readColors);
+      assert.equal(active.length,1,`${theme} ${section} active section must be unambiguous`);
+      assert.ok(contrast(active[0])>=4.5,`${theme} ${section} selected tab contrast ${JSON.stringify(active[0])}`);
+      const primaryColors=await page.locator('.settings-tabs a').evaluateAll(readColors);
+      for(const item of primaryColors)assert.ok(contrast(item)>=4.5,
+        `${theme} ${section} primary navigation contrast ${JSON.stringify(item)}`);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${theme} ${locale} ${width} ${section} overflow`);
       if(theme!=='yaqeen-business') {
         const targets='.settings-card,.console-card,.subscription-summary,.settings-heading p,.settings-facts dt,.subscription-panel button:not(:disabled),.subscription-summary-actions a';
         const colors=await page.locator(targets).evaluateAll(readColors);
         for(const c of colors)assert.ok(contrast(c)>=4.5,`${theme} ${section} text contrast ${JSON.stringify(c)}`);
         if(section==='billing') {
+          // The default billing tab is a real subscription overview; pricing
+          // intervals live only inside the separate Plans & upgrades tab.
+          await page.locator('.yb-billing-tabs').getByRole('button',{
+            name:locale==='ar'?'الباقات والترقية':'Plans & upgrades',exact:true,
+          }).click();
           const interval=page.locator('.pricing-interval');
+          await interval.waitFor();
           const buttons=interval.locator('button');
           for(const index of [1,0]) {
             await buttons.nth(index).click();
@@ -57,17 +70,18 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
           }
         }
       }
-      if(section==='settings/system') {
-        await page.getByRole('button',{name:locale==='ar'?'إعداد الفوترة':'Configure invoicing',exact:true}).click();
-        const dialog=page.locator('dialog[open].subscription-modal');await dialog.waitFor();
+      // ZATCA is part of the legal/tax tab, not global system preferences.
+      if(section==='settings/regulatory') {
+        await page.getByRole('button',{name:locale==='ar'?'التسجيل الضريبي':'Tax registration',exact:true}).click();
+        const dialog=page.locator('.financial-setup-regulatory-editor');await dialog.waitFor();
         if(theme!=='yaqeen-business') {
           const colors=await dialog.locator('.console-tabs button,input,select,textarea').evaluateAll(readColors);
           for(const c of colors)assert.ok(contrast(c)>=4.5,`${theme} dialog contrast ${JSON.stringify(c)}`);
         }
         const box=await dialog.boundingBox();assert.ok(box.x>=10&&box.x+box.width<=width-10,`${theme} dialog width`);
       }
-      await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-colors-${theme}-${locale}-${width}-${section.replaceAll('/','-')}.png`,root).pathname,fullPage:section!=='settings/system'});
-      if(section==='settings/system')await page.keyboard.press('Escape');
+      await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-colors-${theme}-${locale}-${width}-${section.replaceAll('/','-')}.png`,root).pathname,fullPage:section!=='settings/regulatory'});
+      if(section==='settings/regulatory')await page.keyboard.press('Escape');
     }
   }
   await page.goto(`${appUrl}/en/settings?organization=${org}`);

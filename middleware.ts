@@ -3,6 +3,7 @@ import {NextResponse, type NextRequest} from 'next/server';
 import {requestLocale, routingRedirect, MARKETING_HOSTS, externalRequestUrl} from './lib/routing';
 import {supabaseUrl} from './lib/supabase/config';
 import {isFiscalReviewRequest} from './lib/fiscal-review';
+import {isEmbeddedSetupPath} from './lib/financial-setup-embedded';
 
 export async function middleware(request: NextRequest) {
   const publicUrl=externalRequestUrl(request.nextUrl,request.headers.get('host'));
@@ -56,6 +57,17 @@ export async function middleware(request: NextRequest) {
   if (/^\/auth\//.test(publicUrl.pathname) || /^\/(ar|en)\/login\/?$/.test(publicUrl.pathname)) {
     response.headers.set('Cache-Control','private, no-store');
     response.headers.set('Referrer-Policy',['/auth/confirm','/auth/email-action'].includes(publicUrl.pathname)&&request.method==='GET'?'strict-origin':'no-referrer');
+  }
+  if(request.nextUrl.searchParams.get('setupEmbed')==='1' &&
+     isEmbeddedSetupPath(request.nextUrl.pathname)){
+    // These financial windows contain authenticated business forms.
+    // Allow framing only from this application's own origin, never from
+    // another website, while preserving any existing CSP directives.
+    response.headers.set('X-Frame-Options','SAMEORIGIN');
+    const currentCsp=response.headers.get('Content-Security-Policy');
+    if(!currentCsp)response.headers.set('Content-Security-Policy',"frame-ancestors 'self'");
+    else if(!/\bframe-ancestors\b/i.test(currentCsp))
+      response.headers.set('Content-Security-Policy',currentCsp+"; frame-ancestors 'self'");
   }
   if (request.cookies.get('yaqeen-locale')?.value !== locale) response.cookies.set('yaqeen-locale', locale, {path: '/', sameSite: 'lax', secure: request.nextUrl.protocol === 'https:', maxAge: 31536000});
   return response;

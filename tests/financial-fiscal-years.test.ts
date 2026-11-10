@@ -33,6 +33,15 @@ describe('Fiscal year display projection',()=>{
   const context={...base,canClose:false,closures:[{id:'close',start:'2024-01-01',end:'2024-12-31',version:1,status:'CLOSED' as const}]};expect(fiscalYearRows(context).every(r=>!r.canClose&&!r.canReopen)).toBe(true);
   expect(fiscalReferencesMatch(calendarFromContext(base)!,[{source:'budget',start:'2026-07-01'}])).toBe(false);expect(fiscalReferencesMatch(calendarFromContext(base)!,[{source:'budget',start:'2026-01-01'}])).toBe(true);
  });
+ it('keeps setup policies editable using the server activity decision and separates configuration locks from year closure',()=>{
+  const setup={...base,setupLockReason:null,references:[{source:'policy' as const,start:'2026-01-01',status:'APPROVED'}]};
+  expect(fiscalCalendarLocked(setup)).toBe(false);
+  for(const setupLockReason of ['ACTIVITY','OPENING_REVIEW','BUDGET_REVIEW','CLOSURE'] as const){
+   const locked={...setup,setupLockReason};expect(fiscalCalendarLocked(locked)).toBe(true);
+   expect(fiscalYearRows(locked).find(r=>r.phase==='CURRENT')?.status).toBe('OPEN');
+  }
+  const oldServer={...setup};delete (oldServer as Partial<typeof oldServer>).setupLockReason;expect(fiscalCalendarLocked(oldServer)).toBe(true);
+ });
  it('preserves the shared leap-day calendar and clamps excessive display ranges',()=>{
   const context={...base,calendar:{...base.calendar!,start_month:2,start_day:29}};expect(fiscalYearRows(context).find(r=>r.start==='2024-02-29')?.end).toBe('2025-02-27');expect(fiscalYearRows(base,100)).toHaveLength(21);
  });

@@ -117,5 +117,6 @@ try{
   await assert.rejects(db.query('select owner_save_subscription_plan($1::jsonb,$2)',[JSON.stringify({...details,revision:legacy.revision,customer_notice_ar:'x'.repeat(161)}),'Reject oversized message']),/PLAN_DETAILS_INVALID/);
   await assert.rejects(db.query('select owner_save_subscription_plan($1::jsonb,$2)',[JSON.stringify({...details,revision:legacy.revision,customer_notice_ar:{html:'unsafe'}}),'Reject non-text message']),/PLAN_DETAILS_INVALID/);
  });
+ await (await import('./bundles.mjs')).bundles({db,check,owner,session,load});
  await writeFile(new URL('tests/subscriptions/plans-result.json',root),JSON.stringify({checks,passed:checks.length},null,2)+'\n');
 }finally{await db.close();}

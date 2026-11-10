@@ -16,7 +16,27 @@ const migrations=[
  '20261104214000_funded_debt_source_cash_direction.sql',
  '20261104222828_unified_cash_account_openings.sql',
  '20261105010000_fiscal_retained_leaf_account.sql',
- '20261105150000_equity_opening_additional_lines.sql'
+ '20261105150000_equity_opening_additional_lines.sql',
+ '20261106154742_financial_group_control_evidence_v1.sql',
+ '20261107010000_financial_branch_opening_distribution.sql',
+ '20261107113000_financial_legacy_source_attestation.sql',
+ '20261107213000_financial_retained_snapshot_account.sql',
+ '20261109090210_fiscal_setup_policy_unlock.sql',
+ '20261109101216_detailed_posting_routing.sql',
+ '20261109123942_liquidity_expense_classification_link.sql',
+ '20261109130118_preserve_manual_payment_posting.sql',
+ '20261109141140_automatic_expense_account_setup.sql',
+ '20261109151753_automatic_account_rule_inheritance.sql',
+ '20261109170336_asset_lifecycle_posting_roles.sql',
+ '20261109171915_preserve_native_asset_settlement.sql',
+ '20261109175809_preserve_advance_application_accounts.sql',
+ '20261109180032_finance_installment_posting_parts.sql',
+ '20261109181035_debt_principal_source_roles.sql',
+ '20261109183825_debt_refund_and_schedule_posting.sql',
+ '20261109185816_debt_opening_category_routing.sql',
+ '20261109201129_native_debt_reversal_components.sql',
+ '20261109205527_ready_posting_defaults.sql',
+ '20261110083244_vat_note_default_roles.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});
@@ -57,7 +77,10 @@ const preserved=()=>JSON.parse(sql(`select jsonb_build_object(
 const snapshot=()=>JSON.parse(sql(`select set_config('request.jwt.claim.sub','${owner}',false);select public.financial_statement_live_snapshot('${org}','2024-01-01','2024-12-31')-'coverage'`).trim().split('\n').at(-1));
 const before=preserved(),statementBefore=snapshot();
 for(const migration of migrations) await writeFile(join(dir,'supabase/migrations',migration),await readFile('supabase/migrations/'+migration));
-execFileSync('npx',['--yes','supabase@2.122.0','migration','up','--local','--workdir',dir],{stdio:'inherit'});
+// The disposable upgrade fixture intentionally installs historical migrations after
+// the newer legal-identity columns: --include-all is required by pinned CLI 2.122.0.
+// This must NEVER be used against a hosted or Production database.
+execFileSync('npx',['--yes','supabase@2.122.0','migration','up','--include-all','--local','--workdir',dir],{stdio:'inherit'});
 assert.deepEqual(preserved(),before,'Upgrade changed existing organization records or approvals');
 assert.deepEqual(snapshot(),statementBefore,'Upgrade changed an existing approved statement');
 sql(`select set_config('request.jwt.claim.sub','${owner}',false);select public.save_financial_chart_account('${org}','100001','1000','فرع نقدي تجريبي','Unmapped cash leaf','DEBIT',true,true,0,'Unmapped account must not rewrite an approved report')`);

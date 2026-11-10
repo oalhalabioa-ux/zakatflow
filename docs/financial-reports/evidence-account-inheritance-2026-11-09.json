@@ -1,0 +1,41 @@
+{
+  "scope": "LOCAL_ONLY_NO_DEPLOYMENT",
+  "ui": {
+    "checks": [
+      "Fiscal setup editing, persistence and activity lock separate from year closure",
+      "ar native organization saved and reloaded",
+      "en native organization saved and reloaded",
+      "Profile and legal saves preserve newer fields from the other section",
+      "Native entity created and reloaded in the selected organization",
+      "System preferences persisted after reload",
+      "ar default posting draft initializes, edits, saves, reloads and guards unsaved changes without operations",
+      "en default posting draft initializes, edits, saves, reloads and guards unsaved changes without operations",
+      "Invoice unit tax-number action opens the native accessible registration form",
+      "ar journey overview, pending readiness, native save, editor return and responsive layout",
+      "ar embedded banking loads native styling and bounded icons on desktop/mobile",
+      "en journey overview, pending readiness, native save, editor return and responsive layout",
+      "en embedded banking loads native styling and bounded icons on desktop/mobile"
+    ],
+    "errors": []
+  },
+  "tests": {
+    "full_suite_before_final_guards": {
+      "files": 253,
+      "passed": 1508,
+      "skipped": 1
+    },
+    "final_guard_targeted_suite": {
+      "files": 4,
+      "passed": 55
+    },
+    "postgres_wasm": [
+      "account inheritance across configured templates",
+      "expense account lifecycle",
+      "detailed settlement, original account and reversal preservation"
+    ]
+  },
+  "build": "passed",
+  "typecheck": "passed",
+  "full_schema_real_rpc_acceptance": "added to disposable CI; not executed locally",
+  "merge_gate": "BLOCKED: missing native source templates and full-schema/authenticated acceptance"
+}

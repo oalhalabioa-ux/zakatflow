@@ -1,9 +1,22 @@
 import { requireUser } from '@/services/auth';
+import {normalizedOrganizationLegalFields,type OrganizationLegalInput} from '@/lib/organization-legal-identity';
 
 export type Organization={
  id:string;
  name:string;
  legal_name?:string|null;
+ country_code?:string|null;
+ commercial_registration_number?:string|null;
+ registered_address?:string|null;
+ activity?:string|null;
+ contact_email?:string|null;
+ contact_phone?:string|null;
+ registered_city?:string|null;
+ registered_region?:string|null;
+ registered_postal_code?:string|null;
+ registration_authority?:string|null;
+ registration_expires_on?:string|null;
+
  owner_user_id?:string|null;
  entity_type:string;
  base_currency:string;
@@ -19,14 +32,14 @@ export async function listOrganizations(){
  const {supabase}=await requireUser();
  const {data,error}=await supabase
   .from('organizations')
-  .select('id,name,legal_name,owner_user_id,entity_type,base_currency,status,parent_organization_id,organization_kind,sort_order,created_at,updated_at')
+  .select('id,name,legal_name,country_code,commercial_registration_number,registered_address,activity,contact_email,contact_phone,registered_city,registered_region,registered_postal_code,registration_authority,registration_expires_on,owner_user_id,entity_type,base_currency,status,parent_organization_id,organization_kind,sort_order,created_at,updated_at')
   .order('sort_order',{ascending:true})
   .order('created_at',{ascending:true});
  if(error)throw error;
  return (data??[]) as Organization[];
 }
 
-export async function createOrganization(input:{
+export async function createOrganization(input:OrganizationLegalInput&{
  name:string;
  entity_type?:string;
  base_currency?:string;
@@ -50,7 +63,8 @@ export async function createOrganization(input:{
   base_currency:input.base_currency??'SAR',
   parent_organization_id:parentId,
   organization_kind:organizationKind,
-  sort_order:Number(input.sort_order??100)
+  sort_order:Number(input.sort_order??100),
+  ...normalizedOrganizationLegalFields(input),
  }).select().single();
  if(error)throw error;
  // The database creates the owner membership and trial atomically with the organization.
@@ -58,8 +72,8 @@ export async function createOrganization(input:{
  return data as Organization;
 }
 
-export async function updateOrganization(id:string,input:{
- name:string;
+export async function updateOrganization(id:string,input:OrganizationLegalInput&{
+ name?:string;
  legal_name?:string|null;
  entity_type?:string;
  base_currency?:string;
@@ -68,8 +82,6 @@ export async function updateOrganization(id:string,input:{
  sort_order?:number;
 }){
  const {supabase,user}=await requireUser();
- const name=input.name.trim();
- if(!name)throw new Error('ORGANIZATION_NAME_REQUIRED');
  if(input.parent_organization_id===id)throw new Error('ORGANIZATION_PARENT_SELF_REFERENCE');
  if(input.parent_organization_id){
   const {data:parent,error:parentError}=await supabase.from('organizations').select('id').eq('id',input.parent_organization_id).single();
@@ -77,7 +89,11 @@ export async function updateOrganization(id:string,input:{
  }
  const {data:current,error:currentError}=await supabase.from('organizations').select('name').eq('id',id).single();
  if(currentError)throw currentError;
- const patch:Record<string,unknown>={name,updated_at:new Date().toISOString()};
+ const name=input.name===undefined?current.name:typeof input.name==='string'?input.name.trim():'';
+ if(!name)throw new Error('ORGANIZATION_NAME_REQUIRED');
+ // Omitted PATCH fields must not be written back from an older read.
+ const patch:Record<string,unknown>={updated_at:new Date().toISOString(),...normalizedOrganizationLegalFields(input)};
+ if(input.name!==undefined)patch.name=name;
  if(input.legal_name!==undefined)patch.legal_name=input.legal_name?.trim()||null;
  if(input.entity_type!==undefined)patch.entity_type=input.entity_type;
  if(input.base_currency!==undefined)patch.base_currency=input.base_currency;

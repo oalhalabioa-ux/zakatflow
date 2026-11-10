@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import assert from "node:assert/strict";
 import {verifyInvitationFlow} from './invitation-flow.mjs';
-import { verifySettingsTheme } from "./settings-themes.mjs";
+import { verifySettingsTheme, contrast, readColors } from "./settings-themes.mjs";
 const root = new URL("../../", import.meta.url),
   load = (p) => readFile(new URL(p, root), "utf8");
 const dir = process.env.TRIAL_QA_WORKDIR;
@@ -119,6 +119,11 @@ try {
   alter table public.currencies add column name_ar text,add column name_en text,add column symbol text,add column decimals integer default 2,add column active boolean default true;
   insert into public.currencies(code) values('USD');grant select on public.currencies to authenticated;
   create policy org_update on public.organizations for update to authenticated using(owner_user_id=auth.uid()) with check(owner_user_id=auth.uid());`);
+  // The subscription suite builds a deliberately reduced SQL fixture rather than
+  // bootstrapping the entire canonical history. Mirror the additive legal columns
+  // queried by the REAL organization service, or navigation hides an API failure.
+  sql(await load("supabase/migrations/20261108104500_organization_legal_identity_fields.sql"));
+  sql(await load("supabase/migrations/20261108145331_organization_settings_workspace.sql"));
   // Use the real invitation RPC definitions, not a test implementation.
   const account = await load(
     "supabase/archive/pre-reconciliation-20261030/20260930150000_account_user_management.sql",
@@ -151,6 +156,7 @@ try {
   grant select,insert,update on public.vat_profiles to authenticated;
   create trigger vat_settings_subscription_guard before insert or update or delete on public.vat_profiles for each row execute function subscription_private.guard_write();`);
   sql(await load('supabase/migrations/20261031054539_subscription_requests_and_owner_console.sql'));
+  sql(await load('supabase/migrations/20261109035940_module_bundle_builder.sql'));
   for (let i = 0; i < 8; i++) {
     const client = createClient(url, status.ANON_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
@@ -432,12 +438,14 @@ try {
               locale === "ar" ? "حالة الاشتراك" : "Subscription status",
             )
             .waitFor();
+          await page.getByRole('button',{name:locale==='ar'?'الباقات والترقية':'Plans & upgrades',exact:true}).click();
           await page.locator('[data-plan="professional_monthly"]').waitFor();
           assert.equal(await page.locator('.pricing-card').count(),2);
           await page.getByRole('button',{name:locale==='ar'?'سنوي':'Yearly',exact:true}).click();
           await page.locator('[data-plan="advanced_yearly"]').waitFor();
           assert.ok((await page.locator('[data-plan="advanced_yearly"]').innerText()).replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[٬,]/g,'').includes('3990'));
           await page.getByRole('button',{name:locale==='ar'?'شهري':'Monthly',exact:true}).click();
+          await page.getByRole('button',{name:locale==='ar'?'ملخص الاشتراك':'Subscription overview',exact:true}).click();
 
           await page
             .getByText(
@@ -482,16 +490,24 @@ try {
        await page.keyboard.press('Escape');
       }
       await page.getByRole('button',{name:'Yaqeen',exact:true}).click();
+      const existingPlans = (await rpc(owner, 'subscription_plan_catalog', {})).data.plans;
       await page.getByRole('button',{name:'＋ Add plan',exact:true}).click();
       const form=page.locator('.plan-manager form');
-      await form.locator('.owner-plan-advanced summary').click();
-      for(const [name,value] of Object.entries({code:'qa_custom',family:'qa_custom',name_ar:'باقة مخصصة للاختبار',name_en:'Custom acceptance plan',price:'79',max_users:'3',reason:'Browser custom plan acceptance'}))await form.locator(`[name="${name}"]`).fill(value);
-      await form.locator('[name="features"][value="module:budgets"]').uncheck();
-      await form.locator('[name="features"][value="module:investments"]').uncheck();
+      assert.equal(await form.locator('[name="code"]').isVisible(),true,'Required new-plan code must be visible');
+      assert.equal(await form.locator('[name="price"]').inputValue(),'');
+      assert.equal(await form.locator('[name="max_users"]').inputValue(),'5');
+      assert.equal(await form.locator('[name="is_active"]').isChecked(),true);
+      assert.equal(await form.locator('[name="is_published"]').isChecked(),false);
+      for(const [name,value] of Object.entries({code:'qa_custom',name_ar:'باقة مخصصة للاختبار',name_en:'Custom acceptance plan',price:'79',max_users:'3',reason:'Browser custom plan acceptance'}))await form.locator(`[name="${name}"]`).fill(value);
+      await form.locator('[name="features"][value="module:budgets"]').check();
+      await form.locator('[name="is_active"]').check();
       await form.locator('[name="is_published"]').check();
       const saved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/trials/plans'&&r.request().method()==='POST');
       await form.getByRole('button',{name:'Save plan',exact:true}).click();assert.equal((await saved).status(),200);
       await page.getByRole('cell',{name:'Custom acceptance plan',exact:true}).waitFor();
+      const publishedPlans = (await rpc(owner, 'subscription_plan_catalog', {})).data.plans;
+      assert.deepEqual(publishedPlans.filter(plan => plan.code !== 'qa_custom'), existingPlans);
+      assert.equal(publishedPlans.find(plan => plan.code === 'qa_custom')?.family, 'custom');
 
       await page
         .getByRole("heading", {
@@ -564,20 +580,26 @@ try {
   await check('customer submits an immutable quote; owner activates it; customer sees the actual active plan',async()=>{
     const context=await browser.newContext();await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));const page=await context.newPage();
     const created=await fetch(url+'/rest/v1/organizations',{method:'POST',headers:{...headers(owner),Prefer:'return=representation'},body:JSON.stringify({name:'Activation review institution',owner_user_id:owner.id})});assert.equal(created.status,201);const target=(await created.json())[0].id;
-    await page.goto(appUrl+'/ar/billing?organization='+target);await page.locator('[data-plan="advanced_monthly"]').waitFor();
+    await page.goto(appUrl+'/ar/billing?organization='+target);await page.getByRole('button',{name:'الباقات والترقية',exact:true}).click();await page.locator('[data-plan="advanced_monthly"]').waitFor();
     assert.ok(!/[٠-٩]/.test(await page.locator('.pricing-grid').innerText()));
     await page.locator('[data-plan="advanced_monthly"]').getByRole('button',{name:'طلب تفعيل الباقة',exact:true}).click();
-    const dialog=page.getByRole('dialog',{name:'طلب تفعيل باقة',exact:true});await dialog.waitFor();await dialog.getByLabel('رقم التواصل',{exact:true}).fill('+966500000000');await dialog.getByLabel('ملاحظات الطلب',{exact:true}).fill('Browser reviewed activation');
-    assert.equal(await dialog.locator('input[type="radio"]').nth(1).isDisabled(),true);
-    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-request-modal.png',root).pathname,fullPage:false});
-    const sent=page.waitForResponse(r=>r.url()===appUrl+'/api/subscriptions/requests'&&r.request().method()==='POST');await dialog.getByRole('button',{name:'إرسال طلب التفعيل',exact:true}).click();const response=await sent;assert.equal(response.status(),200);const request=await response.json();
+    const form=page.getByRole('region',{name:'طلب تفعيل الاشتراك',exact:true});
+    await form.getByLabel('رقم التواصل',{exact:true}).fill('+966500000000');
+    await form.getByLabel('ملاحظات الطلب',{exact:true}).fill('Browser reviewed activation');
+    await form.getByRole('checkbox').check();
+    await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-request-inline.png',root).pathname,fullPage:true});
+    const sent=page.waitForResponse(r=>r.url()===appUrl+'/api/subscriptions/requests'&&r.request().method()==='POST');await form.getByRole('button',{name:'إرسال طلب التفعيل',exact:true}).click();const response=await sent;assert.equal(response.status(),200);const request=await response.json();
     assert.equal(request.quote.price_amount,399);assert.equal((await rpc(owner,'organization_subscription',{p_organization_id:target})).data.status,'trialing');
+    await page.getByRole('button',{name:'الفواتير والمدفوعات',exact:true}).click();
+    await page.locator('.billing-request-status').getByText('بانتظار المراجعة',{exact:true}).waitFor();
+    assert.equal(await page.locator('.yb-table-wrap tbody tr').count(),1);
+    assert.equal(await page.locator('.yb-table-wrap tbody button').count(),0);
     await page.goto(appUrl+'/admin/subscriptions?lang=en');await page.getByRole('button',{name:'Activation requests',exact:true}).click();
     const row=page.getByRole('row').filter({hasText:'Activation review institution'});await row.getByRole('button',{name:'View request',exact:true}).click();
     await page.getByLabel('Decision reason — visible to customer',{exact:true}).fill('Approved browser end to end test');await page.getByLabel('End date for approval — device timezone',{exact:true}).fill('2027-12-31T18:00');
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-owner-inbox.png',root).pathname,fullPage:true});
     const approved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/subscriptions/requests'&&r.request().method()==='POST');await page.getByRole('button',{name:'Approve and activate manually',exact:true}).click();assert.equal((await approved).status(),200);
-    await page.goto(appUrl+'/en/billing?organization='+target);await page.getByText('Current active plan',{exact:true}).waitFor();await page.getByText('Activated',{exact:false}).first().waitFor();
+    await page.goto(appUrl+'/en/billing?organization='+target);await page.getByRole('button',{name:'Plans & upgrades',exact:true}).click();await page.getByText('Current active plan',{exact:true}).waitFor();await page.getByText('Activated',{exact:false}).first().waitFor();
     const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.max_users,15);assert.equal(state.plan.price_amount,399);
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/activation-current-plan.png',root).pathname,fullPage:true});
     await context.close();
@@ -601,12 +623,13 @@ try {
     const context=await browser.newContext();await context.addCookies(jar.map(c=>({name:c.name,value:c.value,url:appUrl})));const page=await context.newPage();
     const second=await fetch(url+'/rest/v1/organizations',{method:'POST',headers:{...headers(owner),Prefer:'return=representation'},body:JSON.stringify({name:'Second institution',owner_user_id:owner.id})});assert.equal(second.status,201);const secondOrg=(await second.json())[0].id;
     await page.goto(appUrl+'/en/settings?organization='+secondOrg);
-    await page.getByRole('heading',{name:'Organization details',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'Organization settings',exact:true,level:1}).waitFor();
     await page.getByLabel('Organization name',{exact:true}).waitFor();
     assert.equal(await page.locator('.subscription-banner').count(),0);
     assert.equal(await page.locator('.subscription-notice').count(),0);
-    assert.equal(await page.locator('#corp-settings-nav a').count(),4);
-    assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial"]').count(),1);
+    assert.equal(await page.locator('#corp-settings-nav a').count(),5);
+    assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial"]').count(),2);
+     assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial/setup"]').count(),1);
     assert.ok((await page.locator('#corp-settings-nav a[href*="/billing"]').getAttribute('href')).includes('organization='+secondOrg));
     assert.equal(await page.locator('#corp-settings-nav a[href*="users"]').count(),0);
     assert.equal(await page.locator('.corp-sidebar-foot a').getAttribute('href'),'/en/account');
@@ -614,19 +637,34 @@ try {
     await page.getByLabel('Selected organization',{exact:true}).selectOption(org);
     await page.waitForFunction(()=>document.querySelector('input[required]')?.value==='Trial Institution');
     await page.getByLabel('Legal name',{exact:true}).fill('Preserved legal organization');
+    await page.getByLabel('Country',{exact:true}).selectOption('SA');
+    await page.getByLabel('Official email',{exact:true}).fill('billing@example.com');
     await page.getByRole('button',{name:'Save changes',exact:true}).click();
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();await page.getByLabel('Legal name',{exact:true}).waitFor();assert.equal(await page.getByLabel('Legal name',{exact:true}).inputValue(),'Preserved legal organization');
-    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Subscription & plans',exact:true}).click();
-    await page.getByLabel('Subscription status',{exact:true}).waitFor();
-    await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'System settings',exact:true}).click();
-    await page.getByRole('heading',{name:'Organization system settings',exact:true}).waitFor();
+    assert.equal(await page.locator('.settings-secondary-links').count(),0,'No duplicate billing navigation inside settings');
+    const billingNavigation=page.locator('#corp-settings-nav a[href*="/billing"]');assert.ok((await billingNavigation.getAttribute('href')).includes('organization='+org));await billingNavigation.click();
+    await page.waitForURL('**/en/billing?organization='+org);
+    await page.locator('.yb-billing').getByLabel('Subscription status',{exact:true}).waitFor();
+    assert.equal(await page.locator('.settings-tabs').count(),0,'Billing must have an independent section');
+    await page.getByRole('button',{name:'Invoices & payments',exact:true}).click();
+    await page.getByLabel('Registered address',{exact:true}).fill('Billing acceptance address');
+    await page.getByLabel('Billing email',{exact:true}).fill('billing-check@example.com');
+    await page.getByRole('button',{name:'Save details',exact:true}).click();
+    await page.getByText('Organization details saved.',{exact:true}).waitFor();
+    await page.reload();
+    await page.getByRole('button',{name:'Billing details',exact:true}).click();
+    assert.equal(await page.getByLabel('Billing email',{exact:true}).inputValue(),'billing-check@example.com');
+    assert.equal(await page.getByLabel('Registered address',{exact:true}).inputValue(),'Billing acceptance address');
+    await page.goto(appUrl+'/en/settings/regulatory?organization='+org);
+    await page.getByRole('heading',{name:'Legal & tax settings',exact:true,level:1}).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);
-    await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
-    const vatDialog=page.getByRole('dialog',{name:'E-invoicing & ZATCA settings',exact:true});await vatDialog.waitFor();
+    assert.equal(await page.locator('.settings-tabs a').count(),6);
+    await page.getByRole('button',{name:'Tax registration',exact:true}).click();
+    const vatDialog=page.locator('.financial-setup-regulatory-editor');await vatDialog.waitFor();
     await vatDialog.getByLabel('Registered name',{exact:true}).fill('QA registered organization');
     await vatDialog.getByRole('button',{name:'Save settings',exact:true}).click();await page.getByText('Invoicing settings saved.',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();await vatDialog.waitFor();assert.equal(await vatDialog.getByLabel('Registered name',{exact:true}).inputValue(),'QA registered organization');
+    await page.getByRole('button',{name:'Tax registration',exact:true}).click();await vatDialog.waitFor();assert.equal(await vatDialog.getByLabel('Registered name',{exact:true}).inputValue(),'QA registered organization');
     await page.screenshot({path:new URL('tests/subscriptions/screenshots/system-zatca-modal.png',root).pathname,fullPage:false});await page.keyboard.press('Escape');
 
     sql(`update platform_subscriptions set trial_ends_at=now()-interval '1 day' where organization_id='${org}'`);
@@ -646,31 +684,34 @@ try {
     for(const locale of ['ar','en'])for(const width of [390,1440]){
       await page.setViewportSize({width,height:1000});await page.goto(appUrl+`/${locale}/settings?organization=${org}`);
       await page.getByLabel(locale==='ar'?'اسم المؤسسة':'Organization name',{exact:true}).waitFor();
+      await page.evaluate(()=>document.fonts.ready);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       const layout=await page.locator('.settings-tabs').evaluate(nav=>({
         widths:[...nav.querySelectorAll('a')].map(a=>a.getBoundingClientRect().width),
         icons:nav.querySelectorAll('a>svg[aria-hidden=true]').length,
+        clipped:[...nav.querySelectorAll('a>span')].filter(s=>{const text=s.getBoundingClientRect(),tab=s.parentElement.getBoundingClientRect();return s.scrollWidth>s.clientWidth+1||text.left<tab.left-1||text.right>tab.right+1||text.top<tab.top-1||text.bottom>tab.bottom+1;}).map(s=>s.textContent),
+        overlaps:[...nav.querySelectorAll('a')].some((a,i,all)=>all.slice(i+1).some(b=>{const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();return Math.min(x.right,y.right)-Math.max(x.left,y.left)>1&&Math.min(x.bottom,y.bottom)-Math.max(x.top,y.top)>1;})),
         overflow:nav.scrollWidth>nav.clientWidth
       }));
-      assert.equal(layout.icons,4);assert.equal(layout.widths.length,4);assert.ok(!layout.overflow);assert.ok(Math.max(...layout.widths)-Math.min(...layout.widths)<1);
+      // Desktop columns intentionally follow localized title lengths; test readability rather than equal widths.
+      assert.equal(layout.icons,6);assert.equal(layout.widths.length,6);assert.ok(layout.widths.every(w=>w>=100));assert.equal(layout.overflow,false);assert.deepEqual(layout.clipped,[]);assert.equal(layout.overlaps,false);
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${locale}-${width}.png`,root).pathname,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
-    const luminance=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
     for(const [theme,label] of [['yaqeen-business','Yaqeen Business'],['elegant','Elegant'],['modern','Modern'],['classic','Classic']]){
       await page.getByRole('group',{name:'Choose design',exact:true}).getByRole('button',{name:label,exact:true}).click();
       await page.locator('.corp-shell.theme-'+theme).waitFor();
-      const colors=await page.locator('.settings-card').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
-      for(const c of colors){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings card contrast '+JSON.stringify(c));}
-      const tabs=await page.locator('.settings-tabs a').evaluateAll(items=>items.map(el=>({active:el.getAttribute('aria-current')==='page',fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(el.parentElement).backgroundColor:getComputedStyle(el).backgroundColor})));
-      for(const c of tabs){assert.equal(c.fg,'rgb(255, 255, 255)');const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);if(theme!=='yaqeen-business'||!c.active)assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));}
+      const colors=await page.locator('.settings-card').evaluateAll(readColors);
+      for(const c of colors)assert.ok(contrast(c)>=4.5,theme+' settings card contrast '+JSON.stringify(c));
+      const tabs=await page.locator('.settings-tabs a').evaluateAll(readColors);
+      for(const c of tabs)assert.ok(contrast(c)>=4.5,theme+' settings tab contrast '+JSON.stringify(c));
       await verifySettingsTheme({page,theme,org,appUrl,root});
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/settings-${theme}.png`,root).pathname,fullPage:true});
-      await page.goto(appUrl+'/en/settings/system?organization='+org);await page.getByRole('button',{name:'Configure invoicing',exact:true}).click();
-      const modal=page.getByRole('dialog',{name:'E-invoicing & ZATCA settings',exact:true});await modal.waitFor();
-      const box=await modal.boundingBox();const viewport=page.viewportSize();assert.ok(Math.abs(box.x+box.width/2-viewport.width/2)<2,'System modal must be centered');assert.ok(box.x>=10&&box.x+box.width<=viewport.width-10);
-      const surfaces=await page.locator('.system-settings .console-card,dialog[open].subscription-modal').evaluateAll(items=>items.map(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor})));
-      for(const c of surfaces){const l=[luminance(c.fg),luminance(c.bg)].sort((a,b)=>b-a);assert.ok((l[0]+.05)/(l[1]+.05)>=4.5,theme+' system surface contrast '+JSON.stringify(c));}
+      await page.goto(appUrl+'/en/settings/regulatory?organization='+org);await page.getByRole('button',{name:'Tax registration',exact:true}).click();
+      const modal=page.locator('.financial-setup-regulatory-editor');await modal.waitFor();
+      const box=await modal.boundingBox();const viewport=page.viewportSize();assert.ok(box.width>0,'Native tax form is visible');assert.ok(box.x>=10&&box.x+box.width<=viewport.width-10);
+      const surfaces=await page.locator('.financial-setup-regulatory-editor').evaluateAll(readColors);
+      for(const c of surfaces)assert.ok(contrast(c)>=4.5,theme+' system surface contrast '+JSON.stringify(c));
       await page.screenshot({path:new URL(`tests/subscriptions/screenshots/system-modal-${theme}.png`,root).pathname,fullPage:false});await page.keyboard.press('Escape');
       await page.goto(appUrl+'/en/settings?organization='+org);await page.getByLabel('Organization name',{exact:true}).waitFor();
 
@@ -725,8 +766,9 @@ try {
         .click();
       await page.waitForURL(
         (u) =>
-          u.pathname === "/en/dashboard" && u.searchParams.has("organization"),
+          u.pathname === "/en/settings/financial/setup" && u.searchParams.has("organization"),
       );
+      await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
       const created = new URL(page.url()).searchParams.get("organization");
       const e = await rpc(newcomer, "organization_subscription", {
         p_organization_id: created,
@@ -737,7 +779,11 @@ try {
       assert.equal(e.data.status, "trialing");
       assert.equal(await page.locator('.subscription-banner').count(),0);
       assert.equal(await page.locator('.subscription-notice').count(),0);
-      await page.locator('.settings-module-toggle').click();
+      // The onboarding destination is itself a settings page: its sidebar
+      // section may already be expanded. Never toggle an open section shut.
+      if (!(await page.locator('#corp-settings-nav').isVisible())) {
+        await page.locator('.settings-module-toggle').click();
+      }
       await page.locator('#corp-settings-nav a[href*="/billing"]').click();
       await page.getByLabel("Subscription status").waitFor();
       assert.equal(new URL(page.url()).searchParams.get('organization'),created);
@@ -752,6 +798,7 @@ try {
     },
   );
   // Reproduce the deployed signup trigger rather than manually provisioning the invited profile.
+  await check('real module pricing, bundle request, owner quote, customer acceptance and scoped activation',async()=>{await (await import('./bundle-browser.mjs')).bundleBrowser({browser,cookies,appUrl,url,headers,owner,rpc,root});});
   const signupDDL = await load('supabase/migrations/20260915195509_002_production_hardening.sql');
   const signupTrigger = signupDDL.match(/create or replace function public\.handle_new_user\(\)[\s\S]*?execute function public\.handle_new_user\(\);/);
   assert.ok(signupTrigger, 'Production signup trigger definition must be present');

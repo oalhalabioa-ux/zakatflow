@@ -489,7 +489,7 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   await page.setViewportSize({ width: 1366, height: 1000 });
   await modal.locator("[name=name_ar]").fill("باقة اختبار التصميم");
   await modal.locator("[name=name_en]").fill("Design acceptance plan");
-  await modal.locator(".owner-plan-advanced summary").click();
+  assert.equal(await modal.locator("[name=code]").isVisible(), true, "Required new-plan code is visible without expanding extra settings");
   await modal.locator("[name=code]").fill("qa_design_ab");
   await modal.locator("[name=family]").fill("qa_design_ab");
   await modal.locator("[name=customer_notice_ar]").fill("عرض إطلاق خاص للمؤسسات");
@@ -525,8 +525,10 @@ export async function ownerVisuals({ browser, cookies, appUrl, root }) {
   assert.equal(published.customer_notice_ar,'عرض إطلاق خاص للمؤسسات');
   assert.equal(published.customer_notice_en,'Special launch offer for organizations');
   await page.goto(appUrl+'/ar/billing');
+  await page.getByRole('button',{name:'الباقات والترقية',exact:true}).click();
   await page.locator('[data-plan="qa_design_ab"] .plan-badge').getByText('عرض إطلاق خاص للمؤسسات',{exact:true}).waitFor();
   await page.goto(appUrl+'/en/billing');
+  await page.getByRole('button',{name:'Plans & upgrades',exact:true}).click();
   await page.locator('[data-plan="qa_design_ab"] .plan-badge').getByText('Special launch offer for organizations',{exact:true}).waitFor();
   await page.goto(appUrl+'/admin/subscriptions?lang=ar&tab=plans');
 

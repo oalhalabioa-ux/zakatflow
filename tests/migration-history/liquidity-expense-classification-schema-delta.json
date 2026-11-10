@@ -1,0 +1,41 @@
+{
+  "description": "Optional operating expense classification on liquidity categories, with tenant/type guard and generic VAT/asset fallback.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.liquidity_flow_categories.expense_classification_id",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.liquidity_flow_categories.liquidity_flow_categories_expense_classification_id_fkey",
+      "fingerprint": "cb02b47e3113bbd197a0847f246b8e43"
+    },
+    {
+      "category": "function",
+      "object_key": "private.validate_liquidity_expense_classification()",
+      "fingerprint": "d790367de2d60efb21457d674a1714da"
+    },
+    {
+      "category": "function",
+      "object_key": "public.amend_unsettled_purchase_invoice(p_document_id uuid, p_document_number text, p_transaction_date date, p_due_date date, p_contact_id uuid, p_counterparty_name text, p_counterparty_tax_number text, p_supply_type text, p_net numeric, p_tax_rate numeric, p_tax numeric, p_gross numeric, p_recoverable_percent numeric, p_line_items jsonb, p_notes text)",
+      "fingerprint": "e040b8f7965f81f2b477f992beacc721"
+    },
+    {
+      "category": "function",
+      "object_key": "public.prepare_asset_lifecycle(p_asset_id uuid, p_payload jsonb, p_request_id uuid)",
+      "fingerprint": "87c995ba864fe41ebc1c34ac614d5feb"
+    },
+    {
+      "category": "function",
+      "object_key": "public.prepare_vat_financial_event(p_source_table text, p_source_id uuid, p_entity_id uuid, p_due_date date, p_original_event_id uuid, p_alias_event_id uuid)",
+      "fingerprint": "866691521a94e9a7550eb0b46ffd4d1e"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.liquidity_flow_categories.validate_liquidity_expense_classification",
+      "fingerprint": "59f9efee0f6058166352b11952d5a020"
+    }
+  ]
+}

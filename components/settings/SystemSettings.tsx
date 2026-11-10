@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { vatProfileSchema } from "@/lib/validation/schemas";
 import { VatEInvoiceSetup } from "@/components/vat-einvoice-setup";
@@ -19,16 +19,30 @@ const addressFields = [
   ["seller_city", "المدينة", "City"],
   ["seller_postal_code", "الرمز البريدي", "Postal code"],
 ];
+function RegulatoryPanelShell({inline,title,onClose,busy,children}:{
+ inline:boolean;title:string;onClose:()=>void;busy:boolean;children:ReactNode;
+}){
+ return inline?<section className="financial-setup-regulatory-editor" aria-label={title}>{children}</section>:
+  <SubscriptionModal title={title} onClose={onClose} busy={busy}>{children}</SubscriptionModal>;
+}
 export default function SystemSettings({
   id,
   name,
   currency,
   locale,
+  setupEmbedded = false,
+  onSaved,
+  workspaceSection,
+  onEditRegistration,
 }: {
   id: string;
   name: string;
   currency: string;
   locale: string;
+  setupEmbedded?: boolean;
+  onSaved?: () => void;
+  workspaceSection?: "tax"|"invoicing";
+  onEditRegistration?:()=>void;
 }) {
   const ar = locale === "ar",
     [profile, setProfile] = useState<Profile | null>(null),
@@ -39,6 +53,7 @@ export default function SystemSettings({
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  useEffect(()=>{if(workspaceSection)setTab(workspaceSection==='invoicing'?'unit':'registration');},[workspaceSection]);
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);
@@ -106,6 +121,7 @@ export default function SystemSettings({
       const b = await r.json();
       if (!r.ok) throw Error(b.error);
       setProfile(parsed.data);
+      onSaved?.();
       setMessage(ar ? "تم حفظ إعدادات الفوترة." : "Invoicing settings saved.");
       setOpen(false);
     } catch {
@@ -120,7 +136,7 @@ export default function SystemSettings({
   }
   return (
     <section className="system-settings subscription-panel">
-      <div className="system-card-grid">
+      {!setupEmbedded && <div className="system-card-grid">
         <article className="console-card">
           <span className="system-card-icon" aria-hidden>
             ▣
@@ -192,28 +208,39 @@ export default function SystemSettings({
               : "The currency used for organization transactions and reporting."}
           </p>
         </article>
-      </div>
+      </div>}
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
-      {open && (
-        <SubscriptionModal
-          title={
-            ar
-              ? "إعدادات الفوترة الإلكترونية وزاتكا"
-              : "E-invoicing & ZATCA settings"
-          }
+      {setupEmbedded && !workspaceSection && <div className="financial-setup-regulatory-summary">
+        <div><span>{ar?"ملف الفوترة":"Invoice seller profile"}</span>
+          <strong>{loading?ar?"جار التحقق…":"Loading…":profile?ar?"بيانات محفوظة":"Saved source record":ar?"لم تُضف بيانات بعد":"Not configured"}</strong>
+        </div>
+        <div><span>{ar?"حالة التسجيل الضريبي":"Tax registration status"}</span>
+          <strong>{loading?"—":profile?.registration_status==="REGISTERED"?ar?"مسجل":"Registered":
+            profile?.registration_status==="PENDING"?ar?"قيد التسجيل":"Pending":
+            profile?.registration_status==="DEREGISTERED"?ar?"ملغى":"Deregistered":
+            profile?.registration_status==="NOT_REGISTERED"?ar?"غير مسجل":"Not registered":ar?"لم تُحدد":"Not selected"}</strong>
+        </div>
+        <div><span>{ar?"العنوان المستخدم على الفواتير":"Invoice seller address"}</span>
+          <strong>{profile?.seller_city&&profile?.seller_street?ar?"مدخل":"Entered":ar?"بحاجة مراجعة":"Review required"}</strong>
+        </div>
+      </div>}
+      {(open || setupEmbedded) && (!setupEmbedded || !loading) && (
+        <RegulatoryPanelShell
+          inline={setupEmbedded}
+          title={ar?"إعدادات الفوترة الإلكترونية وزاتكا":"E-invoicing & ZATCA settings"}
           onClose={() => {
             setOpen(false);
             setError("");
           }}
           busy={busy}
         >
-          <nav className="console-tabs">
+          {workspaceSection!=='invoicing'&&<nav className="console-tabs">
             {[
               ["registration", ar ? "التسجيل الضريبي" : "Registration"],
               ["address", ar ? "العنوان الوطني" : "National address"],
               ["unit", ar ? "وحدة الفوترة" : "Invoice unit"],
-            ].map(([key, label]) => (
+            ].filter(([key])=>!workspaceSection||key!=='unit').map(([key, label]) => (
               <button
                 key={key}
                 aria-pressed={tab === key}
@@ -222,7 +249,7 @@ export default function SystemSettings({
                 {label}
               </button>
             ))}
-          </nav>
+          </nav>}
           {error && <p role="alert">{error}</p>}
           {tab === "unit" ? (
             <VatEInvoiceSetup
@@ -231,7 +258,7 @@ export default function SystemSettings({
               vatNumber={profile?.tax_registration_number || ""}
               registered={profile?.registration_status === "REGISTERED"}
               ar={ar}
-              onEditRegistration={() => setTab("registration")}
+              onEditRegistration={() => {setTab("registration");onEditRegistration?.();}}
             />
           ) : (
             <form className="request-form" onSubmit={save}>
@@ -244,6 +271,7 @@ export default function SystemSettings({
                     {ar ? "حالة التسجيل" : "Registration status"}
                     <select
                       name="registration_status"
+                      aria-label={ar?"حالة التسجيل":"Registration status"}
                       defaultValue={
                         profile?.registration_status || "NOT_REGISTERED"
                       }
@@ -292,6 +320,7 @@ export default function SystemSettings({
                     {ar ? "دورية الإقرار" : "Filing frequency"}
                     <select
                       name="filing_frequency"
+                      aria-label={ar?"دورية الإقرار":"Filing frequency"}
                       defaultValue={String(
                         profile?.filing_frequency || "QUARTERLY",
                       )}
@@ -348,7 +377,7 @@ export default function SystemSettings({
                 <button className="primary" disabled={!editable || busy}>
                   {ar ? "حفظ الإعدادات" : "Save settings"}
                 </button>
-                <button
+                {!workspaceSection&&                <button
                   type="button"
                   onClick={() =>
                     setTab(tab === "registration" ? "address" : "registration")
@@ -361,11 +390,11 @@ export default function SystemSettings({
                     : ar
                       ? "التسجيل الضريبي"
                       : "Registration"}
-                </button>
+                </button>}
               </footer>
             </form>
           )}
-        </SubscriptionModal>
+        </RegulatoryPanelShell>
       )}
     </section>
   );

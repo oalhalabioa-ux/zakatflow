@@ -1,0 +1,26 @@
+{
+  "description": "Explicit lifecycle roles and canonical gross/depreciation reconciliation for new commands.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.asset_lifecycle_posting_context(p_asset uuid, p_date date, p_expected_net numeric)",
+      "fingerprint": "5db6733c99ad7e7e186c14cb036d1089"
+    },
+    {
+      "category": "function",
+      "object_key": "public.apply_asset_lifecycle_event()",
+      "fingerprint": "e5047b28b95380c7efadaf01bb6245eb"
+    },
+    {
+      "category": "function",
+      "object_key": "public.asset_lifecycle_posting_context(p_asset uuid, p_date date, p_expected_net numeric)",
+      "fingerprint": "34eae28af92a4331ea3c1f7aaa638ece"
+    },
+    {
+      "category": "function",
+      "object_key": "public.prepare_asset_lifecycle(p_asset_id uuid, p_payload jsonb, p_request_id uuid)",
+      "fingerprint": "ac1eb8d0894c26859f09335948c03d2e"
+    }
+  ]
+}

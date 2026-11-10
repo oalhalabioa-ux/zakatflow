@@ -1,3 +1,4 @@
+import {liquidityPartyAllowsClassification} from '../../../../lib/liquidity-party-classifications';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requestErrorMessage, settlementInstructionMatches, validateCollectionAmount } from '@/lib/vat-invoice-workflow';
@@ -25,6 +26,9 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
  for(const [field,table] of [['account_id','liquidity_accounts'],['entity_id','organization_entities'],['counterparty_id','liquidity_counterparties']] as const){
    const value=body[field];if(value){const{data,error}=await supabase.from(table).select('id').eq('id',value).eq('organization_id',record.organization_id).maybeSingle();if(error)throw error;if(!data)return NextResponse.json({error:field.toUpperCase()+'_ORGANIZATION_MISMATCH'},{status:400});}
  }
+ if('category_id' in body && body.category_id!==record.category_id
+   && record.source==='MANUAL' && record.source_event_key===`liquidity:${record.id}:recognition`)
+   return NextResponse.json({error:'LIQUIDITY_RECOGNIZED_CATEGORY_LOCKED'},{status:409});
  if(['CONFIRMED','ACTUAL'].includes(body.status??'')&&(body.category_id??record.category_id)){
   const category=await supabase.from('liquidity_flow_categories').select('treatment_code').eq('organization_id',record.organization_id).eq('id',body.category_id??record.category_id).maybeSingle();
   if(category.error)throw category.error;
@@ -33,7 +37,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
  if(body.status==='CONFIRMED'&&record.status!=='CONFIRMED'&&record.source==='MANUAL'){
    const categoryId=body.category_id??record.category_id;
    if(!categoryId)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
-   const{data:category,error:categoryError}=await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction,financial_classification_type,treatment_code').eq('id',categoryId).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();
+   const{data:category,error:categoryError}=await supabase.from('liquidity_flow_categories').select('id,flow_group,allowed_direction,financial_classification_type,treatment_code,expense_classification_id').eq('id',categoryId).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();
    if(categoryError)throw categoryError;if(!category?.financial_classification_type)return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const direction=body.direction??record.direction;if(category.allowed_direction!=='BOTH'&&category.allowed_direction!==direction)return NextResponse.json({error:'CATEGORY_DIRECTION_NOT_ALLOWED'},{status:400});
    // A flow may belong directly to the organization (entity_id = null). Only validate entity ownership when an entity is explicitly selected.
@@ -46,25 +50,44 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(treatment==='FINANCING'&&direction==='OUTFLOW')return NextResponse.json({error:'FINANCING_PRINCIPAL_REPAYMENT_REQUIRES_EXISTING_PAYABLE'},{status:409});
    const createsObligation=treatment!=='EQUITY';
    const obligationType=(treatment==='FINANCING'||treatment==='LIABILITY')?'PAYABLE':direction==='OUTFLOW'?'PAYABLE':'RECEIVABLE';
+   const availableClasses=supabase.from('financial_classifications').select('id')
+     .eq('organization_id',record.organization_id).eq('classification_type',treatment).eq('active',true);
+   // Detailed categories match the stored ID. Legacy OPEX prefers the generic
+   // code so newly created detail classifications cannot hijack existing flows.
+   const recognitionQuery=category.expense_classification_id
+     ? availableClasses.eq('id',category.expense_classification_id).maybeSingle()
+     : treatment==='OPEX'
+       ? availableClasses.eq('code','OPEX').maybeSingle()
+       : availableClasses.is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).limit(1).maybeSingle();
    const[{data:recognitionClass,error:recognitionClassError},{data:obligationClass,error:obligationClassError},{data:organization,error:organizationError}]=await Promise.all([
-     supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',treatment).eq('active',true).limit(1).maybeSingle(),
-     supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',obligationType).eq('active',true).limit(1).maybeSingle(),
+     recognitionQuery,
+     supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',obligationType).eq('active',true).is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).limit(1).maybeSingle(),
      supabase.from('organizations').select('base_currency').eq('id',record.organization_id).single()
    ]);
    if(recognitionClassError)throw recognitionClassError;if(obligationClassError)throw obligationClassError;if(organizationError)throw organizationError;
+   if(category.expense_classification_id&&!recognitionClass)
+     return NextResponse.json({error:'LIQUIDITY_EXPENSE_CLASSIFICATION_INVALID'},{status:409});
    if(!recognitionClass||(createsObligation&&!obligationClass))return NextResponse.json({error:'LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED'},{status:409});
    const amount=Number(body.amount??record.amount),baseAmount=Number(body.base_amount??record.base_amount),currency=body.currency??record.currency,dueDate=body.due_date??record.due_date,title=body.title??record.title,counterpartyId=body.counterparty_id??record.counterparty_id;
    if(counterpartyId){
      const{data:party,error:partyError}=await supabase.from('liquidity_counterparties').select('id,party_type,party_type_id').eq('id',counterpartyId).eq('organization_id',record.organization_id).eq('active',true).maybeSingle();
      if(partyError)throw partyError;if(!party)return NextResponse.json({error:'COUNTERPARTY_ORGANIZATION_MISMATCH'},{status:400});
-     const typeQuery=party.party_type_id?supabase.from('liquidity_party_types').select('code,allowed_financial_classifications').eq('id',party.party_type_id).eq('organization_id',record.organization_id).maybeSingle():supabase.from('liquidity_party_types').select('code,allowed_financial_classifications').eq('organization_id',record.organization_id).eq('code',party.party_type).maybeSingle();
+     const typeQuery=party.party_type_id?supabase.from('liquidity_party_types').select('code').eq('id',party.party_type_id).eq('organization_id',record.organization_id).maybeSingle():supabase.from('liquidity_party_types').select('code').eq('organization_id',record.organization_id).eq('code',party.party_type).maybeSingle();
      const{data:partyType,error:partyTypeError}=await typeQuery;if(partyTypeError)throw partyTypeError;
-     if(partyType?.allowed_financial_classifications?.length&&!partyType.allowed_financial_classifications.includes(treatment)&&partyType.code!=='OTHER')return NextResponse.json({error:'COUNTERPARTY_ACCOUNTING_CLASSIFICATION_MISMATCH',party_type:partyType.code,treatment},{status:409});
+     const partyCode=partyType?.code??party.party_type;
+     if(!liquidityPartyAllowsClassification(partyCode,treatment))return NextResponse.json({error:'COUNTERPARTY_ACCOUNTING_CLASSIFICATION_MISMATCH',party_type:partyCode,treatment},{status:409});
    }
    const sourceKey=`liquidity:${record.id}:recognition`;
    const eventType=treatment==='CAPEX'||treatment==='ASSET'||treatment==='INVESTMENT'?'ASSET_PURCHASE':treatment==='REVENUE'?'REVENUE':treatment==='OPEX'||treatment==='TAX'||treatment==='ZAKAT'?'EXPENSE':treatment==='LIABILITY'||treatment==='FINANCING'?'LIABILITY':treatment==='EQUITY'?'ADJUSTMENT':'ADJUSTMENT';
    const{data:existing,error:existingError}=await supabase.from('financial_events').select('id,status,event_type').eq('organization_id',record.organization_id).eq('source_event_key',sourceKey).maybeSingle();if(existingError)throw existingError;
    if(existing&&existing.event_type!==eventType)return NextResponse.json({error:'LIQUIDITY_RECOGNITION_TREATMENT_MISMATCH',expected_event_type:eventType,actual_event_type:existing.event_type},{status:409});
+   if(existing&&category.expense_classification_id){
+     const stored=await supabase.from('financial_event_lines').select('classification_id')
+       .eq('organization_id',record.organization_id).eq('event_id',existing.id).eq('line_number',1).maybeSingle();
+     if(stored.error)throw stored.error;
+     if(stored.data?.classification_id!==category.expense_classification_id)
+       return NextResponse.json({error:'LIQUIDITY_RECOGNITION_CLASSIFICATION_MISMATCH'},{status:409});
+   }
    let eventId=existing?.id;
    if(!eventId){
      const created:any=await executeFinancialEventAction({action:'CREATE',payload:{organization_id:record.organization_id,entity_id:entityId,counterparty_id:counterpartyId,event_type:eventType,source_module:'OPERATIONAL_CONSOLE',source_record_id:record.id,source_event_key:sourceKey,event_date:dueDate,due_date:dueDate,base_currency:organization.base_currency,description:title,lines:[{line_number:1,description:title,classification_id:recognitionClass.id,cost_center_id:null,amount,currency,exchange_rate:baseAmount/amount,base_amount:baseAmount,cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0}],obligations:createsObligation?[{obligation_key:`liquidity:${record.id}:obligation`,obligation_type:obligationType,settleable_amount:amount,currency,exchange_rate:baseAmount/amount,base_currency:organization.base_currency,settleable_base_amount:baseAmount}]:[],links:[{link_type:'CASH_FLOW',target_module:'liquidity_flows',target_record_id:record.id,metadata:{purpose:'MANUAL_CONFIRMED_FLOW'}}]}});
@@ -127,7 +150,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
      const remainingAmount=Math.min(flowOutstanding,Number(body.amount??flowOutstanding));
      const remainingBase=Math.min(Number(record.base_amount)*(remainingAmount/Number(record.amount)),Number(body.base_amount??Number(record.base_amount)*(remainingAmount/Number(record.amount))));
      if(!(remainingAmount>0&&remainingBase>0))return NextResponse.json({error:'NO_OUTSTANDING_CASH_MOVEMENT'},{status:409});
-     const{data:cashClass,error:cashClassError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',actualTreatment).eq('active',true).limit(1).maybeSingle();
+     const{data:cashClass,error:cashClassError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',actualTreatment).eq('active',true).is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).limit(1).maybeSingle();
      if(cashClassError)throw cashClassError;if(!cashClass)return NextResponse.json({error:'SETTLEMENT_CLASSIFICATION_REQUIRED'},{status:409});
      const settlementDate=body.settlement_date??new Date().toISOString().slice(0,10),exchangeRate=remainingBase/remainingAmount;
      const settlementSourceKey=`liquidity:${record.id}:cash-realization:${Number(record.settled_amount||0)}`;
@@ -163,7 +186,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
    if(!(remainingAmount>0&&remainingBase>0))return NextResponse.json({error:'NO_OUTSTANDING_OBLIGATION'},{status:409});
    if(!['PAYABLE','RECEIVABLE'].includes(balances[0].obligation_type))return NextResponse.json({error:'UNSUPPORTED_SETTLEMENT_OBLIGATION_TYPE'},{status:409});
    const classificationType=balances[0].obligation_type as 'PAYABLE'|'RECEIVABLE';
-   const{data:classification,error:classError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',classificationType).eq('active',true).limit(1).maybeSingle();
+   const{data:classification,error:classError}=await supabase.from('financial_classifications').select('id').eq('organization_id',record.organization_id).eq('classification_type',classificationType).eq('active',true).is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).limit(1).maybeSingle();
    if(classError)throw classError;if(!classification)return NextResponse.json({error:'SETTLEMENT_CLASSIFICATION_REQUIRED'},{status:409});
    const settlementDate=body.settlement_date??new Date().toISOString().slice(0,10);
    const exchangeRate=remainingBase/remainingAmount;

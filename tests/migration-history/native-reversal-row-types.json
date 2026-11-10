@@ -1,0 +1,657 @@
+[
+  {
+    "table_name": "debt_contracts",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "organization_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "request_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "kind",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "mode",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "side",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "counterparty_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "entity_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "account_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "category",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "reference",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "event_date",
+    "data_type": "date"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "exchange_rate",
+    "data_type": "numeric"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "principal",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "schedule",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "financial_event_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "payload_fingerprint",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "created_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "debt_contracts",
+    "column_name": "deleted_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "organization_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "request_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "kind",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "target_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "payload",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "fingerprint",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "financial_event_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "execution_state",
+    "data_type": "text"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "created_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "debt_operation_requests",
+    "column_name": "executed_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "event_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "organization_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "line_number",
+    "data_type": "integer"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "classification_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "cost_center_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "budget_line_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "amount",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "exchange_rate",
+    "data_type": "numeric(24,10)"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "base_amount",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "cash_direction",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "vat_treatment",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "vat_rate",
+    "data_type": "numeric(5,2)"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "vat_amount",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "recoverable_percent",
+    "data_type": "numeric(5,2)"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "metadata",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "financial_event_lines",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "organization_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "event_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "obligation_key",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "obligation_type",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "adjusts_obligation_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "adjustment_effect",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "settleable_amount",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "exchange_rate",
+    "data_type": "numeric(24,10)"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "base_currency",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "settleable_base_amount",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "created_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_event_obligations",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "organization_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "entity_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "counterparty_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "vat_profile_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "event_type",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "source_module",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "source_record_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "source_event_key",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "description",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "event_date",
+    "data_type": "date"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "due_date",
+    "data_type": "date"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "settlement_date",
+    "data_type": "date"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "planning_view",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "scenario_key",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "base_currency",
+    "data_type": "text"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "created_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "posted_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "financial_events",
+    "column_name": "posted_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "organization_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "entity_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "name",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "account_type",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "current_balance",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "restricted_balance",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "uncleared_balance",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "current_balance_base",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "restricted_balance_base",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "uncleared_balance_base",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "active",
+    "data_type": "boolean"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "notes",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "created_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "liquidity_accounts",
+    "column_name": "metadata",
+    "data_type": "jsonb"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "organization_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "entity_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "account_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "direction",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "settlement_date",
+    "data_type": "date"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "amount",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "currency",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "exchange_rate",
+    "data_type": "numeric(24,10)"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "base_currency",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "base_amount",
+    "data_type": "numeric(24,4)"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "source_module",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "source_event_key",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "financial_event_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "status",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "payload_fingerprint",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "reversal_of_id",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "reversal_reason",
+    "data_type": "text"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "created_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "posted_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "posted_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "reversed_by",
+    "data_type": "uuid"
+  },
+  {
+    "table_name": "liquidity_settlements",
+    "column_name": "reversed_at",
+    "data_type": "timestamp with time zone"
+  }
+]

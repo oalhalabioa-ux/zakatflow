@@ -27,6 +27,8 @@ export function updateOwnerQuery(
   );
 }
 export const ownerSubscriptionSections = [
+  {id:"modules",ar:"الموديولات والتسعير",en:"Modules and pricing",icon:"layers"},
+  {id:"quotes",ar:"طلبات عروض الأسعار",en:"Bundle quotes",icon:"requests"},
   {
     id: "institutions",
     ar: "اشتراكات المؤسسات",

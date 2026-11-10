@@ -20,6 +20,21 @@ describe('explicit canonical-event ledger compiler',()=>{
   expect(projected.source.opening).toEqual(source.opening);
   expect(projected.lineage).toEqual(baseline.lineage);
  });
+ it('uses frozen voucher accounts and rule provenance across a later policy change',()=>{
+  const input=fixture();
+  input.accounts.push({id:'bank-detail',kind:'ASSET',cash:true,organizationId:'a',currency:'SAR'});
+  const receipt=input.events.find(e=>e.id==='receipt')!;
+  receipt.lines[0].resolvedPosting={ruleId:'prior:1',debitAccountId:'bank-detail',creditAccountId:'receivable',cashActivity:'OPERATING'};
+  input.policy.rules=input.policy.rules.filter(rule=>rule.id!=='collection');
+  const result=compileEventLedger(input);
+  expect(result.source.journals.find(j=>j.id==='receipt')?.lines[0].accountId).toBe('bank-detail');
+  expect(result.lineage.find(l=>l.eventId==='receipt')?.ruleId).toBe('prior:1');
+  expect(result.statements).toEqual(compileEventLedger(fixture()).statements);
+ });
+ it('rejects a detailed snapshot without resolved legs instead of falling back to its control',()=>{
+  const input=fixture();input.policy.rules[0].detailed=true;
+  expect(()=>compileEventLedger(input)).toThrow('REPORTING_EVENT_POSTING_REQUIRED');
+ });
  it('keeps expense 100, recoverable VAT 15 and gross payment 115 distinct with one journal source',()=>{const r=compileEventLedger(fixture());expect(r.statements.income).toMatchObject({revenue:'200.0000',operatingExpenses:'100.0000',netProfit:'100.0000'});expect(r.statements.cash).toMatchObject({opening:'500.0000',operating:'85.0000',closing:'585.0000'});expect(r.statements.position).toMatchObject({assets:'600.0000',liabilities:'0.0000',equity:'600.0000'});expect(r.lineage).toHaveLength(5);expect(r.source.journals).toHaveLength(4)});
  it('does not mutate sources or regenerate amounts independently of journals',()=>{const s=fixture(),before=JSON.stringify(s),r=compileEventLedger(s);expect(JSON.stringify(s)).toBe(before);expect(r.lineage[0]).toEqual({journalId:'invoice',eventId:'invoice',lineId:'invoice-line',ruleId:'expense'});expect(r.policyId).toBe(s.policy.id);expect(r.openingSourceId).toBe(s.openingSourceId)});
  it('requires approved mapping and opening provenance and a balanced opening',()=>{let s=fixture();s.policy.approvedBy='';expect(()=>compileEventLedger(s)).toThrow('APPROVED_POSTING_POLICY_REQUIRED');s=fixture();s.openingSourceId='';expect(()=>compileEventLedger(s)).toThrow('OPENING_SOURCE_REQUIRED');s=fixture();s.opening[0].debit='499';expect(()=>compileEventLedger(s)).toThrow('OPENING_TRIAL_BALANCE_UNBALANCED')});

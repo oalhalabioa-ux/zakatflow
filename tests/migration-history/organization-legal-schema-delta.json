@@ -1,0 +1,8 @@
+{
+  "removals": [],
+  "upserts": [
+    {"category":"column","object_key":"public.organizations.country_code","fingerprint":"61af1481f742db258e8a20ef797fd226"},
+    {"category":"column","object_key":"public.organizations.commercial_registration_number","fingerprint":"61af1481f742db258e8a20ef797fd226"},
+    {"category":"column","object_key":"public.organizations.registered_address","fingerprint":"61af1481f742db258e8a20ef797fd226"}
+  ]
+}

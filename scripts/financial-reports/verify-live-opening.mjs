@@ -33,11 +33,226 @@ try{
  const scope={p_org:org,p_fiscal_start:'2026-01-01'};
  await check('Real user sessions isolate opening source reads and reject forged metadata',async()=>{assert.ifError((await a.client.rpc('financial_opening_workspace',scope)).error);assert.ok((await b.client.rpc('financial_opening_workspace',scope)).error);assert.ifError((await viewer.client.auth.updateUser({data:{role:'OWNER',financial_core:{approve:true}}})).error);assert.ok((await viewer.client.rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:'x',p_entries:{},p_reason:''})).error)});
  const cookies=[],ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>cookies,setAll:cs=>{for(const c of cs){const i=cookies.findIndex(x=>x.name===c.name);if(i>=0)cookies.splice(i,1);cookies.push(c)}}}});assert.ifError((await ssr.auth.signInWithPassword({email:a.email,password:a.password})).error);
- const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',VERCEL_ENV:'preview'};
+ const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',FINANCIAL_SOURCE_INTEGRITY_DIAGNOSTICS:'true',VERCEL_ENV:'preview'};
  const build=spawn('npm',['run','build'],{env,stdio:'inherit'});const buildExit=await new Promise((resolve,reject)=>{const deadline=setTimeout(()=>{build.kill('SIGTERM');reject(Error('ISOLATED_NEXT_BUILD_TIMEOUT'))},300000);build.on('error',e=>{clearTimeout(deadline);reject(e)});build.on('exit',code=>{clearTimeout(deadline);resolve(code)})});assert.equal(buildExit,0);
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
  for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context',{signal:AbortSignal.timeout(5000)})).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
  const{chromium}=await import(process.env.FINANCIAL_SOURCE_BROWSER_MODULE);browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1672,height:941},acceptDownloads:true});await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));page=await context.newPage();page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
+ await check('Financial setup reads real organization readiness, blocks fabricated completion and cross-tenant access',async()=>{
+  const endpoint=app+'/api/financial-reporting/setup-readiness?';
+  const params=new URLSearchParams({organization:org,mode:'EXISTING'});
+  const own=await page.request.get(endpoint+params.toString());
+  assert.equal(own.status(),200,'Owned organization readiness must be available');
+  const ready=await own.json();
+  assert.equal(ready.organizationId,org);
+  assert.equal(ready.mode,'EXISTING');
+  assert.equal(ready.statuses.chart,'READY','Legacy canonical 3300 chart must not require a new posting leaf');
+  assert.equal(ready.statuses.fiscal,'READY','Existing valid fiscal year must stay valid');
+  assert.equal(ready.statuses.posting,'IN_PROGRESS','No approved posting policy may not be treated as ready');
+  assert.equal(ready.statuses.opening,'IN_PROGRESS','An unapproved opening may not be treated as ready');
+  assert.equal(ready.ready,false);
+  assert.equal(ready.certification,'NOT_CERTIFIED');
+  const foreign=await page.request.get(endpoint+new URLSearchParams({organization:other,mode:'EXISTING'}));
+  assert.equal(foreign.status(),403,'Cross-tenant setup evidence must be denied');
+  await page.goto(app+'/en/settings/financial/setup?organization='+org);
+  const savedKey='yaqeen:financial-setup:v1:'+org;
+  await page.evaluate(({key})=>localStorage.setItem(key,JSON.stringify({
+   mode:'EXISTING',industry:'GENERAL',
+   completed:['organization','chart','fiscal','posting','banking','opening','users','review','finished'],
+   step:'review'
+  })),{key:savedKey});
+  const reloaded=page.waitForResponse(response=>response.url().includes('/api/financial-reporting/setup-readiness?'));
+  await page.reload();await reloaded;
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  await page.locator('.financial-setup-stage-group').last().locator('summary').click();
+  await page.getByRole('heading',{name:'Review',exact:true}).waitFor();
+  const finish=page.getByRole('button',{name:/Finish setup/});
+  assert.equal(await finish.isDisabled(),true,'Local browser progress must not allow finish');
+  assert.notEqual(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100',
+   'Local review flags must never report 100% financial readiness');
+  await page.getByRole('button',{name:'Back to setup overview',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')!==null);
+  await page.screenshot({path:out+'/financial-setup-readiness-en-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(app+'/ar/settings/financial/setup?organization='+org);
+  await page.getByRole('heading',{name:'رحلة إعداد المؤسسة'}).waitFor();
+  await page.waitForFunction(()=>document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')!==null);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,
+   'The financial setup page must remain within the mobile viewport');
+  await page.screenshot({path:out+'/financial-setup-readiness-ar-mobile.png',fullPage:true});
+  await page.evaluate(({key})=>localStorage.removeItem(key),{key:savedKey});
+  await page.setViewportSize({width:1672,height:941});
+ });
+ async function chooseSetupStep(label){
+  const button=page.locator('.financial-setup-stage-timeline button').filter({hasText:label});
+  const group=button.locator('..');
+  if(!(await button.isVisible()))await group.locator('summary').click();
+  await button.click();
+ }
+ await check('The organization setup journey embeds real scoped workspaces without nested shell',async()=>{
+  await page.goto(app+'/en/settings/financial/setup?organization='+org);
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  await chooseSetupStep('Organization details');
+  await page.getByRole('button',{name:/Existing organization/}).click();
+  const embedded=page.locator('iframe.financial-setup-embedded-frame');
+  assert.equal(await embedded.count(),0,'Setup forms must be native components, not framed pages');
+  const embeddedPage=page.locator('[data-setup-native-workspace="organization"]');
+  await embeddedPage.getByLabel('Organization name',{exact:true}).waitFor();
+  assert.equal(await embeddedPage.locator('.corp-sidebar').count(),0,'Native form must not duplicate the shell');
+  // The real original organization editor must refresh authoritative readiness
+  // after a successful in-frame save, without taking the user out of this stage.
+  const refreshedAfterSave=page.waitForResponse(response=>
+   response.url().includes('/api/financial-reporting/setup-readiness?')&&response.status()===200);
+  await embeddedPage.getByLabel('Legal name').fill('QA legal name updated inside setup');
+  await embeddedPage.getByLabel('Country',{exact:true}).selectOption('SA');
+  await embeddedPage.getByLabel('Official email',{exact:true}).fill('qa@example.com');
+  await embeddedPage.getByLabel('Main activity',{exact:true}).fill('Trading');
+
+  await embeddedPage.getByRole('button',{name:'Save changes'}).click();
+  await embeddedPage.getByRole('status').filter({hasText:'Organization details saved.'}).waitFor();
+  await refreshedAfterSave;
+  const legalResponse=await page.request.get(app+'/api/organizations',{headers:{'cache-control':'no-cache'}});
+  assert.equal(legalResponse.status(),200,'The legal identity must be readable under signed-in organization RLS');
+  const savedLegal=(await legalResponse.json()).find(item=>item.id===org);
+  assert.equal(savedLegal?.country_code,'SA');
+  assert.equal(savedLegal?.contact_email,'qa@example.com');
+  assert.equal(savedLegal?.activity,'Trading');
+
+  await page.locator('[data-setup-native-workspace=organization]').waitFor();
+  await chooseSetupStep('Cash & banking');
+  const banking=page.locator('[data-setup-native-workspace="banking"]');
+  await banking.waitFor();
+  assert.equal(await embedded.count(),0,'Banking uses the real institutional component without an iframe');
+  const bankResponse=await page.request.get(app+'/api/financial-register?scope=ORGANIZATION&organization_id='+org);
+  assert.equal(bankResponse.status(),200,'The banking source must be authorized for this legal organization');
+  await chooseSetupStep('Chart of accounts');
+  await page.locator('[data-setup-native-workspace="chart"]').waitFor();
+  await page.locator('.coa-page').waitFor();
+  await page.locator('[data-setup-native-workspace="chart"] h1').filter({hasText:'Chart of accounts'}).waitFor();
+  assert.equal(await embedded.count(),0,
+    'Chart management must now be a native form in the same journey, without a nested frame');
+  assert.equal(await page.locator('#corp-organization-controls .corp-organization-inner').count(),1,
+    'The native chart must not insert a duplicate organization picker into the shared header');
+  await page.screenshot({path:out+'/financial-setup-linked-chart-en-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  // CorporateShell transitions its reserved sidebar margin (250px -> 0)
+  // over 220ms. Do not mistake the intermediate desktop-width layout for
+  // a persistent mobile overflow immediately after changing the viewport.
+  await page.waitForFunction(()=>{
+    const workspace=document.querySelector('.corp-workspace');
+    if(!workspace)return false;
+    const box=workspace.getBoundingClientRect();
+    return Math.abs(box.left)<2&&Math.abs(box.width-innerWidth)<2;
+  },null,{timeout:5000});
+  const mobileOverflow=await page.evaluate(()=>{
+    const width=innerWidth;
+    const offenders=Array.from(document.querySelectorAll('body *')).map(element=>{
+      const rect=element.getBoundingClientRect(),style=getComputedStyle(element);
+      return {tag:element.tagName.toLowerCase(),className:typeof element.className==='string'?element.className.slice(0,150):'',
+        id:element.id||'',right:Math.round(rect.right),left:Math.round(rect.left),width:Math.round(rect.width),
+        overflowX:style.overflowX,position:style.position};
+    }).filter(element=>
+      element.width>width+2||element.right>width+2||element.left< -2
+    ).sort((a,b)=>a.right-b.right).slice(0,26);
+    const keyNodes=['html','body','.corp-shell','.corp-workspace','.settings-workspace','.financial-setup',
+      '.financial-setup-card','.financial-setup-native','.financial-setup-native-content',
+      '.coa-page','.coa-template-panel','.coa-template-scroll','.coa-register','.coa-scroll'];
+    const sizes=keyNodes.map(selector=>{
+      const element=document.querySelector(selector);
+      if(!element)return {selector,missing:true};
+      const rect=element.getBoundingClientRect(),style=getComputedStyle(element);
+      return {selector,right:Math.round(rect.right),width:Math.round(rect.width),
+        clientWidth:element.clientWidth,scrollWidth:element.scrollWidth,
+        overflowX:style.overflowX,minWidth:style.minWidth,display:style.display};
+    });
+    return {viewport:width,scrollWidth:document.documentElement.scrollWidth,offenders,sizes};
+  });
+  if(mobileOverflow.scrollWidth>mobileOverflow.viewport)
+    console.log('FINANCIAL_SETUP_MOBILE_OVERFLOW '+JSON.stringify(mobileOverflow));
+  assert.equal(mobileOverflow.scrollWidth>mobileOverflow.viewport,false,
+    'Linked setup workspace must fit the mobile viewport');
+  await page.screenshot({path:out+'/financial-setup-linked-chart-en-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1672,height:941});
+ });
+ await check('Setup tabs and deferred optional structure preserve organization and accounting gates',async()=>{
+  await page.goto(app+'/en/settings/financial/setup?organization='+org);
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  assert.equal(await page.locator('.settings-tabs a').count(),6,
+    'Exactly six approved settings sections should appear without changing the corporate sidebar');
+  assert.equal(await page.locator('.settings-tabs a').filter({hasText:'Legal & tax settings'}).count(),1);
+  assert.equal(await page.locator('.settings-tabs a').filter({hasText:'Users & permissions'}).count(),1);
+  const journey=page.locator('.settings-tabs a').filter({hasText:'Setup journey'});
+  assert.equal(await journey.getAttribute('aria-current'),'page',
+    'Setup journey must be its own active tab, not a finance shortcut');
+  await chooseSetupStep('Branches & structure');
+  const defer=page.getByRole('button',{name:/Defer for now/});
+  await defer.waitFor();
+  await defer.click();
+  const branchStep=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
+  if(!(await branchStep.isVisible()))await branchStep.locator('..').locator('summary').click();
+  await branchStep.waitFor();
+  assert.match(await branchStep.innerText(),/Deferred/,
+    'Deferred step must stay visible and must never be shown as complete');
+  assert.notEqual(await page.getByRole('progressbar').getAttribute('aria-valuenow'),'100',
+    'Deferral cannot forge financial readiness');
+  // The original VAT profile, invoice seller address and ZATCA invoice unit
+  // must all be reachable in the unified setup journey without duplicating
+  // their persisted tables or changing the independent accounting preflight.
+  await chooseSetupStep('Legal & tax settings');
+  const legal=page.locator('[data-setup-native-workspace="regulatory"]');
+  await legal.getByLabel('Registered legal address',{exact:true}).waitFor();
+  await legal.getByLabel('Registered legal address',{exact:true}).fill('Riyadh QA test address');
+  await legal.getByLabel('Commercial or statutory registration number',{exact:true}).fill('123456789');
+  await legal.getByRole('button',{name:'Save changes',exact:true}).click();
+  await legal.getByText('Organization details saved.',{exact:true}).waitFor();
+  const legalSaved=(await (await page.request.get(app+'/api/organizations')).json()).find(x=>x.id===org);
+  assert.equal(legalSaved.registered_address,'Riyadh QA test address');
+  assert.equal(legalSaved.commercial_registration_number,'123456789');
+  await legal.getByRole('button',{name:'Tax registration',exact:true}).click();
+  await legal.locator('.financial-setup-regulatory-editor').waitFor();
+  await legal.locator('.console-tabs').getByRole('button',{name:'National address',exact:true}).click();
+  await legal.getByLabel('Street',{exact:true}).waitFor();
+  assert.equal(await legal.locator('.console-tabs').getByRole('button',{name:'National address',exact:true}).getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('iframe').count(),0,'All legal identity and tax editing remains native');
+  const registrationTab=legal.locator('.console-tabs').getByRole('button',{name:'Registration',exact:true});
+  await registrationTab.click();
+  await page.waitForFunction(()=>{
+    const root=document.querySelector('[data-setup-native-workspace="regulatory"]');
+    const tab=[...(root?.querySelectorAll('.console-tabs button')??[])].find(el=>el.textContent?.trim()==='Registration');
+    return tab?.getAttribute('aria-pressed')==='true';
+  },undefined,{timeout:15000});
+  const registrationControl=legal.locator('select[name="registration_status"]');
+  await registrationControl.waitFor({state:'attached'});
+  const registrationVisible=await registrationControl.evaluate(el=>{
+    const section=el.closest('div.request-form');
+    const style=getComputedStyle(el);
+    return {hidden:Boolean(section?.hasAttribute('hidden')),display:style.display,visibility:style.visibility,rects:el.getClientRects().length};
+  });
+  await page.screenshot({path:out+'/financial-setup-legal-registration-en-desktop.png',fullPage:true});
+  assert.ok(!registrationVisible.hidden&&registrationVisible.display!=='none'&&
+    registrationVisible.visibility!=='hidden'&&registrationVisible.rects>0,
+    'After selecting Registration the original VAT status field must be visible: '+JSON.stringify(registrationVisible));
+  assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow')!==null,true,
+    'Legal/tax review must not replace real financial readiness');
+  await page.screenshot({path:out+'/financial-setup-legal-tax-en-desktop.png',fullPage:true});
+  await page.locator('.settings-tabs a').filter({hasText:'Financial & accounting settings'}).click();
+  await page.getByRole('heading',{name:'Financial & accounting settings',exact:true,level:1}).waitFor();
+  assert.equal(await page.locator('.settings-tabs a').filter({hasText:'Financial & accounting settings'}).getAttribute('aria-current'),'page',
+    'Financial settings tab should be active, not the journey');
+  await page.locator('.settings-tabs a').filter({hasText:'Setup journey'}).click();
+  await page.getByRole('heading',{name:'Set up your organization'}).waitFor();
+  const restored=page.locator('.financial-setup-stage-timeline button').filter({hasText:'Branches & structure'});
+  await restored.locator('..').locator('summary').click();
+  await restored.waitFor();
+  assert.match(await restored.innerText(),/Deferred/,
+    'Deferred step should survive navigation between settings tabs');
+  await page.getByRole('button',{name:'Back to setup overview',exact:true}).click();
+  const resume=page.getByRole('button',{name:/Continue setup/});
+  await resume.waitFor();
+  assert.ok((await resume.innerText()).includes('First incomplete setup requirement'),
+   'Resume must identify the next saved organization or verified financial requirement, not fabricated local completion');
+  await page.screenshot({path:out+'/financial-setup-journey-navigation-en-desktop.png',fullPage:true});
+ });
  await check('An authorized organization without an approved opening exposes its three in-year vouchers',async()=>{
   sql(`insert into public.organization_members(organization_id,user_id,role,status) values('${other}','${a.id}','OWNER','ACTIVE');
    do $$ declare asset uuid; d date; begin
@@ -100,7 +315,7 @@ try{
   assert.ifError((await a.client.rpc('link_financial_cash_accounts',{p_org:other})).error);
   await page.goto(app+'/en/opening-balances?organization='+org);await page.locator('[data-opening-ready="'+org+'"]').waitFor();
   const organizationPicker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});await organizationPicker.selectOption(other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
-  const fiscalLink=page.getByRole('link',{name:'Manage fiscal years in organization settings',exact:true});assert.match(await fiscalLink.getAttribute('href'),new RegExp(other));await fiscalLink.click();await page.locator('[data-fiscal-management]').waitFor();assert.equal(await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Finance & accounting',exact:true}).getAttribute('aria-current'),'page');await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Organization settings',exact:true}).click();await page.getByRole('heading',{name:'Organization details',exact:true}).waitFor();assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization'}).inputValue(),other);await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await page.getByRole('combobox',{name:'Organization',exact:true}).inputValue(),other);
+  const fiscalLink=page.getByRole('link',{name:'Manage fiscal years in organization settings',exact:true});assert.match(await fiscalLink.getAttribute('href'),new RegExp(other));await fiscalLink.click();await page.locator('[data-fiscal-management]').waitFor();assert.equal(await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Financial & accounting settings',exact:true}).getAttribute('aria-current'),'page');await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Organization settings',exact:true}).click();await page.getByRole('heading',{name:'Organization settings',exact:true,level:1}).waitFor();assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization'}).inputValue(),other);await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await page.getByRole('combobox',{name:'Organization',exact:true}).inputValue(),other);
 
   await page.getByRole('tab',{name:'Cash & banks'}).click();
   const bankRow=page.locator('[data-opening-row]').filter({hasText:'September QA bank'});
@@ -141,7 +356,21 @@ try{
   const read=await a.client.rpc('financial_opening_workspace',scope);assert.ifError(read.error);assert.equal(read.data.workspace.status,'APPROVED');assert.equal(read.data.workspace.entries['equity:3100'].amount,'500');
  });
  await check('Browser Excel export preserves actual source marker, source amount and final opening',async()=>{const d=page.waitForEvent('download');await page.getByRole('button',{name:'تصدير Excel',exact:true}).click();const file=await d;await file.saveAs(out+'/opening-approved.xlsx');const{default:ExcelJS}=await import('exceljs'),book=new ExcelJS.Workbook();await book.xlsx.readFile(await file.path());assert.equal(book.worksheets.length,2);assert.match(String(book.worksheets[1].getCell('A1').value),/LIVE REGISTERS/);assert.ok(book.worksheets[1].rowCount>=7)});
- await check('Posting policy UI saves and approves a real initial policy',async()=>{await page.goto(app+'/ar/financial-reporting-policy');await page.getByRole('heading',{name:'قواعد ترحيل القوائم المالية'}).waitFor();await page.getByLabel('سبب الإعداد أو التغيير').fill('إعداد قواعد المرحلة الافتتاحية');await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).click();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
+ await check('Posting policy UI activates ready defaults and preserves optional audited edits',async()=>{await page.goto(app+'/ar/financial-reporting-policy');await page.getByRole('heading',{name:'قواعد الترحيل وربط الحسابات'}).waitFor();
+ await page.getByRole('region',{name:'القواعد الافتراضية',exact:true}).waitFor();
+ await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();
+ const before=await a.client.rpc('financial_reporting_policy_workspace',scope);assert.ifError(before.error);assert.equal(before.data.policy.status,'APPROVED');assert.ok(before.data.policy.rules.length>0,'Defaults activated before any actual operations');assert.equal(before.data.events.length,0);
+ const initialRules=before.data.policy.rules,initialVersion=before.data.policy.version;
+ const repeated=await page.request.post(app+'/api/financial-reporting/policy',{data:{action:'initialize-defaults',organization:org,fiscalStart:'2026-01-01'},headers:{origin:app}});assert.equal(repeated.status(),200);const unchanged=await repeated.json();assert.deepEqual(unchanged.policy.rules,initialRules);assert.equal(unchanged.policy.version,initialVersion,'Repeated visits do not create or rewrite rules');
+ await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).click();
+ await page.getByRole('button',{name:'فتح القاعدة 1',exact:true}).click();
+ await page.getByLabel('الحساب المدين 1',{exact:true}).waitFor();
+ await page.getByLabel('سبب الإعداد أو التغيير').fill('إعداد قواعد المرحلة الافتتاحية');const savedDefaults=page.waitForResponse(r=>r.url().endsWith('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='save');await page.getByRole('button',{name:'حفظ المسودة',exact:true}).click();const savedResponse=await savedDefaults;assert.equal(savedResponse.status(),200,await savedResponse.text());
+ await page.getByRole('button',{name:'اعتماد القواعد',exact:true}).waitFor({state:'visible'});
+ await page.reload();await page.getByRole('region',{name:'القواعد الافتراضية',exact:true}).waitFor();assert.equal(await page.getByLabel('سبب الإعداد أو التغيير').inputValue(),'إعداد قواعد المرحلة الافتتاحية','Edited default draft survives reload');
+ const reread=await a.client.rpc('financial_reporting_policy_workspace',scope);assert.ifError(reread.error);assert.deepEqual(reread.data.policy.rules.map(({detailed,...rule})=>rule),initialRules.map(({detailed,...rule})=>({...rule,...(rule.cashDirection==='INFLOW'?{debitAccountId:'1000'}:rule.cashDirection==='OUTFLOW'?{creditAccountId:'1000'}:{})})));assert.equal(reread.data.policy.status,'DRAFT');assert.notEqual(reread.data.policy.id,before.data.policy.id,'Optional edits create a separate draft and preserve the approved policy');assert.ok(reread.data.policy.version>=1);
+ const denied=await page.request.post(app+'/api/financial-reporting/policy',{data:{action:'initialize-defaults',organization:other,fiscalStart:'2026-01-01'},headers:{origin:app}});assert.equal(denied.status(),403,'Default initialization cannot cross organizations');
+ const legacyDraft=await a.client.rpc('save_financial_reporting_policy',{...scope,p_expected_version:reread.data.policy.version,p_rules:initialRules,p_reason:'Legacy compatibility cycle'});assert.ifError(legacyDraft.error);const legacyApproved=await a.client.rpc('approve_financial_reporting_policy',{p_id:legacyDraft.data.id,p_expected_version:legacyDraft.data.version});assert.ifError(legacyApproved.error);await page.reload();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const selector=page.locator('#corp-organization-controls select');await selector.waitFor();assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
  await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
   await page.setViewportSize({width:1672,height:941});
@@ -179,7 +408,18 @@ try{
   insert into public.organization_entities(organization_id,name) select '${org}','Refund QA' where not exists(select 1 from public.organization_entities where organization_id='${org}' and active);
   insert into public.vat_contacts(id,organization_id,contact_type,name,created_by) values('${contact}','${org}','SUPPLIER','QA refund supplier','${a.id}');
   insert into public.financial_classifications(organization_id,code,name,classification_type,created_by) select '${org}',type,type,type,'${a.id}' from unnest(array['OPEX','TAX','PAYABLE']) type on conflict(organization_id,code) do nothing;`);
-  async function expectResponse(response,status){const body=await response.json();assert.equal(response.status(),status,JSON.stringify(body));return body}
+  async function expectResponse(response,status){
+    const body=await response.json();
+    if(response.status()!==status){
+     // Logs belong to this disposable local QA stack only. Surface sanitized
+     // diagnostic codes, never a full SQL statement or user/tenant data.
+     const log=await readFile(out+'/next.log','utf8');
+     console.log('ISOLATED_REPORTING_SOURCE_CODES',log.split('\n')
+      .filter(line=>line.includes('REPORTING_QA_DIAGNOSTIC_CODE'))
+      .slice(-8).map(line=>line.match(/REPORTING_QA_DIAGNOSTIC_CODE\s+([A-Z_]+)/)?.[1]??'UNKNOWN'));
+    }
+    assert.equal(response.status(),status,JSON.stringify(body));return body;
+   }
   const req=page.request,scope={organization_id:org};
   const invoice=await expectResponse(await req.post(app+'/api/vat',{data:{...scope,action:'add_document',document_number:'QA-PUR-01',document_type:'PURCHASE',document_kind:'INVOICE',transaction_date:'2026-02-01',due_date:'2026-02-01',counterparty_name:'QA refund supplier',counterparty_contact_id:contact,supply_type:'STANDARD',net_amount:100,recoverable_percent:50,currency:'SAR',exchange_rate:1}}),201);
   await expectResponse(await req.post(app+'/api/vat/recognition',{data:{...scope,document_id:invoice.id}}),200);
@@ -210,19 +450,17 @@ try{
   await expectResponse(await posted,200);
   const input={p_org:org,p_fiscal_start:'2026-01-01'};
   const policy=await a.client.rpc('financial_reporting_policy_workspace',input);assert.ifError(policy.error);
-  const rules=new Map();
-  for(const e of policy.data.events)for(const l of e.lines){
-   const supplierRefund=l.classificationId==='VAT_NOTE_REFUND_RECEIVABLE',payment=l.cashDirection==='OUTFLOW';
-   const rule={eventType:e.eventType,sourceModule:e.sourceModule,classificationId:l.classificationId,cashDirection:l.cashDirection,debitAccountId:payment?'2100':supplierRefund?'1800':l.classificationId.endsWith(':INPUT_VAT_RECOVERABLE')?'1400':'6100',creditAccountId:payment?'1000':'2100',...(payment?{cashActivity:'OPERATING'}:{})};
-   rules.set(JSON.stringify(rule),rule);
-  }
-  const draft=await a.client.rpc('save_financial_reporting_policy',{...input,p_expected_version:0,p_rules:[...rules.values()],p_reason:'Map supplier refund separately from original payable'});assert.ifError(draft.error);
-  const ap=await a.client.rpc('approve_financial_reporting_policy',{p_id:draft.data.id,p_expected_version:draft.data.version});assert.ifError(ap.error);
+  assert.equal(policy.data.policy.status,'APPROVED');
+  assert.ok(policy.data.policy.rules.some(r=>r.classificationId==='VAT_NOTE_REFUND_RECEIVABLE'&&r.detailed),'Refund is covered before posting without manual policy repair');
   const query='/api/financial-reporting/live-statements?action=statements&organization='+org+'&from=2026-01-01&to=';
   const before=await expectResponse(await req.get(app+query+'2026-02-28'),200);
   const after=await expectResponse(await req.get(app+query+'2026-03-31'),200);
   assert.equal(before.statements.cash.closing,'385.0000');assert.equal(after.statements.cash.closing,before.statements.cash.closing);
-  assert.equal(after.accounts.find(x=>x.id==='1800').balance,'46.0000');assert.equal(after.accounts.find(x=>x.id==='2100').balance,'0.0000');
+  const refundRule=policy.data.policy.rules.find(r=>r.classificationId==='VAT_NOTE_REFUND_RECEIVABLE');
+  assert.notEqual(refundRule.debitAccountId,'1800');assert.notEqual(refundRule.creditAccountId,'2100');
+  assert.equal(after.accounts.find(x=>x.id===refundRule.debitAccountId).balance,'46.0000');
+  assert.equal(after.accounts.find(x=>x.id===refundRule.creditAccountId).balance,'0.0000');
+  assert.equal(after.accounts.find(x=>x.id==='1800').balance,'0.0000','No direct posting to summary accounts');
   assert.equal(after.statements.income.operatingExpenses,'64.5000');assert.equal(after.statements.position.assets,'435.5000');
   await page.goto(app+'/en/financial-reports?screen=position');
   const position=page.locator('[data-statement-ready="position"]');await position.waitFor();
@@ -338,6 +576,24 @@ try{
   const closes=await a.client.from('financial_year_closures').select('id').eq('organization_id',fiscalOrg);assert.ifError(closes.error);assert.equal(closes.data.length,1);
   const audit=await a.client.from('financial_fiscal_audit').select('id').eq('organization_id',fiscalOrg).eq('action','YEAR_CLOSE');assert.ifError(audit.error);assert.equal(audit.data.length,1);
  });
+ await check('Setup-only approved policy does not lock fiscal editing and date changes preserve rule history',async()=>{
+  const setupOrg=randomUUID();
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
+   insert into public.organizations(id,owner_user_id,name) values('${setupOrg}','${a.id}','ZZ fiscal setup correction');
+   insert into public.organization_members(organization_id,user_id,role,status) values('${setupOrg}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';
+   select public.save_financial_chart_account('${setupOrg}','330001','3300','أرباح مرحلة','Retained earnings','CREDIT',true,true,0,'Setup account');`);
+  const initial=await a.client.rpc('save_financial_fiscal_calendar',{p_org:setupOrg,p_month:1,p_day:1,p_retained:'3300',p_expected_version:0,p_reason:'Original setup'});assert.ifError(initial.error);
+  const policy=await a.client.rpc('save_financial_reporting_policy',{p_org:setupOrg,p_fiscal_start:'2026-01-01',p_expected_version:0,p_rules:[],p_reason:'Legacy setup policy'});assert.ifError(policy.error);
+  const approval=await a.client.rpc('approve_financial_reporting_policy',{p_id:policy.data.id,p_expected_version:policy.data.version});assert.ifError(approval.error);
+  await page.goto(app+'/en/settings/financial/fiscal-years?organization='+setupOrg);
+  const section=page.locator('.fiscal-calendar-settings'),month=section.getByLabel('Fiscal start month',{exact:true});await month.waitFor();assert.equal(await month.isEnabled(),true);
+  await month.selectOption('7');await section.getByLabel('Retained earnings posting account',{exact:true}).selectOption('330001');await section.getByLabel('Setup or action reason',{exact:true}).fill('Correct setup before operations');
+  await section.getByRole('button',{name:'Save fiscal calendar',exact:true}).click();await page.getByText('Fiscal calendar saved.',{exact:true}).waitFor();
+  await page.reload();await month.waitFor();assert.equal(await month.inputValue(),'7');
+  const result=await a.client.rpc('financial_reporting_policy_workspace',{p_org:setupOrg,p_fiscal_start:'2026-07-01'});assert.ifError(result.error);assert.equal(result.data.policy.status,'DRAFT');assert.equal(result.data.events.length,0);assert.equal(result.data.policy.fiscal_end,'2027-06-30');
+  const old=await a.client.from('financial_reporting_policies').select('*').eq('id',policy.data.id).single();assert.ifError(old.error);assert.equal(old.data.status,'SUPERSEDED');assert.deepEqual(old.data.rules,[]);assert.equal(old.data.fiscal_start,'2026-01-01');
+  const history=await a.client.from('financial_reporting_policy_audit').select('detail').eq('policy_id',policy.data.id).eq('action','CALENDAR_REBASE');assert.ifError(history.error);assert.equal(history.data.length,1);assert.equal(history.data[0].detail.before.status,'APPROVED');
+ });
  await check('Organization settings persist January and July calendars, isolate tenants and preserve existing periods',async()=>{
   const january=randomUUID(),july=randomUUID();
   sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
@@ -371,7 +627,7 @@ try{
    await page.reload();await section.getByLabel('Fiscal start month',{exact:true}).waitFor();assert.equal(await section.getByLabel('Fiscal start month',{exact:true}).inputValue(),String(month));assert.match(await section.locator('[data-fiscal-period]').innerText(),new RegExp(end));
    await page.screenshot({path:out+'/fiscal-settings-'+month+'.png',fullPage:true});
   }
-  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization',exact:true});await page.getByLabel('Setup or action reason',{exact:true}).fill('Unsaved calendar note');const discard=page.waitForEvent('dialog');const rejectedSwitch=picker.selectOption(january);const prompt=await discard;assert.equal(prompt.message(),'Discard unsaved changes?');await prompt.dismiss();await rejectedSwitch;assert.equal(await picker.inputValue(),july);page.once('dialog',dialog=>dialog.accept());await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings select')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});await page.getByLabel('Setup or action reason',{exact:true}).fill('Unsaved calendar note');const discard=page.waitForEvent('dialog');const rejectedSwitch=picker.selectOption(january);const prompt=await discard;assert.equal(prompt.message(),'Discard unsaved changes?');await prompt.dismiss();await rejectedSwitch;assert.equal(await picker.inputValue(),july);page.once('dialog',dialog=>dialog.accept());await picker.selectOption(january);await page.waitForFunction(()=>document.querySelector('.fiscal-calendar-settings select')?.value==='1');assert.match(await page.locator('[data-fiscal-period]').innerText(),/12-31/);
   const period=await a.client.rpc('financial_fiscal_context',{p_org:july});assert.ifError(period.error);
   const workspace=await a.client.rpc('financial_opening_workspace',{p_org:july,p_fiscal_start:period.data.period.start});assert.ifError(workspace.error);
   const draft=await a.client.rpc('save_financial_opening',{p_org:july,p_fiscal_start:period.data.period.start,p_expected_version:0,p_source_revision:workspace.data.source.revision,p_entries:{},p_reason:'Preserved accounting period must not move with calendar editing'});assert.ifError(draft.error);
@@ -425,6 +681,112 @@ try{
  await check('Posted statement action opens the exact authorized financial voucher',async()=>{
   const posted=JSON.parse(sql(`select to_jsonb(x) from(select s.organization_id org,s.financial_event_id event,a.name bank from public.liquidity_settlements s join public.liquidity_accounts a on a.id=s.account_id join public.organization_members m on m.organization_id=s.organization_id and m.user_id='${a.id}' and m.status='ACTIVE' and m.role='OWNER' where s.status='POSTED' and s.financial_event_id is not null order by s.id limit 1)x`));assert.ok(posted);
   await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/liquidity?tab=position&organization='+posted.org);await page.getByRole('button',{name:'Account details and statement: '+posted.bank,exact:true}).click();const details=page.getByRole('dialog',{name:'Bank account details and statement',exact:true}),link=details.locator('a[href*="/cash-vouchers/'+posted.event+'"]');await link.waitFor({state:'attached'});await link.locator('..').locator('summary').click();await link.click();await page.locator('[data-cash-voucher="'+posted.event+'"]').waitFor();await page.getByRole('heading',{name:'Original cash movement voucher',exact:true}).waitFor();
+ });
+ await check('All native settings sections retain real organization scope across desktop/mobile AR/EN',async()=>{
+  // Earlier revocation assertions intentionally disabled this synthetic member.
+  // Restore only that disposable fixture before testing authorized settings.
+  sql(`update public.organization_members set status='ACTIVE' where organization_id='${org}' and user_id='${a.id}'`);
+  for(const resource of ['users','roles','permissions']){
+   const response=await page.request.get(app+'/api/organizations/'+resource+'?organization_id='+org);
+   assert.equal(response.status(),200,'Authorized team '+resource+': '+await response.text());
+  }
+  const readinessResponse=await page.request.get(app+'/api/financial-reporting/setup-readiness?'+new URLSearchParams({organization:org,mode:'EXISTING'}));
+  assert.equal(readinessResponse.status(),200);assert.equal((await readinessResponse.json()).organizationId,org);
+  // Saving one settings area must not overwrite newer fields from another area.
+  await page.goto(app+'/en/settings?organization='+org);await page.getByLabel('Official email',{exact:true}).waitFor();
+  const existingName=(await (await page.request.get(app+'/api/organizations')).json()).find(o=>o.id===org).name;
+  const concurrentLegal=await page.request.patch(app+'/api/organizations',{data:{id:org,registered_address:'Concurrent legal source QA'}});assert.equal(concurrentLegal.status(),200);assert.equal((await concurrentLegal.json()).name,existingName,'Sparse PATCH preserves the saved organization name');
+  await page.getByLabel('Official email',{exact:true}).fill('native-profile-update@settings.invalid');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Organization details saved.',{exact:true}).waitFor();
+  let preserved=(await (await page.request.get(app+'/api/organizations')).json()).find(o=>o.id===org);assert.equal(preserved.registered_address,'Concurrent legal source QA');assert.equal(preserved.contact_email,'native-profile-update@settings.invalid');
+  await page.goto(app+'/en/settings/regulatory?organization='+org);await page.getByLabel('Registered legal address',{exact:true}).waitFor();
+  const concurrentContact=await page.request.patch(app+'/api/organizations',{data:{id:org,contact_phone:'+966500999999'}});assert.equal(concurrentContact.status(),200);
+  await page.getByLabel('Registered legal address',{exact:true}).fill('Native legal update QA');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Organization details saved.',{exact:true}).waitFor();
+  preserved=(await (await page.request.get(app+'/api/organizations')).json()).find(o=>o.id===org);assert.equal(preserved.contact_phone,'+966500999999');assert.equal(preserved.contact_email,'native-profile-update@settings.invalid');assert.equal(preserved.registered_address,'Native legal update QA');
+  const teamScope=randomUUID();
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);insert into public.organizations(id,owner_user_id,name) values('${teamScope}','${a.id}','Native team second institution');insert into public.organization_members(organization_id,user_id,role,status) values('${teamScope}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';`);
+  // Reusing the financial workspace must preserve the former fiscal dirty guard.
+  await page.goto(app+'/en/settings/financial/fiscal-years?organization='+teamScope);
+  const fiscalMonth=page.getByLabel('Fiscal start month',{exact:true});await fiscalMonth.waitFor();await fiscalMonth.selectOption('7');
+  page.once('dialog',dialog=>dialog.dismiss());await page.getByRole('navigation',{name:'Financial settings sections',exact:true}).getByRole('button',{name:'Chart of accounts',exact:true}).click();
+  assert.equal(await fiscalMonth.inputValue(),'7','Cancel keeps the fiscal draft and current section');
+  const fiscalPicker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
+  page.once('dialog',dialog=>dialog.dismiss());await fiscalPicker.selectOption(org);assert.equal(await fiscalPicker.inputValue(),teamScope,'Cancel keeps the selected organization');
+  page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Financial setup overview',exact:true}).click();await page.locator('[data-financial-overview-ready=true]').waitFor();
+  const unchangedCalendar=await (await page.request.get(app+'/api/financial-reporting/fiscal?'+new URLSearchParams({action:'management',organization:teamScope}))).json();assert.equal(unchangedCalendar.calendar,null,'Discarding a UI draft must not create a fiscal calendar');
+  const sections=[['settings/structure','[data-structure-workspace]'],['settings','.organization-details-workspace'],['settings/regulatory','[data-regulatory-workspace]'],['settings/financial','[data-financial-settings]'],['settings/team','.settings-native-team'],['settings/system','[data-system-preferences]'],['billing','.yb-billing']];
+  for(const locale of ['ar','en'])for(const [route,selector] of sections){
+   await page.setViewportSize({width:1490,height:1050});
+   await page.goto(app+'/'+locale+'/'+route+'?organization='+org);
+   await page.locator(selector).waitFor();
+   assert.equal(await page.locator('iframe').count(),0,'Native settings cannot contain framed app screens');
+   if(route==='settings/structure'&&locale==='en'){
+    await page.getByRole('button',{name:'Add entity',exact:true}).click();await page.getByLabel('Entity name',{exact:true}).fill('Native structure persisted QA');
+    await page.getByRole('button',{name:'Save entity',exact:true}).click();await page.getByText('Entity saved.',{exact:true}).waitFor();
+    const entitiesResponse=await page.request.get(app+'/api/organizations/entities?organization_id='+org);assert.equal(entitiesResponse.status(),200);assert.ok((await entitiesResponse.json()).some(e=>e.name==='Native structure persisted QA'));
+    await page.reload();await page.getByRole('cell',{name:'Native structure persisted QA',exact:true}).waitFor();
+    assert.equal(await page.locator('.organizations-page').count(),0,'Structure settings must not embed the entire organization directory');
+   }
+   if(route==='settings/regulatory'&&locale==='en'){
+    await page.getByRole('button',{name:'E-invoicing',exact:true}).click();await page.locator('.vat-panel').waitFor();
+    assert.equal(await page.locator('.financial-setup-regulatory-editor .console-tabs').count(),0,'E-invoice unit has one outer navigation, not duplicate nested tabs');
+    await page.getByRole('button',{name:'Edit number',exact:true}).click();await page.getByLabel('Registration status',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Tax registration',exact:true}).getAttribute('aria-pressed'),'true');
+    await page.getByRole('button',{name:'Registered identity & address',exact:true}).click();
+   }
+   if(route==='settings/system'){
+    await page.locator('.settings-security-card').getByText(a.email,{exact:true}).waitFor();
+    assert.equal(await page.locator('.settings-security-card input,.settings-security-card select').count(),0,'Security summary must not imply unsupported policy changes');
+   }
+   if(route==='settings/financial'){
+    await page.locator('[data-financial-overview-ready=true]').waitFor();
+    assert.equal(await page.locator('.settings-financial-overview [role=alert]').count(),0,'Overview must read real fiscal and chart sources');
+    const chartSource=await (await page.request.get(app+'/api/financial-reporting/chart?organization='+org)).json();
+    const displayedCount=await page.locator('.settings-chart-preview tbody td:nth-child(2)').evaluateAll(cells=>cells.reduce((sum,cell)=>sum+Number(cell.textContent),0));
+    assert.equal(displayedCount,chartSource.accounts.filter(a=>a.isActive&&a.isPostable).length,'Primary chart groups preserve every active posting account');
+    await page.getByRole('button',{name:locale==='ar'?'إدارة السنة المالية':'Manage fiscal year',exact:true}).click();
+    await page.locator('.fiscal-calendar-settings').waitFor();
+    await page.getByRole('button',{name:locale==='ar'?'ملخص التأسيس المالي':'Financial setup overview',exact:true}).click();
+    await page.locator('[data-financial-overview-ready=true]').waitFor();
+   }
+   if(route==='settings/team'){
+    await page.getByText(a.email,{exact:true}).first().waitFor();
+    if(locale==='en'){
+     const teamNav=page.getByRole('navigation',{name:'User and role management',exact:true});
+     assert.equal(await teamNav.getByRole('button').count(),3);
+     await teamNav.getByRole('button',{name:'Roles & permissions',exact:true}).click();
+     await page.getByRole('heading',{name:'Roles & permissions',exact:true,level:2}).waitFor();
+     await teamNav.getByRole('button',{name:'Members',exact:true}).click();
+     const invite=page.locator('.team-invite-card');await invite.getByLabel('Email',{exact:true}).fill('native-settings-acceptance@settings.invalid');
+     const created=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/organizations/users'&&r.request().method()==='POST');
+     await invite.getByRole('button',{name:'Create invite',exact:true}).click();const response=await created;
+     assert.equal(response.status(),201,await response.text());
+     await invite.getByLabel('Invite link',{exact:true}).waitFor();
+     await page.locator('.settings-team-invitations').getByText('native-settings-acceptance@settings.invalid',{exact:true}).waitFor();
+     const stored=await page.request.get(app+'/api/organizations/users?organization_id='+org);
+     assert.equal(stored.status(),200);assert.ok((await stored.json()).invitations.some(i=>i.email==='native-settings-acceptance@settings.invalid'));
+     const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
+     const switched=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/organizations/users'&&new URL(r.url()).searchParams.get('organization_id')===teamScope);
+     await picker.selectOption(teamScope);const otherTeam=await switched;assert.equal(otherTeam.status(),200);assert.equal((await otherTeam.json()).users.length,1);
+     await invite.getByLabel('Invite link',{exact:true}).waitFor({state:'hidden'});
+     assert.equal(await page.locator('.settings-team-invitations').getByText('native-settings-acceptance@settings.invalid',{exact:true}).count(),0,'Old institution invitation must clear on a team scope switch');
+     await picker.selectOption(org);
+     await page.locator('.settings-team-invitations').getByText('native-settings-acceptance@settings.invalid',{exact:true}).waitFor();
+
+    }
+   }
+   assert.equal(new URL(page.url()).searchParams.get('organization'),org);
+   for(const width of [1490,390]){
+    await page.setViewportSize({width,height:1050});
+    await page.waitForFunction(()=>{const w=document.querySelector('.corp-workspace');return !w||Math.abs(w.getBoundingClientRect().width-innerWidth)<2||innerWidth>1000;});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),locale+' '+route+' native layout overflow');
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:out+'/native-'+route.replaceAll('/','-')+'-'+locale+'-'+width+'.png',fullPage:true});
+   }
+  }
+ });
+ await check('Actual default posting cycle through native Liquidity APIs reconciles recognition, settlement and reports once',async()=>{
+  const {verifyDefaultPostingActualCycle}=await import('./verify-default-opening-posting-cycle.mjs');
+  report.defaultPostingActualCycle=await verifyDefaultPostingActualCycle({actor:a,outsider:b,page,app,out,sql,databaseUrl:url});
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}

@@ -6,6 +6,7 @@ import CorporateShell from '@/components/CorporateShell';
 import FinancialReportingNavigation from '@/components/FinancialReportingNavigation';
 import ZakatWorkspaceTabs from '@/components/ZakatWorkspaceTabs';
 import '../corporate.css';
+import '../../components/settings/setup-embedded.css';
 import '../yaqeen-theme.css';
 import '../yaqeen-dashboard.css';
 import '../yaqeen-auth.css';

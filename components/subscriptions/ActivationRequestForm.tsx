@@ -14,8 +14,10 @@ export default function ActivationRequestForm({
   onClose,
   onSaved,
   request,
+  choices,
+  onPlanChange,
 }: {
-  plan: Plan | ActivationRequest["quote"];
+  plan: Plan | ActivationRequest["quote"] | null;
   request?: ActivationRequest;
   organizationId: string;
   organizationName: string;
@@ -24,14 +26,21 @@ export default function ActivationRequestForm({
   email: string;
   onClose: () => void;
   onSaved: () => void;
+  choices?: Plan[];
+  onPlanChange?: (id: string) => void;
 }) {
   const ar = locale === "ar";
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || !plan) return;
     const f = new FormData(e.currentTarget);
+    const phone = String(f.get("phone") ?? "").trim();
+    if (choices && !phone) {
+      setError(ar ? "أدخل رقم التواصل." : "Enter a contact phone.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -44,7 +53,7 @@ export default function ActivationRequestForm({
           ...(request
             ? { request_id: request.id, revision: request.revision }
             : { plan_id: plan.id }),
-          phone: f.get("phone"),
+          phone,
           notes: f.get("notes"),
         }),
       });
@@ -63,6 +72,33 @@ export default function ActivationRequestForm({
       setBusy(false);
     }
   }
+  if (choices) return (
+    <section className="yb-billing-panel billing-activation" aria-label={ar ? "طلب تفعيل الاشتراك" : "Request subscription activation"}>
+      <h2>{ar ? "طلب تفعيل الاشتراك" : "Request subscription activation"}</h2>
+      <form className="billing-activation-form" onSubmit={submit}>
+        <fieldset disabled={busy}>
+          <label>{ar ? "الباقة المطلوبة" : "Requested plan"}
+            <select required value={plan?.id ?? ""} onChange={e => onPlanChange?.(e.target.value)}>
+              <option value="">{ar ? "اختر الباقة" : "Select a plan"}</option>
+              {choices.map(p => <option key={p.id} value={p.id}>{ar ? p.name_ar : p.name_en}</option>)}
+            </select>
+          </label>
+          <label>{ar ? "اسم المسؤول" : "Applicant name"}<input readOnly value={name || email} /></label>
+          <label>{ar ? "البريد الإلكتروني" : "Email"}<input readOnly dir="ltr" value={email} /></label>
+          <label>{ar ? "رقم التواصل" : "Contact phone"}<input name="phone" type="tel" required maxLength={50} dir="ltr" autoComplete="tel" /></label>
+          <label className="billing-wide">{ar ? "ملاحظات الطلب" : "Request notes"}<textarea name="notes" rows={3} maxLength={2000} /></label>
+          <label className="billing-wide billing-review"><input type="checkbox" required key={plan?.id ?? ""} />{ar ? "أقرّ بمراجعة تفاصيل الباقة" : "I have reviewed the plan details"}</label>
+        </fieldset>
+        {error && <p role="alert">{error}</p>}
+        <footer className="billing-form-actions">
+          <p className="yb-notice">{ar ? "لا تُطلب بطاقة لإرسال طلب التفعيل." : "No card is required to request activation."}</p>
+          <button className="billing-primary" disabled={busy}>{busy ? (ar ? "جارٍ الإرسال…" : "Sending…") : (ar ? "إرسال طلب التفعيل" : "Send activation request")}</button>
+          <button type="button" disabled={busy} onClick={e => { e.currentTarget.form?.reset(); setError(""); onClose(); }}>{ar ? "إلغاء" : "Cancel"}</button>
+        </footer>
+      </form>
+    </section>
+  );
+  if (!plan) return null;
   return (
     <SubscriptionModal
       title={ar ? "طلب تفعيل باقة" : "Request plan activation"}

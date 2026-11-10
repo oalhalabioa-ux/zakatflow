@@ -1,0 +1,45 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.organizations.activity",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organizations.contact_email",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organizations.contact_phone",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organizations.registered_city",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organizations.registered_region",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organizations.registered_postal_code",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organizations.registration_authority",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organizations.registration_expires_on",
+      "fingerprint": "aed943be412fde2bc082da6a2222596b"
+    }
+  ]
+}

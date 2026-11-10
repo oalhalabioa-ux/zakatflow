@@ -1,0 +1,26 @@
+{
+  "description": "Authorized pre-operation setup edits and audited posting-policy rebase; no migration-time data writes.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_calendar_setup_lock(p_org uuid)",
+      "fingerprint": "25f6d0953ac26f17f95af716573a8406"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_rebase_setup_policies(p_org uuid, p_month integer, p_day integer, p_reason text)",
+      "fingerprint": "e9f1b0989f51fcf7c22350fd210ac7b6"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_fiscal_context(p_org uuid, p_as_of date)",
+      "fingerprint": "30e62769f2d0175fad48213cfbb75e48"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_fiscal_calendar(p_org uuid, p_month integer, p_day integer, p_retained text, p_expected_version integer, p_reason text)",
+      "fingerprint": "7dc530ddf9c8cb4950f7fcf60d8384c2"
+    }
+  ]
+}

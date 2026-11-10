@@ -1,0 +1,330 @@
+{
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.currency",
+      "fingerprint": "ce26818b3547e793a191d55ae87b249a"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.description_ar",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.description_en",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.icon",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.key",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.monthly",
+      "fingerprint": "0c1b9223bdae0f40444d1bfa89773e39"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.name_ar",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.name_en",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.pricing",
+      "fingerprint": "1955e8a9b05285e747689872adb4a746"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.published",
+      "fingerprint": "14ea4bf43cf24757f6097b74012b9d32"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.requires",
+      "fingerprint": "59d8aafac9ea394319918f861aa307e2"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.revision",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_modules.yearly",
+      "fingerprint": "0c1b9223bdae0f40444d1bfa89773e39"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.billing_interval",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.items",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.max_users",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.notes",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.phone",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.reason",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.request_number",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.requester_id",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.revision",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.status",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.subscription_revision",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.token",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.total",
+      "fingerprint": "0c1b9223bdae0f40444d1bfa89773e39"
+    },
+    {
+      "category": "column",
+      "object_key": "subscription_private.bundle_requests.updated_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_check",
+      "fingerprint": "aa56130c88982e8d207053d425a5af44"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_check1",
+      "fingerprint": "4dec879754d0b18b5efcd594e5a9e222"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_currency_fkey",
+      "fingerprint": "0edbb66accb3ccfbaf03275bc21ee06d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_description_ar_check",
+      "fingerprint": "067ba1eb2920749a7ae38737c441e6d3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_description_en_check",
+      "fingerprint": "71d8f6aa8563789fba272215e394f877"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_icon_check",
+      "fingerprint": "c0b29ff4389311ab5d258e1496c208c4"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_key_check",
+      "fingerprint": "c1752adf7b68d17744590cbac29eea50"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_monthly_check",
+      "fingerprint": "a7278ea0809663026dde53f8336770fc"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_name_ar_check",
+      "fingerprint": "a87ad993555588cd8e51caedc52231f4"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_name_en_check",
+      "fingerprint": "6b4c6380a4a8bb59c80bf6528c7689e9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_pkey",
+      "fingerprint": "729d3ed6c85722f863da384d2313331e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_pricing_check",
+      "fingerprint": "23d8a9d9c3f4f65c7a440f32d5ffbda6"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_yearly_check",
+      "fingerprint": "7ec6cca23969d2d32ecce0836d7fde6e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_billing_interval_check",
+      "fingerprint": "3294c0197b88230ed20962cdc0ac2574"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_currency_fkey",
+      "fingerprint": "0edbb66accb3ccfbaf03275bc21ee06d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_max_users_check",
+      "fingerprint": "a252c40763810606c43f20a0bbd5d70e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_organization_id_token_key",
+      "fingerprint": "0fa026b8ace8e67d5cb2248240b967c3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_request_number_key",
+      "fingerprint": "683fd9c21c6cb94f56faa86925c19912"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_requester_id_fkey",
+      "fingerprint": "1219a91862f899ebd8a0a99c93d494a3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_status_check",
+      "fingerprint": "acd2b72b79ff21af2896764edbc6705d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_total_check",
+      "fingerprint": "17e4c0578e52f7ce802756e188476226"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_bundle_requests(p_action text, p_details jsonb)",
+      "fingerprint": "a3b1642b6767c911716f6de3e048313d"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_save_bundle_module(p_details jsonb, p_reason text)",
+      "fingerprint": "5b52059baccafbc387989585905b9f01"
+    },
+    {
+      "category": "function",
+      "object_key": "public.subscription_bundle_catalog(p_admin boolean)",
+      "fingerprint": "981633baa01f781b208eaff6c064bfc9"
+    },
+    {
+      "category": "function",
+      "object_key": "public.subscription_bundle_requests(p_organization_id uuid, p_action text, p_details jsonb)",
+      "fingerprint": "0ae765453e2874828066f5c66bb58f42"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_pkey",
+      "fingerprint": "a465d5122096c503869920137ad8d9e3"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.bundle_requests.bundle_one_open",
+      "fingerprint": "117817e526e3757d9a2eff8ec22ab5e5"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_organization_id_token_key",
+      "fingerprint": "33ba8aa9b9d2f9dca58d9137019f4e3b"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_pkey",
+      "fingerprint": "c87e57a9d8033c7f5d7af9bc5b39ced8"
+    },
+    {
+      "category": "index",
+      "object_key": "subscription_private.bundle_requests.bundle_requests_request_number_key",
+      "fingerprint": "4f77335608c65aba7dacf4036b65fa37"
+    },
+    {
+      "category": "rls",
+      "object_key": "subscription_private.bundle_modules",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "subscription_private.bundle_requests",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ],
+  "removals": []
+}
