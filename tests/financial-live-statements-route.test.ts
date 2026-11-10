@@ -1,5 +1,9 @@
 import {beforeEach,describe,it,expect,vi} from 'vitest';
-const state=vi.hoisted(()=>({error:'REPORTING_SOURCE_PROVENANCE_INVALID'}));
+const state=vi.hoisted(()=>({error:'REPORTING_SOURCE_PROVENANCE_INVALID',branchCalls:[] as unknown[][]}));
+vi.mock('../services/financial-branch-report',()=>({
+ liveBranchReport:async(...args:unknown[])=>{state.branchCalls.push(args);if(state.error)throw Error(state.error);return {scope:'BRANCH'}},
+ liveReportBranches:async(organization:string)=>({organizationId:organization,branches:[]}),
+}));
 vi.mock('../services/financial-statement-live',()=>({
  liveStatementContext:async()=>[],
  liveStatementSource:async()=>{throw Error(state.error)},
@@ -11,7 +15,7 @@ import {GET} from '../app/api/financial-reporting/live-statements/route';
 const request=()=>new Request('http://localhost:3000/api/financial-reporting/live-statements?'+
  new URLSearchParams({action:'statements',organization:'10000000-0000-4000-8000-000000000001',
   from:'2026-01-01',to:'2026-12-31'}));
-beforeEach(()=>{state.error='REPORTING_SOURCE_PROVENANCE_INVALID'});
+beforeEach(()=>{state.error='REPORTING_SOURCE_PROVENANCE_INVALID';state.branchCalls=[]});
 describe('Production statement route error classification',()=>{
  it('treats malformed source and incomplete original-line evidence as internal integrity failures',async()=>{
   for(const code of ['REPORTING_SOURCE_PROVENANCE_INVALID','REPORTING_SOURCE_LINEAGE_INCOMPLETE','REPORTING_SOURCE_CHANGED_DURING_VERIFICATION']){
@@ -33,5 +37,25 @@ describe('Production statement route error classification',()=>{
   expect((await GET(request())).status).toBe(401);
   state.error='REPORTING_DISABLED';
   expect((await GET(request())).status).toBe(404);
+ });
+});
+
+describe('branch route isolation',()=>{
+ it('passes exact selection to branch service and never silently returns the company',async()=>{
+  state.error='';const branch='20000000-0000-4000-8000-000000000002';
+  const response=await GET(new Request(request().url+'&branch='+branch));
+  expect(response.status).toBe(200);expect(await response.json()).toEqual({scope:'BRANCH'});
+  expect(state.branchCalls[0][1]).toBe(branch);
+ });
+ it('rejects duplicated selectors and branch selectors on other actions',async()=>{
+  for(const suffix of ['&branch=HQ&branch=ALL','&scope=BRANCH&branch=HQ'])
+   expect((await GET(new Request(request().url+suffix))).status).toBe(400);
+  expect((await GET(new Request('http://localhost/api?action=branches&organization=x&branch=HQ'))).status).toBe(400);
+  expect(state.branchCalls).toHaveLength(0);
+ });
+ it('returns an explicit failure when branch attribution is incomplete',async()=>{
+  state.error='REPORTING_BRANCH_OPENING_REQUIRED';
+  const response=await GET(new Request(request().url+'&branch=HQ'));
+  expect(response.status).toBe(503);expect(await response.json()).toEqual({error:state.error});
  });
 });

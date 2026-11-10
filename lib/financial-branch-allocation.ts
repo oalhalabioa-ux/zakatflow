@@ -79,7 +79,7 @@ export function validateBranchAllocations(input:BranchAllocationInput):BranchAll
    if((a.branchId!==null&&!allowed.has(a.branchId))||assigned.has(a.branchId))throw Error('BRANCH_ALLOCATION_BRANCH_INVALID');
    assigned.add(a.branchId);
    const d=amount(a.debit),c=amount(a.credit);
-   if((!d.isZero()&&!c.isZero())||(debit.isZero()&&!d.isZero())||(credit.isZero()&&!c.isZero()))throw Error('BRANCH_ALLOCATION_AMOUNT_INVALID');
+   if((!d.isZero()&&!c.isZero())||(row.sourceKind==='JOURNAL'&&((debit.isZero()&&!d.isZero())||(credit.isZero()&&!c.isZero()))))throw Error('BRANCH_ALLOCATION_AMOUNT_INVALID');
    allocatedDebit=allocatedDebit.plus(d);allocatedCredit=allocatedCredit.plus(c);
    // Direct legal-company entries are their own reporting segment. They must
    // be explicitly allocated, never inferred from a missing allocation.
@@ -94,7 +94,12 @@ export function validateBranchAllocations(input:BranchAllocationInput):BranchAll
    }
    segmentPhase.set(a.branchId,phase);
   }
-  if(!allocatedDebit.eq(debit)||!allocatedCredit.eq(credit))issues.push({code:'ALLOCATION_MISMATCH',sourceId:row.sourceId});
+  // Company openings are NETTED by account. Opposite branch balances may
+  // cancel at company level; the approved item-level bridge certifies each
+  // original amount before this net reconciliation. Journals remain gross.
+  if(row.sourceKind==='OPENING'
+   ?!allocatedDebit.minus(allocatedCredit).eq(debit.minus(credit))
+   :!allocatedDebit.eq(debit)||!allocatedCredit.eq(credit))issues.push({code:'ALLOCATION_MISMATCH',sourceId:row.sourceId});
  }
  // A complete ledger is balanced. Otherwise a filtered or truncated source
  // can misleadingly yield branch balances that do not reconcile globally.

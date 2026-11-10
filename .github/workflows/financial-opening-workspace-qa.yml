@@ -247,6 +247,8 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-fiscal-budget-calendar.sql
       - name: Verify audited group legal control evidence and cross-tenant isolation
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-group-control-evidence.sql
+      - name: Verify atomic branch report source and tenant isolation
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-branch-report-source.sql
       - name: Verify versioned branch opening distribution and tenant isolation
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-branch-opening-distribution.sql
       - name: Verify zero-opening first-activity source contract with full historical and access guards

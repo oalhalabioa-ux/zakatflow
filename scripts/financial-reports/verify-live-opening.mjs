@@ -371,6 +371,32 @@ try{
  const reread=await a.client.rpc('financial_reporting_policy_workspace',scope);assert.ifError(reread.error);assert.deepEqual(reread.data.policy.rules.map(({detailed,...rule})=>rule),initialRules.map(({detailed,...rule})=>({...rule,...(rule.cashDirection==='INFLOW'?{debitAccountId:'1000'}:rule.cashDirection==='OUTFLOW'?{creditAccountId:'1000'}:{})})));assert.equal(reread.data.policy.status,'DRAFT');assert.notEqual(reread.data.policy.id,before.data.policy.id,'Optional edits create a separate draft and preserve the approved policy');assert.ok(reread.data.policy.version>=1);
  const denied=await page.request.post(app+'/api/financial-reporting/policy',{data:{action:'initialize-defaults',organization:other,fiscalStart:'2026-01-01'},headers:{origin:app}});assert.equal(denied.status(),403,'Default initialization cannot cross organizations');
  const legacyDraft=await a.client.rpc('save_financial_reporting_policy',{...scope,p_expected_version:reread.data.policy.version,p_rules:initialRules,p_reason:'Legacy compatibility cycle'});assert.ifError(legacyDraft.error);const legacyApproved=await a.client.rpc('approve_financial_reporting_policy',{p_id:legacyDraft.data.id,p_expected_version:legacyDraft.data.version});assert.ifError(legacyApproved.error);await page.reload();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
+ await check('Banner branch selection, refresh and downloaded export use the same approved allocation',async()=>{
+  const branch=randomUUID();
+  sql(`insert into public.organization_entities(id,organization_id,name,entity_type,active) values('${branch}','${org}','QA report branch','BRANCH',true)`);
+  const opening=await a.client.rpc('financial_opening_workspace',scope);assert.ifError(opening.error);
+  const w=opening.data.workspace;
+  const entries=Object.fromEntries(w.approved_opening.map(row=>[row.itemId,[
+   {branchId:branch,debit:(Number(row.debit)*0.6).toFixed(4),credit:(Number(row.credit)*0.6).toFixed(4)},
+   {branchId:null,debit:(Number(row.debit)*0.4).toFixed(4),credit:(Number(row.credit)*0.4).toFixed(4)},
+  ]]));
+  const dist=await a.client.rpc('save_financial_branch_opening',{...scope,p_expected_version:0,p_opening_workspace:w.id,p_opening_version:w.version,p_entries:entries,p_reason:'QA actual branch reporting allocation'});assert.ifError(dist.error);
+  assert.ifError((await a.client.rpc('approve_financial_branch_opening',{p_id:dist.data.id,p_expected_version:dist.data.version})).error);
+  await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/financial-reports?screen=position&organization='+org);
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Branch',exact:true});
+  await picker.locator('option[value="'+branch+'"]').waitFor({state:'attached'});
+  assert.equal(await page.getByRole('combobox',{name:'Branch',exact:true}).count(),1);
+  const selected=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-reporting/live-statements'&&new URL(r.url()).searchParams.get('branch')===branch);
+  await picker.selectOption(branch);const response=await selected;assert.equal(response.status(),200,await response.text());
+  const data=await response.json();assert.equal(data.scope,'BRANCH');assert.equal(data.branchId,branch);assert.equal(data.statements.cash.opening,'300.0000');
+  await page.locator('[data-statement-ready="position"]').waitFor();
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.locator('[data-statement-ready="position"]').waitFor();assert.equal(await picker.inputValue(),branch);
+  await page.getByRole('button',{name:'Export report',exact:true}).click();const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'CSV',exact:true}).click();
+  const file=await downloaded;const csv=await readFile(await file.path(),'utf8');assert.ok(csv.includes(branch));assert.ok(csv.includes('300.0000'));
+  const hq=page.waitForResponse(r=>new URL(r.url()).searchParams.get('branch')==='HQ');await picker.selectOption('HQ');const head=await hq;assert.equal(head.status(),200);assert.equal((await head.json()).statements.cash.opening,'200.0000');
+  await page.locator('[data-statement-ready="position"]').waitFor();await page.screenshot({path:out+'/branch-report-banner-en.png',fullPage:true});
+  await picker.selectOption('ALL');await page.locator('[data-statement-ready="position"]').waitFor();
+ });
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const selector=page.locator('#corp-organization-controls select');await selector.waitFor();assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
  await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
   await page.setViewportSize({width:1672,height:941});

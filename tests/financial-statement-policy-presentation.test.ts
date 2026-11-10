@@ -6,7 +6,7 @@ const opening=readFileSync('components/financial-reports/DraftOpeningStatementPr
 
 describe('financial statements presentation guardrails',()=>{
  it('preserves the specific missing posting-policy code and links to the existing approval workspace',()=>{
-  expect(statements).toContain("body.error==='REPORTING_APPROVED_POLICY_REQUIRED'");
+  expect(statements).toContain("'REPORTING_APPROVED_POLICY_REQUIRED'");
   expect(statements).toContain('financial-reporting-policy?organization=');
   expect(statements).toContain('الأرصدة الافتتاحية المعتمدة محفوظة');
  });
@@ -25,14 +25,14 @@ describe('financial statements presentation guardrails',()=>{
   expect(statements).not.toContain('className="fs-report-scope-filters"');
   const banner=statements.split('<TopbarOrganizationControls>')[1].split('</TopbarOrganizationControls>')[0];
   expect(banner).toContain('WorkspaceOrganizationPicker');
-  expect(banner).toContain('Branch — filter pending integration');
+  expect(banner).toContain('value={branch}');
   expect(banner).toContain('Cost center — filter pending integration');
   expect(statements).toContain("const scopeReady=reportScope==='COMPANY_WITH_BRANCHES'");
   expect(statements).toContain("group={reportScope==='GROUP_WITH_SUBSIDIARIES'}");
   expect(statements).toContain("onGroupChange={withSubsidiaries=>");
   expect(statements).toContain('disabled={!ready||displayDraft||exporting}');
   expect(statements).toContain('لا نعيد تخصيص القيود تلقائيًا');
-  expect(statements).toContain('Branch — filter pending integration');
+  expect(statements).toContain('REPORTING_BRANCH_OPENING_REQUIRED');
   expect(statements).toContain('Cost center — filter pending integration');
  });
 });
