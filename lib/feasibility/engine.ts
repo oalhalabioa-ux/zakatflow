@@ -22,6 +22,10 @@ export interface AdvancedAssumptions {
  mode:'DIRECT'|'CAPACITY';capacityMonthly:number;utilisationPct:number;saleablePct:number;
  lives:Record<CapitalCategory,number>;
  debtRatePct:number;debtYears:number;terminalCash:number;
+ /** Optional cash outflow provision; held outside depreciable classified assets. */
+ contingencyPct?:number;
+ /** MANUAL preserves original workingCapital behavior; DAYS is scenario-sensitive. */
+ workingCapitalPolicy?:{mode:'MANUAL'|'DAYS';receivableDays:number;inventoryDays:number;payableDays:number};
 }
 export interface FeasibilityStudy {
  id:string; title:string; sector:Sector; country:string; region:string; currency:string; status:StudyStatus;

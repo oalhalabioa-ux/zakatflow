@@ -28,7 +28,13 @@ export const feasibilityDraftSchema=z.object({
    UTILITIES:z.number().int().min(0).max(60),LICENCES:z.number().int().min(0).max(60),
    OTHER:z.number().int().min(0).max(60)}).strict(),
   debtRatePct:z.number().finite().min(0).max(100),debtYears:z.number().int().min(0).max(20),
-  terminalCash:amount
+  terminalCash:amount,
+  contingencyPct:z.number().finite().min(0).max(100).optional(),
+  workingCapitalPolicy:z.object({mode:z.enum(['MANUAL','DAYS']),
+   receivableDays:z.number().finite().min(0).max(365),
+   inventoryDays:z.number().finite().min(0).max(365),
+   payableDays:z.number().finite().min(0).max(365)
+  }).strict().optional()
  }).strict().optional(),
  createdAt:date,updatedAt:date
 }).strict();

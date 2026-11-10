@@ -146,3 +146,12 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - Year-zero project cashflows include economic value of transferred land, which is **not** spendable funding cash. Equity projections are separate, block uncovered or excess funding, and model equal-principal annual amortization with interest charged on the outstanding balance. Loan term must not exceed the study horizon.
 - Terminal year adds expected user-entered recovery and release of opening working capital. Tax shields, financing fees, loss carryforwards, VAT, construction phases, midyear capex and formal statutory treatment are **not** modeled.
 - No historical journals, opening balances, budgets or accounting reports are written; Financial Core V2 adapter remains separately gated. User-level entitlements and QA security requirements remain intact. Financial review and live QA V2 browser acceptance are mandatory before release.
+
+## Advanced project cash-cycle sensitivity — independent PR #361 only
+
+- Optional `contingencyPct` adds user-entered cash reserve to year-zero capital needs, **not** assumed depreciable assets. Default 0; existing saved advanced studies preserve their previous results.
+- Optional `workingCapitalPolicy`: MANUAL keeps the original `workingCapital` balance and releases it only in the terminal year; DAYS derives year-1 funding from annual receivables + inventory – payables using the documented 365-day convention and projected gross variable costs.
+- In DAYS mode the year-zero investment includes the first operating year's working capital. Each intermediate year's free cashflow subtracts the change needed for **the following year**, while the terminal year releases the ending balance exactly once. The cycle responds to the selected scenario and explicit growth drivers, not hidden default assumptions.
+- Negative projected working capital (unmodeled supplier credit), invalid day counts or non-finite inputs prevent displaying advanced returns rather than silently crediting the project. Days are bounded to 0–365 until a full trade-financing model is designed.
+- Equity funding parity, debt-ceiling and initial cash need incorporate contingency and the selected working-capital policy. The advanced CFADS / DSCR measure accounts for intermediate working-capital investment and excludes terminal salvage/liquidation cash.
+- Simple backward-compatible field validation, specific edge-case unit tests and finance cautions; no change to the basic model, accounting ledgers, subscription catalogue, PR #360 or Production.

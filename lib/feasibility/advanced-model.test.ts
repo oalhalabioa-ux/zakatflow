@@ -68,3 +68,52 @@ describe('standalone optional advanced DCF',()=>{
   expect(createStudy('old','Old study').advanced).toBeUndefined();
  });
 });
+
+describe('working-capital and CAPEX risk sensitivities',()=>{
+ it('defaults to the original manual working-capital schedule for older saved studies',()=>{
+  const s=sample();s.workingCapital=10000;
+  const r=evaluateAdvanced(s);
+  expect(r.ready).toBe(true);
+  expect(r.initialInvestment).toBe(130000);
+  expect(r.annual.map(x=>x.workingCapitalMovement)).toEqual([0,-10000]);
+  expect(r.projectFlows).toEqual([-130000,79200,89200]);
+ });
+ it('rolls forward scenario-sensitive receivables and inventory, releasing only the final balance',()=>{
+  const s=sample();s.volumeGrowthPct=10;s.investorEquity=0;s.workingCapital=50000;
+  s.advanced!.workingCapitalPolicy={mode:'DAYS',receivableDays:30,inventoryDays:20,payableDays:10};
+  const result=evaluateAdvanced(s);
+  const wc1=(240000*30+120000*10)/365,wc2=wc1*1.1;
+  expect(result.ready).toBe(true);
+  expect(result.openingWorkingCapital).toBeCloseTo(wc1);
+  expect(result.initialInvestment).toBeCloseTo(120000+wc1);
+  expect(result.annual[0].workingCapitalMovement).toBeCloseTo(wc2-wc1);
+  expect(result.annual[1].workingCapitalMovement).toBeCloseTo(-wc2);
+  expect(result.projectFlows[0]).toBeCloseTo(-120000-wc1);
+  expect(result.annual[0].fcf).toBeCloseTo(79200-(wc2-wc1));
+  expect(result.annual[1].fcf).toBeCloseTo(105600-7200+wc2);
+ });
+ it('does not silently turn negative supplier credit into operating cash',()=>{
+  const s=sample();s.advanced!.workingCapitalPolicy={mode:'DAYS',receivableDays:0,inventoryDays:0,payableDays:200};
+  const r=evaluateAdvanced(s);
+  expect(r.ready).toBe(false);
+  expect(r.blockers).toContain('NEGATIVE_WORKING_CAPITAL');
+  expect(r.projectNpv).toBeNull();
+ });
+ it('models contingency in initial cash need without inventing additional depreciable assets',()=>{
+  const s=sample();s.advanced!.contingencyPct=10;s.investorEquity=132000;
+  const r=evaluateAdvanced(s);
+  expect(r.ready).toBe(true);expect(r.equityReady).toBe(true);
+  expect(r.contingency).toBe(12000);
+  expect(r.cashNeed).toBe(132000);
+  expect(r.initialInvestment).toBe(132000);
+  expect(r.annual[0].depreciation).toBe(60000);
+  expect(r.projectFlows[0]).toBe(-132000);
+ });
+ it('validates operating-cycle inputs and contingency proportion',()=>{
+  const s=sample();s.advanced!.contingencyPct=200;
+  expect(evaluateAdvanced(s).blockers).toContain('INVALID_ASSUMPTIONS');
+  s.advanced!.contingencyPct=0;
+  s.advanced!.workingCapitalPolicy={mode:'DAYS',receivableDays:400,inventoryDays:0,payableDays:0};
+  expect(evaluateAdvanced(s).blockers).toContain('INVALID_ASSUMPTIONS');
+ });
+});
