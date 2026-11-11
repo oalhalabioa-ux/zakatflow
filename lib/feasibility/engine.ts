@@ -109,13 +109,22 @@ export function createSectorStarterTasks(sector:Sector):StudyTask[]{
   id:'starter-'+i,title,owner:'',due:'',status:'TODO',priority:'HIGH'
  }));
 }
+/** Zero-valued categories vary by sector. They do not imply a quote, commitment or purchase. */
+const sectorStarterCapex:Record<Sector,readonly [string,CapitalCategory][]>={
+ INDUSTRIAL:[['الإنشاءات والمباني','BUILDINGS'],['خطوط الإنتاج والمعدات','EQUIPMENT'],['التجهيزات والبنية التحتية','UTILITIES']],
+ COMMERCIAL:[['تجهيز المتجر أو المستودع','BUILDINGS'],['أنظمة البيع والمعدات','EQUIPMENT'],['التراخيص والتأسيس','LICENCES']],
+ REAL_ESTATE:[['أعمال الإنشاء والتطوير','BUILDINGS'],['أعمال الخدمات والبنية التحتية','UTILITIES'],['الدراسات والتصاميم والتراخيص','LICENCES']],
+ SERVICES:[['تجهيز مقر الخدمة','BUILDINGS'],['الأنظمة والأجهزة','EQUIPMENT'],['التراخيص والاعتمادات المهنية','LICENCES']],
+ AGRICULTURE:[['تجهيز الموقع والمنشآت الزراعية','BUILDINGS'],['المعدات والآلات الزراعية','EQUIPMENT'],['أنظمة الري والخدمات','UTILITIES']],
+ CUSTOM:[['الإنشاءات والتجهيزات','BUILDINGS'],['المعدات والأصول','EQUIPMENT'],['التراخيص والتأسيس','LICENCES']]
+};
 export function createStudy(id:string,title:string,sector:Sector='INDUSTRIAL'):FeasibilityStudy{
  const now=new Date().toISOString();
- return {id,title,sector,country:'سوريا',region:'',currency:'USD',status:'IDEA',landValue:0,landTransferred:false,
+ return {id,title,sector,country:'',region:'',currency:'',status:'IDEA',landValue:0,landTransferred:false,
  investorEquity:0,partnerCashEquity:0,investorLoan:0,otherDebt:0,workingCapital:0,annualMaintenance:0,
  unitPrice:0,variableCost:0,monthlyUnits:0,monthlyFixedCost:0,volumeGrowthPct:0,priceGrowthPct:0,
  fixedCostGrowthPct:0,discountRatePct:12,indicativeTaxRatePct:0,years:5,
- capex:[{id:'buildings',label:'الإنشاءات والمباني',amount:0,category:'BUILDINGS'},{id:'equipment',label:'خطوط الإنتاج والمعدات',amount:0,category:'EQUIPMENT'},{id:'utilities',label:'التجهيزات والبنية التحتية',amount:0,category:'UTILITIES'}],
+ capex:sectorStarterCapex[sector].map(([label,category],i)=>({id:'starter-capex-'+i,label,amount:0,category})),
  legal:defaultLegalItems.map((title,i)=>({id:'legal-'+i,title,status:'NOT_STARTED',notes:''})),
  tasks:createSectorStarterTasks(sector),
  risks:[],suppliers:[],decisions:[],createdAt:now,updatedAt:now};
