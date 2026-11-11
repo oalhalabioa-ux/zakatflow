@@ -8,6 +8,7 @@ import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
 import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
 import SupplierComparisonPanel from '@/components/feasibility/SupplierComparisonPanel';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
+import {parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,FEASIBILITY_BACKUP_SCHEMA} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -55,6 +56,8 @@ function SelectField<T extends string>({label,value,items,onChange}:{label:strin
 export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{locale:string;userId:string;readOnly?:boolean}){
  const ar=locale==='ar', storageKey='yaqeen-feasibility-drafts-v1:'+userId;
  const [loaded,setLoaded]=useState(false);
+ // If local cache is malformed, preserve it verbatim: no automatic empty overwrite.
+ const [storageSafe,setStorageSafe]=useState(true);
  const [studies,setStudies]=useState<FeasibilityStudy[]>([]);
  const [selectedId,setSelectedId]=useState('');
  const [tab,setTab]=useState<StudyTab>('overview');
@@ -71,14 +74,18 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  useEffect(()=>{
   try{
    const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as {studies?:FeasibilityStudy[];selectedId?:string}|null;
-   if(saved&&Array.isArray(saved.studies)) {
-    const valid=saved.studies.filter(s=>s&&typeof s.id==='string'&&typeof s.title==='string'&&Array.isArray(s.capex)&&Array.isArray(s.legal)&&Array.isArray(s.tasks)&&Array.isArray(s.risks)&&Array.isArray(s.suppliers)&&Array.isArray(s.decisions));
-    setStudies(valid);setSelectedId(saved.selectedId||valid[0]?.id||'');
+   if(saved!==null){
+    const checked=parseLocalStudyCache(saved);
+    if(!checked)throw Error('INVALID_CACHE');
+    setStudies(checked.studies);setSelectedId(checked.selectedId);
    }
-  }catch{setNotice(txt(ar,'لم يتم استرجاع المسودات المحلية؛ يمكن استيراد نسخة احتياطية JSON.','Local drafts could not be restored; you may import a JSON backup.'));}
+  }catch{
+   setStorageSafe(false);
+   setNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استعادة نسخة JSON سليمة أو مسودات QA V2.','Local study data are invalid and will not be overwritten. Restore a valid JSON backup or QA V2 copy.'));
+  }
   setLoaded(true);
  },[storageKey,ar]);
- useEffect(()=>{if(!loaded)return;try{localStorage.setItem(storageKey,JSON.stringify({version:1,studies,selectedId}));}catch{setNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}},[loaded,storageKey,studies,selectedId,ar]);
+ useEffect(()=>{if(!loaded||!storageSafe)return;try{localStorage.setItem(storageKey,JSON.stringify({version:1,studies,selectedId}));}catch{setNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}},[loaded,storageSafe,storageKey,studies,selectedId,ar]);
  const study=studies.find(s=>s.id===selectedId)??null;
  const sharedStudy=Boolean(study&&cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId);
  const effectiveReadOnly=readOnly||sharedStudy;
@@ -89,7 +96,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const update=(patch:Partial<FeasibilityStudy>)=>{if(effectiveReadOnly)return;setStudies(prev=>prev.map(p=>p.id===selectedId?{...p,...patch,updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()}:p));};
  const setNum=(key:keyof FeasibilityStudy)=>(v:number)=>update({[key]:v} as Partial<FeasibilityStudy>);
  const download=()=>{
-  const blob=new Blob([JSON.stringify({schema:'YAQEEN_FEASIBILITY_DRAFT_V1',exportedAt:new Date().toISOString(),studies},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({schema:FEASIBILITY_BACKUP_SCHEMA,exportedAt:new Date().toISOString(),studies},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download='yaqeen-feasibility-backup.json';anchor.click();URL.revokeObjectURL(url);
  };
  // Explicit cloud synchronization: local drafts are never silently overwritten.
@@ -100,10 +107,10 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   try{
    const response=await fetch('/api/feasibility/projects',{cache:'no-store'});
    if(!response.ok)throw new Error('READ_FAILED');
-   const rows=await response.json() as Array<{id:string;study:FeasibilityStudy;revision:number;owner_user_id:string}>;
-   if(!Array.isArray(rows)||!rows.every(x=>x&&x.study&&x.study.id===x.id&&Array.isArray(x.study.capex)))throw new Error('INVALID_RESPONSE');
+   const rows=parseCloudStudyRows(await response.json());
+   if(!rows)throw new Error('INVALID_RESPONSE');
    const documents=rows.map(x=>x.study);
-   setStudies(documents);setSelectedId(documents[0]?.id??'');setTab('overview');
+   setStudies(documents);setSelectedId(documents[0]?.id??'');setStorageSafe(true);setTab('overview');
    setCloudRevisions(Object.fromEntries(rows.map(x=>[x.id,x.revision])));
    setCloudSavedStudyVersions(Object.fromEntries(rows.map(x=>[x.id,x.study.updatedAt])));
    setCloudOwnerIds(Object.fromEntries(rows.map(x=>[x.id,x.owner_user_id])));
@@ -138,17 +145,15 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   const file=e.currentTarget.files?.[0];if(!file)return;
   try{
    if(file.size>2_000_000)throw new Error('large');
-   const data=JSON.parse(await file.text()) as {schema?:string;studies?:FeasibilityStudy[]};
-   if(data.schema!=='YAQEEN_FEASIBILITY_DRAFT_V1'||!Array.isArray(data.studies)||data.studies.length>300||
-     !data.studies.every(x=>x&&typeof x.id==='string'&&typeof x.title==='string'&&x.title.length<300&&
-     Array.isArray(x.capex)&&Array.isArray(x.tasks)&&Array.isArray(x.legal)&&Array.isArray(x.risks)&&Array.isArray(x.suppliers)&&Array.isArray(x.decisions)))throw new Error('format');
+   const imported=parseStudyBackup(JSON.parse(await file.text()));
+   if(!imported)throw new Error('format');
    // Imports replace local drafts. No financial ledger, database or Financial Core mutation.
    if(!window.confirm(txt(ar,'سيتم استبدال المسودات المحلية الحالية بالملف المستورد. متابعة؟','This replaces current local drafts. Continue?')))return;
    // Imported backups have no trusted server revision: do not reuse optimistic locks from a previous draft.
    setCloudRevisions({});
    setCloudSavedStudyVersions({});
    setCloudOwnerIds({});
-   setStudies(data.studies);setSelectedId(data.studies[0]?.id||'');setTab('overview');
+   setStudies(imported);setSelectedId(imported[0]?.id||'');setStorageSafe(true);setTab('overview');
    setNotice(txt(ar,'تم استيراد المسودات محليًا.','Local drafts imported.'));
   }catch{setNotice(txt(ar,'ملف النسخة الاحتياطية غير صالح.','Invalid backup file.'));}
   e.currentTarget.value='';
