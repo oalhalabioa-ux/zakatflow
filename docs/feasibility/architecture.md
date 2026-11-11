@@ -164,3 +164,12 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - Real estate shows project economic NPV/IRR inclusive of transferred in-kind land as opportunity cost, but computes initial and peak **cash funding need** without treating in-kind land as spendable cash. Predevelopment expenses already in CAPEX must not be double-entered as yearly construction spending.
 - Sector templates are non-posting and fully opt-in. Neither original basic `evaluateStudy` nor advanced `evaluateAdvanced` changes. No new SQL migrations, no V2 or legacy accounting APIs, no PR #360, no Production or main changes.
 - Unit tests cover rejected units, demand constraint, uncollected contracts, land and cash separation, peak shortfall, invalid year rows and old-study serialization. Authenticated V2 QA browser testing, legal/finance review and combined post-#360 compatibility checks remain release gates.
+
+
+## 11 November 2026 — Supplier quotations (indicative only)
+
+- The supplier tab now compares valid, positive quotes grouped by a normalized item label, and shows distinct vendor counts, the minimum/maximum quoted amount, percentage spread and tied lowest vendors.
+- Quotes lacking an item, vendor or valid amount are excluded and counted. A single vendor, or duplicate offers from one vendor under the same item, blocks a comparison result rather than presenting a misleading competitive quote.
+- Item-name matching does **not** confirm equal quantity, scope, specifications, country/currency of origin, warranty, payment terms, freight, taxes or supplier viability. Analysts must verify those independently before sourcing decisions.
+- No auto-selection, procurement order, accounting posting, CAPEX update, project financial recalculation, approval, cross-project query or Financial Core v1/V2 integration is performed. Amounts are displayed in the explicit study currency only.
+- Regression unit tests cover grouping, duplicates, rejected incomplete offers, ties and non-mutation of project investment values. Run the full repository CI and authenticated QA V2 browser acceptance before release; a successful preview build alone is insufficient.
