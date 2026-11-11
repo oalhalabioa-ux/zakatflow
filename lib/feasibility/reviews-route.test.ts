@@ -11,6 +11,7 @@ const projectId='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
 const old={studies:process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES,cloud:process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA};
 function readyStudy(){
  const s=createStudy(projectId,'Water facility');
+ s.country='سوريا';s.currency='USD';
  s.status='APPROVED';
  s.investorEquity=100000;s.monthlyUnits=12000;s.unitPrice=2;s.variableCost=1;
  s.capex=[{id:'equipment',label:'Plant',amount:100000,category:'EQUIPMENT'}];
