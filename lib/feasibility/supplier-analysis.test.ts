@@ -43,6 +43,10 @@ describe('isolated, unapproved supplier quote comparison',()=>{
    priceSpread:200,spreadPercent:40
   });
  });
+ it('does not crash on malformed entries from a legacy browser backup',()=>{
+  const malformed=[null,{id:'x',vendor:null,item:'Pump',offer:100},{id:'y',vendor:'Acme',item:'Pump',offer:'100'}] as unknown as StudySupplier[];
+  expect(compareSupplierQuotes(malformed)).toEqual({groups:[],incompleteCount:3});
+ });
  it('never changes CAPEX, equity, cash flows or the Financial Core ledger',()=>{
   const study=createStudy('6357a708-bae2-4634-9296-490404b1d8a4','Project','INDUSTRIAL');
   study.capex=[{id:'equipment',label:'Equipment',amount:200000,category:'EQUIPMENT'}];
