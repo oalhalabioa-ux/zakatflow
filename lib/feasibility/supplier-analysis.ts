@@ -29,6 +29,11 @@ export function compareSupplierQuotes(quotes:readonly StudySupplier[]):SupplierC
  const grouped=new Map<string,{label:string;rows:{vendor:string;offer:number}[]}>();
  let incompleteCount=0;
  for(const quote of quotes){
+  // Imported browser drafts can predate schema validation; fail safely on malformed rows.
+  if(!quote||typeof quote.item!=='string'||typeof quote.vendor!=='string'||typeof quote.offer!=='number'){
+   incompleteCount++;
+   continue;
+  }
   const item=normalize(quote.item);
   const vendor=normalize(quote.vendor);
   if(!item||!vendor||!validAmount(quote.offer)){
