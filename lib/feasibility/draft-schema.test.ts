@@ -7,6 +7,12 @@ describe('feasibility QA cloud draft input',()=>{
   const study=createStudy(id,'Water factory');
   expect(cloudDraftWrite.safeParse({study}).success).toBe(true);
  });
+ it('accepts undecided country/currency only for draft editing, while rejecting invalid currency symbols',()=>{
+  const study=createStudy(id,'Neutral draft','SERVICES');
+  expect(cloudDraftWrite.safeParse({study}).success).toBe(true);
+  expect(cloudDraftWrite.safeParse({study:{...study,currency:'INVALID'}}).success).toBe(false);
+  expect(cloudDraftWrite.safeParse({study:{...study,currency:'sar'}}).success).toBe(false);
+ });
  it('rejects non-uuid ID, non-finite cost and invalid reviewer fields',()=>{
   const study=createStudy(id,'Factory');
   expect(cloudDraftWrite.safeParse({study:{...study,id:'invalid'}}).success).toBe(false);
