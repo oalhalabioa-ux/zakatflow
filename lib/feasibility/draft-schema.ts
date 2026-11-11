@@ -6,8 +6,9 @@ const sector=z.enum(['INDUSTRIAL','COMMERCIAL','REAL_ESTATE','SERVICES','AGRICUL
 const date=z.string().datetime();
 export const feasibilityDraftSchema=z.object({
  id:z.string().uuid(),title:z.string().trim().min(1).max(300),sector,
- country:z.string().trim().min(1).max(120),region:z.string().max(150),
- currency:z.string().regex(/^[A-Z]{3}$/),
+ country:z.string().trim().max(120),region:z.string().max(150),
+ // An empty country/currency is allowed for a draft, but blocks project-readiness approval.
+ currency:z.string().regex(/^(?:[A-Z]{3})?$/),
  status:z.enum(['IDEA','FEASIBILITY','APPROVED','ESTABLISHMENT','OPERATING','CANCELLED']),
  landValue:amount,landTransferred:z.boolean(),investorEquity:amount,partnerCashEquity:amount,
  investorLoan:amount,otherDebt:amount,workingCapital:amount,annualMaintenance:amount,
