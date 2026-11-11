@@ -173,3 +173,14 @@ The schema has already been applied and verified **once** on V2 QA. Its exact SQ
 - Item-name matching does **not** confirm equal quantity, scope, specifications, country/currency of origin, warranty, payment terms, freight, taxes or supplier viability. Analysts must verify those independently before sourcing decisions.
 - No auto-selection, procurement order, accounting posting, CAPEX update, project financial recalculation, approval, cross-project query or Financial Core v1/V2 integration is performed. Amounts are displayed in the explicit study currency only.
 - Regression unit tests cover grouping, duplicates, rejected incomplete offers, ties and non-mutation of project investment values. Run the full repository CI and authenticated QA V2 browser acceptance before release; a successful preview build alone is insufficient.
+
+
+## 11 November 2026 — Safe draft recovery and jurisdiction-neutral starter studies
+
+- Both JSON backup import and browser-local cache restoration are validated with the same strict per-study schema as the QA cloud API. The entire collection is rejected on malformed fields, duplicate project IDs or more than 300 studies; no partial restoration silently drops records.
+- A malformed browser cache is preserved untouched instead of being replaced by an empty auto-save. A successful explicitly approved import or cloud restoration enables local persistence again.
+- QA cloud-restored study rows are checked for valid UUID ownership, consistent project IDs, positive revisions, unique project IDs and complete schema conformance **before** local drafts are replaced.
+- New studies no longer invent a Syria location or a default study currency. Drafts may be saved with country/currency unset; readiness and internal snapshots still require both to be explicitly defined.
+- Starter CAPEX categories remain zero-valued, and their **labels** now match industrial, commercial, real estate, service, agricultural or custom work. No hypothetical quote, tax assumption, legal approval or accounting action is created.
+- The legal checklist is jurisdiction-neutral; actual country-specific requirements still need professional verification.
+- Focused tests for invalid imported/cloud documents, cache failure preservation, sector-specific labels and handoff identity gates were added. Full CI, live browser acceptance and QA V2 permission tests remain release blockers.
