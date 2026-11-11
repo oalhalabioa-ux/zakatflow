@@ -71,6 +71,15 @@ describe('independent feasibility planning engine',()=>{
 });
 
 describe('sector-specific starter tasks for new studies only',()=>{
+ it('never assumes a jurisdiction or currency, and does not show factory CAPEX for unrelated sectors',()=>{
+  for(const sector of ['INDUSTRIAL','COMMERCIAL','REAL_ESTATE','SERVICES','AGRICULTURE','CUSTOM'] as const){
+   const study=createStudy('new-'+sector,'New',sector);
+   expect(study.country).toBe('');expect(study.currency).toBe('');
+   expect(study.capex.every(x=>x.amount===0)).toBe(true);
+  }
+  expect(createStudy('property','Property','REAL_ESTATE').capex.map(x=>x.label).join(' ')).not.toContain('خطوط الإنتاج');
+  expect(createStudy('service','Service','SERVICES').capex.map(x=>x.label).join(' ')).not.toContain('خطوط الإنتاج');
+ });
  it('starts each supported sector with three relevant actions',()=>{
   for(const sector of ['INDUSTRIAL','COMMERCIAL','REAL_ESTATE','SERVICES','AGRICULTURE','CUSTOM'] as const){
    const s=createStudy('sector-'+sector,sector,sector);
