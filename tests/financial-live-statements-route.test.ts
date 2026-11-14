@@ -1,7 +1,7 @@
 vi.mock('../services/financial-group-source-review',()=>({liveGroupSourceReview:async()=>({status:'VISIBLE_COMPANIES_REVIEW_ONLY'})}));
-vi.mock('../services/financial-cost-center-income',()=>({liveCostCenterIncome:async()=>({scope:'COST_CENTER_INCOME_ONLY'})}));
+vi.mock('../services/financial-cost-center-income',()=>({liveCostCenterIncome:async(...args:unknown[])=>{state.centerCalls.push(args);return {scope:'COST_CENTER_INCOME_ONLY'}}}));
 import {beforeEach,describe,it,expect,vi} from 'vitest';
-const state=vi.hoisted(()=>({error:'REPORTING_SOURCE_PROVENANCE_INVALID',branchCalls:[] as unknown[][]}));
+const state=vi.hoisted(()=>({error:'REPORTING_SOURCE_PROVENANCE_INVALID',centerCalls:[] as unknown[][],branchCalls:[] as unknown[][]}));
 vi.mock('../services/financial-branch-report',()=>({
  liveBranchReport:async(...args:unknown[])=>{state.branchCalls.push(args);if(state.error)throw Error(state.error);return {scope:'BRANCH'}},
  liveReportBranches:async(organization:string)=>({organizationId:organization,branches:[]}),
@@ -62,4 +62,10 @@ describe('branch route isolation',()=>{
  });
 });
 
-describe('dimension action isolation',()=>{it('rejects conflicting selectors instead of ignoring them',async()=>{for(const action of ['group-review','cost-center-income']){const url=request().url.replace('action=statements','action='+action);expect((await GET(new Request(url))).status).toBe(200);for(const extra of ['&branch=HQ','&scope=GROUP_WITH_SUBSIDIARIES','&organization=other'])expect((await GET(new Request(url+extra))).status).toBe(400);}})});
+describe('dimension action isolation',()=>{it('rejects conflicting selectors instead of ignoring them',async()=>{for(const action of ['group-review','cost-center-income']){const url=request().url.replace('action=statements','action='+action);expect((await GET(new Request(url))).status).toBe(200);for(const extra of [...(action==='group-review'?['&branch=HQ']:[]),'&scope=GROUP_WITH_SUBSIDIARIES','&organization=other'])expect((await GET(new Request(url+extra))).status).toBe(400);}})});
+
+it('passes headquarters to the joint center source rather than ignoring its branch selector',async()=>{
+ const url=request().url.replace('action=statements','action=cost-center-income')+'&branch=HQ';
+ expect((await GET(new Request(url))).status).toBe(200);
+ expect(state.centerCalls.at(-1)?.[1]).toBe('HQ');
+});

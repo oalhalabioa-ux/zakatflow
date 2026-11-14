@@ -32,3 +32,9 @@ Branch: `fix/report-scope-integrity`, PR #408. Production is unchanged.
 - This new projection is a pure tested engine only. It is NOT wired to the live API or banner. The current live UI remains income-only for centers and per-company review for groups.
 - Blocking implementation dependencies remain: persisted/versioned/approved joint opening and movement allocations with dated branch-center registry; same-snapshot authorization/read adapter; allocation management UI and integration/export tests. Consolidation still needs the complete legal-control registry and persisted, approved, source-bound elimination/acquisition/NCI/FX evidence. No caller-provided approval flag can substitute for that server evidence.
 - No Production writes, schema migration, deployment or claim of completed statutory consolidation in this continuation.
+
+### Joint branch/center income adapter
+
+The live income endpoint and banner now accept an exact branch (including HQ) together with a center. The adapter compiles the approved branch source and intersects its original recognition lines with persisted center dimensions, then reauthorizes/reconciles the same branch source. Scope/cache/export identity includes the branch. Missing branch allocation or denied access never falls back to whole-company numbers. This does not introduce center opening allocations or turn the pure three-statement projection into a live adapter.
+
+Local validation: 266 files passed, 1,589 tests passed, one skipped; TypeScript passed. New real browser acceptance covers joint HQ/center selection, refresh, CSV scope, and reset on branch change. The final pushed SHA's workflow result must be checked separately before merge.

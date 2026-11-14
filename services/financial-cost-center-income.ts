@@ -1,3 +1,6 @@
+import {z} from 'zod';
+import {liveBranchReport} from './financial-branch-report';
+import {compileBranchReportWithSource} from '../lib/financial-branch-report';
 import {requireUser} from './auth';
 import {assertLiveStatements,liveStatementSource} from './financial-statement-live';
 import {normalizeStatementSource,statementQuery,statementSourceEnvelope} from '../lib/financial-statement-source';
@@ -6,13 +9,16 @@ import {costCenterIncome,type CenterEvidence} from '../lib/financial-cost-center
 const original=/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):[A-Z][A-Z0-9_]*$/i;
 /** Only exact persisted recognition-line dimensions are eligible. Legacy or
  * synthetic lines need a producing-module adapter, never account-name guesses. */
-export async function liveCostCenterIncome(input:unknown){
+export async function liveCostCenterIncome(input:unknown,selection?:unknown){
  assertLiveStatements();const q=statementQuery.parse(input),{supabase}=await requireUser();
- const response=await supabase.rpc('financial_statement_live_snapshot',{p_org:q.organization,p_from:q.from,p_to:q.to});
+ const branch=selection===undefined?undefined:z.union([z.literal('HQ'),z.string().uuid()]).parse(selection);
+ const response=await supabase.rpc(branch===undefined?'financial_statement_live_snapshot':'financial_branch_report_source',{p_org:q.organization,p_from:q.from,p_to:q.to});
  if(response.error)throw Error('REPORTING_CENTER_SOURCE_UNAVAILABLE');
- if(response.data?.closureId)throw Error('REPORTING_CLOSED_DIMENSIONS_UNAVAILABLE');
- const p=statementSourceEnvelope.parse(response.data),company=normalizeStatementSource(p,q);
- assertStableFinancialReplay(company,await liveStatementSource(q));
+ if((branch===undefined?response.data:response.data?.source)?.closureId)throw Error('REPORTING_CLOSED_DIMENSIONS_UNAVAILABLE');
+ const selected=branch===undefined?null:compileBranchReportWithSource(response.data,q,branch==='HQ'?null:branch);
+ const p=statementSourceEnvelope.parse(selected?.source??response.data),company=selected?.snapshot??normalizeStatementSource(p,q);
+ const verify=()=>branch===undefined?liveStatementSource(q):liveBranchReport(q,branch);
+ assertStableFinancialReplay(company,await verify());
  const required=p.events.filter(e=>e.date>=p.fiscalStart&&e.date<=p.to).flatMap(e=>e.lines.map(l=>({eventId:e.id,lineId:l.id,originalId:original.exec(l.id)?.[1]})));
  if(required.some(l=>!l.originalId))throw Error('REPORTING_CENTER_SOURCE_UNRESOLVED');
  async function dimensions():Promise<CenterEvidence>{
@@ -29,7 +35,7 @@ export async function liveCostCenterIncome(input:unknown){
  const evidence=await dimensions();
  const result=costCenterIncome(p,q,evidence);
  // Reauthorize and verify both money and dimensions after independent reads.
- assertStableFinancialReplay(company,await liveStatementSource(q));
+ assertStableFinancialReplay(company,await verify());
  assertStableFinancialReplay(evidence,await dimensions());
- return result;
+ return{...result,branch:branch??'ALL'};
 }
