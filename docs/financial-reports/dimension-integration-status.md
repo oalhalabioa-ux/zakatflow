@@ -15,7 +15,7 @@ Branch: `fix/report-scope-integrity`, PR #408. Production is unchanged.
 1. Authoritative full-period, complete legal-control registry: current context RPC returns direct end-date evidence with `registryComplete: false`. Do not change that marker in the client or infer completeness from RLS-visible parent pointers.
 2. Persisted and approved intercompany elimination evidence; acquisition/disposal timing; currency translation and non-controlling interests before consolidated statement issuance.
 3. Historical center dimensions for legacy/synthetic sources and frozen closed-year allocations. They currently fail explicitly, rather than attributing activity by current account names.
-4. Joint branch-and-center filtering and center balance-sheet/cash-flow allocations. Current center projection is income-only across the whole company.
+4. Live center balance-sheet/cash-flow allocations. Joint branch-and-center income filtering is implemented; all-three-statement compilation is tested but not yet connected to the live UI.
 5. Branch zero-opening first-activity support and cross-branch transfer clearing. Existing guards deliberately refuse incomplete attribution.
 
 ## Validation
@@ -43,12 +43,19 @@ Local validation: 266 files passed, 1,589 tests passed, one skipped; TypeScript 
 
 Final-head acceptance on `a4116ab9` passed all seven suites, including joint HQ/center browser selection, refresh and CSV. Added a voucher-preserving dimensional opening adapter with tests for stale approval, changed digest, foreign organization, missing/duplicate parts and redistribution between vouchers sharing an account. Nine targeted opening/projection tests and TypeScript pass.
 
-The generated dimensional-opening migration is deliberately staged under `supabase/drafts/`, outside canonical migration history. It adds independent private versioned distributions and audit records, exact branch/center validation, optimistic concurrency and amount/self-approval authorization; the existing branch workspace is unchanged. The full-schema workflow installs this draft only in its disposable database and runs rollback SQL acceptance. It must pass and its schema delta be reviewed before promoting it to canonical migrations or applying it to hosted QA. No live UI/API claims are made for this draft.
+At the rehearsal stage, the generated dimensional-opening migration was staged under `supabase/drafts/`, outside canonical migration history. It adds independent private versioned distributions and audit records, exact branch/center validation, optimistic concurrency and amount/self-approval authorization; the existing branch workspace is unchanged. The full-schema workflow installs this draft only in its disposable database and runs rollback SQL acceptance. It must pass and its schema delta be reviewed before promoting it to canonical migrations or applying it to hosted QA. No live UI/API claims are made for this draft.
 
 ### Versioned opening adapter verification (2026-11-14)
 
 - Remote commit `0f119a496866cada324714fc5b68f7f52274d3d3`: all seven CI workflows passed, including disposable SQL acceptance of the draft dimensional opening schema.
 - Added staged authenticated save/approve/context service with explicit branch and center fields, strict input validation, optimistic versions and redacted database errors. No public route is enabled; editor context must not be used as report approval evidence.
-- Canonical schema promotion, live journal attribution, three-statement report wiring and final approved consolidation remain outstanding.
+- Live journal attribution, three-statement report wiring and final approved consolidation remain outstanding. Canonical promotion was subsequently completed below.
 
-- Promoted the tested SQL into canonical migration history using schema fingerprints downloaded from CI artifact 14127331017. This is repository preparation only; no hosted database was migrated. Canonical full-schema recheck is still required on this change.
+- Promoted the tested SQL into canonical migration history using schema fingerprints downloaded from CI artifact 14127331017. This is repository preparation only; no hosted database was migrated. Canonical full-schema recheck passed on `6c781808647f286b7e401b3f44ce8418eeb5a09e`, together with all seven workflows.
+
+### Recognition-to-dimension compiler (2026-11-14)
+
+- Added `compileDimensionalEventStatements`, joining each original event/recognition line to both compiled accounting legs and the approved voucher-preserving opening distribution. No amount allocation by account name, default center, or guessed counter-entry.
+- Tests reconcile income, position and cash to the company, reject absent/duplicate/extra recognition links, mismatched opening identity and incorrect center/branch association. Verified first-activity companies can start with zero opening without inventing an approved workspace; missing historical opening approvals still fail.
+- Thirteen targeted dimensional compiler tests and TypeScript pass. This is the compiler bridge, not a live authorized endpoint.
+- Next live integration requires the complete dated branch-center registry, authorized source/evidence reread, approved distribution selection independent of editor drafts, and UI/export acceptance. Consolidation dependencies above remain unresolved.
