@@ -10,3 +10,9 @@ describe('exact source bound group worksheet',()=>{
  it('rejects zero, excess amount and a date before the selected source',()=>{for(const n of['0','51']){const f=fixture();f.entry.amount=n;expect(()=>previewSourceBoundGroupEliminations(f.control,f.sources,[f.entry])).toThrow('GROUP_ADJUSTMENT_EXCEEDS_DETAIL_SOURCE')}const f=fixture();f.entry.date='2026-01-01';expect(()=>previewSourceBoundGroupEliminations(f.control,f.sources,[f.entry])).toThrow('GROUP_ADJUSTMENT_SOURCE_LEG_UNAVAILABLE')});
  it('does not count an earlier-period invoice as current-period income elimination',()=>{const f=fixture();f.control.from='2026-04-01';f.sources.forEach(p=>p.from=f.control.from);const income={...f.entry,kind:'INTERCOMPANY_INCOME' as const,debitSource:f.ref(0,'410001'),creditSource:f.ref(1,'610001')};expect(()=>previewSourceBoundGroupEliminations(f.control,f.sources,[income])).toThrow('GROUP_ADJUSTMENT_SOURCE_PERIOD_MISMATCH')});
 });
+
+it('rejects a reversed source voucher even if other balances remain in its leaf account',()=>{
+ const f=fixture(),p=f.sources[0],original=p.events[0];original.status='REVERSED';
+ const reversal=structuredClone(original);reversal.id='40000000-0000-4000-8000-000000000004';reversal.sourceKey='source-reversal';reversal.date='2026-11-01';reversal.status='ACTUAL';reversal.reversesEventId=original.id;reversal.lines[0].id='50000000-0000-4000-8000-000000000005:BASE';reversal.lines[0].recognitionSign=-1;p.events.push(reversal);p.coverage.eventCount=2;p.coverage.lineCount=2;
+ expect(()=>previewSourceBoundGroupEliminations(f.control,f.sources,[f.entry])).toThrow('GROUP_ADJUSTMENT_SOURCE_LEG_UNAVAILABLE');
+});

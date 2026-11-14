@@ -33,7 +33,7 @@ try{
  const scope={p_org:org,p_fiscal_start:'2026-01-01'};
  await check('Real user sessions isolate opening source reads and reject forged metadata',async()=>{assert.ifError((await a.client.rpc('financial_opening_workspace',scope)).error);assert.ok((await b.client.rpc('financial_opening_workspace',scope)).error);assert.ifError((await viewer.client.auth.updateUser({data:{role:'OWNER',financial_core:{approve:true}}})).error);assert.ok((await viewer.client.rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:'x',p_entries:{},p_reason:''})).error)});
  const cookies=[],ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>cookies,setAll:cs=>{for(const c of cs){const i=cookies.findIndex(x=>x.name===c.name);if(i>=0)cookies.splice(i,1);cookies.push(c)}}}});assert.ifError((await ssr.auth.signInWithPassword({email:a.email,password:a.password})).error);
- const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',FINANCIAL_CENTER_BRANCH_REGISTRY:'true',FINANCIAL_SOURCE_INTEGRITY_DIAGNOSTICS:'true',VERCEL_ENV:'preview'};
+ const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',FINANCIAL_CENTER_BRANCH_REGISTRY:'true',FINANCIAL_GROUP_ELIMINATION_PREVIEW:'true',FINANCIAL_SOURCE_INTEGRITY_DIAGNOSTICS:'true',VERCEL_ENV:'preview'};
  const build=spawn('npm',['run','build'],{env,stdio:'inherit'});const buildExit=await new Promise((resolve,reject)=>{const deadline=setTimeout(()=>{build.kill('SIGTERM');reject(Error('ISOLATED_NEXT_BUILD_TIMEOUT'))},300000);build.on('error',e=>{clearTimeout(deadline);reject(e)});build.on('exit',code=>{clearTimeout(deadline);resolve(code)})});assert.equal(buildExit,0);
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
  for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context',{signal:AbortSignal.timeout(5000)})).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
@@ -851,6 +851,7 @@ try{
   for(const status of ['PLANNED','COMMITTED'])await command({action:'TRANSITION',organization_id:organization,event_id:event,status,note:'Center acceptance'});
   await command({action:'APPROVE',organization_id:organization,event_id:event,note:'Approve real center voucher'});
   await command({action:'TRANSITION',organization_id:organization,event_id:event,status:'ACTUAL',note:'Post real center voucher'});
+  report.centerExpenseEvent=event;
   const params={organization,from:'2026-01-01',to:'2026-12-31'};
   const response=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-income',...params}));assert.equal(response.status(),200,await response.text());const data=await response.json();assert.equal(data.rows.find(r=>r.centerId===first).income.netProfit,'-60.0000');assert.equal(data.rows.find(r=>r.centerId===second).income.netProfit,'-40.0000');assert.equal(data.rows.find(r=>r.centerId===null).income.netProfit,'1350.0000');assert.equal(data.companyIncome.netProfit,'1250.0000');
   // Real approved center registry and voucher allocation, no mocked report responses.
@@ -890,6 +891,10 @@ try{
   const groupTable=page.locator('[data-group-source-review="true"] table');await groupTable.waitFor();assert.equal(await groupTable.locator('tbody tr').count(),2);assert.equal(await page.locator('[data-statement-ready]').count(),0);await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();await groupTable.waitFor();
   await page.screenshot({path:out+'/group-source-review-banner-en.png',fullPage:true});
   await writeFile(out+'/center-actual-line-income.json',JSON.stringify(data,null,2));await writeFile(out+'/group-company-source-review.json',JSON.stringify(review,null,2));
+ });
+ await check('Actual source-bound group worksheet preserves company ledgers and rechecks member permissions',async()=>{
+  const {verifySourceBoundGroupPreview}=await import('./verify-source-bound-group-preview.mjs');
+  report.groupSourceBoundPreview=await verifySourceBoundGroupPreview({actor:a,page,app,out,sql,databaseUrl:url,subsidiary:report.defaultPostingActualCycle.organization,expenseEvent:report.centerExpenseEvent});
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
