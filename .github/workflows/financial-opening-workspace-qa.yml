@@ -281,6 +281,16 @@ jobs:
           npx --no-install vitest run tests/financial-opening-ledger.test.ts
       - name: Independently reconcile general fiscal closes with the statement compiler
         run: FISCAL_QA_EVIDENCE=docs/financial-reports/evidence-opening-live/qa-financial-opening-general-fiscal.json npx --no-install vitest run tests/financial-fiscal-engine.test.ts
+      - name: Verify draft joint center opening storage only in disposable database
+        run: |
+          docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261114184148_financial_dimensional_opening_distribution.sql
+          docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-dimensional-opening-distribution.sql
+          python - <<'PYSQL'
+          from pathlib import Path
+          q=Path('tests/migration-history/catalog.sql').read_text().strip().rstrip(';')
+          Path('/tmp/dimension-catalog.sql').write_text("select coalesce(jsonb_agg(t),'[]') from ("+q+") t where object_key like '%financial_dimensional_opening%';")
+          PYSQL
+          docker exec -i supabase_db_opening-workspace-qa psql -X -q -t -A -v ON_ERROR_STOP=1 -U postgres -d postgres < /tmp/dimension-catalog.sql > docs/financial-reports/evidence-opening-live/dimensional-opening-schema.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
