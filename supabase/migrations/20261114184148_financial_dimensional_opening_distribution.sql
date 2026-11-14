@@ -1,7 +1,7 @@
--- DRAFT: isolated acceptance only; not yet installed or included in canonical history.
+-- Validated in disposable full-schema CI; no hosted application implied.
 -- Audited, versioned distribution of already APPROVED organization opening
 -- lines between legal-company headquarters (branchId=null) and operating branches.
--- Additive only: never posts GL lines or updates opening vouchers. Draft QA gate.
+-- Additive only: never posts GL lines or updates opening vouchers. Independent dimensional allocation storage.
 create table private.financial_dimensional_opening_distributions (
  id uuid primary key default gen_random_uuid(),
  organization_id uuid not null references public.organizations(id),

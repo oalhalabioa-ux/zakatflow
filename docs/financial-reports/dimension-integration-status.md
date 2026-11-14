@@ -44,3 +44,11 @@ Local validation: 266 files passed, 1,589 tests passed, one skipped; TypeScript 
 Final-head acceptance on `a4116ab9` passed all seven suites, including joint HQ/center browser selection, refresh and CSV. Added a voucher-preserving dimensional opening adapter with tests for stale approval, changed digest, foreign organization, missing/duplicate parts and redistribution between vouchers sharing an account. Nine targeted opening/projection tests and TypeScript pass.
 
 The generated dimensional-opening migration is deliberately staged under `supabase/drafts/`, outside canonical migration history. It adds independent private versioned distributions and audit records, exact branch/center validation, optimistic concurrency and amount/self-approval authorization; the existing branch workspace is unchanged. The full-schema workflow installs this draft only in its disposable database and runs rollback SQL acceptance. It must pass and its schema delta be reviewed before promoting it to canonical migrations or applying it to hosted QA. No live UI/API claims are made for this draft.
+
+### Versioned opening adapter verification (2026-11-14)
+
+- Remote commit `0f119a496866cada324714fc5b68f7f52274d3d3`: all seven CI workflows passed, including disposable SQL acceptance of the draft dimensional opening schema.
+- Added staged authenticated save/approve/context service with explicit branch and center fields, strict input validation, optimistic versions and redacted database errors. No public route is enabled; editor context must not be used as report approval evidence.
+- Canonical schema promotion, live journal attribution, three-statement report wiring and final approved consolidation remain outstanding.
+
+- Promoted the tested SQL into canonical migration history using schema fingerprints downloaded from CI artifact 14127331017. This is repository preparation only; no hosted database was migrated. Canonical full-schema recheck is still required on this change.

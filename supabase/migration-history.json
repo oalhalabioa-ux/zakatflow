@@ -1953,6 +1953,14 @@
       "expected_md5": "1d61b237f66fed2eb4c47c322f1803f5",
       "file_sha256": "6200daedcce53fba8e5852792319ab9941832e0604519d6db212fad46edc015a",
       "validation_project": "QA V2 actual transfer RPC rollback: rejects zero-net cross-branch transfers and accepts same-branch pairs"
+    },
+    {
+      "path": "supabase/migrations/20261114184148_financial_dimensional_opening_distribution.sql",
+      "version": "20261114184148",
+      "name": "financial_dimensional_opening_distribution",
+      "expected_md5": "f32ca81a04f46150a58822b60af553a1",
+      "file_sha256": "ee1416ae6601cd31b5fa23bd6d6aaf5d59d9f4c8ff490d6048dd018db6408570",
+      "validation_project": "Disposable full-schema acceptance run 43628417525: scoped center/branch allocations, version conflicts, tenant denial, approval and source supersession; not applied hosted"
     }
   ]
 }

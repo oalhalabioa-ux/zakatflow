@@ -281,9 +281,8 @@ jobs:
           npx --no-install vitest run tests/financial-opening-ledger.test.ts
       - name: Independently reconcile general fiscal closes with the statement compiler
         run: FISCAL_QA_EVIDENCE=docs/financial-reports/evidence-opening-live/qa-financial-opening-general-fiscal.json npx --no-install vitest run tests/financial-fiscal-engine.test.ts
-      - name: Verify draft joint center opening storage only in disposable database
+      - name: Verify joint center opening storage in disposable database
         run: |
-          docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261114184148_financial_dimensional_opening_distribution.sql
           docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-dimensional-opening-distribution.sql
           python - <<'PYSQL'
           from pathlib import Path
