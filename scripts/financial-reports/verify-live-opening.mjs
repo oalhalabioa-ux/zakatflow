@@ -860,6 +860,15 @@ try{
   const openingContext=await a.client.rpc('financial_opening_workspace',{p_org:organization,p_fiscal_start:'2026-01-01'});assert.ifError(openingContext.error);const openingWorkspace=openingContext.data.workspace;
   const distribution=await a.client.rpc('save_financial_dimensional_opening',{p_org:organization,p_fiscal_start:'2026-01-01',p_expected_version:0,p_opening_workspace:openingWorkspace.id,p_opening_version:openingWorkspace.version,p_entries:Object.fromEntries(openingWorkspace.approved_opening.map(row=>[row.itemId,[{branchId:null,centerId:null,debit:row.debit,credit:row.credit}]])),p_reason:'QA exact original opening attribution'});assert.ifError(distribution.error);
   const approvedDistribution=await a.client.rpc('approve_financial_dimensional_opening',{p_distribution:distribution.data.id,p_expected_version:distribution.data.version});assert.ifError(approvedDistribution.error);
+  await page.goto(app+'/en/opening-balances/centers?organization='+organization+'&fiscalStart=2026-01-01');
+  await page.getByLabel('Reason for correction draft',{exact:true}).fill('QA unfinished center allocation');
+  await page.getByRole('button',{name:'Create correction draft',exact:true}).click();
+  const allocationCenter=page.getByRole('combobox',{name:'Cost center',exact:true}).first();await allocationCenter.waitFor();await allocationCenter.selectOption(first);
+  assert.equal(await page.getByRole('combobox',{name:'Headquarters or branch',exact:true}).first().isDisabled(),true);
+  const saveResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-reporting/center-openings'&&r.request().method()==='POST');
+  await page.getByRole('button',{name:'Save draft',exact:true}).click();assert.equal((await saveResponse).status(),200);
+  await page.reload();assert.equal(await page.getByRole('combobox',{name:'Cost center',exact:true}).first().inputValue(),first);
+  // The incomplete replacement draft must not replace the previous approved report source.
   const dimensions=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-statements',...params}));assert.equal(dimensions.status(),200,await dimensions.text());const dimensionalData=await dimensions.json();
   const firstCenter=dimensionalData.rows.find(row=>row.centerId===first);assert.equal(firstCenter.statements.position.liabilities,'60.0000');assert.equal(firstCenter.statements.position.equity,'-60.0000');assert.equal(firstCenter.statements.cash.closing,'0.0000');
   for(const screen of ['position','cash-flow']){

@@ -1,3 +1,4 @@
+vi.mock('../services/financial-center-branch-registry',()=>({centerBranchRegistry:async()=>({assignments:[{centerId:'branch-1',branchId:null,status:'APPROVED',from:'2026-01-01',to:null}]})}));
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 const org='10000000-0000-4000-8000-000000000001';
 const opening='20000000-0000-4000-8000-000000000002';
@@ -25,7 +26,7 @@ vi.mock('../services/auth',()=>({requireUser:async()=>{if(!state.authenticated)t
  },user:{id:'owner'},
 }}}));
 vi.mock('../services/financial-opening-workspace',()=>({assertOpeningWorkspace:()=>{if(!state.enabled)throw Error('OPENING_DISABLED')}}));
-import {dimensionalOpeningContext,dimensionalOpeningCommand} from '../services/financial-dimensional-opening-workspace';
+import {dimensionalOpeningContext,dimensionalOpeningCommand,dimensionalOpeningEditorContext} from '../services/financial-dimensional-opening-workspace';
 beforeEach(()=>Object.assign(state,{authenticated:true,enabled:true,member:true,authorized:true,revoked:false,authChecks:0,error:null,queries:[]}));
 const good={action:'save' as const,organization:org,fiscalStart:'2026-01-01',expectedVersion:0,
  openingWorkspace:opening,openingVersion:2,reason:'Attribution evidence',
@@ -62,4 +63,10 @@ describe('authenticated opening distribution adapter',()=>{
   await expect(dimensionalOpeningCommand(good)).rejects.toThrow('DIMENSION_OPENING_UNAVAILABLE');
  });
 
+});
+
+it('offers dated center assignments beside the exact approved opening',async()=>{
+ const r=await dimensionalOpeningEditorContext({organization:org,fiscalStart:'2026-01-01'});
+ expect(r.centers).toEqual([{id:'branch-1',name:'Branch 1',branchId:null}]);expect(r.opening?.id).toBe(opening);
+ state.revoked=true;state.authChecks=0;await expect(dimensionalOpeningEditorContext({organization:org,fiscalStart:'2026-01-01'})).rejects.toThrow('BRANCH_OPENING_READ_DENIED');
 });

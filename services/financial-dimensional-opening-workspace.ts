@@ -1,3 +1,5 @@
+import {branchOpeningEditorContext} from './financial-branch-opening-workspace';
+import {centerBranchRegistry} from './financial-center-branch-registry';
 import {z} from 'zod';
 import {requireUser} from './auth';
 import {assertOpeningWorkspace} from './financial-opening-workspace';
@@ -22,8 +24,8 @@ function unwrap<T>(result:{data:T;error:{message:string}|null}):T{
  return result.data;
 }
 /**
- * Staged adapter: no public route until the schema is promoted and the live
- * report source is reconciled. Context is editor evidence, never report approval.
+ * Authenticated editor adapter, feature-gated at the public route.
+ * Context is editor evidence, never report approval.
  * All reads and writes execute as the signed-in user. These are the private
  * versioned opening distribution RPCs, NOT journal posting operations.
  * Server-side RPCs enforce membership/permissions again and lock approvals.
@@ -44,4 +46,19 @@ export async function dimensionalOpeningCommand(input:unknown){
   p_expected_version:q.expectedVersion,p_opening_workspace:q.openingWorkspace,
   p_opening_version:q.openingVersion,p_entries:q.entries,p_reason:q.reason,
  }));
+}
+
+export async function dimensionalOpeningEditorContext(input:unknown){
+ const q=scope.parse(input),base=await branchOpeningEditorContext(q),distribution=await dimensionalOpeningContext(q);
+ const registry=await centerBranchRegistry({organization:q.organization}),{supabase}=await requireUser();
+ const result=await supabase.from('organization_cost_centers').select('id,organization_id,name').eq('organization_id',q.organization).limit(1001);
+ if(result.error||!Array.isArray(result.data)||result.data.length>1000||result.data.some(c=>c.organization_id!==q.organization))throw Error('DIMENSION_OPENING_UNAVAILABLE');
+ const centers=result.data.flatMap(c=>{
+  const assignments=registry.assignments.filter(a=>a.centerId===c.id&&a.status==='APPROVED'&&a.from<=q.fiscalStart&&(a.to===null||a.to>=q.fiscalStart));
+  if(assignments.length>1)throw Error('DIMENSION_OPENING_CENTER_INVALID');
+  return assignments.length?[{id:c.id,name:c.name,branchId:assignments[0].branchId}]:[];
+ });
+ // Recheck current user's authorization after all independent editor reads.
+ await dimensionalOpeningContext(q);
+ return{...base,distribution,centers};
 }
