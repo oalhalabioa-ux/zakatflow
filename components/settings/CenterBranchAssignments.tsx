@@ -51,8 +51,8 @@ export default function CenterBranchAssignments({organization,ar}:{organization:
     {!data.registry.assignments.length&&<tr><td colSpan={4}>{ar?'لم تُسجّل ارتباطات بعد.':'No assignments recorded yet.'}</td></tr>}
    </tbody></table></div>
    <form className="settings-form" onSubmit={save}><fieldset disabled={busy} style={{minWidth:0,border:0,padding:0}}><legend>{open?(ar?'نقل المركز بتاريخ مستقبلي':'Transfer center on a future date'):(ar?'إضافة ارتباط':'Add assignment')}</legend>
-    <label>{ar?'المركز':'Center'}<select required value={center} onChange={e=>{setCenter(e.target.value);setBranch('');setFrom('');setTo('')}}><option value="">{ar?'اختر المركز':'Select center'}</option>{data.centers.filter(c=>c.active!==false).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-    <label>{ar?'الفرع':'Branch'}<select value={branch} onChange={e=>setBranch(e.target.value)}><option value="">{ar?'المركز الرئيسي':'Headquarters'}</option>{data.branches.filter(b=>b.active!==false).map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+    <label>{ar?'المركز':'Center'}<select aria-label={ar?'المركز':'Center'} required value={center} onChange={e=>{setCenter(e.target.value);setBranch('');setFrom('');setTo('')}}><option value="">{ar?'اختر المركز':'Select center'}</option>{data.centers.filter(c=>c.active!==false).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+    <label>{ar?'الفرع':'Branch'}<select aria-label={ar?'الفرع':'Branch'} value={branch} onChange={e=>setBranch(e.target.value)}><option value="">{ar?'المركز الرئيسي':'Headquarters'}</option>{data.branches.filter(b=>b.active!==false).map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
     {open&&<p>{ar?'الارتباط الحالي: ':'Current assignment: '}{branchName(open.branchId)}</p>}
     <label>{ar?'تاريخ السريان':'Effective date'}<input required type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label>
     {!open&&<label>{ar?'تاريخ الانتهاء (اختياري)':'End date (optional)'}<input type="date" min={from||undefined} value={to} onChange={e=>setTo(e.target.value)}/></label>}
