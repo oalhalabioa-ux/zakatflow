@@ -32,7 +32,9 @@ async function registeredEvidence(input:unknown,includeRaw:boolean){
   const r=await supabase.rpc('financial_statement_live_snapshot',{p_org:organization,p_from:q.from,p_to:q.to});
   if(r.error)throw Error(/DENIED/.test(r.error.message)?'REPORTING_ACCESS_DENIED':'REPORTING_GROUP_SOURCE_UNAVAILABLE');
   if(r.data?.closureId)throw Error('REPORTING_GROUP_CLOSED_SOURCE_UNAVAILABLE');
-  const parsed=statementSourceEnvelope.parse(r.data);
+  const valid=statementSourceEnvelope.safeParse(r.data);
+  if(!valid.success)throw Error('REPORTING_GROUP_SOURCE_INVALID');
+  const parsed=valid.data;
   assertStableFinancialReplay(normalizeStatementSource(parsed,{...q,organization}),sources.find(s=>s.statements.organizationId===organization));
   return parsed;
  }

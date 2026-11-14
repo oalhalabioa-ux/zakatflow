@@ -21,7 +21,7 @@ The user has authorized completion, merge and Production deployment. No addition
 5. Complete temporal center reporting for mid-period transfers and frozen closed-year dimensional sources. Current explicit errors protect against using current assignments for historical statements.
 6. Reconcile current Production/main changes, rehearse the final migrations in QA, verify backup/rollback readiness and only then merge/deploy. Feature flags must not be enabled before their corresponding database and reporting paths are verified.
 
-No hosted schema was changed and no Production deployment or merge was performed in this checkpoint. Automatic intermediate Vercel previews were canceled.
+At the initial checkpoint no hosted schema had changed. The QA rehearsal below supersedes that statement. No Production deployment or merge was performed; automatic intermediate Vercel previews were canceled.
 
 ## Source-bound elimination checkpoint
 
@@ -29,4 +29,26 @@ No hosted schema was changed and no Production deployment or merge was performed
 - It rejects foreign members, nonexistent leaf/line identities, reversed source events, amounts exceeding the selected leg or remaining detail-account balance, invalid periods and repeated consumption. Explicit organization binding removes ambiguous parent-total matching.
 - This is a **read-only preview**, behind `FINANCIAL_GROUP_ELIMINATION_PREVIEW` (off by default). It does not establish reciprocal documentary matching or open-invoice settlement allocation and is not an approved elimination ledger. No final group export is enabled.
 - 39 targeted tests passed, including route origin/body/cache guards, source changes and revoked permissions. Current complete browser run 43641211891 passed all four jobs, including center correction-draft persistence and permission loss during exports.
-- Read-only hosted QA migration inspection: latest version 20261110193204. The four new 20261114 migrations have not been applied to hosted QA or Production.
+- Initial read-only QA inspection found latest version 20261110193204. The four verified additions were subsequently applied to QA only, as recorded below.
+
+## Hosted QA rehearsal — 14 November 2026, 21:26 UTC
+
+Project: QA V2 `ubotbpjngtfvolthpfec`. Production `ejpzcsfwqziqxwhvqnay` was not modified.
+
+| Canonical file version | Hosted QA version | Addition |
+| --- | --- | --- |
+| 20261114184148 | 20261114212626 | Dimensional opening distribution |
+| 20261114201716 | 20261114212634 | Dated center/branch registry |
+| 20261114204837 | 20261114212641 | Approved-only dimensional report context |
+| 20261114205354 | 20261114212652 | Complete registered group scope |
+
+- Inspected existing source tables and permission function before applying additive migrations.
+- All four migrations applied successfully. Compared **98 catalog objects** against the observed disposable-schema fingerprints: **98 matched, zero differences**.
+- Executed the dimensional opening, dated registry and group-control acceptance SQL on hosted QA. All passed; each transaction rolled back every synthetic user, organization, assignment, allocation and control record.
+- Security baseline: anonymous executable-function warnings remain 2 (unchanged); password-protection warning unchanged. Four new private RLS tables intentionally expose no direct policies. Eight new authenticated RPCs are deliberate permission-checked entry points. No anonymous access was added.
+- The hosted migration versions differ because the management API assigns application timestamps. Do not reapply these additions by canonical filename alone; reconcile names and checksums.
+- Source-bound two-company browser acceptance added on head `9a5df09b026ac9109017c1ba5ec2285bfa56c633`; its new run must be inspected before claiming the end-to-end worksheet complete.
+
+### Two-company test follow-up
+
+Run 43642697600 passed replay, production parity and compatibility. Its browser job passed all existing flows, including all center statements and source review, then rejected the new revenue fixture because its nullable `cost_center_id` was omitted. The fixture now sends explicit null, matching the native command contract; no production validation was weakened. Six source-bound service tests and TypeScript validation pass, including malformed server evidence returning a source error rather than a client-input error. The corrected actual worksheet test still requires a successful run.
