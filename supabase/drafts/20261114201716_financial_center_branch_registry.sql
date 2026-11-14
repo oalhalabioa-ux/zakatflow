@@ -70,3 +70,51 @@ revoke all on function public.assign_financial_center_branch(uuid,uuid,uuid,date
 revoke all on function public.financial_center_branch_registry(uuid) from public,anon,authenticated;
 grant execute on function public.assign_financial_center_branch(uuid,uuid,uuid,date,date,bigint,text) to authenticated;
 grant execute on function public.financial_center_branch_registry(uuid) to authenticated;
+
+-- Prospective transfers close the old interval and create the next interval
+-- atomically. Past assignments and existing financial records are not rewritten.
+create table private.financial_center_branch_transfers (
+ id uuid primary key default gen_random_uuid(),
+ organization_id uuid not null references public.organizations(id),
+ prior_assignment uuid not null references private.financial_center_branch_assignments(id),
+ next_assignment uuid not null references private.financial_center_branch_assignments(id),
+ previous_record jsonb not null,
+ closed_record jsonb not null,
+ actor_id uuid not null references auth.users(id),
+ reason text not null,
+ created_at timestamptz not null default now()
+);
+alter table private.financial_center_branch_transfers enable row level security;
+revoke all on private.financial_center_branch_transfers from public,anon,authenticated;
+create function public.transfer_financial_center_branch(
+ p_org uuid,p_center uuid,p_branch uuid,p_from date,p_expected_revision bigint,p_reason text
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare prior_ private.financial_center_branch_assignments%rowtype;
+ closed_ private.financial_center_branch_assignments%rowtype;
+ result_ jsonb;revision_ bigint;
+begin
+ if auth.uid() is null or not private.financial_opening_can(p_org,'financial_core.create')
+  or not private.financial_opening_can(p_org,'financial_core.approve')
+ then raise exception 'CENTER_BRANCH_WRITE_DENIED';end if;
+ if p_from is null or p_from<=current_date or p_center is null or p_expected_revision is null
+ then raise exception 'CENTER_BRANCH_FUTURE_TRANSFER_REQUIRED';end if;
+ perform 1 from public.organizations where id=p_org for update;
+ select coalesce(max(revision),0) into revision_ from private.financial_center_branch_assignments where organization_id=p_org;
+ if revision_<>p_expected_revision then raise exception 'CENTER_BRANCH_VERSION_CONFLICT';end if;
+ select * into prior_ from private.financial_center_branch_assignments
+  where organization_id=p_org and center_id=p_center and valid_to is null for update;
+ if prior_.id is null or p_from<=prior_.valid_from
+ then raise exception 'CENTER_BRANCH_TRANSFER_SOURCE_INVALID';end if;
+ if prior_.branch_id is not distinct from p_branch then raise exception 'CENTER_BRANCH_TRANSFER_UNCHANGED';end if;
+ update private.financial_center_branch_assignments set valid_to=p_from-1
+  where id=prior_.id returning * into closed_;
+ -- Existing assignment command enforces scope, active branch/center, reason,
+ -- authorization recheck, overlap and revision; failure rolls back interval close.
+ result_:=public.assign_financial_center_branch(p_org,p_center,p_branch,p_from,null,p_expected_revision,p_reason);
+ insert into private.financial_center_branch_transfers(organization_id,prior_assignment,next_assignment,
+  previous_record,closed_record,actor_id,reason)
+ values(p_org,prior_.id,(result_->>'id')::uuid,to_jsonb(prior_),to_jsonb(closed_),auth.uid(),trim(p_reason));
+ return result_;
+end $$;
+revoke all on function public.transfer_financial_center_branch(uuid,uuid,uuid,date,bigint,text) from public,anon,authenticated;
+grant execute on function public.transfer_financial_center_branch(uuid,uuid,uuid,date,bigint,text) to authenticated;

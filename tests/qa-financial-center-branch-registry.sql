@@ -24,6 +24,21 @@ begin
  begin
   delete from private.financial_center_branch_assignments where organization_id=org;raise exception 'direct modification allowed';
  exception when insufficient_privilege then null;end;
+ begin
+  perform public.transfer_financial_center_branch(org,c,null,current_date,2,'Retroactive transfer');raise exception 'retroactive transfer accepted';
+ exception when others then if sqlerrm<>'CENTER_BRANCH_FUTURE_TRANSFER_REQUIRED' then raise;end if;end;
+ begin
+  perform public.transfer_financial_center_branch(org,c,gen_random_uuid(),current_date+30,2,'Invalid branch');raise exception 'unknown branch accepted';
+ exception when others then if sqlerrm<>'CENTER_BRANCH_BRANCH_INVALID' then raise;end if;end;
+ r:=public.financial_center_branch_registry(org);
+ if r#>>'{assignments,1,to}' is not null or r->>'revision'<>'2' then raise exception 'failed transfer changed history';end if;
+ perform public.transfer_financial_center_branch(org,c,null,current_date+30,2,'Future HQ transfer');
+ r:=public.financial_center_branch_registry(org);
+ if r->>'revision'<>'3' or r#>>'{assignments,1,to}'<>(current_date+29)::text or r#>>'{assignments,2,from}'<>(current_date+30)::text
+ then raise exception 'transfer intervals incorrect';end if;
+ reset role;
+ if (select count(*) from private.financial_center_branch_transfers where organization_id=org)<>1 then raise exception 'transfer audit missing';end if;
+ set local role authenticated;
  perform set_config('request.jwt.claim.sub',stranger::text,true);
  begin
   perform public.financial_center_branch_registry(org);raise exception 'foreign read allowed';

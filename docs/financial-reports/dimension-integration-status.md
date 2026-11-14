@@ -71,3 +71,17 @@ At the rehearsal stage, the generated dimensional-opening migration was staged u
 ### Registry storage rehearsal
 
 Added draft private immutable dated assignments with authorized create/approve and read RPCs. Organization-wide optimistic revision and row locking serialize inserts; overlapping periods, foreign centers/branches and direct writes are refused. Historical assignments are immutable; changing the end of an open-ended assignment is deliberately not exposed until a separately audited transfer operation exists. The read RPC enumerates the full tenant registry; coverage remains a compiler check. SQL rollback acceptance runs only in disposable CI. This draft has not been applied hosted or promoted to canonical history.
+
+### Authenticated registry integration — local follow-up
+
+- Added current-user registry read, period validation and assignment service. Strict schemas reject foreign organization evidence, malformed dates, unknown input fields, invalid revisions and untrusted database responses.
+- Added `/api/financial-reporting/center-branches` for management reads/writes, disabled unless `FINANCIAL_CENTER_BRANCH_REGISTRY=true`. No environment flag was enabled. Same-origin write checks, private/no-store responses and sanitized errors are covered.
+- Thirteen registry/service/route tests and TypeScript passed. These additions are local; the remote draft-schema acceptance remains on `2242136ade1c1685e288b379e06ecceced3fbb30`.
+- Required next: verify disposable SQL result; support audited open-ended assignment transfer; promote registry schema with observed fingerprints; complete source replay and UI/export integration. No production writes or deployment.
+
+### Prospective transfer follow-up
+
+- Base registry SQL acceptance passed in full-schema run 43636826725 on `2242136`; subscription suite was still running at last check.
+- Added draft future-only atomic transfer: close old open interval, insert next assignment via the existing authorized command, and retain before/after rows in a private audit table. Invalid targets roll back the close. No retroactive transfer or current-day reinterpretation is allowed.
+- Added authenticated transfer service and management API routing; 15 targeted tests and TypeScript pass. Updated disposable SQL acceptance covers rollback, contiguous periods and audit. The transfer SQL itself still awaits the next CI run.
+- No feature flag enabled, no hosted migration and no deployment. Live UI/source integration and final consolidation remain outstanding.

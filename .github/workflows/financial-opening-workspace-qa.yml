@@ -294,6 +294,12 @@ jobs:
         run: |
           docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261114201716_financial_center_branch_registry.sql
           docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-center-branch-registry.sql
+          python - <<'PYREGISTRY'
+          from pathlib import Path
+          q=Path('tests/migration-history/catalog.sql').read_text().strip().rstrip(';')
+          Path('/tmp/center-registry-catalog.sql').write_text("select coalesce(jsonb_agg(t),'[]') from ("+q+") t where object_key like '%financial_center_branch%';")
+          PYREGISTRY
+          docker exec -i supabase_db_opening-workspace-qa psql -X -q -t -A -v ON_ERROR_STOP=1 -U postgres -d postgres < /tmp/center-registry-catalog.sql > docs/financial-reports/evidence-opening-live/center-branch-registry-schema.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
