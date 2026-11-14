@@ -85,6 +85,13 @@ describe('immutable internal review snapshot API',()=>{
   expect((await POST(post({projectId,sourceRevision:2,notes:''}))).status).toBe(422);
   expect(reviews.insert).not.toHaveBeenCalled();
  });
+ it('blocks immutable snapshots on extra funding with no assigned cash use',async()=>{
+  const {projects,reviews}=mockData();
+  const excess=readyStudy();excess.partnerCashEquity=5000;
+  projects.maybeSingle.mockResolvedValueOnce({data:{id:projectId,revision:2,study:excess},error:null});
+  expect((await POST(post({projectId,sourceRevision:2,notes:''}))).status).toBe(422);
+  expect(reviews.insert).not.toHaveBeenCalled();
+ });
  it('prevents an expired licence from recording a new review',async()=>{
   const {access,reviews}=mockData();
   access.maybeSingle.mockResolvedValueOnce({data:{status:'TRIAL',starts_at:'2026-10-01T00:00:00Z',ends_at:'2026-11-01T00:00:00Z'},error:null});
