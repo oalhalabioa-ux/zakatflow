@@ -49,3 +49,9 @@ it('preserves reversal attribution and detects a reversal assigned to the wrong 
  reverse[0].allocations[0].credit='60';reverse[0].allocations[1].credit='40';reverse[1].allocations[0].debit='60';reverse[1].allocations[1].debit='40';
  expect(()=>projectDimensionalStatements(f.source,f.evidence)).toThrow('REVERSAL_DOES_NOT_MATCH_SOURCE');
 });
+
+it('includes a verified inactive-in-period center as zero without fabricating movements',()=>{
+ const f=fixture();f.evidence.centers=[...f.evidence.centers,{id:'new-center',branchId:'riyadh'}];
+ const r=projectDimensionalStatements(f.source,f.evidence),zero=r.rows.find(row=>row.centerId==='new-center')!;
+ expect(zero.statements.sourceJournalIds).toEqual([]);expect(zero.statements.position.assets).toBe('0.0000');expect(zero.statements.cash.closing).toBe('0.0000');expect(r.company.cash.closing).toBe('900.0000');
+});

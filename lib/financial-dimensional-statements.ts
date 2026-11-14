@@ -76,6 +76,9 @@ export function projectDimensionalStatements(source: StatementSource, evidence: 
     });
   });
   if (count !== movements.size) throw Error('DIMENSION_MOVEMENT_EXTRA');
+  // Complete verified evidence also proves a registered center has no activity.
+  // Preserve an explicit zero report instead of making a valid center disappear.
+  for (const center of evidence.centers) bucket({centerId:center.id,branchId:center.branchId});
   const rows = [...buckets.values()].map(b => {
     const slice: StatementSource = {...source,
       opening: [...b.opening].map(([accountId, n]) => ({accountId, debit: n.debit.toFixed(4), credit: n.credit.toFixed(4)})),

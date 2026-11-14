@@ -402,6 +402,8 @@ try{
  });
  await check('Cost center banner and fresh CSV use the selected source, never company balances',async()=>{
   const center=randomUUID();sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${center}','${org}','REPORT_QA','QA income center','OPERATING')`);
+  // Dispose prior position-page requests before observing the new income navigation.
+  await page.goto('about:blank');
   const response=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='cost-center-income');
   await page.goto(app+'/en/financial-reports?screen=income&organization='+org);
   const r=await response;assert.equal(r.status(),200,await r.text());assert.equal((await r.json()).scope,'COST_CENTER_INCOME_ONLY');
