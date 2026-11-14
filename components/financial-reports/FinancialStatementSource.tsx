@@ -1,5 +1,6 @@
 'use client';
 import GroupSourceReview from './GroupSourceReview';
+import {CostCenterStatements} from './CostCenterStatements';
 import {useCostCenterIncome,CostCenterPicker,CostCenterReport} from './CostCenterIncome';
 import TopbarOrganizationControls from '../TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '../WorkspaceOrganizationPicker';
@@ -64,7 +65,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
  const contextIdentity=useRef('');
  const currentSelection=useRef({organization,branch,from,to});currentSelection.current={organization,branch,from,to};
  const expectedCurrency=context.find(o=>o.organizationId===organization)?.currency??'';
- const center=useCostCenterIncome({enabled:live&&scopeReady&&view==='income',organization,from,to,currency:expectedCurrency,refresh,branch});
+ const center=useCostCenterIncome({enabled:live&&scopeReady&&['income','position','cash-flow'].includes(view),organization,from,to,currency:expectedCurrency,refresh,branch});
  const centerSelected=center.value!=='ALL';
  useEffect(()=>{const identity=endpoint+'|'+preferredOrg;const preserve=contextIdentity.current===identity;contextIdentity.current=identity;const abort=new AbortController();setSnapshot(null);setContext([]);setError('');setLoading(true);fetch(endpoint+'?action=context',{signal:abort.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');return r.json()}).then((rows:Context)=>{if(abort.signal.aborted)return;setContext(rows);const preserved=preserve?rows.find(row=>row.organizationId===currentSelection.current.organization&&row.fiscalStart<=currentSelection.current.from&&row.fiscalEnd>=currentSelection.current.to):undefined;const initial=preserved??(preferredOrg?rows.find(row=>row.organizationId===preferredOrg):(live?rows.find(row=>row.organizationId===rememberedOrganization()):undefined)??rows[0]);if(!preserved)setBranch('ALL');setOrganization(initial?.organizationId??'');setFrom(preserved?currentSelection.current.from:initial?.fiscalStart??'');setTo(preserved?currentSelection.current.to:initial?(live&&initial.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):initial.fiscalEnd):'');setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[refresh,endpoint,preferredOrg]);
  useEffect(()=>{
@@ -159,7 +160,8 @@ export default function FinancialStatementSource({initialView='income',initialEn
   {!loading&&!error&&!organization&&<ReportCard title={t('لا توجد مصادر قوائم مصرح بها','No authorized statement sources')}><p>{t('لا يوجد مصدر متاح لصلاحياتك الحالية.','No source is available under your current permissions.')}</p>{live&&<p><a href={`/${en?'en':'ar'}/opening-balances${preferredOrg?'?organization='+encodeURIComponent(preferredOrg):''}`}>{t('إعداد واعتماد الافتتاحي','Prepare and approve opening balances')}</a> · <a href={`/${en?'en':'ar'}/financial-reporting-policy${preferredOrg?'?organization='+encodeURIComponent(preferredOrg):''}`}>{t('مراجعة قواعد الترحيل','Review posting rules')}</a></p>}</ReportCard>}
   {!centerSelected&&displayDraft&&currentDraft&&<DraftOpeningStatementPreview report={currentDraft} view={view} en={en}/>}
   {center.input.enabled&&center.failed&&!centerSelected&&<p role="status" className="fs-source-note">{t('قائمة الشركة متاحة؛ تعذر التحقق من توزيع جميع سطورها على مراكز التكلفة، لذلك لم تُفعّل تصفية المركز.','Company statements remain available; complete line-level cost-center attribution could not be verified, so center filtering is unavailable.')}</p>}
-  {centerSelected&&<CostCenterReport state={center} en={en} onUnavailable={()=>{setSnapshot(null);setComparison(null);setError('UNAVAILABLE')}}/>}
+  {centerSelected&&(view==='position'||view==='cash-flow')&&<CostCenterStatements input={{organization,from,to,currency:expectedCurrency,branch,center:center.value,refresh}} view={view==='position'?'position':'cash'} en={en} name={center.data?.rows.find(r=>r.centerId===(center.value==='UNALLOCATED'?null:center.value))?.name??t('غير موزع','Unallocated')}/>}
+  {centerSelected&&view==='income'&&<CostCenterReport state={center} en={en} onUnavailable={()=>{setSnapshot(null);setComparison(null);setError('UNAVAILABLE')}}/>}
   {!centerSelected&&ready&&!displayDraft&&(view==='overview'||view==='statements'||view==='kpis'?<SourceReportHub key={[organization,branch,from,to,view].join('|')} snapshot={ready} comparison={previous} en={en} view={view} navigate={changeView}/>:<ConnectedStatements snapshot={ready} comparison={previous} en={en} view={view}/>)}
   </>}
  </div>;

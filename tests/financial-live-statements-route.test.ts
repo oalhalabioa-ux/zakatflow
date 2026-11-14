@@ -1,3 +1,4 @@
+vi.mock('../services/financial-dimensional-statements',()=>({liveDimensionalStatements:async()=>({status:'VERIFIED_DIMENSIONAL_STATEMENTS'})}));
 vi.mock('../services/financial-group-source-review',()=>({liveGroupSourceReview:async()=>({status:'VISIBLE_COMPANIES_REVIEW_ONLY'})}));
 vi.mock('../services/financial-cost-center-income',()=>({liveCostCenterIncome:async(...args:unknown[])=>{state.centerCalls.push(args);return {scope:'COST_CENTER_INCOME_ONLY'}}}));
 import {beforeEach,describe,it,expect,vi} from 'vitest';
@@ -68,4 +69,13 @@ it('passes headquarters to the joint center source rather than ignoring its bran
  const url=request().url.replace('action=statements','action=cost-center-income')+'&branch=HQ';
  expect((await GET(new Request(url))).status).toBe(200);
  expect(state.centerCalls.at(-1)?.[1]).toBe('HQ');
+});
+
+it('gates verified dimensional statements and rejects ignored scope filters',async()=>{
+ const url=request().url.replace('action=statements','action=cost-center-statements');
+ vi.stubEnv('FINANCIAL_CENTER_BRANCH_REGISTRY','false');expect((await GET(new Request(url))).status).toBe(404);
+ vi.stubEnv('FINANCIAL_CENTER_BRANCH_REGISTRY','true');
+ try{expect((await GET(new Request(url))).status).toBe(200);
+ for(const suffix of ['&branch=HQ','&scope=GROUP_WITH_SUBSIDIARIES'])expect((await GET(new Request(url+suffix))).status).toBe(400);
+ }finally{vi.unstubAllEnvs()}
 });

@@ -42,7 +42,7 @@ export default function CenterBranchAssignments({organization,ar}:{organization:
   finally{if(alive.current)setBusy(false)}
  }
  if(hidden)return null;
- return <section className="settings-card" aria-label={ar?'ارتباط المراكز بالفروع':'Center branch assignments'}>
+ return <section className="settings-card settings-center-assignments" aria-label={ar?'ارتباط المراكز بالفروع':'Center branch assignments'}>
   <h3>{ar?'ارتباط المراكز بالفروع':'Center branch assignments'}</h3>
   <p className="settings-hint">{ar?'حدد الفرع الذي يتبعه كل مركز وتاريخ سريان الارتباط. يحتفظ السجل بالارتباط السابق عند النقل.':'Assign each center to a branch with an effective date. Transfers preserve prior history.'}</p>
   {loading?<p role="status">{ar?'جارٍ التحميل…':'Loading…'}</p>:data&&<>
@@ -50,7 +50,7 @@ export default function CenterBranchAssignments({organization,ar}:{organization:
     {data.registry.assignments.map(a=><tr key={a.id}><td>{data.centers.find(c=>c.id===a.centerId)?.name??a.centerId}</td><td>{branchName(a.branchId)}</td><td><bdi>{a.from}</bdi></td><td><bdi>{a.to??(ar?'مستمر':'Ongoing')}</bdi></td></tr>)}
     {!data.registry.assignments.length&&<tr><td colSpan={4}>{ar?'لم تُسجّل ارتباطات بعد.':'No assignments recorded yet.'}</td></tr>}
    </tbody></table></div>
-   <form className="settings-form" onSubmit={save}><fieldset disabled={busy} style={{minWidth:0,border:0,padding:0}}><legend>{open?(ar?'نقل المركز بتاريخ مستقبلي':'Transfer center on a future date'):(ar?'إضافة ارتباط':'Add assignment')}</legend>
+   <form className="settings-form" onSubmit={save}><fieldset disabled={busy} style={{minWidth:0,border:0,padding:0,gridColumn:"1 / -1",display:"grid",gap:16}}><legend>{open?(ar?'نقل المركز بتاريخ مستقبلي':'Transfer center on a future date'):(ar?'إضافة ارتباط':'Add assignment')}</legend>
     <label>{ar?'المركز':'Center'}<select aria-label={ar?'المركز':'Center'} required value={center} onChange={e=>{setCenter(e.target.value);setBranch('');setFrom('');setTo('')}}><option value="">{ar?'اختر المركز':'Select center'}</option>{data.centers.filter(c=>c.active!==false).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
     <label>{ar?'الفرع':'Branch'}<select aria-label={ar?'الفرع':'Branch'} value={branch} onChange={e=>setBranch(e.target.value)}><option value="">{ar?'المركز الرئيسي':'Headquarters'}</option>{data.branches.filter(b=>b.active!==false).map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
     {open&&<p>{ar?'الارتباط الحالي: ':'Current assignment: '}{branchName(open.branchId)}</p>}

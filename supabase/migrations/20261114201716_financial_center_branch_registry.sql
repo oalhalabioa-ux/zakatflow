@@ -1,4 +1,4 @@
--- Rehearsal only. Immutable dated assignments, no historical rewrite RPC.
+-- Verified in disposable SQL acceptance. Dated assignments and audited prospective transfers.
 create table private.financial_center_branch_assignments (
  id uuid primary key default gen_random_uuid(),
  organization_id uuid not null references public.organizations(id),

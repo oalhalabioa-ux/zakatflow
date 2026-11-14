@@ -33,6 +33,6 @@ export async function verifyCenterBranches({page,app,orgId}){
   await panel.getByRole('button',{name:'Save assignment',exact:true}).click();
   await panel.getByRole('cell',{name:'2027-12-31',exact:true}).waitFor();
   assert.equal(writes.length,2);assert.equal(writes[1].action,'transfer');assert.equal(writes[1].branch,null);
-  for(const width of [1490,390]){await page.setViewportSize({width,height:1050});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Assignment editor must fit viewport');}
+  for(const width of [1490,390]){await page.setViewportSize({width,height:1050});await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(200);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Assignment editor must fit viewport');}
  }finally{await page.unroute(pattern);await page.unroute(centers);await page.unroute(entities);}
 }

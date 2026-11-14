@@ -136,3 +136,8 @@
 
 @media(min-width:1351px){.corp-shell .settings-workspace .settings-tabs{grid-template-columns:minmax(0,.75fr) minmax(0,1fr) minmax(0,1.25fr) minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,.85fr)}}
 .corp-shell .settings-workspace .settings-tabs a:not(.btn){white-space:normal}
+
+.settings-workspace .settings-center-assignments{min-width:0;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere}
+.settings-workspace .settings-center-assignments :is(form,fieldset,label){min-width:0;max-width:100%}
+.settings-workspace .settings-center-assignments .settings-table-scroll{display:block;min-width:0;max-width:100%;overflow-x:auto}
+.settings-workspace .settings-center-assignments legend{white-space:normal;max-width:100%}

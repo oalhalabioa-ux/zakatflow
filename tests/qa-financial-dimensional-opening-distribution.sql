@@ -138,10 +138,18 @@ begin
  exception when others then
   if sqlerrm<>'DIMENSION_OPENING_SOURCE_CHANGED' then raise;end if;
  end;
+ -- An unfinished replacement belongs to the editor, never the reporting source.
+ saved:=public.save_financial_dimensional_opening(
+  org,'2026-01-01',0,opening_id,2,entries,'Unfinished replacement');
+ context:=public.financial_dimensional_opening_context(org,'2026-01-01');
+ if context->>'status'<>'DRAFT' then raise exception 'Editor lost draft';end if;
+ context:=public.financial_dimensional_opening_report_context(org,'2026-01-01');
+ if context->>'status'<>'APPROVED' or context->>'id'<>distribution::text
+ then raise exception 'Draft hid approved reporting distribution';end if;
  -- Foreign tenant cannot access the manifest (or insert a replacement).
  perform set_config('request.jwt.claim.sub',outsider_id::text,true);
  begin
-  perform public.financial_dimensional_opening_context(org,'2026-01-01');
+  perform public.financial_dimensional_opening_report_context(org,'2026-01-01');
   raise exception 'Cross-tenant branch opening leaked';
  exception when others then
   if sqlerrm<>'DIMENSION_OPENING_READ_DENIED' then raise;end if;
@@ -168,7 +176,7 @@ begin
  where id=opening_id;
  perform set_config('request.jwt.claim.sub',owner_id::text,true);
  execute 'set local role authenticated';
- context:=public.financial_dimensional_opening_context(org,'2026-01-01');
+ context:=public.financial_dimensional_opening_report_context(org,'2026-01-01');
  if context->>'status'<>'STALE' then
   raise exception 'Opening supersession did not invalidate approved distribution';end if;
  execute 'set local role postgres';
