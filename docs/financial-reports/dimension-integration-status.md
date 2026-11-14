@@ -24,3 +24,11 @@ Branch: `fix/report-scope-integrity`, PR #408. Production is unchanged.
 - Service tests cover missing/foreign original lines, revoked permissions, changed dimensions, changing group membership, cycles, and exact company identity.
 - Disposable full-schema browser acceptance includes banner center selection, refresh, actual CSV download, and revoked membership clearing. Its result must be checked on the final remote SHA before merge.
 - No customer data, Production migrations, or production deployment were changed. Automatic Vercel previews are canceled during this testing phase.
+
+## 2026-11-14 continuation — engine foundation, not live rollout
+
+- Elimination staging now consumes each reciprocal company's remaining capacity, rather than reusing its original balance against unrelated group totals. Ambiguous reciprocal-company pairs fail. Net closing debit/credit totals are separate from gross worksheet turnover.
+- `projectDimensionalStatements` projects income, position and cash from complete line-level branch/center allocations. It reconciles all cells to the company, requires every opening account and eligible source leg, verifies center/branch consistency, and refuses unbalanced per-dimension openings, journals and misattributed reversals. It never synthesizes clearing balances.
+- This new projection is a pure tested engine only. It is NOT wired to the live API or banner. The current live UI remains income-only for centers and per-company review for groups.
+- Blocking implementation dependencies remain: persisted/versioned/approved joint opening and movement allocations with dated branch-center registry; same-snapshot authorization/read adapter; allocation management UI and integration/export tests. Consolidation still needs the complete legal-control registry and persisted, approved, source-bound elimination/acquisition/NCI/FX evidence. No caller-provided approval flag can substitute for that server evidence.
+- No Production writes, schema migration, deployment or claim of completed statutory consolidation in this continuation.

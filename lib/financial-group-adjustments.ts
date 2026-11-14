@@ -34,6 +34,8 @@ export type AdjustmentPreview={
  adjustmentCredit:string;
  afterDebit:string;
  afterCredit:string;
+ closingDebit:string;
+ closingCredit:string;
 };
 
 function amount(value:string){
@@ -76,6 +78,8 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
  // SAME accounting kind. A revenue and corresponding receivable elimination
  // may legitimately cite the same invoice, so kinds remain separate.
  const usedSourceReferences=new Set<string>();
+ const consumedByMember=new Map<string,Decimal>();
+ const memberKey=(organization:string,code:string)=>JSON.stringify([organization,code]);
  let adjustmentDebit=new Money(0),adjustmentCredit=new Money(0);
  for(const entry of entries){
   if(!entry.id||ids.has(entry.id))throw Error('GROUP_ADJUSTMENT_DUPLICATE');
@@ -137,12 +141,21 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
     throw Error('GROUP_ADJUSTMENT_EXCEEDS_SOURCE');
    const drSource=rollup.byParent.find(r=>r.code===debitLine.reportingCode)?.members??[];
    const crSource=rollup.byParent.find(r=>r.code===creditLine.reportingCode)?.members??[];
+   const availableMember=(organization:string,code:string,net:string,credit:boolean)=>{
+    const balance=new Money(net).mul(credit?-1:1);
+    return balance.minus(consumedByMember.get(memberKey(organization,code))??0);
+   };
    const positiveDr=drSource.filter(r=>entry.organizationIds.includes(r.organizationId)&&
-    new Money(r.netDebit).lte(required.negated())).map(r=>r.organizationId);
+    availableMember(r.organizationId,debitLine.reportingCode,r.netDebit,true).gte(required));
    const positiveCr=crSource.filter(r=>entry.organizationIds.includes(r.organizationId)&&
-    new Money(r.netDebit).gte(required)).map(r=>r.organizationId);
-   if(!positiveDr.some(a=>positiveCr.some(b=>a!==b)))
-    throw Error('GROUP_ADJUSTMENT_RECIPROCAL_MEMBERS_MISSING');
+    availableMember(r.organizationId,creditLine.reportingCode,r.netDebit,false).gte(required));
+   const pairs=positiveDr.flatMap(a=>positiveCr.filter(b=>a.organizationId!==b.organizationId).map(b=>[a,b] as const));
+   if(!pairs.length)throw Error('GROUP_ADJUSTMENT_RECIPROCAL_MEMBERS_MISSING');
+   if(pairs.length!==1)throw Error('GROUP_ADJUSTMENT_RECIPROCAL_MEMBERS_AMBIGUOUS');
+   for(const [member,code] of [[pairs[0][0],debitLine.reportingCode],[pairs[0][1],creditLine.reportingCode]] as const){
+    const key=memberKey(member.organizationId,code);
+    consumedByMember.set(key,(consumedByMember.get(key)??new Money(0)).plus(required));
+   }
   }
   adjustmentDebit=adjustmentDebit.plus(debitTotal);adjustmentCredit=adjustmentCredit.plus(creditTotal);
   for(const[code,t]of affected){const current=adjustments.get(code)??{debit:new Money(0),credit:new Money(0)};adjustments.set(code,{debit:current.debit.plus(t.debit),credit:current.credit.plus(t.credit)})}
@@ -153,5 +166,8 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
   const net=(before?.debit??new Money(0)).minus(before?.credit??new Money(0));
   return{reportingCode:code,kind:chart.get(code)!.kind,beforeNetDebit:net.toFixed(4),adjustmentDebit:adjustment.debit.toFixed(4),adjustmentCredit:adjustment.credit.toFixed(4),afterNetDebit:net.plus(adjustment.debit).minus(adjustment.credit).toFixed(4)};
  });
- return{status:'GROUP_ADJUSTMENT_PREVIEW_ONLY',from:rollup.from,to:rollup.to,currency:rollup.currency,memberIds:[...rollup.memberIds],adjustmentIds:[...ids],rows,beforeDebit:beforeDebit.toFixed(4),beforeCredit:beforeCredit.toFixed(4),adjustmentDebit:adjustmentDebit.toFixed(4),adjustmentCredit:adjustmentCredit.toFixed(4),afterDebit:beforeDebit.plus(adjustmentDebit).toFixed(4),afterCredit:beforeCredit.plus(adjustmentCredit).toFixed(4)};
+ const closingDebit=rows.reduce((n,r)=>n.plus(Money.max(0,r.afterNetDebit)),new Money(0));
+ const closingCredit=rows.reduce((n,r)=>n.plus(Money.max(0,new Money(r.afterNetDebit).negated())),new Money(0));
+ if(!closingDebit.eq(closingCredit))throw Error('GROUP_ADJUSTMENT_UNBALANCED');
+ return{closingDebit:closingDebit.toFixed(4),closingCredit:closingCredit.toFixed(4),status:'GROUP_ADJUSTMENT_PREVIEW_ONLY',from:rollup.from,to:rollup.to,currency:rollup.currency,memberIds:[...rollup.memberIds],adjustmentIds:[...ids],rows,beforeDebit:beforeDebit.toFixed(4),beforeCredit:beforeCredit.toFixed(4),adjustmentDebit:adjustmentDebit.toFixed(4),adjustmentCredit:adjustmentCredit.toFixed(4),afterDebit:beforeDebit.plus(adjustmentDebit).toFixed(4),afterCredit:beforeCredit.plus(adjustmentCredit).toFixed(4)};
 }
