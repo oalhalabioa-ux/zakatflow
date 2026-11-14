@@ -1977,6 +1977,14 @@
       "expected_md5": "f9fbb3b528271ba16b2e8d6ceaac7e06",
       "file_sha256": "9e4e32f8537d9324220651b9ae89335ea8549970e7164ae240b288ece08651e9",
       "validation_project": "Disposable full-schema run 43640322960 artifact 14131732686: approved-over-draft, stale source and actual three-statement center browser cycle. Not applied hosted."
+    },
+    {
+      "path": "supabase/migrations/20261114205354_financial_group_complete_registry.sql",
+      "version": "20261114205354",
+      "name": "financial_group_complete_registry",
+      "expected_md5": "402750a81b5102afd68067b74ca8bbda",
+      "file_sha256": "3d101c951ed5d9a2acd964ca6051d9470d3a9bc3af6626772513ba65822bc8ab",
+      "validation_project": "Disposable full-schema run 43641211891 artifact 14131674924: complete graph, approved controls, hidden-child access denial. Not applied hosted."
     }
   ]
 }

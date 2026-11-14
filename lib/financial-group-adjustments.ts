@@ -8,7 +8,7 @@ const chartCodePattern=/^\d{4}(?:\d{2}){0,3}$/;
 type Amounts={debit:Decimal;credit:Decimal};
 
 export type GroupEliminationKind='INTERCOMPANY_BALANCE'|'INTERCOMPANY_INCOME'|'UNREALIZED_PROFIT';
-export type GroupEliminationLine={accountCode:string;reportingCode:string;debit:string;credit:string};
+export type GroupEliminationLine={organizationId?:string;accountCode:string;reportingCode:string;debit:string;credit:string};
 export type GroupElimination={
  id:string;
  kind:GroupEliminationKind;
@@ -100,6 +100,7 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
   const affected=new Map<string,Amounts>();
   for(const l of entry.lines){
    const parent=chart.get(l.reportingCode);
+   if(l.organizationId!==undefined&&!entry.organizationIds.includes(l.organizationId))throw Error('GROUP_ADJUSTMENT_MEMBERSHIP_INVALID');
    if(!parent||!chartCodePattern.test(l.accountCode)||!l.accountCode.startsWith(l.reportingCode))throw Error('GROUP_ADJUSTMENT_MAPPING_INVALID');
    const debit=amount(l.debit),credit=amount(l.credit);
    if((debit.isZero()&&credit.isZero())||(!debit.isZero()&&!credit.isZero()))throw Error('GROUP_ADJUSTMENT_AMOUNT_INVALID');
@@ -149,7 +150,8 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
     availableMember(r.organizationId,debitLine.reportingCode,r.netDebit,true).gte(required));
    const positiveCr=crSource.filter(r=>entry.organizationIds.includes(r.organizationId)&&
     availableMember(r.organizationId,creditLine.reportingCode,r.netDebit,false).gte(required));
-   const pairs=positiveDr.flatMap(a=>positiveCr.filter(b=>a.organizationId!==b.organizationId).map(b=>[a,b] as const));
+   const pairs=positiveDr.filter(a=>!debitLine.organizationId||a.organizationId===debitLine.organizationId)
+    .flatMap(a=>positiveCr.filter(b=>a.organizationId!==b.organizationId&&(!creditLine.organizationId||b.organizationId===creditLine.organizationId)).map(b=>[a,b] as const));
    if(!pairs.length)throw Error('GROUP_ADJUSTMENT_RECIPROCAL_MEMBERS_MISSING');
    if(pairs.length!==1)throw Error('GROUP_ADJUSTMENT_RECIPROCAL_MEMBERS_AMBIGUOUS');
    for(const [member,code] of [[pairs[0][0],debitLine.reportingCode],[pairs[0][1],creditLine.reportingCode]] as const){

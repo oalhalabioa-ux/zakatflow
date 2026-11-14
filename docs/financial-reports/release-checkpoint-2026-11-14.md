@@ -15,10 +15,18 @@ The user has authorized completion, merge and Production deployment. No addition
 ## Remaining release work
 
 1. Obtain all required checks on the exact final head after canonical migration promotion and UI changes.
-2. Promote the complete registered group source draft only after capturing its actual catalog fingerprint and final SQL acceptance. It enumerates registered platform relationships; it does not establish the existence of unregistered legal entities.
+2. Verify the promoted complete registered group migration on the final canonical bootstrap. Its actual SQL acceptance and fingerprint were captured in run 43641211891 / artifact 14131674924. It enumerates registered platform relationships; it does not establish unregistered legal entities.
 3. Persist, approve and independently validate source-bound group eliminations and their audit history. The existing in-memory adjustment worksheet is **not** an approved consolidation ledger.
 4. Finish final consolidated statements and exports after investment/equity eliminations, NCI/acquisition adjustments and currency translation where applicable. Never rename a pre-elimination rollup as consolidated.
 5. Complete temporal center reporting for mid-period transfers and frozen closed-year dimensional sources. Current explicit errors protect against using current assignments for historical statements.
 6. Reconcile current Production/main changes, rehearse the final migrations in QA, verify backup/rollback readiness and only then merge/deploy. Feature flags must not be enabled before their corresponding database and reporting paths are verified.
 
 No hosted schema was changed and no Production deployment or merge was performed in this checkpoint. Automatic intermediate Vercel previews were canceled.
+
+## Source-bound elimination checkpoint
+
+- Exact source-leg worksheet added for intercompany balance and income eliminations. Requests select organization, event, immutable line part and leaf account; the server reads and independently rechecks all sources and registry permissions. Client-supplied source snapshots are rejected.
+- It rejects foreign members, nonexistent leaf/line identities, reversed source events, amounts exceeding the selected leg or remaining detail-account balance, invalid periods and repeated consumption. Explicit organization binding removes ambiguous parent-total matching.
+- This is a **read-only preview**, behind `FINANCIAL_GROUP_ELIMINATION_PREVIEW` (off by default). It does not establish reciprocal documentary matching or open-invoice settlement allocation and is not an approved elimination ledger. No final group export is enabled.
+- 39 targeted tests passed, including route origin/body/cache guards, source changes and revoked permissions. Current complete browser run 43641211891 passed all four jobs, including center correction-draft persistence and permission loss during exports.
+- Read-only hosted QA migration inspection: latest version 20261110193204. The four new 20261114 migrations have not been applied to hosted QA or Production.
