@@ -247,6 +247,8 @@ jobs:
           docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-native-advance-reversal.sql
       - name: Verify independent fiscal budgets and immutable approved dates
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-fiscal-budget-calendar.sql
+      - name: Rehearse complete registered group source
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261114205354_financial_group_complete_registry.sql
       - name: Verify audited group legal control evidence and cross-tenant isolation
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-group-control-evidence.sql
       - name: Verify atomic branch report source and tenant isolation
@@ -273,6 +275,8 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-cash-account-link-sync.sql
       - name: Verify audited bank opening corrections and fiscal protection
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-bank-opening-correction.sql
+      - name: Rehearse approved-only dimensional reporting context
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261114204837_financial_dimensional_approved_report_context.sql
       - name: Exercise actual authorization, persistence, approval, reports and browser
         run: node scripts/financial-reports/verify-live-opening.mjs
       - name: Reconcile statements and exports against this run's approved ledger
@@ -281,8 +285,6 @@ jobs:
           npx --no-install vitest run tests/financial-opening-ledger.test.ts
       - name: Independently reconcile general fiscal closes with the statement compiler
         run: FISCAL_QA_EVIDENCE=docs/financial-reports/evidence-opening-live/qa-financial-opening-general-fiscal.json npx --no-install vitest run tests/financial-fiscal-engine.test.ts
-      - name: Rehearse approved-only dimensional reporting context
-        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261114204837_financial_dimensional_approved_report_context.sql
       - name: Verify joint center opening storage in disposable database
         run: |
           docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-dimensional-opening-distribution.sql
