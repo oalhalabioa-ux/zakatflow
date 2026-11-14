@@ -31,6 +31,13 @@ export function parseStudyBackup(raw:unknown):FeasibilityStudy[]|null {
  if(!object(raw)||raw.schema!==FEASIBILITY_BACKUP_SCHEMA)return null;
  return parseStudyCollection(raw.studies);
 }
+/** Prevent a stale account's data from being written into a different user's local key. */
+export function canPersistLocalStudyCache(
+ loaded:boolean,storageSafe:boolean,hydratedStorageKey:string,storageKey:string
+):boolean {
+ return loaded&&storageSafe&&hydratedStorageKey.length>0&&hydratedStorageKey===storageKey;
+}
+
 export type SavedCloudDraft={
  id:string;study:FeasibilityStudy;revision:number;owner_user_id:string;
 };
