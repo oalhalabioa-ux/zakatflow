@@ -290,6 +290,10 @@ jobs:
           Path('/tmp/dimension-catalog.sql').write_text("select coalesce(jsonb_agg(t),'[]') from ("+q+") t where object_key like '%financial_dimensional_opening%';")
           PYSQL
           docker exec -i supabase_db_opening-workspace-qa psql -X -q -t -A -v ON_ERROR_STOP=1 -U postgres -d postgres < /tmp/dimension-catalog.sql > docs/financial-reports/evidence-opening-live/dimensional-opening-schema.json
+      - name: Rehearse dated center branch registry in disposable database
+        run: |
+          docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261114201716_financial_center_branch_registry.sql
+          docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-center-branch-registry.sql
       - uses: actions/upload-artifact@v4
         if: always()
         with:

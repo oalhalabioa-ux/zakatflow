@@ -59,3 +59,15 @@ At the rehearsal stage, the generated dimensional-opening migration was staged u
 - Tests reconcile income, position and cash to the company, reject absent/duplicate/extra recognition links, mismatched opening identity and incorrect center/branch association. Verified first-activity companies can start with zero opening without inventing an approved workspace; missing historical opening approvals still fail.
 - Thirteen targeted dimensional compiler tests and TypeScript pass. This is the compiler bridge, not a live authorized endpoint.
 - Next live integration requires the complete dated branch-center registry, authorized source/evidence reread, approved distribution selection independent of editor drafts, and UI/export acceptance. Consolidation dependencies above remain unresolved.
+
+### Dated center/branch validation (2026-11-14)
+
+- All seven remote suites passed for `77195f3440e421da40204ad48587458d9f039847`.
+- Added effective-dated center/branch registry validation and integrated it into `compileRegisteredDimensionalStatements`. The required coverage starts at fiscal start (opening plus prior movements), not merely the selected display month.
+- Historical assignments remain tied to their old branch. Missing, overlapping, foreign or draft assignments do not become HQ. Mid-period transfers fail explicitly pending temporal-slice support.
+- Nine targeted registry/compiler tests and TypeScript pass locally. This change remains local and is not deployed.
+- The registry still needs audited persisted storage, authenticated read/write integration and user controls before the live three-statement endpoint can consume it. The pure registry completeness flag is not a substitute for server attestation.
+
+### Registry storage rehearsal
+
+Added draft private immutable dated assignments with authorized create/approve and read RPCs. Organization-wide optimistic revision and row locking serialize inserts; overlapping periods, foreign centers/branches and direct writes are refused. Historical assignments are immutable; changing the end of an open-ended assignment is deliberately not exposed until a separately audited transfer operation exists. The read RPC enumerates the full tenant registry; coverage remains a compiler check. SQL rollback acceptance runs only in disposable CI. This draft has not been applied hosted or promoted to canonical history.

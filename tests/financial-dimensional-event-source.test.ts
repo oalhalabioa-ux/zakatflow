@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {branchFixture} from './financial-reporting/branch-report-fixture';
-import {compileDimensionalEventStatements,type EventDimensionEvidence} from '../lib/financial-dimensional-event-source';
+import {compileDimensionalEventStatements,compileRegisteredDimensionalStatements,type EventDimensionEvidence} from '../lib/financial-dimensional-event-source';
 import type {DimensionalOpeningWorkspace,DimensionalOpeningDistribution} from '../lib/financial-dimensional-openings';
 function fixture(){
  const raw=branchFixture().source;
@@ -36,4 +36,11 @@ it('does not require invented opening allocations for an explicitly verified fir
  expect(r.company.income.netProfit).toBe('-57.5000');
  expect(()=>compileDimensionalEventStatements(f.raw,f.query,f.evidence,f.w,f.d)).toThrow();
  const original=fixture();expect(()=>compileDimensionalEventStatements(original.raw,original.query,original.evidence,null,null)).toThrow('DIMENSION_OPENING_APPROVAL_REQUIRED');
+});
+
+it('requires historical branch coverage from fiscal start even for a later display period',()=>{
+ const f=fixture();const registry={organizationId:f.raw.organizationId,complete:true as const,revision:'1',branches:['branch'],centerIds:['sales','operations'],assignments:['sales','operations'].map(centerId=>({id:centerId,organizationId:f.raw.organizationId,centerId,branchId:'branch',from:f.raw.fiscalStart,to:null,status:'APPROVED' as const,approvedBy:'owner',revision:'1'}))};
+ expect(compileRegisteredDimensionalStatements(f.raw,f.query,f.evidence,registry,f.w,f.d).company.income.netProfit).toBe('-57.5000');
+ registry.assignments[0].from=f.raw.fiscalStart.slice(0,4)+'-02-01';
+ expect(()=>compileRegisteredDimensionalStatements(f.raw,f.query,f.evidence,registry,f.w,f.d)).toThrow('CENTER_BRANCH_PERIOD_INCOMPLETE');
 });

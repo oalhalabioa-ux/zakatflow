@@ -1,3 +1,4 @@
+import {resolveCenterBranches,type CenterBranchRegistry} from './financial-center-branch-registry';
 import {compileEventLedger} from './financial-event-ledger';
 import {normalizeStatementSource,statementSourceEnvelope,type StatementQuery} from './financial-statement-source';
 import {projectDimensionalStatements,type DimensionEvidence} from './financial-dimensional-statements';
@@ -41,4 +42,14 @@ export function compileDimensionalEventStatements(raw:unknown,query:StatementQue
  if(!firstActivity&&(!workspace||!distribution))throw Error('DIMENSION_OPENING_APPROVAL_REQUIRED');
  const opening=firstActivity?[]:aggregateDimensionalOpenings(source,workspace!,distribution!);
  return projectDimensionalStatements(source,{...evidence,opening,movements});
+}
+
+/** Resolve from fiscal start, not the display period: cash and position include
+ * opening balances and all preceding movements in the same fiscal year. */
+export function compileRegisteredDimensionalStatements(raw:unknown,query:StatementQuery,
+ evidence:Omit<EventDimensionEvidence,'centers'|'branches'>,registry:CenterBranchRegistry,
+ workspace:DimensionalOpeningWorkspace|null,distribution:DimensionalOpeningDistribution|null){
+ const envelope=statementSourceEnvelope.parse(raw);
+ const centers=resolveCenterBranches(registry,query.organization,envelope.fiscalStart,query.to);
+ return compileDimensionalEventStatements(raw,query,{...evidence,centers,branches:registry.branches},workspace,distribution);
 }
