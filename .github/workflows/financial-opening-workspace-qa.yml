@@ -275,8 +275,6 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-cash-account-link-sync.sql
       - name: Verify audited bank opening corrections and fiscal protection
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-bank-opening-correction.sql
-      - name: Rehearse approved-only dimensional reporting context
-        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261114204837_financial_dimensional_approved_report_context.sql
       - name: Exercise actual authorization, persistence, approval, reports and browser
         run: node scripts/financial-reports/verify-live-opening.mjs
       - name: Reconcile statements and exports against this run's approved ledger
@@ -300,7 +298,7 @@ jobs:
           python - <<'PYREGISTRY'
           from pathlib import Path
           q=Path('tests/migration-history/catalog.sql').read_text().strip().rstrip(';')
-          Path('/tmp/center-registry-catalog.sql').write_text("select coalesce(jsonb_agg(t),'[]') from ("+q+") t where object_key like '%financial_center_branch%';")
+          Path('/tmp/center-registry-catalog.sql').write_text("select coalesce(jsonb_agg(t),'[]') from ("+q+") t where object_key like '%financial_center_branch%' or object_key like '%financial_group_registered_scope%';")
           PYREGISTRY
           docker exec -i supabase_db_opening-workspace-qa psql -X -q -t -A -v ON_ERROR_STOP=1 -U postgres -d postgres < /tmp/center-registry-catalog.sql > docs/financial-reports/evidence-opening-live/center-branch-registry-schema.json
       - uses: actions/upload-artifact@v4

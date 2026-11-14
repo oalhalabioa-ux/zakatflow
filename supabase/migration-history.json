@@ -1969,6 +1969,14 @@
       "expected_md5": "4a1f8e58eb9dbdec8511d0a4edd746d2",
       "file_sha256": "02eb7a9b6101978ed2e0dc27e8a45dd2b6f7ccd7d83e5128fed454dcc3783544",
       "validation_project": "Disposable full-schema run 43637445927: scoped dated assignments, overlap, revision, future transfers, rollback and audit. Not applied hosted."
+    },
+    {
+      "path": "supabase/migrations/20261114204837_financial_dimensional_approved_report_context.sql",
+      "version": "20261114204837",
+      "name": "financial_dimensional_approved_report_context",
+      "expected_md5": "f9fbb3b528271ba16b2e8d6ceaac7e06",
+      "file_sha256": "9e4e32f8537d9324220651b9ae89335ea8549970e7164ae240b288ece08651e9",
+      "validation_project": "Disposable full-schema run 43640322960 artifact 14131732686: approved-over-draft, stale source and actual three-statement center browser cycle. Not applied hosted."
     }
   ]
 }

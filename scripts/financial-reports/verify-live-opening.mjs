@@ -878,6 +878,9 @@ try{
    const download=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const csv=await readFile(await (await download).path(),'utf8');assert.ok(csv.includes(first));assert.ok(csv.includes('registryRevision'));
    await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();assert.equal(await picker.inputValue(),first);
    await page.screenshot({path:out+'/center-'+screen+'-actual-en.png',fullPage:true});
+   sql(`update public.organization_members set status='INACTIVE' where organization_id='${organization}' and user_id='${a.id}'`);
+   try{await section.getByRole('button',{name:'Export center CSV',exact:true}).click();await section.getByRole('alert').waitFor();assert.equal(await section.locator('table').count(),0);assert.equal(await page.locator('[data-statement-ready]').count(),0)}finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${organization}' and user_id='${a.id}'`)}
+
   }
   await writeFile(out+'/center-actual-three-statements.json',JSON.stringify(dimensionalData,null,2));
   sql(`update public.organizations set parent_organization_id='${org}' where id='${organization}'`);

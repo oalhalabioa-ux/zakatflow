@@ -1,0 +1,11 @@
+{
+  "description": "Observed in full-schema run 43640322960 artifact 14131732686.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.financial_dimensional_opening_report_context(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "37c33d6929cb64a7c091879e963a52c9"
+    }
+  ]
+}
