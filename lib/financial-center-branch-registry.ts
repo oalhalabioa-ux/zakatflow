@@ -11,8 +11,8 @@ export type CenterBranchRegistry={
 function day(value:string){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value}
 /** Authenticated storage must establish registry completeness. Effective dates
  * are inclusive. Current center metadata is never a historical assignment.
- * The current three-statement engine has one branch per center per period;
- * a mid-period transfer therefore fails explicitly until temporal slices exist.
+ * This single-slice resolver requires one branch per center for the entire
+ * slice. Use resolveCenterBranchTimeline for a period spanning transfers.
  */
 export function resolveCenterBranches(registry:CenterBranchRegistry,organizationId:string,from:string,to:string){
  if(registry.organizationId!==organizationId||registry.complete!==true||!registry.revision?.trim()||!day(from)||!day(to)||from>to)
@@ -37,5 +37,23 @@ export function resolveCenterBranches(registry:CenterBranchRegistry,organization
   const a=relevant[0];
   if(a.from>from||(a.to!==null&&a.to<to))throw Error('CENTER_BRANCH_PERIOD_INCOMPLETE');
   return{id,branchId:a.branchId};
+ });
+}
+
+/** Complete contiguous historical slices; never apply today's branch to old
+ * activity. Every slice passes the same overlap/approval/coverage checks. */
+export function resolveCenterBranchTimeline(registry:CenterBranchRegistry,organizationId:string,from:string,to:string){
+ if(!day(from)||!day(to)||from>to)throw Error('CENTER_BRANCH_REGISTRY_SCOPE_INVALID');
+ const next=(date:string)=>new Date(Date.parse(date+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+ const previous=(date:string)=>new Date(Date.parse(date+'T00:00:00Z')-86400000).toISOString().slice(0,10);
+ const starts=new Set([from]);
+ for(const a of registry.assignments){
+  if(a.status!=='APPROVED')continue;
+  if(day(a.from)&&a.from>from&&a.from<=to)starts.add(a.from);
+  if(a.to!==null&&day(a.to)&&a.to>=from&&a.to<to)starts.add(next(a.to));
+ }
+ const ordered=[...starts].sort();
+ return ordered.map((start,i)=>{const end=i+1<ordered.length?previous(ordered[i+1]):to;
+  return{from:start,to:end,centers:resolveCenterBranches(registry,organizationId,start,end)};
  });
 }

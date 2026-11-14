@@ -1,6 +1,7 @@
 import {beforeEach,it,expect,vi} from 'vitest';
 import {branchFixture} from './financial-reporting/branch-report-fixture';
 import {normalizeStatementSource} from '../lib/financial-statement-source';
+import type {CenterBranchRegistry} from '../lib/financial-center-branch-registry';
 const state=vi.hoisted(()=>({rpc:vi.fn(),verify:vi.fn(),auth:vi.fn(),read:vi.fn(),registry:vi.fn(),branches:vi.fn()}));
 vi.mock('../services/auth',()=>({requireUser:()=>state.auth()}));
 vi.mock('../services/financial-statement-live',()=>({assertLiveStatements:()=>{},liveStatementSource:(q:unknown)=>state.verify(q)}));
@@ -26,4 +27,14 @@ it('rejects changes to approved registry while compiling',async()=>{
 it('rejects revoked source access and unavailable closed-year dimensions',async()=>{
  state.verify.mockRejectedValueOnce(Error('REPORTING_ACCESS_DENIED'));await expect(liveDimensionalStatements(query())).rejects.toThrow('REPORTING_ACCESS_DENIED');
  state.rpc.mockResolvedValue({data:{...raw(),closureId:'closed'},error:null});await expect(liveDimensionalStatements(query())).rejects.toThrow('REPORTING_CLOSED_DIMENSIONS_UNAVAILABLE');
+});
+it('reconciles historical center branches across a midyear transfer and rechecks the dated evidence',async()=>{
+ const r:CenterBranchRegistry={...registry(),complete:true,assignments:registry().assignments.map(a=>({...a,status:'APPROVED'}))};r.branches=['new-branch'];
+ r.assignments=[{...r.assignments[0],to:'2026-03-31'},{...r.assignments[0],id:'next',from:'2026-04-01',branchId:'new-branch'}];
+ state.registry.mockResolvedValue(r);
+ state.branches.mockResolvedValue({organizationId:raw().organizationId,links:raw().events.map(e=>({journalId:e.id,branchId:e.date>='2026-04-01'?'new-branch':null}))});
+ const result=await liveDimensionalStatements(query());expect(result.rows).toHaveLength(2);
+ expect(result.rows.find(row=>row.branchId===null)?.statements.sourceJournalIds).toHaveLength(2);
+ expect(result.rows.find(row=>row.branchId==='new-branch')?.statements.sourceJournalIds).toHaveLength(1);
+ expect(result.company.income.netProfit).toBe('-57.5000');expect(state.registry).toHaveBeenCalledTimes(2);
 });

@@ -55,3 +55,27 @@ it('includes a verified inactive-in-period center as zero without fabricating mo
  const r=projectDimensionalStatements(f.source,f.evidence),zero=r.rows.find(row=>row.centerId==='new-center')!;
  expect(zero.statements.sourceJournalIds).toEqual([]);expect(zero.statements.position.assets).toBe('0.0000');expect(zero.statements.cash.closing).toBe('0.0000');expect(r.company.cash.closing).toBe('900.0000');
 });
+
+it('keeps opening balances and old movements in their historical branch after a center transfer',()=>{
+ const f=fixture();f.evidence.centers=[{id:'sales',branchId:'jeddah'},{id:'operations',branchId:'jeddah'}];
+ f.evidence.periods=[
+  {from:'2026-01-01',to:'2026-06-30',centers:[{id:'sales',branchId:'riyadh'},{id:'operations',branchId:'jeddah'}]},
+  {from:'2026-07-01',to:'2026-12-31',centers:f.evidence.centers},
+ ];
+ f.source.journals.push({...f.source.journals[0],id:'later',date:'2026-08-01'});
+ f.evidence.movements=[...f.evidence.movements,...f.evidence.movements.map(m=>({...m,journalId:'later',allocations:m.allocations.map(a=>({...a,branchId:'jeddah'}))}))];
+ const r=projectDimensionalStatements(f.source,f.evidence);
+ const old=r.rows.find(r=>r.centerId==='sales'&&r.branchId==='riyadh')!,next=r.rows.find(r=>r.centerId==='sales'&&r.branchId==='jeddah')!;
+ expect(old.statements.cash.opening).toBe('500.0000');expect(old.statements.cash.closing).toBe('450.0000');
+ expect(next.statements.cash.opening).toBe('0.0000');expect(next.statements.cash.closing).toBe('-50.0000');
+ expect(r.company.cash.closing).toBe('800.0000');
+ expect(old.statements.sourceJournalIds).toEqual(['expense']);expect(next.statements.sourceJournalIds).toEqual(['later']);
+ f.evidence.movements[0].allocations[0].branchId='jeddah';
+ expect(()=>projectDimensionalStatements(f.source,f.evidence)).toThrow('DIMENSION_BRANCH_CENTER_MISMATCH');
+});
+it('rejects gaps, overlaps and missing centers in historical allocation evidence',()=>{
+ const f=fixture();const make=()=>[{from:'2026-01-01',to:'2026-06-30',centers:f.evidence.centers},{from:'2026-07-01',to:'2026-12-31',centers:f.evidence.centers}];
+ f.evidence.periods=make();f.evidence.periods[1].from='2026-07-02';expect(()=>projectDimensionalStatements(f.source,f.evidence)).toThrow('DIMENSION_TIMELINE_INCOMPLETE');
+ f.evidence.periods=make();f.evidence.periods[1].from='2026-06-30';expect(()=>projectDimensionalStatements(f.source,f.evidence)).toThrow('DIMENSION_TIMELINE_INCOMPLETE');
+ f.evidence.periods=make();f.evidence.periods[0].centers=[];expect(()=>projectDimensionalStatements(f.source,f.evidence)).toThrow('DIMENSION_TIMELINE_INCOMPLETE');
+});

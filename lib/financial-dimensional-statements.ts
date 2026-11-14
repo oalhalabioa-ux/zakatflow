@@ -10,6 +10,8 @@ export type DimensionEvidence = {
   revision: string;
   branches: readonly string[];
   centers: readonly {id: string; branchId: string | null}[];
+  /** Optional complete fiscal-to-report-date historical branch slices. */
+  periods?: readonly {from:string;to:string;centers:readonly {id:string;branchId:string|null}[]}[];
   opening: readonly {accountId: string; allocations: readonly Allocation[]}[];
   movements: readonly {journalId: string; lineIndex: number; allocations: readonly Allocation[]}[];
 };
@@ -29,14 +31,27 @@ export function projectDimensionalStatements(source: StatementSource, evidence: 
   const branches = new Set(evidence.branches), centers = new Map(evidence.centers.map(c => [c.id, c]));
   if (branches.size !== evidence.branches.length || [...branches].some(id => !id) || centers.size !== evidence.centers.length ||
       evidence.centers.some(c => !c.id || (c.branchId !== null && !branches.has(c.branchId)))) throw Error('DIMENSION_REGISTRY_INVALID');
+  if(evidence.periods){
+    const date=(s:string)=>/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
+    let expected=source.fiscalStart;
+    if(!evidence.periods.length)throw Error('DIMENSION_TIMELINE_INCOMPLETE');
+    for(const p of evidence.periods){
+      if(!date(p.from)||!date(p.to)||p.from!==expected||p.to<p.from||p.to>source.to||p.centers.length!==centers.size||
+        new Set(p.centers.map(c=>c.id)).size!==centers.size||p.centers.some(c=>!centers.has(c.id)||(c.branchId!==null&&!branches.has(c.branchId))))
+        throw Error('DIMENSION_TIMELINE_INCOMPLETE');
+      expected=new Date(Date.parse(p.to+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+    }
+    if(evidence.periods[evidence.periods.length-1].to!==source.to)throw Error('DIMENSION_TIMELINE_INCOMPLETE');
+  }
   const buckets = new Map<string, {dimension: Dimension; opening: Map<string, {debit: Decimal; credit: Decimal}>; journals: Map<string, LedgerLine[]>}>();
-  function allocate(line: {accountId: string; debit: string; credit: string}, parts: readonly Allocation[], write: (target: ReturnType<typeof bucket>, part: Allocation) => void) {
+  function allocate(date:string,line: {accountId: string; debit: string; credit: string}, parts: readonly Allocation[], write: (target: ReturnType<typeof bucket>, part: Allocation) => void) {
     if (!parts.length) throw Error('DIMENSION_ALLOCATION_MISSING');
     let debit = new Money(0), credit = new Money(0);
     const seen = new Set<string>();
+    const datedCenters=evidence.periods?new Map(evidence.periods.find(p=>p.from<=date&&p.to>=date)?.centers.map(c=>[c.id,c])??[]):centers;
     for (const p of parts) {
       if ((p.branchId !== null && !branches.has(p.branchId)) ||
-          (p.centerId !== null && (!centers.has(p.centerId) || centers.get(p.centerId)!.branchId !== p.branchId))) throw Error('DIMENSION_BRANCH_CENTER_MISMATCH');
+          (p.centerId !== null && (!datedCenters.has(p.centerId) || datedCenters.get(p.centerId)!.branchId !== p.branchId))) throw Error('DIMENSION_BRANCH_CENTER_MISMATCH');
       const id = key(p);
       if (seen.has(id)) throw Error('DIMENSION_ALLOCATION_DUPLICATE');
       seen.add(id);
@@ -58,7 +73,7 @@ export function projectDimensionalStatements(source: StatementSource, evidence: 
   for (const line of source.opening) {
     const a = opening.get(line.accountId);
     if (!a) throw Error('DIMENSION_OPENING_INCOMPLETE');
-    allocate(line, a.allocations, (b, p) => b.opening.set(line.accountId, {debit: amount(p.debit), credit: amount(p.credit)}));
+    allocate(source.fiscalStart,line, a.allocations, (b, p) => b.opening.set(line.accountId, {debit: amount(p.debit), credit: amount(p.credit)}));
   }
   const movements = new Map(evidence.movements.map(a => [JSON.stringify([a.journalId, a.lineIndex]), a]));
   if (movements.size !== evidence.movements.length || evidence.movements.some(a => !Number.isInteger(a.lineIndex) || a.lineIndex < 0)) throw Error('DIMENSION_MOVEMENT_DUPLICATE');
@@ -68,7 +83,7 @@ export function projectDimensionalStatements(source: StatementSource, evidence: 
     const a = movements.get(JSON.stringify([journal.id, index]));
     if (!a) throw Error('DIMENSION_MOVEMENT_INCOMPLETE');
     count++;
-    allocate(line, a.allocations, (b, p) => {
+    allocate(journal.date,line, a.allocations, (b, p) => {
       if (amount(p.debit).isZero() && amount(p.credit).isZero()) return;
       const lines = b.journals.get(journal.id) ?? [];
       lines.push({...line, debit: p.debit, credit: p.credit});
@@ -78,7 +93,7 @@ export function projectDimensionalStatements(source: StatementSource, evidence: 
   if (count !== movements.size) throw Error('DIMENSION_MOVEMENT_EXTRA');
   // Complete verified evidence also proves a registered center has no activity.
   // Preserve an explicit zero report instead of making a valid center disappear.
-  for (const center of evidence.centers) bucket({centerId:center.id,branchId:center.branchId});
+  for (const center of evidence.periods?evidence.periods.flatMap(p=>p.centers):evidence.centers) bucket({centerId:center.id,branchId:center.branchId});
   const rows = [...buckets.values()].map(b => {
     const slice: StatementSource = {...source,
       opening: [...b.opening].map(([accountId, n]) => ({accountId, debit: n.debit.toFixed(4), credit: n.credit.toFixed(4)})),

@@ -1,4 +1,4 @@
-import {resolveCenterBranches,type CenterBranchRegistry} from './financial-center-branch-registry';
+import {resolveCenterBranchTimeline,type CenterBranchRegistry} from './financial-center-branch-registry';
 import {compileEventLedger} from './financial-event-ledger';
 import {normalizeStatementSource,statementSourceEnvelope,type StatementQuery} from './financial-statement-source';
 import {projectDimensionalStatements,type DimensionEvidence} from './financial-dimensional-statements';
@@ -50,6 +50,7 @@ export function compileRegisteredDimensionalStatements(raw:unknown,query:Stateme
  evidence:Omit<EventDimensionEvidence,'centers'|'branches'>,registry:CenterBranchRegistry,
  workspace:DimensionalOpeningWorkspace|null,distribution:DimensionalOpeningDistribution|null){
  const envelope=statementSourceEnvelope.parse(raw);
- const centers=resolveCenterBranches(registry,query.organization,envelope.fiscalStart,query.to);
- return compileDimensionalEventStatements(raw,query,{...evidence,centers,branches:registry.branches},workspace,distribution);
+ const periods=resolveCenterBranchTimeline(registry,query.organization,envelope.fiscalStart,query.to);
+ const centers=periods[periods.length-1].centers;
+ return compileDimensionalEventStatements(raw,query,{...evidence,centers,periods,branches:registry.branches},workspace,distribution);
 }

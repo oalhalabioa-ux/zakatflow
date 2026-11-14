@@ -18,7 +18,7 @@ The user has authorized completion, merge and Production deployment. No addition
 2. Verify the promoted complete registered group migration on the final canonical bootstrap. Its actual SQL acceptance and fingerprint were captured in run 43641211891 / artifact 14131674924. It enumerates registered platform relationships; it does not establish unregistered legal entities.
 3. Persist, approve and independently validate source-bound group eliminations and their audit history. The existing in-memory adjustment worksheet is **not** an approved consolidation ledger.
 4. Finish final consolidated statements and exports after investment/equity eliminations, NCI/acquisition adjustments and currency translation where applicable. Never rename a pre-elimination rollup as consolidated.
-5. Complete temporal center reporting for mid-period transfers and frozen closed-year dimensional sources. Current explicit errors protect against using current assignments for historical statements.
+5. Complete actual acceptance for the new temporal center adapter and frozen closed-year dimensional sources. Cross-branch reversal/carrying-balance transfers must remain explicit source-backed operations; changing a registry assignment must never fabricate balancing entries.
 6. Reconcile current Production/main changes, rehearse the final migrations in QA, verify backup/rollback readiness and only then merge/deploy. Feature flags must not be enabled before their corresponding database and reporting paths are verified.
 
 At the initial checkpoint no hosted schema had changed. The QA rehearsal below supersedes that statement. No Production deployment or merge was performed; automatic intermediate Vercel previews were canceled.
@@ -52,3 +52,10 @@ Project: QA V2 `ubotbpjngtfvolthpfec`. Production `ejpzcsfwqziqxwhvqnay` was not
 ### Two-company test follow-up
 
 Run 43642697600 passed replay, production parity and compatibility. Its browser job passed all existing flows, including all center statements and source review, then rejected the new revenue fixture because its nullable `cost_center_id` was omitted. The fixture now sends explicit null, matching the native command contract; no production validation was weakened. Six source-bound service tests and TypeScript validation pass, including malformed server evidence returning a source error rather than a client-input error. The corrected actual worksheet test still requires a successful run.
+
+## Verified actual group preview and temporal center projection
+
+- Head `56e260d5a437121f71aa1d55634a9826aea5f793`: all four jobs in Opening acceptance run **43643444642** passed. Job 132595817504 explicitly passed the actual two-company source-bound worksheet (2026-11-14 21:39:13 UTC), including excess-amount rejection, unchanged company sources and revoked subsidiary access. This proves the preview path, not final consolidation approval.
+- The next local change adds contiguous dated center/branch slices from fiscal start through report end. Every original GL leg uses its transaction date; opening allocations use fiscal start. Gaps, overlaps, unapproved mappings and mismatched historical branches fail explicitly.
+- A center may now produce separate historical branch rows; the existing center UI/export already sums all matching rows when All branches is selected. This does not move opening balances or create transfer journals. A registry transfer alone has no accounting effect.
+- 33 targeted registry, dimensional projection/source/service and opening tests passed. A new final-head CI run and actual midperiod-transfer acceptance remain required. Frozen closed-year dimensions and cross-branch reversal attribution remain protected, not silently inferred.

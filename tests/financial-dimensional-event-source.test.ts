@@ -42,5 +42,20 @@ it('requires historical branch coverage from fiscal start even for a later displ
  const f=fixture();const registry={organizationId:f.raw.organizationId,complete:true as const,revision:'1',branches:['branch'],centerIds:['sales','operations'],assignments:['sales','operations'].map(centerId=>({id:centerId,organizationId:f.raw.organizationId,centerId,branchId:'branch',from:f.raw.fiscalStart,to:null,status:'APPROVED' as const,approvedBy:'owner',revision:'1'}))};
  expect(compileRegisteredDimensionalStatements(f.raw,f.query,f.evidence,registry,f.w,f.d).company.income.netProfit).toBe('-57.5000');
  registry.assignments[0].from=f.raw.fiscalStart.slice(0,4)+'-02-01';
- expect(()=>compileRegisteredDimensionalStatements(f.raw,f.query,f.evidence,registry,f.w,f.d)).toThrow('CENTER_BRANCH_PERIOD_INCOMPLETE');
+ expect(()=>compileRegisteredDimensionalStatements(f.raw,f.query,f.evidence,registry,f.w,f.d)).toThrow('CENTER_BRANCH_ASSIGNMENT_MISSING');
+});
+
+it('joins recognition legs to the approved branch in each historical slice',()=>{
+ const f=fixture();const registry={organizationId:f.raw.organizationId,complete:true as const,revision:'transfer-2',branches:['branch','new-branch'],centerIds:['sales','operations'],assignments:[
+  {id:'sales',organizationId:f.raw.organizationId,centerId:'sales',branchId:'branch',from:'2026-01-01',to:null,status:'APPROVED' as const,approvedBy:'owner',revision:'1'},
+  {id:'old',organizationId:f.raw.organizationId,centerId:'operations',branchId:'branch',from:'2026-01-01',to:'2026-03-31',status:'APPROVED' as const,approvedBy:'owner',revision:'2'},
+  {id:'new',organizationId:f.raw.organizationId,centerId:'operations',branchId:'new-branch',from:'2026-04-01',to:null,status:'APPROVED' as const,approvedBy:'owner',revision:'2'},
+ ]};
+ f.evidence.links=f.evidence.links.map(l=>({...l,branchId:l.centerId==='operations'&&f.raw.events.find(e=>e.id===l.eventId)!.date>='2026-04-01'?'new-branch':'branch'}));
+ const before=structuredClone(f.raw),r=compileRegisteredDimensionalStatements(f.raw,f.query,f.evidence,registry,f.w,f.d);
+ const old=r.rows.find(row=>row.centerId==='operations'&&row.branchId==='branch')!,next=r.rows.find(row=>row.centerId==='operations'&&row.branchId==='new-branch')!;
+ expect(old.statements.sourceJournalIds).toHaveLength(1);expect(next.statements.sourceJournalIds).toHaveLength(1);
+ expect(r.company.income.netProfit).toBe('-57.5000');expect(f.raw).toEqual(before);
+ f.evidence.links=f.evidence.links.map(l=>({...l,branchId:'branch'}));
+ expect(()=>compileRegisteredDimensionalStatements(f.raw,f.query,f.evidence,registry,f.w,f.d)).toThrow('DIMENSION_BRANCH_CENTER_MISMATCH');
 });
