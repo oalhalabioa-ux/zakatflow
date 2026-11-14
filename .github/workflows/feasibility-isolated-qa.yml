@@ -1,0 +1,46 @@
+name: Feasibility isolated QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lib/feasibility/**'
+      - 'components/feasibility/**'
+      - 'components/FeasibilityWorkspace.tsx'
+      - 'app/api/feasibility/**'
+      - 'app/[locale]/feasibility/**'
+      - 'docs/feasibility/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/feasibility-isolated-qa.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feasibility-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  feasibility-pure-and-api-tests:
+    # This workflow must not run privileged tests or access production secrets.
+    if: ${{ github.event.pull_request.number == 361 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out PR merge source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies (no application secrets)
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript validation
+        run: npm run typecheck
+      - name: Standalone engine, draft, access, and API route tests
+        run: npx vitest run lib/feasibility
