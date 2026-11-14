@@ -1,12 +1,20 @@
 import {describe,expect,it} from 'vitest';
 import {createStudy} from './engine';
-import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
+import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
 
 const id='6357a708-bae2-4634-9296-490404b1d8a4';
 const owner='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
 const study=()=>createStudy(id,'Independent study','SERVICES');
 
 describe('local feasibility import/cache fail-closed validation',()=>{
+ it('never permits a previous account\'s state to overwrite another local cache',()=>{
+  const alice='yaqeen-feasibility-drafts-v1:alice',bob='yaqeen-feasibility-drafts-v1:bob';
+  expect(canPersistLocalStudyCache(true,true,alice,alice)).toBe(true);
+  expect(canPersistLocalStudyCache(true,true,alice,bob)).toBe(false);
+  expect(canPersistLocalStudyCache(true,true,'',bob)).toBe(false);
+  expect(canPersistLocalStudyCache(false,true,bob,bob)).toBe(false);
+  expect(canPersistLocalStudyCache(true,false,bob,bob)).toBe(false);
+ });
  it('accepts compatible legacy cache with optional version and missing selection',()=>{
   const s=study();
   expect(parseLocalStudyCache({studies:[s]})).toMatchObject({selectedId:id,studies:[s]});
