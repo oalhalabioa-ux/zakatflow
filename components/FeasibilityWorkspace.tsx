@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useMemo,useState,type ChangeEvent,type ReactNode} from 'react';
+import {useEffect,useMemo,useRef,useState,type ChangeEvent,type ReactNode} from 'react';
 import {createStudy,evaluateStudy,scenarioLabels,waterFactoryLegalItems,type ChecklistStatus,type FeasibilityStudy,type Sector,type StudyStatus,type StudyTab,type TaskStatus,type Scenario} from '@/lib/feasibility/engine';
 import ProjectHandoffPanel from '@/components/feasibility/ProjectHandoffPanel';
 import CollaborationPanel from '@/components/feasibility/CollaborationPanel';
@@ -8,7 +8,7 @@ import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
 import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
 import SupplierComparisonPanel from '@/components/feasibility/SupplierComparisonPanel';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
-import {parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,FEASIBILITY_BACKUP_SCHEMA} from '@/lib/feasibility/local-drafts';
+import {parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -56,6 +56,9 @@ function SelectField<T extends string>({label,value,items,onChange}:{label:strin
 export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{locale:string;userId:string;readOnly?:boolean}){
  const ar=locale==='ar', storageKey='yaqeen-feasibility-drafts-v1:'+userId;
  const [loaded,setLoaded]=useState(false);
+ const [hydratedStorageKey,setHydratedStorageKey]=useState('');
+ const currentUserRef=useRef(userId);
+ currentUserRef.current=userId;
  // If local cache is malformed, preserve it verbatim: no automatic empty overwrite.
  const [storageSafe,setStorageSafe]=useState(true);
  const [studies,setStudies]=useState<FeasibilityStudy[]>([]);
@@ -72,8 +75,12 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const [cloudSavedStudyVersions,setCloudSavedStudyVersions]=useState<Record<string,string>>({});
  const [cloudOwnerIds,setCloudOwnerIds]=useState<Record<string,string>>({});
  useEffect(()=>{
+  // Account changes must never reuse the previous user's local or cloud data.
+  setLoaded(false);setStorageSafe(true);
+  setStudies([]);setSelectedId('');setTab('overview');
+  setCloudRevisions({});setCloudSavedStudyVersions({});setCloudOwnerIds({});
   try{
-   const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as {studies?:FeasibilityStudy[];selectedId?:string}|null;
+   const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as unknown;
    if(saved!==null){
     const checked=parseLocalStudyCache(saved);
     if(!checked)throw Error('INVALID_CACHE');
@@ -83,9 +90,14 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    setStorageSafe(false);
    setNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استعادة نسخة JSON سليمة أو مسودات QA V2.','Local study data are invalid and will not be overwritten. Restore a valid JSON backup or QA V2 copy.'));
   }
+  setHydratedStorageKey(storageKey);
   setLoaded(true);
  },[storageKey,ar]);
- useEffect(()=>{if(!loaded||!storageSafe)return;try{localStorage.setItem(storageKey,JSON.stringify({version:1,studies,selectedId}));}catch{setNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}},[loaded,storageSafe,storageKey,studies,selectedId,ar]);
+ useEffect(()=>{
+  if(!canPersistLocalStudyCache(loaded,storageSafe,hydratedStorageKey,storageKey))return;
+  try{localStorage.setItem(storageKey,JSON.stringify({version:1,studies,selectedId}));}
+  catch{setNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}
+ },[loaded,storageSafe,hydratedStorageKey,storageKey,studies,selectedId,ar]);
  const study=studies.find(s=>s.id===selectedId)??null;
  const sharedStudy=Boolean(study&&cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId);
  const effectiveReadOnly=readOnly||sharedStudy;
@@ -102,6 +114,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  // Explicit cloud synchronization: local drafts are never silently overwritten.
  const loadCloud=async()=>{
   if(cloudBusy)return;
+  const requestedUser=userId;
   if(studies.length&&!window.confirm(txt(ar,'سيتم استبدال المسودات المحلية بمسودات QA المحفوظة؛ صدّر نسخة احتياطية أولًا. متابعة؟','This replaces local drafts with saved QA copies. Export a backup first. Continue?')))return;
   setCloudBusy(true);
   try{
@@ -109,6 +122,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    if(!response.ok)throw new Error('READ_FAILED');
    const rows=parseCloudStudyRows(await response.json());
    if(!rows)throw new Error('INVALID_RESPONSE');
+   if(currentUserRef.current!==requestedUser)return;
    const documents=rows.map(x=>x.study);
    setStudies(documents);setSelectedId(documents[0]?.id??'');setStorageSafe(true);setTab('overview');
    setCloudRevisions(Object.fromEntries(rows.map(x=>[x.id,x.revision])));
@@ -120,6 +134,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  };
  const saveCloud=async()=>{
   if(effectiveReadOnly||cloudBusy||!study)return;
+  const requestedUser=userId;
   setCloudBusy(true);
   try{
    const revision=cloudRevisions[study.id];
@@ -131,6 +146,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    if(response.status===409)throw new Error('CONFLICT');
    if(!response.ok)throw new Error('SAVE_FAILED');
    const result=await response.json() as {revision:number};
+   if(currentUserRef.current!==requestedUser)return;
    setCloudRevisions(p=>({...p,[study.id]:result.revision}));
    setCloudSavedStudyVersions(p=>({...p,[study.id]:study.updatedAt}));
    setCloudOwnerIds(p=>({...p,[study.id]:userId}));
@@ -142,11 +158,13 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  };
  const importBackup=async(e:ChangeEvent<HTMLInputElement>)=>{
   if(readOnly)return;
+  const requestedUser=userId;
   const file=e.currentTarget.files?.[0];if(!file)return;
   try{
    if(file.size>2_000_000)throw new Error('large');
    const imported=parseStudyBackup(JSON.parse(await file.text()));
    if(!imported)throw new Error('format');
+   if(currentUserRef.current!==requestedUser)return;
    // Imports replace local drafts. No financial ledger, database or Financial Core mutation.
    if(!window.confirm(txt(ar,'سيتم استبدال المسودات المحلية الحالية بالملف المستورد. متابعة؟','This replaces current local drafts. Continue?')))return;
    // Imported backups have no trusted server revision: do not reuse optimistic locks from a previous draft.
@@ -174,6 +192,9 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  </>;
  const legalDone=study?.legal.filter(x=>x.status==='VERIFIED').length??0;
  const taskDone=study?.tasks.filter(x=>x.status==='DONE').length??0;
+ if(hydratedStorageKey!==storageKey){
+  return <main className="container fs-page" dir={ar?'rtl':'ltr'}><p role="status">{txt(ar,'جاري تحميل مسودات الحساب الحالي…','Loading this account\'s drafts…')}</p></main>;
+ }
  return <main className="container fs-page" dir={ar?'rtl':'ltr'}>
   <header className="fs-head"><div><span className="fs-eyebrow">YAQEEN BUSINESS / FEASIBILITY</span><h1>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
    <div className="fs-actions"><Button secondary onClick={download} disabled={!studies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly}/></label><Button secondary onClick={()=>window.print()} disabled={!study}>{txt(ar,'طباعة الدراسة','Print study')}</Button>{cloudEnabled&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={effectiveReadOnly||!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>
