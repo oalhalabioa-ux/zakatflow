@@ -228,7 +228,9 @@ jobs:
                             '20261109185816_debt_opening_category_routing.sql',
                             '20261109201129_native_debt_reversal_components.sql',
                             '20261109205527_ready_posting_defaults.sql',
-                            '20261110083244_vat_note_default_roles.sql'):
+                            '20261110083244_vat_note_default_roles.sql',
+                            '20261110191156_financial_branch_report_source.sql',
+                            '20261110193204_branch_zero_net_transfer_guard.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
@@ -247,6 +249,8 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-fiscal-budget-calendar.sql
       - name: Verify audited group legal control evidence and cross-tenant isolation
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-group-control-evidence.sql
+      - name: Verify atomic branch report source and tenant isolation
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-branch-report-source.sql
       - name: Verify versioned branch opening distribution and tenant isolation
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-branch-opening-distribution.sql
       - name: Verify zero-opening first-activity source contract with full historical and access guards
@@ -277,6 +281,15 @@ jobs:
           npx --no-install vitest run tests/financial-opening-ledger.test.ts
       - name: Independently reconcile general fiscal closes with the statement compiler
         run: FISCAL_QA_EVIDENCE=docs/financial-reports/evidence-opening-live/qa-financial-opening-general-fiscal.json npx --no-install vitest run tests/financial-fiscal-engine.test.ts
+      - name: Verify joint center opening storage in disposable database
+        run: |
+          docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-dimensional-opening-distribution.sql
+          python - <<'PYSQL'
+          from pathlib import Path
+          q=Path('tests/migration-history/catalog.sql').read_text().strip().rstrip(';')
+          Path('/tmp/dimension-catalog.sql').write_text("select coalesce(jsonb_agg(t),'[]') from ("+q+") t where object_key like '%financial_dimensional_opening%';")
+          PYSQL
+          docker exec -i supabase_db_opening-workspace-qa psql -X -q -t -A -v ON_ERROR_STOP=1 -U postgres -d postgres < /tmp/dimension-catalog.sql > docs/financial-reports/evidence-opening-live/dimensional-opening-schema.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

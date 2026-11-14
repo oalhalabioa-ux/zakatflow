@@ -203,7 +203,10 @@ try{
   await legal.getByLabel('Registered legal address',{exact:true}).waitFor();
   await legal.getByLabel('Registered legal address',{exact:true}).fill('Riyadh QA test address');
   await legal.getByLabel('Commercial or statutory registration number',{exact:true}).fill('123456789');
+  assert.equal(await legal.getByLabel('Registered legal address',{exact:true}).inputValue(),'Riyadh QA test address');
+  const legalWrite=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/organizations'&&r.request().method()==='PATCH');
   await legal.getByRole('button',{name:'Save changes',exact:true}).click();
+  const written=await legalWrite;assert.equal(written.status(),200,await written.text());assert.equal(written.request().postDataJSON().registered_address,'Riyadh QA test address');
   await legal.getByText('Organization details saved.',{exact:true}).waitFor();
   const legalSaved=(await (await page.request.get(app+'/api/organizations')).json()).find(x=>x.id===org);
   assert.equal(legalSaved.registered_address,'Riyadh QA test address');
@@ -371,6 +374,55 @@ try{
  const reread=await a.client.rpc('financial_reporting_policy_workspace',scope);assert.ifError(reread.error);assert.deepEqual(reread.data.policy.rules.map(({detailed,...rule})=>rule),initialRules.map(({detailed,...rule})=>({...rule,...(rule.cashDirection==='INFLOW'?{debitAccountId:'1000'}:rule.cashDirection==='OUTFLOW'?{creditAccountId:'1000'}:{})})));assert.equal(reread.data.policy.status,'DRAFT');assert.notEqual(reread.data.policy.id,before.data.policy.id,'Optional edits create a separate draft and preserve the approved policy');assert.ok(reread.data.policy.version>=1);
  const denied=await page.request.post(app+'/api/financial-reporting/policy',{data:{action:'initialize-defaults',organization:other,fiscalStart:'2026-01-01'},headers:{origin:app}});assert.equal(denied.status(),403,'Default initialization cannot cross organizations');
  const legacyDraft=await a.client.rpc('save_financial_reporting_policy',{...scope,p_expected_version:reread.data.policy.version,p_rules:initialRules,p_reason:'Legacy compatibility cycle'});assert.ifError(legacyDraft.error);const legacyApproved=await a.client.rpc('approve_financial_reporting_policy',{p_id:legacyDraft.data.id,p_expected_version:legacyDraft.data.version});assert.ifError(legacyApproved.error);await page.reload();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
+ await check('Banner branch selection, refresh and downloaded export use the same approved allocation',async()=>{
+  const branch=randomUUID();
+  sql(`insert into public.organization_entities(id,organization_id,name,entity_type,active) values('${branch}','${org}','QA report branch','BRANCH',true)`);
+  const opening=await a.client.rpc('financial_opening_workspace',scope);assert.ifError(opening.error);
+  const w=opening.data.workspace;
+  const entries=Object.fromEntries(w.approved_opening.map(row=>[row.itemId,[
+   {branchId:branch,debit:(Number(row.debit)*0.6).toFixed(4),credit:(Number(row.credit)*0.6).toFixed(4)},
+   {branchId:null,debit:(Number(row.debit)*0.4).toFixed(4),credit:(Number(row.credit)*0.4).toFixed(4)},
+  ]]));
+  const dist=await a.client.rpc('save_financial_branch_opening',{...scope,p_expected_version:0,p_opening_workspace:w.id,p_opening_version:w.version,p_entries:entries,p_reason:'QA actual branch reporting allocation'});assert.ifError(dist.error);
+  assert.ifError((await a.client.rpc('approve_financial_branch_opening',{p_distribution:dist.data.id,p_expected_version:dist.data.version})).error);
+  await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/financial-reports?screen=position&organization='+org);
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Branch',exact:true});
+  await picker.locator('option[value="'+branch+'"]').waitFor({state:'attached'});
+  assert.equal(await page.getByRole('combobox',{name:'Branch',exact:true}).count(),1);
+  const selected=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-reporting/live-statements'&&new URL(r.url()).searchParams.get('branch')===branch);
+  await picker.selectOption(branch);const response=await selected;assert.equal(response.status(),200,await response.text());
+  const data=await response.json();assert.equal(data.scope,'BRANCH');assert.equal(data.branchId,branch);assert.equal(data.statements.cash.opening,'300.0000');
+  await page.locator('[data-statement-ready="position"]').waitFor();
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.locator('[data-statement-ready="position"]').waitFor();assert.equal(await picker.inputValue(),branch);
+  await page.getByRole('button',{name:'Export report',exact:true}).click();const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'CSV',exact:true}).click();
+  const file=await downloaded;const csv=await readFile(await file.path(),'utf8');assert.ok(csv.includes(branch));assert.ok(csv.includes('300.0000'));
+  const hq=page.waitForResponse(r=>new URL(r.url()).searchParams.get('branch')==='HQ');await picker.selectOption('HQ');const head=await hq;assert.equal(head.status(),200);assert.equal((await head.json()).statements.cash.opening,'200.0000');
+  await page.locator('[data-statement-ready="position"]').waitFor();await page.screenshot({path:out+'/branch-report-banner-en.png',fullPage:true});
+  await picker.selectOption('ALL');await page.locator('[data-statement-ready="position"]').waitFor();
+ });
+ await check('Cost center banner and fresh CSV use the selected source, never company balances',async()=>{
+  const center=randomUUID();sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${center}','${org}','REPORT_QA','QA income center','OPERATING')`);
+  const response=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='cost-center-income');
+  await page.goto(app+'/en/financial-reports?screen=income&organization='+org);
+  const r=await response;assert.equal(r.status(),200,await r.text());assert.equal((await r.json()).scope,'COST_CENTER_INCOME_ONLY');
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Cost center',exact:true});
+  await picker.locator('option[value="'+center+'"]').waitFor({state:'attached'});await picker.selectOption(center);
+  const section=page.locator('[data-cost-center="'+center+'"]');await section.locator('table').waitFor();assert.equal(await page.locator('[data-statement-ready="income"]').count(),0);
+  const downloaded=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const file=await downloaded;const csv=await readFile(await file.path(),'utf8');assert.ok(csv.includes(center));assert.ok(csv.includes('COST_CENTER_INCOME_ONLY'));assert.ok(!csv.includes('500.0000'),'Opening cash must not become cost-center income');
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();assert.equal(await picker.inputValue(),center);
+  await page.screenshot({path:out+'/cost-center-income-banner-en.png',fullPage:true});
+  sql(`update public.organization_members set status='INACTIVE' where organization_id='${org}' and user_id='${a.id}'`);
+  try{await section.getByRole('button',{name:'Export center CSV',exact:true}).click();await section.getByRole('alert').waitFor();assert.equal(await section.locator('table').count(),0,'Revoked access must clear cached center values');assert.equal(await page.locator('[data-statement-ready="income"]').count(),0,'Company cache must not replace denied center results')}finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${org}' and user_id='${a.id}'`)}
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();await picker.selectOption('ALL');await page.locator('[data-statement-ready="income"]').waitFor();
+  const branchPicker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Branch',exact:true});
+  const jointResponse=page.waitForResponse(r=>{const u=new URL(r.url());return u.searchParams.get('action')==='cost-center-income'&&u.searchParams.get('branch')==='HQ'});
+  await branchPicker.selectOption('HQ');const joint=await jointResponse;assert.equal(joint.status(),200,await joint.text());assert.equal((await joint.json()).branch,'HQ');
+  await picker.locator('option[value="'+center+'"]').waitFor({state:'attached'});await picker.selectOption(center);await section.locator('table').waitFor();
+  const jointDownload=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const jointFile=await jointDownload;const jointCsv=await readFile(await jointFile.path(),'utf8');assert.ok(jointCsv.includes('HQ'));assert.ok(jointCsv.includes(center));
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();assert.equal(await branchPicker.inputValue(),'HQ');assert.equal(await picker.inputValue(),center);
+  await branchPicker.selectOption('ALL');await page.locator('[data-statement-ready="income"]').waitFor();assert.equal(await picker.inputValue(),'ALL');
+  const group=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'group-review',organization:org,from:'2026-01-01',to:'2026-12-31'}));assert.equal(group.status(),200,await group.text());const review=await group.json();assert.equal(review.consolidated,false);assert.equal(review.registryComplete,false);assert.equal(review.members[0].organizationId,org);
+ });
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const selector=page.locator('#corp-organization-controls select');await selector.waitFor();assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
  await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
   await page.setViewportSize({width:1672,height:941});
@@ -787,6 +839,25 @@ try{
  await check('Actual default posting cycle through native Liquidity APIs reconciles recognition, settlement and reports once',async()=>{
   const {verifyDefaultPostingActualCycle}=await import('./verify-default-opening-posting-cycle.mjs');
   report.defaultPostingActualCycle=await verifyDefaultPostingActualCycle({actor:a,outsider:b,page,app,out,sql,databaseUrl:url});
+ });
+ await check('Actual multi-line center expense and two-company source review reconcile independently',async()=>{
+  const organization=report.defaultPostingActualCycle.organization,first=randomUUID(),second=randomUUID();
+  sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${first}','${organization}','CENTER_A','Center A','OPERATING'),('${second}','${organization}','CENTER_B','Center B','ADMIN')`);
+  const classification=await a.client.from('financial_classifications').select('id').eq('organization_id',organization).eq('code','OPEX').single();assert.ifError(classification.error);
+  async function command(data){const r=await page.request.post(app+'/api/financial-events',{data,headers:{origin:app}});assert.equal(r.status(),200,await r.text());return (await r.json()).result}
+  const event=await command({action:'CREATE',payload:{organization_id:organization,entity_id:null,counterparty_id:null,event_type:'EXPENSE',source_module:'OPERATIONAL_CONSOLE',source_record_id:null,source_event_key:'center-acceptance:'+randomUUID(),event_date:'2026-10-01',due_date:'2026-10-01',base_currency:'SAR',description:'Two centers within one real voucher',lines:[{line_number:1,cost_center_id:first,amount:60,base_amount:60},{line_number:2,cost_center_id:second,amount:40,base_amount:40}].map(line=>({...line,description:'Center expense',classification_id:classification.data.id,currency:'SAR',exchange_rate:1,cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0})),obligations:[{obligation_key:'center-payable',obligation_type:'PAYABLE',settleable_amount:100,currency:'SAR',exchange_rate:1,base_currency:'SAR',settleable_base_amount:100}],links:[]}});
+  for(const status of ['PLANNED','COMMITTED'])await command({action:'TRANSITION',organization_id:organization,event_id:event,status,note:'Center acceptance'});
+  await command({action:'APPROVE',organization_id:organization,event_id:event,note:'Approve real center voucher'});
+  await command({action:'TRANSITION',organization_id:organization,event_id:event,status:'ACTUAL',note:'Post real center voucher'});
+  const params={organization,from:'2026-01-01',to:'2026-12-31'};
+  const response=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-income',...params}));assert.equal(response.status(),200,await response.text());const data=await response.json();assert.equal(data.rows.find(r=>r.centerId===first).income.netProfit,'-60.0000');assert.equal(data.rows.find(r=>r.centerId===second).income.netProfit,'-40.0000');assert.equal(data.rows.find(r=>r.centerId===null).income.netProfit,'1350.0000');assert.equal(data.companyIncome.netProfit,'1250.0000');
+  sql(`update public.organizations set parent_organization_id='${org}' where id='${organization}'`);
+  const group=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'group-review',...params,organization:org}));assert.equal(group.status(),200,await group.text());const review=await group.json();assert.equal(review.consolidated,false);assert.equal(review.members.length,2);assert.equal(review.members.find(m=>m.organizationId===organization).income.netProfit,'1250.0000');assert.ok(!('total' in review));
+  await page.setViewportSize({width:1490,height:1050});await page.goto(app+'/en/financial-reports?organization='+org+'&screen=income');
+  const groupResponse=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='group-review');await page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true}).click();assert.equal((await groupResponse).status(),200);
+  const groupTable=page.locator('[data-group-source-review="true"] table');await groupTable.waitFor();assert.equal(await groupTable.locator('tbody tr').count(),2);assert.equal(await page.locator('[data-statement-ready]').count(),0);await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();await groupTable.waitFor();
+  await page.screenshot({path:out+'/group-source-review-banner-en.png',fullPage:true});
+  await writeFile(out+'/center-actual-line-income.json',JSON.stringify(data,null,2));await writeFile(out+'/group-company-source-review.json',JSON.stringify(review,null,2));
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}

@@ -33,6 +33,7 @@ describe('group-only trial-balance adjustment staging',()=>{
   const source=rollupAuthorizedTrialBalances(request()),before=structuredClone(source),entry=elimination(),copy=structuredClone(entry);
   const result=previewGroupEliminations(source,parents,[entry]);
   expect(result.status).toBe('GROUP_ADJUSTMENT_PREVIEW_ONLY');
+  expect(result).toMatchObject({closingDebit:'250.0000',closingCredit:'250.0000'});
   expect(result).toMatchObject({beforeDebit:'350.0000',beforeCredit:'350.0000',adjustmentDebit:'100.0000',adjustmentCredit:'100.0000',afterDebit:'450.0000',afterCredit:'450.0000'});
   expect(result.rows.find(r=>r.reportingCode==='1100')).toMatchObject({beforeNetDebit:'100.0000',afterNetDebit:'0.0000'});
   expect(result.rows.find(r=>r.reportingCode==='2100')).toMatchObject({beforeNetDebit:'-100.0000',afterNetDebit:'0.0000'});
@@ -107,4 +108,17 @@ describe('group-only trial-balance adjustment staging',()=>{
   const s=rollupAuthorizedTrialBalances(request());s.byParent[0].members[0].debit='999';
   expect(()=>previewGroupEliminations(s,parents,[elimination()])).toThrow('GROUP_ADJUSTMENT_SOURCE_INVALID');
  });
+});
+
+it('does not reuse one pair of companies against unrelated remaining group balances',()=>{
+ const q=request(),third='third-company';
+ q.expectedOrganizationIds=[...q.expectedOrganizationIds,third];
+ q.members=[...q.members,{organizationId:third,from:q.from,to:q.to,currency:q.currency,details:[
+  {accountId:'third-ar',code:'110003',reportingCode:'1100',kind:'ASSET',debit:'100',credit:'0'},
+  {accountId:'third-ap',code:'210003',reportingCode:'2100',kind:'LIABILITY',debit:'0',credit:'100'},
+ ]}];
+ const first=elimination();first.lines[0].debit='80';first.lines[1].credit='80';
+ const second={...structuredClone(first),id:'second',sourceReferences:['different-invoice','different-bill']};
+ expect(()=>previewGroupEliminations(rollupAuthorizedTrialBalances(q),parents,[first,second]))
+  .toThrow('GROUP_ADJUSTMENT_RECIPROCAL_MEMBERS_MISSING');
 });

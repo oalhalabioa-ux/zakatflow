@@ -95,12 +95,13 @@ export function aggregateApprovedBranchOpenings(input:OpeningAttributionInput):O
  const rows:BranchOpeningEvidence['rows'][number][]=[];
  for(const sourceRow of sourceRows){
   const group=totals.get(sourceRow.accountCode);
-  if(!group||!group.debit.eq(sourceRow.debit)||!group.credit.eq(sourceRow.credit))
+  if(!group||!group.debit.minus(group.credit).eq(new Money(sourceRow.debit).minus(sourceRow.credit)))
    return stop('OPENING_ACCOUNT_AMOUNT_MISMATCH');
   rows.push({sourceId:sourceRow.sourceId,accountCode:sourceRow.accountCode,
    debit:sourceRow.debit,credit:sourceRow.credit,
    allocations:[...group.parts].map(([branchId,v])=>({
-    branchId,debit:v.debit.toFixed(4),credit:v.credit.toFixed(4),
+    branchId,debit:Money.max(v.debit.minus(v.credit),0).toFixed(4),
+    credit:Money.max(v.credit.minus(v.debit),0).toFixed(4),
    }))});
  }
  return{status:'OPENING_ATTRIBUTION_RECONCILED_PREVIEW_ONLY',itemCount,

@@ -7,7 +7,7 @@ export function priorStatementPeriod(from:string,to:string){
 }
 export function validStatementComparison(current:StatementSourceSnapshot,prior:StatementSourceSnapshot|null|undefined){
  if(!prior)return null;const expected=priorStatementPeriod(current.statements.from,current.statements.to);
- return current.origin===prior.origin&&current.scope===prior.scope&&current.statements.organizationId===prior.statements.organizationId&&current.statements.currency===prior.statements.currency&&prior.statements.from===expected.from&&prior.statements.to===expected.to?prior:null;
+ return current.origin===prior.origin&&current.scope===prior.scope&&current.branchId===prior.branchId&&current.statements.organizationId===prior.statements.organizationId&&current.statements.currency===prior.statements.currency&&prior.statements.from===expected.from&&prior.statements.to===expected.to?prior:null;
 }
 export function statementChange(current:string,prior:string|null|undefined,lowerIsBetter=false){
  if(prior===null||prior===undefined)return undefined;
