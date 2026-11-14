@@ -1,6 +1,7 @@
 // LOCAL UI fixture only. Not authentication, RLS or accounting certification.
 import {createServer} from 'node:http';
 import {verifyBundleBuilder} from './bundle-builder.mjs';
+import {verifyCenterBranches} from './center-branches.mjs';
 import {verifyFiscalSetupEditing} from './fiscal-setup.mjs';
 import {verifyPricingLayout} from './pricing-layout.mjs';
 import {createHmac} from 'node:crypto';
@@ -55,6 +56,7 @@ await page.route('**/api/**',async route=>{
   if(req.method()==='POST'&&body.action==='save')postingPolicy={...postingPolicy,status:'DRAFT',version:postingPolicy.version+1,rules:body.rules,reason:body.reason};
   data={organizationId:orgId,fiscalStart:'2026-01-01',policy:postingPolicy,accountLinkCoverage:[{accountCode:'159001',status:'NO_TEMPLATE'},{accountCode:'610001',status:'LINKED'}],approvedPolicy:postingApprovedPolicy,canSave:true,canApprove:true,events:[],classifications:[{id:'opex',name:'مصروفات المؤسسة'}],chart:['1000','1500','2100','6100','610001','610002','210001'].map(code=>({id:code,code,ar:code,en:code,cash:code==='1000',...(code.length>4?{reportingCode:code.slice(0,4),isPostable:true}:{})})),defaults:{version:1,rules:postingDefaults.filter(r=>!postingPolicy?.rules.some(x=>JSON.stringify([x.eventType,x.sourceModule,x.classificationId,x.cashDirection])===JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]))),unresolved:[],testedRuleCount:0}};
  }
+ else if(u.pathname==='/api/financial-reporting/center-branches')return route.fulfill({status:404,json:{error:'CENTER_BRANCH_DISABLED'}});
  else if(u.pathname==='/api/financial-reporting/chart')data={organizationId:orgId,accounts:[{kind:'ASSET',isActive:true,isPostable:true},{kind:'EQUITY',isActive:true,isPostable:true}]};
  else if(u.pathname==='/api/debt-catalog')data={organizations:[org,other],entities:[],base_currency:'SAR',parties:[]};
  else if(u.pathname==='/api/financial-register')data={asOf:'2026-11-09',baseCurrency:'SAR',organizations:[org],entities:[],cashMovements:[],debts:[],debtMovements:[],assets:[],warnings:[],organizationIds:[orgId],accounts:[{id:'bank-1',organizationId:orgId,name:'حساب المؤسسة',type:'BANK',currency:'SAR',nativeCurrency:'SAR',balance:0,restricted:0,uncleared:0,baseCurrency:'SAR',baseBalance:0,entityId:null,source:'LIQUIDITY',openingDate:null}]};
@@ -73,6 +75,7 @@ await page.route('**/api/**',async route=>{
 const out=process.env.SETTINGS_UI_OUT??'/tmp/yaqeen-settings-ui';await mkdir(out,{recursive:true});const checks=[];
 try{
  if(!process.env.SETTINGS_JOURNEY_ONLY){
+ await verifyCenterBranches({page,app,orgId});
  await verifyFiscalSetupEditing({page,app,orgId,setLock:value=>{fiscalLock=value;},out:process.env.SETTINGS_UI_SKIP_SNAPSHOTS?null:out});
  checks.push('Fiscal setup editing, persistence and activity lock separate from year closure');
  for(const locale of locales){

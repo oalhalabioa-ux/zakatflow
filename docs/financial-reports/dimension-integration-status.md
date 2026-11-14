@@ -85,3 +85,10 @@ Added draft private immutable dated assignments with authorized create/approve a
 - Added draft future-only atomic transfer: close old open interval, insert next assignment via the existing authorized command, and retain before/after rows in a private audit table. Invalid targets roll back the close. No retroactive transfer or current-day reinterpretation is allowed.
 - Added authenticated transfer service and management API routing; 15 targeted tests and TypeScript pass. Updated disposable SQL acceptance covers rollback, contiguous periods and audit. The transfer SQL itself still awaits the next CI run.
 - No feature flag enabled, no hosted migration and no deployment. Live UI/source integration and final consolidation remain outstanding.
+
+### Registry management UI
+
+- All seven workflows passed on `7fb636463a13be8de7a7ec2acb921532fbc54930`, including SQL prospective transfer rollback and audit checks.
+- Added center/branch history and assignment/transfer form inside organization structure settings. Company identity comes from the existing shared banner; no report-level selector is duplicated. Scope changes unmount the editor and abort pending requests. Conflicts refresh the registry rather than silently retrying a write.
+- UI is hidden when the server feature flag is disabled. Added browser fixture coverage for assignment, reload, prospective transfer and mobile width; execution pending on next CI. TypeScript passed locally.
+- Registry SQL remains draft pending canonical promotion with observed schema fingerprints. Live center position/cash and final consolidation are still incomplete.
