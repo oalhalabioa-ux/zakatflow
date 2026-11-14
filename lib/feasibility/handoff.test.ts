@@ -30,6 +30,14 @@ describe('project company handoff preflight',()=>{
   const s=readyStudy();s.country='';expect(handoffReadiness(s).checks.find(x=>x.key==='identity')?.passed).toBe(false);
   s.country='Saudi Arabia';s.currency='';expect(handoffReadiness(s).ready).toBe(false);
  });
+ it('rejects unallocated excess investment funding, not just shortfalls',()=>{
+  const s=readyStudy();
+  s.investorEquity=100001;
+  expect(handoffReadiness(s).checks.find(x=>x.key==='finance')?.passed).toBe(false);
+  expect(handoffReadiness(s).ready).toBe(false);
+  s.investorEquity=100000;
+  expect(handoffReadiness(s).ready).toBe(true);
+ });
  it('generates only allowlisted organization V2 setup paths',()=>{
   const id='6357a708-bae2-4634-9296-490404b1d8a4';
   expect(handoffSetupPath('ar',id,[id])).toBe('/ar/settings/financial/setup?organization='+id);
