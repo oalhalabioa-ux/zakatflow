@@ -83,7 +83,13 @@ export function projectDimensionalStatements(source: StatementSource, evidence: 
     const a = movements.get(JSON.stringify([journal.id, index]));
     if (!a) throw Error('DIMENSION_MOVEMENT_INCOMPLETE');
     count++;
-    allocate(journal.date,line, a.allocations, (b, p) => {
+    // A reversal cancels the original dimension, even if the center has since
+    // moved. Keep the reversal's accounting date for period reporting; only
+    // validate its attribution against the original journal's dated registry.
+    // Company and per-dimension engines independently enforce exact reversals.
+    const attributionDate=journal.reversesJournalId
+      ? journals.find(original=>original.id===journal.reversesJournalId)!.date : journal.date;
+    allocate(attributionDate,line, a.allocations, (b, p) => {
       if (amount(p.debit).isZero() && amount(p.credit).isZero()) return;
       const lines = b.journals.get(journal.id) ?? [];
       lines.push({...line, debit: p.debit, credit: p.credit});

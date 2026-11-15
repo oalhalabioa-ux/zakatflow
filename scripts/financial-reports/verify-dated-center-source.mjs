@@ -38,6 +38,24 @@ export async function verifyDatedCenterSource({actor,page,app,out,sql,databaseUr
  const download=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const csv=await readFile(await(await download).path(),'utf8');assert.ok(csv.includes(branch)&&csv.includes(center)&&csv.includes('20.0000'));
  assert.equal(await page.locator('[data-statement-ready]').count(),0);
  await page.screenshot({path:out+'/dated-center-branch-position.png',fullPage:true});
+ // Exercise the actual future transfer command after source activity exists.
+ const transferDate=sql("select (current_date+2)::text").trim();
+ registry=await rpc('financial_center_branch_registry',{p_org:organization});
+ const transferPayload={action:'transfer',organization,center,branch:null,from:transferDate,expectedRevision:Number(registry.revision),reason:'Prospective center reassignment preserves historical journals'};
+ const postTransfer=async(payload,status)=>{const response=await page.request.post(app+'/api/financial-reporting/center-branches',{data:payload,headers:{origin:app}});const body=await response.json();assert.equal(response.status(),status,JSON.stringify(body));return body};
+ await postTransfer({...transferPayload,from:'2026-01-01'},422);
+ await postTransfer({...transferPayload,expectedRevision:Math.max(0,Number(registry.revision)-1)},409);
+ // A foreign/missing destination must roll back closure of the prior interval.
+ await postTransfer({...transferPayload,branch:randomUUID()},422);
+ assert.deepEqual(await rpc('financial_center_branch_registry',{p_org:organization}),registry);
+ const transferred=await postTransfer(transferPayload,201);assert.equal(transferred.revision,Number(registry.revision)+1);
+ const afterRegistry=await rpc('financial_center_branch_registry',{p_org:organization});
+ assert.equal(afterRegistry.assignments.filter(a=>a.centerId===center&&a.to===null).length,1);
+ assert.equal(afterRegistry.assignments.find(a=>a.id===transferred.id).branchId,null);
+ assert.equal(Number(sql(`select count(*) from private.financial_center_branch_transfers where organization_id='${organization}' and next_assignment='${transferred.id}'`)),1);
+ const afterTransfer=await read('2026-01-01','2026-12-31');assert.deepEqual(afterTransfer.rows,full.rows);
+ const afterOriginals=await actor.client.from('financial_events').select('id,entity_id,event_date').in('id',events).eq('organization_id',organization);assert.ifError(afterOriginals.error);assert.deepEqual(afterOriginals.data,originals.data);
+ await writeFile(out+'/center-prospective-transfer.json',JSON.stringify({transferDate,transferred,registryBefore:registry,registryAfter:afterRegistry,sourceRowsUnchanged:true},null,2));
  await writeFile(out+'/dated-center-source.json',JSON.stringify({organization,center,branch,events,historical,full,later},null,2));
  return{organization,center,branch,events,historicalPreserved:true,branchExportVerified:true};
 }

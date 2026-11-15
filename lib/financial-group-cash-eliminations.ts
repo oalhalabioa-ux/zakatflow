@@ -56,5 +56,6 @@ export function previewGroupCashEliminations(control:GroupControlPreflight,raw:r
  const rows=activities.map(activity=>{const before=totals(activity.toLowerCase() as 'operating'|'investing'|'financing'),adjustment=adjustments.get(activity)!;return{activity,before:before.toFixed(4),adjustment:adjustment.toFixed(4),after:before.plus(adjustment).toFixed(4)}});
  if(!rows.reduce((n,r)=>n.plus(r.adjustment),new D(0)).isZero()||!rows.reduce((n,r)=>n.plus(r.after),new D(0)).eq(totals('movement')))throw Error('GROUP_CASH_UNRECONCILED');
  return{status:'SOURCE_BOUND_GROUP_CASH_PREVIEW_ONLY' as const,consolidated:false as const,control:preflight.control,documents,bindings,rows,
+  eliminatedInflow:entries.reduce((n,e)=>n.plus(e.amount),new D(0)).toFixed(4),eliminatedOutflow:entries.reduce((n,e)=>n.plus(e.amount),new D(0)).toFixed(4),
   opening:totals('opening').toFixed(4),movement:totals('movement').toFixed(4),closing:totals('closing').toFixed(4)};
 }

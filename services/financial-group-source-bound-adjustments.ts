@@ -8,7 +8,7 @@ import {verifyGroupOpenItems} from '../lib/financial-group-open-items';
 import {assertStableFinancialReplay} from '../lib/financial-source-replay';
 import {readGroupDocumentMatches} from './financial-group-document-matches';
 import {verifyGroupDocumentMatches} from '../lib/financial-group-document-matches';
-const request=z.object({query:statementQuery,entries:z.array(groupAdjustmentSchema).max(200)}).strict();
+const request=z.object({query:statementQuery,entries:z.array(groupAdjustmentSchema).max(200).refine(rows=>new Set(rows.map(r=>r.id)).size===rows.length,'DUPLICATE_ADJUSTMENT_ID')}).strict();
 /** Read-only evidence-bound worksheet. No approval, company posting or export. */
 export async function liveSourceBoundGroupPreview(input:unknown){
  if(process.env.FINANCIAL_GROUP_ELIMINATION_PREVIEW!=='true')throw Error('REPORTING_DISABLED');

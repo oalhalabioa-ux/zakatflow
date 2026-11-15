@@ -230,13 +230,16 @@ jobs:
                             '20261109205527_ready_posting_defaults.sql',
                             '20261110083244_vat_note_default_roles.sql',
                             '20261110191156_financial_branch_report_source.sql',
-                            '20261110193204_branch_zero_net_transfer_guard.sql'):
+                            '20261110193204_branch_zero_net_transfer_guard.sql',
+                            '20261115085118_financial_closed_dimension_evidence.sql'):
             (root/'migrations'/migration).unlink()
           PY
       - name: Apply entire schema to empty local Supabase
         run: npx --yes supabase@2.122.0 start --workdir "$OPENING_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/opening-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/opening-start.log"; exit 1; }
       - name: Upgrade existing approved legacy fixtures without changing their records or statements
         run: node scripts/financial-reports/verify-fiscal-upgrade.mjs
+      - name: Apply frozen dimension evidence after legacy fiscal upgrade
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/migrations/20261115085118_financial_closed_dimension_evidence.sql
       - name: Verify real organization default activation and automatic child rules
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-ready-posting-defaults.sql
       - name: Verify native borrowing and lending reversals with immediate capture

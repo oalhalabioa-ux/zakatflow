@@ -23,7 +23,7 @@ describe('source-bound internal cash elimination worksheet',()=>{
   expect(r.rows).toEqual([{activity:'OPERATING',before:'0.0000',adjustment:'0.0000',after:'0.0000'},
    {activity:'INVESTING',before:'-100.0000',adjustment:'50.0000',after:'-50.0000'},
    {activity:'FINANCING',before:'50.0000',adjustment:'-50.0000',after:'0.0000'}]);
-  expect([r.opening,r.movement,r.closing,r.consolidated]).toEqual(['1000.0000','-50.0000','950.0000',false]);expect(f.sources).toEqual(before);
+  expect([r.opening,r.movement,r.closing,r.consolidated]).toEqual(['1000.0000','-50.0000','950.0000',false]);expect(f.sources).toEqual(before);expect([r.eliminatedInflow,r.eliminatedOutflow]).toEqual(['50.0000','50.0000']);
  });
  it('requires current approved documentary pairing of the exact two source events',()=>{
   for(const change of ['REVOKED','stale','other']){const f=fixture();if(change==='REVOKED')f.documents[0].status='REVOKED';else if(change==='stale')f.documents[0].sourceCurrent=false;else f.documents[0].leftEventId='80000000-0000-4000-8000-000000000001';

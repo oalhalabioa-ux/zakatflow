@@ -79,3 +79,20 @@ it('rejects gaps, overlaps and missing centers in historical allocation evidence
  f.evidence.periods=make();f.evidence.periods[1].from='2026-06-30';expect(()=>projectDimensionalStatements(f.source,f.evidence)).toThrow('DIMENSION_TIMELINE_INCOMPLETE');
  f.evidence.periods=make();f.evidence.periods[0].centers=[];expect(()=>projectDimensionalStatements(f.source,f.evidence)).toThrow('DIMENSION_TIMELINE_INCOMPLETE');
 });
+
+it('reverses a pre-transfer movement in its original branch while keeping the later accounting date',()=>{
+ const f=fixture();f.evidence.centers=[{id:'sales',branchId:'jeddah'},{id:'operations',branchId:'jeddah'}];
+ f.evidence.periods=[{from:'2026-01-01',to:'2026-06-30',centers:[{id:'sales',branchId:'riyadh'},{id:'operations',branchId:'jeddah'}]},
+  {from:'2026-07-01',to:'2026-12-31',centers:f.evidence.centers}];
+ f.source.journals.push({...f.source.journals[0],id:'reverse',date:'2026-08-01',reversesJournalId:'expense',lines:f.source.journals[0].lines.map(l=>({...l,debit:l.credit,credit:l.debit}))});
+ const reverse=f.evidence.movements.map(m=>({...m,journalId:'reverse',allocations:m.allocations.map(a=>({...a,debit:a.credit,credit:a.debit}))}));
+ f.evidence.movements=[...f.evidence.movements,...reverse];
+ f.source.from='2026-07-01';
+ const result=projectDimensionalStatements(f.source,f.evidence);
+ const original=result.rows.find(r=>r.centerId==='sales'&&r.branchId==='riyadh')!;
+ const next=result.rows.find(r=>r.centerId==='sales'&&r.branchId==='jeddah')!;
+ expect(original.statements.income.netProfit).toBe('50.0000');expect(original.statements.cash).toMatchObject({opening:'450.0000',operating:'50.0000',closing:'500.0000'});
+ expect(next.statements.sourceJournalIds).toEqual([]);expect(next.statements.position.assets).toBe('0.0000');
+ reverse.forEach(m=>{m.allocations[0].branchId='jeddah'});
+ expect(()=>projectDimensionalStatements(f.source,f.evidence)).toThrow('DIMENSION_BRANCH_CENTER_MISMATCH');
+});
