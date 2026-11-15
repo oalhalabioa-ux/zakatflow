@@ -125,18 +125,18 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
     const result=await response.json() as {studies?:unknown;canWrite?:unknown};
     const rows=parseInstitutionalCloudRows(result.studies,organizationId);
     if(!rows||typeof result.canWrite!=='boolean')throw Error('INVALID_COMPANY_RESPONSE');
-    if(controller.signal.aborted||organizationRequestRef.current!==requestId)return;
+    if(controller.signal.aborted||organizationRequestRef.current!==requestId||currentUserRef.current!==userId)return;
     setOrganizationStudies(rows.map(x=>x.study));
     setOrganizationSelectedId(rows[0]?.id||'');
     setOrganizationRecords(Object.fromEntries(rows.map(x=>[x.id,x])));
     setOrganizationCanWrite(result.canWrite&&!readOnly);
    }catch(e){
-    if(controller.signal.aborted||organizationRequestRef.current!==requestId)return;
+    if(controller.signal.aborted||organizationRequestRef.current!==requestId||currentUserRef.current!==userId)return;
     setOrganizationError(e instanceof Error&&e.message==='ORG_NOT_AVAILABLE'
      ?txt(ar,'المحفظة المؤسسية غير مفعّلة بعد أو لا تملك صلاحية الوصول إليها.','Institutional studies are disabled or not authorized yet.')
      :txt(ar,'تعذر تحميل دراسات المؤسسة؛ لم تتغير مسوداتك الشخصية.','Unable to load company studies; personal drafts are unchanged.'));
    }finally{
-    if(!controller.signal.aborted&&organizationRequestRef.current===requestId)
+    if(!controller.signal.aborted&&organizationRequestRef.current===requestId&&currentUserRef.current===userId)
      setOrganizationLoaded(true);
    }
   })();
