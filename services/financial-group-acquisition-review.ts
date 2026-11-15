@@ -90,6 +90,10 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
   investmentAccountId:string|null;
   continuityDocumented:boolean;
   ordinaryDividend?:GroupAcquisitionMeasurementInput['ordinaryDividend'];
+  inventoryTaxAssessment?:{
+   measurement:NonNullable<GroupAcquisitionMeasurementInput['inventoryTaxAssessment']>;
+   documentFingerprint:string;
+  };
   fairValueTaxBasisDocumented?:boolean;
   noDeferredTaxRequired?:boolean;
   depreciationSchedules?:{accountId:string;usefulLifeDays:number;deferredTaxLiabilityAccountId?:string}[];
@@ -103,9 +107,13 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
    const calculation=measureGroupAcquisition(control,record.measurement,preflight.wholeEntityRollup.currency);
    if(calculation.controlAssessmentId!==record.controlId||calculation.reassessmentRequired)
     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
+   const tax=record.measurement.inventoryTaxAssessment;
+   const taxDocument=tax?record.documents.find(document=>document.id===tax.evidenceDocumentId):undefined;
+   if(tax&&!taxDocument)throw Error('GROUP_ACQUISITION_TAX_DOCUMENT_REQUIRED');
    return {id:record.id,subsidiaryName:record.subsidiaryName,approvedAt:record.approvedAt,
     documentCount:record.documents.length,calculation,continuityDocumented:Boolean(record.measurement.continuityBasis),investmentAccountId:record.measurement.investmentLink?.accountId??null,
     ...(includeBookItems?{...(record.measurement.ordinaryDividend?{ordinaryDividend:record.measurement.ordinaryDividend}:{}),
+     ...(tax&&taxDocument?{inventoryTaxAssessment:{measurement:tax,documentFingerprint:taxDocument.sha256}}:{}),
      fairValueTaxBasisDocumented:Boolean(record.measurement.fairValueBasis),
      noDeferredTaxRequired:record.measurement.fairValueBasis?.deferredTax==='NOT_REQUIRED',
      depreciationSchedules:record.measurement.continuityBasis?.treatment==='STRAIGHT_LINE_UPLIFT'?record.measurement.continuityBasis.schedules:[],
@@ -118,6 +126,14 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
 
 export function readApprovedGroupAcquisitions(input:unknown){
  return approvedGroupAcquisitions(input,false);
+}
+
+export async function readApprovedInventoryTaxAssessment(input:unknown,id:string){
+ const approved=await approvedGroupAcquisitions(input,true);
+ const row=approved.rows.find(candidate=>candidate.id===id);
+ if(!row?.inventoryTaxAssessment)throw Error('GROUP_INVENTORY_TAX_ASSESSMENT_REQUIRED');
+ const {parentOrganizationId,subsidiaryOrganizationId}=row.calculation;
+ return {parentOrganizationId,subsidiaryOrganizationId,approvedAt:row.approvedAt,...row.inventoryTaxAssessment};
 }
 
 const ledgerBasisRequest=z.object({action:z.literal('LEDGER_BASIS'),query:statementQuery,id:z.string().uuid()}).strict();

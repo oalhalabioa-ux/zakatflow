@@ -12,6 +12,7 @@ export const inventoryMarginReviewRequest=z.object({
  sellerOrganizationId:uuid,buyerOrganizationId:uuid,
  saleEventId:uuid,costEventId:uuid,purchaseEventId:uuid,
  saleDocumentMatchId:uuid,costDocumentMatchId:uuid,
+ taxAssessmentRecordId:uuid.optional(),
 }).strict();
 type InventoryReview=z.infer<typeof inventoryMarginReviewRequest>;
 export function inventoryMarginDocumentPairs(request:InventoryReview){

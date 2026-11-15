@@ -2,6 +2,7 @@ import {expect,it,vi} from 'vitest';
 import {inventoryMarginDocumentPairs,inventoryMarginReviewRequest,reviewInventoryMargin} from '../lib/financial-group-inventory-margin';
 import {sourceBoundGroupFixture} from './financial-reporting/group-source-bound-fixture';
 import {liveInventoryMarginReview} from '../services/financial-group-inventory-margin';
+import {inventoryDeferredTaxReview,inventoryTaxAssessmentSchema} from '../lib/financial-group-inventory-tax';
 
 const evidence=vi.hoisted(()=>({sources:vi.fn(),documents:vi.fn()}));
 vi.mock('../services/financial-group-registered-source',()=>({liveRegisteredGroupEvidence:evidence.sources}));
@@ -92,4 +93,21 @@ it('returns a stable read and withholds the result if documentary approval chang
    .mockResolvedValueOnce([{...f.documents[0],status:'REVOKED'},f.documents[1]]);
   await expect(liveInventoryMarginReview(f.request)).rejects.toThrow('REPORTING_SOURCE_CHANGED_DURING_VERIFICATION');
  }finally{vi.unstubAllEnvs();}
+});
+
+it('measures at the approved buyer recovery rate and only recognizes the recoverable asset',()=>{
+ const f=fixture(),assessment=inventoryTaxAssessmentSchema.parse({
+  buyerOrganizationId:f.request.buyerOrganizationId,saleEventId:f.request.saleEventId,costEventId:f.request.costEventId,
+  purchaseEventId:f.request.purchaseEventId,evidenceDocumentId:id(9),
+  buyerTaxBasis:'1000',buyerRecoveryRatePercent:'20',recoverability:'PROBABLE',
+ });
+ expect(inventoryDeferredTaxReview('1000','800',assessment)).toMatchObject({
+  deductibleTemporaryDifference:'200.0000',deferredTaxAssetIncrease:'40.0000',
+  unrecognizedDeferredTaxAsset:'0.0000',groupAfterTaxProfitReduction:'160.0000',
+ });
+ expect(inventoryDeferredTaxReview('1000','800',{...assessment,recoverability:'NOT_PROBABLE'})).toMatchObject({
+  deferredTaxAssetIncrease:'0.0000',unrecognizedDeferredTaxAsset:'40.0000',groupAfterTaxProfitReduction:'200.0000',
+ });
+ expect(()=>inventoryDeferredTaxReview('1000','800',{...assessment,buyerTaxBasis:'900'})).toThrow('GROUP_INVENTORY_TAX_BASIS_UNSUPPORTED');
+ expect(inventoryTaxAssessmentSchema.safeParse({...assessment,buyerRecoveryRatePercent:'100.01'}).success).toBe(false);
 });

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 
-export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,jointDocument,parent,subsidiary,query,out}){
+export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,jointDocument,parent,subsidiary,query,out,
+ acquisitionPath,documentPath,acquisitionMeasurement}){
  async function prepare(organization,entries){
   let workspace=await rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:query.from});
   for(const code of new Set(entries.flatMap(entry=>[entry.debit,entry.credit]))){
@@ -61,6 +62,33 @@ export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,
  assert.deepEqual(result.illustrativePretaxAttribution,{parent:'160.0000',nonControllingInterests:'40.0000'});
  assert.equal(result.taxAssessmentRequired,true);
  assert.equal(result.issuanceReady,false);
+ const taxDocument=await request(documentPath,{query,subsidiary,id:randomUUID(),action:'UPLOAD',
+  title:'Buyer stock tax basis and recovery-rate assessment',
+  pdf:Buffer.from('%PDF-1.4\n% Disposable inventory tax evidence\n%%EOF\n').toString('base64')});
+ const assessment={buyerOrganizationId:parent,saleEventId,costEventId,purchaseEventId,evidenceDocumentId:taxDocument.id,
+  buyerTaxBasis:'1000',buyerRecoveryRatePercent:'20',recoverability:'PROBABLE'};
+ const taxKey={query,id:randomUUID()};
+ const withTax={...payload,taxAssessmentRecordId:taxKey.id};
+ const forged=await request(acquisitionPath,{...taxKey,action:'SAVE',measurement:{...acquisitionMeasurement,
+  inventoryTaxAssessment:{...assessment,purchaseEventId:randomUUID()}}},422);
+ assert.equal(forged.error,'GROUP_ACQUISITION_TAX_SOURCE_REQUIRED');
+ await request(acquisitionPath,{...taxKey,action:'SAVE',measurement:{...acquisitionMeasurement,inventoryTaxAssessment:assessment}});
+ assert.equal((await request(path,withTax,422)).error,'GROUP_INVENTORY_TAX_ASSESSMENT_REQUIRED');
+ await request(acquisitionPath,{...taxKey,action:'APPROVE',reason:'Approve buyer basis, recovery rate and probable deductibility for this lot'});
+ const taxReview=await request(path,withTax);
+ assert.equal(taxReview.taxAssessmentRequired,false);
+ assert.equal(taxReview.issuanceReady,false);
+ assert.deepEqual(taxReview.deferredTax,{
+  approvedRecordId:taxKey.id,evidenceDocumentId:taxDocument.id,
+  buyerTaxBasis:'1000.0000',consolidatedInventoryCarryingAmount:'800.0000',deductibleTemporaryDifference:'200.0000',
+  buyerRecoveryRatePercent:'20',recoverability:'PROBABLE',deferredTaxAssetIncrease:'40.0000',
+  unrecognizedDeferredTaxAsset:'0.0000',groupAfterTaxProfitReduction:'160.0000',
+ });
+ assert.deepEqual(taxReview.illustrativePretaxAttribution,result.illustrativePretaxAttribution);
+ await request(acquisitionPath,{...taxKey,action:'REVOKE',reason:'Verify withdrawn tax approval is rejected by the stock review'});
+ assert.equal((await request(path,withTax,422)).error,'GROUP_INVENTORY_TAX_ASSESSMENT_REQUIRED');
+ await writeFile(out+'/group-inventory-deferred-tax-review.json',JSON.stringify(taxReview,null,2));
+ console.log('PASS Approved buyer tax basis produces the deferred tax review and revocation withholds it');
  await buyer(issue);
  assert.equal((await request(path,payload,422)).error,'GROUP_INVENTORY_REMAINING_STOCK_UNVERIFIED');
  await writeFile(out+'/group-inventory-margin-review.json',JSON.stringify(result,null,2));

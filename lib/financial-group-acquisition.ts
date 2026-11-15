@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import {z} from 'zod';
 import {validateGroupControlScope,type GroupControlPreflight} from './financial-group-control';
+import {inventoryTaxAssessmentSchema} from './financial-group-inventory-tax';
 const D=Decimal.clone({precision:50,rounding:Decimal.ROUND_HALF_UP});
 const money=z.string().regex(/^\d{1,20}(\.\d{1,4})?$/);
 const signed=z.string().regex(/^-?\d{1,20}(\.\d{1,4})?$/);
@@ -13,6 +14,7 @@ export const groupAcquisitionMeasurementSchema=z.object({
  transactionType:z.literal('SINGLE_STEP_BUSINESS_COMBINATION'),commonControl:z.literal(false),
  instruments:z.literal('ORDINARY_PROPORTIONATE'),
  consideration:money,considerationEvidence:evidence,
+ inventoryTaxAssessment:inventoryTaxAssessmentSchema.optional(),
  ordinaryDividend:z.object({
   subsidiaryEventId:z.string().uuid(),parentEventId:z.string().uuid(),evidenceDocumentId:z.string().uuid(),
   parentPayment:z.object({subsidiaryEventId:z.string().uuid(),parentEventId:z.string().uuid(),evidenceDocumentId:z.string().uuid()}).strict().optional(),

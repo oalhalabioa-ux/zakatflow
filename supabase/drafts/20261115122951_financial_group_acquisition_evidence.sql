@@ -221,7 +221,7 @@ begin
     or not coalesce(p_measurement->>'consideration','') ~ money_pattern
     or length(trim(coalesce(p_measurement->>'considerationEvidence',''))) not between 8 and 1000
     or jsonb_typeof(p_measurement->'identifiableItems') is distinct from 'array'
-    or p_measurement - array['parentOrganizationId','subsidiaryOrganizationId','currency','acquisitionDate','transactionType','commonControl','instruments','consideration','considerationEvidence','identifiableItems','nci','investmentLink','fairValueBasis','continuityBasis','ordinaryDividend'] <> '{}'::jsonb
+    or p_measurement - array['parentOrganizationId','subsidiaryOrganizationId','currency','acquisitionDate','transactionType','commonControl','instruments','consideration','considerationEvidence','identifiableItems','nci','investmentLink','fairValueBasis','continuityBasis','ordinaryDividend','inventoryTaxAssessment'] <> '{}'::jsonb
     then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
   if jsonb_array_length(p_measurement->'identifiableItems') not between 1 and 1000
     or (select count(distinct value->>'id') from jsonb_array_elements(p_measurement->'identifiableItems')) <>
@@ -330,6 +330,32 @@ begin
       document_refs := array_append(document_refs,schedule->>'evidenceDocumentId');
     end if;
 
+  end if;
+  if p_measurement ? 'inventoryTaxAssessment' then
+    item := p_measurement->'inventoryTaxAssessment';
+    if jsonb_typeof(item) is distinct from 'object'
+      or item - array['buyerOrganizationId','saleEventId','costEventId','purchaseEventId','evidenceDocumentId',
+        'buyerTaxBasis','buyerRecoveryRatePercent','recoverability'] <> '{}'::jsonb
+      or exists(select 1 from unnest(array['buyerOrganizationId','saleEventId','costEventId','purchaseEventId','evidenceDocumentId']) key
+        where coalesce(item->>key,'') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+      or item->>'buyerOrganizationId' not in (p_root::text,subsidiary::text)
+      or item->>'saleEventId' in (item->>'costEventId',item->>'purchaseEventId')
+      or item->>'costEventId'=item->>'purchaseEventId'
+      or jsonb_typeof(item->'buyerTaxBasis') is distinct from 'string'
+      or coalesce(item->>'buyerTaxBasis','') !~ money_pattern
+      or jsonb_typeof(item->'buyerRecoveryRatePercent') is distinct from 'string'
+      or coalesce(item->>'buyerRecoveryRatePercent','') !~ '^\d{1,3}(\.\d{1,6})?$'
+      or coalesce(item->>'recoverability','') not in ('PROBABLE','NOT_PROBABLE')
+      then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+    if (item->>'buyerRecoveryRatePercent')::numeric<=0 or (item->>'buyerRecoveryRatePercent')::numeric>100
+      then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+    if (select count(*) from public.financial_events event
+      where event.status='ACTUAL' and event.event_date>p_from and event.event_date<=p_to
+        and ((event.id=(item->>'purchaseEventId')::uuid and event.organization_id=(item->>'buyerOrganizationId')::uuid)
+          or (event.id in ((item->>'saleEventId')::uuid,(item->>'costEventId')::uuid)
+            and event.organization_id=case when item->>'buyerOrganizationId'=p_root::text then subsidiary else p_root end)))<>3
+      then raise exception 'GROUP_ACQUISITION_TAX_SOURCE_REQUIRED'; end if;
+    document_refs := array_append(document_refs,item->>'evidenceDocumentId');
   end if;
   if exists(select 1 from unnest(document_refs) ref where ref is null or
     ref !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') then
