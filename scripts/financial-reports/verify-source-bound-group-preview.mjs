@@ -776,6 +776,8 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   assert.equal((await request(approvedAcquisitionsPath,{action:'ACQUISITION_POSITION',query:minorityQuery})).reason,'OVERLAPPING_ELIMINATION');
   console.log('PASS The combined review rejects a dividend payment already used by the cash batch');
   await request(acquisitionPath,{...paidKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
+  const {verifyGroupInventoryMargin}=await import('./verify-group-inventory-margin.mjs');
+  await verifyGroupInventoryMargin({actor,request,rpc,command,sql,jointDocument,parent,subsidiary,query,out});
  }finally{
   sql(`update private.financial_group_control_assessments set economic_interest_percent=100,
    voting_interest_percent=100 where id='${control}'`);

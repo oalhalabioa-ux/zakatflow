@@ -8,7 +8,8 @@ export const groupDocumentEvidenceSchema=z.array(z.object({id:uuid,
 }).strict()).max(200);
 /** Documentary approval is independent of amounts, open items and elimination
  * approval. Missing pairing may be previewed, but never counted as approved. */
-export function verifyGroupDocumentMatches(entries:readonly Pick<SourceBoundAdjustment,'id'|'documentMatchId'|'debitSource'|'creditSource'>[],input:unknown){
+type DocumentEvent=Pick<SourceBoundAdjustment['debitSource'],'organizationId'|'eventId'>;
+export function verifyGroupDocumentMatches(entries:readonly {id:string;documentMatchId?:string;debitSource:DocumentEvent;creditSource:DocumentEvent}[],input:unknown){
  const parsed=groupDocumentEvidenceSchema.safeParse(input);
  if(!parsed.success)throw Error('REPORTING_GROUP_DOCUMENT_EVIDENCE_INVALID');
  const rows=parsed.data,map=new Map(rows.map(r=>[r.id,r]));
