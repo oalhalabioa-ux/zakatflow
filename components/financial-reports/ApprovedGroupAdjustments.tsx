@@ -94,6 +94,17 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
      </tr>)}</tbody>
     </table></div>
+    {result.deferredTaxAdjustments.length>0&&<>
+     <h4>{en?'Acquisition deferred tax reversal':'عكس الضريبة المؤجلة على فرق الاستحواذ'}</h4>
+     <div className="fs-table-scroll"><table className="fs-table">
+      <thead><tr>{(en?['Subsidiary','Liability account','Opening liability','Period reversal','Remaining liability']:
+       ['الشركة التابعة','حساب الالتزام','الالتزام عند الاستحواذ','المبلغ المعكوس خلال الفترة','الالتزام المتبقي']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{result.deferredTaxAdjustments.map(item=><tr key={item.subsidiaryId+':'+item.accountId}>
+       <th>{item.subsidiaryName}</th><td>{item.accountId}</td><td>{statementAmount(item.openingLiability)}</td>
+       <td>{statementAmount(item.reversal)}</td><td>{statementAmount(item.remainingLiability)}</td>
+      </tr>)}</tbody>
+     </table></div>
+    </>}
     {result.depreciationAdjustments.length>0&&<>
      <h4>{en?'Depreciation of acquisition uplift':'إهلاك فرق القيمة العادلة عند الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">

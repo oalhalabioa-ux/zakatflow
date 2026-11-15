@@ -399,6 +399,33 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await positionPanel.getByText('Depreciation of acquisition uplift',{exact:true}).waitFor();
  await writeFile(out+'/acquisition-depreciation-position.json',JSON.stringify(depreciated,null,2));
  await request(acquisitionPath,{...scheduledKey,action:'REVOKE',reason:'Release the isolated approval for movement detection acceptance'});
+ const taxKey={query:periodQuery,id:randomUUID()};
+ const taxMeasurement={...scheduledMeasurement,
+  fairValueBasis:{deferredTax:'INCLUDED_IN_IDENTIFIABLE_ITEMS',taxEvidenceDocumentId:document.id},
+  identifiableItems:scheduledMeasurement.identifiableItems.map(item=>item.id===newLiability.id?
+   {...item,recognizedAmount:'40'}:item),
+  continuityBasis:{...scheduledMeasurement.continuityBasis,schedules:[
+   {accountId:upliftAccount.id,usefulLifeDays:60,deferredTaxLiabilityAccountId:newLiability.id},
+  ]},
+ };
+ await request(acquisitionPath,{...taxKey,action:'SAVE',measurement:taxMeasurement});
+ await request(acquisitionPath,{...taxKey,action:'APPROVE',reason:'Approve documented opening tax liability and unchanged reversal basis'});
+ const afterTax=await request(approvedAcquisitionsPath,periodAction);
+ assert.equal(afterTax.goodwill,'40.0000');
+ assert.deepEqual(afterTax.deferredTaxAdjustments.map(row=>[row.accountId,row.openingLiability,row.reversal,row.remainingLiability]),[
+  [newLiability.id,'40.0000','20.0000','20.0000'],
+ ]);
+ assert.deepEqual(afterTax.rows.map(row=>[row.key,row.after]),[
+  ['assets','5640.0000'],['liabilities','5220.0000'],['equity','420.0000'],
+ ]);
+ assert.equal(afterTax.income.find(row=>row.key==='tax').adjustment,'-20.0000');
+ assert.equal(afterTax.income.find(row=>row.key==='netProfit').after,'-80.0000');
+ await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
+ await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
+ await positionPanel.getByText('Acquisition deferred tax reversal',{exact:true}).waitFor();
+ await writeFile(out+'/acquisition-deferred-tax-position.json',JSON.stringify(afterTax,null,2));
+ await request(acquisitionPath,{...taxKey,action:'REVOKE',reason:'Release the tax fixture for subsequent movement verification'});
+
 
  const movedKey={query,id:randomUUID()};
  await request(acquisitionPath,{...movedKey,action:'SAVE',measurement:carryMeasurement});

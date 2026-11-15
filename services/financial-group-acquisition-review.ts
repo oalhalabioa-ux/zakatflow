@@ -91,7 +91,7 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
   continuityDocumented:boolean;
   fairValueTaxBasisDocumented?:boolean;
   noDeferredTaxRequired?:boolean;
-  depreciationSchedules?:{accountId:string;usefulLifeDays:number}[];
+  depreciationSchedules?:{accountId:string;usefulLifeDays:number;deferredTaxLiabilityAccountId?:string}[];
   bookItems?: {id:string;kind:"ASSET"|"LIABILITY";recognizedAmount:string}[];
  }>=[];
  if(evidence.records.length){

@@ -17,7 +17,8 @@ export const groupAcquisitionMeasurementSchema=z.object({
   z.object({treatment:z.literal('NO_SUBSEQUENT_ADJUSTMENTS'),evidenceDocumentId:z.string().uuid()}).strict(),
   z.object({treatment:z.literal('STRAIGHT_LINE_UPLIFT'),evidenceDocumentId:z.string().uuid(),
    schedules:z.array(z.object({accountId:z.string().regex(/^1500(?:[0-9]{2}){0,3}$/),
-    usefulLifeDays:z.number().int().min(1).max(36500)}).strict()).min(1).max(100),
+    usefulLifeDays:z.number().int().min(1).max(36500),
+    deferredTaxLiabilityAccountId:z.string().regex(/^\d{4}(?:\d{2}){0,3}$/).optional()}).strict()).min(1).max(100),
   }).strict(),
  ]).optional(),
  fairValueBasis:z.object({

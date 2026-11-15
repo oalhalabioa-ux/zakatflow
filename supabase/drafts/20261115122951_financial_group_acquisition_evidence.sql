@@ -287,8 +287,11 @@ begin
           jsonb_array_length(item->'schedules') then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
       for schedule in select value from jsonb_array_elements(item->'schedules') loop
         if jsonb_typeof(schedule) is distinct from 'object'
-          or schedule - array['accountId','usefulLifeDays'] <> '{}'::jsonb
+          or schedule - array['accountId','usefulLifeDays','deferredTaxLiabilityAccountId'] <> '{}'::jsonb
           or coalesce(schedule->>'accountId','') !~ '^1500([0-9]{2}){0,3}$'
+          or (schedule ? 'deferredTaxLiabilityAccountId' and
+            (jsonb_typeof(schedule->'deferredTaxLiabilityAccountId') is distinct from 'string'
+             or coalesce(schedule->>'deferredTaxLiabilityAccountId','') !~ '^[0-9]{4}([0-9]{2}){0,3}$'))
           or jsonb_typeof(schedule->'usefulLifeDays') is distinct from 'number'
           or coalesce(schedule->>'usefulLifeDays','') !~ '^[0-9]{1,5}$'
           then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
