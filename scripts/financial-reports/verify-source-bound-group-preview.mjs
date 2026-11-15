@@ -307,6 +307,37 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await writeFile(out+'/acquisition-day-position.json',JSON.stringify(acquisitionPosition,null,2));
  await request(acquisitionPath,{...dayKey,action:'REVOKE',reason:'Verify approved acquisition position disappears on next read'});
  assert.equal((await request(approvedAcquisitionsPath,dayPositionAction)).status,'ACQUISITION_POSITION_UNAVAILABLE');
+ const openingAccountIds=new Set(standalone.opening.filter(row=>Number(row.debit)!==Number(row.credit)).map(row=>row.accountId));
+ const newLiability=standalone.accounts.find(account=>account.kind==='LIABILITY'&&!openingAccountIds.has(account.id));
+ assert.ok(newLiability,'A verified liability account is required for fair-value acceptance');
+ const fairKey={query:dayQuery,id:randomUUID()};
+ const fairMeasurement={...dayMeasurement,identifiableItems:[...dayMeasurement.identifiableItems,{
+  id:newLiability.id,kind:'LIABILITY',recognizedAmount:'100',measurementEvidence:document.id,
+ }]};
+ const fairSave={...fairKey,action:'SAVE',measurement:fairMeasurement};
+ await request(acquisitionPath,{...fairSave,measurement:{...fairMeasurement,fairValueBasis:{
+  deferredTax:'NOT_REQUIRED',taxEvidenceDocumentId:randomUUID(),
+ }}},422);
+ await request(acquisitionPath,fairSave);
+ await request(acquisitionPath,{...fairKey,action:'APPROVE',reason:'Approve liability valuation for tax-basis exclusion verification'});
+ assert.equal((await request(approvedAcquisitionsPath,dayPositionAction)).reason,'FAIR_VALUE_TAX_BASIS_REQUIRED');
+ await request(acquisitionPath,{...fairKey,action:'REVOKE',reason:'Replace valuation with its reviewed tax evidence'});
+ const documentedKey={query:dayQuery,id:randomUUID()};
+ await request(acquisitionPath,{...documentedKey,action:'SAVE',measurement:{...fairMeasurement,fairValueBasis:{
+  deferredTax:'NOT_REQUIRED',taxEvidenceDocumentId:document.id,
+ }}});
+ await request(acquisitionPath,{...documentedKey,action:'APPROVE',reason:'Approve independently documented valuation and deferred tax assessment'});
+ const fairPosition=await request(approvedAcquisitionsPath,dayPositionAction);
+ assert.equal(fairPosition.goodwill,'300.0000');
+ assert.deepEqual(fairPosition.fairValueAdjustments.map(row=>[row.accountId,row.kind,row.adjustment]),[[newLiability.id,'LIABILITY','100.0000']]);
+ assert.deepEqual(fairPosition.rows.map(row=>[row.key,row.after]),[
+  ['assets','5800.0000'],['liabilities','5300.0000'],['equity','500.0000'],
+ ]);
+ await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
+ await worksheet.getByRole('button',{name:'Review acquisition-day position',exact:true}).click();
+ await positionPanel.getByText('Acquisition-date fair value adjustments',{exact:true}).waitFor();
+ await writeFile(out+'/acquisition-day-fair-value-position.json',JSON.stringify(fairPosition,null,2));
+
 
 
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));

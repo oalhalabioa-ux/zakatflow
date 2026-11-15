@@ -13,6 +13,10 @@ export const groupAcquisitionMeasurementSchema=z.object({
  transactionType:z.literal('SINGLE_STEP_BUSINESS_COMBINATION'),commonControl:z.literal(false),
  instruments:z.literal('ORDINARY_PROPORTIONATE'),
  consideration:money,considerationEvidence:evidence,
+ fairValueBasis:z.object({
+  deferredTax:z.enum(['NOT_REQUIRED','INCLUDED_IN_IDENTIFIABLE_ITEMS']),
+  taxEvidenceDocumentId:z.string().uuid(),
+ }).strict().optional(),
  investmentLink:z.object({
   accountId:z.string().regex(/^1600(?:[0-9]{2}){1,3}$/),
   eventId:z.string().uuid(),

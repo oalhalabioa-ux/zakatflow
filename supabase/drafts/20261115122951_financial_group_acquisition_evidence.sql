@@ -220,7 +220,7 @@ begin
     or not coalesce(p_measurement->>'consideration','') ~ money_pattern
     or length(trim(coalesce(p_measurement->>'considerationEvidence',''))) not between 8 and 1000
     or jsonb_typeof(p_measurement->'identifiableItems') is distinct from 'array'
-    or p_measurement - array['parentOrganizationId','subsidiaryOrganizationId','currency','acquisitionDate','transactionType','commonControl','instruments','consideration','considerationEvidence','identifiableItems','nci','investmentLink'] <> '{}'::jsonb
+    or p_measurement - array['parentOrganizationId','subsidiaryOrganizationId','currency','acquisitionDate','transactionType','commonControl','instruments','consideration','considerationEvidence','identifiableItems','nci','investmentLink','fairValueBasis'] <> '{}'::jsonb
     then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
   if jsonb_array_length(p_measurement->'identifiableItems') not between 1 and 1000
     or (select count(distinct value->>'id') from jsonb_array_elements(p_measurement->'identifiableItems')) <>
@@ -261,6 +261,15 @@ begin
   if p_measurement ? 'investmentLink' then
     document_refs := array_append(document_refs,p_measurement#>>'{investmentLink,documentId}');
     perform private.group_acquisition_investment_check(p_root,p_measurement);
+  end if;
+  if p_measurement ? 'fairValueBasis' then
+    item := p_measurement->'fairValueBasis';
+    if jsonb_typeof(item) is distinct from 'object'
+      or item - array['deferredTax','taxEvidenceDocumentId'] <> '{}'::jsonb
+      or coalesce(item->>'deferredTax','') not in ('NOT_REQUIRED','INCLUDED_IN_IDENTIFIABLE_ITEMS')
+      or jsonb_typeof(item->'taxEvidenceDocumentId') is distinct from 'string'
+      then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+    document_refs := array_append(document_refs,item->>'taxEvidenceDocumentId');
   end if;
   if exists(select 1 from unnest(document_refs) ref where ref is null or
     ref !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') then

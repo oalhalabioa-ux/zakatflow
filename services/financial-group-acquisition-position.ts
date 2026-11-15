@@ -24,6 +24,8 @@ export async function readGroupAcquisitionPosition(input:unknown){
  if(subsidiaries.length!==approved.rows.length||subsidiaries.some(id=>!approvedSubsidiaries.has(id)))
   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'GROUP_ACQUISITION_COVERAGE_REQUIRED'};
 
+ const fairValueAdjustments:Array<Awaited<ReturnType<typeof readGroupAcquisitionLedgerBasis>>['fairValueAdjustments'][number]&{subsidiaryName:string;subsidiaryId:string}>=[];
+ let fairValueAssets=new Money(0),fairValueLiabilities=new Money(0);
  let goodwill=new Money(0),investment=new Money(0),bookEquity=new Money(0),nci=new Money(0);
  for(const record of approved.rows){
   const basis=await readGroupAcquisitionLedgerBasis({action:'LEDGER_BASIS',query,id:record.id});
@@ -36,15 +38,25 @@ export async function readGroupAcquisitionPosition(input:unknown){
     source.organizationId===record.calculation.subsidiaryOrganizationId||
     (source.organizationId===query.organization&&source.accountId===accountId)))||worksheet.cashWorksheet)
    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
+  const subsidiaryId=record.calculation.subsidiaryOrganizationId;
+  let netDifference=new Money(0);
+  for(const item of basis.fairValueAdjustments){
+   const delta=new Money(item.adjustment);
+   if(item.kind==='ASSET')fairValueAssets=fairValueAssets.plus(delta);
+   else fairValueLiabilities=fairValueLiabilities.plus(delta);
+   netDifference=netDifference.plus(item.kind==='ASSET'?delta:delta.negated());
+   fairValueAdjustments.push({...item,subsidiaryName:record.subsidiaryName,subsidiaryId});
+  }
+  if(!netDifference.eq(basis.fairValueLessBookEquity))throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
   goodwill=goodwill.plus(basis.acquisitionGoodwill);
   investment=investment.plus(balance);
   bookEquity=bookEquity.plus(basis.subsidiaryBookEquity);
   nci=nci.plus(basis.acquisitionNci);
  }
- const assetDelta=goodwill.minus(investment),equityDelta=nci.minus(bookEquity);
- if(!assetDelta.eq(equityDelta))throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
+ const assetDelta=goodwill.plus(fairValueAssets).minus(investment),equityDelta=nci.minus(bookEquity);
+ if(!assetDelta.eq(fairValueLiabilities.plus(equityDelta)))throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
  const rows=base.position.filter(row=>row.key!=='fiscalProfit').map(row=>{
-  const adjustment=row.key==='assets'?assetDelta:row.key==='equity'?equityDelta:new Money(0);
+  const adjustment=row.key==='assets'?assetDelta:row.key==='equity'?equityDelta:fairValueLiabilities;
   return {key:row.key,before:row.after,adjustment:adjustment.toFixed(4),after:new Money(row.after).plus(adjustment).toFixed(4)};
  });
  const closing=(key:string)=>new Money(rows.find(row=>row.key===key)!.after);
@@ -54,5 +66,5 @@ export async function readGroupAcquisitionPosition(input:unknown){
  assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
  return {status:'ACQUISITION_DAY_POSITION_REVIEW' as const,query,currency:base.currency,rows,
   investmentEliminated:investment.toFixed(4),subsidiaryEquityEliminated:bookEquity.toFixed(4),
-  goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4)};
+  goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments};
 }

@@ -92,6 +92,18 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
      </tr>)}</tbody>
     </table></div>
+    {result.fairValueAdjustments.length>0&&<>
+     <h4>{en?'Acquisition-date fair value adjustments':'تسويات القيمة العادلة يوم الاستحواذ'}</h4>
+     <div className="fs-table-scroll"><table className="fs-table">
+      <thead><tr>{(en?['Subsidiary','Account','Type','Book amount','Recognized amount','Adjustment']:
+       ['الشركة التابعة','الحساب','النوع','القيمة الدفترية','القيمة المعتمدة','التسوية']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{result.fairValueAdjustments.map(item=><tr key={item.subsidiaryId+':'+item.accountId}>
+       <th>{item.subsidiaryName}</th><td>{item.accountId}</td>
+       <td>{item.kind==='ASSET'?(en?'Asset':'أصل'):(en?'Liability':'التزام')}</td>
+       <td>{statementAmount(item.bookValue)}</td><td>{statementAmount(item.recognizedValue)}</td><td>{statementAmount(item.adjustment)}</td>
+      </tr>)}</tbody>
+     </table></div>
+    </>}
    </>}
  </div>;
 }

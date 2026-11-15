@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import Decimal from 'decimal.js';
+import {acquisitionFairValueDifferences} from '../lib/financial-group-acquisition-fair-value';
 import {statementQuery} from '../lib/financial-statement-source';
 import {groupAcquisitionMeasurementSchema,measureGroupAcquisition} from '../lib/financial-group-acquisition';
 import {assertStableFinancialReplay} from '../lib/financial-source-replay';
@@ -87,6 +88,7 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
   id:string; subsidiaryName:string; approvedAt:string; documentCount:number;
   calculation:ReturnType<typeof measureGroupAcquisition>;
   investmentAccountId:string|null;
+  fairValueTaxBasisDocumented?:boolean;
   bookItems?: {id:string;kind:"ASSET"|"LIABILITY";recognizedAmount:string}[];
  }>=[];
  if(evidence.records.length){
@@ -99,7 +101,7 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
    return {id:record.id,subsidiaryName:record.subsidiaryName,approvedAt:record.approvedAt,
     documentCount:record.documents.length,calculation,investmentAccountId:record.measurement.investmentLink?.accountId??null,
-    ...(includeBookItems?{bookItems:record.measurement.identifiableItems.map(({id,kind,recognizedAmount})=>({id,kind,recognizedAmount}))}:{})};
+    ...(includeBookItems?{fairValueTaxBasisDocumented:Boolean(record.measurement.fairValueBasis),bookItems:record.measurement.identifiableItems.map(({id,kind,recognizedAmount})=>({id,kind,recognizedAmount}))}:{})};
   });
  }
  assertStableFinancialReplay(evidence,await read());
@@ -142,6 +144,7 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
  const investmentTotal=investments.reduce((sum,account)=>sum.plus(account.balance),new Money(0));
  const equityTotal=equity.reduce((sum,account)=>sum.minus(account.balance),new Money(subsidiary.statements.position.fiscalProfit));
  if(!equityTotal.eq(subsidiary.statements.position.equity))throw Error('GROUP_ACQUISITION_LEDGER_UNRECONCILED');
+ const fairValue=acquisitionFairValueDifferences(subsidiary.accounts,selected.bookItems??[],selected.fairValueTaxBasisDocumented===true);
  return {status:'ACQUISITION_LEDGER_BASIS_REVIEW' as const,query,id,date,currency,
   parentInvestmentAccountGroupBalance:investmentTotal.toFixed(4),
   subsidiaryBookEquity:equityTotal.toFixed(4),
@@ -150,27 +153,13 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
   investmentAccountCount:investments.length,
   linkedInvestment:linked?{accountId:linked.id,balance:linked.balance}:null,
   // The first projection supports an acquisition-day position with no
-  // subsidiary posting on that day and no fair-value change to any book line.
+  // subsidiary posting on that day and a complete mapping of approved values.
   positionEligibility:!linked?'INVESTMENT_LINK_REQUIRED' as const:
    query.from!==date||query.to!==date?'ACQUISITION_DAY_REQUIRED' as const:
    subsidiary.statements.sourceJournalIds.length?'SUBSIDIARY_DAY_POSTINGS' as const:
-   sameBookValues(subsidiary.accounts,selected.bookItems??[])?'ELIGIBLE' as const:'FAIR_VALUE_MAPPING_REQUIRED' as const,
+   fairValue.status,
+  fairValueAdjustments:fairValue.status==='ELIGIBLE'?fairValue.adjustments:[],
   acquisitionGoodwill:selected.calculation.goodwill,
   acquisitionNci:selected.calculation.nciAtAcquisition,
  };
-}
-
-function sameBookValues(
- accounts:Array<{id:string;kind:string;balance:string}>,
- items:Array<{id:string;kind:'ASSET'|'LIABILITY';recognizedAmount:string}>,
-){
- const balances=new Map(accounts.filter(a=>['ASSET','LIABILITY'].includes(a.kind)&&!new Decimal(a.balance).isZero()).map(a=>[a.id,a]));
- for(const item of items){
-  const account=balances.get(item.id);
-  if(!account||account.kind!==item.kind)return false;
-  const carrying=new Decimal(account.balance).times(item.kind==='ASSET'?1:-1);
-  if(!carrying.eq(item.recognizedAmount))return false;
-  balances.delete(item.id);
- }
- return balances.size===0;
 }
