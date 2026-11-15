@@ -94,6 +94,27 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
      </tr>)}</tbody>
     </table></div>
+    {result.profitAttribution&&<>
+     <h4>{en?'Non-controlling interests after acquisition':'حقوق غير المسيطرين بعد الاستحواذ'}</h4>
+     <div className="fs-table-scroll"><table className="fs-table">
+      <thead><tr>{(en?['Subsidiary','NCI at acquisition','Adjusted subsidiary result','Result attributed to NCI','Closing NCI']:
+       ['الشركة التابعة','حقوق غير المسيطرين عند الاستحواذ','نتيجة التابعة بعد التسويات','حصة غير المسيطرين من النتيجة','حقوق غير المسيطرين في الإقفال']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{result.nciAttribution.map(item=><tr key={item.subsidiaryId}>
+       <th>{item.subsidiaryName}</th><td>{statementAmount(item.openingNci)}</td><td>{statementAmount(item.adjustedProfit)}</td>
+       <td>{statementAmount(item.profitToNci)}</td><td>{statementAmount(item.closingNci)}</td>
+      </tr>)}</tbody>
+     </table></div>
+     <dl>
+      <dt>{en?'Group result attributable to owners of the parent':'نتيجة المجموعة العائدة لملاك الشركة الأم'}</dt>
+      <dd>{statementAmount(result.profitAttribution.parent)}</dd>
+      <dt>{en?'Group result attributable to non-controlling interests':'نتيجة المجموعة العائدة لحقوق غير المسيطرين'}</dt>
+      <dd>{statementAmount(result.profitAttribution.nci)}</dd>
+      <dt>{en?'Closing equity attributable to owners of the parent':'حقوق ملاك الشركة الأم في الإقفال'}</dt>
+      <dd>{statementAmount(result.closingParentEquity)}</dd>
+      <dt>{en?'Total closing non-controlling interests':'إجمالي حقوق غير المسيطرين في الإقفال'}</dt>
+      <dd>{statementAmount(result.closingNci)}</dd>
+     </dl>
+    </>}
     {result.deferredTaxAdjustments.length>0&&<>
      <h4>{en?'Acquisition deferred tax reversal':'عكس الضريبة المؤجلة على فرق الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">

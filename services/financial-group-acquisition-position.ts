@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import {acquisitionDeferredTaxReversals,acquisitionUpliftDepreciation} from '../lib/financial-group-acquisition-depreciation';
+import {attributeGroupNonControllingInterests} from '../lib/financial-group-acquisition';
 import {compileEventLedger} from '../lib/financial-event-ledger';
 import {liveRegisteredGroupEvidence} from './financial-group-registered-source';
 import {z} from 'zod';
@@ -18,7 +19,7 @@ export async function readGroupAcquisitionPosition(input:unknown){
  const later=query.from!==query.to;
  if(!approved.rows.some(row=>row.investmentAccountId&&row.calculation.acquisitionDate===query.from))
   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'ACQUISITION_START_OR_LINK_REQUIRED'};
- if(later&&approved.rows.some(row=>!row.continuityDocumented||!new Money(row.calculation.nciPercent).isZero()))
+ if(later&&approved.rows.some(row=>!row.continuityDocumented))
   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'CONTINUITY_EVIDENCE_OR_OWNERSHIP_REQUIRED'};
  const worksheet=await readApprovedGroupEliminations(query);
  const base=worksheet.statementWorksheet;
@@ -36,7 +37,9 @@ export async function readGroupAcquisitionPosition(input:unknown){
  const carrySources=later?await liveRegisteredGroupEvidence(query):null;
  if(carrySources?.rawSources.some(source=>source.fiscalStart>query.from))
   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'CARRY_FORWARD_PERIOD_UNSUPPORTED'};
- const journals=new Map(carrySources?.rawSources.map(source=>[source.organizationId,compileEventLedger(source).source.journals]));
+ const ledgers=new Map(carrySources?.rawSources.map(source=>[source.organizationId,compileEventLedger(source)]));
+ const nciAttribution:Array<{subsidiaryId:string;subsidiaryName:string;openingNci:string;adjustedProfit:string;profitToNci:string;closingNci:string}>=[];
+ let profitToNci=new Money(0);
  const depreciationAdjustments:Array<NonNullable<ReturnType<typeof acquisitionUpliftDepreciation>>[number]&{subsidiaryId:string;subsidiaryName:string}>=[];
  const deferredTaxAdjustments:Array<NonNullable<ReturnType<typeof acquisitionDeferredTaxReversals>>[number]&{subsidiaryId:string;subsidiaryName:string}>=[];
  let depreciation=new Money(0),deferredTaxReversal=new Money(0);
@@ -79,13 +82,41 @@ export async function readGroupAcquisitionPosition(input:unknown){
      depreciationAdjustments.push({...item,subsidiaryId,subsidiaryName:record.subsidiaryName});
     }
    }
-   const parentJournals=journals.get(query.organization);
-   const subsidiaryJournals=journals.get(subsidiaryId);
+   const parentJournals=ledgers.get(query.organization)?.source.journals;
+   const subsidiaryLedger=ledgers.get(subsidiaryId);
+   const subsidiaryJournals=subsidiaryLedger?.source.journals;
    const touchesAfter=(entries:NonNullable<typeof parentJournals>,accounts:Set<string>)=>entries.some(journal=>
     journal.date>basis.date&&journal.lines.some(line=>accounts.has(line.accountId)));
    if(!parentJournals||!subsidiaryJournals||!subsidiarySource||
      touchesAfter(parentJournals,new Set([accountId]))||touchesAfter(subsidiaryJournals,subsidiaryAccounts))
     return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'SUBSEQUENT_ACCOUNT_MOVEMENT'};
+   if(!new Money(record.calculation.nciPercent).isZero()){
+    if(!subsidiaryLedger||!carrySources)throw Error('GROUP_ACQUISITION_POSITION_SOURCE_REQUIRED');
+    const equityAccounts=new Set(subsidiarySource.accounts.filter(account=>account.kind==='EQUITY').map(account=>account.id));
+    const bookResult=new Money(subsidiaryLedger.statements.income.netProfit);
+    const closingBookEquity=new Money(subsidiaryLedger.statements.position.equity);
+    // Direct equity changes and OCI/distributions require separately verified
+    // source attribution; do not fold any of them into the profit-only case.
+    if(touchesAfter(subsidiaryJournals,equityAccounts)||!closingBookEquity.minus(basis.subsidiaryBookEquity).eq(bookResult))
+     return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'NCI_OTHER_EQUITY_MOVEMENTS_UNSUPPORTED'};
+    const subsidiaryDepreciation=depreciationAdjustments.filter(item=>item.subsidiaryId===subsidiaryId)
+     .reduce((total,item)=>total.plus(item.charge),new Money(0));
+    const subsidiaryTaxReversal=deferredTaxAdjustments.filter(item=>item.subsidiaryId===subsidiaryId)
+     .reduce((total,item)=>total.plus(item.reversal),new Money(0));
+    const adjustedProfit=bookResult.minus(subsidiaryDepreciation).plus(subsidiaryTaxReversal).toFixed(4);
+    const attribution=attributeGroupNonControllingInterests(carrySources.control,{
+     parentOrganizationId:query.organization,subsidiaryOrganizationId:subsidiaryId,currency:base.currency,
+     from:query.from,to:query.to,openingNci:basis.acquisitionNci,adjustedProfit,
+     oci:[],ordinaryDividends:'0',ownershipChanges:false,otherEquityChanges:false,goodwillImpairment:'0.0000',
+     instruments:'ORDINARY_PROPORTIONATE',sourceEvidence:'VERIFIED_ACQUISITION_AND_SUBSIDIARY_LEDGER',
+    },base.currency);
+    if(!new Money(attribution.nciPercent).eq(record.calculation.nciPercent))
+     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
+    profitToNci=profitToNci.plus(attribution.profit.nci);
+    nciAttribution.push({subsidiaryId,subsidiaryName:record.subsidiaryName,openingNci:attribution.openingNci,
+     adjustedProfit,profitToNci:attribution.profit.nci,closingNci:attribution.closingNci});
+   }
+
   }
   let netDifference=new Money(0);
   for(const item of basis.fairValueAdjustments){
@@ -113,6 +144,10 @@ export async function readGroupAcquisitionPosition(input:unknown){
    row.key==='tax'?deferredTaxReversal.negated():row.key==='netProfit'?deferredTaxReversal.minus(depreciation):depreciation.negated();
   return {key:row.key,before:row.after,adjustment:adjustment.toFixed(4),after:new Money(row.after).plus(adjustment).toFixed(4)};
  });
+ const periodProfit=new Money(income.find(row=>row.key==='netProfit')!.after);
+ const profitAttribution=nciAttribution.length?{
+  total:periodProfit.toFixed(4),parent:periodProfit.minus(profitToNci).toFixed(4),nci:profitToNci.toFixed(4),
+ }:null;
  const closing=(key:string)=>new Money(rows.find(row=>row.key===key)!.after);
  if(!closing('assets').eq(closing('liabilities').plus(closing('equity'))))
   throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
@@ -121,5 +156,7 @@ export async function readGroupAcquisitionPosition(input:unknown){
  assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
  return {status:later?'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW' as const:'ACQUISITION_DAY_POSITION_REVIEW' as const,query,currency:base.currency,rows,
   investmentEliminated:investment.toFixed(4),subsidiaryEquityEliminated:bookEquity.toFixed(4),
-  goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments,depreciationAdjustments,deferredTaxAdjustments,income};
+  goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments,depreciationAdjustments,deferredTaxAdjustments,income,
+  nciAttribution,profitAttribution,closingNci:nci.plus(profitToNci).toFixed(4),
+  closingParentEquity:closing('equity').minus(nci).minus(profitToNci).toFixed(4)};
 }

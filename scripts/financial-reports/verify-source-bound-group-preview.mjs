@@ -437,6 +437,53 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   action:'APPROVE',query,batchId:movedBatch.id,expectedVersion:6,reason:'Check movement against approved year-long report',
  });
  assert.equal((await request(approvedAcquisitionsPath,positionAction)).reason,'SUBSEQUENT_ACCOUNT_MOVEMENT');
+ await request(acquisitionPath,{...movedKey,action:'REVOKE',reason:'Complete the independent majority ownership fixture'});
+ // This isolated fixture reuses the same posted sources under a documented
+ // 80% relationship. It does not represent an ownership change in the period.
+ sql(`update private.financial_group_control_assessments set economic_interest_percent=80,
+  voting_interest_percent=80 where id='${control}'`);
+ try{
+  const minorityDocumentKey={...documentKey,id:randomUUID()};
+  const minorityDocument=await request(documentPath,{...minorityDocumentKey,action:'UPLOAD',
+   title:'Evidence of 80 percent control and subsequent measurement',pdf:pdf.toString('base64')});
+  const taxAccount=standalone.accounts.find(account=>account.kind==='LIABILITY'&&account.id==='2500');
+  assert.ok(taxAccount,'Separate verified tax liability account is required for the minority fixture');
+  const minorityQuery={...query,to:'2026-03-02'};
+  const minorityKey={query:minorityQuery,id:randomUUID()};
+  const minorityMeasurement={...taxMeasurement,considerationEvidence:minorityDocument.id,
+   investmentLink:{...taxMeasurement.investmentLink,documentId:minorityDocument.id},
+   fairValueBasis:{...taxMeasurement.fairValueBasis,taxEvidenceDocumentId:minorityDocument.id},
+   identifiableItems:taxMeasurement.identifiableItems.map(item=>({...item,
+    id:item.id===newLiability.id?taxAccount.id:item.id,measurementEvidence:minorityDocument.id,
+   })),
+   continuityBasis:{...taxMeasurement.continuityBasis,evidenceDocumentId:minorityDocument.id,schedules:[
+    {accountId:upliftAccount.id,usefulLifeDays:60,deferredTaxLiabilityAccountId:taxAccount.id},
+   ]},
+  };
+  await request(acquisitionPath,{...minorityKey,action:'SAVE',measurement:minorityMeasurement});
+  await request(acquisitionPath,{...minorityKey,action:'APPROVE',reason:'Approve the acquisition and schedules for fixed 80 percent ownership'});
+  const minorityBatch=await request('/api/financial-reporting/group-elimination-batches',{
+   ...save,query:minorityQuery,entries:[],expectedVersion:0,requestId:randomUUID(),reason:'Confirm scope before allocating post-acquisition loss',
+  });
+  await request('/api/financial-reporting/group-elimination-batches',{
+   action:'APPROVE',query:minorityQuery,batchId:minorityBatch.id,expectedVersion:1,reason:'Approve majority-owned subsidiary period',
+  });
+  const minority=await request(approvedAcquisitionsPath,{action:'ACQUISITION_POSITION',query:minorityQuery});
+  assert.equal(minority.status,'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW',JSON.stringify(minority));
+  assert.equal(minority.goodwill,'1072.0000');
+  assert.deepEqual(minority.profitAttribution,{total:'-1160.0000',parent:'-928.0000',nci:'-232.0000'});
+  assert.equal(minority.closingNci,'800.0000');
+  assert.equal(minority.closingParentEquity,'-428.0000');
+  await page.getByLabel('To date',{exact:true}).fill(minorityQuery.to);
+  await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
+  await positionPanel.getByText('Non-controlling interests after acquisition',{exact:true}).waitFor();
+  await writeFile(out+'/acquisition-nci-attribution.json',JSON.stringify(minority,null,2));
+  await request(acquisitionPath,{...minorityKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
+ }finally{
+  sql(`update private.financial_group_control_assessments set economic_interest_percent=100,
+   voting_interest_percent=100 where id='${control}'`);
+ }
+
 
 
 
