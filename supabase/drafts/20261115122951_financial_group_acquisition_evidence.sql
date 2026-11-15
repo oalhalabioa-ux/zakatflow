@@ -221,7 +221,7 @@ begin
     or not coalesce(p_measurement->>'consideration','') ~ money_pattern
     or length(trim(coalesce(p_measurement->>'considerationEvidence',''))) not between 8 and 1000
     or jsonb_typeof(p_measurement->'identifiableItems') is distinct from 'array'
-    or p_measurement - array['parentOrganizationId','subsidiaryOrganizationId','currency','acquisitionDate','transactionType','commonControl','instruments','consideration','considerationEvidence','identifiableItems','nci','investmentLink','fairValueBasis','continuityBasis'] <> '{}'::jsonb
+    or p_measurement - array['parentOrganizationId','subsidiaryOrganizationId','currency','acquisitionDate','transactionType','commonControl','instruments','consideration','considerationEvidence','identifiableItems','nci','investmentLink','fairValueBasis','continuityBasis','ordinaryDividend'] <> '{}'::jsonb
     then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
   if jsonb_array_length(p_measurement->'identifiableItems') not between 1 and 1000
     or (select count(distinct value->>'id') from jsonb_array_elements(p_measurement->'identifiableItems')) <>
@@ -300,6 +300,16 @@ begin
       end loop;
     elsif item ? 'schedules' then raise exception 'GROUP_ACQUISITION_INPUT_INVALID';
     end if;
+    document_refs := array_append(document_refs,item->>'evidenceDocumentId');
+  end if;
+  if p_measurement ? 'ordinaryDividend' then
+    item := p_measurement->'ordinaryDividend';
+    if jsonb_typeof(item) is distinct from 'object'
+      or item - array['parentEventId','subsidiaryEventId','evidenceDocumentId'] <> '{}'::jsonb
+      or exists (select 1 from unnest(array['parentEventId','subsidiaryEventId','evidenceDocumentId']) k
+        where coalesce(item->>k,'') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+      or item->>'parentEventId'=item->>'subsidiaryEventId'
+      then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
     document_refs := array_append(document_refs,item->>'evidenceDocumentId');
   end if;
   if exists(select 1 from unnest(document_refs) ref where ref is null or

@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import {acquisitionDeferredTaxReversals,acquisitionUpliftDepreciation} from '../lib/financial-group-acquisition-depreciation';
+import {verifyOrdinaryDividend} from '../lib/financial-group-ordinary-dividend';
 import {attributeGroupNonControllingInterests} from '../lib/financial-group-acquisition';
 import {compileEventLedger} from '../lib/financial-event-ledger';
 import {liveRegisteredGroupEvidence} from './financial-group-registered-source';
@@ -38,7 +39,10 @@ export async function readGroupAcquisitionPosition(input:unknown){
  if(carrySources?.rawSources.some(source=>source.fiscalStart>query.from))
   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'CARRY_FORWARD_PERIOD_UNSUPPORTED'};
  const ledgers=new Map(carrySources?.rawSources.map(source=>[source.organizationId,compileEventLedger(source)]));
- const nciAttribution:Array<{subsidiaryId:string;subsidiaryName:string;openingNci:string;adjustedProfit:string;profitToNci:string;closingNci:string}>=[];
+ const nciAttribution:Array<{subsidiaryId:string;subsidiaryName:string;openingNci:string;adjustedProfit:string;profitToNci:string;closingNci:string;dividendToNci:string}>=[];
+ const dividendEliminations:Array<NonNullable<ReturnType<typeof verifyOrdinaryDividend>>&{subsidiaryName:string;subsidiaryId:string}>=[];
+ const usedParentDividendEvents=new Set<string>();
+ let parentDividendEliminated=new Money(0),dividendsToNci=new Money(0);
  let profitToNci=new Money(0);
  const depreciationAdjustments:Array<NonNullable<ReturnType<typeof acquisitionUpliftDepreciation>>[number]&{subsidiaryId:string;subsidiaryName:string}>=[];
  const deferredTaxAdjustments:Array<NonNullable<ReturnType<typeof acquisitionDeferredTaxReversals>>[number]&{subsidiaryId:string;subsidiaryName:string}>=[];
@@ -90,14 +94,29 @@ export async function readGroupAcquisitionPosition(input:unknown){
    if(!parentJournals||!subsidiaryJournals||!subsidiarySource||
      touchesAfter(parentJournals,new Set([accountId]))||touchesAfter(subsidiaryJournals,subsidiaryAccounts))
     return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'SUBSEQUENT_ACCOUNT_MOVEMENT'};
+   if(basis.ordinaryDividend&&new Money(record.calculation.nciPercent).isZero())
+    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'DIVIDEND_OWNERSHIP_UNSUPPORTED'};
    if(!new Money(record.calculation.nciPercent).isZero()){
     if(!subsidiaryLedger||!carrySources)throw Error('GROUP_ACQUISITION_POSITION_SOURCE_REQUIRED');
     const equityAccounts=new Set(subsidiarySource.accounts.filter(account=>account.kind==='EQUITY').map(account=>account.id));
     const bookResult=new Money(subsidiaryLedger.statements.income.netProfit);
     const closingBookEquity=new Money(subsidiaryLedger.statements.position.equity);
-    // Direct equity changes and OCI/distributions require separately verified
-    // source attribution; do not fold any of them into the profit-only case.
-    if(touchesAfter(subsidiaryJournals,equityAccounts)||!closingBookEquity.minus(basis.subsidiaryBookEquity).eq(bookResult))
+    let dividend:ReturnType<typeof verifyOrdinaryDividend>=null;
+    if(basis.ordinaryDividend){
+     const parentSource=carrySources.rawSources.find(source=>source.organizationId===query.organization);
+     if(parentSource)dividend=verifyOrdinaryDividend(
+      {...parentSource,journals:parentJournals},{...subsidiarySource,journals:subsidiaryJournals},
+      basis.ordinaryDividend,basis.date,query.to,record.calculation.nciPercent,
+     );
+     if(!dividend||usedParentDividendEvents.has(dividend.parentEventId))
+      return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'DIVIDEND_SOURCE_UNRECONCILED'};
+     usedParentDividendEvents.add(dividend.parentEventId);
+     dividendEliminations.push({...dividend,subsidiaryId,subsidiaryName:record.subsidiaryName});
+     parentDividendEliminated=parentDividendEliminated.plus(dividend.parentDividend);
+    }
+    const ordinaryDividends=dividend?.ordinaryDividends??'0.0000';
+    if(touchesAfter(subsidiaryJournals.filter(journal=>journal.id!==dividend?.subsidiaryEventId),equityAccounts)||
+      !closingBookEquity.minus(basis.subsidiaryBookEquity).eq(bookResult.minus(ordinaryDividends)))
      return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'NCI_OTHER_EQUITY_MOVEMENTS_UNSUPPORTED'};
     const subsidiaryDepreciation=depreciationAdjustments.filter(item=>item.subsidiaryId===subsidiaryId)
      .reduce((total,item)=>total.plus(item.charge),new Money(0));
@@ -107,14 +126,15 @@ export async function readGroupAcquisitionPosition(input:unknown){
     const attribution=attributeGroupNonControllingInterests(carrySources.control,{
      parentOrganizationId:query.organization,subsidiaryOrganizationId:subsidiaryId,currency:base.currency,
      from:query.from,to:query.to,openingNci:basis.acquisitionNci,adjustedProfit,
-     oci:[],ordinaryDividends:'0',ownershipChanges:false,otherEquityChanges:false,goodwillImpairment:'0.0000',
+     oci:[],ordinaryDividends,ownershipChanges:false,otherEquityChanges:false,goodwillImpairment:'0.0000',
      instruments:'ORDINARY_PROPORTIONATE',sourceEvidence:'VERIFIED_ACQUISITION_AND_SUBSIDIARY_LEDGER',
     },base.currency);
     if(!new Money(attribution.nciPercent).eq(record.calculation.nciPercent))
      throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
     profitToNci=profitToNci.plus(attribution.profit.nci);
+    dividendsToNci=dividendsToNci.plus(attribution.dividends.nci);
     nciAttribution.push({subsidiaryId,subsidiaryName:record.subsidiaryName,openingNci:attribution.openingNci,
-     adjustedProfit,profitToNci:attribution.profit.nci,closingNci:attribution.closingNci});
+     adjustedProfit,profitToNci:attribution.profit.nci,dividendToNci:attribution.dividends.nci,closingNci:attribution.closingNci});
    }
 
   }
@@ -132,16 +152,17 @@ export async function readGroupAcquisitionPosition(input:unknown){
   bookEquity=bookEquity.plus(basis.subsidiaryBookEquity);
   nci=nci.plus(basis.acquisitionNci);
  }
- const assetDelta=goodwill.plus(fairValueAssets).minus(investment).minus(depreciation),equityDelta=nci.minus(bookEquity).minus(depreciation).plus(deferredTaxReversal);
- const liabilityDelta=fairValueLiabilities.minus(deferredTaxReversal);
+ const assetDelta=goodwill.plus(fairValueAssets).minus(investment).minus(depreciation).minus(parentDividendEliminated),equityDelta=nci.minus(bookEquity).minus(depreciation).plus(deferredTaxReversal);
+ const liabilityDelta=fairValueLiabilities.minus(deferredTaxReversal).minus(parentDividendEliminated);
  if(!assetDelta.eq(liabilityDelta.plus(equityDelta)))throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
  const rows=base.position.filter(row=>row.key!=='fiscalProfit').map(row=>{
   const adjustment=row.key==='assets'?assetDelta:row.key==='equity'?equityDelta:liabilityDelta;
   return {key:row.key,before:row.after,adjustment:adjustment.toFixed(4),after:new Money(row.after).plus(adjustment).toFixed(4)};
  });
- const income=base.income.filter(row=>(['operatingExpenses','operatingProfit','netProfit'].includes(row.key)||row.key==='tax'&&deferredTaxAdjustments.length>0)).map(row=>{
+ const income=base.income.filter(row=>(['operatingExpenses','operatingProfit','netProfit'].includes(row.key)||dividendEliminations.length>0&&['revenue','grossProfit'].includes(row.key)||row.key==='tax'&&deferredTaxAdjustments.length>0)).map(row=>{
   const adjustment=row.key==='operatingExpenses'?depreciation:
-   row.key==='tax'?deferredTaxReversal.negated():row.key==='netProfit'?deferredTaxReversal.minus(depreciation):depreciation.negated();
+   row.key==='tax'?deferredTaxReversal.negated():row.key==='netProfit'?deferredTaxReversal.minus(depreciation).minus(parentDividendEliminated):
+   row.key==='operatingProfit'?depreciation.plus(parentDividendEliminated).negated():parentDividendEliminated.negated();
   return {key:row.key,before:row.after,adjustment:adjustment.toFixed(4),after:new Money(row.after).plus(adjustment).toFixed(4)};
  });
  const periodProfit=new Money(income.find(row=>row.key==='netProfit')!.after);
@@ -157,6 +178,6 @@ export async function readGroupAcquisitionPosition(input:unknown){
  return {status:later?'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW' as const:'ACQUISITION_DAY_POSITION_REVIEW' as const,query,currency:base.currency,rows,
   investmentEliminated:investment.toFixed(4),subsidiaryEquityEliminated:bookEquity.toFixed(4),
   goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments,depreciationAdjustments,deferredTaxAdjustments,income,
-  nciAttribution,profitAttribution,closingNci:nci.plus(profitToNci).toFixed(4),
-  closingParentEquity:closing('equity').minus(nci).minus(profitToNci).toFixed(4)};
+  nciAttribution,profitAttribution,dividendEliminations,closingNci:nci.plus(profitToNci).minus(dividendsToNci).toFixed(4),
+  closingParentEquity:closing('equity').minus(nci).minus(profitToNci).plus(dividendsToNci).toFixed(4)};
 }

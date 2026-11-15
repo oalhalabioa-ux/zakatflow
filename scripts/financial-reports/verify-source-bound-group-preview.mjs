@@ -485,7 +485,60 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
   await positionPanel.getByText('Non-controlling interests after acquisition',{exact:true}).waitFor();
   await writeFile(out+'/acquisition-nci-attribution.json',JSON.stringify(minority,null,2));
-  await request(acquisitionPath,{...minorityKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
+  await request(acquisitionPath,{...minorityKey,action:'REVOKE',reason:'Prepare the independently documented dividend fixture'});
+  async function postDividend(organization,type,debit,credit,amount){
+   const c=randomUUID();
+   sql(`insert into public.financial_classifications(id,organization_id,code,name,classification_type,created_by)
+    values('${c}','${organization}','QA_GROUP_DIVIDEND','Declared ordinary dividend','${type}','${actor.id}')`);
+   let workspace=await rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:query.from});
+   for(const [id,normal] of [[debit,'DEBIT'],[credit,'CREDIT']]){
+    if(workspace.chart.some(account=>account.id===id))continue;
+    await rpc('save_financial_chart_account',{p_org:organization,p_code:id,p_parent:id.slice(0,4),
+     p_name_ar:'حساب توزيع الاختبار',p_name_en:'Dividend acceptance account',p_normal_side:id.startsWith('3300')?'CREDIT':normal,
+     p_is_postable:true,p_is_active:true,p_expected_version:0,p_reason:'Create a dedicated dividend fixture account'});
+    workspace=await rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:query.from});
+   }
+   const rules=workspace.policy.rules.map(rule=>Object.fromEntries(Object.entries(rule).filter(([key])=>
+    ['detailed','eventType','sourceModule','classificationId','cashDirection','debitAccountId','creditAccountId','cashActivity'].includes(key))));
+   rules.push({detailed:true,eventType:'ADJUSTMENT',sourceModule:'OPERATIONAL_CONSOLE',classificationId:c+':BASE',
+    cashDirection:'NON_CASH',debitAccountId:debit,creditAccountId:credit});
+   const policy=await request('/api/financial-reporting/policy',{action:'save',organization,fiscalStart:query.from,
+    expectedVersion:workspace.policy.status==='DRAFT'?workspace.policy.version:0,rules,reason:'Fixture dividend source policy'});
+   await request('/api/financial-reporting/policy',{action:'approve',id:policy.id,expectedVersion:policy.version});
+   const id=await command({action:'CREATE',payload:{organization_id:organization,entity_id:null,counterparty_id:null,
+    event_type:'ADJUSTMENT',source_module:'OPERATIONAL_CONSOLE',source_record_id:null,source_event_key:'group-dividend:'+randomUUID(),
+    event_date:minorityQuery.to,due_date:null,base_currency:'SAR',description:'Approved ordinary dividend declared and unpaid',
+    lines:[{line_number:1,cost_center_id:null,description:'Documented declared dividend',classification_id:c,amount,base_amount:amount,
+     currency:'SAR',exchange_rate:1,cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0}],
+    obligations:[],links:[],
+   }});
+   for(const status of ['PLANNED','COMMITTED'])
+    await command({action:'TRANSITION',organization_id:organization,event_id:id,status,note:'Native dividend fixture'});
+   await command({action:'APPROVE',organization_id:organization,event_id:id,note:'Approve the original dividend source'});
+   await command({action:'TRANSITION',organization_id:organization,event_id:id,status:'ACTUAL',note:'Post declared dividend'});
+   return id;
+  }
+  const subsidiaryEventId=await postDividend(subsidiary,'EQUITY','330098','210098',100);
+  const parentEventId=await postDividend(parent,'REVENUE','110098','410061',80);
+  const dividendKey={query:minorityQuery,id:randomUUID()};
+  await request(acquisitionPath,{...dividendKey,action:'SAVE',measurement:{...minorityMeasurement,
+   ordinaryDividend:{parentEventId,subsidiaryEventId,evidenceDocumentId:minorityDocument.id},
+  }});
+  await request(acquisitionPath,{...dividendKey,action:'APPROVE',reason:'Review the paired ordinary dividend declared and unpaid'});
+  const dividendBatch=await request('/api/financial-reporting/group-elimination-batches',{
+   ...save,query:minorityQuery,entries:[],expectedVersion:1,requestId:randomUUID(),reason:'Approve closing source including declared distributions',
+  });
+  await request('/api/financial-reporting/group-elimination-batches',{
+   action:'APPROVE',query:minorityQuery,batchId:dividendBatch.id,expectedVersion:2,reason:'Approve paired distribution review period',
+  });
+  const withDividend=await request(approvedAcquisitionsPath,{action:'ACQUISITION_POSITION',query:minorityQuery});
+  assert.equal(withDividend.status,'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW',JSON.stringify(withDividend));
+  assert.deepEqual(withDividend.profitAttribution,minority.profitAttribution);
+  assert.equal(withDividend.closingNci,'780.0000');
+  assert.equal(withDividend.closingParentEquity,minority.closingParentEquity);
+  assert.equal(withDividend.rows.find(row=>row.key==='liabilities').after,'5220.0000');
+  await writeFile(out+'/acquisition-ordinary-dividend.json',JSON.stringify(withDividend,null,2));
+  await request(acquisitionPath,{...dividendKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
  }finally{
   sql(`update private.financial_group_control_assessments set economic_interest_percent=100,
    voting_interest_percent=100 where id='${control}'`);

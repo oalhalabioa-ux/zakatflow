@@ -89,6 +89,7 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
   calculation:ReturnType<typeof measureGroupAcquisition>;
   investmentAccountId:string|null;
   continuityDocumented:boolean;
+  ordinaryDividend?:{subsidiaryEventId:string;parentEventId:string;evidenceDocumentId:string};
   fairValueTaxBasisDocumented?:boolean;
   noDeferredTaxRequired?:boolean;
   depreciationSchedules?:{accountId:string;usefulLifeDays:number;deferredTaxLiabilityAccountId?:string}[];
@@ -104,7 +105,8 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
    return {id:record.id,subsidiaryName:record.subsidiaryName,approvedAt:record.approvedAt,
     documentCount:record.documents.length,calculation,continuityDocumented:Boolean(record.measurement.continuityBasis),investmentAccountId:record.measurement.investmentLink?.accountId??null,
-    ...(includeBookItems?{fairValueTaxBasisDocumented:Boolean(record.measurement.fairValueBasis),
+    ...(includeBookItems?{...(record.measurement.ordinaryDividend?{ordinaryDividend:record.measurement.ordinaryDividend}:{}),
+     fairValueTaxBasisDocumented:Boolean(record.measurement.fairValueBasis),
      noDeferredTaxRequired:record.measurement.fairValueBasis?.deferredTax==='NOT_REQUIRED',
      depreciationSchedules:record.measurement.continuityBasis?.treatment==='STRAIGHT_LINE_UPLIFT'?record.measurement.continuityBasis.schedules:[],
      bookItems:record.measurement.identifiableItems.map(({id,kind,recognizedAmount})=>({id,kind,recognizedAmount}))}:{})};
@@ -167,6 +169,7 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
   fairValueAdjustments:fairValue.status==='ELIGIBLE'?fairValue.adjustments:[],
   depreciationSchedules:selected.depreciationSchedules??[],
   noDeferredTaxRequired:selected.noDeferredTaxRequired===true,
+  ordinaryDividend:selected.ordinaryDividend??null,
   acquisitionGoodwill:selected.calculation.goodwill,
   acquisitionNci:selected.calculation.nciAtAcquisition,
  };

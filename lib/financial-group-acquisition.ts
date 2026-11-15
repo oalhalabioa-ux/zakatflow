@@ -13,6 +13,9 @@ export const groupAcquisitionMeasurementSchema=z.object({
  transactionType:z.literal('SINGLE_STEP_BUSINESS_COMBINATION'),commonControl:z.literal(false),
  instruments:z.literal('ORDINARY_PROPORTIONATE'),
  consideration:money,considerationEvidence:evidence,
+ ordinaryDividend:z.object({
+  subsidiaryEventId:z.string().uuid(),parentEventId:z.string().uuid(),evidenceDocumentId:z.string().uuid(),
+ }).strict().optional(),
  continuityBasis:z.discriminatedUnion('treatment',[
   z.object({treatment:z.literal('NO_SUBSEQUENT_ADJUSTMENTS'),evidenceDocumentId:z.string().uuid()}).strict(),
   z.object({treatment:z.literal('STRAIGHT_LINE_UPLIFT'),evidenceDocumentId:z.string().uuid(),

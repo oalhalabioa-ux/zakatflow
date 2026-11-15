@@ -97,11 +97,11 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
     {result.profitAttribution&&<>
      <h4>{en?'Non-controlling interests after acquisition':'حقوق غير المسيطرين بعد الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
-      <thead><tr>{(en?['Subsidiary','NCI at acquisition','Adjusted subsidiary result','Result attributed to NCI','Closing NCI']:
-       ['الشركة التابعة','حقوق غير المسيطرين عند الاستحواذ','نتيجة التابعة بعد التسويات','حصة غير المسيطرين من النتيجة','حقوق غير المسيطرين في الإقفال']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <thead><tr>{(en?['Subsidiary','NCI at acquisition','Adjusted subsidiary result','Result attributed to NCI','Dividends to NCI','Closing NCI']:
+       ['الشركة التابعة','حقوق غير المسيطرين عند الاستحواذ','نتيجة التابعة بعد التسويات','حصة غير المسيطرين من النتيجة','حصة غير المسيطرين من التوزيع','حقوق غير المسيطرين في الإقفال']).map(label=><th key={label}>{label}</th>)}</tr></thead>
       <tbody>{result.nciAttribution.map(item=><tr key={item.subsidiaryId}>
        <th>{item.subsidiaryName}</th><td>{statementAmount(item.openingNci)}</td><td>{statementAmount(item.adjustedProfit)}</td>
-       <td>{statementAmount(item.profitToNci)}</td><td>{statementAmount(item.closingNci)}</td>
+       <td>{statementAmount(item.profitToNci)}</td><td>{statementAmount(item.dividendToNci)}</td><td>{statementAmount(item.closingNci)}</td>
       </tr>)}</tbody>
      </table></div>
      <dl>
@@ -115,6 +115,17 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       <dd>{statementAmount(result.closingNci)}</dd>
      </dl>
     </>}
+    {result.dividendEliminations.length>0&&<>
+     <h4>{en?'Declared dividends and internal eliminations':'التوزيعات المعلنة والاستبعادات الداخلية'}</h4>
+     <div className="fs-table-scroll"><table className="fs-table">
+      <thead><tr>{(en?['Subsidiary','Declaration date','Total declared','Parent share eliminated','Non-controlling share']:
+       ['الشركة التابعة','تاريخ الإعلان','إجمالي التوزيع','حصة الأم المستبعدة','حصة غير المسيطرين']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{result.dividendEliminations.map(item=><tr key={item.subsidiaryId}>
+       <th>{item.subsidiaryName}</th><td>{item.date}</td><td>{statementAmount(item.ordinaryDividends)}</td>
+       <td>{statementAmount(item.parentDividend)}</td><td>{statementAmount(item.nciDividend)}</td>
+      </tr>)}</tbody>
+     </table></div>
+    </>}
     {result.deferredTaxAdjustments.length>0&&<>
      <h4>{en?'Acquisition deferred tax reversal':'عكس الضريبة المؤجلة على فرق الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
@@ -126,8 +137,8 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       </tr>)}</tbody>
      </table></div>
     </>}
-    {result.depreciationAdjustments.length>0&&<>
-     <h4>{en?'Depreciation of acquisition uplift':'إهلاك فرق القيمة العادلة عند الاستحواذ'}</h4>
+    {(result.depreciationAdjustments.length>0||result.dividendEliminations.length>0)&&<>
+     {result.depreciationAdjustments.length>0&&<><h4>{en?'Depreciation of acquisition uplift':'إهلاك فرق القيمة العادلة عند الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
       <thead><tr>{(en?['Subsidiary','Account','Useful life (days)','Period depreciation','Remaining uplift']:
        ['الشركة التابعة','الحساب','العمر الإنتاجي بالأيام','إهلاك الفترة','الفرق المتبقي']).map(label=><th key={label}>{label}</th>)}</tr></thead>
@@ -136,10 +147,11 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
        <td>{statementAmount(item.charge)}</td><td>{statementAmount(item.remainingUplift)}</td>
       </tr>)}</tbody>
      </table></div>
+     </>}
      <h4>{en?'Impact on the period result':'أثر التسوية على نتيجة الفترة'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
-      <thead><tr>{(en?['Item','Before depreciation adjustment','Depreciation adjustment','After depreciation adjustment']:
-       ['البند','قبل تسوية الإهلاك','تسوية الإهلاك','بعد تسوية الإهلاك']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <thead><tr>{(en?['Item','Before adjustment','Adjustment','After adjustment']:
+       ['البند','قبل التسوية','التسوية','بعد التسوية']).map(label=><th key={label}>{label}</th>)}</tr></thead>
       <tbody>{result.income.map(row=><tr key={row.key}><th>{statementLabels[row.key][en?1:0]}</th>
        <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
       </tr>)}</tbody>
