@@ -65,6 +65,10 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const replaced=await rpc('financial_group_elimination_context',{p_root:parent,p_from:query.from,p_to:query.to});
  assert.equal(replaced.batches.find(b=>b.id===batch2.id).status,'SUPERSEDED');
  assert.equal(replaced.batches.filter(b=>b.status==='APPROVED').length,1);
+ const currentBatch=await actor.client.rpc('financial_group_approved_eliminations',{p_root:parent,p_from:query.from,p_to:query.to});
+ assert.ifError(currentBatch.error);assert.equal(currentBatch.data.id,batch3.id);assert.equal(currentBatch.data.version,3);
+ assert.equal(currentBatch.data.status,'APPROVED_GROUP_ELIMINATION_EVIDENCE');
+
  const excessive=await request('/api/financial-reporting/group-eliminations',{query,entries:[{...adjustment,amount:'61'}]},422);assert.equal(excessive.error,'GROUP_ADJUSTMENT_EXCEEDS_DETAIL_SOURCE');
  // Preview must not write or alter either company's journal or opening sources.
  const clean=p=>{const copy=structuredClone(p);delete copy.coverage.readAt;return copy};assert.deepEqual(clean(await raw(parent)),clean(p));assert.deepEqual(clean(await raw(subsidiary)),clean(s));
@@ -74,6 +78,9 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},422);
  const revokedSave=await actor.client.rpc('save_financial_group_eliminations',{...saveArgs,p_expected_version:3,p_entries:[adjustment],p_request_id:randomUUID()});
  assert.match(revokedSave.error?.message??'',/GROUP_BATCH_DOCUMENT_NOT_APPROVED/);
+ const revokedRead=await actor.client.rpc('financial_group_approved_eliminations',{p_root:parent,p_from:query.from,p_to:query.to});
+ assert.match(revokedRead.error?.message??'',/GROUP_BATCH_DOCUMENT_NOT_APPROVED/);
+
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));
  return{parent,subsidiary,revenue,expenseEvent,status:result.status,amount:'60.0000',sourcesUnchanged:true,revokedChildDenied:true};
 }

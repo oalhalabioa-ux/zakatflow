@@ -55,7 +55,7 @@ begin
 end $$;
 revoke all on function private.financial_group_open_item(uuid,uuid,text,text,date) from public,anon,authenticated;
 
-create function private.financial_group_batch_evidence(p_root uuid,p_from date,p_to date,p_entries jsonb)
+create function private.financial_group_batch_evidence(p_root uuid,p_from date,p_to date,p_entries jsonb,p_reporting boolean default false)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare control jsonb;sources jsonb:='{}';trials jsonb:='{}';s jsonb;trial jsonb;e jsonb;ref jsonb;ev jsonb;l jsonb;a jsonb;doc jsonb;oi jsonb;
  member uuid;ids uuid[];currency text;retained text;side text;account_id text;source_key text;account_key text;open_key text;
@@ -71,7 +71,9 @@ begin
   if (relation->>'directEconomicInterestPercent')::numeric<>100 then raise exception 'GROUP_BATCH_NCI_REQUIRED';end if;
  end loop;
  foreach member in array ids loop
-  if not private.financial_opening_can(member,'financial_core.create') or not public.is_organization_admin(member) then raise exception 'GROUP_BATCH_WRITE_DENIED';end if;
+  if p_reporting then
+   if not private.financial_opening_can(member,'financial_core.view') then raise exception 'GROUP_BATCH_READ_DENIED';end if;
+  elsif not private.financial_opening_can(member,'financial_core.create') or not public.is_organization_admin(member) then raise exception 'GROUP_BATCH_WRITE_DENIED';end if;
   s:=public.financial_statement_live_snapshot(member,p_from,p_to);
   if s->>'closureId' is not null or s->>'origin'<>'LIVE_CANONICAL_EVENTS' or s#>>'{coverage,complete}'<>'true' or s#>>'{coverage,scope}'<>'ORGANIZATION_ALL_ENTITIES' then raise exception 'GROUP_BATCH_SOURCE_UNAVAILABLE';end if;
   if currency is null then currency:=s->>'currency';elsif currency<>s->>'currency' then raise exception 'GROUP_BATCH_FX_REQUIRED';end if;
@@ -129,7 +131,7 @@ begin
  end loop;
  return private.financial_group_canonical(jsonb_build_object('control',control,'sources',sources,'entries',p_entries,'documents',documents,'openItems',open_items,'currency',currency));
 end $$;
-revoke all on function private.financial_group_batch_evidence(uuid,date,date,jsonb) from public,anon,authenticated;
+revoke all on function private.financial_group_batch_evidence(uuid,date,date,jsonb,boolean) from public,anon,authenticated;
 
 create table private.financial_group_elimination_batches (
  id uuid primary key default gen_random_uuid(),request_id uuid not null unique,
@@ -209,7 +211,7 @@ returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare control jsonb;item private.financial_group_elimination_batches%rowtype;result jsonb:='[]';member uuid;
 begin
  control:=public.financial_group_registered_scope(p_root,p_from,p_to);
- for item in select * from private.financial_group_elimination_batches where root_organization_id=p_root and period_from=p_from and period_to=p_to order by version desc limit 50 loop
+ for item in select * from private.financial_group_elimination_batches where root_organization_id=p_root and period_from=p_from and period_to=p_to order by (status='APPROVED') desc,version desc limit 50 loop
   for member in select value::uuid from jsonb_array_elements_text(item.evidence#>'{control,expectedOrganizationIds}') loop
    if not private.financial_opening_can(member,'financial_core.view') then raise exception 'GROUP_BATCH_READ_DENIED';end if;
   end loop;
@@ -219,3 +221,22 @@ begin
 end $$;
 revoke all on function public.save_financial_group_eliminations(uuid,date,date,integer,jsonb,text,uuid),public.approve_financial_group_eliminations(uuid,integer,text),public.financial_group_elimination_context(uuid,date,date) from public,anon,authenticated;
 grant execute on function public.save_financial_group_eliminations(uuid,date,date,integer,jsonb,text,uuid),public.approve_financial_group_eliminations(uuid,integer,text),public.financial_group_elimination_context(uuid,date,date) to authenticated;
+
+-- Revalidate an approved batch against current evidence in one database call.
+-- This authorizes readers independently from administrators who save batches.
+create function public.financial_group_approved_eliminations(p_root uuid,p_from date,p_to date)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare control jsonb;item private.financial_group_elimination_batches%rowtype;current_evidence jsonb;
+begin
+ control:=public.financial_group_registered_scope(p_root,p_from,p_to);
+ perform pg_advisory_xact_lock(hashtextextended('group-batch-period:'||p_root||':'||p_from||':'||p_to,0));
+ select * into item from private.financial_group_elimination_batches where root_organization_id=p_root and period_from=p_from and period_to=p_to and status='APPROVED';
+ if item.id is null then raise exception 'GROUP_BATCH_APPROVAL_REQUIRED';end if;
+ current_evidence:=private.financial_group_batch_evidence(p_root,p_from,p_to,item.entries,true);
+ if current_evidence<>item.evidence then raise exception 'GROUP_BATCH_SOURCE_CHANGED';end if;
+ return jsonb_build_object('status','APPROVED_GROUP_ELIMINATION_EVIDENCE','id',item.id,'version',item.version,
+  'rootOrganizationId',p_root,'from',p_from,'to',p_to,'entries',item.entries,
+  'approvedBy',item.approved_by,'approvedAt',item.approved_at,'evidenceFingerprint',md5(current_evidence::text));
+end $$;
+revoke all on function public.financial_group_approved_eliminations(uuid,date,date) from public,anon,authenticated;
+grant execute on function public.financial_group_approved_eliminations(uuid,date,date) to authenticated;

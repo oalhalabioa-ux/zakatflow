@@ -896,6 +896,10 @@ try{
   const {verifySourceBoundGroupPreview}=await import('./verify-source-bound-group-preview.mjs');
   report.groupSourceBoundPreview=await verifySourceBoundGroupPreview({actor:a,page,app,out,sql,databaseUrl:url,subsidiary:report.defaultPostingActualCycle.organization,expenseEvent:report.centerExpenseEvent});
  });
+ await check('Dated center branch assignment preserves original history and banner-scoped position export',async()=>{
+  const {verifyDatedCenterSource}=await import('./verify-dated-center-source.mjs');
+  report.datedCenterSource=await verifyDatedCenterSource({actor:a,page,app,out,sql,databaseUrl:url,organization:report.defaultPostingActualCycle.organization});
+ });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
 // Exit only after assertions, evidence writes and cleanup; background SDK handles must not keep CI alive.

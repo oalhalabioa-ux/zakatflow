@@ -3,6 +3,7 @@ import {requireUser} from './auth';
 import {statementQuery} from '../lib/financial-statement-source';
 import {sourceBoundAdjustmentSchema} from '../lib/financial-group-source-bound-adjustments';
 import {liveSourceBoundGroupPreview} from './financial-group-source-bound-adjustments';
+import {assertStableFinancialReplay} from '../lib/financial-source-replay';
 const uuid=z.string().uuid(),reason=z.string().trim().min(8).max(1000);
 const command=z.discriminatedUnion('action',[
  z.object({action:z.literal('SAVE'),query:statementQuery,entries:z.array(sourceBoundAdjustmentSchema.extend({documentMatchId:uuid})).max(200),expectedVersion:z.number().int().nonnegative(),reason,requestId:uuid}).strict(),
@@ -13,6 +14,28 @@ const batch=z.object({id:uuid,root_organization_id:uuid,period_from:z.string().d
  entries:z.array(sourceBoundAdjustmentSchema.extend({documentMatchId:uuid})).max(200)});
 const context=z.object({status:z.literal('GROUP_ELIMINATION_EVIDENCE_ONLY'),batches:z.array(batch).max(50)});
 function enabled(){if(process.env.FINANCIAL_GROUP_ELIMINATION_PREVIEW!=='true')throw Error('REPORTING_DISABLED');}
+const approvedEvidence=z.object({status:z.literal('APPROVED_GROUP_ELIMINATION_EVIDENCE'),id:uuid,
+ version:z.number().int().positive(),rootOrganizationId:uuid,from:z.string().date(),to:z.string().date(),
+ entries:z.array(sourceBoundAdjustmentSchema.extend({documentMatchId:uuid})).max(200),
+ approvedBy:uuid,approvedAt:z.string().datetime({offset:true}),evidenceFingerprint:z.string().regex(/^[a-f0-9]{32}$/)}).strict();
+/** Verified approved adjustments only; not a certification of full consolidation. */
+export async function readApprovedGroupEliminations(input:unknown){
+ enabled();const query=statementQuery.parse(input),{supabase}=await requireUser();
+ const read=async()=>{
+  const r=await supabase.rpc('financial_group_approved_eliminations',{p_root:query.organization,p_from:query.from,p_to:query.to});
+  if(r.error)throw Error(/^GROUP_BATCH_[A-Z_]+$/.test(r.error.message)?r.error.message:'REPORTING_GROUP_BATCH_UNAVAILABLE');
+  const parsed=approvedEvidence.safeParse(r.data);if(!parsed.success)throw Error('REPORTING_GROUP_BATCH_INVALID');
+  const e=parsed.data;
+  if(e.rootOrganizationId!==query.organization||e.from!==query.from||e.to!==query.to)throw Error('REPORTING_ACCESS_DENIED');
+  return e;
+ };
+ const evidence=await read();
+ const verified=await liveSourceBoundGroupPreview({query,entries:evidence.entries});
+ if(verified.documents.status!=='DOCUMENT_MATCHES_VERIFIED_ONLY')throw Error('GROUP_BATCH_DOCUMENT_NOT_APPROVED');
+ assertStableFinancialReplay(evidence,await read());
+ return{...verified,status:'APPROVED_GROUP_ADJUSTMENT_WORKSHEET' as const,consolidated:false as const,
+  approval:{id:evidence.id,version:evidence.version,approvedBy:evidence.approvedBy,approvedAt:evidence.approvedAt}};
+}
 export async function commandGroupEliminationBatch(input:unknown){
  enabled();const c=command.parse(input),{supabase}=await requireUser();
  let result;
