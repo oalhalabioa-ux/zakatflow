@@ -136,3 +136,125 @@
 
 @media(min-width:1351px){.corp-shell .settings-workspace .settings-tabs{grid-template-columns:minmax(0,.75fr) minmax(0,1fr) minmax(0,1.25fr) minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,.85fr)}}
 .corp-shell .settings-workspace .settings-tabs a:not(.btn){white-space:normal}
+
+
+/* Approved Yaqeen settings navigation: flat white surfaces, gold outlines, green active journey. */
+.settings-workspace .settings-tabs{
+  direction:rtl;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
+  grid-auto-flow:row;gap:0;background:#fff;border:1px solid #d8e0e7;border-radius:14px;
+  padding:10px 8px;margin:16px 0 22px;box-shadow:none;
+}
+.settings-workspace .settings-tabs a:not(.btn){
+  position:relative;min-height:100px;display:flex;flex-direction:column;justify-content:center;
+  align-items:center;gap:9px;padding:8px 6px 22px;border-radius:0;
+  background:transparent!important;color:#1d3852!important;font-size:.83rem;font-weight:650;
+  text-decoration:none;line-height:1.4;
+}
+.settings-workspace .settings-tabs a:not(.btn)+a:not(.btn){border-inline-start:1px solid #e8eef0}
+.settings-workspace .settings-tabs a:not(.btn) .settings-icon{
+  color:#c6a35d;width:35px;height:35px;flex:0 0 35px;border:none;background:transparent;
+}
+.settings-workspace .settings-tabs a:not(.btn)::before{
+  content:"";position:absolute;bottom:12px;inset-inline:18%;height:3px;
+  border-radius:3px;background:#cfd6d9;
+}
+.settings-workspace .settings-tabs a[aria-current=page]:not(.btn) .settings-icon{color:#205347}
+.settings-workspace .settings-tabs a[aria-current=page]:not(.btn)::before{background:#205347;height:4px}
+.settings-workspace .settings-tabs a:not(.btn):hover{background:#f7f9fa!important}
+.settings-workspace .settings-finance-journey-tabs{
+  direction:rtl;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));flex-wrap:nowrap;
+  padding:6px;gap:0;background:#fff;border-radius:12px;border:1px solid #d8e0e7;
+}
+.settings-workspace .settings-finance-journey-tabs button{
+  display:flex;flex-direction:row;align-items:center;justify-content:center;gap:7px;
+  min-width:0;min-height:48px;padding:8px 5px;flex:auto;
+  border-radius:7px;color:#1d3852;background:transparent;box-shadow:none;
+  font-size:.78rem;font-weight:650;line-height:1.5;cursor:pointer;
+}
+.settings-workspace .settings-finance-journey-tabs button+button{border-inline-start:1px solid #e8eef0}
+.settings-workspace .settings-finance-journey-tabs button .settings-icon{
+  width:22px;height:22px;flex:0 0 22px;color:#c6a35d;
+}
+.settings-workspace .settings-finance-journey-tabs button[aria-pressed=true]{
+  background:#10243a!important;color:#c6a35d!important;box-shadow:none;
+  border-inline-start-color:transparent;
+}
+.settings-workspace .settings-finance-journey-tabs button[aria-pressed=true] .settings-icon{color:#c6a35d}
+.settings-workspace .settings-finance-status{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;
+  margin:18px 0 24px;
+}
+.settings-workspace .settings-finance-status article{
+  background:#f6f7f8!important;border:1px solid #d4dce2!important;
+  border-radius:14px;padding:22px 14px 18px;display:flex;
+  flex-direction:column;align-items:center;justify-content:flex-start;
+  min-height:200px;gap:10px;box-shadow:none;
+}
+.settings-workspace .settings-finance-status article>.settings-icon{
+  width:43px;height:43px;flex:0 0 43px;color:#c6a35d;
+}
+.settings-workspace .settings-finance-status article>h3{
+  color:#10243a;font-size:1.12rem;margin:0;text-align:center;
+}
+.settings-workspace .settings-finance-status article>p{
+  font-size:.8rem;color:#1d3852;margin:0;text-align:center;
+  line-height:1.6;min-height:40px;
+}
+.settings-workspace .settings-progress-track{
+  width:90%;max-width:210px;display:flex;align-items:center;justify-content:space-between;
+  position:relative;margin-top:auto;padding:0 3px;
+}
+.settings-workspace .settings-progress-track::before{
+  content:"";position:absolute;inset-inline:12px;top:50%;height:3px;
+  background:#bac3cb;transform:translateY(-50%);
+}
+.settings-workspace .settings-progress-track span{
+  width:19px;height:19px;z-index:1;border:2px solid #aeb7bf;
+  background:#f6f7f8;border-radius:50%;display:block;
+}
+.settings-workspace .settings-progress-track.pending::before{background:#c6a35d}
+.settings-workspace .settings-progress-track.pending span:nth-child(2){background:#c6a35d;border-color:#c6a35d}
+.settings-workspace .settings-progress-track.complete::before{background:#205347}
+.settings-workspace .settings-progress-track.complete span{background:#205347;border-color:#205347}
+.settings-workspace .settings-finance-progress-label{
+  display:block;font-size:.85rem;font-weight:650;color:#1d3852;
+  border-radius:0;padding:0;background:transparent;
+}
+.settings-workspace .settings-finance-progress-label.complete{color:#205347}
+.settings-workspace .settings-finance-progress-label.pending{color:#a27e34}
+@media(max-width:950px){
+ .settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:8px}
+ .settings-workspace .settings-finance-journey-tabs{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:6px}
+ .settings-workspace .settings-finance-status{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+ .settings-workspace .settings-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .settings-workspace .settings-tabs a:not(.btn){font-size:.75rem;min-height:92px}
+ .settings-workspace .settings-finance-journey-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .settings-workspace .settings-finance-journey-tabs button{font-size:.75rem;min-height:55px}
+ .settings-workspace .settings-finance-status{grid-template-columns:1fr}
+}
+
+
+/* Keep two-line Arabic tab labels fully visible at Windows zoom and narrower desktops. */
+.corp-shell .settings-workspace .settings-tabs{
+  align-items:stretch;box-sizing:border-box;overflow:visible;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){
+  box-sizing:border-box;height:auto;min-height:132px;
+  padding:12px 6px 24px;overflow:visible;
+  gap:10px;white-space:normal;word-break:normal;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{
+  display:block;overflow:visible;max-height:none;min-height:0;
+  white-space:normal;overflow-wrap:normal;text-align:center;
+  line-height:1.65;font-size:.82rem;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)::before{bottom:10px}
+@media (min-width:701px) and (max-width:1350px){
+  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:700px){
+  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .corp-shell .settings-workspace .settings-tabs a:not(.btn){min-height:118px}
+}
