@@ -144,11 +144,14 @@ try{
   const financeTabs=page.locator('.settings-finance-journey-tabs');
   const financeLabels=ar?['ملخص التأسيس المالي','السنة المالية','دليل الحسابات','قواعد الترحيل','النقد والبنوك','الأرصدة الافتتاحية']:['Financial setup overview','Fiscal year','Chart of accounts','Posting rules','Cash & banks','Opening balances'];
   assert.deepEqual((await financeTabs.locator('button span').allTextContents()).map(s=>s.trim()),financeLabels,'Summary is immediately before Fiscal year');
+  const acceptNavigationConfirm=dialog=>dialog.accept();
+  page.on('dialog',acceptNavigationConfirm);
   for(const label of financeLabels){
    await financeTabs.getByRole('button',{name:label,exact:true}).click();
    assert.equal(await financeTabs.locator('button[aria-pressed=true]').count(),1,'One active financial tab');
    assert.equal((await financeTabs.locator('button[aria-pressed=true] span').innerText()).trim(),label,'Click selects requested financial tab');
   }
+  page.off('dialog',acceptNavigationConfirm);
   await page.getByRole('button',{name:ar?'قواعد الترحيل':'Posting rules',exact:true}).first().click();await page.getByRole('region',{name:ar?'القواعد الافتراضية':'Default posting rules',exact:true}).waitFor();
   await page.getByText(ar?'حسابات تحتاج قالب عملية مناسبًا':'Accounts requiring a source template',{exact:true}).waitFor();
   assert.equal(await page.getByText(ar?'قواعد تحتاج استكمال الربط التفصيلي':'Rules requiring complete detail mapping',{exact:true}).count(),0);
