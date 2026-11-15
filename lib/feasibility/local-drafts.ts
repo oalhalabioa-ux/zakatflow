@@ -56,3 +56,34 @@ export function parseCloudStudyRows(raw:unknown):SavedCloudDraft[]|null {
  }
  return rows;
 }
+
+
+/** Validates institution-scoped QA rows before displaying them. This is NOT
+ * authorization; the database and API must independently enforce tenant RLS. */
+export type InstitutionalCloudDraft={
+ id:string;organization_id:string;owner_user_id:null;created_by_user_id:string|null;
+ title:string;study:FeasibilityStudy;revision:number;updated_at:string;
+};
+export function parseInstitutionalCloudRows(raw:unknown,organizationId:string):InstitutionalCloudDraft[]|null {
+ if(!uuid.test(organizationId)||!Array.isArray(raw)||raw.length>300)return null;
+ const studies=parseStudyCollection(raw.map(x=>object(x)?x.study:null));
+ if(!studies)return null;
+ const result:InstitutionalCloudDraft[]=[];
+ for(let i=0;i<raw.length;i++){
+  const row=raw[i],study=studies[i];
+  if(!object(row)||row.id!==study.id||row.organization_id!==organizationId||
+   row.owner_user_id!==null||typeof row.title!=='string'||row.title!==study.title||
+   (row.created_by_user_id!==null&&
+    (typeof row.created_by_user_id!=='string'||!uuid.test(row.created_by_user_id)))||
+   typeof row.revision!=='number'||!Number.isSafeInteger(row.revision)||row.revision<1||
+   typeof row.updated_at!=='string'||!Number.isFinite(Date.parse(row.updated_at)))
+   return null;
+  result.push({
+   id:study.id,organization_id:organizationId,owner_user_id:null,
+   created_by_user_id:row.created_by_user_id as string|null,
+   title:study.title,study,revision:row.revision,
+   updated_at:row.updated_at
+  });
+ }
+ return result;
+}
