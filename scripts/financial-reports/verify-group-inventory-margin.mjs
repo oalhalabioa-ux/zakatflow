@@ -145,6 +145,11 @@ export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,
  console.log('PASS Approved stock margin reaches group position, income and non-controlling interests exactly once');
  await buyer(issue);
  assert.equal((await request(path,payload,422)).error,'GROUP_INVENTORY_REMAINING_STOCK_UNVERIFIED');
+ assert.equal((await request(approvedAcquisitionsPath,positionAction,409)).error,'GROUP_BATCH_SOURCE_CHANGED');
+ const refreshedBatch=await request(batchPath,{action:'SAVE',query,entries:[],expectedVersion:1,requestId:randomUUID(),
+  reason:'Confirm that refreshing the group batch cannot revive stale inventory evidence'});
+ await request(batchPath,{action:'APPROVE',query,batchId:refreshedBatch.id,expectedVersion:2,
+  reason:'Approve the group batch based on the changed stock ledger'});
  const invalidated=await request(approvedAcquisitionsPath,positionAction,422);
  assert.equal(invalidated.error,'GROUP_INVENTORY_REMAINING_STOCK_UNVERIFIED');
  await writeFile(out+'/group-inventory-margin-review.json',JSON.stringify(result,null,2));
