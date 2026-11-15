@@ -234,3 +234,27 @@
  .settings-workspace .settings-finance-journey-tabs button{font-size:.75rem;min-height:55px}
  .settings-workspace .settings-finance-status{grid-template-columns:1fr}
 }
+
+
+/* Keep two-line Arabic tab labels fully visible at Windows zoom and narrower desktops. */
+.corp-shell .settings-workspace .settings-tabs{
+  align-items:stretch;box-sizing:border-box;overflow:visible;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){
+  box-sizing:border-box;height:auto;min-height:132px;
+  padding:12px 6px 24px;overflow:visible;
+  gap:10px;white-space:normal;word-break:normal;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{
+  display:block;overflow:visible;max-height:none;min-height:0;
+  white-space:normal;overflow-wrap:normal;text-align:center;
+  line-height:1.65;font-size:.82rem;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)::before{bottom:10px}
+@media (min-width:701px) and (max-width:1350px){
+  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:700px){
+  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .corp-shell .settings-workspace .settings-tabs a:not(.btn){min-height:118px}
+}
