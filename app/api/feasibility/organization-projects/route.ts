@@ -49,7 +49,7 @@ export async function GET(request:Request){
  const ctx=await authorize(request);
  if(ctx instanceof NextResponse)return ctx;
  const {data,error}=await ctx.supabase.from('feasibility_projects')
-  .select('id,title,revision,updated_at,study,owner_user_id,organization_id')
+  .select('id,title,revision,updated_at,study,owner_user_id,created_by_user_id,organization_id')
   .eq('organization_id',ctx.organizationId)
   .order('updated_at',{ascending:false}).limit(300);
  if(error)return json({error:'ORGANIZATION_DRAFT_READ_FAILED'},500);
