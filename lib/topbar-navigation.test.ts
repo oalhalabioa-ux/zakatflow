@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {currentWorkspaceScope,workspaceScopeHref,navigationHref,searchNavigation} from './topbar-navigation';
+import {currentWorkspaceScope,workspaceScopeHref,navigationHref,searchNavigation,isWorkspaceScopePage,isClientWorkspaceScope} from './topbar-navigation';
 describe('workspace scope routing',()=>{
  it('keeps each dual-scope module on its own page and preserves unrelated filters',()=>{
   for(const path of ['dashboard','assets','assets/dashboard','investments','reports','cash-and-banks','receivables','payables','debt-report','financial-position']){
@@ -9,6 +9,15 @@ describe('workspace scope routing',()=>{
    expect(currentWorkspaceScope(path,'scope=PERSONAL')).toBe('PERSONAL');
    expect(navigationHref('en',path,'ORGANIZATION')).toBe('/en/'+path+'?scope=ORGANIZATION');
   }
+ });
+ it('keeps feasibility studies in place when switching to Business without changing account ownership',()=>{
+  expect(isWorkspaceScopePage('feasibility')).toBe(true);
+  expect(isClientWorkspaceScope('feasibility')).toBe(true);
+  expect(currentWorkspaceScope('feasibility','')).toBe('PERSONAL');
+  expect(currentWorkspaceScope('feasibility','scope=ORGANIZATION')).toBe('ORGANIZATION');
+  expect(workspaceScopeHref('ar','feasibility','scope=PERSONAL&tab=legal','ORGANIZATION')).toBe('/ar/feasibility?scope=ORGANIZATION&tab=legal');
+  expect(workspaceScopeHref('ar','feasibility','scope=ORGANIZATION&tab=legal','PERSONAL')).toBe('/ar/feasibility?scope=PERSONAL&tab=legal');
+  expect(navigationHref('ar','feasibility','ORGANIZATION')).toBe('/ar/feasibility?scope=ORGANIZATION');
  });
  it('keeps organization reports in Business and preserves the report on business navigation',()=>{
   for(const page of ['opening-balances','financial-reporting-policy']){
