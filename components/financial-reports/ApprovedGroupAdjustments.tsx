@@ -1,6 +1,7 @@
 'use client';
 import {Fragment,useEffect,useRef,useState} from 'react';
 import {approvedGroupWorksheetCsv,groupStatementLabels as statementLabels} from '../../lib/financial-group-worksheet-export';
+import type {readGroupAcquisitionPosition} from '../../services/financial-group-acquisition-position';
 import type {readApprovedGroupAcquisitions,readGroupAcquisitionLedgerBasis} from '../../services/financial-group-acquisition-review';
 import type {readApprovedGroupEliminations} from '../../services/financial-group-elimination-batches';
 import {statementAmount} from './SourceStatementTable';
@@ -52,6 +53,49 @@ function AcquisitionLedgerBasis({query,id,en}:{query:AcquisitionResult['query'];
  </>;
 }
 
+type PositionReview=Awaited<ReturnType<typeof readGroupAcquisitionPosition>>;
+function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];en:boolean}){
+ const [result,setResult]=useState<PositionReview|'loading'|'error'|null>(null);
+ const request=useRef<AbortController|null>(null);
+ useEffect(()=>()=>request.current?.abort(),[]);
+ async function load(){
+  request.current?.abort();
+  const abort=new AbortController();
+  request.current=abort;
+  setResult('loading');
+  try{
+   const response=await fetch('/api/financial-reporting/group-approved-acquisitions',{
+    method:'POST',cache:'no-store',signal:abort.signal,headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'ACQUISITION_POSITION',query}),
+   });
+   if(!response.ok)throw Error('UNAVAILABLE');
+   const data=await response.json();
+   if(data.query?.organization!==query.organization||data.query?.from!==query.from||data.query?.to!==query.to||
+     !['ACQUISITION_DAY_POSITION_REVIEW','ACQUISITION_POSITION_UNAVAILABLE'].includes(data.status))throw Error('UNAVAILABLE');
+   if(!abort.signal.aborted)setResult(data);
+  }catch{if(!abort.signal.aborted)setResult('error');}
+ }
+ return <div data-acquisition-position-review="true">
+  <div className="fs-page-actions"><button type="button" onClick={load} disabled={result==='loading'}>
+   {en?'Review acquisition-day position':'مراجعة المركز المالي يوم الاستحواذ'}
+  </button></div>
+  {result==='loading'?<p role="status">{en?'Verifying the position…':'جارٍ التحقق من المركز المالي…'}</p>:
+   result!==null&&(result==='error'||result.status==='ACQUISITION_POSITION_UNAVAILABLE')?
+    <p role="status">{en?'Verified acquisition-day adjustments are unavailable for this selection.':'تسويات يوم الاستحواذ المتحقق منها غير متاحة لهذا الاختيار.'}</p>:
+   result!==null&&<>
+    <h4>{en?'Position after acquisition adjustment':'المركز المالي بعد تسوية الاستحواذ'}</h4>
+    <p>{en?'Goodwill':'الشهرة'} {statementAmount(result.goodwill)} · {en?'NCI at acquisition':'حقوق غير المسيطرين عند الاستحواذ'} {statementAmount(result.nciAtAcquisition)} · {result.currency}</p>
+    <div className="fs-table-scroll"><table className="fs-table">
+     <thead><tr>{(en?['Item','Before acquisition adjustment','Acquisition adjustment','After acquisition adjustment']:
+      ['البند','قبل تسوية الاستحواذ','تسوية الاستحواذ','بعد تسوية الاستحواذ']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+     <tbody>{result.rows.map(row=><tr key={row.key}><th>{statementLabels[row.key][en?1:0]}</th>
+      <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
+     </tr>)}</tbody>
+    </table></div>
+   </>}
+ </div>;
+}
+
 function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organization:string;from:string;to:string;en:boolean;exported?:AcquisitionResult|'error'}){
  const [loaded,setReview]=useState<AcquisitionResult|'error'|null>(null);
  const review=exported??loaded;
@@ -87,6 +131,8 @@ function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organizat
       <td>{statementAmount(calculation.goodwill)}</td><td>{statementAmount(calculation.nciAtAcquisition)}</td><td>{documentCount}</td>
      </tr><tr><td colSpan={8}><AcquisitionLedgerBasis query={review.query} id={id} en={en}/></td></tr></Fragment>)}</tbody>
     </table></div>
+    {review.query.from===review.query.to&&review.rows.some(row=>row.investmentAccountId)&&
+     <AcquisitionPositionReview key={review.rows.map(row=>row.id).join(':')} query={review.query} en={en}/>}
    </>}
  </div>;
 }

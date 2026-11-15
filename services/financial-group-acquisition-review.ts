@@ -62,7 +62,7 @@ const approvedPortfolio=z.object({
 });
 
 /** Recompute acquisition-date measurements for the current reporting period. */
-export async function readApprovedGroupAcquisitions(input:unknown){
+async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean){
  if(process.env.FINANCIAL_GROUP_ELIMINATION_PREVIEW!=='true')throw Error('REPORTING_DISABLED');
  const query=statementQuery.parse(input);
  const {requireUser}=await import('./auth');
@@ -87,6 +87,7 @@ export async function readApprovedGroupAcquisitions(input:unknown){
   id:string; subsidiaryName:string; approvedAt:string; documentCount:number;
   calculation:ReturnType<typeof measureGroupAcquisition>;
   investmentAccountId:string|null;
+  bookItems?: {id:string;kind:"ASSET"|"LIABILITY";recognizedAmount:string}[];
  }>=[];
  if(evidence.records.length){
   const {control,preflight}=await liveRegisteredGroupReviewContext(query);
@@ -97,11 +98,16 @@ export async function readApprovedGroupAcquisitions(input:unknown){
    if(calculation.controlAssessmentId!==record.controlId||calculation.reassessmentRequired)
     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
    return {id:record.id,subsidiaryName:record.subsidiaryName,approvedAt:record.approvedAt,
-    documentCount:record.documents.length,calculation,investmentAccountId:record.measurement.investmentLink?.accountId??null};
+    documentCount:record.documents.length,calculation,investmentAccountId:record.measurement.investmentLink?.accountId??null,
+    ...(includeBookItems?{bookItems:record.measurement.identifiableItems.map(({id,kind,recognizedAmount})=>({id,kind,recognizedAmount}))}:{})};
   });
  }
  assertStableFinancialReplay(evidence,await read());
  return {status:'APPROVED_ACQUISITION_REVIEW' as const,query,rows};
+}
+
+export function readApprovedGroupAcquisitions(input:unknown){
+ return approvedGroupAcquisitions(input,false);
 }
 
 const ledgerBasisRequest=z.object({action:z.literal('LEDGER_BASIS'),query:statementQuery,id:z.string().uuid()}).strict();
@@ -110,7 +116,7 @@ const ledgerBasisRequest=z.object({action:z.literal('LEDGER_BASIS'),query:statem
  * investments in several entities, so its balances are not a linked investment. */
 export async function readGroupAcquisitionLedgerBasis(input:unknown){
  const {query,id}=ledgerBasisRequest.parse(input);
- const approved=await readApprovedGroupAcquisitions(query);
+ const approved=await approvedGroupAcquisitions(query,true);
  const selected=approved.rows.find(row=>row.id===id);
  if(!selected)throw Error('GROUP_ACQUISITION_APPROVAL_REQUIRED');
  const {acquisitionDate:date,parentOrganizationId,subsidiaryOrganizationId,currency}=selected.calculation;
@@ -126,7 +132,7 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
   if(statements.currency!==currency)throw Error('GROUP_ACQUISITION_FX_REQUIRED');
   assertStableFinancialReplay(source,replay);
  }
- assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
+ assertStableFinancialReplay(approved,await approvedGroupAcquisitions(query,true));
  const Money=Decimal.clone({precision:50});
  const investments=parent.accounts.filter(account=>account.kind==='ASSET'&&(account.reportingCode??account.id)==='1600');
  const linked=selected.investmentAccountId===null?null:investments.find(account=>account.id===selected.investmentAccountId);
@@ -143,5 +149,28 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
   fairValueLessBookEquity:new Money(selected.calculation.identifiableNetAssets).minus(equityTotal).toFixed(4),
   investmentAccountCount:investments.length,
   linkedInvestment:linked?{accountId:linked.id,balance:linked.balance}:null,
+  // The first projection supports an acquisition-day position with no
+  // subsidiary posting on that day and no fair-value change to any book line.
+  positionEligibility:!linked?'INVESTMENT_LINK_REQUIRED' as const:
+   query.from!==date||query.to!==date?'ACQUISITION_DAY_REQUIRED' as const:
+   subsidiary.statements.sourceJournalIds.length?'SUBSIDIARY_DAY_POSTINGS' as const:
+   sameBookValues(subsidiary.accounts,selected.bookItems??[])?'ELIGIBLE' as const:'FAIR_VALUE_MAPPING_REQUIRED' as const,
+  acquisitionGoodwill:selected.calculation.goodwill,
+  acquisitionNci:selected.calculation.nciAtAcquisition,
  };
+}
+
+function sameBookValues(
+ accounts:Array<{id:string;kind:string;balance:string}>,
+ items:Array<{id:string;kind:'ASSET'|'LIABILITY';recognizedAmount:string}>,
+){
+ const balances=new Map(accounts.filter(a=>['ASSET','LIABILITY'].includes(a.kind)&&!new Decimal(a.balance).isZero()).map(a=>[a.id,a]));
+ for(const item of items){
+  const account=balances.get(item.id);
+  if(!account||account.kind!==item.kind)return false;
+  const carrying=new Decimal(account.balance).times(item.kind==='ASSET'?1:-1);
+  if(!carrying.eq(item.recognizedAmount))return false;
+  balances.delete(item.id);
+ }
+ return balances.size===0;
 }

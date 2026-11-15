@@ -247,7 +247,7 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   source_record_id:null,source_event_key:'actual-acquisition:'+randomUUID(),event_date:query.from,due_date:null,
   base_currency:'SAR',description:'Original acquisition-day investment',
   lines:[{line_number:1,cost_center_id:null,description:'Invest in the approved subsidiary',
-   classification_id:investmentAccount.classification,amount:1200,base_amount:1200,currency:'SAR',exchange_rate:1,
+   classification_id:investmentAccount.classification,amount:5200,base_amount:5200,currency:'SAR',exchange_rate:1,
    cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0}],obligations:[],links:[],
  }});
  for(const status of ['PLANNED','COMMITTED'])await command({action:'TRANSITION',organization_id:parent,event_id:investmentEvent,status,note:'Actual acquisition acceptance'});
@@ -257,7 +257,7 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  assert.ok(posted);
  const investmentLink={accountId:investmentAccount.accountId,eventId:investmentEvent,lineId:posted.lines[0].id,documentId:document.id};
  const linkedKey={query,id:randomUUID()};
- const linkSave={...linkedKey,action:'SAVE',measurement:{...measurement,investmentLink}};
+ const linkSave={...linkedKey,action:'SAVE',measurement:{...measurement,consideration:'5200',investmentLink}};
  await request(acquisitionPath,{...linkSave,measurement:{...linkSave.measurement,investmentLink:{...investmentLink,accountId:'110001'}}},400);
  const badLink=await actor.client.rpc('financial_group_acquisition_evidence_command',{
   p_action:'SAVE',p_id:randomUUID(),p_root:parent,p_from:query.from,p_to:query.to,
@@ -268,9 +268,46 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const linkedApproval=await request(acquisitionPath,{...linkedKey,action:'APPROVE',reason:'Confirmed exact original investment, subsidiary and evidence'});
  assert.equal(linkedApproval.status,'APPROVED');
  const linkedBasis=await request(approvedAcquisitionsPath,{...linkedKey,action:'LEDGER_BASIS'});
- assert.deepEqual(linkedBasis.linkedInvestment,{accountId:investmentAccount.accountId,balance:'1200.0000'});
- assert.equal(linkedBasis.parentInvestmentAccountGroupBalance,'1200.0000');
+ assert.deepEqual(linkedBasis.linkedInvestment,{accountId:investmentAccount.accountId,balance:'5200.0000'});
+ assert.equal(linkedBasis.parentInvestmentAccountGroupBalance,'5200.0000');
  await writeFile(out+'/verified-acquisition-investment-link.json',JSON.stringify({linkedBasis,investmentLink},null,2));
+ const positionAction={action:'ACQUISITION_POSITION',query};
+ assert.equal((await request(approvedAcquisitionsPath,positionAction)).status,'ACQUISITION_POSITION_UNAVAILABLE');
+ await request(acquisitionPath,{...linkedKey,action:'REVOKE',reason:'Switch to isolated acquisition-day position fixture'});
+ const dayQuery={...query,to:query.from};
+ const dayKey={query:dayQuery,id:randomUUID()};
+ const standalone=await rpc('financial_statement_live_snapshot',{p_org:subsidiary,p_from:dayQuery.from,p_to:dayQuery.to});
+ const openingCash=standalone.opening.find(row=>Number(row.debit)===5000);
+ assert.ok(openingCash);
+ const dayMeasurement={...linkSave.measurement,identifiableItems:[
+  {id:openingCash.accountId,kind:'ASSET',recognizedAmount:'5000',measurementEvidence:document.id},
+ ]};
+ await request(acquisitionPath,{...dayKey,action:'SAVE',measurement:dayMeasurement});
+ await request(acquisitionPath,{...dayKey,action:'APPROVE',reason:'Confirm acquired cash carrying value and original investment'});
+ const dayBatch=await request('/api/financial-reporting/group-elimination-batches',{
+  ...save,query:dayQuery,entries:[],expectedVersion:0,requestId:randomUUID(),reason:'Verify acquisition day has no overlapping eliminations',
+ });
+ await request('/api/financial-reporting/group-elimination-batches',{
+  action:'APPROVE',query:dayQuery,batchId:dayBatch.id,expectedVersion:1,reason:'Approve separate acquisition-day worksheet',
+ });
+ const dayPositionAction={action:'ACQUISITION_POSITION',query:dayQuery};
+ const acquisitionPosition=await request(approvedAcquisitionsPath,dayPositionAction);
+ assert.equal(acquisitionPosition.status,'ACQUISITION_DAY_POSITION_REVIEW');
+ assert.equal(acquisitionPosition.investmentEliminated,'5200.0000');
+ assert.equal(acquisitionPosition.subsidiaryEquityEliminated,'5000.0000');
+ assert.equal(acquisitionPosition.goodwill,'200.0000');
+ assert.deepEqual(acquisitionPosition.rows.map(row=>[row.key,row.adjustment,row.after]),[
+  ['assets','-5000.0000','5700.0000'],['liabilities','0.0000','5200.0000'],['equity','-5000.0000','500.0000'],
+ ]);
+ await page.getByLabel('To date',{exact:true}).fill(dayQuery.to);
+ await worksheet.getByRole('button',{name:'Review acquisition-day position',exact:true}).click();
+ const positionPanel=worksheet.locator('[data-acquisition-position-review]');
+ await positionPanel.getByText('Position after acquisition adjustment',{exact:true}).waitFor();
+ assert.ok((await positionPanel.innerText()).includes('5,700.00'));
+ await writeFile(out+'/acquisition-day-position.json',JSON.stringify(acquisitionPosition,null,2));
+ await request(acquisitionPath,{...dayKey,action:'REVOKE',reason:'Verify approved acquisition position disappears on next read'});
+ assert.equal((await request(approvedAcquisitionsPath,dayPositionAction)).status,'ACQUISITION_POSITION_UNAVAILABLE');
+
 
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));
  return{parent,subsidiary,revenue,expenseEvent,status:result.status,amount:'60.0000',sourcesUnchanged:true,revokedChildDenied:true};

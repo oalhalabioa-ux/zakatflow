@@ -2,6 +2,7 @@ import {NextResponse} from 'next/server';
 import {ZodError} from 'zod';
 import {isSameOriginRequest} from '../../../../lib/request-origin';
 import {readApprovedGroupAcquisitions,readGroupAcquisitionLedgerBasis} from '../../../../services/financial-group-acquisition-review';
+import {readGroupAcquisitionPosition} from '../../../../services/financial-group-acquisition-position';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
 /** Approved acquisition-date amounts for the group review worksheet. */
@@ -13,6 +14,8 @@ export async function POST(request:Request){
   const body=await request.text();if(body.length>4096)throw Error('REPORTING_INPUT_INVALID');
   let input:unknown;try{input=JSON.parse(body)}catch{throw Error('REPORTING_INPUT_INVALID')}
   const wantsLedger=typeof input==='object'&&input!==null&&'action' in input;
+  if(typeof input==='object'&&input!==null&&'action' in input&&input.action==='ACQUISITION_POSITION')
+   return NextResponse.json(await readGroupAcquisitionPosition(input),{headers});
   return NextResponse.json(await (wantsLedger?readGroupAcquisitionLedgerBasis(input):readApprovedGroupAcquisitions(input)),{headers});
  }catch(error){
   const code=error instanceof Error?error.message:'REPORTING_UNAVAILABLE';
