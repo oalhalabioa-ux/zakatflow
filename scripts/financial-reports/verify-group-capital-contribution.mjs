@@ -7,9 +7,10 @@ export async function verifyGroupCapitalContribution({actor,request,rpc,command,
  for(const [organization,type,debitParent,creditParent]of [[parent,'INVESTMENT','1600','2100'],[subsidiary,'EQUITY','1100','3100']]){
   const classification=randomUUID();
   sql(`insert into public.financial_classifications(id,organization_id,code,name,classification_type,created_by) values('${classification}','${organization}','QA_GROUP_CAPITAL','Documented post-control contribution','${type}','${actor.id}')`);
-  const snapshot=await raw(organization),leaf=code=>snapshot.accounts.find(a=>a.reportingCode===code&&a.id!==code)?.id;
-  const debit=leaf(debitParent),credit=leaf(creditParent);assert.ok(debit&&credit,'Required actual leaf accounts');
   const workspace=await rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:query.from});
+  // Reports intentionally omit unused leaves; select new posting accounts from the full authorized chart.
+  const leaf=code=>workspace.chart.find(a=>a.reportingCode===code&&a.id!==code)?.id;
+  const debit=leaf(debitParent),credit=leaf(creditParent);assert.ok(debit&&credit,`Required actual leaf accounts for ${type}: ${debitParent}/${creditParent}`);
   const rules=workspace.policy.rules.map(r=>Object.fromEntries(Object.entries(r).filter(([key])=>['detailed','eventType','sourceModule','classificationId','cashDirection','debitAccountId','creditAccountId','cashActivity'].includes(key))));
   rules.push({detailed:true,eventType:'ADJUSTMENT',sourceModule:'OPERATIONAL_CONSOLE',classificationId:classification+':BASE',cashDirection:'NON_CASH',debitAccountId:debit,creditAccountId:credit});
   const draft=await request('/api/financial-reporting/policy',{action:'save',organization,fiscalStart:query.from,expectedVersion:workspace.policy.status==='DRAFT'?workspace.policy.version:0,rules,reason:'Documented capital subscription source accounts'});
