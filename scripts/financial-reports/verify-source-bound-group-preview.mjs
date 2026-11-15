@@ -542,14 +542,43 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   assert.deepEqual(minorityJoint.rows.map(row=>[row.key,Number(row.after)-Number(minorityBaseline.rows.find(r=>r.key===row.key).after)]),
    [['assets',-60],['liabilities',-60],['equity',0]]);
   assert.equal(minorityJoint.cash.find(row=>row.key==='closing').adjustment,'0.0000');
+  const consumedService={...jointEntries[1],documentMatchId:minorityJointMatch,
+   incomeTreatment:'CURRENT_PERIOD_CONSUMED_SERVICE',
+   reason:'Approved evidence confirms services were fully consumed during this reporting period'};
+  const incompleteService=await actor.client.rpc('save_financial_group_eliminations',{
+   ...saveArgs,p_to:jointQuery.to,p_expected_version:3,p_request_id:randomUUID(),
+   p_entries:[{...consumedService,amount:'59'}],
+  });
+  assert.match(incompleteService.error?.message??'',/GROUP_BATCH_CONSUMED_SERVICE_UNSUPPORTED/);
+  const serviceBatch=await request('/api/financial-reporting/group-elimination-batches',{
+   ...minorityJointRequest,expectedVersion:3,requestId:randomUUID(),entries:[...minorityJointRequest.entries,consumedService],
+   reason:'Approve gross offsets for the fully consumed documented services',
+  });
+  await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query:jointQuery,
+   batchId:serviceBatch.id,expectedVersion:4,reason:'Confirm service consumption and verified original journals'});
+  const withServices=await request(approvedAcquisitionsPath,jointAction);
+  assert.equal(withServices.eliminationBatchVersion,4);
+  for(const key of ['revenue','operatingExpenses']){
+   const before=minorityJoint.income.find(row=>row.key===key);
+   const after=withServices.income.find(row=>row.key===key);
+   assert.equal(Number(after.after),Number(before.after)-60);
+  }
+  assert.deepEqual(withServices.profitAttribution,minorityJoint.profitAttribution);
+  assert.equal(withServices.closingNci,minorityJoint.closingNci);
+  assert.deepEqual(withServices.rows,minorityJoint.rows);
+  assert.deepEqual(withServices.cash,minorityJoint.cash);
   await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
   await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
   await positionPanel.getByRole('heading',{name:'Non-controlling interests after acquisition',exact:true}).waitFor();
   await positionPanel.getByRole('heading',{name:'Cash flow after intercompany eliminations',exact:true}).waitFor();
+  await positionPanel.getByRole('heading',{name:'Income after acquisition and intercompany eliminations',exact:true}).waitFor();
+  await positionPanel.getByText('Approved elimination batch version 4',{exact:true}).waitFor();
   await writeFile(out+'/acquisition-nci-and-intercompany-balances.json',JSON.stringify(minorityJoint,null,2));
+  await writeFile(out+'/acquisition-nci-and-consumed-services.json',JSON.stringify(withServices,null,2));
   await request(acquisitionPath,{...minorityJointKey,action:'REVOKE',reason:'Verify acquisition revocation blocks the majority-owned worksheet'});
   await request('/api/financial-reporting/group-approved-eliminations',jointQuery,422);
   console.log('PASS Reciprocal balances and cash reconcile without changing non-controlling interests');
+  console.log('PASS Verified consumed service gross offsets preserve attributable profit and equity');
 
   const taxAccount=standalone.accounts.find(account=>account.kind==='LIABILITY'&&account.id==='2500');
   assert.ok(taxAccount,'Separate verified tax liability account is required for the minority fixture');

@@ -12,6 +12,7 @@ const reference=z.object({organizationId:z.string().uuid(),eventId:z.string().mi
 export const sourceBoundAdjustmentSchema=z.object({id:z.string().uuid(),
  documentMatchId:z.string().uuid().optional(),
  kind:z.enum(['INTERCOMPANY_BALANCE','INTERCOMPANY_INCOME','CAPITAL_CONTRIBUTION']),date:z.string().date(),
+ incomeTreatment:z.literal('CURRENT_PERIOD_CONSUMED_SERVICE').optional(),
  amount:z.string().regex(/^\d{1,20}(\.\d{1,4})?$/),reason:z.string().trim().min(8).max(2000),
  debitSource:reference,creditSource:reference}).strict();
 export type SourceBoundAdjustment=z.infer<typeof sourceBoundAdjustmentSchema>;
@@ -30,7 +31,7 @@ export function previewSourceBoundGroupEliminations(control:GroupControlPrefligh
  const preflight=reviewControlledGroupSources(control,snapshots);
  const members=new Map(envelopes.map((p,i)=>[p.organizationId,{p,snapshot:snapshots[i],compiled:compileEventLedger(p)}]));
  const consumed=new Map<string,Decimal>();
- const bindings:{adjustmentId:string;kind:SourceBoundAdjustment['kind'];debitSource:SourceBoundAdjustment['debitSource'];creditSource:SourceBoundAdjustment['creditSource'];amount:string}[]=[];
+ const bindings:{adjustmentId:string;kind:SourceBoundAdjustment['kind'];incomeTreatment?:SourceBoundAdjustment['incomeTreatment'];debitSource:SourceBoundAdjustment['debitSource'];creditSource:SourceBoundAdjustment['creditSource'];amount:string}[]=[];
  function resolve(ref:SourceBoundAdjustment['debitSource'],side:'debit'|'credit',entry:SourceBoundAdjustment){
   const member=members.get(ref.organizationId);
   if(!member)throw Error('GROUP_ADJUSTMENT_MEMBERSHIP_INVALID');
@@ -51,6 +52,21 @@ export function previewSourceBoundGroupEliminations(control:GroupControlPrefligh
   const reportingCode=account.reportingCode??account.id;
   if(!leg||account.cash||reportingCode===account.id)throw Error('GROUP_ADJUSTMENT_SOURCE_LEG_UNAVAILABLE');
   const n=new D(entry.amount),sourceKey=key(entry.kind,ref.organizationId,ref.eventId,ref.lineId,ref.accountId);
+  if(entry.incomeTreatment){
+   const seller=side==='debit';
+   const accountById=new Map(p.accounts.map(item=>[item.id,item]));
+   // The attestation covers consumption. The ledger independently verifies
+   // ordinary recognized trade service lines and excludes mixed asset journals.
+   if(entry.kind!=='INTERCOMPANY_INCOME'||event.date<=control.from||
+    event.eventType!==(seller?'REVENUE':'EXPENSE')||!n.eq(event.lines[index].baseAmount)||
+    event.lines.some(item=>{
+     const posting=item.resolvedPosting;
+     const trade=accountById.get(seller?posting?.debitAccountId??'':posting?.creditAccountId??'');
+     const profit=accountById.get(seller?posting?.creditAccountId??'':posting?.debitAccountId??'');
+     return item.recognitionSign!==1||item.cashDirection!=='NON_CASH'||!item.classificationId.endsWith(':BASE')||
+      (trade?.reportingCode??trade?.id)!==(seller?'1100':'2100')||profit?.kind!==(seller?'REVENUE':'OPEX');
+    }))throw Error('GROUP_ADJUSTMENT_CONSUMED_SERVICE_UNSUPPORTED');
+  }
   const accountKey=key('account',ref.organizationId,ref.accountId);
   const sourceRemaining=new D(leg[opposite]).minus(consumed.get(sourceKey)??0);
   const accountRemaining=new D(account.balance).mul(side==='debit'?-1:1).minus(consumed.get(accountKey)??0);
@@ -76,7 +92,8 @@ export function previewSourceBoundGroupEliminations(control:GroupControlPrefligh
   // subsidiary. Acquisition goodwill, reserves and retained earnings need
   // separate accounting evidence and must never be inferred from this pair.
   if(entry.kind==='CAPITAL_CONTRIBUTION'&&(debit.reportingCode!=='3100'||credit.reportingCode!=='1600'))throw Error('GROUP_CAPITAL_ACCOUNT_INVALID');
-  bindings.push({adjustmentId:entry.id,kind:entry.kind,debitSource:entry.debitSource,creditSource:entry.creditSource,amount:new D(entry.amount).toFixed(4)});
+  bindings.push({adjustmentId:entry.id,kind:entry.kind,...(entry.incomeTreatment?{incomeTreatment:entry.incomeTreatment}:{}),
+   debitSource:entry.debitSource,creditSource:entry.creditSource,amount:new D(entry.amount).toFixed(4)});
   return{id:entry.id,kind:entry.kind,date:entry.date,currency:preflight.wholeEntityRollup.currency,
    organizationIds:[debit.organizationId,credit.organizationId],reason:entry.reason,
    sourceReferences:[entry.debitSource,entry.creditSource].map(r=>key(r.organizationId,r.eventId,r.lineId,r.accountId)),lines:[debit,credit]};

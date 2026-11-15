@@ -470,8 +470,8 @@ revoke all on function private.group_approved_acquisition_evidence(uuid,date,dat
 grant execute on function private.group_approved_acquisition_evidence(uuid,date,date),
   public.financial_group_approved_acquisition_evidence(uuid,date,date) to authenticated;
 
--- Balance and cash eliminations do not alter the result attributed to NCI.
--- Require an approved acquisition for the exact current group and period.
+-- Approve only ordinary balance/cash offsets and gross consumed-service
+-- offsets in a partly owned group, with acquisition approval for this period.
 do $$
 declare
   definition text := pg_get_functiondef('private.financial_group_batch_evidence(uuid,date,date,jsonb,boolean)'::regprocedure);
@@ -480,6 +480,8 @@ declare
     exists(
       select 1 from jsonb_array_elements(p_entries) entry
       where coalesce(entry->>'kind','') not in ('INTERCOMPANY_BALANCE','INTERCOMPANY_CASH')
+        and not (entry->>'kind'='INTERCOMPANY_INCOME'
+          and coalesce(entry->>'incomeTreatment','')='CURRENT_PERIOD_CONSUMED_SERVICE')
     ) or not exists(
       select 1 from private.financial_group_acquisition_evidence acquisition
       where acquisition.root_id=p_root and acquisition.period_from=p_from and acquisition.period_to=p_to
@@ -488,7 +490,34 @@ declare
         and acquisition.status='APPROVED' and acquisition.measurement ? 'investmentLink'
     )
   ) then raise exception 'GROUP_BATCH_NCI_REQUIRED';end if;$replacement$;
+  source_anchor text := 'source_key:=(e->>''kind'')';
+  source_check text := $source$
+   if e ? 'incomeTreatment' then
+    if e->>'kind'<>'INTERCOMPANY_INCOME'
+      or e->>'incomeTreatment' is distinct from 'CURRENT_PERIOD_CONSUMED_SERVICE'
+      or (ev->>'date')::date<=p_from
+      or ev->>'eventType' is distinct from (case when side='debit' then 'REVENUE' else 'EXPENSE' end)
+      or amount is distinct from (l->>'baseAmount')::numeric
+      or exists(
+        select 1 from jsonb_array_elements(ev->'lines') item
+        left join lateral (
+          select x from jsonb_array_elements(s->'accounts') x
+          where x->>'id'=item->'resolvedPosting'->>(case when side='debit' then 'debitAccountId' else 'creditAccountId' end)
+        ) trade on true
+        left join lateral (
+          select x from jsonb_array_elements(s->'accounts') x
+          where x->>'id'=item->'resolvedPosting'->>(case when side='debit' then 'creditAccountId' else 'debitAccountId' end)
+        ) profit on true
+        where item->>'recognitionSign' is distinct from '1'
+           or item->>'cashDirection' is distinct from 'NON_CASH'
+           or coalesce(item->>'classificationId','') not like '%:BASE'
+           or coalesce(trade.x->>'reportingCode',trade.x->>'id') is distinct from (case when side='debit' then '1100' else '2100' end)
+           or profit.x->>'kind' is distinct from (case when side='debit' then 'REVENUE' else 'OPEX' end)
+      ) then raise exception 'GROUP_BATCH_CONSUMED_SERVICE_UNSUPPORTED';end if;
+   end if;
+  $source$;
 begin
   if strpos(definition,guard)=0 then raise exception 'GROUP_BATCH_NCI_GUARD_NOT_FOUND'; end if;
-  execute replace(definition,guard,replacement);
+  if strpos(definition,source_anchor)=0 then raise exception 'GROUP_BATCH_SERVICE_GUARD_NOT_FOUND'; end if;
+  execute replace(replace(definition,guard,replacement),source_anchor,source_check||source_anchor);
 end $$;

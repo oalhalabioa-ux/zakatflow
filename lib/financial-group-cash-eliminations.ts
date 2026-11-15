@@ -8,7 +8,7 @@ import type {GroupControlPreflight} from './financial-group-control';
 import {sourceBoundAdjustmentSchema} from './financial-group-source-bound-adjustments';
 const D=Decimal.clone({precision:50});
 export const groupCashEliminationSchema=sourceBoundAdjustmentSchema.extend({
- kind:z.literal('INTERCOMPANY_CASH'),documentMatchId:z.string().uuid()
+ kind:z.literal('INTERCOMPANY_CASH'),documentMatchId:z.string().uuid(),incomeTreatment:z.never().optional()
 });
 export const groupAdjustmentSchema=z.union([sourceBoundAdjustmentSchema,groupCashEliminationSchema]);
 const activities=['OPERATING','INVESTING','FINANCING'] as const;

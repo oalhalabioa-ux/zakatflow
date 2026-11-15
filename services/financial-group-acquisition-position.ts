@@ -46,10 +46,11 @@ export async function readGroupAcquisitionPosition(input:unknown){
   ...cashBindings.flatMap(binding=>[binding.outflow,binding.inflow]),
  ];
  // Validate the original dates, not the adjustment's date. Balance and
- // cash eliminations are neutral to subsidiary profit and NCI attribution.
+ // cash eliminations and verified gross service offsets preserve attributable
+ // profit. Consumed services have no remaining asset margin to allocate.
  if(combined&&(!later||
    worksheet.bindings.some(binding=>binding.kind==='CAPITAL_CONTRIBUTION')||
-   (worksheet.bindings.some(binding=>binding.kind==='INTERCOMPANY_INCOME')&&
+   (worksheet.bindings.some(binding=>binding.kind==='INTERCOMPANY_INCOME'&&binding.incomeTreatment!=='CURRENT_PERIOD_CONSUMED_SERVICE')&&
     approved.rows.some(row=>!new Money(row.calculation.nciPercent).isZero()))||
    originalLegs.some(leg=>{
     const journal=ledgers.get(leg.organizationId)?.source.journals.find(item=>item.id===leg.eventId);
