@@ -83,6 +83,30 @@ describe('QA V2 email-bound invitation boundary',()=>{
   expect((await accept(request('/api/feasibility/invitations/accept',{code:'a'.repeat(43)}))).status).toBe(401);
   expect(rpc).not.toHaveBeenCalled();
  });
+ it('rejects an invitee with no independent feasibility licence',async()=>{
+  const {access,rpc}=mockData();
+  access.maybeSingle.mockResolvedValueOnce({data:null,error:null});
+  expect((await accept(request('/api/feasibility/invitations/accept',{code:'a'.repeat(43)}))).status).toBe(403);
+  expect(rpc).not.toHaveBeenCalled();
+ });
+ it('rejects READ_ONLY and expired invitees even when the invitation code is valid',async()=>{
+  const {access,rpc}=mockData();
+  access.maybeSingle.mockResolvedValueOnce({
+   data:{status:'READ_ONLY',starts_at:'2026-11-01T00:00:00Z',ends_at:null},error:null
+  });
+  expect((await accept(request('/api/feasibility/invitations/accept',{code:'a'.repeat(43)}))).status).toBe(403);
+  access.maybeSingle.mockResolvedValueOnce({
+   data:{status:'TRIAL',starts_at:'2026-10-01T00:00:00Z',ends_at:'2026-11-01T00:00:00Z'},error:null
+  });
+  expect((await accept(request('/api/feasibility/invitations/accept',{code:'a'.repeat(43)}))).status).toBe(403);
+  expect(rpc).not.toHaveBeenCalled();
+ });
+ it('fails closed if the invitee entitlement lookup is unavailable',async()=>{
+  const {access,rpc}=mockData();
+  access.maybeSingle.mockResolvedValueOnce({data:null,error:{message:'service unavailable'}});
+  expect((await accept(request('/api/feasibility/invitations/accept',{code:'a'.repeat(43)}))).status).toBe(503);
+  expect(rpc).not.toHaveBeenCalled();
+ });
  it('hashes code and lets the database verify the recipient email and expiry',async()=>{
   const {rpc}=mockData();const code='c'.repeat(43);
   expect((await accept(request('/api/feasibility/invitations/accept',{code}))).status).toBe(200);
