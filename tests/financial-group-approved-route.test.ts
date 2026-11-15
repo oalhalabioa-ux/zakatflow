@@ -1,7 +1,8 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
-const state=vi.hoisted(()=>({preview:vi.fn(),acquisitions:vi.fn()}));
+const state=vi.hoisted(()=>({preview:vi.fn(),acquisitions:vi.fn(),coverage:vi.fn()}));
 vi.mock('../services/financial-group-elimination-batches',()=>({readApprovedGroupEliminations:(q:unknown)=>state.preview(q)}));
 vi.mock('../services/financial-group-acquisition-review',()=>({readApprovedGroupAcquisitions:(q:unknown)=>state.acquisitions(q)}));
+vi.mock('../services/financial-group-document-matches',()=>({readGroupDocumentCoverage:(q:unknown)=>state.coverage(q)}));
 import {POST} from '../app/api/financial-reporting/group-approved-eliminations/route';
 const url='https://app.yaqeenbiz.com/api/financial-reporting/group-approved-eliminations';
 const request=(body='{}',origin='https://app.yaqeenbiz.com')=>new Request(url,{method:'POST',headers:{origin,'content-type':'application/json'},body});
@@ -25,5 +26,20 @@ it('fails the export if acquisition access is denied instead of treating the res
  state.acquisitions.mockRejectedValue(Error('GROUP_CONTROL_READ_DENIED'));
  const response=await POST(request(JSON.stringify({action:'EXPORT',query})));
  expect(response.status).toBe(403);
+ expect(state.preview).not.toHaveBeenCalled();
+});
+
+it('reads document coverage for the exact requested period and forbids cross-origin and unauthorized reads',async()=>{
+ const query={organization:'10000000-0000-4000-8000-000000000001',from:'2026-01-01',to:'2026-12-31'};
+ const body=JSON.stringify({action:'DOCUMENT_COVERAGE',query});
+ expect((await POST(request(body,'https://evil.example'))).status).toBe(403);
+ expect(state.coverage).not.toHaveBeenCalled();
+ state.coverage.mockResolvedValueOnce({status:'GROUP_DOCUMENT_COVERAGE_REVIEW',rows:[]});
+ const response=await POST(request(body));
+ expect(response.status).toBe(200);
+ expect(response.headers.get('cache-control')).toContain('no-store');
+ expect(state.coverage).toHaveBeenCalledWith(query);
+ state.coverage.mockRejectedValueOnce(Error('GROUP_CONTROL_READ_DENIED'));
+ expect((await POST(request(body))).status).toBe(403);
  expect(state.preview).not.toHaveBeenCalled();
 });

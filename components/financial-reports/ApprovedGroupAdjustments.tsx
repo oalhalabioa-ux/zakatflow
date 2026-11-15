@@ -4,6 +4,7 @@ import {approvedGroupWorksheetCsv,groupAcquisitionPositionCsv,groupStatementLabe
 import type {readGroupAcquisitionPosition} from '../../services/financial-group-acquisition-position';
 import type {readApprovedGroupAcquisitions,readGroupAcquisitionLedgerBasis} from '../../services/financial-group-acquisition-review';
 import type {readApprovedGroupEliminations} from '../../services/financial-group-elimination-batches';
+import type {readGroupDocumentCoverage} from '../../services/financial-group-document-matches';
 import {statementAmount} from './SourceStatementTable';
 type Result=Awaited<ReturnType<typeof readApprovedGroupEliminations>>;
 type AcquisitionResult=Awaited<ReturnType<typeof readApprovedGroupAcquisitions>>;
@@ -259,6 +260,46 @@ function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organizat
  </div>;
 }
 
+type DocumentCoverage=Awaited<ReturnType<typeof readGroupDocumentCoverage>>;
+function GroupDocumentCoverage({data,en}:{data:Result;en:boolean}){
+ const [result,setResult]=useState<DocumentCoverage|'loading'|'error'|null>(null);
+ const request=useRef<AbortController|null>(null);
+ useEffect(()=>()=>request.current?.abort(),[]);
+ async function load(){
+  request.current?.abort();
+  const abort=new AbortController();
+  request.current=abort;
+  setResult('loading');
+  const {rootOrganizationId:organization,from,to}=data.control;
+  try{
+   const response=await fetch('/api/financial-reporting/group-approved-eliminations',{method:'POST',cache:'no-store',signal:abort.signal,
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'DOCUMENT_COVERAGE',query:{organization,from,to}})});
+   const body=await response.json() as DocumentCoverage;
+   if(!response.ok||body.status!=='GROUP_DOCUMENT_COVERAGE_REVIEW'||body.organization!==organization||
+    body.from!==from||body.to!==to||body.batchId!==data.approval.id||body.batchVersion!==data.approval.version)
+    throw Error('DOCUMENT_COVERAGE_UNAVAILABLE');
+   if(!abort.signal.aborted)setResult(body);
+  }catch{if(!abort.signal.aborted)setResult('error');}
+ }
+ return <div data-group-document-coverage>
+  <button type="button" onClick={()=>void load()} disabled={result==='loading'}>
+   {en?'Check documents outside this batch':'تحقق من المستندات خارج هذه الدفعة'}
+  </button>
+  {result==='loading'?<p role="status">{en?'Checking approved document matches…':'جارٍ التحقق من مطابقة المستندات المعتمدة…'}</p>:
+   result==='error'?<p role="status">{en?'Document coverage could not be verified for this batch. Refresh the report and try again.':'تعذر التحقق من تغطية المستندات لهذه الدفعة. حدّث التقرير وأعد المحاولة.'}</p>:
+   result&&<>
+    <p>{en?'This review covers approved matches dated within the selected period.':'تغطي هذه المراجعة المطابقات المعتمدة المؤرخة ضمن الفترة المحددة.'}</p>
+    {result.rows.length===0?<p role="status">{en?'All approved matches in this period are referenced by the batch.':'تتضمن الدفعة مراجع جميع المطابقات المعتمدة ضمن الفترة.'}</p>:
+     <div className="fs-table-scroll"><table className="fs-table"><thead><tr>
+      {(en?['Match reference','First event','Second event','Source status']:['مرجع المطابقة','القيد الأول','القيد الثاني','حالة المصدر']).map(label=><th key={label} scope="col">{label}</th>)}
+     </tr></thead><tbody>{result.rows.map(row=><tr key={row.id}>
+      <th scope="row"><bdi>{row.id}</bdi></th><td><bdi>{row.leftEventId}</bdi></td><td><bdi>{row.rightEventId}</bdi></td>
+      <td>{row.sourceCurrent?(en?'Ready for batch review':'جاهز لمراجعة الدفعة'):(en?'Source changed since approval':'تغيّر المصدر بعد الاعتماد')}</td>
+     </tr>)}</tbody></table></div>}
+   </>}
+ </div>;
+}
+
 /** Scope comes exclusively from the main banner and report period. */
 export default function ApprovedGroupAdjustments({organization,from,to,refresh,en}:{organization:string;from:string;to:string;refresh:number;en:boolean}){
  const key=JSON.stringify([organization,from,to,refresh]);
@@ -314,6 +355,7 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
   <ApprovedAcquisitionReview key={key} organization={organization} from={from} to={to} en={en} exported={exportedAcquisitions?.key===key?exportedAcquisitions.review:undefined}/>
   {!data?<p role="status">{!current?en?'Verifying approved adjustments…':'جارٍ التحقق من الاستبعادات المعتمدة…':current.error==='GROUP_BATCH_APPROVAL_REQUIRED'?en?'No approved adjustment batch exists for the selected period.':'لا توجد نسخة استبعادات معتمدة للفترة المختارة.':en?'Approved adjustments could not be verified against current sources. No amounts are shown.':'تعذر التحقق من الاستبعادات المعتمدة مقابل المصادر الحالية. لم تُعرض مبالغ غير متحقق منها.'}</p>:<>
    <p>{en?'Approved version':'النسخة المعتمدة'}: {data.approval.version} · {data.worksheet.currency}</p>
+   <GroupDocumentCoverage key={key+':'+data.approval.id} data={data} en={en}/>
    {data.statementWorksheet&&<div data-group-statement-worksheet="true">
     <h3>{en?'Statement review after approved adjustments':'مراجعة القوائم بعد الاستبعادات المعتمدة'}</h3>
     <div className="fs-page-actions"><button type="button" onClick={exportWorksheet} disabled={exporting===key}>{exporting===key?(en?'Verifying export…':'جارٍ التحقق من التصدير…'):(en?'Export review worksheet CSV':'تصدير ورقة المراجعة CSV')}</button></div>

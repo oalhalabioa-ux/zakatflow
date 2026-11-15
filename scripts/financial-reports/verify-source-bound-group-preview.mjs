@@ -168,6 +168,32 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
 
  await page.screenshot({path:out+'/approved-group-adjustments-en.png',fullPage:true});
 
+ const worksheetPath='/api/financial-reporting/group-approved-eliminations';
+ const coverage=worksheet.locator('[data-group-document-coverage]');
+ const checkCoverage=()=>coverage.getByRole('button',{name:'Check documents outside this batch',exact:true}).click();
+ await checkCoverage();
+ await coverage.getByText('All approved matches in this period are referenced by the batch.',{exact:true}).waitFor();
+ const coverageQuery={...query,to:'2026-12-30'};
+ const emptyBatch=await request('/api/financial-reporting/group-elimination-batches',{
+  ...save,query:coverageQuery,entries:[],requestId:randomUUID(),
+ });
+ await request('/api/financial-reporting/group-elimination-batches',{
+  action:'APPROVE',query:coverageQuery,batchId:emptyBatch.id,expectedVersion:1,reason:'Approve empty batch to verify omitted approved documentary matches',
+ });
+ const coverageRequest={action:'DOCUMENT_COVERAGE',query:coverageQuery};
+ const omitted=await request(worksheetPath,coverageRequest);
+ const eventIds=[expenseEvent,revenue].sort();
+ assert.equal(omitted.batchId,emptyBatch.id);
+ assert.deepEqual(omitted.rows,[{id:proposed.documentMatchId,leftEventId:eventIds[0],rightEventId:eventIds[1],sourceCurrent:true}]);
+ await page.getByLabel('To date',{exact:true}).fill(coverageQuery.to);
+ await worksheet.getByText('Approved version: 1',{exact:false}).waitFor();
+ await checkCoverage();
+ await coverage.getByText('Ready for batch review',{exact:true}).waitFor();
+ assert.deepEqual(await coverage.locator('tbody tr > *').allTextContents(),[proposed.documentMatchId,...eventIds,'Ready for batch review']);
+ await writeFile(out+'/approved-group-document-coverage.json',JSON.stringify(omitted,null,2));
+ console.log('PASS Approved documentary match omitted from its batch is returned and shown in the scoped browser review');
+ await page.getByLabel('To date',{exact:true}).fill(query.to);
+ await worksheet.getByText('Approved version: 3',{exact:false}).waitFor();
 
  const excessive=await request('/api/financial-reporting/group-eliminations',{query,entries:[{...adjustment,amount:'61'}]},422);assert.equal(excessive.error,'GROUP_ADJUSTMENT_EXCEEDS_DETAIL_SOURCE');
  // Preview must not write or alter either company's journal or opening sources.
@@ -180,6 +206,9 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   await request(approvedAcquisitionsPath,query,403);
   await request(approvedAcquisitionsPath,basisRequest,403);
   await request(documentPath,{...documentKey,action:'DOWNLOAD'},403);
+  await request(worksheetPath,coverageRequest,403);
+  const deniedCoverage=await actor.client.rpc('financial_group_document_coverage',{p_root:parent,p_from:coverageQuery.from,p_to:coverageQuery.to});
+  assert.match(deniedCoverage.error?.message??'',/GROUP_CONTROL_READ_DENIED/);
  }finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`)}
  const acquisitionRevoked=await request(acquisitionPath,{...acquisitionKey,action:'REVOKE',reason:'Reviewer withdrew the isolated acquisition evidence'});
  assert.equal(acquisitionRevoked.status,'REVOKED');

@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {requireUser} from './auth';
 import type {SourceBoundAdjustment} from '../lib/financial-group-source-bound-adjustments';
+import {statementQuery} from '../lib/financial-statement-source';
 export async function readGroupDocumentMatches(entries:readonly Pick<SourceBoundAdjustment,'documentMatchId'>[]){
  const ids=[...new Set(entries.flatMap(e=>e.documentMatchId?[e.documentMatchId]:[]))].sort();
  if(!ids.length)return[];
@@ -10,6 +11,23 @@ export async function readGroupDocumentMatches(entries:readonly Pick<SourceBound
  return r.data;
 }
 const reason=z.string().trim().min(8).max(1000),uuid=z.string().uuid();
+const coverage=z.object({
+ status:z.literal('GROUP_DOCUMENT_COVERAGE_REVIEW'),organization:uuid,from:z.string().date(),to:z.string().date(),
+ batchId:uuid,batchVersion:z.number().int().positive(),
+ rows:z.array(z.object({id:uuid,leftEventId:uuid,rightEventId:uuid,sourceCurrent:z.boolean()}).strict()).max(200),
+}).strict();
+export async function readGroupDocumentCoverage(input:unknown){
+ const {organization,from,to}=statementQuery.parse(input);
+ const {supabase}=await requireUser();
+ const r=await supabase.rpc('financial_group_document_coverage',{p_root:organization,p_from:from,p_to:to});
+ if(r.error)throw Error(r.error.code==='PGRST202'?'REPORTING_GROUP_DOCUMENT_COVERAGE_NOT_INSTALLED':
+  /^GROUP_(BATCH|CONTROL|DOCUMENT)_[A-Z_]+$/.test(r.error.message)?r.error.message:'REPORTING_GROUP_DOCUMENT_UNAVAILABLE');
+ const parsed=coverage.safeParse(r.data);
+ if(!parsed.success||parsed.data.organization!==organization||parsed.data.from!==from||parsed.data.to!==to||
+  new Set(parsed.data.rows.map(row=>row.id)).size!==parsed.data.rows.length)
+  throw Error('REPORTING_GROUP_DOCUMENT_EVIDENCE_INVALID');
+ return parsed.data;
+}
 const command=z.discriminatedUnion('action',[
  z.object({action:z.literal('PROPOSE'),firstEventId:uuid,secondEventId:uuid,evidenceReference:reason,reason,requestId:uuid}).strict(),
  z.object({action:z.enum(['APPROVE','REVOKE']),matchId:uuid,reason}).strict()

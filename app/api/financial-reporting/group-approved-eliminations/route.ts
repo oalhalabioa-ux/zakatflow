@@ -5,8 +5,9 @@ import {readApprovedGroupEliminations} from '../../../../services/financial-grou
 import {statementQuery} from '../../../../lib/financial-statement-source';
 import {readApprovedGroupAcquisitions} from '../../../../services/financial-group-acquisition-review';
 import {assertStableFinancialReplay} from '../../../../lib/financial-source-replay';
+import {readGroupDocumentCoverage} from '../../../../services/financial-group-document-matches';
 
-const exportRequest=z.object({action:z.literal('EXPORT'),query:statementQuery}).strict();
+const worksheetRequest=z.object({action:z.enum(['EXPORT','DOCUMENT_COVERAGE']),query:statementQuery}).strict();
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
 /** Read-only approved adjustment worksheet; no company ledger writes. */
@@ -18,7 +19,8 @@ export async function POST(request:Request){
   const body=await request.text();if(body.length>200000)throw Error('REPORTING_INPUT_INVALID');
   let input:unknown;try{input=JSON.parse(body)}catch{throw Error('REPORTING_INPUT_INVALID')}
   if(typeof input==='object'&&input!==null&&'action' in input){
-   const {query}=exportRequest.parse(input);
+   const {action,query}=worksheetRequest.parse(input);
+   if(action==='DOCUMENT_COVERAGE')return NextResponse.json(await readGroupDocumentCoverage(query),{headers});
    const acquisitions=async()=>{
     try{return await readApprovedGroupAcquisitions(query);}
     catch(error){
