@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {createStudy} from './engine';
-import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
+import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
 
 const id='6357a708-bae2-4634-9296-490404b1d8a4';
 const owner='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
@@ -45,5 +45,35 @@ describe('local feasibility import/cache fail-closed validation',()=>{
   expect(parseCloudStudyRows([{...good,id:'another'}])).toBeNull();
   expect(parseCloudStudyRows([{...good,study:{...s,unitPrice:Infinity}}])).toBeNull();
   expect(parseCloudStudyRows([good,good])).toBeNull();
+ });
+});
+
+
+describe('institutional feasibility cloud snapshot validation',()=>{
+ const organization='b67fa2de-0da1-4bd7-b2af-35e72a0732fd';
+ const otherOrganization='9a488471-6f07-44c0-8c6b-69a298bd4eab';
+ const s=study();
+ const good={
+  id:s.id,organization_id:organization,owner_user_id:null,created_by_user_id:owner,
+  title:s.title,study:s,revision:2,updated_at:'2026-11-15T16:00:00Z'
+ };
+ it('accepts institution-owned study and retains creator provenance separately',()=>{
+  expect(parseInstitutionalCloudRows([good],organization)).toEqual([good]);
+ });
+ it('rejects cross-organization data even from a forged server response',()=>{
+  expect(parseInstitutionalCloudRows([good],otherOrganization)).toBeNull();
+  expect(parseInstitutionalCloudRows([{...good,organization_id:otherOrganization}],organization)).toBeNull();
+ });
+ it('rejects personal owner, stale or invalid revision and inconsistent study metadata',()=>{
+  expect(parseInstitutionalCloudRows([{...good,owner_user_id:owner}],organization)).toBeNull();
+  expect(parseInstitutionalCloudRows([{...good,revision:0}],organization)).toBeNull();
+  expect(parseInstitutionalCloudRows([{...good,title:'forged title'}],organization)).toBeNull();
+  expect(parseInstitutionalCloudRows([{...good,created_by_user_id:'forged'}],organization)).toBeNull();
+  expect(parseInstitutionalCloudRows([{...good,updated_at:'not-a-date'}],organization)).toBeNull();
+  expect(parseInstitutionalCloudRows([good,good],organization)).toBeNull();
+ });
+ it('accepts creator deletion without reclassifying the corporate study as personal',()=>{
+  expect(parseInstitutionalCloudRows([{...good,created_by_user_id:null}],organization))
+    .toMatchObject([{organization_id:organization,owner_user_id:null,created_by_user_id:null}]);
  });
 });
