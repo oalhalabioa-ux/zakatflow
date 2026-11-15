@@ -460,11 +460,18 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
     {accountId:upliftAccount.id,usefulLifeDays:60,deferredTaxLiabilityAccountId:taxAccount.id},
    ]},
   };
+  const minorityBatchRequest={
+   ...save,query:minorityQuery,entries:[],expectedVersion:0,requestId:randomUUID(),reason:'Confirm scope before allocating post-acquisition loss',
+  };
+  const unapprovedMinorityBatch=await request('/api/financial-reporting/group-elimination-batches',minorityBatchRequest,422);
+  assert.equal(unapprovedMinorityBatch.error,'GROUP_BATCH_NCI_REQUIRED');
   await request(acquisitionPath,{...minorityKey,action:'SAVE',measurement:minorityMeasurement});
   await request(acquisitionPath,{...minorityKey,action:'APPROVE',reason:'Approve the acquisition and schedules for fixed 80 percent ownership'});
-  const minorityBatch=await request('/api/financial-reporting/group-elimination-batches',{
-   ...save,query:minorityQuery,entries:[],expectedVersion:0,requestId:randomUUID(),reason:'Confirm scope before allocating post-acquisition loss',
+  const minorityBatch=await request('/api/financial-reporting/group-elimination-batches',minorityBatchRequest);
+  const nonemptyRejected=await actor.client.rpc('save_financial_group_eliminations',{
+   ...saveArgs,p_to:minorityQuery.to,p_entries:[adjustment],p_expected_version:1,p_request_id:randomUUID(),
   });
+  assert.match(nonemptyRejected.error?.message??'',/GROUP_BATCH_NCI_REQUIRED/);
   await request('/api/financial-reporting/group-elimination-batches',{
    action:'APPROVE',query:minorityQuery,batchId:minorityBatch.id,expectedVersion:1,reason:'Approve majority-owned subsidiary period',
   });

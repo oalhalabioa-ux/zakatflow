@@ -440,3 +440,24 @@ revoke all on function private.group_approved_acquisition_evidence(uuid,date,dat
   public.financial_group_approved_acquisition_evidence(uuid,date,date) from public,anon,authenticated;
 grant execute on function private.group_approved_acquisition_evidence(uuid,date,date),
   public.financial_group_approved_acquisition_evidence(uuid,date,date) to authenticated;
+
+-- A partially owned subsidiary may use an empty evidence batch only when
+-- its approved acquisition is bound to the exact current group and period.
+-- Nonempty adjustment batches retain their existing ownership restriction.
+do $$
+declare
+  definition text := pg_get_functiondef('private.financial_group_batch_evidence(uuid,date,date,jsonb,boolean)'::regprocedure);
+  guard text := $guard$if (relation->>'directEconomicInterestPercent')::numeric<>100 then raise exception 'GROUP_BATCH_NCI_REQUIRED';end if;$guard$;
+  replacement text := $replacement$if (relation->>'directEconomicInterestPercent')::numeric<>100 and (
+    jsonb_array_length(p_entries)<>0 or not exists(
+      select 1 from private.financial_group_acquisition_evidence acquisition
+      where acquisition.root_id=p_root and acquisition.period_from=p_from and acquisition.period_to=p_to
+        and acquisition.control_id::text=relation->>'controlAssessmentId'
+        and acquisition.registry_revision=control#>>'{registry,revision}'
+        and acquisition.status='APPROVED' and acquisition.measurement ? 'investmentLink'
+    )
+  ) then raise exception 'GROUP_BATCH_NCI_REQUIRED';end if;$replacement$;
+begin
+  if strpos(definition,guard)=0 then raise exception 'GROUP_BATCH_NCI_GUARD_NOT_FOUND'; end if;
+  execute replace(definition,guard,replacement);
+end $$;
