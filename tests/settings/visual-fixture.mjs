@@ -138,7 +138,22 @@ try{
  await page.goto(`${app}/en/settings/structure?organization=${orgId}`);await page.getByRole('button',{name:'Add entity',exact:true}).click();await page.getByLabel('Entity name',{exact:true}).fill('Native fixture entity');await page.getByRole('button',{name:'Save entity',exact:true}).click();await page.getByText('Entity saved.',{exact:true}).waitFor();await page.reload();await page.getByRole('cell',{name:'Native fixture entity',exact:true}).waitFor();checks.push('Native entity created and reloaded in the selected organization');
  await page.goto(`${app}/en/settings/system?organization=${orgId}`);const toggle=page.getByRole('switch',{name:'System notifications'});await toggle.waitFor();await toggle.uncheck();await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Your preferences were saved.',{exact:true}).waitFor();await page.reload();await toggle.waitFor();assert.equal(await toggle.isChecked(),false);checks.push('System preferences persisted after reload');
  for(const locale of locales){
-  const ar=locale==='ar';await page.goto(`${app}/${locale}/settings/financial?organization=${orgId}`);await page.getByRole('button',{name:ar?'قواعد الترحيل':'Posting rules',exact:true}).first().click();await page.getByRole('region',{name:ar?'القواعد الافتراضية':'Default posting rules',exact:true}).waitFor();
+  const ar=locale==='ar';await page.goto(`${app}/${locale}/settings/financial?organization=${orgId}`);
+  assert.equal(await page.locator('.settings-tabs a').count(),6,'Six linked primary settings areas');
+  assert.equal(await page.locator('.settings-tabs a[aria-current=page]').count(),1,'One selected primary settings area');
+  const financeTabs=page.locator('.settings-finance-journey-tabs');
+  const financeLabels=ar?['ملخص التأسيس المالي','السنة المالية','دليل الحسابات','قواعد الترحيل','النقد والبنوك','الأرصدة الافتتاحية']:['Financial setup overview','Fiscal year','Chart of accounts','Posting rules','Cash & banks','Opening balances'];
+  assert.deepEqual((await financeTabs.locator('button span').allTextContents()).map(s=>s.trim()),financeLabels,'Summary is immediately before Fiscal year');
+  const acceptNavigationConfirm=dialog=>dialog.accept();
+  page.on('dialog',acceptNavigationConfirm);
+  for(const label of financeLabels){
+   await financeTabs.getByRole('button',{name:label,exact:true}).click();
+   await page.waitForFunction(expected=>[...document.querySelectorAll('.settings-finance-journey-tabs button')].some(btn=>btn.getAttribute('aria-pressed')==='true'&&btn.textContent?.trim()===expected),label,{timeout:10000});
+   assert.equal(await financeTabs.locator('button[aria-pressed=true]').count(),1,'One active financial tab');
+   assert.equal((await financeTabs.locator('button[aria-pressed=true] span').innerText()).trim(),label,'Click selects requested financial tab');
+  }
+  page.off('dialog',acceptNavigationConfirm);
+  await page.getByRole('button',{name:ar?'قواعد الترحيل':'Posting rules',exact:true}).first().click();await page.getByRole('region',{name:ar?'القواعد الافتراضية':'Default posting rules',exact:true}).waitFor();
   await page.getByText(ar?'حسابات تحتاج قالب عملية مناسبًا':'Accounts requiring a source template',{exact:true}).waitFor();
   assert.equal(await page.getByText(ar?'قواعد تحتاج استكمال الربط التفصيلي':'Rules requiring complete detail mapping',{exact:true}).count(),0);
   const preparing=page.waitForResponse(r=>r.url().includes('/api/financial-reporting/policy')&&r.request().method()==='POST'&&r.request().postDataJSON()?.action==='prepare-defaults');await page.getByRole('button',{name:ar?'إضافة وحفظ القواعد الافتراضية الناقصة':'Add and save missing defaults',exact:true}).click();assert.equal((await preparing).status(),200);assert.equal(postingPolicy.status,'DRAFT');await page.reload();await page.getByRole('button',{name:ar?'قواعد الترحيل':'Posting rules',exact:true}).first().click();await page.getByRole('region',{name:ar?'القواعد الافتراضية':'Default posting rules',exact:true}).waitFor();assert.equal(postingPolicy.rules.length,2,'Prepared defaults persist without activation');
