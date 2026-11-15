@@ -13,6 +13,22 @@ ALTER TABLE public.feasibility_projects
  ADD COLUMN IF NOT EXISTS organization_id uuid
  REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
+-- Corporate studies survive the departure or deletion of their creator.
+-- Only personal studies have an individual owner_user_id. The institutional
+-- creator is separate, informational provenance and may become NULL.
+ALTER TABLE public.feasibility_projects ALTER COLUMN owner_user_id DROP NOT NULL;
+ALTER TABLE public.feasibility_projects
+ ADD COLUMN IF NOT EXISTS created_by_user_id uuid
+ REFERENCES auth.users(id) ON DELETE SET NULL DEFAULT auth.uid();
+UPDATE public.feasibility_projects
+ SET created_by_user_id=owner_user_id
+ WHERE organization_id IS NULL AND created_by_user_id IS NULL;
+ALTER TABLE public.feasibility_projects
+ ADD CONSTRAINT feasibility_projects_exactly_one_owner CHECK (
+  (organization_id IS NULL AND owner_user_id IS NOT NULL)
+  OR (organization_id IS NOT NULL AND owner_user_id IS NULL)
+ );
+
 CREATE INDEX IF NOT EXISTS feasibility_projects_organization_recent_idx
  ON public.feasibility_projects (organization_id, updated_at DESC, id)
  WHERE organization_id IS NOT NULL;
@@ -23,7 +39,8 @@ CREATE OR REPLACE FUNCTION private.feasibility_project_ownership_immutable()
 BEGIN
  IF NEW.id IS DISTINCT FROM OLD.id
     OR NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id
-    OR NEW.organization_id IS DISTINCT FROM OLD.organization_id THEN
+    OR NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.created_by_user_id IS DISTINCT FROM OLD.created_by_user_id THEN
   RAISE EXCEPTION 'FEASIBILITY_OWNERSHIP_IMMUTABLE' USING ERRCODE='42501';
  END IF;
  RETURN NEW;
@@ -67,6 +84,7 @@ CREATE POLICY feasibility_personal_read ON public.feasibility_projects
 CREATE POLICY feasibility_personal_insert ON public.feasibility_projects
  FOR INSERT TO authenticated WITH CHECK (
   organization_id IS NULL AND owner_user_id=(SELECT auth.uid())
+  AND created_by_user_id=(SELECT auth.uid())
   AND EXISTS (
    SELECT 1 FROM public.feasibility_access_grants g
    WHERE g.user_id=(SELECT auth.uid()) AND g.starts_at<=now()
@@ -111,7 +129,11 @@ CREATE POLICY feasibility_personal_delete ON public.feasibility_projects
 -- organization seat licensing must be explicitly implemented under #416.
 CREATE POLICY feasibility_org_read ON public.feasibility_projects
  FOR SELECT TO authenticated USING (
-  organization_id IS NOT NULL
+  organization_id IS NOT NULL AND owner_user_id IS NULL
+  AND EXISTS (
+   SELECT 1 FROM public.organizations o
+   WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
+  )
   AND EXISTS (
    SELECT 1 FROM public.organization_members m
    WHERE m.organization_id=feasibility_projects.organization_id
@@ -124,7 +146,12 @@ CREATE POLICY feasibility_org_read ON public.feasibility_projects
  );
 CREATE POLICY feasibility_org_insert ON public.feasibility_projects
  FOR INSERT TO authenticated WITH CHECK (
-  organization_id IS NOT NULL AND owner_user_id=(SELECT auth.uid())
+  organization_id IS NOT NULL AND owner_user_id IS NULL
+  AND created_by_user_id=(SELECT auth.uid())
+  AND EXISTS (
+   SELECT 1 FROM public.organizations o
+   WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
+  )
   AND EXISTS (
    SELECT 1 FROM public.organization_members m
    WHERE m.organization_id=feasibility_projects.organization_id
@@ -141,7 +168,11 @@ CREATE POLICY feasibility_org_insert ON public.feasibility_projects
 CREATE POLICY feasibility_org_update ON public.feasibility_projects
  FOR UPDATE TO authenticated
  USING (
-  organization_id IS NOT NULL
+  organization_id IS NOT NULL AND owner_user_id IS NULL
+  AND EXISTS (
+   SELECT 1 FROM public.organizations o
+   WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
+  )
   AND EXISTS (
    SELECT 1 FROM public.organization_members m
    WHERE m.organization_id=feasibility_projects.organization_id
@@ -156,7 +187,11 @@ CREATE POLICY feasibility_org_update ON public.feasibility_projects
   )
  )
  WITH CHECK (
-  organization_id IS NOT NULL
+  organization_id IS NOT NULL AND owner_user_id IS NULL
+  AND EXISTS (
+   SELECT 1 FROM public.organizations o
+   WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
+  )
   AND EXISTS (
    SELECT 1 FROM public.organization_members m
    WHERE m.organization_id=feasibility_projects.organization_id
@@ -172,7 +207,11 @@ CREATE POLICY feasibility_org_update ON public.feasibility_projects
  );
 CREATE POLICY feasibility_org_delete ON public.feasibility_projects
  FOR DELETE TO authenticated USING (
-  organization_id IS NOT NULL
+  organization_id IS NOT NULL AND owner_user_id IS NULL
+  AND EXISTS (
+   SELECT 1 FROM public.organizations o
+   WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
+  )
   AND EXISTS (
    SELECT 1 FROM public.organization_members m
    WHERE m.organization_id=feasibility_projects.organization_id
