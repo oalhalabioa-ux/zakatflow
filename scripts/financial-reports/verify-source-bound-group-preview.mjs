@@ -73,7 +73,11 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  assert.equal(approvedWorksheet.consolidated,false);assert.equal(approvedWorksheet.worksheet.adjustmentDebit,'60.0000');
  await page.goto(app+'/en/financial-reports?organization='+parent+'&screen=position');
  await page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true}).click();
- const worksheet=page.locator('[data-approved-group-adjustments="true"]');await worksheet.locator('table').waitFor();
+ const worksheet=page.locator('[data-approved-group-adjustments="true"]');
+ // Approval belongs to the exact selected period, not the default year-to-date.
+ await worksheet.getByText('No approved adjustment batch exists for the selected period.',{exact:true}).waitFor();
+ await page.getByLabel('To date',{exact:true}).fill(query.to);
+ await worksheet.locator('table').waitFor();
  assert.ok((await worksheet.textContent()).includes('Approved version: 3'));
  await page.screenshot({path:out+'/approved-group-adjustments-en.png',fullPage:true});
 

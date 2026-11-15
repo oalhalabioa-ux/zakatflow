@@ -1,3 +1,4 @@
+vi.mock('../services/financial-dimensional-center-options',()=>({liveDimensionalCenterOptions:async(...args:unknown[])=>{state.centerCalls.push(args);return {scope:'COST_CENTER_INCOME_ONLY'}}}));
 vi.mock('../services/financial-dimensional-statements',()=>({liveDimensionalStatements:async()=>({status:'VERIFIED_DIMENSIONAL_STATEMENTS'})}));
 vi.mock('../services/financial-group-source-review',()=>({liveGroupSourceReview:async()=>({status:'VISIBLE_COMPANIES_REVIEW_ONLY'})}));
 vi.mock('../services/financial-cost-center-income',()=>({liveCostCenterIncome:async(...args:unknown[])=>{state.centerCalls.push(args);return {scope:'COST_CENTER_INCOME_ONLY'}}}));
@@ -78,4 +79,11 @@ it('gates verified dimensional statements and rejects ignored scope filters',asy
  try{expect((await GET(new Request(url))).status).toBe(200);
  for(const suffix of ['&branch=HQ','&scope=GROUP_WITH_SUBSIDIARIES'])expect((await GET(new Request(url+suffix))).status).toBe(400);
  }finally{vi.unstubAllEnvs()}
+});
+
+it('routes position/cash center options to the dimensional source with the banner branch',async()=>{
+ const url=request().url.replace('action=statements','action=cost-center-options')+'&branch=HQ';
+ vi.stubEnv('FINANCIAL_CENTER_BRANCH_REGISTRY','false');expect((await GET(new Request(url))).status).toBe(404);
+ vi.stubEnv('FINANCIAL_CENTER_BRANCH_REGISTRY','true');state.centerCalls=[];
+ try{expect((await GET(new Request(url))).status).toBe(200);expect(state.centerCalls[0][1]).toBe('HQ');expect((await GET(new Request(url+'&scope=GROUP'))).status).toBe(400)}finally{vi.unstubAllEnvs()}
 });

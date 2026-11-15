@@ -1,3 +1,4 @@
+import {frozenDimensionalStatements} from './financial-frozen-dimensional-statements';
 import {requireUser} from './auth';
 import {assertLiveStatements,liveStatementSource} from './financial-statement-live';
 import {centerBranchRegistry} from './financial-center-branch-registry';
@@ -15,7 +16,7 @@ export async function liveDimensionalStatements(input:unknown){
  assertLiveStatements();const q=statementQuery.parse(input),{supabase}=await requireUser();
  const response=await supabase.rpc('financial_statement_live_snapshot',{p_org:q.organization,p_from:q.from,p_to:q.to});
  if(response.error)throw Error('REPORTING_DIMENSION_SOURCE_UNAVAILABLE');
- if(response.data?.closureId)throw Error('REPORTING_CLOSED_DIMENSIONS_UNAVAILABLE');
+ if(response.data?.closureId)return frozenDimensionalStatements(q,response.data,response.data.closureId);
  const p=statementSourceEnvelope.parse(response.data),company=normalizeStatementSource(p,q),{source}=compileEventLedger(p);
  assertStableFinancialReplay(company,await liveStatementSource(q));
  const journalIds=new Set(source.journals.map(j=>j.id));

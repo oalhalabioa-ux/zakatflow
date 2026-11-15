@@ -11,7 +11,9 @@ export async function liveDimensionalCenterOptions(input:unknown,selection?:unkn
  const query=statementQuery.parse(input);
  const branch=selection===undefined?'ALL':z.union([z.literal('HQ'),z.string().uuid()]).parse(selection);
  const source=await liveDimensionalStatements(query),{supabase}=await requireUser();
- const directory=await supabase.from('organization_cost_centers').select('id,organization_id,name').eq('organization_id',query.organization).limit(1001);
+ const directory='frozenCenterNames' in source
+  ?{data:source.frozenCenterNames.map(r=>({...r,organization_id:query.organization})),error:null}
+  :await supabase.from('organization_cost_centers').select('id,organization_id,name').eq('organization_id',query.organization).limit(1001);
  if(directory.error||!Array.isArray(directory.data)||directory.data.length>1000||directory.data.some(r=>r.organization_id!==query.organization||!r.name))throw Error('REPORTING_CENTER_SOURCE_UNAVAILABLE');
  const names=new Map(directory.data.map(r=>[r.id,r.name]));
  if(names.size!==directory.data.length)throw Error('REPORTING_CENTER_SOURCE_UNAVAILABLE');

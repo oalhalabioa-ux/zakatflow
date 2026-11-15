@@ -623,12 +623,30 @@ try{
   assert.ifError((await a.client.rpc('approve_financial_opening',{p_id:draft.data.id,p_expected_version:1})).error);
   const policy=await a.client.rpc('save_financial_reporting_policy',{p_org:fiscalOrg,p_fiscal_start:'2024-01-01',p_expected_version:0,p_rules:[],p_reason:'No current-year operations'});assert.ifError(policy.error);
   assert.ifError((await a.client.rpc('approve_financial_reporting_policy',{p_id:policy.data.id,p_expected_version:1})).error);
+  const frozenCenter=randomUUID();
+  sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${frozenCenter}','${fiscalOrg}','FROZEN_CENTER','Original closed center','OPERATING')`);
+  const assigned=await a.client.rpc('assign_financial_center_branch',{p_org:fiscalOrg,p_center:frozenCenter,p_branch:null,p_from:'2024-01-01',p_to:null,p_expected_revision:0,p_reason:'Freeze the original center at actual year close'});assert.ifError(assigned.error);
+  const approvedOpening=await a.client.from('financial_opening_workspaces').select('id,version,approved_opening').eq('id',draft.data.id).single();assert.ifError(approvedOpening.error);
+  const allocated=await a.client.rpc('save_financial_dimensional_opening',{p_org:fiscalOrg,p_fiscal_start:'2024-01-01',p_expected_version:0,p_opening_workspace:draft.data.id,p_opening_version:approvedOpening.data.version,p_entries:Object.fromEntries(approvedOpening.data.approved_opening.map(row=>[row.itemId,[{branchId:null,centerId:frozenCenter,debit:row.debit,credit:row.credit}]])),p_reason:'Original year-end dimensional allocation'});assert.ifError(allocated.error);
+  assert.ifError((await a.client.rpc('approve_financial_dimensional_opening',{p_distribution:allocated.data.id,p_expected_version:allocated.data.version})).error);
   const limited=await b.client.rpc('close_financial_year',{p_org:fiscalOrg,p_start:'2024-01-01',p_request:randomUUID(),p_reason:'Amount limit must be enforced'});assert.match(limited.error?.message??'',/FISCAL_CLOSE_DENIED/);
   const outcomes=await Promise.all([1,2].map(()=>a.client.rpc('close_financial_year',{p_org:fiscalOrg,p_start:'2024-01-01',p_request:request,p_reason:'Concurrent retry of one closing command'})));
   for(const outcome of outcomes)assert.ifError(outcome.error);
   assert.equal(outcomes[0].data.id,outcomes[1].data.id);
   const closes=await a.client.from('financial_year_closures').select('id').eq('organization_id',fiscalOrg);assert.ifError(closes.error);assert.equal(closes.data.length,1);
   const audit=await a.client.from('financial_fiscal_audit').select('id').eq('organization_id',fiscalOrg).eq('action','YEAR_CLOSE');assert.ifError(audit.error);assert.equal(audit.data.length,1);
+  sql(`update public.organization_cost_centers set name='Renamed after close' where id='${frozenCenter}';
+   insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${randomUUID()}','${fiscalOrg}','LATER_CENTER','Later center without historical assignment','OPERATING')`);
+  const closedQuery={organization:fiscalOrg,from:'2024-06-01',to:'2024-12-31'};
+  const frozen=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-statements',...closedQuery}));assert.equal(frozen.status(),200,await frozen.text());const frozenData=await frozen.json();
+  assert.equal(frozenData.closureId,outcomes[0].data.id);assert.equal(frozenData.frozenCenterNames.find(c=>c.id===frozenCenter).name,'Original closed center');
+  assert.equal(frozenData.rows.find(r=>r.centerId===frozenCenter).statements.position.assets,'100.0000');assert.equal(frozenData.rows.find(r=>r.centerId===frozenCenter).statements.cash.closing,'100.0000');
+  const frozenOptions=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-options',...closedQuery,branch:'HQ'}));assert.equal(frozenOptions.status(),200,await frozenOptions.text());assert.equal((await frozenOptions.json()).rows.find(r=>r.centerId===frozenCenter).name,'Original closed center');
+  assert.ifError((await b.client.rpc('financial_closed_dimension_context',{p_org:fiscalOrg,p_from:closedQuery.from,p_to:closedQuery.to})).error);
+  sql(`update public.organization_members set status='INACTIVE' where organization_id='${fiscalOrg}' and user_id='${b.id}'`);
+  try{const denied=await b.client.rpc('financial_closed_dimension_context',{p_org:fiscalOrg,p_from:closedQuery.from,p_to:closedQuery.to});assert.match(denied.error?.message??'',/REPORTING_ACCESS_DENIED/)}finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${fiscalOrg}' and user_id='${b.id}'`)}
+  await writeFile(out+'/frozen-center-actual-close.json',JSON.stringify(frozenData,null,2));
+
  });
  await check('Setup-only approved policy does not lock fiscal editing and date changes preserve rule history',async()=>{
   const setupOrg=randomUUID();
