@@ -615,10 +615,12 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   assert.equal(cash.closing.adjustment,'0.0000');
   assert.equal(Number(cash.closing.after),Number(cash.opening.after)+Number(cash.movement.after));
   await writeFile(out+'/acquisition-ordinary-dividend-settlement.json',JSON.stringify(paid,null,2));
+  console.log('PASS Posted dividend settlement reconciles group position, profit and cash flow');
   await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
   await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
   await positionPanel.getByRole('heading',{name:'Cash flow after eliminating internal dividend payments'}).waitFor();
   await positionPanel.getByRole('columnheader',{name:'Paid to non-controlling owners'}).waitFor();
+  console.log('PASS Browser shows adjusted cash flow and external dividend payments');
   await request(acquisitionPath,{...paidKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
  }finally{
   sql(`update private.financial_group_control_assessments set economic_interest_percent=100,

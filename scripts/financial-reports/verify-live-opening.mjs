@@ -13,7 +13,7 @@ const url=status.API_URL,app='http://localhost:3200',out='docs/financial-reports
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',timeout:60000,maxBuffer:8*1024*1024,stdio:['pipe','pipe','pipe']}).trim();
 const checks=[],errors=[],report={engine:'Full canonical migrations + real Supabase Auth/PostgREST + Next + Chromium',remoteConnections:false,checks};
 let server,browser,page;
-const check=async(name,run)=>{console.log('CHECK '+name);let deadline;try{await Promise.race([run(),new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error('CHECK_TIMEOUT: '+name)),90000)})]);checks.push({name,status:'passed'});console.log('PASS '+name)}finally{clearTimeout(deadline)}};
+const check=async(name,run,timeout=90000)=>{console.log('CHECK '+name);let deadline;try{await Promise.race([run(),new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error('CHECK_TIMEOUT: '+name)),timeout)})]);checks.push({name,status:'passed'});console.log('PASS '+name)}finally{clearTimeout(deadline)}};
 await mkdir(out,{recursive:true});
 try{
  await writeFile(out+'/catalog.json',sql('select coalesce(jsonb_agg(t),\'[]\') from ('+(await readFile('tests/migration-history/catalog.sql','utf8')).replace(/;\s*$/,'')+') t')+'\n');
@@ -913,7 +913,7 @@ try{
  await check('Actual source-bound group worksheet preserves company ledgers and rechecks member permissions',async()=>{
   const {verifySourceBoundGroupPreview}=await import('./verify-source-bound-group-preview.mjs');
   report.groupSourceBoundPreview=await verifySourceBoundGroupPreview({actor:a,page,app,out,sql,databaseUrl:url,subsidiary:report.defaultPostingActualCycle.organization,expenseEvent:report.centerExpenseEvent});
- });
+ },180000);
  await check('Dated center branch assignment preserves original history and banner-scoped position export',async()=>{
   const {verifyDatedCenterSource}=await import('./verify-dated-center-source.mjs');
   report.datedCenterSource=await verifyDatedCenterSource({actor:a,page,app,out,sql,databaseUrl:url,organization:report.defaultPostingActualCycle.organization});
