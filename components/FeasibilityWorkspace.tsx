@@ -428,6 +428,24 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   <option value="DAIRY_CHEESE">{txt(ar,'مصنع ألبان وأجبان','Dairy & cheese factory')}</option>
  </select>}<Button onClick={()=>void create()} disabled={readOnly||(!personalScope&&(!companyScopeReady||!organizationCanWrite||organizationBusy||!organizationId))||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>}
   <div className="fs-portfolio">{visibleStudies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')} aria-pressed={p.id===activeSelectedId} onClick={()=>{if(personalScope){setSharedSelectedId('');setSelectedId(p.id)}else setOrganizationSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
+
+  {personalScope&&sharingEnabled&&<section className="card fs-panel" aria-label={txt(ar,'الدراسات المشتركة معي','Shared studies')}>
+   <div className="fs-subhead">
+    <h3>{txt(ar,'الدراسات المشتركة معي','Shared with me')}</h3>
+    <Button secondary onClick={()=>setSharedRefresh(v=>v+1)} disabled={sharedBusy}>{txt(ar,'تحديث القائمة','Refresh shared studies')}</Button>
+   </div>
+   <p className="fs-hint">{txt(ar,'الدراسات التي قبلت دعوتها تظهر هنا للقراءة والمراجعة فقط؛ لا تضاف إلى مسوداتك الشخصية أو صادراتها.','Accepted invitations appear here as read-only shared studies and are never copied into your personal drafts or exports.')}</p>
+   {sharedBusy&&<p role="status">{txt(ar,'جارٍ تحديث الدراسات المشتركة…','Loading shared studies…')}</p>}
+   {sharedError&&<p role="alert">{sharedError}</p>}
+   {!sharedBusy&&!sharedError&&!sharedStudies.length&&<p>{txt(ar,'لا توجد دراسات مشتركة معك حاليًا.','No studies have been shared with you yet.')}</p>}
+   <div className="fs-portfolio">{sharedStudies.map(p=><button key={p.id} type="button"
+    className={'fs-project-pill'+(p.id===sharedSelectedId?' fs-project-pill--active':'')}
+    aria-pressed={p.id===sharedSelectedId}
+    onClick={()=>{setSharedSelectedId(p.id);setTab('overview')}}>
+     <strong>{p.title}</strong><span>{txt(ar,'مشتركة — للقراءة','Shared — read only')}</span>
+    </button>)}</div>
+  </section>}
+
   {!(personalScope?loaded:organizationLoaded)?<p>{txt(ar,'جاري تحميل الدراسات…','Loading studies…')}</p>:!study?<section className="card fs-empty"><h2>{emptyTitle}</h2><p>{emptyDescription}</p></section>:<>
    <div className="fs-subhead"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>}</div>
    <nav className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.filter(t=>t.id!=='sector'||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE').map(t=><button type="button" key={t.id} onClick={()=>setTab(t.id)} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}>{ar?t.ar:t.en}</button>)}</nav>
