@@ -7,7 +7,12 @@ export async function verifyGroupCapitalContribution({actor,request,rpc,command,
  for(const [organization,type,debitParent,creditParent]of [[parent,'INVESTMENT','1600','2100'],[subsidiary,'EQUITY','1100','3100']]){
   const classification=randomUUID();
   sql(`insert into public.financial_classifications(id,organization_id,code,name,classification_type,created_by) values('${classification}','${organization}','QA_GROUP_CAPITAL','Documented post-control contribution','${type}','${actor.id}')`);
-  const workspace=await rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:query.from});
+  let workspace=await rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:query.from});
+  for(const [parentCode,normal] of [[debitParent,'DEBIT'],[creditParent,'CREDIT']]){
+   if(workspace.chart.some(a=>a.reportingCode===parentCode&&a.id!==parentCode))continue;
+   await rpc('save_financial_chart_account',{p_org:organization,p_code:parentCode+'98',p_parent:parentCode,p_name_ar:'حساب اختبار مساهمة رأس المال',p_name_en:'Capital contribution acceptance account',p_normal_side:normal,p_is_postable:true,p_is_active:true,p_expected_version:0,p_reason:'Prepare missing capital fixture leaf through native chart command'});
+   workspace=await rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:query.from});
+  }
   // Reports intentionally omit unused leaves; select new posting accounts from the full authorized chart.
   const leaf=code=>workspace.chart.find(a=>a.reportingCode===code&&a.id!==code)?.id;
   const debit=leaf(debitParent),credit=leaf(creditParent);assert.ok(debit&&credit,`Required actual leaf accounts for ${type}: ${debitParent}/${creditParent}`);
