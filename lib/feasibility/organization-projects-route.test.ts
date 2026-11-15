@@ -88,7 +88,8 @@ describe('institutional feasibility portfolio server gate',()=>{
   const db=mockDb('OWNER');
   expect((await POST(req(orgId,'POST',{study}))).status).toBe(201);
   expect(db.projects.insert).toHaveBeenCalledWith(expect.objectContaining({
-   id:study.id,organization_id:orgId,owner_user_id:userId,title:study.title
+   id:study.id,organization_id:orgId,owner_user_id:null,
+   created_by_user_id:userId,title:study.title
   }));
  });
  it('guards every update by organization and revision',async()=>{
