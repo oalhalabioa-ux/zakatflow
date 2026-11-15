@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {z} from 'zod';
 import {supabaseServer} from '@/lib/supabase/server';
 import {isSameOriginRequest} from '@/lib/request-origin';
-import {evaluateFeasibilityAccess} from '@/lib/feasibility/access';
+import {evaluateFeasibilityAccess} from '../../../../../lib/feasibility/access';
 export const dynamic='force-dynamic';
 const enabled=()=>process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES==='true'&&process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true'&&process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA==='true';
 const json=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'}});
