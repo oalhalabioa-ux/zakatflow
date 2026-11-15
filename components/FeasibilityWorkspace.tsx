@@ -193,7 +193,17 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  };
  // Explicit cloud synchronization: local drafts are never silently overwritten.
  const loadCloud=async()=>{
-  if(!personalScope||cloudBusy)return;
+  if(!personalScope){
+   if(organizationBusy||!organizationId)return;
+   const dirty=organizationStudies.some(x=>
+    organizationRecords[x.id]?.study.updatedAt!==x.updatedAt);
+   if(dirty&&!window.confirm(txt(ar,
+    'يوجد تعديل مؤسسي غير محفوظ؛ هل تريد إعادة تحميل النسخ المحفوظة؟',
+    'Unsaved company changes will be replaced by saved versions. Continue?')))return;
+   setOrganizationReload(n=>n+1);
+   return;
+  }
+  if(cloudBusy)return;
   const requestedUser=userId;
   if(studies.length&&!window.confirm(txt(ar,'سيتم استبدال المسودات المحلية بمسودات QA المحفوظة؛ صدّر نسخة احتياطية أولًا. متابعة؟','This replaces local drafts with saved QA copies. Export a backup first. Continue?')))return;
   setCloudBusy(true);
@@ -213,7 +223,41 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   finally{setCloudBusy(false)}
  };
  const saveCloud=async()=>{
-  if(!personalScope||effectiveReadOnly||cloudBusy||!study)return;
+  if(!personalScope){
+   if(effectiveReadOnly||organizationBusy||!study||!organizationId)return;
+   const row=organizationRecords[study.id];
+   if(!row){setNotice(txt(ar,'يجب إنشاء الدراسة المؤسسية على الخادم أولًا.','Create the study on the company server first.'));return}
+   const userAtRequest=userId,orgAtRequest=organizationId,requestId=organizationRequestRef.current;
+   const document=study;
+   setOrganizationBusy(true);
+   try{
+    const response=await fetch('/api/feasibility/organization-projects?organization='+
+     encodeURIComponent(orgAtRequest),{
+     method:'PATCH',headers:{'content-type':'application/json'},
+     body:JSON.stringify({study:document,revision:row.revision})
+    });
+    if(response.status===409)throw Error('CONFLICT');
+    if(!response.ok)throw Error('COMPANY_SAVE_FAILED');
+    const saved=await response.json() as {revision:number;updated_at?:string};
+    if(!Number.isSafeInteger(saved.revision)||saved.revision<=row.revision)
+     throw Error('INVALID_REVISION');
+    if(currentUserRef.current!==userAtRequest||
+      organizationRequestRef.current!==requestId)return;
+    setOrganizationRecords(prev=>({...prev,[document.id]:{
+     ...row,study:document,revision:saved.revision,
+     updated_at:saved.updated_at||new Date().toISOString()
+    }}));
+    setNotice(txt(ar,'حُفظت الدراسة للمؤسسة المحددة في QA V2.','Study saved for the selected QA V2 organization.'));
+   }catch(e){
+    setNotice(e instanceof Error&&e.message==='CONFLICT'?
+     txt(ar,'توجد نسخة مؤسسية أحدث؛ لا تُستبدل قبل مراجعتها.','A newer company revision exists; it was not overwritten.'):
+     txt(ar,'فشل الحفظ المؤسسي. احتفظ بالتغييرات حتى تعالج المشكلة.','Company save failed; keep your changes while resolving it.'));
+   }finally{
+    if(organizationRequestRef.current===requestId)setOrganizationBusy(false);
+   }
+   return;
+  }
+  if(effectiveReadOnly||cloudBusy||!study)return;
   const requestedUser=userId;
   setCloudBusy(true);
   try{
@@ -256,11 +300,44 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   }catch{setNotice(txt(ar,'ملف النسخة الاحتياطية غير صالح.','Invalid backup file.'));}
   e.currentTarget.value='';
  };
- const create=()=>{
-  if(!personalScope||readOnly)return;
+ const create=async()=>{
+  if(readOnly)return;
   const title=projectName.trim();if(!title)return;
   const next=createStudy(uid(),title,newSector);
-  setStudies(p=>[next,...p]);setSelectedId(next.id);setProjectName('');setTab('profile');
+  if(personalScope){
+   setStudies(p=>[next,...p]);setSelectedId(next.id);
+   setProjectName('');setTab('profile');
+   return;
+  }
+  if(!organizationCanWrite||organizationBusy||!organizationId)return;
+  const requestedOrg=organizationId,requestedUser=userId,requestId=organizationRequestRef.current;
+  setOrganizationBusy(true);
+  try{
+   const response=await fetch('/api/feasibility/organization-projects?organization='+
+    encodeURIComponent(requestedOrg),{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({study:next})
+   });
+   if(!response.ok)throw Error(response.status===409?'CONFLICT':'CREATE_FAILED');
+   const result=await response.json() as {revision:number;updated_at?:string;id?:string};
+   if(result.id!==next.id||!Number.isSafeInteger(result.revision)||result.revision<1)
+    throw Error('INVALID_RESPONSE');
+   if(currentUserRef.current!==requestedUser||
+     organizationRequestRef.current!==requestId)return;
+   setOrganizationStudies(p=>[next,...p]);
+   setOrganizationSelectedId(next.id);
+   setOrganizationRecords(p=>({...p,[next.id]:{
+    id:next.id,organization_id:requestedOrg,owner_user_id:null,
+    created_by_user_id:requestedUser,title:next.title,study:next,
+    revision:result.revision,updated_at:result.updated_at||new Date().toISOString()
+   }}));
+   setProjectName('');setTab('profile');
+   setNotice(txt(ar,'تم إنشاء دراسة مؤسسية ضمن الشركة المحددة.','Institutional study created within the selected organization.'));
+  }catch(e){
+   setNotice(txt(ar,'لم يتم إنشاء الدراسة المؤسسية؛ تحقق من الترخيص والصلاحيات.','Study creation failed; verify company permissions and licence.'));
+  }finally{
+   if(organizationRequestRef.current===requestId)setOrganizationBusy(false);
+  }
  };
  const remove=()=>{
   if(!personalScope||effectiveReadOnly||!study||!window.confirm(txt(ar,'حذف مسودة هذا المشروع من هذا المتصفح فقط؟','Delete this local draft from this browser only?')))return;
