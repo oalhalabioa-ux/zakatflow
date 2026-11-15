@@ -76,3 +76,10 @@ The next change binds balance-elimination preview to the selected invoice obliga
 - Added actual native-voucher acceptance for unpaired → proposed → approved → revoked document evidence, including revoked child membership. Full CI remains to be observed on this commit.
 - Fixed billing form exposure before selected organization data hydration; the existing real reload/save subscription acceptance must pass again.
 - Still not final consolidated reporting: persisted/versioned elimination approval, final statements/export, and unsupported acquisition/NCI/FX scenarios require completion. Do not merge or describe the worksheet as approved consolidation on this evidence alone.
+
+## 2026-11-15 group-only batch rehearsal
+
+- Remote `0e0b6b7ed15e047c7bd63b84358b32c1af2ccb79`: all seven workflows succeeded, including subscription reload acceptance and real documentary propose/approve/revoke with original native vouchers. Opening run 43694134047, subscription run 43694134053.
+- Added a draft-only batch migration with independent SQL validation of original GL legs, closing detail balances, dated open items, approved document pairing and whole-group permissions. Batch approval is versioned, auditable and supersedes only the matching group's exact period; it never writes company journals.
+- Batch command service independently replays source validation before SQL. Six service tests and TypeScript passed. SQL definition compiled in a rolled-back QA transaction. Native batch acceptance and catalog observation remain pending; draft is applied ONLY to the disposable opening runner.
+- Final consolidated projection/export and user workflow are still pending. Batch evidence is deliberately not labelled a final statutory consolidation. No Production deployment or merge has occurred.

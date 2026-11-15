@@ -43,6 +43,28 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  assert.equal(result.documents.status,'DOCUMENT_MATCHES_VERIFIED_ONLY');
  assert.equal(result.status,'SOURCE_BOUND_GROUP_PREVIEW_ONLY');assert.equal(result.worksheet.adjustmentDebit,'60.0000');assert.equal(result.worksheet.adjustmentCredit,'60.0000');assert.equal(result.bindings[0].creditSource.eventId,revenue);
  assert.equal(result.openItems.status,'SOURCE_OPEN_ITEMS_VERIFIED_ONLY');assert.deepEqual(result.openItems.bindings.map(b=>b.outstanding).sort(),['100.0000','60.0000']);
+ // Persist only group evidence; SQL independently rejects direct RPC bypasses.
+ const saveArgs={p_root:parent,p_from:query.from,p_to:query.to,p_expected_version:0,p_entries:[{...adjustment,amount:'61'}],p_reason:'Direct RPC cannot exceed source balance',p_request_id:randomUUID()};
+ const directExcess=await actor.client.rpc('save_financial_group_eliminations',saveArgs);
+ assert.match(directExcess.error?.message??'',/GROUP_BATCH_SOURCE_AMOUNT_EXCEEDED/);
+ const noDate=structuredClone(adjustment);delete noDate.date;
+ const malformed=await actor.client.rpc('save_financial_group_eliminations',{...saveArgs,p_entries:[noDate],p_request_id:randomUUID()});assert.match(malformed.error?.message??'',/GROUP_BATCH_INPUT_INVALID/);
+ const save={action:'SAVE',query,entries:[adjustment],expectedVersion:0,reason:'Reviewed group-only adjustment batch',requestId:randomUUID()};
+ const batch=await request('/api/financial-reporting/group-elimination-batches',save);
+ assert.equal(batch.status,'DRAFT');assert.equal(batch.version,1);
+ assert.deepEqual(await request('/api/financial-reporting/group-elimination-batches',save),batch);
+ const batch2=await request('/api/financial-reporting/group-elimination-batches',{...save,expectedVersion:1,requestId:randomUUID()});
+ await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query,batchId:batch.id,expectedVersion:1,reason:'Stale version is not approvable'},409);
+ const approved=await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query,batchId:batch2.id,expectedVersion:2,reason:'Current batch verified against both original companies'});
+ assert.equal(approved.status,'APPROVED');
+ const context=await rpc('financial_group_elimination_context',{p_root:parent,p_from:query.from,p_to:query.to});
+ assert.equal(context.batches.filter(b=>b.status==='APPROVED').length,1);
+ assert.equal(context.batches.find(b=>b.id===batch2.id).approved_by,actor.id);
+ const batch3=await request('/api/financial-reporting/group-elimination-batches',{...save,expectedVersion:2,requestId:randomUUID()});
+ await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query,batchId:batch3.id,expectedVersion:3,reason:'Replacement batch keeps prior audit history'});
+ const replaced=await rpc('financial_group_elimination_context',{p_root:parent,p_from:query.from,p_to:query.to});
+ assert.equal(replaced.batches.find(b=>b.id===batch2.id).status,'SUPERSEDED');
+ assert.equal(replaced.batches.filter(b=>b.status==='APPROVED').length,1);
  const excessive=await request('/api/financial-reporting/group-eliminations',{query,entries:[{...adjustment,amount:'61'}]},422);assert.equal(excessive.error,'GROUP_ADJUSTMENT_EXCEEDS_DETAIL_SOURCE');
  // Preview must not write or alter either company's journal or opening sources.
  const clean=p=>{const copy=structuredClone(p);delete copy.coverage.readAt;return copy};assert.deepEqual(clean(await raw(parent)),clean(p));assert.deepEqual(clean(await raw(subsidiary)),clean(s));
@@ -50,6 +72,8 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  try{await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},403)}finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`)}
  await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:proposed.documentMatchId,reason:'Isolated acceptance proves revoked evidence is excluded'});
  await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},422);
+ const revokedSave=await actor.client.rpc('save_financial_group_eliminations',{...saveArgs,p_expected_version:3,p_entries:[adjustment],p_request_id:randomUUID()});
+ assert.match(revokedSave.error?.message??'',/GROUP_BATCH_DOCUMENT_NOT_APPROVED/);
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));
  return{parent,subsidiary,revenue,expenseEvent,status:result.status,amount:'60.0000',sourcesUnchanged:true,revokedChildDenied:true};
 }
