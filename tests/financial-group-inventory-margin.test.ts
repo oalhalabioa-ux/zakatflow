@@ -1,6 +1,11 @@
-import {expect,it} from 'vitest';
+import {expect,it,vi} from 'vitest';
 import {inventoryMarginDocumentPairs,inventoryMarginReviewRequest,reviewInventoryMargin} from '../lib/financial-group-inventory-margin';
 import {sourceBoundGroupFixture} from './financial-reporting/group-source-bound-fixture';
+import {liveInventoryMarginReview} from '../services/financial-group-inventory-margin';
+
+const evidence=vi.hoisted(()=>({sources:vi.fn(),documents:vi.fn()}));
+vi.mock('../services/financial-group-registered-source',()=>({liveRegisteredGroupEvidence:evidence.sources}));
+vi.mock('../services/financial-group-document-matches',()=>({readGroupDocumentMatches:evidence.documents}));
 
 const id=(n:number)=>'90000000-0000-4000-8000-'+String(n).padStart(12,'0');
 function fixture(upstream=true){
@@ -74,4 +79,17 @@ it('rejects revoked documentary evidence, a loss, or a mismatch in original tran
  f.buyer.events[0].lines[0].baseAmount='999.0000';
  expect(()=>reviewInventoryMargin(f.control,f.sources,f.request,f.documents)).toThrow('GROUP_INVENTORY_SOURCE_UNAVAILABLE');
  expect(inventoryMarginReviewRequest.safeParse({...f.request,amount:'1'}).success).toBe(false);
+});
+
+it('returns a stable read and withholds the result if documentary approval changes during verification',async()=>{
+ const f=fixture();
+ vi.stubEnv('FINANCIAL_GROUP_ELIMINATION_PREVIEW','true');
+ try{
+  evidence.sources.mockResolvedValue({control:f.control,rawSources:f.sources});
+  evidence.documents.mockResolvedValue(f.documents);
+  await expect(liveInventoryMarginReview(f.request)).resolves.toMatchObject({inventoryReduction:'200.0000'});
+  evidence.documents.mockResolvedValueOnce(f.documents)
+   .mockResolvedValueOnce([{...f.documents[0],status:'REVOKED'},f.documents[1]]);
+  await expect(liveInventoryMarginReview(f.request)).rejects.toThrow('REPORTING_SOURCE_CHANGED_DURING_VERIFICATION');
+ }finally{vi.unstubAllEnvs();}
 });

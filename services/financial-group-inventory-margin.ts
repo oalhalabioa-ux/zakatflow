@@ -11,6 +11,6 @@ export async function liveInventoryMarginReview(input:unknown){
  const source=await liveRegisteredGroupEvidence(request.query);
  const result=reviewInventoryMargin(source.control,source.rawSources,request,documents);
  assertStableFinancialReplay(source,await liveRegisteredGroupEvidence(request.query));
- assertStableFinancialReplay(documents,await readGroupDocumentMatches(links));
+ assertStableFinancialReplay({documents},{documents:await readGroupDocumentMatches(links)});
  return result;
 }
