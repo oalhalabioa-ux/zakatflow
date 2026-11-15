@@ -45,11 +45,12 @@ export async function readGroupAcquisitionPosition(input:unknown){
   ...worksheet.bindings.flatMap(binding=>[binding.debitSource,binding.creditSource]),
   ...cashBindings.flatMap(binding=>[binding.outflow,binding.inflow]),
  ];
- // A wholly owned group can combine ordinary reciprocal entries posted after
- // acquisition. Capital movements and minority attribution require their own
- // reconciliation. Validate the original dates, not the adjustment's date.
- if(combined&&(!later||approved.rows.some(row=>!new Money(row.calculation.nciPercent).isZero())||
+ // Validate the original dates, not the adjustment's date. Balance and
+ // cash eliminations are neutral to subsidiary profit and NCI attribution.
+ if(combined&&(!later||
    worksheet.bindings.some(binding=>binding.kind==='CAPITAL_CONTRIBUTION')||
+   (worksheet.bindings.some(binding=>binding.kind==='INTERCOMPANY_INCOME')&&
+    approved.rows.some(row=>!new Money(row.calculation.nciPercent).isZero()))||
    originalLegs.some(leg=>{
     const journal=ledgers.get(leg.organizationId)?.source.journals.find(item=>item.id===leg.eventId);
     return !journal||journal.date<=query.from||journal.date>query.to;
@@ -115,6 +116,11 @@ export async function readGroupAcquisitionPosition(input:unknown){
     const closingBookEquity=new Money(subsidiaryLedger.statements.position.equity);
     let dividend:ReturnType<typeof verifyOrdinaryDividend>=null;
     if(basis.ordinaryDividend){
+     const {parentEventId,subsidiaryEventId,parentPayment,minorityPayment}=basis.ordinaryDividend;
+     const dividendEvents=new Set([parentEventId,subsidiaryEventId,parentPayment?.parentEventId,
+      parentPayment?.subsidiaryEventId,minorityPayment?.subsidiaryEventId]);
+     if(originalLegs.some(leg=>dividendEvents.has(leg.eventId)))
+      return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
      const parentSource=carrySources.rawSources.find(source=>source.organizationId===query.organization);
      if(parentSource)dividend=verifyOrdinaryDividend(
       {...parentSource,journals:parentJournals},{...subsidiarySource,journals:subsidiaryJournals},
@@ -185,7 +191,8 @@ export async function readGroupAcquisitionPosition(input:unknown){
   return apply(row,adjustment);
  });
  const internalPayments=dividendEliminations.flatMap(item=>item.internalCash?[item.internalCash]:[]);
- const cash=combined?base.cash:eliminateDividendCashPayments(base.cash,internalPayments);
+ const dividendCash=eliminateDividendCashPayments(base.cash,internalPayments);
+ const cash=combined?base.cash.map((row,index)=>apply(row,new Money(dividendCash[index]?.adjustment??0))):dividendCash;
  const periodProfit=new Money(income.find(row=>row.key==='netProfit')!.after);
  const profitAttribution=nciAttribution.length?{
   total:periodProfit.toFixed(4),parent:periodProfit.minus(profitToNci).toFixed(4),nci:profitToNci.toFixed(4),

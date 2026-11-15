@@ -503,6 +503,54 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   const minorityDocumentKey={...documentKey,id:randomUUID()};
   const minorityDocument=await request(documentPath,{...minorityDocumentKey,action:'UPLOAD',
    title:'Evidence of 80 percent control and subsequent measurement',pdf:pdf.toString('base64')});
+  const minorityJointKey={query:jointQuery,id:randomUUID()};
+  const minorityJointMatch=await jointDocument(expenseEvent,revenue);
+  const minorityJointRequest={...save,query:jointQuery,expectedVersion:1,
+   entries:[{...jointEntries[0],documentMatchId:minorityJointMatch},jointEntries[2]],requestId:randomUUID(),
+   reason:'Review reciprocal balances and cash under documented majority ownership'};
+  const noJointAcquisition=await request('/api/financial-reporting/group-elimination-batches',minorityJointRequest,422);
+  assert.equal(noJointAcquisition.error,'GROUP_BATCH_NCI_REQUIRED');
+  await request(acquisitionPath,{...minorityJointKey,action:'SAVE',measurement:{...dayMeasurement,
+   considerationEvidence:minorityDocument.id,investmentLink:{...investmentLink,documentId:minorityDocument.id},
+   identifiableItems:dayMeasurement.identifiableItems.map(item=>({...item,measurementEvidence:minorityDocument.id})),
+   continuityBasis:{...carryMeasurement.continuityBasis,evidenceDocumentId:minorityDocument.id},
+  }});
+  await request(acquisitionPath,{...minorityJointKey,action:'APPROVE',reason:'Approve the exact group and period at eighty percent ownership'});
+  const incomeRejected=await actor.client.rpc('save_financial_group_eliminations',{
+   ...saveArgs,p_to:jointQuery.to,p_expected_version:1,p_request_id:randomUUID(),
+   p_entries:[{...jointEntries[1],documentMatchId:minorityJointMatch}],
+  });
+  assert.match(incomeRejected.error?.message??'',/GROUP_BATCH_NCI_REQUIRED/);
+  const minorityBaselineBatch=await request('/api/financial-reporting/group-elimination-batches',{
+   ...minorityJointRequest,entries:[],requestId:randomUUID(),reason:'Measure attributed results before reciprocal exclusions',
+  });
+  await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query:jointQuery,
+   batchId:minorityBaselineBatch.id,expectedVersion:2,reason:'Approve the majority-owned acquisition baseline'});
+  const minorityBaseline=await request(approvedAcquisitionsPath,jointAction);
+  assert.equal(minorityBaseline.status,'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW',JSON.stringify(minorityBaseline));
+  const minorityJointBatch=await request('/api/financial-reporting/group-elimination-batches',{
+   ...minorityJointRequest,expectedVersion:2,
+  });
+  await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query:jointQuery,
+   batchId:minorityJointBatch.id,expectedVersion:3,reason:'Approve matched balance and cash eliminations for the majority-owned group'});
+  const minorityJoint=await request(approvedAcquisitionsPath,jointAction);
+  assert.equal(minorityJoint.status,'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW',JSON.stringify(minorityJoint));
+  assert.equal(minorityJoint.eliminationBatchVersion,3);
+  assert.deepEqual(minorityJoint.profitAttribution,minorityBaseline.profitAttribution);
+  assert.equal(minorityJoint.closingNci,minorityBaseline.closingNci);
+  assert.equal(minorityJoint.closingParentEquity,minorityBaseline.closingParentEquity);
+  assert.deepEqual(minorityJoint.rows.map(row=>[row.key,Number(row.after)-Number(minorityBaseline.rows.find(r=>r.key===row.key).after)]),
+   [['assets',-60],['liabilities',-60],['equity',0]]);
+  assert.equal(minorityJoint.cash.find(row=>row.key==='closing').adjustment,'0.0000');
+  await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
+  await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
+  await positionPanel.getByRole('heading',{name:'Non-controlling interests after acquisition',exact:true}).waitFor();
+  await positionPanel.getByRole('heading',{name:'Cash flow after intercompany eliminations',exact:true}).waitFor();
+  await writeFile(out+'/acquisition-nci-and-intercompany-balances.json',JSON.stringify(minorityJoint,null,2));
+  await request(acquisitionPath,{...minorityJointKey,action:'REVOKE',reason:'Verify acquisition revocation blocks the majority-owned worksheet'});
+  await request('/api/financial-reporting/group-approved-eliminations',jointQuery,422);
+  console.log('PASS Reciprocal balances and cash reconcile without changing non-controlling interests');
+
   const taxAccount=standalone.accounts.find(account=>account.kind==='LIABILITY'&&account.id==='2500');
   assert.ok(taxAccount,'Separate verified tax liability account is required for the minority fixture');
   const minorityQuery={...query,to:'2026-03-02'};
@@ -525,10 +573,6 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   await request(acquisitionPath,{...minorityKey,action:'SAVE',measurement:minorityMeasurement});
   await request(acquisitionPath,{...minorityKey,action:'APPROVE',reason:'Approve the acquisition and schedules for fixed 80 percent ownership'});
   const minorityBatch=await request('/api/financial-reporting/group-elimination-batches',minorityBatchRequest);
-  const nonemptyRejected=await actor.client.rpc('save_financial_group_eliminations',{
-   ...saveArgs,p_to:minorityQuery.to,p_entries:[adjustment],p_expected_version:1,p_request_id:randomUUID(),
-  });
-  assert.match(nonemptyRejected.error?.message??'',/GROUP_BATCH_NCI_REQUIRED/);
   await request('/api/financial-reporting/group-elimination-batches',{
    action:'APPROVE',query:minorityQuery,batchId:minorityBatch.id,expectedVersion:1,reason:'Approve majority-owned subsidiary period',
   });
@@ -678,6 +722,23 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   await positionPanel.getByRole('heading',{name:'Cash flow after eliminating internal dividend payments'}).waitFor();
   await positionPanel.getByRole('columnheader',{name:'Paid to non-controlling owners'}).waitFor();
   console.log('PASS Browser shows adjusted cash flow and external dividend payments');
+  const duplicateMatch=await jointDocument(childPayment,parentReceipt);
+  const [parentCashSource,childCashSource]=await Promise.all([raw(parent),raw(subsidiary)]);
+  const receiptLine=parentCashSource.events.find(event=>event.id===parentReceipt).lines[0];
+  const paymentLine=childCashSource.events.find(event=>event.id===childPayment).lines[0];
+  const duplicatedCash={...cashEntry,id:randomUUID(),date:minorityQuery.to,amount:'50',documentMatchId:duplicateMatch,
+   debitSource:ref(subsidiary,childPayment,paymentLine,paymentLine.resolvedPosting.creditAccountId),
+   creditSource:ref(parent,parentReceipt,receiptLine,receiptLine.resolvedPosting.debitAccountId)};
+  const overlappingBatch=await request('/api/financial-reporting/group-elimination-batches',{
+   ...save,query:minorityQuery,entries:[duplicatedCash],expectedVersion:3,requestId:randomUUID(),
+   reason:'Verify a dividend settlement is never removed twice',
+  });
+  await request('/api/financial-reporting/group-elimination-batches',{
+   action:'APPROVE',query:minorityQuery,batchId:overlappingBatch.id,expectedVersion:4,
+   reason:'Verify the combined review detects the original duplicate bank vouchers',
+  });
+  assert.equal((await request(approvedAcquisitionsPath,{action:'ACQUISITION_POSITION',query:minorityQuery})).reason,'OVERLAPPING_ELIMINATION');
+  console.log('PASS The combined review rejects a dividend payment already used by the cash batch');
   await request(acquisitionPath,{...paidKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
  }finally{
   sql(`update private.financial_group_control_assessments set economic_interest_percent=100,

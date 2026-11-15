@@ -470,15 +470,17 @@ revoke all on function private.group_approved_acquisition_evidence(uuid,date,dat
 grant execute on function private.group_approved_acquisition_evidence(uuid,date,date),
   public.financial_group_approved_acquisition_evidence(uuid,date,date) to authenticated;
 
--- A partially owned subsidiary may use an empty evidence batch only when
--- its approved acquisition is bound to the exact current group and period.
--- Nonempty adjustment batches retain their existing ownership restriction.
+-- Balance and cash eliminations do not alter the result attributed to NCI.
+-- Require an approved acquisition for the exact current group and period.
 do $$
 declare
   definition text := pg_get_functiondef('private.financial_group_batch_evidence(uuid,date,date,jsonb,boolean)'::regprocedure);
   guard text := $guard$if (relation->>'directEconomicInterestPercent')::numeric<>100 then raise exception 'GROUP_BATCH_NCI_REQUIRED';end if;$guard$;
   replacement text := $replacement$if (relation->>'directEconomicInterestPercent')::numeric<>100 and (
-    jsonb_array_length(p_entries)<>0 or not exists(
+    exists(
+      select 1 from jsonb_array_elements(p_entries) entry
+      where coalesce(entry->>'kind','') not in ('INTERCOMPANY_BALANCE','INTERCOMPANY_CASH')
+    ) or not exists(
       select 1 from private.financial_group_acquisition_evidence acquisition
       where acquisition.root_id=p_root and acquisition.period_from=p_from and acquisition.period_to=p_to
         and acquisition.control_id::text=relation->>'controlAssessmentId'
