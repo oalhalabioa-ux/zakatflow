@@ -84,6 +84,42 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const [cloudRevisions,setCloudRevisions]=useState<Record<string,number>>({});
  const [cloudSavedStudyVersions,setCloudSavedStudyVersions]=useState<Record<string,string>>({});
  const [cloudOwnerIds,setCloudOwnerIds]=useState<Record<string,string>>({});
+ // Collaborator-readable cloud studies are never written to personal localStorage.
+ const [sharedStudies,setSharedStudies]=useState<FeasibilityStudy[]>([]);
+ const [sharedSelectedId,setSharedSelectedId]=useState('');
+ const [sharedBusy,setSharedBusy]=useState(false);
+ const [sharedError,setSharedError]=useState('');
+ const [sharedRefresh,setSharedRefresh]=useState(0);
+ useEffect(()=>{
+  const onAccepted=()=>setSharedRefresh(count=>count+1);
+  window.addEventListener('feasibility:invitation-accepted',onAccepted);
+  return ()=>window.removeEventListener('feasibility:invitation-accepted',onAccepted);
+ },[]);
+ useEffect(()=>{
+  setSharedStudies([]);setSharedSelectedId('');setSharedError('');
+  if(!sharingEnabled||!personalScope)return;
+  const controller=new AbortController();
+  setSharedBusy(true);
+  void (async()=>{
+   try{
+    const response=await fetch('/api/feasibility/projects',{cache:'no-store',signal:controller.signal});
+    if(!response.ok)throw Error('SHARED_FETCH_FAILED');
+    const rows=parseCloudStudyRows(await response.json());
+    const partition=rows&&partitionPersonalCloudRows(rows,userId);
+    if(!partition)throw Error('INVALID_SHARED_RESPONSE');
+    if(controller.signal.aborted||currentUserRef.current!==userId)return;
+    const shared=partition.shared.map(x=>x.study);
+    setSharedStudies(shared);
+    setSharedSelectedId(current=>shared.some(x=>x.id===current)?current:'');
+   }catch{
+    if(controller.signal.aborted||currentUserRef.current!==userId)return;
+    setSharedError(txt(ar,'تعذر تحديث الدراسات المشتركة؛ لم تتغير مسوداتك الشخصية.','Could not refresh shared studies; your personal drafts are unchanged.'));
+   }finally{
+    if(!controller.signal.aborted&&currentUserRef.current===userId)setSharedBusy(false);
+   }
+  })();
+  return ()=>controller.abort();
+ },[sharingEnabled,personalScope,userId,sharedRefresh,ar]);
  // Organization state is strictly server-owned, never written to the legacy
  // per-user localStorage key. It resets on organization or account changes.
  const [organizationId,setOrganizationId]=useState('');
@@ -149,7 +185,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  useEffect(()=>{
   // Account changes must never reuse the previous user's local or cloud data.
   setLoaded(false);setStorageSafe(true);
-  setStudies([]);setSelectedId('');setTab('overview');
+  setStudies([]);setSelectedId('');setSharedSelectedId('');setTab('overview');
   setCloudRevisions({});setCloudSavedStudyVersions({});setCloudOwnerIds({});
   try{
    const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as unknown;
@@ -173,9 +209,13 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  // Account-scoped legacy drafts are never owned by the selected organization.
  const companyScopeReady=organizationLoaded&&organizationId.length>0&&organizationLoadedId===organizationId;
  const visibleStudies=personalScope?accountDraftsVisibleInScope(studies,scope):(companyScopeReady?organizationStudies:[]);
- const activeSelectedId=personalScope?selectedId:organizationSelectedId;
- const study=visibleStudies.find(s=>s.id===activeSelectedId)??null;
- const sharedStudy=Boolean(personalScope&&study&&cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId);
+ const activeSelectedId=personalScope?(sharedSelectedId||selectedId):organizationSelectedId;
+ const study=personalScope&&sharedSelectedId
+  ?sharedStudies.find(s=>s.id===sharedSelectedId)??null
+  :visibleStudies.find(s=>s.id===activeSelectedId)??null;
+ const sharedStudy=Boolean(personalScope&&study&&(
+  sharedSelectedId||(cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId)
+ ));
  const effectiveReadOnly=readOnly||sharedStudy||(!personalScope&&(!organizationCanWrite||!companyScopeReady));
  const model=useMemo(()=>study?evaluateStudy(study,scenario):null,[study,scenario]);
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
@@ -222,7 +262,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    if(!partition)throw Error('INVALID_OWNER_CONTEXT');
    // Never merge a collaborator's editable JSON document into a PERSONAL cache.
    const own=partition.owned,documents=own.map(x=>x.study);
-   setStudies(documents);setSelectedId(documents[0]?.id??'');setStorageSafe(true);setTab('overview');
+   setStudies(documents);setSelectedId(documents[0]?.id??'');setSharedSelectedId('');setStorageSafe(true);setTab('overview');
    setCloudRevisions(Object.fromEntries(own.map(x=>[x.id,x.revision])));
    setCloudSavedStudyVersions(Object.fromEntries(own.map(x=>[x.id,x.study.updatedAt])));
    setCloudOwnerIds(Object.fromEntries(own.map(x=>[x.id,x.owner_user_id])));
@@ -305,7 +345,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    setCloudRevisions({});
    setCloudSavedStudyVersions({});
    setCloudOwnerIds({});
-   setStudies(imported);setSelectedId(imported[0]?.id||'');setStorageSafe(true);setTab('overview');
+   setStudies(imported);setSelectedId(imported[0]?.id||'');setSharedSelectedId('');setStorageSafe(true);setTab('overview');
    setNotice(txt(ar,'تم استيراد المسودات محليًا.','Local drafts imported.'));
   }catch{setNotice(txt(ar,'ملف النسخة الاحتياطية غير صالح.','Invalid backup file.'));}
   e.currentTarget.value='';
@@ -317,7 +357,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    ?createIndustrialStarter(uid(),title,newStarter)
    :createStudy(uid(),title,newSector);
   if(personalScope){
-   setStudies(p=>[next,...p]);setSelectedId(next.id);
+   setStudies(p=>[next,...p]);setSelectedId(next.id);setSharedSelectedId('');
    setProjectName('');setTab('profile');
    return;
   }
@@ -387,7 +427,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   <option value="BOTTLED_WATER">{txt(ar,'مصنع مياه معبأة','Bottled-water factory')}</option>
   <option value="DAIRY_CHEESE">{txt(ar,'مصنع ألبان وأجبان','Dairy & cheese factory')}</option>
  </select>}<Button onClick={()=>void create()} disabled={readOnly||(!personalScope&&(!companyScopeReady||!organizationCanWrite||organizationBusy||!organizationId))||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>}
-  <div className="fs-portfolio">{visibleStudies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')} aria-pressed={p.id===activeSelectedId} onClick={()=>{if(personalScope)setSelectedId(p.id);else setOrganizationSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
+  <div className="fs-portfolio">{visibleStudies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')} aria-pressed={p.id===activeSelectedId} onClick={()=>{if(personalScope){setSharedSelectedId('');setSelectedId(p.id)}else setOrganizationSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
   {!(personalScope?loaded:organizationLoaded)?<p>{txt(ar,'جاري تحميل الدراسات…','Loading studies…')}</p>:!study?<section className="card fs-empty"><h2>{emptyTitle}</h2><p>{emptyDescription}</p></section>:<>
    <div className="fs-subhead"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>}</div>
    <nav className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.filter(t=>t.id!=='sector'||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE').map(t=><button type="button" key={t.id} onClick={()=>setTab(t.id)} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}>{ar?t.ar:t.en}</button>)}</nav>
