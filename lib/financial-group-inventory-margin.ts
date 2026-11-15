@@ -23,6 +23,11 @@ export function inventoryMarginDocumentPairs(request:InventoryReview){
 }
 type Source=z.infer<typeof statementSourceEnvelope>;
 type Ledger=ReturnType<typeof compileEventLedger>['source'];
+export function inventoryProfitReductionAttribution(amount:string,sellingMinorityPercent:string){
+ const reduction=new Money(amount);
+ const minority=reduction.mul(sellingMinorityPercent).div(100).toDecimalPlaces(4);
+ return {parent:reduction.minus(minority).toFixed(4),nonControllingInterests:minority.toFixed(4)};
+}
 
 /** Verify a complete, unsold transfer through an isolated inventory leaf.
  * Documentary matches bind both seller vouchers to the same buyer voucher.
@@ -75,15 +80,15 @@ export function reviewInventoryMargin(control:GroupControlPreflight,raw:readonly
   throw Error('GROUP_INVENTORY_REMAINING_STOCK_UNVERIFIED');
  const margin=sale.amount.minus(cost.amount);
  if(margin.lt(0))throw Error('GROUP_INVENTORY_LOSS_REQUIRES_REVIEW');
- const sellingMinorityShare=sellerId===query.organization?new Money(0):
-  new Money(100).minus(relation.directEconomicInterestPercent);
- const minority=margin.mul(sellingMinorityShare).div(100).toDecimalPlaces(4);
+ const sellingNonControllingInterestPercent=sellerId===query.organization?'0':
+  new Money(100).minus(relation.directEconomicInterestPercent).toString();
  return {
   status:'INVENTORY_MARGIN_REVIEW_ONLY' as const,query,currency:seller.currency,
   sellerOrganizationId:sellerId,buyerOrganizationId:buyerId,inventoryAccountId,
   revenueReduction:sale.amount.toFixed(4),costOfSalesReduction:cost.amount.toFixed(4),
   inventoryReduction:margin.toFixed(4),groupPretaxProfitReduction:margin.toFixed(4),
-  illustrativePretaxAttribution:{parent:margin.minus(minority).toFixed(4),nonControllingInterests:minority.toFixed(4)},
+  sellingNonControllingInterestPercent,
+  illustrativePretaxAttribution:inventoryProfitReductionAttribution(margin.toFixed(4),sellingNonControllingInterestPercent),
   taxAssessmentRequired:!margin.isZero(),consolidated:false as const,issuanceReady:false as const,
  };
 }

@@ -1,4 +1,4 @@
-import {inventoryMarginDocumentPairs,inventoryMarginReviewRequest,reviewInventoryMargin} from '../lib/financial-group-inventory-margin';
+import {inventoryMarginDocumentPairs,inventoryMarginReviewRequest,inventoryProfitReductionAttribution,reviewInventoryMargin} from '../lib/financial-group-inventory-margin';
 import {assertStableFinancialReplay} from '../lib/financial-source-replay';
 import {readGroupDocumentMatches} from './financial-group-document-matches';
 import {liveRegisteredGroupEvidence} from './financial-group-registered-source';
@@ -26,8 +26,11 @@ export async function liveInventoryMarginReview(input:unknown){
  assertStableFinancialReplay({documents},{documents:await readGroupDocumentMatches(links)});
  if(!tax||!taxId)return result;
  assertStableFinancialReplay(tax,await readApprovedInventoryTaxAssessment(request.query,taxId));
- return {...result,taxAssessmentRequired:false,deferredTax:{
-  approvedRecordId:taxId,evidenceDocumentId:tax.measurement.evidenceDocumentId,
-  ...inventoryDeferredTaxReview(result.revenueReduction,result.costOfSalesReduction,tax.measurement),
- }};
+ const deferredTax=inventoryDeferredTaxReview(result.revenueReduction,result.costOfSalesReduction,tax.measurement);
+ const afterTaxAttribution=tax.measurement.attributionTaxBasis?
+  inventoryProfitReductionAttribution(deferredTax.groupAfterTaxProfitReduction,result.sellingNonControllingInterestPercent):null;
+ return {...result,taxAssessmentRequired:false,
+  deferredTax:{approvedRecordId:taxId,evidenceDocumentId:tax.measurement.evidenceDocumentId,...deferredTax},
+  ...(afterTaxAttribution?{afterTaxAttribution:{...afterTaxAttribution,attributionTaxBasis:tax.measurement.attributionTaxBasis}}:{}),
+ };
 }

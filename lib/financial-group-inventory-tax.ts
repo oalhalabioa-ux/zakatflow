@@ -3,14 +3,22 @@ import {z} from 'zod';
 
 const Money=Decimal.clone({precision:50,rounding:Decimal.ROUND_HALF_UP});
 const uuid=z.string().uuid();
+function isTaxRate(value:string){
+ return /^\d{1,3}(\.\d{1,6})?$/.test(value)&&new Money(value).gt(0)&&new Money(value).lte(100);
+}
+const rate=z.string().refine(isTaxRate);
 export const inventoryTaxAssessmentSchema=z.object({
  buyerOrganizationId:uuid,
  saleEventId:uuid,costEventId:uuid,purchaseEventId:uuid,evidenceDocumentId:uuid,
  buyerTaxBasis:z.string().regex(/^\d{1,20}(\.\d{1,4})?$/),
- buyerRecoveryRatePercent:z.string().refine(value=>
-  /^\d{1,3}(\.\d{1,6})?$/.test(value)&&new Money(value).gt(0)&&new Money(value).lte(100)),
+ buyerRecoveryRatePercent:rate,
  recoverability:z.enum(['PROBABLE','NOT_PROBABLE']),
-}).strict();
+ attributionTaxBasis:z.object({sameTaxJurisdiction:z.literal(true),sellerTaxRatePercent:rate}).strict().optional(),
+}).strict().refine(assessment=>{
+ const sellerRate=assessment.attributionTaxBasis?.sellerTaxRatePercent;
+ return sellerRate===undefined||
+  isTaxRate(sellerRate)&&isTaxRate(assessment.buyerRecoveryRatePercent)&&new Money(sellerRate).eq(assessment.buyerRecoveryRatePercent);
+},'GROUP_INVENTORY_ATTRIBUTION_TAX_RATE_MISMATCH');
 export type InventoryTaxAssessment=z.infer<typeof inventoryTaxAssessmentSchema>;
 
 /** The verified buyer booked the transfer price. Requiring the tax basis to

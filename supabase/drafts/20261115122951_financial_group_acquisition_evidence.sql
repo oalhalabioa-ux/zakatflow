@@ -335,7 +335,7 @@ begin
     item := p_measurement->'inventoryTaxAssessment';
     if jsonb_typeof(item) is distinct from 'object'
       or item - array['buyerOrganizationId','saleEventId','costEventId','purchaseEventId','evidenceDocumentId',
-        'buyerTaxBasis','buyerRecoveryRatePercent','recoverability'] <> '{}'::jsonb
+        'buyerTaxBasis','buyerRecoveryRatePercent','recoverability','attributionTaxBasis'] <> '{}'::jsonb
       or exists(select 1 from unnest(array['buyerOrganizationId','saleEventId','costEventId','purchaseEventId','evidenceDocumentId']) key
         where coalesce(item->>key,'') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
       or item->>'buyerOrganizationId' not in (p_root::text,subsidiary::text)
@@ -349,6 +349,17 @@ begin
       then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
     if (item->>'buyerRecoveryRatePercent')::numeric<=0 or (item->>'buyerRecoveryRatePercent')::numeric>100
       then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+    if item ? 'attributionTaxBasis' then
+      schedule := item->'attributionTaxBasis';
+      if jsonb_typeof(schedule) is distinct from 'object'
+        or schedule - array['sameTaxJurisdiction','sellerTaxRatePercent'] <> '{}'::jsonb
+        or schedule->'sameTaxJurisdiction' is distinct from 'true'::jsonb
+        or jsonb_typeof(schedule->'sellerTaxRatePercent') is distinct from 'string'
+        or coalesce(schedule->>'sellerTaxRatePercent','') !~ '^\d{1,3}(\.\d{1,6})?$'
+        then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+      if (schedule->>'sellerTaxRatePercent')::numeric<>(item->>'buyerRecoveryRatePercent')::numeric
+        then raise exception 'GROUP_ACQUISITION_TAX_ATTRIBUTION_RATE_MISMATCH'; end if;
+    end if;
     if (select count(*) from public.financial_events event
       where event.status='ACTUAL' and event.event_date>p_from and event.event_date<=p_to
         and ((event.id=(item->>'purchaseEventId')::uuid and event.organization_id=(item->>'buyerOrganizationId')::uuid)

@@ -4,9 +4,10 @@ import {sourceBoundGroupFixture} from './financial-reporting/group-source-bound-
 import {liveInventoryMarginReview} from '../services/financial-group-inventory-margin';
 import {inventoryDeferredTaxReview,inventoryTaxAssessmentSchema} from '../lib/financial-group-inventory-tax';
 
-const evidence=vi.hoisted(()=>({sources:vi.fn(),documents:vi.fn()}));
+const evidence=vi.hoisted(()=>({sources:vi.fn(),documents:vi.fn(),tax:vi.fn()}));
 vi.mock('../services/financial-group-registered-source',()=>({liveRegisteredGroupEvidence:evidence.sources}));
 vi.mock('../services/financial-group-document-matches',()=>({readGroupDocumentMatches:evidence.documents}));
+vi.mock('../services/financial-group-acquisition-review',()=>({readApprovedInventoryTaxAssessment:evidence.tax}));
 
 const id=(n:number)=>'90000000-0000-4000-8000-'+String(n).padStart(12,'0');
 function fixture(upstream=true){
@@ -110,4 +111,30 @@ it('measures at the approved buyer recovery rate and only recognizes the recover
  });
  expect(()=>inventoryDeferredTaxReview('1000','800',{...assessment,buyerTaxBasis:'900'})).toThrow('GROUP_INVENTORY_TAX_BASIS_UNSUPPORTED');
  expect(inventoryTaxAssessmentSchema.safeParse({...assessment,buyerRecoveryRatePercent:'100.01'}).success).toBe(false);
+});
+
+it('shows after-tax attribution for both directions only with documented equal-rate treatment',async()=>{
+ vi.stubEnv('FINANCIAL_GROUP_ELIMINATION_PREVIEW','true');
+ try{
+  for(const upstream of [true,false]){
+   const f=fixture(upstream),basis={sameTaxJurisdiction:true,sellerTaxRatePercent:'20.0'} as const;
+   const measurement=inventoryTaxAssessmentSchema.parse({
+    buyerOrganizationId:f.request.buyerOrganizationId,saleEventId:f.request.saleEventId,costEventId:f.request.costEventId,
+    purchaseEventId:f.request.purchaseEventId,evidenceDocumentId:id(9),
+    buyerTaxBasis:'1000',buyerRecoveryRatePercent:'20',recoverability:'PROBABLE',
+   });
+   const approval={parentOrganizationId:f.sources[0].organizationId,subsidiaryOrganizationId:f.sources[1].organizationId,
+    approvedAt:'2026-11-15T08:00:00Z',documentFingerprint:'a'.repeat(64)};
+   const request={...f.request,taxAssessmentRecordId:id(10)};
+   evidence.sources.mockResolvedValue({control:f.control,rawSources:f.sources});
+   evidence.documents.mockResolvedValue(f.documents);
+   evidence.tax.mockResolvedValue({...approval,measurement});
+   expect(await liveInventoryMarginReview(request)).not.toHaveProperty('afterTaxAttribution');
+   evidence.tax.mockResolvedValue({...approval,measurement:{...measurement,attributionTaxBasis:basis}});
+   expect(await liveInventoryMarginReview(request)).toMatchObject({afterTaxAttribution:{
+    parent:upstream?'128.0000':'160.0000',nonControllingInterests:upstream?'32.0000':'0.0000',attributionTaxBasis:basis,
+   }});
+   expect(inventoryTaxAssessmentSchema.safeParse({...measurement,attributionTaxBasis:{...basis,sellerTaxRatePercent:'25'}}).success).toBe(false);
+  }
+ }finally{vi.unstubAllEnvs();}
 });
