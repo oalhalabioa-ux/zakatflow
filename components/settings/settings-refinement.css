@@ -321,3 +321,11 @@
     width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;
   }
 }
+
+/* Base settings.css forces row!important on mobile; the approved stepper is column-first. */
+@media(max-width:700px){
+ .corp-shell .settings-workspace .settings-tabs a:not(.btn){
+  flex-direction:column!important;
+  justify-content:flex-start;align-items:center;
+ }
+}
