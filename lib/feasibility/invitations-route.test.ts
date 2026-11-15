@@ -132,6 +132,22 @@ describe('QA V2 email-bound invitation boundary',()=>{
   }));
   expect(response.status).toBe(403);expect(rpc).not.toHaveBeenCalled();
  });
+ it('requires an active owner entitlement before revoking an invitation',async()=>{
+  const {access,rpc}=mockData();
+  const body={projectId,invitationId:'ef9a3fa6-9813-4f89-8c15-5fd521557000'};
+  const make=()=>new Request('https://qa.local/api/feasibility/invitations',{
+    method:'PATCH',headers:{Origin:'https://qa.local','content-type':'application/json'},body:JSON.stringify(body)
+  });
+  access.maybeSingle.mockResolvedValueOnce({
+   data:{status:'READ_ONLY',starts_at:'2026-11-01T00:00:00Z',ends_at:null},error:null
+  });
+  expect((await revokeInvitation(make())).status).toBe(403);
+  access.maybeSingle.mockResolvedValueOnce({
+   data:{status:'TRIAL',starts_at:'2026-10-01T00:00:00Z',ends_at:'2026-11-01T00:00:00Z'},error:null
+  });
+  expect((await revokeInvitation(make())).status).toBe(403);
+  expect(rpc).not.toHaveBeenCalled();
+ });
  it('revokes only pending invitation through owner-guarded RPC',async()=>{
   const {rpc}=mockData();rpc.mockResolvedValueOnce({data:true,error:null});
   const invitationId='ef9a3fa6-9813-4f89-8c15-5fd521557000';
