@@ -1985,6 +1985,14 @@
       "expected_md5": "402750a81b5102afd68067b74ca8bbda",
       "file_sha256": "3d101c951ed5d9a2acd964ca6051d9470d3a9bc3af6626772513ba65822bc8ab",
       "validation_project": "Disposable full-schema run 43641211891 artifact 14131674924: complete graph, approved controls, hidden-child access denial. Not applied hosted."
+    },
+    {
+      "path": "supabase/migrations/20261115081457_financial_group_document_matches.sql",
+      "version": "20261115081457",
+      "name": "financial_group_document_matches",
+      "expected_md5": "762e91943c14fc563627a21b58eeca2f",
+      "file_sha256": "b47f4dfb6c14e035d7e6619b097ca1ae63d39621d02c5f07df4ebd515b71874f",
+      "validation_project": "QA V2 rollback-only security tests and observed catalog, 2026-11-15. No hosted migration committed."
     }
   ]
 }

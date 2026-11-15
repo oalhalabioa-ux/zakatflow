@@ -10,6 +10,7 @@ const D=Decimal.clone({precision:50});
 const reference=z.object({organizationId:z.string().uuid(),eventId:z.string().min(1).max(200),
  lineId:z.string().min(1).max(200),accountId:z.string().regex(/^\d{4}(?:\d{2}){1,3}$/)}).strict();
 export const sourceBoundAdjustmentSchema=z.object({id:z.string().uuid(),
+ documentMatchId:z.string().uuid().optional(),
  kind:z.enum(['INTERCOMPANY_BALANCE','INTERCOMPANY_INCOME']),date:z.string().date(),
  amount:z.string().regex(/^\d{1,20}(\.\d{1,4})?$/),reason:z.string().trim().min(8).max(2000),
  debitSource:reference,creditSource:reference}).strict();

@@ -67,3 +67,12 @@ All seven workflows on `ff103afcff528217cda7602a544bef467419c83f` completed succ
 The next change binds balance-elimination preview to the selected invoice obligation. The authenticated reader loads actual root obligations, credit/debit notes, allocations, event dates/statuses and reversal links using tenant filters, exact row counts, pagination and decimal-text amounts. Permissions and the complete evidence are read again. Missing/ambiguous obligations, incomplete pages, inconsistent reversals, over-settlements and concurrent source changes fail closed. Balance adjustments use the report closing date. Income eliminations do not incorrectly require an unpaid invoice.
 
 22 targeted tests pass. The actual two-company acceptance now also checks native outstanding amounts of 100 and 60. This new reader still needs its final-head actual CI acceptance. It does not prove reciprocal counterparties and does not implement an approved consolidation ledger; no final export or Production deployment is enabled. No hosted schema migration is required by this change.
+
+## 2026-11-15 reciprocal documentary matching
+
+- Added private, audited propose/approve/revoke commands for an explicit pair of original company documents. Both-company administrative and finance permissions are required; self-approval follows the existing organization approval policy. Anonymous and direct table access are denied.
+- The immutable pairing fingerprint covers original event headers and lines. Changed, revoked, draft, foreign, duplicate or substituted evidence cannot validate an elimination worksheet. Missing documentary evidence remains explicitly incomplete.
+- QA V2 rollback-only execution passed the database security/lifecycle acceptance; no migration or fixture was committed there. Observed catalog delta recorded; canonical count is now 276. Production untouched.
+- Added actual native-voucher acceptance for unpaired → proposed → approved → revoked document evidence, including revoked child membership. Full CI remains to be observed on this commit.
+- Fixed billing form exposure before selected organization data hydration; the existing real reload/save subscription acceptance must pass again.
+- Still not final consolidated reporting: persisted/versioned elimination approval, final statements/export, and unsupported acquisition/NCI/FX scenarios require completion. Do not merge or describe the worksheet as approved consolidation on this evidence alone.

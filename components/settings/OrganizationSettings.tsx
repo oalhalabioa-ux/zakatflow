@@ -185,7 +185,11 @@ export default function OrganizationSettings({
       setBusy(false);
     }
   }
-  if (billingDetails && selected && !loading) return (
+  // Do not expose empty or previous-organization fields between selection and
+  // draft hydration. The form becomes visible only for its loaded organization.
+  const formLoading = loading || (!!selected && draftOrganization !== id);
+  if (billingDetails && formLoading) return <p role="status">{ar ? "جارٍ تحميل بيانات الفوترة…" : "Loading billing details…"}</p>;
+  if (billingDetails && selected && !formLoading) return (
     <section className="yb-billing-panel billing-identity">
       <h2>{ar ? "بيانات الفوترة" : "Billing details"}</h2>
       <form className="billing-identity-form" onSubmit={save}>
@@ -242,7 +246,7 @@ export default function OrganizationSettings({
         />
       </TopbarOrganizationControls>}
       {!inline&&!system&&!financial&&selected&&<OrganizationSubnav locale={locale} organization={id} active="details"/>}
-      {loading ? (
+      {formLoading ? (
         <p role="status">
           {ar ? "جارٍ تحميل المؤسسة…" : "Loading organization…"}
         </p>
