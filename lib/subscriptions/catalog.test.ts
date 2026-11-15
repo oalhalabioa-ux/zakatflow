@@ -9,6 +9,7 @@ describe("subscription capabilities", () => {
   it("maps organizational module routes without blocking account and support", () => {
     expect(routeCapability("/ar/budget-planning")).toBe("budgets");
     expect(routeCapability("/en/investments")).toBe("investments");
+    expect(routeCapability("/ar/feasibility")).toBe("feasibility");
     expect(routeCapability("/ar/account")).toBeUndefined();
     expect(routeCapability("/ar/guide")).toBeUndefined();
   });
@@ -22,5 +23,7 @@ describe("subscription capabilities", () => {
       "liquidity",
     ]);
     expect(new Set(ALL_CAPABILITIES).size).toBe(ALL_CAPABILITIES.length);
+    expect(MODULES.find(x=>x.key==="feasibility")?.core).toBe(false);
+    expect(ALL_CAPABILITIES).toContain("module:feasibility");
   });
 });

@@ -79,6 +79,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ id: data }, { status: 201 });
     }
     const { reason, ...details } = input.parse(body);
+    // Feasibility is a distinct future entitlement, not automatically bundled into existing plans.
+    if(details.features.includes("module:feasibility") && process.env.FEASIBILITY_BILLING_QA!=="true")
+      return NextResponse.json({error:"FEASIBILITY_BILLING_NOT_READY"},{status:403});
     const { supabase } = await requireUser();
     const { data, error } = await supabase.rpc("owner_save_subscription_plan", {
       p_details: details,

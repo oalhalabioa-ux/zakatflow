@@ -64,6 +64,13 @@ export const MODULES = [
     routes: ["investments"],
     core: false,
   },
+  {
+    key: "feasibility",
+    ar: "دراسات الجدوى وتأسيس المشاريع",
+    en: "Feasibility & Project Development",
+    routes: ["feasibility"],
+    core: false,
+  },
 ] as const;
 export const FEATURES = [
   {
