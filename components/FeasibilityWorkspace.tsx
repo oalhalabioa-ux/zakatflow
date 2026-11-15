@@ -14,7 +14,7 @@ import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
 import SupplierComparisonPanel from '@/components/feasibility/SupplierComparisonPanel';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
-import {parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
+import {parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -218,12 +218,15 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    const rows=parseCloudStudyRows(await response.json());
    if(!rows)throw new Error('INVALID_RESPONSE');
    if(currentUserRef.current!==requestedUser)return;
-   const documents=rows.map(x=>x.study);
+   const partition=partitionPersonalCloudRows(rows,requestedUser);
+   if(!partition)throw Error('INVALID_OWNER_CONTEXT');
+   // Never merge a collaborator's editable JSON document into a PERSONAL cache.
+   const own=partition.owned,documents=own.map(x=>x.study);
    setStudies(documents);setSelectedId(documents[0]?.id??'');setStorageSafe(true);setTab('overview');
-   setCloudRevisions(Object.fromEntries(rows.map(x=>[x.id,x.revision])));
-   setCloudSavedStudyVersions(Object.fromEntries(rows.map(x=>[x.id,x.study.updatedAt])));
-   setCloudOwnerIds(Object.fromEntries(rows.map(x=>[x.id,x.owner_user_id])));
-   setNotice(txt(ar,'تم استرجاع المسودات من QA V2.','Drafts restored from QA V2.'));
+   setCloudRevisions(Object.fromEntries(own.map(x=>[x.id,x.revision])));
+   setCloudSavedStudyVersions(Object.fromEntries(own.map(x=>[x.id,x.study.updatedAt])));
+   setCloudOwnerIds(Object.fromEntries(own.map(x=>[x.id,x.owner_user_id])));
+   setNotice(txt(ar,'تم استرجاع الدراسات المملوكة لك فقط؛ الدراسات المشتركة تظهر بقائمة مستقلة.','Only your own drafts were restored; shared studies appear in a separate list.'));
   }catch{setNotice(txt(ar,'تعذر استرجاع المسودات من QA. لم تُغيّر البيانات المحلية.','Could not restore QA drafts; local data were not changed.'))}
   finally{setCloudBusy(false)}
  };
