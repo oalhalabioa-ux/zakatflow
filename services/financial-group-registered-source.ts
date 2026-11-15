@@ -46,5 +46,10 @@ async function registeredEvidence(input:unknown,includeRaw:boolean){
 }
 
 export async function liveRegisteredGroupSource(input:unknown){return(await registeredEvidence(input,false)).preflight}
+/** Internal authenticated context for unapproved acquisition review. */
+export async function liveRegisteredGroupReviewContext(input:unknown){
+ const {control,preflight}=await registeredEvidence(input,false);
+ return{control,preflight};
+}
 /** Server-internal evidence; never accept raw source JSON from the browser. */
 export async function liveRegisteredGroupEvidence(input:unknown){return registeredEvidence(input,true)}

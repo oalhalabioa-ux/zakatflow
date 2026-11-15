@@ -31,6 +31,13 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const query={organization:parent,from:'2026-01-01',to:'2026-12-31'};
  const raw=async organization=>rpc('financial_statement_live_snapshot',{p_org:organization,p_from:query.from,p_to:query.to});
  const p=await raw(parent),s=await raw(subsidiary),rline=p.events.find(e=>e.id===revenue).lines[0],eline=s.events.find(e=>e.id===expenseEvent).lines.find(l=>Number(l.baseAmount)===60);assert.ok(eline);
+ const acquisitionInput={query,measurement:{parentOrganizationId:parent,subsidiaryOrganizationId:subsidiary,currency:'SAR',acquisitionDate:'2026-01-01',transactionType:'SINGLE_STEP_BUSINESS_COMBINATION',commonControl:false,instruments:'ORDINARY_PROPORTIONATE',consideration:'1200',considerationEvidence:'Unapproved consideration review fixture',identifiableItems:[{id:'assets',kind:'ASSET',recognizedAmount:'1500',measurementEvidence:'Unapproved asset valuation fixture'},{id:'liabilities',kind:'LIABILITY',recognizedAmount:'500',measurementEvidence:'Unapproved liability valuation fixture'}],nci:{method:'PROPORTIONATE_NET_ASSETS'}}};
+ const acquisitionReview=await request('/api/financial-reporting/group-acquisition-review',acquisitionInput);
+ assert.equal(acquisitionReview.status,'UNAPPROVED_ACQUISITION_REVIEW');assert.equal(acquisitionReview.evidenceVerified,false);assert.equal(acquisitionReview.persisted,false);assert.equal(acquisitionReview.issuanceReady,false);
+ assert.equal(acquisitionReview.calculation.goodwill,'200.0000');assert.equal(acquisitionReview.calculation.nciAtAcquisition,'0.0000');
+ await request('/api/financial-reporting/group-acquisition-review',{...acquisitionInput,approved:true},400);
+ await request('/api/financial-reporting/group-acquisition-review',{...acquisitionInput,measurement:{...acquisitionInput.measurement,currency:'USD'}},422);
+ await writeFile(out+'/unapproved-acquisition-review.json',JSON.stringify(acquisitionReview,null,2));
  const ref=(organizationId,eventId,line,accountId)=>({organizationId,eventId,lineId:line.id,accountId});
  const adjustment={id:randomUUID(),kind:'INTERCOMPANY_BALANCE',date:query.to,amount:'60',reason:'Selected counterpart source legs for review',debitSource:ref(subsidiary,expenseEvent,eline,eline.resolvedPosting.creditAccountId),creditSource:ref(parent,revenue,rline,rline.resolvedPosting.debitAccountId)};
  const unpaired=await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]});
@@ -99,7 +106,10 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  // Preview must not write or alter either company's journal or opening sources.
  const clean=p=>{const copy=structuredClone(p);delete copy.coverage.readAt;return copy};assert.deepEqual(clean(await raw(parent)),clean(p));assert.deepEqual(clean(await raw(subsidiary)),clean(s));
  sql(`update public.organization_members set status='INACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`);
- try{await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},403)}finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`)}
+ try{
+  await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},403);
+  await request('/api/financial-reporting/group-acquisition-review',acquisitionInput,403);
+ }finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`)}
  await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:proposed.documentMatchId,reason:'Isolated acceptance proves revoked evidence is excluded'});
  await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},422);
  const revokedSave=await actor.client.rpc('save_financial_group_eliminations',{...saveArgs,p_expected_version:3,p_entries:[adjustment],p_request_id:randomUUID()});
