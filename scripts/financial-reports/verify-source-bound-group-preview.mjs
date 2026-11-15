@@ -550,9 +550,16 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
    p_entries:[{...consumedService,amount:'59'}],
   });
   assert.match(incompleteService.error?.message??'',/GROUP_BATCH_CONSUMED_SERVICE_UNSUPPORTED/);
-  const serviceBatch=await request('/api/financial-reporting/group-elimination-batches',{
+  const serviceBatchRequest={
    ...minorityJointRequest,expectedVersion:3,requestId:randomUUID(),entries:[...minorityJointRequest.entries,consumedService],
    reason:'Approve gross offsets for the fully consumed documented services',
+  };
+  const serviceBatch=await request('/api/financial-reporting/group-elimination-batches',serviceBatchRequest).catch(async error=>{
+   const probe=await actor.client.rpc('save_financial_group_eliminations',{...saveArgs,p_to:jointQuery.to,
+    p_expected_version:3,p_request_id:serviceBatchRequest.requestId,p_reason:serviceBatchRequest.reason,
+    p_entries:serviceBatchRequest.entries});
+   if(probe.error)throw new Error(JSON.stringify(probe.error),{cause:error});
+   throw error;
   });
   await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query:jointQuery,
    batchId:serviceBatch.id,expectedVersion:4,reason:'Confirm service consumption and verified original journals'});

@@ -498,7 +498,8 @@ declare
       or (ev->>'date')::date<=p_from
       or ev->>'eventType' is distinct from (case when side='debit' then 'REVENUE' else 'EXPENSE' end)
       or amount is distinct from (l->>'baseAmount')::numeric
-      or exists(
+    then raise exception 'GROUP_BATCH_CONSUMED_SERVICE_UNSUPPORTED' using detail='Selected service line must match the full recognized amount and event type';end if;
+    if exists(
         select 1 from jsonb_array_elements(ev->'lines') item
         left join lateral (
           select x from jsonb_array_elements(s->'accounts') x
@@ -508,12 +509,12 @@ declare
           select x from jsonb_array_elements(s->'accounts') x
           where x->>'id'=item->'resolvedPosting'->>(case when side='debit' then 'creditAccountId' else 'debitAccountId' end)
         ) profit on true
-        where item->>'recognitionSign' is distinct from '1'
+        where (item->>'recognitionSign')::integer is distinct from 1
            or item->>'cashDirection' is distinct from 'NON_CASH'
            or coalesce(item->>'classificationId','') not like '%:BASE'
            or coalesce(trade.x->>'reportingCode',trade.x->>'id') is distinct from (case when side='debit' then '1100' else '2100' end)
            or profit.x->>'kind' is distinct from (case when side='debit' then 'REVENUE' else 'OPEX' end)
-      ) then raise exception 'GROUP_BATCH_CONSUMED_SERVICE_UNSUPPORTED';end if;
+      ) then raise exception 'GROUP_BATCH_CONSUMED_SERVICE_UNSUPPORTED' using detail='Service voucher contains a line outside ordinary receivables, payables, revenue and operating expense';end if;
    end if;
   $source$;
 begin
