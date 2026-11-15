@@ -123,13 +123,37 @@ CREATE POLICY feasibility_personal_delete ON public.feasibility_projects
   )
  );
 
+-- Database-side rollout switch, owned by the trusted QA operator.
+-- A public client must not be able to create corporate studies just by calling
+-- PostgREST while the Next.js feature flag is still OFF. The private switch
+-- starts OFF independently of all client and deployment settings.
+CREATE TABLE IF NOT EXISTS private.feasibility_org_feature_switch (
+ id boolean PRIMARY KEY DEFAULT true CHECK (id=true),
+ enabled boolean NOT NULL DEFAULT false,
+ changed_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO private.feasibility_org_feature_switch(id,enabled)
+ VALUES(true,false) ON CONFLICT (id) DO NOTHING;
+REVOKE ALL ON private.feasibility_org_feature_switch FROM PUBLIC,anon,authenticated;
+
+CREATE OR REPLACE FUNCTION private.feasibility_org_enabled()
+ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+ SET search_path=pg_catalog
+ AS $
+  SELECT coalesce((SELECT enabled FROM private.feasibility_org_feature_switch
+                   WHERE id=true),false);
+ $;
+REVOKE ALL ON FUNCTION private.feasibility_org_enabled() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.feasibility_org_enabled() TO authenticated;
+
 -- Corporate reads require real, current ACTIVE membership in the exact
 -- selected organization. Corporate writes additionally require OWNER/ADMIN.
 -- Per-user feasibility entitlement is a temporary QA rule; standalone
 -- organization seat licensing must be explicitly implemented under #416.
 CREATE POLICY feasibility_org_read ON public.feasibility_projects
  FOR SELECT TO authenticated USING (
-  organization_id IS NOT NULL AND owner_user_id IS NULL
+  private.feasibility_org_enabled()
+  AND organization_id IS NOT NULL AND owner_user_id IS NULL
   AND EXISTS (
    SELECT 1 FROM public.organizations o
    WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
@@ -146,7 +170,8 @@ CREATE POLICY feasibility_org_read ON public.feasibility_projects
  );
 CREATE POLICY feasibility_org_insert ON public.feasibility_projects
  FOR INSERT TO authenticated WITH CHECK (
-  organization_id IS NOT NULL AND owner_user_id IS NULL
+  private.feasibility_org_enabled()
+  AND organization_id IS NOT NULL AND owner_user_id IS NULL
   AND created_by_user_id=(SELECT auth.uid())
   AND EXISTS (
    SELECT 1 FROM public.organizations o
@@ -168,7 +193,8 @@ CREATE POLICY feasibility_org_insert ON public.feasibility_projects
 CREATE POLICY feasibility_org_update ON public.feasibility_projects
  FOR UPDATE TO authenticated
  USING (
-  organization_id IS NOT NULL AND owner_user_id IS NULL
+  private.feasibility_org_enabled()
+  AND organization_id IS NOT NULL AND owner_user_id IS NULL
   AND EXISTS (
    SELECT 1 FROM public.organizations o
    WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
@@ -187,7 +213,8 @@ CREATE POLICY feasibility_org_update ON public.feasibility_projects
   )
  )
  WITH CHECK (
-  organization_id IS NOT NULL AND owner_user_id IS NULL
+  private.feasibility_org_enabled()
+  AND organization_id IS NOT NULL AND owner_user_id IS NULL
   AND EXISTS (
    SELECT 1 FROM public.organizations o
    WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
@@ -207,7 +234,8 @@ CREATE POLICY feasibility_org_update ON public.feasibility_projects
  );
 CREATE POLICY feasibility_org_delete ON public.feasibility_projects
  FOR DELETE TO authenticated USING (
-  organization_id IS NOT NULL AND owner_user_id IS NULL
+  private.feasibility_org_enabled()
+  AND organization_id IS NOT NULL AND owner_user_id IS NULL
   AND EXISTS (
    SELECT 1 FROM public.organizations o
    WHERE o.id=feasibility_projects.organization_id AND o.status='ACTIVE'
