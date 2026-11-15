@@ -114,7 +114,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const money=(v:number|null|undefined,d=0)=>v==null||!Number.isFinite(v)?'—':fmt(v,d)+(study?.currency?' '+study.currency:'');
  // Handoff review follows the source study revision; editing any study assumption invalidates it.
- const update=(patch:Partial<FeasibilityStudy>)=>{if(effectiveReadOnly)return;setStudies(prev=>prev.map(p=>p.id===selectedId?{...p,...patch,updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()}:p));};
+ const update=(patch:Partial<FeasibilityStudy>)=>{if(!personalScope||effectiveReadOnly)return;setStudies(prev=>prev.map(p=>p.id===selectedId?{...p,...patch,updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()}:p));};
  const setNum=(key:keyof FeasibilityStudy)=>(v:number)=>update({[key]:v} as Partial<FeasibilityStudy>);
  const download=()=>{
   if(!personalScope)return;
