@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {writeFile} from 'node:fs/promises';
+import {readFile,writeFile} from 'node:fs/promises';
 /** Disposable only: actual source vouchers, approved control and server preview.
  * A passing preview is NOT approval of documentary pairing or final consolidation. */
 export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,databaseUrl,subsidiary,expenseEvent}){
@@ -81,6 +81,17 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  assert.ok((await worksheet.textContent()).includes('Approved version: 3'));
  await worksheet.locator('[data-group-statement-worksheet]').waitFor();
  assert.equal(await worksheet.locator('[data-group-statement-worksheet] table').count(),3);
+ const reviewDownloadPromise=page.waitForEvent('download');
+ await worksheet.getByRole('button',{name:'Export review worksheet CSV',exact:true}).click();
+ const reviewDownload=await reviewDownloadPromise;
+ await reviewDownload.saveAs(out+'/approved-group-review.csv');
+ const reviewCsv=await readFile(out+'/approved-group-review.csv','utf8');
+ assert.ok(reviewCsv.includes('NOT final consolidated statements'));
+ assert.ok(reviewCsv.includes(parent)&&reviewCsv.includes(query.from)&&reviewCsv.includes(query.to));
+ assert.ok(reviewCsv.includes('"Approved version","3"'));
+ assert.ok(reviewCsv.includes('"Financial position"')||reviewCsv.includes('"position"'));
+ assert.ok(reviewCsv.includes('حقوق الملكية'));
+
  await page.screenshot({path:out+'/approved-group-adjustments-en.png',fullPage:true});
 
 
@@ -96,6 +107,10 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const revokedRead=await actor.client.rpc('financial_group_approved_eliminations',{p_root:parent,p_from:query.from,p_to:query.to});
  assert.match(revokedRead.error?.message??'',/GROUP_BATCH_DOCUMENT_NOT_APPROVED/);
  await request('/api/financial-reporting/group-approved-eliminations',query,422);
+ let revokedDownload=false;const onRevokedDownload=()=>{revokedDownload=true};page.on('download',onRevokedDownload);
+ await worksheet.getByRole('button',{name:'Export review worksheet CSV',exact:true}).click();
+ await worksheet.getByRole('status').waitFor();assert.equal(await worksheet.locator('table').count(),0);
+ assert.equal(revokedDownload,false);page.off('download',onRevokedDownload);
  await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
  await worksheet.getByRole('status').waitFor();assert.equal(await worksheet.locator('table').count(),0);
 
