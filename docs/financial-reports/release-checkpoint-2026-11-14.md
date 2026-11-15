@@ -131,3 +131,10 @@ The next change binds balance-elimination preview to the selected invoice obliga
 - Accounting boundary reviewed against IFRS 10 B86: https://www.ifrs.org/issued-standards/list-of-standards/ifrs-10-consolidated-financial-statements/ . General acquisition elimination requires additional evidence; a post-control contribution is only one supported component.
 
 - Verified cash migration additionally applied to QA as hosted `20261115093130` (`financial_group_cash_eliminations`, SQL md5 `c281bbac539598b462889317ecacd6b5`). This is the unchanged canonical cash migration already tested in run 43698234102; capital contribution draft is NOT applied to hosted QA.
+
+## 2026-11-15 capital contribution acceptance and canonical promotion
+
+- All seven workflows passed on `99bc6a799a7923fd7407898f81a3ada690b178f2`. Full-schema run **43706630083**, artifact **14159175342**, verifies actual capital source creation, approved documentary pairing, direct-RPC excess/reversed ownership rejection, batch save/approval, unchanged company ledgers and invalidation after revocation.
+- Corrected SQL CASE parsing and fixture setup: draft-only policy version, detailed rule flag, full authorized chart lookup and native creation of missing fixture accounts. Accounting/security guards were not weakened.
+- Promoted the unchanged CLI-generated capital draft after QA V2 rollback-only observation: private evidence function fingerprint `df00945689a1a29a64258689f5ea4af2`; anon/authenticated direct EXECUTE both denied. No hosted change was committed. Canonical history now has 280 migrations. Removed the duplicate disposable draft application; final canonical bootstrap still requires verification on the new head.
+- Remaining: final consolidated statements/export and complete acquisition/NCI/FX/scope evidence, hosted QA rehearsal, main reconciliation and release readiness. No Production mutation, merge or deployment.

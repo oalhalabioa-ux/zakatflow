@@ -2017,6 +2017,14 @@
       "expected_md5": "c281bbac539598b462889317ecacd6b5",
       "file_sha256": "de06e575035f8938f89598eabbd12441d8f8b5fa6cb31cfcfbc08b8bb6802201",
       "validation_project": "Disposable full-schema run 43698234102 artifact 14155656337: actual receipt/payment, approval, capacity protection, source preservation and revocation. Hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115092832_financial_group_capital_contributions.sql",
+      "version": "20261115092832",
+      "name": "financial_group_capital_contributions",
+      "expected_md5": "14df1d14752edda3a4812496985be286",
+      "file_sha256": "72bc3f0e9d4992441d7fe2062735dcfcda20e989e879516105d5722ac00b1ba9",
+      "validation_project": "Disposable run 43706630083 artifact 14159175342 passed native capital save/approval, capacity/direction rejection, unchanged sources and revocation. QA V2 rollback-only function fingerprint observed 2026-11-15; hosted unapplied."
     }
   ]
 }
