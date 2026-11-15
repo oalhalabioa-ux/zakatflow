@@ -241,7 +241,36 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await request('/api/financial-reporting/group-approved-eliminations',query,422);
 
  const {verifyGroupCapitalContribution}=await import('./verify-group-capital-contribution.mjs');
- await verifyGroupCapitalContribution({actor,request,rpc,command,raw,sql,parent,subsidiary,query,out});
+ const investmentAccount=await verifyGroupCapitalContribution({actor,request,rpc,command,raw,sql,parent,subsidiary,query,out});
+ const investmentEvent=await command({action:'CREATE',payload:{
+  organization_id:parent,entity_id:null,counterparty_id:null,event_type:'ADJUSTMENT',source_module:'OPERATIONAL_CONSOLE',
+  source_record_id:null,source_event_key:'actual-acquisition:'+randomUUID(),event_date:query.from,due_date:null,
+  base_currency:'SAR',description:'Original acquisition-day investment',
+  lines:[{line_number:1,cost_center_id:null,description:'Invest in the approved subsidiary',
+   classification_id:investmentAccount.classification,amount:1200,base_amount:1200,currency:'SAR',exchange_rate:1,
+   cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0}],obligations:[],links:[],
+ }});
+ for(const status of ['PLANNED','COMMITTED'])await command({action:'TRANSITION',organization_id:parent,event_id:investmentEvent,status,note:'Actual acquisition acceptance'});
+ await command({action:'APPROVE',organization_id:parent,event_id:investmentEvent,note:'Approve acquisition investment source'});
+ await command({action:'TRANSITION',organization_id:parent,event_id:investmentEvent,status:'ACTUAL',note:'Post acquisition investment source'});
+ const posted=(await raw(parent)).events.find(event=>event.id===investmentEvent);
+ assert.ok(posted);
+ const investmentLink={accountId:investmentAccount.accountId,eventId:investmentEvent,lineId:posted.lines[0].id,documentId:document.id};
+ const linkedKey={query,id:randomUUID()};
+ const linkSave={...linkedKey,action:'SAVE',measurement:{...measurement,investmentLink}};
+ await request(acquisitionPath,{...linkSave,measurement:{...linkSave.measurement,investmentLink:{...investmentLink,accountId:'110001'}}},400);
+ const badLink=await actor.client.rpc('financial_group_acquisition_evidence_command',{
+  p_action:'SAVE',p_id:randomUUID(),p_root:parent,p_from:query.from,p_to:query.to,
+  p_measurement:{...linkSave.measurement,investmentLink:{...investmentLink,eventId:revenue}},
+ });
+ assert.match(badLink.error?.message??'',/GROUP_ACQUISITION_INVESTMENT_UNRECONCILED/);
+ const linkedDraft=await request(acquisitionPath,linkSave);assert.equal(linkedDraft.status,'DRAFT');
+ const linkedApproval=await request(acquisitionPath,{...linkedKey,action:'APPROVE',reason:'Confirmed exact original investment, subsidiary and evidence'});
+ assert.equal(linkedApproval.status,'APPROVED');
+ const linkedBasis=await request(approvedAcquisitionsPath,{...linkedKey,action:'LEDGER_BASIS'});
+ assert.deepEqual(linkedBasis.linkedInvestment,{accountId:investmentAccount.accountId,balance:'1200.0000'});
+ assert.equal(linkedBasis.parentInvestmentAccountGroupBalance,'1200.0000');
+ await writeFile(out+'/verified-acquisition-investment-link.json',JSON.stringify({linkedBasis,investmentLink},null,2));
 
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));
  return{parent,subsidiary,revenue,expenseEvent,status:result.status,amount:'60.0000',sourcesUnchanged:true,revokedChildDenied:true};

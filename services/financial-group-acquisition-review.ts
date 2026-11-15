@@ -86,6 +86,7 @@ export async function readApprovedGroupAcquisitions(input:unknown){
  let rows: Array<{
   id:string; subsidiaryName:string; approvedAt:string; documentCount:number;
   calculation:ReturnType<typeof measureGroupAcquisition>;
+  investmentAccountId:string|null;
  }>=[];
  if(evidence.records.length){
   const {control,preflight}=await liveRegisteredGroupReviewContext(query);
@@ -96,7 +97,7 @@ export async function readApprovedGroupAcquisitions(input:unknown){
    if(calculation.controlAssessmentId!==record.controlId||calculation.reassessmentRequired)
     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
    return {id:record.id,subsidiaryName:record.subsidiaryName,approvedAt:record.approvedAt,
-    documentCount:record.documents.length,calculation};
+    documentCount:record.documents.length,calculation,investmentAccountId:record.measurement.investmentLink?.accountId??null};
   });
  }
  assertStableFinancialReplay(evidence,await read());
@@ -128,6 +129,9 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
  assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
  const Money=Decimal.clone({precision:50});
  const investments=parent.accounts.filter(account=>account.kind==='ASSET'&&(account.reportingCode??account.id)==='1600');
+ const linked=selected.investmentAccountId===null?null:investments.find(account=>account.id===selected.investmentAccountId);
+ if(selected.investmentAccountId!==null&&(!linked||!new Money(linked.balance).eq(selected.calculation.consideration)))
+  throw Error('GROUP_ACQUISITION_INVESTMENT_UNRECONCILED');
  const equity=subsidiary.accounts.filter(account=>account.kind==='EQUITY');
  const investmentTotal=investments.reduce((sum,account)=>sum.plus(account.balance),new Money(0));
  const equityTotal=equity.reduce((sum,account)=>sum.minus(account.balance),new Money(subsidiary.statements.position.fiscalProfit));
@@ -138,5 +142,6 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
   subsidiaryFiscalProfit:subsidiary.statements.position.fiscalProfit,
   fairValueLessBookEquity:new Money(selected.calculation.identifiableNetAssets).minus(equityTotal).toFixed(4),
   investmentAccountCount:investments.length,
+  linkedInvestment:linked?{accountId:linked.id,balance:linked.balance}:null,
  };
 }

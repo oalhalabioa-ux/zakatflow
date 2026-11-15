@@ -4,6 +4,7 @@ import {writeFile} from 'node:fs/promises';
 /** Disposable original-voucher acceptance. Not acquisition/goodwill accounting. */
 export async function verifyGroupCapitalContribution({actor,request,rpc,command,raw,sql,parent,subsidiary,query,out}){
  const references=[];
+ let parentInvestment;
  for(const [organization,type,debitParent,creditParent]of [[parent,'INVESTMENT','1600','2100'],[subsidiary,'EQUITY','1100','3100']]){
   const classification=randomUUID();
   sql(`insert into public.financial_classifications(id,organization_id,code,name,classification_type,created_by) values('${classification}','${organization}','QA_GROUP_CAPITAL','Documented post-control contribution','${type}','${actor.id}')`);
@@ -25,6 +26,7 @@ export async function verifyGroupCapitalContribution({actor,request,rpc,command,
   await command({action:'APPROVE',organization_id:organization,event_id:event,note:'Approve capital source'});
   await command({action:'TRANSITION',organization_id:organization,event_id:event,status:'ACTUAL',note:'Post capital source'});
   const original=(await raw(organization)).events.find(e=>e.id===event);assert.ok(original);
+  if(organization===parent)parentInvestment={accountId:debit,classification};
   references.push({organizationId:organization,eventId:event,lineId:original.lines[0].id,accountId:organization===parent?debit:credit});
  }
  const pair=await request('/api/financial-reporting/group-document-matches',{action:'PROPOSE',firstEventId:references[0].eventId,secondEventId:references[1].eventId,evidenceReference:'Signed parent subscription and subsidiary capital evidence',reason:'Verify same post-control capital contribution',requestId:randomUUID()});
@@ -49,4 +51,5 @@ export async function verifyGroupCapitalContribution({actor,request,rpc,command,
  await writeFile(out+'/approved-capital-contribution.json',JSON.stringify(result,null,2));
  await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:pair.documentMatchId,reason:'Capital source document revocation invalidates approval'});
  await request('/api/financial-reporting/group-approved-eliminations',query,422);
+ return parentInvestment;
 }

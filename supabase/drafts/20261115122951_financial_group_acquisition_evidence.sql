@@ -94,6 +94,63 @@ create unique index financial_group_acquisition_active_control
 alter table private.financial_group_acquisition_evidence enable row level security;
 revoke all on private.financial_group_acquisition_evidence from public, anon, authenticated;
 
+-- The supported evidence shape is a dedicated investment leaf with one
+-- acquisition-day debit and no other opening balance or movement by that date.
+create function private.group_acquisition_investment_check(p_root uuid,p_measurement jsonb)
+returns void language plpgsql stable security invoker set search_path='' as $$
+declare
+  link jsonb := p_measurement->'investmentLink';
+  acquisition_day date := (p_measurement->>'acquisitionDate')::date;
+  account_code text := link->>'accountId';
+  amount numeric := (p_measurement->>'consideration')::numeric;
+  source jsonb;
+  posting_count integer;
+  matched_count integer;
+begin
+  if link is null then return; end if;
+  if jsonb_typeof(link) is distinct from 'object'
+    or link - array['accountId','eventId','lineId','documentId'] <> '{}'::jsonb
+    or coalesce(account_code,'') !~ '^1600([0-9]{2}){1,3}$'
+    or coalesce(link->>'eventId','') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    or length(coalesce(link->>'lineId','')) not between 1 and 200
+    or amount<=0 then raise exception 'GROUP_ACQUISITION_INVESTMENT_LINK_INVALID'; end if;
+  source := public.financial_statement_live_snapshot(p_root,acquisition_day,acquisition_day);
+  if source->>'organizationId' is distinct from p_root::text
+    or source->>'from' is distinct from acquisition_day::text
+    or source->>'to' is distinct from acquisition_day::text
+    or source->>'currency' is distinct from p_measurement->>'currency'
+    or source->>'origin' is distinct from 'LIVE_CANONICAL_EVENTS'
+    or source#>>'{coverage,complete}' is distinct from 'true'
+    or source#>>'{coverage,scope}' is distinct from 'ORGANIZATION_ALL_ENTITIES'
+    or not exists(select 1 from jsonb_array_elements(source->'accounts') a
+      where a->>'id'=account_code and a->>'reportingCode'='1600' and a->>'kind'='ASSET'
+        and a->>'organizationId'=p_root::text and coalesce(a->>'cash','false')='false')
+    then raise exception 'GROUP_ACQUISITION_INVESTMENT_SOURCE_INVALID'; end if;
+  if exists(select 1 from jsonb_array_elements(source->'opening') o
+    where o->>'accountId'=account_code and ((o->>'debit')::numeric<>0 or (o->>'credit')::numeric<>0))
+    then raise exception 'GROUP_ACQUISITION_INVESTMENT_SOURCE_INVALID'; end if;
+  if exists(select 1 from jsonb_array_elements(source->'events') e
+    cross join lateral jsonb_array_elements(e->'lines') l
+    where e->>'status' in ('ACTUAL','REVERSED') and e->>'date'<=acquisition_day::text
+      and (l#>>'{resolvedPosting,debitAccountId}' is null or l#>>'{resolvedPosting,creditAccountId}' is null))
+    then raise exception 'GROUP_ACQUISITION_INVESTMENT_SOURCE_INVALID'; end if;
+  select count(*),count(*) filter(where e->>'id'=link->>'eventId' and l->>'id'=link->>'lineId'
+    and e->>'date'=acquisition_day::text and e->>'status'='ACTUAL'
+    and l#>>'{resolvedPosting,debitAccountId}'=account_code and l->>'recognitionSign'='1'
+    and (l->>'baseAmount')::numeric=amount)
+  into posting_count,matched_count from jsonb_array_elements(source->'events') e
+  cross join lateral jsonb_array_elements(e->'lines') l
+  where e->>'status' in ('ACTUAL','REVERSED') and e->>'date'<=acquisition_day::text
+    and account_code in(l#>>'{resolvedPosting,debitAccountId}',l#>>'{resolvedPosting,creditAccountId}');
+  if posting_count<>1 or matched_count<>1
+    then raise exception 'GROUP_ACQUISITION_INVESTMENT_UNRECONCILED'; end if;
+end $$;
+revoke all on function private.group_acquisition_investment_check(uuid,jsonb) from public,anon,authenticated;
+
+create unique index financial_group_acquisition_active_investment
+  on private.financial_group_acquisition_evidence(root_id,(measurement#>>'{investmentLink,accountId}'))
+  where status='APPROVED' and measurement ? 'investmentLink';
+
 create function private.group_acquisition_check(p_root uuid, p_from date, p_to date, p_measurement jsonb, p_action text)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare
@@ -163,7 +220,7 @@ begin
     or not coalesce(p_measurement->>'consideration','') ~ money_pattern
     or length(trim(coalesce(p_measurement->>'considerationEvidence',''))) not between 8 and 1000
     or jsonb_typeof(p_measurement->'identifiableItems') is distinct from 'array'
-    or p_measurement - array['parentOrganizationId','subsidiaryOrganizationId','currency','acquisitionDate','transactionType','commonControl','instruments','consideration','considerationEvidence','identifiableItems','nci'] <> '{}'::jsonb
+    or p_measurement - array['parentOrganizationId','subsidiaryOrganizationId','currency','acquisitionDate','transactionType','commonControl','instruments','consideration','considerationEvidence','identifiableItems','nci','investmentLink'] <> '{}'::jsonb
     then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
   if jsonb_array_length(p_measurement->'identifiableItems') not between 1 and 1000
     or (select count(distinct value->>'id') from jsonb_array_elements(p_measurement->'identifiableItems')) <>
@@ -200,6 +257,10 @@ begin
     array(select value->>'measurementEvidence' from jsonb_array_elements(p_measurement->'identifiableItems'));
   if nci->>'method'='FAIR_VALUE' then
     document_refs := array_append(document_refs,nci->>'valuationEvidence');
+  end if;
+  if p_measurement ? 'investmentLink' then
+    document_refs := array_append(document_refs,p_measurement#>>'{investmentLink,documentId}');
+    perform private.group_acquisition_investment_check(p_root,p_measurement);
   end if;
   if exists(select 1 from unnest(document_refs) ref where ref is null or
     ref !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') then

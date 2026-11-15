@@ -38,12 +38,15 @@ function AcquisitionLedgerBasis({query,id,en}:{query:AcquisitionResult['query'];
      <dl>
       <dt>{en?'Parent investment account group (1600)':'مجموعة حسابات استثمارات الشركة الأم (1600)'}</dt>
       <dd>{basis.investmentAccountCount?statementAmount(basis.parentInvestmentAccountGroupBalance):(en?'No accounts':'لا توجد حسابات')}</dd>
+      <dt>{en?'Linked investment account':'حساب الاستثمار المرتبط'}</dt>
+      <dd>{basis.linkedInvestment?`${basis.linkedInvestment.accountId} · ${statementAmount(basis.linkedInvestment.balance)}`:
+       (en?'No verified account link':'لا يوجد حساب مرتبط متحقق منه')}</dd>
       <dt>{en?'Subsidiary book equity':'حقوق ملكية التابعة الدفترية'}</dt>
       <dd>{statementAmount(basis.subsidiaryBookEquity)}</dd>
       <dt>{en?'Identifiable net assets at fair value less book equity':'الفرق بين صافي الأصول بالقيمة العادلة وحقوق الملكية الدفترية'}</dt>
       <dd>{statementAmount(basis.fairValueLessBookEquity)}</dd>
      </dl>
-     <p>{en?'The investment group can contain several holdings. Review the account tied to this acquisition before applying consolidation adjustments.':'قد تضم مجموعة الاستثمارات عدة استثمارات. يلزم تحديد الحساب المرتبط بهذا الاستحواذ قبل تطبيق تسويات التجميع.'}</p>
+     {!basis.linkedInvestment&&<p>{en?'The investment group can contain several holdings. Review the account tied to this acquisition before applying consolidation adjustments.':'قد تضم مجموعة الاستثمارات عدة استثمارات. يلزم تحديد الحساب المرتبط بهذا الاستحواذ قبل تطبيق تسويات التجميع.'}</p>}
     </>}
   </div>}
  </>;

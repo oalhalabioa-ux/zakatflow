@@ -13,6 +13,12 @@ export const groupAcquisitionMeasurementSchema=z.object({
  transactionType:z.literal('SINGLE_STEP_BUSINESS_COMBINATION'),commonControl:z.literal(false),
  instruments:z.literal('ORDINARY_PROPORTIONATE'),
  consideration:money,considerationEvidence:evidence,
+ investmentLink:z.object({
+  accountId:z.string().regex(/^1600(?:[0-9]{2}){1,3}$/),
+  eventId:z.string().uuid(),
+  lineId:z.string().min(1).max(200),
+  documentId:z.string().uuid(),
+ }).strict().optional(),
  identifiableItems:z.array(z.object({id:z.string().min(1).max(200),kind:z.enum(['ASSET','LIABILITY']),
   recognizedAmount:money,measurementEvidence:evidence}).strict()).min(1).max(1000),
  nci:z.discriminatedUnion('method',[
