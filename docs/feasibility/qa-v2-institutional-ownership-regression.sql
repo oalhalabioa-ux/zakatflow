@@ -27,6 +27,19 @@ INSERT INTO public.feasibility_access_grants(user_id,status,starts_at,ends_at,so
 SELECT outsider_id,'TRIAL',now()-interval '1 hour',now()+interval '1 day','QA_MANUAL'
 FROM qa_feasibility_case;
 
+-- Database rollout OFF means no authenticated client can read or write
+-- institutional studies even if it is an ACTIVE company owner.
+SELECT set_config('request.jwt.claim.sub',(SELECT owner_id::text FROM qa_feasibility_case),true);
+SET LOCAL ROLE authenticated;
+DO $closed$ BEGIN
+ IF (SELECT count(*) FROM public.feasibility_projects WHERE title LIKE 'QA_SCOPE_%')<>1
+ THEN RAISE EXCEPTION 'QA corporate RLS switch did not fail closed'; END IF;
+END $closed$;
+RESET ROLE;
+-- The positive role matrix below is exercised only inside the transaction.
+UPDATE private.feasibility_org_feature_switch
+ SET enabled=true,changed_at=now() WHERE id=true;
+
 SELECT set_config('request.jwt.claim.sub',(SELECT owner_id::text FROM qa_feasibility_case),true);
 SET LOCAL ROLE authenticated;
 DO $owner$ BEGIN
