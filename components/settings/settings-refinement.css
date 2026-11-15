@@ -329,3 +329,6 @@
   justify-content:flex-start;align-items:center;
  }
 }
+
+/* Selected main step has only the approved dark-green progress line; no legacy gold inset. */
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn){box-shadow:none!important}
