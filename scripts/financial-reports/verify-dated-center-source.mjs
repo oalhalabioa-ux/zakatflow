@@ -35,6 +35,8 @@ export async function verifyDatedCenterSource({actor,page,app,out,sql,databaseUr
  const branchPicker=banner.getByRole('combobox',{name:'Branch',exact:true});await branchPicker.locator('option[value="'+branch+'"]').waitFor({state:'attached'});await branchPicker.selectOption(branch);
  const picker=banner.getByRole('combobox',{name:'Cost center',exact:true});await picker.locator('option[value="'+center+'"]').waitFor({state:'attached'});await picker.selectOption(center);
  const section=page.locator('[data-center-statement="position"]');await section.locator('table').waitFor();
+ assert.equal(await page.getByText('Sources and registers',{exact:true}).count(),0);
+ assert.equal(await page.locator('.fs-source-error').count(),0);
  const download=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const csv=await readFile(await(await download).path(),'utf8');assert.ok(csv.includes(branch)&&csv.includes(center)&&csv.includes('20.0000'));
  assert.equal(await page.locator('[data-statement-ready]').count(),0);
  await page.screenshot({path:out+'/dated-center-branch-position.png',fullPage:true});

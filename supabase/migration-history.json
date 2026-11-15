@@ -2009,6 +2009,14 @@
       "expected_md5": "aa3e298542cc51106ba7687aa91e5fb0",
       "file_sha256": "3f5605b927c03d9901d026c2849974ecafe774831bfac7796de77c992e8515a1",
       "validation_project": "Disposable full-schema run 43696941793 artifact 14155315800: native close, immutable center names and balances, period reports, membership denial, exports. Hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115090611_financial_group_cash_eliminations.sql",
+      "version": "20261115090611",
+      "name": "financial_group_cash_eliminations",
+      "expected_md5": "c281bbac539598b462889317ecacd6b5",
+      "file_sha256": "de06e575035f8938f89598eabbd12441d8f8b5fa6cb31cfcfbc08b8bb6802201",
+      "validation_project": "Disposable full-schema run 43698234102 artifact 14155656337: actual receipt/payment, approval, capacity protection, source preservation and revocation. Hosted unapplied."
     }
   ]
 }
