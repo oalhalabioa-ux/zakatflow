@@ -63,7 +63,7 @@ begin
    if (e->>'kind'='INTERCOMPANY_BALANCE' and a->>'kind'<>case when side='debit' then 'LIABILITY' else 'ASSET' end)
     or (e->>'kind'='INTERCOMPANY_INCOME' and ((side='debit' and a->>'kind'<>'REVENUE') or (side='credit' and a->>'kind' not in('OPEX','COGS')))) then raise exception 'GROUP_BATCH_ACCOUNT_KIND_INVALID';end if;
    if e->>'kind'='CAPITAL_CONTRIBUTION' then
-    if a->>'kind'<>case when side='debit' then 'EQUITY' else 'ASSET' end or a->>'reportingCode'<>case when side='debit' then '3100' else '1600' end then raise exception 'GROUP_BATCH_CAPITAL_ACCOUNT_INVALID';end if;
+    if a->>'kind'<>(case when side='debit' then 'EQUITY' else 'ASSET' end) or a->>'reportingCode'<>(case when side='debit' then '3100' else '1600' end) then raise exception 'GROUP_BATCH_CAPITAL_ACCOUNT_INVALID';end if;
     if (ev->>'date')::date<(relation->>'effectiveFrom')::date then raise exception 'GROUP_BATCH_ACQUISITION_EVIDENCE_REQUIRED';end if;
    end if;
    if e->>'kind'='INTERCOMPANY_CASH' then
