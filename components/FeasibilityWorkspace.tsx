@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useMemo,useRef,useState,type ChangeEvent,type ReactNode} from 'react';
 import {useSearchParams} from 'next/navigation';
+import {rememberedOrganization} from '@/lib/workspace-organization';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import {currentWorkspaceScope} from '@/lib/topbar-navigation';
 import {accountDraftsVisibleInScope} from '@/lib/feasibility/portfolio-scope';
@@ -12,7 +13,7 @@ import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
 import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
 import SupplierComparisonPanel from '@/components/feasibility/SupplierComparisonPanel';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
-import {parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA} from '@/lib/feasibility/local-drafts';
+import {parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -81,6 +82,66 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const [cloudRevisions,setCloudRevisions]=useState<Record<string,number>>({});
  const [cloudSavedStudyVersions,setCloudSavedStudyVersions]=useState<Record<string,string>>({});
  const [cloudOwnerIds,setCloudOwnerIds]=useState<Record<string,string>>({});
+ // Organization state is strictly server-owned, never written to the legacy
+ // per-user localStorage key. It resets on organization or account changes.
+ const [organizationId,setOrganizationId]=useState('');
+ const [organizationStudies,setOrganizationStudies]=useState<FeasibilityStudy[]>([]);
+ const [organizationSelectedId,setOrganizationSelectedId]=useState('');
+ const [organizationRecords,setOrganizationRecords]=useState<Record<string,InstitutionalCloudDraft>>({});
+ const [organizationCanWrite,setOrganizationCanWrite]=useState(false);
+ const [organizationLoaded,setOrganizationLoaded]=useState(false);
+ const [organizationError,setOrganizationError]=useState('');
+ const [organizationBusy,setOrganizationBusy]=useState(false);
+ const [organizationReload,setOrganizationReload]=useState(0);
+ const organizationRequestRef=useRef(0);
+ useEffect(()=>{
+  const read=()=>{
+   const params=new URLSearchParams(window.location.search);
+   setOrganizationId(params.get('organization')||rememberedOrganization()||'');
+  };
+  read();
+  window.addEventListener('zf-organization-selection',read);
+  window.addEventListener('popstate',read);
+  return ()=>{
+   window.removeEventListener('zf-organization-selection',read);
+   window.removeEventListener('popstate',read);
+  };
+ },[searchParams.toString()]);
+ useEffect(()=>{
+  const requestId=++organizationRequestRef.current;
+  setOrganizationStudies([]);setOrganizationSelectedId('');
+  setOrganizationRecords({});setOrganizationCanWrite(false);
+  setOrganizationBusy(false);setOrganizationError('');
+  setOrganizationLoaded(false);
+  if(personalScope||!organizationId){setOrganizationLoaded(true);return}
+  const controller=new AbortController();
+  void (async()=>{
+   try{
+    const response=await fetch(
+     '/api/feasibility/organization-projects?organization='+encodeURIComponent(organizationId),
+     {cache:'no-store',signal:controller.signal}
+    );
+    if(!response.ok)throw Error(response.status===404?'ORG_NOT_AVAILABLE':'ORG_LOAD_FAILED');
+    const result=await response.json() as {studies?:unknown;canWrite?:unknown};
+    const rows=parseInstitutionalCloudRows(result.studies,organizationId);
+    if(!rows||typeof result.canWrite!=='boolean')throw Error('INVALID_COMPANY_RESPONSE');
+    if(controller.signal.aborted||organizationRequestRef.current!==requestId)return;
+    setOrganizationStudies(rows.map(x=>x.study));
+    setOrganizationSelectedId(rows[0]?.id||'');
+    setOrganizationRecords(Object.fromEntries(rows.map(x=>[x.id,x])));
+    setOrganizationCanWrite(result.canWrite&&!readOnly);
+   }catch(e){
+    if(controller.signal.aborted||organizationRequestRef.current!==requestId)return;
+    setOrganizationError(e instanceof Error&&e.message==='ORG_NOT_AVAILABLE'
+     ?txt(ar,'المحفظة المؤسسية غير مفعّلة بعد أو لا تملك صلاحية الوصول إليها.','Institutional studies are disabled or not authorized yet.')
+     :txt(ar,'تعذر تحميل دراسات المؤسسة؛ لم تتغير مسوداتك الشخصية.','Unable to load company studies; personal drafts are unchanged.'));
+   }finally{
+    if(!controller.signal.aborted&&organizationRequestRef.current===requestId)
+     setOrganizationLoaded(true);
+   }
+  })();
+  return ()=>controller.abort();
+ },[personalScope,organizationId,organizationReload,userId,readOnly,ar]);
  useEffect(()=>{
   // Account changes must never reuse the previous user's local or cloud data.
   setLoaded(false);setStorageSafe(true);
@@ -106,15 +167,24 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   catch{setNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}
  },[loaded,storageSafe,hydratedStorageKey,storageKey,studies,selectedId,ar]);
  // Account-scoped legacy drafts are never owned by the selected organization.
- const visibleStudies=accountDraftsVisibleInScope(studies,scope);
- const study=visibleStudies.find(s=>s.id===selectedId)??null;
- const sharedStudy=Boolean(study&&cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId);
- const effectiveReadOnly=readOnly||sharedStudy;
+ const visibleStudies=personalScope?accountDraftsVisibleInScope(studies,scope):organizationStudies;
+ const activeSelectedId=personalScope?selectedId:organizationSelectedId;
+ const study=visibleStudies.find(s=>s.id===activeSelectedId)??null;
+ const sharedStudy=Boolean(personalScope&&study&&cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId);
+ const effectiveReadOnly=readOnly||sharedStudy||(!personalScope&&!organizationCanWrite);
  const model=useMemo(()=>study?evaluateStudy(study,scenario):null,[study,scenario]);
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const money=(v:number|null|undefined,d=0)=>v==null||!Number.isFinite(v)?'—':fmt(v,d)+(study?.currency?' '+study.currency:'');
  // Handoff review follows the source study revision; editing any study assumption invalidates it.
- const update=(patch:Partial<FeasibilityStudy>)=>{if(!personalScope||effectiveReadOnly)return;setStudies(prev=>prev.map(p=>p.id===selectedId?{...p,...patch,updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()}:p));};
+ const update=(patch:Partial<FeasibilityStudy>)=>{
+  if(effectiveReadOnly||!study)return;
+  const change=(p:FeasibilityStudy)=>p.id===study.id?{
+   ...p,...patch,
+   updatedAt:Object.keys(patch).every(k=>k==='handoff')?p.updatedAt:new Date().toISOString()
+  }:p;
+  if(personalScope)setStudies(prev=>prev.map(change));
+  else setOrganizationStudies(prev=>prev.map(change));
+ };
  const setNum=(key:keyof FeasibilityStudy)=>(v:number)=>update({[key]:v} as Partial<FeasibilityStudy>);
  const download=()=>{
   if(!personalScope)return;
