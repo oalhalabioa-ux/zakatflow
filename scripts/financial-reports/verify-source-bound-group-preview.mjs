@@ -68,6 +68,15 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const currentBatch=await actor.client.rpc('financial_group_approved_eliminations',{p_root:parent,p_from:query.from,p_to:query.to});
  assert.ifError(currentBatch.error);assert.equal(currentBatch.data.id,batch3.id);assert.equal(currentBatch.data.version,3);
  assert.equal(currentBatch.data.status,'APPROVED_GROUP_ELIMINATION_EVIDENCE');
+ const approvedWorksheet=await request('/api/financial-reporting/group-approved-eliminations',query);
+ assert.equal(approvedWorksheet.status,'APPROVED_GROUP_ADJUSTMENT_WORKSHEET');assert.equal(approvedWorksheet.approval.id,batch3.id);
+ assert.equal(approvedWorksheet.consolidated,false);assert.equal(approvedWorksheet.worksheet.adjustmentDebit,'60.0000');
+ await page.goto(app+'/en/financial-reports?organization='+parent+'&screen=position');
+ await page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true}).click();
+ const worksheet=page.locator('[data-approved-group-adjustments="true"]');await worksheet.locator('table').waitFor();
+ assert.ok((await worksheet.textContent()).includes('Approved version: 3'));
+ await page.screenshot({path:out+'/approved-group-adjustments-en.png',fullPage:true});
+
 
  const excessive=await request('/api/financial-reporting/group-eliminations',{query,entries:[{...adjustment,amount:'61'}]},422);assert.equal(excessive.error,'GROUP_ADJUSTMENT_EXCEEDS_DETAIL_SOURCE');
  // Preview must not write or alter either company's journal or opening sources.
@@ -80,6 +89,10 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  assert.match(revokedSave.error?.message??'',/GROUP_BATCH_DOCUMENT_NOT_APPROVED/);
  const revokedRead=await actor.client.rpc('financial_group_approved_eliminations',{p_root:parent,p_from:query.from,p_to:query.to});
  assert.match(revokedRead.error?.message??'',/GROUP_BATCH_DOCUMENT_NOT_APPROVED/);
+ await request('/api/financial-reporting/group-approved-eliminations',query,422);
+ await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
+ await worksheet.getByRole('status').waitFor();assert.equal(await worksheet.locator('table').count(),0);
+
 
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));
  return{parent,subsidiary,revenue,expenseEvent,status:result.status,amount:'60.0000',sourcesUnchanged:true,revokedChildDenied:true};

@@ -249,8 +249,6 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-fiscal-budget-calendar.sql
       - name: Verify audited reciprocal document matches
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-group-document-matches.sql
-      - name: Rehearse group elimination batches in disposable database only
-        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261115082302_financial_group_elimination_batches.sql
       - name: Verify audited group legal control evidence and cross-tenant isolation
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-financial-group-control-evidence.sql
       - name: Verify atomic branch report source and tenant isolation

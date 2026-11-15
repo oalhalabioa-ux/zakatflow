@@ -4,16 +4,16 @@ import type {costCenterIncome} from '../../lib/financial-cost-center-income';
 import {financialSourceRowsCsv} from '../../lib/financial-budget-source';
 import {statementAmount} from './SourceStatementTable';
 type Result=ReturnType<typeof costCenterIncome>&{branch:string};
-type Input={enabled:boolean;organization:string;from:string;to:string;currency:string;refresh:number;branch:string};
+type Input={dimensional?:boolean;enabled:boolean;organization:string;from:string;to:string;currency:string;refresh:number;branch:string};
 const labels=[['revenue','الإيرادات','Revenue'],['costOfSales','تكلفة المبيعات','Cost of sales'],['grossProfit','مجمل الربح','Gross profit'],['operatingExpenses','المصروفات التشغيلية','Operating expenses'],['operatingProfit','الربح التشغيلي','Operating profit'],['finance','تكاليف التمويل','Finance costs'],['tax','الزكاة والضرائب','Tax'],['netProfit','صافي الربح','Net profit']];
 async function read(input:Input,signal?:AbortSignal):Promise<Result>{
- const r=await fetch('/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-income',organization:input.organization,from:input.from,to:input.to,...(input.branch==='ALL'?{}:{branch:input.branch})}),{cache:'no-store',signal});
+ const r=await fetch('/api/financial-reporting/live-statements?'+new URLSearchParams({action:input.dimensional?'cost-center-options':'cost-center-income',organization:input.organization,from:input.from,to:input.to,...(input.branch==='ALL'?{}:{branch:input.branch})}),{cache:'no-store',signal});
  if(!r.ok)throw Error('CENTER_UNAVAILABLE');const data:Result=await r.json();
  if(data.branch!==input.branch||data.scope!=='COST_CENTER_INCOME_ONLY'||data.organizationId!==input.organization||data.from!==input.from||data.to!==input.to||data.currency!==input.currency||!Array.isArray(data.rows))throw Error('CENTER_UNAVAILABLE');
  return data;
 }
 export function useCostCenterIncome(input:Input){
- const key=[input.organization,input.from,input.to,input.currency,input.branch,input.refresh,input.enabled].join('|');
+ const key=[input.organization,input.from,input.to,input.currency,input.branch,input.refresh,input.enabled,input.dimensional??false].join('|');
  const [loaded,setLoaded]=useState<{key:string;data:Result}|null>(null),[choice,setChoice]=useState({organization:'',branch:'',value:'ALL'}),[failed,setFailed]=useState('');
  useEffect(()=>{setLoaded(null);setFailed('');if(!input.enabled||!input.organization||!input.from||!input.to)return;const abort=new AbortController();read(input,abort.signal).then(data=>{if(!abort.signal.aborted)setLoaded({key,data})}).catch(()=>{if(!abort.signal.aborted)setFailed(key)});return()=>abort.abort()},[key]);
  const data=loaded?.key===key?loaded.data:null;

@@ -1993,6 +1993,14 @@
       "expected_md5": "762e91943c14fc563627a21b58eeca2f",
       "file_sha256": "b47f4dfb6c14e035d7e6619b097ca1ae63d39621d02c5f07df4ebd515b71874f",
       "validation_project": "QA V2 rollback-only security tests and observed catalog, 2026-11-15. No hosted migration committed."
+    },
+    {
+      "path": "supabase/migrations/20261115082302_financial_group_elimination_batches.sql",
+      "version": "20261115082302",
+      "name": "financial_group_elimination_batches",
+      "expected_md5": "32f85931d8d759e484192030bd611600",
+      "file_sha256": "25962a5f2f2bf9300ef4675b9ae45b35d273b05daf62f30c4a3a88a4f9e3e18e",
+      "validation_project": "Disposable full canonical runner 43695537362: batch lifecycle and approved current-source reader passed; observed 50-object catalog delta. Hosted unapplied."
     }
   ]
 }
