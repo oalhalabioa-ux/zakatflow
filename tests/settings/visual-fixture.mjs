@@ -148,6 +148,7 @@ try{
   page.on('dialog',acceptNavigationConfirm);
   for(const label of financeLabels){
    await financeTabs.getByRole('button',{name:label,exact:true}).click();
+   await page.waitForFunction(expected=>[...document.querySelectorAll('.settings-finance-journey-tabs button')].some(btn=>btn.getAttribute('aria-pressed')==='true'&&btn.textContent?.trim()===expected),label,{timeout:10000});
    assert.equal(await financeTabs.locator('button[aria-pressed=true]').count(),1,'One active financial tab');
    assert.equal((await financeTabs.locator('button[aria-pressed=true] span').innerText()).trim(),label,'Click selects requested financial tab');
   }
