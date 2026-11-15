@@ -139,10 +139,10 @@ REVOKE ALL ON private.feasibility_org_feature_switch FROM PUBLIC,anon,authentica
 CREATE OR REPLACE FUNCTION private.feasibility_org_enabled()
  RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
  SET search_path=pg_catalog
- AS $
+ AS $org_enabled$
   SELECT coalesce((SELECT enabled FROM private.feasibility_org_feature_switch
                    WHERE id=true),false);
- $;
+ $org_enabled$;
 REVOKE ALL ON FUNCTION private.feasibility_org_enabled() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION private.feasibility_org_enabled() TO authenticated;
 
