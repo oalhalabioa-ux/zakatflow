@@ -1,3 +1,73 @@
+create table private.financial_group_acquisition_documents (
+  id uuid primary key,
+  root_id uuid not null references public.organizations(id),
+  subsidiary_id uuid not null references public.organizations(id),
+  control_id uuid not null references private.financial_group_control_assessments(id),
+  title text not null,
+  contents bytea not null check (octet_length(contents) between 16 and 2097152),
+  sha256 text generated always as (encode(sha256(contents),'hex')) stored,
+  uploaded_by uuid not null,
+  uploaded_at timestamptz not null default now()
+);
+alter table private.financial_group_acquisition_documents enable row level security;
+revoke all on private.financial_group_acquisition_documents from public,anon,authenticated;
+
+create function private.group_acquisition_document_command(
+  p_id uuid,p_root uuid,p_subsidiary uuid,p_from date,p_to date,p_title text,p_pdf text
+) returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+  scope jsonb;
+  assessment uuid;
+  uploaded private.financial_group_acquisition_documents%rowtype;
+  contents bytea;
+begin
+  if auth.uid() is null or p_id is null or p_subsidiary is null then
+    raise exception 'GROUP_ACQUISITION_ACCESS_DENIED';
+  end if;
+  scope := public.financial_group_registered_scope(p_root,p_from,p_to);
+  select (r->>'controlAssessmentId')::uuid into assessment
+    from jsonb_array_elements(scope->'relationships') r
+    where r->>'parentOrganizationId'=p_root::text and r->>'subsidiaryOrganizationId'=p_subsidiary::text
+      and (r->>'effectiveFrom')::date<=p_from and coalesce((r->>'effectiveTo')::date,p_to)>=p_to;
+  if assessment is null then raise exception 'GROUP_ACQUISITION_ACCESS_DENIED'; end if;
+  if p_pdf is not null then
+    if not private.financial_opening_can(p_root,'financial_core.create')
+      or not private.financial_opening_can(p_subsidiary,'financial_core.create')
+      or not public.is_organization_admin(p_root) or not public.is_organization_admin(p_subsidiary)
+      then raise exception 'GROUP_ACQUISITION_ACCESS_DENIED'; end if;
+    if length(trim(coalesce(p_title,''))) not between 1 and 200 or length(p_pdf)>2796204
+      then raise exception 'GROUP_ACQUISITION_DOCUMENT_INVALID'; end if;
+    begin
+      contents := decode(p_pdf,'base64');
+    exception when invalid_parameter_value or invalid_text_representation then
+      raise exception 'GROUP_ACQUISITION_DOCUMENT_INVALID';
+    end;
+    if octet_length(contents) not between 16 and 2097152 or substring(contents from 1 for 5)<>decode('255044462d','hex')
+      then raise exception 'GROUP_ACQUISITION_DOCUMENT_INVALID'; end if;
+    insert into private.financial_group_acquisition_documents
+      (id,root_id,subsidiary_id,control_id,title,contents,uploaded_by)
+      values (p_id,p_root,p_subsidiary,assessment,trim(p_title),contents,auth.uid())
+      on conflict (id) do nothing;
+  end if;
+  select * into uploaded from private.financial_group_acquisition_documents
+    where id=p_id and root_id=p_root and subsidiary_id=p_subsidiary and control_id=assessment;
+  if not found then raise exception 'GROUP_ACQUISITION_ACCESS_DENIED'; end if;
+  if p_pdf is not null and (uploaded.uploaded_by<>auth.uid() or uploaded.contents<>contents or uploaded.title<>trim(p_title))
+    then raise exception 'GROUP_ACQUISITION_CONFLICT'; end if;
+  return jsonb_build_object('id',uploaded.id,'title',uploaded.title,'sha256',uploaded.sha256)
+    || case when p_pdf is null then jsonb_build_object('pdf',encode(uploaded.contents,'base64')) else '{}'::jsonb end;
+end $$;
+
+create function public.financial_group_acquisition_document_command(
+  p_id uuid,p_root uuid,p_subsidiary uuid,p_from date,p_to date,p_title text default null,p_pdf text default null
+) returns jsonb language sql security invoker set search_path='' as $$
+  select private.group_acquisition_document_command(p_id,p_root,p_subsidiary,p_from,p_to,p_title,p_pdf)
+$$;
+revoke all on function private.group_acquisition_document_command(uuid,uuid,uuid,date,date,text,text),
+  public.financial_group_acquisition_document_command(uuid,uuid,uuid,date,date,text,text) from public,anon,authenticated;
+grant execute on function private.group_acquisition_document_command(uuid,uuid,uuid,date,date,text,text),
+  public.financial_group_acquisition_document_command(uuid,uuid,uuid,date,date,text,text) to authenticated;
+
 create table private.financial_group_acquisition_evidence (
   id uuid primary key,
   root_id uuid not null references public.organizations(id),
@@ -7,6 +77,7 @@ create table private.financial_group_acquisition_evidence (
   control_id uuid not null references private.financial_group_control_assessments(id),
   registry_revision text not null,
   measurement jsonb not null,
+  documents jsonb not null,
   status text not null default 'DRAFT' check (status in ('DRAFT','APPROVED','REVOKED')),
   created_by uuid not null,
   created_at timestamptz not null default now(),
@@ -37,6 +108,8 @@ declare
   minority numeric;
   consideration numeric;
   reachable_count integer;
+  document_refs text[];
+  document_manifest jsonb;
   money_pattern constant text := '^[0-9]{1,20}(\.[0-9]{1,4})?$';
 begin
   if auth.uid() is null then raise exception 'GROUP_ACQUISITION_ACCESS_DENIED'; end if;
@@ -123,6 +196,23 @@ begin
     minority := (nci->>'amount')::numeric;
   else raise exception 'GROUP_ACQUISITION_INPUT_INVALID';
   end if;
+  document_refs := array[p_measurement->>'considerationEvidence'] ||
+    array(select value->>'measurementEvidence' from jsonb_array_elements(p_measurement->'identifiableItems'));
+  if nci->>'method'='FAIR_VALUE' then
+    document_refs := array_append(document_refs,nci->>'valuationEvidence');
+  end if;
+  if exists(select 1 from unnest(document_refs) ref where ref is null or
+    ref !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') then
+    raise exception 'GROUP_ACQUISITION_DOCUMENT_REQUIRED';
+  end if;
+  select jsonb_agg(jsonb_build_object('id',d.id,'title',d.title,'sha256',d.sha256) order by d.id)
+    into document_manifest
+    from private.financial_group_acquisition_documents d
+    where d.id=any(document_refs::uuid[]) and d.root_id=p_root and d.subsidiary_id=subsidiary
+      and d.control_id=(relationship->>'controlAssessmentId')::uuid;
+  if coalesce(jsonb_array_length(document_manifest),0)<>(select count(distinct ref) from unnest(document_refs) ref)
+    then raise exception 'GROUP_ACQUISITION_DOCUMENT_REQUIRED'; end if;
+
   if p_action in ('APPROVE','READ_APPROVED') and consideration + minority < net_assets then
     raise exception 'GROUP_ACQUISITION_REASSESSMENT_REQUIRED';
   end if;
@@ -133,7 +223,7 @@ begin
       raise exception 'GROUP_ACQUISITION_FX_REQUIRED';
     end if;
   end loop;
-  return scope || jsonb_build_object('assessment',relationship);
+  return scope || jsonb_build_object('assessment',relationship,'documents',document_manifest);
 end $$;
 
 create function private.group_acquisition_evidence_command(
@@ -159,9 +249,9 @@ begin
         or entry.registry_revision<>scope#>>'{registry,revision}' then raise exception 'GROUP_ACQUISITION_CONFLICT'; end if;
     else
       insert into private.financial_group_acquisition_evidence
-        (id,root_id,subsidiary_id,period_from,period_to,control_id,registry_revision,measurement,created_by)
+        (id,root_id,subsidiary_id,period_from,period_to,control_id,registry_revision,measurement,documents,created_by)
       values (p_id,p_root,(p_measurement->>'subsidiaryOrganizationId')::uuid,p_from,p_to,
-        (scope#>>'{assessment,controlAssessmentId}')::uuid,scope#>>'{registry,revision}',p_measurement,actor)
+        (scope#>>'{assessment,controlAssessmentId}')::uuid,scope#>>'{registry,revision}',p_measurement,scope->'documents',actor)
       returning * into entry;
     end if;
   else
@@ -178,6 +268,7 @@ begin
         case when p_action='READ' and entry.status='APPROVED' then 'READ_APPROVED' else p_action end);
       if entry.registry_revision<>scope#>>'{registry,revision}'
         then raise exception 'GROUP_ACQUISITION_CONTROL_CHANGED'; end if;
+      if entry.documents is distinct from scope->'documents' then raise exception 'GROUP_ACQUISITION_DOCUMENT_CHANGED'; end if;
     end if;
     if p_action in ('APPROVE','REVOKE') and length(trim(coalesce(p_reason,''))) not between 8 and 1000
       then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;

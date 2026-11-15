@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {readFile,writeFile} from 'node:fs/promises';
 /** Disposable only: actual source vouchers, approved control and server preview.
  * A passing preview is NOT approval of documentary pairing or final consolidation. */
@@ -40,9 +40,26 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await writeFile(out+'/unapproved-acquisition-review.json',JSON.stringify(acquisitionReview,null,2));
  const acquisitionPath='/api/financial-reporting/group-acquisition-review';
  const acquisitionKey={query,id:randomUUID()};
- const acquisitionSave={...acquisitionKey,action:'SAVE',measurement:acquisitionInput.measurement};
+ const documentPath='/api/financial-reporting/group-acquisition-documents';
+ const documentKey={query,subsidiary,id:randomUUID()};
+ const pdf=Buffer.from('%PDF-1.4\n% Disposable acquisition evidence\n%%EOF\n');
+ const upload={...documentKey,action:'UPLOAD',title:'Acquisition valuation evidence',pdf:pdf.toString('base64')};
+ await request(acquisitionPath,{...acquisitionKey,action:'SAVE',measurement:acquisitionInput.measurement},422);
+ const document=await request(documentPath,upload);
+ assert.equal(document.sha256,createHash('sha256').update(pdf).digest('hex'));
+ assert.deepEqual(await request(documentPath,upload),document);
+ await request(documentPath,{...upload,title:'Attempted document replacement'},409);
+ const downloaded=await page.request.post(app+documentPath,{data:{...documentKey,action:'DOWNLOAD'},headers:{origin:app}});
+ assert.equal(downloaded.status(),200);
+ assert.match(downloaded.headers()['content-disposition'],/^attachment;/);
+ assert.deepEqual(await downloaded.body(),pdf);
+ const measurement={...acquisitionInput.measurement,considerationEvidence:document.id,
+  identifiableItems:acquisitionInput.measurement.identifiableItems.map(item=>({...item,measurementEvidence:document.id}))};
+ const acquisitionSave={...acquisitionKey,action:'SAVE',measurement};
+ await request(acquisitionPath,{...acquisitionSave,measurement:{...measurement,considerationEvidence:randomUUID()}},422);
  const acquisitionDraft=await request(acquisitionPath,acquisitionSave);
  assert.equal(acquisitionDraft.status,'DRAFT');
+ assert.deepEqual(acquisitionDraft.documents,[document]);
  assert.deepEqual(await request(acquisitionPath,acquisitionSave),acquisitionDraft);
  await request(acquisitionPath,{...acquisitionSave,measurement:{...acquisitionSave.measurement,consideration:'1300'}},409);
  const acquisitionApproval=await request(acquisitionPath,{...acquisitionKey,action:'APPROVE',reason:'Reviewer confirmed acquisition evidence in isolated QA'});
@@ -127,6 +144,7 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},403);
   await request('/api/financial-reporting/group-acquisition-review',acquisitionInput,403);
   await request(acquisitionPath,{...acquisitionKey,action:'READ'},403);
+  await request(documentPath,{...documentKey,action:'DOWNLOAD'},403);
  }finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`)}
  const acquisitionRevoked=await request(acquisitionPath,{...acquisitionKey,action:'REVOKE',reason:'Reviewer withdrew the isolated acquisition evidence'});
  assert.equal(acquisitionRevoked.status,'REVOKED');
