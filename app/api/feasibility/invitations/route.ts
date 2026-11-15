@@ -4,10 +4,11 @@ import {z} from 'zod';
 import {supabaseServer} from '@/lib/supabase/server';
 import {isSameOriginRequest} from '@/lib/request-origin';
 import {evaluateFeasibilityAccess} from '../../../../lib/feasibility/access';
+import {emailInvitationsReady,sendFeasibilityInvitationEmail} from '../../../../lib/feasibility/email-invitations';
 export const dynamic='force-dynamic';
 const enabled=()=>process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES==='true'&&process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true'&&process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA==='true';
 const json=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'}});
-const schema=z.object({projectId:z.string().uuid(),email:z.string().trim().email().max(254),role:z.enum(['VIEWER','REVIEWER'])}).strict();
+const schema=z.object({projectId:z.string().uuid(),email:z.string().trim().email().max(254),role:z.enum(['VIEWER','REVIEWER']),delivery:z.enum(['MANUAL','EMAIL']).optional(),locale:z.enum(['ar','en']).optional()}).strict();
 async function context(){
  const supabase=await supabaseServer();
  const {data:{user},error}=await supabase.auth.getUser();
@@ -42,12 +43,17 @@ export async function POST(request:Request){
  if(!access?.canWrite)return json({error:'FEASIBILITY_READ_ONLY'},403);
  let raw:unknown;try{const text=await request.text();if(text.length>1500)return json({error:'INVALID_INPUT'},400);raw=JSON.parse(text);}catch{return json({error:'INVALID_INPUT'},400);}
  const parsed=schema.safeParse(raw);if(!parsed.success)return json({error:'INVALID_INPUT'},400);
- const {projectId,email,role}=parsed.data;
+ const {projectId,email,role,delivery='MANUAL',locale='ar'}=parsed.data;
  const {data:owned,error:ownedError}=await supabase.from('feasibility_projects')
    .select('id').eq('id',projectId).eq('owner_user_id',user.id).maybeSingle();
  if(ownedError)return json({error:'PROJECT_LOOKUP_FAILED'},500);
  if(!owned)return json({error:'PROJECT_OWNER_REQUIRED'},403);
- // Owner manually shares the 256-bit secret. The database only stores its SHA-256 digest.
+ // An authenticated, authorized owner may request transactional email only
+ // when the QA-only server flag, verified sender and HTTPS app URL are set.
+ // Return before DB insert if delivery cannot be attempted.
+ if(delivery==='EMAIL'&&!emailInvitationsReady())
+  return json({error:'EMAIL_DELIVERY_NOT_CONFIGURED'},503);
+ // The database stores SHA-256 only, and the raw secret is never logged.
  const code=randomBytes(32).toString('base64url');
  const token_digest=createHash('sha256').update(code).digest('hex');
  const expires_at=new Date(Date.now()+6*24*3600*1000).toISOString();
@@ -55,7 +61,25 @@ export async function POST(request:Request){
   project_id:projectId,created_by:user.id,invitee_email:email.toLowerCase(),role,token_digest,expires_at
  }).select('id,role,expires_at').single();
  if(error)return json({error:'INVITATION_FAILED'},500);
- return json({id:data.id,role:data.role,expires_at:data.expires_at,code},201);
+ if(delivery==='EMAIL'){
+  try{
+   await sendFeasibilityInvitationEmail({
+    to:email.trim().toLowerCase(),code,role,locale,
+    invitationId:data.id,expiresAt:data.expires_at
+   });
+   // Resend acknowledgement is not a guarantee of inbox delivery.
+   return json({id:data.id,role:data.role,expires_at:data.expires_at,delivery:'EMAIL'},201);
+  }catch{
+   // Never return the secret after an email send failure. Revoke the pending
+   // token so retries cannot leave abandoned access grants.
+   const revoked=await supabase.rpc('feasibility_revoke_project_invitation',{
+    p_project_id:projectId,p_invitation_id:data.id
+   });
+   return json({error:revoked.error||revoked.data!==true?
+    'EMAIL_DELIVERY_UNCONFIRMED':'EMAIL_DELIVERY_FAILED'},503);
+  }
+ }
+ return json({id:data.id,role:data.role,expires_at:data.expires_at,delivery:'MANUAL',code},201);
 }
 
 const revokeInput=z.object({projectId:z.string().uuid(),invitationId:z.string().uuid()}).strict();
