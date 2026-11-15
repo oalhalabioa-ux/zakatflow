@@ -11,7 +11,7 @@ const reference=z.object({organizationId:z.string().uuid(),eventId:z.string().mi
  lineId:z.string().min(1).max(200),accountId:z.string().regex(/^\d{4}(?:\d{2}){1,3}$/)}).strict();
 export const sourceBoundAdjustmentSchema=z.object({id:z.string().uuid(),
  documentMatchId:z.string().uuid().optional(),
- kind:z.enum(['INTERCOMPANY_BALANCE','INTERCOMPANY_INCOME']),date:z.string().date(),
+ kind:z.enum(['INTERCOMPANY_BALANCE','INTERCOMPANY_INCOME','CAPITAL_CONTRIBUTION']),date:z.string().date(),
  amount:z.string().regex(/^\d{1,20}(\.\d{1,4})?$/),reason:z.string().trim().min(8).max(2000),
  debitSource:reference,creditSource:reference}).strict();
 export type SourceBoundAdjustment=z.infer<typeof sourceBoundAdjustmentSchema>;
@@ -62,7 +62,20 @@ export function previewSourceBoundGroupEliminations(control:GroupControlPrefligh
  }
  const entries:GroupElimination[]=requests.map(entry=>{
   if(entry.debitSource.organizationId===entry.creditSource.organizationId)throw Error('GROUP_ADJUSTMENT_MEMBERSHIP_INVALID');
+  if(entry.kind==='CAPITAL_CONTRIBUTION'){
+   const relationship=control.relationships.find(r=>r.parentOrganizationId===entry.creditSource.organizationId&&r.subsidiaryOrganizationId===entry.debitSource.organizationId);
+   if(!relationship||!new D(relationship.directEconomicInterestPercent).eq(100))throw Error('GROUP_CAPITAL_CONTROL_UNSUPPORTED');
+   if(entry.date!==control.to)throw Error('GROUP_CAPITAL_CLOSING_DATE_REQUIRED');
+   for(const ref of[entry.debitSource,entry.creditSource]){
+    const event=members.get(ref.organizationId)?.p.events.find(e=>e.id===ref.eventId);
+    if(!event||event.date<relationship.effectiveFrom)throw Error('GROUP_CAPITAL_ACQUISITION_EVIDENCE_REQUIRED');
+   }
+  }
   const debit=resolve(entry.debitSource,'debit',entry),credit=resolve(entry.creditSource,'credit',entry);
+  // Only a documented contribution into an already controlled, wholly owned
+  // subsidiary. Acquisition goodwill, reserves and retained earnings need
+  // separate accounting evidence and must never be inferred from this pair.
+  if(entry.kind==='CAPITAL_CONTRIBUTION'&&(debit.reportingCode!=='3100'||credit.reportingCode!=='1600'))throw Error('GROUP_CAPITAL_ACCOUNT_INVALID');
   bindings.push({adjustmentId:entry.id,debitSource:entry.debitSource,creditSource:entry.creditSource,amount:new D(entry.amount).toFixed(4)});
   return{id:entry.id,kind:entry.kind,date:entry.date,currency:preflight.wholeEntityRollup.currency,
    organizationIds:[debit.organizationId,credit.organizationId],reason:entry.reason,

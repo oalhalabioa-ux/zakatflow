@@ -128,6 +128,9 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:cashDoc.documentMatchId,reason:'Verify cash approval invalidation on documentary revocation'});
  await request('/api/financial-reporting/group-approved-eliminations',query,422);
 
+ const {verifyGroupCapitalContribution}=await import('./verify-group-capital-contribution.mjs');
+ await verifyGroupCapitalContribution({actor,request,rpc,command,raw,sql,parent,subsidiary,query,out});
+
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));
  return{parent,subsidiary,revenue,expenseEvent,status:result.status,amount:'60.0000',sourcesUnchanged:true,revokedChildDenied:true};
 }

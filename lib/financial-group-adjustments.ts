@@ -7,7 +7,7 @@ const signedAmountPattern=/^-?\d{1,20}(\.\d{1,4})?$/;
 const chartCodePattern=/^\d{4}(?:\d{2}){0,3}$/;
 type Amounts={debit:Decimal;credit:Decimal};
 
-export type GroupEliminationKind='INTERCOMPANY_BALANCE'|'INTERCOMPANY_INCOME'|'UNREALIZED_PROFIT';
+export type GroupEliminationKind='INTERCOMPANY_BALANCE'|'INTERCOMPANY_INCOME'|'UNREALIZED_PROFIT'|'CAPITAL_CONTRIBUTION';
 export type GroupEliminationLine={organizationId?:string;accountCode:string;reportingCode:string;debit:string;credit:string};
 export type GroupElimination={
  id:string;
@@ -84,7 +84,7 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
  for(const entry of entries){
   if(!entry.id||ids.has(entry.id))throw Error('GROUP_ADJUSTMENT_DUPLICATE');
   ids.add(entry.id);
-  if(!['INTERCOMPANY_BALANCE','INTERCOMPANY_INCOME','UNREALIZED_PROFIT'].includes(entry.kind))throw Error('GROUP_ADJUSTMENT_KIND_INVALID');
+  if(!['INTERCOMPANY_BALANCE','INTERCOMPANY_INCOME','UNREALIZED_PROFIT','CAPITAL_CONTRIBUTION'].includes(entry.kind))throw Error('GROUP_ADJUSTMENT_KIND_INVALID');
   if(entry.currency!==rollup.currency||!validDate(entry.date)||entry.date<rollup.from||entry.date>rollup.to)throw Error('GROUP_ADJUSTMENT_PERIOD_CURRENCY_MISMATCH');
   if(entry.organizationIds.length!==2||entry.organizationIds[0]===entry.organizationIds[1]||entry.organizationIds.some(id=>!groupMembers.has(id)))throw Error('GROUP_ADJUSTMENT_MEMBERSHIP_INVALID');
   if(entry.sourceReferences.length<2||new Set(entry.sourceReferences).size!==entry.sourceReferences.length||entry.sourceReferences.some(ref=>!ref.trim())||entry.reason.trim().length<8)throw Error('GROUP_ADJUSTMENT_EVIDENCE_REQUIRED');
@@ -113,9 +113,9 @@ export function previewGroupEliminations(rollup:PreEliminationRollup,parents:rea
   // receivable Cr / payable Dr, or revenue Dr / expense Cr. They cannot
   // eliminate more than the still-outstanding member balances.
   // This is a source-account preflight, NOT proof that invoices match.
-  if(entry.kind==='INTERCOMPANY_BALANCE'||entry.kind==='INTERCOMPANY_INCOME'){
+  if(entry.kind==='INTERCOMPANY_BALANCE'||entry.kind==='INTERCOMPANY_INCOME'||entry.kind==='CAPITAL_CONTRIBUTION'){
    const [debitKind,creditKind]=entry.kind==='INTERCOMPANY_BALANCE'
-    ? ['LIABILITY','ASSET'] as const : ['REVENUE','OPEX'] as const;
+    ? ['LIABILITY','ASSET'] as const : entry.kind==='CAPITAL_CONTRIBUTION'? ['EQUITY','ASSET'] as const : ['REVENUE','OPEX'] as const;
    if(entry.lines.length!==2)throw Error('GROUP_ADJUSTMENT_PAIR_INVALID');
    const debitLine=entry.lines.find(l=>!amount(l.debit).isZero());
    const creditLine=entry.lines.find(l=>!amount(l.credit).isZero());
