@@ -53,7 +53,7 @@ export async function GET(request:Request){
   .eq('organization_id',ctx.organizationId)
   .order('updated_at',{ascending:false}).limit(300);
  if(error)return json({error:'ORGANIZATION_DRAFT_READ_FAILED'},500);
- return json(data??[]);
+ return json({studies:data??[],canWrite:ctx.canWrite});
 }
 export async function POST(request:Request){
  if(!enabled())return json({error:'ORGANIZATION_FEASIBILITY_DISABLED'},404);
