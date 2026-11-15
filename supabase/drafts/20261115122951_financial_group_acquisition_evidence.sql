@@ -299,3 +299,43 @@ revoke all on function private.group_acquisition_evidence_command(text,uuid,uuid
   public.financial_group_acquisition_evidence_command(text,uuid,uuid,date,date,jsonb,text) from public,anon,authenticated;
 grant execute on function private.group_acquisition_evidence_command(text,uuid,uuid,date,date,jsonb,text),
   public.financial_group_acquisition_evidence_command(text,uuid,uuid,date,date,jsonb,text) to authenticated;
+
+create function private.group_approved_acquisition_evidence(p_root uuid,p_from date,p_to date)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare
+  entry private.financial_group_acquisition_evidence%rowtype;
+  scope jsonb;
+  verified jsonb;
+  result jsonb := '[]'::jsonb;
+  subsidiary_name text;
+begin
+  scope := public.financial_group_registered_scope(p_root,p_from,p_to);
+  for entry in select * from private.financial_group_acquisition_evidence
+    where root_id=p_root and period_from=p_from and period_to=p_to and status='APPROVED'
+    order by subsidiary_id,id
+  loop
+    verified := private.group_acquisition_check(p_root,p_from,p_to,entry.measurement,'READ_APPROVED');
+    if entry.registry_revision is distinct from verified#>>'{registry,revision}' then
+      raise exception 'GROUP_ACQUISITION_CONTROL_CHANGED';
+    end if;
+    if entry.documents is distinct from verified->'documents' then
+      raise exception 'GROUP_ACQUISITION_DOCUMENT_CHANGED';
+    end if;
+    select name into subsidiary_name from public.organizations where id=entry.subsidiary_id;
+    result := result || jsonb_build_array(jsonb_build_object(
+      'id',entry.id,'subsidiaryName',subsidiary_name,'controlId',entry.control_id,
+      'approvedAt',entry.approved_at,'measurement',entry.measurement,'documents',entry.documents
+    ));
+  end loop;
+  return jsonb_build_object('rootOrganizationId',p_root,'from',p_from,'to',p_to,
+    'registryRevision',scope#>>'{registry,revision}','records',result);
+end $$;
+
+create function public.financial_group_approved_acquisition_evidence(p_root uuid,p_from date,p_to date)
+returns jsonb language sql stable security invoker set search_path='' as $$
+  select private.group_approved_acquisition_evidence(p_root,p_from,p_to)
+$$;
+revoke all on function private.group_approved_acquisition_evidence(uuid,date,date),
+  public.financial_group_approved_acquisition_evidence(uuid,date,date) from public,anon,authenticated;
+grant execute on function private.group_approved_acquisition_evidence(uuid,date,date),
+  public.financial_group_approved_acquisition_evidence(uuid,date,date) to authenticated;

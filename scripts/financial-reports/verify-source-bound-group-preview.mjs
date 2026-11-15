@@ -57,7 +57,9 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   identifiableItems:acquisitionInput.measurement.identifiableItems.map(item=>({...item,measurementEvidence:document.id}))};
  const acquisitionSave={...acquisitionKey,action:'SAVE',measurement};
  await request(acquisitionPath,{...acquisitionSave,measurement:{...measurement,considerationEvidence:randomUUID()}},422);
+ const approvedAcquisitionsPath='/api/financial-reporting/group-approved-acquisitions';
  const acquisitionDraft=await request(acquisitionPath,acquisitionSave);
+ assert.deepEqual((await request(approvedAcquisitionsPath,query)).rows,[]);
  assert.equal(acquisitionDraft.status,'DRAFT');
  assert.deepEqual(acquisitionDraft.documents,[document]);
  assert.deepEqual(await request(acquisitionPath,acquisitionSave),acquisitionDraft);
@@ -65,6 +67,13 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const acquisitionApproval=await request(acquisitionPath,{...acquisitionKey,action:'APPROVE',reason:'Reviewer confirmed acquisition evidence in isolated QA'});
  assert.equal(acquisitionApproval.status,'APPROVED');assert.equal(acquisitionApproval.approved_by,actor.id);
  assert.deepEqual(await request(acquisitionPath,{...acquisitionKey,action:'READ'}),acquisitionApproval);
+ const approvedAcquisitions=await request(approvedAcquisitionsPath,query);
+ assert.equal(approvedAcquisitions.rows.length,1);
+ assert.equal(approvedAcquisitions.rows[0].calculation.goodwill,'200.0000');
+ assert.equal(approvedAcquisitions.rows[0].calculation.nciAtAcquisition,'0.0000');
+ assert.equal(approvedAcquisitions.rows[0].documentCount,1);
+ assert.deepEqual((await request(approvedAcquisitionsPath,{...query,to:'2026-11-30'})).rows,[]);
+ await writeFile(out+'/approved-acquisition-review.json',JSON.stringify(approvedAcquisitions,null,2));
  const bargainKey={query,id:randomUUID()};
  await request(acquisitionPath,{...bargainKey,action:'SAVE',measurement:{...acquisitionSave.measurement,consideration:'900'}});
  const blockedBargain=await request(acquisitionPath,{...bargainKey,action:'APPROVE',reason:'Unsupported bargain authorization attempt'},422);
@@ -118,7 +127,10 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  // Approval belongs to the exact selected period, not the default year-to-date.
  await worksheet.getByText('No approved adjustment batch exists for the selected period.',{exact:true}).waitFor();
  await page.getByLabel('To date',{exact:true}).fill(query.to);
- await worksheet.locator('table').first().waitFor();
+ const acquisitionSection=worksheet.locator('[data-approved-acquisition-review]');
+ await acquisitionSection.getByText('Goodwill',{exact:true}).waitFor();
+ assert.match(await acquisitionSection.locator('tbody').innerText(),/200[.]00/);
+ await worksheet.locator('[data-group-statement-worksheet] table').first().waitFor();
  assert.ok((await worksheet.textContent()).includes('Approved version: 3'));
  await worksheet.locator('[data-group-statement-worksheet]').waitFor();
  assert.equal(await worksheet.locator('[data-group-statement-worksheet] table').count(),3);
@@ -144,12 +156,18 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},403);
   await request('/api/financial-reporting/group-acquisition-review',acquisitionInput,403);
   await request(acquisitionPath,{...acquisitionKey,action:'READ'},403);
+  await request(approvedAcquisitionsPath,query,403);
   await request(documentPath,{...documentKey,action:'DOWNLOAD'},403);
  }finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`)}
  const acquisitionRevoked=await request(acquisitionPath,{...acquisitionKey,action:'REVOKE',reason:'Reviewer withdrew the isolated acquisition evidence'});
  assert.equal(acquisitionRevoked.status,'REVOKED');
  assert.equal(acquisitionRevoked.revoked_by,actor.id);
  assert.equal(acquisitionRevoked.approved_by,actor.id);
+ assert.deepEqual((await request(approvedAcquisitionsPath,query)).rows,[]);
+ await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
+ await acquisitionSection.getByText('No approved acquisition records for this period.',{exact:true}).waitFor();
+ assert.equal(await acquisitionSection.locator('table').count(),0);
+ await worksheet.getByRole('button',{name:'Export review worksheet CSV',exact:true}).waitFor();
  await request(acquisitionPath,{...acquisitionKey,action:'APPROVE',reason:'Revoked records must never be reapproved'},409);
  await writeFile(out+'/acquisition-evidence-lifecycle.json',JSON.stringify({draft:acquisitionDraft,approval:acquisitionApproval,revocation:acquisitionRevoked},null,2));
  await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:proposed.documentMatchId,reason:'Isolated acceptance proves revoked evidence is excluded'});
@@ -161,10 +179,10 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await request('/api/financial-reporting/group-approved-eliminations',query,422);
  let revokedDownload=false;const onRevokedDownload=()=>{revokedDownload=true};page.on('download',onRevokedDownload);
  await worksheet.getByRole('button',{name:'Export review worksheet CSV',exact:true}).click();
- await worksheet.getByRole('status').waitFor();assert.equal(await worksheet.locator('table').count(),0);
+ await worksheet.getByText('Approved adjustments could not be verified against current sources. No amounts are shown.',{exact:true}).waitFor();assert.equal(await worksheet.locator('table').count(),0);
  assert.equal(revokedDownload,false);page.off('download',onRevokedDownload);
  await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
- await worksheet.getByRole('status').waitFor();assert.equal(await worksheet.locator('table').count(),0);
+ await worksheet.getByText('Approved adjustments could not be verified against current sources. No amounts are shown.',{exact:true}).waitFor();assert.equal(await worksheet.locator('table').count(),0);
 
 
  // A real reciprocal receipt/payment is approved separately from invoice balances.

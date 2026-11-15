@@ -1,9 +1,50 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {approvedGroupWorksheetCsv,groupStatementLabels as statementLabels} from '../../lib/financial-group-worksheet-export';
+import type {readApprovedGroupAcquisitions} from '../../services/financial-group-acquisition-review';
 import type {readApprovedGroupEliminations} from '../../services/financial-group-elimination-batches';
 import {statementAmount} from './SourceStatementTable';
 type Result=Awaited<ReturnType<typeof readApprovedGroupEliminations>>;
+type AcquisitionResult=Awaited<ReturnType<typeof readApprovedGroupAcquisitions>>;
+
+function ApprovedAcquisitionReview({organization,from,to,en}:{organization:string;from:string;to:string;en:boolean}){
+ const [review,setReview]=useState<AcquisitionResult|'error'|null>(null);
+ useEffect(()=>{
+  if(!organization||!from||!to)return;
+  const abort=new AbortController();
+  const scope={organization,from,to};
+  fetch('/api/financial-reporting/group-approved-acquisitions',{method:'POST',cache:'no-store',signal:abort.signal,
+   headers:{'Content-Type':'application/json'},body:JSON.stringify(scope)})
+   .then(async response=>{
+    if(response.status===404)return;
+    if(!response.ok)throw Error('UNAVAILABLE');
+    const data=await response.json();
+    if(data.status!=='APPROVED_ACQUISITION_REVIEW'||data.query?.organization!==organization||
+       data.query?.from!==from||data.query?.to!==to||!Array.isArray(data.rows))throw Error('UNAVAILABLE');
+    if(!abort.signal.aborted)setReview(data);
+   }).catch(()=>{if(!abort.signal.aborted)setReview('error');});
+  return()=>abort.abort();
+ },[organization,from,to]);
+ if(review===null)return null;
+ return <div data-approved-acquisition-review="true">
+  <h3>{en?'Acquisition-date review':'مراجعة تقييم الاستحواذ'}</h3>
+  {review==='error'?<p role="status">{en?'Approved acquisition records could not be verified.':'تعذّر التحقق من سجلات الاستحواذ المعتمدة.'}</p>:
+   !review.rows.length?<p role="status">{en?'No approved acquisition records for this period.':'لا توجد تقييمات استحواذ معتمدة لهذه الفترة.'}</p>:
+   <>
+    <p>{en?'Amounts at the acquisition date. Statement totals are calculated separately.':'القيم بتاريخ الاستحواذ وتُعرض للمراجعة قبل إدراجها في إجماليات القوائم.'}</p>
+    <div className="fs-table-scroll"><table className="fs-table">
+     <thead><tr>{(en?['Subsidiary','Acquisition date','Currency','Consideration','Identifiable net assets','Goodwill','NCI at acquisition','Documents']:
+      ['الشركة التابعة','تاريخ الاستحواذ','العملة','مقابل الاستحواذ','صافي الأصول المحددة','الشهرة','حقوق غير المسيطرين عند الاستحواذ','المستندات']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+     <tbody>{review.rows.map(({id,subsidiaryName,documentCount,calculation})=><tr key={id}>
+      <th>{subsidiaryName}</th><td>{calculation.acquisitionDate}</td><td>{calculation.currency}</td>
+      <td>{statementAmount(calculation.consideration)}</td><td>{statementAmount(calculation.identifiableNetAssets)}</td>
+      <td>{statementAmount(calculation.goodwill)}</td><td>{statementAmount(calculation.nciAtAcquisition)}</td><td>{documentCount}</td>
+     </tr>)}</tbody>
+    </table></div>
+   </>}
+ </div>;
+}
+
 /** Scope comes exclusively from the main banner and report period. */
 export default function ApprovedGroupAdjustments({organization,from,to,refresh,en}:{organization:string;from:string;to:string;refresh:number;en:boolean}){
  const key=JSON.stringify([organization,from,to,refresh]);
@@ -50,6 +91,7 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
  return <section className="fs-source-statements" data-approved-group-adjustments="true">
   <h2>{en?'Approved group adjustments':'استبعادات المجموعة المعتمدة'}</h2>
   <p>{en?'Verified adjustments affect this group worksheet only. Company ledgers remain unchanged. This worksheet does not certify completion of consolidated statements.':'الاستبعادات المتحقق منها تؤثر في ورقة المجموعة فقط، وتبقى دفاتر الشركات كما هي. هذه الورقة لا تعني اكتمال القوائم الموحّدة.'}</p>
+  <ApprovedAcquisitionReview key={key} organization={organization} from={from} to={to} en={en}/>
   {!data?<p role="status">{!current?en?'Verifying approved adjustments…':'جارٍ التحقق من الاستبعادات المعتمدة…':current.error==='GROUP_BATCH_APPROVAL_REQUIRED'?en?'No approved adjustment batch exists for the selected period.':'لا توجد نسخة استبعادات معتمدة للفترة المختارة.':en?'Approved adjustments could not be verified against current sources. No amounts are shown.':'تعذر التحقق من الاستبعادات المعتمدة مقابل المصادر الحالية. لم تُعرض مبالغ غير متحقق منها.'}</p>:<>
    <p>{en?'Approved version':'النسخة المعتمدة'}: {data.approval.version} · {data.worksheet.currency}</p>
    {data.statementWorksheet&&<div data-group-statement-worksheet="true">

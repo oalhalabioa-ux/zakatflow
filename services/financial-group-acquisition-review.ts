@@ -49,3 +49,55 @@ export async function commandGroupAcquisitionEvidence(input:unknown){
  if(result.error)throw Error(result.error.message.match(/(?:GROUP_(?:ACQUISITION|CONTROL)|REPORTING)_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');
  return result.data;
 }
+
+const approvedPortfolio=z.object({
+ rootOrganizationId:z.string().uuid(),from:z.string().date(),to:z.string().date(),
+ registryRevision:z.string().regex(/^[a-f0-9]{32}$/),
+ records:z.array(z.object({
+  id:z.string().uuid(),subsidiaryName:z.string().min(1),controlId:z.string().uuid(),
+  approvedAt:z.string().datetime({offset:true}),measurement:groupAcquisitionMeasurementSchema,
+  documents:z.array(z.object({id:z.string().uuid(),title:z.string(),sha256:z.string().regex(/^[a-f0-9]{64}$/)})).min(1).max(1002),
+ })).max(99),
+});
+
+/** Recompute acquisition-date measurements for the current reporting period. */
+export async function readApprovedGroupAcquisitions(input:unknown){
+ if(process.env.FINANCIAL_GROUP_ELIMINATION_PREVIEW!=='true')throw Error('REPORTING_DISABLED');
+ const query=statementQuery.parse(input);
+ const {requireUser}=await import('./auth');
+ const {assertLiveStatements}=await import('./financial-statement-live');
+ assertLiveStatements();
+ const {supabase}=await requireUser();
+ const read=async()=>{
+  const result=await supabase.rpc('financial_group_approved_acquisition_evidence',{
+   p_root:query.organization,p_from:query.from,p_to:query.to,
+  });
+  if(result.error?.code==='PGRST202')throw Error('REPORTING_DISABLED');
+  if(result.error)throw Error(result.error.message.match(/(?:GROUP_(?:ACQUISITION|CONTROL)|REPORTING)_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');
+  const parsed=approvedPortfolio.safeParse(result.data);
+  if(!parsed.success)throw Error('REPORTING_UNAVAILABLE');
+  const {rootOrganizationId,from,to}=parsed.data;
+  if(rootOrganizationId!==query.organization||from!==query.from||to!==query.to)
+   throw Error('REPORTING_ACCESS_DENIED');
+  return parsed.data;
+ };
+ const evidence=await read();
+ let rows: Array<{
+  id:string; subsidiaryName:string; approvedAt:string; documentCount:number;
+  calculation:ReturnType<typeof measureGroupAcquisition>;
+ }>=[];
+ if(evidence.records.length){
+  const {control,preflight}=await liveRegisteredGroupReviewContext(query);
+  if(control.rootOrganizationId!==query.organization||control.from!==query.from||control.to!==query.to||
+    control.registry.revision!==evidence.registryRevision)throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
+  rows=evidence.records.map(record=>{
+   const calculation=measureGroupAcquisition(control,record.measurement,preflight.wholeEntityRollup.currency);
+   if(calculation.controlAssessmentId!==record.controlId||calculation.reassessmentRequired)
+    throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
+   return {id:record.id,subsidiaryName:record.subsidiaryName,approvedAt:record.approvedAt,
+    documentCount:record.documents.length,calculation};
+  });
+ }
+ assertStableFinancialReplay(evidence,await read());
+ return {status:'APPROVED_ACQUISITION_REVIEW' as const,query,rows};
+}
