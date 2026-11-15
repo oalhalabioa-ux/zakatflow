@@ -98,6 +98,36 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await worksheet.getByRole('status').waitFor();assert.equal(await worksheet.locator('table').count(),0);
 
 
+ // A real reciprocal receipt/payment is approved separately from invoice balances.
+ const cashEvents=[];
+ for(const [organization,direction,type]of [[parent,'INFLOW','REVENUE'],[subsidiary,'OUTFLOW','OPEX']]){
+  const banks=await actor.client.from('liquidity_accounts').select('id').eq('organization_id',organization).eq('active',true).limit(1);assert.ifError(banks.error);assert.ok(banks.data.length);
+  const party=await request('/api/liquidity',{kind:'counterparty',organization_id:organization,name:'Group cash counterpart',party_type:direction==='INFLOW'?'CUSTOMER':'SUPPLIER'},201);
+  const category=await request('/api/liquidity',{kind:'category',organization_id:organization,name_ar:'تدفق داخلي للاختبار',name_en:'Group internal cash test',flow_group:'OPERATING',accounting_group:type==='OPEX'?'EXPENSE':'REVENUE',treatment_code:type==='OPEX'?'OPERATING_EXPENSE':'SERVICE_REVENUE',allowed_direction:direction,financial_classification_type:type},201);
+  const flow=await request('/api/liquidity',{kind:'flow',organization_id:organization,account_id:banks.data[0].id,category_id:category.id,direction,title:'Documented group internal cash',counterparty_id:party.id,due_date:'2026-10-10',amount:10,base_amount:10,currency:'SAR',status:'EXPECTED',source:'MANUAL'},201);
+  const patch=async data=>{const response=await page.request.patch(app+'/api/liquidity/'+flow.id,{data,headers:{origin:app}});const body=await response.json();assert.equal(response.status(),200,JSON.stringify(body));return body};
+  const confirmed=await patch({status:'CONFIRMED'});assert.ok(confirmed.recognition_event_id);
+  await command({action:'APPROVE',organization_id:organization,event_id:confirmed.recognition_event_id,note:'Approve documented group cash source'});
+  await command({action:'TRANSITION',organization_id:organization,event_id:confirmed.recognition_event_id,status:'ACTUAL',note:'Post documented group cash source'});
+  const posted=await patch({status:'ACTUAL',request_id:randomUUID(),account_id:banks.data[0].id,amount:10,base_amount:10,settlement_date:'2026-10-11'});assert.ok(posted.settlement_event_id);
+  const source=await raw(organization),event=source.events.find(e=>e.id===posted.settlement_event_id);assert.ok(event);
+  const line=event.lines[0];cashEvents.push(ref(organization,event.id,line,line.resolvedPosting[direction==='INFLOW'?'debitAccountId':'creditAccountId']));
+ }
+ const cashDoc=await request('/api/financial-reporting/group-document-matches',{action:'PROPOSE',firstEventId:cashEvents[0].eventId,secondEventId:cashEvents[1].eventId,evidenceReference:'Reciprocal bank payment and receipt evidence',reason:'Actual cash source documents reviewed',requestId:randomUUID()});
+ await request('/api/financial-reporting/group-document-matches',{action:'APPROVE',matchId:cashDoc.documentMatchId,reason:'Confirm both original bank documents'});
+ const cashEntry={id:randomUUID(),kind:'INTERCOMPANY_CASH',documentMatchId:cashDoc.documentMatchId,date:query.to,amount:'10',reason:'Exclude paired internal operating cash flows',debitSource:cashEvents[1],creditSource:cashEvents[0]};
+ const cashBefore=[await raw(parent),await raw(subsidiary)];
+ const cashBad=await actor.client.rpc('save_financial_group_eliminations',{...saveArgs,p_expected_version:3,p_entries:[{...cashEntry,amount:'11'}],p_request_id:randomUUID()});assert.match(cashBad.error?.message??'',/GROUP_BATCH_SOURCE_AMOUNT_EXCEEDED/);
+ const cashBatch=await request('/api/financial-reporting/group-elimination-batches',{...save,entries:[cashEntry],expectedVersion:3,requestId:randomUUID()});
+ await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query,batchId:cashBatch.id,expectedVersion:4,reason:'Approve actual internal cash exclusions'});
+ const cashResult=await request('/api/financial-reporting/group-approved-eliminations',query);
+ assert.equal(cashResult.cashWorksheet.bindings.length,1);assert.equal(cashResult.cashWorksheet.bindings[0].outflow.eliminatedAmount,'10.0000');
+ assert.equal(cashResult.cashWorksheet.rows.find(r=>r.activity==='OPERATING').adjustment,'0.0000');
+ assert.deepEqual([await raw(parent),await raw(subsidiary)].map(clean),cashBefore.map(clean));
+ await writeFile(out+'/approved-internal-cash-eliminations.json',JSON.stringify(cashResult,null,2));
+ await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:cashDoc.documentMatchId,reason:'Verify cash approval invalidation on documentary revocation'});
+ await request('/api/financial-reporting/group-approved-eliminations',query,422);
+
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));
  return{parent,subsidiary,revenue,expenseEvent,status:result.status,amount:'60.0000',sourcesUnchanged:true,revokedChildDenied:true};
 }

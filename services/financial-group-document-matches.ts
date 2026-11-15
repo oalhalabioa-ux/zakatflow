@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {requireUser} from './auth';
 import type {SourceBoundAdjustment} from '../lib/financial-group-source-bound-adjustments';
-export async function readGroupDocumentMatches(entries:readonly SourceBoundAdjustment[]){
+export async function readGroupDocumentMatches(entries:readonly Pick<SourceBoundAdjustment,'documentMatchId'>[]){
  const ids=[...new Set(entries.flatMap(e=>e.documentMatchId?[e.documentMatchId]:[]))].sort();
  if(!ids.length)return[];
  const {supabase}=await requireUser();

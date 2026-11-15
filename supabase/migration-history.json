@@ -2001,6 +2001,14 @@
       "expected_md5": "32f85931d8d759e484192030bd611600",
       "file_sha256": "25962a5f2f2bf9300ef4675b9ae45b35d273b05daf62f30c4a3a88a4f9e3e18e",
       "validation_project": "Disposable full canonical runner 43695537362: batch lifecycle and approved current-source reader passed; observed 50-object catalog delta. Hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115085118_financial_closed_dimension_evidence.sql",
+      "version": "20261115085118",
+      "name": "financial_closed_dimension_evidence",
+      "expected_md5": "aa3e298542cc51106ba7687aa91e5fb0",
+      "file_sha256": "3f5605b927c03d9901d026c2849974ecafe774831bfac7796de77c992e8515a1",
+      "validation_project": "Disposable full-schema run 43696941793 artifact 14155315800: native close, immutable center names and balances, period reports, membership denial, exports. Hosted unapplied."
     }
   ]
 }

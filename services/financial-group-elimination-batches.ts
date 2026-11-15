@@ -1,22 +1,23 @@
 import {z} from 'zod';
+import {groupAdjustmentSchema} from '../lib/financial-group-cash-eliminations';
 import {requireUser} from './auth';
 import {statementQuery} from '../lib/financial-statement-source';
-import {sourceBoundAdjustmentSchema} from '../lib/financial-group-source-bound-adjustments';
+
 import {liveSourceBoundGroupPreview} from './financial-group-source-bound-adjustments';
 import {assertStableFinancialReplay} from '../lib/financial-source-replay';
 const uuid=z.string().uuid(),reason=z.string().trim().min(8).max(1000);
 const command=z.discriminatedUnion('action',[
- z.object({action:z.literal('SAVE'),query:statementQuery,entries:z.array(sourceBoundAdjustmentSchema.extend({documentMatchId:uuid})).max(200),expectedVersion:z.number().int().nonnegative(),reason,requestId:uuid}).strict(),
+ z.object({action:z.literal('SAVE'),query:statementQuery,entries:z.array(groupAdjustmentSchema.refine(e=>Boolean(e.documentMatchId),'DOCUMENT_MATCH_REQUIRED')).max(200),expectedVersion:z.number().int().nonnegative(),reason,requestId:uuid}).strict(),
  z.object({action:z.literal('APPROVE'),query:statementQuery,batchId:uuid,expectedVersion:z.number().int().positive(),reason}).strict()
 ]);
 const batch=z.object({id:uuid,root_organization_id:uuid,period_from:z.string().date(),period_to:z.string().date(),
  version:z.number().int().positive(),status:z.enum(['DRAFT','APPROVED','SUPERSEDED']),
- entries:z.array(sourceBoundAdjustmentSchema.extend({documentMatchId:uuid})).max(200)});
+ entries:z.array(groupAdjustmentSchema.refine(e=>Boolean(e.documentMatchId),'DOCUMENT_MATCH_REQUIRED')).max(200)});
 const context=z.object({status:z.literal('GROUP_ELIMINATION_EVIDENCE_ONLY'),batches:z.array(batch).max(50)});
 function enabled(){if(process.env.FINANCIAL_GROUP_ELIMINATION_PREVIEW!=='true')throw Error('REPORTING_DISABLED');}
 const approvedEvidence=z.object({status:z.literal('APPROVED_GROUP_ELIMINATION_EVIDENCE'),id:uuid,
  version:z.number().int().positive(),rootOrganizationId:uuid,from:z.string().date(),to:z.string().date(),
- entries:z.array(sourceBoundAdjustmentSchema.extend({documentMatchId:uuid})).max(200),
+ entries:z.array(groupAdjustmentSchema.refine(e=>Boolean(e.documentMatchId),'DOCUMENT_MATCH_REQUIRED')).max(200),
  approvedBy:uuid,approvedAt:z.string().datetime({offset:true}),evidenceFingerprint:z.string().regex(/^[a-f0-9]{32}$/)}).strict();
 /** Verified approved adjustments only; not a certification of full consolidation. */
 export async function readApprovedGroupEliminations(input:unknown){

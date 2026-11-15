@@ -33,6 +33,11 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
    <div className="fs-table-scroll"><table className="fs-table"><thead><tr>{(en?['Account','Before adjustments','Debit adjustment','Credit adjustment','After adjustments']:['الحساب','قبل الاستبعاد','الاستبعاد المدين','الاستبعاد الدائن','بعد الاستبعاد']).map(label=><th key={label}>{label}</th>)}</tr></thead>
     <tbody>{data.worksheet.rows.map(row=><tr key={row.reportingCode}><th>{row.reportingCode}</th>{[row.beforeNetDebit,row.adjustmentDebit,row.adjustmentCredit,row.afterNetDebit].map((value,index)=><td key={index}>{statementAmount(value)}</td>)}</tr>)}</tbody>
    </table></div>
+   {data.cashWorksheet&&<div className="fs-table-scroll"><h3>{en?'Internal cash flow adjustments':'استبعاد التدفقات النقدية الداخلية'}</h3>
+    <table className="fs-table"><thead><tr>{(en?['Activity','Before','Adjustment','After']:['النشاط','قبل الاستبعاد','التعديل','بعد الاستبعاد']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+     <tbody>{data.cashWorksheet.rows.map(row=><tr key={row.activity}><th>{en?row.activity:row.activity==='OPERATING'?'تشغيلي':row.activity==='INVESTING'?'استثماري':'تمويلي'}</th>{[row.before,row.adjustment,row.after].map((value,i)=><td key={i}>{statementAmount(value)}</td>)}</tr>)}</tbody>
+    </table><p>{en?'Opening and closing group cash remain unchanged.':'يبقى رصيدا النقد الافتتاحي والختامي للمجموعة دون تغيير.'}</p>
+   </div>}
   </>}
  </section>;
 }
