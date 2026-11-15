@@ -52,12 +52,48 @@ DO $viewer$ BEGIN
 END $viewer$;
 RESET ROLE;
 
+-- Viewer cannot create or alter an institution-owned study even with a license.
+SET LOCAL ROLE authenticated;
+DO $viewer_denial$
+DECLARE v_org uuid; v_id uuid:=gen_random_uuid();
+BEGIN
+ SELECT id INTO v_org FROM public.organizations WHERE status='ACTIVE' LIMIT 1;
+ BEGIN
+  INSERT INTO public.feasibility_projects
+   (id,owner_user_id,created_by_user_id,organization_id,title,study)
+  VALUES(v_id,NULL,auth.uid(),v_org,'QA_VIEWER_WRITE_DENIED',
+    jsonb_build_object('id',v_id::text,'title','QA_VIEWER_WRITE_DENIED'));
+  RAISE EXCEPTION 'Viewer unexpectedly inserted corporate study';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+ END;
+END $viewer_denial$;
+RESET ROLE;
+
+-- An ACTIVE ADMIN can create an institutional record; it stays company-owned.
+UPDATE public.organization_members SET role='ADMIN'
+WHERE (organization_id,user_id)=(SELECT organization_id,outsider_id FROM qa_feasibility_case);
+SET LOCAL ROLE authenticated;
+DO $admin_write$
+DECLARE v_org uuid; v_id uuid:=gen_random_uuid();
+BEGIN
+ SELECT id INTO v_org FROM public.organizations WHERE status='ACTIVE' LIMIT 1;
+ INSERT INTO public.feasibility_projects
+  (id,owner_user_id,created_by_user_id,organization_id,title,study)
+ VALUES(v_id,NULL,auth.uid(),v_org,'QA_ADMIN_CORPORATE',
+  jsonb_build_object('id',v_id::text,'title','QA_ADMIN_CORPORATE'));
+ IF (SELECT count(*) FROM public.feasibility_projects
+     WHERE organization_id=v_org AND title='QA_ADMIN_CORPORATE')<>1
+ THEN RAISE EXCEPTION 'Active administrator cannot create organization study'; END IF;
+END $admin_write$;
+RESET ROLE;
+
 UPDATE public.organization_members SET status='SUSPENDED'
 WHERE (organization_id,user_id)=(SELECT organization_id,outsider_id FROM qa_feasibility_case);
 SET LOCAL ROLE authenticated;
 DO $suspended$ BEGIN
- IF (SELECT count(*) FROM public.feasibility_projects WHERE title LIKE 'QA_SCOPE_%')<>0
- THEN RAISE EXCEPTION 'Suspended viewer retains company study access'; END IF;
+ IF (SELECT count(*) FROM public.feasibility_projects
+      WHERE title LIKE 'QA_SCOPE_%' OR title='QA_ADMIN_CORPORATE')<>0
+ THEN RAISE EXCEPTION 'Suspended administrator retains company study access'; END IF;
 END $suspended$;
 RESET ROLE;
 
