@@ -500,20 +500,16 @@ declare
       or amount is distinct from (l->>'baseAmount')::numeric
     then raise exception 'GROUP_BATCH_CONSUMED_SERVICE_UNSUPPORTED' using detail='Selected service line must match the full recognized amount and event type';end if;
     if exists(
-        select 1 from jsonb_array_elements(ev->'lines') item
-        left join lateral (
-          select x from jsonb_array_elements(s->'accounts') x
-          where x->>'id'=item->'resolvedPosting'->>(case when side='debit' then 'debitAccountId' else 'creditAccountId' end)
-        ) trade on true
-        left join lateral (
-          select x from jsonb_array_elements(s->'accounts') x
-          where x->>'id'=item->'resolvedPosting'->>(case when side='debit' then 'creditAccountId' else 'debitAccountId' end)
-        ) profit on true
-        where (item->>'recognitionSign')::integer is distinct from 1
-           or item->>'cashDirection' is distinct from 'NON_CASH'
-           or coalesce(item->>'classificationId','') not like '%:BASE'
-           or coalesce(trade.x->>'reportingCode',trade.x->>'id') is distinct from (case when side='debit' then '1100' else '2100' end)
-           or profit.x->>'kind' is distinct from (case when side='debit' then 'REVENUE' else 'OPEX' end)
+        select 1 from jsonb_array_elements(ev->'lines') as source(line)
+        left join lateral jsonb_array_elements(s->'accounts') as trade(account)
+          on (trade.account->>'id')=(source.line->'resolvedPosting'->>(case when side='debit' then 'debitAccountId' else 'creditAccountId' end))
+        left join lateral jsonb_array_elements(s->'accounts') as profit(account)
+          on (profit.account->>'id')=(source.line->'resolvedPosting'->>(case when side='debit' then 'creditAccountId' else 'debitAccountId' end))
+        where (source.line->>'recognitionSign')::integer is distinct from 1
+           or source.line->>'cashDirection' is distinct from 'NON_CASH'
+           or coalesce(source.line->>'classificationId','') not like '%:BASE'
+           or coalesce(trade.account->>'reportingCode',trade.account->>'id') is distinct from (case when side='debit' then '1100' else '2100' end)
+           or profit.account->>'kind' is distinct from (case when side='debit' then 'REVENUE' else 'OPEX' end)
       ) then raise exception 'GROUP_BATCH_CONSUMED_SERVICE_UNSUPPORTED' using detail='Service voucher contains a line outside ordinary receivables, payables, revenue and operating expense';end if;
    end if;
   $source$;
