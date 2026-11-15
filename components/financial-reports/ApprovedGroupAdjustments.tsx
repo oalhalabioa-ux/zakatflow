@@ -83,13 +83,16 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
    result!==null&&(result==='error'||result.status==='ACQUISITION_POSITION_UNAVAILABLE')?
     <p role="status">{en?'Verified acquisition-day adjustments are unavailable for this selection.':'تسويات يوم الاستحواذ المتحقق منها غير متاحة لهذا الاختيار.'}</p>:
    result!==null&&<>
-    <h4>{result.status==='ACQUISITION_CARRY_FORWARD_POSITION_REVIEW'?
+    <h4>{result.eliminationBatchVersion!==null?
+     (en?'Financial position after acquisition and intercompany eliminations':'المركز المالي بعد تسوية الاستحواذ والاستبعادات بين الشركات'):
+     result.status==='ACQUISITION_CARRY_FORWARD_POSITION_REVIEW'?
      (en?'Closing position after carrying forward the acquisition adjustment':'المركز المالي بعد ترحيل تسوية الاستحواذ'):
      (en?'Position after acquisition adjustment':'المركز المالي بعد تسوية الاستحواذ')}</h4>
     <p>{en?'Goodwill':'الشهرة'} {statementAmount(result.goodwill)} · {en?'NCI at acquisition':'حقوق غير المسيطرين عند الاستحواذ'} {statementAmount(result.nciAtAcquisition)} · {result.currency}</p>
+    {result.eliminationBatchVersion!==null&&<p>{en?'Approved elimination batch version':'نسخة الاستبعادات المعتمدة'} {result.eliminationBatchVersion}</p>}
     <div className="fs-table-scroll"><table className="fs-table">
-     <thead><tr>{(en?['Item','Before acquisition adjustment','Acquisition adjustment','After acquisition adjustment']:
-      ['البند','قبل تسوية الاستحواذ','تسوية الاستحواذ','بعد تسوية الاستحواذ']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+     <thead><tr>{(en?['Item','Before adjustments','Adjustment','After adjustments']:
+      ['البند','قبل التسويات','التسوية','بعد التسويات']).map(label=><th key={label}>{label}</th>)}</tr></thead>
      <tbody>{result.rows.map(row=><tr key={row.key}><th>{statementLabels[row.key][en?1:0]}</th>
       <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
      </tr>)}</tbody>
@@ -128,7 +131,9 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
      </table></div>
     </>}
     {result.cash.length>0&&<>
-     <h4>{en?'Cash flow after eliminating internal dividend payments':'التدفقات بعد استبعاد سداد التوزيعات الداخلية'}</h4>
+     <h4>{result.eliminationBatchVersion!==null?
+      (en?'Cash flow after intercompany eliminations':'التدفقات النقدية بعد الاستبعادات بين الشركات'):
+      (en?'Cash flow after eliminating internal dividend payments':'التدفقات بعد استبعاد سداد التوزيعات الداخلية')}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
       <thead><tr>{(en?['Item','Before adjustment','Adjustment','After adjustment']:
        ['البند','قبل التسوية','التسوية','بعد التسوية']).map(label=><th key={label}>{label}</th>)}</tr></thead>
@@ -159,7 +164,9 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       </tr>)}</tbody>
      </table></div>
      </>}
-     <h4>{en?'Impact on the period result':'أثر التسوية على نتيجة الفترة'}</h4>
+     <h4>{result.eliminationBatchVersion!==null?
+      (en?'Income after acquisition and intercompany eliminations':'قائمة الدخل بعد تسوية الاستحواذ والاستبعادات بين الشركات'):
+      (en?'Impact on the period result':'أثر التسوية على نتيجة الفترة')}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
       <thead><tr>{(en?['Item','Before adjustment','Adjustment','After adjustment']:
        ['البند','قبل التسوية','التسوية','بعد التسوية']).map(label=><th key={label}>{label}</th>)}</tr></thead>

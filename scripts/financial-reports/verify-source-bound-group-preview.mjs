@@ -426,6 +426,63 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await writeFile(out+'/acquisition-deferred-tax-position.json',JSON.stringify(afterTax,null,2));
  await request(acquisitionPath,{...taxKey,action:'REVOKE',reason:'Release the tax fixture for subsequent movement verification'});
 
+ // Both accrual and bank vouchers predate the later capital contribution.
+ const jointQuery={...query,to:'2026-10-12'};
+ const jointKey={query:jointQuery,id:randomUUID()};
+ const jointAction={action:'ACQUISITION_POSITION',query:jointQuery};
+ const jointDocument=async(firstEventId,secondEventId)=>{
+  const match=await request('/api/financial-reporting/group-document-matches',{action:'PROPOSE',firstEventId,secondEventId,
+   evidenceReference:'Original reciprocal documents for the post-acquisition period',
+   reason:'Review the joint acquisition and operations worksheet',requestId:randomUUID()});
+  await request('/api/financial-reporting/group-document-matches',{action:'APPROVE',matchId:match.documentMatchId,
+   reason:'Verify the original source pair for the joint worksheet'});
+  return match.documentMatchId;
+ };
+ const accrualMatch=await jointDocument(expenseEvent,revenue);
+ const settlementMatch=await jointDocument(cashEvents[0].eventId,cashEvents[1].eventId);
+ const jointEntries=[
+  {...adjustment,documentMatchId:accrualMatch,date:jointQuery.to},
+  {id:randomUUID(),kind:'INTERCOMPANY_INCOME',documentMatchId:accrualMatch,date:jointQuery.to,amount:'60',
+   reason:'Eliminate reciprocal revenue and operating expenses after acquisition',
+   debitSource:ref(parent,revenue,rline,rline.resolvedPosting.creditAccountId),
+   creditSource:ref(subsidiary,expenseEvent,eline,eline.resolvedPosting.debitAccountId)},
+  {...cashEntry,documentMatchId:settlementMatch,date:jointQuery.to},
+ ];
+ await request(acquisitionPath,{...jointKey,action:'SAVE',measurement:{...dayMeasurement,
+  continuityBasis:carryMeasurement.continuityBasis}});
+ await request(acquisitionPath,{...jointKey,action:'APPROVE',reason:'Approve unchanged acquisition basis for the joint worksheet'});
+ const jointBatch=await request('/api/financial-reporting/group-elimination-batches',{
+  ...save,query:jointQuery,entries:jointEntries,expectedVersion:0,requestId:randomUUID(),
+  reason:'Combine approved trade balances, income and internal cash with acquisition',
+ });
+ await request('/api/financial-reporting/group-elimination-batches',{action:'APPROVE',query:jointQuery,batchId:jointBatch.id,
+  expectedVersion:1,reason:'Approve the reciprocal operating adjustments in this period'});
+ const ledgerBeforeJoint=[await raw(parent),await raw(subsidiary)].map(clean);
+ const joint=await request(approvedAcquisitionsPath,jointAction);
+ assert.equal(joint.status,'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW',JSON.stringify(joint));
+ assert.equal(joint.eliminationBatchVersion,1);
+ assert.equal(joint.investmentEliminated,'5200.0000');
+ assert.equal(joint.goodwill,'200.0000');
+ assert.deepEqual(joint.rows.map(row=>[row.key,row.adjustment]),[
+  ['assets','-5060.0000'],['liabilities','-60.0000'],['equity','-5000.0000'],
+ ]);
+ assert.equal(joint.income.find(row=>row.key==='revenue').adjustment,'-60.0000');
+ assert.equal(joint.income.find(row=>row.key==='operatingExpenses').adjustment,'-60.0000');
+ assert.equal(joint.income.find(row=>row.key==='netProfit').adjustment,'0.0000');
+ assert.equal(joint.cash.length,6);
+ assert.equal(joint.cash.find(row=>row.key==='closing').adjustment,'0.0000');
+ assert.deepEqual([await raw(parent),await raw(subsidiary)].map(clean),ledgerBeforeJoint);
+ await page.getByLabel('To date',{exact:true}).fill(jointQuery.to);
+ await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
+ for(const heading of ['Financial position after acquisition and intercompany eliminations',
+  'Income after acquisition and intercompany eliminations','Cash flow after intercompany eliminations'])
+  await positionPanel.getByRole('heading',{name:heading,exact:true}).waitFor();
+ await writeFile(out+'/acquisition-and-intercompany-eliminations.json',JSON.stringify(joint,null,2));
+ await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:accrualMatch,
+  reason:'Verify a withdrawn source prevents the combined report from reloading'});
+ await request(approvedAcquisitionsPath,jointAction,503);
+ await request(acquisitionPath,{...jointKey,action:'REVOKE',reason:'Complete the joint worksheet acceptance scenario'});
+ console.log('PASS Acquisition and approved trade, income and cash eliminations reconcile together');
 
  const movedKey={query,id:randomUUID()};
  await request(acquisitionPath,{...movedKey,action:'SAVE',measurement:carryMeasurement});

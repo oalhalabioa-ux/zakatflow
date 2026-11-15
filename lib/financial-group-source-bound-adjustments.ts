@@ -30,7 +30,7 @@ export function previewSourceBoundGroupEliminations(control:GroupControlPrefligh
  const preflight=reviewControlledGroupSources(control,snapshots);
  const members=new Map(envelopes.map((p,i)=>[p.organizationId,{p,snapshot:snapshots[i],compiled:compileEventLedger(p)}]));
  const consumed=new Map<string,Decimal>();
- const bindings:{adjustmentId:string;debitSource:SourceBoundAdjustment['debitSource'];creditSource:SourceBoundAdjustment['creditSource'];amount:string}[]=[];
+ const bindings:{adjustmentId:string;kind:SourceBoundAdjustment['kind'];debitSource:SourceBoundAdjustment['debitSource'];creditSource:SourceBoundAdjustment['creditSource'];amount:string}[]=[];
  function resolve(ref:SourceBoundAdjustment['debitSource'],side:'debit'|'credit',entry:SourceBoundAdjustment){
   const member=members.get(ref.organizationId);
   if(!member)throw Error('GROUP_ADJUSTMENT_MEMBERSHIP_INVALID');
@@ -76,7 +76,7 @@ export function previewSourceBoundGroupEliminations(control:GroupControlPrefligh
   // subsidiary. Acquisition goodwill, reserves and retained earnings need
   // separate accounting evidence and must never be inferred from this pair.
   if(entry.kind==='CAPITAL_CONTRIBUTION'&&(debit.reportingCode!=='3100'||credit.reportingCode!=='1600'))throw Error('GROUP_CAPITAL_ACCOUNT_INVALID');
-  bindings.push({adjustmentId:entry.id,debitSource:entry.debitSource,creditSource:entry.creditSource,amount:new D(entry.amount).toFixed(4)});
+  bindings.push({adjustmentId:entry.id,kind:entry.kind,debitSource:entry.debitSource,creditSource:entry.creditSource,amount:new D(entry.amount).toFixed(4)});
   return{id:entry.id,kind:entry.kind,date:entry.date,currency:preflight.wholeEntityRollup.currency,
    organizationIds:[debit.organizationId,credit.organizationId],reason:entry.reason,
    sourceReferences:[entry.debitSource,entry.creditSource].map(r=>key(r.organizationId,r.eventId,r.lineId,r.accountId)),lines:[debit,credit]};

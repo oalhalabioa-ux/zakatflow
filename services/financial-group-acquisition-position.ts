@@ -39,6 +39,22 @@ export async function readGroupAcquisitionPosition(input:unknown){
  if(carrySources?.rawSources.some(source=>source.fiscalStart>query.from))
   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'CARRY_FORWARD_PERIOD_UNSUPPORTED'};
  const ledgers=new Map(carrySources?.rawSources.map(source=>[source.organizationId,compileEventLedger(source)]));
+ const cashBindings=worksheet.cashWorksheet?.bindings??[];
+ const combined=worksheet.bindings.length>0||cashBindings.length>0;
+ const originalLegs=[
+  ...worksheet.bindings.flatMap(binding=>[binding.debitSource,binding.creditSource]),
+  ...cashBindings.flatMap(binding=>[binding.outflow,binding.inflow]),
+ ];
+ // A wholly owned group can combine ordinary reciprocal entries posted after
+ // acquisition. Capital movements and minority attribution require their own
+ // reconciliation. Validate the original dates, not the adjustment's date.
+ if(combined&&(!later||approved.rows.some(row=>!new Money(row.calculation.nciPercent).isZero())||
+   worksheet.bindings.some(binding=>binding.kind==='CAPITAL_CONTRIBUTION')||
+   originalLegs.some(leg=>{
+    const journal=ledgers.get(leg.organizationId)?.source.journals.find(item=>item.id===leg.eventId);
+    return !journal||journal.date<=query.from||journal.date>query.to;
+   })))
+  return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
  const nciAttribution:Array<{subsidiaryId:string;subsidiaryName:string;openingNci:string;adjustedProfit:string;profitToNci:string;closingNci:string;dividendToNci:string}>=[];
  const dividendEliminations:Array<NonNullable<ReturnType<typeof verifyOrdinaryDividend>>&{subsidiaryName:string;subsidiaryId:string}>=[];
  const usedParentDividendEvents=new Set<string>();
@@ -54,11 +70,7 @@ export async function readGroupAcquisitionPosition(input:unknown){
   if(basis.positionEligibility!=='ELIGIBLE'||!basis.linkedInvestment)
    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:basis.positionEligibility};
   const {accountId,balance}=basis.linkedInvestment;
-  // Any subsidiary adjustment or use of the dedicated parent account needs
-  // a reconciliation of acquisition-day carrying values with the batch.
-  if(worksheet.bindings.some(binding=>[binding.debitSource,binding.creditSource].some(source=>
-    source.organizationId===record.calculation.subsidiaryOrganizationId||
-    (source.organizationId===query.organization&&source.accountId===accountId)))||worksheet.cashWorksheet)
+  if(originalLegs.some(source=>source.organizationId===record.calculation.parentOrganizationId&&source.accountId===accountId))
    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
   const subsidiaryId=record.calculation.subsidiaryOrganizationId;
   if(later){
@@ -156,18 +168,24 @@ export async function readGroupAcquisitionPosition(input:unknown){
  const assetDelta=goodwill.plus(fairValueAssets).minus(investment).minus(depreciation).minus(internalDividendOutstanding),equityDelta=nci.minus(bookEquity).minus(depreciation).plus(deferredTaxReversal);
  const liabilityDelta=fairValueLiabilities.minus(deferredTaxReversal).minus(internalDividendOutstanding);
  if(!assetDelta.eq(liabilityDelta.plus(equityDelta)))throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
+ function apply(row:{key:string;before:string;after:string},delta:Decimal){
+  const before=combined?row.before:row.after;
+  const after=new Money(row.after).plus(delta);
+  return {key:row.key,before,adjustment:after.minus(before).toFixed(4),after:after.toFixed(4)};
+ }
  const rows=base.position.filter(row=>row.key!=='fiscalProfit').map(row=>{
   const adjustment=row.key==='assets'?assetDelta:row.key==='equity'?equityDelta:liabilityDelta;
-  return {key:row.key,before:row.after,adjustment:adjustment.toFixed(4),after:new Money(row.after).plus(adjustment).toFixed(4)};
+  return apply(row,adjustment);
  });
- const income=base.income.filter(row=>(['operatingExpenses','operatingProfit','netProfit'].includes(row.key)||dividendEliminations.length>0&&['revenue','grossProfit'].includes(row.key)||row.key==='tax'&&deferredTaxAdjustments.length>0)).map(row=>{
+ const income=base.income.map(row=>{
   const adjustment=row.key==='operatingExpenses'?depreciation:
    row.key==='tax'?deferredTaxReversal.negated():row.key==='netProfit'?deferredTaxReversal.minus(depreciation).minus(parentDividendEliminated):
-   row.key==='operatingProfit'?depreciation.plus(parentDividendEliminated).negated():parentDividendEliminated.negated();
-  return {key:row.key,before:row.after,adjustment:adjustment.toFixed(4),after:new Money(row.after).plus(adjustment).toFixed(4)};
+   row.key==='operatingProfit'?depreciation.plus(parentDividendEliminated).negated():
+   ['revenue','grossProfit'].includes(row.key)?parentDividendEliminated.negated():new Money(0);
+  return apply(row,adjustment);
  });
  const internalPayments=dividendEliminations.flatMap(item=>item.internalCash?[item.internalCash]:[]);
- const cash=eliminateDividendCashPayments(base.cash,internalPayments);
+ const cash=combined?base.cash:eliminateDividendCashPayments(base.cash,internalPayments);
  const periodProfit=new Money(income.find(row=>row.key==='netProfit')!.after);
  const profitAttribution=nciAttribution.length?{
   total:periodProfit.toFixed(4),parent:periodProfit.minus(profitToNci).toFixed(4),nci:profitToNci.toFixed(4),
@@ -179,6 +197,7 @@ export async function readGroupAcquisitionPosition(input:unknown){
  assertStableFinancialReplay(worksheet,await readApprovedGroupEliminations(query));
  assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
  return {status:later?'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW' as const:'ACQUISITION_DAY_POSITION_REVIEW' as const,query,currency:base.currency,rows,
+  eliminationBatchVersion:combined?worksheet.approval.version:null,
   investmentEliminated:investment.toFixed(4),subsidiaryEquityEliminated:bookEquity.toFixed(4),
   goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments,depreciationAdjustments,deferredTaxAdjustments,income,cash,
   nciAttribution,profitAttribution,dividendEliminations,closingNci:nci.plus(profitToNci).minus(dividendsToNci).toFixed(4),
