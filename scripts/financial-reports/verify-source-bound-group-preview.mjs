@@ -121,6 +121,8 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const approvedWorksheet=await request('/api/financial-reporting/group-approved-eliminations',query);
  assert.equal(approvedWorksheet.status,'APPROVED_GROUP_ADJUSTMENT_WORKSHEET');assert.equal(approvedWorksheet.approval.id,batch3.id);
  assert.equal(approvedWorksheet.consolidated,false);assert.equal(approvedWorksheet.worksheet.adjustmentDebit,'60.0000');
+ assert.deepEqual(approvedWorksheet.openItems.residuals.map(({eventId,outstanding,eliminated,remaining})=>
+  ({eventId,outstanding,eliminated,remaining})),[{eventId:revenue,outstanding:'100.0000',eliminated:'60.0000',remaining:'40.0000'}]);
  await page.goto(app+'/en/financial-reports?organization='+parent+'&screen=position');
  await page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true}).click();
  const worksheet=page.locator('[data-approved-group-adjustments="true"]');
@@ -145,6 +147,10 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  assert.ok((await worksheet.textContent()).includes('Approved version: 3'));
  await worksheet.locator('[data-group-statement-worksheet]').waitFor();
  assert.equal(await worksheet.locator('[data-group-statement-worksheet] table').count(),3);
+ const remainingBalances=worksheet.locator('[data-group-open-item-residuals]');
+ await remainingBalances.getByRole('heading',{name:'Remaining balances on matched documents'}).waitFor();
+ assert.equal(await remainingBalances.locator('tbody tr').count(),1);
+ assert.deepEqual(await remainingBalances.locator('tbody tr > *').allTextContents(),[revenue,'Receivable','100.00','60.00','40.00']);
  const reviewDownloadPromise=page.waitForEvent('download');
  await worksheet.getByRole('button',{name:'Export review worksheet CSV',exact:true}).click();
  const reviewDownload=await reviewDownloadPromise;

@@ -19,6 +19,7 @@ export function verifyGroupOpenItems(input:unknown,asOf:string,currency:string,e
   sources.set(s.organizationId,s);
  }
  const consumed=new Map<string,Decimal>(),bindings:{adjustmentId:string;organizationId:string;obligationId:string;outstanding:string;eliminated:string}[]=[];
+ const residuals=new Map<string,{organizationId:string;obligationId:string;eventId:string;kind:'PAYABLE'|'RECEIVABLE';outstanding:string;eliminated:string;remaining:string}>();
  for(const entry of entries.filter(e=>e.kind==='INTERCOMPANY_BALANCE')){
   if(entry.date!==asOf)throw Error('GROUP_ADJUSTMENT_BALANCE_DATE_REQUIRED');
   for(const [ref,kind] of [[entry.debitSource,'PAYABLE'],[entry.creditSource,'RECEIVABLE']] as const){
@@ -53,8 +54,13 @@ export function verifyGroupOpenItems(input:unknown,asOf:string,currency:string,e
    if(outstanding.lt(0))throw Error('REPORTING_GROUP_OPEN_ITEMS_UNRECONCILED');
    const key=JSON.stringify([s.organizationId,root.id]),amount=new D(entry.amount),used=consumed.get(key)??new D(0);
    if(!amount.gt(0)||amount.plus(used).gt(outstanding))throw Error('GROUP_ADJUSTMENT_EXCEEDS_OPEN_ITEM');
-   consumed.set(key,used.plus(amount));bindings.push({adjustmentId:entry.id,organizationId:s.organizationId,obligationId:root.id,outstanding:outstanding.toFixed(4),eliminated:amount.toFixed(4)});
+   const eliminated=used.plus(amount);
+   consumed.set(key,eliminated);
+   bindings.push({adjustmentId:entry.id,organizationId:s.organizationId,obligationId:root.id,outstanding:outstanding.toFixed(4),eliminated:amount.toFixed(4)});
+   if(eliminated.eq(outstanding))residuals.delete(key);
+   else residuals.set(key,{organizationId:s.organizationId,obligationId:root.id,eventId:root.event_id,kind,
+    outstanding:outstanding.toFixed(4),eliminated:eliminated.toFixed(4),remaining:outstanding.minus(eliminated).toFixed(4)});
   }
  }
- return{status:'SOURCE_OPEN_ITEMS_VERIFIED_ONLY' as const,asOf,bindings};
+ return{status:'SOURCE_OPEN_ITEMS_VERIFIED_ONLY' as const,asOf,bindings,residuals:[...residuals.values()]};
 }

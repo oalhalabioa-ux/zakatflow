@@ -325,6 +325,19 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
      </table>
     </div>)}
    </div>}
+   {data.openItems.bindings.length>0&&<div data-group-open-item-residuals>
+    <h3>{en?'Remaining balances on matched documents':'الأرصدة المتبقية في المستندات المطابقة'}</h3>
+    <p>{en?'Coverage is limited to documents referenced by the approved batch.':'تقتصر المراجعة هنا على المستندات المرتبطة بدفعة الاستبعادات المعتمدة.'}</p>
+    {data.openItems.residuals.length===0?
+     <p>{en?'Every matched balance in this batch was fully eliminated.':'استُبعدت بالكامل الأرصدة المطابقة ضمن هذه الدفعة.'}</p>:
+     <div className="fs-table-scroll"><table className="fs-table"><thead><tr>{(en?['Document reference','Type','Outstanding','Eliminated','Remaining']:['مرجع المستند','النوع','الرصيد القائم','المستبعد','المتبقي']).map(label=><th key={label} scope="col">{label}</th>)}</tr></thead>
+      <tbody>{data.openItems.residuals.map(row=><tr key={row.organizationId+':'+row.obligationId}>
+       <th scope="row"><bdi>{row.eventId}</bdi></th>
+       <td>{row.kind==='PAYABLE'?(en?'Payable':'ذمم دائنة'):(en?'Receivable':'ذمم مدينة')}</td>
+       {[row.outstanding,row.eliminated,row.remaining].map((value,index)=><td key={index}>{statementAmount(value)}</td>)}
+      </tr>)}</tbody>
+     </table></div>}
+   </div>}
    <div className="fs-table-scroll"><table className="fs-table"><thead><tr>{(en?['Account','Before adjustments','Debit adjustment','Credit adjustment','After adjustments']:['الحساب','قبل الاستبعاد','الاستبعاد المدين','الاستبعاد الدائن','بعد الاستبعاد']).map(label=><th key={label}>{label}</th>)}</tr></thead>
     <tbody>{data.worksheet.rows.map(row=><tr key={row.reportingCode}><th>{row.reportingCode}</th>{[row.beforeNetDebit,row.adjustmentDebit,row.adjustmentCredit,row.afterNetDebit].map((value,index)=><td key={index}>{statementAmount(value)}</td>)}</tr>)}</tbody>
    </table></div>
