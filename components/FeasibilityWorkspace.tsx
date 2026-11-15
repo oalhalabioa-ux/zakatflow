@@ -90,6 +90,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const [organizationRecords,setOrganizationRecords]=useState<Record<string,InstitutionalCloudDraft>>({});
  const [organizationCanWrite,setOrganizationCanWrite]=useState(false);
  const [organizationLoaded,setOrganizationLoaded]=useState(false);
+ const [organizationLoadedId,setOrganizationLoadedId]=useState('');
  const [organizationError,setOrganizationError]=useState('');
  const [organizationBusy,setOrganizationBusy]=useState(false);
  const [organizationReload,setOrganizationReload]=useState(0);
@@ -112,7 +113,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   setOrganizationStudies([]);setOrganizationSelectedId('');
   setOrganizationRecords({});setOrganizationCanWrite(false);
   setOrganizationBusy(false);setOrganizationError('');
-  setOrganizationLoaded(false);
+  setOrganizationLoaded(false);setOrganizationLoadedId('');
   if(personalScope||!organizationId){setOrganizationLoaded(true);return}
   const controller=new AbortController();
   void (async()=>{
@@ -126,6 +127,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
     const rows=parseInstitutionalCloudRows(result.studies,organizationId);
     if(!rows||typeof result.canWrite!=='boolean')throw Error('INVALID_COMPANY_RESPONSE');
     if(controller.signal.aborted||organizationRequestRef.current!==requestId||currentUserRef.current!==userId)return;
+    setOrganizationLoadedId(organizationId);
     setOrganizationStudies(rows.map(x=>x.study));
     setOrganizationSelectedId(rows[0]?.id||'');
     setOrganizationRecords(Object.fromEntries(rows.map(x=>[x.id,x])));
@@ -167,11 +169,12 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   catch{setNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}
  },[loaded,storageSafe,hydratedStorageKey,storageKey,studies,selectedId,ar]);
  // Account-scoped legacy drafts are never owned by the selected organization.
- const visibleStudies=personalScope?accountDraftsVisibleInScope(studies,scope):organizationStudies;
+ const companyScopeReady=organizationLoaded&&organizationId.length>0&&organizationLoadedId===organizationId;
+ const visibleStudies=personalScope?accountDraftsVisibleInScope(studies,scope):(companyScopeReady?organizationStudies:[]);
  const activeSelectedId=personalScope?selectedId:organizationSelectedId;
  const study=visibleStudies.find(s=>s.id===activeSelectedId)??null;
  const sharedStudy=Boolean(personalScope&&study&&cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId);
- const effectiveReadOnly=readOnly||sharedStudy||(!personalScope&&!organizationCanWrite);
+ const effectiveReadOnly=readOnly||sharedStudy||(!personalScope&&(!organizationCanWrite||!companyScopeReady));
  const model=useMemo(()=>study?evaluateStudy(study,scenario):null,[study,scenario]);
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const money=(v:number|null|undefined,d=0)=>v==null||!Number.isFinite(v)?'—':fmt(v,d)+(study?.currency?' '+study.currency:'');
@@ -224,7 +227,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  };
  const saveCloud=async()=>{
   if(!personalScope){
-   if(effectiveReadOnly||organizationBusy||!study||!organizationId)return;
+   if(effectiveReadOnly||!companyScopeReady||organizationBusy||!study||!organizationId)return;
    const row=organizationRecords[study.id];
    if(!row){setNotice(txt(ar,'يجب إنشاء الدراسة المؤسسية على الخادم أولًا.','Create the study on the company server first.'));return}
    const userAtRequest=userId,orgAtRequest=organizationId,requestId=organizationRequestRef.current;
@@ -311,7 +314,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    setProjectName('');setTab('profile');
    return;
   }
-  if(!organizationCanWrite||organizationBusy||!organizationId)return;
+  if(!organizationCanWrite||!companyScopeReady||organizationBusy||!organizationId)return;
   const requestedOrg=organizationId,requestedUser=userId,requestId=organizationRequestRef.current;
   setOrganizationBusy(true);
   try{
@@ -370,7 +373,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   <p className="fs-warning" role="status">{!personalScope?organizationError||txt(ar,'محفظة المؤسسة مستقلة عن مسوداتك الشخصية. البيانات المؤسسية تحفظ على QA V2 بعد التحقق من عضوية المؤسسة وصلاحياتها.','The company portfolio is separate from your personal drafts. Organization records are saved on QA V2 using server-verified membership and permissions.'):sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')}>×</button></p>}
   {sharingEnabled&&personalScope&&<JoinInvitationPanel locale={locale}/>} 
-  {(personalScope||(!organizationError&&organizationLoaded&&organizationCanWrite))&&<section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();void create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>setNewSector(e.currentTarget.value as Sector)} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select><Button onClick={()=>void create()} disabled={readOnly||(!personalScope&&(!organizationCanWrite||organizationBusy||!organizationId))||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>}
+  {(personalScope||(!organizationError&&companyScopeReady&&organizationCanWrite))&&<section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();void create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>setNewSector(e.currentTarget.value as Sector)} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select><Button onClick={()=>void create()} disabled={readOnly||(!personalScope&&(!companyScopeReady||!organizationCanWrite||organizationBusy||!organizationId))||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>}
   <div className="fs-portfolio">{visibleStudies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')} aria-pressed={p.id===activeSelectedId} onClick={()=>{if(personalScope)setSelectedId(p.id);else setOrganizationSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
   {!(personalScope?loaded:organizationLoaded)?<p>{txt(ar,'جاري تحميل الدراسات…','Loading studies…')}</p>:!study?<section className="card fs-empty"><h2>{emptyTitle}</h2><p>{emptyDescription}</p></section>:<>
    <div className="fs-subhead"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>}</div>
