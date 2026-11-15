@@ -69,13 +69,21 @@ describe('institutional feasibility portfolio server gate',()=>{
   expect(db.projects.select).not.toHaveBeenCalled();
  });
  it('filters every institutional read by its specific organization',async()=>{
-  const db=mockDb('MEMBER');
+  const db=mockDb('VIEWER');
   expect((await GET(req(orgId))).status).toBe(200);
   expect(db.projects.eq).toHaveBeenCalledWith('organization_id',orgId);
   expect(db.projects.limit).toHaveBeenCalledWith(300);
  });
+ it('reports trustworthy write capability without requiring callers to infer the role',async()=>{
+  mockDb('VIEWER');
+  const view=await (await GET(req())).json();
+  expect(view).toEqual({studies:[],canWrite:false});
+  mockDb('ADMIN');
+  const admin=await (await GET(req())).json();
+  expect(admin).toEqual({studies:[],canWrite:true});
+ });
  it('prohibits non-admin writes even with a paid member grant',async()=>{
-  const db=mockDb('MEMBER');
+  const db=mockDb('VIEWER');
   expect((await POST(req(orgId,'POST',{study}))).status).toBe(403);
   expect(db.projects.insert).not.toHaveBeenCalled();
  });
