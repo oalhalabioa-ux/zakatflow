@@ -65,7 +65,8 @@ export async function POST(request:Request){
  if(!parsed||parsed.revision!==undefined)return json({error:'INVALID_STUDY'},400);
  const {study}=parsed;
  const {data,error}=await ctx.supabase.from('feasibility_projects').insert({
-  id:study.id,organization_id:ctx.organizationId,owner_user_id:ctx.userId,
+  id:study.id,organization_id:ctx.organizationId,
+  owner_user_id:null,created_by_user_id:ctx.userId,
   title:study.title,study
  }).select('id,revision,updated_at').single();
  if(error)return json({error:error.code==='23505'?'DRAFT_CONFLICT':'DRAFT_SAVE_FAILED'},error.code==='23505'?409:400);
