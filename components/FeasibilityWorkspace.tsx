@@ -8,6 +8,7 @@ import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
 import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
 import SupplierComparisonPanel from '@/components/feasibility/SupplierComparisonPanel';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
+import {createIndustrialStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
 import {parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
@@ -66,6 +67,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const [tab,setTab]=useState<StudyTab>('overview');
  const [projectName,setProjectName]=useState('');
  const [newSector,setNewSector]=useState<Sector>('INDUSTRIAL');
+ const [newStarter,setNewStarter]=useState<IndustrialStarter>('GENERAL');
  const [scenario,setScenario]=useState<Scenario>('BASE');
  const [notice,setNotice]=useState('');
  const cloudEnabled=process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
@@ -179,7 +181,9 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const create=()=>{
   if(readOnly)return;
   const title=projectName.trim();if(!title)return;
-  const next=createStudy(uid(),title,newSector);
+  const next=newSector==='INDUSTRIAL'
+    ?createIndustrialStarter(uid(),title,newStarter)
+    :createStudy(uid(),title,newSector);
   setStudies(p=>[next,...p]);setSelectedId(next.id);setProjectName('');setTab('profile');
  };
  const remove=()=>{
@@ -202,7 +206,11 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   <p className="fs-warning" role="status">{sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')}>×</button></p>}
   {sharingEnabled&&<JoinInvitationPanel locale={locale}/>}
-  <section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>setNewSector(e.currentTarget.value as Sector)} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select><Button onClick={create} disabled={readOnly||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>
+  <section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>{setNewSector(e.currentTarget.value as Sector);setNewStarter('GENERAL')}} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select>{newSector==='INDUSTRIAL'&&<select value={newStarter} onChange={e=>setNewStarter(e.currentTarget.value as IndustrialStarter)} aria-label={txt(ar,'قالب المشروع','Project starter template')}>
+     <option value="GENERAL">{txt(ar,'دراسة صناعية عامة','General industrial study')}</option>
+     <option value="BOTTLED_WATER">{txt(ar,'مصنع مياه معبأة','Bottled-water factory')}</option>
+     <option value="DAIRY_CHEESE">{txt(ar,'مصنع ألبان وأجبان','Dairy & cheese factory')}</option>
+    </select>}<Button onClick={create} disabled={readOnly||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div></section>
   <div className="fs-portfolio">{studies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===selectedId?' fs-project-pill--active':'')} aria-pressed={p.id===selectedId} onClick={()=>{setSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
   {!loaded?<p>{txt(ar,'جاري تحميل المسودات…','Loading drafts…')}</p>:!study?<section className="card fs-empty"><h2>{txt(ar,'ابدأ بأول مشروع','Start your first project')}</h2><p>{txt(ar,'ادخل اسم المشروع ونوعه. تبدأ الأرقام بصفر لتجنب عرض نتائج افتراضية على أنها دراسة حقيقية.','Enter a project name and sector. All figures start at zero to avoid implying a real feasibility result.')}</p></section>:<>
    <div className="fs-subhead"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div><Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button></div>
