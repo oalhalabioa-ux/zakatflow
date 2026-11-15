@@ -40,6 +40,11 @@ export async function verifyGroupCapitalContribution({actor,request,rpc,command,
  assert.equal(result.worksheet.rows.find(r=>r.reportingCode==='3100').adjustmentDebit,'25.0000');
  assert.equal(result.worksheet.rows.find(r=>r.reportingCode==='1600').adjustmentCredit,'25.0000');
  assert.equal(result.consolidated,false);
+ assert.equal(result.statementWorksheet.status,'GROUP_STATEMENT_WORKSHEET_ONLY');
+ assert.equal(result.statementWorksheet.position.find(r=>r.key==='assets').adjustment,'-25.0000');
+ assert.equal(result.statementWorksheet.position.find(r=>r.key==='equity').adjustment,'-25.0000');
+ assert.equal(result.statementWorksheet.income.find(r=>r.key==='netProfit').adjustment,'0.0000');
+ assert.ok(result.statementWorksheet.cash.every(r=>r.adjustment==='0.0000'));
  const clean=p=>{const c=structuredClone(p);delete c.coverage.readAt;return c};assert.deepEqual([await raw(parent),await raw(subsidiary)].map(clean),before.map(clean));
  await writeFile(out+'/approved-capital-contribution.json',JSON.stringify(result,null,2));
  await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:pair.documentMatchId,reason:'Capital source document revocation invalidates approval'});

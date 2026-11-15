@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import type {readApprovedGroupEliminations} from '../../services/financial-group-elimination-batches';
 import {statementAmount} from './SourceStatementTable';
+const statementLabels:Record<string,[string,string]>={revenue:['الإيرادات','Revenue'],costOfSales:['تكلفة المبيعات','Cost of sales'],grossProfit:['مجمل الربح','Gross profit'],operatingExpenses:['المصروفات التشغيلية','Operating expenses'],operatingProfit:['الربح التشغيلي','Operating profit'],finance:['تكاليف التمويل','Finance costs'],tax:['الضرائب','Tax'],netProfit:['صافي الربح','Net profit'],assets:['الأصول','Assets'],liabilities:['الالتزامات','Liabilities'],equity:['حقوق الملكية','Equity'],fiscalProfit:['ربح السنة حتى تاريخ التقرير','Fiscal profit to date'],opening:['النقد أول الفترة','Opening cash'],operating:['التدفقات التشغيلية','Operating cash flow'],investing:['التدفقات الاستثمارية','Investing cash flow'],financing:['التدفقات التمويلية','Financing cash flow'],movement:['صافي التغير في النقد','Net cash movement'],closing:['النقد آخر الفترة','Closing cash']};
 type Result=Awaited<ReturnType<typeof readApprovedGroupEliminations>>;
 /** Scope comes exclusively from the main banner and report period. */
 export default function ApprovedGroupAdjustments({organization,from,to,refresh,en}:{organization:string;from:string;to:string;refresh:number;en:boolean}){
@@ -30,6 +31,16 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
   <p>{en?'Verified adjustments affect this group worksheet only. Company ledgers remain unchanged. This worksheet does not certify completion of consolidated statements.':'الاستبعادات المتحقق منها تؤثر في ورقة المجموعة فقط، وتبقى دفاتر الشركات كما هي. هذه الورقة لا تعني اكتمال القوائم الموحّدة.'}</p>
   {!data?<p role="status">{!current?en?'Verifying approved adjustments…':'جارٍ التحقق من الاستبعادات المعتمدة…':current.error==='GROUP_BATCH_APPROVAL_REQUIRED'?en?'No approved adjustment batch exists for the selected period.':'لا توجد نسخة استبعادات معتمدة للفترة المختارة.':en?'Approved adjustments could not be verified against current sources. No amounts are shown.':'تعذر التحقق من الاستبعادات المعتمدة مقابل المصادر الحالية. لم تُعرض مبالغ غير متحقق منها.'}</p>:<>
    <p>{en?'Approved version':'النسخة المعتمدة'}: {data.approval.version} · {data.worksheet.currency}</p>
+   {data.statementWorksheet&&<div data-group-statement-worksheet="true">
+    <h3>{en?'Statement review after approved adjustments':'مراجعة القوائم بعد الاستبعادات المعتمدة'}</h3>
+    <p>{en?'Review worksheet only. Final consolidated statements require completion of group scope, acquisition, non-controlling interests and currency translation reviews.':'ورقة مراجعة فقط. إصدار القوائم المجمعة النهائية يتطلب استكمال مراجعة نطاق المجموعة والاستحواذ وحقوق غير المسيطرين وترجمة العملات.'}</p>
+    {(['income','position','cash'] as const).map(section=><div className="fs-table-scroll" key={section}>
+     <h4>{section==='income'?(en?'Income':'الدخل'):section==='position'?(en?'Financial position':'المركز المالي'):(en?'Cash flows':'التدفقات النقدية')}</h4>
+     <table className="fs-table"><thead><tr>{(en?['Item','Before adjustments','Adjustment','After adjustments']:['البند','قبل الاستبعاد','التعديل','بعد الاستبعاد']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{data.statementWorksheet![section].map(row=><tr key={row.key}><th>{statementLabels[row.key]?.[en?1:0]??row.key}</th>{[row.before,row.adjustment,row.after].map((value,index)=><td key={index}>{statementAmount(value)}</td>)}</tr>)}</tbody>
+     </table>
+    </div>)}
+   </div>}
    <div className="fs-table-scroll"><table className="fs-table"><thead><tr>{(en?['Account','Before adjustments','Debit adjustment','Credit adjustment','After adjustments']:['الحساب','قبل الاستبعاد','الاستبعاد المدين','الاستبعاد الدائن','بعد الاستبعاد']).map(label=><th key={label}>{label}</th>)}</tr></thead>
     <tbody>{data.worksheet.rows.map(row=><tr key={row.reportingCode}><th>{row.reportingCode}</th>{[row.beforeNetDebit,row.adjustmentDebit,row.adjustmentCredit,row.afterNetDebit].map((value,index)=><td key={index}>{statementAmount(value)}</td>)}</tr>)}</tbody>
    </table></div>

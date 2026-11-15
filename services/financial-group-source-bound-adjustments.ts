@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {groupStatementWorksheet} from '../lib/financial-group-statement-worksheet';
 import {groupAdjustmentSchema,previewGroupCashEliminations} from '../lib/financial-group-cash-eliminations';
 import {statementQuery} from '../lib/financial-statement-source';
 import {sourceBoundAdjustmentSchema,previewSourceBoundGroupEliminations} from '../lib/financial-group-source-bound-adjustments';
@@ -24,5 +25,6 @@ export async function liveSourceBoundGroupPreview(input:unknown){
  assertStableFinancialReplay({items:before},{items:await readGroupOpenItems(ledgerEntries)});
  assertStableFinancialReplay({documents:documentsBefore},{documents:await readGroupDocumentMatches(entries)});
  const cashWorksheet=cashEntries.length?previewGroupCashEliminations(control,rawSources,cashEntries,Array.isArray(documentsBefore)?documentsBefore.filter(d=>cashEntries.some(e=>e.documentMatchId===d.id)):documentsBefore):undefined;
- return{...preview,openItems,documents,...(cashWorksheet?{cashWorksheet}:{})};
+ const statementWorksheet=documents.status==='DOCUMENT_MATCHES_VERIFIED_ONLY'?groupStatementWorksheet(control,rawSources,entries,documentsBefore):undefined;
+ return{...preview,openItems,documents,...(cashWorksheet?{cashWorksheet}:{}),...(statementWorksheet?{statementWorksheet}:{})};
 }

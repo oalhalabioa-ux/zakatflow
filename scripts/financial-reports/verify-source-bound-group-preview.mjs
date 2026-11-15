@@ -79,6 +79,8 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await page.getByLabel('To date',{exact:true}).fill(query.to);
  await worksheet.locator('table').waitFor();
  assert.ok((await worksheet.textContent()).includes('Approved version: 3'));
+ await worksheet.locator('[data-group-statement-worksheet]').waitFor();
+ assert.equal(await worksheet.locator('[data-group-statement-worksheet] table').count(),3);
  await page.screenshot({path:out+'/approved-group-adjustments-en.png',fullPage:true});
 
 
