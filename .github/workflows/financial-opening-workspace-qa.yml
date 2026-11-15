@@ -278,6 +278,8 @@ jobs:
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-cash-account-link-sync.sql
       - name: Verify audited bank opening corrections and fiscal protection
         run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < tests/qa-bank-opening-correction.sql
+      - name: Install acquisition evidence in disposable database
+        run: docker exec -i supabase_db_opening-workspace-qa psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/drafts/20261115122951_financial_group_acquisition_evidence.sql
       - name: Exercise actual authorization, persistence, approval, reports and browser
         run: node scripts/financial-reports/verify-live-opening.mjs
       - name: Reconcile statements and exports against this run's approved ledger

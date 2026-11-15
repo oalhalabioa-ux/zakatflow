@@ -23,3 +23,29 @@ export async function reviewGroupAcquisition(input:unknown){
   basis:'USER_ENTERED_ACQUISITION_MEASUREMENT' as const,
   query,registryRevision:before.control.registry.revision,calculation};
 }
+
+const evidenceQuery={query:statementQuery,id:z.string().uuid()};
+const reason=z.string().trim().min(8).max(1000);
+const evidenceCommand=z.discriminatedUnion('action',[
+ z.object({...evidenceQuery,action:z.literal('SAVE'),measurement:groupAcquisitionMeasurementSchema}).strict(),
+ z.object({...evidenceQuery,action:z.literal('APPROVE'),reason}).strict(),
+ z.object({...evidenceQuery,action:z.literal('REVOKE'),reason}).strict(),
+ z.object({...evidenceQuery,action:z.literal('READ')}).strict(),
+]);
+
+/** Store the exact measurement reviewed by an authorized human. */
+export async function commandGroupAcquisitionEvidence(input:unknown){
+ if(process.env.FINANCIAL_GROUP_ELIMINATION_PREVIEW!=='true')throw Error('REPORTING_DISABLED');
+ const command=evidenceCommand.parse(input);
+ const {requireUser}=await import('./auth');
+ const {assertLiveStatements}=await import('./financial-statement-live');
+ assertLiveStatements();
+ if(command.action==='SAVE')await reviewGroupAcquisition({query:command.query,measurement:command.measurement});
+ const {supabase}=await requireUser();
+ const result=await supabase.rpc('financial_group_acquisition_evidence_command',{
+  p_action:command.action,p_id:command.id,p_root:command.query.organization,p_from:command.query.from,p_to:command.query.to,
+  p_measurement:command.action==='SAVE'?command.measurement:null,p_reason:'reason' in command?command.reason:null,
+ });
+ if(result.error)throw Error(result.error.message.match(/(?:GROUP_(?:ACQUISITION|CONTROL)|REPORTING)_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');
+ return result.data;
+}

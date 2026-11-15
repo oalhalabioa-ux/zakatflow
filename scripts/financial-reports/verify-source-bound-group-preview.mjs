@@ -38,6 +38,23 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await request('/api/financial-reporting/group-acquisition-review',{...acquisitionInput,approved:true},400);
  await request('/api/financial-reporting/group-acquisition-review',{...acquisitionInput,measurement:{...acquisitionInput.measurement,currency:'USD'}},422);
  await writeFile(out+'/unapproved-acquisition-review.json',JSON.stringify(acquisitionReview,null,2));
+ const acquisitionPath='/api/financial-reporting/group-acquisition-review';
+ const acquisitionKey={query,id:randomUUID()};
+ const acquisitionSave={...acquisitionKey,action:'SAVE',measurement:acquisitionInput.measurement};
+ const acquisitionDraft=await request(acquisitionPath,acquisitionSave);
+ assert.equal(acquisitionDraft.status,'DRAFT');
+ assert.deepEqual(await request(acquisitionPath,acquisitionSave),acquisitionDraft);
+ await request(acquisitionPath,{...acquisitionSave,measurement:{...acquisitionSave.measurement,consideration:'1300'}},409);
+ const acquisitionApproval=await request(acquisitionPath,{...acquisitionKey,action:'APPROVE',reason:'Reviewer confirmed acquisition evidence in isolated QA'});
+ assert.equal(acquisitionApproval.status,'APPROVED');assert.equal(acquisitionApproval.approved_by,actor.id);
+ assert.deepEqual(await request(acquisitionPath,{...acquisitionKey,action:'READ'}),acquisitionApproval);
+ const bargainKey={query,id:randomUUID()};
+ await request(acquisitionPath,{...bargainKey,action:'SAVE',measurement:{...acquisitionSave.measurement,consideration:'900'}});
+ const blockedBargain=await request(acquisitionPath,{...bargainKey,action:'APPROVE',reason:'Unsupported bargain authorization attempt'},422);
+ assert.equal(blockedBargain.error,'GROUP_ACQUISITION_REASSESSMENT_REQUIRED');
+ const directInput={p_id:randomUUID(),p_root:parent,p_from:query.from,p_to:query.to,p_action:'SAVE',p_measurement:{...acquisitionSave.measurement,approved:true}};
+ assert.match((await actor.client.rpc('financial_group_acquisition_evidence_command',directInput)).error?.message??'',/GROUP_ACQUISITION_INPUT_INVALID/);
+
  const ref=(organizationId,eventId,line,accountId)=>({organizationId,eventId,lineId:line.id,accountId});
  const adjustment={id:randomUUID(),kind:'INTERCOMPANY_BALANCE',date:query.to,amount:'60',reason:'Selected counterpart source legs for review',debitSource:ref(subsidiary,expenseEvent,eline,eline.resolvedPosting.creditAccountId),creditSource:ref(parent,revenue,rline,rline.resolvedPosting.debitAccountId)};
  const unpaired=await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]});
@@ -109,7 +126,14 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  try{
   await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},403);
   await request('/api/financial-reporting/group-acquisition-review',acquisitionInput,403);
+  await request(acquisitionPath,{...acquisitionKey,action:'READ'},403);
  }finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`)}
+ const acquisitionRevoked=await request(acquisitionPath,{...acquisitionKey,action:'REVOKE',reason:'Reviewer withdrew the isolated acquisition evidence'});
+ assert.equal(acquisitionRevoked.status,'REVOKED');
+ assert.equal(acquisitionRevoked.revoked_by,actor.id);
+ assert.equal(acquisitionRevoked.approved_by,actor.id);
+ await request(acquisitionPath,{...acquisitionKey,action:'APPROVE',reason:'Revoked records must never be reapproved'},409);
+ await writeFile(out+'/acquisition-evidence-lifecycle.json',JSON.stringify({draft:acquisitionDraft,approval:acquisitionApproval,revocation:acquisitionRevoked},null,2));
  await request('/api/financial-reporting/group-document-matches',{action:'REVOKE',matchId:proposed.documentMatchId,reason:'Isolated acceptance proves revoked evidence is excluded'});
  await request('/api/financial-reporting/group-eliminations',{query,entries:[adjustment]},422);
  const revokedSave=await actor.client.rpc('save_financial_group_eliminations',{...saveArgs,p_expected_version:3,p_entries:[adjustment],p_request_id:randomUUID()});
