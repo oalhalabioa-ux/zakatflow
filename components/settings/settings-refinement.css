@@ -295,3 +295,29 @@
   .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:1fr}
   .corp-shell .settings-workspace .settings-finance-status article{min-height:220px}
 }
+
+/* Regression 2026-11-16: keep long Arabic captions inside narrow mobile columns. */
+.corp-shell .settings-workspace,
+.corp-shell .settings-workspace .settings-finance-native,
+.corp-shell .settings-workspace .settings-native-content{
+  box-sizing:border-box;min-width:0;max-width:100%;
+}
+.corp-shell .settings-workspace .settings-tabs{
+  box-sizing:border-box;max-width:100%;min-width:0;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){
+  box-sizing:border-box;min-width:0;max-width:100%;overflow:hidden;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{
+  display:block;box-sizing:border-box;min-width:0;width:100%;max-width:100%;
+  white-space:normal!important;overflow-wrap:anywhere!important;
+  word-break:break-word;line-height:1.55;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs{
+  box-sizing:border-box;max-width:100%;min-width:0;
+}
+@media(max-width:1100px){
+  .corp-shell .settings-workspace .settings-finance-journey-tabs{
+    width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;
+  }
+}
