@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import type {CenterBranchRegistry} from '../../lib/financial-center-branch-registry';
+import './center-branch-assignments.css';
 type Named={id:string;name:string;active?:boolean};
 type Data={registry:CenterBranchRegistry;centers:Named[];branches:Named[]};
 /** Mounted with organization as key: a scope change discards pending editor state. */
