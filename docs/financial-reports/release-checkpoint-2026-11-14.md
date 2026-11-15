@@ -59,3 +59,11 @@ Run 43642697600 passed replay, production parity and compatibility. Its browser 
 - The next local change adds contiguous dated center/branch slices from fiscal start through report end. Every original GL leg uses its transaction date; opening allocations use fiscal start. Gaps, overlaps, unapproved mappings and mismatched historical branches fail explicitly.
 - A center may now produce separate historical branch rows; the existing center UI/export already sums all matching rows when All branches is selected. This does not move opening balances or create transfer journals. A registry transfer alone has no accounting effect.
 - 33 targeted registry, dimensional projection/source/service and opening tests passed. A new final-head CI run and actual midperiod-transfer acceptance remain required. Frozen closed-year dimensions and cross-branch reversal attribution remain protected, not silently inferred.
+
+## Source-document outstanding check — 15 November 2026
+
+All seven workflows on `ff103afcff528217cda7602a544bef467419c83f` completed successfully, including full-schema browser acceptance 43644457775.
+
+The next change binds balance-elimination preview to the selected invoice obligation. The authenticated reader loads actual root obligations, credit/debit notes, allocations, event dates/statuses and reversal links using tenant filters, exact row counts, pagination and decimal-text amounts. Permissions and the complete evidence are read again. Missing/ambiguous obligations, incomplete pages, inconsistent reversals, over-settlements and concurrent source changes fail closed. Balance adjustments use the report closing date. Income eliminations do not incorrectly require an unpaid invoice.
+
+22 targeted tests pass. The actual two-company acceptance now also checks native outstanding amounts of 100 and 60. This new reader still needs its final-head actual CI acceptance. It does not prove reciprocal counterparties and does not implement an approved consolidation ledger; no final export or Production deployment is enabled. No hosted schema migration is required by this change.
