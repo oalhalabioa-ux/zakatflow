@@ -137,6 +137,16 @@ describe('QA V2 email-bound invitation boundary',()=>{
   expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId:'e9d24224-ce21-4160-85f7-a21f2b3d50b0'}))).status).toBe(403);
   expect(rpc).not.toHaveBeenCalled();
  });
+ it('rejects revoking members when the feasibility licence has expired or is read-only',async()=>{
+  const {access,rpc}=mockData();
+  access.maybeSingle.mockResolvedValueOnce({data:{status:'READ_ONLY',starts_at:'2026-11-01T00:00:00Z',ends_at:null},error:null});
+  const userId='e9d24224-ce21-4160-85f7-a21f2b3d50b0';
+  expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId}))).status).toBe(403);
+  expect(rpc).not.toHaveBeenCalled();
+  access.maybeSingle.mockResolvedValueOnce({data:{status:'TRIAL',starts_at:'2026-10-01T00:00:00Z',ends_at:'2026-11-01T00:00:00Z'},error:null});
+  expect((await revoke(request('/api/feasibility/members/revoke',{projectId,userId}))).status).toBe(403);
+  expect(rpc).not.toHaveBeenCalled();
+ });
  it('calls the server-authorized revocation function only for an owner',async()=>{
   const {rpc}=mockData();
   rpc.mockResolvedValueOnce({data:true,error:null});
