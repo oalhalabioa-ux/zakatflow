@@ -247,6 +247,8 @@ export async function readGroupAcquisitionPosition(input:unknown){
  assertStableFinancialReplay(worksheet,await readApprovedGroupEliminations(query));
  assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
  return {status:later?'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW' as const:'ACQUISITION_DAY_POSITION_REVIEW' as const,query,currency:base.currency,rows,
+  approval:worksheet.approval,memberIds:base.memberIds,statementCash:cash.length?cash:base.cash,
+  acquisitionRecordIds:approved.rows.map(record=>record.id),
   eliminationBatchVersion:combined?worksheet.approval.version:null,
   investmentEliminated:investment.toFixed(4),subsidiaryEquityEliminated:bookEquity.toFixed(4),
   goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments,depreciationAdjustments,deferredTaxAdjustments,income,cash,

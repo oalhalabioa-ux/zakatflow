@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {approvedGroupWorksheetCsv} from '../lib/financial-group-worksheet-export';
+import {approvedGroupWorksheetCsv,groupAcquisitionPositionCsv} from '../lib/financial-group-worksheet-export';
 import {groupStatementWorksheet} from '../lib/financial-group-statement-worksheet';
 import {sourceBoundGroupFixture} from './financial-reporting/group-source-bound-fixture';
 function fixture(){
@@ -47,4 +47,32 @@ it('exports verified acquisition amounts separately and escapes spreadsheet form
  expect(csv).toContain("' =SUM(1,2)");
  review.rows[0].calculation.subsidiaryOrganizationId=query.organization;
  expect(()=>approvedGroupWorksheetCsv({...data,acquisitionReview:review},query)).toThrow('GROUP_EXPORT_SCOPE_MISMATCH');
+});
+
+it('exports the adjusted statements and the inventory evidence from the same scope',()=>{
+ const {data,query}=fixture();
+ const s=data.statementWorksheet,acquisitionId='90000000-0000-4000-8000-000000000001';
+ const result={
+  status:'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW',query,currency:s.currency,approval:data.approval,
+  memberIds:s.memberIds,acquisitionRecordIds:[acquisitionId],
+  rows:s.position.filter(row=>row.key!=='fiscalProfit'),income:s.income,statementCash:s.cash,
+  profitAttribution:{total:'160.0000',parent:'128.0000',nci:'32.0000'},
+  closingParentEquity:'128.0000',closingNci:'32.0000',
+  inventoryEliminations:[{
+   sellerOrganizationId:s.memberIds.find(id=>id!==query.organization),buyerOrganizationId:query.organization,
+   inventoryAccountId:'170098',inventoryReduction:'200.0000',
+   deferredTax:{approvedRecordId:acquisitionId,evidenceDocumentId:'90000000-0000-4000-8000-000000000002',
+    deferredTaxAssetIncrease:'40.0000',groupAfterTaxProfitReduction:'160.0000'},
+   afterTaxAttribution:{parent:'128.0000',nonControllingInterests:'32.0000'},
+  }],
+ };
+ const csv=groupAcquisitionPositionCsv(result,query);
+ expect(csv.startsWith('\uFEFF')).toBe(true);
+ expect(csv).toContain('"cash","Closing cash","النقد آخر الفترة"');
+ expect(csv).toContain('"170098","200.0000","40.0000","160.0000","128.0000","32.0000"');
+ expect(csv).toContain('"Non-controlling interests / غير المسيطرين","32.0000"');
+ expect(()=>groupAcquisitionPositionCsv(result,{...query,to:'2026-03-01'})).toThrow('GROUP_EXPORT_SCOPE_MISMATCH');
+ expect(()=>groupAcquisitionPositionCsv({...result,status:'ACQUISITION_POSITION_UNAVAILABLE'},query)).toThrow();
+ result.inventoryEliminations[0].deferredTax.approvedRecordId=data.approval.id;
+ expect(()=>groupAcquisitionPositionCsv(result,query)).toThrow('GROUP_EXPORT_SCOPE_MISMATCH');
 });

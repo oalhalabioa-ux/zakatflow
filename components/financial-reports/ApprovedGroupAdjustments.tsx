@@ -1,12 +1,18 @@
 'use client';
 import {Fragment,useEffect,useRef,useState} from 'react';
-import {approvedGroupWorksheetCsv,groupStatementLabels as statementLabels} from '../../lib/financial-group-worksheet-export';
+import {approvedGroupWorksheetCsv,groupAcquisitionPositionCsv,groupStatementLabels as statementLabels} from '../../lib/financial-group-worksheet-export';
 import type {readGroupAcquisitionPosition} from '../../services/financial-group-acquisition-position';
 import type {readApprovedGroupAcquisitions,readGroupAcquisitionLedgerBasis} from '../../services/financial-group-acquisition-review';
 import type {readApprovedGroupEliminations} from '../../services/financial-group-elimination-batches';
 import {statementAmount} from './SourceStatementTable';
 type Result=Awaited<ReturnType<typeof readApprovedGroupEliminations>>;
 type AcquisitionResult=Awaited<ReturnType<typeof readApprovedGroupAcquisitions>>;
+
+function downloadCsv(csv:string,filename:string){
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download=filename;
+ document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+}
 
 type LedgerBasis=Awaited<ReturnType<typeof readGroupAcquisitionLedgerBasis>>;
 
@@ -58,7 +64,7 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
  const [result,setResult]=useState<PositionReview|'loading'|'error'|null>(null);
  const request=useRef<AbortController|null>(null);
  useEffect(()=>()=>request.current?.abort(),[]);
- async function load(){
+ async function load(exportCsv=false){
   request.current?.abort();
   const abort=new AbortController();
   request.current=abort;
@@ -72,17 +78,25 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
    const data=await response.json();
    if(data.query?.organization!==query.organization||data.query?.from!==query.from||data.query?.to!==query.to||
      !['ACQUISITION_DAY_POSITION_REVIEW','ACQUISITION_CARRY_FORWARD_POSITION_REVIEW','ACQUISITION_POSITION_UNAVAILABLE'].includes(data.status))throw Error('UNAVAILABLE');
-   if(!abort.signal.aborted)setResult(data);
+   if(abort.signal.aborted)return;
+   if(exportCsv){
+    const csv=groupAcquisitionPositionCsv(data,query);
+    downloadCsv(csv,`group-adjusted-statements-${query.organization}-${query.from}-${query.to}-v${data.approval.version}.csv`);
+   }
+   setResult(data);
   }catch{if(!abort.signal.aborted)setResult('error');}
  }
  return <div data-acquisition-position-review="true">
-  <div className="fs-page-actions"><button type="button" onClick={load} disabled={result==='loading'}>
+  <div className="fs-page-actions"><button type="button" onClick={()=>void load()} disabled={result==='loading'}>
    {query.from===query.to?(en?'Review acquisition-day position':'مراجعة المركز المالي يوم الاستحواذ'):(en?'Review acquisition carry-forward':'مراجعة أثر الاستحواذ في نهاية الفترة')}
   </button></div>
   {result==='loading'?<p role="status">{en?'Verifying the position…':'جارٍ التحقق من المركز المالي…'}</p>:
    result!==null&&(result==='error'||result.status==='ACQUISITION_POSITION_UNAVAILABLE')?
     <p role="status">{en?'Verified acquisition-day adjustments are unavailable for this selection.':'تسويات يوم الاستحواذ المتحقق منها غير متاحة لهذا الاختيار.'}</p>:
    result!==null&&<>
+    <div className="fs-page-actions"><button type="button" onClick={()=>void load(true)}>
+     {en?'Export adjusted group statements CSV':'تصدير قوائم المجموعة بعد التسويات CSV'}
+    </button></div>
     <h4>{result.eliminationBatchVersion!==null||result.inventoryEliminations.length>0?
      (en?'Financial position after acquisition and intercompany eliminations':'المركز المالي بعد تسوية الاستحواذ والاستبعادات بين الشركات'):
      result.status==='ACQUISITION_CARRY_FORWARD_POSITION_REVIEW'?
@@ -280,9 +294,7 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
    if(!response.ok)throw Error(body.error??'UNAVAILABLE');
    if(!body.acquisitionReview)throw Error('UNAVAILABLE');
    const csv=approvedGroupWorksheetCsv(body,scope);
-   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-   const link=document.createElement('a');link.href=url;link.download=`group-review-${organization}-${from}-${to}-v${body.approval.version}.csv`;
-   document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+   downloadCsv(csv,`group-review-${organization}-${from}-${to}-v${body.approval.version}.csv`);
    setState({key:requestedKey,data:body});
    setExportedAcquisitions({key:requestedKey,review:body.acquisitionReview.status==='APPROVED_ACQUISITION_REVIEW'?body.acquisitionReview:'error'});
   }catch(error){

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {writeFile} from 'node:fs/promises';
+import {readFile,writeFile} from 'node:fs/promises';
 
 export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,jointDocument,parent,subsidiary,query,out,
  acquisitionPath,approvedAcquisitionsPath,documentPath,acquisitionMeasurement,page,worksheet,positionPanel}){
@@ -141,9 +141,35 @@ export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,
  await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
  await positionPanel.getByRole('heading',{name:'Approved inventory margin eliminations',exact:true}).waitFor();
  await positionPanel.getByText('170098',{exact:true}).waitFor();
+ const exportButton=positionPanel.getByRole('button',{name:'Export adjusted group statements CSV',exact:true});
+ const download=page.waitForEvent('download');
+ await exportButton.click();
+ const file=await download;
+ assert.equal(file.suggestedFilename(),`group-adjusted-statements-${query.organization}-${query.from}-${query.to}-v1.csv`);
+ const csvPath=out+'/group-adjusted-statements.csv';
+ await file.saveAs(csvPath);
+ const csv=await readFile(csvPath,'utf8');
+ for(const [section,english,arabic,key,source] of [
+  ['position','Assets','الأصول','assets',after.rows],
+  ['income','Net profit','صافي الربح','netProfit',after.income],
+  ['cash','Closing cash','النقد آخر الفترة','closing',after.statementCash],
+ ]){
+  const row=source.find(item=>item.key===key);
+  assert.ok(csv.includes([section,english,arabic,row.before,row.adjustment,row.after].map(value=>'"'+value+'"').join(',')));
+ }
+ assert.ok(csv.includes('"170098","200.0000","40.0000","160.0000","128.0000","32.0000"'));
  await writeFile(out+'/group-inventory-consolidated-position.json',JSON.stringify({before,after},null,2));
  console.log('PASS Approved stock margin reaches group position, income and non-controlling interests exactly once');
  await buyer(issue);
+ let extraDownloads=0;
+ const countDownload=()=>extraDownloads++;
+ page.on('download',countDownload);
+ try{
+  await exportButton.click();
+  await positionPanel.getByText('Verified acquisition-day adjustments are unavailable for this selection.',{exact:true}).waitFor();
+  assert.equal(extraDownloads,0);
+ }finally{page.off('download',countDownload);}
+ console.log('PASS Browser exports exact adjusted statements and withholds the download when stock evidence changes');
  assert.equal((await request(path,payload,422)).error,'GROUP_INVENTORY_REMAINING_STOCK_UNVERIFIED');
  assert.equal((await request(approvedAcquisitionsPath,positionAction,409)).error,'GROUP_BATCH_SOURCE_CHANGED');
  const refreshedBatch=await request(batchPath,{action:'SAVE',query,entries:[],expectedVersion:1,requestId:randomUUID(),
