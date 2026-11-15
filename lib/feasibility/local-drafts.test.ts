@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {createStudy} from './engine';
-import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
+import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
 
 const id='6357a708-bae2-4634-9296-490404b1d8a4';
 const owner='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
@@ -75,5 +75,32 @@ describe('institutional feasibility cloud snapshot validation',()=>{
  it('accepts creator deletion without reclassifying the corporate study as personal',()=>{
   expect(parseInstitutionalCloudRows([{...good,created_by_user_id:null}],organization))
     .toMatchObject([{organization_id:organization,owner_user_id:null,created_by_user_id:null}]);
+ });
+});
+
+
+describe('legacy cloud restore never promotes shared user studies into local ownership',()=>{
+ const owner='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
+ const invitee='1fce6c75-e43d-45c9-955b-d06626aa491d';
+ const ownStudy=createStudy('38b5e2ec-2732-4f9a-8d65-d06a22aeab5e','My study');
+ const sharedStudy=createStudy('e33bcc0e-e1d4-4cf6-86f1-a2148cfa344b','Someone else\'s study');
+ const rows=[
+  {id:sharedStudy.id,study:sharedStudy,revision:2,owner_user_id:invitee},
+  {id:ownStudy.id,study:ownStudy,revision:1,owner_user_id:owner}
+ ];
+ it('keeps personal owner records separate from shared read-only records',()=>{
+  const parts=partitionPersonalCloudRows(rows,owner);
+  expect(parts?.owned.map(x=>x.id)).toEqual([ownStudy.id]);
+  expect(parts?.shared.map(x=>x.id)).toEqual([sharedStudy.id]);
+  expect(rows.map(x=>x.id)).toEqual([sharedStudy.id,ownStudy.id]);
+ });
+ it('rejects invalid identity rather than guessing ownership',()=>{
+  expect(partitionPersonalCloudRows(rows,'invalid')).toBeNull();
+ });
+ it('does not mutate original remote entries or create fake personal ownership',()=>{
+  const first=JSON.stringify(rows);
+  partitionPersonalCloudRows(rows,owner);
+  expect(JSON.stringify(rows)).toBe(first);
+  expect(rows[0].owner_user_id).toBe(invitee);
  });
 });
