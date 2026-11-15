@@ -72,7 +72,7 @@ export async function readApprovedGroupAcquisitions(input:unknown){
   const result=await supabase.rpc('financial_group_approved_acquisition_evidence',{
    p_root:query.organization,p_from:query.from,p_to:query.to,
   });
-  if(result.error?.code==='PGRST202')throw Error('REPORTING_DISABLED');
+  if(result.error?.code==='PGRST202')throw Error('REPORTING_ACQUISITIONS_NOT_INSTALLED');
   if(result.error)throw Error(result.error.message.match(/(?:GROUP_(?:ACQUISITION|CONTROL)|REPORTING)_[A-Z_]+/)?.[0]??'REPORTING_UNAVAILABLE');
   const parsed=approvedPortfolio.safeParse(result.data);
   if(!parsed.success)throw Error('REPORTING_UNAVAILABLE');

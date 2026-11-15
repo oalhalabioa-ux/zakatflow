@@ -16,7 +16,7 @@ export async function POST(request:Request){
  }catch(error){
   const code=error instanceof Error?error.message:'REPORTING_UNAVAILABLE';
   const inputError=error instanceof ZodError||code==='REPORTING_INPUT_INVALID';
-  const status=code==='REPORTING_DISABLED'?404:code==='UNAUTHORIZED'?401:/DENIED/.test(code)?403:inputError?400:
+  const status=['REPORTING_DISABLED','REPORTING_ACQUISITIONS_NOT_INSTALLED'].includes(code)?404:code==='UNAUTHORIZED'?401:/DENIED/.test(code)?403:inputError?400:
    /CHANGED|CONFLICT/.test(code)?409:/^GROUP_(ACQUISITION|CONTROL)_/.test(code)?422:503;
   return NextResponse.json({error:inputError?'REPORTING_INPUT_INVALID':/^(REPORTING_|GROUP_ACQUISITION_|GROUP_CONTROL_)[A-Z_]+$/.test(code)?code:status===401?'UNAUTHORIZED':'REPORTING_UNAVAILABLE'},{status,headers});
  }

@@ -7,8 +7,9 @@ import {statementAmount} from './SourceStatementTable';
 type Result=Awaited<ReturnType<typeof readApprovedGroupEliminations>>;
 type AcquisitionResult=Awaited<ReturnType<typeof readApprovedGroupAcquisitions>>;
 
-function ApprovedAcquisitionReview({organization,from,to,en}:{organization:string;from:string;to:string;en:boolean}){
- const [review,setReview]=useState<AcquisitionResult|'error'|null>(null);
+function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organization:string;from:string;to:string;en:boolean;exported?:AcquisitionResult|'error'}){
+ const [loaded,setReview]=useState<AcquisitionResult|'error'|null>(null);
+ const review=exported??loaded;
  useEffect(()=>{
   if(!organization||!from||!to)return;
   const abort=new AbortController();
@@ -50,6 +51,7 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
  const key=JSON.stringify([organization,from,to,refresh]);
  const activeKey=useRef(key);activeKey.current=key;
  const exportRequest=useRef<AbortController|null>(null);
+ const [exportedAcquisitions,setExportedAcquisitions]=useState<{key:string;review:AcquisitionResult|'error'}|null>(null);
  const [exporting,setExporting]=useState<string|null>(null);
  useEffect(()=>()=>{exportRequest.current?.abort();},[key]);
  const [state,setState]=useState<{key:string;data?:Result;error?:string;disabled?:boolean}|null>(null);
@@ -73,16 +75,23 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
   const requestedKey=key;setExporting(requestedKey);
   try{
    const scope={organization,from,to};
-   const response=await fetch('/api/financial-reporting/group-approved-eliminations',{method:'POST',cache:'no-store',signal:abort.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify(scope)});
+   const response=await fetch('/api/financial-reporting/group-approved-eliminations',{method:'POST',cache:'no-store',signal:abort.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'EXPORT',query:scope})});
    const body=await response.json();
    if(abort.signal.aborted||activeKey.current!==requestedKey)return;
    if(!response.ok)throw Error(body.error??'UNAVAILABLE');
+   if(!body.acquisitionReview)throw Error('UNAVAILABLE');
    const csv=approvedGroupWorksheetCsv(body,scope);
    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
    const link=document.createElement('a');link.href=url;link.download=`group-review-${organization}-${from}-${to}-v${body.approval.version}.csv`;
    document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
    setState({key:requestedKey,data:body});
-  }catch(error){if(!abort.signal.aborted&&activeKey.current===requestedKey)setState({key:requestedKey,error:error instanceof Error?error.message:'UNAVAILABLE'});}
+   setExportedAcquisitions({key:requestedKey,review:body.acquisitionReview.status==='APPROVED_ACQUISITION_REVIEW'?body.acquisitionReview:'error'});
+  }catch(error){
+   if(!abort.signal.aborted&&activeKey.current===requestedKey){
+    setState({key:requestedKey,error:error instanceof Error?error.message:'UNAVAILABLE'});
+    setExportedAcquisitions({key:requestedKey,review:'error'});
+   }
+  }
   finally{if(activeKey.current===requestedKey)setExporting(null);}
  }
  const current=state?.key===key?state:null;
@@ -91,7 +100,7 @@ export default function ApprovedGroupAdjustments({organization,from,to,refresh,e
  return <section className="fs-source-statements" data-approved-group-adjustments="true">
   <h2>{en?'Approved group adjustments':'استبعادات المجموعة المعتمدة'}</h2>
   <p>{en?'Verified adjustments affect this group worksheet only. Company ledgers remain unchanged. This worksheet does not certify completion of consolidated statements.':'الاستبعادات المتحقق منها تؤثر في ورقة المجموعة فقط، وتبقى دفاتر الشركات كما هي. هذه الورقة لا تعني اكتمال القوائم الموحّدة.'}</p>
-  <ApprovedAcquisitionReview key={key} organization={organization} from={from} to={to} en={en}/>
+  <ApprovedAcquisitionReview key={key} organization={organization} from={from} to={to} en={en} exported={exportedAcquisitions?.key===key?exportedAcquisitions.review:undefined}/>
   {!data?<p role="status">{!current?en?'Verifying approved adjustments…':'جارٍ التحقق من الاستبعادات المعتمدة…':current.error==='GROUP_BATCH_APPROVAL_REQUIRED'?en?'No approved adjustment batch exists for the selected period.':'لا توجد نسخة استبعادات معتمدة للفترة المختارة.':en?'Approved adjustments could not be verified against current sources. No amounts are shown.':'تعذر التحقق من الاستبعادات المعتمدة مقابل المصادر الحالية. لم تُعرض مبالغ غير متحقق منها.'}</p>:<>
    <p>{en?'Approved version':'النسخة المعتمدة'}: {data.approval.version} · {data.worksheet.currency}</p>
    {data.statementWorksheet&&<div data-group-statement-worksheet="true">

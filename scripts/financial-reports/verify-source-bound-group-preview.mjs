@@ -144,6 +144,9 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  assert.ok(reviewCsv.includes('"Approved version","3"'));
  assert.ok(reviewCsv.includes('"Financial position"')||reviewCsv.includes('"position"'));
  assert.ok(reviewCsv.includes('حقوق الملكية'));
+ assert.ok(reviewCsv.includes('Goodwill / الشهرة'));
+ assert.ok(reviewCsv.includes('"1200.0000","1000.0000","200.0000","0.0000"'));
+ assert.ok(reviewCsv.includes(acquisitionKey.id));
 
  await page.screenshot({path:out+'/approved-group-adjustments-en.png',fullPage:true});
 
@@ -163,6 +166,14 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  assert.equal(acquisitionRevoked.status,'REVOKED');
  assert.equal(acquisitionRevoked.revoked_by,actor.id);
  assert.equal(acquisitionRevoked.approved_by,actor.id);
+ const revokedAcquisitionDownload=page.waitForEvent('download');
+ await worksheet.getByRole('button',{name:'Export review worksheet CSV',exact:true}).click();
+ const afterRevocation=await revokedAcquisitionDownload;
+ await afterRevocation.saveAs(out+'/approved-group-review-after-acquisition-revocation.csv');
+ const afterRevocationCsv=await readFile(out+'/approved-group-review-after-acquisition-revocation.csv','utf8');
+ assert.ok(afterRevocationCsv.includes('No approved acquisition records for this period'));
+ assert.ok(!afterRevocationCsv.includes(acquisitionKey.id));
+ await worksheet.locator('[data-approved-acquisition-review]').getByText('No approved acquisition records for this period.',{exact:true}).waitFor();
  assert.deepEqual((await request(approvedAcquisitionsPath,query)).rows,[]);
  await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
  await acquisitionSection.getByText('No approved acquisition records for this period.',{exact:true}).waitFor();

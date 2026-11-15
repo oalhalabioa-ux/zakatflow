@@ -30,3 +30,21 @@ describe('approved review worksheet CSV',()=>{
   const g=fixture();g.data.statementWorksheet.cash.pop();expect(()=>approvedGroupWorksheetCsv(g.data,g.query)).toThrow();
  });
 });
+
+it('exports verified acquisition amounts separately and escapes spreadsheet formulas in company names',()=>{
+ const {data,query}=fixture();
+ const subsidiaryOrganizationId=data.statementWorksheet.memberIds.find(id=>id!==query.organization)!;
+ const review={status:'APPROVED_ACQUISITION_REVIEW',query,rows:[{
+  id:data.approval.id,subsidiaryName:' =SUM(1,2)',approvedAt:data.approval.approvedAt,documentCount:1,
+  calculation:{status:'ACQUISITION_MEASUREMENT_ONLY',consolidated:false,issuanceReady:false,
+   reassessmentRequired:false,parentOrganizationId:query.organization,subsidiaryOrganizationId,
+   acquisitionDate:query.from,currency:data.statementWorksheet.currency,consideration:'1200.0000',
+   identifiableNetAssets:'1000.0000',goodwill:'200.0000',nciAtAcquisition:'0.0000'},
+ }]};
+ const csv=approvedGroupWorksheetCsv({...data,acquisitionReview:review},query);
+ expect(csv).toContain('Goodwill / الشهرة');
+ expect(csv).toContain('"1200.0000","1000.0000","200.0000","0.0000"');
+ expect(csv).toContain("' =SUM(1,2)");
+ review.rows[0].calculation.subsidiaryOrganizationId=query.organization;
+ expect(()=>approvedGroupWorksheetCsv({...data,acquisitionReview:review},query)).toThrow('GROUP_EXPORT_SCOPE_MISMATCH');
+});

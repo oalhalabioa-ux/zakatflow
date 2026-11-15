@@ -1,7 +1,12 @@
 import {NextResponse} from 'next/server';
-import {ZodError} from 'zod';
+import {z,ZodError} from 'zod';
 import {isSameOriginRequest} from '../../../../lib/request-origin';
 import {readApprovedGroupEliminations} from '../../../../services/financial-group-elimination-batches';
+import {statementQuery} from '../../../../lib/financial-statement-source';
+import {readApprovedGroupAcquisitions} from '../../../../services/financial-group-acquisition-review';
+import {assertStableFinancialReplay} from '../../../../lib/financial-source-replay';
+
+const exportRequest=z.object({action:z.literal('EXPORT'),query:statementQuery}).strict();
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
 /** Read-only approved adjustment worksheet; no company ledger writes. */
@@ -12,12 +17,27 @@ export async function POST(request:Request){
   if(new URL(request.url).search||!request.headers.get('content-type')?.startsWith('application/json'))throw Error('REPORTING_INPUT_INVALID');
   const body=await request.text();if(body.length>200000)throw Error('REPORTING_INPUT_INVALID');
   let input:unknown;try{input=JSON.parse(body)}catch{throw Error('REPORTING_INPUT_INVALID')}
+  if(typeof input==='object'&&input!==null&&'action' in input){
+   const {query}=exportRequest.parse(input);
+   const acquisitions=async()=>{
+    try{return await readApprovedGroupAcquisitions(query);}
+    catch(error){
+     // Releases before the acquisition migration can still export eliminations.
+     if(error instanceof Error&&error.message==='REPORTING_ACQUISITIONS_NOT_INSTALLED')return {status:'ACQUISITIONS_NOT_INSTALLED',query};
+     throw error;
+    }
+   };
+   const first=await acquisitions();
+   const worksheet=await readApprovedGroupEliminations(query);
+   assertStableFinancialReplay(first,await acquisitions());
+   return NextResponse.json({...worksheet,acquisitionReview:first},{headers});
+  }
   return NextResponse.json(await readApprovedGroupEliminations(input),{headers});
  }catch(error){
   const code=error instanceof Error?error.message:'REPORTING_UNAVAILABLE';
   const inputError=error instanceof ZodError||code==='REPORTING_INPUT_INVALID';
   const status=code==='REPORTING_DISABLED'?404:code==='UNAUTHORIZED'?401:/DENIED/.test(code)?403:inputError?400:
-   /CHANGED|CONFLICT/.test(code)?409:/^GROUP_(BATCH|DOCUMENT|CAPITAL|CASH|ADJUSTMENT)_/.test(code)?422:503;
-  return NextResponse.json({error:inputError?'REPORTING_INPUT_INVALID':/^(REPORTING_|GROUP_BATCH_|GROUP_DOCUMENT_|GROUP_CAPITAL_|GROUP_CASH_|GROUP_ADJUSTMENT_)[A-Z_]+$/.test(code)?code:status===401?'UNAUTHORIZED':'REPORTING_UNAVAILABLE'},{status,headers});
+   /CHANGED|CONFLICT/.test(code)?409:/^GROUP_(BATCH|DOCUMENT|CAPITAL|CASH|ADJUSTMENT|ACQUISITION|CONTROL)_/.test(code)?422:503;
+  return NextResponse.json({error:inputError?'REPORTING_INPUT_INVALID':/^(REPORTING_|GROUP_BATCH_|GROUP_DOCUMENT_|GROUP_CAPITAL_|GROUP_CASH_|GROUP_ADJUSTMENT_|GROUP_ACQUISITION_|GROUP_CONTROL_)[A-Z_]+$/.test(code)?code:status===401?'UNAUTHORIZED':'REPORTING_UNAVAILABLE'},{status,headers});
  }
 }
