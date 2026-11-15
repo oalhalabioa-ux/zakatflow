@@ -138,123 +138,160 @@
 .corp-shell .settings-workspace .settings-tabs a:not(.btn){white-space:normal}
 
 
-/* Approved Yaqeen settings navigation: flat white surfaces, gold outlines, green active journey. */
-.settings-workspace .settings-tabs{
-  direction:rtl;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
-  grid-auto-flow:row;gap:0;background:#fff;border:1px solid #d8e0e7;border-radius:14px;
-  padding:10px 8px;margin:16px 0 22px;box-shadow:none;
+/* Approved Yaqeen settings navigation – exact RTL order, flat colors, unclipped labels. */
+.corp-shell .settings-workspace .settings-tabs{
+  position:relative;isolation:isolate;box-sizing:border-box;
+  display:grid;grid-auto-flow:row;grid-auto-columns:auto;
+  grid-template-columns:repeat(6,minmax(0,1fr));align-items:stretch;
+  gap:0;width:100%;margin:16px 0 22px;padding:8px 8px 10px;
+  border:1px solid #d8e0e7;border-radius:15px;background:#fff;box-shadow:none;
 }
-.settings-workspace .settings-tabs a:not(.btn){
-  position:relative;min-height:100px;display:flex;flex-direction:column;justify-content:center;
-  align-items:center;gap:9px;padding:8px 6px 22px;border-radius:0;
-  background:transparent!important;color:#1d3852!important;font-size:.83rem;font-weight:650;
-  text-decoration:none;line-height:1.4;
+.settings-workspace[dir="rtl"] .settings-tabs{direction:rtl}
+.settings-workspace[dir="ltr"] .settings-tabs{direction:ltr}
+.corp-shell .settings-workspace .settings-tabs::before{
+  content:"";position:absolute;bottom:20px;inset-inline:8.333%;
+  height:2px;background:#cbd1d5;z-index:-1;pointer-events:none;
 }
-.settings-workspace .settings-tabs a:not(.btn)+a:not(.btn){border-inline-start:1px solid #e8eef0}
-.settings-workspace .settings-tabs a:not(.btn) .settings-icon{
-  color:#c6a35d;width:35px;height:35px;flex:0 0 35px;border:none;background:transparent;
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){
+  position:relative;box-sizing:border-box;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;gap:6px;
+  min-width:0;min-height:133px;height:auto;
+  padding:10px 6px 29px;border:0;border-radius:0;
+  background:transparent!important;color:#1d3852!important;
+  text-decoration:none;white-space:normal;text-align:center;
+  font-size:.82rem;font-weight:650;line-height:1.6;overflow:visible;
 }
-.settings-workspace .settings-tabs a:not(.btn)::before{
-  content:"";position:absolute;bottom:12px;inset-inline:18%;height:3px;
-  border-radius:3px;background:#cfd6d9;
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)+a:not(.btn){border-inline-start:0}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{
+  flex:0 0 auto;display:block;max-height:none;min-height:0;
+  max-width:100%;overflow:visible;white-space:normal;
+  word-break:normal;overflow-wrap:break-word;
+  text-align:center;line-height:1.6;
 }
-.settings-workspace .settings-tabs a[aria-current=page]:not(.btn) .settings-icon{color:#205347}
-.settings-workspace .settings-tabs a[aria-current=page]:not(.btn)::before{background:#205347;height:4px}
-.settings-workspace .settings-tabs a:not(.btn):hover{background:#f7f9fa!important}
-.settings-workspace .settings-finance-journey-tabs{
-  direction:rtl;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));flex-wrap:nowrap;
-  padding:6px;gap:0;background:#fff;border-radius:12px;border:1px solid #d8e0e7;
+.corp-shell .settings-workspace .settings-tabs a:not(.btn) .settings-icon{
+  display:block;box-sizing:border-box;flex:0 0 47px;
+  width:47px;height:47px;padding:9px;border:1px solid #eee5d0;
+  border-radius:50%;background:transparent;box-shadow:none;color:#c6a35d;
 }
-.settings-workspace .settings-finance-journey-tabs button{
-  display:flex;flex-direction:row;align-items:center;justify-content:center;gap:7px;
-  min-width:0;min-height:48px;padding:8px 5px;flex:auto;
-  border-radius:7px;color:#1d3852;background:transparent;box-shadow:none;
-  font-size:.78rem;font-weight:650;line-height:1.5;cursor:pointer;
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)::before{
+  content:"";position:absolute;bottom:19px;inset-inline:17%;
+  height:3px;background:transparent;border-radius:4px;z-index:0;
 }
-.settings-workspace .settings-finance-journey-tabs button+button{border-inline-start:1px solid #e8eef0}
-.settings-workspace .settings-finance-journey-tabs button .settings-icon{
-  width:22px;height:22px;flex:0 0 22px;color:#c6a35d;
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)::after{
+  content:"";position:absolute;bottom:15px;inset-inline-start:calc(50% - 6px);
+  width:12px;height:12px;border-radius:50%;background:#cbd1d5;z-index:1;
+  box-shadow:0 0 0 2px #fff;
 }
-.settings-workspace .settings-finance-journey-tabs button[aria-pressed=true]{
-  background:#10243a!important;color:#c6a35d!important;box-shadow:none;
-  border-inline-start-color:transparent;
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn) .settings-icon{
+  color:#f5ebd6;background:#205347;border-color:#205347;
 }
-.settings-workspace .settings-finance-journey-tabs button[aria-pressed=true] .settings-icon{color:#c6a35d}
-.settings-workspace .settings-finance-status{
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn)::before{background:#205347;height:4px}
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn)::after{
+  background:#205347;width:15px;height:15px;bottom:13px;inset-inline-start:calc(50% - 7.5px);
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn):hover{background:#f7f8f9!important}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn):focus-visible{outline:3px solid #c6a35d;outline-offset:-3px;border-radius:8px}
+
+/* Financial subnavigation keeps the first Summary tab before the Fiscal Year tab. */
+.corp-shell .settings-workspace .settings-finance-journey-tabs{
+  box-sizing:border-box;display:grid;grid-auto-flow:row;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  align-items:stretch;gap:0;padding:6px;margin:16px 0 20px;
+  background:#fff;border:1px solid #d8e0e7;border-radius:13px;
+}
+.settings-workspace[dir="rtl"] .settings-finance-journey-tabs{direction:rtl}
+.settings-workspace[dir="ltr"] .settings-finance-journey-tabs{direction:ltr}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button{
+  box-sizing:border-box;display:flex;flex-direction:row;align-items:center;
+  justify-content:center;gap:7px;min-width:0;min-height:50px;
+  padding:9px 5px;border:0;border-radius:7px;background:transparent;
+  color:#1d3852;font-size:.79rem;font-weight:650;line-height:1.5;
+  white-space:normal;box-shadow:none;cursor:pointer;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button+button{border-inline-start:1px solid #e8eef0}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button .settings-icon{
+  width:23px;height:23px;flex:0 0 23px;color:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button[aria-pressed="true"]{
+  color:#c6a35d!important;background:#10243a!important;
+  border-inline-start-color:transparent;box-shadow:inset 0 -3px 0 #c6a35d;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button[aria-pressed="true"] .settings-icon{color:#c6a35d}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button:not([aria-pressed="true"]):hover{background:#f7f8f9}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button:focus-visible{outline:3px solid #c6a35d;outline-offset:1px}
+
+/* One pearl-grey surface for every status card, with real backend state. */
+.corp-shell .settings-workspace .settings-finance-status{
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;
   margin:18px 0 24px;
 }
-.settings-workspace .settings-finance-status article{
-  background:#f6f7f8!important;border:1px solid #d4dce2!important;
-  border-radius:14px;padding:22px 14px 18px;display:flex;
-  flex-direction:column;align-items:center;justify-content:flex-start;
-  min-height:200px;gap:10px;box-shadow:none;
+.corp-shell .settings-workspace .settings-finance-status article{
+  box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;
+  align-items:center;gap:10px;min-width:0;min-height:240px;
+  padding:22px 12px 17px;border:1px solid #d8e0e7!important;
+  border-radius:15px;background:#f7f8f9!important;box-shadow:none;
 }
-.settings-workspace .settings-finance-status article>.settings-icon{
-  width:43px;height:43px;flex:0 0 43px;color:#c6a35d;
+.corp-shell .settings-workspace .settings-finance-status article>.settings-icon{
+  color:#c6a35d;width:44px;height:44px;flex:0 0 44px;
 }
-.settings-workspace .settings-finance-status article>h3{
-  color:#10243a;font-size:1.12rem;margin:0;text-align:center;
+.corp-shell .settings-workspace .settings-finance-status article>h3{
+  display:block;color:#10243a;text-align:center;font-size:1.16rem;
+  line-height:1.5;margin:0;max-width:100%;
 }
-.settings-workspace .settings-finance-status article>p{
-  font-size:.8rem;color:#1d3852;margin:0;text-align:center;
-  line-height:1.6;min-height:40px;
+.corp-shell .settings-workspace .settings-finance-status article>p{
+  font-size:.8rem;line-height:1.7;text-align:center;color:#1d3852;
+  min-height:44px;margin:0;max-width:100%;
 }
-.settings-workspace .settings-progress-track{
-  width:90%;max-width:210px;display:flex;align-items:center;justify-content:space-between;
-  position:relative;margin-top:auto;padding:0 3px;
+.corp-shell .settings-workspace .settings-progress-track{
+  width:90%;max-width:215px;display:flex;align-items:center;
+  justify-content:space-between;position:relative;margin-top:auto;padding:0 4px;
 }
-.settings-workspace .settings-progress-track::before{
+.corp-shell .settings-workspace .settings-progress-track::before{
   content:"";position:absolute;inset-inline:12px;top:50%;height:3px;
-  background:#bac3cb;transform:translateY(-50%);
+  transform:translateY(-50%);background:#bfc6cd;
 }
-.settings-workspace .settings-progress-track span{
-  width:19px;height:19px;z-index:1;border:2px solid #aeb7bf;
-  background:#f6f7f8;border-radius:50%;display:block;
+.corp-shell .settings-workspace .settings-progress-track::after{
+  content:"";position:absolute;inset-inline-start:12px;top:50%;
+  width:0;height:3px;transform:translateY(-50%);
+  background:#c6a35d;
 }
-.settings-workspace .settings-progress-track.pending::before{background:#c6a35d}
-.settings-workspace .settings-progress-track.pending span:nth-child(2){background:#c6a35d;border-color:#c6a35d}
-.settings-workspace .settings-progress-track.complete::before{background:#205347}
-.settings-workspace .settings-progress-track.complete span{background:#205347;border-color:#205347}
-.settings-workspace .settings-finance-progress-label{
-  display:block;font-size:.85rem;font-weight:650;color:#1d3852;
-  border-radius:0;padding:0;background:transparent;
+.corp-shell .settings-workspace .settings-progress-track.pending::after{width:calc(50% - 12px)}
+.corp-shell .settings-workspace .settings-progress-track.complete::before{background:#205347}
+.corp-shell .settings-workspace .settings-progress-track span{
+  display:block;z-index:1;width:20px;height:20px;
+  box-sizing:border-box;flex:0 0 20px;border:2px solid #afb8c1;
+  background:#f7f8f9;border-radius:50%;
 }
-.settings-workspace .settings-finance-progress-label.complete{color:#205347}
-.settings-workspace .settings-finance-progress-label.pending{color:#a27e34}
-@media(max-width:950px){
- .settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:8px}
- .settings-workspace .settings-finance-journey-tabs{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:6px}
- .settings-workspace .settings-finance-status{grid-template-columns:repeat(2,minmax(0,1fr))}
+.corp-shell .settings-workspace .settings-progress-track.pending span:first-child{
+  border-color:#c6a35d;background:#c6a35d;
 }
-@media(max-width:600px){
- .settings-workspace .settings-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
- .settings-workspace .settings-tabs a:not(.btn){font-size:.75rem;min-height:92px}
- .settings-workspace .settings-finance-journey-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
- .settings-workspace .settings-finance-journey-tabs button{font-size:.75rem;min-height:55px}
- .settings-workspace .settings-finance-status{grid-template-columns:1fr}
+.corp-shell .settings-workspace .settings-progress-track.complete span{
+  border-color:#205347;background:#205347;
 }
+.corp-shell .settings-workspace .settings-finance-progress-label{
+  color:#1d3852;font-size:.84rem;font-weight:650;
+  display:block;padding:5px 12px;border:0;border-radius:18px;
+  background:#e8eef0;white-space:normal;text-align:center;
+}
+.corp-shell .settings-workspace .settings-finance-progress-label.pending{color:#95732c}
+.corp-shell .settings-workspace .settings-finance-progress-label.complete{color:#205347}
 
-
-/* Keep two-line Arabic tab labels fully visible at Windows zoom and narrower desktops. */
-.corp-shell .settings-workspace .settings-tabs{
-  align-items:stretch;box-sizing:border-box;overflow:visible;
+@media (max-width:1100px){
+  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:12px}
+  .corp-shell .settings-workspace .settings-tabs::before{display:none}
+  .corp-shell .settings-workspace .settings-tabs a:not(.btn)::before{background:#cbd1d5}
+  .corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn)::before{background:#205347}
+  .corp-shell .settings-workspace .settings-finance-journey-tabs{
+    display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-inline:contain;
+    scrollbar-width:thin;
+  }
+  .corp-shell .settings-workspace .settings-finance-journey-tabs button{flex:0 0 165px}
+  .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-.corp-shell .settings-workspace .settings-tabs a:not(.btn){
-  box-sizing:border-box;height:auto;min-height:132px;
-  padding:12px 6px 24px;overflow:visible;
-  gap:10px;white-space:normal;word-break:normal;
-}
-.corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{
-  display:block;overflow:visible;max-height:none;min-height:0;
-  white-space:normal;overflow-wrap:normal;text-align:center;
-  line-height:1.65;font-size:.82rem;
-}
-.corp-shell .settings-workspace .settings-tabs a:not(.btn)::before{bottom:10px}
-@media (min-width:701px) and (max-width:1350px){
-  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
-}
-@media (max-width:700px){
-  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .corp-shell .settings-workspace .settings-tabs a:not(.btn){min-height:118px}
+@media (max-width:600px){
+  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:8px}
+  .corp-shell .settings-workspace .settings-tabs a:not(.btn){min-height:126px;padding-inline:5px}
+  .corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{font-size:.77rem}
+  .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:1fr}
+  .corp-shell .settings-workspace .settings-finance-status article{min-height:220px}
 }
