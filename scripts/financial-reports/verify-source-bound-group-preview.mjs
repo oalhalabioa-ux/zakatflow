@@ -77,7 +77,7 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  // Approval belongs to the exact selected period, not the default year-to-date.
  await worksheet.getByText('No approved adjustment batch exists for the selected period.',{exact:true}).waitFor();
  await page.getByLabel('To date',{exact:true}).fill(query.to);
- await worksheet.locator('table').waitFor();
+ await worksheet.locator('table').first().waitFor();
  assert.ok((await worksheet.textContent()).includes('Approved version: 3'));
  await worksheet.locator('[data-group-statement-worksheet]').waitFor();
  assert.equal(await worksheet.locator('[data-group-statement-worksheet] table').count(),3);

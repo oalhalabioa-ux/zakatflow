@@ -142,3 +142,9 @@ The next change binds balance-elimination preview to the selected invoice obliga
 ### Statement worksheet presentation
 
 Added selected-period income, closing financial position and direct cash flow summaries before/adjustment/after the approved group-only eliminations. The reader independently verifies original sources and documentary evidence. Period income is not inferred from closing/YTD balances; fiscal profit remains separate, position reconciles, and cash exclusions retain original activity classifications and unchanged cash totals. The UI uses the existing banner and period only. It remains explicitly a review worksheet, not complete consolidated issuance; no final export or completion attestation is introduced. Targeted tests and TypeScript pass; native UI/actual capital assertions are included for the next remote run.
+
+### Hosted QA capital migration
+
+Applied the unchanged verified canonical capital migration to QA V2 `ubotbpjngtfvolthpfec` as hosted version `20261115111435`. Confirmed function fingerprint `df00945689a1a29a64258689f5ea4af2` and denied direct anon/authenticated execution. Security advisor counts were unchanged (29 private RLS/no-policy informational notices, 2 anonymous function warnings, 125 authenticated function notices, 1 password-protection warning). No company data or Production changes. Do not reapply canonical version `20261115092832` by timestamp alone.
+
+Statement worksheet local validation: 289 files, 1,717 tests passed, one pre-existing skipped; TypeScript passed. Remote UI/source assertions are running on `29f5ab9cb5b06b2813c17350bb4c674115f33f3a`.
