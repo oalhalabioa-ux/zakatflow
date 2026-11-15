@@ -249,6 +249,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
     }}));
     setNotice(txt(ar,'حُفظت الدراسة للمؤسسة المحددة في QA V2.','Study saved for the selected QA V2 organization.'));
    }catch(e){
+    if(currentUserRef.current!==userAtRequest||
+      organizationRequestRef.current!==requestId)return;
     setNotice(e instanceof Error&&e.message==='CONFLICT'?
      txt(ar,'توجد نسخة مؤسسية أحدث؛ لا تُستبدل قبل مراجعتها.','A newer company revision exists; it was not overwritten.'):
      txt(ar,'فشل الحفظ المؤسسي. احتفظ بالتغييرات حتى تعالج المشكلة.','Company save failed; keep your changes while resolving it.'));
@@ -334,6 +336,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
    setProjectName('');setTab('profile');
    setNotice(txt(ar,'تم إنشاء دراسة مؤسسية ضمن الشركة المحددة.','Institutional study created within the selected organization.'));
   }catch(e){
+   if(currentUserRef.current!==requestedUser||
+     organizationRequestRef.current!==requestId)return;
    setNotice(txt(ar,'لم يتم إنشاء الدراسة المؤسسية؛ تحقق من الترخيص والصلاحيات.','Study creation failed; verify company permissions and licence.'));
   }finally{
    if(organizationRequestRef.current===requestId)setOrganizationBusy(false);
