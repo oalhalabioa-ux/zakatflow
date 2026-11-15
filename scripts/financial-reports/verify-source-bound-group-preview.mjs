@@ -538,7 +538,16 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   assert.equal(withDividend.closingParentEquity,minority.closingParentEquity);
   assert.equal(withDividend.rows.find(row=>row.key==='liabilities').after,'5220.0000');
   await writeFile(out+'/acquisition-ordinary-dividend.json',JSON.stringify(withDividend,null,2));
-  await request(acquisitionPath,{...dividendKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
+  await request(acquisitionPath,{...dividendKey,action:'REVOKE',reason:'Verify payments require matching cash journal sources'});
+  const unpairedKey={query:minorityQuery,id:randomUUID()};
+  const unpairedMeasurement={...minorityMeasurement,ordinaryDividend:{
+   parentEventId,subsidiaryEventId,evidenceDocumentId:minorityDocument.id,
+   parentPayment:{parentEventId:randomUUID(),subsidiaryEventId:randomUUID(),evidenceDocumentId:minorityDocument.id},
+  }};
+  await request(acquisitionPath,{...unpairedKey,action:'SAVE',measurement:unpairedMeasurement});
+  await request(acquisitionPath,{...unpairedKey,action:'APPROVE',reason:'Verify reporting rejects absent settlement journal evidence'});
+  assert.equal((await request(approvedAcquisitionsPath,{action:'ACQUISITION_POSITION',query:minorityQuery})).reason,'DIVIDEND_SOURCE_UNRECONCILED');
+  await request(acquisitionPath,{...unpairedKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
  }finally{
   sql(`update private.financial_group_control_assessments set economic_interest_percent=100,
    voting_interest_percent=100 where id='${control}'`);

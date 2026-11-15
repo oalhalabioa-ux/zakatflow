@@ -2,7 +2,7 @@ import {z} from 'zod';
 import Decimal from 'decimal.js';
 import {acquisitionFairValueDifferences} from '../lib/financial-group-acquisition-fair-value';
 import {statementQuery} from '../lib/financial-statement-source';
-import {groupAcquisitionMeasurementSchema,measureGroupAcquisition} from '../lib/financial-group-acquisition';
+import {groupAcquisitionMeasurementSchema,measureGroupAcquisition,type GroupAcquisitionMeasurementInput} from '../lib/financial-group-acquisition';
 import {assertStableFinancialReplay} from '../lib/financial-source-replay';
 import {liveRegisteredGroupReviewContext} from './financial-group-registered-source';
 
@@ -89,7 +89,7 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
   calculation:ReturnType<typeof measureGroupAcquisition>;
   investmentAccountId:string|null;
   continuityDocumented:boolean;
-  ordinaryDividend?:{subsidiaryEventId:string;parentEventId:string;evidenceDocumentId:string};
+  ordinaryDividend?:GroupAcquisitionMeasurementInput['ordinaryDividend'];
   fairValueTaxBasisDocumented?:boolean;
   noDeferredTaxRequired?:boolean;
   depreciationSchedules?:{accountId:string;usefulLifeDays:number;deferredTaxLiabilityAccountId?:string}[];

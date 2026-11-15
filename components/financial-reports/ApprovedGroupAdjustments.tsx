@@ -118,11 +118,22 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
     {result.dividendEliminations.length>0&&<>
      <h4>{en?'Declared dividends and internal eliminations':'التوزيعات المعلنة والاستبعادات الداخلية'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
-      <thead><tr>{(en?['Subsidiary','Declaration date','Total declared','Parent share eliminated','Non-controlling share']:
-       ['الشركة التابعة','تاريخ الإعلان','إجمالي التوزيع','حصة الأم المستبعدة','حصة غير المسيطرين']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <thead><tr>{(en?['Subsidiary','Declaration date','Total declared','Parent share eliminated','Non-controlling share','Internal balance eliminated','Paid to non-controlling owners']:
+       ['الشركة التابعة','تاريخ الإعلان','إجمالي التوزيع','حصة الأم المستبعدة','حصة غير المسيطرين','الرصيد الداخلي المستبعد','المدفوع لغير المسيطرين']).map(label=><th key={label}>{label}</th>)}</tr></thead>
       <tbody>{result.dividendEliminations.map(item=><tr key={item.subsidiaryId}>
        <th>{item.subsidiaryName}</th><td>{item.date}</td><td>{statementAmount(item.ordinaryDividends)}</td>
        <td>{statementAmount(item.parentDividend)}</td><td>{statementAmount(item.nciDividend)}</td>
+       <td>{statementAmount(item.parentOutstanding)}</td><td>{statementAmount(item.minorityCashPaid)}</td>
+      </tr>)}</tbody>
+     </table></div>
+    </>}
+    {result.cash.length>0&&<>
+     <h4>{en?'Cash flow after eliminating internal dividend payments':'التدفقات بعد استبعاد سداد التوزيعات الداخلية'}</h4>
+     <div className="fs-table-scroll"><table className="fs-table">
+      <thead><tr>{(en?['Item','Before adjustment','Adjustment','After adjustment']:
+       ['البند','قبل التسوية','التسوية','بعد التسوية']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{result.cash.map(row=><tr key={row.key}><th>{statementLabels[row.key][en?1:0]}</th>
+       <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
       </tr>)}</tbody>
      </table></div>
     </>}

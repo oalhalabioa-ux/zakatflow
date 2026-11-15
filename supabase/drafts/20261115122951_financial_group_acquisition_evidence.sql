@@ -305,12 +305,31 @@ begin
   if p_measurement ? 'ordinaryDividend' then
     item := p_measurement->'ordinaryDividend';
     if jsonb_typeof(item) is distinct from 'object'
-      or item - array['parentEventId','subsidiaryEventId','evidenceDocumentId'] <> '{}'::jsonb
+      or item - array['parentEventId','subsidiaryEventId','evidenceDocumentId','parentPayment','minorityPayment'] <> '{}'::jsonb
       or exists (select 1 from unnest(array['parentEventId','subsidiaryEventId','evidenceDocumentId']) k
         where coalesce(item->>k,'') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
       or item->>'parentEventId'=item->>'subsidiaryEventId'
       then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
     document_refs := array_append(document_refs,item->>'evidenceDocumentId');
+    if item ? 'parentPayment' then
+      schedule := item->'parentPayment';
+      if jsonb_typeof(schedule) is distinct from 'object'
+        or schedule - array['parentEventId','subsidiaryEventId','evidenceDocumentId'] <> '{}'::jsonb
+        or exists (select 1 from unnest(array['parentEventId','subsidiaryEventId','evidenceDocumentId']) k
+          where coalesce(schedule->>k,'') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+        then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+      document_refs := array_append(document_refs,schedule->>'evidenceDocumentId');
+    end if;
+    if item ? 'minorityPayment' then
+      schedule := item->'minorityPayment';
+      if jsonb_typeof(schedule) is distinct from 'object'
+        or schedule - array['subsidiaryEventId','evidenceDocumentId'] <> '{}'::jsonb
+        or exists (select 1 from unnest(array['subsidiaryEventId','evidenceDocumentId']) k
+          where coalesce(schedule->>k,'') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+        then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+      document_refs := array_append(document_refs,schedule->>'evidenceDocumentId');
+    end if;
+
   end if;
   if exists(select 1 from unnest(document_refs) ref where ref is null or
     ref !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') then

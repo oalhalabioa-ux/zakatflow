@@ -15,6 +15,8 @@ export const groupAcquisitionMeasurementSchema=z.object({
  consideration:money,considerationEvidence:evidence,
  ordinaryDividend:z.object({
   subsidiaryEventId:z.string().uuid(),parentEventId:z.string().uuid(),evidenceDocumentId:z.string().uuid(),
+  parentPayment:z.object({subsidiaryEventId:z.string().uuid(),parentEventId:z.string().uuid(),evidenceDocumentId:z.string().uuid()}).strict().optional(),
+  minorityPayment:z.object({subsidiaryEventId:z.string().uuid(),evidenceDocumentId:z.string().uuid()}).strict().optional(),
  }).strict().optional(),
  continuityBasis:z.discriminatedUnion('treatment',[
   z.object({treatment:z.literal('NO_SUBSEQUENT_ADJUSTMENTS'),evidenceDocumentId:z.string().uuid()}).strict(),
