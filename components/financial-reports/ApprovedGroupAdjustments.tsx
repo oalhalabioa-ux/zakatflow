@@ -71,19 +71,21 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
    if(!response.ok)throw Error('UNAVAILABLE');
    const data=await response.json();
    if(data.query?.organization!==query.organization||data.query?.from!==query.from||data.query?.to!==query.to||
-     !['ACQUISITION_DAY_POSITION_REVIEW','ACQUISITION_POSITION_UNAVAILABLE'].includes(data.status))throw Error('UNAVAILABLE');
+     !['ACQUISITION_DAY_POSITION_REVIEW','ACQUISITION_CARRY_FORWARD_POSITION_REVIEW','ACQUISITION_POSITION_UNAVAILABLE'].includes(data.status))throw Error('UNAVAILABLE');
    if(!abort.signal.aborted)setResult(data);
   }catch{if(!abort.signal.aborted)setResult('error');}
  }
  return <div data-acquisition-position-review="true">
   <div className="fs-page-actions"><button type="button" onClick={load} disabled={result==='loading'}>
-   {en?'Review acquisition-day position':'مراجعة المركز المالي يوم الاستحواذ'}
+   {query.from===query.to?(en?'Review acquisition-day position':'مراجعة المركز المالي يوم الاستحواذ'):(en?'Review acquisition carry-forward':'مراجعة أثر الاستحواذ في نهاية الفترة')}
   </button></div>
   {result==='loading'?<p role="status">{en?'Verifying the position…':'جارٍ التحقق من المركز المالي…'}</p>:
    result!==null&&(result==='error'||result.status==='ACQUISITION_POSITION_UNAVAILABLE')?
     <p role="status">{en?'Verified acquisition-day adjustments are unavailable for this selection.':'تسويات يوم الاستحواذ المتحقق منها غير متاحة لهذا الاختيار.'}</p>:
    result!==null&&<>
-    <h4>{en?'Position after acquisition adjustment':'المركز المالي بعد تسوية الاستحواذ'}</h4>
+    <h4>{result.status==='ACQUISITION_CARRY_FORWARD_POSITION_REVIEW'?
+     (en?'Closing position after carrying forward the acquisition adjustment':'المركز المالي بعد ترحيل تسوية الاستحواذ'):
+     (en?'Position after acquisition adjustment':'المركز المالي بعد تسوية الاستحواذ')}</h4>
     <p>{en?'Goodwill':'الشهرة'} {statementAmount(result.goodwill)} · {en?'NCI at acquisition':'حقوق غير المسيطرين عند الاستحواذ'} {statementAmount(result.nciAtAcquisition)} · {result.currency}</p>
     <div className="fs-table-scroll"><table className="fs-table">
      <thead><tr>{(en?['Item','Before acquisition adjustment','Acquisition adjustment','After acquisition adjustment']:
@@ -143,7 +145,8 @@ function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organizat
       <td>{statementAmount(calculation.goodwill)}</td><td>{statementAmount(calculation.nciAtAcquisition)}</td><td>{documentCount}</td>
      </tr><tr><td colSpan={8}><AcquisitionLedgerBasis query={review.query} id={id} en={en}/></td></tr></Fragment>)}</tbody>
     </table></div>
-    {review.query.from===review.query.to&&review.rows.some(row=>row.investmentAccountId)&&
+    {review.rows.some(row=>row.investmentAccountId&&row.calculation.acquisitionDate===review.query.from&&
+      (review.query.from===review.query.to||row.continuityDocumented))&&
      <AcquisitionPositionReview key={review.rows.map(row=>row.id).join(':')} query={review.query} en={en}/>}
    </>}
  </div>;

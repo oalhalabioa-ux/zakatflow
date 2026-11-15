@@ -337,6 +337,48 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await worksheet.getByRole('button',{name:'Review acquisition-day position',exact:true}).click();
  await positionPanel.getByText('Acquisition-date fair value adjustments',{exact:true}).waitFor();
  await writeFile(out+'/acquisition-day-fair-value-position.json',JSON.stringify(fairPosition,null,2));
+ await request(acquisitionPath,{...documentedKey,action:'REVOKE',reason:'Close acquisition-day fixture before testing period continuation'});
+ const periodQuery={...query,to:'2026-01-31'};
+ const periodAction={action:'ACQUISITION_POSITION',query:periodQuery};
+ const periodKey={query:periodQuery,id:randomUUID()};
+ const periodMeasurement={...fairMeasurement,fairValueBasis:{deferredTax:'NOT_REQUIRED',taxEvidenceDocumentId:document.id}};
+ await request(acquisitionPath,{...periodKey,action:'SAVE',measurement:periodMeasurement});
+ await request(acquisitionPath,{...periodKey,action:'APPROVE',reason:'Approve period fixture without continuity evidence'});
+ assert.equal((await request(approvedAcquisitionsPath,periodAction)).reason,'CONTINUITY_EVIDENCE_OR_OWNERSHIP_REQUIRED');
+ await request(acquisitionPath,{...periodKey,action:'REVOKE',reason:'Replace with a documented continuation assessment'});
+ const carryKey={query:periodQuery,id:randomUUID()};
+ const carryMeasurement={...periodMeasurement,continuityBasis:{treatment:'NO_SUBSEQUENT_ADJUSTMENTS',evidenceDocumentId:document.id}};
+ await request(acquisitionPath,{...carryKey,action:'SAVE',measurement:carryMeasurement});
+ await request(acquisitionPath,{...carryKey,action:'APPROVE',reason:'Approve documented unchanged balances and no subsequent adjustments'});
+ const periodBatch=await request('/api/financial-reporting/group-elimination-batches',{
+  ...save,query:periodQuery,entries:[],expectedVersion:0,requestId:randomUUID(),reason:'Verify continuation scope without overlapping eliminations',
+ });
+ await request('/api/financial-reporting/group-elimination-batches',{
+  action:'APPROVE',query:periodQuery,batchId:periodBatch.id,expectedVersion:1,reason:'Approve the January closing worksheet',
+ });
+ const carried=await request(approvedAcquisitionsPath,periodAction);
+ assert.equal(carried.status,'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW');
+ assert.equal(carried.goodwill,'300.0000');
+ assert.deepEqual(carried.rows.map(row=>[row.key,row.after]),[
+  ['assets','5800.0000'],['liabilities','5300.0000'],['equity','500.0000'],
+ ]);
+ await page.getByLabel('To date',{exact:true}).fill(periodQuery.to);
+ await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
+ await positionPanel.getByText('Closing position after carrying forward the acquisition adjustment',{exact:true}).waitFor();
+ await writeFile(out+'/acquisition-carry-forward-position.json',JSON.stringify(carried,null,2));
+ await request(acquisitionPath,{...carryKey,action:'REVOKE',reason:'Verify withdrawn continuity assessment blocks period closing review'});
+ assert.equal((await request(approvedAcquisitionsPath,periodAction)).status,'ACQUISITION_POSITION_UNAVAILABLE');
+ const movedKey={query,id:randomUUID()};
+ await request(acquisitionPath,{...movedKey,action:'SAVE',measurement:carryMeasurement});
+ await request(acquisitionPath,{...movedKey,action:'APPROVE',reason:'Confirm the control detects later postings to the investment account'});
+ const movedBatch=await request('/api/financial-reporting/group-elimination-batches',{
+  ...save,entries:[],expectedVersion:5,requestId:randomUUID(),reason:'Approve year-long source for movement detection',
+ });
+ await request('/api/financial-reporting/group-elimination-batches',{
+  action:'APPROVE',query,batchId:movedBatch.id,expectedVersion:6,reason:'Check movement against approved year-long report',
+ });
+ assert.equal((await request(approvedAcquisitionsPath,positionAction)).reason,'SUBSEQUENT_ACCOUNT_MOVEMENT');
+
 
 
 

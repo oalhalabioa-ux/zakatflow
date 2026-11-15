@@ -13,6 +13,10 @@ export const groupAcquisitionMeasurementSchema=z.object({
  transactionType:z.literal('SINGLE_STEP_BUSINESS_COMBINATION'),commonControl:z.literal(false),
  instruments:z.literal('ORDINARY_PROPORTIONATE'),
  consideration:money,considerationEvidence:evidence,
+ continuityBasis:z.object({
+  treatment:z.literal('NO_SUBSEQUENT_ADJUSTMENTS'),
+  evidenceDocumentId:z.string().uuid(),
+ }).strict().optional(),
  fairValueBasis:z.object({
   deferredTax:z.enum(['NOT_REQUIRED','INCLUDED_IN_IDENTIFIABLE_ITEMS']),
   taxEvidenceDocumentId:z.string().uuid(),

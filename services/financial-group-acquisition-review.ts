@@ -88,6 +88,7 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
   id:string; subsidiaryName:string; approvedAt:string; documentCount:number;
   calculation:ReturnType<typeof measureGroupAcquisition>;
   investmentAccountId:string|null;
+  continuityDocumented:boolean;
   fairValueTaxBasisDocumented?:boolean;
   bookItems?: {id:string;kind:"ASSET"|"LIABILITY";recognizedAmount:string}[];
  }>=[];
@@ -100,7 +101,7 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
    if(calculation.controlAssessmentId!==record.controlId||calculation.reassessmentRequired)
     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
    return {id:record.id,subsidiaryName:record.subsidiaryName,approvedAt:record.approvedAt,
-    documentCount:record.documents.length,calculation,investmentAccountId:record.measurement.investmentLink?.accountId??null,
+    documentCount:record.documents.length,calculation,continuityDocumented:Boolean(record.measurement.continuityBasis),investmentAccountId:record.measurement.investmentLink?.accountId??null,
     ...(includeBookItems?{fairValueTaxBasisDocumented:Boolean(record.measurement.fairValueBasis),bookItems:record.measurement.identifiableItems.map(({id,kind,recognizedAmount})=>({id,kind,recognizedAmount}))}:{})};
   });
  }
@@ -155,7 +156,7 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
   // The first projection supports an acquisition-day position with no
   // subsidiary posting on that day and a complete mapping of approved values.
   positionEligibility:!linked?'INVESTMENT_LINK_REQUIRED' as const:
-   query.from!==date||query.to!==date?'ACQUISITION_DAY_REQUIRED' as const:
+   query.from!==date?'ACQUISITION_START_REQUIRED' as const:
    subsidiary.statements.sourceJournalIds.length?'SUBSIDIARY_DAY_POSTINGS' as const:
    fairValue.status,
   fairValueAdjustments:fairValue.status==='ELIGIBLE'?fairValue.adjustments:[],
