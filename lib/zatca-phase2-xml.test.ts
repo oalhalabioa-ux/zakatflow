@@ -52,9 +52,18 @@ describe('unsigned ZATCA XML preparation',()=>{
  it('requires an original invoice number rather than substituting an internal UUID',()=>{
   expect(()=>buildUnsignedZatcaXml({...draft,document_type:'CREDIT_NOTE',preceding_invoice_id:context.invoiceUuid,note_reason:'Correction'},context)).toThrow('ORIGINAL_INVOICE_NUMBER_REQUIRED');
  });
- it.each(['Z','E','O'])('keeps %s exemption reasons and zero tax',tax_category=>{
-  const x=buildUnsignedZatcaXml({...draft,lines:[{...draft.lines[0],tax_category,tax_rate:0,tax_exemption_reason_code:tax_category==='O'?'VATEX-SA-OOS':'VATEX-SA-29',tax_exemption_reason:'QA reason'}]},context);
+ it.each(['Z','O'])('keeps %s exemption reasons and zero tax',tax_category=>{
+  const x=buildUnsignedZatcaXml({...draft,lines:[{...draft.lines[0],tax_category,tax_rate:0,tax_exemption_reason_code:tax_category==='O'?'VATEX-SA-OOS':'VATEX-SA-32',tax_exemption_reason:'QA reason'}]},context);
   expect(x.totals.tax_total_amount).toBe('0.00');expect(x.xml).toContain('<cbc:TaxExemptionReason>QA reason</cbc:TaxExemptionReason>');
+ });
+ it('exports the authority reason text for the selected E code without changing the saved line or applying it to standard VAT',()=>{
+  const exempt={...draft.lines[0],tax_category:'E',tax_rate:0,tax_exemption_reason_code:'VATEX-SA-29',tax_exemption_reason:'الخدمات المالية'};
+  const x=buildUnsignedZatcaXml({...draft,lines:[draft.lines[0],exempt]},context);
+  expect(x.xml).toContain('<cbc:TaxExemptionReasonCode>VATEX-SA-29</cbc:TaxExemptionReasonCode><cbc:TaxExemptionReason>Financial services mentioned in Article 29 of the VAT Regulations</cbc:TaxExemptionReason>');
+  expect(x.xml.match(/<cbc:TaxExemptionReason>/g)).toHaveLength(1);
+  expect(x.totals.tax_total_amount).toBe('30.00');
+  expect(exempt.tax_exemption_reason).toBe('الخدمات المالية');
+  expect(()=>buildUnsignedZatcaXml({...draft,lines:[{...exempt,tax_exemption_reason_code:'VATEX-SA-32'}]},context)).toThrow('XML_EXEMPT_REASON_CODE_INVALID');
  });
  it('rejects mixed outside-scope categories and absent outside-scope reasons',()=>{
   const outside={...draft.lines[0],tax_category:'O',tax_rate:0};

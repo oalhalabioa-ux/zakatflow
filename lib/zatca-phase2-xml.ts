@@ -26,6 +26,15 @@ const tag=(name:string,value:unknown,attributes='')=>`<${name}${attributes}>${es
 const vatScheme='<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>';
 const category=(code:string,rate:string)=>tag('cbc:ID',code)+(code==='O'?'':tag('cbc:Percent',rate))+vatScheme;
 
+// ZATCA XML Implementation Standard v1.2 §11.2.4, category E.
+// The draft's human-facing reason may be Arabic or abbreviated. The XML uses
+// the published text for the selected code; the draft itself is never changed.
+const exemptXmlReasons = new Map([
+  ['VATEX-SA-29', 'Financial services mentioned in Article 29 of the VAT Regulations'],
+  ['VATEX-SA-29-7', 'Life insurance services mentioned in Article 29 of the VAT Regulations'],
+  ['VATEX-SA-30', 'Real estate transactions mentioned in Article 30 of the VAT Regulations'],
+]);
+
 function party(d:VatEInvoiceDraft,side:'seller'|'buyer',identifier?:ZatcaXmlContext['buyerId']){
   const isSeller=side==='seller',name=d[`${side}_name`],vat=d[`${side}_vat_number`];
   if(!isSeller&&!name&&!vat&&!identifier)return '<cac:AccountingCustomerParty/>';
@@ -55,7 +64,10 @@ export function buildUnsignedZatcaXml(input:unknown,contextInput:unknown){
   const money=(name:string,value:unknown,currency=d.currency)=>tag(`cbc:${name}`,value,` currencyID="${currency}"`);
   const reasonGroups=new Map<string,{code:string;reason:string}>();
   for(const line of d.lines){
-    const key=`${line.tax_category}:${line.tax_rate.toFixed(2)}`,value={code:line.tax_exemption_reason_code||'',reason:line.tax_exemption_reason||''},old=reasonGroups.get(key);
+    const code=line.tax_exemption_reason_code||'';
+    const reason=line.tax_category==='E'?exemptXmlReasons.get(code):line.tax_exemption_reason||'';
+    if(reason===undefined)throw Error('XML_EXEMPT_REASON_CODE_INVALID');
+    const key=`${line.tax_category}:${line.tax_rate.toFixed(2)}`,value={code,reason},old=reasonGroups.get(key);
     if(old&&(old.code!==value.code||old.reason!==value.reason))throw Error('XML_TAX_GROUP_REASON_MISMATCH');
     reasonGroups.set(key,value);
   }
