@@ -166,6 +166,7 @@ declare
   consideration numeric;
   reachable_count integer;
   document_refs text[];
+  schedule jsonb;
   document_manifest jsonb;
   money_pattern constant text := '^[0-9]{1,20}(\.[0-9]{1,4})?$';
 begin
@@ -274,10 +275,28 @@ begin
   if p_measurement ? 'continuityBasis' then
     item := p_measurement->'continuityBasis';
     if jsonb_typeof(item) is distinct from 'object'
-      or item - array['treatment','evidenceDocumentId'] <> '{}'::jsonb
-      or item->>'treatment' is distinct from 'NO_SUBSEQUENT_ADJUSTMENTS'
+      or item - array['treatment','evidenceDocumentId','schedules'] <> '{}'::jsonb
+      or coalesce(item->>'treatment','') not in ('NO_SUBSEQUENT_ADJUSTMENTS','STRAIGHT_LINE_UPLIFT')
       or jsonb_typeof(item->'evidenceDocumentId') is distinct from 'string'
       then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+    if item->>'treatment'='STRAIGHT_LINE_UPLIFT' then
+      if jsonb_typeof(item->'schedules') is distinct from 'array'
+        then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+      if jsonb_array_length(item->'schedules') not between 1 and 100
+        or (select count(distinct value->>'accountId') from jsonb_array_elements(item->'schedules'))<>
+          jsonb_array_length(item->'schedules') then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+      for schedule in select value from jsonb_array_elements(item->'schedules') loop
+        if jsonb_typeof(schedule) is distinct from 'object'
+          or schedule - array['accountId','usefulLifeDays'] <> '{}'::jsonb
+          or coalesce(schedule->>'accountId','') !~ '^1500([0-9]{2}){0,3}$'
+          or jsonb_typeof(schedule->'usefulLifeDays') is distinct from 'number'
+          or coalesce(schedule->>'usefulLifeDays','') !~ '^[0-9]{1,5}$'
+          then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+        if (schedule->>'usefulLifeDays')::integer not between 1 and 36500
+          then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+      end loop;
+    elsif item ? 'schedules' then raise exception 'GROUP_ACQUISITION_INPUT_INVALID';
+    end if;
     document_refs := array_append(document_refs,item->>'evidenceDocumentId');
   end if;
   if exists(select 1 from unnest(document_refs) ref where ref is null or

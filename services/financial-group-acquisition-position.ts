@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import {acquisitionUpliftDepreciation} from '../lib/financial-group-acquisition-depreciation';
 import {compileEventLedger} from '../lib/financial-event-ledger';
 import {liveRegisteredGroupEvidence} from './financial-group-registered-source';
 import {z} from 'zod';
@@ -36,6 +37,8 @@ export async function readGroupAcquisitionPosition(input:unknown){
  if(carrySources?.rawSources.some(source=>source.fiscalStart>query.from))
   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'CARRY_FORWARD_PERIOD_UNSUPPORTED'};
  const journals=new Map(carrySources?.rawSources.map(source=>[source.organizationId,compileEventLedger(source).source.journals]));
+ const depreciationAdjustments:Array<NonNullable<ReturnType<typeof acquisitionUpliftDepreciation>>[number]&{subsidiaryId:string;subsidiaryName:string}>=[];
+ let depreciation=new Money(0);
  let fairValueAssets=new Money(0),fairValueLiabilities=new Money(0);
  let goodwill=new Money(0),investment=new Money(0),bookEquity=new Money(0),nci=new Money(0);
  for(const record of approved.rows){
@@ -51,14 +54,23 @@ export async function readGroupAcquisitionPosition(input:unknown){
    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
   const subsidiaryId=record.calculation.subsidiaryOrganizationId;
   if(later){
-   if(basis.fairValueAdjustments.some(item=>item.kind==='ASSET'))
-    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'SUBSEQUENT_ASSET_MEASUREMENT_REQUIRED'};
    const subsidiaryAccounts=new Set(basis.fairValueAdjustments.map(item=>item.accountId));
    const subsidiarySource=carrySources?.rawSources.find(source=>source.organizationId===subsidiaryId);
    // A fair-value difference can be assigned to a reporting control account.
    // Treat activity on any child of that control as activity on the balance.
    for(const account of subsidiarySource?.accounts??[]){
     if(account.reportingCode&&subsidiaryAccounts.has(account.reportingCode))subsidiaryAccounts.add(account.id);
+   }
+   const assetDifferences=basis.fairValueAdjustments.filter(item=>item.kind==='ASSET');
+   if(assetDifferences.length||basis.depreciationSchedules.length){
+    const schedule=acquisitionUpliftDepreciation(basis.fairValueAdjustments,basis.depreciationSchedules,basis.date,query.to);
+    if(!basis.noDeferredTaxRequired||!schedule||assetDifferences.some(item=>!subsidiarySource?.accounts.some(account=>
+     account.id===item.accountId&&(account.reportingCode??account.id)==='1500')))
+     return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'SUBSEQUENT_ASSET_MEASUREMENT_REQUIRED'};
+    for(const item of schedule){
+     depreciation=depreciation.plus(item.charge);
+     depreciationAdjustments.push({...item,subsidiaryId,subsidiaryName:record.subsidiaryName});
+    }
    }
    const parentJournals=journals.get(query.organization);
    const subsidiaryJournals=journals.get(subsidiaryId);
@@ -82,10 +94,14 @@ export async function readGroupAcquisitionPosition(input:unknown){
   bookEquity=bookEquity.plus(basis.subsidiaryBookEquity);
   nci=nci.plus(basis.acquisitionNci);
  }
- const assetDelta=goodwill.plus(fairValueAssets).minus(investment),equityDelta=nci.minus(bookEquity);
+ const assetDelta=goodwill.plus(fairValueAssets).minus(investment).minus(depreciation),equityDelta=nci.minus(bookEquity).minus(depreciation);
  if(!assetDelta.eq(fairValueLiabilities.plus(equityDelta)))throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
  const rows=base.position.filter(row=>row.key!=='fiscalProfit').map(row=>{
   const adjustment=row.key==='assets'?assetDelta:row.key==='equity'?equityDelta:fairValueLiabilities;
+  return {key:row.key,before:row.after,adjustment:adjustment.toFixed(4),after:new Money(row.after).plus(adjustment).toFixed(4)};
+ });
+ const income=base.income.filter(row=>['operatingExpenses','operatingProfit','netProfit'].includes(row.key)).map(row=>{
+  const adjustment=row.key==='operatingExpenses'?depreciation:depreciation.negated();
   return {key:row.key,before:row.after,adjustment:adjustment.toFixed(4),after:new Money(row.after).plus(adjustment).toFixed(4)};
  });
  const closing=(key:string)=>new Money(rows.find(row=>row.key===key)!.after);
@@ -96,5 +112,5 @@ export async function readGroupAcquisitionPosition(input:unknown){
  assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
  return {status:later?'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW' as const:'ACQUISITION_DAY_POSITION_REVIEW' as const,query,currency:base.currency,rows,
   investmentEliminated:investment.toFixed(4),subsidiaryEquityEliminated:bookEquity.toFixed(4),
-  goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments};
+  goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments,depreciationAdjustments,income};
 }

@@ -94,6 +94,25 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
      </tr>)}</tbody>
     </table></div>
+    {result.depreciationAdjustments.length>0&&<>
+     <h4>{en?'Depreciation of acquisition uplift':'إهلاك فرق القيمة العادلة عند الاستحواذ'}</h4>
+     <div className="fs-table-scroll"><table className="fs-table">
+      <thead><tr>{(en?['Subsidiary','Account','Useful life (days)','Period depreciation','Remaining uplift']:
+       ['الشركة التابعة','الحساب','العمر الإنتاجي بالأيام','إهلاك الفترة','الفرق المتبقي']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{result.depreciationAdjustments.map(item=><tr key={item.subsidiaryId+':'+item.accountId}>
+       <th>{item.subsidiaryName}</th><td>{item.accountId}</td><td>{item.usefulLifeDays}</td>
+       <td>{statementAmount(item.charge)}</td><td>{statementAmount(item.remainingUplift)}</td>
+      </tr>)}</tbody>
+     </table></div>
+     <h4>{en?'Impact on the period result':'أثر التسوية على نتيجة الفترة'}</h4>
+     <div className="fs-table-scroll"><table className="fs-table">
+      <thead><tr>{(en?['Item','Before depreciation adjustment','Depreciation adjustment','After depreciation adjustment']:
+       ['البند','قبل تسوية الإهلاك','تسوية الإهلاك','بعد تسوية الإهلاك']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{result.income.map(row=><tr key={row.key}><th>{statementLabels[row.key][en?1:0]}</th>
+       <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
+      </tr>)}</tbody>
+     </table></div>
+    </>}
     {result.fairValueAdjustments.length>0&&<>
      <h4>{en?'Acquisition-date fair value adjustments':'تسويات القيمة العادلة يوم الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">

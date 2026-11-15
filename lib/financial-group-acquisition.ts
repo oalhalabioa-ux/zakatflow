@@ -13,10 +13,13 @@ export const groupAcquisitionMeasurementSchema=z.object({
  transactionType:z.literal('SINGLE_STEP_BUSINESS_COMBINATION'),commonControl:z.literal(false),
  instruments:z.literal('ORDINARY_PROPORTIONATE'),
  consideration:money,considerationEvidence:evidence,
- continuityBasis:z.object({
-  treatment:z.literal('NO_SUBSEQUENT_ADJUSTMENTS'),
-  evidenceDocumentId:z.string().uuid(),
- }).strict().optional(),
+ continuityBasis:z.discriminatedUnion('treatment',[
+  z.object({treatment:z.literal('NO_SUBSEQUENT_ADJUSTMENTS'),evidenceDocumentId:z.string().uuid()}).strict(),
+  z.object({treatment:z.literal('STRAIGHT_LINE_UPLIFT'),evidenceDocumentId:z.string().uuid(),
+   schedules:z.array(z.object({accountId:z.string().regex(/^1500(?:[0-9]{2}){0,3}$/),
+    usefulLifeDays:z.number().int().min(1).max(36500)}).strict()).min(1).max(100),
+  }).strict(),
+ ]).optional(),
  fairValueBasis:z.object({
   deferredTax:z.enum(['NOT_REQUIRED','INCLUDED_IN_IDENTIFIABLE_ITEMS']),
   taxEvidenceDocumentId:z.string().uuid(),

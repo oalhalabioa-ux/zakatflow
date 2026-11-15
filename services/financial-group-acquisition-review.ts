@@ -90,6 +90,8 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
   investmentAccountId:string|null;
   continuityDocumented:boolean;
   fairValueTaxBasisDocumented?:boolean;
+  noDeferredTaxRequired?:boolean;
+  depreciationSchedules?:{accountId:string;usefulLifeDays:number}[];
   bookItems?: {id:string;kind:"ASSET"|"LIABILITY";recognizedAmount:string}[];
  }>=[];
  if(evidence.records.length){
@@ -102,7 +104,10 @@ async function approvedGroupAcquisitions(input:unknown,includeBookItems:boolean)
     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
    return {id:record.id,subsidiaryName:record.subsidiaryName,approvedAt:record.approvedAt,
     documentCount:record.documents.length,calculation,continuityDocumented:Boolean(record.measurement.continuityBasis),investmentAccountId:record.measurement.investmentLink?.accountId??null,
-    ...(includeBookItems?{fairValueTaxBasisDocumented:Boolean(record.measurement.fairValueBasis),bookItems:record.measurement.identifiableItems.map(({id,kind,recognizedAmount})=>({id,kind,recognizedAmount}))}:{})};
+    ...(includeBookItems?{fairValueTaxBasisDocumented:Boolean(record.measurement.fairValueBasis),
+     noDeferredTaxRequired:record.measurement.fairValueBasis?.deferredTax==='NOT_REQUIRED',
+     depreciationSchedules:record.measurement.continuityBasis?.treatment==='STRAIGHT_LINE_UPLIFT'?record.measurement.continuityBasis.schedules:[],
+     bookItems:record.measurement.identifiableItems.map(({id,kind,recognizedAmount})=>({id,kind,recognizedAmount}))}:{})};
   });
  }
  assertStableFinancialReplay(evidence,await read());
@@ -160,6 +165,8 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
    subsidiary.statements.sourceJournalIds.length?'SUBSIDIARY_DAY_POSTINGS' as const:
    fairValue.status,
   fairValueAdjustments:fairValue.status==='ELIGIBLE'?fairValue.adjustments:[],
+  depreciationSchedules:selected.depreciationSchedules??[],
+  noDeferredTaxRequired:selected.noDeferredTaxRequired===true,
   acquisitionGoodwill:selected.calculation.goodwill,
   acquisitionNci:selected.calculation.nciAtAcquisition,
  };

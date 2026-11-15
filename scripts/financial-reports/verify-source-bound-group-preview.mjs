@@ -368,6 +368,38 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await writeFile(out+'/acquisition-carry-forward-position.json',JSON.stringify(carried,null,2));
  await request(acquisitionPath,{...carryKey,action:'REVOKE',reason:'Verify withdrawn continuity assessment blocks period closing review'});
  assert.equal((await request(approvedAcquisitionsPath,periodAction)).status,'ACQUISITION_POSITION_UNAVAILABLE');
+ const upliftAccount=standalone.accounts.find(account=>account.kind==='ASSET'&&
+  (account.reportingCode??account.id)==='1500'&&!openingAccountIds.has(account.id));
+ assert.ok(upliftAccount,'A verified fixed asset account is required for acquisition depreciation acceptance');
+ const upliftMeasurement={...carryMeasurement,identifiableItems:[...carryMeasurement.identifiableItems,{
+  id:upliftAccount.id,kind:'ASSET',recognizedAmount:'200',measurementEvidence:document.id,
+ }]};
+ const unsupportedUpliftKey={query:periodQuery,id:randomUUID()};
+ await request(acquisitionPath,{...unsupportedUpliftKey,action:'SAVE',measurement:upliftMeasurement});
+ await request(acquisitionPath,{...unsupportedUpliftKey,action:'APPROVE',reason:'Exercise the requirement for a verified depreciation schedule'});
+ assert.equal((await request(approvedAcquisitionsPath,periodAction)).reason,'SUBSEQUENT_ASSET_MEASUREMENT_REQUIRED');
+ await request(acquisitionPath,{...unsupportedUpliftKey,action:'REVOKE',reason:'Replace the assessment with a documented straight-line schedule'});
+ const scheduledKey={query:periodQuery,id:randomUUID()};
+ const scheduledMeasurement={...upliftMeasurement,continuityBasis:{
+  treatment:'STRAIGHT_LINE_UPLIFT',evidenceDocumentId:document.id,schedules:[{accountId:upliftAccount.id,usefulLifeDays:60}],
+ }};
+ await request(acquisitionPath,{...scheduledKey,action:'SAVE',measurement:scheduledMeasurement});
+ await request(acquisitionPath,{...scheduledKey,action:'APPROVE',reason:'Approve incremental straight-line depreciation supported by the acquisition report'});
+ const depreciated=await request(approvedAcquisitionsPath,periodAction);
+ assert.equal(depreciated.goodwill,'100.0000');
+ assert.deepEqual(depreciated.depreciationAdjustments.map(row=>[row.accountId,row.charge,row.remainingUplift]),[
+  [upliftAccount.id,'100.0000','100.0000'],
+ ]);
+ assert.deepEqual(depreciated.rows.map(row=>[row.key,row.after]),[
+  ['assets','5700.0000'],['liabilities','5300.0000'],['equity','400.0000'],
+ ]);
+ assert.equal(depreciated.income.find(row=>row.key==='netProfit').after,'-100.0000');
+ await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
+ await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
+ await positionPanel.getByText('Depreciation of acquisition uplift',{exact:true}).waitFor();
+ await writeFile(out+'/acquisition-depreciation-position.json',JSON.stringify(depreciated,null,2));
+ await request(acquisitionPath,{...scheduledKey,action:'REVOKE',reason:'Release the isolated approval for movement detection acceptance'});
+
  const movedKey={query,id:randomUUID()};
  await request(acquisitionPath,{...movedKey,action:'SAVE',measurement:carryMeasurement});
  await request(acquisitionPath,{...movedKey,action:'APPROVE',reason:'Confirm the control detects later postings to the investment account'});
