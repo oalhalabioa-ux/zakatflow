@@ -87,3 +87,19 @@ export function parseInstitutionalCloudRows(raw:unknown,organizationId:string):I
  }
  return result;
 }
+
+
+/** Legacy cloud GET includes both owned and collaborator-readable PERSONAL studies.
+ * A shared study must never be imported into the account's editable local drafts.
+ * This is a client-side integrity guard, not a replacement for RLS. */
+export function partitionPersonalCloudRows(
+ rows:readonly SavedCloudDraft[],userId:string
+):{owned:SavedCloudDraft[];shared:SavedCloudDraft[]}|null{
+ if(!uuid.test(userId))return null;
+ const owned:SavedCloudDraft[]=[],shared:SavedCloudDraft[]=[];
+ for(const row of rows){
+  if(row.owner_user_id===userId)owned.push(row);
+  else shared.push(row);
+ }
+ return {owned,shared};
+}
