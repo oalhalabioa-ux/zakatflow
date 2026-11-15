@@ -153,7 +153,7 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       </tr>)}</tbody>
      </table></div>
     </>}
-    {(result.depreciationAdjustments.length>0||result.dividendEliminations.length>0)&&<>
+    {(result.eliminationBatchVersion!==null||result.depreciationAdjustments.length>0||result.dividendEliminations.length>0)&&<>
      {result.depreciationAdjustments.length>0&&<><h4>{en?'Depreciation of acquisition uplift':'إهلاك فرق القيمة العادلة عند الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
       <thead><tr>{(en?['Subsidiary','Account','Useful life (days)','Period depreciation','Remaining uplift']:
