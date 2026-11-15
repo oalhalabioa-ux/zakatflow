@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';
 import {ZodError} from 'zod';
 import {isSameOriginRequest} from '../../../../lib/request-origin';
-import {readApprovedGroupAcquisitions} from '../../../../services/financial-group-acquisition-review';
+import {readApprovedGroupAcquisitions,readGroupAcquisitionLedgerBasis} from '../../../../services/financial-group-acquisition-review';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
 /** Approved acquisition-date amounts for the group review worksheet. */
@@ -12,7 +12,8 @@ export async function POST(request:Request){
   if(new URL(request.url).search||!request.headers.get('content-type')?.startsWith('application/json'))throw Error('REPORTING_INPUT_INVALID');
   const body=await request.text();if(body.length>4096)throw Error('REPORTING_INPUT_INVALID');
   let input:unknown;try{input=JSON.parse(body)}catch{throw Error('REPORTING_INPUT_INVALID')}
-  return NextResponse.json(await readApprovedGroupAcquisitions(input),{headers});
+  const wantsLedger=typeof input==='object'&&input!==null&&'action' in input;
+  return NextResponse.json(await (wantsLedger?readGroupAcquisitionLedgerBasis(input):readApprovedGroupAcquisitions(input)),{headers});
  }catch(error){
   const code=error instanceof Error?error.message:'REPORTING_UNAVAILABLE';
   const inputError=error instanceof ZodError||code==='REPORTING_INPUT_INVALID';

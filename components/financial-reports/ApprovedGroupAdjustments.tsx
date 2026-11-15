@@ -1,11 +1,53 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {Fragment,useEffect,useRef,useState} from 'react';
 import {approvedGroupWorksheetCsv,groupStatementLabels as statementLabels} from '../../lib/financial-group-worksheet-export';
-import type {readApprovedGroupAcquisitions} from '../../services/financial-group-acquisition-review';
+import type {readApprovedGroupAcquisitions,readGroupAcquisitionLedgerBasis} from '../../services/financial-group-acquisition-review';
 import type {readApprovedGroupEliminations} from '../../services/financial-group-elimination-batches';
 import {statementAmount} from './SourceStatementTable';
 type Result=Awaited<ReturnType<typeof readApprovedGroupEliminations>>;
 type AcquisitionResult=Awaited<ReturnType<typeof readApprovedGroupAcquisitions>>;
+
+type LedgerBasis=Awaited<ReturnType<typeof readGroupAcquisitionLedgerBasis>>;
+
+function AcquisitionLedgerBasis({query,id,en}:{query:AcquisitionResult['query'];id:string;en:boolean}){
+ const [basis,setBasis]=useState<LedgerBasis|'error'|null>(null);
+ const [open,setOpen]=useState(false);
+ const {organization,from,to}=query;
+ useEffect(()=>{
+  if(!open)return;
+  const abort=new AbortController();
+  fetch('/api/financial-reporting/group-approved-acquisitions',{method:'POST',cache:'no-store',signal:abort.signal,
+   headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'LEDGER_BASIS',query:{organization,from,to},id})})
+   .then(async response=>{
+    if(!response.ok)throw Error('UNAVAILABLE');
+    const data=await response.json();
+    if(data.status!=='ACQUISITION_LEDGER_BASIS_REVIEW'||data.id!==id||
+      data.query?.organization!==organization||data.query?.from!==from||data.query?.to!==to)throw Error('UNAVAILABLE');
+    if(!abort.signal.aborted)setBasis(data);
+   }).catch(()=>{if(!abort.signal.aborted)setBasis('error');});
+  return()=>abort.abort();
+ },[open,organization,from,to,id]);
+ return <>
+  <button type="button" aria-expanded={open} onClick={()=>{setBasis(null);setOpen(!open);}}>
+   {en?'Acquisition-date book balances':'الأرصدة الدفترية بتاريخ الاستحواذ'}
+  </button>
+  {open&&<div data-acquisition-ledger-basis="true">
+   {basis===null?<p role="status">{en?'Verifying book balances…':'جارٍ التحقق من الأرصدة الدفترية…'}</p>:
+    basis==='error'?<p role="status">{en?'Book balances could not be verified.':'تعذّر التحقق من الأرصدة الدفترية.'}</p>:<>
+     <p>{en?'Closing balances':'أرصدة إقفال اليوم'} · {basis.date} · {basis.currency}</p>
+     <dl>
+      <dt>{en?'Parent investment account group (1600)':'مجموعة حسابات استثمارات الشركة الأم (1600)'}</dt>
+      <dd>{basis.investmentAccountCount?statementAmount(basis.parentInvestmentAccountGroupBalance):(en?'No accounts':'لا توجد حسابات')}</dd>
+      <dt>{en?'Subsidiary book equity':'حقوق ملكية التابعة الدفترية'}</dt>
+      <dd>{statementAmount(basis.subsidiaryBookEquity)}</dd>
+      <dt>{en?'Identifiable net assets at fair value less book equity':'الفرق بين صافي الأصول بالقيمة العادلة وحقوق الملكية الدفترية'}</dt>
+      <dd>{statementAmount(basis.fairValueLessBookEquity)}</dd>
+     </dl>
+     <p>{en?'The investment group can contain several holdings. Review the account tied to this acquisition before applying consolidation adjustments.':'قد تضم مجموعة الاستثمارات عدة استثمارات. يلزم تحديد الحساب المرتبط بهذا الاستحواذ قبل تطبيق تسويات التجميع.'}</p>
+    </>}
+  </div>}
+ </>;
+}
 
 function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organization:string;from:string;to:string;en:boolean;exported?:AcquisitionResult|'error'}){
  const [loaded,setReview]=useState<AcquisitionResult|'error'|null>(null);
@@ -36,11 +78,11 @@ function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organizat
     <div className="fs-table-scroll"><table className="fs-table">
      <thead><tr>{(en?['Subsidiary','Acquisition date','Currency','Consideration','Identifiable net assets','Goodwill','NCI at acquisition','Documents']:
       ['الشركة التابعة','تاريخ الاستحواذ','العملة','مقابل الاستحواذ','صافي الأصول المحددة','الشهرة','حقوق غير المسيطرين عند الاستحواذ','المستندات']).map(label=><th key={label}>{label}</th>)}</tr></thead>
-     <tbody>{review.rows.map(({id,subsidiaryName,documentCount,calculation})=><tr key={id}>
+     <tbody>{review.rows.map(({id,subsidiaryName,documentCount,calculation})=><Fragment key={id}><tr>
       <th>{subsidiaryName}</th><td>{calculation.acquisitionDate}</td><td>{calculation.currency}</td>
       <td>{statementAmount(calculation.consideration)}</td><td>{statementAmount(calculation.identifiableNetAssets)}</td>
       <td>{statementAmount(calculation.goodwill)}</td><td>{statementAmount(calculation.nciAtAcquisition)}</td><td>{documentCount}</td>
-     </tr>)}</tbody>
+     </tr><tr><td colSpan={8}><AcquisitionLedgerBasis query={review.query} id={id} en={en}/></td></tr></Fragment>)}</tbody>
     </table></div>
    </>}
  </div>;

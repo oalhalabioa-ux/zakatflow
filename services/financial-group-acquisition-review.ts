@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import Decimal from 'decimal.js';
 import {statementQuery} from '../lib/financial-statement-source';
 import {groupAcquisitionMeasurementSchema,measureGroupAcquisition} from '../lib/financial-group-acquisition';
 import {assertStableFinancialReplay} from '../lib/financial-source-replay';
@@ -100,4 +101,42 @@ export async function readApprovedGroupAcquisitions(input:unknown){
  }
  assertStableFinancialReplay(evidence,await read());
  return {status:'APPROVED_ACQUISITION_REVIEW' as const,query,rows};
+}
+
+const ledgerBasisRequest=z.object({action:z.literal('LEDGER_BASIS'),query:statementQuery,id:z.string().uuid()}).strict();
+
+/** Dated book balances underlying a review. The 1600 account group may contain
+ * investments in several entities, so its balances are not a linked investment. */
+export async function readGroupAcquisitionLedgerBasis(input:unknown){
+ const {query,id}=ledgerBasisRequest.parse(input);
+ const approved=await readApprovedGroupAcquisitions(query);
+ const selected=approved.rows.find(row=>row.id===id);
+ if(!selected)throw Error('GROUP_ACQUISITION_APPROVAL_REQUIRED');
+ const {acquisitionDate:date,parentOrganizationId,subsidiaryOrganizationId,currency}=selected.calculation;
+ const {liveStatementSource}=await import('./financial-statement-live');
+ const read=(organization:string)=>liveStatementSource({organization,from:date,to:date});
+ const [parent,subsidiary]=await Promise.all([read(parentOrganizationId),read(subsidiaryOrganizationId)]);
+ const [parentAgain,subsidiaryAgain]=await Promise.all([read(parentOrganizationId),read(subsidiaryOrganizationId)]);
+ for(const [source,replay,organization] of [[parent,parentAgain,parentOrganizationId],[subsidiary,subsidiaryAgain,subsidiaryOrganizationId]] as const){
+  const {statements}=source;
+  if(source.origin!=='LIVE_CANONICAL_EVENTS'||source.scope!=='ORGANIZATION_ALL_ENTITIES'||
+    statements.organizationId!==organization||statements.from!==date||statements.to!==date)
+   throw Error('GROUP_ACQUISITION_LEDGER_SCOPE_INVALID');
+  if(statements.currency!==currency)throw Error('GROUP_ACQUISITION_FX_REQUIRED');
+  assertStableFinancialReplay(source,replay);
+ }
+ assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
+ const Money=Decimal.clone({precision:50});
+ const investments=parent.accounts.filter(account=>account.kind==='ASSET'&&(account.reportingCode??account.id)==='1600');
+ const equity=subsidiary.accounts.filter(account=>account.kind==='EQUITY');
+ const investmentTotal=investments.reduce((sum,account)=>sum.plus(account.balance),new Money(0));
+ const equityTotal=equity.reduce((sum,account)=>sum.minus(account.balance),new Money(subsidiary.statements.position.fiscalProfit));
+ if(!equityTotal.eq(subsidiary.statements.position.equity))throw Error('GROUP_ACQUISITION_LEDGER_UNRECONCILED');
+ return {status:'ACQUISITION_LEDGER_BASIS_REVIEW' as const,query,id,date,currency,
+  parentInvestmentAccountGroupBalance:investmentTotal.toFixed(4),
+  subsidiaryBookEquity:equityTotal.toFixed(4),
+  subsidiaryFiscalProfit:subsidiary.statements.position.fiscalProfit,
+  fairValueLessBookEquity:new Money(selected.calculation.identifiableNetAssets).minus(equityTotal).toFixed(4),
+  investmentAccountCount:investments.length,
+ };
 }

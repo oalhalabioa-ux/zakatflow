@@ -130,6 +130,17 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const acquisitionSection=worksheet.locator('[data-approved-acquisition-review]');
  await acquisitionSection.getByText('Goodwill',{exact:true}).waitFor();
  assert.match(await acquisitionSection.locator('tbody').innerText(),/200[.]00/);
+ const basisRequest={...acquisitionKey,action:'LEDGER_BASIS'};
+ const basis=await request(approvedAcquisitionsPath,basisRequest);
+ assert.equal(basis.date,'2026-01-01');
+ assert.equal(basis.parentInvestmentAccountGroupBalance,'0.0000');
+ assert.equal(basis.subsidiaryBookEquity,'5000.0000');
+ assert.equal(basis.fairValueLessBookEquity,'-4000.0000');
+ await acquisitionSection.getByRole('button',{name:'Acquisition-date book balances',exact:true}).click();
+ const basisPanel=acquisitionSection.locator('[data-acquisition-ledger-basis]');
+ await basisPanel.getByText('Subsidiary book equity',{exact:true}).waitFor();
+ assert.match(await basisPanel.innerText(),/5,000[.]00/);
+ await writeFile(out+'/acquisition-ledger-basis.json',JSON.stringify(basis,null,2));
  await worksheet.locator('[data-group-statement-worksheet] table').first().waitFor();
  assert.ok((await worksheet.textContent()).includes('Approved version: 3'));
  await worksheet.locator('[data-group-statement-worksheet]').waitFor();
@@ -160,12 +171,15 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   await request('/api/financial-reporting/group-acquisition-review',acquisitionInput,403);
   await request(acquisitionPath,{...acquisitionKey,action:'READ'},403);
   await request(approvedAcquisitionsPath,query,403);
+  await request(approvedAcquisitionsPath,basisRequest,403);
   await request(documentPath,{...documentKey,action:'DOWNLOAD'},403);
  }finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${subsidiary}' and user_id='${actor.id}'`)}
  const acquisitionRevoked=await request(acquisitionPath,{...acquisitionKey,action:'REVOKE',reason:'Reviewer withdrew the isolated acquisition evidence'});
  assert.equal(acquisitionRevoked.status,'REVOKED');
  assert.equal(acquisitionRevoked.revoked_by,actor.id);
  assert.equal(acquisitionRevoked.approved_by,actor.id);
+ const revokedBasis=await request(approvedAcquisitionsPath,basisRequest,422);
+ assert.equal(revokedBasis.error,'GROUP_ACQUISITION_APPROVAL_REQUIRED');
  const revokedAcquisitionDownload=page.waitForEvent('download');
  await worksheet.getByRole('button',{name:'Export review worksheet CSV',exact:true}).click();
  const afterRevocation=await revokedAcquisitionDownload;
