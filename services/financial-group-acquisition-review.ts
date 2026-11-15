@@ -169,6 +169,7 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
  const equityTotal=equity.reduce((sum,account)=>sum.minus(account.balance),new Money(subsidiary.statements.position.fiscalProfit));
  if(!equityTotal.eq(subsidiary.statements.position.equity))throw Error('GROUP_ACQUISITION_LEDGER_UNRECONCILED');
  const fairValue=acquisitionFairValueDifferences(subsidiary.accounts,selected.bookItems??[],selected.fairValueTaxBasisDocumented===true);
+ const inventory=selected.inventoryTaxAssessment?.measurement;
  return {status:'ACQUISITION_LEDGER_BASIS_REVIEW' as const,query,id,date,currency,
   parentInvestmentAccountGroupBalance:investmentTotal.toFixed(4),
   subsidiaryBookEquity:equityTotal.toFixed(4),
@@ -186,6 +187,12 @@ export async function readGroupAcquisitionLedgerBasis(input:unknown){
   depreciationSchedules:selected.depreciationSchedules??[],
   noDeferredTaxRequired:selected.noDeferredTaxRequired===true,
   ordinaryDividend:selected.ordinaryDividend??null,
+  ...(inventory?.eliminationDocumentMatches?{inventoryElimination:{
+   buyerOrganizationId:inventory.buyerOrganizationId,
+   sellerOrganizationId:inventory.buyerOrganizationId===parentOrganizationId?subsidiaryOrganizationId:parentOrganizationId,
+   saleEventId:inventory.saleEventId,costEventId:inventory.costEventId,purchaseEventId:inventory.purchaseEventId,
+   ...inventory.eliminationDocumentMatches,
+  }}:{}),
   acquisitionGoodwill:selected.calculation.goodwill,
   acquisitionNci:selected.calculation.nciAtAcquisition,
  };

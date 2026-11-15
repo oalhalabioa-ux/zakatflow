@@ -777,10 +777,12 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
   console.log('PASS The combined review rejects a dividend payment already used by the cash batch');
   await request(acquisitionPath,{...paidKey,action:'REVOKE',reason:'Restore the original disposable group fixture'});
   const {verifyGroupInventoryMargin}=await import('./verify-group-inventory-margin.mjs');
-  await verifyGroupInventoryMargin({actor,request,rpc,command,sql,jointDocument,parent,subsidiary,query,out,
-   acquisitionPath,documentPath,acquisitionMeasurement:{...dayMeasurement,considerationEvidence:minorityDocument.id,
+  await verifyGroupInventoryMargin({actor,request,rpc,command,sql,jointDocument,parent,subsidiary,query:{...query,to:'2026-02-28'},out,
+   acquisitionPath,approvedAcquisitionsPath,documentPath,page,worksheet,positionPanel,
+   acquisitionMeasurement:{...dayMeasurement,considerationEvidence:minorityDocument.id,
     investmentLink:{...investmentLink,documentId:minorityDocument.id},
     identifiableItems:dayMeasurement.identifiableItems.map(item=>({...item,measurementEvidence:minorityDocument.id})),
+    continuityBasis:{treatment:'NO_SUBSEQUENT_ADJUSTMENTS',evidenceDocumentId:minorityDocument.id},
    }});
  }finally{
   sql(`update private.financial_group_control_assessments set economic_interest_percent=100,

@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 
 export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,jointDocument,parent,subsidiary,query,out,
- acquisitionPath,documentPath,acquisitionMeasurement}){
+ acquisitionPath,approvedAcquisitionsPath,documentPath,acquisitionMeasurement,page,worksheet,positionPanel}){
  async function prepare(organization,entries){
   let workspace=await rpc('financial_reporting_policy_workspace',{p_org:organization,p_fiscal_start:query.from});
   for(const code of new Set(entries.flatMap(entry=>[entry.debit,entry.credit]))){
@@ -41,12 +41,12 @@ export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,
    return id;
   };
  }
- const date='2026-11-05';
- const replenishment={type:'ASSET',debit:'170098',credit:'210001',date:'2026-11-04',amount:800};
+ const date='2026-02-21';
+ const replenishment={type:'ASSET',debit:'170098',credit:'210001',date:'2026-02-20',amount:800};
  const sale={type:'REVENUE',debit:'110001',credit:'410001',date,amount:1000};
  const cost={type:'OPEX',debit:'510098',credit:'170098',date,amount:800};
  const purchase={type:'ASSET',debit:'170098',credit:'210001',date,amount:1000};
- const issue={type:'OPEX',debit:'510098',credit:'170098',date:'2026-11-06',amount:100};
+ const issue={type:'OPEX',debit:'510098',credit:'170098',date:'2026-02-22',amount:100};
  const seller=await prepare(subsidiary,[replenishment,sale,cost]);
  const buyer=await prepare(parent,[purchase,issue]);
  await seller(replenishment);
@@ -95,12 +95,58 @@ export async function verifyGroupInventoryMargin({actor,request,rpc,command,sql,
  assert.deepEqual(taxReview.afterTaxAttribution,{
   parent:'128.0000',nonControllingInterests:'32.0000',attributionTaxBasis:assessment.attributionTaxBasis,
  });
+ const batchPath='/api/financial-reporting/group-elimination-batches';
+ const batch=await request(batchPath,{action:'SAVE',query,entries:[],expectedVersion:0,requestId:randomUUID(),
+  reason:'Approve the period before applying the separately documented inventory elimination'});
+ await request(batchPath,{action:'APPROVE',query,batchId:batch.id,expectedVersion:1,reason:'Approve the exact report period'});
+ const positionAction={action:'ACQUISITION_POSITION',query};
+ const before=await request(approvedAcquisitionsPath,positionAction);
+ assert.equal(before.status,'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW',JSON.stringify(before));
+ assert.equal(before.inventoryEliminations.length,0);
+ const originalBooks=()=>Promise.all([parent,subsidiary].map(async organization=>{
+  const snapshot=await rpc('financial_statement_live_snapshot',{p_org:organization,p_from:query.from,p_to:query.to});
+  delete snapshot.coverage.readAt;
+  return snapshot;
+ }));
+ const booksBefore=await originalBooks();
  await request(acquisitionPath,{...taxKey,action:'REVOKE',reason:'Verify withdrawn tax approval is rejected by the stock review'});
  assert.equal((await request(path,withTax,422)).error,'GROUP_INVENTORY_TAX_ASSESSMENT_REQUIRED');
  await writeFile(out+'/group-inventory-deferred-tax-review.json',JSON.stringify(taxReview,null,2));
  console.log('PASS Approved same-rate inventory tax assessment reconciles after-tax parent and NCI attribution');
+ const eliminationKey={query,id:randomUUID()};
+ const withMatches=eliminationDocumentMatches=>({...acquisitionMeasurement,inventoryTaxAssessment:{...assessment,
+  eliminationDocumentMatches}});
+ const wrongMatch=await request(acquisitionPath,{...eliminationKey,action:'SAVE',measurement:withMatches({
+  saleDocumentMatchId:costDocumentMatchId,costDocumentMatchId:saleDocumentMatchId,
+ })},422);
+ assert.equal(wrongMatch.error,'GROUP_ACQUISITION_INVENTORY_DOCUMENT_MISMATCH');
+ await request(acquisitionPath,{...eliminationKey,action:'SAVE',measurement:withMatches({saleDocumentMatchId,costDocumentMatchId})});
+ await request(acquisitionPath,{...eliminationKey,action:'APPROVE',reason:'Approve the inventory elimination in the group statements'});
+ const after=await request(approvedAcquisitionsPath,positionAction);
+ assert.equal(after.status,'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW',JSON.stringify(after));
+ assert.equal(after.inventoryEliminations.length,1);
+ function difference(field,key){
+  return Number(after[field].find(row=>row.key===key).after)-Number(before[field].find(row=>row.key===key).after);
+ }
+ for(const [key,amount] of [['revenue',-1000],['costOfSales',-800],['grossProfit',-200],['operatingProfit',-200],['tax',-40],['netProfit',-160]])
+  assert.equal(difference('income',key),amount);
+ assert.equal(difference('rows','assets'),-160);
+ assert.equal(difference('rows','liabilities'),0);
+ assert.equal(difference('rows','equity'),-160);
+ assert.equal(Number(after.closingNci)-Number(before.closingNci),-32);
+ assert.equal(Number(after.closingParentEquity)-Number(before.closingParentEquity),-128);
+ assert.deepEqual(after.cash,before.cash);
+ assert.deepEqual(await originalBooks(),booksBefore);
+ await page.getByLabel('To date',{exact:true}).fill(query.to);
+ await worksheet.getByRole('button',{name:'Review acquisition carry-forward',exact:true}).click();
+ await positionPanel.getByRole('heading',{name:'Approved inventory margin eliminations',exact:true}).waitFor();
+ await positionPanel.getByText('170098',{exact:true}).waitFor();
+ await writeFile(out+'/group-inventory-consolidated-position.json',JSON.stringify({before,after},null,2));
+ console.log('PASS Approved stock margin reaches group position, income and non-controlling interests exactly once');
  await buyer(issue);
  assert.equal((await request(path,payload,422)).error,'GROUP_INVENTORY_REMAINING_STOCK_UNVERIFIED');
+ const invalidated=await request(approvedAcquisitionsPath,positionAction,422);
+ assert.equal(invalidated.error,'GROUP_INVENTORY_REMAINING_STOCK_UNVERIFIED');
  await writeFile(out+'/group-inventory-margin-review.json',JSON.stringify(result,null,2));
  console.log('PASS Posted stock transfer proves the unsold margin and rejects partial inventory movement');
 }

@@ -335,7 +335,7 @@ begin
     item := p_measurement->'inventoryTaxAssessment';
     if jsonb_typeof(item) is distinct from 'object'
       or item - array['buyerOrganizationId','saleEventId','costEventId','purchaseEventId','evidenceDocumentId',
-        'buyerTaxBasis','buyerRecoveryRatePercent','recoverability','attributionTaxBasis'] <> '{}'::jsonb
+        'buyerTaxBasis','buyerRecoveryRatePercent','recoverability','attributionTaxBasis','eliminationDocumentMatches'] <> '{}'::jsonb
       or exists(select 1 from unnest(array['buyerOrganizationId','saleEventId','costEventId','purchaseEventId','evidenceDocumentId']) key
         where coalesce(item->>key,'') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
       or item->>'buyerOrganizationId' not in (p_root::text,subsidiary::text)
@@ -366,6 +366,24 @@ begin
           or (event.id in ((item->>'saleEventId')::uuid,(item->>'costEventId')::uuid)
             and event.organization_id=case when item->>'buyerOrganizationId'=p_root::text then subsidiary else p_root end)))<>3
       then raise exception 'GROUP_ACQUISITION_TAX_SOURCE_REQUIRED'; end if;
+    if item ? 'eliminationDocumentMatches' then
+      schedule := item->'eliminationDocumentMatches';
+      if not (item ? 'attributionTaxBasis') or jsonb_typeof(schedule) is distinct from 'object'
+        or schedule - array['saleDocumentMatchId','costDocumentMatchId'] <> '{}'::jsonb
+        or exists(select 1 from unnest(array['saleDocumentMatchId','costDocumentMatchId']) key
+          where coalesce(schedule->>key,'') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+        or schedule->>'saleDocumentMatchId'=schedule->>'costDocumentMatchId'
+        then raise exception 'GROUP_ACQUISITION_INPUT_INVALID'; end if;
+      if (select count(*) from jsonb_array_elements(public.financial_group_document_context(array[
+          (schedule->>'saleDocumentMatchId')::uuid,(schedule->>'costDocumentMatchId')::uuid
+        ])) as matched(evidence)
+        cross join lateral (select case when matched.evidence->>'id'=schedule->>'saleDocumentMatchId'
+          then item->>'saleEventId' else item->>'costEventId' end as seller_event) voucher
+        where matched.evidence->>'status'='APPROVED' and matched.evidence->>'sourceCurrent'='true'
+          and ((matched.evidence->>'leftEventId'=voucher.seller_event and matched.evidence->>'rightEventId'=item->>'purchaseEventId')
+            or (matched.evidence->>'rightEventId'=voucher.seller_event and matched.evidence->>'leftEventId'=item->>'purchaseEventId')))<>2
+        then raise exception 'GROUP_ACQUISITION_INVENTORY_DOCUMENT_MISMATCH'; end if;
+    end if;
     document_refs := array_append(document_refs,item->>'evidenceDocumentId');
   end if;
   if exists(select 1 from unnest(document_refs) ref where ref is null or

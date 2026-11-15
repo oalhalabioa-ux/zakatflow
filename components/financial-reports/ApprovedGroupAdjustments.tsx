@@ -83,7 +83,7 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
    result!==null&&(result==='error'||result.status==='ACQUISITION_POSITION_UNAVAILABLE')?
     <p role="status">{en?'Verified acquisition-day adjustments are unavailable for this selection.':'تسويات يوم الاستحواذ المتحقق منها غير متاحة لهذا الاختيار.'}</p>:
    result!==null&&<>
-    <h4>{result.eliminationBatchVersion!==null?
+    <h4>{result.eliminationBatchVersion!==null||result.inventoryEliminations.length>0?
      (en?'Financial position after acquisition and intercompany eliminations':'المركز المالي بعد تسوية الاستحواذ والاستبعادات بين الشركات'):
      result.status==='ACQUISITION_CARRY_FORWARD_POSITION_REVIEW'?
      (en?'Closing position after carrying forward the acquisition adjustment':'المركز المالي بعد ترحيل تسوية الاستحواذ'):
@@ -97,6 +97,18 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       <td>{statementAmount(row.before)}</td><td>{statementAmount(row.adjustment)}</td><td>{statementAmount(row.after)}</td>
      </tr>)}</tbody>
     </table></div>
+    {result.inventoryEliminations.length>0&&<>
+     <h4>{en?'Approved inventory margin eliminations':'استبعادات هامش المخزون المعتمدة'}</h4>
+     <div className="fs-table-scroll"><table className="fs-table">
+      <thead><tr>{(en?['Inventory account','Unrealized margin','Deferred tax asset','After-tax profit reduction']:
+       ['حساب المخزون','الربح غير المحقق','أصل الضريبة المؤجلة','تخفيض الربح بعد الضريبة']).map(label=><th key={label}>{label}</th>)}</tr></thead>
+      <tbody>{result.inventoryEliminations.map(item=>item.deferredTax&&<tr key={item.deferredTax.approvedRecordId}>
+       <th>{item.inventoryAccountId}</th><td>{statementAmount(item.inventoryReduction)}</td>
+       <td>{statementAmount(item.deferredTax.deferredTaxAssetIncrease)}</td>
+       <td>{statementAmount(item.deferredTax.groupAfterTaxProfitReduction)}</td>
+      </tr>)}</tbody>
+     </table></div>
+    </>}
     {result.profitAttribution&&<>
      <h4>{en?'Non-controlling interests after acquisition':'حقوق غير المسيطرين بعد الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
@@ -153,7 +165,7 @@ function AcquisitionPositionReview({query,en}:{query:AcquisitionResult['query'];
       </tr>)}</tbody>
      </table></div>
     </>}
-    {(result.eliminationBatchVersion!==null||result.depreciationAdjustments.length>0||result.dividendEliminations.length>0)&&<>
+    {(result.eliminationBatchVersion!==null||result.depreciationAdjustments.length>0||result.dividendEliminations.length>0||result.inventoryEliminations.length>0)&&<>
      {result.depreciationAdjustments.length>0&&<><h4>{en?'Depreciation of acquisition uplift':'إهلاك فرق القيمة العادلة عند الاستحواذ'}</h4>
      <div className="fs-table-scroll"><table className="fs-table">
       <thead><tr>{(en?['Subsidiary','Account','Useful life (days)','Period depreciation','Remaining uplift']:

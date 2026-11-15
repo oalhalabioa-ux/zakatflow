@@ -14,11 +14,15 @@ export const inventoryTaxAssessmentSchema=z.object({
  buyerRecoveryRatePercent:rate,
  recoverability:z.enum(['PROBABLE','NOT_PROBABLE']),
  attributionTaxBasis:z.object({sameTaxJurisdiction:z.literal(true),sellerTaxRatePercent:rate}).strict().optional(),
+ eliminationDocumentMatches:z.object({saleDocumentMatchId:uuid,costDocumentMatchId:uuid}).strict()
+  .refine(matches=>matches.saleDocumentMatchId!==matches.costDocumentMatchId).optional(),
 }).strict().refine(assessment=>{
  const sellerRate=assessment.attributionTaxBasis?.sellerTaxRatePercent;
  return sellerRate===undefined||
   isTaxRate(sellerRate)&&isTaxRate(assessment.buyerRecoveryRatePercent)&&new Money(sellerRate).eq(assessment.buyerRecoveryRatePercent);
-},'GROUP_INVENTORY_ATTRIBUTION_TAX_RATE_MISMATCH');
+},'GROUP_INVENTORY_ATTRIBUTION_TAX_RATE_MISMATCH')
+ .refine(assessment=>!assessment.eliminationDocumentMatches||Boolean(assessment.attributionTaxBasis),
+  'GROUP_INVENTORY_ATTRIBUTION_BASIS_REQUIRED');
 export type InventoryTaxAssessment=z.infer<typeof inventoryTaxAssessmentSchema>;
 
 /** The verified buyer booked the transfer price. Requiring the tax basis to
