@@ -1,8 +1,33 @@
--- Review approved documentary pairs within the period against its approved batch.
+-- Review approved documentary pairs and earlier open balances against the approved batch.
 -- Event references only, without documentary contents or changes to ledgers.
 create index financial_group_document_approved_organizations
  on private.financial_group_document_matches(left_organization_id,right_organization_id)
  where status='APPROVED';
+
+create function private.financial_group_prior_pair_balance(
+ p_left_org uuid,p_left_event uuid,p_right_org uuid,p_right_event uuid,p_currency text,p_to date,p_current boolean
+) returns jsonb language plpgsql stable set search_path='' as $$
+declare left_kinds text[]; right_kinds text[]; left_balance text; right_balance text;
+begin
+ select array_agg(distinct obligation_type::text) into left_kinds from public.financial_event_obligations
+ where organization_id=p_left_org and event_id=p_left_event and adjusts_obligation_id is null;
+ select array_agg(distinct obligation_type::text) into right_kinds from public.financial_event_obligations
+ where organization_id=p_right_org and event_id=p_right_event and adjusts_obligation_id is null;
+ if not coalesce((left_kinds @> array['PAYABLE'] and right_kinds @> array['RECEIVABLE'])
+  or (left_kinds @> array['RECEIVABLE'] and right_kinds @> array['PAYABLE']),false) then return null;end if;
+ if not p_current or cardinality(left_kinds)<>1 or cardinality(right_kinds)<>1
+  then return jsonb_build_object('status','REVIEW_REQUIRED');end if;
+ begin
+  left_balance:=private.financial_group_open_item(p_left_org,p_left_event,left_kinds[1],p_currency,p_to)->>'outstanding';
+  right_balance:=private.financial_group_open_item(p_right_org,p_right_event,right_kinds[1],p_currency,p_to)->>'outstanding';
+ exception when raise_exception then
+  if sqlerrm not in ('GROUP_BATCH_OPEN_ITEM_AMBIGUOUS','GROUP_BATCH_OPEN_ITEM_INVALID','GROUP_BATCH_OPEN_ITEM_UNRECONCILED') then raise;end if;
+  return jsonb_build_object('status','REVIEW_REQUIRED');
+ end;
+ if left_balance::numeric=0 and right_balance::numeric=0 then return null;end if;
+ return jsonb_build_object('status','OPEN','currency',p_currency,'leftOutstanding',left_balance,'rightOutstanding',right_balance);
+end $$;
+revoke all on function private.financial_group_prior_pair_balance(uuid,uuid,uuid,uuid,text,date,boolean) from public,anon,authenticated;
 
 create function private.financial_group_document_coverage(p_root uuid,p_from date,p_to date)
 returns jsonb language plpgsql security definer set search_path='' as $$
@@ -13,23 +38,29 @@ begin
  approved:=public.financial_group_approved_eliminations(p_root,p_from,p_to);
  select array_agg(id::uuid) into members
  from jsonb_array_elements_text(scope->'expectedOrganizationIds') as member(id);
- select coalesce(jsonb_agg(jsonb_build_object(
-  'id',m.id,'leftEventId',m.left_event_id,'rightEventId',m.right_event_id,
-  'sourceCurrent',m.left_status='ACTUAL' and m.right_status='ACTUAL'
-   and private.financial_group_document_fingerprint(m.left_event_id,m.right_event_id) is not distinct from m.source_fingerprint
- ) order by m.id),'[]'::jsonb) into unmatched
- from (
-  select d.id,d.left_event_id,d.right_event_id,d.source_fingerprint,a.status as left_status,b.status as right_status
+ with omitted as materialized (
+  select d.id,d.left_event_id,d.right_event_id,d.left_organization_id,d.right_organization_id,a.base_currency,
+   least(a.event_date,b.event_date)<p_from as is_prior,
+   a.status='ACTUAL' and b.status='ACTUAL' and a.base_currency=b.base_currency
+    and private.financial_group_document_fingerprint(d.left_event_id,d.right_event_id) is not distinct from d.source_fingerprint as source_current
   from private.financial_group_document_matches d
   join public.financial_events a on a.id=d.left_event_id and a.organization_id=d.left_organization_id
   join public.financial_events b on b.id=d.right_event_id and b.organization_id=d.right_organization_id
   where d.status='APPROVED'
    and d.left_organization_id=any(members) and d.right_organization_id=any(members)
-   and a.event_date between p_from and p_to and b.event_date between p_from and p_to
+   and a.event_date<=p_to and b.event_date<=p_to
    and not exists(select 1 from jsonb_array_elements(approved->'entries') as entry(value)
     where entry.value->>'documentMatchId'=d.id::text)
-  order by d.id limit 201
- ) m;
+ ), balances as materialized (
+  select *,case when is_prior then private.financial_group_prior_pair_balance(
+    left_organization_id,left_event_id,right_organization_id,right_event_id,base_currency,p_to,source_current
+   ) end as prior_balance from omitted
+ ), review_rows as (
+  select * from balances where not is_prior or prior_balance is not null order by id limit 201
+ )
+ select coalesce(jsonb_agg(jsonb_build_object('id',id,'leftEventId',left_event_id,'rightEventId',right_event_id,
+  'sourceCurrent',source_current)||case when is_prior then jsonb_build_object('priorBalance',prior_balance) else '{}'::jsonb end
+  order by id),'[]'::jsonb) into unmatched from review_rows;
  if jsonb_array_length(unmatched)>200 then raise exception 'GROUP_DOCUMENT_COVERAGE_LIMIT';end if;
  if scope is distinct from public.financial_group_registered_scope(p_root,p_from,p_to)
   then raise exception 'GROUP_DOCUMENT_SCOPE_CHANGED';end if;

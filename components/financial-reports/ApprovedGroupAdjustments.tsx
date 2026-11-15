@@ -281,20 +281,23 @@ function GroupDocumentCoverage({data,en}:{data:Result;en:boolean}){
    if(!abort.signal.aborted)setResult(body);
   }catch{if(!abort.signal.aborted)setResult('error');}
  }
- return <div data-group-document-coverage>
+ return <div data-group-document-coverage data-period-from={data.control.from}>
   <button type="button" onClick={()=>void load()} disabled={result==='loading'}>
    {en?'Check documents outside this batch':'تحقق من المستندات خارج هذه الدفعة'}
   </button>
   {result==='loading'?<p role="status">{en?'Checking approved document matches…':'جارٍ التحقق من مطابقة المستندات المعتمدة…'}</p>:
    result==='error'?<p role="status">{en?'Document coverage could not be verified for this batch. Refresh the report and try again.':'تعذر التحقق من تغطية المستندات لهذه الدفعة. حدّث التقرير وأعد المحاولة.'}</p>:
    result&&<>
-    <p>{en?'This review covers approved matches dated within the selected period.':'تغطي هذه المراجعة المطابقات المعتمدة المؤرخة ضمن الفترة المحددة.'}</p>
-    {result.rows.length===0?<p role="status">{en?'All approved matches in this period are referenced by the batch.':'تتضمن الدفعة مراجع جميع المطابقات المعتمدة ضمن الفترة.'}</p>:
+    <p>{en?'This review covers approved matches in the selected period and matched balances carried forward from earlier periods.':'تغطي هذه المراجعة المطابقات المعتمدة في الفترة المحددة والأرصدة المطابقة المرحّلة من فترات سابقة.'}</p>
+    {result.rows.length===0?<p role="status">{en?'No approved matches outside the batch require review.':'لا توجد مطابقات معتمدة خارج الدفعة تتطلب المراجعة.'}</p>:
      <div className="fs-table-scroll"><table className="fs-table"><thead><tr>
-      {(en?['Match reference','First event','Second event','Source status']:['مرجع المطابقة','القيد الأول','القيد الثاني','حالة المصدر']).map(label=><th key={label} scope="col">{label}</th>)}
+      {(en?['Match reference','First event','Second event','Source status','Prior-period open balances']:['مرجع المطابقة','القيد الأول','القيد الثاني','حالة المصدر','أرصدة الفترات السابقة المفتوحة']).map(label=><th key={label} scope="col">{label}</th>)}
      </tr></thead><tbody>{result.rows.map(row=><tr key={row.id}>
       <th scope="row"><bdi>{row.id}</bdi></th><td><bdi>{row.leftEventId}</bdi></td><td><bdi>{row.rightEventId}</bdi></td>
       <td>{row.sourceCurrent?(en?'Ready for batch review':'جاهز لمراجعة الدفعة'):(en?'Source changed since approval':'تغيّر المصدر بعد الاعتماد')}</td>
+      <td>{row.priorBalance?.status==='OPEN'?
+       <bdi>{statementAmount(row.priorBalance.leftOutstanding)} / {statementAmount(row.priorBalance.rightOutstanding)} {row.priorBalance.currency}</bdi>:
+       row.priorBalance?.status==='REVIEW_REQUIRED'?(en?'Review required':'يحتاج مراجعة'):'—'}</td>
      </tr>)}</tbody></table></div>}
    </>}
  </div>;

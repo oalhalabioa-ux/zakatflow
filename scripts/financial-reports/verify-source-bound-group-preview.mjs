@@ -172,7 +172,7 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const coverage=worksheet.locator('[data-group-document-coverage]');
  const checkCoverage=()=>coverage.getByRole('button',{name:'Check documents outside this batch',exact:true}).click();
  await checkCoverage();
- await coverage.getByText('All approved matches in this period are referenced by the batch.',{exact:true}).waitFor();
+ await coverage.getByText('No approved matches outside the batch require review.',{exact:true}).waitFor();
  const coverageQuery={...query,to:'2026-12-30'};
  const emptyBatch=await request('/api/financial-reporting/group-elimination-batches',{
   ...save,query:coverageQuery,entries:[],requestId:randomUUID(),
@@ -189,9 +189,28 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await worksheet.getByText('Approved version: 1',{exact:false}).waitFor();
  await checkCoverage();
  await coverage.getByText('Ready for batch review',{exact:true}).waitFor();
- assert.deepEqual(await coverage.locator('tbody tr > *').allTextContents(),[proposed.documentMatchId,...eventIds,'Ready for batch review']);
+ assert.deepEqual(await coverage.locator('tbody tr > *').allTextContents(),[proposed.documentMatchId,...eventIds,'Ready for batch review','—']);
  await writeFile(out+'/approved-group-document-coverage.json',JSON.stringify(omitted,null,2));
  console.log('PASS Approved documentary match omitted from its batch is returned and shown in the scoped browser review');
+ const priorQuery={...coverageQuery,from:'2026-10-02'};
+ const priorBatch=await request('/api/financial-reporting/group-elimination-batches',{
+  ...save,query:priorQuery,entries:[],requestId:randomUUID(),
+ });
+ await request('/api/financial-reporting/group-elimination-batches',{
+  action:'APPROVE',query:priorQuery,batchId:priorBatch.id,expectedVersion:1,reason:'Review earlier matched obligations in the new period',
+ });
+ const priorCoverage=await request(worksheetPath,{action:'DOCUMENT_COVERAGE',query:priorQuery});
+ const balances=eventIds.map(id=>id===expenseEvent?'100.0000':'60.0000');
+ assert.deepEqual(priorCoverage.rows,[{...omitted.rows[0],
+  priorBalance:{status:'OPEN',currency:'SAR',leftOutstanding:balances[0],rightOutstanding:balances[1]}}]);
+ await page.getByLabel('From date',{exact:true}).fill(priorQuery.from);
+ await worksheet.locator('[data-group-document-coverage][data-period-from="'+priorQuery.from+'"]').waitFor();
+ await checkCoverage();
+ const carryLabel=balances.map(value=>Number(value).toFixed(2)).join(' / ')+' SAR';
+ await coverage.getByText(carryLabel,{exact:true}).waitFor();
+ await writeFile(out+'/approved-group-prior-open-balances.json',JSON.stringify(priorCoverage,null,2));
+ console.log('PASS Earlier approved matching carries SAR 100 payable and SAR 60 receivable into the scoped review');
+ await page.getByLabel('From date',{exact:true}).fill(query.from);
  await page.getByLabel('To date',{exact:true}).fill(query.to);
  await worksheet.getByText('Approved version: 3',{exact:false}).waitFor();
 

@@ -11,10 +11,15 @@ export async function readGroupDocumentMatches(entries:readonly Pick<SourceBound
  return r.data;
 }
 const reason=z.string().trim().min(8).max(1000),uuid=z.string().uuid();
+const outstanding=z.string().regex(/^\d{1,20}\.\d{4}$/);
+const priorBalance=z.discriminatedUnion('status',[
+ z.object({status:z.literal('OPEN'),currency:z.string().regex(/^[A-Z]{3}$/),leftOutstanding:outstanding,rightOutstanding:outstanding}).strict(),
+ z.object({status:z.literal('REVIEW_REQUIRED')}).strict(),
+]);
 const coverage=z.object({
  status:z.literal('GROUP_DOCUMENT_COVERAGE_REVIEW'),organization:uuid,from:z.string().date(),to:z.string().date(),
  batchId:uuid,batchVersion:z.number().int().positive(),
- rows:z.array(z.object({id:uuid,leftEventId:uuid,rightEventId:uuid,sourceCurrent:z.boolean()}).strict()).max(200),
+ rows:z.array(z.object({id:uuid,leftEventId:uuid,rightEventId:uuid,sourceCurrent:z.boolean(),priorBalance:priorBalance.optional()}).strict()).max(200),
 }).strict();
 export async function readGroupDocumentCoverage(input:unknown){
  const {organization,from,to}=statementQuery.parse(input);
