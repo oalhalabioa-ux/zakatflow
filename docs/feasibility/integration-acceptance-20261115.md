@@ -45,3 +45,14 @@ These test results are tied to the stated commit and must be repeated/verified o
 - [ ] User review/approval before any merge; separate user approval and pre-release migration review before Production activation.
 
 **Recommendation:** Code may be evaluated for **feature-flagged integration merge** after the final checks and reviewer sign-off; it is **not a customer-ready module** while authenticated feasibility UI QA and independent activation remain outstanding.
+
+
+## 15 November 2026 — QA-only audited member revocation
+
+- Reviewed the existing authenticated, owner-scoped `feasibility_revoke_project_member` function. It previously revoked active members without writing a permanent event to `platform_audit_events`.
+- Added independent migration source `docs/feasibility/qa-v2-audited-member-revocation-20261115.sql`. Revocation now requires an authenticated, valid `TRIAL` or `ACTIVE` owner entitlement, verifies project ownership, rejects attempted owner self-revocation and records one `feasibility.member_revoked` event with actor, project, revoked member and former role.
+- A repeated revocation returns `false`, creates no second audit event and does not mutate unrelated users. If audit writing fails the database transaction rejects the status update as well.
+- A six-assertion QA V2 rehearsal passed inside a rolled-back transaction (non-owner denied, owner allowed, repeat no-op, exactly one audit, member revoked, read-only denied).
+- Applied the migration **only** to Supabase QA V2 `ubotbpjngtfvolthpfec` and confirmed the function definition, anonymous-execution denial and zero remaining synthetic rows. A subsequent rollback-only post-apply test confirmed four more conditions: real revocation, repeat no-op, one persisted-in-transaction audit record and revoked membership.
+- Added route-level tests for expired/read-only entitlement. Final-source CI must be verified again after these edits.
+- This is **not** permission to enable sharing with real customers: the existing security-advisor warning about three intentionally authenticated `SECURITY DEFINER` RPCs still requires a signed-off threat review. Authenticated V2 QA browser testing of invitation and revocation flows remains pending.
