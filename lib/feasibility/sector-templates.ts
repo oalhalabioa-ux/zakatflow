@@ -1,0 +1,35 @@
+import type {Sector} from './engine';
+export type SectorTemplate={volumeAr:string;volumeEn:string;capacityAr:string;capacityEn:string;yieldAr:string;yieldEn:string;warningAr:string;warningEn:string};
+/** Sector-specific terminology only; never infer tax rates, costs or legal rights. */
+export const sectorTemplates:Record<Sector,SectorTemplate>={
+ INDUSTRIAL:{volumeAr:'وحدات المنتج المباعة شهريًا',volumeEn:'Monthly saleable production units',
+  capacityAr:'طاقة الإنتاج الشهرية',capacityEn:'Monthly production capacity',
+  yieldAr:'المنتج السليم والقابل للبيع %',yieldEn:'Saleable yield %',
+  warningAr:'الطاقة الاسمية لا تعني المبيعات الفعلية؛ تحقق من الهدر والتوقفات والمخزون.',
+  warningEn:'Nameplate capacity is not actual sales: review downtime, scrap and inventory.'},
+ COMMERCIAL:{volumeAr:'الوحدات التجارية المباعة شهريًا',volumeEn:'Monthly commercial units sold',
+  capacityAr:'الطاقة القصوى للمبيعات شهريًا',capacityEn:'Maximum sales units per month',
+  yieldAr:'الوحدات القابلة للبيع %',yieldEn:'Marketable stock %',
+  warningAr:'دورة المخزون والمرتجعات والخصومات لا تُحسب في جدول مستقل بعد.',
+  warningEn:'Inventory turnover, returns and supplier discounts need separate schedules.'},
+ REAL_ESTATE:{volumeAr:'الوحدات العقارية المباعة شهريًا',volumeEn:'Property units sold monthly',
+  capacityAr:'الوحدات المتاحة للبيع شهريًا',capacityEn:'Property units available monthly',
+  yieldAr:'الوحدات القابلة للبيع %',yieldEn:'Saleable properties %',
+  warningAr:'المشروع العقاري يحتاج جدول مراحل إنشاء وتحصيل، وليس مجرد مبيعات شهرية.',
+  warningEn:'Property development requires construction milestone and staged collection schedules.'},
+ SERVICES:{volumeAr:'ساعات أو أعمال مفوترة شهريًا',volumeEn:'Billable hours or jobs per month',
+  capacityAr:'الطاقة الخدمية الشهرية',capacityEn:'Monthly service capacity',
+  yieldAr:'نسبة الوقت القابل للفوترة %',yieldEn:'Billable utilization %',
+  warningAr:'يجب التمييز بين ساعات العمل المتاحة والقابلة للفوترة ورواتب الفريق.',
+  warningEn:'Separate available hours, billable work and payroll cost.'},
+ AGRICULTURE:{volumeAr:'وحدات المحصول المباعة شهريًا',volumeEn:'Monthly crop units sold',
+  capacityAr:'طاقة الحصاد الشهرية',capacityEn:'Monthly harvest capacity',
+  yieldAr:'المحصول الصالح للبيع %',yieldEn:'Marketable crop yield %',
+  warningAr:'لا تشمل التوقعات الموسمية ودورات الإنتاج والمياه الزراعية الشهرية.',
+  warningEn:'Seasonality, crop cycles and monthly water use are not modeled.'},
+ CUSTOM:{volumeAr:'الوحدات أو الخدمات المباعة شهريًا',volumeEn:'Monthly saleable units or services',
+  capacityAr:'الطاقة الشهرية المتاحة',capacityEn:'Available monthly capacity',
+  yieldAr:'الوحدات القابلة للبيع أو الفوترة %',yieldEn:'Saleable or billable %',
+  warningAr:'حدد وحدة القياس وطريقة تشغيل المشروع قبل الاعتماد على النتائج.',
+  warningEn:'Define your business unit and production drivers before investment decisions.'}
+};
