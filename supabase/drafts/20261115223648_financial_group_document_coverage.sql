@@ -31,7 +31,7 @@ revoke all on function private.financial_group_prior_pair_balance(uuid,uuid,uuid
 
 create function private.financial_group_document_coverage(p_root uuid,p_from date,p_to date)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare scope jsonb; approved jsonb; members uuid[]; unmatched jsonb;
+declare scope jsonb; approved jsonb; members uuid[]; unmatched jsonb; transfer_candidates jsonb;
 begin
  if auth.uid() is null then raise exception 'GROUP_DOCUMENT_READ_DENIED';end if;
  scope:=public.financial_group_registered_scope(p_root,p_from,p_to);
@@ -62,10 +62,55 @@ begin
   'sourceCurrent',source_current)||case when is_prior then jsonb_build_object('priorBalance',prior_balance) else '{}'::jsonb end
   order by id),'[]'::jsonb) into unmatched from review_rows;
  if jsonb_array_length(unmatched)>200 then raise exception 'GROUP_DOCUMENT_COVERAGE_LIMIT';end if;
+
+ -- The transfer register identifies both companies. Only an explicit cash
+ -- source link can identify a journal for a specific leg of that transfer.
+ with candidates as (
+  select t.id,t.transfer_date,t.transaction_type,t.source_organization_id,t.destination_organization_id,
+   src.name as source_name,dst.name as destination_name,
+   legs.out_events,legs.in_events
+  from public.liquidity_intercompany_transfers t
+  join public.organizations src on src.id=t.source_organization_id
+  join public.organizations dst on dst.id=t.destination_organization_id
+  cross join lateral (
+   select array_agg(distinct e.id) filter(where f.direction='OUTFLOW') as out_events,
+    array_agg(distinct e.id) filter(where f.direction='INFLOW') as in_events
+   from public.liquidity_flows f
+   join public.financial_event_links l on l.organization_id=f.organization_id and l.target_record_id=f.id
+    and l.link_type='CASH_FLOW' and l.target_module='liquidity_flows'
+   join public.financial_events e on e.id=l.event_id and e.organization_id=f.organization_id
+   where f.intercompany_transfer_id=t.id and f.status='ACTUAL' and e.status='ACTUAL'
+    and e.event_date between p_from and p_to
+    and ((f.direction='OUTFLOW' and f.organization_id=t.source_organization_id)
+      or (f.direction='INFLOW' and f.organization_id=t.destination_organization_id))
+    and exists(select 1 from public.financial_event_lines ln where ln.event_id=e.id
+     and ln.organization_id=e.organization_id and ln.cash_direction=f.direction)
+  ) legs
+  where t.holding_organization_id=any(members)
+   and t.source_organization_id=any(members) and t.destination_organization_id=any(members)
+   and t.transfer_date between p_from and p_to
+ ), pending as (
+  select *,case when cardinality(out_events)=1 and cardinality(in_events)=1
+   then 'DOCUMENT_MATCH_REQUIRED' else 'SOURCE_LINK_REVIEW_REQUIRED' end as review_status
+  from candidates c
+  where not (coalesce(cardinality(out_events),0)=1 and coalesce(cardinality(in_events),0)=1 and exists(
+   select 1 from private.financial_group_document_matches d where d.status='APPROVED'
+    and d.left_event_id=least(c.out_events[1],c.in_events[1])
+    and d.right_event_id=greatest(c.out_events[1],c.in_events[1])
+    and ((d.left_organization_id=c.source_organization_id and d.right_organization_id=c.destination_organization_id)
+      or (d.left_organization_id=c.destination_organization_id and d.right_organization_id=c.source_organization_id))
+    and private.financial_group_document_fingerprint(d.left_event_id,d.right_event_id)=d.source_fingerprint
+  ))
+  order by transfer_date,id limit 201
+ )
+ select coalesce(jsonb_agg(jsonb_build_object('id',id,'date',transfer_date,'type',transaction_type,
+  'sourceName',source_name,'destinationName',destination_name,
+  'status',review_status) order by transfer_date,id),'[]'::jsonb) into transfer_candidates from pending;
+ if jsonb_array_length(transfer_candidates)>200 then raise exception 'GROUP_DOCUMENT_COVERAGE_LIMIT';end if;
  if scope is distinct from public.financial_group_registered_scope(p_root,p_from,p_to)
   then raise exception 'GROUP_DOCUMENT_SCOPE_CHANGED';end if;
  return jsonb_build_object('status','GROUP_DOCUMENT_COVERAGE_REVIEW','organization',p_root,'from',p_from,'to',p_to,
-  'batchId',approved->'id','batchVersion',approved->'version','rows',unmatched);
+  'batchId',approved->'id','batchVersion',approved->'version','rows',unmatched,'transferCandidates',transfer_candidates);
 end $$;
 revoke all on function private.financial_group_document_coverage(uuid,date,date) from public,anon,authenticated;
 grant execute on function private.financial_group_document_coverage(uuid,date,date) to authenticated;

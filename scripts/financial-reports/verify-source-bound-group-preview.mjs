@@ -171,8 +171,26 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const worksheetPath='/api/financial-reporting/group-approved-eliminations';
  const coverage=worksheet.locator('[data-group-document-coverage]');
  const checkCoverage=()=>coverage.getByRole('button',{name:'Check documents outside this batch',exact:true}).click();
- await checkCoverage();
- await coverage.getByText('No approved matches outside the batch require review.',{exact:true}).waitFor();
+ const transferId=randomUUID();
+ sql(`insert into public.liquidity_intercompany_transfers(
+  id,holding_organization_id,source_organization_id,destination_organization_id,source_account_id,destination_account_id,
+  transaction_type,source_amount,source_currency,source_base_amount,destination_amount,destination_currency,
+  destination_base_amount,exchange_rate,transfer_date,created_by)
+  values('${transferId}','${parent}','${parent}','${subsidiary}','${bankId}',
+   (select id from public.liquidity_accounts where organization_id='${subsidiary}' order by id limit 1),
+   'LOAN',25,'SAR',25,25,'SAR',25,1,'2026-10-04','${actor.id}');`);
+ try{
+  await checkCoverage();
+  const transferRow=coverage.locator('[data-group-transfer-candidates]').getByRole('row').filter({hasText:transferId});
+  await transferRow.getByText('Review source journal links',{exact:true}).waitFor();
+  assert.equal(await transferRow.getByText('Source-bound group parent',{exact:true}).count(),1);
+  const transferCoverage=await request(worksheetPath,{action:'DOCUMENT_COVERAGE',query});
+  assert.deepEqual(transferCoverage.rows,[]);
+  assert.deepEqual(transferCoverage.transferCandidates.map(({id,status})=>({id,status})),[
+   {id:transferId,status:'SOURCE_LINK_REVIEW_REQUIRED'},
+  ]);
+  console.log('PASS Explicit registered transfer with missing journal links appears as a review candidate');
+ }finally{sql(`delete from public.liquidity_intercompany_transfers where id='${transferId}'`)}
  const coverageQuery={...query,to:'2026-12-30'};
  const emptyBatch=await request('/api/financial-reporting/group-elimination-batches',{
   ...save,query:coverageQuery,entries:[],requestId:randomUUID(),

@@ -20,6 +20,11 @@ const coverage=z.object({
  status:z.literal('GROUP_DOCUMENT_COVERAGE_REVIEW'),organization:uuid,from:z.string().date(),to:z.string().date(),
  batchId:uuid,batchVersion:z.number().int().positive(),
  rows:z.array(z.object({id:uuid,leftEventId:uuid,rightEventId:uuid,sourceCurrent:z.boolean(),priorBalance:priorBalance.optional()}).strict()).max(200),
+ transferCandidates:z.array(z.object({
+  id:uuid,date:z.string().date(),type:z.enum(['LOAN','CAPITAL','ON_BEHALF']),
+  sourceName:z.string(),destinationName:z.string(),
+  status:z.enum(['DOCUMENT_MATCH_REQUIRED','SOURCE_LINK_REVIEW_REQUIRED']),
+ }).strict()).max(200),
 }).strict();
 export async function readGroupDocumentCoverage(input:unknown){
  const {organization,from,to}=statementQuery.parse(input);
@@ -29,7 +34,8 @@ export async function readGroupDocumentCoverage(input:unknown){
   /^GROUP_(BATCH|CONTROL|DOCUMENT)_[A-Z_]+$/.test(r.error.message)?r.error.message:'REPORTING_GROUP_DOCUMENT_UNAVAILABLE');
  const parsed=coverage.safeParse(r.data);
  if(!parsed.success||parsed.data.organization!==organization||parsed.data.from!==from||parsed.data.to!==to||
-  new Set(parsed.data.rows.map(row=>row.id)).size!==parsed.data.rows.length)
+  new Set(parsed.data.rows.map(row=>row.id)).size!==parsed.data.rows.length||
+  new Set(parsed.data.transferCandidates.map(row=>row.id)).size!==parsed.data.transferCandidates.length)
   throw Error('REPORTING_GROUP_DOCUMENT_EVIDENCE_INVALID');
  return parsed.data;
 }

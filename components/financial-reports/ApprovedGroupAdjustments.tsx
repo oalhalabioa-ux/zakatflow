@@ -261,6 +261,7 @@ function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organizat
 }
 
 type DocumentCoverage=Awaited<ReturnType<typeof readGroupDocumentCoverage>>;
+const transferTypes={LOAN:['قرض بين الشركات','Intercompany loan'],CAPITAL:['مساهمة رأسمالية','Capital contribution'],ON_BEHALF:['دفع بالنيابة','Payment on behalf']};
 function GroupDocumentCoverage({data,en}:{data:Result;en:boolean}){
  const [result,setResult]=useState<DocumentCoverage|'loading'|'error'|null>(null);
  const request=useRef<AbortController|null>(null);
@@ -299,6 +300,17 @@ function GroupDocumentCoverage({data,en}:{data:Result;en:boolean}){
        <bdi>{statementAmount(row.priorBalance.leftOutstanding)} / {statementAmount(row.priorBalance.rightOutstanding)} {row.priorBalance.currency}</bdi>:
        row.priorBalance?.status==='REVIEW_REQUIRED'?(en?'Review required':'يحتاج مراجعة'):'—'}</td>
      </tr>)}</tbody></table></div>}
+    {result.transferCandidates.length>0&&<div className="fs-table-scroll" data-group-transfer-candidates>
+     <h4>{en?'Intercompany transfers to review':'تحويلات بين الشركات تحتاج مراجعة'}</h4>
+     <p>{en?'Candidates identified from the liquidity register. Review their accounting sources before proposing an elimination.':'تحويلات مرصودة في سجل السيولة. راجع قيودها المحاسبية قبل اقتراح الاستبعاد.'}</p>
+     <table className="fs-table"><thead><tr>
+      {(en?['Transfer reference','Date','Type','Sending company','Receiving company','Action needed']:['مرجع التحويل','التاريخ','النوع','الشركة المرسلة','الشركة المستلمة','الإجراء المطلوب']).map(label=><th key={label} scope="col">{label}</th>)}
+     </tr></thead><tbody>{result.transferCandidates.map(row=><tr key={row.id}>
+      <th scope="row"><bdi>{row.id}</bdi></th><td><bdi>{row.date}</bdi></td>
+      <td>{transferTypes[row.type][en?1:0]}</td><td>{row.sourceName}</td><td>{row.destinationName}</td>
+      <td>{row.status==='DOCUMENT_MATCH_REQUIRED'?(en?'Approve a documentary match':'اعتماد مطابقة المستندات'):(en?'Review source journal links':'مراجعة ربط القيود المحاسبية')}</td>
+     </tr>)}</tbody></table>
+    </div>}
    </>}
  </div>;
 }
