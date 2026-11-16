@@ -52,7 +52,7 @@ export function financialSourceChecks(e:FinancialSourceCheckInputs):FinancialSou
   ],
   opening:[
    check('opening.mode',true,e.openingModeSelected),
-   check('opening.source',e.openingSourceReadable,e.openingSourceReadable),
+   check('opening.source',e.openingModeSelected&&e.openingSourceReadable,e.openingSourceReadable),
    check('opening.verified',e.openingModeSelected&&e.openingSourceReadable,e.openingVerified),
   ],
  };
