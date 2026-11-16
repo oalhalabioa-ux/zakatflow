@@ -112,8 +112,23 @@ try{
      const tops=await cards.evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().top)));
      assert.ok(tops.every(top=>Math.abs(top-tops[0])<=2),'All five cards stay in one horizontal row');
      const chartTrigger=page.locator('[data-financial-section="chart"] .settings-finance-card-trigger');
+     if(width===1490){
+      await chartTrigger.hover();
+      const hoverPreview=page.getByRole('dialog',{name:ar?'دليل الحسابات':'Chart of accounts'});
+      await hoverPreview.waitFor();
+      assert.equal(await hoverPreview.getAttribute('data-mode'),'hover','Hover opens an unpinned preview');
+      assert.ok(await hoverPreview.evaluate(el=>el.style.getPropertyValue('--setup-card-scale-x').length>0),'Animation starts at source card coordinates');
+      await page.waitForTimeout(430);
+      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-animated-hover-${locale}-1490.png`,fullPage:false});
+      await page.mouse.move(2,2);
+      await hoverPreview.waitFor({state:'hidden',timeout:4000});
+     }
      await chartTrigger.click();
      const chartModal=page.getByRole('dialog',{name:ar?'دليل الحسابات':'Chart of accounts'});
+     assert.equal(await chartModal.getAttribute('data-mode'),'pinned','Click pins the expanded card');
+     await page.mouse.move(2,2);
+     await page.waitForTimeout(450);
+     assert.equal(await chartModal.count(),1,'Pinned card remains after pointer leaves');
      await chartModal.waitFor();
      const box=await chartModal.boundingBox();
      assert.ok(box&&box.width>=Math.min(width-30,490),'Expanded card uses a readable large popup');
@@ -128,11 +143,12 @@ try{
      assert.equal(await openingModal.locator('.settings-finance-modal-node.met').count(),0,'Not started opening has no ticks');
      assert.equal(await openingModal.locator('.settings-finance-modal-node.unverified').count(),3,'Opening progress is neutral');
      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-popup-opening-${locale}-${width}.png`,fullPage:false});
+     await page.waitForTimeout(385);
      await openingModal.getByRole('button',{name:ar?'إغلاق البطاقة':'Close card'}).click();
      await openingModal.waitFor({state:'hidden'});
     }
     await page.setViewportSize({width:1490,height:1050});
-    checks.push(locale+' financial popup opens in large reference style and opening NOT_STARTED has no ticks');
+    checks.push(locale+' animated hover preview, click pin, Escape close, full-size reference and opening NOT_STARTED zero ticks');
    }
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
    if(path==='billing'){
