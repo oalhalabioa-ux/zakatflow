@@ -332,3 +332,41 @@
 
 /* Selected main step has only the approved dark-green progress line; no legacy gold inset. */
 .corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn){box-shadow:none!important}
+
+
+/* Read-only source checks: keep the approved progress track while explaining
+   the actual recorded requirements; never manufacture completion percentages. */
+.corp-shell .settings-workspace .settings-finance-status article .settings-finance-checks{
+  box-sizing:border-box;width:100%;max-width:100%;padding:0;margin:4px 0 10px;
+  display:grid;gap:6px;list-style:none;color:#1d3852;
+}
+.corp-shell .settings-workspace .settings-finance-status article .settings-finance-checks li{
+  display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;
+  gap:7px;min-width:0;text-align:start;font-size:.76rem;line-height:1.55;
+}
+.corp-shell .settings-workspace .settings-finance-check-marker{
+  width:17px;height:17px;flex:0 0 17px;display:grid;place-items:center;
+  border:1px solid #aab5be;border-radius:50%;font-size:.76rem;
+  font-weight:750;color:#647483;background:transparent;line-height:1;
+}
+.corp-shell .settings-workspace .settings-finance-checks [data-check-status=MET] .settings-finance-check-marker{
+  color:#205347;border-color:#205347;
+}
+.corp-shell .settings-workspace .settings-finance-checks [data-check-status=MISSING] .settings-finance-check-marker{
+  color:#95732c;border-color:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-finance-checks [data-check-status=UNAVAILABLE]{
+  color:#647483;
+}
+.corp-shell .settings-workspace .settings-finance-evidence-note{
+  margin:-12px 0 22px;color:#627285;font-size:.75rem;line-height:1.65;
+}
+.corp-shell .settings-workspace .settings-finance-readiness-error{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:10px;padding:12px 14px;margin:-8px 0 22px;
+  border:1px solid #d8e0e7;border-radius:10px;background:#f7f8f9;
+  color:#1d3852;font-size:.81rem;
+}
+.corp-shell .settings-workspace .settings-finance-readiness-error .settings-compact-action{
+  flex:0 0 auto;background:#10243a;color:#f5ebd6;border-color:#10243a;
+}
