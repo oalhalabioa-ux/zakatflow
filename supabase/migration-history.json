@@ -2027,6 +2027,14 @@
       "validation_project": "Disposable run 43706630083 artifact 14159175342 passed native capital save/approval, capacity/direction rejection, unchanged sources and revocation. QA V2 rollback-only function fingerprint observed 2026-11-15; hosted unapplied."
     },
     {
+      "path": "supabase/migrations/20261115122951_financial_group_acquisition_evidence.sql",
+      "version": "20261115122951",
+      "name": "financial_group_acquisition_evidence",
+      "expected_md5": "b77ca9c4e03a11be13110d93b769fb7c",
+      "file_sha256": "c7bc3058e0f992e169f911004c969e12a305090a88e6b92d6a5aaa1492d8bdab",
+      "validation_project": "Disposable full-schema run 43838267319 artifact 14211564462 verified acquisition documents, approval, residuals, and adjusted export. Explicit batch definition matches the tested draft. Hosted unapplied."
+    },
+    {
       "path": "supabase/migrations/20261115223648_financial_group_document_coverage.sql",
       "version": "20261115223648",
       "name": "financial_group_document_coverage",

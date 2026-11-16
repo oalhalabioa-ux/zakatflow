@@ -23,7 +23,7 @@ try{
   const query=await load('tests/migration-history/catalog.sql');
   const actual=JSON.parse(sql('select coalesce(jsonb_agg(t),\'[]\') from ('+query.replace(/;\s*$/,'')+') t'));
   const expected=(await load('tests/migration-history/observed-schema.jsonl')).trim().split('\n').map(x=>JSON.parse(x));
-  const deltas=await Promise.all(['plan-schema-delta','owner-console-schema-delta','plan-notice-schema-delta','financial-opening-schema-delta','general-fiscal-schema-delta','organization-chart-schema-delta','chart-posting-schema-delta','chart-opening-schema-delta','posting-coverage-schema-delta','fiscal-budget-calendar-schema-delta','funded-debt-schema-delta','unified-cash-schema-delta','equity-opening-schema-delta','group-control-schema-delta','branch-opening-schema-delta','legacy-attestation-schema-delta','retained-snapshot-schema-delta','organization-legal-schema-delta','organization-settings-schema-delta','bundle-schema-delta','fiscal-setup-unlock-schema-delta','detailed-posting-schema-delta','liquidity-expense-classification-schema-delta','manual-payment-posting-schema-delta','automatic-expense-account-schema-delta','account-rule-inheritance-schema-delta','asset-lifecycle-posting-schema-delta','native-asset-settlement-schema-delta','advance-application-schema-delta','finance-installment-posting-schema-delta','debt-principal-role-schema-delta','debt-operations-source-schema-delta','debt-operations-posting-schema-delta','debt-opening-category-schema-delta','native-reversal-schema-delta','ready-posting-defaults-schema-delta','vat-note-defaults-schema-delta','branch-report-source-schema-delta','dimensional-opening-schema-delta','center-branch-registry-schema-delta','dimensional-approved-report-schema-delta','group-complete-registry-schema-delta','group-document-matches-schema-delta','group-elimination-batches-schema-delta','closed-dimension-schema-delta','group-cash-eliminations-schema-delta','group-capital-contributions-schema-delta','group-document-coverage-schema-delta'].map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
+  const deltas=await Promise.all(['plan-schema-delta','owner-console-schema-delta','plan-notice-schema-delta','financial-opening-schema-delta','general-fiscal-schema-delta','organization-chart-schema-delta','chart-posting-schema-delta','chart-opening-schema-delta','posting-coverage-schema-delta','fiscal-budget-calendar-schema-delta','funded-debt-schema-delta','unified-cash-schema-delta','equity-opening-schema-delta','group-control-schema-delta','branch-opening-schema-delta','legacy-attestation-schema-delta','retained-snapshot-schema-delta','organization-legal-schema-delta','organization-settings-schema-delta','bundle-schema-delta','fiscal-setup-unlock-schema-delta','detailed-posting-schema-delta','liquidity-expense-classification-schema-delta','manual-payment-posting-schema-delta','automatic-expense-account-schema-delta','account-rule-inheritance-schema-delta','asset-lifecycle-posting-schema-delta','native-asset-settlement-schema-delta','advance-application-schema-delta','finance-installment-posting-schema-delta','debt-principal-role-schema-delta','debt-operations-source-schema-delta','debt-operations-posting-schema-delta','debt-opening-category-schema-delta','native-reversal-schema-delta','ready-posting-defaults-schema-delta','vat-note-defaults-schema-delta','branch-report-source-schema-delta','dimensional-opening-schema-delta','center-branch-registry-schema-delta','dimensional-approved-report-schema-delta','group-complete-registry-schema-delta','group-document-matches-schema-delta','group-elimination-batches-schema-delta','closed-dimension-schema-delta','group-cash-eliminations-schema-delta','group-capital-contributions-schema-delta','group-acquisition-evidence-schema-delta','group-document-coverage-schema-delta'].map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
   for(const item of delta.removals){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected.splice(i,1);}
   for(const item of delta.upserts){const i=expected.findIndex(x=>x.category===item.category&&x.object_key===item.object_key);if(i>=0)expected[i]=item;else expected.push(item);}
@@ -49,6 +49,24 @@ try{
    'publicDefiner',(select prosecdef from pg_proc where oid='public.financial_group_document_coverage(uuid,date,date,integer)'::regprocedure)
   )`));
   assert.deepEqual(permissions,{anonymousPublic:false,authenticatedPublic:true,authenticatedBalance:false,publicDefiner:false});
+ });
+ await check('acquisition documents remain private and the public RPC wrappers run as invoker',async()=>{
+  const permissions=JSON.parse(sql(`select jsonb_build_object(
+   'publicRpcCount',count(*),
+   'allInvokers',bool_and(not p.prosecdef),
+   'authenticatedExecute',bool_and(has_function_privilege('authenticated',p.oid,'EXECUTE')),
+   'anonymousExecute',bool_or(has_function_privilege('anon',p.oid,'EXECUTE')),
+   'privateTables',(
+    select count(*) from pg_class c join pg_namespace ns on ns.oid=c.relnamespace
+    where ns.nspname='private' and c.relname in('financial_group_acquisition_documents','financial_group_acquisition_evidence')
+     and c.relrowsecurity and not has_table_privilege('authenticated',c.oid,'SELECT')
+   ),
+   'internalValidationExecute',has_function_privilege('authenticated','private.group_acquisition_check(uuid,date,date,jsonb,text)','EXECUTE')
+  ) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+   where n.nspname='public' and p.proname in(
+    'financial_group_acquisition_document_command','financial_group_acquisition_evidence_command','financial_group_approved_acquisition_evidence'
+   )`));
+  assert.deepEqual(permissions,{publicRpcCount:3,allInvokers:true,authenticatedExecute:true,anonymousExecute:false,privateTables:2,internalValidationExecute:false});
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
