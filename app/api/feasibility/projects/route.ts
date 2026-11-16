@@ -9,6 +9,9 @@ export const dynamic='force-dynamic';
 const enabled=()=>process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES==='true'&&process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
 const response=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{'Cache-Control':'private, no-store'}});
 const denied=()=>response({error:'FEASIBILITY_CLOUD_DISABLED'},404);
+// Corporate schema is introduced only in QA V2. The explicit guard protects
+// old environments whose feasibility_projects table has no organization_id yet.
+const organizationSchemaActive=()=>process.env.FEASIBILITY_ORG_QA==='true';
 async function context(){
  const supabase=await supabaseServer();
  const {data:{user},error}=await supabase.auth.getUser();
@@ -29,9 +32,10 @@ export async function GET(){
  const {supabase,user,access,accessError}=await context();if(!user)return response({error:'UNAUTHORIZED'},401);
  if(accessError)return response({error:'ENTITLEMENT_LOOKUP_FAILED'},503);
  if(!access?.canRead)return response({error:'FEASIBILITY_ACCESS_READ_ONLY'},403);
- const {data,error}=await supabase.from('feasibility_projects')
-  .select('id,title,revision,updated_at,study,owner_user_id')
-  .order('updated_at',{ascending:false}).limit(300);
+ const all=supabase.from('feasibility_projects')
+  .select('id,title,revision,updated_at,study,owner_user_id');
+ const scoped=organizationSchemaActive()?all.is('organization_id',null):all;
+ const {data,error}=await scoped.order('updated_at',{ascending:false}).limit(300);
  if(error)return response({error:'DRAFT_READ_FAILED'},500);
  return response(data??[]);
 }
@@ -57,10 +61,11 @@ export async function PATCH(request:Request){
  if(!access?.canWrite)return response({error:'FEASIBILITY_ACCESS_READ_ONLY'},403);
  const parsed=await input(request);if(!parsed||parsed.revision===undefined)return response({error:'INVALID_STUDY'},400);
  const {study,revision}=parsed;
- const {data,error}=await supabase.from('feasibility_projects').update({
+ const original=supabase.from('feasibility_projects').update({
   title:study.title,study,revision:revision+1,updated_at:new Date().toISOString()
- }).eq('id',study.id).eq('owner_user_id',user.id).eq('revision',revision)
-  .select('id,revision,updated_at').maybeSingle();
+ }).eq('id',study.id).eq('owner_user_id',user.id).eq('revision',revision);
+ const scoped=organizationSchemaActive()?original.is('organization_id',null):original;
+ const {data,error}=await scoped.select('id,revision,updated_at').maybeSingle();
  if(error)return response({error:'DRAFT_SAVE_FAILED'},500);
  if(!data)return response({error:'DRAFT_CONFLICT'},409);
  return response(data);
@@ -73,8 +78,10 @@ export async function DELETE(request:Request){
  if(!access?.canWrite)return response({error:'FEASIBILITY_ACCESS_READ_ONLY'},403);
  const id=new URL(request.url).searchParams.get('id');
  if(!z.string().uuid().safeParse(id).success)return response({error:'INVALID_STUDY_ID'},400);
- const {data,error}=await supabase.from('feasibility_projects').delete()
-  .eq('id',id!).eq('owner_user_id',user.id).select('id').maybeSingle();
+ const original=supabase.from('feasibility_projects').delete()
+  .eq('id',id!).eq('owner_user_id',user.id);
+ const scoped=organizationSchemaActive()?original.is('organization_id',null):original;
+ const {data,error}=await scoped.select('id').maybeSingle();
  if(error)return response({error:'DRAFT_DELETE_FAILED'},500);
  if(!data)return response({error:'DRAFT_NOT_FOUND'},404);
  return response({deleted:true});
