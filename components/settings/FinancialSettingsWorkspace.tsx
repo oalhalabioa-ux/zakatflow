@@ -76,7 +76,7 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
   <section id={"settings-finance-check-details-"+id} className="settings-finance-check-panel settings-finance-card-details" hidden={!expanded} aria-label={ar?'تفاصيل التحقق':'Verification details'}>
    {expanded&&<>
     <div className="settings-finance-check-heading">
-     <h3>{ar?'متطلبات ': 'Requirements: '}{{ar?a:e}}</h3>
+     <h3>{ar?'متطلبات ': 'Requirements: '}{ar?a:e}</h3>
      <button type="button" className="settings-finance-check-close" onClick={()=>setExpandedCard(null)}>{ar?'إغلاق':'Close'} <span aria-hidden="true">×</span></button>
     </div>
     {checks?.length?
