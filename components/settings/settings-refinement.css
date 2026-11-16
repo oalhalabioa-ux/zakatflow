@@ -621,3 +621,11 @@
  .settings-finance-modal-node{width:24px;height:24px;flex-basis:24px}
  .settings-finance-modal-progress{margin-top:8px}
 }
+
+/* Final reference scale on desktop; no change to compact five-card row. */
+@media(min-width:601px){
+ .settings-finance-modal-card{width:min(600px,100%);min-height:min(560px,calc(100dvh - 44px));padding:37px 43px 27px}
+ .settings-finance-modal-progress{margin-top:auto}
+}
+.settings-finance-modal-card>.settings-finance-progress-label.complete{color:#205347}
+.settings-finance-modal-card>.settings-finance-progress-label.pending{color:#95732c}

@@ -33,11 +33,12 @@ const sourceCheckLabels:Record<FinancialSourceCheckId,[string,string]>={
 export default function FinancialSettingsWorkspace({locale,preferredOrg='',initialFiscalEditor=false}:{locale:string;preferredOrg?:string;initialFiscalEditor?:boolean}){
  const ar=locale==='ar',ctx=useSettingsOrganization(preferredOrg);
  const fiscalEdit=useRef({dirty:false,busy:false});
+ const modalCloseRef=useRef<HTMLButtonElement|null>(null);
  const onFiscalEdit=useRef((dirty:boolean,busy:boolean)=>{fiscalEdit.current={dirty,busy};}).current;
  function canLeaveFiscal(){return !fiscalEdit.current.busy&&(!fiscalEdit.current.dirty||window.confirm(ar?'تجاهل التغييرات غير المحفوظة؟':'Discard unsaved changes?'));}
  const [tab,setTab]=useState<string>(initialFiscalEditor?'fiscal':'summary'),[readiness,setReadiness]=useState<FinancialSetupReadiness|null>(null),[readinessError,setReadinessError]=useState(false),[revision,setRevision]=useState(0),[expandedCard,setExpandedCard]=useState<FinancialSetupCardKey|null>(null);
  useEffect(()=>setExpandedCard(null),[ctx.organizationId]);
- useEffect(()=>{if(!expandedCard)return;const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setExpandedCard(null);};document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[expandedCard]);
+ useEffect(()=>{if(!expandedCard)return;const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setExpandedCard(null);};document.addEventListener('keydown',close);const previouslyFocused=document.activeElement instanceof HTMLElement?document.activeElement:null;const overflow=document.body.style.overflow;document.body.style.overflow='hidden';modalCloseRef.current?.focus();return()=>{document.removeEventListener('keydown',close);document.body.style.overflow=overflow;previouslyFocused?.focus();};},[expandedCard]);
  useEffect(()=>{
   const controller=new AbortController();setReadiness(null);setReadinessError(false);
   const params=new URLSearchParams({organization:ctx.organizationId});
@@ -90,8 +91,8 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
    const dots:(FinancialSourceCheckStatus|'UNVERIFIED')[]=status==='NOT_STARTED'?(checks?.map(()=>'UNVERIFIED')??Array(3).fill('UNVERIFIED')):(checks?.map(check=>check.status)??Array(3).fill('UNVERIFIED'));
    const summary=expandedCard==='fiscal'?(ar?'تحديد الفترة المالية وحالتها':'Fiscal period and status'):expandedCard==='chart'?(ar?'إعداد هيكل الحسابات وتصنيفاتها':'Account structure and classifications'):expandedCard==='posting'?(ar?'ضبط قواعد الترحيل المحاسبي':'Configure accounting posting rules'):expandedCard==='banking'?(ar?'إعداد الحسابات البنكية والنقدية':'Configure cash and bank accounts'):(ar?'اعتماد أرصدة بداية السنة':'Approve opening balances');
    return <div className="settings-finance-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setExpandedCard(null);}}>
-    <section className="settings-finance-modal-card" role="dialog" aria-modal="true" aria-label={title} dir={ar?'rtl':'ltr'}>
-     <button type="button" className="settings-finance-modal-close" onClick={()=>setExpandedCard(null)} aria-label={ar?'إغلاق البطاقة':'Close card'}>×</button>
+    <section className="settings-finance-modal-card" role="dialog" aria-modal="true" aria-label={title} dir={ar?'rtl':'ltr'} onKeyDown={event=>{if(event.key==='Tab'){event.preventDefault();modalCloseRef.current?.focus();}}}>
+     <button ref={modalCloseRef} type="button" className="settings-finance-modal-close" onClick={()=>setExpandedCard(null)} aria-label={ar?'إغلاق البطاقة':'Close card'}>×</button>
      <SettingsIcon name={financeIcons[id]}/>
      <h3>{title}</h3>
      <p className="settings-finance-modal-summary">{summary}</p>
