@@ -332,3 +332,228 @@
 
 /* Selected main step has only the approved dark-green progress line; no legacy gold inset. */
 .corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn){box-shadow:none!important}
+
+
+/* Read-only source checks: keep the approved progress track while explaining
+   the actual recorded requirements; never manufacture completion percentages. */
+.corp-shell .settings-workspace .settings-finance-status article .settings-finance-checks{
+  box-sizing:border-box;width:100%;max-width:100%;padding:0;margin:4px 0 10px;
+  display:grid;gap:6px;list-style:none;color:#1d3852;
+}
+.corp-shell .settings-workspace .settings-finance-status article .settings-finance-checks li{
+  display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;
+  gap:7px;min-width:0;text-align:start;font-size:.76rem;line-height:1.55;
+}
+.corp-shell .settings-workspace .settings-finance-check-marker{
+  width:17px;height:17px;flex:0 0 17px;display:grid;place-items:center;
+  border:1px solid #aab5be;border-radius:50%;font-size:.76rem;
+  font-weight:750;color:#647483;background:transparent;line-height:1;
+}
+.corp-shell .settings-workspace .settings-finance-checks [data-check-status=MET] .settings-finance-check-marker{
+  color:#205347;border-color:#205347;
+}
+.corp-shell .settings-workspace .settings-finance-checks [data-check-status=MISSING] .settings-finance-check-marker{
+  color:#95732c;border-color:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-finance-checks [data-check-status=UNAVAILABLE]{
+  color:#647483;
+}
+.corp-shell .settings-workspace .settings-finance-evidence-note{
+  margin:-12px 0 22px;color:#627285;font-size:.75rem;line-height:1.65;
+}
+.corp-shell .settings-workspace .settings-finance-readiness-error{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:10px;padding:12px 14px;margin:-8px 0 22px;
+  border:1px solid #d8e0e7;border-radius:10px;background:#f7f8f9;
+  color:#1d3852;font-size:.81rem;
+}
+.corp-shell .settings-workspace .settings-finance-readiness-error .settings-compact-action{
+  flex:0 0 auto;background:#10243a;color:#f5ebd6;border-color:#10243a;
+}
+
+
+
+/* Financial setup: one native row of five cards. The selected article grows
+   in its ORIGINAL grid position; no backdrop, portal or replacement modal. */
+.corp-shell .settings-workspace .settings-finance-status{
+ box-sizing:border-box;display:grid;grid-template-columns:repeat(5,minmax(170px,1fr));
+ align-items:start;gap:12px;width:100%;max-width:100%;
+ margin:14px 0 20px;padding-bottom:7px;overflow-x:auto;scrollbar-width:thin;
+ overscroll-behavior-x:contain;
+ transition:grid-template-columns 360ms cubic-bezier(.22,1,.36,1);
+}
+.corp-shell .settings-workspace .settings-finance-status article{
+ box-sizing:border-box;min-height:0;height:auto;min-width:0;padding:0;
+ align-items:stretch;justify-content:flex-start;gap:0;overflow:hidden;
+ border:1px solid #d8e0e7!important;border-radius:15px;
+ background:#f7f8f9!important;box-shadow:none;
+ transition:border-color 270ms ease,box-shadow 270ms ease;
+}
+.corp-shell .settings-workspace .settings-finance-status article.settings-finance-is-expanded{
+ border-color:#c6a35d!important;
+ box-shadow:inset 0 -3px 0 #205347;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger{
+ appearance:none;box-sizing:border-box;display:flex;flex-direction:column;
+ align-items:center;gap:8px;min-width:0;width:100%;height:226px;padding:16px 10px 11px;
+ border:0;border-radius:14px;background:transparent;color:#1d3852;
+ font:inherit;text-align:center;cursor:pointer;overflow:hidden;
+ transition:height 360ms cubic-bezier(.22,1,.36,1),
+  padding 360ms cubic-bezier(.22,1,.36,1),background 240ms ease;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger:hover{background:#f0f3f5}
+.corp-shell .settings-workspace .settings-finance-card-trigger:focus-visible{
+ outline:3px solid #c6a35d;outline-offset:-4px;
+}
+.corp-shell .settings-workspace .settings-finance-is-expanded .settings-finance-card-trigger{
+ height:532px;padding:28px 28px 17px;gap:12px;
+ background:#f7f8f9;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger>.settings-icon{
+ display:block;flex:0 0 37px;width:37px;height:37px;color:#c6a35d;
+ transition:width 360ms ease,height 360ms ease,flex-basis 360ms ease;
+}
+.corp-shell .settings-workspace .settings-finance-is-expanded .settings-finance-card-trigger>.settings-icon{
+ flex-basis:60px;width:60px;height:60px;
+}
+.corp-shell .settings-workspace .settings-finance-card-name{
+ display:block;font-size:.99rem;line-height:1.45;font-weight:750;color:#10243a;
+ transition:font-size 300ms ease;
+}
+.corp-shell .settings-workspace .settings-finance-is-expanded .settings-finance-card-name{
+ font-size:1.5rem;
+}
+.corp-shell .settings-workspace .settings-finance-card-summary{
+ display:block;min-height:32px;font-size:.75rem;line-height:1.6;color:#1d3852;
+ transition:font-size 300ms ease;
+}
+.corp-shell .settings-workspace .settings-finance-is-expanded .settings-finance-card-summary{
+ min-height:0;font-size:1rem;margin-bottom:5px;line-height:1.65;
+}
+.corp-shell .settings-workspace .settings-finance-inline-checks{
+ box-sizing:border-box;display:flex;flex-direction:column;gap:13px;
+ width:100%;max-width:100%;padding:4px 0 0;margin:7px 0;
+ text-align:start;
+ animation:settings-finance-checks-enter 260ms ease both;
+}
+.corp-shell .settings-workspace .settings-finance-inline-check{
+ display:flex;flex-direction:row;align-items:center;justify-content:flex-start;
+ gap:11px;width:100%;min-width:0;color:#1d3852;
+ line-height:1.55;font-size:.95rem;
+}
+.corp-shell .settings-workspace .settings-finance-inline-check-icon{
+ display:grid;place-items:center;flex:0 0 25px;width:25px;height:25px;
+ box-sizing:border-box;border:2px solid #adb8c2;border-radius:50%;
+ color:#647483;font-weight:800;font-size:.88rem;line-height:1;
+}
+.corp-shell .settings-workspace .settings-finance-inline-check-icon.met{
+ color:#205347;border-color:#205347;
+}
+.corp-shell .settings-workspace .settings-finance-inline-check-icon.missing{
+ color:#95732c;border-color:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-finance-inline-check-icon.unavailable,
+.corp-shell .settings-workspace .settings-finance-inline-check-icon.unverified{
+ color:#74818e;border-color:#adb8c2;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-track{
+ width:100%;max-width:205px;display:flex;align-items:center;justify-content:stretch;
+ margin-top:auto;padding:0 3px;gap:0;min-height:24px;
+ transition:max-width 360ms ease;
+}
+.corp-shell .settings-workspace .settings-finance-is-expanded .settings-progress-track{
+ width:94%;max-width:420px;min-height:30px;margin-top:auto;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-track::before,
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-track::after{display:none}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-unit{
+ display:flex;flex:1 1 0;width:auto;min-width:0;height:auto;align-items:center;
+ border:0;background:transparent;border-radius:0;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-unit:first-child{
+ flex:0 0 22px;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-link{
+ display:block;flex:1 1 0;width:auto;height:3px;border:0;border-radius:0;
+ background:#bec7ce;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-link.complete{background:#205347}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-link.pending{background:#c6a35d}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node{
+ display:grid;place-items:center;box-sizing:border-box;flex:0 0 22px;
+ width:22px;height:22px;border:2px solid #afb8c1;border-radius:50%;
+ background:#f7f8f9;color:#647483;font-size:12px;font-weight:800;line-height:1;
+ transition:width 350ms,height 350ms,flex-basis 350ms;
+}
+.corp-shell .settings-workspace .settings-finance-is-expanded .settings-progress-node{
+ flex-basis:29px;width:29px;height:29px;
+}
+.corp-shell .settings-workspace .settings-finance-is-expanded .settings-progress-unit:first-child{
+ flex-basis:29px;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node.met{
+ border-color:#205347;background:#205347;color:#fff;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node.missing{
+ border-color:#c6a35d;background:#f7f8f9;color:#95732c;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node.unavailable,
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node.unverified{
+ border-color:#afb8c1;background:#f7f8f9;color:#647483;
+}
+.corp-shell .settings-workspace .settings-finance-is-expanded .settings-finance-progress-label{
+ font-size:1rem;padding:7px 19px;border-radius:21px;
+}
+.corp-shell .settings-workspace .settings-finance-card-more{
+ color:#1d3852;font-size:.74rem;font-weight:650;line-height:1.3;
+}
+.corp-shell .settings-workspace .settings-finance-card-more>span{color:#205347;font-weight:800}
+.corp-shell .settings-workspace .settings-finance-inline-disclaimer{
+ display:block;margin:4px 0 0;color:#627285;font-size:.74rem;
+ line-height:1.5;text-align:center;
+}
+@keyframes settings-finance-checks-enter{
+ from{opacity:0;transform:translateY(7px)}
+ to{opacity:1;transform:translateY(0)}
+}
+@media(max-width:700px){
+ .corp-shell .settings-workspace .settings-finance-status{
+  grid-template-columns:repeat(5,minmax(190px,1fr));gap:9px;
+ }
+ .corp-shell .settings-workspace .settings-finance-is-expanded .settings-finance-card-trigger{
+  height:510px;padding:22px 17px 13px;
+ }
+ .corp-shell .settings-workspace .settings-finance-is-expanded .settings-finance-card-name{
+  font-size:1.28rem;
+ }
+ .corp-shell .settings-workspace .settings-finance-is-expanded .settings-finance-card-summary{
+  font-size:.89rem;
+ }
+ .corp-shell .settings-workspace .settings-finance-inline-check{font-size:.84rem;gap:8px}
+ .corp-shell .settings-workspace .settings-finance-inline-check-icon{
+  width:22px;height:22px;flex-basis:22px;
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ .corp-shell .settings-workspace .settings-finance-status,
+ .corp-shell .settings-workspace .settings-finance-status article,
+ .corp-shell .settings-workspace .settings-finance-card-trigger,
+ .corp-shell .settings-workspace .settings-finance-inline-checks,
+ .corp-shell .settings-workspace .settings-finance-card-trigger>.settings-icon{
+  animation:none!important;transition:none!important;
+ }
+}
+
+/* Financial readiness: details only; original card visuals, tabs and progress remain unchanged. */
+.corp-shell .settings-workspace .settings-finance-compact-timeline{
+ margin-block:10px 4px;padding:10px 14px;border:1px solid #e8eef0;border-radius:9px;background:#fff;color:#1d3852;
+}
+.corp-shell .settings-workspace .settings-finance-timeline-heading{display:block;font-size:.83rem;font-weight:700;margin-bottom:9px;color:#1d3852}
+.corp-shell .settings-workspace .settings-finance-timeline-steps{display:flex;gap:0;overflow-x:auto;direction:inherit}
+.corp-shell .settings-workspace .settings-finance-timeline-step{position:relative;flex:1 0 145px;min-width:0;display:flex;align-items:center;flex-direction:column;gap:3px;text-align:center;padding:0 8px;font-size:.76rem}
+.corp-shell .settings-workspace .settings-finance-timeline-step:not(:last-child)::after{content:"";position:absolute;top:10px;inset-inline-start:calc(50% + 13px);width:calc(100% - 26px);height:2px;background:#e8eef0}
+.corp-shell .settings-workspace .settings-finance-timeline-node{z-index:1;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;border:2px solid #c6a35d;background:#fff;color:#1d3852;font-size:.72rem;font-weight:700}
+.corp-shell .settings-workspace .settings-finance-timeline-node.met{background:#205347;border-color:#205347;color:#fff}
+.corp-shell .settings-workspace .settings-finance-timeline-node.unavailable,.corp-shell .settings-workspace .settings-finance-timeline-node.unverified{border-color:#a7b0b6;color:#71808b}
+.corp-shell .settings-workspace .settings-finance-timeline-name{font-weight:650}
+.corp-shell .settings-workspace .settings-finance-timeline-explanation{color:#607286;font-size:.72rem}

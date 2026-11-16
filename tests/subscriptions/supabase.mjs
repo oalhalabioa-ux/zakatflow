@@ -646,7 +646,8 @@ try {
     await page.getByLabel('Organization name',{exact:true}).waitFor();
     assert.equal(await page.locator('.subscription-banner').count(),0);
     assert.equal(await page.locator('.subscription-notice').count(),0);
-    assert.equal(await page.locator('#corp-settings-nav a').count(),5);
+    assert.equal(await page.locator('#corp-settings-nav a').count(),7);
+    assert.deepEqual(await page.locator('#corp-settings-nav a').evaluateAll(links=>links.map(a=>new URL(a.href).pathname.split('/').slice(2).join('/'))),['settings/financial/setup','settings','settings/regulatory','settings/financial','settings/team','settings/system','billing'],'All approved settings sections appear in order before subscriptions');
     assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial"]').count(),2);
      assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial/setup"]').count(),1);
     assert.ok((await page.locator('#corp-settings-nav a[href*="/billing"]').getAttribute('href')).includes('organization='+secondOrg));
@@ -835,4 +836,3 @@ try {
     JSON.stringify(report, null, 2) + "\n",
   );
 }
-
