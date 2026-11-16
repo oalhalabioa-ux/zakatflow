@@ -69,7 +69,7 @@ jobs:
           node - <<'JS'
           const fs=require('fs'),s=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/trial-status.json','utf8'));
           if(s.API_URL!=='http://127.0.0.1:54321')throw Error('LOCAL_ONLY');
-          fs.writeFileSync('.env.production.local','NEXT_PUBLIC_APP_ENV=test\nNEXT_PUBLIC_SUPABASE_URL='+s.API_URL+'\nNEXT_PUBLIC_SUPABASE_ANON_KEY='+s.ANON_KEY+'\nNEXT_PUBLIC_APP_URL=http://127.0.0.1:3000\nSUPABASE_SERVICE_ROLE_KEY=\nRESEND_API_KEY=\n');
+          fs.writeFileSync('.env.production.local','NEXT_PUBLIC_APP_ENV=test\nNEXT_PUBLIC_SUPABASE_URL='+s.API_URL+'\nNEXT_PUBLIC_SUPABASE_ANON_KEY='+s.ANON_KEY+'\nNEXT_PUBLIC_APP_URL=http://127.0.0.1:3000\nNEXT_PUBLIC_FEASIBILITY_STUDIES=true\nNEXT_PUBLIC_FEASIBILITY_CLOUD_QA=true\nFEASIBILITY_ORG_QA=true\nSUPABASE_SERVICE_ROLE_KEY=\nRESEND_API_KEY=\n');
           JS
           npm run build
       - name: Real Auth, API, concurrent invitations, exports and browser acceptance
