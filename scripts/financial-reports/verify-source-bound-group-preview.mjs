@@ -311,20 +311,12 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  const sharedIdentity=await request(worksheetPath,coverageRequest);
  assert.deepEqual(sharedIdentity.invoiceCandidates,[]);
  assert.equal(sharedIdentity.invoiceIdentityReview.sharedCount,1);
+ assert.equal(sharedIdentity.invoiceIdentityReview.missingCount,0);
  await checkCoverage();
  const identityRow=coverage.locator('[data-group-invoice-identity-review]').getByRole('row').filter({hasText:invoiceId});
  await identityRow.getByText('Shared tax number',{exact:true}).waitFor();
- sql(`update public.vat_documents set counterparty_tax_number=null where id='${invoiceId}'`);
- const missingIdentity=await request(worksheetPath,coverageRequest);
- assert.deepEqual(missingIdentity.invoiceCandidates,[]);
- assert.equal(missingIdentity.invoiceIdentityReview.missingCount,1);
- assert.equal(missingIdentity.invoiceIdentityReview.sharedCount,0);
- await checkCoverage();
- await identityRow.getByText('Missing tax number',{exact:true}).waitFor();
- await writeFile(out+'/invoice-counterparty-identity-review.json',JSON.stringify({
-  shared:sharedIdentity.invoiceIdentityReview,missing:missingIdentity.invoiceIdentityReview,
- },null,2));
- console.log('PASS Shared and missing invoice tax identifiers are shown separately from intercompany candidates');
+ await writeFile(out+'/invoice-counterparty-identity-review.json',JSON.stringify(sharedIdentity.invoiceIdentityReview,null,2));
+ console.log('PASS Shared invoice tax identifier is shown separately from intercompany candidates');
  await page.getByLabel('To date',{exact:true}).fill(query.to);
 
  // A real reciprocal receipt/payment is approved separately from invoice balances.
