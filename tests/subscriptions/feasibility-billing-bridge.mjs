@@ -216,6 +216,32 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
      new Promise(resolve=>setTimeout(()=>resolve('BODY_READ_TIMEOUT_2S'),2000))
     ]);
     console.log('QA421_CORPORATE_POST_ERROR '+JSON.stringify({source:'disposable-local-Chromium',error:result}));
+    // Read the route's actual error from the disposable Node harness, using
+    // the exact synthetic study body. Browser response streams can hang even
+    // when headers have already arrived; this bounded replay distinguishes
+    // INVALID_ORIGIN from membership/entitlement without application changes.
+    try{
+     const replay=await fetch(req.url(),{
+      method:'POST',
+      headers:{
+       'content-type':'application/json',
+       Origin:new URL(appUrl).origin,
+       'Sec-Fetch-Site':'same-origin',
+       Cookie:cookies.map(c=>c.name+'='+c.value).join('; ')
+      },
+      body:req.postData()||'',
+      signal:AbortSignal.timeout(6000)
+     });
+     const replayData=await replay.json().catch(()=>({error:'NON_JSON_RESPONSE'}));
+     console.log('QA421_CORPORATE_NODE_REPLAY '+JSON.stringify({
+      source:'disposable-local-Node',status:replay.status,
+      error:typeof replayData?.error==='string'?replayData.error:'NONE'
+     }));
+    }catch(e){
+     console.log('QA421_CORPORATE_NODE_REPLAY '+JSON.stringify({
+      source:'disposable-local-Node',error:e?.name==='TimeoutError'?'TIMEOUT_6S':'REPLAY_UNAVAILABLE'
+     }));
+    }
    }
    assert.equal(response.status(),201,'Authorized company study POST must return 201; see QA421_CORPORATE_POST_DIAG');
    phase(caseName,'authorized-corporate-create-passed');
