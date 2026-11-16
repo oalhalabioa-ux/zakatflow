@@ -322,6 +322,19 @@ function GroupDocumentCoverage({data,en}:{data:Result;en:boolean}){
       <td>{row.organizationName}</td><td>{row.counterpartyName}</td>
      </tr>)}</tbody></table>
     </div>}
+    {result.invoiceIdentityReview.rows.length>0&&<div className="fs-table-scroll" data-group-invoice-identity-review>
+     <h4>{en?'Invoices with unresolved counterparty identity':'فواتير يتعذر تحديد طرفها المقابل'}</h4>
+     <p>{en?'These invoices may include external parties. Check the source document before classifying any as intercompany.':'قد تشمل هذه الفواتير أطرافًا خارج المجموعة. راجع المستند الأصلي قبل تصنيف أي منها كمعاملة داخلية.'}</p>
+     <p>{en?'Missing tax number':'رقم ضريبي مفقود'} ({result.invoiceIdentityReview.missingCount}) · {en?'Shared tax number':'رقم ضريبي مشترك'} ({result.invoiceIdentityReview.sharedCount})</p>
+     {result.invoiceIdentityReview.rows.length<result.invoiceIdentityReview.missingCount+result.invoiceIdentityReview.sharedCount&&
+      <p>{en?'Showing the 20 most recent invoices.':'يعرض الجدول أحدث 20 فاتورة.'}</p>}
+     <table className="fs-table"><thead><tr>
+      {(en?['Invoice reference','Journal reference','Date','Recording company','Reason']:['مرجع الفاتورة','مرجع القيد','التاريخ','الشركة المسجِّلة','السبب']).map(label=><th key={label} scope="col">{label}</th>)}
+     </tr></thead><tbody>{result.invoiceIdentityReview.rows.map(row=><tr key={row.id}>
+      <th scope="row"><bdi>{row.id}</bdi></th><td><bdi>{row.eventId}</bdi></td><td><bdi>{row.date}</bdi></td><td>{row.organizationName}</td>
+      <td>{row.reason==='MISSING_TAX_NUMBER'?(en?'Missing tax number':'رقم ضريبي مفقود'):(en?'Shared tax number':'رقم ضريبي مشترك')}</td>
+     </tr>)}</tbody></table>
+    </div>}
    </>}
  </div>;
 }

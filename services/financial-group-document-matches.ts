@@ -16,6 +16,9 @@ const priorBalance=z.discriminatedUnion('status',[
  z.object({status:z.literal('OPEN'),currency:z.string().regex(/^[A-Z]{3}$/),leftOutstanding:outstanding,rightOutstanding:outstanding}).strict(),
  z.object({status:z.literal('REVIEW_REQUIRED')}).strict(),
 ]);
+const invoiceReference=z.object({
+ id:uuid,eventId:uuid,date:z.string().date(),side:z.enum(['SALES','PURCHASE']),organizationName:z.string(),
+});
 const coverage=z.object({
  status:z.literal('GROUP_DOCUMENT_COVERAGE_REVIEW'),organization:uuid,from:z.string().date(),to:z.string().date(),
  batchId:uuid,batchVersion:z.number().int().positive(),
@@ -25,10 +28,11 @@ const coverage=z.object({
   sourceName:z.string(),destinationName:z.string(),
   status:z.enum(['DOCUMENT_MATCH_REQUIRED','SOURCE_LINK_REVIEW_REQUIRED']),
  }).strict()).max(200),
- invoiceCandidates:z.array(z.object({
-  id:uuid,eventId:uuid,date:z.string().date(),side:z.enum(['SALES','PURCHASE']),
-  organizationName:z.string(),counterpartyName:z.string(),
- }).strict()).max(200),
+ invoiceCandidates:z.array(invoiceReference.extend({counterpartyName:z.string()}).strict()).max(200),
+ invoiceIdentityReview:z.object({
+  missingCount:z.number().int().nonnegative(),sharedCount:z.number().int().nonnegative(),
+  rows:z.array(invoiceReference.extend({reason:z.enum(['MISSING_TAX_NUMBER','SHARED_TAX_NUMBER'])}).strict()).max(20),
+ }).strict(),
 }).strict();
 export async function readGroupDocumentCoverage(input:unknown){
  const {organization,from,to}=statementQuery.parse(input);
@@ -40,7 +44,8 @@ export async function readGroupDocumentCoverage(input:unknown){
  if(!parsed.success||parsed.data.organization!==organization||parsed.data.from!==from||parsed.data.to!==to||
   new Set(parsed.data.rows.map(row=>row.id)).size!==parsed.data.rows.length||
   new Set(parsed.data.transferCandidates.map(row=>row.id)).size!==parsed.data.transferCandidates.length||
-  new Set(parsed.data.invoiceCandidates.map(row=>row.id)).size!==parsed.data.invoiceCandidates.length)
+  new Set(parsed.data.invoiceCandidates.map(row=>row.id)).size!==parsed.data.invoiceCandidates.length||
+  parsed.data.invoiceIdentityReview.rows.length!==Math.min(20,parsed.data.invoiceIdentityReview.missingCount+parsed.data.invoiceIdentityReview.sharedCount))
   throw Error('REPORTING_GROUP_DOCUMENT_EVIDENCE_INVALID');
  return parsed.data;
 }
