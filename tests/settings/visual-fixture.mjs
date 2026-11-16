@@ -140,6 +140,8 @@ try{
      await page.locator('[data-financial-section="opening"] .settings-finance-card-trigger').click();
      const openingModal=page.getByRole('dialog',{name:ar?'الأرصدة الافتتاحية':'Opening balances'});
      await openingModal.waitFor();
+     await page.locator('.settings-finance-modal-backdrop[data-open="true"]').waitFor();
+     await page.waitForTimeout(370);
      assert.equal(await openingModal.locator('.settings-finance-modal-node.met').count(),0,'Not started opening has no ticks');
      assert.equal(await openingModal.locator('.settings-finance-modal-node.unverified').count(),3,'Opening progress is neutral');
      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-popup-opening-${locale}-${width}.png`,fullPage:false});
