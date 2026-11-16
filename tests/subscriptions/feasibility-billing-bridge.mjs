@@ -41,7 +41,17 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await companyForm.waitFor({state:'visible'});
     const posted=page.waitForResponse(r=>r.url().includes('/api/feasibility/organization-projects?')&&r.request().method()==='POST');
     await companyForm.click();
-    assert.equal((await posted).status(),201,'Company Feasibility POST must create an owned test study');
+    const postResponse=await posted;
+    if(postResponse.status()!==201){
+     const rejected=await postResponse.json().catch(()=>({error:'NON_JSON_RESPONSE'}));
+     console.log('QA421_FEASIBILITY_POST_DENIED '+JSON.stringify({
+      source:'disposable-local-Chromium',status:postResponse.status(),
+      error:typeof rejected?.error==='string'?rejected.error:'UNKNOWN',
+      // No credential, organization UUID, contact email or study content is logged.
+      caseName
+     }));
+    }
+    assert.equal(postResponse.status(),201,'Company Feasibility POST must create an owned test study');
     await page.getByRole('heading',{name:'QA421 Test factory',exact:true}).first().waitFor();
     await switcher.getByRole('button',{name:'Personal',exact:true}).click();
     await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='PERSONAL');
