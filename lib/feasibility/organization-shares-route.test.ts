@@ -1,0 +1,49 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks=vi.hoisted(()=>({server:vi.fn(),sameOrigin:vi.fn()}));
+vi.mock('@/lib/supabase/server',()=>({supabaseServer:mocks.server}));
+vi.mock('@/lib/request-origin',()=>({isSameOriginRequest:mocks.sameOrigin}));
+import { GET, POST } from '../../app/api/feasibility/organization-shares/route';
+
+const organization='d7ed1c47-cc70-4cbd-aef4-8031df4f990a';
+const project='3467a6e8-368a-46d1-979d-d0b8448d593f';
+const recipient='527add11-d9c9-46e4-97f4-d0aeab796634';
+const endpoint='https://qa.local/api/feasibility/organization-shares';
+const rpc=vi.fn();
+
+beforeEach(()=>{
+ vi.resetAllMocks();
+ vi.stubEnv('FEASIBILITY_ORG_SHARING','true');
+ vi.stubEnv('FEASIBILITY_ORG_QA','true');
+ vi.stubEnv('NEXT_PUBLIC_FEASIBILITY_STUDIES','true');
+ mocks.sameOrigin.mockReturnValue(true);
+ mocks.server.mockResolvedValue({auth:{getUser:async()=>({data:{user:{id:'authenticated'}},error:null})},rpc});
+});
+afterEach(()=>vi.unstubAllEnvs());
+
+describe('organization shares endpoint',()=>{
+ it('opens a study through the receiving membership RPC without consulting a personal license',async()=>{
+  rpc.mockResolvedValue({data:{project_id:project},error:null});
+  const response=await GET(new Request(endpoint+'?action=open&organization='+recipient+'&project='+project));
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  expect(rpc).toHaveBeenCalledWith('feasibility_company_shares',{p_action:'open',p_organization:recipient,p_project:project});
+ });
+ it('treats expired and unauthorized open results without exposing study metadata',async()=>{
+  rpc.mockResolvedValueOnce({data:null,error:null}).mockResolvedValueOnce({data:null,error:{code:'42501',message:'denied'}});
+  const url=endpoint+'?action=open&organization='+recipient+'&project='+project;
+  expect((await GET(new Request(url))).status).toBe(404);
+  expect((await GET(new Request(url))).status).toBe(403);
+ });
+ it('preserves the host database 30-day limit and checks the request origin',async()=>{
+  const payload={action:'share',organization,project,recipient,revision:2,days:31};
+  const request=()=>new Request(endpoint,{method:'POST',body:JSON.stringify(payload)});
+  mocks.sameOrigin.mockReturnValueOnce(false);
+  expect((await POST(request())).status).toBe(403);
+  expect(rpc).not.toHaveBeenCalled();
+  rpc.mockResolvedValue({data:null,error:{code:'22023',message:'FEASIBILITY_NON_SUBSCRIBER_MAX_30_DAYS'}});
+  const response=await POST(request());
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({error:'FEASIBILITY_NON_SUBSCRIBER_MAX_30_DAYS'});
+ });
+});

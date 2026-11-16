@@ -1953,6 +1953,14 @@
       "expected_md5": "36924fbdce8b3bb62ff4c2564e272657",
       "file_sha256": "645eb9e7e19446211387cf71acaffc0eb5f923edea5d874d83156d067b3717dc",
       "validation_project": "Hosted restored clone: rollback-only signup, quote workflow and effective study entitlements"
+    },
+    {
+      "path": "supabase/migrations/20261116194423_feasibility_organization_sharing.sql",
+      "version": "20261116194423",
+      "name": "feasibility_organization_sharing",
+      "expected_md5": "83fc9c172e750f60c11c7216603b6e4a",
+      "file_sha256": "cd982057e9efcf505f384d31176df2fa7760715656b624de0cc3fc2eec10aed4",
+      "validation_project": "Hosted restored clone: organization ownership, snapshot, expiry, 30-day cap and tenant isolation"
     }
   ]
 }

@@ -1,6 +1,8 @@
 'use client';
 import {useEffect,useMemo,useRef,useState,type ChangeEvent,type ReactNode} from 'react';
 import {useSearchParams} from 'next/navigation';
+import Link from 'next/link';
+import OrganizationStudyShares from '@/components/feasibility/OrganizationStudyShares';
 import {rememberedOrganization} from '@/lib/workspace-organization';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import {currentWorkspaceScope} from '@/lib/topbar-navigation';
@@ -57,7 +59,7 @@ function Info({label,value,sub}:{label:string;value:string;sub?:string}){
 function SelectField<T extends string>({label,value,items,onChange}:{label:string;value:T;items:Array<{value:T;label:string}>;onChange:(value:T)=>void}){
  return <label className="fs-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.currentTarget.value as T)}>{items.map(x=><option value={x.value} key={x.value}>{x.label}</option>)}</select></label>;
 }
-export default function FeasibilityWorkspace({locale,userId,readOnly=false,organizationEnabled=false}:{locale:string;userId:string;readOnly?:boolean;organizationEnabled?:boolean}){
+export default function FeasibilityWorkspace({locale,userId,readOnly=false,organizationEnabled=false,organizationSharing=false}:{locale:string;userId:string;readOnly?:boolean;organizationEnabled?:boolean;organizationSharing?:boolean}){
  const searchParams=useSearchParams();
  const [scope]=useWorkspaceScope(currentWorkspaceScope('feasibility',searchParams.toString()));
  const personalScope=scope==='PERSONAL';
@@ -128,6 +130,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const [organizationSelectedId,setOrganizationSelectedId]=useState('');
  const [organizationRecords,setOrganizationRecords]=useState<Record<string,InstitutionalCloudDraft>>({});
  const [organizationCanWrite,setOrganizationCanWrite]=useState(false);
+ const [organizationCanShare,setOrganizationCanShare]=useState(false);
  const [organizationLoaded,setOrganizationLoaded]=useState(false);
  const [organizationLoadedId,setOrganizationLoadedId]=useState('');
  const [organizationError,setOrganizationError]=useState('');
@@ -150,7 +153,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  useEffect(()=>{
   const requestId=++organizationRequestRef.current;
   setOrganizationStudies([]);setOrganizationSelectedId('');
-  setOrganizationRecords({});setOrganizationCanWrite(false);
+  setOrganizationRecords({});setOrganizationCanWrite(false);setOrganizationCanShare(false);
   setOrganizationBusy(false);setOrganizationError('');
   setOrganizationLoaded(false);setOrganizationLoadedId('');
   if(personalScope||!organizationId){setOrganizationLoaded(true);return}
@@ -162,7 +165,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
      {cache:'no-store',signal:controller.signal}
     );
     if(!response.ok)throw Error(response.status===404?'ORG_NOT_AVAILABLE':'ORG_LOAD_FAILED');
-    const result=await response.json() as {studies?:unknown;canWrite?:unknown};
+    const result=await response.json() as {studies?:unknown;canWrite?:unknown;canShare?:unknown};
     const rows=parseInstitutionalCloudRows(result.studies,organizationId);
     if(!rows||typeof result.canWrite!=='boolean')throw Error('INVALID_COMPANY_RESPONSE');
     if(controller.signal.aborted||organizationRequestRef.current!==requestId||currentUserRef.current!==userId)return;
@@ -170,7 +173,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     setOrganizationStudies(rows.map(x=>x.study));
     setOrganizationSelectedId(rows[0]?.id||'');
     setOrganizationRecords(Object.fromEntries(rows.map(x=>[x.id,x])));
-    setOrganizationCanWrite(result.canWrite&&!readOnly);
+    setOrganizationCanWrite(result.canWrite&&(organizationSharing||!readOnly));
+    setOrganizationCanShare(result.canShare===true);
    }catch(e){
     if(controller.signal.aborted||organizationRequestRef.current!==requestId||currentUserRef.current!==userId)return;
     setOrganizationError(e instanceof Error&&e.message==='ORG_NOT_AVAILABLE'
@@ -182,7 +186,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    }
   })();
   return ()=>controller.abort();
- },[personalScope,organizationId,organizationReload,userId,readOnly,ar]);
+ },[personalScope,organizationId,organizationReload,userId,readOnly,organizationSharing,ar]);
  useEffect(()=>{
   // Account changes must never reuse the previous user's local or cloud data.
   setLoaded(false);setStorageSafe(true);
@@ -217,7 +221,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const sharedStudy=Boolean(personalScope&&study&&(
   sharedSelectedId||(cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId)
  ));
- const effectiveReadOnly=readOnly||sharedStudy||(!personalScope&&(!organizationCanWrite||!companyScopeReady));
+ const effectiveReadOnly=sharedStudy||(personalScope?readOnly:!organizationCanWrite||!companyScopeReady);
  const copyRevision=study&&cloudOwnerIds[study.id]===userId&&cloudSavedStudyVersions[study.id]===study.updatedAt
   ?cloudRevisions[study.id]:undefined;
  const canOpenCopy=organizationEnabled&&cloudEnabled&&personalScope&&!effectiveReadOnly&&Boolean(study);
@@ -375,7 +379,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   }finally{input.value='';}
  };
  const create=async()=>{
-  if(readOnly)return;
+  if(personalScope&&readOnly)return;
   const title=projectName.trim();if(!title)return;
   const next=newSector==='INDUSTRIAL'
    ?createIndustrialStarter(uid(),title,newStarter)
@@ -430,7 +434,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     ?txt(ar,'اختر المؤسسة من البانر الرئيسي لبدء دراسة جديدة.','Select an organization from the main banner to create a study.')
     :organizationError||(!companyScopeReady
       ?txt(ar,'جارٍ التحقق من عضوية المؤسسة وإتاحة المحفظة على QA.','Checking company membership and QA availability.')
-      :!organizationCanWrite||readOnly
+      :!organizationCanWrite
        ?txt(ar,'إنشاء الدراسات يتطلب عضوية مالك أو مدير وترخيصًا يتيح التعديل.','Creating a study requires an active owner/admin membership and editing entitlement.')
        :''))
   :'';
@@ -450,8 +454,11 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     <Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>
    </div>}
   </header>
-  <p className="fs-warning" role="status">{!personalScope?organizationError||txt(ar,'محفظة المؤسسة مستقلة عن مسوداتك الشخصية. البيانات المؤسسية تحفظ على QA V2 بعد التحقق من عضوية المؤسسة وصلاحياتها.','The company portfolio is separate from your personal drafts. Organization records are saved on QA V2 using server-verified membership and permissions.'):sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
+  <p className="fs-warning" role="status">{!personalScope?organizationError||txt(ar,'محفظة المؤسسة مستقلة عن مسوداتك الشخصية. تُحفظ الدراسات المؤسسية بعد التحقق من عضوية المؤسسة وصلاحياتها.','The company portfolio is separate from your personal drafts. Organization studies are saved using server-verified membership and permissions.'):sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'نسخة QA تجريبية: الحفظ المركزي يدوي في قاعدة V2 ومتاح لمالك المسودة فقط. لا توجد مشاركة أو اعتماد رسمي أو قيود محاسبية.','QA-only: cloud saving is manual in the V2 database and visible only to the draft owner. No sharing, formal approval or accounting entries.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')}>×</button></p>}
+  {organizationSharing&&<Link className="fs-btn fs-btn--secondary" href={'/'+locale+'/feasibility/shared'+(organizationId?'?organization='+encodeURIComponent(organizationId):'')}>
+   {txt(ar,'الدراسات المشتركة مع المؤسسة','Studies shared with the organization')}
+  </Link>}
   {sharingEnabled&&personalScope&&<JoinInvitationPanel locale={locale}/>} 
   <section className="fs-create card"><div><h2>{txt(ar,'محفظة المشاريع','Project portfolio')}</h2><p>{txt(ar,'أنشئ دراسة جديدة أو افتح مشروعًا محفوظًا.','Create a study or open a saved draft.')}</p></div><div className="fs-create-controls"><input value={projectName} onChange={e=>setProjectName(e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();void create();}}} placeholder={txt(ar,'اسم المشروع الجديد','New project name')} aria-label={txt(ar,'اسم المشروع الجديد','New project name')}/><select value={newSector} onChange={e=>{setNewSector(e.currentTarget.value as Sector);setNewStarter('GENERAL')}} aria-label={txt(ar,'نوع المشروع','Project type')}>{Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}</select>{newSector==='INDUSTRIAL'&&<select value={newStarter}
   onChange={e=>setNewStarter(e.currentTarget.value as IndustrialStarter)}
@@ -459,7 +466,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   <option value="GENERAL">{txt(ar,'دراسة صناعية عامة','General industrial study')}</option>
   <option value="BOTTLED_WATER">{txt(ar,'مصنع مياه معبأة','Bottled-water factory')}</option>
   <option value="DAIRY_CHEESE">{txt(ar,'مصنع ألبان وأجبان','Dairy & cheese factory')}</option>
- </select>}<Button onClick={()=>void create()} disabled={readOnly||(!personalScope&&(!companyScopeReady||!organizationCanWrite||!!organizationError||organizationBusy||!organizationId))||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div>{createCompanyDeniedReason&&<p className="fs-hint" role="status">{createCompanyDeniedReason}</p>}</section>
+ </select>}<Button onClick={()=>void create()} disabled={(personalScope&&readOnly)||(!personalScope&&(!companyScopeReady||!organizationCanWrite||!!organizationError||organizationBusy||!organizationId))||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</Button></div>{createCompanyDeniedReason&&<p className="fs-hint" role="status">{createCompanyDeniedReason}</p>}</section>
   <div className="fs-portfolio">{visibleStudies.map(p=><button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')} aria-pressed={p.id===activeSelectedId} onClick={()=>{if(personalScope){setSharedSelectedId('');setSelectedId(p.id)}else setOrganizationSelectedId(p.id);setTab('overview')}}><strong>{p.title}</strong><span>{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span></button>)}</div>
 
   {personalScope&&sharingEnabled&&<section className="card fs-panel" aria-label={txt(ar,'الدراسات المشتركة معي','Shared studies')}>
@@ -488,7 +495,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     copySelection.organizationId===organizationId&&copySelection.userId===userId&&
     <CopyToOrganizationDialog locale={locale} sourceId={study.id} sourceTitle={study.title}
      revision={copyRevision} organizationId={organizationId} onClose={()=>setCopySelection(null)}/>}
-   <nav className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.filter(t=>water?!['advanced','sector'].includes(t.id):t.id!=='sector'||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE').map(t=><button type="button" key={t.id} onClick={()=>setTab(t.id)} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}>{ar?t.ar:t.en}</button>)}</nav>
+   <nav className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.filter(t=>t.id!=='sharing'||personalScope||organizationSharing&&organizationCanShare).filter(t=>water?!['advanced','sector'].includes(t.id):t.id!=='sector'||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE').map(t=><button type="button" key={t.id} onClick={()=>setTab(t.id)} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}>{ar?t.ar:t.en}</button>)}</nav>
    {tab==='report'&&<FeasibilityReport study={study} locale={locale}/>}
    <fieldset className="fs-study-scope" disabled={effectiveReadOnly} aria-label={txt(ar,'محتوى دراسة المشروع','Study content')}>
    {water&&waterTab&&<WaterModelPanel water={water} tab={waterTab} currency={study.currency} locale={locale} onChange={water=>update({water})}/>}
@@ -540,9 +547,13 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    {!water&&tab==='sector'&&(study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE')&&<SectorAnalysisPanel study={study} locale={locale} onChange={sectorSchedule=>update({sectorSchedule})}/>}
    {(tab==='legal'||tab==='tasks'||tab==='risks'||tab==='suppliers'||tab==='decisions')&&
     <StudyRegisters key={study.id+':'+tab} study={study} tab={tab} locale={locale} onChange={update}/>}
-   {tab==='sharing'&&<CollaborationPanel locale={locale} projectId={study.id} enabled={sharingEnabled&&personalScope} canWrite={!effectiveReadOnly} isOwner={cloudOwnerIds[study.id]===userId}/>}
+   {tab==='sharing'&&personalScope&&<CollaborationPanel locale={locale} projectId={study.id} enabled={sharingEnabled&&personalScope} canWrite={!effectiveReadOnly} isOwner={cloudOwnerIds[study.id]===userId}/>}
    {tab==='handoff'&&<ProjectHandoffPanel study={study} locale={locale} onChange={handoff=>update({handoff})} cloudRevision={cloudRevisions[study.id]} cloudCurrent={cloudSavedStudyVersions[study.id]===study.updatedAt} cloudEnabled={cloudEnabled} canWrite={!effectiveReadOnly}/>}
    </fieldset>
+   {tab==='sharing'&&!personalScope&&organizationSharing&&companyScopeReady&&organizationCanShare&&organizationRecords[study.id]&&
+    <OrganizationStudyShares key={organizationId+':'+study.id} locale={locale} organization={organizationId}
+     project={study.id} revision={organizationRecords[study.id].revision}
+     saved={organizationCanWrite&&organizationRecords[study.id].study===study}/>}
   </>}
  </main>;
 }

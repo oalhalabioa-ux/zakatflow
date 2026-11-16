@@ -50,5 +50,6 @@ jobs:
         run: |
           rehearsal_dir="$(mktemp -d)"
           npm install --prefix "$rehearsal_dir" --no-audit --no-fund --ignore-scripts @electric-sql/pglite@0.3.14
-          FEASIBILITY_PGLITE_MODULE="$rehearsal_dir/node_modules/@electric-sql/pglite/dist/index.js" \
-            node tests/feasibility/phase1-migration-rehearsal.mjs
+          export FEASIBILITY_PGLITE_MODULE="$rehearsal_dir/node_modules/@electric-sql/pglite/dist/index.js"
+          node tests/feasibility/phase1-migration-rehearsal.mjs
+          node tests/feasibility/qa-v2-sharing-compatibility.mjs

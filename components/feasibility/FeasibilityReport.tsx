@@ -5,7 +5,7 @@ import {studyReportReadiness} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import WaterModelPanel from './WaterModelPanel';
 
-export default function FeasibilityReport({study,locale}:{study:FeasibilityStudy;locale:string}){
+export default function FeasibilityReport({study,locale,allowExport=true}:{study:FeasibilityStudy;locale:string;allowExport?:boolean}){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
  const {openCritical,openTasks,highRisks}=studyReportReadiness(study);
  const verified=study.legal.filter(item=>item.status==='VERIFIED').length;
@@ -37,12 +37,12 @@ export default function FeasibilityReport({study,locale}:{study:FeasibilityStudy
    <h3>{l('التقرير الشامل','Feasibility report')}</h3>
    <p>{[study.country,study.region,study.preparedBy,study.studyDate,study.currency].filter(Boolean).join(' · ')}</p>
    <p>{l('تقدير أولي للقرار الاستثماري. اعتمد المدخلات والوثائق بصورة مستقلة قبل الالتزام بالتمويل.','Preliminary investment assessment. Independently verify inputs and documents before committing funds.')}</p>
-   <div className="fs-actions">
+   {allowExport&&<div className="fs-actions">
     <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>window.print()}>{l('طباعة / PDF','Print / PDF')}</button>
     <button className="fs-btn fs-btn--secondary" type="button" onClick={tasks}>{l('تصدير المهام CSV','Export tasks CSV')}</button>
-   </div>
+   </div>}
   </section>
-  {study.water?<WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" onChange={()=>{}}/>:
+  {study.water?<WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/>:
    <section className="card fs-panel">
     <h3>{l('الملخص والتوقعات المالية الأساسية','Base-case financial summary and projections')}</h3>
     <ul className="fs-notes">
@@ -52,10 +52,10 @@ export default function FeasibilityReport({study,locale}:{study:FeasibilityStudy
      <li>{l('فجوة التمويل النقدي','Net funding gap')} · {money(base.cashFundingGap)}</li>
      <li>{l('الملكية الاقتصادية للممول %','Investor economic ownership %')} · {fmt(base.investorShare)}</li>
     </ul>
-    <div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
+    {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
      onClick={()=>downloadFeasibilityCsv('feasibility-projections.csv',[
       [...metrics.map(x=>x.label),l('العملة','Currency')],...financeRows.map(row=>[...row,study.currency])
-     ])}>{l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>
+     ])}>{l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}
     <div className="fs-table-wrap"><table className="fs-table">
      <thead><tr>{metrics.map(({key,label})=><th key={key} scope="col">{label}</th>)}</tr></thead>
      <tbody>{financeRows.map((row,index)=><tr key={index}>{row.map((value,i)=><td key={i}>{fmt(value)}</td>)}</tr>)}</tbody>

@@ -9,6 +9,7 @@ const userId='b3719dce-80e9-4f89-9ed2-f42a191eef02';
 const orgId='b67fa2de-0da1-4bd7-b2af-35e72a0732fd';
 const otherOrg='9a488471-6f07-44c0-8c6b-69a298bd4eab';
 const study=createStudy('027d530c-813d-4915-8891-e081865b8867','Water factory');
+const sharingFlag=process.env.FEASIBILITY_ORG_SHARING;
 const vars=['FEASIBILITY_ORG_QA','NEXT_PUBLIC_FEASIBILITY_STUDIES','NEXT_PUBLIC_FEASIBILITY_CLOUD_QA'] as const;
 const backup=Object.fromEntries(vars.map(key=>[key,process.env[key]]));
 function req(org=orgId,method='GET',body?:unknown){
@@ -31,14 +32,19 @@ function mockDb(role='OWNER',status='ACTIVE'){
  const from=vi.fn((name:string)=>name==='feasibility_access_grants'?grant:
   name==='organization_members'?membership:name==='organizations'?org:projects);
  const getUser=vi.fn().mockResolvedValue({data:{user:{id:userId}},error:null});
- mocks.supabaseServer.mockResolvedValue({auth:{getUser},from});
- return {grant,membership,org,projects,from,getUser};
+ const rpc=vi.fn();
+ mocks.supabaseServer.mockResolvedValue({auth:{getUser},from,rpc});
+ return {grant,membership,org,projects,from,getUser,rpc};
 }
 beforeEach(()=>{
  vi.resetAllMocks();mocks.sameOrigin.mockReturnValue(true);
  for(const k of vars)process.env[k]='true';
+ delete process.env.FEASIBILITY_ORG_SHARING;
 });
-afterEach(()=>{for(const k of vars){const v=backup[k];if(v===undefined)delete process.env[k];else process.env[k]=v;}});
+afterEach(()=>{
+ if(sharingFlag===undefined)delete process.env.FEASIBILITY_ORG_SHARING;
+ else process.env.FEASIBILITY_ORG_SHARING=sharingFlag;
+ for(const k of vars){const v=backup[k];if(v===undefined)delete process.env[k];else process.env[k]=v;}});
 
 describe('institutional feasibility portfolio server gate',()=>{
  it('is disabled by default and never queries a database',async()=>{
@@ -166,5 +172,27 @@ describe('copy a personal cloud study into an organization',()=>{
   const ids=db.projects.insert.mock.calls.map(([record])=>record.id);
   expect(ids[0]).toBe(ids[1]);
   expect(ids[0]).not.toBe(ids[2]);
+ });
+});
+
+describe('copy with organization-specific subscription checks enabled',()=>{
+ beforeEach(()=>{process.env.FEASIBILITY_ORG_SHARING='true'});
+
+ it('uses the receiving organization entitlement and resolves its verified name',async()=>{
+  const db=mockDb();
+  db.rpc.mockResolvedValue({data:{canRead:true,canWrite:true,canShare:false},error:null});
+  const response=await GET(req(orgId+'&action=copy'));
+  expect(await response.json()).toEqual({organizationId:orgId,organizationName:'QA Organization'});
+  expect(db.rpc).toHaveBeenCalledWith('feasibility_company_workspace',{p_organization:orgId});
+  expect(db.grant.select).not.toHaveBeenCalled();
+  expect(db.org.eq).toHaveBeenCalledWith('id',orgId);
+ });
+
+ it('denies copy when the organization entitlement is read-only',async()=>{
+  const db=mockDb();
+  db.rpc.mockResolvedValue({data:{canRead:true,canWrite:false,canShare:true},error:null});
+  expect((await POST(req(orgId+'&action=copy','POST',{sourceId:study.id,revision:1,confirmed:true}))).status).toBe(403);
+  expect(db.projects.select).not.toHaveBeenCalled();
+  expect(db.projects.insert).not.toHaveBeenCalled();
  });
 });

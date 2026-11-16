@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-export default function FeasibilityEnrollment({ locale }: { locale: string }) {
+export default function FeasibilityEnrollment({ locale, organizationSharing = false }: { locale: string; organizationSharing?: boolean }) {
   const ar = locale === 'ar';
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -43,6 +43,9 @@ export default function FeasibilityEnrollment({ locale }: { locale: string }) {
         <Link className="fs-handoff-link" href={`/${locale}/billing?section=builder&module=feasibility`}>
           {ar ? 'إضافة الموديول إلى باقة المؤسسة' : 'Add to an organization bundle'}
         </Link>
+        {organizationSharing && <Link className="fs-handoff-link" href={'/' + locale + '/feasibility/shared'}>
+          {ar ? 'الدراسات المشتركة مع المؤسسة' : 'Studies shared with an organization'}
+        </Link>}
       </section>
     </main>
   );

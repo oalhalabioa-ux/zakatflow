@@ -294,6 +294,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
   }finally{await context.close().catch(()=>{});}
  });
  await check('Feasibility: managed copy on mobile preserves the personal source and isolates organizations',async()=>{
+  const caseName='organization-copy';
   const target=await newOrg(marker+' Copy destination');
   const other=await newOrg(marker+' Copy isolation');
   const localApp='http://localhost:3000';
@@ -305,7 +306,13 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
   const appPage=(scope,organization,locale='en')=>
    localApp+'/'+locale+'/feasibility?scope='+scope+'&organization='+organization+'&level=COMPANY';
   const studyTitle='QA Personal water copy source';
+  const caseGuard=setTimeout(()=>{
+   phase(caseName,'case-timeout-90s');
+   void context.close().catch(()=>{});
+  },90000);
+  caseGuard.unref();
   try{
+   phase(caseName,'personal-mobile-navigation');
    await page.goto(appPage('PERSONAL',target,'ar'));
    await page.getByRole('textbox',{name:'اسم المشروع الجديد',exact:true}).fill(studyTitle);
    await page.locator('.fs-create select').last().selectOption('BOTTLED_WATER');
@@ -317,6 +324,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.equal(personalResponse.status(),201);
    const source=await personalResponse.json();
    await page.getByText(/حُفظت مسودة المشروع في QA V2/).waitFor();
+   phase(caseName,'personal-saved');
    await page.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true}).click();
    const dialog=page.getByRole('dialog');
    await dialog.getByText(marker+' Copy destination',{exact:true}).waitFor();
@@ -324,6 +332,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.equal(await confirm.isDisabled(),true);
    await dialog.getByText('أوافق على نسخ محتوى الدراسة إلى المؤسسة المحددة.',{exact:true}).tap();
    assert.equal(await dialog.getByRole('checkbox').isChecked(),true);
+   phase(caseName,'consent-confirmed');
    const copySaved=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='copy'&&
     r.request().method()==='POST');
    await confirm.click();
@@ -332,6 +341,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const copy=await copyResponse.json();
    assert.notEqual(copy.id,source.id);
    await dialog.getByRole('status').waitFor();
+   phase(caseName,'organization-copy-created');
 
    for(const [selected,expected] of [[target,true],[other,false]]){
     const portfolio=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/organization-projects'&&
@@ -343,15 +353,16 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     assert.equal(studies.some(row=>row.id===copy.id&&row.owner_user_id===null&&row.organization_id===target),expected);
     assert.equal(studies.some(row=>row.id===source.id),false);
    }
-   const personal=await page.request.get(localApp+'/api/feasibility/projects');
+   phase(caseName,'two-organization-portfolios-verified');
+   const personal=await page.request.get(localApp+'/api/feasibility/projects',{timeout:12000});
    assert.equal(personal.status(),200);
    const owned=await personal.json();
    assert.equal(owned.find(row=>row.id===source.id)?.revision,source.revision);
    assert.equal(owned.some(row=>row.id===copy.id),false);
-   const outside=await fetch(url+'/rest/v1/feasibility_projects?id=eq.'+copy.id+'&select=id',{headers:headers(outsider)});
+   const outside=await fetch(url+'/rest/v1/feasibility_projects?id=eq.'+copy.id+'&select=id',{headers:headers(outsider),signal:AbortSignal.timeout(12000)});
    assert.equal(outside.status,200);
    assert.deepEqual(await outside.json(),[]);
-  }finally{await context.close().catch(()=>{});}
+  }finally{clearTimeout(caseGuard);await context.close().catch(()=>{});}
  });
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{
   const r=await fetch(url+'/rest/v1/organizations?select=id,contact_email,registered_address',{

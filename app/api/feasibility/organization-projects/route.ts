@@ -35,6 +35,12 @@ async function authorize(request:Request){
  const supabase=await supabaseServer();
  const {data:{user},error:authError}=await supabase.auth.getUser();
  if(authError||!user)return json({error:'UNAUTHORIZED'},401);
+ if(process.env.FEASIBILITY_ORG_SHARING==='true'){
+  const {data,error}=await supabase.rpc('feasibility_company_workspace',{p_organization:organizationId});
+  if(error)return json({error:'ENTITLEMENT_UNAVAILABLE'},503);
+  if(!data?.canRead)return json({error:'ORGANIZATION_NOT_AVAILABLE'},404);
+  return {supabase,organizationId:organizationId!,userId:user.id,canWrite:data.canWrite===true,canShare:data.canShare===true,organizationName:undefined};
+ }
  const {data:grant,error:grantError}=await readFeasibilityGrant(supabase,user.id);
  if(grantError)return json({error:'ENTITLEMENT_UNAVAILABLE'},503);
  const access=evaluateFeasibilityAccess(grant);
@@ -50,7 +56,7 @@ async function authorize(request:Request){
  if(!membership.data||membership.data.status!=='ACTIVE'||!org.data||
   org.data.status!=='ACTIVE')return json({error:'ORGANIZATION_NOT_AVAILABLE'},404);
  const canWrite=access.canWrite&&['OWNER','ADMIN'].includes(membership.data.role);
- return {supabase,organizationId:organizationId!,userId:user.id,canWrite,organizationName:org.data.name};
+ return {supabase,organizationId:organizationId!,userId:user.id,canWrite,canShare:false,organizationName:org.data.name};
 }
 async function parseInput(request:Request){
  const raw=await request.text();
@@ -64,14 +70,20 @@ export async function GET(request:Request){
  if(ctx instanceof NextResponse)return ctx;
  if(isCopyRequest(request)){
   if(!ctx.canWrite)return json({error:'ORGANIZATION_WRITE_DENIED'},403);
-  return json({organizationId:ctx.organizationId,organizationName:ctx.organizationName});
+  if(ctx.organizationName!==undefined)
+   return json({organizationId:ctx.organizationId,organizationName:ctx.organizationName});
+  const {data,error}=await ctx.supabase.from('organizations').select('name')
+   .eq('id',ctx.organizationId).eq('status','ACTIVE').maybeSingle();
+  if(error)return json({error:'ORGANIZATION_UNAVAILABLE'},503);
+  if(!data)return json({error:'ORGANIZATION_NOT_AVAILABLE'},404);
+  return json({organizationId:ctx.organizationId,organizationName:data.name});
  }
  const {data,error}=await ctx.supabase.from('feasibility_projects')
   .select('id,title,revision,updated_at,study,owner_user_id,created_by_user_id,organization_id')
   .eq('organization_id',ctx.organizationId)
   .order('updated_at',{ascending:false}).limit(300);
  if(error)return json({error:'ORGANIZATION_DRAFT_READ_FAILED'},500);
- return json({studies:data??[],canWrite:ctx.canWrite});
+ return json({studies:data??[],canWrite:ctx.canWrite,...(ctx.canShare?{canShare:true}:{})});
 }
 export async function POST(request:Request){
  if(!enabled())return json({error:'ORGANIZATION_FEASIBILITY_DISABLED'},404);
