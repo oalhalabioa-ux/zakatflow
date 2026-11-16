@@ -282,6 +282,30 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();
  await worksheet.getByText('Approved adjustments could not be verified against current sources. No amounts are shown.',{exact:true}).waitFor();assert.equal(await worksheet.locator('table').count(),0);
 
+ const invoiceId=randomUUID(),invoiceEntity=randomUUID(),invoiceContact=randomUUID();
+ sql(`update public.organizations set country_code='SA' where id in('${parent}','${subsidiary}');
+ insert into public.vat_profiles(organization_id,registration_status,tax_registration_number) values
+  ('${subsidiary}','REGISTERED','312340000000003')
+ on conflict(organization_id) do update set registration_status='REGISTERED',tax_registration_number=excluded.tax_registration_number;
+ insert into public.organization_entities(id,organization_id,name,entity_type) values('${invoiceEntity}','${parent}','Invoice coverage fixture','BRANCH');
+ insert into public.vat_contacts(id,organization_id,contact_type,name,created_by) values('${invoiceContact}','${parent}','CUSTOMER','Invoice coverage contact','${actor.id}');
+ insert into public.vat_documents(id,organization_id,user_id,document_type,document_number,transaction_date,counterparty_name,counterparty_tax_number,net_amount,tax_amount,gross_amount)
+ values('${invoiceId}','${parent}','${actor.id}','SALES','GROUP-INVOICE-REVIEW','2026-10-01','Invoice coverage contact','312340000000003',60,0,60);
+ insert into public.financial_vat_source_bindings(organization_id,source_table,source_record_id,event_id,canonical_payload,payload_fingerprint,document_kind,side,contact_id,entity_id,due_date,created_by)
+ values('${parent}','vat_documents','${invoiceId}','${revenue}','{}','fixture','INVOICE','SALES','${invoiceContact}','${invoiceEntity}','2026-10-01','${actor.id}');`);
+ const invoiceCoverage=await request(worksheetPath,coverageRequest);
+ assert.deepEqual(invoiceCoverage.invoiceCandidates.map(({id,eventId,side})=>({id,eventId,side})),[
+  {id:invoiceId,eventId:revenue,side:'SALES'},
+ ]);
+ await page.getByLabel('To date',{exact:true}).fill(coverageQuery.to);
+ await worksheet.getByText('Approved version: 1',{exact:false}).waitFor();
+ await checkCoverage();
+ const invoiceRow=coverage.locator('[data-group-invoice-candidates]').getByRole('row').filter({hasText:invoiceId});
+ await invoiceRow.getByText(revenue,{exact:true}).waitFor();
+ await invoiceRow.getByText('Sales invoice',{exact:true}).waitFor();
+ await writeFile(out+'/approved-group-invoice-candidates.json',JSON.stringify(invoiceCoverage.invoiceCandidates,null,2));
+ console.log('PASS Posted invoice with a unique group tax identifier appears for documentary review');
+ await page.getByLabel('To date',{exact:true}).fill(query.to);
 
  // A real reciprocal receipt/payment is approved separately from invoice balances.
  const cashEvents=[];

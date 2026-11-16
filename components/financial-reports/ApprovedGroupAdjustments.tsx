@@ -311,6 +311,17 @@ function GroupDocumentCoverage({data,en}:{data:Result;en:boolean}){
       <td>{row.status==='DOCUMENT_MATCH_REQUIRED'?(en?'Approve a documentary match':'اعتماد مطابقة المستندات'):(en?'Review source journal links':'مراجعة ربط القيود المحاسبية')}</td>
      </tr>)}</tbody></table>
     </div>}
+    {result.invoiceCandidates.length>0&&<div className="fs-table-scroll" data-group-invoice-candidates>
+     <h4>{en?'Intercompany invoice candidates':'فواتير مرشحة للمطابقة بين الشركات'}</h4>
+     <p>{en?'The tax number recorded on each posted Saudi invoice matches one registered company in the group. Review both documents to confirm the match.':'الرقم الضريبي المسجّل في كل فاتورة سعودية مرحّلة يطابق تسجيل شركة واحدة في المجموعة. راجع مستندي الطرفين لتأكيد المطابقة.'}</p>
+     <table className="fs-table"><thead><tr>
+      {(en?['Invoice reference','Journal reference','Date','Type','Recording company','Potential counterparty']:['مرجع الفاتورة','مرجع القيد','التاريخ','النوع','الشركة المسجِّلة','الطرف المقابل المحتمل']).map(label=><th key={label} scope="col">{label}</th>)}
+     </tr></thead><tbody>{result.invoiceCandidates.map(row=><tr key={row.id}>
+      <th scope="row"><bdi>{row.id}</bdi></th><td><bdi>{row.eventId}</bdi></td><td><bdi>{row.date}</bdi></td>
+      <td>{row.side==='SALES'?(en?'Sales invoice':'فاتورة مبيعات'):(en?'Purchase invoice':'فاتورة مشتريات')}</td>
+      <td>{row.organizationName}</td><td>{row.counterpartyName}</td>
+     </tr>)}</tbody></table>
+    </div>}
    </>}
  </div>;
 }

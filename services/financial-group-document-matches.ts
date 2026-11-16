@@ -25,6 +25,10 @@ const coverage=z.object({
   sourceName:z.string(),destinationName:z.string(),
   status:z.enum(['DOCUMENT_MATCH_REQUIRED','SOURCE_LINK_REVIEW_REQUIRED']),
  }).strict()).max(200),
+ invoiceCandidates:z.array(z.object({
+  id:uuid,eventId:uuid,date:z.string().date(),side:z.enum(['SALES','PURCHASE']),
+  organizationName:z.string(),counterpartyName:z.string(),
+ }).strict()).max(200),
 }).strict();
 export async function readGroupDocumentCoverage(input:unknown){
  const {organization,from,to}=statementQuery.parse(input);
@@ -35,7 +39,8 @@ export async function readGroupDocumentCoverage(input:unknown){
  const parsed=coverage.safeParse(r.data);
  if(!parsed.success||parsed.data.organization!==organization||parsed.data.from!==from||parsed.data.to!==to||
   new Set(parsed.data.rows.map(row=>row.id)).size!==parsed.data.rows.length||
-  new Set(parsed.data.transferCandidates.map(row=>row.id)).size!==parsed.data.transferCandidates.length)
+  new Set(parsed.data.transferCandidates.map(row=>row.id)).size!==parsed.data.transferCandidates.length||
+  new Set(parsed.data.invoiceCandidates.map(row=>row.id)).size!==parsed.data.invoiceCandidates.length)
   throw Error('REPORTING_GROUP_DOCUMENT_EVIDENCE_INVALID');
  return parsed.data;
 }

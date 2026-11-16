@@ -31,7 +31,7 @@ revoke all on function private.financial_group_prior_pair_balance(uuid,uuid,uuid
 
 create function private.financial_group_document_coverage(p_root uuid,p_from date,p_to date)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare scope jsonb; approved jsonb; members uuid[]; unmatched jsonb; transfer_candidates jsonb;
+declare scope jsonb; approved jsonb; members uuid[]; unmatched jsonb; transfer_candidates jsonb; invoice_candidates jsonb;
 begin
  if auth.uid() is null then raise exception 'GROUP_DOCUMENT_READ_DENIED';end if;
  scope:=public.financial_group_registered_scope(p_root,p_from,p_to);
@@ -107,10 +107,49 @@ begin
   'sourceName',source_name,'destinationName',destination_name,
   'status',review_status) order by transfer_date,id),'[]'::jsonb) into transfer_candidates from pending;
  if jsonb_array_length(transfer_candidates)>200 then raise exception 'GROUP_DOCUMENT_COVERAGE_LIMIT';end if;
+
+ -- Use the tax number stored on the posted invoice, never a party name
+ -- or an amount. Shared registration numbers cannot identify one member.
+ with registered as (
+  select btrim(v.tax_registration_number) as tax_number
+  from public.vat_profiles v join public.organizations o on o.id=v.organization_id
+  where v.organization_id=any(members) and o.country_code='SA'
+   and v.registration_status='REGISTERED' and btrim(v.tax_registration_number)~'^3[0-9]{13}3$'
+  group by btrim(v.tax_registration_number) having count(*)=1
+ ), pending_invoices as (
+  select d.id,e.id as event_id,d.transaction_date,d.document_type,issuer.name as issuer,party.name as counterparty
+  from public.vat_documents d
+  join registered r on r.tax_number=btrim(d.counterparty_tax_number)
+  join public.vat_profiles p on btrim(p.tax_registration_number)=r.tax_number and p.registration_status='REGISTERED'
+  join public.organizations party on party.id=p.organization_id and party.country_code='SA'
+  join public.organizations issuer on issuer.id=d.organization_id and issuer.country_code='SA'
+  join public.financial_vat_source_bindings b on b.organization_id=d.organization_id and b.source_record_id=d.id
+   and b.source_table='vat_documents' and b.document_kind='INVOICE' and not b.is_alias
+  join public.financial_events e on e.id=b.event_id and e.organization_id=d.organization_id
+  where d.organization_id=any(members) and p.organization_id=any(members) and d.organization_id<>p.organization_id
+   and d.document_kind='INVOICE' and d.transaction_date between p_from and p_to
+   and (p.registration_date is null or p.registration_date<=d.transaction_date)
+   and e.status='ACTUAL' and e.event_date between p_from and p_to
+   and not exists (
+    select 1 from private.financial_group_document_matches m
+    join public.financial_events other on other.organization_id=p.organization_id and other.status='ACTUAL'
+     and ((m.left_event_id=e.id and m.right_event_id=other.id) or (m.right_event_id=e.id and m.left_event_id=other.id))
+    where m.status='APPROVED'
+     and ((m.left_organization_id=d.organization_id and m.right_organization_id=p.organization_id)
+       or (m.right_organization_id=d.organization_id and m.left_organization_id=p.organization_id))
+     and private.financial_group_document_fingerprint(m.left_event_id,m.right_event_id)=m.source_fingerprint
+   )
+  order by d.transaction_date,d.id limit 201
+ )
+ select coalesce(jsonb_agg(jsonb_build_object('id',id,'eventId',event_id,'date',transaction_date,
+  'side',document_type,'organizationName',issuer,'counterpartyName',counterparty) order by transaction_date,id),'[]'::jsonb)
+ into invoice_candidates from pending_invoices;
+ if jsonb_array_length(invoice_candidates)>200 then raise exception 'GROUP_DOCUMENT_COVERAGE_LIMIT';end if;
  if scope is distinct from public.financial_group_registered_scope(p_root,p_from,p_to)
   then raise exception 'GROUP_DOCUMENT_SCOPE_CHANGED';end if;
  return jsonb_build_object('status','GROUP_DOCUMENT_COVERAGE_REVIEW','organization',p_root,'from',p_from,'to',p_to,
-  'batchId',approved->'id','batchVersion',approved->'version','rows',unmatched,'transferCandidates',transfer_candidates);
+  'batchId',approved->'id','batchVersion',approved->'version','rows',unmatched,
+  'transferCandidates',transfer_candidates,'invoiceCandidates',invoice_candidates);
 end $$;
 revoke all on function private.financial_group_document_coverage(uuid,date,date) from public,anon,authenticated;
 grant execute on function private.financial_group_document_coverage(uuid,date,date) to authenticated;
