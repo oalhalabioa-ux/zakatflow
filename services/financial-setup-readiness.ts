@@ -112,11 +112,14 @@ export async function readFinancialSetupReadiness(input:unknown){
  // Evidence is display-only. Never promote a failed source query into a
  // missing configuration or infer additional accounting approval from badges.
  const availablePosting=evidence.postingEvidence;
+ const retained=fiscal.status==='fulfilled'?fiscal.value.calendar?.retained_earnings_account??'':'';
+ const retainedIsValid=fiscal.status==='fulfilled'&&Boolean(fiscal.value.calendar&&
+  (retained==='3300'||fiscal.value.retainedCandidates?.some(c=>c.code===retained)));
  const sourceChecks=financialSourceChecks({
   fiscalReadable,
   fiscalCalendarPresent:fiscal.status==='fulfilled'&&Boolean(fiscal.value.calendar),
   fiscalPeriodPresent:fiscal.status==='fulfilled'&&Boolean(fiscal.value.period),
-  fiscalRetainedValid:evidence.fiscalCalendarValid,
+  fiscalRetainedValid:retainedIsValid,
   chartReadable,
   chartEquityActive:evidence.chartPostableRetained,
   postingReadable:availablePosting!==undefined,
