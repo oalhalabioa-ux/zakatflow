@@ -90,7 +90,11 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
     if(event.target!==event.currentTarget||event.propertyName!=='grid-template-columns'||!expandedCard)return;
     const grid=event.currentTarget;
     if(grid.scrollWidth>grid.clientWidth+2){
-     grid.querySelector<HTMLElement>('article[data-expanded="true"]')?.scrollIntoView({behavior:'auto',block:'nearest',inline:'center'});
+     const selected=grid.querySelector<HTMLElement>('article[data-expanded="true"]');
+     if(selected){
+      const row=grid.getBoundingClientRect(),card=selected.getBoundingClientRect();
+      grid.scrollBy({left:card.left-row.left-(row.width-card.width)/2,behavior:'auto'});
+     }
     }
    }}
    aria-label={ar?'حالة التأسيس المالي':'Financial setup readiness'}>{
