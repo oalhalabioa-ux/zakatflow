@@ -72,6 +72,10 @@ describe('source-backed financial readiness card details',()=>{
   expect(checks.banking.map(c=>c.status)).toEqual(['UNAVAILABLE','UNAVAILABLE']);
   expect(checks.posting.map(c=>c.status)).toEqual(['UNAVAILABLE','UNAVAILABLE','UNAVAILABLE']);
  });
+ it('keeps independently valid retained earnings distinct from an unset fiscal period',()=>{
+  const checks=financialSourceChecks({...fullSource,fiscalPeriodPresent:false});
+  expect(checks.fiscal.map(c=>c.status)).toEqual(['MET','MISSING','MET']);
+ });
  it('does not declare coverage or active liquidity complete from approval alone',()=>{
   const checks=financialSourceChecks({...fullSource,
    postingRulesPresent:false,postingCoverageReadable:false,postingCoverageComplete:false,
