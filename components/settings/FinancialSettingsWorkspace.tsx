@@ -85,7 +85,14 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
   <nav className="settings-local-tabs settings-finance-journey-tabs" aria-label={ar?'الإعدادات المالية التفصيلية':'Financial settings sections'}>{sections.map(([id,a,e])=><button key={id} type="button" aria-pressed={tab===id} onClick={()=>{if(id!==tab&&!canLeaveFiscal())return;setTab(id);setRevision(v=>v+1);}}><SettingsIcon name={financeIcons[id]}/><span>{ar?a:e}</span></button>)}</nav>
 
   <div className="settings-finance-status" data-expanded-card={expandedCard?.id??''}
-   style={expandedCard?{gridTemplateColumns:sections.filter(([id])=>id!=='summary').map(([id])=>id===expandedCard.id?'minmax(415px,3fr)':'minmax(155px,1fr)').join(' ')}:undefined}
+   style={expandedCard?{gridTemplateColumns:sections.filter(([id])=>id!=='summary').map(([id])=>id===expandedCard.id?'minmax(0px, min(600px, calc(100vw - 48px)))':'minmax(155px,1fr)').join(' ')}:undefined}
+   onTransitionEnd={event=>{
+    if(event.target!==event.currentTarget||event.propertyName!=='grid-template-columns'||!expandedCard)return;
+    const grid=event.currentTarget;
+    if(grid.scrollWidth>grid.clientWidth+2){
+     grid.querySelector<HTMLElement>('article[data-expanded="true"]')?.scrollIntoView({behavior:'auto',block:'nearest',inline:'center'});
+    }
+   }}
    aria-label={ar?'حالة التأسيس المالي':'Financial setup readiness'}>{
    sections.filter(([id])=>id!=='summary').map(([id,a,e])=>{
     const section=id as FinancialSetupCardKey,status=readiness?.statuses[section];
