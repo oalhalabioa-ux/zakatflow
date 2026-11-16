@@ -10,7 +10,7 @@ import type {PostingChartAccount} from '../lib/financial-posting-rule-validation
 import {readReportingPolicy} from './financial-reporting-policy';
 import type {RecognitionEvent} from '../lib/financial-event-ledger';
 import {hasVerifiedZeroOpening} from '../lib/financial-setup-source-proof';
-import {FINANCIAL_SETUP_SOURCE_GATES} from '../lib/financial-setup-readiness';
+import {FINANCIAL_SETUP_SOURCE_GATES,financialSourceChecks} from '../lib/financial-setup-readiness';
 
 const query=z.object({organization:z.string().uuid(),mode:z.enum(['NEW','EXISTING']).nullable()}).strict();
 
@@ -40,6 +40,9 @@ export async function readFinancialSetupReadiness(input:unknown){
   supabase.from('liquidity_accounts').select('id').eq('organization_id',q.organization).eq('active',true).limit(1),
   supabase.from('organization_members').select('role').eq('organization_id',q.organization).eq('status','ACTIVE'),
  ]);
+ const chartReadable=chart.status==='fulfilled'&&Array.isArray((chart.value as {accounts?:unknown})?.accounts);
+ const fiscalReadable=fiscal.status==='fulfilled';
+ const bankingReadable=banks.status==='fulfilled'&&!banks.value.error&&Array.isArray(banks.value.data);
  if(chart.status==='fulfilled'){
   const accounts=(chart.value as {accounts?:Array<{code:string;reportingCode:string;kind:string;isActive:boolean;isPostable:boolean;isSystem:boolean}>}).accounts??[];
   // The canonical 3300 equity control remains valid for grandfathered
@@ -106,5 +109,23 @@ export async function readFinancialSetupReadiness(input:unknown){
   .eq('organization_id',q.organization).eq('user_id',user.id).eq('status','ACTIVE').maybeSingle();
  if(recheck.error||recheck.data!==true||stillMember.error||!stillMember.data)
   throw Error('SETUP_ACCESS_DENIED');
- return financialSetupReadiness(evidence);
+ // Evidence is display-only. Never promote a failed source query into a
+ // missing configuration or infer additional accounting approval from badges.
+ const availablePosting=evidence.postingEvidence;
+ const sourceChecks=financialSourceChecks({
+  fiscalReadable,
+  fiscalCalendarPresent:fiscal.status==='fulfilled'&&Boolean(fiscal.value.calendar),
+  fiscalPeriodPresent:fiscal.status==='fulfilled'&&Boolean(fiscal.value.period),
+  fiscalRetainedValid:evidence.fiscalCalendarValid,
+  chartReadable,
+  chartEquityActive:evidence.chartPostableRetained,
+  postingReadable:availablePosting!==undefined,
+  postingApproved:availablePosting?.approvalStatus==='APPROVED',
+  postingRulesPresent:(availablePosting?.ruleCount??0)>0,
+  postingCoverageReadable:availablePosting!==undefined&&availablePosting.ruleCount>0,
+  postingCoverageComplete:availablePosting?.configured===true,
+  bankingReadable,
+  bankingAccountPresent:evidence.bankAccountPresent,
+ });
+ return {...financialSetupReadiness(evidence),sourceChecks};
 }
