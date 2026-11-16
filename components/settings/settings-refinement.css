@@ -480,3 +480,51 @@
  .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:1fr}
  .corp-shell .settings-workspace .settings-finance-card-trigger{min-height:190px}
 }
+
+
+/* Financial readiness: all five cards remain on one row; only the chosen card
+   grows downward to reveal its own details. Narrow viewports scroll this row. */
+.corp-shell .settings-workspace .settings-finance-status{
+ box-sizing:border-box;width:100%;max-width:100%;
+ grid-template-columns:repeat(5,minmax(188px,1fr));
+ align-items:start;gap:10px;overflow-x:auto;overflow-y:visible;
+ overscroll-behavior-x:contain;scrollbar-width:thin;padding-bottom:6px;
+}
+.corp-shell .settings-workspace .settings-finance-status article{
+ align-self:start;align-items:stretch;justify-content:flex-start;
+ min-height:0;height:auto;overflow:hidden;scroll-snap-align:start;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger{
+ flex:0 0 auto;min-height:206px;height:auto;padding:13px 8px 10px;
+}
+.corp-shell .settings-workspace .settings-finance-card-details{
+ display:block;box-sizing:border-box;width:100%;max-width:100%;
+ margin:0;padding:12px 10px 13px;border:0;border-top:1px solid #d8e0e7;
+ border-radius:0;background:#f7f8f9;color:#1d3852;
+}
+.corp-shell .settings-workspace .settings-finance-card-details[hidden]{display:none}
+.corp-shell .settings-workspace .settings-finance-card-details .settings-finance-check-heading{
+ display:flex;flex-direction:column;align-items:stretch;gap:5px;margin:0 0 10px;
+}
+.corp-shell .settings-workspace .settings-finance-card-details .settings-finance-check-heading h3{
+ font-size:.78rem;line-height:1.5;text-align:start;margin:0;
+}
+.corp-shell .settings-workspace .settings-finance-card-details .settings-finance-check-close{
+ align-self:flex-end;font-size:.72rem;padding:4px 8px;
+}
+.corp-shell .settings-workspace .settings-finance-card-details .settings-finance-checks{
+ display:flex;flex-direction:column;gap:10px;padding:0;margin:0;
+}
+.corp-shell .settings-workspace .settings-finance-card-details .settings-finance-checks li{
+ display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:6px;
+ align-items:start;min-width:0;font-size:.73rem;line-height:1.5;text-align:start;
+}
+.corp-shell .settings-workspace .settings-finance-card-details .settings-finance-check-marker{
+ width:16px;height:16px;font-size:.67rem;
+}
+.corp-shell .settings-workspace .settings-finance-card-details .settings-finance-check-message{
+ margin:0;grid-column:2;white-space:normal;font-size:.69rem;text-align:start;
+}
+.corp-shell .settings-workspace .settings-finance-card-details .settings-finance-check-disclaimer{
+ margin:11px 0 0;font-size:.67rem;line-height:1.55;
+}
