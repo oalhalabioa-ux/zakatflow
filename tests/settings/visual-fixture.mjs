@@ -153,6 +153,10 @@ try{
      await opening.locator('.settings-finance-card-trigger').click();
      await page.waitForFunction(()=>document.querySelector('[data-financial-section=opening]')?.getAttribute('data-pinned')==='true');
      await page.waitForTimeout(430);
+     if(width===390){
+      const visible=await opening.evaluate(el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return a.left>=b.left-3&&a.right<=b.right+3;});
+      assert.ok(visible,'Expanded opening card must fit within mobile row');
+     }
      assert.equal(await opening.locator('.settings-progress-node.met').count(),0,'NOT_STARTED opening has no progress ticks');
      assert.equal(await opening.locator('.settings-progress-node.unverified').count(),3,'All opening progress circles remain neutral');
      assert.equal(await opening.locator('.settings-finance-inline-check-icon.met').count(),0,'Opening checklist has no misleading completion ticks');
