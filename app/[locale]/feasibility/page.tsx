@@ -17,9 +17,10 @@ export default async function FeasibilityPage({params}:{params:Promise<{locale:s
  const {data:grant,error}=await readFeasibilityGrant(supabase,user.id);
  if(error)throw new Error('FEASIBILITY_ENTITLEMENT_LOOKUP_FAILED');
  const access=evaluateFeasibilityAccess(grant);
+ const organizationSharing=process.env.FEASIBILITY_ORG_SHARING==='true'&&process.env.FEASIBILITY_ORG_QA==='true';
  if(!access.canRead){
   if(!feasibilitySelfServeEnabled())notFound();
-  return <FeasibilityEnrollment locale={locale}/>;
+  return <FeasibilityEnrollment locale={locale} organizationSharing={organizationSharing}/>;
  }
- return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite}/>;
+ return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite} organizationSharing={organizationSharing}/>;
 }

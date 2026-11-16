@@ -78,10 +78,10 @@ function Table({headers,rows}:{headers:ReactNode[];rows:ReactNode[][]}){
  </table></div>;
 }
 
-export default function WaterModelPanel({water,locale,currency,tab,onChange}:{
+export default function WaterModelPanel({water,locale,currency,tab,onChange,allowExport=true}:{
  water:WaterModel;locale:string;currency:string;
  tab:'overview'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'report';
- onChange:(water:WaterModel)=>void;
+ onChange:(water:WaterModel)=>void;allowExport?:boolean;
 }){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
  const fmt=(value:number|null)=>value===null||!Number.isFinite(value)?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
@@ -215,8 +215,8 @@ export default function WaterModelPanel({water,locale,currency,tab,onChange}:{
   </>}
   {(tab==='cashflow'||tab==='report')&&<>
    {tab==='cashflow'&&valuation}
-   <div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button" onClick={exportForecast}>
-    {l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>{forecast}
+   {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button" onClick={exportForecast}>
+    {l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}{forecast}
   </>}
  </section>;
 }
