@@ -160,7 +160,7 @@ try{
      assert.equal(await opening.locator('.settings-progress-node.met').count(),0,'NOT_STARTED opening has no progress ticks');
      assert.equal(await opening.locator('.settings-progress-node.unverified').count(),3,'All opening progress circles remain neutral');
      assert.equal(await opening.locator('.settings-finance-inline-check-icon.met').count(),0,'Opening checklist has no misleading completion ticks');
-     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.locator('.settings-finance-status').screenshot({path:`${out}/financial-inplace-opening-${locale}-${width}.png`});
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await (width===390?opening:page.locator('.settings-finance-status')).screenshot({path:`${out}/financial-inplace-opening-${locale}-${width}.png`});
      await opening.locator('.settings-finance-card-trigger').click();
      await page.waitForFunction(()=>document.querySelector('[data-financial-section=opening]')?.getAttribute('data-expanded')==='false');
     }
