@@ -107,65 +107,49 @@ try{
 
    if(path==='settings/financial'){
     const cards=page.locator('.settings-finance-status article');
-    assert.equal(await cards.count(),5,'Five financial setup cards must exist');
-    assert.equal(await page.locator('.settings-finance-modal-backdrop,[role=dialog]').count(),0,'There is no popup or detached modal');
+    assert.equal(await cards.count(),5,'All five existing setup cards remain');
+    assert.equal(await page.locator('.settings-finance-modal-backdrop,[role=dialog]').count(),0,'No modal or popup');
+    assert.equal(await page.locator('.settings-finance-card-more').count(),0,'Removed View details label');
     for(const width of [1490,390]){
      await page.setViewportSize({width,height:1050});
      const tops=await cards.evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().top)));
-     assert.ok(tops.every(top=>Math.abs(top-tops[0])<=2),'All five compact cards share the same row');
+     assert.ok(tops.every(top=>Math.abs(top-tops[0])<=2),'All five cards still share their original single row');
      const chartCard=page.locator('[data-financial-section="chart"]');
      const chartTrigger=chartCard.locator('.settings-finance-card-trigger');
      const before=await chartCard.boundingBox();
-     const relativeTopBefore=await chartCard.evaluate(el=>el.getBoundingClientRect().top-el.parentElement.getBoundingClientRect().top);
      if(width===1490){
-      await chartTrigger.hover();
-      await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='true');
-      assert.equal(await chartCard.getAttribute('data-pinned'),'false','Hover opens a transient preview within the SAME card');
-      const hovered=await chartCard.boundingBox();
-      const relativeTopHover=await chartCard.evaluate(el=>el.getBoundingClientRect().top-el.parentElement.getBoundingClientRect().top);
-      assert.ok(hovered&&Math.abs(relativeTopHover-relativeTopBefore)<3,'Hover keeps the same grid-row position regardless of viewport scrolling');
-      await page.waitForTimeout(400);
-      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.locator('.settings-finance-status').screenshot({path:`${out}/financial-inplace-hover-${locale}-1490.png`});
-      await page.mouse.move(2,2);
-      await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='false');
+      await chartTrigger.hover();await page.waitForTimeout(260);
+      assert.equal(await page.locator('.settings-finance-compact-timeline').count(),0,'Hover does not expand cards');
      }
      await chartTrigger.click();
-     await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-pinned')==='true');
-     await page.mouse.move(2,2);
-     await page.waitForTimeout(430);
-     assert.equal(await chartCard.getAttribute('data-expanded'),'true','Pinned card remains expanded after pointer exits');
+     const detail=page.locator('#settings-finance-source-timeline');
+     await detail.waitFor();
+     assert.equal(await chartTrigger.getAttribute('aria-expanded'),'true','Selected card points to timeline');
+     assert.equal(await detail.locator('[data-source-check]').count(),2,'Chart source requirements displayed in timeline');
+     assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),0,'Source details are not inside cards');
+     assert.equal(await chartCard.locator('.settings-progress-node.met').count(),2,'Original card progress checks unchanged');
      const after=await chartCard.boundingBox();
-     const relativeTopPinned=await chartCard.evaluate(el=>el.getBoundingClientRect().top-el.parentElement.getBoundingClientRect().top);
-     assert.ok(after&&Math.abs(relativeTopPinned-relativeTopBefore)<3,'Click grows article within its original row');
-     assert.ok(after&&after.height>=490,'The SAME article grows to reference-card height');
-     if(width===1490)assert.ok(after.width>before.width*1.45,'The SAME article becomes significantly wider');
-     if(width===390){
-      const visible=await chartCard.evaluate(el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return a.left>=b.left-3&&a.right<=b.right+3;});
-      assert.ok(visible,'Expanded inline card must be fully visible on mobile');
-     }
-     assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),2,'Expanded requirements live inside the source card');
-     assert.equal(await chartCard.locator('.settings-progress-node.met').count(),2);
-     assert.equal(await page.locator('[role=dialog],.settings-finance-modal-backdrop').count(),0,'No popup after click');
-     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await (width===390?chartCard:page.locator('.settings-finance-status')).screenshot({path:`${out}/financial-inplace-chart-${locale}-${width}.png`});
-     await page.keyboard.press('Escape');
-     await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='false');
+     assert.ok(after&&before&&Math.abs(after.height-before.height)<3&&Math.abs(after.width-before.width)<3,'Card geometry unchanged by selection');
+     assert.equal(await page.locator('[role=dialog],.settings-finance-modal-backdrop').count(),0,'No modal on selection');
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-timeline-chart-${locale}-${width}.png`,fullPage:true});
+     await chartTrigger.click();
+     assert.equal(await detail.count(),0,'Clicking selected card closes timeline');
      const opening=page.locator('[data-financial-section="opening"]');
+     const openingBefore=await opening.boundingBox();
      await opening.locator('.settings-finance-card-trigger').click();
-     await page.waitForFunction(()=>document.querySelector('[data-financial-section=opening]')?.getAttribute('data-pinned')==='true');
-     await page.waitForTimeout(430);
-     if(width===390){
-      const visible=await opening.evaluate(el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return a.left>=b.left-3&&a.right<=b.right+3;});
-      assert.ok(visible,'Expanded opening card must fit within mobile row');
-     }
+     await detail.waitFor();
+     assert.equal(await detail.locator('[data-source-check]').count(),3,'Opening requirements appear in compact timeline');
      assert.equal(await opening.locator('.settings-progress-node.met').count(),0,'NOT_STARTED opening has no progress ticks');
-     assert.equal(await opening.locator('.settings-progress-node.unverified').count(),3,'All opening progress circles remain neutral');
-     assert.equal(await opening.locator('.settings-finance-inline-check-icon.met').count(),0,'Opening checklist has no misleading completion ticks');
-     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await (width===390?opening:page.locator('.settings-finance-status')).screenshot({path:`${out}/financial-inplace-opening-${locale}-${width}.png`});
+     assert.equal(await opening.locator('.settings-progress-node.unverified').count(),3,'Opening progress circles remain neutral');
+     assert.equal(await detail.locator('[data-check-status=MET]').count(),0,'Opening timeline does not falsely claim completed checks');
+     const openingAfter=await opening.boundingBox();
+     assert.ok(openingAfter&&openingBefore&&Math.abs(openingAfter.height-openingBefore.height)<3,'Opening card does not expand');
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-timeline-opening-${locale}-${width}.png`,fullPage:true});
      await opening.locator('.settings-finance-card-trigger').click();
-     await page.waitForFunction(()=>document.querySelector('[data-financial-section=opening]')?.getAttribute('data-expanded')==='false');
+     assert.equal(await detail.count(),0,'Closing the timeline leaves cards unchanged');
     }
     await page.setViewportSize({width:1490,height:1050});
-    checks.push(locale+' native card grows in place, hover preview, click-to-pin, Escape, five inline cards, NOT_STARTED opening without ticks');
+    checks.push(locale+' financial cards unchanged; short detail timeline below cards; opening status, source checks, click-to-toggle; no popup or View details');
    }
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
    if(path==='billing'){
