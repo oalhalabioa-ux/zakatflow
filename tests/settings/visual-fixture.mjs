@@ -125,7 +125,7 @@ try{
       const relativeTopHover=await chartCard.evaluate(el=>el.getBoundingClientRect().top-el.parentElement.getBoundingClientRect().top);
       assert.ok(hovered&&Math.abs(relativeTopHover-relativeTopBefore)<3,'Hover keeps the same grid-row position regardless of viewport scrolling');
       await page.waitForTimeout(400);
-      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-inplace-hover-${locale}-1490.png`,fullPage:false});
+      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.locator('.settings-finance-status').screenshot({path:`${out}/financial-inplace-hover-${locale}-1490.png`});
       await page.mouse.move(2,2);
       await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='false');
      }
@@ -152,7 +152,7 @@ try{
      assert.equal(await opening.locator('.settings-progress-node.met').count(),0,'NOT_STARTED opening has no progress ticks');
      assert.equal(await opening.locator('.settings-progress-node.unverified').count(),3,'All opening progress circles remain neutral');
      assert.equal(await opening.locator('.settings-finance-inline-check-icon.met').count(),0,'Opening checklist has no misleading completion ticks');
-     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-inplace-opening-${locale}-${width}.png`,fullPage:false});
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.locator('.settings-finance-status').screenshot({path:`${out}/financial-inplace-opening-${locale}-${width}.png`});
      await opening.locator('.settings-finance-card-trigger').click();
      await page.waitForFunction(()=>document.querySelector('[data-financial-section=opening]')?.getAttribute('data-expanded')==='false');
     }
