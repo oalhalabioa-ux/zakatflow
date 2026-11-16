@@ -83,7 +83,7 @@ describe('source-backed financial readiness card details',()=>{
   const checks=financialSourceChecks({...fullSource,openingVerified:false});
   expect(checks.opening.map(c=>c.status)).toEqual(['MET','MET','MISSING']);
   const noMode=financialSourceChecks({...fullSource,openingModeSelected:false,openingVerified:false});
-  expect(noMode.opening.map(c=>c.status)).toEqual(['MISSING','MET','UNAVAILABLE']);
+  expect(noMode.opening.map(c=>c.status)).toEqual(['MISSING','UNAVAILABLE','UNAVAILABLE']);
  });
  it('does not declare coverage or active liquidity complete from approval alone',()=>{
   const checks=financialSourceChecks({...fullSource,
