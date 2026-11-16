@@ -45,47 +45,50 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     phase(caseName,'feasibility-personal-loaded');
     await page.getByRole('heading',{name:'Feasibility & project development',exact:true}).waitFor();
     const switcher=page.getByRole('group',{name:'Workspace scope'});
+    // Open a personal QA study inside this disposable Chromium context;
+    // opening the Feasibility module and switching scopes are the billing
+    // integration variable. Company-study *creation* is tested separately
+    // because an unexplained POST 403 must not suppress Billing A/B evidence.
+    await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA421 Personal draft');
+    await page.getByRole('button',{name:'Add project +',exact:true}).click();
+    await page.getByRole('button',{name:/QA421 Personal draft/}).first().waitFor();
+    phase(caseName,'personal-study-opened');
+    const firstCompanyRead=page.waitForResponse(r=>{
+     const parsed=new URL(r.url());
+     return parsed.pathname==='/api/feasibility/organization-projects'&&
+      parsed.searchParams.get('organization')===org&&r.request().method()==='GET';
+    });
     phase(caseName,'topbar-switch-to-organization');
-    phase(caseName,'topbar-return-to-organization');
     await switcher.getByRole('button',{name:'Business',exact:true}).click();
     await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='ORGANIZATION');
-    phase(caseName,'topbar-organization-selected');
-    const companyForm=page.getByRole('button',{name:'Add project +',exact:true});
-    await companyForm.waitFor({state:'visible'});
-    await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA421 Test factory');
-    // Creation is intentionally disabled while the name is empty, so check
-    // server-authorized readiness only after the synthetic name is filled.
-    await page.waitForFunction(()=>{
-     const btn=[...document.querySelectorAll('button')].find(b=>b.textContent?.trim()==='Add project +');
-     return !!btn&&!btn.disabled;
-    },null,{timeout:12000});
-    phase(caseName,'organization-authorized-form-ready');
-    const posted=page.waitForResponse(r=>r.url().includes('/api/feasibility/organization-projects?')&&r.request().method()==='POST');
-    phase(caseName,'organization-create-post-start');
-    await companyForm.click();
-    const postResponse=await posted;
-    phase(caseName,'organization-create-post-response-'+postResponse.status());
-    if(postResponse.status()!==201){
-     const rejected=await postResponse.json().catch(()=>({error:'NON_JSON_RESPONSE'}));
-     console.log('QA421_FEASIBILITY_POST_DENIED '+JSON.stringify({
-      source:'disposable-local-Chromium',status:postResponse.status(),
-      error:typeof rejected?.error==='string'?rejected.error:'UNKNOWN',
-      // No credential, organization UUID, contact email or study content is logged.
-      caseName
-     }));
-    }
-    assert.equal(postResponse.status(),201,'Company Feasibility POST must create an owned test study');
-    await page.getByRole('heading',{name:'QA421 Test factory',exact:true}).first().waitFor();
-    phase(caseName,'organization-study-opened');
+    const companyGet=await firstCompanyRead;
+    phase(caseName,'organization-projects-get-'+companyGet.status());
+    assert.equal(companyGet.status(),200,'Organization Feasibility GET must be authorized');
+    await page.getByRole('button',{name:'Add project +',exact:true}).waitFor({state:'visible'});
+    assert.equal(await page.getByRole('button',{name:/QA421 Personal draft/}).count(),0,
+     'Personal study must not appear in organization portfolio');
     phase(caseName,'topbar-switch-back-to-personal');
     await switcher.getByRole('button',{name:'Personal',exact:true}).click();
     await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='PERSONAL');
-    await page.getByRole('heading',{name:'Feasibility & project development',exact:true}).waitFor();
+    const personalDraft=page.getByRole('button',{name:/QA421 Personal draft/}).first();
+    await personalDraft.waitFor();
+    await personalDraft.click();
+    phase(caseName,'personal-study-reopened');
+    const secondCompanyRead=page.waitForResponse(r=>{
+     const parsed=new URL(r.url());
+     return parsed.pathname==='/api/feasibility/organization-projects'&&
+      parsed.searchParams.get('organization')===org&&r.request().method()==='GET';
+    });
+    phase(caseName,'topbar-return-to-organization');
     await switcher.getByRole('button',{name:'Business',exact:true}).click();
     await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='ORGANIZATION');
-    await page.getByRole('button',{name:/QA421 Test factory/}).first().waitFor();
+    const reloadedStudies=await secondCompanyRead;
+    phase(caseName,'organization-projects-return-get-'+reloadedStudies.status());
+    assert.equal(reloadedStudies.status(),200,'Organization Feasibility GET after scope return must succeed');
     assert.equal(new URL(page.url()).searchParams.get('organization'),org);
-    phase(caseName,'organization-study-reopened');
+    assert.equal(await page.getByRole('button',{name:/QA421 Personal draft/}).count(),0,
+     'Personal study must stay separate from organization on return');
+    phase(caseName,'feasibility-navigation-and-portfolio-isolation-passed');
    }
    phase(caseName,'billing-navigation');
    const getBefore=page.waitForResponse(r=>r.url()===appUrl+'/api/organizations'&&r.request().method()==='GET');
