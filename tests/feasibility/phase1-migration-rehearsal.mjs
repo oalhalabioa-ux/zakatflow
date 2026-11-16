@@ -82,6 +82,14 @@ try{
  await exec(apply);
  assert.deepEqual(await customerSlice(),baseline,'Migration must preserve all prerequisite rows');
  assert.equal((await catalog()).filter(x=>x.schemaname==='public'&&x.rowsecurity).length,3);
+ const expectedSchema = JSON.parse(await file('tests/migration-history/feasibility-phase1-schema-delta.json'));
+ const actualSchema = await rows(await file('tests/migration-history/catalog.sql'));
+ assert.deepEqual(
+  actualSchema.filter(({object_key}) => /^(public|private)\.feasibility_/.test(object_key)),
+  expectedSchema.upserts,
+  'Canonical fingerprint must match the isolated schema',
+ );
+
  assert.equal((await rows('select enabled from private.feasibility_org_feature_switch'))[0].enabled,false);
  assert.deepEqual(await rows('select * from public.feasibility_access_grants'),[]);
  const sharingAbsent=await rows(`
