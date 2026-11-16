@@ -492,7 +492,7 @@
 }
 .corp-shell .settings-workspace .settings-finance-status article{
  align-self:start;align-items:stretch;justify-content:flex-start;
- min-height:0;height:auto;overflow:hidden;scroll-snap-align:start;
+ min-height:0;height:auto;overflow:hidden;scroll-snap-align:start;gap:0;
 }
 .corp-shell .settings-workspace .settings-finance-card-trigger{
  flex:0 0 auto;min-height:206px;height:auto;padding:13px 8px 10px;
