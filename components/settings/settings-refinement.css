@@ -629,3 +629,35 @@
 }
 .settings-finance-modal-card>.settings-finance-progress-label.complete{color:#205347}
 .settings-finance-modal-card>.settings-finance-progress-label.pending{color:#95732c}
+
+
+/* Shared-element card motion: source-to-expanded transition. */
+.corp-shell .settings-workspace .settings-finance-status article[data-motion-source="true"]{
+ opacity:0;transition:opacity 100ms linear;
+}
+.settings-finance-modal-backdrop{
+ pointer-events:none;background-color:transparent;
+ transition:background-color 340ms cubic-bezier(.22,1,.36,1);
+}
+.settings-finance-modal-backdrop[data-mode="pinned"]{pointer-events:auto}
+.settings-finance-modal-backdrop[data-open="true"][data-mode="hover"]{background-color:rgba(16,36,58,.22)}
+.settings-finance-modal-backdrop[data-open="true"][data-mode="pinned"]{background-color:rgba(16,36,58,.46)}
+.settings-finance-modal-card{
+ pointer-events:auto;transform-origin:center center;will-change:transform,opacity;
+ transform:translate(var(--setup-card-translate-x,0px),var(--setup-card-translate-y,0px))
+           scale(var(--setup-card-scale-x,1),var(--setup-card-scale-y,1));
+ opacity:.92;transition:transform 340ms cubic-bezier(.22,1,.36,1),opacity 240ms ease;
+}
+.settings-finance-modal-backdrop[data-open="true"] .settings-finance-modal-card{
+ transform:translate(0,0) scale(1);opacity:1;
+}
+.settings-finance-modal-backdrop[data-open="false"] .settings-finance-modal-card>*{
+ opacity:.08;transition:opacity 100ms ease;
+}
+.settings-finance-modal-backdrop[data-open="true"] .settings-finance-modal-card>*{
+ opacity:1;transition:opacity 190ms ease 100ms;
+}
+@media(prefers-reduced-motion:reduce){
+ .settings-finance-modal-backdrop,.settings-finance-modal-card,
+ .settings-finance-modal-card>*{transition:none!important}
+}
