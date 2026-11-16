@@ -66,7 +66,7 @@ await page.route('**/api/**',async route=>{
  else if(u.pathname==='/api/vat/settings')data={can_edit:true,profile:{registration_status:'NOT_REGISTERED',registered_name:org.name,filing_frequency:'QUARTERLY',period_start_month:1,seller_city:'الرياض',seller_street:'شارع الملك فهد'}};
  else if(u.pathname==='/api/vat')data={};
  else if(u.pathname.includes('/notifications'))data=[];
- else if(u.pathname.includes('/financial-reporting/setup-readiness')){if(readinessGate)await readinessGate;data={organizationId:orgId,mode:u.searchParams.get('mode'),statuses:{organization:'READY',chart:'IN_PROGRESS',fiscal:'READY',posting:'IN_PROGRESS',banking:'READY',opening:'IN_PROGRESS',users:'READY',regulatory:'NOT_STARTED',structure:'NOT_STARTED',review:'BLOCKED',finished:'BLOCKED'},ready:false,sourceChecked:false,certification:'NOT_CERTIFIED'};}
+ else if(u.pathname.includes('/financial-reporting/setup-readiness')){if(readinessGate)await readinessGate;data={organizationId:orgId,mode:u.searchParams.get('mode'),statuses:{organization:'READY',chart:'IN_PROGRESS',fiscal:'READY',posting:'IN_PROGRESS',banking:'READY',opening:u.searchParams.get('mode')==='EXISTING'?'IN_PROGRESS':'NOT_STARTED',users:'READY',regulatory:'NOT_STARTED',structure:'NOT_STARTED',review:'BLOCKED',finished:'BLOCKED'},ready:false,sourceChecked:false,certification:'NOT_CERTIFIED',sourceChecks:{fiscal:[{id:'fiscal.calendar',status:'MET'},{id:'fiscal.period',status:'MET'},{id:'fiscal.retained',status:'MET'}],chart:[{id:'chart.readable',status:'MET'},{id:'chart.equity',status:'MET'}],posting:[{id:'posting.approved',status:'MET'},{id:'posting.rules',status:'MISSING'},{id:'posting.coverage',status:'UNAVAILABLE'}],banking:[{id:'banking.readable',status:'MET'},{id:'banking.active',status:'MET'}],opening:[{id:'opening.mode',status:'MISSING'},{id:'opening.source',status:'UNAVAILABLE'},{id:'opening.verified',status:'UNAVAILABLE'}]}};}
  else data=[];
  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
 });
@@ -104,6 +104,36 @@ try{
    assert.equal(await page.locator('iframe').count(),0);await page.evaluate(()=>document.fonts.ready.then(()=>undefined));
    for(const width of (process.env.SETTINGS_UI_SKIP_SNAPSHOTS?[]:[1490,1280,768,390])){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);await page.evaluate(()=>window.scrollTo(0,0));const overlaps=await page.locator('.settings-workspace').evaluate(root=>{const items=[...root.querySelectorAll('button,a,input,select,textarea')].filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map(el=>({label:el.getAttribute('aria-label')||el.textContent?.trim().slice(0,40)||el.tagName,box:el.getBoundingClientRect()}));const found=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(Math.min(a.box.right,b.box.right)-Math.max(a.box.left,b.box.left)>2&&Math.min(a.box.bottom,b.box.bottom)-Math.max(a.box.top,b.box.top)>2)found.push(a.label+' / '+b.label);}return found;});assert.deepEqual(overlaps,[],path+' '+locale+' '+width+' overlapping controls');const clippedTabs=await page.locator('.settings-tabs a>span,.settings-subsection-nav a>span').evaluateAll(items=>items.filter(el=>el.scrollWidth>el.clientWidth+1).map(el=>el.textContent));assert.deepEqual(clippedTabs,[],path+' '+locale+' '+width+' clipped tab labels');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});
+   if(path==='settings/financial'){
+    const cards=page.locator('.settings-finance-status article');
+    assert.equal(await cards.count(),5,'Five financial setup cards should exist');
+    for(const width of [1490,390]){
+     await page.setViewportSize({width,height:1050});
+     const tops=await cards.evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().top)));
+     assert.ok(tops.every(top=>Math.abs(top-tops[0])<=2),'All five cards stay in one horizontal row');
+     const chartTrigger=page.locator('[data-financial-section="chart"] .settings-finance-card-trigger');
+     await chartTrigger.click();
+     const chartModal=page.getByRole('dialog',{name:ar?'دليل الحسابات':'Chart of accounts'});
+     await chartModal.waitFor();
+     const box=await chartModal.boundingBox();
+     assert.ok(box&&box.width>=Math.min(width-30,490),'Expanded card uses a readable large popup');
+     assert.equal(await chartModal.locator('.settings-finance-modal-checks li').count(),2);
+     assert.equal(await chartModal.locator('.settings-finance-modal-node.met').count(),2);
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-popup-chart-${locale}-${width}.png`,fullPage:false});
+     await page.keyboard.press('Escape');
+     await chartModal.waitFor({state:'hidden'});
+     await page.locator('[data-financial-section="opening"] .settings-finance-card-trigger').click();
+     const openingModal=page.getByRole('dialog',{name:ar?'الأرصدة الافتتاحية':'Opening balances'});
+     await openingModal.waitFor();
+     assert.equal(await openingModal.locator('.settings-finance-modal-node.met').count(),0,'Not started opening has no ticks');
+     assert.equal(await openingModal.locator('.settings-finance-modal-node.unverified').count(),3,'Opening progress is neutral');
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-popup-opening-${locale}-${width}.png`,fullPage:false});
+     await openingModal.getByRole('button',{name:ar?'إغلاق البطاقة':'Close card'}).click();
+     await openingModal.waitFor({state:'hidden'});
+    }
+    await page.setViewportSize({width:1490,height:1050});
+    checks.push(locale+' financial popup opens in large reference style and opening NOT_STARTED has no ticks');
+   }
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
    if(path==='billing'){
     const tabs=page.locator('.yb-billing-tabs');
