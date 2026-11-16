@@ -61,7 +61,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const form=page.locator('.billing-identity-form');
    await form.waitFor();
    await form.getByLabel('Legal organization name',{exact:true}).fill(marker+' Legal '+caseName);
-   await form.getByLabel('Country',{exact:true}).selectOption('SA');
+   await form.locator('select').first().selectOption('SA');
    await form.getByLabel('Registered address',{exact:true}).fill(address);
    await form.getByLabel('Billing email',{exact:true}).fill(email);
    const written=page.waitForResponse(r=>r.url()===appUrl+'/api/organizations'&&r.request().method()==='PATCH');
