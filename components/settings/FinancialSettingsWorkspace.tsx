@@ -70,6 +70,19 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
   return()=>{document.removeEventListener('keydown',onKey);clearCardTimers();};
  },[]);
  useEffect(()=>{
+  if(!expandedCard)return;
+  const reveal=()=>{
+   const row=document.querySelector<HTMLElement>('.settings-finance-status');
+   const selected=row?.querySelector<HTMLElement>('article[data-expanded="true"]');
+   if(!row||!selected||row.scrollWidth<=row.clientWidth+2)return;
+   const host=row.getBoundingClientRect(),card=selected.getBoundingClientRect();
+   row.scrollBy({left:card.left-host.left-(host.width-card.width)/2,behavior:'auto'});
+  };
+  const frame=requestAnimationFrame(reveal);
+  const afterTransition=setTimeout(reveal,370);
+  return()=>{cancelAnimationFrame(frame);clearTimeout(afterTransition);};
+ },[expandedCard?.id]);
+ useEffect(()=>{
   const controller=new AbortController();setReadiness(null);setReadinessError(false);
   const params=new URLSearchParams({organization:ctx.organizationId});
   try{const saved=JSON.parse(localStorage.getItem('yaqeen:financial-setup:v1:'+ctx.organizationId)??'null');if(saved?.mode==='EXISTING'||saved?.mode==='NEW')params.set('mode',saved.mode);}catch{}
@@ -86,17 +99,6 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
 
   <div className="settings-finance-status" data-expanded-card={expandedCard?.id??''}
    style={expandedCard?{gridTemplateColumns:sections.filter(([id])=>id!=='summary').map(([id])=>id===expandedCard.id?'minmax(min(330px, calc(100vw - 50px)), min(600px, calc(100vw - 50px)))':'minmax(155px,1fr)').join(' ')}:undefined}
-   onTransitionEnd={event=>{
-    if(event.target!==event.currentTarget||event.propertyName!=='grid-template-columns'||!expandedCard)return;
-    const grid=event.currentTarget;
-    if(grid.scrollWidth>grid.clientWidth+2){
-     const selected=grid.querySelector<HTMLElement>('article[data-expanded="true"]');
-     if(selected){
-      const row=grid.getBoundingClientRect(),card=selected.getBoundingClientRect();
-      grid.scrollBy({left:card.left-row.left-(row.width-card.width)/2,behavior:'auto'});
-     }
-    }
-   }}
    aria-label={ar?'حالة التأسيس المالي':'Financial setup readiness'}>{
    sections.filter(([id])=>id!=='summary').map(([id,a,e])=>{
     const section=id as FinancialSetupCardKey,status=readiness?.statuses[section];
