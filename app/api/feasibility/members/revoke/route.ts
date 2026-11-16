@@ -1,4 +1,4 @@
-import {readFeasibilityGrant} from '@/lib/feasibility/grant';
+import {readFeasibilityGrant} from '../../../../../lib/feasibility/grant';
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {supabaseServer} from '@/lib/supabase/server';

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { feasibilitySelfServeEnabled } from '@/lib/feasibility/grant';
+import { feasibilitySelfServeEnabled } from '../../../../lib/feasibility/grant';
 import { isSameOriginRequest } from '@/lib/request-origin';
 import { supabaseServer } from '@/lib/supabase/server';
 

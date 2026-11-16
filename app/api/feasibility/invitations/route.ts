@@ -1,4 +1,4 @@
-import {readFeasibilityGrant} from '@/lib/feasibility/grant';
+import {readFeasibilityGrant} from '../../../../lib/feasibility/grant';
 import {NextResponse} from 'next/server';
 import {randomBytes,createHash} from 'node:crypto';
 import {z} from 'zod';
