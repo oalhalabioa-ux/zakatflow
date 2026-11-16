@@ -206,6 +206,19 @@ try {
       );
     },
   );
+  // Disposable QA-only replica of Feasibility V2 RLS and feature gates.
+  // Does not mutate QA V2 or Production organizations or billing.
+  sql(`create schema if not exists private;
+    grant usage on schema private to authenticated;
+    create or replace function private.feasibility_collaborator_role(p_id uuid)
+      returns text language sql stable security invoker as $qa_no_collaborators$ select null::text $qa_no_collaborators$;`);
+  sql(await load('docs/feasibility/qa-v2-access-grants-schema.sql'));
+  sql(await load('docs/feasibility/qa-v2-owner-drafts-schema.sql'));
+  sql(await load('docs/feasibility/qa-v2-institutional-ownership-proposal.sql'));
+  sql(`update private.feasibility_org_feature_switch set enabled=true;
+    insert into public.feasibility_access_grants(user_id,status,starts_at,ends_at,source)
+    values('${owner.id}','TRIAL',now()-interval '1 day',now()+interval '30 days','QA_MANUAL');
+    notify pgrst,'reload schema';`);
   const initial = (
     await rpc(owner, "organization_subscription", { p_organization_id: org })
   ).data;
@@ -384,6 +397,9 @@ try {
         NEXT_PUBLIC_APP_URL: appUrl,
         SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY,
         NEXT_PUBLIC_APP_ENV: "test",
+        NEXT_PUBLIC_FEASIBILITY_STUDIES: "true",
+        NEXT_PUBLIC_FEASIBILITY_CLOUD_QA: "true",
+        FEASIBILITY_ORG_QA: "true",
         RESEND_API_KEY: "isolated-adapter",
         TRANSACTIONAL_EMAIL_TEST_ENDPOINT: "http://127.0.0.1:3001/emails",
       },
@@ -616,6 +632,9 @@ try {
     const modal=page.getByRole('dialog');await modal.waitFor();assert.equal(await modal.locator('select[name="action"]').count(),1);await modal.getByLabel('Action',{exact:true}).selectOption('activate');await modal.getByLabel('Administrative reason',{exact:true}).fill('Manual activation regression acceptance');await modal.getByLabel('Paid subscription end',{exact:true}).fill('2027-12-31T18:00');let submissions=0;page.on('request',r=>{if(r.url()===appUrl+'/api/admin/trials'&&r.method()==='POST')submissions++;});await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal(submissions,0);assert.equal(await modal.locator('[name="plan_id"]').evaluate(e=>e.validity.valueMissing),true);
     const catalog=(await rpc(owner,'subscription_plan_catalog',{})).data,plan=catalog.plans.find(p=>p.code==='advanced_monthly');await modal.locator('[name="plan_id"]').selectOption(plan.id);assert.equal(await modal.locator('[name="max_users"]').inputValue(),'15');const saved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/trials'&&r.request().method()==='POST');await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal((await saved).status(),200);const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.plan_id,plan.id);assert.equal(state.max_users,15);await context.close();
   });
+  await (await import('./feasibility-billing-bridge.mjs')).runFeasibilityBillingAB({
+    browser,cookies,appUrl,url,owner,outsider:clients[7],headers,check
+  });
   await check('settings separates account and users; organization switching preserves subscription scope and account preferences persist',async()=>{
     const jar=[];
     const ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>jar,setAll:values=>{for(const item of values){const i=jar.findIndex(x=>x.name===item.name);if(i>=0)jar.splice(i,1);jar.push(item)}}}});
@@ -655,6 +674,9 @@ try {
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();
     await page.getByRole('button',{name:'Billing details',exact:true}).click();
+    // The form can mount before the organization fetch hydrates its initial draft.
+    // Wait for actual persisted data; a missing/incorrect value still fails within 10s.
+    await page.waitForFunction(expected=>document.querySelector('.billing-identity-form input[type=email]')?.value===expected,'billing-check@example.com',{timeout:10000});
     assert.equal(await page.getByLabel('Billing email',{exact:true}).inputValue(),'billing-check@example.com');
     assert.equal(await page.getByLabel('Registered address',{exact:true}).inputValue(),'Billing acceptance address');
     await page.goto(appUrl+'/en/settings/regulatory?organization='+org);

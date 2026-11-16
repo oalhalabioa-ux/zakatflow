@@ -1937,6 +1937,14 @@
       "expected_md5": "bf35897c53f3b7b6e2b307d75341f37a",
       "file_sha256": "f897a20cbcf1cd196ed466ef4ce39803690a08f883254cb1b94567a6e427855c",
       "validation_project": "QA V2 rollback role creation/reuse and full isolated linked credit-note acceptance"
+    },
+    {
+      "path": "supabase/migrations/20261116164057_feasibility_phase1_foundation.sql",
+      "version": "20261116164057",
+      "name": "feasibility_phase1_foundation",
+      "expected_md5": "6e4109049206bc2b2ad55268fb19803f",
+      "file_sha256": "315fb75aa21746f8a9d97cf6bf2262594792dd4f40d0d49f06b50fc3fbb6625d",
+      "validation_project": "Synthetic isolated migration rehearsal with organization RLS and pre/post backup restoration; pending real Production recovery exercise"
     }
   ]
 }

@@ -2,7 +2,7 @@ name: Feasibility isolated QA
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, qa/feasibility-release-candidate-20261116]
     paths:
       - 'lib/feasibility/**'
       - 'components/feasibility/**'
@@ -10,6 +10,8 @@ on:
       - 'app/api/feasibility/**'
       - 'app/[locale]/feasibility/**'
       - 'docs/feasibility/**'
+      - 'supabase/migrations/*_feasibility_phase1_*.sql'
+      - 'tests/feasibility/**'
       - 'package.json'
       - 'package-lock.json'
       - 'tsconfig.json'
@@ -44,3 +46,9 @@ jobs:
         run: npm run typecheck
       - name: Standalone engine, draft, access, and API route tests
         run: npx vitest run lib/feasibility
+      - name: Rehearse the feasibility schema, row policies, and snapshot restore
+        run: |
+          rehearsal_dir="$(mktemp -d)"
+          npm install --prefix "$rehearsal_dir" --no-audit --no-fund --ignore-scripts @electric-sql/pglite@0.3.14
+          FEASIBILITY_PGLITE_MODULE="$rehearsal_dir/node_modules/@electric-sql/pglite/dist/index.js" \
+            node tests/feasibility/phase1-migration-rehearsal.mjs

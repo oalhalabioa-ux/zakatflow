@@ -8,6 +8,8 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
  const ar=locale==='ar',t=(a:string,b:string)=>ar?a:b;
  const [email,setEmail]=useState('');
  const [role,setRole]=useState<'VIEWER'|'REVIEWER'>('VIEWER');
+ const emailDeliveryAvailable=process.env.NEXT_PUBLIC_FEASIBILITY_EMAIL_INVITES_QA==='true';
+ const [delivery,setDelivery]=useState<'MANUAL'|'EMAIL'>('MANUAL');
  const [code,setCode]=useState('');
  const [expiry,setExpiry]=useState('');
  const [invites,setInvites]=useState<Invitation[]>([]);
@@ -65,20 +67,27 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
   try{
    const res=await fetch('/api/feasibility/invitations',{
     method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({projectId,email:email.trim(),role})
+    body:JSON.stringify({projectId,email:email.trim(),role,delivery:emailDeliveryAvailable?delivery:'MANUAL',locale})
    });
    if(!res.ok)throw Error('INVITE_FAILED');
-   const data=await res.json() as {code:string;expires_at:string};
-   if(!data.code)throw Error('INVITE_FAILED');
-   setCode(data.code);setExpiry(data.expires_at);
-   setNotice(t('أنشئت الدعوة. انسخ الرمز وأرسله للشخص المحدد بشكل آمن؛ لن يُعرض مرة أخرى.','Invitation created. Copy the code and share it privately with the intended recipient; it will not be shown again.'));
+   const data=await res.json() as {code?:string;expires_at:string;delivery?:'EMAIL'|'MANUAL'};
+   if(data.delivery==='EMAIL'){
+    setCode('');setExpiry(data.expires_at);
+    setNotice(t('قبل مزود البريد طلب إرسال الدعوة. تحقق من وصولها إلى المدعو قبل اعتبارها مكتملة.','Email provider accepted the invitation request. Confirm receipt before treating delivery as complete.'));
+   }else{
+    if(!data.code)throw Error('INVITE_FAILED');
+    setCode(data.code);setExpiry(data.expires_at);
+    setNotice(t('أنشئت الدعوة. انسخ الرمز وأرسله للشخص المحدد بشكل آمن؛ لن يُعرض مرة أخرى.','Invitation created. Copy the code and share it privately with the intended recipient; it will not be shown again.'));
+   }
    setEmail('');await load();
   }catch{setError(t('تعذر إنشاء الدعوة. تأكد من ملكيتك للمشروع وصلاحية الاشتراك.','Unable to create invitation. Check project ownership and subscription access.'))}
   finally{setBusy(false)}
  }
  return <section className="card fs-panel fs-collaboration">
   <h3>{t('المشاركون في دراسة المشروع','Project study collaborators')}</h3>
-  <p className="fs-hint">{t('دعوات تجريبية برموز مؤقتة مرتبطة ببريد مؤكد. المشاركة للعرض والمراجعة فقط؛ لا يوجد إرسال بريد آلي أو اعتماد محاسبي.','QA-only temporary codes tied to verified email. Shared access is view/review only; no automated email or financial approval.')}</p>
+  <p className="fs-hint">{emailDeliveryAvailable?
+   t('دعوات تجريبية مرتبطة ببريد مؤكد، مع خيار الإرسال المباشر عند تفعيل مزود البريد على الخادم.','QA invitations require verified recipient emails; direct delivery also requires an enabled server mail provider.'):
+   t('دعوات تجريبية برموز يرسلها المالك يدويًا. صلاحية الإضافة والتعديل والإرسال بالبريد غير مفعّلة بعد.','QA invitations currently use manually delivered one-time codes. Contributor/editor and automatic email delivery remain disabled.')}</p>
   {!enabled?<p>{t('مشاركة المشاريع غير مفعلة في هذه المعاينة.','Project sharing is disabled in this preview.')}</p>:
    !isOwner?<p>{t('يمكن لمالك المشروع فقط إنشاء الدعوات وإدارتها.','Only the project owner can issue and manage invitations.')}</p>:
    <>
@@ -87,6 +96,13 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
      <label className="fs-field"><span>{t('الصلاحية','Role')}</span><select value={role} onChange={e=>setRole(e.currentTarget.value as 'VIEWER'|'REVIEWER')} disabled={!canWrite||busy}>
       <option value="VIEWER">{t('مشاهد','Viewer')}</option><option value="REVIEWER">{t('مراجع','Reviewer')}</option>
      </select></label>
+     {emailDeliveryAvailable&&<label className="fs-field"><span>{t('طريقة الدعوة','Delivery method')}</span>
+      <select value={delivery} onChange={e=>setDelivery(e.currentTarget.value as 'EMAIL'|'MANUAL')}
+       disabled={!canWrite||busy}>
+       <option value="MANUAL">{t('رمز يدوي','Manual one-time code')}</option>
+       <option value="EMAIL">{t('دعوة بالبريد الإلكتروني','Send via email')}</option>
+      </select>
+     </label>}
      <button className="fs-btn" type="submit" disabled={!canWrite||busy}>{busy?t('جارٍ الإنشاء…','Creating…'):t('إنشاء دعوة','Create invitation')}</button>
     </form>
     {code&&<div className="fs-collaboration">
