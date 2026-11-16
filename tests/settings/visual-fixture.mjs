@@ -104,53 +104,57 @@ try{
    assert.equal(await page.locator('iframe').count(),0);await page.evaluate(()=>document.fonts.ready.then(()=>undefined));
    for(const width of (process.env.SETTINGS_UI_SKIP_SNAPSHOTS?[]:[1490,1280,768,390])){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);await page.evaluate(()=>window.scrollTo(0,0));const overlaps=await page.locator('.settings-workspace').evaluate(root=>{const items=[...root.querySelectorAll('button,a,input,select,textarea')].filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map(el=>({label:el.getAttribute('aria-label')||el.textContent?.trim().slice(0,40)||el.tagName,box:el.getBoundingClientRect()}));const found=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(Math.min(a.box.right,b.box.right)-Math.max(a.box.left,b.box.left)>2&&Math.min(a.box.bottom,b.box.bottom)-Math.max(a.box.top,b.box.top)>2)found.push(a.label+' / '+b.label);}return found;});assert.deepEqual(overlaps,[],path+' '+locale+' '+width+' overlapping controls');const clippedTabs=await page.locator('.settings-tabs a>span,.settings-subsection-nav a>span').evaluateAll(items=>items.filter(el=>el.scrollWidth>el.clientWidth+1).map(el=>el.textContent));assert.deepEqual(clippedTabs,[],path+' '+locale+' '+width+' clipped tab labels');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});
+
    if(path==='settings/financial'){
     const cards=page.locator('.settings-finance-status article');
-    assert.equal(await cards.count(),5,'Five financial setup cards should exist');
+    assert.equal(await cards.count(),5,'Five financial setup cards must exist');
+    assert.equal(await page.locator('.settings-finance-modal-backdrop,[role=dialog]').count(),0,'There is no popup or detached modal');
     for(const width of [1490,390]){
      await page.setViewportSize({width,height:1050});
      const tops=await cards.evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().top)));
-     assert.ok(tops.every(top=>Math.abs(top-tops[0])<=2),'All five cards stay in one horizontal row');
-     const chartTrigger=page.locator('[data-financial-section="chart"] .settings-finance-card-trigger');
+     assert.ok(tops.every(top=>Math.abs(top-tops[0])<=2),'All five compact cards share the same row');
+     const chartCard=page.locator('[data-financial-section="chart"]');
+     const chartTrigger=chartCard.locator('.settings-finance-card-trigger');
+     const before=await chartCard.boundingBox();
      if(width===1490){
       await chartTrigger.hover();
-      const hoverPreview=page.getByRole('dialog',{name:ar?'دليل الحسابات':'Chart of accounts'});
-      await hoverPreview.waitFor();
-      assert.equal(await hoverPreview.getAttribute('data-mode'),'hover','Hover opens an unpinned preview');
-      assert.ok(await hoverPreview.evaluate(el=>el.style.getPropertyValue('--setup-card-scale-x').length>0),'Animation starts at source card coordinates');
-      await page.waitForTimeout(430);
-      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-animated-hover-${locale}-1490.png`,fullPage:false});
+      await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='true');
+      assert.equal(await chartCard.getAttribute('data-pinned'),'false','Hover opens a transient preview within the SAME card');
+      const hovered=await chartCard.boundingBox();
+      assert.ok(hovered&&before&&Math.abs(hovered.y-before.y)<3,'Hover keeps the card in its original row');
+      await page.waitForTimeout(400);
+      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-inplace-hover-${locale}-1490.png`,fullPage:false});
       await page.mouse.move(2,2);
-      await hoverPreview.waitFor({state:'hidden',timeout:4000});
+      await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='false');
      }
      await chartTrigger.click();
-     const chartModal=page.getByRole('dialog',{name:ar?'دليل الحسابات':'Chart of accounts'});
-     assert.equal(await chartModal.getAttribute('data-mode'),'pinned','Click pins the expanded card');
+     await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-pinned')==='true');
      await page.mouse.move(2,2);
-     await page.waitForTimeout(450);
-     assert.equal(await chartModal.count(),1,'Pinned card remains after pointer leaves');
-     await chartModal.waitFor();
-     const box=await chartModal.boundingBox();
-     assert.ok(box&&box.width>=Math.min(width-30,490),'Expanded card uses a readable large popup');
-     assert.equal(await chartModal.locator('.settings-finance-modal-checks li').count(),2);
-     assert.equal(await chartModal.locator('.settings-finance-modal-node.met').count(),2);
-     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-popup-chart-${locale}-${width}.png`,fullPage:false});
+     await page.waitForTimeout(430);
+     assert.equal(await chartCard.getAttribute('data-expanded'),'true','Pinned card remains expanded after pointer exits');
+     const after=await chartCard.boundingBox();
+     assert.ok(after&&before&&Math.abs(after.y-before.y)<3,'Click keeps card at its original vertical position');
+     assert.ok(after&&after.height>=490,'The SAME article grows to reference-card height');
+     if(width===1490)assert.ok(after.width>before.width*1.45,'The SAME article becomes significantly wider');
+     assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),2,'Expanded requirements live inside the source card');
+     assert.equal(await chartCard.locator('.settings-progress-node.met').count(),2);
+     assert.equal(await page.locator('[role=dialog],.settings-finance-modal-backdrop').count(),0,'No popup after click');
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-inplace-chart-${locale}-${width}.png`,fullPage:false});
      await page.keyboard.press('Escape');
-     await chartModal.waitFor({state:'hidden'});
-     await page.locator('[data-financial-section="opening"] .settings-finance-card-trigger').click();
-     const openingModal=page.getByRole('dialog',{name:ar?'الأرصدة الافتتاحية':'Opening balances'});
-     await openingModal.waitFor();
-     await page.locator('.settings-finance-modal-backdrop[data-open="true"]').waitFor();
-     await page.waitForTimeout(370);
-     assert.equal(await openingModal.locator('.settings-finance-modal-node.met').count(),0,'Not started opening has no ticks');
-     assert.equal(await openingModal.locator('.settings-finance-modal-node.unverified').count(),3,'Opening progress is neutral');
-     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-popup-opening-${locale}-${width}.png`,fullPage:false});
-     await page.waitForTimeout(385);
-     await openingModal.getByRole('button',{name:ar?'إغلاق البطاقة':'Close card'}).click();
-     await openingModal.waitFor({state:'hidden'});
+     await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='false');
+     const opening=page.locator('[data-financial-section="opening"]');
+     await opening.locator('.settings-finance-card-trigger').click();
+     await page.waitForFunction(()=>document.querySelector('[data-financial-section=opening]')?.getAttribute('data-pinned')==='true');
+     await page.waitForTimeout(430);
+     assert.equal(await opening.locator('.settings-progress-node.met').count(),0,'NOT_STARTED opening has no progress ticks');
+     assert.equal(await opening.locator('.settings-progress-node.unverified').count(),3,'All opening progress circles remain neutral');
+     assert.equal(await opening.locator('.settings-finance-inline-check-icon.met').count(),0,'Opening checklist has no misleading completion ticks');
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-inplace-opening-${locale}-${width}.png`,fullPage:false});
+     await opening.locator('.settings-finance-card-trigger').click();
+     await page.waitForFunction(()=>document.querySelector('[data-financial-section=opening]')?.getAttribute('data-expanded')==='false');
     }
     await page.setViewportSize({width:1490,height:1050});
-    checks.push(locale+' animated hover preview, click pin, Escape close, full-size reference and opening NOT_STARTED zero ticks');
+    checks.push(locale+' native card grows in place, hover preview, click-to-pin, Escape, five inline cards, NOT_STARTED opening without ticks');
    }
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
    if(path==='billing'){
