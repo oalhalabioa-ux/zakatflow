@@ -85,7 +85,7 @@ export default function CopyToOrganizationDialog({locale,sourceId,sourceTitle,re
   <p>{t('تملك المؤسسة النسخة الجديدة. تبقى الدراسة الشخصية في محفظتك.','The organization owns the new copy. The personal study stays in your portfolio.')}</p>
   {!copied&&organizationName&&<label className="fs-check">
    <input type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.currentTarget.checked)}/>
-   {t('أوافق على نسخ محتوى الدراسة إلى المؤسسة المحددة.','I agree to copy the study content to the selected organization.')}
+   <span>{t('أوافق على نسخ محتوى الدراسة إلى المؤسسة المحددة.','I agree to copy the study content to the selected organization.')}</span>
   </label>}
   {error&&<p role="alert">{error}</p>}
   {copied&&<p role="status">{t('أُضيفت النسخة إلى محفظة المؤسسة.','The copy was added to the organization portfolio.')}</p>}

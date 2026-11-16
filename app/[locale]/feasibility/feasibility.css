@@ -133,9 +133,14 @@
 }
 
 .fs-page .fs-dialog {
+ position: fixed;
+ inset: 0;
+ margin: auto;
  width: min(34rem, calc(100% - 2rem));
+ height: fit-content;
  max-height: 90dvh;
  overflow: auto;
+ overscroll-behavior: contain;
  padding: clamp(1rem, 4vw, 1.5rem);
  border: 1px solid var(--fs-line);
  border-radius: .75rem;
@@ -147,6 +152,18 @@
 .fs-page .fs-dialog dl > div { padding: .6rem 0; border-bottom: 1px solid var(--fs-line); }
 .fs-page .fs-dialog dt { font-size: .75rem; font-weight: 700; }
 .fs-page .fs-dialog dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.fs-page .fs-dialog .fs-check {
+ min-height: 44px;
+ color: var(--fs-ink);
+ cursor: pointer;
+}
+.fs-page .fs-dialog input[type=checkbox] {
+ flex: 0 0 18px;
+ width: 18px;
+ height: 18px;
+ margin: 0;
+ padding: 0;
+}
 .fs-page .fs-dialog .fs-actions { margin-top: 1rem; }
 
 @media (max-width: 38rem) {

@@ -322,7 +322,8 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await dialog.getByText(marker+' Copy destination',{exact:true}).waitFor();
    const confirm=dialog.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true});
    assert.equal(await confirm.isDisabled(),true);
-   await dialog.getByRole('checkbox').check();
+   await dialog.getByText('أوافق على نسخ محتوى الدراسة إلى المؤسسة المحددة.',{exact:true}).tap();
+   assert.equal(await dialog.getByRole('checkbox').isChecked(),true);
    const copySaved=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='copy'&&
     r.request().method()==='POST');
    await confirm.click();
