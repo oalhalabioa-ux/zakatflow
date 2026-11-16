@@ -543,3 +543,17 @@
   animation:none!important;transition:none!important;
  }
 }
+
+/* Financial readiness: details only; original card visuals, tabs and progress remain unchanged. */
+.corp-shell .settings-workspace .settings-finance-compact-timeline{
+ margin-block:10px 4px;padding:10px 14px;border:1px solid #e8eef0;border-radius:9px;background:#fff;color:#1d3852;
+}
+.corp-shell .settings-workspace .settings-finance-timeline-heading{display:block;font-size:.83rem;font-weight:700;margin-bottom:9px;color:#1d3852}
+.corp-shell .settings-workspace .settings-finance-timeline-steps{display:flex;gap:0;overflow-x:auto;direction:inherit}
+.corp-shell .settings-workspace .settings-finance-timeline-step{position:relative;flex:1 0 145px;min-width:0;display:flex;align-items:center;flex-direction:column;gap:3px;text-align:center;padding:0 8px;font-size:.76rem}
+.corp-shell .settings-workspace .settings-finance-timeline-step:not(:last-child)::after{content:"";position:absolute;top:10px;inset-inline-start:calc(50% + 13px);width:calc(100% - 26px);height:2px;background:#e8eef0}
+.corp-shell .settings-workspace .settings-finance-timeline-node{z-index:1;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;border:2px solid #c6a35d;background:#fff;color:#1d3852;font-size:.72rem;font-weight:700}
+.corp-shell .settings-workspace .settings-finance-timeline-node.met{background:#205347;border-color:#205347;color:#fff}
+.corp-shell .settings-workspace .settings-finance-timeline-node.unavailable,.corp-shell .settings-workspace .settings-finance-timeline-node.unverified{border-color:#a7b0b6;color:#71808b}
+.corp-shell .settings-workspace .settings-finance-timeline-name{font-weight:650}
+.corp-shell .settings-workspace .settings-finance-timeline-explanation{color:#607286;font-size:.72rem}
