@@ -306,6 +306,16 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
   const appPage=(scope,organization,locale='en')=>
    localApp+'/'+locale+'/feasibility?scope='+scope+'&organization='+organization+'&level=COMPANY';
   const studyTitle='QA Personal water copy source';
+  const readPersonal=async()=>{
+   const response=await page.request.get(localApp+'/api/feasibility/projects',{timeout:12000});
+   assert.equal(response.status(),200);
+   return response.json();
+  };
+  const readCompany=async(organization)=>{
+   const response=await page.request.get(localApp+'/api/feasibility/organization-projects?organization='+organization,{timeout:12000});
+   assert.equal(response.status(),200);
+   return (await response.json()).studies;
+  };
   const caseGuard=setTimeout(()=>{
    phase(caseName,'case-timeout-90s');
    void context.close().catch(()=>{});
@@ -322,8 +332,9 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.getByRole('button',{name:'حفظ في QA V2',exact:true}).click();
    const personalResponse=await personalSaved;
    assert.equal(personalResponse.status(),201);
-   const source=await personalResponse.json();
    await page.getByText(/حُفظت مسودة المشروع في QA V2/).waitFor();
+   const source=(await readPersonal()).find(row=>row.study.title===studyTitle);
+   assert.ok(source,'The personal source must exist in persistent storage');
    phase(caseName,'personal-saved');
    await page.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true}).click();
    const dialog=page.getByRole('dialog');
@@ -338,9 +349,15 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await confirm.click();
    const copyResponse=await copySaved;
    assert.equal(copyResponse.status(),201);
-   const copy=await copyResponse.json();
+   // The dialog uses the successful status only. Verify the copy through a
+   // bounded authenticated read instead of waiting on Chromium's unused POST body.
+   await dialog.getByText('أُضيفت النسخة إلى محفظة المؤسسة.',{exact:true}).waitFor();
+   const copies=(await readCompany(target)).filter(row=>row.title===studyTitle);
+   assert.equal(copies.length,1);
+   const [copy]=copies;
    assert.notEqual(copy.id,source.id);
-   await dialog.getByRole('status').waitFor();
+   assert.equal(copy.owner_user_id,null);
+   assert.equal(copy.organization_id,target);
    phase(caseName,'organization-copy-created');
 
    for(const [selected,expected] of [[target,true],[other,false],[target,true]]){
@@ -353,14 +370,17 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     }
     const loaded=await portfolio;
     assert.equal(loaded.status(),200);
-    const {studies}=await loaded.json();
+    if(expected){
+     await page.getByRole('button',{name:/QA Personal water copy source/}).waitFor();
+    }else{
+     await page.getByRole('heading',{name:'No studies for the selected organization',exact:true}).waitFor();
+    }
+    const studies=await readCompany(selected);
     assert.equal(studies.some(row=>row.id===copy.id&&row.owner_user_id===null&&row.organization_id===target),expected);
     assert.equal(studies.some(row=>row.id===source.id),false);
    }
    phase(caseName,'two-organization-portfolios-verified');
-   const personal=await page.request.get(localApp+'/api/feasibility/projects',{timeout:12000});
-   assert.equal(personal.status(),200);
-   const owned=await personal.json();
+   const owned=await readPersonal();
    assert.equal(owned.find(row=>row.id===source.id)?.revision,source.revision);
    assert.equal(owned.some(row=>row.id===copy.id),false);
    const outside=await fetch(url+'/rest/v1/feasibility_projects?id=eq.'+copy.id+'&select=id',{headers:headers(outsider),signal:AbortSignal.timeout(12000)});
