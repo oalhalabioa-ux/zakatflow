@@ -528,3 +528,96 @@
 .corp-shell .settings-workspace .settings-finance-card-details .settings-finance-check-disclaimer{
  margin:11px 0 0;font-size:.67rem;line-height:1.55;
 }
+
+
+/* Financial setup expanded preview. Full-size reference card; kept out of
+   the five-card row so no checklist is compressed into its narrow columns. */
+.settings-finance-modal-backdrop{
+ position:fixed;inset:0;z-index:10050;display:grid;place-items:center;
+ box-sizing:border-box;padding:22px 16px;overflow-y:auto;
+ background:rgba(16,36,58,.46);
+}
+.settings-finance-modal-card{
+ position:relative;box-sizing:border-box;display:flex;flex-direction:column;
+ align-items:center;gap:12px;width:min(560px,100%);max-height:calc(100dvh - 44px);
+ overflow-y:auto;overscroll-behavior:contain;padding:30px 35px 25px;
+ border:1px solid #d8e0e7;border-radius:19px;background:#f7f8f9;
+ color:#1d3852;text-align:center;
+ box-shadow:0 16px 48px rgba(16,36,58,.24);
+}
+.settings-finance-modal-card>.settings-icon{
+ display:block;flex:0 0 61px;width:61px;height:61px;color:#c6a35d;
+}
+.settings-finance-modal-card>h3{
+ display:block;margin:0;color:#10243a;font-size:1.55rem;
+ font-weight:750;line-height:1.45;
+}
+.settings-finance-modal-summary{
+ margin:0 0 12px;color:#1d3852;font-size:1rem;line-height:1.7;
+}
+.settings-finance-modal-close{
+ position:absolute;top:12px;inset-inline-end:13px;
+ width:34px;height:34px;border:1px solid #cbd4db;border-radius:9px;
+ background:#fff;color:#1d3852;font:inherit;font-size:1.35rem;
+ line-height:1;cursor:pointer;
+}
+.settings-finance-modal-close:hover{background:#e8eef0}
+.settings-finance-modal-close:focus-visible{outline:3px solid #c6a35d;outline-offset:2px}
+.settings-finance-modal-checks{
+ box-sizing:border-box;display:grid;gap:12px;width:100%;
+ padding:0;margin:12px 0 8px;list-style:none;text-align:start;
+}
+.settings-finance-modal-checks li{
+ display:flex;gap:12px;align-items:center;
+ color:#1d3852;font-size:.97rem;line-height:1.6;
+}
+.settings-finance-modal-check-icon{
+ display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;
+ box-sizing:border-box;border:1.8px solid #afb8c1;border-radius:50%;
+ color:#75818c;font-size:1rem;font-weight:750;line-height:1;
+}
+.settings-finance-modal-check-icon.met{color:#205347;border-color:#205347}
+.settings-finance-modal-check-icon.missing{color:#aa812e;border-color:#c6a35d}
+.settings-finance-modal-check-icon.unavailable,
+.settings-finance-modal-check-icon.unverified{color:#7d8893;border-color:#afb8c1}
+.settings-finance-modal-progress{
+ position:relative;box-sizing:border-box;display:flex;align-items:center;
+ justify-content:space-between;width:min(91%,410px);gap:0;
+ min-height:30px;margin:14px 0 1px;
+}
+.settings-finance-modal-progress::before{
+ position:absolute;top:50%;inset-inline:12px;height:4px;
+ transform:translateY(-50%);background:#bec7ce;content:"";
+}
+.settings-finance-modal-node{
+ position:relative;z-index:1;display:grid;place-items:center;
+ flex:0 0 29px;width:29px;height:29px;border-radius:50%;
+ border:2px solid #adb8c2;background:#f7f8f9;color:#647483;
+ font-size:.87rem;font-weight:800;
+}
+.settings-finance-modal-node.met{background:#205347;border-color:#205347;color:white}
+.settings-finance-modal-node.missing{border-color:#c6a35d}
+.settings-finance-modal-card>.settings-finance-progress-label{
+ margin:4px 0 0;padding:7px 19px;border-radius:22px;
+ background:#e8eef0;font-size:1rem;font-weight:750;
+}
+.settings-finance-modal-disclaimer{
+ max-width:440px;margin:8px 0 0;color:#627285;
+ font-size:.76rem;line-height:1.7;
+}
+@media(max-width:600px){
+ .settings-finance-modal-backdrop{padding:12px 10px}
+ .settings-finance-modal-card{
+  max-height:calc(100dvh - 24px);padding:46px 17px 20px;border-radius:14px;
+ }
+ .settings-finance-modal-card>.settings-icon{
+  width:49px;height:49px;flex-basis:49px;
+ }
+ .settings-finance-modal-card>h3{font-size:1.24rem}
+ .settings-finance-modal-summary{font-size:.88rem;margin-bottom:0}
+ .settings-finance-modal-checks{gap:10px;margin:6px 0}
+ .settings-finance-modal-checks li{font-size:.83rem;gap:8px}
+ .settings-finance-modal-check-icon{width:23px;height:23px;flex-basis:23px}
+ .settings-finance-modal-node{width:24px;height:24px;flex-basis:24px}
+ .settings-finance-modal-progress{margin-top:8px}
+}
