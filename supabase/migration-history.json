@@ -2025,6 +2025,14 @@
       "expected_md5": "14df1d14752edda3a4812496985be286",
       "file_sha256": "72bc3f0e9d4992441d7fe2062735dcfcda20e989e879516105d5722ac00b1ba9",
       "validation_project": "Disposable run 43706630083 artifact 14159175342 passed native capital save/approval, capacity/direction rejection, unchanged sources and revocation. QA V2 rollback-only function fingerprint observed 2026-11-15; hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115223648_financial_group_document_coverage.sql",
+      "version": "20261115223648",
+      "name": "financial_group_document_coverage",
+      "expected_md5": "6e83f27db91d21f26997c971a45c6626",
+      "file_sha256": "6ddbdb69330dc0b0b5d72806ea5109b97497ac8dac5491010227b273538e07b6",
+      "validation_project": "Disposable full-schema run 43832400855 artifact 14209996875 verified document coverage, tenant denial and invoice pagination. Hosted unapplied."
     }
   ]
 }

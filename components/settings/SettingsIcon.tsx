@@ -1,4 +1,4 @@
-export type SettingsIconName='organization'|'structure'|'finance'|'regulatory'|'users'|'system'|'journey'|'calendar'|'chart'|'posting'|'bank'|'opening'|'appearance'|'notifications'|'security'|'info'|'billing';
+export type SettingsIconName='organization'|'structure'|'finance'|'regulatory'|'users'|'system'|'journey'|'calendar'|'chart'|'posting'|'bank'|'opening'|'opening-progress'|'appearance'|'notifications'|'security'|'info'|'billing';
 const paths:Record<SettingsIconName,string>={
  organization:'M4 21V3h16v18M8 7h2m4 0h2M8 11h2m4 0h2M9 21v-6h6v6M2 21h20',
  structure:'M9 3h6v5H9zM3 16h6v5H3zM15 16h6v5h-6zM12 8v4M6 16v-4h12v4',
@@ -12,6 +12,7 @@ const paths:Record<SettingsIconName,string>={
  posting:'M3 7h18m-5-5 5 5-5 5M21 17H3m5-5-5 5 5 5',
  bank:'m2 8 10-6 10 6ZM4 11v7m5-7v7m6-7v7m5-7v7M2 22h20M2 19h20',
  opening:'M4 3h16v18H4zM8 8h8M8 12h8M8 16h5',
+ 'opening-progress':'M4 20v-6h3v6M10 20V9h3v11M16 20V4h3v16M2 22h20',
  appearance:'M2 3h20v14H2zM8 22h8M12 17v5',
  notifications:'M5 17h14l-2-4V9a5 5 0 0 0-10 0v4ZM10 21h4',
  security:'m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6ZM8 12l3 3 5-6',
