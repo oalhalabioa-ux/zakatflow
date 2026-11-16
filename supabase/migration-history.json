@@ -1945,6 +1945,14 @@
       "expected_md5": "6e4109049206bc2b2ad55268fb19803f",
       "file_sha256": "315fb75aa21746f8a9d97cf6bf2262594792dd4f40d0d49f06b50fc3fbb6625d",
       "validation_project": "Synthetic isolated migration rehearsal with organization RLS and pre/post backup restoration; pending real Production recovery exercise"
+    },
+    {
+      "path": "supabase/migrations/20261116190342_feasibility_self_serve_bundles.sql",
+      "version": "20261116190342",
+      "name": "feasibility_self_serve_bundles",
+      "expected_md5": "36924fbdce8b3bb62ff4c2564e272657",
+      "file_sha256": "645eb9e7e19446211387cf71acaffc0eb5f923edea5d874d83156d067b3717dc",
+      "validation_project": "Hosted restored clone: rollback-only signup, quote workflow and effective study entitlements"
     }
   ]
 }

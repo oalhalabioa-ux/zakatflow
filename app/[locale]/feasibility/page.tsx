@@ -1,3 +1,5 @@
+import {feasibilitySelfServeEnabled,readFeasibilityGrant} from '@/lib/feasibility/grant';
+import FeasibilityEnrollment from '@/components/feasibility/FeasibilityEnrollment';
 import {notFound,redirect} from 'next/navigation';
 import {supabaseServer} from '@/lib/supabase/server';
 import FeasibilityWorkspace from '@/components/FeasibilityWorkspace';
@@ -12,10 +14,12 @@ export default async function FeasibilityPage({params}:{params:Promise<{locale:s
  const supabase=await supabaseServer();
  const {data:{user}}=await supabase.auth.getUser();
  if(!user)redirect('/'+locale+'/login');
- const {data:grant,error}=await supabase.from('feasibility_access_grants')
-  .select('status,starts_at,ends_at').eq('user_id',user.id).maybeSingle();
+ const {data:grant,error}=await readFeasibilityGrant(supabase,user.id);
  if(error)throw new Error('FEASIBILITY_ENTITLEMENT_LOOKUP_FAILED');
  const access=evaluateFeasibilityAccess(grant);
- if(!access.canRead)notFound();
+ if(!access.canRead){
+  if(!feasibilitySelfServeEnabled())notFound();
+  return <FeasibilityEnrollment locale={locale}/>;
+ }
  return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite}/>;
 }

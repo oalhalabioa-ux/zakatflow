@@ -26,7 +26,7 @@ const input = z
     features: z
       .array(z.string().refine((x) => ALL_CAPABILITIES.includes(x)))
       .min(2)
-      .max(8)
+      .max(ALL_CAPABILITIES.length)
       .refine(
         (x) =>
           new Set(x).size === x.length &&
