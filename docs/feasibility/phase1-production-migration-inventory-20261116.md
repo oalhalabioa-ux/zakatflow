@@ -54,6 +54,15 @@ The QA V2 `supabase_migrations.schema_migrations` catalog contains **12 applied 
 8. **Feature flags and integration remain separate.** Do not casually enable `FEASIBILITY_ORG_QA`, `NEXT_PUBLIC_FEASIBILITY_CLOUD_QA`, invitations/Resend/SMTP or Financial Core V2 handoff on Production. Never connect Financial Core V1 or write accounting journals/opening balances from a study.
 9. **Production schema dependencies are only partially inspected.** Check `private` namespace and required extensions/grants, organization RLS, migration-history collision, and whether functions compile against actual Production types before constructing DDL.
 
+## Additional QA V2 permission-surface audit (READ ONLY)
+
+The independently executable [permission preflight](./phase1-permissions-preflight-20261116.sql) was tested on both environments. Its direct-Data-API privilege checks are **not proof of an exploit**; they identify access paths for the release review:
+
+- In QA V2, `anon` is denied direct Feasibility study SELECT and DELETE, and the `authenticated` role has **no direct UPDATE privilege** on `feasibility_access_grants` or on the private institution rollout switch.
+- In QA V2, `authenticated` **does have** study DELETE privilege and direct revision/payload UPDATE column privileges; the corporate owner/admin DELETE RLS policy is present. This is distinct from the current UI, which intentionally does not offer corporate deletion. Decide whether the Data API may legitimately expose those operations, and if not, add and separately test a database/server enforcement path before customer activation.
+- Supabase security advisors report **three Feasibility-related warnings** for authenticated-callable public SECURITY DEFINER invitation/revocation RPCs. These are expected SQL call routes and warnings are not proof of a vulnerability, but require independent review of caller identity, grants, ownership and audit before any Production enablement. None was callable by `anon` in the read-only privilege check. [Advisor rule](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
+- The Production versions of these objects do not yet exist; the audit correctly returns `NULL` instead of suggesting their permissions were verified.
+
 ## Migration development and sign-off sequence (NOT performed by this preflight)
 
 - Prepare independently reviewed, versioned **Production-specific forward SQL** under `supabase/migrations`; use Supabase CLI migration creation conventions. Do not apply the QA-only migrations verbatim.
