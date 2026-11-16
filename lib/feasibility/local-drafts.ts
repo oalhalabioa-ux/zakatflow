@@ -103,3 +103,21 @@ export function partitionPersonalCloudRows(
  }
  return {owned,shared};
 }
+
+/** Append a validated copy without replacing existing IDs or importing server ownership. */
+export function appendImportedStudies(
+ existing:FeasibilityStudy[],imports:FeasibilityStudy[],newId:()=>string
+):{studies:FeasibilityStudy[];selectedId:string}|null {
+ if(!imports.length||existing.length+imports.length>300)return null;
+ const ids=new Set(existing.map(study=>study.id));
+ const copies:FeasibilityStudy[]=[];
+ const now=new Date().toISOString();
+ for(const source of imports){
+  const id=newId();
+  if(!uuid.test(id)||ids.has(id))return null;
+  ids.add(id);
+  const {handoff: _handoff,...study}=source;
+  copies.push({...study,id,createdAt:now,updatedAt:now});
+ }
+ return {studies:[...copies,...existing],selectedId:copies[0].id};
+}

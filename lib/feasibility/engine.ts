@@ -3,19 +3,21 @@
  * All values are in one study currency; mixed-currency figures must be converted
  * explicitly by an analyst before inclusion.
  */
+import type {WaterModel} from './water-model';
+
 export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTURE'|'CUSTOM';
 export type StudyStatus='IDEA'|'FEASIBILITY'|'APPROVED'|'ESTABLISHMENT'|'OPERATING'|'CANCELLED';
-export type TaskStatus='TODO'|'IN_PROGRESS'|'DONE';
+export type TaskStatus='TODO'|'IN_PROGRESS'|'BLOCKED'|'DONE';
 export type ChecklistStatus='NOT_STARTED'|'UNDER_REVIEW'|'VERIFIED'|'BLOCKED';
-export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff'|'sharing';
+export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff'|'sharing'|'report';
 export type HandoffMode='LATER'|'NEW'|'EXISTING';
 export interface ProjectHandoff {mode:HandoffMode; organizationId?:string; reviewedSourceUpdatedAt?:string; reviewedAt?:string;}
 export interface CapexItem {id:string;label:string;amount:number;category:'BUILDINGS'|'EQUIPMENT'|'UTILITIES'|'LICENCES'|'OTHER';}
-export interface StudyTask {id:string;title:string;owner:string;due:string;status:TaskStatus;priority:'HIGH'|'NORMAL'|'LOW';}
-export interface LegalItem {id:string;title:string;status:ChecklistStatus;notes:string;}
-export interface StudyRisk {id:string;title:string;likelihood:number;impact:number;response:string;}
-export interface StudySupplier {id:string;vendor:string;item:string;offer:number;notes:string;}
-export interface StudyDecision {id:string;title:string;date:string;notes:string;}
+export interface StudyTask {id:string;title:string;owner:string;due:string;status:TaskStatus;priority:'HIGH'|'NORMAL'|'LOW';phase?:string;notes?:string;}
+export interface LegalItem {id:string;title:string;status:ChecklistStatus;notes:string;group?:string;critical?:boolean;description?:string;owner?:string;due?:string;}
+export interface StudyRisk {id:string;title:string;likelihood:number;impact:number;response:string;category?:string;owner?:string;status?:'OPEN'|'MITIGATED';}
+export interface StudySupplier {id:string;vendor:string;item:string;offer:number;notes:string;capacity?:number;leadDays?:number;warranty?:string;status?:'NEW'|'REVIEW'|'SELECTED'|'REJECTED';}
+export interface StudyDecision {id:string;title:string;date:string;notes:string;owner?:string;status?:'OPEN'|'AGREED'|'DONE';}
 export type CapitalCategory=CapexItem['category'];
 /** Optional inputs only; missing lives must never be silently inferred. */
 export interface AdvancedAssumptions {
@@ -44,6 +46,7 @@ export interface FeasibilityStudy {
  unitPrice:number; variableCost:number; monthlyUnits:number; monthlyFixedCost:number; volumeGrowthPct:number;
  priceGrowthPct:number; fixedCostGrowthPct:number; discountRatePct:number; indicativeTaxRatePct:number; years:number;
  capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];handoff?:ProjectHandoff;advanced?:AdvancedAssumptions;sectorSchedule?:SectorSchedule;
+ water?:WaterModel;preparedBy?:string;studyDate?:string;notes?:string;
  createdAt:string; updatedAt:string;
 }
 export type Scenario='CONSERVATIVE'|'BASE'|'OPTIMISTIC';

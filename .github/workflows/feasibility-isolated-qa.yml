@@ -2,7 +2,7 @@ name: Feasibility isolated QA
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, qa/feasibility-release-candidate-20261116]
     paths:
       - 'lib/feasibility/**'
       - 'components/feasibility/**'

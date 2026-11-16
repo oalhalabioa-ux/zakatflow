@@ -1,3 +1,4 @@
+import {createWaterModel} from './water-model';
 import {
  createStudy,waterFactoryLegalItems,
  type CapitalCategory,type FeasibilityStudy
@@ -38,7 +39,12 @@ const industrialStarters:Record<Exclude<IndustrialStarter,'GENERAL'>,StarterDefi
    ...waterFactoryLegalItems,
    'تقييم مستقل لحق الترخيص ومدى إمكان تحويله إلى مساهمة عينية',
    'التحقق من ملكية الأرض وشروط نقلها أو استئجارها لصالح الشركة',
-   'توثيق اتفاق الشركاء ونسب الملكية ومساهمة كل طرف بعد التقييم'
+   'توثيق اتفاق الشركاء ونسب الملكية ومساهمة كل طرف بعد التقييم',
+   'اختبار استدامة البئر أو النبع وخطة حماية المصدر',
+   'فحص المخطط التنظيمي ومدخل الشاحنات والكهرباء والصرف',
+   'التحقق من أهلية الشركاء غير المحليين وشروط الاستثمار والتحويلات',
+   'التحقق من الحسابات المصرفية والتوقيع والاعتمادات',
+   'التحقق من العلامة التجارية ومطابقة العبوة والملصقات'
   ]
  },
  DAIRY_CHEESE:{
@@ -78,6 +84,7 @@ export function createIndustrialStarter(id:string,title:string,starter:Industria
  const template=industrialStarters[starter];
  return {
   ...study,
+  ...(starter==='BOTTLED_WATER'?{water:createWaterModel()}:{}),
   capex:template.capex.map(([label,category],i)=>({
    id:'industry-capex-'+i,label,category,amount:0
   })),
@@ -86,9 +93,10 @@ export function createIndustrialStarter(id:string,title:string,starter:Industria
    status:'TODO' as const,priority:'HIGH' as const
   })),
   legal:[
-   ...study.legal,
+   ...study.legal.map((item,i)=>starter==='BOTTLED_WATER'&&i<7?{...item,critical:true}:item),
    ...template.legal.map((title,i)=>({
-    id:'industry-legal-'+i,title,status:'NOT_STARTED' as const,notes:''
+    id:'industry-legal-'+i,title,status:'NOT_STARTED' as const,notes:'',
+    ...(starter==='BOTTLED_WATER'?{critical:i<7}:{} )
    }))
   ]
  };
