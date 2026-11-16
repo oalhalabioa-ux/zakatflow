@@ -56,11 +56,11 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
     const checks=readiness?.sourceChecks?.[section],unavailable=Boolean(checks?.length&&checks.every(c=>c.status==='UNAVAILABLE'));
     const state=unavailable?'unverified':status==='READY'?'complete':status==='IN_PROGRESS'?'pending':status==='NOT_STARTED'?'incomplete':status==='BLOCKED'?'blocked':'unverified';
     const stateLabel=unavailable?(ar?'تعذر التحقق':'Unavailable'):!status?(readinessError?(ar?'تعذر التحقق':'Unavailable'):(ar?'قيد التحقق':'Checking')):status==='READY'?(ar?'مكتمل':'Complete'):status==='IN_PROGRESS'?(ar?'قيد التنفيذ':'In progress'):status==='BLOCKED'?(ar?'يحتاج استكمال':'Needs attention'):(ar?'لم يبدأ':'Not started');
-    const dots:(FinancialSourceCheckStatus|'UNVERIFIED')[]=checks?.map(check=>check.status)??Array<FinancialSourceCheckStatus|'UNVERIFIED'>(section==='chart'||section==='banking'?2:3).fill('UNVERIFIED');
+    const dots:(FinancialSourceCheckStatus|'UNVERIFIED')[]=status==='NOT_STARTED'?(checks?.map(()=>'UNVERIFIED')??Array<FinancialSourceCheckStatus|'UNVERIFIED'>(3).fill('UNVERIFIED')):(checks?.map(check=>check.status)??Array<FinancialSourceCheckStatus|'UNVERIFIED'>(section==='chart'||section==='banking'?2:3).fill('UNVERIFIED'));
     const expanded=expandedCard===section;
     const summary=section==='fiscal'?(ar?'تحديد السنة وحالتها':'Year and fiscal period'):section==='chart'?(ar?'هيكل الحسابات وتصنيفها':'Account structure'):section==='posting'?(ar?'ربط العمليات بالحسابات':'Posting policy mappings'):section==='banking'?(ar?'الحسابات البنكية والنقدية':'Cash and bank accounts'):(ar?'اعتماد أرصدة بداية السنة':'Verify start-of-year balances');
     return <article key={id} data-financial-section={id} data-source-status={status??'UNVERIFIED'} className={'settings-finance-state-'+state}>
-     <button type="button" className="settings-finance-card-trigger" aria-expanded={expanded} aria-controls="settings-finance-check-details" onClick={()=>setExpandedCard(expanded?null:section)}>
+     <button type="button" className="settings-finance-card-trigger" aria-expanded={expanded} aria-controls={"settings-finance-check-details-"+id} onClick={()=>setExpandedCard(expanded?null:section)}>
       <SettingsIcon name={financeIcons[id]}/>
       <strong className="settings-finance-card-name">{ar?a:e}</strong>
       <span className="settings-finance-card-summary">{summary}</span>
@@ -73,19 +73,16 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
       <span className={'settings-finance-progress-label '+state}>{stateLabel}</span>
       <span className="settings-finance-card-more">{expanded?(ar?'إخفاء التفاصيل':'Hide details'):(ar?'عرض التفاصيل':'View details')} <span aria-hidden="true">{expanded?'−':'+'}</span></span>
      </button>
-    </article>;
-   })
-  }</div>
-  <section id="settings-finance-check-details" className="settings-finance-check-panel" hidden={!expandedCard} aria-label={ar?'تفاصيل التحقق':'Verification details'}>
-   {expandedCard&&<>
+  <section id={"settings-finance-check-details-"+id} className="settings-finance-check-panel settings-finance-card-details" hidden={!expanded} aria-label={ar?'تفاصيل التحقق':'Verification details'}>
+   {expanded&&<>
     <div className="settings-finance-check-heading">
-     <h3>{ar?'متطلبات ': 'Requirements: '}{sections.find(([id])=>id===expandedCard)?.[ar?1:2]}</h3>
+     <h3>{ar?'متطلبات ': 'Requirements: '}{{ar?a:e}}</h3>
      <button type="button" className="settings-finance-check-close" onClick={()=>setExpandedCard(null)}>{ar?'إغلاق':'Close'} <span aria-hidden="true">×</span></button>
     </div>
-    {readiness?.sourceChecks?.[expandedCard]?.length?
+    {checks?.length?
      <ul className="settings-finance-checks">{
-      readiness.sourceChecks[expandedCard].map(check=>{
-       const label=check.id==='opening.verified'&&readiness.mode==='NEW'?
+      checks.map(check=>{
+       const label=check.id==='opening.verified'&&readiness?.mode==='NEW'?
         [ 'التحقق من عدم وجود أرصدة سابقة','Verified zero opening balances' ]:sourceCheckLabels[check.id];
        const message=check.status==='MET'?(ar?'متحقق':'Met'):check.status==='MISSING'?(ar?'غير مكتمل':'Incomplete'):(ar?'تعذر التحقق':'Unavailable');
        return <li key={check.id} data-source-check={check.id} data-check-status={check.status}>
@@ -98,6 +95,9 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
     <p className="settings-finance-check-disclaimer">{ar?'هذه تفاصيل تحقق من مصادر المؤسسة، وليست شهادة اعتماد محاسبي أو ضريبي.':'These checks use organization source data and are not accounting or tax certification.'}</p>
    </>}
   </section>
+    </article>;
+   })
+  }</div>
   {readinessError&&<div className="settings-finance-readiness-error" role="alert">
    <span>{ar?'تعذر قراءة حالة التأسيس المالي. لم تُحتسب أي متطلبات على أنها مكتملة.':'Unable to read financial setup readiness. No requirement has been assumed complete.'}</span>
    <button type="button" className="settings-compact-action" onClick={()=>setRevision(v=>v+1)}>{ar?'إعادة التحقق':'Retry checks'}</button>
