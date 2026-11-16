@@ -85,7 +85,7 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
   <nav className="settings-local-tabs settings-finance-journey-tabs" aria-label={ar?'الإعدادات المالية التفصيلية':'Financial settings sections'}>{sections.map(([id,a,e])=><button key={id} type="button" aria-pressed={tab===id} onClick={()=>{if(id!==tab&&!canLeaveFiscal())return;setTab(id);setRevision(v=>v+1);}}><SettingsIcon name={financeIcons[id]}/><span>{ar?a:e}</span></button>)}</nav>
 
   <div className="settings-finance-status" data-expanded-card={expandedCard?.id??''}
-   style={expandedCard?{gridTemplateColumns:sections.filter(([id])=>id!=='summary').map(([id])=>id===expandedCard.id?'minmax(0px, min(600px, calc(100vw - 48px)))':'minmax(155px,1fr)').join(' ')}:undefined}
+   style={expandedCard?{gridTemplateColumns:sections.filter(([id])=>id!=='summary').map(([id])=>id===expandedCard.id?'minmax(min(330px, calc(100vw - 50px)), min(600px, calc(100vw - 50px)))':'minmax(155px,1fr)').join(' ')}:undefined}
    onTransitionEnd={event=>{
     if(event.target!==event.currentTarget||event.propertyName!=='grid-template-columns'||!expandedCard)return;
     const grid=event.currentTarget;
