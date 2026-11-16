@@ -116,12 +116,14 @@ try{
      const chartCard=page.locator('[data-financial-section="chart"]');
      const chartTrigger=chartCard.locator('.settings-finance-card-trigger');
      const before=await chartCard.boundingBox();
+     const relativeTopBefore=await chartCard.evaluate(el=>el.getBoundingClientRect().top-el.parentElement.getBoundingClientRect().top);
      if(width===1490){
       await chartTrigger.hover();
       await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='true');
       assert.equal(await chartCard.getAttribute('data-pinned'),'false','Hover opens a transient preview within the SAME card');
       const hovered=await chartCard.boundingBox();
-      assert.ok(hovered&&before&&Math.abs(hovered.y-before.y)<3,'Hover keeps the card in its original row');
+      const relativeTopHover=await chartCard.evaluate(el=>el.getBoundingClientRect().top-el.parentElement.getBoundingClientRect().top);
+      assert.ok(hovered&&Math.abs(relativeTopHover-relativeTopBefore)<3,'Hover keeps the same grid-row position regardless of viewport scrolling');
       await page.waitForTimeout(400);
       if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-inplace-hover-${locale}-1490.png`,fullPage:false});
       await page.mouse.move(2,2);
@@ -133,7 +135,8 @@ try{
      await page.waitForTimeout(430);
      assert.equal(await chartCard.getAttribute('data-expanded'),'true','Pinned card remains expanded after pointer exits');
      const after=await chartCard.boundingBox();
-     assert.ok(after&&before&&Math.abs(after.y-before.y)<3,'Click keeps card at its original vertical position');
+     const relativeTopPinned=await chartCard.evaluate(el=>el.getBoundingClientRect().top-el.parentElement.getBoundingClientRect().top);
+     assert.ok(after&&Math.abs(relativeTopPinned-relativeTopBefore)<3,'Click grows article within its original row');
      assert.ok(after&&after.height>=490,'The SAME article grows to reference-card height');
      if(width===1490)assert.ok(after.width>before.width*1.45,'The SAME article becomes significantly wider');
      assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),2,'Expanded requirements live inside the source card');
