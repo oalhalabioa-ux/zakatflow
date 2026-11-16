@@ -155,6 +155,72 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
   ()=>runCase('direct',false));
  await check('issue 421: Personal ⇄ Business Feasibility, open study, then Billing write/reload',
   ()=>runCase('visited',true));
+ // Separate corporate create regression: test and diagnose it without
+ // hiding or invalidating the completed Billing/Feasibility A/B comparison.
+ await check('issue 421: isolate corporate project POST authorization and origin',async()=>{
+  const caseName='corporate-create';
+  const org=await newOrg(marker+' Corporate POST fixture');
+  const context=await browser.newContext();
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
+  const page=await context.newPage();
+  page.setDefaultTimeout(12000);
+  page.setDefaultNavigationTimeout(20000);
+  try{
+   phase(caseName,'organization-navigation');
+   const got=page.waitForResponse(r=>{
+    const u=new URL(r.url());
+    return u.pathname==='/api/feasibility/organization-projects'&&
+     u.searchParams.get('organization')===org&&r.request().method()==='GET';
+   });
+   await page.goto(appUrl+'/en/feasibility?scope=ORGANIZATION&organization='+org+'&level=COMPANY');
+   const get=await got;
+   assert.equal(get.status(),200,'Owner company read must be granted before create');
+   const grants=await get.json();
+   assert.equal(grants.canWrite,true,'Owner company create entitlement must be active');
+   phase(caseName,'owner-read-and-write-entitlement-verified');
+   const name=page.getByRole('textbox',{name:'New project name',exact:true});
+   await name.fill('QA421 Corporate create regression');
+   const btn=page.getByRole('button',{name:'Add project +',exact:true});
+   await btn.waitFor({state:'visible'});
+   await page.waitForFunction(()=>{
+    const el=[...document.querySelectorAll('button')].find(b=>b.textContent?.trim()==='Add project +');
+    return !!el&&!el.disabled;
+   },null,{timeout:12000});
+   const posted=page.waitForResponse(r=>{
+    const u=new URL(r.url());
+    return u.pathname==='/api/feasibility/organization-projects'&&
+     u.searchParams.get('organization')===org&&r.request().method()==='POST';
+   },{timeout:12000});
+   await btn.click();
+   const response=await posted, req=response.request();
+   const requestHeaders=await req.allHeaders();
+   const responseHeaders=await response.allHeaders();
+   const diagnostics={
+    source:'disposable-local-Chromium',caseName,
+    status:response.status(),
+    requestOriginMatchesApp:requestHeaders.origin===new URL(appUrl).origin,
+    secFetchSite:requestHeaders['sec-fetch-site']||'ABSENT',
+    hasOrigin:!!requestHeaders.origin,
+    contentType:(responseHeaders['content-type']||'ABSENT').split(';')[0],
+    // No UUID, email, secrets, cookies, token, full body or request URL logged.
+   };
+   console.log('QA421_CORPORATE_POST_DIAG '+JSON.stringify(diagnostics));
+   if(response.status()!==201){
+    // A denied HTTP response sometimes has an aborted streaming body.
+    // Never let a pending Playwright body reader hang the full test job.
+    const result=await Promise.race([
+     response.text().then(text=>{
+      try{return JSON.parse(text)?.error||'NON_ERROR_JSON'}
+      catch{return text? 'NON_JSON_BODY':'EMPTY_BODY'}
+     }).catch(()=> 'BODY_UNAVAILABLE'),
+     new Promise(resolve=>setTimeout(()=>resolve('BODY_READ_TIMEOUT_2S'),2000))
+    ]);
+    console.log('QA421_CORPORATE_POST_ERROR '+JSON.stringify({source:'disposable-local-Chromium',error:result}));
+   }
+   assert.equal(response.status(),201,'Authorized company study POST must return 201; see QA421_CORPORATE_POST_DIAG');
+   phase(caseName,'authorized-corporate-create-passed');
+  }finally{await context.close().catch(()=>{});}
+ });
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{
   const r=await fetch(url+'/rest/v1/organizations?select=id,contact_email,registered_address',{
    headers:headers(outsider)
