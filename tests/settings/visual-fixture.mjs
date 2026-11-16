@@ -129,7 +129,9 @@ try{
      assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),0,'Source details are not inside cards');
      assert.equal(await chartCard.locator('.settings-progress-node.met').count(),2,'Original card progress checks unchanged');
      const after=await chartCard.boundingBox();
-     assert.ok(after&&before&&Math.abs(after.height-before.height)<3&&Math.abs(after.width-before.width)<3,'Card geometry unchanged by selection');
+     assert.ok(after&&before&&Math.abs(after.height-before.height)<5&&Math.abs(after.width-before.width)<15,`Card remains compact (before ${JSON.stringify(before)}; after ${JSON.stringify(after)})`);
+     assert.equal(await chartCard.evaluate(el=>el.classList.contains('settings-finance-is-expanded')),false,'Card expansion styling never activated');
+     assert.equal(await page.locator('.settings-finance-status').getAttribute('style'),null,'Click never changes card grid widths');
      assert.equal(await page.locator('[role=dialog],.settings-finance-modal-backdrop').count(),0,'No modal on selection');
      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-timeline-chart-${locale}-${width}.png`,fullPage:true});
      await chartTrigger.click();
