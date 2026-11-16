@@ -211,7 +211,7 @@ try {
   sql(`create schema if not exists private;
     grant usage on schema private to authenticated;
     create or replace function private.feasibility_collaborator_role(p_id uuid)
-      returns text language sql stable security invoker as $ select null::text $;`);
+      returns text language sql stable security invoker as $qa_no_collaborators$ select null::text $qa_no_collaborators$;`);
   sql(await load('docs/feasibility/qa-v2-access-grants-schema.sql'));
   sql(await load('docs/feasibility/qa-v2-owner-drafts-schema.sql'));
   sql(await load('docs/feasibility/qa-v2-institutional-ownership-proposal.sql'));
