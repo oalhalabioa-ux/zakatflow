@@ -30,22 +30,27 @@ const coverage=z.object({
  }).strict()).max(200),
  invoiceCandidates:z.array(invoiceReference.extend({counterpartyName:z.string()}).strict()).max(200),
  invoiceIdentityReview:z.object({
-  missingCount:z.number().int().nonnegative(),sharedCount:z.number().int().nonnegative(),
+  missingCount:z.number().int().nonnegative(),sharedCount:z.number().int().nonnegative(),page:z.number().int().positive(),
   rows:z.array(invoiceReference.extend({reason:z.enum(['MISSING_TAX_NUMBER','SHARED_TAX_NUMBER'])}).strict()).max(20),
  }).strict(),
 }).strict();
-export async function readGroupDocumentCoverage(input:unknown){
+export async function readGroupDocumentCoverage(input:unknown,identityPage=1){
  const {organization,from,to}=statementQuery.parse(input);
  const {supabase}=await requireUser();
- const r=await supabase.rpc('financial_group_document_coverage',{p_root:organization,p_from:from,p_to:to});
+ const r=await supabase.rpc('financial_group_document_coverage',{p_root:organization,p_from:from,p_to:to,p_identity_page:identityPage});
  if(r.error)throw Error(r.error.code==='PGRST202'?'REPORTING_GROUP_DOCUMENT_COVERAGE_NOT_INSTALLED':
   /^GROUP_(BATCH|CONTROL|DOCUMENT)_[A-Z_]+$/.test(r.error.message)?r.error.message:'REPORTING_GROUP_DOCUMENT_UNAVAILABLE');
  const parsed=coverage.safeParse(r.data);
- if(!parsed.success||parsed.data.organization!==organization||parsed.data.from!==from||parsed.data.to!==to||
+ if(!parsed.success)throw Error('REPORTING_GROUP_DOCUMENT_EVIDENCE_INVALID');
+ const {invoiceIdentityReview:identity}=parsed.data;
+ const identityTotal=identity.missingCount+identity.sharedCount;
+ const expectedPage=Math.min(identityPage,Math.max(1,Math.ceil(identityTotal/20)));
+ if(parsed.data.organization!==organization||parsed.data.from!==from||parsed.data.to!==to||
   new Set(parsed.data.rows.map(row=>row.id)).size!==parsed.data.rows.length||
   new Set(parsed.data.transferCandidates.map(row=>row.id)).size!==parsed.data.transferCandidates.length||
   new Set(parsed.data.invoiceCandidates.map(row=>row.id)).size!==parsed.data.invoiceCandidates.length||
-  parsed.data.invoiceIdentityReview.rows.length!==Math.min(20,parsed.data.invoiceIdentityReview.missingCount+parsed.data.invoiceIdentityReview.sharedCount))
+  identity.page!==expectedPage||identity.rows.length!==Math.min(20,identityTotal-(expectedPage-1)*20)||
+  new Set(identity.rows.map(row=>row.id)).size!==identity.rows.length)
   throw Error('REPORTING_GROUP_DOCUMENT_EVIDENCE_INVALID');
  return parsed.data;
 }

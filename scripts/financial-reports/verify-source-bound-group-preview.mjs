@@ -317,6 +317,34 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
  await identityRow.getByText('Shared tax number',{exact:true}).waitFor();
  await writeFile(out+'/invoice-counterparty-identity-review.json',JSON.stringify(sharedIdentity.invoiceIdentityReview,null,2));
  console.log('PASS Shared invoice tax identifier is shown separately from intercompany candidates');
+ const clampedIdentity=await request(worksheetPath,{...coverageRequest,identityPage:2});
+ assert.deepEqual(clampedIdentity.invoiceIdentityReview,sharedIdentity.invoiceIdentityReview);
+ assert.equal(clampedIdentity.invoiceIdentityReview.page,1);
+ const firstPageRows=Array.from({length:20},()=>({...sharedIdentity.invoiceIdentityReview.rows[0],id:randomUUID()}));
+ const lastPageRow=sharedIdentity.invoiceIdentityReview.rows[0];
+ const visitedPages=[];
+ async function paginateCoverage(route){
+  const body=route.request().postDataJSON();
+  if(body.action!=='DOCUMENT_COVERAGE')return route.continue();
+  visitedPages.push(body.identityPage);
+  await route.fulfill({json:{...sharedIdentity,invoiceIdentityReview:{
+   missingCount:0,sharedCount:21,page:body.identityPage,rows:body.identityPage===1?firstPageRows:[lastPageRow],
+  }}});
+ }
+ await page.route('**'+worksheetPath,paginateCoverage);
+ try{
+  await checkCoverage();
+  const pager=coverage.getByRole('navigation',{name:'Unresolved invoices pages'});
+  await pager.getByText('Page 1 of 2',{exact:true}).waitFor();
+  await pager.getByRole('button',{name:'Next',exact:true}).click();
+  await pager.getByText('Page 2 of 2',{exact:true}).waitFor();
+  await identityRow.getByText('Shared tax number',{exact:true}).waitFor();
+  assert.equal(await pager.getByRole('button',{name:'Next',exact:true}).isDisabled(),true);
+  await pager.getByRole('button',{name:'Previous',exact:true}).click();
+  await pager.getByText('Page 1 of 2',{exact:true}).waitFor();
+  assert.deepEqual(visitedPages,[1,2,1]);
+ }finally{await page.unroute('**'+worksheetPath,paginateCoverage)}
+ console.log('PASS Unresolved invoices page controls request and display both result pages');
  await page.getByLabel('To date',{exact:true}).fill(query.to);
 
  // A real reciprocal receipt/payment is approved separately from invoice balances.

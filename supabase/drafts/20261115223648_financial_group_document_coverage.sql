@@ -29,11 +29,12 @@ begin
 end $$;
 revoke all on function private.financial_group_prior_pair_balance(uuid,uuid,uuid,uuid,text,date,boolean) from public,anon,authenticated;
 
-create function private.financial_group_document_coverage(p_root uuid,p_from date,p_to date)
+create function private.financial_group_document_coverage(p_root uuid,p_from date,p_to date,p_identity_page integer)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare scope jsonb; approved jsonb; members uuid[]; unmatched jsonb; transfer_candidates jsonb; invoice_candidates jsonb; invoice_identity_review jsonb;
 begin
  if auth.uid() is null then raise exception 'GROUP_DOCUMENT_READ_DENIED';end if;
+ if p_identity_page is null or p_identity_page<1 then raise exception 'GROUP_DOCUMENT_PAGE_INVALID';end if;
  scope:=public.financial_group_registered_scope(p_root,p_from,p_to);
  approved:=public.financial_group_approved_eliminations(p_root,p_from,p_to);
  select array_agg(id::uuid) into members
@@ -161,18 +162,23 @@ begin
     where m.status='APPROVED'
      and private.financial_group_document_fingerprint(m.left_event_id,m.right_event_id)=m.source_fingerprint
    )
+ ), identity_counts as (
+  select count(*) filter(where reason='MISSING_TAX_NUMBER') as missing_count,
+   count(*) filter(where reason='SHARED_TAX_NUMBER') as shared_count,
+   least(p_identity_page,greatest(1,(count(*)+19)/20)) as page
+  from missing_identity
  )
  select
   (select coalesce(jsonb_agg(jsonb_build_object('id',id,'eventId',event_id,'date',transaction_date,
    'side',document_type,'organizationName',issuer,'counterpartyName',counterparty) order by transaction_date,id),'[]'::jsonb)
    from pending_invoices),
   (select jsonb_build_object(
-   'missingCount',count(*) filter(where reason='MISSING_TAX_NUMBER'),
-   'sharedCount',count(*) filter(where reason='SHARED_TAX_NUMBER'),
+   'missingCount',missing_count,'sharedCount',shared_count,'page',page,
    'rows',(select coalesce(jsonb_agg(jsonb_build_object('id',id,'eventId',event_id,'date',transaction_date,
     'side',document_type,'organizationName',issuer,'reason',reason) order by transaction_date desc,id),'[]'::jsonb)
-    from (select * from missing_identity order by transaction_date desc,id limit 20) latest)
-  ) from missing_identity)
+    from (select * from missing_identity order by transaction_date desc,id
+     limit 20 offset (select (page-1)*20 from identity_counts)) requested_page)
+  ) from identity_counts)
  into invoice_candidates,invoice_identity_review;
  if jsonb_array_length(invoice_candidates)>200 then raise exception 'GROUP_DOCUMENT_COVERAGE_LIMIT';end if;
  if scope is distinct from public.financial_group_registered_scope(p_root,p_from,p_to)
@@ -181,12 +187,12 @@ begin
   'batchId',approved->'id','batchVersion',approved->'version','rows',unmatched,
   'transferCandidates',transfer_candidates,'invoiceCandidates',invoice_candidates,'invoiceIdentityReview',invoice_identity_review);
 end $$;
-revoke all on function private.financial_group_document_coverage(uuid,date,date) from public,anon,authenticated;
-grant execute on function private.financial_group_document_coverage(uuid,date,date) to authenticated;
+revoke all on function private.financial_group_document_coverage(uuid,date,date,integer) from public,anon,authenticated;
+grant execute on function private.financial_group_document_coverage(uuid,date,date,integer) to authenticated;
 
-create function public.financial_group_document_coverage(p_root uuid,p_from date,p_to date)
+create function public.financial_group_document_coverage(p_root uuid,p_from date,p_to date,p_identity_page integer default 1)
 returns jsonb language sql security invoker set search_path='' as $$
- select private.financial_group_document_coverage(p_root,p_from,p_to)
+ select private.financial_group_document_coverage(p_root,p_from,p_to,p_identity_page)
 $$;
-revoke all on function public.financial_group_document_coverage(uuid,date,date) from public,anon,authenticated;
-grant execute on function public.financial_group_document_coverage(uuid,date,date) to authenticated;
+revoke all on function public.financial_group_document_coverage(uuid,date,date,integer) from public,anon,authenticated;
+grant execute on function public.financial_group_document_coverage(uuid,date,date,integer) to authenticated;

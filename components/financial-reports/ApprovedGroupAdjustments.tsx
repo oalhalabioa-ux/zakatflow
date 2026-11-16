@@ -263,31 +263,35 @@ function ApprovedAcquisitionReview({organization,from,to,en,exported}:{organizat
 type DocumentCoverage=Awaited<ReturnType<typeof readGroupDocumentCoverage>>;
 const transferTypes={LOAN:['قرض بين الشركات','Intercompany loan'],CAPITAL:['مساهمة رأسمالية','Capital contribution'],ON_BEHALF:['دفع بالنيابة','Payment on behalf']};
 function GroupDocumentCoverage({data,en}:{data:Result;en:boolean}){
- const [result,setResult]=useState<DocumentCoverage|'loading'|'error'|null>(null);
+ const [result,setResult]=useState<DocumentCoverage|'error'|null>(null);
+ const [loading,setLoading]=useState(false);
  const request=useRef<AbortController|null>(null);
  useEffect(()=>()=>request.current?.abort(),[]);
- async function load(){
+ async function load(identityPage=1){
   request.current?.abort();
   const abort=new AbortController();
   request.current=abort;
-  setResult('loading');
+  setLoading(true);
   const {rootOrganizationId:organization,from,to}=data.control;
   try{
    const response=await fetch('/api/financial-reporting/group-approved-eliminations',{method:'POST',cache:'no-store',signal:abort.signal,
-    headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'DOCUMENT_COVERAGE',query:{organization,from,to}})});
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'DOCUMENT_COVERAGE',query:{organization,from,to},identityPage})});
    const body=await response.json() as DocumentCoverage;
    if(!response.ok||body.status!=='GROUP_DOCUMENT_COVERAGE_REVIEW'||body.organization!==organization||
     body.from!==from||body.to!==to||body.batchId!==data.approval.id||body.batchVersion!==data.approval.version)
     throw Error('DOCUMENT_COVERAGE_UNAVAILABLE');
    if(!abort.signal.aborted)setResult(body);
   }catch{if(!abort.signal.aborted)setResult('error');}
+  finally{if(!abort.signal.aborted)setLoading(false);}
  }
+ const identity=result&&result!=='error'?result.invoiceIdentityReview:null;
+ const identityPages=identity?Math.max(1,Math.ceil((identity.missingCount+identity.sharedCount)/20)):1;
  return <div data-group-document-coverage data-period-from={data.control.from}>
-  <button type="button" onClick={()=>void load()} disabled={result==='loading'}>
+  <button type="button" onClick={()=>void load()} disabled={loading}>
    {en?'Check documents outside this batch':'تحقق من المستندات خارج هذه الدفعة'}
   </button>
-  {result==='loading'?<p role="status">{en?'Checking approved document matches…':'جارٍ التحقق من مطابقة المستندات المعتمدة…'}</p>:
-   result==='error'?<p role="status">{en?'Document coverage could not be verified for this batch. Refresh the report and try again.':'تعذر التحقق من تغطية المستندات لهذه الدفعة. حدّث التقرير وأعد المحاولة.'}</p>:
+  {loading&&<p role="status">{en?'Checking approved document matches…':'جارٍ التحقق من مطابقة المستندات المعتمدة…'}</p>}
+  {result==='error'?<p role="status">{en?'Document coverage could not be verified for this batch. Refresh the report and try again.':'تعذر التحقق من تغطية المستندات لهذه الدفعة. حدّث التقرير وأعد المحاولة.'}</p>:
    result&&<>
     <p>{en?'This review covers approved matches in the selected period and matched balances carried forward from earlier periods.':'تغطي هذه المراجعة المطابقات المعتمدة في الفترة المحددة والأرصدة المطابقة المرحّلة من فترات سابقة.'}</p>
     {result.rows.length===0?<p role="status">{en?'No approved matches outside the batch require review.':'لا توجد مطابقات معتمدة خارج الدفعة تتطلب المراجعة.'}</p>:
@@ -326,14 +330,17 @@ function GroupDocumentCoverage({data,en}:{data:Result;en:boolean}){
      <h4>{en?'Invoices with unresolved counterparty identity':'فواتير يتعذر تحديد طرفها المقابل'}</h4>
      <p>{en?'These invoices may include external parties. Check the source document before classifying any as intercompany.':'قد تشمل هذه الفواتير أطرافًا خارج المجموعة. راجع المستند الأصلي قبل تصنيف أي منها كمعاملة داخلية.'}</p>
      <p>{en?'Missing tax number':'رقم ضريبي مفقود'} ({result.invoiceIdentityReview.missingCount}) · {en?'Shared tax number':'رقم ضريبي مشترك'} ({result.invoiceIdentityReview.sharedCount})</p>
-     {result.invoiceIdentityReview.rows.length<result.invoiceIdentityReview.missingCount+result.invoiceIdentityReview.sharedCount&&
-      <p>{en?'Showing the 20 most recent invoices.':'يعرض الجدول أحدث 20 فاتورة.'}</p>}
      <table className="fs-table"><thead><tr>
       {(en?['Invoice reference','Journal reference','Date','Recording company','Reason']:['مرجع الفاتورة','مرجع القيد','التاريخ','الشركة المسجِّلة','السبب']).map(label=><th key={label} scope="col">{label}</th>)}
      </tr></thead><tbody>{result.invoiceIdentityReview.rows.map(row=><tr key={row.id}>
       <th scope="row"><bdi>{row.id}</bdi></th><td><bdi>{row.eventId}</bdi></td><td><bdi>{row.date}</bdi></td><td>{row.organizationName}</td>
       <td>{row.reason==='MISSING_TAX_NUMBER'?(en?'Missing tax number':'رقم ضريبي مفقود'):(en?'Shared tax number':'رقم ضريبي مشترك')}</td>
      </tr>)}</tbody></table>
+     {identity&&identityPages>1&&<nav className="fs-page-actions" aria-label={en?'Unresolved invoices pages':'صفحات الفواتير قيد المراجعة'}>
+      <button type="button" disabled={loading||identity.page<=1} onClick={()=>void load(identity.page-1)}>{en?'Previous':'السابق'}</button>
+      <span aria-live="polite">{en?`Page ${identity.page} of ${identityPages}`:`صفحة ${identity.page} من ${identityPages}`}</span>
+      <button type="button" disabled={loading||identity.page>=identityPages} onClick={()=>void load(identity.page+1)}>{en?'Next':'التالي'}</button>
+     </nav>}
     </div>}
    </>}
  </div>;
