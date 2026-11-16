@@ -1,7 +1,7 @@
 'use client';
 import dynamic from 'next/dynamic';
 import {createPortal} from 'react-dom';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {useSettingsOrganization} from './useSettingsOrganization';
 import FiscalYearManagement from './FiscalYearManagement';
 import SettingsIcon,{type SettingsIconName} from './SettingsIcon';
@@ -34,11 +34,84 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
  const ar=locale==='ar',ctx=useSettingsOrganization(preferredOrg);
  const fiscalEdit=useRef({dirty:false,busy:false});
  const modalCloseRef=useRef<HTMLButtonElement|null>(null);
+ const modalCardRef=useRef<HTMLElement|null>(null);
+ const sourceCardRef=useRef<HTMLButtonElement|null>(null);
+ const hoverTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const exitTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const collapseTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const [cardMotionOpen,setCardMotionOpen]=useState(false);
  const onFiscalEdit=useRef((dirty:boolean,busy:boolean)=>{fiscalEdit.current={dirty,busy};}).current;
  function canLeaveFiscal(){return !fiscalEdit.current.busy&&(!fiscalEdit.current.dirty||window.confirm(ar?'تجاهل التغييرات غير المحفوظة؟':'Discard unsaved changes?'));}
- const [tab,setTab]=useState<string>(initialFiscalEditor?'fiscal':'summary'),[readiness,setReadiness]=useState<FinancialSetupReadiness|null>(null),[readinessError,setReadinessError]=useState(false),[revision,setRevision]=useState(0),[expandedCard,setExpandedCard]=useState<FinancialSetupCardKey|null>(null);
- useEffect(()=>setExpandedCard(null),[ctx.organizationId]);
- useEffect(()=>{if(!expandedCard)return;const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setExpandedCard(null);};document.addEventListener('keydown',close);const previouslyFocused=document.activeElement instanceof HTMLElement?document.activeElement:null;const overflow=document.body.style.overflow;document.body.style.overflow='hidden';modalCloseRef.current?.focus();return()=>{document.removeEventListener('keydown',close);document.body.style.overflow=overflow;previouslyFocused?.focus();};},[expandedCard]);
+ const [tab,setTab]=useState<string>(initialFiscalEditor?'fiscal':'summary'),[readiness,setReadiness]=useState<FinancialSetupReadiness|null>(null),[readinessError,setReadinessError]=useState(false),[revision,setRevision]=useState(0);
+ const [expandedCard,setExpandedCard]=useState<{id:FinancialSetupCardKey;pinned:boolean;origin:{left:number;top:number;width:number;height:number}}|null>(null);
+
+ const clearHover=()=>{if(hoverTimer.current){clearTimeout(hoverTimer.current);hoverTimer.current=null;}};
+ const clearExit=()=>{if(exitTimer.current){clearTimeout(exitTimer.current);exitTimer.current=null;}};
+ const clearCollapse=()=>{if(collapseTimer.current){clearTimeout(collapseTimer.current);collapseTimer.current=null;}};
+ function collapseCard(){
+  clearHover();clearExit();clearCollapse();
+  const wasPinned=expandedCard?.pinned;
+  setCardMotionOpen(false);
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  collapseTimer.current=setTimeout(()=>{
+   setExpandedCard(null);if(wasPinned)sourceCardRef.current?.focus({preventScroll:true});
+  },reduced?0:340);
+ }
+ function openCard(id:FinancialSetupCardKey,button:HTMLButtonElement,pinned:boolean){
+  clearHover();clearExit();clearCollapse();
+  if(expandedCard?.id===id){
+   if(pinned&&!expandedCard.pinned)setExpandedCard(previous=>previous?{...previous,pinned:true}:null);
+   else if(pinned&&expandedCard.pinned)collapseCard();
+   return;
+  }
+  const box=button.getBoundingClientRect();
+  sourceCardRef.current=button;
+  setCardMotionOpen(false);
+  setExpandedCard({id,pinned,origin:{left:box.left,top:box.top,width:box.width,height:box.height}});
+ }
+ function previewCard(id:FinancialSetupCardKey,button:HTMLButtonElement,pointerType:string){
+  if(pointerType!=='mouse'||expandedCard?.pinned)return;
+  clearHover();clearExit();
+  hoverTimer.current=setTimeout(()=>openCard(id,button,false),180);
+ }
+ function schedulePreviewClose(){
+  if(expandedCard?.pinned||exitTimer.current)return;
+  exitTimer.current=setTimeout(()=>{exitTimer.current=null;collapseCard();},400);
+ }
+ useEffect(()=>()=>{clearHover();clearExit();clearCollapse();},[]);
+ useEffect(()=>{setExpandedCard(null);setCardMotionOpen(false);clearHover();clearExit();clearCollapse();},[ctx.organizationId]);
+ useLayoutEffect(()=>{
+  if(!expandedCard||!modalCardRef.current)return;
+  const target=modalCardRef.current.getBoundingClientRect(),origin=expandedCard.origin;
+  modalCardRef.current.style.setProperty('--setup-card-translate-x',String(origin.left+origin.width/2-target.left-target.width/2)+'px');
+  modalCardRef.current.style.setProperty('--setup-card-translate-y',String(origin.top+origin.height/2-target.top-target.height/2)+'px');
+  modalCardRef.current.style.setProperty('--setup-card-scale-x',String(origin.width/target.width));
+  modalCardRef.current.style.setProperty('--setup-card-scale-y',String(origin.height/target.height));
+  let second=0;
+  const first=requestAnimationFrame(()=>{second=requestAnimationFrame(()=>setCardMotionOpen(true));});
+  return()=>{cancelAnimationFrame(first);cancelAnimationFrame(second);};
+ },[expandedCard?.id]);
+ useEffect(()=>{
+  if(!expandedCard)return;
+  const keydown=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();collapseCard();}};
+  document.addEventListener('keydown',keydown);
+  const previouslyFocused=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  const bodyOverflow=document.body.style.overflow;
+  if(expandedCard.pinned){document.body.style.overflow='hidden';modalCloseRef.current?.focus({preventScroll:true});}
+  return()=>{document.removeEventListener('keydown',keydown);document.body.style.overflow=bodyOverflow;};
+ },[expandedCard?.id,expandedCard?.pinned]);
+ useEffect(()=>{
+  if(!expandedCard||expandedCard.pinned)return;
+  const move=(event:PointerEvent)=>{
+   if(event.pointerType!=='mouse')return;
+   const within=(rect:DOMRect|undefined)=>Boolean(rect&&event.clientX>=rect.left&&event.clientX<=rect.right&&event.clientY>=rect.top&&event.clientY<=rect.bottom);
+   const source=sourceCardRef.current?.getBoundingClientRect(),preview=modalCardRef.current?.getBoundingClientRect();
+   if(within(source)||within(preview))clearExit();
+   else schedulePreviewClose();
+  };
+  document.addEventListener('pointermove',move);
+  return()=>document.removeEventListener('pointermove',move);
+ },[expandedCard?.id,expandedCard?.pinned]);
  useEffect(()=>{
   const controller=new AbortController();setReadiness(null);setReadinessError(false);
   const params=new URLSearchParams({organization:ctx.organizationId});
@@ -60,10 +133,12 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
     const state=unavailable?'unverified':status==='READY'?'complete':status==='IN_PROGRESS'?'pending':status==='NOT_STARTED'?'incomplete':status==='BLOCKED'?'blocked':'unverified';
     const stateLabel=unavailable?(ar?'تعذر التحقق':'Unavailable'):!status?(readinessError?(ar?'تعذر التحقق':'Unavailable'):(ar?'قيد التحقق':'Checking')):status==='READY'?(ar?'مكتمل':'Complete'):status==='IN_PROGRESS'?(ar?'قيد التنفيذ':'In progress'):status==='BLOCKED'?(ar?'يحتاج استكمال':'Needs attention'):(ar?'لم يبدأ':'Not started');
     const dots:(FinancialSourceCheckStatus|'UNVERIFIED')[]=status==='NOT_STARTED'?(checks?.map(()=>'UNVERIFIED')??Array<FinancialSourceCheckStatus|'UNVERIFIED'>(3).fill('UNVERIFIED')):(checks?.map(check=>check.status)??Array<FinancialSourceCheckStatus|'UNVERIFIED'>(section==='chart'||section==='banking'?2:3).fill('UNVERIFIED'));
-    const expanded=expandedCard===section;
+    const expanded=expandedCard?.id===section;
     const summary=section==='fiscal'?(ar?'تحديد السنة وحالتها':'Year and fiscal period'):section==='chart'?(ar?'هيكل الحسابات وتصنيفها':'Account structure'):section==='posting'?(ar?'ربط العمليات بالحسابات':'Posting policy mappings'):section==='banking'?(ar?'الحسابات البنكية والنقدية':'Cash and bank accounts'):(ar?'اعتماد أرصدة بداية السنة':'Verify start-of-year balances');
-    return <article key={id} data-financial-section={id} data-source-status={status??'UNVERIFIED'} className={'settings-finance-state-'+state}>
-     <button type="button" className="settings-finance-card-trigger" aria-expanded={expanded} aria-haspopup="dialog" onClick={()=>setExpandedCard(expanded?null:section)}>
+    return <article key={id} data-financial-section={id} data-source-status={status??'UNVERIFIED'} data-motion-source={expanded?'true':undefined} className={'settings-finance-state-'+state}>
+     <button type="button" className="settings-finance-card-trigger" aria-expanded={expanded} aria-haspopup="dialog"
+      onPointerEnter={event=>previewCard(section,event.currentTarget,event.pointerType)}
+      onPointerLeave={()=>clearHover()} onClick={event=>openCard(section,event.currentTarget,true)}>
       <SettingsIcon name={financeIcons[id]}/>
       <strong className="settings-finance-card-name">{ar?a:e}</strong>
       <span className="settings-finance-card-summary">{summary}</span>
@@ -81,18 +156,23 @@ export default function FinancialSettingsWorkspace({locale,preferredOrg='',initi
   }</div>
 
   {expandedCard&&typeof document!=='undefined'&&createPortal((()=>{
-   const selected=sections.find(([id])=>id===expandedCard);
+   const selected=sections.find(([id])=>id===expandedCard.id);
    if(!selected)return null;
    const [id,a,e]=selected;
-   const status=readiness?.statuses[expandedCard],checks=readiness?.sourceChecks?.[expandedCard];
+   const status=readiness?.statuses[expandedCard.id],checks=readiness?.sourceChecks?.[expandedCard.id];
    const title=ar?a:e;
    const state=status==='READY'?'complete':status==='IN_PROGRESS'?'pending':status==='NOT_STARTED'?'incomplete':status==='BLOCKED'?'blocked':'unverified';
    const stateLabel=status==='READY'?(ar?'مكتمل':'Complete'):status==='IN_PROGRESS'?(ar?'قيد التنفيذ':'In progress'):status==='BLOCKED'?(ar?'يحتاج استكمال':'Needs attention'):status==='NOT_STARTED'?(ar?'لم يبدأ':'Not started'):(ar?'قيد التحقق':'Checking');
    const dots:(FinancialSourceCheckStatus|'UNVERIFIED')[]=status==='NOT_STARTED'?(checks?.map(()=>'UNVERIFIED')??Array(3).fill('UNVERIFIED')):(checks?.map(check=>check.status)??Array(3).fill('UNVERIFIED'));
-   const summary=expandedCard==='fiscal'?(ar?'تحديد الفترة المالية وحالتها':'Fiscal period and status'):expandedCard==='chart'?(ar?'إعداد هيكل الحسابات وتصنيفاتها':'Account structure and classifications'):expandedCard==='posting'?(ar?'ضبط قواعد الترحيل المحاسبي':'Configure accounting posting rules'):expandedCard==='banking'?(ar?'إعداد الحسابات البنكية والنقدية':'Configure cash and bank accounts'):(ar?'اعتماد أرصدة بداية السنة':'Approve opening balances');
-   return <div className="settings-finance-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setExpandedCard(null);}}>
-    <section className="settings-finance-modal-card" role="dialog" aria-modal="true" aria-label={title} dir={ar?'rtl':'ltr'} onKeyDown={event=>{if(event.key==='Tab'){event.preventDefault();modalCloseRef.current?.focus();}}}>
-     <button ref={modalCloseRef} type="button" className="settings-finance-modal-close" onClick={()=>setExpandedCard(null)} aria-label={ar?'إغلاق البطاقة':'Close card'}>×</button>
+   const summary=expandedCard.id==='fiscal'?(ar?'تحديد الفترة المالية وحالتها':'Fiscal period and status'):expandedCard.id==='chart'?(ar?'إعداد هيكل الحسابات وتصنيفاتها':'Account structure and classifications'):expandedCard.id==='posting'?(ar?'ضبط قواعد الترحيل المحاسبي':'Configure accounting posting rules'):expandedCard.id==='banking'?(ar?'إعداد الحسابات البنكية والنقدية':'Configure cash and bank accounts'):(ar?'اعتماد أرصدة بداية السنة':'Approve opening balances');
+   return <div className="settings-finance-modal-backdrop" data-open={cardMotionOpen?'true':'false'} data-mode={expandedCard.pinned?'pinned':'hover'}
+     onMouseDown={event=>{if(event.target===event.currentTarget&&expandedCard.pinned)collapseCard();}}>
+    <section ref={modalCardRef} className="settings-finance-modal-card" role="dialog" data-mode={expandedCard.pinned?'pinned':'hover'}
+     aria-modal={expandedCard.pinned} aria-label={title} dir={ar?'rtl':'ltr'}
+     onPointerEnter={()=>clearExit()} onPointerLeave={()=>{if(!expandedCard.pinned)schedulePreviewClose();}}
+     onPointerDown={event=>{if(!expandedCard.pinned&&!(event.target as HTMLElement).closest('button'))setExpandedCard(previous=>previous?{...previous,pinned:true}:null);}}
+     onKeyDown={event=>{if(expandedCard.pinned&&event.key==='Tab'){event.preventDefault();modalCloseRef.current?.focus();}}}>
+     <button ref={modalCloseRef} type="button" className="settings-finance-modal-close" onClick={collapseCard} aria-label={ar?'إغلاق البطاقة':'Close card'}>×</button>
      <SettingsIcon name={financeIcons[id]}/>
      <h3>{title}</h3>
      <p className="settings-finance-modal-summary">{summary}</p>
