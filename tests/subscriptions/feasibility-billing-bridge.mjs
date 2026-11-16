@@ -58,6 +58,18 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.reload();
     await page.getByRole('button',{name:'Investment',exact:true}).click();
     assert.equal(await page.getByLabel('Construction and buildings',{exact:true}).inputValue(),'24680');
+    await page.getByRole('button',{name:'Report and export',exact:true}).click();
+    const report=page.getByRole('heading',{name:'Feasibility report',exact:true});
+    await report.waitFor();
+    await page.emulateMedia({media:'print'});
+    try{
+     assert.equal(await report.isVisible(),true);
+     assert.equal(await page.getByRole('heading',{name:'Project portfolio',exact:true}).isVisible(),false);
+     assert.equal(await page.getByRole('button',{name:'Print / PDF',exact:true}).isVisible(),false);
+     const pdf=await page.pdf({format:'A4',printBackground:true});
+     assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
+    }finally{await page.emulateMedia({media:null});}
+    phase(caseName,'feasibility-report-pdf-generated');
     phase(caseName,'personal-study-opened-and-reloaded');
     const firstCompanyRead=page.waitForResponse(r=>{
      const parsed=new URL(r.url());

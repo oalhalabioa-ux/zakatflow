@@ -36,6 +36,36 @@
 .fs-register-row > button { margin-block-start: .6rem; }
 .fs-register-row + .fs-actions, .fs-register-row + .fs-btn { margin-block-start: 1rem; }
 @media print {
+ .corp-shell:has(.fs-print-report) > :not(.corp-workspace),
+ .corp-workspace:has(.fs-print-report) > :not(.corp-content),
+ .fs-page:has(> .fs-print-report) > :not(.fs-print-study-title, .fs-print-report) { display: none !important; }
+ .corp-shell:has(.fs-print-report),
+ .corp-workspace:has(.fs-print-report),
+ .corp-content:has(.fs-print-report),
+ .fs-page:has(> .fs-print-report) {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  background: white;
+ }
+ .fs-print-study-title { break-after: avoid; }
+ .fs-print-report { display: block; }
+ .fs-print-report .fs-panel + .fs-panel { margin-block-start: 10pt; }
+ .fs-page .fs-print-report .fs-panel {
+  display: block !important;
+  break-inside: auto !important;
+  padding: 9pt;
+ }
+ .fs-print-report .fs-panel :is(h3,h4,p,ul) { margin-block: 4pt; }
+ .fs-print-report .fs-panel li { margin-block: 1pt; }
+ .fs-print-report .fs-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4pt; margin-block: 6pt; }
+ .fs-print-report .fs-metric { padding: 5pt 7pt; min-height: 0; }
+ .fs-print-report .fs-metric strong { font-size: 13pt; overflow-wrap: anywhere; }
  .fs-page .fs-panel { break-inside: auto; }
  .fs-page .fs-table-wrap { overflow: visible; }
  .fs-page .fs-table { min-width: 0; width: 100%; font-size: 8pt; }

@@ -32,7 +32,7 @@ export default function FeasibilityReport({study,locale}:{study:FeasibilityStudy
    l('الموعد','Due'),l('الملاحظات','Notes')],
   ...study.tasks.map(x=>[x.title,x.phase,x.priority,x.status,x.owner,x.due,x.notes])
  ]);
- return <div className="fs-block">
+ return <div className="fs-block fs-print-report">
   <section className="card fs-panel">
    <h3>{l('التقرير الشامل','Feasibility report')}</h3>
    <p>{[study.country,study.region,study.preparedBy,study.studyDate,study.currency].filter(Boolean).join(' · ')}</p>
