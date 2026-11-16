@@ -139,6 +139,10 @@ try{
      assert.ok(after&&Math.abs(relativeTopPinned-relativeTopBefore)<3,'Click grows article within its original row');
      assert.ok(after&&after.height>=490,'The SAME article grows to reference-card height');
      if(width===1490)assert.ok(after.width>before.width*1.45,'The SAME article becomes significantly wider');
+     if(width===390){
+      const visible=await chartCard.evaluate(el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return a.left>=b.left-3&&a.right<=b.right+3;});
+      assert.ok(visible,'Expanded inline card must be fully visible on mobile');
+     }
      assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),2,'Expanded requirements live inside the source card');
      assert.equal(await chartCard.locator('.settings-progress-node.met').count(),2);
      assert.equal(await page.locator('[role=dialog],.settings-finance-modal-backdrop').count(),0,'No popup after click');
