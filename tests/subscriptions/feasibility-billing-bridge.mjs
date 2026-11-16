@@ -160,8 +160,11 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
  await check('issue 421: isolate corporate project POST authorization and origin',async()=>{
   const caseName='corporate-create';
   const org=await newOrg(marker+' Corporate POST fixture');
+  // Keep the POST same-origin under the local standalone hostname.
+  // Do not weaken the application's CSRF/origin protection.
+  const corporateAppUrl='http://localhost:3000';
   const context=await browser.newContext();
-  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:corporateAppUrl})));
   const page=await context.newPage();
   page.setDefaultTimeout(12000);
   page.setDefaultNavigationTimeout(20000);
@@ -172,7 +175,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     return u.pathname==='/api/feasibility/organization-projects'&&
      u.searchParams.get('organization')===org&&r.request().method()==='GET';
    });
-   await page.goto(appUrl+'/en/feasibility?scope=ORGANIZATION&organization='+org+'&level=COMPANY');
+   await page.goto(corporateAppUrl+'/en/feasibility?scope=ORGANIZATION&organization='+org+'&level=COMPANY');
    const get=await got;
    assert.equal(get.status(),200,'Owner company read must be granted before create');
    const grants=await get.json();
@@ -198,7 +201,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const diagnostics={
     source:'disposable-local-Chromium',caseName,
     status:response.status(),
-    requestOriginMatchesApp:requestHeaders.origin===new URL(appUrl).origin,
+    requestOriginMatchesApp:requestHeaders.origin===new URL(corporateAppUrl).origin,
     secFetchSite:requestHeaders['sec-fetch-site']||'ABSENT',
     hasOrigin:!!requestHeaders.origin,
     contentType:(responseHeaders['content-type']||'ABSENT').split(';')[0],
@@ -225,7 +228,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
       method:'POST',
       headers:{
        'content-type':'application/json',
-       Origin:new URL(appUrl).origin,
+       Origin:new URL(corporateAppUrl).origin,
        'Sec-Fetch-Site':'same-origin',
        Cookie:cookies.map(c=>c.name+'='+c.value).join('; ')
       },
