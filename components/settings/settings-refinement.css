@@ -370,3 +370,113 @@
 .corp-shell .settings-workspace .settings-finance-readiness-error .settings-compact-action{
   flex:0 0 auto;background:#10243a;color:#f5ebd6;border-color:#10243a;
 }
+
+
+/* Compact five-card financial status: detailed evidence opens below the cards. */
+.corp-shell .settings-workspace .settings-finance-status{
+ grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:14px 0 14px;
+}
+.corp-shell .settings-workspace .settings-finance-status article{
+ min-height:0;padding:0;gap:0;justify-content:stretch;overflow:hidden;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger{
+ appearance:none;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;
+ gap:7px;width:100%;min-height:220px;height:100%;padding:15px 10px 10px;
+ border:0;border-radius:14px;background:transparent;color:#1d3852;
+ font:inherit;cursor:pointer;text-align:center;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger>.settings-icon{
+ width:35px;height:35px;flex:0 0 35px;color:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-finance-card-name{
+ font-size:.98rem;font-weight:750;line-height:1.45;color:#10243a;
+}
+.corp-shell .settings-workspace .settings-finance-card-summary{
+ min-height:32px;max-width:100%;font-size:.72rem;line-height:1.5;color:#1d3852;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger:hover{background:#f0f3f5}
+.corp-shell .settings-workspace .settings-finance-card-trigger:focus-visible{
+ outline:3px solid #c6a35d;outline-offset:-3px;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger[aria-expanded=true]{
+ background:#eef2f3;box-shadow:inset 0 -3px 0 #205347;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-track{
+ width:100%;max-width:210px;display:flex;align-items:center;justify-content:stretch;
+ margin-top:auto;padding:0 4px;gap:0;min-height:21px;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-track::before,
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-track::after{
+ display:none;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-unit{
+ display:flex;flex:1 1 0;width:auto;height:auto;min-width:0;align-items:center;
+ border:0;background:transparent;border-radius:0;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-unit:first-child{
+ flex:0 0 20px;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-link{
+ display:block;flex:1 1 0;width:auto;height:3px;border:0;border-radius:0;
+ background:#c7cfd5;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-link.complete{background:#205347}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-link.pending{background:#c6a35d}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node{
+ display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;
+ box-sizing:border-box;border:2px solid #afb8c1;border-radius:50%;
+ background:#f7f8f9;color:#1d3852;font-size:12px;font-weight:800;line-height:1;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node.met{
+ border-color:#205347;background:#205347;color:#fff;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node.missing{
+ border-color:#c6a35d;background:#f7f8f9;
+}
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node.unavailable,
+.corp-shell .settings-workspace .settings-finance-card-trigger .settings-progress-node.unverified{
+ border-color:#afb8c1;background:#f7f8f9;color:#647483;
+}
+.corp-shell .settings-workspace .settings-finance-card-more{
+ font-size:.73rem;font-weight:600;color:#1d3852;line-height:1.2;
+}
+.corp-shell .settings-workspace .settings-finance-card-more>span{color:#205347;font-weight:800}
+.corp-shell .settings-workspace .settings-finance-check-panel{
+ box-sizing:border-box;margin:-2px 0 20px;padding:14px 18px;
+ border:1px solid #d8e0e7;border-radius:12px;background:#fff;color:#1d3852;
+}
+.corp-shell .settings-workspace .settings-finance-check-panel[hidden]{display:none}
+.corp-shell .settings-workspace .settings-finance-check-heading{
+ display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;
+}
+.corp-shell .settings-workspace .settings-finance-check-heading h3{
+ margin:0;font-size:.95rem;color:#10243a;
+}
+.corp-shell .settings-workspace .settings-finance-check-close{
+ border:1px solid #d8e0e7;border-radius:7px;background:#f7f8f9;
+ padding:5px 10px;font:inherit;font-size:.8rem;color:#1d3852;cursor:pointer;
+}
+.corp-shell .settings-workspace .settings-finance-check-panel .settings-finance-checks{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+ list-style:none;padding:0;margin:0;
+}
+.corp-shell .settings-workspace .settings-finance-check-panel .settings-finance-checks li{
+ display:flex;align-items:center;gap:7px;min-width:0;font-size:.8rem;line-height:1.5;
+}
+.corp-shell .settings-workspace .settings-finance-check-panel .settings-finance-check-message{
+ margin-inline-start:auto;white-space:nowrap;font-size:.73rem;color:#647483;
+}
+.corp-shell .settings-workspace .settings-finance-check-disclaimer{
+ margin:12px 0 0;color:#647483;font-size:.74rem;line-height:1.55;
+}
+@media(max-width:1320px){
+ .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:790px){
+ .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .corp-shell .settings-workspace .settings-finance-check-panel .settings-finance-checks{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+ .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:1fr}
+ .corp-shell .settings-workspace .settings-finance-card-trigger{min-height:190px}
+}
