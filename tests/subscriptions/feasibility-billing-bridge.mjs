@@ -343,10 +343,14 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await dialog.getByRole('status').waitFor();
    phase(caseName,'organization-copy-created');
 
-   for(const [selected,expected] of [[target,true],[other,false]]){
+   for(const [selected,expected] of [[target,true],[other,false],[target,true]]){
     const portfolio=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/organization-projects'&&
      new URL(r.url()).searchParams.get('organization')===selected&&r.request().method()==='GET');
-    await page.goto(appPage('ORGANIZATION',selected));
+    if(new URL(page.url()).searchParams.get('scope')==='PERSONAL'){
+     await page.goto(appPage('ORGANIZATION',selected));
+    }else{
+     await page.getByRole('combobox',{name:'Company',exact:true}).selectOption(selected);
+    }
     const loaded=await portfolio;
     assert.equal(loaded.status(),200);
     const {studies}=await loaded.json();

@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import {feasibilityOrganizationOptions} from '@/lib/feasibility/organization-options';
 import { notFound, redirect } from 'next/navigation';
 import OrganizationStudyInbox from '@/components/feasibility/OrganizationStudyInbox';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -14,5 +15,6 @@ export default async function SharedFeasibilityPage({ params }: { params: Promis
   const supabase = await supabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/' + locale + '/login');
-  return <Suspense fallback={null}><OrganizationStudyInbox locale={locale}/></Suspense>;
+  const organizations=await feasibilityOrganizationOptions(supabase);
+  return <Suspense fallback={null}><OrganizationStudyInbox locale={locale} organizations={organizations}/></Suspense>;
 }

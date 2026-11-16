@@ -1,18 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter,useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { rememberedOrganization } from '@/lib/workspace-organization';
+import { rememberedOrganization,type WorkspaceOrganization } from '@/lib/workspace-organization';
+import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import { cloudDraftWrite } from '@/lib/feasibility/draft-schema';
 import type { FeasibilityStudy } from '@/lib/feasibility/engine';
 import FeasibilityReport from './FeasibilityReport';
 
 type Share = { project_id: string; title: string; source_name: string; source_revision: number; expires_at: string };
 
-export default function OrganizationStudyInbox({ locale }: { locale: string }) {
+export default function OrganizationStudyInbox({ locale,organizations }: { locale: string;organizations:WorkspaceOrganization[] }) {
   const ar = locale === 'ar';
   const params = useSearchParams();
+  const router=useRouter();
   const selected = params.get('project') ?? '';
   const queryOrg = params.get('organization') ?? '';
   const [rememberedOrg, setRememberedOrg] = useState('');
@@ -75,6 +78,10 @@ export default function OrganizationStudyInbox({ locale }: { locale: string }) {
   const current = result?.key === requestKey ? result : undefined;
   const base = '/' + locale + '/feasibility/shared';
   return <main className="container fs-page" dir={ar ? 'rtl' : 'ltr'}>
+    <TopbarOrganizationControls>
+      <WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={organization} restore={false}
+        onChange={id=>router.replace(base+'?'+new URLSearchParams({organization:id}),{scroll:false})}/>
+    </TopbarOrganizationControls>
     <header className="fs-head"><h1>{ar ? 'الدراسات المشتركة مع المؤسسة' : 'Studies shared with the organization'}</h1></header>
     {!organization && <p>{ar ? 'اختر المؤسسة من البنر الرئيسي.' : 'Select an organization in the top bar.'}</p>}
     {organization && <section className="card fs-panel">

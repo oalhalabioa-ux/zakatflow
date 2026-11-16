@@ -3,7 +3,9 @@ import {useEffect,useMemo,useRef,useState,type ChangeEvent,type ReactNode} from 
 import {useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import OrganizationStudyShares from '@/components/feasibility/OrganizationStudyShares';
-import {rememberedOrganization} from '@/lib/workspace-organization';
+import {rememberedOrganization,type WorkspaceOrganization} from '@/lib/workspace-organization';
+import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import {currentWorkspaceScope} from '@/lib/topbar-navigation';
 import {accountDraftsVisibleInScope} from '@/lib/feasibility/portfolio-scope';
@@ -59,7 +61,7 @@ function Info({label,value,sub}:{label:string;value:string;sub?:string}){
 function SelectField<T extends string>({label,value,items,onChange}:{label:string;value:T;items:Array<{value:T;label:string}>;onChange:(value:T)=>void}){
  return <label className="fs-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.currentTarget.value as T)}>{items.map(x=><option value={x.value} key={x.value}>{x.label}</option>)}</select></label>;
 }
-export default function FeasibilityWorkspace({locale,userId,readOnly=false,organizationEnabled=false,organizationSharing=false}:{locale:string;userId:string;readOnly?:boolean;organizationEnabled?:boolean;organizationSharing?:boolean}){
+export default function FeasibilityWorkspace({locale,userId,readOnly=false,organizationEnabled=false,organizationSharing=false,organizations=[]}:{locale:string;userId:string;readOnly?:boolean;organizationEnabled?:boolean;organizationSharing?:boolean;organizations?:WorkspaceOrganization[]}){
  const searchParams=useSearchParams();
  const [scope]=useWorkspaceScope(currentWorkspaceScope('feasibility',searchParams.toString()));
  const personalScope=scope==='PERSONAL';
@@ -446,6 +448,12 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   return <main className="container fs-page" dir={ar?'rtl':'ltr'}><p role="status">{txt(ar,'جاري تحميل مسودات الحساب الحالي…','Loading this account\'s drafts…')}</p></main>;
  }
  return <main className="container fs-page" dir={ar?'rtl':'ltr'}>
+  {organizationEnabled&&<TopbarOrganizationControls>
+   <WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={organizationId}
+    onChange={setOrganizationId} restore={false} disabled={organizationBusy}
+    beforeChange={()=>personalScope||!organizationStudies.some(x=>organizationRecords[x.id]?.study.updatedAt!==x.updatedAt)||
+     window.confirm(txt(ar,'التعديلات غير محفوظة. هل تريد تبديل المؤسسة؟','Company changes are unsaved. Switch organizations?'))}/>
+  </TopbarOrganizationControls>}
   <header className="fs-head"><div><h1>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
    {personalScope&&<div className="fs-actions"><Button secondary onClick={download} disabled={!personalScope||!visibleStudies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly||!personalScope||!storageSafe||cloudBusy}/></label><Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>{cloudEnabled&&personalScope&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={effectiveReadOnly||!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>}
    {!personalScope&&organizationId&&organizationLoaded&&!organizationError&&<div className="fs-actions">

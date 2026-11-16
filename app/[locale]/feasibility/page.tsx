@@ -1,3 +1,4 @@
+import {feasibilityOrganizationOptions} from '@/lib/feasibility/organization-options';
 import {feasibilitySelfServeEnabled,readFeasibilityGrant} from '@/lib/feasibility/grant';
 import FeasibilityEnrollment from '@/components/feasibility/FeasibilityEnrollment';
 import {notFound,redirect} from 'next/navigation';
@@ -19,9 +20,12 @@ export default async function FeasibilityPage({params}:{params:Promise<{locale:s
  const access=evaluateFeasibilityAccess(grant);
  const organizationSharing=process.env.FEASIBILITY_ORG_SHARING==='true'&&process.env.FEASIBILITY_ORG_QA==='true';
  if(!access.canRead){
-  if(!feasibilitySelfServeEnabled())notFound();
-  return <FeasibilityEnrollment locale={locale} organizationSharing={organizationSharing}/>;
+  const selfServe=feasibilitySelfServeEnabled();
+  if(!selfServe&&!organizationSharing)notFound();
+  return <FeasibilityEnrollment locale={locale} organizationSharing={organizationSharing} selfServe={selfServe}/>;
  }
+ const organizationEnabled=process.env.FEASIBILITY_ORG_QA==='true';
+ const organizations=organizationEnabled?await feasibilityOrganizationOptions(supabase):[];
  return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite}
-  organizationEnabled={process.env.FEASIBILITY_ORG_QA==='true'} organizationSharing={organizationSharing}/>;
+  organizationEnabled={organizationEnabled} organizationSharing={organizationSharing} organizations={organizations}/>;
 }
