@@ -161,7 +161,7 @@ describe('copy a personal cloud study into an organization',()=>{
   db.projects.maybeSingle.mockResolvedValue({data:source,error:null});
   await POST(copy());
   db.projects.single.mockResolvedValueOnce({data:null,error:{code:'23505'}});
-  expect((await POST(copy())).status).toBe(409);
+  expect((await POST(copy({...input,sourceId:study.id.toUpperCase()},orgId.toUpperCase()))).status).toBe(409);
   await POST(copy(input,otherOrg));
   const ids=db.projects.insert.mock.calls.map(([record])=>record.id);
   expect(ids[0]).toBe(ids[1]);

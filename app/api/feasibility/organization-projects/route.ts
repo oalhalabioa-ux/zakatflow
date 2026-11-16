@@ -30,7 +30,7 @@ const isCopyRequest=(request:Request)=>new URL(request.url).searchParams.get('ac
 
 async function authorize(request:Request){
  if(!enabled())return json({error:'ORGANIZATION_FEASIBILITY_DISABLED'},404);
- const organizationId=new URL(request.url).searchParams.get('organization');
+ const organizationId=new URL(request.url).searchParams.get('organization')?.toLowerCase();
  if(!uuid.safeParse(organizationId).success)return json({error:'INVALID_ORGANIZATION'},400);
  const supabase=await supabaseServer();
  const {data:{user},error:authError}=await supabase.auth.getUser();
@@ -104,7 +104,8 @@ async function copyPersonalStudy(request:Request,ctx:OrganizationContext){
  try{input=JSON.parse(raw)}catch{return json({error:'INVALID_COPY_REQUEST'},400)}
  const checked=copyRequest.safeParse(input);
  if(!checked.success)return json({error:'INVALID_COPY_REQUEST'},400);
- const {sourceId,revision}=checked.data;
+ const {revision}=checked.data;
+ const sourceId=checked.data.sourceId.toLowerCase();
  const {data,error}=await ctx.supabase.from('feasibility_projects')
   .select('study,revision').eq('id',sourceId).eq('owner_user_id',ctx.userId)
   .is('organization_id',null).maybeSingle();
@@ -112,7 +113,7 @@ async function copyPersonalStudy(request:Request,ctx:OrganizationContext){
  if(!data)return json({error:'PERSONAL_DRAFT_NOT_FOUND'},404);
  if(data.revision!==revision)return json({error:'SOURCE_REVISION_CONFLICT'},409);
  const source=cloudDraftWrite.safeParse({study:data.study});
- if(!source.success||source.data.study.id!==sourceId)return json({error:'INVALID_SOURCE_STUDY'},422);
+ if(!source.success||source.data.study.id.toLowerCase()!==sourceId)return json({error:'INVALID_SOURCE_STUDY'},422);
 
  const {handoff,...study}=source.data.study;
  const now=new Date().toISOString();
