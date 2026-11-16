@@ -10,8 +10,8 @@ import {
 describe('deployment recovery redirect flow', () => {
   it('uses the public app origin when Hostinger exposes its internal bind address', () => {
     const origin = getAuthServerOrigin('https://0.0.0.0:3000/auth/callback?code=example', 'https://www.yaqeenbiz.com/');
-    expect(new URL('/ar/dashboard', origin).href).toBe('https://www.yaqeenbiz.com/ar/dashboard');
-    expect(new URL('/ar/login?error=auth', origin).href).toBe('https://www.yaqeenbiz.com/ar/login?error=auth');
+    expect(new URL('/ar/dashboard', origin).href).toBe('https://app.yaqeenbiz.com/ar/dashboard');
+    expect(new URL('/ar/login?error=auth', origin).href).toBe('https://app.yaqeenbiz.com/ar/login?error=auth');
   });
 
   it('keeps public previews on their own origin even when app URL points to production', () => {
@@ -37,10 +37,10 @@ describe('deployment recovery redirect flow', () => {
     ]) {
       expect(getAuthOrigin(origin)).toBe(origin);
       expect(getRecoveryRedirectUrl(origin, 'ar')).toBe(
-        `${origin}/auth/callback?next=%2Fauth%2Freset-password`,
+        `${origin}/auth/callback?next=%2Fauth%2Freset-password%3Flang%3Dar&lang=ar`,
       );
       expect(getAuthCallbackUrl(origin, 'ar')).toBe(
-        `${origin}/auth/callback?next=%2Far%2Fdashboard`,
+        `${origin}/auth/callback?next=%2Far%2Fdashboard&lang=ar`,
       );
     }
   });
@@ -51,16 +51,16 @@ describe('deployment recovery redirect flow', () => {
 
   it('keeps forgot-password, callback, and reset on the same preview', () => {
     const origin = 'https://zakatflow-9h16dlmm1-oalhalabioa-9334.vercel.app';
-    expect(getRecoveryRedirectUrl(origin, 'ar')).toBe(`${origin}/auth/callback?next=%2Fauth%2Freset-password`);
+    expect(getRecoveryRedirectUrl(origin, 'ar')).toBe(`${origin}/auth/callback?next=%2Fauth%2Freset-password%3Flang%3Dar&lang=ar`);
     expect(getAuthCallbackUrl(origin, 'ar')).toBe(
-      `${origin}/auth/callback?next=%2Far%2Fdashboard`,
+      `${origin}/auth/callback?next=%2Far%2Fdashboard&lang=ar`,
     );
   });
 
   it('supports an explicitly configured callback origin without dropping the invite', () => {
     const stable = 'https://staging.example.com';
     expect(canonicalizeAuthUrl('https://preview.example.com/ar/login?invite=safe', `${stable}/`)).toBe(`${stable}/ar/login?invite=safe`);
-    expect(getAuthCallbackUrl('https://preview.example.com', 'ar', stable, 'safe')).toBe(`${stable}/auth/callback?next=%2Far%2Fdashboard&invite=safe`);
+    expect(getAuthCallbackUrl('https://preview.example.com', 'ar', stable, 'safe')).toBe(`${stable}/auth/callback?next=%2Far%2Fdashboard&lang=ar&invite=safe`);
   });
 
   it('preserves the safe callback next target', () => {

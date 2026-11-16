@@ -1,0 +1,348 @@
+{
+  "to": "2026-12-31",
+  "from": "2026-01-01",
+  "events": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000100",
+      "date": "2026-01-15",
+      "lines": [
+        {
+          "id": "a0000000-0000-4000-8000-000000001100",
+          "baseAmount": "100",
+          "cashDirection": "NON_CASH",
+          "recognitionSign": 1,
+          "classificationId": "a0000000-0000-4000-8000-000000000001"
+        },
+        {
+          "id": "a0000000-0000-4000-8000-000000002100",
+          "baseAmount": "15",
+          "cashDirection": "NON_CASH",
+          "recognitionSign": 1,
+          "classificationId": "a0000000-0000-4000-8000-000000000002"
+        }
+      ],
+      "status": "ACTUAL",
+      "currency": "SAR",
+      "eventType": "EXPENSE",
+      "sourceKey": "invoice",
+      "sourceModule": "STATEMENT_QA",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000101",
+      "date": "2026-01-16",
+      "lines": [
+        {
+          "id": "a0000000-0000-4000-8000-000000001101",
+          "baseAmount": "115",
+          "cashDirection": "OUTFLOW",
+          "recognitionSign": 1,
+          "classificationId": "a0000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "status": "ACTUAL",
+      "currency": "SAR",
+      "eventType": "SETTLEMENT",
+      "sourceKey": "payment",
+      "sourceModule": "STATEMENT_QA",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000102",
+      "date": "2026-01-17",
+      "lines": [
+        {
+          "id": "a0000000-0000-4000-8000-000000001102",
+          "baseAmount": "200",
+          "cashDirection": "NON_CASH",
+          "recognitionSign": 1,
+          "classificationId": "a0000000-0000-4000-8000-000000000003"
+        }
+      ],
+      "status": "ACTUAL",
+      "currency": "SAR",
+      "eventType": "REVENUE",
+      "sourceKey": "sale",
+      "sourceModule": "STATEMENT_QA",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000103",
+      "date": "2026-01-18",
+      "lines": [
+        {
+          "id": "a0000000-0000-4000-8000-000000001103",
+          "baseAmount": "200",
+          "cashDirection": "INFLOW",
+          "recognitionSign": 1,
+          "classificationId": "a0000000-0000-4000-8000-000000000003"
+        }
+      ],
+      "status": "ACTUAL",
+      "currency": "SAR",
+      "eventType": "SETTLEMENT",
+      "sourceKey": "receipt",
+      "sourceModule": "STATEMENT_QA",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000104",
+      "date": "2026-02-01",
+      "lines": [
+        {
+          "id": "a0000000-0000-4000-8000-000000001104",
+          "baseAmount": "40",
+          "cashDirection": "OUTFLOW",
+          "recognitionSign": 1,
+          "classificationId": "a0000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "status": "ACTUAL",
+      "currency": "SAR",
+      "eventType": "ASSET_PURCHASE",
+      "sourceKey": "equipment",
+      "sourceModule": "STATEMENT_QA",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000105",
+      "date": "2026-03-01",
+      "lines": [
+        {
+          "id": "a0000000-0000-4000-8000-000000001105",
+          "baseAmount": "30",
+          "cashDirection": "INFLOW",
+          "recognitionSign": 1,
+          "classificationId": "a0000000-0000-4000-8000-000000000005"
+        }
+      ],
+      "status": "ACTUAL",
+      "currency": "SAR",
+      "eventType": "LIABILITY",
+      "sourceKey": "financing",
+      "sourceModule": "STATEMENT_QA",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    }
+  ],
+  "origin": "LOCAL_QA_CANONICAL_EVENTS",
+  "policy": {
+    "id": "LOCAL-FIXTURE-POLICY-10000000-0000-4000-8000-000000000003",
+    "rules": [
+      {
+        "id": "expense",
+        "to": "2026-12-31",
+        "from": "2026-01-01",
+        "currency": "SAR",
+        "eventType": "EXPENSE",
+        "sourceModule": "STATEMENT_QA",
+        "cashDirection": "NON_CASH",
+        "debitAccountId": "opex",
+        "organizationId": "10000000-0000-4000-8000-000000000003",
+        "creditAccountId": "payable",
+        "classificationId": "a0000000-0000-4000-8000-000000000001"
+      },
+      {
+        "id": "vat",
+        "to": "2026-12-31",
+        "from": "2026-01-01",
+        "currency": "SAR",
+        "eventType": "EXPENSE",
+        "sourceModule": "STATEMENT_QA",
+        "cashDirection": "NON_CASH",
+        "debitAccountId": "vat",
+        "organizationId": "10000000-0000-4000-8000-000000000003",
+        "creditAccountId": "payable",
+        "classificationId": "a0000000-0000-4000-8000-000000000002"
+      },
+      {
+        "id": "payment",
+        "to": "2026-12-31",
+        "from": "2026-01-01",
+        "currency": "SAR",
+        "eventType": "SETTLEMENT",
+        "cashActivity": "OPERATING",
+        "sourceModule": "STATEMENT_QA",
+        "cashDirection": "OUTFLOW",
+        "debitAccountId": "payable",
+        "organizationId": "10000000-0000-4000-8000-000000000003",
+        "creditAccountId": "bank",
+        "classificationId": "a0000000-0000-4000-8000-000000000001"
+      },
+      {
+        "id": "sale",
+        "to": "2026-12-31",
+        "from": "2026-01-01",
+        "currency": "SAR",
+        "eventType": "REVENUE",
+        "sourceModule": "STATEMENT_QA",
+        "cashDirection": "NON_CASH",
+        "debitAccountId": "receivable",
+        "organizationId": "10000000-0000-4000-8000-000000000003",
+        "creditAccountId": "revenue",
+        "classificationId": "a0000000-0000-4000-8000-000000000003"
+      },
+      {
+        "id": "receipt",
+        "to": "2026-12-31",
+        "from": "2026-01-01",
+        "currency": "SAR",
+        "eventType": "SETTLEMENT",
+        "cashActivity": "OPERATING",
+        "sourceModule": "STATEMENT_QA",
+        "cashDirection": "INFLOW",
+        "debitAccountId": "bank",
+        "organizationId": "10000000-0000-4000-8000-000000000003",
+        "creditAccountId": "receivable",
+        "classificationId": "a0000000-0000-4000-8000-000000000003"
+      },
+      {
+        "id": "equipment",
+        "to": "2026-12-31",
+        "from": "2026-01-01",
+        "currency": "SAR",
+        "eventType": "ASSET_PURCHASE",
+        "cashActivity": "INVESTING",
+        "sourceModule": "STATEMENT_QA",
+        "cashDirection": "OUTFLOW",
+        "debitAccountId": "equipment",
+        "organizationId": "10000000-0000-4000-8000-000000000003",
+        "creditAccountId": "bank",
+        "classificationId": "a0000000-0000-4000-8000-000000000004"
+      },
+      {
+        "id": "financing",
+        "to": "2026-12-31",
+        "from": "2026-01-01",
+        "currency": "SAR",
+        "eventType": "LIABILITY",
+        "cashActivity": "FINANCING",
+        "sourceModule": "STATEMENT_QA",
+        "cashDirection": "INFLOW",
+        "debitAccountId": "bank",
+        "organizationId": "10000000-0000-4000-8000-000000000003",
+        "creditAccountId": "debt",
+        "classificationId": "a0000000-0000-4000-8000-000000000005"
+      }
+    ],
+    "currency": "SAR",
+    "approvedAt": "2026-01-01T00:00:00Z",
+    "approvedBy": "30000000-0000-4000-8000-000000000001",
+    "organizationId": "10000000-0000-4000-8000-000000000003"
+  },
+  "opening": [
+    {
+      "debit": "500.0000",
+      "credit": "0.0000",
+      "accountId": "bank"
+    },
+    {
+      "debit": "0.0000",
+      "credit": "500.0000",
+      "accountId": "capital"
+    }
+  ],
+  "accounts": [
+    {
+      "ar": "البنك",
+      "en": "Bank",
+      "id": "bank",
+      "cash": true,
+      "kind": "ASSET",
+      "currency": "SAR",
+      "presentation": "CURRENT",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "ar": "ضريبة مدخلات قابلة للاسترداد",
+      "en": "Recoverable input VAT",
+      "id": "vat",
+      "cash": false,
+      "kind": "ASSET",
+      "currency": "SAR",
+      "presentation": "CURRENT",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "ar": "الذمم المدينة",
+      "en": "Trade receivables",
+      "id": "receivable",
+      "cash": false,
+      "kind": "ASSET",
+      "currency": "SAR",
+      "presentation": "CURRENT",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "ar": "معدات",
+      "en": "Equipment",
+      "id": "equipment",
+      "cash": false,
+      "kind": "ASSET",
+      "currency": "SAR",
+      "presentation": "NON_CURRENT",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "ar": "الذمم الدائنة",
+      "en": "Trade payables",
+      "id": "payable",
+      "cash": false,
+      "kind": "LIABILITY",
+      "currency": "SAR",
+      "presentation": "CURRENT",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "ar": "تمويل طويل الأجل",
+      "en": "Long-term financing",
+      "id": "debt",
+      "cash": false,
+      "kind": "LIABILITY",
+      "currency": "SAR",
+      "presentation": "NON_CURRENT",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "ar": "رأس المال",
+      "en": "Capital",
+      "id": "capital",
+      "cash": false,
+      "kind": "EQUITY",
+      "currency": "SAR",
+      "presentation": "OTHER",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "ar": "الإيرادات",
+      "en": "Revenue",
+      "id": "revenue",
+      "cash": false,
+      "kind": "REVENUE",
+      "currency": "SAR",
+      "presentation": "OTHER",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    },
+    {
+      "ar": "المصروفات التشغيلية",
+      "en": "Operating expenses",
+      "id": "opex",
+      "cash": false,
+      "kind": "OPEX",
+      "currency": "SAR",
+      "presentation": "OTHER",
+      "organizationId": "10000000-0000-4000-8000-000000000003"
+    }
+  ],
+  "coverage": {
+    "scope": "ORGANIZATION_ALL_ENTITIES",
+    "readAt": "2026-11-02T00:00:00.000Z",
+    "complete": true,
+    "lineCount": 7,
+    "eventCount": 6
+  },
+  "currency": "SAR",
+  "fiscalStart": "2026-01-01",
+  "openingDate": "2025-12-31",
+  "organizationId": "10000000-0000-4000-8000-000000000003",
+  "openingSourceId": "LOCAL-FIXTURE-OPENING-10000000-0000-4000-8000-000000000003"
+}

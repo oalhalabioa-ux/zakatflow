@@ -1,0 +1,31 @@
+{
+  "description": "Persisted native reversal lines, original account resolution and aggregate permission checks; QA native borrowing/lending rollback verified.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_native_reversal_original(p_org uuid, p_line uuid)",
+      "fingerprint": "2df19630e0312cf7b52ab10edd1b4a6f"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_reporting_events(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "8b8e6035383dc3da9b4867e7fae721e4"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_resolve_event_posting(p_org uuid, p_event jsonb, p_policy uuid, p_rules jsonb, p_strict boolean)",
+      "fingerprint": "c0e16d8c761e8ca3f400e4b13bf96ec4"
+    },
+    {
+      "category": "function",
+      "object_key": "private.post_debt_operation(p_id uuid)",
+      "fingerprint": "51f08ac5333c34c1f8acf83d5229993e"
+    },
+    {
+      "category": "function",
+      "object_key": "private.prepare_debt_operation(p jsonb)",
+      "fingerprint": "b7934f8e05bfa6d2e0f624b885c41c78"
+    }
+  ]
+}

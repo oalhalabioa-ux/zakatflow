@@ -1,0 +1,16 @@
+{
+  "description": "Capture original payable and cash activity for new manual liquidity payments.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_capture_actual_posting()",
+      "fingerprint": "36e088f68d3ba9bb310b6e977d6f61a2"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_resolve_manual_payment(p_org uuid, p_event jsonb, p_lines jsonb)",
+      "fingerprint": "f01c8a443cba16e501507bad000d79f4"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "description": "Exact debt operation clearing classifications and explicit refund/reschedule source roles.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.prepare_debt_operation(p jsonb)",
+      "fingerprint": "bdee661acf80e425a0c9c33b1eeb99dc"
+    }
+  ]
+}

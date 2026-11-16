@@ -1,0 +1,276 @@
+{
+  "description": "Additive audited branch-opening distribution schema fingerprints observed in clean disposable Supabase bootstrap. No historical objects changed.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_audit.action",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_audit.actor_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_audit.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_audit.details",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_audit.distribution_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_audit.id",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_audit.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_audit.version",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.approved_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.approved_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.entries",
+      "fingerprint": "76d26ceff0731fd880ac54724ba71355"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.fiscal_start",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.opening_digest",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.opening_version",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.opening_workspace_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.reason",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.status",
+      "fingerprint": "e43c3c73b894819d7d129c8bca319d6e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.updated_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.updated_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_branch_opening_distributions.version",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_audit.financial_branch_opening_audit_action_check",
+      "fingerprint": "a0603178224dc268ee3ff928f2a0b958"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_audit.financial_branch_opening_audit_actor_id_fkey",
+      "fingerprint": "508a4cf20410e80e6cb722233bc03330"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_audit.financial_branch_opening_audit_distribution_id_fkey",
+      "fingerprint": "ff671969078620348a2708cabb1927b0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_audit.financial_branch_opening_audit_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_audit.financial_branch_opening_audit_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distribution_opening_workspace_id_fkey",
+      "fingerprint": "d028198f9f54369237ccabc74de899d0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_approved_by_fkey",
+      "fingerprint": "110651700f2cf1b3d653b3d4a50d81a9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_check",
+      "fingerprint": "2b261befa36aa658873c50425e3e9f20"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_currency_check",
+      "fingerprint": "f0d8a806244ef088accc061b49313af2"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_entries_check",
+      "fingerprint": "f73d37d267f066dac2e1efb9211277ad"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_opening_digest_check",
+      "fingerprint": "5ed380d1a56252a2e35ba38b800ec86a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_opening_version_check",
+      "fingerprint": "b94bdc9ce3acab8619c0459fff625277"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_status_check",
+      "fingerprint": "921fe4ec0077e87cb83960b388e6f2f3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_updated_by_fkey",
+      "fingerprint": "813e89165d4f52cd798f126fbc683169"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_version_check",
+      "fingerprint": "2c83586178a0d05fd5156431b31923c1"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_branch_opening_check(p_org uuid, p_opening jsonb, p_entries jsonb)",
+      "fingerprint": "2d04863b55416215e495117d184392af"
+    },
+    {
+      "category": "function",
+      "object_key": "public.approve_financial_branch_opening(p_distribution uuid, p_expected_version integer)",
+      "fingerprint": "f03a1a8b1110cb809acfc639ca60d861"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_branch_opening_context(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "d5368fca9680fb243aae2358ed7a125d"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_branch_opening(p_org uuid, p_fiscal_start date, p_expected_version integer, p_opening_workspace uuid, p_opening_version integer, p_entries jsonb, p_reason text)",
+      "fingerprint": "0f8deace056a2cd427d2636fe52f6d8d"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_branch_opening_audit.financial_branch_opening_audit_pkey",
+      "fingerprint": "5d6197dbba42382799cfe2226e260ca2"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_distributions_pkey",
+      "fingerprint": "46451a5b9adba467d9b3cdc318e67317"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_one_approved",
+      "fingerprint": "a672b94aeb05eb1b04843c8df97d87f4"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_one_draft",
+      "fingerprint": "d9f159d32522a042242d8c0a16e05149"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_branch_opening_distributions.financial_branch_opening_workspace_lookup",
+      "fingerprint": "20013745e0dcf574244d50e4d2da9251"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_branch_opening_audit",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_branch_opening_distributions",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

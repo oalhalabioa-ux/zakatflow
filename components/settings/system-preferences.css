@@ -1,0 +1,27 @@
+/* Yaqeen original corporate shell remains unchanged. This controls only
+ * the independent System Settings content area. */
+.yp-preferences{--yp-navy:#10243a;--yp-gold:#c6a35d;--yp-green:#155438;max-width:100%;display:grid;gap:17px}
+.yp-preferences-heading{border:1px solid var(--brand-border,#dce2ea);background:var(--brand-surface,#fff);border-radius:12px;padding:19px 22px}
+.yp-preferences-heading h2{margin:0 0 8px;font-size:1.4rem;color:var(--brand-text,#10243a)}
+.yp-preferences-heading p,.yp-preferences-card p{margin:0;color:var(--muted,#64748b);line-height:1.8;font-size:.88rem}
+.yp-preferences-tabs{display:flex;align-items:stretch;justify-content:flex-start;gap:6px;padding:5px;border-radius:10px;border:1px solid var(--brand-border,#dce2ea);background:var(--brand-surface,#fff)}
+.yp-preferences-tabs button{font:inherit;font-size:.88rem;cursor:pointer;min-height:42px;padding:9px 20px;min-width:105px;border:1px solid transparent;border-radius:7px;color:var(--brand-text,#10243a);background:transparent}
+.yp-preferences-tabs button[aria-pressed=true]{background:#10243a;color:#f5ebd6;border-color:#c6a35d;box-shadow:inset 0 -2px #c6a35d;font-weight:800}
+.yp-preferences-card{display:grid;gap:15px;border:1px solid var(--brand-border,#dce2ea);border-radius:12px;background:var(--brand-surface,#fff);padding:22px}
+.yp-preferences-card h3{color:var(--brand-text,#10243a);font-size:1.05rem;margin:4px 0 0}
+.yp-themes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.yp-theme{font:inherit;min-width:0;border:1px solid var(--brand-border,#dce2ea);background:var(--brand-surface,#fff);border-radius:10px;padding:10px;display:grid;justify-items:center;gap:6px;text-align:center;cursor:pointer;color:var(--brand-text,#10243a)}
+.yp-theme[aria-pressed=true]{border-color:#c6a35d;box-shadow:inset 0 0 0 1px #c6a35d;background:#f5ebd61a}
+.yp-theme strong{font-size:.91rem}.yp-theme small{font-size:.78rem;color:var(--muted,#64748b)}
+.yp-theme-preview{display:block;position:relative;width:100%;height:72px;border:1px solid #cfd7e2;border-radius:7px;background:linear-gradient(90deg,#e8edf1 73%,#10243a 73%);overflow:hidden}
+.yp-theme-preview i:first-child{position:absolute;top:0;left:0;width:100%;height:13px;background:#10243a}
+.yp-theme-preview i:nth-child(2){position:absolute;top:26px;left:12%;width:51%;height:11px;background:#fff;border-radius:3px}
+.yp-theme-preview i:nth-child(3){position:absolute;top:46px;left:12%;width:43%;height:11px;background:#fff;border-radius:3px}
+.yp-theme-preview.theme-elegant{background:linear-gradient(90deg,#f3f5f2 73%,#174d3a 73%)}.yp-theme-preview.theme-elegant i:first-child{background:#174d3a}
+.yp-theme-preview.theme-classic{background:linear-gradient(90deg,#f1f3f7 73%,#455b70 73%)}.yp-theme-preview.theme-classic i:first-child{background:#455b70}
+.yp-theme-preview.theme-modern{background:linear-gradient(90deg,#f0f7f7 73%,#3d8a82 73%)}.yp-theme-preview.theme-modern i:first-child{background:#3d8a82}
+.yp-preferences-quick{display:flex;gap:10px;flex-wrap:wrap}
+.yp-preferences-quick a,.yp-preferences-cta{display:inline-flex;justify-content:center;align-items:center;text-decoration:none;min-height:40px;padding:10px 14px;border-radius:9px;border:1px solid #10243a;color:#10243a;background:#fff;font-size:.87rem;font-weight:750}
+.yp-preferences-cta{background:#155438;color:#fff;border-color:#155438;justify-self:start}
+.yp-preferences-success{margin:0;border:1px solid #b4d6bd;border-radius:10px;background:#edf8f0;color:#155438;padding:12px 15px;font-size:.88rem}
+@media(max-width:780px){.yp-themes{grid-template-columns:repeat(2,minmax(0,1fr))}.yp-preferences-card{padding:14px}.yp-preferences-tabs{overflow-x:auto}.yp-preferences-tabs button{flex:0 0 auto;padding:8px 12px;font-size:.78rem}}

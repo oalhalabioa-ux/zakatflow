@@ -1,0 +1,50 @@
+name: Settings native UI acceptance
+on:
+  pull_request:
+    paths:
+      - 'components/settings/**'
+      - 'app/[locale]/settings/**'
+      - 'app/[locale]/billing/**'
+      - 'tests/settings/**'
+      - '.github/workflows/settings-ui-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:55441
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ui-fixture-key
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3007
+      FINANCIAL_OPENING_WORKSPACE: 'true'
+      FINANCIAL_STATEMENTS_LIVE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Install isolated UI browser
+        run: |
+          npm install --prefix "$RUNNER_TEMP/settings-browser" --no-package-lock --no-save playwright@1.64.1
+          node "$RUNNER_TEMP/settings-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "SETTINGS_BROWSER_MODULE=$RUNNER_TEMP/settings-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "SETTINGS_UI_OUT=$RUNNER_TEMP/settings-ui-evidence" >> "$GITHUB_ENV"
+      - run: npm run build
+      - name: Start local-only UI workspace
+        run: |
+          npm run start -- --port 3007 --hostname 127.0.0.1 > "$RUNNER_TEMP/settings-ui-server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3007/ >/dev/null && exit 0; sleep 1; done
+          exit 1
+      - name: Native save/reload and bilingual desktop/mobile UI
+        run: node tests/settings/visual-fixture.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: settings-native-ui-fixture-evidence
+          path: |
+            ${{ runner.temp }}/settings-ui-evidence
+            ${{ runner.temp }}/settings-ui-server.log

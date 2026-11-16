@@ -1,3 +1,5 @@
+import {withVoucherNumbers} from '../../../../services/voucher-numbers';
+import {isSameOriginRequest} from '../../../../lib/request-origin';
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {requireUser} from '../../../../services/auth';
@@ -15,10 +17,11 @@ const failure=(e:any)=>{
 export async function GET(req:Request){try{
  const id=z.string().uuid().parse(new URL(req.url).searchParams.get('asset_id'));
  const{supabase}=await requireUser();const{data,error}=await supabase.rpc('manage_asset_opening',{p_asset_id:id,p_action:'INSPECT'});if(error)throw error;
- return NextResponse.json(data,{headers});
+ const {data:opening,error:openingError}=await supabase.from('transactions').select('id,transaction_type').eq('asset_account_id',id).in('transaction_type',['OPENING_BALANCE','ADD']).order('created_at').limit(1).maybeSingle();if(openingError)throw openingError;
+ return NextResponse.json(await withVoucherNumbers(supabase,{...data,opening_transaction_id:opening?.id??null,opening_transaction_type:opening?.transaction_type??null}),{headers});
 }catch(e){return failure(e);}}
 export async function POST(req:Request){try{
- if(req.headers.get('origin')!==new URL(req.url).origin)throw Error('ORIGIN_REQUIRED');
+ if(!isSameOriginRequest(req))throw Error('ORIGIN_REQUIRED');
  const p=command.parse(await req.json());const{supabase,user}=await requireUser();
  let changes:Record<string,unknown>={};
  if(p.action==='UPDATE'){

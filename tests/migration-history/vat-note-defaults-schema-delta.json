@@ -1,0 +1,11 @@
+{
+  "description": "Preserved role provisioning with supplier/customer refund controls",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.prepare_financial_posting_defaults(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "5d14d099df6df53d7667d2e852988306"
+    }
+  ]
+}

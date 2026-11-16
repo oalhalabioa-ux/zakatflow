@@ -1,0 +1,26 @@
+{
+  "description": "Category routing for new tagged debt openings; historical fallback, assignments and closed snapshots preserved.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_debt_source_account(p_org uuid, p_event uuid, p_side text)",
+      "fingerprint": "1cd3a8ef2b78aa2c8bbd12f1e7de5352"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_opening_sources(p_org uuid, p_cutoff date)",
+      "fingerprint": "a131b5c20e0b7fe069ce5492588f8765"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_period_opening_sources(p_org uuid, p_start date)",
+      "fingerprint": "6aef2a844227d55a863b24a07b5485fd"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_opening_candidates(p_org uuid, p_start date)",
+      "fingerprint": "8589bd366493929bdae6d66b5591c043"
+    }
+  ]
+}

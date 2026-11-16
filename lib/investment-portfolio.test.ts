@@ -42,7 +42,7 @@ describe('investment portfolio',()=>{
  });
  it('exports bonds and sukuk together without dropping either type or including deposits',()=>{
   const report=investmentInstrumentReport([instrument('bond',{instrument:'BOND',name:'Bond'}),instrument('sukuk',{instrument:'SUKUK',name:'Sukuk'}),instrument('deposit')],[],'SECURITIES');
-  expect(report.rows).toHaveLength(2);expect(report.rows.map(r=>r[0])).toEqual(['سندات','صكوك']);expect(report.rows.map(r=>r[1])).toEqual(['Bond','Sukuk']);
+  expect(report.rows).toHaveLength(2);expect(report.rows.map(r=>r[report.columns.indexOf('نوع الأداة')])).toEqual(['سندات','صكوك']);expect(report.rows.map(r=>r[report.columns.indexOf('الاستثمار')])).toEqual(['Bond','Sukuk']);
   for(const row of report.rows)expect(row).toHaveLength(report.columns.length);
   for(const row of report.csvRows)expect(row).toHaveLength(report.csvColumns.length);
  });

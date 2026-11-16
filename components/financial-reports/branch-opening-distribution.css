@@ -1,0 +1,26 @@
+.ob-branch-page{max-width:100%;padding:24px;color:var(--text-primary,inherit)}
+.ob-branch-shell{max-width:1500px;margin:0 auto}
+.ob-branch-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.ob-branch-header h1{font-size:1.55rem;margin:0 0 8px;color:var(--text-primary,#10243a)}
+.ob-branch-header p{margin:0;color:var(--text-secondary,#737d88)}
+.ob-branch-link,.ob-branch-actions button,.ob-branch-filters button,.ob-branch-more{border:1px solid #c6a35d;border-radius:9px;background:#10243a;color:#f5ebd6;padding:9px 13px;text-decoration:none;cursor:pointer}
+.ob-branch-notice{padding:12px 16px;border-radius:9px;background:rgba(198,163,93,.10);border-inline-start:3px solid #c6a35d;margin:12px 0 16px}
+.ob-branch-error{color:#a33;border:1px solid #dcb8b8;padding:9px 12px;border-radius:8px}.ob-branch-success{color:#20643a}
+.ob-branch-meta{display:flex;flex-wrap:wrap;gap:12px 22px;margin:14px 0}
+.ob-branch-filters{display:flex;flex-wrap:wrap;align-items:end;gap:16px;margin:16px 0}
+.ob-branch-filters label,.ob-branch-actions label{display:grid;gap:5px;font-size:.9rem}
+.ob-branch-filters input,.ob-branch-actions input,.ob-branch-allocation input,.ob-branch-allocation select{border:1px solid #c7ced8;border-radius:8px;min-height:35px;padding:5px 10px;color:inherit;background:var(--surface-background,transparent)}
+.ob-branch-table-wrap{overflow-x:auto;border:1px solid #d8dde4;border-radius:11px}
+.ob-branch-table{border-collapse:collapse;min-width:820px;width:100%}
+.ob-branch-table th{background:#10243a;color:#f5ebd6;text-align:start;padding:13px 12px;white-space:nowrap}
+.ob-branch-table td{border-top:1px solid #e5e8ed;padding:12px;vertical-align:top}
+.ob-branch-table td:first-child{min-width:140px}.ob-branch-table td small{display:block;opacity:.7;overflow-wrap:anywhere}
+.ob-branch-allocations{display:grid;gap:8px;min-width:380px}
+.ob-branch-allocation{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ob-branch-allocation select{flex:1 1 145px}.ob-branch-allocation input{width:110px;max-width:110px}
+.ob-branch-allocation button,.ob-branch-add{border:1px solid #c6a35d;border-radius:7px;background:transparent;padding:6px 9px;color:inherit;cursor:pointer}
+.ob-branch-add{justify-self:start;font-size:.85rem}
+.ob-branch-more{margin-top:12px}.ob-branch-actions{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-top:20px}.ob-branch-actions label{flex:1 1 270px}
+.ob-branch-actions small{flex:1 1 100%;color:var(--text-secondary,#737d88)}
+.ob-branch-actions button:disabled,.ob-branch-filters button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:640px){.ob-branch-page{padding:12px}.ob-branch-header h1{font-size:1.22rem}.ob-branch-filters{align-items:stretch}.ob-branch-allocation{flex-direction:column;align-items:stretch}.ob-branch-allocation input{max-width:none;width:100%}}

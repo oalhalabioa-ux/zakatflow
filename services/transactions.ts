@@ -1,3 +1,4 @@
+import {withVoucherNumbers} from './voucher-numbers';
 import {randomUUID} from 'node:crypto';
 import { requireUser } from './auth';
 import { transactionSchema } from '@/lib/validation/schemas';
@@ -20,11 +21,11 @@ export async function listTransactions(deleted=false){
   records?.length?supabase.rpc('asset_transaction_delete_eligibility',{p_ids:records.map((t:any)=>t.id)}):Promise.resolve({data:[],error:null})]);
  for(const e of[ee,be,pe,en,cc,oe,ge])if(e)throw e;
  const guards=new Map((eligibility??[]).map((g:any)=>[g.transaction_id,g])),eventMap=new Map((events??[]).map((e:any)=>[e.id,e]));
- return rows.map((t:any)=>{
+ return withVoucherNumbers(supabase,rows.map((t:any)=>{
   const e:any=eventMap.get(t.metadata?.financial_event_id),owned=(balances??[]).filter((o:any)=>o.event_id===e?.id),cmd=(commands??[]).find((c:any)=>c.transaction_id===t.id||c.id===t.id),org=(orgs??[]).find((o:any)=>o.id===t.organization_id);
   const base=t.base_currency??e?.base_currency??org?.base_currency??t.asset_accounts.currency;
   return{...t,currency:t.currency??base,base_currency:base,...(guards.get(t.id) as any),lifecycle_command:cmd??t.lifecycle_command,operation_type:cmd?.operation??t.metadata?.operation??t.transaction_type,financial_event_status:e?.status??null,source_label:t.metadata?.source==='INVESTMENTS'?'الاستثمارات':e?.source_module==='ASSET_LIFECYCLE'?'عمليات الأصل':e?.source_module==='ASSETS_INTEGRATION'||t.metadata?.source==='ATOMIC_ASSET_ACQUISITION'?'الأصول':'سجل العمليات',counterparty_name:(parties??[]).find((p:any)=>p.id===(e?.counterparty_id??t.metadata?.counterparty_id))?.name??null,counterparty_id:e?.counterparty_id??t.metadata?.counterparty_id??null,entity_name:(entities??[]).find((p:any)=>p.id===(t.entity_id??t.asset_accounts.entity_id))?.name??null,cost_center_name:(centers??[]).find((p:any)=>p.id===(t.metadata?.cost_center_id??t.asset_accounts.cost_center_id))?.name??null,organization_name:org?.name??null,due_date:e?.due_date??t.metadata?.due_date??null,obligation_balances:owned,applied_base_amount:owned.reduce((n:number,o:any)=>n+Number(o.applied_base_amount??0),0),outstanding_base_amount:owned.reduce((n:number,o:any)=>n+Number(o.outstanding_base_amount??0),0)};
- });
+ }));
 }
 export async function deleteUnlinkedAssetTransaction(id:string){const{supabase}=await requireUser();const{data,error}=await supabase.rpc('delete_unlinked_asset_transaction',{p_transaction_id:id});if(error)throw error;return data;}
 export async function restoreUnlinkedAssetTransaction(id:string){const{supabase}=await requireUser();const{data,error}=await supabase.rpc('restore_unlinked_asset_transaction',{p_transaction_id:id});if(error)throw error;return data;}
@@ -35,7 +36,7 @@ async function recognizeOrganizationAssetPurchase(supabase:any,user:any,transact
  const financialClass=transaction?.metadata?.financial_classification_type??assetPurchaseFinancialClass(asset.asset_class_code);
  let classification:any=null;
  if(!storedIntent){
-  const {data,error:classificationError}=await supabase.from('financial_classifications').select('id').eq('organization_id',asset.organization_id).eq('classification_type',financialClass).eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
+  const {data,error:classificationError}=await supabase.from('financial_classifications').select('id').is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).eq('organization_id',asset.organization_id).eq('classification_type',financialClass).eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
   if(classificationError)throw classificationError;
   classification=data;
   if(!classification){const metadata={...(transaction.metadata??{}),financial_core_status:'CLASSIFICATION_REQUIRED',financial_classification_type:financialClass};await supabase.from('transactions').update({metadata}).eq('id',transaction.id).eq('user_id',user.id);throw new Error('ASSET_FINANCIAL_CLASSIFICATION_REQUIRED');}
@@ -64,7 +65,7 @@ if(!isOrganizationAsset&&(['OPENING_BALANCE','ADD','PURCHASE','TRANSFER_IN'].inc
 }
 if(isOrganizationAsset){
  if((p.vat_amount??0)>0){
-  const {data:tax,error:taxError}=await supabase.from('financial_classifications').select('id').eq('organization_id',asset.organization_id).eq('classification_type','TAX').eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
+  const {data:tax,error:taxError}=await supabase.from('financial_classifications').select('id').is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null).eq('organization_id',asset.organization_id).eq('classification_type','TAX').eq('active',true).order('is_system',{ascending:false}).limit(1).maybeSingle();
   if(taxError)throw taxError;if(!tax)throw new Error('ASSET_VAT_CLASSIFICATION_REQUIRED');
   const metadata={...(data.metadata??{}),tax_classification_id:tax.id};const u=await supabase.from('transactions').update({metadata}).eq('id',data.id).eq('user_id',user.id).select().single();if(u.error)throw u.error;data=u.data;
  }

@@ -1,0 +1,26 @@
+{
+  "description": "Original-account refunds and verified new nonposting reschedules.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_capture_actual_posting()",
+      "fingerprint": "04d8f7468e0d40506d375453dfbf6e85"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_debt_refund_rules(p_org uuid, p_event jsonb, p_rules jsonb)",
+      "fingerprint": "379e705c2b5589695a2d502b7433bbdf"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_nonposting_reschedule(p_org uuid, p_event uuid)",
+      "fingerprint": "6eec83675c0c8ff9d7b37f8b6ea62338"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_reporting_events(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "4cdc6f2e90f4952a2e3f55d9704c8f36"
+    }
+  ]
+}

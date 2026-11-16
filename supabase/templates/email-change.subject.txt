@@ -1,0 +1,1 @@
+{{ $en := eq (or .Data.preferred_language .Data.locale) "en" }}{{ if $en }}Confirm your email change — Yaqeen Business{{ else }}تأكيد تغيير البريد الإلكتروني — يقين الأعمال{{ end }}

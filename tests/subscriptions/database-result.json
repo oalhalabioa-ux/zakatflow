@@ -1,0 +1,75 @@
+{
+  "engine": "PGlite PostgreSQL",
+  "scope": "synthetic compatibility fixture; not a full production schema audit",
+  "passed": 17,
+  "checks": [
+    {
+      "name": "existing organizations retain access and have no automatically created subscription",
+      "status": "passed"
+    },
+    {
+      "name": "new organization creates owner and exactly 30 UTC days in one transaction",
+      "status": "passed"
+    },
+    {
+      "name": "client cannot select legacy mode, backdate a new organization or restart via account changes",
+      "status": "passed"
+    },
+    {
+      "name": "four more members allowed; sixth blocked, inactive members do not consume seats",
+      "status": "passed"
+    },
+    {
+      "name": "pending invitations consume no seats and never reset trial",
+      "status": "passed"
+    },
+    {
+      "name": "writes and RLS isolation work before expiry",
+      "status": "passed"
+    },
+    {
+      "name": "expiry immediately denies direct, indirect and SECURITY DEFINER writes without a scheduler",
+      "status": "passed"
+    },
+    {
+      "name": "legacy name-linked budget rows and their new persistent organization identity cannot bypass expiry",
+      "status": "passed"
+    },
+    {
+      "name": "read/export remain available with unchanged data after expiry",
+      "status": "passed"
+    },
+    {
+      "name": "normal user and anonymous caller cannot administer subscriptions or invoke private helpers",
+      "status": "passed"
+    },
+    {
+      "name": "owner extension restores writes, audits old/new values and rejects stale retries",
+      "status": "passed"
+    },
+    {
+      "name": "default change only affects future organizations; DST and browser clock cannot shorten duration",
+      "status": "passed"
+    },
+    {
+      "name": "notifications and repeated sweeps are idempotent; extended schedule has a new revision",
+      "status": "passed"
+    },
+    {
+      "name": "manual activation, suspension and paid expiration enforce access without charging",
+      "status": "passed"
+    },
+    {
+      "name": "existing legacy organization changes only after explicit owner manual activation",
+      "status": "passed"
+    },
+    {
+      "name": "suspending and resuming the same trial does not duplicate notices",
+      "status": "passed"
+    },
+    {
+      "name": "owner session revocation immediately denies administrative access",
+      "status": "passed"
+    }
+  ]
+}

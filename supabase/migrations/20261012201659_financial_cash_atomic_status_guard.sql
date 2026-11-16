@@ -1,0 +1,12 @@
+BEGIN;
+CREATE OR REPLACE FUNCTION public.transition_financial_event(p_event_id uuid, p_new_status text, p_note text DEFAULT NULL::text)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$declare e public.financial_events%rowtype;scope text;valid boolean:=false;begin select * into e from public.financial_events where id=p_event_id for update;if e.id is null then raise exception 'FINANCIAL_EVENT_NOT_FOUND';end if;if (e.status='DRAFT' and p_new_status in('PLANNED','CANCELLED')) or(e.status='PLANNED' and p_new_status in('COMMITTED','CANCELLED')) or(e.status='COMMITTED' and p_new_status in('ACTUAL','CANCELLED')) or(e.status='ACTUAL' and p_new_status='REVERSED') then valid:=true;end if;if not valid then raise exception 'INVALID_FINANCIAL_EVENT_TRANSITION:%->%',e.status,p_new_status;end if;scope:=case when p_new_status='ACTUAL' then case when e.event_type='REVERSAL' then 'financial_core.reverse' else 'financial_core.post' end when p_new_status='REVERSED' then 'financial_core.reverse' else 'financial_core.create' end;if not public.financial_core_can(e.organization_id,scope) then raise exception 'FINANCIAL_CORE_TRANSITION_DENIED';end if;if p_new_status='ACTUAL' and not public.financial_event_has_valid_approval(e.id) then raise exception 'VALID_APPROVAL_REQUIRED';end if;if p_new_status='ACTUAL' and (e.event_type='SETTLEMENT' or(e.event_type='REVERSAL' and exists(select 1 from public.financial_event_links l join public.liquidity_settlements s on s.financial_event_id=l.related_event_id where l.event_id=e.id and l.link_type='REVERSAL_OF'))) and not exists(select 1 from public.liquidity_settlements s where s.financial_event_id=e.id and s.organization_id=e.organization_id and s.status='POSTED') then raise exception 'CASH_POST_REQUIRES_ATOMIC_PATH';end if;
+if p_new_status='REVERSED' and exists(select 1 from public.liquidity_settlements s where s.financial_event_id=e.id and s.organization_id=e.organization_id and s.status='POSTED') then raise exception 'CASH_REVERSAL_REQUIRES_ATOMIC_PATH';end if;
+update public.financial_events set status=p_new_status,updated_at=now(),posted_by=case when p_new_status='ACTUAL' then auth.uid() else posted_by end,posted_at=case when p_new_status='ACTUAL' then now() else posted_at end where id=e.id;insert into public.financial_event_status_history(event_id,organization_id,from_status,to_status,actor_id,note) values(e.id,e.organization_id,e.status,p_new_status,auth.uid(),p_note);return p_new_status;end$function$
+;
+
+COMMIT;

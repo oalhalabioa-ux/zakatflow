@@ -1,0 +1,1 @@
+{{ $en := eq (or .Data.preferred_language .Data.locale) "en" }}{{ if $en }}Verify a sensitive action — Yaqeen Business{{ else }}رمز تأكيد العملية الحساسة — يقين الأعمال{{ end }}

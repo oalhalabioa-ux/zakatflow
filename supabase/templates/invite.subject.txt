@@ -1,0 +1,1 @@
+{{ $en := eq (or .Data.preferred_language .Data.locale) "en" }}{{ if $en }}You are invited to Yaqeen Business — Yaqeen Business{{ else }}دعوة لإنشاء حسابك في يقين الأعمال — يقين الأعمال{{ end }}

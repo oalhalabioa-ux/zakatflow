@@ -1,0 +1,14 @@
+{
+  "upserts": [
+    {"category":"function","object_key":"private.financial_chart_guard_policy_reference()","fingerprint":"b52fc29a1ddd2168b6846a439d3edf31"},
+    {"category":"function","object_key":"private.financial_fiscal_trial(p_snapshot jsonb, p_retained text)","fingerprint":"e8253980add04dae0325e58c4f66336f"},
+    {"category":"function","object_key":"private.financial_fiscal_trial_detail_v1(p_snapshot jsonb, p_retained text)","fingerprint":"05492406b6d423e9bbf92cde6483b3c5"},
+    {"category":"function","object_key":"private.financial_statement_live_snapshot_v1(p_org uuid, p_from date, p_to date)","fingerprint":"59efee905f2894596d937073f767de5e"},
+    {"category":"function","object_key":"public.financial_chart_posting_accounts(p_org uuid)","fingerprint":"cdfad5ec472b50af6b848feb576c5b2a"},
+    {"category":"function","object_key":"public.financial_chart_workspace(p_org uuid)","fingerprint":"cf9af12f3e4f087dc6125c5f37fcf7fc"},
+    {"category":"function","object_key":"public.financial_reporting_policy_workspace(p_org uuid, p_fiscal_start date)","fingerprint":"5848d420b13920a2eb5d0d0aedad8ff3"},
+    {"category":"function","object_key":"public.save_financial_reporting_policy(p_org uuid, p_fiscal_start date, p_expected_version integer, p_rules jsonb, p_reason text)","fingerprint":"62e50da291b50a86c2991e0657d7bafb"},
+    {"category":"trigger","object_key":"public.financial_chart_custom_accounts.financial_chart_guard_policy_reference","fingerprint":"d1f31a2a8f0b039b97a11432996e6bed"}
+  ],
+  "removals": []
+}

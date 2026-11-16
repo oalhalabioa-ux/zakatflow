@@ -14,3 +14,16 @@ describe('VAT financial reports',()=>{
  it('keeps a customer refund payable on the customer statement with inverse sign',()=>{const e={...events[0],id:'refund',source_record_id:'credit',event_date:'2026-10-15'};const rows=buildReportMovements([e],[{...obs[0],id:'refundob',event_id:'refund',obligation_type:'PAYABLE',settleable_base_amount:25}],[],parties,new Map(),new Map([['credit','SALES']]));expect(rows[0].side).toBe('SALES');expect(rows[0].amount).toBe(-25)});
  it('escapes CSV quotes, Arabic text and formula-like names',()=>{expect(reportCsv([['=HYPERLINK("x")','عميل',-40]])).toBe('\ufeff"\'=HYPERLINK(""x"")","عميل","-40"')});
 });
+it('keeps opening liabilities distinct from a new loan on the same date',()=>{
+ const row={id:'opening',debtId:'ap',organizationId:'PERSONAL',partyKey:'p',partyName:'Party',side:'PURCHASE' as const,date:'2025-07-30',due:null,reference:'',description:'Existing debt',currency:'SAR',amount:500,advance:false,kind:'INVOICE',isOpening:true};
+ const rows=[row,{...row,id:'loan',amount:14500,isOpening:false}];
+ const s=reportStatement(rows,'p','PURCHASE','SAR','2025-07-30','2026-10-26');expect(s.opening).toBe(500);expect(s.closing).toBe(15000);expect(s.openingMovements).toHaveLength(1);expect(s.movements.map(r=>r.credit)).toEqual([14500]);
+ expect(reportStatement(rows,'p','PURCHASE','SAR','2025-07-01','2026-10-26').opening).toBe(500);
+ const beforeOpening=reportStatement(rows,'p','PURCHASE','SAR','2025-07-01','2025-07-29');expect(beforeOpening.opening).toBe(0);expect(beforeOpening.openingMovements).toHaveLength(0);expect(beforeOpening.closing).toBe(0);
+});
+it('keeps one voucher identity across installments and a distinct identity for their actual settlement',()=>{
+ const e=[{id:'opening-event',organization_id:'o',counterparty_id:'p',event_date:'2026-10-01',due_date:null,status:'ACTUAL',description:'opening',source_module:'DEBT_CONTRACTS',voucher_number:'DC-11',voucher_type:'رصيد افتتاحي',is_opening:true},{id:'payment-event',organization_id:'o',counterparty_id:'p',event_date:'2026-10-02',due_date:null,status:'ACTUAL',description:'payment',source_module:'DEBT_SETTLEMENTS'}];
+ const obs=[{id:'one',event_id:'opening-event',organization_id:'o',obligation_type:'PAYABLE',settleable_base_amount:50,base_currency:'SAR'},{id:'two',event_id:'opening-event',organization_id:'o',obligation_type:'PAYABLE',settleable_base_amount:50,base_currency:'SAR'}];
+ const rows=buildReportMovements(e,obs,[{id:'alloc',organization_id:'o',application_event_id:'payment-event',obligation_id:'one',base_amount:20,allocation_type:'CASH'}],[{id:'p',organization_id:'o',name:'Party'}],new Map());
+ const s=reportStatement(rows,'o:p','PURCHASE','SAR','2026-10-01','2026-10-31');expect(s.opening).toBe(100);expect(s.closing).toBe(80);expect(s.openingMovements.map(r=>r.voucherNumber)).toEqual(['DC-11','DC-11']);expect(s.movements[0]).toMatchObject({amount:-20,isOpening:false,voucherType:'تسوية ذمة'});expect(s.movements[0].voucherNumber).not.toBe('DC-11');
+});

@@ -1,0 +1,71 @@
+{
+  "description": "Organization posting roles, atomic default activation and authorized automatic child rule approval.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.financial_posting_account_roles.account_code",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_posting_account_roles.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_posting_account_roles.role",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_posting_account_roles.financial_posting_account_rol_organization_id_account_code_fkey",
+      "fingerprint": "7cd1dba0ba49163df90bb0b086cc3790"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_posting_account_roles.financial_posting_account_roles_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_posting_account_roles.financial_posting_account_roles_pkey",
+      "fingerprint": "a39667ef54beb6a80a0761b3b8102ab9"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_auto_activate_account_rules()",
+      "fingerprint": "c75140061e4dd67f7efac38fd8e1bf60"
+    },
+    {
+      "category": "function",
+      "object_key": "public.activate_financial_posting_defaults(p_org uuid, p_fiscal_start date, p_policy_id uuid, p_expected_version integer, p_rules jsonb)",
+      "fingerprint": "47913cd1700c6e258d4ecde4612a9c9d"
+    },
+    {
+      "category": "function",
+      "object_key": "public.prepare_financial_posting_defaults(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "0b19fa6b9046f7eeacfaa5a59c0c55d5"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_posting_account_roles.financial_posting_account_roles_pkey",
+      "fingerprint": "e22f2a62fd552e4539b840ef5a5d3c04"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_posting_account_roles.posting_roles_read",
+      "fingerprint": "26a916ce8d462752f4620bebad725264"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_posting_account_roles",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_chart_custom_accounts.zz_financial_auto_activate_account_rules",
+      "fingerprint": "515a886288491e6b7eb6f8ff87e5d812"
+    }
+  ]
+}

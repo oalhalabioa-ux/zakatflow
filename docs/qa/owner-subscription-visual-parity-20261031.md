@@ -1,0 +1,11 @@
+# Owner console visual correction
+
+The approved references use separate register and detail cards, compact navigation, muted table headers, meaningful status colors and a focused edit flow. The previous implementation instead nested full-width panels, repeated headings, displayed an edit form permanently and used a separate navy/gold palette in every theme.
+
+This correction restores the reference hierarchy for organization subscriptions and activation requests. It adds the selected organization's plan/price/period, real member preview, separate member and audit tabs, and dialog-based administrative changes. Requests automatically select a visible record and show its saved quote, decision form and disabled payment-readiness card. No demo organizations or financial values are inserted.
+
+All owner pages now use the existing platform design palettes: Yaqeen navy/gold on a light neutral background; Elegant green; Modern indigo; Classic teal/slate. The original sidebar layout, collapse state, routes and artwork are retained. Admin date/amount display uses Latin digits and Gregorian dates in both languages. Existing owner settings copy now points to the enabled subscription tools.
+
+Activation requires a valid selected plan, an expiry, seat count and an audited reason. Invalid inputs return a stable localized error instead of UUID patterns or validation JSON. Existing server/database owner authorization, subscription revisions and audit RPCs remain in place. There are no migrations, hosted database writes, changes to Google authentication or payment activation in this correction.
+
+Validation includes unit and TypeScript regressions plus real disposable Supabase/Auth/PostgREST/Next/Chromium acceptance. The owner screenshot matrix covers AR/EN, four palettes, collapsed sidebar at 150% pixel density and a narrow screen. Geometry and contrast assertions check the compact even navigation, RTL/LTR column order, real details, email direction and absence of outer horizontal scrolling. Browser checks exercise manual activation with a missing/valid plan and the complete customer-request/owner-approval flow. Review the linked PR and its workflow artifacts for the release result and actual screenshots.

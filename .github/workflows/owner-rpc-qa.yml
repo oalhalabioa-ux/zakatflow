@@ -1,0 +1,41 @@
+name: Owner RPC QA acceptance
+on:
+  push:
+    branches: [feature/platform-owner-dashboard-qa]
+    paths:
+      - .github/workflows/owner-rpc-qa.yml
+      - scripts/owner-rpc-acceptance.mjs
+      - scripts/owner-rpc-acceptance.checks.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: owner-rpc-qa
+  cancel-in-progress: false
+jobs:
+  ordinary-user-rpc:
+    if: github.ref == 'refs/heads/feature/platform-owner-dashboard-qa'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify runner safety
+        run: node --test scripts/owner-rpc-acceptance.checks.mjs
+      - name: Verify actual ordinary-user RPC denial and logout
+        env:
+          OWNER_QA_RPC_PASSWORD: ${{ secrets.OWNER_QA_RPC_PASSWORD }}
+          # Public browser anon key; the runner validates its QA project and anon role.
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldWN5d2Z3YmRub210bGtqdXJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMTIyMjIsImV4cCI6MjEwODY4ODIyMn0.CkxFwIB0_bt8vj4X4iT0_PTpGz8HMXahHzldV2rAAk0'
+        run: |
+          test -n "$OWNER_QA_RPC_PASSWORD" || { echo "QA test password secret missing"; exit 1; }
+          node scripts/owner-rpc-acceptance.mjs
+          cat owner-rpc-acceptance-result.json
+          cat owner-rpc-acceptance-result.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary local report
+        if: always()
+        run: rm -f owner-rpc-acceptance-result.json

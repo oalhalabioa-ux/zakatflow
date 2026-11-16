@@ -1,0 +1,65 @@
+BEGIN;
+SET CONSTRAINTS ALL IMMEDIATE;
+DO $test$
+DECLARE org uuid:=gen_random_uuid();party uuid:=gen_random_uuid();u uuid:=gen_random_uuid();policy jsonb;rules jsonb;bank uuid;c uuid;e uuid;ch uuid;ob uuid;feeob uuid;f uuid;ff uuid;pay uuid;cls uuid;req uuid:=gen_random_uuid();terms jsonb;p jsonb;r jsonb;plan jsonb;err text;charge numeric;
+BEGIN
+ insert into auth.users(id,email,email_confirmed_at)values(u,u||'@native-finance.invalid',now());
+ perform set_config('request.jwt.claim.sub',u::text,true);
+ insert into organizations(id,owner_user_id,name,base_currency)values(org,u,'Rollback native finance reversal','SAR');
+ insert into organization_members(organization_id,user_id,role,status)values(org,u,'OWNER','ACTIVE')on conflict do nothing;
+ insert into liquidity_counterparties(id,organization_id,name,party_type,created_by)values(party,org,'Fixture finance party','SUPPLIER',u);
+ perform save_financial_chart_account(org,'220001','2200','قرض','Loan','CREDIT',true,true,0,'Native finance reversal');
+ perform save_financial_chart_account(org,'210001','2100','ذمم','Payable','CREDIT',true,true,0,'Native finance reversal');
+ perform save_financial_chart_account(org,'610001','6100','تكلفة تمويل','Finance cost','DEBIT',true,true,0,'Native finance reversal');
+ bank:=(open_financial_account(jsonb_build_object('request_id',gen_random_uuid(),'scope','ORGANIZATION','organization_id',org,'type','BANK','name','QA finance rollback bank','currency','SAR','opening_balance',1000,'opening_date','2026-01-01','fx_rate',1))->>'id')::uuid;
+ terms:=jsonb_build_object('principal',1200,'annualRate',12,'method','DECLINING','repayment','EQUAL_PRINCIPAL','count',3,'frequencyMonths',1,'startDate','2026-01-01','firstDueDate','2026-02-01','yearDays',360);
+ plan:=calculate_financing_schedule(terms);IF(plan->0->>'finance')::numeric<>12.4 OR(plan->2->>'closing')::numeric<>0 THEN RAISE EXCEPTION 'FINANCE_CALC_WRONG';END IF;
+ p:=jsonb_build_object('contract',jsonb_build_object('organization_id',org,'request_id',req,'kind','LOAN','mode','NEW','side','PAYABLE','counterparty_id',party,'entity_id',null,'account_id',bank,'category','O_AP_LOAN','description','QA structured financing','reference','QA-STRUCTURED','date','2026-01-01','currency','SAR','exchange_rate',1,'principal',1200),'terms',terms);
+ r:=create_financed_contract(p);c:=(r->>'id')::uuid;e:=(r->>'eventId')::uuid;
+ IF(create_financed_contract(p)->>'id')::uuid<>c THEN RAISE EXCEPTION 'FINANCE_REPLAY_WRONG';END IF;
+ BEGIN PERFORM post_financed_contract(c);err:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN err:=SQLERRM;END;
+ IF err<>'VALID_APPROVAL_REQUIRED'THEN RAISE EXCEPTION 'FINANCE_APPROVAL_GUARD:%',err;END IF;
+ perform link_financial_cash_accounts(org);
+ select classification_id into cls from financial_event_lines where event_id=e;
+ rules:=jsonb_build_array(jsonb_build_object('eventType','ADJUSTMENT','sourceModule','DEBT_CONTRACTS','classificationId',cls::text||':DEBT_FUNDED_O_AP_LOAN','cashDirection','INFLOW','debitAccountId','1000','creditAccountId','220001','cashActivity','FINANCING','detailed',true));
+ policy:=save_financial_reporting_policy(org,'2026-01-01',0,rules,'Native financing policy');
+ perform approve_financial_reporting_policy((policy->>'id')::uuid,(policy->>'version')::int);
+ PERFORM approve_financial_event(e,'QA finance approval');PERFORM post_financed_contract(c);PERFORM post_financed_contract(c);
+ IF(SELECT current_balance FROM liquidity_accounts WHERE id=bank)<>2200 THEN RAISE EXCEPTION 'FUNDING_CASH_NOT_ONCE';END IF;
+ IF(SELECT sum(outstanding_base_amount)FROM financial_event_obligation_balances WHERE event_id=e)<>1200 THEN RAISE EXCEPTION 'FUTURE_CHARGE_IN_PRINCIPAL';END IF;
+ IF(SELECT count(*)FROM liquidity_flows WHERE source_module='FINANCE_PLAN'AND source_record_id=c)<>3 THEN RAISE EXCEPTION 'FEE_FORECAST_DUPLICATED';END IF;
+ SELECT id INTO ff FROM liquidity_flows WHERE source_module='FINANCE_PLAN'AND source_event_key='finance-plan:'||c||':1';
+ BEGIN UPDATE liquidity_flows SET status='ACTUAL'WHERE id=ff;err:='NOT_BLOCKED';EXCEPTION WHEN OTHERS THEN err:=SQLERRM;END;
+ IF err<>'FINANCE_CHARGE_RECOGNITION_REQUIRED'THEN RAISE EXCEPTION 'EARLY_CHARGE_FLOW_GUARD:%',err;END IF;
+ ch:=(prepare_financing_charge(c,1)->>'eventId')::uuid;
+ IF(prepare_financing_charge(c,1)->>'eventId')::uuid<>ch THEN RAISE EXCEPTION 'CHARGE_REPLAY_WRONG';END IF;
+ IF EXISTS(SELECT 1 FROM financial_counterparty_open_items WHERE event_id=ch)THEN RAISE EXCEPTION 'UNPOSTED_CHARGE_IS_DEBT';END IF;
+ select classification_id into cls from financial_event_lines where event_id=ch;
+ rules:=rules||jsonb_build_array(jsonb_build_object('eventType','EXPENSE','sourceModule','FINANCE_CONTRACTS','classificationId',cls::text||':BASE','cashDirection','NON_CASH','debitAccountId','610001','creditAccountId','210001','cashActivity',null,'detailed',true));
+ policy:=save_financial_reporting_policy(org,'2026-01-01',0,rules,'Native finance charge policy');
+ perform approve_financial_reporting_policy((policy->>'id')::uuid,(policy->>'version')::int);
+ PERFORM approve_financial_event(ch,'QA period cost approval');PERFORM transition_financial_event(ch,'ACTUAL','QA finance period recognition');
+ SELECT id INTO ob FROM financial_event_obligations WHERE event_id=e AND obligation_key='installment:1';
+ SELECT id INTO feeob FROM financial_event_obligations WHERE event_id=ch;
+ f:=ensure_debt_flow(ob);IF ensure_debt_flow(feeob)<>ff THEN RAISE EXCEPTION 'DUPLICATE_CHARGE_FLOW';END IF;
+ SELECT id INTO cls FROM financial_classifications WHERE organization_id=org AND classification_type='PAYABLE'AND active LIMIT 1;
+ pay:=create_financial_event_command(jsonb_build_object('organization_id',org,'entity_id',null,'counterparty_id',party,'event_type','SETTLEMENT','source_module','OPERATIONAL_CONSOLE','source_record_id',c,'source_event_key','financing-installment:'||c||':1:'||gen_random_uuid(),'event_date','2026-02-01','due_date',null,'base_currency','SAR','description','QA combined principal and charge','lines',jsonb_build_array(jsonb_build_object('line_number',1,'classification_id',cls,'description','Principal','amount',400,'currency','SAR','exchange_rate',1,'base_amount',400,'cash_direction','OUTFLOW','metadata',jsonb_build_object('source_role','FINANCE_PRINCIPAL_PAYMENT','settlement_obligation_id',ob)),jsonb_build_object('line_number',2,'classification_id',cls,'description','Charge','amount',12.4,'currency','SAR','exchange_rate',1,'base_amount',12.4,'cash_direction','OUTFLOW','metadata',jsonb_build_object('source_role','FINANCE_CHARGE_PAYMENT','settlement_obligation_id',feeob))),'obligations','[]'::jsonb,'links','[]'::jsonb));
+ PERFORM transition_financial_event(pay,'PLANNED','QA');PERFORM transition_financial_event(pay,'COMMITTED','QA');PERFORM approve_financial_event(pay,'QA');
+ p:=jsonb_build_array(jsonb_build_object('obligation_id',ob,'flow_id',f,'amount',400,'base_amount',400,'flow_amount',400,'flow_currency','SAR','flow_exchange_rate',1),jsonb_build_object('obligation_id',feeob,'flow_id',ff,'amount',12.4,'base_amount',12.4,'flow_amount',12.4,'flow_currency','SAR','flow_exchange_rate',1));
+ PERFORM post_financial_settlement(pay,bank,'OUTFLOW','2026-02-01',412.4,'SAR',1,412.4,p);
+ PERFORM post_financial_settlement(pay,bank,'OUTFLOW','2026-02-01',412.4,'SAR',1,412.4,p);
+ IF(SELECT current_balance FROM liquidity_accounts WHERE id=bank)<>1787.6 OR(SELECT outstanding_base_amount FROM financial_event_obligation_balances WHERE obligation_id=ob)<>0 OR(SELECT outstanding_base_amount FROM financial_event_obligation_balances WHERE obligation_id=feeob)<>0 THEN RAISE EXCEPTION 'COMBINED_PAYMENT_NOT_RECONCILED';END IF;
+ IF(SELECT count(*)FROM liquidity_settlements WHERE financial_event_id=pay)<>1 THEN RAISE EXCEPTION 'COMBINED_PAYMENT_DUPLICATED';END IF;
+ r:=prepare_debt_operation(jsonb_build_object('organization_id',org,'request_id',gen_random_uuid(),'kind','REVERSE','target_id',pay,'date','2026-03-01','reason','Native finance installment reversal'));
+ if (select count(*) from financial_event_lines where event_id=(r->>'eventId')::uuid)<>2 then raise exception 'NATIVE_REVERSAL_COMPONENTS_MISSING';end if;
+ perform approve_financial_event((r->>'eventId')::uuid,'Approve native reversal');
+ perform post_debt_operation((r->>'id')::uuid);
+ perform post_debt_operation((r->>'id')::uuid);
+ if(select current_balance from liquidity_accounts where id=bank)<>2200
+ or(select outstanding_base_amount from financial_event_obligation_balances where obligation_id=ob)<>400
+ or(select outstanding_base_amount from financial_event_obligation_balances where obligation_id=feeob)<>12.4
+ then raise exception 'FINANCE_REVERSAL_BALANCES_INVALID';end if;
+ if(select count(*) from private.financial_event_posting_resolutions x cross join lateral jsonb_array_elements(x.lines)l where x.organization_id=org and x.event_id=r->>'eventId')<>2 then raise exception 'FINANCE_REVERSAL_RESOLUTION_MISSING';end if;
+END $test$;
+SELECT 'PASS native two-component finance installment reversal restores principal, charge and bank; replay safe; rolled back' result;
+ROLLBACK;

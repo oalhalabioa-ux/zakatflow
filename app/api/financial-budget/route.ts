@@ -1,3 +1,4 @@
+import {isSameOriginRequest} from '../../../lib/request-origin';
 import {NextResponse} from 'next/server';
 import {configureFinancialBudget,financialBudgetContext,financialBudgetReport,financialBudgetSetup,financialBudgetDrilldown,financialBudgetConsolidated} from '@/services/financial-budget';
 export const dynamic='force-dynamic';
@@ -11,4 +12,4 @@ export async function GET(request:Request){try{const q=new URL(request.url).sear
  case 'consolidated':data=await financialBudgetConsolidated(q.get('holding')??'',Number(q.get('year')),q.get('scenario')??'BASE');break;
  default:throw new Error('INVALID_ACTION');}
  return NextResponse.json(data,{headers});}catch(error){return failure(error);}}
-export async function POST(request:Request){try{if(new URL(request.url).origin!==request.headers.get('origin'))return NextResponse.json({error:'ORIGIN_REQUIRED'},{status:403,headers});return NextResponse.json({id:await configureFinancialBudget(await request.json())},{headers});}catch(error){return failure(error);}}
+export async function POST(request:Request){try{if(!isSameOriginRequest(request))return NextResponse.json({error:'ORIGIN_REQUIRED'},{status:403,headers});return NextResponse.json({id:await configureFinancialBudget(await request.json())},{headers});}catch(error){return failure(error);}}

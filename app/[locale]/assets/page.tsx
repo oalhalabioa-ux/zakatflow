@@ -541,6 +541,7 @@ export default function Assets({
       return;
     }
     const compatibleLegacyType = selectedV2Type?.default_legacy_asset_type || form.asset_type;
+    if(!edit&&['CASH','BANK'].includes(compatibleLegacyType)&&(!Number.isFinite(pc)||pc<=0)){setMsg(ar?'إضافة النقد أو البنك من الأصول تتطلب رصيدًا افتتاحيًا موجبًا. لإنشاء حساب بلا رصيد، استخدم السيولة.':'Cash or bank entry through Assets requires a positive opening. Create empty accounts in Liquidity.');return;}
     const nextRequestId=requestId||crypto.randomUUID();if(!edit&&!requestId)setRequestId(nextRequestId);
     let taxSettings:ReturnType<typeof assetEntryTaxSettings>;try{taxSettings=assetEntryTaxSettings(form,pc);}catch{setMsg(ar?"تحقق من إعدادات الضريبة والتصنيف وسبب المعاملة الضريبية.":"Check tax settings, category and treatment reason.");return;}
     if(!edit&&(fxQuote.key!==fxKey||fxQuote.loading||!fxQuote.rate)){setMsg(fxQuote.loading?(ar?'جار التحقق من سعر الصرف المسجل…':'Checking saved exchange rate…'):entryFxError(fxQuote.error));return;}
@@ -608,7 +609,7 @@ export default function Assets({
       await load();
     } else {
       const result = await r.json().catch(() => ({}));
-      setMsg(result.error==='ASSET_FINANCIAL_FIELDS_LOCKED' ? (ar ? "بيانات الاقتناء مرتبطة بحركات مالية؛ صححها من سجل المعاملات بعكس الحركة وتسجيل الصحيحة." : "Acquisition is linked to financial movements. Correct it through the transaction ledger.") : result.error==='ASSET_EDIT_CONFLICT' ? (ar ? "تغير الأصل أثناء التعديل. حدّث الصفحة وأعد المحاولة." : "The asset changed. Refresh and retry.") : result.error || (ar ? "تعذر الحفظ" : "Save failed"));
+      setMsg(result.error==='ASSET_CASH_OPENING_REQUIRED'?(ar?'أدخل رصيدًا افتتاحيًا موجبًا؛ الحساب بلا رصيد يُنشأ من السيولة.':'Enter a positive opening; create empty accounts in Liquidity.'):result.error==='ASSET_FINANCIAL_FIELDS_LOCKED' ? (ar ? "بيانات الاقتناء مرتبطة بحركات مالية؛ صححها من سجل المعاملات بعكس الحركة وتسجيل الصحيحة." : "Acquisition is linked to financial movements. Correct it through the transaction ledger.") : result.error==='ASSET_EDIT_CONFLICT' ? (ar ? "تغير الأصل أثناء التعديل. حدّث الصفحة وأعد المحاولة." : "The asset changed. Refresh and retry.") : result.error || (ar ? "تعذر الحفظ" : "Save failed"));
     }
     } catch {setMsg(ar ? "تعذر الاتصال؛ حدّث البيانات قبل إعادة المحاولة." : "Connection failed. Refresh before retrying.");} finally {setSaving(false);}
   };

@@ -1,0 +1,1 @@
+{{ $p := printf "%s/auth/callback?lang=en&" .SiteURL }}{{ if eq (printf "%.*s" (len $p) .RedirectTo) $p }}Your quick sign-in link — Yaqeen Business{{ else }}رابط الدخول السريع — يقين الأعمال{{ end }}

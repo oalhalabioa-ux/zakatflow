@@ -1,3 +1,4 @@
+import type {VoucherIdentity} from './voucher-identity';
 import Decimal from 'decimal.js';
 import {z} from 'zod';
 export const payableCommandSchema=z.discriminatedUnion('action',[
@@ -12,4 +13,4 @@ export function payablePaymentAmounts(amount:number,rate:number,outstandingBase:
 }
 export const payableStatus=(outstanding:number,applied:number)=>outstanding<=0?'SETTLED':applied>0?'PARTIAL':'OPEN';
 export const payableStatusNames:Record<string,string>={SETTLED:'مسدد / تمت تسويته',PARTIAL:'مسدد جزئيًا',OPEN:'غير مسدد',DRAFT:'مسودة',PLANNED:'مخطط',COMMITTED:'بانتظار الاعتماد / التنفيذ',ACTUAL:'منفذ',CANCELLED:'ملغى',REVERSED:'معكوس'};
-export type PayableDetail={organization:{id:string;name:string;base_currency:string};obligation:any;event:any;partyName:string;reference:string;flows:any[];accounts:any[];history:any[];requests:Array<{event:any;instruction:any;approved:boolean;actions:string[]}>;canPrepare:boolean;sourceManaged:boolean};
+export type PayableDetail=VoucherIdentity&{organization:{id:string;name:string;base_currency:string};obligation:any;event:any;partyName:string;reference:string;flows:any[];accounts:any[];history:any[];requests:Array<{event:any;instruction:any;approved:boolean;actions:string[]}>;canPrepare:boolean;sourceManaged:boolean};

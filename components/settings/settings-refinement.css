@@ -1,0 +1,334 @@
+/* Content layout shared by the six settings sections. */
+.settings-workspace .settings-icon{width:21px;height:21px;flex:0 0 21px;vertical-align:middle}
+.settings-workspace .settings-heading{margin:0 0 22px}
+.settings-workspace .settings-heading h1{margin:0 0 8px;font-size:1.9rem;line-height:1.5}
+.settings-workspace .settings-heading p{margin:0;line-height:1.8}
+.settings-workspace .settings-heading .settings-breadcrumb{margin-bottom:14px}
+.settings-workspace :is(.settings-local-tabs,.settings-subsection-nav){margin:16px 0 20px;min-width:0}
+.settings-workspace .settings-subsection-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:min(100%,540px);box-sizing:border-box;margin-inline-start:0;margin-inline-end:auto;padding:4px;gap:4px}
+.settings-workspace .settings-subsection-nav a{display:flex;gap:10px;border:0;border-radius:6px;padding:9px 14px;min-height:42px;box-sizing:border-box;line-height:1.5}
+.settings-workspace .settings-local-tabs button{display:flex;gap:9px;align-items:center;justify-content:center;min-height:42px;line-height:1.5}
+.settings-workspace :is(h3,.settings-panel-heading h3){display:flex;gap:9px;align-items:center;font-size:1.05rem;line-height:1.6}
+.settings-workspace .settings-panel-heading{display:flex;gap:14px;justify-content:space-between;align-items:center;margin-bottom:16px}
+.settings-workspace .settings-panel-heading h3{margin:0}
+.settings-workspace .settings-panel-heading p{margin:5px 0 0;color:var(--settings-muted);font-size:.82rem;line-height:1.8}
+.settings-workspace .settings-action-footer{grid-column:1/-1;margin-top:12px;padding:14px 0 0;justify-content:flex-end;position:static;min-width:0}
+.settings-workspace .settings-profile-save{grid-column:1/-1;width:auto;justify-self:end;min-width:170px;margin-top:10px}
+.settings-workspace .settings-form{gap:18px 24px}
+.settings-workspace .settings-form label{font-size:.88rem;gap:8px}
+.settings-workspace .settings-form :is(input,select,textarea){box-sizing:border-box;min-height:40px;width:100%;max-width:100%;font:inherit}
+.settings-workspace .organization-details-card{margin-top:0;margin-bottom:0}
+.settings-workspace .organization-details-card.identity-only .settings-form{grid-template-columns:repeat(3,minmax(0,1fr))}
+.settings-workspace .organization-details-card.identity-only .settings-form>label:nth-of-type(-n+2){display:none}
+.settings-workspace .organization-details-card.identity-only textarea{min-height:40px;height:40px}
+.settings-workspace .settings-organization-grid{grid-template-columns:minmax(0,1fr) minmax(270px,.44fr);align-items:start}
+.settings-workspace .settings-organization-editor>.settings-subsection-nav{width:100%;margin-top:0}
+.settings-workspace .settings-organization-summary .settings-card h3{margin-bottom:12px}
+.settings-workspace .settings-finance-native>.settings-native-content{padding:0;border:0;background:transparent}
+.settings-workspace .settings-finance-status article{display:grid;justify-items:center;gap:9px;border:1px solid var(--settings-line);border-radius:9px;padding:14px 10px;background:var(--settings-surface);min-width:0}
+.settings-workspace .settings-finance-status h3{font-size:1rem;margin:0;text-align:center}
+.settings-workspace .settings-financial-overview-grid{align-items:stretch}
+.settings-workspace .settings-financial-overview .settings-card{gap:12px;align-self:stretch}
+.settings-workspace .settings-financial-overview .settings-card>button{margin-top:4px;min-height:38px}
+.settings-workspace .settings-financial-overview .settings-chart-preview :is(td,th){padding:8px}
+.settings-workspace .settings-financial-overview .settings-overview-facts>div{padding:10px 0;align-items:start}
+.settings-workspace .settings-country-strip :is(strong,span){display:flex;align-items:center;gap:10px}
+.settings-workspace .settings-regulatory-native>.settings-local-tabs{margin-top:16px}
+.settings-workspace .settings-regulatory-guidance{margin:0}
+.settings-workspace .settings-regulatory-editors>.settings-card{margin-top:0}
+.settings-workspace .financial-setup-regulatory-editor .console-tabs{margin:0 0 18px}
+.settings-workspace .financial-setup-regulatory-editor .request-form{max-width:100%;min-width:0}
+.settings-workspace .financial-setup-regulatory-editor .vat-profile-fields{padding:0;border:0;margin:0;min-width:0}
+.settings-workspace .settings-table-scroll{max-width:100%;overflow-x:auto;border:1px solid var(--settings-line);border-radius:7px}
+.settings-workspace .settings-data-table{border-collapse:collapse;width:100%;font-size:.82rem;background:var(--settings-surface)}
+.settings-workspace .settings-data-table :is(th,td){text-align:start;padding:10px 12px;border-bottom:1px solid var(--settings-line);vertical-align:middle;line-height:1.6}
+.settings-workspace .settings-data-table thead th{background:var(--settings-soft,#f1f4f8);font-weight:650;white-space:nowrap}
+.settings-workspace .settings-data-table tbody tr:last-child>*{border-bottom:0}
+.settings-workspace .settings-data-table dd{margin:0}
+.settings-workspace .settings-text-action{background:transparent;border:0;color:var(--settings-ink);font:inherit;font-size:.82rem;padding:5px 7px;cursor:pointer;line-height:1.6}
+.settings-workspace .settings-text-action:hover{text-decoration:underline}
+.settings-workspace .settings-compact-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #10243a;border-bottom:3px solid #c6a35d;border-radius:7px;background:#10243a;color:#f5ebd6;padding:8px 14px;min-height:38px;font:inherit;font-size:.85rem;white-space:nowrap;cursor:pointer}
+.settings-workspace .settings-compact-action:disabled{opacity:.5;cursor:wait}
+.settings-workspace .settings-structure-layout{display:grid;grid-template-columns:290px minmax(0,1fr);gap:18px;align-items:start}
+.settings-workspace .settings-structure-layout>.settings-card{margin:0;min-width:0}
+.settings-workspace .settings-tree-node{display:grid;gap:7px;border:1px solid var(--settings-line);border-radius:8px;padding:15px;margin:12px 0;background:var(--settings-surface);font-size:.9rem}
+.settings-workspace .settings-tree-node.current{border-color:#c6a35d;background:#fcf7ee}
+.settings-workspace .settings-tree-node small{color:var(--settings-muted)}
+.settings-workspace .settings-tree-node .settings-state{justify-self:start}
+.settings-workspace .settings-tree-children{padding-inline-start:18px;border-inline-start:1px solid var(--settings-line);margin-inline-start:14px}
+.settings-workspace .settings-entity-editor{margin-top:18px;padding-top:18px;border-top:1px solid var(--settings-line)}
+.settings-workspace .settings-entity-editor h3{grid-column:1/-1;margin:0}
+.settings-workspace .settings-system-tabs{width:min(100%,580px);margin-inline-start:0;margin-inline-end:auto}
+.settings-workspace .settings-preferences-grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(180px,.58fr);gap:16px;align-items:start}
+.settings-workspace .settings-preferences-grid>.settings-appearance-card{grid-column:1;grid-row:1/span 2}
+.settings-workspace .settings-preferences-grid>.settings-notifications-card{grid-column:2;grid-row:1}
+.settings-workspace .settings-preferences-grid>.settings-security-card{grid-column:2;grid-row:2}
+.settings-workspace .settings-preferences-grid>.settings-preferences-note{grid-column:3;grid-row:1/span 2}
+.settings-workspace .settings-preferences-grid>.yp-preferences-card{padding:18px;gap:15px;min-width:0;scroll-margin-top:90px}
+.settings-workspace .settings-preferences-grid .settings-form{grid-template-columns:1fr;gap:16px}
+.settings-workspace .settings-preferences-grid .settings-form label{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);align-items:center;gap:12px}
+.settings-workspace .yp-themes{gap:8px}
+.settings-workspace .yp-theme{padding:8px 6px;gap:8px}
+.settings-workspace .yp-theme strong{font-size:.76rem;line-height:1.5}
+.settings-workspace .yp-theme-preview{height:57px}
+.settings-workspace .yp-theme[aria-pressed=true]::after{content:'●';color:#a77825;font-size:1rem;line-height:1}
+.settings-workspace .yp-theme[aria-pressed=false]::after{content:'○';color:#748297;font-size:1rem;line-height:1}
+.settings-workspace .settings-preferences-note{padding:16px;border:1px solid #c6a35d;border-radius:9px;background:#fcf7ee;color:var(--settings-ink)}
+.settings-workspace .settings-preferences-note h3{margin:0 0 8px;font-size:.95rem}
+.settings-workspace .settings-preferences-note p{font-size:.82rem;line-height:1.9;margin:0}
+.settings-workspace .settings-security-card .settings-overview-facts>div{flex-wrap:wrap;padding:9px 0}
+.settings-workspace .settings-security-card dd{font-size:.78rem;overflow-wrap:anywhere;max-width:100%}
+.settings-workspace .settings-toggle{min-height:0;padding:12px 0}
+.settings-workspace .settings-toggle strong{font-size:.86rem;line-height:1.7}
+.settings-workspace .settings-team-grid .card{border-radius:9px;box-shadow:none}
+.settings-workspace .settings-team-grid .settings-team-access-summary{padding:18px}
+.settings-workspace .settings-team-refresh{margin:0 0 10px;font-size:.77rem;padding:5px 10px;min-height:32px}
+.settings-workspace .settings-team-search{max-width:240px}
+.settings-workspace .settings-team-owner{padding:12px;margin-bottom:14px}
+.settings-workspace .settings-permission-granted{color:#155438;font-weight:750;font-size:1rem}
+.settings-workspace .financial-setup-dashboard-actions{position:static;margin-top:20px;direction:ltr;justify-content:flex-start}
+.settings-workspace .financial-setup-dashboard-actions button{direction:inherit}
+.settings-workspace .financial-setup-progress-heading{flex-direction:row-reverse}
+.settings-workspace .financial-setup-native{border:0;background:transparent}
+.settings-workspace .financial-setup-native-content{padding:0}
+.settings-workspace .financial-setup-native-content>.settings-card{padding:0;border:0;background:transparent;margin:0}
+.settings-workspace .financial-setup-native-content .settings-structure-layout{grid-template-columns:1fr}
+@media(min-width:1251px){.corp-shell .settings-workspace .settings-tabs a:not(.btn){font-size:.77rem;padding-inline:5px;gap:7px}.settings-workspace .settings-tabs .settings-icon{width:18px;height:18px;flex-basis:18px}}
+@media(max-width:1250px){.settings-workspace .settings-preferences-grid{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}.settings-workspace .settings-preferences-grid>.settings-preferences-note{grid-column:1/-1;grid-row:3}.settings-workspace .settings-organization-grid{grid-template-columns:minmax(0,1fr) 265px}.settings-workspace .settings-structure-layout{grid-template-columns:240px minmax(0,1fr)}}
+@media(max-width:1050px){.settings-workspace .settings-organization-grid{grid-template-columns:1fr}.settings-workspace .settings-structure-layout{grid-template-columns:1fr}.settings-workspace .organization-details-card.identity-only .settings-form{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace .settings-financial-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace .settings-financial-overview-grid>.settings-card:last-child{grid-column:1/-1}.settings-workspace .settings-financial-overview-lower{grid-template-columns:1fr}}
+@media(max-width:700px){.settings-workspace .settings-heading h1{font-size:1.55rem}.settings-workspace .settings-heading p{font-size:.87rem}.settings-workspace .settings-local-tabs{gap:3px}.settings-workspace .settings-local-tabs button{font-size:.78rem;flex:1 1 100px;padding:8px 5px;gap:5px}.settings-workspace .settings-local-tabs .settings-icon{width:18px;height:18px;flex-basis:18px}.settings-workspace .settings-subsection-nav{width:100%}.settings-workspace .settings-subsection-nav a{font-size:.8rem;padding:8px;gap:6px}.settings-workspace .settings-organization-summary{grid-template-columns:1fr}.settings-workspace .settings-panel-heading{flex-wrap:wrap;gap:10px}.settings-workspace .organization-details-card.identity-only .settings-form{grid-template-columns:1fr}.settings-workspace .settings-preferences-grid{display:flex;flex-direction:column}.settings-workspace .settings-preferences-grid> *{width:100%;box-sizing:border-box}.settings-workspace .settings-preferences-grid .settings-form label{grid-template-columns:1fr}.settings-workspace .settings-preferences-grid>.settings-appearance-card{order:1}.settings-workspace .settings-preferences-grid>.settings-notifications-card{order:2}.settings-workspace .settings-preferences-grid>.settings-security-card{order:3}.settings-workspace .settings-preferences-grid>.settings-preferences-note{order:4}.settings-workspace .yp-themes{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace .settings-financial-overview-grid{grid-template-columns:1fr}.settings-workspace .settings-financial-overview-grid>.settings-card:last-child{grid-column:auto}.settings-workspace .settings-finance-status{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-workspace .settings-finance-status h3{font-size:.85rem}.settings-workspace .settings-data-table :is(td,th){padding:9px 8px}.settings-workspace .settings-entity-editor{grid-template-columns:1fr}.settings-workspace .settings-action-footer button{flex:0 1 auto}.settings-workspace .settings-action-footer .settings-save{min-width:160px}.settings-workspace .financial-setup-dashboard-actions{padding:12px 0;margin-inline:0}.settings-workspace .financial-setup-dashboard-actions button{font-size:.82rem}}
+.settings-workspace .settings-profile-progress{display:flex;align-items:center;gap:14px;margin:8px 0 12px;direction:ltr}
+.settings-workspace .settings-profile-progress .settings-profile-percent{font-size:1.8rem;line-height:1.4;color:#155438}
+.settings-workspace .settings-profile-progress progress{appearance:none;-webkit-appearance:none;display:block;border:0;border-radius:99px;background:#e3e8ee;height:10px;flex:1;min-width:0;overflow:hidden}
+.settings-workspace .settings-profile-progress progress::-webkit-progress-bar{background:#e3e8ee;border-radius:99px}
+.settings-workspace .settings-profile-progress progress::-webkit-progress-value{background:#155438;border-radius:99px}
+.settings-workspace .settings-profile-progress progress::-moz-progress-bar{background:#155438;border-radius:99px}
+.settings-workspace .settings-profile-counts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 0}
+.settings-workspace .settings-profile-counts>div{border:1px solid var(--settings-line);border-radius:7px;padding:10px;text-align:center}
+.settings-workspace .settings-profile-counts dd{font-size:1.2rem;font-weight:650;margin:0 0 6px;color:#155438}
+.settings-workspace .settings-profile-counts dt{font-size:.8rem;color:var(--settings-muted)}
+.settings-workspace .financial-setup-subscription-link{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #155438;color:#155438;background:var(--settings-surface);border-radius:6px;min-height:36px;padding:6px 10px;box-sizing:border-box;width:100%;font-size:.82rem;font-weight:650;text-decoration:none;margin-top:12px;line-height:1.5;text-align:center}
+.settings-workspace[dir=rtl] .financial-setup-dashboard-actions button{direction:rtl}
+.settings-workspace .settings-financial-overview-grid{align-items:stretch}
+.settings-workspace .settings-financial-overview-grid>.settings-card{align-self:stretch}
+.settings-workspace .settings-financial-overview-grid>.settings-card>button{margin-top:auto}
+.settings-workspace .settings-finance-status .settings-finance-state-complete{border-color:#9bc8aa;background:#f7fbf8}
+.settings-workspace .settings-finance-status .settings-finance-state-incomplete{border-color:#e9b7bb;background:#fffafb}
+.settings-workspace .settings-state.incomplete{background:#fff0ef;color:#a11f27}
+.settings-workspace .settings-state.unverified{background:#eef1f5;color:#526070}
+/* Keep native form actions and tables consistent with the approved Royal theme. */
+.corp-shell.theme-yaqeen-business .settings-workspace .settings-action-footer .settings-save{background:#155438;color:#fff;border-color:#155438}
+.corp-shell.theme-yaqeen-business .settings-workspace :is(.settings-data-table,.settings-chart-preview,.settings-native-team .table) th{background:#e9edf2;color:#10243a;border-bottom-color:#dce3ec}
+.corp-shell.theme-yaqeen-business .settings-workspace .settings-form :is(input,select,textarea):not([readonly]):not(:disabled){border-color:#ccd6e2}
+.settings-workspace .settings-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.settings-workspace .settings-members-heading h2{display:flex;gap:8px;align-items:center;margin:0}
+.settings-workspace .settings-members-heading .settings-team-search{margin:0;min-width:190px;flex:0 1 240px}
+@media(max-width:700px){.settings-workspace .settings-members-heading .settings-team-search{flex:1 1 100%;max-width:none;min-width:0}}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-tabs{display:flex;gap:4px;border:1px solid #dce3ec;border-radius:8px;background:#fff;padding:4px;margin:0 0 18px}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-tabs button{flex:1;border:0;border-radius:5px;background:transparent;color:#10243a;min-height:38px;padding:8px 12px;font:inherit;font-size:.84rem}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-tabs button[aria-pressed=true]{background:#10243a;color:#f5ebd6;box-shadow:inset 0 -3px #c6a35d}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .console-actions button.primary{background:#155438;color:#fff;border-color:#155438}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .vat-profile-fields label{font-size:.85rem}
+.corp-shell.theme-yaqeen-business .settings-workspace .financial-setup-regulatory-editor .vat-profile-fields :is(input,select,textarea){min-height:40px;border-color:#ccd6e2;font:inherit;font-size:.9rem}
+/* Fit the six labels within the content left by the desktop sidebar. */
+@media(min-width:701px) and (max-width:1350px){.settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.corp-shell .settings-workspace .settings-tabs a:not(.btn){white-space:normal;font-size:.82rem}}
+.corp-shell .settings-workspace[dir=ltr] .settings-tabs a:not(.btn){white-space:normal}
+
+@media(min-width:1351px){.corp-shell .settings-workspace .settings-tabs{grid-template-columns:minmax(0,.75fr) minmax(0,1fr) minmax(0,1.25fr) minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,.85fr)}}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){white-space:normal}
+
+
+/* Approved Yaqeen settings navigation – exact RTL order, flat colors, unclipped labels. */
+.corp-shell .settings-workspace .settings-tabs{
+  position:relative;isolation:isolate;box-sizing:border-box;
+  display:grid;grid-auto-flow:row;grid-auto-columns:auto;
+  grid-template-columns:repeat(6,minmax(0,1fr));align-items:stretch;
+  gap:0;width:100%;margin:16px 0 22px;padding:8px 8px 10px;
+  border:1px solid #d8e0e7;border-radius:15px;background:#fff;box-shadow:none;
+}
+.settings-workspace[dir="rtl"] .settings-tabs{direction:rtl}
+.settings-workspace[dir="ltr"] .settings-tabs{direction:ltr}
+.corp-shell .settings-workspace .settings-tabs::before{
+  content:"";position:absolute;bottom:20px;inset-inline:8.333%;
+  height:2px;background:#cbd1d5;z-index:-1;pointer-events:none;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){
+  position:relative;box-sizing:border-box;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;gap:6px;
+  min-width:0;min-height:133px;height:auto;
+  padding:10px 6px 29px;border:0;border-radius:0;
+  background:transparent!important;color:#1d3852!important;
+  text-decoration:none;white-space:normal;text-align:center;
+  font-size:.82rem;font-weight:650;line-height:1.6;overflow:visible;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)+a:not(.btn){border-inline-start:0}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{
+  flex:0 0 auto;display:block;max-height:none;min-height:0;
+  max-width:100%;overflow:visible;white-space:normal;
+  word-break:normal;overflow-wrap:break-word;
+  text-align:center;line-height:1.6;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn) .settings-icon{
+  display:block;box-sizing:border-box;flex:0 0 47px;
+  width:47px;height:47px;padding:9px;border:1px solid #eee5d0;
+  border-radius:50%;background:transparent;box-shadow:none;color:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)::before{
+  content:"";position:absolute;bottom:19px;inset-inline:17%;
+  height:3px;background:transparent;border-radius:4px;z-index:0;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)::after{
+  content:"";position:absolute;bottom:15px;inset-inline-start:calc(50% - 6px);
+  width:12px;height:12px;border-radius:50%;background:#cbd1d5;z-index:1;
+  box-shadow:0 0 0 2px #fff;
+}
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn) .settings-icon{
+  color:#f5ebd6;background:#205347;border-color:#205347;
+}
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn)::before{background:#205347;height:4px}
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn)::after{
+  background:#205347;width:15px;height:15px;bottom:13px;inset-inline-start:calc(50% - 7.5px);
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn):hover{background:#f7f8f9!important}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn):focus-visible{outline:3px solid #c6a35d;outline-offset:-3px;border-radius:8px}
+
+/* Financial subnavigation keeps the first Summary tab before the Fiscal Year tab. */
+.corp-shell .settings-workspace .settings-finance-journey-tabs{
+  box-sizing:border-box;display:grid;grid-auto-flow:row;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  align-items:stretch;gap:0;padding:6px;margin:16px 0 20px;
+  background:#fff;border:1px solid #d8e0e7;border-radius:13px;
+}
+.settings-workspace[dir="rtl"] .settings-finance-journey-tabs{direction:rtl}
+.settings-workspace[dir="ltr"] .settings-finance-journey-tabs{direction:ltr}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button{
+  box-sizing:border-box;display:flex;flex-direction:row;align-items:center;
+  justify-content:center;gap:7px;min-width:0;min-height:50px;
+  padding:9px 5px;border:0;border-radius:7px;background:transparent;
+  color:#1d3852;font-size:.79rem;font-weight:650;line-height:1.5;
+  white-space:normal;box-shadow:none;cursor:pointer;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button+button{border-inline-start:1px solid #e8eef0}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button .settings-icon{
+  width:23px;height:23px;flex:0 0 23px;color:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button[aria-pressed="true"]{
+  color:#c6a35d!important;background:#10243a!important;
+  border-inline-start-color:transparent;box-shadow:inset 0 -3px 0 #c6a35d;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button[aria-pressed="true"] .settings-icon{color:#c6a35d}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button:not([aria-pressed="true"]):hover{background:#f7f8f9}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button:focus-visible{outline:3px solid #c6a35d;outline-offset:1px}
+
+/* One pearl-grey surface for every status card, with real backend state. */
+.corp-shell .settings-workspace .settings-finance-status{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;
+  margin:18px 0 24px;
+}
+.corp-shell .settings-workspace .settings-finance-status article{
+  box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;
+  align-items:center;gap:10px;min-width:0;min-height:240px;
+  padding:22px 12px 17px;border:1px solid #d8e0e7!important;
+  border-radius:15px;background:#f7f8f9!important;box-shadow:none;
+}
+.corp-shell .settings-workspace .settings-finance-status article>.settings-icon{
+  color:#c6a35d;width:44px;height:44px;flex:0 0 44px;
+}
+.corp-shell .settings-workspace .settings-finance-status article>h3{
+  display:block;color:#10243a;text-align:center;font-size:1.16rem;
+  line-height:1.5;margin:0;max-width:100%;
+}
+.corp-shell .settings-workspace .settings-finance-status article>p{
+  font-size:.8rem;line-height:1.7;text-align:center;color:#1d3852;
+  min-height:44px;margin:0;max-width:100%;
+}
+.corp-shell .settings-workspace .settings-progress-track{
+  width:90%;max-width:215px;display:flex;align-items:center;
+  justify-content:space-between;position:relative;margin-top:auto;padding:0 4px;
+}
+.corp-shell .settings-workspace .settings-progress-track::before{
+  content:"";position:absolute;inset-inline:12px;top:50%;height:3px;
+  transform:translateY(-50%);background:#bfc6cd;
+}
+.corp-shell .settings-workspace .settings-progress-track::after{
+  content:"";position:absolute;inset-inline-start:12px;top:50%;
+  width:0;height:3px;transform:translateY(-50%);
+  background:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-progress-track.pending::after{width:calc(50% - 12px)}
+.corp-shell .settings-workspace .settings-progress-track.complete::before{background:#205347}
+.corp-shell .settings-workspace .settings-progress-track span{
+  display:block;z-index:1;width:20px;height:20px;
+  box-sizing:border-box;flex:0 0 20px;border:2px solid #afb8c1;
+  background:#f7f8f9;border-radius:50%;
+}
+.corp-shell .settings-workspace .settings-progress-track.pending span:first-child{
+  border-color:#c6a35d;background:#c6a35d;
+}
+.corp-shell .settings-workspace .settings-progress-track.complete span{
+  border-color:#205347;background:#205347;
+}
+.corp-shell .settings-workspace .settings-finance-progress-label{
+  color:#1d3852;font-size:.84rem;font-weight:650;
+  display:block;padding:5px 12px;border:0;border-radius:18px;
+  background:#e8eef0;white-space:normal;text-align:center;
+}
+.corp-shell .settings-workspace .settings-finance-progress-label.pending{color:#95732c}
+.corp-shell .settings-workspace .settings-finance-progress-label.complete{color:#205347}
+
+@media (max-width:1100px){
+  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:12px}
+  .corp-shell .settings-workspace .settings-tabs::before{display:none}
+  .corp-shell .settings-workspace .settings-tabs a:not(.btn)::before{background:#cbd1d5}
+  .corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn)::before{background:#205347}
+  .corp-shell .settings-workspace .settings-finance-journey-tabs{
+    display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-inline:contain;
+    scrollbar-width:thin;
+  }
+  .corp-shell .settings-workspace .settings-finance-journey-tabs button{flex:0 0 165px}
+  .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:600px){
+  .corp-shell .settings-workspace .settings-tabs{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:8px}
+  .corp-shell .settings-workspace .settings-tabs a:not(.btn){min-height:126px;padding-inline:5px}
+  .corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{font-size:.77rem}
+  .corp-shell .settings-workspace .settings-finance-status{grid-template-columns:1fr}
+  .corp-shell .settings-workspace .settings-finance-status article{min-height:220px}
+}
+
+/* Regression 2026-11-16: keep long Arabic captions inside narrow mobile columns. */
+.corp-shell .settings-workspace,
+.corp-shell .settings-workspace .settings-finance-native,
+.corp-shell .settings-workspace .settings-native-content{
+  box-sizing:border-box;min-width:0;max-width:100%;
+}
+.corp-shell .settings-workspace .settings-tabs{
+  box-sizing:border-box;max-width:100%;min-width:0;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn){
+  box-sizing:border-box;min-width:0;max-width:100%;overflow:hidden;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)>span{
+  display:block;box-sizing:border-box;min-width:0;width:100%;max-width:100%;
+  white-space:normal!important;overflow-wrap:anywhere!important;
+  word-break:break-word;line-height:1.55;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs{
+  box-sizing:border-box;max-width:100%;min-width:0;
+}
+@media(max-width:1100px){
+  .corp-shell .settings-workspace .settings-finance-journey-tabs{
+    width:100%;max-width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;
+  }
+}
+
+/* Base settings.css forces row!important on mobile; the approved stepper is column-first. */
+@media(max-width:700px){
+ .corp-shell .settings-workspace .settings-tabs a:not(.btn){
+  flex-direction:column!important;
+  justify-content:flex-start;align-items:center;
+ }
+}
+
+/* Selected main step has only the approved dark-green progress line; no legacy gold inset. */
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn){box-shadow:none!important}

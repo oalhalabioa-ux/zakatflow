@@ -1,0 +1,16 @@
+{
+  "description": "Atomic expense account classification and draft rule preparation.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_prepare_expense_account()",
+      "fingerprint": "baec2ebfa41e5c676b72eb3456c2a1ca"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_chart_custom_accounts.financial_prepare_expense_account",
+      "fingerprint": "62555d55b7098a8a70fa1c5b0c382cac"
+    }
+  ]
+}

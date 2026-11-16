@@ -30,3 +30,11 @@ The [standard-invoice preview](https://yaqeen-fatoora-qnauqumks-oalhalabioa-9334
 Reporting and clearance remain separate gates. A prior **Developer Portal** test returned HTTP 200 for `/production/csids`, but the output certificate did not match the QA key. That credential was not used to sign or submit a document. Follow the [Developer Portal guide](https://sandbox.zatca.gov.sa/User_Manual_Developer_Portal_Manual_Version_3.pdf) for isolated reporting and clearance examples and keep test credentials separate from real FATOORA onboarding.
 
 Before enabling anything on the live domain: validate the simplified signer against the current official SDK; get matching test artifacts and verify the reporting and clearance outcomes separately; then run FATOORA Simulation for an authorized organization, using its own approved key and certificate, before any production release.
+
+## Application release staging — 2026-11-16
+
+The [stable Financial Core QA V2 alias](https://yaqeen-financial-core-v2-qa-preview.vercel.app) pointed to `368c11f` at review time. This revision does not contain the Phase 2 candidate, and it was not changed or used as evidence of application acceptance. The FATOORA Preview above is separate and provides only gateway/credential diagnostics.
+
+The isolated release worktree includes main `21b6a03`. The only merge conflict was the lockfile; it was regenerated from main's lock while adding the three Phase 2 package entries. The candidate does not change application routes or install Supabase migrations relative to main.
+
+Added a direct regression for the weakness reproduced by the compatibility probe: replacing `SigningTime` and recomputing the properties digest keeps the invoice hash unchanged, but both Node/OpenSSL verification of signed information and native XMLSec reject the signature in the standards-oriented XAdES preparation path. A valid unmodified document verifies. This closes the offline cryptographic test, not the external compatibility or production integration gates.

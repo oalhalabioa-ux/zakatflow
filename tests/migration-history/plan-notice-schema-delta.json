@@ -1,0 +1,35 @@
+{
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.customer_notice_ar",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "public.platform_plans.customer_notice_en",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.platform_plans.platform_plans_customer_notice_ar_check",
+      "fingerprint": "51b675a01e75db92c2c57755e75a0605"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.platform_plans.platform_plans_customer_notice_en_check",
+      "fingerprint": "375119b36980c78a45a748bd7c558804"
+    },
+    {
+      "category": "function",
+      "object_key": "public.owner_save_subscription_plan(p_details jsonb, p_reason text)",
+      "fingerprint": "fbbb157f3634d579ab16ac1f15bb5c8d"
+    },
+    {
+      "category": "function",
+      "object_key": "public.subscription_plan_catalog()",
+      "fingerprint": "37c050a7ba15a2506e3b7dbaaddeaf54"
+    }
+  ],
+  "removals": []
+}

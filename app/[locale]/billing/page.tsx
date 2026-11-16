@@ -1,4 +1,7 @@
-'use client';
-import {Money} from '@/components/DisplayCurrency';
-import {useEffect,useState} from 'react';
-export default function Billing(){const [d,setD]=useState<any>(); useEffect(()=>{fetch('/api/billing').then(r=>r.json()).then(setD)},[]); return <main className="p-8 max-w-6xl mx-auto"><h1 className="text-3xl font-bold mb-2">Plans & Billing</h1><p className="text-slate-600 mb-8">Choose the workspace capacity that fits your needs.</p><div className="grid md:grid-cols-5 gap-4">{(d?.plans||[]).map((p:any)=><div key={p.code} className="rounded-2xl border p-5 bg-white"><h2 className="font-bold">{p.code}</h2><div className="text-2xl my-4">{p.price==null?'Contact us':p.price===0?'Free':<><Money value={p.price} currency="USD"/>/mo</>}</div><button className="w-full rounded-xl border px-3 py-2">Select</button></div>)}</div></main>}
+import BillingOrganizationPicker from '@/components/settings/BillingOrganizationPicker';
+import SubscriptionBillingWorkspace from '@/components/settings/SubscriptionBillingWorkspace';
+import '@/components/settings/settings.css';
+export default async function Billing({params}:{params:Promise<{locale:string}>}){
+ const {locale}=await params;
+ return <main className="settings-workspace billing-workspace" dir={locale==='ar'?'rtl':'ltr'}><BillingOrganizationPicker locale={locale}/><SubscriptionBillingWorkspace locale={locale}/></main>;
+}

@@ -1,0 +1,10 @@
+{
+  "project": "ejpzcsfwqziqxwhvqnay",
+  "inspection": "read-only catalog metadata",
+  "preserve_without_any_change": [
+    "owner_set_member_permission_override(uuid,uuid,text,text,numeric,text)",
+    "owner_set_organization_approval_policy(uuid,text)",
+    "owner_update_organization_role(uuid,uuid,text[],jsonb)"
+  ],
+  "note": "These are existing organization permission functions, not platform-owner dashboard RPCs. Collision and postflight checks must target the twelve exact dashboard names only. Test fixture bodies are synthetic; no Production definitions or data were copied."
+}

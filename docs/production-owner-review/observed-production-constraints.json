@@ -1,0 +1,104 @@
+[
+  {
+    "relation": "organization_members",
+    "conname": "organization_members_custom_role_check",
+    "contype": "c",
+    "definition": "CHECK (((role = 'CUSTOM'::text) = (custom_role_id IS NOT NULL)))"
+  },
+  {
+    "relation": "organization_members",
+    "conname": "organization_members_custom_role_fkey",
+    "contype": "f",
+    "definition": "FOREIGN KEY (organization_id, custom_role_id) REFERENCES organization_roles(organization_id, id) ON DELETE RESTRICT"
+  },
+  {
+    "relation": "organization_members",
+    "conname": "organization_members_organization_id_fkey",
+    "contype": "f",
+    "definition": "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "relation": "organization_members",
+    "conname": "organization_members_pkey",
+    "contype": "p",
+    "definition": "PRIMARY KEY (organization_id, user_id)"
+  },
+  {
+    "relation": "organization_members",
+    "conname": "organization_members_role_check",
+    "contype": "c",
+    "definition": "CHECK ((role = ANY (ARRAY['OWNER'::text, 'ADMIN'::text, 'ACCOUNTANT'::text, 'ADVISOR'::text, 'VIEWER'::text, 'SHARIA_REVIEWER'::text, 'CUSTOM'::text])))"
+  },
+  {
+    "relation": "organization_members",
+    "conname": "organization_members_user_id_fkey",
+    "contype": "f",
+    "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+  },
+  {
+    "relation": "organizations",
+    "conname": "organizations_approval_policy_check",
+    "contype": "c",
+    "definition": "CHECK ((approval_policy = ANY (ARRAY['OWNER_CONTROLLED'::text, 'ROLE_BASED'::text, 'STRICT_SEGREGATION'::text])))"
+  },
+  {
+    "relation": "organizations",
+    "conname": "organizations_base_currency_fkey",
+    "contype": "f",
+    "definition": "FOREIGN KEY (base_currency) REFERENCES currencies(code)"
+  },
+  {
+    "relation": "organizations",
+    "conname": "organizations_organization_kind_check",
+    "contype": "c",
+    "definition": "CHECK ((organization_kind = ANY (ARRAY['HOLDING'::text, 'SUBSIDIARY'::text])))"
+  },
+  {
+    "relation": "organizations",
+    "conname": "organizations_owner_user_id_fkey",
+    "contype": "f",
+    "definition": "FOREIGN KEY (owner_user_id) REFERENCES profiles(id) ON DELETE RESTRICT"
+  },
+  {
+    "relation": "organizations",
+    "conname": "organizations_parent_organization_id_fkey",
+    "contype": "f",
+    "definition": "FOREIGN KEY (parent_organization_id) REFERENCES organizations(id) ON DELETE RESTRICT"
+  },
+  {
+    "relation": "organizations",
+    "conname": "organizations_pkey",
+    "contype": "p",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "relation": "subscriptions",
+    "conname": "subscriptions_pkey",
+    "contype": "p",
+    "definition": "PRIMARY KEY (id)"
+  },
+  {
+    "relation": "subscriptions",
+    "conname": "subscriptions_plan_code_check",
+    "contype": "c",
+    "definition": "CHECK ((plan_code = ANY (ARRAY['FREE'::text, 'FAMILY'::text, 'PROFESSIONAL'::text, 'BUSINESS'::text, 'ENTERPRISE'::text])))"
+  },
+  {
+    "relation": "subscriptions",
+    "conname": "subscriptions_status_check",
+    "contype": "c",
+    "definition": "CHECK ((status = ANY (ARRAY['TRIALING'::text, 'ACTIVE'::text, 'PAST_DUE'::text, 'CANCELLED'::text])))"
+  },
+  {
+    "relation": "subscriptions",
+    "conname": "subscriptions_user_id_fkey",
+    "contype": "f",
+    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+  },
+  {
+    "relation": "subscriptions",
+    "conname": "subscriptions_user_id_key",
+    "contype": "u",
+    "definition": "UNIQUE (user_id)"
+  }
+]

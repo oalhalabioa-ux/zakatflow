@@ -25,6 +25,11 @@ export function CurrencyScope({currency,organizationId}:{currency:string;organiz
  useEffect(()=>{setScope({currency:currency.toUpperCase(),organizationId})},[currency,organizationId,setScope,pathname]);return null;
 }
 export function useDisplayCurrencyCode(currency:string){const {mode,rates,today,scope}=useContext(Context);const result=displayAmount(0,currency,mode,scopedDisplayRates(rates,scope.organizationId),today,scope.currency);return result.currency+(result.missing?' *':'');}
+/** Use the same conversion as Money when ordering visible monetary columns. */
+export function useDisplayAmountValue(){
+ const {mode,rates,today,scope}=useContext(Context);
+ return useCallback((value:unknown,currency='SAR',organizationId?:string|null)=>displayAmount(value,currency,mode,scopedDisplayRates(rates,organizationId===undefined?scope.organizationId:organizationId),today,scope.currency).value,[mode,rates,today,scope.organizationId,scope.currency]);
+}
 export function useDisplayMoney(){
  const {mode,rates,today,scope}=useContext(Context);
  return (value:unknown,currency='SAR',_locale?:string,organizationId?:string|null)=>{const amount=displayAmount(value,currency,mode,scopedDisplayRates(rates,organizationId===undefined?scope.organizationId:organizationId),today,scope.currency);return amount.value==null?'—':new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(amount.value)+' '+amount.currency+(amount.missing?' *':'')};

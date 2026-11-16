@@ -1,0 +1,1 @@
+{{ $p := printf "%s/auth/callback?lang=en&" .SiteURL }}{{ if eq (printf "%.*s" (len $p) .RedirectTo) $p }}Verify your email address — Yaqeen Business{{ else }}تأكيد بريدك الإلكتروني — يقين الأعمال{{ end }}

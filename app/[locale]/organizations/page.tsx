@@ -68,7 +68,12 @@ export default function Organizations({params}:{params:Promise<{locale:string}>}
   }catch(error){setNotice(messageFor(error instanceof Error?error.message:'',ar));setNoticeIsError(true);setEntities([])}
   finally{setLoadingEntities(false)}
  },[ar]);
- useEffect(()=>{void loadOrganizations()},[loadOrganizations]);
+ useEffect(()=>{
+  // Keep the selected organization when arriving from the setup journey.
+  // A foreign ID is ignored unless it exists in the authorized organization list.
+  const selected=new URLSearchParams(window.location.search).get('organization');
+  void loadOrganizations(selected??undefined);
+ },[loadOrganizations]);
  useEffect(()=>{void loadEntities(selectedId)},[loadEntities,selectedId]);
 
  const openCreateOrganization=()=>{setEditingOrganization(null);setOrganizationForm(emptyOrganizationForm);setOrganizationModal(true)};

@@ -1,3 +1,6 @@
+import {liquidityPartyClassifications} from '../../../lib/liquidity-party-classifications';
+import {openFinancialAccount} from '@/services/financial-account-opening';
+import {withVoucherNumbers} from '../../../services/voucher-numbers';
 import {organizationScopeIds} from '@/lib/workspace-organization';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -9,6 +12,7 @@ import { executeFinancialEventAction } from '@/services/financial-events';
 
 const accountSchema = z.object({
   organization_id: z.string().uuid(), entity_id: z.string().uuid().nullable().optional(),
+  request_id:z.string().uuid(), balance_mode:z.enum(['NEW','OPENING']),opening_date:z.string().date(),fx_rate:z.coerce.number().positive().max(1e6),
   name: z.string().trim().min(1).max(120), account_type: z.enum(['BANK','CASH','WALLET','INVESTMENT','OTHER']).default('BANK'),
   currency: z.string().length(3).default('SAR'), current_balance: z.coerce.number(), restricted_balance: z.coerce.number().min(0).default(0),
   uncleared_balance: z.coerce.number().min(0).default(0), current_balance_base: z.coerce.number(), restricted_balance_base: z.coerce.number().min(0).default(0),
@@ -22,7 +26,7 @@ const flowSchema = z.object({
   source: z.enum(['MANUAL','INVOICE','IMPORT','VAT','ACCOUNTING']).default('MANUAL'), reference: z.string().max(120).default(''), notes: z.string().max(500).default(''),
 });
 const counterpartySchema = z.object({ organization_id: z.string().uuid(), name: z.string().trim().min(1).max(160), party_type: z.enum(['CUSTOMER','SUPPLIER','BOTH','PERSON','OTHER']).default('OTHER'), party_type_id: z.string().uuid().nullable().optional(), contact_name: z.string().trim().max(120).default(''), phone: z.string().trim().max(40).default(''), email: z.string().trim().max(160).default(''), notes: z.string().max(500).default('') });
-const categorySchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), accounting_group: z.enum(['REVENUE','EXPENSE','PAYROLL','ASSETS','INVESTMENTS','FINANCING','EQUITY','CUSTOMERS','SUPPLIERS','TAX','ZAKAT','ADVANCES','TRANSFERS','OTHER']), treatment_code: z.string().trim().min(1).max(80), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH'), financial_classification_type: z.enum(['REVENUE','OPEX','CAPEX','ASSET','LIABILITY','RECEIVABLE','PAYABLE','FINANCING','INVESTMENT','EQUITY','TAX','ZAKAT','TRANSFER','OTHER']) });
+const categorySchema = z.object({ expense_classification_id:z.string().uuid().optional(), organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80), flow_group: z.enum(['OPERATING','PAYROLL','TAX','FINANCING','INVESTMENT','OTHER']).default('OTHER'), accounting_group: z.enum(['REVENUE','EXPENSE','PAYROLL','ASSETS','INVESTMENTS','FINANCING','EQUITY','CUSTOMERS','SUPPLIERS','TAX','ZAKAT','ADVANCES','TRANSFERS','OTHER']), treatment_code: z.string().trim().min(1).max(80), allowed_direction: z.enum(['INFLOW','OUTFLOW','BOTH']).default('BOTH'), financial_classification_type: z.enum(['REVENUE','OPEX','CAPEX','ASSET','LIABILITY','RECEIVABLE','PAYABLE','FINANCING','INVESTMENT','EQUITY','TAX','ZAKAT','TRANSFER','OTHER']) });
 const partyTypeSchema = z.object({ organization_id: z.string().uuid(), name_ar: z.string().trim().min(1).max(80), name_en: z.string().trim().min(1).max(80) });
 const transferSchema = z.object({
   organization_id: z.string().uuid(), source_account_id: z.string().uuid(), destination_account_id: z.string().uuid(),
@@ -60,7 +64,7 @@ export async function GET(request: Request) {
       }
     }
     const [accountsResult, flowsResult, entitiesResult, organizationsResult, fxResult, categoriesResult, partyTypesResult, intercompanyTransfersResult] = await Promise.all([
-      supabase.from('liquidity_accounts').select('*').in('organization_id', organizationIds).eq('active', true).order('created_at'),
+      supabase.from('liquidity_accounts').select('*').in('organization_id', organizationIds).order('created_at'),
       supabase.from('liquidity_flows').select('*').in('organization_id', organizationIds).order('due_date', { ascending: true }).limit(1500),
       supabase.from('organization_entities').select('id,name,organization_id,entity_type').in('organization_id', organizationIds).eq('active', true).order('name'),
       supabase.from('organizations').select('id,name,entity_type,base_currency,organization_kind,parent_organization_id').in('id', organizationIds),
@@ -80,6 +84,17 @@ export async function GET(request: Request) {
     if (counterpartiesError) throw counterpartiesError;
     if (balancesError) throw balancesError;
     if (openItemsError) throw openItemsError;
+    const expenseClasses=await supabase.from('financial_classifications').select('id,organization_id,code,name')
+      .in('organization_id',organizationIds).eq('classification_type','OPEX').eq('active',true).order('name');
+    if(expenseClasses.error)throw expenseClasses.error;
+    const [chartLinks, chartPermission] = await Promise.all([
+      supabase.from('financial_cash_account_links').select('account_id').eq('organization_id', organizationId),
+      supabase.rpc('effective_organization_permission', {p_org:organizationId,p_permission:'financial_core.create',p_amount:null,p_currency:null}),
+    ]);
+    const linkedCashIds = new Set((chartLinks.data ?? []).map(link => link.account_id));
+    const pendingCashChartLinks = chartLinks.error || chartPermission.data !== true ? 0 :
+      (accountsResult.data ?? []).filter(account => account.organization_id === organizationId &&
+        (account.active || Number(account.current_balance_base) !== 0) && !linkedCashIds.has(account.id)).length;
     const organizations = organizationsResult.data ?? [];
     let accounts: any[] = accountsResult.data ?? [];
     let flows: any[] = flowsResult.data ?? [];
@@ -114,7 +129,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json({ organization, organizations, organization_ids: organizationIds, accounts, flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: partyTypesResult.data ?? [], intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing });
+    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, pendingCashChartLinks, expense_classifications:expenseClasses.data??[], accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: (partyTypesResult.data ?? []).map((type:any)=>({...type,allowed_financial_classifications:liquidityPartyClassifications(type.code)})), intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
@@ -127,7 +142,10 @@ export async function POST(request: Request) {
       const input = categorySchema.parse(body);
       await requireOrganizationMember(supabase, user.id, input.organization_id);
       if (!await canWriteLiquidity(supabase, user.id, input.organization_id)) throw new Error('ORGANIZATION_ADMIN_REQUIRED');
-      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, created_by: user.id, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
+      // created_by defaults to auth.uid(); column grants deliberately prevent assigning it.
+      const { data, error } = await supabase.from('liquidity_flow_categories').insert({ ...input, code: `CUSTOM_${crypto.randomUUID().replaceAll('-', '')}` }).select().single();
+      if(error?.message.includes('LIQUIDITY_EXPENSE_CLASSIFICATION_INVALID'))
+        return NextResponse.json({error:'LIQUIDITY_EXPENSE_CLASSIFICATION_INVALID'},{status:422});
       if (error) throw error;
       return NextResponse.json(data, { status: 201 });
     }
@@ -305,9 +323,11 @@ export async function POST(request: Request) {
     }
     if (kind === 'flow' && payload.source === 'MANUAL' && !payload.category_id) throw new Error('LIQUIDITY_FINANCIAL_CLASSIFICATION_REQUIRED');
     if (kind === 'flow' && payload.status === 'ACTUAL') throw new Error('LIQUIDITY_ACTUAL_REQUIRES_SETTLEMENT_ACTION');
-    const { data, error } = kind === 'account'
-      ? await supabase.from('liquidity_accounts').insert(payload).select().single()
-      : await supabase.from('liquidity_flows').insert(payload).select().single();
+    if(kind==='account'){
+      const account=await openFinancialAccount({request_id:payload.request_id,scope:'ORGANIZATION',organization_id:payload.organization_id,entity_id:payload.entity_id??null,type:payload.account_type,name:payload.name,currency:payload.currency,balance_mode:payload.balance_mode,opening_balance:payload.current_balance,opening_date:payload.opening_date,fx_rate:payload.fx_rate,restricted_balance:payload.restricted_balance,uncleared_balance:payload.uncleared_balance,notes:payload.notes});
+      return NextResponse.json(account,{status:201});
+    }
+    const { data, error } = await supabase.from('liquidity_flows').insert(payload).select().single();
     if (error) throw error;
     // EXPECTED manual flows are forecast-only. Financial recognition is created idempotently when the user confirms the flow.
     return NextResponse.json(data, { status: 201 });

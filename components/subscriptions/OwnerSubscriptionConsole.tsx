@@ -1,0 +1,143 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
+import {
+  ownerSubscriptionSections,
+  updateOwnerQuery,
+} from "@/lib/subscriptions/owner-query";
+import type { Plan } from "@/lib/subscriptions/catalog";
+import TrialAdmin from "./TrialAdmin";
+const BundleAdmin = dynamic(() => import("./BundleAdmin"));
+const PlanManager = dynamic(() => import("./PlanManager"));
+const ActivationRequestsConsole = dynamic(() => import("./ActivationRequestsConsole"));
+import "./subscriptions.css";
+import "./owner-subscriptions.css";
+import { ConsoleIcon, type ConsoleIconName } from "./OwnerSubscriptionVisuals";
+export default function OwnerSubscriptionConsole({
+  locale,
+  plans,
+}: {
+  locale: string;
+  plans: Plan[];
+}) {
+  const params = useSearchParams();
+  const tab =
+    ownerSubscriptionSections.find(
+      (section) => section.id === params.get("tab"),
+    )?.id ?? "institutions";
+  const setTab = (id: string) => updateOwnerQuery({ tab: id }, true);
+  const ar = locale === "ar",
+    [revision, setRevision] = useState(0),
+    [metrics, setMetrics] = useState<Record<string, number> | null>(null),
+    [currentPlans, setPlans] = useState(plans),
+    [pendingCount, setPendingCount] = useState(0);
+  const reload = useCallback(async () => {
+    const [m, p, requests] = await Promise.all([
+      fetch("/api/admin/subscriptions/panel", { cache: "no-store" }),
+      fetch("/api/admin/trials", { cache: "no-store" }),
+      fetch("/api/admin/subscriptions/requests", { cache: "no-store" }),
+    ]);
+    if (m.ok) setMetrics(await m.json());
+    if (p.ok) setPlans((await p.json()).plans);
+    if (requests.ok) setPendingCount((await requests.json()).pending_count);
+  }, []);
+  useEffect(() => {
+    void reload().catch(() => setMetrics(null));
+  }, [reload, revision]);
+  return (
+    <section
+      className="subscription-panel owner-subscription-console"
+      dir={ar ? "rtl" : "ltr"}
+      data-view={tab}
+    >
+      <nav
+        className="console-tabs owner-console-tabs"
+        aria-label={ar ? "إدارة الاشتراكات" : "Subscription management"}
+      >
+        {ownerSubscriptionSections.map(({ id, icon, ar: arabic, en }) => {
+          const label = ar ? arabic : en;
+          return (
+            <button
+              key={id}
+              aria-label={label}
+              aria-pressed={tab === id}
+              onClick={() => setTab(id)}
+            >
+              <ConsoleIcon name={icon as ConsoleIconName} />
+              <span>{label}</span>
+              {id === "requests" && pendingCount > 0 && (
+                <span className="owner-request-count" aria-hidden="true">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+      {metrics && tab === "institutions" && (
+        <div className="subscription-metrics">
+          {[
+            ["total", ar ? "إجمالي المؤسسات" : "Total organizations"],
+            ["active", ar ? "الاشتراكات النشطة" : "Active subscriptions"],
+            ["trialing", ar ? "التجارب النشطة" : "Active trials"],
+            ["expired", ar ? "الاشتراكات المنتهية" : "Expired subscriptions"],
+          ].map(([key, label]) => (
+            <article key={key} data-metric={key}>
+              <span className="owner-metric-icon">
+                <ConsoleIcon
+                  name={
+                    (
+                      {
+                        total: "building",
+                        active: "users",
+                        trialing: "trial",
+                        expired: "clock",
+                      } as const
+                    )[key as "total" | "active" | "trialing" | "expired"]
+                  }
+                />
+              </span>
+              <div>
+                <span>{label}</span>
+                <strong>{metrics[key] ?? 0}</strong>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+      {tab === "institutions" && (
+        <TrialAdmin
+          key={revision}
+          locale={locale}
+          plans={currentPlans}
+          onChanged={reload}
+        />
+      )}
+      {tab === "requests" && (
+        <ActivationRequestsConsole
+          locale={locale}
+          onOpenPayment={() => setTab("payment")}
+          onChanged={() => setRevision((x) => x + 1)}
+        />
+      )}
+      {(tab === "modules" || tab === "quotes") && <BundleAdmin key={tab} locale={locale} requestsOnly={tab === "quotes"}/>}
+      {tab === "plans" && (
+        <PlanManager
+          locale={locale}
+          plans={currentPlans}
+          onSaved={async () => {
+            setRevision((x) => x + 1);
+          }}
+        />
+      )}
+      {tab === "payment" && (
+        <ActivationRequestsConsole
+          locale={locale}
+          paymentOnly
+          onChanged={() => setRevision((x) => x + 1)}
+        />
+      )}
+    </section>
+  );
+}

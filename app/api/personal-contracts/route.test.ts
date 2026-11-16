@@ -1,0 +1,8 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({read:vi.fn(),write:vi.fn()}));
+vi.mock('../../../services/personal-contracts',()=>({personalContractsWorkspace:m.read,personalContractAction:m.write}));
+import {GET,POST} from './route';
+beforeEach(()=>{vi.resetAllMocks();m.read.mockResolvedValue({contracts:[]});m.write.mockResolvedValue({id:'contract'});});
+it('rejects missing/cross-site origins before calling any financial writer',async()=>{for(const headers of [{} as Record<string,string>,{origin:'https://evil.example','sec-fetch-site':'cross-site'}]){expect((await POST(new Request('http://internal/api/personal-contracts',{method:'POST',headers,body:'{}'}))).status).toBe(403)}expect(m.write).not.toHaveBeenCalled();});
+it('accepts the trusted hosted same-origin request behind TLS termination',async()=>{const r=await POST(new Request('http://internal/api/personal-contracts',{method:'POST',headers:{origin:'https://www.yaqeenbiz.com','sec-fetch-site':'same-origin','content-type':'application/json'},body:JSON.stringify({action:'EXECUTE'})}));expect(r.status).toBe(200);expect(m.write).toHaveBeenCalledOnce();expect(r.headers.get('cache-control')).toBe('no-store');});
+it('returns authentication failures without financial details',async()=>{m.read.mockRejectedValue(Error('UNAUTHORIZED'));expect((await GET()).status).toBe(401);m.write.mockRejectedValue(Error('PERSONAL_CONTRACT_ACCESS_DENIED'));const r=await POST(new Request('https://app.yaqeenbiz.com/api/personal-contracts',{method:'POST',headers:{origin:'https://app.yaqeenbiz.com'},body:'{}'}));expect(r.status).toBe(403);expect(await r.json()).toEqual({error:'PERSONAL_CONTRACT_ACCESS_DENIED'});});

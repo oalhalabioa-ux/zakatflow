@@ -1,0 +1,11 @@
+{
+  "description": "Observed exact pg_get_functiondef MD5 of approved-opening-aware read-only legacy source attestation in disposable full-schema PostgreSQL bootstrap; raw source RLS remains unchanged.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.financial_reporting_legacy_attestation(p_org uuid, p_from date, p_to date, p_expected_events jsonb)",
+      "fingerprint": "fd4f0e9a30e6e0928e1afdf9eddef741"
+    }
+  ]
+}

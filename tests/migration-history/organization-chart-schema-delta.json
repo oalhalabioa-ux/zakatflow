@@ -1,0 +1,270 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.account_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.action",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.actor_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.id",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.new_value",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.old_value",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_account_audit.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.code",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.is_active",
+      "fingerprint": "14ea4bf43cf24757f6097b74012b9d32"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.is_postable",
+      "fingerprint": "14ea4bf43cf24757f6097b74012b9d32"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.name_ar",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.name_en",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.normal_side",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.parent_code",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.reporting_code",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.updated_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.updated_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_chart_custom_accounts.version",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_account_audit.financial_chart_account_audit_account_id_fkey",
+      "fingerprint": "9881fa626e4cfaf5e726bf86e6dc5f25"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_account_audit.financial_chart_account_audit_action_check",
+      "fingerprint": "fcc1727f0b62db36dc0e0dbefef16f8c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_account_audit.financial_chart_account_audit_actor_id_fkey",
+      "fingerprint": "508a4cf20410e80e6cb722233bc03330"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_account_audit.financial_chart_account_audit_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_account_audit.financial_chart_account_audit_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_check",
+      "fingerprint": "6a33a25bd2ff7119a2cf5259a7888916"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_code_check",
+      "fingerprint": "497b9b76bd9be0933032da4396e110e7"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_name_ar_check",
+      "fingerprint": "244fbb443ae1f81df0b7fc198a868c04"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_name_en_check",
+      "fingerprint": "18132eb8fb51ef6f908ff7776c8bded1"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_normal_side_check",
+      "fingerprint": "2297dbc332c916e62fc4187bdbfa8365"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_organization_id_code_key",
+      "fingerprint": "5a01bc1098a3f0a11f2cf2609097d8b6"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_parent_code_check",
+      "fingerprint": "34b8b4e21d4a02641be868058ecb3530"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_reporting_code_check",
+      "fingerprint": "a5ea9bd1686142b9a7de38803a0f3f1f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_updated_by_fkey",
+      "fingerprint": "813e89165d4f52cd798f126fbc683169"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_version_check",
+      "fingerprint": "2c83586178a0d05fd5156431b31923c1"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_chart_workspace(p_org uuid)",
+      "fingerprint": "534c304ecd703f9d45ae7bede64a2cb9"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_chart_account(p_org uuid, p_code text, p_parent text, p_name_ar text, p_name_en text, p_normal_side text, p_is_postable boolean, p_is_active boolean, p_expected_version integer, p_reason text)",
+      "fingerprint": "eb5797b3f2626cdae41aacf8db6b4ef5"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_chart_account_audit.financial_chart_account_audit_pkey",
+      "fingerprint": "0825d6ff9fac0b60763a32e981fe8c6d"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_chart_account_audit.financial_chart_audit_org",
+      "fingerprint": "ea32c8d9c9a1011778b7ca889178b363"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_organization_id_code_key",
+      "fingerprint": "0eba659feb9902b0867ee0720c749076"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_custom_accounts_pkey",
+      "fingerprint": "9be4c40ac9a0e797bf0cd533d21d05dc"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_chart_custom_accounts.financial_chart_parent",
+      "fingerprint": "eda6afe51a9257edf25fa12e38396aad"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_chart_account_audit.chart_account_audit_read",
+      "fingerprint": "9df6c19f8b51470ba641f7167904cda6"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_chart_custom_accounts.chart_accounts_read",
+      "fingerprint": "0e6ed435290815bc4e96ae73142416ba"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_chart_account_audit",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_chart_custom_accounts",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

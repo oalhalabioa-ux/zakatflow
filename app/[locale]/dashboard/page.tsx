@@ -1,3 +1,4 @@
+import {requireUser} from '@/services/auth';
 import {CurrencyScope,Money} from '@/components/DisplayCurrency';
 import Link from 'next/link';
 import type {ReactNode} from 'react';
@@ -29,6 +30,10 @@ function Metric({label,value}:{label:string;value:ReactNode}) {return <div><dt>{
 export default async function Dashboard({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{organization?:string;plan?:string;month?:string;scope?:string;budget_scope?:string;year?:string;scenario?:string;level?:string;asset_basis?:string}>}) {
  const [{locale},q]=await Promise.all([params,searchParams]),ar=locale==='ar';
  const safely=async<T,>(fn:()=>Promise<T>):Promise<T|null>=>{try{return await fn();}catch(e){unstable_rethrow(e);if(e instanceof Error&&e.message==='UNAUTHORIZED')redirect('/'+locale+'/login');return null;}};
+ const {supabase:onboardingDb}=await requireUser();
+ const {data:needsOnboarding,error:onboardingError}=await onboardingDb.rpc('organization_onboarding_required');
+ if(onboardingError)throw onboardingError;
+ if(needsOnboarding)redirect('/'+locale+'/onboarding');
  const personal=q.scope!=='ORGANIZATION';
  const [assets,financial]=await Promise.all([personal?safely(getDashboard):null,!personal?safely(()=>getPlatformFinancialOverview(q)):null]);
  const modules=financial?.modules??null;

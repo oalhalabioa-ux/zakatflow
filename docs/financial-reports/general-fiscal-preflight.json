@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-11-04",
+  "access": "read-only",
+  "productionMigrationApplied": false,
+  "productionEnginePresent": false,
+  "installedBaselineMigrations": 235,
+  "installedBaselineLastVersion": "20261104072000",
+  "schemaObjectsCompared": 3603,
+  "baselineSchemaDifferences": [],
+  "existingOpeningPeriods": [
+    {
+      "fiscalStart": "2026-01-01",
+      "status": "DRAFT",
+      "count": 1
+    }
+  ],
+  "openingVoucherOperationYears": [
+    {
+      "year": 2026,
+      "count": 6
+    }
+  ],
+  "customerDataExportedToCI": false
+}

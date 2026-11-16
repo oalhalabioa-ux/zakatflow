@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, generateKeyPairSync, randomUUID, sign, X509Certificate } from 'node:crypto';
+import { createHash, createPrivateKey, generateKeyPairSync, randomUUID, sign, verify, X509Certificate } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -62,6 +62,37 @@ describe('isolated XAdES signed XML preparation', () => {
     const callback = vi.fn(signer);
     await expect(prepareSignedZatcaXml(draft, context, { ...options, includeSimplifiedQr: true }, callback)).rejects.toThrow('STANDARD_QR_REQUIRES_CLEARANCE');
     expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('rejects a changed signing time even when the attacker recomputes the signed-properties digest', async () => {
+    const prepared = await prepareSignedZatcaXml({ ...draft, invoice_category: 'SIMPLIFIED' }, context,
+      { ...options, includeSimplifiedQr: true }, signer);
+    const { XmlDocument, XmlC14NMode, ParseOption } = await import('libxml2-wasm');
+    const namespaces = { ds: 'http://www.w3.org/2000/09/xmldsig#', xades: 'http://uri.etsi.org/01903/v1.3.2#' };
+    const canonical = (xml: string, path: string) => {
+      const parsed = XmlDocument.fromString(xml, { option: ParseOption.XML_PARSE_NONET | ParseOption.XML_PARSE_NO_XXE });
+      try {
+        const nodes = parsed.find(path, namespaces);
+        expect(nodes).toHaveLength(1);
+        return nodes[0].canonicalizeToString({ mode: XmlC14NMode.XML_C14N_1_1, withComments: false });
+      } finally { parsed.dispose(); }
+    };
+    const propertiesDigest = (xml: string) => createHash('sha256')
+      .update(canonical(xml, '//xades:SignedProperties')).digest('base64');
+    const changed = prepared.xml.replace(/<xades:SigningTime>[^<]+<\/xades:SigningTime>/,
+      `<xades:SigningTime>${new Date(options.signingTime.getTime() + 20_000).toISOString().replace('.000Z', 'Z')}</xades:SigningTime>`);
+    const originalDigest = propertiesDigest(prepared.xml);
+    const changedDigest = propertiesDigest(changed);
+    expect(changedDigest).not.toBe(originalDigest);
+    expect(changed.split(originalDigest)).toHaveLength(2);
+    const tampered = changed.replace(originalDigest, changedDigest);
+    expect((await prepareZatcaInvoiceHash(tampered)).invoiceHashBase64).toBe(prepared.invoiceHashBase64);
+    const signature = Buffer.from(/<ds:SignatureValue>([^<]+)<\/ds:SignatureValue>/.exec(prepared.xml)![1], 'base64');
+    const key = { key: new X509Certificate(options.certificate).publicKey, dsaEncoding: 'ieee-p1363' as const };
+    const check = (xml: string) => verify('sha256', Buffer.from(canonical(xml, '//ds:SignedInfo')), key, signature);
+    expect(check(prepared.xml)).toBe(true);
+    expect(check(tampered)).toBe(false);
+    if (process.env.ZATCA_NATIVE_XMLSEC === '1') expect(nativeVerify(tampered).status).not.toBe(0);
   });
 
   it.runIf(process.env.ZATCA_NATIVE_XMLSEC === '1')('independently verifies both references and rejects modified financial data, signed properties and signature', async () => {

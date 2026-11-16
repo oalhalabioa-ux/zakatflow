@@ -25,13 +25,14 @@ export async function financialEventWorkspace(organization:string){
  const invoices=permissions['vat.view']?unwrap(await supabase.from('vat_einvoices').select('id,invoice_number,issue_date,status,currency,tax_exclusive_amount,tax_total_amount,tax_inclusive_amount').eq('organization_id',organization).in('status',['ISSUED','SUBMITTED','CLEARED','REPORTED']).order('created_at',{ascending:false}).limit(100)):[];
  return{userId:user.id,permissions,events,sources,invoices,...records};
 }
-export async function financialEventDetail(organization:string,eventId:string){
- assertFinancialBudgetQA();
+export async function financialEventDetail(organization:string,eventId:string){assertFinancialBudgetQA();return financialEventSourceDetail(organization,eventId)}
+// Scoped read-only voucher details for production source navigation.
+export async function financialEventSourceDetail(organization:string,eventId:string){
  z.string().uuid().parse(eventId);const{supabase,user,permissions}=await scope(organization);
  const event=unwrap(await supabase.from('financial_events').select('*').eq('organization_id',organization).eq('id',eventId).single());
  const names=['financial_event_lines','financial_event_obligations','financial_event_approvals','financial_event_status_history','financial_event_links'] as const;
  const results=await Promise.all(names.map(name=>supabase.from(name).select('*').eq('organization_id',organization).eq('event_id',eventId)));
- const data=Object.fromEntries(results.map((result,index)=>[names[index],unwrap(result)]));
+ const data=Object.fromEntries(results.map((result,index)=>[names[index],unwrap(result)])) as Record<typeof names[number],any[]>;
  const approvals=data.financial_event_approvals as {decision:string;approver_id:string}[];
  const canSelfApprove=event.created_by===user.id?Boolean(unwrap(await supabase.rpc('can_self_approve_financial_event',{p_org:organization}))):false;
  const balances=unwrap(await supabase.from('financial_event_obligation_balances').select('*').eq('organization_id',organization).eq('event_id',eventId));

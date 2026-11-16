@@ -1,0 +1,16 @@
+{
+  "description": "Preserve recorded native asset net obligation and selected bank on new settlements.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_capture_actual_posting()",
+      "fingerprint": "40b3565909481292e8b1afc828e8c399"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_resolve_native_asset_payment(p_org uuid, p_event jsonb, p_lines jsonb)",
+      "fingerprint": "e38be38e73ddf9232a5e44e6cc36ab4f"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "description": "Account rule inheritance and source factory classification isolation.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.create_debt_contract(p jsonb)",
+      "fingerprint": "042872b3b2fc40526e3f78441b5a025d"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_account_rule_inheritance_trigger()",
+      "fingerprint": "86f2fad35f0aa6dd37207c4a769ba4ff"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_inherit_account_rules(p_org uuid, p_code text)",
+      "fingerprint": "e4f3213aa8487e772611f41cef988909"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_resolve_manual_payment(p_org uuid, p_event jsonb, p_lines jsonb)",
+      "fingerprint": "addf58f9987b709f7698592f6753bba8"
+    },
+    {
+      "category": "function",
+      "object_key": "private.prepare_debt_operation(p jsonb)",
+      "fingerprint": "37b1ef757f00a84ccb14f613c02bf066"
+    },
+    {
+      "category": "function",
+      "object_key": "private.validate_liquidity_expense_classification()",
+      "fingerprint": "03b818a93a4c3be2bfd78bf9da5afc1d"
+    },
+    {
+      "category": "function",
+      "object_key": "public.amend_unissued_sales_invoice(p_document_id uuid, p_document_number text, p_transaction_date date, p_due_date date, p_contact_id uuid, p_counterparty_name text, p_counterparty_tax_number text, p_supply_type text, p_net numeric, p_tax_rate numeric, p_tax numeric, p_gross numeric, p_line_items jsonb, p_notes text)",
+      "fingerprint": "f3b11261c9f75bc95747dfd8de3df285"
+    },
+    {
+      "category": "function",
+      "object_key": "public.amend_unsettled_purchase_invoice(p_document_id uuid, p_document_number text, p_transaction_date date, p_due_date date, p_contact_id uuid, p_counterparty_name text, p_counterparty_tax_number text, p_supply_type text, p_net numeric, p_tax_rate numeric, p_tax numeric, p_gross numeric, p_recoverable_percent numeric, p_line_items jsonb, p_notes text)",
+      "fingerprint": "5f45361afdb5694e137c0c7c5a5d24ad"
+    },
+    {
+      "category": "function",
+      "object_key": "public.amend_zatca_draft_atomic(p_invoice_id uuid, p_header jsonb, p_lines jsonb)",
+      "fingerprint": "8e59658cdbd002ef0ad3018ff4a5d6b0"
+    },
+    {
+      "category": "function",
+      "object_key": "public.create_asset_with_acquisition(p_asset jsonb, p_request_id uuid)",
+      "fingerprint": "9c23fabd8c57f90054fdbfd1e5926b4a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.prepare_asset_lifecycle(p_asset_id uuid, p_payload jsonb, p_request_id uuid)",
+      "fingerprint": "5e0b27790efbebda2d4caa9f699d1cc6"
+    },
+    {
+      "category": "function",
+      "object_key": "public.prepare_financial_account_rule_links(p_org uuid)",
+      "fingerprint": "4cc1ea297587f482a6544c34aacfd1aa"
+    },
+    {
+      "category": "function",
+      "object_key": "public.prepare_vat_financial_event(p_source_table text, p_source_id uuid, p_entity_id uuid, p_due_date date, p_original_event_id uuid, p_alias_event_id uuid)",
+      "fingerprint": "d2252f886a0e87e8b440a1d215d60d74"
+    },
+    {
+      "category": "function",
+      "object_key": "public.prepare_vat_note_financial_event(p_document_id uuid)",
+      "fingerprint": "3373cb1a093b534470f408b2e35a5fda"
+    },
+    {
+      "category": "function",
+      "object_key": "public.purchase_existing_asset(p_asset_id uuid, p_asset jsonb, p_request_id uuid)",
+      "fingerprint": "2c165d576d366bdedacdd26a591d9cae"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_chart_custom_accounts.financial_account_rule_inheritance",
+      "fingerprint": "5d1bb4d8de894f568549e2b5e33c0b1e"
+    }
+  ]
+}

@@ -183,9 +183,9 @@ const emptyDocument = (): DocumentDraft => ({
 });
 const emptyDocumentLine = (): DocumentLineDraft => ({ description: '', unit: '', quantity: '1', unit_price: '', discount_amount: '0', discount_mode: 'AMOUNT', supply_type: 'STANDARD' });
 
-export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ section?: string | string[]; organization_id?:string | string[]; direction?:string | string[] }> }) {
+export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ document_id?:string; month?:string; section?: string | string[]; organization_id?:string | string[]; direction?:string | string[] }> }) {
   const { locale } = use(params);
-  const { section,organization_id:requestedOrganization,direction:requestedDirection } = use(searchParams);
+  const { section,document_id:requestedDocument,month:requestedMonth,organization_id:requestedOrganization,direction:requestedDirection } = use(searchParams);
   const initialDirection=(Array.isArray(requestedDirection)?requestedDirection[0]:requestedDirection)==='PURCHASE'?'PURCHASE':'SALES';
   const initialOrganization=Array.isArray(requestedOrganization)?requestedOrganization[0]:requestedOrganization;
   const requestedSection = Array.isArray(section) ? section[0] : section;
@@ -193,8 +193,9 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const ar = locale === 'ar';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
-  const [periodMonth, setPeriodMonth] = useState(currentMonth);
-  const [reportYear, setReportYear] = useState(() => Number(currentMonth().slice(0, 4)));
+  const initialMonth=typeof requestedMonth==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)?requestedMonth:currentMonth();
+  const [periodMonth, setPeriodMonth] = useState(initialMonth);
+  const [reportYear, setReportYear] = useState(() => Number(initialMonth.slice(0, 4)));
   const [reportFrequency, setReportFrequency] = useState<VatFilingFrequency>('QUARTERLY');
   const [reportFrequencyTouched, setReportFrequencyTouched] = useState(false);
   const [profile, setProfile] = useState<VatProfile | null>(null);
@@ -244,6 +245,8 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [includeDrafts, setIncludeDrafts] = useState(false);
   const [registerSearch, setRegisterSearch] = useState('');
   const [invoiceDetails,setInvoiceDetails]=useState<any>(null);
+  const openedSourceDocument=useRef('');
+  useEffect(()=>{if(!requestedDocument||openedSourceDocument.current===organizationId+requestedDocument)return;const document=documents.find(d=>d.id===requestedDocument&&'organization_id' in d&&d.organization_id===organizationId);if(document){openedSourceDocument.current=organizationId+requestedDocument;setInvoiceDetails(document);setActiveTab('register');setRegisterDirection(document.document_type)}},[documents,organizationId,requestedDocument]);
   const [registerKindFilter, setRegisterKindFilter] = useState<'ALL' | 'INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'>('ALL');
   const [registerSourceFilter, setRegisterSourceFilter] = useState<'ALL' | 'EINVOICE' | 'ACCOUNTING'>('ALL');
   const [noteOriginals, setNoteOriginals] = useState<Array<VatDocument & { counterparty_contact_id: string; recoverable_percent: number }>>([]);

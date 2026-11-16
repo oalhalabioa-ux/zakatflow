@@ -495,7 +495,7 @@ export async function POST(request: Request) {
 
         const { data: requiredClasses, error: classError } = await supabase.from('financial_classifications')
           .select('classification_type').eq('organization_id', document.organization_id)
-          .in('classification_type', ['OPEX', 'TAX']);
+          .in('classification_type', ['OPEX', 'TAX']).is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null);
         if (classError) throw classError;
         const types = new Set((requiredClasses ?? []).map((row: any) => row.classification_type));
         if (!types.has('OPEX') || !types.has('TAX')) throw new Error('VAT_FINANCIAL_CLASSIFICATIONS_REQUIRED');
@@ -529,7 +529,7 @@ export async function POST(request: Request) {
 
         const { data: requiredClasses, error: classError } = await supabase.from('financial_classifications')
           .select('id,classification_type').eq('organization_id', document.organization_id)
-          .in('classification_type', ['REVENUE', 'TAX']).eq('active', true);
+          .in('classification_type', ['REVENUE', 'TAX']).eq('active', true).is('metadata->accountInheritance',null).is('metadata->automaticExpenseAccount',null);
         if (classError) throw classError;
         const revenueClass = (requiredClasses ?? []).find((row: any) => row.classification_type === 'REVENUE');
         const taxClass = (requiredClasses ?? []).find((row: any) => row.classification_type === 'TAX');

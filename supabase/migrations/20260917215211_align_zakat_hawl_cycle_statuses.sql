@@ -1,0 +1,2 @@
+alter table public.zakat_hawl_cycles drop constraint if exists zakat_hawl_cycles_status_check;
+alter table public.zakat_hawl_cycles add constraint zakat_hawl_cycles_status_check check (status = any (array['OPEN'::text,'ACTIVE'::text,'CLOSED'::text,'PAID'::text,'RUNNING'::text,'DUE'::text,'ASSESSED'::text,'RESET'::text]));

@@ -1,0 +1,20 @@
+
+do $$declare t text;begin foreach t in array array['financial_classifications','financial_events','financial_event_lines','financial_event_links','financial_event_approvals','financial_event_status_history','financial_event_command_registry','financial_event_obligations','financial_event_obligation_allocations','financial_vat_counterparty_map','financial_vat_source_bindings','liquidity_settlements','liquidity_flow_settlement_allocations','liquidity_settlement_status_history'] loop execute format('alter table public.%I enable row level security',t);execute format('drop policy if exists fc_member_read on public.%I',t);execute format('create policy fc_member_read on public.%I for select to authenticated using (exists(select 1 from public.organization_members m where m.organization_id=%I.organization_id and m.user_id=auth.uid() and m.status=''ACTIVE''))',t,t);end loop;end$$;
+grant select on public.financial_classifications,public.financial_events,public.financial_event_lines,public.financial_event_links,public.financial_event_approvals,public.financial_event_status_history,public.financial_event_obligations,public.financial_event_obligation_allocations,public.financial_vat_source_bindings,public.financial_vat_counterparty_map,public.liquidity_settlements,public.liquidity_flow_settlement_allocations,public.liquidity_settlement_status_history to authenticated;
+create or replace view public.financial_event_obligation_balances with(security_invoker=true) as
+select o.id obligation_id,o.organization_id,o.event_id,o.obligation_key,o.obligation_type,o.settleable_amount,o.currency,o.exchange_rate,o.base_currency,
+o.settleable_base_amount adjusted_settleable_base_amount,
+coalesce((select sum(a.base_amount) from public.financial_event_obligation_allocations a join public.financial_events ae on ae.id=a.application_event_id and ae.organization_id=a.organization_id where a.obligation_id=o.id and ae.status='ACTUAL'),0)::numeric(24,4) applied_base_amount,
+0::numeric(24,4) consumed_advance_base_amount,
+greatest(o.settleable_base_amount-coalesce((select sum(a.base_amount) from public.financial_event_obligation_allocations a join public.financial_events ae on ae.id=a.application_event_id and ae.organization_id=a.organization_id where a.obligation_id=o.id and ae.status='ACTUAL'),0),0)::numeric(24,4) outstanding_base_amount
+from public.financial_event_obligations o join public.financial_events e on e.id=o.event_id and e.organization_id=o.organization_id where e.status='ACTUAL' and o.adjusts_obligation_id is null;
+create or replace view public.financial_event_settlement_status_explicit with(security_invoker=true) as
+select e.id event_id,e.organization_id,e.base_currency,
+coalesce(sum(b.adjusted_settleable_base_amount) filter(where b.obligation_type in('RECEIVABLE','PAYABLE')),0)::numeric(24,4) due_base_amount,
+coalesce(sum(b.applied_base_amount) filter(where b.obligation_type in('RECEIVABLE','PAYABLE')),0)::numeric(24,4) settled_base_amount,
+case when coalesce(sum(b.adjusted_settleable_base_amount) filter(where b.obligation_type in('RECEIVABLE','PAYABLE')),0)=0 then 'UNPAID'
+when coalesce(sum(b.applied_base_amount) filter(where b.obligation_type in('RECEIVABLE','PAYABLE')),0)=0 then 'UNPAID'
+when coalesce(sum(b.applied_base_amount) filter(where b.obligation_type in('RECEIVABLE','PAYABLE')),0)<coalesce(sum(b.adjusted_settleable_base_amount) filter(where b.obligation_type in('RECEIVABLE','PAYABLE')),0) then 'PARTIALLY_PAID' else 'PAID' end settlement_status
+from public.financial_events e left join public.financial_event_obligation_balances b on b.event_id=e.id and b.organization_id=e.organization_id where e.event_type not in('SETTLEMENT','TRANSFER') group by e.id,e.organization_id,e.base_currency;
+create or replace view public.financial_event_settlement_status with(security_invoker=true) as select event_id,organization_id,settlement_status,settled_base_amount,due_base_amount from public.financial_event_settlement_status_explicit;
+grant select on public.financial_event_obligation_balances,public.financial_event_settlement_status_explicit,public.financial_event_settlement_status to authenticated;

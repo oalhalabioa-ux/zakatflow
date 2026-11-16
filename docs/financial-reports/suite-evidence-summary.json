@@ -1,0 +1,849 @@
+{
+  "date": "2026-11-02",
+  "unitTests": {
+    "files": 184,
+    "passed": 1023
+  },
+  "typescript": "passed",
+  "isolatedProductionBuild": "passed (final source)",
+  "layouts": [
+    {
+      "screen": "overview",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "statements",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "income",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "position",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 964,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "cash-flow",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 963,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "kpis",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 946,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-monitoring",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-entry",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "analysis",
+      "language": "ar",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "overview",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "statements",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 913,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "income",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 900,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "position",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 922,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "cash-flow",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 951,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "kpis",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 942,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-monitoring",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 909,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-entry",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 920,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "analysis",
+      "language": "ar",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 914,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "overview",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2061,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "statements",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2069,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "income",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 1219,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "position",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 1877,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "cash-flow",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 1707,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "kpis",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2767,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-monitoring",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2465,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-entry",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2095,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "analysis",
+      "language": "ar",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2485,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "overview",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2061,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "statements",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2069,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "income",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 1219,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "position",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 1877,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "cash-flow",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 1707,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "kpis",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2767,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-monitoring",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2465,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-entry",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2095,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "analysis",
+      "language": "ar",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2492,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "overview",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "statements",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "income",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "position",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 964,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "cash-flow",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 963,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "kpis",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 946,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-monitoring",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-entry",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "analysis",
+      "language": "en",
+      "viewport_width": 1672,
+      "viewport_height": 941,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "overview",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 941,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "statements",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 913,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "income",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 900,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "position",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 922,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "cash-flow",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 951,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "kpis",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 942,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-monitoring",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 909,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-entry",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 920,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "analysis",
+      "language": "en",
+      "viewport_width": 1440,
+      "viewport_height": 900,
+      "full_document_height": 916,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "overview",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2059,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "statements",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2069,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "income",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 1219,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "position",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 1857,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "cash-flow",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 1707,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "kpis",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2782,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-monitoring",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2445,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-entry",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2076,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "analysis",
+      "language": "en",
+      "viewport_width": 390,
+      "viewport_height": 844,
+      "full_document_height": 2503,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "overview",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2059,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "statements",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2069,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "income",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 1219,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "position",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 1857,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "cash-flow",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 1707,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "kpis",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2802,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-monitoring",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2445,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "budget-entry",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2095,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    },
+    {
+      "screen": "analysis",
+      "language": "en",
+      "viewport_width": 375,
+      "viewport_height": 812,
+      "full_document_height": 2538,
+      "document_overflow_assertion": "passed",
+      "actual_sidebar_assertion": "passed"
+    }
+  ],
+  "interactions": [
+    "Income demo scope and USD conversion",
+    "No-comparison columns",
+    "Real collapsible statement groups",
+    "Income XLSX contains selected scope and FX",
+    "Budget edit recalculates annual and formula totals",
+    "Apply January across the row",
+    "Budget XLSX matches edited months and scenario",
+    "CSV formula-like notes are escaped",
+    "Unconnected approval and publishing stay disabled",
+    "Existing sidebar collapse preference persists",
+    "Existing mobile drawer, expansion and Escape",
+    "All eight new pages generate real XLSX and print PDF",
+    "Overview reuses the same organization selection"
+  ],
+  "browserExceptions": [],
+  "apiRequestsDuringInteractionRun": [],
+  "offlinePagesVerified": 9,
+  "productionWrites": false,
+  "schemaChanges": false,
+  "mergeOrDeployment": false,
+  "liveAccountingIntegration": "incomplete — canonical balanced journal source and authorized adapter required",
+  "visualApproval": "overview approved; nine-screen review pending",
+  "routeGates": [
+    {
+      "mode": "disabled",
+      "screen": "index",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "overview",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "statements",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "income",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "position",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "cash-flow",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "kpis",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "budget-monitoring",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "budget-entry",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "analysis",
+      "status": 404
+    },
+    {
+      "mode": "disabled",
+      "screen": "not-an-approved-page",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "index",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "overview",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "statements",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "income",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "position",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "cash-flow",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "kpis",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "budget-monitoring",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "budget-entry",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "analysis",
+      "status": 404
+    },
+    {
+      "mode": "production",
+      "screen": "not-an-approved-page",
+      "status": 404
+    },
+    {
+      "mode": "isolated",
+      "screen": "index",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "overview",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "statements",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "income",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "position",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "cash-flow",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "kpis",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "budget-monitoring",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "budget-entry",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "analysis",
+      "status": 200
+    },
+    {
+      "mode": "isolated",
+      "screen": "not-an-approved-page",
+      "status": 404
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({user:vi.fn(),rpc:vi.fn(),from:vi.fn(),eq:vi.fn(),one:vi.fn()}));
+vi.mock('../services/auth',()=>({requireUser:m.user}));
+vi.mock('../services/asset-entry-fx',()=>({resolveAssetEntryFx:vi.fn()}));
+import {GET} from '../app/api/assets/opening/route';
+const asset='11111111-1111-4111-8111-111111111111',transaction='22222222-2222-4222-8222-222222222222';
+beforeEach(()=>{vi.resetAllMocks();const q={select:()=>q,eq:m.eq,in:()=>q,order:()=>q,limit:()=>q,maybeSingle:m.one};m.eq.mockReturnValue(q);m.from.mockReturnValue(q);m.user.mockResolvedValue({supabase:{rpc:m.rpc,from:m.from}});m.rpc.mockResolvedValue({data:{asset:{id:asset},can_edit:true},error:null});m.one.mockResolvedValue({data:{id:transaction,transaction_type:'ADD'},error:null});});
+it('returns the actual legacy opening transaction ID and type after source authorization',async()=>{const r=await GET(new Request('https://test/api/assets/opening?asset_id='+asset));expect(r.status).toBe(200);expect(await r.json()).toMatchObject({opening_transaction_id:transaction,opening_transaction_type:'ADD'});expect(m.rpc).toHaveBeenCalledWith('manage_asset_opening',{p_asset_id:asset,p_action:'INSPECT'});expect(m.eq).toHaveBeenCalledWith('asset_account_id',asset);});
+it('does not read voucher identities when source access is denied',async()=>{m.rpc.mockResolvedValue({data:null,error:new Error('ASSET_OPENING_VIEW_DENIED')});const r=await GET(new Request('https://test/api/assets/opening?asset_id='+asset));expect(r.status).toBe(403);expect(m.from).not.toHaveBeenCalled();});
+it('does not read voucher identities for an unauthenticated caller',async()=>{m.user.mockRejectedValue(new Error('UNAUTHORIZED'));expect((await GET(new Request('https://test/api/assets/opening?asset_id='+asset))).status).toBe(401);expect(m.from).not.toHaveBeenCalled();});
+it('does not substitute an asset ID for a missing transaction ID',async()=>{m.one.mockResolvedValue({data:null,error:null});const r=await GET(new Request('https://test/api/assets/opening?asset_id='+asset));expect(await r.json()).toMatchObject({opening_transaction_id:null,opening_transaction_type:null});});

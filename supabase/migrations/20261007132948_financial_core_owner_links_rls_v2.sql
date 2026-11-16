@@ -1,0 +1,1 @@
+create policy financial_event_links_owner_write on public.financial_event_links for insert to authenticated with check (public.is_organization_admin(organization_id));

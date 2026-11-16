@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-11-04T16:02:14.295Z",
+  "project": "ejpzcsfwqziqxwhvqnay",
+  "releasePR": 351,
+  "reviewedApplicationHead": "227569a9e7f3ef25fc90afe2c2f20310bd42169f",
+  "backup": {
+    "type": "physical",
+    "completedAt": "2026-11-04T06:16:43Z",
+    "restoreOptionAvailable": true,
+    "restoreExecuted": false,
+    "storageObjectsIncluded": false
+  },
+  "migrationExecution": {
+    "method": "Authorized Supabase SQL connector; exact repository SQL and canonical history inserts in one repeatable-read transaction",
+    "cliPasswordRequired": false,
+    "rehearsal": "Applied and rolled back before final application",
+    "result": "committed",
+    "migrationCountBefore": 235,
+    "migrationCountAfter": 241,
+    "versions": [
+      "20261104093720",
+      "20261104113559",
+      "20261104121038",
+      "20261104124455",
+      "20261104132349",
+      "20261104134551"
+    ],
+    "canonicalNamesMatch": true,
+    "canonicalSqlMatches": true,
+    "all241VersionsMatchManifest": true
+  },
+  "preservation": {
+    "existingPublicAndAuthTablesCompared": 116,
+    "existingRowsCompared": 1412,
+    "rowCountsAndContentFingerprintsUnchanged": true
+  },
+  "schema": {
+    "objectsCompared": 3786,
+    "expectedAndActualMd5": "866fdb122442ea573fbe900fab8e77ce",
+    "differences": 0
+  },
+  "smoke": {
+    "existingOrganizationOwnerContexts": 4,
+    "foreignTenantDenied": true
+  },
+  "acceptance": {
+    "januaryAndJulySettingsBrowserTest": "scripts/financial-reports/verify-live-opening.mjs",
+    "januaryAndJulySettingsPassedAtApplicationHead": true
+  },
+  "security": {
+    "preexistingAnonDefinerWarnings": 2,
+    "postmigrationAnonDefinerWarnings": 2,
+    "newAuthenticatedDefinerRpcWarnings": 9,
+    "note": "Nine intended authenticated fiscal/chart RPCs enforce organization permissions; canonical isolated Auth/RLS suites passed. Existing unrelated advisor findings were not changed."
+  },
+  "diagnostics": {
+    "passwordConnectionWorkflow": "Retired: password-based path was not used for release; failed credential check remains in Actions history at run 41859881801.",
+    "passwordChanged": false
+  },
+  "releaseStatus": "Database ready; merge and automatic production deployment follow successful checks."
+}
