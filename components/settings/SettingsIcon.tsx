@@ -6,7 +6,7 @@ const paths:Record<SettingsIconName,string>={
  regulatory:'M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h6',
  users:'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM2 21v-3a7 7 0 0 1 14 0v3M20 8v8M16 12h8',
  system:'m9 3-1 3-3 1-2 4 2 2v3l3 2 1 3h6l1-3 3-2v-3l2-2-2-4-3-1-1-3ZM9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0',
- journey:'M5 18c0-5 4-6 7-6s7-3 7-8M14 4h5v5M3 20h4v-4H3zM10 14h4v-4h-4z',
+ journey:'M4 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM4 16v-3a3 3 0 0 1 3-3h7a3 3 0 0 0 3-3V2M17 2h5l-2 2 2 2h-5',
  calendar:'M4 5h16v16H4zM8 2v6M16 2v6M4 10h16',
  chart:'m12 2 10 5-10 5L2 7Zm-10 10 10 5 10-5M2 17l10 5 10-5',
  posting:'M3 7h18m-5-5 5 5-5 5M21 17H3m5-5-5 5 5 5',
