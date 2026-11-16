@@ -1,3 +1,4 @@
+import {readFeasibilityGrant} from '../../../../../lib/feasibility/grant';
 import {NextResponse} from 'next/server';
 import {createHash} from 'node:crypto';
 import {z} from 'zod';
@@ -16,8 +17,7 @@ export async function POST(request:Request){
  if(error||!user)return json({error:'UNAUTHORIZED'},401);
  // Invitation redemption is a membership write: enforce the recipient's independent
  // study entitlement on the API, with a second authoritative guard in the QA RPC.
- const {data:grant,error:grantError}=await supabase.from('feasibility_access_grants')
-  .select('status,starts_at,ends_at').eq('user_id',user.id).maybeSingle();
+ const {data:grant,error:grantError}=await readFeasibilityGrant(supabase,user.id);
  if(grantError)return json({error:'ENTITLEMENT_UNAVAILABLE'},503);
  if(!evaluateFeasibilityAccess(grant).canWrite)return json({error:'FEASIBILITY_READ_ONLY'},403);
  let body:unknown;try{const raw=await request.text();if(raw.length>1000)return json({error:'INVALID_INPUT'},400);body=JSON.parse(raw)}catch{return json({error:'INVALID_INPUT'},400)}

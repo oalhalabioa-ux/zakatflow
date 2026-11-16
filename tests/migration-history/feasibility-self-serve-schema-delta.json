@@ -1,0 +1,46 @@
+{
+  "description": "Feasibility self-service trial and selectable bundle capability",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "constraint",
+      "object_key": "subscription_private.bundle_modules.bundle_modules_key_check",
+      "fingerprint": "03b852f3ee5a81f5135434d9a04dc91f"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_effective_access()",
+      "fingerprint": "ef18952bedc207df46a2467476b0f248"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_phase1_has_access(require_write boolean)",
+      "fingerprint": "d593ff2899b81731df7e29bd16fc7391"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_start_trial()",
+      "fingerprint": "64d8dd4667dbf4315138bdf2dbb9520f"
+    },
+    {
+      "category": "function",
+      "object_key": "public.my_feasibility_access()",
+      "fingerprint": "c81c5eff5ba29d336b66f17f467fd615"
+    },
+    {
+      "category": "function",
+      "object_key": "public.start_personal_feasibility_trial()",
+      "fingerprint": "43d4190376ebcecef3298118cb3f3ff4"
+    },
+    {
+      "category": "function",
+      "object_key": "public.subscription_bundle_requests(p_organization_id uuid, p_action text, p_details jsonb)",
+      "fingerprint": "5a0f2687ea963e23eb64a7af080fae5c"
+    },
+    {
+      "category": "function",
+      "object_key": "subscription_private.valid_capabilities(p_caps jsonb)",
+      "fingerprint": "ab35ae9b77959b8b4d2c549da674f132"
+    }
+  ]
+}

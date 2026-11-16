@@ -1,3 +1,4 @@
+import {readFeasibilityGrant} from '../../../../lib/feasibility/grant';
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {supabaseServer} from '@/lib/supabase/server';
@@ -16,8 +17,7 @@ async function context(){
  const supabase=await supabaseServer();
  const {data:{user},error}=await supabase.auth.getUser();
  if(error||!user)return {supabase,user:null,access:null,accessError:null};
- const {data:grant,error:accessError}=await supabase.from('feasibility_access_grants')
-  .select('status,starts_at,ends_at').eq('user_id',user.id).maybeSingle();
+ const {data:grant,error:accessError}=await readFeasibilityGrant(supabase,user.id);
  return {supabase,user,access:evaluateFeasibilityAccess(grant),accessError};
 }
 async function input(request:Request){
