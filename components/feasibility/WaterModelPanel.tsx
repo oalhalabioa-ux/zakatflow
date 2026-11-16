@@ -55,7 +55,7 @@ const projectionLabels=[
  ['workingCapitalMovement','تغير رأس المال العامل','Working capital movement'],
  ['freeCashFlow','التدفق الحر قبل التمويل','Project free cash flow'],['principal','سداد الأصل','Principal'],
  ['interest','الفائدة','Interest'],['debtService','خدمة القرض','Debt service'],['debtBalance','رصيد القرض','Closing loan balance'],
- ['afterDebt','التدفق بعد خدمة القرض','Cash flow after debt service']
+ ['afterDebt','التدفق بعد خدمة القرض','Cash flow after debt service'],['dscr','تغطية خدمة الدين (DSCR)','Debt service coverage (DSCR)']
 ] as const;
 const sensitivityVolume=[70,85,100,115,130],sensitivityPrices=[90,95,100,105,110];
 
@@ -144,6 +144,7 @@ export default function WaterModelPanel({water,locale,currency,tab,onChange}:{
   {m.ready&&chart}
   <Table headers={[l('البند','Metric'),...m.annual.map(y=>y.year)]}
    rows={projectionLabels.slice(1).map(([key,ar,en])=>[l(ar,en),...m.annual.map(y=>fmt(y[key]))])}/>
+  <p className="fs-hint">{l('تغطية خدمة الدين تساوي التدفق الحر قبل التمويل مقسومًا على أصل القرض وفائدته خلال السنة.','Debt service coverage divides project free cash flow before financing by annual principal and interest.')}</p>
   <p className="fs-hint">{l('يُحتسب القرض بأقساط أصل متساوية على الرصيد الافتتاحي ودون فوائد قبل أول سنة سداد. لا يشمل التوقع قيمة تخارج أو استردادًا نهائيًا لرأس المال العامل.','The loan uses equal principal repayments and interest on opening balances, with no interest before the first repayment year. The forecast excludes exit proceeds and final working capital recovery.')}</p>
  </>;
  const exportForecast=()=>downloadFeasibilityCsv('bottled-water-projections.csv',[

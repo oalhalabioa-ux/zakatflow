@@ -293,6 +293,65 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    phase(caseName,'authorized-corporate-create-save-reload-and-outsider-deny-passed');
   }finally{await context.close().catch(()=>{});}
  });
+ await check('Feasibility: managed copy on mobile preserves the personal source and isolates organizations',async()=>{
+  const target=await newOrg(marker+' Copy destination');
+  const other=await newOrg(marker+' Copy isolation');
+  const localApp='http://localhost:3000';
+  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:localApp})));
+  const page=await context.newPage();
+  page.setDefaultTimeout(12000);
+  page.setDefaultNavigationTimeout(20000);
+  const appPage=(scope,organization,locale='en')=>
+   localApp+'/'+locale+'/feasibility?scope='+scope+'&organization='+organization+'&level=COMPANY';
+  const studyTitle='QA Personal water copy source';
+  try{
+   await page.goto(appPage('PERSONAL',target,'ar'));
+   await page.getByRole('textbox',{name:'اسم المشروع الجديد',exact:true}).fill(studyTitle);
+   await page.locator('.fs-create select').last().selectOption('BOTTLED_WATER');
+   await page.getByRole('button',{name:'إضافة مشروع +',exact:true}).click();
+   const personalSaved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&
+    r.request().method()==='POST');
+   await page.getByRole('button',{name:'حفظ في QA V2',exact:true}).click();
+   const personalResponse=await personalSaved;
+   assert.equal(personalResponse.status(),201);
+   const source=await personalResponse.json();
+   await page.getByText(/حُفظت مسودة المشروع في QA V2/).waitFor();
+   await page.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true}).click();
+   const dialog=page.getByRole('dialog');
+   await dialog.getByText(marker+' Copy destination',{exact:true}).waitFor();
+   const confirm=dialog.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true});
+   assert.equal(await confirm.isDisabled(),true);
+   await dialog.getByRole('checkbox').check();
+   const copySaved=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='copy'&&
+    r.request().method()==='POST');
+   await confirm.click();
+   const copyResponse=await copySaved;
+   assert.equal(copyResponse.status(),201);
+   const copy=await copyResponse.json();
+   assert.notEqual(copy.id,source.id);
+   await dialog.getByRole('status').waitFor();
+
+   for(const [selected,expected] of [[target,true],[other,false]]){
+    const portfolio=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/organization-projects'&&
+     new URL(r.url()).searchParams.get('organization')===selected&&r.request().method()==='GET');
+    await page.goto(appPage('ORGANIZATION',selected));
+    const loaded=await portfolio;
+    assert.equal(loaded.status(),200);
+    const {studies}=await loaded.json();
+    assert.equal(studies.some(row=>row.id===copy.id&&row.owner_user_id===null&&row.organization_id===target),expected);
+    assert.equal(studies.some(row=>row.id===source.id),false);
+   }
+   const personal=await page.request.get(localApp+'/api/feasibility/projects');
+   assert.equal(personal.status(),200);
+   const owned=await personal.json();
+   assert.equal(owned.find(row=>row.id===source.id)?.revision,source.revision);
+   assert.equal(owned.some(row=>row.id===copy.id),false);
+   const outside=await fetch(url+'/rest/v1/feasibility_projects?id=eq.'+copy.id+'&select=id',{headers:headers(outsider)});
+   assert.equal(outside.status,200);
+   assert.deepEqual(await outside.json(),[]);
+  }finally{await context.close().catch(()=>{});}
+ });
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{
   const r=await fetch(url+'/rest/v1/organizations?select=id,contact_email,registered_address',{
    headers:headers(outsider)

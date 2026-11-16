@@ -90,7 +90,7 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   const debtService=principal+interest;
   return {year,utilization,volume,price,unitCost,revenue,variable,fixed,ebitda,depreciation,ebit,tax,
    workingCapital,workingCapitalMovement,maintenance,freeCashFlow,principal,interest,debtBalance,debtService,
-   afterDebt:freeCashFlow-debtService};
+   afterDebt:freeCashFlow-debtService,dscr:debtService>0?freeCashFlow/debtService:null};
  });
  const flows=[-(cashRequired+land),...annual.map(year=>year.freeCashFlow)];
  const npv=flows.reduce((total,flow,year)=>total+flow/(1+ops.discountRate/100)**year,0);

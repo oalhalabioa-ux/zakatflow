@@ -21,5 +21,5 @@ export default async function FeasibilityPage({params}:{params:Promise<{locale:s
   if(!feasibilitySelfServeEnabled())notFound();
   return <FeasibilityEnrollment locale={locale}/>;
  }
- return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite}/>;
+ return <FeasibilityWorkspace locale={locale} userId={user.id} organizationEnabled={process.env.FEASIBILITY_ORG_QA==='true'} readOnly={!access.canWrite}/>;
 }

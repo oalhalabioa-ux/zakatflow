@@ -83,3 +83,74 @@
 .fs-water-track { position: relative; min-height: 5px; }
 .fs-water-track span { position: absolute; inset-block: 0; }
 @media print { .fs-water-chart { break-inside: avoid; print-color-adjust: exact; } }
+
+.fs-page {
+ --fs-navy: #10243A;
+ --fs-ink: #1D3852;
+ --fs-gold: #C6A35D;
+ --fs-light-gold: #F5EBD6;
+ --fs-green: #205347;
+ --fs-line: #E8EEF0;
+ --fs-muted: var(--fs-ink);
+}
+
+.fs-page .fs-head {
+ border-bottom: 1px solid var(--fs-line);
+ padding-bottom: 1rem;
+}
+
+.fs-page .fs-btn:not(.fs-btn--secondary),
+.fs-page .fs-tabs button.active {
+ background: var(--fs-green);
+ border-color: var(--fs-green);
+ color: var(--fs-light-gold);
+}
+
+.fs-page .fs-portfolio {
+ display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+ gap: .75rem;
+}
+
+.fs-page .fs-project-pill {
+ min-width: 0;
+ min-height: 4rem;
+ overflow-wrap: anywhere;
+ border-color: var(--fs-line);
+ color: var(--fs-ink);
+}
+
+.fs-page .fs-project-pill--active {
+ background: var(--fs-light-gold);
+ border-color: var(--fs-gold);
+}
+
+.fs-page .fs-tabs { flex-wrap: wrap; }
+.fs-page .fs-tabs button { color: var(--fs-ink); }
+.fs-page :is(button, a, input, select, textarea):focus-visible {
+ outline: 2px solid var(--fs-green);
+ outline-offset: 2px;
+}
+
+.fs-page .fs-dialog {
+ width: min(34rem, calc(100% - 2rem));
+ max-height: 90dvh;
+ overflow: auto;
+ padding: clamp(1rem, 4vw, 1.5rem);
+ border: 1px solid var(--fs-line);
+ border-radius: .75rem;
+ background: #fff;
+ color: var(--fs-ink);
+}
+.fs-page .fs-dialog::backdrop { background: rgb(16 36 58 / 55%); }
+.fs-page .fs-dialog h2 { margin-top: 0; }
+.fs-page .fs-dialog dl > div { padding: .6rem 0; border-bottom: 1px solid var(--fs-line); }
+.fs-page .fs-dialog dt { font-size: .75rem; font-weight: 700; }
+.fs-page .fs-dialog dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.fs-page .fs-dialog .fs-actions { margin-top: 1rem; }
+
+@media (max-width: 38rem) {
+ .fs-page .fs-portfolio { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .fs-page .fs-tabs { flex-wrap: nowrap; }
+ .fs-page .fs-subhead { flex-wrap: wrap; }
+}

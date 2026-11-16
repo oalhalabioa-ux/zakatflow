@@ -12,6 +12,7 @@ import JoinInvitationPanel from '@/components/feasibility/JoinInvitationPanel';
 import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
 import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
 import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
+import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
 import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
 import StudyRegisters from '@/components/feasibility/StudyRegisters';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
@@ -56,7 +57,7 @@ function Info({label,value,sub}:{label:string;value:string;sub?:string}){
 function SelectField<T extends string>({label,value,items,onChange}:{label:string;value:T;items:Array<{value:T;label:string}>;onChange:(value:T)=>void}){
  return <label className="fs-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.currentTarget.value as T)}>{items.map(x=><option value={x.value} key={x.value}>{x.label}</option>)}</select></label>;
 }
-export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{locale:string;userId:string;readOnly?:boolean}){
+export default function FeasibilityWorkspace({locale,userId,readOnly=false,organizationEnabled=false}:{locale:string;userId:string;readOnly?:boolean;organizationEnabled?:boolean}){
  const searchParams=useSearchParams();
  const [scope]=useWorkspaceScope(currentWorkspaceScope('feasibility',searchParams.toString()));
  const personalScope=scope==='PERSONAL';
@@ -77,6 +78,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
  const [newStarter,setNewStarter]=useState<IndustrialStarter>('GENERAL');
  const [scenario,setScenario]=useState<Scenario>('BASE');
  const [notice,setNotice]=useState('');
+ const [copySelection,setCopySelection]=useState<{studyId:string;organizationId:string;userId:string}|null>(null);
  const cloudEnabled=process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
  const sharingEnabled=cloudEnabled&&process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA==='true';
  const [cloudBusy,setCloudBusy]=useState(false);
@@ -216,6 +218,22 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   sharedSelectedId||(cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId)
  ));
  const effectiveReadOnly=readOnly||sharedStudy||(!personalScope&&(!organizationCanWrite||!companyScopeReady));
+ const copyRevision=study&&cloudOwnerIds[study.id]===userId&&cloudSavedStudyVersions[study.id]===study.updatedAt
+  ?cloudRevisions[study.id]:undefined;
+ const canOpenCopy=organizationEnabled&&cloudEnabled&&personalScope&&!effectiveReadOnly&&Boolean(study);
+ useEffect(()=>{setCopySelection(null)},[study?.id,organizationId,userId,personalScope]);
+ const openCopy=()=>{
+  if(!study)return;
+  if(!organizationId){
+   setNotice(txt(ar,'اختر المؤسسة المستقبلة من البانر الرئيسي أولًا.','Select the receiving organization in the main banner first.'));
+   return;
+  }
+  if(copyRevision===undefined){
+   setNotice(txt(ar,'احفظ الإصدار الحالي من الدراسة شخصيًا في السحابة لتأكيد الملكية قبل النسخ.','Save this version to your personal cloud portfolio to verify ownership before copying.'));
+   return;
+  }
+  setCopySelection({studyId:study.id,organizationId,userId});
+ };
  const model=useMemo(()=>study?evaluateStudy(study,scenario):null,[study,scenario]);
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const water=study?.water;
@@ -424,7 +442,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   return <main className="container fs-page" dir={ar?'rtl':'ltr'}><p role="status">{txt(ar,'جاري تحميل مسودات الحساب الحالي…','Loading this account\'s drafts…')}</p></main>;
  }
  return <main className="container fs-page" dir={ar?'rtl':'ltr'}>
-  <header className="fs-head"><div><span className="fs-eyebrow">YAQEEN BUSINESS / FEASIBILITY</span><h1>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
+  <header className="fs-head"><div><h1>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
    {personalScope&&<div className="fs-actions"><Button secondary onClick={download} disabled={!personalScope||!visibleStudies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly||!personalScope||!storageSafe||cloudBusy}/></label><Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>{cloudEnabled&&personalScope&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={effectiveReadOnly||!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>}
    {!personalScope&&organizationId&&organizationLoaded&&!organizationError&&<div className="fs-actions">
     <Button secondary onClick={()=>void loadCloud()} disabled={organizationBusy}>{txt(ar,'إعادة تحميل دراسات المؤسسة','Refresh company studies')}</Button>
@@ -462,7 +480,14 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false}:{loc
   </section>}
 
   {!(personalScope?loaded:organizationLoaded)?<p>{txt(ar,'جاري تحميل الدراسات…','Loading studies…')}</p>:!study?<section className="card fs-empty"><h2>{emptyTitle}</h2><p>{emptyDescription}</p></section>:<>
-   <div className="fs-subhead fs-print-study-title"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>}</div>
+   <div className="fs-subhead fs-print-study-title"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<div className="fs-actions">
+    {canOpenCopy&&<Button secondary onClick={openCopy}>{txt(ar,'نسخ إلى مؤسسة','Copy to organization')}</Button>}
+    <Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>
+   </div>}</div>
+   {canOpenCopy&&copyRevision!==undefined&&copySelection?.studyId===study.id&&
+    copySelection.organizationId===organizationId&&copySelection.userId===userId&&
+    <CopyToOrganizationDialog locale={locale} sourceId={study.id} sourceTitle={study.title}
+     revision={copyRevision} organizationId={organizationId} onClose={()=>setCopySelection(null)}/>}
    <nav className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.filter(t=>water?!['advanced','sector'].includes(t.id):t.id!=='sector'||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE').map(t=><button type="button" key={t.id} onClick={()=>setTab(t.id)} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}>{ar?t.ar:t.en}</button>)}</nav>
    {tab==='report'&&<FeasibilityReport study={study} locale={locale}/>}
    <fieldset className="fs-study-scope" disabled={effectiveReadOnly} aria-label={txt(ar,'محتوى دراسة المشروع','Study content')}>

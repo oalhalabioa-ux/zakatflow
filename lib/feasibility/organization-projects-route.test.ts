@@ -23,8 +23,8 @@ function mockDb(role='OWNER',status='ACTIVE'){
  const membership={select:vi.fn().mockReturnThis(),eq:vi.fn().mockReturnThis(),
   maybeSingle:vi.fn().mockResolvedValue({data:{role,status},error:null})};
  const org={select:vi.fn().mockReturnThis(),eq:vi.fn().mockReturnThis(),
-  maybeSingle:vi.fn().mockResolvedValue({data:{id:orgId,status:'ACTIVE'},error:null})};
- const projects={select:vi.fn().mockReturnThis(),eq:vi.fn().mockReturnThis(),
+  maybeSingle:vi.fn().mockResolvedValue({data:{id:orgId,status:'ACTIVE',name:'QA Organization'},error:null})};
+ const projects={select:vi.fn().mockReturnThis(),eq:vi.fn().mockReturnThis(),is:vi.fn().mockReturnThis(),
   order:vi.fn().mockReturnThis(),limit:vi.fn().mockResolvedValue({data:[],error:null}),
   insert:vi.fn().mockReturnThis(),single:vi.fn().mockResolvedValue({data:{revision:1},error:null}),
   update:vi.fn().mockReturnThis(),maybeSingle:vi.fn().mockResolvedValue({data:{revision:2},error:null})};
@@ -107,5 +107,64 @@ describe('institutional feasibility portfolio server gate',()=>{
   expect(db.projects.eq).toHaveBeenCalledWith('revision',5);
   db.projects.maybeSingle.mockResolvedValueOnce({data:null,error:null});
   expect((await PATCH(req(orgId,'PATCH',{study,revision:5}))).status).toBe(409);
+ });
+});
+
+describe('copy a personal cloud study into an organization',()=>{
+ const input={sourceId:study.id,revision:7,confirmed:true};
+ const copy=(body:unknown=input,org=orgId)=>req(org+'&action=copy','POST',body);
+ const source={study:{...study,status:'APPROVED'},revision:7};
+
+ it('returns the authorized organization label without exposing its projects',async()=>{
+  const db=mockDb();
+  const result=await GET(req(orgId+'&action=copy'));
+  expect(await result.json()).toEqual({organizationId:orgId,organizationName:'QA Organization'});
+  expect(db.projects.select).not.toHaveBeenCalled();
+ });
+
+ it('requires explicit consent and rejects VIEWER writes before reading the source',async()=>{
+  const db=mockDb();
+  expect((await POST(copy({...input,confirmed:false}))).status).toBe(400);
+  expect((await POST(copy({...input,study}))).status).toBe(400);
+  expect(db.projects.select).not.toHaveBeenCalled();
+  const viewer=mockDb('VIEWER');
+  expect((await POST(copy())).status).toBe(403);
+  expect(viewer.projects.select).not.toHaveBeenCalled();
+ });
+
+ it('copies only the exact owned personal revision and never changes the original',async()=>{
+  const db=mockDb();
+  db.projects.maybeSingle.mockResolvedValueOnce({data:source,error:null});
+  expect((await POST(copy())).status).toBe(201);
+  expect(db.projects.eq).toHaveBeenCalledWith('id',study.id);
+  expect(db.projects.eq).toHaveBeenCalledWith('owner_user_id',userId);
+  expect(db.projects.is).toHaveBeenCalledWith('organization_id',null);
+  const [record]=db.projects.insert.mock.calls[0];
+  expect(record).toMatchObject({organization_id:orgId,owner_user_id:null,created_by_user_id:userId,
+   study:{id:record.id,status:'FEASIBILITY',title:study.title}});
+  expect(record.id).not.toBe(study.id);
+  expect(db.projects.update).not.toHaveBeenCalled();
+  expect(source.study.status).toBe('APPROVED');
+ });
+
+ it('rejects missing, foreign and stale source revisions',async()=>{
+  const db=mockDb();
+  db.projects.maybeSingle.mockResolvedValueOnce({data:null,error:null});
+  expect((await POST(copy())).status).toBe(404);
+  db.projects.maybeSingle.mockResolvedValueOnce({data:{...source,revision:8},error:null});
+  expect((await POST(copy())).status).toBe(409);
+  expect(db.projects.insert).not.toHaveBeenCalled();
+ });
+
+ it('uses one stable identity per source and target and returns conflict on retries',async()=>{
+  const db=mockDb();
+  db.projects.maybeSingle.mockResolvedValue({data:source,error:null});
+  await POST(copy());
+  db.projects.single.mockResolvedValueOnce({data:null,error:{code:'23505'}});
+  expect((await POST(copy())).status).toBe(409);
+  await POST(copy(input,otherOrg));
+  const ids=db.projects.insert.mock.calls.map(([record])=>record.id);
+  expect(ids[0]).toBe(ids[1]);
+  expect(ids[0]).not.toBe(ids[2]);
  });
 });

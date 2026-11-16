@@ -93,6 +93,16 @@ describe('original bottled-water model financial parity',()=>{
   expect(JSON.stringify(fixture)).toBe(before);
  });
 
+ it('reports debt service coverage only in servicing years and preserves negative coverage',()=>{
+  const result=evaluateWater(fixture);
+  expect(result.annual[0].dscr).toBeNull();
+  expect(result.annual[1].dscr).toBeCloseTo(1197423.168/67840,10);
+  expect(result.annual[5].dscr).toBeNull();
+  const loss=evaluateWater({...fixture,ops:{...fixture.ops,priceCarton:.01}});
+  expect(loss.annual[1].dscr).toBeLessThan(0);
+  expect(evaluateWater(createWaterModel()).annual.every(year=>year.dscr===null)).toBe(true);
+ });
+
  it('keeps unfinished inputs and an all-loss forecast from implying a measurable IRR',()=>{
   expect(evaluateWater(createWaterModel())).toMatchObject({ready:false,irr:null,investorShare:null});
   expect(evaluateWater({...fixture,ops:{...fixture.ops,priceCarton:.01}}).irr).toBeNull();
