@@ -142,7 +142,7 @@ try{
      assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),2,'Expanded requirements live inside the source card');
      assert.equal(await chartCard.locator('.settings-progress-node.met').count(),2);
      assert.equal(await page.locator('[role=dialog],.settings-finance-modal-backdrop').count(),0,'No popup after click');
-     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-inplace-chart-${locale}-${width}.png`,fullPage:false});
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.locator('.settings-finance-status').screenshot({path:`${out}/financial-inplace-chart-${locale}-${width}.png`});
      await page.keyboard.press('Escape');
      await page.waitForFunction(()=>document.querySelector('[data-financial-section=chart]')?.getAttribute('data-expanded')==='false');
      const opening=page.locator('[data-financial-section="opening"]');
