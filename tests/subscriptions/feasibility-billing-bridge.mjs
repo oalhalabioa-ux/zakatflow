@@ -52,12 +52,14 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     phase(caseName,'topbar-organization-selected');
     const companyForm=page.getByRole('button',{name:'Add project +',exact:true});
     await companyForm.waitFor({state:'visible'});
+    await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA421 Test factory');
+    // Creation is intentionally disabled while the name is empty, so check
+    // server-authorized readiness only after the synthetic name is filled.
     await page.waitForFunction(()=>{
      const btn=[...document.querySelectorAll('button')].find(b=>b.textContent?.trim()==='Add project +');
      return !!btn&&!btn.disabled;
     },null,{timeout:12000});
     phase(caseName,'organization-authorized-form-ready');
-    await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA421 Test factory');
     const posted=page.waitForResponse(r=>r.url().includes('/api/feasibility/organization-projects?')&&r.request().method()==='POST');
     phase(caseName,'organization-create-post-start');
     await companyForm.click();
