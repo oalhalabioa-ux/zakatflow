@@ -11,7 +11,9 @@ export default function JoinInvitationPanel({locale}:{locale:string}){
     method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:code.trim()})
    });
    if(!response.ok)throw Error('INVITATION_DENIED');
-   setCode('');setResult(t('تم قبول الدعوة. استخدم «استرجاع من QA V2» لإظهار الدراسة المشتركة، إذا كان اشتراكك يسمح بذلك.','Invitation accepted. Use Restore from QA V2 to view the shared project if your account access permits.'));
+   setCode('');
+   window.dispatchEvent(new Event('feasibility:invitation-accepted'));
+   setResult(t('تم قبول الدعوة؛ ستظهر الدراسة في قائمة «المشتركة معي» دون تغيير دراساتك الشخصية.','Invitation accepted. The project will appear in Shared with me without altering your personal drafts.'));
   }catch{setError(t('رمز غير صالح أو منتهي أو ليس لبريد حسابك المؤكد.','Invalid/expired code, or code does not match your confirmed account email.'))}
   finally{setBusy(false)}
  }

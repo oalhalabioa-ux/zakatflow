@@ -654,6 +654,9 @@ try {
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();
     await page.getByRole('button',{name:'Billing details',exact:true}).click();
+    // The form can mount before the organization fetch hydrates its initial draft.
+    // Wait for actual persisted data; a missing/incorrect value still fails within 10s.
+    await page.waitForFunction(expected=>document.querySelector('.billing-identity-form input[type=email]')?.value===expected,'billing-check@example.com',{timeout:10000});
     assert.equal(await page.getByLabel('Billing email',{exact:true}).inputValue(),'billing-check@example.com');
     assert.equal(await page.getByLabel('Registered address',{exact:true}).inputValue(),'Billing acceptance address');
     await page.goto(appUrl+'/en/settings/regulatory?organization='+org);

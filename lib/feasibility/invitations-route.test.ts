@@ -8,7 +8,9 @@ import {POST as accept} from '../../app/api/feasibility/invitations/accept/route
 import {POST as revoke} from '../../app/api/feasibility/members/revoke/route';
 const owner='6357a708-bae2-4634-9296-490404b1d8a4';
 const projectId='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
-const original={studies:process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES,cloud:process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA,sharing:process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA};
+const original={studies:process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES,cloud:process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA,sharing:process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA,
+ email:process.env.FEASIBILITY_INVITATION_EMAIL_QA,key:process.env.RESEND_API_KEY,
+ from:process.env.FEASIBILITY_INVITE_FROM_EMAIL,origin:process.env.FEASIBILITY_INVITE_PUBLIC_ORIGIN};
 function request(path:string,data:unknown){return new Request('https://qa.local'+path,{method:'POST',
  headers:{Origin:'https://qa.local','content-type':'application/json'},body:JSON.stringify(data)});}
 function mockData(){
@@ -33,12 +35,18 @@ beforeEach(()=>{
  process.env.NEXT_PUBLIC_FEASIBILITY_STUDIES='true';
  process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA='true';
  process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA='true';
+ delete process.env.FEASIBILITY_INVITATION_EMAIL_QA;
 });
 afterEach(()=>{
+ vi.unstubAllGlobals();
  for(const [key,value] of [
   ['NEXT_PUBLIC_FEASIBILITY_STUDIES',original.studies],
   ['NEXT_PUBLIC_FEASIBILITY_CLOUD_QA',original.cloud],
-  ['NEXT_PUBLIC_FEASIBILITY_SHARING_QA',original.sharing]
+  ['NEXT_PUBLIC_FEASIBILITY_SHARING_QA',original.sharing],
+  ['FEASIBILITY_INVITATION_EMAIL_QA',original.email],
+  ['RESEND_API_KEY',original.key],
+  ['FEASIBILITY_INVITE_FROM_EMAIL',original.from],
+  ['FEASIBILITY_INVITE_PUBLIC_ORIGIN',original.origin]
  ] as const){if(value===undefined)delete process.env[key];else process.env[key]=value;}
 });
 describe('QA V2 email-bound invitation boundary',()=>{
@@ -205,5 +213,57 @@ describe('QA V2 email-bound invitation boundary',()=>{
   const res=await list(new Request('https://qa.local/api/feasibility/invitations?project_id='+projectId));
   expect(res.status).toBe(200);
   expect(invites.select.mock.calls[0][0]).not.toContain('token_digest');
+ });
+});
+
+
+describe('QA email invitation API owner and provider boundary',()=>{
+ const invitationId='273db54b-cadb-43b8-bac6-5c6ff785a3c8';
+ const emailInput={projectId,email:'invited@example.org',role:'VIEWER',delivery:'EMAIL',locale:'ar'};
+ const setup=()=>{
+  process.env.FEASIBILITY_INVITATION_EMAIL_QA='true';
+  process.env.RESEND_API_KEY='re_testing_only';
+  process.env.FEASIBILITY_INVITE_FROM_EMAIL='Yaqeen <invites@example.org>';
+  process.env.FEASIBILITY_INVITE_PUBLIC_ORIGIN='https://qa.example.org';
+ };
+ it('does not issue an invitation if verified transactional mail is unavailable',async()=>{
+  const {invites}=mockData();
+  const response=await invite(request('/api/feasibility/invitations',emailInput));
+  expect(response.status).toBe(503);
+  expect((await response.json()).error).toBe('EMAIL_DELIVERY_NOT_CONFIGURED');
+  expect(invites.insert).not.toHaveBeenCalled();
+ });
+ it('acknowledges an email invitation without returning its one-use secret',async()=>{
+  setup();
+  const {invites}=mockData();
+  invites.single.mockResolvedValueOnce({data:{id:invitationId,role:'VIEWER',
+   expires_at:'2026-11-21T10:00:00Z'},error:null});
+  const fetch=vi.fn().mockResolvedValue(new Response(JSON.stringify({id:'email-id'}),{status:200}));
+  vi.stubGlobal('fetch',fetch);
+  const response=await invite(request('/api/feasibility/invitations',emailInput));
+  expect(response.status).toBe(201);
+  const body=await response.json();
+  expect(body.delivery).toBe('EMAIL');
+  expect(body.code).toBeUndefined();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const payload=JSON.parse(fetch.mock.calls[0][1].body);
+  expect(payload.to).toEqual(['invited@example.org']);
+  expect(payload.text).toContain('https://qa.example.org/ar/feasibility');
+  expect(invites.insert).toHaveBeenCalledTimes(1);
+  expect(invites.insert.mock.calls[0][0].token_digest).toMatch(/^[a-f0-9]{64}$/);
+ });
+ it('revokes a token when the email provider rejects the send request',async()=>{
+  setup();
+  const {invites,rpc}=mockData();
+  invites.single.mockResolvedValueOnce({data:{id:invitationId,role:'VIEWER',
+   expires_at:'2026-11-21T10:00:00Z'},error:null});
+  rpc.mockResolvedValueOnce({data:true,error:null});
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('{}',{status:500})));
+  const response=await invite(request('/api/feasibility/invitations',emailInput));
+  expect(response.status).toBe(503);
+  expect((await response.json()).error).toBe('EMAIL_DELIVERY_FAILED');
+  expect(rpc).toHaveBeenCalledWith('feasibility_revoke_project_invitation',{
+   p_project_id:projectId,p_invitation_id:invitationId
+  });
  });
 });
