@@ -60,6 +60,7 @@ export async function readFinancialSetupReadiness(input:unknown){
    (selected==='3300'||f.retainedCandidates?.some(c=>c.code===selected)));
   evidence.fiscalStart=f.period?.start??null;
  }
+ let openingSourceReadable=false;
  if(evidence.fiscalStart){
   const [policies,policyWorkspace,opening]=await Promise.allSettled([
    supabase.from('financial_reporting_policies').select('status,version,rules')
@@ -83,6 +84,7 @@ export async function readFinancialSetupReadiness(input:unknown){
    evidence.approvedPostingPolicy=verified.configured;
   }
   if(opening.status==='fulfilled'){
+   openingSourceReadable=true;
    const state=opening.value;
    evidence.approvedOpening=state.workspace?.status==='APPROVED'&&
     state.workspace.source_revision===state.source.revision&&
@@ -129,6 +131,9 @@ export async function readFinancialSetupReadiness(input:unknown){
   postingCoverageComplete:availablePosting?.configured===true,
   bankingReadable,
   bankingAccountPresent:evidence.bankAccountPresent,
+  openingModeSelected:q.mode!==null,
+  openingSourceReadable,
+  openingVerified:q.mode==='EXISTING'?evidence.approvedOpening:q.mode==='NEW'?evidence.zeroOpeningVerified:false,
  });
  return {...financialSetupReadiness(evidence),sourceChecks};
 }
