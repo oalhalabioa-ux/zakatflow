@@ -36,7 +36,7 @@ export function financialSourceChecks(e:FinancialSourceCheckInputs):FinancialSou
    check('fiscal.retained',e.fiscalReadable,e.fiscalRetainedValid),
   ],
   chart:[
-   check('chart.readable',true,e.chartReadable),
+   check('chart.readable',e.chartReadable,e.chartReadable),
    check('chart.equity',e.chartReadable,e.chartEquityActive),
   ],
   posting:[
@@ -45,7 +45,7 @@ export function financialSourceChecks(e:FinancialSourceCheckInputs):FinancialSou
    check('posting.coverage',e.postingCoverageReadable,e.postingCoverageComplete),
   ],
   banking:[
-   check('banking.readable',true,e.bankingReadable),
+   check('banking.readable',e.bankingReadable,e.bankingReadable),
    check('banking.active',e.bankingReadable,e.bankingAccountPresent),
   ],
  };
