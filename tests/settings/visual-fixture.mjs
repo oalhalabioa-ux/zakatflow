@@ -71,6 +71,26 @@ await page.route('**/api/**',async route=>{
  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
 });
 const out=process.env.SETTINGS_UI_OUT??'/tmp/yaqeen-settings-ui';await mkdir(out,{recursive:true});const checks=[];
+// Responsive shell/grid transitions must finish before comparing click geometry.
+// This does not disable animation or weaken the unchanged-card tolerance.
+async function waitForFinancialLayout(){
+ await page.locator('.settings-finance-status').evaluate(async root=>{
+  await document.fonts.ready;
+  await new Promise((resolve,reject)=>{
+   const started=performance.now();let previous='',stableSince=started;
+   const sample=()=>{
+    const now=performance.now();
+    const signature=JSON.stringify([root,...root.querySelectorAll('article')].map(el=>{
+     const rect=el.getBoundingClientRect();return [rect.width,rect.height].map(v=>Math.round(v*100)/100);
+    }));
+    if(signature!==previous){previous=signature;stableSince=now;}
+    if(now-stableSince>=400){resolve();return;}
+    if(now-started>5000){reject(new Error('Financial card layout did not settle'));return;}
+    requestAnimationFrame(sample);
+   };sample();
+  });
+ });
+}
 try{
  if(!process.env.SETTINGS_JOURNEY_ONLY){
  await verifyFiscalSetupEditing({page,app,orgId,setLock:value=>{fiscalLock=value;},out:process.env.SETTINGS_UI_SKIP_SNAPSHOTS?null:out});
@@ -112,6 +132,7 @@ try{
     assert.equal(await page.locator('.settings-finance-card-more').count(),0,'Removed View details label');
     for(const width of [1490,390]){
      await page.setViewportSize({width,height:1050});
+     await waitForFinancialLayout();
      const tops=await cards.evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().top)));
      assert.ok(tops.every(top=>Math.abs(top-tops[0])<=2),'All five cards still share their original single row');
      const chartCard=page.locator('[data-financial-section="chart"]');
@@ -124,30 +145,35 @@ try{
      await chartTrigger.click();
      const detail=page.locator('#settings-finance-source-timeline');
      await detail.waitFor();
+     await waitForFinancialLayout();
      assert.equal(await chartTrigger.getAttribute('aria-expanded'),'true','Selected card points to timeline');
      assert.equal(await detail.locator('[data-source-check]').count(),2,'Chart source requirements displayed in timeline');
      assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),0,'Source details are not inside cards');
      assert.equal(await chartCard.locator('.settings-progress-node.met').count(),2,'Original card progress checks unchanged');
      const after=await chartCard.boundingBox();
-     assert.ok(after&&before&&Math.abs(after.height-before.height)<5&&Math.abs(after.width-before.width)<15,`Card remains compact (before ${JSON.stringify(before)}; after ${JSON.stringify(after)})`);
+     assert.ok(after&&before&&Math.abs(after.height-before.height)<1&&Math.abs(after.width-before.width)<1,`Card geometry unchanged after layout settles (before ${JSON.stringify(before)}; after ${JSON.stringify(after)})`);
      assert.equal(await chartCard.evaluate(el=>el.classList.contains('settings-finance-is-expanded')),false,'Card expansion styling never activated');
      assert.equal(await page.locator('.settings-finance-status').getAttribute('style'),null,'Click never changes card grid widths');
      assert.equal(await page.locator('[role=dialog],.settings-finance-modal-backdrop').count(),0,'No modal on selection');
      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-timeline-chart-${locale}-${width}.png`,fullPage:true});
      await chartTrigger.click();
+     await detail.waitFor({state:'detached'});
      assert.equal(await detail.count(),0,'Clicking selected card closes timeline');
      const opening=page.locator('[data-financial-section="opening"]');
+     await waitForFinancialLayout();
      const openingBefore=await opening.boundingBox();
      await opening.locator('.settings-finance-card-trigger').click();
      await detail.waitFor();
+     await waitForFinancialLayout();
      assert.equal(await detail.locator('[data-source-check]').count(),3,'Opening requirements appear in compact timeline');
      assert.equal(await opening.locator('.settings-progress-node.met').count(),0,'NOT_STARTED opening has no progress ticks');
      assert.equal(await opening.locator('.settings-progress-node.unverified').count(),3,'Opening progress circles remain neutral');
      assert.equal(await detail.locator('[data-check-status=MET]').count(),0,'Opening timeline does not falsely claim completed checks');
      const openingAfter=await opening.boundingBox();
-     assert.ok(openingAfter&&openingBefore&&Math.abs(openingAfter.height-openingBefore.height)<3,'Opening card does not expand');
+     assert.ok(openingAfter&&openingBefore&&Math.abs(openingAfter.height-openingBefore.height)<1&&Math.abs(openingAfter.width-openingBefore.width)<1,'Opening card geometry remains unchanged');
      if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-timeline-opening-${locale}-${width}.png`,fullPage:true});
      await opening.locator('.settings-finance-card-trigger').click();
+     await detail.waitFor({state:'detached'});
      assert.equal(await detail.count(),0,'Closing the timeline leaves cards unchanged');
     }
     await page.setViewportSize({width:1490,height:1050});
