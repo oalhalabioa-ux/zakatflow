@@ -292,7 +292,7 @@
 
 .fs-royal-report-title { display: flex; align-items: center; gap: 7px; }
 .fs-royal-dialog .fs-check + .fs-check { margin-top: .35rem; }
-@media print { .fs-print-report .fs-omit-print, .fs-print-report .fs-dialog { display: none !important; } }
+@media print { .fs-page .fs-print-report .fs-omit-print, .fs-print-report .fs-dialog { display: none !important; } }
 
 .fs-royal-module-intro {
  display: flex; align-items: center; gap: 14px; background: var(--fs-line); border-radius: 8px; padding: 14px;

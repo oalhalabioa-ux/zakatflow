@@ -71,6 +71,28 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
      assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
     }finally{await page.emulateMedia({media:null});}
     phase(caseName,'feasibility-report-pdf-generated');
+    await page.getByRole('button',{name:'Report export options',exact:true}).click();
+    const exportDialog=page.getByRole('dialog');
+    await exportDialog.getByRole('checkbox',{name:'Licences, tasks and risks',exact:true}).uncheck();
+    // Suppress the native dialog while checking Chromium's real print layout.
+    const restorePrint=await page.evaluateHandle(()=>{
+     const print=window.print;
+     window.print=()=>{};
+     return ()=>{window.print=print;window.dispatchEvent(new Event('afterprint'));};
+    });
+    try{
+     await exportDialog.getByRole('button',{name:'Print selected sections / PDF',exact:true}).click();
+     await page.emulateMedia({media:'print'});
+     assert.equal(await report.isVisible(),true);
+     assert.equal(await page.locator('[data-report-section="governance"]').isVisible(),false);
+     const pdf=await page.pdf({format:'A4',printBackground:true});
+     assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
+    }finally{
+     await restorePrint.evaluate(restore=>restore());
+     await restorePrint.dispose();
+     await page.emulateMedia({media:null});
+    }
+    phase(caseName,'feasibility-selected-pdf-omits-governance');
     phase(caseName,'personal-study-opened-and-reloaded');
     const firstCompanyRead=page.waitForResponse(r=>{
      const parsed=new URL(r.url());
