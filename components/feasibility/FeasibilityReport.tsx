@@ -3,7 +3,8 @@ import {useRef,useState} from 'react';
 import {RoyalIcon} from './RoyalIcon';
 import type {FeasibilityStudy} from '@/lib/feasibility/engine';
 import {evaluateStudy} from '@/lib/feasibility/engine';
-import {studyReportReadiness} from '@/lib/feasibility/water-model';
+import {handoffReadiness} from '@/lib/feasibility/handoff';
+import {evaluateWater,studyReportReadiness} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import WaterModelPanel from './WaterModelPanel';
 
@@ -35,6 +36,13 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const fmt=(value:number|null)=>value===null?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
  const money=(value:number|null)=>value===null?'—':fmt(value)+' '+study.currency;
  const base=evaluateStudy(study);
+ const water=study.water?evaluateWater(study.water):null;
+ const ready=handoffReadiness(study);
+ const reportMetrics = [
+  ['NPV', money(water ? water.ready ? water.npv : null : base.npv)],
+  ['IRR', (water ? water.ready ? water.irr : null : base.irr) === null ? '—' : fmt(water ? water.irr : base.irr) + '%'],
+  [l('الجاهزية','Readiness'),ready.checks.filter(check=>check.passed).length+' / '+ready.checks.length]
+ ];
  const metrics=[
   {label:l('السنة','Year'),key:'year'},
   {label:l('حجم المبيعات','Sales volume'),key:'volume'},
@@ -70,6 +78,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   {allowExport&&<dialog ref={dialog} className="fs-dialog fs-royal-dialog" aria-labelledby="fs-report-export-title">
    <div className="fs-royal-heading"><h2 id="fs-report-export-title"><RoyalIcon name="file"/>{l('التقرير الاستثماري الشامل','Investment report export')}</h2>
     <button type="button" className="fs-royal-close" aria-label={l('إغلاق','Close')} onClick={()=>dialog.current?.close()}>×</button></div>
+   <div className="fs-royal-scenario-cards fs-royal-report-metrics">{reportMetrics.map(([label,value])=>
+    <div className="fs-metric" key={label}><small>{label}</small><strong dir="auto">{value}</strong></div>)}</div>
    <p className="fs-hint">{l('اختر أقسام نسخة PDF. يمكنك تنزيل جداول التوقعات والمهام بصيغة CSV من التقرير.','Select sections for the PDF. Forecast and task tables can be downloaded as CSV from the report.')}</p>
    {exportSections.filter(section=>section!=='notes'||study.notes).map(section=><label className="fs-check" key={section}>
     <input type="checkbox" checked={sections.includes(section)} onChange={event=>{

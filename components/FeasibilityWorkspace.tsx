@@ -491,7 +491,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   </section>
   <p className="fs-warning" role="status">{!personalScope?organizationError||txt(ar,'محفظة المؤسسة مستقلة عن مسوداتك الشخصية. تُحفظ الدراسات المؤسسية بعد التحقق من عضوية المؤسسة وصلاحياتها.','The company portfolio is separate from your personal drafts. Organization studies are saved using server-verified membership and permissions.'):sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'تحفظ المسودة الشخصية في محفظتك. استخدم الحفظ السحابي لاستعادتها أو نسخها إلى مؤسسة بإذن صريح.','Save your personal draft to the cloud to restore it later or to copy it to an organization with your explicit consent.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')}>×</button></p>}
-  <section className="card fs-panel fs-royal-portfolio">
+  <section className="card fs-panel fs-royal-portfolio" hidden={tab!=='overview'&&!!study}>
    <div className="fs-royal-heading">
     <h2><RoyalIcon name="layers"/>{txt(ar,'محفظة الدراسات الاستثمارية','Investment study portfolio')}</h2>
     <Button onClick={openCreate} disabled={!canCreate}><RoyalIcon name="plus"/>{txt(ar,'إضافة دراسة','New study')}</Button>
@@ -591,8 +591,15 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    </div>
   </details>}
 
-  {!(personalScope?loaded:organizationLoaded)?<section className="card fs-empty" role="status">{txt(ar,'جاري تحميل الدراسات…','Loading studies…')}</section>:!study?<section className="card fs-empty fs-royal-empty"><RoyalIcon name="file"/><h2>{emptyTitle}</h2><p>{emptyDescription}</p>{canCreate&&<Button onClick={openCreate}>{txt(ar,'إنشاء أول دراسة','Create first study')}</Button>}</section>:<>
-   <div className="fs-subhead fs-print-study-title"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<div className="fs-actions">
+  {!(personalScope?loaded:organizationLoaded)?<section className="card fs-empty" role="status">{txt(ar,'جاري تحميل الدراسات…','Loading studies…')}</section>:!study?<section className="card fs-empty fs-royal-empty"><RoyalIcon name="file"/><h2>{emptyTitle}</h2><p>{emptyDescription}</p><div className="fs-actions">
+    {canCreate&&<Button onClick={openCreate}>{txt(ar,'إنشاء أول دراسة','Create first study')}</Button>}
+    {!personalScope&&<Button secondary onClick={()=>{
+      const control=document.querySelector<HTMLElement>('.corp-topbar .corp-workspace-scope button:first-child');
+      control?.focus();control?.scrollIntoView({block:'nearest'});
+     }}>{txt(ar,'الذهاب إلى النطاق الشخصي في البنر','Go to personal scope in the main banner')}</Button>}
+   </div>
+   {!personalScope&&<p className="fs-hint">{txt(ar,'لنسخ دراسة، افتح محفظتك الشخصية، احفظ الدراسة، ثم استخدم «نسخ إلى مؤسسة».','To copy a study, open your personal portfolio, save the study, then use Copy to organization.')}</p>}</section>:<>
+   <div className="fs-subhead fs-print-study-title fs-royal-project-context"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<div className="fs-actions">
     {canOpenCopy&&<Button secondary onClick={openCopy}>{txt(ar,'نسخ إلى مؤسسة','Copy to organization')}</Button>}
     <Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>
    </div>}</div>

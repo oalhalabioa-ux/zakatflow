@@ -355,3 +355,15 @@
  .fs-royal-organization-trigger { width: 100%; }
  .fs-royal-organization-trigger span:first-child { max-inline-size: 100%; }
 }
+
+.fs-royal .fs-royal-portfolio[hidden] { display: none; }
+.fs-royal-project-context {
+ background: #FAFBFB; border: 1px solid var(--fs-line); border-radius: 8px; padding: 11px 14px;
+}
+.fs-royal-report-metrics { margin-block: .65rem; }
+.fs-royal-report-metrics .fs-metric { min-height: 60px; }
+@media(max-width: 650px) {
+ .fs-royal-report-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
+ .fs-royal-report-metrics .fs-metric { padding: 6px; }
+ .fs-royal-report-metrics .fs-metric strong { font-size: 13px; }
+}

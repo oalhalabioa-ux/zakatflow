@@ -53,7 +53,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA421 Personal draft');
     await page.getByRole('radio',{name:'Bottled-water factory',exact:true}).check();
     await page.getByRole('button',{name:'Add project +',exact:true}).click();
-    await page.getByRole('button',{name:/QA421 Personal draft/}).first().waitFor();
+    await page.getByRole('heading',{name:'QA421 Personal draft',exact:true}).waitFor();
     await page.getByRole('button',{name:'Investment',exact:true}).click();
     await page.getByLabel('Construction and buildings',{exact:true}).fill('24680');
     await page.reload();
@@ -83,12 +83,13 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     const companyGet=await firstCompanyRead;
     phase(caseName,'organization-projects-get-'+companyGet.status());
     assert.equal(companyGet.status(),200,'Organization Feasibility GET must be authorized');
-    await page.getByRole('button',{name:'Add project +',exact:true}).waitFor({state:'visible'});
+    await page.getByRole('button',{name:'New study',exact:true}).waitFor({state:'visible'});
     assert.equal(await page.getByRole('button',{name:/QA421 Personal draft/}).count(),0,
      'Personal study must not appear in organization portfolio');
     phase(caseName,'topbar-switch-back-to-personal');
     await switcher.getByRole('button',{name:'Personal',exact:true}).click();
     await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='PERSONAL');
+    await page.getByRole('button',{name:'Overview',exact:true}).click();
     const personalDraft=page.getByRole('button',{name:/QA421 Personal draft/}).first();
     await personalDraft.waitFor();
     await personalDraft.click();
@@ -269,7 +270,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    }
    assert.equal(response.status(),201,'Authorized company study POST must return 201; see QA421_CORPORATE_POST_DIAG');
    const {id}=await response.json();
-   await page.getByRole('button',{name:/QA421 Corporate create regression/}).waitFor();
+   await page.getByRole('heading',{name:'QA421 Corporate create regression',exact:true}).waitFor();
    await page.getByRole('button',{name:'Investment',exact:true}).click();
    await page.getByLabel('Construction and buildings',{exact:true}).fill('97531');
    const patchReceived=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/organization-projects'&&
