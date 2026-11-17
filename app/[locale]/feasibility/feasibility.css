@@ -434,3 +434,19 @@
 .fs-royal-register-layout .fs-royal-checks dd { text-align: end; }
 .fs-royal-risk-legend { margin-block-start: 8px; }
 .fs-royal-risk-legend span:nth-child(3), .fs-royal-risk-legend span:nth-child(4) { background: var(--fs-light-gold); }
+
+.fs-royal-state { display: grid; justify-items: start; gap: 8px; border: 1px solid var(--fs-line); border-radius: 10px; padding: 16px; color: var(--fs-ink); background: #fff; }
+.fs-royal-state h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; color: var(--fs-navy); }
+.fs-royal-state p { margin: 0; }
+.fs-royal-state[data-tone="warning"] { background: var(--fs-light-gold); border-color: var(--fs-gold); }
+.fs-royal-state[data-tone="neutral"] { background: var(--fs-line); }
+.fs-royal-participants .fs-collaboration-row { flex-wrap: wrap; }
+.fs-royal-participants .fs-collaboration-row :is(strong,span) { overflow-wrap: anywhere; }
+.fs-royal-participants .fs-royal-access-table { min-width: 0; }
+.fs-royal-participants .fs-royal-profile-grid > section { min-width: 0; }
+.fs-royal-dialog .fs-royal-checks dd { text-align: end; overflow-wrap: anywhere; }
+.fs-royal-organizations .fs-check[data-selected="true"] { background: #E8F1EB; border-color: var(--fs-green); }
+.fs-royal-organizations .fs-check small { margin-inline-start: auto; color: var(--fs-green); }
+.fs-royal-report-sections { margin-block: 12px; }
+.fs-royal-report-sections legend { padding-block-end: 6px; font-weight: 700; }
+.fs-royal-organization-sharing .fs-royal-access-table th { overflow-wrap: anywhere; }

@@ -22,16 +22,17 @@ export default function WorkspaceOrganizationPicker({organizations,value,onChang
    <div className="fs-royal-heading"><h2 id={dialogTitle}>{ar?'اختيار المؤسسة من البنر الرئيسي':'Choose organization from the main banner'}</h2>
     <button type="button" className="fs-royal-close" aria-label={ar?'إغلاق':'Close'} onClick={()=>dialog.current?.close()}>×</button>
    </div>
-   <fieldset className="fs-study-scope">
+   <fieldset className="fs-study-scope fs-royal-organizations" disabled={disabled}>
     <legend className="fs-hint">{ar?'المؤسسات المصرح لك بالوصول إليها':'Organizations you can access'}</legend>
-    {organizationTree(organizations).map(({organization:item,depth})=><label className="fs-check" key={item.id}>
+    {organizationTree(organizations).map(({organization:item,depth})=><label className="fs-check" key={item.id} data-selected={candidate===item.id}>
      <input type="radio" name={dialogTitle} checked={candidate===item.id} onChange={()=>setCandidate(item.id)}/>
      <span>{organizationOptionLabel(item,ar,depth)}</span>
+     {item.id===value&&<small>{ar?'المؤسسة الحالية':'Current organization'}</small>}
     </label>)}
    </fieldset>
    <div className="fs-actions">
     <button type="button" className="fs-btn" disabled={disabled||!organizations.some(item=>item.id===candidate)}
-     onClick={()=>{if(choose(candidate))dialog.current?.close()}}>{ar?'اختيار المؤسسة':'Select organization'}</button>
+     onClick={()=>{if(candidate===value||choose(candidate))dialog.current?.close()}}>{ar?'اختيار المؤسسة':'Select organization'}</button>
     <button type="button" className="fs-btn fs-btn--secondary" onClick={()=>dialog.current?.close()}>{ar?'إلغاء':'Cancel'}</button>
    </div>
   </dialog>

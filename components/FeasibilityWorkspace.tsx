@@ -86,6 +86,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const [newStarter,setNewStarter]=useState<IndustrialStarter>('GENERAL');
  const [scenario,setScenario]=useState<Scenario>('BASE');
  const [notice,setNotice]=useState('');
+ const [saveIssue,setSaveIssue]=useState<{kind:'conflict'|'save-error';message:string;studyId:string;scopeId:string;userId:string}>();
+
  const [copySelection,setCopySelection]=useState<{studyId:string;organizationId:string;userId:string}|null>(null);
  const cloudEnabled=process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
  const sharingEnabled=cloudEnabled&&process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA==='true';
@@ -201,7 +203,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   // Account changes must never reuse the previous user's local or cloud data.
   setLoaded(false);setStorageSafe(true);
   setStudies([]);setSelectedId('');setSharedSelectedId('');setTab('overview');
-  setCloudRevisions({});setCloudSavedStudyVersions({});setCloudOwnerIds({});
+  setCloudRevisions({});setCloudSavedStudyVersions({});setCloudOwnerIds({});setCloudBusy(false);setSaveIssue(undefined);
   try{
    const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as unknown;
    if(saved!==null){
@@ -232,6 +234,9 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   sharedSelectedId||(cloudOwnerIds[study.id]&&cloudOwnerIds[study.id]!==userId)
  ));
  const effectiveReadOnly=sharedStudy||(personalScope?readOnly:!organizationCanWrite||!companyScopeReady);
+ const saveScopeId=personalScope?'personal':organizationId;
+ const visibleSaveIssue=saveIssue?.scopeId===saveScopeId&&saveIssue.studyId===study?.id&&saveIssue.userId===userId
+  ?saveIssue:undefined;
  const copyRevision=study&&cloudOwnerIds[study.id]===userId&&cloudSavedStudyVersions[study.id]===study.updatedAt
   ?cloudRevisions[study.id]:undefined;
  const canOpenCopy=organizationEnabled&&cloudEnabled&&personalScope&&!effectiveReadOnly&&Boolean(study);
@@ -311,6 +316,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    if(!row){setNotice(txt(ar,'يجب إنشاء الدراسة المؤسسية على الخادم أولًا.','Create the study on the company server first.'));return}
    const userAtRequest=userId,orgAtRequest=organizationId,requestId=organizationRequestRef.current;
    const document=study;
+   setSaveIssue(undefined);
+   setNotice('');
    setOrganizationBusy(true);
    try{
     const response=await fetch('/api/feasibility/organization-projects?organization='+
@@ -333,9 +340,10 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    }catch(e){
     if(currentUserRef.current!==userAtRequest||
       organizationRequestRef.current!==requestId)return;
-    setNotice(e instanceof Error&&e.message==='CONFLICT'?
-     txt(ar,'توجد نسخة مؤسسية أحدث؛ لا تُستبدل قبل مراجعتها.','A newer company revision exists; it was not overwritten.'):
-     txt(ar,'فشل الحفظ المؤسسي. احتفظ بالتغييرات حتى تعالج المشكلة.','Company save failed; keep your changes while resolving it.'));
+    const conflict=e instanceof Error&&e.message==='CONFLICT';
+    setSaveIssue({kind:conflict?'conflict':'save-error',studyId:document.id,scopeId:orgAtRequest,userId:userAtRequest,
+     message:conflict?txt(ar,'توجد نسخة مؤسسية أحدث. راجع التغييرات قبل إعادة تحميل النسخة المحفوظة.','A newer company revision exists. Review your changes before reloading the saved revision.'):
+      txt(ar,'تعذر الحفظ المؤسسي. راجع الاتصال والصلاحيات ثم أعد المحاولة.','Company save failed. Check your connection and permissions, then try again.')});
    }finally{
     if(organizationRequestRef.current===requestId)setOrganizationBusy(false);
    }
@@ -343,6 +351,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   }
   if(effectiveReadOnly||cloudBusy||!study)return;
   const requestedUser=userId;
+  setSaveIssue(undefined);
+  setNotice('');
   setCloudBusy(true);
   try{
    const revision=cloudRevisions[study.id];
@@ -359,10 +369,14 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    setCloudSavedStudyVersions(p=>({...p,[study.id]:study.updatedAt}));
    setCloudOwnerIds(p=>({...p,[study.id]:userId}));
    setNotice(txt(ar,'حُفظت مسودة المشروع في QA V2، وهي ليست اعتمادًا نهائيًا.','Project draft saved in QA V2; this is not formal approval.'));
-  }catch(e){setNotice(e instanceof Error&&e.message==='CONFLICT'?
-   txt(ar,'توجد نسخة أحدث أو مسودة مطابقة على QA؛ احفظ نسخة JSON ثم استرجع المسودات قبل إعادة الحفظ.','A newer or duplicate QA draft exists. Export JSON, restore cloud copies and review before retrying.'):
-   txt(ar,'تعذر الحفظ في QA. احتفظ بنسخة JSON من بياناتك.','QA save failed. Keep a JSON backup.'))}
-  finally{setCloudBusy(false)}
+  }catch(e){
+   if(currentUserRef.current!==requestedUser)return;
+   const conflict=e instanceof Error&&e.message==='CONFLICT';
+   setSaveIssue({kind:conflict?'conflict':'save-error',studyId:study.id,scopeId:'personal',userId:requestedUser,
+    message:conflict?txt(ar,'توجد نسخة أحدث أو مسودة مطابقة على QA؛ احفظ نسخة JSON ثم استرجع المسودات قبل إعادة الحفظ.','A newer or duplicate QA draft exists. Export JSON, restore cloud copies and review before retrying.'):
+     txt(ar,'تعذر الحفظ في QA. احتفظ بنسخة JSON من بياناتك.','QA save failed. Keep a JSON backup.')});
+  }
+  finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}
  };
  const importBackup=async(e:ChangeEvent<HTMLInputElement>)=>{
   if(!personalScope||readOnly||!storageSafe||cloudBusy)return;
@@ -517,7 +531,16 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
      'Assess investment opportunities and project funding using study inputs, risk reviews and licence checks.')}</p></div>
   </section>
   <p className="fs-warning" role="status">{!personalScope?organizationError||txt(ar,'محفظة المؤسسة مستقلة عن مسوداتك الشخصية. تُحفظ الدراسات المؤسسية بعد التحقق من عضوية المؤسسة وصلاحياتها.','The company portfolio is separate from your personal drafts. Organization studies are saved using server-verified membership and permissions.'):sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'تحفظ المسودة الشخصية في محفظتك. استخدم الحفظ السحابي لاستعادتها أو نسخها إلى مؤسسة بإذن صريح.','Save your personal draft to the cloud to restore it later or to copy it to an organization with your explicit consent.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
-  {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')}>×</button></p>}
+  {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')} aria-label={txt(ar,'إغلاق الرسالة','Dismiss message')}>×</button></p>}
+  {visibleSaveIssue&&<section className="fs-royal-state" data-tone="warning" role="alert">
+   <h2><RoyalIcon name="file"/>{visibleSaveIssue.kind==='conflict'?txt(ar,'تعارض في الإصدار','Revision conflict'):txt(ar,'تعذّر حفظ الدراسة','Study could not be saved')}</h2>
+   <p>{visibleSaveIssue.message}</p>
+   {personalScope&&<Button secondary onClick={download} disabled={!visibleStudies.length}>{txt(ar,'تنزيل نسخة JSON','Download JSON backup')}</Button>}
+  </section>}
+  {study&&effectiveReadOnly&&<section className="fs-royal-state" data-tone="neutral" role="status">
+   <h2><RoyalIcon name="shield"/>{txt(ar,'الدراسة للقراءة فقط','Study is read only')}</h2>
+   <p>{txt(ar,'يمكنك فتح أقسام الدراسة حسب صلاحيتك الحالية.','Open the study sections available under your current access.')}</p>
+  </section>}
   {!study&&portfolio}
   <dialog ref={createDialog} className="fs-dialog fs-royal-dialog" aria-labelledby="fs-royal-create-title"
    onCancel={event=>{event.preventDefault();closeCreate()}}>
@@ -538,6 +561,9 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
        {Object.entries(sectors).map(([value,name])=><option key={value} value={value}>{ar?name.ar:name.en}</option>)}
       </select></label>
     </div>
+    <p className="fs-hint">{personalScope
+     ?txt(ar,'تظهر الدراسة في محفظتك الشخصية بعد الإنشاء.','Your study appears in your personal portfolio after creation.')
+     :txt(ar,'تُنشأ الدراسة في محفظة المؤسسة المحددة في البنر.','The study is created in the portfolio of the organization selected in the main banner.')}</p>
     <fieldset className="fs-royal-starter">
      <legend>{txt(ar,'اختر قالبًا للبدء','Choose a starter template')}</legend>
      <div className="fs-royal-template-grid">
@@ -596,7 +622,17 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    </div>
   </details>}
 
-  {!(personalScope?loaded:organizationLoaded)?<section className="card fs-empty" role="status">{txt(ar,'جاري تحميل الدراسات…','Loading studies…')}</section>:!study?<section className="card fs-empty fs-royal-empty"><RoyalIcon name="file"/><h2>{emptyTitle}</h2><p>{emptyDescription}</p><div className="fs-actions">
+  {!(personalScope?loaded:organizationLoaded)?<section className="fs-royal-state" role="status" aria-busy="true">
+   <h2><RoyalIcon name="file"/>{txt(ar,'جاري تحميل الدراسات…','Loading studies…')}</h2>
+  </section>:!personalScope&&organizationError?<section className="fs-royal-state" data-tone="warning" role="alert">
+   <h2><RoyalIcon name="shield"/>{txt(ar,'محفظة المؤسسة غير متاحة','Organization portfolio unavailable')}</h2>
+   <p>{organizationError}</p>
+   <Button secondary onClick={()=>setOrganizationReload(value=>value+1)}>{txt(ar,'إعادة محاولة التحميل','Retry loading')}</Button>
+  </section>:!study?<section className="card fs-empty fs-royal-empty">
+   <RoyalIcon name={personalScope?'file':'building'}/><h2>{emptyTitle}</h2><p>{emptyDescription}</p>
+   {!personalScope&&companyScopeReady&&<p className="fs-hint">{[organizations.find(item=>item.id===organizationId)?.name,
+    organizationCanWrite?txt(ar,'الإنشاء متاح','Creation available'):txt(ar,'القراءة فقط','Read only')].filter(Boolean).join(' · ')}</p>}
+   <div className="fs-actions">
     {canCreate&&<Button onClick={openCreate}>{txt(ar,'إنشاء أول دراسة','Create first study')}</Button>}
     {!personalScope&&<Button secondary onClick={()=>{
       const control=document.querySelector<HTMLElement>('.corp-topbar .corp-workspace-scope button:first-child');
@@ -726,7 +762,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    {!water&&tab==='sector'&&(study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE')&&<SectorAnalysisPanel study={study} locale={locale} onChange={sectorSchedule=>update({sectorSchedule})}/>}
    {(tab==='legal'||tab==='tasks'||tab==='risks'||tab==='suppliers'||tab==='decisions')&&
     <StudyRegisters key={study.id+':'+tab} study={study} tab={tab} evidence={detail==='evidence'} locale={locale} onChange={update}/>}
-   {tab==='sharing'&&personalScope&&<CollaborationPanel audit={detail==='permissions'} locale={locale} projectId={study.id} enabled={sharingEnabled&&personalScope} canWrite={!effectiveReadOnly} isOwner={cloudOwnerIds[study.id]===userId}/>}
+   {tab==='sharing'&&personalScope&&<CollaborationPanel key={userId+':'+study.id} audit={detail==='permissions'} locale={locale} projectId={study.id} enabled={sharingEnabled&&personalScope} canWrite={!effectiveReadOnly} isOwner={cloudOwnerIds[study.id]===userId}/>}
    {tab==='handoff'&&<ProjectHandoffPanel study={study} locale={locale} onChange={handoff=>update({handoff})} cloudRevision={cloudRevisions[study.id]} cloudCurrent={cloudSavedStudyVersions[study.id]===study.updatedAt} cloudEnabled={cloudEnabled} canWrite={!effectiveReadOnly} bannerOrganizationId={organizationId}/>}
    </fieldset>
    {tab==='sharing'&&!personalScope&&organizationSharing&&companyScopeReady&&organizationCanShare&&organizationRecords[study.id]&&

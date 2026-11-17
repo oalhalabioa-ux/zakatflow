@@ -8,7 +8,7 @@ import {evaluateWater,studyReportReadiness} from '@/lib/feasibility/water-model'
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import WaterModelPanel from './WaterModelPanel';
 
-const exportSections = ['summary','finance','governance','notes'] as const;
+const exportSections = ['summary','finance','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
 
 export default function FeasibilityReport({study,locale,allowExport=true}:{study:FeasibilityStudy;locale:string;allowExport?:boolean}){
@@ -18,11 +18,14 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const [sections,setSections]=useState<ExportSection[]>([...exportSections]);
  const sectionLabels:Record<ExportSection,string>={
   summary:l('الملخص التنفيذي','Executive summary'),finance:l('الافتراضات والتوقعات المالية','Financial assumptions and forecast'),
-  governance:l('التراخيص والمهام والمخاطر','Licences, tasks and risks'),notes:l('ملاحظات الدراسة','Study notes')
+  governance:l('التراخيص والمهام والمخاطر','Licences, tasks and risks'),
+  decisions:l('القرارات والمحاضر','Decisions and minutes'),notes:l('ملاحظات الدراسة','Study notes')
  };
+ const availableSections=exportSections.filter(section=>
+  (section!=='notes'||study.notes)&&(section!=='decisions'||study.decisions.length>0));
  function printSelected() {
   const wrapper=report.current;
-  if(!wrapper||!sections.length)return;
+  if(!wrapper||!availableSections.some(section=>sections.includes(section)))return;
   dialog.current?.close();
   const hidden=Array.from(wrapper.querySelectorAll<HTMLElement>('[data-report-section]')).filter(
    element=>!sections.includes(element.dataset.reportSection as ExportSection));
@@ -113,14 +116,17 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
    <div className="fs-royal-scenario-cards fs-royal-report-metrics">{reportMetrics.map(([label,value])=>
     <div className="fs-metric" key={label}><small>{label}</small><strong dir="auto">{value}</strong></div>)}</div>
    <p className="fs-hint">{l('اختر أقسام نسخة PDF. يمكنك تنزيل جداول التوقعات والمهام بصيغة CSV من التقرير.','Select sections for the PDF. Forecast and task tables can be downloaded as CSV from the report.')}</p>
-   {exportSections.filter(section=>section!=='notes'||study.notes).map(section=><label className="fs-check" key={section}>
-    <input type="checkbox" checked={sections.includes(section)} onChange={event=>{
-     const checked=event.currentTarget.checked;
-     setSections(current=>checked?[...current,section]:current.filter(item=>item!==section));
-    }}/><span>{sectionLabels[section]}</span>
-   </label>)}
+   <fieldset className="fs-study-scope fs-royal-report-sections">
+    <legend>{l('الأقسام التي يشملها ملف PDF','Sections included in the PDF')}</legend>
+    {availableSections.map(section=><label className="fs-check" key={section}>
+     <input type="checkbox" checked={sections.includes(section)} onChange={event=>{
+      const checked=event.currentTarget.checked;
+      setSections(current=>checked?[...current,section]:current.filter(item=>item!==section));
+     }}/><span>{sectionLabels[section]}</span>
+    </label>)}
+   </fieldset>
    <div className="fs-actions">
-    <button className="fs-btn" type="button" disabled={!sections.some(section=>section!=='notes'||study.notes)}
+    <button className="fs-btn" type="button" disabled={!availableSections.some(section=>sections.includes(section))}
      onClick={printSelected}>{l('طباعة الأقسام المحددة / PDF','Print selected sections / PDF')}</button>
     <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>dialog.current?.close()}>{l('إلغاء','Cancel')}</button>
    </div>
@@ -156,6 +162,12 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
    <h4>{l('المخاطر العالية المفتوحة','High open risks')} · {highRisks.length}</h4>
    {highRisks.length>0&&<ul>{highRisks.map(item=><li key={item.id}>{item.title} ({item.impact*item.likelihood}/25) {item.response}</li>)}</ul>}
   </section>
+  {study.decisions.length>0&&<section className="card fs-panel" data-report-section="decisions">
+   <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{sectionLabels.decisions}</h3>
+   <dl className="fs-royal-checks">{study.decisions.map(item=><div key={item.id}>
+    <dt>{item.title}</dt><dd>{[item.date,item.owner,item.notes].filter(Boolean).join(' · ')||'—'}</dd>
+   </div>)}</dl>
+  </section>}
   {study.notes&&<section className="card fs-panel" data-report-section="notes"><h3>{l('ملاحظات الدراسة','Study notes')}</h3><p>{study.notes}</p></section>}
  </div>;
 }

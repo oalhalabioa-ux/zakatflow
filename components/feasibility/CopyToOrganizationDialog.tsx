@@ -80,12 +80,13 @@ export default function CopyToOrganizationDialog({locale,sourceId,sourceTitle,re
   <div className="fs-royal-heading"><h2 id="fs-copy-title"><RoyalIcon name="file"/>{t('نسخ دراسة شخصية إلى المؤسسة','Copy a personal study to the organization')}</h2>
    <button type="button" className="fs-royal-close" disabled={busy} onClick={onClose} aria-label={t('إغلاق النافذة','Close dialog')}>×</button>
   </div>
-  <dl>
+  <dl className="fs-royal-checks">
    <div><dt>{t('الدراسة الشخصية','Personal study')}</dt><dd>{sourceTitle}</dd></div>
+   <div><dt>{t('إصدار المصدر','Source revision')}</dt><dd><bdi>{revision}</bdi></dd></div>
    <div><dt>{t('المؤسسة المحددة في البانر','Organization selected in the main banner')}</dt>
     <dd>{organizationName||(!error?t('جارٍ التحقق…','Verifying…'):'—')}</dd></div>
   </dl>
-  <p>{t('تملك المؤسسة النسخة الجديدة. تبقى الدراسة الشخصية في محفظتك.','The organization owns the new copy. The personal study stays in your portfolio.')}</p>
+  <p className="fs-hint">{t('تملك المؤسسة النسخة الجديدة. تبقى الدراسة الشخصية في محفظتك.','The organization owns the new copy. The personal study stays in your portfolio.')}</p>
   {!copied&&organizationName&&<label className="fs-check">
    <input type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.currentTarget.checked)}/>
    <span>{t('أوافق على نسخ محتوى الدراسة إلى المؤسسة المحددة.','I agree to copy the study content to the selected organization.')}</span>

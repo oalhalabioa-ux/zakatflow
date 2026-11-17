@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import {RoyalIcon} from './RoyalIcon';
 import { shareAccessSchema, sharingModeSchema } from '@/lib/feasibility/sharing-permissions';
 import { proposalReviewHref, proposalStateLabel, type ProposalState } from '@/lib/feasibility/share-proposals';
 
@@ -12,9 +13,9 @@ export default function OrganizationStudyShares({ locale, organization, project,
   locale: string; organization: string; project: string; revision: number; saved: boolean; audit?: boolean;
 }) {
   const ar = locale === 'ar';
-  const [mode, setMode] = useState<'disabled' | 'read' | 'edit'>('disabled');
+  const [mode, setMode] = useState<'disabled' | 'read' | 'edit'>();
   const [access, setAccess] = useState<'read' | 'edit'>('read');
-  const [shares, setShares] = useState<Share[]>([]);
+  const [shares, setShares] = useState<Share[]>();
   const [recipient, setRecipient] = useState('');
   const [days, setDays] = useState('30');
   const [error, setError] = useState('');
@@ -89,7 +90,8 @@ export default function OrganizationStudyShares({ locale, organization, project,
     } finally { setBusy(false); }
   }
 
-  return <section className="card fs-panel fs-handoff">
+  const notExpired=(share:Share)=>!share.revoked_at&&Date.parse(share.expires_at)>Date.now();
+  return <section className="card fs-panel fs-handoff fs-royal-organization-sharing">
     <h3>{audit ? (ar ? 'صلاحيات المؤسسات وقرارات المراجعة' : 'Organization permissions and review decisions') : (ar ? 'مشاركة الدراسة مع مؤسسة' : 'Share with an organization')}</h3>
     <p>{ar ? 'تُشارك نسخة من الدراسة المحفوظة. للمؤسسة غير المشتركة صلاحية قراءة لمدة تصل إلى 30 يومًا من أول مشاركة.'
       : 'Share a copy of the saved study. Unsubscribed organizations can view it for up to 30 days from the first share.'}</p>
@@ -98,28 +100,39 @@ export default function OrganizationStudyShares({ locale, organization, project,
         <input dir="ltr" value={recipient} onChange={event => setRecipient(event.target.value)} required /></label>
       <label className="fs-field">{ar ? 'مدة الوصول بالأيام' : 'Access duration in days'}
         <input type="number" min={1} step={1} value={days} onChange={event => setDays(event.target.value)} required /></label>
-      {mode !== 'disabled' && <label className="fs-field">{ar ? 'صلاحية المؤسسة المستلمة' : 'Recipient permission'}
+      {(mode === 'read' || mode === 'edit') && <label className="fs-field">{ar ? 'صلاحية المؤسسة المستلمة' : 'Recipient permission'}
         <select value={access} onChange={event => setAccess(shareAccessSchema.parse(event.target.value))}>
           <option value="read">{ar ? 'قراءة فقط' : 'Read only'}</option>
           {mode === 'edit' && <option value="edit">{ar ? 'قراءة وتعديل' : 'Read and edit'}</option>}
         </select>
       </label>}
-      <div><button className="fs-btn" disabled={busy || !saved || mode === 'disabled'}>{ar ? 'مشاركة النسخة' : 'Share revision'}</button></div>
+      <div><button className="fs-btn" disabled={busy || !saved || !mode || mode === 'disabled'}>{ar ? 'مشاركة النسخة' : 'Share revision'}</button></div>
     </form>}
     {mode === 'disabled' && <p>{ar ? 'المشاركة غير متاحة حاليًا.' : 'Sharing is currently unavailable.'}</p>}
     {!saved && <p>{ar ? 'احفظ الدراسة لتتمكن من مشاركة الإصدار الحالي.' : 'Save the study to share its current revision.'}</p>}
     {error && <p role="alert">{error}</p>}
-    {shares.map(share => <div className="fs-row" key={share.recipient_organization_id}>
-      <span dir="ltr">{share.recipient_organization_id}</span>
-      <span>{ar ? 'النسخة' : 'Revision'} {share.source_revision}</span>
-      {mode !== 'disabled' && <span>{share.access_mode === 'edit' && mode === 'edit'
-        ? (ar ? 'قراءة وتعديل' : 'Read and edit') : (ar ? 'قراءة فقط' : 'Read only')}</span>}
-      <time dateTime={share.expires_at}>{new Date(share.expires_at).toLocaleString(locale)}</time>
-      {share.revoked_at ? <span>{ar ? 'ملغاة' : 'Revoked'}</span> : <button type="button" className="fs-btn fs-btn--secondary"
-        disabled={busy} onClick={() => void submit('revoke', share.recipient_organization_id)}>
-        {ar ? 'إلغاء الوصول' : 'Revoke access'}
-      </button>}
-    </div>)}
+    <section className="card fs-panel">
+    <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{ar?'سجل النسخ المشتركة':'Shared revision register'}</h3>
+    {shares===undefined&&!error&&<p role="status">{ar?'جارٍ تحميل المشاركات…':'Loading shares…'}</p>}
+    {shares?.length===0&&<p>{ar?'لا توجد نسخ مشتركة.':'No revisions have been shared.'}</p>}
+    {!!shares?.length&&<div className="fs-table-wrap"><table className="fs-table fs-royal-access-table">
+     <thead><tr>{(ar?['المؤسسة المستلمة','الإصدار','الصلاحية الممنوحة','تاريخ الانتهاء','الحالة','إجراء']:
+      ['Recipient organization','Revision','Granted permission','Expires','Status','Action'])
+      .map(label=><th scope="col" key={label}>{label}</th>)}</tr></thead>
+     <tbody>{shares.map(share=><tr key={share.recipient_organization_id}>
+      <th scope="row"><bdi>{share.recipient_organization_id}</bdi></th>
+      <td>{share.source_revision}</td>
+      <td>{share.access_mode==='edit'?(ar?'قراءة وتعديل':'Read and edit'):(ar?'قراءة فقط':'Read only')}</td>
+      <td><time dateTime={share.expires_at}>{new Date(share.expires_at).toLocaleString(locale)}</time></td>
+      <td>{share.revoked_at?(ar?'ملغاة':'Revoked'):notExpired(share)?(ar?'سارية':'Current'):(ar?'منتهية':'Expired')}</td>
+      <td>{!share.revoked_at&&<button type="button" className="fs-btn fs-btn--secondary"
+       disabled={busy} onClick={()=>void submit('revoke',share.recipient_organization_id)}>
+        {ar?'إلغاء الوصول':'Revoke access'}</button>}</td>
+     </tr>)}</tbody>
+    </table></div>}
+    <p className="fs-hint">{ar?'يحدد وضع المنصة واشتراك المؤسسة الصلاحية الفعلية عند الوصول إلى الدراسة.':
+     'Platform policy and the recipient subscription determine effective access when the study is opened.'}</p>
+    </section>
     <h3>{ar ? 'طلبات تعديل الدراسة' : 'Study change requests'}</h3>
     {proposalError && <p role="alert">{ar ? 'تعذر تحميل طلبات التعديل.' : 'Change requests could not be loaded.'}</p>}
     {proposals?.length === 0 && <p>{ar ? 'لا توجد طلبات تعديل.' : 'There are no change requests.'}</p>}
