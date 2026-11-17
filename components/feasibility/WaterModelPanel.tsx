@@ -1,6 +1,6 @@
 'use client';
 import {useMemo,type ReactNode} from 'react';
-import {emptyWaterOperationsPlan,evaluateWater,waterOperationalRequirements,waterProductionBalance,type WaterModel} from '@/lib/feasibility/water-model';
+import {emptyWaterOperationsPlan,emptyWaterUnitCosts,evaluateWater,waterOperationalRequirements,waterProductionBalance,waterVariableCostBreakdown,type WaterModel} from '@/lib/feasibility/water-model';
 import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
 import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
@@ -56,6 +56,11 @@ const logisticsFields:NumberFields<NonNullable<WaterModel['operationsPlan']>>=[
  ['kwhPerThousandBottles','استهلاك الكهرباء لكل 1,000 عبوة (ك.و.س)','Electricity use per 1,000 bottles (kWh)'],
  ['cartonsPerTrip','صناديق الكرتون لكل رحلة','Cartons per distribution trip',1e12,1],
  ['roundTripKm','المسافة ذهابًا وإيابًا للرحلة (كم)','Round-trip distance (km)'],
+];
+const unitCostFields:NumberFields<typeof emptyWaterUnitCosts>=[
+ ['bottle','تكلفة العبوة','Bottle cost'],['cap','تكلفة الغطاء','Cap cost'],['label','تكلفة الملصق','Label cost'],
+ ['carton','تكلفة صندوق الكرتون','Carton cost'],['kwh','تكلفة كيلوواط ساعة','Cost per kWh'],
+ ['rawWaterM3','تكلفة متر مكعب من المياه الخام','Cost per m³ of raw water'],['distributionKm','تكلفة التوزيع لكل كم','Distribution cost per km']
 ];
 const logisticsColumns=[
  ['bottles','العبوات المعبأة','Filled bottles'],
@@ -249,6 +254,15 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {label:l('صاحب الأرض','Land partner'),value:m.partnerShare??0}
  ]}/>;
  const plan=water.operationsPlan??emptyWaterOperationsPlan;
+ const costBreakdown=waterVariableCostBreakdown(water);
+ const unitCostRows:[string,string][]=costBreakdown?[
+  [l('مواد التعبئة لكل كرتون','Packaging per carton'),money(costBreakdown.packaging)],
+  [l('الطاقة لكل كرتون','Energy per carton'),money(costBreakdown.electricity)],
+  [l('المياه لكل كرتون','Water per carton'),money(costBreakdown.water)],
+  [l('التوزيع لكل كرتون','Distribution per carton'),money(costBreakdown.distribution)],
+  [l('الإجمالي لكل كرتون','Total per carton'),money(costBreakdown.total)],
+  [l('التكلفة المعتمدة لكل كرتون','Approved cost per carton'),money(water.ops.variableCarton)]
+ ]:[];
  const updatePlan=(patch:Partial<typeof plan>)=>onChange({...water,operationsPlan:{...plan,...patch}});
  const production=detail==='water'?waterProductionBalance(water):null;
  const {ops}=water;
@@ -407,6 +421,14 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
       </div>
      </Panel>
     </div>
+    <Panel title={l('تقدير تكلفة المواد والطاقة والتوزيع','Materials, energy and distribution cost estimate')} icon="coins">
+     <div className="fs-form-grid">{unitCostFields.map(([key,ar,en])=><NumberInput key={key} label={l(ar,en)}
+      value={plan.unitCosts?.[key]??0} onChange={value=>updatePlan({unitCosts:{...emptyWaterUnitCosts,...plan.unitCosts,[key]:value}})}/>)}</div>
+     <p className="fs-hint">{l('التقدير لكل كرتون للمراجعة. أدخل التكلفة المتغيرة المعتمدة في تفاصيل الخط بعد إضافة أي بنود أخرى.',
+      'Review the per-carton estimate and enter the approved variable cost in line details after adding any other costs.')}</p>
+     {costBreakdown&&compactValues(unitCostRows)}
+    </Panel>
+
     <Panel title={l('ميزان الطاقة والفاقد','Capacity and waste balance')} icon="chart">
      <Table headers={[l('المرحلة','Stage'),l('المدخل','Input'),l('النتيجة الشهرية','Monthly result')]} rows={[
       [l('الإنتاج الاسمي للعبوات','Nominal bottle output'),<bdi key="capacity">{[ops.bottlesHour,ops.hoursDay,ops.daysMonth].map(fmt).join(' × ')}</bdi>,fmt(production.nominalBottles)],
@@ -535,6 +557,9 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    </Panel>
   </>}
   {tab==='report'&&<>
+   {costBreakdown&&<section className="fs-panel">
+    <h4>{l('تقدير مكونات تكلفة الكرتون','Estimated carton cost components')}</h4>{compactValues(unitCostRows)}
+   </section>}
    {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button" onClick={exportForecast}>
     {l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}{forecast}
   </>}

@@ -4,6 +4,8 @@ import {RoyalIcon} from './RoyalIcon';
 import type {FeasibilityStudy} from '@/lib/feasibility/engine';
 import {evaluateStudy} from '@/lib/feasibility/engine';
 import {handoffReadiness} from '@/lib/feasibility/handoff';
+import {evaluateRawLand} from '@/lib/feasibility/raw-land';
+import RawLandPanel from './RawLandPanel';
 import {evaluateWater,studyReportReadiness} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import WaterModelPanel from './WaterModelPanel';
@@ -42,9 +44,16 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const money=(value:number|null)=>value===null?'—':[fmt(value),study.currency].filter(Boolean).join(' ');
  const percent=(value:number|null)=>value===null?'—':fmt(value)+'%';
  const base=evaluateStudy(study);
+ const land=study.rawLand?evaluateRawLand(study.rawLand):null;
+ const landResult=land?.issue===null&&land.ready?land:null;
  const water=study.water?evaluateWater(study.water):null;
  const deal=study.water?.deal;
- const funding=water&&study.water&&deal?[
+ const funding=study.rawLand?[
+  [l('التسهيل التمويلي','Financing facility'),money(study.rawLand.finance.facility)],
+  [l('تكاليف التطوير النقدية','Cash development costs'),money(landResult?.cashDevelopmentCost??null)],
+  [l('ذروة عجز التمويل بعد الدين','Peak funding gap after debt'),money(landResult?.peakEquityDeficit??null)],
+  [l('رصيد الدين الختامي','Closing debt'),money(landResult?.annual.at(-1)?.closingDebt??null)]
+ ]:water&&study.water&&deal?[
   [l('تكلفة التأسيس مع الرسوم','Establishment costs including fees'),money(water.investment)],
   [l('رأس المال العامل الأولي','Opening working capital'),money(study.water.capex.workingCapital)],
   [l('التمويل النقدي المطلوب عند التأسيس','Initial cash requirement'),money(water.cashRequired)],
@@ -67,7 +76,12 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   [l('تمويل ديون أخرى','Other debt'),money(study.otherDebt)],
   [l('صافي فجوة التمويل النقدي','Net funding gap'),money(base.cashFundingGap)]
  ];
- const ownership=water&&deal?[
+ const ownership=study.rawLand?[
+  [l('طريقة تقديم الأرض','Land contribution method'),study.rawLand.site.landPaymentMethod==='in_kind'?l('حصة عينية','In kind'):l('شراء نقدي','Cash purchase')],
+  [l('قيمة الأرض','Land value'),money(landResult?.land??null)],
+  [l('حافز المطور','Developer incentive'),money(landResult?.developerIncentive??null)],
+  [l('حافز المدير','Manager incentive'),money(landResult?.managerIncentive??null)]
+ ]:water&&deal?[
   [l('معالجة الأرض','Land arrangement'),{
    transfer:l('نقل الملكية','Title transfer'),lease:l('إيجار','Lease'),right:l('حق انتفاع مقوّم','Valued right of use')
   }[deal.landMode]],
@@ -88,8 +102,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const ready=handoffReadiness(study);
  const readyCount=ready.checks.filter(check=>check.passed).length;
  const reportMetrics = [
-  ['NPV', money(water ? water.ready ? water.npv : null : base.npv)],
-  ['IRR', (water ? water.ready ? water.irr : null : base.irr) === null ? '—' : fmt(water ? water.irr : base.irr) + '%'],
+  ['NPV', money(study.rawLand?landResult?.npv??null:water ? water.ready ? water.npv : null : base.npv)],
+  ['IRR', percent(study.rawLand?landResult?.irr??null:water?water.ready?water.irr:null:base.irr)],
   [l('الجاهزية','Readiness'),readyCount+' / '+ready.checks.length]
  ];
  const metrics=[
@@ -117,7 +131,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
    <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
    <div className="fs-kpis fs-royal-overview-kpis">
     {[
-     [l('إجمالي الاستثمار الاقتصادي','Economic investment'),money(water?water.cashRequired+water.land:base.totalInvestment)],
+     [l('إجمالي الاستثمار الاقتصادي','Economic investment'),money(study.rawLand?landResult?.totalCost??null:water?water.cashRequired+water.land:base.totalInvestment)],
      ...reportMetrics.slice(0,2),
      [l('جاهزية الدراسة','Study readiness'),new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(readyCount/ready.checks.length)]
     ].map(([label,value])=><div className="fs-metric" key={label}><small>{label}</small><strong><bdi>{value}</bdi></strong></div>)}
@@ -176,7 +190,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
     <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>dialog.current?.close()}>{l('إلغاء','Cancel')}</button>
    </div>
   </dialog>}
-  {study.water?<div data-report-section="finance"><WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/></div>:
+  {study.rawLand?<div data-report-section="finance"><RawLandPanel model={study.rawLand} locale={locale} currency={study.currency} tab="report" allowExport={allowExport}/></div>:
+   study.water?<div data-report-section="finance"><WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/></div>:
    <section className="card fs-panel" data-report-section="finance">
     <h3>{l('الملخص والتوقعات المالية الأساسية','Base-case financial summary and projections')}</h3>
     <ul className="fs-notes">

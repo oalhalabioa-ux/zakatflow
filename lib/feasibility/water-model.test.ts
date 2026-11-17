@@ -4,7 +4,7 @@ import {cloudDraftWrite,feasibilityDraftSchema} from './draft-schema';
 import {appendImportedStudies,parseCloudStudyRows,parseInstitutionalCloudRows,parseLocalStudyCache,parseStudyBackup,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
 import {feasibilityCsv} from './report-export';
 import {importWaterBackup} from './water-backup';
-import {createWaterModel,emptyWaterOperationsPlan,evaluateWater,waterModelSchema,waterOperationalRequirements,waterProductionBalance} from './water-model';
+import {createWaterModel,emptyWaterOperationsPlan,evaluateWater,waterVariableCostBreakdown,waterModelSchema,waterOperationalRequirements,waterProductionBalance} from './water-model';
 
 const existingId='3cadcbaa-e175-453a-9822-83dede84ef3d';
 const newId='17f24edc-3c5a-409d-8609-8ebf4e40dc8b';
@@ -235,4 +235,15 @@ it('stores valuation document dates without changing the water project calculati
  expect(waterModelSchema.parse(study).deal.appraisalApprovalDate).toBe('2026-11-17');
  expect(evaluateWater(study)).toEqual(evaluateWater(fixture));
  expect(waterModelSchema.safeParse({...study,deal:{...study.deal,appraisalDate:'2026-02-30'}}).success).toBe(false);
+});
+
+it('prices water packaging, power and distribution per carton without changing the approved financial forecast',()=>{
+ const study=structuredClone(fixture);
+ Object.assign(study.ops,{bottlesCarton:10,litersBottle:1,waterLossPct:20});
+ const original=evaluateWater(study);
+ study.operationsPlan={...emptyWaterOperationsPlan,packagingLossPct:20,kwhPerThousandBottles:200,
+  cartonsPerTrip:100,roundTripKm:50,unitCosts:{bottle:.1,cap:.04,label:.06,carton:1,kwh:.5,rawWaterM3:8,distributionKm:2}};
+ expect(waterVariableCostBreakdown(study)?.total).toBeCloseTo(5.85);
+ expect(evaluateWater(study)).toEqual(original);
+ expect(waterModelSchema.safeParse(study).success).toBe(true);
 });

@@ -3,6 +3,7 @@
  * All values are in one study currency; mixed-currency figures must be converted
  * explicitly by an analyst before inclusion.
  */
+import type {RawLand} from './raw-land';
 import type {WaterModel} from './water-model';
 
 export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTURE'|'CUSTOM';
@@ -47,7 +48,7 @@ export interface FeasibilityStudy {
  priceGrowthPct:number; fixedCostGrowthPct:number; discountRatePct:number; indicativeTaxRatePct:number; years:number;
  capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];handoff?:ProjectHandoff;advanced?:AdvancedAssumptions;sectorSchedule?:SectorSchedule;
  scenarioAssumptions?: Partial<Record<Scenario,ScenarioFactors>>;
- water?:WaterModel;preparedBy?:string;studyDate?:string;notes?:string;
+ rawLand?:RawLand;water?:WaterModel;preparedBy?:string;studyDate?:string;notes?:string;
  createdAt:string; updatedAt:string;
 }
 export type Scenario='CONSERVATIVE'|'BASE'|'OPTIMISTIC';

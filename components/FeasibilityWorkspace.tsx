@@ -15,6 +15,7 @@ import CollaborationPanel from '@/components/feasibility/CollaborationPanel';
 import JoinInvitationPanel from '@/components/feasibility/JoinInvitationPanel';
 import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
 import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
+import RawLandPanel from '@/components/feasibility/RawLandPanel';
 import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
 import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
 import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
@@ -25,7 +26,7 @@ import RoyalOverview from '@/components/feasibility/RoyalOverview';
 import RoyalScenarios from '@/components/feasibility/RoyalScenarios';
 import { RoyalBars, RoyalCashTrend, RoyalOwnership } from '@/components/feasibility/RoyalCharts';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
-import {createIndustrialStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
+import {createIndustrialStarter,createRawLandStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
 import {importWaterBackup} from '@/lib/feasibility/water-backup';
 import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
 
@@ -84,7 +85,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const [tab,setTab]=useState<StudyTab>('overview');
  const [projectName,setProjectName]=useState('');
  const [newSector,setNewSector]=useState<Sector>('INDUSTRIAL');
- const [newStarter,setNewStarter]=useState<IndustrialStarter>('GENERAL');
+ const [newStarter,setNewStarter]=useState<IndustrialStarter|'RAW_LAND'>('GENERAL');
  const [scenario,setScenario]=useState<Scenario>('BASE');
  const [notice,setNotice]=useState('');
  const [saveIssue,setSaveIssue]=useState<{kind:'conflict'|'save-error';message:string;studyId:string;scopeId:string;userId:string}>();
@@ -257,6 +258,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const model=useMemo(()=>study?evaluateStudy(study,scenario):null,[study,scenario]);
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const water=study?.water;
+ const rawLand=study?.rawLand;
  const waterTab=tab==='overview'||tab==='investment'||tab==='partners'||tab==='operations'||tab==='scenarios'||tab==='cashflow'||tab==='advanced'||tab==='sector'?tab:null;
  const openReport=()=>setTab('report');
  const money=(v:number|null|undefined,d=0)=>v==null||!Number.isFinite(v)?'—':fmt(v,d)+(study?.currency?' '+study.currency:'');
@@ -407,7 +409,9 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   if(personalScope&&readOnly)return;
   const title=projectName.trim();if(!title)return;
   setCreateError('');
-  const next=newSector==='INDUSTRIAL'
+  const next=newSector==='REAL_ESTATE'&&newStarter==='RAW_LAND'
+   ?createRawLandStarter(uid(),title)
+   :newSector==='INDUSTRIAL'&&newStarter!=='RAW_LAND'
    ?createIndustrialStarter(uid(),title,newStarter)
    :createStudy(uid(),title,newSector);
   if(personalScope){
@@ -452,7 +456,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   setStudies(p=>p.filter(s=>s.id!==study.id));setSelectedId(studies.find(x=>x.id!==study.id)?.id||'');
  };
  const choices=<>
-  {!water&&<SelectField label={txt(ar,'النوع','Sector')} value={study?.sector??'INDUSTRIAL'} items={Object.entries(sectors).map(([value,name])=>({value:value as Sector,label:ar?name.ar:name.en}))} onChange={sector=>update({sector})}/>}
+  {!water&&!rawLand&&<SelectField label={txt(ar,'النوع','Sector')} value={study?.sector??'INDUSTRIAL'} items={Object.entries(sectors).map(([value,name])=>({value:value as Sector,label:ar?name.ar:name.en}))} onChange={sector=>update({sector})}/>}
   <SelectField label={txt(ar,'مرحلة المشروع','Stage')} value={study?.status??'IDEA'} items={Object.entries(projectStatus).map(([value,name])=>({value:value as StudyStatus,label:ar?name.ar:name.en}))} onChange={status=>update({status})}/>
  </>;
  const createCompanyDeniedReason=!personalScope
@@ -572,13 +576,14 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
       ['BOTTLED_WATER','مصنع مياه معبأة','Bottled-water factory','الطاقة والتعبئة والترخيص','Capacity, bottling and licensing','droplet'],
       ['DAIRY_CHEESE','مصنع ألبان وأجبان','Dairy & cheese factory','الحليب والمعالجة والتبريد','Milk processing and refrigeration','factory'],
       ['GENERAL','مشروع عام','General study','أساسيات الاستثمار والتشغيل','Investment and operating assumptions','layers'],
+      ['RAW_LAND','تطوير الأراضي الخام والمخططات العقارية','Raw land and subdivision development','المساحات والاستخدامات والمرحلية','Land uses and phased development','building'],
       ['REAL_ESTATE','مشروع عقاري','Property project','المراحل والعقود والتحصيل','Development phases, contracts and collections','building']
      ] as const).map(([kind,a,b,subAr,subEn,icon])=>{
-      const current=newSector==='REAL_ESTATE'?'REAL_ESTATE':newSector==='INDUSTRIAL'?newStarter:'GENERAL';
+      const current=newSector==='REAL_ESTATE'?(newStarter==='RAW_LAND'?'RAW_LAND':'REAL_ESTATE'):newSector==='INDUSTRIAL'?newStarter:'GENERAL';
       return <label key={kind} className="fs-check" data-selected={current===kind}>
        <input type="radio" name="feasibility-template" aria-label={txt(ar,a,b)} checked={current===kind} disabled={organizationBusy}
         onChange={()=>{
-         if(kind==='REAL_ESTATE'){setNewSector('REAL_ESTATE');setNewStarter('GENERAL');return}
+         if(kind==='REAL_ESTATE'||kind==='RAW_LAND'){setNewSector('REAL_ESTATE');setNewStarter(kind==='RAW_LAND'?kind:'GENERAL');return}
          if(kind!=='GENERAL'||newSector==='REAL_ESTATE')setNewSector('INDUSTRIAL');
          setNewStarter(kind);
         }}/>
@@ -663,18 +668,20 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    </div>
    {tab==='overview'&&portfolio}
    {tab==='report'&&<FeasibilityReport study={study} locale={locale}/>}
-   {tab==='overview'&&model&&<RoyalOverview study={study} locale={locale} model={model}
+   {tab==='overview'&&model&&!rawLand&&<RoyalOverview study={study} locale={locale} model={model}
     sectorLabel={ar?sectors[study.sector].ar:sectors[study.sector].en}
     statusLabel={ar?projectStatus[study.status].ar:projectStatus[study.status].en}
     onTasks={()=>{setTab('tasks');setDetail(undefined)}}/>}
    <fieldset className="fs-study-scope" disabled={effectiveReadOnly} aria-label={txt(ar,'محتوى دراسة المشروع','Study content')}>
+   {rawLand&&waterTab&&<RawLandPanel model={rawLand} tab={waterTab} locale={locale} currency={study.currency}
+    onChange={value=>update({rawLand:value})}/>}
    {water&&waterTab&&waterTab!=='overview'&&<WaterModelPanel water={water} tab={waterTab} detail={details?.id===detail?detail:undefined}
      currency={study.currency} locale={locale} onChange={water=>update({water})}/>}
    {water&&tab==='overview'&&<details className="fs-royal-shared-access">
     <summary>{txt(ar,'تفاصيل ومؤشرات مصنع المياه','Detailed water factory indicators')}</summary>
     <WaterModelPanel water={water} tab="overview" currency={study.currency} locale={locale} onChange={water=>update({water})}/>
    </details>}
-   {!water&&tab==='overview'&&model&&<details className="fs-royal-shared-access">
+   {!water&&!rawLand&&tab==='overview'&&model&&<details className="fs-royal-shared-access">
     <summary>{txt(ar,'تفاصيل التمويل','Funding details')}</summary>
     <p>{txt(ar,'نسبة الممول في حقوق الملكية','Investor equity share')}: {model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}</p>
     <div className="card fs-panel"><h3>{txt(ar,'إشارات القرار','Decision diagnostics')}</h3><p>{model.cashFundingGap>0?txt(ar,'فجوة التمويل النقدي: ','Cash funding gap: ')+money(model.cashFundingGap):txt(ar,'لا توجد فجوة تمويل نقدية وفق المدخلات.','No positive cash funding gap under current inputs.')}</p><p>{!study.landTransferred&&study.landValue>0?txt(ar,'الأرض لم تنقل للشركة؛ لا تدخل قيمتها السوقية ضمن حقوق ملكيتها.','Land is not transferred; its full market value does not count as company equity.'):txt(ar,'راجع قيمة الحصة العينية مع جهة مستقلة.','Verify any in-kind contribution independently.')}</p><p>{!model.ready?txt(ar,'استكمل الاستثمار والسعر والحجم قبل اعتماد مؤشرات الجدوى.','Enter investment, price and sales volume before relying on projections.'):txt(ar,'النتائج استرشادية، وليست اعتمادًا للقرار الاستثماري.','Results are indicative, not investment approval.')}</p></div>
@@ -688,7 +695,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     <label className="fs-field"><span>{txt(ar,'الدولة','Country')}</span><input value={study.country} onChange={e=>update({country:e.currentTarget.value})}/></label>
     <label className="fs-field"><span>{txt(ar,'المدينة أو المنطقة','City / region')}</span><input value={study.region} onChange={e=>update({region:e.currentTarget.value})}/></label>
     <label className="fs-field"><span>{txt(ar,'عملة الدراسة الواحدة','Study currency')}</span><select value={study.currency} onChange={e=>update({currency:e.currentTarget.value})}><option value="">{txt(ar,'اختر العملة','Select currency')}</option><option>USD</option><option>SYP</option><option>SAR</option><option>EUR</option></select></label>
-      {water&&<div className="fs-field"><span>{txt(ar,'نوع النشاط','Sector')}</span>
+      {(water||rawLand)&&<div className="fs-field"><span>{txt(ar,'نوع النشاط','Sector')}</span>
        <strong>{ar?sectors[study.sector].ar:sectors[study.sector].en}</strong>
       </div>}
     <label className="fs-field fs-royal-profile-notes"><span>{txt(ar,'ملاحظات الدراسة','Study notes')}</span><textarea maxLength={5000} value={study.notes??''} onChange={e=>update({notes:e.currentTarget.value})}/></label>
@@ -701,7 +708,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
       <dl className="fs-royal-checks">
        <div><dt>{txt(ar,'موقع المشروع','Project location')}</dt><dd>{[study.region,study.country].filter(Boolean).join(' · ')||'—'}</dd></div>
        {water&&<div><dt>{txt(ar,'مساحة الأرض (م²)','Land area (m²)')}</dt><dd><bdi>{fmt(water.deal.landArea)}</bdi></dd></div>}
-       <div><dt>{txt(ar,'مدة التوقعات','Projection horizon')}</dt><dd><bdi>{fmt(water?.ops.horizon??study.years)}</bdi> {txt(ar,'سنة','years')}</dd></div>
+       <div><dt>{txt(ar,'مدة التوقعات','Projection horizon')}</dt><dd><bdi>{fmt(water?.ops.horizon??rawLand?.project.years??study.years)}</bdi> {txt(ar,'سنة','years')}</dd></div>
       </dl>
       <p className="fs-hint">{txt(ar,'بيانات الموقع أولية. راجع التراخيص والحقوق قبل اعتماد الموقع.', 'Location details are preliminary. Review licences and rights before approving the location.')}</p>
      </section>
@@ -719,16 +726,16 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
      </section>
     </div>
    </div>}
-   {!water&&tab==='investment'&&model&&<section className="card fs-panel"><h3>{txt(ar,'الموازنة الاستثمارية','Investment budget')}</h3><p className="fs-hint">{txt(ar,'أدخل بنود الإنشاء والتجهيز الفعلية. الأرض تظهر في الشراكة ولا تُضاف هنا منعًا لتكرارها.','Enter actual construction and commissioning costs. Land is valued under Partnership to prevent double counting.')}</p>
+   {!water&&!rawLand&&tab==='investment'&&model&&<section className="card fs-panel"><h3>{txt(ar,'الموازنة الاستثمارية','Investment budget')}</h3><p className="fs-hint">{txt(ar,'أدخل بنود الإنشاء والتجهيز الفعلية. الأرض تظهر في الشراكة ولا تُضاف هنا منعًا لتكرارها.','Enter actual construction and commissioning costs. Land is valued under Partnership to prevent double counting.')}</p>
     <div className="fs-table-wrap"><table className="fs-table"><thead><tr><th>{txt(ar,'البند','Item')}</th><th>{txt(ar,'الفئة','Category')}</th><th>{txt(ar,'القيمة','Amount')}</th><th></th></tr></thead><tbody>{study.capex.map(item=><tr key={item.id}><td><input value={item.label} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,label:e.currentTarget.value}:x)})}/></td><td><select value={item.category} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,category:e.currentTarget.value as typeof x.category}:x)})}>{['BUILDINGS','EQUIPMENT','UTILITIES','LICENCES','OTHER'].map(v=><option key={v} value={v}>{v}</option>)}</select></td><td><input type="number" min="0" value={item.amount} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,amount:Number(e.currentTarget.value)||0}:x)})}/></td><td><button type="button" aria-label={txt(ar,'حذف','Remove')} onClick={()=>update({capex:study.capex.filter(x=>x.id!==item.id)})}>×</button></td></tr>)}</tbody><tfoot><tr><th colSpan={2}>{txt(ar,'الإجمالي','Total')}</th><th>{money(model.capex)}</th><th/></tr></tfoot></table></div>
     <Button secondary onClick={()=>update({capex:[...study.capex,{id:uid(),label:txt(ar,'بند جديد','New item'),category:'OTHER',amount:0}]})}>{txt(ar,'+ إضافة بند','+ Add item')}</Button><div className="fs-form-grid"><Field label={txt(ar,'رأس المال العامل الأولي','Opening working capital')} value={study.workingCapital} onChange={setNum('workingCapital')}/><Field label={txt(ar,'الصيانة الرأسمالية السنوية التقريبية','Indicative yearly maintenance')} value={study.annualMaintenance} onChange={setNum('annualMaintenance')}/></div>
    </section>}
-   {!water&&tab==='partners'&&model&&<section className="card fs-panel"><h3>{txt(ar,'المساهمات وحصص الملكية','Contributions and equity')}</h3><label className="fs-check"><input type="checkbox" checked={study.landTransferred} onChange={e=>update({landTransferred:e.currentTarget.checked})}/>{txt(ar,'تُنقل الأرض إلى ملكية الشركة كحصة عينية مثبتة','Land is transferred into company ownership as an independently valued in-kind contribution')}</label>
+   {!water&&!rawLand&&tab==='partners'&&model&&<section className="card fs-panel"><h3>{txt(ar,'المساهمات وحصص الملكية','Contributions and equity')}</h3><label className="fs-check"><input type="checkbox" checked={study.landTransferred} onChange={e=>update({landTransferred:e.currentTarget.checked})}/>{txt(ar,'تُنقل الأرض إلى ملكية الشركة كحصة عينية مثبتة','Land is transferred into company ownership as an independently valued in-kind contribution')}</label>
     <div className="fs-form-grid"><Field label={txt(ar,'القيمة المقدرة للأرض','Estimated land value')} value={study.landValue} onChange={setNum('landValue')}/><Field label={txt(ar,'مساهمة الممول كرأس مال','Investor equity cash')} value={study.investorEquity} onChange={setNum('investorEquity')}/><Field label={txt(ar,'مساهمة صاحب الأرض النقدية','Land partner cash equity')} value={study.partnerCashEquity} onChange={setNum('partnerCashEquity')}/><Field label={txt(ar,'قرض الممول إلى الشركة','Investor shareholder loan')} value={study.investorLoan} onChange={setNum('investorLoan')}/><Field label={txt(ar,'تمويل ديون أخرى','Other debt')} value={study.otherDebt} onChange={setNum('otherDebt')}/></div>
     <div className="fs-kpis"><Info label={txt(ar,'حصة الممول','Investor ownership')} value={model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}/><Info label={txt(ar,'حصة صاحب الأرض','Land partner ownership')} value={model.partnerShare===null?'—':fmt(model.partnerShare,2)+'%'}/><Info label={txt(ar,'فجوة التمويل النقدي','Cash funding gap')} value={money(model.cashFundingGap)}/></div>
     <p className="fs-hint">{txt(ar,'النسب اقتصادية تقديرية لحقوق الملكية فقط؛ قروض المساهمين لا تمنح ملكية تلقائيًا، ولا تتغير الحصص القانونية دون إجراءات معتمدة.','Economic indicative equity only: loans do not automatically generate shares; legal ownership changes require formal approval.')}</p>
    </section>}
-   {!water&&tab==='operations'&&<section className="card fs-panel"><h3>{txt(ar,'افتراضات التشغيل والمبيعات','Operating assumptions')}</h3><div className="fs-form-grid">
+   {!water&&!rawLand&&tab==='operations'&&<section className="card fs-panel"><h3>{txt(ar,'افتراضات التشغيل والمبيعات','Operating assumptions')}</h3><div className="fs-form-grid">
     <Field label={ar?sectorTemplates[study.sector].volumeAr:sectorTemplates[study.sector].volumeEn} value={study.monthlyUnits} onChange={setNum('monthlyUnits')}/>
     <Field label={txt(ar,'سعر بيع الوحدة الصافي','Net selling price / unit')} value={study.unitPrice} onChange={setNum('unitPrice')}/>
     <Field label={txt(ar,'التكلفة المتغيرة للوحدة','Variable cost / unit')} value={study.variableCost} onChange={setNum('variableCost')}/>
@@ -740,27 +747,27 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     <Field label={txt(ar,'ضريبة تقديرية استرشادية %','Indicative tax assumption %')} value={study.indicativeTaxRatePct} onChange={setNum('indicativeTaxRatePct')}/>
     <Field label={txt(ar,'مدة الدراسة بالسنوات','Forecast horizon in years')} value={study.years} onChange={n=>update({years:Math.min(20,Math.max(1,Math.trunc(n)))})} min={1} step="1"/>
    </div></section>}
-   {!water&&tab==='scenarios'&&<RoyalScenarios study={study} locale={locale} selected={scenario}
+   {!water&&!rawLand&&tab==='scenarios'&&<RoyalScenarios study={study} locale={locale} selected={scenario}
     onSelect={setScenario} onChange={scenarioAssumptions=>update({scenarioAssumptions})}/> }
-   {!water&&tab==='cashflow'&&model&&<section className="card fs-panel"><h3>{txt(ar,'التدفقات النقدية التشغيلية المبسطة','Simplified annual project cash flows')}</h3><div className="fs-kpis"><Info label="NPV" value={model.ready?money(model.npv):'—'}/><Info label="IRR" value={model.ready&&model.irr!==null?fmt(model.irr,2)+'%':'—'}/><Info label={txt(ar,'مدة الاسترداد','Payback period')} value={model.ready&&model.paybackYears!==null?fmt(model.paybackYears,2)+' '+txt(ar,'سنة','years'):'—'}/><Info label={txt(ar,'التعادل الشهري بالوحدات','Monthly break-even units')} value={model.ready?fmt(model.breakevenMonthlyUnits):'—'}/></div>
+   {!water&&!rawLand&&tab==='cashflow'&&model&&<section className="card fs-panel"><h3>{txt(ar,'التدفقات النقدية التشغيلية المبسطة','Simplified annual project cash flows')}</h3><div className="fs-kpis"><Info label="NPV" value={model.ready?money(model.npv):'—'}/><Info label="IRR" value={model.ready&&model.irr!==null?fmt(model.irr,2)+'%':'—'}/><Info label={txt(ar,'مدة الاسترداد','Payback period')} value={model.ready&&model.paybackYears!==null?fmt(model.paybackYears,2)+' '+txt(ar,'سنة','years'):'—'}/><Info label={txt(ar,'التعادل الشهري بالوحدات','Monthly break-even units')} value={model.ready?fmt(model.breakevenMonthlyUnits):'—'}/></div>
     <div className="fs-table-wrap"><table className="fs-table"><thead><tr><th>{txt(ar,'السنة','Year')}</th><th>{txt(ar,'الإيرادات','Revenue')}</th><th>{txt(ar,'المتغيرة','Variable costs')}</th><th>{txt(ar,'الثابتة','Fixed costs')}</th><th>EBITDA</th><th>{txt(ar,'ضريبة تقديرية','Indicative tax')}</th><th>{txt(ar,'التدفق الحر','Project FCF')}</th></tr></thead><tbody><tr><td>0</td><td colSpan={5}>{txt(ar,'الاستثمار الأولي بما فيه الأرض العينية ورأس المال العامل','Initial investment including in-kind land and working capital')}</td><td>{money(model.flows[0])}</td></tr>{model.annual.map(a=><tr key={a.year}><td>{a.year}</td><td>{money(a.revenue)}</td><td>{money(a.variable)}</td><td>{money(a.fixed)}</td><td>{money(a.ebitda)}</td><td>{money(a.taxEstimate)}</td><td>{money(a.freeCashFlow)}</td></tr>)}</tbody></table></div>
     <ul className="fs-notes">{model.notes.map(x=><li key={x}>{x}</li>)}</ul>
    </section>}
-   {!water&&model?.ready&&tab==='cashflow'&&<RoyalCashTrend
+   {!water&&!rawLand&&model?.ready&&tab==='cashflow'&&<RoyalCashTrend
     title={txt(ar,'التدفق النقدي التراكمي','Cumulative cash flow')} locale={locale} unit={study.currency} flows={model.flows}/>}
-   {!water&&model&&tab==='investment'&&<RoyalBars title={txt(ar,'توزيع تكاليف الاستثمار','Investment cost distribution')}
+   {!water&&!rawLand&&model&&tab==='investment'&&<RoyalBars title={txt(ar,'توزيع تكاليف الاستثمار','Investment cost distribution')}
     locale={locale} unit={study.currency} data={[
      {label:txt(ar,'بنود التأسيس','Capital items'),value:model.capex},
      {label:txt(ar,'رأس المال العامل','Working capital'),value:study.workingCapital},
      {label:txt(ar,'الأرض العينية','In-kind land'),value:model.landAsset}
     ]}/>}
-   {!water&&model&&tab==='partners'&&<RoyalOwnership title={txt(ar,'حصص الملكية الاقتصادية','Economic ownership')}
+   {!water&&!rawLand&&model&&tab==='partners'&&<RoyalOwnership title={txt(ar,'حصص الملكية الاقتصادية','Economic ownership')}
     locale={locale} data={[
      {label:txt(ar,'الممول','Investor'),value:model.investorShare??0},
      {label:txt(ar,'صاحب الأرض','Land partner'),value:model.partnerShare??0}
     ]}/>}
-   {!water&&tab==='advanced'&&<AdvancedModelPanel study={study} locale={locale} scenario={scenario} onChange={advanced=>update({advanced})}/>}
-   {!water&&tab==='sector'&&(study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE')&&<SectorAnalysisPanel study={study} locale={locale} onChange={sectorSchedule=>update({sectorSchedule})}/>}
+   {!water&&!rawLand&&tab==='advanced'&&<AdvancedModelPanel study={study} locale={locale} scenario={scenario} onChange={advanced=>update({advanced})}/>}
+   {!water&&!rawLand&&tab==='sector'&&(study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE')&&<SectorAnalysisPanel study={study} locale={locale} onChange={sectorSchedule=>update({sectorSchedule})}/>}
    {(tab==='legal'||tab==='tasks'||tab==='risks'||tab==='suppliers'||tab==='decisions')&&
     <StudyRegisters key={study.id+':'+tab} study={study} tab={tab} evidence={detail==='evidence'} locale={locale} onChange={update}/>}
    {tab==='sharing'&&personalScope&&<CollaborationPanel key={userId+':'+study.id} audit={detail==='permissions'} locale={locale} projectId={study.id} enabled={sharingEnabled&&personalScope} canWrite={!effectiveReadOnly} isOwner={cloudOwnerIds[study.id]===userId}/>}

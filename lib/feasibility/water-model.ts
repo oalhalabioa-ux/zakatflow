@@ -7,6 +7,10 @@ const multiplier=z.number().finite().min(0).max(1000);
 export const waterScenarioSchema=z.object({
  name:z.string().trim().min(1).max(120),volume:multiplier,price:multiplier,cost:multiplier
 }).strict();
+const waterUnitCosts=z.object({
+ bottle:amount,cap:amount,label:amount,carton:amount,kwh:amount,rawWaterM3:amount,distributionKm:amount
+}).strict();
+export const emptyWaterUnitCosts={bottle:0,cap:0,label:0,carton:0,kwh:0,rawWaterM3:0,distributionKm:0};
 export const waterModelSchema=z.object({
  deal:z.object({
   landMode:z.enum(['transfer','lease','right']),landValue:amount,landArea:amount,rightValue:amount,
@@ -38,6 +42,7 @@ export const waterModelSchema=z.object({
   pumpingM3Hour:amount.optional(),
   sourceHoursDay:z.number().finite().min(0).max(24).optional(),
   finishedBottleLossPct:pct.optional(),
+  unitCosts:waterUnitCosts.optional(),
   collectionDays:z.number().int().min(0).max(3650).optional(),
  }).strict().optional(),
  scenarios:z.array(waterScenarioSchema).max(20)
@@ -167,6 +172,19 @@ export function waterOperationalRequirements(
   trips,
   distributionKm:trips!==null&&plan.roundTripKm>0?trips*plan.roundTripKm:null,
  };
+}
+
+export function waterVariableCostBreakdown(model:WaterModel){
+ const plan=model.operationsPlan;
+ if(!plan?.unitCosts||model.ops.bottlesCarton<=0)return null;
+ const units=plan.unitCosts;
+ const {bottlesCarton,litersBottle,waterLossPct}=model.ops;
+ const yieldRate=1-plan.packagingLossPct/100;
+ const packaging=((units.bottle+units.cap+units.label)*bottlesCarton+units.carton)/yieldRate;
+ const electricity=bottlesCarton*plan.kwhPerThousandBottles/1000*units.kwh;
+ const water=bottlesCarton*litersBottle/(1000*waterRecovery(waterLossPct))*units.rawWaterM3;
+ const distribution=plan.cartonsPerTrip>0?plan.roundTripKm/plan.cartonsPerTrip*units.distributionKm:0;
+ return {packaging,electricity,water,distribution,total:packaging+electricity+water+distribution};
 }
 
 export function studyReportReadiness(study:FeasibilityStudy){

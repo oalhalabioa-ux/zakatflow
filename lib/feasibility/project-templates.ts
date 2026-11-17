@@ -1,3 +1,4 @@
+import {createRawLand} from './raw-land';
 import {createWaterModel} from './water-model';
 import {
  createStudy,waterFactoryLegalItems,
@@ -100,4 +101,16 @@ export function createIndustrialStarter(id:string,title:string,starter:Industria
    }))
   ]
  };
+}
+
+export function createRawLandStarter(id:string,title:string):FeasibilityStudy{
+ const study=createStudy(id,title,'REAL_ESTATE');
+ return {...study,rawLand:createRawLand(),capex:[],legal:[
+  ...study.legal.map((item,i)=>i<3?{...item,critical:true}:item),
+  ...['مطابقة الرفع المساحي مع سندات الملكية والتسويات السابقة',
+   'التحقق من استعمالات المخطط ونسب الخدمات والاشتراطات البلدية',
+   'التحقق من الارتفاقات وتصريف السيول وتصاريح البنية التحتية',
+   'مراجعة ضوابط توقيت البيع والتحصيل والتسليم في موقع التطوير'
+  ].map((label,i)=>({id:'land-legal-'+i,title:label,status:'NOT_STARTED' as const,notes:'',critical:true}))
+ ]};
 }

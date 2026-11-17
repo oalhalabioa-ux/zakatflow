@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {rawLandSchema} from './raw-land';
 import {waterModelSchema} from './water-model';
 const amount=z.number().finite().min(0).max(1000000000000);
 const percent=z.number().finite().min(0).max(100000);
@@ -53,7 +54,8 @@ export const feasibilityDraftSchema=z.object({
    sellingCashCost:amount
   }).strict()).max(20)}).strict()
  ]).optional(),
- water:waterModelSchema.optional(),preparedBy:text.optional(),studyDate:z.string().max(30).optional(),notes:text.optional(),
+ rawLand:rawLandSchema.optional(),water:waterModelSchema.optional(),preparedBy:text.optional(),studyDate:z.string().max(30).optional(),notes:text.optional(),
  createdAt:date,updatedAt:date
-}).strict();
+}).strict().refine(study=>!study.rawLand||(study.sector==='REAL_ESTATE'&&!study.water&&!study.sectorSchedule),
+ {message:'Raw land requires its own real-estate model',path:['rawLand']});
 export const cloudDraftWrite=z.object({study:feasibilityDraftSchema,revision:z.number().int().positive().optional()}).strict();

@@ -1,3 +1,4 @@
+import {evaluateRawLand} from './raw-land';
 import {evaluateWater} from './water-model';
 import {defaultLegalItems,evaluateStudy,type FeasibilityStudy} from './engine';
 
@@ -7,19 +8,21 @@ export type HandoffCheck={key:string;ar:string;en:string;passed:boolean};
 export function handoffReadiness(study:FeasibilityStudy){
  const model=evaluateStudy(study);
  const water=study.water&&evaluateWater(study.water);
+ const land=study.rawLand&&evaluateRawLand(study.rawLand);
  const critical=defaultLegalItems.slice(0,3);
  const waterChecks=study.legal.filter(item=>item.critical);
- const legalVerified=water
+ const legalVerified=water||land
   ?waterChecks.length>0&&waterChecks.every(item=>item.status==='VERIFIED'&&item.notes.trim())
   :critical.every(title=>study.legal.some(item=>item.title===title&&item.status==='VERIFIED'));
- const balanced=study.water
+ const balanced=land?land.issue===null&&land.ready&&land.peakEquityDeficit<=.01:
+  study.water
   ?study.water.deal.extraFunding===0&&(!water?.totalLoan||
    (study.water.deal.loanYears>0&&study.water.deal.loanStart>0))
   :Number.isFinite(model.cashFundingGap)&&Math.abs(model.cashFundingGap)<=0.01;
  const checks:HandoffCheck[]=[
   {key:'decision',ar:'تحديد قرار المشروع: معتمد مبدئيًا أو قيد التأسيس',en:'Project is approved in principle or in establishment',passed:study.status==='APPROVED'||study.status==='ESTABLISHMENT'},
   {key:'identity',ar:'بيانات المشروع والدولة والعملة مكتملة',en:'Project, country and study currency are set',passed:Boolean(study.title.trim()&&study.country.trim()&&/^[A-Z]{3}$/.test(study.currency))},
-  {key:'model',ar:'تكلفة الاستثمار وافتراضات التشغيل قابلة للتقييم',en:'Investment and operating assumptions are assessable',passed:water?.ready??model.ready},
+  {key:'model',ar:'تكلفة الاستثمار وافتراضات التشغيل قابلة للتقييم',en:'Investment and operating assumptions are assessable',passed:land?land.issue===null&&land.ready:water?.ready??model.ready},
   // A negative gap is unexplained surplus cash, not authorization to overfund the project.
   // Require an explicitly balanced cash plan before taking an internal review snapshot.
   {key:'finance',ar:'التمويل النقدي متوازن دون عجز أو فائض غير مخصص',en:'Cash funding balances without uncovered gap or unallocated surplus',passed:balanced},
