@@ -458,3 +458,11 @@
 .fs-royal-report-detail .fs-royal-checks dd { text-align: end; overflow-wrap: anywhere; }
 .fs-royal-sensitivity [data-base-case="true"] { box-shadow: inset 0 0 0 1px var(--fs-green); font-weight: 800; }
 .fs-royal-share-audit :is(th, td) { overflow-wrap: anywhere; }
+
+.fs-royal-water-kpis .fs-metric { text-align: center; }
+.fs-royal-water-kpis .fs-metric strong { color: var(--fs-green); }
+.fs-royal-water-kpis .fs-metric::after { display: none; }
+.fs-royal-water-forms .fs-field :is(input,select) { width: 100%; min-width: 0; }
+@media (max-width: 650px) {
+ .fs-royal-water-forms .fs-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

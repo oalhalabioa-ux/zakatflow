@@ -4,7 +4,7 @@ import {cloudDraftWrite,feasibilityDraftSchema} from './draft-schema';
 import {appendImportedStudies,parseCloudStudyRows,parseInstitutionalCloudRows,parseLocalStudyCache,parseStudyBackup,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
 import {feasibilityCsv} from './report-export';
 import {importWaterBackup} from './water-backup';
-import {createWaterModel,emptyWaterOperationsPlan,evaluateWater,waterModelSchema,waterOperationalRequirements} from './water-model';
+import {createWaterModel,emptyWaterOperationsPlan,evaluateWater,waterModelSchema,waterOperationalRequirements,waterProductionBalance} from './water-model';
 
 const existingId='3cadcbaa-e175-453a-9822-83dede84ef3d';
 const newId='17f24edc-3c5a-409d-8609-8ebf4e40dc8b';
@@ -181,5 +181,35 @@ describe('detailed water operating requirements',()=>{
   study.ops.bottlesCarton=0;
   expect(waterOperationalRequirements(study,{volume:100})).toBeNull();
   expect(waterModelSchema.safeParse({...study,operationsPlan:{...study.operationsPlan,packagingLossPct:100}}).success).toBe(false);
+ });
+});
+
+
+describe('water production balance',()=>{
+ it('limits the daily source by both pumping capacity and the entered permit volume',()=>{
+  const study=structuredClone(fixture);
+  study.ops={...study.ops,bottlesHour:6000,hoursDay:8,daysMonth:26,litersBottle:0.5,
+   waterLossPct:20,bottlesCarton:12,licensedWaterM3Day:28};
+  const savedForecast=evaluateWater(study);
+  study.operationsPlan={...emptyWaterOperationsPlan,pumpingM3Hour:4,sourceHoursDay:8,
+   finishedBottleLossPct:2,collectionDays:45};
+  const balance=waterProductionBalance(study);
+  expect(balance).toEqual({
+   pumpedM3Day:32,licensedM3Day:28,availableM3Day:28,requiredM3Day:30,
+   nominalBottles:1248000,finishedWaste:24960,saleableBottles:1223040,saleableCartons:101920,
+  });
+  expect(evaluateWater(study)).toEqual(savedForecast);
+  expect(waterModelSchema.safeParse(study).success).toBe(true);
+  study.operationsPlan.sourceHoursDay=25;
+  expect(waterModelSchema.safeParse(study).success).toBe(false);
+ });
+
+ it('keeps source availability unknown when just one of the required inputs is missing',()=>{
+  const study=structuredClone(fixture);
+  study.ops.licensedWaterM3Day=50;
+  expect(waterProductionBalance(study)).toMatchObject({licensedM3Day:50,pumpedM3Day:null,availableM3Day:null});
+  study.operationsPlan={...emptyWaterOperationsPlan,pumpingM3Hour:5,sourceHoursDay:6};
+  study.ops.licensedWaterM3Day=0;
+  expect(waterProductionBalance(study)).toMatchObject({licensedM3Day:null,pumpedM3Day:30,availableM3Day:null});
  });
 });

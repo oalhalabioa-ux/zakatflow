@@ -33,6 +33,10 @@ export const waterModelSchema=z.object({
   kwhPerThousandBottles:amount,
   cartonsPerTrip:z.number().int().min(0).max(1e12),
   roundTripKm:amount,
+  pumpingM3Hour:amount.optional(),
+  sourceHoursDay:z.number().finite().min(0).max(24).optional(),
+  finishedBottleLossPct:pct.optional(),
+  collectionDays:z.number().int().min(0).max(3650).optional(),
  }).strict().optional(),
  scenarios:z.array(waterScenarioSchema).max(20)
 }).strict();
@@ -60,6 +64,9 @@ export function createWaterModel():WaterModel{
 }
 
 const waterRecovery=(lossPct:number)=>Math.max(0.01,1-Math.min(99,lossPct)/100);
+const nominalWaterDemand=(ops:WaterModel['ops'])=>
+ ops.bottlesHour*ops.hoursDay*ops.litersBottle/(1000*waterRecovery(ops.waterLossPct));
+
 export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'name'>){
  const {deal,capex,ops}=model;
  const hard=capex.buildings+capex.line+capex.treatment+capex.power+capex.lab+capex.vehicles+capex.others;
@@ -72,7 +79,7 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const totalEquity=investorEquity+land;
  const totalLoan=shareholderLoan+(deal.extraType==='loan'?deal.extraFunding:0);
  const capacity=ops.bottlesHour*ops.hoursDay*ops.daysMonth*12/Math.max(1,ops.bottlesCarton);
- const waterDemand=ops.bottlesHour*ops.hoursDay*ops.litersBottle/(1000*waterRecovery(ops.waterLossPct));
+ const waterDemand=nominalWaterDemand(ops);
  const initialPrice=ops.priceCarton*(scenario?.price??100)/100;
  const initialCost=ops.variableCarton*(scenario?.cost??100)/100;
  const initialFixed=(ops.fixedMonth+deal.leaseMonth)*12;
@@ -122,6 +129,21 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   capacity,waterDemand,annual,flows,npv,cashNpv:npv+land,irr:internalRateOfReturn(flows),payback,
   breakEven:initialPrice>initialCost?initialFixed/(initialPrice-initialCost):null,
   ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.volume>0)};
+}
+
+export function waterProductionBalance(model:WaterModel){
+ const {ops,operationsPlan:plan}=model;
+ const pumpedM3Day=plan?.pumpingM3Hour&&plan.sourceHoursDay
+  ?plan.pumpingM3Hour*plan.sourceHoursDay:null;
+ const licensedM3Day=ops.licensedWaterM3Day||null;
+ const availableM3Day=pumpedM3Day!==null&&licensedM3Day!==null
+  ?Math.min(pumpedM3Day,licensedM3Day):null;
+ const requiredM3Day=nominalWaterDemand(ops);
+ const nominalBottles=ops.bottlesHour*ops.hoursDay*ops.daysMonth;
+ const finishedWaste=nominalBottles*(plan?.finishedBottleLossPct??0)/100;
+ const saleableBottles=nominalBottles-finishedWaste;
+ return {pumpedM3Day,licensedM3Day,availableM3Day,requiredM3Day,nominalBottles,finishedWaste,saleableBottles,
+  saleableCartons:ops.bottlesCarton>0?Math.floor(saleableBottles/ops.bottlesCarton):null};
 }
 
 export function waterOperationalRequirements(

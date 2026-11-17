@@ -1,12 +1,12 @@
 'use client';
 import {useMemo,type ReactNode} from 'react';
-import {emptyWaterOperationsPlan,evaluateWater,waterOperationalRequirements,type WaterModel} from '@/lib/feasibility/water-model';
+import {emptyWaterOperationsPlan,evaluateWater,waterOperationalRequirements,waterProductionBalance,type WaterModel} from '@/lib/feasibility/water-model';
 import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
 import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 
 type Labels=readonly [string,string];
-type NumericKey<T>={[K in keyof T]:T[K] extends number?K:never}[keyof T];
+type NumericKey<T>={[K in keyof T]-?:T[K] extends number?K:never}[keyof T];
 type NumberFields<T>=readonly (readonly [NumericKey<T>,string,string,number?,number?])[];
 
 const capexFields:NumberFields<WaterModel['capex']>=[
@@ -245,6 +245,11 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  ]}/>;
  const plan=water.operationsPlan??emptyWaterOperationsPlan;
  const updatePlan=(patch:Partial<typeof plan>)=>onChange({...water,operationsPlan:{...plan,...patch}});
+ const production=detail==='water'?waterProductionBalance(water):null;
+ const {ops}=water;
+ const planNumber=(key:'pumpingM3Hour'|'sourceHoursDay'|'finishedBottleLossPct'|'collectionDays',
+  labels:Labels,max:number,step?:number)=><NumberInput label={l(...labels)} value={plan[key]??0}
+   max={max} step={step} onChange={value=>updatePlan({[key]:value})}/>;
  const operationsRows=detail==='water'?m.annual.map(year=>({
   year:year.year,requirements:waterOperationalRequirements(water,year),
  })):[];
@@ -261,7 +266,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {(tab==='overview'||tab==='report')&&<>{valuation}{tab==='overview'&&partnership}{diagnostics.length>0&&
    <ul className="fs-notes">{diagnostics.map(item=><li key={String(item)}>{item}</li>)}</ul>}</>}
   {tab==='partners'&&<>
-   <div className="fs-royal-profile-grid">
+   <div className="fs-royal-profile-grid fs-royal-water-forms">
     <Panel title={l('مساهمة شريك الأرض','Land partner contribution')} icon="building">
      <div className="fs-form-grid">{landTerms}{dealFields.slice(0,5).map(item=>field('deal',item))}</div>
      <p>{l('تقييم المتر المربع','Valuation per square metre')} <bdi>{money(water.deal.landArea>0?water.deal.landValue/water.deal.landArea:null)}</bdi></p>
@@ -300,6 +305,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     [['فاقد المياه','Water loss'],percentage(water.ops.waterLossPct)],
     [['استغلال السنة الأولى','First-year utilization'],percentage(m.annual[0].utilization)]
    ])}
+   {!production&&<>
    <div className="fs-royal-profile-grid">
     <Panel title={l('الطاقة التشغيلية والجودة','Operating capacity and quality')} icon="factory">
      {fields('ops',operationFields.slice(0,7))}
@@ -329,26 +335,67 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     {m.ready&&<RoyalBars title={l('الكراتين المباعة حسب السنة','Cartons sold by year')} locale={locale}
      data={m.annual.map(y=>({label:fmt(y.year),value:y.volume}))}/>}
    </div>
-   {detail==='water'&&<>
-    <div className="fs-royal-profile-grid">
-     <Panel title={l('بيانات مصدر المياه والضخ','Water source and extraction details')} icon="droplet">
+   </>}
+   {production&&<>
+    <div className="fs-royal-water-kpis">{metrics([
+     [['طاقة التعبئة الاسمية','Nominal bottles / hour'],fmt(ops.bottlesHour)],
+     [['ساعات التشغيل اليومية','Operating hours / day'],fmt(ops.hoursDay)],
+     [['فاقد معالجة المياه','Water treatment loss'],percentage(ops.waterLossPct)],
+     [['العبوات لكل كرتون','Bottles per carton'],fmt(ops.bottlesCarton)]
+    ])}</div>
+    <div className="fs-royal-profile-grid fs-royal-water-forms">
+     <Panel title={l('مصدر المياه والطاقة المرخصة','Water source and licensed capacity')} icon="droplet">
       <div className="fs-form-grid">
+       {field('ops',operationFields[6])}
        <label className="fs-field"><span>{l('اسم مصدر المياه','Water source name')}</span>
         <input maxLength={160} value={plan.sourceName} onChange={event=>updatePlan({sourceName:event.currentTarget.value})}/>
        </label>
+       {planNumber('pumpingM3Hour',['معدل الضخ (م³/ساعة)','Pumping rate (m³/hour)'],1e12)}
+       {planNumber('sourceHoursDay',['ساعات تشغيل المصدر يوميًا','Source operating hours per day'],24)}
+       {field('ops',operationFields[5])}
+       {field('ops',operationFields[4])}
        <label className="fs-field"><span>{l('مرجع تصريح الضخ','Extraction permit reference')}</span>
         <input maxLength={160} value={plan.permitReference} onChange={event=>updatePlan({permitReference:event.currentTarget.value})}/>
        </label>
       </div>
-      <p className="fs-hint">{l('تحقّق من صلاحية التصريح والكمية المسموح بضخها في سجل التراخيص.',
-       'Verify the permit validity and permitted extraction volume in the licensing register.')}</p>
+      {compactValues([
+       [l('قدرة الضخ المقدّرة م³/يوم','Estimated pumping capacity m³/day'),fmt(production.pumpedM3Day)],
+       [l('المتاح وفق القدرة والكمية المدخلة م³/يوم','Available within capacity and entered limit m³/day'),fmt(production.availableM3Day)],
+       [l('احتياج التعبئة الاسمي م³/يوم','Nominal production demand m³/day'),fmt(production.requiredM3Day)]
+      ])}
+      <p className="fs-hint">{production.availableM3Day===null
+       ?l('أكمل معدل الضخ وساعات المصدر والكمية المرخّصة للتحقق من كفاية المياه.',
+        'Enter the pumping rate, source hours and licensed volume to check water sufficiency.')
+       :production.requiredM3Day>production.availableM3Day
+        ?l('احتياج الإنتاج الاسمي يتجاوز المياه المتاحة وفق المدخلات.','Nominal production demand exceeds the water available from the entered assumptions.')
+        :l('احتياج الإنتاج الاسمي ضمن المياه المتاحة وفق المدخلات.','Nominal production demand fits the water available from the entered assumptions.')}</p>
+      <p className="fs-hint">{l('تحقّق من صلاحية التصريح والتحاليل والكمية المسموح بضخها في سجل التراخيص.',
+       'Verify the permit, water analyses and permitted extraction volume in the licensing register.')}</p>
      </Panel>
-     <Panel title={l('افتراضات التعبئة والطاقة والتوزيع','Packaging, energy and distribution assumptions')} icon="factory">
-      <div className="fs-form-grid">{logisticsFields.map(([key,ar,en,max,step])=>
-       <NumberInput key={key} label={l(ar,en)} value={plan[key]} max={max} step={step}
-        onChange={value=>updatePlan({[key]:value})}/>)}</div>
+     <Panel title={l('تفاصيل الخط والتعبئة والتوزيع','Line, packaging and distribution')} icon="factory">
+      <div className="fs-form-grid">
+       {operationFields.slice(0,4).map(item=>field('ops',item))}
+       {operationFields.slice(7,9).map(item=>field('ops',item))}
+       {planNumber('finishedBottleLossPct',['فاقد العبوات النهائية %','Finished bottle loss %'],100)}
+       {planNumber('collectionDays',['فترة التحصيل (يوم)','Collection period (days)'],3650,1)}
+       {logisticsFields.map(([key,ar,en,max,step])=><NumberInput key={key} label={l(ar,en)} value={plan[key]}
+        max={max} step={step} onChange={value=>updatePlan({[key]:value})}/>)}
+      </div>
      </Panel>
     </div>
+    <Panel title={l('ميزان الطاقة والفاقد','Capacity and waste balance')} icon="chart">
+     <Table headers={[l('المرحلة','Stage'),l('المدخل','Input'),l('النتيجة الشهرية','Monthly result')]} rows={[
+      [l('الإنتاج الاسمي للعبوات','Nominal bottle output'),<bdi key="capacity">{[ops.bottlesHour,ops.hoursDay,ops.daysMonth].map(fmt).join(' × ')}</bdi>,fmt(production.nominalBottles)],
+      [l('فاقد العبوات النهائية','Finished bottle waste'),percentage(plan.finishedBottleLossPct??0),fmt(production.finishedWaste)],
+      [l('العبوات القابلة للبيع','Saleable bottles'),percentage(100-(plan.finishedBottleLossPct??0)),fmt(production.saleableBottles)],
+      [l('الكراتين الكاملة القابلة للبيع','Complete saleable cartons'),fmt(ops.bottlesCarton),fmt(production.saleableCartons)]
+     ]}/>
+     <p className="fs-hint">{l('ميزان تشغيلي تخطيطي. تستمر توقعات المبيعات في استخدام نسب الاستغلال المحفوظة، ويستخدم رأس المال العامل نسبته المعتمدة من المبيعات.',
+      'This balance is for operating plans. Sales forecasts use saved utilization rates, and working capital uses its approved share of sales.')}</p>
+    </Panel>
+    <Panel title={l('اقتصاديات الوحدة','Unit economics')} icon="coins">
+     {fields('ops',operationFields.slice(9,13))}
+    </Panel>
     <Panel title={l('الاحتياجات التشغيلية السنوية','Annual operating requirements')} icon="clipboard">
      <p className="fs-hint">{l('تُقدّر الاحتياجات من إنتاج كل سنة. تُدخل تكاليف التشغيل المعتمدة في اقتصاديات الوحدة.',
       'Requirements are estimated from each year’s production. Enter approved operating costs in unit economics.')}</p>
