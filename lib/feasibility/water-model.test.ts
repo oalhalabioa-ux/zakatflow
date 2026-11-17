@@ -4,7 +4,7 @@ import {cloudDraftWrite,feasibilityDraftSchema} from './draft-schema';
 import {appendImportedStudies,parseCloudStudyRows,parseInstitutionalCloudRows,parseLocalStudyCache,parseStudyBackup,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
 import {feasibilityCsv} from './report-export';
 import {importWaterBackup} from './water-backup';
-import {createWaterModel,evaluateWater} from './water-model';
+import {createWaterModel,emptyWaterOperationsPlan,evaluateWater,waterModelSchema,waterOperationalRequirements} from './water-model';
 
 const existingId='3cadcbaa-e175-453a-9822-83dede84ef3d';
 const newId='17f24edc-3c5a-409d-8609-8ebf4e40dc8b';
@@ -151,5 +151,35 @@ describe('original water backup recovery',()=>{
   expect(feasibilityCsv([['=SUM(1,2)','  +cmd','hello, "test"',-12]])).toBe(
    '\uFEFF"\'=SUM(1,2)","\'  +cmd","hello, ""test""","-12"'
   );
+ });
+});
+
+
+describe('detailed water operating requirements',()=>{
+ it('estimates procurement, extraction, electricity and transport from projected production',()=>{
+  const study=structuredClone(fixture);
+  study.operationsPlan={...emptyWaterOperationsPlan,packagingLossPct:4,kwhPerThousandBottles:40,cartonsPerTrip:60,roundTripKm:52};
+  const requirements=waterOperationalRequirements(study,{volume:100});
+  expect(requirements).toMatchObject({
+   bottles:1200,filledLitres:900,bottleInputs:1250,
+   cartonInputs:105,electricityKwh:48,trips:2,distributionKm:104,
+  });
+  expect(requirements?.sourceWaterM3).toBeCloseTo(900/820);
+  expect(evaluateWater(study)).toEqual(evaluateWater(fixture));
+ });
+
+ it('accepts older drafts and distinguishes missing assumptions from zero output',()=>{
+  expect(waterModelSchema.parse(fixture).operationsPlan).toBeUndefined();
+  const study=structuredClone(fixture);
+  expect(waterOperationalRequirements(study,{volume:100})).toMatchObject({
+   bottles:1200,bottleInputs:1200,cartonInputs:100,electricityKwh:null,trips:null,distributionKm:null,
+  });
+  study.operationsPlan={...emptyWaterOperationsPlan,kwhPerThousandBottles:40,cartonsPerTrip:60,roundTripKm:52};
+  expect(waterOperationalRequirements(study,{volume:0})).toMatchObject({
+   bottles:0,electricityKwh:0,trips:0,distributionKm:0,
+  });
+  study.ops.bottlesCarton=0;
+  expect(waterOperationalRequirements(study,{volume:100})).toBeNull();
+  expect(waterModelSchema.safeParse({...study,operationsPlan:{...study.operationsPlan,packagingLossPct:100}}).success).toBe(false);
  });
 });

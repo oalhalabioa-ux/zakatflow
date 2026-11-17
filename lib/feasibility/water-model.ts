@@ -26,10 +26,22 @@ export const waterModelSchema=z.object({
   life:z.number().int().min(0).max(60),horizon:z.number().int().min(3).max(10),
   util:z.array(pct).max(10)
  }).strict(),
+ operationsPlan:z.object({
+  sourceName:z.string().max(160),
+  permitReference:z.string().max(160),
+  packagingLossPct:z.number().finite().min(0).max(99),
+  kwhPerThousandBottles:amount,
+  cartonsPerTrip:z.number().int().min(0).max(1e12),
+  roundTripKm:amount,
+ }).strict().optional(),
  scenarios:z.array(waterScenarioSchema).max(20)
 }).strict();
 export type WaterModel=z.infer<typeof waterModelSchema>;
 export type WaterScenario=z.infer<typeof waterScenarioSchema>;
+
+export const emptyWaterOperationsPlan:NonNullable<WaterModel['operationsPlan']>={
+ sourceName:'',permitReference:'',packagingLossPct:0,kwhPerThousandBottles:0,cartonsPerTrip:0,roundTripKm:0,
+};
 
 export function createWaterModel():WaterModel{
  return {
@@ -47,6 +59,7 @@ export function createWaterModel():WaterModel{
  };
 }
 
+const waterRecovery=(lossPct:number)=>Math.max(0.01,1-Math.min(99,lossPct)/100);
 export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'name'>){
  const {deal,capex,ops}=model;
  const hard=capex.buildings+capex.line+capex.treatment+capex.power+capex.lab+capex.vehicles+capex.others;
@@ -59,7 +72,7 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const totalEquity=investorEquity+land;
  const totalLoan=shareholderLoan+(deal.extraType==='loan'?deal.extraFunding:0);
  const capacity=ops.bottlesHour*ops.hoursDay*ops.daysMonth*12/Math.max(1,ops.bottlesCarton);
- const waterDemand=ops.bottlesHour*ops.hoursDay*ops.litersBottle/(1000*Math.max(0.01,1-Math.min(99,ops.waterLossPct)/100));
+ const waterDemand=ops.bottlesHour*ops.hoursDay*ops.litersBottle/(1000*waterRecovery(ops.waterLossPct));
  const initialPrice=ops.priceCarton*(scenario?.price??100)/100;
  const initialCost=ops.variableCarton*(scenario?.cost??100)/100;
  const initialFixed=(ops.fixedMonth+deal.leaseMonth)*12;
@@ -109,6 +122,27 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   capacity,waterDemand,annual,flows,npv,cashNpv:npv+land,irr:internalRateOfReturn(flows),payback,
   breakEven:initialPrice>initialCost?initialFixed/(initialPrice-initialCost):null,
   ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.volume>0)};
+}
+
+export function waterOperationalRequirements(
+ model:WaterModel,year:Pick<ReturnType<typeof evaluateWater>['annual'][number],'volume'>
+){
+ if(model.ops.bottlesCarton<=0)return null;
+ const plan=model.operationsPlan??emptyWaterOperationsPlan;
+ const cartons=year.volume;
+ const bottles=cartons*model.ops.bottlesCarton;
+ const filledLitres=model.ops.litersBottle>0?bottles*model.ops.litersBottle:null;
+ const packagingYield=1-plan.packagingLossPct/100;
+ const trips=plan.cartonsPerTrip>0?Math.ceil(cartons/plan.cartonsPerTrip):null;
+ return {
+  bottles,filledLitres,
+  sourceWaterM3:filledLitres===null?null:filledLitres/(1000*waterRecovery(model.ops.waterLossPct)),
+  bottleInputs:Math.ceil(bottles/packagingYield),
+  cartonInputs:Math.ceil(cartons/packagingYield),
+  electricityKwh:plan.kwhPerThousandBottles>0?bottles/1000*plan.kwhPerThousandBottles:null,
+  trips,
+  distributionKm:trips!==null&&plan.roundTripKm>0?trips*plan.roundTripKm:null,
+ };
 }
 
 export function studyReportReadiness(study:FeasibilityStudy){

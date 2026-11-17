@@ -1,6 +1,6 @@
 'use client';
 import {useMemo,type ReactNode} from 'react';
-import {evaluateWater,type WaterModel} from '@/lib/feasibility/water-model';
+import {emptyWaterOperationsPlan,evaluateWater,waterOperationalRequirements,type WaterModel} from '@/lib/feasibility/water-model';
 import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
 import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
@@ -47,6 +47,22 @@ const operationFields:NumberFields<WaterModel['ops']>=[
  ['life','عمر الإهلاك بالسنوات','Depreciation life in years',60,1],
  ['horizon','أفق التوقع بالسنوات','Projection years',10,1]
 ];
+const logisticsFields:NumberFields<NonNullable<WaterModel['operationsPlan']>>=[
+ ['packagingLossPct','فاقد مواد التعبئة %','Packaging material waste %',99],
+ ['kwhPerThousandBottles','استهلاك الكهرباء لكل 1,000 عبوة (ك.و.س)','Electricity use per 1,000 bottles (kWh)'],
+ ['cartonsPerTrip','صناديق الكرتون لكل رحلة','Cartons per distribution trip',1e12,1],
+ ['roundTripKm','المسافة ذهابًا وإيابًا للرحلة (كم)','Round-trip distance (km)'],
+];
+const logisticsColumns=[
+ ['bottles','العبوات المعبأة','Filled bottles'],
+ ['filledLitres','لترات المياه المعبأة','Packaged litres'],
+ ['sourceWaterM3','المياه المطلوبة من المصدر م³','Source water required m³'],
+ ['bottleInputs','العبوات المطلوبة مع الفاقد','Bottle units required including waste'],
+ ['cartonInputs','الكرتون المطلوب مع الفاقد','Carton units required including waste'],
+ ['electricityKwh','الكهرباء ك.و.س','Electricity kWh'],
+ ['trips','رحلات التوزيع','Distribution trips'],
+ ['distributionKm','مسافة التوزيع كم','Distribution kilometres'],
+] as const;
 const projectionLabels=[
  ['year','السنة','Year'],['utilization','الاستغلال %','Utilization %'],['volume','الكراتين المباعة','Cartons sold'],
  ['price','سعر الكرتون','Carton price'],['unitCost','تكلفة الكرتون المتغيرة','Variable cost / carton'],
@@ -204,7 +220,10 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const financingSummary=[
   [l('القيمة الاستثمارية الاقتصادية','Economic investment'),money(m.cashRequired+m.land)],
   [l('النقد المطلوب للتأسيس','Initial cash requirement'),money(m.cashRequired)],
-  [l('رأس مال الممول النقدي','Investor cash equity'),money(m.investorEquity)],
+  [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(m.shareholderLoan)],
+  [l('رأس المال النقدي لتغطية التأسيس','Cash equity allocated to establishment'),money(m.cashRequired-m.shareholderLoan)],
+  [l('التمويل الإضافي بحسب المدخلات','Additional financing entered'),money(water.deal.extraFunding)],
+  [l('إجمالي رأس مال الممول النقدي','Total investor cash equity'),money(m.investorEquity)],
   [l('الحصة العينية للأرض أو الحق','Land or right-of-use in-kind contribution'),money(m.land)],
   [l('قروض المساهم الإجمالية','Total shareholder debt'),money(m.totalLoan)]
  ];
@@ -224,6 +243,11 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {label:l('الممول','Investor'),value:m.investorShare??0},
   {label:l('صاحب الأرض','Land partner'),value:m.partnerShare??0}
  ]}/>;
+ const plan=water.operationsPlan??emptyWaterOperationsPlan;
+ const updatePlan=(patch:Partial<typeof plan>)=>onChange({...water,operationsPlan:{...plan,...patch}});
+ const operationsRows=detail==='water'?m.annual.map(year=>({
+  year:year.year,requirements:waterOperationalRequirements(water,year),
+ })):[];
  const headings:Record<typeof tab,Labels>={
   overview:['مؤشرات مصنع المياه','Bottled-water diagnostics'],
   partners:['الشراكة وتمويل مصنع المياه','Water factory partnership and funding'],operations:['الإنتاج والمبيعات ومصدر المياه','Production, sales and water source'],
@@ -257,7 +281,16 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
      ]}/>
     </Panel>}
     {ownership}
-    {detail!=='valuation'&&<Panel title={l('توازن التمويل','Funding balance')} icon="users">{compactValues(financingSummary)}</Panel>}
+    {detail!=='valuation'&&<Panel title={l('توازن التمويل','Funding balance')} icon="users">
+     {compactValues(financingSummary)}
+     {water.deal.investorLoan>m.shareholderLoan&&<p className="fs-hint">
+      {l('خُصص قرض التأسيس بحد أقصى يساوي الاحتياج النقدي. الجزء الزائد من القرض المدخل',
+       'The establishment loan is capped at the initial cash requirement. Unallocated entered loan amount')}
+      {' · '}<bdi>{money(water.deal.investorLoan-m.shareholderLoan)}</bdi>
+     </p>}
+     {water.deal.extraFunding>0&&<p className="fs-hint">{l('حدّد أوجه استخدام التمويل الإضافي قبل اعتماد الدراسة.',
+      'Allocate additional financing to specific uses before approving the study.')}</p>}
+    </Panel>}
    </div>
   </>}
   {(tab==='operations'||tab==='sector')&&<>
@@ -296,6 +329,38 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     {m.ready&&<RoyalBars title={l('الكراتين المباعة حسب السنة','Cartons sold by year')} locale={locale}
      data={m.annual.map(y=>({label:fmt(y.year),value:y.volume}))}/>}
    </div>
+   {detail==='water'&&<>
+    <div className="fs-royal-profile-grid">
+     <Panel title={l('بيانات مصدر المياه والضخ','Water source and extraction details')} icon="droplet">
+      <div className="fs-form-grid">
+       <label className="fs-field"><span>{l('اسم مصدر المياه','Water source name')}</span>
+        <input maxLength={160} value={plan.sourceName} onChange={event=>updatePlan({sourceName:event.currentTarget.value})}/>
+       </label>
+       <label className="fs-field"><span>{l('مرجع تصريح الضخ','Extraction permit reference')}</span>
+        <input maxLength={160} value={plan.permitReference} onChange={event=>updatePlan({permitReference:event.currentTarget.value})}/>
+       </label>
+      </div>
+      <p className="fs-hint">{l('تحقّق من صلاحية التصريح والكمية المسموح بضخها في سجل التراخيص.',
+       'Verify the permit validity and permitted extraction volume in the licensing register.')}</p>
+     </Panel>
+     <Panel title={l('افتراضات التعبئة والطاقة والتوزيع','Packaging, energy and distribution assumptions')} icon="factory">
+      <div className="fs-form-grid">{logisticsFields.map(([key,ar,en,max,step])=>
+       <NumberInput key={key} label={l(ar,en)} value={plan[key]} max={max} step={step}
+        onChange={value=>updatePlan({[key]:value})}/>)}</div>
+     </Panel>
+    </div>
+    <Panel title={l('الاحتياجات التشغيلية السنوية','Annual operating requirements')} icon="clipboard">
+     <p className="fs-hint">{l('تُقدّر الاحتياجات من إنتاج كل سنة. تُدخل تكاليف التشغيل المعتمدة في اقتصاديات الوحدة.',
+      'Requirements are estimated from each year’s production. Enter approved operating costs in unit economics.')}</p>
+     <Table headers={[l('السنة','Year'),...logisticsColumns.map(([,ar,en])=>l(ar,en))]}
+      rows={operationsRows.map(({year,requirements})=>[year,...logisticsColumns.map(([key])=>fmt(requirements?.[key]??null))])}/>
+     {allowExport&&<div className="fs-actions"><button type="button" className="fs-btn fs-btn--secondary"
+      onClick={()=>downloadFeasibilityCsv('water-operating-requirements.csv',[
+       [l('السنة','Year'),...logisticsColumns.map(([,ar,en])=>l(ar,en))],
+       ...operationsRows.map(({year,requirements})=>[year,...logisticsColumns.map(([key])=>requirements?.[key]??null)]),
+      ])}>{l('تصدير الاحتياجات CSV','Export requirements CSV')}</button></div>}
+    </Panel>
+   </>}
    <Panel title={l('الاستغلال والمبيعات السنوية','Annual utilization and sales')} icon="chart">
     <Table headers={[l('السنة','Year'),l('الاستغلال %','Utilization %'),l('الكراتين','Cartons'),l('المبيعات','Sales'),l('هامش المساهمة','Contribution margin'),'EBITDA']}
      rows={m.annual.map((y,i)=>[y.year,<NumberInput key={i} label={l('استغلال السنة ','Utilization in year ')+y.year}
