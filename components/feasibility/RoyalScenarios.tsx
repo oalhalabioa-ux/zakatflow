@@ -5,6 +5,8 @@ import {
 import { RoyalBars } from './RoyalCharts';
 import { RoyalIcon } from './RoyalIcon';
 
+const sensitivityVolume = [70, 85, 100, 115, 130];
+const sensitivityPrice = [90, 95, 100, 105, 110];
 const scenarios = ['CONSERVATIVE', 'BASE', 'OPTIMISTIC'] as const;
 const factors = [
   ['volume', 'حجم المبيعات', 'Sales volume'],
@@ -30,6 +32,20 @@ export default function RoyalScenarios({ study, locale, selected, onSelect, onCh
     label: scenarioLabels[scenario][ar ? 'ar' : 'en'],
     assumptions: scenarioFactors(study, scenario),
     result: evaluateStudy(study, scenario),
+  }));
+
+  const base = scenarioFactors(study, 'BASE');
+  const baseResult = results.find(result => result.scenario === 'BASE')!.result;
+  const sensitivity = sensitivityVolume.map(volume => sensitivityPrice.map(price => {
+    if (!baseResult.ready) return null;
+    if (volume === 100 && price === 100) return baseResult.npv;
+    return evaluateStudy({
+      ...study,
+      scenarioAssumptions: {
+        ...study.scenarioAssumptions,
+        BASE: { ...base, volume: base.volume * volume / 100, price: base.price * price / 100 },
+      },
+    }).npv;
   }));
 
   const update = (scenario: Scenario, factors: ScenarioFactors, key: keyof ScenarioFactors, value: number) => {
@@ -67,8 +83,34 @@ export default function RoyalScenarios({ study, locale, selected, onSelect, onCh
         </label>
       </div>
     </section>
-    <RoyalBars title={t('صافي القيمة الحالية حسب السيناريو', 'Net present value by scenario')}
-      locale={locale} unit={study.currency}
-      data={results.flatMap(({ label, result }) => result.npv == null ? [] : [{ label, value: result.npv }])}/>
+    <div className="fs-royal-profile-grid">
+      <RoyalBars title={t('صافي القيمة الحالية حسب السيناريو', 'Net present value by scenario')}
+        locale={locale} unit={study.currency}
+        data={results.flatMap(({ label, result }) => result.npv == null ? [] : [{ label, value: result.npv }])}/>
+      <section className="card fs-panel">
+        <h3 className="fs-royal-report-title"><RoyalIcon name="chart"/>
+          {t('حساسية صافي القيمة الحالية', 'Net present value sensitivity')}</h3>
+        <div className="fs-table-wrap fs-royal-sensitivity">
+          <table className="fs-table">
+            <thead><tr><th scope="col">{t('الحجم / السعر', 'Volume / price')}</th>
+              {sensitivityPrice.map(price => <th scope="col" key={price}>{percent.format(price / 100)}</th>)}
+            </tr></thead>
+            <tbody>{sensitivity.map((row, index) => <tr key={sensitivityVolume[index]}>
+              <th scope="row">{percent.format(sensitivityVolume[index] / 100)}</th>
+              {row.map((value, column) => <td key={sensitivityPrice[column]}>
+                <span data-sign={value === null ? 'empty' : value < 0 ? 'negative' : 'positive'}
+                  data-base-case={sensitivityVolume[index] === 100 && sensitivityPrice[column] === 100}>
+                  <bdi>{money(value)}</bdi>
+                </span>
+              </td>)}
+            </tr>)}</tbody>
+          </table>
+        </div>
+        <p className="fs-hint">{t(
+          'تقارن النسب بحجم البيع وسعره في السيناريو الأساسي المحفوظ. تظل تكلفة الوحدة ثابتة.',
+          'Factors are relative to sales volume and price in the saved base case. Unit cost stays fixed.',
+        )}</p>
+      </section>
+    </div>
   </section>;
 }

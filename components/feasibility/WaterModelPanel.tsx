@@ -145,10 +145,10 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const diagnostics=[
   !m.ready&&l('أكمل الاستثمار والطاقة والسعر والاستغلال لعرض مؤشرات العائد.','Enter investment, capacity, price and utilization to see return metrics.'),
   m.ready&&m.npv<0&&l('صافي القيمة الحالية الاقتصادية سالب.','Economic NPV is negative.'),
-  water.deal.extraFunding>0&&l('التمويل الإضافي مدرج في هيكل التمويل. خصص استخدامه قبل الاعتماد.','Additional funds are included in the financing structure. Allocate their use before approval.'),
-  water.deal.licenseValue>0&&l('قيمة الرخصة للمراجعة ولا تدخل في الحصص.','Licence valuation is for review and excluded from ownership.'),
-  water.deal.landMode==='lease'&&l('الأرض خارج رأس المال. وثّق حقوق المنشآت في العقد.','Land is outside equity. Document rights over the improvements in the agreement.'),
-  water.deal.landMode!=='lease'&&water.deal.leaseMonth>0&&l('راجع احتمال الجمع بين الحصة العينية وإيجار الأرض.','Review the possible overlap of an in-kind contribution with land rent.'),
+  tab==='overview'&&water.deal.extraFunding>0&&l('التمويل الإضافي مدرج في هيكل التمويل. خصص استخدامه قبل الاعتماد.','Additional funds are included in the financing structure. Allocate their use before approval.'),
+  tab==='overview'&&water.deal.licenseValue>0&&l('قيمة الرخصة للمراجعة ولا تدخل في الحصص.','Licence valuation is for review and excluded from ownership.'),
+  tab==='overview'&&water.deal.landMode==='lease'&&l('الأرض خارج رأس المال. وثّق حقوق المنشآت في العقد.','Land is outside equity. Document rights over the improvements in the agreement.'),
+  tab==='overview'&&water.deal.landMode!=='lease'&&water.deal.leaseMonth>0&&l('راجع احتمال الجمع بين الحصة العينية وإيجار الأرض.','Review the possible overlap of an in-kind contribution with land rent.'),
   water.ops.licensedWaterM3Day>0&&m.waterDemand>water.ops.licensedWaterM3Day&&l('الطلب النظري للمياه يتجاوز الكمية المرخصة المدخلة.','Theoretical water demand exceeds the entered licensed limit.'),
   m.ready&&m.breakEven===null&&l('هامش الكرتون غير موجب.','Carton contribution margin is non-positive.')
  ].filter(Boolean);
@@ -230,11 +230,11 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   scenarios:['السيناريوهات والحساسية','Scenarios and sensitivity'],cashflow:['التوقعات وخدمة قرض المساهم','Forecast and shareholder debt service'],
   advanced:['الإهلاك ورأس المال العامل وخدمة الدين','Depreciation, working capital and debt service'],
   sector:['التحليل القطاعي لمصنع المياه','Water factory sector analysis'],
-  report:['التكاليف والتمويل والتوقعات','Costs, funding and projections']
+  report:['الافتراضات والتوقعات المالية','Financial assumptions and forecast']
  };
  return <section className={tab==='overview'||tab==='report'?'card fs-panel':'fs-block fs-royal-water-layout'}>
   <h3 className="fs-royal-water-heading">{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>
-  {(tab==='overview'||tab==='report')&&<>{valuation}{partnership}{diagnostics.length>0&&
+  {(tab==='overview'||tab==='report')&&<>{valuation}{tab==='overview'&&partnership}{diagnostics.length>0&&
    <ul className="fs-notes">{diagnostics.map(item=><li key={String(item)}>{item}</li>)}</ul>}</>}
   {tab==='partners'&&<>
    <div className="fs-royal-profile-grid">

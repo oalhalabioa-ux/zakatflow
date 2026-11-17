@@ -8,7 +8,7 @@ import {evaluateWater,studyReportReadiness} from '@/lib/feasibility/water-model'
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import WaterModelPanel from './WaterModelPanel';
 
-const exportSections = ['summary','finance','governance','decisions','notes'] as const;
+const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
 
 export default function FeasibilityReport({study,locale,allowExport=true}:{study:FeasibilityStudy;locale:string;allowExport?:boolean}){
@@ -18,6 +18,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const [sections,setSections]=useState<ExportSection[]>([...exportSections]);
  const sectionLabels:Record<ExportSection,string>={
   summary:l('الملخص التنفيذي','Executive summary'),finance:l('الافتراضات والتوقعات المالية','Financial assumptions and forecast'),
+  funding:l('هيكل التمويل وقروض المساهمين','Funding and shareholder loans'),
+  ownership:l('الشراكة والملكية الاقتصادية','Partnership and economic ownership'),
   governance:l('التراخيص والمهام والمخاطر','Licences, tasks and risks'),
   decisions:l('القرارات والمحاضر','Decisions and minutes'),notes:l('ملاحظات الدراسة','Study notes')
  };
@@ -37,9 +39,52 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const {openCritical,openTasks,highRisks}=studyReportReadiness(study);
  const verified=study.legal.filter(item=>item.status==='VERIFIED').length;
  const fmt=(value:number|null)=>value===null?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
- const money=(value:number|null)=>value===null?'—':fmt(value)+' '+study.currency;
+ const money=(value:number|null)=>value===null?'—':[fmt(value),study.currency].filter(Boolean).join(' ');
+ const percent=(value:number|null)=>value===null?'—':fmt(value)+'%';
  const base=evaluateStudy(study);
  const water=study.water?evaluateWater(study.water):null;
+ const deal=study.water?.deal;
+ const funding=water&&study.water&&deal?[
+  [l('تكلفة التأسيس مع الرسوم','Establishment costs including fees'),money(water.investment)],
+  [l('رأس المال العامل الأولي','Opening working capital'),money(study.water.capex.workingCapital)],
+  [l('التمويل النقدي المطلوب عند التأسيس','Initial cash requirement'),money(water.cashRequired)],
+  [l('إجمالي رأس مال الممول النقدي','Total investor cash equity'),money(water.investorEquity)],
+  [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(water.shareholderLoan)],
+  [l('التمويل الإضافي','Additional funding'),money(deal.extraFunding)],
+  [l('معالجة التمويل الإضافي','Additional funding classification'),
+   deal.extraFunding===0?'—':deal.extraType==='loan'?l('قرض مساهم','Shareholder loan'):l('زيادة رأس المال','Equity injection')],
+  [l('إجمالي قروض المساهمين','Total shareholder debt'),money(water.totalLoan)],
+  [l('فائدة القرض','Loan interest rate'),water.totalLoan>0?percent(deal.loanInterest):'—'],
+  [l('أول سنة للسداد','First repayment year'),water.totalLoan>0?fmt(Math.max(1,deal.loanStart)):'—'],
+  [l('مدة السداد بالسنوات','Repayment term in years'),water.totalLoan>0?fmt(Math.max(1,deal.loanYears)):'—'],
+  [l('الرصيد بعد آخر سنة من التوقعات','Balance after last forecast year'),money(water.annual.at(-1)?.debtBalance??water.totalLoan)]
+ ]:[
+  [l('تكلفة الاستثمار النقدية','Cash investment costs'),money(base.capex)],
+  [l('رأس المال العامل الأولي','Opening working capital'),money(study.workingCapital)],
+  [l('إجمالي الاحتياج النقدي','Total cash requirement'),money(base.totalInvestment-base.landAsset)],
+  [l('إجمالي رأس المال النقدي','Total cash equity'),money(base.cashEquity)],
+  [l('قرض الممول إلى الشركة','Investor shareholder loan'),money(study.investorLoan)],
+  [l('تمويل ديون أخرى','Other debt'),money(study.otherDebt)],
+  [l('صافي فجوة التمويل النقدي','Net funding gap'),money(base.cashFundingGap)]
+ ];
+ const ownership=water&&deal?[
+  [l('معالجة الأرض','Land arrangement'),{
+   transfer:l('نقل الملكية','Title transfer'),lease:l('إيجار','Lease'),right:l('حق انتفاع مقوّم','Valued right of use')
+  }[deal.landMode]],
+  [l('الحصة العينية للأرض أو الحق','Land or right-of-use in-kind contribution'),money(water.land)],
+  [l('قيمة الرخصة للمراجعة','Licence value for review'),money(deal.licenseValue)],
+  [l('رأس مال الممول النقدي','Investor cash equity'),money(water.investorEquity)],
+  [l('إجمالي رأس المال الاقتصادي','Total economic equity'),money(water.totalEquity)],
+  [l('الملكية الاقتصادية للممول','Investor economic ownership'),percent(water.investorShare)],
+  [l('الملكية الاقتصادية لصاحب الأرض','Land partner economic ownership'),percent(water.partnerShare)]
+ ]:[
+  [l('رأس مال الممول النقدي','Investor cash equity'),money(study.investorEquity)],
+  [l('مساهمة الشريك النقدية','Partner cash contribution'),money(study.partnerCashEquity)],
+  [l('الحصة العينية للأرض','Land in-kind contribution'),money(base.landAsset)],
+  [l('إجمالي رأس المال الاقتصادي','Total economic equity'),money(base.equity)],
+  [l('الملكية الاقتصادية للممول','Investor economic ownership'),percent(base.investorShare)],
+  [l('الملكية الاقتصادية للشريك','Partner economic ownership'),percent(base.partnerShare)]
+ ];
  const ready=handoffReadiness(study);
  const readyCount=ready.checks.filter(check=>check.passed).length;
  const reportMetrics = [
@@ -138,8 +183,6 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      <li>{l('الاستثمار الاقتصادي','Economic investment')} · {money(base.totalInvestment)}</li>
      <li>{l('صافي القيمة الحالية','NPV')} · {money(base.npv)}</li>
      <li>{l('العائد الداخلي %','IRR %')} · {fmt(base.irr)}</li>
-     <li>{l('فجوة التمويل النقدي','Net funding gap')} · {money(base.cashFundingGap)}</li>
-     <li>{l('الملكية الاقتصادية للممول %','Investor economic ownership %')} · {fmt(base.investorShare)}</li>
     </ul>
     {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
      onClick={()=>downloadFeasibilityCsv('feasibility-projections.csv',[
@@ -150,6 +193,24 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      <tbody>{financeRows.map((row,index)=><tr key={index}>{row.map((value,i)=><td key={i}>{fmt(value)}</td>)}</tr>)}</tbody>
     </table></div>
    </section>}
+  <section className="card fs-panel fs-royal-report-detail" data-report-section="funding">
+   <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{sectionLabels.funding}</h3>
+   <dl className="fs-royal-checks">{funding.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
+   {!!deal?.extraFunding&&<p className="fs-hint">{l('حدّد أوجه استخدام التمويل الإضافي قبل اعتماد الدراسة.',
+    'Allocate the additional funding to specific uses before approving the study.')}</p>}
+  </section>
+  <section className="card fs-panel fs-royal-report-detail" data-report-section="ownership">
+   <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{sectionLabels.ownership}</h3>
+   <dl className="fs-royal-checks">{ownership.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
+   <p className="fs-hint">{l('هذه الحصص اقتصادية تقديرية. تُثبت الملكية القانونية بالمستندات والإجراءات المعتمدة.',
+    'These are indicative economic shares. Legal ownership is established through the authorized documents and procedures.')}</p>
+   {water&&<p className="fs-hint">{l('قيمة الرخصة للمراجعة وتُستثنى من الحصص الاقتصادية.',
+    'The licence valuation is for review and is excluded from economic shares.')}</p>}
+   {deal?.landMode==='lease'&&<p className="fs-hint">{l('وثّق حقوق المنشآت على الأرض المستأجرة في العقد.',
+    'Document rights to improvements on the leased land in the agreement.')}</p>}
+   {deal&&deal.landMode!=='lease'&&deal.leaseMonth>0&&<p className="fs-hint">{l('راجع احتمال الجمع بين إيجار الأرض والحصة العينية.',
+    'Check for overlap between land rent and the in-kind contribution.')}</p>}
+  </section>
   <section className="card fs-panel" data-report-section="governance">
    <h3>{l('الفحص القانوني والمهام والمخاطر','Legal checks, tasks and risks')}</h3>
    <p>{l('الفحص القانوني المكتمل','Legal checks verified')} · {verified}/{study.legal.length}</p>
