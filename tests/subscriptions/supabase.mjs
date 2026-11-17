@@ -828,10 +828,11 @@ try {
   sql(signupTrigger[0]);
   await check('mailbox invitation activation, existing password, replay and login',()=>verifyInvitationFlow({browser,appUrl,url,status,owner,existing:clients[1],cookieHeader,headers,sql}));
   await check('authenticated Chromium persists platform sharing settings and enforces the recipient editor', async () => {
+    console.log('CHECK preparing canonical notification and feasibility fixtures');
     const coreSchema = await load('supabase/migrations/20260915195428_001_schema.sql');
     const notificationsTable = coreSchema.match(/^create table if not exists notifications\([^\n]+$/m)?.[0];
     assert.ok(notificationsTable, 'Canonical notifications table definition must exist');
-    sql(notificationsTable + `
+    sql("set lock_timeout='5s'; set statement_timeout='20s'; " + notificationsTable + `
       alter table public.notifications enable row level security;
       create policy notifications_self on public.notifications
        using (user_id=auth.uid()) with check (user_id=auth.uid());
@@ -860,6 +861,7 @@ try {
       'supabase/migrations/20261117064000_feasibility_share_proposals.sql',
     ];
     sql('begin;\n' + (await Promise.all(migrationFiles.map(load))).map(strip).join('\n') + '\ncommit;');
+    console.log('PASS installed notification and feasibility fixtures');
     const sharingAppUrl = 'http://localhost:3002';
     const sharingServer = spawn('node', ['node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', '3002'], {
       stdio: 'ignore',

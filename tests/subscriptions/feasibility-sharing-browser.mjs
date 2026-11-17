@@ -25,13 +25,11 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     const admin = await pageFor(owner);
     const receiver = await pageFor(recipient);
     async function submitProposal() {
-      const [response] = await Promise.all([
-        receiver.waitForResponse(response => response.url().endsWith('/api/feasibility/share-proposals')
-          && response.request().method() === 'POST'),
-        receiver.getByRole('button', { name: 'Send changes for review' }).click(),
-      ]);
-      assert.equal(response.status(), 200, await response.text());
-      await receiver.getByText('The changes were sent to the study owner.', { exact: true }).waitFor();
+      await receiver.getByRole('button', { name: 'Send changes for review' }).click();
+      const success = receiver.getByText('The changes were sent to the study owner.', { exact: true });
+      const failure = receiver.getByText('The changes could not be sent. Check the current request status.', { exact: true });
+      await success.or(failure).first().waitFor();
+      assert.equal(await success.isVisible(), true, 'The study change request must be submitted successfully');
     }
     const setting = admin.getByLabel('Permissions available to owners');
     const signalled = admin.getByText('Sharing setting saved.', { exact: true });
@@ -73,6 +71,7 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await source.reload();
     await source.getByRole('heading', { name: title, exact: true }).waitFor();
 
+    console.log('CHECK feasibility recipient submits changes through Chromium');
     await submitProposal();
     await source.goto(appUrl + '/en/notifications');
     await source.getByRole('link', { name: 'Review changes', exact: true }).click();
@@ -82,6 +81,7 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await receiver.reload();
     await receiver.getByText('Latest request · Approved', { exact: true }).waitFor();
 
+    console.log('PASS owner notification, field comparison, approval and recipient status');
     await receiver.getByRole('button', { name: 'Edit shared copy' }).click();
     await receiver.getByLabel('Shared copy title').fill('Synthetic QA declined draft');
     await receiver.getByRole('button', { name: 'Save copy edits' }).click();
@@ -95,6 +95,7 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await receiver.reload();
     await receiver.getByText('Latest request · Declined · Keep the accepted name', { exact: true }).waitFor();
 
+    console.log('PASS decline with a reason and recipient status');
     await setMode('read');
     await receiver.reload();
     await receiver.getByRole('heading', { name: 'Synthetic QA declined draft', exact: true }).waitFor();
