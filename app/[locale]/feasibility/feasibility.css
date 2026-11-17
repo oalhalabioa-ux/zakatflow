@@ -425,3 +425,12 @@
 .fs-royal-licensing .fs-table [data-legal-status="VERIFIED"] { color: var(--fs-green); background: #E8F1EB; }
 .fs-royal-licensing .fs-table :is([data-legal-status="BLOCKED"],[data-legal-status="UNDER_REVIEW"]) { background: var(--fs-light-gold); }
 .fs-royal-licensing .fs-royal-checks :is(span, dd) { overflow-wrap: anywhere; }
+
+.fs-royal .fs-royal-task-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-block-start: 5px; }
+.fs-royal-task-meta small:empty { display: none; }
+.fs-royal .fs-royal-tag[data-register-tone="green"] { color: var(--fs-green); background: #E8F1EB; }
+.fs-royal .fs-royal-tag[data-register-tone="gold"] { background: var(--fs-light-gold); }
+.fs-royal-register-layout .card.fs-panel { display: grid; gap: 9px; min-width: 0; align-content: start; }
+.fs-royal-register-layout .fs-royal-checks dd { text-align: end; }
+.fs-royal-risk-legend { margin-block-start: 8px; }
+.fs-royal-risk-legend span:nth-child(3), .fs-royal-risk-legend span:nth-child(4) { background: var(--fs-light-gold); }

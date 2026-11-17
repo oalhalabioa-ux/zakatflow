@@ -62,9 +62,9 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
  const search=<TextField label={l('بحث','Search')} value={query} onChange={setQuery}/>;
  const add=(label:string,save:()=>void,limit:boolean)=>
   <button type="button" className="fs-btn fs-btn--secondary" onClick={save} disabled={limit}>{label}</button>;
- const row=(rowId:string,label:string,fields:ReactNode,remove:()=>void)=>
+ const row=(rowId:string,label:string,fields:ReactNode,remove:()=>void,metadata?:ReactNode)=>
   <details className="fs-register-row" key={rowId}>
-   <summary>{label||l('سجل بلا عنوان','Untitled record')}</summary>
+   <summary>{label||l('سجل بلا عنوان','Untitled record')}{metadata}</summary>
    <div className="fs-form-grid">{fields}</div>
    <button type="button" className="fs-btn fs-btn--secondary" onClick={()=>{
     if(window.confirm(l('حذف هذا السجل؟','Delete this record?')))remove();
@@ -75,6 +75,10 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
    <tbody>{rows.map(({id,cells})=><tr key={id}>{cells.map((cell,index)=>index===0?<th scope="row" key={index}>{cell}</th>:<td key={index}>{cell}</td>)}</tr>)}</tbody>
   </table></div>;
  const display=(label?:string)=>label||'—';
+ const badge=(label:string,tone:'green'|'gold'|'neutral')=><span className="fs-royal-tag" data-register-tone={tone}>{label}</span>;
+ const summary=(values:readonly (readonly [string,ReactNode])[])=><dl className="fs-royal-checks">
+  {values.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+ </dl>;
 
  if(tab==='legal'){
   const items=study.legal.filter(x=>!group||x.group===group);
@@ -146,8 +150,12 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
  }
  if(tab==='tasks'){
   const items=study.tasks.filter(x=>(!group||x.phase===group)&&(!taskStatus||x.status===taskStatus)&&filter([x.title,x.owner,x.notes,x.phase]));
-  return <section className="card fs-panel">
-   <h3>{l('الجدول التنفيذي والمهام','Tasks and milestones')}</h3>
+  const today=new Date().toISOString().slice(0,10);
+  const open=study.tasks.filter(item=>item.status!=='DONE');
+  const phases=[...new Set(study.tasks.flatMap(item=>item.phase?.trim()?[item.phase.trim()]:[]))];
+  return <section className="fs-block fs-royal-register-layout">
+   <section className="card fs-panel">
+   <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{l('لوحة المهام حسب الحالة','Task board by status')}</h3>
    <div className="fs-form-grid">
     {search}{groupField(l('المجال','Phase'),study.tasks.map(x=>x.phase))}
     <Choice label={status} locale={locale} value={taskStatus as ''|StudyTask['status']} options={{'':['الكل','All'],...taskStatuses}} onChange={setTaskStatus}/>
@@ -167,7 +175,11 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
      <TextField label={owner} value={x.owner} maxLength={300} onChange={owner=>set({owner})}/>
      <TextField label={due} type="date" value={x.due} onChange={due=>set({due})}/>
      <TextField label={l('الملاحظات','Notes')} value={x.notes} onChange={notes=>set({notes})}/>
-    </>,()=>onChange({tasks:study.tasks.filter(item=>item.id!==x.id)}));
+    </>,()=>onChange({tasks:study.tasks.filter(item=>item.id!==x.id)}),
+     <span className="fs-royal-task-meta">
+      <small>{[x.owner,x.due].filter(Boolean).join(' · ')}</small>
+      {badge(priorities[x.priority][locale==='ar'?0:1],x.priority==='HIGH'?'gold':'neutral')}
+     </span>);
    })}
     </section>;
    })}
@@ -175,13 +187,31 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
    {add(l('إضافة مهمة','Add task'),()=>{setQuery('');setGroup('');setTaskStatus('');onChange({tasks:[...study.tasks,{
     id:id(),title:l('مهمة جديدة','New task'),owner:'',due:'',status:'TODO',priority:'NORMAL'
    }]});},study.tasks.length>=500)}
+   </section>
+   <div className="fs-royal-profile-grid">
+    <section className="card fs-panel">
+     <h3 className="fs-royal-report-title"><RoyalIcon name="layers"/>{l('مراحل المشروع','Project phases')}</h3>
+     {phases.length?summary(phases.map(phase=>[phase,study.tasks.filter(task=>task.phase?.trim()===phase).length]))
+      :<p>{l('لم تُسند مراحل إلى المهام بعد.','No tasks have been assigned to a phase.')}</p>}
+    </section>
+    <section className="card fs-panel">
+     <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('إحصائيات المتابعة','Task tracking summary')}</h3>
+     {summary([
+      [l('مهام مفتوحة','Open tasks'),open.length],
+      [l('مهام مكتملة','Completed tasks'),study.tasks.length-open.length],
+      [l('مهام متأخرة','Overdue tasks'),open.filter(item=>item.due&&item.due<today).length],
+      [l('مهام عالية الأولوية','High-priority tasks'),open.filter(item=>item.priority==='HIGH').length]
+     ])}
+    </section>
+   </div>
   </section>;
  }
  if(tab==='risks'){
   const items=study.risks.filter(x=>filter([x.title,x.owner,x.category,x.response])).sort((a,b)=>b.impact*b.likelihood-a.impact*a.likelihood);
-  return <section className="card fs-panel">
-   <h3>{l('سجل المخاطر','Risk register')}</h3>{search}
-   <div className="fs-columns">
+  const open=items.filter(item=>item.status!=='MITIGATED');
+  const level=(score:number)=>score>16?l('عالية جدًا','Critical'):score>11?l('عالية','High'):score>5?l('متوسطة','Medium'):l('منخفضة','Low');
+  return <section className="fs-block fs-royal-register-layout">
+   <div className="fs-royal-profile-grid">
    <figure className="fs-royal-risk">
     <figcaption><RoyalIcon name="shield"/>{l('مصفوفة المخاطر (5×5)','Risk matrix (5×5)')}</figcaption>
     <table className="fs-royal-risk-table">
@@ -190,25 +220,30 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
       {[1,2,3,4,5].map(value=><th scope="col" key={value}>{value}</th>)}</tr></thead>
      <tbody>{[5,4,3,2,1].map(impact=><tr key={impact}><th scope="row">{impact}</th>
       {[1,2,3,4,5].map(likelihood=>{
-       const selected=items.filter(item=>item.status!=='MITIGATED'&&item.impact===impact&&item.likelihood===likelihood);
+       const selected=open.filter(item=>item.impact===impact&&item.likelihood===likelihood);
        const score=impact*likelihood;
        return <td key={likelihood} data-level={score>16?'critical':score>11?'high':score>5?'medium':'low'}
         title={selected.map(item=>item.title).join(' · ')||undefined}><b>{score}</b>{selected.length>0&&<small> · {selected.length}</small>}</td>;
       })}</tr>)}</tbody>
     </table>
+    <div className="fs-royal-stats fs-royal-risk-legend">
+     {[1,6,12,17].map(score=><span key={score}>{level(score)}</span>)}
+    </div>
    </figure>
    <section className="card fs-panel">
-    <h4>{l('مؤشرات المخاطر المفتوحة','Open risk indicators')}</h4>
-    {([
+    <h4 className="fs-royal-report-title"><RoyalIcon name="shield"/>{l('مؤشرات المخاطر المفتوحة','Open risk indicators')}</h4>
+    {summary(([
      [l('عالية جدًا','Critical'),17,25],[l('عالية','High'),12,16],
      [l('متوسطة','Medium'),6,11],[l('منخفضة','Low'),1,5]
-    ] as const).map(([label,min,max])=><div className="fs-row" key={label}>
-     <span>{label}</span><strong>{items.filter(item=>item.status!=='MITIGATED'&&item.impact*item.likelihood>=min&&item.impact*item.likelihood<=max).length}</strong>
-    </div>)}
+    ] as const).map(([label,min,max])=>[label,open.filter(item=>item.impact*item.likelihood>=min&&item.impact*item.likelihood<=max).length]))}
+    {open.some(item=>item.impact*item.likelihood>16)&&<p className="fs-hint">{l('راجع المخاطر الحرجة وخطط المعالجة قبل الاعتماد.','Review critical risks and mitigation plans before approval.')}</p>}
    </section>
    </div>
-   {comparison([l('الخطر','Risk'),l('الاحتمال','Likelihood'),l('الأثر','Impact'),l('الدرجة','Score'),l('إجراء المعالجة','Mitigation')],items.map(item=>({
-    id:item.id,cells:[item.title,item.likelihood,item.impact,item.likelihood*item.impact,display(item.response)]
+   <section className="card fs-panel">
+   <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('سجل المخاطر وإجراءات المعالجة','Risk register and mitigation actions')}</h3>{search}
+   {comparison([l('الخطر','Risk'),l('الاحتمال','Likelihood'),l('الأثر','Impact'),l('الدرجة','Score'),l('التصنيف','Rating'),l('إجراء المعالجة','Mitigation')],items.map(item=>({
+    id:item.id,cells:[item.title,item.likelihood,item.impact,item.likelihood*item.impact,
+     badge(level(item.likelihood*item.impact),item.likelihood*item.impact>11?'gold':'neutral'),display(item.response)]
    })))}
    {items.map(x=>{
     const set=(patch:Partial<StudyRisk>)=>onChange({risks:study.risks.map(item=>item.id===x.id?{...item,...patch}:item)});
@@ -226,13 +261,15 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
    {add(l('إضافة خطر','Add risk'),()=>{setQuery('');onChange({risks:[...study.risks,{
     id:id(),title:l('خطر جديد','New risk'),likelihood:3,impact:3,response:'',status:'OPEN'
    }]});},study.risks.length>=500)}
+   </section>
   </section>;
  }
- if(tab==='suppliers')return <section className="card fs-panel">
-  <h3>{l('عروض الموردين والمقاولين','Supplier and contractor offers')}</h3>
+ if(tab==='suppliers')return <section className="fs-block fs-royal-register-layout">
+  <section className="card fs-panel">
+  <h3 className="fs-royal-report-title"><RoyalIcon name="truck"/>{l('قائمة عروض الأسعار','Supplier quote list')}</h3>
   {comparison([l('المورد','Vendor'),l('البند','Item'),l('القيمة','Quote value'),l('أيام التسليم','Delivery days'),l('الضمان','Warranty'),status],
    study.suppliers.map(item=>({id:item.id,cells:[display(item.vendor),display(item.item),item.offer+' '+study.currency,
-    item.leadDays??'—',display(item.warranty),quoteStatuses[item.status??'NEW'][locale==='ar'?0:1]]})))}
+    item.leadDays??'—',display(item.warranty),badge(quoteStatuses[item.status??'NEW'][locale==='ar'?0:1],item.status==='SELECTED'?'green':item.status==='REVIEW'?'gold':'neutral')]})))}
   {study.suppliers.map(x=>{
    const set=(patch:Partial<StudySupplier>)=>onChange({suppliers:study.suppliers.map(item=>item.id===x.id?{...item,...patch}:item)});
    return row(x.id,[x.vendor,x.item].filter(Boolean).join(' · '),<>
@@ -247,12 +284,23 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
    </>,()=>onChange({suppliers:study.suppliers.filter(item=>item.id!==x.id)}));
   })}
   {add(l('إضافة عرض','Add offer'),()=>onChange({suppliers:[...study.suppliers,{id:id(),vendor:'',item:'',offer:0,notes:''}]}),study.suppliers.length>=500)}
-  <SupplierComparisonPanel suppliers={study.suppliers} currency={study.currency} locale={locale}/>
+  </section>
+  <div className="fs-royal-profile-grid">
+   <section className="card fs-panel">
+    <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('عناصر مراجعة عروض الأسعار','Quote review criteria')}</h3>
+    <ul className="fs-notes">
+     <li>{l('قارن متطلبات البند والسعة والمواصفات.','Compare item requirements, capacity and specifications.')}</li>
+     <li>{l('راجع السعر ومدة التسليم والضمان.','Review price, delivery time and warranty.')}</li>
+    </ul>
+   </section>
+   <section className="card fs-panel"><SupplierComparisonPanel suppliers={study.suppliers} currency={study.currency} locale={locale}/></section>
+  </div>
  </section>;
- return <section className="card fs-panel">
-  <h3>{l('سجل القرارات ومحاضر الاجتماعات','Decision and meeting log')}</h3>
+ return <section className="fs-block fs-royal-register-layout">
+  <section className="card fs-panel">
+  <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('سجل القرارات ومحاضر الاجتماعات','Decision and meeting log')}</h3>
   {comparison([l('القرار','Decision'),l('التاريخ','Date'),owner,status,l('التفاصيل','Details')],study.decisions.map(item=>({
-   id:item.id,cells:[item.title,display(item.date),display(item.owner),decisionStatuses[item.status??'OPEN'][locale==='ar'?0:1],display(item.notes)]
+   id:item.id,cells:[item.title,display(item.date),display(item.owner),badge(decisionStatuses[item.status??'OPEN'][locale==='ar'?0:1],item.status==='DONE'?'green':item.status==='AGREED'?'gold':'neutral'),display(item.notes)]
   })))}
   {study.decisions.map(x=>{
    const set=(patch:Partial<StudyDecision>)=>onChange({decisions:study.decisions.map(item=>item.id===x.id?{...item,...patch}:item)});
@@ -267,5 +315,12 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
   {add(l('إضافة قرار','Add decision'),()=>onChange({decisions:[...study.decisions,{
    id:id(),title:l('قرار جديد','New decision'),date:new Date().toISOString().slice(0,10),notes:'',status:'OPEN'
   }]}),study.decisions.length>=500)}
+  </section>
+  <section className="card fs-panel">
+   <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('حالة القرارات المسجلة','Recorded decision status')}</h3>
+   {summary((Object.keys(decisionStatuses) as StudyDecision['status'][]).flatMap(key=>key?[[
+    decisionStatuses[key][locale==='ar'?0:1],study.decisions.filter(item=>(item.status??'OPEN')===key).length
+   ] as const]:[]))}
+  </section>
  </section>;
 }
