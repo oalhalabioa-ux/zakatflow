@@ -478,3 +478,8 @@
 .fs-royal-ownership--allocation li strong { margin-inline-start: 0; white-space: nowrap; }
 .fs-royal-ownership-note { display: flex; align-items: start; gap: 8px; margin: 0; padding: 9px 12px; background: #E8F1EB; color: var(--fs-green); border-radius: 8px; font-size: 11px; }
 .fs-royal-ownership-note svg { flex-shrink: 0; }
+
+.fs-royal-evidence-files .fs-royal-checks li { align-items: center; gap: 12px; }
+.fs-royal-evidence-files .fs-royal-checks li > div { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.fs-royal-evidence-files a { color: var(--fs-green); text-decoration: underline; }
+.fs-royal-evidence-files small { color: var(--fs-muted); }

@@ -19,6 +19,7 @@ import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
 import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
 import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
 import StudyRegisters from '@/components/feasibility/StudyRegisters';
+import EvidenceDocuments from '@/components/feasibility/EvidenceDocuments';
 import { RoyalIcon, studyTabIcons } from '@/components/feasibility/RoyalIcon';
 import RoyalOverview from '@/components/feasibility/RoyalOverview';
 import RoyalScenarios from '@/components/feasibility/RoyalScenarios';
@@ -65,7 +66,7 @@ function Info({label,value,sub}:{label:string;value:string;sub?:string}){
 function SelectField<T extends string>({label,value,items,onChange}:{label:string;value:T;items:Array<{value:T;label:string}>;onChange:(value:T)=>void}){
  return <label className="fs-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.currentTarget.value as T)}>{items.map(x=><option value={x.value} key={x.value}>{x.label}</option>)}</select></label>;
 }
-export default function FeasibilityWorkspace({locale,userId,readOnly=false,organizationEnabled=false,organizationSharing=false,organizations=[]}:{locale:string;userId:string;readOnly?:boolean;organizationEnabled?:boolean;organizationSharing?:boolean;organizations?:WorkspaceOrganization[]}){
+export default function FeasibilityWorkspace({locale,userId,readOnly=false,organizationEnabled=false,organizationSharing=false,evidenceEnabled=false,organizations=[]}:{locale:string;userId:string;readOnly?:boolean;organizationEnabled?:boolean;organizationSharing?:boolean;evidenceEnabled?:boolean;organizations?:WorkspaceOrganization[]}){
  const searchParams=useSearchParams();
  const [scope]=useWorkspaceScope(currentWorkspaceScope('feasibility',searchParams.toString()));
  const personalScope=scope==='PERSONAL';
@@ -765,6 +766,13 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    {tab==='sharing'&&personalScope&&<CollaborationPanel key={userId+':'+study.id} audit={detail==='permissions'} locale={locale} projectId={study.id} enabled={sharingEnabled&&personalScope} canWrite={!effectiveReadOnly} isOwner={cloudOwnerIds[study.id]===userId}/>}
    {tab==='handoff'&&<ProjectHandoffPanel study={study} locale={locale} onChange={handoff=>update({handoff})} cloudRevision={cloudRevisions[study.id]} cloudCurrent={cloudSavedStudyVersions[study.id]===study.updatedAt} cloudEnabled={cloudEnabled} canWrite={!effectiveReadOnly} bannerOrganizationId={organizationId}/>}
    </fieldset>
+   {evidenceEnabled&&!sharedStudy&&(personalScope||organizationSharing)&&
+    ((tab==='legal'&&detail==='evidence')||(tab==='partners'&&detail==='valuation'))&&
+    <EvidenceDocuments key={userId+':'+saveScopeId+':'+study.id+':'+detail} locale={locale} project={study.id}
+     organization={personalScope?undefined:organizationId}
+     kind={detail==='evidence'?'licensing':'valuation'}
+     saved={personalScope?cloudOwnerIds[study.id]===userId:Boolean(organizationRecords[study.id])}
+     canWrite={!effectiveReadOnly}/>}
    {tab==='sharing'&&!personalScope&&organizationSharing&&companyScopeReady&&organizationCanShare&&organizationRecords[study.id]&&
     <OrganizationStudyShares audit={detail==='permissions'} key={userId+':'+organizationId+':'+study.id} locale={locale} organization={organizationId}
      project={study.id} revision={organizationRecords[study.id].revision}

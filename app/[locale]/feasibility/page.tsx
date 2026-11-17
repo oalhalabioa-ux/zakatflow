@@ -5,6 +5,7 @@ import {notFound,redirect} from 'next/navigation';
 import {supabaseServer} from '@/lib/supabase/server';
 import FeasibilityWorkspace from '@/components/FeasibilityWorkspace';
 import {evaluateFeasibilityAccess} from '@/lib/feasibility/access';
+import {feasibilityEvidenceEnabled} from '@/lib/feasibility/evidence-config';
 import './feasibility.css';
 
 export const dynamic='force-dynamic';
@@ -27,5 +28,5 @@ export default async function FeasibilityPage({params}:{params:Promise<{locale:s
  const organizationEnabled=process.env.FEASIBILITY_ORG_QA==='true';
  const organizations=organizationEnabled?await feasibilityOrganizationOptions(supabase):[];
  return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite}
-  organizationEnabled={organizationEnabled} organizationSharing={organizationSharing} organizations={organizations}/>;
+  evidenceEnabled={feasibilityEvidenceEnabled()} organizationEnabled={organizationEnabled} organizationSharing={organizationSharing} organizations={organizations}/>;
 }
