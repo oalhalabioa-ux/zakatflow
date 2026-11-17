@@ -15,7 +15,8 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
  const [requirement,setRequirement]=useState('');
  const [version,setVersion]=useState(0);
  const [busy,setBusy]=useState(false);
- const [loading,setLoading]=useState(saved);
+ const [loadState,setLoadState]=useState<'loading'|'ready'|'unavailable'|'failed'>('loading');
+ const loading=loadState==='loading';
  const [error,setError]=useState('');
  const params=new URLSearchParams({project,kind});
  if(organization)params.set('organization',organization);
@@ -23,18 +24,25 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
  useEffect(()=>{
   if(!saved)return;
   const controller=new AbortController();
-  setLoading(true);
+  setLoadState('loading');
+  setDocuments([]);
   fetch(endpoint,{signal:controller.signal}).then(async response=>{
+   if(controller.signal.aborted)return;
+   if(response.status===404){
+    setLoadState('unavailable');
+    return;
+   }
    if(!response.ok)throw new Error('EVIDENCE_LIST_FAILED');
    const list=await response.json();
-   if(!controller.signal.aborted)setDocuments(list);
+   if(!controller.signal.aborted){
+    setDocuments(list);
+    setLoadState('ready');
+   }
   }).catch(()=>{
-   if(!controller.signal.aborted)setError(ar?'تعذر تحميل المستندات.':'Could not load documents.');
-  }).finally(()=>{
-   if(!controller.signal.aborted)setLoading(false);
+   if(!controller.signal.aborted)setLoadState('failed');
   });
   return ()=>controller.abort();
- },[ar,endpoint,saved,version]);
+ },[endpoint,saved,version]);
 
  async function change(method:'POST'|'DELETE',file?:File,documentId?:string){
   setBusy(true);
@@ -62,6 +70,7 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
     }
     throw new Error('EVIDENCE_WRITE_FAILED');
    }
+   setLoadState('loading');
    setVersion(value=>value+1);
   }catch{
    setError(l('تعذر تحديث الملفات. تحقق من حالة الحفظ وصلاحيتك.','Could not update the files. Check that the study is saved and you have permission.'));
@@ -71,16 +80,23 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
  return <section className="card fs-panel fs-royal-evidence-files">
   <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{kind==='licensing'?
    l('مرفقات التراخيص','Licence attachments'):l('مستندات التقييم','Valuation documents')}</h3>
-  {!saved?<p className="fs-hint">{l('احفظ الدراسة في السحابة لإرفاق الملفات.','Save the study to the cloud to attach files.')}</p>:<>
-   {loading&&<p role="status">{l('جارٍ تحميل المستندات…','Loading documents…')}</p>}
-   {!loading&&!error&&!documents.length&&<p>{l('لا توجد ملفات مرفقة.','No files attached.')}</p>}
+  {!saved?<p className="fs-hint">{l('احفظ الدراسة في السحابة لإرفاق الملفات.','Save the study to the cloud to attach files.')}</p>:
+   loading?<p role="status">{l('جارٍ تحميل المستندات…','Loading documents…')}</p>:
+   loadState==='unavailable'?<p className="fs-hint">{l('المرفقات غير متاحة في نطاق هذه الدراسة.','Attachments are unavailable in this study’s scope.')}</p>:
+   loadState==='failed'?<div className="fs-actions">
+    <p role="alert">{l('تعذر تحميل المستندات.','Could not load documents.')}</p>
+    <button type="button" className="fs-btn fs-btn--secondary" onClick={()=>setVersion(value=>value+1)}>
+     {l('إعادة المحاولة','Retry')}
+    </button>
+   </div>:<>
+   {!error&&!documents.length&&<p>{l('لا توجد ملفات مرفقة.','No files attached.')}</p>}
    {documents.length>0&&<ul className="fs-royal-checks">{documents.map(item=><li key={item.id}>
     <div><a href={endpoint+'&document='+encodeURIComponent(item.id)} download={item.name}>{item.name}</a>
      <small>{new Intl.NumberFormat(locale,{style:'unit',unit:'kilobyte',maximumFractionDigits:1}).format(item.size/1000)}
       {' · '}{new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeZone:'UTC'}).format(new Date(item.createdAt))}</small>
      {item.requirementId&&<small>{requirements.find(row=>row.id===item.requirementId)?.title ??
       l('لم يعد المتطلب موجودًا في السجل','Requirement no longer in the register')}</small>}</div>
-    {canWrite&&<button type="button" className="fs-btn fs-btn--secondary" disabled={busy||loading}
+    {canWrite&&<button type="button" className="fs-btn fs-btn--secondary" disabled={busy}
      aria-label={l('إزالة المستند','Remove document')+' '+item.name}
      onClick={()=>{
       if(window.confirm(l('إزالة هذا المستند من الدراسة؟','Remove this document from the study?')))void change('DELETE',undefined,item.id);
@@ -88,7 +104,7 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
    </li>)}</ul>}
    {canWrite&&kind==='licensing'&&requirements.length>0&&<label className="fs-field">
     <span>{l('ربط المرفق بمتطلب','Link attachment to requirement')}</span>
-    <select value={requirement} disabled={busy||loading} onChange={event=>setRequirement(event.currentTarget.value)}>
+    <select value={requirement} disabled={busy} onChange={event=>setRequirement(event.currentTarget.value)}>
      <option value="">{l('مرفق عام للدراسة','General study attachment')}</option>
      {requirements.map(row=><option key={row.id} value={row.id}>{row.title}</option>)}
     </select>
@@ -96,7 +112,7 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
    {canWrite&&<div className="fs-actions"><label className="fs-btn fs-btn--secondary fs-upload">
     {l('إرفاق ملف','Attach file')}
     <input type="file" aria-label={l('إرفاق ملف','Attach file')} accept="application/pdf,image/png,image/jpeg"
-     disabled={busy||loading} onChange={event=>{
+     disabled={busy} onChange={event=>{
       const file=event.currentTarget.files?.[0];
       event.currentTarget.value='';
       if(file)void change('POST',file);
