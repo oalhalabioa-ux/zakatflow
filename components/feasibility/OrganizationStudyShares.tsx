@@ -8,8 +8,8 @@ import { proposalReviewHref, proposalStateLabel, type ProposalState } from '@/li
 type Share = { recipient_organization_id: string; source_revision: number; expires_at: string; revoked_at: string | null; access_mode?: 'read' | 'edit' };
 type Proposal = { id: string; state: ProposalState; submitted_at: string; recipient_name: string };
 
-export default function OrganizationStudyShares({ locale, organization, project, revision, saved }: {
-  locale: string; organization: string; project: string; revision: number; saved: boolean;
+export default function OrganizationStudyShares({ locale, organization, project, revision, saved, audit = false }: {
+  locale: string; organization: string; project: string; revision: number; saved: boolean; audit?: boolean;
 }) {
   const ar = locale === 'ar';
   const [mode, setMode] = useState<'disabled' | 'read' | 'edit'>('disabled');
@@ -90,10 +90,10 @@ export default function OrganizationStudyShares({ locale, organization, project,
   }
 
   return <section className="card fs-panel fs-handoff">
-    <h3>{ar ? 'مشاركة الدراسة مع مؤسسة' : 'Share with an organization'}</h3>
+    <h3>{audit ? (ar ? 'صلاحيات المؤسسات وقرارات المراجعة' : 'Organization permissions and review decisions') : (ar ? 'مشاركة الدراسة مع مؤسسة' : 'Share with an organization')}</h3>
     <p>{ar ? 'تُشارك نسخة من الدراسة المحفوظة. للمؤسسة غير المشتركة صلاحية قراءة لمدة تصل إلى 30 يومًا من أول مشاركة.'
       : 'Share a copy of the saved study. Unsubscribed organizations can view it for up to 30 days from the first share.'}</p>
-    <form className="fs-form-grid" onSubmit={event => { event.preventDefault(); void submit('share', recipient.trim()); }}>
+    {!audit && <form className="fs-form-grid" onSubmit={event => { event.preventDefault(); void submit('share', recipient.trim()); }}>
       <label className="fs-field">{ar ? 'معرّف المؤسسة المستلمة' : 'Receiving organization ID'}
         <input dir="ltr" value={recipient} onChange={event => setRecipient(event.target.value)} required /></label>
       <label className="fs-field">{ar ? 'مدة الوصول بالأيام' : 'Access duration in days'}
@@ -105,7 +105,7 @@ export default function OrganizationStudyShares({ locale, organization, project,
         </select>
       </label>}
       <div><button className="fs-btn" disabled={busy || !saved || mode === 'disabled'}>{ar ? 'مشاركة النسخة' : 'Share revision'}</button></div>
-    </form>
+    </form>}
     {mode === 'disabled' && <p>{ar ? 'المشاركة غير متاحة حاليًا.' : 'Sharing is currently unavailable.'}</p>}
     {!saved && <p>{ar ? 'احفظ الدراسة لتتمكن من مشاركة الإصدار الحالي.' : 'Save the study to share its current revision.'}</p>}
     {error && <p role="alert">{error}</p>}

@@ -49,8 +49,9 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     // opening the Feasibility module and switching scopes are the billing
     // integration variable. Company-study *creation* is tested separately
     // because an unexplained POST 403 must not suppress Billing A/B evidence.
+    await page.getByRole('button',{name:'New study',exact:true}).click();
     await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA421 Personal draft');
-    await page.getByLabel('Project starter template').selectOption('BOTTLED_WATER');
+    await page.getByRole('radio',{name:'Bottled-water factory',exact:true}).check();
     await page.getByRole('button',{name:'Add project +',exact:true}).click();
     await page.getByRole('button',{name:/QA421 Personal draft/}).first().waitFor();
     await page.getByRole('button',{name:'Investment',exact:true}).click();
@@ -199,9 +200,10 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const grants=await get.json();
    assert.equal(grants.canWrite,true,'Owner company create entitlement must be active');
    phase(caseName,'owner-read-and-write-entitlement-verified');
+   await page.getByRole('button',{name:'New study',exact:true}).click();
    const name=page.getByRole('textbox',{name:'New project name',exact:true});
    await name.fill('QA421 Corporate create regression');
-   await page.getByLabel('Project starter template').selectOption('BOTTLED_WATER');
+   await page.getByRole('radio',{name:'Bottled-water factory',exact:true}).check();
    const btn=page.getByRole('button',{name:'Add project +',exact:true});
    await btn.waitFor({state:'visible'});
    await page.waitForFunction(()=>{
@@ -324,8 +326,9 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
   try{
    phase(caseName,'personal-mobile-navigation');
    await page.goto(appPage('PERSONAL',target,'ar'));
+   await page.getByRole('button',{name:'إضافة دراسة',exact:true}).click();
    await page.getByRole('textbox',{name:'اسم المشروع الجديد',exact:true}).fill(studyTitle);
-   await page.locator('.fs-create select').last().selectOption('BOTTLED_WATER');
+   await page.getByRole('radio',{name:'مصنع مياه معبأة',exact:true}).check();
    await page.getByRole('button',{name:'إضافة مشروع +',exact:true}).click();
    const personalSaved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&
     r.request().method()==='POST');
@@ -366,7 +369,10 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     if(new URL(page.url()).searchParams.get('scope')==='PERSONAL'){
      await page.goto(appPage('ORGANIZATION',selected));
     }else{
-     await page.getByRole('combobox',{name:'Company',exact:true}).selectOption(selected);
+     await page.getByRole('button',{name:'Choose organization from the main banner'}).click();
+     const picker=page.getByRole('dialog',{name:'Choose organization from the main banner'});
+     await picker.getByRole('radio',{name:selected===target?/Copy destination/:/Copy isolation/}).check();
+     await picker.getByRole('button',{name:'Select organization',exact:true}).click();
     }
     const loaded=await portfolio;
     assert.equal(loaded.status(),200);

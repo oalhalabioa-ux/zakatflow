@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect,useRef,useState} from 'react';
+import {RoyalIcon} from './RoyalIcon';
 
 type Props={
  locale:string;
@@ -75,8 +76,10 @@ export default function CopyToOrganizationDialog({locale,sourceId,sourceTitle,re
   }
  };
 
- return <dialog ref={dialog} className="fs-dialog" aria-labelledby="fs-copy-title" onCancel={e=>{e.preventDefault();if(!busy)onClose()}}>
-  <h2 id="fs-copy-title">{t('نسخ دراسة شخصية إلى المؤسسة','Copy a personal study to the organization')}</h2>
+ return <dialog ref={dialog} className="fs-dialog fs-royal-dialog" aria-labelledby="fs-copy-title" onCancel={e=>{e.preventDefault();if(!busy)onClose()}}>
+  <div className="fs-royal-heading"><h2 id="fs-copy-title"><RoyalIcon name="file"/>{t('نسخ دراسة شخصية إلى المؤسسة','Copy a personal study to the organization')}</h2>
+   <button type="button" className="fs-royal-close" disabled={busy} onClick={onClose} aria-label={t('إغلاق النافذة','Close dialog')}>×</button>
+  </div>
   <dl>
    <div><dt>{t('الدراسة الشخصية','Personal study')}</dt><dd>{sourceTitle}</dd></div>
    <div><dt>{t('المؤسسة المحددة في البانر','Organization selected in the main banner')}</dt>

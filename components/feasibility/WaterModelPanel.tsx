@@ -1,6 +1,7 @@
 'use client';
 import {useMemo,type ReactNode} from 'react';
 import {evaluateWater,type WaterModel} from '@/lib/feasibility/water-model';
+import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 
 type Labels=readonly [string,string];
@@ -78,9 +79,10 @@ function Table({headers,rows}:{headers:ReactNode[];rows:ReactNode[][]}){
  </table></div>;
 }
 
-export default function WaterModelPanel({water,locale,currency,tab,onChange,allowExport=true}:{
+export default function WaterModelPanel({water,locale,currency,tab,detail,onChange,allowExport=true}:{
  water:WaterModel;locale:string;currency:string;
- tab:'overview'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'report';
+ tab:'overview'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'report';
+ detail?:'water'|'valuation'|'scenario'|'evidence'|'permissions';
  onChange:(water:WaterModel)=>void;allowExport?:boolean;
 }){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
@@ -156,17 +158,23 @@ export default function WaterModelPanel({water,locale,currency,tab,onChange,allo
   overview:['مؤشرات مصنع المياه','Bottled-water diagnostics'],investment:['التكلفة التأسيسية','Establishment costs'],
   partners:['الشراكة وتمويل مصنع المياه','Water factory partnership and funding'],operations:['الإنتاج والمبيعات ومصدر المياه','Production, sales and water source'],
   scenarios:['السيناريوهات والحساسية','Scenarios and sensitivity'],cashflow:['التوقعات وخدمة قرض المساهم','Forecast and shareholder debt service'],
+  advanced:['الإهلاك ورأس المال العامل وخدمة الدين','Depreciation, working capital and debt service'],
+  sector:['التحليل القطاعي لمصنع المياه','Water factory sector analysis'],
   report:['التكاليف والتمويل والتوقعات','Costs, funding and projections']
  };
  return <section className="card fs-panel">
-  <h3>{l(...headings[tab])}</h3>
+  <h3>{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>
   {(tab==='overview'||tab==='report')&&<>{valuation}{partnership}{diagnostics.length>0&&
    <ul className="fs-notes">{diagnostics.map(item=><li key={String(item)}>{item}</li>)}</ul>}</>}
+  {tab==='overview'&&m.ready&&<RoyalCashTrend title={l('التدفق النقدي التراكمي','Cumulative cash flow')}
+   locale={locale} unit={currency} flows={m.flows}/>}
   {tab==='investment'&&<>
    {fields('capex',capexFields)}
    {metrics([[['الأعمال والمعدات','Works and equipment'],money(m.hard)],
     [['الاحتياطي','Contingency'],money(m.contingency)],[['التأسيس مع الرسوم','Investment including fees'],money(m.investment)],
     [['التمويل النقدي المطلوب','Required initial cash'],money(m.cashRequired)]])}
+   <RoyalBars title={l('توزيع تكاليف الاستثمار','Investment cost distribution')} locale={locale} unit={currency}
+    data={capexFields.filter(([key])=>key!=='contingencyPct').map(([key,ar,en])=>({label:l(ar,en),value:Number(water.capex[key])})).filter(point=>point.value>0)}/>
   </>}
   {tab==='partners'&&<>
    <div className="fs-form-grid">
@@ -180,12 +188,31 @@ export default function WaterModelPanel({water,locale,currency,tab,onChange,allo
      <option value="loan">{l('قرض مساهم','Shareholder loan')}</option><option value="equity">{l('زيادة رأس المال','Equity injection')}</option>
     </select></label>
    </div>
-   {fields('deal',dealFields)}{partnership}
+   {fields('deal',detail==='valuation'?dealFields.slice(0,5):dealFields)}{detail!=='valuation'&&partnership}
+   <RoyalOwnership title={l('حصص الملكية الاقتصادية','Economic ownership')} locale={locale} data={[
+    {label:l('الممول','Investor'),value:m.investorShare??0},
+    {label:l('صاحب الأرض','Land partner'),value:m.partnerShare??0},
+   ]}/>
+   {detail==='valuation'&&<Table headers={[l('العنصر','Item'),l('القيمة المقدرة','Estimated value'),l('المعاملة في النموذج','Model treatment')]}
+    rows={[
+     [l('الأرض','Land'),money(water.deal.landValue),water.deal.landMode==='transfer'?l('حصة عينية','In-kind equity'):l('لا تدخل في الملكية','Excluded from equity')],
+     [l('حق الانتفاع','Right of use'),money(water.deal.rightValue),water.deal.landMode==='right'?l('حصة عينية','In-kind equity'):l('لا يدخل في الملكية','Excluded from equity')],
+     [l('الترخيص','Licence'),money(water.deal.licenseValue),l('للمراجعة','For review')],
+    ]}/> }
    <p>{l('تقييم المتر المربع','Valuation per square metre')} <b>{money(water.deal.landArea>0?water.deal.landValue/water.deal.landArea:null)}</b></p>
    <p className="fs-hint">{l('الملكية اقتصادية تقديرية. اعتماد نقل الأرض أو حق الانتفاع يتطلب تقييمًا مستقلًا ومستندات. التمويل الإضافي يُعرض كرأس مال أو قرض دون تغيير تكلفة المشروع المرجعية.','Ownership is indicative. Title transfer or right-of-use recognition requires independent valuation and supporting documents. Extra financing changes equity or debt while leaving reference project cost unchanged.')}</p>
   </>}
-  {tab==='operations'&&<>
-   {fields('ops',operationFields)}
+  {(tab==='operations'||tab==='sector')&&<>
+   {detail==='water'||tab==='sector'
+    ? <div className="fs-columns"><section className="card fs-panel">
+       <h4>{l('الطاقة والتعبئة ومصدر المياه','Capacity, bottling and water source')}</h4>
+       {fields('ops',operationFields.slice(0,7))}
+      </section><section className="card fs-panel">
+       <h4>{l('سعر البيع والتكاليف','Selling price and costs')}</h4>
+       {fields('ops',operationFields.slice(7,13))}
+       <p>{l('الطلب اليومي من المياه','Daily water demand')} · {fmt(m.waterDemand)} {l('م³','m³')}</p>
+      </section></div>
+    : fields('ops',operationFields)}
    <Table headers={[l('السنة','Year'),l('الاستغلال %','Utilization %'),l('الكراتين','Cartons'),l('المبيعات','Sales'),l('هامش المساهمة','Contribution margin'),'EBITDA']}
     rows={m.annual.map((y,i)=>[y.year,<NumberInput key={i} label={l('استغلال السنة ','Utilization in year ')+y.year}
      value={y.utilization} max={100} onChange={value=>{
@@ -196,26 +223,47 @@ export default function WaterModelPanel({water,locale,currency,tab,onChange,allo
     [['الطاقة الشهرية بالكراتين','Monthly carton capacity'],fmt(m.capacity/12)],
     [['طلب المياه م³ في اليوم','Water demand m³/day'],fmt(m.waterDemand)],
     [['التعادل الشهري بالكراتين','Monthly break-even cartons'],fmt(m.breakEven===null?null:m.breakEven/12)]])}
+   {m.ready&&<RoyalBars title={l('الكراتين المباعة حسب السنة','Cartons sold by year')} locale={locale}
+    data={m.annual.map(y=>({label:fmt(y.year),value:y.volume}))}/>}
   </>}
   {tab==='scenarios'&&<>
+   {detail==='scenario'&&<div className="fs-royal-scenario-cards">{water.scenarios.map((scenario,index)=>{
+    const name=locale==='ar'?({Conservative:'متحفظ',Base:'أساسي',Optimistic:'متفائل'}[scenario.name]??scenario.name):scenario.name;
+    return <section className="card fs-panel" key={index}><h4>{name}</h4>
+     {([['volume','الحجم','Volume'],['price','السعر','Price'],['cost','التكلفة','Cost']] as const).map(([key,ar,en])=>
+      <NumberInput key={key} label={l(ar,en)+' % · '+name} max={1000} value={scenario[key]}
+       onChange={value=>onChange({...water,scenarios:water.scenarios.map((s,ix)=>ix===index?{...s,[key]:value}:s)})}/>)}
+    </section>;
+   })}</div>}
    <Table headers={[l('السيناريو','Scenario'),l('الحجم %','Volume %'),l('السعر %','Price %'),l('التكلفة %','Cost %'),
     l('مبيعات سنة 1','Year 1 sales'),'EBITDA · 1','NPV','IRR']}
     rows={water.scenarios.map((scenario,i)=>{
      const result=evaluateWater(water,scenario);
      const names=new Map([['Conservative','متحفظ'],['Base','أساسي'],['Optimistic','متفائل']]);
      return [locale==='ar'?(names.get(scenario.name)??scenario.name):scenario.name,
-      ...([['volume','الحجم','Volume'],['price','السعر','Price'],['cost','التكلفة','Cost']] as const).map(([key,ar,en])=>
+      ...(detail==='scenario'?[percentage(scenario.volume),percentage(scenario.price),percentage(scenario.cost)]:([['volume','الحجم','Volume'],['price','السعر','Price'],['cost','التكلفة','Cost']] as const).map(([key,ar,en])=>
        <NumberInput key={key} label={l(ar,en)+' · '+scenario.name} max={1000} value={scenario[key]}
-        onChange={value=>onChange({...water,scenarios:water.scenarios.map((s,ix)=>ix===i?{...s,[key]:value}:s)})}/>),
+        onChange={value=>onChange({...water,scenarios:water.scenarios.map((s,ix)=>ix===i?{...s,[key]:value}:s)})}/>)),
       money(result.annual[0].revenue),money(result.annual[0].ebitda),money(result.ready?result.npv:null),percentage(result.ready?result.irr:null)];
     })}/>
+   {m.ready&&<RoyalBars title={l('صافي القيمة الحالية حسب السيناريو','Net present value by scenario')} locale={locale} unit={currency}
+    data={water.scenarios.map((s,index)=>({label:locale==='ar'?(['متحفظ','أساسي','متفائل'][index]??s.name):s.name,value:evaluateWater(water,s).npv}))}/>}
    <h4>{l('حساسية NPV لتغيّر حجم المبيعات والسعر','NPV sensitivity to sales volume and price')}</h4>
    <Table headers={[l('الحجم / السعر','Volume / price'),...sensitivityPrices.map(percentage)]}
     rows={sensitivityVolume.map(volume=>[percentage(volume),...sensitivityPrices.map(price=>money(m.ready?
       evaluateWater(water,{volume,price,cost:100}).npv:null))])}/>
   </>}
+  {tab==='advanced'&&<>
+   {fields('ops',operationFields.slice(13))}
+   {valuation}
+   <Table headers={[l('السنة','Year'),l('الإهلاك','Depreciation'),l('تغير رأس المال العامل','Working capital movement'),
+    l('خدمة القرض','Debt service'),'DSCR',l('التدفق بعد القرض','Cash flow after debt')]}
+    rows={m.annual.map(y=>[y.year,money(y.depreciation),money(y.workingCapitalMovement),money(y.debtService),fmt(y.dscr),money(y.afterDebt)])}/>
+  </>}
   {(tab==='cashflow'||tab==='report')&&<>
    {tab==='cashflow'&&valuation}
+   {tab==='cashflow'&&m.ready&&<RoyalCashTrend title={l('التدفق النقدي التراكمي','Cumulative cash flow')}
+    locale={locale} unit={currency} flows={m.flows}/>}
    {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button" onClick={exportForecast}>
     {l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}{forecast}
   </>}

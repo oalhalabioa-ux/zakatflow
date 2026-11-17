@@ -52,6 +52,7 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     const source = await pageFor(owner);
     const title = 'Synthetic QA permissions study';
     await source.goto(appUrl + '/en/feasibility?' + new URLSearchParams({ scope: 'ORGANIZATION', organization: sourceOrg }));
+    await source.getByRole('button',{name:'New study',exact:true}).click();
     await source.getByRole('textbox', { name: 'New project name', exact: true }).fill(title);
     await source.getByRole('button', { name: 'Add project +', exact: true }).click();
     await source.getByRole('heading', { name: title, exact: true }).waitFor();

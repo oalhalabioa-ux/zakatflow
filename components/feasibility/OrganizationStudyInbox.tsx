@@ -85,7 +85,7 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
   const base = '/' + locale + '/feasibility/shared';
   return <main className="container fs-page" dir={ar ? 'rtl' : 'ltr'}>
     <TopbarOrganizationControls>
-      <WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={organization} restore={false}
+      <WorkspaceOrganizationPicker royalDialog ar={ar} organizations={organizations} value={organization} restore={false}
         onChange={id=>router.replace(base+'?'+new URLSearchParams({organization:id}),{scroll:false})}/>
     </TopbarOrganizationControls>
     <header className="fs-head"><h1>{ar ? 'الدراسات المشتركة مع المؤسسة' : 'Studies shared with the organization'}</h1></header>

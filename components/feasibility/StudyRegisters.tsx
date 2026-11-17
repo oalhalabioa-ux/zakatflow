@@ -4,6 +4,7 @@ import {
  waterFactoryLegalItems,type FeasibilityStudy,type StudyTask,type LegalItem,type StudyRisk,type StudySupplier,type StudyDecision
 } from '@/lib/feasibility/engine';
 import SupplierComparisonPanel from './SupplierComparisonPanel';
+import {RoyalIcon} from './RoyalIcon';
 
 type Labels=readonly [string,string];
 const taskStatuses={TODO:['لم يبدأ','To do'],IN_PROGRESS:['جارٍ','In progress'],BLOCKED:['معلق','Blocked'],DONE:['مكتمل','Done']} as const;
@@ -42,8 +43,8 @@ function Choice<T extends string>({label,value,options,locale,onChange}:{
  </select></label>;
 }
 
-export default function StudyRegisters({study,tab,locale,onChange}:{
- study:FeasibilityStudy;tab:'legal'|'tasks'|'risks'|'suppliers'|'decisions';locale:string;onChange:(patch:Partial<FeasibilityStudy>)=>void
+export default function StudyRegisters({study,tab,locale,onChange,evidence=false}:{
+ study:FeasibilityStudy;tab:'legal'|'tasks'|'risks'|'suppliers'|'decisions';evidence?:boolean;locale:string;onChange:(patch:Partial<FeasibilityStudy>)=>void
 }){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
  const [query,setQuery]=useState('');
@@ -60,13 +61,19 @@ export default function StudyRegisters({study,tab,locale,onChange}:{
  const search=<TextField label={l('بحث','Search')} value={query} onChange={setQuery}/>;
  const add=(label:string,save:()=>void,limit:boolean)=>
   <button type="button" className="fs-btn fs-btn--secondary" onClick={save} disabled={limit}>{label}</button>;
- const row=(rowId:string,fields:ReactNode,remove:()=>void)=>
-  <div className="fs-register-row" key={rowId}>
+ const row=(rowId:string,label:string,fields:ReactNode,remove:()=>void)=>
+  <details className="fs-register-row" key={rowId}>
+   <summary>{label||l('سجل بلا عنوان','Untitled record')}</summary>
    <div className="fs-form-grid">{fields}</div>
    <button type="button" className="fs-btn fs-btn--secondary" onClick={()=>{
     if(window.confirm(l('حذف هذا السجل؟','Delete this record?')))remove();
    }}>{l('حذف','Delete')}</button>
-  </div>;
+  </details>;
+ const comparison=(headers:string[],rows:{id:string;cells:ReactNode[]}[])=>rows.length>0&&
+  <div className="fs-table-wrap"><table className="fs-table"><thead><tr>{headers.map(header=><th key={header} scope="col">{header}</th>)}</tr></thead>
+   <tbody>{rows.map(({id,cells})=><tr key={id}>{cells.map((cell,index)=>index===0?<th scope="row" key={index}>{cell}</th>:<td key={index}>{cell}</td>)}</tr>)}</tbody>
+  </table></div>;
+ const display=(label?:string)=>label||'—';
 
  if(tab==='legal'){
   const items=study.legal.filter(x=>!group||x.group===group);
@@ -74,13 +81,19 @@ export default function StudyRegisters({study,tab,locale,onChange}:{
   const completed=study.legal.filter(x=>x.critical&&x.status==='VERIFIED').length;
   const count=study.legal.filter(x=>x.critical).length;
   return <section className="card fs-panel">
-   <h3>{l('الفحص القانوني والتراخيص','Legal and licensing checklist')}</h3>
+   <h3>{evidence?l('أدلة التراخيص والمستندات','Licensing evidence and documents'):l('الفحص القانوني والتراخيص','Legal and licensing checklist')}</h3>
    <p>{l('تحقق من المستندات والمتطلبات السارية في موقع المشروع مع مختص محلي.','Verify documents and current requirements at the project location with a local specialist.')}</p>
+   <div className="fs-kpis">{(Object.keys(legalStatuses) as Array<keyof typeof legalStatuses>).map(key=>
+    <div className="fs-metric" key={key}><small>{legalStatuses[key][locale==='ar'?0:1]}</small>
+     <strong>{study.legal.filter(item=>item.status===key).length}</strong></div>)}</div>
    {count>0&&<p>{l('البنود الحاسمة المتحقق منها','Critical checks verified')} · {completed}/{count}</p>}
+   {comparison([l('المتطلب','Requirement'),l('الملف','Group'),status,owner,due,l('مرجع المستند','Evidence reference')],items.map(item=>({
+    id:item.id,cells:[item.title,display(item.group),legalStatuses[item.status][locale==='ar'?0:1],display(item.owner),display(item.due),display(item.notes)]
+   })))}
    {groupField(l('الملف','Group'),study.legal.map(x=>x.group))}
    {items.map(x=>{
     const set=(patch:Partial<LegalItem>)=>onChange({legal:study.legal.map(item=>item.id===x.id?{...item,...patch}:item)});
-    return row(x.id,<>
+    return row(x.id,x.title,<>
      <TextField label={l('المتطلب','Requirement')} value={x.title} maxLength={500} onChange={title=>set({title})}/>
      <TextField label={l('الملف','Group')} value={x.group} onChange={group=>set({group})}/>
      <Choice label={status} value={x.status} options={legalStatuses} locale={locale} onChange={status=>set({status})}/>
@@ -111,9 +124,13 @@ export default function StudyRegisters({study,tab,locale,onChange}:{
     <Choice label={status} locale={locale} value={taskStatus as ''|StudyTask['status']} options={{'':['الكل','All'],...taskStatuses}} onChange={setTaskStatus}/>
    </div>
    <p>{items.length} / {study.tasks.length}</p>
-   {items.map(x=>{
+   <div className="fs-royal-task-board" aria-label={l('لوحة المهام حسب الحالة','Task board by status')}>
+   {(Object.keys(taskStatuses) as StudyTask['status'][]).map(key=>{
+    const stage=items.filter(item=>item.status===key);
+    return <section className="fs-royal-task-stage" key={key}><h4>{taskStatuses[key][locale==='ar'?0:1]} <b>{stage.length}</b></h4>
+   {stage.map(x=>{
     const set=(patch:Partial<StudyTask>)=>onChange({tasks:study.tasks.map(item=>item.id===x.id?{...item,...patch}:item)});
-    return row(x.id,<>
+    return row(x.id,x.title,<>
      <TextField label={l('عنوان المهمة','Task title')} value={x.title} maxLength={400} onChange={title=>set({title})}/>
      <TextField label={l('المجال','Phase')} value={x.phase} onChange={phase=>set({phase})}/>
      <Choice label={l('الأولوية','Priority')} value={x.priority} options={priorities} locale={locale} onChange={priority=>set({priority})}/>
@@ -123,6 +140,9 @@ export default function StudyRegisters({study,tab,locale,onChange}:{
      <TextField label={l('الملاحظات','Notes')} value={x.notes} onChange={notes=>set({notes})}/>
     </>,()=>onChange({tasks:study.tasks.filter(item=>item.id!==x.id)}));
    })}
+    </section>;
+   })}
+   </div>
    {add(l('إضافة مهمة','Add task'),()=>{setQuery('');setGroup('');setTaskStatus('');onChange({tasks:[...study.tasks,{
     id:id(),title:l('مهمة جديدة','New task'),owner:'',due:'',status:'TODO',priority:'NORMAL'
    }]});},study.tasks.length>=500)}
@@ -132,9 +152,38 @@ export default function StudyRegisters({study,tab,locale,onChange}:{
   const items=study.risks.filter(x=>filter([x.title,x.owner,x.category,x.response])).sort((a,b)=>b.impact*b.likelihood-a.impact*a.likelihood);
   return <section className="card fs-panel">
    <h3>{l('سجل المخاطر','Risk register')}</h3>{search}
+   <div className="fs-columns">
+   <figure className="fs-royal-risk">
+    <figcaption><RoyalIcon name="shield"/>{l('مصفوفة المخاطر (5×5)','Risk matrix (5×5)')}</figcaption>
+    <table className="fs-royal-risk-table">
+     <caption>{l('درجة الخطورة حسب الاحتمال والأثر','Risk score by likelihood and impact')}</caption>
+     <thead><tr><th scope="col">{l('الأثر / الاحتمال','Impact / likelihood')}</th>
+      {[1,2,3,4,5].map(value=><th scope="col" key={value}>{value}</th>)}</tr></thead>
+     <tbody>{[5,4,3,2,1].map(impact=><tr key={impact}><th scope="row">{impact}</th>
+      {[1,2,3,4,5].map(likelihood=>{
+       const selected=items.filter(item=>item.status!=='MITIGATED'&&item.impact===impact&&item.likelihood===likelihood);
+       const score=impact*likelihood;
+       return <td key={likelihood} data-level={score>16?'critical':score>11?'high':score>5?'medium':'low'}
+        title={selected.map(item=>item.title).join(' · ')||undefined}><b>{score}</b>{selected.length>0&&<small> · {selected.length}</small>}</td>;
+      })}</tr>)}</tbody>
+    </table>
+   </figure>
+   <section className="card fs-panel">
+    <h4>{l('مؤشرات المخاطر المفتوحة','Open risk indicators')}</h4>
+    {([
+     [l('عالية جدًا','Critical'),17,25],[l('عالية','High'),12,16],
+     [l('متوسطة','Medium'),6,11],[l('منخفضة','Low'),1,5]
+    ] as const).map(([label,min,max])=><div className="fs-row" key={label}>
+     <span>{label}</span><strong>{items.filter(item=>item.status!=='MITIGATED'&&item.impact*item.likelihood>=min&&item.impact*item.likelihood<=max).length}</strong>
+    </div>)}
+   </section>
+   </div>
+   {comparison([l('الخطر','Risk'),l('الاحتمال','Likelihood'),l('الأثر','Impact'),l('الدرجة','Score'),l('إجراء المعالجة','Mitigation')],items.map(item=>({
+    id:item.id,cells:[item.title,item.likelihood,item.impact,item.likelihood*item.impact,display(item.response)]
+   })))}
    {items.map(x=>{
     const set=(patch:Partial<StudyRisk>)=>onChange({risks:study.risks.map(item=>item.id===x.id?{...item,...patch}:item)});
-    return row(x.id,<>
+    return row(x.id,x.title,<>
      <TextField label={l('الخطر','Risk')} value={x.title} maxLength={500} onChange={title=>set({title})}/>
      <TextField label={l('المجال','Category')} value={x.category} onChange={category=>set({category})}/>
      <NumberField label={l('الاحتمال','Likelihood')} value={x.likelihood} min={1} max={5} onChange={likelihood=>set({likelihood})}/>
@@ -152,9 +201,12 @@ export default function StudyRegisters({study,tab,locale,onChange}:{
  }
  if(tab==='suppliers')return <section className="card fs-panel">
   <h3>{l('عروض الموردين والمقاولين','Supplier and contractor offers')}</h3>
+  {comparison([l('المورد','Vendor'),l('البند','Item'),l('القيمة','Quote value'),l('أيام التسليم','Delivery days'),l('الضمان','Warranty'),status],
+   study.suppliers.map(item=>({id:item.id,cells:[display(item.vendor),display(item.item),item.offer+' '+study.currency,
+    item.leadDays??'—',display(item.warranty),quoteStatuses[item.status??'NEW'][locale==='ar'?0:1]]})))}
   {study.suppliers.map(x=>{
    const set=(patch:Partial<StudySupplier>)=>onChange({suppliers:study.suppliers.map(item=>item.id===x.id?{...item,...patch}:item)});
-   return row(x.id,<>
+   return row(x.id,[x.vendor,x.item].filter(Boolean).join(' · '),<>
     <TextField label={l('المورد','Vendor')} value={x.vendor} maxLength={300} onChange={vendor=>set({vendor})}/>
     <TextField label={l('البند','Item')} value={x.item} maxLength={500} onChange={item=>set({item})}/>
     <NumberField label={l('القيمة','Quote value')} value={x.offer} onChange={offer=>set({offer})}/>
@@ -170,9 +222,12 @@ export default function StudyRegisters({study,tab,locale,onChange}:{
  </section>;
  return <section className="card fs-panel">
   <h3>{l('سجل القرارات ومحاضر الاجتماعات','Decision and meeting log')}</h3>
+  {comparison([l('القرار','Decision'),l('التاريخ','Date'),owner,status,l('التفاصيل','Details')],study.decisions.map(item=>({
+   id:item.id,cells:[item.title,display(item.date),display(item.owner),decisionStatuses[item.status??'OPEN'][locale==='ar'?0:1],display(item.notes)]
+  })))}
   {study.decisions.map(x=>{
    const set=(patch:Partial<StudyDecision>)=>onChange({decisions:study.decisions.map(item=>item.id===x.id?{...item,...patch}:item)});
-   return row(x.id,<>
+   return row(x.id,x.title,<>
     <TextField label={l('القرار','Decision')} value={x.title} maxLength={500} onChange={title=>set({title})}/>
     <TextField label={l('التاريخ','Date')} type="date" value={x.date} onChange={date=>set({date})}/>
     <TextField label={l('التفاصيل','Details')} type="textarea" value={x.notes} onChange={notes=>set({notes})}/>

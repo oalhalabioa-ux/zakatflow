@@ -1,11 +1,13 @@
 'use client';
-import {useCallback,useEffect,useState,type FormEvent} from 'react';
+import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
+import {RoyalIcon} from './RoyalIcon';
 type Invitation={id:string;invitee_email:string;role:'VIEWER'|'REVIEWER';expires_at:string;accepted_at:string|null;revoked_at:string|null};
 type Member={user_id:string;role:string;status:string};
-export default function CollaborationPanel({locale,projectId,enabled,isOwner,canWrite}:{
- locale:string;projectId:string;enabled:boolean;isOwner:boolean;canWrite:boolean;
+export default function CollaborationPanel({locale,projectId,enabled,isOwner,canWrite,audit=false}:{
+ locale:string;projectId:string;enabled:boolean;isOwner:boolean;canWrite:boolean;audit?:boolean;
 }){
  const ar=locale==='ar',t=(a:string,b:string)=>ar?a:b;
+ const invitationDialog=useRef<HTMLDialogElement>(null);
  const [email,setEmail]=useState('');
  const [role,setRole]=useState<'VIEWER'|'REVIEWER'>('VIEWER');
  const emailDeliveryAvailable=process.env.NEXT_PUBLIC_FEASIBILITY_EMAIL_INVITES_QA==='true';
@@ -79,19 +81,27 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
     setCode(data.code);setExpiry(data.expires_at);
     setNotice(t('أنشئت الدعوة. انسخ الرمز وأرسله للشخص المحدد بشكل آمن؛ لن يُعرض مرة أخرى.','Invitation created. Copy the code and share it privately with the intended recipient; it will not be shown again.'));
    }
-   setEmail('');await load();
+   setEmail('');invitationDialog.current?.close();await load();
   }catch{setError(t('تعذر إنشاء الدعوة. تأكد من ملكيتك للمشروع وصلاحية الاشتراك.','Unable to create invitation. Check project ownership and subscription access.'))}
   finally{setBusy(false)}
  }
  return <section className="card fs-panel fs-collaboration">
-  <h3>{t('المشاركون في دراسة المشروع','Project study collaborators')}</h3>
+  <h3>{audit?t('الصلاحيات وحالات الدعوات','Permissions and invitation status'):t('المشاركون في دراسة المشروع','Project study collaborators')}</h3>
   <p className="fs-hint">{emailDeliveryAvailable?
    t('دعوات تجريبية مرتبطة ببريد مؤكد، مع خيار الإرسال المباشر عند تفعيل مزود البريد على الخادم.','QA invitations require verified recipient emails; direct delivery also requires an enabled server mail provider.'):
    t('دعوات تجريبية برموز يرسلها المالك يدويًا. صلاحية الإضافة والتعديل والإرسال بالبريد غير مفعّلة بعد.','QA invitations currently use manually delivered one-time codes. Contributor/editor and automatic email delivery remain disabled.')}</p>
   {!enabled?<p>{t('مشاركة المشاريع غير مفعلة في هذه المعاينة.','Project sharing is disabled in this preview.')}</p>:
    !isOwner?<p>{t('يمكن لمالك المشروع فقط إنشاء الدعوات وإدارتها.','Only the project owner can issue and manage invitations.')}</p>:
    <>
-    <form onSubmit={invite} className="fs-collaboration-grid">
+    <div className="fs-actions"><button type="button" className="fs-btn" disabled={!canWrite||busy}
+     onClick={()=>{setError('');invitationDialog.current?.showModal()}}><RoyalIcon name="plus"/>{t('دعوة مشارك','Invite participant')}</button></div>
+    <dialog ref={invitationDialog} className="fs-dialog fs-royal-dialog" aria-labelledby="fs-invite-title"
+     onCancel={event=>{if(busy)event.preventDefault()}}>
+     <div className="fs-royal-heading"><h2 id="fs-invite-title"><RoyalIcon name="users"/>{t('دعوة مشارك إلى الدراسة','Invite a study participant')}</h2>
+      <button type="button" className="fs-royal-close" disabled={busy} onClick={()=>invitationDialog.current?.close()}
+       aria-label={t('إغلاق','Close')}>×</button></div>
+     <form onSubmit={invite}>
+      <div className="fs-form-grid">
      <label className="fs-field"><span>{t('البريد الإلكتروني للمشارك','Participant email')}</span><input type="email" required value={email} onChange={e=>setEmail(e.currentTarget.value)} maxLength={254} disabled={!canWrite||busy}/></label>
      <label className="fs-field"><span>{t('الصلاحية','Role')}</span><select value={role} onChange={e=>setRole(e.currentTarget.value as 'VIEWER'|'REVIEWER')} disabled={!canWrite||busy}>
       <option value="VIEWER">{t('مشاهد','Viewer')}</option><option value="REVIEWER">{t('مراجع','Reviewer')}</option>
@@ -103,8 +113,15 @@ export default function CollaborationPanel({locale,projectId,enabled,isOwner,can
        <option value="EMAIL">{t('دعوة بالبريد الإلكتروني','Send via email')}</option>
       </select>
      </label>}
-     <button className="fs-btn" type="submit" disabled={!canWrite||busy}>{busy?t('جارٍ الإنشاء…','Creating…'):t('إنشاء دعوة','Create invitation')}</button>
-    </form>
+      </div>
+      {error&&<p role="alert">{error}</p>}
+      <div className="fs-actions">
+       <button className="fs-btn" type="submit" disabled={!canWrite||busy}>{busy?t('جارٍ الإنشاء…','Creating…'):t('إنشاء دعوة','Create invitation')}</button>
+       <button className="fs-btn fs-btn--secondary" type="button" disabled={busy}
+        onClick={()=>invitationDialog.current?.close()}>{t('إلغاء','Cancel')}</button>
+      </div>
+     </form>
+    </dialog>
     {code&&<div className="fs-collaboration">
      <strong>{t('رمز الدعوة لمرة واحدة','One-time invitation code')}</strong>
      <code dir="ltr">{code}</code>
