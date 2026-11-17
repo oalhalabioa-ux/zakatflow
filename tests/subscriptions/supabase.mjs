@@ -827,6 +827,59 @@ try {
   assert.ok(signupTrigger, 'Production signup trigger definition must be present');
   sql(signupTrigger[0]);
   await check('mailbox invitation activation, existing password, replay and login',()=>verifyInvitationFlow({browser,appUrl,url,status,owner,existing:clients[1],cookieHeader,headers,sql}));
+  await check('authenticated Chromium persists platform sharing settings and enforces the recipient editor', async () => {
+    const makeOrg = async (account, name) => {
+      const response = await fetch(url + '/rest/v1/organizations', {
+        method: 'POST', headers: { ...headers(account), Prefer: 'return=representation' },
+        body: JSON.stringify({ name, owner_user_id: account.id }),
+      });
+      assert.equal(response.status, 201, await response.clone().text());
+      return (await response.json())[0].id;
+    };
+    const recipient = clients[7];
+    const sourceOrg = await makeOrg(owner, 'Sharing browser source');
+    const recipientOrg = await makeOrg(recipient, 'Sharing browser recipient');
+    sql(`update public.platform_subscriptions set status='active',converted_at=now(),
+      current_period_end=now()+interval '30 days',entitlements='["module:feasibility"]'
+      where organization_id in ('${sourceOrg}','${recipientOrg}');`);
+    const strip = value => value.replace(/^begin;\s*/i, '').replace(/commit;\s*$/i, '');
+    const migrationFiles = [
+      'docs/feasibility/qa-v2-sharing-compatibility.sql',
+      'supabase/migrations/20261116194423_feasibility_organization_sharing.sql',
+      'docs/feasibility/qa-v2-sharing-compatibility-workspace.sql',
+      'supabase/migrations/20261117024046_feasibility_sharing_permissions.sql',
+    ];
+    sql('begin;\n' + (await Promise.all(migrationFiles.map(load))).map(strip).join('\n') + '\ncommit;');
+    const sharingAppUrl = 'http://localhost:3002';
+    const sharingServer = spawn('node', ['node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', '3002'], {
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        NEXT_PUBLIC_SUPABASE_URL: url,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: status.ANON_KEY,
+        NEXT_PUBLIC_APP_URL: sharingAppUrl,
+        NEXT_PUBLIC_APP_ENV: 'test',
+        NEXT_PUBLIC_FEASIBILITY_STUDIES: 'true',
+        NEXT_PUBLIC_FEASIBILITY_CLOUD_QA: 'true',
+        FEASIBILITY_ORG_QA: 'true',
+        FEASIBILITY_ORG_SHARING: 'true',
+      },
+    });
+    try {
+      let ready = false;
+      for (let i = 0; i < 80 && !ready; i++) {
+        try { ready = (await fetch(sharingAppUrl + '/en/login', { signal: AbortSignal.timeout(1000) })).ok; } catch {}
+        if (!ready) await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      assert.ok(ready, 'Sharing browser server must start');
+      const { verifyFeasibilitySharingBrowser } = await import('./feasibility-sharing-browser.mjs');
+      await verifyFeasibilitySharingBrowser({
+        browser, appUrl: sharingAppUrl, url, anonKey: status.ANON_KEY, owner, recipient, sourceOrg, recipientOrg,
+      });
+    } finally {
+      sharingServer.kill('SIGTERM');
+    }
+  });
   report.passed = report.checks.length;
 } finally {
   if (browser) await browser.close();
