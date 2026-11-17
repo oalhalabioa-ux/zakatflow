@@ -1,13 +1,14 @@
 'use client';
 import {useState,type ReactNode} from 'react';
 import {evaluateRawLand,rawLandCostKeys,type RawLand} from '@/lib/feasibility/raw-land';
+import {calculateLandDistribution} from '@/lib/feasibility/raw-land-distributions';
 import {downloadFeasibilityCsv,downloadFeasibilityXlsx} from '@/lib/feasibility/report-export';
 import {RoyalIcon} from './RoyalIcon';
 
 type Label=readonly [string,string];
 type Numeric<T>={[K in keyof T]-?:T[K] extends number?K:never}[keyof T];
 type Field<T>=readonly [Numeric<T>,Label,('pct'|'whole')?,number?,number?];
-type LandTab='overview'|'sector'|'operations'|'investment'|'advanced'|'scenarios'|'partners'|'cashflow'|'report';
+type LandTab='overview'|'sector'|'operations'|'investment'|'advanced'|'scenarios'|'partners'|'cashflow'|'report'|'distribution-report';
 
 const costLabels:Record<(typeof rawLandCostKeys)[number],Label>={
  development:['التطوير','Development'],studies:['الدراسات','Studies'],developerFee:['أتعاب المطور','Developer fee'],
@@ -54,7 +55,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   <thead><tr>{headers.map(header=><th scope="col" key={header[1]}>{l(header)}</th>)}</tr></thead>
   <tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}><bdi>{cell}</bdi></td>)}</tr>)}</tbody>
  </table></div>;
- const {project,site,cost,finance,waterfall,sales,phasing,legacyReference}=model;
+ const {project,site,cost,finance,waterfall,sales,phasing,legacyReference,distribution}=model;
  const results=sales.scenarios.map((_,i)=>evaluateRawLand(model,i));
  const base=results[2]??results[0];
  const warnings={
@@ -207,6 +208,39 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    scenarios:[...sales.scenarios,{name:'',priceMultiplier:1,costMultiplier:1,annualGrowth:0,initialPricePremium:0,salesDelayYears:0}]
   })}>{l(['إضافة سيناريو','Add scenario'])}</button>
  </>);
+ const settlement=distribution&&!base.issue&&base.ready
+  ?calculateLandDistribution(distribution,site.landPaymentMethod==='in_kind'?base.land:0,base.annual)
+  :null;
+ const settlementView=()=>{
+  if(!distribution?.partners.length)return null;
+  if(!settlement)return <p className="fs-hint">{l(['استكمل مدخلات السيناريو الأساسي لحساب التوزيع.','Complete the base scenario to calculate the distribution.'])}</p>;
+  if(settlement.issue){
+   const issues={
+    PARTNERS:['أدخل اسم كل شريك.','Enter each partner’s name.'],
+    SHARES:['يجب أن يساوي مجموع نسب الأرباح 100%.','Profit shares must total 100%.'],
+    LAND:['طابق مجموع المساهمات العينية مع قيمة الأرض المقدمة كحصة، وأدخل صفرًا للأرض المشتراة نقدًا.',
+     'Match in-kind contributions to contributed land value. Enter zero for land purchased in cash.'],
+    FUNDING:['توجد فجوة تمويل قبل التسوية.','A funding gap occurs before settlement.']
+   } as const;
+   return <p className="fs-warning" role="status">{l(issues[settlement.issue])}{settlement.issue==='FUNDING'&&' '+money(settlement.fundingGap)}</p>;
+  }
+  return <>
+   {table([
+    ['سنة التسوية','Settlement year'],['الدين المحجوز للسداد','Debt reserved'],['المتاح للتوزيع','Distributable cash']
+   ],[[String(settlement.year),money(settlement.debtReserve),money(settlement.distributable)]])}
+   {settlement.debtShortfall>=.005&&<p className="fs-warning" role="status">
+    {l(['عجز تغطية الدين عند التسوية','Debt shortfall at settlement'])} · {money(settlement.debtShortfall)}
+   </p>}
+   {table([
+    ['الشريك','Partner'],['رأس المال','Capital'],['رأس المال المسترد','Capital returned'],
+    ['رأس المال غير المسترد','Unrecovered capital'],['الأرباح الموزعة','Distributed profit'],['إجمالي التوزيع','Total distribution']
+   ],settlement.partners.map(partner=>[partner.name,money(partner.capital),money(partner.capitalReturned),
+    money(partner.unrecoveredCapital),money(partner.profit),money(partner.distribution)]))}
+  </>;
+ };
+ if(tab==='distribution-report')return distribution?.partners.length
+  ?panel(['توزيع عوائد الشركاء · السيناريو الأساسي','Partner distributions · base scenario'],settlementView())
+  :null;
  if(tab==='partners')return <>
  {panel(['حوافز الشراكة','Partnership incentives'],<>
   <div className="fs-form-grid">
@@ -220,6 +254,35 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    ],v=>patch('waterfall',{hurdleBase:v}))}
   </div>{!base.issue&&table([['قيمة الأرض','Land value'],['حافز المطور','Developer incentive'],['حافز المدير','Manager incentive']],
    [[money(base.land),money(base.developerIncentive),money(base.managerIncentive)]])}
+ </>)}
+ {panel(['رد رأس المال وتوزيع العوائد المتوقعة','Projected capital return and profit distribution'],<>
+  <p className="fs-hint">{l(['يفترض النموذج ضخ المساهمات النقدية في بداية المشروع والتسوية في آخر سنة من السيناريو الأساسي. يُحجز رصيد الدين، ثم يُرد رأس المال بدءًا بالأولوية 1 ويُوزّع الفائض حسب نسب الأرباح.',
+   'The model assumes cash contributions at inception and settlement in the last year of the base scenario. Closing debt is reserved, capital is returned starting at priority 1, and surplus follows profit shares.'])}</p>
+  {distribution?.partners.map((partner,index)=>{
+   const update=(fields:Partial<typeof partner>)=>patch('distribution',{
+    partners:distribution.partners.map((item,i)=>i===index?{...item,...fields}:item)
+   });
+   return <fieldset className="fs-panel" key={index}>
+    <legend>{l(['الشريك','Partner'])} {index+1}</legend>
+    <div className="fs-form-grid">
+     {textField(['اسم الشريك','Partner name'],partner.name,name=>update({name}))}
+     {numberFields(partner,[
+      ['cash',['المساهمة النقدية','Cash contribution']],
+      ['inKindLand',['حصة الأرض العينية','In-kind land contribution']],
+      ['priority',['أولوية رد رأس المال','Capital return priority'],'whole',1,50],
+      ['profitShare',['حصة الأرباح %','Profit share %'],'pct']
+     ],update)}
+    </div>
+    <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>onChange?.({
+     ...model,distribution:{partners:distribution.partners.filter((_,i)=>i!==index)}
+    })}>{l(['إزالة الشريك','Remove partner'])}</button>
+   </fieldset>;
+  })}
+  <button className="fs-btn fs-btn--secondary" type="button" disabled={(distribution?.partners.length??0)>=50}
+   onClick={()=>patch('distribution',{partners:[...(distribution?.partners??[]),{name:'',cash:0,inKindLand:0,priority:1,profitShare:0}]})}>
+   {l(['إضافة شريك','Add partner'])}
+  </button>
+  {settlementView()}
  </>)}
  {legacyReference&&panel(['بيانات ملف الأراضي المرجعية','Reference data from the land file'],<>
   <p className="fs-hint">{l(['هذه البيانات محفوظة للمراجعة. يستخدم التوقع مراحل البيع العامة كما في الإصدار 1.0. راجع أي استبعادات إضافية في تبويب التحليل القطاعي.',

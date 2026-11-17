@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import {internalRateOfReturn} from './engine';
+import {landDistributionSchema} from './raw-land-distributions';
 
 const amount=z.number().min(0).max(1e12);
 const ratio=z.number().min(0).max(1);
@@ -40,6 +41,7 @@ export const rawLandSchema=z.object({
  phasing:z.object({sales:phases,...costPhases}).strict(),
  waterfall:z.object({incentiveRate:ratio,hurdleRate:ratio,hurdleBase:z.enum(['revenue','cost']),
   developerIncentiveShare:ratio}).strict(),
+ distribution:landDistributionSchema.optional(),
  legacyReference:legacyReferenceSchema.optional()
 }).strict();
 export type RawLand=z.infer<typeof rawLandSchema>;

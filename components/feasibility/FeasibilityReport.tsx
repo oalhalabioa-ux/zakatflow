@@ -217,6 +217,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   <section className="card fs-panel fs-royal-report-detail" data-report-section="ownership">
    <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{sectionLabels.ownership}</h3>
    <dl className="fs-royal-checks">{ownership.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
+   {!!study.rawLand?.distribution?.partners.length&&<RawLandPanel model={study.rawLand} locale={locale}
+    currency={study.currency} tab="distribution-report"/>}
    <p className="fs-hint">{l('هذه الحصص اقتصادية تقديرية. تُثبت الملكية القانونية بالمستندات والإجراءات المعتمدة.',
     'These are indicative economic shares. Legal ownership is established through the authorized documents and procedures.')}</p>
    {water&&<p className="fs-hint">{l('قيمة الرخصة للمراجعة وتُستثنى من الحصص الاقتصادية.',
