@@ -450,3 +450,7 @@
 .fs-royal-report-sections { margin-block: 12px; }
 .fs-royal-report-sections legend { padding-block-end: 6px; font-weight: 700; }
 .fs-royal-organization-sharing .fs-royal-access-table th { overflow-wrap: anywhere; }
+.fs-royal-dialog .fs-royal-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.corp-shell .corp-organization-controls .fs-royal-organizations .fs-check {
+ padding: 8px 10px; gap: 8px; font-size: 13px; color: var(--fs-ink); cursor: pointer;
+}
