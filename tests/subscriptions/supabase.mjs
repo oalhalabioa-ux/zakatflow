@@ -828,6 +828,15 @@ try {
   sql(signupTrigger[0]);
   await check('mailbox invitation activation, existing password, replay and login',()=>verifyInvitationFlow({browser,appUrl,url,status,owner,existing:clients[1],cookieHeader,headers,sql}));
   await check('authenticated Chromium persists platform sharing settings and enforces the recipient editor', async () => {
+    const coreSchema = await load('supabase/migrations/20260915195428_001_schema.sql');
+    const notificationsTable = coreSchema.match(/^create table if not exists notifications\([^\n]+$/m)?.[0];
+    assert.ok(notificationsTable, 'Canonical notifications table definition must exist');
+    sql(notificationsTable + `
+      alter table public.notifications enable row level security;
+      create policy notifications_self on public.notifications
+       using (user_id=auth.uid()) with check (user_id=auth.uid());
+      grant select,update on public.notifications to authenticated;
+    `);
     const makeOrg = async (account, name) => {
       const response = await fetch(url + '/rest/v1/organizations', {
         method: 'POST', headers: { ...headers(account), Prefer: 'return=representation' },

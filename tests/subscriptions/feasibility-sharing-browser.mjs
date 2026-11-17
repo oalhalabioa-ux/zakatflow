@@ -24,6 +24,15 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
 
     const admin = await pageFor(owner);
     const receiver = await pageFor(recipient);
+    async function submitProposal() {
+      const [response] = await Promise.all([
+        receiver.waitForResponse(response => response.url().endsWith('/api/feasibility/share-proposals')
+          && response.request().method() === 'POST'),
+        receiver.getByRole('button', { name: 'Send changes for review' }).click(),
+      ]);
+      assert.equal(response.status(), 200, await response.text());
+      await receiver.getByText('The changes were sent to the study owner.', { exact: true }).waitFor();
+    }
     const setting = admin.getByLabel('Permissions available to owners');
     const signalled = admin.getByText('Sharing setting saved.', { exact: true });
     const setMode = async mode => {
@@ -64,8 +73,7 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await source.reload();
     await source.getByRole('heading', { name: title, exact: true }).waitFor();
 
-    await receiver.getByRole('button', { name: 'Send changes for review' }).click();
-    await receiver.getByText('The changes were sent to the study owner.', { exact: true }).waitFor();
+    await submitProposal();
     await source.goto(appUrl + '/en/notifications');
     await source.getByRole('link', { name: 'Review changes', exact: true }).click();
     await source.getByRole('table').getByRole('row').filter({ hasText: 'Synthetic QA reviewed copy' }).waitFor();
@@ -78,8 +86,7 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await receiver.getByLabel('Shared copy title').fill('Synthetic QA declined draft');
     await receiver.getByRole('button', { name: 'Save copy edits' }).click();
     await receiver.getByRole('heading', { name: 'Synthetic QA declined draft', exact: true }).waitFor();
-    await receiver.getByRole('button', { name: 'Send changes for review' }).click();
-    await receiver.getByText('The changes were sent to the study owner.', { exact: true }).waitFor();
+    await submitProposal();
     await source.goto(appUrl + '/en/notifications');
     await source.getByRole('link', { name: 'Review changes', exact: true }).first().click();
     await source.getByLabel('Reason for declining (optional)').fill('Keep the accepted name');
