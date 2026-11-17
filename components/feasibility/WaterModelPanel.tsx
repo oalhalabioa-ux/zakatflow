@@ -47,6 +47,10 @@ const operationFields:NumberFields<WaterModel['ops']>=[
  ['life','عمر الإهلاك بالسنوات','Depreciation life in years',60,1],
  ['horizon','أفق التوقع بالسنوات','Projection years',10,1]
 ];
+const sourceOptions=[
+ ['well','بئر','Well'],['public-network','شبكة عامة','Public network'],['spring','ينبوع','Spring'],
+ ['other','مصدر آخر','Other source']
+] as const;
 const logisticsFields:NumberFields<NonNullable<WaterModel['operationsPlan']>>=[
  ['packagingLossPct','فاقد مواد التعبئة %','Packaging material waste %',99],
  ['kwhPerThousandBottles','استهلاك الكهرباء لكل 1,000 عبوة (ك.و.س)','Electricity use per 1,000 bottles (kWh)'],
@@ -239,7 +243,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   <option value="loan">{l('قرض مساهم','Shareholder loan')}</option>
   <option value="equity">{l('زيادة رأس المال','Equity injection')}</option>
  </select></label>;
- const ownership=<RoyalOwnership title={l('حصص الملكية الاقتصادية','Economic ownership')} locale={locale} data={[
+ const ownership=<RoyalOwnership title={l('محاكاة توزيع حصص الملكية الاقتصادية','Economic ownership allocation')}
+  locale={locale} showAllocation data={[
   {label:l('الممول','Investor'),value:m.investorShare??0},
   {label:l('صاحب الأرض','Land partner'),value:m.partnerShare??0}
  ]}/>;
@@ -347,13 +352,21 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
      <Panel title={l('مصدر المياه والطاقة المرخصة','Water source and licensed capacity')} icon="droplet">
       <div className="fs-form-grid">
        {field('ops',operationFields[6])}
-       <label className="fs-field"><span>{l('اسم مصدر المياه','Water source name')}</span>
-        <input maxLength={160} value={plan.sourceName} onChange={event=>updatePlan({sourceName:event.currentTarget.value})}/>
+       <label className="fs-field"><span>{l('مصدر المياه','Water source')}</span>
+        <select value={plan.sourceType??''} onChange={event=>updatePlan({
+         sourceType:sourceOptions.find(([key])=>key===event.currentTarget.value)?.[0],
+        })}>
+         <option value="">{l('اختر المصدر','Select source')}</option>
+         {sourceOptions.map(([key,ar,en])=><option key={key} value={key}>{l(ar,en)}</option>)}
+        </select>
        </label>
        {planNumber('pumpingM3Hour',['معدل الضخ (م³/ساعة)','Pumping rate (m³/hour)'],1e12)}
        {planNumber('sourceHoursDay',['ساعات تشغيل المصدر يوميًا','Source operating hours per day'],24)}
        {field('ops',operationFields[5])}
        {field('ops',operationFields[4])}
+       <label className="fs-field"><span>{l('اسم مصدر المياه','Water source name')}</span>
+        <input maxLength={160} value={plan.sourceName} onChange={event=>updatePlan({sourceName:event.currentTarget.value})}/>
+       </label>
        <label className="fs-field"><span>{l('مرجع تصريح الضخ','Extraction permit reference')}</span>
         <input maxLength={160} value={plan.permitReference} onChange={event=>updatePlan({permitReference:event.currentTarget.value})}/>
        </label>

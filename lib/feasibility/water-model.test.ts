@@ -204,6 +204,20 @@ describe('water production balance',()=>{
   expect(waterModelSchema.safeParse(study).success).toBe(false);
  });
 
+ it('keeps legacy source names and validates a selected source independently of financial assumptions',()=>{
+  const study=structuredClone(fixture);
+  study.operationsPlan={...emptyWaterOperationsPlan,sourceName:'Test supply'};
+  expect(waterModelSchema.parse(study).operationsPlan).toMatchObject({sourceName:'Test supply'});
+  expect(waterModelSchema.parse(study).operationsPlan?.sourceType).toBeUndefined();
+  const financials=evaluateWater(study);
+  study.operationsPlan.sourceType='public-network';
+  expect(waterModelSchema.parse(JSON.parse(JSON.stringify(study))).operationsPlan).toMatchObject({
+   sourceName:'Test supply',sourceType:'public-network',
+  });
+  expect(evaluateWater(study)).toEqual(financials);
+  expect(waterModelSchema.safeParse({...study,operationsPlan:{...study.operationsPlan,sourceType:'permit-verified'}}).success).toBe(false);
+ });
+
  it('keeps source availability unknown when just one of the required inputs is missing',()=>{
   const study=structuredClone(fixture);
   study.ops.licensedWaterM3Day=50;

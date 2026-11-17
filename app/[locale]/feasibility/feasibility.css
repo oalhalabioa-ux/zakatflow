@@ -466,3 +466,15 @@
 @media (max-width: 650px) {
  .fs-royal-water-forms .fs-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.fs-royal-ownership--allocation { flex-direction: column; gap: 8px; }
+.fs-royal-ownership--allocation .fs-royal-ownership-ring { position: relative; }
+.fs-royal-ownership--allocation svg { width: min(172px, 48vw); display: block; }
+.fs-royal-ownership-ratio { position: absolute; inset: 19%; display: grid; place-content: center; text-align: center; }
+.fs-royal-ownership-ratio strong { color: var(--fs-navy); font-size: 15px; }
+.fs-royal-ownership-ratio small { color: var(--fs-muted); font-size: 10px; }
+.fs-royal-ownership--allocation ul { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+.fs-royal-ownership--allocation li { border: 0; gap: 5px; }
+.fs-royal-ownership--allocation li strong { margin-inline-start: 0; white-space: nowrap; }
+.fs-royal-ownership-note { display: flex; align-items: start; gap: 8px; margin: 0; padding: 9px 12px; background: #E8F1EB; color: var(--fs-green); border-radius: 8px; font-size: 11px; }
+.fs-royal-ownership-note svg { flex-shrink: 0; }

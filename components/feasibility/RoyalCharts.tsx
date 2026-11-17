@@ -27,29 +27,44 @@ export function RoyalBars({ title, locale, unit, data }: Labels & { data: Datum[
   </figure>;
 }
 
-export function RoyalOwnership({ title, locale, data }: Labels & { data: Datum[] }) {
+export function RoyalOwnership({ title, locale, data, showAllocation = false }: Labels & {
+  data: Datum[];
+  showAllocation?: boolean;
+}) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   if (total <= 0) return null;
+  const ar = locale === 'ar';
+  const shares = data.map(item => ({ ...item, percentage: item.value / total * 100 }));
   let offset = 0;
   return <figure className="fs-royal-chart">
     <figcaption><RoyalIcon name="users"/>{title}</figcaption>
-    <div className="fs-royal-ownership">
-      <svg viewBox="0 0 42 42" aria-hidden="true">
-        <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--fs-line)" strokeWidth="5"/>
-        {data.map((item, index) => {
-          const percentage = item.value / total * 100;
-          const start = offset;
-          offset += percentage;
-          return <circle key={item.label} cx="21" cy="21" r="15.9" pathLength="100" fill="none"
-            stroke={index % 2 ? 'var(--fs-gold)' : 'var(--fs-green)'} strokeWidth="5"
-            strokeDasharray={percentage + ' ' + (100 - percentage)} strokeDashoffset={-start}
-            transform="rotate(-90 21 21)"/>;
-        })}
-      </svg>
-      <ul>{data.map((item, index) => <li key={item.label}><i data-gold={index % 2 === 1}/>
-        <span>{item.label}</span><strong>{display(locale, item.value / total * 100, '%')}</strong>
+    <div className={'fs-royal-ownership' + (showAllocation ? ' fs-royal-ownership--allocation' : '')}>
+      <div className="fs-royal-ownership-ring" aria-hidden="true">
+        <svg viewBox="0 0 42 42">
+          <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--fs-line)" strokeWidth="5"/>
+          {shares.map(({ label, percentage }, index) => {
+            const start = offset;
+            offset += percentage;
+            return <circle key={label} cx="21" cy="21" r="15.9" pathLength="100" fill="none"
+              stroke={index % 2 ? 'var(--fs-gold)' : 'var(--fs-green)'} strokeWidth="5"
+              strokeDasharray={percentage + ' ' + (100 - percentage)} strokeDashoffset={-start}
+              transform="rotate(-90 21 21)"/>;
+          })}
+        </svg>
+        {showAllocation && <div className="fs-royal-ownership-ratio">
+          <strong dir="ltr">{shares.map(item => display(locale, item.percentage)).join(' / ')}</strong>
+          <small>{ar ? 'تقديري فقط' : 'Indicative only'}</small>
+        </div>}
+      </div>
+      <ul>{shares.map((item, index) => <li key={item.label}><i data-gold={index % 2 === 1}/>
+        <span>{item.label}</span><strong>{display(locale, item.percentage, '%')}</strong>
       </li>)}</ul>
     </div>
+    {showAllocation && <p className="fs-royal-ownership-note">
+      <RoyalIcon name="check"/>
+      {ar ? 'تستند هذه النسب إلى التقييمات والمساهمات المدخلة. تُحدَّد الملكية النهائية في الاتفاق القانوني.'
+        : 'These percentages use the entered valuations and contributions. Final ownership is determined in the legal agreement.'}
+    </p>}
   </figure>;
 }
 

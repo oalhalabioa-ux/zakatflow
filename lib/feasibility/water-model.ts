@@ -28,6 +28,7 @@ export const waterModelSchema=z.object({
  }).strict(),
  operationsPlan:z.object({
   sourceName:z.string().max(160),
+  sourceType:z.enum(['well','public-network','spring','other']).optional(),
   permitReference:z.string().max(160),
   packagingLossPct:z.number().finite().min(0).max(99),
   kwhPerThousandBottles:amount,
