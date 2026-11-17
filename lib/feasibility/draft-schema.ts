@@ -5,6 +5,8 @@ const percent=z.number().finite().min(0).max(100000);
 const text=z.string().max(5000);
 const sector=z.enum(['INDUSTRIAL','COMMERCIAL','REAL_ESTATE','SERVICES','AGRICULTURE','CUSTOM']);
 const date=z.string().datetime();
+const scenarioFactor=z.number().finite().min(0).max(1000);
+const scenarioFactors=z.object({volume:scenarioFactor,price:scenarioFactor,variable:scenarioFactor}).strict();
 export const feasibilityDraftSchema=z.object({
  id:z.string().uuid(),title:z.string().trim().min(1).max(300),sector,
  country:z.string().trim().max(120),region:z.string().max(150),
@@ -16,6 +18,7 @@ export const feasibilityDraftSchema=z.object({
  unitPrice:amount,variableCost:amount,monthlyUnits:amount,monthlyFixedCost:amount,
  volumeGrowthPct:percent,priceGrowthPct:percent,fixedCostGrowthPct:percent,discountRatePct:percent,indicativeTaxRatePct:percent,
  years:z.number().int().min(1).max(20),
+ scenarioAssumptions:z.object({CONSERVATIVE:scenarioFactors.optional(),BASE:scenarioFactors.optional(),OPTIMISTIC:scenarioFactors.optional()}).strict().optional(),
  capex:z.array(z.object({id:z.string().max(100),label:z.string().max(300),amount,category:z.enum(['BUILDINGS','EQUIPMENT','UTILITIES','LICENCES','OTHER'])})).max(500),
  tasks:z.array(z.object({id:z.string().max(100),title:z.string().max(400),owner:z.string().max(300),due:z.string().max(30),status:z.enum(['TODO','IN_PROGRESS','BLOCKED','DONE']),priority:z.enum(['HIGH','NORMAL','LOW']),phase:text.optional(),notes:text.optional()})).max(500),
  legal:z.array(z.object({id:z.string().max(100),title:z.string().max(500),status:z.enum(['NOT_STARTED','UNDER_REVIEW','VERIFIED','BLOCKED']),notes:text,group:text.optional(),critical:z.boolean().optional(),description:text.optional(),owner:text.optional(),due:z.string().max(30).optional()})).max(500),

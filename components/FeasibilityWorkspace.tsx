@@ -9,7 +9,7 @@ import TopbarOrganizationControls from '@/components/TopbarOrganizationControls'
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import {currentWorkspaceScope} from '@/lib/topbar-navigation';
 import {accountDraftsVisibleInScope} from '@/lib/feasibility/portfolio-scope';
-import {createStudy,evaluateStudy,scenarioLabels,type FeasibilityStudy,type Sector,type StudyStatus,type StudyTab,type Scenario} from '@/lib/feasibility/engine';
+import {createStudy,evaluateStudy,type FeasibilityStudy,type Sector,type StudyStatus,type StudyTab,type Scenario} from '@/lib/feasibility/engine';
 import ProjectHandoffPanel from '@/components/feasibility/ProjectHandoffPanel';
 import CollaborationPanel from '@/components/feasibility/CollaborationPanel';
 import JoinInvitationPanel from '@/components/feasibility/JoinInvitationPanel';
@@ -21,6 +21,7 @@ import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
 import StudyRegisters from '@/components/feasibility/StudyRegisters';
 import { RoyalIcon, studyTabIcons } from '@/components/feasibility/RoyalIcon';
 import RoyalOverview from '@/components/feasibility/RoyalOverview';
+import RoyalScenarios from '@/components/feasibility/RoyalScenarios';
 import { RoyalBars, RoyalCashTrend, RoyalOwnership } from '@/components/feasibility/RoyalCharts';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
@@ -702,10 +703,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     <Field label={txt(ar,'ضريبة تقديرية استرشادية %','Indicative tax assumption %')} value={study.indicativeTaxRatePct} onChange={setNum('indicativeTaxRatePct')}/>
     <Field label={txt(ar,'مدة الدراسة بالسنوات','Forecast horizon in years')} value={study.years} onChange={n=>update({years:Math.min(20,Math.max(1,Math.trunc(n)))})} min={1} step="1"/>
    </div></section>}
-   {!water&&tab==='scenarios'&&<section className="card fs-panel"><h3>{txt(ar,'تحليل السيناريوهات','Scenario comparison')}</h3><p className="fs-hint">{txt(ar,'المتحفظ: حجم 70% وسعر 95% وتكلفة متغيرة 110%؛ المتفائل: حجم 120% وسعر 103% وتكلفة 97%.','Conservative: 70% volume, 95% price, 110% unit cost. Optimistic: 120% volume, 103% price, 97% cost.')}</p>
-    <div className="fs-table-wrap"><table className="fs-table"><thead><tr><th>{txt(ar,'المؤشر','Metric')}</th>{(['CONSERVATIVE','BASE','OPTIMISTIC'] as Scenario[]).map(x=><th key={x}>{ar?scenarioLabels[x].ar:scenarioLabels[x].en}</th>)}</tr></thead><tbody>{(['initial','npv','irr','year1'] as const).map(metric=><tr key={metric}><th>{metric==='initial'?txt(ar,'الاستثمار','Investment'):metric==='npv'?'NPV':metric==='irr'?'IRR':txt(ar,'EBITDA السنة الأولى','Year 1 EBITDA')}</th>{(['CONSERVATIVE','BASE','OPTIMISTIC'] as Scenario[]).map(x=>{const calc=evaluateStudy(study,x);return <td key={x} dir="ltr">{metric==='initial'?money(calc.totalInvestment):!calc.ready?'—':metric==='npv'?money(calc.npv):metric==='irr'?(calc.irr===null?'—':fmt(calc.irr,2)+'%'):money(calc.annual[0]?.ebitda)}</td>})}</tr>)}</tbody></table></div>
-    <SelectField label={txt(ar,'السيناريو النشط في اللوحة','Active dashboard scenario')} value={scenario} items={Object.entries(scenarioLabels).map(([value,label])=>({value:value as Scenario,label:ar?label.ar:label.en}))} onChange={setScenario}/>
-   </section>}
+   {!water&&tab==='scenarios'&&<RoyalScenarios study={study} locale={locale} selected={scenario}
+    onSelect={setScenario} onChange={scenarioAssumptions=>update({scenarioAssumptions})}/> }
    {!water&&tab==='cashflow'&&model&&<section className="card fs-panel"><h3>{txt(ar,'التدفقات النقدية التشغيلية المبسطة','Simplified annual project cash flows')}</h3><div className="fs-kpis"><Info label="NPV" value={model.ready?money(model.npv):'—'}/><Info label="IRR" value={model.ready&&model.irr!==null?fmt(model.irr,2)+'%':'—'}/><Info label={txt(ar,'مدة الاسترداد','Payback period')} value={model.ready&&model.paybackYears!==null?fmt(model.paybackYears,2)+' '+txt(ar,'سنة','years'):'—'}/><Info label={txt(ar,'التعادل الشهري بالوحدات','Monthly break-even units')} value={model.ready?fmt(model.breakevenMonthlyUnits):'—'}/></div>
     <div className="fs-table-wrap"><table className="fs-table"><thead><tr><th>{txt(ar,'السنة','Year')}</th><th>{txt(ar,'الإيرادات','Revenue')}</th><th>{txt(ar,'المتغيرة','Variable costs')}</th><th>{txt(ar,'الثابتة','Fixed costs')}</th><th>EBITDA</th><th>{txt(ar,'ضريبة تقديرية','Indicative tax')}</th><th>{txt(ar,'التدفق الحر','Project FCF')}</th></tr></thead><tbody><tr><td>0</td><td colSpan={5}>{txt(ar,'الاستثمار الأولي بما فيه الأرض العينية ورأس المال العامل','Initial investment including in-kind land and working capital')}</td><td>{money(model.flows[0])}</td></tr>{model.annual.map(a=><tr key={a.year}><td>{a.year}</td><td>{money(a.revenue)}</td><td>{money(a.variable)}</td><td>{money(a.fixed)}</td><td>{money(a.ebitda)}</td><td>{money(a.taxEstimate)}</td><td>{money(a.freeCashFlow)}</td></tr>)}</tbody></table></div>
     <ul className="fs-notes">{model.notes.map(x=><li key={x}>{x}</li>)}</ul>

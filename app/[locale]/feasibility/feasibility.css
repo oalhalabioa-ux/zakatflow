@@ -410,3 +410,18 @@
 @media(max-width: 760px) {
  .fs-royal-capex .fs-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.fs-royal-water-layout .fs-royal-water-heading { margin: 0; color: var(--fs-navy); }
+.fs-royal-water-layout .card.fs-panel { display: grid; gap: 9px; align-content: start; min-width: 0; }
+.fs-royal-water-layout .fs-royal-report-title { border-block-end: 1px solid var(--fs-line); padding-block-end: 8px; }
+.fs-royal-water-layout .fs-table { min-width: 100%; }
+.fs-royal-water-layout .fs-table-wrap { min-width: 0; }
+.fs-royal-water-layout .fs-royal-checks dd { text-align: end; }
+.fs-royal-sensitivity thead th, .fs-royal-sensitivity tbody th { background: var(--fs-navy); color: var(--fs-light-gold); }
+.fs-royal-sensitivity td { padding: 2px; }
+.fs-royal-sensitivity td span { display: block; padding: 7px 4px; text-align: center; }
+.fs-royal-sensitivity [data-sign="positive"] { color: var(--fs-green); background: #E8F1EB; }
+.fs-royal-sensitivity [data-sign="negative"] { color: var(--fs-ink); background: var(--fs-light-gold); }
+.fs-royal-licensing .fs-table [data-legal-status="VERIFIED"] { color: var(--fs-green); background: #E8F1EB; }
+.fs-royal-licensing .fs-table :is([data-legal-status="BLOCKED"],[data-legal-status="UNDER_REVIEW"]) { background: var(--fs-light-gold); }
+.fs-royal-licensing .fs-royal-checks :is(span, dd) { overflow-wrap: anywhere; }

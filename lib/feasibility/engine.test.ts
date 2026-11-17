@@ -64,6 +64,20 @@ describe('independent feasibility planning engine',()=>{
   s.capex=[{id:'i',label:'Factory',amount:100000,category:'OTHER'}];s.monthlyUnits=20000;s.unitPrice=2;s.variableCost=1;
   expect(evaluateStudy(s,'CONSERVATIVE').annual[0].ebitda).toBeLessThan(evaluateStudy(s,'BASE').annual[0].ebitda);
  });
+ it('uses saved scenario factors without changing unconfigured scenarios or capital requirements',()=>{
+  const study=createStudy('scenario','Commercial project','COMMERCIAL');
+  study.capex=[{id:'equipment',label:'Equipment',amount:120000,category:'EQUIPMENT'}];
+  study.monthlyUnits=1000;study.unitPrice=20;study.variableCost=10;
+  study.years=1;study.discountRatePct=10;
+  const conservative=evaluateStudy(study,'CONSERVATIVE');
+  const baseline=evaluateStudy(study);
+  study.scenarioAssumptions={BASE:{volume:50,price:125,variable:80}};
+  const custom=evaluateStudy(study);
+  expect(custom.flows).toEqual([-120000,102000]);
+  expect(custom.npv).toBeCloseTo(-120000+102000/1.10);
+  expect(custom.totalInvestment).toBe(baseline.totalInvestment);
+  expect(evaluateStudy(study,'CONSERVATIVE')).toEqual(conservative);
+ });
  it('IRR returns null when positive/negative cash flows do not both exist',()=>{
   expect(internalRateOfReturn([-100,-10,-10])).toBeNull();
   expect(internalRateOfReturn([-100,110])).toBeCloseTo(10,4);

@@ -38,10 +38,11 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const base=evaluateStudy(study);
  const water=study.water?evaluateWater(study.water):null;
  const ready=handoffReadiness(study);
+ const readyCount=ready.checks.filter(check=>check.passed).length;
  const reportMetrics = [
   ['NPV', money(water ? water.ready ? water.npv : null : base.npv)],
   ['IRR', (water ? water.ready ? water.irr : null : base.irr) === null ? '—' : fmt(water ? water.irr : base.irr) + '%'],
-  [l('الجاهزية','Readiness'),ready.checks.filter(check=>check.passed).length+' / '+ready.checks.length]
+  [l('الجاهزية','Readiness'),readyCount+' / '+ready.checks.length]
  ];
  const metrics=[
   {label:l('السنة','Year'),key:'year'},
@@ -64,16 +65,46 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   ...study.tasks.map(x=>[x.title,x.phase,x.priority,x.status,x.owner,x.due,x.notes])
  ]);
  return <div ref={report} className="fs-block fs-print-report">
-  <section className="card fs-panel" data-report-section="summary">
-   <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
-   <p>{[study.country,study.region,study.preparedBy,study.studyDate,study.currency].filter(Boolean).join(' · ')}</p>
-   <p>{l('تقدير أولي للقرار الاستثماري. اعتمد المدخلات والوثائق بصورة مستقلة قبل الالتزام بالتمويل.','Preliminary investment assessment. Independently verify inputs and documents before committing funds.')}</p>
-   {allowExport&&<div className="fs-actions">
-    <button className="fs-btn" type="button" onClick={()=>dialog.current?.showModal()}>
-     <RoyalIcon name="file"/>{l('خيارات تصدير التقرير','Report export options')}</button>
-    <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>window.print()}>{l('طباعة / PDF','Print / PDF')}</button>
-    <button className="fs-btn fs-btn--secondary" type="button" onClick={tasks}>{l('تصدير المهام CSV','Export tasks CSV')}</button>
-   </div>}
+  <section className="fs-block" data-report-section="summary">
+   <div className="fs-kpis fs-royal-overview-kpis">
+    {[
+     [l('إجمالي الاستثمار الاقتصادي','Economic investment'),money(water?water.cashRequired+water.land:base.totalInvestment)],
+     ...reportMetrics.slice(0,2),
+     [l('جاهزية الدراسة','Study readiness'),new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(readyCount/ready.checks.length)]
+    ].map(([label,value])=><div className="fs-metric" key={label}><small>{label}</small><strong><bdi>{value}</bdi></strong></div>)}
+   </div>
+   <section className="card fs-panel">
+    <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التوصية الاستثمارية المشروطة','Conditional investment recommendation')}</h3>
+    <p className="fs-hint">{ready.ready
+     ?l('استوفت الدراسة شروط الجاهزية الداخلية. راجع الافتراضات والمستندات قبل اعتماد القرار الاستثماري.',
+        'The study passed the internal readiness checks. Verify assumptions and evidence before approving the investment.')
+     :l('استكمل متطلبات الجاهزية المفتوحة وتحقق من الافتراضات والمستندات قبل الالتزام بالتمويل.',
+        'Complete the open readiness checks and verify assumptions and evidence before committing funds.')}</p>
+    {allowExport&&<div className="fs-actions">
+     <button className="fs-btn" type="button" onClick={()=>dialog.current?.showModal()}>
+      <RoyalIcon name="file"/>{l('خيارات تصدير التقرير','Report export options')}</button>
+     <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>window.print()}>{l('طباعة / PDF','Print / PDF')}</button>
+     <button className="fs-btn fs-btn--secondary" type="button" onClick={tasks}>{l('تصدير المهام CSV','Export tasks CSV')}</button>
+    </div>}
+   </section>
+   <div className="fs-royal-profile-grid">
+    <section className="card fs-panel">
+     <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('متطلبات مراجعة التقرير','Report review requirements')}</h3>
+     <ul className="fs-royal-checks">{ready.checks.map(check=><li key={check.key}>
+      <span>{locale==='ar'?check.ar:check.en}</span>
+      <strong data-complete={check.passed}>{check.passed?l('مكتمل','Complete'):l('يحتاج مراجعة','Review needed')}</strong>
+     </li>)}</ul>
+    </section>
+    <section className="card fs-panel">
+     <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{l('بيانات الدراسة وإصدار التقرير','Study and report details')}</h3>
+     <dl className="fs-royal-checks">{[
+      [l('معدّ الدراسة','Prepared by'),study.preparedBy],
+      [l('تاريخ الدراسة','Study date'),study.studyDate],
+      [l('موقع المشروع','Project location'),[study.region,study.country].filter(Boolean).join(' · ')],
+      [l('عملة الدراسة','Study currency'),study.currency],
+     ].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'—'}</dd></div>)}</dl>
+    </section>
+   </div>
   </section>
   {allowExport&&<dialog ref={dialog} className="fs-dialog fs-royal-dialog" aria-labelledby="fs-report-export-title">
    <div className="fs-royal-heading"><h2 id="fs-report-export-title"><RoyalIcon name="file"/>{l('التقرير الاستثماري الشامل','Investment report export')}</h2>

@@ -3,6 +3,7 @@ import {useState,type ReactNode} from 'react';
 import {
  waterFactoryLegalItems,type FeasibilityStudy,type StudyTask,type LegalItem,type StudyRisk,type StudySupplier,type StudyDecision
 } from '@/lib/feasibility/engine';
+import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import SupplierComparisonPanel from './SupplierComparisonPanel';
 import {RoyalIcon} from './RoyalIcon';
 
@@ -78,19 +79,31 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
  if(tab==='legal'){
   const items=study.legal.filter(x=>!group||x.group===group);
   const addWater=waterFactoryLegalItems.filter(title=>!study.legal.some(x=>x.title===title));
-  const completed=study.legal.filter(x=>x.critical&&x.status==='VERIFIED').length;
-  const count=study.legal.filter(x=>x.critical).length;
-  return <section className="card fs-panel">
-   <h3>{evidence?l('أدلة التراخيص والمستندات','Licensing evidence and documents'):l('الفحص القانوني والتراخيص','Legal and licensing checklist')}</h3>
-   <p>{l('تحقق من المستندات والمتطلبات السارية في موقع المشروع مع مختص محلي.','Verify documents and current requirements at the project location with a local specialist.')}</p>
-   <div className="fs-kpis">{(Object.keys(legalStatuses) as Array<keyof typeof legalStatuses>).map(key=>
-    <div className="fs-metric" key={key}><small>{legalStatuses[key][locale==='ar'?0:1]}</small>
-     <strong>{study.legal.filter(item=>item.status===key).length}</strong></div>)}</div>
-   {count>0&&<p>{l('البنود الحاسمة المتحقق منها','Critical checks verified')} · {completed}/{count}</p>}
-   {comparison([l('المتطلب','Requirement'),l('الملف','Group'),status,owner,due,l('مرجع المستند','Evidence reference')],items.map(item=>({
-    id:item.id,cells:[item.title,display(item.group),legalStatuses[item.status][locale==='ar'?0:1],display(item.owner),display(item.due),display(item.notes)]
+  const outstanding=study.legal.filter(x=>x.critical&&(x.status!=='VERIFIED'||!x.notes.trim()));
+  const referenced=study.legal.filter(x=>x.notes.trim());
+  const labels=[l('المتطلب','Requirement'),l('الملف','Group'),status,owner,due,l('مرجع المستند','Evidence reference')];
+  const values=(item:LegalItem)=>[item.title,item.group,legalStatuses[item.status][locale==='ar'?0:1],item.owner,item.due,item.notes];
+  const metrics=[
+   [l('إجمالي المتطلبات','Total requirements'),study.legal.length],
+   [evidence?l('مستندات لها مراجع','Documents with references'):l('المتحقق منها','Verified'),
+    evidence?referenced.length:study.legal.filter(item=>item.status==='VERIFIED').length],
+   [l('تحت المراجعة','Under review'),study.legal.filter(item=>item.status==='UNDER_REVIEW').length],
+   [evidence?l('متطلبات حاسمة مفتوحة','Open critical requirements'):l('متطلبات معلقة','Blocked requirements'),
+    evidence?outstanding.length:study.legal.filter(item=>item.status==='BLOCKED').length]
+  ] as const;
+  return <section className="fs-block fs-royal-licensing">
+   <div className="fs-kpis fs-royal-overview-kpis">{metrics.map(([label,value])=>
+    <div className="fs-metric" key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
+   <section className="card fs-panel">
+   <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{evidence?l('سجل الموافقات والوثائق','Approvals and documents register'):l('سجل المتطلبات النظامية والتعاقدية','Legal and contractual requirements')}</h3>
+   <p className="fs-hint">{l('تحقق من المستندات والمتطلبات السارية في موقع المشروع مع مختص محلي.','Verify documents and current requirements at the project location with a local specialist.')}</p>
+   <div className="fs-form-grid">{groupField(l('الملف','Group'),study.legal.map(x=>x.group))}</div>
+   {comparison(labels,items.map(item=>({
+    id:item.id,cells:[item.title,display(item.group),
+     <span className="fs-royal-tag" data-legal-status={item.status}>{legalStatuses[item.status][locale==='ar'?0:1]}</span>,
+     display(item.owner),display(item.due),display(item.notes)]
    })))}
-   {groupField(l('الملف','Group'),study.legal.map(x=>x.group))}
+   {items.length===0&&<p>{l('لا توجد متطلبات للعرض.','No requirements to display.')}</p>}
    {items.map(x=>{
     const set=(patch:Partial<LegalItem>)=>onChange({legal:study.legal.map(item=>item.id===x.id?{...item,...patch}:item)});
     return row(x.id,x.title,<>
@@ -112,6 +125,22 @@ export default function StudyRegisters({study,tab,locale,onChange,evidence=false
     {study.sector==='INDUSTRIAL'&&add(l('إضافة متطلبات مصنع مياه','Add water factory requirements'),()=>onChange({
      legal:[...study.legal,...addWater.map(title=>({id:id(),title,status:'NOT_STARTED' as const,notes:''}))]
     }),!addWater.length||study.legal.length+addWater.length>500)}
+    {add(l('تصدير المتطلبات CSV','Export requirements CSV'),()=>downloadFeasibilityCsv('feasibility-licensing.csv',[labels,...items.map(values)]),items.length===0)}
+   </div>
+   </section>
+   <div className="fs-royal-profile-grid">
+    <section className="card fs-panel">
+     <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('متطلبات حاسمة قبل الاستثمار','Critical requirements before investing')}</h3>
+     {outstanding.length?<ul className="fs-royal-checks">{outstanding.map(item=><li key={item.id}>
+      <span>{item.title}</span><strong data-complete={false}>{item.status==='VERIFIED'?l('مرجع مطلوب','Evidence reference required'):legalStatuses[item.status][locale==='ar'?0:1]}</strong>
+     </li>)}</ul>:<p>{l('لا توجد متطلبات حاسمة مفتوحة في السجل.','No open critical requirements in the register.')}</p>}
+    </section>
+    <section className="card fs-panel">
+     <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('أدلة التحقق المسجلة','Recorded evidence references')}</h3>
+     {referenced.length?<dl className="fs-royal-checks">{referenced.map(item=><div key={item.id}>
+      <dt>{item.title}</dt><dd>{item.notes}</dd>
+     </div>)}</dl>:<p>{l('لم يُسجّل مرجع مستند بعد.','No evidence reference has been recorded.')}</p>}
+    </section>
    </div>
   </section>;
  }
