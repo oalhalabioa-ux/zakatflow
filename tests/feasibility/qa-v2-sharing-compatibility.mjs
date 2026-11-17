@@ -269,7 +269,13 @@ try{
  await actor(outsider,()=>mode('edit'));
  await actor(owner,()=>rpc('revoke',source,study,destination));
  console.log('PASS share proposals, owner notification, immutable submission, explicit conflicts, revision history, decline and decision notification');
+ const beforeAudit=new Map((await query(catalog)).map(entry=>[entry.category+entry.object_key,entry.fingerprint]));
  await db.exec(await read('supabase/migrations/20261117134000_feasibility_organization_share_audit.sql'));
+ const auditDelta={description:'Source owner access to the dated organization study sharing audit',
+  upserts:(await query(catalog)).filter(entry=>beforeAudit.get(entry.category+entry.object_key)!==entry.fingerprint),removals:[]};
+ const auditDeltaPath='tests/migration-history/feasibility-share-audit-schema-delta.json';
+ if(process.argv.includes('--write-audit-delta')) await writeFile(new URL('../../'+auditDeltaPath,import.meta.url),JSON.stringify(auditDelta,null,2)+'\n');
+ else assert.deepEqual(auditDelta,JSON.parse(await read(auditDeltaPath)));
  const activity=(org=source,project=study)=>query(
   'select public.feasibility_company_share_audit($1,$2) as result',[org,project]
  ).then(rows=>rows[0].result);

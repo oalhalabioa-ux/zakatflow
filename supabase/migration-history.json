@@ -1977,6 +1977,14 @@
       "expected_md5": "e6d21ea3a29adefafa96035dec6be693",
       "file_sha256": "723b4778a32984b433992f44280b2bc04a8c8078eae9064548d97f80f9c39ce4",
       "validation_project": "Isolated QA rehearsal: validated proposal submission, notifications, conflict resolution and revision preservation"
+    },
+    {
+      "path": "supabase/migrations/20261117134000_feasibility_organization_share_audit.sql",
+      "version": "20261117134000",
+      "name": "feasibility_organization_share_audit",
+      "expected_md5": "d1ff8eec2b66e661ca53794e3860a690",
+      "file_sha256": "0dd04ff62446331070903f9b90e50ffbeaaa73f99d15009e17d652a13e229fdf",
+      "validation_project": "Isolated PostgreSQL rehearsal: study-scoped owner audit, existing event history, and denied cross-tenant, non-owner, suspended and anonymous access"
     }
   ]
 }

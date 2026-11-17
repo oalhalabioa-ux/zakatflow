@@ -1,0 +1,21 @@
+{
+  "description": "Source owner access to the dated organization study sharing audit",
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_share_audit(p_organization uuid, p_project uuid)",
+      "fingerprint": "6b2bfcfe178ae06a1fa0a2534748e0b7"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_company_share_audit(p_organization uuid, p_project uuid)",
+      "fingerprint": "b3c609cff20e6a963eac05ceddc705f8"
+    },
+    {
+      "category": "index",
+      "object_key": "public.platform_audit_events.platform_audit_events_feasibility_project_idx",
+      "fingerprint": "c19cba179d08657e7e361fba2f932e85"
+    }
+  ],
+  "removals": []
+}
