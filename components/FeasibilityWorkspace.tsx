@@ -136,6 +136,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const [organizationRecords,setOrganizationRecords]=useState<Record<string,InstitutionalCloudDraft>>({});
  const [organizationCanWrite,setOrganizationCanWrite]=useState(false);
  const createDialog=useRef<HTMLDialogElement>(null);
+ const [createError,setCreateError]=useState('');
  const navigationRef=useRef<HTMLElement>(null);
  const [detail,setDetail]=useState<'water'|'valuation'|'scenario'|'evidence'|'permissions'>();
  const [organizationCanShare,setOrganizationCanShare]=useState(false);
@@ -389,6 +390,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const create=async()=>{
   if(personalScope&&readOnly)return;
   const title=projectName.trim();if(!title)return;
+  setCreateError('');
   const next=newSector==='INDUSTRIAL'
    ?createIndustrialStarter(uid(),title,newStarter)
    :createStudy(uid(),title,newSector);
@@ -424,7 +426,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   }catch(e){
    if(currentUserRef.current!==requestedUser||
      organizationRequestRef.current!==requestId)return;
-   setNotice(txt(ar,'لم يتم إنشاء الدراسة المؤسسية؛ تحقق من الترخيص والصلاحيات.','Study creation failed; verify company permissions and licence.'));
+   setCreateError(txt(ar,'لم يتم إنشاء الدراسة المؤسسية؛ تحقق من الترخيص والصلاحيات.','Study creation failed; verify company permissions and licence.'));
   }finally{
    if(organizationRequestRef.current===requestId)setOrganizationBusy(false);
   }
@@ -457,7 +459,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   tab==='scenarios'&&water?{id:'scenario' as const,label:txt(ar,'محرر السيناريوهات','Scenario editor')}:
   tab==='legal'?{id:'evidence' as const,label:txt(ar,'أدلة التراخيص','Licensing evidence')}:
   tab==='sharing'?{id:'permissions' as const,label:txt(ar,'الصلاحيات والتدقيق','Permissions and audit')}:null;
- const openCreate=()=>{setNotice('');createDialog.current?.showModal()};
+ const openCreate=()=>{setNotice('');setCreateError('');createDialog.current?.showModal()};
  const closeCreate=()=>{
   if(organizationBusy)return;
   createDialog.current?.close();
@@ -556,7 +558,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
      </div>
     </fieldset>
     {organizationBusy&&<p role="status">{txt(ar,'جارٍ إنشاء الدراسة…','Creating the study…')}</p>}
-    {notice&&<p role="status">{notice}</p>}
+    {createError&&<p role="alert">{createError}</p>}
     <div className="fs-actions">
      <button type="submit" className="fs-btn" disabled={!canCreate||!projectName.trim()}>{txt(ar,'إضافة مشروع +','Add project +')}</button>
      <Button secondary onClick={closeCreate} disabled={organizationBusy}>{txt(ar,'إلغاء','Cancel')}</Button>
