@@ -1,3 +1,5 @@
+import FeasibilitySharingSettings from './FeasibilitySharingSettings';
+import { sharingModeSchema } from '@/lib/feasibility/sharing-permissions';
 import OwnerMetrics from "../OwnerMetrics";
 import { ownerLocale } from "@/lib/i18n/owner-server";
 import { ownerTranslator, ownerHref } from "@/lib/i18n/owner";
@@ -40,10 +42,12 @@ export default async function OwnerSettings() {
         </Link>
       </main>
     );
-  const { data: events, error: auditError } = await db.rpc(
-    "owner_list_audit_events",
-    { p_limit: 50 },
-  );
+  const [audit, sharing] = await Promise.all([
+    db.rpc("owner_list_audit_events", { p_limit: 50 }),
+    process.env.FEASIBILITY_ORG_SHARING === 'true' ? db.rpc('feasibility_manage_sharing') : null,
+  ]);
+  const { data: events, error: auditError } = audit;
+  const sharingMode = sharingModeSchema.safeParse(sharing?.data);
   return (
     <main className="owner-shell" dir={locale === "ar" ? "rtl" : "ltr"}>
       <OwnerSidebar locale={locale} />
@@ -94,6 +98,9 @@ export default async function OwnerSettings() {
           ]}
         />
         <div className="owner-panels">
+          {sharingMode.success && <FeasibilitySharingSettings locale={locale} initialMode={sharingMode.data}/>}
+          {sharing && !sharingMode.success && <p role="alert">{locale === 'ar'
+            ? 'تعذر تحميل إعداد مشاركة دراسات الجدوى.' : 'Could not load feasibility sharing settings.'}</p>}
           <article>
             <h3>{translate("الباقات والأسعار")}</h3>
             <p>

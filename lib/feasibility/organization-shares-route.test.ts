@@ -1,3 +1,4 @@
+import {PATCH as updateSharing} from '../../app/api/admin/settings/feasibility-sharing/route';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks=vi.hoisted(()=>({server:vi.fn(),sameOrigin:vi.fn()}));
@@ -27,7 +28,7 @@ describe('organization shares endpoint',()=>{
   const response=await GET(new Request(endpoint+'?action=open&organization='+recipient+'&project='+project));
   expect(response.status).toBe(200);
   expect(response.headers.get('Cache-Control')).toBe('private, no-store');
-  expect(rpc).toHaveBeenCalledWith('feasibility_company_shares',{p_action:'open',p_organization:recipient,p_project:project});
+  expect(rpc).toHaveBeenCalledWith('feasibility_company_shares_access',{p_action:'open',p_organization:recipient,p_project:project});
  });
  it('treats expired and unauthorized open results without exposing study metadata',async()=>{
   rpc.mockResolvedValueOnce({data:null,error:null}).mockResolvedValueOnce({data:null,error:{code:'42501',message:'denied'}});
@@ -45,5 +46,33 @@ describe('organization shares endpoint',()=>{
   const response=await POST(request());
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({error:'FEASIBILITY_NON_SUBSCRIBER_MAX_30_DAYS'});
+ });
+ it('forwards edit grants and rejects write attempts that contain organization identity fields',async()=>{
+  rpc.mockResolvedValue({data:{ok:true},error:null});
+  const request=(payload:unknown)=>new Request(endpoint,{method:'POST',body:JSON.stringify(payload)});
+  const share={action:'share',organization,project,recipient,revision:2,days:5,access:'edit'};
+  expect((await POST(request(share))).status).toBe(200);
+  expect(rpc).toHaveBeenLastCalledWith('feasibility_company_shares_access',expect.objectContaining({p_access:'edit'}));
+  const edit={action:'edit',organization:recipient,project,revision:2};
+  expect((await POST(request({...edit,patch:{organization_id:organization}}))).status).toBe(400);
+  expect((await POST(request({...edit,patch:{notes:'Updated'}}))).status).toBe(200);
+  expect(rpc).toHaveBeenLastCalledWith('feasibility_company_shares_access',expect.objectContaining({p_patch:{notes:'Updated'}}));
+ });
+
+});
+
+describe('platform sharing setting endpoint',()=>{
+ const request=(mode:string)=>new Request('https://qa.local/api/admin/settings/feasibility-sharing',
+  {method:'PATCH',body:JSON.stringify({mode})});
+ it('checks origin and modes, then relies on the database platform owner authorization',async()=>{
+  mocks.sameOrigin.mockReturnValueOnce(false);
+  expect((await updateSharing(request('edit'))).status).toBe(403);
+  expect((await updateSharing(request('unknown'))).status).toBe(400);
+  expect(rpc).not.toHaveBeenCalled();
+  rpc.mockResolvedValueOnce({data:null,error:{code:'42501'}}).mockResolvedValueOnce({data:'edit',error:null});
+  expect((await updateSharing(request('edit'))).status).toBe(403);
+  const saved=await updateSharing(request('edit'));
+  expect(await saved.json()).toEqual({mode:'edit'});
+  expect(rpc).toHaveBeenLastCalledWith('feasibility_manage_sharing',{p_mode:'edit'});
  });
 });

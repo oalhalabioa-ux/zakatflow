@@ -1961,6 +1961,14 @@
       "expected_md5": "83fc9c172e750f60c11c7216603b6e4a",
       "file_sha256": "cd982057e9efcf505f384d31176df2fa7760715656b624de0cc3fc2eec10aed4",
       "validation_project": "Hosted restored clone: organization ownership, snapshot, expiry, 30-day cap and tenant isolation"
+    },
+    {
+      "path": "supabase/migrations/20261117024046_feasibility_sharing_permissions.sql",
+      "version": "20261117024046",
+      "name": "feasibility_sharing_permissions",
+      "expected_md5": "73fef009b49de06eb5f36d530c10d759",
+      "file_sha256": "acad3ef662ea2bef846167a642c69a85c99fad0c41897ede3e023db86588b45a",
+      "validation_project": "Isolated QA rehearsal: platform ownership, recipient permissions and revisioned snapshot edits"
     }
   ]
 }

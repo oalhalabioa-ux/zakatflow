@@ -42,6 +42,7 @@ try{
    $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
   create table public.organizations (id uuid primary key, name text not null, status text not null);
   create table public.organization_members (organization_id uuid, user_id uuid, role text, status text);
+  create table public.platform_admins (user_id uuid primary key, role text not null);
   create table public.platform_audit_events (actor_user_id uuid, event_type text, entity_type text, entity_id uuid, details jsonb);
   create table subscription_private.plans (organization_id uuid primary key, entitlement jsonb not null);
   create function subscription_private.entitlement(p_organization uuid) returns jsonb language sql stable as
@@ -117,6 +118,76 @@ try{
  await actor(recipient,async()=>assert.equal(await rpc('open',destination),null));
  await query("update private.feasibility_organization_shares set first_shared_at=now()-interval '31 days',expires_at=now()-interval '1 day' where project_id=$1",[study]);
  await actor(owner,()=>assert.rejects(rpc('share',source,study,destination,2,1),/FEASIBILITY_NON_SUBSCRIBER_MAX_30_DAYS/));
+ const catalog=await read('tests/migration-history/catalog.sql');
+ const beforePermissions=await query(catalog);
+ await db.exec(await read('supabase/migrations/20261117024046_feasibility_sharing_permissions.sql'));
+ const afterPermissions=await query(catalog);
+ const index=new Map(beforePermissions.map(entry=>[entry.category+entry.object_key,entry.fingerprint]));
+ const delta=afterPermissions.filter(entry=>index.get(entry.category+entry.object_key)!==entry.fingerprint);
+ const expected=JSON.parse(await read('tests/migration-history/feasibility-sharing-permissions-schema-delta.json'));
+ assert.deepEqual(delta,expected.upserts);
+ const shareAccess=(action,org,receiver=null,revision=null,days=null,access=null,patch=null)=>
+  query('select public.feasibility_company_shares_access($1,$2,$3,$4,$5,$6,$7,$8) as result',
+   [action,org,study,receiver,revision,days,access,patch===null?null:JSON.stringify(patch)])
+    .then(rows=>rows[0].result);
+ const mode=async(value=null)=>(await query('select public.feasibility_manage_sharing($1) as mode',[value]))[0].mode;
+ await query("insert into platform_admins values ($1,'platform_owner')",[outsider]);
+ await actor(owner,async()=>{
+  assert.equal(await mode(),'read');
+  await assert.rejects(mode('edit'),{code:'42501'});
+  await assert.rejects(shareAccess('share',source,destination,2,1,'edit'),{code:'42501'});
+ });
+ await actor(outsider,()=>mode('edit'));
+ await actor(owner,()=>assert.rejects(shareAccess('share',source,destination,2,1,'edit'),{code:'42501'}));
+ await query('insert into subscription_private.plans values ($1,$2)',[destination,{status:'active',capabilities:['module:feasibility']}]);
+ await actor(owner,()=>shareAccess('share',source,destination,2,3,'edit'));
+ await actor(recipient,async()=>{
+  const shared=await shareAccess('open',destination);
+  assert.equal(shared.can_edit,true);
+  await assert.rejects(shareAccess('edit',destination,null,shared.shared_revision,null,null,{organization_id:source}),{code:'22023'});
+  const edited=await shareAccess('edit',destination,null,shared.shared_revision,null,null,{title:'Collaborated',notes:'Reviewed',unitPrice:95});
+  assert.equal(edited.shared_revision,shared.shared_revision+1);
+  assert.equal(edited.study.title,'Collaborated');
+  assert.equal(edited.study.unitPrice,95);
+  await assert.rejects(shareAccess('edit',destination,null,shared.shared_revision,null,null,{notes:'Stale'}),{code:'40001'});
+ });
+ assert.equal((await query('select title from feasibility_projects where id=$1',[study]))[0].title,'Water study');
+ await actor(owner,()=>shareAccess('share',source,destination,2,3,'read'));
+ await actor(recipient,async()=>{
+  const shared=await shareAccess('open',destination);
+  assert.equal(shared.can_edit,false);
+  assert.equal(shared.study.title,'Collaborated');
+  await assert.rejects(shareAccess('edit',destination,null,shared.shared_revision,null,null,{notes:'No'}),{code:'42501'});
+ });
+ await actor(owner,()=>shareAccess('share',source,destination,2,3,'edit'));
+ await query("update subscription_private.plans set entitlement=entitlement||'{\"status\":\"expired\"}'::jsonb where organization_id=$1",[destination]);
+ await actor(recipient,()=>assert.rejects(shareAccess('edit',destination,null,3,null,null,{notes:'Expired plan'}),{code:'42501'}));
+ await query("update subscription_private.plans set entitlement=entitlement||'{\"status\":\"active\"}'::jsonb where organization_id=$1",[destination]);
+ await query("update private.feasibility_organization_shares set expires_at=now()-interval '1 day' where project_id=$1",[study]);
+ await actor(recipient,()=>assert.rejects(shareAccess('edit',destination,null,3,null,null,{notes:'Expired share'}),{code:'42501'}));
+ await query("update private.feasibility_organization_shares set expires_at=now()+interval '1 day' where project_id=$1",[study]);
+ await query('insert into organization_members values ($1,$2,$3,$4)',[destination,outsider,'VIEWER','ACTIVE']);
+ await actor(outsider,async()=>{
+  assert.equal((await shareAccess('open',destination)).can_edit,false);
+  await assert.rejects(shareAccess('edit',destination,null,1,null,null,{notes:'No'}),{code:'42501'});
+  assert.equal(await mode('read'),'read');
+ });
+ await actor(recipient,async()=>{
+  assert.equal((await shareAccess('open',destination)).can_edit,false);
+  await assert.rejects(shareAccess('edit',destination,null,1,null,null,{notes:'No'}),{code:'42501'});
+ });
+ await actor(outsider,()=>mode('disabled'));
+ await actor(recipient,()=>assert.rejects(rpc('open',destination),{code:'42501'}));
+ await actor(owner,async()=>{
+  await assert.rejects(rpc('share',source,study,destination,2,2),{code:'42501'});
+  await assert.rejects(query('select private.feasibility_company_shares($1,$2,$3,$4,$5,$6)',
+   ['share',source,study,destination,2,2]),{code:'42501'});
+  await rpc('revoke',source,study,destination);
+ });
+ await actor(outsider,()=>mode('edit'));
+ await actor(recipient,async()=>assert.equal(await shareAccess('open',destination),null));
+ assert.equal((await query("select count(*)::int count from platform_audit_events where event_type='feasibility.organization_sharing_policy'"))[0].count,4);
+ console.log('PASS administrator policy, recipient snapshot edits, optimistic revision, role isolation and backward-compatible enforcement');
  await db.exec('update private.feasibility_org_feature_switch set enabled=false');
  await actor(recipient,()=>assert.rejects(rpc('open',destination),{code:'42501'}));
  assert.deepEqual(await actor(legacyOwnerA,()=>query('select id from feasibility_projects')),[]);

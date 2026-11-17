@@ -9,6 +9,7 @@ import TopbarOrganizationControls from '@/components/TopbarOrganizationControls'
 import { cloudDraftWrite } from '@/lib/feasibility/draft-schema';
 import type { FeasibilityStudy } from '@/lib/feasibility/engine';
 import FeasibilityReport from './FeasibilityReport';
+import SharedStudyEditor from './SharedStudyEditor';
 
 type Share = { project_id: string; title: string; source_name: string; source_revision: number; expires_at: string };
 
@@ -20,7 +21,10 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
   const queryOrg = params.get('organization') ?? '';
   const [rememberedOrg, setRememberedOrg] = useState('');
   const organization = queryOrg || rememberedOrg;
-  const [result, setResult] = useState<{ key: string; items: Share[]; study?: FeasibilityStudy; expiresAt?: string; error?: boolean }>();
+  const [editing, setEditing] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [saved, setSaved] = useState('');
+  const [result, setResult] = useState<{ key: string; items: Share[]; study?: FeasibilityStudy; expiresAt?: string; editRevision?: number; error?: boolean }>();
   const requestKey = organization + ':' + selected;
 
   useEffect(() => {
@@ -51,7 +55,8 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
         else {
           const parsed = cloudDraftWrite.safeParse({ study: data.study });
           if (!parsed.success || parsed.data.study.id !== selected || typeof data.expires_at !== 'string') throw Error();
-          setResult({ key: requestKey, items: [], study: parsed.data.study, expiresAt: data.expires_at });
+          setResult({ key: requestKey, items: [], study: parsed.data.study, expiresAt: data.expires_at,
+            editRevision: data.can_edit === true && Number.isSafeInteger(data.shared_revision) ? data.shared_revision : undefined });
         }
       } catch {
         if (!controller.signal.aborted && version === latest) setResult({ key: requestKey, items: [], error: true });
@@ -62,7 +67,7 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
     const focus = () => void refresh();
     window.addEventListener('focus', focus);
     return () => { controller.abort(); clearInterval(interval); window.removeEventListener('focus', focus); };
-  }, [organization, requestKey, selected]);
+  }, [organization, requestKey, selected, refreshKey]);
 
   useEffect(() => {
     if (!result?.expiresAt) return;
@@ -89,8 +94,15 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
       {selected && <Link href={base + '?' + new URLSearchParams({ organization })}>{ar ? 'عرض كل الدراسات المشتركة' : 'All shared studies'}</Link>}
       {!current && <p role="status">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>}
       {current?.error && <p role="alert">{ar ? 'الدراسة غير متاحة أو انتهى الوصول.' : 'The study is unavailable or access ended.'}</p>}
-      {current?.study && <><h2>{current.study.title}</h2><p>{ar ? 'النسخة المشتركة للقراءة حتى' : 'Shared revision available until'}{' '}
+      {current?.study && <><h2>{current.study.title}</h2><p>{ar ? 'النسخة المشتركة متاحة حتى' : 'Shared revision available until'}{' '}
         <time dateTime={current.expiresAt}>{new Date(current.expiresAt!).toLocaleString(locale)}</time></p>
+        {current.editRevision !== undefined && (editing === requestKey
+          ? <SharedStudyEditor locale={locale} organization={organization} study={current.study} revision={current.editRevision}
+              onClose={() => setEditing('')} onSaved={() => { setEditing(''); setSaved(requestKey); setRefreshKey(value => value + 1); }}/>
+          : <button type="button" className="fs-btn" onClick={() => { setSaved(''); setEditing(requestKey); }}>
+              {ar ? 'تعديل النسخة المشتركة' : 'Edit shared copy'}
+            </button>)}
+        {saved === requestKey && <p role="status">{ar ? 'حُفظت تعديلات النسخة المشتركة.' : 'Shared copy edits saved.'}</p>}
         <FeasibilityReport study={current.study} locale={locale} allowExport={false}/>
       </>}
       {current && !current.error && !selected && (current.items.length ? <ul>
