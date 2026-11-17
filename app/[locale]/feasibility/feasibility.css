@@ -348,15 +348,14 @@
 @media print { .fs-royal-shared-access { display: none !important; } }
 
 /* Scope approved Royal colors to this module, including its existing frame. */
-.corp-shell.theme-yaqeen-business:has(.fs-royal-portfolio) .corp-sidebar { background: #10243A; }
-.corp-shell.theme-yaqeen-business:has(.fs-royal-portfolio) .corp-topbar { background: #10243A; }
-.corp-shell.theme-yaqeen-business:has(.fs-royal-portfolio) .corp-content { background: #F8FAFA; }
+.corp-shell.theme-yaqeen-business:has(main.fs-page.fs-royal) .corp-sidebar { background: #10243A; }
+.corp-shell.theme-yaqeen-business:has(main.fs-page.fs-royal) .corp-topbar { background: #10243A; }
+.corp-shell.theme-yaqeen-business:has(main.fs-page.fs-royal) .corp-content { background: #F8FAFA; }
 @media(max-width: 700px) {
  .fs-royal-organization-trigger { width: 100%; }
  .fs-royal-organization-trigger span:first-child { max-inline-size: 100%; }
 }
 
-.fs-royal .fs-royal-portfolio[hidden] { display: none; }
 .fs-royal-project-context {
  background: #FAFBFB; border: 1px solid var(--fs-line); border-radius: 8px; padding: 11px 14px;
 }
@@ -366,4 +365,48 @@
  .fs-royal-report-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
  .fs-royal-report-metrics .fs-metric { padding: 6px; }
  .fs-royal-report-metrics .fs-metric strong { font-size: 13px; }
+}
+
+.fs-royal-portfolio-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.fs-royal-overview-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fs-royal-overview-kpis .fs-metric { position: relative; text-align: center; }
+.fs-royal-overview-kpis .fs-metric > .fs-royal-icon { position: absolute; inset-block-start: 12px; inset-inline-end: 12px; }
+.fs-royal-overview-kpis .fs-metric small { padding-inline: 16px; }
+.fs-royal-overview-grid {
+ display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+ gap: 12px; align-items: start;
+}
+.fs-royal-overview-column { display: grid; min-width: 0; gap: 12px; }
+.fs-royal-check-progress { display: flex; align-items: center; gap: .4rem; flex: 0 0 min(42%, 180px); }
+.fs-royal-check-progress progress { flex: 1 1 48px; min-width: 26px; height: 8px; accent-color: var(--fs-green); }
+.fs-royal-check-progress strong { text-align: center; flex: 0 0 auto; }
+.fs-royal .fs-royal-priority-table { min-width: 0; }
+.fs-royal-priority-table th, .fs-royal-priority-table td { overflow-wrap: anywhere; }
+.fs-royal-priority-table .fs-royal-tag { display: inline-block; padding-inline: 5px; }
+.fs-royal-priority-table .fs-royal-tag:is([data-priority="NORMAL"],[data-task-status="IN_PROGRESS"]) { background: var(--fs-light-gold); }
+.fs-royal-priority-table .fs-royal-tag[data-priority="HIGH"] { background: #F5EBD6; color: var(--fs-navy); }
+.fs-royal-overview-profile dd { text-align: end; }
+@media (max-width: 760px) {
+ .fs-royal-overview-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .fs-royal-overview-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.fs-royal-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fs-royal-profile-grid .fs-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fs-royal-profile-grid dd { text-align: end; overflow-wrap: anywhere; }
+.fs-royal-profile-notes { grid-column: 1 / -1; }
+.fs-royal-profile-notes textarea { min-height: 80px; }
+@media(max-width: 650px) {
+ .fs-royal-profile-grid, .fs-royal-profile-grid .fs-form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.fs-royal-capex .fs-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fs-royal-capex .fs-table { min-width: 0; }
+.fs-royal-capex .fs-table th { overflow-wrap: anywhere; }
+.fs-royal-capex .fs-table .fs-field { min-width: 0; }
+.fs-royal-capex .fs-table .fs-field span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.fs-royal-capex .fs-table input { min-width: 0; }
+.fs-royal-capex .fs-table tfoot th, .fs-royal-capex .fs-table tfoot td { background: var(--fs-line); color: var(--fs-green); font-weight: 800; }
+@media(max-width: 760px) {
+ .fs-royal-capex .fs-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

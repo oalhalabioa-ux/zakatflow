@@ -2,6 +2,7 @@
 import {useMemo,type ReactNode} from 'react';
 import {evaluateWater,type WaterModel} from '@/lib/feasibility/water-model';
 import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
+import {RoyalIcon} from './RoyalIcon';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 
 type Labels=readonly [string,string];
@@ -71,11 +72,12 @@ function NumberInput({label,value,onChange,max=1e12,min=0,step='any'}:{
   }}/></label>;
 }
 
-function Table({headers,rows}:{headers:ReactNode[];rows:ReactNode[][]}){
+function Table({headers,rows,footer}:{headers:ReactNode[];rows:ReactNode[][];footer?:ReactNode}){
  return <div className="fs-table-wrap"><table className="fs-table">
   <thead><tr>{headers.map((value,index)=><th scope="col" key={index}>{value}</th>)}</tr></thead>
   <tbody>{rows.map((row,index)=><tr key={index}>{row.map((value,cell)=>
    cell===0?<th scope="row" key={cell}>{value}</th>:<td key={cell}>{value}</td>)}</tr>)}</tbody>
+  {footer&&<tfoot><tr>{footer}</tr></tfoot>}
  </table></div>;
 }
 
@@ -90,11 +92,12 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const money=(value:number|null)=>value===null?'—':fmt(value)+(currency?' '+currency:'');
  const percentage=(value:number|null)=>value===null?'—':fmt(value)+'%';
  const m=useMemo(()=>evaluateWater(water),[water]);
+ const field=<K extends 'capex'|'deal'|'ops'>(section:K,[key,ar,en,max,step]:NumberFields<WaterModel[K]>[number])=>
+  <NumberInput key={String(key)} label={l(ar,en)} value={Number(water[section][key])} max={max}
+   min={key==='horizon'?3:0} step={step} onChange={value=>
+    onChange({...water,[section]:{...water[section],[key]:value}})}/>;
  const fields=<K extends 'capex'|'deal'|'ops'>(section:K,definition:NumberFields<WaterModel[K]>)=>
-  <div className="fs-form-grid">{definition.map(([key,ar,en,max,step])=>
-   <NumberInput key={String(key)} label={l(ar,en)} value={Number(water[section][key])} max={max}
-    min={key==='horizon'?3:0} step={step} onChange={value=>
-     onChange({...water,[section]:{...water[section],[key]:value}})}/>)}</div>;
+  <div className="fs-form-grid">{definition.map(item=>field(section,item))}</div>;
  const metrics=(items:Array<[Labels,string]>)=><div className="fs-kpis">{items.map(([[ar,en],value])=>
   <div key={en} className="fs-metric"><small>{l(ar,en)}</small><strong dir="ltr">{value}</strong></div>)}</div>;
  const chartSeries=[
@@ -154,8 +157,37 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [0,...projectionLabels.slice(1).map(([key])=>key==='freeCashFlow'?m.flows[0]:key==='debtBalance'?m.totalLoan:null),currency],
   ...m.annual.map(y=>[...projectionLabels.map(([key])=>y[key]),currency])
  ]);
+ if(tab==='investment'){
+  const items=capexFields.filter(([key])=>key!=='contingencyPct'&&key!=='workingCapital');
+  const reserveFields=capexFields.filter(([key])=>key==='contingencyPct'||key==='workingCapital');
+  return <section className="fs-block fs-royal-capex">
+   {metrics([[['الإنشاءات والمعدات','Works and equipment'],money(m.hard)],
+    [['احتياطي الاستثمار','Investment contingency'],money(m.contingency)],
+    [['رأس المال العامل','Working capital'],money(water.capex.workingCapital)],
+    [['إجمالي الاحتياج النقدي','Total initial cash required'],money(m.cashRequired)]])}
+   <section className="card fs-panel">
+    <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{l('جدول البنود الاستثمارية','Investment cost schedule')}</h3>
+    <Table headers={[l('البند الاستثماري','Investment item'),l('القيمة','Amount')+(currency?' · '+currency:'')]}
+     rows={[
+      ...items.map(item=>[l(item[1],item[2]),field('capex',item)]),
+      [l('احتياطي الاستثمار','Investment contingency'),<bdi>{money(m.contingency)}</bdi>]
+     ]}
+     footer={<><th scope="row">{l('إجمالي التأسيس','Total establishment costs')}</th><td><bdi>{money(m.investment)}</bdi></td></>}/>
+   </section>
+   <div className="fs-royal-profile-grid">
+    <RoyalBars title={l('توزيع الاستثمار حسب البند','Investment costs by item')} locale={locale} unit={currency}
+     data={[...items.map(([key,ar,en])=>({label:l(ar,en),value:water.capex[key]})),
+      {label:l('احتياطي الاستثمار','Investment contingency'),value:m.contingency}].filter(point=>point.value>0)}/>
+    <section className="card fs-panel">
+     <h3 className="fs-royal-report-title"><RoyalIcon name="settings"/>{l('سياسة احتياطي التشغيل','Operating reserve policy')}</h3>
+     {fields('capex',reserveFields)}
+     <p className="fs-hint">{l('يُحسب الاحتياطي على الأعمال والمعدات. تُراجع حقوق الأرض في تبويب الشراكة.', 'Contingency is based on works and equipment. Review land rights in the Partnership tab.')}</p>
+    </section>
+   </div>
+  </section>;
+ }
  const headings:Record<typeof tab,Labels>={
-  overview:['مؤشرات مصنع المياه','Bottled-water diagnostics'],investment:['التكلفة التأسيسية','Establishment costs'],
+  overview:['مؤشرات مصنع المياه','Bottled-water diagnostics'],
   partners:['الشراكة وتمويل مصنع المياه','Water factory partnership and funding'],operations:['الإنتاج والمبيعات ومصدر المياه','Production, sales and water source'],
   scenarios:['السيناريوهات والحساسية','Scenarios and sensitivity'],cashflow:['التوقعات وخدمة قرض المساهم','Forecast and shareholder debt service'],
   advanced:['الإهلاك ورأس المال العامل وخدمة الدين','Depreciation, working capital and debt service'],
@@ -166,16 +198,6 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   <h3>{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>
   {(tab==='overview'||tab==='report')&&<>{valuation}{partnership}{diagnostics.length>0&&
    <ul className="fs-notes">{diagnostics.map(item=><li key={String(item)}>{item}</li>)}</ul>}</>}
-  {tab==='overview'&&m.ready&&<RoyalCashTrend title={l('التدفق النقدي التراكمي','Cumulative cash flow')}
-   locale={locale} unit={currency} flows={m.flows}/>}
-  {tab==='investment'&&<>
-   {fields('capex',capexFields)}
-   {metrics([[['الأعمال والمعدات','Works and equipment'],money(m.hard)],
-    [['الاحتياطي','Contingency'],money(m.contingency)],[['التأسيس مع الرسوم','Investment including fees'],money(m.investment)],
-    [['التمويل النقدي المطلوب','Required initial cash'],money(m.cashRequired)]])}
-   <RoyalBars title={l('توزيع تكاليف الاستثمار','Investment cost distribution')} locale={locale} unit={currency}
-    data={capexFields.filter(([key])=>key!=='contingencyPct').map(([key,ar,en])=>({label:l(ar,en),value:Number(water.capex[key])})).filter(point=>point.value>0)}/>
-  </>}
   {tab==='partners'&&<>
    <div className="fs-form-grid">
     <label className="fs-field">{l('معالجة الأرض','Land arrangement')}<select value={water.deal.landMode}
