@@ -12,7 +12,8 @@ export const waterModelSchema=z.object({
   landMode:z.enum(['transfer','lease','right']),landValue:amount,landArea:amount,rightValue:amount,
   leaseMonth:amount,licenseValue:amount,investorLoan:amount,loanInterest:pct,
   loanYears:z.number().int().min(0).max(60),loanStart:z.number().int().min(0).max(60),
-  extraFunding:amount,extraType:z.enum(['loan','equity'])
+  extraFunding:amount,extraType:z.enum(['loan','equity']),
+  appraisalDate:z.iso.date().optional(),appraisalApprovalDate:z.iso.date().optional()
  }).strict(),
  capex:z.object({
   buildings:amount,line:amount,treatment:amount,power:amount,lab:amount,vehicles:amount,

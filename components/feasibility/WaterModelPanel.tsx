@@ -273,7 +273,18 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {tab==='partners'&&<>
    <div className="fs-royal-profile-grid fs-royal-water-forms">
     <Panel title={l('مساهمة شريك الأرض','Land partner contribution')} icon="building">
-     <div className="fs-form-grid">{landTerms}{dealFields.slice(0,5).map(item=>field('deal',item))}</div>
+     <div className="fs-form-grid">{landTerms}{dealFields.slice(0,5).map(item=>field('deal',item))}
+      {detail==='valuation'&&([
+       ['appraisalDate',l('تاريخ التقييم المستقل','Independent valuation date')],
+       ['appraisalApprovalDate',l('تاريخ اعتماد التقييم الموثّق','Documented valuation approval date')],
+      ] as const).map(([key,label])=><label key={key} className="fs-field"><span>{label}</span>
+       <input type="date" value={water.deal[key]??''} onChange={event=>{
+        const value=event.currentTarget.value;
+        if(value.length<=10)onChange({...water,deal:{...water.deal,[key]:value||undefined}});
+       }}/></label>)}
+     </div>
+     {detail==='valuation'&&<p className="fs-hint">{l('سجّل التاريخ الوارد في مستند التقييم أو الاعتماد.',
+      'Enter the dates shown on the valuation or approval document.')}</p>}
      <p>{l('تقييم المتر المربع','Valuation per square metre')} <bdi>{money(water.deal.landArea>0?water.deal.landValue/water.deal.landArea:null)}</bdi></p>
      <p className="fs-hint">{l('الملكية تقديرية. راجع التقييم المستقل ومستندات نقل الملكية أو حق الانتفاع.',
       'Ownership is indicative. Review the independent valuation and title transfer or right-of-use documents.')}</p>

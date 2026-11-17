@@ -770,7 +770,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     ((tab==='legal'&&detail==='evidence')||(tab==='partners'&&detail==='valuation'))&&
     <EvidenceDocuments key={userId+':'+saveScopeId+':'+study.id+':'+detail} locale={locale} project={study.id}
      organization={personalScope?undefined:organizationId}
-     kind={detail==='evidence'?'licensing':'valuation'}
+     kind={detail==='evidence'?'licensing':'valuation'} requirements={study.legal}
      saved={personalScope?cloudOwnerIds[study.id]===userId:Boolean(organizationRecords[study.id])}
      canWrite={!effectiveReadOnly}/>}
    {tab==='sharing'&&!personalScope&&organizationSharing&&companyScopeReady&&organizationCanShare&&organizationRecords[study.id]&&

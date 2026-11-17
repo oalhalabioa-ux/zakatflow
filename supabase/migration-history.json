@@ -1985,6 +1985,14 @@
       "expected_md5": "d1ff8eec2b66e661ca53794e3860a690",
       "file_sha256": "0dd04ff62446331070903f9b90e50ffbeaaa73f99d15009e17d652a13e229fdf",
       "validation_project": "Isolated PostgreSQL rehearsal: study-scoped owner audit, existing event history, and denied cross-tenant, non-owner, suspended and anonymous access"
+    },
+    {
+      "path": "supabase/migrations/20261117190000_feasibility_evidence_documents.sql",
+      "version": "20261117190000",
+      "name": "feasibility_evidence_documents",
+      "expected_md5": "b624a53a6807a8709e1dd506baee02ee",
+      "file_sha256": "692c4e5898a9d18ad12065428a56d3079e25f97bbff6c5822b4c99d2d62ce38c",
+      "validation_project": "Isolated PostgreSQL rehearsal: private evidence, scope isolation and linkage to existing saved requirements"
     }
   ]
 }

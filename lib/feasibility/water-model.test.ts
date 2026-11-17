@@ -227,3 +227,12 @@ describe('water production balance',()=>{
   expect(waterProductionBalance(study)).toMatchObject({licensedM3Day:null,pumpedM3Day:30,availableM3Day:null});
  });
 });
+
+
+it('stores valuation document dates without changing the water project calculations',()=>{
+ const study=structuredClone(fixture);
+ study.deal={...study.deal,appraisalDate:'2026-11-12',appraisalApprovalDate:'2026-11-17'};
+ expect(waterModelSchema.parse(study).deal.appraisalApprovalDate).toBe('2026-11-17');
+ expect(evaluateWater(study)).toEqual(evaluateWater(fixture));
+ expect(waterModelSchema.safeParse({...study,deal:{...study.deal,appraisalDate:'2026-02-30'}}).success).toBe(false);
+});

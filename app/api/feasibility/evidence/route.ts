@@ -43,6 +43,7 @@ async function handle(request:Request){
   const parts:Buffer[]=[];
   let bytes=0;
   let file:FormDataEntryValue|null;
+  let requirement:FormDataEntryValue|null;
   try{
    while(true){
     const next=await reader.read();
@@ -54,11 +55,18 @@ async function handle(request:Request){
     }
     parts.push(Buffer.from(next.value));
    }
-   file=(await new Response(new Uint8Array(Buffer.concat(parts)),{headers:request.headers}).formData()).get('file');
+   const form=await new Response(new Uint8Array(Buffer.concat(parts)),{headers:request.headers}).formData();
+   file=form.get('file');
+   requirement=form.get('requirement');
   }catch{return json({error:'INVALID_FILE'},400)}
   if(!file||typeof file==='string'||file.size<5||file.size>maxBytes||!mediaTypes.has(file.type)||
    !file.name.trim()||Array.from(file.name).length>160||/[\x00-\x1f\x7f/\\]/.test(file.name))
    return json({error:'INVALID_FILE'},400);
+  if(requirement!==null){
+   if(kind!=='licensing'||typeof requirement!=='string'||!requirement||requirement.length>100)
+    return json({error:'INVALID_REQUIREMENT'},400);
+   args.p_requirement=requirement;
+  }
   args.p_filename=file.name;
   args.p_media_type=file.type;
   args.p_payload=Buffer.from(await file.arrayBuffer()).toString('base64');
@@ -66,6 +74,7 @@ async function handle(request:Request){
  const {data,error}=await supabase.rpc('feasibility_evidence',args);
  if(error){
   if(error.code==='42501')return json({error:'EVIDENCE_NOT_AVAILABLE'},404);
+  if(error.message==='FEASIBILITY_EVIDENCE_INVALID_REQUIREMENT')return json({error:'INVALID_REQUIREMENT'},409);
   if(error.message==='FEASIBILITY_EVIDENCE_LIMIT')return json({error:'EVIDENCE_LIMIT'},409);
   if(['23514','23502','22023'].includes(error.code))return json({error:'INVALID_FILE'},400);
   return json({error:'EVIDENCE_REQUEST_FAILED'},500);

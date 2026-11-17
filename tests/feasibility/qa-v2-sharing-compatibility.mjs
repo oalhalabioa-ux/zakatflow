@@ -304,28 +304,27 @@ try{
  try{await assert.rejects(activity(),{code:'42501'});}finally{await db.exec('reset role');}
  console.log('PASS dated organization share audit and denied cross-tenant, non-owner and anonymous access');
 
- // Personal Phase 1 entitlement is represented by a synthetic writable/read-only grant fixture.
  await db.exec(`
-  create table private.evidence_personal_grant (user_id uuid primary key, writable boolean not null);
-  create function private.feasibility_phase1_has_access(p_write boolean) returns boolean
-    language sql stable security definer set search_path='' as $$
-    select exists(select 1 from private.evidence_personal_grant g where g.user_id=auth.uid() and (not p_write or g.writable))
-   $$;
+  alter table public.feasibility_access_grants add column status text not null default 'ACTIVE',
+   add column ends_at timestamptz;
  `);
  await db.exec(await read('supabase/migrations/20261117190000_feasibility_evidence_documents.sql'));
  const personalStudy=id(20);
  await query("insert into feasibility_projects values ($1,null,$2,$2,1,'Personal evidence','{}')",[personalStudy,owner]);
- await query('insert into private.evidence_personal_grant values ($1,true)',[owner]);
+ await query("insert into feasibility_access_grants (user_id,starts_at) values ($1,now()) on conflict (user_id) do nothing",[owner]);
  await query("insert into organization_members values ($1,$2,'VIEWER','ACTIVE')",[source,legacyOwnerA]);
- const evidence=(action,project,org,kind='licensing',doc=null,name=null,mime=null,bytes=null)=>
-  query('select public.feasibility_evidence($1,$2,$3,$4,$5,$6,$7,$8) as result',
-   [action,project,kind,org,doc,name,mime,bytes]).then(rows=>rows[0].result);
+ await query("update feasibility_projects set study=study||jsonb_build_object('legal',jsonb_build_array(jsonb_build_object('id','source-permit'))) where id=$1",[study]);
+ await query("update feasibility_projects set study=study||jsonb_build_object('legal',jsonb_build_array(jsonb_build_object('id','private-permit'))) where id=$1",[personalStudy]);
+ const evidence=(action,project,org,kind='licensing',doc=null,name=null,mime=null,bytes=null,requirement=null)=>
+  query('select public.feasibility_evidence($1,$2,$3,$4,$5,$6,$7,$8,$9) as result',
+   [action,project,kind,org,doc,name,mime,bytes,requirement]).then(rows=>rows[0].result);
  const pdf=Buffer.from('%PDF-1.4 synthetic fixture').toString('base64');
- const upload=(project=study,org=source,kind='licensing',name='تصريح.pdf',bytes=pdf)=>
-  evidence('upload',project,org,kind,null,name,'application/pdf',bytes);
+ const upload=(project=study,org=source,kind='licensing',name='تصريح.pdf',bytes=pdf,requirement=null)=>
+  evidence('upload',project,org,kind,null,name,'application/pdf',bytes,requirement);
  await actor(owner,()=>assert.rejects(evidence('list',study,source),{code:'42501'}));
  await query('update private.feasibility_evidence_feature_switch set enabled=true where singleton');
- const uploaded=await actor(owner,()=>upload());
+ const uploaded=await actor(owner,()=>upload(study,source,'licensing','تصريح.pdf',pdf,'source-permit'));
+ assert.equal(uploaded.requirementId,'source-permit');
  const valuation=await actor(owner,()=>upload(study,source,'valuation'));
  assert.notEqual(uploaded.id,valuation.id);
  assert.deepEqual(await actor(owner,()=>evidence('list',study,source)),[uploaded]);
@@ -339,6 +338,8 @@ try{
  await actor(owner,async()=>{
   assert.equal(await evidence('download',study,source,'valuation',uploaded.id),null);
   await assert.rejects(evidence('list',study,null),{code:'42501'});
+  await assert.rejects(upload(study,source,'licensing','wrong-scope.pdf',pdf,'private-permit'),/FEASIBILITY_EVIDENCE_INVALID_REQUIREMENT/);
+  await assert.rejects(upload(study,source,'valuation','wrong-kind.pdf',pdf,'source-permit'),/FEASIBILITY_EVIDENCE_INVALID_REQUIREMENT/);
   await assert.rejects(upload(study,source,'licensing','wrong.pdf',Buffer.from('wrong bytes').toString('base64')),{code:'23514'});
   await assert.rejects(upload(study,source,'licensing','../unsafe.pdf'),{code:'23514'});
   await assert.rejects(upload(study,source,'licensing','oversized.pdf','A'.repeat(2796205)),{code:'22023'});
@@ -346,7 +347,7 @@ try{
   assert.equal((await upload(personalStudy,null)).name,'تصريح.pdf');
  });
  await actor(recipient,()=>assert.rejects(evidence('list',personalStudy,null),{code:'42501'}));
- await query('update private.evidence_personal_grant set writable=false where user_id=$1',[owner]);
+ await query('update public.feasibility_access_grants set ends_at=now() where user_id=$1',[owner]);
  await actor(owner,async()=>{
   assert.equal((await evidence('list',personalStudy,null)).length,1);
   await assert.rejects(upload(personalStudy,null),{code:'42501'});
