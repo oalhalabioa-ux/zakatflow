@@ -41,6 +41,7 @@
     "postcss": "8.5.28",
     "rollup": "4.64.0",
     "zod": "$zod",
-    "minimatch": "11.0.1"
+    "minimatch": "11.0.1",
+    "picomatch": "npm:@ryotsu/picomatch@4.0.7-a"
   }
 }
