@@ -66,6 +66,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  ]);
  return <div ref={report} className="fs-block fs-print-report">
   <section className="fs-block" data-report-section="summary">
+   <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
    <div className="fs-kpis fs-royal-overview-kpis">
     {[
      [l('إجمالي الاستثمار الاقتصادي','Economic investment'),money(water?water.cashRequired+water.land:base.totalInvestment)],
