@@ -55,7 +55,13 @@ async function authorize(request:Request){
  if(membership.error||org.error)return json({error:'ORGANIZATION_UNAVAILABLE'},503);
  if(!membership.data||membership.data.status!=='ACTIVE'||!org.data||
   org.data.status!=='ACTIVE')return json({error:'ORGANIZATION_NOT_AVAILABLE'},404);
- const canWrite=access.canWrite&&['OWNER','ADMIN'].includes(membership.data.role);
+ // The compatibility portfolio can display older studies, but all writes
+ // require the same company entitlement that the database policy checks.
+ let canWrite=false;
+ if(access.canWrite&&['OWNER','ADMIN'].includes(membership.data.role)){
+  const {data,error}=await supabase.rpc('feasibility_company_workspace',{p_organization:organizationId!});
+  canWrite=!error&&data?.canWrite===true;
+ }
  return {supabase,organizationId:organizationId!,userId:user.id,canWrite,canShare:false,organizationName:org.data.name};
 }
 async function parseInput(request:Request){

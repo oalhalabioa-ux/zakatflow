@@ -32,7 +32,7 @@ function mockDb(role='OWNER',status='ACTIVE'){
  const from=vi.fn((name:string)=>name==='feasibility_access_grants'?grant:
   name==='organization_members'?membership:name==='organizations'?org:projects);
  const getUser=vi.fn().mockResolvedValue({data:{user:{id:userId}},error:null});
- const rpc=vi.fn();
+ const rpc=vi.fn().mockResolvedValue({data:{canRead:true,canWrite:true,canShare:false},error:null});
  mocks.supabaseServer.mockResolvedValue({auth:{getUser},from,rpc});
  return {grant,membership,org,projects,from,getUser,rpc};
 }
@@ -88,6 +88,28 @@ describe('institutional feasibility portfolio server gate',()=>{
   const admin=await (await GET(req())).json();
   expect(admin).toEqual({studies:[],canWrite:true});
  });
+ it('keeps compatibility reads while denying creation, updates and copying without a company write entitlement',async()=>{
+  const db=mockDb('OWNER');
+  db.rpc.mockResolvedValue({data:{canRead:false,canWrite:false,canShare:true},error:null});
+  const response=await GET(req());
+  expect(await response.json()).toEqual({studies:[],canWrite:false});
+  expect(db.rpc).toHaveBeenCalledWith('feasibility_company_workspace',{p_organization:orgId});
+  expect((await POST(req(orgId,'POST',{study}))).status).toBe(403);
+  expect((await PATCH(req(orgId,'PATCH',{study,revision:1}))).status).toBe(403);
+  expect((await GET(req(orgId+'&action=copy'))).status).toBe(403);
+  expect((await POST(req(orgId+'&action=copy','POST',{sourceId:study.id,revision:1,confirmed:true}))).status).toBe(403);
+  expect(db.projects.insert).not.toHaveBeenCalled();
+  expect(db.projects.update).not.toHaveBeenCalled();
+ });
+
+ it('fails closed on company entitlement errors without removing existing read access',async()=>{
+  const db=mockDb('ADMIN');
+  db.rpc.mockResolvedValue({data:null,error:{code:'PGRST202'}});
+  expect(await (await GET(req())).json()).toEqual({studies:[],canWrite:false});
+  expect((await POST(req(orgId,'POST',{study}))).status).toBe(403);
+  expect(db.projects.insert).not.toHaveBeenCalled();
+ });
+
  it('prohibits non-admin writes even with a paid member grant',async()=>{
   const db=mockDb('VIEWER');
   expect((await POST(req(orgId,'POST',{study}))).status).toBe(403);
