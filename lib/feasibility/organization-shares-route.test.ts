@@ -36,6 +36,19 @@ describe('organization shares endpoint',()=>{
   expect((await GET(new Request(url))).status).toBe(404);
   expect((await GET(new Request(url))).status).toBe(403);
  });
+ it('requires a project for audit and only invokes the authorized audit RPC',async()=>{
+  const query=endpoint+'?action=audit&organization='+organization;
+  expect((await GET(new Request(query))).status).toBe(400);
+  expect(rpc).not.toHaveBeenCalled();
+  rpc.mockResolvedValueOnce({data:null,error:{code:'42501',message:'denied'}})
+   .mockResolvedValueOnce({data:[],error:null});
+  expect((await GET(new Request(query+'&project='+project))).status).toBe(403);
+  const response=await GET(new Request(query+'&project='+project));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual([]);
+  expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  expect(rpc).toHaveBeenLastCalledWith('feasibility_company_share_audit',{p_organization:organization,p_project:project});
+ });
  it('preserves the host database 30-day limit and checks the request origin',async()=>{
   const payload={action:'share',organization,project,recipient,revision:2,days:31};
   const request=()=>new Request(endpoint,{method:'POST',body:JSON.stringify(payload)});

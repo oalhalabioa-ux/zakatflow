@@ -45,7 +45,10 @@ try{
   create table public.platform_admins (user_id uuid primary key, role text not null);
   create table public.profiles (id uuid primary key, name text not null, locale text not null);
   create table public.notifications (user_id uuid, type text, title text, body text, scheduled_for timestamptz, metadata jsonb);
-  create table public.platform_audit_events (actor_user_id uuid, event_type text, entity_type text, entity_id uuid, details jsonb);
+  create table public.platform_audit_events (
+   id uuid primary key default gen_random_uuid(), actor_user_id uuid, event_type text,
+   entity_type text, entity_id uuid, details jsonb, created_at timestamptz not null default now()
+  );
   create table subscription_private.plans (organization_id uuid primary key, entitlement jsonb not null);
   create function subscription_private.entitlement(p_organization uuid) returns jsonb language sql stable as
    $$ select entitlement from subscription_private.plans where organization_id=p_organization $$;
@@ -266,8 +269,37 @@ try{
  await actor(outsider,()=>mode('edit'));
  await actor(owner,()=>rpc('revoke',source,study,destination));
  console.log('PASS share proposals, owner notification, immutable submission, explicit conflicts, revision history, decline and decision notification');
+ await db.exec(await read('supabase/migrations/20261117134000_feasibility_organization_share_audit.sql'));
+ const activity=(org=source,project=study)=>query(
+  'select public.feasibility_company_share_audit($1,$2) as result',[org,project]
+ ).then(rows=>rows[0].result);
+ await query(`insert into public.platform_audit_events(actor_user_id,event_type,entity_type,entity_id,details)
+  values ($1,'feasibility.organization_share_share','feasibility_project',$2,
+   jsonb_build_object('source_organization_id',$3::uuid,'recipient_organization_id',$4::uuid))`,
+  [recipient,study,destination,legacyOrgA]);
+ const records=await actor(owner,()=>activity());
+ assert(records.some(x=>x.kind==='feasibility.organization_share_share'&&x.recipient_organization_id===destination));
+ assert(records.some(x=>x.kind==='feasibility.organization_share_revoke'));
+ assert(records.some(x=>x.kind==='feasibility.organization_share_edit'&&x.shared_revision>0));
+ assert(records.some(x=>x.kind==='feasibility.share_proposal_submit'&&x.proposal_id===submitted.id));
+ assert(records.some(x=>x.kind==='feasibility.share_proposal_approve'&&x.approved_revision===5));
+ assert(records.some(x=>x.kind==='feasibility.share_proposal_reject'&&x.proposal_id===toDecline.id));
+ assert(records.every(x=>x.recipient_organization_id===destination&&x.occurred_at&&!('details' in x)&&!('actor_user_id' in x)));
+ await actor(recipient,()=>assert.rejects(activity(destination),{code:'42501'}));
+ await actor(recipient,()=>assert.rejects(activity(source),{code:'42501'}));
+ await actor(owner,()=>assert.rejects(activity(source,legacyStudyA),{code:'42501'}));
+ await actor(outsider,()=>assert.rejects(activity(),{code:'42501'}));
+ await query("insert into organization_members values ($1,$2,'MEMBER','ACTIVE')",[source,outsider]);
+ await actor(outsider,()=>assert.rejects(activity(),{code:'42501'}));
+ await query("update organization_members set status='SUSPENDED' where organization_id=$1 and user_id=$2",[source,owner]);
+ await actor(owner,()=>assert.rejects(activity(),{code:'42501'}));
+ await query("update organization_members set status='ACTIVE' where organization_id=$1 and user_id=$2",[source,owner]);
+ await db.exec('set role anon');
+ try{await assert.rejects(activity(),{code:'42501'});}finally{await db.exec('reset role');}
+ console.log('PASS dated organization share audit and denied cross-tenant, non-owner and anonymous access');
  await db.exec('update private.feasibility_org_feature_switch set enabled=false');
  await actor(recipient,()=>assert.rejects(rpc('open',destination),{code:'42501'}));
+ await actor(owner,()=>assert.rejects(activity(),{code:'42501'}));
  assert.deepEqual(await actor(legacyOwnerA,()=>query('select id from feasibility_projects')),[]);
  await assert.rejects(db.exec(apply),/UNEXPECTED_QA_V2_FEASIBILITY_SCHEMA/);
  await db.exec('rollback');

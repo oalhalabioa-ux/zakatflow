@@ -24,7 +24,11 @@ async function run(args: { p_action: string; p_organization: string; p_project?:
   if (authError || !user) return json({ error: 'UNAUTHORIZED' }, 401);
   const { data, error } = args.p_action === 'policy'
     ? await supabase.rpc('feasibility_manage_sharing')
-    : await supabase.rpc('feasibility_company_shares_access', args);
+    : args.p_action === 'audit'
+      ? await supabase.rpc('feasibility_company_share_audit', {
+        p_organization: args.p_organization, p_project: args.p_project,
+      })
+      : await supabase.rpc('feasibility_company_shares_access', args);
   if (error) {
     if (error.code === '42501' && ['FEASIBILITY_SHARING_DISABLED','FEASIBILITY_SHARE_EDIT_FORBIDDEN'].includes(error.message))
       return json({ error: error.message }, 403);
@@ -46,8 +50,8 @@ export async function GET(request: Request) {
   const action = p.get('action') ?? 'inbox';
   const organization = uuid.safeParse(p.get('organization'));
   const project = uuid.safeParse(p.get('project'));
-  if (!organization.success || !['policy', 'inbox', 'outbox', 'open'].includes(action)
-    || (['open','outbox'].includes(action) && !project.success)) return json({ error: 'INVALID_SHARE_REQUEST' }, 400);
+  if (!organization.success || !['policy', 'inbox', 'outbox', 'open', 'audit'].includes(action)
+    || (['open','outbox','audit'].includes(action) && !project.success)) return json({ error: 'INVALID_SHARE_REQUEST' }, 400);
   return run({ p_action: action, p_organization: organization.data, ...(project.success && { p_project: project.data }) });
 }
 

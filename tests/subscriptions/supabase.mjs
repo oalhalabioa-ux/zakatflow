@@ -859,6 +859,7 @@ try {
       'docs/feasibility/qa-v2-sharing-compatibility-workspace.sql',
       'supabase/migrations/20261117024046_feasibility_sharing_permissions.sql',
       'supabase/migrations/20261117064000_feasibility_share_proposals.sql',
+      'supabase/migrations/20261117134000_feasibility_organization_share_audit.sql',
     ];
     sql('begin;\n' + (await Promise.all(migrationFiles.map(load))).map(strip).join('\n') + '\ncommit;');
     console.log('PASS installed notification and feasibility fixtures');

@@ -97,6 +97,20 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await receiver.getByText('Latest request · Declined · Keep the accepted name', { exact: true }).waitFor();
 
     console.log('PASS decline with a reason and recipient status');
+    const project = new URL(source.url()).searchParams.get('project');
+    assert.ok(project);
+    const auditQuery = appUrl + '/api/feasibility/organization-shares?' +
+      new URLSearchParams({ action: 'audit', organization: sourceOrg, project });
+    const hiddenAudit = await receiver.request.get(auditQuery);
+    assert.equal(hiddenAudit.status(),403);
+    await source.goto(appUrl + '/en/feasibility?' + new URLSearchParams({ scope: 'ORGANIZATION', organization: sourceOrg }));
+    await source.getByRole('button', { name: 'Collaboration', exact: true }).click();
+    await source.getByRole('button', { name: 'Permissions and audit', exact: true }).click();
+    const activity = source.locator('.fs-royal-share-audit');
+    await activity.getByRole('rowheader', { name: 'Change request approved', exact: true }).waitFor();
+    await activity.getByRole('rowheader', { name: 'Change request declined', exact: true }).waitFor();
+    console.log('PASS source owner can see dated audit, recipient cannot read it');
+
     await setMode('read');
     await receiver.reload();
     await receiver.getByRole('heading', { name: 'Synthetic QA declined draft', exact: true }).waitFor();

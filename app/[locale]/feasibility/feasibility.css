@@ -457,3 +457,4 @@
 
 .fs-royal-report-detail .fs-royal-checks dd { text-align: end; overflow-wrap: anywhere; }
 .fs-royal-sensitivity [data-base-case="true"] { box-shadow: inset 0 0 0 1px var(--fs-green); font-weight: 800; }
+.fs-royal-share-audit :is(th, td) { overflow-wrap: anywhere; }

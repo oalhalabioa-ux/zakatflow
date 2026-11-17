@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {RoyalIcon} from './RoyalIcon';
-import { shareAccessSchema, sharingModeSchema } from '@/lib/feasibility/sharing-permissions';
+import { shareAccessSchema, sharingModeSchema, shareAuditEventsSchema, shareAuditEventLabels, type ShareAuditEvent } from '@/lib/feasibility/sharing-permissions';
 import { proposalReviewHref, proposalStateLabel, type ProposalState } from '@/lib/feasibility/share-proposals';
 
 type Share = { recipient_organization_id: string; source_revision: number; expires_at: string; revoked_at: string | null; access_mode?: 'read' | 'edit' };
@@ -22,6 +22,8 @@ export default function OrganizationStudyShares({ locale, organization, project,
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const [proposals, setProposals] = useState<Proposal[]>();
+  const [activity, setActivity] = useState<ShareAuditEvent[]>();
+  const [activityError, setActivityError] = useState(false);
   const [proposalError, setProposalError] = useState(false);
 
   function message(code: string) {
@@ -72,6 +74,22 @@ export default function OrganizationStudyShares({ locale, organization, project,
     window.addEventListener('focus', refresh);
     return () => { stop.abort(); window.removeEventListener('focus', refresh); };
   }, [organization, project]);
+
+  useEffect(() => {
+    if (!audit) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({action:'audit', organization, project});
+    setActivity(undefined);
+    setActivityError(false);
+    fetch('/api/feasibility/organization-shares?' + params, {
+      cache:'no-store', signal:controller.signal,
+    }).then(async response => {
+      if (!response.ok) throw Error('AUDIT_UNAVAILABLE');
+      const rows = shareAuditEventsSchema.parse(await response.json());
+      if (!controller.signal.aborted) setActivity(rows);
+    }).catch(() => { if (!controller.signal.aborted) setActivityError(true); });
+    return () => controller.abort();
+  }, [audit, organization, project, reload]);
 
   async function submit(action: 'share' | 'revoke', id: string) {
     setBusy(true);
@@ -133,6 +151,28 @@ export default function OrganizationStudyShares({ locale, organization, project,
     <p className="fs-hint">{ar?'يحدد وضع المنصة واشتراك المؤسسة الصلاحية الفعلية عند الوصول إلى الدراسة.':
      'Platform policy and the recipient subscription determine effective access when the study is opened.'}</p>
     </section>
+    {audit&&<section className="card fs-panel">
+      <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{ar?'سجل نشاط المشاركة':'Sharing activity'}</h3>
+      <p className="fs-hint">{ar?'يعرض آخر 100 نشاط مسجل لهذه الدراسة.':'Shows the latest 100 activities recorded for this study.'}</p>
+      {activityError?<p role="alert">{ar?'تعذر تحميل سجل نشاط المشاركة.':'Sharing activity could not be loaded.'}</p>:
+       activity===undefined?<p role="status">{ar?'جارٍ تحميل سجل النشاط…':'Loading sharing activity…'}</p>:
+       activity.length===0?<p>{ar?'لا يوجد نشاط مسجل لهذه الدراسة.':'There is no activity recorded for this study.'}</p>:
+       <div className="fs-table-wrap"><table className="fs-table fs-royal-share-audit">
+         <thead><tr>{(ar?['النشاط','التاريخ والوقت','المؤسسة المستلمة','الإصدار','طلب التعديل']:
+          ['Activity','Date and time','Recipient organization','Revision','Change request'])
+          .map(label=><th scope="col" key={label}>{label}</th>)}</tr></thead>
+         <tbody>{activity.map(event=><tr key={event.id}>
+           <th scope="row">{shareAuditEventLabels[event.kind][ar?0:1]}</th>
+           <td><time dateTime={event.occurred_at}>{new Date(event.occurred_at).toLocaleString(locale)}</time></td>
+           <td><bdi>{event.recipient_organization_id??'—'}</bdi></td>
+           <td>{event.approved_revision!==null?(ar?'معتمد · ':'Approved · ')+event.approved_revision:
+            event.shared_revision!==null?(ar?'مشترك · ':'Shared · ')+event.shared_revision:
+            event.source_revision!==null?(ar?'المصدر · ':'Source · ')+event.source_revision:'—'}</td>
+           <td>{event.proposal_id?<Link href={proposalReviewHref(locale,organization,project,event.proposal_id)}>
+            {ar?'عرض الطلب':'View request'}</Link>:'—'}</td>
+         </tr>)}</tbody>
+       </table></div>}
+    </section>}
     <h3>{ar ? 'طلبات تعديل الدراسة' : 'Study change requests'}</h3>
     {proposalError && <p role="alert">{ar ? 'تعذر تحميل طلبات التعديل.' : 'Change requests could not be loaded.'}</p>}
     {proposals?.length === 0 && <p>{ar ? 'لا توجد طلبات تعديل.' : 'There are no change requests.'}</p>}

@@ -766,7 +766,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    {tab==='handoff'&&<ProjectHandoffPanel study={study} locale={locale} onChange={handoff=>update({handoff})} cloudRevision={cloudRevisions[study.id]} cloudCurrent={cloudSavedStudyVersions[study.id]===study.updatedAt} cloudEnabled={cloudEnabled} canWrite={!effectiveReadOnly} bannerOrganizationId={organizationId}/>}
    </fieldset>
    {tab==='sharing'&&!personalScope&&organizationSharing&&companyScopeReady&&organizationCanShare&&organizationRecords[study.id]&&
-    <OrganizationStudyShares audit={detail==='permissions'} key={organizationId+':'+study.id} locale={locale} organization={organizationId}
+    <OrganizationStudyShares audit={detail==='permissions'} key={userId+':'+organizationId+':'+study.id} locale={locale} organization={organizationId}
      project={study.id} revision={organizationRecords[study.id].revision}
      saved={organizationCanWrite&&organizationRecords[study.id].study===study}/>}
   </>}

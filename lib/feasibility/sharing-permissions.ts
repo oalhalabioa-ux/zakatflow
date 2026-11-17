@@ -3,6 +3,27 @@ import { z } from 'zod';
 export const sharingModeSchema = z.enum(['disabled', 'read', 'edit']);
 export const shareAccessSchema = z.enum(['read', 'edit']);
 
+export const shareAuditEventLabels = {
+  'feasibility.organization_share_share': ['مشاركة إصدار', 'Revision shared'],
+  'feasibility.organization_share_revoke': ['إلغاء الوصول', 'Access revoked'],
+  'feasibility.organization_share_edit': ['تعديل النسخة المشتركة', 'Shared copy edited'],
+  'feasibility.share_proposal_submit': ['إرسال طلب تعديل', 'Change request submitted'],
+  'feasibility.share_proposal_approve': ['قبول طلب تعديل', 'Change request approved'],
+  'feasibility.share_proposal_reject': ['رفض طلب تعديل', 'Change request declined'],
+} as const;
+
+export const shareAuditEventsSchema = z.array(z.object({
+  id: z.string().uuid(),
+  kind: z.enum(Object.keys(shareAuditEventLabels) as (keyof typeof shareAuditEventLabels)[]),
+  occurred_at: z.iso.datetime({offset:true}),
+  recipient_organization_id: z.string().uuid().nullable(),
+  proposal_id: z.string().uuid().nullable(),
+  source_revision: z.number().int().positive().nullable(),
+  shared_revision: z.number().int().positive().nullable(),
+  approved_revision: z.number().int().positive().nullable(),
+}).strict()).max(100);
+export type ShareAuditEvent = z.infer<typeof shareAuditEventsSchema>[number];
+
 export const sharedStudyFields = {
   monthlyUnits: ['الوحدات الشهرية', 'Monthly units'],
   unitPrice: ['سعر الوحدة', 'Unit price'],
