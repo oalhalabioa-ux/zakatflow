@@ -50,6 +50,25 @@ describe('general land development model',()=>{
   expect(cash.npv).toBe(result.npv);
   expect(result.annual[0].equityCash-cash.annual[0].equityCash).toBe(160000);
  });
+ it('separates signed sales, collected instalments, and outstanding receivables by use',()=>{
+  const model=synthetic();
+  model.sales.scenarios[2].salesDelayYears=0;
+  model.sales.scenarios[2].annualGrowth=0;
+  model.sales.mix[0].salesPhasing=[1,0,0,0];
+  model.sales.mix[0].collectionPhasing=[.25,0,.75,0];
+  model.sales.mix[1].salesPhasing=[0,0,1,0];
+  model.sales.mix[1].annualGrowthAdjustment=0;
+  const result=evaluateRawLand(model);
+  if(result.issue)throw Error(result.issue);
+  expect(result.annual.map(row=>row.soldArea)).toEqual([3600,2400,0]);
+  expect(result.annual.map(row=>row.salesValue)).toEqual([360000,480000,0]);
+  expect(result.annual.map(row=>row.cashCollected)).toEqual([90000,480000,270000]);
+  expect(result.annual.map(row=>row.receivables)).toEqual([270000,270000,0]);
+  expect(result.annual.reduce((sum,row)=>sum+row.cashCollected,0)).toBe(result.revenue);
+  expect(result.annual.at(-1)?.closingDebt).toBeCloseTo(0,10);
+  model.sales.mix[0].collectionPhasing=[.25,0,.5,0];
+  expect(evaluateRawLand(model).issue).toBe('phasing');
+ });
  it('updates sales, financing, valuation, and cost phase checks without persisting invalid study output',()=>{
   const model=synthetic();
   const baseline=evaluateRawLand(model);

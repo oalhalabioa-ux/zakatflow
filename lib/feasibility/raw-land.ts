@@ -23,7 +23,8 @@ export const rawLandSchema=z.object({
  finance:z.object({facility:amount,benchmarkRate:ratio,spreadRate:ratio,interestBudgetRate:ratio,arrangementRate:ratio,
   interestMode:z.enum(['reference','dynamic']),loanDrawFirstYear:ratio}).strict(),
  sales:z.object({priceMode:z.enum(['reference','compound']),
-  mix:z.array(z.object({name:shortText,share:ratio,price:amount,enabled:z.boolean(),annualGrowthAdjustment:rate}).strict()).max(20),
+  mix:z.array(z.object({name:shortText,share:ratio,price:amount,enabled:z.boolean(),annualGrowthAdjustment:rate,
+   salesPhasing:phases.optional(),collectionPhasing:phases.optional()}).strict()).max(20),
   scenarios:z.array(z.object({name:shortText,priceMultiplier:amount.max(10),annualGrowth:rate,
    initialPricePremium:rate,costMultiplier:amount.max(10),salesDelayYears:z.number().int().min(0).max(3)}).strict()).min(1).max(12)
  }).strict(),
@@ -69,8 +70,9 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  const saleArea=net*(1-site.serviceRatio);
  const shareTotal=sum(uses.map(use=>use.share));
  const invalidPhases=Object.entries(phasing).filter(([,phase])=>!one(sum(phase))).map(([key])=>key);
+ const invalidUsePhases=uses.some(use=>[use.salesPhasing,use.collectionPhasing].some(phase=>phase&&!one(sum(phase))));
  const validGrowth=uses.every(use=>scenario.annualGrowth+use.annualGrowthAdjustment>=-1);
- const issue=excluded>site.areaAfterPriorTransfers?'area':!one(shareTotal)?'mix':invalidPhases.length?'phasing':
+ const issue=excluded>site.areaAfterPriorTransfers?'area':!one(shareTotal)?'mix':invalidPhases.length||invalidUsePhases?'phasing':
   sales.priceMode==='compound'&&!validGrowth?'growth':null;
  if(issue)return {issue,net,saleArea,shareTotal,invalidPhases} as const;
  const land=net*site.landPricePerNetSqm;
@@ -79,13 +81,35 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
   :net*cost.developmentPerNetSqm;
  const development=developmentBase*scenario.costMultiplier;
  const studies=cost.studies;
- const years=project.years+scenario.salesDelayYears;
- const saleWeights=annualPhaseWeights(phasing.sales,project.years,scenario.salesDelayYears);
- const annualSales=saleWeights.map((weight,i)=>sum(uses.map(use=>{
-  const factor=sales.priceMode==='reference'?scenario.priceMultiplier:
-   (1+scenario.initialPricePremium)*(1+scenario.annualGrowth+use.annualGrowthAdjustment)**i;
-  return saleArea*use.share*weight*use.price*factor;
- })));
+ const saleYears=project.years+scenario.salesDelayYears;
+ const scheduledUses=uses.map(use=>({
+  ...use,
+  weights:annualPhaseWeights(use.salesPhasing??phasing.sales,project.years,scenario.salesDelayYears),
+  collection:use.collectionPhasing??[1,0,0,0]
+ }));
+ const pricedUses=scheduledUses.filter(use=>use.share>0&&use.price>0);
+ const hasInstalments=pricedUses.some(use=>use.collection.slice(1).some(weight=>weight>0));
+ const years=Math.max(saleYears,...pricedUses.map(use=>{
+  const closingSale=use.weights.reduce((last,weight,index)=>weight>0?index:last,0);
+  const closingLag=use.collection.reduce((last,weight,index)=>weight>0?index:last,0);
+  return closingSale+closingLag+1;
+ }));
+ const annualSales=Array<number>(years).fill(0);
+ const collections=Array<number>(years).fill(0);
+ const saleWeights=Array<number>(years).fill(0);
+ for(const use of scheduledUses){
+  use.weights.forEach((weight,year)=>{
+   const factor=sales.priceMode==='reference'?scenario.priceMultiplier:
+    (1+scenario.initialPricePremium)*(1+scenario.annualGrowth+use.annualGrowthAdjustment)**year;
+   const areaWeight=use.share*weight;
+   const value=saleArea*areaWeight*use.price*factor;
+   saleWeights[year]+=areaWeight;
+   annualSales[year]+=value;
+   use.collection.forEach((portion,lag)=>{
+    if(portion>0&&value!==0)collections[year+lag]+=value*portion;
+   });
+  });
+ }
  const revenue=sum(annualSales);
  const costs={
   development,studies,
@@ -101,12 +125,13 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  const weights=Object.fromEntries(rawLandCostKeys.map(key=>[key,annualPhaseWeights(phasing[key],project.years,0,years)])) as Record<(typeof rawLandCostKeys)[number],number[]>;
  let debt=0;
  const allocations=annualSales.map((salesValue,i)=>{
-  const draw=finance.facility*(years===1?1:i===0?finance.loanDrawFirstYear:i===1?1-finance.loanDrawFirstYear:0);
-  const repayment=Math.min(debt+draw,finance.facility*saleWeights[i]);
+  const draw=finance.facility*(saleYears===1?1:i===0?finance.loanDrawFirstYear:i===1?1-finance.loanDrawFirstYear:0);
+  const repayWeight=hasInstalments&&revenue>0?collections[i]/revenue:saleWeights[i];
+  const repayment=Math.min(debt+draw,finance.facility*repayWeight);
   const interest=finance.interestMode==='reference'?costs.interestBudget*weights.interestBudget[i]:
    (debt+.5*(draw-repayment))*(finance.benchmarkRate+finance.spreadRate);
   debt+=draw-repayment;
-  return {salesValue,draw,repayment,interest,closingDebt:debt};
+  return {salesValue,cashCollected:collections[i],draw,repayment,interest,closingDebt:debt};
  });
  costs.interestBudget=sum(allocations.map(row=>row.interest));
  const cashDevelopmentCost=sum(Object.values(costs));
@@ -116,14 +141,16 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  const incentive=Math.max(0,gross-hurdle)*waterfall.incentiveRate;
  const profit=gross-incentive;
  let cumulativeOperating=0,cumulativeProject=0,cumulativeEquity=0;
+ let receivables=0;
  const annual=allocations.map((row,i)=>{
   const cashCost=row.interest+sum(rawLandCostKeys.filter(key=>key!=='interestBudget').map(key=>costs[key]*weights[key][i]));
-  const operatingCash=row.salesValue-cashCost;
+  receivables+=row.salesValue-row.cashCollected;
+  const operatingCash=row.cashCollected-cashCost;
   const performanceFee=i===years-1?incentive:0;
   const projectCash=operatingCash-performanceFee-(i===0?land:0);
   const equityCash=operatingCash-performanceFee+row.draw-row.repayment-(i===0&&site.landPaymentMethod==='cash'?land:0);
   cumulativeOperating+=operatingCash;cumulativeProject+=projectCash;cumulativeEquity+=equityCash;
-  return {...row,year:project.startYear+i,soldArea:saleArea*saleWeights[i],cashCost,operatingCash,performanceFee,projectCash,
+  return {...row,receivables:Math.max(0,receivables),year:project.startYear+i,soldArea:saleArea*saleWeights[i],cashCost,operatingCash,performanceFee,projectCash,
    equityCash,cumulativeOperating,cumulativeProject,cumulativeEquity};
  });
  const npv=sum(annual.map((row,i)=>row.projectCash/(1+project.discountRate)**(i+1)));

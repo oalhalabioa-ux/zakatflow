@@ -1,7 +1,7 @@
 'use client';
-import type {ReactNode} from 'react';
+import {useState,type ReactNode} from 'react';
 import {evaluateRawLand,rawLandCostKeys,type RawLand} from '@/lib/feasibility/raw-land';
-import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
+import {downloadFeasibilityCsv,downloadFeasibilityXlsx} from '@/lib/feasibility/report-export';
 import {RoyalIcon} from './RoyalIcon';
 
 type Label=readonly [string,string];
@@ -21,6 +21,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
  model:RawLand;locale:string;currency:string;tab:LandTab;onChange?:(value:RawLand)=>void;allowExport?:boolean
 }){
  const ar=locale==='ar';
+ const [xlsxState,setXlsxState]=useState<'idle'|'working'|'error'>('idle');
  const l=([a,b]:Label)=>ar?a:b;
  const fmt=(value:number|null)=>value===null?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
  const money=(value:number|null)=>value===null?'—':[fmt(value),currency].filter(Boolean).join(' ');
@@ -59,7 +60,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
  const warnings={
   area:['الاستبعادات تتجاوز المساحة المدخلة بعد التسويات.','Exclusions exceed the area after prior transfers.'],
   mix:['يجب أن يساوي مجموع نسب الاستخدامات النشطة 100%.','Enabled land uses must add to 100%.'],
-  phasing:['يجب أن يساوي توزيع كل بند على مراحله 100%.','Each stage allocation must add to 100%.'],
+  phasing:['يجب أن يساوي مجموع نسب كل توزيع للمبيعات أو التحصيل أو التكلفة 100%.','Each sales, collection or cost allocation must add to 100%.'],
   growth:['مجموع النمو السنوي وتعديل الاستخدام يجب ألا يقل عن ‎−100%.','Combined annual growth and use adjustment must be at least −100%.']
  } as const;
  const warning=base.issue?<p className="fs-warning" role="status">{l(warnings[base.issue])}</p>:null;
@@ -99,7 +100,30 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
      ['annualGrowthAdjustment',['تعديل النمو السنوي %','Annual growth adjustment %'],'pct',-100,1000]],update)}
     <label className="fs-field"><span>{l(['استخدام نشط','Enabled use'])}</span><input type="checkbox" checked={use.enabled}
      onChange={e=>update({enabled:e.currentTarget.checked})}/></label>
-   </div><button className="fs-btn fs-btn--secondary" type="button" onClick={()=>patch('sales',{mix:sales.mix.filter((_,j)=>j!==i)})}>{l(['حذف الاستخدام','Remove use'])}</button></section>;
+   </div>
+   <fieldset className="fs-panel">
+    <legend>{l(['مراحل البيع والتحصيل','Sales and collection schedule'])}</legend>
+    <label className="fs-check"><input type="checkbox" checked={!!use.salesPhasing}
+     onChange={event=>update({salesPhasing:event.currentTarget.checked?[...phasing.sales]:undefined})}/>
+     {l(['توزيع مراحل بيع مستقل لهذا الاستخدام','Use a separate sales schedule'])}</label>
+    {use.salesPhasing&&<div className="fs-form-grid">{use.salesPhasing.map((weight,index)=>numeric(
+     ['مرحلة بيع '+(index+1)+' %','Sales stage '+(index+1)+' %'],weight*100,value=>{
+      if(!use.salesPhasing)return;
+      const next=[...use.salesPhasing] as typeof use.salesPhasing;
+      next[index]=value/100;update({salesPhasing:next});
+     },0,100))}</div>}
+    <label className="fs-check"><input type="checkbox" checked={!!use.collectionPhasing}
+     onChange={event=>update({collectionPhasing:event.currentTarget.checked?[1,0,0,0]:undefined})}/>
+     {l(['توزيع التحصيل على دفعات سنوية','Schedule annual instalments'])}</label>
+    {use.collectionPhasing&&<div className="fs-form-grid">{use.collectionPhasing.map((weight,index)=>numeric(
+     index===0?['سنة البيع %','Year of sale %']:['بعد البيع بـ '+index+' سنة %','Years after sale · '+index+' %'],
+     weight*100,value=>{
+      if(!use.collectionPhasing)return;
+      const next=[...use.collectionPhasing] as typeof use.collectionPhasing;
+      next[index]=value/100;update({collectionPhasing:next});
+     },0,100))}</div>}
+   </fieldset>
+   <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>patch('sales',{mix:sales.mix.filter((_,j)=>j!==i)})}>{l(['حذف الاستخدام','Remove use'])}</button></section>;
   })}
   <button className="fs-btn fs-btn--secondary" type="button" disabled={sales.mix.length>=20} onClick={()=>patch('sales',{mix:[...sales.mix,{name:'',share:0,price:0,enabled:true,annualGrowthAdjustment:0}]})}>{l(['إضافة استخدام','Add land use'])}</button>
   {warning}
@@ -197,11 +221,22 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    [[money(base.land),money(base.developerIncentive),money(base.managerIncentive)]])}
  </>);
  const headings:readonly Label[]=[
-  ['السنة','Year'],['المساحة المباعة م²','Sold area m²'],['المبيعات','Sales'],['تكلفة نقدية','Cash cost'],['الحافز','Incentive'],
+  ['السنة','Year'],['المساحة المباعة م²','Sold area m²'],['المبيعات','Sales'],['التحصيل النقدي','Cash collected'],
+  ['الذمم المدينة آخر السنة','Closing receivables'],['تكلفة نقدية','Cash cost'],['الحافز','Incentive'],
   ['سحب الدين','Debt draw'],['السداد','Debt repayment'],['رصيد الدين','Closing debt'],['التدفق الاقتصادي','Economic cash flow'],
   ['التدفق بعد الدين','Equity cash flow'],['التدفق الاقتصادي التراكمي','Cumulative economic cash flow']
  ];
  return <div className="fs-block">
+  {tab==='cashflow'&&<div className="fs-kpis" aria-label={l(['مؤشرات التدفقات النقدية','Cash flow metrics'])}>
+   {([
+    [['صافي القيمة الحالية','NPV'],!base.issue&&base.ready?money(base.npv):'—'],
+    [['معدل العائد الداخلي','IRR'],!base.issue&&base.ready&&base.irr!==null?fmt(base.irr)+'%':'—'],
+    [['ذروة عجز التمويل','Peak funding deficit'],!base.issue&&base.ready?money(base.peakEquityDeficit):'—'],
+    [['الرصيد الختامي للدين','Closing debt'],!base.issue&&base.ready?money(base.annual.at(-1)?.closingDebt??null):'—']
+   ] satisfies readonly (readonly [Label,string])[]).map(([label,value])=><div className="card fs-kpi" key={label[1]}>
+    <small>{l(label)}</small><strong><bdi>{value}</bdi></strong>
+   </div>)}
+  </div>}
   {panel(['مقارنة سيناريوهات تطوير الأراضي','Land development scenario comparison'],<>
    {warning}
    {table([['السيناريو','Scenario'],['المبيعات','Sales'],['التكلفة','Cost'],['صافي الربح','Net profit'],
@@ -212,14 +247,24 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   </>)}
   {tab!=='overview'&&results.map((result,i)=>{
    if(result.issue||!result.ready)return null;
-   const annual=result.annual.map(y=>[y.year,y.soldArea,y.salesValue,y.cashCost,y.performanceFee,y.draw,y.repayment,y.closingDebt,y.projectCash,y.equityCash,y.cumulativeProject]);
+   const annual=result.annual.map(y=>[y.year,y.soldArea,y.salesValue,y.cashCollected,y.receivables,y.cashCost,y.performanceFee,
+    y.draw,y.repayment,y.closingDebt,y.projectCash,y.equityCash,y.cumulativeProject]);
+   const rows=[[...headings.map(l),l(['العملة','Currency'])],...annual.map(row=>[...row,currency])];
+   const filename='land-development-'+(i+1);
    return <div key={i}>{panel(['التدفقات النقدية · '+(sales.scenarios[i].name||String(i+1)),'Cash flows · '+(sales.scenarios[i].name||String(i+1))],<>
     {table(headings,annual.map(row=>row.map((n,j)=>j<2?fmt(n):money(n))))}
     {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
-     onClick={()=>downloadFeasibilityCsv('land-development-'+(i+1)+'.csv',[
-      [...headings.map(l),l(['العملة','Currency'])],...annual.map(row=>[...row,currency])
-     ])}>{l(['تصدير التدفقات CSV','Export cash flows CSV'])}</button></div>}
+     onClick={()=>downloadFeasibilityCsv(filename+'.csv',rows)}>{l(['تصدير التدفقات CSV','Export cash flows CSV'])}</button>
+     <button className="fs-btn fs-btn--secondary" type="button" disabled={xlsxState==='working'} onClick={async()=>{
+      setXlsxState('working');
+      try{
+       await downloadFeasibilityXlsx(filename+'.xlsx',l(['التدفقات النقدية','Cash flow']),rows,ar);
+       setXlsxState('idle');
+      }catch{setXlsxState('error');}
+     }}>{l(['تصدير التدفقات Excel','Export cash flows Excel'])}</button>
+    </div>}
    </>)}</div>;
   })}
+  {xlsxState==='error'&&<p role="alert">{l(['تعذر تصدير ملف Excel.','Could not export the Excel file.'])}</p>}
  </div>;
 }
