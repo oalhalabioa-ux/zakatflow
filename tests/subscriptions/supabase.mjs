@@ -848,6 +848,7 @@ try {
       'supabase/migrations/20261116194423_feasibility_organization_sharing.sql',
       'docs/feasibility/qa-v2-sharing-compatibility-workspace.sql',
       'supabase/migrations/20261117024046_feasibility_sharing_permissions.sql',
+      'supabase/migrations/20261117064000_feasibility_share_proposals.sql',
     ];
     sql('begin;\n' + (await Promise.all(migrationFiles.map(load))).map(strip).join('\n') + '\ncommit;');
     const sharingAppUrl = 'http://localhost:3002';

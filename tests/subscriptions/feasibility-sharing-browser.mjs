@@ -64,9 +64,33 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await source.reload();
     await source.getByRole('heading', { name: title, exact: true }).waitFor();
 
+    await receiver.getByRole('button', { name: 'Send changes for review' }).click();
+    await receiver.getByText('The changes were sent to the study owner.', { exact: true }).waitFor();
+    await source.goto(appUrl + '/en/notifications');
+    await source.getByRole('link', { name: 'Review changes', exact: true }).click();
+    await source.getByRole('table').getByRole('row').filter({ hasText: 'Synthetic QA reviewed copy' }).waitFor();
+    await source.getByRole('button', { name: 'Approve changes', exact: true }).click();
+    await source.getByText('Approved', { exact: true }).waitFor();
+    await receiver.reload();
+    await receiver.getByText('Latest request · Approved', { exact: true }).waitFor();
+
+    await receiver.getByRole('button', { name: 'Edit shared copy' }).click();
+    await receiver.getByLabel('Shared copy title').fill('Synthetic QA declined draft');
+    await receiver.getByRole('button', { name: 'Save copy edits' }).click();
+    await receiver.getByRole('heading', { name: 'Synthetic QA declined draft', exact: true }).waitFor();
+    await receiver.getByRole('button', { name: 'Send changes for review' }).click();
+    await receiver.getByText('The changes were sent to the study owner.', { exact: true }).waitFor();
+    await source.goto(appUrl + '/en/notifications');
+    await source.getByRole('link', { name: 'Review changes', exact: true }).first().click();
+    await source.getByLabel('Reason for declining (optional)').fill('Keep the accepted name');
+    await source.getByRole('button', { name: 'Decline changes', exact: true }).click();
+    await source.getByText('Declined', { exact: true }).waitFor();
+    await receiver.reload();
+    await receiver.getByText('Latest request · Declined · Keep the accepted name', { exact: true }).waitFor();
+
     await setMode('read');
     await receiver.reload();
-    await receiver.getByRole('heading', { name: 'Synthetic QA reviewed copy', exact: true }).waitFor();
+    await receiver.getByRole('heading', { name: 'Synthetic QA declined draft', exact: true }).waitFor();
     assert.equal(await receiver.getByRole('button', { name: 'Edit shared copy' }).count(), 0);
     await setMode('disabled');
     await receiver.reload();

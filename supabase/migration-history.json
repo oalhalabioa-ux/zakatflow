@@ -1969,6 +1969,14 @@
       "expected_md5": "73fef009b49de06eb5f36d530c10d759",
       "file_sha256": "acad3ef662ea2bef846167a642c69a85c99fad0c41897ede3e023db86588b45a",
       "validation_project": "Isolated QA rehearsal: platform ownership, recipient permissions and revisioned snapshot edits"
+    },
+    {
+      "path": "supabase/migrations/20261117064000_feasibility_share_proposals.sql",
+      "version": "20261117064000",
+      "name": "feasibility_share_proposals",
+      "expected_md5": "e6d21ea3a29adefafa96035dec6be693",
+      "file_sha256": "723b4778a32984b433992f44280b2bc04a8c8078eae9064548d97f80f9c39ce4",
+      "validation_project": "Isolated QA rehearsal: validated proposal submission, notifications, conflict resolution and revision preservation"
     }
   ]
 }

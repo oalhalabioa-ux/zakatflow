@@ -1,0 +1,166 @@
+{
+  "description": "Organization study edit proposals, review decisions and historical snapshots",
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.proposal_baseline",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.approved_revision",
+      "fingerprint": "a50c4283b5f725ee6e744c968fae597a"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.changes",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.decided_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.decided_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.previous_study",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.project_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.reason",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.recipient_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.resolutions",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.shared_revision",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.source_revision",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.state",
+      "fingerprint": "37eb78664e15df5cf4e417de6e5baf31"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.submitted_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.submitted_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_decided_by_fkey",
+      "fingerprint": "cf31ff661330453da074ebf9575ce256"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_project_id_fkey",
+      "fingerprint": "b27e1531042d8251d0834bb2996ea0c0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_project_id_recipient_id_shared__key",
+      "fingerprint": "ddf27928ddfcdd298ac302c9bc57fb7c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_recipient_id_fkey",
+      "fingerprint": "28a234fe184a7be1c5dc72d59bb3581e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_state_check",
+      "fingerprint": "b42f499da7cc97b7deb1280e866840f4"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_submitted_by_fkey",
+      "fingerprint": "66cc04036854de3dad863caccf5b91be"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_capture_share_baseline()",
+      "fingerprint": "892d87f6a8dcf3c07e82d2f8049de6b0"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_proposal_fields()",
+      "fingerprint": "95eeba271aa2716e003f12774e6bf62a"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_share_proposal(p_action text, p_org uuid, p_project uuid, p_proposal uuid, p_revision integer, p_resolutions jsonb, p_reason text)",
+      "fingerprint": "65cdd1f4c44720bd88355801a57d10c8"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_share_proposal(p_action text, p_org uuid, p_project uuid, p_proposal uuid, p_revision integer, p_resolutions jsonb, p_reason text)",
+      "fingerprint": "3d097667143699f25815d6e00d1e8185"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_share_proposals.feasibility_one_pending_share_proposal",
+      "fingerprint": "db18d9ae2cfa6f5e7f54523026c26071"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_pkey",
+      "fingerprint": "b423753a1d61a83f405fcc32c62b8aa1"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_share_proposals.feasibility_share_proposals_project_id_recipient_id_shared__key",
+      "fingerprint": "2917d78ec070c7f7afa68aba82000c15"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.feasibility_share_proposals",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "private.feasibility_organization_shares.feasibility_capture_share_baseline",
+      "fingerprint": "2fff442bdf96d8b7823652550e0a14c6"
+    }
+  ],
+  "removals": []
+}

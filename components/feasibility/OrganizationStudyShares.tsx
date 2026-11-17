@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { shareAccessSchema, sharingModeSchema } from '@/lib/feasibility/sharing-permissions';
+import { proposalReviewHref, proposalStateLabel, type ProposalState } from '@/lib/feasibility/share-proposals';
 
 type Share = { recipient_organization_id: string; source_revision: number; expires_at: string; revoked_at: string | null; access_mode?: 'read' | 'edit' };
+type Proposal = { id: string; state: ProposalState; submitted_at: string; recipient_name: string };
 
 export default function OrganizationStudyShares({ locale, organization, project, revision, saved }: {
   locale: string; organization: string; project: string; revision: number; saved: boolean;
@@ -17,6 +20,8 @@ export default function OrganizationStudyShares({ locale, organization, project,
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
+  const [proposals, setProposals] = useState<Proposal[]>();
+  const [proposalError, setProposalError] = useState(false);
 
   function message(code: string) {
     if (code === 'FEASIBILITY_SHARING_DISABLED') return ar ? 'أوقفت إدارة المنصة المشاركة.' : 'Sharing is turned off by the platform.';
@@ -49,6 +54,23 @@ export default function OrganizationStudyShares({ locale, organization, project,
       .catch(() => { if (!controller.signal.aborted) setError(ar ? 'تعذر تحميل المشاركات.' : 'Could not load shares.'); });
     return () => controller.abort();
   }, [ar, organization, project, reload]);
+
+  useEffect(() => {
+    const stop = new AbortController();
+    const query = new URLSearchParams({ action: 'list', organization, project });
+    const refresh = () => fetch('/api/feasibility/share-proposals?' + query, { cache: 'no-store', signal: stop.signal })
+      .then(async response => {
+        if (!response.ok) throw Error();
+        const rows = await response.json();
+        if (!stop.signal.aborted) {
+          setProposalError(false);
+          setProposals(rows);
+        }
+      }).catch(() => { if (!stop.signal.aborted) setProposalError(true); });
+    void refresh();
+    window.addEventListener('focus', refresh);
+    return () => { stop.abort(); window.removeEventListener('focus', refresh); };
+  }, [organization, project]);
 
   async function submit(action: 'share' | 'revoke', id: string) {
     setBusy(true);
@@ -97,6 +119,17 @@ export default function OrganizationStudyShares({ locale, organization, project,
         disabled={busy} onClick={() => void submit('revoke', share.recipient_organization_id)}>
         {ar ? 'إلغاء الوصول' : 'Revoke access'}
       </button>}
+    </div>)}
+    <h3>{ar ? 'طلبات تعديل الدراسة' : 'Study change requests'}</h3>
+    {proposalError && <p role="alert">{ar ? 'تعذر تحميل طلبات التعديل.' : 'Change requests could not be loaded.'}</p>}
+    {proposals?.length === 0 && <p>{ar ? 'لا توجد طلبات تعديل.' : 'There are no change requests.'}</p>}
+    {proposals?.map(proposal => <div className="fs-row" key={proposal.id}>
+      <strong>{proposal.recipient_name}</strong>
+      <span>{proposalStateLabel(proposal.state, ar)}</span>
+      <time dateTime={proposal.submitted_at}>{new Date(proposal.submitted_at).toLocaleString(locale)}</time>
+      <Link href={proposalReviewHref(locale, organization, project, proposal.id)}>
+        {ar ? 'عرض التعديلات' : 'View changes'}
+      </Link>
     </div>)}
   </section>;
 }

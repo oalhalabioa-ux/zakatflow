@@ -10,6 +10,7 @@ import { cloudDraftWrite } from '@/lib/feasibility/draft-schema';
 import type { FeasibilityStudy } from '@/lib/feasibility/engine';
 import FeasibilityReport from './FeasibilityReport';
 import SharedStudyEditor from './SharedStudyEditor';
+import SharedStudySubmission from './SharedStudySubmission';
 
 type Share = { project_id: string; title: string; source_name: string; source_revision: number; expires_at: string };
 
@@ -103,6 +104,9 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
               {ar ? 'تعديل النسخة المشتركة' : 'Edit shared copy'}
             </button>)}
         {saved === requestKey && <p role="status">{ar ? 'حُفظت تعديلات النسخة المشتركة.' : 'Shared copy edits saved.'}</p>}
+        {current.editRevision !== undefined && editing !== requestKey &&
+          <SharedStudySubmission key={requestKey + ':' + current.editRevision} ar={ar} organization={organization}
+            project={selected} revision={current.editRevision}/>}
         <FeasibilityReport study={current.study} locale={locale} allowExport={false}/>
       </>}
       {current && !current.error && !selected && (current.items.length ? <ul>

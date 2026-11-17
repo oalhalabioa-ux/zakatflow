@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 
 const modulePath=process.env.FEASIBILITY_PGLITE_MODULE;
@@ -43,6 +43,8 @@ try{
   create table public.organizations (id uuid primary key, name text not null, status text not null);
   create table public.organization_members (organization_id uuid, user_id uuid, role text, status text);
   create table public.platform_admins (user_id uuid primary key, role text not null);
+  create table public.profiles (id uuid primary key, name text not null, locale text not null);
+  create table public.notifications (user_id uuid, type text, title text, body text, scheduled_for timestamptz, metadata jsonb);
   create table public.platform_audit_events (actor_user_id uuid, event_type text, entity_type text, entity_id uuid, details jsonb);
   create table subscription_private.plans (organization_id uuid primary key, entitlement jsonb not null);
   create function subscription_private.entitlement(p_organization uuid) returns jsonb language sql stable as
@@ -188,6 +190,82 @@ try{
  await actor(recipient,async()=>assert.equal(await shareAccess('open',destination),null));
  assert.equal((await query("select count(*)::int count from platform_audit_events where event_type='feasibility.organization_sharing_policy'"))[0].count,4);
  console.log('PASS administrator policy, recipient snapshot edits, optimistic revision, role isolation and backward-compatible enforcement');
+ const beforeProposals=await query(catalog);
+ await db.exec(await read('supabase/migrations/20261117064000_feasibility_share_proposals.sql'));
+ const afterProposals=await query(catalog);
+ const proposalCatalog=new Map(beforeProposals.map(entry=>[entry.category+entry.object_key,entry.fingerprint]));
+ const proposalDelta={description:'Organization study edit proposals, review decisions and historical snapshots',
+  upserts:afterProposals.filter(entry=>proposalCatalog.get(entry.category+entry.object_key)!==entry.fingerprint),removals:[]};
+ const deltaPath='tests/migration-history/feasibility-share-proposals-schema-delta.json';
+ if(process.argv.includes('--write-proposal-delta')) await writeFile(new URL('../../'+deltaPath,import.meta.url),JSON.stringify(proposalDelta,null,2)+'\n');
+ else assert.deepEqual(proposalDelta,JSON.parse(await read(deltaPath)));
+
+ const proposal=(action,org,proposalId=null,revision=null,choices=null,reason=null)=>
+  query('select public.feasibility_share_proposal($1,$2,$3,$4,$5,$6,$7) as result',
+   [action,org,study,proposalId,revision,choices===null?null:JSON.stringify(choices),reason]).then(rows=>rows[0].result);
+ const getProject=()=>query('select title,revision,study from feasibility_projects where id=$1',[study]).then(rows=>rows[0]);
+ await query("insert into profiles values ($1,'Source Owner','ar'),($2,'Recipient Member','en')",[owner,recipient]);
+ await query("update feasibility_projects set revision=3,study=$1 where id=$2",
+  [{title:'Water study',notes:'Original',unitPrice:100,monthlyUnits:50},study]);
+ await actor(owner,()=>shareAccess('share',source,destination,3,3,'edit'));
+ const edit=patch=>actor(recipient,async()=>{
+  const shared=await shareAccess('open',destination);
+  return shareAccess('edit',destination,null,shared.shared_revision,null,null,patch);
+ });
+ const edited=await edit({notes:'Recipient notes',unitPrice:110});
+ assert.equal((await getProject()).study.notes,'Original');
+ assert.deepEqual(await query('select type from notifications'),[]);
+ await actor(recipient,()=>assert.rejects(proposal('submit',destination,null,edited.shared_revision-1),{code:'40001'}));
+ const submitted=await actor(recipient,()=>proposal('submit',destination,null,edited.shared_revision));
+ await actor(recipient,async()=>{
+  await assert.rejects(proposal('submit',destination,null,edited.shared_revision),{code:'40001'});
+  await assert.rejects(proposal('review',destination,submitted.id),{code:'42501'});
+ });
+ await actor(outsider,()=>assert.rejects(proposal('list',source),{code:'42501'}));
+ assert.deepEqual(await query("select user_id,type,metadata->>'proposal' as proposal from notifications"),
+  [{user_id:owner,type:'feasibility_share_proposal',proposal:submitted.id}]);
+ await query("update feasibility_projects set revision=4,study=study||'{\"notes\":\"Owner notes\",\"monthlyUnits\":60}'::jsonb where id=$1",[study]);
+ await actor(owner,async()=>{
+  const review=await proposal('review',source,submitted.id);
+  assert.equal(review.revision,4);
+  assert.deepEqual(review.changes.find(change=>change.field==='notes'),{field:'notes',path:['notes'],
+   before:'Original',after:'Recipient notes',current:'Owner notes',conflict:true,can_apply:true,resolution:null});
+  await assert.rejects(proposal('approve',source,submitted.id,3,{notes:'current'}),{code:'40001'});
+  await assert.rejects(proposal('approve',source,submitted.id,4,{}),{code:'40001'});
+  await assert.rejects(proposal('approve',source,submitted.id,4,{unknown:'current'}),{code:'22023'});
+  assert.equal((await proposal('approve',source,submitted.id,4,{notes:'current'})).state,'approved');
+  await assert.rejects(proposal('approve',source,submitted.id,5,{notes:'proposed'}),{code:'40001'});
+ });
+ const approvedProject=await getProject();
+ assert.equal(approvedProject.revision,5);
+ assert.equal(approvedProject.study.notes,'Owner notes');
+ assert.equal(approvedProject.study.unitPrice,110);
+ assert.equal(approvedProject.study.monthlyUnits,60);
+ const previous=(await query('select previous_study from private.feasibility_share_proposals where id=$1',[submitted.id]))[0].previous_study;
+ assert.equal(previous.unitPrice,100);
+ assert.equal(previous.notes,'Owner notes');
+ assert.equal((await actor(owner,()=>proposal('review',source,submitted.id))).changes.find(change=>change.field==='notes').resolution,'current');
+ assert.equal((await actor(recipient,()=>proposal('recipient',destination))).state,'approved');
+ assert.equal((await actor(recipient,()=>proposal('recipient',destination))).can_submit,false);
+ assert.deepEqual(await query("select user_id,type from notifications where type='feasibility_share_decision'"),
+  [{user_id:recipient,type:'feasibility_share_decision'}]);
+
+ await actor(owner,()=>shareAccess('share',source,destination,5,3,'edit'));
+ const declinedEdit=await edit({title:'Declined title'});
+ const toDecline=await actor(recipient,()=>proposal('submit',destination,null,declinedEdit.shared_revision));
+ await actor(outsider,()=>mode('read'));
+ await actor(owner,async()=>{
+  await assert.rejects(proposal('approve',source,toDecline.id,5,{}),{code:'40001'});
+  assert.equal((await proposal('reject',source,toDecline.id,null,null,'Use the current name')).state,'rejected');
+ });
+ assert.deepEqual(await getProject(),approvedProject);
+ assert.equal((await actor(recipient,()=>proposal('recipient',destination))).reason,'Use the current name');
+ await query("update subscription_private.plans set entitlement=entitlement||'{\"status\":\"expired\"}'::jsonb where organization_id=$1",[destination]);
+ await actor(recipient,()=>assert.rejects(proposal('submit',destination,null,declinedEdit.shared_revision),{code:'42501'}));
+ await actor(recipient,()=>assert.rejects(query('select * from private.feasibility_share_proposals'),{code:'42501'}));
+ await actor(outsider,()=>mode('edit'));
+ await actor(owner,()=>rpc('revoke',source,study,destination));
+ console.log('PASS share proposals, owner notification, immutable submission, explicit conflicts, revision history, decline and decision notification');
  await db.exec('update private.feasibility_org_feature_switch set enabled=false');
  await actor(recipient,()=>assert.rejects(rpc('open',destination),{code:'42501'}));
  assert.deepEqual(await actor(legacyOwnerA,()=>query('select id from feasibility_projects')),[]);
