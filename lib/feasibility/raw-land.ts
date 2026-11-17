@@ -10,6 +10,15 @@ const costPhases={
  development:phases,studies:phases,developerFee:phases,marketing:phases,fundSetup:phases,
  fundMgmt:phases,interestBudget:phases,arrangement:phases,contingency:phases,otherCosts:phases
 };
+const legacyReferenceSchema=z.object({
+ structure:shortText,
+ additionalConstraints:amount,
+ partners:z.array(z.object({
+  name:shortText,contributionType:shortText,contribution:amount,profitShare:ratio,role:shortText
+ }).strict()).max(50),
+ developmentAllocation:z.array(z.object({name:shortText,share:ratio}).strict()).max(100),
+ absorption:z.array(z.object({name:shortText,phasing:phases}).strict()).max(20)
+}).strict();
 export const rawLandSchema=z.object({
  project:z.object({startYear:z.number().int().min(1900).max(2200),years:z.number().int().min(1).max(15),discountRate:ratio}).strict(),
  site:z.object({areaAfterPriorTransfers:amount,excludedValley:amount,extraExcluded:amount,otherConstraintsSqm:amount,
@@ -30,7 +39,8 @@ export const rawLandSchema=z.object({
  }).strict(),
  phasing:z.object({sales:phases,...costPhases}).strict(),
  waterfall:z.object({incentiveRate:ratio,hurdleRate:ratio,hurdleBase:z.enum(['revenue','cost']),
-  developerIncentiveShare:ratio}).strict()
+  developerIncentiveShare:ratio}).strict(),
+ legacyReference:legacyReferenceSchema.optional()
 }).strict();
 export type RawLand=z.infer<typeof rawLandSchema>;
 type Phase=RawLand['phasing']['sales'];

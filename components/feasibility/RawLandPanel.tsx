@@ -54,7 +54,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   <thead><tr>{headers.map(header=><th scope="col" key={header[1]}>{l(header)}</th>)}</tr></thead>
   <tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}><bdi>{cell}</bdi></td>)}</tr>)}</tbody>
  </table></div>;
- const {project,site,cost,finance,waterfall,sales,phasing}=model;
+ const {project,site,cost,finance,waterfall,sales,phasing,legacyReference}=model;
  const results=sales.scenarios.map((_,i)=>evaluateRawLand(model,i));
  const base=results[2]??results[0];
  const warnings={
@@ -207,7 +207,8 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    scenarios:[...sales.scenarios,{name:'',priceMultiplier:1,costMultiplier:1,annualGrowth:0,initialPricePremium:0,salesDelayYears:0}]
   })}>{l(['إضافة سيناريو','Add scenario'])}</button>
  </>);
- if(tab==='partners')return panel(['حوافز الشراكة','Partnership incentives'],<>
+ if(tab==='partners')return <>
+ {panel(['حوافز الشراكة','Partnership incentives'],<>
   <div className="fs-form-grid">
    {numberFields(waterfall,[
     ['incentiveRate',['معدل الحافز %','Performance incentive %'],'pct'],
@@ -219,7 +220,26 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    ],v=>patch('waterfall',{hurdleBase:v}))}
   </div>{!base.issue&&table([['قيمة الأرض','Land value'],['حافز المطور','Developer incentive'],['حافز المدير','Manager incentive']],
    [[money(base.land),money(base.developerIncentive),money(base.managerIncentive)]])}
- </>);
+ </>)}
+ {legacyReference&&panel(['بيانات ملف الأراضي المرجعية','Reference data from the land file'],<>
+  <p className="fs-hint">{l(['هذه البيانات محفوظة للمراجعة. يستخدم التوقع مراحل البيع العامة كما في الإصدار 1.0. راجع أي استبعادات إضافية في تبويب التحليل القطاعي.',
+   'Reference data is retained for review. The forecast uses the shared sales schedule as in version 1.0. Review any additional exclusions in Sector analysis.'])}</p>
+  {legacyReference.structure&&<p>{l(['الهيكل الوارد في الملف','Structure from file'])} · {legacyReference.structure}</p>}
+  {legacyReference.additionalConstraints>0&&<p>{l(['قيود إضافية واردة في الملف م²','Additional constraints from file m²'])} · {fmt(legacyReference.additionalConstraints)}</p>}
+  {legacyReference.partners.length>0&&table([
+   ['الشريك','Partner'],['نوع المساهمة','Contribution type'],['المساهمة','Contribution'],
+   ['حصة الأرباح %','Profit share %'],['الدور','Role']
+  ],legacyReference.partners.map(partner=>[partner.name,partner.contributionType,money(partner.contribution),
+   fmt(partner.profitShare*100),partner.role]))}
+  {legacyReference.developmentAllocation.length>0&&table([
+   ['بند توزيع التطوير','Development allocation item'],['النسبة %','Share %']
+  ],legacyReference.developmentAllocation.map(item=>[item.name,fmt(item.share*100)]))}
+  {legacyReference.absorption.length>0&&table([
+   ['الاستخدام','Land use'],['المرحلة 1 %','Stage 1 %'],['المرحلة 2 %','Stage 2 %'],
+   ['المرحلة 3 %','Stage 3 %'],['المرحلة 4 %','Stage 4 %']
+  ],legacyReference.absorption.map(use=>[use.name,...use.phasing.map(value=>fmt(value*100))]))}
+ </>)}
+ </>;
  const headings:readonly Label[]=[
   ['السنة','Year'],['المساحة المباعة م²','Sold area m²'],['المبيعات','Sales'],['التحصيل النقدي','Cash collected'],
   ['الذمم المدينة آخر السنة','Closing receivables'],['تكلفة نقدية','Cash cost'],['الحافز','Incentive'],

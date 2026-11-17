@@ -28,6 +28,7 @@ import { RoyalBars, RoyalCashTrend, RoyalOwnership } from '@/components/feasibil
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,createRawLandStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
 import {importWaterBackup} from '@/lib/feasibility/water-backup';
+import {importRawLandBackup} from '@/lib/feasibility/raw-land-backup';
 import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
@@ -388,8 +389,10 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   try{
    if(file.size>2_000_000)throw Error('large');
    const raw:unknown=JSON.parse(await file.text());
-   const water=importWaterBackup(raw,uid());
-   const imported=water?[water]:parseStudyBackup(raw);
+   const previewId=uid();
+   const land=importRawLandBackup(raw,previewId);
+   const legacyStudy=land??importWaterBackup(raw,previewId);
+   const imported=legacyStudy?[legacyStudy]:parseStudyBackup(raw);
    if(!imported?.length)throw Error('format');
    if(currentUserRef.current!==userId||!personalScopeRef.current)return;
    if(!window.confirm(txt(ar,'ستُضاف نسخة مستقلة إلى محفظتك الشخصية. متابعة؟','Add independent copies to your personal portfolio?')))return;
@@ -400,7 +403,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    if(!next)throw Error('invalid_cache_or_limit');
    localStorage.setItem(storageKey,JSON.stringify({version:1,...next}));
    setStudies(next.studies);setSelectedId(next.selectedId);setSharedSelectedId('');setTab('overview');
-   setNotice(txt(ar,'أُضيفت نسخة محلية إلى محفظتك الشخصية.','Added a local copy to your personal portfolio.'));
+   setNotice(land?txt(ar,'استُورد ملف الأراضي كمسودة شخصية. راجع البيانات المرجعية في تبويب الشراكة.','Imported the land file as a personal draft. Review reference data in the partnership tab.'):
+    txt(ar,'أُضيفت نسخة محلية إلى محفظتك الشخصية.','Added a local copy to your personal portfolio.'));
   }catch{
    if(currentUserRef.current===userId)setNotice(txt(ar,'تعذّر إضافة النسخة. تحقّق من صيغة الملف ومساحة التخزين وحدّ الدراسات.','Could not add the backup. Check the file format, storage and portfolio limit.'));
   }finally{input.value='';}
