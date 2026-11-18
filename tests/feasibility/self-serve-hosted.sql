@@ -39,11 +39,12 @@ begin
  select jsonb_agg(jsonb_build_object('key',m->>'key','revision',(m->>'revision')::int))
  into selected from jsonb_array_elements(public.subscription_bundle_catalog()) m;
  if jsonb_array_length(selected)<>8 then raise exception 'EXPECTED_EIGHT_SELECTABLE_MODULES';end if;
+ access:=public.my_feasibility_access();
  answer:=public.subscription_bundle_requests(org,'submit',jsonb_build_object(
   'token',gen_random_uuid(),'interval','monthly','modules',selected));
  if (answer->>'status') is distinct from 'pending' then raise exception 'QUOTE_FLOW_NOT_PENDING';end if;
  request_id:=(answer->>'id')::uuid;
- if public.my_feasibility_access() is not null then raise exception 'QUOTE_GRANTED_ACCESS';end if;
+ if public.my_feasibility_access() is distinct from access then raise exception 'QUOTE_CHANGED_EXISTING_TRIAL_ACCESS';end if;
 
  perform set_config('request.jwt.claim.sub',operator::text,true);
  perform set_config('request.jwt.claims',jsonb_build_object('sub',operator,'role','authenticated','session_id',session_id)::text,true);

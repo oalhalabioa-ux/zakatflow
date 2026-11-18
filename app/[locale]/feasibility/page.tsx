@@ -20,13 +20,16 @@ export default async function FeasibilityPage({params}:{params:Promise<{locale:s
  if(error)throw new Error('FEASIBILITY_ENTITLEMENT_LOOKUP_FAILED');
  const access=evaluateFeasibilityAccess(grant);
  const organizationSharing=process.env.FEASIBILITY_ORG_SHARING==='true'&&process.env.FEASIBILITY_ORG_QA==='true';
- if(!access.canRead){
-  const selfServe=feasibilitySelfServeEnabled();
+ const organizationEnabled=process.env.FEASIBILITY_ORG_QA==='true'&&process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
+ const selfServe=feasibilitySelfServeEnabled();
+ const enrollment=!access.canRead
+  ?<FeasibilityEnrollment locale={locale} organizationSharing={organizationSharing} selfServe={selfServe}/>
+  :undefined;
+ if(!organizationEnabled&&enrollment){
   if(!selfServe&&!organizationSharing)notFound();
-  return <FeasibilityEnrollment locale={locale} organizationSharing={organizationSharing} selfServe={selfServe}/>;
+  return enrollment;
  }
- const organizationEnabled=process.env.FEASIBILITY_ORG_QA==='true';
  const organizations=organizationEnabled?await feasibilityOrganizationOptions(supabase):[];
- return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite}
+ return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite} personalFallback={enrollment}
   evidenceEnabled={feasibilityEvidenceEnabled()} organizationEnabled={organizationEnabled} organizationSharing={organizationSharing} organizations={organizations}/>;
 }

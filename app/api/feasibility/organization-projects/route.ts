@@ -41,10 +41,6 @@ async function authorize(request:Request){
   if(!data?.canRead)return json({error:'ORGANIZATION_NOT_AVAILABLE'},404);
   return {supabase,organizationId:organizationId!,userId:user.id,canWrite:data.canWrite===true,canShare:data.canShare===true,organizationName:undefined};
  }
- const {data:grant,error:grantError}=await readFeasibilityGrant(supabase,user.id);
- if(grantError)return json({error:'ENTITLEMENT_UNAVAILABLE'},503);
- const access=evaluateFeasibilityAccess(grant);
- if(!access.canRead)return json({error:'FEASIBILITY_ACCESS_REQUIRED'},403);
  // RLS enforces tenant membership again at query time; never trust the topbar UUID.
  const [membership,org]=await Promise.all([
   supabase.from('organization_members').select('role,status')
@@ -55,13 +51,15 @@ async function authorize(request:Request){
  if(membership.error||org.error)return json({error:'ORGANIZATION_UNAVAILABLE'},503);
  if(!membership.data||membership.data.status!=='ACTIVE'||!org.data||
   org.data.status!=='ACTIVE')return json({error:'ORGANIZATION_NOT_AVAILABLE'},404);
- // The compatibility portfolio can display older studies, but all writes
- // require the same company entitlement that the database policy checks.
- let canWrite=false;
- if(access.canWrite&&['OWNER','ADMIN'].includes(membership.data.role)){
-  const {data,error}=await supabase.rpc('feasibility_company_workspace',{p_organization:organizationId!});
-  canWrite=!error&&data?.canWrite===true;
+ const {data,error}=await supabase.rpc('feasibility_company_workspace',{p_organization:organizationId!});
+ const companyRead=!error&&data?.canRead===true;
+ if(!companyRead){
+  // Preserve legacy portfolio reads while the company authorization RPC rolls out.
+  const {data:grant,error:grantError}=await readFeasibilityGrant(supabase,user.id);
+  if(grantError)return json({error:'ENTITLEMENT_UNAVAILABLE'},503);
+  if(!evaluateFeasibilityAccess(grant).canRead)return json({error:'FEASIBILITY_ACCESS_REQUIRED'},403);
  }
+ const canWrite=companyRead&&data.canWrite===true&&['OWNER','ADMIN'].includes(membership.data.role);
  return {supabase,organizationId:organizationId!,userId:user.id,canWrite,canShare:false,organizationName:org.data.name};
 }
 async function parseInput(request:Request){

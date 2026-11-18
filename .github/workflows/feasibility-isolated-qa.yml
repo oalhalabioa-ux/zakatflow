@@ -11,6 +11,7 @@ on:
       - 'app/[locale]/feasibility/**'
       - 'docs/feasibility/**'
       - 'supabase/migrations/*_feasibility_phase1_*.sql'
+      - 'supabase/migrations/*_feasibility_trial_and_plan_entitlements.sql'
       - 'tests/feasibility/**'
       - 'package.json'
       - 'package-lock.json'
@@ -53,3 +54,4 @@ jobs:
           export FEASIBILITY_PGLITE_MODULE="$rehearsal_dir/node_modules/@electric-sql/pglite/dist/index.js"
           node tests/feasibility/phase1-migration-rehearsal.mjs
           node tests/feasibility/qa-v2-sharing-compatibility.mjs
+          node tests/feasibility/trial-plan-entitlements.mjs

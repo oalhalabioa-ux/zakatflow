@@ -16,6 +16,7 @@ on:
       - 'app/api/admin/subscriptions/**'
       - 'supabase/migrations/*subscription_requests_and_owner_console.sql'
       - 'supabase/migrations/*module_bundle_builder.sql'
+      - 'supabase/migrations/*feasibility_trial_and_plan_entitlements.sql'
       - 'supabase/migrations/*plan_customer_notice.sql'
       - 'supabase/migrations/*organization_trial_entitlements.sql'
       - 'tests/subscriptions/**'
@@ -47,6 +48,7 @@ jobs:
           node tests/subscriptions/database.mjs
           node tests/subscriptions/deployed-schema.mjs
           node tests/subscriptions/plans.mjs
+          node tests/feasibility/trial-plan-entitlements.mjs
       - name: Initialize isolated Supabase
         run: |
           export TRIAL_QA_WORKDIR="$RUNNER_TEMP/trial-subscriptions-qa"

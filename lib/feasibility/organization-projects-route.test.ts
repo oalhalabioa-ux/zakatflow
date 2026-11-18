@@ -56,10 +56,11 @@ describe('institutional feasibility portfolio server gate',()=>{
   expect((await GET(req('bad-id'))).status).toBe(400);
   expect(mocks.supabaseServer).not.toHaveBeenCalled();
  });
- it('requires authenticated user and valid feasibility entitlement',async()=>{
+ it('requires authentication and denies a caller without company or personal access',async()=>{
   const db=mockDb();
   db.getUser.mockResolvedValueOnce({data:{user:null},error:null});
   expect((await GET(req())).status).toBe(401);
+  db.rpc.mockResolvedValueOnce({data:{canRead:false,canWrite:false},error:null});
   db.grant.maybeSingle.mockResolvedValueOnce({data:null,error:null});
   expect((await GET(req())).status).toBe(403);
   expect(db.projects.select).not.toHaveBeenCalled();
@@ -87,6 +88,19 @@ describe('institutional feasibility portfolio server gate',()=>{
   mockDb('ADMIN');
   const admin=await (await GET(req())).json();
   expect(admin).toEqual({studies:[],canWrite:true});
+ });
+ it('allows an entitled company owner without a personal feasibility grant',async()=>{
+  const db=mockDb('OWNER');
+  db.grant.maybeSingle.mockResolvedValue({data:null,error:null});
+  expect(await (await GET(req())).json()).toEqual({studies:[],canWrite:true});
+  expect((await POST(req(orgId,'POST',{study}))).status).toBe(201);
+  expect(db.grant.select).not.toHaveBeenCalled();
+ });
+ it('keeps company writes available when the personal grant is expired',async()=>{
+  const db=mockDb('ADMIN');
+  db.grant.maybeSingle.mockResolvedValue({data:{status:'READ_ONLY',starts_at:'2020-01-01T00:00:00Z'},error:null});
+  expect((await POST(req(orgId,'POST',{study}))).status).toBe(201);
+  expect(db.grant.select).not.toHaveBeenCalled();
  });
  it('keeps compatibility reads while denying creation, updates and copying without a company write entitlement',async()=>{
   const db=mockDb('OWNER');

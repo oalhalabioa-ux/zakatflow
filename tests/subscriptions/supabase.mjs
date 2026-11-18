@@ -638,6 +638,7 @@ try {
     'docs/feasibility/qa-v2-sharing-compatibility.sql',
     'supabase/migrations/20261116194423_feasibility_organization_sharing.sql',
     'docs/feasibility/qa-v2-sharing-compatibility-workspace.sql',
+    'supabase/migrations/20261118174233_feasibility_trial_and_plan_entitlements.sql',
   ];
   sql('begin;\n' + (await Promise.all(migrationFiles.map(load))).map(strip).join('\n') + "\nnotify pgrst,'reload schema';\ncommit;");
   const enableCompanyFeasibility = orgId => {

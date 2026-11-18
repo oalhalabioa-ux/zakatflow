@@ -159,9 +159,9 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     const companyCreate=page.getByRole('button',{name:'New study',exact:true});
     await companyCreate.waitFor({state:'visible'});
     await organizationPicker.waitFor({state:'visible'});
-    // This organization deliberately has no active Feasibility write entitlement.
-    await page.getByText('This portfolio is read only.',{exact:false}).waitFor();
-    assert.equal(await companyCreate.isDisabled(),true);
+    // The default organization trial includes feasibility after the trial policy update.
+    await page.getByRole('button',{name:'Create first study',exact:true}).waitFor();
+    assert.equal(await companyCreate.isEnabled(),true);
     assert.equal(await page.getByRole('button',{name:/QA421 Personal draft/}).count(),0,
      'Personal study must not appear in organization portfolio');
     phase(caseName,'topbar-switch-back-to-personal');

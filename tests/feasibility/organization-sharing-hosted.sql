@@ -24,6 +24,10 @@ begin
   (other_org,outsider,'OWNER','ACTIVE') on conflict do nothing;
  update public.platform_subscriptions set status='active',converted_at=now(),
   current_period_end=now()+interval '1 year',entitlements='["module:feasibility"]' where organization_id=source_org;
+ -- These receivers deliberately have an expired trial, so the non-subscriber
+ -- sharing limit remains exercised after valid trials gain module access.
+ update public.platform_subscriptions set trial_ends_at=now()-interval '1 day',status='expired'
+  where organization_id in (free_org,other_org);
  update private.feasibility_org_feature_switch set enabled=true where singleton;
 
  execute 'set local role authenticated';
@@ -52,7 +56,7 @@ begin
  end;
 
  perform set_config('request.jwt.claim.sub',recipient_user::text,true);
- if public.my_feasibility_access() is not null then raise exception 'SHARE_GRANTED_ACCOUNT_ENTITLEMENT';end if;
+ if (public.my_feasibility_access()->>'status') is distinct from 'READ_ONLY' then raise exception 'EXPIRED_RECEIVER_TRIAL_BECAME_WRITABLE';end if;
  selected:=public.feasibility_company_shares('open',free_org,project);
  if (selected->'study'->>'test') is distinct from '1' then raise exception 'SNAPSHOT_OR_RECIPIENT_READ_FAILED';end if;
  if jsonb_array_length(public.feasibility_company_shares('inbox',free_org))<>1 then raise exception 'RECIPIENT_INBOX_EMPTY';end if;

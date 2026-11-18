@@ -7,7 +7,7 @@ import {rememberedOrganization,type WorkspaceOrganization} from '@/lib/workspace
 import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
-import {currentWorkspaceScope} from '@/lib/topbar-navigation';
+import {currentWorkspaceScope,type WorkspaceScope} from '@/lib/topbar-navigation';
 import {accountDraftsVisibleInScope} from '@/lib/feasibility/portfolio-scope';
 import {createStudy,evaluateStudy,type FeasibilityStudy,type Sector,type StudyStatus,type StudyTab,type Scenario} from '@/lib/feasibility/engine';
 import ProjectHandoffPanel from '@/components/feasibility/ProjectHandoffPanel';
@@ -69,9 +69,28 @@ function Info({label,value,sub}:{label:string;value:string;sub?:string}){
 function SelectField<T extends string>({label,value,items,onChange}:{label:string;value:T;items:Array<{value:T;label:string}>;onChange:(value:T)=>void}){
  return <label className="fs-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.currentTarget.value as T)}>{items.map(x=><option value={x.value} key={x.value}>{x.label}</option>)}</select></label>;
 }
-export default function FeasibilityWorkspace({locale,userId,readOnly=false,organizationEnabled=false,organizationSharing=false,evidenceEnabled=false,organizations=[]}:{locale:string;userId:string;readOnly?:boolean;organizationEnabled?:boolean;organizationSharing?:boolean;evidenceEnabled?:boolean;organizations?:WorkspaceOrganization[]}){
- const searchParams=useSearchParams();
- const [scope]=useWorkspaceScope(currentWorkspaceScope('feasibility',searchParams.toString()));
+type WorkspaceProps={
+ locale:string;
+ userId:string;
+ readOnly?:boolean;
+ organizationEnabled?:boolean;
+ organizationSharing?:boolean;
+ evidenceEnabled?:boolean;
+ organizations?:WorkspaceOrganization[];
+ personalFallback?:ReactNode;
+};
+
+export default function FeasibilityWorkspace({personalFallback,...props}:WorkspaceProps){
+ const searchParams=useSearchParams().toString();
+ const [scope]=useWorkspaceScope(currentWorkspaceScope('feasibility',searchParams));
+ if(scope==='PERSONAL'&&personalFallback)return personalFallback;
+ return <FeasibilityWorkspaceContent {...props} scope={scope} searchParams={searchParams}/>;
+}
+
+function FeasibilityWorkspaceContent({
+ locale,userId,readOnly=false,organizationEnabled=false,organizationSharing=false,evidenceEnabled=false,
+ organizations=[],scope,searchParams,
+}:Omit<WorkspaceProps,'personalFallback'>&{scope:WorkspaceScope;searchParams:string}){
  const personalScope=scope==='PERSONAL';
  const personalScopeRef=useRef(personalScope);
  personalScopeRef.current=personalScope;
@@ -167,7 +186,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    window.removeEventListener('zf-organization-selection',read);
    window.removeEventListener('popstate',read);
   };
- },[searchParams.toString()]);
+ },[searchParams]);
  useEffect(()=>{
   const requestId=++organizationRequestRef.current;
   setOrganizationStudies([]);setOrganizationSelectedId('');
@@ -191,7 +210,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     setOrganizationStudies(rows.map(x=>x.study));
     setOrganizationSelectedId(rows[0]?.id||'');
     setOrganizationRecords(Object.fromEntries(rows.map(x=>[x.id,x])));
-    setOrganizationCanWrite(result.canWrite&&(organizationSharing||!readOnly));
+    setOrganizationCanWrite(result.canWrite);
     setOrganizationCanShare(result.canShare===true);
    }catch(e){
     if(controller.signal.aborted||organizationRequestRef.current!==requestId||currentUserRef.current!==userId)return;
@@ -204,7 +223,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    }
   })();
   return ()=>controller.abort();
- },[personalScope,organizationId,organizationReload,userId,readOnly,organizationSharing,ar]);
+ },[personalScope,organizationId,organizationReload,userId,ar]);
  useEffect(()=>{
   // Account changes must never reuse the previous user's local or cloud data.
   setLoaded(false);setStorageSafe(true);
@@ -495,7 +514,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     :organizationError||(!companyScopeReady
       ?txt(ar,'جارٍ التحقق من عضوية المؤسسة وإتاحة المحفظة على QA.','Checking company membership and QA availability.')
       :!organizationCanWrite
-       ?txt(ar,'هذه المحفظة للقراءة فقط. لإضافة دراسة، يلزم دور مالك أو مدير نشط وخطة مؤسسة تتيح تعديل دراسات الجدوى.','This portfolio is read only. Adding a study requires an active owner or admin role and an organization plan that allows editing feasibility studies.')
+       ?txt(ar,'هذه المحفظة للقراءة فقط. لإضافة دراسة، يلزم دور مالك أو مدير نشط وتجربة مؤسسية سارية أو باقة تشمل دراسات الجدوى.','This portfolio is read only. Adding a study requires an active owner or admin role and either an active organization trial or a subscription that includes feasibility studies.')
        :''))
   :'';
  const emptyTitle=personalScope?txt(ar,'ابدأ بأول مشروع','Start your first project'):txt(ar,'لا توجد دراسات لدى المؤسسة المحددة','No studies for the selected organization');

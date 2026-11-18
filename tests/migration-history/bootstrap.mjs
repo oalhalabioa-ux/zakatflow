@@ -80,6 +80,7 @@ try{
    'feasibility-share-proposals-schema-delta',
    'feasibility-share-audit-schema-delta',
    'feasibility-evidence-schema-delta',
+   'feasibility-trial-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
