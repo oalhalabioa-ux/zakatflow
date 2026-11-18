@@ -45,6 +45,8 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     phase(caseName,'feasibility-personal-loaded');
     await page.getByRole('heading',{name:'Feasibility & project development',exact:true}).waitFor();
     const switcher=page.getByRole('group',{name:'Workspace scope'});
+    const organizationPicker=page.getByRole('button',{name:'Choose organization from the main banner'});
+    assert.equal(await organizationPicker.count(),0);
     // Open a personal QA study inside this disposable Chromium context;
     // opening the Feasibility module and switching scopes are the billing
     // integration variable. Company-study *creation* is tested separately
@@ -54,8 +56,12 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('radio',{name:'Bottled-water factory',exact:true}).check();
     await page.getByRole('button',{name:'Add project +',exact:true}).click();
     await page.getByRole('heading',{name:'QA421 Personal draft',exact:true}).waitFor();
-    const sidebarSections=page.getByRole('button',{name:'Feasibility sections',exact:true});
+    const sidebar=page.locator('#corp-primary-nav');
+    const sidebarSections=sidebar.getByRole('button',{name:'Feasibility & Project Development',exact:true});
+    assert.equal(await sidebarSections.getAttribute('aria-expanded'),'false');
+    assert.equal(await sidebar.getByRole('link',{name:'Feasibility & Project Development',exact:true}).count(),0);
     await sidebarSections.click();
+    assert.equal(await sidebarSections.getAttribute('aria-expanded'),'true');
     const sidebarGroup=page.getByRole('group',{name:'Feasibility sections',exact:true});
     const studyTabs=page.getByRole('navigation',{name:'Study sections',exact:true});
     assert.deepEqual(await sidebarGroup.getByRole('button').allTextContents(),await studyTabs.getByRole('button').allTextContents());
@@ -150,12 +156,18 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     const companyGet=await firstCompanyRead;
     phase(caseName,'organization-projects-get-'+companyGet.status());
     assert.equal(companyGet.status(),200,'Organization Feasibility GET must be authorized');
-    await page.getByRole('button',{name:'New study',exact:true}).waitFor({state:'visible'});
+    const companyCreate=page.getByRole('button',{name:'New study',exact:true});
+    await companyCreate.waitFor({state:'visible'});
+    await organizationPicker.waitFor({state:'visible'});
+    // This organization deliberately has no active Feasibility write entitlement.
+    await page.getByText('This portfolio is read only.',{exact:false}).waitFor();
+    assert.equal(await companyCreate.isDisabled(),true);
     assert.equal(await page.getByRole('button',{name:/QA421 Personal draft/}).count(),0,
      'Personal study must not appear in organization portfolio');
     phase(caseName,'topbar-switch-back-to-personal');
     await switcher.getByRole('button',{name:'Personal',exact:true}).click();
     await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='PERSONAL');
+    await organizationPicker.waitFor({state:'hidden'});
     await page.getByRole('button',{name:'Overview',exact:true}).click();
     const personalDraft=page.getByRole('button',{name:/QA421 Personal draft/}).first();
     await personalDraft.waitFor();
@@ -407,7 +419,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const mobileMenu=page.getByRole('button',{name:'القائمة الجانبية',exact:true});
    await mobileMenu.tap();
    const sidebar=page.getByRole('dialog',{name:'القائمة الرئيسية',exact:true});
-   const sectionToggle=sidebar.getByRole('button',{name:'أقسام دراسات الجدوى',exact:true});
+   const sectionToggle=sidebar.getByRole('button',{name:'دراسات الجدوى وتأسيس المشاريع',exact:true});
    await sectionToggle.tap();
    await sidebar.getByRole('group',{name:'أقسام دراسات الجدوى',exact:true})
     .getByRole('button',{name:'التقرير والتصدير',exact:true}).tap();

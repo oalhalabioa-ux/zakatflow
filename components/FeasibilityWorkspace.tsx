@@ -252,7 +252,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const openCopy=()=>{
   if(!study)return;
   if(!organizationId){
-   setPersonalNotice(txt(ar,'اختر المؤسسة المستقبلة من البانر الرئيسي أولًا.','Select the receiving organization in the main banner first.'));
+   setPersonalNotice(txt(ar,'اختر المؤسسة المستقبلة من البنر في النطاق المؤسسي، ثم عُد إلى الدراسة الشخصية للنسخ.','Select the receiving organization in the main banner in organization scope, then return to the personal study to copy it.'));
    return;
   }
   if(copyRevision===undefined){
@@ -495,7 +495,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     :organizationError||(!companyScopeReady
       ?txt(ar,'جارٍ التحقق من عضوية المؤسسة وإتاحة المحفظة على QA.','Checking company membership and QA availability.')
       :!organizationCanWrite
-       ?txt(ar,'إنشاء الدراسات يتطلب عضوية مالك أو مدير وترخيصًا يتيح التعديل.','Creating a study requires an active owner/admin membership and editing entitlement.')
+       ?txt(ar,'هذه المحفظة للقراءة فقط. لإضافة دراسة، يلزم دور مالك أو مدير نشط وخطة مؤسسة تتيح تعديل دراسات الجدوى.','This portfolio is read only. Adding a study requires an active owner or admin role and an organization plan that allows editing feasibility studies.')
        :''))
   :'';
  const emptyTitle=personalScope?txt(ar,'ابدأ بأول مشروع','Start your first project'):txt(ar,'لا توجد دراسات لدى المؤسسة المحددة','No studies for the selected organization');
@@ -545,10 +545,10 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   return <main className="container fs-page fs-royal" dir={ar?'rtl':'ltr'}><p role="status">{txt(ar,'جاري تحميل مسودات الحساب الحالي…','Loading this account\'s drafts…')}</p></main>;
  }
  return <main className="container fs-page fs-royal" dir={ar?'rtl':'ltr'}>
-  {organizationEnabled&&<TopbarOrganizationControls>
+  {organizationEnabled&&!personalScope&&<TopbarOrganizationControls>
    <WorkspaceOrganizationPicker royalDialog ar={ar} organizations={organizations} value={organizationId}
     onChange={setOrganizationId} restore={false} disabled={organizationBusy}
-    beforeChange={()=>personalScope||!organizationStudies.some(x=>organizationRecords[x.id]?.study.updatedAt!==x.updatedAt)||
+    beforeChange={()=>!organizationStudies.some(x=>organizationRecords[x.id]?.study.updatedAt!==x.updatedAt)||
      window.confirm(txt(ar,'التعديلات غير محفوظة. هل تريد تبديل المؤسسة؟','Company changes are unsaved. Switch organizations?'))}/>
   </TopbarOrganizationControls>}
   <header className="fs-head"><div><h1><RoyalIcon name="building"/>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>

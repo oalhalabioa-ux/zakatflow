@@ -13,7 +13,7 @@ export default function WorkspaceOrganizationPicker({organizations,value,onChang
  // Selection persistence happens only on deliberate changes, never from stale mount defaults.
  function choose(id:string){if(beforeChange&&!beforeChange())return false;const nextGroup=!!group&&organizations.some(o=>o.parent_organization_id===id);rememberOrganization(id,nextGroup);onChange(id);onGroupChange?.(nextGroup);return true}
  if(royalDialog)return <div className="fs-page fs-royal fs-royal-organization-control" data-labeled-organization-picker dir={ar?'rtl':'ltr'}>
-  <button type="button" className="fs-royal-organization-trigger" aria-haspopup="dialog"
+  <button type="button" className="fs-royal-organization-trigger" aria-haspopup="dialog" title={selected?.name}
    aria-label={ar?'اختيار المؤسسة من البنر الرئيسي':'Choose organization from the main banner'} disabled={disabled||!organizations.length}
    onClick={()=>{setCandidate(value);dialog.current?.showModal()}}>
    <span>{selected?.name??(ar?'اختر المؤسسة':'Select organization')}</span><span aria-hidden="true">⌄</span>
