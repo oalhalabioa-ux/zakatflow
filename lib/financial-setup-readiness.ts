@@ -7,6 +7,57 @@ export type SetupStatus='NOT_STARTED'|'IN_PROGRESS'|'BLOCKED'|'READY';
 // converted into an accounting, legal or regulatory certification.
 export const FINANCIAL_SETUP_SOURCE_GATES=['organization','chart','fiscal','posting','banking','opening','users'] as const;
 
+// Display-only evidence for the five financial setup cards. These checks do not
+// alter posting, opening, permission or final preflight decisions.
+export type FinancialSetupCardKey='fiscal'|'chart'|'posting'|'banking'|'opening';
+export type FinancialSourceCheckId=
+ 'fiscal.calendar'|'fiscal.period'|'fiscal.retained'|
+ 'chart.readable'|'chart.equity'|
+ 'posting.approved'|'posting.rules'|'posting.coverage'|
+ 'banking.readable'|'banking.active'|
+ 'opening.mode'|'opening.source'|'opening.verified';
+export type FinancialSourceCheckStatus='MET'|'MISSING'|'UNAVAILABLE';
+export type FinancialSourceCheck={id:FinancialSourceCheckId;status:FinancialSourceCheckStatus};
+export type FinancialSourceChecks=Record<FinancialSetupCardKey,FinancialSourceCheck[]>;
+export type FinancialSourceCheckInputs={
+ fiscalReadable:boolean;fiscalCalendarPresent:boolean;fiscalPeriodPresent:boolean;fiscalRetainedValid:boolean;
+ chartReadable:boolean;chartEquityActive:boolean;
+ postingReadable:boolean;postingApproved:boolean;postingRulesPresent:boolean;
+ postingCoverageReadable:boolean;postingCoverageComplete:boolean;
+ bankingReadable:boolean;bankingAccountPresent:boolean;
+ openingModeSelected:boolean;openingSourceReadable:boolean;openingVerified:boolean;
+};
+export function financialSourceChecks(e:FinancialSourceCheckInputs):FinancialSourceChecks{
+ const check=(id:FinancialSourceCheckId,readable:boolean,met:boolean):FinancialSourceCheck=>({
+  id,status:!readable?'UNAVAILABLE':met?'MET':'MISSING'
+ });
+ return {
+  fiscal:[
+   check('fiscal.calendar',e.fiscalReadable,e.fiscalCalendarPresent),
+   check('fiscal.period',e.fiscalReadable,e.fiscalPeriodPresent),
+   check('fiscal.retained',e.fiscalReadable,e.fiscalRetainedValid),
+  ],
+  chart:[
+   check('chart.readable',e.chartReadable,e.chartReadable),
+   check('chart.equity',e.chartReadable,e.chartEquityActive),
+  ],
+  posting:[
+   check('posting.approved',e.postingReadable,e.postingApproved),
+   check('posting.rules',e.postingReadable,e.postingRulesPresent),
+   check('posting.coverage',e.postingCoverageReadable,e.postingCoverageComplete),
+  ],
+  banking:[
+   check('banking.readable',e.bankingReadable,e.bankingReadable),
+   check('banking.active',e.bankingReadable,e.bankingAccountPresent),
+  ],
+  opening:[
+   check('opening.mode',true,e.openingModeSelected),
+   check('opening.source',e.openingModeSelected&&e.openingSourceReadable,e.openingSourceReadable),
+   check('opening.verified',e.openingModeSelected&&e.openingSourceReadable,e.openingVerified),
+  ],
+ };
+}
+
 export type FinancialSetupReadiness={
  organizationId:string;
  mode:FinancialSetupMode|null;
@@ -15,6 +66,7 @@ export type FinancialSetupReadiness={
  ready:boolean;
  sourceChecked:boolean;
  posting?:PostingPolicyReadiness;
+ sourceChecks?:FinancialSourceChecks;
  // A source preflight is not a statutory audit or atomic revision certificate.
  certification:'READ_ONLY_SOURCE_PREFLIGHT'|'NOT_CERTIFIED';
 };

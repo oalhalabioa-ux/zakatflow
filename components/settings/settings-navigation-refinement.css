@@ -1,0 +1,41 @@
+/* Owner screenshot follow-up: navigation only. Do not restyle financial cards. */
+.corp-shell .settings-workspace .settings-finance-journey-tabs button[aria-pressed="true"]{
+ background:#1d3852!important;color:#d8b875!important;
+ box-shadow:inset 0 -3px 0 #d8b875;
+}
+.corp-shell .settings-workspace .settings-finance-journey-tabs button[aria-pressed="true"] .settings-icon{
+ color:#d8b875;
+}
+
+/* One shared vertical axis: the rail includes the nav's existing bottom padding;
+   each marker/segment uses the same axis inside its own link. */
+.corp-shell .settings-workspace .settings-tabs{
+ --settings-step-axis:21px;
+ --settings-step-padding-bottom:10px;
+}
+.corp-shell .settings-workspace .settings-tabs::before{
+ bottom:calc(var(--settings-step-padding-bottom) + var(--settings-step-axis));
+ transform:translateY(50%);
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)::before,
+.corp-shell .settings-workspace .settings-tabs a:not(.btn)::after,
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn)::before,
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn)::after{
+ bottom:var(--settings-step-axis);
+ transform:translateY(50%);
+}
+
+.corp-shell .settings-workspace .settings-tabs a:not(.btn) .settings-icon{
+ transition:color 140ms ease,border-color 140ms ease;
+}
+.corp-shell .settings-workspace .settings-tabs a:not(.btn):not([aria-current="page"]):hover .settings-icon,
+.corp-shell .settings-workspace .settings-tabs a:not(.btn):not([aria-current="page"]):focus-visible .settings-icon{
+ color:#205347;border-color:#205347;
+}
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn):hover .settings-icon,
+.corp-shell .settings-workspace .settings-tabs a[aria-current="page"]:not(.btn):focus-visible .settings-icon{
+ color:#fff;
+}
+@media(prefers-reduced-motion:reduce){
+ .corp-shell .settings-workspace .settings-tabs a:not(.btn) .settings-icon{transition:none}
+}

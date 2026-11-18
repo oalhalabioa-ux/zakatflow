@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { requireUser } from '@/services/auth';
 import { isSubscriptionSameOrigin } from '@/lib/subscriptions/security';
 import { subscriptionError } from '@/lib/subscriptions/model';
-import { moduleKey } from '@/lib/subscriptions/bundles';
+import { moduleKey, moduleKeys } from '@/lib/subscriptions/bundles';
 const input = z.discriminatedUnion('action',[
- z.object({action:z.literal('submit'),organization_id:z.uuid(),token:z.uuid(),modules:z.array(z.object({key:moduleKey,revision:z.number().int().positive()}).strict()).min(2).max(7),interval:z.enum(['monthly','yearly']),phone:z.string().trim().max(50),notes:z.string().trim().max(2000)}).strict(),
+ z.object({action:z.literal('submit'),organization_id:z.uuid(),token:z.uuid(),modules:z.array(z.object({key:moduleKey,revision:z.number().int().positive()}).strict()).min(2).max(moduleKeys.length),interval:z.enum(['monthly','yearly']),phone:z.string().trim().max(50),notes:z.string().trim().max(2000)}).strict(),
  z.object({action:z.enum(['accept','cancel']),organization_id:z.uuid(),id:z.uuid(),revision:z.number().int().positive()}).strict(),
 ]);
 const json=(data:unknown)=>NextResponse.json(data,{headers:{'Cache-Control':'private, no-store'}});

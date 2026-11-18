@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {verifySettingsNavigationRefinement} from './navigation-refinement.mjs';
 export async function verifyFiscalSetupEditing({page,app,orgId,setLock,out}){
  for(const locale of ['ar','en']){
   const ar=locale==='ar';setLock(null);
@@ -22,4 +23,5 @@ export async function verifyFiscalSetupEditing({page,app,orgId,setLock,out}){
   assert.ok(await page.locator('[data-fiscal-year]').filter({hasText:ar?'مفتوحة':'Open'}).count()>0,'Configuration lock must not close the year');
  }
  setLock(null);
+ await verifySettingsNavigationRefinement({page,app,orgId,out});
 }

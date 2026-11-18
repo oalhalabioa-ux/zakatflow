@@ -6,6 +6,7 @@ import { rememberedOrganization } from "@/lib/workspace-organization";
 import { settingSections, isSettingsSectionActive } from "./navigation";
 import "./settings.css";
 import "./settings-refinement.css";
+import "./settings-navigation-refinement.css";
 import SettingsIcon from "./SettingsIcon";
 export default function SettingsFrame({
   locale,
