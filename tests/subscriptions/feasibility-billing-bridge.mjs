@@ -413,6 +413,9 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     if(locale==='ar'){
      await hours.fill('8');
      await collection.fill('45');
+     await cards.getByLabel('المرتجعات %',{exact:true}).fill('2');
+     await cards.getByLabel('قناة التوزيع',{exact:true}).selectOption('distributors');
+     await cards.getByLabel('استغلال الخط في السنة الأولى %',{exact:true}).fill('70');
      for(const [label,value] of [
       ['عبوات في الساعة','4000'],['أيام العمل في الشهر','26'],
       ['عبوات في الكرتون','12'],['لترات في العبوة','0.5'],['فاقد المياه %','20']
@@ -425,6 +428,11 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     }
     assert.equal(await hours.inputValue(),'8');
     assert.equal(await collection.inputValue(),'45');
+    assert.equal(await cards.getByLabel(locale==='ar'?'المرتجعات %':'Returns %',{exact:true}).inputValue(),'2');
+    assert.equal(await cards.getByLabel(locale==='ar'?'قناة التوزيع':'Distribution channel',{exact:true}).inputValue(),'distributors');
+    const mix=page.locator('.fs-royal-water-production-balance .fs-royal-bar strong');
+    assert.deepEqual(await mix.allTextContents(),[100,80,70,10].map(value=>new Intl.NumberFormat(locale).format(value)+' %'));
+    assert.equal(await page.locator('.fs-royal-water-production-kpis .fs-metric > svg').count(),4);
     for(const [ar,en,value] of [
      ['الطاقة الاسمية عبوة/شهر','Nominal monthly bottles',832000],
      ['العبوات القابلة للبيع شهريًا','Monthly saleable bottles',665600],
@@ -436,6 +444,21 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
      assert.equal(await metric.locator('strong').textContent(),new Intl.NumberFormat(locale).format(value));
     }
     await page.screenshot({path:new URL('./screenshots/qa438-water-operations-'+locale+'-mobile.png',import.meta.url).pathname,fullPage:true});
+    const desktop=await browser.newContext({viewport:{width:1440,height:950},storageState:await context.storageState()});
+    try{
+     const desktopPage=await desktop.newPage();
+     desktopPage.setDefaultTimeout(12000);
+     await desktopPage.goto(appPage('PERSONAL',target,locale));
+     await desktopPage.locator('.fs-tabs').getByRole('button',{name:operations,exact:true}).click();
+     const desktopCards=desktopPage.locator('.fs-royal-water-production-inputs');
+     assert.equal(await desktopCards.evaluate(element=>{
+      const [capacity,sales]=[...element.children].map(panel=>panel.getBoundingClientRect());
+      return Math.abs(capacity.top-sales.top)<2&&document.documentElement.scrollWidth===window.innerWidth;
+     }),true);
+     await desktopPage.screenshot({path:new URL('./screenshots/qa438-water-operations-'+locale+'-desktop.png',import.meta.url).pathname,fullPage:true});
+    }finally{
+     await desktop.close();
+    }
    }
    await page.goto(appPage('PERSONAL',target,'ar'));
    const personalSaved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&
@@ -449,6 +472,8 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.equal(source.study.water.ops.hoursDay,8);
    assert.equal(source.study.water.operationsPlan.collectionDays,45);
    assert.equal(source.study.water.operationsPlan.finishedBottleLossPct,20);
+   assert.equal(source.study.water.operationsPlan.returnsPct,2);
+   assert.equal(source.study.water.operationsPlan.distributionChannel,'distributors');
    phase(caseName,'personal-saved');
    await page.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true}).click();
    const dialog=page.getByRole('dialog');

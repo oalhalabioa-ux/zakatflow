@@ -44,6 +44,8 @@ export const waterModelSchema=z.object({
   finishedBottleLossPct:pct.optional(),
   unitCosts:waterUnitCosts.optional(),
   collectionDays:z.number().int().min(0).max(3650).optional(),
+  returnsPct:pct.optional(),
+  distributionChannel:z.enum(['wholesale','distributors','direct-retail']).optional(),
  }).strict().optional(),
  scenarios:z.array(waterScenarioSchema).max(20)
 }).strict();
@@ -89,6 +91,8 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const waterDemand=nominalWaterDemand(ops);
  const initialPrice=ops.priceCarton*(scenario?.price??100)/100;
  const initialCost=ops.variableCarton*(scenario?.cost??100)/100;
+ const returnRate=(model.operationsPlan?.returnsPct??0)/100;
+ const dispatchContribution=initialPrice*(1-returnRate)-initialCost;
  const initialFixed=(ops.fixedMonth+deal.leaseMonth)*12;
  const depreciation=investment/Math.max(1,ops.life);
  const maintenance=investment*ops.maintenancePct/100;
@@ -100,7 +104,9 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   const volume=capacity*utilization/100;
   const price=initialPrice*(1+ops.priceGrowth/100)**i;
   const unitCost=initialCost*(1+ops.costGrowth/100)**i;
-  const revenue=volume*price;
+  const returnedVolume=volume*returnRate;
+  const netVolume=volume-returnedVolume;
+  const revenue=netVolume*price;
   const variable=volume*unitCost;
   const fixed=initialFixed*(1+ops.fixedGrowth/100)**i;
   const ebitda=revenue-variable-fixed;
@@ -115,7 +121,7 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   const interest=servicing?debtBalance*deal.loanInterest/100:0;
   debtBalance=Math.max(0,debtBalance-principal);
   const debtService=principal+interest;
-  return {year,utilization,volume,price,unitCost,revenue,variable,fixed,ebitda,depreciation,ebit,tax,
+  return {year,utilization,volume,returnedVolume,netVolume,price,unitCost,revenue,variable,fixed,ebitda,depreciation,ebit,tax,
    workingCapital,workingCapitalMovement,maintenance,freeCashFlow,principal,interest,debtBalance,debtService,
    afterDebt:freeCashFlow-debtService,dscr:debtService>0?freeCashFlow/debtService:null};
  });
@@ -134,7 +140,7 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  return {hard,contingency,investment,cashRequired,land,investorEquity,totalEquity,shareholderLoan,totalLoan,
   investorShare:totalEquity?investorEquity/totalEquity*100:null,partnerShare:totalEquity?land/totalEquity*100:null,
   capacity,waterDemand,annual,flows,npv,cashNpv:npv+land,irr:internalRateOfReturn(flows),payback,
-  breakEven:initialPrice>initialCost?initialFixed/(initialPrice-initialCost):null,
+  breakEven:dispatchContribution>0?initialFixed/dispatchContribution:null,
   ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.volume>0)};
 }
 

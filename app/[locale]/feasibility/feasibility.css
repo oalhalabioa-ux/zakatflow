@@ -423,7 +423,7 @@
   column-gap: 10px;
  }
  .fs-royal-water-production-inputs .fs-field span { overflow-wrap: anywhere; }
- .fs-royal-water-production-inputs .fs-field input { width: 100%; min-width: 0; }
+ .fs-royal-water-production-inputs .fs-field :is(input,select) { width: 100%; min-width: 0; }
 }
 
 .fs-royal-sensitivity thead th, .fs-royal-sensitivity tbody th { background: var(--fs-navy); color: var(--fs-light-gold); }
@@ -494,3 +494,14 @@
 .fs-royal-evidence-files small { color: var(--fs-muted); }
 
 .fs-royal-section-lead { scroll-margin-block-start: 90px; }
+
+.fs-royal-water-production-kpis .fs-metric { position: relative; text-align: center; }
+.fs-royal-water-production-kpis .fs-metric > .fs-royal-icon {
+ position: absolute; inset-block-start: 12px; inset-inline-end: 12px;
+}
+.fs-royal-water-production-kpis .fs-metric small { padding-inline: 17px; }
+.fs-royal-water-production-balance .fs-royal-chart { border: 0; margin: 0; padding: 0; }
+.fs-royal-water-production-balance .fs-royal-bars { grid-auto-columns: minmax(0, 1fr); }
+.fs-royal-water-production-balance [data-source-warning="true"] {
+ border: 1px solid var(--fs-gold); background: var(--fs-light-gold); padding: 8px 12px; border-radius: 8px;
+}

@@ -51,6 +51,9 @@ const sourceOptions=[
  ['well','بئر','Well'],['public-network','شبكة عامة','Public network'],['spring','ينبوع','Spring'],
  ['other','مصدر آخر','Other source']
 ] as const;
+const distributionOptions=[
+ ['wholesale','بيع جملة','Wholesale'],['distributors','موزعون','Distributors'],['direct-retail','تجزئة مباشرة','Direct retail']
+] as const;
 const logisticsFields:NumberFields<NonNullable<WaterModel['operationsPlan']>>=[
  ['packagingLossPct','فاقد مواد التعبئة %','Packaging material waste %',99],
  ['kwhPerThousandBottles','استهلاك الكهرباء لكل 1,000 عبوة (ك.و.س)','Electricity use per 1,000 bottles (kWh)'],
@@ -73,7 +76,7 @@ const logisticsColumns=[
  ['distributionKm','مسافة التوزيع كم','Distribution kilometres'],
 ] as const;
 const projectionLabels=[
- ['year','السنة','Year'],['utilization','الاستغلال %','Utilization %'],['volume','الكراتين المباعة','Cartons sold'],
+ ['year','السنة','Year'],['utilization','الاستغلال %','Utilization %'],['volume','الكراتين المرسلة','Cartons dispatched'],
  ['price','سعر الكرتون','Carton price'],['unitCost','تكلفة الكرتون المتغيرة','Variable cost / carton'],
  ['revenue','المبيعات','Revenue'],['variable','التكلفة المتغيرة','Variable costs'],['fixed','التكاليف الثابتة','Fixed costs'],
  ['ebitda','EBITDA','EBITDA'],['depreciation','الإهلاك','Depreciation'],['ebit','EBIT','EBIT'],
@@ -82,7 +85,8 @@ const projectionLabels=[
  ['workingCapitalMovement','تغير رأس المال العامل','Working capital movement'],
  ['freeCashFlow','التدفق الحر قبل التمويل','Project free cash flow'],['principal','سداد الأصل','Principal'],
  ['interest','الفائدة','Interest'],['debtService','خدمة القرض','Debt service'],['debtBalance','رصيد القرض','Closing loan balance'],
- ['afterDebt','التدفق بعد خدمة القرض','Cash flow after debt service'],['dscr','تغطية خدمة الدين (DSCR)','Debt service coverage (DSCR)']
+ ['afterDebt','التدفق بعد خدمة القرض','Cash flow after debt service'],['dscr','تغطية خدمة الدين (DSCR)','Debt service coverage (DSCR)'],
+ ['returnedVolume','الكراتين المرتجعة','Returned cartons'],['netVolume','صافي الكراتين المباعة','Net cartons sold']
 ] as const;
 const sensitivityVolume=[70,85,100,115,130],sensitivityPrices=[90,95,100,105,110];
 
@@ -131,8 +135,9 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     onChange({...water,[section]:{...water[section],[key]:value}})}/>;
  const fields=<K extends 'capex'|'deal'|'ops'>(section:K,definition:NumberFields<WaterModel[K]>)=>
   <div className="fs-form-grid">{definition.map(item=>field(section,item))}</div>;
- const metrics=(items:Array<[Labels,string]>)=><div className="fs-kpis">{items.map(([[ar,en],value])=>
-  <div key={en} className="fs-metric"><small>{l(ar,en)}</small><strong dir="ltr">{value}</strong></div>)}</div>;
+ const metrics=(items:Array<[Labels,string,RoyalIconName?,string?]>)=><div className="fs-kpis">{items.map(([[ar,en],value,icon,note])=>
+  <div key={en} className="fs-metric">{icon&&<RoyalIcon name={icon}/>}<small>{l(ar,en)}</small>
+   <strong dir="ltr">{value}</strong>{note&&<span>{note}</span>}</div>)}</div>;
  const chartSeries=[
   ['revenue',l('الإيرادات','Revenue'),'#10243A'],
   ['ebitda','EBITDA','#C6A35D'],
@@ -267,10 +272,23 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const productionBalance=waterProductionBalance(water);
  const production=detail==='water'?productionBalance:null;
  const {ops}=water;
- const planNumber=(key:'pumpingM3Hour'|'sourceHoursDay'|'finishedBottleLossPct'|'collectionDays',
+ const planNumber=(key:'pumpingM3Hour'|'sourceHoursDay'|'finishedBottleLossPct'|'collectionDays'|'returnsPct',
   labels:Labels,max:number,step?:number)=><NumberInput label={l(...labels)} value={plan[key]??0}
    max={max} step={step} onChange={value=>updatePlan({[key]:value})}/>;
  const collectionPeriod=()=>planNumber('collectionDays',['فترة التحصيل (يوم)','Collection period (days)'],3650,1);
+ const updateUtilization=(index:number,value:number)=>{
+  const util=Array.from({length:Math.max(water.ops.util.length,index+1)},(_,i)=>
+   i===index?value:(water.ops.util[i]??water.ops.util.at(-1)??0));
+  onChange({...water,ops:{...water.ops,util}});
+ };
+ const firstYearDispatchPct=ops.bottlesCarton>0?m.annual[0].utilization:0;
+ const saleableCapacityPct=productionBalance.nominalBottles>0?100-(plan.finishedBottleLossPct??0):0;
+ const productionMix=[
+  {label:l('الطاقة الاسمية','Nominal capacity'),value:productionBalance.nominalBottles>0?100:0},
+  {label:l('الإنتاج القابل للبيع','Saleable output'),value:saleableCapacityPct},
+  {label:l('الإرسال المخطط','Planned dispatch'),value:productionBalance.nominalBottles>0?firstYearDispatchPct:0},
+  {label:l('الطاقة القابلة للبيع المتبقية','Spare saleable capacity'),value:Math.max(0,saleableCapacityPct-firstYearDispatchPct)}
+ ];
  const operationsRows=detail==='water'?m.annual.map(year=>({
   year:year.year,requirements:waterOperationalRequirements(water,year),
  })):[];
@@ -340,12 +358,25 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    {!production&&<>
    <div className={tab==='operations'?'fs-royal-profile-grid fs-royal-water-production-inputs':'fs-royal-profile-grid'}>
     <Panel title={l('الطاقة التشغيلية والجودة','Operating capacity and quality')} icon="factory">
-     {fields('ops',operationFields.slice(0,7))}
+     <div className="fs-form-grid">
+      {operationFields.slice(0,7).map(item=>field('ops',item))}
+      {tab==='operations'&&<NumberInput label={l('استغلال الخط في السنة الأولى %','First-year line utilization %')}
+       value={m.annual[0].utilization} max={100} onChange={value=>updateUtilization(0,value)}/>}
+     </div>
     </Panel>
     <Panel title={l('اقتصاديات الوحدة والمبيعات','Unit economics and sales')} icon="coins">
      <div className="fs-form-grid">
       {operationFields.slice(7,10).map(item=>field('ops',item))}
       {collectionPeriod()}
+      {tab==='operations'&&planNumber('returnsPct',['المرتجعات %','Returns %'],100)}
+      {tab==='operations'&&<label className="fs-field"><span>{l('قناة التوزيع','Distribution channel')}</span>
+       <select value={plan.distributionChannel??''} onChange={event=>updatePlan({
+        distributionChannel:distributionOptions.find(([key])=>key===event.currentTarget.value)?.[0],
+       })}>
+        <option value="">{l('اختر القناة','Select channel')}</option>
+        {distributionOptions.map(([key,ar,en])=><option key={key} value={key}>{l(ar,en)}</option>)}
+       </select>
+      </label>}
      </div>
      {tab==='operations'&&compactValues([
       [l('تكلفة مواد التعبئة لكل كرتون','Packaging cost per carton'),money(costBreakdown?.packaging??null)],
@@ -354,30 +385,41 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
      {fields('ops',operationFields.slice(10,13))}
     </Panel>
    </div>
-   {tab==='operations'&&metrics([
-    [['الطاقة الاسمية عبوة/شهر','Nominal monthly bottles'],fmt(productionBalance.nominalBottles)],
-    [['العبوات القابلة للبيع شهريًا','Monthly saleable bottles'],fmt(productionBalance.saleableBottles)],
-    [['الكراتين الكاملة القابلة للبيع شهريًا','Monthly complete saleable cartons'],fmt(productionBalance.saleableCartons)],
-    [['احتياج مياه المصدر م³/شهر','Source water demand m³/month'],fmt(productionBalance.requiredM3Day*ops.daysMonth)]
-   ])}
-   <div className="fs-royal-profile-grid">
-    <Panel title={l('موازنة المياه ومصدرها','Water balance and source')} icon="droplet">
+   {tab==='operations'&&<div className="fs-royal-water-production-kpis">{metrics([
+    [['الطاقة الاسمية عبوة/شهر','Nominal monthly bottles'],fmt(productionBalance.nominalBottles),'factory',l('عبوة قبل الفاقد','Bottles before waste')],
+    [['العبوات القابلة للبيع شهريًا','Monthly saleable bottles'],fmt(productionBalance.saleableBottles),'check'],
+    [['الكراتين الكاملة القابلة للبيع شهريًا','Monthly complete saleable cartons'],fmt(productionBalance.saleableCartons),'layers'],
+    [['احتياج مياه المصدر م³/شهر','Source water demand m³/month'],fmt(productionBalance.requiredM3Day*ops.daysMonth),'droplet',l('احتياج تقديري','Estimated demand')]
+   ])}</div>}
+   <div className={tab==='operations'?'fs-royal-water-production-balance':'fs-royal-profile-grid'}>
+    <Panel title={l('توازن الإنتاج والمصدر المرخّص','Production and licensed source balance')} icon="droplet">
+     {tab==='operations'&&<RoyalBars title={l('خطة السنة الأولى من الطاقة الاسمية','First-year plan as a share of nominal capacity')}
+      locale={locale} unit="%" data={productionMix}/>}
+     {tab==='operations'&&productionBalance.nominalBottles>0&&firstYearDispatchPct>saleableCapacityPct&&
+      <p className="fs-hint">{l('الإرسال المخطط يتجاوز الإنتاج القابل للبيع بعد فاقد العبوات.',
+       'Planned dispatch exceeds saleable output after bottle waste.')}</p>}
      {compactValues([
-      [l('احتياج المياه النظري م³/يوم','Theoretical water demand m³/day'),fmt(m.waterDemand)],
-      [l('الكمية المرخّصة المدخلة م³/يوم','Entered licensed water m³/day'),water.ops.licensedWaterM3Day?fmt(water.ops.licensedWaterM3Day):l('غير مدخلة','Unspecified')]
+      [l('احتياج المياه النظري م³/يوم','Theoretical water demand m³/day'),fmt(productionBalance.requiredM3Day)],
+      [l('الكمية المرخّصة المدخلة م³/يوم','Entered licensed water m³/day'),fmt(productionBalance.licensedM3Day)],
+      [l('المتاح وفق الضخ والترخيص م³/يوم','Available within pumping and permit limits m³/day'),fmt(productionBalance.availableM3Day)]
      ])}
-     <p className="fs-hint">{water.ops.licensedWaterM3Day===0
-      ?l('أدخل الكمية المرخّصة للتحقق من كفاية المصدر.','Enter the licensed volume to check source capacity.')
-      :m.waterDemand>water.ops.licensedWaterM3Day
-       ?l('الطلب النظري يتجاوز الكمية المرخّصة المدخلة.','Theoretical demand exceeds the entered licensed volume.')
-       :l('الطلب النظري ضمن الكمية المدخلة. تحقّق من مستند المصدر.','Theoretical demand fits the entered volume. Verify the source documentation.')}</p>
+     <p className="fs-hint" data-source-warning={productionBalance.licensedM3Day===null||
+      productionBalance.requiredM3Day>(productionBalance.availableM3Day??productionBalance.licensedM3Day)}>
+      {productionBalance.licensedM3Day===null
+       ?l('أدخل الكمية المرخّصة ووثّق تصريح المصدر للتحقق من كفاية المياه.','Enter the licensed volume and document the permit to check source sufficiency.')
+       :productionBalance.requiredM3Day>(productionBalance.availableM3Day??productionBalance.licensedM3Day)
+        ?l('الطلب النظري يتجاوز الحد المتاح وفق مدخلات المصدر.','Theoretical demand exceeds the available limit from the source assumptions.')
+        :l('الطلب النظري ضمن الحد المدخل. تحقّق من مستند المصدر.','Theoretical demand fits the entered limit. Verify the source documentation.')}
+     </p>
     </Panel>
-    {m.ready&&<RoyalBars title={l('الكراتين المباعة حسب السنة','Cartons sold by year')} locale={locale}
-     data={m.annual.map(y=>({label:fmt(y.year),value:y.volume}))}/>}
+   </div>
+   <div className="fs-royal-profile-grid">
+    {m.ready&&<RoyalBars title={l('صافي الكراتين المباعة حسب السنة','Net cartons sold by year')} locale={locale}
+     data={m.annual.map(y=>({label:fmt(y.year),value:y.netVolume}))}/>}
     {tab==='operations'&&<Panel title={l('الطاقة والتعادل','Capacity and break-even')} icon="chart">
      {compactValues([
       [l('الطاقة الشهرية بالكراتين','Monthly carton capacity'),fmt(m.capacity/12)],
-      [l('التعادل الشهري بالكراتين','Monthly break-even cartons'),fmt(m.breakEven===null?null:m.breakEven/12)]
+      [l('الكراتين المطلوب إرسالها شهريًا للتعادل','Monthly cartons to dispatch to break even'),fmt(m.breakEven===null?null:m.breakEven/12)]
      ])}
     </Panel>}
    </div>
@@ -471,12 +513,9 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     </Panel>
    </>}
    <Panel title={l('الاستغلال والمبيعات السنوية','Annual utilization and sales')} icon="chart">
-    <Table headers={[l('السنة','Year'),l('الاستغلال %','Utilization %'),l('الكراتين','Cartons'),l('المبيعات','Sales'),l('هامش المساهمة','Contribution margin'),'EBITDA']}
+    <Table headers={[l('السنة','Year'),l('الاستغلال %','Utilization %'),l('الكراتين المرسلة','Cartons dispatched'),l('المرتجعات','Returns'),l('صافي الكراتين المباعة','Net cartons sold'),l('المبيعات','Sales'),l('هامش المساهمة','Contribution margin'),'EBITDA']}
      rows={m.annual.map((y,i)=>[y.year,<NumberInput key={i} label={l('استغلال السنة ','Utilization in year ')+y.year}
-      value={y.utilization} max={100} onChange={value=>{
-       const util=Array.from({length:Math.max(water.ops.util.length,i+1)},(_,index)=>index===i?value:(water.ops.util[index]??water.ops.util.at(-1)??0));
-       onChange({...water,ops:{...water.ops,util}});
-      }}/>,fmt(y.volume),money(y.revenue),money(y.revenue-y.variable),money(y.ebitda)])}/>
+      value={y.utilization} max={100} onChange={value=>updateUtilization(i,value)}/>,fmt(y.volume),fmt(y.returnedVolume),fmt(y.netVolume),money(y.revenue),money(y.revenue-y.variable),money(y.ebitda)])}/>
    </Panel>
    {tab==='operations'&&detail!=='water'&&<Panel title={l('افتراضات التوقعات','Forecast assumptions')} icon="settings">
     {fields('ops',operationFields.slice(13))}

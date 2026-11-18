@@ -185,6 +185,38 @@ describe('detailed water operating requirements',()=>{
 });
 
 
+describe('water returns and distribution',()=>{
+ it('deducts returns from net sales, working capital and cash flow while charging dispatched cartons',()=>{
+  const study=structuredClone(fixture);
+  const base=evaluateWater(study);
+  study.operationsPlan={...emptyWaterOperationsPlan,returnsPct:10,distributionChannel:'distributors'};
+  const restored=waterModelSchema.parse(JSON.parse(JSON.stringify(study)));
+  expect(restored.operationsPlan).toMatchObject({returnsPct:10,distributionChannel:'distributors'});
+  const result=evaluateWater(restored);
+  const year=base.annual[0];
+  const modeled=result.annual[0];
+  const revenueLost=year.revenue*0.1;
+  expect(modeled.volume).toBe(year.volume);
+  expect(modeled.returnedVolume).toBeCloseTo(year.volume*0.1);
+  expect(modeled.netVolume).toBeCloseTo(year.volume*0.9);
+  expect(modeled.revenue).toBeCloseTo(year.revenue-revenueLost);
+  expect(modeled.variable).toBe(year.variable);
+  expect(modeled.workingCapital).toBeCloseTo(year.workingCapital-revenueLost*0.09);
+  expect(modeled.freeCashFlow).toBeCloseTo(year.freeCashFlow-revenueLost*(1-0.18-0.09));
+  expect(result.breakEven).toBeCloseTo(year.fixed/(year.price*0.9-year.unitCost));
+  const scenario={volume:80,price:90,cost:110};
+  expect(evaluateWater(restored,scenario).annual[0].revenue)
+   .toBeCloseTo(evaluateWater(fixture,scenario).annual[0].revenue*0.9);
+  expect(result.npv).toBeLessThan(base.npv);
+  restored.operationsPlan!.distributionChannel='wholesale';
+  expect(evaluateWater(restored)).toEqual(result);
+  restored.operationsPlan!.returnsPct=100;
+  const allReturned=evaluateWater(restored);
+  expect(allReturned.annual[0]).toMatchObject({netVolume:0,revenue:0,variable:year.variable});
+  expect(allReturned.breakEven).toBeNull();
+ });
+});
+
 describe('water production balance',()=>{
  it('limits the daily source by both pumping capacity and the entered permit volume',()=>{
   const study=structuredClone(fixture);
