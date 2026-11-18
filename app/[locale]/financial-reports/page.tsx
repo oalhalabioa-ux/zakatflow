@@ -9,5 +9,5 @@ export default async function FinancialReportsPage({params,searchParams}:{params
  const[{locale},q]=await Promise.all([params,searchParams]);await requireUser();
  if(q.scope==='PERSONAL')return <PersonalFinancialStatements english={locale==='en'}/>;
  try{assertLiveStatements()}catch{notFound()}
- return <FinancialStatementSource live dimensionalCenters={process.env.FINANCIAL_CENTER_BRANCH_REGISTRY==='true'} key={q.organization} preferredOrg={q.organization} initialEnglish={locale==='en'} initialView={q.screen&&Object.hasOwn(STATEMENT_HUB_TITLES,q.screen)?q.screen as StatementHubView:'overview'}/>;
+ return <FinancialStatementSource live key={q.organization} preferredOrg={q.organization} initialEnglish={locale==='en'} initialView={q.screen&&Object.hasOwn(STATEMENT_HUB_TITLES,q.screen)?q.screen as StatementHubView:'overview'}/>;
 }

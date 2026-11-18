@@ -87,3 +87,30 @@ it('routes position/cash center options to the dimensional source with the banne
  vi.stubEnv('FINANCIAL_CENTER_BRANCH_REGISTRY','true');state.centerCalls=[];
  try{expect((await GET(new Request(url))).status).toBe(200);expect(state.centerCalls[0][1]).toBe('HQ');expect((await GET(new Request(url+'&scope=GROUP'))).status).toBe(400)}finally{vi.unstubAllEnvs()}
 });
+
+it('allows pilot center reports only for the configured organization',async()=>{
+ const organization='10000000-0000-4000-8000-000000000001';
+ const outsider='10000000-0000-4000-8000-000000000009';
+ vi.stubEnv('FINANCIAL_CENTER_BRANCH_REGISTRY','false');
+ vi.stubEnv('FINANCIAL_CENTER_REPORT_PILOT_ORGANIZATION',organization);
+ try{
+  for(const action of ['cost-center-options','cost-center-statements']){
+   const url=request().url.replace('action=statements','action='+action);
+   expect((await GET(new Request(url))).status).toBe(200);
+   expect((await GET(new Request(url.replace(organization,outsider)))).status).toBe(404);
+  }
+  vi.stubEnv('FINANCIAL_CENTER_BRANCH_REGISTRY','true');
+  const url=request().url.replace('action=statements','action=cost-center-statements');
+  expect((await GET(new Request(url.replace(organization,outsider)))).status).toBe(404);
+  vi.stubEnv('FINANCIAL_CENTER_REPORT_PILOT_ORGANIZATION','invalid');
+  expect((await GET(new Request(url))).status).toBe(404);
+  vi.stubEnv('FINANCIAL_CENTER_REPORTS_ENABLED','true');
+  for(const action of ['cost-center-statements','cost-center-options']){
+   const route=url.replace('action=cost-center-statements','action='+action);
+   expect((await GET(new Request(route))).status).toBe(200);
+   expect((await GET(new Request(route.replace(organization,outsider)))).status).toBe(200);
+  }
+  vi.stubEnv('FINANCIAL_CENTER_REPORTS_ENABLED','false');
+  expect((await GET(new Request(url))).status).toBe(404);
+ }finally{vi.unstubAllEnvs()}
+});

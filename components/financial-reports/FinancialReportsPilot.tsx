@@ -21,6 +21,8 @@ export function Icon({name='chart',size=24}:{name?:string;size?:number}){
  layers:<><path d="m12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></>,
  coins:<><ellipse cx="9" cy="6" rx="7" ry="3"/><path d="M2 6v4c0 4 14 4 14 0V6M2 10v4c0 4 14 4 14 0M2 14v4c0 4 14 4 14 0M19 7c4 0 4 5 0 5m0 0c4 0 4 5 0 5"/></>,
  file:<><path d="M6 2h9l5 5v15H6ZM14 2v6h6M9 12h8m-8 4h8"/></>,
+ refresh:<path d="M20 4v5h-5m5 0a8 8 0 0 0-14-4L4 7m0 13v-5h5m-5 0a8 8 0 0 0 14 4l2-2"/>,
+ branch:<path d="M9 3h6v5H9zM3 16h6v5H3zm12 0h6v5h-6zM12 8v4m-6 4v-4h12v4"/>,
  calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6m10-6v6M3 10h18m-14 4h2m3 0h2m3 0h1m-11 3h2m3 0h2"/></>,
  download:<><path d="M12 2v13m-5-5 5 5 5-5M3 15v6h18v-6"/></>,
  target:<><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="m12 12 9-10m-5 0h5v5"/></>,

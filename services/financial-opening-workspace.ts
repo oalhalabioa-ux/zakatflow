@@ -1,3 +1,4 @@
+import {centerOpeningsEnabled} from './financial-center-report-rollout';
 import {requireUser} from './auth';
 import {openingScope,openingCommand,type OpeningWorkspaceData} from '../lib/financial-opening-workspace';
 export function assertOpeningWorkspace(){
@@ -12,16 +13,17 @@ export async function openingContext(){
  const organizations=unwrap(await supabase.from('organizations').select('id,name,base_currency').in('id',permitted).order('name'))??[];
  return Promise.all(organizations.map(async org=>{
   const context=unwrap(await supabase.rpc('financial_fiscal_context',{p_org:org.id}));
-  return {...org,currentFiscalStart:context?.period?.start??null};
+  return {...org,currentFiscalStart:context?.period?.start??null,canEditCenterOpenings:centerOpeningsEnabled()};
  }));
 }
 export async function readOpening(input:unknown):Promise<OpeningWorkspaceData>{
  assertOpeningWorkspace();const q=openingScope.parse(input),{supabase}=await requireUser();
  const workspace:OpeningWorkspaceData=unwrap(await supabase.rpc('financial_opening_workspace',{p_org:q.organization,p_fiscal_start:q.fiscalStart}));
- if(workspace.workspace?.status!=='DRAFT'||!workspace.canSave)return workspace;
- const approved=unwrap(await supabase.from('financial_opening_workspaces').select('id')
+ if(workspace.workspace?.status!=='DRAFT')return workspace;
+ const approved=unwrap(await supabase.from('financial_opening_workspaces').select('version')
   .eq('organization_id',q.organization).eq('fiscal_start',q.fiscalStart).eq('status','APPROVED').limit(1));
- return {...workspace,replacesApproved:Boolean(approved?.length)};
+ const version=approved?.[0]?.version;
+ return {...workspace,replacesApproved:workspace.canSave&&version!==undefined,approvedOpeningVersion:version};
 }
 export async function writeOpening(input:unknown){
  assertOpeningWorkspace();const q=openingCommand.parse(input),{supabase}=await requireUser();

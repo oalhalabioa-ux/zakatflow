@@ -14,6 +14,7 @@ const save=scope.extend({
 const approve=z.object({action:z.literal('approve'),id:z.string().uuid(),expectedVersion:z.number().int().positive()}).strict();
 const command=z.discriminatedUnion('action',[save,approve]);
 export type BranchOpeningCommand=z.infer<typeof command>;
+type ApprovedOpeningItem={itemId:string;accountCode:string;debit:string;credit:string};
 function unwrap<T>(result:{data:T;error:{message:string}|null}):T{
  if(result.error){
   const code=result.error.message.match(/BRANCH_OPENING_[A-Z_]+/)?.[0];
@@ -76,9 +77,24 @@ export async function branchOpeningEditorContext(input:unknown){
   throw Error('BRANCH_OPENING_UNAVAILABLE');
  if(branches.data.some(b=>b.organization_id!==q.organization||b.entity_type!=='BRANCH'||!b.active))
   throw Error('BRANCH_OPENING_UNAVAILABLE');
+ const names=new Map<string,{accountNameAr:string|null;accountNameEn:string|null}>();
+ if(selected?.approved_opening.length){
+  const chart=await supabase.rpc('financial_chart_workspace',{p_org:q.organization});
+  if(chart.error||chart.data?.organizationId!==q.organization||!Array.isArray(chart.data.accounts))
+   throw Error('BRANCH_OPENING_UNAVAILABLE');
+  for(const account of chart.data.accounts){
+   if(typeof account?.code!=='string')continue;
+   names.set(account.code,{
+    accountNameAr:typeof account.ar==='string'?account.ar.trim()||null:null,
+    accountNameEn:typeof account.en==='string'?account.en.trim()||null:null,
+   });
+  }
+ }
  await authorize();
  return{distribution,opening:selected?{
   id:selected.id,organizationId:selected.organization_id,fiscalStart:selected.fiscal_start,
-  currency:selected.currency,version:selected.version,approvedOpening:selected.approved_opening,
+  currency:selected.currency,version:selected.version,approvedOpening:selected.approved_opening.map((row:ApprovedOpeningItem)=>({
+   ...row,...(names.get(row.accountCode)??{accountNameAr:null,accountNameEn:null}),
+  })),
  }:null,branches:branches.data.map(b=>({id:b.id,name:b.name})),branchRegistryComplete:false};
 }
