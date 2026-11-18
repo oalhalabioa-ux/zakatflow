@@ -1,0 +1,11 @@
+{
+  "description": "Native acceptance run 43706630083 artifact 14159175342; QA V2 rollback-only observed private function fingerprint. No hosted change committed.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_group_batch_evidence(p_root uuid, p_from date, p_to date, p_entries jsonb, p_reporting boolean)",
+      "fingerprint": "df00945689a1a29a64258689f5ea4af2"
+    }
+  ]
+}

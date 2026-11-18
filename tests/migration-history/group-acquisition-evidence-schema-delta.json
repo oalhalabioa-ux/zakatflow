@@ -1,0 +1,266 @@
+{
+  "description": "Isolated PostgreSQL catalog confirms the explicit batch function matches, apart from trailing whitespace, the acquisition draft exercised in full-schema run 43838267319.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.contents",
+      "fingerprint": "9fff0e93a1d7502b1b848e2daadec083"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.control_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.root_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.sha256",
+      "fingerprint": "05e3ced5a343a17be4aa5e432910fdb7"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.subsidiary_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.title",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.uploaded_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_documents.uploaded_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.approval_reason",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.approved_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.approved_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.control_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.documents",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.measurement",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.period_from",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.period_to",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.registry_revision",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.revocation_reason",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.revoked_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.revoked_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.root_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.status",
+      "fingerprint": "e43c3c73b894819d7d129c8bca319d6e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_acquisition_evidence.subsidiary_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_documents.financial_group_acquisition_documents_contents_check",
+      "fingerprint": "fb9de14ea63f608ea6f5d6eb3460b009"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_documents.financial_group_acquisition_documents_control_id_fkey",
+      "fingerprint": "8aa7925acbd94125a5aa5f71c19d3080"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_documents.financial_group_acquisition_documents_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_documents.financial_group_acquisition_documents_root_id_fkey",
+      "fingerprint": "0a4ef153a3b19a46b6315ddc11d8a608"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_documents.financial_group_acquisition_documents_subsidiary_id_fkey",
+      "fingerprint": "61de303cce092be5b24621e5c351915c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_evidence.financial_group_acquisition_evidence_control_id_fkey",
+      "fingerprint": "8aa7925acbd94125a5aa5f71c19d3080"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_evidence.financial_group_acquisition_evidence_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_evidence.financial_group_acquisition_evidence_root_id_fkey",
+      "fingerprint": "0a4ef153a3b19a46b6315ddc11d8a608"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_evidence.financial_group_acquisition_evidence_status_check",
+      "fingerprint": "aecb2734269dd7d39ce4cc1e9065fbab"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_acquisition_evidence.financial_group_acquisition_evidence_subsidiary_id_fkey",
+      "fingerprint": "61de303cce092be5b24621e5c351915c"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_group_batch_evidence(p_root uuid, p_from date, p_to date, p_entries jsonb, p_reporting boolean)",
+      "fingerprint": "fb241732d150a164a17401b72039b39f"
+    },
+    {
+      "category": "function",
+      "object_key": "private.group_acquisition_check(p_root uuid, p_from date, p_to date, p_measurement jsonb, p_action text)",
+      "fingerprint": "200a9c83ccf7c0462a19b8fcf98f4d4c"
+    },
+    {
+      "category": "function",
+      "object_key": "private.group_acquisition_document_command(p_id uuid, p_root uuid, p_subsidiary uuid, p_from date, p_to date, p_title text, p_pdf text)",
+      "fingerprint": "b2c46737e65640405c617caa86c78814"
+    },
+    {
+      "category": "function",
+      "object_key": "private.group_acquisition_evidence_command(p_action text, p_id uuid, p_root uuid, p_from date, p_to date, p_measurement jsonb, p_reason text)",
+      "fingerprint": "c63a786adfabf196907fcfd16a66b1a5"
+    },
+    {
+      "category": "function",
+      "object_key": "private.group_acquisition_investment_check(p_root uuid, p_measurement jsonb)",
+      "fingerprint": "9714de50332c5416c8535ccfbf1d93df"
+    },
+    {
+      "category": "function",
+      "object_key": "private.group_approved_acquisition_evidence(p_root uuid, p_from date, p_to date)",
+      "fingerprint": "0399abc0b5e861576ad0060d3cabbd56"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_acquisition_document_command(p_id uuid, p_root uuid, p_subsidiary uuid, p_from date, p_to date, p_title text, p_pdf text)",
+      "fingerprint": "a2c95c3df766c8d7752b6ea48b324d2f"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_acquisition_evidence_command(p_action text, p_id uuid, p_root uuid, p_from date, p_to date, p_measurement jsonb, p_reason text)",
+      "fingerprint": "901e77915f90b18e336a11a5a91e2168"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_approved_acquisition_evidence(p_root uuid, p_from date, p_to date)",
+      "fingerprint": "d7b5f4eef6b9b396f7f3fad8eff482ec"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_acquisition_documents.financial_group_acquisition_documents_pkey",
+      "fingerprint": "74941b3e000556211dd78c6f55be8031"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_acquisition_evidence.financial_group_acquisition_active_control",
+      "fingerprint": "7106f176efdc0afcd35fcb6447cf90f7"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_acquisition_evidence.financial_group_acquisition_active_investment",
+      "fingerprint": "8b221d94c199dacbdc31647d5b99dbc7"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_acquisition_evidence.financial_group_acquisition_evidence_pkey",
+      "fingerprint": "c6aa6dfb8e3cfbdde4fae0e813f78e16"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_group_acquisition_documents",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_group_acquisition_evidence",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

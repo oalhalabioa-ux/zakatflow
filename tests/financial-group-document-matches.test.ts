@@ -1,0 +1,10 @@
+import {it,expect} from 'vitest';
+import {verifyGroupDocumentMatches} from '../lib/financial-group-document-matches';
+import {sourceBoundGroupFixture} from './financial-reporting/group-source-bound-fixture';
+const id='90000000-0000-4000-8000-000000000001';
+function fixture(){const e={...sourceBoundGroupFixture().entry,documentMatchId:id};return{e,r:{id,status:'APPROVED',leftOrganizationId:e.debitSource.organizationId,rightOrganizationId:e.creditSource.organizationId,leftEventId:e.debitSource.eventId,rightEventId:e.creditSource.eventId,evidenceReference:'Verified original invoice pair',approvedBy:id,approvedAt:'2026-11-15T08:00:00Z',sourceCurrent:true}};}
+it('keeps an unpaired worksheet explicitly incomplete',()=>{const {entry}=sourceBoundGroupFixture();expect(verifyGroupDocumentMatches([entry],[])).toMatchObject({status:'DOCUMENT_MATCHING_REQUIRED',missingAdjustmentIds:[entry.id]})});
+it('accepts only approved matching original documents irrespective of pair order',()=>{const {e,r}=fixture();expect(verifyGroupDocumentMatches([e],[r]).bindings).toHaveLength(1);expect(verifyGroupDocumentMatches([{...e,debitSource:e.creditSource,creditSource:e.debitSource}],[r]).status).toBe('DOCUMENT_MATCHES_VERIFIED_ONLY')});
+it.each(['DRAFT','REVOKED'])('blocks %s evidence',status=>{const {e,r}=fixture();expect(()=>verifyGroupDocumentMatches([e],[{...r,status}])).toThrow('DOCUMENT_NOT_APPROVED')});
+it('rejects changed originals, substituted companies and unrelated document ids',()=>{const {e,r}=fixture();expect(()=>verifyGroupDocumentMatches([e],[{...r,sourceCurrent:false}])).toThrow('DOCUMENT_NOT_APPROVED');expect(()=>verifyGroupDocumentMatches([e],[{...r,leftOrganizationId:id}])).toThrow('DOCUMENT_MISMATCH');expect(()=>verifyGroupDocumentMatches([e],[{...r,leftEventId:id}])).toThrow('DOCUMENT_MISMATCH')});
+it('rejects missing, duplicate and extra server evidence',()=>{const {e,r}=fixture();for(const rows of [[],[r,r],[r,{...r,id:'90000000-0000-4000-8000-000000000002'}]])expect(()=>verifyGroupDocumentMatches([e],rows)).toThrow('EVIDENCE_INVALID')});
