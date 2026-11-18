@@ -92,7 +92,20 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('button',{name:'Report export options',exact:true}).click();
     const exportDialog=page.getByRole('dialog');
     await exportDialog.getByRole('checkbox',{name:'Licences, tasks and risks',exact:true}).uncheck();
-    await exportDialog.getByRole('checkbox',{name:'Funding and shareholder loans',exact:true}).uncheck();
+    const fundingOption=exportDialog.getByRole('checkbox',{name:'Funding and shareholder loans',exact:true});
+    assert.ok(await fundingOption.getAttribute('aria-describedby'));
+    await fundingOption.uncheck();
+    const sectionOptions=exportDialog.getByRole('checkbox');
+    const printSelection=exportDialog.getByRole('button',{name:'Print selected sections / PDF',exact:true});
+    const selectedOptions=[];
+    for(const checkbox of await sectionOptions.all()){
+     if(await checkbox.isChecked()){
+      selectedOptions.push(checkbox);
+      await checkbox.uncheck();
+     }
+    }
+    assert.equal(await printSelection.isDisabled(),true);
+    for(const checkbox of selectedOptions)await checkbox.check();
     // Suppress the native dialog while checking Chromium's real print layout.
     const restorePrint=await page.evaluateHandle(()=>{
      const print=window.print;
@@ -100,7 +113,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
      return ()=>{window.print=print;window.dispatchEvent(new Event('afterprint'));};
     });
     try{
-     await exportDialog.getByRole('button',{name:'Print selected sections / PDF',exact:true}).click();
+     await printSelection.click();
      await page.emulateMedia({media:'print'});
      assert.equal(await report.isVisible(),true);
      assert.equal(await page.locator('[data-report-section="governance"]').isVisible(),false);

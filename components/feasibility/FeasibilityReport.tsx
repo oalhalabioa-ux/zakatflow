@@ -1,5 +1,5 @@
 'use client';
-import {useRef,useState} from 'react';
+import {useId,useRef,useState} from 'react';
 import {RoyalIcon} from './RoyalIcon';
 import type {FeasibilityStudy} from '@/lib/feasibility/engine';
 import {evaluateStudy} from '@/lib/feasibility/engine';
@@ -17,6 +17,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
  const report=useRef<HTMLDivElement>(null);
  const dialog=useRef<HTMLDialogElement>(null);
+ const dialogTitleId=useId();
  const [sections,setSections]=useState<ExportSection[]>([...exportSections]);
  const sectionLabels:Record<ExportSection,string>={
   summary:l('الملخص التنفيذي','Executive summary'),finance:l('الافتراضات والتوقعات المالية','Financial assumptions and forecast'),
@@ -24,6 +25,15 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   ownership:l('الشراكة والملكية الاقتصادية','Partnership and economic ownership'),
   governance:l('التراخيص والمهام والمخاطر','Licences, tasks and risks'),
   decisions:l('القرارات والمحاضر','Decisions and minutes'),notes:l('ملاحظات الدراسة','Study notes')
+ };
+ const sectionDescriptions:Record<ExportSection,string>={
+  summary:l('بيانات المشروع والقرار الأولي','Project details and initial decision'),
+  finance:l('الاستثمار والتدفقات ومؤشرات العائد','Investment, cash flows and returns'),
+  funding:l('مصادر التمويل وخدمة الدين','Sources of funding and debt service'),
+  ownership:l('المساهمات النقدية والعينية والحصص','Cash and in-kind contributions and ownership'),
+  governance:l('المتطلبات المفتوحة وأدلة التحقق','Open requirements and supporting evidence'),
+  decisions:l('القرارات المسجلة ومحاضرها','Recorded decisions and minutes'),
+  notes:l('الملاحظات المحفوظة مع الدراسة','Notes saved with the study')
  };
  const availableSections=exportSections.filter(section=>
   (section!=='notes'||study.notes)&&(section!=='decisions'||study.decisions.length>0));
@@ -101,10 +111,11 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  ];
  const ready=handoffReadiness(study);
  const readyCount=ready.checks.filter(check=>check.passed).length;
+ const readiness=new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(readyCount/ready.checks.length);
  const reportMetrics = [
   ['NPV', money(study.rawLand?landResult?.npv??null:water ? water.ready ? water.npv : null : base.npv)],
   ['IRR', percent(study.rawLand?landResult?.irr??null:water?water.ready?water.irr:null:base.irr)],
-  [l('الجاهزية','Readiness'),readyCount+' / '+ready.checks.length]
+  [l('الجاهزية','Readiness'),readiness]
  ];
  const metrics=[
   {label:l('السنة','Year'),key:'year'},
@@ -133,7 +144,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
     {[
      [l('إجمالي الاستثمار الاقتصادي','Economic investment'),money(study.rawLand?landResult?.totalCost??null:water?water.cashRequired+water.land:base.totalInvestment)],
      ...reportMetrics.slice(0,2),
-     [l('جاهزية الدراسة','Study readiness'),new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(readyCount/ready.checks.length)]
+     [l('جاهزية الدراسة','Study readiness'),readiness]
     ].map(([label,value])=><div className="fs-metric" key={label}><small>{label}</small><strong><bdi>{value}</bdi></strong></div>)}
    </div>
    <section className="card fs-panel">
@@ -169,22 +180,28 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
     </section>
    </div>
   </section>
-  {allowExport&&<dialog ref={dialog} className="fs-dialog fs-royal-dialog" aria-labelledby="fs-report-export-title">
-   <div className="fs-royal-heading"><h2 id="fs-report-export-title"><RoyalIcon name="file"/>{l('التقرير الاستثماري الشامل','Investment report export')}</h2>
+  {allowExport&&<dialog ref={dialog} className="fs-dialog fs-royal-dialog fs-royal-report-dialog" aria-labelledby={dialogTitleId}>
+   <div className="fs-royal-heading"><h2 id={dialogTitleId}><RoyalIcon name="layers"/>{l('التقرير الاستثماري الشامل','Investment report export')}</h2>
     <button type="button" className="fs-royal-close" aria-label={l('إغلاق','Close')} onClick={()=>dialog.current?.close()}>×</button></div>
    <div className="fs-royal-scenario-cards fs-royal-report-metrics">{reportMetrics.map(([label,value])=>
-    <div className="fs-metric" key={label}><small>{label}</small><strong dir="auto">{value}</strong></div>)}</div>
-   <p className="fs-hint">{l('اختر أقسام نسخة PDF. يمكنك تنزيل جداول التوقعات والمهام بصيغة CSV من التقرير.','Select sections for the PDF. Forecast and task tables can be downloaded as CSV from the report.')}</p>
+    <div className="fs-metric" key={label}><small>{label}</small><strong><bdi>{value}</bdi></strong></div>)}</div>
+   <p className="fs-royal-report-notice">{l('تحقّق من الافتراضات المالية والأدلة القانونية قبل اعتماد التقرير.','Verify the financial assumptions and legal evidence before approving the report.')}</p>
    <fieldset className="fs-study-scope fs-royal-report-sections">
     <legend>{l('الأقسام التي يشملها ملف PDF','Sections included in the PDF')}</legend>
-    {availableSections.map(section=><label className="fs-check" key={section}>
-     <input type="checkbox" checked={sections.includes(section)} onChange={event=>{
-      const checked=event.currentTarget.checked;
-      setSections(current=>checked?[...current,section]:current.filter(item=>item!==section));
-     }}/><span>{sectionLabels[section]}</span>
-    </label>)}
+    {availableSections.map(section=>{
+     const labelId=dialogTitleId+'-'+section;
+     const descriptionId=labelId+'-description';
+     return <label className="fs-royal-report-option" key={section}>
+      <strong id={labelId}>{sectionLabels[section]}</strong>
+      <small id={descriptionId}>{sectionDescriptions[section]}</small>
+      <input type="checkbox" aria-labelledby={labelId} aria-describedby={descriptionId} checked={sections.includes(section)} onChange={event=>{
+       const checked=event.currentTarget.checked;
+       setSections(current=>checked?[...current,section]:current.filter(item=>item!==section));
+      }}/>
+     </label>;
+    })}
    </fieldset>
-   <div className="fs-actions">
+   <div className="fs-actions fs-royal-report-footer">
     <button className="fs-btn" type="button" disabled={!availableSections.some(section=>sections.includes(section))}
      onClick={printSelected}>{l('طباعة الأقسام المحددة / PDF','Print selected sections / PDF')}</button>
     <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>dialog.current?.close()}>{l('إلغاء','Cancel')}</button>
