@@ -433,6 +433,12 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     const mix=page.locator('.fs-royal-water-production-balance .fs-royal-bar strong');
     assert.deepEqual(await mix.allTextContents(),[100,80,70,10].map(value=>new Intl.NumberFormat(locale).format(value)+' %'));
     assert.equal(await page.locator('.fs-royal-water-production-kpis .fs-metric > svg').count(),4);
+    const annualSales=page.getByRole('region',{
+     name:locale==='ar'?'جدول الاستغلال والمبيعات السنوية':'Annual utilization and sales table',exact:true,
+    });
+    assert.equal(await annualSales.getAttribute('tabindex'),'0');
+    assert.equal(await annualSales.evaluate(element=>
+     element.scrollWidth>element.clientWidth&&document.documentElement.scrollWidth===window.innerWidth),true);
     for(const [ar,en,value] of [
      ['الطاقة الاسمية عبوة/شهر','Nominal monthly bottles',832000],
      ['العبوات القابلة للبيع شهريًا','Monthly saleable bottles',665600],

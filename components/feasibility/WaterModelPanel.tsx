@@ -101,8 +101,9 @@ function NumberInput({label,value,onChange,max=1e12,min=0,step='any'}:{
   }}/></label>;
 }
 
-function Table({headers,rows,footer}:{headers:ReactNode[];rows:ReactNode[][];footer?:ReactNode}){
- return <div className="fs-table-wrap"><table className="fs-table">
+function Table({headers,rows,footer,scrollLabel}:{headers:ReactNode[];rows:ReactNode[][];footer?:ReactNode;scrollLabel?:string}){
+ return <div className={'fs-table-wrap'+(scrollLabel?' fs-royal-water-sales-table':'')}
+  role={scrollLabel?'region':undefined} aria-label={scrollLabel} tabIndex={scrollLabel?0:undefined}><table className="fs-table">
   <thead><tr>{headers.map((value,index)=><th scope="col" key={index}>{value}</th>)}</tr></thead>
   <tbody>{rows.map((row,index)=><tr key={index}>{row.map((value,cell)=>
    cell===0?<th scope="row" key={cell}>{value}</th>:<td key={cell}>{value}</td>)}</tr>)}</tbody>
@@ -514,7 +515,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     </Panel>
    </>}
    <Panel title={l('الاستغلال والمبيعات السنوية','Annual utilization and sales')} icon="chart">
-    <Table headers={[l('السنة','Year'),l('الاستغلال %','Utilization %'),l('الكراتين المرسلة','Cartons dispatched'),l('المرتجعات','Returns'),l('صافي الكراتين المباعة','Net cartons sold'),l('المبيعات','Sales'),l('هامش المساهمة','Contribution margin'),'EBITDA']}
+    <Table scrollLabel={l('جدول الاستغلال والمبيعات السنوية','Annual utilization and sales table')}
+     headers={[l('السنة','Year'),l('الاستغلال %','Utilization %'),l('الكراتين المرسلة','Cartons dispatched'),l('المرتجعات','Returns'),l('صافي الكراتين المباعة','Net cartons sold'),l('المبيعات','Sales'),l('هامش المساهمة','Contribution margin'),'EBITDA']}
      rows={m.annual.map((y,i)=>[y.year,<NumberInput key={i} label={l('استغلال السنة ','Utilization in year ')+y.year}
       value={y.utilization} max={100} onChange={value=>updateUtilization(i,value)}/>,fmt(y.volume),fmt(y.returnedVolume),fmt(y.netVolume),money(y.revenue),money(y.revenue-y.variable),money(y.ebitda)])}/>
    </Panel>
