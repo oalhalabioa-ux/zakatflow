@@ -4,7 +4,7 @@ import {cloudDraftWrite,feasibilityDraftSchema} from './draft-schema';
 import {appendImportedStudies,parseCloudStudyRows,parseInstitutionalCloudRows,parseLocalStudyCache,parseStudyBackup,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
 import {feasibilityCsv} from './report-export';
 import {importWaterBackup} from './water-backup';
-import {createWaterModel,evaluateWater} from './water-model';
+import {createWaterModel,emptyWaterOperationsPlan,evaluateWater,waterVariableCostBreakdown,waterModelSchema,waterOperationalRequirements,waterProductionBalance} from './water-model';
 
 const existingId='3cadcbaa-e175-453a-9822-83dede84ef3d';
 const newId='17f24edc-3c5a-409d-8609-8ebf4e40dc8b';
@@ -93,6 +93,16 @@ describe('original bottled-water model financial parity',()=>{
   expect(JSON.stringify(fixture)).toBe(before);
  });
 
+ it('reports debt service coverage only in servicing years and preserves negative coverage',()=>{
+  const result=evaluateWater(fixture);
+  expect(result.annual[0].dscr).toBeNull();
+  expect(result.annual[1].dscr).toBeCloseTo(1197423.168/67840,10);
+  expect(result.annual[5].dscr).toBeNull();
+  const loss=evaluateWater({...fixture,ops:{...fixture.ops,priceCarton:.01}});
+  expect(loss.annual[1].dscr).toBeLessThan(0);
+  expect(evaluateWater(createWaterModel()).annual.every(year=>year.dscr===null)).toBe(true);
+ });
+
  it('keeps unfinished inputs and an all-loss forecast from implying a measurable IRR',()=>{
   expect(evaluateWater(createWaterModel())).toMatchObject({ready:false,irr:null,investorShare:null});
   expect(evaluateWater({...fixture,ops:{...fixture.ops,priceCarton:.01}}).irr).toBeNull();
@@ -142,4 +152,130 @@ describe('original water backup recovery',()=>{
    '\uFEFF"\'=SUM(1,2)","\'  +cmd","hello, ""test""","-12"'
   );
  });
+});
+
+
+describe('detailed water operating requirements',()=>{
+ it('estimates procurement, extraction, electricity and transport from projected production',()=>{
+  const study=structuredClone(fixture);
+  study.operationsPlan={...emptyWaterOperationsPlan,packagingLossPct:4,kwhPerThousandBottles:40,cartonsPerTrip:60,roundTripKm:52};
+  const requirements=waterOperationalRequirements(study,{volume:100});
+  expect(requirements).toMatchObject({
+   bottles:1200,filledLitres:900,bottleInputs:1250,
+   cartonInputs:105,electricityKwh:48,trips:2,distributionKm:104,
+  });
+  expect(requirements?.sourceWaterM3).toBeCloseTo(900/820);
+  expect(evaluateWater(study)).toEqual(evaluateWater(fixture));
+ });
+
+ it('accepts older drafts and distinguishes missing assumptions from zero output',()=>{
+  expect(waterModelSchema.parse(fixture).operationsPlan).toBeUndefined();
+  const study=structuredClone(fixture);
+  expect(waterOperationalRequirements(study,{volume:100})).toMatchObject({
+   bottles:1200,bottleInputs:1200,cartonInputs:100,electricityKwh:null,trips:null,distributionKm:null,
+  });
+  study.operationsPlan={...emptyWaterOperationsPlan,kwhPerThousandBottles:40,cartonsPerTrip:60,roundTripKm:52};
+  expect(waterOperationalRequirements(study,{volume:0})).toMatchObject({
+   bottles:0,electricityKwh:0,trips:0,distributionKm:0,
+  });
+  study.ops.bottlesCarton=0;
+  expect(waterOperationalRequirements(study,{volume:100})).toBeNull();
+  expect(waterModelSchema.safeParse({...study,operationsPlan:{...study.operationsPlan,packagingLossPct:100}}).success).toBe(false);
+ });
+});
+
+
+describe('water returns and distribution',()=>{
+ it('deducts returns from net sales, working capital and cash flow while charging dispatched cartons',()=>{
+  const study=structuredClone(fixture);
+  const base=evaluateWater(study);
+  study.operationsPlan={...emptyWaterOperationsPlan,returnsPct:10,distributionChannel:'distributors'};
+  const restored=waterModelSchema.parse(JSON.parse(JSON.stringify(study)));
+  expect(restored.operationsPlan).toMatchObject({returnsPct:10,distributionChannel:'distributors'});
+  const result=evaluateWater(restored);
+  const year=base.annual[0];
+  const modeled=result.annual[0];
+  const revenueLost=year.revenue*0.1;
+  expect(modeled.volume).toBe(year.volume);
+  expect(modeled.returnedVolume).toBeCloseTo(year.volume*0.1);
+  expect(modeled.netVolume).toBeCloseTo(year.volume*0.9);
+  expect(modeled.revenue).toBeCloseTo(year.revenue-revenueLost);
+  expect(modeled.variable).toBe(year.variable);
+  expect(modeled.workingCapital).toBeCloseTo(year.workingCapital-revenueLost*0.09);
+  expect(modeled.freeCashFlow).toBeCloseTo(year.freeCashFlow-revenueLost*(1-0.18-0.09));
+  expect(result.breakEven).toBeCloseTo(year.fixed/(year.price*0.9-year.unitCost));
+  const scenario={volume:80,price:90,cost:110};
+  expect(evaluateWater(restored,scenario).annual[0].revenue)
+   .toBeCloseTo(evaluateWater(fixture,scenario).annual[0].revenue*0.9);
+  expect(result.npv).toBeLessThan(base.npv);
+  restored.operationsPlan!.distributionChannel='wholesale';
+  expect(evaluateWater(restored)).toEqual(result);
+  restored.operationsPlan!.returnsPct=100;
+  const allReturned=evaluateWater(restored);
+  expect(allReturned.annual[0]).toMatchObject({netVolume:0,revenue:0,variable:year.variable});
+  expect(allReturned.breakEven).toBeNull();
+ });
+});
+
+describe('water production balance',()=>{
+ it('limits the daily source by both pumping capacity and the entered permit volume',()=>{
+  const study=structuredClone(fixture);
+  study.ops={...study.ops,bottlesHour:6000,hoursDay:8,daysMonth:26,litersBottle:0.5,
+   waterLossPct:20,bottlesCarton:12,licensedWaterM3Day:28};
+  const savedForecast=evaluateWater(study);
+  study.operationsPlan={...emptyWaterOperationsPlan,pumpingM3Hour:4,sourceHoursDay:8,
+   finishedBottleLossPct:2,collectionDays:45};
+  const balance=waterProductionBalance(study);
+  expect(balance).toEqual({
+   pumpedM3Day:32,licensedM3Day:28,availableM3Day:28,requiredM3Day:30,
+   nominalBottles:1248000,finishedWaste:24960,saleableBottles:1223040,saleableCartons:101920,
+  });
+  expect(evaluateWater(study)).toEqual(savedForecast);
+  expect(waterModelSchema.safeParse(study).success).toBe(true);
+  study.operationsPlan.sourceHoursDay=25;
+  expect(waterModelSchema.safeParse(study).success).toBe(false);
+ });
+
+ it('keeps legacy source names and validates a selected source independently of financial assumptions',()=>{
+  const study=structuredClone(fixture);
+  study.operationsPlan={...emptyWaterOperationsPlan,sourceName:'Test supply'};
+  expect(waterModelSchema.parse(study).operationsPlan).toMatchObject({sourceName:'Test supply'});
+  expect(waterModelSchema.parse(study).operationsPlan?.sourceType).toBeUndefined();
+  const financials=evaluateWater(study);
+  study.operationsPlan.sourceType='public-network';
+  expect(waterModelSchema.parse(JSON.parse(JSON.stringify(study))).operationsPlan).toMatchObject({
+   sourceName:'Test supply',sourceType:'public-network',
+  });
+  expect(evaluateWater(study)).toEqual(financials);
+  expect(waterModelSchema.safeParse({...study,operationsPlan:{...study.operationsPlan,sourceType:'permit-verified'}}).success).toBe(false);
+ });
+
+ it('keeps source availability unknown when just one of the required inputs is missing',()=>{
+  const study=structuredClone(fixture);
+  study.ops.licensedWaterM3Day=50;
+  expect(waterProductionBalance(study)).toMatchObject({licensedM3Day:50,pumpedM3Day:null,availableM3Day:null});
+  study.operationsPlan={...emptyWaterOperationsPlan,pumpingM3Hour:5,sourceHoursDay:6};
+  study.ops.licensedWaterM3Day=0;
+  expect(waterProductionBalance(study)).toMatchObject({licensedM3Day:null,pumpedM3Day:30,availableM3Day:null});
+ });
+});
+
+
+it('stores valuation document dates without changing the water project calculations',()=>{
+ const study=structuredClone(fixture);
+ study.deal={...study.deal,appraisalDate:'2026-11-12',appraisalApprovalDate:'2026-11-17'};
+ expect(waterModelSchema.parse(study).deal.appraisalApprovalDate).toBe('2026-11-17');
+ expect(evaluateWater(study)).toEqual(evaluateWater(fixture));
+ expect(waterModelSchema.safeParse({...study,deal:{...study.deal,appraisalDate:'2026-02-30'}}).success).toBe(false);
+});
+
+it('prices water packaging, power and distribution per carton without changing the approved financial forecast',()=>{
+ const study=structuredClone(fixture);
+ Object.assign(study.ops,{bottlesCarton:10,litersBottle:1,waterLossPct:20});
+ const original=evaluateWater(study);
+ study.operationsPlan={...emptyWaterOperationsPlan,packagingLossPct:20,kwhPerThousandBottles:200,
+  cartonsPerTrip:100,roundTripKm:50,unitCosts:{bottle:.1,cap:.04,label:.06,carton:1,kwh:.5,rawWaterM3:8,distributionKm:2}};
+ expect(waterVariableCostBreakdown(study)?.total).toBeCloseTo(5.85);
+ expect(evaluateWater(study)).toEqual(original);
+ expect(waterModelSchema.safeParse(study).success).toBe(true);
 });

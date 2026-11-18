@@ -632,8 +632,23 @@ try {
     const modal=page.getByRole('dialog');await modal.waitFor();assert.equal(await modal.locator('select[name="action"]').count(),1);await modal.getByLabel('Action',{exact:true}).selectOption('activate');await modal.getByLabel('Administrative reason',{exact:true}).fill('Manual activation regression acceptance');await modal.getByLabel('Paid subscription end',{exact:true}).fill('2027-12-31T18:00');let submissions=0;page.on('request',r=>{if(r.url()===appUrl+'/api/admin/trials'&&r.method()==='POST')submissions++;});await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal(submissions,0);assert.equal(await modal.locator('[name="plan_id"]').evaluate(e=>e.validity.valueMissing),true);
     const catalog=(await rpc(owner,'subscription_plan_catalog',{})).data,plan=catalog.plans.find(p=>p.code==='advanced_monthly');await modal.locator('[name="plan_id"]').selectOption(plan.id);assert.equal(await modal.locator('[name="max_users"]').inputValue(),'15');const saved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/trials'&&r.request().method()==='POST');await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal((await saved).status(),200);const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.plan_id,plan.id);assert.equal(state.max_users,15);await context.close();
   });
+  // Install the QA V2 entitlement RPC and policies before either browser suite uses them.
+  const strip = value => value.replace(/^begin;\s*/i, '').replace(/commit;\s*$/i, '');
+  const migrationFiles = [
+    'docs/feasibility/qa-v2-sharing-compatibility.sql',
+    'supabase/migrations/20261116194423_feasibility_organization_sharing.sql',
+    'docs/feasibility/qa-v2-sharing-compatibility-workspace.sql',
+    'supabase/migrations/20261118174233_feasibility_trial_and_plan_entitlements.sql',
+  ];
+  sql('begin;\n' + (await Promise.all(migrationFiles.map(load))).map(strip).join('\n') + "\nnotify pgrst,'reload schema';\ncommit;");
+  const enableCompanyFeasibility = orgId => {
+    assert.match(orgId, /^[a-f0-9-]{36}$/);
+    sql(`update public.platform_subscriptions set status='active',converted_at=now(),
+      current_period_end=now()+interval '30 days',entitlements='["module:feasibility"]'
+      where organization_id='${orgId}';`);
+  };
   await (await import('./feasibility-billing-bridge.mjs')).runFeasibilityBillingAB({
-    browser,cookies,appUrl,url,owner,outsider:clients[7],headers,check
+    browser,cookies,appUrl,url,owner,outsider:clients[7],headers,check,enableCompanyFeasibility
   });
   await check('settings separates account and users; organization switching preserves subscription scope and account preferences persist',async()=>{
     const jar=[];
@@ -827,6 +842,67 @@ try {
   assert.ok(signupTrigger, 'Production signup trigger definition must be present');
   sql(signupTrigger[0]);
   await check('mailbox invitation activation, existing password, replay and login',()=>verifyInvitationFlow({browser,appUrl,url,status,owner,existing:clients[1],cookieHeader,headers,sql}));
+  await check('authenticated Chromium persists platform sharing settings and enforces the recipient editor', async () => {
+    console.log('CHECK preparing canonical notification and feasibility fixtures');
+    const coreSchema = await load('supabase/migrations/20260915195428_001_schema.sql');
+    const notificationsTable = coreSchema.match(/^create table if not exists notifications\([^\n]+$/m)?.[0];
+    assert.ok(notificationsTable, 'Canonical notifications table definition must exist');
+    sql("set lock_timeout='5s'; set statement_timeout='20s'; " + notificationsTable + `
+      alter table public.notifications enable row level security;
+      create policy notifications_self on public.notifications
+       using (user_id=auth.uid()) with check (user_id=auth.uid());
+      grant select,update on public.notifications to authenticated;
+    `);
+    const makeOrg = async (account, name) => {
+      const response = await fetch(url + '/rest/v1/organizations', {
+        method: 'POST', headers: { ...headers(account), Prefer: 'return=representation' },
+        body: JSON.stringify({ name, owner_user_id: account.id }),
+      });
+      assert.equal(response.status, 201, await response.clone().text());
+      return (await response.json())[0].id;
+    };
+    const recipient = clients[7];
+    const sourceOrg = await makeOrg(owner, 'Sharing browser source');
+    const recipientOrg = await makeOrg(recipient, 'Sharing browser recipient');
+    enableCompanyFeasibility(sourceOrg);
+    enableCompanyFeasibility(recipientOrg);
+    const sharingMigrations = [
+      'supabase/migrations/20261117024046_feasibility_sharing_permissions.sql',
+      'supabase/migrations/20261117064000_feasibility_share_proposals.sql',
+      'supabase/migrations/20261117134000_feasibility_organization_share_audit.sql',
+    ];
+    sql('begin;\n' + (await Promise.all(sharingMigrations.map(load))).map(strip).join('\n') + "\nnotify pgrst,'reload schema';\ncommit;");
+    console.log('PASS installed notification and feasibility fixtures');
+    const sharingAppUrl = 'http://localhost:3002';
+    const sharingServer = spawn('node', ['node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', '3002'], {
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        NEXT_PUBLIC_SUPABASE_URL: url,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: status.ANON_KEY,
+        NEXT_PUBLIC_APP_URL: sharingAppUrl,
+        NEXT_PUBLIC_APP_ENV: 'test',
+        NEXT_PUBLIC_FEASIBILITY_STUDIES: 'true',
+        NEXT_PUBLIC_FEASIBILITY_CLOUD_QA: 'true',
+        FEASIBILITY_ORG_QA: 'true',
+        FEASIBILITY_ORG_SHARING: 'true',
+      },
+    });
+    try {
+      let ready = false;
+      for (let i = 0; i < 80 && !ready; i++) {
+        try { ready = (await fetch(sharingAppUrl + '/en/login', { signal: AbortSignal.timeout(1000) })).ok; } catch {}
+        if (!ready) await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      assert.ok(ready, 'Sharing browser server must start');
+      const { verifyFeasibilitySharingBrowser } = await import('./feasibility-sharing-browser.mjs');
+      await verifyFeasibilitySharingBrowser({
+        browser, appUrl: sharingAppUrl, url, anonKey: status.ANON_KEY, owner, recipient, sourceOrg, recipientOrg,
+      });
+    } finally {
+      sharingServer.kill('SIGTERM');
+    }
+  });
   report.passed = report.checks.length;
 } finally {
   if (browser) await browser.close();

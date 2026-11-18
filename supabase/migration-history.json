@@ -2057,6 +2057,54 @@
       "expected_md5": "36924fbdce8b3bb62ff4c2564e272657",
       "file_sha256": "645eb9e7e19446211387cf71acaffc0eb5f923edea5d874d83156d067b3717dc",
       "validation_project": "Hosted restored clone: rollback-only signup, quote workflow and effective study entitlements"
+    },
+    {
+      "path": "supabase/migrations/20261116194423_feasibility_organization_sharing.sql",
+      "version": "20261116194423",
+      "name": "feasibility_organization_sharing",
+      "expected_md5": "83fc9c172e750f60c11c7216603b6e4a",
+      "file_sha256": "cd982057e9efcf505f384d31176df2fa7760715656b624de0cc3fc2eec10aed4",
+      "validation_project": "Hosted restored clone: organization ownership, snapshot, expiry, 30-day cap and tenant isolation"
+    },
+    {
+      "path": "supabase/migrations/20261117024046_feasibility_sharing_permissions.sql",
+      "version": "20261117024046",
+      "name": "feasibility_sharing_permissions",
+      "expected_md5": "73fef009b49de06eb5f36d530c10d759",
+      "file_sha256": "acad3ef662ea2bef846167a642c69a85c99fad0c41897ede3e023db86588b45a",
+      "validation_project": "Isolated QA rehearsal: platform ownership, recipient permissions and revisioned snapshot edits"
+    },
+    {
+      "path": "supabase/migrations/20261117064000_feasibility_share_proposals.sql",
+      "version": "20261117064000",
+      "name": "feasibility_share_proposals",
+      "expected_md5": "e6d21ea3a29adefafa96035dec6be693",
+      "file_sha256": "723b4778a32984b433992f44280b2bc04a8c8078eae9064548d97f80f9c39ce4",
+      "validation_project": "Isolated QA rehearsal: validated proposal submission, notifications, conflict resolution and revision preservation"
+    },
+    {
+      "path": "supabase/migrations/20261117134000_feasibility_organization_share_audit.sql",
+      "version": "20261117134000",
+      "name": "feasibility_organization_share_audit",
+      "expected_md5": "d1ff8eec2b66e661ca53794e3860a690",
+      "file_sha256": "0dd04ff62446331070903f9b90e50ffbeaaa73f99d15009e17d652a13e229fdf",
+      "validation_project": "Isolated PostgreSQL rehearsal: study-scoped owner audit, existing event history, and denied cross-tenant, non-owner, suspended and anonymous access"
+    },
+    {
+      "path": "supabase/migrations/20261117190000_feasibility_evidence_documents.sql",
+      "version": "20261117190000",
+      "name": "feasibility_evidence_documents",
+      "expected_md5": "b624a53a6807a8709e1dd506baee02ee",
+      "file_sha256": "692c4e5898a9d18ad12065428a56d3079e25f97bbff6c5822b4c99d2d62ce38c",
+      "validation_project": "Isolated PostgreSQL rehearsal: private evidence, scope isolation and linkage to existing saved requirements"
+    },
+    {
+      "path": "supabase/migrations/20261118174233_feasibility_trial_and_plan_entitlements.sql",
+      "version": "20261118174233",
+      "name": "feasibility_trial_and_plan_entitlements",
+      "expected_md5": "8f7ae7cb6aa6482219f41022281af69f",
+      "file_sha256": "abfcfbaa5be33325454a7fdcda6df1a3e2c099fd2c913bb7546ee988b50b60de",
+      "validation_project": "Isolated PGlite: existing and new trials and subscribed plans, unchanged snapshots, expiry, membership and row policies"
     }
   ]
 }

@@ -1,4 +1,5 @@
 'use client';
+import {RoyalBars} from './RoyalCharts';
 import type {StudySupplier} from '@/lib/feasibility/engine';
 import {compareSupplierQuotes} from '@/lib/feasibility/supplier-analysis';
 
@@ -41,5 +42,11 @@ export default function SupplierComparisonPanel({suppliers,currency,locale}:{
        t('يلزم عرض من مورد آخر','Another vendor quote required')}</td>
     </tr>)}</tbody>
    </table></div>}
+  {result.groups.filter(group=>group.comparable).slice(0,6).map(group=>
+   <RoyalBars key={group.item} title={group.item} locale={locale} unit={currency} data={[
+    {label:t('الأقل','Lowest'),value:group.lowestOffer??0},
+    {label:t('الأعلى','Highest'),value:group.highestOffer??0}
+   ]}/>
+  )}
  </section>;
 }

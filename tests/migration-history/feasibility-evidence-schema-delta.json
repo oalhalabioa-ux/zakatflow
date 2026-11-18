@@ -1,0 +1,131 @@
+{
+  "description": "Private study evidence documents and requirement links, disabled until rollout",
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_documents.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_documents.file_data",
+      "fingerprint": "9fff0e93a1d7502b1b848e2daadec083"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_documents.filename",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_documents.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_documents.kind",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_documents.media_type",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_documents.project_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_documents.requirement_id",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_feature_switch.enabled",
+      "fingerprint": "1b2d399aaa0209161b2a562d0ec668df"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_evidence_feature_switch.singleton",
+      "fingerprint": "14ea4bf43cf24757f6097b74012b9d32"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_documents_check",
+      "fingerprint": "acecae7e72bb91426d59b726ffd9669d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_documents_check1",
+      "fingerprint": "7bc6b2e64d15d966bb07a7e913034406"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_documents_file_data_check",
+      "fingerprint": "8023a52e45983ed14a334a3feceefd81"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_documents_filename_check",
+      "fingerprint": "b4bc31533e938f9c600189e4d9625d17"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_documents_kind_check",
+      "fingerprint": "31b7cb95f2f57a1461f4c4220c372a69"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_documents_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_documents_project_id_fkey",
+      "fingerprint": "b27e1531042d8251d0834bb2996ea0c0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_feature_switch.feasibility_evidence_feature_switch_pkey",
+      "fingerprint": "7511e9a8e50c073e1d6eff73afcc0f24"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_evidence_feature_switch.feasibility_evidence_feature_switch_singleton_check",
+      "fingerprint": "ae6f6dfbe38290d5bfa8f3e96d1aff91"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_evidence(p_action text, p_project uuid, p_kind text, p_organization uuid, p_document uuid, p_filename text, p_media_type text, p_payload text, p_requirement text)",
+      "fingerprint": "f67825f43e2aa96a44351921e562535a"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_documents_pkey",
+      "fingerprint": "bf8a2a1b6eb2350475b35de72db596e9"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_evidence_documents.feasibility_evidence_project_kind",
+      "fingerprint": "6954a27267b882e5c7836b949b346a6c"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_evidence_feature_switch.feasibility_evidence_feature_switch_pkey",
+      "fingerprint": "44a89ba58e992c3bc3a9bd00d50fac5f"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.feasibility_evidence_documents",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.feasibility_evidence_feature_switch",
+      "fingerprint": "68934a3e9455fa72420237eb05902327"
+    }
+  ],
+  "removals": []
+}
