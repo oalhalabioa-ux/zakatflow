@@ -22,7 +22,7 @@ begin
  -- retains module visibility, while can_write continues to deny mutations.
  if (s.trial_started_at is not null and s.converted_at is null)
     or exists(select 1 from public.platform_plans p where p.id=s.plan_id
-      and p.is_active and p.is_published and p.features ? 'module:feasibility') then
+      and p.is_active and p.features ? 'module:feasibility') then
   if not caps ? 'module:feasibility' then
    caps:=caps||'["module:feasibility"]'::jsonb;
   end if;

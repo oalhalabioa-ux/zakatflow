@@ -2102,8 +2102,8 @@
       "path": "supabase/migrations/20261118174233_feasibility_trial_and_plan_entitlements.sql",
       "version": "20261118174233",
       "name": "feasibility_trial_and_plan_entitlements",
-      "expected_md5": "0e9b05fbdef58369bfbd7b2362aa9f4e",
-      "file_sha256": "ecf50dce1b657508953a9603428843e448ef6cb3f4b888becc3026e88bc84b3e",
+      "expected_md5": "8f7ae7cb6aa6482219f41022281af69f",
+      "file_sha256": "abfcfbaa5be33325454a7fdcda6df1a3e2c099fd2c913bb7546ee988b50b60de",
       "validation_project": "Isolated PGlite: existing and new trials and subscribed plans, unchanged snapshots, expiry, membership and row policies"
     }
   ]

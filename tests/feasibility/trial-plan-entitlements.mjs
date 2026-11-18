@@ -102,7 +102,7 @@ try{
    values($1,'trialing',now(),now()+interval '30 days')`,[newcomer]);
   assert.equal((await actor(owner,()=>workspace(newcomer))).canWrite,true);
  });
- await check('published plan additions cover previous and new subscribers',async()=>{
+ await check('active plan additions cover previous and new subscribers',async()=>{
   assert.equal((await actor(owner,()=>workspace(paid))).canWrite,false);
   await query(`update platform_plans set features=features||'["module:feasibility"]'::jsonb where id=$1`,[plan]);
   assert.equal((await actor(owner,()=>workspace(paid))).canWrite,true);
@@ -111,6 +111,12 @@ try{
   assert.equal((await actor(owner,()=>workspace(newPaid))).canWrite,true);
   assert.equal((await actor(owner,()=>workspace(excluded))).canWrite,false);
   assert.deepEqual(await query('select * from platform_subscriptions where organization_id=$1',[paid]),before.filter(r=>r.organization_id===paid));
+ });
+ await check('adding the module to a linked private plan also covers its existing subscriber',async()=>{
+  await query(`update platform_plans set is_published=false,features=features||'["module:feasibility"]'::jsonb where id=$1`,[withoutPlan]);
+  assert.equal((await actor(owner,()=>workspace(excluded))).canWrite,true);
+  await query(`update platform_plans set features=features-'module:feasibility' where id=$1`,[withoutPlan]);
+  assert.equal((await actor(owner,()=>workspace(excluded))).canWrite,false);
  });
  await check('custom purchased bundles work and unrelated legacy accounts stay denied',async()=>{
   await query(`update platform_subscriptions set entitlements=entitlements||'["module:feasibility"]'::jsonb where organization_id=$1`,[excluded]);
