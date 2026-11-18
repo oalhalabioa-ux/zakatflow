@@ -1,6 +1,9 @@
 import type { StudyTab } from '@/lib/feasibility/engine';
 
 const shapes = {
+  alert: <><path d="M12 3 2 21h20zM12 9v5m0 3h.01"/></>,
+  chevron: <path d="m9 6 6 6-6 6"/>,
+  print: <><path d="M6 8V3h12v5M6 17H3V8h18v9h-3M6 14h12v7H6zM17 11h1"/></>,
   briefcase: <><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V4h8v3M2 12h20"/></>,
   building: <><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7v2M15 7v2M9 12v2M15 12v2M10 21v-4h4v4"/></>,
   chart: <><path d="M4 21V11h4v10M10 21V5h4v16M16 21V9h4v12M3 21h18"/></>,

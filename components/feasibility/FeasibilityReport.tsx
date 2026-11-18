@@ -182,10 +182,10 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   </section>
   {allowExport&&<dialog ref={dialog} className="fs-dialog fs-royal-dialog fs-royal-report-dialog" aria-labelledby={dialogTitleId}>
    <div className="fs-royal-heading"><h2 id={dialogTitleId}><RoyalIcon name="layers"/>{l('التقرير الاستثماري الشامل','Investment report export')}</h2>
-    <button type="button" className="fs-royal-close" aria-label={l('إغلاق','Close')} onClick={()=>dialog.current?.close()}>×</button></div>
+    <button type="button" className="fs-royal-close" aria-label={l('إغلاق النافذة','Close dialog')} onClick={()=>dialog.current?.close()}>×</button></div>
    <div className="fs-royal-scenario-cards fs-royal-report-metrics">{reportMetrics.map(([label,value])=>
     <div className="fs-metric" key={label}><small>{label}</small><strong><bdi>{value}</bdi></strong></div>)}</div>
-   <p className="fs-royal-report-notice">{l('تحقّق من الافتراضات المالية والأدلة القانونية قبل اعتماد التقرير.','Verify the financial assumptions and legal evidence before approving the report.')}</p>
+   <p className="fs-royal-report-notice"><RoyalIcon name="alert"/>{l('تحقّق من الافتراضات المالية والأدلة القانونية قبل اعتماد التقرير.','Verify the financial assumptions and legal evidence before approving the report.')}</p>
    <fieldset className="fs-study-scope fs-royal-report-sections">
     <legend>{l('الأقسام التي يشملها ملف PDF','Sections included in the PDF')}</legend>
     {availableSections.map(section=>{
@@ -194,17 +194,22 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      return <label className="fs-royal-report-option" key={section}>
       <strong id={labelId}>{sectionLabels[section]}</strong>
       <small id={descriptionId}>{sectionDescriptions[section]}</small>
-      <input type="checkbox" aria-labelledby={labelId} aria-describedby={descriptionId} checked={sections.includes(section)} onChange={event=>{
-       const checked=event.currentTarget.checked;
-       setSections(current=>checked?[...current,section]:current.filter(item=>item!==section));
-      }}/>
+      <span className="fs-royal-report-check">
+       <input type="checkbox" aria-labelledby={labelId} aria-describedby={descriptionId} checked={sections.includes(section)} onChange={event=>{
+        const checked=event.currentTarget.checked;
+        setSections(current=>checked?[...current,section]:current.filter(item=>item!==section));
+       }}/>
+       <RoyalIcon name="check"/>
+      </span>
      </label>;
     })}
    </fieldset>
    <div className="fs-actions fs-royal-report-footer">
+    <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>dialog.current?.close()}>
+     <RoyalIcon name="chevron"/>{l('إغلاق','Close')}
+    </button>
     <button className="fs-btn" type="button" disabled={!availableSections.some(section=>sections.includes(section))}
-     onClick={printSelected}>{l('طباعة الأقسام المحددة / PDF','Print selected sections / PDF')}</button>
-    <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>dialog.current?.close()}>{l('إلغاء','Cancel')}</button>
+     onClick={printSelected}><RoyalIcon name="print"/>{l('طباعة / PDF','Print / PDF')}</button>
    </div>
   </dialog>}
   {study.rawLand?<div data-report-section="finance"><RawLandPanel model={study.rawLand} locale={locale} currency={study.currency} tab="report" allowExport={allowExport}/></div>:

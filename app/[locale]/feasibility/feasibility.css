@@ -359,13 +359,6 @@
 .fs-royal-project-context {
  background: #FAFBFB; border: 1px solid var(--fs-line); border-radius: 8px; padding: 11px 14px;
 }
-.fs-royal-report-metrics { margin-block: .65rem; }
-.fs-royal-report-metrics .fs-metric { min-height: 60px; }
-@media(max-width: 650px) {
- .fs-royal-report-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
- .fs-royal-report-metrics .fs-metric { padding: 6px; }
- .fs-royal-report-metrics .fs-metric strong { font-size: 13px; }
-}
 
 .fs-royal-portfolio-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 .fs-royal-overview-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -458,7 +451,14 @@
 .fs-royal-organizations .fs-check small { margin-inline-start: auto; color: var(--fs-green); }
 .fs-royal-report-dialog .fs-royal-heading { border-block-end: 1px solid var(--fs-line); padding-block-end: 8px; }
 .fs-royal-report-dialog .fs-royal-close { border: 1px solid var(--fs-line); border-radius: 6px; }
-.fs-royal-report-notice { margin-block: 12px; padding: 10px; border-radius: 6px; background: var(--fs-light-gold); }
+.fs-royal-report-metrics { margin-block: .65rem; }
+.fs-royal .fs-royal-report-metrics .fs-metric { min-height: 65px; padding: 8px 10px; text-align: start; }
+.fs-royal-report-metrics .fs-metric small { font-size: 11px; font-weight: 500; }
+.fs-royal-report-metrics .fs-metric strong { text-align: end; font-size: 19px; }
+.fs-royal-report-notice {
+ display: flex; align-items: center; gap: 8px; margin-block: 12px; padding: 10px;
+ border-radius: 6px; background: var(--fs-light-gold); font-size: 12px;
+}
 .fs-royal-report-sections { margin-block: 12px; }
 .fs-royal .fs-royal-report-sections .fs-royal-report-option {
  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; align-items: center;
@@ -466,12 +466,18 @@
  cursor: pointer; overflow-wrap: anywhere; font-size: 13px; line-height: 1.55;
 }
 .fs-royal-report-option small { font-size: inherit; }
-.fs-royal-report-dialog .fs-royal-report-option input[type="checkbox"] { accent-color: var(--fs-green); }
-.fs-royal-report-dialog .fs-royal-report-footer { justify-content: end; }
+.fs-royal-report-check { position: relative; display: grid; place-items: center; }
+.fs-royal-report-check input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.fs-royal-report-check .fs-royal-icon { color: var(--fs-green); width: 18px; height: 18px; pointer-events: none; }
+.fs-royal-report-check input:not(:checked) + svg path { visibility: hidden; }
+.fs-royal-report-check input:not(:checked) + svg { color: var(--fs-muted); }
+.fs-royal-report-check input:focus-visible + svg { outline: 2px solid var(--fs-green); outline-offset: 2px; border-radius: 50%; }
+.fs-royal-report-dialog .fs-royal-report-footer { justify-content: flex-end; border-block-start: 1px solid var(--fs-line); padding-block-start: 10px; }
+.fs-royal-report-footer .fs-btn { gap: 5px; }
+.fs-royal-report-footer .fs-royal-icon { color: currentColor; width: 16px; height: 16px; }
+.fs-royal-report-footer .fs-btn--secondary:dir(rtl) svg { transform: scaleX(-1); }
 @media (max-width: 650px) {
  .fs-royal-report-dialog .fs-royal-report-metrics { grid-template-columns: 1fr; }
- .fs-royal-report-dialog .fs-royal-report-metrics .fs-metric { padding: 8px 10px; text-align: start; }
- .fs-royal-report-dialog .fs-royal-report-metrics .fs-metric strong { text-align: end; font-size: 17px; }
  .fs-royal .fs-royal-report-sections .fs-royal-report-option { gap: 7px; }
 }
 .fs-royal-report-sections legend { padding-block-end: 6px; font-weight: 700; }

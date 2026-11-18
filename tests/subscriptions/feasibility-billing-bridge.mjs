@@ -94,9 +94,11 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await exportDialog.getByRole('checkbox',{name:'Licences, tasks and risks',exact:true}).uncheck();
     const fundingOption=exportDialog.getByRole('checkbox',{name:'Funding and shareholder loans',exact:true});
     assert.ok(await fundingOption.getAttribute('aria-describedby'));
-    await fundingOption.uncheck();
+    assert.equal(await fundingOption.isChecked(),true);
+    await fundingOption.press('Space');
+    assert.equal(await fundingOption.isChecked(),false);
     const sectionOptions=exportDialog.getByRole('checkbox');
-    const printSelection=exportDialog.getByRole('button',{name:'Print selected sections / PDF',exact:true});
+    const printSelection=exportDialog.getByRole('button',{name:'Print / PDF',exact:true});
     const selectedOptions=[];
     for(const checkbox of await sectionOptions.all()){
      if(await checkbox.isChecked()){
