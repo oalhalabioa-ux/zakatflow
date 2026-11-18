@@ -337,7 +337,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     [['استغلال السنة الأولى','First-year utilization'],percentage(m.annual[0].utilization)]
    ])}
    {!production&&<>
-   <div className="fs-royal-profile-grid">
+   <div className={tab==='operations'?'fs-royal-profile-grid fs-royal-water-production-inputs':'fs-royal-profile-grid'}>
     <Panel title={l('الطاقة التشغيلية والجودة','Operating capacity and quality')} icon="factory">
      {fields('ops',operationFields.slice(0,7))}
     </Panel>

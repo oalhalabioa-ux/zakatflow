@@ -417,6 +417,15 @@
 .fs-royal-water-layout .fs-table { min-width: 100%; }
 .fs-royal-water-layout .fs-table-wrap { min-width: 0; }
 .fs-royal-water-layout .fs-royal-checks dd { text-align: end; }
+@media (min-width: 360px) and (max-width: 650px) {
+ .fs-royal-water-production-inputs .fs-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 10px;
+ }
+ .fs-royal-water-production-inputs .fs-field span { overflow-wrap: anywhere; }
+ .fs-royal-water-production-inputs .fs-field input { width: 100%; min-width: 0; }
+}
+
 .fs-royal-sensitivity thead th, .fs-royal-sensitivity tbody th { background: var(--fs-navy); color: var(--fs-light-gold); }
 .fs-royal-sensitivity td { padding: 2px; }
 .fs-royal-sensitivity td span { display: block; padding: 7px 4px; text-align: center; }

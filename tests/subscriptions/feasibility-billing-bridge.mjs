@@ -391,6 +391,34 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await sidebar.waitFor({state:'hidden'});
    await page.getByRole('heading',{name:'التقرير الشامل',exact:true}).waitFor();
    assert.equal(await mobileMenu.getAttribute('aria-expanded'),'false');
+   await page.screenshot({path:new URL('./screenshots/qa438-water-report-ar-mobile.png',import.meta.url).pathname,fullPage:true});
+   for(const [locale,operations,hoursLabel,periodLabel] of [
+    ['ar','الإنتاج والمبيعات','ساعات العمل اليومية','فترة التحصيل (يوم)'],
+    ['en','Operations','Operating hours per day','Collection period (days)']
+   ]){
+    await page.goto(appPage('PERSONAL',target,locale));
+    await page.getByRole('button',{name:operations,exact:true}).click();
+    const cards=page.locator('.fs-royal-water-production-inputs');
+    const layout=await cards.evaluate(element=>{
+     const panels=[...element.children];
+     return {
+      cardsAreStacked:panels[0].getBoundingClientRect().bottom<=panels[1].getBoundingClientRect().top,
+      fieldColumns:panels.map(panel=>getComputedStyle(panel.querySelector('.fs-form-grid')).gridTemplateColumns.split(/\s+/).length),
+      fits:document.documentElement.scrollWidth===window.innerWidth
+     };
+    });
+    assert.deepEqual(layout,{cardsAreStacked:true,fieldColumns:[2,2],fits:true});
+    const hours=cards.getByLabel(hoursLabel,{exact:true});
+    const collection=cards.getByLabel(periodLabel,{exact:true});
+    if(locale==='ar'){
+     await hours.fill('8');
+     await collection.fill('45');
+    }
+    assert.equal(await hours.inputValue(),'8');
+    assert.equal(await collection.inputValue(),'45');
+    await page.screenshot({path:new URL('./screenshots/qa438-water-operations-'+locale+'-mobile.png',import.meta.url).pathname,fullPage:true});
+   }
+   await page.goto(appPage('PERSONAL',target,'ar'));
    const personalSaved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&
     r.request().method()==='POST');
    await page.getByRole('button',{name:'حفظ في QA V2',exact:true}).click();
@@ -399,6 +427,8 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.getByText(/حُفظت مسودة المشروع في QA V2/).waitFor();
    const source=(await readPersonal()).find(row=>row.study.title===studyTitle);
    assert.ok(source,'The personal source must exist in persistent storage');
+   assert.equal(source.study.water.ops.hoursDay,8);
+   assert.equal(source.study.water.operationsPlan.collectionDays,45);
    phase(caseName,'personal-saved');
    await page.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true}).click();
    const dialog=page.getByRole('dialog');
