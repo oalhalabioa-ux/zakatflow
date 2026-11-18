@@ -1,8 +1,11 @@
 'use client';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Icon} from './FinancialReportsPilot';
+import TopbarOrganizationControls from '../TopbarOrganizationControls';
+import WorkspaceOrganizationPicker from '../WorkspaceOrganizationPicker';
 import './branch-opening-distribution.css';
 
+type Organization={id:string;name:string;currentFiscalStart?:string|null};
 type Split={centerId?:string|null;branchId:string|null;debit:string;credit:string};
 type Original={itemId:string;accountCode:string;accountNameAr:string|null;accountNameEn:string|null;debit:string;credit:string};
 const emptyRows:Original[]=[];
@@ -22,8 +25,17 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
   [reason,setReason]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),
   [busy,setBusy]=useState(false),[query,setQuery]=useState(''),[count,setCount]=useState(80);
  const serial=useRef(0);
+ const [organizations,setOrganizations]=useState<Organization[]>([]);
+ useEffect(()=>{
+  const controller=new AbortController();
+  fetch('/api/financial-reporting/openings?action=context',{cache:'no-store',signal:controller.signal})
+   .then(read).then((value:Organization[])=>{if(!controller.signal.aborted)setOrganizations(value)})
+   .catch(()=>{if(!controller.signal.aborted)setOrganizations([])});
+  return()=>controller.abort();
+ },[]);
+
  const endpoint=dimension?'/api/financial-reporting/center-openings':'/api/financial-reporting/branch-openings';
- const back='/' +(en?'en':'ar')+'/opening-balances?'+new URLSearchParams({organization,fiscalStart});
+ const back='/' +(en?'en':'ar')+'/opening-balances?'+new URLSearchParams({organization,fiscalStart,scope:'ORGANIZATION'});
  const reload=useCallback(async(signal?:AbortSignal)=>{
   const request=++serial.current;
   setError('');setBusy(true);
@@ -76,6 +88,15 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
   setEntries(prev=>({...prev,[id]:(prev[id]??[]).map((x,i)=>i===index?{...x,...patch}:x)}));
  }
  function remove(id:string,index:number){setEntries(prev=>({...prev,[id]:(prev[id]??[]).filter((_,i)=>i!==index)}))}
+ function confirmNavigation(){
+  return !(hasUnsavedChanges||reason.trim())||window.confirm(t('لديك تغييرات غير محفوظة. هل تريد تجاهلها؟','Discard unsaved changes?'));
+ }
+ function chooseOrganization(id:string){
+  const selected=organizations.find(item=>item.id===id);
+  if(!selected)return;
+  const query=new URLSearchParams({organization:id,fiscalStart:selected.currentFiscalStart??fiscalStart,scope:'ORGANIZATION'});
+  window.location.assign('/'+(en?'en':'ar')+'/opening-balances/'+(dimension?'centers':'branches')+'?'+query);
+ }
  const editable=Boolean(source&&status!=='APPROVED');
  const canApprove=status==='DRAFT'&&!hasUnsavedChanges&&completeness.remaining===0&&(!dimension||completeness.unbalanced===0);
  async function command(action:'save'|'approve'|'correct'){
@@ -97,14 +118,18 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
  }
  const statusLabel={MISSING:t('غير موزع','Unallocated'),DRAFT:t('مسودة','Draft'),APPROVED:t('معتمد','Approved'),STALE:t('يحتاج تحديثًا','Needs update')}[status];
  return <main className="fs-root ob-branch-page" dir={en?'ltr':'rtl'} lang={en?'en':'ar'}>
+  <TopbarOrganizationControls>
+   <WorkspaceOrganizationPicker organizations={organizations} value={organization} restore={false}
+    ar={!en} label={t('المؤسسة','Organization')} disabled={busy} beforeChange={confirmNavigation} onChange={chooseOrganization}/>
+  </TopbarOrganizationControls>
   <section className="ob-branch-shell">
    <header className="ob-branch-header">
     <div><h1>{dimension?t('توزيع الأرصدة الافتتاحية على المراكز','Allocate opening balances to centers'):t('توزيع الأرصدة الافتتاحية على الفروع','Allocate opening balances to branches')}</h1>
     <p>{dimension?t('توزيع بنود الافتتاحي المعتمدة على مراكز التكلفة.','Assign approved opening items to cost centers.'):t('توزيع بنود الافتتاحي المعتمدة بين الإدارة الرئيسية والفروع.','Assign approved opening items to headquarters and branches.')}</p></div>
-    <a href={back} className="ob-allocation-link ob-allocation-back"><Icon name="left" size={16}/>{t('العودة إلى الأرصدة الافتتاحية','Back to opening balances')}</a>
+    <a href={back} onClick={e=>{if(!confirmNavigation())e.preventDefault()}} className="ob-allocation-link ob-allocation-back"><Icon name="left" size={16}/>{t('العودة إلى الأرصدة الافتتاحية','Back to opening balances')}</a>
    </header>
    <div className="ob-branch-notice">{dimension?t('للتعديل، أنشئ مسودة تصحيحية. تظل التقارير على آخر توزيع معتمد حتى اعتماد المسودة الجديدة.','Create a correction draft to edit. Reports use the last approved allocation until the new draft is approved.'):t('المراجعة هنا تخص توزيع الافتتاحي فقط؛ قوائم الفروع لا تصبح معتمدة حتى اكتمال مطابقة القيود والتسويات الداخلية والصلاحيات.','This approves opening attribution only. Branch statements require complete posted-journal attribution, interbranch reconciliation and permissions.')}</div>
-   {dimension&&<p><a href={`/${locale}/settings/structure?organization=${encodeURIComponent(organization)}`}>{t('إدارة ارتباط المراكز بالفروع','Manage center branch assignments')}</a> · {t('اختيار المركز يحدد فرعه بحسب الارتباط المعتمد في بداية السنة.','Selecting a center sets its branch from the approved assignment at fiscal start.')}</p>}
+   {dimension&&<p><a href={`/${locale}/settings/structure?scope=ORGANIZATION&organization=${encodeURIComponent(organization)}`}>{t('إدارة ارتباط المراكز بالفروع','Manage center branch assignments')}</a> · {t('اختيار المركز يحدد فرعه بحسب الارتباط المعتمد في بداية السنة.','Selecting a center sets its branch from the approved assignment at fiscal start.')}</p>}
    {error&&<p className="ob-branch-error" role="alert">{error}</p>}
    {notice&&<p className="ob-branch-success" role="status">{notice}</p>}
    {busy&&!data&&<p role="status">{t('جار تحميل بيانات الافتتاحي المعتمدة…','Loading approved opening source…')}</p>}

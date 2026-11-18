@@ -83,7 +83,7 @@ export function OpeningWorkspace({org,en,live,initialTab='customers',onTabChange
  const refreshLabel=t('تحديث المصادر','Refresh sources');
  const fiscalSettingsLabel=t('إدارة السنوات المالية','Manage fiscal years');
  const locale=en?'en':'ar';
- const scopeQuery=new URLSearchParams({organization:org,fiscalStart:live?.data.fiscalStart??''});
+ const scopeQuery=new URLSearchParams({organization:org,fiscalStart:live?.data.fiscalStart??'',scope:'ORGANIZATION'});
  const sourceIssues=live?.data.source.rows.filter(r=>r.sourceIssue)??[];
  const visible=state.rows.filter(r=>r.tab===tab&&(status==='all'||r.status===status||editingId===r.id)&&((en?r.en:r.ar)+' '+r.accountCode).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  const amount=(value:string|null)=>value===null?'—':number(value)+' '+(new Money(value).isZero()?'':new Money(value).gte(0)?t('مدين','DR'):t('دائن','CR'));

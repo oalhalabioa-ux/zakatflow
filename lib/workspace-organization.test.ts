@@ -1,6 +1,6 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import {organizationTree,preferredOrganization,organizationScopeIds,organizationOptionLabel,rememberOrganization,rememberedOrganization,rememberedCompanyGroup} from './workspace-organization';
-import {currentWorkspaceScope} from './topbar-navigation';
+import {currentWorkspaceScope,workspaceScopeHref} from './topbar-navigation';
 const organizations=[{id:'other',name:'شركة أخرى',organization_kind:'HOLDING'},{id:'child',name:'دعم الأعمال',parent_organization_id:'levant',organization_kind:'SUBSIDIARY'},{id:'grandchild',name:'فرع تابع',parent_organization_id:'child'},{id:'levant',name:'شركة ليفانت القابضة',organization_kind:'HOLDING'}];
 afterEach(()=>vi.unstubAllGlobals());
 describe('consistent business context',()=>{
@@ -41,4 +41,13 @@ describe('consistent business context',()=>{
   expect(rememberedOrganization()).toBe('levant');expect(rememberedCompanyGroup()).toBe(true);
   expect(replaceState.mock.calls[0][2]).toBe('/ar/assets?scope=ORGANIZATION&tab=valuation&organization=levant&level=GROUP');
  });
+});
+
+it.each(['opening-balances/branches','opening-balances/centers'])('keeps %s institutional across refresh, copied links and personal-scope history',path=>{
+ for(const query of ['','scope=PERSONAL','scope=ORGANIZATION']){
+  expect(currentWorkspaceScope(path,query,'PERSONAL')).toBe('ORGANIZATION');
+ }
+ expect(workspaceScopeHref('ar',path,'organization=company&fiscalStart=2026-01-01','ORGANIZATION'))
+  .toBe('/ar/'+path+'?organization=company&fiscalStart=2026-01-01&scope=ORGANIZATION');
+ expect(workspaceScopeHref('en',path,'organization=company','PERSONAL')).toBe('/en/dashboard?scope=PERSONAL');
 });
