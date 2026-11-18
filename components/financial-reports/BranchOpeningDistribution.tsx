@@ -116,6 +116,10 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
     <div className="ob-branch-filters">
      <label>{t('بحث عن حساب أو بند','Find account or item')}<input value={query} onChange={e=>{setQuery(e.target.value);setCount(80)}} placeholder={t('رقم الحساب أو مرجع البند','Account code or source item')}/></label>
      <span>{t('بنود لم تكتمل مطابقتها','Unreconciled items')}: <strong>{completeness.remaining}</strong></span>
+     {dimension&&status==='MISSING'&&rows.length>0&&Object.keys(entries).length===0&&
+      <button disabled={busy} onClick={()=>setEntries(Object.fromEntries(rows.map(row=>[row.itemId,[{
+       branchId:null,centerId:null,debit:row.debit,credit:row.credit,
+      }]])))}>{t('إبقاء الافتتاحي في المقر الرئيسي','Keep opening balances at headquarters')}</button>}
      <button disabled={busy} onClick={()=>void reload()}>{t('تحديث','Refresh')}</button>
     </div>
     <div className="ob-branch-table-wrap"><table className="ob-branch-table">

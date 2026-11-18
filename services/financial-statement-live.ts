@@ -55,7 +55,7 @@ export async function liveStatementContext(){
    ?[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:draftStart,fiscalEnd:endingForFiscalStart(draftStart)}]:[];
   const available=[...rows,...current].sort((a,b)=>b.fiscalStart.localeCompare(a.fiscalStart));
   return (available.length?available:[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:'',fiscalEnd:''}])
-   .map(period=>({...period,parentOrganizationId:parents.get(org.id)??null,dimensionalCenters:centerReportsEnabled(org.id),canEditCenterOpenings:centerOpeningsEnabled(org.id)}));
+   .map(period=>({...period,parentOrganizationId:parents.get(org.id)??null,dimensionalCenters:centerReportsEnabled(org.id),canEditCenterOpenings:centerOpeningsEnabled()}));
  });
 }
 export async function liveStatementSource(input:unknown){

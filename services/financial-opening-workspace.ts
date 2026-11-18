@@ -13,7 +13,7 @@ export async function openingContext(){
  const organizations=unwrap(await supabase.from('organizations').select('id,name,base_currency').in('id',permitted).order('name'))??[];
  return Promise.all(organizations.map(async org=>{
   const context=unwrap(await supabase.rpc('financial_fiscal_context',{p_org:org.id}));
-  return {...org,currentFiscalStart:context?.period?.start??null,canEditCenterOpenings:centerOpeningsEnabled(org.id)};
+  return {...org,currentFiscalStart:context?.period?.start??null,canEditCenterOpenings:centerOpeningsEnabled()};
  }));
 }
 export async function readOpening(input:unknown):Promise<OpeningWorkspaceData>{

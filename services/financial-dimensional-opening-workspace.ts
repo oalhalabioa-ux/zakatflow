@@ -13,7 +13,7 @@ const save=scope.extend({
  entries:z.record(z.string().min(1).max(200),z.array(allocation).min(1).max(1001)),
  reason:z.string().max(1000),
 }).strict();
-const approve=z.object({action:z.literal('approve'),id:z.string().uuid(),expectedVersion:z.number().int().positive(),scope:scope.optional()}).strict();
+const approve=z.object({action:z.literal('approve'),id:z.string().uuid(),expectedVersion:z.number().int().positive(),scope}).strict();
 const command=z.discriminatedUnion('action',[save,approve]);
 export type DimensionalOpeningCommand=z.infer<typeof command>;
 function unwrap<T>(result:{data:T;error:{message:string}|null}):T{
@@ -39,12 +39,10 @@ export async function dimensionalOpeningContext(input:unknown){
 export async function dimensionalOpeningCommand(input:unknown){
  assertOpeningWorkspace();const q=command.parse(input),{supabase}=await requireUser();
  if(q.action==='approve'){
-  if(q.scope){
-   const draft=unwrap(await supabase.rpc('financial_dimensional_opening_context',{p_org:q.scope.organization,p_fiscal_start:q.scope.fiscalStart}));
-   if(draft?.organizationId!==q.scope.organization||draft?.fiscalStart!==q.scope.fiscalStart||draft?.id!==q.id)
-    throw Error('DIMENSION_OPENING_APPROVE_DENIED');
-   if(draft.status!=='DRAFT'||draft.version!==q.expectedVersion)throw Error('DIMENSION_OPENING_VERSION_CONFLICT');
-  }
+  const draft=unwrap(await supabase.rpc('financial_dimensional_opening_context',{p_org:q.scope.organization,p_fiscal_start:q.scope.fiscalStart}));
+  if(draft?.organizationId!==q.scope.organization||draft?.fiscalStart!==q.scope.fiscalStart||draft?.id!==q.id)
+   throw Error('DIMENSION_OPENING_APPROVE_DENIED');
+  if(draft.status!=='DRAFT'||draft.version!==q.expectedVersion)throw Error('DIMENSION_OPENING_VERSION_CONFLICT');
   return unwrap(await supabase.rpc('approve_financial_dimensional_opening',{
    p_distribution:q.id,p_expected_version:q.expectedVersion,
   }));

@@ -46,8 +46,8 @@ describe('authenticated opening distribution adapter',()=>{
   await expect(dimensionalOpeningCommand({...good,extra:'unrecognized'})).rejects.toThrow();
   await expect(dimensionalOpeningCommand({...good,entries:{bank:[{branchId:null,centerId:'foreign-format',debit:'100',credit:'0'}]}})).rejects.toThrow();
   await expect(dimensionalOpeningCommand({...good,entries:{bank:[{branchId:null,debit:'100',credit:'0'}]}})).rejects.toThrow();
-  await dimensionalOpeningCommand({action:'approve',id,expectedVersion:3});
-  expect(state.queries).toEqual([{name:'approve_financial_dimensional_opening',args:{p_distribution:id,p_expected_version:3}}]);
+  await expect(dimensionalOpeningCommand({action:'approve',id,expectedVersion:3})).rejects.toThrow();
+  expect(state.queries).toEqual([]);
  });
  it('read calls scoped context and denies anonymous or disabled access',async()=>{
   await dimensionalOpeningContext({organization:org,fiscalStart:'2026-01-01'});
@@ -59,9 +59,10 @@ describe('authenticated opening distribution adapter',()=>{
  it('verifies the saved draft belongs to the selected organization and fiscal year before approving',async()=>{
   const selected={action:'approve',id,expectedVersion:3,scope:{organization:org,fiscalStart:'2026-01-01'}};
   await expect(dimensionalOpeningCommand({...selected,id:opening})).rejects.toThrow('DIMENSION_OPENING_APPROVE_DENIED');
+  await expect(dimensionalOpeningCommand({...selected,scope:{...selected.scope,organization:'10000000-0000-4000-8000-000000000009'}})).rejects.toThrow('DIMENSION_OPENING_APPROVE_DENIED');
   await expect(dimensionalOpeningCommand({...selected,scope:{...selected.scope,fiscalStart:'2027-01-01'}})).rejects.toThrow('DIMENSION_OPENING_APPROVE_DENIED');
   await expect(dimensionalOpeningCommand({...selected,expectedVersion:2})).rejects.toThrow('DIMENSION_OPENING_VERSION_CONFLICT');
-  expect(state.queries.map(q=>q.name)).toEqual(Array(3).fill('financial_dimensional_opening_context'));
+  expect(state.queries.map(q=>q.name)).toEqual(Array(4).fill('financial_dimensional_opening_context'));
   await dimensionalOpeningCommand(selected);
   expect(state.queries.at(-1)).toEqual({name:'approve_financial_dimensional_opening',args:{p_distribution:id,p_expected_version:3}});
  });

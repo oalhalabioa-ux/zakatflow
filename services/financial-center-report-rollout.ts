@@ -2,21 +2,21 @@ import {z} from 'zod';
 
 const organizationId=z.string().uuid();
 
-function centerFeatureEnabled(pilot:string|undefined,organization:string|null){
- if(pilot===undefined)return process.env.FINANCIAL_CENTER_BRANCH_REGISTRY==='true';
-
- const candidate=organizationId.safeParse(pilot.trim().toLowerCase());
- return candidate.success&&organization===candidate.data;
+function centerFeatureEnabled(setting:string|undefined){
+ return (setting??process.env.FINANCIAL_CENTER_BRANCH_REGISTRY)==='true';
 }
 
 export function centerReportsEnabled(organization:string|null){
- return centerFeatureEnabled(process.env.FINANCIAL_CENTER_REPORT_PILOT_ORGANIZATION,organization);
+ const setting=process.env.FINANCIAL_CENTER_REPORTS_ENABLED;
+ const previousPilot=process.env.FINANCIAL_CENTER_REPORT_PILOT_ORGANIZATION;
+ // Preserve the current deployment while switching from the pilot to the common setting.
+ if(setting===undefined&&previousPilot!==undefined){
+  const candidate=organizationId.safeParse(previousPilot.trim().toLowerCase());
+  return candidate.success&&organization===candidate.data;
+ }
+ return centerFeatureEnabled(setting);
 }
 
-export function centerOpeningsEnabled(organization:string|null){
- return centerFeatureEnabled(process.env.FINANCIAL_CENTER_OPENING_PILOT_ORGANIZATION,organization);
-}
-
-export function centerOpeningPilotConfigured(){
- return process.env.FINANCIAL_CENTER_OPENING_PILOT_ORGANIZATION!==undefined;
+export function centerOpeningsEnabled(){
+ return centerFeatureEnabled(process.env.FINANCIAL_CENTER_OPENINGS_ENABLED);
 }
