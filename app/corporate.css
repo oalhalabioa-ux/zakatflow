@@ -914,3 +914,11 @@
  .corp-shell .corp-topbar [data-labeled-organization-picker] select { width:100%;max-width:none; }
  .corp-topbar:has([data-labeled-organization-picker]) .corp-search-control { grid-row:2;grid-column:3;justify-self:end; }
 }
+
+.corp-feasibility-slot:empty, .corp-feasibility-sections[hidden] { display: none; }
+.corp-shell .corp-feasibility-sections button { font-size: 11px; padding-block: 8px; white-space: normal; }
+.corp-shell .corp-feasibility-sections button[aria-current="location"] {
+  background: #205347;
+  color: #F5EBD6 !important;
+}
+.corp-shell .corp-feasibility-slot .fs-royal-icon { color: #C6A35D; }

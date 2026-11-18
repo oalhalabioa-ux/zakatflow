@@ -54,7 +54,17 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('radio',{name:'Bottled-water factory',exact:true}).check();
     await page.getByRole('button',{name:'Add project +',exact:true}).click();
     await page.getByRole('heading',{name:'QA421 Personal draft',exact:true}).waitFor();
-    await page.getByRole('button',{name:'Investment',exact:true}).click();
+    const sidebarSections=page.getByRole('button',{name:'Feasibility sections',exact:true});
+    await sidebarSections.click();
+    const sidebarGroup=page.getByRole('group',{name:'Feasibility sections',exact:true});
+    const studyTabs=page.getByRole('navigation',{name:'Study sections',exact:true});
+    assert.deepEqual(await sidebarGroup.getByRole('button').allTextContents(),await studyTabs.getByRole('button').allTextContents());
+    await sidebarGroup.getByRole('button',{name:'Investment',exact:true}).click();
+    assert.equal(await studyTabs.getByRole('button',{name:'Investment',exact:true}).getAttribute('aria-current'),'page');
+    await studyTabs.getByRole('button',{name:'Operations',exact:true}).click();
+    assert.equal(await sidebarGroup.getByRole('button',{name:'Operations',exact:true}).getAttribute('aria-current'),'location');
+    await sidebarSections.click();
+    await studyTabs.getByRole('button',{name:'Investment',exact:true}).click();
     await page.getByLabel('Construction and buildings',{exact:true}).fill('24680');
     await page.reload();
     await page.getByRole('button',{name:'Investment',exact:true}).click();
@@ -371,6 +381,16 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.getByRole('textbox',{name:'اسم المشروع الجديد',exact:true}).fill(studyTitle);
    await page.getByRole('radio',{name:'مصنع مياه معبأة',exact:true}).check();
    await page.getByRole('button',{name:'إضافة مشروع +',exact:true}).click();
+   const mobileMenu=page.getByRole('button',{name:'القائمة الجانبية',exact:true});
+   await mobileMenu.tap();
+   const sidebar=page.getByRole('dialog',{name:'القائمة الرئيسية',exact:true});
+   const sectionToggle=sidebar.getByRole('button',{name:'أقسام دراسات الجدوى',exact:true});
+   await sectionToggle.tap();
+   await sidebar.getByRole('group',{name:'أقسام دراسات الجدوى',exact:true})
+    .getByRole('button',{name:'التقرير والتصدير',exact:true}).tap();
+   await sidebar.waitFor({state:'hidden'});
+   await page.getByRole('heading',{name:'التقرير الشامل',exact:true}).waitFor();
+   assert.equal(await mobileMenu.getAttribute('aria-expanded'),'false');
    const personalSaved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&
     r.request().method()==='POST');
    await page.getByRole('button',{name:'حفظ في QA V2',exact:true}).click();

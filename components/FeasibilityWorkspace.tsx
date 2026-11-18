@@ -19,6 +19,7 @@ import RawLandPanel from '@/components/feasibility/RawLandPanel';
 import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
 import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
 import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
+import FeasibilitySidebar from '@/components/feasibility/FeasibilitySidebar';
 import StudyRegisters from '@/components/feasibility/StudyRegisters';
 import EvidenceDocuments from '@/components/feasibility/EvidenceDocuments';
 import { RoyalIcon, studyTabIcons } from '@/components/feasibility/RoyalIcon';
@@ -83,7 +84,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const [storageSafe,setStorageSafe]=useState(true);
  const [studies,setStudies]=useState<FeasibilityStudy[]>([]);
  const [selectedId,setSelectedId]=useState('');
- const [tab,setTab]=useState<StudyTab>('overview');
+ const [selectedTab,setTab]=useState<StudyTab>('overview');
  const [projectName,setProjectName]=useState('');
  const [newSector,setNewSector]=useState<Sector>('INDUSTRIAL');
  const [newStarter,setNewStarter]=useState<IndustrialStarter|'RAW_LAND'>('GENERAL');
@@ -145,6 +146,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const createDialog=useRef<HTMLDialogElement>(null);
  const [createError,setCreateError]=useState('');
  const navigationRef=useRef<HTMLElement>(null);
+ const sectionHeadingRef=useRef<HTMLDivElement>(null);
  const [detail,setDetail]=useState<'water'|'valuation'|'scenario'|'evidence'|'permissions'>();
  const [organizationCanShare,setOrganizationCanShare]=useState(false);
  const [organizationLoaded,setOrganizationLoaded]=useState(false);
@@ -263,8 +265,18 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const water=study?.water;
  const rawLand=study?.rawLand;
+ const studyTabs=study?tabs.filter(({id})=>
+  (id!=='sharing'||personalScope||organizationSharing&&organizationCanShare)&&
+  (id!=='sector'||water||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE')
+ ):[];
+ const tab=studyTabs.some(({id})=>id===selectedTab)?selectedTab:'overview';
+ const selectSection=(id:StudyTab)=>{
+  setTab(id);
+  setDetail(undefined);
+ };
+
  const waterTab=tab==='overview'||tab==='investment'||tab==='partners'||tab==='operations'||tab==='scenarios'||tab==='cashflow'||tab==='advanced'||tab==='sector'?tab:null;
- const openReport=()=>setTab('report');
+ const openReport=()=>selectSection('report');
  const money=(v:number|null|undefined,d=0)=>v==null||!Number.isFinite(v)?'—':fmt(v,d)+(study?.currency?' '+study.currency:'');
  // Handoff review follows the source study revision; editing any study assumption invalidates it.
  const update=(patch:Partial<FeasibilityStudy>)=>{
@@ -672,12 +684,16 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     copySelection.organizationId===organizationId&&copySelection.userId===userId&&
     <CopyToOrganizationDialog locale={locale} sourceId={study.id} sourceTitle={study.title}
      revision={copyRevision} organizationId={organizationId} onClose={()=>setCopySelection(null)}/>}
-   <nav ref={navigationRef} className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{tabs.filter(t=>t.id!=='sharing'||personalScope||organizationSharing&&organizationCanShare) .filter(t=>water||t.id!=='sector'||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE').map(t=><button type="button" key={t.id} onClick={event=>{
-    setTab(t.id);setDetail(undefined);
+   <FeasibilitySidebar locale={locale} sections={studyTabs} active={tab} onSelect={id=>{
+    selectSection(id);
+    requestAnimationFrame(()=>sectionHeadingRef.current?.scrollIntoView({block:'start'}));
+   }}/>
+   <nav ref={navigationRef} className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{studyTabs.map(t=><button type="button" key={t.id} onClick={event=>{
+    selectSection(t.id);
     if(navigationRef.current?.scrollWidth!==navigationRef.current?.clientWidth)
      event.currentTarget.scrollIntoView({block:'nearest',inline:'nearest'});
    }} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}><RoyalIcon name={studyTabIcons[t.id]}/><span>{ar?t.ar:t.en}</span></button>)}</nav>
-   <div className="fs-royal-section-lead">
+   <div className="fs-royal-section-lead" ref={sectionHeadingRef}>
     <h2><RoyalIcon name={studyTabIcons[tab]}/>{details&&detail===details.id?details.label:ar?activeTab.ar:activeTab.en}</h2>
     {details&&<button className="fs-btn fs-btn--secondary" type="button" aria-pressed={detail===details.id}
      onClick={()=>setDetail(value=>value===details.id?undefined:details.id)}>

@@ -483,3 +483,5 @@
 .fs-royal-evidence-files .fs-royal-checks li > div { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
 .fs-royal-evidence-files a { color: var(--fs-green); text-decoration: underline; }
 .fs-royal-evidence-files small { color: var(--fs-muted); }
+
+.fs-royal-section-lead { scroll-margin-block-start: 90px; }
