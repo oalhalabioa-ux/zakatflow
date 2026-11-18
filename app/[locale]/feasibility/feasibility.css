@@ -56,11 +56,13 @@
  .fs-print-study-title { break-after: avoid; }
  .fs-print-report { display: block; }
  .fs-print-report .fs-panel + .fs-panel { margin-block-start: 10pt; }
+ .fs-print-report .fs-royal-report-summary-details { grid-template-columns: minmax(0,1fr); }
  .fs-page .fs-print-report .fs-panel {
   display: block !important;
   break-inside: auto !important;
   padding: 9pt;
  }
+ .fs-page .fs-print-report .fs-royal-report-index { display: none !important; }
  .fs-print-report .fs-panel :is(h3,h4,p,ul) { margin-block: 4pt; }
  .fs-print-report .fs-panel li { margin-block: 1pt; }
  .fs-print-report .fs-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4pt; margin-block: 6pt; }
@@ -488,6 +490,15 @@
  padding: 8px 10px; gap: 8px; font-size: 13px; color: var(--fs-ink); cursor: pointer;
 }
 
+.fs-print-report [data-report-section] { scroll-margin-block-start: 90px; }
+.fs-royal-report-summary-details > .fs-panel { align-content: start; min-inline-size: 0; }
+.fs-royal-report-index li { padding: 0; }
+.fs-royal-report-index a {
+ display: flex; align-items: center; justify-content: space-between; gap: 12px; inline-size: 100%;
+ min-block-size: 40px; color: var(--fs-navy); font-weight: 700;
+}
+.fs-royal-report-index a:hover { color: var(--fs-green); text-decoration: underline; }
+.fs-royal-report-index a:dir(rtl) svg { transform: scaleX(-1); }
 .fs-royal-report-detail .fs-royal-report-issuance { background: var(--fs-line); }
 .fs-royal-report-issuance .fs-royal-icon { color: var(--fs-green); }
 .fs-royal-report-summary-kpis .fs-metric strong { font-size: clamp(15px, 2vw, 23px); }

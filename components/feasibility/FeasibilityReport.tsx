@@ -18,6 +18,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const report=useRef<HTMLDivElement>(null);
  const dialog=useRef<HTMLDialogElement>(null);
  const dialogTitleId=useId();
+ const sectionId=(section:ExportSection)=>dialogTitleId+'-section-'+section;
  const [sections,setSections]=useState<ExportSection[]>([...exportSections]);
  const sectionLabels:Record<ExportSection,string>={
   summary:l('الملخص التنفيذي','Executive summary'),finance:l('الافتراضات والتوقعات المالية','Financial assumptions and forecast'),
@@ -111,6 +112,11 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  ];
  const ready=handoffReadiness(study);
  const readyCount=ready.checks.filter(check=>check.passed).length;
+ const reviewedSource=study.handoff?.reviewedSourceUpdatedAt;
+ const currentReview=ready.ready&&reviewedSource===study.updatedAt;
+ const reviewState=currentReview
+  ?l('مراجعة داخلية مسجّلة','Internal review recorded')
+  :reviewedSource?l('تحتاج إعادة مراجعة','Review needs renewal'):l('لم تُسجّل مراجعة','Review not recorded');
  const readiness=new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(readyCount/ready.checks.length);
  const npv=money(study.rawLand?landResult?.npv??null:water?water.ready?water.npv:null:base.npv);
  const irr=percent(study.rawLand?landResult?.irr??null:water?water.ready?water.irr:null:base.irr);
@@ -143,7 +149,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   ...study.tasks.map(x=>[x.title,x.phase,x.priority,x.status,x.owner,x.due,x.notes])
  ]);
  return <div ref={report} className="fs-block fs-print-report">
-  <section className="fs-block" data-report-section="summary">
+  <section className="fs-block" id={sectionId('summary')} tabIndex={-1} data-report-section="summary">
    <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
    <div className="fs-kpis fs-royal-overview-kpis fs-royal-report-summary-kpis">
     {summaryMetrics.map(({label,value,icon})=><div className="fs-metric" key={label}>
@@ -164,14 +170,15 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      <button className="fs-btn fs-btn--secondary" type="button" onClick={tasks}>{l('تصدير المهام CSV','Export tasks CSV')}</button>
     </div>}
    </section>
-   <div className="fs-royal-profile-grid">
-    <section className="card fs-panel">
-     <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('متطلبات مراجعة التقرير','Report review requirements')}</h3>
-     <ul className="fs-royal-checks">{ready.checks.map(check=><li key={check.key}>
-      <span>{locale==='ar'?check.ar:check.en}</span>
-      <strong className="fs-royal-tag" data-complete={check.passed}>{check.passed?l('مكتمل','Complete'):l('يحتاج مراجعة','Review needed')}</strong>
+   <div className="fs-royal-profile-grid fs-royal-report-summary-details">
+    <nav className="card fs-panel fs-royal-report-index" aria-labelledby={dialogTitleId+'-contents'}>
+     <h3 id={dialogTitleId+'-contents'} className="fs-royal-report-title"><RoyalIcon name="clipboard"/>
+      {l('الأقسام التي يشملها التقرير','Report contents')}
+     </h3>
+     <ul className="fs-royal-checks">{availableSections.map(section=><li key={section}>
+      <a href={'#'+sectionId(section)}>{sectionLabels[section]}<RoyalIcon name="chevron"/></a>
      </li>)}</ul>
-    </section>
+    </nav>
     <section className="card fs-panel fs-royal-report-detail">
      <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{l('تنبيهات مهنية وإصدار التقرير','Professional notice and report issuance')}</h3>
      <p className="fs-royal-report-notice fs-royal-report-issuance"><RoyalIcon name="check"/>
@@ -181,11 +188,19 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      <dl className="fs-royal-checks">{[
       [l('معدّ الدراسة','Prepared by'),study.preparedBy],
       [l('تاريخ الدراسة','Study date'),study.studyDate],
+      [l('حالة مراجعة النسخة','Revision review status'),reviewState],
       [l('موقع المشروع','Project location'),[study.region,study.country].filter(Boolean).join(' · ')],
       [l('عملة الدراسة','Study currency'),study.currency],
      ].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'—'}</dd></div>)}</dl>
     </section>
    </div>
+   <section className="card fs-panel">
+    <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('متطلبات مراجعة التقرير','Report review requirements')}</h3>
+    <ul className="fs-royal-checks">{ready.checks.map(check=><li key={check.key}>
+     <span>{locale==='ar'?check.ar:check.en}</span>
+     <strong className="fs-royal-tag" data-complete={check.passed}>{check.passed?l('مكتمل','Complete'):l('يحتاج مراجعة','Review needed')}</strong>
+    </li>)}</ul>
+   </section>
   </section>
   {allowExport&&<dialog ref={dialog} className="fs-dialog fs-royal-dialog fs-royal-report-dialog" aria-labelledby={dialogTitleId}>
    <div className="fs-royal-heading"><h2 id={dialogTitleId}><RoyalIcon name="layers"/>{l('التقرير الاستثماري الشامل','Investment report export')}</h2>
@@ -219,9 +234,9 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      onClick={printSelected}><RoyalIcon name="print"/>{l('طباعة / PDF','Print / PDF')}</button>
    </div>
   </dialog>}
-  {study.rawLand?<div data-report-section="finance"><RawLandPanel model={study.rawLand} locale={locale} currency={study.currency} tab="report" allowExport={allowExport}/></div>:
-   study.water?<div data-report-section="finance"><WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/></div>:
-   <section className="card fs-panel" data-report-section="finance">
+  {study.rawLand?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><RawLandPanel model={study.rawLand} locale={locale} currency={study.currency} tab="report" allowExport={allowExport}/></div>:
+   study.water?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/></div>:
+   <section className="card fs-panel" id={sectionId('finance')} tabIndex={-1} data-report-section="finance">
     <h3>{l('الملخص والتوقعات المالية الأساسية','Base-case financial summary and projections')}</h3>
     <ul className="fs-notes">
      <li>{l('الاستثمار الاقتصادي','Economic investment')} · {money(base.totalInvestment)}</li>
@@ -237,13 +252,13 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      <tbody>{financeRows.map((row,index)=><tr key={index}>{row.map((value,i)=><td key={i}>{fmt(value)}</td>)}</tr>)}</tbody>
     </table></div>
    </section>}
-  <section className="card fs-panel fs-royal-report-detail" data-report-section="funding">
+  <section className="card fs-panel fs-royal-report-detail" id={sectionId('funding')} tabIndex={-1} data-report-section="funding">
    <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{sectionLabels.funding}</h3>
    <dl className="fs-royal-checks">{funding.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
    {!!deal?.extraFunding&&<p className="fs-hint">{l('حدّد أوجه استخدام التمويل الإضافي قبل اعتماد الدراسة.',
     'Allocate the additional funding to specific uses before approving the study.')}</p>}
   </section>
-  <section className="card fs-panel fs-royal-report-detail" data-report-section="ownership">
+  <section className="card fs-panel fs-royal-report-detail" id={sectionId('ownership')} tabIndex={-1} data-report-section="ownership">
    <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{sectionLabels.ownership}</h3>
    <dl className="fs-royal-checks">{ownership.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
    {!!study.rawLand?.distribution?.partners.length&&<RawLandPanel model={study.rawLand} locale={locale}
@@ -257,7 +272,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
    {deal&&deal.landMode!=='lease'&&deal.leaseMonth>0&&<p className="fs-hint">{l('راجع احتمال الجمع بين إيجار الأرض والحصة العينية.',
     'Check for overlap between land rent and the in-kind contribution.')}</p>}
   </section>
-  <section className="card fs-panel" data-report-section="governance">
+  <section className="card fs-panel" id={sectionId('governance')} tabIndex={-1} data-report-section="governance">
    <h3>{l('الفحص القانوني والمهام والمخاطر','Legal checks, tasks and risks')}</h3>
    <p>{l('الفحص القانوني المكتمل','Legal checks verified')} · {verified}/{study.legal.length}</p>
    {openCritical.length>0&&<>
@@ -269,13 +284,13 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
    <h4>{l('المخاطر العالية المفتوحة','High open risks')} · {highRisks.length}</h4>
    {highRisks.length>0&&<ul>{highRisks.map(item=><li key={item.id}>{item.title} ({item.impact*item.likelihood}/25) {item.response}</li>)}</ul>}
   </section>
-  {study.decisions.length>0&&<section className="card fs-panel" data-report-section="decisions">
+  {study.decisions.length>0&&<section className="card fs-panel" id={sectionId('decisions')} tabIndex={-1} data-report-section="decisions">
    <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{sectionLabels.decisions}</h3>
    <dl className="fs-royal-checks">{study.decisions.map(item=><div key={item.id}>
     <dt>{item.title}</dt><dd>{[item.date,item.owner,item.notes].filter(Boolean).join(' · ')||'—'}</dd>
    </div>)}</dl>
   </section>}
-  {study.notes&&<section className="card fs-panel" data-report-section="notes"><h3>{l('ملاحظات الدراسة','Study notes')}</h3><p>{study.notes}</p></section>}
+  {study.notes&&<section className="card fs-panel" id={sectionId('notes')} tabIndex={-1} data-report-section="notes"><h3>{l('ملاحظات الدراسة','Study notes')}</h3><p>{study.notes}</p></section>}
 
  </div>;
 }

@@ -78,6 +78,11 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('button',{name:'Report and export',exact:true}).click();
     const report=page.getByRole('heading',{name:'Feasibility report',exact:true});
     await report.waitFor();
+    const reportContents=page.getByRole('navigation',{name:'Report contents'});
+    const fundingSection=page.locator('[data-report-section="funding"]');
+    await reportContents.getByRole('link',{name:'Funding and shareholder loans'}).press('Enter');
+    assert.equal(await fundingSection.evaluate(element=>document.activeElement===element),true);
+    assert.equal(await reportContents.getByRole('link',{name:'Study notes'}).count(),0);
     const primaryReportAction=page.locator('.fs-royal-report-output button').first();
     assert.equal(await primaryReportAction.innerText(),'Print / PDF');
     assert.deepEqual(await page.locator('.fs-royal-report-summary-kpis small').allTextContents(),
@@ -85,6 +90,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.emulateMedia({media:'print'});
     try{
      assert.equal(await report.isVisible(),true);
+     assert.equal(await reportContents.isVisible(),false);
      assert.equal(await page.getByRole('heading',{name:'Project portfolio',exact:true}).isVisible(),false);
      assert.equal(await page.getByRole('button',{name:'Print / PDF',exact:true}).isVisible(),false);
      const pdf=await page.pdf({format:'A4',printBackground:true});
