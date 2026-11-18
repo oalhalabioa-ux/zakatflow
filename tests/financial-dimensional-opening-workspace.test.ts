@@ -7,7 +7,10 @@ const state=vi.hoisted(()=>({authenticated:true,enabled:true,member:true,authori
 vi.mock('../services/auth',()=>({requireUser:async()=>{if(!state.authenticated)throw Error('UNAUTHORIZED');return{
  supabase:{
  rpc:async(name:string,args:any)=>{state.queries.push({name,args});return{
-  data:name==='financial_core_can'?state.authorized:name==='financial_dimensional_opening_context'?{status:'DRAFT',id,organizationId:org,fiscalStart:'2026-01-01',version:3}:{status:'DRAFT',id:'demo'},
+  data:name==='financial_chart_workspace'?{organizationId:org,accounts:[
+   {code:'1000',ar:'النقد والبنوك',en:'Cash & banks'},
+   {code:'100001',ar:'المصرف التشغيلي',en:'Operating bank',isActive:false},
+  ]}:name==='financial_core_can'?state.authorized:name==='financial_dimensional_opening_context'?{status:'DRAFT',id,organizationId:org,fiscalStart:'2026-01-01',version:3}:{status:'DRAFT',id:'demo'},
   error:state.error?{message:state.error}:null,
  }},
  from(table:string){
@@ -18,7 +21,9 @@ vi.mock('../services/auth',()=>({requireUser:async()=>{if(!state.authenticated)t
     return{data:state.member&&!(state.revoked&&state.authChecks>1)?{organization_id:org}:null,error:null};
    }
    return{data:{id:opening,organization_id:org,fiscal_start:'2026-01-01',currency:'SAR',
-    status:'APPROVED',version:2,approved_opening:[{itemId:'bank',accountCode:'1000',debit:'100.0000',credit:'0.0000'}]},error:null}
+    status:'APPROVED',version:2,approved_opening:[{itemId:'bank',accountCode:'1000',debit:'100.0000',credit:'0.0000'},
+     {itemId:'custom',accountCode:'100001',debit:'50.0000',credit:'0.0000'},
+     {itemId:'old',accountCode:'999999',debit:'0.0000',credit:'150.0000'}]},error:null}
    },
    async limit(){return{data:[{id:'branch-1',organization_id:org,name:'Branch 1',entity_type:'BRANCH',active:true}],error:null}},
   };return chain;
@@ -78,5 +83,6 @@ describe('authenticated opening distribution adapter',()=>{
 it('offers dated center assignments beside the exact approved opening',async()=>{
  const r=await dimensionalOpeningEditorContext({organization:org,fiscalStart:'2026-01-01'});
  expect(r.centers).toEqual([{id:'branch-1',name:'Branch 1',branchId:null}]);expect(r.opening?.id).toBe(opening);
+ expect(r.opening?.approvedOpening[1]).toMatchObject({accountCode:'100001',accountNameAr:'المصرف التشغيلي',accountNameEn:'Operating bank'});
  state.revoked=true;state.authChecks=0;await expect(dimensionalOpeningEditorContext({organization:org,fiscalStart:'2026-01-01'})).rejects.toThrow('BRANCH_OPENING_READ_DENIED');
 });

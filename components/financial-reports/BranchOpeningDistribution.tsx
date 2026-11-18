@@ -4,7 +4,8 @@ import {Icon} from './FinancialReportsPilot';
 import './branch-opening-distribution.css';
 
 type Split={centerId?:string|null;branchId:string|null;debit:string;credit:string};
-type Original={itemId:string;accountCode:string;debit:string;credit:string};
+type Original={itemId:string;accountCode:string;accountNameAr:string|null;accountNameEn:string|null;debit:string;credit:string};
+const emptyRows:Original[]=[];
 type Editor={
  distribution:{status:'MISSING'|'DRAFT'|'APPROVED'|'STALE';id?:string;version?:number;
   openingWorkspaceId?:string;openingVersion?:number;entries?:Record<string,Split[]>;journalCoverageComplete?:false};
@@ -43,8 +44,13 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
  const status=data?.distribution.status??'MISSING';
  const savedEntries=data?.distribution.entries;
  const hasUnsavedChanges=status==='DRAFT'&&JSON.stringify(entries)!==JSON.stringify(savedEntries??{});
- const rows=source?.approvedOpening??[];
- const visible=useMemo(()=>rows.filter(r=>[r.accountCode,r.itemId].join(' ').toLowerCase().includes(query.toLowerCase())).slice(0,count),[rows,query,count]);
+ const rows=source?.approvedOpening??emptyRows;
+ const matches=useMemo(()=>{
+  const search=query.trim().toLowerCase();
+  return rows.filter(row=>[row.accountNameAr,row.accountNameEn,row.accountCode,row.itemId]
+   .some(value=>value?.toLowerCase().includes(search)));
+ },[rows,query]);
+ const visible=matches.slice(0,count);
  const completeness=useMemo(()=>{
   let ready=0;
   const segmentTotals=new Map<string,bigint>();
@@ -90,11 +96,11 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
   finally{if(stamp===serial.current)setBusy(false)}
  }
  const statusLabel={MISSING:t('غير موزع','Unallocated'),DRAFT:t('مسودة','Draft'),APPROVED:t('معتمد','Approved'),STALE:t('يحتاج تحديثًا','Needs update')}[status];
- return <main className={`fs-root ob-branch-page${dimension?' ob-center-page':''}`} dir={en?'ltr':'rtl'} lang={en?'en':'ar'}>
+ return <main className="fs-root ob-branch-page" dir={en?'ltr':'rtl'} lang={en?'en':'ar'}>
   <section className="ob-branch-shell">
    <header className="ob-branch-header">
     <div><h1>{dimension?t('توزيع الأرصدة الافتتاحية على المراكز','Allocate opening balances to centers'):t('توزيع الأرصدة الافتتاحية على الفروع','Allocate opening balances to branches')}</h1>
-    <p>{dimension?t('توزيع بنود الافتتاحي المعتمدة على مراكز التكلفة.','Assign approved opening items to cost centers.'):t('كل سطر افتتاحي يبقى مرتبطًا بمصدره. لا يتغير القيد أو الرصيد المعتمد للمؤسسة.','Every opening line retains its source identity. Approved legal-entity balances and postings remain unchanged.')}</p></div>
+    <p>{dimension?t('توزيع بنود الافتتاحي المعتمدة على مراكز التكلفة.','Assign approved opening items to cost centers.'):t('توزيع بنود الافتتاحي المعتمدة بين الإدارة الرئيسية والفروع.','Assign approved opening items to headquarters and branches.')}</p></div>
     <a href={back} className="ob-allocation-link ob-allocation-back"><Icon name="left" size={16}/>{t('العودة إلى الأرصدة الافتتاحية','Back to opening balances')}</a>
    </header>
    <div className="ob-branch-notice">{dimension?t('للتعديل، أنشئ مسودة تصحيحية. تظل التقارير على آخر توزيع معتمد حتى اعتماد المسودة الجديدة.','Create a correction draft to edit. Reports use the last approved allocation until the new draft is approved.'):t('المراجعة هنا تخص توزيع الافتتاحي فقط؛ قوائم الفروع لا تصبح معتمدة حتى اكتمال مطابقة القيود والتسويات الداخلية والصلاحيات.','This approves opening attribution only. Branch statements require complete posted-journal attribution, interbranch reconciliation and permissions.')}</div>
@@ -106,16 +112,16 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
    data&&!source?<p role="status">{t('لا توجد أرصدة افتتاحية معتمدة للتوزيع. إذا بدأ النشاط دون أرصدة سابقة فلا حاجة إلى توزيع افتتاحي؛ أما إذا كانت هناك أرصدة سابقة، فيجب اعتمادها أولًا. لا يثبت غياب الاعتماد وحده أن الأرصدة صفرية.','There are no approved opening balances to allocate. A genuinely zero-opening startup needs no branch opening allocation; if prior balances exist, they must be approved first. Missing approval alone does not prove a zero opening.')}</p>:
    source&&<>
     <div className="ob-branch-meta">
-     {dimension&&<span>{t('بداية السنة المالية','Fiscal year start')}: <bdi>{source.fiscalStart}</bdi></span>}
-     <span>{t('العملة','Currency')}: <b>{source.currency}</b></span>
-     <span>{t('إصدار الافتتاحي','Opening version')}: <b>{source.version}</b></span>
-     <span>{t('حالة التوزيع','Distribution status')}: <b>{dimension?statusLabel:status}</b></span>
-     <span>{t('البنود المطابقة','Matched items')}: <b>{completeness.ready}/{rows.length}</b></span>
+     <span>{t('بداية السنة المالية','Fiscal year start')} <bdi>{source.fiscalStart}</bdi></span>
+     <span>{t('العملة','Currency')} <b>{source.currency}</b></span>
+     <span>{t('إصدار الافتتاحي','Opening version')} <b>{source.version}</b></span>
+     <span>{t('حالة التوزيع','Distribution status')} <b className={`ob-branch-status ob-branch-status--${status.toLowerCase()}`}>{statusLabel}</b></span>
+     <span>{t('البنود المطابقة','Matched items')} <b>{completeness.ready}/{rows.length}</b></span>
     </div>
     {status==='STALE'&&<p className="ob-branch-error">{t('تغيّر الافتتاحي المعتمد. التوزيع السابق لم يعد صالحًا ويجب إعداد توزيع جديد.','The approved opening changed. The previous distribution is stale and must be replaced.')}</p>}
     <div className="ob-branch-filters">
-     <label>{t('بحث عن حساب أو بند','Find account or item')}<input value={query} onChange={e=>{setQuery(e.target.value);setCount(80)}} placeholder={t('رقم الحساب أو مرجع البند','Account code or source item')}/></label>
-     <span>{t('بنود لم تكتمل مطابقتها','Unreconciled items')}: <strong>{completeness.remaining}</strong></span>
+     <label>{t('بحث عن حساب أو بند','Find account or item')}<input value={query} onChange={e=>{setQuery(e.target.value);setCount(80)}} placeholder={t('اسم الحساب أو رقمه أو مرجع البند','Account name, code or item reference')}/></label>
+     <span>{t('بنود لم تكتمل مطابقتها','Unreconciled items')} <strong>{completeness.remaining}</strong></span>
      {dimension&&status==='MISSING'&&rows.length>0&&Object.keys(entries).length===0&&
       <button disabled={busy} onClick={()=>setEntries(Object.fromEntries(rows.map(row=>[row.itemId,[{
        branchId:null,centerId:null,debit:row.debit,credit:row.credit,
@@ -125,22 +131,28 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
     <div className="ob-branch-table-wrap"><table className="ob-branch-table">
      <thead><tr><th>{t('الحساب / مرجع الافتتاحي','Account / opening item')}</th><th>{t('المعتمد مدين','Approved debit')}</th><th>{t('المعتمد دائن','Approved credit')}</th><th>{dimension&&status==='APPROVED'?t('التوزيع المعتمد','Approved allocation'):t('التوزيع للمراجعة','Allocation under review')}</th></tr></thead>
      <tbody>{visible.map(row=><tr key={row.itemId}>
-      <td><b>{row.accountCode}</b><small>{row.itemId}</small></td><td data-mobile-label={t('المعتمد مدين','Approved debit')}><bdi dir="ltr">{row.debit}</bdi></td><td data-mobile-label={t('المعتمد دائن','Approved credit')}><bdi dir="ltr">{row.credit}</bdi></td>
+      <td className="ob-branch-account">
+       <strong><bdi>{(en?row.accountNameEn||row.accountNameAr:row.accountNameAr||row.accountNameEn)||t('اسم الحساب غير متاح','Account name unavailable')}</bdi></strong>
+       <bdi className="ob-branch-account-code" dir="ltr">{row.accountCode}</bdi>
+       <small><bdi>{row.itemId}</bdi></small>
+      </td><td data-mobile-label={t('المعتمد مدين','Approved debit')}><bdi dir="ltr">{row.debit}</bdi></td><td data-mobile-label={t('المعتمد دائن','Approved credit')}><bdi dir="ltr">{row.credit}</bdi></td>
       <td><div className="ob-branch-allocations">
        {(entries[row.itemId]??[]).map((allocation,index)=><div className="ob-branch-allocation" key={index}>
         {dimension&&<select aria-label={t('مركز التكلفة','Cost center')} disabled={!editable||busy} value={allocation.centerId??''} onChange={e=>{const selected=data.centers?.find(c=>c.id===e.target.value);change(row.itemId,index,{centerId:selected?.id??null,branchId:selected?.branchId??null})}}><option value="">{t('غير موزع على مركز','Unallocated')}</option>{allocation.centerId&&!data.centers?.some(c=>c.id===allocation.centerId)&&<option value={allocation.centerId} disabled>{t('مركز محفوظ يحتاج مراجعة ارتباطه','Saved center needs assignment review')} · {allocation.centerId}</option>}{data.centers?.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>}
         <select aria-label={t('الإدارة الرئيسية أو الفرع','Headquarters or branch')} disabled={!editable||busy||Boolean(dimension&&allocation.centerId)} value={allocation.branchId??''} onChange={e=>change(row.itemId,index,{branchId:e.target.value||null})}>
          <option value="">{t('الإدارة الرئيسية','Headquarters')}</option>{allocation.branchId&&!data.branches.some(b=>b.id===allocation.branchId)&&<option value={allocation.branchId} disabled>{t('فرع محفوظ غير متاح','Saved branch unavailable')} · {allocation.branchId}</option>}{data.branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name}</option>)}
         </select>
-        <label>{dimension&&<span>{t('مدين','Debit')}</span>}<input aria-label={t('المدين الموزع','Allocated debit')} value={allocation.debit} disabled={!editable||busy} inputMode="decimal" dir="ltr" onChange={e=>change(row.itemId,index,{debit:e.target.value})}/></label>
-        <label>{dimension&&<span>{t('دائن','Credit')}</span>}<input aria-label={t('الدائن الموزع','Allocated credit')} value={allocation.credit} disabled={!editable||busy} inputMode="decimal" dir="ltr" onChange={e=>change(row.itemId,index,{credit:e.target.value})}/></label>
+        <label><span>{t('مدين','Debit')}</span><input aria-label={t('المدين الموزع','Allocated debit')} value={allocation.debit} disabled={!editable||busy} inputMode="decimal" dir="ltr" onChange={e=>change(row.itemId,index,{debit:e.target.value})}/></label>
+        <label><span>{t('دائن','Credit')}</span><input aria-label={t('الدائن الموزع','Allocated credit')} value={allocation.credit} disabled={!editable||busy} inputMode="decimal" dir="ltr" onChange={e=>change(row.itemId,index,{credit:e.target.value})}/></label>
         {editable&&<button disabled={busy} onClick={()=>remove(row.itemId,index)} aria-label={t('حذف سطر التوزيع','Remove allocation')}>×</button>}
        </div>)}
-       {editable&&<button disabled={busy} className="ob-branch-add" onClick={()=>add(row.itemId)}>+ {t('إضافة توزيع','Add allocation')}</button>}
+       {editable&&<button disabled={busy} className="ob-branch-add" onClick={()=>add(row.itemId)}><Icon name="plus" size={15}/>{t('إضافة توزيع','Add allocation')}</button>}
       </div></td>
-     </tr>)}</tbody>
+     </tr>)}{matches.length===0&&<tr className="ob-branch-empty-row">
+      <td colSpan={4}><p role="status">{query.trim()?t('لم يُعثر على حساب يطابق البحث.','No accounts match your search.'):t('لا توجد بنود افتتاحية للتوزيع.','There are no opening items to allocate.')}</p></td>
+     </tr>}</tbody>
     </table></div>
-    {rows.length>visible.length&&<button className="ob-branch-more" onClick={()=>setCount(n=>n+80)}>{t('عرض مزيد من البنود','Show more items')}</button>}
+    {matches.length>visible.length&&<button className="ob-branch-more" onClick={()=>setCount(n=>n+80)}>{t('عرض مزيد من البنود','Show more items')}</button>}
     <div className="ob-branch-actions">
      {editable&&<><label>{t('سبب التوزيع أو التصحيح','Allocation / correction reason')}<input value={reason} maxLength={1000} onChange={e=>setReason(e.target.value)}/></label>
       <button disabled={busy} onClick={()=>void command('save')}>{t('حفظ المسودة','Save draft')}</button>
