@@ -1,0 +1,216 @@
+{
+  "description": "Schema fingerprints observed in full-schema acceptance run 43637445927 artifact 14131395152.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.approved_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.approved_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.branch_id",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.center_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.revision",
+      "fingerprint": "78296fb14ede1542b33f5b0c49405956"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.valid_from",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_assignments.valid_to",
+      "fingerprint": "aed943be412fde2bc082da6a2222596b"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.actor_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.closed_record",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.next_assignment",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.previous_record",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.prior_assignment",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_center_branch_transfers.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignment_organization_id_revision_key",
+      "fingerprint": "b07e7010ddf86991083d65c6fa228734"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_approved_by_fkey",
+      "fingerprint": "110651700f2cf1b3d653b3d4a50d81a9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_branch_id_fkey",
+      "fingerprint": "ed3faee6838236835e910862b2540487"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_center_id_fkey",
+      "fingerprint": "d1301564047d2d41d1f8201af6506f38"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_check",
+      "fingerprint": "57d2fa4cc0898aece791770a7bfc9a77"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_reason_check",
+      "fingerprint": "ac77e9627aa533b08b9554222cf75ddb"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_revision_check",
+      "fingerprint": "c89fd39547f9f210c335be16751472e2"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_transfers.financial_center_branch_transfers_actor_id_fkey",
+      "fingerprint": "508a4cf20410e80e6cb722233bc03330"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_transfers.financial_center_branch_transfers_next_assignment_fkey",
+      "fingerprint": "39693f5e86af64792b02cee3283c271d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_transfers.financial_center_branch_transfers_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_transfers.financial_center_branch_transfers_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_center_branch_transfers.financial_center_branch_transfers_prior_assignment_fkey",
+      "fingerprint": "0ecc37e8b921f8f6b61b4967fecf9116"
+    },
+    {
+      "category": "function",
+      "object_key": "public.assign_financial_center_branch(p_org uuid, p_center uuid, p_branch uuid, p_from date, p_to date, p_expected_revision bigint, p_reason text)",
+      "fingerprint": "08029bb1679cfad0da5ab138167c4f31"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_center_branch_registry(p_org uuid)",
+      "fingerprint": "ca89af8002000025b10544d18d81c95a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.transfer_financial_center_branch(p_org uuid, p_center uuid, p_branch uuid, p_from date, p_expected_revision bigint, p_reason text)",
+      "fingerprint": "7d3350511fc0248422c7c7bee8a8a85a"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignment_organization_id_revision_key",
+      "fingerprint": "c5ba82cb1f43c3f6a46c36234defa10f"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_assignments_pkey",
+      "fingerprint": "a011e2ee855106eb4237899d1f54e6d4"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_center_branch_assignments.financial_center_branch_period",
+      "fingerprint": "6d041d881aeffa83565008868bf6fdc2"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_center_branch_transfers.financial_center_branch_transfers_pkey",
+      "fingerprint": "8ff39cb28eb994b8b5cb925cb34677c5"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_center_branch_assignments",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_center_branch_transfers",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

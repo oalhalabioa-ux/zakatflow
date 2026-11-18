@@ -1,0 +1,276 @@
+{
+  "description": "Additive dimensional opening schema observed in disposable CI run 43628417525, artifact 14127331017. No existing objects changed.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_audit.action",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_audit.actor_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_audit.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_audit.details",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_audit.distribution_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_audit.id",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_audit.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_audit.version",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.approved_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.approved_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.entries",
+      "fingerprint": "76d26ceff0731fd880ac54724ba71355"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.fiscal_start",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.opening_digest",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.opening_version",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.opening_workspace_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.reason",
+      "fingerprint": "56d7e8677aee25f248fceddf8838b1ed"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.status",
+      "fingerprint": "e43c3c73b894819d7d129c8bca319d6e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.updated_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.updated_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_dimensional_opening_distributions.version",
+      "fingerprint": "93b0123eec0804faa07389286d561fb1"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_audit.financial_dimensional_opening_audit_action_check",
+      "fingerprint": "a0603178224dc268ee3ff928f2a0b958"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_audit.financial_dimensional_opening_audit_actor_id_fkey",
+      "fingerprint": "508a4cf20410e80e6cb722233bc03330"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_audit.financial_dimensional_opening_audit_distribution_id_fkey",
+      "fingerprint": "cb64d99e4fe2b12499ad6458726f5fcb"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_audit.financial_dimensional_opening_audit_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_audit.financial_dimensional_opening_audit_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distrib_opening_workspace_id_fkey",
+      "fingerprint": "d028198f9f54369237ccabc74de899d0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributio_opening_version_check",
+      "fingerprint": "b94bdc9ce3acab8619c0459fff625277"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distribution_opening_digest_check",
+      "fingerprint": "5ed380d1a56252a2e35ba38b800ec86a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distribution_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_approved_by_fkey",
+      "fingerprint": "110651700f2cf1b3d653b3d4a50d81a9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_check",
+      "fingerprint": "2b261befa36aa658873c50425e3e9f20"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_currency_check",
+      "fingerprint": "f0d8a806244ef088accc061b49313af2"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_entries_check",
+      "fingerprint": "f73d37d267f066dac2e1efb9211277ad"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_status_check",
+      "fingerprint": "921fe4ec0077e87cb83960b388e6f2f3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_updated_by_fkey",
+      "fingerprint": "813e89165d4f52cd798f126fbc683169"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_version_check",
+      "fingerprint": "2c83586178a0d05fd5156431b31923c1"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_dimensional_opening_check(p_org uuid, p_opening jsonb, p_entries jsonb)",
+      "fingerprint": "bab4dcea40d7b7882ebc75750316038b"
+    },
+    {
+      "category": "function",
+      "object_key": "public.approve_financial_dimensional_opening(p_distribution uuid, p_expected_version integer)",
+      "fingerprint": "f979ff3b3143c22290121ef49e3e538d"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_dimensional_opening_context(p_org uuid, p_fiscal_start date)",
+      "fingerprint": "de45a0f07e42417849b27355e1cda5eb"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_dimensional_opening(p_org uuid, p_fiscal_start date, p_expected_version integer, p_opening_workspace uuid, p_opening_version integer, p_entries jsonb, p_reason text)",
+      "fingerprint": "8183cf23dd724b48a9263ff5e237679f"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_dimensional_opening_audit.financial_dimensional_opening_audit_pkey",
+      "fingerprint": "aa43f163447741e7427235bfa74f7309"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_distributions_pkey",
+      "fingerprint": "0a7040f440e16ace4268f8307e65b30a"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_one_approved",
+      "fingerprint": "1bdfafa7a323b65669dc2f6da5df6c3a"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_one_draft",
+      "fingerprint": "c286a9e8bb0ddd4bc10ee0f8935c2674"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_dimensional_opening_distributions.financial_dimensional_opening_workspace_lookup",
+      "fingerprint": "2490b45682d17e84e5f3bf5ebc55e5b8"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_dimensional_opening_audit",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_dimensional_opening_distributions",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

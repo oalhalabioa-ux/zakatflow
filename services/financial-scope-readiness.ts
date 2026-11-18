@@ -77,24 +77,24 @@ export async function liveScopeReadiness(input:unknown):Promise<ScopeReadiness>{
   entities.length>1000||events.length>5000||cash.length>5000||assets.length>5000||openings.length>1000)throw Error('REPORTING_UNAVAILABLE');
  // This count is diagnostic, NOT authoritative: RLS may filter invisible rows.
  const entityRegistry=new Map(entities.map(e=>[e.id,e]));
- // An RLS-hidden, inactive or non-company/non-branch operating dimension is
+ // An RLS-hidden or non-company/non-branch operating dimension is
  // UNRESOLVED, not an HQ entry and not an authorization error. The whole
  // legal-company statement may include such units, but HQ/branch reports
  // cannot silently allocate them or publish partial sums.
  const resolvedEvents=events.filter(e=>{
   if(e.entity_id===null)return true;
   const entity=entityRegistry.get(e.entity_id);
-  return !!entity&&entity.active&&
+  return !!entity&&
    (entity.entity_type==='COMPANY'||entity.entity_type==='BRANCH');
  });
  const unresolvedEntityEvents=events.length-resolvedEvents.length;
  const classified=classifyFinancialSourceScope(q.organization,entities.map(e=>({id:e.id,organizationId:e.organization_id,entityType:e.entity_type,active:e.active})),
   resolvedEvents.map(e=>({id:e.id,organizationId:e.organization_id,entityId:e.entity_id})));
- const visibleActiveBranches=new Set(entities.filter(e=>e.entity_type==='BRANCH'&&e.active).map(e=>e.id));
- const visibleActiveCompanies=new Set(entities.filter(e=>e.entity_type==='COMPANY'&&e.active).map(e=>e.id));
- const classifyAccountLinks=(rows:typeof cash)=>({companyDirect:rows.filter(a=>a.entity_id===null||visibleActiveCompanies.has(a.entity_id)).length,
-  branchLinked:rows.filter(a=>a.entity_id!==null&&visibleActiveBranches.has(a.entity_id)).length,
-  entityLinkNotVisible:rows.filter(a=>a.entity_id!==null&&!visibleActiveBranches.has(a.entity_id)&&!visibleActiveCompanies.has(a.entity_id)).length});
+ const visibleBranches=new Set(entities.filter(e=>e.entity_type==='BRANCH').map(e=>e.id));
+ const visibleCompanies=new Set(entities.filter(e=>e.entity_type==='COMPANY').map(e=>e.id));
+ const classifyAccountLinks=(rows:typeof cash)=>({companyDirect:rows.filter(a=>a.entity_id===null||visibleCompanies.has(a.entity_id)).length,
+  branchLinked:rows.filter(a=>a.entity_id!==null&&visibleBranches.has(a.entity_id)).length,
+  entityLinkNotVisible:rows.filter(a=>a.entity_id!==null&&!visibleBranches.has(a.entity_id)&&!visibleCompanies.has(a.entity_id)).length});
  const cashAccounts=classifyAccountLinks(cash),assetAccounts=classifyAccountLinks(assets);
  const observation={kind:'RLS_VISIBLE_ONLY' as const,entityRecords:entities.length,canonicalEvents:events.length,
   organizationDirectEvents:classified.filter(e=>e.scope==='ORGANIZATION_DIRECT').length,

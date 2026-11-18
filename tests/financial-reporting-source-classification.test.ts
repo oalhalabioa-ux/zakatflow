@@ -28,12 +28,20 @@ describe('reporting scopes: company direct, branches, and subsidiaries',()=>{
   expect(classifyFinancialSourceScope(subsidiary,[],[{id:'subsidiary',organizationId:subsidiary,entityId:null}]))
    .toMatchObject([{organizationId:subsidiary,scope:'ORGANIZATION_DIRECT',branchId:null}]);
  });
- it('fails closed on foreign, inactive, missing or unsupported branch references',()=>{
+ it('fails closed on foreign, missing or unsupported branch references',()=>{
   const source=(entityId:string)=>[{id:'event',organizationId:parent,entityId}];
   expect(()=>classifyFinancialSourceScope(parent,registry,source('unknown'))).toThrow('FINANCIAL_SCOPE_ENTITY_UNVERIFIED');
-  expect(()=>classifyFinancialSourceScope(parent,[{...registry[1],active:false}],source('branch-a'))).toThrow('FINANCIAL_SCOPE_ENTITY_UNVERIFIED');
+  expect(()=>classifyFinancialSourceScope(parent,registry,source(''))).toThrow('FINANCIAL_SCOPE_ENTITY_UNVERIFIED');
   expect(()=>classifyFinancialSourceScope(parent,[{...registry[1],entityType:'PROJECT'}],source('branch-a'))).toThrow('FINANCIAL_SCOPE_ENTITY_TYPE_UNVERIFIED');
   expect(()=>classifyFinancialSourceScope(parent,[{...registry[1],organizationId:subsidiary}],[])).toThrow('FINANCIAL_SCOPE_ENTITY_REGISTRY_INVALID');
+ });
+ it('retains historical attribution when a branch or headquarters is deactivated',()=>{
+  const sources=[
+   {id:'old-branch-entry',organizationId:parent,entityId:'branch-a'},
+   {id:'old-hq-entry',organizationId:parent,entityId:'headquarters'},
+  ];
+  expect(classifyFinancialSourceScope(parent,registry.map(e=>({...e,active:false})),sources))
+   .toEqual(classifyFinancialSourceScope(parent,registry,sources));
  });
  it('rejects duplicate sources rather than double counting',()=>{
   expect(()=>classifyFinancialSourceScope(parent,registry,[{id:'one',organizationId:parent,entityId:null},{id:'one',organizationId:parent,entityId:'branch-a'}]))

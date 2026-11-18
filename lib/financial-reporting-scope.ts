@@ -18,9 +18,11 @@ export function classifyFinancialSourceScope(
  return events.map(event=>{
   if(!event.id||eventIds.has(event.id)||event.organizationId!==organizationId)throw Error('FINANCIAL_SCOPE_SOURCE_INVALID');
   eventIds.add(event.id);
-  if(!event.entityId)return{id:event.id,organizationId,scope:'ORGANIZATION_DIRECT',branchId:null};
+  if(event.entityId===null)return{id:event.id,organizationId,scope:'ORGANIZATION_DIRECT',branchId:null};
   const entity=registry.get(event.entityId);
-  if(!entity||!entity.active)throw Error('FINANCIAL_SCOPE_ENTITY_UNVERIFIED');
+  // Deactivation prevents new operations; it must not remove posted history.
+  // The caller still supplies an authorized, organization-scoped registry.
+  if(!entity)throw Error('FINANCIAL_SCOPE_ENTITY_UNVERIFIED');
   if(entity.entityType==='BRANCH')return{id:event.id,organizationId,scope:'BRANCH',branchId:entity.id};
   if(entity.entityType==='COMPANY')return{id:event.id,organizationId,scope:'ORGANIZATION_DIRECT',branchId:null};
   throw Error('FINANCIAL_SCOPE_ENTITY_TYPE_UNVERIFIED');
