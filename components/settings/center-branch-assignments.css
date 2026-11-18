@@ -1,0 +1,23 @@
+.settings-workspace .settings-center-assignments {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+
+.settings-workspace .settings-center-assignments :is(form, fieldset, label) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-workspace .settings-center-assignments .settings-table-scroll {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.settings-workspace .settings-center-assignments legend {
+  white-space: normal;
+  max-width: 100%;
+}

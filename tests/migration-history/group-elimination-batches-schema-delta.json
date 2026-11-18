@@ -1,0 +1,256 @@
+{
+  "description": "Observed in disposable canonical runner, run 43695537362, 2026-11-15. Native batch lifecycle and approved reader passed; unrelated dated-center picker acceptance failed and is being corrected. No hosted migration committed.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_audit.action",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_audit.actor_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_audit.batch_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_audit.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_audit.id",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_audit.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.approved_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.approved_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.entries",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.evidence",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.period_from",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.period_to",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.root_organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.status",
+      "fingerprint": "e43c3c73b894819d7d129c8bca319d6e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_elimination_batches.version",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_audit.financial_group_elimination_audit_action_check",
+      "fingerprint": "a0603178224dc268ee3ff928f2a0b958"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_audit.financial_group_elimination_audit_actor_id_fkey",
+      "fingerprint": "508a4cf20410e80e6cb722233bc03330"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_audit.financial_group_elimination_audit_batch_id_fkey",
+      "fingerprint": "36ea4e94530aee5c4a3b149fca289164"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_audit.financial_group_elimination_audit_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_b_root_organization_id_period_f_key",
+      "fingerprint": "c6fdafdc1de78542b4ff9f0b08eb88ce"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_approved_by_fkey",
+      "fingerprint": "110651700f2cf1b3d653b3d4a50d81a9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_check",
+      "fingerprint": "c7c523edbbee06b1f6f97636bc4cc5c9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_check1",
+      "fingerprint": "4bd14a9b9e212e6dfa07939460fd5153"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_entries_check",
+      "fingerprint": "fc1e4ed712de7a41950fd89378891240"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_request_id_key",
+      "fingerprint": "00c1d80c1c37474ea86e15a2b3c68a45"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_root_organization_id_fkey",
+      "fingerprint": "d63c07847cf6a488cbee8371638e7f83"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_status_check",
+      "fingerprint": "921fe4ec0077e87cb83960b388e6f2f3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_version_check",
+      "fingerprint": "2c83586178a0d05fd5156431b31923c1"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_group_batch_evidence(p_root uuid, p_from date, p_to date, p_entries jsonb, p_reporting boolean)",
+      "fingerprint": "b320d96f550fc9a885cbd61fcac12d87"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_group_canonical(p_value jsonb)",
+      "fingerprint": "363bd60117bfd222dba76f4657f9985a"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_group_event_effective(p_org uuid, p_event uuid, p_currency text, p_to date)",
+      "fingerprint": "70e7ee6adf9cf6d8d9fb3c841c35fe0f"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_group_open_item(p_org uuid, p_event uuid, p_kind text, p_currency text, p_to date)",
+      "fingerprint": "0e45aa8168f832d5d189c0753904cab8"
+    },
+    {
+      "category": "function",
+      "object_key": "public.approve_financial_group_eliminations(p_batch uuid, p_expected_version integer, p_reason text)",
+      "fingerprint": "d5e30548e6688edfeb66f7a587d4f623"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_approved_eliminations(p_root uuid, p_from date, p_to date)",
+      "fingerprint": "a8e5d18b04354a4ce51c87d91ae81fae"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_elimination_context(p_root uuid, p_from date, p_to date)",
+      "fingerprint": "282a367dda55954e05f5bc62650777ac"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_financial_group_eliminations(p_root uuid, p_from date, p_to date, p_expected_version integer, p_entries jsonb, p_reason text, p_request_id uuid)",
+      "fingerprint": "6c970bc9474875b843c733d5836db5ac"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_elimination_audit.financial_group_elimination_audit_pkey",
+      "fingerprint": "15839c87d8cb9b44375052fc07b54c59"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_elimination_batches.financial_group_batch_approved_period",
+      "fingerprint": "c0ef0a53d691a1027b27a323b0dc0746"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_b_root_organization_id_period_f_key",
+      "fingerprint": "0b67c20c36bb0f1fb2836a0641d25945"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_pkey",
+      "fingerprint": "957dd5183bda7e81454a37b9e0592498"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_elimination_batches.financial_group_elimination_batches_request_id_key",
+      "fingerprint": "c4b1b743ac67797a92d85af19c764c4c"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_group_elimination_audit",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_group_elimination_batches",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

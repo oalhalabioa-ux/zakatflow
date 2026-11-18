@@ -1,0 +1,11 @@
+{
+  "description": "Observed in full-schema run 43641211891 artifact 14131674924.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.financial_group_registered_scope(p_root uuid, p_from date, p_to date)",
+      "fingerprint": "e7855ad0799cff75f704f75c3f6c2e59"
+    }
+  ]
+}

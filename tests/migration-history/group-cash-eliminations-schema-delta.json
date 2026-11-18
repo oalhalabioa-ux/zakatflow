@@ -1,0 +1,11 @@
+{
+  "description": "Observed run 43698234102 artifact 14155656337; native receipt/payment, batch approval, source preservation and revoked evidence passed.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_group_batch_evidence(p_root uuid, p_from date, p_to date, p_entries jsonb, p_reporting boolean)",
+      "fingerprint": "326dc2b333fce26fb595951b5539efe2"
+    }
+  ]
+}

@@ -43,7 +43,7 @@ describe('QA-only, RLS-visible source-readiness checks',()=>{
   expect(JSON.stringify(result)).not.toMatch(/debit|credit|totalDebit|trialBalance|READY_FOR_BRANCH_REPORTS/);
   expect(state.authReads).toBe(2);expect(state.rpcs).toEqual(['financial_core_can','financial_core_can']);
  });
- it('reports PERSON, inactive and RLS-hidden journal dimensions without inventing headquarters totals',async()=>{
+ it('preserves inactive branch history while reporting PERSON and RLS-hidden dimensions as unresolved',async()=>{
   state.entities=[
    {id:'branch-1',organization_id:org,entity_type:'BRANCH',active:true},
    {id:'person-1',organization_id:org,entity_type:'PERSON',active:true},
@@ -59,7 +59,7 @@ describe('QA-only, RLS-visible source-readiness checks',()=>{
   const result=await liveScopeReadiness({...period,scope:'COMPANY_DIRECT'});
   expect(result.status).toBe('BLOCKED');
   expect(result.observation).toMatchObject({canonicalEvents:5,
-   organizationDirectEvents:1,branchEvents:1,unresolvedEntityEvents:3});
+   organizationDirectEvents:1,branchEvents:2,unresolvedEntityEvents:2});
   expect(result.issues).toContain('ENTITY_EVENT_LINK_UNRESOLVED');
   expect(JSON.stringify(result)).not.toMatch(/trialBalance|totalDebit|netProfit|READY_FOR_BRANCH_REPORTS/);
   expect(state.authReads).toBe(2);

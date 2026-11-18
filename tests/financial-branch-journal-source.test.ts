@@ -83,11 +83,21 @@ describe('canonical financial journal branch evidence',()=>{
   s.events=s.events.slice(0,2);
   await expect(observeCanonicalJournalBranches(org,journals())).rejects.toThrow('BRANCH_JOURNAL_SOURCE_INCOMPLETE');
  });
- it('does not infer branch ownership for an unknown, inactive or foreign entity',async()=>{
+ it('does not infer branch ownership for an unknown or foreign entity',async()=>{
   s.entities=s.entities.filter(e=>e.id!==branch);
   await expect(observeCanonicalJournalBranches(org,journals())).rejects.toThrow('BRANCH_JOURNAL_ENTITY_UNVERIFIED');
-  s.entities.push({id:branch,organization_id:org,entity_type:'BRANCH',active:false});
+  s.entities.push({id:branch,organization_id:hq,entity_type:'BRANCH',active:true});
   await expect(observeCanonicalJournalBranches(org,journals())).rejects.toThrow('BRANCH_JOURNAL_ENTITY_UNVERIFIED');
+ });
+ it('preserves posted branch history after deactivation without assigning it to HQ',async()=>{
+  s.entities.forEach(entity=>{entity.active=false});
+  const result=await observeCanonicalJournalBranches(org,journals());
+  expect(result.links).toEqual([
+   {journalId:idA,branchId:null,scope:'ORGANIZATION_DIRECT'},
+   {journalId:idB,branchId:null,scope:'ORGANIZATION_DIRECT'},
+   {journalId:idC,branchId:branch,scope:'BRANCH'},
+  ]);
+  expect(s.authCount).toBe(2);
  });
  it('refuses stale dates, wrong status, duplicate ids and an unknown organization',async()=>{
   const stale=journals();stale[0]={...stale[0],date:'2026-02-01'};

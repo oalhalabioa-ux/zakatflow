@@ -1,0 +1,258 @@
+import Decimal from 'decimal.js';
+import {acquisitionDeferredTaxReversals,acquisitionUpliftDepreciation} from '../lib/financial-group-acquisition-depreciation';
+import {eliminateDividendCashPayments,verifyOrdinaryDividend} from '../lib/financial-group-ordinary-dividend';
+import {attributeGroupNonControllingInterests} from '../lib/financial-group-acquisition';
+import {compileEventLedger} from '../lib/financial-event-ledger';
+import {liveRegisteredGroupEvidence} from './financial-group-registered-source';
+import {z} from 'zod';
+import {statementQuery} from '../lib/financial-statement-source';
+import {assertStableFinancialReplay} from '../lib/financial-source-replay';
+import {readApprovedGroupEliminations} from './financial-group-elimination-batches';
+import {readApprovedGroupAcquisitions,readGroupAcquisitionLedgerBasis} from './financial-group-acquisition-review';
+import {liveInventoryMarginReview} from './financial-group-inventory-margin';
+
+const request=z.object({action:z.literal('ACQUISITION_POSITION'),query:statementQuery}).strict();
+const Money=Decimal.clone({precision:50});
+
+/** Project the closing position with acquisition adjustments verified for the selected scope. */
+export async function readGroupAcquisitionPosition(input:unknown){
+ const {query}=request.parse(input);
+ const approved=await readApprovedGroupAcquisitions(query);
+ const later=query.from!==query.to;
+ if(!approved.rows.some(row=>row.investmentAccountId&&row.calculation.acquisitionDate===query.from))
+  return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'ACQUISITION_START_OR_LINK_REQUIRED'};
+ if(later&&approved.rows.some(row=>!row.continuityDocumented))
+  return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'CONTINUITY_EVIDENCE_OR_OWNERSHIP_REQUIRED'};
+ const worksheet=await readApprovedGroupEliminations(query);
+ const base=worksheet.statementWorksheet;
+ if(!base)throw Error('GROUP_ACQUISITION_POSITION_SOURCE_REQUIRED');
+
+ // Apply a complete set for this group scope, or display no adjusted position.
+ const subsidiaries=base.memberIds.filter(id=>id!==query.organization);
+ const approvedSubsidiaries=new Set(approved.rows.map(row=>row.calculation.subsidiaryOrganizationId));
+ if(subsidiaries.length!==approved.rows.length||subsidiaries.some(id=>!approvedSubsidiaries.has(id)))
+  return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'GROUP_ACQUISITION_COVERAGE_REQUIRED'};
+
+ const fairValueAdjustments:Array<Awaited<ReturnType<typeof readGroupAcquisitionLedgerBasis>>['fairValueAdjustments'][number]&{subsidiaryName:string;subsidiaryId:string}>=[];
+ // For carry-forward, read the full same-fiscal-year source, including
+ // offsetting postings that a closing-balance comparison would miss.
+ const carrySources=later?await liveRegisteredGroupEvidence(query):null;
+ if(carrySources?.rawSources.some(source=>source.fiscalStart>query.from))
+  return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'CARRY_FORWARD_PERIOD_UNSUPPORTED'};
+ const ledgers=new Map(carrySources?.rawSources.map(source=>[source.organizationId,compileEventLedger(source)]));
+ const cashBindings=worksheet.cashWorksheet?.bindings??[];
+ const combined=worksheet.bindings.length>0||cashBindings.length>0;
+ const originalLegs=[
+  ...worksheet.bindings.flatMap(binding=>[binding.debitSource,binding.creditSource]),
+  ...cashBindings.flatMap(binding=>[binding.outflow,binding.inflow]),
+ ];
+ // Validate the original dates, not the adjustment's date. Balance and
+ // cash eliminations and verified gross service offsets preserve attributable
+ // profit. Consumed services have no remaining asset margin to allocate.
+ if(combined&&(!later||
+   worksheet.bindings.some(binding=>binding.kind==='CAPITAL_CONTRIBUTION')||
+   (worksheet.bindings.some(binding=>binding.kind==='INTERCOMPANY_INCOME'&&binding.incomeTreatment!=='CURRENT_PERIOD_CONSUMED_SERVICE')&&
+    approved.rows.some(row=>!new Money(row.calculation.nciPercent).isZero()))||
+   originalLegs.some(leg=>{
+    const journal=ledgers.get(leg.organizationId)?.source.journals.find(item=>item.id===leg.eventId);
+    return !journal||journal.date<=query.from||journal.date>query.to;
+   })))
+  return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
+ const nciAttribution:Array<{subsidiaryId:string;subsidiaryName:string;openingNci:string;adjustedProfit:string;profitToNci:string;closingNci:string;dividendToNci:string}>=[];
+ const inventoryEliminations:Array<{
+  request:unknown;result:Extract<Awaited<ReturnType<typeof liveInventoryMarginReview>>,{deferredTax:unknown}>;
+ }>=[];
+ // Balance eliminations consume receivables/payables, not the inventory or
+ // income legs. An income adjustment referencing any of these vouchers overlaps.
+ const usedInventoryEvents=new Set(worksheet.bindings.filter(binding=>binding.kind!=='INTERCOMPANY_BALANCE')
+  .flatMap(binding=>[binding.debitSource.eventId,binding.creditSource.eventId]));
+ let inventoryRevenue=new Money(0),inventoryCost=new Money(0),inventoryMargin=new Money(0),inventoryDeferredTax=new Money(0);
+ const dividendEliminations:Array<NonNullable<ReturnType<typeof verifyOrdinaryDividend>>&{subsidiaryName:string;subsidiaryId:string}>=[];
+ const usedParentDividendEvents=new Set<string>();
+ let parentDividendEliminated=new Money(0),internalDividendOutstanding=new Money(0),dividendsToNci=new Money(0);
+ let profitToNci=new Money(0);
+ const depreciationAdjustments:Array<NonNullable<ReturnType<typeof acquisitionUpliftDepreciation>>[number]&{subsidiaryId:string;subsidiaryName:string}>=[];
+ const deferredTaxAdjustments:Array<NonNullable<ReturnType<typeof acquisitionDeferredTaxReversals>>[number]&{subsidiaryId:string;subsidiaryName:string}>=[];
+ let depreciation=new Money(0),deferredTaxReversal=new Money(0);
+ let fairValueAssets=new Money(0),fairValueLiabilities=new Money(0);
+ let goodwill=new Money(0),investment=new Money(0),bookEquity=new Money(0),nci=new Money(0);
+ for(const record of approved.rows){
+  const basis=await readGroupAcquisitionLedgerBasis({action:'LEDGER_BASIS',query,id:record.id});
+  if(basis.positionEligibility!=='ELIGIBLE'||!basis.linkedInvestment)
+   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:basis.positionEligibility};
+  const {accountId,balance}=basis.linkedInvestment;
+  if(originalLegs.some(source=>source.organizationId===record.calculation.parentOrganizationId&&source.accountId===accountId))
+   return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
+  const subsidiaryId=record.calculation.subsidiaryOrganizationId;
+  if(basis.ordinaryDividend){
+   const dividend=basis.ordinaryDividend;
+   const events=[dividend.parentEventId,dividend.subsidiaryEventId,dividend.parentPayment?.parentEventId,
+    dividend.parentPayment?.subsidiaryEventId,dividend.minorityPayment?.subsidiaryEventId];
+   for(const id of events){
+    if(!id)continue;
+    if(usedInventoryEvents.has(id)||originalLegs.some(leg=>leg.eventId===id))
+     return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
+    usedInventoryEvents.add(id);
+   }
+  }
+  let subsidiaryInventoryProfitReduction=new Money(0);
+  if(basis.inventoryElimination){
+   const link=basis.inventoryElimination;
+   const events=[link.saleEventId,link.costEventId,link.purchaseEventId];
+   if(!later||events.some(event=>usedInventoryEvents.has(event)))
+    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'OVERLAPPING_ELIMINATION'};
+   const inventoryRequest={action:'REVIEW_INVENTORY_MARGIN',query,...link,taxAssessmentRecordId:record.id};
+   const inventory=await liveInventoryMarginReview(inventoryRequest);
+   if(!('deferredTax' in inventory)||!inventory.deferredTax||!inventory.afterTaxAttribution||inventory.currency!==base.currency)
+    throw Error('GROUP_ACQUISITION_INVENTORY_TAX_REQUIRED');
+   events.forEach(event=>usedInventoryEvents.add(event));
+   inventoryRevenue=inventoryRevenue.plus(inventory.revenueReduction);
+   inventoryCost=inventoryCost.plus(inventory.costOfSalesReduction);
+   inventoryMargin=inventoryMargin.plus(inventory.inventoryReduction);
+   inventoryDeferredTax=inventoryDeferredTax.plus(inventory.deferredTax.deferredTaxAssetIncrease);
+   if(link.sellerOrganizationId===subsidiaryId)
+    subsidiaryInventoryProfitReduction=new Money(inventory.deferredTax.groupAfterTaxProfitReduction);
+   inventoryEliminations.push({request:inventoryRequest,result:inventory});
+  }
+  if(later){
+   const subsidiaryAccounts=new Set(basis.fairValueAdjustments.map(item=>item.accountId));
+   const subsidiarySource=carrySources?.rawSources.find(source=>source.organizationId===subsidiaryId);
+   // A fair-value difference can be assigned to a reporting control account.
+   // Treat activity on any child of that control as activity on the balance.
+   for(const account of subsidiarySource?.accounts??[]){
+    if(account.reportingCode&&subsidiaryAccounts.has(account.reportingCode))subsidiaryAccounts.add(account.id);
+   }
+   const assetDifferences=basis.fairValueAdjustments.filter(item=>item.kind==='ASSET');
+   if(assetDifferences.length||basis.depreciationSchedules.length){
+    const schedule=acquisitionUpliftDepreciation(basis.fairValueAdjustments,basis.depreciationSchedules,basis.date,query.to);
+    if(!schedule||assetDifferences.some(item=>!subsidiarySource?.accounts.some(account=>
+     account.id===item.accountId&&(account.reportingCode??account.id)==='1500')))
+     return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'SUBSEQUENT_ASSET_MEASUREMENT_REQUIRED'};
+    const tax=acquisitionDeferredTaxReversals(basis.fairValueAdjustments,basis.depreciationSchedules,basis.date,query.to,!basis.noDeferredTaxRequired);
+    if(!tax)return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'DEFERRED_TAX_SCHEDULE_REQUIRED'};
+    for(const item of tax){
+     deferredTaxReversal=deferredTaxReversal.plus(item.reversal);
+     deferredTaxAdjustments.push({...item,subsidiaryId,subsidiaryName:record.subsidiaryName});
+    }
+    for(const item of schedule){
+     depreciation=depreciation.plus(item.charge);
+     depreciationAdjustments.push({...item,subsidiaryId,subsidiaryName:record.subsidiaryName});
+    }
+   }
+   const parentJournals=ledgers.get(query.organization)?.source.journals;
+   const subsidiaryLedger=ledgers.get(subsidiaryId);
+   const subsidiaryJournals=subsidiaryLedger?.source.journals;
+   const touchesAfter=(entries:NonNullable<typeof parentJournals>,accounts:Set<string>)=>entries.some(journal=>
+    journal.date>basis.date&&journal.lines.some(line=>accounts.has(line.accountId)));
+   if(!parentJournals||!subsidiaryJournals||!subsidiarySource||
+     touchesAfter(parentJournals,new Set([accountId]))||touchesAfter(subsidiaryJournals,subsidiaryAccounts))
+    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'SUBSEQUENT_ACCOUNT_MOVEMENT'};
+   if(basis.ordinaryDividend&&new Money(record.calculation.nciPercent).isZero())
+    return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'DIVIDEND_OWNERSHIP_UNSUPPORTED'};
+   if(!new Money(record.calculation.nciPercent).isZero()){
+    if(!subsidiaryLedger||!carrySources)throw Error('GROUP_ACQUISITION_POSITION_SOURCE_REQUIRED');
+    const equityAccounts=new Set(subsidiarySource.accounts.filter(account=>account.kind==='EQUITY').map(account=>account.id));
+    const bookResult=new Money(subsidiaryLedger.statements.income.netProfit);
+    const closingBookEquity=new Money(subsidiaryLedger.statements.position.equity);
+    let dividend:ReturnType<typeof verifyOrdinaryDividend>=null;
+    if(basis.ordinaryDividend){
+     const parentSource=carrySources.rawSources.find(source=>source.organizationId===query.organization);
+     if(parentSource)dividend=verifyOrdinaryDividend(
+      {...parentSource,journals:parentJournals},{...subsidiarySource,journals:subsidiaryJournals},
+      basis.ordinaryDividend,basis.date,query.to,record.calculation.nciPercent,
+     );
+     if(!dividend||usedParentDividendEvents.has(dividend.parentEventId))
+      return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'DIVIDEND_SOURCE_UNRECONCILED'};
+     usedParentDividendEvents.add(dividend.parentEventId);
+     dividendEliminations.push({...dividend,subsidiaryId,subsidiaryName:record.subsidiaryName});
+     parentDividendEliminated=parentDividendEliminated.plus(dividend.parentDividend);
+     internalDividendOutstanding=internalDividendOutstanding.plus(dividend.parentOutstanding);
+    }
+    const ordinaryDividends=dividend?.ordinaryDividends??'0.0000';
+    if(touchesAfter(subsidiaryJournals.filter(journal=>journal.id!==dividend?.subsidiaryEventId),equityAccounts)||
+      !closingBookEquity.minus(basis.subsidiaryBookEquity).eq(bookResult.minus(ordinaryDividends)))
+     return {status:'ACQUISITION_POSITION_UNAVAILABLE' as const,query,reason:'NCI_OTHER_EQUITY_MOVEMENTS_UNSUPPORTED'};
+    const subsidiaryDepreciation=depreciationAdjustments.filter(item=>item.subsidiaryId===subsidiaryId)
+     .reduce((total,item)=>total.plus(item.charge),new Money(0));
+    const subsidiaryTaxReversal=deferredTaxAdjustments.filter(item=>item.subsidiaryId===subsidiaryId)
+     .reduce((total,item)=>total.plus(item.reversal),new Money(0));
+    const adjustedProfit=bookResult.minus(subsidiaryDepreciation).plus(subsidiaryTaxReversal)
+     .minus(subsidiaryInventoryProfitReduction).toFixed(4);
+    const attribution=attributeGroupNonControllingInterests(carrySources.control,{
+     parentOrganizationId:query.organization,subsidiaryOrganizationId:subsidiaryId,currency:base.currency,
+     from:query.from,to:query.to,openingNci:basis.acquisitionNci,adjustedProfit,
+     oci:[],ordinaryDividends,ownershipChanges:false,otherEquityChanges:false,goodwillImpairment:'0.0000',
+     instruments:'ORDINARY_PROPORTIONATE',sourceEvidence:'VERIFIED_ACQUISITION_AND_SUBSIDIARY_LEDGER',
+    },base.currency);
+    if(!new Money(attribution.nciPercent).eq(record.calculation.nciPercent))
+     throw Error('GROUP_ACQUISITION_CONTROL_CHANGED');
+    profitToNci=profitToNci.plus(attribution.profit.nci);
+    dividendsToNci=dividendsToNci.plus(attribution.dividends.nci);
+    nciAttribution.push({subsidiaryId,subsidiaryName:record.subsidiaryName,openingNci:attribution.openingNci,
+     adjustedProfit,profitToNci:attribution.profit.nci,dividendToNci:attribution.dividends.nci,closingNci:attribution.closingNci});
+   }
+
+  }
+  let netDifference=new Money(0);
+  for(const item of basis.fairValueAdjustments){
+   const delta=new Money(item.adjustment);
+   if(item.kind==='ASSET')fairValueAssets=fairValueAssets.plus(delta);
+   else fairValueLiabilities=fairValueLiabilities.plus(delta);
+   netDifference=netDifference.plus(item.kind==='ASSET'?delta:delta.negated());
+   fairValueAdjustments.push({...item,subsidiaryName:record.subsidiaryName,subsidiaryId});
+  }
+  if(!netDifference.eq(basis.fairValueLessBookEquity))throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
+  goodwill=goodwill.plus(basis.acquisitionGoodwill);
+  investment=investment.plus(balance);
+  bookEquity=bookEquity.plus(basis.subsidiaryBookEquity);
+  nci=nci.plus(basis.acquisitionNci);
+ }
+ const inventoryAfterTax=inventoryMargin.minus(inventoryDeferredTax);
+ const assetDelta=goodwill.plus(fairValueAssets).minus(investment).minus(depreciation).minus(internalDividendOutstanding).minus(inventoryAfterTax);
+ const equityDelta=nci.minus(bookEquity).minus(depreciation).plus(deferredTaxReversal).minus(inventoryAfterTax);
+ const liabilityDelta=fairValueLiabilities.minus(deferredTaxReversal).minus(internalDividendOutstanding);
+ if(!assetDelta.eq(liabilityDelta.plus(equityDelta)))throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
+ function apply(row:{key:string;before:string;after:string},delta:Decimal){
+  const before=combined?row.before:row.after;
+  const after=new Money(row.after).plus(delta);
+  return {key:row.key,before,adjustment:after.minus(before).toFixed(4),after:after.toFixed(4)};
+ }
+ const rows=base.position.filter(row=>row.key!=='fiscalProfit').map(row=>{
+  const adjustment=row.key==='assets'?assetDelta:row.key==='equity'?equityDelta:liabilityDelta;
+  return apply(row,adjustment);
+ });
+ const income=base.income.map(row=>{
+  const adjustment=row.key==='operatingExpenses'?depreciation:
+   row.key==='costOfSales'?inventoryCost.negated():
+   row.key==='tax'?deferredTaxReversal.plus(inventoryDeferredTax).negated():
+   row.key==='netProfit'?deferredTaxReversal.minus(depreciation).minus(parentDividendEliminated).minus(inventoryAfterTax):
+   row.key==='operatingProfit'?depreciation.plus(parentDividendEliminated).plus(inventoryMargin).negated():
+   row.key==='revenue'?parentDividendEliminated.plus(inventoryRevenue).negated():
+   row.key==='grossProfit'?parentDividendEliminated.plus(inventoryMargin).negated():new Money(0);
+  return apply(row,adjustment);
+ });
+ const internalPayments=dividendEliminations.flatMap(item=>item.internalCash?[item.internalCash]:[]);
+ const dividendCash=eliminateDividendCashPayments(base.cash,internalPayments);
+ const cash=combined?base.cash.map((row,index)=>apply(row,new Money(dividendCash[index]?.adjustment??0))):dividendCash;
+ const periodProfit=new Money(income.find(row=>row.key==='netProfit')!.after);
+ const profitAttribution=nciAttribution.length?{
+  total:periodProfit.toFixed(4),parent:periodProfit.minus(profitToNci).toFixed(4),nci:profitToNci.toFixed(4),
+ }:null;
+ const closing=(key:string)=>new Money(rows.find(row=>row.key===key)!.after);
+ if(!closing('assets').eq(closing('liabilities').plus(closing('equity'))))
+  throw Error('GROUP_ACQUISITION_POSITION_UNRECONCILED');
+ if(carrySources)assertStableFinancialReplay(carrySources,await liveRegisteredGroupEvidence(query));
+ for(const inventory of inventoryEliminations)
+  assertStableFinancialReplay(inventory.result,await liveInventoryMarginReview(inventory.request));
+ assertStableFinancialReplay(worksheet,await readApprovedGroupEliminations(query));
+ assertStableFinancialReplay(approved,await readApprovedGroupAcquisitions(query));
+ return {status:later?'ACQUISITION_CARRY_FORWARD_POSITION_REVIEW' as const:'ACQUISITION_DAY_POSITION_REVIEW' as const,query,currency:base.currency,rows,
+  approval:worksheet.approval,memberIds:base.memberIds,statementCash:cash.length?cash:base.cash,
+  acquisitionRecordIds:approved.rows.map(record=>record.id),
+  eliminationBatchVersion:combined?worksheet.approval.version:null,
+  investmentEliminated:investment.toFixed(4),subsidiaryEquityEliminated:bookEquity.toFixed(4),
+  goodwill:goodwill.toFixed(4),nciAtAcquisition:nci.toFixed(4),fairValueAdjustments,depreciationAdjustments,deferredTaxAdjustments,income,cash,
+  nciAttribution,profitAttribution,dividendEliminations,closingNci:nci.plus(profitToNci).minus(dividendsToNci).toFixed(4),
+  inventoryEliminations:inventoryEliminations.map(item=>item.result),
+  closingParentEquity:closing('equity').minus(nci).minus(profitToNci).plus(dividendsToNci).toFixed(4)};
+}

@@ -1,0 +1,71 @@
+{
+  "description": "Observed disposable full-schema run 43696941793, artifact 14155315800. Native close and frozen center reports, historical names, authorization and exports passed. Hosted unapplied.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_closed_dimension_evidence.captured_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_closed_dimension_evidence.closure_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_closed_dimension_evidence.evidence",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_closed_dimension_evidence.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_closed_dimension_evidence.source_revision",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_closed_dimension_evidence.financial_closed_dimension_evidence_closure_id_fkey",
+      "fingerprint": "c81ad525037d081b88bf2ce04e495922"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_closed_dimension_evidence.financial_closed_dimension_evidence_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_closed_dimension_evidence.financial_closed_dimension_evidence_pkey",
+      "fingerprint": "b246a4583e89a42dfeb2af8537d0a6ff"
+    },
+    {
+      "category": "function",
+      "object_key": "private.capture_financial_closed_dimensions()",
+      "fingerprint": "ea22406ec09874c65c574a2ff45b84c1"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_closed_dimension_context(p_org uuid, p_from date, p_to date)",
+      "fingerprint": "ede5137ba553318d61f0e3b16c9bea95"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_closed_dimension_evidence.financial_closed_dimension_evidence_pkey",
+      "fingerprint": "c119e20b4628ed00fa4ca10451f36d18"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_closed_dimension_evidence",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_year_closures.financial_capture_closed_dimensions",
+      "fingerprint": "eca691b0689ea2314197b72eefcf7ddc"
+    }
+  ]
+}
