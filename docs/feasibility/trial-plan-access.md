@@ -37,3 +37,13 @@ The subscription acceptance workflow also exercises the real disposable Auth, AP
 Migration `20261118174233_feasibility_trial_and_plan_entitlements.sql` replaces three resolver functions. It performs no customer-row updates. Earlier migration files remain intact.
 
 QA V2 requires its existing compatibility workspace RPC, the new migration and the matching application candidate. Production institutional rollout remains subject to the separate release approval and feature gates. Neither the migration nor a passing CI result activates a disabled production feature gate.
+
+## Approved production release
+
+User approval was received on 18 November 2026 after the QA V2 trial and package results at `efe840d0d4b7491ed57794c1e0e41f9e64a491b6`. The release integrates main `d4c12a1dcaed74ee5ed78d0d03a52679094ad0b9` and retains the implementation ancestry of PR #437 within PR #438.
+
+The integrated source passed TypeScript and 1,987 repository tests, with one existing skip. The release candidate requires exact-commit CI and the coordinated production merge through #426.
+
+Production preflight confirmed that the foundation and self-service migrations are already installed. Apply only the subsequent organization sharing, sharing permissions, share proposals, share audit, evidence documents and trial/plan resolver migrations in canonical order. Verify stored-data hashes and canonical migration versions before activating institutional trial/package access.
+
+The rollout covers the two general templates, institutional portfolios and the approved trial/package behavior. External invitation and sharing rollout gates retain their separate release controls. Visual differences remain recorded in `royal-design-parity.md`.
