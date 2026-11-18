@@ -438,6 +438,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.getByRole('button',{name:'New study',exact:true}).click();
    await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA local-only restore control');
    await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   await page.getByRole('button',{name:'Overview',exact:true}).click();
    const local=page.getByRole('button',{name:/QA local-only restore control/});
    const restored=page.getByRole('button',{name:/QA Personal water copy source/});
    await local.waitFor();
