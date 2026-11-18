@@ -1,5 +1,6 @@
 'use client';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {Icon} from './FinancialReportsPilot';
 import './branch-opening-distribution.css';
 
 type Split={centerId?:string|null;branchId:string|null;debit:string;credit:string};
@@ -94,7 +95,7 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
    <header className="ob-branch-header">
     <div><h1>{dimension?t('توزيع الأرصدة الافتتاحية على المراكز','Allocate opening balances to centers'):t('توزيع الأرصدة الافتتاحية على الفروع','Allocate opening balances to branches')}</h1>
     <p>{dimension?t('توزيع بنود الافتتاحي المعتمدة على مراكز التكلفة.','Assign approved opening items to cost centers.'):t('كل سطر افتتاحي يبقى مرتبطًا بمصدره. لا يتغير القيد أو الرصيد المعتمد للمؤسسة.','Every opening line retains its source identity. Approved legal-entity balances and postings remain unchanged.')}</p></div>
-    <a href={back} className="ob-branch-link">{t('العودة إلى الأرصدة الافتتاحية','Back to opening balances')}</a>
+    <a href={back} className="ob-allocation-link ob-allocation-back"><Icon name="left" size={16}/>{t('العودة إلى الأرصدة الافتتاحية','Back to opening balances')}</a>
    </header>
    <div className="ob-branch-notice">{dimension?t('للتعديل، أنشئ مسودة تصحيحية. تظل التقارير على آخر توزيع معتمد حتى اعتماد المسودة الجديدة.','Create a correction draft to edit. Reports use the last approved allocation until the new draft is approved.'):t('المراجعة هنا تخص توزيع الافتتاحي فقط؛ قوائم الفروع لا تصبح معتمدة حتى اكتمال مطابقة القيود والتسويات الداخلية والصلاحيات.','This approves opening attribution only. Branch statements require complete posted-journal attribution, interbranch reconciliation and permissions.')}</div>
    {dimension&&<p><a href={`/${locale}/settings/structure?organization=${encodeURIComponent(organization)}`}>{t('إدارة ارتباط المراكز بالفروع','Manage center branch assignments')}</a> · {t('اختيار المركز يحدد فرعه بحسب الارتباط المعتمد في بداية السنة.','Selecting a center sets its branch from the approved assignment at fiscal start.')}</p>}
