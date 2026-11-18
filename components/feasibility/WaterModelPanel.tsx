@@ -1,5 +1,5 @@
 'use client';
-import {useMemo,type ReactNode} from 'react';
+import {useId,useMemo,type ReactNode} from 'react';
 import {emptyWaterOperationsPlan,emptyWaterUnitCosts,evaluateWater,waterOperationalRequirements,waterProductionBalance,waterVariableCostBreakdown,type WaterModel} from '@/lib/feasibility/water-model';
 import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
 import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
@@ -124,6 +124,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  onChange:(water:WaterModel)=>void;allowExport?:boolean;
 }){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
+ const distributionLabelId=useId();
  const fmt=(value:number|null)=>value===null||!Number.isFinite(value)?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
  const money=(value:number|null)=>value===null?'—':fmt(value)+(currency?' '+currency:'');
  const percentage=(value:number|null)=>value===null?'—':fmt(value)+'%';
@@ -369,8 +370,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
       {operationFields.slice(7,10).map(item=>field('ops',item))}
       {collectionPeriod()}
       {tab==='operations'&&planNumber('returnsPct',['المرتجعات %','Returns %'],100)}
-      {tab==='operations'&&<label className="fs-field"><span>{l('قناة التوزيع','Distribution channel')}</span>
-       <select value={plan.distributionChannel??''} onChange={event=>updatePlan({
+      {tab==='operations'&&<label className="fs-field"><span id={distributionLabelId}>{l('قناة التوزيع','Distribution channel')}</span>
+       <select aria-labelledby={distributionLabelId} value={plan.distributionChannel??''} onChange={event=>updatePlan({
         distributionChannel:distributionOptions.find(([key])=>key===event.currentTarget.value)?.[0],
        })}>
         <option value="">{l('اختر القناة','Select channel')}</option>
