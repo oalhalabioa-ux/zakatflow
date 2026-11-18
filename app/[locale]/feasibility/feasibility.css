@@ -509,3 +509,11 @@
 .fs-royal-water-layout .fs-royal-water-sales-table { max-width: 100%; overflow-x: auto; }
 .fs-royal-water-layout .fs-royal-water-sales-table .fs-table { min-width: max(100%, 42rem); }
 .fs-royal-water-sales-table:focus-visible { outline: 2px solid var(--fs-green); outline-offset: -2px; }
+
+.fs-royal-water-production-intro { margin: 0; }
+.fs-royal-water-production-inputs .fs-field output {
+ display: flex; align-items: center; min-height: 34px; min-width: 0;
+ border: 1px solid var(--fs-line); border-radius: 6px; background: #FAFBFB;
+ padding: 6px 9px; color: var(--fs-ink); box-sizing: border-box;
+}
+.fs-royal-water-forecasts > summary { padding-block: 4px; }

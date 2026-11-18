@@ -294,6 +294,14 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const operationsRows=detail==='water'?m.annual.map(year=>({
   year:year.year,requirements:waterOperationalRequirements(water,year),
  })):[];
+ const annualSales=(
+   <Panel title={l('الاستغلال والمبيعات السنوية','Annual utilization and sales')} icon="chart">
+    <Table scrollLabel={l('جدول الاستغلال والمبيعات السنوية','Annual utilization and sales table')}
+     headers={[l('السنة','Year'),l('الاستغلال %','Utilization %'),l('الكراتين المرسلة','Cartons dispatched'),l('المرتجعات','Returns'),l('صافي الكراتين المباعة','Net cartons sold'),l('المبيعات','Sales'),l('هامش المساهمة','Contribution margin'),'EBITDA']}
+     rows={m.annual.map((y,i)=>[y.year,<NumberInput key={i} label={l('استغلال السنة ','Utilization in year ')+y.year}
+      value={y.utilization} max={100} onChange={value=>updateUtilization(i,value)}/>,fmt(y.volume),fmt(y.returnedVolume),fmt(y.netVolume),money(y.revenue),money(y.revenue-y.variable),money(y.ebitda)])}/>
+   </Panel>
+ );
  const headings:Record<typeof tab,Labels>={
   overview:['مؤشرات مصنع المياه','Bottled-water diagnostics'],
   partners:['الشراكة وتمويل مصنع المياه','Water factory partnership and funding'],operations:['الإنتاج والمبيعات ومصدر المياه','Production, sales and water source'],
@@ -303,7 +311,10 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   report:['الافتراضات والتوقعات المالية','Financial assumptions and forecast']
  };
  return <section className={tab==='overview'||tab==='report'?'card fs-panel':'fs-block fs-royal-water-layout'}>
-  <h3 className="fs-royal-water-heading">{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>
+  {tab==='operations'&&!production
+   ?<p className="fs-hint fs-royal-water-production-intro">{l('تقدير إنتاج العبوات والكراتين والمبيعات والطلب على المياه.',
+    'Estimate bottle and carton output, sales, and water demand.')}</p>
+   :<h3 className="fs-royal-water-heading">{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>}
   {(tab==='overview'||tab==='report')&&<>{valuation}{tab==='overview'&&partnership}{diagnostics.length>0&&
    <ul className="fs-notes">{diagnostics.map(item=><li key={String(item)}>{item}</li>)}</ul>}</>}
   {tab==='partners'&&<>
@@ -370,6 +381,12 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
      <div className="fs-form-grid">
       {operationFields.slice(7,10).map(item=>field('ops',item))}
       {collectionPeriod()}
+      {tab==='operations'&&([
+       [l('تكلفة مواد التعبئة لكل كرتون','Packaging cost per carton'),costBreakdown?.packaging],
+       [l('تكلفة الطاقة لكل كرتون','Energy cost per carton'),costBreakdown?.electricity],
+      ] as const).map(([label,value])=><label key={label} className="fs-field"><span>{label}</span>
+       <output dir="auto">{money(value??null)}</output>
+      </label>)}
       {tab==='operations'&&planNumber('returnsPct',['المرتجعات %','Returns %'],100)}
       {tab==='operations'&&<label className="fs-field"><span id={distributionLabelId}>{l('قناة التوزيع','Distribution channel')}</span>
        <select aria-labelledby={distributionLabelId} value={plan.distributionChannel??''} onChange={event=>updatePlan({
@@ -380,11 +397,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
        </select>
       </label>}
      </div>
-     {tab==='operations'&&compactValues([
-      [l('تكلفة مواد التعبئة لكل كرتون','Packaging cost per carton'),money(costBreakdown?.packaging??null)],
-      [l('تكلفة الطاقة لكل كرتون','Energy cost per carton'),money(costBreakdown?.electricity??null)]
-     ])}
-     {fields('ops',operationFields.slice(10,13))}
+     {tab==='sector'&&fields('ops',operationFields.slice(10,13))}
     </Panel>
    </div>
    {tab==='operations'&&<div className="fs-royal-water-production-kpis">{metrics([
@@ -415,16 +428,27 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
      </p>
     </Panel>
    </div>
-   <div className="fs-royal-profile-grid">
-    {m.ready&&<RoyalBars title={l('صافي الكراتين المباعة حسب السنة','Net cartons sold by year')} locale={locale}
-     data={m.annual.map(y=>({label:fmt(y.year),value:y.netVolume}))}/>}
-    {tab==='operations'&&<Panel title={l('الطاقة والتعادل','Capacity and break-even')} icon="chart">
-     {compactValues([
-      [l('الطاقة الشهرية بالكراتين','Monthly carton capacity'),fmt(m.capacity/12)],
-      [l('الكراتين المطلوب إرسالها شهريًا للتعادل','Monthly cartons to dispatch to break even'),fmt(m.breakEven===null?null:m.breakEven/12)]
-     ])}
-    </Panel>}
-   </div>
+   {tab==='operations'&&<details className="fs-royal-shared-access fs-royal-water-forecasts">
+    <summary><RoyalIcon name="chart"/>{l('تفاصيل التوقعات والمبيعات السنوية','Forecast and annual sales details')}</summary>
+    <div className="fs-block">
+     <div className="fs-royal-profile-grid">
+      <Panel title={l('الطاقة والتعادل','Capacity and break-even')} icon="chart">
+       {compactValues([
+        [l('الطاقة الشهرية بالكراتين','Monthly carton capacity'),fmt(m.capacity/12)],
+        [l('الكراتين المطلوب إرسالها شهريًا للتعادل','Monthly cartons to dispatch to break even'),fmt(m.breakEven===null?null:m.breakEven/12)]
+       ])}
+      </Panel>
+      {m.ready&&<RoyalBars title={l('صافي الكراتين المباعة حسب السنة','Net cartons sold by year')} locale={locale}
+       data={m.annual.map(y=>({label:fmt(y.year),value:y.netVolume}))}/>}
+     </div>
+     {annualSales}
+     <Panel title={l('افتراضات التوقعات','Forecast assumptions')} icon="settings">
+      {fields('ops',operationFields.slice(10))}
+     </Panel>
+    </div>
+   </details>}
+   {tab==='sector'&&m.ready&&<RoyalBars title={l('صافي الكراتين المباعة حسب السنة','Net cartons sold by year')} locale={locale}
+    data={m.annual.map(y=>({label:fmt(y.year),value:y.netVolume}))}/>}
    </>}
    {production&&<>
     <div className="fs-royal-water-kpis">{metrics([
@@ -514,15 +538,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
       ])}>{l('تصدير الاحتياجات CSV','Export requirements CSV')}</button></div>}
     </Panel>
    </>}
-   <Panel title={l('الاستغلال والمبيعات السنوية','Annual utilization and sales')} icon="chart">
-    <Table scrollLabel={l('جدول الاستغلال والمبيعات السنوية','Annual utilization and sales table')}
-     headers={[l('السنة','Year'),l('الاستغلال %','Utilization %'),l('الكراتين المرسلة','Cartons dispatched'),l('المرتجعات','Returns'),l('صافي الكراتين المباعة','Net cartons sold'),l('المبيعات','Sales'),l('هامش المساهمة','Contribution margin'),'EBITDA']}
-     rows={m.annual.map((y,i)=>[y.year,<NumberInput key={i} label={l('استغلال السنة ','Utilization in year ')+y.year}
-      value={y.utilization} max={100} onChange={value=>updateUtilization(i,value)}/>,fmt(y.volume),fmt(y.returnedVolume),fmt(y.netVolume),money(y.revenue),money(y.revenue-y.variable),money(y.ebitda)])}/>
-   </Panel>
-   {tab==='operations'&&detail!=='water'&&<Panel title={l('افتراضات التوقعات','Forecast assumptions')} icon="settings">
-    {fields('ops',operationFields.slice(13))}
-   </Panel>}
+   {(tab==='sector'||production)&&annualSales}
   </>}
   {tab==='scenarios'&&<>
    {detail==='scenario'&&<div className="fs-royal-scenario-cards">{water.scenarios.map((scenario,index)=>{
