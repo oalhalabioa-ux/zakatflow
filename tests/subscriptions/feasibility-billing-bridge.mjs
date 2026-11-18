@@ -271,8 +271,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const companyAPI=corporateAppUrl+'/api/feasibility/organization-projects?organization='+org;
    const trialAccess=await context.request.get(companyAPI);
    assert.equal(trialAccess.status(),200);
-   assert.equal((await trialAccess.json()).canWrite,false,'A trial without the module cannot write');
-   enableCompanyFeasibility(org);
+   assert.equal((await trialAccess.json()).canWrite,true,'An active company trial includes feasibility');
    phase(caseName,'organization-navigation');
    const got=page.waitForResponse(r=>{
     const u=new URL(r.url());
