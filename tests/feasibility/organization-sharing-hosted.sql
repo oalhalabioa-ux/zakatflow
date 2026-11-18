@@ -26,7 +26,7 @@ begin
   current_period_end=now()+interval '1 year',entitlements='["module:feasibility"]' where organization_id=source_org;
  -- These receivers deliberately have an expired trial, so the non-subscriber
  -- sharing limit remains exercised after valid trials gain module access.
- update public.platform_subscriptions set trial_ends_at=now()-interval '1 day',status='expired'
+ update public.platform_subscriptions set trial_started_at=now()-interval '31 days',trial_ends_at=now()-interval '1 day',status='expired'
   where organization_id in (free_org,other_org);
  update private.feasibility_org_feature_switch set enabled=true where singleton;
 
