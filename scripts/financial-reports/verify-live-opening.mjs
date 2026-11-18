@@ -879,7 +879,19 @@ try{
   const openingContext=await a.client.rpc('financial_opening_workspace',{p_org:organization,p_fiscal_start:'2026-01-01'});assert.ifError(openingContext.error);const openingWorkspace=openingContext.data.workspace;
   const distribution=await a.client.rpc('save_financial_dimensional_opening',{p_org:organization,p_fiscal_start:'2026-01-01',p_expected_version:0,p_opening_workspace:openingWorkspace.id,p_opening_version:openingWorkspace.version,p_entries:Object.fromEntries(openingWorkspace.approved_opening.map(row=>[row.itemId,[{branchId:null,centerId:null,debit:row.debit,credit:row.credit}]])),p_reason:'QA exact original opening attribution'});assert.ifError(distribution.error);
   const approvedDistribution=await a.client.rpc('approve_financial_dimensional_opening',{p_distribution:distribution.data.id,p_expected_version:distribution.data.version});assert.ifError(approvedDistribution.error);
-  await page.goto(app+'/en/opening-balances/centers?organization='+organization+'&fiscalStart=2026-01-01');
+  for(const target of ['branches','centers']){
+   await page.goto(app+'/en/opening-balances/'+target+'?organization='+organization+'&fiscalStart=2026-01-01');
+   const scopeControls=page.getByRole('group',{name:'Workspace scope',exact:true});
+   await scopeControls.getByRole('button',{name:'Business',exact:true}).waitFor();
+   await page.waitForFunction(()=>document.querySelector('.corp-workspace-scope button[aria-pressed="true"]')?.textContent?.includes('Business'));
+   assert.equal(await scopeControls.getByRole('button',{name:'Personal',exact:true}).getAttribute('aria-pressed'),'false');
+   const selectedOrganization=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
+   await selectedOrganization.locator('option[value="'+organization+'"]').waitFor({state:'attached'});
+   assert.equal(await selectedOrganization.inputValue(),organization);
+   const returnLink=page.getByRole('link',{name:'Back to opening balances',exact:true});
+   assert.equal(new URL(await returnLink.getAttribute('href'),app).searchParams.get('organization'),organization);
+   assert.equal(new URL(await returnLink.getAttribute('href'),app).searchParams.get('scope'),'ORGANIZATION');
+  }
   await page.getByLabel('Reason for correction draft',{exact:true}).fill('QA unfinished center allocation');
   await page.getByRole('button',{name:'Create correction draft',exact:true}).click();
   const allocationCenter=page.getByRole('combobox',{name:'Cost center',exact:true}).first();await allocationCenter.waitFor();await allocationCenter.selectOption(first);
