@@ -104,6 +104,37 @@ export function partitionPersonalCloudRows(
  return {owned,shared};
 }
 
+/** Keep local drafts and merge only owned cloud copies with missing IDs.
+ * A divergent copy must never acquire the cloud revision for a later write. */
+export function mergePersonalCloudDrafts(
+ local:FeasibilityStudy[],rows:SavedCloudDraft[],userId:string,selectedId:string
+){
+ const partition=partitionPersonalCloudRows(rows,userId);
+ if(!partition)return null;
+ const localById=new Map(local.map(study=>[study.id,study]));
+ const restored:FeasibilityStudy[]=[];
+ const synchronized:SavedCloudDraft[]=[];
+ let conflicts=0;
+ // JSONB can change object key order. Keep array order significant.
+ const orderedJson=(value:unknown)=>JSON.stringify(value,(_key,entry:unknown)=>
+  object(entry)?Object.fromEntries(Object.keys(entry).sort().map(key=>[key,entry[key]])):entry);
+ for(const row of partition.owned){
+  const existing=localById.get(row.id);
+  if(!existing)restored.push(row.study);
+  else if(orderedJson(existing)!==orderedJson(row.study)){
+   conflicts++;
+   continue;
+  }
+  synchronized.push(row);
+ }
+ if(local.length+restored.length>300)return null;
+ const studies=[...local,...restored];
+ return {
+  studies,selectedId:localById.has(selectedId)?selectedId:studies[0]?.id??'',
+  synchronized,restoredCount:restored.length,conflicts
+ };
+}
+
 /** Append a validated copy without replacing existing IDs or importing server ownership. */
 export function appendImportedStudies(
  existing:FeasibilityStudy[],imports:FeasibilityStudy[],newId:()=>string

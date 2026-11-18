@@ -29,7 +29,7 @@ import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,createRawLandStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
 import {importWaterBackup} from '@/lib/feasibility/water-backup';
 import {importRawLandBackup} from '@/lib/feasibility/raw-land-backup';
-import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
+import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -216,7 +216,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    }
   }catch{
    setStorageSafe(false);
-   setNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استعادة نسخة JSON سليمة أو مسودات QA V2.','Local study data are invalid and will not be overwritten. Restore a valid JSON backup or QA V2 copy.'));
+   setNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استرجاع مسودات QA V2 من ملف متصفح آخر.','Local study data are invalid and will not be overwritten. Use another browser profile to restore your QA V2 drafts.'));
   }
   setHydratedStorageKey(storageKey);
   setLoaded(true);
@@ -291,27 +291,38 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    setOrganizationReload(n=>n+1);
    return;
   }
-  if(cloudBusy)return;
+  if(cloudBusy||!loaded||hydratedStorageKey!==storageKey)return;
   const requestedUser=userId;
-  if(studies.length&&!window.confirm(txt(ar,'سيتم استبدال المسودات المحلية بمسودات QA المحفوظة؛ صدّر نسخة احتياطية أولًا. متابعة؟','This replaces local drafts with saved QA copies. Export a backup first. Continue?')))return;
   setCloudBusy(true);
   try{
    const response=await fetch('/api/feasibility/projects',{cache:'no-store'});
-   if(!response.ok)throw new Error('READ_FAILED');
+   if(!response.ok)throw Error('READ_FAILED');
    const rows=parseCloudStudyRows(await response.json());
-   if(!rows)throw new Error('INVALID_RESPONSE');
-   if(currentUserRef.current!==requestedUser)return;
-   const partition=partitionPersonalCloudRows(rows,requestedUser);
-   if(!partition)throw Error('INVALID_OWNER_CONTEXT');
-   // Never merge a collaborator's editable JSON document into a PERSONAL cache.
-   const own=partition.owned,documents=own.map(x=>x.study);
-   setStudies(documents);setSelectedId(documents[0]?.id??'');setSharedSelectedId('');setStorageSafe(true);setTab('overview');
-   setCloudRevisions(Object.fromEntries(own.map(x=>[x.id,x.revision])));
-   setCloudSavedStudyVersions(Object.fromEntries(own.map(x=>[x.id,x.study.updatedAt])));
-   setCloudOwnerIds(Object.fromEntries(own.map(x=>[x.id,x.owner_user_id])));
-   setNotice(txt(ar,'تم استرجاع الدراسات المملوكة لك فقط؛ الدراسات المشتركة تظهر بقائمة مستقلة.','Only your own drafts were restored; shared studies appear in a separate list.'));
-  }catch{setNotice(txt(ar,'تعذر استرجاع المسودات من QA. لم تُغيّر البيانات المحلية.','Could not restore QA drafts; local data were not changed.'))}
-  finally{setCloudBusy(false)}
+   if(!rows)throw Error('INVALID_RESPONSE');
+   if(currentUserRef.current!==requestedUser||!personalScopeRef.current)return;
+   // Read after the request to preserve any changes made while it was in flight.
+   const stored=localStorage.getItem(storageKey);
+   const current=stored===null?{studies,selectedId}:parseLocalStudyCache(JSON.parse(stored));
+   const merged=current&&mergePersonalCloudDrafts(current.studies,rows,requestedUser,current.selectedId);
+   if(!merged)throw Error('INVALID_CACHE_OR_LIMIT');
+   if(merged.restoredCount){
+    localStorage.setItem(storageKey,JSON.stringify({
+     version:1,studies:merged.studies,selectedId:merged.selectedId
+    }));
+   }
+   setStudies(merged.studies);setSelectedId(merged.selectedId);setSharedSelectedId('');
+   setCloudRevisions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.revision])));
+   setCloudSavedStudyVersions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.study.updatedAt])));
+   setCloudOwnerIds(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.owner_user_id])));
+   setNotice(merged.conflicts
+    ?txt(ar,`أُضيفت ${merged.restoredCount} من المسودات السحابية. احتُفظ بالنسخ المحلية عند اختلافها (${merged.conflicts}).`,
+     `Added ${merged.restoredCount} cloud drafts. Kept the local versions of ${merged.conflicts} differing drafts.`)
+    :txt(ar,`أُضيفت ${merged.restoredCount} من المسودات السحابية. احتُفظ بجميع المسودات المحلية.`,
+     `Added ${merged.restoredCount} cloud drafts. All local drafts were kept.`));
+  }catch{
+   if(currentUserRef.current===requestedUser&&personalScopeRef.current)
+    setNotice(txt(ar,'تعذر استرجاع المسودات من QA. تحقّق من الاتصال وسلامة المسودات المحلية وحدّ المحفظة.','Could not restore QA drafts. Check the connection, local drafts and portfolio limit.'));
+  }finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}
  };
  const saveCloud=async()=>{
   if(!personalScope){
@@ -377,7 +388,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    if(currentUserRef.current!==requestedUser)return;
    const conflict=e instanceof Error&&e.message==='CONFLICT';
    setSaveIssue({kind:conflict?'conflict':'save-error',studyId:study.id,scopeId:'personal',userId:requestedUser,
-    message:conflict?txt(ar,'توجد نسخة أحدث أو مسودة مطابقة على QA؛ احفظ نسخة JSON ثم استرجع المسودات قبل إعادة الحفظ.','A newer or duplicate QA draft exists. Export JSON, restore cloud copies and review before retrying.'):
+    message:conflict?txt(ar,'تعذر حفظ هذه النسخة بسبب تعارض مع نسخة QA. صدّر المسودة المحلية بصيغة JSON قبل مراجعة النسخة السحابية.','A version conflict prevented saving. Export the local draft as JSON before reviewing the cloud version.'):
      txt(ar,'تعذر الحفظ في QA. احتفظ بنسخة JSON من بياناتك.','QA save failed. Keep a JSON backup.')});
   }
   finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}

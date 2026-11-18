@@ -632,8 +632,22 @@ try {
     const modal=page.getByRole('dialog');await modal.waitFor();assert.equal(await modal.locator('select[name="action"]').count(),1);await modal.getByLabel('Action',{exact:true}).selectOption('activate');await modal.getByLabel('Administrative reason',{exact:true}).fill('Manual activation regression acceptance');await modal.getByLabel('Paid subscription end',{exact:true}).fill('2027-12-31T18:00');let submissions=0;page.on('request',r=>{if(r.url()===appUrl+'/api/admin/trials'&&r.method()==='POST')submissions++;});await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal(submissions,0);assert.equal(await modal.locator('[name="plan_id"]').evaluate(e=>e.validity.valueMissing),true);
     const catalog=(await rpc(owner,'subscription_plan_catalog',{})).data,plan=catalog.plans.find(p=>p.code==='advanced_monthly');await modal.locator('[name="plan_id"]').selectOption(plan.id);assert.equal(await modal.locator('[name="max_users"]').inputValue(),'15');const saved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/trials'&&r.request().method()==='POST');await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal((await saved).status(),200);const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.plan_id,plan.id);assert.equal(state.max_users,15);await context.close();
   });
+  // Install the QA V2 entitlement RPC and policies before either browser suite uses them.
+  const strip = value => value.replace(/^begin;\s*/i, '').replace(/commit;\s*$/i, '');
+  const migrationFiles = [
+    'docs/feasibility/qa-v2-sharing-compatibility.sql',
+    'supabase/migrations/20261116194423_feasibility_organization_sharing.sql',
+    'docs/feasibility/qa-v2-sharing-compatibility-workspace.sql',
+  ];
+  sql('begin;\n' + (await Promise.all(migrationFiles.map(load))).map(strip).join('\n') + "\nnotify pgrst,'reload schema';\ncommit;");
+  const enableCompanyFeasibility = orgId => {
+    assert.match(orgId, /^[a-f0-9-]{36}$/);
+    sql(`update public.platform_subscriptions set status='active',converted_at=now(),
+      current_period_end=now()+interval '30 days',entitlements='["module:feasibility"]'
+      where organization_id='${orgId}';`);
+  };
   await (await import('./feasibility-billing-bridge.mjs')).runFeasibilityBillingAB({
-    browser,cookies,appUrl,url,owner,outsider:clients[7],headers,check
+    browser,cookies,appUrl,url,owner,outsider:clients[7],headers,check,enableCompanyFeasibility
   });
   await check('settings separates account and users; organization switching preserves subscription scope and account preferences persist',async()=>{
     const jar=[];
@@ -849,19 +863,14 @@ try {
     const recipient = clients[7];
     const sourceOrg = await makeOrg(owner, 'Sharing browser source');
     const recipientOrg = await makeOrg(recipient, 'Sharing browser recipient');
-    sql(`update public.platform_subscriptions set status='active',converted_at=now(),
-      current_period_end=now()+interval '30 days',entitlements='["module:feasibility"]'
-      where organization_id in ('${sourceOrg}','${recipientOrg}');`);
-    const strip = value => value.replace(/^begin;\s*/i, '').replace(/commit;\s*$/i, '');
-    const migrationFiles = [
-      'docs/feasibility/qa-v2-sharing-compatibility.sql',
-      'supabase/migrations/20261116194423_feasibility_organization_sharing.sql',
-      'docs/feasibility/qa-v2-sharing-compatibility-workspace.sql',
+    enableCompanyFeasibility(sourceOrg);
+    enableCompanyFeasibility(recipientOrg);
+    const sharingMigrations = [
       'supabase/migrations/20261117024046_feasibility_sharing_permissions.sql',
       'supabase/migrations/20261117064000_feasibility_share_proposals.sql',
       'supabase/migrations/20261117134000_feasibility_organization_share_audit.sql',
     ];
-    sql('begin;\n' + (await Promise.all(migrationFiles.map(load))).map(strip).join('\n') + '\ncommit;');
+    sql('begin;\n' + (await Promise.all(sharingMigrations.map(load))).map(strip).join('\n') + "\nnotify pgrst,'reload schema';\ncommit;");
     console.log('PASS installed notification and feasibility fixtures');
     const sharingAppUrl = 'http://localhost:3002';
     const sharingServer = spawn('node', ['node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', '3002'], {

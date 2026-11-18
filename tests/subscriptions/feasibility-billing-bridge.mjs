@@ -9,7 +9,7 @@ const synthetic={
  visited:{email:'billing-after-feasibility@qa.example.test',address:'QA test address — after feasibility'},
 };
 
-export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,outsider,headers,check}){
+export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,outsider,headers,check,enableCompanyFeasibility}){
  const observations=[];
  async function newOrg(name){
   const r=await fetch(url+'/rest/v1/organizations',{
@@ -215,6 +215,11 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
   page.setDefaultTimeout(12000);
   page.setDefaultNavigationTimeout(20000);
   try{
+   const companyAPI=corporateAppUrl+'/api/feasibility/organization-projects?organization='+org;
+   const trialAccess=await context.request.get(companyAPI);
+   assert.equal(trialAccess.status(),200);
+   assert.equal((await trialAccess.json()).canWrite,false,'A trial without the module cannot write');
+   enableCompanyFeasibility(org);
    phase(caseName,'organization-navigation');
    const got=page.waitForResponse(r=>{
     const u=new URL(r.url());
@@ -325,6 +330,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
  await check('Feasibility: managed copy on mobile preserves the personal source and isolates organizations',async()=>{
   const caseName='organization-copy';
   const target=await newOrg(marker+' Copy destination');
+  enableCompanyFeasibility(target);
   const other=await newOrg(marker+' Copy isolation');
   const localApp='http://localhost:3000';
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
@@ -420,6 +426,29 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.equal(outside.status,200);
    assert.deepEqual(await outside.json(),[]);
   }finally{clearTimeout(caseGuard);await context.close().catch(()=>{});}
+ });
+ await check('Feasibility: restoring cloud studies preserves a local-only draft after reload',async()=>{
+  // A fresh browser context has no cache from the earlier personal save.
+  const context=await browser.newContext();
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
+  const page=await context.newPage();
+  page.setDefaultTimeout(12000);
+  try{
+   await page.goto(appUrl+'/en/feasibility?scope=PERSONAL');
+   await page.getByRole('button',{name:'New study',exact:true}).click();
+   await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA local-only restore control');
+   await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   const local=page.getByRole('button',{name:/QA local-only restore control/});
+   const restored=page.getByRole('button',{name:/QA Personal water copy source/});
+   await local.waitFor();
+   assert.equal(await restored.count(),0);
+   await page.getByRole('button',{name:'Restore from QA V2',exact:true}).click();
+   await page.getByText(/Added [1-9]\d* cloud drafts\. All local drafts were kept/).waitFor();
+   await restored.waitFor();
+   await page.reload();
+   await Promise.all([local.waitFor(),restored.waitFor()]);
+   assert.equal(await local.getAttribute('aria-pressed'),'true');
+  }finally{await context.close();}
  });
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{
   const r=await fetch(url+'/rest/v1/organizations?select=id,contact_email,registered_address',{
