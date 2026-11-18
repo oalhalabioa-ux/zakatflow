@@ -144,9 +144,9 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      :l('استكمل متطلبات الجاهزية المفتوحة وتحقق من الافتراضات والمستندات قبل الالتزام بالتمويل.',
         'Complete the open readiness checks and verify assumptions and evidence before committing funds.')}</p>
     {allowExport&&<div className="fs-actions">
-     <button className="fs-btn" type="button" onClick={()=>dialog.current?.showModal()}>
+     <button className="fs-btn" type="button" onClick={()=>window.print()}>{l('طباعة / PDF','Print / PDF')}</button>
+     <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>dialog.current?.showModal()}>
       <RoyalIcon name="file"/>{l('خيارات تصدير التقرير','Report export options')}</button>
-     <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>window.print()}>{l('طباعة / PDF','Print / PDF')}</button>
      <button className="fs-btn fs-btn--secondary" type="button" onClick={tasks}>{l('تصدير المهام CSV','Export tasks CSV')}</button>
     </div>}
    </section>

@@ -88,7 +88,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const [newSector,setNewSector]=useState<Sector>('INDUSTRIAL');
  const [newStarter,setNewStarter]=useState<IndustrialStarter|'RAW_LAND'>('GENERAL');
  const [scenario,setScenario]=useState<Scenario>('BASE');
- const [notice,setNotice]=useState('');
+ const [notice,setNotice]=useState<{message:string;scopeId:string;userId:string}>();
+ const setPersonalNotice=(message:string)=>setNotice({message,scopeId:'personal',userId});
  const [saveIssue,setSaveIssue]=useState<{kind:'conflict'|'save-error';message:string;studyId:string;scopeId:string;userId:string}>();
 
  const [copySelection,setCopySelection]=useState<{studyId:string;organizationId:string;userId:string}|null>(null);
@@ -216,7 +217,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    }
   }catch{
    setStorageSafe(false);
-   setNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استرجاع مسودات QA V2 من ملف متصفح آخر.','Local study data are invalid and will not be overwritten. Use another browser profile to restore your QA V2 drafts.'));
+   setPersonalNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استرجاع مسودات QA V2 من ملف متصفح آخر.','Local study data are invalid and will not be overwritten. Use another browser profile to restore your QA V2 drafts.'));
   }
   setHydratedStorageKey(storageKey);
   setLoaded(true);
@@ -224,7 +225,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  useEffect(()=>{
   if(!canPersistLocalStudyCache(loaded,storageSafe,hydratedStorageKey,storageKey))return;
   try{localStorage.setItem(storageKey,JSON.stringify({version:1,studies,selectedId}));}
-  catch{setNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}
+  catch{setPersonalNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}
  },[loaded,storageSafe,hydratedStorageKey,storageKey,studies,selectedId,ar]);
  // Account-scoped legacy drafts are never owned by the selected organization.
  const companyScopeReady=organizationLoaded&&organizationId.length>0&&organizationLoadedId===organizationId;
@@ -238,6 +239,8 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  ));
  const effectiveReadOnly=sharedStudy||(personalScope?readOnly:!organizationCanWrite||!companyScopeReady);
  const saveScopeId=personalScope?'personal':organizationId;
+ const visibleNotice=notice?.scopeId===saveScopeId&&notice.userId===userId?notice.message:undefined;
+ const setCompanyNotice=(message:string)=>setNotice({message,scopeId:organizationId,userId});
  const visibleSaveIssue=saveIssue?.scopeId===saveScopeId&&saveIssue.studyId===study?.id&&saveIssue.userId===userId
   ?saveIssue:undefined;
  const copyRevision=study&&cloudOwnerIds[study.id]===userId&&cloudSavedStudyVersions[study.id]===study.updatedAt
@@ -247,11 +250,11 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
  const openCopy=()=>{
   if(!study)return;
   if(!organizationId){
-   setNotice(txt(ar,'اختر المؤسسة المستقبلة من البانر الرئيسي أولًا.','Select the receiving organization in the main banner first.'));
+   setPersonalNotice(txt(ar,'اختر المؤسسة المستقبلة من البانر الرئيسي أولًا.','Select the receiving organization in the main banner first.'));
    return;
   }
   if(copyRevision===undefined){
-   setNotice(txt(ar,'احفظ الإصدار الحالي من الدراسة شخصيًا في السحابة لتأكيد الملكية قبل النسخ.','Save this version to your personal cloud portfolio to verify ownership before copying.'));
+   setPersonalNotice(txt(ar,'احفظ الإصدار الحالي من الدراسة شخصيًا في السحابة لتأكيد الملكية قبل النسخ.','Save this version to your personal cloud portfolio to verify ownership before copying.'));
    return;
   }
   setCopySelection({studyId:study.id,organizationId,userId});
@@ -314,25 +317,25 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    setCloudRevisions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.revision])));
    setCloudSavedStudyVersions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.study.updatedAt])));
    setCloudOwnerIds(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.owner_user_id])));
-   setNotice(merged.conflicts
+   setPersonalNotice(merged.conflicts
     ?txt(ar,`أُضيفت ${merged.restoredCount} من المسودات السحابية. احتُفظ بالنسخ المحلية عند اختلافها (${merged.conflicts}).`,
      `Added ${merged.restoredCount} cloud drafts. Kept the local versions of ${merged.conflicts} differing drafts.`)
     :txt(ar,`أُضيفت ${merged.restoredCount} من المسودات السحابية. احتُفظ بجميع المسودات المحلية.`,
      `Added ${merged.restoredCount} cloud drafts. All local drafts were kept.`));
   }catch{
    if(currentUserRef.current===requestedUser&&personalScopeRef.current)
-    setNotice(txt(ar,'تعذر استرجاع المسودات من QA. تحقّق من الاتصال وسلامة المسودات المحلية وحدّ المحفظة.','Could not restore QA drafts. Check the connection, local drafts and portfolio limit.'));
+    setPersonalNotice(txt(ar,'تعذر استرجاع المسودات من QA. تحقّق من الاتصال وسلامة المسودات المحلية وحدّ المحفظة.','Could not restore QA drafts. Check the connection, local drafts and portfolio limit.'));
   }finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}
  };
  const saveCloud=async()=>{
   if(!personalScope){
    if(effectiveReadOnly||!companyScopeReady||organizationBusy||!study||!organizationId)return;
    const row=organizationRecords[study.id];
-   if(!row){setNotice(txt(ar,'يجب إنشاء الدراسة المؤسسية على الخادم أولًا.','Create the study on the company server first.'));return}
+   if(!row){setCompanyNotice(txt(ar,'يجب إنشاء الدراسة المؤسسية على الخادم أولًا.','Create the study on the company server first.'));return}
    const userAtRequest=userId,orgAtRequest=organizationId,requestId=organizationRequestRef.current;
    const document=study;
    setSaveIssue(undefined);
-   setNotice('');
+   setNotice(undefined);
    setOrganizationBusy(true);
    try{
     const response=await fetch('/api/feasibility/organization-projects?organization='+
@@ -351,7 +354,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
      ...row,study:document,revision:saved.revision,
      updated_at:saved.updated_at||new Date().toISOString()
     }}));
-    setNotice(txt(ar,'حُفظت الدراسة للمؤسسة المحددة في QA V2.','Study saved for the selected QA V2 organization.'));
+    setCompanyNotice(txt(ar,'حُفظت الدراسة للمؤسسة المحددة في QA V2.','Study saved for the selected QA V2 organization.'));
    }catch(e){
     if(currentUserRef.current!==userAtRequest||
       organizationRequestRef.current!==requestId)return;
@@ -367,7 +370,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   if(effectiveReadOnly||cloudBusy||!study)return;
   const requestedUser=userId;
   setSaveIssue(undefined);
-  setNotice('');
+  setNotice(undefined);
   setCloudBusy(true);
   try{
    const revision=cloudRevisions[study.id];
@@ -383,7 +386,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    setCloudRevisions(p=>({...p,[study.id]:result.revision}));
    setCloudSavedStudyVersions(p=>({...p,[study.id]:study.updatedAt}));
    setCloudOwnerIds(p=>({...p,[study.id]:userId}));
-   setNotice(txt(ar,'حُفظت مسودة المشروع في QA V2، وهي ليست اعتمادًا نهائيًا.','Project draft saved in QA V2; this is not formal approval.'));
+   setPersonalNotice(txt(ar,'حُفظت مسودة المشروع في QA V2، وهي ليست اعتمادًا نهائيًا.','Project draft saved in QA V2; this is not formal approval.'));
   }catch(e){
    if(currentUserRef.current!==requestedUser)return;
    const conflict=e instanceof Error&&e.message==='CONFLICT';
@@ -414,10 +417,10 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
    if(!next)throw Error('invalid_cache_or_limit');
    localStorage.setItem(storageKey,JSON.stringify({version:1,...next}));
    setStudies(next.studies);setSelectedId(next.selectedId);setSharedSelectedId('');setTab('overview');
-   setNotice(land?txt(ar,'استُورد ملف الأراضي كمسودة شخصية. راجع البيانات المرجعية في تبويب الشراكة.','Imported the land file as a personal draft. Review reference data in the partnership tab.'):
+   setPersonalNotice(land?txt(ar,'استُورد ملف الأراضي كمسودة شخصية. راجع البيانات المرجعية في تبويب الشراكة.','Imported the land file as a personal draft. Review reference data in the partnership tab.'):
     txt(ar,'أُضيفت نسخة محلية إلى محفظتك الشخصية.','Added a local copy to your personal portfolio.'));
   }catch{
-   if(currentUserRef.current===userId)setNotice(txt(ar,'تعذّر إضافة النسخة. تحقّق من صيغة الملف ومساحة التخزين وحدّ الدراسات.','Could not add the backup. Check the file format, storage and portfolio limit.'));
+   if(currentUserRef.current===userId)setPersonalNotice(txt(ar,'تعذّر إضافة النسخة. تحقّق من صيغة الملف ومساحة التخزين وحدّ الدراسات.','Could not add the backup. Check the file format, storage and portfolio limit.'));
   }finally{input.value='';}
  };
  const create=async()=>{
@@ -457,7 +460,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
     revision:result.revision,updated_at:result.updated_at||new Date().toISOString()
    }}));
    setProjectName('');createDialog.current?.close();setTab('profile');
-   setNotice(txt(ar,'تم إنشاء دراسة مؤسسية ضمن الشركة المحددة.','Institutional study created within the selected organization.'));
+   setCompanyNotice(txt(ar,'تم إنشاء دراسة مؤسسية ضمن الشركة المحددة.','Institutional study created within the selected organization.'));
   }catch(e){
    if(currentUserRef.current!==requestedUser||
      organizationRequestRef.current!==requestId)return;
@@ -492,7 +495,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
   tab==='scenarios'&&water?{id:'scenario' as const,label:txt(ar,'محرر السيناريوهات','Scenario editor')}:
   tab==='legal'?{id:'evidence' as const,label:txt(ar,'أدلة التراخيص','Licensing evidence')}:
   tab==='sharing'?{id:'permissions' as const,label:txt(ar,'الصلاحيات والتدقيق','Permissions and audit')}:null;
- const openCreate=()=>{setNotice('');setCreateError('');createDialog.current?.showModal()};
+ const openCreate=()=>{setNotice(undefined);setCreateError('');createDialog.current?.showModal()};
  const closeCreate=()=>{
   if(organizationBusy)return;
   createDialog.current?.close();
@@ -551,7 +554,7 @@ export default function FeasibilityWorkspace({locale,userId,readOnly=false,organ
      'Assess investment opportunities and project funding using study inputs, risk reviews and licence checks.')}</p></div>
   </section>
   <p className="fs-warning" role="status">{!personalScope?organizationError||txt(ar,'محفظة المؤسسة مستقلة عن مسوداتك الشخصية. تُحفظ الدراسات المؤسسية بعد التحقق من عضوية المؤسسة وصلاحياتها.','The company portfolio is separate from your personal drafts. Organization studies are saved using server-verified membership and permissions.'):sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'تحفظ المسودة الشخصية في محفظتك. استخدم الحفظ السحابي لاستعادتها أو نسخها إلى مؤسسة بإذن صريح.','Save your personal draft to the cloud to restore it later or to copy it to an organization with your explicit consent.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
-  {notice&&<p className="fs-notice" role="status">{notice} <button type="button" onClick={()=>setNotice('')} aria-label={txt(ar,'إغلاق الرسالة','Dismiss message')}>×</button></p>}
+  {visibleNotice&&<p className="fs-notice" role="status">{visibleNotice} <button type="button" onClick={()=>setNotice(undefined)} aria-label={txt(ar,'إغلاق الرسالة','Dismiss message')}>×</button></p>}
   {visibleSaveIssue&&<section className="fs-royal-state" data-tone="warning" role="alert">
    <h2><RoyalIcon name="file"/>{visibleSaveIssue.kind==='conflict'?txt(ar,'تعارض في الإصدار','Revision conflict'):txt(ar,'تعذّر حفظ الدراسة','Study could not be saved')}</h2>
    <p>{visibleSaveIssue.message}</p>

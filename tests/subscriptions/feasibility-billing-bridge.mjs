@@ -59,9 +59,17 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.reload();
     await page.getByRole('button',{name:'Investment',exact:true}).click();
     assert.equal(await page.getByLabel('Construction and buildings',{exact:true}).inputValue(),'24680');
+    await page.getByRole('button',{name:'Operations',exact:true}).click();
+    const collectionPeriod=page.getByLabel('Collection period (days)',{exact:true});
+    await collectionPeriod.fill('45');
+    await page.reload();
+    await page.getByRole('button',{name:'Operations',exact:true}).click();
+    assert.equal(await collectionPeriod.inputValue(),'45');
     await page.getByRole('button',{name:'Report and export',exact:true}).click();
     const report=page.getByRole('heading',{name:'Feasibility report',exact:true});
     await report.waitFor();
+    const primaryReportAction=page.locator('[data-report-section="summary"] .fs-actions button').first();
+    assert.equal(await primaryReportAction.innerText(),'Print / PDF');
     await page.emulateMedia({media:'print'});
     try{
      assert.equal(await report.isVisible(),true);
@@ -429,12 +437,13 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
  });
  await check('Feasibility: restoring cloud studies preserves a local-only draft after reload',async()=>{
   // A fresh browser context has no cache from the earlier personal save.
+  const organization=await newOrg(marker+' Restore scope');
   const context=await browser.newContext();
   await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
   const page=await context.newPage();
   page.setDefaultTimeout(12000);
   try{
-   await page.goto(appUrl+'/en/feasibility?scope=PERSONAL');
+   await page.goto(appUrl+'/en/feasibility?scope=PERSONAL&organization='+organization+'&level=COMPANY');
    await page.getByRole('button',{name:'New study',exact:true}).click();
    await page.getByRole('textbox',{name:'New project name',exact:true}).fill('QA local-only restore control');
    await page.getByRole('button',{name:'Add project +',exact:true}).click();
@@ -444,8 +453,16 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await local.waitFor();
    assert.equal(await restored.count(),0);
    await page.getByRole('button',{name:'Restore from QA V2',exact:true}).click();
-   await page.getByText(/Added [1-9]\d* cloud drafts\. All local drafts were kept/).waitFor();
+   const personalNotice=page.getByText(/Added [1-9]\d* cloud drafts\. All local drafts were kept/);
+   await personalNotice.waitFor();
    await restored.waitFor();
+   const switcher=page.getByRole('group',{name:'Workspace scope'});
+   await switcher.getByRole('button',{name:'Business',exact:true}).click();
+   await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='ORGANIZATION');
+   await page.getByRole('heading',{name:'No studies for the selected organization',exact:true}).waitFor();
+   assert.equal(await personalNotice.count(),0,'Personal restore feedback must not appear in a company portfolio');
+   await switcher.getByRole('button',{name:'Personal',exact:true}).click();
+   await personalNotice.waitFor();
    await page.reload();
    await Promise.all([local.waitFor(),restored.waitFor()]);
    assert.equal(await local.getAttribute('aria-pressed'),'true');

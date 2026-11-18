@@ -269,6 +269,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const planNumber=(key:'pumpingM3Hour'|'sourceHoursDay'|'finishedBottleLossPct'|'collectionDays',
   labels:Labels,max:number,step?:number)=><NumberInput label={l(...labels)} value={plan[key]??0}
    max={max} step={step} onChange={value=>updatePlan({[key]:value})}/>;
+ const collectionPeriod=()=>planNumber('collectionDays',['فترة التحصيل (يوم)','Collection period (days)'],3650,1);
  const operationsRows=detail==='water'?m.annual.map(year=>({
   year:year.year,requirements:waterOperationalRequirements(water,year),
  })):[];
@@ -340,8 +341,16 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     <Panel title={l('الطاقة التشغيلية والجودة','Operating capacity and quality')} icon="factory">
      {fields('ops',operationFields.slice(0,7))}
     </Panel>
-    <Panel title={l('اقتصاديات الوحدة','Unit economics')} icon="coins">
-     {fields('ops',operationFields.slice(7,13))}
+    <Panel title={l('اقتصاديات الوحدة والمبيعات','Unit economics and sales')} icon="coins">
+     <div className="fs-form-grid">
+      {operationFields.slice(7,10).map(item=>field('ops',item))}
+      {collectionPeriod()}
+     </div>
+     {tab==='operations'&&compactValues([
+      [l('تكلفة مواد التعبئة لكل كرتون','Packaging cost per carton'),money(costBreakdown?.packaging??null)],
+      [l('تكلفة الطاقة لكل كرتون','Energy cost per carton'),money(costBreakdown?.electricity??null)]
+     ])}
+     {fields('ops',operationFields.slice(10,13))}
     </Panel>
    </div>
    {tab==='operations'&&metrics([
@@ -415,7 +424,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
        {operationFields.slice(0,4).map(item=>field('ops',item))}
        {operationFields.slice(7,9).map(item=>field('ops',item))}
        {planNumber('finishedBottleLossPct',['فاقد العبوات النهائية %','Finished bottle loss %'],100)}
-       {planNumber('collectionDays',['فترة التحصيل (يوم)','Collection period (days)'],3650,1)}
+       {collectionPeriod()}
        {logisticsFields.map(([key,ar,en,max,step])=><NumberInput key={key} label={l(ar,en)} value={plan[key]}
         max={max} step={step} onChange={value=>updatePlan({[key]:value})}/>)}
       </div>
