@@ -10,7 +10,9 @@
     "test:e2e:financial-core": "E2E_REQUIRE_CONFIG=true vitest run tests/financial-core-authenticated.e2e.test.ts",
     "typecheck": "tsc --noEmit",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "postinstall": "node scripts/guard-picomatch.cjs",
+    "audit:quality": "node scripts/audit-quality.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1139.0",
