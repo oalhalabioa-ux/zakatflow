@@ -1,4 +1,4 @@
-import {centerReportsEnabled} from './financial-center-report-rollout';
+import {centerOpeningsEnabled,centerReportsEnabled} from './financial-center-report-rollout';
 import {requireUser} from './auth';
 import {assertOpeningWorkspace,openingContext} from './financial-opening-workspace';
 import {normalizeStatementSource,statementQuery,type StatementSourceSnapshot} from '../lib/financial-statement-source';
@@ -55,7 +55,7 @@ export async function liveStatementContext(){
    ?[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:draftStart,fiscalEnd:endingForFiscalStart(draftStart)}]:[];
   const available=[...rows,...current].sort((a,b)=>b.fiscalStart.localeCompare(a.fiscalStart));
   return (available.length?available:[{organizationId:org.id,name:org.name,currency:org.base_currency,fiscalStart:'',fiscalEnd:''}])
-   .map(period=>({...period,parentOrganizationId:parents.get(org.id)??null,dimensionalCenters:centerReportsEnabled(org.id)}));
+   .map(period=>({...period,parentOrganizationId:parents.get(org.id)??null,dimensionalCenters:centerReportsEnabled(org.id),canEditCenterOpenings:centerOpeningsEnabled()}));
  });
 }
 export async function liveStatementSource(input:unknown){

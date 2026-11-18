@@ -26,7 +26,7 @@ import {financialSourceRowsCsv} from '../../lib/financial-budget-source';
 import './financial-reports-suite.css';
 import './financial-reporting-source.css';
 
-type Context={organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string;parentOrganizationId:string|null;dimensionalCenters?:boolean}[];
+type Context={organizationId:string;name:string;currency:string;fiscalStart:string;fiscalEnd:string;parentOrganizationId:string|null;dimensionalCenters?:boolean;canEditCenterOpenings?:boolean}[];
 type ReportingScope='COMPANY_DIRECT'|'COMPANY_WITH_BRANCHES'|'GROUP_WITH_SUBSIDIARIES';
 const scopeIssueLabels:Record<ScopeReadinessIssue,[string,string]>={
  CANONICAL_SOURCE_UNVERIFIED:['تغطية جميع السجلات ونسختها المرجعية غير مثبتة بعد','Complete source coverage and revision are not attested'],
@@ -47,7 +47,7 @@ async function readStatementResponse(response:Response){
  const body=await response.json().catch(()=>({error:''}));
  throw Error(response.status===401?'UNAUTHORIZED':response.status===403?'DENIED':['REPORTING_APPROVED_POLICY_REQUIRED','REPORTING_BRANCH_OPENING_REQUIRED','REPORTING_BRANCH_OPENING_STALE','REPORTING_BRANCH_SOURCE_UNRESOLVED','REPORTING_CLOSED_DIMENSIONS_UNAVAILABLE'].includes(body.error)?body.error:'UNAVAILABLE');
 }
-export default function FinancialStatementSource({initialView='income',initialEnglish=false,live=false,preferredOrg='',canEditCenterOpenings=false}:{canEditCenterOpenings?:boolean;preferredOrg?:string;initialView?:StatementHubView;initialEnglish?:boolean;live?:boolean}){
+export default function FinancialStatementSource({initialView='income',initialEnglish=false,live=false,preferredOrg=''}:{preferredOrg?:string;initialView?:StatementHubView;initialEnglish?:boolean;live?:boolean}){
  const[en,setEn]=useState(initialEnglish),[view,setView]=useState<StatementHubView>(initialView),[context,setContext]=useState<Context>([]),[organization,setOrganization]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[snapshot,setSnapshot]=useState<StatementSourceSnapshot|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[exportOpen,setExportOpen]=useState(false),[exporting,setExporting]=useState(false);
  const[branch,setBranch]=useState('ALL'),[branches,setBranches]=useState<{id:string;name:string;active:boolean}[]>([]),[branchesLoading,setBranchesLoading]=useState(false);
  const[reportScope,setReportScope]=useState<ReportingScope>('COMPANY_WITH_BRANCHES');
@@ -164,7 +164,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
   {!loading&&!error&&!organization&&<ReportCard title={t('لا توجد مصادر قوائم مصرح بها','No authorized statement sources')}><p>{t('لا يوجد مصدر متاح لصلاحياتك الحالية.','No source is available under your current permissions.')}</p>{live&&<p><a href={`/${en?'en':'ar'}/opening-balances${preferredOrg?'?organization='+encodeURIComponent(preferredOrg):''}`}>{t('إعداد واعتماد الافتتاحي','Prepare and approve opening balances')}</a> · <a href={`/${en?'en':'ar'}/financial-reporting-policy${preferredOrg?'?organization='+encodeURIComponent(preferredOrg):''}`}>{t('مراجعة قواعد الترحيل','Review posting rules')}</a></p>}</ReportCard>}
   {!centerSelected&&displayDraft&&currentDraft&&<DraftOpeningStatementPreview report={currentDraft} view={view} en={en}/>}
   {center.input.enabled&&center.failed&&!centerSelected&&<p role="status" className="fs-source-note">{t('قائمة الشركة متاحة؛ تعذر التحقق من توزيع جميع سطورها على مراكز التكلفة، لذلك لم تُفعّل تصفية المركز.','Company statements remain available; complete line-level cost-center attribution could not be verified, so center filtering is unavailable.')}</p>}
-  {centerSelected&&(view==='position'||view==='cash-flow')&&<CostCenterStatements canEditOpening={canEditCenterOpenings} input={{fiscalStart:selected?.fiscalStart??from,organization,from,to,currency:expectedCurrency,branch,center:center.value,refresh}} view={view==='position'?'position':'cash'} en={en} name={center.data?.rows.find(r=>r.centerId===(center.value==='UNALLOCATED'?null:center.value))?.name??t('غير موزع','Unallocated')}/>}
+  {centerSelected&&(view==='position'||view==='cash-flow')&&<CostCenterStatements canEditOpening={organizationContext?.canEditCenterOpenings===true} input={{fiscalStart:selected?.fiscalStart??from,organization,from,to,currency:expectedCurrency,branch,center:center.value,refresh}} view={view==='position'?'position':'cash'} en={en} name={center.data?.rows.find(r=>r.centerId===(center.value==='UNALLOCATED'?null:center.value))?.name??t('غير موزع','Unallocated')}/>}
   {centerSelected&&view==='income'&&<CostCenterReport state={center} en={en} onUnavailable={()=>{setSnapshot(null);setComparison(null);setError('UNAVAILABLE')}}/>}
   {!centerSelected&&ready&&!displayDraft&&(view==='overview'||view==='statements'||view==='kpis'?<SourceReportHub key={[organization,branch,from,to,view].join('|')} snapshot={ready} comparison={previous} en={en} view={view} navigate={changeView}/>:<ConnectedStatements snapshot={ready} comparison={previous} en={en} view={view}/>)}
   </>}

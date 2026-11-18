@@ -104,5 +104,13 @@ it('allows pilot center reports only for the configured organization',async()=>{
   expect((await GET(new Request(url.replace(organization,outsider)))).status).toBe(404);
   vi.stubEnv('FINANCIAL_CENTER_REPORT_PILOT_ORGANIZATION','invalid');
   expect((await GET(new Request(url))).status).toBe(404);
+  vi.stubEnv('FINANCIAL_CENTER_REPORTS_ENABLED','true');
+  for(const action of ['cost-center-statements','cost-center-options']){
+   const route=url.replace('action=cost-center-statements','action='+action);
+   expect((await GET(new Request(route))).status).toBe(200);
+   expect((await GET(new Request(route.replace(organization,outsider)))).status).toBe(200);
+  }
+  vi.stubEnv('FINANCIAL_CENTER_REPORTS_ENABLED','false');
+  expect((await GET(new Request(url))).status).toBe(404);
  }finally{vi.unstubAllEnvs()}
 });
