@@ -264,7 +264,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [l('التكلفة المعتمدة لكل كرتون','Approved cost per carton'),money(water.ops.variableCarton)]
  ]:[];
  const updatePlan=(patch:Partial<typeof plan>)=>onChange({...water,operationsPlan:{...plan,...patch}});
- const production=detail==='water'?waterProductionBalance(water):null;
+ const productionBalance=waterProductionBalance(water);
+ const production=detail==='water'?productionBalance:null;
  const {ops}=water;
  const planNumber=(key:'pumpingM3Hour'|'sourceHoursDay'|'finishedBottleLossPct'|'collectionDays',
   labels:Labels,max:number,step?:number)=><NumberInput label={l(...labels)} value={plan[key]??0}
@@ -354,10 +355,10 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     </Panel>
    </div>
    {tab==='operations'&&metrics([
-    [['الطاقة الاسمية عبوة/شهر','Nominal monthly bottles'],fmt(water.ops.bottlesHour*water.ops.hoursDay*water.ops.daysMonth)],
-    [['الطاقة الشهرية بالكراتين','Monthly carton capacity'],fmt(m.capacity/12)],
-    [['طلب المياه م³ في اليوم','Water demand m³/day'],fmt(m.waterDemand)],
-    [['التعادل الشهري بالكراتين','Monthly break-even cartons'],fmt(m.breakEven===null?null:m.breakEven/12)]
+    [['الطاقة الاسمية عبوة/شهر','Nominal monthly bottles'],fmt(productionBalance.nominalBottles)],
+    [['العبوات القابلة للبيع شهريًا','Monthly saleable bottles'],fmt(productionBalance.saleableBottles)],
+    [['الكراتين الكاملة القابلة للبيع شهريًا','Monthly complete saleable cartons'],fmt(productionBalance.saleableCartons)],
+    [['احتياج مياه المصدر م³/شهر','Source water demand m³/month'],fmt(productionBalance.requiredM3Day*ops.daysMonth)]
    ])}
    <div className="fs-royal-profile-grid">
     <Panel title={l('موازنة المياه ومصدرها','Water balance and source')} icon="droplet">
@@ -373,6 +374,12 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     </Panel>
     {m.ready&&<RoyalBars title={l('الكراتين المباعة حسب السنة','Cartons sold by year')} locale={locale}
      data={m.annual.map(y=>({label:fmt(y.year),value:y.volume}))}/>}
+    {tab==='operations'&&<Panel title={l('الطاقة والتعادل','Capacity and break-even')} icon="chart">
+     {compactValues([
+      [l('الطاقة الشهرية بالكراتين','Monthly carton capacity'),fmt(m.capacity/12)],
+      [l('التعادل الشهري بالكراتين','Monthly break-even cartons'),fmt(m.breakEven===null?null:m.breakEven/12)]
+     ])}
+    </Panel>}
    </div>
    </>}
    {production&&<>

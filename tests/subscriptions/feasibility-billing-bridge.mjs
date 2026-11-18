@@ -413,9 +413,28 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     if(locale==='ar'){
      await hours.fill('8');
      await collection.fill('45');
+     for(const [label,value] of [
+      ['عبوات في الساعة','4000'],['أيام العمل في الشهر','26'],
+      ['عبوات في الكرتون','12'],['لترات في العبوة','0.5'],['فاقد المياه %','20']
+     ]){
+      await cards.getByLabel(label,{exact:true}).fill(value);
+     }
+     await page.getByRole('button',{name:'تفاصيل مصنع المياه',exact:true}).click();
+     await page.getByLabel('فاقد العبوات النهائية %',{exact:true}).fill('20');
+     await page.getByRole('button',{name:'عودة إلى القسم',exact:true}).click();
     }
     assert.equal(await hours.inputValue(),'8');
     assert.equal(await collection.inputValue(),'45');
+    for(const [ar,en,value] of [
+     ['الطاقة الاسمية عبوة/شهر','Nominal monthly bottles',832000],
+     ['العبوات القابلة للبيع شهريًا','Monthly saleable bottles',665600],
+     ['الكراتين الكاملة القابلة للبيع شهريًا','Monthly complete saleable cartons',55466],
+     ['احتياج مياه المصدر م³/شهر','Source water demand m³/month',520]
+    ]){
+     const label=page.getByText(locale==='ar'?ar:en,{exact:true});
+     const metric=page.locator('.fs-metric').filter({has:label});
+     assert.equal(await metric.locator('strong').textContent(),new Intl.NumberFormat(locale).format(value));
+    }
     await page.screenshot({path:new URL('./screenshots/qa438-water-operations-'+locale+'-mobile.png',import.meta.url).pathname,fullPage:true});
    }
    await page.goto(appPage('PERSONAL',target,'ar'));
@@ -429,6 +448,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.ok(source,'The personal source must exist in persistent storage');
    assert.equal(source.study.water.ops.hoursDay,8);
    assert.equal(source.study.water.operationsPlan.collectionDays,45);
+   assert.equal(source.study.water.operationsPlan.finishedBottleLossPct,20);
    phase(caseName,'personal-saved');
    await page.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true}).click();
    const dialog=page.getByRole('dialog');
