@@ -76,7 +76,7 @@ export default function BranchOpeningDistribution({locale,organization,fiscalSta
   if(!source||!data||(action==='approve'&&!canApprove))return;setBusy(true);setError('');setNotice('');
   const stamp=serial.current;
   const current=data.distribution;
-  const body=action==='approve'?{action:'approve',id:current.id,expectedVersion:current.version}:{
+  const body=action==='approve'?{action:'approve',id:current.id,expectedVersion:current.version,...(dimension?{scope:{organization,fiscalStart}}:{})}:{
    action:'save',organization,fiscalStart,expectedVersion:action==='correct'?0:(status==='DRAFT'?current.version??0:0),
    openingWorkspace:source.id,openingVersion:source.version,entries:action==='correct'?current.entries??{}:entries,reason,
   };

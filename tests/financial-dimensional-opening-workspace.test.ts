@@ -7,7 +7,7 @@ const state=vi.hoisted(()=>({authenticated:true,enabled:true,member:true,authori
 vi.mock('../services/auth',()=>({requireUser:async()=>{if(!state.authenticated)throw Error('UNAUTHORIZED');return{
  supabase:{
  rpc:async(name:string,args:any)=>{state.queries.push({name,args});return{
-  data:name==='financial_core_can'?state.authorized:{status:'DRAFT',id:'demo'},
+  data:name==='financial_core_can'?state.authorized:name==='financial_dimensional_opening_context'?{status:'DRAFT',id,organizationId:org,fiscalStart:'2026-01-01',version:3}:{status:'DRAFT',id:'demo'},
   error:state.error?{message:state.error}:null,
  }},
  from(table:string){
@@ -55,6 +55,15 @@ describe('authenticated opening distribution adapter',()=>{
   state.authenticated=false;
   await expect(dimensionalOpeningContext({organization:org,fiscalStart:'2026-01-01'})).rejects.toThrow('UNAUTHORIZED');
   state.enabled=false;await expect(dimensionalOpeningCommand(good)).rejects.toThrow('OPENING_DISABLED');
+ });
+ it('verifies the saved draft belongs to the selected organization and fiscal year before approving',async()=>{
+  const selected={action:'approve',id,expectedVersion:3,scope:{organization:org,fiscalStart:'2026-01-01'}};
+  await expect(dimensionalOpeningCommand({...selected,id:opening})).rejects.toThrow('DIMENSION_OPENING_APPROVE_DENIED');
+  await expect(dimensionalOpeningCommand({...selected,scope:{...selected.scope,fiscalStart:'2027-01-01'}})).rejects.toThrow('DIMENSION_OPENING_APPROVE_DENIED');
+  await expect(dimensionalOpeningCommand({...selected,expectedVersion:2})).rejects.toThrow('DIMENSION_OPENING_VERSION_CONFLICT');
+  expect(state.queries.map(q=>q.name)).toEqual(Array(3).fill('financial_dimensional_opening_context'));
+  await dimensionalOpeningCommand(selected);
+  expect(state.queries.at(-1)).toEqual({name:'approve_financial_dimensional_opening',args:{p_distribution:id,p_expected_version:3}});
  });
  it('redacts database errors while preserving safe known codes',async()=>{
   state.error='DIMENSION_OPENING_SOURCE_CHANGED some internal query';

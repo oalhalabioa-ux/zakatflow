@@ -10,9 +10,9 @@ import {Icon} from './FinancialReportsPilot';
 import './branch-opening-distribution.css';
 import {fiscalError,type OpeningWorkspaceData,type OpeningEntries} from '../../lib/financial-opening-workspace';
 const endpoint='/api/financial-reporting/openings';
-type Org={id:string;name:string;base_currency:string;currentFiscalStart?:string|null};
+type Org={id:string;name:string;base_currency:string;currentFiscalStart?:string|null;canEditCenterOpenings?:boolean};
 async function json(response:Response){const data=await response.json();if(!response.ok)throw Error(data.error??'OPENING_UNAVAILABLE');return data}
-export default function LiveOpeningBalances({locale,preferredOrg='',preferredFiscalStart='',setupEmbedded=false,canEditCenterOpenings=false,onSaved}:{locale:string;preferredOrg?:string;preferredFiscalStart?:string;setupEmbedded?:boolean;canEditCenterOpenings?:boolean;onSaved?:()=>void}){
+export default function LiveOpeningBalances({locale,preferredOrg='',preferredFiscalStart='',setupEmbedded=false,onSaved}:{locale:string;preferredOrg?:string;preferredFiscalStart?:string;setupEmbedded?:boolean;onSaved?:()=>void}){
  const en=locale==='en',t=(ar:string,english:string)=>en?english:ar;
  const[organizations,setOrganizations]=useState<Org[]>([]),[organization,setOrganization]=useState(''),[fiscalStart,setFiscalStart]=useState(''),[data,setData]=useState<OpeningWorkspaceData|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[reload,setReload]=useState(0);
  const dirty=useRef(false);
@@ -42,7 +42,7 @@ export default function LiveOpeningBalances({locale,preferredOrg='',preferredFis
   {!organizations.length&&!busy&&!error&&<p role="status">{t('لا توجد مؤسسات متاحة بصلاحية عرض القوائم.','No organizations are available with financial report permission.')}</p>}
   {ready?.workspace?.status==='APPROVED'&&<div className="ob-allocation-actions">
    <a className="ob-allocation-link" href={'/'+(en?'en':'ar')+'/opening-balances/branches?'+new URLSearchParams({organization,fiscalStart})}><Icon name="layers" size={16}/>{t('توزيع الافتتاحي على الفروع','Allocate opening to branches')}</a>
-   {canEditCenterOpenings&&<a className="ob-allocation-link" href={'/'+(en?'en':'ar')+'/opening-balances/centers?'+new URLSearchParams({organization,fiscalStart})}><Icon name="layers" size={16}/>{t('توزيع الأرصدة على المراكز','Allocate balances to centers')}</a>}
+   {organizations.find(o=>o.id===organization)?.canEditCenterOpenings&&<a className="ob-allocation-link" href={'/'+(en?'en':'ar')+'/opening-balances/centers?'+new URLSearchParams({organization,fiscalStart})}><Icon name="layers" size={16}/>{t('توزيع الأرصدة على المراكز','Allocate balances to centers')}</a>}
    <button className="ob-review-trigger" disabled={busy||!ready.canSave} onClick={()=>command({action:'save',organization,fiscalStart,expectedVersion:0,sourceRevision:ready.source.revision,entries:ready.workspace!.entries,reason:''})}>{t('إنشاء مسودة تصحيحية','Create a correction draft')}</button></div>}{ready&&<OpeningWorkspace key={organization+fiscalStart+':'+(ready.workspace?.version??0)+':'+ready.source.revision} org={organization} en={en} initialTab={selectedTab.current?.scope===organization+fiscalStart?selectedTab.current.tab:undefined} onTabChange={tab=>{selectedTab.current={scope:organization+fiscalStart,tab}}} live={{data:ready,busy,onSave:save,onApprove:approve,beforeExport,onSourcesChanged:refreshSources,onDirtyChange:reportDirty}}/>}
  </div>;
 }

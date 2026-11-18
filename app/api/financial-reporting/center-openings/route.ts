@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
-import {ZodError} from 'zod';
+import {z,ZodError} from 'zod';
 import {isSameOriginRequest} from '../../../../lib/request-origin';
+import {centerOpeningPilotConfigured,centerOpeningsEnabled} from '../../../../services/financial-center-report-rollout';
 import {dimensionalOpeningContext,dimensionalOpeningCommand,dimensionalOpeningEditorContext} from '../../../../services/financial-dimensional-opening-workspace';
 
 export const dynamic='force-dynamic';
@@ -15,8 +16,8 @@ function failed(error:unknown){
 }
 export async function GET(request:Request){
  try{
-  if(process.env.FINANCIAL_CENTER_BRANCH_REGISTRY!=='true')throw Error('OPENING_DISABLED');
   const q=new URL(request.url).searchParams;
+  if(!centerOpeningsEnabled(q.get('organization')))throw Error('OPENING_DISABLED');
   if([...q.keys()].some(key=>!['organization','fiscalStart','action'].includes(key)||q.getAll(key).length!==1))
     throw Error('DIMENSION_OPENING_INPUT_INVALID');
   const editor=q.get('action')==='editor';
@@ -27,13 +28,18 @@ export async function GET(request:Request){
 }
 export async function POST(request:Request){
  try{
-  if(process.env.FINANCIAL_CENTER_BRANCH_REGISTRY!=='true')throw Error('OPENING_DISABLED');
+  if(!centerOpeningPilotConfigured()&&!centerOpeningsEnabled(null))throw Error('OPENING_DISABLED');
   if(!isSameOriginRequest(request))return NextResponse.json({error:'ORIGIN_REQUIRED'},{status:403,headers});
   if(!request.headers.get('content-type')?.startsWith('application/json'))throw Error('DIMENSION_OPENING_INPUT_INVALID');
   const source=await request.text();
   if(source.length>2000000)throw Error('DIMENSION_OPENING_INPUT_INVALID');
   let parsed:unknown;
   try{parsed=JSON.parse(source)}catch{throw Error('DIMENSION_OPENING_INPUT_INVALID')}
+  if(centerOpeningPilotConfigured()){
+   const command=z.object({action:z.enum(['save','approve']),organization:z.string().optional(),scope:z.object({organization:z.string()}).passthrough().optional()}).passthrough().parse(parsed);
+   if(!centerOpeningsEnabled((command.action==='approve'?command.scope?.organization:command.organization)??null))
+    throw Error('OPENING_DISABLED');
+  }
   return NextResponse.json(await dimensionalOpeningCommand(parsed),{headers});
  }catch(e){return failed(e)}
 }
