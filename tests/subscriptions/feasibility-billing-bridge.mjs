@@ -78,8 +78,10 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('button',{name:'Report and export',exact:true}).click();
     const report=page.getByRole('heading',{name:'Feasibility report',exact:true});
     await report.waitFor();
-    const primaryReportAction=page.locator('[data-report-section="summary"] .fs-actions button').first();
+    const primaryReportAction=page.locator('.fs-royal-report-output button').first();
     assert.equal(await primaryReportAction.innerText(),'Print / PDF');
+    assert.deepEqual(await page.locator('.fs-royal-report-summary-kpis small').allTextContents(),
+     ['Economic investment','NPV','IRR','Readiness']);
     await page.emulateMedia({media:'print'});
     try{
      assert.equal(await report.isVisible(),true);

@@ -64,6 +64,7 @@
  .fs-print-report .fs-panel :is(h3,h4,p,ul) { margin-block: 4pt; }
  .fs-print-report .fs-panel li { margin-block: 1pt; }
  .fs-print-report .fs-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4pt; margin-block: 6pt; }
+ .fs-print-report .fs-royal-report-summary-kpis { grid-template-columns: repeat(4,minmax(0,1fr)); }
  .fs-print-report .fs-metric { padding: 5pt 7pt; min-height: 0; }
  .fs-print-report .fs-metric strong { font-size: 13pt; overflow-wrap: anywhere; }
  .fs-page .fs-panel { break-inside: auto; }
@@ -487,6 +488,9 @@
  padding: 8px 10px; gap: 8px; font-size: 13px; color: var(--fs-ink); cursor: pointer;
 }
 
+.fs-royal-report-detail .fs-royal-report-issuance { background: var(--fs-line); }
+.fs-royal-report-issuance .fs-royal-icon { color: var(--fs-green); }
+.fs-royal-report-summary-kpis .fs-metric strong { font-size: clamp(15px, 2vw, 23px); }
 .fs-royal-report-detail .fs-royal-checks dd { text-align: end; overflow-wrap: anywhere; }
 .fs-royal-sensitivity [data-base-case="true"] { box-shadow: inset 0 0 0 1px var(--fs-green); font-weight: 800; }
 .fs-royal-share-audit :is(th, td) { overflow-wrap: anywhere; }

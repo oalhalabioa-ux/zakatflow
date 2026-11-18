@@ -1,6 +1,6 @@
 'use client';
 import {useId,useRef,useState} from 'react';
-import {RoyalIcon} from './RoyalIcon';
+import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
 import type {FeasibilityStudy} from '@/lib/feasibility/engine';
 import {evaluateStudy} from '@/lib/feasibility/engine';
 import {handoffReadiness} from '@/lib/feasibility/handoff';
@@ -112,11 +112,16 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const ready=handoffReadiness(study);
  const readyCount=ready.checks.filter(check=>check.passed).length;
  const readiness=new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(readyCount/ready.checks.length);
- const reportMetrics = [
-  ['NPV', money(study.rawLand?landResult?.npv??null:water ? water.ready ? water.npv : null : base.npv)],
-  ['IRR', percent(study.rawLand?landResult?.irr??null:water?water.ready?water.irr:null:base.irr)],
-  [l('الجاهزية','Readiness'),readiness]
+ const npv=money(study.rawLand?landResult?.npv??null:water?water.ready?water.npv:null:base.npv);
+ const irr=percent(study.rawLand?landResult?.irr??null:water?water.ready?water.irr:null:base.irr);
+ const investment=money(study.rawLand?landResult?.totalCost??null:water?water.cashRequired+water.land:base.totalInvestment);
+ const summaryMetrics:{label:string;value:string;icon:RoyalIconName}[]=[
+  {label:l('إجمالي الاستثمار الاقتصادي','Economic investment'),value:investment,icon:'coins'},
+  {label:'NPV',value:npv,icon:'chart'},
+  {label:'IRR',value:irr,icon:'target'},
+  {label:l('الجاهزية','Readiness'),value:readiness,icon:'check'}
  ];
+ const reportMetrics=[['NPV',npv],['IRR',irr],[l('الجاهزية','Readiness'),readiness]];
  const metrics=[
   {label:l('السنة','Year'),key:'year'},
   {label:l('حجم المبيعات','Sales volume'),key:'volume'},
@@ -140,21 +145,19 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  return <div ref={report} className="fs-block fs-print-report">
   <section className="fs-block" data-report-section="summary">
    <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
-   <div className="fs-kpis fs-royal-overview-kpis">
-    {[
-     [l('إجمالي الاستثمار الاقتصادي','Economic investment'),money(study.rawLand?landResult?.totalCost??null:water?water.cashRequired+water.land:base.totalInvestment)],
-     ...reportMetrics.slice(0,2),
-     [l('جاهزية الدراسة','Study readiness'),readiness]
-    ].map(([label,value])=><div className="fs-metric" key={label}><small>{label}</small><strong><bdi>{value}</bdi></strong></div>)}
+   <div className="fs-kpis fs-royal-overview-kpis fs-royal-report-summary-kpis">
+    {summaryMetrics.map(({label,value,icon})=><div className="fs-metric" key={label}>
+     <RoyalIcon name={icon}/><small>{label}</small><strong><bdi>{value}</bdi></strong>
+    </div>)}
    </div>
    <section className="card fs-panel">
-    <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التوصية الاستثمارية المشروطة','Conditional investment recommendation')}</h3>
-    <p className="fs-hint">{ready.ready
+    <h3 className="fs-royal-report-title"><RoyalIcon name="target"/>{l('ملخص تنفيذي وتوصية مشروطة','Executive summary and conditional recommendation')}</h3>
+    <p className="fs-royal-report-notice"><RoyalIcon name="shield"/>{ready.ready
      ?l('استوفت الدراسة شروط الجاهزية الداخلية. راجع الافتراضات والمستندات قبل اعتماد القرار الاستثماري.',
         'The study passed the internal readiness checks. Verify assumptions and evidence before approving the investment.')
      :l('استكمل متطلبات الجاهزية المفتوحة وتحقق من الافتراضات والمستندات قبل الالتزام بالتمويل.',
         'Complete the open readiness checks and verify assumptions and evidence before committing funds.')}</p>
-    {allowExport&&<div className="fs-actions">
+     {allowExport&&<div className="fs-actions fs-royal-report-output">
      <button className="fs-btn" type="button" onClick={()=>window.print()}>{l('طباعة / PDF','Print / PDF')}</button>
      <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>dialog.current?.showModal()}>
       <RoyalIcon name="file"/>{l('خيارات تصدير التقرير','Report export options')}</button>
@@ -166,11 +169,15 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('متطلبات مراجعة التقرير','Report review requirements')}</h3>
      <ul className="fs-royal-checks">{ready.checks.map(check=><li key={check.key}>
       <span>{locale==='ar'?check.ar:check.en}</span>
-      <strong data-complete={check.passed}>{check.passed?l('مكتمل','Complete'):l('يحتاج مراجعة','Review needed')}</strong>
+      <strong className="fs-royal-tag" data-complete={check.passed}>{check.passed?l('مكتمل','Complete'):l('يحتاج مراجعة','Review needed')}</strong>
      </li>)}</ul>
     </section>
-    <section className="card fs-panel">
-     <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{l('بيانات الدراسة وإصدار التقرير','Study and report details')}</h3>
+    <section className="card fs-panel fs-royal-report-detail">
+     <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{l('تنبيهات مهنية وإصدار التقرير','Professional notice and report issuance')}</h3>
+     <p className="fs-royal-report-notice fs-royal-report-issuance"><RoyalIcon name="check"/>
+      {l('تعكس النسخة الحالية مدخلات الدراسة. سجّل القرار في قسم القرارات بعد التحقق من الافتراضات والأدلة.',
+       'This version reflects the study inputs. Record the decision in the Decisions section after verifying the assumptions and evidence.')}
+     </p>
      <dl className="fs-royal-checks">{[
       [l('معدّ الدراسة','Prepared by'),study.preparedBy],
       [l('تاريخ الدراسة','Study date'),study.studyDate],
@@ -269,5 +276,6 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
    </div>)}</dl>
   </section>}
   {study.notes&&<section className="card fs-panel" data-report-section="notes"><h3>{l('ملاحظات الدراسة','Study notes')}</h3><p>{study.notes}</p></section>}
+
  </div>;
 }
