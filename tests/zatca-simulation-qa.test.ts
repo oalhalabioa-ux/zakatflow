@@ -116,6 +116,19 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
     const f = fixture(); f.state.validCertificate = true;
     const result = await f.api.submitOtp(otpInput(await f.api.prepareOriginal()));
     expect(result).toMatchObject({ state: 'RESPONSE_QUARANTINED', identityMatched: true, trustVerified: false, activationAllowed: false });
+    expect(result).toHaveProperty('certificateInspection.timeKeyPreflight', 'PASSED');
+    expect(result).toHaveProperty('certificateInspection.freshKmsKeyMatched', true);
+    const before = [...f.map.values()].map(e => e.content), signs = f.kms.send.mock.calls.filter(([c]) => c instanceof SignCommand).length;
+    const reloaded = await f.create().status();
+    expect(reloaded).toHaveProperty('certificateInspection.fingerprintSha256', (result as any).certificateInspection.fingerprintSha256);
+    expect([...f.map.values()].map(e => e.content)).toEqual(before);
+    expect(f.kms.send.mock.calls.filter(([c]) => c instanceof SignCommand)).toHaveLength(signs);
+    expect(f.transport).toHaveBeenCalledTimes(1);
+    f.state.wrongKey = true;
+    const unavailable = await f.create().status();
+    expect(unavailable).toMatchObject({ state: 'RESPONSE_QUARANTINED', identityMatched: true, activationAllowed: false });
+    expect(unavailable).toHaveProperty('certificateInspection.freshKmsKeyMatched', null);
+    expect(f.transport).toHaveBeenCalledTimes(1);
   });
   it('allows only one authority request across simultaneous worker instances', async () => {
     const f = fixture(), input = otpInput(await f.api.prepareOriginal());

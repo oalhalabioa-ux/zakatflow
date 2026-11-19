@@ -10,6 +10,14 @@ Functions identity comes from the official `@vercel/oidc` request-context-aware 
 
 The HTML uses static markup and text-only company rendering. OTP is blank until the owner submits it, cleared immediately on submission/page leave, never logged or placed in browser storage. Double clicks are suppressed. After any unknown submit outcome the form is hidden; refresh is read-only, with no automatic resubmission. Failed refresh also hides stale readiness. No credentials, certificate, CSR or ARN is returned to the browser.
 
+## Read-only inspection after the actual Simulation response
+
+The owner submission on source `eeb5bf91931010b68a819c94c0c49e0e76b1668c` returned an issued response. Subsequent protected GET readback confirmed `RESPONSE_QUARANTINED`, `identityMatched:true`, the unchanged original CSR digest, `trustVerified:false` and `activationAllowed:false`. This real response resolves the earlier Developer Portal key/identity mismatch for this isolated Simulation experiment; it is not invoice/CA acceptance. Exact deployment and evidence are recorded in PR #445 and Issue #426. No new OTP or enrollment replay is required for inspection.
+
+The follow-up inspector reads that same immutable response and returns only its public fingerprint, issuer, validity interval, time/curve preflight, extended key usages, a fresh KMS SPKI comparison, and bounded certificate-discovery hints. Subject/SAN, serial, DER/PEM, original authentication token/secret and CSR remain private. A failed fresh KMS lookup is `null`, never a positive match; inspection errors do not erase the saved response or permit another request.
+
+The fixed `/usr/bin/openssl version` and `x509 -inform DER -noout -ext authorityInfoAccess,crlDistributionPoints,certificatePolicies` probes use bounded output/time and certificate-only stdin, no shell/path override/network or private-key input. Native diagnostics are discarded. An available OpenSSL 3 parser is not a complete path/CRL check or proof that the eventual native verifier is fully packaged. Certificate URLs and policy OIDs are untrusted discovery hints, never fetched or promoted into protected trust anchors. Credentials in URLs and non-HTTP schemes are excluded. Independently authenticated Simulation CA/intermediate certificates, fresh revocation evidence, approved trust configuration and the actual full native verifier remain required. No change enables invoices, CA trust, credentials, registry state, SQL/Auth or Production.
+
 ## Private durable diagnostic ledger
 
 Protected configuration fixes one diagnostic organization/unit/enrollment scope; these UUIDs are not application database records. All objects are in the previously authorized `zakatflow/fatoora-enrollment/<scope>/simulation/...` namespace, encrypted with the separately provisioned symmetric key. SDK clients have `maxAttempts:1`.

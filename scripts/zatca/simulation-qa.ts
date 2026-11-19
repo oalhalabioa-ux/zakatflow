@@ -7,6 +7,7 @@ import { inspectZatcaOriginalCsr, inspectZatcaOnboardingIdentity, zatcaSavedUnit
 import { ecdsaDerToXmlSignature } from '../../lib/zatca-kms-signer';
 import { createZatcaEnrollmentResponseStager } from '../../lib/zatca-enrollment-response-staging';
 import { createZatcaSimulationComplianceTransport, decodeZatcaComplianceCertificate, simulationOtpSchema } from '../../lib/zatca-simulation-compliance';
+import { inspectSimulationCertificate } from './simulation-certificate-inspection';
 
 const account = '701899214938', region = 'eu-north-1';
 export const simulationQaSigningKey = `arn:aws:kms:${region}:${account}:key/ab50c7e0-2251-4ae3-967d-5d14866b80d4`;
@@ -165,14 +166,21 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
       const response = await read(base + '/' + dispatch.dispatchId, dispatch.dispatchId);
       if (!response || sha(response.content) !== receipt.reference.responseSha256) return fail('QA_RESPONSE_INVALID');
       let identityMatched = false;
+      let certificateInspection: Awaited<ReturnType<typeof inspectSimulationCertificate>> | null = null;
       try {
         const envelope = JSON.parse(response.content);
-        const certificateDerBase64 = decodeZatcaComplianceCertificate(envelope.response.binarySecurityToken).toString('base64');
+        const certificateDer = decodeZatcaComplianceCertificate(envelope.response.binarySecurityToken);
+        const certificateDerBase64 = certificateDer.toString('base64');
         inspectZatcaOnboardingIdentity({ csrPem: saved.value.csrPem, certificateDerBase64 }, saved.value.savedUnit);
         identityMatched = true;
+        let freshKmsKeyMatched: boolean | null = null;
+        try { freshKmsKeyMatched = (await publicKey()).toString('base64') === saved.value.savedUnit.kmsPublicKeySpkiBase64; }
+        catch { /* A readable saved response is not lost when KMS is unavailable. */ }
+        try { certificateInspection = await inspectSimulationCertificate(certificateDer, freshKmsKeyMatched); }
+        catch { /* Preserve quarantine/readback even when optional inspection fails. */ }
       } catch { /* Preserve quarantined response for review; never activate. */ }
       return { state: 'RESPONSE_QUARANTINED' as const, identityMatched, trustVerified: false, activationAllowed: false,
-        responseDigest: receipt.reference.responseSha256 };
+        responseDigest: receipt.reference.responseSha256, certificateInspection };
     } catch { return { state: 'RECONCILIATION_REQUIRED' as const, activationAllowed: false }; }
   }
   async function status() {
