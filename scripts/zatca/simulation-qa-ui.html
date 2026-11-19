@@ -32,6 +32,13 @@
     <form id="otpForm"><label for="otp">رمز التفعيل — 6 أرقام</label><input id="otp" name="otp" type="password" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}" required aria-describedby="otpHelp">
       <p class="muted" id="otpHelp">يُمسح الرمز من الخانة عند الإرسال، ولا يُحفظ في سجل الطلب.</p><button id="submit" type="submit">إرسال طلب شهادة المحاكاة</button></form>
   </section>
+  <section id="standardSection" hidden><h2>3. فحوص المستندات القياسية — محاكاة فقط</h2>
+    <p class="muted">ثلاث عينات اختبار منفصلة عن الحسابات: فاتورة قياسية وإشعار دائن وإشعار مدين. نجاحها لا يعني اكتمال فحوص الفواتير المبسطة أو تفعيل إصدار الفواتير.</p>
+    <button id="standardPrepare" type="button" disabled>تجهيز عينات الاختبار القياسية</button>
+    <p id="standardResult0" class="muted"></p><button id="standardSubmit0" type="button" disabled>فحص الفاتورة القياسية</button>
+    <p id="standardResult1" class="muted"></p><button id="standardSubmit1" type="button" disabled>فحص الإشعار الدائن القياسي</button>
+    <p id="standardResult2" class="muted"></p><button id="standardSubmit2" type="button" disabled>فحص الإشعار المدين القياسي</button>
+  </section>
   <p class="muted">هذه صفحة اختبار للمحاكاة فقط. استلام الاستجابة لا يفعّل إصدار الفواتير؛ يلزم التحقق من الشهادة واستكمال اختبارات الامتثال.</p>
   <footer id="version"></footer>
 </main>

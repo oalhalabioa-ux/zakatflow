@@ -14,7 +14,9 @@ function fixture(env = environment) {
   const status = vi.fn(async () => ({ state: 'READY_FOR_OTP', activationAllowed: false }));
   const prepare = vi.fn(async () => ({ state: 'READY_FOR_OTP', activationAllowed: false }));
   const submit = vi.fn(async (_input: unknown) => ({ state: 'RESPONSE_QUARANTINED', activationAllowed: false }));
-  const open = vi.fn(() => ({ status, prepareOriginal: prepare, submitOtp: submit }) as never);
+  const standardPrepare = vi.fn(async () => ({ stage: 'STANDARD_COMPLIANCE_QA_ONLY', passed: false, activationAllowed: false }));
+  const standardSubmit = vi.fn(async (_input: unknown) => ({ stage: 'STANDARD_COMPLIANCE_QA_ONLY', passed: false, activationAllowed: false }));
+  const open = vi.fn(() => ({ status, prepareOriginal: prepare, submitOtp: submit, prepareStandardCompliance: standardPrepare, submitStandardCompliance: standardSubmit }) as never);
   const handler = createSimulationQaHttpHandler(open, () => env);
   async function call({ method = 'GET', headers = {}, body, raw }: { method?: string; headers?: Record<string,string | undefined>; body?: unknown; raw?: string | Buffer } = {}) {
     const request = Object.assign(Readable.from(raw === undefined ? [] : [raw]), { method,
@@ -26,7 +28,7 @@ function fixture(env = environment) {
     await handler(request, response as unknown as ServerResponse);
     return { status: response.statusCode, body: JSON.parse(response.text), headers: sentHeaders };
   }
-  return { call, open, status, prepare, submit };
+  return { call, open, status, prepare, submit, standardPrepare, standardSubmit };
 }
 describe('protected isolated Simulation HTTP boundary', () => {
   it('returns only the safe read status with no-store/nosniff and no CORS permission', async () => {
@@ -39,6 +41,18 @@ describe('protected isolated Simulation HTTP boundary', () => {
   it('prepares only on an explicit same-origin JSON POST', async () => {
     const f = fixture(), result = await f.call({ method: 'POST', body: { action: 'prepare' } });
     expect(result.status).toBe(200); expect(f.prepare).toHaveBeenCalledTimes(1); expect(f.submit).not.toHaveBeenCalled();
+  });
+  it('allows only fixed STANDARD actions/index/digest without OTP, XML or destination overrides', async () => {
+    const f = fixture();
+    expect((await f.call({ method: 'POST', body: { action: 'standardPrepare' } })).status).toBe(200);
+    expect((await f.call({ method: 'POST', body: { action: 'standardSubmit', index: 1, manifestDigest: 'a'.repeat(64) } })).status).toBe(200);
+    expect(f.standardSubmit).toHaveBeenCalledWith({ index: 1, manifestDigest: 'a'.repeat(64) });
+    expect(f.submit).not.toHaveBeenCalled(); expect(f.prepare).not.toHaveBeenCalled();
+    for (const override of [{ index: 3 }, { xml: '<Invoice/>' }, { environment: 'PRODUCTION' }, { otp: '654321' }, { endpoint: 'https://override.invalid' }]) {
+      const isolated = fixture();
+      expect((await isolated.call({ method: 'POST', body: { action: 'standardSubmit', index: 0, manifestDigest: 'a'.repeat(64), ...override } })).status).toBe(400);
+      expect(isolated.open).not.toHaveBeenCalled();
+    }
   });
   it('accepts only the known stable QA host or this generated deployment, including read requests', async () => {
     const f = fixture();

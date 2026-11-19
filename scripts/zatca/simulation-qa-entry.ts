@@ -12,11 +12,14 @@ export default createSimulationQaHttpHandler(() => {
   let unit: unknown;
   try { unit = JSON.parse(process.env.FATOORA_QA_SIMULATION_UNIT_PROFILE ?? ''); }
   catch { throw new Error('QA_CONFIGURATION_INVALID'); }
+  let standardSample: unknown;
+  try { standardSample = process.env.FATOORA_QA_STANDARD_SAMPLE_ADDRESS ? JSON.parse(process.env.FATOORA_QA_STANDARD_SAMPLE_ADDRESS) : undefined; }
+  catch { throw new Error('QA_CONFIGURATION_INVALID'); }
   const credentials = awsCredentialsProvider({ roleArn: simulationQaRole });
   return createSimulationQa({
     kms: new KMSClient({ region: 'eu-north-1', credentials, maxAttempts: 1 }),
     secrets: new SecretsManagerClient({ region: 'eu-north-1', credentials, maxAttempts: 1 }),
     transport: fetch,
   }, { unit, encryptionKeyArn: process.env.FATOORA_QA_ENROLLMENT_ENCRYPTION_KEY_ARN,
-    sourceSha: __YAQEEN_SIMULATION_QA_SOURCE_SHA__ });
+    sourceSha: __YAQEEN_SIMULATION_QA_SOURCE_SHA__, standardSample });
 }, () => simulationQaRuntimeEnvironment(process.env, getVercelOidcToken));

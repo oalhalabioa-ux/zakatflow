@@ -62,8 +62,9 @@ function fixture() {
     }
     throw new Error('Unexpected KMS operation');
   }) };
-  const transport = vi.fn(async () => {
+  const transport = vi.fn(async (url?: unknown) => {
     if (state.requestFail) throw new Error('654321 PRIVATE_CREDENTIAL');
+    if (typeof url === 'string' && url.endsWith('/compliance/invoices')) return new Response(JSON.stringify({ validationResults: { status: 'PASS', errorMessages: [], warningMessages: [] } }));
     let certificate = 'MAA=';
     if (state.validCertificate) {
       const saved = JSON.parse([...map].find(([name]) => name.endsWith('/original-csr'))![1].content);
@@ -136,6 +137,24 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
     expect(f.transport).toHaveBeenCalledTimes(1); expect(f.map.size).toBe(4);
     expect(results.some(r => r.status === 'fulfilled')).toBe(true);
     expect((await f.api.status()).state).toBe('RESPONSE_QUARANTINED');
+  });
+  it('loads the same saved CCSID for three unsigned compliance samples without modifying enrollment or signing invoices', async () => {
+    const f = fixture(); f.state.validCertificate = true;
+    const api = f.create({ ...f.config, standardSample: { street: 'Synthetic street', building: '1234', district: 'Synthetic district', additional: '5678', postal: '12345', city: 'Riyadh' } });
+    await api.submitOtp(otpInput(await api.prepareOriginal()));
+    const originals = [...f.map].map(([key, value]) => [key, value.content] as const);
+    const signs = f.kms.send.mock.calls.filter(([c]) => c instanceof SignCommand).length;
+    const p = await api.prepareStandardCompliance() as { manifestDigest: string };
+    for (let index = 0; index < 3; index++) await api.submitStandardCompliance({ index, manifestDigest: p.manifestDigest });
+    expect(await api.status()).toHaveProperty('standardCompliance.passed', true);
+    expect(await api.status()).toHaveProperty('standardCompliance.simplifiedPassed', false);
+    expect(f.transport).toHaveBeenCalledTimes(4);
+    expect(f.kms.send.mock.calls.filter(([c]) => c instanceof SignCommand)).toHaveLength(signs);
+    for (const [key, content] of originals) expect(f.map.get(key)!.content).toBe(content);
+    const allOutput = JSON.stringify(await api.status()); expect(allOutput).not.toContain('PRIVATE_CREDENTIAL'); expect(allOutput).not.toContain('CERTIFICATE REQUEST');
+    f.state.wrongKey = true;
+    await expect(api.submitStandardCompliance({ index: 0, manifestDigest: p.manifestDigest })).rejects.toThrow('QA_STANDARD_CONTEXT_UNAVAILABLE');
+    expect(f.transport).toHaveBeenCalledTimes(4);
   });
   it('recovers original/response lost acknowledgements without changing the saved bytes or resending', async () => {
     const f = fixture(); f.state.originalLostAck = true; f.state.responseLostAck = true;

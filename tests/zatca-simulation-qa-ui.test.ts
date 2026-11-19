@@ -10,7 +10,7 @@ class Element {
   addEventListener(name: string, callback: (...args: any[]) => void) { this.listeners[name] = callback; }
 }
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
-async function fixture(initial = ready) {
+async function fixture(initial: typeof ready & { standardCompliance?: any } = ready) {
   const elements = new Map<string,Element>(), windowEvents: Record<string,() => void> = {};
   const get = (id: string) => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id)!; };
   const fetcher = vi.fn(async (_url: string, _request?: RequestInit) => ({ ok: true, json: async () => structuredClone(initial) }));
@@ -64,5 +64,20 @@ describe('Simulation QA user input and recovery behavior', () => {
     expect(f.get('legalName').textContent).toBe('<img src=x onerror=alert(1)>');
     f.get('otp').value = '654321'; f.windowEvents.pagehide(); expect(f.get('otp').value).toBe('');
     expect(source).not.toMatch(/innerHTML|localStorage|sessionStorage|document\.cookie|sendBeacon|console\./);
+  });
+  it('keeps the STANDARD sequence separate from enrollment and blocks a failed or unknown sample from being resent', async () => {
+    const results = ['INVOICE', 'CREDIT_NOTE', 'DEBIT_NOTE'].map(kind => ({ kind, state: 'NOT_SENT' }));
+    const base = { ...ready, state: 'RESPONSE_QUARANTINED', standardCompliance: { stage: 'STANDARD_COMPLIANCE_QA_ONLY', state: 'NOT_PREPARED' } };
+    const f = await fixture(base); expect(f.get('otpSection').hidden).toBe(true); expect(f.get('standardPrepare').disabled).toBe(false);
+    f.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ standardCompliance: { manifestDigest: 'e'.repeat(64), results } }) } as never);
+    f.get('standardPrepare').listeners.click(); await settle();
+    expect(f.get('standardSubmit0').disabled).toBe(false); expect(f.get('standardSubmit1').disabled).toBe(true);
+    f.fetcher.mockRejectedValueOnce(new Error('Unknown remote outcome'));
+    f.get('standardSubmit0').listeners.click(); f.get('standardSubmit0').listeners.click(); await settle();
+    expect(JSON.parse(String(f.fetcher.mock.calls[2][1]?.body))).toEqual({ action: 'standardSubmit', index: 0, manifestDigest: 'e'.repeat(64) });
+    expect(f.get('standardSubmit0').disabled).toBe(true); expect(f.get('standardSubmit1').disabled).toBe(true); expect(f.fetcher).toHaveBeenCalledTimes(3);
+    f.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ ...base, standardCompliance: { manifestDigest: 'e'.repeat(64), results: [{ kind: 'INVOICE', state: 'PASSED' }, ...results.slice(1)] } }) } as never);
+    f.get('refresh').listeners.click(); await settle();
+    expect(f.fetcher.mock.calls[3][1]?.method).toBeUndefined(); expect(f.get('standardSubmit0').disabled).toBe(true); expect(f.get('standardSubmit1').disabled).toBe(false);
   });
 });
