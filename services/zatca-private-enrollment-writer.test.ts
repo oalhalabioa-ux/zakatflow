@@ -20,7 +20,7 @@ async function fixture() {
     registeredAddress: c.branch_location, businessCategory: c.industry, email: 'qa@example.invalid' }, Buffer.from(spki, 'base64'), async bytes => sign('sha256', bytes, keys.privateKey));
   const original = { enrollmentId: randomUUID() as string, csrPem, kmsKeyArn: c.kms_key_arn, kmsPublicKeySpkiBase64: spki, email: 'qa@example.invalid' };
   const csr = csrPem.replace(/-----[^\n]+-----/g, '').replace(/\s/g, '');
-  const expected = { ...target, unitId: connectionId, profile: 'ZAKATFLOW_SAN_DIRECTORY_V1', csrSha256: createHash('sha256').update(Buffer.from(csr, 'base64')).digest('hex'),
+  const expected = { ...target, unitId: connectionId, profile: 'ZAKATFLOW_SAN_DIRECTORY_V2', csrSha256: createHash('sha256').update(Buffer.from(csr, 'base64')).digest('hex'),
     kmsPublicKeySpkiBase64: spki, taxpayerVatNumber: c.taxpayer_vat_number, commonName: c.common_name, branchName: c.branch_name,
     legalName: c.legal_name, egsSerialNumber: c.egs_serial_number, invoiceType: c.invoice_type, branchLocation: c.branch_location, industry: c.industry, email: original.email };
   const receipt = { enrollment_id: original.enrollmentId, enrollment_digest: 'a'.repeat(64), organization_id: org, connection_id: connectionId,

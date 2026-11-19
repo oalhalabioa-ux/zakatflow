@@ -41,12 +41,12 @@ async function request(overrides: Partial<typeof fields> = {}, privateKey = key)
   const spki = createPublicKey(privateKey).export({ type: 'spki', format: 'der' });
   return { csr: await createZatcaCsr({ ...fields, ...overrides }, spki, async bytes => sign('sha256', bytes, privateKey)), spki };
 }
-function sanFixture(duplicateUid = false, repeat = false) {
+function sanFixture(duplicateUid = false, repeat = false, legacySerial = false) {
   const tlv = (tag: number, value: Buffer) => {
     const len = value.length < 128 ? Buffer.from([value.length]) : value.length < 256 ? Buffer.from([0x81, value.length]) : Buffer.from([0x82, value.length >> 8, value.length & 255]);
     return Buffer.concat([Buffer.from([tag]), len, value]);
   };
-  const attrs = [['550405', fields.serialNumber], ['0992268993f22c640101', fields.taxpayerVatNumber],
+  const attrs = [[legacySerial ? '550405' : '550404', fields.serialNumber], ['0992268993f22c640101', fields.taxpayerVatNumber],
     ...(duplicateUid ? [['0992268993f22c640101', '398765432109873']] : []),
     ['55040c', fields.invoiceType], ['55041a', fields.registeredAddress], ['55040f', fields.businessCategory]];
   const name = tlv(0x30, Buffer.concat(attrs.map(([oid, value]) => tlv(0x31, tlv(0x30,
@@ -67,7 +67,7 @@ async function fixture(overrides: Partial<typeof fields> = {}) {
   const connectionId = randomUUID();
   return { material: { certificateDerBase64: issue(r.csr), csrPem: r.csr }, expected: {
     organizationId: randomUUID(), connectionId, unitId: connectionId, environment: source.environment,
-    profile: 'ZAKATFLOW_SAN_DIRECTORY_V1', csrSha256: hash(csrDer(r.csr)), kmsPublicKeySpkiBase64: r.spki.toString('base64'),
+    profile: 'ZAKATFLOW_SAN_DIRECTORY_V2', csrSha256: hash(csrDer(r.csr)), kmsPublicKeySpkiBase64: r.spki.toString('base64'),
     taxpayerVatNumber: source.taxpayerVatNumber, commonName: source.commonName, branchName: source.branchName,
     legalName: source.organizationName, egsSerialNumber: source.serialNumber, invoiceType: source.invoiceType,
     branchLocation: source.registeredAddress, industry: source.businessCategory, email: source.email,
@@ -110,8 +110,8 @@ describe('saved CSR/key and exact EGS certificate identity preflight', () => {
     expect(inspectZatcaOnboardingIdentity(f.material, f.expected, at).scope.environment).toBe('PRODUCTION');
   });
   it('compares Arabic identity strings exactly', async () => {
-    const f = await fixture({ branchName: 'فرع الرياض', organizationName: 'شركة الاختبار', registeredAddress: 'الرياض', businessCategory: 'البرمجيات' });
-    expect(inspectZatcaOnboardingIdentity(f.material, f.expected, at).profile).toBe('ZAKATFLOW_SAN_DIRECTORY_V1');
+    const f = await fixture({ commonName: 'وحدة الرياض', branchName: 'فرع الرياض', organizationName: 'شركة الاختبار', registeredAddress: 'الرياض', businessCategory: 'البرمجيات' });
+    expect(inspectZatcaOnboardingIdentity(f.material, f.expected, at).profile).toBe('ZAKATFLOW_SAN_DIRECTORY_V2');
     if (process.env.ZATCA_ENROLLMENT_SQL_QA === '1') {
       if (process.env.ZATCA_LEDGER_DISPOSABLE_QA !== '1' || process.env.PGDATABASE !== 'zatca_ledger_qa') throw new Error('DISPOSABLE_LEDGER_QA_REQUIRED');
       const value = JSON.stringify(f.expected).replace(/'/g, "''");
@@ -148,7 +148,7 @@ describe('saved CSR/key and exact EGS certificate identity preflight', () => {
       : field === 'egsSerialNumber' ? '1-Other|2-1|3-Other' : 'Other saved value';
     expect(() => inspectZatcaOnboardingIdentity(base.material, { ...base.expected, [field]: value }, at)).toThrow('ONBOARDING_IDENTITY_SAVED_UNIT_MISMATCH');
   });
-  it.each(['taxpayerVatNumber','branchName','organizationName','serialNumber','invoiceType','registeredAddress','businessCategory'] as const)('rejects certificate %s substitution signed by the same CA for the same key', async field => {
+  it.each(['commonName','taxpayerVatNumber','branchName','organizationName','serialNumber','invoiceType','registeredAddress','businessCategory'] as const)('rejects certificate %s substitution signed by the same CA for the same key', async field => {
     const value = field === 'taxpayerVatNumber' ? '398765432109873' : field === 'invoiceType' ? '0100'
       : field === 'serialNumber' ? '1-Other|2-1|3-Other' : 'Other certificate value';
     const other = await request({ [field]: value });
@@ -158,16 +158,21 @@ describe('saved CSR/key and exact EGS certificate identity preflight', () => {
     expect(() => inspectZatcaOnboardingIdentity(base.material, { ...base.expected, environment: 'PRODUCTION' }, at)).toThrow('ONBOARDING_IDENTITY_ENVIRONMENT_MISMATCH');
     expect(() => inspectZatcaOnboardingIdentity(base.material, { ...base.expected, unitId: randomUUID() }, at)).toThrow('ONBOARDING_IDENTITY_SCOPE_MISMATCH');
   });
-  it('compares the saved production common name', async () => {
-    const f = await fixture({ environment: 'PRODUCTION' });
+  it.each(['SIMULATION', 'PRODUCTION'] as const)('compares the saved %s common name', async environment => {
+    const f = await fixture({ environment });
     expect(() => inspectZatcaOnboardingIdentity(f.material, { ...f.expected, commonName: 'Other unit' }, at)).toThrow('ONBOARDING_IDENTITY_SAVED_UNIT_MISMATCH');
   });
+  it('does not accept a simulation template name as a fallback for a different saved unit name', () => {
+    const subject = '/C=SA/OU=Riyadh Main/O=Synthetic Company/CN=PREZATCA-Code-Signing/emailAddress=qa@example.invalid';
+    expect(() => inspectZatcaOnboardingIdentity({ ...base.material, certificateDerBase64: issue(base.material.csrPem, '', subject) }, base.expected, at))
+      .toThrow('ONBOARDING_IDENTITY_SAVED_UNIT_MISMATCH');
+  });
   it('rejects duplicate subject identity attributes even if one matches', () => {
-    const subject = '/C=SA/OU=Riyadh Main/O=Synthetic Company/CN=PREZATCA-Code-Signing/CN=FORGED/emailAddress=qa@example.invalid';
+    const subject = '/C=SA/OU=Riyadh Main/O=Synthetic Company/CN=EGS saved unit/CN=FORGED/emailAddress=qa@example.invalid';
     expect(() => inspectZatcaOnboardingIdentity({ ...base.material, certificateDerBase64: issue(base.material.csrPem, '', subject) }, base.expected, at)).toThrow('ONBOARDING_IDENTITY_DUPLICATE_ATTRIBUTE');
   });
   it('accepts omission of requester email in the certificate but rejects a present conflicting email', () => {
-    const subject = '/C=SA/OU=Riyadh Main/O=Synthetic Company/CN=PREZATCA-Code-Signing';
+    const subject = '/C=SA/OU=Riyadh Main/O=Synthetic Company/CN=EGS saved unit';
     expect(inspectZatcaOnboardingIdentity({ ...base.material, certificateDerBase64: issue(base.material.csrPem, '', subject) }, base.expected, at).stage).toBe('ONBOARDING_IDENTITY_PREFLIGHT_ONLY');
     expect(() => inspectZatcaOnboardingIdentity({ ...base.material, certificateDerBase64: issue(base.material.csrPem, '', subject + '/emailAddress=other@example.invalid') }, base.expected, at)).toThrow('ONBOARDING_IDENTITY_SAVED_UNIT_MISMATCH');
   });
@@ -179,12 +184,19 @@ describe('saved CSR/key and exact EGS certificate identity preflight', () => {
     const ext = sanFixture(false, true);
     expect(() => inspectZatcaOnboardingIdentity({ ...base.material, certificateDerBase64: issue(base.material.csrPem, ext) }, base.expected, at)).toThrow('ONBOARDING_IDENTITY_SAN_AMBIGUOUS');
   });
+  it('does not reinterpret a legacy serialNumber OID or V1 receipt as the SDK-aligned V2 profile', () => {
+    const certificateDerBase64 = issue(base.material.csrPem, sanFixture(false, false, true));
+    expect(() => inspectZatcaOnboardingIdentity({ ...base.material, certificateDerBase64 }, base.expected, at))
+      .toThrow('ONBOARDING_IDENTITY_SAVED_UNIT_MISMATCH');
+    expect(() => inspectZatcaOnboardingIdentity(base.material, { ...base.expected, profile: 'ZAKATFLOW_SAN_DIRECTORY_V1' }, at))
+      .toThrow('ONBOARDING_IDENTITY_INPUT_INVALID');
+  });
   it('rejects duplicate SAN identity attributes', () => {
     const ext = sanFixture(true);
     expect(() => inspectZatcaOnboardingIdentity({ ...base.material, certificateDerBase64: issue(base.material.csrPem, ext) }, base.expected, at)).toThrow('ONBOARDING_IDENTITY_DUPLICATE_ATTRIBUTE');
   });
   it('rejects unknown subject identity fields instead of silently accepting a mixed profile', () => {
-    const subject = '/C=SA/OU=Riyadh Main/O=Synthetic Company/CN=PREZATCA-Code-Signing/organizationIdentifier=312345678901233';
+    const subject = '/C=SA/OU=Riyadh Main/O=Synthetic Company/CN=EGS saved unit/organizationIdentifier=312345678901233';
     expect(() => inspectZatcaOnboardingIdentity({ ...base.material, certificateDerBase64: issue(base.material.csrPem, '', subject) }, base.expected, at)).toThrow('ONBOARDING_IDENTITY_SAVED_UNIT_MISMATCH');
   });
   it('rejects expired certificates and invalid check times', () => {
@@ -332,11 +344,11 @@ it.runIf(process.env.ZATCA_ENROLLMENT_SQL_QA === '1')('persists the original sig
   const binding = { version: 'ZATCA_SAVED_SIGNER_V1', organizationId: f.org, environment: 'SIMULATION', unitId: f.connection, connectionId: f.connection,
     kmsKeyArn: kms, secretArn: secret, secretVersionId: credentialVersionId, certificateFingerprintSha256: verified.identity.certificateFingerprintSha256,
     issuerChainDerBase64: evidence.evidence.issuerChainDerBase64, policy: { identifier: 'https://example.invalid/synthetic-policy', digestSha256Base64: 'A'.repeat(43) + '=' }, includeSimplifiedQr: false };
-  // Simulation's CN is fixed by the current CSR writer. A verifier called with
-  // a changed saved commonName can still match this CSR, so the complete saved
-  // identity receipt must prevent replaying that result into the original row.
-  const otherSnapshot = await verifyZatcaOnboardingCandidate(savedMaterial, { ...original.expected_identity, commonName: 'Different saved snapshot' },
-    evidence.evidence, evidence.trust, new Date());
+  // Native verification now rejects a changed saved CN before persistence. SQL
+  // must independently reject a forged full-identity receipt as well.
+  await expect(verifyZatcaOnboardingCandidate(savedMaterial, { ...original.expected_identity, commonName: 'Different saved snapshot' },
+    evidence.evidence, evidence.trust, new Date())).rejects.toThrow('ONBOARDING_IDENTITY_SAVED_UNIT_MISMATCH');
+  const otherSnapshot = { ...verified, identity: { ...verified.identity, expectedIdentitySha256: '0'.repeat(64) } };
   expect(() => query(auth + 'select zatca_preparation.record_enrolled_signer_candidate('
     + [f.org, 'SIMULATION', f.connection, original.enrollment_id, JSON.stringify(binding), JSON.stringify(otherSnapshot)].map(q).join(',') + ',null)')).toThrow('ENROLLMENT_EVIDENCE_INVALID');
   const registry = JSON.parse(query(auth + 'select row_to_json(r) from zatca_preparation.record_enrolled_signer_candidate('

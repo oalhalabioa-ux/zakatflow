@@ -9,7 +9,7 @@ const base64 = z.string().min(4).max(32768).regex(/^[A-Za-z0-9+/]+={0,2}$/);
 const pin = z.string().regex(/^[a-f0-9]{64}$/);
 export const zatcaSavedUnitIdentitySchema = z.object({
   organizationId: z.string().uuid(), connectionId: z.string().uuid(), unitId: z.string().uuid(),
-  environment: z.enum(['SIMULATION', 'PRODUCTION']), profile: z.literal('ZAKATFLOW_SAN_DIRECTORY_V1'),
+  environment: z.enum(['SIMULATION', 'PRODUCTION']), profile: z.literal('ZAKATFLOW_SAN_DIRECTORY_V2'),
   csrSha256: pin, kmsPublicKeySpkiBase64: base64,
   taxpayerVatNumber: z.string().regex(/^3[0-9]{13}3$/), commonName: text, branchName: text,
   legalName: text, egsSerialNumber: text.refine(v => /^1-[^|]+\|2-[^|]+\|3-[^|]+$/.test(v)),
@@ -138,8 +138,8 @@ function inspectOriginalCsr(csrPemValue: unknown, savedUnitValue: unknown) {
   const template = templateReader.string(templateReader.exact(0x13));
   if (template !== (expected.environment === 'SIMULATION' ? 'PREZATCA-Code-Signing' : 'ZATCA-Code-Signing')) return fail('ONBOARDING_IDENTITY_ENVIRONMENT_MISMATCH');
   const subject = () => new Map([['550406', 'SA'], ['55040b', expected.branchName], ['55040a', expected.legalName],
-    ['550403', expected.environment === 'SIMULATION' ? 'PREZATCA-Code-Signing' : expected.commonName], ['2a864886f70d010901', expected.email]]);
-  const san = () => new Map([['550405', expected.egsSerialNumber], ['0992268993f22c640101', expected.taxpayerVatNumber],
+    ['550403', expected.commonName], ['2a864886f70d010901', expected.email]]);
+  const san = () => new Map([['550404', expected.egsSerialNumber], ['0992268993f22c640101', expected.taxpayerVatNumber],
     ['55040c', expected.invoiceType], ['55041a', expected.branchLocation], ['55040f', expected.industry]]);
   equalMap(r.name(fields[1]), subject()); equalMap(directoryName(csrExtensions), san());
   return { expected, spki, subject, san, template, csr };

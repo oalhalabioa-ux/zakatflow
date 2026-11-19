@@ -16,7 +16,7 @@ No procedure issues a document, makes an authority request or creates financial/
 
 The Node identity result now includes `expectedIdentitySha256`. Its versioned byte framing, `ZAKATFLOW_FLAT_IDENTITY_V1`, sorts the flat identity's ASCII keys and concatenates each UTF-8 key and value, each prefixed by its four-byte unsigned big-endian byte length. PostgreSQL reproduces it with C ordering, UTF-8 conversion and `int4send`; it does not hash JSON display whitespace or JavaScript character counts. Arabic parity is checked in the native SQL integration.
 
-The SQL writer compares this receipt with the **original stored identity**, not just CSR/key hashes. This blocks replay of evidence generated against a different expected snapshot: notably the current simulation CSR writer has a constant CN, so a changed saved commonName need not change that CSR. The native integration deliberately computes such a different-snapshot result and confirms SQL rejects it before recording a version.
+The SQL writer compares this receipt with the **original stored identity**, not just CSR/key hashes. This blocks a forged full-identity receipt independently of native CSR verification. The old simulation writer overwrote CN with a constant template name; the 2026-11-19 V2 correction preserves the saved commonName and native verification now rejects a different name before SQL. The native integration also forges a different full-identity receipt and confirms SQL rejects it before recording a version. Candidate initial-request storage and private evidence schemas now explicitly require V2. This is a disposable fixture contract change, not an installed migration or a rewrite of existing V1 records.
 
 ## Limits of the boundary
 

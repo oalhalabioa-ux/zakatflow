@@ -1,5 +1,15 @@
 # ZATCA Phase 2 preparation — 2026-10-22
 
+## Follow-up 2026-11-19 — SDK-referenced CSR identity V2
+
+Continued from source `21126a79f681683490081167deabf6a9da084653` on the same PR #445 branch; main remained `6a56458769a03c7df772c426df3e20bab97a97ba`. Corrected two application CSR identity defects: simulation CN now retains the saved unit name, and the EGS serial uses SAN SN/surname OID 2.5.4.4 as observed in the official supplied SDK 3.4.8. The original-CSR/certificate verifier, private initial-request/audit schemas and disposable SQL fixtures explicitly use `ZAKATFLOW_SAN_DIRECTORY_V2`; no V1 fallback or stored-material rewriting is added.
+
+Before the correction, three new assertions failed: native OpenSSL showed the overwritten simulation CN, changing the supplied unit name did not change signed request bytes, and identity verification accepted a different saved simulation name. Corrected tests also reject same-key certificate CN substitution, legacy serial OID and V1 evidence; native/SQL coverage remains separate.
+
+Actual offline SDK CSR controls for both template modes confirmed matching subject identity, public key, SAN fields and template values with independent OpenSSL signature checks. The SDK uses UTF8String for the template while the application retains the authority-documented PrintableString; the application additionally retains its saved requester email. Evidence explicitly records these differences and does not claim byte-identical CSR or live CA acceptance. Reproducible command and sanitized evidence: `docs/zatca-onboarding-identity-preflight.md` and `docs/zatca-csr-sdk348-evidence-20261119.json`. All temporary synthetic keys/CSRs were removed. No AWS, database or authority submission occurred.
+
+Runtime invoice-signature compatibility and authorized Simulation/reporting/clearance remain OPEN. This follow-up does not rerun the already-blocked hosted Developer Portal diagnostic, deploy, merge, mutate QA/Production data, alter authentication/environment settings or create cloud resources. Exact-head checks are recorded in PR #445 after completion.
+
 ## Follow-up 2026-11-19 — official guidance and diagnostic certificate handoff
 
 - Continued from PR #445 source `06b5f08dd46267ac6c807a02f3f51580db252cf7`; latest main remained `6a56458769a03c7df772c426df3e20bab97a97ba`. Other feasibility work is separate and shared QA V2 is unchanged.
@@ -141,7 +151,7 @@ The combined native suite exposed a race in the earlier cleanup regression: it c
 
 Added an owner-only disposable initial-enrollment contract preserving original CSR/public SPKI/saved identity and actor/time before credentials exist. Registry recording now has an enrollment-aware path with exact complete-identity receipt, recent native verification metadata, immutable original links and append-only/deduplicated check history. Original signer reservation insertion captures that enrollment reference atomically; enrolled reservation/finalization reject missing, changed or retroactively attributed provenance and keep an immutable exactly-once enrollment audit. No live route/migration is installed.
 
-Strengthened the native identity output with a complete flat-string snapshot digest reproduced by PostgreSQL. The native SQL round trip rejects evidence from another saved snapshot even when the current simulation CSR's constant CN would otherwise permit the same CSR/key. Arabic digest parity is checked.
+Strengthened the native identity output with a complete flat-string snapshot digest reproduced by PostgreSQL. At this historical step, the simulation writer's constant CN allowed the same CSR/key to match a changed commonName snapshot; SQL rejected the different full-identity receipt. The later V2 correction above also binds CN natively and retains independent SQL rejection of a forged full-identity receipt. Arabic digest parity is checked.
 
 Validation: 18 new disposable regressions; prior 17 ledger/30 source/22 registry/8 permission cases pass. Native SQL integration 123/123 (including original signed CSR → saved identity/path evidence → enrollment-aware reservation/finalization; final storage XML deliberately synthetic). Actual Financial Core QA 29/29 rollback-only compatibility checks; separate cleanup confirms no candidate schema/triggers/fixture organization remains. Original CSR/profile/evidence preservation is now represented by an isolated persistence contract; actual authorized enrollment transport/writer, fresh KMS/trust integration, migration/worker packaging and authority/AWS acceptance remain. See `docs/zatca-enrollment-provenance.md`.
 

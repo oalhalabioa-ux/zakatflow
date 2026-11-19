@@ -1,5 +1,26 @@
 # Original CSR, saved unit and certificate identity — 2026-10-25
 
+## V2 CSR identity correction — 2026-11-19
+
+The application previously replaced the supplied simulation common name with `PREZATCA-Code-Signing` and encoded the EGS serial under SAN `serialNumber` (2.5.4.5). The authority Security Features v1.2 table on page 15 assigns CN to the taxpayer's solution-unit name. Actual generation with the owner-supplied Java SDK 3.4.8 confirms that CN retains this supplied name and the SAN serial uses `SN` / surname (2.5.4.4). The corrected writer and original-CSR/certificate verifier agree on both fields. The environment marker remains exclusively in the certificate-template extension. This does not modify the separate accepted Developer Portal diagnostic CSR writer.
+
+V2 is explicit in the initial-request writer, disposable SQL contract, reader schema and verification-audit schema. Native verification rejects another saved common name, a certificate with another CN for the same key, the old serial OID and a V1 identity receipt. Stored requests/certificates are not rewritten, relabelled or automatically regenerated. Existing V1 material needs a separately reviewed recovery/version path; this change adds no persistent migration or active-credential promotion.
+
+`scripts/zatca/verify-csr-sdk348.mjs` performs an offline comparison using the exact pinned 3.4.8 JAR. It generates fresh synthetic SDK keys/CSRs for each of the two environment templates, creates an application CSR with the same ephemeral key, and uses OpenSSL independently to verify signatures, public keys, subject identity, exact SAN text and template values. All private material is removed in finally blocks. Only sanitized booleans and encoding descriptions are emitted; no CSR, key, customer data, credentials or authority request is published. Recorded results are in `docs/zatca-csr-sdk348-evidence-20261119.json`.
+
+This is **semantic identity comparison**, not byte-identical CSR or CA acceptance. The SDK uses UTF8String for the template while the application retains PrintableString as directed by authority simulation guidance; the application also includes its explicitly saved requester email, which the certificate verifier already permits the CA to omit. Those differences are reported rather than hidden. An authorized Simulation request is still needed to establish actual issuer acceptance, and the separate invoice-signature/SDK security-profile question remains open.
+
+Reproduce with the owner's already supplied SDK, a compatible Java 11 runtime, and a local SDK config whose resource paths are valid for the host:
+
+```sh
+node scripts/zatca/verify-csr-sdk348.mjs --java /absolute/path/to/java --jar /absolute/path/to/zatca-einvoicing-sdk-238-R3.4.8.jar --sdk-config /absolute/path/to/sdk-config.json
+```
+
+References:
+- https://zatca.gov.sa/ar/E-Invoicing/SystemsDevelopers/Documents/20230519_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards_vF.pdf — table 1, common name on page 15.
+- https://zatca1.discourse.group/t/simulation-environment-handling-csr-and-compliance-api-with-zatca/4157 — authority guidance distinguishes the simulation template extension and endpoint/OTP.
+- Bundled Java 3.4.8 CSR CLI and `-sim` option, exact JAR SHA-256 recorded in the JSON evidence.
+
 `lib/zatca-onboarding-identity.ts` adds two backend preparation checks:
 
 - `inspectZatcaOnboardingIdentity(material, savedUnit, at)` returns `ONBOARDING_IDENTITY_PREFLIGHT_ONLY`.
@@ -9,15 +30,15 @@ Neither authorizes a user, writes a registry, activates a connection or calls AW
 
 ## Exact supported layout
 
-The caller must explicitly select saved profile `ZAKATFLOW_SAN_DIRECTORY_V1`, describing the **existing application CSR writer**, not a newly certified authority profile. There is no AUTO mode, alternate-field search or fallback to matching text in DNS/SAN display strings.
+The caller must explicitly select saved profile `ZAKATFLOW_SAN_DIRECTORY_V2`, describing the corrected application CSR identity layout, not a newly certified authority profile. There is no AUTO mode, alternate-field search or fallback to matching text in DNS/SAN display strings. V1 receipts are not silently reinterpreted as V2.
 
 | Identity | Required location in this supported layout |
 | --- | --- |
 | Country | Subject C = SA |
 | Legal name and branch | Subject O and OU |
-| Common name | Subject CN; existing simulation writer uses PREZATCA-Code-Signing, production uses saved common name |
+| Common name | Subject CN equals the saved solution-unit common name in both environments |
 | Requester email | Original CSR emailAddress; certificate may omit it, but a present value must match |
-| EGS serial | Single SAN directoryName serialNumber (2.5.4.5) |
+| EGS serial | Single SAN directoryName SN / surname (2.5.4.4), as observed in Java SDK 3.4.8 output |
 | Taxpayer VAT | SAN directoryName UID (0.9.2342.19200300.100.1.1) |
 | Supported invoice categories | SAN directoryName title (2.5.4.12) |
 | Branch location | SAN directoryName registeredAddress (2.5.4.26) |

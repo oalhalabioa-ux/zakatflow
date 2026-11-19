@@ -40,7 +40,7 @@ class Enrollment(unittest.TestCase):
     def begin(self): return json.loads(query(self.f.auth()+self.begin_sql()).splitlines()[-1])
     def proof(self):
         return dict(stage='ONBOARDING_CANDIDATE_ONLY',identity=dict(stage='ONBOARDING_IDENTITY_PREFLIGHT_ONLY',scope=dict(organizationId=self.f.org,environment='SIMULATION',unitId=self.f.connection,connectionId=self.f.connection),
-          expectedIdentitySha256=identity_hash(self.enrollment['expected_identity']),profile='ZAKATFLOW_SAN_DIRECTORY_V1',certificateFingerprintSha256=self.binding['certificateFingerprintSha256'],csrSha256=sha(base64.b64decode(self.csr)),publicKeySpkiSha256=sha(base64.b64decode(self.spki))),
+          expectedIdentitySha256=identity_hash(self.enrollment['expected_identity']),profile='ZAKATFLOW_SAN_DIRECTORY_V2',certificateFingerprintSha256=self.binding['certificateFingerprintSha256'],csrSha256=sha(base64.b64decode(self.csr)),publicKeySpkiSha256=sha(base64.b64decode(self.spki))),
           path=dict(stage='CERTIFICATE_PATH_CHECK_ONLY',environment='SIMULATION',certificateFingerprintSha256=self.binding['certificateFingerprintSha256'],
             anchorFingerprintSha256=sha(b'SYNTHETIC_ISSUER'),issuerFingerprintsSha256=[sha(b'SYNTHETIC_ISSUER')],crlFingerprintsSha256=['b'*64],checkedAt=now(),engine='OpenSSL 3.5.7'))
     def record_sql(self,binding=None,evidence=None,head=None,enrollment_id=None):
