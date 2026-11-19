@@ -277,12 +277,12 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   </section>;
  }
  const debtRatios=m.annual.flatMap(year=>year.dscr===null?[]:[year.dscr]);
- const projectReturns=metrics([
-  [['NPV للمشروع','Project NPV'],money(m.ready?m.npv:null)],
-  [['IRR للمشروع','Project IRR'],percentage(m.ready?m.irr:null)],
-  [['IRR حقوق الملكية','Equity IRR'],percentage(m.ready?(m.equity?.irr??null):null)],
-  [['أدنى تغطية خدمة دين DSCR','Minimum debt service coverage (DSCR)'],fmt(m.ready&&debtRatios.length?Math.min(...debtRatios):null)]
- ]);
+ const projectReturns=<div className="fs-royal-overview-kpis">{metrics([
+  [['NPV للمشروع','Project NPV'],money(m.ready?m.npv:null),'chart'],
+  [['IRR للمشروع','Project IRR'],percentage(m.ready?m.irr:null),'target'],
+  [['IRR حقوق الملكية','Equity IRR'],percentage(m.ready?(m.equity?.irr??null):null),'users'],
+  [['أدنى تغطية خدمة دين DSCR','Minimum debt service coverage (DSCR)'],fmt(m.ready&&debtRatios.length?Math.min(...debtRatios):null),'shield']
+ ])}</div>;
  const financingSummary=[
   [l('القيمة الاستثمارية الاقتصادية','Economic investment'),money(m.cashRequired+m.land)],
   [l('النقد المطلوب للتأسيس','Initial cash requirement'),money(m.cashRequired)],
@@ -633,13 +633,15 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     workingCapitalFields={<>{fields('ops',operationFields.filter(([key])=>key==='nwcPct'))}
      {compactValues([[l('رأس المال العامل عند التأسيس','Initial working capital'),money(water.capex.workingCapital)]])}</>}
     settings={fields('ops',operationFields.filter(([key])=>['maintenancePct','discountRate','taxRate','horizon'].includes(key)))}/>
-   <WaterFinancingPolicy water={water} locale={locale} onChange={onChange}/>
    {projectReturns}
    <Panel title={l('خدمة الدين السنوية','Annual debt service')} icon="coins">
     <Table headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة المدفوعة','Paid interest'),
      l('الفائدة المرسملة','Capitalized interest'),l('سداد الأصل','Principal repayment'),l('سداد النهاية','Terminal settlement'),l('الرصيد الختامي','Closing balance'),'DSCR',l('التدفق بعد القرض','Cash flow after debt')]}
      rows={m.annual.map(y=>[y.year,money(y.openingDebt??(y.debtBalance+y.principal)),money(y.interest),money(y.capitalizedInterest??0),money(y.principal),money(y.terminalDebtRepayment??0),
       money(y.debtBalance),fmt(y.dscr),money(y.afterDebt)])}/>
+    <details className="fs-water-financing-settings"><summary>{l('شروط التمويل وعوائد الملكية','Financing and equity settings')}</summary>
+     <WaterFinancingPolicy water={water} locale={locale} onChange={onChange}/>
+    </details>
    </Panel>
    {equitySchedule}
    <Panel title={l('الإهلاك وتغير رأس المال العامل','Depreciation and working capital movement')} icon="layers">

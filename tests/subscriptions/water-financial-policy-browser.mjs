@@ -146,6 +146,7 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
    await page.getByRole('button',{name:'Restore from cloud',exact:true}).click();
    await page.getByRole('button',{name:new RegExp(study.title)}).click();await page.getByRole('button',{name:'Advanced model',exact:true}).click();
    const policy=page.locator('.fs-water-financing');
+   await page.locator('.fs-water-financing-settings > summary').click();
    await policy.getByRole('checkbox',{name:'Use explicit financing and equity returns',exact:true}).check();
    await policy.getByRole('combobox',{name:'Grace-period interest',exact:true}).selectOption('CAPITALIZE');
    await policy.getByRole('combobox',{name:'Paid-interest tax treatment',exact:true}).selectOption('PAID');
@@ -159,6 +160,7 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
    assert.deepEqual({...saved.financingPolicy,evidence:''},{graceInterest:'CAPITALIZE',interestTaxMode:'PAID',terminalDebt:'SETTLE',evidence:''});
    assert.equal(saved.deal.loanStart,2);assert.equal(saved.deal.investorLoan,300);
    await page.reload();await page.getByRole('button',{name:'Advanced model',exact:true}).click();
+   await page.locator('.fs-water-financing-settings > summary').click();
    assert.equal(await policy.getByRole('combobox',{name:'Grace-period interest',exact:true}).inputValue(),'CAPITALIZE');
    let downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Export equity returns CSV',exact:true}).click();
    const equityDownload=await downloading,equity=csvRows(await readFile(await equityDownload.path(),'utf8'));
@@ -180,6 +182,7 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
    for(const locale of ['ar','en'])for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000});await page.goto(app+'/'+locale+'/feasibility?scope=PERSONAL');const ar=locale==='ar';
     await page.getByRole('button',{name:ar?'النموذج المالي المتقدم':'Advanced model',exact:true}).click();
+    await page.locator('.fs-water-financing-settings > summary').click();
     assert.equal(await page.locator('.fs-water-financing select').first().inputValue(),'CAPITALIZE');
     for(const kind of ['advanced','report']){
      if(kind==='report')await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();
