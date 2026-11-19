@@ -34,13 +34,15 @@ export function importWaterBackup(input:unknown,newStudyId:string){
  const parsed=legacyWaterSchema.safeParse(input);
  if(!parsed.success)return null;
  const {meta,deal,capex,ops,scenarios,legal,tasks,risks,quotes,decisions}=parsed.data;
+ const optionalWater=Object.fromEntries(['financialPolicy','financingPolicy','quantityCosting','operationsPlan','capexQuoteSources']
+  .flatMap(key=>{const value=parsed.data[key as keyof typeof parsed.data];return value===undefined?[]:[[key,value]];}));
  for(const rows of [legal,tasks,risks,quotes,decisions]){
   if(new Set(rows.map(row=>row.id)).size!==rows.length)return null;
  }
  const study={
   ...createStudy(newStudyId,meta.name),
   country:'SY',region:meta.region,currency:'USD',preparedBy:meta.owner,studyDate:meta.asof,notes:meta.notes,
-  status:'FEASIBILITY',water:{deal,capex,ops,scenarios},
+  status:'FEASIBILITY',water:{deal,capex,ops,scenarios,...optionalWater},
   legal:legal.map(({id,title,group,critical,desc,assignee,due,evidence,status})=>({
    id,title,group,critical,description:desc,owner:assignee,due,notes:evidence,status:legalStatuses[status]
   })),

@@ -4,7 +4,8 @@ import {cloudDraftWrite,feasibilityDraftSchema} from './draft-schema';
 import {appendImportedStudies,parseCloudStudyRows,parseInstitutionalCloudRows,parseLocalStudyCache,parseStudyBackup,FEASIBILITY_BACKUP_SCHEMA} from './local-drafts';
 import {feasibilityCsv} from './report-export';
 import {importWaterBackup} from './water-backup';
-import {createWaterModel,emptyWaterOperationsPlan,evaluateWater,waterVariableCostBreakdown,waterModelSchema,waterOperationalRequirements,waterProductionBalance} from './water-model';
+import {createWaterModel,emptyWaterOperationsPlan,evaluateWater,waterVariableCostBreakdown,waterModelSchema,waterOperationalRequirements,waterProductionBalance,legacyWaterFinancialPolicy} from './water-model';
+import {defaultWaterFinancingPolicy} from './water-financing';
 
 const existingId='3cadcbaa-e175-453a-9822-83dede84ef3d';
 const newId='17f24edc-3c5a-409d-8609-8ebf4e40dc8b';
@@ -110,6 +111,19 @@ describe('original bottled-water model financial parity',()=>{
 });
 
 describe('original water backup recovery',()=>{
+ it('retains validated optional financial, operating and quantity policies without rewriting the input or existing documents',()=>{
+  const input={...structuredClone(legacy),financialPolicy:{...legacyWaterFinancialPolicy(),depreciationMode:'CAPPED'},
+   financingPolicy:{...defaultWaterFinancingPolicy(),graceInterest:'CAPITALIZE',evidence:'Synthetic loan terms'},
+   quantityCosting:{builtArea:200,capital:{enabled:false,items:[]},fixed:{enabled:false,items:[]},materialsEnabled:false,materialSource:'',landByArea:false,landUnitPrice:0,landSource:''},
+   operationsPlan:{...emptyWaterOperationsPlan,collectionDays:30},capexQuoteSources:{}};
+  const before=JSON.stringify(input),existing=createStudy(existingId,'Existing study'),existingBefore=JSON.stringify(existing);
+  const imported=importWaterBackup(input,newId)!;expect(imported).not.toBeNull();
+  for(const key of ['financialPolicy','financingPolicy','quantityCosting','operationsPlan','capexQuoteSources'] as const)expect(imported.water?.[key]).toEqual(input[key]);
+  expect(cloudDraftWrite.parse({study:imported,revision:1}).study).toEqual(imported);
+  expect(appendImportedStudies([existing],[imported],()=>newId)?.studies).toHaveLength(2);
+  expect(JSON.stringify(input)).toBe(before);expect(JSON.stringify(existing)).toBe(existingBefore);
+  expect(importWaterBackup({...input,financingPolicy:{...input.financingPolicy,organizationId:orgId}},newId)).toBeNull();
+ });
  it('round-trips typed imported data through local, personal and institutional storage validation',()=>{
   const study=importWaterBackup(legacy,existingId)!;
   expect(study).toMatchObject({id:existingId,currency:'USD',preparedBy:'Analyst',studyDate:'2026-01-01',notes:'Test',
