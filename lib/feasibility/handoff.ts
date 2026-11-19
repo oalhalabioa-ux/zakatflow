@@ -14,7 +14,7 @@ export function handoffReadiness(study:FeasibilityStudy){
  const legalVerified=water||land
   ?waterChecks.length>0&&waterChecks.every(item=>item.status==='VERIFIED'&&item.notes.trim())
   :critical.every(title=>study.legal.some(item=>item.title===title&&item.status==='VERIFIED'));
- const balanced=land?land.issue===null&&land.ready&&land.peakEquityDeficit<=.01:
+ const balanced=land?land.issue===null&&land.ready&&land.peakEquityDeficit<=(study.rawLand?.quantityDevelopment?.committedEquity??0)+.01:
   study.water
   ?study.water.deal.extraFunding===0&&(!water?.totalLoan||
    (study.water.deal.loanYears>0&&study.water.deal.loanStart>0))

@@ -145,6 +145,13 @@ describe('quantity costing: synthetic raw-land acceptance',()=>{
   expect(after.financeMetrics!.projectFlows.reduce((s,v,i)=>s+v/(1+after.irr!/100)**i,0)).toBeCloseTo(0,6);
   const y=after.annual[0];expect(after.financeMetrics!.dscr[0]).toBeCloseTo((y.cashCollected-y.cashCost+y.interest-y.performanceFee)/(y.repayment+y.interest));
   m.finance.facility=0;const zero=evaluateRawLand(m);if(zero.issue)throw Error(zero.issue);expect(zero.financeMetrics!.dscr.every(x=>x===null)).toBe(true);
+  m.site.landPaymentMethod='cash';
+  const s=createRawLandStarter('793e128a-66d1-44ec-9380-49acf36ed59b','Synthetic');s.rawLand=m;
+  const financialBefore=evaluateRawLand(m);if(financialBefore.issue)throw Error(financialBefore.issue);
+  expect(handoffReadiness(s).checks.find(x=>x.key==='finance')?.passed).toBe(false);
+  m.quantityDevelopment!.committedEquity=financialBefore.peakEquityDeficit;
+  expect(handoffReadiness(s).checks.find(x=>x.key==='finance')?.passed).toBe(true);
+  expect(evaluateRawLand(m)).toEqual(financialBefore); // Funding commitment is evidence, not extra project revenue or ownership.
  });
  it('propagates area, scenario multiplier, growth, collection delay and financing without cost duplication',()=>{
   const m=land();m.sales.scenarios[2].costMultiplier=1.2;m.cost.contingencyRate=.1;

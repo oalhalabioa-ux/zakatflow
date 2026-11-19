@@ -66,6 +66,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   [l('التسهيل التمويلي','Financing facility'),money(study.rawLand.finance.facility)],
   [l('تكاليف التطوير النقدية','Cash development costs'),money(landResult?.cashDevelopmentCost??null)],
   [l('ذروة عجز التمويل بعد الدين','Peak funding gap after debt'),money(landResult?.peakEquityDeficit??null)],
+  [l('التزام رأس المال النقدي','Committed cash equity'),money(study.rawLand.quantityDevelopment?.committedEquity??0)],
+  [l('العجز غير المغطى بالالتزام النقدي','Deficit not covered by cash commitment'),money(landResult?Math.max(0,landResult.peakEquityDeficit-(study.rawLand.quantityDevelopment?.committedEquity??0)):null)],
   [l('رصيد الدين الختامي','Closing debt'),money(landResult?.annual.at(-1)?.closingDebt??null)]
  ]:water&&study.water&&deal?[
   [l('تكلفة التأسيس مع الرسوم','Establishment costs including fees'),money(water.investment)],

@@ -23,7 +23,7 @@ const legacyReferenceSchema=z.object({
 }).strict();
 export const rawLandSchema=z.object({
  quantityDevelopment:z.object({budget:quantityBudgetSchema,roadLength:amount,networkLength:amount,serviceArea:amount,
-  serviceAreaFromSite:z.boolean().optional(),assumptionSource:z.string().max(3000).optional(),landTiming:z.enum(['YEAR1','YEAR0']).optional()}).strict().optional(),
+  serviceAreaFromSite:z.boolean().optional(),assumptionSource:z.string().max(3000).optional(),landTiming:z.enum(['YEAR1','YEAR0']).optional(),committedEquity:amount.optional()}).strict().optional(),
  project:z.object({startYear:z.number().int().min(1900).max(2200),years:z.number().int().min(1).max(15),discountRate:ratio}).strict(),
  site:z.object({areaAfterPriorTransfers:amount,excludedValley:amount,extraExcluded:amount,otherConstraintsSqm:amount,
   serviceRatio:ratio,landPricePerNetSqm:amount,landPaymentMethod:z.enum(['in_kind','cash']),

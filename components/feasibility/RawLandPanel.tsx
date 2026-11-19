@@ -191,6 +191,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
  </>);
  if(tab==='advanced')return <>
   {panel(['التمويل وجدول الدين','Financing and debt'],<div className="fs-form-grid">
+   {numeric(['رأس المال النقدي الملتزم لتغطية العجز','Committed cash equity to cover the deficit'],quantities.committedEquity??0,v=>patchQuantities({committedEquity:v}))}
    {choice(['توقيت استثمار الأرض','Land investment timing'],quantities.landTiming??'YEAR1',[
     ['YEAR1',['ضمن السنة الأولى — المنهج السابق','Within year one — legacy method']],['YEAR0',['عند البداية — سنة صفر','At inception — year zero']]
    ],v=>patchQuantities({landTiming:v}))}
@@ -344,6 +345,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   </div>}
   {!base.issue&&base.financeMetrics&&panel(['توقيت الاستثمار وتغطية الدين','Investment timing and debt coverage'],<>
    <p>{l(['تدفق الأرض في سنة صفر','Year-zero land cash flow'])}: <bdi>{money(base.financeMetrics.initialProject)}</bdi></p>
+   <p>{l(['عجز التمويل غير المغطى بالالتزام النقدي','Funding deficit not covered by cash commitment'])}: <bdi>{money(Math.max(0,base.peakEquityDeficit-(quantities.committedEquity??0)))}</bdi></p>
    <p>{l(['فترة الاسترداد من سنة صفر بالسنوات','Payback from year zero in years'])}: <bdi>{fmt(base.financeMetrics.payback)}</bdi></p>
    <p className="fs-hint">{l(['الاسترداد يُحسب عند اختيار استثمار الأرض في سنة صفر. المنهج السابق يجمعها بتدفق السنة الأولى، ولا نفترض تاريخًا داخل السنة. DSCR يقسم النقد المتاح قبل الفائدة وأصل الدين على خدمة الدين، دون سحوبات التمويل.','Payback is calculated when land is invested at year zero. The legacy method nets land into year-one cash flow; no intra-year date is assumed. DSCR divides cash available before interest/principal by debt service, excluding loan draws.'])}</p>
    {table([['السنة','Year'],['تغطية خدمة الدين DSCR','Debt service coverage DSCR']],base.annual.map((x,i)=>[x.year,fmt(base.financeMetrics!.dscr[i])]))}
