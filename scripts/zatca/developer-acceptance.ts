@@ -126,10 +126,9 @@ export async function runDeveloperAcceptance() {
   const auth='Basic '+Buffer.from(issued.binarySecurityToken+':'+issued.secret).toString('base64');
   report.checks.push({check:'compliance-csid',http:enrollment.http,keyMatched:true});
   let previous=Buffer.from(createHash('sha256').update('0').digest('hex')).toString('base64'),counter=0;
-  const artifacts:{category:string;document:string;payload:{invoiceHash:string;uuid:string;invoice:string}}[]=[];
-  const issuedAt=new Date(Date.now()-60_000).toISOString(),date=issuedAt.slice(0,10),time=issuedAt.slice(11,19);
-  for(const category of ['STANDARD','SIMPLIFIED'] as const)for(const document of ['INVOICE','CREDIT_NOTE','DEBIT_NOTE'] as const){
-   report.stage='compliance-'+category+'-'+document;counter++;
+  const createArtifact=async(category:'STANDARD'|'SIMPLIFIED',document:'INVOICE'|'CREDIT_NOTE'|'DEBIT_NOTE',certificate:X509Certificate)=>{
+   counter++;
+   const issuedAt=new Date(Date.now()-60_000).toISOString(),date=issuedAt.slice(0,10),time=issuedAt.slice(11,19);
    const draft={organization_id:'a800b1c2-df4a-4a79-9b91-4a451ce2858a',invoice_number:`SYNTHETIC-QA-${counter}`,invoice_category:category,document_type:document,
     issue_date:date,issue_time:time,seller_name:'شركة اختبار يقين',seller_vat_number:'399999999900003',seller_address:'King Fahd Road',
     seller_building_number:'1234',seller_district:'Olaya',seller_additional_number:'5678',seller_postal_code:'12345',seller_city:'Riyadh',
@@ -138,13 +137,18 @@ export async function runDeveloperAcceptance() {
     lines:[{item_name:'Consulting service',quantity:2,unit_price:100,tax_category:'S',tax_rate:15}]};
    const context={invoiceUuid:randomUUID(),invoiceCounter:String(counter),previousInvoiceHash:previous,supplyDate:date,sellerId:{scheme:'CRN',value:'1010000000'},paymentMeansCode:'30'};
    const unsigned=buildUnsignedZatcaXml(draft,context);
-   const prepared=category==='SIMPLIFIED'?await prepareZatcaSdk345QaDocument(draft,context,{certificate:cert.toString(),
-    fingerprintSha256:createHash('sha256').update(cert.raw).digest('hex'),signingTime:new Date()},sign)
+   const prepared=category==='SIMPLIFIED'?await prepareZatcaSdk345QaDocument(draft,context,{certificate:certificate.toString(),
+    fingerprintSha256:createHash('sha256').update(certificate.raw).digest('hex'),signingTime:new Date()},sign)
     :{xml:unsigned.xml,invoiceHashBase64:(await prepareZatcaInvoiceHash(unsigned.xml)).invoiceHashBase64,uuid:context.invoiceUuid};
    const payload={invoiceHash:prepared.invoiceHashBase64,uuid:prepared.uuid,invoice:Buffer.from(prepared.xml).toString('base64')};
-   const result=await api('/compliance/invoices',payload,auth);
+   previous=prepared.invoiceHashBase64;
+   return {category,document,payload};
+  };
+  for(const category of ['STANDARD','SIMPLIFIED'] as const)for(const document of ['INVOICE','CREDIT_NOTE','DEBIT_NOTE'] as const){
+   report.stage='compliance-'+category+'-'+document;
+   const artifact=await createArtifact(category,document,cert);
+   const result=await api('/compliance/invoices',artifact.payload,auth);
    report.checks.push({category,document,...summarizeDeveloperResult(result.http,result.body,'compliance')});
-   artifacts.push({category,document,payload});previous=prepared.invoiceHashBase64;
    await publish();
   }
   if(!(await fetchKey()).equals(spki))throw Error('KMS_KEY_CHANGED');
@@ -152,12 +156,16 @@ export async function runDeveloperAcceptance() {
   report.stage='permanent-developer-csid';const permanent=await api('/production/csids',{compliance_request_id:String(issued.requestID)},auth);
   if(permanent.http!==200||typeof permanent.body?.binarySecurityToken!=='string'||typeof permanent.body?.secret!=='string')throw Error('PERMANENT_TEST_CREDENTIALS_UNAVAILABLE');
   // The path name is the Developer Portal's test API, never the production environment.
-  certificateMatchesKey(permanent.body.binarySecurityToken,spki);
+  const permanentCert=certificateMatchesKey(permanent.body.binarySecurityToken,spki);
   report.checks.push({check:'permanent-developer-csid',http:permanent.http,keyMatched:true});
   const permanentAuth='Basic '+Buffer.from(permanent.body.binarySecurityToken+':'+permanent.body.secret).toString('base64');
   const deliveries:DeliveryResult[]=[];
-  for(const artifact of artifacts){
-   const operation=artifact.category==='SIMPLIFIED'?'reporting':'clearance';report.stage=operation;
+  // CCSID-signed compliance samples must not be reused for PCSID reporting.
+  // Build fresh diagnostic documents with the permanent certificate, unique
+  // UUIDs/counters and the next previous-hash links; never patch signed XML.
+  for(const category of ['STANDARD','SIMPLIFIED'] as const)for(const document of ['INVOICE','CREDIT_NOTE','DEBIT_NOTE'] as const){
+   const operation=category==='SIMPLIFIED'?'reporting':'clearance';report.stage=operation;
+   const artifact=await createArtifact(category,document,permanentCert);
    const result=await api(operation==='reporting'?'/invoices/reporting/single':'/invoices/clearance/single',artifact.payload,permanentAuth);
    const delivery:DeliveryResult={category:artifact.category,document:artifact.document,operation,...summarizeDeveloperResult(result.http,result.body,operation)};
    deliveries.push(delivery);report.checks.push(delivery);
