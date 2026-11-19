@@ -15,6 +15,13 @@ const waterUnitCosts=z.object({
 }).strict();
 export const emptyWaterUnitCosts={bottle:0,cap:0,label:0,carton:0,kwh:0,rawWaterM3:0,distributionKm:0};
 export const waterModelSchema=z.object({
+ financialPolicy:z.object({
+  workingCapitalMode:z.enum(['PERCENT','CYCLE']),inventoryDays:z.number().int().min(0).max(3650),
+  payableDays:z.number().int().min(0).max(3650),daysPerYear:z.union([z.literal(360),z.literal(365)]),
+  depreciationMode:z.enum(['LEGACY','CAPPED','CLASSES']),
+  assetLives:z.partialRecord(z.enum(waterCapexItemKeys),z.number().int().min(1).max(60)),
+  workingCapitalRecoveryPct:pct,terminalAssetProceeds:amount,evidence:z.string().max(3000),
+ }).strict().optional(),
  quantityCosting:z.object({
   builtArea:amount,capital:quantityBudgetSchema,fixed:quantityBudgetSchema,assumptionSource:z.string().max(3000).optional(),
   materialsEnabled:z.boolean(),materialSource:z.string().max(1000),productionEnabled:z.boolean().optional(),
@@ -64,6 +71,10 @@ export const waterModelSchema=z.object({
 }).strict();
 export type WaterModel=z.infer<typeof waterModelSchema>;
 export type WaterScenario=z.infer<typeof waterScenarioSchema>;
+export function legacyWaterFinancialPolicy():NonNullable<WaterModel['financialPolicy']>{
+ return {workingCapitalMode:'PERCENT',inventoryDays:0,payableDays:0,daysPerYear:365,depreciationMode:'LEGACY',
+  assetLives:{},workingCapitalRecoveryPct:0,terminalAssetProceeds:0,evidence:''};
+}
 
 export const emptyWaterOperationsPlan:NonNullable<WaterModel['operationsPlan']>={
  sourceName:'',permitReference:'',packagingLossPct:0,kwhPerThousandBottles:0,cartonsPerTrip:0,roundTripKm:0,
@@ -109,7 +120,7 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const finishedYield=model.quantityCosting?.productionEnabled?1-(model.operationsPlan?.finishedBottleLossPct??0)/100:1;
  const dispatchContribution=initialPrice*finishedYield*(1-returnRate)-initialCost;
  const initialFixed=(ops.fixedMonth+deal.leaseMonth)*12;
- const depreciation=investment/Math.max(1,ops.life);
+ const policy=model.financialPolicy,policyState=waterFinancialReadiness(model,capex);
  const maintenance=investment*ops.maintenancePct/100;
  let workingCapital=capex.workingCapital;
  let debtBalance=totalLoan;
@@ -127,20 +138,28 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   const variable=volume*unitCost;
   const fixed=initialFixed*(1+ops.fixedGrowth/100)**i;
   const ebitda=revenue-variable-fixed;
+  const depreciation=waterAnnualDepreciation(model,capex,year);
   const ebit=ebitda-depreciation;
   const tax=Math.max(0,ebit)*ops.taxRate/100;
-  const nextWorkingCapital=revenue*ops.nwcPct/100;
+  const cycle=waterCashCycle(model,revenue,variable);
+  const nextWorkingCapital=policy?.workingCapitalMode==='CYCLE'?cycle.target:revenue*ops.nwcPct/100;
   const workingCapitalMovement=nextWorkingCapital-workingCapital;
   workingCapital=nextWorkingCapital;
-  const freeCashFlow=ebitda-tax-maintenance-workingCapitalMovement;
+  const operatingFreeCashFlow=ebitda-tax-maintenance-workingCapitalMovement;
+  const workingCapitalRecovery=year===ops.horizon?nextWorkingCapital*(policy?.workingCapitalRecoveryPct??0)/100:0;
+  const terminalAssetProceeds=year===ops.horizon?(policy?.terminalAssetProceeds??0):0;
+  const freeCashFlow=operatingFreeCashFlow+workingCapitalRecovery+terminalAssetProceeds;
   const servicing=year>=Math.max(1,deal.loanStart)&&debtBalance>0;
   const principal=servicing?Math.min(debtBalance,totalLoan/Math.max(1,deal.loanYears)):0;
   const interest=servicing?debtBalance*deal.loanInterest/100:0;
   debtBalance=Math.max(0,debtBalance-principal);
   const debtService=principal+interest;
   return {year,utilization,volume,returnedVolume,netVolume,price,unitCost,revenue,variable,fixed,ebitda,depreciation,ebit,tax,
+   ...(policy?{receivables:policy.workingCapitalMode==='CYCLE'?cycle.receivables:null,
+    inventory:policy.workingCapitalMode==='CYCLE'?cycle.inventory:null,payables:policy.workingCapitalMode==='CYCLE'?cycle.payables:null,
+    operatingFreeCashFlow,workingCapitalRecovery,terminalAssetProceeds,closingWorkingCapital:nextWorkingCapital-workingCapitalRecovery}:{}),
    workingCapital,workingCapitalMovement,maintenance,freeCashFlow,principal,interest,debtBalance,debtService,
-   afterDebt:freeCashFlow-debtService,dscr:debtService>0?freeCashFlow/debtService:null};
+   afterDebt:freeCashFlow-debtService,dscr:debtService>0?operatingFreeCashFlow/debtService:null};
  });
  const flows=[-(cashRequired+land),...annual.map(year=>year.freeCashFlow)];
  const npv=flows.reduce((total,flow,year)=>total+flow/(1+ops.discountRate/100)**year,0);
@@ -156,10 +175,48 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  }
  return {hard,contingency,investment,cashRequired,land,investorEquity,totalEquity,shareholderLoan,totalLoan,
   ...(model.quantityCosting||purchaseLand?{purchaseLand,costingReadiness:effective.readiness}:{}),
+  ...(policy?{financialReadiness:policyState}:{}),
   investorShare:totalEquity?investorEquity/totalEquity*100:null,partnerShare:totalEquity?land/totalEquity*100:null,
   capacity,waterDemand,annual,flows,npv,cashNpv:npv+land,irr:internalRateOfReturn(flows),payback,
   breakEven:dispatchContribution>0?initialFixed/dispatchContribution:null,
-  ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.netVolume>0)};
+  ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.netVolume>0)&&(!policy||policyState.inputReady)};
+}
+
+/** Annual steady-state cycle. Receivables use net sales; inventories/payables use variable production cost. */
+export function waterCashCycle(model:WaterModel,revenue:number,variable:number){
+ const p=model.financialPolicy,days=p?.daysPerYear??365;
+ const receivables=revenue*(model.operationsPlan?.collectionDays??0)/days;
+ const inventory=variable*(p?.inventoryDays??0)/days,payables=variable*(p?.payableDays??0)/days;
+ return {receivables,inventory,payables,target:receivables+inventory-payables};
+}
+
+/** Land, working capital and acquisition fees are outside the depreciable investment basis. */
+export function waterAnnualDepreciation(model:WaterModel,capex:WaterModel['capex'],year:number){
+ const hard=waterCapexItemKeys.filter(k=>k!=='licenses').reduce((s,k)=>s+capex[k],0);
+ const reserve=hard*capex.contingencyPct/100,investment=hard+reserve+capex.licenses;
+ const mode=model.financialPolicy?.depreciationMode??'LEGACY';
+ if(mode==='LEGACY')return investment/Math.max(1,model.ops.life);
+ if(mode==='CAPPED')return model.ops.life>0&&year<=model.ops.life?investment/model.ops.life:0;
+ return waterCapexItemKeys.reduce((s,key)=>{
+  const life=model.financialPolicy?.assetLives[key];
+  const basis=capex[key]+(key!=='licenses'&&hard>0?reserve*capex[key]/hard:0);
+  return s+(life&&year<=life?basis/life:0);
+ },0);
+}
+
+export function waterFinancialReadiness(model:WaterModel,capex:WaterModel['capex']=effectiveWaterInputs(model).capex){
+ const p=model.financialPolicy,mode=p?.depreciationMode??'LEGACY';
+ const hasInvestment=waterCapexItemKeys.some(k=>capex[k]>0);
+ const inputIssues=[
+  ...(hasInvestment&&mode!=='CLASSES'&&model.ops.life<=0?['DEPRECIATION_LIFE']:[]),
+  ...(hasInvestment&&mode==='LEGACY'&&model.ops.life>0&&model.ops.horizon>model.ops.life?['LEGACY_OVERDEPRECIATION']:[]),
+  ...(mode==='CLASSES'?waterCapexItemKeys.filter(k=>capex[k]>0&&!p?.assetLives[k]).map(k=>'ASSET_LIFE:'+k):[]),
+  ...(p?.workingCapitalMode==='CYCLE'&&model.operationsPlan?.collectionDays===undefined?['COLLECTION_DAYS']:[]),
+  ...(p?.workingCapitalMode==='CYCLE'&&Math.max(model.operationsPlan?.collectionDays??0,p.inventoryDays,p.payableDays)>p.daysPerYear?['CYCLE_HORIZON']:[]),
+ ];
+ const evidenceIssues=p&&!p.evidence.trim()?['FINANCE_EVIDENCE']:[];
+ const inputReady=inputIssues.every(code=>mode==='LEGACY'&&['DEPRECIATION_LIFE','LEGACY_OVERDEPRECIATION'].includes(code));
+ return {inputReady,ready:inputIssues.length===0&&evidenceIssues.length===0,issues:[...inputIssues,...evidenceIssues]};
 }
 
 export function effectiveWaterInputs(model:WaterModel){

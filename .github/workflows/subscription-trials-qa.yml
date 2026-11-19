@@ -84,6 +84,7 @@ jobs:
           path: |
             tests/subscriptions/*-result.json
             tests/subscriptions/screenshots/*.png
+            tests/subscriptions/screenshots/template-finance-*.pdf
       - name: Destroy isolated services
         if: always()
         run: |

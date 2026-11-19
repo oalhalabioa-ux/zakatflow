@@ -1,5 +1,5 @@
 import {evaluateRawLand} from './raw-land';
-import {evaluateWater,effectiveWaterInputs} from './water-model';
+import {evaluateWater,effectiveWaterInputs,waterFinancialReadiness} from './water-model';
 import {defaultLegalItems,evaluateStudy,type FeasibilityStudy} from './engine';
 
 export type HandoffCheck={key:string;ar:string;en:string;passed:boolean};
@@ -30,6 +30,7 @@ export function handoffReadiness(study:FeasibilityStudy){
   {key:'blockers',ar:'لا يوجد مانع قانوني مسجل',en:'No recorded legal blocker',passed:!study.legal.some(x=>x.status==='BLOCKED')}
  ];
  if(study.water?.quantityCosting)checks.push({key:'quantity',ar:'الكميات وأسعار الوحدات موثقة ومكتملة',en:'Quantities and unit prices are complete and documented',passed:effectiveWaterInputs(study.water).readiness.ready});
+ if(study.water)checks.push({key:'financial-policy',ar:'منهج الإهلاك ورأس المال العامل موثق وقابل للتحقق',en:'Depreciation and working capital methods are documented and assessable',passed:waterFinancialReadiness(study.water).ready});
  if(land&&land.issue===null&&study.rawLand?.quantityDevelopment)checks.push({key:'quantity',ar:'كميات التطوير وأسعارها موثقة ومكتملة',en:'Development quantities and prices are complete and documented',passed:land.quantityReadiness?.ready??false});
  if(study.water||study.rawLand){
   const detailed=study.water?.quantityCosting??study.rawLand?.quantityDevelopment;

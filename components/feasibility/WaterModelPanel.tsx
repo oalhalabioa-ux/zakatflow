@@ -8,6 +8,7 @@ import {waterCapexCategories} from '@/lib/feasibility/water-capex';
 import type {WaterCapexItemKey} from '@/lib/feasibility/water-model';
 import WaterCapexQuoteImport from './WaterCapexQuoteImport';
 import WaterQuantityCosts from './WaterQuantityCosts';
+import WaterFinancialPolicy from './WaterFinancialPolicy';
 import {effectiveWaterInputs} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 
@@ -81,7 +82,7 @@ const logisticsColumns=[
  ['trips','رحلات التوزيع','Distribution trips'],
  ['distributionKm','مسافة التوزيع كم','Distribution kilometres'],
 ] as const;
-const projectionLabels=[
+const baseProjectionLabels=[
  ['year','السنة','Year'],['utilization','الاستغلال %','Utilization %'],['volume','الكراتين المرسلة','Cartons dispatched'],
  ['price','سعر الكرتون','Carton price'],['unitCost','تكلفة الكرتون المتغيرة','Variable cost / carton'],
  ['revenue','المبيعات','Revenue'],['variable','التكلفة المتغيرة','Variable costs'],['fixed','التكاليف الثابتة','Fixed costs'],
@@ -96,11 +97,11 @@ const projectionLabels=[
 ] as const;
 const sensitivityVolume=[70,85,100,115,130],sensitivityPrices=[90,95,100,105,110];
 
-function NumberInput({label,value,onChange,max=1e12,min=0,step='any'}:{
- label:string;value:number;onChange:(value:number)=>void;max?:number;min?:number;step?:number|'any';
+function NumberInput({label,value,onChange,max=1e12,min=0,step='any',disabled=false}:{
+ label:string;value:number;onChange:(value:number)=>void;max?:number;min?:number;step?:number|'any';disabled?:boolean;
 }){
  return <label className="fs-field"><span>{label}</span><input type="number" inputMode="decimal"
-  min={min} max={max} step={step} value={value}
+  min={min} max={max} step={step} value={value} disabled={disabled}
   onChange={e=>{
    const next=Math.min(max,Math.max(min,Number(e.currentTarget.value)||0));
    onChange(step===1?Math.trunc(next):next);
@@ -138,10 +139,16 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const scenarioLabel=(name:string)=>locale==='ar'?({Conservative:'متحفظ',Base:'أساسي',Optimistic:'متفائل'}[name]??name):name;
  const m=useMemo(()=>evaluateWater(water),[water]);
  const effective=effectiveWaterInputs(water);
+ const projectionLabels=[...baseProjectionLabels,...(water.financialPolicy?[
+  ['receivables','الذمم التجارية','Trade receivables'],['inventory','المخزون','Inventory'],['payables','ائتمان الموردين','Supplier credit'],
+  ['workingCapitalRecovery','تصفية رأس المال العامل','Working capital liquidation'],['terminalAssetProceeds','صافي حصيلة التخارج','Net terminal sale proceeds'],
+  ['operatingFreeCashFlow','التدفق التشغيلي قبل التخارج','Operating cash before terminal proceeds'],['closingWorkingCapital','الرصيد بعد التصفية','Working capital after liquidation'],
+ ] as const:[])];
  const field=<K extends 'capex'|'deal'|'ops'>(section:K,[key,ar,en,max,step]:NumberFields<WaterModel[K]>[number])=>
   ((section==='deal'&&key==='landValue'&&water.quantityCosting?.landByArea)||(section==='ops'&&key==='variableCarton'&&water.quantityCosting?.materialsEnabled)||(section==='ops'&&key==='fixedMonth'&&water.quantityCosting?.fixed.enabled))
   ?<label className="fs-field" key={String(key)}><span>{l(ar,en)}</span><output>{money(key==='landValue'?effective.deal.landValue:key==='variableCarton'?effective.ops.variableCarton:effective.ops.fixedMonth)}</output><small>{l('محسوب من الكميات','Calculated from quantities')}</small></label>
   :<NumberInput key={String(key)} label={l(ar,en)} value={Number(water[section][key])} max={max}
+   disabled={section==='ops'&&((key==='life'&&water.financialPolicy?.depreciationMode==='CLASSES')||(key==='nwcPct'&&water.financialPolicy?.workingCapitalMode==='CYCLE'))}
    min={key==='horizon'?3:0} step={step} onChange={value=>
     onChange({...water,[section]:{...water[section],[key]:value}})}/>;
  const fields=<K extends 'capex'|'deal'|'ops'>(section:K,definition:NumberFields<WaterModel[K]>)=>
@@ -197,9 +204,9 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   <p>{l('التدفق عند التأسيس (السنة صفر)','Initial investment cash flow (year zero)')} <b>{money(m.flows[0])}</b></p>
   {m.ready&&chart}
   <Table headers={[l('البند','Metric'),...m.annual.map(y=>y.year)]}
-   rows={projectionLabels.slice(1).map(([key,ar,en])=>[l(ar,en),...m.annual.map(y=>fmt(y[key]))])}/>
-  <p className="fs-hint">{l('تغطية خدمة الدين تساوي التدفق الحر قبل التمويل مقسومًا على أصل القرض وفائدته خلال السنة.','Debt service coverage divides project free cash flow before financing by annual principal and interest.')}</p>
-  <p className="fs-hint">{l('يُحتسب القرض بأقساط أصل متساوية على الرصيد الافتتاحي ودون فوائد قبل أول سنة سداد. لا يشمل التوقع قيمة تخارج أو استردادًا نهائيًا لرأس المال العامل.','The loan uses equal principal repayments and interest on opening balances, with no interest before the first repayment year. The forecast excludes exit proceeds and final working capital recovery.')}</p>
+   rows={projectionLabels.slice(1).map(([key,ar,en])=>[l(ar,en),...m.annual.map(y=>fmt(y[key]??null))])}/>
+  <p className="fs-hint">{l('تغطية خدمة الدين تساوي التدفق التشغيلي الحر قبل التمويل والتخارج مقسومًا على أصل القرض وفائدته خلال السنة.','Debt service coverage divides operating free cash flow before financing and terminal proceeds by annual principal and interest.')}</p>
+  <p className="fs-hint">{l('يُحتسب القرض بأقساط أصل متساوية على الرصيد الافتتاحي ودون فوائد قبل أول سنة سداد. تُضاف حصيلة التخارج والتصفية فقط عند إدخالهما صراحة في السياسة المالية، ويستبعدهما DSCR التشغيلي.','The loan uses equal principal repayments and interest on opening balances, with no interest before the first repayment year. Terminal proceeds/recovery are included only when explicitly entered in financial policy and excluded from operating DSCR.')}</p>
  </>;
  const exportForecast=()=>downloadFeasibilityCsv('bottled-water-projections.csv',[
   [...projectionLabels.map(([,ar,en])=>l(ar,en)),l('العملة','Currency')],
@@ -548,8 +555,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
       [l('العبوات القابلة للبيع','Saleable bottles'),percentage(100-(plan.finishedBottleLossPct??0)),fmt(production.saleableBottles)],
       [l('الكراتين الكاملة القابلة للبيع','Complete saleable cartons'),fmt(ops.bottlesCarton),fmt(production.saleableCartons)]
      ]}/>
-     <p className="fs-hint">{l('ميزان تشغيلي تخطيطي. تستمر توقعات المبيعات في استخدام نسب الاستغلال المحفوظة، ويستخدم رأس المال العامل نسبته المعتمدة من المبيعات.',
-      'This balance is for operating plans. Sales forecasts use saved utilization rates, and working capital uses its approved share of sales.')}</p>
+     <p className="fs-hint">{l('ميزان تشغيلي تخطيطي. تستخدم توقعات المبيعات نسب الاستغلال المحفوظة؛ يتبع رأس المال العامل المنهج المختار في النموذج المالي المتقدم.',
+      'This balance is for operating plans. Sales forecasts use saved utilization rates; working capital follows the method selected in Advanced finance.')}</p>
     </Panel>
     <Panel title={l('اقتصاديات الوحدة','Unit economics')} icon="coins">
      {fields('ops',operationFields.slice(9,13))}
@@ -606,6 +613,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    </div>
   </>}
   {tab==='advanced'&&<>
+   <WaterFinancialPolicy water={water} locale={locale} onChange={onChange}/>
    <div className="fs-royal-profile-grid">
     <Panel title={l('الإهلاك والعمر الاقتصادي','Depreciation and economic life')} icon="layers">
      {fields('ops',operationFields.filter(([key])=>key==='life'||key==='maintenancePct'))}
@@ -659,6 +667,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    </Panel>
   </>}
   {tab==='report'&&<>
+   <WaterFinancialPolicy water={water} locale={locale}/>
    {costBreakdown&&<section className="fs-panel">
     <h4>{l('تقدير مكونات تكلفة الكرتون','Estimated carton cost components')}</h4>{compactValues(unitCostRows)}
    </section>}
