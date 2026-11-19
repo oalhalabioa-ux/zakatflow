@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { buildUnsignedZatcaXml } from '../../lib/zatca-phase2-xml';
 import { prepareZatcaInvoiceHash } from '../../lib/zatca-xml-hash';
 import { standardQaSampleSchema } from './standard-compliance-qa';
+import { inspectStandardClearedDocument } from './standard-clearance-inspection';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const pin = z.string().regex(/^[a-f0-9]{64}$/), b64hash = z.string().regex(/^[A-Za-z0-9+/]{43}=$/);
@@ -126,24 +127,10 @@ export function createStandardClearanceQa(deps: StandardClearanceQaDependencies,
       const bytes = Buffer.from(body.clearedInvoice, 'base64');
       if (bytes.length > 32768 || bytes.toString('base64') !== body.clearedInvoice) return base;
       const xml = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      if ((await prepareZatcaInvoiceHash(xml)).invoiceHashBase64 !== artifact.invoiceHash) return base;
-      const { XmlDocument, ParseOption } = await import('libxml2-wasm');
-      const doc = XmlDocument.fromString(xml, { option: ParseOption.XML_PARSE_NONET | ParseOption.XML_PARSE_NO_XXE });
-      try {
-        const ns = { i: 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2',
-          cbc: 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
-          cac: 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
-          ext: 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2', ds: 'http://www.w3.org/2000/09/xmldsig#' };
-        const uuid = doc.find('/i:Invoice/cbc:UUID', ns), stamps = doc.find('/i:Invoice/ext:UBLExtensions//ds:Signature', ns);
-        const signature = doc.find('/i:Invoice/ext:UBLExtensions//ds:Signature/ds:SignatureValue', ns);
-        const certificates = doc.find('/i:Invoice/ext:UBLExtensions//ds:Signature/ds:KeyInfo/ds:X509Data/ds:X509Certificate', ns);
-        const qr = doc.find('/i:Invoice/cac:AdditionalDocumentReference[cbc:ID="QR"]/cac:Attachment/cbc:EmbeddedDocumentBinaryObject', ns);
-        if (uuid.length !== 1 || uuid[0].content !== artifact.uuid || stamps.length !== 1 || signature.length !== 1
-          || !signature[0].content.trim() || !certificates.length || certificates.some(c => !c.content.trim())
-          || qr.length !== 1 || !qr[0].content.trim() || qr[0].content.trim().length > 700) return base;
-        return { ...base, protocolPassed: value.http === 200 && body.validationResults.status === 'PASS' && !base.warningCount,
-          returnedDocumentMatched: true };
-      } finally { doc.dispose(); }
+      const returnedInspection = await inspectStandardClearedDocument(xml, artifact);
+      const returnedDocumentMatched = returnedInspection.canonicalInvoiceHashMatched && returnedInspection.uuidMatched && returnedInspection.stampStructurePresent;
+      return { ...base, returnedInspection, returnedDocumentMatched,
+        protocolPassed: returnedDocumentMatched && value.http === 200 && body.validationResults.status === 'PASS' && !base.warningCount };
     } catch { return failed; }
   }
   async function summary(m: Manifest) {
@@ -151,7 +138,8 @@ export function createStandardClearanceQa(deps: StandardClearanceQaDependencies,
     for (let i = 0; i < 3; i++) {
       const saved = await result(i, m), claim = await intent(i, m), checked = saved ? await inspect(saved, m.value.artifacts[i]) : null;
       const state = checked ? checked.protocolPassed ? 'PASSED' : checked.disposition === 'CLEARED'
-        && checked.returnedDocumentMatched && checked.warningCount > 0 && !checked.errorCount ? 'CLEARED_WITH_WARNINGS' : 'FAILED'
+        && checked.returnedDocumentMatched && checked.warningCount > 0 && !checked.errorCount ? 'CLEARED_WITH_WARNINGS'
+        : checked.disposition === 'CLEARED' ? 'CLEARED_VERIFICATION_REQUIRED' : 'FAILED'
         : claim ? 'RECONCILIATION_REQUIRED' : 'NOT_SENT';
       results.push({ kind: kinds[i], state, ...(checked ?? {}) });
     }

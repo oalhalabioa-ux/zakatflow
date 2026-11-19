@@ -94,6 +94,7 @@
     byId('finalCertificateResult').textContent = finalLabels[value.finalCertificate?.state] || '';
     const clearanceLabels = { PASSED: 'نجح طلب الاعتماد وطابقت بيانات المستند المرتجع. التحقق المستقل من ختم الهيئة لم يكتمل.',
       CLEARED_WITH_WARNINGS: 'اعتمدت الهيئة العينة مع تحذير. حُفظ المستند وطابقت بياناته؛ يلزم مراجعة التحذير دون إعادة الإرسال.',
+      CLEARED_VERIFICATION_REQUIRED: 'أعادت الهيئة حالة اعتماد، لكن تحقق مطابقة المستند لم يكتمل. حُفظت النتيجة للمراجعة دون إعادة الإرسال.',
       FAILED: 'لم يكتمل فحص الاعتماد. حُفظت النتيجة للمراجعة دون إعادة إرسال.',
       RECONCILIATION_REQUIRED: 'نتيجة غير مؤكدة؛ حدّث الحالة فقط ولا تُعد الإرسال.', NOT_SENT: 'لم يُرسل بعد.' };
     for (let i = 0; i < 3; i++) {

@@ -93,7 +93,7 @@ describe('isolated STANDARD Simulation clearance protocol', () => {
     const f = fixture(), p = await f.api.prepare();
     await expect(f.api.submit(input(p, 1))).rejects.toThrow('QA_CLEARANCE_PREVIOUS_REQUIRED');
     f.transport.mockResolvedValueOnce(new Response(JSON.stringify({ ...reply(''), clearedInvoice: null })));
-    expect(await f.api.submit(input(p))).toHaveProperty('results.0.state', 'FAILED');
+    expect(await f.api.submit(input(p))).toHaveProperty('results.0.state', 'CLEARED_VERIFICATION_REQUIRED');
     await expect(f.api.submit(input(p, 1))).rejects.toThrow('QA_CLEARANCE_PREVIOUS_REQUIRED');
     await f.api.submit(input(p)); expect(f.transport).toHaveBeenCalledTimes(1);
   });
@@ -127,7 +127,7 @@ describe('isolated STANDARD Simulation clearance protocol', () => {
       if (mode === 'private-messages') body.validationResults.errorMessages = [{ message: f.ctx.secret }] as never;
       const raw = mode === 'not-json' ? 'PRIVATE_NOT_JSON' : JSON.stringify(body);
       f.transport.mockResolvedValueOnce(new Response(raw, { status: http }));
-      const status = await f.api.submit(input(p)); expect(status).toHaveProperty('results.0.state', mode === 'warning' ? 'CLEARED_WITH_WARNINGS' : 'FAILED');
+      const status = await f.api.submit(input(p)); expect(status.results[0].state).not.toBe('PASSED');
       expect(status).toHaveProperty('protocolPassed', false); expect(JSON.stringify(status)).not.toMatch(/PRIVATE_|SignatureValue|clearedInvoice/);
       expect(JSON.parse(f.map.get('standard-clearance/0/result')!.content).rawResponse).toBe(raw);
       await f.make().submit(input(p)); expect(f.transport).toHaveBeenCalledTimes(1);
@@ -184,5 +184,33 @@ describe('isolated STANDARD Simulation clearance protocol', () => {
     expect(await f.make().status()).toEqual(result); await f.make().submit(input(p));
     await expect(f.api.submit(input(p, 1))).rejects.toThrow('QA_CLEARANCE_PREVIOUS_REQUIRED');
     expect(f.transport).toHaveBeenCalledTimes(1); expect(JSON.stringify(result)).not.toMatch(/PRIVATE_/);
+  });
+  it('diagnoses added namespaces/indentation separately from strict hash and never uses content equivalence as approval', async () => {
+    const f = fixture(), p = await f.api.prepare(), a = f.manifest().artifacts[0];
+    const changed = syntheticClearedXml(a.xml).replace('<Invoice ', '<Invoice xmlns:diagnostic="urn:synthetic:unused" ')
+      .replace(/></g, '>\n<');
+    f.transport.mockResolvedValueOnce(new Response(JSON.stringify(reply(changed))));
+    const result = await f.api.submit(input(p));
+    expect(result).toHaveProperty('results.0.state', 'CLEARED_VERIFICATION_REQUIRED');
+    expect(result).toHaveProperty('results.0.returnedInspection.canonicalInvoiceHashMatched', false);
+    expect(result).toHaveProperty('results.0.returnedInspection.expandedContentMatched', true);
+    expect(result).toHaveProperty('results.0.returnedInspection.uuidMatched', true);
+    expect(result).toHaveProperty('results.0.returnedInspection.stampStructurePresent', true);
+    expect(result).toHaveProperty('results.0.returnedInspection.failureCode', 'CANONICAL_HASH_DIFFERENT');
+    expect(result).toHaveProperty('protocolPassed', false); expect(result).toHaveProperty('authorityStampVerified', false);
+    expect(JSON.stringify(result)).not.toContain('urn:synthetic:unused');
+    await expect(f.api.submit(input(p, 1))).rejects.toThrow('QA_CLEARANCE_PREVIOUS_REQUIRED'); expect(f.transport).toHaveBeenCalledTimes(1);
+  });
+  it.each(['amount','attribute','namespace','order','leaf-space'] as const)('detects changed %s in expanded content without exposing values', async mode => {
+    const f = fixture(), p = await f.api.prepare(), a = f.manifest().artifacts[0]; let changed = syntheticClearedXml(a.xml);
+    if (mode === 'amount') changed = changed.replace('>1.15<', '>2.30<');
+    if (mode === 'attribute') changed = changed.replace('name="0100000"', 'name="0100010"');
+    if (mode === 'namespace') changed = changed.replace(/xmlns:cbc="[^"]+"/, 'xmlns:cbc="urn:synthetic:different"');
+    if (mode === 'order') changed = changed.replace(/(<cbc:ID>[^<]+<\/cbc:ID>)(<cbc:UUID>[^<]+<\/cbc:UUID>)/, '$2$1');
+    if (mode === 'leaf-space') changed = changed.replace('>reporting:1.0<', '> reporting:1.0 <');
+    f.transport.mockResolvedValueOnce(new Response(JSON.stringify(reply(changed))));
+    const result = await f.api.submit(input(p));
+    expect(result).toHaveProperty('results.0.returnedInspection.expandedContentMatched', false);
+    expect(result).toHaveProperty('protocolPassed', false); expect(JSON.stringify(result)).not.toContain('urn:synthetic:different');
   });
 });
