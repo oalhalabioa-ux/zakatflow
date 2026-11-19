@@ -1,0 +1,722 @@
+{
+  "sourceSha": "d79636b3fcb8ee980e154a5f6ce3332e508f5670",
+  "sdkVersion": "3.4.8",
+  "archiveSha256": "91d079b4a6c21c8ed7fb6ec434227409537119cae8b74de34dc150f91793d1f6",
+  "jarSha256": "48abeb828d453ef6fafba792fddbbb2701da5c7018c24bde918853e80ff5d530",
+  "scope": "SYNTHETIC_OFFLINE_DIAGNOSTIC",
+  "releaseReady": false,
+  "authorityRequests": false,
+  "baselineHashMatches": 18,
+  "baselineArtifacts": 18,
+  "cases": [
+    {
+      "name": "STANDARD-INVOICE-unsigned",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "STANDARD-CREDIT_NOTE-unsigned",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "STANDARD-DEBIT_NOTE-unsigned",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-INVOICE-unsigned",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "FAILED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "BR-KSA-60",
+        "BR-KSA-27",
+        "QRCODE_INVALID",
+        "NullPointerException",
+        "certificate"
+      ],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-INVOICE-application",
+      "kind": "application",
+      "processExit": 0,
+      "sdkGlobalResult": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "FAILED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "FAILED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "SAXParseException",
+        "digital",
+        "hashedXml",
+        "timeStamp",
+        "X509IssuerName",
+        "NumberFormatException",
+        "xadesSignedPropertiesDigestValue",
+        "signatureValue",
+        "signingCertificateDigestValue"
+      ],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-INVOICE-compatibility",
+      "kind": "compatibility",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-CREDIT_NOTE-unsigned",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "FAILED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "BR-KSA-60",
+        "BR-KSA-27",
+        "QRCODE_INVALID",
+        "NullPointerException",
+        "certificate"
+      ],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-CREDIT_NOTE-application",
+      "kind": "application",
+      "processExit": 0,
+      "sdkGlobalResult": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "FAILED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "FAILED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "SAXParseException",
+        "digital",
+        "hashedXml",
+        "timeStamp",
+        "X509IssuerName",
+        "NumberFormatException",
+        "xadesSignedPropertiesDigestValue",
+        "signatureValue",
+        "signingCertificateDigestValue"
+      ],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-CREDIT_NOTE-compatibility",
+      "kind": "compatibility",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-DEBIT_NOTE-unsigned",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "FAILED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "BR-KSA-60",
+        "BR-KSA-27",
+        "QRCODE_INVALID",
+        "NullPointerException",
+        "certificate"
+      ],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-DEBIT_NOTE-application",
+      "kind": "application",
+      "processExit": 0,
+      "sdkGlobalResult": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "FAILED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "FAILED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "SAXParseException",
+        "digital",
+        "hashedXml",
+        "timeStamp",
+        "X509IssuerName",
+        "NumberFormatException",
+        "xadesSignedPropertiesDigestValue",
+        "signatureValue",
+        "signingCertificateDigestValue"
+      ],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-DEBIT_NOTE-compatibility",
+      "kind": "compatibility",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "STANDARD-USD",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "STANDARD-DISCOUNT",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "STANDARD-MIXED",
+      "kind": "unsigned",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true
+    },
+    {
+      "name": "SIMPLIFIED-INVOICE-sdk-control",
+      "kind": "sdk-control",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true,
+      "returnedSdkXmlDiffersFromUnsignedHash": true
+    },
+    {
+      "name": "SIMPLIFIED-CREDIT_NOTE-sdk-control",
+      "kind": "sdk-control",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true,
+      "returnedSdkXmlDiffersFromUnsignedHash": true
+    },
+    {
+      "name": "SIMPLIFIED-DEBIT_NOTE-sdk-control",
+      "kind": "sdk-control",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "hashMatched": true,
+      "returnedSdkXmlDiffersFromUnsignedHash": true
+    },
+    {
+      "name": "SIMPLIFIED-INVOICE-properties-tampered",
+      "kind": "negative-control",
+      "processExit": 0,
+      "sdkGlobalResult": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "expectedSecurityOutcome": "REJECT",
+      "securityControlPassed": false
+    },
+    {
+      "name": "SIMPLIFIED-INVOICE-content-tampered",
+      "kind": "negative-control",
+      "processExit": 0,
+      "sdkGlobalResult": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "FAILED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "hashedXml",
+        "invoiceSignedDataDigestValue",
+        "signatureValue"
+      ],
+      "scope": "SDK_348_OFFLINE_CHECK_ONLY",
+      "expectedSecurityOutcome": "REJECT",
+      "securityControlPassed": true
+    }
+  ]
+}
