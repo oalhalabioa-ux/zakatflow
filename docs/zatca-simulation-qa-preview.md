@@ -1,0 +1,30 @@
+# Isolated owner-only Simulation CSID preview
+
+This is an independent diagnostic for the existing `yaqeen-fatoora-qa` project and signing key. It is **not** application organization onboarding, a replacement for private SQL/Auth/tenant isolation, a financial writer or an active invoice signer. It never touches SQL, Production, shared QA V2, subscription/billing, existing taxpayer devices or the legacy application onboarding route. It imports no synthetic SDK compatibility signer and sends no invoices. User-confirmed company data is server-only encrypted Preview configuration, never Git, a compiled artifact or public evidence.
+
+## Access and HTTP boundary
+
+Before deploying, verify Vercel Authentication remains enabled for all generated Preview URLs. Only that protected generated hostname or the existing exact ZATCA QA alias is accepted, including GET requests; arbitrary custom/Production/QA V2 hosts are rejected. Runtime Preview region/key/role and platform-owned OIDC subject/issuer/audience are fixed to the pre-existing isolated project. STS verifies the actual token signature. HTTP cannot supply environment, scope, role, key, CSR, operation identifiers or a remote URL. POST additionally requires exact same-origin JSON, accepts at most 4096 bytes and has only `prepare` and `submit` actions. There is no CORS grant, reset/reclaim or deletion endpoint. The preview is single-owner; it must never be promoted into a multi-tenant application authorization boundary.
+
+The HTML uses static markup and text-only company rendering. OTP is blank until the owner submits it, cleared immediately on submission/page leave, never logged or placed in browser storage. Double clicks are suppressed. After any unknown submit outcome the form is hidden; refresh is read-only, with no automatic resubmission. Failed refresh also hides stale readiness. No credentials, certificate, CSR or ARN is returned to the browser.
+
+## Private durable diagnostic ledger
+
+Protected configuration fixes one diagnostic organization/unit/enrollment scope; these UUIDs are not application database records. All objects are in the previously authorized `zakatflow/fatoora-enrollment/<scope>/simulation/...` namespace, encrypted with the separately provisioned symmetric key. SDK clients have `maxAttempts:1`.
+
+Four objects support the normal lifecycle:
+
+1. A non-sensitive encrypted **storage-fence probe** verifies that the real account rejects `CreateSecret` with an existing name and a different token/body. Success or an unknown outcome blocks readiness. This is performed before saving the original and rechecked before a claim; GET never writes. The probe is not an authority intent and contains no OTP/CSR/credentials.
+2. The **original** preserves the signed CSR, exact unit identity/SPKI/digest and source provenance at the enrollment UUID version. Independent crypto verifies every signature. Concurrent/repeated preparations load the exact original; changing the private profile or encryption/key scope is rejected. Later code versions do not regenerate it.
+3. The **one-shot intent** is created at one fixed name with a fresh server-generated dispatch UUID/content on every invocation. Only a matching successful create acknowledgement plus readback permits the fixed authority call. Existing-name errors, stale acknowledgements and unknown results block sending. There is no automatic retry or expiry reset.
+4. The existing **response quarantine** stores the unmodified authentication token and secret at the dispatch UUID. Status recovers the exact scoped/versioned response without another authority request. A separate certificate copy is decoded for original-CSR/key/identity preflight; `trustVerified:false` and `activationAllowed:false` remain explicit even when identity matches. Current trusted issuer chain/CRL verification and complete compliance tests are still required.
+
+No `PutSecretValue`, rotation, activation, financial posting or worker administration is granted. Lost create acknowledgements can conservatively strand an intent even when no authority call occurred. Cloud errors and body/parse failures expose only safe error codes. AWS permission/configuration success is not authority acceptance.
+
+## Source-pinned packaging and release
+
+`node scripts/zatca/build-simulation-qa.mjs <output>` requires a clean committed worktree. It bundles a self-contained Node 22 CommonJS serverless handler plus static HTML/JS, a minimal package/configuration and non-sensitive source metadata. Private values are read only at runtime, never defined into build output. The normal production Next build has no import/route to this diagnostic.
+
+Deploy only one intentional, validated Preview to the existing isolated project after recording source/checks/owner in Issue #426. Preserve production/shared QA URLs and authentication. Do not create another project or publish Production. Confirm generated and existing stable QA URLs and mappings before any approved alias release. Check the protected page, explicit preparation, actual KMS signing/encrypted original readback and storage-name fence, then reload to prove the same CSR digest. Only after that hosted smoke check should the owner generate one Simulation OTP and enter it directly on the protected page. Never request it in chat or through a sign-in credential tool.
+
+Local/CI tests use synthetic keys, certificates, cloud/authority transports and DOM. They cover real CSR/certificate identity, doubled token encoding, concurrency, lost acknowledgements, disabled signing, changed metadata/profile/originals, malformed inputs, strict hosts/origins, body limits, input clearing, no resubmission and executable serverless bundling. These are not hosted AWS/CA tests; actual deployment and preparation results must be recorded separately in PR #445.

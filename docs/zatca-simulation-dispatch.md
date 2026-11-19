@@ -1,5 +1,7 @@
 # Saved-original Simulation dispatch candidate
 
+The separate single-owner diagnostic in `docs/zatca-simulation-qa-preview.md` can use the newly owner-provisioned QA quarantine permissions without SQL. It does not provision, activate or replace the SQL/Auth-backed application candidate described below.
+
 This is private backend code, not a published OTP form or an active signer. Do not generate an OTP based on passing unit/CI checks. The existing isolated Vercel project currently has only its three diagnostic AWS variables; the dedicated private SQL worker/Auth binding and quarantine encryption/IAM configuration remain unprovisioned.
 
 `services/zatca-private-simulation-dispatcher.ts` adds one real fixed Simulation HTTP attempt after the existing saved-original reader, independent CSR signature/identity verification, fresh KMS key-metadata/SPKI check and durable dispatch fence. Replays and unknown outcomes require reconciliation; no reset or automatic resend exists. A successful response goes into the existing separate encrypted Secrets Manager quarantine and then receives an independently authorized SQL reference. The return value contains only identifiers, a receipt digest and `activationAllowed:false`.

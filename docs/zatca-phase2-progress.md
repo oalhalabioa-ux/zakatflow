@@ -1,5 +1,13 @@
 # ZATCA Phase 2 preparation — 2026-10-22
 
+## Follow-up 2026-11-19 — isolated Simulation input preview candidate
+
+After the owner ran the QA-only AWS provisioning helper and supplied its successful output, recorded the quarantine encryption-key ARN and owner-confirmed diagnostic unit profile as encrypted **Preview-only** variables on the existing isolated ZATCA project. No Production/shared QA environment was changed. Real runtime permission use still needs a hosted smoke check.
+
+Added a source-pinned, owner-only diagnostic form/API with fixed Preview/OIDC/key/role/host scope, same-origin bounded JSON writes, preserved encrypted original CSR, an actual-account CreateSecret name-fence probe, create-only one-shot intent and response quarantine. It reuses the current CSR/identity/certificate helpers and sends only the fixed Simulation compliance CSR request. It never uses the dummy SDK invoice signer, sends invoices or activates credentials. User-entered OTP is cleared and is not persisted; unknown outcomes require read-only reconciliation. A successful identity preflight still reports `trustVerified:false` and `activationAllowed:false`.
+
+This isolates the immediate taxpayer Simulation experiment without seeding an application company or mutating any database. Private SQL/Auth-backed application integration, trusted issuer/CRL verification, runtime invoice SDK compatibility and complete compliance/reporting/clearance acceptance remain open. Tests and actual hosted release/preparation evidence are recorded in PR #445; source preparation itself is not a deployment. See `docs/zatca-simulation-qa-preview.md`.
+
 ## Follow-up 2026-11-19 — saved-original Simulation dispatch
 
 Added a private Simulation dispatcher that verifies the preserved original CSR and fresh KMS SPKI, claims the durable one-shot intent, makes one fixed/limited authority request, quarantines credentials and records an independently authorized private receipt. Lost claim acknowledgements, network/parse failures and lost storage receipts require reconciliation without automatic resend. No OTP, authority body or credentials appear in returned errors/results. Production/Developer Portal targets and request/config overrides are rejected.

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>يقين الأعمال — محاكاة زاتكا</title>
+  <style>
+    :root{color-scheme:light;font-family:Arial,sans-serif;color:#1D3852;background:#E8EEF0}
+    *{box-sizing:border-box}body{margin:0}header{background:#10243A;color:#F5EBD6;padding:22px max(20px,calc((100vw - 780px)/2))}header p{margin:8px 0 0;font-size:14px}
+    main{max-width:780px;margin:26px auto;padding:0 18px}h1{font-size:24px;margin:0}h2{font-size:19px;margin:0 0 14px}section{background:#fff;border-radius:12px;padding:24px;margin-bottom:18px;border:1px solid #d3dcdf}
+    dl{display:grid;grid-template-columns:150px 1fr;gap:14px;margin:0}dt{color:#1D3852}dd{margin:0;overflow-wrap:anywhere}.latin{direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+    button{background:#10243A;color:#F5EBD6;border:0;border-radius:8px;padding:12px 20px;font:inherit;cursor:pointer}button:disabled{opacity:.45;cursor:default}.secondary{background:#F5EBD6;color:#1D3852;margin-inline-start:8px}
+    label{display:block;margin:12px 0 7px}input{font:inherit;width:200px;max-width:100%;padding:12px;border:1px solid #9baeb7;border-radius:7px;direction:ltr;letter-spacing:6px;color:#1D3852;background:#fff}input:focus{outline:2px solid #C6A35D;outline-offset:2px}
+    .notice{background:#F5EBD6;border-right:4px solid #C6A35D;padding:14px;line-height:1.8;margin:0 0 18px;border-radius:6px}.notice[data-state="READY_FOR_OTP"],.notice[data-state="RESPONSE_QUARANTINED"]{background:#eff7f3;border-color:#205347}.muted{font-size:14px;line-height:1.8}footer{padding:10px 0 28px;font-size:12px;color:#1D3852}
+    [hidden]{display:none!important}@media(max-width:540px){header{padding:20px}h1{font-size:21px}section{padding:18px}dl{grid-template-columns:1fr;gap:7px}dd{margin-bottom:10px}.secondary{margin:10px 0 0}button{width:100%}}
+  </style>
+  <script src="/simulation-qa-ui.js" defer></script>
+</head>
+<body>
+<header><h1>يقين الأعمال — محاكاة زاتكا</h1><p>تهيئة وحدة مستقلة لاختبار طلب الشهادة</p></header>
+<main>
+  <p class="notice" id="status" role="status" aria-live="polite">جارٍ قراءة حالة وحدة المحاكاة…</p>
+  <section id="company" hidden><h2>بيانات وحدة المحاكاة</h2><dl>
+    <dt>الاسم القانوني</dt><dd id="legalName"></dd><dt>الرقم الضريبي</dt><dd id="vatNumber" class="latin"></dd>
+    <dt>الفرع</dt><dd id="branchName"></dd><dt>عنوان الفرع</dt><dd id="branchLocation"></dd>
+    <dt>النشاط</dt><dd id="industry"></dd><dt>اسم وحدة المحاكاة</dt><dd id="unitName" class="latin"></dd>
+    <dt>بريد الطلب</dt><dd id="email" class="latin"></dd>
+  </dl></section>
+  <section><h2>1. تجهيز طلب الشهادة</h2><p class="muted">راجع البيانات أعلاه، ثم جهّز الطلب. لا تنشئ رمز زاتكا قبل ظهور جاهزية إدخاله هنا.</p>
+    <button id="prepare" type="button" disabled>تأكيد البيانات وتجهيز الطلب</button><button id="refresh" class="secondary" type="button">تحديث الحالة</button>
+  </section>
+  <section id="otpSection" hidden><h2>2. طلب شهادة المحاكاة</h2><p class="muted">من منصة المحاكاة في بوابة فاتورة، أنشئ رمز تفعيل واحدًا وأدخله هنا. لا تستخدم رمز بوابة الإنتاج.</p>
+    <form id="otpForm"><label for="otp">رمز التفعيل — 6 أرقام</label><input id="otp" name="otp" type="password" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}" required aria-describedby="otpHelp">
+      <p class="muted" id="otpHelp">يُمسح الرمز من الخانة عند الإرسال، ولا يُحفظ في سجل الطلب.</p><button id="submit" type="submit">إرسال طلب شهادة المحاكاة</button></form>
+  </section>
+  <p class="muted">هذه صفحة اختبار للمحاكاة فقط. استلام الاستجابة لا يفعّل إصدار الفواتير؛ يلزم التحقق من الشهادة واستكمال اختبارات الامتثال.</p>
+  <footer id="version"></footer>
+</main>
+</body></html>
