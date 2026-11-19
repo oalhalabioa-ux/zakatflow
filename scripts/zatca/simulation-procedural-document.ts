@@ -42,12 +42,17 @@ export async function prepareSimulationProceduralDocument(input: unknown, contex
   const time = at.toISOString().slice(0, 19), certDigest = encodedHexHash(leaf.certificateDerBase64);
   const properties = (detached: boolean) => {
     const ns = detached ? ` xmlns:ds="${ds}"` : '';
+    // Match the procedural guide/SDK sample's expanded subtree and indentation.
+    // Legacy serialized-properties hashing is whitespace-sensitive, not C14N.
+    const line = (spaces: number, value: string) => ' '.repeat(spaces) + value;
     return [`<xades:SignedProperties${detached ? ` xmlns:xades="${xades}"` : ''} Id="xadesSignedProperties">`,
-      '  <xades:SignedSignatureProperties>', `    <xades:SigningTime>${time}</xades:SigningTime>`,
-      '    <xades:SigningCertificate><xades:Cert>',
-      `      <xades:CertDigest><ds:DigestMethod${ns} Algorithm="${sha256}"/><ds:DigestValue${ns}>${certDigest}</ds:DigestValue></xades:CertDigest>`,
-      `      <xades:IssuerSerial><ds:X509IssuerName${ns}>CN=eInvoicing</ds:X509IssuerName><ds:X509SerialNumber${ns}>${leaf.serialNumberDecimal}</ds:X509SerialNumber></xades:IssuerSerial>`,
-      '    </xades:Cert></xades:SigningCertificate>', '  </xades:SignedSignatureProperties>', '</xades:SignedProperties>'].join('\n');
+      line(36, '<xades:SignedSignatureProperties>'), line(40, `<xades:SigningTime>${time}</xades:SigningTime>`),
+      line(40, '<xades:SigningCertificate>'), line(44, '<xades:Cert>'), line(48, '<xades:CertDigest>'),
+      line(52, `<ds:DigestMethod${ns} Algorithm="${sha256}"/>`), line(52, `<ds:DigestValue${ns}>${certDigest}</ds:DigestValue>`),
+      line(48, '</xades:CertDigest>'), line(48, '<xades:IssuerSerial>'),
+      line(52, `<ds:X509IssuerName${ns}>CN=eInvoicing</ds:X509IssuerName>`), line(52, `<ds:X509SerialNumber${ns}>${leaf.serialNumberDecimal}</ds:X509SerialNumber>`),
+      line(48, '</xades:IssuerSerial>'), line(44, '</xades:Cert>'), line(40, '</xades:SigningCertificate>'),
+      line(36, '</xades:SignedSignatureProperties>'), line(32, '</xades:SignedProperties>')].join('\n');
   };
   const transform = (value: string) => `<ds:Transform Algorithm="http://www.w3.org/TR/1999/REC-xpath-19991116"><ds:XPath>${value}</ds:XPath></ds:Transform>`;
   const transforms = ['not(//ancestor-or-self::ext:UBLExtensions)', 'not(//ancestor-or-self::cac:Signature)',
