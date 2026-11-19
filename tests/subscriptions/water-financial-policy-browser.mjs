@@ -90,11 +90,13 @@ export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
      if(kind==='water'){
       await page.getByRole('button',{name:ar?'النموذج المالي المتقدم':'Advanced model',exact:true}).click();
       assert.equal(await page.getByRole('spinbutton',{name:ar?'أيام التحصيل المستخدمة':'Effective collection days',exact:true}).inputValue(),'30');
+      await page.evaluate(()=>window.scrollTo(0,0));
       const name='template-finance-water-policy-'+locale+'-'+width+'.png';await page.screenshot({path:path(name),fullPage:true});evidence.screenshots.push(name);
      }
      await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();
      await page.locator('.fs-print-report').waitFor();await page.evaluate(()=>document.fonts.ready);
      assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
+     await page.evaluate(()=>window.scrollTo(0,0));
      const name='template-finance-'+kind+'-report-'+locale+'-'+width+'.png';await page.screenshot({path:path(name),fullPage:true});evidence.screenshots.push(name);
      if(width===1440){
       await page.emulateMedia({media:'print'});
@@ -187,6 +189,16 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
     for(const kind of ['advanced','report']){
      if(kind==='report')await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();
      await page.evaluate(()=>document.fonts.ready);assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
+     if(width===390){
+      const equityRegion=page.getByRole('region',{name:ar?'جدول عوائد الملكية، قابل للتمرير أفقيًا':'Equity return schedule, horizontally scrollable',exact:true});
+      assert.ok(await equityRegion.evaluate(el=>el.scrollWidth>el.clientWidth),'Narrow screens must scroll the financial table internally');
+      assert.ok(await equityRegion.locator('thead th').evaluateAll(cells=>cells.slice(1).every(c=>c.getBoundingClientRect().width>=70)),'Financial column labels must retain a readable width');
+      if(kind==='advanced'){
+       const debtRegion=page.getByRole('region',{name:ar?'جدول خدمة الدين، قابل للتمرير أفقيًا':'Debt service schedule, horizontally scrollable',exact:true});
+       assert.ok(await debtRegion.locator('thead th').evaluateAll(cells=>cells.slice(1).every(c=>c.getBoundingClientRect().width>=70)),'Debt columns must not collapse into individual letters');
+      }
+     }
+     await page.evaluate(()=>window.scrollTo(0,0));
      const shot='template-finance-water-equity-'+kind+'-'+locale+'-'+width+'.png';await page.screenshot({path:path(shot),fullPage:true});evidence.screenshots.push(shot);
      if(kind==='report'&&width===1440){
       await page.emulateMedia({media:'print'});

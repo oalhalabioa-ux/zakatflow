@@ -603,13 +603,16 @@
 .fs-financial-policy-settings > summary { cursor: pointer; font-size: 12px; font-weight: 700; }
 .fs-financial-policy-settings[open] > summary { margin-block-end: 12px; }
 .fs-financial-policy-settings > .fs-field { margin-block-start: 12px; }
+.fs-water-financial-table { max-inline-size: 100%; overflow-x: auto; }
+.fs-royal .fs-water-financial-table .fs-table { min-inline-size: max(100%, 48rem); }
+@media screen { .fs-water-financial-table .fs-table :is(th,td) { min-inline-size: 78px; } }
 
 /* Investment reports: hide interactive controls and fit the financial/evidence
    tables in the printed page. Screen/mobile tables retain their scroll widths. */
 @media print {
  .fs-page .fs-print-report button { display: none !important; }
  .fs-page .fs-print-report .fs-table-wrap { overflow: visible !important; min-width: 0 !important; max-width: 100% !important; }
- .fs-page .fs-print-report .fs-table { width: 100% !important; min-width: 0 !important; max-width: 100% !important; table-layout: fixed; }
+ .fs-page .fs-print-report .fs-table { width: 100% !important; min-width: 0 !important; min-inline-size: 0 !important; max-width: 100% !important; table-layout: fixed; }
  .fs-page .fs-print-report .fs-table :is(th,td) { font-size: 7pt; line-height: 1.4; padding: 3pt; overflow-wrap: anywhere; }
  .fs-page .fs-print-report .fs-table thead { display: table-header-group; }
  .fs-page .fs-print-report .fs-table tr { break-inside: avoid; }

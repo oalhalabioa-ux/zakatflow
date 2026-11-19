@@ -109,8 +109,8 @@ function NumberInput({label,value,onChange,max=1e12,min=0,step='any',disabled=fa
   }}/></label>;
 }
 
-function Table({headers,rows,footer,scrollLabel}:{headers:ReactNode[];rows:ReactNode[][];footer?:ReactNode;scrollLabel?:string}){
- return <div className={'fs-table-wrap'+(scrollLabel?' fs-royal-water-sales-table':'')}
+function Table({headers,rows,footer,scrollLabel,financial=false}:{headers:ReactNode[];rows:ReactNode[][];footer?:ReactNode;scrollLabel?:string;financial?:boolean}){
+ return <div className={'fs-table-wrap'+(scrollLabel?' fs-royal-water-sales-table':'')+(financial?' fs-water-financial-table':'')}
   role={scrollLabel?'region':undefined} aria-label={scrollLabel} tabIndex={scrollLabel?0:undefined}><table className="fs-table">
   <thead><tr>{headers.map((value,index)=><th scope="col" key={index}>{value}</th>)}</tr></thead>
   <tbody>{rows.map((row,index)=><tr key={index}>{row.map((value,cell)=>
@@ -224,7 +224,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   l('ملكية الشريك العيني','In-kind partner equity'),l('قرض المساهم','Shareholder loan'),l('الممول: ملكية وقرض','Investor: equity and loan')];
  const equityRows=m.equity?.flows.map((_,i)=>[i,m.equity!.flows[i],m.equity!.investorEquityFlows[i],m.equity!.partnerEquityFlows[i],m.equity!.shareholderLoanFlows[i],m.equity!.investorCombinedFlows[i]]);
  const equitySchedule=m.equity&&equityRows?<Panel title={l('فصل عوائد الملكية وقرض المساهم','Separate equity and shareholder-loan returns')} icon="coins">
-  <Table headers={equityHeaders} rows={equityRows.map(([year,...values])=>[year,...values.map(money)])}/>
+  <Table financial scrollLabel={l('جدول عوائد الملكية، قابل للتمرير أفقيًا','Equity return schedule, horizontally scrollable')} headers={equityHeaders} rows={equityRows.map(([year,...values])=>[year,...values.map(money)])}/>
   {compactValues([[l('IRR حقوق الملكية','Equity IRR'),percentage(m.ready?m.equity.irr:null)],
    [l('IRR الممول المجمع: ملكية وقرض','Combined investor IRR: equity and loan'),percentage(m.ready?m.equity.investorCombinedIrr:null)]])}
   {allowExport&&<button className="fs-btn fs-btn--secondary" type="button" onClick={()=>downloadFeasibilityCsv('bottled-water-equity-returns.csv',[
@@ -635,7 +635,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     settings={fields('ops',operationFields.filter(([key])=>['maintenancePct','discountRate','taxRate','horizon'].includes(key)))}/>
    {projectReturns}
    <Panel title={l('خدمة الدين السنوية','Annual debt service')} icon="coins">
-    <Table headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة المدفوعة','Paid interest'),
+    <Table financial scrollLabel={l('جدول خدمة الدين، قابل للتمرير أفقيًا','Debt service schedule, horizontally scrollable')} headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة المدفوعة','Paid interest'),
      l('الفائدة المرسملة','Capitalized interest'),l('سداد الأصل','Principal repayment'),l('سداد النهاية','Terminal settlement'),l('الرصيد الختامي','Closing balance'),'DSCR',l('التدفق بعد القرض','Cash flow after debt')]}
      rows={m.annual.map(y=>[y.year,money(y.openingDebt??(y.debtBalance+y.principal)),money(y.interest),money(y.capitalizedInterest??0),money(y.principal),money(y.terminalDebtRepayment??0),
       money(y.debtBalance),fmt(y.dscr),money(y.afterDebt)])}/>
