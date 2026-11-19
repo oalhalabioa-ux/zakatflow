@@ -726,6 +726,8 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     assert.equal(await page.getByRole('spinbutton',{name:ar?'مدة الدراسة المتوقعة (سنوات)':'Expected study duration (years)',exact:true}).inputValue(),'6');
     const identity=page.locator('.fs-royal-profile-identity');
     assert.equal(await identity.locator('select').count(),3);
+    const panelStyle=await page.locator('form.fs-royal-profile > section').evaluate(el=>({radius:getComputedStyle(el).borderRadius,shadow:getComputedStyle(el).boxShadow}));
+    assert.deepEqual(panelStyle,{radius:'10px',shadow:'none'},'Royal panel styling must win over the application-shell card defaults');
     if(width===390)assert.equal(await identity.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);
     assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
     await page.screenshot({path:new URL('./screenshots/royal-profile-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});

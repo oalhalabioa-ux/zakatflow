@@ -185,7 +185,7 @@
 .fs-royal-icon { width: 19px; height: 19px; color: var(--fs-gold); flex: 0 0 auto; }
 .fs-royal .fs-btn { gap: 6px; min-height: 36px; border-radius: 6px; }
 .fs-royal .fs-warning { margin: 0; background: #F7F7F5; color: var(--fs-ink); }
-.fs-royal .card.fs-panel, .fs-royal .card.fs-empty { border: 1px solid #DEE5E9; border-radius: 10px; box-shadow: none; background: #fff; }
+.corp-content .fs-page.fs-royal .card.fs-panel, .corp-content .fs-page.fs-royal .card.fs-empty { border: 1px solid #DEE5E9; border-radius: 10px; box-shadow: none; background: #fff; }
 .fs-royal .fs-panel { padding: clamp(12px, 1.35vw, 18px) !important; }
 .fs-royal .fs-panel h3 { padding-block-end: 8px; border-block-end: 1px solid var(--fs-line); }
 .fs-royal .fs-panel h4 { margin: 0; color: var(--fs-navy); font-size: 13px; }
@@ -413,11 +413,14 @@
 .fs-royal-profile-grid dd { text-align: end; overflow-wrap: anywhere; }
 .fs-royal-profile-notes { grid-column: 1 / -1; }
 .fs-royal-profile-notes textarea { min-height: 80px; }
-.fs-royal .fs-royal-profile .fs-panel { align-content: start; border-radius: 8px; }
+.fs-royal .fs-royal-profile .fs-panel { align-content: start; }
 .fs-royal-profile .fs-form-grid { margin-top: 0; }
 .fs-royal-profile .fs-royal-profile-context { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .fs-royal-profile .fs-royal-profile-context > :last-child { grid-column: 1 / -1; }
 .fs-royal-profile-actions { justify-content: flex-start; }
+.fs-page.fs-royal :is(.fs-royal-profile,.fs-royal-capex) :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+ min-height: 37px; border-radius: 7px; padding: 7px 10px; font-size: 11.5px; font-weight: 400; border-color: #CBD5DB;
+}
 .fs-royal-profile .fs-royal-tag { background: var(--fs-line); color: var(--fs-green); }
 @media(max-width: 650px) {
  .fs-royal-profile-grid, .fs-royal-profile-grid .fs-form-grid { grid-template-columns: minmax(0, 1fr); }
