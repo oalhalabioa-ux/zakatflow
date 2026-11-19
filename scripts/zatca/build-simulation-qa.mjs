@@ -22,7 +22,7 @@ const locked = JSON.parse(await readFile('package-lock.json', 'utf8')).packages[
 if (locked.version !== '0.7.1' || !locked.integrity || locked.dependencies) throw Error('PINNED_WASM_PACKAGE_REQUIRED');
 await writeFile(output + '/package-lock.json', JSON.stringify({ name: packageJson.name, version: packageJson.version, lockfileVersion: 3, requires: true,
   packages: { '': { name: packageJson.name, version: packageJson.version, dependencies: packageJson.dependencies, engines: packageJson.engines }, 'node_modules/libxml2-wasm': locked } }));
-await writeFile(output + '/vercel.json', JSON.stringify({ version: 2,
+await writeFile(output + '/vercel.json', JSON.stringify({ version: 2, buildCommand: '',
   functions: { 'api/simulation.js': { maxDuration: 60, includeFiles: 'node_modules/libxml2-wasm/lib/**' } },
   headers: [{ source: '/(.*)', headers: [
     { key: 'Cache-Control', value: 'private, no-store' }, { key: 'X-Content-Type-Options', value: 'nosniff' },

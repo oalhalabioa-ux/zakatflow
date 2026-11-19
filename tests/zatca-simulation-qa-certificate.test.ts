@@ -5,8 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { inspectSimulationCertificate, inspectSimulationNativeRuntime } from '../scripts/zatca/simulation-certificate-inspection';
+import { inspectSimulationCertificateDiscovery } from '../scripts/zatca/simulation-certificate-discovery';
 
-let directory: string, leaf: X509Certificate, root: X509Certificate, unsafeHints: X509Certificate;
+let directory: string, leaf: X509Certificate, root: X509Certificate, unsafeHints: X509Certificate, boundedHints: X509Certificate;
 beforeAll(() => {
   directory = mkdtempSync(join(tmpdir(), 'qa-public-certificate-'));
   const run = (args: string[]) => execFileSync('/usr/bin/openssl', args, { cwd: directory, stdio: 'pipe' });
@@ -31,10 +32,64 @@ beforeAll(() => {
   run(['x509', '-req', '-in', 'leaf.csr', '-CA', 'root.pem', '-CAkey', 'root.key', '-set_serial', '123457',
     '-days', '1', '-sha256', '-extfile', 'unsafe.cnf', '-out', 'unsafe.pem']);
   unsafeHints = new X509Certificate(readFileSync(join(directory, 'unsafe.pem')));
+  writeFileSync(join(directory, 'bounded.cnf'), [
+    'basicConstraints=critical,CA:FALSE',
+    'authorityInfoAccess=' + Array.from({ length: 12 }, (_, i) => 'caIssuers;URI:https://ca.example.invalid/' + i + '.crt').join(','),
+    'crlDistributionPoints="URI:https://ca.example.invalid/list.crl?PRIVATE_QUERY=secret,URI:https://ca.example.invalid/list.crl#PRIVATE_FRAGMENT"',
+    'certificatePolicies=2.999.3.4',
+  ].join('\n'));
+  run(['x509', '-req', '-in', 'leaf.csr', '-CA', 'root.pem', '-CAkey', 'root.key', '-set_serial', '123458',
+    '-days', '1', '-sha256', '-extfile', 'bounded.cnf', '-out', 'bounded.pem']);
+  boundedHints = new X509Certificate(readFileSync(join(directory, 'bounded.pem')));
 });
 afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }); });
 
 describe('protected Simulation certificate inspection, not trust/activation', () => {
+  it('reads bounded actual DER discovery without a native executable or exposing the subject/certificate', () => {
+    const result = inspectSimulationCertificateDiscovery(leaf.raw);
+    expect(result).toMatchObject({ issuer: 'C=SA CN=Synthetic Issuer CA', signatureAlgorithmOid: '1.2.840.10045.4.3.2',
+      issuerCertificateUrls: ['https://ca.example.invalid/issuer.crt'], ocspUrls: ['https://ca.example.invalid/ocsp'],
+      crlDistributionUrls: ['https://ca.example.invalid/current.crl'], policyOids: ['1.2.3.4.5'],
+      extendedKeyUsage: ['1.3.6.1.5.5.7.3.2'], digitalSignature: true, keyUsageCritical: true,
+      keyCertSign: false, clientAuthentication: true, selfIssued: false,
+      discoveryHintsTrusted: false, trustVerified: false, activationAllowed: false });
+    expect(result.validFrom).toBe(new Date(leaf.validFrom).toISOString());
+    expect(result.validTo).toBe(new Date(leaf.validTo).toISOString());
+    expect(JSON.stringify(result)).not.toMatch(/PRIVATE_SUBJECT|binarySecurityToken|serialNumber|csrPem|CERTIFICATE-----/);
+    expect(JSON.stringify(result)).not.toContain(leaf.raw.toString('base64'));
+  });
+  it('matches independent native metadata while distinguishing CA issuers from OCSP responders', async () => {
+    const portable = inspectSimulationCertificateDiscovery(leaf.raw), native = await inspectSimulationNativeRuntime(leaf.raw);
+    expect(native.state).toBe('AVAILABLE');
+    expect([...portable.issuerCertificateUrls, ...portable.ocspUrls]).toEqual(native.issuerAccessUrls);
+    expect(portable.crlDistributionUrls).toEqual(native.crlDistributionUrls); expect(portable.policyOids).toEqual(native.policyOids);
+  });
+  it('filters unsafe URI schemes and credential-bearing discovery locations', () => {
+    const result = inspectSimulationCertificateDiscovery(unsafeHints.raw);
+    expect(result.issuerCertificateUrls).toEqual([]); expect(result.ocspUrls).toEqual([]); expect(result.crlDistributionUrls).toEqual([]);
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_URI_CREDENTIAL');
+  });
+  it('bounds lists, omits query/fragment locations and decodes multi-octet OID first components', () => {
+    const result = inspectSimulationCertificateDiscovery(boundedHints.raw);
+    expect(result.issuerCertificateUrls).toHaveLength(8); expect(result.crlDistributionUrls).toEqual([]);
+    expect(result.policyOids).toEqual(['2.999.3.4']); expect(result.extendedKeyUsage).toEqual([]);
+    expect(result.digitalSignature).toBe(false); expect(result.keyUsageCritical).toBe(false); expect(result.clientAuthentication).toBe(false);
+    expect(JSON.stringify(result)).not.toMatch(/PRIVATE_QUERY|PRIVATE_FRAGMENT/);
+  });
+  it('does not turn a parsed self-issued root into configured trust', () => {
+    expect(inspectSimulationCertificateDiscovery(root.raw)).toMatchObject({ selfIssued: true, trustVerified: false, activationAllowed: false });
+  });
+  it.each([Buffer.alloc(0), Buffer.from([0x30, 0]), Buffer.from([0x30, 0x80, 0, 0]), Buffer.alloc(32769)])
+    ('rejects malformed, indefinite or oversized input without exposing parser diagnostics', bytes => {
+      expect(() => inspectSimulationCertificateDiscovery(bytes)).toThrow('QA_CERTIFICATE_DISCOVERY_INVALID');
+    });
+  it('rejects trailing data and corrupted known extension structure', () => {
+    expect(() => inspectSimulationCertificateDiscovery(Buffer.concat([leaf.raw, Buffer.from('extra')]))).toThrow('QA_CERTIFICATE_DISCOVERY_INVALID');
+    const altered = Buffer.from(leaf.raw), i = altered.indexOf(Buffer.from('0603551d20', 'hex'));
+    expect(i).toBeGreaterThan(0); expect(altered[i + 5]).toBe(4); expect(altered[i + 7]).toBe(0x30);
+    altered[i + 7] = 0x31;
+    expect(() => inspectSimulationCertificateDiscovery(altered)).toThrow('QA_CERTIFICATE_DISCOVERY_INVALID');
+  });
   it('inspects actual certificate dates/key and fixed native runtime without returning credential or subject material', async () => {
     const value = await inspectSimulationCertificate(leaf.raw, true);
     expect(value).toMatchObject({ stage: 'SIMULATION_CERTIFICATE_INSPECTION_ONLY', timeKeyPreflight: 'PASSED', freshKmsKeyMatched: true,

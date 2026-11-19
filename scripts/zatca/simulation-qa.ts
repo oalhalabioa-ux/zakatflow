@@ -12,6 +12,7 @@ import { inspectZatcaSigningCertificate } from '../../lib/zatca-signing-certific
 import { createStandardComplianceQa, standardQaSampleSchema } from './standard-compliance-qa';
 import { createProceduralSimplifiedComplianceQa } from './procedural-simplified-compliance-qa';
 import { createFinalSimulationCsidQa } from './final-simulation-csid-qa';
+import { inspectSimulationCertificateDiscovery } from './simulation-certificate-discovery';
 
 const account = '701899214938', region = 'eu-north-1';
 export const simulationQaSigningKey = `arn:aws:kms:${region}:${account}:key/ab50c7e0-2251-4ae3-967d-5d14866b80d4`;
@@ -284,7 +285,9 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
       inspectZatcaOnboardingIdentity({ csrPem: saved!.value.csrPem, certificateDerBase64: der.toString('base64') }, saved!.value.savedUnit);
       inspectZatcaSigningCertificate(der.toString('base64'), sha(der));
       if ((await publicKey()).toString('base64') !== saved!.value.savedUnit.kmsPublicKeySpkiBase64) fail('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
-      return { fingerprintSha256: sha(der) };
+      let discovery;
+      try { discovery = inspectSimulationCertificateDiscovery(der); } catch { /* Optional discovery never erases verified identity. */ }
+      return { fingerprintSha256: sha(der), discovery };
     },
     read: name => read(base + '/' + name),
     async create(name, version, content) {

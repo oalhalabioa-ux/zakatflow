@@ -14,6 +14,14 @@ The normalized issued response (including unmodified token and secret) is saved 
 
 No final credential is exposed to the caller or connected to an application registry/signer. No reporting, clearance, posting, SQL/Auth migration or Production action is implemented here. The external artifact receipt and procedural six-pass result do not resolve the normative application SignedInfo discrepancy. Trust/path/revocation/policy/native-worker packaging and authenticated tenant lifecycle acceptance remain separate gates.
 
+## Read-only final-certificate discovery
+
+After identity/key/time verification, `simulation-certificate-discovery.ts` can inspect the already saved final certificate directly with Node and a bounded DER reader. It needs no OpenSSL executable and sends no network request. Its explicit metadata schema excludes subject/SAN, serial, raw certificate, credential, request ID and secret references. It distinguishes CA-issuer access locations from OCSP responders, reads CRL distribution URIs and policy OIDs, and reports actual KeyUsage criticality/digitalSignature/keyCertSign and clientAuth EKU. Multi-octet OID components and bounded lists are covered by real certificate fixtures and an independent OpenSSL metadata comparison. Non-HTTP, credential-bearing, query-bearing and fragment-bearing URLs are omitted; no URL is automatically followed or trusted.
+
+Discovery does not verify issuer signatures, establish a protected root, apply a certificate policy, fetch/check revocation or approve the application profile. All trust/activation flags remain false. Missing optional discovery must not erase otherwise verified identity or the encrypted response. Old saved envelopes are not migrated or rewritten. This is an additive GET response; it does not replay onboarding or a final-CSID request. The standalone build package now explicitly skips a second framework build with `buildCommand:""`, preventing the prior inferred npm-build packaging failure.
+
+Reference for AIA, certificate policies, KeyUsage/EKU and CRL distribution point structure: RFC5280 sections4.2.1.3,4.2.1.4,4.2.1.12,4.2.1.13,4.2.2.1 (https://www.rfc-editor.org/rfc/rfc5280). These metadata hints are not the section6 certification-path algorithm.
+
 ## UI and validation
 
 The fifth diagnostic section is hidden until enabled by private configuration. Its only button requires fresh readiness plus both completed suites. A click error disables submission until a GET refresh; saved/unknown/completed requests cannot be resent. Initial load and refresh remain GET-only.

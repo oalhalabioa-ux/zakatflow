@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { simulationCertificateDiscoverySchema, type SimulationCertificateDiscovery } from './simulation-certificate-discovery';
 
 const pin = z.string().regex(/^[a-f0-9]{64}$/);
 const requestId = z.string().regex(/^[0-9]{1,40}$/);
@@ -17,7 +18,7 @@ export interface FinalSimulationCsidDependencies {
   // Revalidates BOTH complete suites, original CSR/CCSID and fresh KMS identity.
   // No values in this context may be supplied by the HTTP caller.
   load(): Promise<unknown>;
-  verifyCertificate(token: string): Promise<{ fingerprintSha256: string }>;
+  verifyCertificate(token: string): Promise<{ fingerprintSha256: string; discovery?: SimulationCertificateDiscovery }>;
   read(name: string): Promise<Saved | null>;
   create(name: string, version: string, content: string): Promise<{ version: string }>;
   assertCreateOnly(): Promise<void>;
@@ -57,10 +58,11 @@ export function createFinalSimulationCsidQa(deps: FinalSimulationCsidDependencie
     if (saved.version !== intent.id || result.claimId !== intent.id || result.contextDigest !== ctx.digest
       || JSON.stringify(result) !== saved.content) throw new Error('QA_FINAL_CSID_ORIGINAL_CHANGED');
     try {
-      const checked = z.object({ fingerprintSha256: pin }).strict().parse(await deps.verifyCertificate(result.response.binarySecurityToken));
+      const checked = z.object({ fingerprintSha256: pin, discovery: simulationCertificateDiscoverySchema.optional() }).strict()
+        .parse(await deps.verifyCertificate(result.response.binarySecurityToken));
       if (checked.fingerprintSha256 === ctx.value.interimFingerprint) throw new Error();
       return { ...flags, state: 'RESPONSE_QUARANTINED' as const, identityKeyTimeVerified: true,
-        fingerprintSha256: checked.fingerprintSha256, responseDigest: hash(saved.content) };
+        fingerprintSha256: checked.fingerprintSha256, responseDigest: hash(saved.content), discovery: checked.discovery ?? null };
     } catch {
       // The issued credential remains recoverable; rejection never resets intent.
       return { ...flags, state: 'QUARANTINED_VERIFICATION_REQUIRED' as const,

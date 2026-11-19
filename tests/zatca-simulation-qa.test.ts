@@ -201,7 +201,9 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
       .requestFinalSimulationCertificate({ readinessDigest: final.readinessDigest })).rejects.toThrow('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
     const originalEntries = [...f.map].map(([name, value]) => [name, value.content] as const);
     expect(await api.requestFinalSimulationCertificate({ readinessDigest: final.readinessDigest })).toMatchObject({
-      state: 'RESPONSE_QUARANTINED', identityKeyTimeVerified: true, activationAllowed: false, trustVerified: false, applicationProfileApproved: false });
+      state: 'RESPONSE_QUARANTINED', identityKeyTimeVerified: true, activationAllowed: false, trustVerified: false, applicationProfileApproved: false,
+      discovery: { issuer: 'CN=eInvoicing', issuerCertificateUrls: [], crlDistributionUrls: [], clientAuthentication: false,
+        discoveryHintsTrusted: false, trustVerified: false, activationAllowed: false } });
     expect(f.transport).toHaveBeenCalledTimes(8); expect(count()).toBe(signs + 6);
     for (const [name, content] of originalEntries) expect(f.map.get(name)!.content).toBe(content);
     await api.requestFinalSimulationCertificate({ readinessDigest: final.readinessDigest });
