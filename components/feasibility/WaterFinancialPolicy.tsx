@@ -43,7 +43,7 @@ export default function WaterFinancialPolicy({water,locale,currency,onChange,dep
     <section className="card fs-panel"><h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{l('سياسة رأس المال العامل','Working capital policy')}</h3>
     <label className="fs-field"><span>{l('أساس رأس المال العامل','Working capital method')}</span><select value={p.workingCapitalMode} onChange={event=>patch({workingCapitalMode:event.target.value as typeof p.workingCapitalMode})}>
      <option value="PERCENT">{l('نسبة من المبيعات','Percentage of sales')}</option><option value="CYCLE">{l('أيام التحصيل والمخزون والموردين','Collection, inventory and supplier days')}</option></select></label>
-   {p.workingCapitalMode==='CYCLE'&&<><div className="fs-form-grid">
+   {p.workingCapitalMode==='CYCLE'&&<><div className="fs-form-grid fs-financial-cycle-fields">
     <label className="fs-field"><span>{l('أيام التحصيل المستخدمة','Effective collection days')}</span><input type="number" min={0} max={3650} step={1} value={water.operationsPlan?.collectionDays??''} onChange={event=>onChange({...water,operationsPlan:{sourceName:'',permitReference:'',packagingLossPct:0,kwhPerThousandBottles:0,cartonsPerTrip:0,roundTripKm:0,...water.operationsPlan,collectionDays:event.target.value===''?undefined:Math.min(3650,Math.max(0,Math.trunc(Number(event.target.value)||0)))}})}/></label>
     {num(l('أيام المخزون','Inventory days'),p.inventoryDays,n=>patch({inventoryDays:n}))}
     {num(l('أيام ائتمان الموردين','Supplier credit days'),p.payableDays,n=>patch({payableDays:n}))}

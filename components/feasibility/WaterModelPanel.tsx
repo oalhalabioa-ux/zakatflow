@@ -363,7 +363,9 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {tab==='operations'&&!production
    ?<p className="fs-hint fs-royal-water-production-intro">{l('تقدير إنتاج العبوات والكراتين والمبيعات والطلب على المياه.',
     'Estimate bottle and carton output, sales, and water demand.')}</p>
-   :<h3 className="fs-royal-water-heading">{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>}
+   :tab==='advanced'
+    ?<p className="fs-water-advanced-description">{l(...headings.advanced)}</p>
+    :<h3 className="fs-royal-water-heading">{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>}
   {(tab==='overview'||tab==='report')&&<>{valuation}{tab==='overview'&&partnership}{diagnostics.length>0&&
    <ul className="fs-notes">{diagnostics.map(item=><li key={String(item)}>{item}</li>)}</ul>}</>}
   {tab==='partners'&&<>

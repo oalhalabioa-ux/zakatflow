@@ -530,6 +530,16 @@
 }
 
 .fs-print-report [data-report-section] { scroll-margin-block-start: 90px; }
+@media screen { .fs-print-report .fs-report-print-title { display: none; } }
+@media screen and (min-width: 1171px) {
+ .fs-royal .fs-tabs:is([data-section="advanced"],[data-section="report"]) {
+  grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px;
+ }
+ .fs-royal .fs-tabs:is([data-section="advanced"],[data-section="report"]) button:not(.active) {
+  border-color: transparent; background: transparent;
+ }
+}
+.fs-royal-report-summary-details { align-items: start; }
 .fs-royal-report-summary-details > .fs-panel { align-content: start; min-inline-size: 0; }
 .fs-royal-report-index li { padding: 0; }
 .fs-royal-report-index a {
@@ -538,7 +548,7 @@
 }
 .fs-royal-report-index a:hover { color: var(--fs-green); text-decoration: underline; }
 .fs-royal-report-index a:dir(rtl) svg { transform: scaleX(-1); }
-.fs-royal-report-detail .fs-royal-report-issuance { background: var(--fs-line); }
+.fs-royal-report-detail .fs-royal-report-issuance { background: #E8F1EB; color: var(--fs-green); }
 .fs-royal-report-issuance .fs-royal-icon { color: var(--fs-green); }
 .fs-royal-report-summary-kpis .fs-metric strong { font-size: clamp(15px, 2vw, 23px); }
 .fs-royal-report-detail .fs-royal-checks dd { text-align: end; overflow-wrap: anywhere; }
@@ -594,8 +604,14 @@
  padding: 6px 9px; color: var(--fs-ink); box-sizing: border-box;
 }
 .fs-royal-water-forecasts > summary { padding-block: 4px; }
+.fs-water-advanced-description { margin: 0; color: var(--fs-muted); font-size: 12px; }
 .fs-financial-policy-grid { align-items: stretch; }
 .fs-financial-policy-grid > .fs-panel { align-content: start; }
+.fs-financial-policy-grid .fs-financial-cycle-fields {
+ grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+ margin-block-start: 0;
+}
+.fs-financial-cycle-fields :is(input, select) { width: 100%; min-inline-size: 0; }
 .fs-financial-assets .fs-table { min-width: 410px; }
 .fs-financial-assets :is(td,th) { font-weight: 400; }
 .fs-financial-assets thead th { font-weight: 700; }

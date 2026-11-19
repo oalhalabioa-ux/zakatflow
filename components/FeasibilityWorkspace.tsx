@@ -724,20 +724,20 @@ function FeasibilityWorkspaceContent({
     selectSection(id);
     requestAnimationFrame(()=>sectionHeadingRef.current?.scrollIntoView({block:'start'}));
    }}/>
-   <nav ref={navigationRef} className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{studyTabs.map(t=><button type="button" key={t.id} onClick={event=>{
+   <nav ref={navigationRef} className="fs-tabs" data-section={tab} aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{studyTabs.map(t=><button type="button" key={t.id} onClick={event=>{
     selectSection(t.id);
     if(navigationRef.current?.scrollWidth!==navigationRef.current?.clientWidth)
      event.currentTarget.scrollIntoView({block:'nearest',inline:'nearest'});
    }} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}><RoyalIcon name={studyTabIcons[t.id]}/><span>{ar?t.ar:t.en}</span></button>)}</nav>
    <div className="fs-royal-section-lead" ref={sectionHeadingRef}>
-    <h2><RoyalIcon name={studyTabIcons[tab]}/>{details&&detail===details.id?details.label:ar?activeTab.ar:activeTab.en}</h2>
+    <h2><RoyalIcon name={studyTabIcons[tab]}/>{tab==='report'?txt(ar,'التقرير الشامل','Feasibility report'):details&&detail===details.id?details.label:ar?activeTab.ar:activeTab.en}</h2>
     {details&&<button className="fs-btn fs-btn--secondary" type="button" aria-pressed={detail===details.id}
      onClick={()=>setDetail(value=>value===details.id?undefined:details.id)}>
      {detail===details.id?txt(ar,'عودة إلى القسم','Back to section'):details.label}
     </button>}
    </div>
    {tab==='overview'&&portfolio}
-   {tab==='report'&&<FeasibilityReport study={study} locale={locale}/>}
+   {tab==='report'&&<FeasibilityReport study={study} locale={locale} titleInWorkspace/>}
    {tab==='overview'&&model&&!rawLand&&<RoyalOverview study={study} locale={locale} model={model}
     sectorLabel={ar?sectors[study.sector].ar:sectors[study.sector].en}
     statusLabel={ar?projectStatus[study.status].ar:projectStatus[study.status].en}

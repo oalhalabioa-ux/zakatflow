@@ -15,7 +15,7 @@ import CostingReport from './CostingReport';
 const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
 
-export default function FeasibilityReport({study,locale,allowExport=true}:{study:FeasibilityStudy;locale:string;allowExport?:boolean}){
+export default function FeasibilityReport({study,locale,allowExport=true,titleInWorkspace=false}:{study:FeasibilityStudy;locale:string;allowExport?:boolean;titleInWorkspace?:boolean}){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
  const report=useRef<HTMLDivElement>(null);
  const dialog=useRef<HTMLDialogElement>(null);
@@ -156,7 +156,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  ]);
  return <div ref={report} className="fs-block fs-print-report">
   <section className="fs-block" id={sectionId('summary')} tabIndex={-1} data-report-section="summary">
-   <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
+   <h3 className={titleInWorkspace?'fs-royal-report-title fs-report-print-title':'fs-royal-report-title'}><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
    <div className="fs-kpis fs-royal-overview-kpis fs-royal-report-summary-kpis">
     {summaryMetrics.map(({label,value,icon})=><div className="fs-metric" key={label}>
      <RoyalIcon name={icon}/><small>{label}</small><strong><bdi>{value}</bdi></strong>
