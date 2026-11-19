@@ -649,6 +649,9 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
   }finally{await context.close();}
  });
  await check('Royal profile and investment: explicit supplier import, cloud persistence and responsive captures',async()=>{
+  // Match Next's reconstructed local origin, as in the managed-copy test above.
+  // Keep the production same-origin guard unchanged.
+  const appUrl='http://localhost:3000';
   const context=await browser.newContext({viewport:{width:1440,height:1000}});
   await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
   const page=await context.newPage();page.setDefaultTimeout(12000);
@@ -681,7 +684,14 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.equal(await page.getByLabel('Bottling and packaging line',{exact:true}).inputValue(),'5000');
    await page.getByText(/Quote source: Synthetic QA vendor/).waitFor();
    const saved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&r.request().method()==='POST');
-   await page.getByRole('button',{name:'Save to cloud',exact:true}).click();assert.equal((await saved).status(),201);
+   await page.getByRole('button',{name:'Save to cloud',exact:true}).click();
+   const saveResponse=await saved;
+   let saveError='';
+   if(saveResponse.status()!==201){
+    saveError=await Promise.race([saveResponse.json().then(x=>x.error||'NON_ERROR_JSON').catch(()=>'BODY_UNAVAILABLE'),
+     new Promise(resolve=>setTimeout(()=>resolve('BODY_READ_TIMEOUT_2S'),2000))]);
+   }
+   assert.equal(saveResponse.status(),201,'Synthetic profile save: '+saveError);
    const response=await page.request.get(appUrl+'/api/feasibility/projects');assert.equal(response.status(),200);
    const row=(await response.json()).find(x=>x.title===title);assert.ok(row);
    assert.equal(row.study.legalOwner,'Synthetic documented owner');assert.equal(row.study.siteDescription,'Synthetic site');
