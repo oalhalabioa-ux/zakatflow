@@ -48,6 +48,27 @@ export function summarizeDeveloperResult(http:number,input:unknown,operation:'co
   errorCodes:codes(errors),warningCodes:codes(warnings),passed:validationPassed&&outcomeMatched};
 }
 
+type DeliveryResult=ReturnType<typeof summarizeDeveloperResult>&{
+ category:string;document:string;operation:'reporting'|'clearance';
+};
+/** Completeness is independent of individual HTTP responses: all six unique
+ * document/route combinations must succeed before this diagnostic is complete.
+ * This still does not establish application or production acceptance.
+ */
+export function developerDeliveryMatrixPassed(results:readonly DeliveryResult[]) {
+ const expected=new Set(['STANDARD','SIMPLIFIED'].flatMap(category=>
+  ['INVOICE','CREDIT_NOTE','DEBIT_NOTE'].map(document=>`${category}:${document}`)));
+ if(results.length!==expected.size)return false;
+ for(const result of results){
+  const operation=result.category==='SIMPLIFIED'?'reporting':'clearance';
+  if(!expected.delete(`${result.category}:${result.document}`)||result.operation!==operation
+   ||result.http!==200||result.validationStatus!=='PASS'||!result.passed
+   ||result.errorCodes.length||result.warningCodes.length
+   ||result.disposition!==(operation==='reporting'?'REPORTED':'CLEARED'))return false;
+ }
+ return expected.size===0;
+}
+
 export function certificateMatchesKey(token:unknown,expectedSpki:Buffer) {
  if(typeof token!=='string'||token.length>65536)throw Error('CERTIFICATE_RESPONSE_INVALID');
  const decoded=Buffer.from(token,'base64');
@@ -65,13 +86,13 @@ export function certificateMatchesKey(token:unknown,expectedSpki:Buffer) {
 }
 
 export async function runDeveloperAcceptance() {
- const report:{sourceSha:string|null;environment:string;releaseReady:false;profile:string;stage:string;checks:unknown[];blocked?:string}={
+ const report:{sourceSha:string|null;environment:string;releaseReady:false;diagnosticPassed:boolean;profile:string;stage:string;checks:unknown[];blocked?:string}={
   sourceSha:process.env.VERCEL_GIT_COMMIT_SHA??null,environment:'DEVELOPER_PORTAL',releaseReady:false,
-  profile:'SDK_345_SYNTHETIC_QA_ONLY',stage:'target',checks:[]};
+  diagnosticPassed:false,profile:'SDK_345_SYNTHETIC_QA_ONLY',stage:'target',checks:[]};
  const publish=async()=>{await mkdir('public',{recursive:true});await writeFile('public/acceptance.json',JSON.stringify(report,null,2)+'\n');};
  const known=new Set(['QA_TARGET_REQUIRED','QA_IDENTITY_REQUIRED','KMS_METADATA_INVALID','CSR_SIGNATURE_FAILED',
   'COMPLIANCE_CREDENTIALS_UNAVAILABLE','CERTIFICATE_RESPONSE_INVALID','AUTHORITY_CERTIFICATE_KEY_MISMATCH',
-  'COMPLIANCE_MATRIX_NOT_PASSED','PERMANENT_TEST_CREDENTIALS_UNAVAILABLE','KMS_KEY_CHANGED']);
+  'COMPLIANCE_MATRIX_NOT_PASSED','PERMANENT_TEST_CREDENTIALS_UNAVAILABLE','KMS_KEY_CHANGED','DELIVERY_MATRIX_NOT_PASSED']);
  try {
   assertDeveloperAcceptanceTarget(process.env);
   const region=process.env.FATOORA_QA_AWS_REGION!,roleArn=process.env.FATOORA_QA_AWS_ROLE_ARN!,keyArn=process.env.FATOORA_QA_KMS_KEY_ARN!;
@@ -105,7 +126,7 @@ export async function runDeveloperAcceptance() {
   const auth='Basic '+Buffer.from(issued.binarySecurityToken+':'+issued.secret).toString('base64');
   report.checks.push({check:'compliance-csid',http:enrollment.http,keyMatched:true});
   let previous=Buffer.from(createHash('sha256').update('0').digest('hex')).toString('base64'),counter=0;
-  const artifacts:{category:string;payload:{invoiceHash:string;uuid:string;invoice:string}}[]=[];
+  const artifacts:{category:string;document:string;payload:{invoiceHash:string;uuid:string;invoice:string}}[]=[];
   const issuedAt=new Date(Date.now()-60_000).toISOString(),date=issuedAt.slice(0,10),time=issuedAt.slice(11,19);
   for(const category of ['STANDARD','SIMPLIFIED'] as const)for(const document of ['INVOICE','CREDIT_NOTE','DEBIT_NOTE'] as const){
    report.stage='compliance-'+category+'-'+document;counter++;
@@ -123,7 +144,7 @@ export async function runDeveloperAcceptance() {
    const payload={invoiceHash:prepared.invoiceHashBase64,uuid:prepared.uuid,invoice:Buffer.from(prepared.xml).toString('base64')};
    const result=await api('/compliance/invoices',payload,auth);
    report.checks.push({category,document,...summarizeDeveloperResult(result.http,result.body,'compliance')});
-   artifacts.push({category,payload});previous=prepared.invoiceHashBase64;
+   artifacts.push({category,document,payload});previous=prepared.invoiceHashBase64;
    await publish();
   }
   if(!(await fetchKey()).equals(spki))throw Error('KMS_KEY_CHANGED');
@@ -134,12 +155,16 @@ export async function runDeveloperAcceptance() {
   certificateMatchesKey(permanent.body.binarySecurityToken,spki);
   report.checks.push({check:'permanent-developer-csid',http:permanent.http,keyMatched:true});
   const permanentAuth='Basic '+Buffer.from(permanent.body.binarySecurityToken+':'+permanent.body.secret).toString('base64');
+  const deliveries:DeliveryResult[]=[];
   for(const artifact of artifacts){
    const operation=artifact.category==='SIMPLIFIED'?'reporting':'clearance';report.stage=operation;
    const result=await api(operation==='reporting'?'/invoices/reporting/single':'/invoices/clearance/single',artifact.payload,permanentAuth);
-   report.checks.push({category:artifact.category,operation,...summarizeDeveloperResult(result.http,result.body,operation)});
+   const delivery:DeliveryResult={category:artifact.category,document:artifact.document,operation,...summarizeDeveloperResult(result.http,result.body,operation)};
+   deliveries.push(delivery);report.checks.push(delivery);
+   await publish();
   }
-  report.stage='diagnostic-complete';
+  if(!developerDeliveryMatrixPassed(deliveries))throw Error('DELIVERY_MATRIX_NOT_PASSED');
+  report.diagnosticPassed=true;report.stage='diagnostic-complete';
  }catch(error){report.blocked=error instanceof Error&&known.has(error.message)?error.message:'QA_DIAGNOSTIC_FAILED';}
  await publish();
 }

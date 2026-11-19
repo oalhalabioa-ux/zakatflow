@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {assertDeveloperAcceptanceTarget,summarizeDeveloperResult,certificateMatchesKey} from '../scripts/zatca/developer-acceptance';
+import {assertDeveloperAcceptanceTarget,summarizeDeveloperResult,certificateMatchesKey,developerDeliveryMatrixPassed} from '../scripts/zatca/developer-acceptance';
 import {generateKeyPairSync,X509Certificate} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
@@ -53,5 +53,36 @@ describe('Developer Portal diagnostic acceptance boundary',()=>{
    const wrong=generateKeyPairSync('ec',{namedCurve:'secp256k1'}).publicKey.export({format:'der',type:'spki'});
    expect(()=>certificateMatchesKey(cert.raw.toString('base64'),wrong)).toThrow('AUTHORITY_CERTIFICATE_KEY_MISMATCH');
   }finally{rmSync(dir,{recursive:true,force:true});}
+ });
+});
+
+
+describe('complete Developer Portal delivery matrix',()=>{
+ const delivered=()=>['STANDARD','SIMPLIFIED'].flatMap(category=>['INVOICE','CREDIT_NOTE','DEBIT_NOTE'].map(document=>{
+  const operation=category==='STANDARD'?'clearance' as const:'reporting' as const;
+  return {category,document,operation,...summarizeDeveloperResult(200,{...valid,
+   ...(operation==='clearance'?{clearanceStatus:'CLEARED'}:{reportingStatus:'REPORTED'})},operation)};
+ }));
+ it('requires all six distinct successful document and route outcomes',()=>{
+  expect(developerDeliveryMatrixPassed(delivered())).toBe(true);
+  expect(developerDeliveryMatrixPassed([])).toBe(false);
+  expect(developerDeliveryMatrixPassed(delivered().slice(1))).toBe(false);
+  const duplicate=delivered();duplicate[5]=duplicate[4];
+  expect(developerDeliveryMatrixPassed(duplicate)).toBe(false);
+ });
+ it('never completes the diagnostic after an HTTP-only success, warning, or rejected document',()=>{
+  for(const outcome of [{http:500},{passed:false},{validationStatus:'WARNING'},
+   {disposition:'NOT_CLEARED'},{warningCodes:['BR-KSA-10']},{errorCodes:['XSD_ERROR']}]){
+   const results=delivered();Object.assign(results[0],outcome);
+   expect(developerDeliveryMatrixPassed(results)).toBe(false);
+  }
+ });
+ it('rejects wrong routes and missing or unknown document identities',()=>{
+  const wrong=delivered();wrong[0].operation='reporting';wrong[0].disposition='REPORTED';
+  expect(developerDeliveryMatrixPassed(wrong)).toBe(false);
+  for(const identity of [{document:''},{document:'OTHER'},{category:'OTHER'}]){
+   const results=delivered();Object.assign(results[0],identity);
+   expect(developerDeliveryMatrixPassed(results)).toBe(false);
+  }
  });
 });
