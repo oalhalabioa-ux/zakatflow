@@ -127,7 +127,7 @@ describe('isolated STANDARD Simulation clearance protocol', () => {
       if (mode === 'private-messages') body.validationResults.errorMessages = [{ message: f.ctx.secret }] as never;
       const raw = mode === 'not-json' ? 'PRIVATE_NOT_JSON' : JSON.stringify(body);
       f.transport.mockResolvedValueOnce(new Response(raw, { status: http }));
-      const status = await f.api.submit(input(p)); expect(status).toHaveProperty('results.0.state', 'FAILED');
+      const status = await f.api.submit(input(p)); expect(status).toHaveProperty('results.0.state', mode === 'warning' ? 'CLEARED_WITH_WARNINGS' : 'FAILED');
       expect(status).toHaveProperty('protocolPassed', false); expect(JSON.stringify(status)).not.toMatch(/PRIVATE_|SignatureValue|clearedInvoice/);
       expect(JSON.parse(f.map.get('standard-clearance/0/result')!.content).rawResponse).toBe(raw);
       await f.make().submit(input(p)); expect(f.transport).toHaveBeenCalledTimes(1);
@@ -170,5 +170,19 @@ describe('isolated STANDARD Simulation clearance protocol', () => {
       expect((await attempt).message).toBe('QA_CLEARANCE_RECONCILIATION_REQUIRED');
       expect(await f.make().status()).toHaveProperty('results.0.state', 'RECONCILIATION_REQUIRED'); expect(f.transport).toHaveBeenCalledTimes(1);
     } finally { vi.useRealTimers(); }
+  });
+  it('distinguishes a202 CLEARED warning and recovers its saved code without replay or advancing the gate', async () => {
+    const f = fixture(), p = await f.api.prepare(), body = reply(syntheticClearedXml(f.manifest().artifacts[0].xml));
+    body.validationResults.warningMessages = [{ code: 'BR-KSA-80', message: 'PRIVATE_UPSTREAM_MESSAGE' },
+      { code: 'certificate-issuer-name' }, { code: 'PRIVATE_FINAL_SECRET' }] as never;
+    f.transport.mockResolvedValueOnce(new Response(JSON.stringify(body), { status: 202 }));
+    const result = await f.api.submit(input(p));
+    expect(result).toHaveProperty('results.0.state', 'CLEARED_WITH_WARNINGS');
+    expect(result).toHaveProperty('results.0.returnedDocumentMatched', true);
+    expect(result).toHaveProperty('results.0.warningCodes', ['BR-KSA-80', 'certificate-issuer-name', 'UNCLASSIFIED_AUTHORITY_CODE']);
+    expect(result).toHaveProperty('protocolPassed', false);
+    expect(await f.make().status()).toEqual(result); await f.make().submit(input(p));
+    await expect(f.api.submit(input(p, 1))).rejects.toThrow('QA_CLEARANCE_PREVIOUS_REQUIRED');
+    expect(f.transport).toHaveBeenCalledTimes(1); expect(JSON.stringify(result)).not.toMatch(/PRIVATE_/);
   });
 });

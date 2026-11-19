@@ -103,16 +103,26 @@ export function createStandardClearanceQa(deps: StandardClearanceQaDependencies,
     // No authority text/code/XML is reflected to HTTP. Even parse failures stay
     // retained as a terminal diagnostic response, not a retry-ready result.
     const failed = { http: value.http, protocolPassed: false, returnedDocumentMatched: false,
-      disposition: 'UNVERIFIED' as string, errorCount: 0, warningCount: 0 };
+      disposition: 'UNVERIFIED' as string, errorCount: 0, warningCount: 0, errorCodes: [] as string[], warningCodes: [] as string[] };
     try {
       const body = z.object({ clearanceStatus: z.enum(['CLEARED', 'NOT_CLEARED']),
         validationResults: z.object({ status: z.enum(['PASS', 'WARNING', 'ERROR']), errorMessages: z.array(z.unknown()).max(40),
           warningMessages: z.array(z.unknown()).max(40) }), clearedInvoice: z.string().max(45000).nullable().optional(),
       }).parse(JSON.parse(value.rawResponse));
+      // Return only tightly bounded code shapes, never authority prose/values.
+      // Credentials may be echoed upstream; a fixed code vocabulary shape keeps
+      // private strings out even when an unexpected response invents a code.
+      const codes = (items: unknown[]) => items.map(item => {
+        const code = item && typeof item === 'object' ? (item as Record<string,unknown>).code : null;
+        return typeof code === 'string' && ( /^BR-(?:KSA|CO|S|E|AE|O|Z|G|IC|IG|CL|DEC|VAT|B|F|P)(?:-[A-Z0-9]{1,12}){0,3}-[0-9]{1,3}$/.test(code)
+          || /^(?:certificate-issuer-name|certificate-hashing|certificate-signature|certificate-validity|certificate-public-key|signed-properties-hashing|signatureValue|invoiceHash|XSD_ZATCA_VALID)$/.test(code))
+          ? code : 'UNCLASSIFIED_AUTHORITY_CODE';
+      });
       const base = { ...failed, disposition: body.clearanceStatus, errorCount: body.validationResults.errorMessages.length,
-        warningCount: body.validationResults.warningMessages.length };
-      if (value.http !== 200 || body.clearanceStatus !== 'CLEARED' || body.validationResults.status !== 'PASS'
-        || base.errorCount || base.warningCount || !body.clearedInvoice || !/^[A-Za-z0-9+/]+={0,2}$/.test(body.clearedInvoice)) return base;
+        warningCount: body.validationResults.warningMessages.length, errorCodes: codes(body.validationResults.errorMessages),
+        warningCodes: codes(body.validationResults.warningMessages) };
+      if (![200, 202].includes(value.http) || body.clearanceStatus !== 'CLEARED' || base.errorCount
+        || !body.clearedInvoice || !/^[A-Za-z0-9+/]+={0,2}$/.test(body.clearedInvoice)) return base;
       const bytes = Buffer.from(body.clearedInvoice, 'base64');
       if (bytes.length > 32768 || bytes.toString('base64') !== body.clearedInvoice) return base;
       const xml = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -131,7 +141,8 @@ export function createStandardClearanceQa(deps: StandardClearanceQaDependencies,
         if (uuid.length !== 1 || uuid[0].content !== artifact.uuid || stamps.length !== 1 || signature.length !== 1
           || !signature[0].content.trim() || !certificates.length || certificates.some(c => !c.content.trim())
           || qr.length !== 1 || !qr[0].content.trim() || qr[0].content.trim().length > 700) return base;
-        return { ...base, protocolPassed: true, returnedDocumentMatched: true };
+        return { ...base, protocolPassed: value.http === 200 && body.validationResults.status === 'PASS' && !base.warningCount,
+          returnedDocumentMatched: true };
       } finally { doc.dispose(); }
     } catch { return failed; }
   }
@@ -139,7 +150,10 @@ export function createStandardClearanceQa(deps: StandardClearanceQaDependencies,
     const results = [];
     for (let i = 0; i < 3; i++) {
       const saved = await result(i, m), claim = await intent(i, m), checked = saved ? await inspect(saved, m.value.artifacts[i]) : null;
-      results.push({ kind: kinds[i], state: checked ? (checked.protocolPassed ? 'PASSED' : 'FAILED') : claim ? 'RECONCILIATION_REQUIRED' : 'NOT_SENT', ...(checked ?? {}) });
+      const state = checked ? checked.protocolPassed ? 'PASSED' : checked.disposition === 'CLEARED'
+        && checked.returnedDocumentMatched && checked.warningCount > 0 && !checked.errorCount ? 'CLEARED_WITH_WARNINGS' : 'FAILED'
+        : claim ? 'RECONCILIATION_REQUIRED' : 'NOT_SENT';
+      results.push({ kind: kinds[i], state, ...(checked ?? {}) });
     }
     return { ...flags, manifestDigest: m.digest, results, protocolPassed: results.every(r => r.state === 'PASSED') };
   }
