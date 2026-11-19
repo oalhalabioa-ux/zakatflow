@@ -94,6 +94,9 @@ describe('quantity costing: synthetic water acceptance',()=>{
   expect(detailed.annual[0].revenue).toBeCloseTo(legacy.annual[0].revenue*.9);expect(detailed.annual[0].variable).toBe(legacy.annual[0].variable);
   expect(detailed.npv).toBeLessThan(legacy.npv);m.ops.licensedWaterM3Day=1;
   expect(effectiveWaterInputs(m).readiness.blockers).toContain('LICENSED_WATER_CAPACITY');
+  m.operationsPlan.sourceType='well';expect(effectiveWaterInputs(m).readiness.blockers).toContain('PUMP_INPUTS');
+  m.operationsPlan.pumpingM3Hour=1;m.operationsPlan.sourceHoursDay=1;expect(effectiveWaterInputs(m).readiness.blockers).toContain('PUMP_CAPACITY');
+  m.ops.hoursDay=25;expect(effectiveWaterInputs(m).readiness.blockers).toContain('OPERATING_INPUTS');
  });
  it('blocks undocumented prices and high risks in investment readiness without losing the draft',()=>{
   const s=createIndustrialStarter('793e128a-66d1-44ec-9380-49acf36ed59a','Synthetic','BOTTLED_WATER');s.water=water();

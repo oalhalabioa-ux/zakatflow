@@ -330,7 +330,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   ['السنة','Year'],['المساحة المباعة م²','Sold area m²'],['المبيعات','Sales'],['التحصيل النقدي','Cash collected'],
   ['الذمم المدينة آخر السنة','Closing receivables'],['تكلفة نقدية','Cash cost'],['الحافز','Incentive'],
   ['سحب الدين','Debt draw'],['السداد','Debt repayment'],['رصيد الدين','Closing debt'],['التدفق الاقتصادي','Economic cash flow'],
-  ['التدفق بعد الدين','Equity cash flow'],['التدفق الاقتصادي التراكمي','Cumulative economic cash flow']
+  ['التدفق بعد الدين','Equity cash flow'],['التدفق الاقتصادي التراكمي','Cumulative economic cash flow'],['تغطية خدمة الدين DSCR','Debt service coverage DSCR']
  ];
  return <div className="fs-block">
   {tab==='cashflow'&&<div className="fs-kpis" aria-label={l(['مؤشرات التدفقات النقدية','Cash flow metrics'])}>
@@ -360,12 +360,16 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   </>)}
   {tab!=='overview'&&results.map((result,i)=>{
    if(result.issue||!result.ready)return null;
-   const annual=result.annual.map(y=>[y.year,y.soldArea,y.salesValue,y.cashCollected,y.receivables,y.cashCost,y.performanceFee,
-    y.draw,y.repayment,y.closingDebt,y.projectCash,y.equityCash,y.cumulativeProject]);
+   const annual:Array<Array<string|number|null>>=result.annual.map((y,index)=>[y.year,y.soldArea,y.salesValue,y.cashCollected,y.receivables,y.cashCost,y.performanceFee,
+    y.draw,y.repayment,y.closingDebt,y.projectCash,y.equityCash,y.cumulativeProject,result.financeMetrics?.dscr[index]??
+     (y.repayment+y.interest>0?(y.cashCollected-y.cashCost+y.interest-y.performanceFee)/(y.repayment+y.interest):null)]);
+   if(result.financeMetrics&&result.financeMetrics.initialProject<0)annual.unshift([
+    l(['سنة صفر','Year zero']),0,0,0,0,0,0,0,0,0,result.financeMetrics.initialProject,result.financeMetrics.initialEquity,result.financeMetrics.initialProject,null
+   ]);
    const rows=[[...headings.map(l),l(['العملة','Currency'])],...annual.map(row=>[...row,currency])];
    const filename='land-development-'+(i+1);
    return <div key={i}>{panel(['التدفقات النقدية · '+(sales.scenarios[i].name||String(i+1)),'Cash flows · '+(sales.scenarios[i].name||String(i+1))],<>
-    {table(headings,annual.map(row=>row.map((n,j)=>j<2?fmt(n):money(n))))}
+    {table(headings,annual.map(row=>row.map((n,j)=>typeof n==='string'?n:j<2||j===13?fmt(n):money(n))))}
     {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
      onClick={()=>downloadFeasibilityCsv(filename+'.csv',rows)}>{l(['تصدير التدفقات CSV','Export cash flows CSV'])}</button>
      <button className="fs-btn fs-btn--secondary" type="button" disabled={xlsxState==='working'} onClick={async()=>{

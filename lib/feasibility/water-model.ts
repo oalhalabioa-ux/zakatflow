@@ -177,7 +177,9 @@ export function effectiveWaterInputs(model:WaterModel){
   ...(q?.materialsEnabled&&(!material||material.total<=0||!q.materialSource.trim())?['MATERIAL_INPUTS']:[]),
   ...(q?.landByArea&&(!(deal.landValue>0)||!q.landSource.trim())?['LAND_VALUATION']:[]),
   ...(q?.landByArea&&(!Number.isFinite(deal.landValue)||deal.landValue>1e12)?['LAND_LIMIT']:[]),
-  ...(q?.productionEnabled&&(!model.operationsPlan?.sourceName.trim()||!model.operationsPlan?.permitReference.trim()||model.ops.licensedWaterM3Day<=0)?['WATER_SOURCE_EVIDENCE']:[]),
+  ...(q?.productionEnabled&&(!model.operationsPlan?.sourceName.trim()||!model.operationsPlan.sourceType||!model.operationsPlan?.permitReference.trim()||model.ops.licensedWaterM3Day<=0)?['WATER_SOURCE_EVIDENCE']:[]),
+  ...(q?.productionEnabled&&(['well','spring'].includes(model.operationsPlan?.sourceType??''))&&(!(model.operationsPlan?.pumpingM3Hour??0)||!(model.operationsPlan?.sourceHoursDay??0))?['PUMP_INPUTS']:[]),
+  ...(q?.productionEnabled&&(model.ops.hoursDay>24||model.ops.hoursDay<=0||model.ops.daysMonth>31||model.ops.daysMonth<=0||model.ops.litersBottle<=0||model.ops.waterLossPct>=100)?['OPERATING_INPUTS']:[]),
   ...(q?.productionEnabled&&nominalWaterDemand(model.ops)>model.ops.licensedWaterM3Day?['LICENSED_WATER_CAPACITY']:[]),
   ...(q?.productionEnabled&&model.operationsPlan?.pumpingM3Hour&&model.operationsPlan.sourceHoursDay&&nominalWaterDemand(model.ops)>model.operationsPlan.pumpingM3Hour*model.operationsPlan.sourceHoursDay?['PUMP_CAPACITY']:[]),
  ];

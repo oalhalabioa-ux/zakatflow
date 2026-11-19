@@ -36,6 +36,8 @@ export function quantityIssueLabel(code:string,locale:string,items:readonly Quan
   LAND_LIMIT:['قيمة الأرض تتجاوز الحد المسموح','Land value exceeds the supported limit'],WATER_SOURCE_EVIDENCE:['وثّق مصدر المياه والترخيص والكمية المرخصة','Document water source, permit and licensed volume'],
   PHASING:['مجموع مراحل البند يجب أن يساوي 100%','Item phasing must add to 100%'],
   LICENSED_WATER_CAPACITY:['الطلب على المياه يتجاوز الكمية المرخصة','Water demand exceeds licensed capacity'],PUMP_CAPACITY:['الطلب على المياه يتجاوز طاقة الضخ','Water demand exceeds pumping capacity'],
+  PUMP_INPUTS:['أكمل معدل الضخ وساعات المصدر للبئر أو النبع','Complete pumping rate and source hours for well/spring'],
+  OPERATING_INPUTS:['راجع ساعات وأيام التشغيل وحجم العبوة وفاقد المياه','Review operating hours/days, bottle size and water loss'],
  };
  const label=labels[key]??['تحتاج المدخلات مراجعة','Inputs need review'];
  return (ar?label[0]:label[1])+(name?' · '+name:'');

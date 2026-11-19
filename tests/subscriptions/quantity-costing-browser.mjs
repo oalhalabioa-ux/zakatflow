@@ -30,6 +30,7 @@ export async function runQuantityCostingBrowser({browser,cookies,check}){
    await page.getByRole('spinbutton',{name:'Land area (m²)',exact:true}).fill('1000');
    await page.getByRole('button',{name:'Investment',exact:true}).click();
    await page.getByRole('spinbutton',{name:'Construction and buildings',exact:true}).fill('1234');
+   await page.getByText('Quantity-based detailed cost estimate',{exact:true}).click();
    await page.getByRole('spinbutton',{name:'Total built floor area m²',exact:true}).fill('200');
    const capital=page.getByRole('heading',{name:'Construction, equipment and utilities quantities',exact:true}).locator('..');
    await capital.getByRole('checkbox').check();await addRow(capital,{basis:'BUILT_AREA',cost:300});
@@ -43,6 +44,7 @@ export async function runQuantityCostingBrowser({browser,cookies,check}){
    for(const locale of ['ar','en'])for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000});await page.goto(app+'/'+locale+'/feasibility?scope=PERSONAL');const ar=locale==='ar';
     await page.getByRole('button',{name:ar?'تكاليف الاستثمار':'Investment',exact:true}).click();
+    await page.locator('summary').filter({hasText:ar?'التقدير التفصيلي حسب الكميات':'Quantity-based detailed cost estimate'}).click();
     assert.equal(await page.getByRole('spinbutton',{name:ar?'إجمالي مساحة البناء م²':'Total built floor area m²',exact:true}).inputValue(),'300');
     assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
     await page.screenshot({path:new URL('./screenshots/dynamic-water-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
@@ -81,6 +83,7 @@ export async function runQuantityCostingBrowser({browser,cookies,check}){
    const reload=await fresh.newPage();await reload.goto(app+'/en/feasibility?scope=PERSONAL');
    await reload.getByRole('button',{name:'Restore from cloud',exact:true}).click();
    await reload.getByRole('button',{name:/Synthetic dynamic water costing/}).click();await reload.getByRole('button',{name:'Investment',exact:true}).click();
+   await reload.locator('summary').filter({hasText:'Quantity-based detailed cost estimate'}).click();
    assert.equal(await reload.getByRole('spinbutton',{name:'Total built floor area m²',exact:true}).inputValue(),'300');await fresh.close();
   }finally{await context.close();}
  });

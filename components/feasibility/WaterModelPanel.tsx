@@ -210,7 +210,9 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   const items=capexFields.filter(([key])=>key!=='contingencyPct'&&key!=='workingCapital');
   const reserveFields=capexFields.filter(([key])=>key==='contingencyPct'||key==='workingCapital');
   return <section className="fs-block fs-royal-capex">
-   <WaterQuantityCosts water={water} locale={locale} onChange={onChange}/>
+    <details className="fs-panel"><summary>{l('التقدير التفصيلي حسب الكميات','Quantity-based detailed cost estimate')}{water.quantityCosting?.capital.enabled?' · '+l('فعّال','Active'):''}</summary>
+     <WaterQuantityCosts water={water} locale={locale} onChange={onChange}/>
+    </details>
    {metrics([[['الإنشاءات والمعدات','Works and equipment'],money(m.hard)],
     [['احتياطي الاستثمار','Investment contingency'],money(m.contingency)],
     [['رأس المال العامل','Working capital'],money(water.capex.workingCapital)],
