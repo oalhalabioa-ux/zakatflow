@@ -1,6 +1,12 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
+import Link from 'next/link';
+import { proposalReviewHref } from '@/lib/feasibility/share-proposals';
+
+function isId(value: unknown): value is string {
+  return typeof value === 'string' && /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(value);
+}
 
 export default function Notifications({
   params,
@@ -51,6 +57,12 @@ export default function Notifications({
             <strong>{n.title}</strong>
             <p>{n.body}</p>
             <small>{n.scheduled_for || ''}</small>
+            {n.type === 'feasibility_share_proposal' && isId(n.metadata?.organization)
+              && isId(n.metadata?.project) && isId(n.metadata?.proposal) && <p>
+              <Link href={proposalReviewHref(locale, n.metadata.organization, n.metadata.project, n.metadata.proposal)}>
+                {ar ? 'مراجعة التعديلات' : 'Review changes'}
+              </Link>
+            </p>}
 
             {!n.read_at && (
               <button

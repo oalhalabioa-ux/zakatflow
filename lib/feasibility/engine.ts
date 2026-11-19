@@ -3,19 +3,22 @@
  * All values are in one study currency; mixed-currency figures must be converted
  * explicitly by an analyst before inclusion.
  */
+import type {RawLand} from './raw-land';
+import type {WaterModel} from './water-model';
+
 export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTURE'|'CUSTOM';
 export type StudyStatus='IDEA'|'FEASIBILITY'|'APPROVED'|'ESTABLISHMENT'|'OPERATING'|'CANCELLED';
-export type TaskStatus='TODO'|'IN_PROGRESS'|'DONE';
+export type TaskStatus='TODO'|'IN_PROGRESS'|'BLOCKED'|'DONE';
 export type ChecklistStatus='NOT_STARTED'|'UNDER_REVIEW'|'VERIFIED'|'BLOCKED';
-export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff'|'sharing';
+export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff'|'sharing'|'report';
 export type HandoffMode='LATER'|'NEW'|'EXISTING';
 export interface ProjectHandoff {mode:HandoffMode; organizationId?:string; reviewedSourceUpdatedAt?:string; reviewedAt?:string;}
 export interface CapexItem {id:string;label:string;amount:number;category:'BUILDINGS'|'EQUIPMENT'|'UTILITIES'|'LICENCES'|'OTHER';}
-export interface StudyTask {id:string;title:string;owner:string;due:string;status:TaskStatus;priority:'HIGH'|'NORMAL'|'LOW';}
-export interface LegalItem {id:string;title:string;status:ChecklistStatus;notes:string;}
-export interface StudyRisk {id:string;title:string;likelihood:number;impact:number;response:string;}
-export interface StudySupplier {id:string;vendor:string;item:string;offer:number;notes:string;}
-export interface StudyDecision {id:string;title:string;date:string;notes:string;}
+export interface StudyTask {id:string;title:string;owner:string;due:string;status:TaskStatus;priority:'HIGH'|'NORMAL'|'LOW';phase?:string;notes?:string;}
+export interface LegalItem {id:string;title:string;status:ChecklistStatus;notes:string;group?:string;critical?:boolean;description?:string;owner?:string;due?:string;}
+export interface StudyRisk {id:string;title:string;likelihood:number;impact:number;response:string;category?:string;owner?:string;status?:'OPEN'|'MITIGATED';}
+export interface StudySupplier {id:string;vendor:string;item:string;offer:number;notes:string;capacity?:number;leadDays?:number;warranty?:string;status?:'NEW'|'REVIEW'|'SELECTED'|'REJECTED';}
+export interface StudyDecision {id:string;title:string;date:string;notes:string;owner?:string;status?:'OPEN'|'AGREED'|'DONE';}
 export type CapitalCategory=CapexItem['category'];
 /** Optional inputs only; missing lives must never be silently inferred. */
 export interface AdvancedAssumptions {
@@ -44,19 +47,25 @@ export interface FeasibilityStudy {
  unitPrice:number; variableCost:number; monthlyUnits:number; monthlyFixedCost:number; volumeGrowthPct:number;
  priceGrowthPct:number; fixedCostGrowthPct:number; discountRatePct:number; indicativeTaxRatePct:number; years:number;
  capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];handoff?:ProjectHandoff;advanced?:AdvancedAssumptions;sectorSchedule?:SectorSchedule;
+ scenarioAssumptions?: Partial<Record<Scenario,ScenarioFactors>>;
+ rawLand?:RawLand;water?:WaterModel;preparedBy?:string;studyDate?:string;notes?:string;
  createdAt:string; updatedAt:string;
 }
 export type Scenario='CONSERVATIVE'|'BASE'|'OPTIMISTIC';
+export type ScenarioFactors={volume:number;price:number;variable:number};
 const nonneg=(n:number)=>Number.isFinite(n)?Math.max(0,n):0;
 const sum=(items:readonly number[])=>items.reduce((a,b)=>a+nonneg(b),0);
 export const scenarioLabels:Record<Scenario,{ar:string;en:string}>={
  CONSERVATIVE:{ar:'متحفظ',en:'Conservative'},BASE:{ar:'أساسي',en:'Base'},OPTIMISTIC:{ar:'متفائل',en:'Optimistic'}
 };
-const adjustments:Record<Scenario,{volume:number;price:number;variable:number}>={
- CONSERVATIVE:{volume:.7,price:.95,variable:1.1},
- BASE:{volume:1,price:1,variable:1},
- OPTIMISTIC:{volume:1.2,price:1.03,variable:.97}
+const adjustments:Record<Scenario,ScenarioFactors>={
+ CONSERVATIVE:{volume:70,price:95,variable:110},
+ BASE:{volume:100,price:100,variable:100},
+ OPTIMISTIC:{volume:120,price:103,variable:97}
 };
+export function scenarioFactors(study:FeasibilityStudy,scenario:Scenario):ScenarioFactors{
+ return study.scenarioAssumptions?.[scenario]??adjustments[scenario];
+}
 export const defaultLegalItems=[
  'التحقق من ملكية الأرض أو حق استخدام الموقع',
  'تقييم المساهمات العينية بواسطة جهة مستقلة',
@@ -141,7 +150,7 @@ export function internalRateOfReturn(flows:number[]):number|null{
  return (low+high)*50;
 }
 export function evaluateStudy(s:FeasibilityStudy,scenario:Scenario='BASE'){
- const c=adjustments[scenario],capex=sum(s.capex.map(x=>x.amount));
+ const c=scenarioFactors(s,scenario),capex=sum(s.capex.map(x=>x.amount));
  const landAsset=s.landTransferred?nonneg(s.landValue):0;
  const cashEquity=nonneg(s.investorEquity)+nonneg(s.partnerCashEquity);
  const equity=cashEquity+landAsset;
@@ -154,11 +163,11 @@ export function evaluateStudy(s:FeasibilityStudy,scenario:Scenario='BASE'){
  const initial=-(totalInvestment);
  const flows=[initial];
  const discount=nonneg(s.discountRatePct)/100;
- const basePrice=nonneg(s.unitPrice)*c.price;
- const baseCost=nonneg(s.variableCost)*c.variable;
+ const basePrice=nonneg(s.unitPrice)*(c.price/100);
+ const baseCost=nonneg(s.variableCost)*(c.variable/100);
  const taxRate=Math.min(1,nonneg(s.indicativeTaxRatePct)/100);
  for(let year=1;year<=projectedYears;year++){
-  const volume=nonneg(s.monthlyUnits)*12*c.volume*Math.pow(1+nonneg(s.volumeGrowthPct)/100,year-1);
+  const volume=nonneg(s.monthlyUnits)*12*(c.volume/100)*Math.pow(1+nonneg(s.volumeGrowthPct)/100,year-1);
   const price=basePrice*Math.pow(1+nonneg(s.priceGrowthPct)/100,year-1);
   const variableCost=baseCost*volume;
   const revenue=volume*price;

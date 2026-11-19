@@ -6,7 +6,10 @@ const state=vi.hoisted(()=>({authenticated:true,enabled:true,member:true,authori
 vi.mock('../services/auth',()=>({requireUser:async()=>{if(!state.authenticated)throw Error('UNAUTHORIZED');return{
  supabase:{
  rpc:async(name:string,args:any)=>{state.queries.push({name,args});return{
-  data:name==='financial_core_can'?state.authorized:{status:'DRAFT',id:'demo'},
+  data:name==='financial_chart_workspace'?{organizationId:org,accounts:[
+   {code:'1000',ar:'النقد والبنوك',en:'Cash & banks'},
+   {code:'100001',ar:'المصرف التشغيلي',en:'Operating bank',isActive:false},
+  ]}:name==='financial_core_can'?state.authorized:{status:'DRAFT',id:'demo'},
   error:state.error?{message:state.error}:null,
  }},
  from(table:string){
@@ -17,7 +20,9 @@ vi.mock('../services/auth',()=>({requireUser:async()=>{if(!state.authenticated)t
     return{data:state.member&&!(state.revoked&&state.authChecks>1)?{organization_id:org}:null,error:null};
    }
    return{data:{id:opening,organization_id:org,fiscal_start:'2026-01-01',currency:'SAR',
-    status:'APPROVED',version:2,approved_opening:[{itemId:'bank',accountCode:'1000',debit:'100.0000',credit:'0.0000'}]},error:null}
+    status:'APPROVED',version:2,approved_opening:[{itemId:'bank',accountCode:'1000',debit:'100.0000',credit:'0.0000'},
+     {itemId:'custom',accountCode:'100001',debit:'50.0000',credit:'0.0000'},
+     {itemId:'old',accountCode:'999999',debit:'0.0000',credit:'150.0000'}]},error:null}
    },
    async limit(){return{data:[{id:'branch-1',organization_id:org,name:'Branch 1',entity_type:'BRANCH',active:true}],error:null}},
   };return chain;
@@ -83,6 +88,12 @@ describe('authenticated opening distribution adapter',()=>{
   expect(response.status).toBe(200);
   const result=await response.json();
   expect(result.opening).toMatchObject({id:opening,organizationId:org,version:2});
+  expect(result.opening.approvedOpening).toEqual([
+   {itemId:'bank',accountCode:'1000',debit:'100.0000',credit:'0.0000',accountNameAr:'النقد والبنوك',accountNameEn:'Cash & banks'},
+   {itemId:'custom',accountCode:'100001',debit:'50.0000',credit:'0.0000',accountNameAr:'المصرف التشغيلي',accountNameEn:'Operating bank'},
+   {itemId:'old',accountCode:'999999',debit:'0.0000',credit:'150.0000',accountNameAr:null,accountNameEn:null},
+  ]);
+  expect(state.queries).toContainEqual({name:'financial_chart_workspace',args:{p_org:org}});
   expect(result.branches).toEqual([{id:'branch-1',name:'Branch 1'}]);
   expect(result.branchRegistryComplete).toBe(false);
   expect(state.authChecks).toBe(2);

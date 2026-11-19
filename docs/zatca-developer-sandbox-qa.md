@@ -46,3 +46,20 @@ The [QA V2 candidate](https://vercel.com/oalhalabioa-9334/yaqeen-financial-core-
 - Hosted login and access: Supabase password authentication returned a real session for a synthetic QA-only user. The authenticated VAT page returned HTTP 200 and showed the VAT content. Each GET endpoint, `/api/vat/e-invoices` and `/api/vat/e-invoicing`, returned HTTP 200 for the fixture owner's organization and HTTP 403 (`ORGANIZATION_ACCESS_REQUIRED`) for a separate synthetic organization. The same endpoints returned HTTP 401 (`UNAUTHORIZED`) with no app session.
 - On the separate QA V2 PostgreSQL project (17.11), all 29 source-freeze/ledger compatibility assertions passed using the real schema and RLS in an explicitly rolled-back transaction. A separate post-rollback read verified no candidate schema, freeze triggers or rollback fixture rows remained. No permanent migration was applied.
 - The hosted check used synthetic organizations and only read the hosted invoices and settings. No hosted issuance, authority submission or financial write was performed. Test login sessions were revoked. The compatibility-profile result from the Developer Portal is still separate from proving reporting, clearance or current SDK acceptance for the standards-oriented signature.
+
+## Current-source reconciliation — 2026-11-19
+
+This session resumes **ZATCA**, not Platform Admin QA. The retained source is Phase 2 revision `e106abf259dba64c82634ae23e706cfd1907d7c3`; the integration base is main `35995018db0df01823dbee07ee569e7b1e64bdb9`. Their local merge is conflict-free. Main's deployment policy (`**: false`, `main: true`), financial setup, subscriptions and feasibility changes are preserved. No application invoice route or permanent migration is introduced by this reconciliation.
+
+The existing isolated Vercel project is `yaqeen-fatoora-qa`; its last READY diagnostic deployment is `dpl_5uY69Yc7QS5pMF9xGcuqMTmX4sct`. It is a synthetic cloud/gateway probe, not the full application. Platform Admin QA and shared Financial Core QA V2 are not replacement targets for this diagnostic. No new deployment, alias assignment, authority request or hosted database write has been made in this reconciliation.
+
+The official SDK download was checked again from the authority's download page on November 19. The linked SharePoint archive redirected to Microsoft sign-in in this runner. No current official SDK distribution has therefore been acquired or validated; the historical mirrored 3.4.5 checker remains diagnostic evidence only.
+
+Added `tests/zatca-production-boundary.test.ts` to the cryptography workflow and ordinary test suite. It checks application, component, library and service source to prevent a direct or indirect import of the synthetic SDK compatibility signer into runtime code. This does not repair the known signed-properties compatibility limitation or authorize taxpayer issuance.
+
+Next acceptance order:
+
+1. Verify this exact integrated candidate in CI, including native XMLSec and disposable PostgreSQL jobs. Local runs without their explicit SQL/native opt-ins do not replace these jobs.
+2. Obtain the current official SDK and reconcile a standards-compliant signature profile; retain the signed-properties tamper rejection and independently verified certificate/key binding.
+3. Demonstrate reporting and clearance independently in the Developer Portal with matching documented test credentials/artifacts. Compliance `PASS` alone does not establish either result.
+4. Only then progress to authorized-organization FATOORA Simulation and the separately reviewed original-request/credential/issuance integration. Keep Production and financial writes disabled until those gates pass.

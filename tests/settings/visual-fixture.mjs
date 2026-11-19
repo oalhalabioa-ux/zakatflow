@@ -1,6 +1,7 @@
 // LOCAL UI fixture only. Not authentication, RLS or accounting certification.
 import {createServer} from 'node:http';
 import {verifyBundleBuilder} from './bundle-builder.mjs';
+import {verifyCenterBranches} from './center-branches.mjs';
 import {verifyFiscalSetupEditing} from './fiscal-setup.mjs';
 import {verifyPricingLayout} from './pricing-layout.mjs';
 import {createHmac} from 'node:crypto';
@@ -55,6 +56,7 @@ await page.route('**/api/**',async route=>{
   if(req.method()==='POST'&&body.action==='save')postingPolicy={...postingPolicy,status:'DRAFT',version:postingPolicy.version+1,rules:body.rules,reason:body.reason};
   data={organizationId:orgId,fiscalStart:'2026-01-01',policy:postingPolicy,accountLinkCoverage:[{accountCode:'159001',status:'NO_TEMPLATE'},{accountCode:'610001',status:'LINKED'}],approvedPolicy:postingApprovedPolicy,canSave:true,canApprove:true,events:[],classifications:[{id:'opex',name:'مصروفات المؤسسة'}],chart:['1000','1500','2100','6100','610001','610002','210001'].map(code=>({id:code,code,ar:code,en:code,cash:code==='1000',...(code.length>4?{reportingCode:code.slice(0,4),isPostable:true}:{})})),defaults:{version:1,rules:postingDefaults.filter(r=>!postingPolicy?.rules.some(x=>JSON.stringify([x.eventType,x.sourceModule,x.classificationId,x.cashDirection])===JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]))),unresolved:[],testedRuleCount:0}};
  }
+ else if(u.pathname==='/api/financial-reporting/center-branches')return route.fulfill({status:404,json:{error:'CENTER_BRANCH_DISABLED'}});
  else if(u.pathname==='/api/financial-reporting/chart')data={organizationId:orgId,accounts:[{kind:'ASSET',isActive:true,isPostable:true},{kind:'EQUITY',isActive:true,isPostable:true}]};
  else if(u.pathname==='/api/debt-catalog')data={organizations:[org,other],entities:[],base_currency:'SAR',parties:[]};
  else if(u.pathname==='/api/financial-register')data={asOf:'2026-11-09',baseCurrency:'SAR',organizations:[org],entities:[],cashMovements:[],debts:[],debtMovements:[],assets:[],warnings:[],organizationIds:[orgId],accounts:[{id:'bank-1',organizationId:orgId,name:'حساب المؤسسة',type:'BANK',currency:'SAR',nativeCurrency:'SAR',balance:0,restricted:0,uncleared:0,baseCurrency:'SAR',baseBalance:0,entityId:null,source:'LIQUIDITY',openingDate:null}]};
@@ -66,13 +68,34 @@ await page.route('**/api/**',async route=>{
  else if(u.pathname==='/api/vat/settings')data={can_edit:true,profile:{registration_status:'NOT_REGISTERED',registered_name:org.name,filing_frequency:'QUARTERLY',period_start_month:1,seller_city:'الرياض',seller_street:'شارع الملك فهد'}};
  else if(u.pathname==='/api/vat')data={};
  else if(u.pathname.includes('/notifications'))data=[];
- else if(u.pathname.includes('/financial-reporting/setup-readiness')){if(readinessGate)await readinessGate;data={organizationId:orgId,mode:u.searchParams.get('mode'),statuses:{organization:'READY',chart:'IN_PROGRESS',fiscal:'READY',posting:'IN_PROGRESS',banking:'READY',opening:'IN_PROGRESS',users:'READY',regulatory:'NOT_STARTED',structure:'NOT_STARTED',review:'BLOCKED',finished:'BLOCKED'},ready:false,sourceChecked:false,certification:'NOT_CERTIFIED'};}
+ else if(u.pathname.includes('/financial-reporting/setup-readiness')){if(readinessGate)await readinessGate;data={organizationId:orgId,mode:u.searchParams.get('mode'),statuses:{organization:'READY',chart:u.searchParams.get('mode')?'IN_PROGRESS':'READY',fiscal:'READY',posting:'IN_PROGRESS',banking:'READY',opening:u.searchParams.get('mode')==='EXISTING'?'IN_PROGRESS':'NOT_STARTED',users:'READY',regulatory:'NOT_STARTED',structure:'NOT_STARTED',review:'BLOCKED',finished:'BLOCKED'},ready:false,sourceChecked:false,certification:'NOT_CERTIFIED',sourceChecks:{fiscal:[{id:'fiscal.calendar',status:'MET'},{id:'fiscal.period',status:'MET'},{id:'fiscal.retained',status:'MET'}],chart:[{id:'chart.readable',status:'MET'},{id:'chart.equity',status:'MET'}],posting:[{id:'posting.approved',status:'MET'},{id:'posting.rules',status:'MISSING'},{id:'posting.coverage',status:'UNAVAILABLE'}],banking:[{id:'banking.readable',status:'MET'},{id:'banking.active',status:'MET'}],opening:[{id:'opening.mode',status:'MISSING'},{id:'opening.source',status:'UNAVAILABLE'},{id:'opening.verified',status:'UNAVAILABLE'}]}};}
  else data=[];
  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
 });
 const out=process.env.SETTINGS_UI_OUT??'/tmp/yaqeen-settings-ui';await mkdir(out,{recursive:true});const checks=[];
+// Responsive shell/grid transitions must finish before comparing click geometry.
+// This does not disable animation or weaken the unchanged-card tolerance.
+async function waitForFinancialLayout(){
+ await page.locator('.settings-finance-status').evaluate(async root=>{
+  await document.fonts.ready;
+  await new Promise((resolve,reject)=>{
+   const started=performance.now();let previous='',stableSince=started;
+   const sample=()=>{
+    const now=performance.now();
+    const signature=JSON.stringify([root,...root.querySelectorAll('article')].map(el=>{
+     const rect=el.getBoundingClientRect();return [rect.width,rect.height].map(v=>Math.round(v*100)/100);
+    }));
+    if(signature!==previous){previous=signature;stableSince=now;}
+    if(now-stableSince>=400){resolve();return;}
+    if(now-started>5000){reject(new Error('Financial card layout did not settle'));return;}
+    requestAnimationFrame(sample);
+   };sample();
+  });
+ });
+}
 try{
  if(!process.env.SETTINGS_JOURNEY_ONLY){
+ await verifyCenterBranches({page,app,orgId});
  await verifyFiscalSetupEditing({page,app,orgId,setLock:value=>{fiscalLock=value;},out:process.env.SETTINGS_UI_SKIP_SNAPSHOTS?null:out});
  checks.push('Fiscal setup editing, persistence and activity lock separate from year closure');
  for(const locale of locales){
@@ -104,6 +127,61 @@ try{
    assert.equal(await page.locator('iframe').count(),0);await page.evaluate(()=>document.fonts.ready.then(()=>undefined));
    for(const width of (process.env.SETTINGS_UI_SKIP_SNAPSHOTS?[]:[1490,1280,768,390])){await page.setViewportSize({width,height:1050});await page.waitForTimeout(300);await page.evaluate(()=>window.scrollTo(0,0));const overlaps=await page.locator('.settings-workspace').evaluate(root=>{const items=[...root.querySelectorAll('button,a,input,select,textarea')].filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map(el=>({label:el.getAttribute('aria-label')||el.textContent?.trim().slice(0,40)||el.tagName,box:el.getBoundingClientRect()}));const found=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=items[i],b=items[j];if(Math.min(a.box.right,b.box.right)-Math.max(a.box.left,b.box.left)>2&&Math.min(a.box.bottom,b.box.bottom)-Math.max(a.box.top,b.box.top)>2)found.push(a.label+' / '+b.label);}return found;});assert.deepEqual(overlaps,[],path+' '+locale+' '+width+' overlapping controls');const clippedTabs=await page.locator('.settings-tabs a>span,.settings-subsection-nav a>span').evaluateAll(items=>items.filter(el=>el.scrollWidth>el.clientWidth+1).map(el=>el.textContent));assert.deepEqual(clippedTabs,[],path+' '+locale+' '+width+' clipped tab labels');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${path} ${locale} ${width} overflow`);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:`${out}/${key}-${locale}-${width}.png`,fullPage:true});}
    await page.setViewportSize({width:1490,height:1050});
+
+   if(path==='settings/financial'){
+    const cards=page.locator('.settings-finance-status article');
+    assert.equal(await cards.count(),5,'All five existing setup cards remain');
+    assert.equal(await page.locator('.settings-finance-modal-backdrop,[role=dialog]').count(),0,'No modal or popup');
+    assert.equal(await page.locator('.settings-finance-card-more').count(),0,'Removed View details label');
+    for(const width of [1490,390]){
+     await page.setViewportSize({width,height:1050});
+     await waitForFinancialLayout();
+     const tops=await cards.evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().top)));
+     assert.ok(tops.every(top=>Math.abs(top-tops[0])<=2),'All five cards still share their original single row');
+     const chartCard=page.locator('[data-financial-section="chart"]');
+     const chartTrigger=chartCard.locator('.settings-finance-card-trigger');
+     const before=await chartCard.boundingBox();
+     if(width===1490){
+      await chartTrigger.hover();await page.waitForTimeout(260);
+      assert.equal(await page.locator('.settings-finance-compact-timeline').count(),0,'Hover does not expand cards');
+     }
+     await chartTrigger.click();
+     const detail=page.locator('#settings-finance-source-timeline');
+     await detail.waitFor();
+     await waitForFinancialLayout();
+     assert.equal(await chartTrigger.getAttribute('aria-expanded'),'true','Selected card points to timeline');
+     assert.equal(await detail.locator('[data-source-check]').count(),2,'Chart source requirements displayed in timeline');
+     assert.equal(await chartCard.locator('.settings-finance-inline-check').count(),0,'Source details are not inside cards');
+     assert.equal(await chartCard.locator('.settings-progress-node.met').count(),2,'Original card progress checks unchanged');
+     const after=await chartCard.boundingBox();
+     assert.ok(after&&before&&Math.abs(after.height-before.height)<1&&Math.abs(after.width-before.width)<1,`Card geometry unchanged after layout settles (before ${JSON.stringify(before)}; after ${JSON.stringify(after)})`);
+     assert.equal(await chartCard.evaluate(el=>el.classList.contains('settings-finance-is-expanded')),false,'Card expansion styling never activated');
+     assert.equal(await page.locator('.settings-finance-status').getAttribute('style'),null,'Click never changes card grid widths');
+     assert.equal(await page.locator('[role=dialog],.settings-finance-modal-backdrop').count(),0,'No modal on selection');
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-timeline-chart-${locale}-${width}.png`,fullPage:true});
+     await chartTrigger.click();
+     await detail.waitFor({state:'detached'});
+     assert.equal(await detail.count(),0,'Clicking selected card closes timeline');
+     const opening=page.locator('[data-financial-section="opening"]');
+     await waitForFinancialLayout();
+     const openingBefore=await opening.boundingBox();
+     await opening.locator('.settings-finance-card-trigger').click();
+     await detail.waitFor();
+     await waitForFinancialLayout();
+     assert.equal(await detail.locator('[data-source-check]').count(),3,'Opening requirements appear in compact timeline');
+     assert.equal(await opening.locator('.settings-progress-node.met').count(),0,'NOT_STARTED opening has no progress ticks');
+     assert.equal(await opening.locator('.settings-progress-node.unverified').count(),3,'Opening progress circles remain neutral');
+     assert.equal(await detail.locator('[data-check-status=MET]').count(),0,'Opening timeline does not falsely claim completed checks');
+     const openingAfter=await opening.boundingBox();
+     assert.ok(openingAfter&&openingBefore&&Math.abs(openingAfter.height-openingBefore.height)<1&&Math.abs(openingAfter.width-openingBefore.width)<1,'Opening card geometry remains unchanged');
+     if(!process.env.SETTINGS_UI_SKIP_SNAPSHOTS)await page.screenshot({path:`${out}/financial-timeline-opening-${locale}-${width}.png`,fullPage:true});
+     await opening.locator('.settings-finance-card-trigger').click();
+     await detail.waitFor({state:'detached'});
+     assert.equal(await detail.count(),0,'Closing the timeline leaves cards unchanged');
+    }
+    await page.setViewportSize({width:1490,height:1050});
+    checks.push(locale+' financial cards unchanged; short detail timeline below cards; opening status, source checks, click-to-toggle; no popup or View details');
+   }
    checks.push(locale+' '+path+' desktop/mobile no iframe/overflow');
    if(path==='billing'){
     const tabs=page.locator('.yb-billing-tabs');

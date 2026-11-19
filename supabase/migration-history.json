@@ -1937,6 +1937,174 @@
       "expected_md5": "bf35897c53f3b7b6e2b307d75341f37a",
       "file_sha256": "f897a20cbcf1cd196ed466ef4ce39803690a08f883254cb1b94567a6e427855c",
       "validation_project": "QA V2 rollback role creation/reuse and full isolated linked credit-note acceptance"
+    },
+    {
+      "path": "supabase/migrations/20261110191156_financial_branch_report_source.sql",
+      "version": "20261110191156",
+      "name": "financial_branch_report_source",
+      "expected_md5": "a99a34dae0057093c5719adf03eb87e9",
+      "file_sha256": "b47ad47fdc5e12b6ecf91dbd3e568fa7ff725517ef52f1d19968beb56b363f73",
+      "validation_project": "QA V2 rollback: atomic source, canonical branch/HQ attribution, approved-over-draft, inactive history and tenant denial; browser CI pending"
+    },
+    {
+      "path": "supabase/migrations/20261110193204_branch_zero_net_transfer_guard.sql",
+      "version": "20261110193204",
+      "name": "branch_zero_net_transfer_guard",
+      "expected_md5": "1d61b237f66fed2eb4c47c322f1803f5",
+      "file_sha256": "6200daedcce53fba8e5852792319ab9941832e0604519d6db212fad46edc015a",
+      "validation_project": "QA V2 actual transfer RPC rollback: rejects zero-net cross-branch transfers and accepts same-branch pairs"
+    },
+    {
+      "path": "supabase/migrations/20261114184148_financial_dimensional_opening_distribution.sql",
+      "version": "20261114184148",
+      "name": "financial_dimensional_opening_distribution",
+      "expected_md5": "f32ca81a04f46150a58822b60af553a1",
+      "file_sha256": "ee1416ae6601cd31b5fa23bd6d6aaf5d59d9f4c8ff490d6048dd018db6408570",
+      "validation_project": "Disposable full-schema acceptance run 43628417525: scoped center/branch allocations, version conflicts, tenant denial, approval and source supersession; not applied hosted"
+    },
+    {
+      "path": "supabase/migrations/20261114201716_financial_center_branch_registry.sql",
+      "version": "20261114201716",
+      "name": "financial_center_branch_registry",
+      "expected_md5": "4a1f8e58eb9dbdec8511d0a4edd746d2",
+      "file_sha256": "02eb7a9b6101978ed2e0dc27e8a45dd2b6f7ccd7d83e5128fed454dcc3783544",
+      "validation_project": "Disposable full-schema run 43637445927: scoped dated assignments, overlap, revision, future transfers, rollback and audit. Not applied hosted."
+    },
+    {
+      "path": "supabase/migrations/20261114204837_financial_dimensional_approved_report_context.sql",
+      "version": "20261114204837",
+      "name": "financial_dimensional_approved_report_context",
+      "expected_md5": "f9fbb3b528271ba16b2e8d6ceaac7e06",
+      "file_sha256": "9e4e32f8537d9324220651b9ae89335ea8549970e7164ae240b288ece08651e9",
+      "validation_project": "Disposable full-schema run 43640322960 artifact 14131732686: approved-over-draft, stale source and actual three-statement center browser cycle. Not applied hosted."
+    },
+    {
+      "path": "supabase/migrations/20261114205354_financial_group_complete_registry.sql",
+      "version": "20261114205354",
+      "name": "financial_group_complete_registry",
+      "expected_md5": "402750a81b5102afd68067b74ca8bbda",
+      "file_sha256": "3d101c951ed5d9a2acd964ca6051d9470d3a9bc3af6626772513ba65822bc8ab",
+      "validation_project": "Disposable full-schema run 43641211891 artifact 14131674924: complete graph, approved controls, hidden-child access denial. Not applied hosted."
+    },
+    {
+      "path": "supabase/migrations/20261115081457_financial_group_document_matches.sql",
+      "version": "20261115081457",
+      "name": "financial_group_document_matches",
+      "expected_md5": "762e91943c14fc563627a21b58eeca2f",
+      "file_sha256": "b47f4dfb6c14e035d7e6619b097ca1ae63d39621d02c5f07df4ebd515b71874f",
+      "validation_project": "QA V2 rollback-only security tests and observed catalog, 2026-11-15. No hosted migration committed."
+    },
+    {
+      "path": "supabase/migrations/20261115082302_financial_group_elimination_batches.sql",
+      "version": "20261115082302",
+      "name": "financial_group_elimination_batches",
+      "expected_md5": "32f85931d8d759e484192030bd611600",
+      "file_sha256": "25962a5f2f2bf9300ef4675b9ae45b35d273b05daf62f30c4a3a88a4f9e3e18e",
+      "validation_project": "Disposable full canonical runner 43695537362: batch lifecycle and approved current-source reader passed; observed 50-object catalog delta. Hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115085118_financial_closed_dimension_evidence.sql",
+      "version": "20261115085118",
+      "name": "financial_closed_dimension_evidence",
+      "expected_md5": "aa3e298542cc51106ba7687aa91e5fb0",
+      "file_sha256": "3f5605b927c03d9901d026c2849974ecafe774831bfac7796de77c992e8515a1",
+      "validation_project": "Disposable full-schema run 43696941793 artifact 14155315800: native close, immutable center names and balances, period reports, membership denial, exports. Hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115090611_financial_group_cash_eliminations.sql",
+      "version": "20261115090611",
+      "name": "financial_group_cash_eliminations",
+      "expected_md5": "c281bbac539598b462889317ecacd6b5",
+      "file_sha256": "de06e575035f8938f89598eabbd12441d8f8b5fa6cb31cfcfbc08b8bb6802201",
+      "validation_project": "Disposable full-schema run 43698234102 artifact 14155656337: actual receipt/payment, approval, capacity protection, source preservation and revocation. Hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115092832_financial_group_capital_contributions.sql",
+      "version": "20261115092832",
+      "name": "financial_group_capital_contributions",
+      "expected_md5": "14df1d14752edda3a4812496985be286",
+      "file_sha256": "72bc3f0e9d4992441d7fe2062735dcfcda20e989e879516105d5722ac00b1ba9",
+      "validation_project": "Disposable run 43706630083 artifact 14159175342 passed native capital save/approval, capacity/direction rejection, unchanged sources and revocation. QA V2 rollback-only function fingerprint observed 2026-11-15; hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115122951_financial_group_acquisition_evidence.sql",
+      "version": "20261115122951",
+      "name": "financial_group_acquisition_evidence",
+      "expected_md5": "b77ca9c4e03a11be13110d93b769fb7c",
+      "file_sha256": "c7bc3058e0f992e169f911004c969e12a305090a88e6b92d6a5aaa1492d8bdab",
+      "validation_project": "Disposable full-schema run 43838267319 artifact 14211564462 verified acquisition documents, approval, residuals, and adjusted export. Explicit batch definition matches the tested draft. Hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261115223648_financial_group_document_coverage.sql",
+      "version": "20261115223648",
+      "name": "financial_group_document_coverage",
+      "expected_md5": "6e83f27db91d21f26997c971a45c6626",
+      "file_sha256": "6ddbdb69330dc0b0b5d72806ea5109b97497ac8dac5491010227b273538e07b6",
+      "validation_project": "Disposable full-schema run 43832400855 artifact 14209996875 verified document coverage, tenant denial and invoice pagination. Hosted unapplied."
+    },
+    {
+      "path": "supabase/migrations/20261116164057_feasibility_phase1_foundation.sql",
+      "version": "20261116164057",
+      "name": "feasibility_phase1_foundation",
+      "expected_md5": "6e4109049206bc2b2ad55268fb19803f",
+      "file_sha256": "315fb75aa21746f8a9d97cf6bf2262594792dd4f40d0d49f06b50fc3fbb6625d",
+      "validation_project": "Synthetic isolated migration rehearsal with organization RLS and pre/post backup restoration; pending real Production recovery exercise"
+    },
+    {
+      "path": "supabase/migrations/20261116190342_feasibility_self_serve_bundles.sql",
+      "version": "20261116190342",
+      "name": "feasibility_self_serve_bundles",
+      "expected_md5": "36924fbdce8b3bb62ff4c2564e272657",
+      "file_sha256": "645eb9e7e19446211387cf71acaffc0eb5f923edea5d874d83156d067b3717dc",
+      "validation_project": "Hosted restored clone: rollback-only signup, quote workflow and effective study entitlements"
+    },
+    {
+      "path": "supabase/migrations/20261116194423_feasibility_organization_sharing.sql",
+      "version": "20261116194423",
+      "name": "feasibility_organization_sharing",
+      "expected_md5": "83fc9c172e750f60c11c7216603b6e4a",
+      "file_sha256": "cd982057e9efcf505f384d31176df2fa7760715656b624de0cc3fc2eec10aed4",
+      "validation_project": "Hosted restored clone: organization ownership, snapshot, expiry, 30-day cap and tenant isolation"
+    },
+    {
+      "path": "supabase/migrations/20261117024046_feasibility_sharing_permissions.sql",
+      "version": "20261117024046",
+      "name": "feasibility_sharing_permissions",
+      "expected_md5": "73fef009b49de06eb5f36d530c10d759",
+      "file_sha256": "acad3ef662ea2bef846167a642c69a85c99fad0c41897ede3e023db86588b45a",
+      "validation_project": "Isolated QA rehearsal: platform ownership, recipient permissions and revisioned snapshot edits"
+    },
+    {
+      "path": "supabase/migrations/20261117064000_feasibility_share_proposals.sql",
+      "version": "20261117064000",
+      "name": "feasibility_share_proposals",
+      "expected_md5": "e6d21ea3a29adefafa96035dec6be693",
+      "file_sha256": "723b4778a32984b433992f44280b2bc04a8c8078eae9064548d97f80f9c39ce4",
+      "validation_project": "Isolated QA rehearsal: validated proposal submission, notifications, conflict resolution and revision preservation"
+    },
+    {
+      "path": "supabase/migrations/20261117134000_feasibility_organization_share_audit.sql",
+      "version": "20261117134000",
+      "name": "feasibility_organization_share_audit",
+      "expected_md5": "d1ff8eec2b66e661ca53794e3860a690",
+      "file_sha256": "0dd04ff62446331070903f9b90e50ffbeaaa73f99d15009e17d652a13e229fdf",
+      "validation_project": "Isolated PostgreSQL rehearsal: study-scoped owner audit, existing event history, and denied cross-tenant, non-owner, suspended and anonymous access"
+    },
+    {
+      "path": "supabase/migrations/20261117190000_feasibility_evidence_documents.sql",
+      "version": "20261117190000",
+      "name": "feasibility_evidence_documents",
+      "expected_md5": "b624a53a6807a8709e1dd506baee02ee",
+      "file_sha256": "692c4e5898a9d18ad12065428a56d3079e25f97bbff6c5822b4c99d2d62ce38c",
+      "validation_project": "Isolated PostgreSQL rehearsal: private evidence, scope isolation and linkage to existing saved requirements"
+    },
+    {
+      "path": "supabase/migrations/20261118174233_feasibility_trial_and_plan_entitlements.sql",
+      "version": "20261118174233",
+      "name": "feasibility_trial_and_plan_entitlements",
+      "expected_md5": "8f7ae7cb6aa6482219f41022281af69f",
+      "file_sha256": "abfcfbaa5be33325454a7fdcda6df1a3e2c099fd2c913bb7546ee988b50b60de",
+      "validation_project": "Isolated PGlite: existing and new trials and subscribed plans, unchanged snapshots, expiry, membership and row policies"
     }
   ]
 }

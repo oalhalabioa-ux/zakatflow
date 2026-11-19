@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {useSettingsOrganization} from './useSettingsOrganization';
 import OrganizationSubnav from './OrganizationSubnav';
+import CenterBranchAssignments from './CenterBranchAssignments';
 import SettingsIcon from './SettingsIcon';
 import TopbarOrganizationControls from '../TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '../WorkspaceOrganizationPicker';
@@ -45,5 +46,6 @@ export default function OrganizationStructureWorkspace({locale,preferredOrg='',i
    {draft&&<form className="settings-form settings-entity-editor" onSubmit={save}><h3>{draft.id?(ar?'تعديل الكيان':'Edit entity'):(ar?'إضافة كيان':'Add entity')}</h3><label>{ar?'اسم الكيان':'Entity name'}<input autoFocus required maxLength={160} value={draft.name} disabled={busy} onChange={e=>setDraft({...draft,name:e.target.value})}/></label><label>{ar?'نوع الكيان':'Entity type'}<select value={draft.entity_type} disabled={busy} onChange={e=>setDraft({...draft,entity_type:e.target.value})}>{types.map(t=><option key={t[0]} value={t[0]}>{t[ar?1:2]}</option>)}</select></label><label>{ar?'رقم التسجيل':'Registration number'}<input maxLength={80} value={draft.registration_no} disabled={busy} onChange={e=>setDraft({...draft,registration_no:e.target.value})}/></label><label>{ar?'العملة':'Currency'}<select value={draft.base_currency} disabled={busy} onChange={e=>setDraft({...draft,base_currency:e.target.value})}>{Array.from(new Set([org.base_currency,draft.base_currency,'SAR','USD','EUR','AED','SYP','LBP'])).map(code=><option key={code}>{code}</option>)}</select></label><footer className="settings-action-footer"><button className="settings-save" disabled={busy}>{busy?(ar?'جارٍ الحفظ…':'Saving…'):(ar?'حفظ الكيان':'Save entity')}</button><button type="button" className="settings-text-action" disabled={busy} onClick={()=>setDraft(null)}>{ar?'إلغاء':'Cancel'}</button></footer></form>}
    {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
   </section></div>
+  <CenterBranchAssignments key={org.id} organization={org.id} ar={ar}/>
  </section>;
 }

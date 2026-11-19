@@ -13,7 +13,7 @@ const url=status.API_URL,app='http://localhost:3200',out='docs/financial-reports
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',timeout:60000,maxBuffer:8*1024*1024,stdio:['pipe','pipe','pipe']}).trim();
 const checks=[],errors=[],report={engine:'Full canonical migrations + real Supabase Auth/PostgREST + Next + Chromium',remoteConnections:false,checks};
 let server,browser,page;
-const check=async(name,run)=>{console.log('CHECK '+name);let deadline;try{await Promise.race([run(),new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error('CHECK_TIMEOUT: '+name)),90000)})]);checks.push({name,status:'passed'});console.log('PASS '+name)}finally{clearTimeout(deadline)}};
+const check=async(name,run,timeout=90000)=>{console.log('CHECK '+name);let deadline;try{await Promise.race([run(),new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error('CHECK_TIMEOUT: '+name)),timeout)})]);checks.push({name,status:'passed'});console.log('PASS '+name)}finally{clearTimeout(deadline)}};
 await mkdir(out,{recursive:true});
 try{
  await writeFile(out+'/catalog.json',sql('select coalesce(jsonb_agg(t),\'[]\') from ('+(await readFile('tests/migration-history/catalog.sql','utf8')).replace(/;\s*$/,'')+') t')+'\n');
@@ -33,7 +33,7 @@ try{
  const scope={p_org:org,p_fiscal_start:'2026-01-01'};
  await check('Real user sessions isolate opening source reads and reject forged metadata',async()=>{assert.ifError((await a.client.rpc('financial_opening_workspace',scope)).error);assert.ok((await b.client.rpc('financial_opening_workspace',scope)).error);assert.ifError((await viewer.client.auth.updateUser({data:{role:'OWNER',financial_core:{approve:true}}})).error);assert.ok((await viewer.client.rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:'x',p_entries:{},p_reason:''})).error)});
  const cookies=[],ssr=createServerClient(url,status.ANON_KEY,{cookies:{getAll:()=>cookies,setAll:cs=>{for(const c of cs){const i=cookies.findIndex(x=>x.name===c.name);if(i>=0)cookies.splice(i,1);cookies.push(c)}}}});assert.ifError((await ssr.auth.signInWithPassword({email:a.email,password:a.password})).error);
- const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',FINANCIAL_SOURCE_INTEGRITY_DIAGNOSTICS:'true',VERCEL_ENV:'preview'};
+ const env={...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',FINANCIAL_CENTER_BRANCH_REGISTRY:'true',FINANCIAL_GROUP_ELIMINATION_PREVIEW:'true',FINANCIAL_SOURCE_INTEGRITY_DIAGNOSTICS:'true',VERCEL_ENV:'preview'};
  const build=spawn('npm',['run','build'],{env,stdio:'inherit'});const buildExit=await new Promise((resolve,reject)=>{const deadline=setTimeout(()=>{build.kill('SIGTERM');reject(Error('ISOLATED_NEXT_BUILD_TIMEOUT'))},300000);build.on('error',e=>{clearTimeout(deadline);reject(e)});build.on('exit',code=>{clearTimeout(deadline);resolve(code)})});assert.equal(buildExit,0);
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
  for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context',{signal:AbortSignal.timeout(5000)})).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
@@ -203,7 +203,10 @@ try{
   await legal.getByLabel('Registered legal address',{exact:true}).waitFor();
   await legal.getByLabel('Registered legal address',{exact:true}).fill('Riyadh QA test address');
   await legal.getByLabel('Commercial or statutory registration number',{exact:true}).fill('123456789');
+  assert.equal(await legal.getByLabel('Registered legal address',{exact:true}).inputValue(),'Riyadh QA test address');
+  const legalWrite=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/organizations'&&r.request().method()==='PATCH');
   await legal.getByRole('button',{name:'Save changes',exact:true}).click();
+  const written=await legalWrite;assert.equal(written.status(),200,await written.text());assert.equal(written.request().postDataJSON().registered_address,'Riyadh QA test address');
   await legal.getByText('Organization details saved.',{exact:true}).waitFor();
   const legalSaved=(await (await page.request.get(app+'/api/organizations')).json()).find(x=>x.id===org);
   assert.equal(legalSaved.registered_address,'Riyadh QA test address');
@@ -315,7 +318,7 @@ try{
   assert.ifError((await a.client.rpc('link_financial_cash_accounts',{p_org:other})).error);
   await page.goto(app+'/en/opening-balances?organization='+org);await page.locator('[data-opening-ready="'+org+'"]').waitFor();
   const organizationPicker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});await organizationPicker.selectOption(other);await page.locator('[data-opening-ready="'+other+'"]').waitFor();
-  const fiscalLink=page.getByRole('link',{name:'Manage fiscal years in organization settings',exact:true});assert.match(await fiscalLink.getAttribute('href'),new RegExp(other));await fiscalLink.click();await page.locator('[data-fiscal-management]').waitFor();assert.equal(await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Financial & accounting settings',exact:true}).getAttribute('aria-current'),'page');await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Organization settings',exact:true}).click();await page.getByRole('heading',{name:'Organization settings',exact:true,level:1}).waitFor();assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization'}).inputValue(),other);await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await page.getByRole('combobox',{name:'Organization',exact:true}).inputValue(),other);
+  const fiscalLink=page.getByRole('link',{name:'Manage fiscal years',exact:true});assert.match(await fiscalLink.getAttribute('href'),new RegExp(other));await fiscalLink.click();await page.locator('[data-fiscal-management]').waitFor();assert.equal(await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Financial & accounting settings',exact:true}).getAttribute('aria-current'),'page');await page.getByRole('navigation',{name:'Settings sections'}).getByRole('link',{name:'Organization settings',exact:true}).click();await page.getByRole('heading',{name:'Organization settings',exact:true,level:1}).waitFor();assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox',{name:'Selected organization'}).inputValue(),other);await page.goto(app+'/en/opening-balances');await page.locator('[data-opening-ready="'+other+'"]').waitFor();assert.equal(await page.getByRole('combobox',{name:'Organization',exact:true}).inputValue(),other);
 
   await page.getByRole('tab',{name:'Cash & banks'}).click();
   const bankRow=page.locator('[data-opening-row]').filter({hasText:'September QA bank'});
@@ -371,6 +374,57 @@ try{
  const reread=await a.client.rpc('financial_reporting_policy_workspace',scope);assert.ifError(reread.error);assert.deepEqual(reread.data.policy.rules.map(({detailed,...rule})=>rule),initialRules.map(({detailed,...rule})=>({...rule,...(rule.cashDirection==='INFLOW'?{debitAccountId:'1000'}:rule.cashDirection==='OUTFLOW'?{creditAccountId:'1000'}:{})})));assert.equal(reread.data.policy.status,'DRAFT');assert.notEqual(reread.data.policy.id,before.data.policy.id,'Optional edits create a separate draft and preserve the approved policy');assert.ok(reread.data.policy.version>=1);
  const denied=await page.request.post(app+'/api/financial-reporting/policy',{data:{action:'initialize-defaults',organization:other,fiscalStart:'2026-01-01'},headers:{origin:app}});assert.equal(denied.status(),403,'Default initialization cannot cross organizations');
  const legacyDraft=await a.client.rpc('save_financial_reporting_policy',{...scope,p_expected_version:reread.data.policy.version,p_rules:initialRules,p_reason:'Legacy compatibility cycle'});assert.ifError(legacyDraft.error);const legacyApproved=await a.client.rpc('approve_financial_reporting_policy',{p_id:legacyDraft.data.id,p_expected_version:legacyDraft.data.version});assert.ifError(legacyApproved.error);await page.reload();await page.getByRole('button',{name:'إعداد نسخة جديدة',exact:true}).waitFor();const r=await a.client.rpc('financial_statement_live_snapshot',{p_org:org,p_from:'2026-01-01',p_to:'2026-12-31'});assert.ifError(r.error);assert.equal(r.data.origin,'LIVE_CANONICAL_EVENTS')});
+ await check('Banner branch selection, refresh and downloaded export use the same approved allocation',async()=>{
+  const branch=randomUUID();
+  sql(`insert into public.organization_entities(id,organization_id,name,entity_type,active) values('${branch}','${org}','QA report branch','BRANCH',true)`);
+  const opening=await a.client.rpc('financial_opening_workspace',scope);assert.ifError(opening.error);
+  const w=opening.data.workspace;
+  const entries=Object.fromEntries(w.approved_opening.map(row=>[row.itemId,[
+   {branchId:branch,debit:(Number(row.debit)*0.6).toFixed(4),credit:(Number(row.credit)*0.6).toFixed(4)},
+   {branchId:null,debit:(Number(row.debit)*0.4).toFixed(4),credit:(Number(row.credit)*0.4).toFixed(4)},
+  ]]));
+  const dist=await a.client.rpc('save_financial_branch_opening',{...scope,p_expected_version:0,p_opening_workspace:w.id,p_opening_version:w.version,p_entries:entries,p_reason:'QA actual branch reporting allocation'});assert.ifError(dist.error);
+  assert.ifError((await a.client.rpc('approve_financial_branch_opening',{p_distribution:dist.data.id,p_expected_version:dist.data.version})).error);
+  await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/financial-reports?screen=position&organization='+org);
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Branch',exact:true});
+  await picker.locator('option[value="'+branch+'"]').waitFor({state:'attached'});
+  assert.equal(await page.getByRole('combobox',{name:'Branch',exact:true}).count(),1);
+  const selected=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-reporting/live-statements'&&new URL(r.url()).searchParams.get('branch')===branch);
+  await picker.selectOption(branch);const response=await selected;assert.equal(response.status(),200,await response.text());
+  const data=await response.json();assert.equal(data.scope,'BRANCH');assert.equal(data.branchId,branch);assert.equal(data.statements.cash.opening,'300.0000');
+  await page.locator('[data-statement-ready="position"]').waitFor();
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.locator('[data-statement-ready="position"]').waitFor();assert.equal(await picker.inputValue(),branch);
+  await page.getByRole('button',{name:'Export report',exact:true}).click();const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'CSV',exact:true}).click();
+  const file=await downloaded;const csv=await readFile(await file.path(),'utf8');assert.ok(csv.includes(branch));assert.ok(csv.includes('300.0000'));
+  const hq=page.waitForResponse(r=>new URL(r.url()).searchParams.get('branch')==='HQ');await picker.selectOption('HQ');const head=await hq;assert.equal(head.status(),200);assert.equal((await head.json()).statements.cash.opening,'200.0000');
+  await page.locator('[data-statement-ready="position"]').waitFor();await page.screenshot({path:out+'/branch-report-banner-en.png',fullPage:true});
+  await picker.selectOption('ALL');await page.locator('[data-statement-ready="position"]').waitFor();
+ });
+ await check('Cost center banner and fresh CSV use the selected source, never company balances',async()=>{
+  const center=randomUUID();sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${center}','${org}','REPORT_QA','QA income center','OPERATING')`);
+  // Dispose prior position-page requests before observing the new income navigation.
+  await page.goto('about:blank');
+  const response=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='cost-center-income');
+  await page.goto(app+'/en/financial-reports?screen=income&organization='+org);
+  const r=await response;assert.equal(r.status(),200,await r.text());assert.equal((await r.json()).scope,'COST_CENTER_INCOME_ONLY');
+  const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Cost center',exact:true});
+  await picker.locator('option[value="'+center+'"]').waitFor({state:'attached'});await picker.selectOption(center);
+  const section=page.locator('[data-cost-center="'+center+'"]');await section.locator('table').waitFor();assert.equal(await page.locator('[data-statement-ready="income"]').count(),0);
+  const downloaded=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const file=await downloaded;const csv=await readFile(await file.path(),'utf8');assert.ok(csv.includes(center));assert.ok(csv.includes('COST_CENTER_INCOME_ONLY'));assert.ok(!csv.includes('500.0000'),'Opening cash must not become cost-center income');
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();assert.equal(await picker.inputValue(),center);
+  await page.screenshot({path:out+'/cost-center-income-banner-en.png',fullPage:true});
+  sql(`update public.organization_members set status='INACTIVE' where organization_id='${org}' and user_id='${a.id}'`);
+  try{await section.getByRole('button',{name:'Export center CSV',exact:true}).click();await section.getByRole('alert').waitFor();assert.equal(await section.locator('table').count(),0,'Revoked access must clear cached center values');assert.equal(await page.locator('[data-statement-ready="income"]').count(),0,'Company cache must not replace denied center results')}finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${org}' and user_id='${a.id}'`)}
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();await picker.selectOption('ALL');await page.locator('[data-statement-ready="income"]').waitFor();
+  const branchPicker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Branch',exact:true});
+  const jointResponse=page.waitForResponse(r=>{const u=new URL(r.url());return u.searchParams.get('action')==='cost-center-income'&&u.searchParams.get('branch')==='HQ'});
+  await branchPicker.selectOption('HQ');const joint=await jointResponse;assert.equal(joint.status(),200,await joint.text());assert.equal((await joint.json()).branch,'HQ');
+  await picker.locator('option[value="'+center+'"]').waitFor({state:'attached'});await picker.selectOption(center);await section.locator('table').waitFor();
+  const jointDownload=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const jointFile=await jointDownload;const jointCsv=await readFile(await jointFile.path(),'utf8');assert.ok(jointCsv.includes('HQ'));assert.ok(jointCsv.includes(center));
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();assert.equal(await branchPicker.inputValue(),'HQ');assert.equal(await picker.inputValue(),center);
+  await branchPicker.selectOption('ALL');await page.locator('[data-statement-ready="income"]').waitFor();assert.equal(await picker.inputValue(),'ALL');
+  const group=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'group-review',organization:org,from:'2026-01-01',to:'2026-12-31'}));assert.equal(group.status(),200,await group.text());const review=await group.json();assert.equal(review.consolidated,false);assert.equal(review.registryComplete,false);assert.equal(review.members[0].organizationId,org);
+ });
  for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const selector=page.locator('#corp-organization-controls select');await selector.waitFor();assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
  await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
   await page.setViewportSize({width:1672,height:941});
@@ -569,12 +623,30 @@ try{
   assert.ifError((await a.client.rpc('approve_financial_opening',{p_id:draft.data.id,p_expected_version:1})).error);
   const policy=await a.client.rpc('save_financial_reporting_policy',{p_org:fiscalOrg,p_fiscal_start:'2024-01-01',p_expected_version:0,p_rules:[],p_reason:'No current-year operations'});assert.ifError(policy.error);
   assert.ifError((await a.client.rpc('approve_financial_reporting_policy',{p_id:policy.data.id,p_expected_version:1})).error);
+  const frozenCenter=randomUUID();
+  sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${frozenCenter}','${fiscalOrg}','FROZEN_CENTER','Original closed center','OPERATING')`);
+  const assigned=await a.client.rpc('assign_financial_center_branch',{p_org:fiscalOrg,p_center:frozenCenter,p_branch:null,p_from:'2024-01-01',p_to:null,p_expected_revision:0,p_reason:'Freeze the original center at actual year close'});assert.ifError(assigned.error);
+  const approvedOpening=await a.client.from('financial_opening_workspaces').select('id,version,approved_opening').eq('id',draft.data.id).single();assert.ifError(approvedOpening.error);
+  const allocated=await a.client.rpc('save_financial_dimensional_opening',{p_org:fiscalOrg,p_fiscal_start:'2024-01-01',p_expected_version:0,p_opening_workspace:draft.data.id,p_opening_version:approvedOpening.data.version,p_entries:Object.fromEntries(approvedOpening.data.approved_opening.map(row=>[row.itemId,[{branchId:null,centerId:frozenCenter,debit:row.debit,credit:row.credit}]])),p_reason:'Original year-end dimensional allocation'});assert.ifError(allocated.error);
+  assert.ifError((await a.client.rpc('approve_financial_dimensional_opening',{p_distribution:allocated.data.id,p_expected_version:allocated.data.version})).error);
   const limited=await b.client.rpc('close_financial_year',{p_org:fiscalOrg,p_start:'2024-01-01',p_request:randomUUID(),p_reason:'Amount limit must be enforced'});assert.match(limited.error?.message??'',/FISCAL_CLOSE_DENIED/);
   const outcomes=await Promise.all([1,2].map(()=>a.client.rpc('close_financial_year',{p_org:fiscalOrg,p_start:'2024-01-01',p_request:request,p_reason:'Concurrent retry of one closing command'})));
   for(const outcome of outcomes)assert.ifError(outcome.error);
   assert.equal(outcomes[0].data.id,outcomes[1].data.id);
   const closes=await a.client.from('financial_year_closures').select('id').eq('organization_id',fiscalOrg);assert.ifError(closes.error);assert.equal(closes.data.length,1);
   const audit=await a.client.from('financial_fiscal_audit').select('id').eq('organization_id',fiscalOrg).eq('action','YEAR_CLOSE');assert.ifError(audit.error);assert.equal(audit.data.length,1);
+  sql(`update public.organization_cost_centers set name='Renamed after close' where id='${frozenCenter}';
+   insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${randomUUID()}','${fiscalOrg}','LATER_CENTER','Later center without historical assignment','OPERATING')`);
+  const closedQuery={organization:fiscalOrg,from:'2024-06-01',to:'2024-12-31'};
+  const frozen=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-statements',...closedQuery}));assert.equal(frozen.status(),200,await frozen.text());const frozenData=await frozen.json();
+  assert.equal(frozenData.closureId,outcomes[0].data.id);assert.equal(frozenData.frozenCenterNames.find(c=>c.id===frozenCenter).name,'Original closed center');
+  assert.equal(frozenData.rows.find(r=>r.centerId===frozenCenter).statements.position.assets,'100.0000');assert.equal(frozenData.rows.find(r=>r.centerId===frozenCenter).statements.cash.closing,'100.0000');
+  const frozenOptions=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-options',...closedQuery,branch:'HQ'}));assert.equal(frozenOptions.status(),200,await frozenOptions.text());assert.equal((await frozenOptions.json()).rows.find(r=>r.centerId===frozenCenter).name,'Original closed center');
+  assert.ifError((await b.client.rpc('financial_closed_dimension_context',{p_org:fiscalOrg,p_from:closedQuery.from,p_to:closedQuery.to})).error);
+  sql(`update public.organization_members set status='INACTIVE' where organization_id='${fiscalOrg}' and user_id='${b.id}'`);
+  try{const denied=await b.client.rpc('financial_closed_dimension_context',{p_org:fiscalOrg,p_from:closedQuery.from,p_to:closedQuery.to});assert.match(denied.error?.message??'',/REPORTING_ACCESS_DENIED/)}finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${fiscalOrg}' and user_id='${b.id}'`)}
+  await writeFile(out+'/frozen-center-actual-close.json',JSON.stringify(frozenData,null,2));
+
  });
  await check('Setup-only approved policy does not lock fiscal editing and date changes preserve rule history',async()=>{
   const setupOrg=randomUUID();
@@ -787,6 +859,76 @@ try{
  await check('Actual default posting cycle through native Liquidity APIs reconciles recognition, settlement and reports once',async()=>{
   const {verifyDefaultPostingActualCycle}=await import('./verify-default-opening-posting-cycle.mjs');
   report.defaultPostingActualCycle=await verifyDefaultPostingActualCycle({actor:a,outsider:b,page,app,out,sql,databaseUrl:url});
+ });
+ await check('Actual multi-line center expense and two-company source review reconcile independently',async()=>{
+  const organization=report.defaultPostingActualCycle.organization,first=randomUUID(),second=randomUUID();
+  sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${first}','${organization}','CENTER_A','Center A','OPERATING'),('${second}','${organization}','CENTER_B','Center B','ADMIN')`);
+  const classification=await a.client.from('financial_classifications').select('id').eq('organization_id',organization).eq('code','OPEX').single();assert.ifError(classification.error);
+  async function command(data){const r=await page.request.post(app+'/api/financial-events',{data,headers:{origin:app}});assert.equal(r.status(),200,await r.text());return (await r.json()).result}
+  const event=await command({action:'CREATE',payload:{organization_id:organization,entity_id:null,counterparty_id:null,event_type:'EXPENSE',source_module:'OPERATIONAL_CONSOLE',source_record_id:null,source_event_key:'center-acceptance:'+randomUUID(),event_date:'2026-10-01',due_date:'2026-10-01',base_currency:'SAR',description:'Two centers within one real voucher',lines:[{line_number:1,cost_center_id:first,amount:60,base_amount:60},{line_number:2,cost_center_id:second,amount:40,base_amount:40}].map(line=>({...line,description:'Center expense',classification_id:classification.data.id,currency:'SAR',exchange_rate:1,cash_direction:'NON_CASH',vat_treatment:'OUT_OF_SCOPE',vat_rate:0,vat_amount:0})),obligations:[{obligation_key:'center-payable',obligation_type:'PAYABLE',settleable_amount:100,currency:'SAR',exchange_rate:1,base_currency:'SAR',settleable_base_amount:100}],links:[]}});
+  for(const status of ['PLANNED','COMMITTED'])await command({action:'TRANSITION',organization_id:organization,event_id:event,status,note:'Center acceptance'});
+  await command({action:'APPROVE',organization_id:organization,event_id:event,note:'Approve real center voucher'});
+  await command({action:'TRANSITION',organization_id:organization,event_id:event,status:'ACTUAL',note:'Post real center voucher'});
+  report.centerExpenseEvent=event;
+  const params={organization,from:'2026-01-01',to:'2026-12-31'};
+  const response=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-income',...params}));assert.equal(response.status(),200,await response.text());const data=await response.json();assert.equal(data.rows.find(r=>r.centerId===first).income.netProfit,'-60.0000');assert.equal(data.rows.find(r=>r.centerId===second).income.netProfit,'-40.0000');assert.equal(data.rows.find(r=>r.centerId===null).income.netProfit,'1350.0000');assert.equal(data.companyIncome.netProfit,'1250.0000');
+  // Real approved center registry and voucher allocation, no mocked report responses.
+  const centerRegistry=await a.client.rpc('financial_center_branch_registry',{p_org:organization});assert.ifError(centerRegistry.error);
+  let revision=Number(centerRegistry.data.revision);
+  for(const center of centerRegistry.data.centerIds){const assigned=await a.client.rpc('assign_financial_center_branch',{p_org:organization,p_center:center,p_branch:null,p_from:'2026-01-01',p_to:null,p_expected_revision:revision,p_reason:'QA center reporting scope'});assert.ifError(assigned.error);revision=assigned.data.revision;}
+  const openingContext=await a.client.rpc('financial_opening_workspace',{p_org:organization,p_fiscal_start:'2026-01-01'});assert.ifError(openingContext.error);const openingWorkspace=openingContext.data.workspace;
+  const distribution=await a.client.rpc('save_financial_dimensional_opening',{p_org:organization,p_fiscal_start:'2026-01-01',p_expected_version:0,p_opening_workspace:openingWorkspace.id,p_opening_version:openingWorkspace.version,p_entries:Object.fromEntries(openingWorkspace.approved_opening.map(row=>[row.itemId,[{branchId:null,centerId:null,debit:row.debit,credit:row.credit}]])),p_reason:'QA exact original opening attribution'});assert.ifError(distribution.error);
+  const approvedDistribution=await a.client.rpc('approve_financial_dimensional_opening',{p_distribution:distribution.data.id,p_expected_version:distribution.data.version});assert.ifError(approvedDistribution.error);
+  for(const target of ['branches','centers']){
+   await page.goto(app+'/en/opening-balances/'+target+'?organization='+organization+'&fiscalStart=2026-01-01');
+   const scopeControls=page.getByRole('group',{name:'Workspace scope',exact:true});
+   await scopeControls.getByRole('button',{name:'Business',exact:true}).waitFor();
+   await page.waitForFunction(()=>document.querySelector('.corp-workspace-scope button[aria-pressed="true"]')?.textContent?.includes('Business'));
+   assert.equal(await scopeControls.getByRole('button',{name:'Personal',exact:true}).getAttribute('aria-pressed'),'false');
+   const selectedOrganization=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
+   await selectedOrganization.locator('option[value="'+organization+'"]').waitFor({state:'attached'});
+   assert.equal(await selectedOrganization.inputValue(),organization);
+   const returnLink=page.getByRole('link',{name:'Back to opening balances',exact:true});
+   assert.equal(new URL(await returnLink.getAttribute('href'),app).searchParams.get('organization'),organization);
+   assert.equal(new URL(await returnLink.getAttribute('href'),app).searchParams.get('scope'),'ORGANIZATION');
+  }
+  await page.getByLabel('Reason for correction draft',{exact:true}).fill('QA unfinished center allocation');
+  await page.getByRole('button',{name:'Create correction draft',exact:true}).click();
+  const allocationCenter=page.getByRole('combobox',{name:'Cost center',exact:true}).first();await allocationCenter.waitFor();await allocationCenter.selectOption(first);
+  assert.equal(await page.getByRole('combobox',{name:'Headquarters or branch',exact:true}).first().isDisabled(),true);
+  const saveResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/financial-reporting/center-openings'&&r.request().method()==='POST');
+  await page.getByRole('button',{name:'Save draft',exact:true}).click();assert.equal((await saveResponse).status(),200);
+  await page.reload();assert.equal(await page.getByRole('combobox',{name:'Cost center',exact:true}).first().inputValue(),first);
+  // The incomplete replacement draft must not replace the previous approved report source.
+  const dimensions=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'cost-center-statements',...params}));assert.equal(dimensions.status(),200,await dimensions.text());const dimensionalData=await dimensions.json();
+  const firstCenter=dimensionalData.rows.find(row=>row.centerId===first);assert.equal(firstCenter.statements.position.liabilities,'60.0000');assert.equal(firstCenter.statements.position.equity,'-60.0000');assert.equal(firstCenter.statements.cash.closing,'0.0000');
+  for(const screen of ['position','cash-flow']){
+   await page.goto(app+'/en/financial-reports?organization='+organization+'&screen='+screen);
+   const picker=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Cost center',exact:true});await picker.locator('option[value="'+first+'"]').waitFor({state:'attached'});await picker.selectOption(first);
+   const section=page.locator('[data-center-statement="'+(screen==='position'?'position':'cash')+'"]');await section.locator('table').waitFor();assert.equal(await page.locator('[data-statement-ready]').count(),0);
+   const download=page.waitForEvent('download');await section.getByRole('button',{name:'Export center CSV',exact:true}).click();const csv=await readFile(await (await download).path(),'utf8');assert.ok(csv.includes(first));assert.ok(csv.includes('registryRevision'));
+   await page.getByRole('button',{name:'Refresh',exact:true}).click();await section.locator('table').waitFor();assert.equal(await picker.inputValue(),first);
+   await page.screenshot({path:out+'/center-'+screen+'-actual-en.png',fullPage:true});
+   sql(`update public.organization_members set status='INACTIVE' where organization_id='${organization}' and user_id='${a.id}'`);
+   try{await section.getByRole('button',{name:'Export center CSV',exact:true}).click();await section.getByRole('alert').waitFor();assert.equal(await section.locator('table').count(),0);assert.equal(await page.locator('[data-statement-ready]').count(),0)}finally{sql(`update public.organization_members set status='ACTIVE' where organization_id='${organization}' and user_id='${a.id}'`)}
+
+  }
+  await writeFile(out+'/center-actual-three-statements.json',JSON.stringify(dimensionalData,null,2));
+  sql(`update public.organizations set parent_organization_id='${org}' where id='${organization}'`);
+  const group=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'group-review',...params,organization:org}));assert.equal(group.status(),200,await group.text());const review=await group.json();assert.equal(review.consolidated,false);assert.equal(review.members.length,2);assert.equal(review.members.find(m=>m.organizationId===organization).income.netProfit,'1250.0000');assert.ok(!('total' in review));
+  await page.setViewportSize({width:1490,height:1050});await page.goto(app+'/en/financial-reports?organization='+org+'&screen=income');
+  const groupResponse=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='group-review');await page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true}).click();assert.equal((await groupResponse).status(),200);
+  const groupTable=page.locator('[data-group-source-review="true"] table');await groupTable.waitFor();assert.equal(await groupTable.locator('tbody tr').count(),2);assert.equal(await page.locator('[data-statement-ready]').count(),0);await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();await groupTable.waitFor();
+  await page.screenshot({path:out+'/group-source-review-banner-en.png',fullPage:true});
+  await writeFile(out+'/center-actual-line-income.json',JSON.stringify(data,null,2));await writeFile(out+'/group-company-source-review.json',JSON.stringify(review,null,2));
+ });
+ await check('Actual source-bound group worksheet preserves company ledgers and rechecks member permissions',async()=>{
+  const {verifySourceBoundGroupPreview}=await import('./verify-source-bound-group-preview.mjs');
+  report.groupSourceBoundPreview=await verifySourceBoundGroupPreview({actor:a,page,app,out,sql,databaseUrl:url,subsidiary:report.defaultPostingActualCycle.organization,expenseEvent:report.centerExpenseEvent});
+ },180000);
+ await check('Dated center branch assignment preserves original history and banner-scoped position export',async()=>{
+  const {verifyDatedCenterSource}=await import('./verify-dated-center-source.mjs');
+  report.datedCenterSource=await verifyDatedCenterSource({actor:a,page,app,out,sql,databaseUrl:url,organization:report.defaultPostingActualCycle.organization});
  });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}

@@ -1,0 +1,21 @@
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+const state=vi.hoisted(()=>({preview:vi.fn(),inventory:vi.fn()}));
+vi.mock('../services/financial-group-source-bound-adjustments',()=>({liveSourceBoundGroupPreview:(q:unknown)=>state.preview(q)}));
+vi.mock('../services/financial-group-inventory-margin',()=>({liveInventoryMarginReview:(q:unknown)=>state.inventory(q)}));
+import {POST} from '../app/api/financial-reporting/group-eliminations/route';
+const url='https://app.yaqeenbiz.com/api/financial-reporting/group-eliminations';
+const request=(body='{}',origin='https://app.yaqeenbiz.com')=>new Request(url,{method:'POST',headers:{origin,'content-type':'application/json'},body});
+beforeEach(()=>{vi.resetAllMocks();vi.stubEnv('FINANCIAL_GROUP_ELIMINATION_PREVIEW','true');state.preview.mockResolvedValue({status:'SOURCE_BOUND_GROUP_PREVIEW_ONLY'})});afterEach(()=>vi.unstubAllEnvs());
+it('is disabled by default and blocks cross origin inputs before reading sources',async()=>{vi.stubEnv('FINANCIAL_GROUP_ELIMINATION_PREVIEW','false');expect((await POST(request())).status).toBe(404);vi.stubEnv('FINANCIAL_GROUP_ELIMINATION_PREVIEW','true');expect((await POST(request('{}','https://evil.example'))).status).toBe(403);expect(state.preview).not.toHaveBeenCalled()});
+it('returns a private noncacheable preview, never approval',async()=>{const r=await POST(request());expect(r.status).toBe(200);expect(r.headers.get('cache-control')).toContain('no-store');expect(await r.json()).toEqual({status:'SOURCE_BOUND_GROUP_PREVIEW_ONLY'})});
+it('rejects malformed or oversized bodies before compilation',async()=>{for(const b of['{','x'.repeat(200001)])expect((await POST(request(b))).status).toBe(400);expect(state.preview).not.toHaveBeenCalled()});
+it('preserves denial and conflict statuses while hiding database details',async()=>{for(const [code,status] of [['REPORTING_ACCESS_DENIED',403],['REPORTING_SOURCE_CHANGED_DURING_VERIFICATION',409],['GROUP_ADJUSTMENT_EXCEEDS_DETAIL_SOURCE',422],['GROUP_CAPITAL_ACQUISITION_EVIDENCE_REQUIRED',422],['private internal secret',503]] as const){state.preview.mockRejectedValueOnce(Error(code));const r=await POST(request());expect(r.status).toBe(status);if(status===503)expect(await r.json()).toEqual({error:'REPORTING_UNAVAILABLE'})}});
+it('routes only the tagged inventory preview through the authorized read-only path',async()=>{
+ const body={action:'REVIEW_INVENTORY_MARGIN'};
+ state.inventory.mockResolvedValueOnce({status:'INVENTORY_MARGIN_REVIEW_ONLY',issuanceReady:false});
+ const result=await POST(request(JSON.stringify(body)));
+ expect(result.status).toBe(200);expect(result.headers.get('cache-control')).toContain('no-store');
+ expect(state.inventory).toHaveBeenCalledWith(body);expect(state.preview).not.toHaveBeenCalled();
+ state.inventory.mockRejectedValueOnce(Error('GROUP_INVENTORY_REMAINING_STOCK_UNVERIFIED'));
+ expect((await POST(request(JSON.stringify(body)))).status).toBe(422);
+});

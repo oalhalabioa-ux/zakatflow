@@ -1,0 +1,202 @@
+import {z} from 'zod';
+import {internalRateOfReturn, type FeasibilityStudy} from './engine';
+
+const amount=z.number().finite().min(0).max(1e12);
+const pct=z.number().finite().min(0).max(100);
+const multiplier=z.number().finite().min(0).max(1000);
+export const waterScenarioSchema=z.object({
+ name:z.string().trim().min(1).max(120),volume:multiplier,price:multiplier,cost:multiplier
+}).strict();
+const waterUnitCosts=z.object({
+ bottle:amount,cap:amount,label:amount,carton:amount,kwh:amount,rawWaterM3:amount,distributionKm:amount
+}).strict();
+export const emptyWaterUnitCosts={bottle:0,cap:0,label:0,carton:0,kwh:0,rawWaterM3:0,distributionKm:0};
+export const waterModelSchema=z.object({
+ deal:z.object({
+  landMode:z.enum(['transfer','lease','right']),landValue:amount,landArea:amount,rightValue:amount,
+  leaseMonth:amount,licenseValue:amount,investorLoan:amount,loanInterest:pct,
+  loanYears:z.number().int().min(0).max(60),loanStart:z.number().int().min(0).max(60),
+  extraFunding:amount,extraType:z.enum(['loan','equity']),
+  appraisalDate:z.iso.date().optional(),appraisalApprovalDate:z.iso.date().optional()
+ }).strict(),
+ capex:z.object({
+  buildings:amount,line:amount,treatment:amount,power:amount,lab:amount,vehicles:amount,
+  licenses:amount,others:amount,contingencyPct:multiplier,workingCapital:amount
+ }).strict(),
+ ops:z.object({
+  bottlesHour:amount,hoursDay:amount,daysMonth:amount,bottlesCarton:amount,litersBottle:amount,
+  waterLossPct:pct,licensedWaterM3Day:amount,priceCarton:amount,variableCarton:amount,
+  fixedMonth:amount,priceGrowth:multiplier,costGrowth:multiplier,fixedGrowth:multiplier,
+  maintenancePct:multiplier,nwcPct:multiplier,discountRate:multiplier,taxRate:pct,
+  life:z.number().int().min(0).max(60),horizon:z.number().int().min(3).max(10),
+  util:z.array(pct).max(10)
+ }).strict(),
+ operationsPlan:z.object({
+  sourceName:z.string().max(160),
+  sourceType:z.enum(['well','public-network','spring','other']).optional(),
+  permitReference:z.string().max(160),
+  packagingLossPct:z.number().finite().min(0).max(99),
+  kwhPerThousandBottles:amount,
+  cartonsPerTrip:z.number().int().min(0).max(1e12),
+  roundTripKm:amount,
+  pumpingM3Hour:amount.optional(),
+  sourceHoursDay:z.number().finite().min(0).max(24).optional(),
+  finishedBottleLossPct:pct.optional(),
+  unitCosts:waterUnitCosts.optional(),
+  collectionDays:z.number().int().min(0).max(3650).optional(),
+  returnsPct:pct.optional(),
+  distributionChannel:z.enum(['wholesale','distributors','direct-retail']).optional(),
+ }).strict().optional(),
+ scenarios:z.array(waterScenarioSchema).max(20)
+}).strict();
+export type WaterModel=z.infer<typeof waterModelSchema>;
+export type WaterScenario=z.infer<typeof waterScenarioSchema>;
+
+export const emptyWaterOperationsPlan:NonNullable<WaterModel['operationsPlan']>={
+ sourceName:'',permitReference:'',packagingLossPct:0,kwhPerThousandBottles:0,cartonsPerTrip:0,roundTripKm:0,
+};
+
+export function createWaterModel():WaterModel{
+ return {
+  deal:{landMode:'transfer',landValue:0,landArea:0,rightValue:0,leaseMonth:0,licenseValue:0,
+   investorLoan:0,loanInterest:0,loanYears:0,loanStart:0,extraFunding:0,extraType:'loan'},
+  capex:{buildings:0,line:0,treatment:0,power:0,lab:0,vehicles:0,licenses:0,others:0,contingencyPct:0,workingCapital:0},
+  ops:{bottlesHour:0,hoursDay:0,daysMonth:0,bottlesCarton:0,litersBottle:0,waterLossPct:0,
+   licensedWaterM3Day:0,priceCarton:0,variableCarton:0,fixedMonth:0,priceGrowth:0,costGrowth:0,
+   fixedGrowth:0,maintenancePct:0,nwcPct:0,discountRate:0,taxRate:0,life:0,horizon:7,util:Array(10).fill(0)},
+  scenarios:[
+   {name:'Conservative',volume:75,price:95,cost:110},
+   {name:'Base',volume:100,price:100,cost:100},
+   {name:'Optimistic',volume:120,price:105,cost:98}
+  ]
+ };
+}
+
+const waterRecovery=(lossPct:number)=>Math.max(0.01,1-Math.min(99,lossPct)/100);
+const nominalWaterDemand=(ops:WaterModel['ops'])=>
+ ops.bottlesHour*ops.hoursDay*ops.litersBottle/(1000*waterRecovery(ops.waterLossPct));
+
+export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'name'>){
+ const {deal,capex,ops}=model;
+ const hard=capex.buildings+capex.line+capex.treatment+capex.power+capex.lab+capex.vehicles+capex.others;
+ const contingency=hard*capex.contingencyPct/100;
+ const investment=hard+contingency+capex.licenses;
+ const cashRequired=investment+capex.workingCapital;
+ const land=deal.landMode==='transfer'?deal.landValue:deal.landMode==='right'?deal.rightValue:0;
+ const shareholderLoan=Math.min(deal.investorLoan,cashRequired);
+ const investorEquity=cashRequired-shareholderLoan+(deal.extraType==='equity'?deal.extraFunding:0);
+ const totalEquity=investorEquity+land;
+ const totalLoan=shareholderLoan+(deal.extraType==='loan'?deal.extraFunding:0);
+ const capacity=ops.bottlesHour*ops.hoursDay*ops.daysMonth*12/Math.max(1,ops.bottlesCarton);
+ const waterDemand=nominalWaterDemand(ops);
+ const initialPrice=ops.priceCarton*(scenario?.price??100)/100;
+ const initialCost=ops.variableCarton*(scenario?.cost??100)/100;
+ const returnRate=(model.operationsPlan?.returnsPct??0)/100;
+ const dispatchContribution=initialPrice*(1-returnRate)-initialCost;
+ const initialFixed=(ops.fixedMonth+deal.leaseMonth)*12;
+ const depreciation=investment/Math.max(1,ops.life);
+ const maintenance=investment*ops.maintenancePct/100;
+ let workingCapital=capex.workingCapital;
+ let debtBalance=totalLoan;
+ const annual=Array.from({length:ops.horizon},(_,i)=>{
+  const year=i+1;
+  const utilization=Math.min(100,(ops.util[i]??ops.util.at(-1)??0)*(scenario?.volume??100)/100);
+  const volume=capacity*utilization/100;
+  const price=initialPrice*(1+ops.priceGrowth/100)**i;
+  const unitCost=initialCost*(1+ops.costGrowth/100)**i;
+  const returnedVolume=volume*returnRate;
+  const netVolume=volume-returnedVolume;
+  const revenue=netVolume*price;
+  const variable=volume*unitCost;
+  const fixed=initialFixed*(1+ops.fixedGrowth/100)**i;
+  const ebitda=revenue-variable-fixed;
+  const ebit=ebitda-depreciation;
+  const tax=Math.max(0,ebit)*ops.taxRate/100;
+  const nextWorkingCapital=revenue*ops.nwcPct/100;
+  const workingCapitalMovement=nextWorkingCapital-workingCapital;
+  workingCapital=nextWorkingCapital;
+  const freeCashFlow=ebitda-tax-maintenance-workingCapitalMovement;
+  const servicing=year>=Math.max(1,deal.loanStart)&&debtBalance>0;
+  const principal=servicing?Math.min(debtBalance,totalLoan/Math.max(1,deal.loanYears)):0;
+  const interest=servicing?debtBalance*deal.loanInterest/100:0;
+  debtBalance=Math.max(0,debtBalance-principal);
+  const debtService=principal+interest;
+  return {year,utilization,volume,returnedVolume,netVolume,price,unitCost,revenue,variable,fixed,ebitda,depreciation,ebit,tax,
+   workingCapital,workingCapitalMovement,maintenance,freeCashFlow,principal,interest,debtBalance,debtService,
+   afterDebt:freeCashFlow-debtService,dscr:debtService>0?freeCashFlow/debtService:null};
+ });
+ const flows=[-(cashRequired+land),...annual.map(year=>year.freeCashFlow)];
+ const npv=flows.reduce((total,flow,year)=>total+flow/(1+ops.discountRate/100)**year,0);
+ let cumulative=flows[0];
+ let payback:number|null=null;
+ for(const year of annual){
+  const previous=cumulative;
+  cumulative+=year.freeCashFlow;
+  if(previous<0&&cumulative>=0){
+   payback=year.year-1-previous/year.freeCashFlow;
+   break;
+  }
+ }
+ return {hard,contingency,investment,cashRequired,land,investorEquity,totalEquity,shareholderLoan,totalLoan,
+  investorShare:totalEquity?investorEquity/totalEquity*100:null,partnerShare:totalEquity?land/totalEquity*100:null,
+  capacity,waterDemand,annual,flows,npv,cashNpv:npv+land,irr:internalRateOfReturn(flows),payback,
+  breakEven:dispatchContribution>0?initialFixed/dispatchContribution:null,
+  ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.volume>0)};
+}
+
+export function waterProductionBalance(model:WaterModel){
+ const {ops,operationsPlan:plan}=model;
+ const pumpedM3Day=plan?.pumpingM3Hour&&plan.sourceHoursDay
+  ?plan.pumpingM3Hour*plan.sourceHoursDay:null;
+ const licensedM3Day=ops.licensedWaterM3Day||null;
+ const availableM3Day=pumpedM3Day!==null&&licensedM3Day!==null
+  ?Math.min(pumpedM3Day,licensedM3Day):null;
+ const requiredM3Day=nominalWaterDemand(ops);
+ const nominalBottles=ops.bottlesHour*ops.hoursDay*ops.daysMonth;
+ const finishedWaste=nominalBottles*(plan?.finishedBottleLossPct??0)/100;
+ const saleableBottles=nominalBottles-finishedWaste;
+ return {pumpedM3Day,licensedM3Day,availableM3Day,requiredM3Day,nominalBottles,finishedWaste,saleableBottles,
+  saleableCartons:ops.bottlesCarton>0?Math.floor(saleableBottles/ops.bottlesCarton):null};
+}
+
+export function waterOperationalRequirements(
+ model:WaterModel,year:Pick<ReturnType<typeof evaluateWater>['annual'][number],'volume'>
+){
+ if(model.ops.bottlesCarton<=0)return null;
+ const plan=model.operationsPlan??emptyWaterOperationsPlan;
+ const cartons=year.volume;
+ const bottles=cartons*model.ops.bottlesCarton;
+ const filledLitres=model.ops.litersBottle>0?bottles*model.ops.litersBottle:null;
+ const packagingYield=1-plan.packagingLossPct/100;
+ const trips=plan.cartonsPerTrip>0?Math.ceil(cartons/plan.cartonsPerTrip):null;
+ return {
+  bottles,filledLitres,
+  sourceWaterM3:filledLitres===null?null:filledLitres/(1000*waterRecovery(model.ops.waterLossPct)),
+  bottleInputs:Math.ceil(bottles/packagingYield),
+  cartonInputs:Math.ceil(cartons/packagingYield),
+  electricityKwh:plan.kwhPerThousandBottles>0?bottles/1000*plan.kwhPerThousandBottles:null,
+  trips,
+  distributionKm:trips!==null&&plan.roundTripKm>0?trips*plan.roundTripKm:null,
+ };
+}
+
+export function waterVariableCostBreakdown(model:WaterModel){
+ const plan=model.operationsPlan;
+ if(!plan?.unitCosts||model.ops.bottlesCarton<=0)return null;
+ const units=plan.unitCosts;
+ const {bottlesCarton,litersBottle,waterLossPct}=model.ops;
+ const yieldRate=1-plan.packagingLossPct/100;
+ const packaging=((units.bottle+units.cap+units.label)*bottlesCarton+units.carton)/yieldRate;
+ const electricity=bottlesCarton*plan.kwhPerThousandBottles/1000*units.kwh;
+ const water=bottlesCarton*litersBottle/(1000*waterRecovery(waterLossPct))*units.rawWaterM3;
+ const distribution=plan.cartonsPerTrip>0?plan.roundTripKm/plan.cartonsPerTrip*units.distributionKm:0;
+ return {packaging,electricity,water,distribution,total:packaging+electricity+water+distribution};
+}
+
+export function studyReportReadiness(study:FeasibilityStudy){
+ return {
+  openCritical:study.legal.filter(item=>item.critical&&item.status!=='VERIFIED'),
+  openTasks:study.tasks.filter(item=>item.status!=='DONE'),
+  highRisks:study.risks.filter(item=>item.status!=='MITIGATED'&&item.impact*item.likelihood>=15)
+ };
+}

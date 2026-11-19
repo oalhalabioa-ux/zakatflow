@@ -50,6 +50,16 @@ begin
   if (select count(*) from private.financial_group_control_audit where assessment_id=approved_id)<>2
     then raise exception 'Approval audit missing';end if;
 
+  ctx:=public.financial_group_registered_scope(root_org,'2026-01-01','2026-12-31');
+  if ctx->'registry'->>'complete'<>'true' or jsonb_array_length(ctx->'expectedOrganizationIds')<>2
+    or ctx->'registry'->>'relationshipCount'<>'1' then raise exception 'Registered group enumeration incomplete';end if;
+  -- Structural subsidiaries without control evidence cannot be silently omitted.
+  update public.organizations set parent_organization_id=root_org where id=foreign_org;
+  begin
+    perform public.financial_group_registered_scope(root_org,'2026-01-01','2026-12-31');
+    raise exception 'Hidden structural subsidiary omitted from complete registry';
+  exception when others then if sqlerrm<>'GROUP_CONTROL_READ_DENIED' then raise;end if;end;
+  update public.organizations set parent_organization_id=null where id=foreign_org;
   -- Seeing the parent alone is insufficient to enumerate its controlled child.
   perform set_config('request.jwt.claim.sub',parent_only_id::text,true);
   if not private.financial_opening_can(root_org,'financial_core.view')

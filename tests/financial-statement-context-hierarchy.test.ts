@@ -36,4 +36,21 @@ describe('financial statement topbar hierarchy',()=>{
   try{expect(await liveStatementContext()).toEqual([]);expect(state.queriedIds).toEqual([])}
   finally{state.orgs=existing}
  });
+ it('exposes pilot availability only on the authorized eligible organization',async()=>{
+  const existing=state.orgs;
+  const pilot='10000000-0000-4000-8000-000000000001';
+  state.orgs=[{...existing[0],id:pilot},existing[1]];
+  vi.stubEnv('FINANCIAL_CENTER_BRANCH_REGISTRY','false');
+  vi.stubEnv('FINANCIAL_CENTER_REPORT_PILOT_ORGANIZATION',pilot);
+  try{
+   expect(await liveStatementContext()).toMatchObject([
+    {organizationId:pilot,dimensionalCenters:true},
+    {organizationId:'subsidiary',dimensionalCenters:false},
+   ]);
+   state.orgs=[existing[1]];
+   expect(await liveStatementContext()).toMatchObject([
+    {organizationId:'subsidiary',dimensionalCenters:false},
+   ]);
+  }finally{state.orgs=existing;vi.unstubAllEnvs()}
+ });
 });

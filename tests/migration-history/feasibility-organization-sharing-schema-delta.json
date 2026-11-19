@@ -1,0 +1,136 @@
+{
+  "description": "Organization-scoped feasibility entitlements and expiring read-only shares",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.expires_at",
+      "fingerprint": "b8dc5465af83f15c27cdf633bf07ef1c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.first_shared_at",
+      "fingerprint": "b8dc5465af83f15c27cdf633bf07ef1c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.project_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.recipient_organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.revoked_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.shared_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.source_revision",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.study_snapshot",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.title",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_organization_shares.feasibility_organization_shares_check",
+      "fingerprint": "56783d3d65bb46b5ee854cca343e5056"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_organization_shares.feasibility_organization_shares_pkey",
+      "fingerprint": "60fb0fd9dc5340521bf8ad46f8e31d05"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_organization_shares.feasibility_organization_shares_project_id_fkey",
+      "fingerprint": "b27e1531042d8251d0834bb2996ea0c0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_organization_shares.feasibility_organization_shares_recipient_organization_id_fkey",
+      "fingerprint": "17b0b7a36b9ce40fbbfe5f4b94e9854b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_organization_shares.feasibility_organization_shares_shared_by_fkey",
+      "fingerprint": "6657588d6f5c5d184bb01b9a2fc472c9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_organization_shares.feasibility_organization_shares_source_revision_check",
+      "fingerprint": "55b012d23f79091bfa9b2bceb9a76a48"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_access(p_organization uuid, p_write boolean)",
+      "fingerprint": "f4f7c590c9349bb7559b23df388cfbeb"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_shares(p_action text, p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer)",
+      "fingerprint": "c3e270375f689b85a2705ed18eee97dc"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_has_company_plan(p_organization uuid, p_writable boolean)",
+      "fingerprint": "03b95c449d8aad6fb819a2cee01ef9db"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_company_shares(p_action text, p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer)",
+      "fingerprint": "b2a134bb29e6e9ba4bab5d1add20c1d9"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_company_workspace(p_organization uuid)",
+      "fingerprint": "d65d470094f049d8ea88e4cba8972c0d"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_organization_shares.feasibility_organization_shares_pkey",
+      "fingerprint": "c931b3c578bd5ac881b9d7350bba721c"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_organization_shares.feasibility_shares_recipient",
+      "fingerprint": "1851e1a81d7a0a7e9e5beffee2be4bf5"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.feasibility_projects.feasibility_org_insert",
+      "fingerprint": "5c56feee0c078db8eace30240ce90142"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.feasibility_projects.feasibility_org_read",
+      "fingerprint": "4b77024f1e74221503a4293293173ab9"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.feasibility_projects.feasibility_org_update",
+      "fingerprint": "6d35126730cd3a91d4d59a45a80ff46a"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.feasibility_organization_shares",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

@@ -1,0 +1,261 @@
+{
+  "description": "Observed on QA V2 in a rolled-back transaction, 2026-11-15; security acceptance passed, no hosted changes committed.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_match_audit.action",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_match_audit.actor_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_match_audit.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_match_audit.id",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_match_audit.match_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_match_audit.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.approved_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.approved_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.created_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.created_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.evidence_reference",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.left_event_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.left_organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.revoked_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.revoked_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.right_event_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.right_organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.source_fingerprint",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.financial_group_document_matches.status",
+      "fingerprint": "e43c3c73b894819d7d129c8bca319d6e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_match_audit.financial_group_document_match_audit_action_check",
+      "fingerprint": "0d18b26b19fa9dca2602bfd6061393d9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_match_audit.financial_group_document_match_audit_actor_id_fkey",
+      "fingerprint": "508a4cf20410e80e6cb722233bc03330"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_match_audit.financial_group_document_match_audit_match_id_fkey",
+      "fingerprint": "a533a04794e260dfdaee791a2d9897bf"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_match_audit.financial_group_document_match_audit_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_match_audit.financial_group_document_match_audit_reason_check",
+      "fingerprint": "4a70fd247feab824873ccdbd61ce000d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_approved_by_fkey",
+      "fingerprint": "110651700f2cf1b3d653b3d4a50d81a9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_check",
+      "fingerprint": "2e38bd6543461b2461208e99c3d9256c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_check1",
+      "fingerprint": "7f4b6eff86a1a43f9e8a981680cc6d0d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_check2",
+      "fingerprint": "39952a09d1bae354050ed604290a66f3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_created_by_fkey",
+      "fingerprint": "4b3f3d253bf2a2f5c48f37dbc3c11763"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_evidence_reference_check",
+      "fingerprint": "5d9a56748e46acfe2259bb58fb20dca5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_left_event_id_fkey",
+      "fingerprint": "6442b9b557e7d396a7326bd37ae91344"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_left_organization_id_fkey",
+      "fingerprint": "1b64d6bd4fc4d3dc393ca75dcf7ae701"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_request_id_key",
+      "fingerprint": "00c1d80c1c37474ea86e15a2b3c68a45"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_revoked_by_fkey",
+      "fingerprint": "de5521a2a0a54110bec8103f90dc1846"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_right_event_id_fkey",
+      "fingerprint": "e039568278e08a63684e4c06e83698c0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_right_organization_id_fkey",
+      "fingerprint": "e0dfe6cc0f20955feb15f62210aeae89"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_status_check",
+      "fingerprint": "aecb2734269dd7d39ce4cc1e9065fbab"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_group_document_fingerprint(p_left uuid, p_right uuid)",
+      "fingerprint": "4179bd5fe2ae867fcd9d85d4749f1176"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_document_context(p_matches uuid[])",
+      "fingerprint": "5aa8dc5f94374c2dd645407022fa42d2"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_document_decide(p_match uuid, p_action text, p_reason text)",
+      "fingerprint": "a9cd8bbb4ee6aa7d0f97b517dd67993e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_document_propose(p_first uuid, p_second uuid, p_evidence text, p_reason text, p_request_id uuid)",
+      "fingerprint": "b1e195be2e5d07c31b882d0652c49fb8"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_document_match_audit.financial_group_document_audit_lookup",
+      "fingerprint": "5412ee386387f0a45b0cea6e0845c270"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_document_match_audit.financial_group_document_match_audit_pkey",
+      "fingerprint": "ea617951175e1a953cfd4818edb2f089"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_document_matches.financial_group_document_active_pair",
+      "fingerprint": "5825d27e2a7f99f3c2f2beb442efc632"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_pkey",
+      "fingerprint": "ccd4647d3787c0f51e6886caf4dee979"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_document_matches.financial_group_document_matches_request_id_key",
+      "fingerprint": "02ce3b2fe80e2540dc01c4e78bfda028"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_group_document_match_audit",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.financial_group_document_matches",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

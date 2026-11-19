@@ -59,6 +59,31 @@ describe('per-voucher approved branch opening attribution',()=>{
   }
   expect(JSON.stringify(input)).toBe(prior);
  });
+ it('reconciles opposite branch opening balances against the net company account without losing vouchers',()=>{
+  const input=fixture();
+  input.workspace!.approvedOpening=[...input.workspace!.approvedOpening,
+   {itemId:'bank-offset',accountCode:'1000',debit:'0',credit:'140'},
+   {itemId:'capital-offset',accountCode:'3100',debit:'140',credit:'0'},
+  ];
+  input.distribution!.entries['bank-offset']=[{branchId:null,debit:'0',credit:'140'}];
+  input.distribution!.entries['capital-offset']=[{branchId:null,debit:'140',credit:'0'}];
+  input.source.opening=[{accountId:'1000',debit:'160',credit:'0'},
+   {accountId:'3100',debit:'0',credit:'160'}];
+  const aggregate=aggregateApprovedBranchOpenings(input);
+  expect(aggregate.status).toBe('OPENING_ATTRIBUTION_RECONCILED_PREVIEW_ONLY');
+  if(aggregate.status!=='OPENING_ATTRIBUTION_RECONCILED_PREVIEW_ONLY')return;
+  const report=previewVerifiedBranchAttribution({source:input.source,branchIds:input.branchIds,
+   coverage:{complete:true,scope:'ORGANIZATION_ALL_ENTITIES',sourceCount:4,revision:input.sourceRevision},
+   openingEvidence:aggregate.openingEvidence,journalEvidence:{status:'RLS_MATCHED_JOURNAL_REFERENCES_ONLY',
+    organizationId:org,links:[{journalId:'branch-sale',branchId:branch,scope:'BRANCH'}]}});
+  expect(report.status).toBe('RECONCILED_SEGMENTS_PREVIEW_ONLY');
+  if(report.status!=='RECONCILED_SEGMENTS_PREVIEW_ONLY')return;
+  expect(report.company!.cash.closing).toBe('210.0000');
+  expect(report.segments.find(s=>s.branchId===null)!.statement.cash.closing).toBe('-40.0000');
+  expect(report.segments.find(s=>s.branchId===branch)!.statement.cash.closing).toBe('250.0000');
+  input.distribution!.entries['bank-offset'][0].credit='139';
+  expect(aggregateApprovedBranchOpenings(input)).toMatchObject({status:'OPENING_ATTRIBUTION_BLOCKED',code:'OPENING_LINE_MISMATCH'});
+ });
  it('blocks missing source items, duplicated identities and unknown extra allocation keys',()=>{
   const a=fixture();delete (a.distribution!.entries as Record<string,unknown>)['bank-1'];
   expect(aggregateApprovedBranchOpenings(a)).toMatchObject({status:'OPENING_ATTRIBUTION_BLOCKED',code:'OPENING_LINE_UNATTRIBUTED'});

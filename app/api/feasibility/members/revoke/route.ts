@@ -1,3 +1,4 @@
+import {readFeasibilityGrant} from '../../../../../lib/feasibility/grant';
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {supabaseServer} from '@/lib/supabase/server';
@@ -17,8 +18,7 @@ export async function POST(request:Request){
  const supabase=await supabaseServer();
  const {data:{user},error:userError}=await supabase.auth.getUser();
  if(userError||!user)return json({error:'UNAUTHORIZED'},401);
- const {data:grant,error:grantError}=await supabase.from('feasibility_access_grants')
-  .select('status,starts_at,ends_at').eq('user_id',user.id).maybeSingle();
+ const {data:grant,error:grantError}=await readFeasibilityGrant(supabase,user.id);
  if(grantError)return json({error:'ENTITLEMENT_LOOKUP_FAILED'},503);
  if(!evaluateFeasibilityAccess(grant).canWrite)return json({error:'FEASIBILITY_READ_ONLY'},403);
  let parsed:z.infer<typeof bodySchema>;

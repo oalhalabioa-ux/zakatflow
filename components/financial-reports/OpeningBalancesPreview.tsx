@@ -13,6 +13,7 @@ import {EQUITY_EXTRA_PREFIX,equityOpeningAccounts,openingEquityExtraRows} from '
 import OpeningAccountPicker from './OpeningAccountPicker';
 import './financial-reports-suite.css';
 import './opening-balances-preview.css';
+import './branch-opening-distribution.css';
 const Money=Decimal.clone({precision:50});
 const number=(s:string)=>{const[w,f]=new Money(s).abs().toFixed(4).split('.');return w.replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+f.replace(/0{1,2}$/,'')};
 export default function OpeningBalancesPreview({initialEnglish=false}:{initialEnglish?:boolean}){
@@ -22,7 +23,7 @@ export default function OpeningBalancesPreview({initialEnglish=false}:{initialEn
  const nav=<><button className="module-toggle" data-module-current="true" aria-expanded="true"><Icon name="chart"/><span className="corp-label">{t('التقارير والقوائم المالية','Financial reports & statements')}</span></button><div className="corp-subnav"><button aria-current="page"><Icon name="balance" size={18}/><span className="corp-label">{t('الأرصدة الافتتاحية','Opening balances')}</span></button></div></>;
  return <div className="fs-root" lang={en?'en':'ar'} dir={en?'ltr':'rtl'}><CorporateShell designPreview locale={en?'en':'ar'} previewTopbar={topbar} navigationExtension={nav}><OpeningWorkspace key={org} org={org} en={en}/></CorporateShell></div>;
 }
-type LiveOpeningProps={data:OpeningWorkspaceData;busy:boolean;onSave:(entries:OpeningEntries,reason:string)=>Promise<void>;onApprove:()=>Promise<void>;beforeExport:()=>Promise<void>;onSourcesChanged?:()=>void;onDirtyChange?:(dirty:boolean)=>void};
+type LiveOpeningProps={data:OpeningWorkspaceData;busy:boolean;onSave:(entries:OpeningEntries,reason:string)=>Promise<void>;onApprove:()=>Promise<void>;beforeExport:()=>Promise<void>;onSourcesChanged?:()=>void;onDirtyChange?:(dirty:boolean)=>void;onRefresh:()=>void;onFiscalStartChange:(value:string)=>void;onCreateCorrection:()=>void;canEditCenterOpenings:boolean};
 export function OpeningWorkspace({org,en,live,initialTab='customers',onTabChange}:{org:string;en:boolean;live?:LiveOpeningProps;initialTab?:OpeningTab;onTabChange?:(tab:OpeningTab)=>void}){
  const t=(ar:string,english:string)=>en?english:ar;
  const[tab,setTab]=useState<OpeningTab>(initialTab),[drafts,setDrafts]=useState<OpeningDrafts>({}),[search,setSearch]=useState(''),[status,setStatus]=useState('all'),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[editingId,setEditingId]=useState<string|null>(null);
@@ -75,7 +76,14 @@ export function OpeningWorkspace({org,en,live,initialTab='customers',onTabChange
  }
  const reportDirty=live?.onDirtyChange;
  useEffect(()=>{reportDirty?.(dirty);return()=>reportDirty?.(false)},[dirty,reportDirty]);
- const replacementReasonNeeded=Boolean(live?.data.replacesApproved&&!locked&&live.data.canSave);
+ const approved=live?.data.workspace?.status==='APPROVED';
+ const approvedVersion=approved?live.data.workspace?.version:live?.data.approvedOpeningVersion;
+ const replacementReasonNeeded=Boolean(live?.data.replacesApproved&&live.data.canSave);
+ const replacementLabel=t('أدخل سبب استبدال الاعتماد السابق','Enter a reason for replacing the previous approval');
+ const refreshLabel=t('تحديث المصادر','Refresh sources');
+ const fiscalSettingsLabel=t('إدارة السنوات المالية','Manage fiscal years');
+ const locale=en?'en':'ar';
+ const scopeQuery=new URLSearchParams({organization:org,fiscalStart:live?.data.fiscalStart??'',scope:'ORGANIZATION'});
  const sourceIssues=live?.data.source.rows.filter(r=>r.sourceIssue)??[];
  const visible=state.rows.filter(r=>r.tab===tab&&(status==='all'||r.status===status||editingId===r.id)&&((en?r.en:r.ar)+' '+r.accountCode).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
  const amount=(value:string|null)=>value===null?'—':number(value)+' '+(new Money(value).isZero()?'':new Money(value).gte(0)?t('مدين','DR'):t('دائن','CR'));
@@ -108,16 +116,36 @@ export function OpeningWorkspace({org,en,live,initialTab='customers',onTabChange
   if(!balanced)approvalProblems.push(t('فرق المدين والدائن: ','Debit/credit difference: ')+number(state.totals.difference)+' '+currency);
   if(sourceIssues.length)approvalProblems.push(t('توجد مصادر تحتاج إلى مراجعة في سجلاتها الأصلية: ','Source records need review in their original registers: ')+sourceIssues.length);
   if(correctionMissing.length)approvalProblems.push(t('أدخل سبب التصحيح للبنود المحددة للمراجعة: ','Add a correction reason to reviewed items: ')+correctionMissing.length);
-  if(replacementReasonNeeded&&reason.trim().length<3)approvalProblems.push(t('أدخل سبب استبدال الاعتماد السابق.','Enter a reason for replacing the previous approval.'));
+
  }
- const readyToApprove=Boolean(live&&!locked&&approvalProblems.length===0);
+ const readyToApprove=Boolean(live&&!locked&&approvalProblems.length===0&&(!replacementReasonNeeded||reason.trim().length>=3));
+ const confirmNavigation=()=>!dirty||window.confirm(t('لديك تغييرات غير محفوظة. هل تريد تجاهلها؟','Discard unsaved changes?'));
  return <div className="fs-surface ob-surface" data-opening-ready={org}>
-  <header className="fs-page-header"><div><span className="fs-page-icon"><Icon name="balance" size={34}/></span><h1>{t('الأرصدة الافتتاحية','Opening balances')}</h1><p>{t('أرصدة السندات والنواقص في مساحة واحدة، تتجمع في ميزان مراجعة موحد.','Voucher balances and missing openings in one workspace, reconciled to one trial balance.')}</p></div><div className="fs-page-actions"><button disabled={!live||locked||!live.data.canSave||state.invalid>0} onClick={()=>live?.onSave(Object.fromEntries(Object.entries(drafts).map(([id,v])=>[id,{...v,reason:correctionReasons[id]??''}])),reason)}><Icon name="file" size={18}/>{t('حفظ المسودة','Save draft')}</button><button disabled={!readyToApprove} aria-describedby={live?'ob-approval-checks':undefined} className="fs-gold" onClick={()=>live?.onApprove()}>{t('اعتماد الأرصدة','Approve openings')}</button><button disabled={busy} onClick={()=>exportFile('xlsx')}><Icon name="download" size={18}/>{t('تصدير Excel','Export Excel')}</button><button disabled={busy} onClick={()=>exportFile('csv')}>CSV</button></div></header>
+  <header className={`fs-page-header${live?' ob-live-header':''}`}><div><span className="fs-page-icon"><Icon name="balance" size={34}/></span><h1>{t('الأرصدة الافتتاحية','Opening balances')}</h1><p>{t('أرصدة السندات والنواقص في مساحة واحدة، تتجمع في ميزان مراجعة موحد.','Voucher balances and missing openings in one workspace, reconciled to one trial balance.')}</p></div><div className="fs-page-actions"><button disabled={!live||locked||!live.data.canSave||state.invalid>0} onClick={()=>live?.onSave(Object.fromEntries(Object.entries(drafts).map(([id,v])=>[id,{...v,reason:correctionReasons[id]??''}])),reason)}><Icon name="file" size={18}/>{t('حفظ المسودة','Save draft')}</button>{live&&<span className="ob-icon-control" data-tooltip={refreshLabel}>
+    <button type="button" className="ob-icon-button" aria-label={refreshLabel} disabled={live.busy} onClick={live.onRefresh}><Icon name="refresh" size={17}/></button>
+   </span>}<button disabled={!readyToApprove} aria-describedby={live?'ob-approval-checks':undefined} className="fs-gold" onClick={()=>live?.onApprove()}>{t('اعتماد الأرصدة','Approve openings')}</button>{live&&approved&&<button type="button" disabled={live.busy||!live.data.canSave} onClick={live.onCreateCorrection}>{t('إنشاء مسودة تصحيحية','Create a correction draft')}</button>}<button disabled={busy} onClick={()=>exportFile('xlsx')}><Icon name="download" size={18}/>{t('تصدير Excel','Export Excel')}</button><button disabled={busy} onClick={()=>exportFile('csv')}>CSV</button></div></header>
   {!live&&<p className="ob-preview-note">{t('بيانات وأسماء اصطناعية للمراجعة فقط. الإدخال في ذاكرة الصفحة؛ لا حفظ أو اعتماد فعلي، وتُمسح المسودة عند تبديل المؤسسة أو تحديث الصفحة.','Synthetic names and amounts for review. Edits stay in page memory; save/approval are disabled. Changing organization or refreshing clears this draft.')}</p>}
-  <div className="fs-filter-strip ob-scope"><label>{t('تاريخ بداية السنة','Fiscal start')}<input type="date" value={live?.data.fiscalStart??'2026-01-01'} readOnly/></label><label>{t('الأرصدة كما في','Balances as of')}<input type="date" value={live?.data.cutoff??'2025-12-31'} readOnly/></label><label>{t('العملة الأساسية','Base currency')}<input value={currency} readOnly/></label><p><Icon name="building" size={18}/>{t('كامل المؤسسة · جميع التابات','Entire organization · all tabs')}</p></div>
+  <div className={`fs-filter-strip ob-scope${live?' ob-scope-live':''}`}>
+   <label>{t('تاريخ بداية السنة','Fiscal start')}<input type="date" aria-label={t('بداية السنة المالية','Fiscal year start')} value={live?.data.fiscalStart??'2026-01-01'} readOnly={!live} disabled={live?.busy} onChange={e=>live?.onFiscalStartChange(e.target.value)}/></label>
+   <label>{t('الأرصدة كما في','Balances as of')}<input type="date" value={live?.data.cutoff??'2025-12-31'} readOnly/></label>
+   <label>{t('العملة الأساسية','Base currency')}<input value={currency} readOnly/></label>
+   {live?<><span className="ob-icon-control" data-tooltip={fiscalSettingsLabel}>
+    <a className="ob-icon-button" aria-label={fiscalSettingsLabel} href={`/${locale}/settings/financial/fiscal-years?${new URLSearchParams({organization:org})}`} onClick={e=>{if(!confirmNavigation())e.preventDefault()}}><Icon name="calendar" size={17}/></a>
+   </span>
+   <div className="ob-scope-allocation">
+    {approvedVersion!==undefined?<><div className="ob-allocation-actions">
+     <a className="ob-allocation-link" href={`/${locale}/opening-balances/branches?${scopeQuery}`} onClick={e=>{if(!confirmNavigation())e.preventDefault()}}><Icon name="branch" size={16}/>{t('توزيع الفروع','Allocate to branches')}</a>
+     {live.canEditCenterOpenings&&<a className="ob-allocation-link" href={`/${locale}/opening-balances/centers?${scopeQuery}`} onClick={e=>{if(!confirmNavigation())e.preventDefault()}}><Icon name="layers" size={16}/>{t('توزيع المراكز','Allocate to centers')}</a>}
+    </div>{!approved&&<small>{t('التوزيع على آخر اعتماد · الإصدار','Allocation uses the last approved version')} <bdi>{approvedVersion}</bdi></small>}</>:<small>{t('يتاح التوزيع بعد اعتماد الأرصدة.','Allocation is available after opening balances are approved.')}</small>}
+   </div></>:<p><Icon name="building" size={18}/>{t('كامل المؤسسة · جميع التابات','Entire organization · all tabs')}</p>}
+  </div>
   {live&&<section id="ob-approval-checks" className={'ob-approval-checks '+(readyToApprove?'is-ready':'is-pending')} role="status" aria-live="polite">
    <div><Icon name={readyToApprove?'check':'balance'} size={19}/><strong>{live.data.workspace?.status==='APPROVED'?t('الأرصدة معتمدة','Openings approved'):readyToApprove?t('المسودة جاهزة للاعتماد','Draft ready for approval'):balanced?t('المسودة متوازنة حسابياً، لكن الاعتماد يحتاج استكمالاً','The draft is balanced, but approval has outstanding requirements'):t('متطلبات اعتماد الأرصدة الافتتاحية','Opening approval requirements')}</strong></div>
    {approvalProblems.length>0&&<ul>{approvalProblems.map(problem=><li key={problem}>{problem}</li>)}</ul>}
+   {replacementReasonNeeded&&<label className="ob-replacement-reason">
+    <span>{replacementLabel}</span>
+    <input type="text" aria-label={t('سبب استبدال الاعتماد السابق','Reason for replacing the previous approval')} size={30} maxLength={1000} value={reason} disabled={live.busy} onChange={e=>setReason(e.target.value)}/>
+   </label>}
    {unconfirmed.length>0&&!locked&&<button type="button" className="ob-text-button" onClick={()=>{switchTab(unconfirmed[0].tab);setStatus('missing')}}>{t('انتقل إلى البنود غير المدخلة','Show unconfirmed items')} ({unconfirmed.length})</button>}
   </section>}
   <div className="fs-metrics five ob-metrics">{[[t('إجمالي المدين المدخل','Entered debit'),number(state.totals.debit),'coins'],[t('إجمالي الدائن المدخل','Entered credit'),number(state.totals.credit),'layers'],[t('فرق التوازن','Balance difference'),number(state.totals.difference),'balance'],[t('لم يُدخل / غير صالح','Missing / invalid'),String(state.pending),'file'],[t('سندات مرتبطة','Linked vouchers'),String(state.sourceCount),'file']].map(([label,value,icon],i)=><Metric key={label} label={label} value={value} unit={i<3?currency:''} icon={icon} change={null} foot={i===2?(balanced?t('متوازن حسابيًا','Arithmetically balanced'):t('يحتاج استكمالًا أو مراجعة','Requires completion or review')):undefined}/>)}</div>
@@ -139,7 +167,7 @@ export function OpeningWorkspace({org,en,live,initialTab='customers',onTabChange
     </li>)}
    </ul>}
   </section>
-  {live&&<section className="ob-live-review">{replacementReasonNeeded&&<label>{t('سبب استبدال الاعتماد السابق','Reason for replacing the previous approval')}<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>}<p role="status">{live.data.workspace?.status==='APPROVED'?<>{t('معتمد','Approved')}{live.data.workspace.approved_at&&<> · <time dateTime={live.data.workspace.approved_at}><bdi>{live.data.workspace.approved_at.slice(0,10)}</bdi></time></>}</>:!live.data.workspace?t('مسودة غير محفوظة.','Unsaved draft.'):dirty?t('تغييرات غير محفوظة. احفظ المسودة قبل الاعتماد.','Unsaved changes. Save the draft before approval.'):readyToApprove?t('المسودة محفوظة وجاهزة للاعتماد النهائي.','The saved draft is ready for final approval.'):t('المسودة محفوظة؛ راجع متطلبات الاعتماد الموضحة أعلى الصفحة.','Draft saved; review the approval requirements shown above.')}</p>{sourceIssues.map(r=><p key={r.id} role="alert">{en?r.en:r.ar}: {openingSourceIssue(r.sourceIssue!,en)}</p>)}</section>}<p className="ob-footer"><Icon name="check" size={17}/>{t('الرصيد من السندات يُحتسب مرة واحدة. الإضافة تمثل الفرق فقط، ويظل المصدر الأصلي محفوظًا.','Voucher balances are counted once. Supplements represent only the difference, preserving the original source.')}</p>
+  {live&&<section className="ob-live-review"><p role="status">{live.data.workspace?.status==='APPROVED'?<>{t('معتمد','Approved')}{live.data.workspace.approved_at&&<> · <time dateTime={live.data.workspace.approved_at}><bdi>{live.data.workspace.approved_at.slice(0,10)}</bdi></time></>}</>:!live.data.workspace?t('مسودة غير محفوظة.','Unsaved draft.'):dirty?t('تغييرات غير محفوظة. احفظ المسودة قبل الاعتماد.','Unsaved changes. Save the draft before approval.'):readyToApprove?t('المسودة محفوظة وجاهزة للاعتماد النهائي.','The saved draft is ready for final approval.'):t('المسودة محفوظة؛ راجع متطلبات الاعتماد الموضحة أعلى الصفحة.','Draft saved; review the approval requirements shown above.')}</p>{sourceIssues.map(r=><p key={r.id} role="alert">{en?r.en:r.ar}: {openingSourceIssue(r.sourceIssue!,en)}</p>)}</section>}<p className="ob-footer"><Icon name="check" size={17}/>{t('الرصيد من السندات يُحتسب مرة واحدة. الإضافة تمثل الفرق فقط، ويظل المصدر الأصلي محفوظًا.','Voucher balances are counted once. Supplements represent only the difference, preserving the original source.')}</p>
   <dialog className="fs-dialog" ref={modal} onCancel={()=>setMessage('')}><button className="fs-dialog-close" aria-label={t('إغلاق','Close')} onClick={()=>setMessage('')}><Icon name="close"/></button><h2>{t('تفاصيل المصدر','Source details')}</h2><p className="ob-dialog-copy">{message}</p><button className="fs-gold" onClick={()=>setMessage('')}>{t('إغلاق','Close')}</button></dialog>
  </div>;
 }

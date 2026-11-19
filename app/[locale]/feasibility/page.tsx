@@ -1,7 +1,11 @@
+import {feasibilityOrganizationOptions} from '@/lib/feasibility/organization-options';
+import {feasibilitySelfServeEnabled,readFeasibilityGrant} from '@/lib/feasibility/grant';
+import FeasibilityEnrollment from '@/components/feasibility/FeasibilityEnrollment';
 import {notFound,redirect} from 'next/navigation';
 import {supabaseServer} from '@/lib/supabase/server';
 import FeasibilityWorkspace from '@/components/FeasibilityWorkspace';
 import {evaluateFeasibilityAccess} from '@/lib/feasibility/access';
+import {feasibilityEvidenceEnabled} from '@/lib/feasibility/evidence-config';
 import './feasibility.css';
 
 export const dynamic='force-dynamic';
@@ -12,10 +16,20 @@ export default async function FeasibilityPage({params}:{params:Promise<{locale:s
  const supabase=await supabaseServer();
  const {data:{user}}=await supabase.auth.getUser();
  if(!user)redirect('/'+locale+'/login');
- const {data:grant,error}=await supabase.from('feasibility_access_grants')
-  .select('status,starts_at,ends_at').eq('user_id',user.id).maybeSingle();
+ const {data:grant,error}=await readFeasibilityGrant(supabase,user.id);
  if(error)throw new Error('FEASIBILITY_ENTITLEMENT_LOOKUP_FAILED');
  const access=evaluateFeasibilityAccess(grant);
- if(!access.canRead)notFound();
- return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite}/>;
+ const organizationSharing=process.env.FEASIBILITY_ORG_SHARING==='true'&&process.env.FEASIBILITY_ORG_QA==='true';
+ const organizationEnabled=process.env.FEASIBILITY_ORG_QA==='true'&&process.env.NEXT_PUBLIC_FEASIBILITY_CLOUD_QA==='true';
+ const selfServe=feasibilitySelfServeEnabled();
+ const enrollment=!access.canRead
+  ?<FeasibilityEnrollment locale={locale} organizationSharing={organizationSharing} selfServe={selfServe}/>
+  :undefined;
+ if(!organizationEnabled&&enrollment){
+  if(!selfServe&&!organizationSharing)notFound();
+  return enrollment;
+ }
+ const organizations=organizationEnabled?await feasibilityOrganizationOptions(supabase):[];
+ return <FeasibilityWorkspace locale={locale} userId={user.id} readOnly={!access.canWrite} personalFallback={enrollment}
+  evidenceEnabled={feasibilityEvidenceEnabled()} organizationEnabled={organizationEnabled} organizationSharing={organizationSharing} organizations={organizations}/>;
 }

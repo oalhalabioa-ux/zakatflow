@@ -6,6 +6,7 @@ on:
       - 'tests/fixtures/zatca-phase2-ledger.sql'
       - 'tests/zatca-ledger-postgres.py'
       - 'tests/zatca-sdk345-qa.test.ts'
+      - 'tests/zatca-production-boundary.test.ts'
       - 'tests/helpers/zatca-sdk345-qa-profile.ts'
       - 'tests/fixtures/zatca-source-freeze*.sql'
       - 'tests/zatca-source-freeze-postgres.py'
@@ -55,7 +56,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xmlsec1
       - run: npm run typecheck
       - name: Verify prepared signatures and tamper rejection
-        run: npx vitest run tests/zatca-sdk345-qa.test.ts services/zatca-private-enrollment-audit.test.ts services/zatca-private-enrollment-auditor.test.ts services/zatca-private-enrollment-verification-reader.test.ts services/zatca-private-enrollment-verifier.test.ts lib/zatca-enrollment-response-staging.test.ts services/zatca-private-enrollment-response.test.ts services/zatca-private-enrollment-coordinator.test.ts services/zatca-private-enrollment-dispatch.test.ts services/zatca-private-enrollment-writer.test.ts services/zatca-private-enrollment-reader.test.ts services/zatca-phase2-access.test.ts lib/zatca-reserved-preparation.test.ts lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-certificate-path.test.ts lib/zatca-onboarding-identity.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
+        run: npx vitest run tests/zatca-production-boundary.test.ts tests/zatca-sdk345-qa.test.ts services/zatca-private-enrollment-audit.test.ts services/zatca-private-enrollment-auditor.test.ts services/zatca-private-enrollment-verification-reader.test.ts services/zatca-private-enrollment-verifier.test.ts lib/zatca-enrollment-response-staging.test.ts services/zatca-private-enrollment-response.test.ts services/zatca-private-enrollment-coordinator.test.ts services/zatca-private-enrollment-dispatch.test.ts services/zatca-private-enrollment-writer.test.ts services/zatca-private-enrollment-reader.test.ts services/zatca-phase2-access.test.ts lib/zatca-reserved-preparation.test.ts lib/zatca-phase2-qr.test.ts lib/zatca-sdk-validation.test.ts lib/zatca-xades-preparation.test.ts lib/zatca-signing-certificate.test.ts lib/zatca-certificate-path.test.ts lib/zatca-onboarding-identity.test.ts lib/zatca-xml-hash.test.ts lib/zatca-kms-signer.test.ts lib/zatca-phase2-xml.test.ts lib/vat-einvoice-draft.test.ts lib/vat-zatca-csr.test.ts
         env:
           ZATCA_NATIVE_XMLSEC: '1'
 

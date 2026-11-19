@@ -1,0 +1,26 @@
+{
+  "description": "Document coverage catalog from isolated PostgreSQL, with full-schema browser behavior validated in run 43832400855.",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_group_document_coverage(p_root uuid, p_from date, p_to date, p_identity_page integer)",
+      "fingerprint": "48e33a91365f0c6eacc3796c4db81087"
+    },
+    {
+      "category": "function",
+      "object_key": "private.financial_group_prior_pair_balance(p_left_org uuid, p_left_event uuid, p_right_org uuid, p_right_event uuid, p_currency text, p_to date, p_current boolean)",
+      "fingerprint": "ac470687bc8980a31b4a05fdd9e1f6b9"
+    },
+    {
+      "category": "function",
+      "object_key": "public.financial_group_document_coverage(p_root uuid, p_from date, p_to date, p_identity_page integer)",
+      "fingerprint": "5e645c0d9c3ea38d8f2fdabfed7a957c"
+    },
+    {
+      "category": "index",
+      "object_key": "private.financial_group_document_matches.financial_group_document_approved_organizations",
+      "fingerprint": "ffbac046b875c0b86858b5e555072372"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+const state=vi.hoisted(()=>({source:vi.fn(),directory:vi.fn()}));
+vi.mock('../services/financial-dimensional-statements',()=>({liveDimensionalStatements:(q:unknown)=>state.source(q)}));
+vi.mock('../services/auth',()=>({requireUser:async()=>({supabase:{from:()=>({select:()=>({eq:()=>({limit:state.directory})})})}})}));
+import {liveDimensionalCenterOptions} from '../services/financial-dimensional-center-options';
+const org='10000000-0000-4000-8000-000000000001',branch='20000000-0000-4000-8000-000000000002',center='30000000-0000-4000-8000-000000000003';
+const query={organization:org,from:'2026-01-01',to:'2026-12-31'};
+const source={organizationId:org,currency:'SAR',company:{income:{netProfit:'-30.0000'}},rows:[{branchId:null,centerId:center,statements:{income:{netProfit:'-10.0000'}}},{branchId:branch,centerId:center,statements:{income:{netProfit:'-20.0000'}}}]};
+beforeEach(()=>{vi.resetAllMocks();state.source.mockResolvedValue(source);state.directory.mockResolvedValue({data:[{id:center,organization_id:org,name:'Dated center'}],error:null})});
+it('uses only original dated rows of the selected branch',async()=>{const r=await liveDimensionalCenterOptions(query,branch);expect(r.branch).toBe(branch);expect(r.rows).toEqual([{centerId:center,name:'Dated center',income:{netProfit:'-20.0000'}}]);expect(state.source).toHaveBeenCalledTimes(2)});
+it('combines a center across historical branches once, while headquarters stays separate',async()=>{expect((await liveDimensionalCenterOptions(query)).rows[0].income.netProfit).toBe('-30.0000');expect((await liveDimensionalCenterOptions(query,'HQ')).rows[0].income.netProfit).toBe('-10.0000')});
+it('does not substitute income-only/company data when dimension verification fails',async()=>{state.source.mockRejectedValue(Error('REPORTING_DIMENSION_OPENING_UNAVAILABLE'));await expect(liveDimensionalCenterOptions(query,branch)).rejects.toThrow('OPENING_UNAVAILABLE');expect(state.directory).not.toHaveBeenCalled()});
+it('rejects hidden or foreign center metadata',async()=>{state.directory.mockResolvedValueOnce({data:[],error:null});await expect(liveDimensionalCenterOptions(query)).rejects.toThrow('UNRESOLVED');state.directory.mockResolvedValueOnce({data:[{id:center,organization_id:branch,name:'Foreign'}],error:null});await expect(liveDimensionalCenterOptions(query)).rejects.toThrow('UNAVAILABLE')});
+it('rejects changing source evidence or revoked permission on the final read',async()=>{state.source.mockResolvedValueOnce(source).mockResolvedValueOnce({...source,currency:'USD'});await expect(liveDimensionalCenterOptions(query)).rejects.toThrow('SOURCE_CHANGED');state.source.mockResolvedValueOnce(source).mockRejectedValueOnce(Error('REPORTING_ACCESS_DENIED'));await expect(liveDimensionalCenterOptions(query)).rejects.toThrow('ACCESS_DENIED')});

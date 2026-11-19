@@ -40,3 +40,58 @@ describe('organization financial setup journey', () => {
     expect(setupStorageKey('organization-a')).not.toBe(setupStorageKey('organization-b'));
   });
 });
+
+
+import {financialSourceChecks,type FinancialSourceCheckInputs} from './financial-setup-readiness';
+
+const fullSource:FinancialSourceCheckInputs={
+ fiscalReadable:true,fiscalCalendarPresent:true,fiscalPeriodPresent:true,fiscalRetainedValid:true,
+ chartReadable:true,chartEquityActive:true,
+ postingReadable:true,postingApproved:true,postingRulesPresent:true,
+ postingCoverageReadable:true,postingCoverageComplete:true,
+ bankingReadable:true,bankingAccountPresent:true,
+ openingModeSelected:true,openingSourceReadable:true,openingVerified:true,
+};
+
+describe('source-backed financial readiness card details',()=>{
+ it('only marks recorded evidence as complete, with real criteria for each card',()=>{
+  const checks=financialSourceChecks(fullSource);
+  expect(checks.fiscal).toHaveLength(3);
+  expect(checks.chart).toHaveLength(2);
+  expect(checks.posting).toHaveLength(3);
+  expect(checks.banking).toHaveLength(2);
+  expect(checks.opening).toHaveLength(3);
+  expect(Object.values(checks).flat().every(c=>c.status==='MET')).toBe(true);
+ });
+ it('distinguishes unreadable data from an incomplete source-backed requirement',()=>{
+  const checks=financialSourceChecks({...fullSource,
+   fiscalReadable:false,fiscalCalendarPresent:false,
+   chartReadable:false,bankingReadable:false,postingReadable:false,
+   openingSourceReadable:false,postingCoverageReadable:false,
+  });
+  expect(checks.fiscal.map(c=>c.status)).toEqual(['UNAVAILABLE','UNAVAILABLE','UNAVAILABLE']);
+  expect(checks.chart.map(c=>c.status)).toEqual(['UNAVAILABLE','UNAVAILABLE']);
+  expect(checks.banking.map(c=>c.status)).toEqual(['UNAVAILABLE','UNAVAILABLE']);
+  expect(checks.posting.map(c=>c.status)).toEqual(['UNAVAILABLE','UNAVAILABLE','UNAVAILABLE']);
+  expect(checks.opening.map(c=>c.status)).toEqual(['MET','UNAVAILABLE','UNAVAILABLE']);
+ });
+ it('keeps independently valid retained earnings distinct from an unset fiscal period',()=>{
+  const checks=financialSourceChecks({...fullSource,fiscalPeriodPresent:false});
+  expect(checks.fiscal.map(c=>c.status)).toEqual(['MET','MISSING','MET']);
+ });
+ it('keeps opening status incomplete until verified source approval or verified zero',()=>{
+  const checks=financialSourceChecks({...fullSource,openingVerified:false});
+  expect(checks.opening.map(c=>c.status)).toEqual(['MET','MET','MISSING']);
+  const noMode=financialSourceChecks({...fullSource,openingModeSelected:false,openingVerified:false});
+  expect(noMode.opening.map(c=>c.status)).toEqual(['MISSING','UNAVAILABLE','UNAVAILABLE']);
+ });
+ it('does not declare coverage or active liquidity complete from approval alone',()=>{
+  const checks=financialSourceChecks({...fullSource,
+   postingRulesPresent:false,postingCoverageReadable:false,postingCoverageComplete:false,
+   bankingAccountPresent:false,chartEquityActive:false,
+  });
+  expect(checks.posting.map(c=>c.status)).toEqual(['MET','MISSING','UNAVAILABLE']);
+  expect(checks.banking[1].status).toBe('MISSING');
+  expect(checks.chart[1].status).toBe('MISSING');
+ });
+});

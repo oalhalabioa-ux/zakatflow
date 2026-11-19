@@ -1,0 +1,20 @@
+{
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.feasibility_effective_access()",
+      "fingerprint": "bf3f393b9d1fc2db736cffb99acc7bfc"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_has_company_plan(p_organization uuid, p_writable boolean)",
+      "fingerprint": "f8581a78ab16cdf3bf3c0bd5331a3e5f"
+    },
+    {
+      "category": "function",
+      "object_key": "subscription_private.entitlement(p_org uuid)",
+      "fingerprint": "e9e99199f482b67b45eebb88a45143a3"
+    }
+  ],
+  "removals": []
+}
