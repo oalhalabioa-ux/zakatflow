@@ -30,7 +30,7 @@ async function readBody(request: SimulationQaRequest) {
  * deployment's HTML and API before it is deployed. No access share URL is embedded
  * in output, no CORS or request-controlled configuration, no OTP/credential logs.
  */
-export function createSimulationQaHttpHandler(open: () => ReturnType<typeof createSimulationQa>, environment: () => Record<string,string|undefined>) {
+export function createSimulationQaHttpHandler(open: () => ReturnType<typeof createSimulationQa>, environment: () => Record<string,string|undefined> | Promise<Record<string,string|undefined>>) {
   return async (request: SimulationQaRequest, response: ServerResponse) => {
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.setHeader('Cache-Control', 'private, no-store');
@@ -38,7 +38,7 @@ export function createSimulationQaHttpHandler(open: () => ReturnType<typeof crea
     response.setHeader('Referrer-Policy', 'no-referrer');
     const finish = (status: number, body: unknown) => { response.statusCode = status; response.end(JSON.stringify(body)); };
     try {
-      const env = environment(); assertSimulationQaTarget(env);
+      const env = await environment(); assertSimulationQaTarget(env);
       if (request.method !== 'GET' && request.method !== 'POST') { response.setHeader('Allow', 'GET, POST'); return finish(405, { error: 'METHOD_NOT_ALLOWED' }); }
       const generated = env.VERCEL_URL, host = request.headers.host;
       if (!generated || !/^[a-z0-9.-]+\.vercel\.app$/.test(generated) || typeof host !== 'string'

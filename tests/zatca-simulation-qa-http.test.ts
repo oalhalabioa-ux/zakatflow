@@ -3,6 +3,7 @@ import type { ServerResponse } from 'node:http';
 import { describe, expect, it, vi } from 'vitest';
 import { createSimulationQaHttpHandler, simulationQaStableHost, type SimulationQaRequest } from '../scripts/zatca/simulation-qa-http';
 import { simulationQaRole, simulationQaSigningKey } from '../scripts/zatca/simulation-qa';
+import { simulationQaRuntimeEnvironment } from '../scripts/zatca/simulation-qa-runtime';
 const claims = { sub: 'owner:oalhalabioa-9334:project:yaqeen-fatoora-qa:environment:preview',
   iss: 'https://oidc.vercel.com/oalhalabioa-9334', aud: 'https://vercel.com/oalhalabioa-9334' };
 const host = 'yaqeen-fatoora-synthetic.vercel.app';
@@ -93,5 +94,31 @@ describe('protected isolated Simulation HTTP boundary', () => {
     const f = fixture(); f.submit.mockRejectedValueOnce(new Error('QA_RECONCILIATION_REQUIRED'));
     const result = await f.call({ method: 'POST', body: { action: 'submit', otp: '654321', csrSha256: 'a'.repeat(64) } });
     expect(result.status).toBe(409); expect(result.body.error).toBe('QA_RECONCILIATION_REQUIRED');
+  });
+});
+
+describe('Functions runtime identity source', () => {
+  it('accepts the official request-context token without an environment token', async () => {
+    const { VERCEL_OIDC_TOKEN, ...base } = environment;
+    const getToken = vi.fn(async () => VERCEL_OIDC_TOKEN);
+    const result = await simulationQaRuntimeEnvironment(base, getToken);
+    expect(result.VERCEL_OIDC_TOKEN).toBe(VERCEL_OIDC_TOKEN); expect(getToken).toHaveBeenCalledTimes(1);
+    expect(base).not.toHaveProperty('VERCEL_OIDC_TOKEN');
+  });
+  it('does not fall back to a stale environment token when runtime retrieval fails or belongs to another project', async () => {
+    await expect(simulationQaRuntimeEnvironment(environment, async () => { throw new Error('PRIVATE_TOKEN'); })).rejects.toThrow('QA_IDENTITY_REQUIRED');
+    const wrong = 'synthetic.' + Buffer.from(JSON.stringify({ ...claims, sub: 'another-project' })).toString('base64url') + '.signature';
+    await expect(simulationQaRuntimeEnvironment(environment, async () => wrong)).rejects.toThrow('QA_IDENTITY_REQUIRED');
+  });
+  it('never retrieves or refreshes a token for a wrong deployment target', async () => {
+    const getToken = vi.fn();
+    await expect(simulationQaRuntimeEnvironment({ ...environment, VERCEL_ENV: 'production' }, getToken)).rejects.toThrow('QA_TARGET_REQUIRED');
+    expect(getToken).not.toHaveBeenCalled();
+  });
+  it('does not cache a prior invocation token or mutate the process environment snapshot', async () => {
+    const getToken = vi.fn(async () => environment.VERCEL_OIDC_TOKEN);
+    const first = await simulationQaRuntimeEnvironment(environment, getToken);
+    const second = await simulationQaRuntimeEnvironment(environment, getToken);
+    expect(getToken).toHaveBeenCalledTimes(2); expect(first).not.toBe(second);
   });
 });
