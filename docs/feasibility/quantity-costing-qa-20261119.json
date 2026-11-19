@@ -1,0 +1,53 @@
+{
+  "applicationCommit": "a07e8f658baa4a6bfbaf2da341b5d625d5c5877f",
+  "applicationTree": "fde3951fe833d8153cb7e5c473d44ff26631865d",
+  "ciMergeCommit": "43ffd10cff0b78fab676781c221c853473b431d7",
+  "pr": 446,
+  "checks": {
+    "Quality": 44504395545,
+    "Feasibility": 44504395453,
+    "Assets": 44504395693,
+    "Auth_API_Chromium": 44504395476
+  },
+  "testsPassed": 2615,
+  "testsSkipped": 45,
+  "newFinancialTests": 25,
+  "originalComparisons": {
+    "water": 3,
+    "land": 4
+  },
+  "captureCount": 8,
+  "deploymentId": "dpl_Eq8b6D5SUKhAqQFnYg2thoT2XfhB",
+  "deploymentTarget": "Preview",
+  "qaUrl": "https://yaqeen-financial-core-v2-qa-git-feature-65b6d5-oalhalabioa-9334.vercel.app",
+  "personalBefore": 4,
+  "personalAfter": 5,
+  "existingStudiesChanged": false,
+  "newSyntheticStudies": {
+    "personalWater": 1,
+    "organizationWaterCopy": 1,
+    "organizationLand": 1
+  },
+  "multiOrganizationIsolation": true,
+  "hostedReadOnlyRoleTest": false,
+  "ciReadOnlyDenials": true,
+  "productionChanged": false,
+  "visualParity": "partial",
+  "hostedLandExports": {
+    "csvRows": 6,
+    "columns": 15,
+    "yearZero": -8000.0,
+    "cashCosts": 4900,
+    "sales": 60000,
+    "npv": 35664.8965234615,
+    "closingCumulativeProject": 47100,
+    "cashFlows": [
+      -8000.0,
+      13775.0,
+      13775.0,
+      13775.0,
+      13775.0
+    ],
+    "privateData": false
+  }
+}
