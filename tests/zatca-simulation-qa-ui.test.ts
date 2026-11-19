@@ -10,7 +10,7 @@ class Element {
   addEventListener(name: string, callback: (...args: any[]) => void) { this.listeners[name] = callback; }
 }
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
-async function fixture(initial: typeof ready & { standardCompliance?: any; simplifiedExperiment?: any; finalCertificate?: any } = ready) {
+async function fixture(initial: typeof ready & { standardCompliance?: any; simplifiedExperiment?: any; finalCertificate?: any; standardClearance?: any } = ready) {
   const elements = new Map<string,Element>(), windowEvents: Record<string,() => void> = {};
   const get = (id: string) => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id)!; };
   const fetcher = vi.fn(async (_url: string, _request?: RequestInit) => ({ ok: true, json: async () => structuredClone(initial) }));
@@ -19,6 +19,28 @@ async function fixture(initial: typeof ready & { standardCompliance?: any; simpl
   return { get, fetcher, windowEvents };
 }
 describe('Simulation QA user input and recovery behavior', () => {
+  it('gates clearance on the verified final certificate, submits explicit samples and recovers uncertain outcomes by GET', async () => {
+    const initial = { ...ready, state: 'RESPONSE_QUARANTINED', finalCertificate: { state: 'RESPONSE_QUARANTINED', identityKeyTimeVerified: true },
+      standardClearance: { state: 'NOT_PREPARED' } };
+    const f = await fixture(initial); expect(f.get('clearancePrepare').disabled).toBe(false);
+    const pending = { manifestDigest: 'e'.repeat(64), results: Array.from({ length: 3 }, () => ({ state: 'NOT_SENT' })) };
+    f.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ standardClearance: pending }) } as never);
+    f.get('clearancePrepare').listeners.click(); await settle();
+    expect(f.get('legalName').textContent).toBe(company.legalName); expect(f.get('clearanceSubmit0').disabled).toBe(false);
+    expect(f.get('clearanceSubmit1').disabled).toBe(true);
+    f.fetcher.mockRejectedValueOnce(Error('Unknown result')); f.get('clearanceSubmit0').listeners.click(); await settle();
+    f.get('clearanceSubmit0').listeners.click(); expect(f.fetcher).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(f.fetcher.mock.calls[2][1]?.body))).toEqual({ action: 'clearanceSubmit', index: 0, manifestDigest: 'e'.repeat(64) });
+    expect(f.get('clearanceSubmit0').disabled).toBe(true);
+    f.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ ...initial, standardClearance: { ...pending,
+      results: [{ state: 'PASSED' }, { state: 'NOT_SENT' }, { state: 'NOT_SENT' }] } }) } as never);
+    f.get('refresh').listeners.click(); await settle(); expect(f.fetcher.mock.calls[3][1]?.method).toBeUndefined();
+    expect(f.get('clearanceSubmit0').disabled).toBe(true); expect(f.get('clearanceSubmit1').disabled).toBe(false);
+    expect(f.get('clearanceResult0').textContent).toContain('لم يكتمل');
+    const blocked = await fixture({ ...initial, finalCertificate: { state: 'QUARANTINED_VERIFICATION_REQUIRED' } });
+    expect(blocked.get('clearancePrepare').disabled).toBe(true); blocked.get('clearancePrepare').listeners.click(); expect(blocked.fetcher).toHaveBeenCalledTimes(1);
+    expect((await fixture()).get('clearanceSection').hidden).toBe(true);
+  });
   it('requires both completed suites for the final certificate and never resubmits an unknown or completed request', async () => {
     const state = { ...ready, state: 'RESPONSE_QUARANTINED', standardCompliance: { passed: true }, simplifiedExperiment: { passed: true },
       finalCertificate: { state: 'READY', readinessDigest: 'f'.repeat(64) } };

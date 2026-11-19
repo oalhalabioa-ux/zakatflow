@@ -10,8 +10,11 @@ const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('simplifiedPrepare') }).strict(),
   z.object({ action: z.literal('simplifiedSubmit'), index: z.number().int().min(0).max(2), manifestDigest: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
   z.object({ action: z.literal('finalCertificateRequest'), readinessDigest: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
+  z.object({ action: z.literal('clearancePrepare') }).strict(),
+  z.object({ action: z.literal('clearanceSubmit'), index: z.number().int().min(0).max(2), manifestDigest: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
 ]);
 const safeErrors = new Set(['QA_TARGET_REQUIRED','QA_IDENTITY_REQUIRED','QA_CONFIGURATION_INVALID','QA_PRIVATE_STORAGE_UNAVAILABLE',
+  'QA_CLEARANCE_CONTEXT_UNAVAILABLE','QA_CLEARANCE_ORIGINAL_CHANGED','QA_CLEARANCE_STORAGE_UNAVAILABLE','QA_CLEARANCE_PREVIOUS_REQUIRED','QA_CLEARANCE_RECONCILIATION_REQUIRED','QA_CLEARANCE_INPUT_INVALID',
   'QA_FINAL_CSID_CONTEXT_UNAVAILABLE','QA_FINAL_CSID_ORIGINAL_CHANGED','QA_FINAL_CSID_RECONCILIATION_REQUIRED','QA_FINAL_CSID_STORAGE_UNAVAILABLE','QA_FINAL_CSID_INPUT_INVALID',
   'QA_STORAGE_FENCE_UNVERIFIED','QA_STANDARD_CONTEXT_UNAVAILABLE','QA_STANDARD_ORIGINAL_CHANGED','QA_STANDARD_STORAGE_UNAVAILABLE',
   'QA_STANDARD_PREVIOUS_REQUIRED','QA_STANDARD_RECONCILIATION_REQUIRED',
@@ -68,6 +71,8 @@ export function createSimulationQaHttpHandler(open: () => ReturnType<typeof crea
       if (action.action === 'simplifiedPrepare') return finish(200, { simplifiedExperiment: await diagnostic.prepareSimplifiedExperiment() });
       if (action.action === 'simplifiedSubmit') return finish(200, { simplifiedExperiment: await diagnostic.submitSimplifiedExperiment({ index: action.index, manifestDigest: action.manifestDigest }) });
       if (action.action === 'finalCertificateRequest') return finish(200, { finalCertificate: await diagnostic.requestFinalSimulationCertificate({ readinessDigest: action.readinessDigest }) });
+      if (action.action === 'clearancePrepare') return finish(200, { standardClearance: await diagnostic.prepareStandardClearance() });
+      if (action.action === 'clearanceSubmit') return finish(200, { standardClearance: await diagnostic.submitStandardClearance({ index: action.index, manifestDigest: action.manifestDigest }) });
       return finish(200, await diagnostic.submitOtp({ otp: action.otp, csrSha256: action.csrSha256 }));
     } catch (error) {
       const code = error instanceof Error && safeErrors.has(error.message) ? error.message : 'QA_REQUEST_FAILED';

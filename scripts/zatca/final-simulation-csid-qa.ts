@@ -71,6 +71,20 @@ export function createFinalSimulationCsidQa(deps: FinalSimulationCsidDependencie
   }
   return {
     async status() { return summary(await context()); },
+    // Backend-only protocol diagnostics. Never returned by HTTP/status and never
+    // an application registry/signer activation or a claim of CA trust.
+    async diagnosticCredential() {
+      const ctx = await context(), checked = await summary(ctx);
+      if (checked.state !== 'RESPONSE_QUARANTINED' || !checked.identityKeyTimeVerified)
+        throw new Error('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+      const saved = await deps.read(responseName);
+      if (!saved || hash(saved.content) !== checked.responseDigest) throw new Error('QA_FINAL_CSID_ORIGINAL_CHANGED');
+      const result = resultSchema.parse(JSON.parse(saved.content));
+      return { originalDigest: ctx.value.originalDigest, standardManifestDigest: ctx.value.standardManifestDigest,
+        simplifiedManifestDigest: ctx.value.simplifiedManifestDigest,
+        finalResponseDigest: checked.responseDigest, finalFingerprint: checked.fingerprintSha256,
+        token: result.response.binarySecurityToken, secret: result.response.secret };
+    },
     async request(input: unknown) {
       const p = z.object({ readinessDigest: pin }).strict().safeParse(input);
       if (!p.success) throw new Error('QA_FINAL_CSID_INPUT_INVALID');

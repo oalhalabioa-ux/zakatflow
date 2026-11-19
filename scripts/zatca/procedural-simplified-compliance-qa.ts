@@ -112,6 +112,11 @@ export function createProceduralSimplifiedComplianceQa(deps: ProceduralSimplifie
       qrCharacterCounts: m.value.artifacts.map(a => a.qrCharacters) };
   }
   return {
+    async deliveryLink() {
+      const ctx = await context(), saved = await manifest(ctx);
+      if (!saved || !(await summary(saved)).passed) throw new Error('QA_SIMPLIFIED_PROCEDURAL_PREVIOUS_REQUIRED');
+      return { simplifiedManifestDigest: saved.digest, previousInvoiceHash: saved.value.artifacts[2].invoiceHash };
+    },
     async completedLink() {
       const ctx = await context(), saved = await manifest(ctx);
       if (!saved || !(await summary(saved)).passed) throw new Error('QA_SIMPLIFIED_PROCEDURAL_PREVIOUS_REQUIRED');

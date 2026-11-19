@@ -26,6 +26,10 @@
     QA_FINAL_CSID_CONTEXT_UNAVAILABLE: 'لم تكتمل متطلبات طلب شهادة المحاكاة النهائية. حدّث الحالة للمراجعة.',
     QA_FINAL_CSID_ORIGINAL_CHANGED: 'تغيّرت بيانات طلب الشهادة النهائية. يلزم مراجعتها دون إعادة الإرسال.',
     QA_FINAL_CSID_RECONCILIATION_REQUIRED: 'محاولة الشهادة النهائية محفوظة وتحتاج قراءة نتيجتها. لا تُعد الطلب؛ حدّث الحالة فقط.',
+    QA_CLEARANCE_CONTEXT_UNAVAILABLE: 'متطلبات اختبار الاعتماد غير مكتملة. حدّث الحالة للمراجعة.',
+    QA_CLEARANCE_ORIGINAL_CHANGED: 'اختلفت بيانات عينة الاعتماد المحفوظة. لا تُعد الإرسال.',
+    QA_CLEARANCE_RECONCILIATION_REQUIRED: 'محاولة الاعتماد محفوظة ونتيجتها غير مؤكدة. حدّث الحالة فقط ولا تُعد الإرسال.',
+    QA_CLEARANCE_PREVIOUS_REQUIRED: 'يجب نجاح اعتماد العينة السابقة أولًا.',
   };
   function controls() {
     byId('prepare').disabled = busy || current?.state !== 'NOT_PREPARED';
@@ -46,9 +50,15 @@
     byId('finalCertificateSection').hidden = current?.state !== 'RESPONSE_QUARANTINED' || !finalCertificate;
     byId('finalCertificateRequest').disabled = busy || standard?.passed !== true || simplified?.passed !== true
       || finalCertificate?.state !== 'READY' || !finalCertificate?.readinessDigest;
+    const clearance = current?.standardClearance;
+    byId('clearanceSection').hidden = current?.state !== 'RESPONSE_QUARANTINED' || !clearance;
+    const finalReady = finalCertificate?.state === 'RESPONSE_QUARANTINED' && finalCertificate.identityKeyTimeVerified === true;
+    byId('clearancePrepare').disabled = busy || !finalReady || clearance?.state !== 'NOT_PREPARED';
+    for (let i = 0; i < 3; i++) byId('clearanceSubmit' + i).disabled = busy || !finalReady || !clearance?.manifestDigest
+      || clearance.results?.[i]?.state !== 'NOT_SENT' || clearance.results.slice(0, i).some(r => r.state !== 'PASSED');
   }
   function render(value) {
-    if (!value.state && (value.standardCompliance || value.simplifiedExperiment || value.finalCertificate)) value = { ...current, ...value };
+    if (!value.state && (value.standardCompliance || value.simplifiedExperiment || value.finalCertificate || value.standardClearance)) value = { ...current, ...value };
     current = value;
     const company = value.company;
     if (company) {
@@ -82,6 +92,10 @@
       BLOCKED: 'طلب الشهادة النهائية متوقف للمراجعة. حدّث الحالة فقط.',
     };
     byId('finalCertificateResult').textContent = finalLabels[value.finalCertificate?.state] || '';
+    const clearanceLabels = { PASSED: 'نجح طلب الاعتماد وطابقت بيانات المستند المرتجع. التحقق المستقل من ختم الهيئة لم يكتمل.',
+      FAILED: 'لم يكتمل فحص الاعتماد. حُفظت النتيجة للمراجعة دون إعادة إرسال.',
+      RECONCILIATION_REQUIRED: 'نتيجة غير مؤكدة؛ حدّث الحالة فقط ولا تُعد الإرسال.', NOT_SENT: 'لم يُرسل بعد.' };
+    for (let i = 0; i < 3; i++) byId('clearanceResult' + i).textContent = clearanceLabels[value.standardClearance?.results?.[i]?.state] || '';
     controls();
   }
   async function call(body) {
@@ -101,6 +115,7 @@
       else if (body?.action?.startsWith('standard')) current = { ...current, standardCompliance: { state: 'BLOCKED' } };
       else if (body?.action?.startsWith('simplified')) current = { ...current, simplifiedExperiment: { state: 'BLOCKED' } };
       else if (body?.action === 'finalCertificateRequest') current = { ...current, finalCertificate: { state: 'BLOCKED' } };
+      else if (body?.action?.startsWith('clearance')) current = { ...current, standardClearance: { state: 'BLOCKED' } };
       else current = { ...current, state: 'ERROR' };
       byId('status').textContent = error instanceof Error ? error.message : 'تعذر إكمال العملية. حدّث الحالة.';
       byId('status').dataset.state = 'ERROR';
@@ -112,6 +127,14 @@
     void call({ action: 'finalCertificateRequest', readinessDigest: current.finalCertificate.readinessDigest });
   });
   byId('refresh').addEventListener('click', () => void call());
+  byId('clearancePrepare').addEventListener('click', () => {
+    if (busy || byId('clearancePrepare').disabled) return;
+    void call({ action: 'clearancePrepare' });
+  });
+  for (let i = 0; i < 3; i++) byId('clearanceSubmit' + i).addEventListener('click', () => {
+    if (busy || byId('clearanceSubmit' + i).disabled) return;
+    void call({ action: 'clearanceSubmit', index: i, manifestDigest: current.standardClearance.manifestDigest });
+  });
   byId('standardPrepare').addEventListener('click', () => void call({ action: 'standardPrepare' }));
   byId('simplifiedPrepare').addEventListener('click', () => {
     if (busy || byId('simplifiedPrepare').disabled) return;

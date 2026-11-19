@@ -28,6 +28,16 @@ function fixture() {
 const input = async (f: ReturnType<typeof fixture>) => ({ readinessDigest: (await f.api.status() as { readinessDigest: string }).readinessDigest });
 
 describe('final Simulation CSID one-shot quarantine', () => {
+  it('releases a verified saved credential only to a backend diagnostic closure, never status/HTTP', async () => {
+    const f = fixture(); await expect(f.api.diagnosticCredential()).rejects.toThrow('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+    await f.api.request(await input(f));
+    expect(await f.make().diagnosticCredential()).toMatchObject({ token: response.binarySecurityToken, secret: response.secret,
+      originalDigest: f.ctx.originalDigest, standardManifestDigest: f.ctx.standardManifestDigest, simplifiedManifestDigest: f.ctx.simplifiedManifestDigest });
+    expect(JSON.stringify(await f.make().status())).not.toMatch(/PRIVATE_|binarySecurityToken|requestId/);
+    f.verifyCertificate.mockRejectedValue(Error('PRIVATE_WRONG_KEY'));
+    await expect(f.make().diagnosticCredential()).rejects.toThrow('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+    expect(f.transport).toHaveBeenCalledTimes(1);
+  });
   it('reads readiness without writes, signing, transport or disclosure', async () => {
     const f = fixture(), status = await f.api.status();
     expect(status).toMatchObject({ state: 'READY', activationAllowed: false, trustVerified: false, applicationProfileApproved: false });

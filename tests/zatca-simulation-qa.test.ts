@@ -65,8 +65,15 @@ function fixture() {
     }
     throw new Error('Unexpected KMS operation');
   }) };
-  const transport = vi.fn(async (url?: unknown) => {
+  const transport = vi.fn<typeof fetch>(async (url, init) => {
     if (state.requestFail) throw new Error('654321 PRIVATE_CREDENTIAL');
+    if (typeof url === 'string' && url.endsWith('/invoices/clearance/single')) {
+      const xml = Buffer.from(JSON.parse(String(init!.body)).invoice, 'base64').toString();
+      const cleared = xml.replace(/(<Invoice\b[^>]*>)/, '$1<ext:UBLExtensions xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"><ext:UBLExtension><ext:ExtensionContent><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:SignatureValue>U1lOVEhFVElD</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>U1lOVEhFVElD</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature></ext:ExtensionContent></ext:UBLExtension></ext:UBLExtensions>')
+        .replace('</Invoice>', '<cac:AdditionalDocumentReference><cbc:ID>QR</cbc:ID><cac:Attachment><cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">U1lOVEhFVElD</cbc:EmbeddedDocumentBinaryObject></cac:Attachment></cac:AdditionalDocumentReference></Invoice>');
+      return new Response(JSON.stringify({ validationResults: { status: 'PASS', errorMessages: [], warningMessages: [] },
+        clearanceStatus: 'CLEARED', clearedInvoice: Buffer.from(cleared).toString('base64') }));
+    }
     if (typeof url === 'string' && url.endsWith('/compliance/invoices')) return new Response(JSON.stringify({ validationResults: { status: 'PASS', errorMessages: [], warningMessages: [] } }));
     let certificate = 'MAA=';
     if (state.validCertificate) {
@@ -172,8 +179,9 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
   it('gates the procedural experiment, binds it to completed STANDARD originals and signs each artifact/receipt once', async () => {
     const f = fixture(); f.state.validCertificate = true; f.state.interimCertificate = true;
     const sample = { street: 'Synthetic street', building: '1234', district: 'Synthetic district', additional: '5678', postal: '12345', city: 'Riyadh' };
-    const api = f.create({ ...f.config, standardSample: sample, proceduralSimplifiedExperiment: true, finalCertificateExperiment: true });
+    const api = f.create({ ...f.config, standardSample: sample, proceduralSimplifiedExperiment: true, finalCertificateExperiment: true, standardClearanceExperiment: true });
     await api.submitOtp(otpInput(await api.prepareOriginal()));
+    await expect(api.prepareStandardClearance()).rejects.toThrow('QA_CLEARANCE_CONTEXT_UNAVAILABLE');
     await expect(api.requestFinalSimulationCertificate({ readinessDigest: '0'.repeat(64) })).rejects.toThrow('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
     await expect(api.prepareSimplifiedExperiment()).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
     const p = await api.prepareStandardCompliance() as { manifestDigest: string };
@@ -208,9 +216,24 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
     for (const [name, content] of originalEntries) expect(f.map.get(name)!.content).toBe(content);
     await api.requestFinalSimulationCertificate({ readinessDigest: final.readinessDigest });
     expect(f.transport).toHaveBeenCalledTimes(8); expect(count()).toBe(signs + 6);
+    await expect(f.create({ ...f.config, standardSample: sample, proceduralSimplifiedExperiment: true, finalCertificateExperiment: true })
+      .prepareStandardClearance()).rejects.toThrow('QA_CLEARANCE_CONTEXT_UNAVAILABLE');
+    const priorToDelivery = [...f.map].map(([name, value]) => [name, value.content] as const);
+    const c = await api.prepareStandardClearance() as { manifestDigest: string };
+    expect(count()).toBe(signs + 6); expect(f.transport).toHaveBeenCalledTimes(8);
+    for (let index = 0; index < 3; index++) await api.submitStandardClearance({ index, manifestDigest: c.manifestDigest });
+    expect(f.transport).toHaveBeenCalledTimes(11); expect(count()).toBe(signs + 6);
+    const delivery = await api.status();
+    expect(delivery).toHaveProperty('standardClearance.protocolPassed', true);
+    expect(delivery).toHaveProperty('standardClearance.authorityStampVerified', false);
+    expect(delivery).toHaveProperty('standardClearance.activationAllowed', false);
+    for (const [name, content] of priorToDelivery) expect(f.map.get(name)!.content).toBe(content);
+    expect(JSON.stringify(delivery)).not.toMatch(/PRIVATE_CREDENTIAL|SignatureValue|rawResponse|clearedInvoice|binarySecurityToken/);
+    await api.submitStandardClearance({ index: 0, manifestDigest: c.manifestDigest }); expect(f.transport).toHaveBeenCalledTimes(11);
     f.state.wrongKey = true;
+    await expect(api.submitStandardClearance({ index: 0, manifestDigest: c.manifestDigest })).rejects.toThrow('QA_CLEARANCE_CONTEXT_UNAVAILABLE');
     await expect(api.submitSimplifiedExperiment({ index: 0, manifestDigest: b.manifestDigest })).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
-    expect(f.transport).toHaveBeenCalledTimes(8);
+    expect(f.transport).toHaveBeenCalledTimes(11);
   });
   it('recovers original/response lost acknowledgements without changing the saved bytes or resending', async () => {
     const f = fixture(); f.state.originalLostAck = true; f.state.responseLostAck = true;
