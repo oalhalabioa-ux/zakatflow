@@ -22,7 +22,7 @@ const legacyLandSchema=z.object({
   currency:z.string().regex(/^(?:[A-Z]{3})?$/),structure:reference.structure.optional(),
   sourceNotes:z.string().max(5000).optional(),timelinePeriod:z.literal('annual').optional()
  }).strip(),
- site:fields.site.omit({valuationDate:true,appraiser:true}).strip(),
+ site:fields.site.omit({valuationDate:true,appraiser:true,acquisitionBasis:true,acquisitionArea:true}).strip(),
  cost:fields.cost.omit({developmentItems:true}).strip(),
  finance:fields.finance.extend({loanDrawFirstYear:fields.finance.shape.loanDrawFirstYear.optional()}).strip(),
  sales:z.object({

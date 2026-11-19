@@ -46,6 +46,7 @@ export default function RoyalOverview({ study, locale, model, sectorLabel, statu
     transfer: t('نقل ملكية الأرض', 'Land ownership transfer'),
     lease: t('إيجار الأرض', 'Land lease'),
     right: t('حق انتفاع', 'Right of use'),
+    purchase: t('شراء الأرض نقدًا', 'Cash land purchase'),
   }[study.water.deal.landMode] : study.landTransferred ? t('نقل ملكية الأرض', 'Land ownership transfer') : '—';
   const profile = [
     [t('القطاع', 'Sector'), sectorLabel],

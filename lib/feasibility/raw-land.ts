@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {internalRateOfReturn} from './engine';
 import {landDistributionSchema} from './raw-land-distributions';
+import {quantityBudgetSchema,evaluateQuantityBudget} from './quantity-costs';
 
 const amount=z.number().min(0).max(1e12);
 const ratio=z.number().min(0).max(1);
@@ -21,9 +22,12 @@ const legacyReferenceSchema=z.object({
  absorption:z.array(z.object({name:shortText,phasing:phases}).strict()).max(20)
 }).strict();
 export const rawLandSchema=z.object({
+ quantityDevelopment:z.object({budget:quantityBudgetSchema,roadLength:amount,networkLength:amount,serviceArea:amount,
+  serviceAreaFromSite:z.boolean().optional(),assumptionSource:z.string().max(3000).optional(),landTiming:z.enum(['YEAR1','YEAR0']).optional()}).strict().optional(),
  project:z.object({startYear:z.number().int().min(1900).max(2200),years:z.number().int().min(1).max(15),discountRate:ratio}).strict(),
  site:z.object({areaAfterPriorTransfers:amount,excludedValley:amount,extraExcluded:amount,otherConstraintsSqm:amount,
   serviceRatio:ratio,landPricePerNetSqm:amount,landPaymentMethod:z.enum(['in_kind','cash']),
+  acquisitionBasis:z.enum(['NET','GROSS','MANUAL']).optional(),acquisitionArea:amount.optional(),
   priorTransferDescription:z.string().max(5000),valuationDate:z.union([z.literal(''),z.iso.date()]),appraiser:shortText}).strict(),
  cost:z.object({developmentPerNetSqm:amount,studies:amount,developerFeeRate:ratio,developerFeeBase:z.enum(['development','dev_plus_studies']),
   marketingRate:ratio,marketingMode:z.enum(['reference','scenario']),marketingReferenceRevenue:amount,
@@ -81,14 +85,19 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  const net=Math.max(0,site.areaAfterPriorTransfers-excluded);
  const saleArea=net*(1-site.serviceRatio);
  const shareTotal=sum(uses.map(use=>use.share));
- const invalidPhases=Object.entries(phasing).filter(([,phase])=>!one(sum(phase))).map(([key])=>key);
+ const invalidPhases=[...Object.entries(phasing).filter(([,phase])=>!one(sum(phase))).map(([key])=>key),
+  ...(model.quantityDevelopment?.budget.enabled?model.quantityDevelopment.budget.items.filter(x=>x.phasing&&!one(sum(x.phasing))).map(x=>'quantity_'+x.id):[])];
  const invalidUsePhases=uses.some(use=>[use.salesPhasing,use.collectionPhasing].some(phase=>phase&&!one(sum(phase))));
  const validGrowth=uses.every(use=>scenario.annualGrowth+use.annualGrowthAdjustment>=-1);
  const issue=excluded>site.areaAfterPriorTransfers?'area':!one(shareTotal)?'mix':invalidPhases.length||invalidUsePhases?'phasing':
   sales.priceMode==='compound'&&!validGrowth?'growth':null;
  if(issue)return {issue,net,saleArea,shareTotal,invalidPhases} as const;
- const land=net*site.landPricePerNetSqm;
- const developmentBase=cost.developmentItems?.length
+ const acquisitionArea=site.acquisitionBasis==='GROSS'?site.areaAfterPriorTransfers:site.acquisitionBasis==='MANUAL'?(site.acquisitionArea??0):net;
+ const land=acquisitionArea*site.landPricePerNetSqm;
+ const quantity=evaluateQuantityBudget(model.quantityDevelopment?.budget,{LAND_AREA:site.areaAfterPriorTransfers,NET_AREA:net,SALE_AREA:saleArea,
+  ROAD_LENGTH:model.quantityDevelopment?.roadLength??0,NETWORK_LENGTH:model.quantityDevelopment?.networkLength??0,
+  SERVICE_AREA:model.quantityDevelopment?.serviceAreaFromSite?net*site.serviceRatio:model.quantityDevelopment?.serviceArea??0});
+ const developmentBase=model.quantityDevelopment?.budget.enabled?quantity.total:cost.developmentItems?.length
   ?sum(cost.developmentItems.map(item=>item.quantity*item.unitCost))
   :net*cost.developmentPerNetSqm;
  const development=developmentBase*scenario.costMultiplier;
@@ -135,6 +144,10 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
   otherCosts:cost.otherCosts+cost.taxes+cost.landAcquisitionFees
  };
  const weights=Object.fromEntries(rawLandCostKeys.map(key=>[key,annualPhaseWeights(phasing[key],project.years,0,years)])) as Record<(typeof rawLandCostKeys)[number],number[]>;
+ if(model.quantityDevelopment?.budget.enabled&&developmentBase>0){
+  weights.development=Array.from({length:years},(_,i)=>quantity.rows.reduce((s,item)=>
+   s+item.total/developmentBase*annualPhaseWeights(item.phasing??phasing.development,project.years,0,years)[i],0));
+ }
  let debt=0;
  const allocations=annualSales.map((salesValue,i)=>{
   const draw=finance.facility*(saleYears===1?1:i===0?finance.loanDrawFirstYear:i===1?1-finance.loanDrawFirstYear:0);
@@ -152,30 +165,41 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  const hurdle=(waterfall.hurdleBase==='revenue'?revenue:totalCost)*waterfall.hurdleRate;
  const incentive=Math.max(0,gross-hurdle)*waterfall.incentiveRate;
  const profit=gross-incentive;
- let cumulativeOperating=0,cumulativeProject=0,cumulativeEquity=0;
+ const landAtStart=model.quantityDevelopment?.landTiming==='YEAR0';
+ const initialProject=landAtStart?-land:0,initialEquity=landAtStart&&site.landPaymentMethod==='cash'?-land:0;
+ let cumulativeOperating=0,cumulativeProject=initialProject,cumulativeEquity=initialEquity;
  let receivables=0;
  const annual=allocations.map((row,i)=>{
   const cashCost=row.interest+sum(rawLandCostKeys.filter(key=>key!=='interestBudget').map(key=>costs[key]*weights[key][i]));
   receivables+=row.salesValue-row.cashCollected;
   const operatingCash=row.cashCollected-cashCost;
   const performanceFee=i===years-1?incentive:0;
-  const projectCash=operatingCash-performanceFee-(i===0?land:0);
-  const equityCash=operatingCash-performanceFee+row.draw-row.repayment-(i===0&&site.landPaymentMethod==='cash'?land:0);
+  const projectCash=operatingCash-performanceFee-(i===0&&!landAtStart?land:0);
+  const equityCash=operatingCash-performanceFee+row.draw-row.repayment-(i===0&&!landAtStart&&site.landPaymentMethod==='cash'?land:0);
   cumulativeOperating+=operatingCash;cumulativeProject+=projectCash;cumulativeEquity+=equityCash;
   return {...row,receivables:Math.max(0,receivables),year:project.startYear+i,soldArea:saleArea*saleWeights[i],cashCost,operatingCash,performanceFee,projectCash,
    equityCash,cumulativeOperating,cumulativeProject,cumulativeEquity};
  });
- const npv=sum(annual.map((row,i)=>row.projectCash/(1+project.discountRate)**(i+1)));
+ const npv=initialProject+sum(annual.map((row,i)=>row.projectCash/(1+project.discountRate)**(i+1)));
  const ready=saleArea>0&&revenue>0&&totalCost>0;
- const projectedCash=annual.map(row=>row.projectCash).filter(value=>value!==0);
+ const projectFlows=landAtStart?[initialProject,...annual.map(row=>row.projectCash)]:annual.map(row=>row.projectCash);
+ const projectedCash=projectFlows.filter(value=>value!==0);
  const signChanges=projectedCash.filter((value,i)=>i>0&&Math.sign(value)!==Math.sign(projectedCash[i-1])).length;
- const irr=ready&&signChanges===1?internalRateOfReturn(annual.map(row=>row.projectCash)):null;
+ const irr=ready&&signChanges===1?internalRateOfReturn(projectFlows):null;
+ let cumulative=initialProject,payback:number|null=null;
+ if(landAtStart)for(const [i,row] of annual.entries()){
+  const prior=cumulative;cumulative+=row.projectCash;
+  if(prior<0&&cumulative>=0){payback=i-prior/row.projectCash;break;}
+ }
  return {issue:null,ready,net,saleArea,land,revenue,costs,cashDevelopmentCost,totalCost,gross,incentive,
+  ...(model.quantityDevelopment||site.acquisitionBasis?{acquisitionArea,quantityReadiness:{ready:quantity.ready,blockers:quantity.blockers},
+   financeMetrics:{initialProject,initialEquity,projectFlows,payback,dscr:annual.map(row=>row.interest+row.repayment>0?
+    (row.cashCollected-row.cashCost+row.interest-row.performanceFee)/(row.interest+row.repayment):null)}}:{}),
   developerIncentive:incentive*waterfall.developerIncentiveShare,
   managerIncentive:incentive*(1-waterfall.developerIncentiveShare),profit,npv,irr,
   roiLand:land>0?profit/land:null,roiCost:totalCost>0?profit/totalCost:null,
   margin:revenue>0?profit/revenue:null,averagePrice:saleArea>0?revenue/saleArea:null,
   breakEven:saleArea>0?totalCost/saleArea:null,
   peakCashDeficit:Math.max(0,-Math.min(...annual.map(row=>row.cumulativeOperating))),
-  peakEquityDeficit:Math.max(0,-Math.min(...annual.map(row=>row.cumulativeEquity))),annual} as const;
+  peakEquityDeficit:Math.max(0,-Math.min(initialEquity,...annual.map(row=>row.cumulativeEquity))),annual} as const;
 }

@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import {internalRateOfReturn, type FeasibilityStudy} from './engine';
+import {quantityBudgetSchema,evaluateQuantityBudget} from './quantity-costs';
 
 const amount=z.number().finite().min(0).max(1e12);
 const pct=z.number().finite().min(0).max(100);
@@ -14,12 +15,18 @@ const waterUnitCosts=z.object({
 }).strict();
 export const emptyWaterUnitCosts={bottle:0,cap:0,label:0,carton:0,kwh:0,rawWaterM3:0,distributionKm:0};
 export const waterModelSchema=z.object({
+ quantityCosting:z.object({
+  builtArea:amount,capital:quantityBudgetSchema,fixed:quantityBudgetSchema,assumptionSource:z.string().max(3000).optional(),
+  materialsEnabled:z.boolean(),materialSource:z.string().max(1000),productionEnabled:z.boolean().optional(),
+  landByArea:z.boolean(),landUnitPrice:amount,landSource:z.string().max(1000),
+ }).strict().optional(),
  capexQuoteSources:z.partialRecord(z.enum(waterCapexItemKeys),z.object({
   quoteId:z.string().trim().min(1).max(100),vendor:z.string().trim().min(1).max(300),item:z.string().trim().min(1).max(500),
   amount,currency:z.string().regex(/^[A-Z]{3}$/),importedAt:z.iso.datetime()
  }).strict()).optional(),
  deal:z.object({
-  landMode:z.enum(['transfer','lease','right']),landValue:amount,landArea:amount,rightValue:amount,
+  landMode:z.enum(['transfer','lease','right','purchase']),landValue:amount,landArea:amount,rightValue:amount,
+  acquisitionFees:amount.optional(),
   leaseMonth:amount,licenseValue:amount,investorLoan:amount,loanInterest:pct,
   loanYears:z.number().int().min(0).max(60),loanStart:z.number().int().min(0).max(60),
   extraFunding:amount,extraType:z.enum(['loan','equity']),
@@ -83,11 +90,12 @@ const nominalWaterDemand=(ops:WaterModel['ops'])=>
  ops.bottlesHour*ops.hoursDay*ops.litersBottle/(1000*waterRecovery(ops.waterLossPct));
 
 export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'name'>){
- const {deal,capex,ops}=model;
+ const effective=effectiveWaterInputs(model),{deal,capex,ops}=effective;
  const hard=capex.buildings+capex.line+capex.treatment+capex.power+capex.lab+capex.vehicles+capex.others;
  const contingency=hard*capex.contingencyPct/100;
  const investment=hard+contingency+capex.licenses;
- const cashRequired=investment+capex.workingCapital;
+ const purchaseLand=deal.landMode==='purchase'?deal.landValue+(deal.acquisitionFees??0):0;
+ const cashRequired=investment+capex.workingCapital+purchaseLand;
  const land=deal.landMode==='transfer'?deal.landValue:deal.landMode==='right'?deal.rightValue:0;
  const shareholderLoan=Math.min(deal.investorLoan,cashRequired);
  const investorEquity=cashRequired-shareholderLoan+(deal.extraType==='equity'?deal.extraFunding:0);
@@ -98,7 +106,8 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const initialPrice=ops.priceCarton*(scenario?.price??100)/100;
  const initialCost=ops.variableCarton*(scenario?.cost??100)/100;
  const returnRate=(model.operationsPlan?.returnsPct??0)/100;
- const dispatchContribution=initialPrice*(1-returnRate)-initialCost;
+ const finishedYield=model.quantityCosting?.productionEnabled?1-(model.operationsPlan?.finishedBottleLossPct??0)/100:1;
+ const dispatchContribution=initialPrice*finishedYield*(1-returnRate)-initialCost;
  const initialFixed=(ops.fixedMonth+deal.leaseMonth)*12;
  const depreciation=investment/Math.max(1,ops.life);
  const maintenance=investment*ops.maintenancePct/100;
@@ -110,8 +119,10 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   const volume=capacity*utilization/100;
   const price=initialPrice*(1+ops.priceGrowth/100)**i;
   const unitCost=initialCost*(1+ops.costGrowth/100)**i;
-  const returnedVolume=volume*returnRate;
-  const netVolume=volume-returnedVolume;
+  const finishedLoss=model.quantityCosting?.productionEnabled?(model.operationsPlan?.finishedBottleLossPct??0)/100:0;
+  const saleableVolume=volume*(1-finishedLoss);
+  const returnedVolume=saleableVolume*returnRate;
+  const netVolume=saleableVolume-returnedVolume;
   const revenue=netVolume*price;
   const variable=volume*unitCost;
   const fixed=initialFixed*(1+ops.fixedGrowth/100)**i;
@@ -144,10 +155,33 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   }
  }
  return {hard,contingency,investment,cashRequired,land,investorEquity,totalEquity,shareholderLoan,totalLoan,
+  ...(model.quantityCosting||purchaseLand?{purchaseLand,costingReadiness:effective.readiness}:{}),
   investorShare:totalEquity?investorEquity/totalEquity*100:null,partnerShare:totalEquity?land/totalEquity*100:null,
   capacity,waterDemand,annual,flows,npv,cashNpv:npv+land,irr:internalRateOfReturn(flows),payback,
   breakEven:dispatchContribution>0?initialFixed/dispatchContribution:null,
-  ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.volume>0)};
+  ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.netVolume>0)};
+}
+
+export function effectiveWaterInputs(model:WaterModel){
+ const q=model.quantityCosting,context={LAND_AREA:model.deal.landArea,BUILT_AREA:q?.builtArea??0,CAPACITY:model.ops.bottlesHour};
+ const capital=evaluateQuantityBudget(q?.capital,context),fixed=evaluateQuantityBudget(q?.fixed,context);
+ const capex={...model.capex};
+ if(q?.capital.enabled){
+  for(const key of waterCapexItemKeys)capex[key]=capital.rows.filter(x=>x.category===key).reduce((s,x)=>s+x.total,0);
+ }
+ const material=waterVariableCostBreakdown(model);
+ const ops={...model.ops,...(q?.fixed.enabled?{fixedMonth:fixed.total}:{}),...(q?.materialsEnabled?{variableCarton:material?.total??0}:{})};
+ const deal={...model.deal,...(q?.landByArea?{landValue:model.deal.landArea*q.landUnitPrice}:{})};
+ const blockers=[...capital.blockers,...fixed.blockers,
+  ...(q?.capital.enabled?capital.rows.filter(x=>!waterCapexItemKeys.includes(x.category as WaterCapexItemKey)).map(x=>'CATEGORY:'+x.id):[]),
+  ...(q?.materialsEnabled&&(!material||material.total<=0||!q.materialSource.trim())?['MATERIAL_INPUTS']:[]),
+  ...(q?.landByArea&&(!(deal.landValue>0)||!q.landSource.trim())?['LAND_VALUATION']:[]),
+  ...(q?.landByArea&&(!Number.isFinite(deal.landValue)||deal.landValue>1e12)?['LAND_LIMIT']:[]),
+  ...(q?.productionEnabled&&(!model.operationsPlan?.sourceName.trim()||!model.operationsPlan?.permitReference.trim()||model.ops.licensedWaterM3Day<=0)?['WATER_SOURCE_EVIDENCE']:[]),
+  ...(q?.productionEnabled&&nominalWaterDemand(model.ops)>model.ops.licensedWaterM3Day?['LICENSED_WATER_CAPACITY']:[]),
+  ...(q?.productionEnabled&&model.operationsPlan?.pumpingM3Hour&&model.operationsPlan.sourceHoursDay&&nominalWaterDemand(model.ops)>model.operationsPlan.pumpingM3Hour*model.operationsPlan.sourceHoursDay?['PUMP_CAPACITY']:[]),
+ ];
+ return {deal,capex,ops,capital,fixed,material,readiness:{ready:blockers.length===0,blockers}};
 }
 
 export function waterProductionBalance(model:WaterModel){

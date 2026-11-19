@@ -6,10 +6,11 @@ import {evaluateStudy} from '@/lib/feasibility/engine';
 import {handoffReadiness} from '@/lib/feasibility/handoff';
 import {evaluateRawLand} from '@/lib/feasibility/raw-land';
 import RawLandPanel from './RawLandPanel';
-import {evaluateWater,studyReportReadiness} from '@/lib/feasibility/water-model';
+import {evaluateWater,effectiveWaterInputs,studyReportReadiness} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import {studyProfileValues,studyTypeLabels} from '@/lib/feasibility/study-profile';
 import WaterModelPanel from './WaterModelPanel';
+import CostingReport from './CostingReport';
 
 const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
@@ -60,7 +61,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const land=study.rawLand?evaluateRawLand(study.rawLand):null;
  const landResult=land?.issue===null&&land.ready?land:null;
  const water=study.water?evaluateWater(study.water):null;
- const deal=study.water?.deal;
+ const deal=study.water?effectiveWaterInputs(study.water).deal:undefined;
  const funding=study.rawLand?[
   [l('التسهيل التمويلي','Financing facility'),money(study.rawLand.finance.facility)],
   [l('تكاليف التطوير النقدية','Cash development costs'),money(landResult?.cashDevelopmentCost??null)],
@@ -69,6 +70,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  ]:water&&study.water&&deal?[
   [l('تكلفة التأسيس مع الرسوم','Establishment costs including fees'),money(water.investment)],
   [l('رأس المال العامل الأولي','Opening working capital'),money(study.water.capex.workingCapital)],
+  [l('شراء الأرض ورسوم الاستحواذ النقدية','Cash land purchase and acquisition fees'),money(water.purchaseLand??0)],
   [l('التمويل النقدي المطلوب عند التأسيس','Initial cash requirement'),money(water.cashRequired)],
   [l('إجمالي رأس مال الممول النقدي','Total investor cash equity'),money(water.investorEquity)],
   [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(water.shareholderLoan)],
@@ -96,7 +98,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   [l('حافز المدير','Manager incentive'),money(landResult?.managerIncentive??null)]
  ]:water&&deal?[
   [l('معالجة الأرض','Land arrangement'),{
-   transfer:l('نقل الملكية','Title transfer'),lease:l('إيجار','Lease'),right:l('حق انتفاع مقوّم','Valued right of use')
+   transfer:l('نقل الملكية','Title transfer'),lease:l('إيجار','Lease'),right:l('حق انتفاع مقوّم','Valued right of use'),purchase:l('شراء نقدي','Cash purchase')
   }[deal.landMode]],
   [l('الحصة العينية للأرض أو الحق','Land or right-of-use in-kind contribution'),money(water.land)],
   [l('قيمة الرخصة للمراجعة','Licence value for review'),money(deal.licenseValue)],
@@ -244,8 +246,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      onClick={printSelected}><RoyalIcon name="print"/>{l('طباعة / PDF','Print / PDF')}</button>
    </div>
   </dialog>}
-  {study.rawLand?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><RawLandPanel model={study.rawLand} locale={locale} currency={study.currency} tab="report" allowExport={allowExport}/></div>:
-   study.water?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/></div>:
+  {study.rawLand?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><RawLandPanel model={study.rawLand} locale={locale} currency={study.currency} tab="report" allowExport={allowExport}/><CostingReport study={study} locale={locale} allowExport={allowExport}/></div>:
+   study.water?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/><CostingReport study={study} locale={locale} allowExport={allowExport}/></div>:
    <section className="card fs-panel" id={sectionId('finance')} tabIndex={-1} data-report-section="finance">
     <h3>{l('الملخص والتوقعات المالية الأساسية','Base-case financial summary and projections')}</h3>
     <ul className="fs-notes">

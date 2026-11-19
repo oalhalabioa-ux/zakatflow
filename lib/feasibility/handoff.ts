@@ -1,5 +1,5 @@
 import {evaluateRawLand} from './raw-land';
-import {evaluateWater} from './water-model';
+import {evaluateWater,effectiveWaterInputs} from './water-model';
 import {defaultLegalItems,evaluateStudy,type FeasibilityStudy} from './engine';
 
 export type HandoffCheck={key:string;ar:string;en:string;passed:boolean};
@@ -29,6 +29,14 @@ export function handoffReadiness(study:FeasibilityStudy){
   {key:'legal',ar:'تحقق أولي من ملكية الموقع والتقييم والتراخيص',en:'Preliminary land, valuation and licensing checks verified',passed:legalVerified},
   {key:'blockers',ar:'لا يوجد مانع قانوني مسجل',en:'No recorded legal blocker',passed:!study.legal.some(x=>x.status==='BLOCKED')}
  ];
+ if(study.water?.quantityCosting)checks.push({key:'quantity',ar:'الكميات وأسعار الوحدات موثقة ومكتملة',en:'Quantities and unit prices are complete and documented',passed:effectiveWaterInputs(study.water).readiness.ready});
+ if(land&&land.issue===null&&study.rawLand?.quantityDevelopment)checks.push({key:'quantity',ar:'كميات التطوير وأسعارها موثقة ومكتملة',en:'Development quantities and prices are complete and documented',passed:land.quantityReadiness?.ready??false});
+ if(study.water||study.rawLand){
+  const detailed=study.water?.quantityCosting??study.rawLand?.quantityDevelopment;
+  checks.push({key:'risk',ar:'معالجة المخاطر المرتفعة وعدم ترك مخاطر مرتفعة دون استجابة',en:'High risks are mitigated with documented responses',passed:!study.risks.some(x=>x.impact*x.likelihood>=15&&(x.status!=='MITIGATED'||!x.response.trim()))});
+  checks.push({key:'execution',ar:'عدم وجود مهمة تنفيذ عالية الأولوية معلّقة',en:'No blocked high-priority implementation task',passed:!study.tasks.some(x=>x.priority==='HIGH'&&x.status==='BLOCKED')});
+  if(detailed)checks.push({key:'assumptions',ar:'توثيق افتراضات التشغيل والبيع والتمويل ومصادرها',en:'Operating, sales and financing assumptions and sources documented',passed:Boolean(detailed.assumptionSource?.trim())});
+ }
  return {checks,ready:checks.every(x=>x.passed)};
 }
 export function handoffSetupPath(locale:string,organizationId:string,authorizedIds:readonly string[]):string|null{

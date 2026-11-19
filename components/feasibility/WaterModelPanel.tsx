@@ -7,6 +7,8 @@ import type {StudySupplier} from '@/lib/feasibility/engine';
 import {waterCapexCategories} from '@/lib/feasibility/water-capex';
 import type {WaterCapexItemKey} from '@/lib/feasibility/water-model';
 import WaterCapexQuoteImport from './WaterCapexQuoteImport';
+import WaterQuantityCosts from './WaterQuantityCosts';
+import {effectiveWaterInputs} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 
 type Labels=readonly [string,string];
@@ -135,8 +137,11 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const percentage=(value:number|null)=>value===null?'—':fmt(value)+'%';
  const scenarioLabel=(name:string)=>locale==='ar'?({Conservative:'متحفظ',Base:'أساسي',Optimistic:'متفائل'}[name]??name):name;
  const m=useMemo(()=>evaluateWater(water),[water]);
+ const effective=effectiveWaterInputs(water);
  const field=<K extends 'capex'|'deal'|'ops'>(section:K,[key,ar,en,max,step]:NumberFields<WaterModel[K]>[number])=>
-  <NumberInput key={String(key)} label={l(ar,en)} value={Number(water[section][key])} max={max}
+  ((section==='deal'&&key==='landValue'&&water.quantityCosting?.landByArea)||(section==='ops'&&key==='variableCarton'&&water.quantityCosting?.materialsEnabled)||(section==='ops'&&key==='fixedMonth'&&water.quantityCosting?.fixed.enabled))
+  ?<label className="fs-field" key={String(key)}><span>{l(ar,en)}</span><output>{money(key==='landValue'?effective.deal.landValue:key==='variableCarton'?effective.ops.variableCarton:effective.ops.fixedMonth)}</output><small>{l('محسوب من الكميات','Calculated from quantities')}</small></label>
+  :<NumberInput key={String(key)} label={l(ar,en)} value={Number(water[section][key])} max={max}
    min={key==='horizon'?3:0} step={step} onChange={value=>
     onChange({...water,[section]:{...water[section],[key]:value}})}/>;
  const fields=<K extends 'capex'|'deal'|'ops'>(section:K,definition:NumberFields<WaterModel[K]>)=>
@@ -205,6 +210,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   const items=capexFields.filter(([key])=>key!=='contingencyPct'&&key!=='workingCapital');
   const reserveFields=capexFields.filter(([key])=>key==='contingencyPct'||key==='workingCapital');
   return <section className="fs-block fs-royal-capex">
+   <WaterQuantityCosts water={water} locale={locale} onChange={onChange}/>
    {metrics([[['الإنشاءات والمعدات','Works and equipment'],money(m.hard)],
     [['احتياطي الاستثمار','Investment contingency'],money(m.contingency)],
     [['رأس المال العامل','Working capital'],money(water.capex.workingCapital)],
@@ -217,7 +223,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
       ...items.map((item,index)=>{
        const key=item[0] as WaterCapexItemKey,source=water.capexQuoteSources?.[key];
        return [index+1,l(item[1],item[2]),<span className="fs-royal-tag">{l(...waterCapexCategories[key])}</span>,<>
-        {field('capex',item)}{source&&<small className="fs-hint">{l('مصدر العرض: ','Quote source: ')+source.vendor+' · '+fmt(source.amount)+' '+source.currency}
+        {water.quantityCosting?.capital.enabled?<bdi>{money(effective.capex[key])}</bdi>:field('capex',item)}{source&&!water.quantityCosting?.capital.enabled&&<small className="fs-hint">{l('مصدر العرض: ','Quote source: ')+source.vendor+' · '+fmt(source.amount)+' '+source.currency}
          {source.amount!==water.capex[key]&&' · '+l('عُدّل المبلغ بعد الاستيراد','Amount edited after import')}
          {source.currency!==currency&&' · '+l('تغير رمز عملة الدراسة؛ راجع العرض','Study currency changed; review the quote')}</small>}</>,
         <span className="fs-royal-tag">{l('نقدي','Cash')}</span>];
@@ -225,14 +231,14 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
       [items.length+1,l('احتياطي الاستثمار','Investment contingency'),l('احتياطي','Contingency'),<bdi>{money(m.contingency)}</bdi>,l('نقدي','Cash')]
      ]}
      footer={<><th scope="row" colSpan={3}>{l('إجمالي التأسيس','Total establishment costs')}</th><td><bdi>{money(m.investment)}</bdi></td><td/></>}/>
-    <div className="fs-actions"><WaterCapexQuoteImport water={water} quotes={suppliers} currency={currency} locale={locale}
-     items={items.map(([key,ar,en])=>({key:key as WaterCapexItemKey,label:l(ar,en)}))} onChange={onChange}/></div>
+    {!water.quantityCosting?.capital.enabled&&<div className="fs-actions"><WaterCapexQuoteImport water={water} quotes={suppliers} currency={currency} locale={locale}
+     items={items.map(([key,ar,en])=>({key:key as WaterCapexItemKey,label:l(ar,en)}))} onChange={onChange}/></div>}
     <p className="fs-hint">{l('تعكس هذه البنود تكلفة نقدية في نموذج المياه. تُسجّل الأرض والحقوق العينية في الشراكة، ولا تتكرر في هذا الجدول.',
      'These items are cash costs in the water model. Land and in-kind rights belong in Partnership and are not repeated here.')}</p>
    </section>
    <div className="fs-royal-profile-grid">
     <RoyalBars title={l('توزيع الاستثمار حسب البند','Investment costs by item')} locale={locale} unit={currency}
-     data={[...items.map(([key,ar,en])=>({label:l(ar,en),value:water.capex[key]})),
+     data={[...items.map(([key,ar,en])=>({label:l(ar,en),value:effective.capex[key]})),
       {label:l('احتياطي الاستثمار','Investment contingency'),value:m.contingency}].filter(point=>point.value>0)}/>
     <section className="card fs-panel">
      <h3 className="fs-royal-report-title"><RoyalIcon name="settings"/>{l('سياسة احتياطي التشغيل','Operating reserve policy')}</h3>
@@ -267,6 +273,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   onChange={e=>onChange({...water,deal:{...water.deal,landMode:e.currentTarget.value as WaterModel['deal']['landMode']}})}>
   <option value="transfer">{l('نقل الملكية','Title transfer')}</option><option value="lease">{l('إيجار','Lease')}</option>
   <option value="right">{l('حق انتفاع مقوَّم','Valued right of use')}</option>
+  <option value="purchase">{l('شراء نقدي','Cash purchase')}</option>
  </select></label>;
  const extraTerms=<label className="fs-field"><span>{l('معالجة التمويل الإضافي','Additional financing type')}</span><select value={water.deal.extraType}
   onChange={e=>onChange({...water,deal:{...water.deal,extraType:e.currentTarget.value as WaterModel['deal']['extraType']}})}>
@@ -286,7 +293,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [l('المياه لكل كرتون','Water per carton'),money(costBreakdown.water)],
   [l('التوزيع لكل كرتون','Distribution per carton'),money(costBreakdown.distribution)],
   [l('الإجمالي لكل كرتون','Total per carton'),money(costBreakdown.total)],
-  [l('التكلفة المعتمدة لكل كرتون','Approved cost per carton'),money(water.ops.variableCarton)]
+  [l('التكلفة المستخدمة لكل كرتون','Effective cost per carton'),money(effective.ops.variableCarton)]
  ]:[];
  const updatePlan=(patch:Partial<typeof plan>)=>onChange({...water,operationsPlan:{...plan,...patch}});
  const productionBalance=waterProductionBalance(water);
@@ -350,7 +357,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
      </div>
      {detail==='valuation'&&<p className="fs-hint">{l('سجّل التاريخ الوارد في مستند التقييم أو الاعتماد.',
       'Enter the dates shown on the valuation or approval document.')}</p>}
-     <p>{l('تقييم المتر المربع','Valuation per square metre')} <bdi>{money(water.deal.landArea>0?water.deal.landValue/water.deal.landArea:null)}</bdi></p>
+     {water.deal.landMode==='purchase'&&<NumberInput label={l('رسوم استحواذ الأرض النقدية','Cash land acquisition fees')} value={water.deal.acquisitionFees??0} onChange={value=>onChange({...water,deal:{...water.deal,acquisitionFees:value}})}/>}
+     <p>{l('تقييم المتر المربع','Valuation per square metre')} <bdi>{money(water.deal.landArea>0?effective.deal.landValue/water.deal.landArea:null)}</bdi></p>
      <p className="fs-hint">{l('الملكية تقديرية. راجع التقييم المستقل ومستندات نقل الملكية أو حق الانتفاع.',
       'Ownership is indicative. Review the independent valuation and title transfer or right-of-use documents.')}</p>
     </Panel>
@@ -361,7 +369,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     </Panel>}
     {detail==='valuation'&&<Panel title={l('أثر التقييم على الملكية','Effect of valuation on ownership')} icon="file">
      <Table headers={[l('العنصر','Item'),l('القيمة المقدرة','Estimated value'),l('المعاملة','Treatment')]} rows={[
-      [l('الأرض','Land'),money(water.deal.landValue),water.deal.landMode==='transfer'?l('حصة عينية','In-kind equity'):l('خارج الملكية','Outside equity')],
+      [l('الأرض','Land'),money(effective.deal.landValue),water.deal.landMode==='transfer'?l('حصة عينية','In-kind equity'):water.deal.landMode==='purchase'?l('شراء ضمن الاحتياج النقدي','Purchase included in cash requirement'):l('خارج الملكية','Outside equity')],
       [l('حق الانتفاع','Right of use'),money(water.deal.rightValue),water.deal.landMode==='right'?l('حصة عينية','In-kind equity'):l('خارج الملكية','Outside equity')],
       [l('الترخيص','Licence'),money(water.deal.licenseValue),l('للمراجعة','For review')]
      ]}/>

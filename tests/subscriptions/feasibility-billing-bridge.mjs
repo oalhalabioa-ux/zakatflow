@@ -1,6 +1,7 @@
 // Issue #421 only. Runs in the disposable local Supabase + Chromium fixture.
 // No real QA/Production user or billing value is modified.
 import assert from 'node:assert/strict';
+import {runQuantityCostingBrowser} from './quantity-costing-browser.mjs';
 
 const marker='QA421';
 const phase=(caseName,step)=>console.log('QA421_PHASE '+JSON.stringify({source:'disposable-local-Chromium',caseName,step}));
@@ -814,6 +815,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    }
   }finally{await context.close();}
  });
+ await runQuantityCostingBrowser({browser,cookies,check});
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{
   const r=await fetch(url+'/rest/v1/organizations?select=id,contact_email,registered_address',{
    headers:headers(outsider)
