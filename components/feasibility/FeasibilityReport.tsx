@@ -68,7 +68,12 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('ذروة عجز التمويل بعد الدين','Peak funding gap after debt'),money(landResult?.peakEquityDeficit??null)],
   [l('التزام رأس المال النقدي','Committed cash equity'),money(study.rawLand.quantityDevelopment?.committedEquity??0)],
   [l('العجز غير المغطى بالالتزام النقدي','Deficit not covered by cash commitment'),money(landResult?Math.max(0,landResult.peakEquityDeficit-(study.rawLand.quantityDevelopment?.committedEquity??0)):null)],
-  [l('رصيد الدين الختامي','Closing debt'),money(landResult?.annual.at(-1)?.closingDebt??null)]
+  [l('رصيد الدين الختامي','Closing debt'),money(landResult?.annual.at(-1)?.closingDebt??null)],
+  ...(landResult?.financeMetrics?.returns?[
+   [l('صافي القيمة الحالية للمشروع قبل التمويل','Project NPV before financing'),money(landResult.financeMetrics.returns.unleveredNpv)],
+   [l('عائد المشروع قبل التمويل','Project IRR before financing'),percent(landResult.financeMetrics.returns.unleveredIrr)],
+   [l('عائد إجمالي حقوق الملكية الاقتصادية','Total economic equity IRR'),percent(landResult.financeMetrics.returns.equityIrr)]
+  ]:[])
  ]:water&&study.water&&deal?[
   [l('تكلفة التأسيس مع الرسوم','Establishment costs including fees'),money(water.investment)],
   [l('رأس المال العامل الأولي','Opening working capital'),money(study.water.capex.workingCapital)],
@@ -271,6 +276,10 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   <section className="card fs-panel fs-royal-report-detail" id={sectionId('funding')} tabIndex={-1} data-report-section="funding">
    <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{sectionLabels.funding}</h3>
    <dl className="fs-royal-checks">{funding.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
+   {(water||landResult?.financeMetrics?.returns)&&<p className="fs-hint">{water?
+    l('العجز مبني على أرصدة نهاية السنوات مع الاحتفاظ بالفوائض.','The shortfall uses year-end balances and assumes surpluses are retained.'):
+    l('العائد قبل التمويل يستبعد الفائدة وعمولة ترتيب القرض. عائد الملكية الإجمالي يشمل الأرض العينية بقيمتها في سنة صفر إن وُجدت.',
+     'The pre-financing return excludes loan interest and arrangement fees. Total equity return includes any in-kind land at its year-zero value.')}</p>}
    {!!deal?.extraFunding&&<p className="fs-hint">{l('حدّد أوجه استخدام التمويل الإضافي قبل اعتماد الدراسة.',
     'Allocate the additional funding to specific uses before approving the study.')}</p>}
   </section>

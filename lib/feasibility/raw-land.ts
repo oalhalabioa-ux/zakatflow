@@ -72,6 +72,11 @@ export function createRawLand():RawLand{
 
 const sum=(values:readonly number[])=>values.reduce((a,b)=>a+b,0);
 const one=(value:number)=>Math.abs(value-1)<=1e-8;
+function singleSignChangeIrr(flows:number[]){
+ const nonzero=flows.filter(value=>value!==0);
+ const signChanges=nonzero.filter((value,i)=>i>0&&Math.sign(value)!==Math.sign(nonzero[i-1])).length;
+ return signChanges===1?internalRateOfReturn(flows):null;
+}
 export function annualPhaseWeights(phase:Phase,yearCount:number,delay=0,horizon=yearCount+delay){
  const cumulative=(time:number)=>sum(phase.map((weight,i)=>weight*Math.max(0,Math.min(1,4*time-i))));
  return Array.from({length:horizon},(_,i)=>Math.max(0,cumulative((i+1-delay)/yearCount)-cumulative((i-delay)/yearCount)));
@@ -168,8 +173,11 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  const cashDevelopmentCost=sum(Object.values(costs));
  const totalCost=land+cashDevelopmentCost;
  const gross=revenue-totalCost;
- const hurdle=(waterfall.hurdleBase==='revenue'?revenue:totalCost)*waterfall.hurdleRate;
- const incentive=Math.max(0,gross-hurdle)*waterfall.incentiveRate;
+ const incentiveAtCost=(basis:number)=>{
+  const hurdle=(waterfall.hurdleBase==='revenue'?revenue:basis)*waterfall.hurdleRate;
+  return Math.max(0,revenue-basis-hurdle)*waterfall.incentiveRate;
+ };
+ const incentive=incentiveAtCost(totalCost);
  const profit=gross-incentive;
  const landAtStart=model.quantityDevelopment?.landTiming==='YEAR0';
  const initialProject=landAtStart?-land:0,initialEquity=landAtStart&&site.landPaymentMethod==='cash'?-land:0;
@@ -189,9 +197,22 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  const npv=initialProject+sum(annual.map((row,i)=>row.projectCash/(1+project.discountRate)**(i+1)));
  const ready=saleArea>0&&revenue>0&&totalCost>0;
  const projectFlows=landAtStart?[initialProject,...annual.map(row=>row.projectCash)]:annual.map(row=>row.projectCash);
- const projectedCash=projectFlows.filter(value=>value!==0);
- const signChanges=projectedCash.filter((value,i)=>i>0&&Math.sign(value)!==Math.sign(projectedCash[i-1])).length;
- const irr=ready&&signChanges===1?internalRateOfReturn(projectFlows):null;
+ const irr=ready?singleSignChangeIrr(projectFlows):null;
+ let returns;
+ if(landAtStart&&ready){
+  const unleveredIncentive=incentiveAtCost(totalCost-costs.interestBudget-costs.arrangement);
+  const unleveredFlows=[initialProject,...annual.map((row,i)=>
+   row.operatingCash+row.interest+costs.arrangement*weights.arrangement[i]-(i===years-1?unleveredIncentive:0))];
+  // Total economic equity includes the land at year zero, whether purchased
+  // for cash or contributed in kind. It is not a return for a specific partner.
+  const equityFlows=[initialProject,...annual.map(row=>row.equityCash)];
+  const investmentIrr=(flows:number[])=>(flows.find(value=>value!==0)??0)<0?singleSignChangeIrr(flows):null;
+  returns={
+   unleveredFlows,equityFlows,unleveredIrr:investmentIrr(unleveredFlows),
+   unleveredNpv:sum(unleveredFlows.map((value,i)=>value/(1+project.discountRate)**i)),
+   equityIrr:(annual.at(-1)?.closingDebt??0)<=.01?investmentIrr(equityFlows):null,
+  };
+ }
  let cumulative=initialProject,payback:number|null=null;
  if(landAtStart)for(const [i,row] of annual.entries()){
   const prior=cumulative;cumulative+=row.projectCash;
@@ -199,7 +220,7 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  }
  return {issue:null,ready,net,saleArea,land,revenue,costs,cashDevelopmentCost,totalCost,gross,incentive,
   ...(model.quantityDevelopment||site.acquisitionBasis?{acquisitionArea,quantityReadiness:{ready:quantity.ready,blockers:quantity.blockers},
-   financeMetrics:{initialProject,initialEquity,projectFlows,payback,dscr:annual.map(row=>row.interest+row.repayment>0?
+   financeMetrics:{initialProject,initialEquity,projectFlows,payback,returns,dscr:annual.map(row=>row.interest+row.repayment>0?
     (row.cashCollected-row.cashCost+row.interest-row.performanceFee)/(row.interest+row.repayment):null)}}:{}),
   developerIncentive:incentive*waterfall.developerIncentiveShare,
   managerIncentive:incentive*(1-waterfall.developerIncentiveShare),profit,npv,irr,

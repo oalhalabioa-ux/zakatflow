@@ -222,6 +222,36 @@ describe('quantity costing: synthetic raw-land acceptance',()=>{
   expect(r.annual.map(y=>[y.soldArea,y.cashCollected,y.repayment,y.closingDebt]))
    .toEqual([[300,30000,750,2250],[300,90000,2250,0]]);
  });
+ it('separates land project and equity returns without treating in-kind land as cash funding',()=>{
+  const m=land();m.project.years=2;
+  m.quantityDevelopment!.landTiming='YEAR0';
+  m.finance={...m.finance,facility:3000,loanDrawFirstYear:1,interestMode:'dynamic',benchmarkRate:.1,arrangementRate:.02};
+  m.waterfall.incentiveRate=.1;
+  const a=evaluateRawLand(m);if(a.issue)throw Error(a.issue);
+  const returns=a.financeMetrics!.returns!;
+  expect(a.annual.map(y=>y.interest)).toEqual([75,75]);
+  expect(a.incentive).toBe(4689);
+  expect(returns.unleveredFlows).toEqual([-8000,27550,22840]);
+  expect(returns.equityFlows).toEqual([-8000,28945,21256]);
+  expect(a.financeMetrics!.initialEquity).toBe(0);
+  expect(a.peakEquityDeficit).toBe(0);
+  expect(returns.unleveredNpv).toBeCloseTo(-8000+27550/1.1+22840/1.21);
+  for(const [series,irr] of [[returns.unleveredFlows,returns.unleveredIrr],[returns.equityFlows,returns.equityIrr]] as const){
+   expect(irr).not.toBeNull();
+   expect(series.reduce((sum,flow,i)=>sum+flow/(1+irr!/100)**i,0)).toBeCloseTo(0,6);
+  }
+  m.site.landPaymentMethod='cash';
+  const cash=evaluateRawLand(m);if(cash.issue)throw Error(cash.issue);
+  expect(cash.financeMetrics!.returns).toEqual(returns);
+  expect(cash.peakEquityDeficit).toBe(8000);
+  m.finance.facility=0;
+  const noDebt=evaluateRawLand(m);if(noDebt.issue)throw Error(noDebt.issue);
+  expect(noDebt.financeMetrics!.returns!.unleveredFlows).toEqual(returns.unleveredFlows);
+  expect(noDebt.financeMetrics!.returns!.equityFlows).toEqual(returns.unleveredFlows);
+  m.quantityDevelopment!.landTiming='YEAR1';
+  const legacyTiming=evaluateRawLand(m);if(legacyTiming.issue)throw Error(legacyTiming.issue);
+  expect(legacyTiming.financeMetrics!.returns).toBeUndefined();
+ });
  it('propagates area, scenario multiplier, growth, collection delay and financing without cost duplication',()=>{
   const m=land();m.sales.scenarios[2].costMultiplier=1.2;m.cost.contingencyRate=.1;
   m.finance={...m.finance,facility:3000,benchmarkRate:.1,interestMode:'dynamic'};
