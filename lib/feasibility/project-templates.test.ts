@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {createIndustrialStarter} from './project-templates';
+import {createIndustrialStarter,createRawLandStarter} from './project-templates';
 import {createStudy,evaluateStudy,waterFactoryLegalItems} from './engine';
 import {feasibilityDraftSchema} from './draft-schema';
 
@@ -50,5 +50,39 @@ describe('opt-in industrial templates for all Yaqeen tenants',()=>{
    }
    expect(feasibilityDraftSchema.safeParse(s).success).toBe(true);
   }
+ });
+ it('keeps edited water studies and new public starters independent',()=>{
+  const privateStudy=createIndustrialStarter(id,'Private synthetic project','BOTTLED_WATER');
+  privateStudy.country='Synthetic country';
+  privateStudy.notes='Private synthetic notes';
+  privateStudy.water!.deal.landValue=987654;
+  privateStudy.water!.ops.priceCarton=321;
+  privateStudy.water!.ops.util[0]=77;
+  privateStudy.legal[0].notes='Private synthetic evidence';
+  const original=structuredClone(privateStudy);
+  const fresh=createIndustrialStarter('another-user-study','New public water study','BOTTLED_WATER');
+  expect(fresh.country).toBe('');
+  expect(fresh.notes??'').toBe('');
+  expect(fresh.water!.deal.landValue).toBe(0);
+  expect(fresh.water!.ops.priceCarton).toBe(0);
+  expect(fresh.water!.ops.util[0]).not.toBe(77);
+  expect(fresh.legal.every(item=>item.notes==='')).toBe(true);
+  fresh.water!.ops.util[0]=12;
+  expect(privateStudy).toEqual(original);
+ });
+ it('keeps edited raw-land studies out of fresh public starters',()=>{
+  const privateStudy=createRawLandStarter(id,'Private synthetic land');
+  privateStudy.region='Private synthetic location';
+  privateStudy.rawLand!.site.areaAfterPriorTransfers=987654;
+  privateStudy.rawLand!.sales.mix[0].name='Private synthetic use';
+  privateStudy.legal[0].notes='Private synthetic appraisal';
+  const original=structuredClone(privateStudy);
+  const fresh=createRawLandStarter('another-land-study','New public land study');
+  expect(fresh.region).toBe('');
+  expect(fresh.rawLand!.site.areaAfterPriorTransfers).toBe(0);
+  expect(fresh.rawLand!.sales.mix.some(use=>use.name==='Private synthetic use')).toBe(false);
+  expect(fresh.legal.every(item=>item.notes==='')).toBe(true);
+  fresh.rawLand!.sales.mix[0].name='Changed public starter';
+  expect(privateStudy).toEqual(original);
  });
 });

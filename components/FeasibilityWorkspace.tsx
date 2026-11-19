@@ -25,6 +25,7 @@ import EvidenceDocuments from '@/components/feasibility/EvidenceDocuments';
 import { RoyalIcon, studyTabIcons } from '@/components/feasibility/RoyalIcon';
 import RoyalOverview from '@/components/feasibility/RoyalOverview';
 import RoyalScenarios from '@/components/feasibility/RoyalScenarios';
+import {handoffReadiness} from '@/lib/feasibility/handoff';
 import { RoyalBars, RoyalCashTrend, RoyalOwnership } from '@/components/feasibility/RoyalCharts';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,createRawLandStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
@@ -238,7 +239,7 @@ function FeasibilityWorkspaceContent({
    }
   }catch{
    setStorageSafe(false);
-   setPersonalNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استرجاع مسودات QA V2 من ملف متصفح آخر.','Local study data are invalid and will not be overwritten. Use another browser profile to restore your QA V2 drafts.'));
+   setPersonalNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استرجاع المسودات السحابية من ملف متصفح آخر.','Local study data are invalid and will not be overwritten. Use another browser profile to restore your cloud drafts.'));
   }
   setHydratedStorageKey(storageKey);
   setLoaded(true);
@@ -281,6 +282,12 @@ function FeasibilityWorkspaceContent({
   setCopySelection({studyId:study.id,organizationId,userId});
  };
  const model=useMemo(()=>study?evaluateStudy(study,scenario):null,[study,scenario]);
+ const studyReadiness=useMemo(()=>{
+  if(!study)return '';
+  const checks=handoffReadiness(study).checks;
+  return new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0})
+   .format(checks.filter(check=>check.passed).length/checks.length);
+ },[study,locale]);
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const water=study?.water;
  const rawLand=study?.rawLand;
@@ -355,7 +362,7 @@ function FeasibilityWorkspaceContent({
      `Added ${merged.restoredCount} cloud drafts. All local drafts were kept.`));
   }catch{
    if(currentUserRef.current===requestedUser&&personalScopeRef.current)
-    setPersonalNotice(txt(ar,'تعذر استرجاع المسودات من QA. تحقّق من الاتصال وسلامة المسودات المحلية وحدّ المحفظة.','Could not restore QA drafts. Check the connection, local drafts and portfolio limit.'));
+    setPersonalNotice(txt(ar,'تعذر استرجاع المسودات من السحابة. تحقّق من الاتصال وسلامة المسودات المحلية وحدّ المحفظة.','Could not restore cloud drafts. Check the connection, local drafts and portfolio limit.'));
   }finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}
  };
  const saveCloud=async()=>{
@@ -385,7 +392,7 @@ function FeasibilityWorkspaceContent({
      ...row,study:document,revision:saved.revision,
      updated_at:saved.updated_at||new Date().toISOString()
     }}));
-    setCompanyNotice(txt(ar,'حُفظت الدراسة للمؤسسة المحددة في QA V2.','Study saved for the selected QA V2 organization.'));
+    setCompanyNotice(txt(ar,'حُفظت الدراسة في سحابة المؤسسة المحددة.','Study saved to the selected organization’s cloud portfolio.'));
    }catch(e){
     if(currentUserRef.current!==userAtRequest||
       organizationRequestRef.current!==requestId)return;
@@ -417,13 +424,13 @@ function FeasibilityWorkspaceContent({
    setCloudRevisions(p=>({...p,[study.id]:result.revision}));
    setCloudSavedStudyVersions(p=>({...p,[study.id]:study.updatedAt}));
    setCloudOwnerIds(p=>({...p,[study.id]:userId}));
-   setPersonalNotice(txt(ar,'حُفظت مسودة المشروع في QA V2، وهي ليست اعتمادًا نهائيًا.','Project draft saved in QA V2; this is not formal approval.'));
+   setPersonalNotice(txt(ar,'حُفظت مسودة المشروع في السحابة، وهي ليست اعتمادًا نهائيًا.','Project draft saved to the cloud; this is not formal approval.'));
   }catch(e){
    if(currentUserRef.current!==requestedUser)return;
    const conflict=e instanceof Error&&e.message==='CONFLICT';
    setSaveIssue({kind:conflict?'conflict':'save-error',studyId:study.id,scopeId:'personal',userId:requestedUser,
     message:conflict?txt(ar,'تعذر حفظ هذه النسخة بسبب تعارض مع نسخة QA. صدّر المسودة المحلية بصيغة JSON قبل مراجعة النسخة السحابية.','A version conflict prevented saving. Export the local draft as JSON before reviewing the cloud version.'):
-     txt(ar,'تعذر الحفظ في QA. احتفظ بنسخة JSON من بياناتك.','QA save failed. Keep a JSON backup.')});
+     txt(ar,'تعذر الحفظ السحابي. احتفظ بنسخة JSON من بياناتك.','Cloud save failed. Keep a JSON backup.')});
   }
   finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}
  };
@@ -512,7 +519,7 @@ function FeasibilityWorkspaceContent({
   ?(!organizationId
     ?txt(ar,'اختر المؤسسة من البانر الرئيسي لبدء دراسة جديدة.','Select an organization from the main banner to create a study.')
     :organizationError||(!companyScopeReady
-      ?txt(ar,'جارٍ التحقق من عضوية المؤسسة وإتاحة المحفظة على QA.','Checking company membership and QA availability.')
+      ?txt(ar,'جارٍ التحقق من عضوية المؤسسة وإتاحة المحفظة.','Checking company membership and portfolio access.')
       :!organizationCanWrite
        ?txt(ar,'هذه المحفظة للقراءة فقط. لإضافة دراسة، يلزم دور مالك أو مدير نشط وتجربة مؤسسية سارية أو باقة تشمل دراسات الجدوى.','This portfolio is read only. Adding a study requires an active owner or admin role and either an active organization trial or a subscription that includes feasibility studies.')
        :''))
@@ -547,8 +554,11 @@ function FeasibilityWorkspaceContent({
     <Button onClick={openCreate} disabled={!canCreate}><RoyalIcon name="plus"/>{txt(ar,'إضافة دراسة','New study')}</Button>
    </div>
    {createCompanyDeniedReason&&<p className="fs-hint" role="status">{createCompanyDeniedReason}</p>}
-   {visibleStudies.length>0&&<div className="fs-portfolio">{visibleStudies.map(p=>
-    <button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')}
+   {visibleStudies.length>0&&<div className="fs-portfolio">{visibleStudies.map(p=>{
+    const checks=handoffReadiness(p).checks;
+    const completed=checks.filter(check=>check.passed).length;
+    const readiness=new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0}).format(completed/checks.length);
+    return <button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')}
      aria-pressed={p.id===activeSelectedId} onClick={()=>{
       if(personalScope){setSharedSelectedId('');setSelectedId(p.id)}else setOrganizationSelectedId(p.id);
       setTab('overview');setDetail(undefined);
@@ -556,8 +566,11 @@ function FeasibilityWorkspaceContent({
      <RoyalIcon name={p.water?'droplet':p.sector==='INDUSTRIAL'?'factory':p.sector==='REAL_ESTATE'?'building':'briefcase'}/>
      <strong>{p.title}</strong>
      <span>{[ar?sectors[p.sector].ar:sectors[p.sector].en,p.country].filter(Boolean).join(' · ')}</span>
-     <span className="fs-royal-tag">{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span>
-    </button>)}</div>}
+     <span className="fs-royal-portfolio-meta"><span className="fs-royal-tag">{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span>
+      <span>{txt(ar,'جاهزية','Readiness')} <bdi>{readiness}</bdi></span></span>
+     <progress className="fs-royal-portfolio-progress" value={completed} max={checks.length}
+      aria-label={txt(ar,'جاهزية دراسة ','Study readiness: ')+p.title}/>
+    </button>})}</div>}
   </section>;
 
  if(personalScope&&hydratedStorageKey!==storageKey){
@@ -571,7 +584,7 @@ function FeasibilityWorkspaceContent({
      window.confirm(txt(ar,'التعديلات غير محفوظة. هل تريد تبديل المؤسسة؟','Company changes are unsaved. Switch organizations?'))}/>
   </TopbarOrganizationControls>}
   <header className="fs-head"><div><h1><RoyalIcon name="building"/>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
-   {personalScope&&<div className="fs-actions"><Button secondary onClick={download} disabled={!personalScope||!visibleStudies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly||!personalScope||!storageSafe||cloudBusy}/></label><Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>{cloudEnabled&&personalScope&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={effectiveReadOnly||!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>}
+   {personalScope&&<div className="fs-actions"><Button secondary onClick={download} disabled={!personalScope||!visibleStudies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly||!personalScope||!storageSafe||cloudBusy}/></label><Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>{cloudEnabled&&personalScope&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من السحابة','Restore from cloud')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={effectiveReadOnly||!study||cloudBusy}>{txt(ar,'حفظ سحابي','Save to cloud')}</Button></>}</div>}
    {!personalScope&&organizationId&&organizationLoaded&&!organizationError&&<div className="fs-actions">
     <Button secondary onClick={()=>void loadCloud()} disabled={organizationBusy}>{txt(ar,'إعادة تحميل دراسات المؤسسة','Refresh company studies')}</Button>
     <Button secondary onClick={()=>void saveCloud()} disabled={!study||effectiveReadOnly||organizationBusy}>{txt(ar,'حفظ دراسة المؤسسة','Save company study')}</Button>
@@ -695,7 +708,13 @@ function FeasibilityWorkspaceContent({
      }}>{txt(ar,'الذهاب إلى النطاق الشخصي في البنر','Go to personal scope in the main banner')}</Button>}
    </div>
    {!personalScope&&<p className="fs-hint">{txt(ar,'لنسخ دراسة، افتح محفظتك الشخصية، احفظ الدراسة، ثم استخدم «نسخ إلى مؤسسة».','To copy a study, open your personal portfolio, save the study, then use Copy to organization.')}</p>}</section>:<>
-   <div className="fs-subhead fs-print-study-title fs-royal-project-context"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<div className="fs-actions">
+   <div className="fs-subhead fs-print-study-title fs-royal-project-context"><div><h2><RoyalIcon name={study.water?'droplet':study.sector==='REAL_ESTATE'?'building':'briefcase'}/>{study.title}</h2><small>{[ar?sectors[study.sector].ar:sectors[study.sector].en,study.country||txt(ar,'الدولة غير محددة','Country not selected'),study.region,study.currency||txt(ar,'العملة غير محددة','Currency not selected')].filter(Boolean).join(' · ')}</small></div>
+    <div className="fs-royal-context-badges" aria-label={txt(ar,'سياق الدراسة','Study context')}>
+     <span className="fs-royal-tag" data-scope={scope}>{personalScope?txt(ar,'نطاق شخصي','Personal scope'):txt(ar,'نطاق مؤسسي','Organization scope')}</span>
+     <span className="fs-royal-tag">{ar?projectStatus[study.status].ar:projectStatus[study.status].en}</span>
+     <span className="fs-royal-tag">{txt(ar,'جاهزية','Readiness')} <bdi>{studyReadiness}</bdi></span>
+     <span className="fs-royal-tag">{txt(ar,'آخر تعديل','Last updated')} <time dateTime={study.updatedAt}>{new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeZone:'UTC'}).format(new Date(study.updatedAt))}</time></span>
+    </div>{personalScope&&<div className="fs-actions">
     {canOpenCopy&&<Button secondary onClick={openCopy}>{txt(ar,'نسخ إلى مؤسسة','Copy to organization')}</Button>}
     <Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>
    </div>}</div>

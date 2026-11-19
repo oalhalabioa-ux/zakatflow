@@ -509,10 +509,10 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.goto(appPage('PERSONAL',target,'ar'));
    const personalSaved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&
     r.request().method()==='POST');
-   await page.getByRole('button',{name:'حفظ في QA V2',exact:true}).click();
+   await page.getByRole('button',{name:'حفظ سحابي',exact:true}).click();
    const personalResponse=await personalSaved;
    assert.equal(personalResponse.status(),201);
-   await page.getByText(/حُفظت مسودة المشروع في QA V2/).waitFor();
+   await page.getByText(/حُفظت مسودة المشروع في السحابة/).waitFor();
    const source=(await readPersonal()).find(row=>row.study.title===studyTitle);
    assert.ok(source,'The personal source must exist in persistent storage');
    assert.equal(source.study.water.ops.hoursDay,8);
@@ -593,7 +593,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const restored=page.getByRole('button',{name:/QA Personal water copy source/});
    await local.waitFor();
    assert.equal(await restored.count(),0);
-   await page.getByRole('button',{name:'Restore from QA V2',exact:true}).click();
+   await page.getByRole('button',{name:'Restore from cloud',exact:true}).click();
    const personalNotice=page.getByText(/Added [1-9]\d* cloud drafts\. All local drafts were kept/);
    await personalNotice.waitFor();
    await restored.waitFor();
@@ -607,6 +607,37 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.reload();
    await Promise.all([local.waitFor(),restored.waitFor()]);
    assert.equal(await local.getAttribute('aria-pressed'),'true');
+  }finally{await context.close();}
+ });
+ await check('Royal overview: actual readiness, context and responsive AR/EN captures',async()=>{
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
+  const page=await context.newPage();
+  page.setDefaultTimeout(12000);
+  try{
+   await page.goto(appUrl+'/en/feasibility?scope=PERSONAL');
+   await page.getByRole('button',{name:'New study',exact:true}).click();
+   await page.getByRole('textbox',{name:'New project name',exact:true}).fill('Royal synthetic overview');
+   await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   for(const locale of ['ar','en']){
+    for(const width of [1440,390]){
+     await page.setViewportSize({width,height:1000});
+     await page.goto(appUrl+'/'+locale+'/feasibility?scope=PERSONAL');
+     await page.getByRole('heading',{name:'Royal synthetic overview',exact:true}).waitFor();
+     const progress=page.locator('.fs-royal-portfolio-progress');
+     assert.deepEqual(await progress.evaluate(el=>({value:el.value,max:el.max})),{value:2,max:6},
+      'An empty draft passes only balanced zero funding and absence of a recorded legal blocker');
+     const label=locale==='ar'?'سياق الدراسة':'Study context';
+     const badges=page.getByLabel(label,{exact:true});
+     assert.ok((await badges.innerText()).includes(new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0}).format(2/6)));
+     assert.equal(await badges.locator('time').getAttribute('datetime')!==null,true);
+     assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+     await page.screenshot({path:new URL('./screenshots/royal-overview-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+     await page.reload();
+     await page.getByRole('heading',{name:'Royal synthetic overview',exact:true}).waitFor();
+     assert.equal(await progress.evaluate(el=>el.value),2);
+    }
+   }
   }finally{await context.close();}
  });
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{

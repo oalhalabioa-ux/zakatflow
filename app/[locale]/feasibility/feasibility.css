@@ -201,12 +201,26 @@
 .fs-royal-stats span:nth-child(2) { background: var(--fs-light-gold); }
 .fs-royal .fs-royal-portfolio .fs-portfolio { grid-template-columns: repeat(4,minmax(0,1fr)); padding: 0; }
 .fs-royal .fs-royal-portfolio .fs-project-pill {
- align-items: center; text-align: center; min-height: 126px; gap: 7px; justify-content: center;
+ align-items: center; text-align: center; min-height: 166px; padding: 14px 12px; gap: 8px; justify-content: center;
  background: #FAFBFB; border-color: #D8DFE3; box-shadow: none;
 }
-.fs-royal .fs-royal-portfolio .fs-project-pill--active { border-color: var(--fs-green); background: #EEF5EF; box-shadow: inset 0 0 0 1px var(--fs-green); }
+.fs-royal .fs-royal-portfolio .fs-project-pill--active { border-color: var(--fs-green); background: #fff; box-shadow: inset 0 0 0 1px var(--fs-green); }
 .fs-royal .fs-project-pill .fs-royal-icon, .fs-royal-empty > .fs-royal-icon { height: 30px; width: 30px; }
 .fs-royal .fs-project-pill strong { font-size: 14px; }
+.fs-royal .fs-royal-portfolio-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; inline-size: 100%; margin-block-start: auto; }
+.fs-royal .fs-royal-portfolio-meta > span { color: var(--fs-ink); }
+.fs-royal .fs-royal-portfolio-meta .fs-royal-tag { background: var(--fs-light-gold); }
+.fs-royal .fs-project-pill .fs-royal-portfolio-progress { appearance: none; display: block; inline-size: 100%; block-size: 8px; border: 0; border-radius: 8px; overflow: hidden; background: var(--fs-line); color: var(--fs-green); accent-color: var(--fs-green); }
+.fs-royal-portfolio-progress::-webkit-progress-bar { background: var(--fs-line); border-radius: 8px; }
+.fs-royal-portfolio-progress::-webkit-progress-value { background: var(--fs-green); border-radius: 8px; }
+.fs-royal-portfolio-progress::-moz-progress-bar { background: var(--fs-green); border-radius: 8px; }
+.fs-royal .fs-royal-context-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.fs-royal-context-badges .fs-royal-tag[data-scope] { background: #E8F1EB; color: var(--fs-green); }
+.fs-royal-context-badges .fs-royal-tag:nth-child(2) { background: var(--fs-light-gold); }
+.fs-royal .fs-royal-project-context { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 14px; }
+.fs-royal .fs-royal-project-context > div { min-inline-size: 0; }
+.fs-royal .fs-royal-project-context > .fs-actions { grid-column: 1 / -1; justify-content: flex-end; }
+.fs-royal .fs-royal-project-context h2 { display: flex; align-items: center; gap: 10px; overflow-wrap: anywhere; }
 .fs-royal .fs-subhead { margin: 0; }
 .fs-royal .fs-subhead h2 { font-size: clamp(17px, 1.7vw, 22px); }
 .fs-royal .fs-tabs {
@@ -283,7 +297,8 @@
  .fs-royal .fs-head { gap: 8px; }
  .fs-royal .fs-tabs { grid-template-columns: repeat(3,minmax(0,1fr)); }
  .fs-royal .fs-royal-portfolio .fs-portfolio { grid-template-columns: repeat(2,minmax(0,1fr)); }
- .fs-royal .fs-royal-portfolio .fs-project-pill { min-height: 108px; }
+ .fs-royal .fs-royal-portfolio .fs-project-pill { min-height: 166px; }
+ .fs-royal .fs-royal-project-context { grid-template-columns: minmax(0,1fr); }
  .fs-royal-scenario-cards { grid-template-columns: minmax(0,1fr); }
  .fs-royal .fs-table th, .fs-royal .fs-table td { padding: 7px 9px; }
  .fs-royal .fs-section-main { min-width: 0; }
