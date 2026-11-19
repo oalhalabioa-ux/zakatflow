@@ -21,5 +21,6 @@ export default createSimulationQaHttpHandler(() => {
     secrets: new SecretsManagerClient({ region: 'eu-north-1', credentials, maxAttempts: 1 }),
     transport: fetch,
   }, { unit, encryptionKeyArn: process.env.FATOORA_QA_ENROLLMENT_ENCRYPTION_KEY_ARN,
-    sourceSha: __YAQEEN_SIMULATION_QA_SOURCE_SHA__, standardSample });
+    sourceSha: __YAQEEN_SIMULATION_QA_SOURCE_SHA__, standardSample,
+    proceduralSimplifiedExperiment: process.env.FATOORA_QA_SIMPLIFIED_PROCEDURAL_EXPERIMENT === 'enabled' ? true : undefined });
 }, () => simulationQaRuntimeEnvironment(process.env, getVercelOidcToken));

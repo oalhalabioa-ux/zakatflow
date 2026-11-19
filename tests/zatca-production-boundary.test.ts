@@ -17,7 +17,7 @@ describe('ZATCA synthetic compatibility profile boundary', () => {
     // A sandbox PASS does not approve this profile for taxpayer invoices.
     // Scan libraries and services too: an indirect route import is equally unsafe.
     const violations = ['app', 'components', 'lib', 'services'].flatMap(sourceFiles)
-      .filter(path => /zatca-sdk345-qa-profile|prepareZatcaSdk345QaDocument/.test(readFileSync(resolve(root, path), 'utf8')));
+      .filter(path => /zatca-sdk345-qa-profile|prepareZatcaSdk345QaDocument|simulation-procedural-document|prepareSimulationProceduralDocument|procedural-simplified-compliance-qa|createProceduralSimplifiedComplianceQa/.test(readFileSync(resolve(root, path), 'utf8')));
     expect(violations).toEqual([]);
   });
 });

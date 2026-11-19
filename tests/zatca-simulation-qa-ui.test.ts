@@ -10,7 +10,7 @@ class Element {
   addEventListener(name: string, callback: (...args: any[]) => void) { this.listeners[name] = callback; }
 }
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
-async function fixture(initial: typeof ready & { standardCompliance?: any } = ready) {
+async function fixture(initial: typeof ready & { standardCompliance?: any; simplifiedExperiment?: any } = ready) {
   const elements = new Map<string,Element>(), windowEvents: Record<string,() => void> = {};
   const get = (id: string) => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id)!; };
   const fetcher = vi.fn(async (_url: string, _request?: RequestInit) => ({ ok: true, json: async () => structuredClone(initial) }));
@@ -19,6 +19,28 @@ async function fixture(initial: typeof ready & { standardCompliance?: any } = re
   return { get, fetcher, windowEvents };
 }
 describe('Simulation QA user input and recovery behavior', () => {
+  it('requires completed STANDARD checks, preserves them through procedural partial results and recovers unknown outcomes by GET only', async () => {
+    const standardCompliance = { passed: true, manifestDigest: 'd'.repeat(64), results: Array.from({ length: 3 }, () => ({ state: 'PASSED' })) };
+    const initial = { ...ready, state: 'RESPONSE_QUARANTINED', standardCompliance,
+      simplifiedExperiment: { state: 'NOT_PREPARED', applicationProfileApproved: false } };
+    const f = await fixture(initial); expect(f.get('simplifiedPrepare').disabled).toBe(false);
+    const pending = { manifestDigest: 'e'.repeat(64), results: Array.from({ length: 3 }, () => ({ state: 'NOT_SENT' })), applicationProfileApproved: false };
+    f.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ simplifiedExperiment: pending }) } as never);
+    f.get('simplifiedPrepare').listeners.click(); await settle();
+    expect(f.get('legalName').textContent).toBe(company.legalName);
+    expect(f.get('standardSubmit0').disabled).toBe(true); expect(f.get('simplifiedSubmit0').disabled).toBe(false);
+    f.fetcher.mockRejectedValueOnce(Error('Unknown result'));
+    f.get('simplifiedSubmit0').listeners.click(); await settle();
+    expect(f.get('simplifiedSubmit0').disabled).toBe(true);
+    f.get('simplifiedSubmit0').listeners.click(); expect(f.fetcher).toHaveBeenCalledTimes(3);
+    f.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ ...initial, simplifiedExperiment: { ...pending, results: [{ state: 'PASSED' }, { state: 'NOT_SENT' }, { state: 'NOT_SENT' }] } }) } as never);
+    f.get('refresh').listeners.click(); await settle();
+    expect(f.fetcher.mock.calls[3][1]?.method).toBeUndefined();
+    expect(f.get('simplifiedSubmit0').disabled).toBe(true); expect(f.get('simplifiedSubmit1').disabled).toBe(false);
+    const blocked = await fixture({ ...initial, standardCompliance: { passed: false } });
+    expect(blocked.get('simplifiedPrepare').disabled).toBe(true); blocked.get('simplifiedPrepare').listeners.click();
+    expect(blocked.fetcher).toHaveBeenCalledTimes(1);
+  });
   it('loads status once without generating a CSR or submitting an OTP', async () => {
     const f = await fixture();
     expect(f.fetcher).toHaveBeenCalledTimes(1); expect(f.fetcher.mock.calls[0][1]?.method).toBeUndefined();

@@ -10,6 +10,7 @@ import { createZatcaSimulationComplianceTransport, decodeZatcaComplianceCertific
 import { inspectSimulationCertificate } from './simulation-certificate-inspection';
 import { inspectZatcaSigningCertificate } from '../../lib/zatca-signing-certificate';
 import { createStandardComplianceQa, standardQaSampleSchema } from './standard-compliance-qa';
+import { createProceduralSimplifiedComplianceQa } from './procedural-simplified-compliance-qa';
 
 const account = '701899214938', region = 'eu-north-1';
 export const simulationQaSigningKey = `arn:aws:kms:${region}:${account}:key/ab50c7e0-2251-4ae3-967d-5d14866b80d4`;
@@ -24,6 +25,7 @@ export const simulationQaUnitSchema = z.object({
 const configSchema = z.object({ unit: simulationQaUnitSchema, sourceSha: z.string().regex(/^[a-f0-9]{40}$/),
   encryptionKeyArn: z.string().regex(/^arn:aws:kms:eu-north-1:701899214938:key\/[a-f0-9-]{36}$/),
   standardSample: standardQaSampleSchema.optional(),
+  proceduralSimplifiedExperiment: z.literal(true).optional(),
 }).strict();
 const originalSchema = z.object({ version: z.literal('YAQEEN_SIMULATION_QA_ORIGINAL_V1'),
   sourceSha: z.string().regex(/^[a-f0-9]{40}$/), profileDigest: z.string().regex(/^[a-f0-9]{64}$/),
@@ -184,7 +186,8 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
       } catch { /* Preserve quarantined response for review; never activate. */ }
       return { state: 'RESPONSE_QUARANTINED' as const, identityMatched, trustVerified: false, activationAllowed: false,
         responseDigest: receipt.reference.responseSha256, certificateInspection,
-        standardCompliance: config.standardSample ? await standard.status().catch(() => ({ stage: 'STANDARD_COMPLIANCE_QA_ONLY', state: 'BLOCKED', activationAllowed: false })) : null };
+        standardCompliance: config.standardSample ? await standard.status().catch(() => ({ stage: 'STANDARD_COMPLIANCE_QA_ONLY', state: 'BLOCKED', activationAllowed: false })) : null,
+        simplifiedExperiment: config.proceduralSimplifiedExperiment ? await simplified.status().catch(() => ({ stage: 'SIMPLIFIED_PROCEDURAL_PROFILE_QA_ONLY', state: 'BLOCKED', applicationProfileApproved: false, activationAllowed: false })) : null };
     } catch { return { state: 'RECONCILIATION_REQUIRED' as const, activationAllowed: false }; }
   }
   async function status() {
@@ -225,10 +228,40 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
       return { version: ack.VersionId! };
     }, assertCreateOnly: verifyCreateOnlyFence, transport: clients.transport,
   }, config.standardSample, config.sourceSha);
+  const simplified = createProceduralSimplifiedComplianceQa({
+    async load() {
+      if (!config.proceduralSimplifiedExperiment || unit.invoiceType !== '1100') fail('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
+      const continuation = await standard.completedLink();
+      const saved = await original(); if (!saved) fail('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
+      const dispatch = await intent(saved!.digest); if (!dispatch) fail('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
+      const receipt = await stager.recoverResponse(scope(saved!.digest, dispatch!.dispatchId));
+      const response = await read(base + '/' + dispatch!.dispatchId, dispatch!.dispatchId);
+      if (!response || sha(response.content) !== receipt.reference.responseSha256) fail('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
+      const credential = JSON.parse(response!.content).response, der = decodeZatcaComplianceCertificate(credential.binarySecurityToken);
+      inspectZatcaOnboardingIdentity({ csrPem: saved!.value.csrPem, certificateDerBase64: der.toString('base64') }, saved!.value.savedUnit);
+      inspectZatcaSigningCertificate(der.toString('base64'), sha(der));
+      if ((await publicKey()).toString('base64') !== saved!.value.savedUnit.kmsPublicKeySpkiBase64) fail('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
+      return { organizationId: unit.organizationId, legalName: unit.legalName, vatNumber: unit.taxpayerVatNumber,
+        originalDigest: saved!.digest, responseDigest: receipt.reference.responseSha256, token: credential.binarySecurityToken, secret: credential.secret,
+        certificate: der.toString('base64'), fingerprint: sha(der), ...continuation };
+    },
+    sign: async bytes => sign(bytes, await publicKey()),
+    read: name => read(base + '/' + name),
+    async create(name, version, content) {
+      const fullName = base + '/' + name;
+      const ack = await send(new CreateSecretCommand({ Name: fullName, KmsKeyId: config.encryptionKeyArn, ClientRequestToken: version,
+        SecretString: content, Description: 'Simulation procedural-profile experiment only; private external integrity receipt. Not approved application XMLDSig.',
+        Tags: [{ Key: 'application', Value: 'zakatflow' }, { Key: 'purpose', Value: 'qa-simplified-procedural-experiment' }] }));
+      if (!ack || ack.Name !== fullName || ack.VersionId !== version || !arnMatches(ack.ARN, fullName)) fail('QA_SIMPLIFIED_PROCEDURAL_STORAGE_UNAVAILABLE');
+      return { version: ack.VersionId! };
+    }, assertCreateOnly: verifyCreateOnlyFence, transport: clients.transport,
+  }, config.standardSample, config.sourceSha);
   return {
     status,
     prepareStandardCompliance: () => standard.prepare(),
     submitStandardCompliance: (input: unknown) => standard.submit(input),
+    prepareSimplifiedExperiment: () => simplified.prepare(),
+    submitSimplifiedExperiment: (input: unknown) => simplified.submit(input),
     async prepareOriginal() {
       if (await original()) return status();
       const spki = await publicKey();

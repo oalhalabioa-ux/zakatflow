@@ -69,6 +69,8 @@ The command outputs sanitized JSON, exits nonzero unless the complete expected d
 
 ## Actual onboarding progress superseding the earlier access blocker
 
+Follow-up scope clarification: `docs/zatca-procedural-simulation-experiment.md` describes a default-off, isolated procedural-profile protocol experiment using the preserved interim CCSID. This narrows the earlier blanket sample-submission deferral only for that labelled experiment, with private external artifact-integrity receipts and no runtime profile/issuance approval. It does not resolve or suppress the signed-message/QR normative differences documented here; the application signer and QR700 limit remain unchanged.
+
 On 2026-11-19, isolated hosted candidate `89dcbca0854cfffbfc5dc1153e98e75297ce7dc9` preserved the owner-issued interim CCSID and completed the three STANDARD invoice/credit/debit compliance checks against the Simulation gateway: HTTP200/PASS, zero errors/warnings, retained after browser reload and independent API recovery. Evidence is recorded in PR445 and Issue426. This is **3/6 onboarding compliance cases**, not reporting/clearance, final-CSID activation or Production release.
 
 The interim credential's identity/key/time preflight passed while `trustVerified:false` and `activationAllowed:false` remained. The authority's onboarding sequence uses CCSID during compliance; the CA-issued final CSID follows successful required checks. Final path/revocation/native packaging and private authenticated application lifecycle acceptance remain separate gates. A new OTP or repeated original CSR request does not fix the SIMPLIFIED signed-message difference. This offline follow-up makes no new deployment or changes to the existing hosted result.

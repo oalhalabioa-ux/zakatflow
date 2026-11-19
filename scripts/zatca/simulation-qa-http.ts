@@ -7,10 +7,14 @@ const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('submit'), otp: z.string().regex(/^[0-9]{6}$/), csrSha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
   z.object({ action: z.literal('standardPrepare') }).strict(),
   z.object({ action: z.literal('standardSubmit'), index: z.number().int().min(0).max(2), manifestDigest: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
+  z.object({ action: z.literal('simplifiedPrepare') }).strict(),
+  z.object({ action: z.literal('simplifiedSubmit'), index: z.number().int().min(0).max(2), manifestDigest: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
 ]);
 const safeErrors = new Set(['QA_TARGET_REQUIRED','QA_IDENTITY_REQUIRED','QA_CONFIGURATION_INVALID','QA_PRIVATE_STORAGE_UNAVAILABLE',
   'QA_STORAGE_FENCE_UNVERIFIED','QA_STANDARD_CONTEXT_UNAVAILABLE','QA_STANDARD_ORIGINAL_CHANGED','QA_STANDARD_STORAGE_UNAVAILABLE',
   'QA_STANDARD_PREVIOUS_REQUIRED','QA_STANDARD_RECONCILIATION_REQUIRED',
+  'QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE','QA_SIMPLIFIED_PROCEDURAL_ORIGINAL_CHANGED','QA_SIMPLIFIED_PROCEDURAL_STORAGE_UNAVAILABLE',
+  'QA_SIMPLIFIED_PROCEDURAL_PREVIOUS_REQUIRED','QA_SIMPLIFIED_PROCEDURAL_RECONCILIATION_REQUIRED',
   'QA_PRIVATE_STORAGE_INVALID','QA_SIGNING_KEY_UNAVAILABLE','QA_SIGNING_KEY_INVALID','QA_SIGNING_KEY_CHANGED','QA_CSR_SIGNATURE_INVALID',
   'QA_ORIGINAL_INVALID','QA_ORIGINAL_CHANGED','QA_INTENT_INVALID','QA_RECONCILIATION_REQUIRED','QA_OTP_INPUT_INVALID']);
 export type SimulationQaRequest = IncomingMessage & { body?: unknown };
@@ -59,10 +63,12 @@ export function createSimulationQaHttpHandler(open: () => ReturnType<typeof crea
       if (action.action === 'prepare') return finish(200, await diagnostic.prepareOriginal());
       if (action.action === 'standardPrepare') return finish(200, { standardCompliance: await diagnostic.prepareStandardCompliance() });
       if (action.action === 'standardSubmit') return finish(200, { standardCompliance: await diagnostic.submitStandardCompliance({ index: action.index, manifestDigest: action.manifestDigest }) });
+      if (action.action === 'simplifiedPrepare') return finish(200, { simplifiedExperiment: await diagnostic.prepareSimplifiedExperiment() });
+      if (action.action === 'simplifiedSubmit') return finish(200, { simplifiedExperiment: await diagnostic.submitSimplifiedExperiment({ index: action.index, manifestDigest: action.manifestDigest }) });
       return finish(200, await diagnostic.submitOtp({ otp: action.otp, csrSha256: action.csrSha256 }));
     } catch (error) {
       const code = error instanceof Error && safeErrors.has(error.message) ? error.message : 'QA_REQUEST_FAILED';
-      return finish(code === 'QA_RECONCILIATION_REQUIRED' || code === 'QA_ORIGINAL_CHANGED' || code === 'QA_STANDARD_RECONCILIATION_REQUIRED' || code === 'QA_STANDARD_ORIGINAL_CHANGED' ? 409 : 503, { error: code });
+      return finish(/(?:RECONCILIATION_REQUIRED|ORIGINAL_CHANGED)$/.test(code) ? 409 : 503, { error: code });
     }
   };
 }

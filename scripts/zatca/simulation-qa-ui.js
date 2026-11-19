@@ -34,9 +34,14 @@
     byId('standardPrepare').disabled = busy || standard?.state !== 'NOT_PREPARED';
     for (let i = 0; i < 3; i++) byId('standardSubmit' + i).disabled = busy || !standard?.manifestDigest
       || standard.results?.[i]?.state !== 'NOT_SENT' || standard.results.slice(0, i).some(r => r.state !== 'PASSED');
+    const simplified = current?.simplifiedExperiment;
+    byId('simplifiedSection').hidden = current?.state !== 'RESPONSE_QUARANTINED' || !simplified;
+    byId('simplifiedPrepare').disabled = busy || standard?.passed !== true || simplified?.state !== 'NOT_PREPARED';
+    for (let i = 0; i < 3; i++) byId('simplifiedSubmit' + i).disabled = busy || standard?.passed !== true || !simplified?.manifestDigest
+      || simplified.results?.[i]?.state !== 'NOT_SENT' || simplified.results.slice(0, i).some(r => r.state !== 'PASSED');
   }
   function render(value) {
-    if (!value.state && value.standardCompliance) value = { ...current, standardCompliance: value.standardCompliance };
+    if (!value.state && (value.standardCompliance || value.simplifiedExperiment)) value = { ...current, ...value };
     current = value;
     const company = value.company;
     if (company) {
@@ -53,6 +58,12 @@
     for (let i = 0; i < 3; i++) {
       const result = value.standardCompliance?.results?.[i];
       byId('standardResult' + i).textContent = result ? (labels[result.state] || 'تعذر تأكيد النتيجة.')
+        + (result.errorCodes?.length ? ' ' + result.errorCodes.join('، ') : '')
+        + (result.warningCodes?.length ? ' ' + result.warningCodes.join('، ') : '') : '';
+    }
+    for (let i = 0; i < 3; i++) {
+      const result = value.simplifiedExperiment?.results?.[i];
+      byId('simplifiedResult' + i).textContent = result ? (labels[result.state] || 'تعذر تأكيد النتيجة.')
         + (result.errorCodes?.length ? ' ' + result.errorCodes.join('، ') : '')
         + (result.warningCodes?.length ? ' ' + result.warningCodes.join('، ') : '') : '';
     }
@@ -73,6 +84,7 @@
     } catch (error) {
       if (body?.action === 'submit') current = { ...current, state: 'RECONCILIATION_REQUIRED' };
       else if (body?.action?.startsWith('standard')) current = { ...current, standardCompliance: { state: 'BLOCKED' } };
+      else if (body?.action?.startsWith('simplified')) current = { ...current, simplifiedExperiment: { state: 'BLOCKED' } };
       else current = { ...current, state: 'ERROR' };
       byId('status').textContent = error instanceof Error ? error.message : 'تعذر إكمال العملية. حدّث الحالة.';
       byId('status').dataset.state = 'ERROR';
@@ -81,6 +93,14 @@
   byId('prepare').addEventListener('click', () => void call({ action: 'prepare' }));
   byId('refresh').addEventListener('click', () => void call());
   byId('standardPrepare').addEventListener('click', () => void call({ action: 'standardPrepare' }));
+  byId('simplifiedPrepare').addEventListener('click', () => {
+    if (busy || byId('simplifiedPrepare').disabled) return;
+    void call({ action: 'simplifiedPrepare' });
+  });
+  for (let i = 0; i < 3; i++) byId('simplifiedSubmit' + i).addEventListener('click', () => {
+    if (busy || byId('simplifiedSubmit' + i).disabled) return;
+    void call({ action: 'simplifiedSubmit', index: i, manifestDigest: current.simplifiedExperiment.manifestDigest });
+  });
   for (let i = 0; i < 3; i++) byId('standardSubmit' + i).addEventListener('click', () => {
     if (busy || byId('standardSubmit' + i).disabled) return;
     void call({ action: 'standardSubmit', index: i, manifestDigest: current.standardCompliance.manifestDigest });

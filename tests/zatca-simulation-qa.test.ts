@@ -15,6 +15,9 @@ beforeAll(() => {
   spki = keys.publicKey.export({ type: 'spki', format: 'der' });
   keyPath = join(directory, 'synthetic.key');
   writeFileSync(keyPath, keys.privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
+  execFileSync('openssl', ['req','-new','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:secp256k1','-nodes',
+    '-keyout',join(directory,'issuer.key'),'-out',join(directory,'issuer.pem'),'-days','2','-subj','/CN=eInvoicing',
+    '-addext','basicConstraints=critical,CA:TRUE'], { stdio: 'pipe' });
 });
 afterAll(() => { if (directory) rmSync(directory, { recursive: true, force: true }); });
 const fail = (name: string): never => { const error = new Error('PRIVATE_UPSTREAM_DIAGNOSTIC'); error.name = name; throw error; };
@@ -27,7 +30,7 @@ function fixture() {
   const config = { unit, sourceSha: 'a'.repeat(40), encryptionKeyArn: 'arn:aws:kms:eu-north-1:701899214938:key/' + randomUUID() };
   const map = new Map<string, { content: string; version: string; arn: string; key: string }>();
   const state = { originalLostAck: false, intentLostAck: false, responseLostAck: false, intentBadAck: false,
-    wrongKey: false, deny: false, disableSigning: false, validCertificate: false, requestFail: false, createUpserts: false };
+    wrongKey: false, deny: false, disableSigning: false, validCertificate: false, interimCertificate: false, requestFail: false, createUpserts: false };
   const secrets = { send: vi.fn(async (command: unknown) => {
     if (state.deny) return fail('AccessDeniedException');
     if (command instanceof CreateSecretCommand) {
@@ -70,7 +73,8 @@ function fixture() {
       const saved = JSON.parse([...map].find(([name]) => name.endsWith('/original-csr'))![1].content);
       const csr = join(directory, unit.enrollmentId + '.csr'), output = join(directory, unit.enrollmentId + '.pem');
       writeFileSync(csr, saved.csrPem);
-      execFileSync('openssl', ['x509','-req','-in',csr,'-signkey',keyPath,'-copy_extensions','copy','-set_serial','12345','-days','1','-out',output], { stdio: 'pipe' });
+      const issuer = state.interimCertificate ? ['-CA',join(directory,'issuer.pem'),'-CAkey',join(directory,'issuer.key')] : ['-signkey',keyPath];
+      execFileSync('openssl', ['x509','-req','-in',csr,...issuer,'-copy_extensions','copy','-set_serial','12345','-days','1','-out',output], { stdio: 'pipe' });
       const der = new X509Certificate(readFileSync(output)).raw;
       certificate = Buffer.from(der.toString('base64')).toString('base64');
     }
@@ -163,6 +167,33 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
     await api.submitOtp(otpInput(await api.prepareOriginal()));
     await expect(api.prepareStandardCompliance()).rejects.toThrow('QA_STANDARD_CONTEXT_UNAVAILABLE');
     expect(f.map.size).toBe(4); expect(f.transport).toHaveBeenCalledTimes(1);
+  });
+  it('gates the procedural experiment, binds it to completed STANDARD originals and signs each artifact/receipt once', async () => {
+    const f = fixture(); f.state.validCertificate = true; f.state.interimCertificate = true;
+    const sample = { street: 'Synthetic street', building: '1234', district: 'Synthetic district', additional: '5678', postal: '12345', city: 'Riyadh' };
+    const api = f.create({ ...f.config, standardSample: sample, proceduralSimplifiedExperiment: true });
+    await api.submitOtp(otpInput(await api.prepareOriginal()));
+    await expect(api.prepareSimplifiedExperiment()).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
+    const p = await api.prepareStandardCompliance() as { manifestDigest: string };
+    for (let index = 0; index < 3; index++) await api.submitStandardCompliance({ index, manifestDigest: p.manifestDigest });
+    const before = [...f.map].map(([name, value]) => [name, value.content] as const);
+    const count = () => f.kms.send.mock.calls.filter(([c]) => c instanceof SignCommand).length, signs = count();
+    await expect(f.create({ ...f.config, standardSample: sample }).prepareSimplifiedExperiment()).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
+    expect(count()).toBe(signs);
+    const b = await api.prepareSimplifiedExperiment() as { manifestDigest: string };
+    expect(count()).toBe(signs + 6); expect(f.transport).toHaveBeenCalledTimes(4);
+    for (let index = 0; index < 3; index++) await api.submitSimplifiedExperiment({ index, manifestDigest: b.manifestDigest });
+    expect(count()).toBe(signs + 6); expect(f.transport).toHaveBeenCalledTimes(7);
+    const status = await api.status();
+    expect(status).toMatchObject({ state: 'RESPONSE_QUARANTINED', trustVerified: false, activationAllowed: false,
+      simplifiedExperiment: { passed: true, applicationProfileApproved: false, activationAllowed: false } });
+    for (const [name, content] of before) expect(f.map.get(name)!.content).toBe(content);
+    await api.submitSimplifiedExperiment({ index: 0, manifestDigest: b.manifestDigest });
+    expect(count()).toBe(signs + 6); expect(f.transport).toHaveBeenCalledTimes(7);
+    expect(JSON.stringify(status)).not.toMatch(/PRIVATE_CREDENTIAL|SignatureValue|CERTIFICATE REQUEST|invoiceSignature|integritySignature/);
+    f.state.wrongKey = true;
+    await expect(api.submitSimplifiedExperiment({ index: 0, manifestDigest: b.manifestDigest })).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
+    expect(f.transport).toHaveBeenCalledTimes(7);
   });
   it('recovers original/response lost acknowledgements without changing the saved bytes or resending', async () => {
     const f = fixture(); f.state.originalLostAck = true; f.state.responseLostAck = true;

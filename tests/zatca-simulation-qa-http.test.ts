@@ -16,7 +16,10 @@ function fixture(env = environment) {
   const submit = vi.fn(async (_input: unknown) => ({ state: 'RESPONSE_QUARANTINED', activationAllowed: false }));
   const standardPrepare = vi.fn(async () => ({ stage: 'STANDARD_COMPLIANCE_QA_ONLY', passed: false, activationAllowed: false }));
   const standardSubmit = vi.fn(async (_input: unknown) => ({ stage: 'STANDARD_COMPLIANCE_QA_ONLY', passed: false, activationAllowed: false }));
-  const open = vi.fn(() => ({ status, prepareOriginal: prepare, submitOtp: submit, prepareStandardCompliance: standardPrepare, submitStandardCompliance: standardSubmit }) as never);
+  const simplifiedPrepare = vi.fn(async () => ({ stage: 'SIMPLIFIED_PROCEDURAL_PROFILE_QA_ONLY', passed: false, applicationProfileApproved: false, activationAllowed: false }));
+  const simplifiedSubmit = vi.fn(async (_input: unknown) => ({ stage: 'SIMPLIFIED_PROCEDURAL_PROFILE_QA_ONLY', passed: false, applicationProfileApproved: false, activationAllowed: false }));
+  const open = vi.fn(() => ({ status, prepareOriginal: prepare, submitOtp: submit, prepareStandardCompliance: standardPrepare, submitStandardCompliance: standardSubmit,
+    prepareSimplifiedExperiment: simplifiedPrepare, submitSimplifiedExperiment: simplifiedSubmit }) as never);
   const handler = createSimulationQaHttpHandler(open, () => env);
   async function call({ method = 'GET', headers = {}, body, raw }: { method?: string; headers?: Record<string,string | undefined>; body?: unknown; raw?: string | Buffer } = {}) {
     const request = Object.assign(Readable.from(raw === undefined ? [] : [raw]), { method,
@@ -28,7 +31,7 @@ function fixture(env = environment) {
     await handler(request, response as unknown as ServerResponse);
     return { status: response.statusCode, body: JSON.parse(response.text), headers: sentHeaders };
   }
-  return { call, open, status, prepare, submit, standardPrepare, standardSubmit };
+  return { call, open, status, prepare, submit, standardPrepare, standardSubmit, simplifiedPrepare, simplifiedSubmit };
 }
 describe('protected isolated Simulation HTTP boundary', () => {
   it('returns only the safe read status with no-store/nosniff and no CORS permission', async () => {
@@ -52,6 +55,18 @@ describe('protected isolated Simulation HTTP boundary', () => {
       const isolated = fixture();
       expect((await isolated.call({ method: 'POST', body: { action: 'standardSubmit', index: 0, manifestDigest: 'a'.repeat(64), ...override } })).status).toBe(400);
       expect(isolated.open).not.toHaveBeenCalled();
+    }
+  });
+  it('separates the procedural experiment and accepts no certificate, XML, scope, token or endpoint from the caller', async () => {
+    const f = fixture();
+    expect((await f.call({ method: 'POST', body: { action: 'simplifiedPrepare' } })).status).toBe(200);
+    expect((await f.call({ method: 'POST', body: { action: 'simplifiedSubmit', index: 0, manifestDigest: 'a'.repeat(64) } })).status).toBe(200);
+    expect(f.simplifiedSubmit).toHaveBeenCalledWith({ index: 0, manifestDigest: 'a'.repeat(64) });
+    expect(f.submit).not.toHaveBeenCalled(); expect(f.standardSubmit).not.toHaveBeenCalled();
+    for (const override of [{ index: 3 }, { certificate: 'MAA=' }, { xml: '<Invoice/>' }, { token: 'PRIVATE' }, { scope: 'PRODUCTION' }, { endpoint: 'https://override.invalid' }]) {
+      const g = fixture();
+      expect((await g.call({ method: 'POST', body: { action: 'simplifiedSubmit', index: 0, manifestDigest: 'a'.repeat(64), ...override } })).status).toBe(400);
+      expect(g.open).not.toHaveBeenCalled();
     }
   });
   it('accepts only the known stable QA host or this generated deployment, including read requests', async () => {

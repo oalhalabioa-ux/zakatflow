@@ -111,6 +111,13 @@ export function createStandardComplianceQa(deps: StandardQaDependencies, private
       passed: results.every(r => r.state === 'PASSED'), simplifiedPassed: false, activationAllowed: false };
   }
   return {
+    // Backend-only continuation of this diagnostic chain. No XML/credential is
+    // exposed by the HTTP status; all saved artifacts/results are revalidated.
+    async completedLink() {
+      const ctx = await context(), saved = await manifest(ctx);
+      if (!saved || !(await summary(saved)).passed) throw new Error('QA_STANDARD_PREVIOUS_REQUIRED');
+      return { standardManifestDigest: saved.digest, previousInvoiceHash: saved.value.artifacts[2].invoiceHash };
+    },
     async status() {
       const ctx = await context(), saved = await manifest(ctx);
       return saved ? summary(saved) : { stage: 'STANDARD_COMPLIANCE_QA_ONLY', state: 'NOT_PREPARED', activationAllowed: false };
