@@ -648,6 +648,66 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    }
   }finally{await context.close();}
  });
+ await check('Royal profile and investment: explicit supplier import, cloud persistence and responsive captures',async()=>{
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
+  const page=await context.newPage();page.setDefaultTimeout(12000);
+  const title='Royal synthetic profile and CAPEX';
+  try{
+   await page.goto(appUrl+'/en/feasibility?scope=PERSONAL');
+   await page.getByRole('button',{name:'New study',exact:true}).click();
+   await page.getByRole('textbox',{name:'New project name',exact:true}).fill(title);
+   await page.getByRole('radio',{name:'Bottled-water factory',exact:true}).check();
+   await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   await page.getByRole('button',{name:'Profile',exact:true}).click();
+   await page.getByLabel('Country',{exact:true}).fill('Synthetic country');
+   await page.getByLabel('Study currency',{exact:true}).selectOption('USD');
+   await page.getByLabel('Detailed project location',{exact:true}).fill('Synthetic site');
+   await page.getByLabel('Legal owner as documented',{exact:true}).fill('Synthetic documented owner');
+   await page.getByRole('button',{name:'Supplier quotes',exact:true}).click();
+   await page.getByRole('button',{name:'Add offer',exact:true}).click();
+   await page.locator('.fs-register-row summary').click();
+   await page.getByLabel('Vendor',{exact:true}).fill('Synthetic QA vendor');
+   await page.getByLabel('Item',{exact:true}).fill('Synthetic equipment');
+   await page.getByLabel('Quote value',{exact:true}).fill('5000');
+   await page.getByRole('button',{name:'Investment',exact:true}).click();
+   await page.getByRole('button',{name:'Import supplier quote',exact:true}).click();
+   const dialog=page.getByRole('dialog');
+   await dialog.getByLabel('Supplier quote',{exact:true}).selectOption({index:1});
+   await dialog.getByLabel('Target investment item',{exact:true}).selectOption('line');
+   const apply=dialog.getByRole('button',{name:'Apply quote to item',exact:true});
+   assert.equal(await apply.isDisabled(),true);
+   await dialog.getByRole('checkbox').check();await apply.click();
+   assert.equal(await page.getByLabel('Bottling and packaging line',{exact:true}).inputValue(),'5000');
+   await page.getByText(/Quote source: Synthetic QA vendor/).waitFor();
+   const saved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&r.request().method()==='POST');
+   await page.getByRole('button',{name:'Save to cloud',exact:true}).click();assert.equal((await saved).status(),201);
+   const response=await page.request.get(appUrl+'/api/feasibility/projects');assert.equal(response.status(),200);
+   const row=(await response.json()).find(x=>x.title===title);assert.ok(row);
+   assert.equal(row.study.legalOwner,'Synthetic documented owner');assert.equal(row.study.siteDescription,'Synthetic site');
+   assert.equal(row.study.water.capex.line,5000);assert.equal(row.study.water.capexQuoteSources.line.amount,5000);
+   assert.equal(row.study.water.capexQuoteSources.line.currency,'USD');
+   for(const locale of ['ar','en'])for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000});await page.goto(appUrl+'/'+locale+'/feasibility?scope=PERSONAL');
+    const ar=locale==='ar';await page.getByRole('heading',{name:title,exact:true}).waitFor();
+    await page.getByRole('button',{name:ar?'بيانات المشروع':'Profile',exact:true}).click();
+    assert.equal(await page.getByLabel(ar?'المالك القانوني وفق المستندات':'Legal owner as documented',{exact:true}).inputValue(),'Synthetic documented owner');
+    assert.equal(await page.getByLabel(ar?'موقع المشروع التفصيلي':'Detailed project location',{exact:true}).inputValue(),'Synthetic site');
+    assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+    await page.screenshot({path:new URL('./screenshots/royal-profile-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+    await page.getByRole('button',{name:ar?'تكاليف الاستثمار':'Investment',exact:true}).click();
+    assert.equal(await page.getByLabel(ar?'خط التعبئة والتغليف':'Bottling and packaging line',{exact:true}).inputValue(),'5000');
+    assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+    await page.screenshot({path:new URL('./screenshots/royal-investment-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+    await page.getByRole('button',{name:ar?'استيراد عرض مورد':'Import supplier quote',exact:true}).click();
+    await page.screenshot({path:new URL('./screenshots/royal-quote-import-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+    await page.getByRole('dialog').getByRole('button',{name:ar?'إلغاء':'Cancel',exact:true}).click();
+   }
+   await page.getByRole('button',{name:'Report and export',exact:true}).click();
+   await page.getByText('Synthetic documented owner',{exact:true}).waitFor();
+   await page.getByText(/Synthetic site/).waitFor();
+  }finally{await context.close();}
+ });
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{
   const r=await fetch(url+'/rest/v1/organizations?select=id,contact_email,registered_address',{
    headers:headers(outsider)

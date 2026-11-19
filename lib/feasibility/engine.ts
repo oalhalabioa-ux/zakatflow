@@ -49,6 +49,8 @@ export interface FeasibilityStudy {
  capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];handoff?:ProjectHandoff;advanced?:AdvancedAssumptions;sectorSchedule?:SectorSchedule;
  scenarioAssumptions?: Partial<Record<Scenario,ScenarioFactors>>;
  rawLand?:RawLand;water?:WaterModel;preparedBy?:string;studyDate?:string;notes?:string;
+ /** Declared document details only; never used to authorize access or transfer ownership. */
+ legalOwner?:string;siteDescription?:string;
  createdAt:string; updatedAt:string;
 }
 export type Scenario='CONSERVATIVE'|'BASE'|'OPTIMISTIC';

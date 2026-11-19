@@ -4,6 +4,8 @@ import {internalRateOfReturn, type FeasibilityStudy} from './engine';
 const amount=z.number().finite().min(0).max(1e12);
 const pct=z.number().finite().min(0).max(100);
 const multiplier=z.number().finite().min(0).max(1000);
+export const waterCapexItemKeys=['buildings','line','treatment','power','lab','vehicles','licenses','others'] as const;
+export type WaterCapexItemKey=typeof waterCapexItemKeys[number];
 export const waterScenarioSchema=z.object({
  name:z.string().trim().min(1).max(120),volume:multiplier,price:multiplier,cost:multiplier
 }).strict();
@@ -12,6 +14,10 @@ const waterUnitCosts=z.object({
 }).strict();
 export const emptyWaterUnitCosts={bottle:0,cap:0,label:0,carton:0,kwh:0,rawWaterM3:0,distributionKm:0};
 export const waterModelSchema=z.object({
+ capexQuoteSources:z.partialRecord(z.enum(waterCapexItemKeys),z.object({
+  quoteId:z.string().trim().min(1).max(100),vendor:z.string().trim().min(1).max(300),item:z.string().trim().min(1).max(500),
+  amount,currency:z.string().regex(/^[A-Z]{3}$/),importedAt:z.iso.datetime()
+ }).strict()).optional(),
  deal:z.object({
   landMode:z.enum(['transfer','lease','right']),landValue:amount,landArea:amount,rightValue:amount,
   leaseMonth:amount,licenseValue:amount,investorLoan:amount,loanInterest:pct,

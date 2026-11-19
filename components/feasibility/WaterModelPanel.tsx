@@ -3,6 +3,10 @@ import {useId,useMemo,type ReactNode} from 'react';
 import {emptyWaterOperationsPlan,emptyWaterUnitCosts,evaluateWater,waterOperationalRequirements,waterProductionBalance,waterVariableCostBreakdown,type WaterModel} from '@/lib/feasibility/water-model';
 import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
 import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
+import type {StudySupplier} from '@/lib/feasibility/engine';
+import {waterCapexCategories} from '@/lib/feasibility/water-capex';
+import type {WaterCapexItemKey} from '@/lib/feasibility/water-model';
+import WaterCapexQuoteImport from './WaterCapexQuoteImport';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 
 type Labels=readonly [string,string];
@@ -118,11 +122,11 @@ function Panel({title,icon,children}:{title:string;icon:RoyalIconName;children:R
  </section>;
 }
 
-export default function WaterModelPanel({water,locale,currency,tab,detail,onChange,allowExport=true}:{
+export default function WaterModelPanel({water,locale,currency,tab,detail,onChange,allowExport=true,suppliers=[]}:{
  water:WaterModel;locale:string;currency:string;
  tab:'overview'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'report';
  detail?:'water'|'valuation'|'scenario'|'evidence'|'permissions';
- onChange:(water:WaterModel)=>void;allowExport?:boolean;
+ onChange:(water:WaterModel)=>void;allowExport?:boolean;suppliers?:readonly StudySupplier[];
 }){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
  const distributionLabelId=useId();
@@ -207,12 +211,24 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     [['إجمالي الاحتياج النقدي','Total initial cash required'],money(m.cashRequired)]])}
    <section className="card fs-panel">
     <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{l('جدول البنود الاستثمارية','Investment cost schedule')}</h3>
-    <Table headers={[l('البند الاستثماري','Investment item'),l('القيمة','Amount')+(currency?' · '+currency:'')]}
+    <Table scrollLabel={l('جدول تكاليف الاستثمار، قابل للتمرير أفقيًا','Investment cost schedule, horizontally scrollable')}
+     headers={[l('م','No.'),l('البند الاستثماري','Investment item'),l('التصنيف','Classification'),l('القيمة','Amount')+(currency?' · '+currency:''),l('نوع المساهمة','Contribution type')]}
      rows={[
-      ...items.map(item=>[l(item[1],item[2]),field('capex',item)]),
-      [l('احتياطي الاستثمار','Investment contingency'),<bdi>{money(m.contingency)}</bdi>]
+      ...items.map((item,index)=>{
+       const key=item[0] as WaterCapexItemKey,source=water.capexQuoteSources?.[key];
+       return [index+1,l(item[1],item[2]),<span className="fs-royal-tag">{l(...waterCapexCategories[key])}</span>,<>
+        {field('capex',item)}{source&&<small className="fs-hint">{l('مصدر العرض: ','Quote source: ')+source.vendor+' · '+fmt(source.amount)+' '+source.currency}
+         {source.amount!==water.capex[key]&&' · '+l('عُدّل المبلغ بعد الاستيراد','Amount edited after import')}
+         {source.currency!==currency&&' · '+l('تغير رمز عملة الدراسة؛ راجع العرض','Study currency changed; review the quote')}</small>}</>,
+        <span className="fs-royal-tag">{l('نقدي','Cash')}</span>];
+      }),
+      [items.length+1,l('احتياطي الاستثمار','Investment contingency'),l('احتياطي','Contingency'),<bdi>{money(m.contingency)}</bdi>,l('نقدي','Cash')]
      ]}
-     footer={<><th scope="row">{l('إجمالي التأسيس','Total establishment costs')}</th><td><bdi>{money(m.investment)}</bdi></td></>}/>
+     footer={<><th scope="row" colSpan={3}>{l('إجمالي التأسيس','Total establishment costs')}</th><td><bdi>{money(m.investment)}</bdi></td><td/></>}/>
+    <div className="fs-actions"><WaterCapexQuoteImport water={water} quotes={suppliers} currency={currency} locale={locale}
+     items={items.map(([key,ar,en])=>({key:key as WaterCapexItemKey,label:l(ar,en)}))} onChange={onChange}/></div>
+    <p className="fs-hint">{l('تعكس هذه البنود تكلفة نقدية في نموذج المياه. تُسجّل الأرض والحقوق العينية في الشراكة، ولا تتكرر في هذا الجدول.',
+     'These items are cash costs in the water model. Land and in-kind rights belong in Partnership and are not repeated here.')}</p>
    </section>
    <div className="fs-royal-profile-grid">
     <RoyalBars title={l('توزيع الاستثمار حسب البند','Investment costs by item')} locale={locale} unit={currency}
@@ -221,6 +237,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     <section className="card fs-panel">
      <h3 className="fs-royal-report-title"><RoyalIcon name="settings"/>{l('سياسة احتياطي التشغيل','Operating reserve policy')}</h3>
      {fields('capex',reserveFields)}
+     {field('ops',['maintenancePct','الصيانة الرأسمالية سنويًا %','Annual capital maintenance %',1000])}
+     <p>{l('الصيانة السنوية المقدّرة','Estimated annual maintenance')}: <bdi>{money(m.investment*water.ops.maintenancePct/100)}</bdi></p>
      <p className="fs-hint">{l('يُحسب الاحتياطي على الأعمال والمعدات. تُراجع حقوق الأرض في تبويب الشراكة.', 'Contingency is based on works and equipment. Review land rights in the Partnership tab.')}</p>
     </section>
    </div>

@@ -3,6 +3,13 @@ import {createStudy} from './engine';
 import {cloudDraftWrite} from './draft-schema';
 const id='6357a708-bae2-4634-9296-490404b1d8a4';
 describe('feasibility QA cloud draft input',()=>{
+ it('round-trips optional declared owner and site without authorizing ownership changes',()=>{
+  const study={...createStudy(id,'Synthetic profile'),legalOwner:'Synthetic documented owner',siteDescription:'Synthetic site details'};
+  expect(cloudDraftWrite.parse({study}).study).toMatchObject({legalOwner:study.legalOwner,siteDescription:study.siteDescription});
+  expect(cloudDraftWrite.safeParse({study:{...study,legalOwner:'a'.repeat(301)}}).success).toBe(false);
+  expect(cloudDraftWrite.safeParse({study:{...study,siteDescription:'a'.repeat(501)}}).success).toBe(false);
+  expect(cloudDraftWrite.safeParse({study:{...study,organization_id:id}}).success).toBe(false);
+ });
  it('accepts a normal zero-input draft with an authenticated UUID',()=>{
   const study=createStudy(id,'Water factory');
   expect(cloudDraftWrite.safeParse({study}).success).toBe(true);

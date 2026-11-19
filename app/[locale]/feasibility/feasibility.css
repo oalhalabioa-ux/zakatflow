@@ -415,10 +415,14 @@
 .fs-royal-profile-notes textarea { min-height: 80px; }
 @media(max-width: 650px) {
  .fs-royal-profile-grid, .fs-royal-profile-grid .fs-form-grid { grid-template-columns: minmax(0, 1fr); }
+ .fs-royal-profile > .fs-panel > .fs-form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .fs-royal-profile > .fs-panel > .fs-form-grid > :first-child { grid-column: 1 / -1; }
 }
 
 .fs-royal-capex .fs-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .fs-royal-capex .fs-table { min-width: 0; }
+.fs-royal-capex .fs-royal-water-sales-table .fs-table { min-inline-size: 640px; }
+.fs-royal-capex .fs-table .fs-hint { display: block; min-inline-size: 140px; }
 .fs-royal-capex .fs-table th { overflow-wrap: anywhere; }
 .fs-royal-capex .fs-table .fs-field { min-width: 0; }
 .fs-royal-capex .fs-table .fs-field span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

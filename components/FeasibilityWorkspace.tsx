@@ -748,7 +748,7 @@ function FeasibilityWorkspaceContent({
    {rawLand&&waterTab&&<RawLandPanel model={rawLand} tab={waterTab} locale={locale} currency={study.currency}
     onChange={value=>update({rawLand:value})}/>}
    {water&&waterTab&&waterTab!=='overview'&&<WaterModelPanel water={water} tab={waterTab} detail={details?.id===detail?detail:undefined}
-     currency={study.currency} locale={locale} onChange={water=>update({water})}/>}
+     currency={study.currency} locale={locale} suppliers={study.suppliers} onChange={water=>update({water})}/>}
    {water&&tab==='overview'&&<details className="fs-royal-shared-access">
     <summary>{txt(ar,'تفاصيل ومؤشرات مصنع المياه','Detailed water factory indicators')}</summary>
     <WaterModelPanel water={water} tab="overview" currency={study.currency} locale={locale} onChange={water=>update({water})}/>
@@ -758,7 +758,7 @@ function FeasibilityWorkspaceContent({
     <p>{txt(ar,'نسبة الممول في حقوق الملكية','Investor equity share')}: {model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}</p>
     <div className="card fs-panel"><h3>{txt(ar,'إشارات القرار','Decision diagnostics')}</h3><p>{model.cashFundingGap>0?txt(ar,'فجوة التمويل النقدي: ','Cash funding gap: ')+money(model.cashFundingGap):txt(ar,'لا توجد فجوة تمويل نقدية وفق المدخلات.','No positive cash funding gap under current inputs.')}</p><p>{!study.landTransferred&&study.landValue>0?txt(ar,'الأرض لم تنقل للشركة؛ لا تدخل قيمتها السوقية ضمن حقوق ملكيتها.','Land is not transferred; its full market value does not count as company equity.'):txt(ar,'راجع قيمة الحصة العينية مع جهة مستقلة.','Verify any in-kind contribution independently.')}</p><p>{!model.ready?txt(ar,'استكمل الاستثمار والسعر والحجم قبل اعتماد مؤشرات الجدوى.','Enter investment, price and sales volume before relying on projections.'):txt(ar,'النتائج استرشادية، وليست اعتمادًا للقرار الاستثماري.','Results are indicative, not investment approval.')}</p></div>
    </details>}
-   {tab==='profile'&&<div className="fs-block">
+   {tab==='profile'&&<div className="fs-block fs-royal-profile">
     <section className="card fs-panel">
      <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{txt(ar,'الهوية والوصف','Identity and description')}</h3>
      <div className="fs-form-grid">
@@ -777,6 +777,9 @@ function FeasibilityWorkspaceContent({
     <div className="fs-royal-profile-grid">
      <section className="card fs-panel">
       <h3 className="fs-royal-report-title"><RoyalIcon name="building"/>{txt(ar,'الموقع والجدوى المبدئية','Location and preliminary feasibility')}</h3>
+      <div className="fs-form-grid">
+       <label className="fs-field"><span>{txt(ar,'موقع المشروع التفصيلي','Detailed project location')}</span><input maxLength={500} value={study.siteDescription??''} onChange={e=>update({siteDescription:e.currentTarget.value})}/></label>
+      </div>
       <dl className="fs-royal-checks">
        <div><dt>{txt(ar,'موقع المشروع','Project location')}</dt><dd>{[study.region,study.country].filter(Boolean).join(' · ')||'—'}</dd></div>
        {water&&<div><dt>{txt(ar,'مساحة الأرض (م²)','Land area (m²)')}</dt><dd><bdi>{fmt(water.deal.landArea)}</bdi></dd></div>}
@@ -786,10 +789,13 @@ function FeasibilityWorkspaceContent({
      </section>
      <section className="card fs-panel">
       <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{txt(ar,'بيانات المالك وسياق الدراسة','Owner and study context')}</h3>
+      <label className="fs-field"><span>{txt(ar,'المالك القانوني وفق المستندات','Legal owner as documented')}</span><input maxLength={300} value={study.legalOwner??''} onChange={e=>update({legalOwner:e.currentTarget.value})}/></label>
+      <p className="fs-hint">{txt(ar,'الاسم المصرّح به لا يغيّر ملكية الدراسة أو صلاحياتها، ولا يغني عن التحقق من المستندات.','This declared name does not change study ownership or access and does not replace document verification.')}</p>
       <dl className="fs-royal-checks">
        <div><dt>{txt(ar,'نطاق المشروع','Project scope')}</dt><dd>{sharedStudy?txt(ar,'مشتركة','Shared'):personalScope?txt(ar,'شخصي','Personal'):txt(ar,'مؤسسي','Organization')}</dd></div>
        {!personalScope&&<div><dt>{txt(ar,'المؤسسة المختارة من البنر','Organization selected in the header')}</dt><dd>{organizations.find(item=>item.id===organizationId)?.name||'—'}</dd></div>}
        <div><dt>{txt(ar,'صلاحية الدراسة','Study access')}</dt><dd>{effectiveReadOnly?txt(ar,'قراءة فقط','Read only'):txt(ar,'تحرير','Editing')}</dd></div>
+       <div><dt>{txt(ar,'الإصدار السحابي','Cloud revision')}</dt><dd>{personalScope?cloudRevisions[study.id]??'—':organizationRecords[study.id]?.revision??'—'}</dd></div>
       </dl>
       <div className="fs-form-grid">
        <label className="fs-field"><span>{txt(ar,'معد الدراسة','Prepared by')}</span><input maxLength={5000} value={study.preparedBy??''} onChange={e=>update({preparedBy:e.currentTarget.value})}/></label>

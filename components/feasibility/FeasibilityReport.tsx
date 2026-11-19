@@ -189,7 +189,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
       [l('معدّ الدراسة','Prepared by'),study.preparedBy],
       [l('تاريخ الدراسة','Study date'),study.studyDate],
       [l('حالة مراجعة النسخة','Revision review status'),reviewState],
-      [l('موقع المشروع','Project location'),[study.region,study.country].filter(Boolean).join(' · ')],
+      [l('موقع المشروع','Project location'),[study.siteDescription,study.region,study.country].filter(Boolean).join(' · ')],
+      [l('المالك القانوني المصرّح به','Declared legal owner'),study.legalOwner],
       [l('عملة الدراسة','Study currency'),study.currency],
      ].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'—'}</dd></div>)}</dl>
     </section>
