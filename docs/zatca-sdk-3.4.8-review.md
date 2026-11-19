@@ -39,7 +39,44 @@ The SDK-package identification/review gate now has concrete 3.4.8 evidence. **Ru
 
 No new hosted QA deployment, main merge, Production activation, environment/auth/domain change, persistent database migration or cloud resource occurred in this review. Shared QA V2 and the current production release were untouched.
 
+## Follow-up: isolate the signed bytes from XML/QR serialization
+
+The original application output failed several SDK stages simultaneously. A new offline differential changes only the ECDSA signed message and the corresponding signature/QR value in the otherwise SDK-compatible synthetic serialization. It does **not** modify the application signer, SDK executable, schemas or authority rules. `scripts/zatca/verify-simplified-binding-sdk348.mjs` reproduces twelve comparisons using temporary synthetic root/leaf keys, all three SIMPLIFIED document kinds, the exact pinned JAR and the strict six-stage interpreter. It also invokes the official SDK signer itself using those same synthetic credentials; neither the SDK's bundled key nor a taxpayer credential is used.
+
+| Profile, across invoice / credit note / debit note | SDK result | Independent Node ECDSA result |
+| --- | --- | --- |
+| Existing synthetic compatibility control | All six stages PASS | Verifies over decoded invoice-hash bytes; fails over canonical SignedInfo |
+| Changed SigningTime and recomputed serialized-properties digest, without re-signing | All six stages PASS | Original signature and invoice hash unchanged; canonical SignedInfo changed |
+| Same serialization, ECDSA over canonical SignedInfo, QR tag7 updated to match | XSD/EN/KSA/QR/PIH PASS; only SIGNATURE fails with `signatureValue` | Verifies over canonical SignedInfo; fails over decoded invoice-hash bytes |
+| Output produced by the official SDK signing command | All six stages PASS | Verifies over that returned document's invoice-hash bytes; fails over canonical SignedInfo |
+
+Three additional independent negative controls change the properties/reference of the SignedInfo-signed variant while retaining its signature/QR bytes; all reject. The SDK signer reformats XML, so its returned invoice hash is checked against its **own** embedded reference, not assumed equal to the pre-sign input's hash. Independently computed hashes match the embedded invoice reference for all twelve files. Machine-readable observations: `docs/zatca-sdk348-binding-evidence-20261119.json`.
+
+This isolates a signed-message interoperability difference after XML, QR and business-rule checks pass. The controlled variant is **not** a complete XAdES-conformant candidate: it deliberately retains the compatibility profile's other serialization/reference conventions to vary a single factor. A valid ECDSA over SignedInfo alone does not establish correct references, CA trust, policy, revocation or authority acceptance. The tamper outcome applies only to this pinned **offline SDK** and synthetic fixtures; it is not evidence of a live-gateway vulnerability. No real-company simplified invoice or new authority request was made.
+
+Security Features Standard v1.2 section2.3.3 places the SignedProperties reference digest in SignedInfo so it is signed when SignedInfo is signed. The separate authority signing-process instructions describe signing the generated invoice hash. The observed SDK behavior follows the latter procedure. This unresolved difference must not be hidden by silently replacing the application signer with the synthetic compatibility helper. Resolve the accepted secure profile before submitting the three real Simulation SIMPLIFIED samples; a passing SDK control alone cannot close that gate.
+
+Reproduce from the repository root with the already downloaded official SDK and its locally resolved configuration:
+
+```sh
+node scripts/zatca/verify-simplified-binding-sdk348.mjs \
+  --java /absolute/path/to/java \
+  --jar /absolute/path/to/zatca-einvoicing-sdk-238-R3.4.8.jar \
+  --sdk-config /absolute/path/to/sdk-config.json
+```
+
+The command outputs sanitized JSON, exits nonzero unless the complete expected differential and negative controls reproduce, and removes temporary keys/XML/configuration in `finally`. Java child processes receive only PATH/LANG/SDK_CONFIG. This manual SDK check is not run by CI without the supplied SDK artifact; normal CI still checks runtime boundaries and native XML signatures.
+
+## Actual onboarding progress superseding the earlier access blocker
+
+On 2026-11-19, isolated hosted candidate `89dcbca0854cfffbfc5dc1153e98e75297ce7dc9` preserved the owner-issued interim CCSID and completed the three STANDARD invoice/credit/debit compliance checks against the Simulation gateway: HTTP200/PASS, zero errors/warnings, retained after browser reload and independent API recovery. Evidence is recorded in PR445 and Issue426. This is **3/6 onboarding compliance cases**, not reporting/clearance, final-CSID activation or Production release.
+
+The interim credential's identity/key/time preflight passed while `trustVerified:false` and `activationAllowed:false` remained. The authority's onboarding sequence uses CCSID during compliance; the CA-issued final CSID follows successful required checks. Final path/revocation/native packaging and private authenticated application lifecycle acceptance remain separate gates. A new OTP or repeated original CSR request does not fix the SIMPLIFIED signed-message difference. This offline follow-up makes no new deployment or changes to the existing hosted result.
+
 References:
+- https://zatca1.discourse.group/t/signing-process/354
+- https://zatca1.discourse.group/t/error-in-simplified-invoice-report-signed-properties-hashing-issue/6028
+- https://zatca1.discourse.group/t/onboarding-and-renewal/480
 - https://zatca.gov.sa/ar/E-Invoicing/SystemsDevelopers/Documents/20230519_ZATCA_Electronic_Invoice_Security_Features_Implementation_Standards_vF.pdf
 - https://zatca.gov.sa/ar/E-Invoicing/SystemsDevelopers/Documents/20220624_ZATCA_Electronic_Invoice_XML_Implementation_Standard_vF.pdf
 - https://sandbox.zatca.gov.sa/downloadSDK

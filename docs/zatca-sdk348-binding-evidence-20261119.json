@@ -1,0 +1,496 @@
+{
+  "date": "2026-11-19",
+  "sourceBaseSha": "89dcbca0854cfffbfc5dc1153e98e75297ce7dc9",
+  "scope": "SDK_348_OFFLINE_SYNTHETIC_BINDING_DIFFERENTIAL_ONLY",
+  "sdkJarSha256": "48abeb828d453ef6fafba792fddbbb2701da5c7018c24bde918853e80ff5d530",
+  "sourceFilesSha256": {
+    "scripts/zatca/verify-simplified-binding-sdk348.mjs": "4b56cc95b3e9729dc03bc8d8dcab5dc667a861f8202b5af95ca30231f0d3d224",
+    "tests/helpers/zatca-sdk345-qa-profile.ts": "e71a698ada94edd417cb3aa1d2cb665b584cc674dddbeaffc970e49f989dbe1d",
+    "lib/zatca-sdk-validation.ts": "eed3733e0861a6b45604665224fdb70c5d0bfeecba2195a9e62561a22fd60cdb",
+    "lib/zatca-xml-hash.ts": "eb80aa8876cf48da26f10e6d715318109fd9b4663aad006a6a124ab6cfed624d"
+  },
+  "observationsReproduced": true,
+  "cases": [
+    {
+      "kind": "INVOICE",
+      "profile": "SYNTHETIC_COMPATIBILITY_CONTROL",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": true,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "00b0ae5bd3980b16301d0becfcc7a531e1072c4ecd64c30e60ddfbf6af234a25",
+      "canonicalSignedInfoSha256": "szmlsBAcxNhm49bxlSTwxnbnk8isbd2kq96s6ECxGWw="
+    },
+    {
+      "kind": "INVOICE",
+      "profile": "CHANGED_PROPERTIES_WITHOUT_RESIGNING",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": true,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "13c561afb52c05e6ed601ca8dc893ec477f64a31d7fc510d4830ed5811367640",
+      "canonicalSignedInfoSha256": "b0wOrwDGo/DaxtbsEQTbXQofF7/lqNykELVlLUzR0xc="
+    },
+    {
+      "kind": "INVOICE",
+      "profile": "SAME_SERIALIZATION_SIGNED_INFO_SIGNATURE",
+      "sdkPassed": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "signatureValue"
+      ],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": false,
+      "verifiesInvoiceHash": false,
+      "verifiesCanonicalSignedInfo": true,
+      "xmlSha256": "fd8296a229faac0c40b0294568b2aa1134ba30c14f901e4bc0782e3aacdfd6b8",
+      "canonicalSignedInfoSha256": "szmlsBAcxNhm49bxlSTwxnbnk8isbd2kq96s6ECxGWw="
+    },
+    {
+      "kind": "INVOICE",
+      "profile": "OFFICIAL_SDK_SIGNED_CONTROL",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": false,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": false,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "20cccbfe066779f757d5cd62763588c087b9fbca1c3ed9cf5add3056a4683ab7",
+      "canonicalSignedInfoSha256": "lSMvLwjzDNF4DBpJL0M1YF/Tgr2I5aXtZRz0dU2Zep8="
+    },
+    {
+      "kind": "CREDIT_NOTE",
+      "profile": "SYNTHETIC_COMPATIBILITY_CONTROL",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": true,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "e23e3196878caeff091dfa98ec17a02801c87d7f7167dc58ed1f69b3c6fbc284",
+      "canonicalSignedInfoSha256": "EOsb6tgJOsvLz0L0NRh5K0qhQkePg7aMPZP503+CjzE="
+    },
+    {
+      "kind": "CREDIT_NOTE",
+      "profile": "CHANGED_PROPERTIES_WITHOUT_RESIGNING",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": true,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "77c08316978e105c29f6dd89048c2310768ccf5dad59ac41a4deb8fe906603c2",
+      "canonicalSignedInfoSha256": "KTUbW2eO5TX3bxh6vAGHK1TaqDRI9gzSeiBxc1ZJkZg="
+    },
+    {
+      "kind": "CREDIT_NOTE",
+      "profile": "SAME_SERIALIZATION_SIGNED_INFO_SIGNATURE",
+      "sdkPassed": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "signatureValue"
+      ],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": false,
+      "verifiesInvoiceHash": false,
+      "verifiesCanonicalSignedInfo": true,
+      "xmlSha256": "634334aa0ef1552c4eb2e483bb1b1fe10d3a95d8efd633b0abd0910c7119453f",
+      "canonicalSignedInfoSha256": "EOsb6tgJOsvLz0L0NRh5K0qhQkePg7aMPZP503+CjzE="
+    },
+    {
+      "kind": "CREDIT_NOTE",
+      "profile": "OFFICIAL_SDK_SIGNED_CONTROL",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": false,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": false,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "50b2599d4eb04ae9d6eb61771c85addc74e1f20ddab8e7972725ee88095480b6",
+      "canonicalSignedInfoSha256": "ooqQxlJVLaGVUIzTufJQk0njnEacLHu7ImaWkD+j+7U="
+    },
+    {
+      "kind": "DEBIT_NOTE",
+      "profile": "SYNTHETIC_COMPATIBILITY_CONTROL",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": true,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "4db0cb3c24d72ccd8d8f0a2616dea3cb66640c0111abf00dab66e5f3dd48ae52",
+      "canonicalSignedInfoSha256": "Vo3G1vYu/ezuzsm4LGnZ9IoFW3CJihCZ7sZUHjOuut8="
+    },
+    {
+      "kind": "DEBIT_NOTE",
+      "profile": "CHANGED_PROPERTIES_WITHOUT_RESIGNING",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": true,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "59c8d0ceef217b6e1d8f45bc0b6861be9c0bd144023c96e561a79dd6b2ed7345",
+      "canonicalSignedInfoSha256": "0CWw3W4FYlRcYlmWQqjaV+POeydnTKlKXfGME9cTsS4="
+    },
+    {
+      "kind": "DEBIT_NOTE",
+      "profile": "SAME_SERIALIZATION_SIGNED_INFO_SIGNATURE",
+      "sdkPassed": false,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "FAILED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [
+        "signatureValue"
+      ],
+      "invoiceHashUnchanged": true,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": false,
+      "verifiesInvoiceHash": false,
+      "verifiesCanonicalSignedInfo": true,
+      "xmlSha256": "a3f3735a428039138a8a0406b69626a91af6e56dad498d46b210c02964170d45",
+      "canonicalSignedInfoSha256": "Vo3G1vYu/ezuzsm4LGnZ9IoFW3CJihCZ7sZUHjOuut8="
+    },
+    {
+      "kind": "DEBIT_NOTE",
+      "profile": "OFFICIAL_SDK_SIGNED_CONTROL",
+      "sdkPassed": true,
+      "stages": [
+        {
+          "stage": "XSD",
+          "result": "PASSED"
+        },
+        {
+          "stage": "EN",
+          "result": "PASSED"
+        },
+        {
+          "stage": "KSA",
+          "result": "PASSED"
+        },
+        {
+          "stage": "QR",
+          "result": "PASSED"
+        },
+        {
+          "stage": "SIGNATURE",
+          "result": "PASSED"
+        },
+        {
+          "stage": "PIH",
+          "result": "PASSED"
+        }
+      ],
+      "codes": [],
+      "invoiceHashUnchanged": false,
+      "invoiceHashMatchesEmbeddedReference": true,
+      "signatureUnchanged": false,
+      "verifiesInvoiceHash": true,
+      "verifiesCanonicalSignedInfo": false,
+      "xmlSha256": "c2f680030d99ea8330bca750fb4d31bb1cde5ef1bbb5846dc4dbd53e1d492b19",
+      "canonicalSignedInfoSha256": "ME/a94tX6xvwQL6bC2m8ZSSiSD0KlwtO5yEE9CuuXPo="
+    }
+  ],
+  "signedInfoTamperControlsRejected": 3,
+  "sdkRulesModified": false,
+  "authorityRequests": 0,
+  "taxpayerCredentialsUsed": false,
+  "activationAllowed": false,
+  "releaseReady": false,
+  "limitation": "Pinned offline SDK and fresh synthetic credentials only; controlled SignedInfo variant retains other legacy serialization conventions and is not a complete XAdES profile or live-gateway vulnerability claim."
+}
