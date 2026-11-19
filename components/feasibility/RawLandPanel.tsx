@@ -4,6 +4,8 @@ import {evaluateRawLand,rawLandCostKeys,type RawLand} from '@/lib/feasibility/ra
 import {calculateLandDistribution} from '@/lib/feasibility/raw-land-distributions';
 import {downloadFeasibilityCsv,downloadFeasibilityXlsx} from '@/lib/feasibility/report-export';
 import {RoyalIcon} from './RoyalIcon';
+import QuantityBudgetEditor from './QuantityBudgetEditor';
+import {quantityPresets} from '@/lib/feasibility/quantity-presets';
 
 type Label=readonly [string,string];
 type Numeric<T>={[K in keyof T]-?:T[K] extends number?K:never}[keyof T];
@@ -56,6 +58,8 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   <tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}><bdi>{cell}</bdi></td>)}</tr>)}</tbody>
  </table></div>;
  const {project,site,cost,finance,waterfall,sales,phasing,legacyReference,distribution}=model;
+ const quantities=model.quantityDevelopment??{budget:{enabled:false,items:[]},roadLength:0,networkLength:0,serviceArea:0,serviceAreaFromSite:true};
+ const patchQuantities=(next:Partial<typeof quantities>)=>onChange?.({...model,quantityDevelopment:{...quantities,...next}});
  const results=sales.scenarios.map((_,i)=>evaluateRawLand(model,i));
  const base=results[2]??results[0];
  const warnings={
@@ -76,8 +80,12 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
     ['areaAfterPriorTransfers',['المساحة بعد التسويات السابقة م²','Area after prior transfers m²']],
     ['excludedValley',['المساحة المستبعدة للسيول م²','Flood exclusion m²']],['extraExcluded',['استبعادات إضافية م²','Additional exclusions m²']],
     ['otherConstraintsSqm',['ارتفاقات غير محسوبة في الاستبعادات السابقة م²','Easements not included in other exclusions m²']],
-    ['serviceRatio',['نسبة الخدمات %','Services %'],'pct'],['landPricePerNetSqm',['قيمة متر الأرض الصافي','Value per net land m²']]
+    ['serviceRatio',['نسبة الخدمات %','Services %'],'pct'],['landPricePerNetSqm',['سعر متر استحواذ الأرض','Land acquisition price per m²']]
    ],x=>patch('site',x))}
+   {choice(['مساحة احتساب قيمة الاستحواذ','Land acquisition area basis'],site.acquisitionBasis??'NET',[
+    ['NET',['صافي الأرض بعد الاستبعادات','Net area after exclusions']],['GROSS',['كامل المساحة المدخلة','Gross entered area']],['MANUAL',['مساحة تعاقدية محددة','Specified contractual area']]
+   ],v=>patch('site',{acquisitionBasis:v}))}
+   {site.acquisitionBasis==='MANUAL'&&numeric(['مساحة الاستحواذ التعاقدية م²','Contractual acquisition area m²'],site.acquisitionArea??0,v=>patch('site',{acquisitionArea:v}))}
    {choice(['طريقة تقديم الأرض','Land contribution method'],site.landPaymentMethod,[
     ['in_kind',['حصة عينية','In kind']],['cash',['شراء نقدي','Cash purchase']]
    ],v=>patch('site',{landPaymentMethod:v}))}
@@ -147,7 +155,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    ['scenario',['مبيعات السيناريو','Scenario sales']],['reference',['إيراد مرجعي','Reference revenue']]
   ],v=>patch('cost',{marketingMode:v}))}
  </div>
- <fieldset className="fs-panel">
+ <fieldset className="fs-panel" disabled={quantities.budget.enabled}>
   <legend>{l(['جدول كميات التطوير','Development bill of quantities'])}</legend>
   <p className="fs-hint">{l(['عند إضافة بنود، تُحسب تكلفة التطوير من الكميات وأسعار الوحدات بدل تكلفة المتر الإجمالية.',
    'When line items are entered, development cost uses quantities and unit prices instead of the overall rate per m².'])}</p>
@@ -169,9 +177,24 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    {l(['إضافة بند تطوير','Add development item'])}
   </button>
  </fieldset>
+ <section className="card fs-panel"><h3>{l(['أسس كميات البنية التحتية','Infrastructure quantity drivers'])}</h3><div className="fs-form-grid">
+  {numeric(['طول الطرق م','Road length m'],quantities.roadLength,v=>patchQuantities({roadLength:v}))}
+  {numeric(['طول مسار الشبكات م','Network route length m'],quantities.networkLength,v=>patchQuantities({networkLength:v}))}
+  <label className="fs-check"><input type="checkbox" checked={quantities.serviceAreaFromSite??false} onChange={e=>patchQuantities({serviceAreaFromSite:e.target.checked})}/>{l(['ربط مساحة الخدمات بنسبة الخدمات','Link service area to site services ratio'])}</label>
+  {quantities.serviceAreaFromSite?<p>{l(['مساحة الخدمات م²','Service area m²'])}: {fmt(base.net*site.serviceRatio)}</p>:numeric(['مساحة أعمال الخدمات م²','Services works area m²'],quantities.serviceArea,v=>patchQuantities({serviceArea:v}))}
+ </div><p className="fs-hint">{l(['للتسوية بالمتر المكعب، استخدم صافي المساحة × عمق التسوية في معامل الكمية. للطرق بالمتر المربع، استخدم طول الطريق × عرضه. أضف بندًا مستقلًا لكل شبكة ومرفق مع مواصفاته ومرجع سعره. يمكن اختيار مراحل مستقلة لكل بند؛ وإلا يتبع توزيع التطوير في النموذج المالي المتقدم.','For earthworks in m³ use net area × excavation depth as the quantity multiplier. For roads in m² use road length × width. Add a separate item for each network and facility with specifications and price evidence. Choose separate phasing per item, or inherit Development phasing under Advanced finance.'])}</p>
+ <label className="fs-field"><span>{l(['توثيق افتراضات التطوير والبيع والتمويل','Development, sales and funding assumption evidence'])}</span><textarea maxLength={3000} value={quantities.assumptionSource??''} onChange={e=>patchQuantities({assumptionSource:e.target.value})}/></label></section>
+ <QuantityBudgetEditor allowPhasing presets={quantityPresets('land')} locale={locale} title={l(['كميات التطوير المرتبطة بالمساحات','Area-linked development quantities'])} value={quantities.budget} onChange={budget=>patchQuantities({budget})}
+  context={{LAND_AREA:site.areaAfterPriorTransfers,NET_AREA:base.net,SALE_AREA:base.saleArea,ROAD_LENGTH:quantities.roadLength,NETWORK_LENGTH:quantities.networkLength,SERVICE_AREA:quantities.serviceAreaFromSite?base.net*site.serviceRatio:quantities.serviceArea}}
+  categories={ [['earthworks','تسوية وأعمال ترابية','Earthworks'],['roads','طرق وأرصفة','Roads and paving'],['water','شبكة المياه','Water network'],['sewer','صرف وتصريف','Sewer and drainage'],['electric','كهرباء واتصالات','Power and communications'],['services','مرافق وخدمات','Facilities and services'],['other','أخرى','Other']]}
+  bases={ [['MANUAL','كمية مستقلة','Independent quantity'],['LAND_AREA','كامل المساحة','Gross area'],['NET_AREA','صافي المساحة','Net area'],['SALE_AREA','المساحة البيعية','Saleable area'],['ROAD_LENGTH','طول الطرق','Road length'],['NETWORK_LENGTH','طول الشبكات','Network length'],['SERVICE_AREA','مساحة الخدمات','Service area']]}/>
  </>);
  if(tab==='advanced')return <>
   {panel(['التمويل وجدول الدين','Financing and debt'],<div className="fs-form-grid">
+   {numeric(['رأس المال النقدي الملتزم لتغطية العجز','Committed cash equity to cover the deficit'],quantities.committedEquity??0,v=>patchQuantities({committedEquity:v}))}
+   {choice(['توقيت استثمار الأرض','Land investment timing'],quantities.landTiming??'YEAR1',[
+    ['YEAR1',['ضمن السنة الأولى — المنهج السابق','Within year one — legacy method']],['YEAR0',['عند البداية — سنة صفر','At inception — year zero']]
+   ],v=>patchQuantities({landTiming:v}))}
    {numberFields(finance,[
     ['facility',['التسهيل التمويلي','Financing facility']],['benchmarkRate',['معدل المؤشر %','Benchmark rate %'],'pct'],
     ['spreadRate',['هامش التمويل %','Financing spread %'],'pct'],['interestBudgetRate',['موازنة الفائدة %','Budgeted interest %'],'pct'],
@@ -307,7 +330,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   ['السنة','Year'],['المساحة المباعة م²','Sold area m²'],['المبيعات','Sales'],['التحصيل النقدي','Cash collected'],
   ['الذمم المدينة آخر السنة','Closing receivables'],['تكلفة نقدية','Cash cost'],['الحافز','Incentive'],
   ['سحب الدين','Debt draw'],['السداد','Debt repayment'],['رصيد الدين','Closing debt'],['التدفق الاقتصادي','Economic cash flow'],
-  ['التدفق بعد الدين','Equity cash flow'],['التدفق الاقتصادي التراكمي','Cumulative economic cash flow']
+  ['التدفق بعد الدين','Equity cash flow'],['التدفق الاقتصادي التراكمي','Cumulative economic cash flow'],['تغطية خدمة الدين DSCR','Debt service coverage DSCR']
  ];
  return <div className="fs-block">
   {tab==='cashflow'&&<div className="fs-kpis" aria-label={l(['مؤشرات التدفقات النقدية','Cash flow metrics'])}>
@@ -320,6 +343,18 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
     <small>{l(label)}</small><strong><bdi>{value}</bdi></strong>
    </div>)}
   </div>}
+  {!base.issue&&base.financeMetrics&&panel(['توقيت الاستثمار وتغطية الدين','Investment timing and debt coverage'],<>
+   <p>{l(['تدفق الأرض في سنة صفر','Year-zero land cash flow'])}: <bdi>{money(base.financeMetrics.initialProject)}</bdi></p>
+   <p>{l(['عجز التمويل غير المغطى بالالتزام النقدي','Funding deficit not covered by cash commitment'])}: <bdi>{money(Math.max(0,base.peakEquityDeficit-(quantities.committedEquity??0)))}</bdi></p>
+   <p>{l(['فترة الاسترداد من سنة صفر بالسنوات','Payback from year zero in years'])}: <bdi>{fmt(base.financeMetrics.payback)}</bdi></p>
+   {base.financeMetrics.returns&&<dl className="fs-royal-checks">
+    <div><dt>{l(['صافي القيمة الحالية للمشروع قبل التمويل','Project NPV before financing'])}</dt><dd><bdi>{money(base.financeMetrics.returns.unleveredNpv)}</bdi></dd></div>
+    <div><dt>{l(['عائد المشروع قبل التمويل %','Project IRR before financing %'])}</dt><dd><bdi>{fmt(base.financeMetrics.returns.unleveredIrr)}</bdi></dd></div>
+    <div><dt>{l(['عائد إجمالي حقوق الملكية الاقتصادية %','Total economic equity IRR %'])}</dt><dd><bdi>{fmt(base.financeMetrics.returns.equityIrr)}</bdi></dd></div>
+   </dl>}
+   <p className="fs-hint">{l(['الاسترداد يُحسب عند اختيار استثمار الأرض في سنة صفر. المنهج السابق يجمعها بتدفق السنة الأولى، ولا نفترض تاريخًا داخل السنة. DSCR يقسم النقد المتاح قبل الفائدة وأصل الدين على خدمة الدين، دون سحوبات التمويل.','Payback is calculated when land is invested at year zero. The legacy method nets land into year-one cash flow; no intra-year date is assumed. DSCR divides cash available before interest/principal by debt service, excluding loan draws.'])}</p>
+   {table([['السنة','Year'],['تغطية خدمة الدين DSCR','Debt service coverage DSCR']],base.annual.map((x,i)=>[x.year,fmt(base.financeMetrics!.dscr[i])]))}
+  </>)}
   {panel(['مقارنة سيناريوهات تطوير الأراضي','Land development scenario comparison'],<>
    {warning}
    {table([['السيناريو','Scenario'],['المبيعات','Sales'],['التكلفة','Cost'],['صافي الربح','Net profit'],
@@ -330,12 +365,16 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   </>)}
   {tab!=='overview'&&results.map((result,i)=>{
    if(result.issue||!result.ready)return null;
-   const annual=result.annual.map(y=>[y.year,y.soldArea,y.salesValue,y.cashCollected,y.receivables,y.cashCost,y.performanceFee,
-    y.draw,y.repayment,y.closingDebt,y.projectCash,y.equityCash,y.cumulativeProject]);
+   const annual:Array<Array<string|number|null>>=result.annual.map((y,index)=>[y.year,y.soldArea,y.salesValue,y.cashCollected,y.receivables,y.cashCost,y.performanceFee,
+    y.draw,y.repayment,y.closingDebt,y.projectCash,y.equityCash,y.cumulativeProject,result.financeMetrics?.dscr[index]??
+     (y.repayment+y.interest>0?(y.cashCollected-y.cashCost+y.interest-y.performanceFee)/(y.repayment+y.interest):null)]);
+   if(result.financeMetrics&&result.financeMetrics.initialProject<0)annual.unshift([
+    l(['سنة صفر','Year zero']),0,0,0,0,0,0,0,0,0,result.financeMetrics.initialProject,result.financeMetrics.initialEquity,result.financeMetrics.initialProject,null
+   ]);
    const rows=[[...headings.map(l),l(['العملة','Currency'])],...annual.map(row=>[...row,currency])];
    const filename='land-development-'+(i+1);
    return <div key={i}>{panel(['التدفقات النقدية · '+(sales.scenarios[i].name||String(i+1)),'Cash flows · '+(sales.scenarios[i].name||String(i+1))],<>
-    {table(headings,annual.map(row=>row.map((n,j)=>j<2?fmt(n):money(n))))}
+    {table(headings,annual.map(row=>row.map((n,j)=>typeof n==='string'?n:j<2||j===13?fmt(n):money(n))))}
     {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
      onClick={()=>downloadFeasibilityCsv(filename+'.csv',rows)}>{l(['تصدير التدفقات CSV','Export cash flows CSV'])}</button>
      <button className="fs-btn fs-btn--secondary" type="button" disabled={xlsxState==='working'} onClick={async()=>{

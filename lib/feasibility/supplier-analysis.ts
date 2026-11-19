@@ -2,8 +2,9 @@ import type {StudySupplier} from './engine';
 
 /**
  * Indicative supplier comparison only: identical item labels are NOT proof of
- * technical, delivery, warranty, tax or incoterm equivalence. Quotes never
- * update CAPEX, financial projections or approved purchase decisions.
+ * technical, delivery, warranty, tax or incoterm equivalence. Comparisons never
+ * update CAPEX or purchase decisions. A separate, explicitly confirmed water
+ * quote-import action can replace one cost input; this comparison cannot.
  */
 export interface SupplierComparison {
  item:string;

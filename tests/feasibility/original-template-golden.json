@@ -1,0 +1,1453 @@
+{
+  "source": {
+    "waterCalculatorSha256": "c015851c02973b7b82ce0181964249e36aadce55e1fa268044eaa80f7f260fd1",
+    "landCalculatorSha256": "ff1bdc98f15b13bc9a2d0fda29751d83d0e59c9dbe33f7f736de1e0991a85414",
+    "method": "Calculator-only VM with synthetic inputs; no original saved study/default numbers"
+  },
+  "water": [
+    {
+      "input": {
+        "deal": {
+          "landMode": "transfer",
+          "landValue": 20000,
+          "landArea": 1000,
+          "rightValue": 7000,
+          "leaseMonth": 0,
+          "licenseValue": 0,
+          "investorLoan": 20000,
+          "loanInterest": 5,
+          "loanYears": 4,
+          "loanStart": 1,
+          "extraFunding": 0,
+          "extraType": "loan"
+        },
+        "capex": {
+          "buildings": 60000,
+          "line": 10000,
+          "treatment": 0,
+          "power": 0,
+          "lab": 0,
+          "vehicles": 0,
+          "licenses": 0,
+          "others": 0,
+          "contingencyPct": 10,
+          "workingCapital": 5000
+        },
+        "ops": {
+          "bottlesHour": 1200,
+          "hoursDay": 8,
+          "daysMonth": 25,
+          "bottlesCarton": 12,
+          "litersBottle": 1,
+          "waterLossPct": 0,
+          "licensedWaterM3Day": 0,
+          "priceCarton": 11.399999999999999,
+          "variableCarton": 3.3000000000000003,
+          "fixedMonth": 2000,
+          "priceGrowth": 2,
+          "costGrowth": 3,
+          "fixedGrowth": 2,
+          "maintenancePct": 2,
+          "nwcPct": 10,
+          "discountRate": 10,
+          "taxRate": 15,
+          "life": 10,
+          "horizon": 5,
+          "util": [
+            37.5,
+            45,
+            52.5,
+            60,
+            67.5
+          ]
+        },
+        "scenarios": [
+          {
+            "name": "Conservative",
+            "volume": 75,
+            "price": 95,
+            "cost": 110
+          },
+          {
+            "name": "Base",
+            "volume": 100,
+            "price": 100,
+            "cost": 100
+          },
+          {
+            "name": "Optimistic",
+            "volume": 120,
+            "price": 105,
+            "cost": 98
+          }
+        ]
+      },
+      "expected": {
+        "hard": 70000,
+        "contingency": 7000,
+        "investment": 77000,
+        "cashRequired": 82000,
+        "land": 20000,
+        "shareholderLoan": 20000,
+        "totalLoan": 20000,
+        "investorEquity": 62000,
+        "totalEquity": 82000,
+        "investorShare": 75.60975609756098,
+        "partnerShare": 24.390243902439025,
+        "npv": 2965543.9439220484,
+        "cashNpv": 2985543.9439220484,
+        "irr": 528.1932430676411,
+        "payback": 0.20348518248830463,
+        "breakEven": 2962.962962962964,
+        "flows": [
+          -102000,
+          501264.9999999999,
+          711246.7999999998,
+          849842.2729999999,
+          992594.4125599999,
+          1139575.6156798997
+        ],
+        "annual": [
+          {
+            "revenue": 1025999.9999999999,
+            "variable": 297000,
+            "fixed": 24000,
+            "ebitda": 704999.9999999999,
+            "tax": 104594.99999999999,
+            "freeCashFlow": 501264.9999999999,
+            "principal": 5000,
+            "interest": 1000,
+            "debtBalance": 15000,
+            "afterDebt": 495264.9999999999
+          },
+          {
+            "revenue": 1255823.9999999998,
+            "variable": 367092.00000000006,
+            "fixed": 24480,
+            "ebitda": 864251.9999999998,
+            "tax": 128482.79999999996,
+            "freeCashFlow": 711246.7999999998,
+            "principal": 5000,
+            "interest": 750,
+            "debtBalance": 10000,
+            "afterDebt": 705496.7999999998
+          },
+          {
+            "revenue": 1494430.5599999998,
+            "variable": 441122.22000000003,
+            "fixed": 24969.6,
+            "ebitda": 1028338.7399999999,
+            "tax": 153095.811,
+            "freeCashFlow": 849842.2729999999,
+            "principal": 5000,
+            "interest": 500,
+            "debtBalance": 5000,
+            "afterDebt": 844342.2729999999
+          },
+          {
+            "revenue": 1742079.0528,
+            "variable": 519263.8704000001,
+            "fixed": 25468.992000000002,
+            "ebitda": 1197346.1903999997,
+            "tax": 178446.92855999994,
+            "freeCashFlow": 992594.4125599999,
+            "principal": 5000,
+            "interest": 250,
+            "debtBalance": 0,
+            "afterDebt": 987344.4125599999
+          },
+          {
+            "revenue": 1999035.7130879997,
+            "variable": 601697.0098260001,
+            "fixed": 25978.37184,
+            "ebitda": 1371360.3314219997,
+            "tax": 204549.04971329996,
+            "freeCashFlow": 1139575.6156798997,
+            "principal": 0,
+            "interest": 0,
+            "debtBalance": 0,
+            "afterDebt": 1139575.6156798997
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "deal": {
+          "landMode": "lease",
+          "landValue": 20000,
+          "landArea": 1000,
+          "rightValue": 7000,
+          "leaseMonth": 400,
+          "licenseValue": 0,
+          "investorLoan": 20000,
+          "loanInterest": 5,
+          "loanYears": 4,
+          "loanStart": 1,
+          "extraFunding": 0,
+          "extraType": "loan"
+        },
+        "capex": {
+          "buildings": 60000,
+          "line": 10000,
+          "treatment": 0,
+          "power": 0,
+          "lab": 0,
+          "vehicles": 0,
+          "licenses": 0,
+          "others": 0,
+          "contingencyPct": 10,
+          "workingCapital": 5000
+        },
+        "ops": {
+          "bottlesHour": 1200,
+          "hoursDay": 8,
+          "daysMonth": 25,
+          "bottlesCarton": 12,
+          "litersBottle": 1,
+          "waterLossPct": 0,
+          "licensedWaterM3Day": 0,
+          "priceCarton": 12,
+          "variableCarton": 3,
+          "fixedMonth": 2000,
+          "priceGrowth": 2,
+          "costGrowth": 3,
+          "fixedGrowth": 2,
+          "maintenancePct": 2,
+          "nwcPct": 10,
+          "discountRate": 10,
+          "taxRate": 15,
+          "life": 10,
+          "horizon": 5,
+          "util": [
+            50,
+            60,
+            70,
+            80,
+            90
+          ]
+        },
+        "scenarios": [
+          {
+            "name": "Conservative",
+            "volume": 75,
+            "price": 95,
+            "cost": 110
+          },
+          {
+            "name": "Base",
+            "volume": 100,
+            "price": 100,
+            "cost": 100
+          },
+          {
+            "name": "Optimistic",
+            "volume": 120,
+            "price": 105,
+            "cost": 98
+          }
+        ]
+      },
+      "expected": {
+        "hard": 70000,
+        "contingency": 7000,
+        "investment": 77000,
+        "cashRequired": 82000,
+        "land": 0,
+        "shareholderLoan": 20000,
+        "totalLoan": 20000,
+        "investorEquity": 62000,
+        "totalEquity": 62000,
+        "investorShare": 100,
+        "partnerShare": 0,
+        "npv": 4504065.615023314,
+        "cashNpv": 4504065.615023314,
+        "irr": 957.6918569073662,
+        "payback": 0.10873384738806713,
+        "breakEven": 3200,
+        "flows": [
+          -82000,
+          754135,
+          1062349.4,
+          1268997.2479999997,
+          1482149.5529600002,
+          1701937.2504152001
+        ],
+        "annual": [
+          {
+            "revenue": 1440000,
+            "variable": 360000,
+            "fixed": 28800,
+            "ebitda": 1051200,
+            "tax": 156525,
+            "freeCashFlow": 754135,
+            "principal": 5000,
+            "interest": 1000,
+            "debtBalance": 15000,
+            "afterDebt": 748135
+          },
+          {
+            "revenue": 1762560,
+            "variable": 444960,
+            "fixed": 29376,
+            "ebitda": 1288224,
+            "tax": 192078.6,
+            "freeCashFlow": 1062349.4,
+            "principal": 5000,
+            "interest": 750,
+            "debtBalance": 10000,
+            "afterDebt": 1056599.4
+          },
+          {
+            "revenue": 2097446.4,
+            "variable": 534693.6,
+            "fixed": 29963.52,
+            "ebitda": 1532789.2799999998,
+            "tax": 228763.39199999996,
+            "freeCashFlow": 1268997.2479999997,
+            "principal": 5000,
+            "interest": 500,
+            "debtBalance": 5000,
+            "afterDebt": 1263497.2479999997
+          },
+          {
+            "revenue": 2445023.2320000003,
+            "variable": 629410.752,
+            "fixed": 30562.790400000005,
+            "ebitda": 1785049.6896000004,
+            "tax": 266602.45344000007,
+            "freeCashFlow": 1482149.5529600002,
+            "principal": 5000,
+            "interest": 250,
+            "debtBalance": 0,
+            "afterDebt": 1476899.5529600002
+          },
+          {
+            "revenue": 2805664.15872,
+            "variable": 729329.70888,
+            "fixed": 31174.046208,
+            "ebitda": 2045160.403632,
+            "tax": 305619.0605448,
+            "freeCashFlow": 1701937.2504152001,
+            "principal": 0,
+            "interest": 0,
+            "debtBalance": 0,
+            "afterDebt": 1701937.2504152001
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "deal": {
+          "landMode": "right",
+          "landValue": 20000,
+          "landArea": 1000,
+          "rightValue": 7000,
+          "leaseMonth": 0,
+          "licenseValue": 0,
+          "investorLoan": 20000,
+          "loanInterest": 5,
+          "loanYears": 4,
+          "loanStart": 1,
+          "extraFunding": 0,
+          "extraType": "loan"
+        },
+        "capex": {
+          "buildings": 60000,
+          "line": 10000,
+          "treatment": 0,
+          "power": 0,
+          "lab": 0,
+          "vehicles": 0,
+          "licenses": 0,
+          "others": 0,
+          "contingencyPct": 10,
+          "workingCapital": 5000
+        },
+        "ops": {
+          "bottlesHour": 1200,
+          "hoursDay": 8,
+          "daysMonth": 25,
+          "bottlesCarton": 12,
+          "litersBottle": 1,
+          "waterLossPct": 0,
+          "licensedWaterM3Day": 0,
+          "priceCarton": 12.600000000000001,
+          "variableCarton": 2.94,
+          "fixedMonth": 2000,
+          "priceGrowth": 2,
+          "costGrowth": 3,
+          "fixedGrowth": 2,
+          "maintenancePct": 2,
+          "nwcPct": 10,
+          "discountRate": 10,
+          "taxRate": 15,
+          "life": 10,
+          "horizon": 5,
+          "util": [
+            60,
+            72,
+            84,
+            96,
+            100
+          ]
+        },
+        "scenarios": [
+          {
+            "name": "Conservative",
+            "volume": 75,
+            "price": 95,
+            "cost": 110
+          },
+          {
+            "name": "Base",
+            "volume": 100,
+            "price": 100,
+            "cost": 100
+          },
+          {
+            "name": "Optimistic",
+            "volume": 120,
+            "price": 105,
+            "cost": 98
+          }
+        ]
+      },
+      "expected": {
+        "hard": 70000,
+        "contingency": 7000,
+        "investment": 77000,
+        "cashRequired": 82000,
+        "land": 7000,
+        "shareholderLoan": 20000,
+        "totalLoan": 20000,
+        "investorEquity": 62000,
+        "totalEquity": 69000,
+        "investorShare": 89.85507246376811,
+        "partnerShare": 10.144927536231885,
+        "npv": 5782615.134003315,
+        "cashNpv": 5789615.134003315,
+        "irr": null,
+        "payback": 0.09034074702662208,
+        "breakEven": 2484.4720496894406,
+        "flows": [
+          -89000,
+          985159.0000000002,
+          1381084.1840000004,
+          1648080.5254400005,
+          1923632.5697408007,
+          2065527.2861624002
+        ],
+        "annual": [
+          {
+            "revenue": 1814400.0000000002,
+            "variable": 423360,
+            "fixed": 24000,
+            "ebitda": 1367040.0000000002,
+            "tax": 203901.00000000003,
+            "freeCashFlow": 985159.0000000002,
+            "principal": 5000,
+            "interest": 1000,
+            "debtBalance": 15000,
+            "afterDebt": 979159.0000000002
+          },
+          {
+            "revenue": 2220825.6000000006,
+            "variable": 523272.96,
+            "fixed": 24480,
+            "ebitda": 1673072.6400000006,
+            "tax": 249805.8960000001,
+            "freeCashFlow": 1381084.1840000004,
+            "principal": 5000,
+            "interest": 750,
+            "debtBalance": 10000,
+            "afterDebt": 1375334.1840000004
+          },
+          {
+            "revenue": 2642782.4640000006,
+            "variable": 628799.6736,
+            "fixed": 24969.6,
+            "ebitda": 1989013.1904000007,
+            "tax": 297196.9785600001,
+            "freeCashFlow": 1648080.5254400005,
+            "principal": 5000,
+            "interest": 500,
+            "debtBalance": 5000,
+            "afterDebt": 1642580.5254400005
+          },
+          {
+            "revenue": 3080729.272320001,
+            "variable": 740187.044352,
+            "fixed": 25468.992000000002,
+            "ebitda": 2315073.2359680007,
+            "tax": 346105.9853952001,
+            "freeCashFlow": 1923632.5697408007,
+            "principal": 5000,
+            "interest": 250,
+            "debtBalance": 0,
+            "afterDebt": 1918382.5697408007
+          },
+          {
+            "revenue": 3273274.85184,
+            "variable": 794159.0163360001,
+            "fixed": 25978.37184,
+            "ebitda": 2453137.463664,
+            "tax": 366815.61954959994,
+            "freeCashFlow": 2065527.2861624002,
+            "principal": 0,
+            "interest": 0,
+            "debtBalance": 0,
+            "afterDebt": 2065527.2861624002
+          }
+        ]
+      }
+    }
+  ],
+  "land": [
+    {
+      "input": {
+        "project": {
+          "startYear": 2030,
+          "years": 4,
+          "discountRate": 0.1
+        },
+        "site": {
+          "areaAfterPriorTransfers": 1000,
+          "excludedValley": 200,
+          "extraExcluded": 0,
+          "otherConstraintsSqm": 0,
+          "serviceRatio": 0.25,
+          "landPricePerNetSqm": 10,
+          "landPaymentMethod": "in_kind",
+          "priorTransferDescription": "",
+          "valuationDate": "",
+          "appraiser": ""
+        },
+        "cost": {
+          "developmentPerNetSqm": 6.125,
+          "studies": 1000,
+          "developerFeeRate": 0.05,
+          "developerFeeBase": "dev_plus_studies",
+          "marketingRate": 0.02,
+          "marketingMode": "scenario",
+          "marketingReferenceRevenue": 0,
+          "fundSetupRate": 0,
+          "fundMgmtBase": 0,
+          "fundMgmtRatePerYear": 0,
+          "fundMgmtYears": 0,
+          "contingencyRate": 0.1,
+          "otherCosts": 0,
+          "taxes": 0,
+          "landAcquisitionFees": 100
+        },
+        "finance": {
+          "facility": 3000,
+          "benchmarkRate": 0.08,
+          "spreadRate": 0.02,
+          "interestBudgetRate": 0.1,
+          "arrangementRate": 0,
+          "interestMode": "reference",
+          "loanDrawFirstYear": 0.5
+        },
+        "sales": {
+          "priceMode": "reference",
+          "mix": [
+            {
+              "name": "Synthetic use",
+              "share": 1,
+              "price": 100,
+              "enabled": true,
+              "annualGrowthAdjustment": 0
+            }
+          ],
+          "scenarios": [
+            {
+              "name": "Cautious",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            },
+            {
+              "name": "Conservative",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            },
+            {
+              "name": "Synthetic base",
+              "priceMultiplier": 1.05,
+              "annualGrowth": 0.1,
+              "initialPricePremium": 0.05,
+              "costMultiplier": 1.2,
+              "salesDelayYears": 1
+            },
+            {
+              "name": "Optimistic",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            }
+          ]
+        },
+        "phasing": {
+          "sales": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "development": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "studies": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "developerFee": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "marketing": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "fundSetup": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "fundMgmt": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "interestBudget": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "arrangement": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "contingency": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "otherCosts": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ]
+        },
+        "waterfall": {
+          "incentiveRate": 0.1,
+          "hurdleRate": 0,
+          "hurdleBase": "revenue",
+          "developerIncentiveShare": 0
+        }
+      },
+      "expected": {
+        "net": 800,
+        "saleArea": 600,
+        "land": 8000,
+        "revenue": 63000,
+        "totalCost": 17572,
+        "gross": 45428,
+        "incentive": 4542.8,
+        "profit": 40885.2,
+        "npv": 27591.148580263387,
+        "peakCashDeficit": 3143,
+        "annual": [
+          {
+            "year": 2030,
+            "soldArea": 0,
+            "salesValue": 0,
+            "cashCost": 3143,
+            "draw": 1500,
+            "repayment": 0,
+            "closingDebt": 1500,
+            "projectCash": -11143,
+            "equityCash": -1643
+          },
+          {
+            "year": 2031,
+            "soldArea": 150,
+            "salesValue": 15750,
+            "cashCost": 2143,
+            "draw": 1500,
+            "repayment": 750,
+            "closingDebt": 2250,
+            "projectCash": 13607,
+            "equityCash": 14357
+          },
+          {
+            "year": 2032,
+            "soldArea": 150,
+            "salesValue": 15750,
+            "cashCost": 2143,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 1500,
+            "projectCash": 13607,
+            "equityCash": 12857
+          },
+          {
+            "year": 2033,
+            "soldArea": 150,
+            "salesValue": 15750,
+            "cashCost": 2143,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 750,
+            "projectCash": 13607,
+            "equityCash": 12857
+          },
+          {
+            "year": 2034,
+            "soldArea": 150,
+            "salesValue": 15750,
+            "cashCost": 0,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 0,
+            "projectCash": 11207.2,
+            "equityCash": 10457.2
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "project": {
+          "startYear": 2030,
+          "years": 4,
+          "discountRate": 0.1
+        },
+        "site": {
+          "areaAfterPriorTransfers": 1000,
+          "excludedValley": 200,
+          "extraExcluded": 0,
+          "otherConstraintsSqm": 0,
+          "serviceRatio": 0.25,
+          "landPricePerNetSqm": 10,
+          "landPaymentMethod": "in_kind",
+          "priorTransferDescription": "",
+          "valuationDate": "",
+          "appraiser": ""
+        },
+        "cost": {
+          "developmentPerNetSqm": 6.125,
+          "studies": 1000,
+          "developerFeeRate": 0.05,
+          "developerFeeBase": "dev_plus_studies",
+          "marketingRate": 0.02,
+          "marketingMode": "scenario",
+          "marketingReferenceRevenue": 0,
+          "fundSetupRate": 0,
+          "fundMgmtBase": 0,
+          "fundMgmtRatePerYear": 0,
+          "fundMgmtYears": 0,
+          "contingencyRate": 0.1,
+          "otherCosts": 0,
+          "taxes": 0,
+          "landAcquisitionFees": 100
+        },
+        "finance": {
+          "facility": 3000,
+          "benchmarkRate": 0.08,
+          "spreadRate": 0.02,
+          "interestBudgetRate": 0.1,
+          "arrangementRate": 0,
+          "interestMode": "dynamic",
+          "loanDrawFirstYear": 0.5
+        },
+        "sales": {
+          "priceMode": "reference",
+          "mix": [
+            {
+              "name": "Synthetic use",
+              "share": 1,
+              "price": 100,
+              "enabled": true,
+              "annualGrowthAdjustment": 0
+            }
+          ],
+          "scenarios": [
+            {
+              "name": "Cautious",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            },
+            {
+              "name": "Conservative",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            },
+            {
+              "name": "Synthetic base",
+              "priceMultiplier": 1.05,
+              "annualGrowth": 0.1,
+              "initialPricePremium": 0.05,
+              "costMultiplier": 1.2,
+              "salesDelayYears": 1
+            },
+            {
+              "name": "Optimistic",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            }
+          ]
+        },
+        "phasing": {
+          "sales": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "development": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "studies": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "developerFee": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "marketing": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "fundSetup": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "fundMgmt": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "interestBudget": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "arrangement": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "contingency": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "otherCosts": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ]
+        },
+        "waterfall": {
+          "incentiveRate": 0.1,
+          "hurdleRate": 0,
+          "hurdleBase": "revenue",
+          "developerIncentiveShare": 0
+        }
+      },
+      "expected": {
+        "net": 800,
+        "saleArea": 600,
+        "land": 8000,
+        "revenue": 63000,
+        "totalCost": 17872,
+        "gross": 45128,
+        "incentive": 4512.8,
+        "profit": 40615.2,
+        "npv": 27383.38054405125,
+        "peakCashDeficit": 3143,
+        "annual": [
+          {
+            "year": 2030,
+            "soldArea": 0,
+            "salesValue": 0,
+            "cashCost": 3143,
+            "draw": 1500,
+            "repayment": 0,
+            "closingDebt": 1500,
+            "projectCash": -11143,
+            "equityCash": -1643
+          },
+          {
+            "year": 2031,
+            "soldArea": 150,
+            "salesValue": 15750,
+            "cashCost": 2255.5,
+            "draw": 1500,
+            "repayment": 750,
+            "closingDebt": 2250,
+            "projectCash": 13494.5,
+            "equityCash": 14244.5
+          },
+          {
+            "year": 2032,
+            "soldArea": 150,
+            "salesValue": 15750,
+            "cashCost": 2255.5,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 1500,
+            "projectCash": 13494.5,
+            "equityCash": 12744.5
+          },
+          {
+            "year": 2033,
+            "soldArea": 150,
+            "salesValue": 15750,
+            "cashCost": 2180.5,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 750,
+            "projectCash": 13569.5,
+            "equityCash": 12819.5
+          },
+          {
+            "year": 2034,
+            "soldArea": 150,
+            "salesValue": 15750,
+            "cashCost": 37.5,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 0,
+            "projectCash": 11199.7,
+            "equityCash": 10449.7
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "project": {
+          "startYear": 2030,
+          "years": 4,
+          "discountRate": 0.1
+        },
+        "site": {
+          "areaAfterPriorTransfers": 1000,
+          "excludedValley": 200,
+          "extraExcluded": 0,
+          "otherConstraintsSqm": 0,
+          "serviceRatio": 0.25,
+          "landPricePerNetSqm": 10,
+          "landPaymentMethod": "in_kind",
+          "priorTransferDescription": "",
+          "valuationDate": "",
+          "appraiser": ""
+        },
+        "cost": {
+          "developmentPerNetSqm": 6.125,
+          "studies": 1000,
+          "developerFeeRate": 0.05,
+          "developerFeeBase": "dev_plus_studies",
+          "marketingRate": 0.02,
+          "marketingMode": "scenario",
+          "marketingReferenceRevenue": 0,
+          "fundSetupRate": 0,
+          "fundMgmtBase": 0,
+          "fundMgmtRatePerYear": 0,
+          "fundMgmtYears": 0,
+          "contingencyRate": 0.1,
+          "otherCosts": 0,
+          "taxes": 0,
+          "landAcquisitionFees": 100
+        },
+        "finance": {
+          "facility": 3000,
+          "benchmarkRate": 0.08,
+          "spreadRate": 0.02,
+          "interestBudgetRate": 0.1,
+          "arrangementRate": 0,
+          "interestMode": "reference",
+          "loanDrawFirstYear": 0.5
+        },
+        "sales": {
+          "priceMode": "compound",
+          "mix": [
+            {
+              "name": "Synthetic use",
+              "share": 1,
+              "price": 100,
+              "enabled": true,
+              "annualGrowthAdjustment": 0
+            }
+          ],
+          "scenarios": [
+            {
+              "name": "Cautious",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            },
+            {
+              "name": "Conservative",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            },
+            {
+              "name": "Synthetic base",
+              "priceMultiplier": 1.05,
+              "annualGrowth": 0.1,
+              "initialPricePremium": 0.05,
+              "costMultiplier": 1.2,
+              "salesDelayYears": 1
+            },
+            {
+              "name": "Optimistic",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            }
+          ]
+        },
+        "phasing": {
+          "sales": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "development": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "studies": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "developerFee": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "marketing": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "fundSetup": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "fundMgmt": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "interestBudget": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "arrangement": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "contingency": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "otherCosts": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ]
+        },
+        "waterfall": {
+          "incentiveRate": 0.1,
+          "hurdleRate": 0,
+          "hurdleBase": "revenue",
+          "developerIncentiveShare": 0
+        }
+      },
+      "expected": {
+        "net": 800,
+        "saleArea": 600,
+        "land": 8000,
+        "revenue": 80405.32500000001,
+        "totalCost": 17920.1065,
+        "gross": 62485.21850000001,
+        "incentive": 6248.521850000001,
+        "profit": 56236.69665000001,
+        "npv": 38142.18429361662,
+        "peakCashDeficit": 3230.026625,
+        "annual": [
+          {
+            "year": 2030,
+            "soldArea": 0,
+            "salesValue": 0,
+            "cashCost": 3230.026625,
+            "draw": 1500,
+            "repayment": 0,
+            "closingDebt": 1500,
+            "projectCash": -11230.026625,
+            "equityCash": -1730.026625
+          },
+          {
+            "year": 2031,
+            "soldArea": 150,
+            "salesValue": 17325.000000000004,
+            "cashCost": 2230.026625,
+            "draw": 1500,
+            "repayment": 750,
+            "closingDebt": 2250,
+            "projectCash": 15094.973375000003,
+            "equityCash": 15844.973375000001
+          },
+          {
+            "year": 2032,
+            "soldArea": 150,
+            "salesValue": 19057.5,
+            "cashCost": 2230.026625,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 1500,
+            "projectCash": 16827.473375,
+            "equityCash": 16077.473375000001
+          },
+          {
+            "year": 2033,
+            "soldArea": 150,
+            "salesValue": 20963.250000000007,
+            "cashCost": 2230.026625,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 750,
+            "projectCash": 18733.22337500001,
+            "equityCash": 17983.22337500001
+          },
+          {
+            "year": 2034,
+            "soldArea": 150,
+            "salesValue": 23059.575000000008,
+            "cashCost": 0,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 0,
+            "projectCash": 16811.053150000007,
+            "equityCash": 16061.053150000007
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "project": {
+          "startYear": 2030,
+          "years": 4,
+          "discountRate": 0.1
+        },
+        "site": {
+          "areaAfterPriorTransfers": 1000,
+          "excludedValley": 200,
+          "extraExcluded": 0,
+          "otherConstraintsSqm": 0,
+          "serviceRatio": 0.25,
+          "landPricePerNetSqm": 10,
+          "landPaymentMethod": "in_kind",
+          "priorTransferDescription": "",
+          "valuationDate": "",
+          "appraiser": ""
+        },
+        "cost": {
+          "developmentPerNetSqm": 6.125,
+          "studies": 1000,
+          "developerFeeRate": 0.05,
+          "developerFeeBase": "dev_plus_studies",
+          "marketingRate": 0.02,
+          "marketingMode": "scenario",
+          "marketingReferenceRevenue": 0,
+          "fundSetupRate": 0,
+          "fundMgmtBase": 0,
+          "fundMgmtRatePerYear": 0,
+          "fundMgmtYears": 0,
+          "contingencyRate": 0.1,
+          "otherCosts": 0,
+          "taxes": 0,
+          "landAcquisitionFees": 100
+        },
+        "finance": {
+          "facility": 3000,
+          "benchmarkRate": 0.08,
+          "spreadRate": 0.02,
+          "interestBudgetRate": 0.1,
+          "arrangementRate": 0,
+          "interestMode": "dynamic",
+          "loanDrawFirstYear": 0.5
+        },
+        "sales": {
+          "priceMode": "compound",
+          "mix": [
+            {
+              "name": "Synthetic use",
+              "share": 1,
+              "price": 100,
+              "enabled": true,
+              "annualGrowthAdjustment": 0
+            }
+          ],
+          "scenarios": [
+            {
+              "name": "Cautious",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            },
+            {
+              "name": "Conservative",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            },
+            {
+              "name": "Synthetic base",
+              "priceMultiplier": 1.05,
+              "annualGrowth": 0.1,
+              "initialPricePremium": 0.05,
+              "costMultiplier": 1.2,
+              "salesDelayYears": 1
+            },
+            {
+              "name": "Optimistic",
+              "priceMultiplier": 1,
+              "annualGrowth": 0,
+              "initialPricePremium": 0,
+              "costMultiplier": 1,
+              "salesDelayYears": 0
+            }
+          ]
+        },
+        "phasing": {
+          "sales": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "development": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "studies": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "developerFee": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "marketing": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "fundSetup": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "fundMgmt": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "interestBudget": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "arrangement": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "contingency": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "otherCosts": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ]
+        },
+        "waterfall": {
+          "incentiveRate": 0.1,
+          "hurdleRate": 0,
+          "hurdleBase": "revenue",
+          "developerIncentiveShare": 0
+        }
+      },
+      "expected": {
+        "net": 800,
+        "saleArea": 600,
+        "land": 8000,
+        "revenue": 80405.32500000001,
+        "totalCost": 18220.1065,
+        "gross": 62185.21850000001,
+        "incentive": 6218.521850000001,
+        "profit": 55966.69665000001,
+        "npv": 37934.41625740449,
+        "peakCashDeficit": 3230.026625,
+        "annual": [
+          {
+            "year": 2030,
+            "soldArea": 0,
+            "salesValue": 0,
+            "cashCost": 3230.026625,
+            "draw": 1500,
+            "repayment": 0,
+            "closingDebt": 1500,
+            "projectCash": -11230.026625,
+            "equityCash": -1730.026625
+          },
+          {
+            "year": 2031,
+            "soldArea": 150,
+            "salesValue": 17325.000000000004,
+            "cashCost": 2342.526625,
+            "draw": 1500,
+            "repayment": 750,
+            "closingDebt": 2250,
+            "projectCash": 14982.473375000003,
+            "equityCash": 15732.473375000001
+          },
+          {
+            "year": 2032,
+            "soldArea": 150,
+            "salesValue": 19057.5,
+            "cashCost": 2342.526625,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 1500,
+            "projectCash": 16714.973375,
+            "equityCash": 15964.973375000001
+          },
+          {
+            "year": 2033,
+            "soldArea": 150,
+            "salesValue": 20963.250000000007,
+            "cashCost": 2267.526625,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 750,
+            "projectCash": 18695.72337500001,
+            "equityCash": 17945.72337500001
+          },
+          {
+            "year": 2034,
+            "soldArea": 150,
+            "salesValue": 23059.575000000008,
+            "cashCost": 37.5,
+            "draw": 0,
+            "repayment": 750,
+            "closingDebt": 0,
+            "projectCash": 16803.553150000007,
+            "equityCash": 16053.553150000007
+          }
+        ]
+      }
+    }
+  ]
+}

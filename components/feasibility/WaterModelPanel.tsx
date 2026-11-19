@@ -1,8 +1,16 @@
 'use client';
 import {useId,useMemo,type ReactNode} from 'react';
-import {emptyWaterOperationsPlan,emptyWaterUnitCosts,evaluateWater,waterOperationalRequirements,waterProductionBalance,waterVariableCostBreakdown,type WaterModel} from '@/lib/feasibility/water-model';
+import {emptyWaterOperationsPlan,emptyWaterUnitCosts,evaluateWater,waterPeakFundingGap,waterOperationalRequirements,waterProductionBalance,waterVariableCostBreakdown,type WaterModel} from '@/lib/feasibility/water-model';
 import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
 import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
+import type {StudySupplier} from '@/lib/feasibility/engine';
+import {waterCapexCategories} from '@/lib/feasibility/water-capex';
+import type {WaterCapexItemKey} from '@/lib/feasibility/water-model';
+import WaterCapexQuoteImport from './WaterCapexQuoteImport';
+import WaterQuantityCosts from './WaterQuantityCosts';
+import WaterFinancialPolicy from './WaterFinancialPolicy';
+import WaterFinancingPolicy from './WaterFinancingPolicy';
+import {effectiveWaterInputs} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 
 type Labels=readonly [string,string];
@@ -75,7 +83,7 @@ const logisticsColumns=[
  ['trips','رحلات التوزيع','Distribution trips'],
  ['distributionKm','مسافة التوزيع كم','Distribution kilometres'],
 ] as const;
-const projectionLabels=[
+const baseProjectionLabels=[
  ['year','السنة','Year'],['utilization','الاستغلال %','Utilization %'],['volume','الكراتين المرسلة','Cartons dispatched'],
  ['price','سعر الكرتون','Carton price'],['unitCost','تكلفة الكرتون المتغيرة','Variable cost / carton'],
  ['revenue','المبيعات','Revenue'],['variable','التكلفة المتغيرة','Variable costs'],['fixed','التكاليف الثابتة','Fixed costs'],
@@ -90,19 +98,19 @@ const projectionLabels=[
 ] as const;
 const sensitivityVolume=[70,85,100,115,130],sensitivityPrices=[90,95,100,105,110];
 
-function NumberInput({label,value,onChange,max=1e12,min=0,step='any'}:{
- label:string;value:number;onChange:(value:number)=>void;max?:number;min?:number;step?:number|'any';
+function NumberInput({label,value,onChange,max=1e12,min=0,step='any',disabled=false}:{
+ label:string;value:number;onChange:(value:number)=>void;max?:number;min?:number;step?:number|'any';disabled?:boolean;
 }){
  return <label className="fs-field"><span>{label}</span><input type="number" inputMode="decimal"
-  min={min} max={max} step={step} value={value}
+  min={min} max={max} step={step} value={value} disabled={disabled}
   onChange={e=>{
    const next=Math.min(max,Math.max(min,Number(e.currentTarget.value)||0));
    onChange(step===1?Math.trunc(next):next);
   }}/></label>;
 }
 
-function Table({headers,rows,footer,scrollLabel}:{headers:ReactNode[];rows:ReactNode[][];footer?:ReactNode;scrollLabel?:string}){
- return <div className={'fs-table-wrap'+(scrollLabel?' fs-royal-water-sales-table':'')}
+function Table({headers,rows,footer,scrollLabel,financial=false}:{headers:ReactNode[];rows:ReactNode[][];footer?:ReactNode;scrollLabel?:string;financial?:boolean}){
+ return <div className={'fs-table-wrap'+(scrollLabel?' fs-royal-water-sales-table':'')+(financial?' fs-water-financial-table':'')}
   role={scrollLabel?'region':undefined} aria-label={scrollLabel} tabIndex={scrollLabel?0:undefined}><table className="fs-table">
   <thead><tr>{headers.map((value,index)=><th scope="col" key={index}>{value}</th>)}</tr></thead>
   <tbody>{rows.map((row,index)=><tr key={index}>{row.map((value,cell)=>
@@ -118,11 +126,11 @@ function Panel({title,icon,children}:{title:string;icon:RoyalIconName;children:R
  </section>;
 }
 
-export default function WaterModelPanel({water,locale,currency,tab,detail,onChange,allowExport=true}:{
+export default function WaterModelPanel({water,locale,currency,tab,detail,onChange,allowExport=true,suppliers=[]}:{
  water:WaterModel;locale:string;currency:string;
  tab:'overview'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'report';
  detail?:'water'|'valuation'|'scenario'|'evidence'|'permissions';
- onChange:(water:WaterModel)=>void;allowExport?:boolean;
+ onChange:(water:WaterModel)=>void;allowExport?:boolean;suppliers?:readonly StudySupplier[];
 }){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
  const distributionLabelId=useId();
@@ -131,8 +139,21 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const percentage=(value:number|null)=>value===null?'—':fmt(value)+'%';
  const scenarioLabel=(name:string)=>locale==='ar'?({Conservative:'متحفظ',Base:'أساسي',Optimistic:'متفائل'}[name]??name):name;
  const m=useMemo(()=>evaluateWater(water),[water]);
+ const effective=effectiveWaterInputs(water);
+ const projectionLabels=[...baseProjectionLabels,...(water.financialPolicy?[
+  ['receivables','الذمم التجارية','Trade receivables'],['inventory','المخزون','Inventory'],['payables','ائتمان الموردين','Supplier credit'],
+  ['workingCapitalRecovery','تصفية رأس المال العامل','Working capital liquidation'],['terminalAssetProceeds','صافي حصيلة التخارج','Net terminal sale proceeds'],
+  ['operatingFreeCashFlow','التدفق التشغيلي قبل التخارج','Operating cash before terminal proceeds'],['closingWorkingCapital','الرصيد بعد التصفية','Working capital after liquidation'],
+ ] as const:[]),...(water.financingPolicy?[
+  ['openingDebt','الرصيد الافتتاحي للقرض','Opening loan balance'],['capitalizedInterest','الفائدة المرسملة','Capitalized interest'],
+  ['terminalDebtRepayment','سداد رصيد القرض عند النهاية','Terminal debt settlement'],['interestTaxSaving','الوفر الضريبي التقديري للفائدة','Indicative interest tax saving'],
+  ['equityTax','الضريبة بعد خصم الفائدة','Tax after interest deduction'],
+ ] as const:[])];
  const field=<K extends 'capex'|'deal'|'ops'>(section:K,[key,ar,en,max,step]:NumberFields<WaterModel[K]>[number])=>
-  <NumberInput key={String(key)} label={l(ar,en)} value={Number(water[section][key])} max={max}
+  ((section==='deal'&&key==='landValue'&&water.quantityCosting?.landByArea)||(section==='ops'&&key==='variableCarton'&&water.quantityCosting?.materialsEnabled)||(section==='ops'&&key==='fixedMonth'&&water.quantityCosting?.fixed.enabled))
+  ?<label className="fs-field" key={String(key)}><span>{l(ar,en)}</span><output>{money(key==='landValue'?effective.deal.landValue:key==='variableCarton'?effective.ops.variableCarton:effective.ops.fixedMonth)}</output><small>{l('محسوب من الكميات','Calculated from quantities')}</small></label>
+  :<NumberInput key={String(key)} label={l(ar,en)} value={Number(water[section][key])} max={max}
+   disabled={section==='ops'&&((key==='life'&&water.financialPolicy?.depreciationMode==='CLASSES')||(key==='nwcPct'&&water.financialPolicy?.workingCapitalMode==='CYCLE'))}
    min={key==='horizon'?3:0} step={step} onChange={value=>
     onChange({...water,[section]:{...water[section],[key]:value}})}/>;
  const fields=<K extends 'capex'|'deal'|'ops'>(section:K,definition:NumberFields<WaterModel[K]>)=>
@@ -188,54 +209,85 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   <p>{l('التدفق عند التأسيس (السنة صفر)','Initial investment cash flow (year zero)')} <b>{money(m.flows[0])}</b></p>
   {m.ready&&chart}
   <Table headers={[l('البند','Metric'),...m.annual.map(y=>y.year)]}
-   rows={projectionLabels.slice(1).map(([key,ar,en])=>[l(ar,en),...m.annual.map(y=>fmt(y[key]))])}/>
-  <p className="fs-hint">{l('تغطية خدمة الدين تساوي التدفق الحر قبل التمويل مقسومًا على أصل القرض وفائدته خلال السنة.','Debt service coverage divides project free cash flow before financing by annual principal and interest.')}</p>
-  <p className="fs-hint">{l('يُحتسب القرض بأقساط أصل متساوية على الرصيد الافتتاحي ودون فوائد قبل أول سنة سداد. لا يشمل التوقع قيمة تخارج أو استردادًا نهائيًا لرأس المال العامل.','The loan uses equal principal repayments and interest on opening balances, with no interest before the first repayment year. The forecast excludes exit proceeds and final working capital recovery.')}</p>
+   rows={projectionLabels.slice(1).map(([key,ar,en])=>[l(ar,en),...m.annual.map(y=>fmt(y[key]??null))])}/>
+  <p className="fs-hint">{l('تغطية خدمة الدين = التدفق التشغيلي قبل التخارج مع الوفر الضريبي المحدد للفائدة ÷ خدمة الدين، بما فيها سداد النهاية إن اختير. لا تدخل حصيلة بيع الأصول أو تصفية رأس المال العامل في البسط.','Debt coverage = operating cash before exit plus selected interest tax savings / debt service, including selected terminal settlement. Asset sales and working-capital liquidation are excluded from the numerator.')}</p>
+  {!water.financingPolicy&&<p className="fs-hint">{l('يُحتسب القرض وفق المنهج المحفوظ بأقساط أصل متساوية ودون فوائد قبل أول سنة سداد. تُضاف حصيلة التخارج والتصفية فقط عند إدخالهما صراحة.','The saved reference loan uses equal principal instalments with no interest before the first repayment year. Terminal proceeds/recovery require explicit inputs.')}</p>}
  </>;
  const exportForecast=()=>downloadFeasibilityCsv('bottled-water-projections.csv',[
   [...projectionLabels.map(([,ar,en])=>l(ar,en)),l('العملة','Currency')],
   [0,...projectionLabels.slice(1).map(([key])=>key==='freeCashFlow'?m.flows[0]:key==='debtBalance'?m.totalLoan:null),currency],
   ...m.annual.map(y=>[...projectionLabels.map(([key])=>y[key]),currency])
  ]);
+ const compactValues=(rows:string[][])=><dl className="fs-royal-checks">{rows.map(([label,value])=>
+  <div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>;
+ const equityHeaders=[l('السنة','Year'),l('حقوق الملكية الكلية','All equity holders'),l('ملكية الممول','Investor equity'),
+  l('ملكية الشريك العيني','In-kind partner equity'),l('قرض المساهم','Shareholder loan'),l('الممول: ملكية وقرض','Investor: equity and loan')];
+ const equityRows=m.equity?.flows.map((_,i)=>[i,m.equity!.flows[i],m.equity!.investorEquityFlows[i],m.equity!.partnerEquityFlows[i],m.equity!.shareholderLoanFlows[i],m.equity!.investorCombinedFlows[i]]);
+ const equitySchedule=m.equity&&equityRows?<Panel title={l('فصل عوائد الملكية وقرض المساهم','Separate equity and shareholder-loan returns')} icon="coins">
+  <Table financial scrollLabel={l('جدول عوائد الملكية، قابل للتمرير أفقيًا','Equity return schedule, horizontally scrollable')} headers={equityHeaders} rows={equityRows.map(([year,...values])=>[year,...values.map(money)])}/>
+  {compactValues([[l('IRR حقوق الملكية','Equity IRR'),percentage(m.ready?m.equity.irr:null)],
+   [l('IRR الممول المجمع: ملكية وقرض','Combined investor IRR: equity and loan'),percentage(m.ready?m.equity.investorCombinedIrr:null)]])}
+  {allowExport&&<button className="fs-btn fs-btn--secondary" type="button" onClick={()=>downloadFeasibilityCsv('bottled-water-equity-returns.csv',[
+   [...equityHeaders,l('العملة','Currency')],...equityRows.map(row=>[...row,currency])])}>{l('تصدير عوائد الملكية CSV','Export equity returns CSV')}</button>}
+ </Panel>:null;
  if(tab==='investment'){
   const items=capexFields.filter(([key])=>key!=='contingencyPct'&&key!=='workingCapital');
   const reserveFields=capexFields.filter(([key])=>key==='contingencyPct'||key==='workingCapital');
   return <section className="fs-block fs-royal-capex">
+    <details className="fs-panel"><summary>{l('التقدير التفصيلي حسب الكميات','Quantity-based detailed cost estimate')}{water.quantityCosting?.capital.enabled?' · '+l('فعّال','Active'):''}</summary>
+     <WaterQuantityCosts water={water} locale={locale} onChange={onChange}/>
+    </details>
    {metrics([[['الإنشاءات والمعدات','Works and equipment'],money(m.hard)],
     [['احتياطي الاستثمار','Investment contingency'],money(m.contingency)],
     [['رأس المال العامل','Working capital'],money(water.capex.workingCapital)],
     [['إجمالي الاحتياج النقدي','Total initial cash required'],money(m.cashRequired)]])}
    <section className="card fs-panel">
     <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{l('جدول البنود الاستثمارية','Investment cost schedule')}</h3>
-    <Table headers={[l('البند الاستثماري','Investment item'),l('القيمة','Amount')+(currency?' · '+currency:'')]}
+    <Table scrollLabel={l('جدول تكاليف الاستثمار، قابل للتمرير أفقيًا','Investment cost schedule, horizontally scrollable')}
+     headers={[l('م','No.'),l('البند الاستثماري','Investment item'),l('التصنيف','Classification'),l('القيمة','Amount')+(currency?' · '+currency:''),l('نوع المساهمة','Contribution type')]}
      rows={[
-      ...items.map(item=>[l(item[1],item[2]),field('capex',item)]),
-      [l('احتياطي الاستثمار','Investment contingency'),<bdi>{money(m.contingency)}</bdi>]
+      ...items.map((item,index)=>{
+       const key=item[0] as WaterCapexItemKey,source=water.capexQuoteSources?.[key];
+       return [index+1,l(item[1],item[2]),<span className="fs-royal-tag">{l(...waterCapexCategories[key])}</span>,<>
+        {water.quantityCosting?.capital.enabled?<bdi>{money(effective.capex[key])}</bdi>:field('capex',item)}{source&&!water.quantityCosting?.capital.enabled&&<small className="fs-hint">{l('مصدر العرض: ','Quote source: ')+source.vendor+' · '+fmt(source.amount)+' '+source.currency}
+         {source.amount!==water.capex[key]&&' · '+l('عُدّل المبلغ بعد الاستيراد','Amount edited after import')}
+         {source.currency!==currency&&' · '+l('تغير رمز عملة الدراسة؛ راجع العرض','Study currency changed; review the quote')}</small>}</>,
+        <span className="fs-royal-tag">{l('نقدي','Cash')}</span>];
+      }),
+      [items.length+1,l('احتياطي الاستثمار','Investment contingency'),l('احتياطي','Contingency'),<bdi>{money(m.contingency)}</bdi>,l('نقدي','Cash')]
      ]}
-     footer={<><th scope="row">{l('إجمالي التأسيس','Total establishment costs')}</th><td><bdi>{money(m.investment)}</bdi></td></>}/>
+     footer={<><th scope="row" colSpan={3}>{l('إجمالي التأسيس','Total establishment costs')}</th><td><bdi>{money(m.investment)}</bdi></td><td/></>}/>
+    {!water.quantityCosting?.capital.enabled&&<div className="fs-actions"><WaterCapexQuoteImport water={water} quotes={suppliers} currency={currency} locale={locale}
+     items={items.map(([key,ar,en])=>({key:key as WaterCapexItemKey,label:l(ar,en)}))} onChange={onChange}/></div>}
+    <p className="fs-hint">{l('تعكس هذه البنود تكلفة نقدية في نموذج المياه. تُسجّل الأرض والحقوق العينية في الشراكة، ولا تتكرر في هذا الجدول.',
+     'These items are cash costs in the water model. Land and in-kind rights belong in Partnership and are not repeated here.')}</p>
    </section>
    <div className="fs-royal-profile-grid">
     <RoyalBars title={l('توزيع الاستثمار حسب البند','Investment costs by item')} locale={locale} unit={currency}
-     data={[...items.map(([key,ar,en])=>({label:l(ar,en),value:water.capex[key]})),
+     data={[...items.map(([key,ar,en])=>({label:l(ar,en),value:effective.capex[key]})),
       {label:l('احتياطي الاستثمار','Investment contingency'),value:m.contingency}].filter(point=>point.value>0)}/>
     <section className="card fs-panel">
      <h3 className="fs-royal-report-title"><RoyalIcon name="settings"/>{l('سياسة احتياطي التشغيل','Operating reserve policy')}</h3>
      {fields('capex',reserveFields)}
+     {field('ops',['maintenancePct','الصيانة الرأسمالية سنويًا %','Annual capital maintenance %',1000])}
+     <p>{l('الصيانة السنوية المقدّرة','Estimated annual maintenance')}: <bdi>{money(m.investment*water.ops.maintenancePct/100)}</bdi></p>
      <p className="fs-hint">{l('يُحسب الاحتياطي على الأعمال والمعدات. تُراجع حقوق الأرض في تبويب الشراكة.', 'Contingency is based on works and equipment. Review land rights in the Partnership tab.')}</p>
     </section>
    </div>
   </section>;
  }
  const debtRatios=m.annual.flatMap(year=>year.dscr===null?[]:[year.dscr]);
- const projectReturns=metrics([
-  [['NPV للمشروع','Project NPV'],money(m.ready?m.npv:null)],
-  [['IRR للمشروع','Project IRR'],percentage(m.ready?m.irr:null)],
-  [['الاسترداد بالسنوات','Payback in years'],fmt(m.ready?m.payback:null)],
-  [['أدنى تغطية خدمة دين DSCR','Minimum debt service coverage (DSCR)'],fmt(m.ready&&debtRatios.length?Math.min(...debtRatios):null)]
- ]);
+ const projectReturns=<div className="fs-royal-overview-kpis">{metrics([
+  [['NPV للمشروع','Project NPV'],money(m.ready?m.npv:null),'chart'],
+  [['IRR للمشروع','Project IRR'],percentage(m.ready?m.irr:null),'target'],
+  [['IRR حقوق الملكية','Equity IRR'],percentage(m.ready?(m.equity?.irr??null):null),'users'],
+  [['أدنى تغطية خدمة دين DSCR','Minimum debt service coverage (DSCR)'],fmt(m.ready&&debtRatios.length?Math.min(...debtRatios):null),'shield']
+ ])}</div>;
  const financingSummary=[
   [l('القيمة الاستثمارية الاقتصادية','Economic investment'),money(m.cashRequired+m.land)],
   [l('النقد المطلوب للتأسيس','Initial cash requirement'),money(m.cashRequired)],
+  [l('ذروة العجز النقدي بعد التأسيس وخدمة الدين','Peak post-establishment cash shortfall after debt service'),
+   money(m.ready&&water.deal.extraFunding===0&&water.deal.investorLoan<=m.cashRequired?waterPeakFundingGap(m.annual):null)],
   [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(m.shareholderLoan)],
   [l('رأس المال النقدي لتغطية التأسيس','Cash equity allocated to establishment'),money(m.cashRequired-m.shareholderLoan)],
   [l('التمويل الإضافي بحسب المدخلات','Additional financing entered'),money(water.deal.extraFunding)],
@@ -243,12 +295,11 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [l('الحصة العينية للأرض أو الحق','Land or right-of-use in-kind contribution'),money(m.land)],
   [l('قروض المساهم الإجمالية','Total shareholder debt'),money(m.totalLoan)]
  ];
- const compactValues=(rows:string[][])=><dl className="fs-royal-checks">{rows.map(([label,value])=>
-  <div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>;
  const landTerms=<label className="fs-field"><span>{l('معالجة الأرض','Land arrangement')}</span><select value={water.deal.landMode}
   onChange={e=>onChange({...water,deal:{...water.deal,landMode:e.currentTarget.value as WaterModel['deal']['landMode']}})}>
   <option value="transfer">{l('نقل الملكية','Title transfer')}</option><option value="lease">{l('إيجار','Lease')}</option>
   <option value="right">{l('حق انتفاع مقوَّم','Valued right of use')}</option>
+  <option value="purchase">{l('شراء نقدي','Cash purchase')}</option>
  </select></label>;
  const extraTerms=<label className="fs-field"><span>{l('معالجة التمويل الإضافي','Additional financing type')}</span><select value={water.deal.extraType}
   onChange={e=>onChange({...water,deal:{...water.deal,extraType:e.currentTarget.value as WaterModel['deal']['extraType']}})}>
@@ -268,7 +319,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [l('المياه لكل كرتون','Water per carton'),money(costBreakdown.water)],
   [l('التوزيع لكل كرتون','Distribution per carton'),money(costBreakdown.distribution)],
   [l('الإجمالي لكل كرتون','Total per carton'),money(costBreakdown.total)],
-  [l('التكلفة المعتمدة لكل كرتون','Approved cost per carton'),money(water.ops.variableCarton)]
+  [l('التكلفة المستخدمة لكل كرتون','Effective cost per carton'),money(effective.ops.variableCarton)]
  ]:[];
  const updatePlan=(patch:Partial<typeof plan>)=>onChange({...water,operationsPlan:{...plan,...patch}});
  const productionBalance=waterProductionBalance(water);
@@ -314,7 +365,9 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {tab==='operations'&&!production
    ?<p className="fs-hint fs-royal-water-production-intro">{l('تقدير إنتاج العبوات والكراتين والمبيعات والطلب على المياه.',
     'Estimate bottle and carton output, sales, and water demand.')}</p>
-   :<h3 className="fs-royal-water-heading">{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>}
+   :tab==='advanced'
+    ?<p className="fs-water-advanced-description">{l(...headings.advanced)}</p>
+    :<h3 className="fs-royal-water-heading">{detail==='water'?l('الطاقة الإنتاجية ومصدر المياه','Production capacity and water source'):detail==='valuation'?l('التقييم والحقوق والمستندات','Valuation, rights and evidence'):detail==='scenario'?l('افتراضات السيناريوهات','Scenario assumptions'):l(...headings[tab])}</h3>}
   {(tab==='overview'||tab==='report')&&<>{valuation}{tab==='overview'&&partnership}{diagnostics.length>0&&
    <ul className="fs-notes">{diagnostics.map(item=><li key={String(item)}>{item}</li>)}</ul>}</>}
   {tab==='partners'&&<>
@@ -332,7 +385,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
      </div>
      {detail==='valuation'&&<p className="fs-hint">{l('سجّل التاريخ الوارد في مستند التقييم أو الاعتماد.',
       'Enter the dates shown on the valuation or approval document.')}</p>}
-     <p>{l('تقييم المتر المربع','Valuation per square metre')} <bdi>{money(water.deal.landArea>0?water.deal.landValue/water.deal.landArea:null)}</bdi></p>
+     {water.deal.landMode==='purchase'&&<NumberInput label={l('رسوم استحواذ الأرض النقدية','Cash land acquisition fees')} value={water.deal.acquisitionFees??0} onChange={value=>onChange({...water,deal:{...water.deal,acquisitionFees:value}})}/>}
+     <p>{l('تقييم المتر المربع','Valuation per square metre')} <bdi>{money(water.deal.landArea>0?effective.deal.landValue/water.deal.landArea:null)}</bdi></p>
      <p className="fs-hint">{l('الملكية تقديرية. راجع التقييم المستقل ومستندات نقل الملكية أو حق الانتفاع.',
       'Ownership is indicative. Review the independent valuation and title transfer or right-of-use documents.')}</p>
     </Panel>
@@ -343,7 +397,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     </Panel>}
     {detail==='valuation'&&<Panel title={l('أثر التقييم على الملكية','Effect of valuation on ownership')} icon="file">
      <Table headers={[l('العنصر','Item'),l('القيمة المقدرة','Estimated value'),l('المعاملة','Treatment')]} rows={[
-      [l('الأرض','Land'),money(water.deal.landValue),water.deal.landMode==='transfer'?l('حصة عينية','In-kind equity'):l('خارج الملكية','Outside equity')],
+      [l('الأرض','Land'),money(effective.deal.landValue),water.deal.landMode==='transfer'?l('حصة عينية','In-kind equity'):water.deal.landMode==='purchase'?l('شراء ضمن الاحتياج النقدي','Purchase included in cash requirement'):l('خارج الملكية','Outside equity')],
       [l('حق الانتفاع','Right of use'),money(water.deal.rightValue),water.deal.landMode==='right'?l('حصة عينية','In-kind equity'):l('خارج الملكية','Outside equity')],
       [l('الترخيص','Licence'),money(water.deal.licenseValue),l('للمراجعة','For review')]
      ]}/>
@@ -351,6 +405,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     {ownership}
     {detail!=='valuation'&&<Panel title={l('توازن التمويل','Funding balance')} icon="users">
      {compactValues(financingSummary)}
+     <p className="fs-hint">{l('العجز تقدير سنوي يفترض الاحتفاظ بالفوائض بعد التأسيس. راجع جدول سيولة شهري إذا اختلف توقيت التحصيل والسداد داخل السنة.',
+      'The shortfall is an annual estimate that assumes post-establishment surpluses are retained. Review monthly liquidity if collections and payments occur at different times within the year.')}</p>
      {water.deal.investorLoan>m.shareholderLoan&&<p className="fs-hint">
       {l('خُصص قرض التأسيس بحد أقصى يساوي الاحتياج النقدي. الجزء الزائد من القرض المدخل',
        'The establishment loan is capped at the initial cash requirement. Unallocated entered loan amount')}
@@ -520,8 +576,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
       [l('العبوات القابلة للبيع','Saleable bottles'),percentage(100-(plan.finishedBottleLossPct??0)),fmt(production.saleableBottles)],
       [l('الكراتين الكاملة القابلة للبيع','Complete saleable cartons'),fmt(ops.bottlesCarton),fmt(production.saleableCartons)]
      ]}/>
-     <p className="fs-hint">{l('ميزان تشغيلي تخطيطي. تستمر توقعات المبيعات في استخدام نسب الاستغلال المحفوظة، ويستخدم رأس المال العامل نسبته المعتمدة من المبيعات.',
-      'This balance is for operating plans. Sales forecasts use saved utilization rates, and working capital uses its approved share of sales.')}</p>
+     <p className="fs-hint">{l('ميزان تشغيلي تخطيطي. تستخدم توقعات المبيعات نسب الاستغلال المحفوظة؛ يتبع رأس المال العامل المنهج المختار في النموذج المالي المتقدم.',
+      'This balance is for operating plans. Sales forecasts use saved utilization rates; working capital follows the method selected in Advanced finance.')}</p>
     </Panel>
     <Panel title={l('اقتصاديات الوحدة','Unit economics')} icon="coins">
      {fields('ops',operationFields.slice(9,13))}
@@ -578,23 +634,22 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    </div>
   </>}
   {tab==='advanced'&&<>
-   <div className="fs-royal-profile-grid">
-    <Panel title={l('الإهلاك والعمر الاقتصادي','Depreciation and economic life')} icon="layers">
-     {fields('ops',operationFields.filter(([key])=>key==='life'||key==='maintenancePct'))}
-     {compactValues([[l('الإهلاك السنوي','Annual depreciation'),money(m.annual[0].depreciation)]])}
-    </Panel>
-    <Panel title={l('سياسة رأس المال العامل والخصم','Working capital and discount assumptions')} icon="coins">
-     {fields('ops',operationFields.filter(([key])=>['nwcPct','discountRate','taxRate','horizon'].includes(key)))}
-     {compactValues([[l('رأس المال العامل عند التأسيس','Initial working capital'),money(water.capex.workingCapital)]])}
-    </Panel>
-   </div>
+   <WaterFinancialPolicy water={water} locale={locale} currency={currency} onChange={onChange}
+    depreciationFields={fields('ops',operationFields.filter(([key])=>key==='life'))}
+    workingCapitalFields={<>{fields('ops',operationFields.filter(([key])=>key==='nwcPct'))}
+     {compactValues([[l('رأس المال العامل عند التأسيس','Initial working capital'),money(water.capex.workingCapital)]])}</>}
+    settings={fields('ops',operationFields.filter(([key])=>['maintenancePct','discountRate','taxRate','horizon'].includes(key)))}/>
    {projectReturns}
    <Panel title={l('خدمة الدين السنوية','Annual debt service')} icon="coins">
-    <Table headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة','Interest'),
-     l('سداد الأصل','Principal repayment'),l('الرصيد الختامي','Closing balance'),'DSCR',l('التدفق بعد القرض','Cash flow after debt')]}
-     rows={m.annual.map(y=>[y.year,money(y.debtBalance+y.principal),money(y.interest),money(y.principal),
+    <Table financial scrollLabel={l('جدول خدمة الدين، قابل للتمرير أفقيًا','Debt service schedule, horizontally scrollable')} headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة المدفوعة','Paid interest'),
+     l('الفائدة المرسملة','Capitalized interest'),l('سداد الأصل','Principal repayment'),l('سداد النهاية','Terminal settlement'),l('الرصيد الختامي','Closing balance'),'DSCR',l('التدفق بعد القرض','Cash flow after debt')]}
+     rows={m.annual.map(y=>[y.year,money(y.openingDebt??(y.debtBalance+y.principal)),money(y.interest),money(y.capitalizedInterest??0),money(y.principal),money(y.terminalDebtRepayment??0),
       money(y.debtBalance),fmt(y.dscr),money(y.afterDebt)])}/>
+    <details className="fs-water-financing-settings"><summary>{l('شروط التمويل وعوائد الملكية','Financing and equity settings')}</summary>
+     <WaterFinancingPolicy water={water} locale={locale} onChange={onChange}/>
+    </details>
    </Panel>
+   {equitySchedule}
    <Panel title={l('الإهلاك وتغير رأس المال العامل','Depreciation and working capital movement')} icon="layers">
     <Table headers={[l('السنة','Year'),l('الإهلاك','Depreciation'),l('تغير رأس المال العامل','Working capital movement')]}
      rows={m.annual.map(y=>[y.year,money(y.depreciation),money(y.workingCapitalMovement)])}/>
@@ -631,6 +686,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    </Panel>
   </>}
   {tab==='report'&&<>
+   <WaterFinancialPolicy water={water} locale={locale} currency={currency}/>
+   {water.financingPolicy&&<><WaterFinancingPolicy water={water} locale={locale}/>{equitySchedule}</>}
    {costBreakdown&&<section className="fs-panel">
     <h4>{l('تقدير مكونات تكلفة الكرتون','Estimated carton cost components')}</h4>{compactValues(unitCostRows)}
    </section>}

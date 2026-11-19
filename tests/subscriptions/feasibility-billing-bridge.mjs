@@ -1,6 +1,8 @@
 // Issue #421 only. Runs in the disposable local Supabase + Chromium fixture.
 // No real QA/Production user or billing value is modified.
 import assert from 'node:assert/strict';
+import {runQuantityCostingBrowser} from './quantity-costing-browser.mjs';
+import {runWaterFinancialPolicyBrowser} from './water-financial-policy-browser.mjs';
 
 const marker='QA421';
 const phase=(caseName,step)=>console.log('QA421_PHASE '+JSON.stringify({source:'disposable-local-Chromium',caseName,step}));
@@ -509,10 +511,10 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.goto(appPage('PERSONAL',target,'ar'));
    const personalSaved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&
     r.request().method()==='POST');
-   await page.getByRole('button',{name:'حفظ في QA V2',exact:true}).click();
+   await page.getByRole('button',{name:'حفظ سحابي',exact:true}).click();
    const personalResponse=await personalSaved;
    assert.equal(personalResponse.status(),201);
-   await page.getByText(/حُفظت مسودة المشروع في QA V2/).waitFor();
+   await page.getByText(/حُفظت مسودة المشروع في السحابة/).waitFor();
    const source=(await readPersonal()).find(row=>row.study.title===studyTitle);
    assert.ok(source,'The personal source must exist in persistent storage');
    assert.equal(source.study.water.ops.hoursDay,8);
@@ -593,7 +595,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const restored=page.getByRole('button',{name:/QA Personal water copy source/});
    await local.waitFor();
    assert.equal(await restored.count(),0);
-   await page.getByRole('button',{name:'Restore from QA V2',exact:true}).click();
+   await page.getByRole('button',{name:'Restore from cloud',exact:true}).click();
    const personalNotice=page.getByText(/Added [1-9]\d* cloud drafts\. All local drafts were kept/);
    await personalNotice.waitFor();
    await restored.waitFor();
@@ -609,6 +611,213 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.equal(await local.getAttribute('aria-pressed'),'true');
   }finally{await context.close();}
  });
+ await check('Royal overview: actual readiness, context and responsive AR/EN captures',async()=>{
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
+  const page=await context.newPage();
+  page.setDefaultTimeout(12000);
+  try{
+   await page.goto(appUrl+'/en/feasibility?scope=PERSONAL');
+   await page.getByRole('button',{name:'New study',exact:true}).click();
+   await page.getByRole('textbox',{name:'New project name',exact:true}).fill('Royal synthetic overview');
+   await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   for(const locale of ['ar','en']){
+    for(const width of [1440,390]){
+     await page.setViewportSize({width,height:1000});
+     await page.goto(appUrl+'/'+locale+'/feasibility?scope=PERSONAL');
+     await page.getByRole('heading',{name:'Royal synthetic overview',exact:true}).waitFor();
+     const progress=page.locator('.fs-royal-portfolio-progress');
+     assert.deepEqual(await progress.evaluate(el=>({value:el.value,max:el.max})),{value:2,max:6},
+      'An empty draft passes only balanced zero funding and absence of a recorded legal blocker');
+     const label=locale==='ar'?'سياق الدراسة':'Study context';
+     const badges=page.getByLabel(label,{exact:true});
+     assert.ok((await badges.innerText()).includes(new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0}).format(2/6)));
+     assert.equal(await badges.locator('time').getAttribute('datetime')!==null,true);
+     assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+     assert.equal(await page.locator('.fs-royal-priority-table thead th:visible').count(),width===390?2:4);
+     assert.equal(await page.locator('.fs-royal-overview-kpis .fs-metric').evaluateAll(metrics=>metrics.every(metric=>{
+      const icon=metric.querySelector('svg').getBoundingClientRect();
+      const title=metric.querySelector('small').getBoundingClientRect();
+      const style=getComputedStyle(metric.querySelector('small'));
+      const textLeft=title.left+parseFloat(style.paddingLeft),textRight=title.right-parseFloat(style.paddingRight);
+      return icon.right<=textLeft||icon.left>=textRight;
+     })),true,'KPI labels must reserve space for icons in both directions');
+     await page.screenshot({path:new URL('./screenshots/royal-overview-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+     await page.reload();
+     await page.getByRole('heading',{name:'Royal synthetic overview',exact:true}).waitFor();
+     assert.equal(await progress.evaluate(el=>el.value),2);
+    }
+   }
+  }finally{await context.close();}
+ });
+ await check('Royal profile and investment: explicit supplier import, cloud persistence and responsive captures',async()=>{
+  // Match Next's reconstructed local origin, as in the managed-copy test above.
+  // Keep the production same-origin guard unchanged.
+  const appUrl='http://localhost:3000';
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
+  const page=await context.newPage();page.setDefaultTimeout(12000);
+  const title='Royal synthetic profile and CAPEX';
+  try{
+   await page.goto(appUrl+'/en/feasibility?scope=PERSONAL');
+   await page.getByRole('button',{name:'New study',exact:true}).click();
+   await page.getByRole('textbox',{name:'New project name',exact:true}).fill(title);
+   await page.getByRole('radio',{name:'Bottled-water factory',exact:true}).check();
+   await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   await page.getByRole('button',{name:'Profile',exact:true}).click();
+   await page.getByLabel('Country',{exact:true}).fill('Synthetic country');
+   await page.getByRole('combobox',{name:'Study currency',exact:true}).selectOption('USD');
+   await page.getByLabel('Detailed project location',{exact:true}).fill('Synthetic site');
+   await page.getByLabel('Legal owner as documented',{exact:true}).fill('Synthetic documented owner');
+   await page.getByRole('combobox',{name:'Study type',exact:true}).selectOption('EXPANSION');
+   const startYear=page.getByRole('spinbutton',{name:'Study start year',exact:true});
+   await startYear.fill('1899');
+   let invalidProfilePosts=0;
+   const observeProfilePost=r=>{if(new URL(r.url()).pathname==='/api/feasibility/projects'&&r.method()==='POST')invalidProfilePosts++};
+   page.on('request',observeProfilePost);
+   await page.getByRole('button',{name:'Save to cloud',exact:true}).click();
+   assert.equal(invalidProfilePosts,0,'Invalid calendar text must not submit the old profile');
+   page.off('request',observeProfilePost);
+   await startYear.fill('');await startYear.pressSequentially('2030');
+   assert.equal(await startYear.inputValue(),'2030','Year typing must accept partial digits before the valid year');
+   await page.getByRole('spinbutton',{name:'Land area (m²)',exact:true}).fill('6000');
+   await page.getByRole('spinbutton',{name:'Expected study duration (years)',exact:true}).fill('6');
+   await page.getByRole('textbox',{name:'Project description and study objective',exact:true}).fill('Synthetic project objective');
+   await page.getByRole('button',{name:'Supplier quotes',exact:true}).click();
+   await page.getByRole('button',{name:'Add offer',exact:true}).click();
+   await page.locator('.fs-register-row summary').click();
+   await page.getByLabel('Vendor',{exact:true}).fill('Synthetic QA vendor');
+   await page.getByLabel('Item',{exact:true}).fill('Synthetic equipment');
+   await page.getByLabel('Quote value',{exact:true}).fill('5000');
+   await page.getByRole('button',{name:'Investment',exact:true}).click();
+   await page.getByRole('button',{name:'Import supplier quote',exact:true}).click();
+   const dialog=page.getByRole('dialog');
+   await dialog.getByRole('combobox',{name:'Supplier quote',exact:true}).selectOption({index:1});
+   await dialog.getByRole('combobox',{name:'Target investment item',exact:true}).selectOption('line');
+   const apply=dialog.getByRole('button',{name:'Apply quote to item',exact:true});
+   assert.equal(await apply.isDisabled(),true);
+   await dialog.getByRole('checkbox').check();await apply.click();
+   assert.equal(await page.getByLabel('Bottling and packaging line',{exact:true}).inputValue(),'5000');
+   await page.getByText(/Quote source: Synthetic QA vendor/).waitFor();
+   await page.getByRole('button',{name:'Profile',exact:true}).click();
+   const saved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&r.request().method()==='POST');
+   await page.getByRole('form',{name:'Project profile form',exact:true}).getByRole('button',{name:'Save changes',exact:true}).click();
+   const saveResponse=await saved;
+   let saveError='';
+   if(saveResponse.status()!==201){
+    saveError=await Promise.race([saveResponse.json().then(x=>x.error||'NON_ERROR_JSON').catch(()=>'BODY_UNAVAILABLE'),
+     new Promise(resolve=>setTimeout(()=>resolve('BODY_READ_TIMEOUT_2S'),2000))]);
+   }
+   assert.equal(saveResponse.status(),201,'Synthetic profile save: '+saveError);
+   const response=await page.request.get(appUrl+'/api/feasibility/projects');assert.equal(response.status(),200);
+   const row=(await response.json()).find(x=>x.title===title);assert.ok(row);
+   assert.equal(row.study.legalOwner,'Synthetic documented owner');assert.equal(row.study.siteDescription,'Synthetic site');
+   assert.equal(row.study.water.capex.line,5000);assert.equal(row.study.water.capexQuoteSources.line.amount,5000);
+   assert.equal(row.study.water.capexQuoteSources.line.currency,'USD');
+   assert.equal(row.study.studyType,'EXPANSION');assert.equal(row.study.projectStartYear,2030);
+   assert.equal(row.study.water.deal.landArea,6000);assert.equal(row.study.water.ops.horizon,6);
+   assert.equal(row.study.siteAreaM2,undefined,'Water area has exactly one canonical input');
+   for(const locale of ['ar','en'])for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000});await page.goto(appUrl+'/'+locale+'/feasibility?scope=PERSONAL');
+    const ar=locale==='ar';await page.getByRole('heading',{name:title,exact:true}).waitFor();
+    await page.getByRole('button',{name:ar?'بيانات المشروع':'Profile',exact:true}).click();
+    assert.equal(await page.getByLabel(ar?'المالك القانوني وفق المستندات':'Legal owner as documented',{exact:true}).inputValue(),'Synthetic documented owner');
+    assert.equal(await page.getByLabel(ar?'موقع المشروع التفصيلي':'Detailed project location',{exact:true}).inputValue(),'Synthetic site');
+    assert.equal(await page.getByRole('spinbutton',{name:ar?'سنة بدء الدراسة':'Study start year',exact:true}).inputValue(),'2030');
+    assert.equal(await page.getByRole('spinbutton',{name:ar?'مساحة الأرض (م²)':'Land area (m²)',exact:true}).inputValue(),'6000');
+    assert.equal(await page.getByRole('spinbutton',{name:ar?'مدة الدراسة المتوقعة (سنوات)':'Expected study duration (years)',exact:true}).inputValue(),'6');
+    const identity=page.locator('.fs-royal-profile-identity');
+    assert.equal(await identity.locator('select').count(),3);
+    const panelStyle=await page.locator('form.fs-royal-profile > section').evaluate(el=>({radius:getComputedStyle(el).borderRadius,shadow:getComputedStyle(el).boxShadow}));
+    assert.deepEqual(panelStyle,{radius:'10px',shadow:'none'},'Royal panel styling must win over the application-shell card defaults');
+    if(width===390)assert.equal(await identity.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);
+    assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+    await page.screenshot({path:new URL('./screenshots/royal-profile-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+    await page.getByRole('button',{name:ar?'تكاليف الاستثمار':'Investment',exact:true}).click();
+    assert.equal(await page.getByLabel(ar?'خط التعبئة والتغليف':'Bottling and packaging line',{exact:true}).inputValue(),'5000');
+    assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+    await page.screenshot({path:new URL('./screenshots/royal-investment-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+    await page.getByRole('button',{name:ar?'استيراد عرض مورد':'Import supplier quote',exact:true}).click();
+    await page.screenshot({path:new URL('./screenshots/royal-quote-import-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:false});
+    await page.getByRole('dialog').getByRole('button',{name:ar?'إلغاء':'Cancel',exact:true}).click();
+   }
+   await page.getByRole('button',{name:'Report and export',exact:true}).click();
+   await page.getByText('Synthetic documented owner',{exact:true}).waitFor();
+   await page.getByText(/Synthetic site/).waitFor();
+   await page.getByText('Expansion',{exact:true}).waitFor();
+  }finally{await context.close();}
+ });
+ await check('Royal general and raw-land profile: shared inputs, classified costs, cloud save and responsive reload',async()=>{
+  const app='http://localhost:3000';
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:app})));
+  const page=await context.newPage();page.setDefaultTimeout(12000);
+  const title='Royal synthetic commercial investment';
+  const saveProfile=async()=>{
+   const posted=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&r.request().method()==='POST');
+   await page.getByRole('button',{name:'Save changes',exact:true}).click();
+   assert.equal((await posted).status(),201);
+  };
+  try{
+   await page.goto(app+'/en/feasibility?scope=PERSONAL');
+   await page.getByRole('button',{name:'New study',exact:true}).click();
+   await page.getByRole('textbox',{name:'New project name',exact:true}).fill(title);
+   await page.getByRole('combobox',{name:'Project type',exact:true}).selectOption('COMMERCIAL');
+   await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   await page.getByRole('combobox',{name:'Study currency',exact:true}).selectOption('USD');
+   await page.getByRole('spinbutton',{name:'Land area (m²)',exact:true}).fill('300');
+   await page.getByRole('spinbutton',{name:'Study start year',exact:true}).fill('2031');
+   await page.getByRole('spinbutton',{name:'Expected study duration (years)',exact:true}).fill('8');
+   await page.getByRole('button',{name:'Investment',exact:true}).click();
+   for(let i=0;i<3;i++)await page.getByRole('button',{name:'Remove item 1',exact:true}).click();
+   for(let i=1;i<=2;i++){
+    await page.getByRole('button',{name:'Add investment item',exact:true}).click();
+    await page.getByRole('textbox',{name:'Investment item '+i,exact:true}).fill('Synthetic cash item '+i);
+    await page.getByRole('spinbutton',{name:'Item amount '+i,exact:true}).fill(String(i*1000));
+    await page.getByRole('combobox',{name:'Item classification '+i,exact:true}).selectOption(i===1?'BUILDINGS':'EQUIPMENT');
+   }
+   await page.getByRole('spinbutton',{name:'Opening working capital',exact:true}).fill('500');
+   await page.getByRole('button',{name:'Profile',exact:true}).click();await saveProfile();
+   let response=await page.request.get(app+'/api/feasibility/projects');assert.equal(response.status(),200);
+   let row=(await response.json()).find(x=>x.title===title);assert.ok(row);
+   assert.equal(row.study.years,8);assert.equal(row.study.siteAreaM2,300);assert.equal(row.study.projectStartYear,2031);
+   assert.equal(row.study.capex.reduce((sum,x)=>sum+x.amount,0),3000);assert.equal(row.study.workingCapital,500);
+   assert.equal(row.study.water,undefined);assert.equal(row.study.rawLand,undefined);
+   for(const locale of ['ar','en'])for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000});await page.goto(app+'/'+locale+'/feasibility?scope=PERSONAL');
+    const ar=locale==='ar';await page.getByRole('heading',{name:title,exact:true}).waitFor();
+    await page.getByRole('button',{name:ar?'تكاليف الاستثمار':'Investment',exact:true}).click();
+    assert.equal(await page.getByRole('spinbutton',{name:(ar?'قيمة البند':'Item amount')+' 2',exact:true}).inputValue(),'2000');
+    assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+    const total=page.locator('.fs-royal-general-investment .fs-metric').last();
+    const formattedTotal=await page.evaluate(locale=>new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(3500),locale);
+    assert.ok((await total.innerText()).includes(formattedTotal));
+    await page.screenshot({path:new URL('./screenshots/royal-general-investment-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+   }
+   await page.getByRole('button',{name:'Overview',exact:true}).click();
+   await page.getByRole('button',{name:'New study',exact:true}).click();
+   await page.getByRole('textbox',{name:'New project name',exact:true}).fill('Royal synthetic land profile');
+   await page.getByRole('radio',{name:'Raw land and subdivision development',exact:true}).check();
+   await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   await page.getByRole('spinbutton',{name:'Area before exclusions (m²)',exact:true}).fill('2000');
+   await page.getByRole('spinbutton',{name:'Study start year',exact:true}).fill('2032');
+   await page.getByRole('spinbutton',{name:'Expected study duration (years)',exact:true}).fill('6');
+   await saveProfile();
+   response=await page.request.get(app+'/api/feasibility/projects');assert.equal(response.status(),200);
+   row=(await response.json()).find(x=>x.title==='Royal synthetic land profile');assert.ok(row);
+   assert.equal(row.study.rawLand.site.areaAfterPriorTransfers,2000);assert.equal(row.study.rawLand.project.startYear,2032);
+   assert.equal(row.study.rawLand.project.years,6);assert.equal(row.study.projectStartYear,undefined);assert.equal(row.study.siteAreaM2,undefined);
+   for(const locale of ['ar','en'])for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000});await page.goto(app+'/'+locale+'/feasibility?scope=PERSONAL');
+    const ar=locale==='ar';await page.getByRole('button',{name:ar?'بيانات المشروع':'Profile',exact:true}).click();
+    assert.equal(await page.getByRole('spinbutton',{name:ar?'سنة بدء الدراسة':'Study start year',exact:true}).inputValue(),'2032');
+    assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+    await page.screenshot({path:new URL('./screenshots/royal-land-profile-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
+   }
+  }finally{await context.close();}
+ });
+ await runQuantityCostingBrowser({browser,cookies,check});
+ await runWaterFinancialPolicyBrowser({browser,cookies,check});
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{
   const r=await fetch(url+'/rest/v1/organizations?select=id,contact_email,registered_address',{
    headers:headers(outsider)

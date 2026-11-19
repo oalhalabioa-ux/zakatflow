@@ -1,5 +1,5 @@
 import {evaluateRawLand} from './raw-land';
-import {evaluateWater} from './water-model';
+import {evaluateWater,effectiveWaterInputs,waterFinancialReadiness,waterPeakFundingGap} from './water-model';
 import {defaultLegalItems,evaluateStudy,type FeasibilityStudy} from './engine';
 
 export type HandoffCheck={key:string;ar:string;en:string;passed:boolean};
@@ -14,9 +14,11 @@ export function handoffReadiness(study:FeasibilityStudy){
  const legalVerified=water||land
   ?waterChecks.length>0&&waterChecks.every(item=>item.status==='VERIFIED'&&item.notes.trim())
   :critical.every(title=>study.legal.some(item=>item.title===title&&item.status==='VERIFIED'));
- const balanced=land?land.issue===null&&land.ready&&land.peakEquityDeficit<=.01:
-  study.water
-  ?study.water.deal.extraFunding===0&&(!water?.totalLoan||
+ const balanced=land?land.issue===null&&land.ready&&(land.annual.at(-1)?.closingDebt??0)<=.01&&
+  land.peakEquityDeficit<=(study.rawLand?.quantityDevelopment?.committedEquity??0)+.01:
+  study.water&&water
+  ?water.ready&&study.water.deal.extraFunding===0&&study.water.deal.investorLoan<=water.cashRequired&&
+   waterPeakFundingGap(water.annual)<=.01&&(!water.totalLoan||
    (study.water.deal.loanYears>0&&study.water.deal.loanStart>0))
   :Number.isFinite(model.cashFundingGap)&&Math.abs(model.cashFundingGap)<=0.01;
  const checks:HandoffCheck[]=[
@@ -29,6 +31,16 @@ export function handoffReadiness(study:FeasibilityStudy){
   {key:'legal',ar:'تحقق أولي من ملكية الموقع والتقييم والتراخيص',en:'Preliminary land, valuation and licensing checks verified',passed:legalVerified},
   {key:'blockers',ar:'لا يوجد مانع قانوني مسجل',en:'No recorded legal blocker',passed:!study.legal.some(x=>x.status==='BLOCKED')}
  ];
+ if(study.water?.quantityCosting)checks.push({key:'quantity',ar:'الكميات وأسعار الوحدات موثقة ومكتملة',en:'Quantities and unit prices are complete and documented',passed:effectiveWaterInputs(study.water).readiness.ready});
+ if(study.water)checks.push({key:'financial-policy',ar:'منهج الإهلاك ورأس المال العامل موثق وقابل للتحقق',en:'Depreciation and working capital methods are documented and assessable',passed:waterFinancialReadiness(study.water).ready});
+ if(study.water&&(study.water.financingPolicy||water?.totalLoan))checks.push({key:'financing-policy',ar:'شروط القرض وعوائد الملكية موثقة والدين عند النهاية معالج',en:'Debt terms and equity returns documented and terminal debt addressed',passed:water?.financingReadiness?.ready??false});
+ if(land&&land.issue===null&&study.rawLand?.quantityDevelopment)checks.push({key:'quantity',ar:'كميات التطوير وأسعارها موثقة ومكتملة',en:'Development quantities and prices are complete and documented',passed:land.quantityReadiness?.ready??false});
+ if(study.water||study.rawLand){
+  const detailed=study.water?.quantityCosting??study.rawLand?.quantityDevelopment;
+  checks.push({key:'risk',ar:'معالجة المخاطر المرتفعة وعدم ترك مخاطر مرتفعة دون استجابة',en:'High risks are mitigated with documented responses',passed:!study.risks.some(x=>x.impact*x.likelihood>=15&&(x.status!=='MITIGATED'||!x.response.trim()))});
+  checks.push({key:'execution',ar:'عدم وجود مهمة تنفيذ عالية الأولوية معلّقة',en:'No blocked high-priority implementation task',passed:!study.tasks.some(x=>x.priority==='HIGH'&&x.status==='BLOCKED')});
+  if(detailed)checks.push({key:'assumptions',ar:'توثيق افتراضات التشغيل والبيع والتمويل ومصادرها',en:'Operating, sales and financing assumptions and sources documented',passed:Boolean(detailed.assumptionSource?.trim())});
+ }
  return {checks,ready:checks.every(x=>x.passed)};
 }
 export function handoffSetupPath(locale:string,organizationId:string,authorizedIds:readonly string[]):string|null{

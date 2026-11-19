@@ -6,14 +6,16 @@ import {evaluateStudy} from '@/lib/feasibility/engine';
 import {handoffReadiness} from '@/lib/feasibility/handoff';
 import {evaluateRawLand} from '@/lib/feasibility/raw-land';
 import RawLandPanel from './RawLandPanel';
-import {evaluateWater,studyReportReadiness} from '@/lib/feasibility/water-model';
+import {evaluateWater,effectiveWaterInputs,studyReportReadiness,waterPeakFundingGap} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
+import {studyProfileValues,studyTypeLabels} from '@/lib/feasibility/study-profile';
 import WaterModelPanel from './WaterModelPanel';
+import CostingReport from './CostingReport';
 
 const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
 
-export default function FeasibilityReport({study,locale,allowExport=true}:{study:FeasibilityStudy;locale:string;allowExport?:boolean}){
+export default function FeasibilityReport({study,locale,allowExport=true,titleInWorkspace=false}:{study:FeasibilityStudy;locale:string;allowExport?:boolean;titleInWorkspace?:boolean}){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
  const report=useRef<HTMLDivElement>(null);
  const dialog=useRef<HTMLDialogElement>(null);
@@ -50,6 +52,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   try { window.print(); } catch { window.removeEventListener('afterprint',restore);restore(); }
  }
  const {openCritical,openTasks,highRisks}=studyReportReadiness(study);
+ const profile=studyProfileValues(study);
  const verified=study.legal.filter(item=>item.status==='VERIFIED').length;
  const fmt=(value:number|null)=>value===null?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
  const money=(value:number|null)=>value===null?'—':[fmt(value),study.currency].filter(Boolean).join(' ');
@@ -58,16 +61,26 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  const land=study.rawLand?evaluateRawLand(study.rawLand):null;
  const landResult=land?.issue===null&&land.ready?land:null;
  const water=study.water?evaluateWater(study.water):null;
- const deal=study.water?.deal;
+ const deal=study.water?effectiveWaterInputs(study.water).deal:undefined;
  const funding=study.rawLand?[
   [l('التسهيل التمويلي','Financing facility'),money(study.rawLand.finance.facility)],
   [l('تكاليف التطوير النقدية','Cash development costs'),money(landResult?.cashDevelopmentCost??null)],
   [l('ذروة عجز التمويل بعد الدين','Peak funding gap after debt'),money(landResult?.peakEquityDeficit??null)],
-  [l('رصيد الدين الختامي','Closing debt'),money(landResult?.annual.at(-1)?.closingDebt??null)]
+  [l('التزام رأس المال النقدي','Committed cash equity'),money(study.rawLand.quantityDevelopment?.committedEquity??0)],
+  [l('العجز غير المغطى بالالتزام النقدي','Deficit not covered by cash commitment'),money(landResult?Math.max(0,landResult.peakEquityDeficit-(study.rawLand.quantityDevelopment?.committedEquity??0)):null)],
+  [l('رصيد الدين الختامي','Closing debt'),money(landResult?.annual.at(-1)?.closingDebt??null)],
+  ...(landResult?.financeMetrics?.returns?[
+   [l('صافي القيمة الحالية للمشروع قبل التمويل','Project NPV before financing'),money(landResult.financeMetrics.returns.unleveredNpv)],
+   [l('عائد المشروع قبل التمويل','Project IRR before financing'),percent(landResult.financeMetrics.returns.unleveredIrr)],
+   [l('عائد إجمالي حقوق الملكية الاقتصادية','Total economic equity IRR'),percent(landResult.financeMetrics.returns.equityIrr)]
+  ]:[])
  ]:water&&study.water&&deal?[
   [l('تكلفة التأسيس مع الرسوم','Establishment costs including fees'),money(water.investment)],
   [l('رأس المال العامل الأولي','Opening working capital'),money(study.water.capex.workingCapital)],
+  [l('شراء الأرض ورسوم الاستحواذ النقدية','Cash land purchase and acquisition fees'),money(water.purchaseLand??0)],
   [l('التمويل النقدي المطلوب عند التأسيس','Initial cash requirement'),money(water.cashRequired)],
+  [l('ذروة العجز النقدي بعد التأسيس وخدمة الدين','Peak post-establishment cash shortfall after debt service'),
+   money(water.ready&&deal.extraFunding===0&&deal.investorLoan<=water.cashRequired?waterPeakFundingGap(water.annual):null)],
   [l('إجمالي رأس مال الممول النقدي','Total investor cash equity'),money(water.investorEquity)],
   [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(water.shareholderLoan)],
   [l('التمويل الإضافي','Additional funding'),money(deal.extraFunding)],
@@ -94,7 +107,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   [l('حافز المدير','Manager incentive'),money(landResult?.managerIncentive??null)]
  ]:water&&deal?[
   [l('معالجة الأرض','Land arrangement'),{
-   transfer:l('نقل الملكية','Title transfer'),lease:l('إيجار','Lease'),right:l('حق انتفاع مقوّم','Valued right of use')
+   transfer:l('نقل الملكية','Title transfer'),lease:l('إيجار','Lease'),right:l('حق انتفاع مقوّم','Valued right of use'),purchase:l('شراء نقدي','Cash purchase')
   }[deal.landMode]],
   [l('الحصة العينية للأرض أو الحق','Land or right-of-use in-kind contribution'),money(water.land)],
   [l('قيمة الرخصة للمراجعة','Licence value for review'),money(deal.licenseValue)],
@@ -150,7 +163,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
  ]);
  return <div ref={report} className="fs-block fs-print-report">
   <section className="fs-block" id={sectionId('summary')} tabIndex={-1} data-report-section="summary">
-   <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
+   <h3 className={titleInWorkspace?'fs-royal-report-title fs-report-print-title':'fs-royal-report-title'}><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
    <div className="fs-kpis fs-royal-overview-kpis fs-royal-report-summary-kpis">
     {summaryMetrics.map(({label,value,icon})=><div className="fs-metric" key={label}>
      <RoyalIcon name={icon}/><small>{label}</small><strong><bdi>{value}</bdi></strong>
@@ -189,9 +202,17 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
       [l('معدّ الدراسة','Prepared by'),study.preparedBy],
       [l('تاريخ الدراسة','Study date'),study.studyDate],
       [l('حالة مراجعة النسخة','Revision review status'),reviewState],
-      [l('موقع المشروع','Project location'),[study.region,study.country].filter(Boolean).join(' · ')],
+      [l('موقع المشروع','Project location'),[study.siteDescription,study.region,study.country].filter(Boolean).join(' · ')],
+      [l('المالك القانوني المصرّح به','Declared legal owner'),study.legalOwner],
+      [l('نوع الدراسة','Study type'),study.studyType?(locale==='ar'?studyTypeLabels[study.studyType].ar:studyTypeLabels[study.studyType].en):undefined],
+      [l('سنة بدء الدراسة','Study start year'),profile.startYear===undefined?undefined:String(profile.startYear)],
+      [l('مدة الدراسة المتوقعة (سنوات)','Expected study duration (years)'),fmt(profile.years)],
+      [l(study.rawLand?'المساحة قبل الاستبعادات (م²)':'مساحة الأرض (م²)',study.rawLand?'Area before exclusions (m²)':'Land area (m²)'),fmt(profile.area)],
       [l('عملة الدراسة','Study currency'),study.currency],
      ].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'—'}</dd></div>)}</dl>
+     {!study.rawLand&&profile.startYear!==undefined&&<p className="fs-hint">{l(
+      'سنة البدء وصف زمني. التدفقات محسوبة بسنوات نسبية من سنة صفر ولا يُطبّق تأخير أو خصم إضافي بسبب هذا الحقل.',
+      'Start year is descriptive. Cash flows use relative years from year zero; this field does not add a deferral or extra discount.')}</p>}
     </section>
    </div>
    <section className="card fs-panel">
@@ -234,8 +255,8 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
      onClick={printSelected}><RoyalIcon name="print"/>{l('طباعة / PDF','Print / PDF')}</button>
    </div>
   </dialog>}
-  {study.rawLand?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><RawLandPanel model={study.rawLand} locale={locale} currency={study.currency} tab="report" allowExport={allowExport}/></div>:
-   study.water?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/></div>:
+  {study.rawLand?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><RawLandPanel model={study.rawLand} locale={locale} currency={study.currency} tab="report" allowExport={allowExport}/><CostingReport study={study} locale={locale} allowExport={allowExport}/></div>:
+   study.water?<div id={sectionId('finance')} tabIndex={-1} data-report-section="finance"><WaterModelPanel water={study.water} locale={locale} currency={study.currency} tab="report" allowExport={allowExport} onChange={()=>{}}/><CostingReport study={study} locale={locale} allowExport={allowExport}/></div>:
    <section className="card fs-panel" id={sectionId('finance')} tabIndex={-1} data-report-section="finance">
     <h3>{l('الملخص والتوقعات المالية الأساسية','Base-case financial summary and projections')}</h3>
     <ul className="fs-notes">
@@ -255,6 +276,10 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   <section className="card fs-panel fs-royal-report-detail" id={sectionId('funding')} tabIndex={-1} data-report-section="funding">
    <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{sectionLabels.funding}</h3>
    <dl className="fs-royal-checks">{funding.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
+   {(water||landResult?.financeMetrics?.returns)&&<p className="fs-hint">{water?
+    l('العجز مبني على أرصدة نهاية السنوات مع الاحتفاظ بالفوائض.','The shortfall uses year-end balances and assumes surpluses are retained.'):
+    l('العائد قبل التمويل يستبعد الفائدة وعمولة ترتيب القرض. عائد الملكية الإجمالي يشمل الأرض العينية بقيمتها في سنة صفر إن وُجدت.',
+     'The pre-financing return excludes loan interest and arrangement fees. Total equity return includes any in-kind land at its year-zero value.')}</p>}
    {!!deal?.extraFunding&&<p className="fs-hint">{l('حدّد أوجه استخدام التمويل الإضافي قبل اعتماد الدراسة.',
     'Allocate the additional funding to specific uses before approving the study.')}</p>}
   </section>

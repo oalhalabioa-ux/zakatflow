@@ -1,0 +1,98 @@
+{
+  "reviewDate": "2026-11-19",
+  "pr": 446,
+  "branch": "feature/feasibility-template-costing-20261119",
+  "applicationCommit": "61bb7f2d69f50e23efa7020fbe9facd31add2a51",
+  "applicationTree": "d59009513d88f06abd73897570aa7ee03897c3d9",
+  "ciMergeCommit": "d221e44fc921bab43dffe902276567c7f7216d1a",
+  "main": "6a56458769a03c7df772c426df3e20bab97a97ba",
+  "checks": {
+    "quality": {
+      "run": 44518827503,
+      "result": "success",
+      "testsPassed": 2623,
+      "testsSkipped": 45
+    },
+    "feasibility": {
+      "run": 44518827369,
+      "result": "success"
+    },
+    "assets": {
+      "run": 44518827399,
+      "result": "success"
+    },
+    "authApiBrowser": {
+      "run": 44518827371,
+      "result": "success",
+      "artifact": 14527454403
+    }
+  },
+  "pdfReview": {
+    "status": "functional and visual review passed for the recorded synthetic PDFs; Royal parity remains partial",
+    "waterPages": {
+      "ar": 7,
+      "en": 7
+    },
+    "landPages": {
+      "ar": 6,
+      "en": 6
+    },
+    "allPagesRenderedAndReviewed": 26,
+    "tablesFit": true,
+    "repeatedTableHeaders": true,
+    "exportControlsHidden": true,
+    "summaryExclusionTestPassed": true,
+    "remaining": "Small-table/list continuations and final Royal spacing/typography remain editorial refinements; no final 29-screen acceptance."
+  },
+  "qa": {
+    "newDeploymentPerformed": true,
+    "previousApplicationCommit": "a07e8f658baa4a6bfbaf2da341b5d625d5c5877f",
+    "baselinePersonalStudies": 5,
+    "baselineMainInstitutionStudies": 3,
+    "deploymentId": "dpl_3DChVSyXwhZzfgW4i4fxWUrzMX2e",
+    "reservation": 7008756097,
+    "deploymentState": "READY",
+    "stableUrl": "https://yaqeen-financial-core-v2-qa-git-feature-65b6d5-oalhalabioa-9334.vercel.app/ar/feasibility?scope=ORGANIZATION&organization=6357a708-bae2-4634-9296-490404b6abcc&level=COMPANY",
+    "personalStudyRevision": 1,
+    "corporateCopyRevision": 1,
+    "personalStudyCountAfter": 6,
+    "mainInstitutionStudyCountAfter": 4,
+    "secondInstitutionStudyCountAfter": 1,
+    "restoreDuplicatesAdded": 0,
+    "previousStudiesRetained": true,
+    "previousLandNpv": 35664.8965234615,
+    "corporateExportIdenticalToPersonal": true,
+    "viewerRoleTestedHosted": false,
+    "logoutLoginTestedHosted": false,
+    "coordinationReleased": true,
+    "resultComment": 7009086516
+  },
+  "financialCase": {
+    "type": "synthetic only",
+    "flows": [
+      -10100,
+      640,
+      600,
+      740
+    ],
+    "npv": -8466.34109691961,
+    "projectIrrPct": -51.01,
+    "lastOperatingDscr": 4.363636363636363,
+    "landFlows": [
+      -8000,
+      13775,
+      13775,
+      13775,
+      13775
+    ],
+    "landNpv": 35664.8965234615
+  },
+  "royalParity": {
+    "08": "partial",
+    "17": "partial"
+  },
+  "productionChanged": false,
+  "existingStudyEditedOrDeleted": false,
+  "privateReferenceDefaultsShipped": false,
+  "evidencePackage": "https://chatgpt.com/library?file_id=libfile_10d0b96c66e081918d7b426736f59678&account_id=personal"
+}

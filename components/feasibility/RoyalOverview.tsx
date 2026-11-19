@@ -8,6 +8,11 @@ const taskPriority = {
   HIGH: ['عالية', 'High'], NORMAL: ['متوسطة', 'Medium'], LOW: ['منخفضة', 'Low'],
 } as const;
 const priorityRank = { HIGH: 0, NORMAL: 1, LOW: 2 };
+const readinessLabels: Record<string, readonly [string, string]> = {
+  decision: ['قرار المشروع', 'Project decision'], identity: ['مدخلات المشروع', 'Project inputs'],
+  model: ['التحليل المالي', 'Financial analysis'], finance: ['التمويل النقدي', 'Cash funding'],
+  legal: ['التحقق القانوني', 'Legal verification'], blockers: ['الموانع النظامية', 'Legal blockers'],
+};
 const taskStatus = {
   TODO: ['لم يبدأ', 'To do'], IN_PROGRESS: ['قيد التنفيذ', 'In progress'],
   BLOCKED: ['معلق', 'Blocked'], DONE: ['مكتمل', 'Completed'],
@@ -41,6 +46,7 @@ export default function RoyalOverview({ study, locale, model, sectorLabel, statu
     transfer: t('نقل ملكية الأرض', 'Land ownership transfer'),
     lease: t('إيجار الأرض', 'Land lease'),
     right: t('حق انتفاع', 'Right of use'),
+    purchase: t('شراء الأرض نقدًا', 'Cash land purchase'),
   }[study.water.deal.landMode] : study.landTransferred ? t('نقل ملكية الأرض', 'Land ownership transfer') : '—';
   const profile = [
     [t('القطاع', 'Sector'), sectorLabel],
@@ -63,7 +69,8 @@ export default function RoyalOverview({ study, locale, model, sectorLabel, statu
           <p className="fs-hint">{t('نتائج استرشادية. تحقق من الافتراضات والتمويل والتراخيص قبل اعتماد القرار الاستثماري.', 'Indicative results. Verify assumptions, financing and licences before approving the investment decision.')}</p>
           <ul className="fs-royal-checks">{readiness.checks.map(check =>
             <li key={check.key}>
-              <span id={'fs-readiness-' + check.key}>{ar ? check.ar : check.en}</span>
+              <span id={'fs-readiness-' + check.key} title={ar ? check.ar : check.en}>
+                {readinessLabels[check.key]?.[ar ? 0 : 1] ?? (ar ? check.ar : check.en)}</span>
               <div className="fs-royal-check-progress"><progress value={Number(check.passed)} max={1} aria-labelledby={'fs-readiness-' + check.key}/>
                <strong data-complete={check.passed}>{check.passed ? t('مكتمل', 'Complete') : t('يحتاج مراجعة', 'Review needed')}</strong></div>
             </li>)}</ul>

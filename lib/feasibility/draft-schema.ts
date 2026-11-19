@@ -11,6 +11,9 @@ const scenarioFactors=z.object({volume:scenarioFactor,price:scenarioFactor,varia
 export const feasibilityDraftSchema=z.object({
  id:z.string().uuid(),title:z.string().trim().min(1).max(300),sector,
  country:z.string().trim().max(120),region:z.string().max(150),
+ legalOwner:z.string().trim().max(300).optional(),siteDescription:z.string().trim().max(500).optional(),
+ studyType:z.enum(['NEW_PROJECT','EXPANSION','ACQUISITION']).optional(),
+ projectStartYear:z.number().int().min(1900).max(2200).optional(),siteAreaM2:amount.optional(),
  // An empty country/currency is allowed for a draft, but blocks project-readiness approval.
  currency:z.string().regex(/^(?:[A-Z]{3})?$/),
  status:z.enum(['IDEA','FEASIBILITY','APPROVED','ESTABLISHMENT','OPERATING','CANCELLED']),

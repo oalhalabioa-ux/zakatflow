@@ -19,12 +19,15 @@ import RawLandPanel from '@/components/feasibility/RawLandPanel';
 import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
 import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
 import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
+import StudyProfilePanel from '@/components/feasibility/StudyProfilePanel';
+import GeneralInvestmentPanel from '@/components/feasibility/GeneralInvestmentPanel';
 import FeasibilitySidebar from '@/components/feasibility/FeasibilitySidebar';
 import StudyRegisters from '@/components/feasibility/StudyRegisters';
 import EvidenceDocuments from '@/components/feasibility/EvidenceDocuments';
 import { RoyalIcon, studyTabIcons } from '@/components/feasibility/RoyalIcon';
 import RoyalOverview from '@/components/feasibility/RoyalOverview';
 import RoyalScenarios from '@/components/feasibility/RoyalScenarios';
+import {handoffReadiness} from '@/lib/feasibility/handoff';
 import { RoyalBars, RoyalCashTrend, RoyalOwnership } from '@/components/feasibility/RoyalCharts';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,createRawLandStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
@@ -65,9 +68,6 @@ function Field({label,value,onChange,min=0,step='any',hint}:{label:string;value:
 }
 function Info({label,value,sub}:{label:string;value:string;sub?:string}){
  return <div className="fs-metric"><small>{label}</small><strong dir="ltr">{value}</strong>{sub&&<span>{sub}</span>}</div>;
-}
-function SelectField<T extends string>({label,value,items,onChange}:{label:string;value:T;items:Array<{value:T;label:string}>;onChange:(value:T)=>void}){
- return <label className="fs-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.currentTarget.value as T)}>{items.map(x=><option value={x.value} key={x.value}>{x.label}</option>)}</select></label>;
 }
 type WorkspaceProps={
  locale:string;
@@ -238,7 +238,7 @@ function FeasibilityWorkspaceContent({
    }
   }catch{
    setStorageSafe(false);
-   setPersonalNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استرجاع مسودات QA V2 من ملف متصفح آخر.','Local study data are invalid and will not be overwritten. Use another browser profile to restore your QA V2 drafts.'));
+   setPersonalNotice(txt(ar,'المسودات المحلية غير صالحة؛ لن نكتب فوق الملف الموجود. يمكنك استرجاع المسودات السحابية من ملف متصفح آخر.','Local study data are invalid and will not be overwritten. Use another browser profile to restore your cloud drafts.'));
   }
   setHydratedStorageKey(storageKey);
   setLoaded(true);
@@ -281,6 +281,12 @@ function FeasibilityWorkspaceContent({
   setCopySelection({studyId:study.id,organizationId,userId});
  };
  const model=useMemo(()=>study?evaluateStudy(study,scenario):null,[study,scenario]);
+ const studyReadiness=useMemo(()=>{
+  if(!study)return '';
+  const checks=handoffReadiness(study).checks;
+  return new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0})
+   .format(checks.filter(check=>check.passed).length/checks.length);
+ },[study,locale]);
  const base=useMemo(()=>study?evaluateStudy(study):null,[study]);
  const water=study?.water;
  const rawLand=study?.rawLand;
@@ -355,10 +361,13 @@ function FeasibilityWorkspaceContent({
      `Added ${merged.restoredCount} cloud drafts. All local drafts were kept.`));
   }catch{
    if(currentUserRef.current===requestedUser&&personalScopeRef.current)
-    setPersonalNotice(txt(ar,'تعذر استرجاع المسودات من QA. تحقّق من الاتصال وسلامة المسودات المحلية وحدّ المحفظة.','Could not restore QA drafts. Check the connection, local drafts and portfolio limit.'));
+    setPersonalNotice(txt(ar,'تعذر استرجاع المسودات من السحابة. تحقّق من الاتصال وسلامة المسودات المحلية وحدّ المحفظة.','Could not restore cloud drafts. Check the connection, local drafts and portfolio limit.'));
   }finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}
  };
  const saveCloud=async()=>{
+  // Both profile save entry points validate uncommitted numeric text before saving.
+  const profileForm=document.querySelector<HTMLFormElement>('form.fs-royal-profile');
+  if(profileForm&&!profileForm.reportValidity())return;
   if(!personalScope){
    if(effectiveReadOnly||!companyScopeReady||organizationBusy||!study||!organizationId)return;
    const row=organizationRecords[study.id];
@@ -385,7 +394,7 @@ function FeasibilityWorkspaceContent({
      ...row,study:document,revision:saved.revision,
      updated_at:saved.updated_at||new Date().toISOString()
     }}));
-    setCompanyNotice(txt(ar,'حُفظت الدراسة للمؤسسة المحددة في QA V2.','Study saved for the selected QA V2 organization.'));
+    setCompanyNotice(txt(ar,'حُفظت الدراسة في سحابة المؤسسة المحددة.','Study saved to the selected organization’s cloud portfolio.'));
    }catch(e){
     if(currentUserRef.current!==userAtRequest||
       organizationRequestRef.current!==requestId)return;
@@ -417,13 +426,13 @@ function FeasibilityWorkspaceContent({
    setCloudRevisions(p=>({...p,[study.id]:result.revision}));
    setCloudSavedStudyVersions(p=>({...p,[study.id]:study.updatedAt}));
    setCloudOwnerIds(p=>({...p,[study.id]:userId}));
-   setPersonalNotice(txt(ar,'حُفظت مسودة المشروع في QA V2، وهي ليست اعتمادًا نهائيًا.','Project draft saved in QA V2; this is not formal approval.'));
+   setPersonalNotice(txt(ar,'حُفظت مسودة المشروع في السحابة، وهي ليست اعتمادًا نهائيًا.','Project draft saved to the cloud; this is not formal approval.'));
   }catch(e){
    if(currentUserRef.current!==requestedUser)return;
    const conflict=e instanceof Error&&e.message==='CONFLICT';
    setSaveIssue({kind:conflict?'conflict':'save-error',studyId:study.id,scopeId:'personal',userId:requestedUser,
     message:conflict?txt(ar,'تعذر حفظ هذه النسخة بسبب تعارض مع نسخة QA. صدّر المسودة المحلية بصيغة JSON قبل مراجعة النسخة السحابية.','A version conflict prevented saving. Export the local draft as JSON before reviewing the cloud version.'):
-     txt(ar,'تعذر الحفظ في QA. احتفظ بنسخة JSON من بياناتك.','QA save failed. Keep a JSON backup.')});
+     txt(ar,'تعذر الحفظ السحابي. احتفظ بنسخة JSON من بياناتك.','Cloud save failed. Keep a JSON backup.')});
   }
   finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}
  };
@@ -504,15 +513,11 @@ function FeasibilityWorkspaceContent({
   if(!personalScope||effectiveReadOnly||!study||!window.confirm(txt(ar,'حذف مسودة هذا المشروع من هذا المتصفح فقط؟','Delete this local draft from this browser only?')))return;
   setStudies(p=>p.filter(s=>s.id!==study.id));setSelectedId(studies.find(x=>x.id!==study.id)?.id||'');
  };
- const choices=<>
-  {!water&&!rawLand&&<SelectField label={txt(ar,'النوع','Sector')} value={study?.sector??'INDUSTRIAL'} items={Object.entries(sectors).map(([value,name])=>({value:value as Sector,label:ar?name.ar:name.en}))} onChange={sector=>update({sector})}/>}
-  <SelectField label={txt(ar,'مرحلة المشروع','Stage')} value={study?.status??'IDEA'} items={Object.entries(projectStatus).map(([value,name])=>({value:value as StudyStatus,label:ar?name.ar:name.en}))} onChange={status=>update({status})}/>
- </>;
  const createCompanyDeniedReason=!personalScope
   ?(!organizationId
     ?txt(ar,'اختر المؤسسة من البانر الرئيسي لبدء دراسة جديدة.','Select an organization from the main banner to create a study.')
     :organizationError||(!companyScopeReady
-      ?txt(ar,'جارٍ التحقق من عضوية المؤسسة وإتاحة المحفظة على QA.','Checking company membership and QA availability.')
+      ?txt(ar,'جارٍ التحقق من عضوية المؤسسة وإتاحة المحفظة.','Checking company membership and portfolio access.')
       :!organizationCanWrite
        ?txt(ar,'هذه المحفظة للقراءة فقط. لإضافة دراسة، يلزم دور مالك أو مدير نشط وتجربة مؤسسية سارية أو باقة تشمل دراسات الجدوى.','This portfolio is read only. Adding a study requires an active owner or admin role and either an active organization trial or a subscription that includes feasibility studies.')
        :''))
@@ -533,6 +538,7 @@ function FeasibilityWorkspaceContent({
   setProjectName('');
  };
  const activeTab=tabs.find(item=>item.id===tab)!;
+ const compactStudyHeader=Boolean(study&&(tab==='advanced'||tab==='report'));
 
  const portfolio=<section className="card fs-panel fs-royal-portfolio">
    <div className="fs-royal-heading">
@@ -547,8 +553,11 @@ function FeasibilityWorkspaceContent({
     <Button onClick={openCreate} disabled={!canCreate}><RoyalIcon name="plus"/>{txt(ar,'إضافة دراسة','New study')}</Button>
    </div>
    {createCompanyDeniedReason&&<p className="fs-hint" role="status">{createCompanyDeniedReason}</p>}
-   {visibleStudies.length>0&&<div className="fs-portfolio">{visibleStudies.map(p=>
-    <button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')}
+   {visibleStudies.length>0&&<div className="fs-portfolio">{visibleStudies.map(p=>{
+    const checks=handoffReadiness(p).checks;
+    const completed=checks.filter(check=>check.passed).length;
+    const readiness=new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0}).format(completed/checks.length);
+    return <button key={p.id} type="button" className={'fs-project-pill'+(p.id===activeSelectedId?' fs-project-pill--active':'')}
      aria-pressed={p.id===activeSelectedId} onClick={()=>{
       if(personalScope){setSharedSelectedId('');setSelectedId(p.id)}else setOrganizationSelectedId(p.id);
       setTab('overview');setDetail(undefined);
@@ -556,14 +565,17 @@ function FeasibilityWorkspaceContent({
      <RoyalIcon name={p.water?'droplet':p.sector==='INDUSTRIAL'?'factory':p.sector==='REAL_ESTATE'?'building':'briefcase'}/>
      <strong>{p.title}</strong>
      <span>{[ar?sectors[p.sector].ar:sectors[p.sector].en,p.country].filter(Boolean).join(' · ')}</span>
-     <span className="fs-royal-tag">{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span>
-    </button>)}</div>}
+     <span className="fs-royal-portfolio-meta"><span className="fs-royal-tag">{ar?projectStatus[p.status].ar:projectStatus[p.status].en}</span>
+      <span>{txt(ar,'جاهزية','Readiness')} <bdi>{readiness}</bdi></span></span>
+     <progress className="fs-royal-portfolio-progress" value={completed} max={checks.length}
+      aria-label={txt(ar,'جاهزية دراسة ','Study readiness: ')+p.title}/>
+    </button>})}</div>}
   </section>;
 
  if(personalScope&&hydratedStorageKey!==storageKey){
   return <main className="container fs-page fs-royal" dir={ar?'rtl':'ltr'}><p role="status">{txt(ar,'جاري تحميل مسودات الحساب الحالي…','Loading this account\'s drafts…')}</p></main>;
  }
- return <main className="container fs-page fs-royal" dir={ar?'rtl':'ltr'}>
+ return <main className="container fs-page fs-royal" data-compact-study-header={compactStudyHeader||undefined} dir={ar?'rtl':'ltr'}>
   {organizationEnabled&&!personalScope&&<TopbarOrganizationControls>
    <WorkspaceOrganizationPicker royalDialog ar={ar} organizations={organizations} value={organizationId}
     onChange={setOrganizationId} restore={false} disabled={organizationBusy}
@@ -571,19 +583,19 @@ function FeasibilityWorkspaceContent({
      window.confirm(txt(ar,'التعديلات غير محفوظة. هل تريد تبديل المؤسسة؟','Company changes are unsaved. Switch organizations?'))}/>
   </TopbarOrganizationControls>}
   <header className="fs-head"><div><h1><RoyalIcon name="building"/>{txt(ar,'دراسات الجدوى وتأسيس المشاريع','Feasibility & project development')}</h1><p>{txt(ar,'دراسات مستقلة عن الدفاتر المحاسبية والمحرك المالي القديم؛ الربط لاحقًا مع Financial Core V2 فقط.','Pre-investment studies stay separate from accounting ledgers. Future integration will target Financial Core V2 only.')}</p></div>
-   {personalScope&&<div className="fs-actions"><Button secondary onClick={download} disabled={!personalScope||!visibleStudies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly||!personalScope||!storageSafe||cloudBusy}/></label><Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>{cloudEnabled&&personalScope&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من QA V2','Restore from QA V2')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={effectiveReadOnly||!study||cloudBusy}>{txt(ar,'حفظ في QA V2','Save to QA V2')}</Button></>}</div>}
+   {personalScope&&<div className="fs-actions"><Button secondary onClick={download} disabled={!personalScope||!visibleStudies.length}>{txt(ar,'تصدير نسخة JSON','Export JSON')}</Button><label className="fs-btn fs-btn--secondary fs-upload">{txt(ar,'استيراد نسخة','Import backup')}<input type="file" accept=".json,application/json" onChange={importBackup} disabled={readOnly||!personalScope||!storageSafe||cloudBusy}/></label><Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>{cloudEnabled&&personalScope&&<><Button secondary onClick={()=>void loadCloud()} disabled={cloudBusy}>{txt(ar,'استرجاع من السحابة','Restore from cloud')}</Button><Button secondary onClick={()=>void saveCloud()} disabled={effectiveReadOnly||!study||cloudBusy}>{txt(ar,'حفظ سحابي','Save to cloud')}</Button></>}</div>}
    {!personalScope&&organizationId&&organizationLoaded&&!organizationError&&<div className="fs-actions">
     <Button secondary onClick={()=>void loadCloud()} disabled={organizationBusy}>{txt(ar,'إعادة تحميل دراسات المؤسسة','Refresh company studies')}</Button>
     <Button secondary onClick={()=>void saveCloud()} disabled={!study||effectiveReadOnly||organizationBusy}>{txt(ar,'حفظ دراسة المؤسسة','Save company study')}</Button>
     <Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>
    </div>}
   </header>
-  <section className="fs-royal-module-intro" aria-label={txt(ar,'وحدة دراسات الجدوى','Feasibility studies module')}>
+  {!compactStudyHeader&&<section className="fs-royal-module-intro" aria-label={txt(ar,'وحدة دراسات الجدوى','Feasibility studies module')}>
    <RoyalIcon name="chart"/>
    <div><h2>{txt(ar,'وحدة دراسات الجدوى','Feasibility studies')}</h2>
     <p>{txt(ar,'تقييم فرص الاستثمار وتمويل المشاريع من خلال بيانات الدراسة الفعلية ومراجعة المخاطر والتراخيص.',
      'Assess investment opportunities and project funding using study inputs, risk reviews and licence checks.')}</p></div>
-  </section>
+  </section>}
   <p className="fs-warning" role="status">{!personalScope?organizationError||txt(ar,'محفظة المؤسسة مستقلة عن مسوداتك الشخصية. تُحفظ الدراسات المؤسسية بعد التحقق من عضوية المؤسسة وصلاحياتها.','The company portfolio is separate from your personal drafts. Organization studies are saved using server-verified membership and permissions.'):sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'تحفظ المسودة الشخصية في محفظتك. استخدم الحفظ السحابي لاستعادتها أو نسخها إلى مؤسسة بإذن صريح.','Save your personal draft to the cloud to restore it later or to copy it to an organization with your explicit consent.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {visibleNotice&&<p className="fs-notice" role="status">{visibleNotice} <button type="button" onClick={()=>setNotice(undefined)} aria-label={txt(ar,'إغلاق الرسالة','Dismiss message')}>×</button></p>}
   {visibleSaveIssue&&<section className="fs-royal-state" data-tone="warning" role="alert">
@@ -695,8 +707,14 @@ function FeasibilityWorkspaceContent({
      }}>{txt(ar,'الذهاب إلى النطاق الشخصي في البنر','Go to personal scope in the main banner')}</Button>}
    </div>
    {!personalScope&&<p className="fs-hint">{txt(ar,'لنسخ دراسة، افتح محفظتك الشخصية، احفظ الدراسة، ثم استخدم «نسخ إلى مؤسسة».','To copy a study, open your personal portfolio, save the study, then use Copy to organization.')}</p>}</section>:<>
-   <div className="fs-subhead fs-print-study-title fs-royal-project-context"><div><h2>{study.title}</h2><small>{study.country||txt(ar,'الدولة غير محددة','Country not selected')}{study.region?' · '+study.region:''} · {study.currency||txt(ar,'العملة غير محددة','Currency not selected')} · {ar?projectStatus[study.status].ar:projectStatus[study.status].en}</small></div>{personalScope&&<div className="fs-actions">
-    {canOpenCopy&&<Button secondary onClick={openCopy}>{txt(ar,'نسخ إلى مؤسسة','Copy to organization')}</Button>}
+   <div className="fs-subhead fs-print-study-title fs-royal-project-context"><div><h2><RoyalIcon name={study.water?'droplet':study.sector==='REAL_ESTATE'?'building':'briefcase'}/>{study.title}</h2><small>{[ar?sectors[study.sector].ar:sectors[study.sector].en,study.country||txt(ar,'الدولة غير محددة','Country not selected'),study.region,study.currency||txt(ar,'العملة غير محددة','Currency not selected')].filter(Boolean).join(' · ')}</small></div>
+    <div className="fs-royal-context-badges" aria-label={txt(ar,'سياق الدراسة','Study context')}>
+     <span className="fs-royal-tag" data-scope={scope}>{personalScope?txt(ar,'نطاق شخصي','Personal scope'):txt(ar,'نطاق مؤسسي','Organization scope')}</span>
+     <span className="fs-royal-tag">{ar?projectStatus[study.status].ar:projectStatus[study.status].en}</span>
+     <span className="fs-royal-tag">{txt(ar,'جاهزية','Readiness')} <bdi>{studyReadiness}</bdi></span>
+     <span className="fs-royal-tag">{txt(ar,'آخر تعديل','Last updated')} <time dateTime={study.updatedAt}>{new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeZone:'UTC'}).format(new Date(study.updatedAt))}</time></span>
+    </div>{personalScope&&<div className="fs-actions">
+    {canOpenCopy&&tab!=='profile'&&<Button secondary onClick={openCopy}>{txt(ar,'نسخ إلى مؤسسة','Copy to organization')}</Button>}
     <Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>
    </div>}</div>
    {canOpenCopy&&copyRevision!==undefined&&copySelection?.studyId===study.id&&
@@ -707,20 +725,20 @@ function FeasibilityWorkspaceContent({
     selectSection(id);
     requestAnimationFrame(()=>sectionHeadingRef.current?.scrollIntoView({block:'start'}));
    }}/>
-   <nav ref={navigationRef} className="fs-tabs" aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{studyTabs.map(t=><button type="button" key={t.id} onClick={event=>{
+   <nav ref={navigationRef} className="fs-tabs" data-section={tab} aria-label={txt(ar,'أقسام دراسة المشروع','Study sections')}>{studyTabs.map(t=><button type="button" key={t.id} onClick={event=>{
     selectSection(t.id);
     if(navigationRef.current?.scrollWidth!==navigationRef.current?.clientWidth)
      event.currentTarget.scrollIntoView({block:'nearest',inline:'nearest'});
    }} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}><RoyalIcon name={studyTabIcons[t.id]}/><span>{ar?t.ar:t.en}</span></button>)}</nav>
    <div className="fs-royal-section-lead" ref={sectionHeadingRef}>
-    <h2><RoyalIcon name={studyTabIcons[tab]}/>{details&&detail===details.id?details.label:ar?activeTab.ar:activeTab.en}</h2>
+    <h2><RoyalIcon name={studyTabIcons[tab]}/>{tab==='report'?txt(ar,'التقرير الشامل','Feasibility report'):details&&detail===details.id?details.label:ar?activeTab.ar:activeTab.en}</h2>
     {details&&<button className="fs-btn fs-btn--secondary" type="button" aria-pressed={detail===details.id}
      onClick={()=>setDetail(value=>value===details.id?undefined:details.id)}>
      {detail===details.id?txt(ar,'عودة إلى القسم','Back to section'):details.label}
     </button>}
    </div>
    {tab==='overview'&&portfolio}
-   {tab==='report'&&<FeasibilityReport study={study} locale={locale}/>}
+   {tab==='report'&&<FeasibilityReport study={study} locale={locale} titleInWorkspace/>}
    {tab==='overview'&&model&&!rawLand&&<RoyalOverview study={study} locale={locale} model={model}
     sectorLabel={ar?sectors[study.sector].ar:sectors[study.sector].en}
     statusLabel={ar?projectStatus[study.status].ar:projectStatus[study.status].en}
@@ -729,7 +747,7 @@ function FeasibilityWorkspaceContent({
    {rawLand&&waterTab&&<RawLandPanel model={rawLand} tab={waterTab} locale={locale} currency={study.currency}
     onChange={value=>update({rawLand:value})}/>}
    {water&&waterTab&&waterTab!=='overview'&&<WaterModelPanel water={water} tab={waterTab} detail={details?.id===detail?detail:undefined}
-     currency={study.currency} locale={locale} onChange={water=>update({water})}/>}
+     currency={study.currency} locale={locale} suppliers={study.suppliers} onChange={water=>update({water})}/>}
    {water&&tab==='overview'&&<details className="fs-royal-shared-access">
     <summary>{txt(ar,'تفاصيل ومؤشرات مصنع المياه','Detailed water factory indicators')}</summary>
     <WaterModelPanel water={water} tab="overview" currency={study.currency} locale={locale} onChange={water=>update({water})}/>
@@ -739,50 +757,17 @@ function FeasibilityWorkspaceContent({
     <p>{txt(ar,'نسبة الممول في حقوق الملكية','Investor equity share')}: {model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}</p>
     <div className="card fs-panel"><h3>{txt(ar,'إشارات القرار','Decision diagnostics')}</h3><p>{model.cashFundingGap>0?txt(ar,'فجوة التمويل النقدي: ','Cash funding gap: ')+money(model.cashFundingGap):txt(ar,'لا توجد فجوة تمويل نقدية وفق المدخلات.','No positive cash funding gap under current inputs.')}</p><p>{!study.landTransferred&&study.landValue>0?txt(ar,'الأرض لم تنقل للشركة؛ لا تدخل قيمتها السوقية ضمن حقوق ملكيتها.','Land is not transferred; its full market value does not count as company equity.'):txt(ar,'راجع قيمة الحصة العينية مع جهة مستقلة.','Verify any in-kind contribution independently.')}</p><p>{!model.ready?txt(ar,'استكمل الاستثمار والسعر والحجم قبل اعتماد مؤشرات الجدوى.','Enter investment, price and sales volume before relying on projections.'):txt(ar,'النتائج استرشادية، وليست اعتمادًا للقرار الاستثماري.','Results are indicative, not investment approval.')}</p></div>
    </details>}
-   {tab==='profile'&&<div className="fs-block">
-    <section className="card fs-panel">
-     <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{txt(ar,'الهوية والوصف','Identity and description')}</h3>
-     <div className="fs-form-grid">
-    <label className="fs-field"><span>{txt(ar,'اسم المشروع','Project title')}</span><input value={study.title} onChange={e=>update({title:e.currentTarget.value})}/></label>
-    {choices}
-    <label className="fs-field"><span>{txt(ar,'الدولة','Country')}</span><input value={study.country} onChange={e=>update({country:e.currentTarget.value})}/></label>
-    <label className="fs-field"><span>{txt(ar,'المدينة أو المنطقة','City / region')}</span><input value={study.region} onChange={e=>update({region:e.currentTarget.value})}/></label>
-    <label className="fs-field"><span>{txt(ar,'عملة الدراسة الواحدة','Study currency')}</span><select value={study.currency} onChange={e=>update({currency:e.currentTarget.value})}><option value="">{txt(ar,'اختر العملة','Select currency')}</option><option>USD</option><option>SYP</option><option>SAR</option><option>EUR</option></select></label>
-      {(water||rawLand)&&<div className="fs-field"><span>{txt(ar,'نوع النشاط','Sector')}</span>
-       <strong>{ar?sectors[study.sector].ar:sectors[study.sector].en}</strong>
-      </div>}
-    <label className="fs-field fs-royal-profile-notes"><span>{txt(ar,'ملاحظات الدراسة','Study notes')}</span><textarea maxLength={5000} value={study.notes??''} onChange={e=>update({notes:e.currentTarget.value})}/></label>
-     </div>
-     <p className="fs-hint">{txt(ar,'تغيير رمز العملة لا يقوم بتحويل القيم؛ يجب تحديث الأرقام يدويًا قبل اعتماد النتائج.','Changing the currency code does not convert amounts; update all figures before using the results.')}</p>
-    </section>
-    <div className="fs-royal-profile-grid">
-     <section className="card fs-panel">
-      <h3 className="fs-royal-report-title"><RoyalIcon name="building"/>{txt(ar,'الموقع والجدوى المبدئية','Location and preliminary feasibility')}</h3>
-      <dl className="fs-royal-checks">
-       <div><dt>{txt(ar,'موقع المشروع','Project location')}</dt><dd>{[study.region,study.country].filter(Boolean).join(' · ')||'—'}</dd></div>
-       {water&&<div><dt>{txt(ar,'مساحة الأرض (م²)','Land area (m²)')}</dt><dd><bdi>{fmt(water.deal.landArea)}</bdi></dd></div>}
-       <div><dt>{txt(ar,'مدة التوقعات','Projection horizon')}</dt><dd><bdi>{fmt(water?.ops.horizon??rawLand?.project.years??study.years)}</bdi> {txt(ar,'سنة','years')}</dd></div>
-      </dl>
-      <p className="fs-hint">{txt(ar,'بيانات الموقع أولية. راجع التراخيص والحقوق قبل اعتماد الموقع.', 'Location details are preliminary. Review licences and rights before approving the location.')}</p>
-     </section>
-     <section className="card fs-panel">
-      <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{txt(ar,'بيانات المالك وسياق الدراسة','Owner and study context')}</h3>
-      <dl className="fs-royal-checks">
-       <div><dt>{txt(ar,'نطاق المشروع','Project scope')}</dt><dd>{sharedStudy?txt(ar,'مشتركة','Shared'):personalScope?txt(ar,'شخصي','Personal'):txt(ar,'مؤسسي','Organization')}</dd></div>
-       {!personalScope&&<div><dt>{txt(ar,'المؤسسة المختارة من البنر','Organization selected in the header')}</dt><dd>{organizations.find(item=>item.id===organizationId)?.name||'—'}</dd></div>}
-       <div><dt>{txt(ar,'صلاحية الدراسة','Study access')}</dt><dd>{effectiveReadOnly?txt(ar,'قراءة فقط','Read only'):txt(ar,'تحرير','Editing')}</dd></div>
-      </dl>
-      <div className="fs-form-grid">
-       <label className="fs-field"><span>{txt(ar,'معد الدراسة','Prepared by')}</span><input maxLength={5000} value={study.preparedBy??''} onChange={e=>update({preparedBy:e.currentTarget.value})}/></label>
-    <label className="fs-field"><span>{txt(ar,'تاريخ الدراسة','Study date')}</span><input type="date" value={study.studyDate??''} onChange={e=>update({studyDate:e.currentTarget.value})}/></label>
-      </div>
-     </section>
-    </div>
-   </div>}
-   {!water&&!rawLand&&tab==='investment'&&model&&<section className="card fs-panel"><h3>{txt(ar,'الموازنة الاستثمارية','Investment budget')}</h3><p className="fs-hint">{txt(ar,'أدخل بنود الإنشاء والتجهيز الفعلية. الأرض تظهر في الشراكة ولا تُضاف هنا منعًا لتكرارها.','Enter actual construction and commissioning costs. Land is valued under Partnership to prevent double counting.')}</p>
-    <div className="fs-table-wrap"><table className="fs-table"><thead><tr><th>{txt(ar,'البند','Item')}</th><th>{txt(ar,'الفئة','Category')}</th><th>{txt(ar,'القيمة','Amount')}</th><th></th></tr></thead><tbody>{study.capex.map(item=><tr key={item.id}><td><input value={item.label} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,label:e.currentTarget.value}:x)})}/></td><td><select value={item.category} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,category:e.currentTarget.value as typeof x.category}:x)})}>{['BUILDINGS','EQUIPMENT','UTILITIES','LICENCES','OTHER'].map(v=><option key={v} value={v}>{v}</option>)}</select></td><td><input type="number" min="0" value={item.amount} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,amount:Number(e.currentTarget.value)||0}:x)})}/></td><td><button type="button" aria-label={txt(ar,'حذف','Remove')} onClick={()=>update({capex:study.capex.filter(x=>x.id!==item.id)})}>×</button></td></tr>)}</tbody><tfoot><tr><th colSpan={2}>{txt(ar,'الإجمالي','Total')}</th><th>{money(model.capex)}</th><th/></tr></tfoot></table></div>
-    <Button secondary onClick={()=>update({capex:[...study.capex,{id:uid(),label:txt(ar,'بند جديد','New item'),category:'OTHER',amount:0}]})}>{txt(ar,'+ إضافة بند','+ Add item')}</Button><div className="fs-form-grid"><Field label={txt(ar,'رأس المال العامل الأولي','Opening working capital')} value={study.workingCapital} onChange={setNum('workingCapital')}/><Field label={txt(ar,'الصيانة الرأسمالية السنوية التقريبية','Indicative yearly maintenance')} value={study.annualMaintenance} onChange={setNum('annualMaintenance')}/></div>
-   </section>}
+   {tab==='profile'&&<StudyProfilePanel key={study.id} study={study} locale={locale}
+    personalScope={personalScope} shared={!!sharedStudy} readOnly={effectiveReadOnly}
+    organizationName={organizations.find(item=>item.id===organizationId)?.name}
+    revision={personalScope?cloudRevisions[study.id]:organizationRecords[study.id]?.revision}
+    savedToCloud={personalScope?cloudSavedStudyVersions[study.id]===study.updatedAt:organizationRecords[study.id]?.study.updatedAt===study.updatedAt}
+    saveBusy={personalScope?cloudBusy:organizationBusy} onChange={update}
+    onSave={cloudEnabled||!personalScope?()=>void saveCloud():undefined}
+    onCopy={canOpenCopy?openCopy:undefined}
+    sectorOptions={Object.entries(sectors).map(([value,name])=>({value:value as Sector,label:ar?name.ar:name.en}))}
+    statusOptions={Object.entries(projectStatus).map(([value,name])=>({value:value as StudyStatus,label:ar?name.ar:name.en}))}/>}
+   {!water&&!rawLand&&tab==='investment'&&<GeneralInvestmentPanel study={study} locale={locale} onChange={update}/>}
    {!water&&!rawLand&&tab==='partners'&&model&&<section className="card fs-panel"><h3>{txt(ar,'المساهمات وحصص الملكية','Contributions and equity')}</h3><label className="fs-check"><input type="checkbox" checked={study.landTransferred} onChange={e=>update({landTransferred:e.currentTarget.checked})}/>{txt(ar,'تُنقل الأرض إلى ملكية الشركة كحصة عينية مثبتة','Land is transferred into company ownership as an independently valued in-kind contribution')}</label>
     <div className="fs-form-grid"><Field label={txt(ar,'القيمة المقدرة للأرض','Estimated land value')} value={study.landValue} onChange={setNum('landValue')}/><Field label={txt(ar,'مساهمة الممول كرأس مال','Investor equity cash')} value={study.investorEquity} onChange={setNum('investorEquity')}/><Field label={txt(ar,'مساهمة صاحب الأرض النقدية','Land partner cash equity')} value={study.partnerCashEquity} onChange={setNum('partnerCashEquity')}/><Field label={txt(ar,'قرض الممول إلى الشركة','Investor shareholder loan')} value={study.investorLoan} onChange={setNum('investorLoan')}/><Field label={txt(ar,'تمويل ديون أخرى','Other debt')} value={study.otherDebt} onChange={setNum('otherDebt')}/></div>
     <div className="fs-kpis"><Info label={txt(ar,'حصة الممول','Investor ownership')} value={model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}/><Info label={txt(ar,'حصة صاحب الأرض','Land partner ownership')} value={model.partnerShare===null?'—':fmt(model.partnerShare,2)+'%'}/><Info label={txt(ar,'فجوة التمويل النقدي','Cash funding gap')} value={money(model.cashFundingGap)}/></div>
@@ -808,12 +793,6 @@ function FeasibilityWorkspaceContent({
    </section>}
    {!water&&!rawLand&&model?.ready&&tab==='cashflow'&&<RoyalCashTrend
     title={txt(ar,'التدفق النقدي التراكمي','Cumulative cash flow')} locale={locale} unit={study.currency} flows={model.flows}/>}
-   {!water&&!rawLand&&model&&tab==='investment'&&<RoyalBars title={txt(ar,'توزيع تكاليف الاستثمار','Investment cost distribution')}
-    locale={locale} unit={study.currency} data={[
-     {label:txt(ar,'بنود التأسيس','Capital items'),value:model.capex},
-     {label:txt(ar,'رأس المال العامل','Working capital'),value:study.workingCapital},
-     {label:txt(ar,'الأرض العينية','In-kind land'),value:model.landAsset}
-    ]}/>}
    {!water&&!rawLand&&model&&tab==='partners'&&<RoyalOwnership title={txt(ar,'حصص الملكية الاقتصادية','Economic ownership')}
     locale={locale} data={[
      {label:txt(ar,'الممول','Investor'),value:model.investorShare??0},
