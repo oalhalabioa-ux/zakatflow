@@ -108,3 +108,37 @@ export async function createZatcaCsr(
 }
 
 export const zatcaEgsSerialNumber = () => `1-ZakatFlow|2-1.0|3-${randomUUID()}`;
+
+/**
+ * Developer Portal Integration Sandbox only. This profile mirrors the accepted
+ * public Swagger sample, including surname (2.5.4.4) for the EGS serial.
+ * Do not use it with the separate FATOORA Simulation or production endpoints.
+ */
+export async function createZatcaDeveloperSandboxCsr(
+  fields: Omit<CsrFields, 'environment' | 'email'>,
+  publicKeyInfo: Buffer,
+  sign: (requestInfoDer: Buffer) => Promise<Buffer>,
+) {
+  const subject = relativeName([
+    ['2.5.4.6', 'SA', 'printable'],
+    ['2.5.4.11', fields.branchName, 'utf8'],
+    ['2.5.4.10', fields.organizationName, 'utf8'],
+    ['2.5.4.3', fields.commonName, 'utf8'],
+  ]);
+  const directoryName = relativeName([
+    ['2.5.4.4', fields.serialNumber, 'utf8'],
+    ['0.9.2342.19200300.100.1.1', fields.taxpayerVatNumber, 'utf8'],
+    ['2.5.4.12', fields.invoiceType, 'utf8'],
+    ['2.5.4.26', fields.registeredAddress, 'utf8'],
+    ['2.5.4.15', fields.businessCategory, 'utf8'],
+  ]);
+  const extensions = sequence(
+    sequence(oid('1.3.6.1.4.1.311.20.2'), octet(utf8('ZATCA-Code-Signing'))),
+    sequence(oid('2.5.29.17'), octet(sequence(der(0xa4, directoryName)))),
+  );
+  const attributes = der(0xa0, sequence(oid('1.2.840.113549.1.9.14'), set(extensions)));
+  const requestInfo = sequence(integerZero(), subject, publicKeyInfo, attributes);
+  return pem('CERTIFICATE REQUEST', sequence(
+    requestInfo, sequence(oid('1.2.840.10045.4.3.2')), bitString(await sign(requestInfo)),
+  ));
+}
