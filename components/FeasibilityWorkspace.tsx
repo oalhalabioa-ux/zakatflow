@@ -538,6 +538,7 @@ function FeasibilityWorkspaceContent({
   setProjectName('');
  };
  const activeTab=tabs.find(item=>item.id===tab)!;
+ const compactStudyHeader=Boolean(study&&(tab==='advanced'||tab==='report'));
 
  const portfolio=<section className="card fs-panel fs-royal-portfolio">
    <div className="fs-royal-heading">
@@ -574,7 +575,7 @@ function FeasibilityWorkspaceContent({
  if(personalScope&&hydratedStorageKey!==storageKey){
   return <main className="container fs-page fs-royal" dir={ar?'rtl':'ltr'}><p role="status">{txt(ar,'جاري تحميل مسودات الحساب الحالي…','Loading this account\'s drafts…')}</p></main>;
  }
- return <main className="container fs-page fs-royal" dir={ar?'rtl':'ltr'}>
+ return <main className="container fs-page fs-royal" data-compact-study-header={compactStudyHeader||undefined} dir={ar?'rtl':'ltr'}>
   {organizationEnabled&&!personalScope&&<TopbarOrganizationControls>
    <WorkspaceOrganizationPicker royalDialog ar={ar} organizations={organizations} value={organizationId}
     onChange={setOrganizationId} restore={false} disabled={organizationBusy}
@@ -589,12 +590,12 @@ function FeasibilityWorkspaceContent({
     <Button secondary onClick={openReport} disabled={!study}>{txt(ar,'عرض تقرير الطباعة','Open printable report')}</Button>
    </div>}
   </header>
-  <section className="fs-royal-module-intro" aria-label={txt(ar,'وحدة دراسات الجدوى','Feasibility studies module')}>
+  {!compactStudyHeader&&<section className="fs-royal-module-intro" aria-label={txt(ar,'وحدة دراسات الجدوى','Feasibility studies module')}>
    <RoyalIcon name="chart"/>
    <div><h2>{txt(ar,'وحدة دراسات الجدوى','Feasibility studies')}</h2>
     <p>{txt(ar,'تقييم فرص الاستثمار وتمويل المشاريع من خلال بيانات الدراسة الفعلية ومراجعة المخاطر والتراخيص.',
      'Assess investment opportunities and project funding using study inputs, risk reviews and licence checks.')}</p></div>
-  </section>
+  </section>}
   <p className="fs-warning" role="status">{!personalScope?organizationError||txt(ar,'محفظة المؤسسة مستقلة عن مسوداتك الشخصية. تُحفظ الدراسات المؤسسية بعد التحقق من عضوية المؤسسة وصلاحياتها.','The company portfolio is separate from your personal drafts. Organization studies are saved using server-verified membership and permissions.'):sharedStudy?txt(ar,'مشروع مشترك للقراءة والمراجعة فقط؛ لا يمكنك تغيير بيانات مالكه.','Shared project: read and review only, without changes to its owner\u0027s data.'):readOnly?txt(ar,'الاشتراك في وضع القراءة والتصدير فقط؛ انتهت صلاحية التحرير أو تم تعليقها.','This subscription permits reading and exporting only; editing access expired or was suspended.'):cloudEnabled?txt(ar,'تحفظ المسودة الشخصية في محفظتك. استخدم الحفظ السحابي لاستعادتها أو نسخها إلى مؤسسة بإذن صريح.','Save your personal draft to the cloud to restore it later or to copy it to an organization with your explicit consent.'):txt(ar,'نسخة أولية معزولة: تحفظ المسودات في متصفحك فقط، ولا تتزامن بين الأجهزة أو المستخدمين بعد. ليست دراسة معتمدة أو قيودًا محاسبية.','Isolated first iteration: drafts are browser-local, not synced between devices or users, and are not approved studies or accounting entries.')}</p>
   {visibleNotice&&<p className="fs-notice" role="status">{visibleNotice} <button type="button" onClick={()=>setNotice(undefined)} aria-label={txt(ar,'إغلاق الرسالة','Dismiss message')}>×</button></p>}
   {visibleSaveIssue&&<section className="fs-royal-state" data-tone="warning" role="alert">

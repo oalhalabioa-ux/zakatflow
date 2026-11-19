@@ -312,6 +312,20 @@
 .fs-royal-dialog .fs-check + .fs-check { margin-top: .35rem; }
 @media print { .fs-page .fs-print-report .fs-omit-print, .fs-print-report .fs-dialog { display: none !important; } }
 
+@media screen {
+ .fs-royal[data-compact-study-header] { gap: 9px; }
+ .fs-royal[data-compact-study-header] .fs-head { padding-block-end: 8px; }
+ .fs-royal[data-compact-study-header] .fs-head > .fs-actions { gap: 6px; }
+ .fs-royal[data-compact-study-header] .fs-royal-project-context { gap: 9px; }
+ .fs-royal[data-compact-study-header] .fs-royal-context-badges { gap: 6px; }
+ .fs-royal[data-compact-study-header] .fs-royal-report-output { gap: 6px; }
+ .fs-royal[data-compact-study-header] .fs-royal-report-index a { min-block-size: 36px; }
+}
+@media screen and (max-width: 650px) {
+ .fs-royal[data-compact-study-header] .fs-royal-project-context { padding-inline: 10px; }
+ .fs-royal[data-compact-study-header] .fs-royal-report-output > .fs-btn { flex: 0 1 auto; }
+}
+
 .fs-royal-module-intro {
  display: flex; align-items: center; gap: 14px; background: var(--fs-line); border-radius: 8px; padding: 14px;
  color: var(--fs-ink);
