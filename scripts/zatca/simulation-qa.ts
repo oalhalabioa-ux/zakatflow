@@ -201,6 +201,7 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
   }
   const standard = createStandardComplianceQa({
     async load() {
+      if (!unit.invoiceType.startsWith('1')) fail('QA_STANDARD_CONTEXT_UNAVAILABLE');
       const saved = await original(); if (!saved) fail('QA_STANDARD_CONTEXT_UNAVAILABLE');
       const dispatch = await intent(saved!.digest); if (!dispatch) fail('QA_STANDARD_CONTEXT_UNAVAILABLE');
       const receipt = await stager.recoverResponse(scope(saved!.digest, dispatch!.dispatchId));

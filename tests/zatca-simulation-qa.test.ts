@@ -156,6 +156,14 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
     await expect(api.submitStandardCompliance({ index: 0, manifestDigest: p.manifestDigest })).rejects.toThrow('QA_STANDARD_CONTEXT_UNAVAILABLE');
     expect(f.transport).toHaveBeenCalledTimes(4);
   });
+  it('does not prepare STANDARD samples for a unit registered as SIMPLIFIED-only', async () => {
+    const f = fixture(); f.state.validCertificate = true;
+    const api = f.create({ ...f.config, unit: { ...f.unit, invoiceType: '0100' }, standardSample: {
+      street: 'Synthetic street', building: '1234', district: 'Synthetic district', additional: '5678', postal: '12345', city: 'Riyadh' } });
+    await api.submitOtp(otpInput(await api.prepareOriginal()));
+    await expect(api.prepareStandardCompliance()).rejects.toThrow('QA_STANDARD_CONTEXT_UNAVAILABLE');
+    expect(f.map.size).toBe(4); expect(f.transport).toHaveBeenCalledTimes(1);
+  });
   it('recovers original/response lost acknowledgements without changing the saved bytes or resending', async () => {
     const f = fixture(); f.state.originalLostAck = true; f.state.responseLostAck = true;
     const prepared = await f.api.prepareOriginal(), original = f.original()[1].content;
