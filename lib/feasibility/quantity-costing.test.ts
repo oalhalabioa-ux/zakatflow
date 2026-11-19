@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {createWaterModel,evaluateWater,effectiveWaterInputs,type WaterModel} from './water-model';
+import {createWaterModel,evaluateWater,effectiveWaterInputs,legacyWaterFinancialPolicy,waterPeakFundingGap,type WaterModel} from './water-model';
 import {createRawLand,evaluateRawLand} from './raw-land';
 import {quantityBudgetSchema,evaluateQuantityBudget,type QuantityLine} from './quantity-costs';
 import {quantityPresets} from './quantity-presets';
@@ -98,6 +98,37 @@ describe('quantity costing: synthetic water acceptance',()=>{
   m.operationsPlan.pumpingM3Hour=1;m.operationsPlan.sourceHoursDay=1;expect(effectiveWaterInputs(m).readiness.blockers).toContain('PUMP_CAPACITY');
   m.ops.hoursDay=25;expect(effectiveWaterInputs(m).readiness.blockers).toContain('OPERATING_INPUTS');
  });
+ it('reconciles the water funding gap as area, capacity, input price and collection terms change',()=>{
+  const m=water();
+  Object.assign(m.capex,{workingCapital:100,contingencyPct:0});
+  Object.assign(m.deal,{landValue:0,investorLoan:200,loanYears:2,loanInterest:10});
+  Object.assign(m.ops,{bottlesHour:12,hoursDay:1,daysMonth:10,priceCarton:10,life:2,horizon:2,util:[50,100]});
+  const q=m.quantityCosting!;
+  Object.assign(q,{builtArea:20,landByArea:false,materialsEnabled:true,materialSource:'Synthetic packaging costs'});
+  q.capital.items[0].unitCost=30;q.capital.items[1].unitCost=200;q.fixed.items[0].unitCost=10;
+  m.operationsPlan={sourceName:'',permitReference:'',packagingLossPct:0,kwhPerThousandBottles:0,cartonsPerTrip:0,roundTripKm:0,
+   collectionDays:60,unitCosts:{bottle:0,cap:0,label:0,carton:4,kwh:0,rawWaterM3:0,distributionKm:0}};
+  m.financialPolicy={...legacyWaterFinancialPolicy(),workingCapitalMode:'CYCLE',depreciationMode:'CAPPED',daysPerYear:360};
+  const a=evaluateWater(m);
+  expect(a).toMatchObject({investment:1000,cashRequired:1100,investorEquity:900,capacity:120});
+  expect(a.flows).toEqual([-1100,-120,140]);
+  expect(a.annual.map(y=>y.afterDebt)).toEqual([-240,30]);
+  expect(waterPeakFundingGap(a.annual)).toBe(240);
+  const s=createIndustrialStarter('793e128a-66d1-44ec-9380-49acf36ed59a','Synthetic','BOTTLED_WATER');
+  s.water=m;
+  expect(handoffReadiness(s).checks.find(x=>x.key==='finance')?.passed).toBe(false);
+  q.builtArea=30;m.ops.bottlesHour=24;
+  const b=evaluateWater(m);
+  expect(b).toMatchObject({investment:1300,cashRequired:1400,investorEquity:1200,capacity:240});
+  expect(b.annual.map(y=>y.afterDebt)).toEqual([20,650]);
+  expect(waterPeakFundingGap(b.annual)).toBe(0);
+  expect(handoffReadiness(s).checks.find(x=>x.key==='finance')?.passed).toBe(true);
+  m.operationsPlan.unitCosts!.carton=5;m.operationsPlan.collectionDays=90;
+  const c=evaluateWater(m);
+  expect(c.annual.map(y=>y.afterDebt)).toEqual([-200,310]);
+  expect(waterPeakFundingGap(c.annual)).toBe(200);
+  expect(handoffReadiness(s).checks.find(x=>x.key==='finance')?.passed).toBe(false);
+ });
  it('blocks undocumented prices and high risks in investment readiness without losing the draft',()=>{
   const s=createIndustrialStarter('793e128a-66d1-44ec-9380-49acf36ed59a','Synthetic','BOTTLED_WATER');s.water=water();
   s.water.quantityCosting!.capital.items[0].source='';s.water.quantityCosting!.assumptionSource='';
@@ -155,6 +186,41 @@ describe('quantity costing: synthetic raw-land acceptance',()=>{
   m.quantityDevelopment!.committedEquity=financialBefore.peakEquityDeficit;
   expect(handoffReadiness(s).checks.find(x=>x.key==='finance')?.passed).toBe(true);
   expect(evaluateRawLand(m)).toEqual(financialBefore); // Funding commitment is evidence, not extra project revenue or ownership.
+ });
+ it('carries the early collection repayment target to later staged draws',()=>{
+  const m=land();
+  m.project.years=2;
+  m.quantityDevelopment!.landTiming='YEAR0';
+  m.site.landPaymentMethod='cash';
+  m.sales.mix[0].salesPhasing=[1,0,0,0];
+  m.sales.mix[0].collectionPhasing=[.5,.5,0,0];
+  m.finance={...m.finance,facility:3000,loanDrawFirstYear:.25,interestMode:'dynamic',benchmarkRate:.1};
+  const a=evaluateRawLand(m);if(a.issue)throw Error(a.issue);
+  expect(a.annual.map(y=>[y.cashCollected,y.draw,y.repayment,y.closingDebt,y.interest]))
+   .toEqual([[30000,750,750,0,0],[30000,2250,2250,0,0]]);
+  expect(a.financeMetrics!.projectFlows).toEqual([-8000,27550,27550]);
+  expect(a.peakEquityDeficit).toBe(8000);
+  expect(a.npv).toBeCloseTo(-8000+27550/1.1+27550/1.21);
+  m.quantityDevelopment!.roadLength=150;m.quantityDevelopment!.networkLength=70;
+  m.site.serviceRatio=.5;
+  m.quantityDevelopment!.budget.items[0].phasing=[1,0,0,0];
+  const b=evaluateRawLand(m);if(b.issue)throw Error(b.issue);
+  expect(b).toMatchObject({saleArea:400,revenue:40000,costs:{development:6100},peakEquityDeficit:8000});
+  expect(b.annual.map(y=>y.cashCost)).toEqual([4550,1550]);
+  expect(b.financeMetrics!.projectFlows).toEqual([-8000,15450,18450]);
+  expect(b.annual.at(-1)!.closingDebt).toBe(0);
+ });
+ it('allocates detailed land repayment by cash value even for immediate collection',()=>{
+  const m=land();
+  m.project.years=2;
+  m.sales.mix=[
+   {name:'First use',enabled:true,share:.5,price:100,annualGrowthAdjustment:0,salesPhasing:[1,0,0,0]},
+   {name:'Second use',enabled:true,share:.5,price:300,annualGrowthAdjustment:0,salesPhasing:[0,0,0,1]}
+  ];
+  m.finance={...m.finance,facility:3000,loanDrawFirstYear:1};
+  const r=evaluateRawLand(m);if(r.issue)throw Error(r.issue);
+  expect(r.annual.map(y=>[y.soldArea,y.cashCollected,y.repayment,y.closingDebt]))
+   .toEqual([[300,30000,750,2250],[300,90000,2250,0]]);
  });
  it('propagates area, scenario multiplier, growth, collection delay and financing without cost duplication',()=>{
   const m=land();m.sales.scenarios[2].costMultiplier=1.2;m.cost.contingencyRate=.1;

@@ -188,6 +188,18 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.netVolume>0)&&(!policy||policyState.inputReady)&&(!model.financingPolicy||financingReadiness.inputReady)};
 }
 
+/** Minimum additional cash after establishment, assuming interim surpluses are retained.
+ * This uses annual net cash after debt service, including terminal movements in their own year.
+ */
+export function waterPeakFundingGap(annual:readonly {afterDebt:number}[]){
+ let cumulative=0,peak=0;
+ for(const year of annual){
+  cumulative+=year.afterDebt;
+  peak=Math.max(peak,-cumulative);
+ }
+ return peak;
+}
+
 /** Annual steady-state cycle. Receivables use net sales; inventories/payables use variable production cost. */
 export function waterCashCycle(model:WaterModel,revenue:number,variable:number){
  const p=model.financialPolicy,days=p?.daysPerYear??365;

@@ -1,5 +1,5 @@
 import {evaluateRawLand} from './raw-land';
-import {evaluateWater,effectiveWaterInputs,waterFinancialReadiness} from './water-model';
+import {evaluateWater,effectiveWaterInputs,waterFinancialReadiness,waterPeakFundingGap} from './water-model';
 import {defaultLegalItems,evaluateStudy,type FeasibilityStudy} from './engine';
 
 export type HandoffCheck={key:string;ar:string;en:string;passed:boolean};
@@ -14,9 +14,11 @@ export function handoffReadiness(study:FeasibilityStudy){
  const legalVerified=water||land
   ?waterChecks.length>0&&waterChecks.every(item=>item.status==='VERIFIED'&&item.notes.trim())
   :critical.every(title=>study.legal.some(item=>item.title===title&&item.status==='VERIFIED'));
- const balanced=land?land.issue===null&&land.ready&&land.peakEquityDeficit<=(study.rawLand?.quantityDevelopment?.committedEquity??0)+.01:
-  study.water
-  ?study.water.deal.extraFunding===0&&(!water?.totalLoan||
+ const balanced=land?land.issue===null&&land.ready&&(land.annual.at(-1)?.closingDebt??0)<=.01&&
+  land.peakEquityDeficit<=(study.rawLand?.quantityDevelopment?.committedEquity??0)+.01:
+  study.water&&water
+  ?water.ready&&study.water.deal.extraFunding===0&&study.water.deal.investorLoan<=water.cashRequired&&
+   waterPeakFundingGap(water.annual)<=.01&&(!water.totalLoan||
    (study.water.deal.loanYears>0&&study.water.deal.loanStart>0))
   :Number.isFinite(model.cashFundingGap)&&Math.abs(model.cashFundingGap)<=0.01;
  const checks:HandoffCheck[]=[

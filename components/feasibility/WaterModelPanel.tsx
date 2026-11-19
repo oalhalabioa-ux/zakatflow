@@ -1,6 +1,6 @@
 'use client';
 import {useId,useMemo,type ReactNode} from 'react';
-import {emptyWaterOperationsPlan,emptyWaterUnitCosts,evaluateWater,waterOperationalRequirements,waterProductionBalance,waterVariableCostBreakdown,type WaterModel} from '@/lib/feasibility/water-model';
+import {emptyWaterOperationsPlan,emptyWaterUnitCosts,evaluateWater,waterPeakFundingGap,waterOperationalRequirements,waterProductionBalance,waterVariableCostBreakdown,type WaterModel} from '@/lib/feasibility/water-model';
 import {RoyalBars, RoyalCashTrend, RoyalOwnership} from './RoyalCharts';
 import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
 import type {StudySupplier} from '@/lib/feasibility/engine';
@@ -286,6 +286,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const financingSummary=[
   [l('القيمة الاستثمارية الاقتصادية','Economic investment'),money(m.cashRequired+m.land)],
   [l('النقد المطلوب للتأسيس','Initial cash requirement'),money(m.cashRequired)],
+  [l('ذروة العجز النقدي بعد التأسيس وخدمة الدين','Peak post-establishment cash shortfall after debt service'),
+   money(m.ready&&water.deal.extraFunding===0&&water.deal.investorLoan<=m.cashRequired?waterPeakFundingGap(m.annual):null)],
   [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(m.shareholderLoan)],
   [l('رأس المال النقدي لتغطية التأسيس','Cash equity allocated to establishment'),money(m.cashRequired-m.shareholderLoan)],
   [l('التمويل الإضافي بحسب المدخلات','Additional financing entered'),money(water.deal.extraFunding)],
@@ -403,6 +405,8 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     {ownership}
     {detail!=='valuation'&&<Panel title={l('توازن التمويل','Funding balance')} icon="users">
      {compactValues(financingSummary)}
+     <p className="fs-hint">{l('العجز تقدير سنوي يفترض الاحتفاظ بالفوائض بعد التأسيس. راجع جدول سيولة شهري إذا اختلف توقيت التحصيل والسداد داخل السنة.',
+      'The shortfall is an annual estimate that assumes post-establishment surpluses are retained. Review monthly liquidity if collections and payments occur at different times within the year.')}</p>
      {water.deal.investorLoan>m.shareholderLoan&&<p className="fs-hint">
       {l('خُصص قرض التأسيس بحد أقصى يساوي الاحتياج النقدي. الجزء الزائد من القرض المدخل',
        'The establishment loan is capped at the initial cash requirement. Unallocated entered loan amount')}

@@ -6,7 +6,7 @@ import {evaluateStudy} from '@/lib/feasibility/engine';
 import {handoffReadiness} from '@/lib/feasibility/handoff';
 import {evaluateRawLand} from '@/lib/feasibility/raw-land';
 import RawLandPanel from './RawLandPanel';
-import {evaluateWater,effectiveWaterInputs,studyReportReadiness} from '@/lib/feasibility/water-model';
+import {evaluateWater,effectiveWaterInputs,studyReportReadiness,waterPeakFundingGap} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import {studyProfileValues,studyTypeLabels} from '@/lib/feasibility/study-profile';
 import WaterModelPanel from './WaterModelPanel';
@@ -74,6 +74,8 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('رأس المال العامل الأولي','Opening working capital'),money(study.water.capex.workingCapital)],
   [l('شراء الأرض ورسوم الاستحواذ النقدية','Cash land purchase and acquisition fees'),money(water.purchaseLand??0)],
   [l('التمويل النقدي المطلوب عند التأسيس','Initial cash requirement'),money(water.cashRequired)],
+  [l('ذروة العجز النقدي بعد التأسيس وخدمة الدين','Peak post-establishment cash shortfall after debt service'),
+   money(water.ready&&deal.extraFunding===0&&deal.investorLoan<=water.cashRequired?waterPeakFundingGap(water.annual):null)],
   [l('إجمالي رأس مال الممول النقدي','Total investor cash equity'),money(water.investorEquity)],
   [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(water.shareholderLoan)],
   [l('التمويل الإضافي','Additional funding'),money(deal.extraFunding)],

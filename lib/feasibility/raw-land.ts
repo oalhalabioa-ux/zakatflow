@@ -148,11 +148,17 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
   weights.development=Array.from({length:years},(_,i)=>quantity.rows.reduce((s,item)=>
    s+item.total/developmentBase*annualPhaseWeights(item.phasing??phasing.development,project.years,0,years)[i],0));
  }
- let debt=0;
+ let debt=0,repaymentDue=0;
+ const repayFromCollections=Boolean(model.quantityDevelopment?.budget.enabled||hasInstalments);
  const allocations=annualSales.map((salesValue,i)=>{
   const draw=finance.facility*(saleYears===1?1:i===0?finance.loanDrawFirstYear:i===1?1-finance.loanDrawFirstYear:0);
-  const repayWeight=hasInstalments&&revenue>0?collections[i]/revenue:saleWeights[i];
-  const repayment=Math.min(debt+draw,finance.facility*repayWeight);
+  const repayWeight=repayFromCollections?(revenue>0?collections[i]/revenue:0):saleWeights[i];
+  const scheduledRepayment=finance.facility*repayWeight;
+  // A collection may precede a staged draw. Carry the unpaid target forward
+  // so the detailed schedule can repay the later borrowing from retained cash.
+  repaymentDue=(repayFromCollections?repaymentDue:0)+scheduledRepayment;
+  const repayment=Math.min(debt+draw,repaymentDue);
+  repaymentDue-=repayment;
   const interest=finance.interestMode==='reference'?costs.interestBudget*weights.interestBudget[i]:
    (debt+.5*(draw-repayment))*(finance.benchmarkRate+finance.spreadRate);
   debt+=draw-repayment;
