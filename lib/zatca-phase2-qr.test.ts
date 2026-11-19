@@ -27,6 +27,9 @@ function decode(payload: string) {
   return entries;
 }
 describe('simplified Phase 2 QR preparation', () => {
+  it.each(['2026-10-22T12:00:00', '2026-10-22T09:00:00Z', '2026-10-22T12:00:00+03:00'])('preserves the supplied issue timestamp representation %s', timestamp => {
+    expect(decode(prepareSimplifiedPhaseTwoQr({ ...text, timestamp }, crypto()).payload)[2].toString()).toBe(timestamp);
+  });
   it('uses UTF8 byte lengths, raw binary hash/signature and the same certificate public material', () => {
     const result = prepareSimplifiedPhaseTwoQr(text, crypto());
     const values = decode(result.payload);
@@ -57,7 +60,7 @@ describe('simplified Phase 2 QR preparation', () => {
     expect(() => prepareSimplifiedPhaseTwoQr(text, { ...crypto(), xmlSignature: Buffer.alloc(63) })).toThrow('INVALID_QR_CRYPTO_LENGTH');
     for (const bytes of [Buffer.from('bad'), Buffer.concat([certificateDer, Buffer.from([0])])]) expect(() => certificateSignatureDer(bytes)).toThrow('INVALID_QR_CERTIFICATE');
   });
-  it.each([{ totalWithVat: '115.001' }, { vatTotal: '-1.00' }, { timestamp: '2026-02-30T12:00:00Z' }, { sellerVatNumber: '123' }])('rejects malformed text fields %j', change => {
+  it.each([{ totalWithVat: '115.001' }, { vatTotal: '-1.00' }, { timestamp: '2026-02-30T12:00:00Z' }, { timestamp: '2026-02-30T12:00:00' }, { timestamp: '2026-10-22T25:00:00' }, { sellerVatNumber: '123' }])('rejects malformed text fields %j', change => {
     expect(() => prepareSimplifiedPhaseTwoQr({ ...text, ...change }, crypto())).toThrow();
   });
   it('rejects VAT exceeding gross without floating point rounding', () => {

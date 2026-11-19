@@ -5,7 +5,9 @@ import { ecdsaDerToXmlSignature } from './zatca-kms-signer';
 const fields = z.object({
   sellerName: z.string().trim().min(1).max(200),
   sellerVatNumber: z.string().regex(/^3\d{13}3$/),
-  timestamp: z.iso.datetime({ offset: true }),
+  // BR-KSA-70 allows AST local time without a suffix, or UTC with Z. Retain
+  // the XML's actual representation; adding Z/+03:00 changes its QR text.
+  timestamp: z.iso.datetime({ offset: true, local: true }),
   totalWithVat: z.string().max(30).regex(/^(0|[1-9]\d*)\.\d{2}$/),
   vatTotal: z.string().max(30).regex(/^(0|[1-9]\d*)\.\d{2}$/),
 }).strict();
