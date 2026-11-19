@@ -11,6 +11,7 @@ import { inspectSimulationCertificate } from './simulation-certificate-inspectio
 import { inspectZatcaSigningCertificate } from '../../lib/zatca-signing-certificate';
 import { createStandardComplianceQa, standardQaSampleSchema } from './standard-compliance-qa';
 import { createProceduralSimplifiedComplianceQa } from './procedural-simplified-compliance-qa';
+import { createFinalSimulationCsidQa } from './final-simulation-csid-qa';
 
 const account = '701899214938', region = 'eu-north-1';
 export const simulationQaSigningKey = `arn:aws:kms:${region}:${account}:key/ab50c7e0-2251-4ae3-967d-5d14866b80d4`;
@@ -26,6 +27,7 @@ const configSchema = z.object({ unit: simulationQaUnitSchema, sourceSha: z.strin
   encryptionKeyArn: z.string().regex(/^arn:aws:kms:eu-north-1:701899214938:key\/[a-f0-9-]{36}$/),
   standardSample: standardQaSampleSchema.optional(),
   proceduralSimplifiedExperiment: z.literal(true).optional(),
+  finalCertificateExperiment: z.literal(true).optional(),
 }).strict();
 const originalSchema = z.object({ version: z.literal('YAQEEN_SIMULATION_QA_ORIGINAL_V1'),
   sourceSha: z.string().regex(/^[a-f0-9]{40}$/), profileDigest: z.string().regex(/^[a-f0-9]{64}$/),
@@ -187,7 +189,8 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
       return { state: 'RESPONSE_QUARANTINED' as const, identityMatched, trustVerified: false, activationAllowed: false,
         responseDigest: receipt.reference.responseSha256, certificateInspection,
         standardCompliance: config.standardSample ? await standard.status().catch(() => ({ stage: 'STANDARD_COMPLIANCE_QA_ONLY', state: 'BLOCKED', activationAllowed: false })) : null,
-        simplifiedExperiment: config.proceduralSimplifiedExperiment ? await simplified.status().catch(() => ({ stage: 'SIMPLIFIED_PROCEDURAL_PROFILE_QA_ONLY', state: 'BLOCKED', applicationProfileApproved: false, activationAllowed: false })) : null };
+        simplifiedExperiment: config.proceduralSimplifiedExperiment ? await simplified.status().catch(() => ({ stage: 'SIMPLIFIED_PROCEDURAL_PROFILE_QA_ONLY', state: 'BLOCKED', applicationProfileApproved: false, activationAllowed: false })) : null,
+        finalCertificate: config.finalCertificateExperiment ? await finalCertificate.status().catch(() => ({ stage: 'FINAL_SIMULATION_CSID_QA_ONLY', state: 'BLOCKED', applicationProfileApproved: false, activationAllowed: false } as const)) : null };
     } catch { return { state: 'RECONCILIATION_REQUIRED' as const, activationAllowed: false }; }
   }
   async function status() {
@@ -256,12 +259,50 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
       return { version: ack.VersionId! };
     }, assertCreateOnly: verifyCreateOnlyFence, transport: clients.transport,
   }, config.standardSample, config.sourceSha);
+  const finalCertificate = createFinalSimulationCsidQa({
+    async load() {
+      if (!config.finalCertificateExperiment || !config.proceduralSimplifiedExperiment || unit.invoiceType !== '1100')
+        fail('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+      const standardLink = await standard.completedLink(), simplifiedLink = await simplified.completedLink();
+      const saved = await original(); if (!saved) fail('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+      const dispatch = await intent(saved!.digest); if (!dispatch) fail('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+      const receipt = await stager.recoverResponse(scope(saved!.digest, dispatch!.dispatchId));
+      const response = await read(base + '/' + dispatch!.dispatchId, dispatch!.dispatchId);
+      if (!response || sha(response.content) !== receipt.reference.responseSha256) fail('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+      const credential = JSON.parse(response!.content).response;
+      const der = decodeZatcaComplianceCertificate(credential.binarySecurityToken);
+      inspectZatcaOnboardingIdentity({ csrPem: saved!.value.csrPem, certificateDerBase64: der.toString('base64') }, saved!.value.savedUnit);
+      inspectZatcaSigningCertificate(der.toString('base64'), sha(der));
+      if ((await publicKey()).toString('base64') !== saved!.value.savedUnit.kmsPublicKeySpkiBase64) fail('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+      return { originalDigest: saved!.digest, responseDigest: receipt.reference.responseSha256,
+        standardManifestDigest: standardLink.standardManifestDigest, ...simplifiedLink, interimFingerprint: sha(der),
+        requestId: credential.requestId, token: credential.binarySecurityToken, secret: credential.secret };
+    },
+    async verifyCertificate(token) {
+      const saved = await original(); if (!saved) fail('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+      const der = decodeZatcaComplianceCertificate(token);
+      inspectZatcaOnboardingIdentity({ csrPem: saved!.value.csrPem, certificateDerBase64: der.toString('base64') }, saved!.value.savedUnit);
+      inspectZatcaSigningCertificate(der.toString('base64'), sha(der));
+      if ((await publicKey()).toString('base64') !== saved!.value.savedUnit.kmsPublicKeySpkiBase64) fail('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+      return { fingerprintSha256: sha(der) };
+    },
+    read: name => read(base + '/' + name),
+    async create(name, version, content) {
+      const fullName = base + '/' + name;
+      const ack = await send(new CreateSecretCommand({ Name: fullName, KmsKeyId: config.encryptionKeyArn, ClientRequestToken: version,
+        SecretString: content, Description: 'Isolated final SIMULATION CSID quarantine only. No application activation.',
+        Tags: [{ Key: 'application', Value: 'zakatflow' }, { Key: 'purpose', Value: 'qa-final-simulation-csid' }] }));
+      if (!ack || ack.Name !== fullName || ack.VersionId !== version || !arnMatches(ack.ARN, fullName)) fail('QA_FINAL_CSID_STORAGE_UNAVAILABLE');
+      return { version: ack.VersionId! };
+    }, assertCreateOnly: verifyCreateOnlyFence, transport: clients.transport,
+  }, config.sourceSha);
   return {
     status,
     prepareStandardCompliance: () => standard.prepare(),
     submitStandardCompliance: (input: unknown) => standard.submit(input),
     prepareSimplifiedExperiment: () => simplified.prepare(),
     submitSimplifiedExperiment: (input: unknown) => simplified.submit(input),
+    requestFinalSimulationCertificate: (input: unknown) => finalCertificate.request(input),
     async prepareOriginal() {
       if (await original()) return status();
       const spki = await publicKey();

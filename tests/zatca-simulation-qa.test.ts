@@ -74,7 +74,8 @@ function fixture() {
       const csr = join(directory, unit.enrollmentId + '.csr'), output = join(directory, unit.enrollmentId + '.pem');
       writeFileSync(csr, saved.csrPem);
       const issuer = state.interimCertificate ? ['-CA',join(directory,'issuer.pem'),'-CAkey',join(directory,'issuer.key')] : ['-signkey',keyPath];
-      execFileSync('openssl', ['x509','-req','-in',csr,...issuer,'-copy_extensions','copy','-set_serial','12345','-days','1','-out',output], { stdio: 'pipe' });
+      execFileSync('openssl', ['x509','-req','-in',csr,...issuer,'-copy_extensions','copy','-set_serial',
+        typeof url === 'string' && url.endsWith('/production/csids') ? '54321' : '12345','-days','1','-out',output], { stdio: 'pipe' });
       const der = new X509Certificate(readFileSync(output)).raw;
       certificate = Buffer.from(der.toString('base64')).toString('base64');
     }
@@ -171,8 +172,9 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
   it('gates the procedural experiment, binds it to completed STANDARD originals and signs each artifact/receipt once', async () => {
     const f = fixture(); f.state.validCertificate = true; f.state.interimCertificate = true;
     const sample = { street: 'Synthetic street', building: '1234', district: 'Synthetic district', additional: '5678', postal: '12345', city: 'Riyadh' };
-    const api = f.create({ ...f.config, standardSample: sample, proceduralSimplifiedExperiment: true });
+    const api = f.create({ ...f.config, standardSample: sample, proceduralSimplifiedExperiment: true, finalCertificateExperiment: true });
     await api.submitOtp(otpInput(await api.prepareOriginal()));
+    await expect(api.requestFinalSimulationCertificate({ readinessDigest: '0'.repeat(64) })).rejects.toThrow('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
     await expect(api.prepareSimplifiedExperiment()).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
     const p = await api.prepareStandardCompliance() as { manifestDigest: string };
     for (let index = 0; index < 3; index++) await api.submitStandardCompliance({ index, manifestDigest: p.manifestDigest });
@@ -191,9 +193,22 @@ describe('isolated Simulation QA durable original and one-shot secret fence', ()
     await api.submitSimplifiedExperiment({ index: 0, manifestDigest: b.manifestDigest });
     expect(count()).toBe(signs + 6); expect(f.transport).toHaveBeenCalledTimes(7);
     expect(JSON.stringify(status)).not.toMatch(/PRIVATE_CREDENTIAL|SignatureValue|CERTIFICATE REQUEST|invoiceSignature|integritySignature/);
+    if (!('finalCertificate' in status) || !status.finalCertificate || status.finalCertificate.state !== 'READY')
+      throw Error('Final Simulation certificate readiness was not verified');
+    const final = status.finalCertificate;
+    expect(final.state).toBe('READY');
+    await expect(f.create({ ...f.config, standardSample: sample, proceduralSimplifiedExperiment: true })
+      .requestFinalSimulationCertificate({ readinessDigest: final.readinessDigest })).rejects.toThrow('QA_FINAL_CSID_CONTEXT_UNAVAILABLE');
+    const originalEntries = [...f.map].map(([name, value]) => [name, value.content] as const);
+    expect(await api.requestFinalSimulationCertificate({ readinessDigest: final.readinessDigest })).toMatchObject({
+      state: 'RESPONSE_QUARANTINED', identityKeyTimeVerified: true, activationAllowed: false, trustVerified: false, applicationProfileApproved: false });
+    expect(f.transport).toHaveBeenCalledTimes(8); expect(count()).toBe(signs + 6);
+    for (const [name, content] of originalEntries) expect(f.map.get(name)!.content).toBe(content);
+    await api.requestFinalSimulationCertificate({ readinessDigest: final.readinessDigest });
+    expect(f.transport).toHaveBeenCalledTimes(8); expect(count()).toBe(signs + 6);
     f.state.wrongKey = true;
     await expect(api.submitSimplifiedExperiment({ index: 0, manifestDigest: b.manifestDigest })).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_CONTEXT_UNAVAILABLE');
-    expect(f.transport).toHaveBeenCalledTimes(7);
+    expect(f.transport).toHaveBeenCalledTimes(8);
   });
   it('recovers original/response lost acknowledgements without changing the saved bytes or resending', async () => {
     const f = fixture(); f.state.originalLostAck = true; f.state.responseLostAck = true;

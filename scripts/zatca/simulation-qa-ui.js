@@ -23,6 +23,9 @@
     QA_STANDARD_ORIGINAL_CHANGED: 'تختلف العينة عن الأصل المحفوظ. يلزم مراجعتها دون إعادة الإرسال.',
     QA_STANDARD_RECONCILIATION_REQUIRED: 'هناك فحص محفوظ يحتاج قراءة نتيجته. حدّث الحالة فقط ولا تُعد الإرسال.',
     QA_STANDARD_PREVIOUS_REQUIRED: 'يجب نجاح الفحص السابق أولًا.',
+    QA_FINAL_CSID_CONTEXT_UNAVAILABLE: 'لم تكتمل متطلبات طلب شهادة المحاكاة النهائية. حدّث الحالة للمراجعة.',
+    QA_FINAL_CSID_ORIGINAL_CHANGED: 'تغيّرت بيانات طلب الشهادة النهائية. يلزم مراجعتها دون إعادة الإرسال.',
+    QA_FINAL_CSID_RECONCILIATION_REQUIRED: 'محاولة الشهادة النهائية محفوظة وتحتاج قراءة نتيجتها. لا تُعد الطلب؛ حدّث الحالة فقط.',
   };
   function controls() {
     byId('prepare').disabled = busy || current?.state !== 'NOT_PREPARED';
@@ -39,9 +42,13 @@
     byId('simplifiedPrepare').disabled = busy || standard?.passed !== true || simplified?.state !== 'NOT_PREPARED';
     for (let i = 0; i < 3; i++) byId('simplifiedSubmit' + i).disabled = busy || standard?.passed !== true || !simplified?.manifestDigest
       || simplified.results?.[i]?.state !== 'NOT_SENT' || simplified.results.slice(0, i).some(r => r.state !== 'PASSED');
+    const finalCertificate = current?.finalCertificate;
+    byId('finalCertificateSection').hidden = current?.state !== 'RESPONSE_QUARANTINED' || !finalCertificate;
+    byId('finalCertificateRequest').disabled = busy || standard?.passed !== true || simplified?.passed !== true
+      || finalCertificate?.state !== 'READY' || !finalCertificate?.readinessDigest;
   }
   function render(value) {
-    if (!value.state && (value.standardCompliance || value.simplifiedExperiment)) value = { ...current, ...value };
+    if (!value.state && (value.standardCompliance || value.simplifiedExperiment || value.finalCertificate)) value = { ...current, ...value };
     current = value;
     const company = value.company;
     if (company) {
@@ -67,6 +74,14 @@
         + (result.errorCodes?.length ? ' ' + result.errorCodes.join('، ') : '')
         + (result.warningCodes?.length ? ' ' + result.warningCodes.join('، ') : '') : '';
     }
+    const finalLabels = {
+      READY: 'اكتملت العينات الست. الطلب متاح للمحاكاة فقط.',
+      RESPONSE_QUARANTINED: 'حُفظت شهادة المحاكاة النهائية منفصلة، وتطابقت الهوية والمفتاح والمدة. التحقق من الثقة وتفعيل الإصدار لم يكتملا.',
+      QUARANTINED_VERIFICATION_REQUIRED: 'حُفظت استجابة الشهادة منفصلة وتحتاج التحقق. لا تُعد الطلب.',
+      RECONCILIATION_REQUIRED: 'هناك محاولة محفوظة بنتيجة غير مؤكدة. حدّث الحالة فقط ولا تُعد الطلب.',
+      BLOCKED: 'طلب الشهادة النهائية متوقف للمراجعة. حدّث الحالة فقط.',
+    };
+    byId('finalCertificateResult').textContent = finalLabels[value.finalCertificate?.state] || '';
     controls();
   }
   async function call(body) {
@@ -85,12 +100,17 @@
       if (body?.action === 'submit') current = { ...current, state: 'RECONCILIATION_REQUIRED' };
       else if (body?.action?.startsWith('standard')) current = { ...current, standardCompliance: { state: 'BLOCKED' } };
       else if (body?.action?.startsWith('simplified')) current = { ...current, simplifiedExperiment: { state: 'BLOCKED' } };
+      else if (body?.action === 'finalCertificateRequest') current = { ...current, finalCertificate: { state: 'BLOCKED' } };
       else current = { ...current, state: 'ERROR' };
       byId('status').textContent = error instanceof Error ? error.message : 'تعذر إكمال العملية. حدّث الحالة.';
       byId('status').dataset.state = 'ERROR';
     } finally { busy = false; controls(); }
   }
   byId('prepare').addEventListener('click', () => void call({ action: 'prepare' }));
+  byId('finalCertificateRequest').addEventListener('click', () => {
+    if (busy || byId('finalCertificateRequest').disabled) return;
+    void call({ action: 'finalCertificateRequest', readinessDigest: current.finalCertificate.readinessDigest });
+  });
   byId('refresh').addEventListener('click', () => void call());
   byId('standardPrepare').addEventListener('click', () => void call({ action: 'standardPrepare' }));
   byId('simplifiedPrepare').addEventListener('click', () => {

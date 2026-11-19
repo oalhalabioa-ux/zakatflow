@@ -22,7 +22,7 @@ The earlier blanket deferral of real Simulation SIMPLIFIED samples is narrowed *
 
 Returned state is `SIMPLIFIED_PROCEDURAL_PROFILE_QA_ONLY`, with `applicationProfileApproved:false` and `activationAllowed:false` regardless of gateway outcome. `privateIntegrityVerified:true` means the external receipt was checked; it does not establish XMLDSig, CA/path/revocation/policy trust. A PASS requires HTTP200, validation PASS and no errors/warnings, and is attributed only to this experiment.
 
-The original CCSID remains quarantined with trust/activation false. No final CSID, renewal, Production API, financial posting, SQL/Auth migration or automatic promotion is implemented. Complete runtime acceptance still requires an authority-accepted secure profile, final certificate checks, native packaging and authenticated tenant application lifecycle validation.
+The original CCSID remains quarantined with trust/activation false. This compliance controller implements no final CSID, renewal, Production API, financial posting, SQL/Auth migration or automatic promotion. A separate, default-off [final Simulation certificate diagnostic](zatca-final-simulation-csid.md) follows only after both three-case suites pass; it retains the same no-activation boundary. Complete runtime acceptance still requires an authority-accepted secure profile, final certificate checks, native packaging and authenticated tenant application lifecycle validation.
 
 ## Validation
 

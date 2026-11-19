@@ -18,8 +18,9 @@ function fixture(env = environment) {
   const standardSubmit = vi.fn(async (_input: unknown) => ({ stage: 'STANDARD_COMPLIANCE_QA_ONLY', passed: false, activationAllowed: false }));
   const simplifiedPrepare = vi.fn(async () => ({ stage: 'SIMPLIFIED_PROCEDURAL_PROFILE_QA_ONLY', passed: false, applicationProfileApproved: false, activationAllowed: false }));
   const simplifiedSubmit = vi.fn(async (_input: unknown) => ({ stage: 'SIMPLIFIED_PROCEDURAL_PROFILE_QA_ONLY', passed: false, applicationProfileApproved: false, activationAllowed: false }));
+  const finalRequest = vi.fn(async (_input: unknown) => ({ stage: 'FINAL_SIMULATION_CSID_QA_ONLY', state: 'RESPONSE_QUARANTINED', activationAllowed: false }));
   const open = vi.fn(() => ({ status, prepareOriginal: prepare, submitOtp: submit, prepareStandardCompliance: standardPrepare, submitStandardCompliance: standardSubmit,
-    prepareSimplifiedExperiment: simplifiedPrepare, submitSimplifiedExperiment: simplifiedSubmit }) as never);
+    prepareSimplifiedExperiment: simplifiedPrepare, submitSimplifiedExperiment: simplifiedSubmit, requestFinalSimulationCertificate: finalRequest }) as never);
   const handler = createSimulationQaHttpHandler(open, () => env);
   async function call({ method = 'GET', headers = {}, body, raw }: { method?: string; headers?: Record<string,string | undefined>; body?: unknown; raw?: string | Buffer } = {}) {
     const request = Object.assign(Readable.from(raw === undefined ? [] : [raw]), { method,
@@ -31,9 +32,20 @@ function fixture(env = environment) {
     await handler(request, response as unknown as ServerResponse);
     return { status: response.statusCode, body: JSON.parse(response.text), headers: sentHeaders };
   }
-  return { call, open, status, prepare, submit, standardPrepare, standardSubmit, simplifiedPrepare, simplifiedSubmit };
+  return { call, open, status, prepare, submit, standardPrepare, standardSubmit, simplifiedPrepare, simplifiedSubmit, finalRequest };
 }
 describe('protected isolated Simulation HTTP boundary', () => {
+  it('accepts only a final-certificate readiness pin, with no caller credential, identity or endpoint', async () => {
+    const f = fixture(), result = await f.call({ method: 'POST', body: { action: 'finalCertificateRequest', readinessDigest: 'a'.repeat(64) } });
+    expect(result.status).toBe(200); expect(f.finalRequest).toHaveBeenCalledWith({ readinessDigest: 'a'.repeat(64) });
+    expect(f.submit).not.toHaveBeenCalled(); expect(f.simplifiedSubmit).not.toHaveBeenCalled();
+    for (const override of [{ endpoint: 'https://override.invalid' }, { environment: 'PRODUCTION' }, { token: 'PRIVATE' },
+      { requestId: '123' }, { otp: '654321' }, { readinessDigest: 'bad' }]) {
+      const g = fixture();
+      expect((await g.call({ method: 'POST', body: { action: 'finalCertificateRequest', readinessDigest: 'a'.repeat(64), ...override } })).status).toBe(400);
+      expect(g.open).not.toHaveBeenCalled();
+    }
+  });
   it('returns only the safe read status with no-store/nosniff and no CORS permission', async () => {
     const f = fixture(), result = await f.call();
     expect(result.status).toBe(200); expect(result.body).toEqual({ state: 'READY_FOR_OTP', activationAllowed: false });

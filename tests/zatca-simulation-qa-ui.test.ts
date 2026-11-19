@@ -10,7 +10,7 @@ class Element {
   addEventListener(name: string, callback: (...args: any[]) => void) { this.listeners[name] = callback; }
 }
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
-async function fixture(initial: typeof ready & { standardCompliance?: any; simplifiedExperiment?: any } = ready) {
+async function fixture(initial: typeof ready & { standardCompliance?: any; simplifiedExperiment?: any; finalCertificate?: any } = ready) {
   const elements = new Map<string,Element>(), windowEvents: Record<string,() => void> = {};
   const get = (id: string) => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id)!; };
   const fetcher = vi.fn(async (_url: string, _request?: RequestInit) => ({ ok: true, json: async () => structuredClone(initial) }));
@@ -19,6 +19,27 @@ async function fixture(initial: typeof ready & { standardCompliance?: any; simpl
   return { get, fetcher, windowEvents };
 }
 describe('Simulation QA user input and recovery behavior', () => {
+  it('requires both completed suites for the final certificate and never resubmits an unknown or completed request', async () => {
+    const state = { ...ready, state: 'RESPONSE_QUARANTINED', standardCompliance: { passed: true }, simplifiedExperiment: { passed: true },
+      finalCertificate: { state: 'READY', readinessDigest: 'f'.repeat(64) } };
+    const incomplete = await fixture({ ...state, simplifiedExperiment: { passed: false } });
+    expect(incomplete.get('finalCertificateRequest').disabled).toBe(true);
+    incomplete.get('finalCertificateRequest').listeners.click(); expect(incomplete.fetcher).toHaveBeenCalledTimes(1);
+    const f = await fixture(state); expect(f.get('finalCertificateRequest').disabled).toBe(false);
+    f.fetcher.mockRejectedValueOnce(Error('Unknown result'));
+    f.get('finalCertificateRequest').listeners.click(); f.get('finalCertificateRequest').listeners.click(); await settle();
+    expect(f.fetcher).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(f.fetcher.mock.calls[1][1]?.body))).toEqual({ action: 'finalCertificateRequest', readinessDigest: 'f'.repeat(64) });
+    expect(f.get('finalCertificateRequest').disabled).toBe(true); f.get('finalCertificateRequest').listeners.click();
+    expect(f.fetcher).toHaveBeenCalledTimes(2);
+    f.fetcher.mockResolvedValueOnce({ ok: true, json: async () => ({ ...state,
+      finalCertificate: { state: 'RESPONSE_QUARANTINED', identityKeyTimeVerified: true, activationAllowed: false } }) } as never);
+    f.get('refresh').listeners.click(); await settle();
+    expect(f.fetcher.mock.calls[2][1]?.method).toBeUndefined(); expect(f.get('finalCertificateRequest').disabled).toBe(true);
+    expect(f.get('legalName').textContent).toBe(company.legalName);
+    expect(f.get('finalCertificateResult').textContent).toContain('لم يكتملا');
+    expect((await fixture()).get('finalCertificateSection').hidden).toBe(true);
+  });
   it('requires completed STANDARD checks, preserves them through procedural partial results and recovers unknown outcomes by GET only', async () => {
     const standardCompliance = { passed: true, manifestDigest: 'd'.repeat(64), results: Array.from({ length: 3 }, () => ({ state: 'PASSED' })) };
     const initial = { ...ready, state: 'RESPONSE_QUARANTINED', standardCompliance,
