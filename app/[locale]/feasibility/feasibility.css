@@ -379,17 +379,21 @@
 .fs-royal-overview-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .fs-royal-overview-kpis .fs-metric { position: relative; text-align: center; }
 .fs-royal-overview-kpis .fs-metric > .fs-royal-icon { position: absolute; inset-block-start: 12px; inset-inline-end: 12px; }
-.fs-royal-overview-kpis .fs-metric small { padding-inline: 16px; }
+.fs-royal-overview-kpis .fs-metric small { display: block; inline-size: 100%; box-sizing: border-box; padding-inline: 24px; line-height: 1.6; }
 .fs-royal-overview-grid {
  display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
  gap: 12px; align-items: start;
 }
 .fs-royal-overview-column { display: grid; min-width: 0; gap: 12px; }
 .fs-royal-check-progress { display: flex; align-items: center; gap: .4rem; flex: 0 0 min(42%, 180px); }
-.fs-royal-check-progress progress { flex: 1 1 48px; min-width: 26px; height: 8px; accent-color: var(--fs-green); }
+.fs-royal-check-progress progress { appearance: none; flex: 1 1 48px; min-width: 26px; height: 8px; border: 0; border-radius: 8px; overflow: hidden; background: var(--fs-line); color: var(--fs-green); accent-color: var(--fs-green); }
+.fs-royal-check-progress progress::-webkit-progress-bar { background: var(--fs-line); border-radius: 8px; }
+.fs-royal-check-progress progress::-webkit-progress-value { background: var(--fs-green); border-radius: 8px; }
+.fs-royal-check-progress progress::-moz-progress-bar { background: var(--fs-green); border-radius: 8px; }
 .fs-royal-check-progress strong { text-align: center; flex: 0 0 auto; }
 .fs-royal .fs-royal-priority-table { min-width: 0; }
 .fs-royal-priority-table th, .fs-royal-priority-table td { overflow-wrap: anywhere; }
+.fs-royal-priority-table th[scope="row"] { font-weight: 500; }
 .fs-royal-priority-table .fs-royal-tag { display: inline-block; padding-inline: 5px; }
 .fs-royal-priority-table .fs-royal-tag:is([data-priority="NORMAL"],[data-task-status="IN_PROGRESS"]) { background: var(--fs-light-gold); }
 .fs-royal-priority-table .fs-royal-tag[data-priority="HIGH"] { background: #F5EBD6; color: var(--fs-navy); }
@@ -397,6 +401,11 @@
 @media (max-width: 760px) {
  .fs-royal-overview-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
  .fs-royal-overview-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 650px) {
+ .fs-royal-priority-table :is(th, td):nth-child(n+3) { display: none; }
+ .fs-royal-priority-table :is(th, td):first-child { width: 70%; }
+ .fs-royal-priority-table :is(th, td):nth-child(2) { width: 30%; overflow-wrap: normal; }
 }
 
 .fs-royal-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

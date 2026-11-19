@@ -632,6 +632,14 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
      assert.ok((await badges.innerText()).includes(new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0}).format(2/6)));
      assert.equal(await badges.locator('time').getAttribute('datetime')!==null,true);
      assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+     assert.equal(await page.locator('.fs-royal-priority-table thead th:visible').count(),width===390?2:4);
+     assert.equal(await page.locator('.fs-royal-overview-kpis .fs-metric').evaluateAll(metrics=>metrics.every(metric=>{
+      const icon=metric.querySelector('svg').getBoundingClientRect();
+      const title=metric.querySelector('small').getBoundingClientRect();
+      const style=getComputedStyle(metric.querySelector('small'));
+      const textLeft=title.left+parseFloat(style.paddingLeft),textRight=title.right-parseFloat(style.paddingRight);
+      return icon.right<=textLeft||icon.left>=textRight;
+     })),true,'KPI labels must reserve space for icons in both directions');
      await page.screenshot({path:new URL('./screenshots/royal-overview-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
      await page.reload();
      await page.getByRole('heading',{name:'Royal synthetic overview',exact:true}).waitFor();
