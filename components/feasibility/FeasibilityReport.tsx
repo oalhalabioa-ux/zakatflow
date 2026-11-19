@@ -8,6 +8,7 @@ import {evaluateRawLand} from '@/lib/feasibility/raw-land';
 import RawLandPanel from './RawLandPanel';
 import {evaluateWater,studyReportReadiness} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
+import {studyProfileValues,studyTypeLabels} from '@/lib/feasibility/study-profile';
 import WaterModelPanel from './WaterModelPanel';
 
 const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
@@ -50,6 +51,7 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
   try { window.print(); } catch { window.removeEventListener('afterprint',restore);restore(); }
  }
  const {openCritical,openTasks,highRisks}=studyReportReadiness(study);
+ const profile=studyProfileValues(study);
  const verified=study.legal.filter(item=>item.status==='VERIFIED').length;
  const fmt=(value:number|null)=>value===null?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
  const money=(value:number|null)=>value===null?'—':[fmt(value),study.currency].filter(Boolean).join(' ');
@@ -191,8 +193,15 @@ export default function FeasibilityReport({study,locale,allowExport=true}:{study
       [l('حالة مراجعة النسخة','Revision review status'),reviewState],
       [l('موقع المشروع','Project location'),[study.siteDescription,study.region,study.country].filter(Boolean).join(' · ')],
       [l('المالك القانوني المصرّح به','Declared legal owner'),study.legalOwner],
+      [l('نوع الدراسة','Study type'),study.studyType?(locale==='ar'?studyTypeLabels[study.studyType].ar:studyTypeLabels[study.studyType].en):undefined],
+      [l('سنة بدء الدراسة','Study start year'),profile.startYear===undefined?undefined:String(profile.startYear)],
+      [l('مدة الدراسة المتوقعة (سنوات)','Expected study duration (years)'),fmt(profile.years)],
+      [l(study.rawLand?'المساحة قبل الاستبعادات (م²)':'مساحة الأرض (م²)',study.rawLand?'Area before exclusions (m²)':'Land area (m²)'),fmt(profile.area)],
       [l('عملة الدراسة','Study currency'),study.currency],
      ].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'—'}</dd></div>)}</dl>
+     {!study.rawLand&&profile.startYear!==undefined&&<p className="fs-hint">{l(
+      'سنة البدء وصف زمني. التدفقات محسوبة بسنوات نسبية من سنة صفر ولا يُطبّق تأخير أو خصم إضافي بسبب هذا الحقل.',
+      'Start year is descriptive. Cash flows use relative years from year zero; this field does not add a deferral or extra discount.')}</p>}
     </section>
    </div>
    <section className="card fs-panel">

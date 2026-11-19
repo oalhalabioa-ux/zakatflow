@@ -413,10 +413,17 @@
 .fs-royal-profile-grid dd { text-align: end; overflow-wrap: anywhere; }
 .fs-royal-profile-notes { grid-column: 1 / -1; }
 .fs-royal-profile-notes textarea { min-height: 80px; }
+.fs-royal .fs-royal-profile .fs-panel { align-content: start; border-radius: 8px; }
+.fs-royal-profile .fs-form-grid { margin-top: 0; }
+.fs-royal-profile .fs-royal-profile-context { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.fs-royal-profile .fs-royal-profile-context > :last-child { grid-column: 1 / -1; }
+.fs-royal-profile-actions { justify-content: flex-start; }
+.fs-royal-profile .fs-royal-tag { background: var(--fs-line); color: var(--fs-green); }
 @media(max-width: 650px) {
  .fs-royal-profile-grid, .fs-royal-profile-grid .fs-form-grid { grid-template-columns: minmax(0, 1fr); }
  .fs-royal-profile > .fs-panel > .fs-form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
- .fs-royal-profile > .fs-panel > .fs-form-grid > :first-child { grid-column: 1 / -1; }
+ .fs-royal-profile > .fs-panel > .fs-form-grid > :first-child { grid-column: auto; }
+ .fs-royal-profile .fs-royal-profile-location { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 
 .fs-royal-capex .fs-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -424,6 +431,10 @@
 .fs-royal-capex .fs-royal-water-sales-table .fs-table { min-inline-size: 640px; }
 .fs-royal-capex .fs-table .fs-hint { display: block; min-inline-size: 140px; }
 .fs-royal-capex .fs-table th { overflow-wrap: anywhere; }
+.fs-royal-capex .fs-table thead th:first-child { white-space: nowrap; overflow-wrap: normal; }
+.fs-royal-general-investment .fs-table :is(input,select) { inline-size: 100%; min-inline-size: 100px; }
+.fs-royal-general-investment .fs-table td:nth-child(2) { min-inline-size: 180px; }
+.fs-royal-general-investment .fs-table td:nth-child(3) { min-inline-size: 140px; }
 .fs-royal-capex .fs-table .fs-field { min-width: 0; }
 .fs-royal-capex .fs-table .fs-field span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .fs-royal-capex .fs-table input { min-width: 0; }

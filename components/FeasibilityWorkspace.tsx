@@ -19,6 +19,8 @@ import RawLandPanel from '@/components/feasibility/RawLandPanel';
 import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
 import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
 import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
+import StudyProfilePanel from '@/components/feasibility/StudyProfilePanel';
+import GeneralInvestmentPanel from '@/components/feasibility/GeneralInvestmentPanel';
 import FeasibilitySidebar from '@/components/feasibility/FeasibilitySidebar';
 import StudyRegisters from '@/components/feasibility/StudyRegisters';
 import EvidenceDocuments from '@/components/feasibility/EvidenceDocuments';
@@ -66,9 +68,6 @@ function Field({label,value,onChange,min=0,step='any',hint}:{label:string;value:
 }
 function Info({label,value,sub}:{label:string;value:string;sub?:string}){
  return <div className="fs-metric"><small>{label}</small><strong dir="ltr">{value}</strong>{sub&&<span>{sub}</span>}</div>;
-}
-function SelectField<T extends string>({label,value,items,onChange}:{label:string;value:T;items:Array<{value:T;label:string}>;onChange:(value:T)=>void}){
- return <label className="fs-field"><span>{label}</span><select value={value} onChange={e=>onChange(e.currentTarget.value as T)}>{items.map(x=><option value={x.value} key={x.value}>{x.label}</option>)}</select></label>;
 }
 type WorkspaceProps={
  locale:string;
@@ -366,6 +365,9 @@ function FeasibilityWorkspaceContent({
   }finally{if(currentUserRef.current===requestedUser)setCloudBusy(false)}
  };
  const saveCloud=async()=>{
+  // Both profile save entry points validate uncommitted numeric text before saving.
+  const profileForm=document.querySelector<HTMLFormElement>('form.fs-royal-profile');
+  if(profileForm&&!profileForm.reportValidity())return;
   if(!personalScope){
    if(effectiveReadOnly||!companyScopeReady||organizationBusy||!study||!organizationId)return;
    const row=organizationRecords[study.id];
@@ -511,10 +513,6 @@ function FeasibilityWorkspaceContent({
   if(!personalScope||effectiveReadOnly||!study||!window.confirm(txt(ar,'حذف مسودة هذا المشروع من هذا المتصفح فقط؟','Delete this local draft from this browser only?')))return;
   setStudies(p=>p.filter(s=>s.id!==study.id));setSelectedId(studies.find(x=>x.id!==study.id)?.id||'');
  };
- const choices=<>
-  {!water&&!rawLand&&<SelectField label={txt(ar,'النوع','Sector')} value={study?.sector??'INDUSTRIAL'} items={Object.entries(sectors).map(([value,name])=>({value:value as Sector,label:ar?name.ar:name.en}))} onChange={sector=>update({sector})}/>}
-  <SelectField label={txt(ar,'مرحلة المشروع','Stage')} value={study?.status??'IDEA'} items={Object.entries(projectStatus).map(([value,name])=>({value:value as StudyStatus,label:ar?name.ar:name.en}))} onChange={status=>update({status})}/>
- </>;
  const createCompanyDeniedReason=!personalScope
   ?(!organizationId
     ?txt(ar,'اختر المؤسسة من البانر الرئيسي لبدء دراسة جديدة.','Select an organization from the main banner to create a study.')
@@ -715,7 +713,7 @@ function FeasibilityWorkspaceContent({
      <span className="fs-royal-tag">{txt(ar,'جاهزية','Readiness')} <bdi>{studyReadiness}</bdi></span>
      <span className="fs-royal-tag">{txt(ar,'آخر تعديل','Last updated')} <time dateTime={study.updatedAt}>{new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeZone:'UTC'}).format(new Date(study.updatedAt))}</time></span>
     </div>{personalScope&&<div className="fs-actions">
-    {canOpenCopy&&<Button secondary onClick={openCopy}>{txt(ar,'نسخ إلى مؤسسة','Copy to organization')}</Button>}
+    {canOpenCopy&&tab!=='profile'&&<Button secondary onClick={openCopy}>{txt(ar,'نسخ إلى مؤسسة','Copy to organization')}</Button>}
     <Button secondary onClick={remove} disabled={effectiveReadOnly}>{txt(ar,'حذف المسودة','Delete draft')}</Button>
    </div>}</div>
    {canOpenCopy&&copyRevision!==undefined&&copySelection?.studyId===study.id&&
@@ -758,56 +756,17 @@ function FeasibilityWorkspaceContent({
     <p>{txt(ar,'نسبة الممول في حقوق الملكية','Investor equity share')}: {model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}</p>
     <div className="card fs-panel"><h3>{txt(ar,'إشارات القرار','Decision diagnostics')}</h3><p>{model.cashFundingGap>0?txt(ar,'فجوة التمويل النقدي: ','Cash funding gap: ')+money(model.cashFundingGap):txt(ar,'لا توجد فجوة تمويل نقدية وفق المدخلات.','No positive cash funding gap under current inputs.')}</p><p>{!study.landTransferred&&study.landValue>0?txt(ar,'الأرض لم تنقل للشركة؛ لا تدخل قيمتها السوقية ضمن حقوق ملكيتها.','Land is not transferred; its full market value does not count as company equity.'):txt(ar,'راجع قيمة الحصة العينية مع جهة مستقلة.','Verify any in-kind contribution independently.')}</p><p>{!model.ready?txt(ar,'استكمل الاستثمار والسعر والحجم قبل اعتماد مؤشرات الجدوى.','Enter investment, price and sales volume before relying on projections.'):txt(ar,'النتائج استرشادية، وليست اعتمادًا للقرار الاستثماري.','Results are indicative, not investment approval.')}</p></div>
    </details>}
-   {tab==='profile'&&<div className="fs-block fs-royal-profile">
-    <section className="card fs-panel">
-     <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{txt(ar,'الهوية والوصف','Identity and description')}</h3>
-     <div className="fs-form-grid">
-    <label className="fs-field"><span>{txt(ar,'اسم المشروع','Project title')}</span><input value={study.title} onChange={e=>update({title:e.currentTarget.value})}/></label>
-    {choices}
-    <label className="fs-field"><span>{txt(ar,'الدولة','Country')}</span><input value={study.country} onChange={e=>update({country:e.currentTarget.value})}/></label>
-    <label className="fs-field"><span>{txt(ar,'المدينة أو المنطقة','City / region')}</span><input value={study.region} onChange={e=>update({region:e.currentTarget.value})}/></label>
-    <label className="fs-field"><span>{txt(ar,'عملة الدراسة الواحدة','Study currency')}</span><select value={study.currency} onChange={e=>update({currency:e.currentTarget.value})}><option value="">{txt(ar,'اختر العملة','Select currency')}</option><option>USD</option><option>SYP</option><option>SAR</option><option>EUR</option></select></label>
-      {(water||rawLand)&&<div className="fs-field"><span>{txt(ar,'نوع النشاط','Sector')}</span>
-       <strong>{ar?sectors[study.sector].ar:sectors[study.sector].en}</strong>
-      </div>}
-    <label className="fs-field fs-royal-profile-notes"><span>{txt(ar,'ملاحظات الدراسة','Study notes')}</span><textarea maxLength={5000} value={study.notes??''} onChange={e=>update({notes:e.currentTarget.value})}/></label>
-     </div>
-     <p className="fs-hint">{txt(ar,'تغيير رمز العملة لا يقوم بتحويل القيم؛ يجب تحديث الأرقام يدويًا قبل اعتماد النتائج.','Changing the currency code does not convert amounts; update all figures before using the results.')}</p>
-    </section>
-    <div className="fs-royal-profile-grid">
-     <section className="card fs-panel">
-      <h3 className="fs-royal-report-title"><RoyalIcon name="building"/>{txt(ar,'الموقع والجدوى المبدئية','Location and preliminary feasibility')}</h3>
-      <div className="fs-form-grid">
-       <label className="fs-field"><span>{txt(ar,'موقع المشروع التفصيلي','Detailed project location')}</span><input maxLength={500} value={study.siteDescription??''} onChange={e=>update({siteDescription:e.currentTarget.value})}/></label>
-      </div>
-      <dl className="fs-royal-checks">
-       <div><dt>{txt(ar,'موقع المشروع','Project location')}</dt><dd>{[study.region,study.country].filter(Boolean).join(' · ')||'—'}</dd></div>
-       {water&&<div><dt>{txt(ar,'مساحة الأرض (م²)','Land area (m²)')}</dt><dd><bdi>{fmt(water.deal.landArea)}</bdi></dd></div>}
-       <div><dt>{txt(ar,'مدة التوقعات','Projection horizon')}</dt><dd><bdi>{fmt(water?.ops.horizon??rawLand?.project.years??study.years)}</bdi> {txt(ar,'سنة','years')}</dd></div>
-      </dl>
-      <p className="fs-hint">{txt(ar,'بيانات الموقع أولية. راجع التراخيص والحقوق قبل اعتماد الموقع.', 'Location details are preliminary. Review licences and rights before approving the location.')}</p>
-     </section>
-     <section className="card fs-panel">
-      <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{txt(ar,'بيانات المالك وسياق الدراسة','Owner and study context')}</h3>
-      <label className="fs-field"><span>{txt(ar,'المالك القانوني وفق المستندات','Legal owner as documented')}</span><input maxLength={300} value={study.legalOwner??''} onChange={e=>update({legalOwner:e.currentTarget.value})}/></label>
-      <p className="fs-hint">{txt(ar,'الاسم المصرّح به لا يغيّر ملكية الدراسة أو صلاحياتها، ولا يغني عن التحقق من المستندات.','This declared name does not change study ownership or access and does not replace document verification.')}</p>
-      <dl className="fs-royal-checks">
-       <div><dt>{txt(ar,'نطاق المشروع','Project scope')}</dt><dd>{sharedStudy?txt(ar,'مشتركة','Shared'):personalScope?txt(ar,'شخصي','Personal'):txt(ar,'مؤسسي','Organization')}</dd></div>
-       {!personalScope&&<div><dt>{txt(ar,'المؤسسة المختارة من البنر','Organization selected in the header')}</dt><dd>{organizations.find(item=>item.id===organizationId)?.name||'—'}</dd></div>}
-       <div><dt>{txt(ar,'صلاحية الدراسة','Study access')}</dt><dd>{effectiveReadOnly?txt(ar,'قراءة فقط','Read only'):txt(ar,'تحرير','Editing')}</dd></div>
-       <div><dt>{txt(ar,'الإصدار السحابي','Cloud revision')}</dt><dd>{personalScope?cloudRevisions[study.id]??'—':organizationRecords[study.id]?.revision??'—'}</dd></div>
-      </dl>
-      <div className="fs-form-grid">
-       <label className="fs-field"><span>{txt(ar,'معد الدراسة','Prepared by')}</span><input maxLength={5000} value={study.preparedBy??''} onChange={e=>update({preparedBy:e.currentTarget.value})}/></label>
-    <label className="fs-field"><span>{txt(ar,'تاريخ الدراسة','Study date')}</span><input type="date" value={study.studyDate??''} onChange={e=>update({studyDate:e.currentTarget.value})}/></label>
-      </div>
-     </section>
-    </div>
-   </div>}
-   {!water&&!rawLand&&tab==='investment'&&model&&<section className="card fs-panel"><h3>{txt(ar,'الموازنة الاستثمارية','Investment budget')}</h3><p className="fs-hint">{txt(ar,'أدخل بنود الإنشاء والتجهيز الفعلية. الأرض تظهر في الشراكة ولا تُضاف هنا منعًا لتكرارها.','Enter actual construction and commissioning costs. Land is valued under Partnership to prevent double counting.')}</p>
-    <div className="fs-table-wrap"><table className="fs-table"><thead><tr><th>{txt(ar,'البند','Item')}</th><th>{txt(ar,'الفئة','Category')}</th><th>{txt(ar,'القيمة','Amount')}</th><th></th></tr></thead><tbody>{study.capex.map(item=><tr key={item.id}><td><input value={item.label} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,label:e.currentTarget.value}:x)})}/></td><td><select value={item.category} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,category:e.currentTarget.value as typeof x.category}:x)})}>{['BUILDINGS','EQUIPMENT','UTILITIES','LICENCES','OTHER'].map(v=><option key={v} value={v}>{v}</option>)}</select></td><td><input type="number" min="0" value={item.amount} onChange={e=>update({capex:study.capex.map(x=>x.id===item.id?{...x,amount:Number(e.currentTarget.value)||0}:x)})}/></td><td><button type="button" aria-label={txt(ar,'حذف','Remove')} onClick={()=>update({capex:study.capex.filter(x=>x.id!==item.id)})}>×</button></td></tr>)}</tbody><tfoot><tr><th colSpan={2}>{txt(ar,'الإجمالي','Total')}</th><th>{money(model.capex)}</th><th/></tr></tfoot></table></div>
-    <Button secondary onClick={()=>update({capex:[...study.capex,{id:uid(),label:txt(ar,'بند جديد','New item'),category:'OTHER',amount:0}]})}>{txt(ar,'+ إضافة بند','+ Add item')}</Button><div className="fs-form-grid"><Field label={txt(ar,'رأس المال العامل الأولي','Opening working capital')} value={study.workingCapital} onChange={setNum('workingCapital')}/><Field label={txt(ar,'الصيانة الرأسمالية السنوية التقريبية','Indicative yearly maintenance')} value={study.annualMaintenance} onChange={setNum('annualMaintenance')}/></div>
-   </section>}
+   {tab==='profile'&&<StudyProfilePanel key={study.id} study={study} locale={locale}
+    personalScope={personalScope} shared={!!sharedStudy} readOnly={effectiveReadOnly}
+    organizationName={organizations.find(item=>item.id===organizationId)?.name}
+    revision={personalScope?cloudRevisions[study.id]:organizationRecords[study.id]?.revision}
+    savedToCloud={personalScope?cloudSavedStudyVersions[study.id]===study.updatedAt:organizationRecords[study.id]?.study.updatedAt===study.updatedAt}
+    saveBusy={personalScope?cloudBusy:organizationBusy} onChange={update}
+    onSave={cloudEnabled||!personalScope?()=>void saveCloud():undefined}
+    onCopy={canOpenCopy?openCopy:undefined}
+    sectorOptions={Object.entries(sectors).map(([value,name])=>({value:value as Sector,label:ar?name.ar:name.en}))}
+    statusOptions={Object.entries(projectStatus).map(([value,name])=>({value:value as StudyStatus,label:ar?name.ar:name.en}))}/>}
+   {!water&&!rawLand&&tab==='investment'&&<GeneralInvestmentPanel study={study} locale={locale} onChange={update}/>}
    {!water&&!rawLand&&tab==='partners'&&model&&<section className="card fs-panel"><h3>{txt(ar,'المساهمات وحصص الملكية','Contributions and equity')}</h3><label className="fs-check"><input type="checkbox" checked={study.landTransferred} onChange={e=>update({landTransferred:e.currentTarget.checked})}/>{txt(ar,'تُنقل الأرض إلى ملكية الشركة كحصة عينية مثبتة','Land is transferred into company ownership as an independently valued in-kind contribution')}</label>
     <div className="fs-form-grid"><Field label={txt(ar,'القيمة المقدرة للأرض','Estimated land value')} value={study.landValue} onChange={setNum('landValue')}/><Field label={txt(ar,'مساهمة الممول كرأس مال','Investor equity cash')} value={study.investorEquity} onChange={setNum('investorEquity')}/><Field label={txt(ar,'مساهمة صاحب الأرض النقدية','Land partner cash equity')} value={study.partnerCashEquity} onChange={setNum('partnerCashEquity')}/><Field label={txt(ar,'قرض الممول إلى الشركة','Investor shareholder loan')} value={study.investorLoan} onChange={setNum('investorLoan')}/><Field label={txt(ar,'تمويل ديون أخرى','Other debt')} value={study.otherDebt} onChange={setNum('otherDebt')}/></div>
     <div className="fs-kpis"><Info label={txt(ar,'حصة الممول','Investor ownership')} value={model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}/><Info label={txt(ar,'حصة صاحب الأرض','Land partner ownership')} value={model.partnerShare===null?'—':fmt(model.partnerShare,2)+'%'}/><Info label={txt(ar,'فجوة التمويل النقدي','Cash funding gap')} value={money(model.cashFundingGap)}/></div>
@@ -833,12 +792,6 @@ function FeasibilityWorkspaceContent({
    </section>}
    {!water&&!rawLand&&model?.ready&&tab==='cashflow'&&<RoyalCashTrend
     title={txt(ar,'التدفق النقدي التراكمي','Cumulative cash flow')} locale={locale} unit={study.currency} flows={model.flows}/>}
-   {!water&&!rawLand&&model&&tab==='investment'&&<RoyalBars title={txt(ar,'توزيع تكاليف الاستثمار','Investment cost distribution')}
-    locale={locale} unit={study.currency} data={[
-     {label:txt(ar,'بنود التأسيس','Capital items'),value:model.capex},
-     {label:txt(ar,'رأس المال العامل','Working capital'),value:study.workingCapital},
-     {label:txt(ar,'الأرض العينية','In-kind land'),value:model.landAsset}
-    ]}/>}
    {!water&&!rawLand&&model&&tab==='partners'&&<RoyalOwnership title={txt(ar,'حصص الملكية الاقتصادية','Economic ownership')}
     locale={locale} data={[
      {label:txt(ar,'الممول','Investor'),value:model.investorShare??0},

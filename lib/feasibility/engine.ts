@@ -8,6 +8,7 @@ import type {WaterModel} from './water-model';
 
 export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTURE'|'CUSTOM';
 export type StudyStatus='IDEA'|'FEASIBILITY'|'APPROVED'|'ESTABLISHMENT'|'OPERATING'|'CANCELLED';
+export type StudyType='NEW_PROJECT'|'EXPANSION'|'ACQUISITION';
 export type TaskStatus='TODO'|'IN_PROGRESS'|'BLOCKED'|'DONE';
 export type ChecklistStatus='NOT_STARTED'|'UNDER_REVIEW'|'VERIFIED'|'BLOCKED';
 export type StudyTab='overview'|'profile'|'investment'|'partners'|'operations'|'scenarios'|'cashflow'|'advanced'|'sector'|'legal'|'tasks'|'risks'|'suppliers'|'decisions'|'handoff'|'sharing'|'report';
@@ -51,6 +52,8 @@ export interface FeasibilityStudy {
  rawLand?:RawLand;water?:WaterModel;preparedBy?:string;studyDate?:string;notes?:string;
  /** Declared document details only; never used to authorize access or transfer ownership. */
  legalOwner?:string;siteDescription?:string;
+ /** Descriptive profile inputs; specialized models retain their own canonical year/area. */
+ studyType?:StudyType;projectStartYear?:number;siteAreaM2?:number;
  createdAt:string; updatedAt:string;
 }
 export type Scenario='CONSERVATIVE'|'BASE'|'OPTIMISTIC';
