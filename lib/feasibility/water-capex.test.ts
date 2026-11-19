@@ -34,10 +34,12 @@ describe('explicit water CAPEX quote replacement',()=>{
  it('matches manual-entry financial results and retains evidence after a manual cost edit',()=>{
   const water=createWaterModel();
   Object.assign(water.capex,{buildings:1000,power:1000});
-  Object.assign(water.ops,{bottlesHour:2000,hoursDay:8,daysMonth:22,bottlesCarton:12,priceCarton:5,variableCarton:2,fixedMonth:100,life:7,discountRate:12,util:Array(10).fill(70)});
+  Object.assign(water.ops,{bottlesHour:100,hoursDay:8,daysMonth:20,bottlesCarton:12,priceCarton:5,variableCarton:2,fixedMonth:100,life:7,discountRate:12,util:Array(10).fill(70)});
   const manual={...water,capex:{...water.capex,line:quote.offer}};
   const imported=applyWaterCapexQuote(water,[quote],quote.id,'line','USD',true)!;
   expect(evaluateWater(imported).ready).toBe(true);
+  expect(evaluateWater(imported).npv).not.toBeNull();
+  expect(evaluateWater(imported).irr).not.toBeNull();
   expect(evaluateWater(imported)).toEqual(evaluateWater(manual));
   imported.capex.line=6000;
   expect(imported.capexQuoteSources!.line!.amount).toBe(5000);

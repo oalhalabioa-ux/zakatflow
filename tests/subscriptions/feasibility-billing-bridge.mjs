@@ -661,7 +661,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.getByRole('button',{name:'Add project +',exact:true}).click();
    await page.getByRole('button',{name:'Profile',exact:true}).click();
    await page.getByLabel('Country',{exact:true}).fill('Synthetic country');
-   await page.getByLabel('Study currency',{exact:true}).selectOption('USD');
+   await page.getByRole('combobox',{name:'Study currency',exact:true}).selectOption('USD');
    await page.getByLabel('Detailed project location',{exact:true}).fill('Synthetic site');
    await page.getByLabel('Legal owner as documented',{exact:true}).fill('Synthetic documented owner');
    await page.getByRole('button',{name:'Supplier quotes',exact:true}).click();
@@ -673,8 +673,8 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.getByRole('button',{name:'Investment',exact:true}).click();
    await page.getByRole('button',{name:'Import supplier quote',exact:true}).click();
    const dialog=page.getByRole('dialog');
-   await dialog.getByLabel('Supplier quote',{exact:true}).selectOption({index:1});
-   await dialog.getByLabel('Target investment item',{exact:true}).selectOption('line');
+   await dialog.getByRole('combobox',{name:'Supplier quote',exact:true}).selectOption({index:1});
+   await dialog.getByRole('combobox',{name:'Target investment item',exact:true}).selectOption('line');
    const apply=dialog.getByRole('button',{name:'Apply quote to item',exact:true});
    assert.equal(await apply.isDisabled(),true);
    await dialog.getByRole('checkbox').check();await apply.click();
