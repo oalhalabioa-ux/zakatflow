@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { createZatcaCsr, zatcaEgsSerialNumber } from './vat-zatca-csr';
+import { createZatcaCsr, createZatcaDeveloperSandboxCsr, zatcaEgsSerialNumber } from './vat-zatca-csr';
 
 describe('ZATCA CSR creation', () => {
   it('creates a signed simulation CSR using the KMS signing callback', async () => {
@@ -52,7 +52,29 @@ describe('ZATCA CSR creation', () => {
     }
   });
 
-  it('uses the mandatory simulation template and produces an EGS serial with a UUIDv4', async () => {
+  it('keeps the accepted Developer Sandbox template and serial encoding separate from FATOORA', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'secp256k1' });
+    const publicKeyInfo = publicKey.export({ type: 'spki', format: 'der' });
+    const serial = zatcaEgsSerialNumber();
+    const csr = await createZatcaDeveloperSandboxCsr({
+      commonName: 'QA Device', taxpayerVatNumber: '399999999900003',
+      branchName: 'Riyadh QA', organizationName: 'Synthetic Tests', serialNumber: serial,
+      invoiceType: '1100', registeredAddress: 'RRRD2929', businessCategory: 'Software',
+    }, publicKeyInfo, async request => sign('sha256', request, privateKey));
+    const der = Buffer.from(csr.replace(/-----[^\n]+-----/g, '').replace(/\s/g, ''), 'base64');
+    // Directory name serial RDN: surname OID 2.5.4.4, then UTF8String.
+    const serialValue = Buffer.from(serial, 'utf8');
+    expect(der.includes(Buffer.concat([Buffer.from([6, 3, 0x55, 4, 4, 0x0c, serialValue.length]), serialValue]))).toBe(true);
+    const template = Buffer.from('ZATCA-Code-Signing');
+    expect(der.includes(Buffer.concat([Buffer.from([0x04, template.length + 2, 0x0c, template.length]), template]))).toBe(true);
+    expect(der.includes(Buffer.from([6, 3, 0x55, 4, 5]))).toBe(false);
+    const checked = spawnSync('openssl', ['req', '-noout', '-verify'], { input: csr, encoding: 'utf8' });
+    if (checked.error?.message.includes('ENOENT')) return;
+    expect(checked.status, checked.stderr).toBe(0);
+    expect(checked.stderr + checked.stdout).toMatch(/verify OK/i);
+  });
+
+  it('produces an EGS serial with a UUIDv4', () => {
     const serial = zatcaEgsSerialNumber();
     expect(serial).toMatch(/^1-ZakatFlow\|2-1\.0\|3-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   });
