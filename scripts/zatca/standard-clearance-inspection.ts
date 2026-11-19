@@ -1,6 +1,122 @@
+import { verify, X509Certificate } from 'node:crypto';
 import { prepareZatcaInvoiceHash } from '../../lib/zatca-xml-hash';
 import { inspectSimulationCertificateDiscovery } from './simulation-certificate-discovery';
-import type { XmlElement } from 'libxml2-wasm';
+import type { XmlC14NMode, XmlElement, XmlNode } from 'libxml2-wasm';
+
+const signatureNamespace = 'http://www.w3.org/2000/09/xmldsig#';
+const exclusiveNamespace = 'http://www.w3.org/2001/10/xml-exc-c14n#';
+const canonicalModes = {
+  'http://www.w3.org/TR/2001/REC-xml-c14n-20010315': [0, false],
+  'http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments': [0, true],
+  [exclusiveNamespace]: [1, false],
+  [exclusiveNamespace + 'WithComments']: [1, true],
+  'http://www.w3.org/2006/12/xml-c14n11': [2, false],
+  'http://www.w3.org/2006/12/xml-c14n11#WithComments': [2, true],
+} satisfies Record<string, [typeof XmlC14NMode[keyof typeof XmlC14NMode], boolean]>;
+
+function decodeXmlBase64(value: string, maxCharacters: number) {
+  if (value.length > maxCharacters) return null;
+  const clean = value.replace(/[ \t\r\n]/g, '');
+  if (!clean) return null;
+  const bytes = Buffer.from(clean, 'base64');
+  return bytes.toString('base64') === clean ? bytes : null;
+}
+
+function inspectStamp(signature: XmlNode, certificateNodes: XmlNode[], originalHash: string, returnedHash: string) {
+  const ns = { ds: signatureNamespace, ec: exclusiveNamespace };
+  const signedInfo = signature.find('./ds:SignedInfo', ns);
+  const references = signature.find('./ds:SignedInfo/ds:Reference', ns);
+  const documentReferences = signature.find('./ds:SignedInfo/ds:Reference[@URI=""]', ns);
+  const namedReferences = signature.find('./ds:SignedInfo/ds:Reference[@Id="invoiceSignedData"]', ns);
+  const info = {
+    referenceCount: references.length,
+    emptyUriReferenceCount: documentReferences.length,
+    namedInvoiceReferenceCount: namedReferences.length,
+    selectedReference: 'UNAVAILABLE' as 'UNAVAILABLE' | 'EMPTY_URI' | 'NAMED_INVOICE',
+    declaredDigest: 'UNAVAILABLE' as 'UNAVAILABLE' | 'SHA256' | 'UNSUPPORTED',
+    referenceMatchesSubmittedHash: false,
+    referenceMatchesReturnedHash: false,
+    signatureMethod: 'UNAVAILABLE' as 'UNAVAILABLE' | 'ECDSA_SHA256' | 'RSA_SHA256' | 'UNSUPPORTED',
+    canonicalSignedInfoSignature: 'NOT_CHECKED' as 'NOT_CHECKED' | 'MATCHED' | 'MISMATCHED',
+    signedInfoMatchesXmlDsigEncoding: false,
+    invoiceDigestSignatureMatches: false,
+    matchingEmbeddedKeyCount: 0,
+  };
+  if (signedInfo.length !== 1) return info;
+  const reference = documentReferences.length === 1 && (namedReferences.length === 0 || namedReferences.length === 1 && documentReferences[0].find('./@Id[.="invoiceSignedData"]', ns).length === 1)
+    ? documentReferences[0]
+    : documentReferences.length === 0 && namedReferences.length === 1 && !namedReferences[0].find('./@URI', ns).length ? namedReferences[0] : null;
+  let digest: Buffer | null = null;
+  if (reference) {
+    info.selectedReference = documentReferences.length ? 'EMPTY_URI' : 'NAMED_INVOICE';
+    const method = reference.find('./ds:DigestMethod/@Algorithm', ns);
+    const digests = reference.find('./ds:DigestValue[not(*)]', ns);
+    if (method.length === 1) info.declaredDigest = method[0].content === 'http://www.w3.org/2001/04/xmlenc#sha256' ? 'SHA256' : 'UNSUPPORTED';
+    const candidate = digests.length === 1 && info.declaredDigest === 'SHA256' ? decodeXmlBase64(digests[0].content, 256) : null;
+    if (candidate?.length === 32) {
+      digest = candidate;
+      info.referenceMatchesSubmittedHash = digest.toString('base64') === originalHash;
+      info.referenceMatchesReturnedHash = digest.toString('base64') === returnedHash;
+    }
+  }
+
+  const methods = signature.find('./ds:SignedInfo/ds:SignatureMethod[not(*)]/@Algorithm', ns);
+  const algorithm = methods.length === 1 ? methods[0].content : '';
+  const methodPrefix = 'http://www.w3.org/2001/04/xmldsig-more#';
+  if (!algorithm) return info;
+  info.signatureMethod = algorithm === methodPrefix + 'ecdsa-sha256' ? 'ECDSA_SHA256'
+    : algorithm === methodPrefix + 'rsa-sha256' ? 'RSA_SHA256' : 'UNSUPPORTED';
+  if (info.signatureMethod === 'UNSUPPORTED') return info;
+
+  const values = signature.find('./ds:SignatureValue[not(*)]', ns);
+  const value = values.length === 1 ? decodeXmlBase64(values[0].content, 4096) : null;
+  if (!value || certificateNodes.length < 1 || certificateNodes.length > 5) return info;
+
+  const canonicalization = signedInfo[0].find('./ds:CanonicalizationMethod', ns);
+  const canonAlgorithm = signedInfo[0].find('./ds:CanonicalizationMethod/@Algorithm', ns);
+  const canon = canonAlgorithm.length === 1 ? canonAlgorithm[0].content : '';
+  const mode = Object.hasOwn(canonicalModes, canon) ? canonicalModes[canon as keyof typeof canonicalModes] : undefined;
+  let signedBytes: Buffer | null = null;
+  if (canonicalization.length === 1 && mode) {
+    const children = canonicalization[0].find('./*', ns);
+    const prefixList = canonicalization[0].find('./ec:InclusiveNamespaces/@PrefixList', ns);
+    const prefixes = prefixList.length === 1 ? prefixList[0].content.trim().split(/\s+/).filter(Boolean) : [];
+    if (!children.length || (mode[0] === 1 && children.length === 1 && prefixList.length === 1
+        && prefixes.length <= 32 && prefixes.every(p => /^(?:#default|[A-Za-z_][\w.-]{0,63})$/.test(p)))) {
+      signedBytes = Buffer.from(signedInfo[0].canonicalizeToString({
+        mode: mode[0], withComments: mode[1], inclusiveNamespacePrefixes: prefixes,
+      }));
+    }
+  }
+  const testedKeys = new Set<string>();
+  for (const node of certificateNodes) {
+    const der = node.find('./*', ns).length ? null : decodeXmlBase64(node.content, 24576);
+    if (!der) continue;
+    try {
+      const certificate = new X509Certificate(der);
+      if (!certificate.raw.equals(der)) continue;
+      const key = certificate.publicKey;
+      const ec = info.signatureMethod === 'ECDSA_SHA256';
+      if (key.asymmetricKeyType !== (ec ? 'ec' : 'rsa')) continue;
+      const spki = key.export({ type: 'spki', format: 'der' }).toString('base64');
+      if (testedKeys.has(spki)) continue;
+      testedKeys.add(spki);
+      const check = (bytes: Buffer, dsaEncoding: 'der' | 'ieee-p1363') => {
+        try { return verify('sha256', bytes, { key, dsaEncoding }, value); }
+        catch { return false; }
+      };
+      const xmlEncoding = signedBytes && (ec ? check(signedBytes, 'ieee-p1363') : check(signedBytes, 'der'));
+      if (signedBytes && info.canonicalSignedInfoSignature === 'NOT_CHECKED') info.canonicalSignedInfoSignature = 'MISMATCHED';
+      if (xmlEncoding || ec && signedBytes && check(signedBytes, 'der')) {
+        info.canonicalSignedInfoSignature = 'MATCHED';
+        info.signedInfoMatchesXmlDsigEncoding ||= Boolean(xmlEncoding);
+        info.matchingEmbeddedKeyCount++;
+      }
+      if (digest && (check(digest, 'der') || ec && check(digest, 'ieee-p1363'))) info.invoiceDigestSignatureMatches = true;
+    } catch { /* Malformed certificate or unsupported public key, no values returned. */ }
+  }
+  return info;
+}
 
 /** Read-only diagnostic of already saved XML. No financial values, raw XML,
  * certificate bytes, digest or taxpayer identity is returned. Expanded-content
@@ -11,6 +127,7 @@ export async function inspectStandardClearedDocument(xml: string, original: { xm
     canonicalInvoiceHashMatched: false, expandedContentMatched: false, uuidMatched: false,
     embeddedInvoiceHashMatched: false, stampCount: 0, signatureValueCount: 0, certificateCount: 0,
     qrCount: 0, qrCharacters: 0, stampStructurePresent: false,
+    stampCryptography: null as ReturnType<typeof inspectStamp> | null,
     authorityCertificateDiscovery: null as ReturnType<typeof inspectSimulationCertificateDiscovery> | null,
     failureCode: 'XML_REJECTED' as string | null, authorityStampVerified: false, trustVerified: false, activationAllowed: false };
   try {
@@ -22,7 +139,7 @@ export async function inspectStandardClearedDocument(xml: string, original: { xm
       const ns = { i: 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2',
         cbc: 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
         cac: 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
-        ext: 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2', ds: 'http://www.w3.org/2000/09/xmldsig#' };
+        ext: 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2', ds: signatureNamespace };
       const uuid = doc.find('/i:Invoice/cbc:UUID', ns), stamps = doc.find('/i:Invoice/ext:UBLExtensions//ds:Signature', ns);
       const signatures = doc.find('/i:Invoice/ext:UBLExtensions//ds:Signature/ds:SignatureValue', ns);
       const certs = doc.find('/i:Invoice/ext:UBLExtensions//ds:Signature/ds:KeyInfo/ds:X509Data/ds:X509Certificate', ns);
@@ -36,6 +153,10 @@ export async function inspectStandardClearedDocument(xml: string, original: { xm
       checked.stampStructurePresent = stamps.length === 1 && signatures.length === 1 && !!signatures[0].content.trim()
         && certs.length > 0 && certs.length <= 5 && certs.every(c => !!c.content.trim())
         && qr.length === 1 && checked.qrCharacters > 0 && checked.qrCharacters <= 700;
+      if (stamps.length === 1) {
+        try { checked.stampCryptography = inspectStamp(stamps[0], certs, original.invoiceHash, returnedHash.invoiceHashBase64); }
+        catch { /* Keep the independent document/structure checks available. */ }
+      }
       if (certs.length === 1) {
         try { checked.authorityCertificateDiscovery = inspectSimulationCertificateDiscovery(Buffer.from(certs[0].content.replace(/\s/g, ''), 'base64')); }
         catch { /* Optional metadata must not replace the actual match result. */ }

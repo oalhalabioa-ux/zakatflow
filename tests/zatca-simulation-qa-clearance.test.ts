@@ -1,4 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { createHash, randomUUID, sign, X509Certificate } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { createStandardClearanceQa } from '../scripts/zatca/standard-clearance-qa';
 import { prepareZatcaInvoiceHash } from '../lib/zatca-xml-hash';
@@ -200,6 +204,53 @@ describe('isolated STANDARD Simulation clearance protocol', () => {
     expect(result).toHaveProperty('protocolPassed', false); expect(result).toHaveProperty('authorityStampVerified', false);
     expect(JSON.stringify(result)).not.toContain('urn:synthetic:unused');
     await expect(f.api.submit(input(p, 1))).rejects.toThrow('QA_CLEARANCE_PREVIOUS_REQUIRED'); expect(f.transport).toHaveBeenCalledTimes(1);
+  });
+  it('checks the saved stamp against its embedded key and distinguishes the XML signature and invoice digest profiles', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'synthetic-clearance-stamp-'));
+    try {
+      execFileSync('/usr/bin/openssl', ['req', '-new', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1',
+        '-nodes', '-subj', '/CN=Synthetic Clearance Stamp', '-days', '1', '-keyout', 'key.pem', '-out', 'cert.pem'],
+      { cwd: directory, stdio: 'pipe' });
+      const key = readFileSync(join(directory, 'key.pem'));
+      const cert = new X509Certificate(readFileSync(join(directory, 'cert.pem'))).raw.toString('base64');
+      const { XmlDocument, XmlC14NMode } = await import('libxml2-wasm');
+      const ds = 'http://www.w3.org/2000/09/xmldsig#';
+      for (const variant of ['signed-info', 'signed-digest', 'wrong-signature', 'duplicate-reference']) {
+        const f = fixture(), prepared = await f.api.prepare(), artifact = f.manifest().artifacts[0];
+        const reference = `<ds:Reference URI=""><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>${artifact.invoiceHash}</ds:DigestValue></ds:Reference>`;
+        const signature = `<ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2006/12/xml-c14n11"/><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#ecdsa-sha256"/>${reference.repeat(variant === 'duplicate-reference' ? 2 : 1)}</ds:SignedInfo>`;
+        let xml = syntheticClearedXml(artifact.xml)
+          .replace('<ds:SignatureValue>U1lOVEhFVElD</ds:SignatureValue>', signature + '<ds:SignatureValue>STAMP_VALUE</ds:SignatureValue>')
+          .replace('<ds:X509Certificate>U1lOVEhFVElD</ds:X509Certificate>', `<ds:X509Certificate>${cert}</ds:X509Certificate>`);
+        const doc = XmlDocument.fromString(xml);
+        let signedInfo: string;
+        try {
+          signedInfo = doc.find('//ds:SignedInfo', { ds })[0].canonicalizeToString({ mode: XmlC14NMode.XML_C14N_1_1 });
+        } finally { doc.dispose(); }
+        const payload = variant === 'signed-digest' ? Buffer.from(artifact.invoiceHash, 'base64')
+          : Buffer.from(variant === 'wrong-signature' ? 'different payload' : signedInfo);
+        xml = xml.replace('STAMP_VALUE', sign('sha256', payload, { key, dsaEncoding: 'ieee-p1363' }).toString('base64'));
+        f.transport.mockResolvedValueOnce(new Response(JSON.stringify(reply(xml)), { status: 202 }));
+        const result = await f.api.submit(input(prepared));
+        expect(result).toHaveProperty('results.0.returnedInspection.stampCryptography', {
+          referenceCount: variant === 'duplicate-reference' ? 2 : 1,
+          emptyUriReferenceCount: variant === 'duplicate-reference' ? 2 : 1,
+          namedInvoiceReferenceCount: 0,
+          selectedReference: variant === 'duplicate-reference' ? 'UNAVAILABLE' : 'EMPTY_URI',
+          declaredDigest: variant === 'duplicate-reference' ? 'UNAVAILABLE' : 'SHA256',
+          referenceMatchesSubmittedHash: variant !== 'duplicate-reference',
+          referenceMatchesReturnedHash: variant !== 'duplicate-reference',
+          signatureMethod: 'ECDSA_SHA256',
+          canonicalSignedInfoSignature: ['signed-info', 'duplicate-reference'].includes(variant) ? 'MATCHED' : 'MISMATCHED',
+          signedInfoMatchesXmlDsigEncoding: ['signed-info', 'duplicate-reference'].includes(variant),
+          invoiceDigestSignatureMatches: variant === 'signed-digest',
+          matchingEmbeddedKeyCount: ['signed-info', 'duplicate-reference'].includes(variant) ? 1 : 0,
+        });
+        expect(result).toMatchObject({ protocolPassed: false, authorityStampVerified: false, trustVerified: false, activationAllowed: false });
+        expect(JSON.stringify(result)).not.toContain(cert);
+        expect(JSON.stringify(result)).not.toContain(artifact.invoiceHash);
+      }
+    } finally { rmSync(directory, { recursive: true, force: true }); }
   });
   it.each(['amount','attribute','namespace','order','leaf-space'] as const)('detects changed %s in expanded content without exposing values', async mode => {
     const f = fixture(), p = await f.api.prepare(), a = f.manifest().artifacts[0]; let changed = syntheticClearedXml(a.xml);
