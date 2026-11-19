@@ -123,4 +123,79 @@ export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
    await writeFile(new URL('./water-financial-policy-result.json',import.meta.url),JSON.stringify(evidence,null,2));
   }finally{for(const context of contexts)await context.close();}
  });
+ await runWaterEquityFinancingBrowser({browser,cookies,check});
+}
+
+async function runWaterEquityFinancingBrowser({browser,cookies,check}){
+ await check('Water grace interest, equity-return separation, terminal debt and saved bilingual exports',async()=>{
+  const app='http://localhost:3000',context=await browser.newContext({viewport:{width:1440,height:1000}});
+  const path=name=>new URL('./screenshots/'+name,import.meta.url).pathname;
+  const csvRows=text=>text.replace(/^\uFEFF/,'').split('\r\n').map(line=>[...line.matchAll(/"((?:[^"]|"")*)"(?:,|$)/g)].map(x=>x[1].replaceAll('""','"')));
+  const evidence={source:'disposable-local-Auth/API/Chromium',head:process.env.GITHUB_SHA||'LOCAL',screenshots:[],pdfs:[],assertions:[]};
+  try{
+   await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:app})));
+   const page=await context.newPage();page.setDefaultTimeout(15000);await page.goto(app+'/en/feasibility?scope=PERSONAL');
+   let response=await page.request.get(app+'/api/feasibility/projects');assert.equal(response.status(),200);
+   const rows=await response.json(),study=structuredClone(rows.find(x=>x.title==='Synthetic cash-cycle water acceptance').study);
+   study.id=randomUUID();study.title='Synthetic grace and equity acceptance';const w=study.water;
+   delete w.financingPolicy;w.capex.buildings=0;w.capex.line=1000;w.capex.workingCapital=0;
+   w.ops.horizon=3;w.ops.nwcPct=0;w.deal.loanStart=2;w.deal.loanYears=3;
+   w.financialPolicy={workingCapitalMode:'PERCENT',inventoryDays:0,payableDays:0,daysPerYear:365,depreciationMode:'CAPPED',
+    assetLives:{},workingCapitalRecoveryPct:0,terminalAssetProceeds:0,evidence:'Synthetic 2-year depreciation; no working capital.'};
+   response=await page.request.post(app+'/api/feasibility/projects',{headers:{Origin:app},data:{study}});assert.equal(response.status(),201,await response.text());
+   await page.getByRole('button',{name:'Restore from cloud',exact:true}).click();
+   await page.getByRole('button',{name:new RegExp(study.title)}).click();await page.getByRole('button',{name:'Advanced model',exact:true}).click();
+   const policy=page.locator('.fs-water-financing');
+   await policy.getByRole('checkbox',{name:'Use explicit financing and equity returns',exact:true}).check();
+   await policy.getByRole('combobox',{name:'Grace-period interest',exact:true}).selectOption('CAPITALIZE');
+   await policy.getByRole('combobox',{name:'Paid-interest tax treatment',exact:true}).selectOption('PAID');
+   await policy.getByText('Debt remains beyond the forecast: extend the horizon or select terminal settlement to show equity IRR',{exact:true}).waitFor();
+   await policy.getByRole('combobox',{name:'Debt remaining at forecast end',exact:true}).selectOption('SETTLE');
+   await policy.getByRole('textbox',{name:'Financing terms evidence',exact:true}).fill('Synthetic loan 300 at 10%, 1-year capitalized grace, 3 principal instalments, final settlement. No real financing.');
+   const posted=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/projects'&&r.request().method()==='PATCH');
+   await page.getByRole('button',{name:'Save to cloud',exact:true}).click();assert.equal((await posted).status(),200);
+   response=await page.request.get(app+'/api/feasibility/projects');assert.equal(response.status(),200);
+   const saved=(await response.json()).find(x=>x.id===study.id).study.water;
+   assert.deepEqual({...saved.financingPolicy,evidence:''},{graceInterest:'CAPITALIZE',interestTaxMode:'PAID',terminalDebt:'SETTLE',evidence:''});
+   assert.equal(saved.deal.loanStart,2);assert.equal(saved.deal.investorLoan,300);
+   await page.reload();await page.getByRole('button',{name:'Advanced model',exact:true}).click();
+   assert.equal(await policy.getByRole('combobox',{name:'Grace-period interest',exact:true}).inputValue(),'CAPITALIZE');
+   let downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Export equity returns CSV',exact:true}).click();
+   const equityDownload=await downloading,equity=csvRows(await readFile(await equityDownload.path(),'utf8'));
+   assert.equal(equity.length,5);const val=(i,n)=>Number(equity[i][equity[0].indexOf(n)]);
+   assert.equal(val(1,'All equity holders'),-700);assert.equal(val(1,'Shareholder loan'),-300);assert.equal(val(1,'Investor: equity and loan'),-1000);
+   assert.equal(val(2,'All equity holders'),580);assert.ok(Math.abs(val(3,'All equity holders')-443.6)<1e-9);
+   assert.ok(Math.abs(val(4,'All equity holders')-242.4)<1e-9);assert.equal(val(4,'Shareholder loan'),242);
+   assert.ok(Math.abs(val(4,'Investor: equity and loan')-484.4)<1e-9);
+   await writeFile(path('template-finance-water-equity.csv'),await readFile(await equityDownload.path()));
+   await page.getByRole('button',{name:'Report and export',exact:true}).click();
+   downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Export forecast CSV',exact:true}).click();
+   const forecast=csvRows(await readFile(await (await downloading).path(),'utf8'));
+   const fv=(i,n)=>Number(forecast[i][forecast[0].indexOf(n)]);
+   assert.equal(fv(2,'Capitalized interest'),30);assert.equal(fv(4,'Terminal debt settlement'),110);assert.equal(fv(4,'Closing loan balance'),0);
+   assert.ok(Math.abs(fv(4,'Indicative interest tax saving')-4.4)<1e-9);
+   assert.ok(Math.abs(fv(4,'Debt service coverage (DSCR)')-484.4/242)<1e-9);
+   for(let i=1;i<=4;i++)assert.ok(Math.abs(val(i,'All equity holders')+val(i,'Shareholder loan')-fv(i,'Project free cash flow')-fv(i,'Indicative interest tax saving'))<1e-8);
+   evidence.assertions.push('Real UI: capitalization/paid tax/final settlement PATCH/read/reload; separate equity CSV -700/580/443.6/242.4; shareholder-loan inception -300 and final receipt242; debt closes0; DSCR484.4/242; project/equity/loan reconciliation each year.');
+   for(const locale of ['ar','en'])for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000});await page.goto(app+'/'+locale+'/feasibility?scope=PERSONAL');const ar=locale==='ar';
+    await page.getByRole('button',{name:ar?'النموذج المالي المتقدم':'Advanced model',exact:true}).click();
+    assert.equal(await page.locator('.fs-water-financing select').first().inputValue(),'CAPITALIZE');
+    for(const kind of ['advanced','report']){
+     if(kind==='report')await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();
+     await page.evaluate(()=>document.fonts.ready);assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
+     const shot='template-finance-water-equity-'+kind+'-'+locale+'-'+width+'.png';await page.screenshot({path:path(shot),fullPage:true});evidence.screenshots.push(shot);
+     if(kind==='report'&&width===1440){
+      await page.emulateMedia({media:'print'});
+      try{
+       assert.equal(await page.locator('.fs-print-report button:visible').count(),0);
+       const name='template-finance-water-equity-'+locale+'.pdf',bytes=await page.pdf({path:path(name),format:'A4',landscape:true,printBackground:true,margin:{top:'12mm',bottom:'12mm',left:'10mm',right:'10mm'}});
+       evidence.pdfs.push({file:name,pages:(bytes.toString('latin1').match(/\/Type\s*\/Page\b/g)??[]).length});
+      }finally{await page.emulateMedia({media:null});}
+     }
+    }
+   }
+   await writeFile(new URL('./water-equity-financing-result.json',import.meta.url),JSON.stringify(evidence,null,2));
+  }finally{await context.close();}
+ });
 }

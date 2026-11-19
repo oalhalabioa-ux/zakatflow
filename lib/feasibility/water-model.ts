@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {internalRateOfReturn, type FeasibilityStudy} from './engine';
 import {quantityBudgetSchema,evaluateQuantityBudget} from './quantity-costs';
+import {waterFinancingPolicySchema,waterDebtSchedule,waterFinancingReadiness,waterEquityReturns} from './water-financing';
 
 const amount=z.number().finite().min(0).max(1e12);
 const pct=z.number().finite().min(0).max(100);
@@ -15,6 +16,7 @@ const waterUnitCosts=z.object({
 }).strict();
 export const emptyWaterUnitCosts={bottle:0,cap:0,label:0,carton:0,kwh:0,rawWaterM3:0,distributionKm:0};
 export const waterModelSchema=z.object({
+ financingPolicy:waterFinancingPolicySchema.optional(),
  financialPolicy:z.object({
   workingCapitalMode:z.enum(['PERCENT','CYCLE']),inventoryDays:z.number().int().min(0).max(3650),
   payableDays:z.number().int().min(0).max(3650),daysPerYear:z.union([z.literal(360),z.literal(365)]),
@@ -123,7 +125,7 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const policy=model.financialPolicy,policyState=waterFinancialReadiness(model,capex);
  const maintenance=investment*ops.maintenancePct/100;
  let workingCapital=capex.workingCapital;
- let debtBalance=totalLoan;
+ const debtSchedule=waterDebtSchedule(model,totalLoan);
  const annual=Array.from({length:ops.horizon},(_,i)=>{
   const year=i+1;
   const utilization=Math.min(100,(ops.util[i]??ops.util.at(-1)??0)*(scenario?.volume??100)/100);
@@ -149,17 +151,18 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   const workingCapitalRecovery=year===ops.horizon?nextWorkingCapital*(policy?.workingCapitalRecoveryPct??0)/100:0;
   const terminalAssetProceeds=year===ops.horizon?(policy?.terminalAssetProceeds??0):0;
   const freeCashFlow=operatingFreeCashFlow+workingCapitalRecovery+terminalAssetProceeds;
-  const servicing=year>=Math.max(1,deal.loanStart)&&debtBalance>0;
-  const principal=servicing?Math.min(debtBalance,totalLoan/Math.max(1,deal.loanYears)):0;
-  const interest=servicing?debtBalance*deal.loanInterest/100:0;
-  debtBalance=Math.max(0,debtBalance-principal);
-  const debtService=principal+interest;
+  const debt=debtSchedule[i],{principal,interest,debtBalance,debtService}=debt;
+  // An explicitly selected indicative deduction applies only to paid interest and positive EBIT.
+  // Accrued/capitalized interest, loss carryforwards and statutory deduction limits are not assumed.
+  const interestTaxSaving=model.financingPolicy?.interestTaxMode==='PAID'?Math.min(Math.max(0,ebit),interest)*ops.taxRate/100:0;
   return {year,utilization,volume,returnedVolume,netVolume,price,unitCost,revenue,variable,fixed,ebitda,depreciation,ebit,tax,
    ...(policy?{receivables:policy.workingCapitalMode==='CYCLE'?cycle.receivables:null,
     inventory:policy.workingCapitalMode==='CYCLE'?cycle.inventory:null,payables:policy.workingCapitalMode==='CYCLE'?cycle.payables:null,
     operatingFreeCashFlow,workingCapitalRecovery,terminalAssetProceeds,closingWorkingCapital:nextWorkingCapital-workingCapitalRecovery}:{}),
+   ...(model.financingPolicy?{openingDebt:debt.openingDebt,capitalizedInterest:debt.capitalizedInterest,
+    terminalDebtRepayment:debt.terminalDebtRepayment,interestTaxSaving,equityTax:tax-interestTaxSaving}:{}),
    workingCapital,workingCapitalMovement,maintenance,freeCashFlow,principal,interest,debtBalance,debtService,
-   afterDebt:freeCashFlow-debtService,dscr:debtService>0?operatingFreeCashFlow/debtService:null};
+   afterDebt:freeCashFlow+interestTaxSaving-debtService,dscr:debtService>0?(operatingFreeCashFlow+interestTaxSaving)/debtService:null};
  });
  const flows=[-(cashRequired+land),...annual.map(year=>year.freeCashFlow)];
  const npv=flows.reduce((total,flow,year)=>total+flow/(1+ops.discountRate/100)**year,0);
@@ -173,13 +176,16 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
    break;
   }
  }
+ const financingReadiness=waterFinancingReadiness(model,cashRequired,annual.at(-1)?.debtBalance??totalLoan,totalEquity);
+ const equity=model.financingPolicy&&financingReadiness.inputReady?waterEquityReturns({investorEquity,land,shareholderLoan,annual,returnReady:financingReadiness.returnReady}):undefined;
  return {hard,contingency,investment,cashRequired,land,investorEquity,totalEquity,shareholderLoan,totalLoan,
+  ...(model.financingPolicy?{financingReadiness,equity}:{}),
   ...(model.quantityCosting||purchaseLand?{purchaseLand,costingReadiness:effective.readiness}:{}),
   ...(policy?{financialReadiness:policyState}:{}),
   investorShare:totalEquity?investorEquity/totalEquity*100:null,partnerShare:totalEquity?land/totalEquity*100:null,
   capacity,waterDemand,annual,flows,npv,cashNpv:npv+land,irr:internalRateOfReturn(flows),payback,
   breakEven:dispatchContribution>0?initialFixed/dispatchContribution:null,
-  ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.netVolume>0)&&(!policy||policyState.inputReady)};
+  ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.netVolume>0)&&(!policy||policyState.inputReady)&&(!model.financingPolicy||financingReadiness.inputReady)};
 }
 
 /** Annual steady-state cycle. Receivables use net sales; inventories/payables use variable production cost. */

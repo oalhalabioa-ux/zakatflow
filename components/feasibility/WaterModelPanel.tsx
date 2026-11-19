@@ -9,6 +9,7 @@ import type {WaterCapexItemKey} from '@/lib/feasibility/water-model';
 import WaterCapexQuoteImport from './WaterCapexQuoteImport';
 import WaterQuantityCosts from './WaterQuantityCosts';
 import WaterFinancialPolicy from './WaterFinancialPolicy';
+import WaterFinancingPolicy from './WaterFinancingPolicy';
 import {effectiveWaterInputs} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 
@@ -143,6 +144,10 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   ['receivables','الذمم التجارية','Trade receivables'],['inventory','المخزون','Inventory'],['payables','ائتمان الموردين','Supplier credit'],
   ['workingCapitalRecovery','تصفية رأس المال العامل','Working capital liquidation'],['terminalAssetProceeds','صافي حصيلة التخارج','Net terminal sale proceeds'],
   ['operatingFreeCashFlow','التدفق التشغيلي قبل التخارج','Operating cash before terminal proceeds'],['closingWorkingCapital','الرصيد بعد التصفية','Working capital after liquidation'],
+ ] as const:[]),...(water.financingPolicy?[
+  ['openingDebt','الرصيد الافتتاحي للقرض','Opening loan balance'],['capitalizedInterest','الفائدة المرسملة','Capitalized interest'],
+  ['terminalDebtRepayment','سداد رصيد القرض عند النهاية','Terminal debt settlement'],['interestTaxSaving','الوفر الضريبي التقديري للفائدة','Indicative interest tax saving'],
+  ['equityTax','الضريبة بعد خصم الفائدة','Tax after interest deduction'],
  ] as const:[])];
  const field=<K extends 'capex'|'deal'|'ops'>(section:K,[key,ar,en,max,step]:NumberFields<WaterModel[K]>[number])=>
   ((section==='deal'&&key==='landValue'&&water.quantityCosting?.landByArea)||(section==='ops'&&key==='variableCarton'&&water.quantityCosting?.materialsEnabled)||(section==='ops'&&key==='fixedMonth'&&water.quantityCosting?.fixed.enabled))
@@ -205,14 +210,26 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {m.ready&&chart}
   <Table headers={[l('البند','Metric'),...m.annual.map(y=>y.year)]}
    rows={projectionLabels.slice(1).map(([key,ar,en])=>[l(ar,en),...m.annual.map(y=>fmt(y[key]??null))])}/>
-  <p className="fs-hint">{l('تغطية خدمة الدين تساوي التدفق التشغيلي الحر قبل التمويل والتخارج مقسومًا على أصل القرض وفائدته خلال السنة.','Debt service coverage divides operating free cash flow before financing and terminal proceeds by annual principal and interest.')}</p>
-  <p className="fs-hint">{l('يُحتسب القرض بأقساط أصل متساوية على الرصيد الافتتاحي ودون فوائد قبل أول سنة سداد. تُضاف حصيلة التخارج والتصفية فقط عند إدخالهما صراحة في السياسة المالية، ويستبعدهما DSCR التشغيلي.','The loan uses equal principal repayments and interest on opening balances, with no interest before the first repayment year. Terminal proceeds/recovery are included only when explicitly entered in financial policy and excluded from operating DSCR.')}</p>
+  <p className="fs-hint">{l('تغطية خدمة الدين = التدفق التشغيلي قبل التخارج مع الوفر الضريبي المحدد للفائدة ÷ خدمة الدين، بما فيها سداد النهاية إن اختير. لا تدخل حصيلة بيع الأصول أو تصفية رأس المال العامل في البسط.','Debt coverage = operating cash before exit plus selected interest tax savings / debt service, including selected terminal settlement. Asset sales and working-capital liquidation are excluded from the numerator.')}</p>
+  {!water.financingPolicy&&<p className="fs-hint">{l('يُحتسب القرض وفق المنهج المحفوظ بأقساط أصل متساوية ودون فوائد قبل أول سنة سداد. تُضاف حصيلة التخارج والتصفية فقط عند إدخالهما صراحة.','The saved reference loan uses equal principal instalments with no interest before the first repayment year. Terminal proceeds/recovery require explicit inputs.')}</p>}
  </>;
  const exportForecast=()=>downloadFeasibilityCsv('bottled-water-projections.csv',[
   [...projectionLabels.map(([,ar,en])=>l(ar,en)),l('العملة','Currency')],
   [0,...projectionLabels.slice(1).map(([key])=>key==='freeCashFlow'?m.flows[0]:key==='debtBalance'?m.totalLoan:null),currency],
   ...m.annual.map(y=>[...projectionLabels.map(([key])=>y[key]),currency])
  ]);
+ const compactValues=(rows:string[][])=><dl className="fs-royal-checks">{rows.map(([label,value])=>
+  <div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>;
+ const equityHeaders=[l('السنة','Year'),l('حقوق الملكية الكلية','All equity holders'),l('ملكية الممول','Investor equity'),
+  l('ملكية الشريك العيني','In-kind partner equity'),l('قرض المساهم','Shareholder loan'),l('الممول: ملكية وقرض','Investor: equity and loan')];
+ const equityRows=m.equity?.flows.map((_,i)=>[i,m.equity!.flows[i],m.equity!.investorEquityFlows[i],m.equity!.partnerEquityFlows[i],m.equity!.shareholderLoanFlows[i],m.equity!.investorCombinedFlows[i]]);
+ const equitySchedule=m.equity&&equityRows?<Panel title={l('فصل عوائد الملكية وقرض المساهم','Separate equity and shareholder-loan returns')} icon="coins">
+  <Table headers={equityHeaders} rows={equityRows.map(([year,...values])=>[year,...values.map(money)])}/>
+  {compactValues([[l('IRR حقوق الملكية','Equity IRR'),percentage(m.ready?m.equity.irr:null)],
+   [l('IRR الممول المجمع: ملكية وقرض','Combined investor IRR: equity and loan'),percentage(m.ready?m.equity.investorCombinedIrr:null)]])}
+  {allowExport&&<button className="fs-btn fs-btn--secondary" type="button" onClick={()=>downloadFeasibilityCsv('bottled-water-equity-returns.csv',[
+   [...equityHeaders,l('العملة','Currency')],...equityRows.map(row=>[...row,currency])])}>{l('تصدير عوائد الملكية CSV','Export equity returns CSV')}</button>}
+ </Panel>:null;
  if(tab==='investment'){
   const items=capexFields.filter(([key])=>key!=='contingencyPct'&&key!=='workingCapital');
   const reserveFields=capexFields.filter(([key])=>key==='contingencyPct'||key==='workingCapital');
@@ -263,7 +280,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const projectReturns=metrics([
   [['NPV للمشروع','Project NPV'],money(m.ready?m.npv:null)],
   [['IRR للمشروع','Project IRR'],percentage(m.ready?m.irr:null)],
-  [['الاسترداد بالسنوات','Payback in years'],fmt(m.ready?m.payback:null)],
+  [['IRR حقوق الملكية','Equity IRR'],percentage(m.ready?(m.equity?.irr??null):null)],
   [['أدنى تغطية خدمة دين DSCR','Minimum debt service coverage (DSCR)'],fmt(m.ready&&debtRatios.length?Math.min(...debtRatios):null)]
  ]);
  const financingSummary=[
@@ -276,8 +293,6 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [l('الحصة العينية للأرض أو الحق','Land or right-of-use in-kind contribution'),money(m.land)],
   [l('قروض المساهم الإجمالية','Total shareholder debt'),money(m.totalLoan)]
  ];
- const compactValues=(rows:string[][])=><dl className="fs-royal-checks">{rows.map(([label,value])=>
-  <div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>;
  const landTerms=<label className="fs-field"><span>{l('معالجة الأرض','Land arrangement')}</span><select value={water.deal.landMode}
   onChange={e=>onChange({...water,deal:{...water.deal,landMode:e.currentTarget.value as WaterModel['deal']['landMode']}})}>
   <option value="transfer">{l('نقل الملكية','Title transfer')}</option><option value="lease">{l('إيجار','Lease')}</option>
@@ -618,13 +633,15 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     workingCapitalFields={<>{fields('ops',operationFields.filter(([key])=>key==='nwcPct'))}
      {compactValues([[l('رأس المال العامل عند التأسيس','Initial working capital'),money(water.capex.workingCapital)]])}</>}
     settings={fields('ops',operationFields.filter(([key])=>['maintenancePct','discountRate','taxRate','horizon'].includes(key)))}/>
+   <WaterFinancingPolicy water={water} locale={locale} onChange={onChange}/>
    {projectReturns}
    <Panel title={l('خدمة الدين السنوية','Annual debt service')} icon="coins">
-    <Table headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة','Interest'),
-     l('سداد الأصل','Principal repayment'),l('الرصيد الختامي','Closing balance'),'DSCR',l('التدفق بعد القرض','Cash flow after debt')]}
-     rows={m.annual.map(y=>[y.year,money(y.debtBalance+y.principal),money(y.interest),money(y.principal),
+    <Table headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة المدفوعة','Paid interest'),
+     l('الفائدة المرسملة','Capitalized interest'),l('سداد الأصل','Principal repayment'),l('سداد النهاية','Terminal settlement'),l('الرصيد الختامي','Closing balance'),'DSCR',l('التدفق بعد القرض','Cash flow after debt')]}
+     rows={m.annual.map(y=>[y.year,money(y.openingDebt??(y.debtBalance+y.principal)),money(y.interest),money(y.capitalizedInterest??0),money(y.principal),money(y.terminalDebtRepayment??0),
       money(y.debtBalance),fmt(y.dscr),money(y.afterDebt)])}/>
    </Panel>
+   {equitySchedule}
    <Panel title={l('الإهلاك وتغير رأس المال العامل','Depreciation and working capital movement')} icon="layers">
     <Table headers={[l('السنة','Year'),l('الإهلاك','Depreciation'),l('تغير رأس المال العامل','Working capital movement')]}
      rows={m.annual.map(y=>[y.year,money(y.depreciation),money(y.workingCapitalMovement)])}/>
@@ -662,6 +679,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   </>}
   {tab==='report'&&<>
    <WaterFinancialPolicy water={water} locale={locale} currency={currency}/>
+   {water.financingPolicy&&<><WaterFinancingPolicy water={water} locale={locale}/>{equitySchedule}</>}
    {costBreakdown&&<section className="fs-panel">
     <h4>{l('تقدير مكونات تكلفة الكرتون','Estimated carton cost components')}</h4>{compactValues(unitCostRows)}
    </section>}

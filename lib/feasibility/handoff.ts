@@ -31,6 +31,7 @@ export function handoffReadiness(study:FeasibilityStudy){
  ];
  if(study.water?.quantityCosting)checks.push({key:'quantity',ar:'الكميات وأسعار الوحدات موثقة ومكتملة',en:'Quantities and unit prices are complete and documented',passed:effectiveWaterInputs(study.water).readiness.ready});
  if(study.water)checks.push({key:'financial-policy',ar:'منهج الإهلاك ورأس المال العامل موثق وقابل للتحقق',en:'Depreciation and working capital methods are documented and assessable',passed:waterFinancialReadiness(study.water).ready});
+ if(study.water&&(study.water.financingPolicy||water?.totalLoan))checks.push({key:'financing-policy',ar:'شروط القرض وعوائد الملكية موثقة والدين عند النهاية معالج',en:'Debt terms and equity returns documented and terminal debt addressed',passed:water?.financingReadiness?.ready??false});
  if(land&&land.issue===null&&study.rawLand?.quantityDevelopment)checks.push({key:'quantity',ar:'كميات التطوير وأسعارها موثقة ومكتملة',en:'Development quantities and prices are complete and documented',passed:land.quantityReadiness?.ready??false});
  if(study.water||study.rawLand){
   const detailed=study.water?.quantityCosting??study.rawLand?.quantityDevelopment;
