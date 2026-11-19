@@ -1,7 +1,7 @@
 name: ZATCA Cryptography QA
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/zatca-phase2-preparation-20261022]
     paths:
       - 'tests/fixtures/zatca-phase2-ledger.sql'
       - 'tests/zatca-ledger-postgres.py'
