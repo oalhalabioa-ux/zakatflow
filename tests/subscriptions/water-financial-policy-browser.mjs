@@ -102,12 +102,24 @@ export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
        assert.equal(await page.locator('.fs-print-report button:visible').count(),0,'Export controls must not leak into the printed investment report');
        const overflow=await page.locator('.fs-print-report .fs-table').evaluateAll(tables=>tables.some(t=>t.getBoundingClientRect().width>document.documentElement.clientWidth+1));
        assert.equal(overflow,false,'Printed financial tables must fit the page width');
-       const pdf='template-finance-'+kind+'-'+locale+'.pdf';await page.pdf({path:path(pdf),format:'A4',landscape:true,printBackground:true,margin:{top:'12mm',bottom:'12mm',left:'10mm',right:'10mm'}});evidence.pdfs.push(pdf);
+       const pdf='template-finance-'+kind+'-'+locale+'.pdf',bytes=await page.pdf({path:path(pdf),format:'A4',landscape:true,printBackground:true,margin:{top:'12mm',bottom:'12mm',left:'10mm',right:'10mm'}});
+       const pages=(bytes.toString('latin1').match(/\/Type\s*\/Page\b/g)??[]).length;
+       assert.ok(pages>0&&pages<=7,kind+' '+locale+': excessive fragmentation in this compact synthetic report ('+pages+' pages)');evidence.pdfs.push({file:pdf,pages});
       }finally{await page.emulateMedia({media:null});}
      }
     }
    }
+   await page.getByRole('button',{name:'Report export options',exact:true}).click();
+   const dialog=page.getByRole('dialog');await dialog.getByRole('checkbox',{name:'Executive summary',exact:true}).uncheck();
+   const restorePrint=await page.evaluateHandle(()=>{const print=window.print;window.print=()=>{};return()=>{window.print=print;window.dispatchEvent(new Event('afterprint'));};});
+   try{
+    await dialog.getByRole('button',{name:'Print / PDF',exact:true}).click();await page.emulateMedia({media:'print'});
+    assert.equal(await page.locator('[data-report-section="summary"]').isVisible(),false,'Print block layout must respect the omitted-summary choice');
+    assert.equal(await page.locator('[data-report-section="funding"]').isVisible(),true);
+    assert.equal((await page.pdf({format:'A4',landscape:true})).subarray(0,5).toString(),'%PDF-');
+   }finally{await restorePrint.evaluate(restore=>restore());await restorePrint.dispose();await page.emulateMedia({media:null});}
    evidence.assertions.push('AR/EN desktop/mobile: no page overflow; report buttons excluded from print; financial tables fit; four real Chromium PDFs retained for visual review');
+   evidence.assertions.push('Compact synthetic reports have at most seven landscape pages; rows may fragment between pages; omitting the executive summary remains effective in the generated PDF');
    await writeFile(new URL('./water-financial-policy-result.json',import.meta.url),JSON.stringify(evidence,null,2));
   }finally{for(const context of contexts)await context.close();}
  });
