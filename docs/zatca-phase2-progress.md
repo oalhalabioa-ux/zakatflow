@@ -1,5 +1,13 @@
 # ZATCA Phase 2 preparation — 2026-10-22
 
+## Follow-up 2026-11-19 — saved-original Simulation dispatch
+
+Added a private Simulation dispatcher that verifies the preserved original CSR and fresh KMS SPKI, claims the durable one-shot intent, makes one fixed/limited authority request, quarantines credentials and records an independently authorized private receipt. Lost claim acknowledgements, network/parse failures and lost storage receipts require reconciliation without automatic resend. No OTP, authority body or credentials appear in returned errors/results. Production/Developer Portal targets and request/config overrides are rejected.
+
+Corrected verification of authority certificate tokens that wrap base64 DER or PEM: preserve the original authentication token and normalize only the certificate verification copy. Existing identity, key, trust/CRL and no-activation checks remain. Added a reviewable owner-run AWS helper with account/role/key/tag checks, Simulation-only secret/encryption permissions, no overwrite of different inline policies and mocked-cloud regression tests.
+
+Validation before the final provisioning-helper tests: full local suite **2669 passed / 45 environment-dependent skips**; all final changed dispatcher/provisioning tests and typecheck passed afterward. Exact-head CI is recorded in PR #445. No real AWS provisioning, authority request, OTP handling, database mutation, deployment or merge occurred. Existing FATOORA QA was inspected read-only; it is empty and separate from QA V2/Production. This is a private backend candidate; protected configuration, QA identity/unit/original persistence, private SQL packaging/grants and reviewed HTTP/recovery UI are still required before a real OTP. See `docs/zatca-simulation-dispatch.md`.
+
 ## Follow-up 2026-11-19 — SDK-referenced CSR identity V2
 
 Continued from source `21126a79f681683490081167deabf6a9da084653` on the same PR #445 branch; main remained `6a56458769a03c7df772c426df3e20bab97a97ba`. Corrected two application CSR identity defects: simulation CN now retains the saved unit name, and the EGS serial uses SAN SN/surname OID 2.5.4.4 as observed in the official supplied SDK 3.4.8. The original-CSR/certificate verifier, private initial-request/audit schemas and disposable SQL fixtures explicitly use `ZAKATFLOW_SAN_DIRECTORY_V2`; no V1 fallback or stored-material rewriting is added.
