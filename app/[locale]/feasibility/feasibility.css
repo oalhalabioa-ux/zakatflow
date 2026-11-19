@@ -594,6 +594,15 @@
  padding: 6px 9px; color: var(--fs-ink); box-sizing: border-box;
 }
 .fs-royal-water-forecasts > summary { padding-block: 4px; }
+.fs-financial-policy-grid { align-items: stretch; }
+.fs-financial-policy-grid > .fs-panel { align-content: start; }
+.fs-financial-assets .fs-table { min-width: 410px; }
+.fs-financial-assets :is(td,th) { font-weight: 400; }
+.fs-financial-assets thead th { font-weight: 700; }
+.fs-financial-assets input { min-width: 60px; }
+.fs-financial-policy-settings > summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+.fs-financial-policy-settings[open] > summary { margin-block-end: 12px; }
+.fs-financial-policy-settings > .fs-field { margin-block-start: 12px; }
 
 /* Investment reports: hide interactive controls and fit the financial/evidence
    tables in the printed page. Screen/mobile tables retain their scroll widths. */

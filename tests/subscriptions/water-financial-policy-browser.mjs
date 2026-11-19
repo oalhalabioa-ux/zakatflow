@@ -33,10 +33,17 @@ export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
    await page.getByRole('button',{name:'Advanced model',exact:true}).click();
    const policy=page.locator('.fs-financial-policy');
    await policy.getByRole('combobox',{name:'Working capital method',exact:true}).selectOption('CYCLE');
+   await policy.getByRole('combobox',{name:'Depreciation method',exact:true}).selectOption('CLASSES');
+   await policy.getByRole('spinbutton',{name:'Class life in years · Buildings',exact:true}).fill('3');
+   await policy.getByRole('spinbutton',{name:'Class life in years · Bottling line',exact:true}).fill('1');
+   assert.equal(await policy.getByRole('spinbutton',{name:'Depreciation life in years',exact:true}).isDisabled(),true);
    await policy.getByRole('combobox',{name:'Depreciation method',exact:true}).selectOption('CAPPED');
+   assert.equal(await policy.getByRole('spinbutton',{name:'Depreciation life in years',exact:true}).inputValue(),'2');
+   assert.equal(await policy.getByRole('spinbutton',{name:'Depreciation life in years',exact:true}).isEnabled(),true);
    await policy.getByRole('combobox',{name:'Calculation year days',exact:true}).selectOption('360');
    await policy.getByRole('spinbutton',{name:'Inventory days',exact:true}).fill('15');
    await policy.getByRole('spinbutton',{name:'Supplier credit days',exact:true}).fill('45');
+   await policy.locator('summary').click();
    await policy.getByRole('spinbutton',{name:'Terminal working capital recovery %',exact:true}).fill('100');
    await policy.getByRole('spinbutton',{name:'Net terminal asset and land sale proceeds',exact:true}).fill('200');
    await policy.getByRole('textbox',{name:'Financial policy assumption evidence',exact:true}).fill('Synthetic only — lives 2y, cycle 30/15/45 days, net exit 200; not market evidence.');
@@ -47,8 +54,10 @@ export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
    let saved=(await response.json()).find(x=>x.id===water.id);
    assert.equal(saved.study.water.financialPolicy.workingCapitalMode,'CYCLE');assert.equal(saved.study.water.financialPolicy.depreciationMode,'CAPPED');
    assert.equal(saved.study.water.ops.nwcPct,10);assert.equal(saved.study.water.ops.life,2);assert.equal(saved.study.water.operationsPlan.collectionDays,30);
+   assert.deepEqual(saved.study.water.financialPolicy.assetLives,{buildings:3,line:1});
    await page.reload();await page.getByRole('button',{name:'Advanced model',exact:true}).click();
    assert.equal(await policy.getByRole('spinbutton',{name:'Inventory days',exact:true}).inputValue(),'15');
+   await policy.locator('summary').click();
    assert.equal(await policy.getByRole('spinbutton',{name:'Terminal working capital recovery %',exact:true}).inputValue(),'100');
    await page.getByRole('button',{name:'Report and export',exact:true}).click();
    await page.locator('.fs-financial-policy').getByText('Operating cycle days',{exact:true}).waitFor();
@@ -80,7 +89,7 @@ export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
      await page.setViewportSize({width,height:1000});await page.goto(app+'/'+locale+'/feasibility?scope=PERSONAL');const ar=locale==='ar';
      if(kind==='water'){
       await page.getByRole('button',{name:ar?'النموذج المالي المتقدم':'Advanced model',exact:true}).click();
-      assert.equal(await page.locator('.fs-financial-policy input[type=number]').first().inputValue(),'30');
+      assert.equal(await page.getByRole('spinbutton',{name:ar?'أيام التحصيل المستخدمة':'Effective collection days',exact:true}).inputValue(),'30');
       const name='template-finance-water-policy-'+locale+'-'+width+'.png';await page.screenshot({path:path(name),fullPage:true});evidence.screenshots.push(name);
      }
      await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();

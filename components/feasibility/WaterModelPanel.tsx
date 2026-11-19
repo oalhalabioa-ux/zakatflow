@@ -613,17 +613,11 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    </div>
   </>}
   {tab==='advanced'&&<>
-   <WaterFinancialPolicy water={water} locale={locale} onChange={onChange}/>
-   <div className="fs-royal-profile-grid">
-    <Panel title={l('الإهلاك والعمر الاقتصادي','Depreciation and economic life')} icon="layers">
-     {fields('ops',operationFields.filter(([key])=>key==='life'||key==='maintenancePct'))}
-     {compactValues([[l('الإهلاك السنوي','Annual depreciation'),money(m.annual[0].depreciation)]])}
-    </Panel>
-    <Panel title={l('سياسة رأس المال العامل والخصم','Working capital and discount assumptions')} icon="coins">
-     {fields('ops',operationFields.filter(([key])=>['nwcPct','discountRate','taxRate','horizon'].includes(key)))}
-     {compactValues([[l('رأس المال العامل عند التأسيس','Initial working capital'),money(water.capex.workingCapital)]])}
-    </Panel>
-   </div>
+   <WaterFinancialPolicy water={water} locale={locale} currency={currency} onChange={onChange}
+    depreciationFields={fields('ops',operationFields.filter(([key])=>key==='life'))}
+    workingCapitalFields={<>{fields('ops',operationFields.filter(([key])=>key==='nwcPct'))}
+     {compactValues([[l('رأس المال العامل عند التأسيس','Initial working capital'),money(water.capex.workingCapital)]])}</>}
+    settings={fields('ops',operationFields.filter(([key])=>['maintenancePct','discountRate','taxRate','horizon'].includes(key)))}/>
    {projectReturns}
    <Panel title={l('خدمة الدين السنوية','Annual debt service')} icon="coins">
     <Table headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة','Interest'),
@@ -667,7 +661,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    </Panel>
   </>}
   {tab==='report'&&<>
-   <WaterFinancialPolicy water={water} locale={locale}/>
+   <WaterFinancialPolicy water={water} locale={locale} currency={currency}/>
    {costBreakdown&&<section className="fs-panel">
     <h4>{l('تقدير مكونات تكلفة الكرتون','Estimated carton cost components')}</h4>{compactValues(unitCostRows)}
    </section>}
