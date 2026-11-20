@@ -546,10 +546,10 @@
 .fs-print-report [data-report-section] { scroll-margin-block-start: 90px; }
 @media screen { .fs-print-report .fs-report-print-title { display: none; } }
 @media screen and (min-width: 1171px) {
- .fs-royal .fs-tabs:is([data-section="advanced"],[data-section="report"]) {
+ .fs-royal .fs-tabs:is([data-section="partners"],[data-section="advanced"],[data-section="report"]) {
   grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px;
  }
- .fs-royal .fs-tabs:is([data-section="advanced"],[data-section="report"]) button:not(.active) {
+ .fs-royal .fs-tabs:is([data-section="partners"],[data-section="advanced"],[data-section="report"]) button:not(.active) {
   border-color: transparent; background: transparent;
  }
 }
@@ -658,3 +658,26 @@
 .fs-royal .fs-monthly-liquidity td bdi { white-space: nowrap; }
 .fs-royal .fs-monthly-liquidity .fs-table thead th { min-width: 90px; }
 .fs-royal .fs-monthly-liquidity details summary { cursor: pointer; }
+
+@media screen and (max-width: 650px) {
+ .fs-partner-register :is(thead th:first-child, th[scope="row"]) {
+  position: sticky; inset-inline-start: 0; z-index: 1;
+  border-inline-end: 1px solid var(--fs-line);
+ }
+ .fs-partner-register tbody th[scope="row"] { background: #ebf1f5; }
+ .fs-partner-register th[scope="row"] {
+  max-inline-size: 8rem; overflow-wrap: anywhere;
+ }
+}
+@media print {
+ .fs-print-report .fs-partner-register thead th:nth-child(2) { width: 9%; }
+ .fs-print-report .fs-partner-register thead th:nth-child(3) { width: 7%; }
+}
+
+.fs-royal .fs-royal-valuation-documents .fs-table { min-width: 0; }
+.fs-royal-valuation-documents .fs-table th[scope="row"] { overflow-wrap: anywhere; }
+.fs-royal-valuation-documents .fs-table td bdi { white-space: nowrap; }
+@media (max-width: 650px) {
+ .fs-royal-valuation-documents .fs-table :is(th,td) { padding-inline: 5px; }
+ .fs-royal-valuation-documents .fs-btn { padding-inline: 7px; }
+}

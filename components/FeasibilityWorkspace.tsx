@@ -567,7 +567,7 @@ function FeasibilityWorkspaceContent({
   setProjectName('');
  };
  const activeTab=tabs.find(item=>item.id===tab)!;
- const compactStudyHeader=Boolean(study&&(tab==='advanced'||tab==='report'));
+ const compactStudyHeader=Boolean(study&&(tab==='partners'||tab==='advanced'||tab==='report'));
 
  const portfolio=<section className="card fs-panel fs-royal-portfolio">
    <div className="fs-royal-heading">
@@ -803,7 +803,7 @@ function FeasibilityWorkspaceContent({
     <div className="fs-kpis"><Info label={txt(ar,'حصة الممول','Investor ownership')} value={model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}/><Info label={txt(ar,'حصة صاحب الأرض','Land partner ownership')} value={model.partnerShare===null?'—':fmt(model.partnerShare,2)+'%'}/><Info label={txt(ar,'فجوة التمويل النقدي','Cash funding gap')} value={money(model.cashFundingGap)}/></div>
     <p className="fs-hint">{txt(ar,'النسب اقتصادية تقديرية لحقوق الملكية فقط؛ قروض المساهمين لا تمنح ملكية تلقائيًا، ولا تتغير الحصص القانونية دون إجراءات معتمدة.','Economic indicative equity only: loans do not automatically generate shares; legal ownership changes require formal approval.')}</p>
    </section>}
-   {tab==='partners'&&<PartnershipPanel study={study} locale={locale} onChange={effectiveReadOnly?undefined:partnership=>update({partnership})}/>}
+   {tab==='partners'&&detail!=='valuation'&&<PartnershipPanel study={study} locale={locale} onChange={effectiveReadOnly?undefined:partnership=>update({partnership})}/>}
    {!water&&!rawLand&&tab==='operations'&&<section className="card fs-panel"><h3>{txt(ar,'افتراضات التشغيل والمبيعات','Operating assumptions')}</h3><div className="fs-form-grid">
     <Field label={ar?sectorTemplates[study.sector].volumeAr:sectorTemplates[study.sector].volumeEn} value={study.monthlyUnits} onChange={setNum('monthlyUnits')}/>
     <Field label={txt(ar,'سعر بيع الوحدة الصافي','Net selling price / unit')} value={study.unitPrice} onChange={setNum('unitPrice')}/>

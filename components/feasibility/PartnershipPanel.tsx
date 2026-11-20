@@ -139,7 +139,7 @@ export default function PartnershipPanel({study,locale,onChange}:{study:Feasibil
   </button>}
   {partners.length>0&&<>
    {issues.length>0&&<ul className="fs-warning" role="status">{issues.map(issue=><li key={String(issue)}>{issue}</li>)}</ul>}
-   <div className="fs-table-wrap" role="region" aria-label={l('ملخص الشركاء','Partner summary')} tabIndex={0}>
+   <div className="fs-table-wrap fs-partner-register" role="region" aria-label={l('ملخص الشركاء','Partner summary')} tabIndex={0}>
     <table className="fs-table">
      <thead><tr>{[l('الشريك','Partner'),labels.ownershipPct,labels.profitPct,labels.capitalCommitted,
       l('الأرض العينية المقدّمة','In-kind land contributed'),l('المطلوب نقدًا','Cash equity required'),labels.cashPaid,
