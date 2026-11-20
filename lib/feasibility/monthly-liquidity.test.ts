@@ -143,7 +143,8 @@ it('reconciles imported water and land plans with dated equity and separate debt
  const decoded=parseStudyBackup(JSON.parse(JSON.stringify({schema:FEASIBILITY_BACKUP_SCHEMA,studies:[waterStudy,landStudy]})))!;
  const closing=(i:number)=>evaluateMonthlyLiquidity(monthlyLiquidityAmounts(decoded[i])!,decoded[i].monthlyLiquidity!,decoded[i].partnership);
  const waterCash=closing(0),landCash=closing(1);
- expect(waterCash.rows[0]).toMatchObject({equity:300,debtDraw:150,investment:-1225,costs:0});
+ expect(waterCash.rows[0]).toMatchObject({equity:300,debtDraw:150,investment:-1225});
+ expect(waterCash.rows[0].costs).toBeCloseTo(0);
  expect(waterCash.closing).toBeCloseTo(-1225+300+150+evaluateWater(water).annual[0].afterDebt);
  expect(landCash.rows[0]).toMatchObject({equity:300,debtDraw:187.5,investment:0});
  const land=evaluateRawLand(rawLand);

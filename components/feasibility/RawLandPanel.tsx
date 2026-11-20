@@ -53,7 +53,9 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
  const panel=(label:Label,children:ReactNode)=><section className="card fs-panel fs-block">
   <h3 className="fs-royal-report-title"><RoyalIcon name="building"/>{l(label)}</h3>{children}
  </section>;
- const table=(headers:readonly Label[],rows:readonly (readonly ReactNode[])[])=><div className="fs-table-wrap"><table className="fs-table">
+ const table=(headers:readonly Label[],rows:readonly (readonly ReactNode[])[],scrollLabel?:Label)=>
+  <div className="fs-table-wrap" role={scrollLabel?'region':undefined}
+   aria-label={scrollLabel?l(scrollLabel):undefined} tabIndex={scrollLabel?0:undefined}><table className="fs-table">
   <thead><tr>{headers.map(header=><th scope="col" key={header[1]}>{l(header)}</th>)}</tr></thead>
   <tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}><bdi>{cell}</bdi></td>)}</tr>)}</tbody>
  </table></div>;
@@ -257,7 +259,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
     ['معدل العائد الداخلي %','IRR %'],['ذروة عجز التمويل','Peak funding deficit'],['حالة المدخلات','Inputs']],
     available.map(row=>[l(modes[row.mode]),...(row.issue?[...Array(7).fill('—'),l(states[row.issue])]:
      [money(row.cashPurchase),money(row.inKindValue),money(row.totalRent),money(row.profit),money(row.npv),
-      fmt(row.irr),money(row.peakEquityDeficit),'—'])]))}
+      fmt(row.irr),money(row.peakEquityDeficit),'—'])]),['مقارنة بدائل الأرض','Land alternatives comparison'])}
   </>);
  };
  if(tab==='scenarios')return <>
@@ -312,7 +314,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
     ['صافي العائد','Net return'],['مضاعف رأس المال','Capital multiple'],['العائد السنوي %','Annualized return %']
    ],settlement.partners.map(partner=>[partner.name,money(partner.capital),money(partner.capitalReturned),
     money(partner.unrecoveredCapital),money(partner.profit),money(partner.distribution),money(partner.netReturn),
-    fmt(partner.capitalMultiple),fmt(partner.annualizedReturn===null?null:partner.annualizedReturn*100)]))}
+    fmt(partner.capitalMultiple),fmt(partner.annualizedReturn===null?null:partner.annualizedReturn*100)]),['عوائد الشركاء','Partner returns'])}
   </>;
  };
  if(tab==='distribution-report')return distribution?.partners.length
