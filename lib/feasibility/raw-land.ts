@@ -45,6 +45,10 @@ export const rawLandSchema=z.object({
  phasing:z.object({sales:phases,...costPhases}).strict(),
  waterfall:z.object({incentiveRate:ratio,hurdleRate:ratio,hurdleBase:z.enum(['revenue','cost']),
   developerIncentiveShare:ratio}).strict(),
+ landAlternatives:z.object({
+  purchasePricePerSqm:amount.optional(),inKindValuePerSqm:amount.optional(),annualRent:amount.optional(),
+  leaseAllowsProjectedRevenue:z.boolean().optional()
+ }).strict().optional(),
  distribution:landDistributionSchema.optional(),
  legacyReference:legacyReferenceSchema.optional()
 }).strict();
@@ -231,4 +235,35 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
   breakEven:saleArea>0?totalCost/saleArea:null,
   peakCashDeficit:Math.max(0,-Math.min(...annual.map(row=>row.cumulativeOperating))),
   peakEquityDeficit:Math.max(0,-Math.min(initialEquity,...annual.map(row=>row.cumulativeEquity))),annual} as const;
+}
+
+
+export const landAlternativeModes=['cash','lease','in_kind'] as const;
+
+export function rawLandAlternativeTerms(model:RawLand){
+ const {site,landAlternatives}=model;
+ return {
+  purchasePricePerSqm:landAlternatives?.purchasePricePerSqm??
+   (site.landPaymentMethod==='cash'&&site.landPricePerNetSqm>0?site.landPricePerNetSqm:undefined),
+  inKindValuePerSqm:landAlternatives?.inKindValuePerSqm??
+   (site.landPaymentMethod==='in_kind'&&site.landPricePerNetSqm>0?site.landPricePerNetSqm:undefined),
+  annualRent:landAlternatives?.annualRent??(site.landPaymentMethod==='lease'?site.annualLandRent:undefined),
+  leaseAllowsProjectedRevenue:landAlternatives?.leaseAllowsProjectedRevenue??false
+ };
+}
+
+export function compareRawLandAlternatives(model:RawLand){
+ const terms=rawLandAlternativeTerms(model);
+ return landAlternativeModes.map(mode=>{
+  const price=mode==='cash'?terms.purchasePricePerSqm:terms.inKindValuePerSqm;
+  if(mode==='lease'&&(terms.annualRent===undefined||!terms.leaseAllowsProjectedRevenue))
+   return {mode,issue:'LEASE_TERMS'} as const;
+  if(mode!=='lease'&&!price)return {mode,issue:'LAND_VALUE'} as const;
+  const result=evaluateRawLand({...model,site:{...model.site,landPaymentMethod:mode,
+   landPricePerNetSqm:mode==='lease'?0:price??0,annualLandRent:mode==='lease'?terms.annualRent:undefined}});
+  if(result.issue||!result.ready)return {mode,issue:'BASE_SCENARIO'} as const;
+  return {mode,issue:null,cashPurchase:mode==='cash'?result.land:0,inKindValue:mode==='in_kind'?result.land:0,
+   totalRent:mode==='lease'?(terms.annualRent??0)*result.annual.length:0,
+   profit:result.profit,npv:result.npv,irr:result.irr,peakEquityDeficit:result.peakEquityDeficit} as const;
+ });
 }
