@@ -101,10 +101,10 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
    {!error&&!documents.length&&<p>{l('لا توجد ملفات مرفقة.','No files attached.')}</p>}
    {documents.length>0&&(kind==='valuation'?<div className="fs-table-wrap fs-royal-valuation-documents">
     <table className="fs-table" aria-label={l('مستندات التقييم المرفقة','Attached valuation documents')}>
-     <thead><tr><th scope="col">{l('المستند','Document')}</th><th scope="col">{l('تاريخ الإرفاق','Attached on')}</th>
+     <thead><tr><th scope="col">{l('المستند','Document')}</th><th scope="col">{l('تاريخ الإرفاق','Date added')}</th>
       <th scope="col">{l('الحجم','Size')}</th>{canWrite&&<th scope="col">{l('الإجراء','Action')}</th>}</tr></thead>
      <tbody>{documents.map(item=><tr key={item.id}>
-      <th scope="row">{documentLink(item)}</th><td>{documentDate(item)}</td><td>{documentSize(item)}</td>
+      <th scope="row">{documentLink(item)}</th><td><bdi>{documentDate(item)}</bdi></td><td>{documentSize(item)}</td>
       {canWrite&&<td>{removeDocument(item)}</td>}
      </tr>)}</tbody>
     </table>
