@@ -1,3 +1,4 @@
+import {generalLandCosts} from './partnership';
 
 import {internalRateOfReturn,type FeasibilityStudy,type IndustrialProductionSchedule,
  type PropertyStage,type PropertyDevelopmentSchedule} from './engine';
@@ -88,8 +89,9 @@ export function evaluatePropertyStages(study:FeasibilityStudy):PropertyResult{
   used.add(stage.year);
   if(stage.contractedUnits>0&&stage.contractPricePerUnit<=0)blockers.push('PRICE_REQUIRED');
  }
- const initialCashOutlay=sum(study.capex.map(y=>y.amount));
- const initialEconomicOutlay=initialCashOutlay+(study.landTransferred?study.landValue:0);
+ const land=generalLandCosts(study);
+ const initialCashOutlay=sum(study.capex.map(y=>y.amount))+land.purchase;
+ const initialEconomicOutlay=initialCashOutlay+land.inKind;
  const fail=():PropertyResult=>({ready:false,blockers:[...new Set(blockers)],years:[],
   bookings:0,collections:0,outstandingReceivables:0,initialCashOutlay,initialEconomicOutlay,
   peakCashFundingNeed:0,cashFlows:[],economicFlows:[],projectNpv:null,projectIrr:null});
@@ -105,12 +107,13 @@ export function evaluatePropertyStages(study:FeasibilityStudy):PropertyResult{
   bookings+=bookedContracts;collections+=stage.cashCollections;
   outstandingReceivables=bookings-collections;
   if(outstandingReceivables < -Math.max(.01,bookings*1e-10))blockers.push('COLLECTIONS_EXCEED_CONTRACTS');
-  const netCashFlow=stage.cashCollections-stage.constructionCashCost-stage.sellingCashCost;
+  const sellingCashCost=stage.sellingCashCost+land.rent*12;
+  const netCashFlow=stage.cashCollections-stage.constructionCashCost-sellingCashCost;
   fundingBalance+=netCashFlow;
   peakCashFundingNeed=Math.max(peakCashFundingNeed,-fundingBalance);
   years.push({year,contractedUnits:stage.contractedUnits,bookedContracts,
    cashCollections:stage.cashCollections,constructionCashCost:stage.constructionCashCost,
-   sellingCashCost:stage.sellingCashCost,netCashFlow,
+   sellingCashCost,netCashFlow,
    outstandingReceivables:Math.max(0,outstandingReceivables),fundingBalance});
   cashFlows.push(netCashFlow);
   economicFlows.push(netCashFlow);

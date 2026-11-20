@@ -70,6 +70,14 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
  } as const;
  const warning=base.issue?<p className="fs-warning" role="status">{l(warnings[base.issue])}</p>:null;
 
+ const landTerms=<>
+  {choice(['طريقة الحصول على الأرض','How the land is secured'],site.landPaymentMethod,[
+   ['lease',['إيجار','Lease']],['in_kind',['تقديم عيني من أحد الشركاء','In-kind contribution by a partner']],['cash',['شراء الأرض','Land purchase']]
+  ],v=>patch('site',{landPaymentMethod:v}))}
+  {site.landPaymentMethod==='lease'&&numeric(['الإيجار السنوي طوال مدة التوقع','Annual rent throughout the forecast'],site.annualLandRent??0,v=>patch('site',{annualLandRent:v}))}
+  {site.landPaymentMethod==='lease'&&<p className="fs-hint">{l(['أدرج فقط الإيرادات التي يتيحها عقد الإيجار.','Include only revenue permitted by the lease.'])}</p>}
+ </>;
+
  if(tab==='sector')return panel(['الأرض والمساحات','Land and areas'],<>
   <div className="fs-form-grid">
    {numberFields(project,[
@@ -86,9 +94,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
     ['NET',['صافي الأرض بعد الاستبعادات','Net area after exclusions']],['GROSS',['كامل المساحة المدخلة','Gross entered area']],['MANUAL',['مساحة تعاقدية محددة','Specified contractual area']]
    ],v=>patch('site',{acquisitionBasis:v}))}
    {site.acquisitionBasis==='MANUAL'&&numeric(['مساحة الاستحواذ التعاقدية م²','Contractual acquisition area m²'],site.acquisitionArea??0,v=>patch('site',{acquisitionArea:v}))}
-   {choice(['طريقة تقديم الأرض','Land contribution method'],site.landPaymentMethod,[
-    ['in_kind',['حصة عينية','In kind']],['cash',['شراء نقدي','Cash purchase']]
-   ],v=>patch('site',{landPaymentMethod:v}))}
+   {landTerms}
    {textField(['تاريخ التقييم','Valuation date'],site.valuationDate,v=>patch('site',{valuationDate:v}),true)}
    {textField(['المقيّم','Appraiser'],site.appraiser,v=>patch('site',{appraiser:v}))}
    <label className="fs-field"><span>{l(['بيان التسويات السابقة','Prior transfers and reconciliations'])}</span><textarea maxLength={5000}
@@ -278,6 +284,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   </div>{!base.issue&&table([['قيمة الأرض','Land value'],['حافز المطور','Developer incentive'],['حافز المدير','Manager incentive']],
    [[money(base.land),money(base.developerIncentive),money(base.managerIncentive)]])}
  </>)}
+ {panel(['معالجة الأرض','Land arrangement'],<div className="fs-form-grid">{landTerms}</div>)}
  {panel(['رد رأس المال وتوزيع العوائد المتوقعة','Projected capital return and profit distribution'],<>
   <p className="fs-hint">{l(['يفترض النموذج ضخ المساهمات النقدية في بداية المشروع والتسوية في آخر سنة من السيناريو الأساسي. يُحجز رصيد الدين، ثم يُرد رأس المال بدءًا بالأولوية 1 ويُوزّع الفائض حسب نسب الأرباح.',
    'The model assumes cash contributions at inception and settlement in the last year of the base scenario. Closing debt is reserved, capital is returned starting at priority 1, and surplus follows profit shares.'])}</p>

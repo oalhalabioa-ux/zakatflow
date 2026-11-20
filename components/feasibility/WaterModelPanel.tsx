@@ -296,10 +296,13 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [l('قروض المساهم الإجمالية','Total shareholder debt'),money(m.totalLoan)]
  ];
  const landTerms=<label className="fs-field"><span>{l('معالجة الأرض','Land arrangement')}</span><select value={water.deal.landMode}
-  onChange={e=>onChange({...water,deal:{...water.deal,landMode:e.currentTarget.value as WaterModel['deal']['landMode']}})}>
-  <option value="transfer">{l('نقل الملكية','Title transfer')}</option><option value="lease">{l('إيجار','Lease')}</option>
+  onChange={e=>{
+   const landMode=e.currentTarget.value as WaterModel['deal']['landMode'];
+   onChange({...water,deal:{...water.deal,landMode,leaseMonth:landMode==='lease'?water.deal.leaseMonth:0}});
+  }}>
+  <option value="transfer">{l('تقديم عيني من أحد الشركاء','In-kind contribution by a partner')}</option><option value="lease">{l('إيجار','Lease')}</option>
   <option value="right">{l('حق انتفاع مقوَّم','Valued right of use')}</option>
-  <option value="purchase">{l('شراء نقدي','Cash purchase')}</option>
+  <option value="purchase">{l('شراء الأرض','Land purchase')}</option>
  </select></label>;
  const extraTerms=<label className="fs-field"><span>{l('معالجة التمويل الإضافي','Additional financing type')}</span><select value={water.deal.extraType}
   onChange={e=>onChange({...water,deal:{...water.deal,extraType:e.currentTarget.value as WaterModel['deal']['extraType']}})}>
@@ -373,7 +376,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {tab==='partners'&&<>
    <div className="fs-royal-profile-grid fs-royal-water-forms">
     <Panel title={l('مساهمة شريك الأرض','Land partner contribution')} icon="building">
-     <div className="fs-form-grid">{landTerms}{dealFields.slice(0,5).map(item=>field('deal',item))}
+     <div className="fs-form-grid">{landTerms}{dealFields.slice(0,5).filter(([key])=>key!=='leaseMonth'||water.deal.landMode==='lease'||water.deal.leaseMonth>0).map(item=>field('deal',item))}
       {detail==='valuation'&&([
        ['appraisalDate',l('تاريخ التقييم المستقل','Independent valuation date')],
        ['appraisalApprovalDate',l('تاريخ اعتماد التقييم الموثّق','Documented valuation approval date')],

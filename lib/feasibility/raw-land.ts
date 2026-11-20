@@ -26,7 +26,7 @@ export const rawLandSchema=z.object({
   serviceAreaFromSite:z.boolean().optional(),assumptionSource:z.string().max(3000).optional(),landTiming:z.enum(['YEAR1','YEAR0']).optional(),committedEquity:amount.optional()}).strict().optional(),
  project:z.object({startYear:z.number().int().min(1900).max(2200),years:z.number().int().min(1).max(15),discountRate:ratio}).strict(),
  site:z.object({areaAfterPriorTransfers:amount,excludedValley:amount,extraExcluded:amount,otherConstraintsSqm:amount,
-  serviceRatio:ratio,landPricePerNetSqm:amount,landPaymentMethod:z.enum(['in_kind','cash']),
+  serviceRatio:ratio,landPricePerNetSqm:amount,landPaymentMethod:z.enum(['in_kind','cash','lease']),annualLandRent:amount.optional(),
   acquisitionBasis:z.enum(['NET','GROSS','MANUAL']).optional(),acquisitionArea:amount.optional(),
   priorTransferDescription:z.string().max(5000),valuationDate:z.union([z.literal(''),z.iso.date()]),appraiser:shortText}).strict(),
  cost:z.object({developmentPerNetSqm:amount,studies:amount,developerFeeRate:ratio,developerFeeBase:z.enum(['development','dev_plus_studies']),
@@ -98,7 +98,9 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
   sales.priceMode==='compound'&&!validGrowth?'growth':null;
  if(issue)return {issue,net,saleArea,shareTotal,invalidPhases} as const;
  const acquisitionArea=site.acquisitionBasis==='GROSS'?site.areaAfterPriorTransfers:site.acquisitionBasis==='MANUAL'?(site.acquisitionArea??0):net;
- const land=acquisitionArea*site.landPricePerNetSqm;
+ const leased=site.landPaymentMethod==='lease';
+ const land=leased?0:acquisitionArea*site.landPricePerNetSqm;
+ const annualLandRent=leased?site.annualLandRent??0:0;
  const quantity=evaluateQuantityBudget(model.quantityDevelopment?.budget,{LAND_AREA:site.areaAfterPriorTransfers,NET_AREA:net,SALE_AREA:saleArea,
   ROAD_LENGTH:model.quantityDevelopment?.roadLength??0,NETWORK_LENGTH:model.quantityDevelopment?.networkLength??0,
   SERVICE_AREA:model.quantityDevelopment?.serviceAreaFromSite?net*site.serviceRatio:model.quantityDevelopment?.serviceArea??0});
@@ -146,7 +148,7 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
   interestBudget:finance.facility*finance.interestBudgetRate,
   arrangement:finance.facility*finance.arrangementRate,
   contingency:(development+studies)*cost.contingencyRate,
-  otherCosts:cost.otherCosts+cost.taxes+cost.landAcquisitionFees
+  otherCosts:cost.otherCosts+cost.taxes+(leased?0:cost.landAcquisitionFees)
  };
  const weights=Object.fromEntries(rawLandCostKeys.map(key=>[key,annualPhaseWeights(phasing[key],project.years,0,years)])) as Record<(typeof rawLandCostKeys)[number],number[]>;
  if(model.quantityDevelopment?.budget.enabled&&developmentBase>0){
@@ -170,7 +172,7 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
   return {salesValue,cashCollected:collections[i],draw,repayment,interest,closingDebt:debt};
  });
  costs.interestBudget=sum(allocations.map(row=>row.interest));
- const cashDevelopmentCost=sum(Object.values(costs));
+ const cashDevelopmentCost=sum(Object.values(costs))+annualLandRent*years;
  const totalCost=land+cashDevelopmentCost;
  const gross=revenue-totalCost;
  const incentiveAtCost=(basis:number)=>{
@@ -184,7 +186,7 @@ export function evaluateRawLand(model:RawLand,scenarioIndex=2){
  let cumulativeOperating=0,cumulativeProject=initialProject,cumulativeEquity=initialEquity;
  let receivables=0;
  const annual=allocations.map((row,i)=>{
-  const cashCost=row.interest+sum(rawLandCostKeys.filter(key=>key!=='interestBudget').map(key=>costs[key]*weights[key][i]));
+  const cashCost=annualLandRent+row.interest+sum(rawLandCostKeys.filter(key=>key!=='interestBudget').map(key=>costs[key]*weights[key][i]));
   receivables+=row.salesValue-row.cashCollected;
   const operatingCash=row.cashCollected-cashCost;
   const performanceFee=i===years-1?incentive:0;

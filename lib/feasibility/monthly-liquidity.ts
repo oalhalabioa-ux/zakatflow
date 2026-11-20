@@ -68,7 +68,7 @@ export function monthlyLiquidityAmounts(study:FeasibilityStudy):MonthlyAmounts|n
  const workingCapital=advancedYear&&model.annual.length>1?-advancedYear.workingCapitalMovement:0;
  const costs=-(year.fixed+year.maintenance),variableCosts=-year.variable;
  return {
-  collections:year.revenue,investment:-(advanced?.cashNeed??(model.totalInvestment-model.landAsset)),
+  collections:year.revenue,investment:-(advanced?.cashNeed??model.cashInvestment),
   costs,variableCosts,workingCapital,debtDraw:study.investorLoan+study.otherDebt,
   principal:advancedYear?-advancedYear.principal:0,interest:advancedYear?-advancedYear.interest:0,
   yearEnd:operatingCash-year.revenue-costs-variableCosts-workingCapital,terminalPrincipal:0,

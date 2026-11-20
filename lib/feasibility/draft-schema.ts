@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {rawLandSchema} from './raw-land';
 import {monthlyLiquiditySchema} from './monthly-liquidity';
+import {landArrangementSchema,partnershipSchema} from './partnership';
 import {waterModelSchema} from './water-model';
 const amount=z.number().finite().min(0).max(1000000000000);
 const percent=z.number().finite().min(0).max(100000);
@@ -18,7 +19,7 @@ export const feasibilityDraftSchema=z.object({
  // An empty country/currency is allowed for a draft, but blocks project-readiness approval.
  currency:z.string().regex(/^(?:[A-Z]{3})?$/),
  status:z.enum(['IDEA','FEASIBILITY','APPROVED','ESTABLISHMENT','OPERATING','CANCELLED']),
- landValue:amount,landTransferred:z.boolean(),investorEquity:amount,partnerCashEquity:amount,
+ landValue:amount,landTransferred:z.boolean(),landArrangement:landArrangementSchema.optional(),partnership:partnershipSchema.optional(),investorEquity:amount,partnerCashEquity:amount,
  investorLoan:amount,otherDebt:amount,workingCapital:amount,annualMaintenance:amount,
  unitPrice:amount,variableCost:amount,monthlyUnits:amount,monthlyFixedCost:amount,
  volumeGrowthPct:percent,priceGrowthPct:percent,fixedCostGrowthPct:percent,discountRatePct:percent,indicativeTaxRatePct:percent,

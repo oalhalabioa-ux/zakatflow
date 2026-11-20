@@ -18,6 +18,7 @@ export default function GeneralInvestmentPanel({study,locale,onChange}:{
  return <section className="fs-block fs-royal-capex fs-royal-general-investment">
   <div className="fs-kpis">{[
    [l('بنود الاستثمار النقدية','Cash capital items'),model.capex],
+   ...(model.landPurchase>0?[[l('شراء الأرض ورسومها','Land purchase and fees'),model.landPurchase]]:[]),
    [l('الأرض العينية','In-kind land'),model.landAsset],
    [l('رأس المال العامل','Working capital'),study.workingCapital],
    [l('إجمالي الاستثمار الاقتصادي','Total economic investment'),model.totalInvestment],
