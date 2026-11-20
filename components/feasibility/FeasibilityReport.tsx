@@ -10,6 +10,7 @@ import {evaluateWater,effectiveWaterInputs,studyReportReadiness,waterPeakFunding
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import {studyProfileValues,studyTypeLabels} from '@/lib/feasibility/study-profile';
 import WaterModelPanel from './WaterModelPanel';
+import PartnershipPanel from './PartnershipPanel';
 import CostingReport from './CostingReport';
 import {evaluateMonthlyLiquidity,liquidityMonthLabel,monthlyLiquidityAmounts} from '@/lib/feasibility/monthly-liquidity';
 
@@ -105,8 +106,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('صافي فجوة التمويل النقدي','Net funding gap'),money(base.cashFundingGap)]
  ];
  const ownership=study.rawLand?[
-  [l('طريقة تقديم الأرض','Land contribution method'),study.rawLand.site.landPaymentMethod==='in_kind'?l('حصة عينية','In kind'):l('شراء نقدي','Cash purchase')],
+  [l('طريقة تقديم الأرض','Land contribution method'),study.rawLand.site.landPaymentMethod==='lease'?l('إيجار','Lease'):study.rawLand.site.landPaymentMethod==='in_kind'?l('حصة عينية','In kind'):l('شراء نقدي','Cash purchase')],
   [l('قيمة الأرض','Land value'),money(landResult?.land??null)],
+  ...(study.rawLand.site.landPaymentMethod==='lease'?[[l('إيجار الأرض سنويًا','Annual land rent'),money(study.rawLand.site.annualLandRent??0)]]:[]),
   [l('حافز المطور','Developer incentive'),money(landResult?.developerIncentive??null)],
   [l('حافز المدير','Manager incentive'),money(landResult?.managerIncentive??null)]
  ]:water&&deal?[
@@ -120,6 +122,8 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('الملكية الاقتصادية للممول','Investor economic ownership'),percent(water.investorShare)],
   [l('الملكية الاقتصادية لصاحب الأرض','Land partner economic ownership'),percent(water.partnerShare)]
  ]:[
+  ...(study.landArrangement?.mode==='LEASE'?[[l('إيجار الأرض شهريًا','Monthly land rent'),money(study.landArrangement.monthlyRent)]]:[]),
+  ...(study.landArrangement?.mode==='PURCHASE'?[[l('شراء الأرض ورسومها','Land purchase with fees'),money(base.landPurchase)]]:[]),
   [l('رأس مال الممول النقدي','Investor cash equity'),money(study.investorEquity)],
   [l('مساهمة الشريك النقدية','Partner cash contribution'),money(study.partnerCashEquity)],
   [l('الحصة العينية للأرض','Land in-kind contribution'),money(base.landAsset)],
@@ -301,6 +305,7 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   <section className="card fs-panel fs-royal-report-detail" id={sectionId('ownership')} tabIndex={-1} data-report-section="ownership">
    <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{sectionLabels.ownership}</h3>
    <dl className="fs-royal-checks">{ownership.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
+   <PartnershipPanel study={study} locale={locale}/>
    {!!study.rawLand?.distribution?.partners.length&&<RawLandPanel model={study.rawLand} locale={locale}
     currency={study.currency} tab="distribution-report"/>}
    <p className="fs-hint">{l('هذه الحصص اقتصادية تقديرية. تُثبت الملكية القانونية بالمستندات والإجراءات المعتمدة.',

@@ -47,7 +47,11 @@ export default function RoyalOverview({ study, locale, model, sectorLabel, statu
     lease: t('إيجار الأرض', 'Land lease'),
     right: t('حق انتفاع', 'Right of use'),
     purchase: t('شراء الأرض نقدًا', 'Cash land purchase'),
-  }[study.water.deal.landMode] : study.landTransferred ? t('نقل ملكية الأرض', 'Land ownership transfer') : '—';
+  }[study.water.deal.landMode] : study.landArrangement ? {
+    LEASE:t('إيجار الأرض','Land lease'),
+    IN_KIND:t('تقديم عيني من أحد الشركاء','In-kind contribution by a partner'),
+    PURCHASE:t('شراء الأرض','Land purchase')
+  }[study.landArrangement.mode] : study.landTransferred ? t('نقل ملكية الأرض', 'Land ownership transfer') : '—';
   const profile = [
     [t('القطاع', 'Sector'), sectorLabel],
     [t('الدولة', 'Country'), study.country],

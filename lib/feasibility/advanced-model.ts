@@ -39,7 +39,7 @@ export function evaluateAdvanced(s:FeasibilityStudy,scenario:Scenario='BASE'):Ad
   monthlyVolume=a.capacityMonthly*a.utilisationPct/100*a.saleablePct/100;
  }else if(a.mode!=='DIRECT')blockers.push('INVALID_ASSUMPTIONS');
  const base=evaluateStudy({...s,monthlyUnits:monthlyVolume},scenario);
- if(base.capex<=0||s.unitPrice<=0||monthlyVolume<=0)blockers.push('BASIC_INPUT_MISSING');
+ if(base.capex+base.landPurchase<=0||s.unitPrice<=0||monthlyVolume<=0)blockers.push('BASIC_INPUT_MISSING');
  const grouped=Object.fromEntries(categories.map(category=>[category,s.capex.filter(x=>x.category===category).reduce((v,x)=>v+x.amount,0)])) as Record<CapitalCategory,number>;
  if(categories.some(category=>grouped[category]>0&&a.lives[category]<=0))blockers.push('USEFUL_LIVES_MISSING');
  const debt=s.investorLoan+s.otherDebt,years=s.years,working=s.workingCapital;
@@ -56,13 +56,13 @@ export function evaluateAdvanced(s:FeasibilityStudy,scenario:Scenario='BASE'):Ad
  if(workingSchedule.some(n=>n<0))blockers.push('NEGATIVE_WORKING_CAPITAL');
  const openingWorkingCapital=workingSchedule[0]??0;
  const contingency=base.capex*contingencyPct/100;
- const cashNeed=base.capex+openingWorkingCapital+contingency;
+ const cashNeed=base.capex+base.landPurchase+openingWorkingCapital+contingency;
  if(debt>cashNeed)blockers.push('DEBT_OVERFUNDED');
  if(!Number.isFinite(base.totalInvestment)||!base.annual.every(y=>[y.revenue,y.volume,y.ebitda].every(Number.isFinite)))
   blockers.push('NONFINITE_PROJECTION');
  // Land remains an economic cost, not cash funding. Contingency is not assigned
  // to depreciable assets until a future documented CAPEX allocation exists.
- const initialInvestment=base.capex+base.landAsset+openingWorkingCapital+contingency;
+ const initialInvestment=cashNeed+base.landAsset;
  const fail=():AdvancedResult=>({ready:false,equityReady:false,blockers:[...new Set(blockers)],equityBlockers:[],annual:[],monthlyVolume,initialInvestment,cashNeed,
   openingWorkingCapital,contingency,projectFlows:[],equityFlows:[],projectNpv:null,projectIrr:null,equityNpv:null,equityIrr:null,minDscr:null});
  if(blockers.length)return fail();
@@ -107,4 +107,4 @@ export function evaluateAdvanced(s:FeasibilityStudy,scenario:Scenario='BASE'):Ad
   projectFlows,equityFlows,projectNpv:npv(projectFlows,discount),projectIrr:internalRateOfReturn(projectFlows),
   equityNpv:equityReady?npv(equityFlows,discount):null,equityIrr:equityReady?internalRateOfReturn(equityFlows):null,minDscr};
 }
-function studyLandInvalid(s:FeasibilityStudy){return s.landTransferred&&s.landValue<=0}
+function studyLandInvalid(s:FeasibilityStudy){return s.landArrangement?s.landArrangement.mode==='IN_KIND'&&s.landArrangement.valuation<=0:s.landTransferred&&s.landValue<=0}
