@@ -14,7 +14,7 @@ const installmentSchema=z.object({
 }).strict();
 const partnerSchema=z.object({
  id:z.string().uuid(),name:z.string().max(300),
- ownershipPct:share,profitPct:share,cashCommitted:amount,cashPaid:amount,loanPaid:amount,
+ ownershipPct:share,profitPct:share,cashCommitted:amount,capitalCommitted:amount.optional(),cashPaid:amount,loanPaid:amount,
  installments:z.array(installmentSchema).max(100).optional()
 }).strict();
 export const partnershipSchema=z.object({
@@ -78,15 +78,22 @@ export function generalLandCosts(study:Pick<FeasibilityStudy,'landArrangement'|'
  };
 }
 
-export function summarizePartnership(partnership:Partnership){
- const totals=partnership.partners.reduce((sum,person)=>{
-  const {cashPaid,loanPaid}=partnerPaidAmounts(person,partnership.asOf);
-  return {
-   ownershipPct:sum.ownershipPct+person.ownershipPct,profitPct:sum.profitPct+person.profitPct,
-   committed:sum.committed+person.cashCommitted,cashPaid:sum.cashPaid+cashPaid,loanPaid:sum.loanPaid+loanPaid,
-   outstanding:sum.outstanding+Math.max(0,person.cashCommitted-cashPaid)
-  };
- },{ownershipPct:0,profitPct:0,committed:0,cashPaid:0,loanPaid:0,outstanding:0});
- return {...totals,ownershipBalanced:Math.abs(totals.ownershipPct-100)<1e-8,
+export function summarizePartnership(partnership:Partnership,inKindLand=0){
+ const rows=partnership.partners.map(partner=>{
+  const {cashPaid,loanPaid}=partnerPaidAmounts(partner,partnership.asOf);
+  const inKindPaid=partner.id===partnership.landPartnerId?inKindLand:0;
+  // Legacy drafts stored the cash portion of the commitment.
+  const committed=partner.capitalCommitted??(partner.cashCommitted+inKindPaid);
+  const cashRequired=Math.max(0,committed-inKindPaid);
+  return {partner,committed,cashRequired,cashPaid,loanPaid,inKindPaid,
+   outstanding:Math.max(0,cashRequired-cashPaid),overpaid:cashPaid+inKindPaid>committed+0.000001};
+ });
+ const totals=rows.reduce((sum,row)=>({
+  ownershipPct:sum.ownershipPct+row.partner.ownershipPct,profitPct:sum.profitPct+row.partner.profitPct,
+  committed:sum.committed+row.committed,cashRequired:sum.cashRequired+row.cashRequired,
+  cashPaid:sum.cashPaid+row.cashPaid,loanPaid:sum.loanPaid+row.loanPaid,inKindPaid:sum.inKindPaid+row.inKindPaid,
+  outstanding:sum.outstanding+row.outstanding
+ }),{ownershipPct:0,profitPct:0,committed:0,cashRequired:0,cashPaid:0,loanPaid:0,inKindPaid:0,outstanding:0});
+ return {...totals,rows,ownershipBalanced:Math.abs(totals.ownershipPct-100)<1e-8,
   profitBalanced:Math.abs(totals.profitPct-100)<1e-8};
 }
