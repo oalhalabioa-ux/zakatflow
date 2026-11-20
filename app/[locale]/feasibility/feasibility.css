@@ -652,3 +652,9 @@
  .fs-page .fs-print-report .fs-royal-checks > :is(div,li) { break-inside: avoid; padding-block: 3pt; font-size: 9pt; line-height: 1.4; }
  .fs-page .fs-print-report .fs-panel { padding: 7pt !important; }
 }
+
+.fs-royal .fs-monthly-liquidity { min-width: 0; }
+.fs-royal .fs-monthly-liquidity .fs-table-wrap { overflow-x: auto; }
+.fs-royal .fs-monthly-liquidity td bdi { white-space: nowrap; }
+.fs-royal .fs-monthly-liquidity .fs-table thead th { min-width: 90px; }
+.fs-royal .fs-monthly-liquidity details summary { cursor: pointer; }
