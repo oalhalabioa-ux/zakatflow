@@ -11,6 +11,7 @@ import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import {studyProfileValues,studyTypeLabels} from '@/lib/feasibility/study-profile';
 import WaterModelPanel from './WaterModelPanel';
 import CostingReport from './CostingReport';
+import {evaluateMonthlyLiquidity,liquidityMonthLabel,monthlyLiquidityAmounts} from '@/lib/feasibility/monthly-liquidity';
 
 const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
@@ -62,6 +63,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
  const landResult=land?.issue===null&&land.ready?land:null;
  const water=study.water?evaluateWater(study.water):null;
  const deal=study.water?effectiveWaterInputs(study.water).deal:undefined;
+ const plan=study.monthlyLiquidity;
+ const monthlyAmounts=plan&&monthlyLiquidityAmounts(study);
+ const liquidity=plan&&monthlyAmounts&&evaluateMonthlyLiquidity(monthlyAmounts,plan);
  const funding=study.rawLand?[
   [l('التسهيل التمويلي','Financing facility'),money(study.rawLand.finance.facility)],
   [l('تكاليف التطوير النقدية','Cash development costs'),money(landResult?.cashDevelopmentCost??null)],
@@ -276,6 +280,10 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   <section className="card fs-panel fs-royal-report-detail" id={sectionId('funding')} tabIndex={-1} data-report-section="funding">
    <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{sectionLabels.funding}</h3>
    <dl className="fs-royal-checks">{funding.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
+   {liquidity&&<dl className="fs-royal-checks">
+    <div><dt>{l('التمويل الإضافي لأول 12 شهرًا','Additional funding for the first 12 months')}</dt><dd><bdi>{money(liquidity.fundingGap)}</bdi></dd></div>
+    <div><dt>{l('شهر أكبر عجز','Peak shortfall month')}</dt><dd><bdi>{liquidity.peakMonth===null?'—':liquidityMonthLabel(plan?.startMonth,liquidity.peakMonth,locale)}</bdi></dd></div>
+   </dl>}
    {(water||landResult?.financeMetrics?.returns)&&<p className="fs-hint">{water?
     l('العجز مبني على أرصدة نهاية السنوات مع الاحتفاظ بالفوائض.','The shortfall uses year-end balances and assumes surpluses are retained.'):
     l('العائد قبل التمويل يستبعد الفائدة وعمولة ترتيب القرض. عائد الملكية الإجمالي يشمل الأرض العينية بقيمتها في سنة صفر إن وُجدت.',

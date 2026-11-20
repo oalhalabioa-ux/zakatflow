@@ -24,7 +24,7 @@
     "decimal.js": "10.6.0",
     "exceljs": "^4.4.0",
     "libxml2-wasm": "0.7.1",
-    "next": "15.5.28",
+    "next": "15.5.29",
     "pg": "8.23.1",
     "qrcode": "^1.5.4",
     "react": "19.1.1",
@@ -46,7 +46,6 @@
     "postcss": "8.5.28",
     "rollup": "4.64.0",
     "zod": "$zod",
-    "minimatch": "11.0.1",
-    "picomatch": "npm:@ryotsu/picomatch@4.0.7-a"
+    "minimatch": "11.0.1"
   }
 }

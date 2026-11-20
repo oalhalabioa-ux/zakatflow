@@ -19,6 +19,7 @@ import RawLandPanel from '@/components/feasibility/RawLandPanel';
 import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
 import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
 import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
+import MonthlyLiquidityPanel from '@/components/feasibility/MonthlyLiquidityPanel';
 import StudyProfilePanel from '@/components/feasibility/StudyProfilePanel';
 import GeneralInvestmentPanel from '@/components/feasibility/GeneralInvestmentPanel';
 import FeasibilitySidebar from '@/components/feasibility/FeasibilitySidebar';
@@ -748,6 +749,8 @@ function FeasibilityWorkspaceContent({
     onChange={value=>update({rawLand:value})}/>}
    {water&&waterTab&&waterTab!=='overview'&&<WaterModelPanel water={water} tab={waterTab} detail={details?.id===detail?detail:undefined}
      currency={study.currency} locale={locale} suppliers={study.suppliers} onChange={water=>update({water})}/>}
+   {(water||rawLand)&&tab==='cashflow'&&<MonthlyLiquidityPanel study={study} locale={locale} readOnly={effectiveReadOnly}
+    onChange={monthlyLiquidity=>update({monthlyLiquidity})}/>}
    {water&&tab==='overview'&&<details className="fs-royal-shared-access">
     <summary>{txt(ar,'تفاصيل ومؤشرات مصنع المياه','Detailed water factory indicators')}</summary>
     <WaterModelPanel water={water} tab="overview" currency={study.currency} locale={locale} onChange={water=>update({water})}/>
