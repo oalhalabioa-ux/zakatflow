@@ -104,6 +104,15 @@ export function partitionPersonalCloudRows(
  return {owned,shared};
 }
 
+// JSONB can change object key order. Keep array order significant.
+const orderedJson=(value:unknown)=>JSON.stringify(value,(_key,entry:unknown)=>
+ object(entry)?Object.fromEntries(Object.keys(entry).sort().map(key=>[key,entry[key]])):entry);
+
+export function personalCloudRevisionForBaseline(baseline:FeasibilityStudy,rows:SavedCloudDraft[],userId:string){
+ const row=rows.find(row=>row.id===baseline.id&&row.owner_user_id===userId);
+ return row&&orderedJson(row.study)===orderedJson(baseline)?row.revision:null;
+}
+
 /** Keep local drafts and merge only owned cloud copies with missing IDs.
  * A divergent copy must never acquire the cloud revision for a later write. */
 export function mergePersonalCloudDrafts(
@@ -115,9 +124,6 @@ export function mergePersonalCloudDrafts(
  const restored:FeasibilityStudy[]=[];
  const synchronized:SavedCloudDraft[]=[];
  let conflicts=0;
- // JSONB can change object key order. Keep array order significant.
- const orderedJson=(value:unknown)=>JSON.stringify(value,(_key,entry:unknown)=>
-  object(entry)?Object.fromEntries(Object.keys(entry).sort().map(key=>[key,entry[key]])):entry);
  for(const row of partition.owned){
   const existing=localById.get(row.id);
   if(!existing)restored.push(row.study);

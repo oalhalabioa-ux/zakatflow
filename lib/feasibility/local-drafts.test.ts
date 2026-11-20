@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {createStudy} from './engine';
-import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type SavedCloudDraft} from './local-drafts';
+import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,personalCloudRevisionForBaseline,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type SavedCloudDraft} from './local-drafts';
 
 const id='6357a708-bae2-4634-9296-490404b1d8a4';
 const owner='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
@@ -137,4 +137,13 @@ describe('personal cloud restore',()=>{
   expect(mergePersonalCloudDrafts(local,[],ownerId,'')).toMatchObject({studies:local,selectedId:local[0].id});
   expect(mergePersonalCloudDrafts(local,[row(draft(303))],ownerId,local[0].id)).toBeNull();
  });
+});
+
+it('recovers the save revision only while the owned cloud content matches the reloaded baseline',()=>{
+ const baseline=draft(3);
+ const reordered=Object.fromEntries(Object.entries(baseline).reverse()) as typeof baseline;
+ expect(personalCloudRevisionForBaseline(baseline,[row(reordered)],ownerId)).toBe(3);
+ expect(personalCloudRevisionForBaseline(baseline,[row({...baseline,title:'Edited elsewhere'})],ownerId)).toBeNull();
+ expect(personalCloudRevisionForBaseline(baseline,[row(reordered,collaboratorId)],ownerId)).toBeNull();
+ expect(personalCloudRevisionForBaseline(baseline,[row(draft(4))],ownerId)).toBeNull();
 });
