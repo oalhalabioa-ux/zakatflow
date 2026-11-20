@@ -35,7 +35,7 @@ import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,createRawLandStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
 import {importWaterBackup} from '@/lib/feasibility/water-backup';
 import {importRawLandBackup} from '@/lib/feasibility/raw-land-backup';
-import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
+import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,personalCloudRevisionForBaseline,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -119,6 +119,7 @@ function FeasibilityWorkspaceContent({
  const sharingEnabled=cloudEnabled&&process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA==='true';
  const [cloudBusy,setCloudBusy]=useState(false);
  const [cloudRevisions,setCloudRevisions]=useState<Record<string,number>>({});
+ const personalCacheBaseline=useRef(new Map<string,FeasibilityStudy>());
  const [cloudSavedStudyVersions,setCloudSavedStudyVersions]=useState<Record<string,string>>({});
  const [cloudOwnerIds,setCloudOwnerIds]=useState<Record<string,string>>({});
  // Collaborator-readable cloud studies are never written to personal localStorage.
@@ -231,11 +232,13 @@ function FeasibilityWorkspaceContent({
   setLoaded(false);setStorageSafe(true);
   setStudies([]);setSelectedId('');setSharedSelectedId('');setTab('overview');
   setCloudRevisions({});setCloudSavedStudyVersions({});setCloudOwnerIds({});setCloudBusy(false);setSaveIssue(undefined);
+  personalCacheBaseline.current.clear();
   try{
    const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as unknown;
    if(saved!==null){
     const checked=parseLocalStudyCache(saved);
     if(!checked)throw Error('INVALID_CACHE');
+    personalCacheBaseline.current=new Map(checked.studies.map(study=>[study.id,study]));
     setStudies(checked.studies);setSelectedId(checked.selectedId);
    }
   }catch{
@@ -353,6 +356,7 @@ function FeasibilityWorkspaceContent({
     }));
    }
    setStudies(merged.studies);setSelectedId(merged.selectedId);setSharedSelectedId('');
+   for(const row of merged.synchronized)personalCacheBaseline.current.set(row.id,row.study);
    setCloudRevisions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.revision])));
    setCloudSavedStudyVersions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.study.updatedAt])));
    setCloudOwnerIds(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.owner_user_id])));
@@ -416,15 +420,27 @@ function FeasibilityWorkspaceContent({
   setCloudBusy(true);
   try{
    const revision=cloudRevisions[study.id];
-   const response=await fetch('/api/feasibility/projects',{
-    method:revision===undefined?'POST':'PATCH',
+   const write=(baseRevision:number|undefined)=>fetch('/api/feasibility/projects',{
+    method:baseRevision===undefined?'POST':'PATCH',
     headers:{'content-type':'application/json'},
-    body:JSON.stringify({study,...(revision===undefined?{}:{revision})})
+    body:JSON.stringify({study,...(baseRevision===undefined?{}:{revision:baseRevision})})
    });
+   let response=await write(revision);
+   const baseline=personalCacheBaseline.current.get(study.id);
+   // The browser reload loses the in-memory revision. Reuse the current cloud revision
+   // only if its content still matches the local study before edits in this session.
+   if(response.status===409&&revision===undefined&&baseline&&currentUserRef.current===requestedUser&&personalScopeRef.current){
+    const readback=await fetch('/api/feasibility/projects',{cache:'no-store'});
+    const rows=readback.ok?parseCloudStudyRows(await readback.json()):null;
+    if(currentUserRef.current!==requestedUser||!personalScopeRef.current)return;
+    const baseRevision=rows&&personalCloudRevisionForBaseline(baseline,rows,requestedUser);
+    if(baseRevision)response=await write(baseRevision);
+   }
    if(response.status===409)throw new Error('CONFLICT');
    if(!response.ok)throw new Error('SAVE_FAILED');
    const result=await response.json() as {revision:number};
    if(currentUserRef.current!==requestedUser)return;
+   personalCacheBaseline.current.set(study.id,study);
    setCloudRevisions(p=>({...p,[study.id]:result.revision}));
    setCloudSavedStudyVersions(p=>({...p,[study.id]:study.updatedAt}));
    setCloudOwnerIds(p=>({...p,[study.id]:userId}));
