@@ -5,6 +5,7 @@
  */
 import type {RawLand} from './raw-land';
 import type {WaterModel} from './water-model';
+import {generalLandCosts,type LandArrangement,type Partnership} from './partnership';
 import type {MonthlyLiquidity} from './monthly-liquidity';
 
 export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTURE'|'CUSTOM';
@@ -44,7 +45,7 @@ export interface PropertyDevelopmentSchedule {kind:'REAL_ESTATE';stages:Property
 export type SectorSchedule=IndustrialProductionSchedule|PropertyDevelopmentSchedule;
 export interface FeasibilityStudy {
  id:string; title:string; sector:Sector; country:string; region:string; currency:string; status:StudyStatus;
- landValue:number; landTransferred:boolean; investorEquity:number; partnerCashEquity:number;
+ landValue:number; landTransferred:boolean; landArrangement?:LandArrangement; partnership?:Partnership; investorEquity:number; partnerCashEquity:number;
  investorLoan:number; otherDebt:number; workingCapital:number; annualMaintenance:number;
  unitPrice:number; variableCost:number; monthlyUnits:number; monthlyFixedCost:number; volumeGrowthPct:number;
  priceGrowthPct:number; fixedCostGrowthPct:number; discountRatePct:number; indicativeTaxRatePct:number; years:number;
@@ -157,13 +158,14 @@ export function internalRateOfReturn(flows:number[]):number|null{
 }
 export function evaluateStudy(s:FeasibilityStudy,scenario:Scenario='BASE'){
  const c=scenarioFactors(s,scenario),capex=sum(s.capex.map(x=>x.amount));
- const landAsset=s.landTransferred?nonneg(s.landValue):0;
+ const land=generalLandCosts(s),landAsset=nonneg(land.inKind),landPurchase=nonneg(land.purchase);
  const cashEquity=nonneg(s.investorEquity)+nonneg(s.partnerCashEquity);
  const equity=cashEquity+landAsset;
  const investorShare=equity>0?nonneg(s.investorEquity)/equity*100:null;
  const partnerShare=equity>0?(nonneg(s.partnerCashEquity)+landAsset)/equity*100:null;
- const totalInvestment=capex+landAsset+nonneg(s.workingCapital);
- const cashFundingGap=capex+nonneg(s.workingCapital)-cashEquity-nonneg(s.investorLoan)-nonneg(s.otherDebt);
+ const cashInvestment=capex+landPurchase+nonneg(s.workingCapital);
+ const totalInvestment=cashInvestment+landAsset;
+ const cashFundingGap=cashInvestment-cashEquity-nonneg(s.investorLoan)-nonneg(s.otherDebt);
  const annual:AnnualProjection[]=[];
  const projectedYears=Math.min(20,Math.max(1,Math.trunc(s.years)||5));
  const initial=-(totalInvestment);
@@ -177,7 +179,7 @@ export function evaluateStudy(s:FeasibilityStudy,scenario:Scenario='BASE'){
   const price=basePrice*Math.pow(1+nonneg(s.priceGrowthPct)/100,year-1);
   const variableCost=baseCost*volume;
   const revenue=volume*price;
-  const fixed=nonneg(s.monthlyFixedCost)*12*Math.pow(1+nonneg(s.fixedCostGrowthPct)/100,year-1);
+  const fixed=nonneg(s.monthlyFixedCost)*12*Math.pow(1+nonneg(s.fixedCostGrowthPct)/100,year-1)+nonneg(land.rent)*12;
   const ebitda=revenue-variableCost-fixed;
   // Indicative only: not a statutory tax base. Depreciation, loss carryforwards, etc. are omitted.
   const taxEstimate=Math.max(0,ebitda)*taxRate;
@@ -186,14 +188,14 @@ export function evaluateStudy(s:FeasibilityStudy,scenario:Scenario='BASE'){
   annual.push({year,volume,revenue,variable:variableCost,fixed,ebitda,taxEstimate,maintenance,freeCashFlow});
   flows.push(freeCashFlow);
  }
- const ready=capex>0&&nonneg(s.unitPrice)>0&&nonneg(s.monthlyUnits)>0;
+ const ready=(capex+landPurchase)>0&&nonneg(s.unitPrice)>0&&nonneg(s.monthlyUnits)>0;
  const npv=ready?npvAt(discount,flows):null;
  const irr=ready?internalRateOfReturn(flows):null;
  let paybackYears:null|number=null;
  if(ready){let cumulative=flows[0];for(let i=1;i<flows.length;i++){const prev=cumulative;cumulative+=flows[i];if(prev<0&&cumulative>=0&&flows[i]>0){paybackYears=i-1+(-prev/flows[i]);break;}}}
  const margin=basePrice-baseCost;
- const breakevenMonthlyUnits=margin>0?nonneg(s.monthlyFixedCost)/margin:null;
- return {capex,landAsset,equity,cashEquity,investorShare,partnerShare,totalInvestment,cashFundingGap,
+ const breakevenMonthlyUnits=margin>0?(nonneg(s.monthlyFixedCost)+nonneg(land.rent))/margin:null;
+ return {capex,landAsset,landPurchase,cashInvestment,equity,cashEquity,investorShare,partnerShare,totalInvestment,cashFundingGap,
  annual,flows,npv,irr,paybackYears,breakevenMonthlyUnits,ready,margin,
  notes:['التدفقات تمثل المشروع قبل خدمة الديون، وليست تدفقات الشريك الشخصية.',
  'الأرض المحولة ملكيتها حصة عينية غير نقدية؛ لا تُستخدم لسداد مصروفات التأسيس.',

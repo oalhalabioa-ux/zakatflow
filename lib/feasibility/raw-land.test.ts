@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {annualPhaseWeights,createRawLand,evaluateRawLand} from './raw-land';
+import {annualPhaseWeights,compareRawLandAlternatives,createRawLand,evaluateRawLand,rawLandSchema} from './raw-land';
 import {feasibilityDraftSchema} from './draft-schema';
 import {createRawLandStarter} from './project-templates';
 
@@ -105,4 +105,37 @@ describe('general land development model',()=>{
   expect(feasibilityDraftSchema.safeParse({...study,sector:'INDUSTRIAL'}).success).toBe(false);
   expect(feasibilityDraftSchema.safeParse({...study,rawLand:synthetic()}).success).toBe(true);
  });
+});
+
+
+it('compares all three land arrangements on the same scenario without changing the saved choice',()=>{
+ const model=synthetic();
+ model.cost.landAcquisitionFees=5000;
+ model.landAlternatives={purchasePricePerSqm:25,inKindValuePerSqm:25,annualRent:1200,leaseAllowsProjectedRevenue:true};
+ const parsed=rawLandSchema.parse(model);
+ const [purchase,lease,inKind]=compareRawLandAlternatives(parsed);
+ expect(purchase).toMatchObject({issue:null,cashPurchase:200000,inKindValue:0,totalRent:0});
+ expect(lease).toMatchObject({issue:null,cashPurchase:0,inKindValue:0,totalRent:3600});
+ expect(inKind).toMatchObject({issue:null,cashPurchase:0,inKindValue:200000,totalRent:0});
+ if(purchase.issue||lease.issue||inKind.issue)throw Error('Comparison is incomplete');
+ expect(purchase.npv).toBeCloseTo(inKind.npv);
+ expect(purchase.peakEquityDeficit-inKind.peakEquityDeficit).toBeCloseTo(200000);
+ expect(lease.npv).toBeGreaterThan(purchase.npv);
+ const changed=compareRawLandAlternatives({...parsed,landAlternatives:{...parsed.landAlternatives,annualRent:2400}})[1];
+ expect(changed).toMatchObject({issue:null,totalRent:7200});
+ if(changed.issue)throw Error(changed.issue);
+ expect(changed.npv).toBeLessThan(lease.npv);
+ expect(parsed.site.landPaymentMethod).toBe('in_kind');
+ expect(parsed.site.landPricePerNetSqm).toBe(20);
+});
+
+it('shows pending inputs for an unpriced purchase and a lease with unconfirmed revenue rights',()=>{
+ const model=synthetic();
+ model.landAlternatives={annualRent:0};
+ const [purchase,lease,inKind]=compareRawLandAlternatives(model);
+ expect(purchase).toMatchObject({issue:'LAND_VALUE'});
+ expect(lease).toMatchObject({issue:'LEASE_TERMS'});
+ expect(inKind).toMatchObject({issue:null,inKindValue:160000});
+ expect(compareRawLandAlternatives({...model,landAlternatives:{annualRent:0,leaseAllowsProjectedRevenue:true}})[1])
+  .toMatchObject({issue:null,totalRent:0});
 });

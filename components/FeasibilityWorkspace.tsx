@@ -19,6 +19,7 @@ import RawLandPanel from '@/components/feasibility/RawLandPanel';
 import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
 import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
 import FeasibilityReport from '@/components/feasibility/FeasibilityReport';
+import PartnershipPanel,{GeneralLandPanel} from '@/components/feasibility/PartnershipPanel';
 import MonthlyLiquidityPanel from '@/components/feasibility/MonthlyLiquidityPanel';
 import StudyProfilePanel from '@/components/feasibility/StudyProfilePanel';
 import GeneralInvestmentPanel from '@/components/feasibility/GeneralInvestmentPanel';
@@ -34,7 +35,7 @@ import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,createRawLandStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
 import {importWaterBackup} from '@/lib/feasibility/water-backup';
 import {importRawLandBackup} from '@/lib/feasibility/raw-land-backup';
-import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
+import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,personalCloudRevisionForBaseline,personalDraftCache,readPersonalCloudVersions,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -118,6 +119,7 @@ function FeasibilityWorkspaceContent({
  const sharingEnabled=cloudEnabled&&process.env.NEXT_PUBLIC_FEASIBILITY_SHARING_QA==='true';
  const [cloudBusy,setCloudBusy]=useState(false);
  const [cloudRevisions,setCloudRevisions]=useState<Record<string,number>>({});
+ const personalCacheBaseline=useRef(new Map<string,FeasibilityStudy>());
  const [cloudSavedStudyVersions,setCloudSavedStudyVersions]=useState<Record<string,string>>({});
  const [cloudOwnerIds,setCloudOwnerIds]=useState<Record<string,string>>({});
  // Collaborator-readable cloud studies are never written to personal localStorage.
@@ -230,11 +232,16 @@ function FeasibilityWorkspaceContent({
   setLoaded(false);setStorageSafe(true);
   setStudies([]);setSelectedId('');setSharedSelectedId('');setTab('overview');
   setCloudRevisions({});setCloudSavedStudyVersions({});setCloudOwnerIds({});setCloudBusy(false);setSaveIssue(undefined);
+  personalCacheBaseline.current.clear();
   try{
    const saved=JSON.parse(localStorage.getItem(storageKey)||'null') as unknown;
    if(saved!==null){
     const checked=parseLocalStudyCache(saved);
     if(!checked)throw Error('INVALID_CACHE');
+    personalCacheBaseline.current=new Map(checked.studies.map(study=>[study.id,study]));
+    const {revisions,savedVersions}=readPersonalCloudVersions(saved,checked.studies);
+    setCloudRevisions(revisions);setCloudSavedStudyVersions(savedVersions);
+    setCloudOwnerIds(Object.fromEntries(Object.keys(revisions).map(id=>[id,userId])));
     setStudies(checked.studies);setSelectedId(checked.selectedId);
    }
   }catch{
@@ -246,9 +253,9 @@ function FeasibilityWorkspaceContent({
  },[storageKey,ar]);
  useEffect(()=>{
   if(!canPersistLocalStudyCache(loaded,storageSafe,hydratedStorageKey,storageKey))return;
-  try{localStorage.setItem(storageKey,JSON.stringify({version:1,studies,selectedId}));}
+  try{localStorage.setItem(storageKey,JSON.stringify(personalDraftCache(studies,selectedId,cloudRevisions,cloudSavedStudyVersions)));}
   catch{setPersonalNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}
- },[loaded,storageSafe,hydratedStorageKey,storageKey,studies,selectedId,ar]);
+ },[loaded,storageSafe,hydratedStorageKey,storageKey,studies,selectedId,cloudRevisions,cloudSavedStudyVersions,ar]);
  // Account-scoped legacy drafts are never owned by the selected organization.
  const companyScopeReady=organizationLoaded&&organizationId.length>0&&organizationLoadedId===organizationId;
  const visibleStudies=personalScope?accountDraftsVisibleInScope(studies,scope):(companyScopeReady?organizationStudies:[]);
@@ -343,18 +350,22 @@ function FeasibilityWorkspaceContent({
    if(currentUserRef.current!==requestedUser||!personalScopeRef.current)return;
    // Read after the request to preserve any changes made while it was in flight.
    const stored=localStorage.getItem(storageKey);
-   const current=stored===null?{studies,selectedId}:parseLocalStudyCache(JSON.parse(stored));
+   const cached=stored===null?null:JSON.parse(stored) as unknown;
+   const current=stored===null?{studies,selectedId}:parseLocalStudyCache(cached);
    const merged=current&&mergePersonalCloudDrafts(current.studies,rows,requestedUser,current.selectedId);
-   if(!merged)throw Error('INVALID_CACHE_OR_LIMIT');
-   if(merged.restoredCount){
-    localStorage.setItem(storageKey,JSON.stringify({
-     version:1,studies:merged.studies,selectedId:merged.selectedId
-    }));
+   if(!current||!merged)throw Error('INVALID_CACHE_OR_LIMIT');
+   const {revisions,savedVersions}=stored===null
+    ?{revisions:{...cloudRevisions},savedVersions:{...cloudSavedStudyVersions}}
+    :readPersonalCloudVersions(cached,current.studies);
+   for(const row of merged.synchronized){
+    personalCacheBaseline.current.set(row.id,row.study);
+    revisions[row.id]=row.revision;
+    savedVersions[row.id]=row.study.updatedAt;
    }
+   localStorage.setItem(storageKey,JSON.stringify(personalDraftCache(merged.studies,merged.selectedId,revisions,savedVersions)));
    setStudies(merged.studies);setSelectedId(merged.selectedId);setSharedSelectedId('');
-   setCloudRevisions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.revision])));
-   setCloudSavedStudyVersions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.study.updatedAt])));
-   setCloudOwnerIds(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.owner_user_id])));
+   setCloudRevisions(revisions);setCloudSavedStudyVersions(savedVersions);
+   setCloudOwnerIds(Object.fromEntries(Object.keys(revisions).map(id=>[id,requestedUser])));
    setPersonalNotice(merged.conflicts
     ?txt(ar,`أُضيفت ${merged.restoredCount} من المسودات السحابية. احتُفظ بالنسخ المحلية عند اختلافها (${merged.conflicts}).`,
      `Added ${merged.restoredCount} cloud drafts. Kept the local versions of ${merged.conflicts} differing drafts.`)
@@ -415,15 +426,27 @@ function FeasibilityWorkspaceContent({
   setCloudBusy(true);
   try{
    const revision=cloudRevisions[study.id];
-   const response=await fetch('/api/feasibility/projects',{
-    method:revision===undefined?'POST':'PATCH',
+   const write=(baseRevision:number|undefined)=>fetch('/api/feasibility/projects',{
+    method:baseRevision===undefined?'POST':'PATCH',
     headers:{'content-type':'application/json'},
-    body:JSON.stringify({study,...(revision===undefined?{}:{revision})})
+    body:JSON.stringify({study,...(baseRevision===undefined?{}:{revision:baseRevision})})
    });
+   let response=await write(revision);
+   const baseline=personalCacheBaseline.current.get(study.id);
+   // The browser reload loses the in-memory revision. Reuse the current cloud revision
+   // only if its content still matches the local study before edits in this session.
+   if(response.status===409&&revision===undefined&&baseline&&currentUserRef.current===requestedUser&&personalScopeRef.current){
+    const readback=await fetch('/api/feasibility/projects',{cache:'no-store'});
+    const rows=readback.ok?parseCloudStudyRows(await readback.json()):null;
+    if(currentUserRef.current!==requestedUser||!personalScopeRef.current)return;
+    const baseRevision=rows&&personalCloudRevisionForBaseline(baseline,rows,requestedUser);
+    if(baseRevision)response=await write(baseRevision);
+   }
    if(response.status===409)throw new Error('CONFLICT');
    if(!response.ok)throw new Error('SAVE_FAILED');
    const result=await response.json() as {revision:number};
    if(currentUserRef.current!==requestedUser)return;
+   personalCacheBaseline.current.set(study.id,study);
    setCloudRevisions(p=>({...p,[study.id]:result.revision}));
    setCloudSavedStudyVersions(p=>({...p,[study.id]:study.updatedAt}));
    setCloudOwnerIds(p=>({...p,[study.id]:userId}));
@@ -453,10 +476,15 @@ function FeasibilityWorkspaceContent({
    if(!window.confirm(txt(ar,'ستُضاف نسخة مستقلة إلى محفظتك الشخصية. متابعة؟','Add independent copies to your personal portfolio?')))return;
    // Use the current browser cache so an import cannot replace a study saved while reading the file.
    const stored=localStorage.getItem(storageKey);
-   const current=stored===null?{studies}:parseLocalStudyCache(JSON.parse(stored));
+   const cached=stored===null?null:JSON.parse(stored) as unknown;
+   const current=stored===null?{studies}:parseLocalStudyCache(cached);
    const next=current&&appendImportedStudies(current.studies,imported,uid);
-   if(!next)throw Error('invalid_cache_or_limit');
-   localStorage.setItem(storageKey,JSON.stringify({version:1,...next}));
+   if(!current||!next)throw Error('invalid_cache_or_limit');
+   const {revisions,savedVersions}=stored===null?{revisions:cloudRevisions,savedVersions:cloudSavedStudyVersions}
+    :readPersonalCloudVersions(cached,current.studies);
+   localStorage.setItem(storageKey,JSON.stringify(personalDraftCache(next.studies,next.selectedId,revisions,savedVersions)));
+   setCloudRevisions(revisions);setCloudSavedStudyVersions(savedVersions);
+   setCloudOwnerIds(Object.fromEntries(Object.keys(revisions).map(id=>[id,userId])));
    setStudies(next.studies);setSelectedId(next.selectedId);setSharedSelectedId('');setTab('overview');
    setPersonalNotice(land?txt(ar,'استُورد ملف الأراضي كمسودة شخصية. راجع البيانات المرجعية في تبويب الشراكة.','Imported the land file as a personal draft. Review reference data in the partnership tab.'):
     txt(ar,'أُضيفت نسخة محلية إلى محفظتك الشخصية.','Added a local copy to your personal portfolio.'));
@@ -749,8 +777,6 @@ function FeasibilityWorkspaceContent({
     onChange={value=>update({rawLand:value})}/>}
    {water&&waterTab&&waterTab!=='overview'&&<WaterModelPanel water={water} tab={waterTab} detail={details?.id===detail?detail:undefined}
      currency={study.currency} locale={locale} suppliers={study.suppliers} onChange={water=>update({water})}/>}
-   {(water||rawLand)&&tab==='cashflow'&&<MonthlyLiquidityPanel study={study} locale={locale} readOnly={effectiveReadOnly}
-    onChange={monthlyLiquidity=>update({monthlyLiquidity})}/>}
    {water&&tab==='overview'&&<details className="fs-royal-shared-access">
     <summary>{txt(ar,'تفاصيل ومؤشرات مصنع المياه','Detailed water factory indicators')}</summary>
     <WaterModelPanel water={water} tab="overview" currency={study.currency} locale={locale} onChange={water=>update({water})}/>
@@ -758,7 +784,7 @@ function FeasibilityWorkspaceContent({
    {!water&&!rawLand&&tab==='overview'&&model&&<details className="fs-royal-shared-access">
     <summary>{txt(ar,'تفاصيل التمويل','Funding details')}</summary>
     <p>{txt(ar,'نسبة الممول في حقوق الملكية','Investor equity share')}: {model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}</p>
-    <div className="card fs-panel"><h3>{txt(ar,'إشارات القرار','Decision diagnostics')}</h3><p>{model.cashFundingGap>0?txt(ar,'فجوة التمويل النقدي: ','Cash funding gap: ')+money(model.cashFundingGap):txt(ar,'لا توجد فجوة تمويل نقدية وفق المدخلات.','No positive cash funding gap under current inputs.')}</p><p>{!study.landTransferred&&study.landValue>0?txt(ar,'الأرض لم تنقل للشركة؛ لا تدخل قيمتها السوقية ضمن حقوق ملكيتها.','Land is not transferred; its full market value does not count as company equity.'):txt(ar,'راجع قيمة الحصة العينية مع جهة مستقلة.','Verify any in-kind contribution independently.')}</p><p>{!model.ready?txt(ar,'استكمل الاستثمار والسعر والحجم قبل اعتماد مؤشرات الجدوى.','Enter investment, price and sales volume before relying on projections.'):txt(ar,'النتائج استرشادية، وليست اعتمادًا للقرار الاستثماري.','Results are indicative, not investment approval.')}</p></div>
+    <div className="card fs-panel"><h3>{txt(ar,'إشارات القرار','Decision diagnostics')}</h3><p>{model.cashFundingGap>0?txt(ar,'فجوة التمويل النقدي: ','Cash funding gap: ')+money(model.cashFundingGap):txt(ar,'لا توجد فجوة تمويل نقدية وفق المدخلات.','No positive cash funding gap under current inputs.')}</p><p>{!study.landArrangement&&!study.landTransferred&&study.landValue>0?txt(ar,'الأرض لم تنقل للشركة؛ لا تدخل قيمتها السوقية ضمن حقوق ملكيتها.','Land is not transferred; its full market value does not count as company equity.'):txt(ar,'راجع قيمة الحصة العينية مع جهة مستقلة.','Verify any in-kind contribution independently.')}</p><p>{!model.ready?txt(ar,'استكمل الاستثمار والسعر والحجم قبل اعتماد مؤشرات الجدوى.','Enter investment, price and sales volume before relying on projections.'):txt(ar,'النتائج استرشادية، وليست اعتمادًا للقرار الاستثماري.','Results are indicative, not investment approval.')}</p></div>
    </details>}
    {tab==='profile'&&<StudyProfilePanel key={study.id} study={study} locale={locale}
     personalScope={personalScope} shared={!!sharedStudy} readOnly={effectiveReadOnly}
@@ -771,11 +797,13 @@ function FeasibilityWorkspaceContent({
     sectorOptions={Object.entries(sectors).map(([value,name])=>({value:value as Sector,label:ar?name.ar:name.en}))}
     statusOptions={Object.entries(projectStatus).map(([value,name])=>({value:value as StudyStatus,label:ar?name.ar:name.en}))}/>}
    {!water&&!rawLand&&tab==='investment'&&<GeneralInvestmentPanel study={study} locale={locale} onChange={update}/>}
-   {!water&&!rawLand&&tab==='partners'&&model&&<section className="card fs-panel"><h3>{txt(ar,'المساهمات وحصص الملكية','Contributions and equity')}</h3><label className="fs-check"><input type="checkbox" checked={study.landTransferred} onChange={e=>update({landTransferred:e.currentTarget.checked})}/>{txt(ar,'تُنقل الأرض إلى ملكية الشركة كحصة عينية مثبتة','Land is transferred into company ownership as an independently valued in-kind contribution')}</label>
-    <div className="fs-form-grid"><Field label={txt(ar,'القيمة المقدرة للأرض','Estimated land value')} value={study.landValue} onChange={setNum('landValue')}/><Field label={txt(ar,'مساهمة الممول كرأس مال','Investor equity cash')} value={study.investorEquity} onChange={setNum('investorEquity')}/><Field label={txt(ar,'مساهمة صاحب الأرض النقدية','Land partner cash equity')} value={study.partnerCashEquity} onChange={setNum('partnerCashEquity')}/><Field label={txt(ar,'قرض الممول إلى الشركة','Investor shareholder loan')} value={study.investorLoan} onChange={setNum('investorLoan')}/><Field label={txt(ar,'تمويل ديون أخرى','Other debt')} value={study.otherDebt} onChange={setNum('otherDebt')}/></div>
+   {!water&&!rawLand&&tab==='partners'&&<GeneralLandPanel study={study} locale={locale} onChange={landArrangement=>update({landArrangement})}/>}
+   {!water&&!rawLand&&tab==='partners'&&model&&<section className="card fs-panel"><h3>{txt(ar,'افتراضات التمويل والملكية الاقتصادية','Funding and economic ownership assumptions')}</h3>
+    <div className="fs-form-grid"><Field label={txt(ar,'مساهمة الممول كرأس مال','Investor equity cash')} value={study.investorEquity} onChange={setNum('investorEquity')}/><Field label={txt(ar,'مساهمة صاحب الأرض النقدية','Land partner cash equity')} value={study.partnerCashEquity} onChange={setNum('partnerCashEquity')}/><Field label={txt(ar,'قرض الممول إلى الشركة','Investor shareholder loan')} value={study.investorLoan} onChange={setNum('investorLoan')}/><Field label={txt(ar,'تمويل ديون أخرى','Other debt')} value={study.otherDebt} onChange={setNum('otherDebt')}/></div>
     <div className="fs-kpis"><Info label={txt(ar,'حصة الممول','Investor ownership')} value={model.investorShare===null?'—':fmt(model.investorShare,2)+'%'}/><Info label={txt(ar,'حصة صاحب الأرض','Land partner ownership')} value={model.partnerShare===null?'—':fmt(model.partnerShare,2)+'%'}/><Info label={txt(ar,'فجوة التمويل النقدي','Cash funding gap')} value={money(model.cashFundingGap)}/></div>
     <p className="fs-hint">{txt(ar,'النسب اقتصادية تقديرية لحقوق الملكية فقط؛ قروض المساهمين لا تمنح ملكية تلقائيًا، ولا تتغير الحصص القانونية دون إجراءات معتمدة.','Economic indicative equity only: loans do not automatically generate shares; legal ownership changes require formal approval.')}</p>
    </section>}
+   {tab==='partners'&&<PartnershipPanel study={study} locale={locale} onChange={effectiveReadOnly?undefined:partnership=>update({partnership})}/>}
    {!water&&!rawLand&&tab==='operations'&&<section className="card fs-panel"><h3>{txt(ar,'افتراضات التشغيل والمبيعات','Operating assumptions')}</h3><div className="fs-form-grid">
     <Field label={ar?sectorTemplates[study.sector].volumeAr:sectorTemplates[study.sector].volumeEn} value={study.monthlyUnits} onChange={setNum('monthlyUnits')}/>
     <Field label={txt(ar,'سعر بيع الوحدة الصافي','Net selling price / unit')} value={study.unitPrice} onChange={setNum('unitPrice')}/>
@@ -796,6 +824,8 @@ function FeasibilityWorkspaceContent({
    </section>}
    {!water&&!rawLand&&model?.ready&&tab==='cashflow'&&<RoyalCashTrend
     title={txt(ar,'التدفق النقدي التراكمي','Cumulative cash flow')} locale={locale} unit={study.currency} flows={model.flows}/>}
+   {tab==='cashflow'&&<MonthlyLiquidityPanel study={study} locale={locale} readOnly={effectiveReadOnly}
+    onChange={monthlyLiquidity=>update({monthlyLiquidity})}/>}
    {!water&&!rawLand&&model&&tab==='partners'&&<RoyalOwnership title={txt(ar,'حصص الملكية الاقتصادية','Economic ownership')}
     locale={locale} data={[
      {label:txt(ar,'الممول','Investor'),value:model.investorShare??0},

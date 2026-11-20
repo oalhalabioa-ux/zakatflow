@@ -121,7 +121,9 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const returnRate=(model.operationsPlan?.returnsPct??0)/100;
  const finishedYield=model.quantityCosting?.productionEnabled?1-(model.operationsPlan?.finishedBottleLossPct??0)/100:1;
  const dispatchContribution=initialPrice*finishedYield*(1-returnRate)-initialCost;
- const initialFixed=(ops.fixedMonth+deal.leaseMonth)*12;
+ // An imported study can retain the old rent after selecting an outright purchase.
+ const landRent=deal.landMode==='purchase'?0:deal.leaseMonth;
+ const initialFixed=(ops.fixedMonth+landRent)*12;
  const policy=model.financialPolicy,policyState=waterFinancialReadiness(model,capex);
  const maintenance=investment*ops.maintenancePct/100;
  let workingCapital=capex.workingCapital;

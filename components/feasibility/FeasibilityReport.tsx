@@ -10,6 +10,7 @@ import {evaluateWater,effectiveWaterInputs,studyReportReadiness,waterPeakFunding
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
 import {studyProfileValues,studyTypeLabels} from '@/lib/feasibility/study-profile';
 import WaterModelPanel from './WaterModelPanel';
+import PartnershipPanel from './PartnershipPanel';
 import CostingReport from './CostingReport';
 import {evaluateMonthlyLiquidity,liquidityMonthLabel,monthlyLiquidityAmounts} from '@/lib/feasibility/monthly-liquidity';
 
@@ -65,7 +66,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
  const deal=study.water?effectiveWaterInputs(study.water).deal:undefined;
  const plan=study.monthlyLiquidity;
  const monthlyAmounts=plan&&monthlyLiquidityAmounts(study);
- const liquidity=plan&&monthlyAmounts&&evaluateMonthlyLiquidity(monthlyAmounts,plan);
+ const partnerScheduleReady=!plan?.usePartnerInstallments||Boolean(
+  plan.startMonth&&study.partnership?.asOf&&study.partnership.partners.some(partner=>partner.installments?.length));
+ const liquidity=plan&&monthlyAmounts&&partnerScheduleReady?evaluateMonthlyLiquidity(monthlyAmounts,plan,study.partnership):null;
  const funding=study.rawLand?[
   [l('التسهيل التمويلي','Financing facility'),money(study.rawLand.finance.facility)],
   [l('تكاليف التطوير النقدية','Cash development costs'),money(landResult?.cashDevelopmentCost??null)],
@@ -105,8 +108,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('صافي فجوة التمويل النقدي','Net funding gap'),money(base.cashFundingGap)]
  ];
  const ownership=study.rawLand?[
-  [l('طريقة تقديم الأرض','Land contribution method'),study.rawLand.site.landPaymentMethod==='in_kind'?l('حصة عينية','In kind'):l('شراء نقدي','Cash purchase')],
+  [l('طريقة تقديم الأرض','Land contribution method'),study.rawLand.site.landPaymentMethod==='lease'?l('إيجار','Lease'):study.rawLand.site.landPaymentMethod==='in_kind'?l('حصة عينية','In kind'):l('شراء نقدي','Cash purchase')],
   [l('قيمة الأرض','Land value'),money(landResult?.land??null)],
+  ...(study.rawLand.site.landPaymentMethod==='lease'?[[l('إيجار الأرض سنويًا','Annual land rent'),money(study.rawLand.site.annualLandRent??0)]]:[]),
   [l('حافز المطور','Developer incentive'),money(landResult?.developerIncentive??null)],
   [l('حافز المدير','Manager incentive'),money(landResult?.managerIncentive??null)]
  ]:water&&deal?[
@@ -120,6 +124,8 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('الملكية الاقتصادية للممول','Investor economic ownership'),percent(water.investorShare)],
   [l('الملكية الاقتصادية لصاحب الأرض','Land partner economic ownership'),percent(water.partnerShare)]
  ]:[
+  ...(study.landArrangement?.mode==='LEASE'?[[l('إيجار الأرض شهريًا','Monthly land rent'),money(study.landArrangement.monthlyRent)]]:[]),
+  ...(study.landArrangement?.mode==='PURCHASE'?[[l('شراء الأرض ورسومها','Land purchase with fees'),money(base.landPurchase)]]:[]),
   [l('رأس مال الممول النقدي','Investor cash equity'),money(study.investorEquity)],
   [l('مساهمة الشريك النقدية','Partner cash contribution'),money(study.partnerCashEquity)],
   [l('الحصة العينية للأرض','Land in-kind contribution'),money(base.landAsset)],
@@ -284,8 +290,27 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
     <div><dt>{l('التمويل الإضافي لأول 12 شهرًا','Additional funding for the first 12 months')}</dt><dd><bdi>{money(liquidity.fundingGap)}</bdi></dd></div>
     <div><dt>{l('شهر أكبر عجز','Peak shortfall month')}</dt><dd><bdi>{liquidity.peakMonth===null?'—':liquidityMonthLabel(plan?.startMonth,liquidity.peakMonth,locale)}</bdi></dd></div>
    </dl>}
+   {plan?.usePartnerInstallments&&!partnerScheduleReady&&<p className="fs-warning">{l(
+    'أكمل تواريخ جدول دفعات الشركاء لعرض فجوة السيولة الشهرية.',
+    'Complete the partner installment schedule dates to show the monthly funding gap.'
+   )}</p>}
+   {liquidity?.partnerFunding&&<p className="fs-hint">{l(
+    'تعتمد السيولة الشهرية على تواريخ دفعات الشركاء. وتُستبعد المبالغ المتأخرة أو ناقصة التواريخ إلى حين مراجعتها.',
+    'Monthly liquidity uses partner installment dates. Overdue or incomplete dates are excluded pending review.'
+   )}</p>}
+   {liquidity?.partnerFunding&&Math.abs(liquidity.partnerFunding.scheduledLoan-liquidity.partnerLoanDraw)>.005&&<p className="fs-warning">{l(
+    'راجع أصل القروض والفوائد. مبلغ قروض الشركاء المجدول يختلف عن افتراض النموذج المالي.',
+    'Review principal and interest because scheduled partner loans differ from the financial model.'
+   )}</p>}
+   {liquidity&&monthlyAmounts?.general&&<p className="fs-hint">
+    {monthlyAmounts.general.basis==='advanced'?
+     l('السيولة الشهرية محسوبة من السيناريو الأساسي للنموذج المالي المتقدم.','Monthly liquidity uses the advanced financial model’s base scenario.'):
+     l('السيولة الشهرية محسوبة من السيناريو الأساسي للنموذج السنوي المبسط.','Monthly liquidity uses the simplified annual model’s base scenario.')}
+    {monthlyAmounts.general.basis==='simple'&&monthlyAmounts.debtDraw>0&&' '+l(
+     'أصل القرض والفائدة يتطلبان استكمال النموذج المالي المتقدم.','Complete the advanced financial model to include principal and interest.')}
+   </p>}
    {(water||landResult?.financeMetrics?.returns)&&<p className="fs-hint">{water?
-    l('العجز مبني على أرصدة نهاية السنوات مع الاحتفاظ بالفوائض.','The shortfall uses year-end balances and assumes surpluses are retained.'):
+    l('يُحسب عجز النموذج السنوي من أرصدة نهاية السنوات مع الاحتفاظ بالفوائض.','The annual model measures its shortfall from year-end balances and assumes surpluses are retained.'):
     l('العائد قبل التمويل يستبعد الفائدة وعمولة ترتيب القرض. عائد الملكية الإجمالي يشمل الأرض العينية بقيمتها في سنة صفر إن وُجدت.',
      'The pre-financing return excludes loan interest and arrangement fees. Total equity return includes any in-kind land at its year-zero value.')}</p>}
    {!!deal?.extraFunding&&<p className="fs-hint">{l('حدّد أوجه استخدام التمويل الإضافي قبل اعتماد الدراسة.',
@@ -294,6 +319,7 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   <section className="card fs-panel fs-royal-report-detail" id={sectionId('ownership')} tabIndex={-1} data-report-section="ownership">
    <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{sectionLabels.ownership}</h3>
    <dl className="fs-royal-checks">{ownership.map(([label,value])=><div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>
+   <PartnershipPanel study={study} locale={locale}/>
    {!!study.rawLand?.distribution?.partners.length&&<RawLandPanel model={study.rawLand} locale={locale}
     currency={study.currency} tab="distribution-report"/>}
    <p className="fs-hint">{l('هذه الحصص اقتصادية تقديرية. تُثبت الملكية القانونية بالمستندات والإجراءات المعتمدة.',
@@ -302,7 +328,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
     'The licence valuation is for review and is excluded from economic shares.')}</p>}
    {deal?.landMode==='lease'&&<p className="fs-hint">{l('وثّق حقوق المنشآت على الأرض المستأجرة في العقد.',
     'Document rights to improvements on the leased land in the agreement.')}</p>}
-   {deal&&deal.landMode!=='lease'&&deal.leaseMonth>0&&<p className="fs-hint">{l('راجع احتمال الجمع بين إيجار الأرض والحصة العينية.',
+   {deal&&deal.landMode!=='lease'&&deal.leaseMonth>0&&<p className="fs-hint">{deal.landMode==='purchase'
+    ?l('استُبعد إيجار الأرض المحفوظ من توقعات الشراء.','The saved land rent is excluded from the purchase forecast.')
+    :l('راجع احتمال الجمع بين إيجار الأرض والحصة العينية.',
     'Check for overlap between land rent and the in-kind contribution.')}</p>}
   </section>
   <section className="card fs-panel" id={sectionId('governance')} tabIndex={-1} data-report-section="governance">

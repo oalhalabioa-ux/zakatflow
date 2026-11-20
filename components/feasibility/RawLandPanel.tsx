@@ -1,6 +1,6 @@
 'use client';
 import {useState,type ReactNode} from 'react';
-import {evaluateRawLand,rawLandCostKeys,type RawLand} from '@/lib/feasibility/raw-land';
+import {compareRawLandAlternatives,evaluateRawLand,rawLandAlternativeTerms,rawLandCostKeys,type RawLand} from '@/lib/feasibility/raw-land';
 import {calculateLandDistribution} from '@/lib/feasibility/raw-land-distributions';
 import {downloadFeasibilityCsv,downloadFeasibilityXlsx} from '@/lib/feasibility/report-export';
 import {RoyalIcon} from './RoyalIcon';
@@ -53,7 +53,9 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
  const panel=(label:Label,children:ReactNode)=><section className="card fs-panel fs-block">
   <h3 className="fs-royal-report-title"><RoyalIcon name="building"/>{l(label)}</h3>{children}
  </section>;
- const table=(headers:readonly Label[],rows:readonly (readonly ReactNode[])[])=><div className="fs-table-wrap"><table className="fs-table">
+ const table=(headers:readonly Label[],rows:readonly (readonly ReactNode[])[],scrollLabel?:Label)=>
+  <div className="fs-table-wrap" role={scrollLabel?'region':undefined}
+   aria-label={scrollLabel?l(scrollLabel):undefined} tabIndex={scrollLabel?0:undefined}><table className="fs-table">
   <thead><tr>{headers.map(header=><th scope="col" key={header[1]}>{l(header)}</th>)}</tr></thead>
   <tbody>{rows.map((row,i)=><tr key={i}>{row.map((cell,j)=><td key={j}><bdi>{cell}</bdi></td>)}</tr>)}</tbody>
  </table></div>;
@@ -69,6 +71,14 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   growth:['مجموع النمو السنوي وتعديل الاستخدام يجب ألا يقل عن ‎−100%.','Combined annual growth and use adjustment must be at least −100%.']
  } as const;
  const warning=base.issue?<p className="fs-warning" role="status">{l(warnings[base.issue])}</p>:null;
+
+ const landTerms=<>
+  {choice(['طريقة الحصول على الأرض','How the land is secured'],site.landPaymentMethod,[
+   ['lease',['إيجار','Lease']],['in_kind',['تقديم عيني من أحد الشركاء','In-kind contribution by a partner']],['cash',['شراء الأرض','Land purchase']]
+  ],v=>patch('site',{landPaymentMethod:v}))}
+  {site.landPaymentMethod==='lease'&&numeric(['الإيجار السنوي طوال مدة التوقع','Annual rent throughout the forecast'],site.annualLandRent??0,v=>patch('site',{annualLandRent:v}))}
+  {site.landPaymentMethod==='lease'&&<p className="fs-hint">{l(['أدرج فقط الإيرادات التي يتيحها عقد الإيجار.','Include only revenue permitted by the lease.'])}</p>}
+ </>;
 
  if(tab==='sector')return panel(['الأرض والمساحات','Land and areas'],<>
   <div className="fs-form-grid">
@@ -86,9 +96,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
     ['NET',['صافي الأرض بعد الاستبعادات','Net area after exclusions']],['GROSS',['كامل المساحة المدخلة','Gross entered area']],['MANUAL',['مساحة تعاقدية محددة','Specified contractual area']]
    ],v=>patch('site',{acquisitionBasis:v}))}
    {site.acquisitionBasis==='MANUAL'&&numeric(['مساحة الاستحواذ التعاقدية م²','Contractual acquisition area m²'],site.acquisitionArea??0,v=>patch('site',{acquisitionArea:v}))}
-   {choice(['طريقة تقديم الأرض','Land contribution method'],site.landPaymentMethod,[
-    ['in_kind',['حصة عينية','In kind']],['cash',['شراء نقدي','Cash purchase']]
-   ],v=>patch('site',{landPaymentMethod:v}))}
+   {landTerms}
    {textField(['تاريخ التقييم','Valuation date'],site.valuationDate,v=>patch('site',{valuationDate:v}),true)}
    {textField(['المقيّم','Appraiser'],site.appraiser,v=>patch('site',{appraiser:v}))}
    <label className="fs-field"><span>{l(['بيان التسويات السابقة','Prior transfers and reconciliations'])}</span><textarea maxLength={5000}
@@ -213,7 +221,50 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
      },0,100))}</div></fieldset>)}
   </>)}
  </>;
- if(tab==='scenarios')return panel(['سيناريوهات تطوير الأرض','Land development scenarios'],<>
+ const alternativesPanel=(editable:boolean)=>{
+  const terms=rawLandAlternativeTerms(model);
+  const setTerms=(values:Partial<NonNullable<RawLand['landAlternatives']>>)=>
+   onChange?.({...model,landAlternatives:{...model.landAlternatives,...values}});
+  const termFields=[
+   ['purchasePricePerSqm',['سعر الشراء للمتر حسب أساس الاستحواذ','Purchase price per m² on the acquisition basis']],
+   ['inKindValuePerSqm',['تقييم الحصة العينية للمتر حسب أساس الاستحواذ','In-kind value per m² on the acquisition basis']],
+   ['annualRent',['الإيجار السنوي للبديل','Alternative annual rent']]
+  ] as const;
+  const modes={cash:['شراء الأرض','Purchase'],lease:['إيجار الأرض','Lease'],in_kind:['مساهمة عينية','In-kind contribution']} as const;
+  const available=compareRawLandAlternatives(model);
+  const states={
+   LEASE_TERMS:['أدخل الإيجار وأكّد توافق الحقوق مع الإيرادات','Enter rent and confirm revenue rights'],
+   LAND_VALUE:['أدخل قيمة الأرض لهذا البديل','Enter the land value for this alternative'],
+   BASE_SCENARIO:['استكمل افتراضات السيناريو الأساسي','Complete base scenario assumptions']
+  } as const;
+  return panel(['مقارنة طرق الحصول على الأرض','Land acquisition alternatives'],<>
+   <p className="fs-hint">{l(['تستخدم البدائل افتراضات التطوير والتمويل والبيع في السيناريو الأساسي. قيم المقارنة مستقلة عن طريقة الأرض المعتمدة في الدراسة.',
+    'Alternatives share the base development, financing, and sales assumptions. Comparison values are independent of the arrangement selected for the study.'])}</p>
+   {editable&&onChange&&<div className="fs-form-grid">
+    {termFields.map(([key,label])=><label className="fs-field" key={key}><span>{l(label)}</span>
+     <input type="number" inputMode="decimal" min="0" max="1000000000000" step="any" value={terms[key]??''}
+      onChange={event=>{
+       const {value,valueAsNumber}=event.currentTarget;
+       if(value===''||(Number.isFinite(valueAsNumber)&&valueAsNumber>=0&&valueAsNumber<=1e12))
+        setTerms({[key]:value===''?undefined:valueAsNumber});
+      }}/></label>)}
+    <label className="fs-check">
+     <input type="checkbox" checked={terms.leaseAllowsProjectedRevenue}
+      onChange={event=>setTerms({leaseAllowsProjectedRevenue:event.currentTarget.checked})}/>
+     <span>{l(['حقوق الإيجار تسمح بالإيرادات المفترضة','Lease rights support the projected revenue'])}</span>
+    </label>
+   </div>}
+   {table([['البديل','Arrangement'],['ثمن الأرض النقدي','Cash land price'],['قيمة الحصة العينية','In-kind value'],
+    ['إجمالي الإيجار','Total rent'],['صافي الربح','Net profit'],['صافي القيمة الحالية','NPV'],
+    ['معدل العائد الداخلي %','IRR %'],['ذروة عجز التمويل','Peak funding deficit'],['حالة المدخلات','Inputs']],
+    available.map(row=>[l(modes[row.mode]),...(row.issue?[...Array(7).fill('—'),l(states[row.issue])]:
+     [money(row.cashPurchase),money(row.inKindValue),money(row.totalRent),money(row.profit),money(row.npv),
+      fmt(row.irr),money(row.peakEquityDeficit),'—'])]),['مقارنة بدائل الأرض','Land alternatives comparison'])}
+  </>);
+ };
+ if(tab==='scenarios')return <>
+ {alternativesPanel(true)}
+ {panel(['سيناريوهات تطوير الأرض','Land development scenarios'],<>
   {sales.scenarios.map((scenario,i)=>{
    const update=(next:Partial<typeof scenario>)=>patch('sales',{scenarios:sales.scenarios.map((row,j)=>j===i?{...row,...next}:row)});
    return <section className="card fs-panel" key={i}><div className="fs-form-grid">
@@ -230,9 +281,10 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   <button className="fs-btn fs-btn--secondary" type="button" disabled={sales.scenarios.length>=12} onClick={()=>patch('sales',{
    scenarios:[...sales.scenarios,{name:'',priceMultiplier:1,costMultiplier:1,annualGrowth:0,initialPricePremium:0,salesDelayYears:0}]
   })}>{l(['إضافة سيناريو','Add scenario'])}</button>
- </>);
+ </>)}
+ </>;
  const settlement=distribution&&!base.issue&&base.ready
-  ?calculateLandDistribution(distribution,site.landPaymentMethod==='in_kind'?base.land:0,base.annual)
+  ?calculateLandDistribution(distribution,site.landPaymentMethod==='in_kind'?base.land:0,base.annual,base.financeMetrics?.initialEquity)
   :null;
  const settlementView=()=>{
   if(!distribution?.partners.length)return null;
@@ -248,6 +300,8 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    return <p className="fs-warning" role="status">{l(issues[settlement.issue])}{settlement.issue==='FUNDING'&&' '+money(settlement.fundingGap)}</p>;
   }
   return <>
+   <p className="fs-hint">{l(['يُحسب العائد السنوي من مساهمة الشريك في بداية المشروع والتوزيع عند التسوية النهائية.',
+    'Annualized return uses the partner’s beginning contribution and final settlement distribution.'])}</p>
    {table([
     ['سنة التسوية','Settlement year'],['الدين المحجوز للسداد','Debt reserved'],['المتاح للتوزيع','Distributable cash']
    ],[[String(settlement.year),money(settlement.debtReserve),money(settlement.distributable)]])}
@@ -256,9 +310,11 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
    </p>}
    {table([
     ['الشريك','Partner'],['رأس المال','Capital'],['رأس المال المسترد','Capital returned'],
-    ['رأس المال غير المسترد','Unrecovered capital'],['الأرباح الموزعة','Distributed profit'],['إجمالي التوزيع','Total distribution']
+    ['رأس المال غير المسترد','Unrecovered capital'],['الأرباح الموزعة','Distributed profit'],['إجمالي التوزيع','Total distribution'],
+    ['صافي العائد','Net return'],['مضاعف رأس المال','Capital multiple'],['العائد السنوي %','Annualized return %']
    ],settlement.partners.map(partner=>[partner.name,money(partner.capital),money(partner.capitalReturned),
-    money(partner.unrecoveredCapital),money(partner.profit),money(partner.distribution)]))}
+    money(partner.unrecoveredCapital),money(partner.profit),money(partner.distribution),money(partner.netReturn),
+    fmt(partner.capitalMultiple),fmt(partner.annualizedReturn===null?null:partner.annualizedReturn*100)]),['عوائد الشركاء','Partner returns'])}
   </>;
  };
  if(tab==='distribution-report')return distribution?.partners.length
@@ -278,6 +334,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   </div>{!base.issue&&table([['قيمة الأرض','Land value'],['حافز المطور','Developer incentive'],['حافز المدير','Manager incentive']],
    [[money(base.land),money(base.developerIncentive),money(base.managerIncentive)]])}
  </>)}
+ {panel(['معالجة الأرض','Land arrangement'],<div className="fs-form-grid">{landTerms}</div>)}
  {panel(['رد رأس المال وتوزيع العوائد المتوقعة','Projected capital return and profit distribution'],<>
   <p className="fs-hint">{l(['يفترض النموذج ضخ المساهمات النقدية في بداية المشروع والتسوية في آخر سنة من السيناريو الأساسي. يُحجز رصيد الدين، ثم يُرد رأس المال بدءًا بالأولوية 1 ويُوزّع الفائض حسب نسب الأرباح.',
    'The model assumes cash contributions at inception and settlement in the last year of the base scenario. Closing debt is reserved, capital is returned starting at priority 1, and surplus follows profit shares.'])}</p>
@@ -333,6 +390,7 @@ export default function RawLandPanel({model,locale,currency,tab,onChange,allowEx
   ['التدفق بعد الدين','Equity cash flow'],['التدفق الاقتصادي التراكمي','Cumulative economic cash flow'],['تغطية خدمة الدين DSCR','Debt service coverage DSCR']
  ];
  return <div className="fs-block">
+  {tab==='report'&&model.landAlternatives&&alternativesPanel(false)}
   {tab==='cashflow'&&<div className="fs-kpis" aria-label={l(['مؤشرات التدفقات النقدية','Cash flow metrics'])}>
    {([
     [['صافي القيمة الحالية','NPV'],!base.issue&&base.ready?money(base.npv):'—'],
