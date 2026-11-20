@@ -41,6 +41,42 @@ describe('Simulation QA user input and recovery behavior', () => {
     expect(blocked.get('clearancePrepare').disabled).toBe(true); blocked.get('clearancePrepare').listeners.click(); expect(blocked.fetcher).toHaveBeenCalledTimes(1);
     expect((await fixture()).get('clearanceSection').hidden).toBe(true);
   });
+  it.each([
+    ['CLEARED_WITH_WARNINGS', 'اعتمدت الهيئة العينة مع تحذير'],
+    ['CLEARED_VERIFICATION_REQUIRED', 'تحقق مطابقة المستند لم يكتمل'],
+  ])('keeps the saved %s warning and prevents replay after refresh and reload', async (state, message) => {
+    const initial = {
+      ...ready, state: 'RESPONSE_QUARANTINED',
+      finalCertificate: { state: 'RESPONSE_QUARANTINED', identityKeyTimeVerified: true },
+    };
+    const prepared = { manifestDigest: 'e'.repeat(64), results: [{ state: 'NOT_SENT' }, { state: 'NOT_SENT' }, { state: 'NOT_SENT' }] };
+    const saved = { ...initial, standardClearance: { ...prepared, results: [
+      { state, http: 202, disposition: 'CLEARED', warningCodes: ['BR-KSA-100'] }, ...prepared.results.slice(1),
+    ] } };
+
+    const f = await fixture({ ...initial, standardClearance: prepared });
+    f.fetcher.mockRejectedValueOnce(Error('Response acknowledgement lost'));
+    f.get('clearanceSubmit0').listeners.click();
+    f.get('clearanceSubmit0').listeners.click();
+    await settle();
+    expect(f.fetcher.mock.calls.map(([, request]) => request?.method ?? 'GET')).toEqual(['GET', 'POST']);
+
+    f.fetcher.mockResolvedValueOnce({ ok: true, json: async () => saved });
+    f.get('refresh').listeners.click();
+    await settle();
+    const reloaded = await fixture(saved);
+    for (const page of [f, reloaded]) {
+      expect(page.get('clearanceSection').hidden).toBe(false);
+      expect(page.get('clearanceResult0').textContent).toContain(message);
+      expect(page.get('clearanceResult0').textContent).toContain('BR-KSA-100');
+      for (const button of ['clearancePrepare', 'clearanceSubmit0', 'clearanceSubmit1', 'clearanceSubmit2']) {
+        expect(page.get(button).disabled).toBe(true);
+        page.get(button).listeners.click();
+      }
+    }
+    expect(f.fetcher.mock.calls.map(([, request]) => request?.method ?? 'GET')).toEqual(['GET', 'POST', 'GET']);
+    expect(reloaded.fetcher.mock.calls.map(([, request]) => request?.method ?? 'GET')).toEqual(['GET']);
+  });
   it('requires both completed suites for the final certificate and never resubmits an unknown or completed request', async () => {
     const state = { ...ready, state: 'RESPONSE_QUARANTINED', standardCompliance: { passed: true }, simplifiedExperiment: { passed: true },
       finalCertificate: { state: 'READY', readinessDigest: 'f'.repeat(64) } };
