@@ -66,7 +66,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
  const deal=study.water?effectiveWaterInputs(study.water).deal:undefined;
  const plan=study.monthlyLiquidity;
  const monthlyAmounts=plan&&monthlyLiquidityAmounts(study);
- const liquidity=plan&&monthlyAmounts&&evaluateMonthlyLiquidity(monthlyAmounts,plan);
+ const partnerScheduleReady=!plan?.usePartnerInstallments||Boolean(
+  plan.startMonth&&study.partnership?.asOf&&study.partnership.partners.some(partner=>partner.installments?.length));
+ const liquidity=plan&&monthlyAmounts&&partnerScheduleReady?evaluateMonthlyLiquidity(monthlyAmounts,plan,study.partnership):null;
  const funding=study.rawLand?[
   [l('التسهيل التمويلي','Financing facility'),money(study.rawLand.finance.facility)],
   [l('تكاليف التطوير النقدية','Cash development costs'),money(landResult?.cashDevelopmentCost??null)],
@@ -288,7 +290,19 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
     <div><dt>{l('التمويل الإضافي لأول 12 شهرًا','Additional funding for the first 12 months')}</dt><dd><bdi>{money(liquidity.fundingGap)}</bdi></dd></div>
     <div><dt>{l('شهر أكبر عجز','Peak shortfall month')}</dt><dd><bdi>{liquidity.peakMonth===null?'—':liquidityMonthLabel(plan?.startMonth,liquidity.peakMonth,locale)}</bdi></dd></div>
    </dl>}
-   {liquidity&&monthlyAmounts.general&&<p className="fs-hint">
+   {plan?.usePartnerInstallments&&!partnerScheduleReady&&<p className="fs-warning">{l(
+    'أكمل تواريخ جدول دفعات الشركاء لعرض فجوة السيولة الشهرية.',
+    'Complete the partner installment schedule dates to show the monthly funding gap.'
+   )}</p>}
+   {liquidity?.partnerFunding&&<p className="fs-hint">{l(
+    'تعتمد السيولة الشهرية على تواريخ دفعات الشركاء. وتُستبعد المبالغ المتأخرة أو ناقصة التواريخ إلى حين مراجعتها.',
+    'Monthly liquidity uses partner installment dates. Overdue or incomplete dates are excluded pending review.'
+   )}</p>}
+   {liquidity?.partnerFunding&&Math.abs(liquidity.partnerFunding.scheduledLoan-liquidity.partnerLoanDraw)>.005&&<p className="fs-warning">{l(
+    'راجع أصل القروض والفوائد. مبلغ قروض الشركاء المجدول يختلف عن افتراض النموذج المالي.',
+    'Review principal and interest because scheduled partner loans differ from the financial model.'
+   )}</p>}
+   {liquidity&&monthlyAmounts?.general&&<p className="fs-hint">
     {monthlyAmounts.general.basis==='advanced'?
      l('السيولة الشهرية محسوبة من السيناريو الأساسي للنموذج المالي المتقدم.','Monthly liquidity uses the advanced financial model’s base scenario.'):
      l('السيولة الشهرية محسوبة من السيناريو الأساسي للنموذج السنوي المبسط.','Monthly liquidity uses the simplified annual model’s base scenario.')}

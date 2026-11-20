@@ -23,9 +23,14 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
   </button>
  </section>;
  const amounts=monthlyLiquidityAmounts(study);
- const result=amounts&&evaluateMonthlyLiquidity(amounts,plan);
+ const hasInstallments=study.partnership?.partners.some(partner=>Boolean(partner.installments?.length));
+ const linked=plan.usePartnerInstallments===true;
+ const datesReady=Boolean(plan.startMonth&&study.partnership?.asOf&&hasInstallments);
+ const result=amounts&&(!linked||datesReady)&&evaluateMonthlyLiquidity(amounts,plan,study.partnership);
+ const funding=result?result.partnerFunding:null;
  const cashEquity=monthlyCashEquity(amounts,plan);
- const streamAmount=(key:Stream)=>key==='equity'?cashEquity:amounts?.[key]??0;
+ const streamAmount=(key:Stream)=>key==='equity'?cashEquity:key==='debtDraw'&&linked
+  ?(amounts?.debtDraw??0)-(amounts?.partnerLoanDraw??0):amounts?.[key]??0;
  const streams:Record<Stream,string>={
   collections:l('التحصيلات','Collections'),
   investment:study.rawLand?l('شراء الأرض نقدًا','Cash land acquisition'):l('الاستثمار الأولي ورأس المال العامل','Initial investment and working capital'),
@@ -50,7 +55,7 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
   const range=boundary==='from'?{from:value,to:Math.max(value,to)}:{from:Math.min(value,from),to:value};
   onChange({...plan,timing:{...plan.timing,[key]:range}});
  };
- const debtTimingConflict=amounts&&amounts.debtDraw>0&&(['principal','interest'] as const).some(
+ const debtTimingConflict=!linked&&amounts&&amounts.debtDraw>0&&(['principal','interest'] as const).some(
   key=>amounts[key]<0&&(plan.timing[key]??liquidityTiming[key]).from<(plan.timing.debtDraw??liquidityTiming.debtDraw).from);
  const columns=[
   ['opening',l('الرصيد الافتتاحي','Opening cash')],['collections',streams.collections],['investment',streams.investment],
@@ -74,13 +79,30 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
    <label className="fs-field"><span>{l('النقد المتاح قبل بداية الجدول','Cash on hand before month one')}</span>
     <input type="number" inputMode="decimal" min={0} max={1e12} step="any" value={plan.openingCash}
      onChange={event=>updateAmount('openingCash',event.currentTarget.value)}/></label>
-   <label className="fs-field"><span>{streams.equity}</span>
+   {!linked&&<label className="fs-field"><span>{streams.equity}</span>
     <input type="number" inputMode="decimal" min={0} max={1e12} step="any" value={cashEquity} disabled={general&&plan.cashEquityFromStudy}
-     onChange={event=>updateAmount('cashEquity',event.currentTarget.value)}/></label>
+     onChange={event=>updateAmount('cashEquity',event.currentTarget.value)}/></label>}
   </div>
-  {general&&<label className="fs-check"><input type="checkbox" checked={plan.cashEquityFromStudy===true}
+  {general&&!linked&&<label className="fs-check"><input type="checkbox" checked={plan.cashEquityFromStudy===true}
    onChange={event=>onChange({...plan,cashEquityFromStudy:event.currentTarget.checked})}/>
    <span>{l('ربط المساهمات النقدية بمدخلات الدراسة','Link cash equity to study inputs')}</span></label>}
+  {(hasInstallments||linked)&&<label className="fs-check"><input type="checkbox" checked={linked}
+   onChange={event=>onChange({...plan,usePartnerInstallments:event.currentTarget.checked})}/>
+   <span>{l('استخدام تواريخ دفعات الشركاء','Use partner installment dates')}</span></label>}
+  {linked&&!datesReady&&<p className="fs-warning" role="status">{l(
+   'أدخل شهر بداية الجدول وتاريخ حصر المدفوعات ودفعة واحدة على الأقل لإظهار التوقع.',
+   'Set the start month and payment cutoff and enter at least one installment to show the forecast.'
+  )}</p>}
+  {funding&&<div className="fs-hint">
+   <p>{l('تُؤخذ دفعات الشركاء من سجل الدفعات. أدخل النقد المتاح قبل بداية الفترة ضمن الرصيد الافتتاحي.','Partner funding comes from the installment register. Include cash already on hand in the opening balance.')}</p>
+   {(funding.overdue>0||funding.undated>0||funding.futureActual>0||funding.undatedLegacy>0)&&<p className="fs-warning" role="status">
+    {l('مبالغ مستبعدة إلى حين مراجعة مواعيدها','Amounts excluded pending date review')} · {money(funding.overdue+funding.undated+funding.futureActual+funding.undatedLegacy)} {study.currency}
+   </p>}
+   {result&&Math.abs(funding.scheduledLoan-result.partnerLoanDraw)>.005&&<p className="fs-warning" role="status">{l(
+    'مبلغ القروض في جدول دفعات الشركاء يختلف عن مبلغها في النموذج المالي. راجع أصل القروض والفوائد قبل الاعتماد.',
+    'Partner loan amounts differ from the financial model. Review principal and interest before relying on the forecast.'
+   )}</p>}
+  </div>}
   {!amounts||!result?<p className="fs-hint">{l('راجع مدخلات النموذج السنوي لحساب السيولة الشهرية.','Review the annual model inputs to calculate monthly cash flow.')}</p>:<>
    <p className="fs-hint">{study.water?l(
     'يستخدم المصنع إيرادات السنة الأولى أساسًا للتحصيلات مع عرض تغير رأس المال العامل مستقلًا. تُدرج الضريبة التقديرية والتدفقات النهائية المستحقة في الشهر 12.',
@@ -111,7 +133,7 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
      <table className="fs-table">
       <thead><tr><th scope="col">{l('البند','Cash flow line')}</th><th scope="col">{l('المبلغ','Amount')} {study.currency}</th>
        <th scope="col">{l('من شهر','From month')}</th><th scope="col">{l('إلى شهر','To month')}</th></tr></thead>
-      <tbody>{(Object.keys(streams) as Stream[]).filter(key=>streamAmount(key)!==0).map(key=><tr key={key}>
+      <tbody>{(Object.keys(streams) as Stream[]).filter(key=>streamAmount(key)!==0&&(!linked||key!=='equity')).map(key=><tr key={key}>
        <th scope="row">{streams[key]}</th><td><bdi>{money(streamAmount(key))}</bdi></td>
        {(['from','to'] as const).map(boundary=><td key={boundary}><select aria-label={streams[key]+' '+(
         boundary==='from'?l('من شهر','from month'):l('إلى شهر','to month'))}

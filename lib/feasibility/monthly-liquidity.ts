@@ -2,6 +2,7 @@ import {z} from 'zod';
 import {evaluateStudy,type FeasibilityStudy} from './engine';
 import {evaluateAdvanced} from './advanced-model';
 import {evaluateRawLand} from './raw-land';
+import {allocatePartnerInstallments,type Partnership} from './partnership';
 import {evaluateWater} from './water-model';
 
 const month=z.number().int().min(1).max(12);
@@ -11,6 +12,7 @@ export const monthlyLiquiditySchema=z.object({
  openingCash:z.number().finite().min(0).max(1e12),
  cashEquity:z.number().finite().min(0).max(1e12),
  cashEquityFromStudy:z.boolean().optional(),
+ usePartnerInstallments:z.boolean().optional(),
  timing:z.object({
   collections:timing.optional(),investment:timing.optional(),costs:timing.optional(),variableCosts:timing.optional(),
   workingCapital:timing.optional(),debtDraw:timing.optional(),principal:timing.optional(),
@@ -21,7 +23,7 @@ export const monthlyLiquiditySchema=z.object({
 export type MonthlyLiquidity=z.infer<typeof monthlyLiquiditySchema>;
 type Stream=keyof MonthlyLiquidity['timing'];
 type MonthlyAmounts=Record<Exclude<Stream,'equity'|'variableCosts'>,number>&{
- variableCosts?:number;yearEnd:number;terminalPrincipal:number;
+ variableCosts?:number;yearEnd:number;terminalPrincipal:number;partnerLoanDraw?:number;
  general?:{basis:'simple'|'advanced';cashEquity:number};
 };
 export const liquidityTiming={
@@ -40,7 +42,7 @@ export function monthlyLiquidityAmounts(study:FeasibilityStudy):MonthlyAmounts|n
   if(!year)return null;
   return {
    collections:year.revenue,investment:-result.cashRequired,costs:-(year.variable+year.fixed+year.maintenance),
-   workingCapital:-year.workingCapitalMovement,debtDraw:result.totalLoan,principal:-year.principal,
+   workingCapital:-year.workingCapitalMovement,debtDraw:result.totalLoan,partnerLoanDraw:result.totalLoan,principal:-year.principal,
    interest:-year.interest,
    yearEnd:(year.workingCapitalRecovery??0)+(year.terminalAssetProceeds??0)
     -(year.equityTax??year.tax),terminalPrincipal:-(year.terminalDebtRepayment??0)
@@ -69,7 +71,7 @@ export function monthlyLiquidityAmounts(study:FeasibilityStudy):MonthlyAmounts|n
  const costs=-(year.fixed+year.maintenance),variableCosts=-year.variable;
  return {
   collections:year.revenue,investment:-(advanced?.cashNeed??model.cashInvestment),
-  costs,variableCosts,workingCapital,debtDraw:study.investorLoan+study.otherDebt,
+  costs,variableCosts,workingCapital,debtDraw:study.investorLoan+study.otherDebt,partnerLoanDraw:study.investorLoan,
   principal:advancedYear?-advancedYear.principal:0,interest:advancedYear?-advancedYear.interest:0,
   yearEnd:operatingCash-year.revenue-costs-variableCosts-workingCapital,terminalPrincipal:0,
   general:{basis:advanced?'advanced':'simple',cashEquity:model.cashEquity}
@@ -80,9 +82,12 @@ export function monthlyCashEquity(amounts:MonthlyAmounts|null,plan:MonthlyLiquid
  return plan.cashEquityFromStudy&&amounts?.general?amounts.general.cashEquity:plan.cashEquity;
 }
 
-export function evaluateMonthlyLiquidity(amounts:MonthlyAmounts,plan:MonthlyLiquidity){
- const {terminalPrincipal,general:_,...annual}=amounts;
- const totals={...annual,variableCosts:annual.variableCosts??0,equity:monthlyCashEquity(amounts,plan)};
+export function evaluateMonthlyLiquidity(amounts:MonthlyAmounts,plan:MonthlyLiquidity,partnership?:Partnership){
+ const {terminalPrincipal,general:_,partnerLoanDraw=0,...annual}=amounts;
+ const partnerFunding=plan.usePartnerInstallments?allocatePartnerInstallments(partnership,plan.startMonth):null;
+ const totals={...annual,variableCosts:annual.variableCosts??0,
+  debtDraw:annual.debtDraw-(plan.usePartnerInstallments?partnerLoanDraw:0),
+  equity:plan.usePartnerInstallments?0:monthlyCashEquity(amounts,plan)};
  let closing=plan.openingCash;
  let lowestClosing=0;
  let peakMonth:number|null=null;
@@ -95,6 +100,11 @@ export function evaluateMonthlyLiquidity(amounts:MonthlyAmounts,plan:MonthlyLiqu
    const {from,to}=plan.timing[key]??liquidityTiming[key];
    allocated[key]=month>=from&&month<=to?totals[key]/(to-from+1):0;
   }
+  const partnerCash=partnerFunding?.rows[index];
+  if(partnerCash){
+   allocated.equity+=partnerCash.equity;
+   allocated.debtDraw+=partnerCash.loan;
+  }
   if(month===12)allocated.principal+=terminalPrincipal;
   const net=Object.values(allocated).reduce((sum,value)=>sum+value,0);
   closing=opening+net;
@@ -105,7 +115,7 @@ export function evaluateMonthlyLiquidity(amounts:MonthlyAmounts,plan:MonthlyLiqu
   }
   return {month,opening,closing,net,...allocated};
  });
- return {rows,closing,peakMonth,fundingGap:Math.abs(lowestClosing)};
+ return {rows,closing,peakMonth,fundingGap:Math.abs(lowestClosing),partnerFunding,partnerLoanDraw};
 }
 
 export function liquidityMonthLabel(startMonth:string|undefined,month:number,locale:string){

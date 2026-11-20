@@ -67,3 +67,38 @@ it('preserves the water model’s land lease, purchase and in-kind cash classifi
  water.deal.landMode='transfer';
  expect(evaluateWater(water)).toMatchObject({cashRequired:1000,land:500});
 });
+
+it('uses actual and rescheduled partner payments once, keeping external borrowing',()=>{
+ const study={...createStudy(id,'Installments'),investorEquity:600,investorLoan:200,otherDebt:50};
+ study.capex[0].amount=1000;
+ const alpha={...partners.partners[0],cashCommitted:900,cashPaid:750,loanPaid:600,installments:[
+  {id,type:'EQUITY' as const,amount:600,expectedOn:'2026-12-01',revisedOn:'2027-03-15',paid:300,paidOn:'2026-12-20'},
+  {id:partners.partners[1].id,type:'LOAN' as const,amount:200,expectedOn:'2027-02-03',paid:0},
+  {id:partners.partners[2].id,type:'EQUITY' as const,amount:150,expectedOn:'2026-12-01',paid:0}
+ ]};
+ const partnership={partners:[alpha],asOf:'2027-01-15'};
+ const amounts=monthlyLiquidityAmounts(study)!;
+ const plan={...defaultMonthlyLiquidity,startMonth:'2026-12',cashEquity:900,usePartnerInstallments:true};
+ const schedule=evaluateMonthlyLiquidity(amounts,plan,partnership);
+ expect(summarizePartnership(partnership)).toMatchObject({cashPaid:300,loanPaid:0,outstanding:600});
+ expect(schedule.rows[0]).toMatchObject({equity:300,debtDraw:50,closing:-650});
+ expect(schedule.rows[2]).toMatchObject({equity:0,debtDraw:200,closing:-450});
+ expect(schedule.rows[3]).toMatchObject({equity:300,debtDraw:0,closing:-150});
+ expect(schedule).toMatchObject({fundingGap:650,peakMonth:1,partnerFunding:{overdue:150,scheduledLoan:200}});
+ expect(cloudDraftWrite.parse({study:{...study,partnership,monthlyLiquidity:plan}}).study.partnership).toEqual(partnership);
+});
+
+it('puts payments outside the forecast window or without reliable dates in neither opening cash nor monthly receipts',()=>{
+ const installment={id,type:'EQUITY' as const,amount:300,expectedOn:'2027-01-01',paid:100,paidOn:'2027-01-01'};
+ const partnership={asOf:'2027-02-01',partners:[
+  {...partners.partners[0],installments:[installment,{...installment,id:partners.partners[1].id,amount:40,paid:40,paidOn:'2027-08-01'},
+   {...installment,id:partners.partners[2].id,amount:50,paid:50,paidOn:undefined}]},
+  partners.partners[1]
+ ]};
+ const study=createStudy(id,'Outside window');
+ const schedule=evaluateMonthlyLiquidity(monthlyLiquidityAmounts(study)!,{
+  ...defaultMonthlyLiquidity,startMonth:'2027-02',usePartnerInstallments:true
+ },partnership);
+ expect(schedule.partnerFunding).toMatchObject({beforeWindow:100,overdue:200,undated:50,futureActual:40,undatedLegacy:200});
+ expect(schedule.rows.every(row=>row.equity===0)).toBe(true);
+});
