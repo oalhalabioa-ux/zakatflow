@@ -749,8 +749,6 @@ function FeasibilityWorkspaceContent({
     onChange={value=>update({rawLand:value})}/>}
    {water&&waterTab&&waterTab!=='overview'&&<WaterModelPanel water={water} tab={waterTab} detail={details?.id===detail?detail:undefined}
      currency={study.currency} locale={locale} suppliers={study.suppliers} onChange={water=>update({water})}/>}
-   {(water||rawLand)&&tab==='cashflow'&&<MonthlyLiquidityPanel study={study} locale={locale} readOnly={effectiveReadOnly}
-    onChange={monthlyLiquidity=>update({monthlyLiquidity})}/>}
    {water&&tab==='overview'&&<details className="fs-royal-shared-access">
     <summary>{txt(ar,'تفاصيل ومؤشرات مصنع المياه','Detailed water factory indicators')}</summary>
     <WaterModelPanel water={water} tab="overview" currency={study.currency} locale={locale} onChange={water=>update({water})}/>
@@ -796,6 +794,8 @@ function FeasibilityWorkspaceContent({
    </section>}
    {!water&&!rawLand&&model?.ready&&tab==='cashflow'&&<RoyalCashTrend
     title={txt(ar,'التدفق النقدي التراكمي','Cumulative cash flow')} locale={locale} unit={study.currency} flows={model.flows}/>}
+   {tab==='cashflow'&&<MonthlyLiquidityPanel study={study} locale={locale} readOnly={effectiveReadOnly}
+    onChange={monthlyLiquidity=>update({monthlyLiquidity})}/>}
    {!water&&!rawLand&&model&&tab==='partners'&&<RoyalOwnership title={txt(ar,'حصص الملكية الاقتصادية','Economic ownership')}
     locale={locale} data={[
      {label:txt(ar,'الممول','Investor'),value:model.investorShare??0},

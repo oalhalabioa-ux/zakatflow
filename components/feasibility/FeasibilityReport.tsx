@@ -284,8 +284,15 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
     <div><dt>{l('التمويل الإضافي لأول 12 شهرًا','Additional funding for the first 12 months')}</dt><dd><bdi>{money(liquidity.fundingGap)}</bdi></dd></div>
     <div><dt>{l('شهر أكبر عجز','Peak shortfall month')}</dt><dd><bdi>{liquidity.peakMonth===null?'—':liquidityMonthLabel(plan?.startMonth,liquidity.peakMonth,locale)}</bdi></dd></div>
    </dl>}
+   {liquidity&&monthlyAmounts.general&&<p className="fs-hint">
+    {monthlyAmounts.general.basis==='advanced'?
+     l('السيولة الشهرية محسوبة من السيناريو الأساسي للنموذج المالي المتقدم.','Monthly liquidity uses the advanced financial model’s base scenario.'):
+     l('السيولة الشهرية محسوبة من السيناريو الأساسي للنموذج السنوي المبسط.','Monthly liquidity uses the simplified annual model’s base scenario.')}
+    {monthlyAmounts.general.basis==='simple'&&monthlyAmounts.debtDraw>0&&' '+l(
+     'أصل القرض والفائدة يتطلبان استكمال النموذج المالي المتقدم.','Complete the advanced financial model to include principal and interest.')}
+   </p>}
    {(water||landResult?.financeMetrics?.returns)&&<p className="fs-hint">{water?
-    l('العجز مبني على أرصدة نهاية السنوات مع الاحتفاظ بالفوائض.','The shortfall uses year-end balances and assumes surpluses are retained.'):
+    l('يُحسب عجز النموذج السنوي من أرصدة نهاية السنوات مع الاحتفاظ بالفوائض.','The annual model measures its shortfall from year-end balances and assumes surpluses are retained.'):
     l('العائد قبل التمويل يستبعد الفائدة وعمولة ترتيب القرض. عائد الملكية الإجمالي يشمل الأرض العينية بقيمتها في سنة صفر إن وُجدت.',
      'The pre-financing return excludes loan interest and arrangement fees. Total equity return includes any in-kind land at its year-zero value.')}</p>}
    {!!deal?.extraFunding&&<p className="fs-hint">{l('حدّد أوجه استخدام التمويل الإضافي قبل اعتماد الدراسة.',

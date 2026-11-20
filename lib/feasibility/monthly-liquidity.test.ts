@@ -1,5 +1,7 @@
 import {describe,expect,it} from 'vitest';
-import {createStudy} from './engine';
+import {createStudy,evaluateStudy,type Sector} from './engine';
+import {emptyAdvanced,evaluateAdvanced,illustratedLives} from './advanced-model';
+import {createIndustrialStarter} from './project-templates';
 import {cloudDraftWrite} from './draft-schema';
 import {FEASIBILITY_BACKUP_SCHEMA,appendImportedStudies,parseStudyBackup} from './local-drafts';
 import {createRawLand,evaluateRawLand} from './raw-land';
@@ -21,6 +23,56 @@ describe('monthly feasibility liquidity',()=>{
   expect(result).toMatchObject({fundingGap:600,peakMonth:11,closing:1200});
   const funded=evaluateMonthlyLiquidity(amounts,{...plan,cashEquity:600,timing:{...plan.timing,equity:at(1)}});
   expect(funded).toMatchObject({fundingGap:0,peakMonth:null,closing:1800});
+ });
+ it.each<Sector>(['INDUSTRIAL','COMMERCIAL','REAL_ESTATE','SERVICES','AGRICULTURE','CUSTOM'])(
+  'reconciles the general %s template with its first annual cash flow',sector=>{
+   const study={...createStudy(id,'General',sector),years:1,landValue:500,landTransferred:true,
+    investorEquity:210,partnerCashEquity:90,workingCapital:100,monthlyUnits:100,unitPrice:2,
+    variableCost:1,monthlyFixedCost:10,annualMaintenance:60,indicativeTaxRatePct:10};
+   study.capex[0].amount=1000;
+   const annual=evaluateStudy(study);
+   const amounts=monthlyLiquidityAmounts(study)!;
+   const result=evaluateMonthlyLiquidity(amounts,{...defaultMonthlyLiquidity,cashEquityFromStudy:true});
+   expect(amounts).toMatchObject({investment:-1100,variableCosts:-1200,costs:-180,general:{basis:'simple',cashEquity:300}});
+   expect(result.closing).toBeCloseTo(annual.flows[0]+annual.landAsset+annual.annual[0].freeCashFlow+annual.cashEquity);
+   expect(result.rows[11].yearEnd).toBeCloseTo(100-annual.annual[0].taxEstimate);
+  });
+ it('retains dairy procurement costs and annual cash while later collections raise the peak funding need',()=>{
+  const study={...createIndustrialStarter(id,'Dairy','DAIRY_CHEESE'),monthlyUnits:100,unitPrice:2,
+   variableCost:1,monthlyFixedCost:20,investorEquity:1000};
+  study.capex[0].amount=1000;
+  const amounts=monthlyLiquidityAmounts(study)!;
+  const plan:MonthlyLiquidity={...defaultMonthlyLiquidity,cashEquity:50,cashEquityFromStudy:true,
+   timing:{variableCosts:{from:1,to:6}}};
+  const prompt=evaluateMonthlyLiquidity(amounts,plan);
+  const delayed=evaluateMonthlyLiquidity(amounts,{...plan,timing:{...plan.timing,collections:{from:4,to:12}}});
+  expect(delayed.rows[0]).toMatchObject({variableCosts:-200,costs:-20,equity:1000});
+  expect(delayed).toMatchObject({fundingGap:660,peakMonth:3});
+  expect(delayed.fundingGap).toBeGreaterThan(prompt.fundingGap);
+  expect(delayed.closing).toBeCloseTo(prompt.closing);
+  expect(delayed.closing).toBeCloseTo(960);
+  expect(cloudDraftWrite.parse({study:{...study,monthlyLiquidity:plan}}).study.monthlyLiquidity).toEqual(plan);
+ });
+ it('reconciles advanced debt service and working capital using capacity inputs',()=>{
+  const study={...createStudy(id,'Advanced'),unitPrice:4,variableCost:1,monthlyFixedCost:20,
+   investorLoan:300,otherDebt:200,investorEquity:600,volumeGrowthPct:10,years:2,
+   advanced:{...emptyAdvanced(),mode:'CAPACITY' as const,capacityMonthly:100,utilisationPct:50,
+    lives:{...illustratedLives},debtYears:2,debtRatePct:10,
+    workingCapitalPolicy:{mode:'DAYS' as const,receivableDays:15,inventoryDays:0,payableDays:0}}};
+  study.capex[0].amount=1000;
+  const advanced=evaluateAdvanced(study);
+  const amounts=monthlyLiquidityAmounts(study)!;
+  const plan:MonthlyLiquidity={...defaultMonthlyLiquidity,cashEquityFromStudy:true,
+   timing:{debtDraw:at(4),principal:at(12),interest:at(12)}};
+  const result=evaluateMonthlyLiquidity(amounts,plan);
+  expect(amounts).toMatchObject({collections:2400,principal:-250,interest:-50,general:{basis:'advanced'}});
+  expect(amounts.workingCapital).toBeCloseTo(-advanced.annual[0].workingCapitalMovement);
+  expect(result.rows[3].debtDraw).toBe(500);
+  expect(result.rows[11]).toMatchObject({principal:-250,interest:-50});
+  expect(result.closing).toBeCloseTo(-advanced.cashNeed+1100+advanced.annual[0].equityFcf);
+  const incomplete=monthlyLiquidityAmounts({...study,advanced:undefined})!;
+  expect(incomplete.general?.basis).toBe('simple');
+  expect(incomplete.interest).toBe(0);
  });
  it('reconciles water startup cash, operating cash, regular and terminal loan settlements without counting in-kind land',()=>{
   const water=createWaterModel();

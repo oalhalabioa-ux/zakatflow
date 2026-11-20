@@ -2,7 +2,7 @@
 
 import type {FeasibilityStudy} from '@/lib/feasibility/engine';
 import {defaultMonthlyLiquidity,evaluateMonthlyLiquidity,liquidityMonthLabel,liquidityTiming,
- monthlyLiquidityAmounts,monthlyLiquiditySchema,type MonthlyLiquidity} from '@/lib/feasibility/monthly-liquidity';
+ monthlyCashEquity,monthlyLiquidityAmounts,monthlyLiquiditySchema,type MonthlyLiquidity} from '@/lib/feasibility/monthly-liquidity';
 import {RoyalIcon} from './RoyalIcon';
 
 type Stream=keyof MonthlyLiquidity['timing'];
@@ -14,20 +14,23 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
  const l=(arText:string,enText:string)=>ar?arText:enText;
  const title=l('السيولة الشهرية لأول 12 شهرًا','First 12 months of cash flow');
  const plan=study.monthlyLiquidity;
+ const general=!study.rawLand&&!study.water;
  if(!plan&&readOnly)return null;
  if(!plan)return <section className="card fs-panel fs-monthly-liquidity">
   <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{title}</h3>
-  <button type="button" className="fs-btn fs-btn--secondary" onClick={()=>onChange(defaultMonthlyLiquidity)}>
+  <button type="button" className="fs-btn fs-btn--secondary" onClick={()=>onChange(general?{...defaultMonthlyLiquidity,cashEquityFromStudy:true}:defaultMonthlyLiquidity)}>
    {l('إعداد جدول السيولة','Set up monthly cash flow')}
   </button>
  </section>;
  const amounts=monthlyLiquidityAmounts(study);
  const result=amounts&&evaluateMonthlyLiquidity(amounts,plan);
- const streamAmount=(key:Stream)=>key==='equity'?plan.cashEquity:amounts?.[key]??0;
+ const cashEquity=monthlyCashEquity(amounts,plan);
+ const streamAmount=(key:Stream)=>key==='equity'?cashEquity:amounts?.[key]??0;
  const streams:Record<Stream,string>={
   collections:l('التحصيلات','Collections'),
-  investment:study.water?l('الاستثمار الأولي ورأس المال العامل','Initial investment and working capital'):l('شراء الأرض نقدًا','Cash land acquisition'),
-  costs:study.water?l('التشغيل والصيانة','Operations and maintenance'):l('تكاليف التطوير','Development costs'),
+  investment:study.rawLand?l('شراء الأرض نقدًا','Cash land acquisition'):l('الاستثمار الأولي ورأس المال العامل','Initial investment and working capital'),
+  costs:study.rawLand?l('تكاليف التطوير','Development costs'):general?l('الثابتة والصيانة','Fixed costs and maintenance'):l('التشغيل والصيانة','Operations and maintenance'),
+  variableCosts:l('التكاليف المتغيرة والتوريد','Variable costs and procurement'),
   workingCapital:l('تغير رأس المال العامل','Working capital movement'),
   debtDraw:l('سحب القرض','Loan draw'),
   principal:l('سداد أصل القرض','Principal payments'),
@@ -51,10 +54,11 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
   key=>amounts[key]<0&&(plan.timing[key]??liquidityTiming[key]).from<(plan.timing.debtDraw??liquidityTiming.debtDraw).from);
  const columns=[
   ['opening',l('الرصيد الافتتاحي','Opening cash')],['collections',streams.collections],['investment',streams.investment],
-  ['costs',streams.costs],['workingCapital',streams.workingCapital],['debtDraw',streams.debtDraw],['equity',streams.equity],
+  ['costs',streams.costs],['variableCosts',streams.variableCosts],['workingCapital',streams.workingCapital],['debtDraw',streams.debtDraw],['equity',streams.equity],
   ['principal',streams.principal],['interest',streams.interest],['yearEnd',l('تسويات نهاية السنة','Year-end adjustments')],
   ['net',l('صافي التدفق','Net cash flow')],['closing',l('الرصيد الختامي','Closing cash')]
  ] as const;
+ const visibleColumns=general?columns:columns.filter(([key])=>key!=='variableCosts');
  return <section className="card fs-panel fs-monthly-liquidity">
   <h3 className="fs-royal-report-title"><RoyalIcon name="coins"/>{title}</h3>
   <p className="fs-hint">{l(
@@ -71,22 +75,35 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
     <input type="number" inputMode="decimal" min={0} max={1e12} step="any" value={plan.openingCash}
      onChange={event=>updateAmount('openingCash',event.currentTarget.value)}/></label>
    <label className="fs-field"><span>{streams.equity}</span>
-    <input type="number" inputMode="decimal" min={0} max={1e12} step="any" value={plan.cashEquity}
+    <input type="number" inputMode="decimal" min={0} max={1e12} step="any" value={cashEquity} disabled={general&&plan.cashEquityFromStudy}
      onChange={event=>updateAmount('cashEquity',event.currentTarget.value)}/></label>
   </div>
+  {general&&<label className="fs-check"><input type="checkbox" checked={plan.cashEquityFromStudy===true}
+   onChange={event=>onChange({...plan,cashEquityFromStudy:event.currentTarget.checked})}/>
+   <span>{l('ربط المساهمات النقدية بمدخلات الدراسة','Link cash equity to study inputs')}</span></label>}
   {!amounts||!result?<p className="fs-hint">{l('راجع مدخلات النموذج السنوي لحساب السيولة الشهرية.','Review the annual model inputs to calculate monthly cash flow.')}</p>:<>
    <p className="fs-hint">{study.water?l(
     'يستخدم المصنع إيرادات السنة الأولى أساسًا للتحصيلات مع عرض تغير رأس المال العامل مستقلًا. تُدرج الضريبة التقديرية والتدفقات النهائية المستحقة في الشهر 12.',
     'The water model uses year-one revenue as the basis for collections and shows the working capital movement separately. Estimated tax and any terminal cash flows due appear in month 12.'
-   ):l(
+   ):study.rawLand?l(
     'يستخدم القالب تحصيلات السنة الأولى من جدول البيع. تنطلق الدفعة النقدية للأرض افتراضيًا في الشهر الأول، وتظهر أتعاب الأداء المستحقة في الشهر 12.',
     'Collections come from the first year of the sales schedule. Cash land acquisition defaults to month one, and any performance fee due appears in month 12.'
+   ):l(
+    'اضبط أشهر التحصيل والتوريد بحسب آجال العملاء والموردين. أدخل تأخير التحصيل الناتج عن تعتيق المنتجات عند انطباقه. تُدرج تسويات نهاية السنة في الشهر 12.',
+    'Set collection and procurement months to reflect trading terms. Allow for any aging period before collections begin. Year-end adjustments fall in month 12.'
    )}</p>
+   {general&&<p className="fs-hint">{amounts.general?.basis==='advanced'?
+    l('أساس الحساب هو السيناريو الأساسي في النموذج المالي المتقدم.','Based on the advanced financial model’s base scenario.'):
+    l('أساس الحساب هو السيناريو الأساسي في النموذج السنوي المبسط.','Based on the simplified annual model’s base scenario.')}</p>}
    <div className="fs-kpis" aria-live="polite">
     <div className="fs-metric"><small>{l('التمويل الإضافي المطلوب','Additional funding required')}</small><strong dir="ltr">{money(result.fundingGap)} {study.currency}</strong></div>
     <div className="fs-metric"><small>{l('شهر أكبر عجز','Peak shortfall month')}</small><strong>{result.peakMonth===null?'—':monthLabel(result.peakMonth)}</strong></div>
     <div className="fs-metric"><small>{l('رصيد نهاية الشهر 12','Month 12 closing cash')}</small><strong dir="ltr">{money(result.closing)} {study.currency}</strong></div>
    </div>
+   {amounts.general?.basis==='simple'&&amounts.debtDraw>0&&<p className="fs-warning" role="status">{l(
+    'يشمل الجدول سحب التمويل. لاستكمال أصل القرض والفائدة، أدخل شروط القرض واستكمل بيانات النموذج المالي المتقدم.',
+    'The schedule includes loan draws. Complete the loan terms and inputs in the advanced financial model to include principal and interest.'
+   )}</p>}
    {debtTimingConflict&&<p className="fs-warning" role="status">{l('تبدأ خدمة القرض قبل شهر السحب. راجع توقيت السداد والسحب.','Debt service starts before the loan draw. Review the draw and payment months.')}</p>}
    <details>
     <summary>{l('توقيت التحصيل والصرف والتمويل','Collection, payment and financing timing')}</summary>
@@ -108,10 +125,10 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
    </details>
    <div className="fs-table-wrap" role="region" aria-label={title} tabIndex={0}>
     <table className="fs-table">
-     <thead><tr><th scope="col">{l('الشهر','Month')}</th>{columns.map(([key,label])=><th scope="col" key={key}>{label}</th>)}</tr></thead>
+     <thead><tr><th scope="col">{l('الشهر','Month')}</th>{visibleColumns.map(([key,label])=><th scope="col" key={key}>{label}</th>)}</tr></thead>
      <tbody>{result.rows.map(row=><tr key={row.month}>
       <th scope="row">{monthLabel(row.month)}</th>
-      {columns.map(([key])=><td key={key}><bdi>{money(row[key])}</bdi></td>)}
+      {visibleColumns.map(([key])=><td key={key}><bdi>{money(row[key])}</bdi></td>)}
      </tr>)}</tbody>
     </table>
    </div>

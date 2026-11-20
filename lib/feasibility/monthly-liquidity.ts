@@ -1,5 +1,6 @@
 import {z} from 'zod';
-import type {FeasibilityStudy} from './engine';
+import {evaluateStudy,type FeasibilityStudy} from './engine';
+import {evaluateAdvanced} from './advanced-model';
 import {evaluateRawLand} from './raw-land';
 import {evaluateWater} from './water-model';
 
@@ -9,8 +10,9 @@ export const monthlyLiquiditySchema=z.object({
  startMonth:z.string().regex(/^(?:19\d{2}|20\d{2}|21\d{2}|2200)-(?:0[1-9]|1[0-2])$/).optional(),
  openingCash:z.number().finite().min(0).max(1e12),
  cashEquity:z.number().finite().min(0).max(1e12),
+ cashEquityFromStudy:z.boolean().optional(),
  timing:z.object({
-  collections:timing.optional(),investment:timing.optional(),costs:timing.optional(),
+  collections:timing.optional(),investment:timing.optional(),costs:timing.optional(),variableCosts:timing.optional(),
   workingCapital:timing.optional(),debtDraw:timing.optional(),principal:timing.optional(),
   interest:timing.optional(),equity:timing.optional()
  }).strict()
@@ -18,10 +20,13 @@ export const monthlyLiquiditySchema=z.object({
 
 export type MonthlyLiquidity=z.infer<typeof monthlyLiquiditySchema>;
 type Stream=keyof MonthlyLiquidity['timing'];
-type MonthlyAmounts=Record<Exclude<Stream,'equity'>,number>&{yearEnd:number;terminalPrincipal:number};
+type MonthlyAmounts=Record<Exclude<Stream,'equity'|'variableCosts'>,number>&{
+ variableCosts?:number;yearEnd:number;terminalPrincipal:number;
+ general?:{basis:'simple'|'advanced';cashEquity:number};
+};
 export const liquidityTiming={
  collections:{from:1,to:12},investment:{from:1,to:1},costs:{from:1,to:12},
- workingCapital:{from:1,to:12},debtDraw:{from:1,to:1},principal:{from:1,to:12},
+ variableCosts:{from:1,to:12},workingCapital:{from:1,to:12},debtDraw:{from:1,to:1},principal:{from:1,to:12},
  interest:{from:1,to:12},equity:{from:1,to:1}
 } satisfies Record<Stream,{from:number;to:number}>;
 
@@ -52,18 +57,38 @@ export function monthlyLiquidityAmounts(study:FeasibilityStudy):MonthlyAmounts|n
    interest:-year.interest,yearEnd:-year.performanceFee,terminalPrincipal:0
   };
  }
- return null;
+ const advancedResult=study.advanced?evaluateAdvanced(study):null;
+ const advanced=advancedResult?.ready?advancedResult:null;
+ const advancedYear=advanced?.annual[0];
+ const model=evaluateStudy(advanced?{...study,monthlyUnits:advanced.monthlyVolume}:study);
+ const year=model.annual[0];
+ const operatingCash=advancedYear?.fcf??year.freeCashFlow;
+ if(!Number.isFinite(operatingCash))return null;
+ // A terminal working capital release is a month-12 receipt.
+ const workingCapital=advancedYear&&model.annual.length>1?-advancedYear.workingCapitalMovement:0;
+ const costs=-(year.fixed+year.maintenance),variableCosts=-year.variable;
+ return {
+  collections:year.revenue,investment:-(advanced?.cashNeed??(model.totalInvestment-model.landAsset)),
+  costs,variableCosts,workingCapital,debtDraw:study.investorLoan+study.otherDebt,
+  principal:advancedYear?-advancedYear.principal:0,interest:advancedYear?-advancedYear.interest:0,
+  yearEnd:operatingCash-year.revenue-costs-variableCosts-workingCapital,terminalPrincipal:0,
+  general:{basis:advanced?'advanced':'simple',cashEquity:model.cashEquity}
+ };
+}
+
+export function monthlyCashEquity(amounts:MonthlyAmounts|null,plan:MonthlyLiquidity){
+ return plan.cashEquityFromStudy&&amounts?.general?amounts.general.cashEquity:plan.cashEquity;
 }
 
 export function evaluateMonthlyLiquidity(amounts:MonthlyAmounts,plan:MonthlyLiquidity){
+ const {terminalPrincipal,general:_,...annual}=amounts;
+ const totals={...annual,variableCosts:annual.variableCosts??0,equity:monthlyCashEquity(amounts,plan)};
  let closing=plan.openingCash;
  let lowestClosing=0;
  let peakMonth:number|null=null;
  const rows=Array.from({length:12},(_,index)=>{
   const month=index+1;
   const opening=closing;
-  const {terminalPrincipal,...annual}=amounts;
-  const totals={...annual,equity:plan.cashEquity};
   const allocated={...totals};
   allocated.yearEnd=month===12?amounts.yearEnd:0;
   for(const key of streams){
