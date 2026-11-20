@@ -18,7 +18,8 @@ const cashTolerance=0.005;
 export function calculateLandDistribution(
  assumptions:LandDistribution,
  inKindLandValue:number,
- annual:readonly {year:number;equityCash:number;closingDebt:number}[]
+ annual:readonly {year:number;equityCash:number;closingDebt:number}[],
+ initialEquityCash=0
 ){
  const {partners}=assumptions;
  if(!annual.length||!partners.length||partners.some(partner=>!partner.name.trim()))return {issue:'PARTNERS'} as const;
@@ -26,8 +27,8 @@ export function calculateLandDistribution(
  if(Math.abs(total(partners.map(partner=>partner.inKindLand))-inKindLandValue)>=cashTolerance)return {issue:'LAND'} as const;
 
  const initialCash=total(partners.map(partner=>partner.cash));
- let cash=initialCash;
- let fundingGap=0;
+ let cash=initialCash+initialEquityCash;
+ let fundingGap=Math.max(0,-cash);
  for(const year of annual){
   cash+=year.equityCash;
   fundingGap=Math.max(fundingGap,-cash);
@@ -55,8 +56,12 @@ export function calculateLandDistribution(
   debtShortfall:Math.max(0,debtReserve-Math.max(0,cash)),distributable,
   partners:partners.map((partner,i)=>{
    const profit=remaining*(partner.profitShare/profitShares);
+   const distribution=capitalReturned[i]+profit;
+   const capitalMultiple=capital[i]>0?distribution/capital[i]:null;
    return {...partner,capital:capital[i],capitalReturned:capitalReturned[i],
-    unrecoveredCapital:Math.max(0,capital[i]-capitalReturned[i]),profit,distribution:capitalReturned[i]+profit};
+    unrecoveredCapital:Math.max(0,capital[i]-capitalReturned[i]),profit,distribution,
+    netReturn:distribution-capital[i],capitalMultiple,
+    annualizedReturn:capitalMultiple===null?null:capitalMultiple**(1/annual.length)-1};
   })
  } as const;
 }

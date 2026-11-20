@@ -34,3 +34,25 @@ it('reports an uncovered closing debt balance without distributing cash',()=>{
  const result=calculateLandDistribution(owners,100,[row(2027,-80,50)]);
  expect(result).toMatchObject({issue:null,debtShortfall:30,distributable:0});
 });
+
+
+it('computes per-partner net and annualized returns using the settlement dates and invested capital',()=>{
+ const result=calculateLandDistribution(owners,100,[row(2027,-75),row(2028,225)]);
+ if(result.issue)throw Error(result.issue);
+ const [land,first,second]=result.partners;
+ expect(land.netReturn).toBe(20);
+ expect(land.capitalMultiple).toBeCloseTo(1.2);
+ expect(land.annualizedReturn).toBeCloseTo(Math.sqrt(1.2)-1);
+ expect(first.annualizedReturn).not.toBe(land.annualizedReturn);
+ expect(second.netReturn).toBe(10);
+ const loss=calculateLandDistribution(owners,100,[row(2027,-80,50)]);
+ if(loss.issue)throw Error(loss.issue);
+ expect(loss.partners[0]).toMatchObject({capitalMultiple:0,annualizedReturn:-1,netReturn:-100});
+});
+
+it('reflects a year-zero cash land purchase when checking funding and distributable cash',()=>{
+ const cashOwners={partners:[{name:'Investor',cash:100,inKindLand:0,priority:1,profitShare:1}]};
+ expect(calculateLandDistribution(cashOwners,0,[row(2027,300)],-120)).toEqual({issue:'FUNDING',fundingGap:20});
+ const result=calculateLandDistribution(cashOwners,0,[row(2027,300)],-90);
+ expect(result).toMatchObject({issue:null,distributable:310,partners:[{capitalReturned:100,profit:210}]});
+});
