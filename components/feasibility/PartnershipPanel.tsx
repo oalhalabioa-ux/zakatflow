@@ -1,7 +1,8 @@
 'use client';
 
 import type {FeasibilityStudy} from '@/lib/feasibility/engine';
-import {generalLandCosts,summarizePartnership,type LandArrangement,type Partner,type Partnership} from '@/lib/feasibility/partnership';
+import {generalLandCosts,partnerPaidAmounts,summarizePartnership,type LandArrangement,type Partner,type Partnership} from '@/lib/feasibility/partnership';
+import PartnerInstallments from './PartnerInstallments';
 import {evaluateRawLand} from '@/lib/feasibility/raw-land';
 import {evaluateWater} from '@/lib/feasibility/water-model';
 
@@ -79,14 +80,14 @@ export default function PartnershipPanel({study,locale,onChange}:{study:Feasibil
   !totals.ownershipBalanced&&l('مجموع نسب الملكية يجب أن يساوي 100%.','Ownership shares must total 100%.'),
   !totals.profitBalanced&&l('مجموع نسب الأرباح يجب أن يساوي 100%.','Profit shares must total 100%.'),
   partners.some(partner=>!partner.name.trim())&&l('أدخل اسم كل شريك.','Enter every partner name.'),
-  partners.some(partner=>partner.cashPaid>partner.cashCommitted)&&l('تجاوز بعض المدفوعات مبلغ الالتزام. راجع الاتفاق والمبالغ.','Some paid capital exceeds the commitment. Review the agreed and paid amounts.'),
+  partners.some(partner=>partnerPaidAmounts(partner,registry.asOf).cashPaid>partner.cashCommitted)&&l('تجاوز بعض المدفوعات مبلغ الالتزام. راجع الاتفاق والمبالغ.','Some paid capital exceeds the commitment. Review the agreed and paid amounts.'),
   land>0&&!landPartnerId&&l('حدّد الشريك الذي قدّم الأرض العينية.','Select the partner who contributed the land.')
  ].filter(Boolean);
  return <section className="card fs-panel fs-monthly-liquidity">
   <h3>{l('سجل الشركاء والمبالغ المدفوعة','Partner register and payments')}</h3>
   {onChange&&<p className="fs-hint">{l(
-   'سجّل النسب حسب الاتفاق والمدفوعات الفعلية حتى تاريخ المراجعة. يبقى توقع تمويل المشروع في النموذج المالي.',
-   'Record agreed shares and payments made as of the review date. Project funding forecasts remain in the financial model.'
+   'سجّل النسب حسب الاتفاق والمدفوعات الفعلية حتى تاريخ المراجعة. إذا أضفت دفعات لشريك، تُحتسب مدفوعاته من الدفعات. يُفعّل الربط من جدول السيولة الشهرية.',
+   'Record agreed shares and payments made as of the review date. Installments replace the manual paid totals for that partner. Enable the link from the monthly liquidity schedule.'
   )}</p>}
   {onChange?<label className="fs-field">
    <span>{l('تاريخ حصر المدفوعات','Payments as of')}</span>
@@ -100,6 +101,7 @@ export default function PartnershipPanel({study,locale,onChange}:{study:Feasibil
    </select>
   </label>}
   {onChange&&partners.map((partner,index)=>{
+   const paid=partnerPaidAmounts(partner,registry.asOf);
    const update=(patch:Partial<Partner>)=>onChange({...registry,partners:partners.map(item=>item.id===partner.id?{...item,...patch}:item)});
    return <fieldset key={partner.id} className="fs-panel">
     <legend>{l('الشريك','Partner')} {index+1}</legend>
@@ -109,13 +111,15 @@ export default function PartnershipPanel({study,locale,onChange}:{study:Feasibil
      {numericFields.map(key=>{
       const max=key.endsWith('Pct')?100:1e12;
       return <label key={key} className="fs-field"><span>{labels[key]}</span>
-       <input type="number" min={0} max={max} step="any" value={partner[key]} onChange={event=>{
+       <input type="number" min={0} max={max} step="any" value={key==='cashPaid'||key==='loanPaid'?paid[key]:partner[key]}
+        disabled={Boolean(partner.installments?.length)&&(key==='cashPaid'||key==='loanPaid')} onChange={event=>{
         const value=Number(event.currentTarget.value);
         if(Number.isFinite(value)&&value>=0&&value<=max)update({[key]:value});
        }}/>
       </label>;
      })}
     </div>
+    <PartnerInstallments locale={locale} rows={partner.installments??[]} onChange={installments=>update({installments})}/>
     <button type="button" className="fs-btn fs-btn--secondary" onClick={()=>onChange({
      ...registry,partners:partners.filter(item=>item.id!==partner.id),landPartnerId:landPartnerId===partner.id?undefined:landPartnerId
     })}>{l('إزالة الشريك','Remove partner')}</button>
@@ -132,11 +136,13 @@ export default function PartnershipPanel({study,locale,onChange}:{study:Feasibil
      <thead><tr>{[l('الشريك','Partner'),labels.ownershipPct,labels.profitPct,labels.cashCommitted,labels.cashPaid,
       l('المتبقي من الالتزام','Outstanding commitment'),l('الأرض العينية','In-kind land'),labels.loanPaid,
       l('إجمالي النقد المدفوع','Total cash paid')].map(label=><th key={label} scope="col">{label}</th>)}</tr></thead>
-     <tbody>{partners.map(partner=><tr key={partner.id}><th scope="row">{partner.name||'—'}</th>
-      {[percent(partner.ownershipPct),percent(partner.profitPct),money(partner.cashCommitted),money(partner.cashPaid),
-       money(Math.max(0,partner.cashCommitted-partner.cashPaid)),money(partner.id===landPartnerId?land:0),money(partner.loanPaid),
-       money(partner.cashPaid+partner.loanPaid)].map((value,index)=><td key={index}><bdi>{value}</bdi></td>)}
-     </tr>)}</tbody>
+     <tbody>{partners.map(partner=>{
+      const paid=partnerPaidAmounts(partner,registry.asOf);
+      return <tr key={partner.id}><th scope="row">{partner.name||'—'}</th>
+      {[percent(partner.ownershipPct),percent(partner.profitPct),money(partner.cashCommitted),money(paid.cashPaid),
+       money(Math.max(0,partner.cashCommitted-paid.cashPaid)),money(partner.id===landPartnerId?land:0),money(paid.loanPaid),
+       money(paid.cashPaid+paid.loanPaid)].map((value,index)=><td key={index}><bdi>{value}</bdi></td>)}
+     </tr>})}</tbody>
      <tfoot><tr><th scope="row">{l('الإجمالي','Total')}</th>
       {[percent(totals.ownershipPct),percent(totals.profitPct),money(totals.committed),money(totals.cashPaid),
        money(totals.outstanding),money(landPartnerId?land:0),money(totals.loanPaid),
