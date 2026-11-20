@@ -288,10 +288,10 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
  const financingSummary=[
   [l('القيمة الاستثمارية الاقتصادية','Economic investment'),money(m.cashRequired+m.land)],
   [l('النقد المطلوب للتأسيس','Initial cash requirement'),money(m.cashRequired)],
+  [l('رأس المال النقدي لتغطية التأسيس','Cash equity allocated to establishment'),money(m.cashRequired-m.shareholderLoan)],
+  [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(m.shareholderLoan)],
   [l('ذروة العجز النقدي بعد التأسيس وخدمة الدين','Peak post-establishment cash shortfall after debt service'),
    money(m.ready&&water.deal.extraFunding===0&&water.deal.investorLoan<=m.cashRequired?waterPeakFundingGap(m.annual):null)],
-  [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(m.shareholderLoan)],
-  [l('رأس المال النقدي لتغطية التأسيس','Cash equity allocated to establishment'),money(m.cashRequired-m.shareholderLoan)],
   [l('التمويل الإضافي بحسب المدخلات','Additional financing entered'),money(water.deal.extraFunding)],
   [l('إجمالي رأس مال الممول النقدي','Total investor cash equity'),money(m.investorEquity)],
   [l('الحصة العينية للأرض أو الحق','Land or right-of-use in-kind contribution'),money(m.land)],

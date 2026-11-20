@@ -77,6 +77,15 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
   }finally{setBusy(false)}
  }
 
+ const documentLink=(item:Document)=><a href={endpoint+'&document='+encodeURIComponent(item.id)} download={item.name}>{item.name}</a>;
+ const documentSize=(item:Document)=>new Intl.NumberFormat(locale,{style:'unit',unit:'kilobyte',maximumFractionDigits:1}).format(item.size/1000);
+ const documentDate=(item:Document)=>new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeZone:'UTC'}).format(new Date(item.createdAt));
+ const removeDocument=(item:Document)=><button type="button" className="fs-btn fs-btn--secondary" disabled={busy}
+  aria-label={l('إزالة المستند','Remove document')+' '+item.name}
+  onClick={()=>{
+   if(window.confirm(l('إزالة هذا المستند من الدراسة؟','Remove this document from the study?')))void change('DELETE',undefined,item.id);
+  }}>{l('إزالة','Remove')}</button>;
+
  return <section className="card fs-panel fs-royal-evidence-files">
   <h3 className="fs-royal-report-title"><RoyalIcon name="file"/>{kind==='licensing'?
    l('مرفقات التراخيص','Licence attachments'):l('مستندات التقييم','Valuation documents')}</h3>
@@ -90,18 +99,21 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
     </button>
    </div>:<>
    {!error&&!documents.length&&<p>{l('لا توجد ملفات مرفقة.','No files attached.')}</p>}
-   {documents.length>0&&<ul className="fs-royal-checks">{documents.map(item=><li key={item.id}>
-    <div><a href={endpoint+'&document='+encodeURIComponent(item.id)} download={item.name}>{item.name}</a>
-     <small>{new Intl.NumberFormat(locale,{style:'unit',unit:'kilobyte',maximumFractionDigits:1}).format(item.size/1000)}
-      {' · '}{new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeZone:'UTC'}).format(new Date(item.createdAt))}</small>
+   {documents.length>0&&(kind==='valuation'?<div className="fs-table-wrap fs-royal-valuation-documents">
+    <table className="fs-table" aria-label={l('مستندات التقييم المرفقة','Attached valuation documents')}>
+     <thead><tr><th scope="col">{l('المستند','Document')}</th><th scope="col">{l('تاريخ الإرفاق','Attached on')}</th>
+      <th scope="col">{l('الحجم','Size')}</th>{canWrite&&<th scope="col">{l('الإجراء','Action')}</th>}</tr></thead>
+     <tbody>{documents.map(item=><tr key={item.id}>
+      <th scope="row">{documentLink(item)}</th><td>{documentDate(item)}</td><td>{documentSize(item)}</td>
+      {canWrite&&<td>{removeDocument(item)}</td>}
+     </tr>)}</tbody>
+    </table>
+   </div>:<ul className="fs-royal-checks">{documents.map(item=><li key={item.id}>
+    <div>{documentLink(item)}<small>{documentSize(item)}{' · '}{documentDate(item)}</small>
      {item.requirementId&&<small>{requirements.find(row=>row.id===item.requirementId)?.title ??
       l('لم يعد المتطلب موجودًا في السجل','Requirement no longer in the register')}</small>}</div>
-    {canWrite&&<button type="button" className="fs-btn fs-btn--secondary" disabled={busy}
-     aria-label={l('إزالة المستند','Remove document')+' '+item.name}
-     onClick={()=>{
-      if(window.confirm(l('إزالة هذا المستند من الدراسة؟','Remove this document from the study?')))void change('DELETE',undefined,item.id);
-     }}>{l('إزالة','Remove')}</button>}
-   </li>)}</ul>}
+    {canWrite&&removeDocument(item)}
+   </li>)}</ul>)}
    {canWrite&&kind==='licensing'&&requirements.length>0&&<label className="fs-field">
     <span>{l('ربط المرفق بمتطلب','Link attachment to requirement')}</span>
     <select value={requirement} disabled={busy} onChange={event=>setRequirement(event.currentTarget.value)}>

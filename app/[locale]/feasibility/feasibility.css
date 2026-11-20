@@ -673,3 +673,11 @@
  .fs-print-report .fs-partner-register thead th:nth-child(2) { width: 9%; }
  .fs-print-report .fs-partner-register thead th:nth-child(3) { width: 7%; }
 }
+
+.fs-royal .fs-royal-valuation-documents .fs-table { min-width: 0; }
+.fs-royal-valuation-documents .fs-table th[scope="row"] { overflow-wrap: anywhere; }
+.fs-royal-valuation-documents .fs-table thead th { overflow-wrap: anywhere; }
+@media (max-width: 650px) {
+ .fs-royal-valuation-documents .fs-table :is(th,td) { padding-inline: 5px; }
+ .fs-royal-valuation-documents .fs-btn { padding-inline: 7px; }
+}
