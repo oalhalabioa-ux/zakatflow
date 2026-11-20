@@ -3,7 +3,7 @@ import {createStudy,evaluateStudy} from './engine';
 import {cloudDraftWrite} from './draft-schema';
 import {emptyAdvanced,evaluateAdvanced,illustratedLives} from './advanced-model';
 import {evaluateMonthlyLiquidity,defaultMonthlyLiquidity,monthlyLiquidityAmounts} from './monthly-liquidity';
-import {summarizePartnership,type Partnership} from './partnership';
+import {partnershipSchema,summarizePartnership,type Partnership} from './partnership';
 import {createRawLand,evaluateRawLand} from './raw-land';
 import {createWaterModel,evaluateWater} from './water-model';
 
@@ -101,4 +101,32 @@ it('puts payments outside the forecast window or without reliable dates in neith
  },partnership);
  expect(schedule.partnerFunding).toMatchObject({beforeWindow:100,overdue:200,undated:50,futureActual:40,undatedLegacy:200});
  expect(schedule.rows.every(row=>row.equity===0)).toBe(true);
+});
+
+
+it('settles total capital with assigned in-kind land and paid equity, without crediting loans',()=>{
+ const [first,second]=partners.partners;
+ const record=partnershipSchema.parse({landPartnerId:second.id,partners:[
+  {...first,capitalCommitted:200000,cashPaid:100000},
+  {...second,capitalCommitted:300000,cashPaid:200000,loanPaid:50000}
+ ]});
+ const model=summarizePartnership(record,100000);
+ expect(model).toMatchObject({committed:500000,inKindPaid:100000,cashRequired:400000,cashPaid:300000,
+  loanPaid:50030,outstanding:100000});
+ expect(model.rows[1]).toMatchObject({committed:300000,inKindPaid:100000,cashRequired:200000,cashPaid:200000,
+  outstanding:0,overpaid:false});
+ expect(summarizePartnership(record).rows[1].outstanding).toBe(100000);
+ const excess=summarizePartnership({...record,partners:[record.partners[0],{...record.partners[1],cashPaid:300000}]},100000);
+ expect(excess.rows[1]).toMatchObject({cashPaid:300000,inKindPaid:100000,outstanding:0,overpaid:true});
+ expect(excess.outstanding).toBe(100000);
+});
+
+it('keeps legacy cash-only commitments and treats an unassigned land value separately',()=>{
+ const legacy=partnershipSchema.parse({...partners,landPartnerId:partners.partners[1].id});
+ expect(summarizePartnership(legacy,150).rows[1]).toMatchObject({
+  committed:450,inKindPaid:150,cashRequired:300,cashPaid:200,outstanding:100
+ });
+ expect(summarizePartnership({...legacy,landPartnerId:undefined},150)).toMatchObject({
+  committed:400,inKindPaid:0,cashRequired:400,outstanding:120
+ });
 });
