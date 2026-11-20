@@ -201,7 +201,9 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   tab==='overview'&&water.deal.extraFunding>0&&l('التمويل الإضافي مدرج في هيكل التمويل. خصص استخدامه قبل الاعتماد.','Additional funds are included in the financing structure. Allocate their use before approval.'),
   tab==='overview'&&water.deal.licenseValue>0&&l('قيمة الرخصة للمراجعة ولا تدخل في الحصص.','Licence valuation is for review and excluded from ownership.'),
   tab==='overview'&&water.deal.landMode==='lease'&&l('الأرض خارج رأس المال. وثّق حقوق المنشآت في العقد.','Land is outside equity. Document rights over the improvements in the agreement.'),
-  tab==='overview'&&water.deal.landMode!=='lease'&&water.deal.leaseMonth>0&&l('راجع احتمال الجمع بين الحصة العينية وإيجار الأرض.','Review the possible overlap of an in-kind contribution with land rent.'),
+  tab==='overview'&&water.deal.landMode!=='lease'&&water.deal.leaseMonth>0&&(water.deal.landMode==='purchase'
+   ?l('استُبعد إيجار الأرض المحفوظ من توقعات الشراء.','The saved land rent is excluded from the purchase forecast.')
+   :l('راجع احتمال الجمع بين الحصة العينية وإيجار الأرض.','Review the possible overlap of an in-kind contribution with land rent.')),
   water.ops.licensedWaterM3Day>0&&m.waterDemand>water.ops.licensedWaterM3Day&&l('الطلب النظري للمياه يتجاوز الكمية المرخصة المدخلة.','Theoretical water demand exceeds the entered licensed limit.'),
   m.ready&&m.breakEven===null&&l('هامش الكرتون غير موجب.','Carton contribution margin is non-positive.')
  ].filter(Boolean);
@@ -376,7 +378,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   {tab==='partners'&&<>
    <div className="fs-royal-profile-grid fs-royal-water-forms">
     <Panel title={l('مساهمة شريك الأرض','Land partner contribution')} icon="building">
-     <div className="fs-form-grid">{landTerms}{dealFields.slice(0,5).filter(([key])=>key!=='leaseMonth'||water.deal.landMode==='lease'||water.deal.leaseMonth>0).map(item=>field('deal',item))}
+     <div className="fs-form-grid">{landTerms}{dealFields.slice(0,5).filter(([key])=>key!=='leaseMonth'||water.deal.landMode==='lease'||(water.deal.landMode!=='purchase'&&water.deal.leaseMonth>0)).map(item=>field('deal',item))}
       {detail==='valuation'&&([
        ['appraisalDate',l('تاريخ التقييم المستقل','Independent valuation date')],
        ['appraisalApprovalDate',l('تاريخ اعتماد التقييم الموثّق','Documented valuation approval date')],

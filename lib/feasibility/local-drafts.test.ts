@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {createStudy} from './engine';
-import {parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,personalCloudRevisionForBaseline,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type SavedCloudDraft} from './local-drafts';
+import {appendImportedStudies,parseStudyCollection,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,personalCloudRevisionForBaseline,personalDraftCache,readPersonalCloudVersions,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type SavedCloudDraft} from './local-drafts';
 
 const id='6357a708-bae2-4634-9296-490404b1d8a4';
 const owner='09d4c3bb-c5ee-4ac5-9b64-8127a2e55b98';
@@ -146,4 +146,21 @@ it('recovers the save revision only while the owned cloud content matches the re
  expect(personalCloudRevisionForBaseline(baseline,[row({...baseline,title:'Edited elsewhere'})],ownerId)).toBeNull();
  expect(personalCloudRevisionForBaseline(baseline,[row(reordered,collaboratorId)],ownerId)).toBeNull();
  expect(personalCloudRevisionForBaseline(baseline,[row(draft(4))],ownerId)).toBeNull();
+});
+
+
+it('preserves the last verified revision across dirty reloads without inheriting it on import',()=>{
+ const saved=study();
+ const edited={...saved,unitPrice:10,updatedAt:'2026-11-20T12:00:00.000Z'};
+ const cache=JSON.parse(JSON.stringify(personalDraftCache([edited],id,{[id]:7},{[id]:saved.updatedAt})));
+ const restored=parseLocalStudyCache(cache)!;
+ expect(restored.studies).toEqual([edited]);
+ const known=readPersonalCloudVersions(cache,restored.studies);
+ expect(known).toEqual({revisions:{[id]:7},savedVersions:{[id]:saved.updatedAt}});
+ const imported=appendImportedStudies(restored.studies,[saved],()=>draft(6).id)!;
+ const afterImport=personalDraftCache(imported.studies,imported.selectedId,known.revisions,known.savedVersions);
+ expect(readPersonalCloudVersions(afterImport,imported.studies)).toEqual(known);
+ expect(imported.selectedId).not.toBe(id);
+ expect(readPersonalCloudVersions({studies:[saved]},[saved])).toEqual({revisions:{},savedVersions:{}});
+ expect(readPersonalCloudVersions({cloudVersions:{[id]:{revision:-1,updatedAt:saved.updatedAt}}},[saved]).revisions).toEqual({});
 });

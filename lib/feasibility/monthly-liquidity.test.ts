@@ -118,3 +118,37 @@ describe('monthly feasibility liquidity',()=>{
   expect(liquidityMonthLabel(plan.startMonth,3,'en')).toBe('Jan 2027');
  });
 });
+
+
+it('reconciles imported water and land plans with dated equity and separate debt sources',()=>{
+ const due='2027-01-10';
+ const partnerId='17f24edc-3c5a-409d-8609-8ebf4e40dc8b';
+ const monthlyLiquidity:MonthlyLiquidity={...defaultMonthlyLiquidity,startMonth:'2027-01',cashEquity:999,usePartnerInstallments:true};
+ const common={monthlyLiquidity,partnership:{asOf:due,partners:[{
+  id:partnerId,name:'Synthetic partner',ownershipPct:100,profitPct:100,cashCommitted:300,cashPaid:300,loanPaid:150,
+  installments:[{id,type:'EQUITY' as const,amount:300,paid:300,paidOn:due},
+   {id:partnerId,type:'LOAN' as const,amount:150,paid:150,paidOn:due}]
+ }]}};
+ const water=createWaterModel();
+ Object.assign(water.capex,{line:1000});
+ Object.assign(water.deal,{landMode:'purchase',landValue:200,acquisitionFees:25,leaseMonth:40,investorLoan:150,loanYears:1,loanStart:1,loanInterest:10});
+ Object.assign(water.ops,{horizon:3,bottlesHour:100,hoursDay:1,daysMonth:20,bottlesCarton:10,priceCarton:10,util:[100]});
+ const rawLand=createRawLand();
+ Object.assign(rawLand.site,{areaAfterPriorTransfers:100,landPaymentMethod:'lease',landPricePerNetSqm:500,annualLandRent:100});
+ rawLand.cost.landAcquisitionFees=20;
+ rawLand.sales.mix[0].price=20;
+ rawLand.finance.facility=75;
+ const waterStudy={...createStudy(id,'Water'),...common,water};
+ const landStudy={...createStudy(partnerId,'Land','REAL_ESTATE'),...common,rawLand};
+ const decoded=parseStudyBackup(JSON.parse(JSON.stringify({schema:FEASIBILITY_BACKUP_SCHEMA,studies:[waterStudy,landStudy]})))!;
+ const closing=(i:number)=>evaluateMonthlyLiquidity(monthlyLiquidityAmounts(decoded[i])!,decoded[i].monthlyLiquidity!,decoded[i].partnership);
+ const waterCash=closing(0),landCash=closing(1);
+ expect(waterCash.rows[0]).toMatchObject({equity:300,debtDraw:150,investment:-1225,costs:0});
+ expect(waterCash.closing).toBeCloseTo(-1225+300+150+evaluateWater(water).annual[0].afterDebt);
+ expect(landCash.rows[0]).toMatchObject({equity:300,debtDraw:187.5,investment:0});
+ const land=evaluateRawLand(rawLand);
+ if(land.issue)throw Error(land.issue);
+ expect(landCash.closing).toBeCloseTo(land.annual[0].equityCash+450);
+ expect(decoded.map(item=>cloudDraftWrite.parse({study:item}).study)).toEqual(decoded);
+ expect(decoded[0].water?.deal.leaseMonth).toBe(40);
+});

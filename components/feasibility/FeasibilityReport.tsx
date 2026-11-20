@@ -328,7 +328,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
     'The licence valuation is for review and is excluded from economic shares.')}</p>}
    {deal?.landMode==='lease'&&<p className="fs-hint">{l('وثّق حقوق المنشآت على الأرض المستأجرة في العقد.',
     'Document rights to improvements on the leased land in the agreement.')}</p>}
-   {deal&&deal.landMode!=='lease'&&deal.leaseMonth>0&&<p className="fs-hint">{l('راجع احتمال الجمع بين إيجار الأرض والحصة العينية.',
+   {deal&&deal.landMode!=='lease'&&deal.leaseMonth>0&&<p className="fs-hint">{deal.landMode==='purchase'
+    ?l('استُبعد إيجار الأرض المحفوظ من توقعات الشراء.','The saved land rent is excluded from the purchase forecast.')
+    :l('راجع احتمال الجمع بين إيجار الأرض والحصة العينية.',
     'Check for overlap between land rent and the in-kind contribution.')}</p>}
   </section>
   <section className="card fs-panel" id={sectionId('governance')} tabIndex={-1} data-report-section="governance">

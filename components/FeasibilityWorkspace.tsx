@@ -35,7 +35,7 @@ import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 import {createIndustrialStarter,createRawLandStarter,type IndustrialStarter} from '@/lib/feasibility/project-templates';
 import {importWaterBackup} from '@/lib/feasibility/water-backup';
 import {importRawLandBackup} from '@/lib/feasibility/raw-land-backup';
-import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,personalCloudRevisionForBaseline,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
+import {appendImportedStudies,parseLocalStudyCache,parseStudyBackup,parseCloudStudyRows,parseInstitutionalCloudRows,partitionPersonalCloudRows,mergePersonalCloudDrafts,personalCloudRevisionForBaseline,personalDraftCache,readPersonalCloudVersions,canPersistLocalStudyCache,FEASIBILITY_BACKUP_SCHEMA,type InstitutionalCloudDraft} from '@/lib/feasibility/local-drafts';
 
 const tabs:Array<{id:StudyTab;ar:string;en:string}>= [
  {id:'overview',ar:'لوحة المشروع',en:'Overview'}, {id:'profile',ar:'بيانات المشروع',en:'Profile'},
@@ -239,6 +239,9 @@ function FeasibilityWorkspaceContent({
     const checked=parseLocalStudyCache(saved);
     if(!checked)throw Error('INVALID_CACHE');
     personalCacheBaseline.current=new Map(checked.studies.map(study=>[study.id,study]));
+    const {revisions,savedVersions}=readPersonalCloudVersions(saved,checked.studies);
+    setCloudRevisions(revisions);setCloudSavedStudyVersions(savedVersions);
+    setCloudOwnerIds(Object.fromEntries(Object.keys(revisions).map(id=>[id,userId])));
     setStudies(checked.studies);setSelectedId(checked.selectedId);
    }
   }catch{
@@ -250,9 +253,9 @@ function FeasibilityWorkspaceContent({
  },[storageKey,ar]);
  useEffect(()=>{
   if(!canPersistLocalStudyCache(loaded,storageSafe,hydratedStorageKey,storageKey))return;
-  try{localStorage.setItem(storageKey,JSON.stringify({version:1,studies,selectedId}));}
+  try{localStorage.setItem(storageKey,JSON.stringify(personalDraftCache(studies,selectedId,cloudRevisions,cloudSavedStudyVersions)));}
   catch{setPersonalNotice(txt(ar,'تعذر حفظ المسودة محليًا. صدّر نسخة JSON.','Could not save locally. Export a JSON backup.'));}
- },[loaded,storageSafe,hydratedStorageKey,storageKey,studies,selectedId,ar]);
+ },[loaded,storageSafe,hydratedStorageKey,storageKey,studies,selectedId,cloudRevisions,cloudSavedStudyVersions,ar]);
  // Account-scoped legacy drafts are never owned by the selected organization.
  const companyScopeReady=organizationLoaded&&organizationId.length>0&&organizationLoadedId===organizationId;
  const visibleStudies=personalScope?accountDraftsVisibleInScope(studies,scope):(companyScopeReady?organizationStudies:[]);
@@ -347,19 +350,22 @@ function FeasibilityWorkspaceContent({
    if(currentUserRef.current!==requestedUser||!personalScopeRef.current)return;
    // Read after the request to preserve any changes made while it was in flight.
    const stored=localStorage.getItem(storageKey);
-   const current=stored===null?{studies,selectedId}:parseLocalStudyCache(JSON.parse(stored));
+   const cached=stored===null?null:JSON.parse(stored) as unknown;
+   const current=stored===null?{studies,selectedId}:parseLocalStudyCache(cached);
    const merged=current&&mergePersonalCloudDrafts(current.studies,rows,requestedUser,current.selectedId);
-   if(!merged)throw Error('INVALID_CACHE_OR_LIMIT');
-   if(merged.restoredCount){
-    localStorage.setItem(storageKey,JSON.stringify({
-     version:1,studies:merged.studies,selectedId:merged.selectedId
-    }));
+   if(!current||!merged)throw Error('INVALID_CACHE_OR_LIMIT');
+   const {revisions,savedVersions}=stored===null
+    ?{revisions:{...cloudRevisions},savedVersions:{...cloudSavedStudyVersions}}
+    :readPersonalCloudVersions(cached,current.studies);
+   for(const row of merged.synchronized){
+    personalCacheBaseline.current.set(row.id,row.study);
+    revisions[row.id]=row.revision;
+    savedVersions[row.id]=row.study.updatedAt;
    }
+   localStorage.setItem(storageKey,JSON.stringify(personalDraftCache(merged.studies,merged.selectedId,revisions,savedVersions)));
    setStudies(merged.studies);setSelectedId(merged.selectedId);setSharedSelectedId('');
-   for(const row of merged.synchronized)personalCacheBaseline.current.set(row.id,row.study);
-   setCloudRevisions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.revision])));
-   setCloudSavedStudyVersions(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.study.updatedAt])));
-   setCloudOwnerIds(Object.fromEntries(merged.synchronized.map(x=>[x.id,x.owner_user_id])));
+   setCloudRevisions(revisions);setCloudSavedStudyVersions(savedVersions);
+   setCloudOwnerIds(Object.fromEntries(Object.keys(revisions).map(id=>[id,requestedUser])));
    setPersonalNotice(merged.conflicts
     ?txt(ar,`أُضيفت ${merged.restoredCount} من المسودات السحابية. احتُفظ بالنسخ المحلية عند اختلافها (${merged.conflicts}).`,
      `Added ${merged.restoredCount} cloud drafts. Kept the local versions of ${merged.conflicts} differing drafts.`)
@@ -470,10 +476,15 @@ function FeasibilityWorkspaceContent({
    if(!window.confirm(txt(ar,'ستُضاف نسخة مستقلة إلى محفظتك الشخصية. متابعة؟','Add independent copies to your personal portfolio?')))return;
    // Use the current browser cache so an import cannot replace a study saved while reading the file.
    const stored=localStorage.getItem(storageKey);
-   const current=stored===null?{studies}:parseLocalStudyCache(JSON.parse(stored));
+   const cached=stored===null?null:JSON.parse(stored) as unknown;
+   const current=stored===null?{studies}:parseLocalStudyCache(cached);
    const next=current&&appendImportedStudies(current.studies,imported,uid);
-   if(!next)throw Error('invalid_cache_or_limit');
-   localStorage.setItem(storageKey,JSON.stringify({version:1,...next}));
+   if(!current||!next)throw Error('invalid_cache_or_limit');
+   const {revisions,savedVersions}=stored===null?{revisions:cloudRevisions,savedVersions:cloudSavedStudyVersions}
+    :readPersonalCloudVersions(cached,current.studies);
+   localStorage.setItem(storageKey,JSON.stringify(personalDraftCache(next.studies,next.selectedId,revisions,savedVersions)));
+   setCloudRevisions(revisions);setCloudSavedStudyVersions(savedVersions);
+   setCloudOwnerIds(Object.fromEntries(Object.keys(revisions).map(id=>[id,userId])));
    setStudies(next.studies);setSelectedId(next.selectedId);setSharedSelectedId('');setTab('overview');
    setPersonalNotice(land?txt(ar,'استُورد ملف الأراضي كمسودة شخصية. راجع البيانات المرجعية في تبويب الشراكة.','Imported the land file as a personal draft. Review reference data in the partnership tab.'):
     txt(ar,'أُضيفت نسخة محلية إلى محفظتك الشخصية.','Added a local copy to your personal portfolio.'));
