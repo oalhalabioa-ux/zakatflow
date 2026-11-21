@@ -339,10 +339,10 @@ try {
   const autoPage = activePage = await desktop.newPage();
   await autoPage.goto(app+'/en/assets?scope=PERSONAL',{waitUntil:'domcontentloaded'});
   await autoPage.getByRole('row').filter({hasText:auto.name}).getByRole('button',{name:'Details and actions',exact:true}).click();
-  const syncing = autoPage.waitForResponse(res=>res.url()===livePath);
   await autoPage.getByRole('button',{name:'Refresh price from source',exact:true}).click();
-  const synced = await syncing;
-  assert.equal(synced.status(),200,await synced.text());
+  await autoPage.getByRole('dialog').waitFor({state:'detached'});
+  const refreshed = await dbAsset(auto.id);
+  assert.equal(refreshed.metadata.market_price_per_unit,420);
   await autoPage.reload({waitUntil:'domcontentloaded'});
   await autoPage.getByRole('row').filter({hasText:auto.name}).getByRole('button',{name:'Details and actions',exact:true}).click();
   const quoteLine = autoPage.getByText(/ALYAWMGOLD_LIVE_SA/);
