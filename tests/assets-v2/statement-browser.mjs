@@ -76,8 +76,7 @@ function today(){
 let server,browser;
 try{
  const owner=await user(),stranger=await user();
- const {id:organization}=value(await admin.from('organizations').insert({name:'QA Assets Company',owner_user_id:owner.id}).select('id').single());
- value(await admin.from('organization_members').upsert({organization_id:organization,user_id:owner.id,role:'OWNER',status:'ACTIVE'}));
+ const {id:organization}=value(await owner.client.from('organizations').insert({name:'QA Assets Company',owner_user_id:owner.id}).select('id').single());
  const asset=await seed(owner),companyAsset=await seed(owner,organization);
  server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-H','127.0.0.1','-p','3000'],{
   env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
