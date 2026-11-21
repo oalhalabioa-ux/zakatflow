@@ -14,6 +14,27 @@ export const personalSaleCorrectionSchema = z.object({
   reason: z.string().trim().min(5).max(500),
 }).strict();
 
+export const personalSalePriceSchema = z.object({
+  action: z.literal('amend-sale-price'),
+  request_id: z.string().uuid(),
+  expected_revision: z.number().int().nonnegative(),
+  unit_price: positive,
+  reason: z.string().trim().min(5).max(500),
+}).strict();
+
+export const salePreflightSchema = z.object({
+  action: z.literal('sale-preflight'),
+  asset_account_id: z.string().uuid(),
+  proceeds_account_id: z.string().uuid(),
+  transaction_date: z.string().date(),
+}).strict();
+
+export type SalePreflight = {
+  amount_block: string | null;
+  structural_block: string | null;
+  movements: {id: string; date: string; type: string; same_lot?: boolean; document_sequence?: string}[];
+};
+
 export function isPersonalSaleCorrectionCandidate(row: any, userId: string) {
   const metadata = row?.metadata;
   return Boolean(row?.transaction_type === 'SALE' && row.user_id === userId &&
@@ -26,6 +47,10 @@ export function isPersonalSaleCorrectionCandidate(row: any, userId: string) {
 }
 
 const messages: Record<string, [string, string]> = {
+  SALE_CORRECTION_CASH_FIFO: ['توجد حركة لاحقة خصمت من دفعة نقدية أحدث. راجع تخصيصات البنك قبل تصحيح المبلغ.', 'A later movement used a newer cash lot. Review the bank allocations before changing the amount.'],
+  SALE_CORRECTION_STALE: ['تغيّر السند منذ فتحه. أغلق النموذج وافتحه مجددًا.', 'The voucher changed. Reopen it and review the saved values.'],
+  SALE_CORRECTION_PRICE_UNCHANGED: ['أدخل سعر وحدة مختلفًا.', 'Enter a different unit price.'],
+  SALE_CORRECTION_PREFLIGHT_FAILED: ['تعذر التحقق من أهلية التصحيح. أعد فتح السند.', 'Eligibility could not be checked. Reopen the voucher.'],
   SALE_CORRECTION_INVALID: ['تحقق من التاريخ والكمية والسعر وسعر الصرف وسبب التصحيح.', 'Check the date, quantity, price, exchange rate and correction reason.'],
   SALE_CORRECTION_NOT_AVAILABLE: ['هذا السند غير مؤهل لتصحيح البيع الشخصي.', 'This voucher is ineligible for personal sale correction.'],
   SALE_CORRECTION_ALREADY_REPLACED: ['تم عكس هذا السند أو تصحيحه سابقًا. افتح سجل العمليات لعرض السند البديل.', 'This voucher was already reversed or corrected. Open the register to see the replacement.'],

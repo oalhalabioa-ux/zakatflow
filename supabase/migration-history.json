@@ -2115,6 +2115,14 @@
       "validation_project": "Isolated PGlite: personal sale and receipt reversal, FIFO reallocation, retry, audit and rollback"
     },
     {
+      "path": "supabase/migrations/20261121154238_personal_sale_price_preflight.sql",
+      "version": "20261121154238",
+      "name": "personal_sale_price_preflight",
+      "expected_md5": "d831b98d3edae74e51eecbb3d5f969f6",
+      "file_sha256": "c406f571156e8483896a41d8bb3d487a4cabc52f573676d3dc2f2c44837bca94",
+      "validation_project": "Isolated historical sales with later lot consumption, foreign currency, cash and final Zakat guards"
+    },
+    {
       "path": "supabase/migrations/20261121155500_feasibility_company_invitations.sql",
       "version": "20261121155500",
       "name": "feasibility_company_invitations",

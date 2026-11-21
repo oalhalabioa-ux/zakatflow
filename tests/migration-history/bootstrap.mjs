@@ -82,6 +82,7 @@ try{
    'feasibility-evidence-schema-delta',
    'feasibility-trial-schema-delta',
    'personal-sale-correction-schema-delta',
+   'personal-sale-price-preflight-schema-delta',
    'feasibility-company-invitations-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
@@ -140,6 +141,10 @@ try{
  await check('personal sale correction balances, rollback and idempotent retries',async()=>{
   const qa=sql(await load('tests/sql/personal-sale-correction.sql'));
   assert.match(qa,/PASS personal sale correction/);
+ });
+ await check('historical sale price correction preserves both FIFO allocations and protected cash and Zakat',async()=>{
+  const qa=sql(await load('tests/sql/personal-sale-price-preflight.sql'));
+  assert.match(qa,/PASS historical sale repriced/);
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
