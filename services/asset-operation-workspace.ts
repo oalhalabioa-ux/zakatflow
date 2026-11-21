@@ -2,6 +2,7 @@ import {withVoucherNumbers} from './voucher-numbers';
 import {requireUser} from './auth';
 import {assetFinancialReview} from './asset-financial-review';
 import {z} from 'zod';
+import {isPersonalSaleCorrectionCandidate} from '../lib/personal-sale-correction';
 export async function assetOperationWorkspace(id:string){
  z.string().uuid().parse(id);const{supabase,user}=await requireUser();
  const{data:tx,error}=await supabase.from('transactions').select('*,asset_accounts!inner(*)').eq('id',id).maybeSingle();if(error)throw error;
@@ -32,5 +33,5 @@ export async function assetOperationWorkspace(id:string){
  const isPrimaryPurchase=tx?.transaction_type==='PURCHASE'&&first?.id===tx?.id&&review?.event.source_module==='ASSETS_INTEGRATION';
  const canEditDraft=!!canEdit&&!!review?.permissions['financial_core.create']&&
   ['DRAFT','PLANNED','COMMITTED'].includes(review.event.status)&&!review.approved;
- return withVoucherNumbers(supabase,{flow,banks:banks??[],can_reverse_personal:!!tx&&tx.user_id===user.id&&!tx.organization_id&&!tx.reversal_of_transaction_id&&!tx.is_reversed&&!tx.metadata?.asset_deleted&&['ADD','OPENING_BALANCE'].includes(tx.transaction_type)&&tx.metadata?.source!=='ATOMIC_ASSET_ACQUISITION',record:enriched,asset,review,is_primary_purchase:isPrimaryPurchase,can_edit_purchase_draft:isPrimaryPurchase&&canEditDraft,can_edit_notes:!!canEdit&&tx?.user_id===user.id,can_replace_draft:canEditDraft&&!!lifecycle,can_delete_unlinked:guard.data?.[0]?.can_delete??false,delete_block_reason:guard.data?.[0]?.delete_block_reason??null,lifecycle,history:history??[],audit:audit??[],balances:balances??[],counterparties:parties??[],currentUserId:user.id});
+ return withVoucherNumbers(supabase,{can_correct_personal_sale:isPersonalSaleCorrectionCandidate(tx,user.id),flow,banks:banks??[],can_reverse_personal:!!tx&&tx.user_id===user.id&&!tx.organization_id&&!tx.reversal_of_transaction_id&&!tx.is_reversed&&!tx.metadata?.asset_deleted&&['ADD','OPENING_BALANCE'].includes(tx.transaction_type)&&!['ATOMIC_ASSET_ACQUISITION','sale_proceeds'].includes(tx.metadata?.source),record:enriched,asset,review,is_primary_purchase:isPrimaryPurchase,can_edit_purchase_draft:isPrimaryPurchase&&canEditDraft,can_edit_notes:!!canEdit&&tx?.user_id===user.id,can_replace_draft:canEditDraft&&!!lifecycle,can_delete_unlinked:guard.data?.[0]?.can_delete??false,delete_block_reason:guard.data?.[0]?.delete_block_reason??null,lifecycle,history:history??[],audit:audit??[],balances:balances??[],counterparties:parties??[],currentUserId:user.id});
 }

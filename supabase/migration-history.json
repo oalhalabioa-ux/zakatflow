@@ -2105,6 +2105,14 @@
       "expected_md5": "8f7ae7cb6aa6482219f41022281af69f",
       "file_sha256": "abfcfbaa5be33325454a7fdcda6df1a3e2c099fd2c913bb7546ee988b50b60de",
       "validation_project": "Isolated PGlite: existing and new trials and subscribed plans, unchanged snapshots, expiry, membership and row policies"
+    },
+    {
+      "path": "supabase/migrations/20261121134119_personal_sale_correction.sql",
+      "version": "20261121134119",
+      "name": "personal_sale_correction",
+      "expected_md5": "a0eae696840888d19ebab5e1924d4f78",
+      "file_sha256": "140d401ac6735faf753d097a7695cd3db0c4bccedacc5632929a96c01b539e70",
+      "validation_project": "Isolated PGlite: personal sale and receipt reversal, FIFO reallocation, retry, audit and rollback"
     }
   ]
 }

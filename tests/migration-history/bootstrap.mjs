@@ -81,6 +81,7 @@ try{
    'feasibility-share-audit-schema-delta',
    'feasibility-evidence-schema-delta',
    'feasibility-trial-schema-delta',
+   'personal-sale-correction-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
@@ -134,6 +135,10 @@ try{
  await check('shared organization studies respect ownership, expiry and tenant isolation',async()=>{
   const qa=sql(await load('tests/feasibility/organization-sharing-hosted.sql'));
   assert.match(qa,/PASS company subscription scope, read-only snapshot, 30-day cap/);
+ });
+ await check('personal sale correction balances, rollback and idempotent retries',async()=>{
+  const qa=sql(await load('tests/sql/personal-sale-correction.sql'));
+  assert.match(qa,/PASS personal sale correction/);
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
