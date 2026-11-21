@@ -23,7 +23,8 @@ jobs:
           root="$RUNNER_TEMP/lot-sale-db"
           mkdir -p "$root"
           npx --yes supabase@2.122.0 init --workdir "$root"
-          cp -a supabase/migrations "$root/supabase/migrations"
+          mkdir -p "$root/supabase/migrations"
+          cp -a supabase/migrations/. "$root/supabase/migrations/"
           npx --yes supabase@2.122.0 start --workdir "$root" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta
       - name: Apply candidate functions and verify financial effects
         run: |
@@ -31,4 +32,5 @@ jobs:
             -f supabase/modules/assets/plan_asset_sale_lots.sql \
             -f supabase/modules/assets/apply_personal_sale_lots.sql \
             -f supabase/modules/assets/post_personal_gold_lot_sale.sql \
+            -f supabase/modules/assets/personal_asset_grouped_sales.sql \
             -f tests/sql/personal-gold-lot-sale.sql
