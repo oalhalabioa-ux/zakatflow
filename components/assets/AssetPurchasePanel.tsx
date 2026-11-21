@@ -7,15 +7,15 @@ import {useEffect,useState,useRef} from 'react';
 import AssetFinancialReview from './AssetFinancialReview';
 import {assetReverseMessage} from '@/lib/asset-operation-messages';
 import {assetPurchaseAmounts,assetPurchasePrint,assetPurchaseStatus} from '@/lib/asset-purchase-workspace';
-type Props={assetId:string;ar:boolean;onChanged:()=>void;onClose:()=>void;extraActions?:ReactNode;supplementalDetails?:ReactNode};
-export default function AssetPurchasePanel({assetId,ar,onChanged,onClose,extraActions,supplementalDetails}:Props){
+type Props={assetId:string;ar:boolean;onChanged:()=>void;onClose:()=>void;initialEdit?:boolean;extraActions?:ReactNode;supplementalDetails?:ReactNode};
+export default function AssetPurchasePanel({assetId,ar,onChanged,onClose,initialEdit=false,extraActions,supplementalDetails}:Props){
  const [data,setData]=useState<any>(null),[draft,setDraft]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[reverseOpen,setReverseOpen]=useState(false),[reason,setReason]=useState(''),[editing,setEditing]=useState(false),[paying,setPaying]=useState(false),[bank,setBank]=useState(''),[amount,setAmount]=useState(''),[date,setDate]=useState(()=>new Date().toISOString().slice(0,10));
  const sectionRef=useRef<HTMLElement>(null);const [tab,setTab]=useState('details'),[historyData,setHistoryData]=useState<any>(null),[historyError,setHistoryError]=useState('');
  useEffect(()=>{if(tab!=='history'||!data?.event.source_record_id)return;const controller=new AbortController();setHistoryData(null);setHistoryError('');fetch(`/api/transactions/${data.event.source_record_id}`,{signal:controller.signal,cache:'no-store'}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.error);setHistoryData(x)}).catch(e=>{if(!controller.signal.aborted)setHistoryError(e.message)});return()=>controller.abort()},[tab,data?.event.source_record_id,data?.event.status]);
  const paymentRequest=useRef<string|null>(null);
  const t=(a:string,e:string)=>ar?a:e;
  function accept(x:any){setData(x);const m=x.asset.metadata??{};setDraft({...m,quantity:Number(m.quantity??1),purchase_value:Number(m.purchase_value??0),fx_rate:Number(m.fx_rate??1),vat_input_mode:m.vat_input_mode??'AMOUNT',vat_rate:Number(m.vat_rate??15),vat_amount:Number(m.vat_amount??0),recoverable_percent:Number(m.recoverable_percent??100),due_date:m.due_date||m.purchase_date});setAmount(String(Math.max(0,Number(x.flow?.amount??0)-Number(x.flow?.settled_amount??0))));}
- useEffect(()=>{let active=true;const controller=new AbortController();fetch(`/api/assets/purchase?asset_id=${assetId}`,{signal:controller.signal}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.error);if(active)accept(x)}).catch(e=>{if(active)setError(e.message)});return()=>{active=false;controller.abort()}},[assetId]);
+ useEffect(()=>{let active=true;const controller=new AbortController();fetch(`/api/assets/purchase?asset_id=${assetId}`,{signal:controller.signal}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.error);if(active){accept(x);setEditing(initialEdit&&x.can_edit);}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false;controller.abort()}},[assetId,initialEdit]);
  async function request(action:'SAVE'|'ARCHIVE'|'APPROVE_AND_POST'|'PAY'|'REVERSED'){
   setBusy(true);setError('');setMessage('');
   try{
@@ -47,7 +47,7 @@ export default function AssetPurchasePanel({assetId,ar,onChanged,onClose,extraAc
  {supplementalDetails}</div>
  <div className="asset-detail-actions asset-detail-toolbar asset-details-footer">
  {data.allowedActions.includes('APPROVE_AND_POST')&&<ActionButton icon="post" showLabel label={t('اعتماد وترحيل الأصل','Approve and post asset')} disabled={busy} onClick={()=>void request('APPROVE_AND_POST')}/>}
- {data.can_edit&&<ActionButton icon="edit" label={t('تعديل بيانات الشراء','Edit purchase')} disabled={busy} aria-expanded={editing} onClick={()=>{setTab('details');setPaying(false);setEditing(!editing)}}/>}
+ {data.can_edit&&<ActionButton icon="edit" label={t('تعديل بيانات الشراء','Edit purchase')} showLabel disabled={busy} aria-expanded={editing} onClick={()=>{setTab('details');setPaying(false);setEditing(!editing)}}/>}
  {data.can_archive&&<ActionButton icon="delete" label={t('حذف المسودة','Delete draft')} disabled={busy} onClick={()=>{if(window.confirm(t('إلغاء مسودة الشراء وإخفاء الأصل؟ يُحفظ سجل التدقيق.','Cancel purchase draft and archive asset? Audit history is retained.')))void request('ARCHIVE')}}/>}
  {data.event.status==='ACTUAL'&&data.flow&&Number(data.flow.amount)>Number(data.flow.settled_amount)&&<ActionButton icon="pay" label={t('تسجيل سداد','Record payment')} disabled={busy} aria-expanded={paying} onClick={()=>{setTab('payment');setEditing(false);setPaying(!paying)}}/>}
  <details><summary className="btn secondary action-button" aria-label={t('طباعة وتصدير','Print and export')} title={t('طباعة وتصدير','Print and export')}><ActionIconGlyph name="print"/></summary><div className="asset-export-options"><ActionButton icon="print" label="PDF" showLabel onClick={print}/><ActionButton icon="download" label="CSV" showLabel onClick={csv}/></div></details>
