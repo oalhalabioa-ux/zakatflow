@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect,useState} from 'react';
+import GoldCardSale from './GoldCardSale';
 import Link from 'next/link';
 import {operationStateLabel,operationTypeLabel} from '../../lib/asset-operation-report';
 import type {readAssetStatement} from '../../services/asset-statement';
@@ -10,6 +11,7 @@ const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'nu
 
 export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:boolean}){
  const t=(arabic:string,english:string)=>ar?arabic:english;
+ const [selling,setSelling]=useState(false),[revision,setRevision]=useState(0);
  const [open,setOpen]=useState(false);
  const [asOf,setAsOf]=useState(today);
  const [offset,setOffset]=useState(0);
@@ -29,7 +31,7 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
    }).catch(cause=>{if(!controller.signal.aborted)setError(cause.message);})
    .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
   return ()=>controller.abort();
- },[open,assetId,asOf,offset]);
+ },[open,assetId,asOf,offset,revision]);
 
  const format=(value:string|null)=>{
   if(value===null)return '—';
@@ -49,7 +51,8 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
   return operationTypeLabel(type,ar);
  };
 
- return <details className="card section" onToggle={event=>setOpen(event.currentTarget.open)}>
+ if(selling)return <GoldCardSale id={assetId} date={asOf} ar={ar} onBack={()=>setSelling(false)} onSaved={()=>{setSelling(false);setOpen(true);setOffset(0);setRevision(v=>v+1);}}/>;
+ return <details open={open} className="card section" onToggle={event=>setOpen(event.currentTarget.open)}>
   <summary>{t('كشف حركة الأصل','Asset movement statement')}</summary>
   {open&&<>
    <label>{t('حتى تاريخ','Through date')} <input type="date" value={asOf} max={today()} required
@@ -61,6 +64,7 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
     ?t('تجاوز تاريخ هذا الأصل حد العرض. اختر تاريخًا أقدم.','This asset exceeds the statement limit. Select an earlier date.')
     :t('تعذر تحميل كشف الحركة.','The movement statement could not be loaded.')}</p>}
    {statement&&<>
+    {process.env.NEXT_PUBLIC_ASSET_LOT_QA==='1'&&!statement.asset.organizational&&statement.asset.type==='GOLD'&&statement.asset.unit==='g'&&statement.asset.metalGrade&&<button type="button" onClick={()=>setSelling(true)}>{t('بيع من حزم الذهب','Sell from gold lots')}</button>}
     {!statement.complete&&<p role="status">{t('لم تكتمل مطابقة الأرصدة مع المصادر المسجلة لهذا الكشف.','Some balances could not be reconciled with recorded sources.')}</p>}
     {statement.complete&&<section className="asset-statement-summary" aria-label={t('ملخص رصيد الأصل','Asset balance summary')}>
      <dl className="operation-detail-grid">

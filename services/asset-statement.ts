@@ -44,9 +44,9 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
  const organizational=!!asset.organization_id;
  const scope=(query:any)=>organizational?query.eq('organization_id',asset.organization_id):query.is('organization_id',null).eq('user_id',user.id);
 
- const [transactions,lots,commands,baseResult]=await Promise.all([
+ const [headerRows,lots,commands,baseResult]=await Promise.all([
   readRows<StatementTransaction>(()=>scope(supabase.from('transactions').select('id,transaction_date,created_at,transaction_type,quantity::text,unit_price::text,gross_value::text,currency,base_value::text,base_currency,reversal_of_transaction_id,reference,metadata').eq('asset_account_id',id)).lte('transaction_date',options.asOf)),
-  readRows<StatementLot>(()=>supabase.from('lots').select('source_transaction_id,original_quantity::text,original_value_base::text,remaining_quantity::text,remaining_value_base::text,acquisition_date,metadata').eq('asset_account_id',id).lte('acquisition_date',options.asOf)),
+  readRows<StatementLot & {id:string}>(()=>supabase.from('lots').select('id,source_transaction_id,original_quantity::text,original_value_base::text,remaining_quantity::text,remaining_value_base::text,acquisition_date,metadata').eq('asset_account_id',id).lte('acquisition_date',options.asOf)),
   organizational?readRows<StatementCommand>(()=>supabase.from('asset_lifecycle_commands')
    .select('id,transaction_id,financial_event_id,operation,operation_date,created_at,applied_at,quantity,amount,lot_states')
    .eq('asset_account_id',id).eq('organization_id',asset.organization_id).lte('operation_date',options.asOf)):[],
@@ -57,18 +57,34 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
  const baseCurrency=baseResult.data?.base_currency;
  if(!baseCurrency)throw Error('ASSET_STATEMENT_BASE_CURRENCY');
 
+ const lotLines=await readLinked<StatementAllocation>(organizational?[]:lots.map(l=>l.id),batch=>
+  supabase.from('transaction_allocations').select('transaction_id,quantity::text,value_base::text').eq('user_id',user.id).in('lot_id',batch));
+ const known=new Set(headerRows.map(row=>row.id));
+ const externalIds=[...new Set(lotLines.map(line=>line.transaction_id).filter(key=>!known.has(key)))];
+ const external=await readLinked<StatementTransaction>(externalIds,batch=>scope(supabase.from('transactions')
+  .select('id,transaction_date,created_at,transaction_type,quantity::text,unit_price::text,gross_value::text,currency,base_value::text,base_currency,reversal_of_transaction_id,reference,metadata'))
+  .in('id',batch).lte('transaction_date',options.asOf));
+ const groupedIds=new Set<string>();
+ const transactions=[...headerRows,...external.filter(tx=>tx.metadata?.lot_sale_request)].map(tx=>{
+  if(!tx.metadata?.lot_sale_request)return tx;
+  groupedIds.add(tx.id);
+  const quantity=lotLines.filter(line=>line.transaction_id===tx.id).reduce((sum,line)=>sum.plus(line.quantity),new Decimal(0));
+  if(tx.currency!==tx.base_currency||tx.unit_price==null||quantity.lte(0))throw Error('ASSET_STATEMENT_ALLOCATION');
+  const gross=quantity.times(tx.unit_price).toString();
+  return {...tx,quantity:quantity.toString(),gross_value:gross,base_value:gross};
+ });
  const eventIds=organizational?[...new Set([...transactions.map(tx=>tx.metadata?.financial_event_id),...commands.map(command=>command.financial_event_id)].filter((value):value is string=>typeof value==='string'))]:[];
  const txIds=transactions.map(tx=>tx.id);
  const [events,reversals,allocations,amendments]=await Promise.all([
   readLinked<{id:string;status:string;base_currency:string}>(eventIds,batch=>supabase.from('financial_events').select('id,status,base_currency').eq('organization_id',asset.organization_id).in('id',batch)),
   readLinked<{id:string;event_id:string;changed_at:string}>(eventIds,batch=>supabase.from('financial_event_status_history').select('id,event_id,changed_at').eq('to_status','REVERSED').in('event_id',batch)),
-  readLinked<StatementAllocation>(organizational?[]:txIds,batch=>supabase.from('transaction_allocations').select('transaction_id,quantity::text,value_base::text').eq('user_id',user.id).in('transaction_id',batch)),
+  readLinked<StatementAllocation>(organizational?[]:txIds.filter(key=>!groupedIds.has(key)),batch=>supabase.from('transaction_allocations').select('transaction_id,quantity::text,value_base::text').eq('user_id',user.id).in('transaction_id',batch)),
   readLinked<{id:string;entity_id:string;created_at:string;new_data:{sale_amount?:number;unit_price?:number}|null}>(organizational?[]:transactions.filter(tx=>tx.metadata?.sale_price_amendment).map(tx=>tx.id),
    batch=>supabase.from('audit_logs').select('id,entity_id,created_at,new_data').eq('user_id',user.id).eq('action','AMEND_PERSONAL_SALE_PRICE').in('entity_id',batch)),
  ]);
 
  const statement=buildAssetStatement({asOf:options.asOf,baseCurrency,organizational,transactions,lots,commands,
-  events,reversals,allocations,amendments});
+  events,reversals,allocations:[...allocations,...lotLines.filter(line=>groupedIds.has(line.transaction_id))],amendments});
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const knownSources=new Set(transactions.map(tx=>tx.id));
  const missingSource=lots.some(lot=>!lot.metadata?.recognition_pending&&!knownSources.has(lot.source_transaction_id));

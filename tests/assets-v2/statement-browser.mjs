@@ -83,7 +83,7 @@ try{
  const asset=await seed(owner),companyAsset=await seed(owner,organization),gold18=await seed(owner,null,true);
  server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-H','127.0.0.1','-p','3000'],{
   env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
-   NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},stdio:'inherit',
+   NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',NEXT_PUBLIC_ASSET_LOT_QA:'1',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},stdio:'inherit',
  });
  let ready=false;
  for(let i=0;i<120;i++){
@@ -147,6 +147,54 @@ try{
   await dialog.getByText(new RegExp('2 .* × 400 = 800 SAR')).waitFor({timeout:20000});
   await dialog.getByText('200 SAR',{exact:true}).waitFor({timeout:20000});
   await page.screenshot({path:`asset-qa-preview/statement-${locale}.png`});
+ }
+ for(const locale of ['ar','en']){
+  const account=await user(), arabic=locale==='ar';
+  const ctx=await context(browser,account,arabic?{width:390,height:844}:{width:1440,height:960});
+  const sources=[];
+  for(const [name,quantity,cost,date] of [['Alpha',4,1200,'2025-01-01'],['Beta',6,2040,'2025-02-01']]){
+   const asset=value(await account.client.from('asset_accounts').insert({user_id:account.id,name,asset_type:'GOLD',currency:'SAR',unit:'g',ownership_scope:'PERSONAL',metadata:{karat:18}}).select('id').single());
+   const tx=value(await account.client.from('transactions').insert({user_id:account.id,asset_account_id:asset.id,transaction_type:'OPENING_BALANCE',transaction_date:date,quantity,currency:'SAR',base_currency:'SAR',base_value:cost,gross_value:cost,created_by:account.id}).select('id').single());
+   value(await account.client.from('lots').insert({user_id:account.id,asset_account_id:asset.id,source_transaction_id:tx.id,acquisition_date:date,original_quantity:quantity,remaining_quantity:quantity,original_value_base:cost,remaining_value_base:cost}));
+   sources.push(asset.id);
+  }
+  const bank=value(await account.client.from('asset_accounts').insert({user_id:account.id,name:'QA Bank',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
+  const page=await ctx.newPage();
+  const open=async()=>{
+   await page.getByRole('row').filter({hasText:'Alpha'}).getByRole('button',{name:arabic?'التفاصيل والإجراءات':'Details and actions',exact:true}).click();
+   await page.getByText(arabic?'كشف حركة الأصل':'Asset movement statement',{exact:true}).click();
+  };
+  await page.goto(app+'/'+locale+'/assets?scope=PERSONAL');
+  await open();
+  await page.getByRole('button',{name:arabic?'بيع من حزم الذهب':'Sell from gold lots'}).click();
+  await page.getByLabel(arabic?'الكمية بالغرام':'Quantity in grams').fill('6');
+  await page.getByLabel(arabic?'سعر بيع الغرام':'Sale price per gram').fill('400');
+  if(arabic){
+   await page.getByLabel('اختيار الحزم').selectOption('MANUAL');
+   await page.getByLabel(/Alpha/).fill('1');
+   await page.getByLabel(/Beta/).fill('5');
+  }
+  await page.getByRole('button',{name:arabic?'معاينة البيع':'Preview sale'}).click();
+  await page.getByText(arabic?'الربح أو الخسارة المحققة 400 SAR':'Realized gain or loss 520 SAR').waitFor();
+  const posted=page.waitForResponse(r=>r.url().includes('/rpc/gold_card_sale')&&r.request().postDataJSON()?.p_payload?.expected);
+  await page.getByRole('button',{name:arabic?'حفظ سند البيع':'Save sale voucher'}).click();
+  const response=await posted;assert.ok(response.ok(),await response.text());
+  const sale=await response.json();
+  await page.reload();
+  await open();
+  const docs=value(await account.client.from('voucher_numbers').select('source_id,document_number').in('source_id',[sale.sale_transaction_id,sale.proceeds_transaction_id]));
+  assert.equal(docs.length,2);
+  const number=docs.find(d=>d.source_id===sale.sale_transaction_id).document_number;
+  await page.getByRole('dialog').getByText(number,{exact:true}).first().waitFor();
+  for(const [i,id] of sources.entries()){
+   const current=(await statement(ctx,id)).payload;
+   assert.equal(current.reconciliation,'MATCHED');
+   assert.equal(current.rows.find(r=>r.voucher===number).sale.realized,String((arabic?[100,300]:[400,120])[i]));
+  }
+  assert.equal(value(await account.client.from('lots').select('remaining_quantity').eq('asset_account_id',bank.id)).length,1);
+  await page.screenshot({path:'asset-qa-preview/grouped-'+locale+'.png'});
+  console.log('GROUPED_VOUCHERS',locale,JSON.stringify(docs));
+  await ctx.close();
  }
  console.log('PASS scoped opening and FIFO statement; 9 units / 2840 as of first sale, 6 / 1920 today, corporate 10 / 90000, denied cross-user and organization, AR mobile and EN desktop');
 }finally{

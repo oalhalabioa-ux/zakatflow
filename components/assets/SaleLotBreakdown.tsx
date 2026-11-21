@@ -53,7 +53,7 @@ export default function SaleLotBreakdown({sale,ar}:{sale:SaleLotSummary;ar:boole
     <dl className="operation-detail-grid">
       <div><dt>{sale.realizedGain<0?t('الخسارة المحققة','Realized loss'):t('الربح المحقق','Realized gain')}</dt>
         <dd><strong>{money.format(Math.abs(sale.realizedGain))}</strong></dd></div>
-      <div><dt>{t('صافي البيع','Net proceeds')}</dt><dd>{money.format(sale.proceeds)}</dd></div>
+      <div><dt>{t('إجمالي البيع قبل الرسوم والضريبة','Gross sale before fees and tax')}</dt><dd>{money.format(sale.proceeds)}</dd></div>
       <div><dt>{t('تكلفة المباع','Cost of sale')}</dt><dd>{money.format(sale.cost)}</dd></div>
     </dl>
     <details><summary>{t('تخصيص الحزم','Lot allocation')} · {sale.method==='FIFO'?t('الأقدم أولاً','FIFO'):t('تحديد يدوي','Manual selection')}</summary>
