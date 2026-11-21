@@ -16,7 +16,7 @@ beforeAll(async () => {
   const csrPem = await createZatcaCsr(fields, spki, async bytes => sign('sha256', bytes, keys.privateKey));
   const der = Buffer.from(csrPem.replace(/-----[^\n]+-----/g, '').replace(/\s/g, ''), 'base64');
   original = { enrollmentId: operation.enrollmentId, enrollmentDigest: 'a'.repeat(64), csrPem, savedUnit: {
-    ...target, unitId: target.connectionId, profile: 'ZAKATFLOW_SAN_DIRECTORY_V1', csrSha256: createHash('sha256').update(der).digest('hex'),
+    ...target, unitId: target.connectionId, profile: 'ZAKATFLOW_SAN_DIRECTORY_V2', csrSha256: createHash('sha256').update(der).digest('hex'),
     kmsPublicKeySpkiBase64: spki.toString('base64'), taxpayerVatNumber: fields.taxpayerVatNumber, commonName: fields.commonName,
     branchName: fields.branchName, legalName: fields.organizationName, egsSerialNumber: fields.serialNumber, invoiceType: fields.invoiceType,
     branchLocation: fields.registeredAddress, industry: fields.businessCategory, email: fields.email } };

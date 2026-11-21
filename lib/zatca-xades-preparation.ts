@@ -98,7 +98,7 @@ export async function prepareSignedZatcaXml(
   if (includeSimplifiedQr) {
     qrPayload = prepareSimplifiedPhaseTwoQr({
       sellerName: invoice.seller_name, sellerVatNumber: invoice.seller_vat_number,
-      timestamp: `${invoice.issue_date}T${invoice.issue_time.length === 5 ? invoice.issue_time + ':00' : invoice.issue_time}+03:00`,
+      timestamp: `${invoice.issue_date}T${invoice.issue_time.length === 5 ? invoice.issue_time + ':00' : invoice.issue_time}`,
       totalWithVat: prepared.totals.tax_inclusive_amount, vatTotal: prepared.totals.tax_total_amount,
     }, { invoiceHash: Buffer.from(invoiceHash, 'base64'), xmlSignature: signature, certificateDer: Buffer.from(leaf.certificateDerBase64, 'base64') }).payload;
     xml = xml.replace('<cac:Signature>', `<cac:AdditionalDocumentReference><cbc:ID>QR</cbc:ID><cac:Attachment><cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">${qrPayload}</cbc:EmbeddedDocumentBinaryObject></cac:Attachment></cac:AdditionalDocumentReference><cac:Signature>`);

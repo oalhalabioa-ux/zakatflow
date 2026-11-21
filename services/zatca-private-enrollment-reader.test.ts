@@ -13,10 +13,11 @@ function fixture() {
   const csr = Buffer.from('SYNTHETIC_PUBLIC_CSR_ONLY'), stamp = 'a'.repeat(64);
   const rows = {
     member: { role: 'ADMIN', status: 'ACTIVE' },
-    connection: { id: connectionId, organization_id: org, environment: 'SIMULATION', unit_stamp: stamp },
+    connection: { id: connectionId, organization_id: org, environment: 'SIMULATION', unit_stamp: stamp,
+      kms_key_arn: 'arn:aws:kms:eu-central-1:123456789012:key/e800b1c2-df4a-4a79-9b91-4a451ce2858e' },
     enrollment: { enrollment_id: other, organization_id: org, environment: 'SIMULATION', connection_id: connectionId,
       unit_stamp: stamp, enrollment_digest: 'b'.repeat(64), csr_der_base64: csr.toString('base64'), integrity_valid: true,
-      expected_identity: { organizationId: org, connectionId, unitId: connectionId, environment: 'SIMULATION', profile: 'ZAKATFLOW_SAN_DIRECTORY_V1',
+      expected_identity: { organizationId: org, connectionId, unitId: connectionId, environment: 'SIMULATION', profile: 'ZAKATFLOW_SAN_DIRECTORY_V2',
         csrSha256: createHash('sha256').update(csr).digest('hex'), kmsPublicKeySpkiBase64: 'MAA=', taxpayerVatNumber: '312345678901233',
         commonName: 'Saved unit', branchName: 'Riyadh', legalName: 'Synthetic company', egsSerialNumber: '1-QA|2-1|3-unit',
         invoiceType: '1100', branchLocation: 'Riyadh', industry: 'Software', email: 'qa@example.invalid' } },

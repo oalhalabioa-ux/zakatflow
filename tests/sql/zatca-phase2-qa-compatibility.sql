@@ -46,7 +46,7 @@ begin
   issuer_pin:=encode(sha256(decode(binding->'issuerChainDerBase64'->>0,'base64')),'hex');
   evidence:=jsonb_build_object('stage','ONBOARDING_CANDIDATE_ONLY','identity',jsonb_build_object('stage','ONBOARDING_IDENTITY_PREFLIGHT_ONLY',
     'scope',jsonb_build_object('organizationId',org,'environment','SIMULATION','unitId',connection,'connectionId',connection),
-    'profile','ZAKATFLOW_SAN_DIRECTORY_V1','certificateFingerprintSha256',repeat('a',64),
+    'profile','ZAKATFLOW_SAN_DIRECTORY_V2','certificateFingerprintSha256',repeat('a',64),
     'expectedIdentitySha256',zatca_preparation.enrollment_identity_digest(original.expected_identity),
     'csrSha256',original.expected_identity->>'csrSha256','publicKeySpkiSha256',encode(sha256(decode('MAA=','base64')),'hex')),
     'path',jsonb_build_object('stage','CERTIFICATE_PATH_CHECK_ONLY','environment','SIMULATION','certificateFingerprintSha256',repeat('a',64),

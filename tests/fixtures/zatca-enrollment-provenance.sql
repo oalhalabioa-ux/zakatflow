@@ -82,7 +82,7 @@ begin
     or length(p_email)>254 or p_email !~ '^[!-~]+@[!-~]+$' then raise exception 'ENROLLMENT_INPUT_INVALID'; end if;
   stamp:=zatca_preparation.enrollment_unit_stamp(to_jsonb(c));
   expected:=jsonb_build_object('organizationId',p_org,'environment',p_environment,'unitId',c.id,'connectionId',c.id,
-    'profile','ZAKATFLOW_SAN_DIRECTORY_V1','csrSha256',encode(sha256(decode(p_csr_der_base64,'base64')),'hex'),
+    'profile','ZAKATFLOW_SAN_DIRECTORY_V2','csrSha256',encode(sha256(decode(p_csr_der_base64,'base64')),'hex'),
     'kmsPublicKeySpkiBase64',p_spki_base64,'taxpayerVatNumber',c.taxpayer_vat_number,'commonName',c.common_name,
     'branchName',c.branch_name,'legalName',c.legal_name,'egsSerialNumber',c.egs_serial_number,'invoiceType',c.invoice_type,
     'branchLocation',c.branch_location,'industry',c.industry,'email',p_email);
