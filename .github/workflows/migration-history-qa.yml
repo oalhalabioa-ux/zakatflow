@@ -5,7 +5,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/migration-history.json'
       - 'tests/migration-history/**'
-      - 'tests/sql/personal-sale-correction.sql'
+      - 'tests/sql/personal-sale*.sql'
       - '.github/workflows/migration-history-qa.yml'
   push:
     branches: [main]
@@ -13,7 +13,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/migration-history.json'
       - 'tests/migration-history/**'
-      - 'tests/sql/personal-sale-correction.sql'
+      - 'tests/sql/personal-sale*.sql'
       - '.github/workflows/migration-history-qa.yml'
   workflow_dispatch:
 permissions:

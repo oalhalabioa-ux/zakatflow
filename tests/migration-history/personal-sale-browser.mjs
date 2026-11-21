@@ -94,11 +94,12 @@ try {
   const search=filters.locator('input').first();
   await search.fill(fixture.voucher);
   const saleRow=page.getByRole('row').filter({hasText:fixture.voucher});
-  await saleRow.getByRole('button',{name:'تصحيح سند البيع',exact:true}).waitFor();
+  await saleRow.getByRole('button',{name:'مراجعة تصحيح البيع',exact:true}).waitFor();
   assert.equal(await filters.locator('.yq-filter-native:visible').count(),0);
   assert.equal(await filters.locator('.yq-filter-trigger:visible').count(),3);
-  await saleRow.getByRole('button',{name:'تصحيح سند البيع',exact:true}).click();
+  await saleRow.getByRole('button',{name:'مراجعة تصحيح البيع',exact:true}).click();
   const dialog=page.getByRole('dialog');
+  await dialog.getByLabel('نوع التصحيح').selectOption('structure');
   const asset=dialog.getByLabel('الأصل المباع');
   await asset.locator(`option[value="${fixture.newAsset}"]`).waitFor({state:'attached'});
   assert.equal(await asset.inputValue(),fixture.oldAsset);
@@ -108,7 +109,7 @@ try {
   await dialog.getByLabel('سعر الوحدة').fill('30');
   await dialog.getByLabel('سبب التصحيح').fill('تصحيح الأصل وسعر البيع');
   await dialog.locator('output').waitFor();
-  const correctedResponse=page.waitForResponse(r=>r.request().method()==='POST' && r.url().endsWith('/api/transactions/'+fixture.sale.sale_transaction_id));
+  const correctedResponse=page.waitForResponse(r=>r.request().method()==='POST' && r.request().postDataJSON()?.action==='correct-sale' && r.url().endsWith('/api/transactions/'+fixture.sale.sale_transaction_id));
   await dialog.getByRole('button',{name:'حفظ التصحيح',exact:true}).click();
   const posted=await correctedResponse;
   const corrected=await posted.json();
@@ -128,6 +129,74 @@ try {
   await page.getByText('QA correct gold',{exact:true}).waitFor();
   await page.reload({waitUntil:'domcontentloaded'});
   await page.getByRole('link',{name:/View original sale voucher/}).waitFor();
+
+  const historical=await seed(other.client,other.user);
+  const later=value(await other.client.rpc('post_sale_with_proceeds',{
+    p_user_id:other.user.id,p_asset_account_id:historical.oldAsset,p_destination_account_id:historical.bank,
+    p_date:'2025-02-02',p_quantity:3,p_sale_value:90,p_currency:'SAR',p_base_currency:'SAR',p_base_value:90,
+  }));
+  async function quantities(){
+    const assets=value(await other.client.from('lots').select('remaining_quantity,remaining_value_base').eq('asset_account_id',historical.oldAsset));
+    const bank=value(await other.client.from('lots').select('remaining_value_base').eq('asset_account_id',historical.bank));
+    return {units:assets.reduce((sum,row)=>sum+Number(row.remaining_quantity),0),
+      cost:assets.reduce((sum,row)=>sum+Number(row.remaining_value_base),0),
+      bank:bank.reduce((sum,row)=>sum+Number(row.remaining_value_base),0)};
+  }
+  async function allocations(){
+    return value(await other.client.from('transaction_allocations').select('*')
+      .in('transaction_id',[historical.sale.sale_transaction_id,later.sale_transaction_id]).order('id'));
+  }
+  const before=await quantities(),fifoBefore=await allocations();
+  assert.deepEqual(before,{units:5,cost:50,bank:130});
+  const historyContext=await openContext(browser,other.cookies,{width:390,height:844});
+  const historyPage=await historyContext.newPage();
+  historyPage.setDefaultTimeout(20000);
+  await historyPage.goto(app+'/ar/transactions?scope=PERSONAL',{waitUntil:'domcontentloaded',timeout:90000});
+  await historyPage.locator('.transaction-filters input').first().fill(historical.voucher);
+  await historyPage.getByRole('row').filter({hasText:historical.voucher})
+    .getByRole('button',{name:'مراجعة تصحيح البيع',exact:true}).click();
+  const correction=historyPage.getByRole('dialog');
+  const mode=correction.getByLabel('نوع التصحيح');
+  await correction.getByRole('link',{name:/2025-02-02/}).waitFor();
+  assert.equal(await mode.inputValue(),'price');
+  await mode.selectOption('structure');
+  await correction.getByText(/توجد حركة مرتبطة بتاريخ البيع/).waitFor();
+  assert.equal(await correction.getByRole('button',{name:'حفظ التصحيح',exact:true}).count(),0);
+  await mode.selectOption('price');
+  await correction.getByLabel('سعر الوحدة').fill('30');
+  await correction.getByLabel('سبب التصحيح').fill('تصحيح سعر بيع تاريخي');
+  const amendedResponse=historyPage.waitForResponse(r=>r.request().method()==='POST'&&
+    r.request().postDataJSON()?.action==='amend-sale-price');
+  await correction.getByRole('button',{name:'حفظ التصحيح',exact:true}).click();
+  const amended=await amendedResponse;
+  const priceResult=await amended.json();
+  assert.equal(amended.status(),201,JSON.stringify(priceResult));
+  assert.equal(priceResult.id,historical.sale.sale_transaction_id);
+  await correction.getByText('تم تصحيح السعر والقبض المرتبط').waitFor();
+  const after=await quantities();
+  assert.deepEqual(after,{units:5,cost:50,bank:150});
+  assert.deepEqual(await allocations(),fifoBefore);
+  await historyPage.goto(app+'/en/transactions/'+historical.sale.sale_transaction_id,{waitUntil:'domcontentloaded'});
+  await historyPage.getByRole('button',{name:'Review sale correction',exact:true}).waitFor();
+  await historyPage.reload({waitUntil:'domcontentloaded'});
+  await historyPage.getByRole('button',{name:'Review sale correction',exact:true}).click();
+  assert.equal(await historyPage.getByLabel('Unit price').inputValue(),'30');
+  const savedSale=value(await other.client.from('transactions').select('quantity,gross_value').eq('id',historical.sale.sale_transaction_id).single());
+  assert.equal(Number(savedSale.gross_value),60);assert.equal(Number(savedSale.quantity),2);
+  console.log('PASS historical browser balances '+JSON.stringify({before,after})+'; original and later FIFO rows identical after reload');
+  await historyPage.goto(app+'/en/transactions?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+  const opening=historyPage.getByRole('row').filter({hasText:'QA correct gold'}).filter({hasText:'Opening balance'});
+  await opening.getByRole('button',{name:'Edit notes',exact:true}).click();
+  const noteDialog=historyPage.getByRole('dialog');
+  const note='Verified descriptive note for the opening voucher';
+  await noteDialog.locator('textarea').fill(note);
+  await noteDialog.getByRole('button',{name:'Save notes',exact:true}).click();
+  await noteDialog.getByText(note,{exact:true}).waitFor();
+  await historyPage.reload({waitUntil:'domcontentloaded'});
+  await opening.getByRole('button',{name:'Edit notes',exact:true}).click();
+  await noteDialog.locator('textarea').waitFor();
+  assert.equal(await noteDialog.locator('textarea').inputValue(),note);
+  await historyContext.close();
 
   const foreign=await openContext(browser,other.cookies,{width:1440,height:960});
   const inaccessible=await foreign.request.get(app+'/api/transactions/'+corrected.id);

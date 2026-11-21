@@ -1,6 +1,8 @@
 'use client';
 
 import {useEffect, useState} from 'react';
+import Link from 'next/link';
+import {personalSaleCorrectionMessage,type SalePreflight} from '../../lib/personal-sale-correction';
 import Decimal from 'decimal.js';
 import ActionButton from '../ActionButton';
 
@@ -25,14 +27,15 @@ type Sale = {
   currency: string;
   base_currency: string;
   notes?: string | null;
-  metadata: {proceeds_account_id: string};
+  metadata: {proceeds_account_id: string; sale_price_amendment?: {revision: number; result?: {exchange_rate: number}}};
 };
 
 type Props = {
   sale: Sale;
   ar: boolean;
   busy: boolean;
-  onSave: (data: object) => void;
+  eligibility: SalePreflight;
+  onSave: (data: {action:string; [field:string]:unknown}) => void;
   onCancel: () => void;
 };
 
@@ -42,8 +45,10 @@ function initialUnitPrice(sale: Sale) {
     : String(sale.unit_price);
 }
 
-export default function PersonalSaleCorrectionForm({sale, ar, busy, onSave, onCancel}: Props) {
+export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility, onSave, onCancel}: Props) {
   const t = (arabic: string, english: string) => ar ? arabic : english;
+  const [amountOnly,setAmountOnly]=useState(!eligibility.amount_block || !!eligibility.structural_block);
+  const [checked,setChecked]=useState<{key:string;result:SalePreflight}|null>(null);
   const [accounts, setAccounts] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -61,6 +66,7 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, onSave, onCa
   }));
 
   useEffect(() => {
+    if(amountOnly)return;
     const controller = new AbortController();
     fetch('/api/assets', {signal: controller.signal, cache: 'no-store'})
       .then(async response => {
@@ -73,11 +79,39 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, onSave, onCa
       .catch(() => { if (!controller.signal.aborted) setLoadError(true); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, []);
+  }, [amountOnly]);
 
+  const {asset_account_id,proceeds_account_id,transaction_date}=form;
+  const structuralKey=[asset_account_id,proceeds_account_id,transaction_date].join('|');
+  const unchangedStructure=asset_account_id===sale.asset_account_id &&
+    proceeds_account_id===sale.metadata.proceeds_account_id && transaction_date===sale.transaction_date;
+  useEffect(()=>{
+    if(amountOnly||unchangedStructure||!asset_account_id||!proceeds_account_id||!transaction_date)return;
+    const controller=new AbortController();
+    const timeout=window.setTimeout(async()=>{
+      try{
+        const response=await fetch(`/api/transactions/${sale.id}`,{
+          method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
+          body:JSON.stringify({action:'sale-preflight',asset_account_id,proceeds_account_id,transaction_date}),
+        });
+        if(!response.ok)throw Error('SALE_CORRECTION_PREFLIGHT_FAILED');
+        const result=await response.json();
+        if(!controller.signal.aborted)setChecked({key:structuralKey,result});
+      }catch{
+        if(!controller.signal.aborted)setChecked({key:structuralKey,result:{
+          amount_block:null,structural_block:'SALE_CORRECTION_PREFLIGHT_FAILED',movements:[],
+        }});
+      }
+    },180);
+    return()=>{window.clearTimeout(timeout);controller.abort();};
+  },[amountOnly,unchangedStructure,asset_account_id,proceeds_account_id,transaction_date,structuralKey,sale.id]);
+
+  const preflight=amountOnly||unchangedStructure?eligibility:checked?.key===structuralKey?checked.result:null;
+  const block=amountOnly?preflight?.amount_block:preflight?.structural_block;
+  const reviewBlock=block??(amountOnly?preflight?.structural_block:null);
   const assets = accounts.filter(asset => !asset.metadata?.investment_id);
   const selected = assets.find(asset => asset.id === form.asset_account_id);
-  const currency = selected?.currency;
+  const currency = amountOnly ? sale.currency : selected?.currency;
   const sameCurrency = currency === sale.base_currency;
   const deposits = accounts.filter(account => account.id !== selected?.id &&
     ['CASH', 'BANK'].includes(account.asset_type) && [currency, sale.base_currency].includes(account.currency));
@@ -88,9 +122,12 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, onSave, onCa
     }).format(Number(amount));
   const preserveGross = Number(form.quantity) === Number(sale.quantity) &&
     Number(form.unit_price) === Number(initialUnitPrice(sale));
-  const total = preserveGross ? new Decimal(sale.gross_value) :
-    new Decimal(form.quantity || 0).times(form.unit_price || 0).toDecimalPlaces(8);
-  const rate = sameCurrency ? '1' : form.fx_rate;
+  const quantity=amountOnly?String(sale.quantity):form.quantity;
+  const total = (amountOnly ? Number(form.unit_price)===Number(initialUnitPrice(sale)) : preserveGross)
+    ? new Decimal(sale.gross_value) : new Decimal(quantity || 0).times(form.unit_price || 0).toDecimalPlaces(8);
+  const savedRate=sale.metadata.sale_price_amendment?.result?.exchange_rate;
+  const originalRate=savedRate==null?new Decimal(sale.base_value).div(sale.gross_value):new Decimal(savedRate);
+  const rate = amountOnly ? originalRate.toString() : sameCurrency ? '1' : form.fx_rate;
   const preserveBase = preserveGross && currency === sale.currency &&
     new Decimal(sale.base_value).div(sale.gross_value).toDecimalPlaces(12).eq(rate || 0);
   const baseTotal = preserveBase ? new Decimal(sale.base_value) : total.times(rate || 0).toDecimalPlaces(8);
@@ -108,24 +145,51 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, onSave, onCa
     }));
   }
 
-  const canSave = !busy && !!selected && !!deposit && total.gt(0) &&
-    baseTotal.gt(0) && form.reason.trim().length >= 5;
+  const priceChanged=Number(form.unit_price)!==Number(initialUnitPrice(sale));
+  const structuralChanged=!unchangedStructure||Number(form.quantity)!==Number(sale.quantity);
+  const canSave = !busy && !!preflight && !block && total.gt(0) && baseTotal.gt(0) &&
+    form.reason.trim().length>=5 && (amountOnly?priceChanged:!!selected&&!!deposit&&structuralChanged);
   return (
     <form className="section" onSubmit={event => {
       event.preventDefault();
       if (!canSave) return;
+      if(amountOnly){
+        onSave({action:'amend-sale-price',request_id:requestId,
+          expected_revision:sale.metadata.sale_price_amendment?.revision??0,
+          unit_price:Number(form.unit_price),reason:form.reason});
+        return;
+      }
       onSave({
         ...form, action: 'correct-sale', request_id: requestId,
         quantity: Number(form.quantity), unit_price: Number(form.unit_price), fx_rate: Number(rate),
       });
     }}>
       <h4>{t('تصحيح سند البيع الشخصي', 'Correct personal sale voucher')}</h4>
-      <p className="muted">{t('سيعكس يقين حركة البيع والقبض السابقة ويحفظ البيع المصحح في سند مرتبط.',
-        'Yaqeen will reverse the original sale and receipt and save the corrected sale as a linked voucher.')}</p>
-      {loading && <p role="status">{t('جار تحميل الأصول والحسابات…', 'Loading assets and accounts…')}</p>}
-      {loadError && <p role="alert">{t('تعذر تحميل الأصول. أعد فتح نموذج التصحيح.', 'Could not load assets. Reopen the correction form.')}</p>}
-      <fieldset disabled={busy || loading || loadError} style={{border: 0, padding: 0, margin: 0}}>
+      <label>{t('نوع التصحيح','Correction type')}
+        <select value={amountOnly?'price':'structure'} onChange={event=>setAmountOnly(event.target.value==='price')} disabled={busy}>
+          <option value="price">{t('السعر والمبلغ','Price and amount')}</option>
+          <option value="structure">{t('الأصل أو الكمية أو التاريخ أو حساب القبض','Asset, quantity, date or proceeds account')}</option>
+        </select>
+      </label>
+      <p className="muted">{amountOnly?t('يُحفظ السعر على نفس السند ويُسوّى مبلغ القبض المرتبط مع بقاء الكمية وتخصيص الدفعات وسعر الصرف.',
+        'Updates the same voucher and its linked receipt while preserving quantity, lot allocation and exchange rate.'):
+        t('سيعكس يقين حركة البيع والقبض السابقة ويحفظ البيع المصحح في سند مرتبط.',
+          'Yaqeen will reverse the original sale and receipt and save the corrected sale as a linked voucher.')}</p>
+      {block&&<p role="alert">{personalSaleCorrectionMessage(block,ar)}</p>}
+      {!amountOnly&&!preflight&&!loading&&<p role="status">{t('جار التحقق من الحركات المرتبطة…','Checking dependent movements…')}</p>}
+      {reviewBlock&&!!preflight?.movements.length&&<section aria-label={t('الحركات المرتبطة','Dependent movements')}>
+        {amountOnly&&!block&&<p>{t('هذه الحركات تمنع تغيير بنية البيع. تصحيح السعر متاح.', 'These movements block changes to the sale structure. Price correction is available.')}</p>}
+        <ul>{preflight.movements.map(movement=><li key={movement.id}>
+          <Link href={`/${ar?'ar':'en'}/transactions/${movement.id}`} target="_blank" rel="noopener">
+            {movement.document_sequence??movement.type} · {movement.date}
+          </Link>{movement.same_lot&&t(' · استخدمت الدفعة نفسها',' · Used the same lot')}
+        </li>)}</ul>
+      </section>}
+      {!amountOnly&&loading && <p role="status">{t('جار تحميل الأصول والحسابات…', 'Loading assets and accounts…')}</p>}
+      {!amountOnly&&loadError && <p role="alert">{t('تعذر تحميل الأصول. أعد فتح نموذج التصحيح.', 'Could not load assets. Reopen the correction form.')}</p>}
+      <fieldset disabled={busy || (!amountOnly&&(loading || loadError))} style={{border: 0, padding: 0, margin: 0}}>
         <div className="form-grid">
+          {!amountOnly&&<>
           <label>{t('الأصل المباع', 'Sold asset')}
             <select autoFocus required value={selected?.id ?? ''} onChange={event => selectAsset(event.target.value)}>
               <option value="">{t('اختر أصلًا', 'Select an asset')}</option>
@@ -144,15 +208,16 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, onSave, onCa
           <label>{t('الكمية', 'Quantity')}
             <input type="number" min="0.00000001" step="0.00000001" required value={form.quantity} onChange={event => setForm({...form, quantity:event.target.value})}/>
           </label>
+          </>}
           <label>{t('سعر الوحدة', 'Unit price')}{currency && ` (${currency})`}
             <input type="number" min="0.00000001" step="0.00000001" required value={form.unit_price} onChange={event => setForm({...form, unit_price:event.target.value})}/>
           </label>
-          {currency && !sameCurrency && <label>{t('سعر الصرف إلى', 'Exchange rate to')} {sale.base_currency}
+          {!amountOnly && currency && !sameCurrency && <label>{t('سعر الصرف إلى', 'Exchange rate to')} {sale.base_currency}
             <input type="number" min="0.000000000001" step="any" required value={form.fx_rate} onChange={event => setForm({...form, fx_rate:event.target.value})}/>
           </label>}
-          <label>{t('الملاحظات', 'Notes')}
+          {!amountOnly&&<label>{t('الملاحظات', 'Notes')}
             <textarea maxLength={2000} value={form.notes} onChange={event => setForm({...form, notes:event.target.value})}/>
-          </label>
+          </label>}
           <label>{t('سبب التصحيح', 'Correction reason')}
             <textarea required minLength={5} maxLength={500} value={form.reason} onChange={event => setForm({...form, reason:event.target.value})}/>
           </label>
@@ -162,7 +227,7 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, onSave, onCa
         {formatMoney(total.toString(), currency)}{!sameCurrency && rate && ` · ${formatMoney(baseTotal.toString(), sale.base_currency)}`}
       </output></p>}
       <div className="operation-detail-actions">
-        <ActionButton type="submit" icon="save" label={busy ? t('جار الحفظ…', 'Saving…') : t('حفظ التصحيح', 'Save correction')} showLabel disabled={!canSave}/>
+        {!block&&<ActionButton type="submit" icon="save" label={busy ? t('جار الحفظ…', 'Saving…') : t('حفظ التصحيح', 'Save correction')} showLabel disabled={!canSave}/>}
         <ActionButton icon="close" label={t('إلغاء', 'Cancel')} disabled={busy} onClick={onCancel}/>
       </div>
     </form>

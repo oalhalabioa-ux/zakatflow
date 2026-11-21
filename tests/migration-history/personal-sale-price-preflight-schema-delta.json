@@ -1,0 +1,15 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.amend_personal_sale_price(p_sale_id uuid, p_request_id uuid, p_expected_revision integer, p_unit_price numeric, p_reason text)",
+      "fingerprint": "a16b00c8e35ea587905da3819f806adc"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_sale_preflight(p_sale_id uuid, p_asset_id uuid, p_destination_id uuid, p_date date)",
+      "fingerprint": "7a1aa7ee8d201225f07c0a240a87be0a"
+    }
+  ]
+}
