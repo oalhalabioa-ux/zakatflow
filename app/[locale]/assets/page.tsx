@@ -148,7 +148,7 @@ export default function Assets({
       column: AssetSortColumn;
       direction: AssetSortDirection;
     }>({ column: "current", direction: "desc" });
-  useEffect(()=>{setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");setDetailAsset(null);setOperationAsset(null);setFormOpen(false);setEdit(null)},[assetScope]);
+  useEffect(()=>{setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");setDetailAsset(null);setOperationAsset(null);setFormOpen(false);setEditAsset(null)},[assetScope]);
   const baseCurrency=assetScope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR":catalog.base_currency||"SAR";
   const cur = baseCurrency, cv = (n: any) => Number(n || 0);
   const loadVersion=useRef(0),loadBusy=useRef(false),catalogLoaded=useRef(false);

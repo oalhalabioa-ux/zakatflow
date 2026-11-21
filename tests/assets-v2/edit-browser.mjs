@@ -133,7 +133,7 @@ try {
   });
   const path = app+'/'+locale+'/assets?scope='+scope;
   await page.goto(path,{waitUntil:'domcontentloaded',timeout:90000});
-  const all = page.getByRole('button',{name:ar?'الكل':'All',exact:true});
+  const all = page.locator('.asset-lifecycle-tabs').getByRole('button',{name:ar?'الكل':'All',exact:true});
   const editLabel = ar?'تعديل بيانات الأصل':'Edit asset data';
   async function open(currentName) {
    await all.click({timeout:30000});
