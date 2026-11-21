@@ -3,6 +3,16 @@
   "upserts": [
     {
       "category": "column",
+      "object_key": "private.feasibility_company_invitations.document_ids",
+      "fingerprint": "b3d7099299bd0fdf8b3544d8889c62b1"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.document_mode",
+      "fingerprint": "0f0d42a333ee8d1a1712c25cb0df16fb"
+    },
+    {
+      "category": "column",
       "object_key": "private.feasibility_share_proposals.decision_reasons",
       "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
     },
@@ -10,6 +20,11 @@
       "category": "column",
       "object_key": "private.feasibility_share_proposals.submission_reasons",
       "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_document_mode_check",
+      "fingerprint": "67e48fd49d4bb74e5c3287fbb43296fa"
     },
     {
       "category": "constraint",
@@ -45,6 +60,16 @@
       "category": "function",
       "object_key": "private.feasibility_valid_item_reasons(changes jsonb, reasons jsonb)",
       "fingerprint": "b87eedb1098d36a75659d4a5f857b34b"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_evidence(p_action text, p_project uuid, p_kind text, p_organization uuid, p_document uuid, p_filename text, p_media_type text, p_payload text, p_requirement text)",
+      "fingerprint": "db5b4c5a02ff2e121cfe4600d55b2859"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_issue_with_documents(p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text, p_document_mode text, p_documents uuid[])",
+      "fingerprint": "c36c1792f9ba52d3be85aecea5cc47f7"
     },
     {
       "category": "function",

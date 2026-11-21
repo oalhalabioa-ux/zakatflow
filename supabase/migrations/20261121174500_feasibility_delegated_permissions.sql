@@ -673,4 +673,130 @@ begin
  ),'[]'::jsonb);
 end
 $$;
+
+alter table private.feasibility_company_invitations
+ add column document_mode text not null default 'none' check(document_mode in ('none','all','selected')),
+ add column document_ids uuid[] not null default '{}';
+
+create function public.feasibility_issue_with_documents(p_organization uuid,p_project uuid,p_recipient uuid,
+ p_revision integer,p_days integer,p_access text,p_document_mode text,p_documents uuid[])
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare captured uuid[]; prior uuid; result jsonb; issued uuid;
+begin
+ if not private.feasibility_member_permission(p_organization,auth.uid(),'feasibility.invite') then
+  raise exception 'FEASIBILITY_SHARE_FORBIDDEN' using errcode='42501';
+ end if;
+ perform 1 from public.feasibility_projects where id=p_project and organization_id=p_organization for update;
+ if not found then raise exception 'FEASIBILITY_SHARE_FORBIDDEN' using errcode='42501'; end if;
+ if p_document_mode is null or p_document_mode not in ('none','all','selected') or p_documents is null
+  or (p_document_mode='selected') is distinct from (cardinality(p_documents)>0) then
+  raise exception 'FEASIBILITY_INVALID_SHARE' using errcode='22023';
+ end if;
+ if p_document_mode<>'none' and not exists(select from private.feasibility_evidence_feature_switch where singleton and enabled) then
+  raise exception 'FEASIBILITY_SHARE_FORBIDDEN' using errcode='42501';
+ end if;
+ select id into prior from private.feasibility_company_invitations where project_id=p_project and recipient_id=p_recipient and state='pending';
+ result:=private.feasibility_company_invitations('issue',p_organization,null,p_project,p_recipient,p_revision,p_days,p_access);
+ issued:=(result->>'id')::uuid;
+ if issued=prior then
+  if exists(select from private.feasibility_company_invitations where id=issued and document_mode=p_document_mode
+    and (p_document_mode<>'selected' or (document_ids @> p_documents and document_ids <@ p_documents))) then return result; end if;
+  raise exception 'FEASIBILITY_COMPANY_INVITATION_PENDING' using errcode='40001';
+ end if;
+ select array(select id from private.feasibility_evidence_documents where project_id=p_project
+  and (p_document_mode='all' or (p_document_mode='selected' and id=any(p_documents))) order by id) into captured;
+ if p_document_mode='selected' and cardinality(captured)<>cardinality(p_documents) then
+  raise exception 'FEASIBILITY_INVALID_SHARE' using errcode='22023';
+ end if;
+ update private.feasibility_company_invitations set document_mode=p_document_mode,document_ids=captured where id=issued;
+ return result;
+end $$;
+revoke all on function public.feasibility_issue_with_documents(uuid,uuid,uuid,integer,integer,text,text,uuid[]) from public,anon;
+grant execute on function public.feasibility_issue_with_documents(uuid,uuid,uuid,integer,integer,text,text,uuid[]) to authenticated;
+create or replace function public.feasibility_evidence(
+ p_action text, p_project uuid, p_kind text, p_organization uuid default null,
+ p_document uuid default null, p_filename text default null, p_media_type text default null, p_payload text default null, p_requirement text default null
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+ actor uuid := auth.uid();
+ is_write boolean := p_action in ('upload','remove');
+ result jsonb;
+begin
+ if actor is null or not exists (select 1 from private.feasibility_evidence_feature_switch where singleton and enabled) or
+    p_action is null or p_action not in ('list','download','upload','remove') or
+    p_kind is null or p_kind not in ('licensing','valuation') then
+  raise exception 'FEASIBILITY_EVIDENCE_FORBIDDEN' using errcode='42501';
+ end if;
+ if not is_write and p_organization is not null and exists(select from public.feasibility_projects where id=p_project and organization_id<>p_organization) then
+  if private.feasibility_company_shares_access('open',p_organization,p_project,null,null,null,null,null) is null then
+   raise exception 'FEASIBILITY_EVIDENCE_FORBIDDEN' using errcode='42501';
+  end if;
+  select case when p_action='list' then coalesce(jsonb_agg(jsonb_build_object('id',d.id,'name',d.filename,
+   'size',octet_length(d.file_data),'createdAt',d.created_at,'requirementId',d.requirement_id) order by d.created_at,d.id),'[]'::jsonb)
+   else (jsonb_agg(jsonb_build_object('name',d.filename,'base64',encode(d.file_data,'base64')))->0) end into result
+  from private.feasibility_organization_shares s join private.feasibility_company_invitations i on i.id=s.company_invitation_id
+  join private.feasibility_evidence_documents d on d.id=any(i.document_ids) and d.project_id=s.project_id
+  where s.project_id=p_project and s.recipient_organization_id=p_organization and i.state='accepted'
+   and d.kind=p_kind and (p_action='list' or d.id=p_document);
+  return result;
+ end if;
+ if not exists (
+  select 1 from public.feasibility_projects p where p.id = p_project
+   and p.organization_id is not distinct from p_organization
+   and case when p_organization is null then p.owner_user_id = actor and exists (
+     select 1 from public.feasibility_access_grants g where g.user_id=actor and g.starts_at<=now()
+      and (not is_write or (g.status in ('ACTIVE','TRIAL') and (g.ends_at is null or now()<g.ends_at)))
+    )
+    else private.feasibility_phase1_org_enabled() and private.feasibility_company_access(p_organization,is_write)
+   end
+ ) then
+  raise exception 'FEASIBILITY_EVIDENCE_FORBIDDEN' using errcode='42501';
+ end if;
+
+ if p_action = 'list' then
+  return coalesce((
+   select jsonb_agg(jsonb_build_object('id',d.id,'name',d.filename,'size',octet_length(d.file_data),
+    'createdAt',d.created_at,'requirementId',d.requirement_id) order by d.created_at desc, d.id)
+   from private.feasibility_evidence_documents d where d.project_id=p_project and d.kind=p_kind
+  ),'[]'::jsonb);
+ end if;
+ if p_action = 'download' then
+  select jsonb_build_object('name',d.filename,'base64',encode(d.file_data,'base64')) into result
+  from private.feasibility_evidence_documents d where d.project_id=p_project and d.kind=p_kind and d.id=p_document;
+  return result;
+ end if;
+ if p_action = 'remove' then
+  delete from private.feasibility_evidence_documents d where d.project_id=p_project and d.kind=p_kind and d.id=p_document
+  returning jsonb_build_object('id',d.id) into result;
+  return result;
+ end if;
+
+ if p_payload is null or length(p_payload) > 2796204 then
+  raise exception 'FEASIBILITY_EVIDENCE_INVALID_FILE' using errcode='22023';
+ end if;
+ if p_requirement is not null then
+  if p_kind <> 'licensing' or char_length(p_requirement) not between 1 and 100 then
+   raise exception 'FEASIBILITY_EVIDENCE_INVALID_REQUIREMENT' using errcode='22023';
+  end if;
+  -- Hold the study row while verifying that the attachment refers to a saved requirement.
+  perform 1 from public.feasibility_projects p where p.id=p_project and exists (
+   select 1 from jsonb_array_elements(
+    case when jsonb_typeof(p.study->'legal') = 'array' then p.study->'legal' else '[]'::jsonb end
+   ) as item where item->>'id'=p_requirement
+  ) for share;
+  if not found then
+   raise exception 'FEASIBILITY_EVIDENCE_INVALID_REQUIREMENT' using errcode='22023';
+  end if;
+ end if;
+ -- Serialize the document cap across simultaneous uploads to the same study.
+ perform pg_advisory_xact_lock(hashtextextended('feasibility-evidence:' || p_project::text,0));
+ if (select count(*) from private.feasibility_evidence_documents d where d.project_id=p_project) >= 20 then
+  raise exception 'FEASIBILITY_EVIDENCE_LIMIT' using errcode='23514';
+ end if;
+ insert into private.feasibility_evidence_documents (project_id,kind,requirement_id,filename,media_type,file_data)
+ values (p_project,p_kind,p_requirement,p_filename,p_media_type,decode(p_payload,'base64'))
+ returning jsonb_build_object('id',id,'name',filename,'size',octet_length(file_data),'createdAt',created_at,'requirementId',requirement_id) into result;
+ return result;
+end;
+$$;
 commit;

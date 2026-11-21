@@ -2134,8 +2134,8 @@
       "path": "supabase/migrations/20261121174500_feasibility_delegated_permissions.sql",
       "version": "20261121174500",
       "name": "feasibility_delegated_permissions",
-      "expected_md5": "d19668977776338f60aa0b1d426cc510",
-      "file_sha256": "9f7b4d55307d908e52ba17f6b282353abd13da1b4bce349c2ee614ecd01e222c",
+      "expected_md5": "9be4921f10a8135c4d7fce2a4b967dc0",
+      "file_sha256": "7217a1cf9a68bea5ba0e16008e72850a3bea7baeafc3a5f14087daefe83eadc6",
       "validation_project": "Isolated PostgreSQL mixed item review and persisted recipient feedback"
     }
   ]
