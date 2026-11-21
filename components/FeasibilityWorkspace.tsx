@@ -760,7 +760,7 @@ function FeasibilityWorkspaceContent({
      event.currentTarget.scrollIntoView({block:'nearest',inline:'nearest'});
    }} className={tab===t.id?'active':''} aria-current={tab===t.id?'page':undefined}><RoyalIcon name={studyTabIcons[t.id]}/><span>{ar?t.ar:t.en}</span></button>)}</nav>
    <div className="fs-royal-section-lead" ref={sectionHeadingRef}>
-    <h2><RoyalIcon name={studyTabIcons[tab]}/>{tab==='report'?txt(ar,'التقرير الشامل','Feasibility report'):details&&detail===details.id?details.label:ar?activeTab.ar:activeTab.en}</h2>
+    <h2><RoyalIcon name={studyTabIcons[tab]}/>{tab==='report'?txt(ar,'التقرير الاستثماري الشامل','Comprehensive investment report'):details&&detail===details.id?details.label:ar?activeTab.ar:activeTab.en}</h2>
     {details&&<button className="fs-btn fs-btn--secondary" type="button" aria-pressed={detail===details.id}
      onClick={()=>setDetail(value=>value===details.id?undefined:details.id)}>
      {detail===details.id?txt(ar,'عودة إلى القسم','Back to section'):details.label}

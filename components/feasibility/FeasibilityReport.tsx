@@ -173,7 +173,7 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
  ]);
  return <div ref={report} className="fs-block fs-print-report">
   <section className="fs-block" id={sectionId('summary')} tabIndex={-1} data-report-section="summary">
-   <h3 className={titleInWorkspace?'fs-royal-report-title fs-report-print-title':'fs-royal-report-title'}><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
+   <h3 className={titleInWorkspace?'fs-royal-report-title fs-report-print-title':'fs-royal-report-title'}><RoyalIcon name="file"/>{l('التقرير الاستثماري الشامل','Comprehensive investment report')}</h3>
    <div className="fs-kpis fs-royal-overview-kpis fs-royal-report-summary-kpis">
     {summaryMetrics.map(({label,value,icon})=><div className="fs-metric" key={label}>
      <RoyalIcon name={icon}/><small>{label}</small><strong><bdi>{value}</bdi></strong>
@@ -208,10 +208,13 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
       {l('تعكس النسخة الحالية مدخلات الدراسة. سجّل القرار في قسم القرارات بعد التحقق من الافتراضات والأدلة.',
        'This version reflects the study inputs. Record the decision in the Decisions section after verifying the assumptions and evidence.')}
      </p>
+     <dl className="fs-royal-report-edition">
+      <div><dt>{l('تاريخ الدراسة','Study date')}</dt>
+       <dd>{study.studyDate?<time dateTime={study.studyDate}><bdi>{study.studyDate}</bdi></time>:'—'}</dd></div>
+      <div><dt>{l('حالة مراجعة النسخة','Revision review status')}</dt><dd>{reviewState}</dd></div>
+     </dl>
      <dl className="fs-royal-checks">{[
       [l('معدّ الدراسة','Prepared by'),study.preparedBy],
-      [l('تاريخ الدراسة','Study date'),study.studyDate],
-      [l('حالة مراجعة النسخة','Revision review status'),reviewState],
       [l('موقع المشروع','Project location'),[study.siteDescription,study.region,study.country].filter(Boolean).join(' · ')],
       [l('المالك القانوني المصرّح به','Declared legal owner'),study.legalOwner],
       [l('نوع الدراسة','Study type'),study.studyType?(locale==='ar'?studyTypeLabels[study.studyType].ar:studyTypeLabels[study.studyType].en):undefined],
