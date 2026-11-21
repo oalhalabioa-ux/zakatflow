@@ -62,6 +62,11 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await source.getByRole('button', { name: 'Share revision' }).click();
     await source.getByRole('button', { name: 'Revoke access' }).waitFor();
 
+    await receiver.goto(appUrl + '/en/feasibility/shared?organization=' + sourceOrg);
+    await receiver.getByRole('alert').filter({ hasText: 'The selected organization is unavailable.' }).waitFor();
+    assert.equal(await receiver.getByText('Your organization ID for sharing', { exact: false }).count(), 0);
+    assert.equal(await receiver.getByRole('link', { name: title, exact: true }).count(), 0);
+
     await receiver.goto(appUrl + '/en/feasibility/shared?organization=' + recipientOrg);
     await receiver.getByRole('link', { name: title, exact: true }).click();
     await receiver.getByRole('button', { name: 'Edit shared copy' }).click();
