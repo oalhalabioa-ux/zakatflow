@@ -218,6 +218,26 @@ try{
   const all=await balances();
   assert.ok(all.every(l=>Number(l.remaining_quantity)>=0));
   assert.equal(all.filter(l=>l.asset_account_id===bank.id).reduce((a,l)=>a+Number(l.remaining_quantity),0),3190);
+  const latestSale=attempts.find(r=>!r.error).data.sale_transaction_id;
+  const reverse=(id,key,revision)=>account.client.rpc('reverse_grouped_gold_sale',{p_sale:id,p_request:key,p_revision:revision,p_reason:'QA paired sale reversal'});
+  const rejected=await reverse(sale.sale_transaction_id,randomUUID(),2);
+  assert.equal(rejected.error?.message,'SALE_CORRECTION_LATER_MOVEMENTS');
+  assert.equal(rejected.error?.details,latestSale);
+  assert.deepEqual(await balances(),all);
+  const reverseKey=randomUUID();
+  const accepted=value(await reverse(latestSale,reverseKey,0));
+  assert.deepEqual(value(await reverse(latestSale,reverseKey,0)),accepted);
+  assert.deepEqual(await allocations(),original);
+  const final=await balances();
+  assert.equal(final.filter(l=>l.asset_account_id===bank.id).reduce((a,l)=>a+Number(l.remaining_quantity),0),2430);
+  const key=randomUUID();
+  value(await reverse(sale.sale_transaction_id,key,2));
+  for(const [i,id] of sources.entries()){
+   const current=(await statement(ctx,id)).payload;
+   assert.equal(current.reconciliation,'MATCHED');
+   assert.equal(current.closing.cost,String([1200,2040][i]));
+  }
+  console.log('GROUPED_REVERSAL',locale,JSON.stringify(accepted));
   await ctx.close();
  }
  console.log('PASS scoped opening and FIFO statement; 9 units / 2840 as of first sale, 6 / 1920 today, corporate 10 / 90000, denied cross-user and organization, AR mobile and EN desktop');

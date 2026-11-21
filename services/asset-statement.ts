@@ -73,6 +73,16 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
   const gross=quantity.times(tx.unit_price).toString();
   return {...tx,quantity:quantity.toString(),gross_value:gross,base_value:gross};
  });
+ const groupedReversals=await readLinked<StatementTransaction>([...groupedIds],batch=>scope(supabase.from('transactions')
+  .select('id,transaction_date,created_at,transaction_type,quantity::text,unit_price::text,gross_value::text,currency,base_value::text,base_currency,reversal_of_transaction_id,reference,metadata'))
+  .in('reversal_of_transaction_id',batch).lte('transaction_date',options.asOf));
+ for(const reversal of groupedReversals){
+  const portion=transactions.find(tx=>tx.id===reversal.reversal_of_transaction_id);
+  if(!portion)continue;
+  const projected={...reversal,quantity:portion.quantity,gross_value:portion.gross_value,base_value:portion.base_value};
+  const index=transactions.findIndex(tx=>tx.id===reversal.id);
+  if(index<0)transactions.push(projected);else transactions[index]=projected;
+ }
  const eventIds=organizational?[...new Set([...transactions.map(tx=>tx.metadata?.financial_event_id),...commands.map(command=>command.financial_event_id)].filter((value):value is string=>typeof value==='string'))]:[];
  const txIds=transactions.map(tx=>tx.id);
  const [events,reversals,allocations,amendments]=await Promise.all([
@@ -114,6 +124,11 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
   reconciliation:current?(reconciled?'MATCHED':'UNRECONCILED'):'HISTORICAL',
   closing:complete?statement.closing:{quantity:null,cost:null,currency:baseCurrency},
   rows:numbered.map(row=>({...row,
+   grouped:groupedIds.has(row.source_id)&&row.type==='SALE'?(()=>{
+    const tx=transactions.find(item=>item.id===row.source_id);
+    const metadata=tx?.metadata as {lot_selection?:{method?:string};sale_price_amendment?:{revision?:number}}|null;
+    return {method:metadata?.lot_selection?.method,revision:metadata?.sale_price_amendment?.revision??0};
+   })():null,
    remainingQuantity:missingSource||current&&!reconciled?null:row.remainingQuantity,
    remainingCost:missingSource||current&&!reconciled?null:row.remainingCost,
    voucher:row.document_sequence??row.document_links?.source_id??null,

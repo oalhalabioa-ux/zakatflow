@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect,useState} from 'react';
+import GoldSaleAction from './GoldSaleAction';
 import GoldCardSale from './GoldCardSale';
 import Link from 'next/link';
 import {operationStateLabel,operationTypeLabel} from '../../lib/asset-operation-report';
@@ -127,14 +128,15 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
        <div><dt>{row.sale?t('مبلغ البيع في السند','Recorded sale amount'):t('مبلغ الاقتناء في السند','Recorded acquisition amount')}</dt><dd><bdi>{format(row.amount)} {row.currency}</bdi></dd></div>
        {!row.sale&&<div><dt>{t('تكلفة الاقتناء المسجلة','Recorded acquisition cost')}</dt><dd><bdi>{format(row.costEffect)} {statement.baseCurrency}</bdi></dd></div>}
        {row.sale&&<>
-       <div><dt>{t('صافي البيع المسجل','Recorded net sale proceeds')}</dt><dd><bdi>{format(row.sale?.proceeds??null)} {statement.baseCurrency}</bdi></dd></div>
-       <div><dt>{t('تكلفة الكمية المباعة','Cost of units sold')}{!statement.asset.organizational&&' · FIFO'}</dt><dd><bdi>{format(row.sale?.cost??null)} {statement.baseCurrency}</bdi></dd></div>
+       <div><dt>{t('متحصلات البيع المسجلة','Recorded sale proceeds')}</dt><dd><bdi>{format(row.sale?.proceeds??null)} {statement.baseCurrency}</bdi></dd></div>
+       <div><dt>{t('تكلفة الكمية المباعة','Cost of units sold')}{row.grouped?.method?' · '+(row.grouped.method==='FIFO'?'FIFO':t('يدوي','Manual')):null}</dt><dd><bdi>{format(row.sale?.cost??null)} {statement.baseCurrency}</bdi></dd></div>
        <div><dt>{row.status==='REVERSED'?t('نتيجة البيع قبل العكس','Sale result before reversal'):
          row.sale?.realized?.startsWith('-')?t('خسارة محققة','Realized loss'):t('نتيجة البيع المحققة','Realized sale result')}</dt>
          <dd><bdi>{format(row.sale?.realized??null)} {statement.baseCurrency}</bdi></dd></div>
        </>}
        <div><dt>{t('الرصيد بعد الحركة','Balance after movement')}</dt><dd><bdi>{format(row.remainingQuantity)} {unit} · {format(row.remainingCost)} {statement.baseCurrency}</bdi></dd></div>
       </dl>
+      {row.grouped&&row.status!=='REVERSED'&&process.env.NEXT_PUBLIC_ASSET_LOT_QA==='1'&&<GoldSaleAction id={row.source_id} ar={ar} revision={row.grouped.revision} onSaved={()=>setRevision(v=>v+1)}/>}
      </details>)}
     </section>}
     {!statement.rows.length&&<p>{t('لا توجد حركات مسجلة حتى هذا التاريخ.','There are no recorded movements through this date.')}</p>}
