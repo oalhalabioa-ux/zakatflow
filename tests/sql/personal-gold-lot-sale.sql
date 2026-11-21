@@ -9,6 +9,9 @@ declare
   wrong_karat uuid := gen_random_uuid();
   lot_id uuid;
   choices jsonb;
+  assessment uuid:=gen_random_uuid();
+  method_id uuid:=gen_random_uuid();
+  outsider uuid:=gen_random_uuid();
   voucher jsonb;
   retry jsonb;
   request_id uuid := gen_random_uuid();
@@ -64,5 +67,24 @@ begin
   exception when raise_exception then
     if sqlerrm<>'SALE_LATER_ALLOCATION' then raise; end if;
   end;
+  if (select gain_base from public.personal_asset_grouped_sales(first_asset,'2025-03-01') as s where s.sale_id=(retry->>'sale_transaction_id')::uuid) is distinct from 100::numeric then
+    raise exception 'First asset gain is not 100'; end if;
+  if (select gain_base from public.personal_asset_grouped_sales(second_asset,'2025-03-01')) is distinct from 300::numeric then
+    raise exception 'Second asset gain is not 300'; end if;
+  insert into public.zakat_methods(id,code,name_ar,name_en) values(method_id,'QA481','اختبار','Test');
+  insert into public.zakat_assessments(id,user_id,assessment_date,valuation_date,method_id,nisab_standard,
+    nisab_quantity,nisab_value_base,zakat_rate,currency,assessment_kind)
+    values(assessment,owner_id,'2025-05-01','2025-05-01',method_id,'GOLD',85,100,0.025,'SAR','FINAL');
+  insert into public.zakat_assessment_lines(assessment_id,lot_id,quantity,eligibility_status,explanation)
+    select assessment,id,remaining_quantity,'ELIGIBLE','Test snapshot' from public.lots where asset_account_id=second_asset;
+  begin
+    perform public.post_personal_gold_lot_sale(gen_random_uuid(),18,bank,'2025-04-02',1,410);
+    raise exception 'Saved assessment was ignored';
+  exception when raise_exception then
+    if sqlerrm<>'SALE_FINAL_ASSESSMENT' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub',outsider::text,true);
+  if exists(select 1 from public.personal_asset_grouped_sales(first_asset,'2025-05-01')) then
+    raise exception 'Foreign sale disclosed'; end if;
 end $verify$;
 rollback;
