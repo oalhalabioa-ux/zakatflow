@@ -676,12 +676,20 @@ $$;
 
 alter table private.feasibility_company_invitations
  add column document_mode text not null default 'none' check(document_mode in ('none','all','selected')),
- add column document_ids uuid[] not null default '{}';
+ add column document_ids uuid[] not null default '{}',
+ add column document_versions jsonb not null default '{}';
+
+create function private.feasibility_evidence_version(d private.feasibility_evidence_documents)
+returns text language sql stable strict set search_path=pg_catalog as $$
+ select encode(sha256(convert_to(jsonb_build_array(d.id,d.project_id,d.filename,d.kind,d.media_type,
+  d.requirement_id,extract(epoch from d.created_at),encode(sha256(d.file_data),'hex'))::text,'UTF8')),'hex')
+$$;
+revoke all on function private.feasibility_evidence_version(private.feasibility_evidence_documents) from public,anon,authenticated;
 
 create function public.feasibility_issue_with_documents(p_organization uuid,p_project uuid,p_recipient uuid,
  p_revision integer,p_days integer,p_access text,p_document_mode text,p_documents uuid[])
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare captured uuid[]; prior uuid; result jsonb; issued uuid;
+declare captured uuid[]; versions jsonb; prior uuid; result jsonb; issued uuid;
 begin
  if not private.feasibility_member_permission(p_organization,auth.uid(),'feasibility.invite') then
   raise exception 'FEASIBILITY_SHARE_FORBIDDEN' using errcode='42501';
@@ -703,12 +711,14 @@ begin
     and (p_document_mode<>'selected' or (document_ids @> p_documents and document_ids <@ p_documents))) then return result; end if;
   raise exception 'FEASIBILITY_COMPANY_INVITATION_PENDING' using errcode='40001';
  end if;
- select array(select id from private.feasibility_evidence_documents where project_id=p_project
-  and (p_document_mode='all' or (p_document_mode='selected' and id=any(p_documents))) order by id) into captured;
+ select coalesce(array_agg(d.id order by d.id),'{}'::uuid[]),
+  coalesce(jsonb_object_agg(d.id,private.feasibility_evidence_version(d)),'{}') into captured,versions
+ from private.feasibility_evidence_documents d where project_id=p_project
+  and (p_document_mode='all' or (p_document_mode='selected' and id=any(p_documents)));
  if p_document_mode='selected' and cardinality(captured)<>cardinality(p_documents) then
   raise exception 'FEASIBILITY_INVALID_SHARE' using errcode='22023';
  end if;
- update private.feasibility_company_invitations set document_mode=p_document_mode,document_ids=captured where id=issued;
+ update private.feasibility_company_invitations set document_mode=p_document_mode,document_ids=captured,document_versions=versions where id=issued;
  return result;
 end $$;
 revoke all on function public.feasibility_issue_with_documents(uuid,uuid,uuid,integer,integer,text,text,uuid[]) from public,anon;
@@ -737,7 +747,8 @@ begin
   from private.feasibility_organization_shares s join private.feasibility_company_invitations i on i.id=s.company_invitation_id
   join private.feasibility_evidence_documents d on d.id=any(i.document_ids) and d.project_id=s.project_id
   where s.project_id=p_project and s.recipient_organization_id=p_organization and i.state='accepted'
-   and d.kind=p_kind and (p_action='list' or d.id=p_document);
+   and d.kind=p_kind and (p_action='list' or d.id=p_document)
+   and i.document_versions->>d.id::text=private.feasibility_evidence_version(d);
   return result;
  end if;
  if not exists (

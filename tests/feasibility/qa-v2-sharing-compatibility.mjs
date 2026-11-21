@@ -227,6 +227,7 @@ try{
  create table organization_member_permission_overrides(organization_id uuid,user_id uuid,permission text,effect text);`);
  await db.exec(await read('supabase/migrations/20261117134000_feasibility_organization_share_audit.sql'));
  await db.exec(await read('supabase/migrations/20261117190000_feasibility_evidence_documents.sql'));
+ await db.exec("alter table feasibility_access_grants add column status text default 'ACTIVE', add column ends_at timestamptz");
  const prior = new Map((await query(catalog)).map(row=>[row.category+row.object_key,row.fingerprint]));
  await db.exec(await read('supabase/migrations/20261121174500_feasibility_delegated_permissions.sql'));
  const delta={description:'Delegated feasibility access and itemized proposal review',
@@ -263,9 +264,19 @@ try{
  for(const [mode,ids,expected] of [['none',[],[]],['selected',[second],[second]],['all',[],[first,second]]]){
   const invitation=await issueDocs(mode,ids);
   if(mode==='all') await attach('added-after-issue.pdf');
+  if(mode==='none') assert.deepEqual(await evidence('list'),[]);
+  else await assert.rejects(evidence('list'),{code:'42501'});
   await decideDoc('accept',invitation);
   assert.deepEqual((await evidence('list')).map(d=>d.id).sort(),[...expected].sort());
   assert.equal((await evidence('download',first))?.name??null,mode==='all'?'valuation.pdf':null);
+  await assert.rejects(evidence('remove',second),{code:'42501'});
+  if(mode==='all'){
+   await query("update private.feasibility_evidence_documents set filename='replaced.pdf' where id=$1",[first]);
+   assert.equal(await evidence('download',first),null);
+   assert.deepEqual((await evidence('list')).map(d=>d.id),[second]);
+   await query("update private.feasibility_organization_shares set first_shared_at=now()-interval '2 days',expires_at=now()-interval '1 second' where project_id=$1",[study]);
+   await assert.rejects(evidence('download',second),{code:'42501'});
+  }
   await decideDoc('revoke',invitation);
   await assert.rejects(evidence('download',second),{code:'42501'});
  }
