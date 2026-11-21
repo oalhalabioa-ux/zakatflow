@@ -12,6 +12,8 @@ type Change = {
   before: string | number | null;
   after: string | number;
   current: string | number | null;
+  submission_reason: string | null;
+  decision_reason: string | null;
   conflict: boolean;
   can_apply: boolean;
   resolution: ProposalResolution | null;
@@ -43,7 +45,7 @@ export default function StudyProposalReview({ locale, organization, project, pro
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
-  const [reason, setReason] = useState('');
+  const [reasons, setReasons] = useState<Record<string,string>>({});
   const [choices, setChoices] = useState<Record<string, ProposalResolution>>({});
 
   useEffect(() => {
@@ -68,10 +70,11 @@ export default function StudyProposalReview({ locale, organization, project, pro
       const response = await fetch('/api/feasibility/share-proposals', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, organization, project, proposal,
-          ...(action === 'approve' ? { revision: review.revision, resolutions: choices } : { reason }) }),
+          revision: review.revision, resolutions: choices, reasons }),
       });
       if (response.status === 409) {
         setChoices({});
+        setReasons({});
         setReload(value => value + 1);
         setError(ar ? 'تغيّرت الدراسة أو الصلاحيات. راجع القيم المحدثة قبل اتخاذ القرار.' : 'The study or permissions changed. Review the refreshed values before deciding.');
         return;
@@ -84,6 +87,7 @@ export default function StudyProposalReview({ locale, organization, project, pro
         return;
       }
       setChoices({});
+        setReasons({});
       setReload(value => value + 1);
       setReview(undefined);
     } catch {
@@ -101,14 +105,15 @@ export default function StudyProposalReview({ locale, organization, project, pro
   const current = parsed.success ? parsed.data.study : undefined;
   const preview = current ? structuredClone(current) : undefined;
   for (const change of review?.changes ?? []) {
-    if (!preview || !change.can_apply || (change.conflict && choices[change.field] !== 'proposed')) continue;
+    if (!preview || !change.can_apply || choices[change.field] !== 'proposed') continue;
     if (change.path.length === 3 && preview.water)
       Object.assign(preview.water.ops, { [change.path[2]]: change.after });
     else Object.assign(preview, { [change.field]: change.after });
   }
   const before = current && metrics(current);
   const after = preview && metrics(preview);
-  const conflictPending = review?.changes.some(change => change.conflict && !choices[change.field]);
+  const incomplete = review?.changes.some(change => !choices[change.field] || !reasons[change.field]?.trim());
+  const approving = Object.values(choices).includes('proposed');
 
   return <main className="container fs-page" dir={ar ? 'rtl' : 'ltr'}>
     <header className="fs-head"><h1>{ar ? 'مراجعة تعديلات الدراسة المشتركة' : 'Review shared study changes'}</h1></header>
@@ -124,10 +129,11 @@ export default function StudyProposalReview({ locale, organization, project, pro
         <caption>{ar ? 'الحقول التي غيّرتها المؤسسة' : 'Fields changed by the organization'}</caption>
         <thead><tr><th>{ar ? 'الحقل' : 'Field'}</th><th>{ar ? 'عند المشاركة' : 'At sharing'}</th>
           <th>{ar ? 'قيمة الأصل عند المراجعة' : 'Source at review'}</th><th>{ar ? 'المقترح' : 'Proposed'}</th>
-          {review.state !== 'rejected' && <th>{ar ? 'القيمة المعتمدة' : 'Selected value'}</th>}</tr></thead>
+          <th>{ar ? 'سبب الاقتراح' : 'Proposal reason'}</th><th>{ar ? 'القرار وسببه' : 'Decision and reason'}</th></tr></thead>
         <tbody>{review.changes.map(change => <tr key={change.field}>
           <th>{label(change.field)}</th><td>{value(change.before)}</td><td>{value(change.current)}</td><td>{value(change.after)}</td>
-          {review.state === 'pending' && <td>{change.conflict && <select
+          <td>{change.submission_reason ?? '—'}</td>
+          {review.state === 'pending' && <td><select
             aria-label={(ar ? 'القيمة المعتمدة لحقل ' : 'Resolve field ') + label(change.field)} value={choices[change.field] ?? ''}
             onChange={event => {
               const next = event.currentTarget.value;
@@ -140,9 +146,9 @@ export default function StudyProposalReview({ locale, organization, project, pro
             }}>
             <option value="">{ar ? 'اختر القيمة' : 'Choose a value'}</option>
             <option value="current">{ar ? 'الإبقاء على الأصل' : 'Keep source value'}</option>
-            {change.can_apply && <option value="proposed">{ar ? 'اعتماد المقترح' : 'Use proposed value'}</option>}
-          </select>}</td>}
-          {review.state === 'approved' && <td>{value(change.resolution === 'current' || !change.can_apply ? change.current : change.after)}</td>}
+            {review.can_approve && change.can_apply && <option value="proposed">{ar ? 'اعتماد المقترح' : 'Use proposed value'}</option>}
+          </select><textarea aria-label={(ar ? 'سبب القرار بشأن ' : 'Decision reason for ') + label(change.field)} maxLength={2000} value={reasons[change.field] ?? ''} onChange={e => setReasons({...reasons,[change.field]:e.target.value})}/></td>}
+          {review.state !== 'pending' && <td>{review.state === 'rejected' || change.resolution === 'current' ? (ar ? 'مرفوض' : 'Declined') : (ar ? 'مقبول' : 'Accepted')} · {change.decision_reason ?? '—'}</td>}
         </tr>)}</tbody>
       </table></div>
       {review.state === 'pending' && current && (before || after) && <div className="fs-table-wrap"><table className="fs-table">
@@ -159,12 +165,8 @@ export default function StudyProposalReview({ locale, organization, project, pro
       </table></div>}
       {review.state === 'pending' && <>
         {!review.can_approve && <p>{ar ? 'القبول غير متاح بموجب صلاحيات المشاركة الحالية.' : 'Approval is unavailable under the current sharing permissions.'}</p>}
-        <button className="fs-btn" type="button" disabled={busy || !review.can_approve || conflictPending}
-          onClick={() => void decide('approve')}>{ar ? 'قبول التعديلات' : 'Approve changes'}</button>
-        <label className="fs-field">{ar ? 'سبب الرفض (اختياري)' : 'Reason for declining (optional)'}
-          <textarea value={reason} maxLength={2000} onChange={event => setReason(event.target.value)}/></label>
-        <button className="fs-btn fs-btn--secondary" type="button" disabled={busy}
-          onClick={() => void decide('reject')}>{ar ? 'رفض التعديلات' : 'Decline changes'}</button>
+        <button className="fs-btn" type="button" disabled={busy || incomplete || (approving && !review.can_approve)}
+          onClick={() => void decide(approving ? 'approve' : 'reject')}>{ar ? 'حفظ قرارات البنود' : 'Save item decisions'}</button>
       </>}
     </section>}
   </main>;

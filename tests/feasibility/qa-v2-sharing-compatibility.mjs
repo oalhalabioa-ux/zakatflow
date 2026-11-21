@@ -219,6 +219,31 @@ try{
  assert.equal((await getProject()).study.notes,'Original');
  assert.deepEqual(await query('select type from notifications'),[]);
  await actor(recipient,()=>assert.rejects(proposal('submit',destination,null,edited.shared_revision-1),{code:'40001'}));
+ if(process.argv.includes('--delegated-item-review')) {
+
+ await db.exec(await read('supabase/migrations/20261121155500_feasibility_company_invitations.sql'));
+ await db.exec(`create table organization_roles(id uuid,organization_id uuid,permissions text[],constraint organization_roles_permissions_check check(true));
+ alter table organization_members add column custom_role_id uuid;
+ create table organization_member_permission_overrides(organization_id uuid,user_id uuid,permission text,effect text);`);
+ await db.exec(await read('supabase/migrations/20261121174500_feasibility_delegated_permissions.sql'));
+ await query("insert into organization_member_permission_overrides select $1,$2,unnest(array['feasibility.shared_view','feasibility.shared_edit']),'ALLOW'",[destination,recipient]);
+ const reasons={notes:'Supplier estimate',unitPrice:'New price list'};
+ await actor(recipient,()=>assert.rejects(proposal('submit',destination,null,edited.shared_revision,{notes:'only one'}),{code:'22023'}));
+ const sub=await actor(recipient,()=>proposal('submit',destination,null,edited.shared_revision,reasons));
+ assert.equal((await getProject()).study.unitPrice,100);
+ const choices={unitPrice:'proposed',notes:'current'};
+ const why={unitPrice:'Verified price',notes:'Keep original terms'};
+ await actor(owner,()=>proposal('approve',source,sub.id,3,{choices,reasons:why}));
+ const result=await getProject();
+ assert.equal(result.study.unitPrice,110);
+ assert.equal(result.study.notes,'Original');
+ assert.equal(result.revision,4);
+ const feedback=await actor(recipient,()=>proposal('recipient',destination));
+ assert.deepEqual(feedback.decisions,choices);
+ assert.deepEqual(feedback.decision_reasons,why);
+ assert.deepEqual(feedback.submission_reasons,reasons);
+ console.log('PASS mixed item decisions, required reasons, persisted source and recipient feedback');
+ } else {
  const submitted=await actor(recipient,()=>proposal('submit',destination,null,edited.shared_revision));
  await actor(recipient,async()=>{
   await assert.rejects(proposal('submit',destination,null,edited.shared_revision),{code:'40001'});
@@ -365,4 +390,5 @@ try{
  await assert.rejects(db.exec(apply),/UNEXPECTED_QA_V2_FEASIBILITY_SCHEMA/);
  await db.exec('rollback');
  console.log('PASS QA V2 switch bridge, isolated paid fixture, preserved legacy reads, DELETE denial, immutable snapshot, 30-day cap, revocation and tenant isolation');
+ }
 }finally{await db.close()}

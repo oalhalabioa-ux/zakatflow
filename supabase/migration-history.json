@@ -2129,6 +2129,14 @@
       "expected_md5": "8183c58dab8e25862add6319dd8a7259",
       "file_sha256": "2984ae465c5ff8f423896c594c253db8f2fa51283484601d9e7d2cebf0b6221c",
       "validation_project": "Isolated PostgreSQL rehearsal: legacy grants retained, invitation switch disabled by default, authorization and audited invite decisions"
+    },
+    {
+      "path": "supabase/migrations/20261121174500_feasibility_delegated_permissions.sql",
+      "version": "20261121174500",
+      "name": "feasibility_delegated_permissions",
+      "expected_md5": "3fd6a65b48bd24d24ddaf5c79e2ba177",
+      "file_sha256": "5e0b59b4d3b02e215d58b29d46071a1522407c6bee8e5842fb112cfb8f896b67",
+      "validation_project": "Isolated PostgreSQL mixed item review and persisted recipient feedback"
     }
   ]
 }
