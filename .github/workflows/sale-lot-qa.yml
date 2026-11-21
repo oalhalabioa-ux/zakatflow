@@ -1,0 +1,34 @@
+name: Sale lot isolated PostgreSQL QA
+on:
+  pull_request:
+    paths:
+      - 'supabase/modules/assets/**'
+      - 'tests/sql/personal-gold-lot-sale.sql'
+      - '.github/workflows/sale-lot-qa.yml'
+permissions:
+  contents: read
+jobs:
+  full-schema:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Initialize a disposable Supabase database
+        run: |
+          root="$RUNNER_TEMP/lot-sale-db"
+          mkdir -p "$root"
+          npx --yes supabase@2.122.0 init --workdir "$root"
+          cp -a supabase/migrations "$root/supabase/migrations"
+          npx --yes supabase@2.122.0 start --workdir "$root" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta
+      - name: Apply candidate functions and verify financial effects
+        run: |
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 \
+            -f supabase/modules/assets/plan_asset_sale_lots.sql \
+            -f supabase/modules/assets/apply_personal_sale_lots.sql \
+            -f supabase/modules/assets/post_personal_gold_lot_sale.sql \
+            -f tests/sql/personal-gold-lot-sale.sql
