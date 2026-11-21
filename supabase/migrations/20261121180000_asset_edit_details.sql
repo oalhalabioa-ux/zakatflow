@@ -27,7 +27,7 @@ begin
   select * into previous from public.asset_accounts where id = p_asset_id;
   if not found then raise exception 'ASSET_NOT_FOUND'; end if;
   if previous.ownership_scope = 'ORGANIZATION'
-    and not public.has_organization_permission(previous.organization_id, 'assets.edit') then
+    and public.has_organization_permission(previous.organization_id, 'assets.edit') is not true then
     raise exception 'ASSET_EDIT_ACCESS_DENIED';
   end if;
   if previous.updated_at is distinct from p_expected_updated_at then

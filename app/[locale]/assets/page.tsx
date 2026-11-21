@@ -152,8 +152,8 @@ export default function Assets({
   const baseCurrency=assetScope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR":catalog.base_currency||"SAR";
   const cur = baseCurrency, cv = (n: any) => Number(n || 0);
   const loadVersion=useRef(0),loadBusy=useRef(false),catalogLoaded=useRef(false);
-  const load = async (background=false) => {
-    if(loadBusy.current)return;
+  const load = async (background=false, refreshAfterEdit=false) => {
+    if(loadBusy.current&&!refreshAfterEdit)return;
     loadBusy.current=true;
     const version=++loadVersion.current;
     if(!background)setLoading(true);
@@ -178,8 +178,10 @@ export default function Assets({
         ar ? "تعذر تحميل الأصول. حاول تحديث الصفحة." : "Could not load assets. Refresh the page to try again.",
       );
     } finally {
-      loadBusy.current=false;
-      if(version===loadVersion.current)setLoading(false);
+      if(version===loadVersion.current){
+        loadBusy.current=false;
+        setLoading(false);
+      }
     }
   };
   useEffect(() => {
@@ -206,6 +208,7 @@ export default function Assets({
     window.addEventListener("zf-assets-page-design", onDesign);
     return () => {
       ++loadVersion.current;
+      loadBusy.current=false;
       window.removeEventListener("focus",refresh);
       window.removeEventListener("zf-assets-page-design", onDesign);
     };
@@ -617,7 +620,7 @@ export default function Assets({
         onClose={()=>setEditAsset(null)} onSaved={()=>{
           setEditAsset(null);
           setMsg(ar?"تم حفظ تعديل بيانات الأصل.":"Asset details saved.");
-          void load();
+          void load(false,true);
         }}/>}
       {formOpen&&<section className="card section asset-entry" aria-labelledby="asset-entry-title">
         <div className="asset-entry-header"><div><span className="asset-entry-eyebrow">{ar?"سجل الأصول":"Asset register"}</span><h3 id="asset-entry-title" tabIndex={-1}>{ar?"إضافة أصل":"Add asset"}</h3><p>{ar?"حدّد الأصل وملكيته، ثم راجع القيم قبل الحفظ.":"Define the asset and its ownership, then review the values."}</p></div><ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={closeAssetForm}/></div>

@@ -234,12 +234,16 @@ try {
   assert.equal((await put(desktop,oldGold,{name:'Stale name'})).status(),409);
   assert.equal((await put(denied,await dbAsset(oldGold.id),{name:'Unauthorized'})).status(),404);
   assert.equal((await put(denied,await dbAsset(orgAsset.id),{name:'Unauthorized'})).status(),404);
+  value(await admin.from('organization_members').insert({
+   organization_id:organization,user_id:foreign.id,role:'VIEWER',status:'ACTIVE',
+  }));
+  assert.equal((await put(denied,await dbAsset(orgAsset.id),{name:'Unauthorized viewer'})).status(),403);
   assert.equal((await put(desktop,await dbAsset(thinAsset.id),{market_price:400})).status(),400);
   assert.equal((await put(desktop,await dbAsset(oldGold.id),{metadata:{purchase_value:1}})).status(),400);
   assert.deepEqual(await finances(owner.id,assessment.id),snapshot);
   assert.deepEqual(await dbAsset(bank.id),bankBefore);
   evidence.push({financialRowsUnchanged:true,fifoAllocations:2,remainingGoldQuantity:6,remainingGoldCostSAR:1800,
-   bankProceedsSAR:1700,frozenZakatSAR:52.5,conflictStatus:409,crossScopeStatus:404});
+   bankProceedsSAR:1700,frozenZakatSAR:52.5,conflictStatus:409,crossScopeStatus:404,viewerStatus:403});
  }
  console.log(JSON.stringify({phase:before?'before':'after',evidence},null,2));
  await import('node:fs/promises').then(({writeFile})=>writeFile(
