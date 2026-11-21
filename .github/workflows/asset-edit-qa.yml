@@ -13,6 +13,10 @@ permissions:
   contents: read
 jobs:
   asset-edit:
+    strategy:
+      fail-fast: false
+      matrix:
+        phase: [before, after]
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     env:
@@ -40,16 +44,19 @@ jobs:
       - name: Reproduce P0 and verify browser persistence
         env:
           QA_BASE: ${{ github.event.pull_request.base.sha }}
+        if: matrix.phase == 'before'
         run: |
           git worktree add --detach "$RUNNER_TEMP/asset-edit-base" "$QA_BASE"
           ln -s "$PWD/node_modules" "$RUNNER_TEMP/asset-edit-base/node_modules"
-          ASSET_APP_DIR="$RUNNER_TEMP/asset-edit-base" ASSET_EDIT_PHASE=before node tests/assets-v2/edit-browser.mjs
-          ASSET_EDIT_PHASE=after node tests/assets-v2/edit-browser.mjs
+          ASSET_APP_DIR="$RUNNER_TEMP/asset-edit-base" ASSET_EDIT_PHASE=before timeout --kill-after=10s 180s node tests/assets-v2/edit-browser.mjs
+      - name: Verify registration lock and valuation persistence
+        if: matrix.phase == 'after'
+        run: ASSET_EDIT_PHASE=after timeout --kill-after=10s 180s node tests/assets-v2/edit-browser.mjs
       - name: Upload before and after browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: asset-edit-preview
+          name: asset-edit-preview-${{ matrix.phase }}
           path: asset-edit-qa/
       - name: Stop isolated database
         if: always()

@@ -8,6 +8,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
 
+console.log('Asset QA phase:', process.env.ASSET_EDIT_PHASE);
 const root=process.env.ASSET_QA_ROOT;
 assert.ok(root && process.env.RUNNER_TEMP && root.startsWith(process.env.RUNNER_TEMP+'/'));
 const settings=JSON.parse(execFileSync('npx',['--yes','supabase@2.122.0','status','--workdir',root,'--output','json'],
@@ -77,6 +78,7 @@ const dbAsset = async id => value(await admin.from('asset_accounts').select('*')
 const evidence = [];
 let server, browser, activePage;
 try {
+ console.log("Seeding authorized asset and finance fixtures");
  const owner = await user(), foreign = await user();
  const {id:organization} = value(await owner.client.from('organizations').insert({
   name: 'QA Asset Edit Company', owner_user_id: owner.id,
@@ -137,8 +139,9 @@ try {
  const snapshot = await finances(owner.id,assessment.id);
  const bankBefore = await dbAsset(bank.id);
  assert.equal(snapshot.transaction_allocations.length,before?2:3);
+ console.log("Starting the application");
  server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-H','127.0.0.1','-p','3000'],{
-  env:{...process.env,NODE_OPTIONS:`--require ${fileURLToPath(new URL('./metal-quote-fixture.cjs',import.meta.url))}`,NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
+  env:{...process.env,...(before?{}:{NODE_OPTIONS:`--require ${fileURLToPath(new URL('./metal-quote-fixture.cjs',import.meta.url))}`}),NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
    NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},cwd:process.env.ASSET_APP_DIR||process.cwd(), stdio:'inherit',
  });
  let ready=false;
@@ -147,6 +150,7 @@ try {
   await delay(500);
  }
  assert.ok(ready);
+ console.log("Application ready");
  browser=await chromium.launch({headless:true});
  await mkdir('asset-edit-qa',{recursive:true});
  const mobile = await context(browser,owner,{width:390,height:844});
