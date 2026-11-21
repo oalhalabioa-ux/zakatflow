@@ -54,5 +54,6 @@ jobs:
           export FEASIBILITY_PGLITE_MODULE="$rehearsal_dir/node_modules/@electric-sql/pglite/dist/index.js"
           node tests/feasibility/phase1-migration-rehearsal.mjs
           node tests/feasibility/qa-v2-sharing-compatibility.mjs
+          node tests/feasibility/qa-v2-sharing-compatibility.mjs --delegated-item-review
           node tests/feasibility/qa-company-invitations.mjs
           node tests/feasibility/trial-plan-entitlements.mjs

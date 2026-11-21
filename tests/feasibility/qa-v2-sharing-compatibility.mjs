@@ -225,7 +225,16 @@ try{
  await db.exec(`create table organization_roles(id uuid,organization_id uuid,permissions text[],constraint organization_roles_permissions_check check(true));
  alter table organization_members add column custom_role_id uuid;
  create table organization_member_permission_overrides(organization_id uuid,user_id uuid,permission text,effect text);`);
+ await db.exec(await read('supabase/migrations/20261117134000_feasibility_organization_share_audit.sql'));
+ const prior = new Map((await query(catalog)).map(row=>[row.category+row.object_key,row.fingerprint]));
  await db.exec(await read('supabase/migrations/20261121174500_feasibility_delegated_permissions.sql'));
+ const delta={description:'Delegated feasibility access and itemized proposal review',
+  upserts:(await query(catalog)).filter(row=>prior.get(row.category+row.object_key)!==row.fingerprint),removals:[]};
+ const deltaFile='tests/migration-history/feasibility-delegated-permissions-schema-delta.json';
+ if(process.argv.includes('--write-delegated-delta')) await writeFile(new URL('../../'+deltaFile,import.meta.url),JSON.stringify(delta,null,2)+'\n');
+ else assert.deepEqual(delta,JSON.parse(await read(deltaFile)));
+ await query("update organization_members set role='ADMIN' where user_id=$1 and organization_id=$2",[recipient,destination]);
+ await actor(recipient,()=>assert.rejects(shareAccess('open',destination),{code:'42501'}));
  await query("insert into organization_member_permission_overrides select $1,$2,unnest(array['feasibility.shared_view','feasibility.shared_edit']),'ALLOW'",[destination,recipient]);
  const reasons={notes:'Supplier estimate',unitPrice:'New price list'};
  await actor(recipient,()=>assert.rejects(proposal('submit',destination,null,edited.shared_revision,{notes:'only one'}),{code:'22023'}));

@@ -1,0 +1,56 @@
+{
+  "description": "Delegated feasibility access and itemized proposal review",
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.decision_reasons",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.submission_reasons",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_roles.organization_roles_permissions_check",
+      "fingerprint": "370882d74153929c979f714a70d74e50"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_invitations(p_action text, p_organization uuid, p_invitation uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text)",
+      "fingerprint": "8bf90caf34395326b4b193f6063ccc35"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_share_audit(p_organization uuid, p_project uuid)",
+      "fingerprint": "b8073607527d2066dd90a42326afb85c"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_shares_access(p_action text, p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text, p_patch jsonb)",
+      "fingerprint": "9f4437e51d8933d418c8fa0fe98a7177"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_member_permission(p_org uuid, p_user uuid, p_key text)",
+      "fingerprint": "445fde262529ba098ee86945222c2f46"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_share_proposal(p_action text, p_org uuid, p_project uuid, p_proposal uuid, p_revision integer, p_resolutions jsonb, p_reason text)",
+      "fingerprint": "1cda26e5cef19890834e3563c3ad5547"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_valid_item_reasons(changes jsonb, reasons jsonb)",
+      "fingerprint": "b87eedb1098d36a75659d4a5f857b34b"
+    },
+    {
+      "category": "function",
+      "object_key": "public.normalize_role_permission_catalog(p_permissions text[])",
+      "fingerprint": "a6cfb8004cb2c468b8454f459923b40c"
+    }
+  ],
+  "removals": []
+}
