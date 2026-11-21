@@ -64,6 +64,12 @@ export default function Notifications({
               </Link>
             </p>}
 
+            {n.type === 'feasibility_company_invitation' && isId(n.metadata?.organization) && <p>
+              <Link href={`/${locale}/feasibility/shared?${new URLSearchParams({ organization: n.metadata.organization })}`}>
+                {ar ? 'عرض دعوات المؤسسات' : 'View company invitations'}
+              </Link>
+            </p>}
+
             {!n.read_at && (
               <button
                 className="btn secondary"

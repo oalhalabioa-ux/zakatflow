@@ -1,0 +1,196 @@
+{
+  "description": "Company invitation storage and opt-in directory; invite-only mode defaults to disabled",
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_directory.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.access_mode",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.days",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.expires_at",
+      "fingerprint": "b8dc5465af83f15c27cdf633bf07ef1c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.issued_at",
+      "fingerprint": "b8dc5465af83f15c27cdf633bf07ef1c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.issued_by",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.project_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.recipient_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.source_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.source_revision",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.state",
+      "fingerprint": "37eb78664e15df5cf4e417de6e5baf31"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_organization_shares.company_invitation_id",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_sharing_policy.company_invitations_enabled",
+      "fingerprint": "1b2d399aaa0209161b2a562d0ec668df"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_directory.feasibility_company_directory_organization_id_fkey",
+      "fingerprint": "3c702b28ccc97a0ac52c0acefcdea477"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_directory.feasibility_company_directory_pkey",
+      "fingerprint": "f0b623612927b828a67c8f66fba8bc2c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_access_mode_check",
+      "fingerprint": "3fe449e8cc7629a96df88282dbd375fa"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_check",
+      "fingerprint": "bafcd6c2c0d0d49feeb0d2c16468591c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_days_check",
+      "fingerprint": "900c6097023d41cb284e179ffc4c85ed"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_issued_by_fkey",
+      "fingerprint": "dfb99529e42b13591a9c0b307ce54850"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_project_id_fkey",
+      "fingerprint": "b27e1531042d8251d0834bb2996ea0c0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_recipient_id_fkey",
+      "fingerprint": "28a234fe184a7be1c5dc72d59bb3581e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_source_id_fkey",
+      "fingerprint": "e9f5d7f78bf31180f4847a7723accdec"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_source_revision_check",
+      "fingerprint": "55b012d23f79091bfa9b2bceb9a76a48"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_state_check",
+      "fingerprint": "763e61145b44fca193ca885e9595bff6"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_organization_shares.feasibility_organization_shares_company_invitation_id_fkey",
+      "fingerprint": "426a2800ff8b5999ed773be8b9cb84ae"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_invitation_audit(invitation private.feasibility_company_invitations, p_state text, p_actor uuid)",
+      "fingerprint": "4e62f1cbecd77828a417268aebe45647"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_invitations(p_action text, p_organization uuid, p_invitation uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text)",
+      "fingerprint": "45bca54214bb5983d0cd89361b7123d0"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_shares(p_action text, p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer)",
+      "fingerprint": "ea38f4bbf7b34261d7fa4ada63c95d53"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_shares_legacy(p_action text, p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer)",
+      "fingerprint": "a123c5bc410e9124ff9665256834c532"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_company_invitations(p_action text, p_organization uuid, p_invitation uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text)",
+      "fingerprint": "6b2c21f92694aba4fcd7cbbe18b3dd7b"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_company_directory.feasibility_company_directory_pkey",
+      "fingerprint": "9e098b0ddcaa14ed897e52842784f0f3"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_pkey",
+      "fingerprint": "9f4809f23d7e292b7fb0358b2cb43c33"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invite_recipient",
+      "fingerprint": "362dc81b66a0d981845ddc71f87e6938"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_company_invitations.feasibility_pending_company_invite",
+      "fingerprint": "a7478c98d37b09f7a83a186125884f7c"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.feasibility_company_directory",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.feasibility_company_invitations",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ],
+  "removals": []
+}

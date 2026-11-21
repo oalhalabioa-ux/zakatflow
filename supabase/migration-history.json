@@ -2113,6 +2113,14 @@
       "expected_md5": "a0eae696840888d19ebab5e1924d4f78",
       "file_sha256": "140d401ac6735faf753d097a7695cd3db0c4bccedacc5632929a96c01b539e70",
       "validation_project": "Isolated PGlite: personal sale and receipt reversal, FIFO reallocation, retry, audit and rollback"
+    },
+    {
+      "path": "supabase/migrations/20261121155500_feasibility_company_invitations.sql",
+      "version": "20261121155500",
+      "name": "feasibility_company_invitations",
+      "expected_md5": "8183c58dab8e25862add6319dd8a7259",
+      "file_sha256": "2984ae465c5ff8f423896c594c253db8f2fa51283484601d9e7d2cebf0b6221c",
+      "validation_project": "Isolated PostgreSQL rehearsal: legacy grants retained, invitation switch disabled by default, authorization and audited invite decisions"
     }
   ]
 }
