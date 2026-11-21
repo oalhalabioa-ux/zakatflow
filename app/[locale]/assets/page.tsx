@@ -379,8 +379,7 @@ export default function Assets({
   };
   const assetEditActions = detailAsset && <AssetEditActions key={detailAsset.id} asset={detailAsset}
     ar={ar} locale={locale} onEdit={mode => editRow(detailAsset,mode)}
-    onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}
-    onRefreshed={()=>{setDetailAsset(null);void load(false,true);}}/>;
+    onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}/>;
   const columnLabel = (column: AssetColumn) => {
     if (column === "date" && assetScope === "ORGANIZATION") return ar ? "تاريخ الاقتناء" : "Acquisition date";
     const definition = ASSET_COLUMNS.find(([key]) => key === column)!;

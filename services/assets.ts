@@ -11,7 +11,23 @@ import {resolveAssetEntryFx} from './asset-entry-fx';
 import {acquisitionValuation} from '@/lib/asset-entry-details';
 import {assetLedgerBalance,assetLifecycleStatus,assetZakatPayments,disposedAssetHistory,soldAssetHistory} from '@/lib/asset-ledger';
 
-function currentValuation(asset:any){const m=asset.metadata??{};const value=Number(m.market_value??m.estimated_value??m.purchase_value??m.opening_value??0);return{current_market_value:value,current_market_price:m.market_price_per_unit??m.market_price??null,current_valuation_date:m.market_valuation_date??null,current_valuation_source:m.market_price_source??(m.market_value_auto?'MARKET_PRICE':'ASSET_METADATA'),current_valuation_currency:m.market_price_currency??asset.currency,current_valuation_auto:Boolean(m.market_value_auto)}}
+function currentValuation(asset: any) {
+ const metadata = asset.metadata ?? {};
+ const source = metadata.market_price_source ?? null;
+ const sourceMode = metadata.market_price_source_mode === 'MANUAL' ||
+   source === 'MANUAL_MARKET_PRICE' || source === 'USER_MANUAL' ? 'MANUAL'
+   : source === 'ALYAWMGOLD_LIVE_SA' ? 'PROVIDER'
+   : source === 'ACQUISITION_COST' ? 'ACQUISITION' : 'RECORDED';
+ return {
+  current_market_value: Number(metadata.market_value ?? metadata.estimated_value ?? metadata.purchase_value ?? metadata.opening_value ?? 0),
+  current_market_price: metadata.market_price_per_unit ?? metadata.market_price ?? null,
+  current_valuation_date: metadata.market_valuation_date ?? null,
+  current_valuation_source: source ?? 'ASSET_METADATA',
+  current_price_source_mode: sourceMode,
+  current_valuation_currency: metadata.market_price_currency ?? asset.currency,
+  current_valuation_auto: metadata.market_value_auto === true,
+ };
+}
 export async function listAssets(){
  const {supabase,user}=await requireUser();
  const [accounts,lotResult,exits,profileResult,cycleResult,assessmentResult,allocationResult,orgResult,operationResult,methodResult]=await Promise.all([

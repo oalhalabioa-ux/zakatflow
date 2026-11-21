@@ -33,7 +33,8 @@ begin
 
   if can_write and (asset.asset_type in ('GOLD','SILVER','STOCK','REAL_ESTATE','INVENTORY')
      or (asset.asset_type = 'OTHER' and asset.asset_class_code in ('PPE','INTANGIBLE'))) then
-    valuation_mode := case when asset.asset_type in ('GOLD','SILVER') and asset.metadata->>'market_value_auto' = 'true' then 'AUTOMATIC' else 'MANUAL' end;
+    -- The saved quote's source and derived-value flag do not authorize refresh.
+    valuation_mode := 'MANUAL';
   end if;
 
   if can_write then
@@ -146,6 +147,8 @@ declare
   saved public.asset_accounts;
   next_metadata jsonb;
   basis_quantity numeric;
+  metal_purity numeric := 1;
+  recorded_purity text;
   valuation_currency text;
   trimmed_name text := btrim(p_name);
   policy jsonb;
@@ -178,7 +181,6 @@ begin
   trimmed_name := coalesce(trimmed_name, previous.name);
   next_metadata := previous.metadata;
   if p_market_price is not null then
-    if policy->>'valuation_mode' = 'AUTOMATIC' then raise exception 'ASSET_AUTOMATIC_VALUATION_REQUIRED'; end if;
     if policy->>'valuation_mode' is distinct from 'MANUAL' then
       raise exception 'ASSET_EDIT_VALUATION_UNSUPPORTED';
     end if;
@@ -192,6 +194,22 @@ begin
     if basis_quantity is null and jsonb_typeof(previous.metadata->'quantity') = 'number' then
       basis_quantity := (previous.metadata->>'quantity')::numeric;
     end if;
+    -- Preserve the basis of saved metal reference quotes, independent of source.
+    if previous.metadata->'market_value_auto' = 'true'::jsonb then
+      if previous.asset_type = 'GOLD' then
+        recorded_purity := coalesce(previous.metadata->>'karat','24');
+        if recorded_purity ~ '^[0-9]+([.][0-9]+)?$' and recorded_purity::numeric between 0.00000001 and 24 then
+          metal_purity := recorded_purity::numeric / 24;
+        end if;
+      elsif previous.asset_type = 'SILVER' then
+        recorded_purity := coalesce(previous.metadata->>'purity',previous.metadata->>'karat','999');
+        if recorded_purity ~ '^[0-9]+([.][0-9]+)?$' then
+          metal_purity := recorded_purity::numeric;
+          if metal_purity > 1 then metal_purity := metal_purity / 1000; end if;
+          if metal_purity <= 0 or metal_purity > 1 then metal_purity := 1; end if;
+        end if;
+      end if;
+    end if;
     valuation_currency := coalesce(nullif(previous.metadata->>'market_price_currency', ''), previous.currency);
     next_metadata := next_metadata || jsonb_build_object(
       'market_price', p_market_price,
@@ -199,12 +217,12 @@ begin
       'market_price_currency', valuation_currency,
       'market_price_source', 'USER_MANUAL',
       'market_valuation_date', (statement_timestamp() at time zone 'Asia/Riyadh')::date,
-      'market_value_auto', false
+      'market_price_source_mode', 'MANUAL'
     );
     if basis_quantity is not null and basis_quantity >= 0 then
       next_metadata := next_metadata || jsonb_build_object(
-        'market_value', basis_quantity * p_market_price,
-        'estimated_value', basis_quantity * p_market_price
+        'market_value', basis_quantity * p_market_price * metal_purity,
+        'estimated_value', basis_quantity * p_market_price * metal_purity
       );
     end if;
   end if;

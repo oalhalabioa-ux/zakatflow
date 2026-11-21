@@ -10,7 +10,7 @@ export type RegistrationLock = {code: "ACCESS" | "MOVEMENT" | "LIFECYCLE" | "ZAK
 type Availability = {
   asset_registration_can_edit: boolean;
   asset_market_valuation_can_update: boolean;
-  valuation_mode: "MANUAL" | "AUTOMATIC" | null;
+  valuation_mode: "MANUAL" | null;
   registration_lock: RegistrationLock | null;
   book: {gross: string; depreciation: string; net: number} | null;
 };
@@ -24,33 +24,17 @@ export function registrationLockText(lock: RegistrationLock | null, ar: boolean)
   return ar ? "بيانات التسجيل مقفلة لوجود حركة مرتبطة." : "Registration is locked by a linked transaction.";
 }
 
-export default function AssetEditActions({asset, ar, locale, onEdit, onReview, onRefreshed}: {
+export default function AssetEditActions({asset, ar, locale, onEdit, onReview}: {
   asset: {id: string; currency: string; current_value_currency?: string; current_valuation_date?: string;
     current_valuation_source?: string; current_valuation_currency?: string; current_market_price?: number;
-    current_valuation_auto?: boolean; current_market_value?: number; organization_id?: string};
+    current_market_value?: number; organization_id?: string};
   ar: boolean;
   locale: string;
   onEdit: (mode: AssetEditMode) => void;
   onReview: (id: string) => void;
-  onRefreshed: () => void;
 }) {
   const [policy, setPolicy] = useState<Availability>();
   const [failed, setFailed] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshFailed, setRefreshFailed] = useState(false);
-  async function refreshQuote() {
-    setRefreshing(true);
-    setRefreshFailed(false);
-    try {
-      const response = await fetch("/api/prices?live=1&asset_id="+encodeURIComponent(asset.id), {cache:"no-store"});
-      if (!response.ok) throw Error();
-      onRefreshed();
-    } catch {
-      setRefreshFailed(true);
-    } finally {
-      setRefreshing(false);
-    }
-  }
   useEffect(() => {
     const request = new AbortController();
     fetch("/api/assets?edit_asset_id="+encodeURIComponent(asset.id), {signal:request.signal, cache:"no-store"})
@@ -72,7 +56,6 @@ export default function AssetEditActions({asset, ar, locale, onEdit, onReview, o
     </dl>}
     {asset.current_market_price != null && <p className="muted">
       {ar?"سعر السوق للوحدة":"Market price per unit"} · <Money value={asset.current_market_price} currency={asset.current_valuation_currency ?? asset.currency} organizationId={asset.organization_id}/> · {asset.current_valuation_date ?? "—"} · {asset.current_valuation_source ?? "—"}
-      {asset.current_valuation_auto && (ar?" · تلقائي":" · Automatic")}
     </p>}
     {failed && <p role="alert">{ar?"تعذّر تحميل صلاحيات التعديل.":"Unable to load edit permissions."}</p>}
     {policy?.asset_registration_can_edit && <ActionButton icon="edit" showLabel
@@ -86,8 +69,5 @@ export default function AssetEditActions({asset, ar, locale, onEdit, onReview, o
     </p>}
     {policy?.valuation_mode === "MANUAL" && <ActionButton icon="trend" showLabel
       label={ar?"تحديث السعر السوقي":"Update market price"} onClick={()=>onEdit("valuation")}/>}
-    {policy?.valuation_mode === "AUTOMATIC" && <ActionButton icon="trend" showLabel disabled={refreshing}
-      label={ar?"تحديث السعر من المصدر":"Refresh price from source"} onClick={()=>void refreshQuote()}/>}
-    {refreshFailed && <p role="alert">{ar?"تعذّر تحديث السعر من المصدر.":"Unable to refresh the price from its source."}</p>}
   </div>;
 }

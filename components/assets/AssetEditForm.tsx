@@ -16,6 +16,7 @@ type EditableAsset = {
     market_price?: string | number;
     market_price_per_unit?: string | number;
     market_price_currency?: string;
+    market_value_auto?: boolean;
   };
 };
 
@@ -39,6 +40,7 @@ export default function AssetEditForm({asset, mode, ar, onClose, onSaved}: {
   const [invalid, setInvalid] = useState<"name" | "price" | null>(null);
   const canValue = mode === "valuation";
   const currency = asset.metadata?.market_price_currency || asset.currency;
+  const referenceQuote = asset.metadata?.market_value_auto === true && ["GOLD","SILVER"].includes(asset.asset_type);
 
   useEffect(() => {
     title.current?.focus({preventScroll: true});
@@ -121,7 +123,7 @@ export default function AssetEditForm({asset, mode, ar, onClose, onSaved}: {
                 value={name} onChange={event => setName(event.target.value)}/>
             </label>}
             {canValue && <label>
-              {t("سعر السوق للوحدة", "Market price per unit")} ({currency})
+              {referenceQuote ? t("السعر المرجعي للغرام", "Reference price per gram") : t("سعر السوق للوحدة", "Market price per unit")} ({currency})
               <input ref={priceInput} data-testid="asset-entry-market-unit" type="number" min="0" step="0.00000001"
                 aria-invalid={invalid === "price"} value={price} onChange={event => setPrice(event.target.value)}/>
             </label>}

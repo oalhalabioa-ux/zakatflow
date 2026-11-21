@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {execFileSync,spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createClient} from '@supabase/supabase-js';
@@ -15,6 +15,7 @@ const settings=JSON.parse(execFileSync('npx',['--yes','supabase@2.122.0','status
  {encoding:'utf8',stdio:['ignore','pipe','pipe']}));
 assert.equal(settings.API_URL,'http://127.0.0.1:54321');
 const app='http://localhost:3000';
+const providerTrace=root+'/provider-calls.log';
 const admin=createClient(settings.API_URL,settings.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const {chromium}=await import(process.env.ASSET_BROWSER_MODULE);
 const value=result=>{if(result.error)throw Error(result.error.message);return result.data;};
@@ -105,7 +106,7 @@ try {
   assessment_id:assessment.id,lot_id:lot.id,quantity:15,valuation_price:350,valuation_currency:'SAR',fx_rate:1,market_value:5250,eligible_value:5250,
   zakat_amount:131.25,eligibility_status:'ELIGIBLE',explanation:'Synthetic frozen valuation',
  }));
- let machine, depreciation, auto, stock, stockLot, finalAssessment, closedCycle, futureDate;
+ let machine, depreciation, retainedProviderGold, legacyGold, legacySilver, stock, stockLot, finalAssessment, closedCycle, futureDate;
  if (!before) {
   machine = value(await owner.client.rpc('create_asset_with_acquisition',{
    p_asset:{name:'QA Depreciated Machine',asset_type:'OTHER',asset_class_code:'PPE',asset_type_code:'MACHINERY',
@@ -123,10 +124,18 @@ try {
     : owner.client.rpc('transition_financial_event',{p_event_id:depreciation,p_new_status:p_status,p_note:'QA depreciation'});
    value(await action);
   }
-  ({asset:auto} = await seed(owner,'QA Automatic Gold',{...complete,market_price_per_unit:350,
+  ({asset:retainedProviderGold} = await seed(owner,'QA Saved Provider Gold',{...complete,market_price_per_unit:350,
    market_value_auto:true,market_price_source:'ALYAWMGOLD_LIVE_SA',market_valuation_date:'2025-01-01'}, {history:true}));
+  ({asset:legacyGold} = await seed(owner,'QA Manual Reference Gold',{
+   ...complete,karat:18,market_price_per_unit:350,market_value:2625,market_value_auto:true,
+   market_price_source:'MANUAL_MARKET_PRICE',market_price_currency:'SAR',market_fx_rate:1,market_valuation_date:'2025-04-30',
+  }, {history:true}));
+  ({asset:legacySilver} = await seed(owner,'QA Manual Reference Silver',{
+   ...complete,purity:925,market_price:10,market_price_per_unit:10,market_value:92.5,market_value_auto:true,
+   market_price_source:'MANUAL_MARKET_PRICE',market_price_currency:'SAR',market_fx_rate:1,market_valuation_date:'2025-04-30',
+  }, {history:true,type:'SILVER'}));
   value(await owner.client.rpc('post_sale_with_proceeds',{
-   p_user_id:owner.id,p_asset_account_id:auto.id,p_destination_account_id:bank.id,p_date:'2025-05-01',
+   p_user_id:owner.id,p_asset_account_id:legacyGold.id,p_destination_account_id:bank.id,p_date:'2025-05-01',
    p_quantity:2,p_sale_value:800,p_currency:'SAR',p_base_currency:'SAR',p_base_value:800,
   }));
   const zakatOwner = await user();
@@ -140,9 +149,10 @@ try {
  const snapshot = await finances(owner.id,assessment.id);
  const bankBefore = await dbAsset(bank.id);
  assert.equal(snapshot.transaction_allocations.length,before?2:3);
+ await writeFile(providerTrace,'');
  console.log("Starting the application");
  server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-H','127.0.0.1','-p','3000'],{
-  env:{...process.env,...(before?{}:{NODE_OPTIONS:`--require ${fileURLToPath(new URL('./metal-quote-fixture.cjs',import.meta.url))}`}),NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
+  env:{...process.env,ASSET_PROVIDER_TRACE:providerTrace,...(before?{}:{NODE_OPTIONS:`--require ${fileURLToPath(new URL('./metal-quote-fixture.cjs',import.meta.url))}`}),NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
    NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},cwd:process.env.ASSET_APP_DIR||process.cwd(), stdio:'inherit',
  });
  let ready=false;
@@ -284,7 +294,7 @@ try {
     assert.equal(listed.current_quantity,quantity);
     if (asset.id===oldGold.id) assert.equal(listed.current_cost_value,4500);
     const permitted = ['market_price','market_price_per_unit','market_value','estimated_value',
-     'market_price_currency','market_price_source','market_valuation_date','market_value_auto'];
+     'market_price_currency','market_price_source','market_valuation_date','market_value_auto','market_price_source_mode'];
     const unchanged = metadata=>Object.fromEntries(Object.entries(metadata).filter(([key])=>!permitted.includes(key)));
     assert.deepEqual(unchanged(persisted.metadata),unchanged(original.metadata));
     const [audit] = value(await admin.from('audit_logs').select('*').eq('entity_id',asset.id).eq('action','UPDATE_ASSET_MARKET_VALUATION'));
@@ -328,37 +338,85 @@ try {
   assert.deepEqual(await moveSnapshot(),postings);
   evidence.push({id:'V-14',quote:700,valuation:1400,book,postingsUnchanged:true,source:machineAfter.current_valuation_source,date:machineAfter.current_valuation_date});
 
-  console.log('V-15: automatic quote');
-  const autoBefore = await dbAsset(auto.id);
-  const autoPolicy = await policy(desktop,auto.id);
-  assert.equal(autoPolicy.asset_registration_can_edit,false);
-  assert.equal(autoPolicy.valuation_mode,'AUTOMATIC');
-  assert.equal((await put(desktop,autoBefore,{market_price:123})).status(),409);
+  console.log('V-15: legacy manual quotes and global refresh disabled');
   const denied = await context(browser,foreign,{width:390,height:844});
-  const livePath = app+'/api/prices?live=1&asset_id='+auto.id;
-  assert.equal((await denied.request.get(livePath)).status(),404);
-  const autoPage = activePage = await desktop.newPage();
-  await autoPage.goto(app+'/en/assets?scope=PERSONAL',{waitUntil:'domcontentloaded'});
-  await autoPage.getByRole('row').filter({hasText:auto.name}).getByRole('button',{name:'Details and actions',exact:true}).click();
-  await autoPage.getByRole('button',{name:'Refresh price from source',exact:true}).click();
-  await autoPage.getByRole('dialog').waitFor({state:'detached'});
-  const refreshed = await dbAsset(auto.id);
-  assert.equal(refreshed.metadata.market_price_per_unit,420);
-  await autoPage.reload({waitUntil:'domcontentloaded'});
-  await autoPage.getByRole('row').filter({hasText:auto.name}).getByRole('button',{name:'Details and actions',exact:true}).click();
-  const quoteLine = autoPage.getByText(/ALYAWMGOLD_LIVE_SA/);
-  await quoteLine.waitFor();
-  assert.match(await quoteLine.innerText(),/2026-10-01.*Automatic/);
-  const autoAfter = await assetRow(desktop,auto.id);
-  assert.equal(autoAfter.current_market_price,420);
-  assert.equal(autoAfter.current_quantity,8);
-  assert.equal(autoAfter.current_market_value,3360);
-  assert.equal(autoAfter.current_valuation_auto,true);
-  assert.equal(autoAfter.current_valuation_source,'ALYAWMGOLD_LIVE_SA');
-  assert.equal(autoAfter.current_valuation_date,'2026-10-01');
-  assert.equal(autoAfter.metadata.market_fx_rate,1);
-  await autoPage.screenshot({path:'asset-edit-qa/V-15-automatic.png'});
-  evidence.push({id:'V-15',quote:420,valuation:3360,mode:autoPolicy.valuation_mode,source:autoAfter.current_valuation_source,date:autoAfter.current_valuation_date});
+  const priceRows = async () => value(await admin.from('market_prices').select('*').order('id'));
+  const savedPrices = await priceRows();
+  const providerBefore = await dbAsset(retainedProviderGold.id);
+  assert.equal((await assetRow(desktop,retainedProviderGold.id)).current_price_source_mode,'PROVIDER');
+  for (const url of [
+   '/api/prices?live=1',
+   '/api/prices?live=1&asset_id='+retainedProviderGold.id,
+   '/api/prices?live=1&asset_id='+legacyGold.id,
+   '/api/prices?live=1&asset_id='+legacySilver.id,
+  ]) {
+   const response = await desktop.request.get(app+url);
+   assert.equal(response.status(),403);
+   assert.equal((await response.json()).error,'GLOBAL_METAL_PRICE_LINK_DISABLED');
+  }
+  assert.deepEqual(await dbAsset(retainedProviderGold.id),providerBefore);
+  const manualFixtures = [
+   {asset:legacyGold,oldQuote:350,newQuote:410,oldValue:2100,newValue:2460,storedTotal:3075,remaining:8},
+   {asset:legacySilver,oldQuote:10,newQuote:12,oldValue:92.5,newValue:111,storedTotal:111,remaining:10},
+  ];
+  for (const {asset,oldQuote,newQuote,oldValue,newValue,storedTotal,remaining} of manualFixtures) {
+   const original = await dbAsset(asset.id);
+   const old = await assetRow(desktop,asset.id);
+   assert.equal(old.current_price_source_mode,'MANUAL');
+   assert.equal(old.current_valuation_auto,true);
+   assert.equal(old.current_market_price,oldQuote);
+   assert.equal(old.current_market_value,oldValue);
+   const access = await policy(desktop,asset.id);
+   assert.equal(access.valuation_mode,'MANUAL');
+   if (asset.id===legacyGold.id) {
+    assert.equal(access.registration_lock.operation,'SALE');
+    const failed = await put(desktop,original,{name:'Locked by sale'});
+    assert.equal(failed.status(),409);
+   }
+   const page = activePage = await desktop.newPage();
+   const open = async () => {
+    await page.getByRole('row').filter({hasText:asset.name}).getByRole('button',{name:'Details and actions',exact:true}).click();
+   };
+   let browserLiveRequests = 0;
+   page.on('request', request=>{
+    const url = new URL(request.url());
+    if (url.pathname==='/api/prices' && url.searchParams.get('live')==='1') browserLiveRequests++;
+   });
+   await page.goto(app+'/en/assets?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+   await open();
+   const dialog = page.getByRole('dialog');
+   await dialog.getByText(/MANUAL_MARKET_PRICE/).waitFor();
+   const update = dialog.getByRole('button',{name:'Update market price',exact:true});
+   await update.waitFor();
+   assert.equal(await dialog.getByRole('button',{name:'Refresh price from source',exact:true}).count(),0);
+   assert.deepEqual(await dbAsset(asset.id),original);
+   await update.click();
+   await page.getByTestId('asset-entry-market-unit').fill(String(newQuote));
+   await page.getByRole('button',{name:'Save changes',exact:true}).click();
+   await page.locator('.asset-entry form').waitFor({state:'detached'});
+   await page.reload({waitUntil:'domcontentloaded'});
+   await open();
+   await dialog.getByText(/USER_MANUAL/).waitFor();
+   const persisted = await dbAsset(asset.id), after = await assetRow(desktop,asset.id);
+   assert.equal(after.current_price_source_mode,'MANUAL');
+   assert.equal(after.current_market_price,newQuote);
+   assert.equal(after.current_market_value,newValue);
+   assert.equal(after.current_quantity,remaining);
+   assert.equal(persisted.metadata.market_value,storedTotal);
+   assert.equal(persisted.metadata.market_value_auto,true);
+   assert.equal(persisted.metadata.market_fx_rate,original.metadata.market_fx_rate);
+   assert.equal(persisted.metadata.market_price_currency,original.metadata.market_price_currency);
+   assert.equal(persisted.metadata.purchase_value,original.metadata.purchase_value);
+   const audits = value(await admin.from('audit_logs').select('old_data,new_data').eq('entity_id',asset.id).eq('action','UPDATE_ASSET_MARKET_VALUATION'));
+   assert.deepEqual(audits,[{old_data:original,new_data:persisted}]);
+   assert.equal(browserLiveRequests,0);
+   await page.screenshot({path:`asset-edit-qa/V-15-${asset.asset_type}.png`});
+   await page.close();
+   evidence.push({id:'V-15',type:asset.asset_type,oldQuote,newQuote,oldValue,newValue,remaining,derivedValuePreserved:true,browserLiveRequests});
+  }
+  assert.deepEqual(await priceRows(),savedPrices);
+  assert.equal(await readFile(providerTrace,'utf8'),'');
+  evidence.push({id:'V-15',providerCalls:0,refreshStatus:403,referenceRowsUnchanged:true,existingProviderQuoteUnchanged:true});
 
   console.log('V-16: finalized Zakat');
   const tax = await context(browser,stock.qaOwner,{width:1440,height:960});

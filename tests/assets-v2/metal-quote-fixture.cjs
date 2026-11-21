@@ -1,16 +1,11 @@
-// Injected only in isolated Chromium QA. The application still runs the normal
-// provider parser, market-price storage, RLS checks and asset revaluation.
+// QA canary for server-side provider calls, including those invisible to Chromium.
+const {appendFileSync} = require('node:fs');
 const original = globalThis.fetch;
 globalThis.fetch = (input, options) => {
-  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-  if (url === 'https://alyawmgold.com/api/v1/spot/latest?country=SA') {
-    return Promise.resolve(Response.json({
-      country: {currency:'SAR'},
-      metals: {
-        gold: {units:{gram:420},quoteRecordedAtUtc:'2026-10-01T09:00:00Z'},
-        silver: {units:{gram:5},quoteRecordedAtUtc:'2026-10-01T09:00:00Z'},
-      },
-    }));
+  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  if (['alyawmgold.com','xaus.com'].includes(url.hostname)) {
+    appendFileSync(process.env.ASSET_PROVIDER_TRACE, url.hostname+'\n');
+    return Promise.resolve(new Response(null,{status:429}));
   }
   return original(input, options);
 };
