@@ -180,6 +180,10 @@ try{
   await page.getByRole('button',{name:arabic?'حفظ سند البيع':'Save sale voucher'}).click();
   const response=await posted;assert.ok(response.ok(),await response.text());
   const sale=await response.json();
+  await page.getByRole('button',{name:arabic?'بيع من حزم الذهب':'Sell from gold lots'}).waitFor();
+  await page.keyboard.press('Escape');
+  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await open();
   await page.reload();
   await open();
   const docs=value(await account.client.from('voucher_numbers').select('source_id,document_number').in('source_id',[sale.sale_transaction_id,sale.proceeds_transaction_id]));

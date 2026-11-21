@@ -33,4 +33,5 @@ jobs:
             -f supabase/modules/assets/apply_personal_sale_lots.sql \
             -f supabase/modules/assets/post_personal_gold_lot_sale.sql \
             -f supabase/modules/assets/personal_asset_grouped_sales.sql \
+            -f supabase/modules/assets/grouped_sale_protection.sql \
             -f tests/sql/personal-gold-lot-sale.sql

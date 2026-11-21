@@ -71,6 +71,24 @@ begin
     raise exception 'First asset gain is not 100'; end if;
   if (select gain_base from public.personal_asset_grouped_sales(second_asset,'2025-03-01')) is distinct from 300::numeric then
     raise exception 'Second asset gain is not 300'; end if;
+  begin
+    perform public.post_withdrawal(owner_id,bank,'2025-04-02',50,50,'SAR','SAR',50);
+    begin
+      perform public.reverse_grouped_gold_sale(sale_id,gen_random_uuid(),0,'QA used cash reversal');
+      raise exception 'Spent proceeds reversed';
+    exception when raise_exception then
+      if sqlerrm<>'SALE_CORRECTION_PROCEEDS_USED' then raise; end if;
+    end;
+    begin
+      perform public.amend_personal_sale_price(sale_id,gen_random_uuid(),0,410,'QA used cash amendment');
+      raise exception 'Spent proceeds amended';
+    exception when raise_exception then
+      if sqlerrm<>'SALE_CORRECTION_PROCEEDS_USED' then raise; end if;
+    end;
+    raise exception 'RESET_CASH_FIXTURE';
+  exception when raise_exception then
+    if sqlerrm<>'RESET_CASH_FIXTURE' then raise; end if;
+  end;
   insert into public.zakat_methods(id,code,name_ar,name_en) values(method_id,'QA481','اختبار','Test');
   insert into public.zakat_assessments(id,user_id,assessment_date,valuation_date,method_id,nisab_standard,
     nisab_quantity,nisab_value_base,zakat_rate,currency,assessment_kind)
@@ -83,6 +101,15 @@ begin
   exception when raise_exception then
     if sqlerrm<>'SALE_FINAL_ASSESSMENT' then raise; end if;
   end;
+  begin
+    perform public.amend_personal_sale_price(sale_id,gen_random_uuid(),0,405,'QA second asset snapshot');
+    raise exception 'Secondary asset snapshot ignored by amendment';
+  exception when raise_exception then
+    if sqlerrm<>'SALE_CORRECTION_FINAL_ASSESSMENT' then raise; end if;
+  end;
+  if (select base_value from public.transactions where id=sale_id)<>2400 or
+    (select sum(remaining_quantity) from public.lots where asset_account_id=bank)<>3160 then
+    raise exception 'Blocked operation changed ledger'; end if;
   perform set_config('request.jwt.claim.sub',outsider::text,true);
   if exists(select 1 from public.personal_asset_grouped_sales(first_asset,'2025-05-01')) then
     raise exception 'Foreign sale disclosed'; end if;
