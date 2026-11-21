@@ -8,6 +8,7 @@ declare
   banks jsonb;
   planned jsonb;
   posted jsonb;
+  history jsonb;
   price numeric;
   qty numeric;
   method text;
@@ -25,6 +26,16 @@ begin
       p_payload->>'method',p_payload->'selection');
     -- On mismatch raising here unwinds the entire sale, linked receipt, lots and audit.
     if posted->'allocations' is distinct from p_payload->'expected' then raise exception 'SALE_PREVIEW_CHANGED'; end if;
+    if not exists(select 1 from public.transactions where id=(posted->>'sale_transaction_id')::uuid and metadata ? 'lot_source_vouchers') then
+      select jsonb_object_agg(l.id::text,jsonb_build_object('asset',a.name,'date',l.acquisition_date,
+        'source',coalesce(v.document_number,t.reference,t.id::text))) into history
+      from public.transaction_allocations allocation join public.lots l on l.id=allocation.lot_id
+      join public.asset_accounts a on a.id=l.asset_account_id join public.transactions t on t.id=l.source_transaction_id
+      left join public.voucher_numbers v on v.source_table='transactions' and v.source_id=t.id
+      where allocation.transaction_id=(posted->>'sale_transaction_id')::uuid;
+      update public.transactions set metadata=metadata||jsonb_build_object('lot_source_vouchers',history)
+        where id=(posted->>'sale_transaction_id')::uuid and user_id=uid;
+    end if;
     return posted;
   end if;
   select coalesce(jsonb_agg(jsonb_build_object('id',l.id,'asset',a.name,'date',l.acquisition_date,

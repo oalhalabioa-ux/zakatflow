@@ -15,9 +15,11 @@ export function postedSaleSummary(record:{id:string;reference?:string|null;metad
   if(!result.success || !record.metadata?.lot_sale_request || !record.base_currency?.match(/^[A-Z]{3}$/) ||
     record.base_value==null || !Number.isFinite(Number(record.base_value))) return null;
   const data=result.data;
+  const sources=z.record(z.string(),z.object({asset:z.string(),date:z.string(),source:z.string()})).safeParse(record.metadata?.lot_source_vouchers);
   return {reference:record.reference||record.id,currency:record.base_currency,unit:ar?'غ':'g',
     method:data.method,proceeds:Number(record.base_value),cost:data.cost_base,realizedGain:data.realized_gain_base,
-    allocations:data.allocations.map(lot=>({lotId:lot.lot_id,lotLabel:(ar?'الحزمة ':'Lot ')+lot.lot_id,
+    allocations:data.allocations.map(lot=>({lotId:lot.lot_id,lotLabel:sources.success&&sources.data[lot.lot_id]?
+      [sources.data[lot.lot_id].asset,sources.data[lot.lot_id].source,sources.data[lot.lot_id].date].join(' · '):(ar?'الحزمة ':'Lot ')+lot.lot_id,
       quantity:lot.allocated_quantity,cost:lot.cost_base,remainingQuantity:lot.quantity_after,remainingCost:lot.cost_after}))};
 }
 

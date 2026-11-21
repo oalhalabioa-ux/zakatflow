@@ -52,7 +52,7 @@ export function soldAssetHistory(assetId:string,transactions:any[],allocations:a
   const sales=transactions.filter(t=>t.asset_account_id===assetId&&t.transaction_type==='SALE'&&!t.metadata?.lifecycle_reversed);
   let cost=new Decimal(0),known=true;
   for(const sale of sales){
-    const lines=allocations.filter(a=>a.transaction_id===sale.id);
+    const lines=allocations.filter(a=>a.transaction_id===sale.id&&(!sale.metadata?.lot_sale_request||a.asset_account_id===assetId));
     const amount=lines.length?lines.reduce((sum,a)=>sum.add(a.value_base??0),new Decimal(0)).toNumber():sale.metadata?.cost_basis_base;
     if(amount==null)known=false;else cost=cost.add(amount);
   }

@@ -161,7 +161,7 @@ try{
   const bank=value(await account.client.from('asset_accounts').insert({user_id:account.id,name:'QA Bank',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
   const page=await ctx.newPage();
   const open=async()=>{
-   await page.getByRole('row').filter({hasText:'Alpha'}).getByRole('button',{name:arabic?'التفاصيل والإجراءات':'Details and actions',exact:true}).click();
+   await page.getByRole('row').filter({hasText:arabic?'Alpha':'Beta'}).getByRole('button',{name:arabic?'التفاصيل والإجراءات':'Details and actions',exact:true}).click();
    await page.getByText(arabic?'كشف حركة الأصل':'Asset movement statement',{exact:true}).click();
   };
   await page.goto(app+'/'+locale+'/assets?scope=PERSONAL');
@@ -198,9 +198,20 @@ try{
   const allocations=async()=>value(await account.client.from('transaction_allocations').select('lot_id,quantity,value_base,allocation_method').eq('transaction_id',sale.sale_transaction_id).order('lot_id'));
   const original=await allocations();
   const amend=(revision,price,key)=>account.client.rpc('amend_personal_sale_price',{p_sale_id:sale.sale_transaction_id,p_request_id:key,p_expected_revision:revision,p_unit_price:price,p_reason:'QA grouped sale amendment'});
-  for(const [rev,price] of [[0,390],[1,405]]){
-   const key=randomUUID();
-   const accepted=value(await amend(rev,price,key));
+  for(const [rev,price] of [[0,390],[1,400]]){
+   const detail=page.locator('[data-asset-movement="SALE"]').filter({hasText:number});
+   await detail.locator('summary').click();
+   await detail.getByRole('button',{name:arabic?'تصحيح سعر السند':'Correct sale price'}).click();
+   await detail.getByLabel(arabic?'سعر البيع المصحح':'Corrected sale price').fill(String(price));
+   await detail.getByLabel(arabic?'سبب الإجراء':'Reason for change').fill('QA grouped sale amendment');
+   const corrected=page.waitForResponse(r=>r.url().includes('/rpc/amend_personal_sale_price'));
+   const refreshed=page.waitForResponse(r=>r.url().includes('/statement?'));
+   await detail.getByRole('button',{name:arabic?'حفظ التصحيح':'Save correction'}).click();
+   const confirmation=await corrected;
+   assert.ok(confirmation.ok(),await confirmation.text());
+   const key=confirmation.request().postDataJSON().p_request_id;
+   const accepted=await confirmation.json();
+   await refreshed;
    assert.deepEqual(value(await amend(rev,price,key)),accepted);
    assert.deepEqual(await allocations(),original);
    assert.equal(Number((await balances()).find(l=>l.asset_account_id===bank.id).remaining_quantity),6*price);
@@ -217,7 +228,7 @@ try{
   assert.match(attempts.find(r=>r.error).error.message,/SALE_PREVIEW_CHANGED|SALE_LOTS_UNAVAILABLE/);
   const all=await balances();
   assert.ok(all.every(l=>Number(l.remaining_quantity)>=0));
-  assert.equal(all.filter(l=>l.asset_account_id===bank.id).reduce((a,l)=>a+Number(l.remaining_quantity),0),3190);
+  assert.equal(all.filter(l=>l.asset_account_id===bank.id).reduce((a,l)=>a+Number(l.remaining_quantity),0),3160);
   const latestSale=attempts.find(r=>!r.error).data.sale_transaction_id;
   const reverse=(id,key,revision)=>account.client.rpc('reverse_grouped_gold_sale',{p_sale:id,p_request:key,p_revision:revision,p_reason:'QA paired sale reversal'});
   const rejected=await reverse(sale.sale_transaction_id,randomUUID(),2);
@@ -229,7 +240,7 @@ try{
   assert.deepEqual(value(await reverse(latestSale,reverseKey,0)),accepted);
   assert.deepEqual(await allocations(),original);
   const final=await balances();
-  assert.equal(final.filter(l=>l.asset_account_id===bank.id).reduce((a,l)=>a+Number(l.remaining_quantity),0),2430);
+  assert.equal(final.filter(l=>l.asset_account_id===bank.id).reduce((a,l)=>a+Number(l.remaining_quantity),0),2400);
   const key=randomUUID();
   value(await reverse(sale.sale_transaction_id,key,2));
   for(const [i,id] of sources.entries()){

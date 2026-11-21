@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import {financialAssetProjection} from './financial-asset-projection';
 import {openFinancialAccount} from './financial-account-opening';
 import {financialOpeningFromAsset} from '../lib/asset-entry';
@@ -19,7 +20,7 @@ export async function listAssets(){
  const [accounts,lotResult,exits,profileResult,cycleResult,assessmentResult,allocationResult,orgResult,operationResult,methodResult]=await Promise.all([
   supabase.from('asset_accounts').select('*').or('metadata->>archived.is.null,metadata->>archived.neq.true').order('created_at',{ascending:false}),
   supabase.from('lots').select('id,asset_account_id,original_quantity,remaining_quantity,remaining_value_base,hawl_start_date,hawl_due_date,acquisition_date,status,metadata'),
-  supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,quantity,base_value,metadata,created_at').in('transaction_type',['PURCHASE','SALE','ADJUSTMENT']).or('metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('created_at',{ascending:false}),
+  supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,quantity,unit_price,base_value,metadata,created_at').in('transaction_type',['PURCHASE','SALE','ADJUSTMENT']).or('metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('created_at',{ascending:false}),
   supabase.from('profiles').select('base_currency,zakat_method_id').eq('id',user.id).single(),
   supabase.from('zakat_hawl_cycles').select('id,cycle_no,hawl_start_date,hawl_due_date,status,assessment_id,final_assessment_id,snapshot').eq('user_id',user.id).order('cycle_no',{ascending:false}),
   supabase.from('zakat_assessments').select('id,assessment_date,valuation_date,status,nisab_value_base,zakat_rate,calculation_snapshot,hawl_cycle_id,currency,superseded_by').eq('user_id',user.id).neq('status','CANCELLED').order('assessment_date',{ascending:false}).order('created_at',{ascending:false}),
@@ -33,11 +34,22 @@ export async function listAssets(){
  const periodResult=configuredMethod?await supabase.rpc('zakat_lot_hawl_periods',{p_calendar:configuredMethod.calendar_type}):{data:[],error:null};
  if(periodResult.error)throw periodResult.error;
  const currentPeriods=new Map<string,any>((periodResult.data??[]).map((p:any)=>[p.lot_id,p]));
- const activeExits=(exits.data??[]).filter((t:any)=>!t.metadata?.lifecycle_reversed&&!t.metadata?.sale_correction_replacement_id);
- const saleIds=activeExits.filter((t:any)=>t.transaction_type==='SALE').map((t:any)=>t.id);
- const exitAllocationResult=saleIds.length?await supabase.from('transaction_allocations').select('transaction_id,value_base').in('transaction_id',saleIds):{data:[],error:null};
+ const headers=(exits.data??[]).filter((t:any)=>!t.metadata?.lifecycle_reversed&&!t.metadata?.sale_correction_replacement_id);
+ const saleIds=headers.filter((t:any)=>t.transaction_type==='SALE').map((t:any)=>t.id);
+ const exitAllocationResult=saleIds.length?await supabase.from('transaction_allocations').select('transaction_id,lot_id,quantity,value_base').in('transaction_id',saleIds):{data:[],error:null};
  if(exitAllocationResult.error)throw exitAllocationResult.error;
  const lots=lotResult.data??[],cycles=cycleResult.data??[],assessments=assessmentResult.data??[];
+ const lotOwners=new Map(lots.map(l=>[l.id,l.asset_account_id]));
+ const assetLines=(exitAllocationResult.data??[]).map(l=>({...l,asset_account_id:lotOwners.get(l.lot_id)}));
+ const activeExits=headers.flatMap(tx=>{
+  if(!tx.metadata?.lot_sale_request)return [tx];
+  const portions=new Map<string,Decimal>();
+  for(const line of assetLines.filter(l=>l.transaction_id===tx.id)){
+   if(!line.asset_account_id)throw Error('ASSET_STATEMENT_ALLOCATION');
+   portions.set(line.asset_account_id,(portions.get(line.asset_account_id)??new Decimal(0)).plus(line.quantity));
+  }
+  return Array.from(portions,([asset_account_id,qty])=>({...tx,asset_account_id,quantity:qty.toNumber(),base_value:qty.times(tx.unit_price).toNumber()}));
+ });
  const activeCycle=cycles.find((c:any)=>['OPEN','ACTIVE'].includes(c.status));
  const displayCycle=[...cycles].reverse().find((c:any)=>c.final_assessment_id&&c.status!=='PAID')??activeCycle??cycles.find((c:any)=>c.final_assessment_id||c.assessment_id);
  const selectedId=displayCycle?.final_assessment_id??displayCycle?.assessment_id;
@@ -61,10 +73,10 @@ export async function listAssets(){
   return {...a,financial_event_status:eventStatuses.get(purchase?.metadata?.financial_event_id)??null,pending_purchase_cost_base:assetLots.filter((l:any)=>l.metadata?.recognition_pending).reduce((v:number,l:any)=>v+Number(l.remaining_value_base||0),0),financial_review_events:reviews,acquisition_transaction_id:purchase?.metadata?.financial_event_id?purchase?.id:null,financial_event_id:purchase?.metadata?.financial_event_id??null,...currentValuation(a),...balance,has_financial_history:assetLots.length>0,lots:assetLots.filter((l:any)=>Number(l.remaining_quantity)>0).map((l:any)=>({...l,current_hawl_start_date:currentPeriods.get(l.id)?.hawl_start_date??null,current_hawl_due_date:currentPeriods.get(l.id)?.hawl_due_date??null})),lifecycle_status,
    lifecycle_exit_date:lifecycle_status==='ACTIVE'?null:exit?.transaction_date??null,
    ...disposedAssetHistory(a.id,exits.data??[]),
-   ...soldAssetHistory(a.id,activeExits,exitAllocationResult.data??[]),
+   ...soldAssetHistory(a.id,activeExits,assetLines),
    exit_history:activeExits.filter((t:any)=>t.asset_account_id===a.id&&(t.transaction_type==='SALE'||t.metadata?.reason==='DISPOSAL_ZERO_VALUE')).map((t:any)=>({
     id:t.id,date:t.transaction_date,kind:t.transaction_type==='SALE'?'SOLD':'DISPOSED',quantity:Number(t.quantity||0),
-    cost:t.transaction_type==='SALE'?soldAssetHistory(a.id,[t],exitAllocationResult.data??[]).sold_cost_value:disposedAssetHistory(a.id,[t]).disposed_cost_value,
+    cost:t.transaction_type==='SALE'?soldAssetHistory(a.id,[t],assetLines).sold_cost_value:disposedAssetHistory(a.id,[t]).disposed_cost_value,
     proceeds:t.transaction_type==='SALE'?Number(t.base_value||0):0
    })),
    lifecycle_exit_value:lifecycle_status==='SOLD'?Number(exit?.base_value||0):0};

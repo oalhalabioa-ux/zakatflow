@@ -84,6 +84,7 @@ begin
   cash_reversal:=public.reverse_transaction(uid,receipt);
   sale_reversal:=public.reverse_transaction(uid,p_sale);
   result_data:=jsonb_build_object('sale_reversal_id',sale_reversal,'receipt_reversal_id',cash_reversal);
+  update public.transactions set metadata=metadata||jsonb_build_object('lifecycle_reversed',true) where id=p_sale;
   update private.grouped_sale_reversals set result=result_data where sale_id=p_sale;
   insert into public.audit_logs(user_id,entity_type,entity_id,action,new_data) values(uid,'transaction',p_sale,
     'REVERSE_GROUPED_GOLD_SALE',result_data||jsonb_build_object('reason',trim(p_reason),'request',p_request));
