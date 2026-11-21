@@ -68,27 +68,29 @@ export default function CompanyStudyInvitations({ locale, organization, project,
       const response = await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, invitation, organization }),
+        signal: AbortSignal.timeout(10000),
       });
       const result = await response.json();
       if (response.status === 409 && result.error === 'FEASIBILITY_COMPANY_INVITATION_RESOLVED') {
-        setFeedback({ error: false, text: ar ? 'حُسمت هذه الدعوة بالفعل. تم طلب تحديث القائمة.'
+        setFeedback({ error: false, text: ar ? 'حُسمت هذه الدعوة بالفعل. يجري تحديث القائمة.'
           : 'This invitation was already decided. Refreshing the list.' });
-        setRefresh(value => value + 1);
-        onChanged?.();
         return;
       }
       if (!response.ok) throw Error(result.error);
       const state = result.state as State;
       setFeedback({ error: state === 'expired', text: names[state][language] });
-      setRefresh(value => value + 1);
-      onChanged?.();
     } catch (error) {
       const stale = error instanceof Error && error.message === 'FEASIBILITY_STALE_SHARE_REVISION';
-      setFeedback({ error: true, text: stale
+      const timedOut = error instanceof DOMException && error.name === 'TimeoutError';
+      const text = stale
         ? (ar ? 'تغير إصدار الدراسة. اطلب من المؤسسة المرسلة إرسال دعوة جديدة.' : 'The study revision changed. Ask the sender for a new invitation.')
-        : (ar ? 'تعذر إتمام الإجراء. حدّث قائمة الدعوات وحاول مجددًا.' : 'Could not complete the action. Refresh the invitations and try again.') });
-      setRefresh(value => value + 1);
+        : timedOut
+          ? (ar ? 'انتهت مهلة الرد. يجري التحقق من حالة الدعوة.' : 'The response timed out. Checking the invitation status.')
+          : (ar ? 'تعذر إتمام الإجراء. يجري تحديث القائمة.' : 'Could not complete the action. Refreshing the list.');
+      setFeedback({ error: !timedOut, text });
     } finally {
+      setRefresh(value => value + 1);
+      onChanged?.();
       setBusy(false);
     }
   }
