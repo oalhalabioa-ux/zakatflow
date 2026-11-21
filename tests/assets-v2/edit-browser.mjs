@@ -32,6 +32,8 @@ async function user(){
 
 async function context(browser,account,viewport){
  const ctx=await browser.newContext({viewport});
+ ctx.setDefaultTimeout(20000);
+ ctx.setDefaultNavigationTimeout(45000);
  await ctx.addCookies(account.cookies.map(({name,value})=>({name,value,url:app})));
  await ctx.addInitScript(()=>localStorage.setItem('zf-theme','yaqeen-business'));
  return ctx;
@@ -73,7 +75,7 @@ const legacy = {quantity: 10, purchase_price: 300, purchase_value: 3000, market_
 const complete = {...legacy, acquisition_mode: 'OPENING_BALANCE', purchase_date: '2025-01-01', fx_rate: 1};
 const dbAsset = async id => value(await admin.from('asset_accounts').select('*').eq('id',id).single());
 const evidence = [];
-let server, browser;
+let server, browser, activePage;
 try {
  const owner = await user(), foreign = await user();
  const {id:organization} = value(await owner.client.from('organizations').insert({
@@ -156,7 +158,8 @@ try {
   {asset:completeAsset, locale:'en', ctx:desktop, price:375},
  ];
  for (const {asset,locale,ctx,block,price} of cases) {
-  const page = await ctx.newPage();
+  const page = activePage = await ctx.newPage();
+  console.log(before?'Before:':'After:', asset.name);
   page.on('pageerror', error => console.error('Browser error:',error.message));
   const ar = locale === 'ar';
   const scope = asset.ownership_scope;
@@ -301,6 +304,7 @@ try {
   const moveSnapshot = async () => Promise.all(['financial_events','financial_event_lines','asset_lifecycle_commands'].map(async table=>
    value(await admin.from(table).select('*').eq('organization_id',organization).order('id'))));
   const postings = await moveSnapshot();
+  console.log("V-14: posted depreciation");
   const machineBefore = await dbAsset(machine.id);
   const machinePolicy = await policy(desktop,machine.id);
   assert.equal(machinePolicy.registration_lock.operation,'DEPRECIATION');
@@ -319,6 +323,7 @@ try {
   assert.deepEqual(await moveSnapshot(),postings);
   evidence.push({id:'V-14',quote:700,valuation:1400,book,postingsUnchanged:true,source:machineAfter.current_valuation_source,date:machineAfter.current_valuation_date});
 
+  console.log('V-15: automatic quote');
   const autoBefore = await dbAsset(auto.id);
   const autoPolicy = await policy(desktop,auto.id);
   assert.equal(autoPolicy.asset_registration_can_edit,false);
@@ -327,7 +332,7 @@ try {
   const denied = await context(browser,foreign,{width:390,height:844});
   const livePath = app+'/api/prices?live=1&asset_id='+auto.id;
   assert.equal((await denied.request.get(livePath)).status(),404);
-  const autoPage = await desktop.newPage();
+  const autoPage = activePage = await desktop.newPage();
   await autoPage.goto(app+'/en/assets?scope=PERSONAL',{waitUntil:'domcontentloaded'});
   await autoPage.getByRole('row').filter({hasText:auto.name}).getByRole('button',{name:'Details and actions',exact:true}).click();
   const syncing = autoPage.waitForResponse(res=>res.url()===livePath);
@@ -350,6 +355,7 @@ try {
   await autoPage.screenshot({path:'asset-edit-qa/V-15-automatic.png'});
   evidence.push({id:'V-15',quote:420,valuation:3360,mode:autoPolicy.valuation_mode,source:autoAfter.current_valuation_source,date:autoAfter.current_valuation_date});
 
+  console.log('V-16: finalized Zakat');
   const tax = await context(browser,stock.qaOwner,{width:1440,height:960});
   async function assess(date) {
    const response = await tax.request.post(app+'/api/assessments',{data:{
@@ -401,11 +407,20 @@ try {
  await writeFile(
   `asset-edit-qa/${before?'before':'after'}.json`, JSON.stringify(evidence,null,2)+'\n',
  );
+} catch (error) {
+ if (activePage && !activePage.isClosed()) {
+  try { await activePage.screenshot({path:'asset-edit-qa/failure.png',timeout:2000}); } catch {}
+ }
+ throw error;
 } finally {
  await browser?.close();
  if (server) {
   const exited = new Promise(resolve => server.once('exit',resolve));
   server.kill();
-  if (server.exitCode === null && server.signalCode === null) await exited;
+  if (server.exitCode === null && server.signalCode === null) {
+   const hardStop = setTimeout(()=>server.kill('SIGKILL'),5000);
+   await exited;
+   clearTimeout(hardStop);
+  }
  }
 }
