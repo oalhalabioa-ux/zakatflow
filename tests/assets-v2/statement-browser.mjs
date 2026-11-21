@@ -200,6 +200,11 @@ try{
   console.log('GROUPED_VOUCHERS',locale,JSON.stringify(docs));
   const balances=async()=>value(await account.client.from('lots').select('id,asset_account_id,remaining_quantity,remaining_value_base').eq('user_id',account.id).order('id'));
   const allocations=async()=>value(await account.client.from('transaction_allocations').select('lot_id,quantity,value_base,allocation_method').eq('transaction_id',sale.sale_transaction_id).order('lot_id'));
+  const registry=await (await ctx.request.get(app+'/api/assets')).json();
+  const perAsset=sources.map(id=>registry.find(item=>item.id===id));
+  assert.deepEqual(perAsset.map(item=>item.sold_cost_value),arabic?[300,1700]:[1200,680]);
+  assert.equal(perAsset.reduce((total,item)=>total+item.sold_proceeds_value,0),2400);
+  assert.equal(perAsset.reduce((total,item)=>total+item.current_cost_value,0),arabic?1240:1360);
   const original=await allocations();
   const amend=(revision,price,key)=>account.client.rpc('amend_personal_sale_price',{p_sale_id:sale.sale_transaction_id,p_request_id:key,p_expected_revision:revision,p_unit_price:price,p_reason:'QA grouped sale amendment'});
   for(const [rev,price] of [[0,390],[1,400]]){
@@ -245,8 +250,16 @@ try{
   assert.deepEqual(await allocations(),original);
   const final=await balances();
   assert.equal(final.filter(l=>l.asset_account_id===bank.id).reduce((a,l)=>a+Number(l.remaining_quantity),0),2400);
-  const key=randomUUID();
-  value(await reverse(sale.sale_transaction_id,key,2));
+  await page.reload();
+  await open();
+  const originalDetail=page.locator('[data-asset-movement="SALE"]').filter({hasText:number});
+  await originalDetail.locator('summary').click();
+  await originalDetail.getByRole('button',{name:arabic?'عكس البيع والقبض':'Reverse sale and receipt'}).click();
+  await originalDetail.getByLabel(arabic?'سبب الإجراء':'Reason for change').fill('QA paired sale reversal');
+  const reversalResponse=page.waitForResponse(r=>r.url().includes('/rpc/reverse_grouped_gold_sale'));
+  await originalDetail.getByRole('button',{name:arabic?'تأكيد عكس البيع والقبض':'Confirm sale and receipt reversal'}).click();
+  const reversed=await reversalResponse;
+  assert.ok(reversed.ok(),await reversed.text());
   for(const [i,id] of sources.entries()){
    const current=(await statement(ctx,id)).payload;
    assert.equal(current.reconciliation,'MATCHED');

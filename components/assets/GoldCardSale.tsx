@@ -26,7 +26,13 @@ export default function GoldCardSale({id,date,ar,onBack,onSaved}:{id:string;date
    const selection=method==='MANUAL'?Object.entries(lines).filter(([,v])=>Number(v)>0).map(([id,v])=>({id,quantity:v})):[];
    const payload={method,quantity:qty,price,bank,selection,...(preview?{request:request.current,expected:preview.allocations}:{})};
    const {data,error}=await supabaseBrowser().rpc('gold_card_sale',{p_asset:id,p_date:date,p_payload:payload});
-   if(error){if(error.message==='SALE_PREVIEW_CHANGED')setPreview(null);throw Error(error.message);}
+   if(error){
+    if(error.message==='SALE_PREVIEW_CHANGED'){
+     setPreview(null);
+     throw Error(t('تغيّر رصيد الحزم. أعد معاينة البيع قبل الحفظ.','Lot balances changed. Preview the sale again before saving.'));
+    }
+    throw Error(error.message);
+   }
    if(preview)onSaved();else{request.current=crypto.randomUUID();setPreview(data);}
   }catch(e){setError(e instanceof Error?e.message:String(e));}
   finally{locked.current=false;setBusy(false);}

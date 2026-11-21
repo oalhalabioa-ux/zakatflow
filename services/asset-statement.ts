@@ -94,7 +94,12 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
  ]);
 
  const statement=buildAssetStatement({asOf:options.asOf,baseCurrency,organizational,transactions,lots,commands,
-  events,reversals,allocations:[...allocations,...lotLines.filter(line=>groupedIds.has(line.transaction_id))],amendments});
+  events,reversals,allocations:[...allocations,...lotLines.filter(line=>groupedIds.has(line.transaction_id))],
+  amendments:amendments.map(change=>{
+   const portion=groupedIds.has(change.entity_id)?transactions.find(tx=>tx.id===change.entity_id):null;
+   if(!portion||change.new_data?.unit_price==null)return change;
+   return {...change,new_data:{...change.new_data,sale_amount:new Decimal(portion.quantity).mul(change.new_data.unit_price).toString()}};
+  })});
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const knownSources=new Set(transactions.map(tx=>tx.id));
  const missingSource=lots.some(lot=>!lot.metadata?.recognition_pending&&!knownSources.has(lot.source_transaction_id));
