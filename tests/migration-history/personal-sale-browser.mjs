@@ -10,7 +10,8 @@ const root = process.env.HISTORY_QA_WORKDIR;
 assert.ok(root && process.env.RUNNER_TEMP && root.startsWith(process.env.RUNNER_TEMP+'/'));
 const status = JSON.parse(execFileSync('npx',['--yes','supabase@2.122.0','status','--workdir',root,'--output','json'],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
 assert.equal(status.API_URL,'http://127.0.0.1:54321');
-const app = 'http://127.0.0.1:3000';
+// Match the local origin reconstructed by Next for route handlers.
+const app = 'http://localhost:3000';
 const admin = createClient(status.API_URL,status.SERVICE_ROLE_KEY,{
   auth:{autoRefreshToken:false,persistSession:false},
 });
@@ -110,8 +111,8 @@ try {
   const correctedResponse=page.waitForResponse(r=>r.request().method()==='POST' && r.url().endsWith('/api/transactions/'+fixture.sale.sale_transaction_id));
   await dialog.getByRole('button',{name:'حفظ التصحيح',exact:true}).click();
   const posted=await correctedResponse;
-  assert.equal(posted.status(),201,await posted.text());
   const corrected=await posted.json();
+  assert.equal(posted.status(),201,JSON.stringify(corrected));
   await dialog.getByText('تم حفظ سند البيع المصحح وربطه بالسند الأصلي').waitFor();
   await dialog.getByRole('link',{name:/عرض سند البيع الأصلي/}).waitFor();
 
