@@ -1,0 +1,10 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.edit_asset_details(p_asset_id uuid, p_expected_updated_at timestamp with time zone, p_name text, p_market_price numeric)",
+      "fingerprint": "12a358afe958c6e6f4564dc09bc0b5a6"
+    }
+  ]
+}
