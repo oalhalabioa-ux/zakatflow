@@ -35,7 +35,8 @@ import AssetsPageToolbar from "@/components/assets/AssetsPageToolbar";
 import ActionButton,{ActionIconGlyph} from "@/components/ActionButton";
 import DetailsDialog from "@/components/assets/DetailsDialog";
 import AssetDetails from "@/components/assets/AssetDetails";
-import AssetEditForm, {canEditAssetValuation} from "@/components/assets/AssetEditForm";
+import AssetEditForm from "@/components/assets/AssetEditForm";
+import AssetEditActions, {type AssetEditMode} from "@/components/assets/AssetEditActions";
 import AssetPurchasePanel from "@/components/assets/AssetPurchasePanel";
 import {assetPurchaseAmounts,assetPurchaseStatus} from "@/lib/asset-purchase-workspace";
 import {isAssetPurchaseAllowed} from "@/lib/assets-acquisition";
@@ -371,10 +372,15 @@ export default function Assets({
           ? "البيانات غير متاحة"
           : "Data unavailable"
         : source;
-  const editRow = (asset: any) => {
+  const editRow = (asset: any, mode: AssetEditMode) => {
     closeAssetForm();
-    setEditAsset(asset);
+    setEditAsset({...asset, mode});
+    setDetailAsset(null);
   };
+  const assetEditActions = detailAsset && <AssetEditActions key={detailAsset.id} asset={detailAsset}
+    ar={ar} locale={locale} onEdit={mode => editRow(detailAsset,mode)}
+    onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}
+    onRefreshed={()=>{setDetailAsset(null);void load(false,true);}}/>;
   const columnLabel = (column: AssetColumn) => {
     if (column === "date" && assetScope === "ORGANIZATION") return ar ? "تاريخ الاقتناء" : "Acquisition date";
     const definition = ASSET_COLUMNS.find(([key]) => key === column)!;
@@ -613,10 +619,10 @@ export default function Assets({
         <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{selectedMetric.title}</th></tr></thead><tbody>{selectedMetric.rows.map(r=><tr key={r.id}><td>{r.name}</td><td>{typeName(r)}</td><td>{selectedMetric.detail(r)}</td></tr>)}</tbody></table></div>
         {!selectedMetric.rows.length&&<p className="muted">{ar?"لا توجد أصول مطابقة لهذا المؤشر.":"No matching assets for this indicator."}</p>}
       </section>}
-      {detailAsset&&<DetailsDialog label={ar?"تفاصيل الأصل والإجراءات":"Asset details and actions"} onClose={()=>setDetailAsset(null)}>{(detailAsset.financial_event_id?<AssetPurchasePanel key={detailAsset.id} assetId={detailAsset.id} ar={ar} onChanged={()=>void load()} onClose={()=>setDetailAsset(null)} extraActions={<><ActionButton icon="edit" label={canEditAssetValuation(detailAsset)?(ar?"تعديل الاسم والتقييم الحالي":"Edit name and current valuation"):(ar?"تعديل اسم الأصل":"Edit asset name")} onClick={()=>{editRow(detailAsset);setDetailAsset(null);}}/>{detailAsset.current_quantity>0&&<ActionButton icon="operations" label={ar?"بيع أو إهلاك أو استبعاد":"Sale, depreciation or disposal"} onClick={()=>{setOperationAsset(detailAsset);setDetailAsset(null);}}/>}{detailAsset.financial_review_events?.map((e:any,i:number)=><ActionButton icon="history" key={e.id} label={`${ar?"السجل والمراجعة المالية":"Financial review and history"}${detailAsset.financial_review_events.length>1?` (${i+1})`:''}`} onClick={()=>{setReviewEvent({id:e.id,name:detailAsset.name});setDetailAsset(null);}}/>)}</>}/>:<AssetDetails key={detailAsset.id} asset={detailAsset} ar={ar} onOpeningChanged={()=>{setDetailAsset(null);void load();}} onClose={()=>setDetailAsset(null)} onEdit={()=>{editRow(detailAsset);setDetailAsset(null);}} onLifecycle={()=>{if(detailAsset.ownership_scope==="ORGANIZATION")setOperationAsset(detailAsset);else window.location.href=`/${locale}/transactions`;setDetailAsset(null);}} onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}/>)}</DetailsDialog>}
+      {detailAsset&&<DetailsDialog label={ar?"تفاصيل الأصل والإجراءات":"Asset details and actions"} onClose={()=>setDetailAsset(null)}>{(detailAsset.financial_event_id?<AssetPurchasePanel key={detailAsset.id} assetId={detailAsset.id} ar={ar} onChanged={()=>void load()} onClose={()=>setDetailAsset(null)} extraActions={<>{assetEditActions}{detailAsset.current_quantity>0&&<ActionButton icon="operations" label={ar?"بيع أو إهلاك أو استبعاد":"Sale, depreciation or disposal"} onClick={()=>{setOperationAsset(detailAsset);setDetailAsset(null);}}/>}{detailAsset.financial_review_events?.map((e:any,i:number)=><ActionButton icon="history" key={e.id} label={`${ar?"السجل والمراجعة المالية":"Financial review and history"}${detailAsset.financial_review_events.length>1?` (${i+1})`:''}`} onClick={()=>{setReviewEvent({id:e.id,name:detailAsset.name});setDetailAsset(null);}}/>)}</>}/>:<AssetDetails key={detailAsset.id} asset={detailAsset} ar={ar} onOpeningChanged={()=>{setDetailAsset(null);void load();}} onClose={()=>setDetailAsset(null)} editActions={assetEditActions} onLifecycle={()=>{if(detailAsset.ownership_scope==="ORGANIZATION")setOperationAsset(detailAsset);else window.location.href=`/${locale}/transactions`;setDetailAsset(null);}} onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}/>)}</DetailsDialog>}
       {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><ActionButton icon="close" label={ar?"إغلاق المراجعة":"Close review"} onClick={()=>setReviewEvent(null)}/></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
       {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
-      {editAsset&&<AssetEditForm key={editAsset.id} asset={editAsset} ar={ar}
+      {editAsset&&<AssetEditForm key={editAsset.id} asset={editAsset} mode={editAsset.mode} ar={ar}
         onClose={()=>setEditAsset(null)} onSaved={()=>{
           setEditAsset(null);
           setMsg(ar?"تم حفظ تعديل بيانات الأصل.":"Asset details saved.");

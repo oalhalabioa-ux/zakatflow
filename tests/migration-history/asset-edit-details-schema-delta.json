@@ -3,8 +3,23 @@
   "upserts": [
     {
       "category": "function",
+      "object_key": "public.asset_edit_availability(p_asset_id uuid)",
+      "fingerprint": "2ca8ef70937a15479c4f46993c26f60e"
+    },
+    {
+      "category": "function",
       "object_key": "public.edit_asset_details(p_asset_id uuid, p_expected_updated_at timestamp with time zone, p_name text, p_market_price numeric)",
-      "fingerprint": "12a358afe958c6e6f4564dc09bc0b5a6"
+      "fingerprint": "3165571df9d5ec993fa55a5e0df33356"
+    },
+    {
+      "category": "function",
+      "object_key": "public.guard_asset_registration_fields()",
+      "fingerprint": "f82b014be51e200935cdedfbee6e5ce6"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.asset_accounts.trg_asset_registration_fields",
+      "fingerprint": "2e4fb8b57231423bf0193e92f317e96d"
     }
   ]
 }

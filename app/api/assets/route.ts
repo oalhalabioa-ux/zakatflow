@@ -1,17 +1,26 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createAsset,listAssets,updateAsset } from '@/services/assets';
+import { assetEditAvailability,createAsset,listAssets,updateAsset } from '@/services/assets';
 
 const assetEdit = z.strictObject({
   id: z.uuid(),
   expected_updated_at: z.iso.datetime({ offset: true }),
-  name: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(120).optional(),
   market_price: z.number().finite().nonnegative().optional(),
-});
+}).refine(input => (input.name === undefined) !== (input.market_price === undefined));
 
-export async function GET(){
-  try{return NextResponse.json(await listAssets())}
-  catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:500})}
+export async function GET(req: Request) {
+  const id = new URL(req.url).searchParams.get('edit_asset_id');
+  if (id !== null && !z.uuid().safeParse(id).success) {
+    return NextResponse.json({error:'ASSET_EDIT_INPUT_INVALID'}, {status:400});
+  }
+  try {
+    return NextResponse.json(id === null ? await listAssets() : await assetEditAvailability(id),
+      {headers:{'Cache-Control':'no-store'}});
+  } catch (error) {
+    const code = (error as {message?: string})?.message;
+    return NextResponse.json({error:code}, {status:code==='UNAUTHORIZED'?401:code==='ASSET_NOT_FOUND'?404:500});
+  }
 }
 
 export async function POST(req:Request){
@@ -32,11 +41,18 @@ export async function PUT(req: Request) {
       ASSET_NOT_FOUND: 404,
       ASSET_EDIT_ACCESS_DENIED: 403,
       ASSET_EDIT_CONFLICT: 409,
+      ASSET_REGISTRATION_LOCKED: 409,
+      ASSET_AUTOMATIC_VALUATION_REQUIRED: 409,
       ASSET_EDIT_NAME_INVALID: 400,
       ASSET_EDIT_PRICE_INVALID: 400,
       ASSET_EDIT_VALUATION_UNSUPPORTED: 400,
     };
     const status = code && Object.hasOwn(statuses, code) ? statuses[code] : 500;
-    return NextResponse.json({error: status === 500 ? 'ASSET_EDIT_FAILED' : code}, {status});
+    const info = error as {details?: string};
+    let registration_lock;
+    if (code === 'ASSET_REGISTRATION_LOCKED' && info.details) {
+      try { registration_lock = JSON.parse(info.details); } catch {}
+    }
+    return NextResponse.json({error: status === 500 ? 'ASSET_EDIT_FAILED' : code, registration_lock}, {status});
   }
 }

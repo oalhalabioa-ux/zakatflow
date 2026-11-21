@@ -143,12 +143,19 @@ export async function createAsset(input:unknown){
  const{data,error}=await supabase.rpc('create_asset_with_acquisition',{p_asset:parsed,p_request_id:requestId});
  if(error)throw error;return data;
 }
-export async function updateAsset(id: string, input: {name: string; expected_updated_at: string; market_price?: number}) {
+export async function assetEditAvailability(id: string) {
+  const {supabase} = await requireUser();
+  const {data, error} = await supabase.rpc('asset_edit_availability', {p_asset_id: id});
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAsset(id: string, input: {name?: string; expected_updated_at: string; market_price?: number}) {
   const {supabase} = await requireUser();
   const {data, error} = await supabase.rpc('edit_asset_details', {
     p_asset_id: id,
     p_expected_updated_at: input.expected_updated_at,
-    p_name: input.name,
+    p_name: input.name ?? null,
     p_market_price: input.market_price ?? null,
   });
   if (error) throw error;

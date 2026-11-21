@@ -2,6 +2,7 @@
 
 import {useEffect, useRef, useState, type FormEvent} from "react";
 import ActionButton from "@/components/ActionButton";
+import {registrationLockText, type AssetEditMode} from "./AssetEditActions";
 
 type EditableAsset = {
   id: string;
@@ -18,13 +19,9 @@ type EditableAsset = {
   };
 };
 
-export function canEditAssetValuation(asset: EditableAsset) {
-  return ["GOLD", "SILVER", "STOCK"].includes(asset.asset_type)
-    && !asset.metadata?.investment_id && asset.metadata?.acquisition_mode !== "INVESTMENT";
-}
-
-export default function AssetEditForm({asset, ar, onClose, onSaved}: {
+export default function AssetEditForm({asset, mode, ar, onClose, onSaved}: {
   asset: EditableAsset;
+  mode: AssetEditMode;
   ar: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -40,7 +37,7 @@ export default function AssetEditForm({asset, ar, onClose, onSaved}: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [invalid, setInvalid] = useState<"name" | "price" | null>(null);
-  const canValue = canEditAssetValuation(asset);
+  const canValue = mode === "valuation";
   const currency = asset.metadata?.market_price_currency || asset.currency;
 
   useEffect(() => {
@@ -55,17 +52,15 @@ export default function AssetEditForm({asset, ar, onClose, onSaved}: {
     setInvalid(null);
 
     const submittedName = name.trim();
-    if (submittedName.length < 1 || submittedName.length > 120) {
+    if (!canValue && (submittedName.length < 1 || submittedName.length > 120)) {
       setInvalid("name");
       setError(t("أدخل اسم الأصل من حرف إلى 120 حرفًا.", "Enter an asset name of 1 to 120 characters."));
       nameInput.current?.focus();
       return;
     }
 
-    const priceChanged = canValue && price !== "" && (savedPrice == null || Number(price) !== Number(savedPrice));
-    const invalidPrice = priceInput.current?.validity.badInput ||
-      (canValue && savedPrice != null && price === "") ||
-      (priceChanged && !/^\d+(\.\d{1,8})?$/.test(price));
+    const invalidPrice = canValue &&
+      (priceInput.current?.validity.badInput || !/^\d+(\.\d{1,8})?$/.test(price));
     if (invalidPrice) {
       setInvalid("price");
       setError(t("أدخل سعرًا غير سالب بما لا يزيد على 8 منازل عشرية.", "Enter a non-negative price with up to 8 decimal places."));
@@ -82,8 +77,7 @@ export default function AssetEditForm({asset, ar, onClose, onSaved}: {
         body: JSON.stringify({
           id: asset.id,
           expected_updated_at: asset.updated_at,
-          name: submittedName,
-          ...(priceChanged ? {market_price: Number(price)} : {}),
+          ...(canValue ? {market_price: Number(price)} : {name: submittedName}),
         }),
       });
       if (response.ok) {
@@ -91,7 +85,9 @@ export default function AssetEditForm({asset, ar, onClose, onSaved}: {
         return;
       }
       const result = await response.json().catch(() => ({}));
-      const message = response.status === 409
+      const message = result.error === "ASSET_REGISTRATION_LOCKED"
+        ? registrationLockText(result.registration_lock, ar)
+        : response.status === 409
         ? t("تغيّر الأصل أثناء التعديل. حدّث الصفحة وأعد المحاولة.", "The asset changed. Refresh the page and retry.")
         : response.status === 403
           ? t("ليس لديك صلاحية تعديل هذا الأصل.", "You do not have permission to edit this asset.")
@@ -109,9 +105,9 @@ export default function AssetEditForm({asset, ar, onClose, onSaved}: {
     <section className="card section asset-entry" aria-labelledby="asset-entry-title">
       <div className="asset-entry-header">
         <div>
-          <h3 id="asset-entry-title" ref={title} tabIndex={-1}>{t("تعديل بيانات الأصل", "Edit asset data")}</h3>
+          <h3 id="asset-entry-title" ref={title} tabIndex={-1}>{canValue ? t("تحديث السعر السوقي", "Update market price") : t("تعديل بيانات التسجيل", "Edit registration details")}</h3>
           <p>{canValue
-            ? t("يمكن تعديل الاسم والسعر السوقي للوحدة.", "You can edit the name and market price per unit.")
+            ? t("أدخل سعر السوق الحالي للوحدة بعملة التقييم.", "Enter the current market price per unit in the valuation currency.")
             : t("يمكن تعديل اسم الأصل.", "You can edit the asset name.")}</p>
         </div>
         <ActionButton icon="close" label={t("إغلاق النموذج", "Close form")} disabled={saving} onClick={onClose}/>
@@ -119,11 +115,11 @@ export default function AssetEditForm({asset, ar, onClose, onSaved}: {
       <form noValidate onSubmit={save} aria-busy={saving}>
         <fieldset className="asset-entry-fields" disabled={saving}>
           <div className="form-grid">
-            <label>
+            {!canValue && <label>
               {t("اسم الأصل", "Name")}
               <input ref={nameInput} required maxLength={120} aria-invalid={invalid === "name"}
                 value={name} onChange={event => setName(event.target.value)}/>
-            </label>
+            </label>}
             {canValue && <label>
               {t("سعر السوق للوحدة", "Market price per unit")} ({currency})
               <input ref={priceInput} data-testid="asset-entry-market-unit" type="number" min="0" step="0.00000001"

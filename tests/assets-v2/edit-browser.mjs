@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import {execFileSync,spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
@@ -37,20 +38,21 @@ async function context(browser,account,viewport){
 }
 const before = process.env.ASSET_EDIT_PHASE === 'before';
 
-async function seed(owner, name, metadata, {organization = null, history = false, type = 'GOLD'} = {}) {
+async function seed(owner, name, metadata, {organization = null, history = false, type = 'GOLD', date = '2025-01-01'} = {}) {
  const asset = value(await admin.from('asset_accounts').insert({
   user_id: owner.id, name, asset_type: type, unit: type === 'GOLD' ? 'g' : 'unit', currency: 'SAR',
   ownership_scope: organization ? 'ORGANIZATION' : 'PERSONAL', organization_id: organization, metadata,
  }).select('*').single());
  if (!history) return {asset};
+ const quantity = Number(metadata.quantity ?? 10), cost = quantity*300;
  const tx = value(await admin.from('transactions').insert({
   user_id: owner.id, asset_account_id: asset.id, organization_id: organization,
-  transaction_type: organization ? 'PURCHASE' : 'OPENING_BALANCE', transaction_date: '2025-01-01',
-  quantity: 10, unit_price: 300, currency: 'SAR', base_currency: 'SAR', base_value: 3000, gross_value: 3000, created_by: owner.id,
+  transaction_type: organization ? 'PURCHASE' : 'OPENING_BALANCE', transaction_date: date,
+  quantity, unit_price: 300, currency: 'SAR', base_currency: 'SAR', base_value: cost, gross_value: cost, created_by: owner.id,
  }).select('id').single());
  const lot = value(await admin.from('lots').insert({
-  user_id: owner.id, asset_account_id: asset.id, source_transaction_id: tx.id, acquisition_date: '2025-01-01',
-  original_quantity: 10, remaining_quantity: 10, original_value_base: 3000, remaining_value_base: 3000,
+  user_id: owner.id, asset_account_id: asset.id, source_transaction_id: tx.id, acquisition_date: date, hawl_start_date: date,
+  original_quantity: quantity, remaining_quantity: quantity, original_value_base: cost, remaining_value_base: cost,
  }).select('id').single());
  return {asset, lot};
 }
@@ -77,13 +79,13 @@ try {
  const {id:organization} = value(await owner.client.from('organizations').insert({
   name: 'QA Asset Edit Company', owner_user_id: owner.id,
  }).select('id').single());
- const {asset: oldGold, lot} = await seed(owner,'QA Legacy Gold',legacy,{history:true});
+ const {asset: oldGold, lot} = await seed(owner,'QA Legacy Gold',{...legacy,quantity:20,purchase_value:6000,market_value:7000},{history:true});
  const {asset: thinAsset} = await seed(owner,'QA No History',{}, {type:'OTHER'});
  const {asset: orgAsset} = await seed(owner,'QA Legacy VAT',{...complete, acquisition_mode:'PURCHASE',
   tax_category:'S', vat_input_mode:'AMOUNT', vat_amount:0}, {history:true, organization});
  const {asset: completeAsset} = await seed(owner,'QA Complete Gold',complete,{history:true});
  const {asset: bank} = await seed(owner,'QA Proceeds',{}, {type:'BANK'});
- for (const [date,quantity,sale] of [['2025-03-01',2,800],['2025-04-01',2,900]]) {
+ for (const [date,quantity,sale] of [['2025-03-01',2,800],['2025-04-01',3,900]]) {
   value(await owner.client.rpc('post_sale_with_proceeds',{
    p_user_id:owner.id,p_asset_account_id:oldGold.id,p_destination_account_id:bank.id,p_date:date,
    p_quantity:quantity,p_sale_value:sale,p_currency:'SAR',p_base_currency:'SAR',p_base_value:sale,
@@ -92,18 +94,49 @@ try {
  const method = value(await admin.from('zakat_methods').select('id').limit(1).single());
  const assessment = value(await admin.from('zakat_assessments').insert({
   user_id:owner.id,method_id:method.id,assessment_date:'2026-01-01',valuation_date:'2026-01-01',
-  nisab_standard:'GOLD',nisab_quantity:85,nisab_value_base:850,total_zakatable_value:2100,zakat_rate:0.025,
-  zakat_due:52.5,currency:'SAR',status:'CONFIRMED',calculation_snapshot:{schemaVersion:2,candidateLots:1},
+  nisab_standard:'GOLD',nisab_quantity:85,nisab_value_base:850,total_zakatable_value:5250,zakat_rate:0.025,
+  zakat_due:131.25,currency:'SAR',status:'CONFIRMED',calculation_snapshot:{schemaVersion:2,candidateLots:1},
  }).select('id').single());
  value(await admin.from('zakat_assessment_lines').insert({
-  assessment_id:assessment.id,lot_id:lot.id,quantity:6,valuation_price:350,valuation_currency:'SAR',fx_rate:1,market_value:2100,eligible_value:2100,
-  zakat_amount:52.5,eligibility_status:'ELIGIBLE',explanation:'Synthetic frozen valuation',
+  assessment_id:assessment.id,lot_id:lot.id,quantity:15,valuation_price:350,valuation_currency:'SAR',fx_rate:1,market_value:5250,eligible_value:5250,
+  zakat_amount:131.25,eligibility_status:'ELIGIBLE',explanation:'Synthetic frozen valuation',
  }));
+ let machine, depreciation, auto, stock, stockLot, finalAssessment, closedCycle, futureDate;
+ if (!before) {
+  machine = value(await owner.client.rpc('create_asset_with_acquisition',{
+   p_asset:{name:'QA Depreciated Machine',asset_type:'OTHER',asset_class_code:'PPE',asset_type_code:'MACHINERY',
+    currency:'SAR',ownership_scope:'ORGANIZATION',organization_id:organization,
+    metadata:{quantity:2,purchase_value:1000,purchase_date:'2026-01-01',acquisition_mode:'OPENING_BALANCE',market_price:600}},
+   p_request_id:randomUUID(),
+  }));
+  const command = value(await owner.client.rpc('prepare_asset_lifecycle',{
+   p_asset_id:machine.id,p_payload:{operation:'DEPRECIATION',date:'2026-02-01',amount:100},p_request_id:randomUUID(),
+  }));
+  depreciation = command.financial_event_id;
+  for (const p_status of ['PLANNED','COMMITTED','APPROVE','ACTUAL']) {
+   const action = p_status==='APPROVE'
+    ? owner.client.rpc('approve_financial_event',{p_event_id:depreciation,p_note:'QA depreciation'})
+    : owner.client.rpc('transition_financial_event',{p_event_id:depreciation,p_new_status:p_status,p_note:'QA depreciation'});
+   value(await action);
+  }
+  ({asset:auto} = await seed(owner,'QA Automatic Gold',{...complete,market_price_per_unit:350,
+   market_value_auto:true,market_price_source:'ALYAWMGOLD_LIVE_SA',market_valuation_date:'2025-01-01'}, {history:true}));
+  value(await owner.client.rpc('post_sale_with_proceeds',{
+   p_user_id:owner.id,p_asset_account_id:auto.id,p_destination_account_id:bank.id,p_date:'2025-05-01',
+   p_quantity:2,p_sale_value:800,p_currency:'SAR',p_base_currency:'SAR',p_base_value:800,
+  }));
+  const zakatOwner = await user();
+  ({asset:stock,lot:stockLot} = await seed(zakatOwner,'QA Frozen Stock',{
+   ...complete,purchase_date:'2024-10-01',market_valuation_date:'2024-10-01',
+  }, {history:true,type:'STOCK',date:'2024-10-01'}));
+  stock.qaOwner = zakatOwner;
+  futureDate = new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
+ }
  const snapshot = await finances(owner.id,assessment.id);
  const bankBefore = await dbAsset(bank.id);
- assert.equal(snapshot.transaction_allocations.length, 2);
+ assert.equal(snapshot.transaction_allocations.length,before?2:3);
  server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-H','127.0.0.1','-p','3000'],{
-  env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
+  env:{...process.env,NODE_OPTIONS:`--require ${fileURLToPath(new URL('./metal-quote-fixture.cjs',import.meta.url))}`,NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
    NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},cwd:process.env.ASSET_APP_DIR||process.cwd(), stdio:'inherit',
  });
  let ready=false;
@@ -141,7 +174,9 @@ try {
    await page.getByRole('row').filter({hasText:currentName}).getByRole('button',{
     name:ar?'التفاصيل والإجراءات':'Details and actions',exact:true,
    }).click({timeout:30000});
-   await page.getByRole('dialog').getByRole('button',{name:editLabel,exact:true}).click();
+   const dialog = page.getByRole('dialog');
+   if (before) await dialog.getByRole('button',{name:editLabel,exact:true}).click();
+   return dialog;
   }
   const name = page.locator('.asset-entry').getByRole('textbox',{name:ar?/اسم الأصل/:/Name/});
   const valuation = page.getByTestId('asset-entry-market-unit');
@@ -150,89 +185,206 @@ try {
   const original = await dbAsset(asset.id);
   await open(original.name);
   const editedName = original.name+' reviewed';
-  await name.fill(editedName);
-  if (before && block) {
-   await save.click();
-   const alert = form.getByRole('alert');
-   await alert.getByText(block,{exact:false}).waitFor();
-   const invalid = await form.locator('[aria-invalid="true"]').evaluateAll(controls => controls.map(el => el.getAttribute('data-testid')));
-   assert.equal(puts.length,0);
-   assert.deepEqual(await dbAsset(asset.id),original);
-   evidence.push({scenario:asset.name, change:'name', puts:0, invalid, message:await alert.innerText()});
-   if (price && scope==='PERSONAL') {
-    await name.fill(original.name);
-    await valuation.fill(String(price));
+  if (before) {
+   await name.fill(editedName);
+   if (block) {
     await save.click();
+    const alert = form.getByRole('alert');
     await alert.getByText(block,{exact:false}).waitFor();
     assert.equal(puts.length,0);
     assert.deepEqual(await dbAsset(asset.id),original);
-    evidence.push({scenario:asset.name, change:'valuation', puts:0, message:await alert.innerText()});
-   }
-   await form.getByRole('alert').scrollIntoViewIfNeeded();
-   await page.screenshot({path:`asset-edit-qa/before-${asset.name.replaceAll(' ','-')}.png`});
-  } else {
-   const put = page.waitForResponse(response => routePath(response) && response.request().method()==='PUT');
-   await save.click();
-   const result = await put;
-   assert.equal(result.status(),200,await result.text());
-   await form.waitFor({state:'detached'});
-   const renamed = await dbAsset(asset.id);
-   assert.equal(renamed.name,editedName);
-   evidence.push({scenario:asset.name, change:'name', before:original.name, after:renamed.name, status:result.status(), puts:puts.length});
-   if (!before) {
-    assert.deepEqual(Object.keys(puts[0]).sort(),['expected_updated_at','id','name']);
-    assert.deepEqual(renamed,{...original,name:editedName,updated_at:renamed.updated_at});
-    if (price) {
-     await open(editedName);
+    evidence.push({scenario:asset.name,puts:0,message:await alert.innerText()});
+    if (asset.id===oldGold.id) {
+     await name.fill(original.name);
      await valuation.fill(String(price));
-     const secondPut = page.waitForResponse(response => routePath(response) && response.request().method()==='PUT');
-     await form.evaluate(element => {element.requestSubmit();element.requestSubmit();});
-     const secondResult = await secondPut;
-     assert.equal(secondResult.status(),200,await secondResult.text());
-     await form.waitFor({state:'detached'});
-     assert.equal(puts.length,2);
-     assert.deepEqual(Object.keys(puts[1]).sort(),['expected_updated_at','id','market_price','name']);
+     await save.click();
+     await alert.getByText(block,{exact:false}).waitFor();
+     assert.equal(puts.length,0);
+     assert.deepEqual(await dbAsset(asset.id),original);
     }
-    await open(editedName);
-    assert.equal(await name.inputValue(),editedName);
-    if (price) assert.equal(await valuation.inputValue(),String(price));
-    await page.reload({waitUntil:'domcontentloaded'});
-    await open(editedName);
-    assert.equal(await name.inputValue(),editedName);
-    const persisted = await dbAsset(asset.id);
-    const {data:list,error}=await ctx.request.get(app+'/api/assets').then(async response=>({data:await response.json(),error:!response.ok()}));
-    assert.equal(error,false);
-    const listed = list.find(row => row.id===asset.id);
-    assert.equal(listed.name,editedName);
-    if (price) {
-     assert.equal(await valuation.inputValue(),String(price));
-     assert.equal(persisted.metadata.market_price_per_unit,price);
-     assert.equal(persisted.metadata.market_value,price*10);
-     assert.equal(listed.current_market_value,price*(asset.id===oldGold.id?6:10));
-     const permitted = ['market_price','market_price_per_unit','market_value','estimated_value',
-      'market_price_currency','market_price_source','market_valuation_date','market_value_auto'];
-     const originalFields = metadata => Object.fromEntries(Object.entries(metadata).filter(([key])=>!permitted.includes(key)));
-     assert.deepEqual(originalFields(persisted.metadata),originalFields(original.metadata));
-     evidence.push({scenario:asset.name,change:'valuation',currency:'SAR',unitPriceBefore:350,unitPriceAfter:price,
-      quantity:listed.current_quantity,cost:listed.current_cost_value,liveValuationAfter:listed.current_market_value,
-      persistedAfterReload:true,putsForValuation:1});
-    }
-    const audits = value(await admin.from('audit_logs').select('*').eq('entity_id',asset.id).eq('action','UPDATE_ASSET_DETAILS').order('created_at'));
-    assert.equal(audits.length,price?2:1);
-    assert.deepEqual(audits[0].old_data,original);
-    assert.deepEqual(audits.at(-1).new_data,persisted);
-    await name.scrollIntoViewIfNeeded();
-    await page.screenshot({path:`asset-edit-qa/after-${asset.name.replaceAll(' ','-')}.png`});
+    await alert.scrollIntoViewIfNeeded();
+    await page.screenshot({path:`asset-edit-qa/before-${asset.name.replaceAll(' ','-')}.png`});
+   } else {
+    const response = page.waitForResponse(res=>routePath(res)&&res.request().method()==='PUT');
+    await save.click();
+    assert.equal((await response).status(),200);
+    await form.waitFor({state:'detached'});
+    assert.equal((await dbAsset(asset.id)).name,editedName);
    }
+  } else {
+   const canRename = asset.id!==oldGold.id;
+   const registration = page.getByRole('dialog').getByRole('button',{name:ar?'تعديل بيانات التسجيل':'Edit registration details',exact:true});
+   const market = page.getByRole('dialog').getByRole('button',{name:ar?'تحديث السعر السوقي':'Update market price',exact:true});
+   let nextName = original.name;
+   if (canRename) {
+    await registration.click();
+    await name.fill(editedName);
+    const response = page.waitForResponse(res=>routePath(res)&&res.request().method()==='PUT');
+    await save.click();
+    const saved = await response;
+    assert.equal(saved.status(),200,await saved.text());
+    await form.waitFor({state:'detached'});
+    assert.equal(puts.length,1);
+    assert.deepEqual(Object.keys(puts[0]).sort(),['expected_updated_at','id','name']);
+    const renamed = await dbAsset(asset.id);
+    assert.deepEqual(renamed,{...original,name:editedName,updated_at:renamed.updated_at});
+    nextName = editedName;
+    await open(nextName);
+   } else {
+    const lock = page.getByRole('dialog').getByText('بيانات التسجيل مقفلة لوجود سند بيع.',{exact:false});
+    await lock.waitFor();
+    assert.equal(await registration.count(),0);
+    assert.equal(await lock.getByRole('link').count(),1);
+    const forbidden = await ctx.request.put(app+'/api/assets',{data:{id:asset.id,expected_updated_at:original.updated_at,name:editedName}});
+    assert.equal(forbidden.status(),409);
+    const denied = await forbidden.json();
+    assert.equal(denied.error,'ASSET_REGISTRATION_LOCKED');
+    assert.equal(denied.registration_lock.operation,'SALE');
+    assert.deepEqual(await dbAsset(asset.id),original);
+   }
+   if (price) {
+    await market.click();
+    assert.equal(await name.count(),0);
+    await valuation.fill(String(price));
+    const response = page.waitForResponse(res=>routePath(res)&&res.request().method()==='PUT');
+    await form.evaluate(element=>{element.requestSubmit(); element.requestSubmit();});
+    const saved = await response;
+    assert.equal(saved.status(),200,await saved.text());
+    await form.waitFor({state:'detached'});
+    assert.equal(puts.length,canRename?2:1);
+    assert.deepEqual(Object.keys(puts.at(-1)).sort(),['expected_updated_at','id','market_price']);
+    await open(nextName);
+    await market.click();
+    assert.equal(await valuation.inputValue(),String(price));
+   }
+   await page.reload({waitUntil:'domcontentloaded'});
+   await open(nextName);
+   if (price) {
+    await market.click();
+    assert.equal(await valuation.inputValue(),String(price));
+   }
+   const persisted = await dbAsset(asset.id);
+   const listResponse = await ctx.request.get(app+'/api/assets');
+   assert.equal(listResponse.status(),200);
+   const listed = (await listResponse.json()).find(row=>row.id===asset.id);
+   assert.equal(listed.name,nextName);
+   assert.equal(persisted.name,nextName);
+   if (price) {
+    const quantity = asset.id===oldGold.id?15:10;
+    assert.equal(persisted.metadata.market_price_per_unit,price);
+    assert.equal(listed.current_market_value,price*quantity);
+    assert.equal(listed.current_quantity,quantity);
+    if (asset.id===oldGold.id) assert.equal(listed.current_cost_value,4500);
+    const permitted = ['market_price','market_price_per_unit','market_value','estimated_value',
+     'market_price_currency','market_price_source','market_valuation_date','market_value_auto'];
+    const unchanged = metadata=>Object.fromEntries(Object.entries(metadata).filter(([key])=>!permitted.includes(key)));
+    assert.deepEqual(unchanged(persisted.metadata),unchanged(original.metadata));
+    const [audit] = value(await admin.from('audit_logs').select('*').eq('entity_id',asset.id).eq('action','UPDATE_ASSET_MARKET_VALUATION'));
+    assert.deepEqual(audit.new_data,persisted);
+    evidence.push({id:asset.id===oldGold.id?'V-13':undefined,scenario:asset.name,price,quantity,
+     cost:listed.current_cost_value,marketValue:listed.current_market_value,originalQuantity:persisted.metadata.quantity});
+   }
+   await page.screenshot({path:`asset-edit-qa/after-${asset.name.replaceAll(' ','-')}.png`});
   }
   await page.close();
  }
  if (!before) {
-  const denied = await context(browser,foreign,{width:390,height:844});
-  const put = (ctx,asset,changes) => ctx.request.put(app+'/api/assets',{headers:{origin:app},data:{
-   id:asset.id,expected_updated_at:asset.updated_at,name:asset.name,...changes,
+  const put = (ctx,asset,changes) => ctx.request.put(app+'/api/assets',{data:{
+   id:asset.id,expected_updated_at:asset.updated_at,...changes,
   }});
-  assert.equal((await put(desktop,oldGold,{name:'Stale name'})).status(),409);
+  const policy = async (ctx, id) => {
+   const response = await ctx.request.get(app+'/api/assets?edit_asset_id='+id);
+   assert.equal(response.status(),200);
+   return response.json();
+  };
+  const assetRow = async (ctx,id) => (await (await ctx.request.get(app+'/api/assets')).json()).find(row=>row.id===id);
+  const moveSnapshot = async () => Promise.all(['financial_events','financial_event_lines','asset_lifecycle_commands'].map(async table=>
+   value(await admin.from(table).select('*').eq('organization_id',organization).order('id'))));
+  const postings = await moveSnapshot();
+  const machineBefore = await dbAsset(machine.id);
+  const machinePolicy = await policy(desktop,machine.id);
+  assert.equal(machinePolicy.registration_lock.operation,'DEPRECIATION');
+  assert.equal(machinePolicy.asset_registration_can_edit,false);
+  assert.equal(machinePolicy.valuation_mode,'MANUAL');
+  assert.equal((await put(desktop,machineBefore,{name:'Locked by depreciation'})).status(),409);
+  assert.equal((await put(desktop,machineBefore,{market_price:700})).status(),200);
+  const machineAfter = await assetRow(desktop,machine.id);
+  assert.equal(machineAfter.current_market_value,1400);
+  assert.equal(machineAfter.current_cost_value,900);
+  const book = (await policy(desktop,machine.id)).book;
+  assert.equal(Number(book.gross),1000);
+  assert.equal(Number(book.depreciation),100);
+  assert.equal(book.net,900);
+  assert.deepEqual(book,machinePolicy.book);
+  assert.deepEqual(await moveSnapshot(),postings);
+  evidence.push({id:'V-14',quote:700,valuation:1400,book,postingsUnchanged:true,source:machineAfter.current_valuation_source,date:machineAfter.current_valuation_date});
+
+  const autoBefore = await dbAsset(auto.id);
+  const autoPolicy = await policy(desktop,auto.id);
+  assert.equal(autoPolicy.asset_registration_can_edit,false);
+  assert.equal(autoPolicy.valuation_mode,'AUTOMATIC');
+  assert.equal((await put(desktop,autoBefore,{market_price:123})).status(),409);
+  const denied = await context(browser,foreign,{width:390,height:844});
+  const livePath = app+'/api/prices?live=1&asset_id='+auto.id;
+  assert.equal((await denied.request.get(livePath)).status(),404);
+  const autoPage = await desktop.newPage();
+  await autoPage.goto(app+'/en/assets?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+  await autoPage.getByRole('row').filter({hasText:auto.name}).getByRole('button',{name:'Details and actions',exact:true}).click();
+  const syncing = autoPage.waitForResponse(res=>res.url()===livePath);
+  await autoPage.getByRole('button',{name:'Refresh price from source',exact:true}).click();
+  const synced = await syncing;
+  assert.equal(synced.status(),200,await synced.text());
+  await autoPage.reload({waitUntil:'domcontentloaded'});
+  await autoPage.getByRole('row').filter({hasText:auto.name}).getByRole('button',{name:'Details and actions',exact:true}).click();
+  const quoteLine = autoPage.getByText(/ALYAWMGOLD_LIVE_SA/);
+  await quoteLine.waitFor();
+  assert.match(await quoteLine.innerText(),/2026-10-01.*Automatic/);
+  const autoAfter = await assetRow(desktop,auto.id);
+  assert.equal(autoAfter.current_market_price,420);
+  assert.equal(autoAfter.current_quantity,8);
+  assert.equal(autoAfter.current_market_value,3360);
+  assert.equal(autoAfter.current_valuation_auto,true);
+  assert.equal(autoAfter.current_valuation_source,'ALYAWMGOLD_LIVE_SA');
+  assert.equal(autoAfter.current_valuation_date,'2026-10-01');
+  assert.equal(autoAfter.metadata.market_fx_rate,1);
+  await autoPage.screenshot({path:'asset-edit-qa/V-15-automatic.png'});
+  evidence.push({id:'V-15',quote:420,valuation:3360,mode:autoPolicy.valuation_mode,source:autoAfter.current_valuation_source,date:autoAfter.current_valuation_date});
+
+  const tax = await context(browser,stock.qaOwner,{width:1440,height:960});
+  async function assess(date) {
+   const response = await tax.request.post(app+'/api/assessments',{data:{
+    assessment_date:date,method_id:method.id,nisab_standard:'SILVER',gold_price:350,silver_price:1,
+    price_currency:'SAR',price_mode:'MANUAL',nisab_reached_date:'2024-10-01',
+   }});
+   assert.equal(response.status(),201,await response.text());
+   return response.json();
+  }
+  const old = await assess('2025-10-10');
+  finalAssessment = old.assessment.id;
+  closedCycle = old.cycle.id;
+  value(await stock.qaOwner.client.rpc('close_zakat_cycle',{p_cycle_id:closedCycle,p_final_assessment_id:finalAssessment}));
+  const savedAssessment = async () => ({
+   assessment:value(await admin.from('zakat_assessments').select('*').eq('id',finalAssessment).single()),
+   lines:value(await admin.from('zakat_assessment_lines').select('*').eq('assessment_id',finalAssessment).order('id')),
+   cycle:value(await admin.from('zakat_hawl_cycles').select('*').eq('id',closedCycle).single()),
+  });
+  const frozen = await savedAssessment();
+  assert.equal(frozen.cycle.status,'CLOSED');
+  assert.equal(frozen.lines[0].valuation_price,350);
+  const stockBefore = await dbAsset(stock.id);
+  assert.equal((await policy(tax,stock.id)).registration_lock.code,'ZAKAT');
+  assert.equal((await put(tax,stockBefore,{name:'Locked by Zakat'})).status(),409);
+  assert.equal((await put(tax,stockBefore,{market_price:410})).status(),200);
+  assert.deepEqual(await savedAssessment(),frozen);
+  const future = await assess(futureDate);
+  const newLine = future.lines.find(line=>line.lot_id===stockLot.id);
+  assert.equal(Number(newLine.valuation_price),410);
+  assert.equal(Number(newLine.market_value),4100);
+  assert.deepEqual(await savedAssessment(),frozen);
+  evidence.push({id:'V-16',finalQuote:350,finalMarket:frozen.lines[0].market_value,
+   futureQuote:410,futureMarket:4100,finalSnapshotUnchanged:true});
+
+  assert.equal((await put(desktop,completeAsset,{name:'Stale name'})).status(),409);
   assert.equal((await put(denied,await dbAsset(oldGold.id),{name:'Unauthorized'})).status(),404);
   assert.equal((await put(denied,await dbAsset(orgAsset.id),{name:'Unauthorized'})).status(),404);
   value(await admin.from('organization_members').insert({
@@ -243,13 +395,12 @@ try {
   assert.equal((await put(desktop,await dbAsset(oldGold.id),{metadata:{purchase_value:1}})).status(),400);
   assert.deepEqual(await finances(owner.id,assessment.id),snapshot);
   assert.deepEqual(await dbAsset(bank.id),bankBefore);
-  evidence.push({financialRowsUnchanged:true,fifoAllocations:2,remainingGoldQuantity:6,remainingGoldCostSAR:1800,
-   bankProceedsSAR:1700,frozenZakatSAR:52.5,conflictStatus:409,crossScopeStatus:404,viewerStatus:403});
+  evidence.push({financialRowsUnchanged:true,fifoAllocations:3,bankProceedsSAR:2500,conflictStatus:409,crossScopeStatus:404,viewerStatus:403});
  }
  console.log(JSON.stringify({phase:before?'before':'after',evidence},null,2));
- await import('node:fs/promises').then(({writeFile})=>writeFile(
+ await writeFile(
   `asset-edit-qa/${before?'before':'after'}.json`, JSON.stringify(evidence,null,2)+'\n',
- ));
+ );
 } finally {
  await browser?.close();
  if (server) {

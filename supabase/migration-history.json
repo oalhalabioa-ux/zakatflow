@@ -2134,8 +2134,8 @@
       "path": "supabase/migrations/20261121180000_asset_edit_details.sql",
       "version": "20261121180000",
       "name": "asset_edit_details",
-      "expected_md5": "b7b2fb01a9f16df5ed986b33fca47f5b",
-      "file_sha256": "7cf358191a08a274f989b572b1af24154bd5007a2e4b0a261f3dd938373309dd",
+      "expected_md5": "5d1e7d8dc39096ecf7d8171dc5997aae",
+      "file_sha256": "848da696f7e2ad05f074f5ce526005fdbfd0e183d16a7d69f81471f5a6d7d3c5",
       "validation_project": "Isolated Supabase with Chromium before-and-after asset edit and ledger integrity checks"
     }
   ]
