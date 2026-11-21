@@ -130,6 +130,7 @@ try {
    p_quantity:2,p_sale_value:800,p_currency:'SAR',p_base_currency:'SAR',p_base_value:800,
   }));
   const zakatOwner = await user();
+  value(await admin.from('profiles').update({zakat_method_id:method.id}).eq('id',zakatOwner.id));
   ({asset:stock,lot:stockLot} = await seed(zakatOwner,'QA Frozen Stock',{
    ...complete,purchase_date:'2024-10-01',market_valuation_date:'2024-10-01',
   }, {history:true,type:'STOCK',date:'2024-10-01'}));
