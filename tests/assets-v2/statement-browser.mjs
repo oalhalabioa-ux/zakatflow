@@ -194,6 +194,30 @@ try{
   assert.equal(value(await account.client.from('lots').select('remaining_quantity').eq('asset_account_id',bank.id)).length,1);
   await page.screenshot({path:'asset-qa-preview/grouped-'+locale+'.png'});
   console.log('GROUPED_VOUCHERS',locale,JSON.stringify(docs));
+  const balances=async()=>value(await account.client.from('lots').select('id,asset_account_id,remaining_quantity,remaining_value_base').eq('user_id',account.id).order('id'));
+  const allocations=async()=>value(await account.client.from('transaction_allocations').select('lot_id,quantity,value_base,allocation_method').eq('transaction_id',sale.sale_transaction_id).order('lot_id'));
+  const original=await allocations();
+  const amend=(revision,price,key)=>account.client.rpc('amend_personal_sale_price',{p_sale_id:sale.sale_transaction_id,p_request_id:key,p_expected_revision:revision,p_unit_price:price,p_reason:'QA grouped sale amendment'});
+  for(const [rev,price] of [[0,390],[1,405]]){
+   const key=randomUUID();
+   const accepted=value(await amend(rev,price,key));
+   assert.deepEqual(value(await amend(rev,price,key)),accepted);
+   assert.deepEqual(await allocations(),original);
+   assert.equal(Number((await balances()).find(l=>l.asset_account_id===bank.id).remaining_quantity),6*price);
+  }
+  const prior=await balances();
+  const reversal=await account.client.rpc('reverse_transaction',{p_user_id:account.id,p_transaction_id:sale.sale_transaction_id});
+  assert.match(reversal.error?.message??'',/GROUPED_SALE_REVERSAL_UNAVAILABLE/);
+  assert.deepEqual(await balances(),prior);
+  const card=(payload)=>account.client.rpc('gold_card_sale',{p_asset:sources[0],p_date:today(),p_payload:payload});
+  const params={quantity:'2',price:'380',method:'FIFO',bank:bank.id,selection:[]};
+  const pre=value(await card(params));
+  const attempts=await Promise.all([randomUUID(),randomUUID()].map(request=>card({...params,request,expected:pre.allocations})));
+  assert.equal(attempts.filter(r=>!r.error).length,1);
+  assert.match(attempts.find(r=>r.error).error.message,/SALE_PREVIEW_CHANGED|SALE_LOTS_UNAVAILABLE/);
+  const all=await balances();
+  assert.ok(all.every(l=>Number(l.remaining_quantity)>=0));
+  assert.equal(all.filter(l=>l.asset_account_id===bank.id).reduce((a,l)=>a+Number(l.remaining_quantity),0),3190);
   await ctx.close();
  }
  console.log('PASS scoped opening and FIFO statement; 9 units / 2840 as of first sale, 6 / 1920 today, corporate 10 / 90000, denied cross-user and organization, AR mobile and EN desktop');

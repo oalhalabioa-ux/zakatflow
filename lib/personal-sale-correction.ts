@@ -47,6 +47,7 @@ export function isPersonalSaleCorrectionCandidate(row: any, userId: string) {
 }
 
 const messages: Record<string, [string, string]> = {
+  GROUPED_SALE_REVERSAL_UNAVAILABLE: ['تعديل حزم السند وعكسه غير متاحين حالياً. يمكن التحقق من أهلية تصحيح السعر.','Changing the selected lots or reversing this grouped sale is currently unavailable. Price correction eligibility is checked separately.'],
   SALE_CORRECTION_CASH_FIFO: ['توجد حركة لاحقة خصمت من دفعة نقدية أحدث. راجع تخصيصات البنك قبل تصحيح المبلغ.', 'A later movement used a newer cash lot. Review the bank allocations before changing the amount.'],
   SALE_CORRECTION_STALE: ['تغيّر السند منذ فتحه. أغلق النموذج وافتحه مجددًا.', 'The voucher changed. Reopen it and review the saved values.'],
   SALE_CORRECTION_PRICE_UNCHANGED: ['أدخل سعر وحدة مختلفًا.', 'Enter a different unit price.'],

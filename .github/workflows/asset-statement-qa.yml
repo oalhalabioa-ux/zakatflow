@@ -38,7 +38,7 @@ jobs:
           npx --yes supabase@2.122.0 start --workdir "$root" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/assets-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/assets-start.log"; exit 1; }
       - name: Install candidate functions in the isolated database
         run: |
-          for script in plan_asset_sale_lots apply_personal_sale_lots post_personal_gold_lot_sale personal_asset_grouped_sales gold_card_sale; do
+          for script in plan_asset_sale_lots apply_personal_sale_lots post_personal_gold_lot_sale personal_asset_grouped_sales gold_card_sale grouped_sale_protection; do
             psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 -f "supabase/modules/assets/$script.sql"
           done
       - name: Verify source reconciliation, isolation and responsive card
