@@ -2,7 +2,7 @@ import {z} from 'zod';
 import DecimalJs from 'decimal.js';
 import {requireUser} from './auth';
 import {withVoucherNumbers} from './voucher-numbers';
-import {buildAssetStatement,type StatementTransaction,type StatementLot,type StatementCommand,type StatementAllocation} from '../lib/asset-statement';
+import {buildAssetStatement,currentAssetValuation,type StatementTransaction,type StatementLot,type StatementCommand,type StatementAllocation} from '../lib/asset-statement';
 const Decimal=DecimalJs.clone({precision:40});
 
 export const assetStatementQuery=z.object({
@@ -36,7 +36,7 @@ async function readLinked<T>(ids:string[],query:(batch:string[])=>any):Promise<T
 export async function readAssetStatement(id:string,options:z.infer<typeof assetStatementQuery>){
  const {supabase,user}=await requireUser();
  const {data:asset,error}=await supabase.from('asset_accounts')
-  .select('id,user_id,name,unit,asset_type,ownership_scope,organization_id,metadata').eq('id',id).maybeSingle();
+  .select('id,user_id,name,unit,currency,asset_type,ownership_scope,organization_id,metadata').eq('id',id).maybeSingle();
  if(error)throw error;
  if(!asset||(!asset.organization_id&&asset.user_id!==user.id))throw Error('ASSET_NOT_FOUND');
  if(asset.metadata?.investment_id||asset.metadata?.personal_contract_id||asset.metadata?.register_source)
@@ -81,10 +81,19 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
   new Decimal(current.quantity).eq(statement.closing.quantity??'NaN')&&
   new Decimal(current.cost).eq(statement.closing.cost??'NaN');
  const complete=statement.complete&&!missingSource&&(!current||!!reconciled);
+ const valuation=reconciled&&current ? currentAssetValuation({
+  type:asset.asset_type,currency:asset.currency,baseCurrency,metadata:asset.metadata??{},
+  quantity:current.quantity,cost:current.cost,date:today,
+ }) : null;
+ const averageCost=complete&&statement.closing.quantity&&statement.closing.cost&&new Decimal(statement.closing.quantity).gt(0)
+  ?new Decimal(statement.closing.cost).div(statement.closing.quantity).toDecimalPlaces(8).toString():null;
+ const metalGrade=['GOLD','SILVER'].includes(asset.asset_type)?
+  asset.metadata?.[asset.asset_type==='GOLD'?'karat':'purity']??asset.metadata?.karat??null:null;
  const page=statement.rows.slice(options.offset,options.offset+options.limit);
  const numbered=await withVoucherNumbers(supabase,page.map(row=>({...row,document_sequence:undefined as string|undefined,document_links:undefined as Record<string,string>|undefined})));
  return {
-  asset:{id:asset.id,name:asset.name,unit:asset.unit,type:asset.asset_type,organizational},
+  asset:{id:asset.id,name:asset.name,unit:asset.unit,type:asset.asset_type,organizational,metalGrade:metalGrade==null?null:String(metalGrade)},
+  valuation,averageCost,current:options.asOf===today,
   asOf:options.asOf,baseCurrency,complete,incompleteRows:statement.incompleteRows,
   reconciliation:current?(reconciled?'MATCHED':'UNRECONCILED'):'HISTORICAL',
   closing:complete?statement.closing:{quantity:null,cost:null,currency:baseCurrency},

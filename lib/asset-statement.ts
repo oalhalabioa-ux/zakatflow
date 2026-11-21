@@ -46,6 +46,57 @@ const incoming=new Set(['OPENING_BALANCE','ADD','PURCHASE','TRANSFER_IN','ADJUST
 const outgoing=new Set(['SALE','DISPOSAL','WITHDRAWAL','TRANSFER_OUT','ADJUSTMENT_OUT','ZAKAT_PAYMENT']);
 const pending=new Set(['DRAFT','PLANNED','COMMITTED','CANCELLED','REJECTED']);
 
+function nonnegative(value: unknown) {
+ if (typeof value !== 'number' && typeof value !== 'string') return null;
+ try {
+  const amount = new Decimal(value);
+  return amount.isFinite() && !amount.isNegative() ? amount : null;
+ } catch { return null; }
+}
+
+export function currentAssetValuation(input: {
+ type: string; currency: string; baseCurrency: string; metadata: Record<string,unknown>;
+ quantity: string; cost: string; date: string;
+}) {
+ const {type,currency,baseCurrency,metadata,quantity,cost,date}=input;
+ if (['CASH','BANK','RECEIVABLE'].includes(type)) return null;
+ const quote = nonnegative(metadata.market_price_per_unit ?? metadata.market_price);
+ const quoteCurrency = typeof metadata.market_price_currency==='string' ? metadata.market_price_currency : currency;
+ const quoteDate = typeof metadata.market_valuation_date==='string' ? metadata.market_valuation_date : null;
+ const fx = quoteCurrency===baseCurrency ? new Decimal(1) : nonnegative(metadata.market_fx_rate ?? metadata.fx_rate);
+ if (!quote || !fx?.gt(0) || (quoteDate && quoteDate>date)) return null;
+
+ const metal = type==='GOLD' || type==='SILVER';
+ const reference = metal && metadata.market_value_auto===true;
+ const grade = type==='GOLD' ? nonnegative(metadata.karat ?? 24) :
+  type==='SILVER' ? nonnegative(metadata.purity ?? metadata.karat ?? 999) : null;
+ const purity = !reference ? new Decimal(1) : type==='GOLD' ? grade?.div(24) :
+  grade?.gt(1) ? grade.div(1000) : grade;
+ if (!purity?.gt(0) || purity.gt(1)) return null;
+
+ const appliedPrice = quote.mul(purity);
+ const market = appliedPrice.mul(quantity).mul(fx);
+ return {
+  basis:reference?'PURE_METAL_REFERENCE' as const:'ASSET_UNIT' as const,
+  grade:grade?.toString()??null, purity:purity.toString(), quote:quote.toString(),
+  quoteCurrency, quoteDate, source:typeof metadata.market_price_source==='string'?metadata.market_price_source:null,
+  appliedPrice:appliedPrice.toString(), fx:fx.toString(),
+  value:market.toString(), unrealized:market.sub(cost).toString(),
+ };
+}
+
+function saleBreakdown(tx:StatementTransaction,effect:Effect|null,organizational:boolean,status:string) {
+ if (!effect || !effect.quantity.lt(0) || effect.cost.gt(0) || !['ACTUAL','RECORDED','REVERSED'].includes(status)) return null;
+ const metadata=tx.metadata??{};
+ const certifiedProceeds = organizational ? nonnegative(metadata.proceeds_value) :
+  typeof metadata.proceeds_account_id==='string' ? nonnegative(tx.base_value) : null;
+ const recordedCost = nonnegative(metadata.cost_basis_base);
+ if (organizational && (!recordedCost || !recordedCost.eq(effect.cost.neg()))) return null;
+ const proceeds = certifiedProceeds?.toString()??null;
+ const cost = effect.cost.negated();
+ return {proceeds, cost:cost.toString(), realized:certifiedProceeds?.sub(cost).toString()??null};
+}
+
 export function buildAssetStatement(input:Input){
  const {asOf,baseCurrency,transactions,lots,allocations,commands,events,reversals,amendments}=input;
  const byTx=new Map(transactions.map(tx=>[tx.id,tx]));
@@ -101,7 +152,7 @@ export function buildAssetStatement(input:Input){
  type Row = {
   id:string; source_id:string; source_path:'transactions'|'asset_event'|'audit'; date:string; createdAt:string;
   type:string; status:string; reference:string|null; currency:string|null; exchangeRate:string|null;
-  amount:string|null; unitPrice:string|null; quantityIn:string|null; quantityOut:string|null; costEffect:string|null;
+  sale?:ReturnType<typeof saleBreakdown>; grade?:string; amount:string|null; unitPrice:string|null; quantityIn:string|null; quantityOut:string|null; costEffect:string|null;
  };
  const entries:{row:Row; effect:Effect|null}[]=[];
  function add(row:Row,effect:Effect|null){
@@ -133,10 +184,12 @@ export function buildAssetStatement(input:Input){
   const marketAmount=kind==='DISPOSAL'&&tx.metadata?.reason==='DISPOSAL_ZERO_VALUE'
    ?new Decimal(0):new Decimal(tx.gross_value);
   const exchangeRate=tx.metadata?.fx_rate;
-  const fallbackPrice=(kind==='SALE'||kind==='PURCHASE')&&new Decimal(tx.quantity).gt(0)
+  const fallbackPrice=(kind==='SALE'||kind==='PURCHASE'||kind==='OPENING_BALANCE')&&new Decimal(tx.quantity).gt(0)
    ?marketAmount.div(tx.quantity).toDecimalPlaces(8).toString():null;
+  const grade=nonnegative(tx.metadata?.karat ?? tx.metadata?.purity);
   add({id:tx.id,source_id:tx.id,source_path:'transactions',date:tx.transaction_date,createdAt:tx.created_at,type:kind,
    status,reference:tx.reference,currency:tx.currency,amount:marketAmount.toString(),
+   grade:grade?.toString(),sale:kind==='SALE'?saleBreakdown(tx,effect,input.organizational,status):null,
    exchangeRate:typeof exchangeRate==='number'||typeof exchangeRate==='string'?String(exchangeRate):tx.currency===tx.base_currency?'1':null,
    unitPrice:tx.unit_price==null?fallbackPrice:String(tx.unit_price),quantityIn:null,quantityOut:null,costEffect:null},effect);
   if(cancellation&&eventId&&!visibleReversed.has(tx.id)&&!isReversal){

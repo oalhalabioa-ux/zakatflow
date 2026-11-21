@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {buildAssetStatement,type StatementTransaction,type StatementLot} from './asset-statement';
+import {buildAssetStatement,currentAssetValuation,type StatementTransaction,type StatementLot} from './asset-statement';
 
 const transaction=(id:string,date:string,kind:string,quantity:number,gross:number,metadata:Record<string,unknown>={}):StatementTransaction=>({
  id,transaction_date:date,created_at:`${date}T09:00:00Z`,transaction_type:kind,quantity,unit_price:null,gross_value:gross,
@@ -81,5 +81,26 @@ describe('asset statement accounting',()=>{
   expect(unknown.rows[1].costEffect).toBeNull();
   expect(unknown.closing.cost).toBeNull();
   expect(buildAssetStatement({...input,baseCurrency:'USD'}).rows[0].remainingCost).toBeNull();
+ });
+});
+
+describe('stored price basis',()=>{
+ it('retains the voucher prices for 18K and applies purity only to the pure-metal reference',()=>{
+  const opening=transaction('opening','2026-01-01','OPENING_BALANCE',10,3000,{karat:18});
+  const sale=transaction('sale','2026-05-01','SALE',2,800,{proceeds_account_id:'bank'});
+  const statement=buildAssetStatement({...options,transactions:[opening,sale],
+   lots:[lot('opening','2026-01-01',10,3000)],allocations:[{transaction_id:'sale',quantity:2,value_base:600}]});
+  expect(statement.rows[0]).toMatchObject({amount:'3000',unitPrice:'300',costEffect:'3000'});
+  expect(statement.rows[1]).toMatchObject({amount:'800',unitPrice:'400',remainingQuantity:'8',remainingCost:'2400',
+   sale:{proceeds:'800',cost:'600',realized:'200'}});
+  const input={type:'GOLD',currency:'SAR',baseCurrency:'SAR',quantity:'8',cost:'2400',date:'2026-11-21'};
+  expect(currentAssetValuation({...input,metadata:{karat:18,market_price:410,market_value_auto:true}})).toMatchObject({
+   basis:'PURE_METAL_REFERENCE',purity:'0.75',appliedPrice:'307.5',value:'2460',unrealized:'60',
+  });
+  expect(currentAssetValuation({...input,metadata:{karat:18,market_price:410}})).toMatchObject({
+   basis:'ASSET_UNIT',appliedPrice:'410',value:'3280',unrealized:'880',
+  });
+  expect(currentAssetValuation({...input,metadata:{karat:18}})).toBeNull();
+  expect(currentAssetValuation({...input,metadata:{market_price:410,market_valuation_date:'2026-11-22'}})).toBeNull();
  });
 });
