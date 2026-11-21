@@ -21,7 +21,9 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
   const selected = params.get('project') ?? '';
   const queryOrg = params.get('organization') ?? '';
   const [rememberedOrg, setRememberedOrg] = useState('');
-  const organization = queryOrg || rememberedOrg;
+  const requestedOrg = queryOrg || rememberedOrg;
+  const organization = organizations.some(option => option.id === requestedOrg) ? requestedOrg : '';
+  const unavailableOrganization = Boolean(queryOrg && !organization);
   const [editing, setEditing] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [saved, setSaved] = useState('');
@@ -89,7 +91,8 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
         onChange={id=>router.replace(base+'?'+new URLSearchParams({organization:id}),{scroll:false})}/>
     </TopbarOrganizationControls>
     <header className="fs-head"><h1>{ar ? 'الدراسات المشتركة مع المؤسسة' : 'Studies shared with the organization'}</h1></header>
-    {!organization && <p>{ar ? 'اختر المؤسسة من البنر الرئيسي.' : 'Select an organization in the top bar.'}</p>}
+    {unavailableOrganization && <p role="alert">{ar ? 'المؤسسة المحددة غير متاحة.' : 'The selected organization is unavailable.'}</p>}
+    {!organization && !unavailableOrganization && <p>{ar ? 'اختر المؤسسة من البنر الرئيسي.' : 'Select an organization in the top bar.'}</p>}
     {organization && <section className="card fs-panel">
       <p>{ar ? 'معرّف مؤسستك للمشاركة' : 'Your organization ID for sharing'} <code dir="ltr">{organization}</code></p>
       {selected && <Link href={base + '?' + new URLSearchParams({ organization })}>{ar ? 'عرض كل الدراسات المشتركة' : 'All shared studies'}</Link>}
