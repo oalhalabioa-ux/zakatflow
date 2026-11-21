@@ -23,7 +23,7 @@ export default function AssetOpeningControls({asset,ar,onChanged,transactionId,i
  {context&&!context.can_edit&&<p className="muted">{assetOpeningError(context.block_reason,ar)}</p>}
  {context?.can_edit&&!edit&&!confirm&&<div className="asset-detail-actions"><ActionButton icon="edit" label={t('تعديل سند الرصيد الافتتاحي','Edit opening balance voucher')} showLabel onClick={()=>begin(context.asset)}/><ActionButton icon="delete" label={t('حذف سند الرصيد الافتتاحي','Delete opening balance voucher')} showLabel onClick={()=>setConfirm(true)}/></div>}
  {edit&&<form onSubmit={e=>{e.preventDefault();void act('UPDATE');}}><fieldset disabled={busy} style={{border:0,padding:0,margin:0}}><div className="form-grid">
- <label>{t('اسم الأصل','Asset name')}<input required maxLength={200} value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>
+ <label>{t('اسم الأصل','Asset name')}<input autoFocus required maxLength={200} value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>
  <label>{t('تاريخ الرصيد الافتتاحي','Opening balance date')}<input required type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></label>
  <label>{t('قيمة الرصيد الافتتاحي','Opening balance amount')} ({asset.currency})<input required type="number" min="0.00000001" step="any" dir="ltr" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/></label>
  <label>{t('الكمية','Quantity')}<input required type="number" min="0.00000001" step="any" dir="ltr" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/></label>
