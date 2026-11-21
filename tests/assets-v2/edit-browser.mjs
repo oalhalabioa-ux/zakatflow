@@ -96,7 +96,7 @@ try {
   zakat_due:52.5,currency:'SAR',status:'CONFIRMED',calculation_snapshot:{schemaVersion:2,candidateLots:1},
  }).select('id').single());
  value(await admin.from('zakat_assessment_lines').insert({
-  assessment_id:assessment.id,lot_id:lot.id,quantity:6,valuation_price:350,market_value:2100,eligible_value:2100,
+  assessment_id:assessment.id,lot_id:lot.id,quantity:6,valuation_price:350,valuation_currency:'SAR',fx_rate:1,market_value:2100,eligible_value:2100,
   zakat_amount:52.5,eligibility_status:'ELIGIBLE',explanation:'Synthetic frozen valuation',
  }));
  const snapshot = await finances(owner.id,assessment.id);
@@ -124,6 +124,7 @@ try {
  ];
  for (const {asset,locale,ctx,block,price} of cases) {
   const page = await ctx.newPage();
+  page.on('pageerror', error => console.error('Browser error:',error.message));
   const ar = locale === 'ar';
   const scope = asset.ownership_scope;
   const puts = [];
