@@ -119,6 +119,18 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await receiver.reload();
     await receiver.getByText('The study is unavailable or access ended.', { exact: true }).waitFor();
     await setMode('read');
+    await receiver.reload();
+    await receiver.getByRole('heading', { name: 'Synthetic QA declined draft', exact: true }).waitFor();
+
+    const shareRow = source.getByRole('row').filter({ has: source.getByRole('rowheader', { name: recipientOrg, exact: true }) });
+    await shareRow.getByRole('cell', { name: 'Current', exact: true }).waitFor();
+    await shareRow.getByRole('button', { name: 'Revoke access', exact: true }).click();
+    await shareRow.getByRole('cell', { name: 'Revoked', exact: true }).waitFor();
+    await receiver.reload();
+    await receiver.getByText('The study is unavailable or access ended.', { exact: true }).waitFor();
+    await receiver.goto(appUrl + '/en/feasibility/shared?organization=' + recipientOrg);
+    await receiver.getByText('No shared studies are available.', { exact: true }).waitFor();
+    console.log('PASS study owner revocation removes the study from the recipient inbox and blocks the old link');
   } finally {
     await Promise.all(contexts.map(context => context.close()));
   }
