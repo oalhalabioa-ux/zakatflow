@@ -63,7 +63,7 @@ export function currentAssetValuation(input: {
  const quote = nonnegative(metadata.market_price_per_unit ?? metadata.market_price);
  const quoteCurrency = typeof metadata.market_price_currency==='string' ? metadata.market_price_currency : currency;
  const quoteDate = typeof metadata.market_valuation_date==='string' ? metadata.market_valuation_date : null;
- const fx = quoteCurrency===baseCurrency ? new Decimal(1) : nonnegative(metadata.market_fx_rate ?? metadata.fx_rate);
+ const fx = quoteCurrency===baseCurrency ? new Decimal(1) : nonnegative(metadata.market_fx_rate);
  if (!quote || !fx?.gt(0) || (quoteDate && quoteDate>date)) return null;
 
  const metal = type==='GOLD' || type==='SILVER';
@@ -152,7 +152,7 @@ export function buildAssetStatement(input:Input){
  type Row = {
   id:string; source_id:string; source_path:'transactions'|'asset_event'|'audit'; date:string; createdAt:string;
   type:string; status:string; reference:string|null; currency:string|null; exchangeRate:string|null;
-  sale?:ReturnType<typeof saleBreakdown>; grade?:string; amount:string|null; unitPrice:string|null; quantityIn:string|null; quantityOut:string|null; costEffect:string|null;
+  sale?:ReturnType<typeof saleBreakdown>; grade?:string; pricingQuantity?:string; amount:string|null; unitPrice:string|null; quantityIn:string|null; quantityOut:string|null; costEffect:string|null;
  };
  const entries:{row:Row; effect:Effect|null}[]=[];
  function add(row:Row,effect:Effect|null){
@@ -186,12 +186,16 @@ export function buildAssetStatement(input:Input){
   const exchangeRate=tx.metadata?.fx_rate;
   const fallbackPrice=(kind==='SALE'||kind==='PURCHASE'||kind==='OPENING_BALANCE')&&new Decimal(tx.quantity).gt(0)
    ?marketAmount.div(tx.quantity).toDecimalPlaces(8).toString():null;
+  const price=tx.unit_price==null?fallbackPrice:String(tx.unit_price);
+  const pricingQuantity=new Decimal(tx.quantity);
+  const exactPrice=nonnegative(price);
   const grade=nonnegative(tx.metadata?.karat ?? tx.metadata?.purity);
   add({id:tx.id,source_id:tx.id,source_path:'transactions',date:tx.transaction_date,createdAt:tx.created_at,type:kind,
    status,reference:tx.reference,currency:tx.currency,amount:marketAmount.toString(),
    grade:grade?.toString(),sale:kind==='SALE'?saleBreakdown(tx,effect,input.organizational,status):null,
    exchangeRate:typeof exchangeRate==='number'||typeof exchangeRate==='string'?String(exchangeRate):tx.currency===tx.base_currency?'1':null,
-   unitPrice:tx.unit_price==null?fallbackPrice:String(tx.unit_price),quantityIn:null,quantityOut:null,costEffect:null},effect);
+   unitPrice:price,pricingQuantity:exactPrice&&pricingQuantity.gt(0)&&exactPrice.mul(pricingQuantity).eq(marketAmount)
+    ?pricingQuantity.toString():undefined,quantityIn:null,quantityOut:null,costEffect:null},effect);
   if(cancellation&&eventId&&!visibleReversed.has(tx.id)&&!isReversal){
    add({id:cancellation.id,source_id:eventId,source_path:'asset_event',date:riyadhDate(cancellation.changed_at),
     createdAt:cancellation.changed_at,type:'REVERSAL',status:'RECORDED',reference:null,

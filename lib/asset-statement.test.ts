@@ -90,8 +90,8 @@ describe('stored price basis',()=>{
   const sale=transaction('sale','2026-05-01','SALE',2,800,{proceeds_account_id:'bank'});
   const statement=buildAssetStatement({...options,transactions:[opening,sale],
    lots:[lot('opening','2026-01-01',10,3000)],allocations:[{transaction_id:'sale',quantity:2,value_base:600}]});
-  expect(statement.rows[0]).toMatchObject({amount:'3000',unitPrice:'300',costEffect:'3000'});
-  expect(statement.rows[1]).toMatchObject({amount:'800',unitPrice:'400',remainingQuantity:'8',remainingCost:'2400',
+  expect(statement.rows[0]).toMatchObject({amount:'3000',unitPrice:'300',costEffect:'3000',pricingQuantity:'10'});
+  expect(statement.rows[1]).toMatchObject({amount:'800',unitPrice:'400',pricingQuantity:'2',remainingQuantity:'8',remainingCost:'2400',
    sale:{proceeds:'800',cost:'600',realized:'200'}});
   const input={type:'GOLD',currency:'SAR',baseCurrency:'SAR',quantity:'8',cost:'2400',date:'2026-11-21'};
   expect(currentAssetValuation({...input,metadata:{karat:18,market_price:410,market_value_auto:true}})).toMatchObject({
@@ -101,6 +101,7 @@ describe('stored price basis',()=>{
    basis:'ASSET_UNIT',appliedPrice:'410',value:'3280',unrealized:'880',
   });
   expect(currentAssetValuation({...input,metadata:{karat:18}})).toBeNull();
+  expect(currentAssetValuation({...input,metadata:{market_price:410,market_price_currency:'USD',fx_rate:3.75}})).toBeNull();
   expect(currentAssetValuation({...input,metadata:{market_price:410,market_valuation_date:'2026-11-22'}})).toBeNull();
  });
 });

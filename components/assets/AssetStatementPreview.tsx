@@ -37,6 +37,9 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(fraction?'.'+fraction:'');
  };
  const show=(value:string|null)=>value??'—';
+ const unit=ar&&statement?.asset.unit==='g'?'غ':statement?.asset.unit;
+ const marketSource=statement?.valuation?.source;
+ const sourceLabel=marketSource==='USER_MANUAL'||marketSource==='MANUAL_MARKET_PRICE'?t('يدوي','Manual'):marketSource;
  const movement=(type:string)=>{
   if(type==='OPENING_BALANCE')return t('رصيد افتتاحي','Opening balance');
   if(type==='PRICE_CORRECTION')return t('تصحيح السعر','Price correction');
@@ -61,7 +64,7 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
     {!statement.complete&&<p role="status">{t('لم تكتمل مطابقة الأرصدة مع المصادر المسجلة لهذا الكشف.','Some balances could not be reconciled with recorded sources.')}</p>}
     {statement.complete&&<section className="asset-statement-summary" aria-label={t('ملخص رصيد الأصل','Asset balance summary')}>
      <dl className="operation-detail-grid">
-      <div><dt>{t('الكمية المتبقية','Remaining quantity')}</dt><dd><bdi>{format(statement.closing.quantity)} {statement.asset.unit}</bdi></dd></div>
+      <div><dt>{t('الكمية المتبقية','Remaining quantity')}</dt><dd><bdi>{format(statement.closing.quantity)} {unit}</bdi></dd></div>
       <div><dt>{statement.asset.organizational?t('صافي القيمة الدفترية','Net book value'):t('تكلفة المتبقي','Remaining cost')}</dt>
        <dd><bdi>{format(statement.closing.cost)} {statement.baseCurrency}</bdi></dd></div>
       {statement.valuation&&<>
@@ -80,8 +83,12 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
        {' '}<bdi>{format(statement.valuation.quote)} × {statement.valuation.purity}</bdi>
       </>}
       {statement.valuation.fx!=='1'&&<> · {t('الصرف','FX')} <bdi>{statement.valuation.fx}</bdi></>}
-      {statement.valuation.source&&<bdi> · {statement.valuation.source}</bdi>}
+      {sourceLabel&&<> · {t('المصدر','Source')} <bdi>{sourceLabel}</bdi></>}
       {statement.valuation.quoteDate&&<bdi> · {statement.valuation.quoteDate}</bdi>}
+     </p>}
+     {statement.valuation&&<p>
+      <bdi>{format(statement.closing.quantity)} {unit} × {format(statement.valuation.appliedPrice)}
+       {statement.valuation.fx!=='1'?` × ${statement.valuation.fx}`:''} = {format(statement.valuation.value)} {statement.baseCurrency}</bdi>
      </p>}
      {statement.current&&!statement.valuation&&!['CASH','BANK','RECEIVABLE'].includes(statement.asset.type)&&
       <p>{t('القيمة السوقية غير متاحة من سعر وحدة موثّق.','Market value is unavailable from a recorded unit quote.')}</p>}
@@ -108,7 +115,9 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
     {statement.rows.some(row=>row.sale||['PURCHASE','OPENING_BALANCE'].includes(row.type))&&<section aria-label={t('تفاصيل الاقتناء والبيع','Acquisition and sale breakdowns')}>
      <h4>{t('تفاصيل الاقتناء والبيع','Acquisition and sale breakdowns')}</h4>
      {statement.rows.filter(row=>row.sale||['PURCHASE','OPENING_BALANCE'].includes(row.type)).map(row=><details key={row.id} className="card section">
-      <summary>{movement(row.type)} · <bdi>{row.voucher??row.reference??row.date}</bdi> · <bdi>{show(row.sale?row.quantityOut:row.quantityIn)} {statement.asset.unit}</bdi></summary>
+      <summary>{movement(row.type)} · <bdi>{row.voucher??row.reference??row.date}</bdi> · <bdi>{show(row.sale?row.quantityOut:row.quantityIn)} {unit}</bdi></summary>
+      {row.pricingQuantity&&<p><bdi>{format(row.pricingQuantity)} {unit} × {format(row.unitPrice)} = {format(row.amount)} {row.currency}</bdi></p>}
+      {row.grade&&['GOLD','SILVER'].includes(statement.asset.type)&&<p>{t('العيار أو النقاوة في السند','Karat or purity on the voucher')} · <bdi>{row.grade}</bdi></p>}
       <dl className="operation-detail-grid">
        <div><dt>{t('السعر الفعلي للوحدة في السند','Actual unit price in voucher')}</dt><dd><bdi>{format(row.unitPrice)} {row.currency}</bdi></dd></div>
        <div><dt>{row.sale?t('مبلغ البيع في السند','Recorded sale amount'):t('مبلغ الاقتناء في السند','Recorded acquisition amount')}</dt><dd><bdi>{format(row.amount)} {row.currency}</bdi></dd></div>
@@ -120,7 +129,7 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
          row.sale?.realized?.startsWith('-')?t('خسارة محققة','Realized loss'):t('نتيجة البيع المحققة','Realized sale result')}</dt>
          <dd><bdi>{format(row.sale?.realized??null)} {statement.baseCurrency}</bdi></dd></div>
        </>}
-       <div><dt>{t('الرصيد بعد الحركة','Balance after movement')}</dt><dd><bdi>{format(row.remainingQuantity)} {statement.asset.unit} · {format(row.remainingCost)} {statement.baseCurrency}</bdi></dd></div>
+       <div><dt>{t('الرصيد بعد الحركة','Balance after movement')}</dt><dd><bdi>{format(row.remainingQuantity)} {unit} · {format(row.remainingCost)} {statement.baseCurrency}</bdi></dd></div>
       </dl>
      </details>)}
     </section>}
