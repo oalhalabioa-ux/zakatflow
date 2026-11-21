@@ -43,7 +43,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: asset-statement-preview
-          path: .asset-qa/*.png
+          path: asset-qa-preview/*.png
       - name: Stop isolated database
         if: always()
         run: test -z "$ASSET_QA_ROOT" || npx --yes supabase@2.122.0 stop --workdir "$ASSET_QA_ROOT" --no-backup

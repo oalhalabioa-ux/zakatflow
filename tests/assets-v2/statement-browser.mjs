@@ -89,7 +89,7 @@ try{
  }
  assert.ok(ready);
  browser=await chromium.launch({headless:true});
- await mkdir('.asset-qa',{recursive:true});
+ await mkdir('asset-qa-preview',{recursive:true});
  const ar=await context(browser,owner,{width:390,height:844});
  const en=await context(browser,owner,{width:1440,height:960});
  const foreign=await context(browser,stranger,{width:390,height:844});
@@ -129,7 +129,7 @@ try{
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/'+locale+'/assets');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
-  await page.screenshot({path:`.asset-qa/statement-${locale}.png`});
+  await page.screenshot({path:`asset-qa-preview/statement-${locale}.png`});
  }
  console.log('PASS scoped opening and FIFO statement; 9 units / 2840 as of first sale, 6 / 1920 today, corporate 10 / 90000, denied cross-user and organization, AR mobile and EN desktop');
 }finally{
