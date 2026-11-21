@@ -2,10 +2,12 @@ import {withVoucherNumbers} from './voucher-numbers';
 import {randomUUID} from 'node:crypto';
 import { requireUser } from './auth';
 import { transactionSchema } from '@/lib/validation/schemas';
+import {isPersonalSaleCorrectionCandidate} from '../lib/personal-sale-correction';
+import {isAssetOpeningVoucher} from '@/lib/asset-opening-workspace';
 import {assetPurchaseFinancialClass,buildAssetPurchaseCoreIntent} from '@/lib/asset-financial-core';
 const assetSelect='id,name,asset_type,ownership_scope,organization_id,entity_id,cost_center_id,currency,metadata';
 export async function listTransactions(deleted=false){
- const{supabase}=await requireUser();
+ const{supabase,user}=await requireUser();
  const[{data:records,error},{data:commands,error:ce}]=await Promise.all([
   supabase.from('transactions').select(`*,asset_accounts!inner(${assetSelect})`).or(deleted?'metadata->>asset_deleted.eq.true':'metadata->>asset_deleted.is.null,metadata->>asset_deleted.neq.true').order('transaction_date',{ascending:false}),
   deleted?Promise.resolve({data:[],error:null}):supabase.from('asset_lifecycle_commands').select(`*,asset_accounts!inner(${assetSelect})`).order('created_at',{ascending:false})]);
@@ -24,7 +26,11 @@ export async function listTransactions(deleted=false){
  return withVoucherNumbers(supabase,rows.map((t:any)=>{
   const e:any=eventMap.get(t.metadata?.financial_event_id),owned=(balances??[]).filter((o:any)=>o.event_id===e?.id),cmd=(commands??[]).find((c:any)=>c.transaction_id===t.id||c.id===t.id),org=(orgs??[]).find((o:any)=>o.id===t.organization_id);
   const base=t.base_currency??e?.base_currency??org?.base_currency??t.asset_accounts.currency;
-  return{...t,currency:t.currency??base,base_currency:base,...(guards.get(t.id) as any),lifecycle_command:cmd??t.lifecycle_command,operation_type:cmd?.operation??t.metadata?.operation??t.transaction_type,financial_event_status:e?.status??null,source_label:t.metadata?.source==='INVESTMENTS'?'الاستثمارات':e?.source_module==='ASSET_LIFECYCLE'?'عمليات الأصل':e?.source_module==='ASSETS_INTEGRATION'||t.metadata?.source==='ATOMIC_ASSET_ACQUISITION'?'الأصول':'سجل العمليات',counterparty_name:(parties??[]).find((p:any)=>p.id===(e?.counterparty_id??t.metadata?.counterparty_id))?.name??null,counterparty_id:e?.counterparty_id??t.metadata?.counterparty_id??null,entity_name:(entities??[]).find((p:any)=>p.id===(t.entity_id??t.asset_accounts.entity_id))?.name??null,cost_center_name:(centers??[]).find((p:any)=>p.id===(t.metadata?.cost_center_id??t.asset_accounts.cost_center_id))?.name??null,organization_name:org?.name??null,due_date:e?.due_date??t.metadata?.due_date??null,obligation_balances:owned,applied_base_amount:owned.reduce((n:number,o:any)=>n+Number(o.applied_base_amount??0),0),outstanding_base_amount:owned.reduce((n:number,o:any)=>n+Number(o.outstanding_base_amount??0),0)};
+  const draft = ['DRAFT','PLANNED','COMMITTED'].includes(e?.status);
+  const opening = t.transaction_type==='OPENING_BALANCE' && isAssetOpeningVoucher(t.asset_accounts);
+  const canRequestEdit = !t.metadata?.asset_deleted && !t.metadata?.investment_id &&
+    (draft || opening || t.user_id===user.id);
+  return{...t,can_correct_personal_sale:isPersonalSaleCorrectionCandidate(t,user.id),can_request_edit:canRequestEdit,currency:t.currency??base,base_currency:base,...(guards.get(t.id) as any),lifecycle_command:cmd??t.lifecycle_command,operation_type:cmd?.operation??t.metadata?.operation??t.transaction_type,financial_event_status:e?.status??null,source_label:t.metadata?.source==='INVESTMENTS'?'الاستثمارات':e?.source_module==='ASSET_LIFECYCLE'?'عمليات الأصل':e?.source_module==='ASSETS_INTEGRATION'||t.metadata?.source==='ATOMIC_ASSET_ACQUISITION'?'الأصول':'سجل العمليات',counterparty_name:(parties??[]).find((p:any)=>p.id===(e?.counterparty_id??t.metadata?.counterparty_id))?.name??null,counterparty_id:e?.counterparty_id??t.metadata?.counterparty_id??null,entity_name:(entities??[]).find((p:any)=>p.id===(t.entity_id??t.asset_accounts.entity_id))?.name??null,cost_center_name:(centers??[]).find((p:any)=>p.id===(t.metadata?.cost_center_id??t.asset_accounts.cost_center_id))?.name??null,organization_name:org?.name??null,due_date:e?.due_date??t.metadata?.due_date??null,obligation_balances:owned,applied_base_amount:owned.reduce((n:number,o:any)=>n+Number(o.applied_base_amount??0),0),outstanding_base_amount:owned.reduce((n:number,o:any)=>n+Number(o.outstanding_base_amount??0),0)};
  }));
 }
 export async function deleteUnlinkedAssetTransaction(id:string){const{supabase}=await requireUser();const{data,error}=await supabase.rpc('delete_unlinked_asset_transaction',{p_transaction_id:id});if(error)throw error;return data;}
@@ -72,4 +78,4 @@ if(isOrganizationAsset){
  data=await recognizeOrganizationAssetPurchase(supabase,user,data,asset)
 }
 await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'transaction',entity_id:data.id,action:'CREATE',new_data:data});return data;}
-export async function reverseTransaction(id:string){const {supabase,user}=await requireUser();const {data:original,error:oe}=await supabase.from('transactions').select('organization_id').eq('id',id).single();if(oe)throw oe;if(original.organization_id)throw Error('USE_ASSET_FINANCIAL_REVERSAL');const {data,error}=await supabase.rpc('reverse_transaction',{p_user_id:user.id,p_transaction_id:id});if(error)throw error;await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'transaction',entity_id:data,action:'REVERSAL',new_data:{reversal_transaction_id:data,original_transaction_id:id}});return data;}
+export async function reverseTransaction(id:string){const {supabase,user}=await requireUser();const {data:original,error:oe}=await supabase.from('transactions').select('organization_id,transaction_type,metadata').eq('id',id).single();if(oe)throw oe;if(original.metadata?.source==='sale_proceeds'||(!original.organization_id&&original.transaction_type==='SALE'))throw Error('USE_PERSONAL_SALE_CORRECTION');if(original.organization_id)throw Error('USE_ASSET_FINANCIAL_REVERSAL');const {data,error}=await supabase.rpc('reverse_transaction',{p_user_id:user.id,p_transaction_id:id});if(error)throw error;await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'transaction',entity_id:data,action:'REVERSAL',new_data:{reversal_transaction_id:data,original_transaction_id:id}});return data;}

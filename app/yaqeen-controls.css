@@ -75,6 +75,6 @@
 .corp-shell.theme-yaqeen-business .corp-content :is(table,.table)>thead>tr>th :is(button,span){color:inherit}
 /* Customizable native select: keep its value and picker arrow on one row. */
 @supports(appearance:base-select){
- .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]):not([size]){display:inline-flex!important;flex-direction:row!important;align-items:center;justify-content:space-between;gap:10px;white-space:nowrap}
- .corp-shell.theme-yaqeen-business .corp-content select:not([multiple]):not([size])::picker-icon{display:block;flex:0 0 auto;margin-inline-start:auto;align-self:center;line-height:1}
+ .corp-shell.theme-yaqeen-business .corp-content select:not(.yq-filter-native):not([multiple]):not([size]){display:inline-flex!important;flex-direction:row!important;align-items:center;justify-content:space-between;gap:10px;white-space:nowrap}
+ .corp-shell.theme-yaqeen-business .corp-content select:not(.yq-filter-native):not([multiple]):not([size])::picker-icon{display:block;flex:0 0 auto;margin-inline-start:auto;align-self:center;line-height:1}
 }

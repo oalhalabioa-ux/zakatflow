@@ -8,3 +8,12 @@ describe('operations financial presentation',()=>{
  it('reports disposal and sale by book effect instead of proceeds for the net asset metric',()=>{const sale={...purchase,operation_type:'SALE',gross_value:200,metadata:{cost_basis_base:150,asset_effect_base:-150,realized_gain_base:50,vat_amount:0}};expect(operationFilteredSummary([sale]).net).toBe(-150);expect(operationReportAmounts(sale).gain).toBe(50)});
  it('leaves settlement figures blank when no obligation exists',()=>{expect(operationColumnValue({...purchase,obligation_balances:[]},'applied')).toBe('—');expect(operationExportRows([purchase])[1]).toContain(431.25)});
 });
+
+it('keeps the corrected sale and receipt in operation totals once',()=>{
+ const oldSale={id:'old-sale',transaction_type:'SALE',base_value:40,base_currency:'SAR',metadata:{cost_basis_base:20,sale_correction_replacement_id:'corrected'}};
+ const oldReceipt={id:'old-receipt',transaction_type:'ADD',base_value:40,base_currency:'SAR',metadata:{sale_correction_replacement_id:'corrected'}};
+ const reversal={id:'reversal',transaction_type:'REVERSAL',base_value:40,base_currency:'SAR',metadata:{sale_correction_reversal:true,sale_correction_replacement_id:'corrected'}};
+ const corrected={id:'corrected',transaction_type:'SALE',base_value:90,base_currency:'SAR',metadata:{corrects_sale_id:'old-sale',cost_basis_base:42}};
+ const receipt={id:'receipt',transaction_type:'ADD',base_value:90,base_currency:'SAR'};
+ expect(operationFilteredSummary([oldSale,oldReceipt,reversal,corrected,receipt])).toMatchObject({count:2,net:48,currency:'SAR'});
+});

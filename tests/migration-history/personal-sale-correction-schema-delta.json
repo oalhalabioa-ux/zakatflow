@@ -1,0 +1,10 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.correct_personal_asset_sale(p_sale_id uuid, p_request_id uuid, p_asset_id uuid, p_destination_id uuid, p_date date, p_quantity numeric, p_unit_price numeric, p_fx_rate numeric, p_notes text, p_reason text)",
+      "fingerprint": "12fc1cd4e61de72ee8714738b46ea3e4"
+    }
+  ]
+}

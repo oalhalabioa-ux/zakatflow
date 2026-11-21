@@ -33,7 +33,8 @@ export async function listAssets(){
  const periodResult=configuredMethod?await supabase.rpc('zakat_lot_hawl_periods',{p_calendar:configuredMethod.calendar_type}):{data:[],error:null};
  if(periodResult.error)throw periodResult.error;
  const currentPeriods=new Map<string,any>((periodResult.data??[]).map((p:any)=>[p.lot_id,p]));
- const saleIds=(exits.data??[]).filter((t:any)=>t.transaction_type==='SALE'&&!t.metadata?.lifecycle_reversed).map((t:any)=>t.id);
+ const activeExits=(exits.data??[]).filter((t:any)=>!t.metadata?.lifecycle_reversed&&!t.metadata?.sale_correction_replacement_id);
+ const saleIds=activeExits.filter((t:any)=>t.transaction_type==='SALE').map((t:any)=>t.id);
  const exitAllocationResult=saleIds.length?await supabase.from('transaction_allocations').select('transaction_id,value_base').in('transaction_id',saleIds):{data:[],error:null};
  if(exitAllocationResult.error)throw exitAllocationResult.error;
  const lots=lotResult.data??[],cycles=cycleResult.data??[],assessments=assessmentResult.data??[];
@@ -43,7 +44,7 @@ export async function listAssets(){
  const latest=selectedId?assessments.find((a:any)=>a.id===selectedId):(!activeCycle?assessments.find((a:any)=>!a.superseded_by):null);
  const baseCurrency=profileResult.data?.base_currency||'SAR';
  const exitByAsset=new Map<string,any>();
- for(const tx of exits.data??[])if(['SALE','ADJUSTMENT'].includes(tx.transaction_type)&&!tx.metadata?.lifecycle_reversed&&!exitByAsset.has(tx.asset_account_id))exitByAsset.set(tx.asset_account_id,tx);
+ for(const tx of activeExits)if(['SALE','ADJUSTMENT'].includes(tx.transaction_type)&&!exitByAsset.has(tx.asset_account_id))exitByAsset.set(tx.asset_account_id,tx);
  const reviewIds=[...new Set((exits.data??[]).map((t:any)=>t.metadata?.financial_event_id).filter(Boolean))];
  const eventResult=reviewIds.length?await supabase.from('financial_events').select('id,status').in('id',reviewIds):{data:[],error:null};if(eventResult.error)throw eventResult.error;
  const eventStatuses=new Map((eventResult.data??[]).map((e:any)=>[e.id,e.status]));
@@ -60,8 +61,8 @@ export async function listAssets(){
   return {...a,financial_event_status:eventStatuses.get(purchase?.metadata?.financial_event_id)??null,pending_purchase_cost_base:assetLots.filter((l:any)=>l.metadata?.recognition_pending).reduce((v:number,l:any)=>v+Number(l.remaining_value_base||0),0),financial_review_events:reviews,acquisition_transaction_id:purchase?.metadata?.financial_event_id?purchase?.id:null,financial_event_id:purchase?.metadata?.financial_event_id??null,...currentValuation(a),...balance,has_financial_history:assetLots.length>0,lots:assetLots.filter((l:any)=>Number(l.remaining_quantity)>0).map((l:any)=>({...l,current_hawl_start_date:currentPeriods.get(l.id)?.hawl_start_date??null,current_hawl_due_date:currentPeriods.get(l.id)?.hawl_due_date??null})),lifecycle_status,
    lifecycle_exit_date:lifecycle_status==='ACTIVE'?null:exit?.transaction_date??null,
    ...disposedAssetHistory(a.id,exits.data??[]),
-   ...soldAssetHistory(a.id,exits.data??[],exitAllocationResult.data??[]),
-   exit_history:(exits.data??[]).filter((t:any)=>t.asset_account_id===a.id&&!t.metadata?.lifecycle_reversed&&(t.transaction_type==='SALE'||t.metadata?.reason==='DISPOSAL_ZERO_VALUE')).map((t:any)=>({
+   ...soldAssetHistory(a.id,activeExits,exitAllocationResult.data??[]),
+   exit_history:activeExits.filter((t:any)=>t.asset_account_id===a.id&&(t.transaction_type==='SALE'||t.metadata?.reason==='DISPOSAL_ZERO_VALUE')).map((t:any)=>({
     id:t.id,date:t.transaction_date,kind:t.transaction_type==='SALE'?'SOLD':'DISPOSED',quantity:Number(t.quantity||0),
     cost:t.transaction_type==='SALE'?soldAssetHistory(a.id,[t],exitAllocationResult.data??[]).sold_cost_value:disposedAssetHistory(a.id,[t]).disposed_cost_value,
     proceeds:t.transaction_type==='SALE'?Number(t.base_value||0):0
