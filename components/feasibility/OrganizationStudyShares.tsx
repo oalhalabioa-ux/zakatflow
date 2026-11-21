@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {RoyalIcon} from './RoyalIcon';
+import CompanyStudyInvitations from './CompanyStudyInvitations';
+import { CompanyDirectorySearch } from './CompanyInvitationDirectory';
 import { shareAccessSchema, sharingModeSchema, shareAuditEventsSchema, shareAuditEventLabels, type ShareAuditEvent } from '@/lib/feasibility/sharing-permissions';
 import { proposalReviewHref, proposalStateLabel, type ProposalState } from '@/lib/feasibility/share-proposals';
 
@@ -13,6 +15,7 @@ export default function OrganizationStudyShares({ locale, organization, project,
   locale: string; organization: string; project: string; revision: number; saved: boolean; audit?: boolean;
 }) {
   const ar = locale === 'ar';
+  const invitations = process.env.NEXT_PUBLIC_FEASIBILITY_COMPANY_INVITATIONS === 'true';
   const [mode, setMode] = useState<'disabled' | 'read' | 'edit'>();
   const [access, setAccess] = useState<'read' | 'edit'>('read');
   const [shares, setShares] = useState<Share[]>();
@@ -33,6 +36,8 @@ export default function OrganizationStudyShares({ locale, organization, project,
     if (code === 'FEASIBILITY_NON_SUBSCRIBER_MAX_30_DAYS') return ar
       ? 'وصول المؤسسة غير المشتركة ينتهي خلال 30 يومًا من المشاركة الأولى. اختر مدة ضمن الفترة المتبقية.'
       : 'An unsubscribed organization has at most 30 days from the first share. Choose a duration within the remaining period.';
+    if (code === 'FEASIBILITY_COMPANY_INVITATION_PENDING') return ar
+      ? 'اسحب الدعوة المعلقة قبل إرسال دعوة بشروط جديدة.' : 'Withdraw the pending invitation before sending new terms.';
     if (code === 'FEASIBILITY_STALE_SHARE_REVISION') return ar
       ? 'تغيرت نسخة الدراسة. أعد تحميلها واحفظها قبل المشاركة.' : 'The study revision changed. Reload and save it before sharing.';
     return ar ? 'تعذر إتمام المشاركة. تحقق من معرّف المؤسسة وصلاحياتك.' : 'Sharing could not be completed. Check the organization ID and your permissions.';
@@ -95,9 +100,10 @@ export default function OrganizationStudyShares({ locale, organization, project,
     setBusy(true);
     setError('');
     try {
-      const response = await fetch('/api/feasibility/organization-shares', {
+      const issue = invitations && action === 'share';
+      const response = await fetch(issue ? '/api/feasibility/company-invitations' : '/api/feasibility/organization-shares', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, organization, project, recipient: id,
+        body: JSON.stringify({ action: issue ? 'issue' : action, organization, project, recipient: id,
           ...(action === 'share' ? { revision, days: Number(days), access } : {}) }),
       });
       if (!response.ok) throw Error((await response.json()).error);
@@ -111,9 +117,11 @@ export default function OrganizationStudyShares({ locale, organization, project,
   const notExpired=(share:Share)=>!share.revoked_at&&Date.parse(share.expires_at)>Date.now();
   return <section className="card fs-panel fs-handoff fs-royal-organization-sharing">
     <h3>{audit ? (ar ? 'صلاحيات المؤسسات وقرارات المراجعة' : 'Organization permissions and review decisions') : (ar ? 'مشاركة الدراسة مع مؤسسة' : 'Share with an organization')}</h3>
-    <p>{ar ? 'تُشارك نسخة من الدراسة المحفوظة. للمؤسسة غير المشتركة صلاحية قراءة لمدة تصل إلى 30 يومًا من أول مشاركة.'
+    <p>{invitations ? (ar ? 'تصل الدعوة داخل يقين، ويبدأ الوصول عند قبول مسؤول في المؤسسة المستلمة.'
+      : 'The invitation is delivered inside Yaqeen. Access begins when a recipient administrator accepts.') : ar ? 'تُشارك نسخة من الدراسة المحفوظة. للمؤسسة غير المشتركة صلاحية قراءة لمدة تصل إلى 30 يومًا من أول مشاركة.'
       : 'Share a copy of the saved study. Unsubscribed organizations can view it for up to 30 days from the first share.'}</p>
     {!audit && <form className="fs-form-grid" onSubmit={event => { event.preventDefault(); void submit('share', recipient.trim()); }}>
+      {invitations && <CompanyDirectorySearch ar={ar} organization={organization} onChoose={setRecipient}/>}
       <label className="fs-field">{ar ? 'معرّف المؤسسة المستلمة' : 'Receiving organization ID'}
         <input dir="ltr" value={recipient} onChange={event => setRecipient(event.target.value)} required /></label>
       <label className="fs-field">{ar ? 'مدة الوصول بالأيام' : 'Access duration in days'}
@@ -124,11 +132,12 @@ export default function OrganizationStudyShares({ locale, organization, project,
           {mode === 'edit' && <option value="edit">{ar ? 'قراءة وتعديل' : 'Read and edit'}</option>}
         </select>
       </label>}
-      <div><button className="fs-btn" disabled={busy || !saved || !mode || mode === 'disabled'}>{ar ? 'مشاركة النسخة' : 'Share revision'}</button></div>
+      <div><button className="fs-btn" disabled={busy || !saved || !mode || mode === 'disabled'}>{invitations ? (ar ? 'إرسال دعوة' : 'Send invitation') : (ar ? 'مشاركة النسخة' : 'Share revision')}</button></div>
     </form>}
     {mode === 'disabled' && <p>{ar ? 'المشاركة غير متاحة حاليًا.' : 'Sharing is currently unavailable.'}</p>}
     {!saved && <p>{ar ? 'احفظ الدراسة لتتمكن من مشاركة الإصدار الحالي.' : 'Save the study to share its current revision.'}</p>}
     {error && <p role="alert">{error}</p>}
+    {invitations && !audit && <CompanyStudyInvitations locale={locale} organization={organization} project={project} reload={reload}/>}
     <section className="card fs-panel">
     <h3 className="fs-royal-report-title"><RoyalIcon name="users"/>{ar?'سجل النسخ المشتركة':'Shared revision register'}</h3>
     {shares===undefined&&!error&&<p role="status">{ar?'جارٍ تحميل المشاركات…':'Loading shares…'}</p>}

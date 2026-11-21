@@ -11,6 +11,8 @@ import type { FeasibilityStudy } from '@/lib/feasibility/engine';
 import FeasibilityReport from './FeasibilityReport';
 import SharedStudyEditor from './SharedStudyEditor';
 import SharedStudySubmission from './SharedStudySubmission';
+import CompanyStudyInvitations from './CompanyStudyInvitations';
+import { CompanyDirectoryVisibility } from './CompanyInvitationDirectory';
 
 type Share = { project_id: string; title: string; source_name: string; source_revision: number; expires_at: string };
 
@@ -109,6 +111,12 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
             project={selected} revision={current.editRevision}/>}
         <FeasibilityReport study={current.study} locale={locale} allowExport={false}/>
       </>}
+      {!selected && process.env.NEXT_PUBLIC_FEASIBILITY_COMPANY_INVITATIONS === 'true' && organizations.some(option => option.id === organization)
+        && <>
+          <CompanyDirectoryVisibility key={'directory:' + organization} ar={ar} organization={organization}/>
+          <CompanyStudyInvitations key={organization} locale={locale} organization={organization}
+            onChanged={() => setRefreshKey(value => value + 1)}/>
+        </>}
       {current && !current.error && !selected && (current.items.length ? <ul>
         {current.items.map(share => <li key={share.project_id}>
           <Link href={base + '?' + new URLSearchParams({ organization, project: share.project_id })}>{share.title}</Link>
