@@ -141,7 +141,10 @@ try{
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
   await dialog.getByText('2,460 SAR',{exact:true}).waitFor({timeout:20000});
   await dialog.getByText('307.5 SAR',{exact:true}).waitFor({timeout:20000});
-  await dialog.locator('section details summary').filter({hasText:/SALE|Sale|بيع/}).click();
+  await dialog.locator('[data-asset-movement="OPENING_BALANCE"] > summary').click();
+  await dialog.getByText(new RegExp('10 .* × 300 = 3,000 SAR')).waitFor({timeout:20000});
+  await dialog.locator('[data-asset-movement="SALE"] > summary').click();
+  await dialog.getByText(new RegExp('2 .* × 400 = 800 SAR')).waitFor({timeout:20000});
   await dialog.getByText('200 SAR',{exact:true}).waitFor({timeout:20000});
   await page.screenshot({path:`asset-qa-preview/statement-${locale}.png`});
  }

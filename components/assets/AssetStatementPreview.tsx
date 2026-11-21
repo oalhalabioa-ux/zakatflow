@@ -114,7 +114,7 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
     </div>}
     {statement.rows.some(row=>row.sale||['PURCHASE','OPENING_BALANCE'].includes(row.type))&&<section aria-label={t('تفاصيل الاقتناء والبيع','Acquisition and sale breakdowns')}>
      <h4>{t('تفاصيل الاقتناء والبيع','Acquisition and sale breakdowns')}</h4>
-     {statement.rows.filter(row=>row.sale||['PURCHASE','OPENING_BALANCE'].includes(row.type)).map(row=><details key={row.id} className="card section">
+     {statement.rows.filter(row=>row.sale||['PURCHASE','OPENING_BALANCE'].includes(row.type)).map(row=><details key={row.id} className="card section" data-asset-movement={row.type}>
       <summary>{movement(row.type)} · <bdi>{row.voucher??row.reference??row.date}</bdi> · <bdi>{show(row.sale?row.quantityOut:row.quantityIn)} {unit}</bdi></summary>
       {row.pricingQuantity&&<p><bdi>{format(row.pricingQuantity)} {unit} × {format(row.unitPrice)} = {format(row.amount)} {row.currency}</bdi></p>}
       {row.grade&&['GOLD','SILVER'].includes(statement.asset.type)&&<p>{t('العيار أو النقاوة في السند','Karat or purity on the voucher')} · <bdi>{row.grade}</bdi></p>}
