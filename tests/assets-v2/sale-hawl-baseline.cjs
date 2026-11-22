@@ -68,6 +68,7 @@ async function main(){
     values($1,$2,$3,$4,$5,$5,public.zakat_next_hawl_date($5,'GREGORIAN'),10,10,$6,$6)`,[lot,owner,gold,source,date,cost]);
   }
   if(captureSources)await db.exec(migration('20261122212401_personal_gold_receipt_hawl_sources.sql'));
+  if(captureSources)await db.exec(migration('20261122213838_personal_gold_receipt_remaining.sql'));
   for(const [path,continuity] of [['legacy',true],['grouped',true],...(captureSources?[['legacy',false]]:[])]){
 
    await db.exec('begin');
@@ -152,6 +153,14 @@ async function main(){
    const balances=await db.query(`select asset_account_id,sum(remaining_value_base)::int as balance
     from lots where asset_account_id in ($1,$2) group by asset_account_id order by asset_account_id`,[bank,home]);
    assert.deepEqual(balances.rows,[{asset_account_id:bank,balance:4200},{asset_account_id:home,balance:1200}]);
+   if(captureSources){
+    await db.exec('set local role authenticated');
+    const residual=await db.query(`select source_lot_id,remaining::int,remaining_base::int
+     from public.personal_gold_receipt_remaining($1) order by source_order`,[sale.proceeds_transaction_id]);
+    assert.deepEqual(residual.rows,[{source_lot_id:id(20),remaining:3300,remaining_base:3300},
+     {source_lot_id:id(21),remaining:900,remaining_base:900}]);
+    await db.exec('reset role');
+   }
    const afterSpending=await db.query("select public.personal_sale_preflight($1)->>'amount_block' as blocker",[sale.sale_transaction_id]);
    assert.equal(afterSpending.rows[0].blocker,'SALE_CORRECTION_PROCEEDS_USED');
    await db.exec('set local role authenticated');
