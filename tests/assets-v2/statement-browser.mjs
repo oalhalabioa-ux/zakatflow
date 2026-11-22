@@ -29,10 +29,10 @@ async function user(){
  return {id:user.id,cookies:[...cookies.values()],client};
 }
 
-async function seed(owner,organization_id=null,manualGold=false){
+async function seed(owner,organization_id=null,manualGold=false,name){
  const src=organization_id?admin:owner.client;
  const {id}=value(await src.from('asset_accounts').insert({
-  user_id:owner.id,name:organization_id?'QA Equipment Register':manualGold?'QA 18K Gold':'QA Gold Statement',
+  user_id:owner.id,name:name??(organization_id?'QA Equipment Register':manualGold?'QA 18K Gold':'QA Gold Statement'),
   metadata:manualGold?{karat:18,market_price_per_unit:410,market_price_currency:'SAR',market_value_auto:true,
    market_price_source:'USER_MANUAL',market_valuation_date:'2025-07-01'}:{},
   asset_type:organization_id?'OTHER':'GOLD',unit:organization_id?'unit':'g',currency:'SAR',
@@ -146,14 +146,61 @@ try{
   await dialog.locator('[data-asset-movement="SALE"] > summary').click();
   await dialog.getByText(new RegExp('2 .* × 400 = 800 SAR')).waitFor({timeout:20000});
   await dialog.getByText('200 SAR',{exact:true}).waitFor({timeout:20000});
+  const download=page.waitForEvent('download');
+  await dialog.getByRole('button',{name:locale==='ar'?'تصدير كشف الحركة CSV':'Export movement statement CSV',exact:true}).click();
+  const csv=await (await download).createReadStream();
+  let contents='';
+  for await(const chunk of csv)contents+=chunk.toString('utf8');
+  assert.ok(contents.includes('"800"')&&contents.includes('"2400"'));
+  assert.ok(contents.includes(gold.payload.rows.find(row=>row.type==='SALE').voucher));
+  const popup=page.waitForEvent('popup');
+  await dialog.getByRole('button',{name:locale==='ar'?'طباعة كشف الحركة':'Print movement statement',exact:true}).click();
+  const print=await popup;
+  await print.getByRole('cell',{name:'800',exact:true}).waitFor();
+  assert.equal(await print.locator('html').getAttribute('dir'),locale==='ar'?'rtl':'ltr');
+  await print.close();
   await page.screenshot({path:`asset-qa-preview/statement-${locale}.png`});
+ }
+ // Save a new personal sale inside the card and reconcile the asset and its single receipt.
+ {
+  const personal=await seed(owner,null,true,'QA Card Sale');
+  const bank=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,
+   name:'QA destination for in-card sale',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
+  const page=await en.newPage();
+  const dialog=page.getByRole('dialog');
+  const open=()=>page.getByRole('row').filter({hasText:'QA Card Sale'}).getByRole('button',{name:'Details and actions',exact:true}).click();
+  await page.goto(app+'/en/assets?scope=PERSONAL');
+  await open();
+  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
+  await dialog.getByLabel('Quantity',{exact:true}).fill('2');
+  await dialog.getByLabel('Sale price per unit').fill('450');
+  await dialog.getByLabel('Proceeds account').selectOption(bank.id);
+  const saved=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
+  await dialog.getByRole('button',{name:'Save operation',exact:true}).click();
+  const response=await saved;
+  assert.equal(response.status(),201,await response.text());
+  const result=await response.json();
+  await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('1,800 SAR',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('dialog').count(),1);
+  assert.equal(new URL(page.url()).pathname,'/en/assets');
+  const operations=value(await owner.client.from('transactions').select('id,asset_account_id,base_value').eq('transfer_id',result.transfer_id));
+  assert.equal(operations.length,2);
+  assert.equal(Number(operations.find(row=>row.asset_account_id===bank.id).base_value),900);
+  await page.reload();
+  await open();
+  await dialog.getByText('Asset movement statement',{exact:true}).click();
+  await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('1,800 SAR',{exact:true}).waitFor();
+  const persisted=(await statement(en,personal)).payload;
+  assert.deepEqual(persisted.closing,{quantity:'6',cost:'1800',currency:'SAR'});
+  assert.deepEqual(persisted.rows.find(row=>row.source_id===result.sale_transaction_id).sale,
+   {proceeds:'900',cost:'600',realized:'300'});
+  console.log('Inline personal sale: 8 → 6 g, cost 2400 → 1800 SAR, sale/receipt 900 SAR, realized gain 300 SAR, two linked rows');
  }
  // Correct the independent sale after the destination asset's existing history.
  {
   const page=await en.newPage();
   const open=async name=>{
    await page.getByRole('row').filter({hasText:name}).getByRole('button',{name:'Details and actions',exact:true}).click();
-   await page.getByText('Asset movement statement',{exact:true}).click();
   };
   const bank=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,
    name:'QA corrected proceeds',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
@@ -165,6 +212,7 @@ try{
   }).locator('dd').filter({hasText:new RegExp('^'+amount+'$')});
   await cardValue('Current quantity','8').waitFor();
   await cardValue('Book cost','2,400').waitFor();
+  await sourceDialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
   await sourceDialog.getByRole('table').getByRole('button',{name:gold.payload.rows.find(r=>r.type==='SALE').voucher,exact:true}).click();
   await page.getByRole('button',{name:'Review sale correction'}).click();
   await page.getByLabel('Correction type').selectOption('structure');
@@ -180,11 +228,13 @@ try{
   const replacement=await response.json();
   await page.getByText('Asset movement statement',{exact:true}).waitFor();
   await sourceDialog.getByRole('region',{name:'Asset balance summary'}).getByText('3,000 SAR',{exact:true}).waitFor();
+  await sourceDialog.getByRole('button',{name:'Asset summary',exact:true}).click();
   await cardValue('Current quantity','10').waitFor();
   await cardValue('Book cost','3,000').waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/en/assets');
   await page.reload();await open('QA Gold Statement');
+  await sourceDialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
   const current=(await statement(en,asset)).payload;
   const row=current.rows.find(r=>r.source_id===replacement.id);
   assert.ok(row.voucher);assert.equal(row.amount,'1350');assert.equal(row.sale.cost,'960');

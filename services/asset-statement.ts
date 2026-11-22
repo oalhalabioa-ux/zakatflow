@@ -9,6 +9,7 @@ export const assetStatementQuery=z.object({
  asOf:z.string().date(),
  offset:z.coerce.number().int().min(0).max(20_000).default(0),
  limit:z.coerce.number().int().min(1).max(100).default(30),
+ view:z.literal('report').optional(),
 });
 const READ_LIMIT=5_000;
 
@@ -120,7 +121,9 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
   ?new Decimal(statement.closing.cost).div(statement.closing.quantity).toDecimalPlaces(8).toString():null;
  const metalGrade=['GOLD','SILVER'].includes(asset.asset_type)?
   asset.metadata?.[asset.asset_type==='GOLD'?'karat':'purity']??asset.metadata?.karat??null:null;
- const page=statement.rows.slice(options.offset,options.offset+options.limit);
+ // Use one reconciliation pass for the whole report, including all pages.
+ if(options.view==='report'&&statement.rows.length>READ_LIMIT)throw Error('ASSET_STATEMENT_LIMIT');
+ const page=options.view==='report'?statement.rows:statement.rows.slice(options.offset,options.offset+options.limit);
  const numbered=await withVoucherNumbers(supabase,page.map(row=>({...row,document_sequence:undefined as string|undefined,document_links:undefined as Record<string,string>|undefined})));
  return {
   asset:{id:asset.id,name:asset.name,unit:asset.unit,type:asset.asset_type,organizational,metalGrade:metalGrade==null?null:String(metalGrade)},
@@ -139,6 +142,6 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
    voucher:row.document_sequence??row.document_links?.source_id??null,
   })),
   total:statement.rows.length,
-  nextOffset:options.offset+options.limit<statement.rows.length?options.offset+options.limit:null,
+  nextOffset:options.view!=='report'&&options.offset+options.limit<statement.rows.length?options.offset+options.limit:null,
  };
 }

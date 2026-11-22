@@ -746,7 +746,7 @@
 .asset-details-dialog .asset-details-footer details{position:relative}
 .asset-details-dialog .asset-export-options{position:absolute;bottom:calc(100% + 8px);inset-inline-end:0;padding:10px;border:1px solid var(--corp-border);background:var(--action-surface,var(--brand-surface,#fff));border-radius:10px;display:flex;gap:8px}
 .asset-details-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--corp-border);padding-bottom:14px}
-.asset-details-tabs [aria-selected=true]{color:var(--brand-primary);border-color:var(--brand-primary);background:var(--brand-surface-soft)}
+.asset-details-tabs :is([aria-selected=true],[aria-pressed=true]){color:var(--brand-primary);border-color:var(--brand-primary);background:var(--brand-surface-soft)}
 .purchase-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:16px;border-radius:10px;background:var(--brand-surface-soft)}
 .purchase-summary-grid strong{display:block;margin-top:8px;font-size:18px;overflow-wrap:anywhere}
 .asset-details-dialog [hidden]{display:none!important}
