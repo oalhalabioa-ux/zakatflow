@@ -97,7 +97,7 @@ export function createIndustrialStarter(id:string,title:string,starter:Industria
    ...study.legal.map((item,i)=>starter==='BOTTLED_WATER'&&i<7?{...item,critical:true}:item),
    ...template.legal.map((title,i)=>({
     id:'industry-legal-'+i,title,status:'NOT_STARTED' as const,notes:'',
-    ...(starter==='BOTTLED_WATER'?{critical:i<7}:{} )
+    critical:starter==='DAIRY_CHEESE'||i<7
    }))
   ]
  };
