@@ -228,7 +228,7 @@ try{
   // Discard a response to a full disposal. The exited asset must still offer recovery.
   await dialog.getByRole('button',{name:'Asset summary',exact:true}).click();
   await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
-  await dialog.getByLabel('Action',{exact:true}).selectOption('DISPOSAL');
+  await dialog.getByRole('combobox',{name:/^Action/}).selectOption('DISPOSAL');
   await dialog.getByLabel('Quantity',{exact:true}).fill('6');
   let disposalId;
   await page.route(url,async route=>{
