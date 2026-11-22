@@ -1,0 +1,25 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>معاينة تخصيص البيع</title><style>
+*{box-sizing:border-box}body{background:#f3f4f5;color:#1d3852;font:17px/1.6 system-ui;margin:0;padding:16px}main{max-width:720px;margin:auto;background:white;border-radius:12px;overflow:hidden}header{background:#10243a;color:#f5ebd6;padding:18px 24px}h1{font-size:24px;margin:0;color:#dfc38d}section,details{padding:16px 24px;border-bottom:1px solid #ddd}input,select{font:inherit;color:inherit;padding:4px;max-width:100%}label{display:inline-grid;margin:4px 0 4px 12px}output{display:block;font-size:1.2em;font-weight:600;color:#205347}table{width:100%;text-align:start}td,th{text-align:start;padding:4px}p{margin:4px 0}summary{cursor:pointer}</style><main><header><h1>بيع ذهب عيار 18</h1>معاينة ببيانات اختبارية · ريال سعودي</header><section><label>طريقة اختيار الحزم<select id="mode"><option value="FIFO">الأقدم أولاً (FIFO)</option><option value="MANUAL">تحديد الحزم يدوياً</option></select></label><label>الكمية بالغرام<input id="qty" type="number" value="6" min="0" step="any"></label><label>سعر بيع غرام عيار 18<input id="price" type="number" value="400" min="0" step="any"></label><div id="manual" hidden><label>حزمة يناير · متاح 4 غ<input id="jan" type="number" min="0" max="4" value="1" step="any"></label><label>حزمة فبراير · متاح 6 غ<input id="feb" type="number" min="0" max="6" value="5" step="any"></label></div></section><section aria-live="polite"><output id="result"></output><p id="sale"></p><p id="balance"></p></section><details><summary>تفاصيل تخصيص الحزم والتكلفة</summary><table><thead><tr><th>الحزمة</th><th>المباع (غ)</th><th>تكلفة المباع (ر.س.)</th><th>المتبقي (غ)</th></tr></thead><tbody id="rows"></tbody></table></details></main><script>
+const byId = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('en-US',{maximumFractionDigits:2});
+function render() {
+  const manual = byId('mode').value === 'MANUAL';
+  byId('manual').hidden = !manual;
+  const qty = byId('qty').valueAsNumber;
+  const price = byId('price').valueAsNumber;
+  const units = [4,6], costs = [300,340];
+  const sold = manual ? [byId('jan').valueAsNumber,byId('feb').valueAsNumber] : [Math.min(4,qty),Math.max(0,qty-4)];
+  byId('rows').replaceChildren();
+  byId('sale').textContent = byId('balance').textContent = '';
+  if (!(qty>0 && price>0) || sold.some((q,i)=>!Number.isFinite(q)||q<0||q>units[i]) || Math.abs(sold[0]+sold[1]-qty)>1e-8) {
+    byId('result').textContent = 'تحقق من السعر والكمية وتوزيعها على الرصيد المتاح'; return;
+  }
+  const cost = sold.reduce((total,q,i)=>total+q*costs[i],0);
+  const net = qty*price, gain = net-cost;
+  byId('result').textContent = (gain<0?'خسارة محققة ':'ربح محقق ')+fmt(Math.abs(gain))+' ر.س.';
+  byId('sale').textContent = 'صافي البيع '+fmt(net)+' − تكلفة المباع '+fmt(cost)+' ر.س.';
+  byId('balance').textContent = 'بعد البيع · '+fmt(10-qty)+' غرام · تكلفة متبقية '+fmt(3240-cost)+' ر.س.';
+  sold.forEach((q,i)=>{const row=byId('rows').insertRow(); [i?'فبراير':'يناير',q,fmt(q*costs[i]),fmt(units[i]-q)].forEach(value=>row.insertCell().textContent=value);});
+}
+document.addEventListener('input',render); render();
+</script></html>

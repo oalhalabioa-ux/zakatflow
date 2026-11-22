@@ -1,0 +1,15 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.correct_personal_asset_sale(p_sale_id uuid, p_request_id uuid, p_asset_id uuid, p_destination_id uuid, p_date date, p_quantity numeric, p_unit_price numeric, p_fx_rate numeric, p_notes text, p_reason text)",
+      "fingerprint": "5c409af2ed8f5528e4cfacfa9e38a7d3"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_sale_preflight(p_sale_id uuid, p_asset_id uuid, p_destination_id uuid, p_date date)",
+      "fingerprint": "4f3a5f35b0bc115671447e17b5774958"
+    }
+  ]
+}
