@@ -46,27 +46,41 @@ export function CompanyDirectorySearch({ ar, organization, onChoose }: {
 
 export function CompanyDirectoryVisibility({ ar, organization }: { ar: boolean; organization: string }) {
   const [visible, setVisible] = useState<boolean>();
+  const [receiving, setReceiving] = useState<boolean>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     const stop = new AbortController();
-    const params = new URLSearchParams({ action: 'directory_status', organization });
-    fetch(endpoint + '?' + params, { cache: 'no-store', signal: stop.signal })
-      .then(async response => {
-        if (response.ok && !stop.signal.aborted) setVisible(await response.json());
-      }).catch(() => { if (!stop.signal.aborted) setError(true); });
+    async function load(action: string, set: (value: boolean) => void) {
+      const params = new URLSearchParams({ action, organization });
+      try {
+        const response = await fetch(endpoint + '?' + params, { cache: 'no-store', signal: stop.signal });
+        if (response.status === 403) return;
+        if (!response.ok) throw Error();
+        const value = await response.json();
+        if (!stop.signal.aborted) set(value);
+      } catch {
+        if (!stop.signal.aborted) setError(true);
+      }
+    }
+    void load('directory_status', setVisible);
+    void load('reception_status', setReceiving);
     return () => stop.abort();
   }, [organization]);
 
-  async function update() {
+  async function update(setting: 'directory' | 'reception', enabled: boolean) {
     setBusy(true);
     setError(false);
+    const change = setting === 'directory'
+      ? { action: enabled ? 'directory_enable' : 'directory_disable' }
+      : { action: 'reception_update', enabled };
     try {
       const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: visible ? 'directory_disable' : 'directory_enable', organization }) });
+        body: JSON.stringify({ ...change, organization }) });
       if (!response.ok) throw Error();
-      setVisible(await response.json());
+      const value = await response.json();
+      (setting === 'directory' ? setVisible : setReceiving)(value);
     } catch {
       setError(true);
     } finally {
@@ -74,12 +88,16 @@ export function CompanyDirectoryVisibility({ ar, organization }: { ar: boolean; 
     }
   }
 
-  if (visible === undefined && !error) return null;
+  if (visible === undefined && receiving === undefined && !error) return null;
   return <div className="fs-panel">
-    {visible !== undefined && <label>
-      <input type="checkbox" checked={visible} disabled={busy} onChange={() => void update()}/>
-      {' '}{ar ? 'إظهار المؤسسة في دليل المشاركة' : 'List this organization in the sharing directory'}
+    {visible !== undefined && <label className="fs-field">
+      <input type="checkbox" checked={visible} disabled={busy} onChange={event => void update('directory', event.target.checked)}/>
+      {ar ? 'إظهار المؤسسة في دليل المشاركة' : 'List this organization in the sharing directory'}
     </label>}
-    {error && <p role="alert">{ar ? 'تعذر تغيير الظهور. يستطيع مالك المؤسسة تحديث هذا الخيار.' : 'Could not update visibility. The organization owner can change this setting.'}</p>}
+    {receiving !== undefined && <label className="fs-field">
+      <input type="checkbox" checked={receiving} disabled={busy} onChange={event => void update('reception', event.target.checked)}/>
+      {ar ? 'السماح باستقبال دعوات المشاركة' : 'Allow incoming sharing invitations'}
+    </label>}
+    {error && <p role="alert">{ar ? 'تعذر تحميل إعدادات المشاركة أو تحديثها.' : 'Could not load or update sharing settings.'}</p>}
   </div>;
 }

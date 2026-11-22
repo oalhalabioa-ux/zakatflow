@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isSameOriginRequest } from '@/lib/request-origin';
 import { supabaseServer } from '@/lib/supabase/server';
-import { shareAccessSchema } from '@/lib/feasibility/sharing-permissions';
+import { shareAccessSchema } from '../../../../lib/feasibility/sharing-permissions';
 
 const enabled = () => process.env.NEXT_PUBLIC_FEASIBILITY_COMPANY_INVITATIONS === 'true'
   && process.env.FEASIBILITY_ORG_SHARING === 'true'
@@ -16,11 +16,13 @@ const uuid = z.string().uuid();
 const readInput = z.discriminatedUnion('action', [
   z.object({ action: z.literal('inbox'), organization: uuid }),
   z.object({ action: z.literal('directory_status'), organization: uuid }),
+  z.object({ action: z.literal('reception_status'), organization: uuid }),
   z.object({ action: z.literal('directory_search'), organization: uuid, name: z.string().trim().min(2).max(100) }),
   z.object({ action: z.literal('outbox'), organization: uuid, project: uuid }),
 ]);
 const writeInput = z.union([
   z.object({ action: z.enum(['directory_enable', 'directory_disable']), organization: uuid }).strict(),
+  z.object({ action: z.literal('reception_update'), organization: uuid, enabled: z.boolean() }).strict(),
   z.object({ action: z.literal('issue'), organization: uuid, recipient: uuid, project: uuid,
     revision: z.number().int().positive().max(2147483647),
     days: z.number().int().positive().max(2147483647), access: shareAccessSchema, documentMode:z.enum(['none','all','selected']).default('none'), documents:z.array(uuid).default([]) }).strict(),
@@ -29,6 +31,7 @@ const writeInput = z.union([
 
 const expectedErrors = new Set([
   'FEASIBILITY_COMPANY_INVITATION_DISABLED', 'FEASIBILITY_COMPANY_INVITATION_PENDING',
+  'FEASIBILITY_INVITATION_PILOT_RESTRICTED', 'FEASIBILITY_INVITATION_RECEPTION_DISABLED',
   'FEASIBILITY_COMPANY_INVITATION_RESOLVED', 'FEASIBILITY_SHARE_FORBIDDEN',
   'FEASIBILITY_STALE_SHARE_REVISION', 'FEASIBILITY_SHARE_EDIT_FORBIDDEN',
   'FEASIBILITY_NON_SUBSCRIBER_MAX_30_DAYS', 'FEASIBILITY_INVALID_SHARE',
@@ -39,7 +42,11 @@ async function run(input: z.infer<typeof readInput> | z.infer<typeof writeInput>
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return json({ error: 'UNAUTHORIZED' }, 401);
 
-  const { data, error } = input.action === 'issue' ? await supabase.rpc('feasibility_issue_with_documents',{
+  const { data, error } = input.action === 'reception_status' || input.action === 'reception_update'
+    ? await supabase.rpc('feasibility_invitation_reception', {
+      p_organization: input.organization,
+      ...(input.action === 'reception_update' && { p_enabled: input.enabled }),
+    }) : input.action === 'issue' ? await supabase.rpc('feasibility_issue_with_documents',{
     p_organization:input.organization,p_project:input.project,p_recipient:input.recipient,p_revision:input.revision,p_days:input.days,p_access:input.access,
     p_document_mode:input.documentMode,p_documents:input.documents,
   }) : await supabase.rpc('feasibility_company_invitations', {

@@ -40,6 +40,8 @@ export default function OrganizationStudyShares({ locale, organization, project,
     if (code === 'FEASIBILITY_NON_SUBSCRIBER_MAX_30_DAYS') return ar
       ? 'وصول المؤسسة غير المشتركة ينتهي خلال 30 يومًا من المشاركة الأولى. اختر مدة ضمن الفترة المتبقية.'
       : 'An unsubscribed organization has at most 30 days from the first share. Choose a duration within the remaining period.';
+    if (code === 'FEASIBILITY_INVITATION_RECEPTION_DISABLED' || code === 'FEASIBILITY_INVITATION_PILOT_RESTRICTED') return ar
+      ? 'هذه الدعوة غير متاحة وفق إعدادات الاستقبال ونطاق المشاركة.' : 'This invitation is unavailable under the current reception and sharing settings.';
     if (code === 'FEASIBILITY_COMPANY_INVITATION_PENDING') return ar
       ? 'اسحب الدعوة المعلقة قبل إرسال دعوة بشروط جديدة.' : 'Withdraw the pending invitation before sending new terms.';
     if (code === 'FEASIBILITY_STALE_SHARE_REVISION') return ar
