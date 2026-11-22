@@ -2142,8 +2142,8 @@
       "path": "supabase/migrations/20261122010000_personal_gold_lot_sales.sql",
       "version": "20261122010000",
       "name": "personal_gold_lot_sales",
-      "expected_md5": "b67957ce7f47525258f1edd3e55ae088",
-      "file_sha256": "ad00e3901da0c6714c961437c83f44f312bdda94e00f8613942abdde603a9c8e",
+      "expected_md5": "62e6567a8a4ef4ae1169e3916e9bcf2c",
+      "file_sha256": "f5e66d38bfae3bf7981d5593ee4bb34c6bd098dd68d804a2baac262c27280783",
       "validation_project": "Isolated canonical bootstrap, access and rollback rehearsal, bilingual asset edit and grouped sale browsers"
     }
   ]

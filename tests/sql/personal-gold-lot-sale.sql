@@ -57,6 +57,10 @@ begin
     or (select sum(remaining_quantity) from public.lots where source_transaction_id=cash_id) is distinct from 2400::numeric
     or (select sum(remaining_value_base) from public.lots where asset_account_id in(first_asset,second_asset)) is distinct from 1240::numeric
   then raise exception 'Manual sale, proceeds or cost mismatch: %',voucher; end if;
+  if public.asset_edit_availability(second_asset)->>'asset_registration_can_edit' is distinct from 'false'
+    or public.asset_edit_availability(second_asset)->>'asset_market_valuation_can_update' is distinct from 'true'
+    or public.asset_edit_availability(second_asset)#>>'{registration_lock,id}' is distinct from sale_id::text then
+    raise exception 'Secondary asset lost its registration lock or valuation eligibility'; end if;
   voucher:=public.post_personal_gold_lot_sale(gen_random_uuid(),18,bank,'2025-04-01',2,380);
   if (voucher->>'realized_gain_base')::numeric<>160
     or (select sum(remaining_quantity) from public.lots where asset_account_id=bank) is distinct from 3160::numeric

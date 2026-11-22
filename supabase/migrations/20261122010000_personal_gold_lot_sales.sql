@@ -378,3 +378,112 @@ begin
 end $$;
 revoke all on function public.gold_card_sale(uuid,date,jsonb) from public,anon;
 revoke execute on function public.gold_card_sale(uuid,date,jsonb) from authenticated;
+
+-- Extend the registration lock to every asset consumed by a grouped sale.
+create or replace function public.asset_edit_availability(p_asset_id uuid)
+returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  asset public.asset_accounts;
+  actor uuid := auth.uid();
+  initial_id uuid;
+  movement public.transactions;
+  assessment_id uuid;
+  assessment_date date;
+  linked_operation record;
+  registered_scope boolean;
+  can_write boolean;
+  valuation_mode text;
+  reason jsonb;
+  book jsonb;
+begin
+  if actor is null then raise exception 'UNAUTHORIZED'; end if;
+  select * into asset from public.asset_accounts where id = p_asset_id;
+  if not found or (asset.ownership_scope = 'PERSONAL' and asset.user_id is distinct from actor)
+     or (asset.ownership_scope = 'ORGANIZATION'
+       and public.has_organization_permission(asset.organization_id, 'assets.view') is not true) then
+    raise exception 'ASSET_NOT_FOUND';
+  end if;
+
+  registered_scope := asset.status = 'ACTIVE' and asset.metadata->>'archived' is distinct from 'true'
+    and not (asset.metadata ?| array['investment_id','register_source','financing_contract_id','personal_contract_id'])
+    and asset.metadata->>'acquisition_mode' is distinct from 'INVESTMENT';
+  can_write := registered_scope and (asset.ownership_scope = 'PERSONAL'
+    or public.has_organization_permission(asset.organization_id, 'assets.edit') is true);
+
+  if can_write and (asset.asset_type in ('GOLD','SILVER','STOCK','REAL_ESTATE','INVENTORY')
+     or (asset.asset_type = 'OTHER' and asset.asset_class_code in ('PPE','INTANGIBLE'))) then
+    -- The saved quote's source and derived-value flag do not authorize refresh.
+    valuation_mode := 'MANUAL';
+  end if;
+
+  if can_write then
+    -- Only the first opening or purchase can be the registration transaction.
+    -- A backdated subsequent movement still locks registration.
+    select id into initial_id from public.transactions
+      where asset_account_id = asset.id and transaction_type in ('OPENING_BALANCE','PURCHASE')
+      order by (metadata->>'source' = 'ATOMIC_ASSET_ACQUISITION') desc nulls last, created_at, id
+      limit 1;
+    select * into movement from public.transactions
+      where asset_account_id = asset.id and id is distinct from initial_id
+      order by created_at, id limit 1;
+    if not found and asset.ownership_scope='PERSONAL' then
+      -- Grouped sales have one header but every allocated source asset is registered as sold.
+      select t.* into movement from public.lots l
+      join public.transaction_allocations a on a.lot_id=l.id and a.user_id=actor
+      join public.transactions t on t.id=a.transaction_id and t.user_id=actor
+      where l.asset_account_id=asset.id and l.user_id=actor and t.metadata ? 'lot_sale_request'
+      order by t.created_at,t.id limit 1;
+    end if;
+    if movement.id is not null then
+      reason := jsonb_build_object('code','MOVEMENT','id',movement.id,'date',movement.transaction_date,
+        'reference',coalesce(movement.metadata->>'document_sequence',movement.reference),
+        'operation',coalesce(movement.metadata->>'operation',movement.transaction_type::text));
+    else
+      select c.financial_event_id, c.operation, c.operation_date into linked_operation
+      from public.asset_lifecycle_commands c
+      where c.asset_account_id = asset.id and c.financial_event_id is not null
+      order by c.created_at, c.id limit 1;
+      if found then
+        reason := jsonb_build_object('code','LIFECYCLE','id',linked_operation.financial_event_id,
+          'operation',linked_operation.operation,'date',linked_operation.operation_date);
+      end if;
+    end if;
+
+    if reason is null and asset.ownership_scope = 'PERSONAL' then
+      select a.id, a.assessment_date into assessment_id, assessment_date
+      from public.zakat_assessment_lines line
+      join public.zakat_assessments a on a.id = line.assessment_id and a.status <> 'CANCELLED'
+      left join public.lots lot on lot.id = line.lot_id
+      where a.user_id = actor and (lot.asset_account_id = asset.id or line.valuation_snapshot->>'assetId' = asset.id::text)
+      order by a.created_at, a.id limit 1;
+    elsif reason is null and asset.ownership_scope = 'ORGANIZATION' then
+      select s.id, s.assessment_date into assessment_id, assessment_date
+      from public.corporate_zakat_sources s
+      where s.organization_id = asset.organization_id and s.entries @> jsonb_build_array(
+        jsonb_build_object('id',asset.id,'source','ASSET_BOOK_OR_SAVED_VALUE'))
+      order by s.created_at, s.id limit 1;
+    end if;
+    if reason is null and assessment_id is not null then
+      reason := jsonb_build_object('code','ZAKAT','date',assessment_date);
+    end if;
+  else
+    reason := jsonb_build_object('code','ACCESS');
+  end if;
+
+  if asset.ownership_scope = 'ORGANIZATION' and asset.asset_class_code in ('PPE','INTANGIBLE') then
+    book := private.financial_opening_asset_book(asset.organization_id,asset.id,
+      (statement_timestamp() at time zone 'Asia/Riyadh')::date);
+    if book->>'known' = 'true' and book->>'issue' is null then
+      book := book || jsonb_build_object('net', (book->>'gross')::numeric - (book->>'depreciation')::numeric);
+    else
+      book := null;
+    end if;
+  end if;
+
+  return jsonb_build_object('asset_registration_can_edit', can_write and reason is null,
+    'asset_market_valuation_can_update', valuation_mode is not null,
+    'valuation_mode', valuation_mode, 'registration_lock', reason, 'book', book);
+end;
+$$;

@@ -68,6 +68,11 @@
     },
     {
       "category": "function",
+      "object_key": "public.asset_edit_availability(p_asset_id uuid)",
+      "fingerprint": "d617b1c4bb997fa149bf1761cc5c866c"
+    },
+    {
+      "category": "function",
       "object_key": "public.gold_card_sale(p_asset uuid, p_date date, p_payload jsonb)",
       "fingerprint": "82359bd629a16a475569aa825d818bfc"
     },
