@@ -179,7 +179,7 @@ try{
   const response=await saved;assert.ok(response.ok(),await response.text());
   const replacement=await response.json();
   await page.getByText('Asset movement statement',{exact:true}).waitFor();
-  await sourceDialog.getByText('3,000 SAR',{exact:true}).waitFor();
+  await sourceDialog.getByRole('region',{name:'Asset balance summary'}).getByText('3,000 SAR',{exact:true}).waitFor();
   await cardValue('Current quantity','10').waitFor();
   await cardValue('Book cost','3,000').waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
