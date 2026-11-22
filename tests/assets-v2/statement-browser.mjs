@@ -171,7 +171,7 @@ try{
   const open=()=>page.getByRole('row').filter({hasText:'QA Card Sale'}).getByRole('button',{name:'Details and actions',exact:true}).click();
   await page.goto(app+'/en/assets?scope=PERSONAL');
   await open();
-  await dialog.getByRole('button',{name:'Sale, depreciation or disposal',exact:true}).click();
+  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
   await dialog.getByLabel('Quantity',{exact:true}).fill('2');
   await dialog.getByLabel('Sale price per unit').fill('450');
   await dialog.getByLabel('Proceeds account').selectOption(bank.id);

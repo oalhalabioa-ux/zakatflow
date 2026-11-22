@@ -494,14 +494,14 @@ try {
   const postResponse=await posted;
   assert.equal(postResponse.status(),200,await postResponse.text());
   assert.equal((await postResponse.json()).event.status,'ACTUAL');
-  await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('118,200 SAR',{exact:true}).waitFor();
+  await dialog.getByRole('region',{name:'Asset balance summary'}).locator('dl').getByText('118,200 SAR',{exact:true}).waitFor();
   assert.equal(await bookCost(),118200);
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/en/assets');
   await page.reload();
   await openEquipment();
   await dialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
-  await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('118,200 SAR',{exact:true}).waitFor();
+  await dialog.getByRole('region',{name:'Asset balance summary'}).locator('dl').getByText('118,200 SAR',{exact:true}).waitFor();
   const lifecycle=value(await admin.from('asset_lifecycle_commands').select('book_effect,transaction_id').eq('financial_event_id',draft.financial_event_id).single());
   assert.equal(Number(lifecycle.book_effect),1800);
   assert.ok(lifecycle.transaction_id);
