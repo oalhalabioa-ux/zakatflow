@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect,useState} from 'react';
+import AssetOperationDetails from './AssetOperationDetails';
 import GoldSaleAction from './GoldSaleAction';
 import GoldCardSale from './GoldCardSale';
 import Link from 'next/link';
@@ -10,9 +11,10 @@ import type {readAssetStatement} from '../../services/asset-statement';
 type Statement = Awaited<ReturnType<typeof readAssetStatement>>;
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 
-export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:boolean}){
+export default function AssetStatementPreview({assetId,ar,onSaved}:{assetId:string;ar:boolean;onSaved:()=>void}){
  const t=(arabic:string,english:string)=>ar?arabic:english;
  const [selling,setSelling]=useState(false),[revision,setRevision]=useState(0);
+ const [voucher,setVoucher]=useState<{assetId:string;id:string}|null>(null);
  const [open,setOpen]=useState(false);
  const [asOf,setAsOf]=useState(today);
  const [offset,setOffset]=useState(0);
@@ -34,6 +36,12 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
   return ()=>controller.abort();
  },[open,assetId,asOf,offset,revision]);
 
+ function refreshAfterSave(){
+  setOffset(0);
+  setRevision(value=>value+1);
+  onSaved();
+ }
+
  const format=(value:string|null)=>{
   if(value===null)return '—';
   const [whole,fraction]=value.split('.');
@@ -52,7 +60,9 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
   return operationTypeLabel(type,ar);
  };
 
- if(selling)return <GoldCardSale id={assetId} date={asOf} ar={ar} onBack={()=>setSelling(false)} onSaved={()=>{setSelling(false);setOpen(true);setOffset(0);setRevision(v=>v+1);}}/>;
+ if(voucher?.assetId===assetId)return <AssetOperationDetails key={voucher.id} record={{id:voucher.id}} ar={ar}
+  onClose={()=>setVoucher(null)} onSaleReadBack={()=>setVoucher(null)} onChanged={refreshAfterSave}/>;
+ if(selling)return <GoldCardSale id={assetId} date={asOf} ar={ar} onBack={()=>setSelling(false)} onSaved={()=>{setSelling(false);setOpen(true);refreshAfterSave();}}/>;
  return <details open={open} className="card section" onToggle={event=>setOpen(event.currentTarget.open)}>
   <summary>{t('كشف حركة الأصل','Asset movement statement')}</summary>
   {open&&<>
@@ -109,6 +119,8 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
       <tbody>{statement.rows.map(row=><tr key={row.id}>
        <td><bdi>{row.date}</bdi></td>
        <td>{row.source_path==='asset_event'?show(row.voucher??row.reference):
+        row.type==='SALE'&&row.source_path==='transactions'&&!row.grouped&&!statement.asset.organizational?
+        <button type="button" className="btn" onClick={()=>setVoucher({assetId,id:row.source_id})}><bdi>{row.voucher??row.reference??t('عرض سند البيع','View sale voucher')}</bdi></button>:
         <Link href={`/${ar?'ar':'en'}/transactions/${row.source_id}`}><bdi>{row.voucher??row.reference??t('التفاصيل','Details')}</bdi></Link>}</td>
        <td>{movement(row.type)}</td>
        <td>{row.status==='UNVERIFIED'?t('غير مؤكد','Unverified'):operationStateLabel(row.status,ar)}</td>
@@ -136,7 +148,7 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
        </>}
        <div><dt>{t('الرصيد بعد الحركة','Balance after movement')}</dt><dd><bdi>{format(row.remainingQuantity)} {unit} · {format(row.remainingCost)} {statement.baseCurrency}</bdi></dd></div>
       </dl>
-      {row.grouped&&row.status!=='REVERSED'&&process.env.NEXT_PUBLIC_PERSONAL_GOLD_SALES==='1'&&<GoldSaleAction id={row.source_id} ar={ar} revision={row.grouped.revision} onSaved={()=>setRevision(v=>v+1)}/>}
+      {row.grouped&&row.status!=='REVERSED'&&process.env.NEXT_PUBLIC_PERSONAL_GOLD_SALES==='1'&&<GoldSaleAction id={row.source_id} ar={ar} revision={row.grouped.revision} onSaved={refreshAfterSave}/>}
      </details>)}
     </section>}
     {!statement.rows.length&&<p>{t('لا توجد حركات مسجلة حتى هذا التاريخ.','There are no recorded movements through this date.')}</p>}

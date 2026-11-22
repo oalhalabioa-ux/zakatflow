@@ -2145,6 +2145,14 @@
       "expected_md5": "62e6567a8a4ef4ae1169e3916e9bcf2c",
       "file_sha256": "f5e66d38bfae3bf7981d5593ee4bb34c6bd098dd68d804a2baac262c27280783",
       "validation_project": "Isolated canonical bootstrap, access and rollback rehearsal, bilingual asset edit and grouped sale browsers"
+    },
+    {
+      "path": "supabase/migrations/20261122040000_independent_sale_destination_history.sql",
+      "version": "20261122040000",
+      "name": "independent_sale_destination_history",
+      "expected_md5": "af5c74ae5503551d34d4ea6eccae2aa6",
+      "file_sha256": "8a59dd7092198adb504f3bda38e0f0b6d96d54f72f9d32aaf69ad157e5ddb6ec",
+      "validation_project": "Isolated PostgreSQL independent sale destination history regression"
     }
   ]
 }
