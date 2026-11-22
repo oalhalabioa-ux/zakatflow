@@ -37,5 +37,6 @@ export async function assetOperationWorkspace(id:string){
  const preflight=saleCandidate?await supabase.rpc('personal_sale_preflight',{p_sale_id:tx.id}):null;
  const unavailable='SALE_CORRECTION_PREFLIGHT_FAILED';
  const saleEligibility=preflight?(preflight.data??{amount_block:unavailable,structural_block:unavailable,movements:[]}):null;
+ if(saleEligibility&&tx?.metadata?.lot_sale_request)saleEligibility.structural_block='GROUPED_SALE_REVERSAL_UNAVAILABLE';
  return withVoucherNumbers(supabase,{can_correct_personal_sale:saleCandidate,sale_eligibility:saleEligibility,flow,banks:banks??[],can_reverse_personal:!!tx&&tx.user_id===user.id&&!tx.organization_id&&!tx.reversal_of_transaction_id&&!tx.is_reversed&&!tx.metadata?.asset_deleted&&['ADD','OPENING_BALANCE'].includes(tx.transaction_type)&&!['ATOMIC_ASSET_ACQUISITION','sale_proceeds'].includes(tx.metadata?.source),record:enriched,asset,review,is_primary_purchase:isPrimaryPurchase,can_edit_purchase_draft:isPrimaryPurchase&&canEditDraft,can_edit_notes:!!canEdit&&tx?.user_id===user.id,can_replace_draft:canEditDraft&&!!lifecycle,can_delete_unlinked:guard.data?.[0]?.can_delete??false,delete_block_reason:guard.data?.[0]?.delete_block_reason??null,lifecycle,history:history??[],audit:audit??[],balances:balances??[],counterparties:parties??[],currentUserId:user.id});
 }

@@ -1,5 +1,19 @@
 import Decimal from 'decimal.js';
 
+export function marketMetalPurity(asset: {asset_type: string; metadata?: Record<string, unknown>}) {
+  const metadata = asset.metadata ?? {};
+  if (asset.asset_type === 'GOLD') {
+    const karat = Number(metadata.karat ?? 24);
+    return karat > 0 && karat <= 24 ? karat / 24 : 1;
+  }
+  if (asset.asset_type === 'SILVER') {
+    const raw = Number(metadata.purity ?? metadata.karat ?? 999);
+    const purity = raw > 1 ? raw / 1000 : raw;
+    return purity > 0 && purity <= 1 ? purity : 1;
+  }
+  return 1;
+}
+
 export function assetLedgerBalance(asset: any, lots: any[], baseCurrency = 'SAR') {
   const metadata = asset.metadata ?? {};
   const owned = lots.filter(l => l.asset_account_id === asset.id);
@@ -11,7 +25,10 @@ export function assetLedgerBalance(asset: any, lots: any[], baseCurrency = 'SAR'
   const fx = quoteCurrency === baseCurrency ? 1 : Number(metadata.market_fx_rate ?? metadata.fx_rate ?? 0);
   let market = cost;
   if (!['CASH', 'BANK'].includes(asset.asset_type)) {
-    if (quote != null && Number(quote) > 0 && fx > 0) market = quantity.mul(quote).mul(fx);
+    if (quote != null && Number(quote) >= 0 && fx > 0) {
+      const purity = metadata.market_value_auto === true ? marketMetalPurity(asset) : 1;
+      market = quantity.mul(quote).mul(purity).mul(fx);
+    }
     else if (originalQuantity.gt(0) && fx > 0 && (metadata.market_value != null || metadata.estimated_value != null)) {
       market = new Decimal(metadata.market_value ?? metadata.estimated_value).mul(quantity.div(originalQuantity)).mul(fx);
     }
@@ -52,7 +69,7 @@ export function soldAssetHistory(assetId:string,transactions:any[],allocations:a
   const sales=transactions.filter(t=>t.asset_account_id===assetId&&t.transaction_type==='SALE'&&!t.metadata?.lifecycle_reversed);
   let cost=new Decimal(0),known=true;
   for(const sale of sales){
-    const lines=allocations.filter(a=>a.transaction_id===sale.id);
+    const lines=allocations.filter(a=>a.transaction_id===sale.id&&(!sale.metadata?.lot_sale_request||a.asset_account_id===assetId));
     const amount=lines.length?lines.reduce((sum,a)=>sum.add(a.value_base??0),new Decimal(0)).toNumber():sale.metadata?.cost_basis_base;
     if(amount==null)known=false;else cost=cost.add(amount);
   }
