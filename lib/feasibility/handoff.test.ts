@@ -1,5 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {createStudy,defaultLegalItems} from './engine';
+import {createIndustrialStarter} from './project-templates';
 import {emptyAdvanced} from './advanced-model';
 import {handoffReadiness,handoffSetupPath} from './handoff';
 
@@ -71,6 +72,18 @@ describe('project company handoff preflight',()=>{
   s.risks[0].response='Verified permit route and owner';
   s.tasks[0].status='DONE';
   expect(handoffReadiness(s).ready).toBe(true);
+ });
+ it('requires evidence for the sector-specific critical licences in new dairy studies',()=>{
+  const starter=createIndustrialStarter('dairy','Dairy','DAIRY_CHEESE');
+  const requirements=starter.legal.filter(x=>x.critical);
+  expect(requirements).toHaveLength(3);
+  const s=readyStudy();s.legal.push(...requirements);
+  const passed=()=>handoffReadiness(s).checks.find(x=>x.key==='legal')?.passed;
+  expect(passed()).toBe(false);
+  for(const item of requirements)item.status='VERIFIED';
+  expect(passed()).toBe(false);
+  for(const item of requirements)item.notes='Synthetic permit reference';
+  expect(passed()).toBe(true);
  });
  it('generates only allowlisted organization V2 setup paths',()=>{
   const id='6357a708-bae2-4634-9296-490404b1d8a4';

@@ -14,10 +14,11 @@ export function handoffReadiness(study:FeasibilityStudy){
  // Studies without advanced inputs retain their existing financial readiness rules.
  const advanced=!land&&!water&&study.advanced?evaluateAdvanced(study):null;
  const critical=defaultLegalItems.slice(0,3);
- const waterChecks=study.legal.filter(item=>item.critical);
+ const criticalRequirements=study.legal.filter(item=>item.critical);
+ const evidenceVerified=criticalRequirements.every(item=>item.status==='VERIFIED'&&item.notes.trim());
  const legalVerified=water||land
-  ?waterChecks.length>0&&waterChecks.every(item=>item.status==='VERIFIED'&&item.notes.trim())
-  :critical.every(title=>study.legal.some(item=>item.title===title&&item.status==='VERIFIED'));
+  ?criticalRequirements.length>0&&evidenceVerified
+  :evidenceVerified&&critical.every(title=>study.legal.some(item=>item.title===title&&item.status==='VERIFIED'));
  const balanced=land?land.issue===null&&land.ready&&(land.annual.at(-1)?.closingDebt??0)<=.01&&
   land.peakEquityDeficit<=(study.rawLand?.quantityDevelopment?.committedEquity??0)+.01:
   study.water&&water
