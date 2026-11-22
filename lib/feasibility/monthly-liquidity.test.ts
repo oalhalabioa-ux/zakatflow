@@ -1,12 +1,13 @@
 import {describe,expect,it} from 'vitest';
 import {createStudy,evaluateStudy,type Sector} from './engine';
-import {emptyAdvanced,evaluateAdvanced,illustratedLives} from './advanced-model';
+import {emptyAdvanced,evaluateAdvanced,evaluateGeneralForecast,illustratedLives} from './advanced-model';
 import {createIndustrialStarter} from './project-templates';
 import {cloudDraftWrite} from './draft-schema';
 import {FEASIBILITY_BACKUP_SCHEMA,appendImportedStudies,parseStudyBackup} from './local-drafts';
 import {createRawLand,evaluateRawLand} from './raw-land';
 import {createWaterModel,evaluateWater} from './water-model';
 import {defaultWaterFinancingPolicy} from './water-financing';
+import {feasibilityCsv,generalForecastRows} from './report-export';
 import {defaultMonthlyLiquidity,evaluateMonthlyLiquidity,liquidityMonthLabel,monthlyLiquidityAmounts,
  type MonthlyLiquidity} from './monthly-liquidity';
 
@@ -73,6 +74,37 @@ describe('monthly feasibility liquidity',()=>{
   const incomplete=monthlyLiquidityAmounts({...study,advanced:undefined})!;
   expect(incomplete.general?.basis).toBe('simple');
   expect(incomplete.interest).toBe(0);
+ });
+ it('uses the same advanced projections in the cash plan and export after saving and reloading',()=>{
+  const study={...createStudy(id,'Synthetic forecast'),monthlyUnits:5,unitPrice:4,variableCost:1,
+   monthlyFixedCost:20,workingCapital:50,investorEquity:800,investorLoan:300,otherDebt:100,
+   landArrangement:{mode:'IN_KIND' as const,valuation:200},years:2,indicativeTaxRatePct:10,
+   advanced:{...emptyAdvanced(),mode:'CAPACITY' as const,capacityMonthly:100,utilisationPct:50,
+    lives:{...illustratedLives},debtYears:2,debtRatePct:10,contingencyPct:15}};
+  study.capex[0].amount=1000;
+  const saved=cloudDraftWrite.parse(JSON.parse(JSON.stringify({study}))).study;
+  const forecast=evaluateGeneralForecast(saved);
+  const rows=generalForecastRows(forecast);
+  const monthly=evaluateMonthlyLiquidity(monthlyLiquidityAmounts(saved)!,{
+   ...defaultMonthlyLiquidity,cashEquityFromStudy:true
+  });
+  expect(forecast.advanced).toMatchObject({ready:true,equityReady:true,cashNeed:1200,initialInvestment:1400});
+  expect(rows[0]).toEqual([0,null,null,null,null,null,null,null,-1400,null,null,null,-1000]);
+  expect(rows[1].slice(0,3)).toEqual([1,600,2400]);
+  expect(rows[1].slice(8)).toEqual([forecast.advanced!.annual[0].fcf,200,40,200,forecast.advanced!.annual[0].equityFcf]);
+  expect(monthly.closing).toBeCloseTo(rows[1][12]!,8);
+  expect(feasibilityCsv(rows)).toContain('"1","600","2400"');
+
+  const resized=evaluateGeneralForecast({...saved,advanced:{...saved.advanced!,utilisationPct:60}});
+  expect(generalForecastRows(resized)[1][2]).toBe(2880);
+  expect(resized.advanced?.projectNpv).toBeGreaterThan(forecast.advanced!.projectNpv!);
+  const unfunded=evaluateGeneralForecast({...saved,investorEquity:700});
+  expect(generalForecastRows(unfunded).map(row=>row[12])).toEqual([null,null,null]);
+
+  const incomplete=evaluateGeneralForecast({...saved,advanced:{...saved.advanced!,debtYears:0}});
+  expect(incomplete.advanced).toBeNull();
+  expect(generalForecastRows(incomplete)[1]).toHaveLength(9);
+  expect(generalForecastRows(incomplete)[1][2]).toBe(240);
  });
  it('reconciles water startup cash, operating cash, regular and terminal loan settlements without counting in-kind land',()=>{
   const water=createWaterModel();

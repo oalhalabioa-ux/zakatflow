@@ -1,6 +1,6 @@
 import {z} from 'zod';
-import {evaluateStudy,type FeasibilityStudy} from './engine';
-import {evaluateAdvanced} from './advanced-model';
+import type {FeasibilityStudy} from './engine';
+import {evaluateGeneralForecast} from './advanced-model';
 import {evaluateRawLand} from './raw-land';
 import {allocatePartnerInstallments,type Partnership} from './partnership';
 import {evaluateWater} from './water-model';
@@ -59,10 +59,8 @@ export function monthlyLiquidityAmounts(study:FeasibilityStudy):MonthlyAmounts|n
    interest:-year.interest,yearEnd:-year.performanceFee,terminalPrincipal:0
   };
  }
- const advancedResult=study.advanced?evaluateAdvanced(study):null;
- const advanced=advancedResult?.ready?advancedResult:null;
+ const {model,advanced}=evaluateGeneralForecast(study);
  const advancedYear=advanced?.annual[0];
- const model=evaluateStudy(advanced?{...study,monthlyUnits:advanced.monthlyVolume}:study);
  const year=model.annual[0];
  const operatingCash=advancedYear?.fcf??year.freeCashFlow;
  if(!Number.isFinite(operatingCash))return null;

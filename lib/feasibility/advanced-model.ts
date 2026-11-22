@@ -108,3 +108,11 @@ export function evaluateAdvanced(s:FeasibilityStudy,scenario:Scenario='BASE'):Ad
   equityNpv:equityReady?npv(equityFlows,discount):null,equityIrr:equityReady?internalRateOfReturn(equityFlows):null,minDscr};
 }
 function studyLandInvalid(s:FeasibilityStudy){return s.landArrangement?s.landArrangement.mode==='IN_KIND'&&s.landArrangement.valuation<=0:s.landTransferred&&s.landValue<=0}
+
+/** The report and first-year cash schedule use the same completed base-case projection. */
+export function evaluateGeneralForecast(study:FeasibilityStudy){
+ const result=study.advanced?evaluateAdvanced(study):null;
+ const advanced=result?.ready?result:null;
+ const model=evaluateStudy(advanced?{...study,monthlyUnits:advanced.monthlyVolume}:study);
+ return {model,advanced};
+}
