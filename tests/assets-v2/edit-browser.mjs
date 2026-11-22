@@ -247,7 +247,7 @@ try {
     const renamed = await dbAsset(asset.id);
     assert.deepEqual(renamed,{...original,name:editedName,updated_at:renamed.updated_at});
     nextName = editedName;
-    await open(nextName);
+    await page.getByRole('dialog').getByRole('button',{name:ar?'ملخص الأصل':'Asset summary',exact:true}).click();
    } else {
     const lock = page.getByRole('dialog').getByText('بيانات التسجيل مقفلة لوجود سند بيع.',{exact:false});
     await lock.waitFor();
@@ -271,7 +271,7 @@ try {
     await form.waitFor({state:'detached'});
     assert.equal(puts.length,canRename?2:1);
     assert.deepEqual(Object.keys(puts.at(-1)).sort(),['expected_updated_at','id','market_price']);
-    await open(nextName);
+    await page.getByRole('dialog').getByRole('button',{name:ar?'ملخص الأصل':'Asset summary',exact:true}).click();
     await market.click();
     assert.equal(await valuation.inputValue(),String(price));
    }

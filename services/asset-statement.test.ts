@@ -64,6 +64,12 @@ describe('read statement scope and paging',()=>{
   const second=await readAssetStatement(assetId,{...options,offset:1});
   expect(second.rows[0]).toMatchObject({voucher:'SA-01',remainingCost:'50',remainingQuantity:'1',amount:'200'});
   expect(second.total).toBe(2);expect(second.nextOffset).toBeNull();
+  const report=await readAssetStatement(assetId,{...options,offset:1,view:'report'});
+  expect(report.rows).toEqual([...first.rows,...second.rows]);
+  expect(report.total).toBe(2);
+  expect(report.nextOffset).toBeNull();
+  expect(report.closing).toEqual(second.closing);
+
   expect(queries.filter(q=>q.table==='transactions'&&q.column==='asset_account_id').every(q=>q.value===assetId)).toBe(true);
   expect(queries.filter(q=>q.table==='transactions'&&q.column==='user_id').every(q=>q.value===owner)).toBe(true);
  });
