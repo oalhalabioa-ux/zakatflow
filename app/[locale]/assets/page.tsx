@@ -43,7 +43,7 @@ import {assetPurchaseAmounts,assetPurchaseStatus} from "@/lib/asset-purchase-wor
 import {isAssetPurchaseAllowed} from "@/lib/assets-acquisition";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
 import AssetLifecyclePanel from "@/components/assets/AssetLifecyclePanel";
-import PersonalAssetExit from "@/components/assets/PersonalAssetExit";
+import PersonalAssetExit, {pendingPersonalAssetExit} from "@/components/assets/PersonalAssetExit";
 type T =
   | "CASH"
   | "BANK"
@@ -409,9 +409,10 @@ export default function Assets({
     ar={ar} locale={locale} onEdit={mode=>setEditAsset({id:detailAsset.id,mode})}
     onReview={setReviewEvent}/>;
   const isInstitutionalDetail=detailAsset?.ownership_scope==='ORGANIZATION'||!!detailAsset?.organization_id;
-  const hasExitAction=detailAsset?.current_quantity>0&&(
-    isInstitutionalDetail||!['CASH','BANK','RECEIVABLE'].includes(detailAsset.asset_type)
-  );
+  const pendingExit=detailAsset&&!isInstitutionalDetail&&pendingPersonalAssetExit(detailAsset.id);
+  const hasExitAction=detailAsset&&(isInstitutionalDetail
+    ?detailAsset.current_quantity>0
+    :!['CASH','BANK','RECEIVABLE'].includes(detailAsset.asset_type)&&(detailAsset.current_quantity>0||pendingExit));
   const openExit=hasExitAction?()=>setDetailPanel('operation'):undefined;
   const columnLabel = (column: AssetColumn) => {
     if (column === "date" && assetScope === "ORGANIZATION") return ar ? "تاريخ الاقتناء" : "Acquisition date";

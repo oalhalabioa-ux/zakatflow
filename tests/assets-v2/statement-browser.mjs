@@ -175,11 +175,32 @@ try{
   await dialog.getByLabel('Quantity',{exact:true}).fill('2');
   await dialog.getByLabel('Sale price per unit').fill('450');
   await dialog.getByLabel('Proceeds account').selectOption(bank.id);
-  const saved=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
+  let command,first;
+  const url=app+'/api/transactions';
+  await page.route(url,async route=>{
+   if(route.request().method()!=='POST'){await route.continue();return;}
+   command=route.request().postDataJSON();
+   assert.ok(command.request_id);
+   const [initial,concurrent]=await Promise.all([route.fetch(),en.request.post(url,{data:command})]);
+   assert.equal(initial.status(),201,await initial.text());
+   assert.equal(concurrent.status(),201,await concurrent.text());
+   first=await initial.json();
+   assert.deepEqual(await concurrent.json(),first);
+   await route.abort();
+  });
   await dialog.getByRole('button',{name:'Save operation',exact:true}).click();
+  await dialog.getByRole('alert').getByText(/save outcome is uncertain/i).waitFor();
+  await page.unroute(url);
+  await page.reload();
+  await open();
+  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
+  const saved=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
+  await dialog.getByRole('button',{name:'Retry same request',exact:true}).click();
   const response=await saved;
   assert.equal(response.status(),201,await response.text());
   const result=await response.json();
+  assert.equal(response.request().postDataJSON().request_id,command.request_id);
+  assert.deepEqual(result,first);
   await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('1,800 SAR',{exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/en/assets');
@@ -194,7 +215,49 @@ try{
   assert.deepEqual(persisted.closing,{quantity:'6',cost:'1800',currency:'SAR'});
   assert.deepEqual(persisted.rows.find(row=>row.source_id===result.sale_transaction_id).sale,
    {proceeds:'900',cost:'600',realized:'300'});
-  console.log('Inline personal sale: 8 → 6 g, cost 2400 → 1800 SAR, sale/receipt 900 SAR, realized gain 300 SAR, two linked rows');
+  const conflict=await en.request.post(url,{data:{...command,unit_price:451}});
+  assert.equal(conflict.status(),400);
+  assert.deepEqual(await conflict.json(),{error:'PERSONAL_ASSET_EXIT_REQUEST_CONFLICT'});
+  const saleAudit=value(await owner.client.from('audit_logs').select('id').eq('entity_id',result.sale_transaction_id).eq('action','CREATE'));
+  assert.equal(saleAudit.length,1);
+  const bankMovements=value(await owner.client.from('transactions').select('id').eq('asset_account_id',bank.id));
+  assert.deepEqual(bankMovements,[{id:result.proceeds_transaction_id}]);
+  const affectedSales=value(await owner.client.from('transactions').select('id').eq('asset_account_id',personal).eq('transaction_type','SALE'));
+  assert.equal(affectedSales.length,2); // Seed sale plus this command.
+
+  // Discard a response to a full disposal. The exited asset must still offer recovery.
+  await dialog.getByRole('button',{name:'Asset summary',exact:true}).click();
+  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
+  await dialog.getByRole('combobox',{name:/^Action/}).selectOption('DISPOSAL');
+  await dialog.getByLabel('Quantity',{exact:true}).fill('6');
+  let disposalId;
+  await page.route(url,async route=>{
+   if(route.request().method()!=='POST'){await route.continue();return;}
+   const disposal=await route.fetch();
+   assert.equal(disposal.status(),201,await disposal.text());
+   disposalId=await disposal.json();
+   await route.abort();
+  });
+  await dialog.getByRole('button',{name:'Save operation',exact:true}).click();
+  await dialog.getByRole('alert').getByText(/save outcome is uncertain/i).waitFor();
+  await page.unroute(url);
+  await page.reload();
+  await page.locator('.asset-lifecycle-tabs').getByRole('button',{name:'All',exact:true}).click();
+  await open();
+  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
+  const repeated=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
+  await dialog.getByRole('button',{name:'Retry same request',exact:true}).click();
+  const disposalReplay=await repeated;
+  assert.equal(disposalReplay.status(),201,await disposalReplay.text());
+  assert.equal(await disposalReplay.json(),disposalId);
+  const disposed=(await statement(en,personal)).payload;
+  assert.deepEqual(disposed.closing,{quantity:'0',cost:'0',currency:'SAR'});
+  assert.equal(disposed.rows.filter(row=>row.type==='DISPOSAL').length,1);
+  const disposalAudit=value(await owner.client.from('audit_logs').select('id').eq('entity_id',disposalId).eq('action','CREATE'));
+  assert.equal(disposalAudit.length,1);
+  assert.deepEqual(value(await owner.client.from('transactions').select('id').eq('asset_account_id',bank.id)),bankMovements);
+  console.log('Personal exit replay: one sale, 900 SAR receipt and one audit after concurrent requests and reload; full disposal replay has one voucher and no proceeds.');
+
  }
  // Correct the independent sale after the destination asset's existing history.
  {

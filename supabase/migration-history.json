@@ -2161,6 +2161,14 @@
       "expected_md5": "af5c74ae5503551d34d4ea6eccae2aa6",
       "file_sha256": "8a59dd7092198adb504f3bda38e0f0b6d96d54f72f9d32aaf69ad157e5ddb6ec",
       "validation_project": "Isolated PostgreSQL independent sale destination history regression"
+    },
+    {
+      "path": "supabase/migrations/20261122170000_personal_asset_exit_requests.sql",
+      "version": "20261122170000",
+      "name": "personal_asset_exit_requests",
+      "expected_md5": "d9d7d3430bcb6f51d6de8f8d3b6e9cdb",
+      "file_sha256": "71825876aeb2c95071cb4026ece15737d3114bbe7179de8138c45bb28fcc0bdb",
+      "validation_project": "Isolated personal exit replay, ledger atomicity, tenant isolation and browser response loss"
     }
   ]
 }
