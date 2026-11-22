@@ -7,6 +7,8 @@ const migration=name=>readFileSync(join(__dirname,'../../supabase/migrations',na
 const id=number=>'00000000-0000-4000-8000-'+String(number).padStart(12,'0');
 const [owner,gold,bank,otherUser,home,method]=[1,2,3,4,5,6].map(id);
 
+const captureSources=process.argv.includes('--capture-sources');
+
 async function main(){
  const db=new PGlite();
  try{
@@ -14,7 +16,7 @@ async function main(){
    create table auth.users(id uuid primary key);
    create function auth.uid() returns uuid language sql stable as
     $$select nullif(current_setting('test.user',true),'')::uuid$$;
-   create role anon; create role authenticated;`);
+   create role anon; create role authenticated; create role service_role;`);
   await db.exec(migration('20260915195428_001_schema.sql')
    .split('create table if not exists audit_logs')[0]
    .replace('create extension if not exists pgcrypto;',''));
@@ -65,14 +67,33 @@ async function main(){
     original_quantity,remaining_quantity,original_value_base,remaining_value_base)
     values($1,$2,$3,$4,$5,$5,public.zakat_next_hawl_date($5,'GREGORIAN'),10,10,$6,$6)`,[lot,owner,gold,source,date,cost]);
   }
-  for(const path of ['legacy','grouped']){
+  if(captureSources)await db.exec(migration('20261122212401_personal_gold_receipt_hawl_sources.sql'));
+  for(const [path,continuity] of [['legacy',true],['grouped',true],...(captureSources?[['legacy',false]]:[])]){
+
    await db.exec('begin');
+   await db.query('update user_settings set zakatable_conversion_continuity=$1 where user_id=$2',[continuity,owner]);
    const saleDate='2026-02-10';
    const result=path==='legacy'
     ?await db.query(`select public.post_sale_with_proceeds($1,$2,$3,$4,12,6000,'SAR','SAR',6000) as sale`,[owner,gold,bank,saleDate])
     :await db.query(`select public.post_personal_gold_lot_sale($1,18,$2,$3,12,500,'FIFO','[]') as sale`,[id(30),bank,saleDate]);
    const sale=result.rows[0].sale;
    assert.equal(Number(sale.realized_gain_base),2200);
+   const readSources=()=>db.query(`select source_lot_id,proceeds::int,proceeds_base::int,
+    inherited_hawl_start_date::text as hawl,continuity_status,reversed
+    from public.personal_gold_receipt_hawl_sources($1)`,[sale.proceeds_transaction_id]).then(result=>result.rows);
+   const expectedSources=(first,second,reversed=false)=>[
+    {source_lot_id:id(20),proceeds:first,proceeds_base:first,hawl:continuity?'2025-03-01':null,
+     continuity_status:continuity?'SOURCE_RECORDED':'NOT_APPLICABLE',reversed},
+    {source_lot_id:id(21),proceeds:second,proceeds_base:second,hawl:continuity?'2025-06-01':null,
+     continuity_status:continuity?'SOURCE_RECORDED':'NOT_APPLICABLE',reversed},
+   ];
+   if(captureSources){
+    await db.exec('set local role authenticated');
+    assert.deepEqual(await readSources(),expectedSources(5000,1000));
+    assert.equal((await db.query("select has_schema_privilege('private','usage') as allowed")).rows[0].allowed,false);
+    assert.equal((await db.query("select has_function_privilege('anon','public.personal_gold_receipt_hawl_sources(uuid)','execute') as allowed")).rows[0].allowed,false);
+    await db.exec('reset role');
+   }
    const allocations=await db.query(`select lot_id,quantity::int,value_base::int
     from transaction_allocations where transaction_id=$1 order by lot_id`,[sale.sale_transaction_id]);
    assert.deepEqual(allocations.rows,[
@@ -111,6 +132,7 @@ async function main(){
    assert.equal(Number(corrected.receipt_amount),5400);
    assert.equal(Number(corrected.gain_base),1600);
    assert.equal(corrected.receipt_id,sale.proceeds_transaction_id);
+   if(captureSources)assert.deepEqual(await readSources(),expectedSources(4500,900));
    assert.deepEqual((await correction(id(40),0,450)).rows[0].correction,corrected);
    await db.exec('savepoint with_reversal');
    if(path==='grouped'){
@@ -122,6 +144,7 @@ async function main(){
    const reversed=await db.query(`select asset_account_id,sum(remaining_quantity)::int as quantity,
     sum(remaining_value_base)::int as cost from lots group by asset_account_id order by asset_account_id`);
    assert.deepEqual(reversed.rows,[{asset_account_id:gold,quantity:20,cost:7000},{asset_account_id:bank,quantity:0,cost:0}]);
+   if(captureSources)assert.deepEqual(await readSources(),expectedSources(4500,900,true));
    await db.exec('rollback to savepoint with_reversal');
    const spent=await db.query(`select public.create_internal_transfer($1,$2,$3,'2026-03-10',1200,1200,'SAR') as movement`,
     [owner,bank,home]);
@@ -135,8 +158,10 @@ async function main(){
    await db.query("select set_config('test.user',$1,true)",[otherUser]);
    assert.deepEqual((await db.query("select lot_id from public.zakat_lot_hawl_periods('GREGORIAN')")).rows,[]);
    assert.deepEqual((await db.query('select id from lots where user_id=$1',[owner])).rows,[]);
+   if(captureSources)assert.deepEqual(await readSources(),[]);
    await db.exec('rollback');
-   console.log(`${path}: 12 g sold, SAR 3,800 cost / 6,000 receipt / 2,200 gain, 8 g left; SAR 6,000 excluded from the lot-period candidates (missing hawl). One corrected receipt of SAR 5,400; SAR 4,200 remains after transferring SAR 1,200. Final and spent-proceeds guards verified.`);
+   if(captureSources)console.log(`${path}, continuity ${continuity}: SAR 5,000 + 1,000 by source; corrected to SAR 4,500 + 900; one receipt, correct reversal status and owner-only read.`);
+   else console.log(`${path}: 12 g sold, SAR 3,800 cost / 6,000 receipt / 2,200 gain, 8 g left; SAR 6,000 excluded from the lot-period candidates (missing hawl). One corrected receipt of SAR 5,400; SAR 4,200 remains after transferring SAR 1,200. Final and spent-proceeds guards verified.`);
   }
  }finally{
   await db.close();
