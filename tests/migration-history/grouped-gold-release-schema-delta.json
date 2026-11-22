@@ -38,16 +38,6 @@
     },
     {
       "category": "constraint",
-      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_opening_transaction_not_null",
-      "fingerprint": "7e6c70974e71d7a3598dd48cf61f2696"
-    },
-    {
-      "category": "constraint",
-      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_owner_id_not_null",
-      "fingerprint": "6d5f2b1ec05cc39e07bd62795be31bac"
-    },
-    {
-      "category": "constraint",
       "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_owner_id_request_id_key",
       "fingerprint": "563d5437a0f2f670963819a03ed1ab4e"
     },
@@ -55,11 +45,6 @@
       "category": "constraint",
       "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_pkey",
       "fingerprint": "18c53e1463bfc7fdcc242e24491c5311"
-    },
-    {
-      "category": "constraint",
-      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_reason_not_null",
-      "fingerprint": "f9ef52b0a7b83591d0397142289b704c"
     },
     {
       "category": "constraint",
@@ -73,23 +58,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_receipt_id_not_null",
-      "fingerprint": "4a583f7dcd0ab382dda195fd3129ea03"
-    },
-    {
-      "category": "constraint",
-      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_request_id_not_null",
-      "fingerprint": "9ad06d2910d72fcf7e6bb4b8ae6f950e"
-    },
-    {
-      "category": "constraint",
       "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_sale_id_fkey",
       "fingerprint": "acec392db6ac63a671350ab9129fda54"
-    },
-    {
-      "category": "constraint",
-      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_sale_id_not_null",
-      "fingerprint": "c1d5ae4d4ec755dde34080942f704a5a"
     },
     {
       "category": "function",

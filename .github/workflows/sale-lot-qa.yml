@@ -32,6 +32,9 @@ jobs:
         run: |
           export PGDATABASE=postgres PGUSER=postgres PGPASSWORD=postgres PGHOST=127.0.0.1 PGPORT=54322
           psql -X -v ON_ERROR_STOP=1 -f tests/sql/personal-gold-release-disabled.sql
-          psql -X -v ON_ERROR_STOP=1 -f supabase/release/personal-gold-sales/enable.sql -f tests/sql/personal-gold-lot-sale.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/release/personal-gold-sales/enable.sql
+          # Keep synthetic history only in this runner for the restore drill.
+          sed '$s/^rollback;$/commit;/' tests/sql/personal-gold-lot-sale.sql | psql -X -v ON_ERROR_STOP=1
           psql -X -v ON_ERROR_STOP=1 -f supabase/release/personal-gold-sales/disable.sql -f tests/sql/personal-gold-release-disabled.sql
+          bash tests/assets-v2/gold-restore-drill.sh
           psql -X -v ON_ERROR_STOP=1 -f tests/sql/personal-sale-price-preflight.sql
