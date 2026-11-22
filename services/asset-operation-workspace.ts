@@ -2,6 +2,7 @@ import {withVoucherNumbers} from './voucher-numbers';
 import {requireUser} from './auth';
 import {assetFinancialReview} from './asset-financial-review';
 import {z} from 'zod';
+import Decimal from 'decimal.js';
 import {isPersonalSaleCorrectionCandidate} from '../lib/personal-sale-correction';
 export async function assetOperationWorkspace(id:string){
  z.string().uuid().parse(id);const{supabase,user}=await requireUser();
@@ -29,7 +30,34 @@ export async function assetOperationWorkspace(id:string){
   asset.cost_center_id?supabase.from('organization_cost_centers').select('name').eq('id',asset.cost_center_id).maybeSingle():Promise.resolve({data:null,error:null})]);for(const e of[ff,ba,en,co])if(e)throw e;
  const guard=tx?await supabase.rpc('asset_transaction_delete_eligibility',{p_ids:[tx.id]}):{data:[],error:null};if(guard.error)throw guard.error;
  const record=tx??{id:cmd.id,is_lifecycle_draft:true,asset_account_id:asset.id,organization_id:asset.organization_id,transaction_type:cmd.operation==='SALE'?'SALE':'ADJUSTMENT',transaction_date:cmd.operation_date,quantity:cmd.quantity,gross_value:cmd.amount,base_value:cmd.amount,currency:review?.event.base_currency,base_currency:review?.event.base_currency,metadata:{operation:cmd.operation,vat_amount:cmd.vat_amount,asset_effect_base:-Number(cmd.book_effect),financial_event_id:eventId},asset_accounts:asset};
- const enriched={...record,entity_name:entity?.name??null,cost_center_name:center?.name??null,operation_type:lifecycle?.operation??record.metadata?.operation??record.transaction_type,source_label:review?.event.source_module==='ASSET_LIFECYCLE'?'عمليات الأصل':review?.event.source_module==='ASSETS_INTEGRATION'?'الأصول':'سجل العمليات',counterparty_name:(parties??[]).find((p:any)=>p.id===(review?.event.counterparty_id??record.metadata?.counterparty_id))?.name??null,due_date:review?.event.due_date??record.metadata?.due_date??null};
+ const standaloneSale=tx?.transaction_type==='SALE'&&tx.user_id===user.id&&asset.user_id===user.id&&
+  !tx.organization_id&&!asset.organization_id&&asset.ownership_scope!=='ORGANIZATION'&&tx.transfer_id&&
+  tx.metadata?.proceeds_account_id&&!tx.metadata.lot_sale_request&&!tx.metadata.investment_id&&
+  !tx.metadata.financial_event_id&&!tx.metadata.personal_contract_id&&!tx.reversal_of_transaction_id;
+ let saleDetails;
+ if(standaloneSale){
+  const {data:allocations,count,error}=await supabase.from('transaction_allocations')
+   .select('quantity::text,value_base::text',{count:'exact'}).eq('transaction_id',id).eq('user_id',user.id);
+  if(error)throw error;
+  const quantity=new Decimal(tx.quantity??0);
+  const gross=new Decimal(tx.gross_value??NaN);
+  const proceeds=new Decimal(tx.base_value??NaN);
+  const unitPrice=tx.unit_price??(quantity.isFinite()&&quantity.gt(0)&&gross.isFinite()&&gross.gte(0)
+   ?gross.div(quantity).toDecimalPlaces(8).toNumber():null);
+  let bookEffect:number|null=null;
+  let gain:number|null=null;
+  if(count&&allocations?.length===count&&quantity.isFinite()&&quantity.gt(0)){
+   const lines=allocations.map(line=>({quantity:new Decimal(line.quantity??NaN),cost:new Decimal(line.value_base??NaN)}));
+   if(lines.every(line=>line.quantity.isFinite()&&line.quantity.gt(0)&&line.cost.isFinite()&&line.cost.gte(0))&&
+      lines.reduce((total,line)=>total.plus(line.quantity),new Decimal(0)).eq(quantity)){
+    const cost=lines.reduce((total,line)=>total.plus(line.cost),new Decimal(0));
+    bookEffect=cost.negated().toNumber();
+    gain=proceeds.isFinite()&&proceeds.gte(0)?proceeds.minus(cost).toNumber():null;
+   }
+  }
+  saleDetails={unit_price:unitPrice,standalone_sale_amounts:{bookEffect,gain}};
+ }
+ const enriched={...record,...saleDetails,entity_name:entity?.name??null,cost_center_name:center?.name??null,operation_type:lifecycle?.operation??record.metadata?.operation??record.transaction_type,source_label:review?.event.source_module==='ASSET_LIFECYCLE'?'عمليات الأصل':review?.event.source_module==='ASSETS_INTEGRATION'?'الأصول':'سجل العمليات',counterparty_name:(parties??[]).find((p:any)=>p.id===(review?.event.counterparty_id??record.metadata?.counterparty_id))?.name??null,due_date:review?.event.due_date??record.metadata?.due_date??null};
  const isPrimaryPurchase=tx?.transaction_type==='PURCHASE'&&first?.id===tx?.id&&review?.event.source_module==='ASSETS_INTEGRATION';
  const canEditDraft=!!canEdit&&!!review?.permissions['financial_core.create']&&
   ['DRAFT','PLANNED','COMMITTED'].includes(review.event.status)&&!review.approved;

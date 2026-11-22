@@ -213,8 +213,15 @@ try{
   await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('1,800 SAR',{exact:true}).waitFor();
   const persisted=(await statement(en,personal)).payload;
   assert.deepEqual(persisted.closing,{quantity:'6',cost:'1800',currency:'SAR'});
-  assert.deepEqual(persisted.rows.find(row=>row.source_id===result.sale_transaction_id).sale,
-   {proceeds:'900',cost:'600',realized:'300'});
+  const saleRow=persisted.rows.find(row=>row.source_id===result.sale_transaction_id);
+  assert.deepEqual(saleRow.sale,{proceeds:'900',cost:'600',realized:'300'});
+  await dialog.getByRole('button',{name:saleRow.voucher,exact:true}).click();
+  const voucher=dialog.getByRole('region',{name:'Operation details and actions'});
+  const valueFor=label=>voucher.getByText(label,{exact:true}).locator('xpath=following-sibling::dd');
+  await valueFor('Quantity / unit price').getByText('2 / 450 SAR',{exact:true}).waitFor();
+  assert.match(await valueFor('Asset book effect').innerText(),/-600(?:\.00)?/);
+  assert.match(await valueFor('Realized gain / loss').innerText(),/300(?:\.00)?/);
+  await voucher.getByRole('button',{name:'Close details',exact:true}).click();
   const conflict=await en.request.post(url,{data:{...command,unit_price:451}});
   assert.equal(conflict.status(),400);
   assert.deepEqual(await conflict.json(),{error:'PERSONAL_ASSET_EXIT_REQUEST_CONFLICT'});
