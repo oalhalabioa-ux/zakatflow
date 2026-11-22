@@ -164,7 +164,7 @@ try{
   await page.getByLabel('Correction type').selectOption('structure');
   await page.getByLabel('Sold asset').selectOption(asset);
   await page.getByLabel('Sale date').fill('2025-05-01');
-  await page.getByLabel('Proceeds account',{exact:true}).selectOption(bank.id);
+  await page.getByRole('combobox',{name:/^Proceeds account/}).selectOption(bank.id);
   await page.getByLabel('Quantity',{exact:true}).fill('3');
   await page.getByLabel('Unit price').fill('450');
   await page.getByLabel('Correction reason').fill('Independent destination sale history');
