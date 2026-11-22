@@ -465,6 +465,53 @@ try {
   assert.deepEqual(await finances(owner.id,assessment.id),snapshot);
   assert.deepEqual(await dbAsset(bank.id),bankBefore);
   evidence.push({financialRowsUnchanged:true,fifoAllocations:3,bankProceedsSAR:2500,conflictStatus:409,crossScopeStatus:404,viewerStatus:403});
+  const reference = value(await owner.client.rpc('create_asset_with_acquisition',{
+   p_asset:{name:'QA In-card Institutional Equipment',asset_type:'OTHER',asset_class_code:'PPE',asset_type_code:'MACHINERY',
+    currency:'SAR',ownership_scope:'ORGANIZATION',organization_id:organization,
+    metadata:{quantity:1,purchase_value:120000,residual_value_base:12000,purchase_date:'2026-01-01',acquisition_mode:'OPENING_BALANCE'}},
+   p_request_id:randomUUID(),
+  }));
+  const page = activePage = await desktop.newPage();
+  const dialog = page.getByRole('dialog');
+  const openEquipment = ()=>page.getByRole('row').filter({hasText:'QA In-card Institutional Equipment'})
+   .getByRole('button',{name:'Details and actions',exact:true}).click();
+  const bookCost = async()=>Number(value(await admin.from('lots').select('remaining_value_base').eq('asset_account_id',reference.id).single()).remaining_value_base);
+  await page.goto(app+'/en/assets?scope=ORGANIZATION');
+  await openEquipment();
+  await dialog.getByRole('button',{name:'Sale, depreciation or disposal',exact:true}).click();
+  await dialog.getByLabel('Operation date').fill('2026-02-28');
+  await dialog.getByLabel('Monthly depreciation amount').fill('1800');
+  const draftSaved=page.waitForResponse(res=>res.request().method()==='POST'&&new URL(res.url()).pathname==='/api/assets/lifecycle');
+  await dialog.getByRole('button',{name:'Save approval draft',exact:true}).click();
+  const draftResponse=await draftSaved;
+  assert.equal(draftResponse.status(),201,await draftResponse.text());
+  const draft=await draftResponse.json();
+  assert.equal(await bookCost(),120000);
+  assert.equal(await page.getByRole('dialog').count(),1);
+
+  const posted=page.waitForResponse(res=>res.request().method()==='POST'&&new URL(res.url()).pathname==='/api/assets/financial-review');
+  await dialog.getByRole('button',{name:'APPROVE_AND_POST',exact:true}).click();
+  const postResponse=await posted;
+  assert.equal(postResponse.status(),200,await postResponse.text());
+  assert.equal((await postResponse.json()).event.status,'ACTUAL');
+  await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('118,200 SAR',{exact:true}).waitFor();
+  assert.equal(await bookCost(),118200);
+  assert.equal(await page.getByRole('dialog').count(),1);
+  assert.equal(new URL(page.url()).pathname,'/en/assets');
+  await page.reload();
+  await openEquipment();
+  await dialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
+  await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('118,200 SAR',{exact:true}).waitFor();
+  const lifecycle=value(await admin.from('asset_lifecycle_commands').select('book_effect,transaction_id').eq('financial_event_id',draft.financial_event_id).single());
+  assert.equal(Number(lifecycle.book_effect),1800);
+  assert.ok(lifecycle.transaction_id);
+  const bookAfter=(await policy(desktop,reference.id)).book;
+  assert.equal(Number(bookAfter.depreciation),1800);
+  assert.equal(bookAfter.net,118200);
+  assert.deepEqual(await savedAssessment(),frozen);
+  evidence.push({institutionalCard:true,draftBook:120000,postedBook:118200,accumulatedDepreciation:1800,quantity:1,approvalStatus:'ACTUAL',reloaded:true,finalZakatUnchanged:true});
+  await page.screenshot({path:'asset-edit-qa/institutional-card-posted.png'});
+  await page.close();
  }
  console.log(JSON.stringify({phase:before?'before':'after',evidence},null,2));
  await writeFile(
